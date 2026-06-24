@@ -66,7 +66,14 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #6D28D9;
         }
-    </style>
+    </style> 
+    <!-- Supabase — наша база данных и авторизация -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co'
+  const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q'
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
+</script>с
 </head>
 <body class="bg-[#030303] text-gray-200 font-sans antialiased selection:bg-purple-600 selection:text-white overflow-x-hidden">
 
@@ -76,35 +83,29 @@
     <div class="absolute bottom-[800px] left-1/3 w-[700px] h-[700px] bg-purple-900/10 rounded-full blur-[160px] pointer-events-none"></div>
 
     <!-- HEADER -->
-    <header class="fixed top-0 left-0 right-0 z-50 glass-card bg-opacity-70 border-b border-white/5">
-        <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-            <!-- Логитип NR Consulting -->
-            <a href="#" class="flex flex-col justify-center tracking-wider">
-                <span class="text-2xl font-bold text-white leading-none">NR</span>
-                <span class="text-[9px] uppercase tracking-[0.25em] text-gray-400 mt-0.5">Consulting</span>
+ <header class="fixed top-0 left-0 right-0 z-50 glass-card bg-opacity-70 border-b border-white/5">
+    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+        <a href="#" class="flex flex-col justify-center tracking-wider">
+            <span class="text-2xl font-bold text-white leading-none">NR</span>
+            <span class="text-[9px] uppercase tracking-[0.25em] text-gray-400 mt-0.5">Consulting</span>
+        </a>
+        <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-400">
+            <a href="#services" class="hover:text-white transition">Услуги</a>
+            <a href="#cases" class="hover:text-white transition">Кейсы</a>
+            <a href="#team" class="hover:text-white transition">Команда</a>
+            <a href="#platform" class="hover:text-white transition">Платформа</a>
+            <a href="#contacts" class="hover:text-white transition">Контакты</a>
+        </nav>
+        <div class="flex items-center space-x-3">
+            <a href="/login.html" class="px-4 py-2.5 text-sm font-medium text-gray-300 hover:text-white glass-card rounded-xl transition hidden sm:block">
+                Войти
             </a>
-            
-            <!-- Навигация -->
-            <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-400">
-                <a href="#services" class="hover:text-white transition">Услуги</a>
-                <a href="#cases" class="hover:text-white transition">Кейсы</a>
-                <a href="#team" class="hover:text-white transition">Команда</a>
-                <a href="#platform" class="hover:text-white transition">Платформа</a>
-                <a href="#contacts" class="hover:text-white transition">Контакты</a>
-            </nav>
-            <button onclick="openRnpAnalytics()" class="text-sm font-medium text-gray-300 hover:text-purple-400 transition flex items-center space-x-1.5 ml-4 sm:ml-6">
-               <span class="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
-               <span>РНП</span>
-            </button>
-            <!-- Кнопка действия -->
-            <div class="hidden sm:block">
-                <a href="https://t.me/maraomg" target="_blank" class="px-5 py-2.5 bg-purple-700 hover:bg-purple-600 text-white text-sm font-medium rounded-xl transition flex items-center space-x-2 neon-glow">
-                    <span>Получить аудит</span>
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l7-7m-7 7H3"></path></svg>
-                </a>
-            </div>
+            <a href="/login.html?tab=register" class="px-5 py-2.5 bg-purple-700 hover:bg-purple-600 text-white text-sm font-medium rounded-xl transition neon-glow hidden sm:block">
+                Регистрация
+            </a>
         </div>
-    </header>
+    </div>
+</header>
 
     <!-- HERO SECTION -->
     <section class="relative pt-40 pb-20 px-6 max-w-7xl mx-auto min-h-screen flex flex-col justify-center">
@@ -188,7 +189,7 @@
     <!-- SERVICES SECTION -->
     <section id="services" class="py-30 px-6 max-w-7xl mx-auto">
         <div class="text-center max-w-3xl mx-auto space-y-4 mb-16">
-            <p class="text-xs font-bold uppercase tracking-[0.2em] text-purple-400">Что мы делаем</p>
+            <p class="text-xs font-bold uppercase tracking-[0.2em] text-purple-400">What мы делаем</p>
             <h2 class="text-3xl sm:text-5xl font-bold text-white tracking-tight">Полное управление процессами</h2>
         </div>
         
@@ -240,93 +241,88 @@
     </section>
 
     <!-- TEAM SECTION -->
-    <!-- TEAM SECTION -->
     <section id="team" class="py-24 px-6 max-w-7xl mx-auto">
         <div class="text-center max-w-3xl mx-auto space-y-4 mb-16">
             <p class="text-xs font-bold uppercase tracking-[0.2em] text-purple-400">Экспертиза</p>
             <h2 class="text-3xl sm:text-5xl font-bold text-white tracking-tight">Операционная команда</h2>
         </div>
-<!-- СЕТКА КОМАНДЫ (GRID) -->
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 max-w-7xl mx-auto px-6 mt-12">
-
-    <!-- 1. КРУПНАЯ КАРТОЧКА: Нурболот (Занимает 2 колонки) -->
-    <div class="glass-card p-6 rounded-2xl border border-purple-500/30 bg-gradient-to-b from-brand-dark via-brand-dark to-purple-950/20 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-2 shadow-xl shadow-purple-950/10">
-        <!-- Бейдж Founder -->
-        <span class="absolute top-4 right-4 bg-purple-600 text-white text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-md z-10 neon-glow">Founder</span>
         
-        <div>
-            <!-- Увеличенный контейнер для фото -->
-            <div class="w-full aspect-[4/3] sm:aspect-[3/2] lg:aspect-[16/10] rounded-xl overflow-hidden mb-5 bg-white/5 relative">
-                <img src="images/nurbolot.jpg" alt="Нурболот" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
+        <!-- СЕТКА КОМАНДЫ (GRID) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 max-w-7xl mx-auto px-6 mt-12">
+
+            <!-- 1. КРУПНАЯ КАРТОЧКА: Нурболот (Занимает 2 колонки) -->
+            <div class="glass-card p-6 rounded-2xl border border-purple-500/30 bg-gradient-to-b from-brand-dark via-brand-dark to-purple-950/20 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-2 shadow-xl shadow-purple-950/10">
+                <span class="absolute top-4 right-4 bg-purple-600 text-white text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-md z-10 neon-glow">Founder</span>
+                <div>
+                    <div class="w-full aspect-[4/3] sm:aspect-[3/2] lg:aspect-[16/10] rounded-xl overflow-hidden mb-5 bg-white/5 relative">
+                        <img src="images/nurbolot.jpg" alt="Нурболот" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
+                    </div>
+                    <h4 class="text-white font-bold text-2xl tracking-tight">Нурболот</h4>
+                    <p class="text-xs text-purple-400 uppercase tracking-wider font-semibold mt-1">Основатель / Стратег</p>
+                    <p class="text-sm text-gray-300 font-light mt-4 leading-relaxed max-w-xl">
+                        Эксперт по развитию и масштабированию крупного бизнеса на Wildberries. Управляет внутренней архитектурой экосистемы и координирует ключевые процессы автоматизации.
+                    </p>
+                </div>
             </div>
-            <!-- Текст -->
-            <h4 class="text-white font-bold text-2xl tracking-tight">Нурболот</h4>
-            <p class="text-xs text-purple-400 uppercase tracking-wider font-semibold mt-1">Основатель / Стратег</p>
-            <p class="text-sm text-gray-300 font-light mt-4 leading-relaxed max-w-xl">
-                Эксперт по развитию и масштабированию крупного бизнеса на Wildberries. Управляет внутренней архитектурой экосистемы и координирует ключевые процессы автоматизации.
-            </p>
-        </div>
-    </div>
 
-    <!-- 2. Карточка: Марлен -->
-    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
-        <div>
-            <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
-                <img src="images/marlen.jpg" alt="Марлен" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
+            <!-- 2. Карточка: Марлен -->
+            <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
+                <div>
+                    <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
+                        <img src="images/marlen.jpg" alt="Марлен" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
+                    </div>
+                    <h4 class="text-white font-bold text-lg">Марлен</h4>
+                    <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Логистика</p>
+                    <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
+                        Оптимизирует цепочки поставок, управляет отгрузками на 7+ ключевых складов и контролирует оборачиваемость стока.
+                    </p>
+                </div>
             </div>
-            <h4 class="text-white font-bold text-lg">Марлен</h4>
-            <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Логистика</p>
-            <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
-                Оптимизирует цепочки поставок, управляет отгрузками на 7+ ключевых складов и контролирует оборачиваемость стока.
-            </p>
-        </div>
-    </div>
 
-    <!-- 3. Карточка: Инсия -->
-    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
-        <div>
-            <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
-                <img src="images/insiya.jpg" alt="Инсия" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
+            <!-- 3. Карточка: Инсия -->
+            <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
+                <div>
+                    <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
+                        <img src="images/insiya.jpg" alt="Инсия" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
+                    </div>
+                    <h4 class="text-white font-bold text-lg">Инсия</h4>
+                    <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Аналитика данных</p>
+                    <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
+                        Строит управленческую отчетность, настраивает интеграции через API и находит скрытые точки потери маржинальности.
+                    </p>
+                </div>
             </div>
-            <h4 class="text-white font-bold text-lg">Инсия</h4>
-            <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Аналитика данных</p>
-            <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
-                Строит управленческую отчетность, настраивает интеграции через API и находит скрытые точки потери маржинальности.
-            </p>
-        </div>
-    </div>
 
-    <!-- 4. Карточка: Ольга -->
-    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
-        <div>
-            <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
-                <img src="images/olga.jpg" alt="Ольга" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
+            <!-- 4. Карточка: Ольга -->
+            <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
+                <div>
+                    <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
+                        <img src="images/olga.jpg" alt="Ольга" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
+                    </div>
+                    <h4 class="text-white font-bold text-lg">Ольга</h4>
+                    <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">UI/UX Дизайнер</p>
+                    <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
+                        Создает премиальный визуальный стиль брендов, проектирует высококонверсионные воронки и карточки товаров.
+                    </p>
+                </div>
             </div>
-            <h4 class="text-white font-bold text-lg">Ольга</h4>
-            <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">UI/UX Дизайнер</p>
-            <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
-                Создает премиальный визуальный стиль брендов, проектирует высококонверсионные воронки и карточки товаров.
-            </p>
-        </div>
-    </div>
 
-    <!-- 5. Карточка: Дарья -->
-    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
-        <div>
-            <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
-                <img src="images/darya.jpg" alt="Дарья" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
+            <!-- 5. Карточка: Дарья -->
+            <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
+                <div>
+                    <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
+                        <img src="images/darya.jpg" alt="Дарья" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
+                    </div>
+                    <h4 class="text-white font-bold text-lg">Дарья</h4>
+                    <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Продвижение</p>
+                    <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
+                        Управляет трафиком, выстраивает performance-маркетинг стратегии и максимизирует ROI рекламных кампаний.
+                    </p>
+                </div>
             </div>
-            <h4 class="text-white font-bold text-lg">Дарья</h4>
-            <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Продвижение</p>
-            <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
-                Управляет трафиком, выстраивает performance-маркетинг стратегии и максимизирует ROI рекламных кампаний.
-            </p>
+
         </div>
-    </div>
-
-</div>
-
-</div>
+    </section>
 
     <!-- FUTURE PLATFORM SECTION -->
     <section id="platform" class="py-24 px-6 max-w-7xl mx-auto">
@@ -399,107 +395,150 @@
             </a>
         </div>
     </div>
- <div id="wb-rnp-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-[#0b0b0d] border border-purple-500/20 w-full max-w-4xl rounded-2xl p-6 relative overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto">
-        
-        <button onclick="closeRnpAnalytics()" class="absolute top-4 right-4 text-gray-500 hover:text-white transition">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-        </button>
 
-        <div class="flex items-center space-x-3 pb-4 border-b border-white/5 mb-6">
-            <div class="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse"></div>
-            <div>
-                <h3 class="text-white font-bold text-lg tracking-tight">NR Consulting | Оцифровка & Аналитика РНП</h3>
-                <p class="text-[11px] text-gray-400">Автоматическая синхронизация с маркетплейсом Wildberries через API</p>
-            </div>
-        </div>
-
-        <div id="wb-auth-form" class="max-w-sm mx-auto py-12 text-center space-y-4">
-            <div class="w-12 h-12 rounded-xl bg-purple-600/10 border border-purple-500/20 flex items-center justify-center mx-auto mb-2">
-                <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-            </div>
-            <p class="text-xs text-gray-400">Для входа в кабинет оцифровки введите ваш персональный ключ доступа:</p>
-            <div class="space-y-2">
-                <input type="text" id="wb-user" placeholder="Имя сотрудника" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition">
-                <input type="password" id="wb-pass" placeholder="Пароль доступа" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition">
-            </div>
-            <button onclick="handleWbLogin()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium text-sm py-2.5 rounded-xl transition shadow-lg shadow-purple-600/20">
-                Авторизоваться и подгрузить данные
-            </button>
-            <p id="wb-auth-error" class="text-xs text-red-400 text-center hidden">Доступ отклонен. Неверные учетные данные.</p>
-        </div>
-
-        <div id="wb-dashboard" class="hidden space-y-6">
+    <!-- МОДАЛЬНОЕ ОКНО АНАЛИТИКИ РНП -->
+    <div id="wb-rnp-modal" class="fixed inset-0 bg-black/90 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-[#0b0b0d] border border-purple-500/20 w-full max-w-4xl rounded-2xl p-6 relative overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto">
             
-            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/5 p-4 rounded-xl border border-white/5 gap-4">
+            <button onclick="closeRnpAnalytics()" class="absolute top-4 right-4 text-gray-500 hover:text-white transition">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+
+            <div class="flex items-center space-x-3 pb-4 border-b border-white/5 mb-6">
+                <div class="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse"></div>
                 <div>
-                    <span id="wb-welcome-user" class="text-sm font-bold text-white uppercase tracking-wider">Сотрудник</span>
-                    <p class="text-xs text-purple-400 mt-0.5">Статус подключения: <span class="text-emerald-400 font-semibold">Активно (API WB)</span></p>
+                    <h3 class="text-white font-bold text-lg tracking-tight">NR Consulting | Оцифровка & Аналитика РНП</h3>
+                    <p class="text-[11px] text-gray-400">Автоматическая синхронизация с маркетплейсом Wildberries через API</p>
                 </div>
-                <div class="flex items-center space-x-2 w-full sm:w-auto">
-                    <input type="password" id="wb-token-input" placeholder="Вставьте ваш API Токен (Статистика)" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-purple-500 flex-1 sm:w-64">
-                    <button onclick="fetchWbData()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-4 py-2 rounded-lg transition shrink-0">
-                        Обновить из WB
+            </div>
+
+            <!-- ===== БЛОК АВТОРИЗАЦИИ С ВЫБОРОМ СОТРУДНИКОВ ===== -->
+            <div id="wb-auth-form" class="max-w-xl mx-auto py-6 space-y-6">
+                <p class="text-xs text-gray-400 text-center">Выберите сотрудника для быстрого заполнения или введите логин вручную:</p>
+                
+                <!-- Сетка кликабельных карточек сотрудников -->
+                <div class="grid grid-cols-3 gap-3 max-w-md mx-auto">
+                    <!-- Карточка: Нурболот -->
+                    <div onclick="selectStaff('nurbolot')" class="bg-white/5 border border-white/5 hover:border-purple-500/50 p-3 rounded-xl text-center cursor-pointer transition group">
+                        <div class="w-10 h-10 bg-purple-500/10 text-purple-400 font-bold rounded-full flex items-center justify-center mx-auto mb-2 text-sm border border-purple-500/20 group-hover:scale-105 transition">
+                            Н
+                        </div>
+                        <div class="font-bold text-xs text-gray-200">Нурболот</div>
+                        <div class="text-[10px] text-gray-500 mt-0.5">Founder</div>
+                    </div>
+
+                    <!-- Карточка: Марлен -->
+                    <div onclick="selectStaff('marlen')" class="bg-white/5 border border-white/5 hover:border-purple-500/50 p-3 rounded-xl text-center cursor-pointer transition group">
+                        <div class="w-10 h-10 bg-blue-500/10 text-blue-400 font-bold rounded-full flex items-center justify-center mx-auto mb-2 text-sm border border-blue-500/20 group-hover:scale-105 transition">
+                            М
+                        </div>
+                        <div class="font-bold text-xs text-gray-200">Марлен</div>
+                        <div class="text-[10px] text-gray-500 mt-0.5">Logistics</div>
+                    </div>
+
+                    <!-- Карточка: Инсия -->
+                    <div onclick="selectStaff('insiya')" class="bg-white/5 border border-white/5 hover:border-purple-500/50 p-3 rounded-xl text-center cursor-pointer transition group">
+                        <div class="w-10 h-10 bg-emerald-500/10 text-emerald-400 font-bold rounded-full flex items-center justify-center mx-auto mb-2 text-sm border border-emerald-500/20 group-hover:scale-105 transition">
+                            И
+                        </div>
+                        <div class="font-bold text-xs text-gray-200">Инсия</div>
+                        <div class="text-[10px] text-gray-500 mt-0.5">Data Analyst</div>
+                    </div>
+                </div>
+
+                <!-- Форма ввода данных -->
+                <div class="space-y-2 max-w-sm mx-auto pt-2">
+                    <input type="text" id="wb-user" placeholder="Имя сотрудника" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition">
+                    <input type="password" id="wb-pass" placeholder="Пароль доступа" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition">
+                </div>
+                
+                <div class="max-w-sm mx-auto">
+                    <button onclick="handleWbLogin()" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-medium text-sm py-2.5 rounded-xl transition shadow-lg shadow-purple-600/20">
+                        Авторизоваться и подгрузить данные
                     </button>
+                    <p id="wb-auth-error" class="text-xs text-red-400 text-center mt-3 hidden">❌ Доступ отклонен. Неверные учетные данные.</p>
                 </div>
             </div>
 
-            <div id="wb-loading" class="hidden text-center py-12 space-y-3">
-                <div class="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
-                <p class="text-xs text-gray-400 font-mono">Подключаемся к серверам Wildberries, стягиваем метрики...</p>
-            </div>
+            <!-- ===== ГЛАВНЫЙ ДЕШБОРД (СКРЫТ ДО АВТОРИЗАЦИИ) ===== -->
+            <div id="wb-dashboard" class="hidden space-y-6">
+                
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/5 p-4 rounded-xl border border-white/5 gap-4">
+                    <div>
+                        <span id="wb-welcome-user" class="text-sm font-bold text-white uppercase tracking-wider">Сотрудник</span>
+                        <p class="text-xs text-purple-400 mt-0.5">Статус подключения: <span class="text-emerald-400 font-semibold">Активно (API WB)</span></p>
+                    </div>
+                    <div class="flex items-center space-x-2 w-full sm:w-auto">
+                        <input type="password" id="wb-token-input" placeholder="Вставьте ваш API Токен (Статистика)" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-purple-500 flex-1 sm:w-64">
+                        <button onclick="fetchWbData()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-4 py-2 rounded-lg transition shrink-0">
+                            Обновить из WB
+                        </button>
+                    </div>
+                </div>
 
-            <div id="wb-stats-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="bg-gradient-to-br from-white/5 to-purple-950/10 p-5 rounded-xl border border-white/5">
-                    <p class="text-xs text-gray-400 uppercase tracking-wider">Заказы (Сегодня)</p>
-                    <p id="wb-orders-today" class="text-3xl font-black text-white mt-2 font-mono">0 ₽</p>
-                    <span id="wb-orders-count" class="text-[11px] text-purple-400 block mt-1">Всего: 0 шт.</span>
+                <div id="wb-loading" class="hidden text-center py-12 space-y-3">
+                    <div class="w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto"></div>
+                    <p class="text-xs text-gray-400 font-mono">Подключаемся к серверам Wildberries, стягиваем метрики...</p>
                 </div>
-                <div class="bg-gradient-to-br from-white/5 to-purple-950/10 p-5 rounded-xl border border-white/5">
-                    <p class="text-xs text-gray-400 uppercase tracking-wider">Выкупы / Продажи</p>
-                    <p id="wb-sales-today" class="text-3xl font-black text-emerald-400 mt-2 font-mono">0 ₽</p>
-                    <span id="wb-sales-count" class="text-[11px] text-gray-400 block mt-1">Позиций: 0 шт.</span>
-                </div>
-                <div class="bg-gradient-to-br from-white/5 to-purple-950/10 p-5 rounded-xl border border-white/5">
-                    <p class="text-xs text-gray-400 uppercase tracking-wider">Товарный остаток</p>
-                    <p id="wb-stock-total" class="text-3xl font-black text-amber-400 mt-2 font-mono">0 шт.</p>
-                    <span class="text-[11px] text-gray-400 block mt-1">На всех складах WB</span>
-                </div>
-                <div class="bg-gradient-to-br from-white/5 to-purple-950/10 p-5 rounded-xl border border-white/5">
-                    <p class="text-xs text-gray-400 uppercase tracking-wider">Конверсия выкупа</p>
-                    <p id="wb-conversion" class="text-3xl font-black text-blue-400 mt-2 font-mono">0%</p>
-                    <span class="text-[11px] text-gray-400 block mt-1">Средний показатель бренда</span>
-                </div>
-            </div>
 
-            <div class="bg-black/40 border border-white/5 rounded-xl overflow-hidden">
-                <div class="px-4 py-3 bg-white/5 border-b border-white/5 flex justify-between items-center">
-                    <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wider">Топ продаваемых артикулов (Текущий сток)</h4>
-                    <span class="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">Realtime</span>
+                <div id="wb-stats-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-gradient-to-br from-white/5 to-purple-950/10 p-5 rounded-xl border border-white/5">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider">Заказы (Сегодня)</p>
+                        <p id="wb-orders-today" class="text-3xl font-black text-white mt-2 font-mono">0 ₽</p>
+                        <span id="wb-orders-count" class="text-[11px] text-purple-400 block mt-1">Всего: 0 шт.</span>
+                    </div>
+                    <div class="bg-gradient-to-br from-white/5 to-purple-950/10 p-5 rounded-xl border border-white/5">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider">Выкупы / Продажи</p>
+                        <p id="wb-sales-today" class="text-3xl font-black text-emerald-400 mt-2 font-mono">0 ₽</p>
+                        <span id="wb-sales-count" class="text-[11px] text-gray-400 block mt-1">Позиций: 0 шт.</span>
+                    </div>
+                    <div class="bg-gradient-to-br from-white/5 to-purple-950/10 p-5 rounded-xl border border-white/5">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider">Товарный остаток</p>
+                        <p id="wb-stock-total" class="text-3xl font-black text-amber-400 mt-2 font-mono">0 шт.</p>
+                        <span class="text-[11px] text-gray-400 block mt-1">На всех складах WB</span>
+                    </div>
+                    <div class="bg-gradient-to-br from-white/5 to-purple-950/10 p-5 rounded-xl border border-white/5">
+                        <p class="text-xs text-gray-400 uppercase tracking-wider">Конверсия выкупа</p>
+                        <p id="wb-conversion" class="text-3xl font-black text-blue-400 mt-2 font-mono">0%</p>
+                        <span class="text-[11px] text-gray-400 block mt-1">Средний показатель бренда</span>
+                    </div>
                 </div>
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr class="border-b border-white/5 text-gray-400 bg-white/[0.01]">
-                                <th class="p-3 font-medium">Артикул WB</th>
-                                <th class="p-3 font-medium">Баркод</th>
-                                <th class="p-3 font-medium">На складе (шт)</th>
-                                <th class="p-3 font-medium">В пути до клиента</th>
-                                <th class="p-3 font-medium">Статус стока</th>
-                            </tr>
-                        </thead>
-                        <tbody id="wb-products-table" class="divide-y divide-white/5 text-gray-300 font-mono">
-                            <tr>
-                                <td colspan="5" class="p-8 text-center text-gray-500 font-sans">Данные из API Wildberries еще не подгружены.</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
 
+                <div class="bg-black/40 border border-white/5 rounded-xl overflow-hidden">
+                    <div class="px-4 py-3 bg-white/5 border-b border-white/5 flex justify-between items-center">
+                        <h4 class="text-xs font-bold text-gray-300 uppercase tracking-wider">Топ продаваемых артикулов (Текущий сток)</h4>
+                        <span class="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">Realtime</span>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse text-xs">
+                            <thead>
+                                <tr class="border-b border-white/5 text-gray-400 bg-white/[0.01]">
+                                    <th class="p-3 font-medium">Артикул WB</th>
+                                    <th class="p-3 font-medium">Баркод</th>
+                                    <th class="p-3 font-medium">На складе (шт)</th>
+                                    <th class="p-3 font-medium">В пути до клиента</th>
+                                    <th class="p-3 font-medium">Статус стока</th>
+                                </tr>
+                            </thead>
+                            <tbody id="wb-products-table" class="divide-y divide-white/5 text-gray-300 font-mono">
+                                <tr>
+                                    <td colspan="5" class="p-8 text-center text-gray-500 font-sans">Данные из API Wildberries еще не подгружены.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
         </div>
-    </div>
-</div>   
-<script src="rnp.js"></script>
+    </div>   
+
+   <!-- Подключаем модуль работы с API WB -->
+    <script src="wb-api.js"></script>
+    
+    <!-- Твой основной файл интерфейса и авторизации -->
+    <script src="script.js"></script>
+</body>
+</html>
 </body>
 </html>
