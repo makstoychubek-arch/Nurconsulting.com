@@ -243,32 +243,30 @@
             <p class="text-xs font-bold uppercase tracking-[0.2em] text-purple-400">Экспертиза</p>
             <h2 class="text-3xl sm:text-5xl font-bold text-white tracking-tight">Операционная команда</h2>
         </div>
+<!-- СЕТКА КОМАНДЫ (GRID) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 max-w-7xl mx-auto px-6 mt-12">
 
-        <!-- Обновленная сетка: 12 колонок для гибкого выделения основателя -->
-       <!-- СЕТКА КОМАНДЫ (GRID) -->
-<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 max-w-7xl mx-auto px-6 mt-12">
-
-    <!-- 1. Карточка: Нурболот -->
-    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/10 flex flex-col justify-between relative overflow-hidden group w-full">
+    <!-- 1. КРУПНАЯ КАРТОЧКА: Нурболот (Занимает 2 колонки) -->
+    <div class="glass-card p-6 rounded-2xl border border-purple-500/30 bg-gradient-to-b from-brand-dark via-brand-dark to-purple-950/20 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-2 shadow-xl shadow-purple-950/10">
         <!-- Бейдж Founder -->
-        <span class="absolute top-4 right-4 bg-purple-600 text-white text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md z-10">Founder</span>
+        <span class="absolute top-4 right-4 bg-purple-600 text-white text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-md z-10 neon-glow">Founder</span>
         
         <div>
-            <!-- Контейнер для фото -->
-            <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
+            <!-- Увеличенный контейнер для фото -->
+            <div class="w-full aspect-[4/3] sm:aspect-[3/2] lg:aspect-[16/10] rounded-xl overflow-hidden mb-5 bg-white/5 relative">
                 <img src="images/nurbolot.jpg" alt="Нурболот" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
             </div>
             <!-- Текст -->
-            <h4 class="text-white font-bold text-lg">Нурболот</h4>
-            <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Основатель / Стратег</p>
-            <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
+            <h4 class="text-white font-bold text-2xl tracking-tight">Нурболот</h4>
+            <p class="text-xs text-purple-400 uppercase tracking-wider font-semibold mt-1">Основатель / Стратег</p>
+            <p class="text-sm text-gray-300 font-light mt-4 leading-relaxed max-w-xl">
                 Эксперт по развитию и масштабированию крупного бизнеса на Wildberries. Управляет внутренней архитектурой экосистемы и координирует ключевые процессы автоматизации.
             </p>
         </div>
     </div>
 
     <!-- 2. Карточка: Марлен -->
-    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full">
+    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
         <div>
             <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
                 <img src="images/marlen.jpg" alt="Марлен" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
@@ -282,7 +280,7 @@
     </div>
 
     <!-- 3. Карточка: Инсия -->
-    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full">
+    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
         <div>
             <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
                 <img src="images/insiya.jpg" alt="Инсия" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
@@ -296,7 +294,7 @@
     </div>
 
     <!-- 4. Карточка: Ольга -->
-    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full">
+    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
         <div>
             <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
                 <img src="images/olga.jpg" alt="Ольга" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
@@ -310,7 +308,7 @@
     </div>
 
     <!-- 5. Карточка: Дарья -->
-    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full">
+    <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
         <div>
             <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
                 <img src="images/darya.jpg" alt="Дарья" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
@@ -322,6 +320,8 @@
             </p>
         </div>
     </div>
+
+</div>
 
 </div>
 
