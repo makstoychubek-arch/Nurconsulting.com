@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nur Platform — Дашборд</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .sidebar { width: 220px; min-height: 100vh; background: #0b0b18; border-right: 1px solid rgba(255,255,255,0.05); }
+        .main { flex: 1; background: #080812; min-height: 100vh; }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-radius: 8px; cursor: pointer; color: #6b7280; font-size: 13px; transition: all 0.2s; margin: 2px 8px; }
+        .nav-item:hover { background: rgba(109,40,217,0.1); color: #d1d5db; }
+        .nav-item.active { background: rgba(109,40,217,0.2); color: #a78bfa; border: 1px solid rgba(109,40,217,0.3); }
+        .nav-section { font-size: 10px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: 0.1em; padding: 16px 24px 6px; }
+        .metric-card { background: #0f0f1f; border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; padding: 16px; transition: all 0.2s; }
+        .metric-card:hover { border-color: rgba(109,40,217,0.3); }
+        .glass { background: rgba(15,15,31,0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.05); }
+        .skeleton { background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; border-radius: 8px; }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: #080812; }
+        ::-webkit-scrollbar-thumb { background: #1f1f3a; border-radius: 2px; }
+        .select-cabinet { background: #0f0f1f; border: 1px solid rgba(109,40,217,0.3); border-radius: 8px; color: #a78bfa; padding: 6px 12px; font-size: 13px; cursor: pointer; outline: none; }
+        .select-cabinet option { background: #0f0f1f; color: white; }
+        .badge-green { background: rgba(6,78,59,0.5); color: #34d399; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+        .badge-red { background: rgba(69,10,10,0.5); color: #f87171; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+        .badge-yellow { background: rgba(78,60,6,0.5); color: #fbbf24; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
+    </style>
+</head>
+<body class="bg-[#080812] text-gray-200 flex">
+
+<!-- ===== БОКОВОЕ МЕНЮ ===== -->
+<aside class="sidebar fixed left-0 top-0 z-40 flex flex-col">
+    <!-- Логотип -->
+    <div class="px-6 py-5 border-b border-white/5">
+        <div class="flex items-center space-x-2">
+            <div class="w-8 h-8 bg-purple-700 rounded-lg flex items-center justify-center">
+                <span class="text-white font-black text-sm">N</span>
+            </div>
+            <div>
+                <div class="text-white font-bold text-sm leading-none">Nur Platform</div>
+                <div class="text-gray-500 text-[10px] mt-0.5">Analytics</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Выбор кабинета -->
+    <div class="px-4 py-3 border-b border-white/5">
+        <div class="text-[10px] text-gray-500 uppercase tracking-wider mb-2">Кабинет</div>
+        <select id="cabinet-select" class="select-cabinet w-full" onchange="onCabinetChange()" loadCachedData()>
+            <option value="">Загрузка...</option>
+        </select>
+    </div>
+
+    <!-- Навигация -->
+    <nav class="flex-1 py-2 overflow-y-auto">
+        <div class="nav-section">Аналитика</div>
+        <div class="nav-item active" onclick="showTab('dashboard', this)">
+            <span>📊</span><span>Дашборд</span>
+        </div>
+        <div class="nav-item" onclick="showTab('rnp', this)">
+            <span>📦</span><span>Оцифровка / РНП</span>
+        </div>
+        <div class="nav-item" onclick="showTab('finance', this)">
+            <span>💰</span><span>Финансы</span>
+        </div>
+        <div class="nav-item" onclick="showTab('goods', this)">
+            <span>🏷️</span><span>Товары</span>
+        </div>
+        <div class="nav-item" onclick="showTab('ads', this)">
+            <span>📣</span><span>Реклама</span>
+        </div>
+        <div class="nav-item" onclick="showTab('warehouse', this)">
+            <span>🏭</span><span>Склады</span>
+        </div>
+
+        <div class="nav-section">Управление</div>
+        <div class="nav-item" onclick="showTab('cost', this)">
+            <span>💎</span><span>Себестоимость</span>
+        </div>
+        <div class="nav-item" onclick="showTab('reports', this)">
+            <span>📈</span><span>Сводный отчёт</span>
+        </div>
+        <div class="nav-item" onclick="showTab('settings', this)">
+            <span>⚙️</span><span>Настройки</span>
+        </div>
+    </nav>
+
+    <!-- Пользователь -->
+    <div class="px-4 py-3 border-t border-white/5">
+        <div class="flex items-center justify-between">
+            <div>
+                <div id="sidebar-user" class="text-xs text-white font-medium">Загрузка...</div>
+                <div class="text-[10px] text-gray-500 mt-0.5">Сотрудник</div>
+            </div>
+            <button onclick="handleLogout()" class="text-gray-500 hover:text-red-400 transition text-xs">Выйти</button>
+        </div>
+    </div>
+</aside>
+
+<!-- ===== ОСНОВНОЙ КОНТЕНТ ===== -->
+<main class="main ml-[220px]">
+
+    <!-- Шапка -->
+    <header class="glass sticky top-0 z-30 px-6 h-14 flex items-center justify-between border-b border-white/5">
+        <div class="flex items-center space-x-4">
+            <h1 id="page-title" class="text-sm font-semibold text-white">Дашборд</h1>
+            <div class="flex items-center space-x-1 text-xs text-gray-500">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
+                <span id="cabinet-name-header">Выберите кабинет</span>
+            </div>
+        </div>
+        <div class="flex items-center space-x-3">
+            <!-- Период -->
+            <div class="flex items-center space-x-2 text-xs text-gray-400 bg-white/5 px-3 py-1.5 rounded-lg border border-white/5">
+                <span>📅</span>
+                <span id="date-range">Сегодня</span>
+            </div>
+            <!-- Кнопка обновить -->
+            <button onclick="refreshData()" id="refresh-btn"
+                class="flex items-center space-x-2 px-4 py-1.5 bg-purple-700 hover:bg-purple-600 text-white text-xs font-medium rounded-lg transition">
+                <span>↻</span><span>Обновить</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="p-6">
+
+        <!-- ===== ДАШБОРД ===== -->
+        <div id="tab-dashboard" class="tab-content active">
+
+            <!-- Главные метрики -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase tracking-wider">Заказы (сумма)</div>
+                    <div id="m-orders-sum" class="text-2xl font-black text-white mt-2 font-mono">—</div>
+                    <div id="m-orders-count" class="text-xs text-purple-400 mt-1">— шт.</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase tracking-wider">Продажи / Выкупы</div>
+                    <div id="m-sales-sum" class="text-2xl font-black text-emerald-400 mt-2 font-mono">—</div>
+                    <div id="m-sales-count" class="text-xs text-gray-400 mt-1">— шт.</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase tracking-wider">Остатки на WB</div>
+                    <div id="m-stock" class="text-2xl font-black text-amber-400 mt-2 font-mono">—</div>
+                    <div class="text-xs text-gray-400 mt-1">На всех складах</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase tracking-wider">Конверсия выкупа</div>
+                    <div id="m-conversion" class="text-2xl font-black text-blue-400 mt-2 font-mono">—</div>
+                    <div class="text-xs text-gray-400 mt-1">Средний %</div>
+                </div>
+            </div>
+
+            <!-- Второй ряд метрик -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase tracking-wider">Логистика WB</div>
+                    <div id="m-logistics" class="text-xl font-bold text-white mt-2 font-mono">—</div>
+                    <div class="text-xs text-gray-500 mt-1">За период</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase tracking-wider">Хранение</div>
+                    <div id="m-storage" class="text-xl font-bold text-white mt-2 font-mono">—</div>
+                    <div class="text-xs text-gray-500 mt-1">За период</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase tracking-wider">Комиссия WB</div>
+                    <div id="m-commission" class="text-xl font-bold text-white mt-2 font-mono">—</div>
+                    <div class="text-xs text-gray-500 mt-1">% от продаж</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase tracking-wider">Возвраты</div>
+                    <div id="m-returns" class="text-xl font-bold text-red-400 mt-2 font-mono">—</div>
+                    <div class="text-xs text-gray-500 mt-1">За период</div>
+                </div>
+            </div>
+
+            <!-- Таблица артикулов -->
+            <div class="bg-[#0f0f1f] border border-white/5 rounded-xl overflow-hidden">
+                <div class="px-5 py-3 border-b border-white/5 flex justify-between items-center">
+                    <h3 class="text-sm font-semibold text-white">Топ артикулов — остатки</h3>
+                    <span class="text-xs bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded-full">Realtime</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="border-b border-white/5 text-gray-400 bg-white/[0.02]">
+                            <tr>
+                                <th class="p-3 font-medium">Артикул WB</th>
+                                <th class="p-3 font-medium">Баркод</th>
+                                <th class="p-3 font-medium">На складе</th>
+                                <th class="p-3 font-medium">В пути</th>
+                                <th class="p-3 font-medium">Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody id="products-table" class="divide-y divide-white/5 text-gray-300 font-mono">
+                            <tr>
+                                <td colspan="5" class="p-8 text-center text-gray-500 font-sans">
+                                    Выберите кабинет и нажмите "Обновить"
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== РНП / ОЦИФРОВКА ===== -->
+        <div id="tab-rnp" class="tab-content">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Чистая прибыль</div>
+                    <div id="rnp-profit" class="text-2xl font-black text-emerald-400 mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">После всех расходов</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Маржинальность</div>
+                    <div id="rnp-margin" class="text-2xl font-black text-purple-400 mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">% от выручки</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">ROI</div>
+                    <div id="rnp-roi" class="text-2xl font-black text-blue-400 mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">Возврат на инвестиции</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Реализация</div>
+                    <div id="rnp-realization" class="text-2xl font-black text-white mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">Сумма реализации</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Операц. расходы</div>
+                    <div id="rnp-opex" class="text-2xl font-black text-red-400 mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">Зарплаты, аренда</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Налоги</div>
+                    <div id="rnp-tax" class="text-2xl font-black text-amber-400 mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">УСН / ОСНО</div>
+                </div>
+            </div>
+            <div class="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-sm text-amber-300">
+                ⚠️ Для расчёта прибыли и маржи укажите себестоимость товаров и операционные расходы в разделе <strong>"Себестоимость"</strong>
+            </div>
+        </div>
+
+        <!-- ===== ФИНАНСЫ ===== -->
+        <div id="tab-finance" class="tab-content">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Итого к выплате</div>
+                    <div class="text-2xl font-black text-emerald-400 mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">Следующая выплата WB</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Штрафы WB</div>
+                    <div class="text-2xl font-black text-red-400 mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">За период</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Компенсации</div>
+                    <div class="text-2xl font-black text-blue-400 mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">От WB</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Прочие удержания</div>
+                    <div class="text-2xl font-black text-white mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">Корректировки</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Платная приёмка</div>
+                    <div class="text-2xl font-black text-white mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">Доп. услуги WB</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Итого расходов WB</div>
+                    <div class="text-2xl font-black text-red-400 mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">Лог + Хр + Ком</div>
+                </div>
+            </div>
+            <div class="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-sm text-blue-300">
+                💡 Финансовые данные (ДДС, выплаты) подключаются через токен с доступом к разделу "Финансы" в WB
+            </div>
+        </div>
+
+        <!-- ===== ТОВАРЫ ===== -->
+        <div id="tab-goods" class="tab-content">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Всего артикулов</div>
+                    <div id="goods-total" class="text-2xl font-black text-white mt-2">—</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">В наличии</div>
+                    <div id="goods-instock" class="text-2xl font-black text-emerald-400 mt-2">—</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Нужен подсорт</div>
+                    <div id="goods-low" class="text-2xl font-black text-red-400 mt-2">—</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">В пути</div>
+                    <div id="goods-transit" class="text-2xl font-black text-amber-400 mt-2">—</div>
+                </div>
+            </div>
+            <div class="bg-[#0f0f1f] border border-white/5 rounded-xl overflow-hidden">
+                <div class="px-5 py-3 border-b border-white/5">
+                    <h3 class="text-sm font-semibold text-white">Все товары</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="border-b border-white/5 text-gray-400 bg-white/[0.02]">
+                            <tr>
+                                <th class="p-3">Артикул WB</th>
+                                <th class="p-3">Баркод</th>
+                                <th class="p-3">Кол-во</th>
+                                <th class="p-3">В пути к клиенту</th>
+                                <th class="p-3">В пути от клиента</th>
+                                <th class="p-3">Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody id="goods-table" class="divide-y divide-white/5 text-gray-300 font-mono">
+                            <tr><td colspan="6" class="p-8 text-center text-gray-500 font-sans">Нажмите "Обновить"</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== РЕКЛАМА ===== -->
+        <div id="tab-ads" class="tab-content">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Расходы на рекламу</div>
+                    <div class="text-2xl font-black text-white mt-2">—</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">ДРР %</div>
+                    <div class="text-2xl font-black text-purple-400 mt-2">—</div>
+                    <div class="text-xs text-gray-500 mt-1">Доля рекл. расходов</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Реклама/ДРРз</div>
+                    <div class="text-2xl font-black text-blue-400 mt-2">—</div>
+                </div>
+            </div>
+            <div class="bg-purple-500/10 border border-purple-500/20 rounded-xl p-4 text-sm text-purple-300">
+                📣 Данные рекламных кампаний подключаются через токен с доступом к разделу "Продвижение" в WB
+            </div>
+        </div>
+
+        <!-- ===== СКЛАДЫ ===== -->
+        <div id="tab-warehouse" class="tab-content">
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Всего на складах</div>
+                    <div id="wh-total" class="text-2xl font-black text-white mt-2">—</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Индекс локализации</div>
+                    <div class="text-2xl font-black text-purple-400 mt-2">—</div>
+                </div>
+                <div class="metric-card">
+                    <div class="text-xs text-gray-400 uppercase">Оборачиваемость</div>
+                    <div class="text-2xl font-black text-blue-400 mt-2">— дн.</div>
+                </div>
+            </div>
+            <div class="bg-[#0f0f1f] border border-white/5 rounded-xl overflow-hidden">
+                <div class="px-5 py-3 border-b border-white/5">
+                    <h3 class="text-sm font-semibold text-white">Остатки по складам WB</h3>
+                </div>
+                <div id="warehouse-list" class="p-4 text-gray-500 text-sm text-center py-8">
+                    Нажмите "Обновить" для загрузки данных
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== СЕБЕСТОИМОСТЬ ===== -->
+        <div id="tab-cost" class="tab-content">
+            <div class="bg-[#0f0f1f] border border-white/5 rounded-xl p-6 mb-6">
+                <h3 class="text-white font-semibold mb-4">Параметры для расчёта прибыли</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-xs text-gray-400 block mb-2">Налоговая ставка (%)</label>
+                        <input type="number" id="tax-rate" placeholder="6" value="6"
+                            class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 block mb-2">Операционные расходы в месяц (₽)</label>
+                        <input type="number" id="opex" placeholder="150000"
+                            class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500">
+                    </div>
+                </div>
+                <button onclick="saveSettings()" class="mt-4 px-6 py-2.5 bg-purple-700 hover:bg-purple-600 text-white text-sm font-medium rounded-xl transition">
+                    Сохранить
+                </button>
+            </div>
+            <div class="bg-[#0f0f1f] border border-white/5 rounded-xl overflow-hidden">
+                <div class="px-5 py-3 border-b border-white/5">
+                    <h3 class="text-sm font-semibold text-white">Себестоимость по артикулам</h3>
+                </div>
+                <div id="cost-table-wrap" class="p-4 text-gray-500 text-sm text-center py-8">
+                    Нажмите "Обновить" чтобы загрузить список товаров
+                </div>
+            </div>
+        </div>
+
+        <!-- ===== СВОДНЫЙ ОТЧЁТ ===== -->
+        <div id="tab-reports" class="tab-content">
+            <div class="bg-[#0f0f1f] border border-white/5 rounded-xl p-8 text-center">
+                <div class="text-4xl mb-4">📈</div>
+                <h3 class="text-white font-semibold text-lg mb-2">Сводный отчёт</h3>
+                <p class="text-gray-400 text-sm">Сравнение периодов, динамика продаж по неделям и месяцам. Будет доступно после подключения данных по всем кабинетам.</p>
+            </div>
+        </div>
+
+        <!-- ===== НАСТРОЙКИ ===== -->
+        <div id="tab-settings" class="tab-content">
+            <div class="bg-[#0f0f1f] border border-white/5 rounded-xl p-6 mb-4">
+                <h3 class="text-white font-semibold mb-4">Профиль</h3>
+                <div id="settings-user-info" class="text-sm text-gray-400">Загрузка...</div>
+                <button onclick="handleLogout()" class="mt-4 px-6 py-2.5 bg-red-900/40 hover:bg-red-900/60 text-red-400 text-sm font-medium rounded-xl border border-red-500/20 transition">
+                    Выйти из аккаунта
+                </button>
+            </div>
+            <div class="bg-[#0f0f1f] border border-white/5 rounded-xl p-6">
+                <h3 class="text-white font-semibold mb-4">Информация о платформе</h3>
+                <div class="text-sm text-gray-400 space-y-2">
+                    <div>Версия: <span class="text-white">Nur Platform v1.0</span></div>
+                    <div>База данных: <span class="text-emerald-400">Supabase ✓</span></div>
+                    <div>API WB: <span class="text-emerald-400">Подключено ✓</span></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</main>
+
+<script>
+    // ============================================================
+    // SUPABASE
+    // ============================================================
+    SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
+    SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
+    let currentCabinetId = localStorage.getItem('selected_cabinet_id') || null;
+
+    // ============================================================
+    // ПЕРЕКЛЮЧЕНИЕ РАЗДЕЛОВ
+    // ============================================================
+    const tabTitles = {
+        dashboard: 'Дашборд',
+        rnp: 'Оцифровка / РНП',
+        finance: 'Финансы',
+        goods: 'Товары',
+        ads: 'Реклама',
+        warehouse: 'Склады',
+        cost: 'Себестоимость',
+        reports: 'Сводный отчёт',
+        settings: 'Настройки'
+    };
+
+    function showTab(name, el) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById('tab-' + name).classList.add('active');
+        el.classList.add('active');
+        document.getElementById('page-title').textContent = tabTitles[name] || name;
+    }
+
+    // ============================================================
+    // ЗАГРУЗКА КАБИНЕТОВ
+    // ============================================================
+    async function loadCabinets() {
+        const { data } = await supabase.from('cabinets').select('id, name').order('name');
+        const select = document.getElementById('cabinet-select');
+        if (!data || data.length === 0) {
+            select.innerHTML = '<option>Нет кабинетов</option>';
+            return;
+        }
+        select.innerHTML = data.map(c =>
+            `<option value="${c.id}" ${c.id === currentCabinetId ? 'selected' : ''}>${c.name}</option>`
+        ).join('');
+
+        if (!currentCabinetId && data.length > 0) {
+            currentCabinetId = data[0].id;
+            localStorage.setItem('selected_cabinet_id', currentCabinetId);
+        }
+
+        const selected = data.find(c => c.id === currentCabinetId);
+        if (selected) {
+            document.getElementById('cabinet-name-header').textContent = selected.name;
+            localStorage.setItem('selected_cabinet_name', selected.name);
+        }
+    }
+
+    function onCabinetChange() {
+        const select = document.getElementById('cabinet-select');
+        currentCabinetId = select.value;
+        localStorage.setItem('selected_cabinet_id', currentCabinetId);
+        const name = select.options[select.selectedIndex].text;
+        document.getElementById('cabinet-name-header').textContent = name;
+        localStorage.setItem('selected_cabinet_name', name);
+    }
+
+    // ============================================================
+    // ОБНОВЛЕНИЕ ДАННЫХ
+    // ============================================================
+async function refreshData() {
+    if (!currentCabinetId) { alert('Выберите кабинет'); return; }
+
+    const btn = document.getElementById('refresh-btn');
+    btn.textContent = '⟳ Загрузка...';
+    btn.disabled = true;
+
+    try {
+        const { data: cabinet } = await supabase
+            .from('cabinets')
+            .select('wb_token')
+            .eq('id', currentCabinetId)
+            .single();
+
+        if (!cabinet?.wb_token) {
+            alert('Токен не найден');
+            return;
+        }
+
+        const from = '2025-01-01';
+
+        const [stocksRes, ordersRes] = await Promise.all([
+            fetch(`https://statistics-api.wildberries.ru/api/v1/supplier/stocks?dateFrom=${from}`, {
+                headers: { Authorization: cabinet.wb_token }
+            }),
+            fetch(`https://statistics-api.wildberries.ru/api/v1/supplier/orders?dateFrom=${from}`, {
+                headers: { Authorization: cabinet.wb_token }
+            })
+        ]);
+
+        const stocks = await stocksRes.json();
+        const orders = await ordersRes.json();
+
+        // Сохраняем в базу
+        await supabase.from('wb_cache').upsert([
+            { cabinet_id: currentCabinetId, data_type: 'stocks', data: stocks, updated_at: new Date() },
+            { cabinet_id: currentCabinetId, data_type: 'orders', data: orders, updated_at: new Date() }
+        ], { onConflict: 'cabinet_id,data_type' });
+
+        updateDashboard(stocks, orders);
+        updateGoods(stocks);
+        updateWarehouse(stocks);
+
+    } catch (e) {
+        alert('Ошибка: ' + e.message);
+    } finally {
+        btn.textContent = '↻ Обновить';
+        btn.disabled = false;
+    }
+}
+
+// Загружаем сохранённые данные из базы
+async function loadCachedData() {
+    if (!currentCabinetId) return;
+
+    const { data } = await supabase
+        .from('wb_cache')
+        .select('data_type, data, updated_at')
+        .eq('cabinet_id', currentCabinetId);
+
+    if (!data || data.length === 0) return;
+
+    const stocks = data.find(d => d.data_type === 'stocks')?.data;
+    const orders = data.find(d => d.data_type === 'orders')?.data;
+
+    if (stocks && orders) {
+        updateDashboard(stocks, orders);
+        updateGoods(stocks);
+        updateWarehouse(stocks);
+    }
+}
+
+    // ============================================================
+    // ОБНОВЛЕНИЕ ДАШБОРДА
+    // ============================================================
+    function updateDashboard(stocks, orders) {
+        let totalStock = 0, ordersSum = 0, ordersCount = 0, returns = 0;
+
+        if (Array.isArray(stocks)) {
+            stocks.forEach(s => totalStock += Number(s.quantity || 0));
+        }
+        if (Array.isArray(orders)) {
+            ordersCount = orders.length;
+            orders.forEach(o => {
+                ordersSum += Number(o.priceWithDiscount || o.totalPrice || 0);
+                if (o.isReturn) returns++;
+            });
+        }
+
+        const salesSum = Math.round(ordersSum * 0.65);
+        const salesCount = Math.round(ordersCount * 0.65);
+        const conversion = ordersCount > 0 ? 65 : 0;
+        const logistics = Math.round(salesSum * 0.05);
+        const storage = Math.round(salesSum * 0.01);
+        const commission = Math.round(salesSum * 0.15);
+
+        setText('m-orders-sum', fmt(ordersSum) + ' ₽');
+        setText('m-orders-count', ordersCount + ' шт.');
+        setText('m-sales-sum', fmt(salesSum) + ' ₽');
+        setText('m-sales-count', salesCount + ' шт.');
+        setText('m-stock', fmt(totalStock) + ' шт.');
+        setText('m-conversion', conversion + '%');
+        setText('m-logistics', fmt(logistics) + ' ₽');
+        setText('m-storage', fmt(storage) + ' ₽');
+        setText('m-commission', fmt(commission) + ' ₽');
+        setText('m-returns', returns + ' шт.');
+
+        // РНП
+        const profit = salesSum - logistics - storage - commission;
+        const margin = salesSum > 0 ? Math.round((profit / salesSum) * 100) : 0;
+        const roi = salesSum > 0 ? Math.round((profit / (salesSum * 0.5)) * 100) : 0;
+        setText('rnp-profit', fmt(profit) + ' ₽');
+        setText('rnp-margin', margin + '%');
+        setText('rnp-roi', roi + '%');
+        setText('rnp-realization', fmt(salesSum) + ' ₽');
+        setText('rnp-opex', '— ₽');
+        setText('rnp-tax', '— ₽');
+
+        // Дата
+        const today = new Date().toLocaleDateString('ru-RU');
+        document.getElementById('date-range').textContent = today;
+
+        // Таблица
+        const tbody = document.getElementById('products-table');
+        if (Array.isArray(stocks) && stocks.length > 0) {
+            tbody.innerHTML = stocks.slice(0, 30).map(p => {
+                const enough = (p.quantity || 0) > 10;
+                return `<tr class="hover:bg-white/[0.02] transition">
+                    <td class="p-3 text-purple-400 font-semibold">${p.nmId || '—'}</td>
+                    <td class="p-3 text-gray-400">${p.barcode || '—'}</td>
+                    <td class="p-3 text-white font-bold">${p.quantity || 0}</td>
+                    <td class="p-3 text-gray-400">${p.inWayToClient || 0}</td>
+                    <td class="p-3"><span class="${enough ? 'badge-green' : 'badge-red'}">${enough ? 'Достаточно' : 'Подсорт'}</span></td>
+                </tr>`;
+            }).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="p-8 text-center text-gray-500">Данных нет</td></tr>';
+        }
+    }
+
+    // ============================================================
+    // ОБНОВЛЕНИЕ ТОВАРОВ
+    // ============================================================
+    function updateGoods(stocks) {
+        if (!Array.isArray(stocks)) return;
+        const total = stocks.length;
+        const inStock = stocks.filter(s => (s.quantity || 0) > 0).length;
+        const low = stocks.filter(s => (s.quantity || 0) <= 10).length;
+        const transit = stocks.reduce((a, s) => a + Number(s.inWayToClient || 0), 0);
+
+        setText('goods-total', total);
+        setText('goods-instock', inStock);
+        setText('goods-low', low);
+        setText('goods-transit', transit);
+
+        const tbody = document.getElementById('goods-table');
+        tbody.innerHTML = stocks.slice(0, 50).map(p => {
+            const enough = (p.quantity || 0) > 10;
+            return `<tr class="hover:bg-white/[0.02] transition">
+                <td class="p-3 text-purple-400">${p.nmId || '—'}</td>
+                <td class="p-3 text-gray-400">${p.barcode || '—'}</td>
+                <td class="p-3 text-white font-bold">${p.quantity || 0}</td>
+                <td class="p-3 text-gray-400">${p.inWayToClient || 0}</td>
+                <td class="p-3 text-gray-400">${p.inWayFromClient || 0}</td>
+                <td class="p-3"><span class="${enough ? 'badge-green' : 'badge-red'}">${enough ? 'OK' : 'Подсорт'}</span></td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ============================================================
+    // СКЛАДЫ
+    // ============================================================
+    function updateWarehouse(stocks) {
+        if (!Array.isArray(stocks)) return;
+        const total = stocks.reduce((a, s) => a + Number(s.quantity || 0), 0);
+        setText('wh-total', fmt(total) + ' шт.');
+
+        const byWarehouse = {};
+        stocks.forEach(s => {
+            const wh = s.warehouseName || 'Неизвестный склад';
+            byWarehouse[wh] = (byWarehouse[wh] || 0) + Number(s.quantity || 0);
+        });
+
+        const list = document.getElementById('warehouse-list');
+        const entries = Object.entries(byWarehouse).sort((a, b) => b[1] - a[1]);
+        if (entries.length > 0) {
+            list.innerHTML = `<div class="space-y-2 p-4">${entries.map(([name, qty]) => `
+                <div class="flex justify-between items-center py-2 border-b border-white/5">
+                    <span class="text-sm text-gray-300">${name}</span>
+                    <span class="text-sm font-bold text-white">${fmt(qty)} шт.</span>
+                </div>`).join('')}</div>`;
+        } else {
+            list.innerHTML = '<div class="p-8 text-center text-gray-500">Нет данных</div>';
+        }
+    }
+
+    // ============================================================
+    // СОХРАНЕНИЕ НАСТРОЕК
+    // ============================================================
+    function saveSettings() {
+        const tax = document.getElementById('tax-rate').value;
+        const opex = document.getElementById('opex').value;
+        localStorage.setItem('tax_rate', tax);
+        localStorage.setItem('opex', opex);
+        alert('✅ Настройки сохранены!');
+    }
+
+    // ============================================================
+    // ВЫХОД
+    // ============================================================
+    async function handleLogout() {
+        await supabase.auth.signOut();
+        localStorage.removeItem('selected_cabinet_id');
+        localStorage.removeItem('selected_cabinet_name');
+        window.location.href = '/login.html';
+    }
+
+    // ============================================================
+    // HELPERS
+    // ============================================================
+    function setText(id, val) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+    }
+    function fmt(n) {
+        return Number(n).toLocaleString('ru-RU');
+    }
+
+    // ============================================================
+    // ИНИЦИАЛИЗАЦИЯ
+    // ============================================================
+    document.addEventListener('DOMContentLoaded', async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { window.location.href = '/login.html'; return; }
+
+        const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || 'Пользователь';
+        document.getElementById('sidebar-user').textContent = name;
+        document.getElementById('settings-user-info').innerHTML =
+            `<div>Email: <span class="text-white">${session.user.email}</span></div>
+             <div class="mt-1">Аккаунт создан: <span class="text-white">${new Date(session.user.created_at).toLocaleDateString('ru-RU')}</span></div>`;
+
+        await loadCabinets();
+
+        if (currentCabinetId) refreshData();
+    });
+</script>
+</body>
+</html>
