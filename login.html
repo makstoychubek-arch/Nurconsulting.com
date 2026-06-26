@@ -46,8 +46,11 @@
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .fade-in { animation: fadeIn 0.4s ease forwards; }
-
-        /* Скелетон загрузки кабинетов */
+        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 40px rgba(109,40,217,0.4); }
+            50% { box-shadow: 0 0 80px rgba(109,40,217,0.7), 0 0 120px rgba(109,40,217,0.3); }
+        }
         .skeleton {
             background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
             background-size: 200% 100%;
@@ -59,21 +62,18 @@
 </head>
 <body class="bg-[#030303] text-gray-200 font-sans antialiased min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
 
-    <!-- Фоновые свечения -->
     <div class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-purple-900/10 rounded-full blur-[130px] pointer-events-none"></div>
     <div class="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-blue-900/8 rounded-full blur-[120px] pointer-events-none"></div>
 
-    <!-- Логотип наверху -->
     <a href="/" class="absolute top-6 left-6 flex flex-col justify-center tracking-wider">
         <span class="text-2xl font-bold text-white leading-none">NR</span>
         <span class="text-[9px] uppercase tracking-[0.25em] text-gray-400 mt-0.5">Consulting</span>
     </a>
 
-    <!-- ===== ЭКРАН 1: ВХОД / РЕГИСТРАЦИЯ ===== -->
+    <!-- ЭКРАН 1: ВХОД / РЕГИСТРАЦИЯ -->
     <div id="screen-auth" class="w-full max-w-md fade-in">
         <div class="glass-card rounded-3xl p-8 shadow-2xl">
 
-            <!-- Заголовок -->
             <div class="text-center mb-8">
                 <div class="w-12 h-12 bg-purple-950/60 border border-purple-500/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,7 +84,6 @@
                 <p class="text-sm text-gray-400 mt-1">Аналитика Wildberries для вашего бизнеса</p>
             </div>
 
-            <!-- Переключатель Вход / Регистрация -->
             <div class="flex bg-white/5 rounded-xl p-1 mb-6 border border-white/5">
                 <button onclick="switchTab('login')" id="tab-login"
                     class="flex-1 py-2 text-sm font-medium rounded-lg transition tab-active border border-transparent">
@@ -96,7 +95,6 @@
                 </button>
             </div>
 
-            <!-- Кнопка Google -->
             <button onclick="signInWithGoogle()"
                 class="w-full flex items-center justify-center space-x-3 py-3 bg-white hover:bg-gray-50 text-gray-800 font-medium rounded-xl transition mb-5 shadow-lg">
                 <svg class="w-5 h-5" viewBox="0 0 24 24">
@@ -108,7 +106,6 @@
                 <span>Войти через Google</span>
             </button>
 
-            <!-- Разделитель -->
             <div class="flex items-center space-x-3 mb-5">
                 <div class="flex-1 h-px bg-white/8"></div>
                 <span class="text-xs text-gray-500">или через email</span>
@@ -148,7 +145,7 @@
                 <input type="email" id="reg-email" placeholder="Email адрес"
                     class="input-field w-full px-4 py-3 rounded-xl text-white text-sm placeholder-gray-500">
                 <div class="relative">
-                    <input type="password" id="reg-password" placeholder="Пароль (минимум 8 сиволов)"
+                    <input type="password" id="reg-password" placeholder="Пароль (минимум 8 символов)"
                         class="input-field w-full px-4 py-3 rounded-xl text-white text-sm placeholder-gray-500 pr-12">
                     <button onclick="togglePassword('reg-password')" class="absolute right-3 top-3 text-gray-500 hover:text-gray-300 transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -158,15 +155,15 @@
                     </button>
                 </div>
                 <div class="relative">
-    <input type="password" id="reg-password-confirm" placeholder="Подтвердите пароль (мин. 8 символов)"
-        class="input-field w-full px-4 py-3 rounded-xl text-white text-sm placeholder-gray-500 pr-12">
-    <button type="button" onclick="togglePassword('reg-password-confirm')" class="absolute right-3 top-3 text-gray-500 hover:text-gray-300 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-        </svg>
-    </button>
-</div>
+                    <input type="password" id="reg-password-confirm" placeholder="Подтвердите пароль"
+                        class="input-field w-full px-4 py-3 rounded-xl text-white text-sm placeholder-gray-500 pr-12">
+                    <button onclick="togglePassword('reg-password-confirm')" class="absolute right-3 top-3 text-gray-500 hover:text-gray-300 transition">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                    </button>
+                </div>
                 <div id="reg-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <div id="reg-success" class="hidden text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
                     ✅ Письмо с подтверждением отправлено на вашу почту!
@@ -198,51 +195,33 @@
         </div>
     </div>
 
-    <!-- ===== ЭКРАН 2: ВЫБОР КАБИНЕТА ===== -->
-    <div id="screen-cabinets" class="w-full max-w-2xl fade-in hidden">
-        <div class="glass-card rounded-3xl p-8 shadow-2xl">
-
-            <div class="flex items-center justify-between mb-8">
-                <div>
-                    <h2 class="text-2xl font-bold text-white">Выберите кабинет</h2>
-                    <p class="text-sm text-gray-400 mt-1">Привет, <span id="user-name" class="text-purple-400">—</span></p>
-                </div>
-                <button onclick="handleLogout()" class="text-xs text-gray-500 hover:text-gray-300 transition flex items-center space-x-1">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                    </svg>
-                    <span>Выйти</span>
-                </button>
+    <!-- ЭКРАН 2: ПРИВЕТСТВИЕ -->
+    <div id="screen-cabinets" class="w-full max-w-md fade-in hidden text-center">
+        <div style="padding:40px 20px">
+            <div style="width:90px;height:90px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:28px;display:flex;align-items:center;justify-content:center;margin:0 auto 28px;animation:pulse-glow 2s ease infinite">
+                <span style="color:white;font-size:36px;font-weight:900">N</span>
             </div>
-
-            <!-- Список кабинетов -->
-            <div id="cabinets-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <!-- Скелетоны пока загружается -->
-                <div class="skeleton h-24"></div>
-                <div class="skeleton h-24"></div>
-                <div class="skeleton h-24"></div>
-                <div class="skeleton h-24"></div>
+            <div style="color:white;font-size:24px;font-weight:700;margin-bottom:6px">NR Consulting</div>
+            <div style="color:#6b7280;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:32px">Nur Platform Analytics</div>
+            <h2 style="color:white;font-size:20px;font-weight:600;margin-bottom:10px">Добро пожаловать, <span id="user-name" style="color:#a78bfa">—</span>!</h2>
+            <p style="color:#6b7280;font-size:13px;margin-bottom:36px;line-height:1.6">Спасибо, что выбрали нас.<br>Загружаем вашу аналитику...</p>
+            <div style="display:flex;justify-content:center;gap:10px">
+                <div style="width:12px;height:12px;background:#7C3AED;border-radius:50%;animation:bounce 1s infinite 0ms"></div>
+                <div style="width:12px;height:12px;background:#8B5CF6;border-radius:50%;animation:bounce 1s infinite 150ms"></div>
+                <div style="width:12px;height:12px;background:#A78BFA;border-radius:50%;animation:bounce 1s infinite 300ms"></div>
             </div>
-
         </div>
     </div>
 
     <script>
-        // ============================================================
-        // ИНИЦИАЛИЗАЦИЯ SUPABASE
-        // ============================================================
         SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
         SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
         supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-        // ============================================================
-        // ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК
-        // ============================================================
         function switchTab(tab) {
             document.getElementById('form-login').classList.add('hidden');
             document.getElementById('form-register').classList.add('hidden');
             document.getElementById('form-forgot').classList.add('hidden');
-
             document.getElementById('tab-login')?.classList.remove('tab-active');
             document.getElementById('tab-register')?.classList.remove('tab-active');
             document.getElementById('tab-login')?.classList.add('text-gray-400');
@@ -261,233 +240,110 @@
             }
         }
 
-        // ============================================================
-        // ПОКАЗАТЬ/СКРЫТЬ ПАРОЛЬ
-        // ============================================================
         function togglePassword(id) {
             const input = document.getElementById(id);
             input.type = input.type === 'password' ? 'text' : 'password';
         }
 
-        // ============================================================
-        // ВХОД ЧЕРЕЗ GOOGLE
-        // ============================================================
         async function signInWithGoogle() {
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
-                options: { redirectTo: window.location.origin + '/login.html' }
+                options: { redirectTo: window.location.origin + '/login' }
             });
             if (error) showError('login-error', error.message);
         }
 
-        // ============================================================
-        // ВХОД ЧЕРЕЗ EMAIL / ПАРОЛЬ
-        // ============================================================
         async function handleLogin() {
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value.trim();
-
-            if (!email || !password) {
-                showError('login-error', 'Заполните все поля');
-                return;
-            }
-
+            if (!email || !password) { showError('login-error', 'Заполните все поля'); return; }
             const btn = event.target;
-            btn.textContent = 'Входим...';
-            btn.disabled = true;
-
+            btn.textContent = 'Входим...'; btn.disabled = true;
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
             if (error) {
                 showError('login-error', 'Неверный email или пароль');
-                btn.textContent = 'Войти в платформу';
-                btn.disabled = false;
+                btn.textContent = 'Войти в платформу'; btn.disabled = false;
                 return;
             }
-
             showCabinets(data.user);
         }
 
-        // ============================================================
-        // РЕГИСТРАЦИЯ
-        // ============================================================
         async function handleRegister() {
             const name = document.getElementById('reg-name').value.trim();
             const email = document.getElementById('reg-email').value.trim();
             const password = document.getElementById('reg-password').value.trim();
-
-            if (!name || !email || !password) {
-                showError('reg-error', 'Заполните все поля');
-                return;
-            }
-            if (password.length < 8) {
-                  showError('reg-error', 'Пароль должен быть минимум 8 символов');
-                  return;   
-            }
-
+            const confirm = document.getElementById('reg-password-confirm').value.trim();
+            if (!name || !email || !password) { showError('reg-error', 'Заполните все поля'); return; }
+            if (password.length < 8) { showError('reg-error', 'Пароль должен быть минимум 8 символов'); return; }
+            if (password !== confirm) { showError('reg-error', 'Пароли не совпадают'); return; }
             const btn = event.target;
-            btn.textContent = 'Создаём аккаунт...';
-            btn.disabled = true;
-
-            const { error } = await supabase.auth.signUp({
-                email,
-                password,
-                options: { data: { full_name: name } }
-            });
-
-            if (error) {
-                showError('reg-error', error.message);
-                btn.textContent = 'Создать аккаунт';
-                btn.disabled = false;
-                return;
-            }
-
+            btn.textContent = 'Создаём...'; btn.disabled = true;
+            const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
+            if (error) { showError('reg-error', error.message); btn.textContent = 'Создать аккаунт'; btn.disabled = false; return; }
             document.getElementById('reg-success').classList.remove('hidden');
-            btn.textContent = 'Создать аккаунт';
-            btn.disabled = false;
+            btn.textContent = 'Создать аккаунт'; btn.disabled = false;
         }
 
-        // ============================================================
-        // ЗАБЫЛ ПАРОЛЬ
-        // ============================================================
         async function handleForgotPassword() {
             const email = document.getElementById('forgot-email').value.trim();
-
-            if (!email) {
-                showError('forgot-error', 'Введите email адрес');
-                return;
-            }
-
+            if (!email) { showError('forgot-error', 'Введите email'); return; }
             const btn = event.target;
-            btn.textContent = 'Отправляем...';
-            btn.disabled = true;
-
+            btn.textContent = 'Отправляем...'; btn.disabled = true;
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: window.location.origin + '/reset-password.html'
+                redirectTo: window.location.origin + '/reset-password'
             });
-
-            if (error) {
-                showError('forgot-error', error.message);
-            } else {
-                document.getElementById('forgot-success').classList.remove('hidden');
-                document.getElementById('forgot-error').classList.add('hidden');
-            }
-
-            btn.textContent = 'Отправить ссылку';
-            btn.disabled = false;
+            if (error) { showError('forgot-error', error.message); }
+            else { document.getElementById('forgot-success').classList.remove('hidden'); }
+            btn.textContent = 'Отправить ссылку'; btn.disabled = false;
         }
 
-        // ============================================================
-        // ВЫХОД
-        // ============================================================
         async function handleLogout() {
             await supabase.auth.signOut();
             document.getElementById('screen-cabinets').classList.add('hidden');
             document.getElementById('screen-auth').classList.remove('hidden');
         }
 
-        // ============================================================
-        // ПОКАЗАТЬ ЭКРАН ВЫБОРА КАБИНЕТА
-        // ============================================================
-       async function showCabinets(user) {
-    document.getElementById('screen-auth').classList.add('hidden');
-    
-    const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Пользователь';
-    
-    // Показываем приветственный экран
-    const cabinetsDiv = document.getElementById('screen-cabinets');
-    cabinetsDiv.classList.remove('hidden');
-    cabinetsDiv.innerHTML = `
-        <div style="text-align:center;padding:40px 20px">
-            <div style="width:80px;height:80px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 0 60px rgba(109,40,217,0.5)">
-                <span style="color:white;font-size:32px;font-weight:900">N</span>
-            </div>
-            <div style="color:white;font-size:22px;font-weight:700;margin-bottom:8px">NR Consulting</div>
-            <div style="color:#6b7280;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:32px">Nur Platform Analytics</div>
-            <div style="color:white;font-size:18px;font-weight:600;margin-bottom:8px">Добро пожаловать, <span style="color:#a78bfa">${name}</span>!</div>
-            <div style="color:#6b7280;font-size:13px;margin-bottom:32px">Спасибо, что выбрали нас.<br>Загружаем вашу аналитику...</div>
-            <div style="display:flex;justify-content:center;gap:8px;margin-bottom:32px">
-                <div style="width:10px;height:10px;background:#7C3AED;border-radius:50%;animation:bounce 1s infinite 0ms"></div>
-                <div style="width:10px;height:10px;background:#8B5CF6;border-radius:50%;animation:bounce 1s infinite 150ms"></div>
-                <div style="width:10px;height:10px;background:#A78BFA;border-radius:50%;animation:bounce 1s infinite 300ms"></div>
-            </div>
-        </div>
-        <style>
-            @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-        </style>
-    `;
-    
-    // Через 2.5 сек — плавный переход
-    setTimeout(() => {
-        document.body.style.transition = 'opacity 0.8s ease';
-        document.body.style.opacity = '0';
-        setTimeout(() => { window.location.href = '/space'.html'; }, 800);
-    }, 2500);
+        async function showCabinets(user) {
+            // Проверяем доступ
+            const { data: allowed } = await supabase
+                .from('allowed_users')
+                .select('email')
+                .eq('email', user.email)
+                .single();
 
-        }
-
-        // ============================================================
-        // ЗАГРУЗКА КАБИНЕТОВ
-        // ============================================================
-        async function loadCabinets() {
-            const { data, error } = await supabase
-                .from('cabinets')
-                .select('id, name')
-                .order('name');
-
-            const grid = document.getElementById('cabinets-grid');
-
-            if (error || !data || data.length === 0) {
-                grid.innerHTML = '<div class="col-span-2 text-center text-gray-500 py-8">Кабинеты не найдены</div>';
+            if (!allowed) {
+                document.body.style.transition = 'opacity 0.5s ease';
+                document.body.style.opacity = '0';
+                setTimeout(() => { window.location.href = 'https://nurcon.kg'; }, 500);
                 return;
             }
 
-            const colors = ['purple', 'blue', 'emerald', 'amber', 'pink'];
-            const icons = ['🏪', '👗', '✨', '🎯', '💎'];
+            // Показываем приветственный экран
+            document.getElementById('screen-auth').classList.add('hidden');
+            document.getElementById('screen-cabinets').classList.remove('hidden');
 
-            grid.innerHTML = data.map((cab, i) => `
-                <button onclick="selectCabinet('${cab.id}', '${cab.name}')"
-                    class="glass-card p-6 rounded-2xl text-left hover:border-purple-500/40 transition group border border-white/5">
-                    <div class="text-3xl mb-3">${icons[i] || '🏪'}</div>
-                    <h3 class="text-white font-bold text-lg group-hover:text-purple-300 transition">${cab.name}</h3>
-                    <p class="text-xs text-gray-500 mt-1 flex items-center space-x-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
-                        <span>Wildberries • Активен</span>
-                    </p>
-                </button>
-            `).join('');
+            const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Пользователь';
+            document.getElementById('user-name').textContent = name;
+
+            // Через 2.5 сек плавный переход на Space
+            setTimeout(() => {
+                document.body.style.transition = 'opacity 0.8s ease';
+                document.body.style.opacity = '0';
+                setTimeout(() => { window.location.href = '/space'; }, 800);
+            }, 2500);
         }
 
-        // ============================================================
-        // ВЫБОР КАБИНЕТА → ПЕРЕХОД НА ДАШБОРД
-        // ============================================================
-        function selectCabinet(id, name) {
-            localStorage.setItem('selected_cabinet_id', id);
-            localStorage.setItem('selected_cabinet_name', name);
-            window.location.href = '/space.html';
-        }
-
-        // ============================================================
-        // HELPER: ПОКАЗАТЬ ОШИБКУ
-        // ============================================================
         function showError(id, message) {
             const el = document.getElementById(id);
-            if (el) {
-                el.textContent = '❌ ' + message;
-                el.classList.remove('hidden');
-            }
+            if (el) { el.textContent = '❌ ' + message; el.classList.remove('hidden'); }
         }
 
-        // ============================================================
-        // ПРОВЕРЯЕМ СЕССИЮ ПРИ ЗАГРУЗКЕ
-       document.addEventListener('DOMContentLoaded', async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('tab') === 'register') switchTab('register');
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-        showCabinets(session.user);
-    }
-});
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('tab') === 'register') switchTab('register');
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session?.user) showCabinets(session.user);
+        });
     </script>
 </body>
 </html>
