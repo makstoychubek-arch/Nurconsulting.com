@@ -389,14 +389,41 @@
         // ============================================================
         // ПОКАЗАТЬ ЭКРАН ВЫБОРА КАБИНЕТА
         // ============================================================
-        async function showCabinets(user) {
-            document.getElementById('screen-auth').classList.add('hidden');
-            document.getElementById('screen-cabinets').classList.remove('hidden');
+       async function showCabinets(user) {
+    document.getElementById('screen-auth').classList.add('hidden');
+    
+    const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Пользователь';
+    
+    // Показываем приветственный экран
+    const cabinetsDiv = document.getElementById('screen-cabinets');
+    cabinetsDiv.classList.remove('hidden');
+    cabinetsDiv.innerHTML = `
+        <div style="text-align:center;padding:40px 20px">
+            <div style="width:80px;height:80px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 0 60px rgba(109,40,217,0.5)">
+                <span style="color:white;font-size:32px;font-weight:900">N</span>
+            </div>
+            <div style="color:white;font-size:22px;font-weight:700;margin-bottom:8px">NR Consulting</div>
+            <div style="color:#6b7280;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:32px">Nur Platform Analytics</div>
+            <div style="color:white;font-size:18px;font-weight:600;margin-bottom:8px">Добро пожаловать, <span style="color:#a78bfa">${name}</span>!</div>
+            <div style="color:#6b7280;font-size:13px;margin-bottom:32px">Спасибо, что выбрали нас.<br>Загружаем вашу аналитику...</div>
+            <div style="display:flex;justify-content:center;gap:8px;margin-bottom:32px">
+                <div style="width:10px;height:10px;background:#7C3AED;border-radius:50%;animation:bounce 1s infinite 0ms"></div>
+                <div style="width:10px;height:10px;background:#8B5CF6;border-radius:50%;animation:bounce 1s infinite 150ms"></div>
+                <div style="width:10px;height:10px;background:#A78BFA;border-radius:50%;animation:bounce 1s infinite 300ms"></div>
+            </div>
+        </div>
+        <style>
+            @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+        </style>
+    `;
+    
+    // Через 2.5 сек — плавный переход
+    setTimeout(() => {
+        document.body.style.transition = 'opacity 0.8s ease';
+        document.body.style.opacity = '0';
+        setTimeout(() => { window.location.href = '/dashboard.html'; }, 800);
+    }, 2500);
 
-            const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Пользователь';
-            document.getElementById('user-name').textContent = name;
-
-            await loadCabinets();
         }
 
         // ============================================================
