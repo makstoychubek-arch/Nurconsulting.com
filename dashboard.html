@@ -603,14 +603,41 @@
     function fmt(n) { return Number(n).toLocaleString('ru-RU'); }
 
     document.addEventListener('DOMContentLoaded', async () => {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { window.location.href = '/login.html'; return; }
-        const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '—';
-        document.getElementById('sidebar-user').textContent = name;
-        document.getElementById('user-initial').textContent = name.charAt(0).toUpperCase();
-        document.getElementById('settings-user-info').innerHTML = `<div>Email: <span class="text-white">${session.user.email}</span></div>`;
-        await loadCabinets();
-    });
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { window.location.href = '/login'; return; }
+
+    // Проверяем доступ
+    const userEmail = session.user.email;
+    const { data: allowed } = await supabase
+        .from('allowed_users')
+        .select('email, name, role')
+        .eq('email', userEmail)
+        .single();
+
+    if (!allowed) {
+        document.body.innerHTML = `
+            <div style="min-height:100vh;background:#030303;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif">
+                <div style="text-align:center;padding:40px">
+                    <div style="width:80px;height:80px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 0 60px rgba(109,40,217,0.4)">
+                        <span style="color:white;font-size:32px;font-weight:900">N</span>
+                    </div>
+                    <h1 style="color:white;font-size:24px;font-weight:700;margin-bottom:12px">Сервис в разработке</h1>
+                    <p style="color:#6b7280;font-size:14px;margin-bottom:32px">Платформа пока недоступна для новых пользователей.<br>Следите за обновлениями на нашем сайте.</p>
+                    <a href="https://nurcon.kg" style="display:inline-block;padding:12px 32px;background:#6D28D9;color:white;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600">
+                        Перейти на nurcon.kg →
+                    </a>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '—';
+    document.getElementById('sidebar-user').textContent = name;
+    document.getElementById('user-initial').textContent = name.charAt(0).toUpperCase();
+    document.getElementById('settings-user-info').innerHTML = `<div>Email: <span class="text-white">${session.user.email}</span></div>`;
+    await loadCabinets();
+});
 </script>
 </body>
 </html>
