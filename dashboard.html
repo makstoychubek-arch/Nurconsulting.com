@@ -784,7 +784,13 @@ function applyPicker() {
 }
 
 // Инициализация пикера
-setTimeout(()=>{renderYearGrid();renderMonthGrid();},100);
+setTimeout(()=>{
+    if(document.getElementById('year-grid')) {
+        renderYearGrid();
+        renderMonthGrid();
+        setQuickPicker(0,'year2026');
+    }
+},300);
     });
 </script>
 </body>
