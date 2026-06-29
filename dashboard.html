@@ -408,12 +408,12 @@
 
     // Закрытие пикера по клику вне
     document.addEventListener('click', function(e) {
-        const picker = document.getElementById('date-picker');
-        const chip = picker?.previousElementSibling;
-        if (picker && !picker.contains(e.target) && chip && !chip.contains(e.target)) {
-            picker.classList.add('hidden');
-        }
-    });
+    const picker = document.getElementById('date-picker');
+    const dateChip = document.querySelector('[onclick="toggleDatePicker()"]');
+    if (picker && !picker.classList.contains('hidden') && !picker.contains(e.target) && !dateChip?.contains(e.target)) {
+        picker.classList.add('hidden');
+    }
+});
 
     // ============ КАБИНЕТЫ ============
     async function loadCabinets() {

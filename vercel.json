@@ -1,1 +1,7 @@
-{"rewrites":[{"source":"/login","destination":"/login.html"},{"source":"/space","destination":"/dashboard.html"}]}
+{
+  "rewrites": [
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/space", "destination": "/dashboard.html" },
+    { "source": "/", "destination": "/index.html" }
+  ]
+}
