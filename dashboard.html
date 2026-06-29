@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <!-- Favicon круглый -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23030303'/><text y='72' font-size='58' font-family='Arial Black,sans-serif' font-weight='900' fill='white' x='4'>N</text><text y='72' font-size='58' font-family='Arial Black,sans-serif' font-weight='900' fill='%236D28D9' x='50'>R</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><circle cx='256' cy='256' r='256' fill='%23030303'/><text y='340' font-size='240' font-family='Arial Black,sans-serif' font-weight='900' fill='white' x='20'>N</text><text y='340' font-size='240' font-family='Arial Black,sans-serif' font-weight='900' fill='%236D28D9' x='268'>R</text></svg>">
     <meta name="theme-color" content="#030303">
@@ -47,15 +46,22 @@
         .data-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.01); }
         .data-table td { padding: 10px 14px; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
         .data-table tr:hover td { background: rgba(255,255,255,0.02); }
-        .filter-chip { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #9ca3af; transition: all 0.2s; white-space: nowrap; }
+        .filter-chip { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #9ca3af; transition: all 0.2s; white-space: nowrap; user-select: none; }
         .filter-chip:hover { border-color: rgba(109,40,217,0.4); color: #a78bfa; background: rgba(109,40,217,0.08); }
         .filter-chip.active { border-color: rgba(109,40,217,0.5); color: #a78bfa; background: rgba(109,40,217,0.12); }
         /* Пикер дат */
-        .date-picker { position: absolute; top: 100%; left: 0; z-index: 100; background: #0d0d19; border: 1px solid rgba(109,40,217,0.3); border-radius: 12px; padding: 16px; margin-top: 8px; min-width: 280px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
-        .date-picker input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; padding: 8px 12px; font-size: 13px; outline: none; width: 100%; }
-        .date-picker input:focus { border-color: rgba(109,40,217,0.5); }
-        .quick-btn { padding: 6px 12px; border-radius: 8px; font-size: 11px; cursor: pointer; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #9ca3af; transition: all 0.2s; }
-        .quick-btn:hover { background: rgba(109,40,217,0.15); color: #a78bfa; border-color: rgba(109,40,217,0.3); }
+        #date-picker {
+            position: fixed;
+            top: 100px;
+            left: 280px;
+            z-index: 9999;
+            background: #0d0d19;
+            border: 1px solid rgba(109,40,217,0.4);
+            border-radius: 16px;
+            padding: 20px;
+            width: 480px;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.7);
+        }
     </style>
 </head>
 <body class="flex overflow-hidden h-screen">
@@ -86,9 +92,7 @@
 
         <nav class="flex-1 py-2 overflow-y-auto">
             <div class="menu-group">
-                <div class="menu-group-title open" onclick="toggleMenu(this)">
-                    <span>📊 Оцифровка</span><span class="arrow">▼</span>
-                </div>
+                <div class="menu-group-title open" onclick="toggleMenu(this)"><span>📊 Оцифровка</span><span class="arrow">▼</span></div>
                 <div class="menu-sub open">
                     <div class="nav-item active" onclick="showTab('dashboard', this)">Дашборд</div>
                     <div class="nav-item" onclick="showTab('summary', this)">Сводный отчёт</div>
@@ -98,9 +102,7 @@
                 </div>
             </div>
             <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span>💰 Финансы</span><span class="arrow">▼</span>
-                </div>
+                <div class="menu-group-title" onclick="toggleMenu(this)"><span>💰 Финансы</span><span class="arrow">▼</span></div>
                 <div class="menu-sub">
                     <div class="nav-item" onclick="showTab('dds', this)">ДДС</div>
                     <div class="nav-item" onclick="showTab('operations', this)">Операции</div>
@@ -109,9 +111,7 @@
                 </div>
             </div>
             <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span>🏷️ Товары</span><span class="arrow">▼</span>
-                </div>
+                <div class="menu-group-title" onclick="toggleMenu(this)"><span>🏷️ Товары</span><span class="arrow">▼</span></div>
                 <div class="menu-sub">
                     <div class="nav-item" onclick="showTab('cost', this)">Себестоимость</div>
                     <div class="nav-item" onclick="showTab('goods-groups', this)">Группы товаров</div>
@@ -119,9 +119,7 @@
                 </div>
             </div>
             <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span>📦 РНП</span><span class="arrow">▼</span>
-                </div>
+                <div class="menu-group-title" onclick="toggleMenu(this)"><span>📦 РНП</span><span class="arrow">▼</span></div>
                 <div class="menu-sub">
                     <div class="nav-item" onclick="showTab('rnp', this)">Модуль РНП</div>
                     <div class="nav-item" onclick="showTab('ads', this)">Аналитика РК</div>
@@ -130,9 +128,7 @@
                 </div>
             </div>
             <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span>⚙️ Управление</span><span class="arrow">▼</span>
-                </div>
+                <div class="menu-group-title" onclick="toggleMenu(this)"><span>⚙️ Управление</span><span class="arrow">▼</span></div>
                 <div class="menu-sub">
                     <div class="nav-item" onclick="showTab('settings', this)">Настройки</div>
                     <div class="nav-item" onclick="showTab('tariffs', this)">Тарифы</div>
@@ -156,6 +152,60 @@
         </div>
     </aside>
 
+    <!-- ПИКЕР ДАТ (вне header, fixed позиционирование) -->
+    <div id="date-picker" class="hidden" onclick="event.stopPropagation()">
+        <div style="display:flex;gap:16px">
+            <!-- ЛЕВЫЙ БЛОК: КАЛЕНДАРЬ -->
+            <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+                    <button onclick="changeYear(-1)" style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px 8px;font-size:20px;line-height:1">‹</button>
+                    <span id="year-label" style="font-size:13px;font-weight:600;color:white">2026</span>
+                    <button onclick="changeYear(1)" style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px 8px;font-size:20px;line-height:1">›</button>
+                </div>
+                <div id="year-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:14px"></div>
+                <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:12px">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+                        <button onclick="changeMonth(-1)" style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px 8px;font-size:20px;line-height:1">‹</button>
+                        <span id="month-label" style="font-size:12px;font-weight:500;color:white">Июнь 2026</span>
+                        <button onclick="changeMonth(1)" style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px 8px;font-size:20px;line-height:1">›</button>
+                    </div>
+                    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">
+                        <div style="text-align:center;font-size:10px;color:#6b7280;padding:2px">Пн</div>
+                        <div style="text-align:center;font-size:10px;color:#6b7280;padding:2px">Вт</div>
+                        <div style="text-align:center;font-size:10px;color:#6b7280;padding:2px">Ср</div>
+                        <div style="text-align:center;font-size:10px;color:#6b7280;padding:2px">Чт</div>
+                        <div style="text-align:center;font-size:10px;color:#6b7280;padding:2px">Пт</div>
+                        <div style="text-align:center;font-size:10px;color:#f87171;padding:2px">Сб</div>
+                        <div style="text-align:center;font-size:10px;color:#f87171;padding:2px">Вс</div>
+                    </div>
+                    <div id="month-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px"></div>
+                </div>
+            </div>
+            <!-- ПРАВЫЙ БЛОК -->
+            <div style="width:170px;flex-shrink:0;display:flex;flex-direction:column;gap:6px">
+                <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">Быстрый выбор</div>
+                <button onclick="setQuickPicker(7)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;font-size:11px;color:#d1d5db;cursor:pointer;text-align:center" onmouseover="this.style.background='rgba(109,40,217,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">Последняя неделя</button>
+                <button onclick="setQuickPicker(14)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;font-size:11px;color:#d1d5db;cursor:pointer;text-align:center" onmouseover="this.style.background='rgba(109,40,217,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">Последние две недели</button>
+                <button onclick="setQuickPicker(0,'month')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;font-size:11px;color:#d1d5db;cursor:pointer;text-align:center" onmouseover="this.style.background='rgba(109,40,217,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">Текущий месяц</button>
+                <button onclick="setQuickPicker(0,'year2025')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;font-size:11px;color:#d1d5db;cursor:pointer;text-align:center" onmouseover="this.style.background='rgba(109,40,217,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">С начала 2025</button>
+                <button onclick="setQuickPicker(0,'year2026')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;font-size:11px;color:#d1d5db;cursor:pointer;text-align:center" onmouseover="this.style.background='rgba(109,40,217,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">С начала 2026</button>
+                <div style="border-top:1px solid rgba(255,255,255,0.06);margin:4px 0"></div>
+                <div>
+                    <div style="font-size:10px;color:#6b7280;margin-bottom:3px">Начало периода</div>
+                    <input type="date" id="picker-from" style="width:100%;font-size:11px;padding:6px 8px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;background:rgba(255,255,255,0.05);color:white;box-sizing:border-box" oninput="onPickerInput()">
+                </div>
+                <div>
+                    <div style="font-size:10px;color:#6b7280;margin-bottom:3px">Конец периода</div>
+                    <input type="date" id="picker-to" style="width:100%;font-size:11px;padding:6px 8px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;background:rgba(255,255,255,0.05);color:white;box-sizing:border-box" oninput="onPickerInput()">
+                </div>
+                <div style="display:flex;gap:6px;margin-top:4px">
+                    <button onclick="resetPicker()" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px;font-size:11px;color:#9ca3af;cursor:pointer">Сбросить</button>
+                    <button onclick="applyPicker()" style="flex:1;background:#7C3AED;border:none;border-radius:8px;padding:7px;font-size:11px;color:white;cursor:pointer;font-weight:500">Применить</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- ОСНОВНОЙ КОНТЕНТ -->
     <main class="flex-1 ml-[240px] flex flex-col h-full overflow-hidden">
 
@@ -177,68 +227,18 @@
                 </div>
             </div>
 
-            <!-- Фильтры с пикером дат -->
             <div class="flex items-center space-x-2 overflow-x-auto pb-1">
-                <div class="relative">
-                  <div id="date-picker" class="date-picker hidden" onclick="event.stopPropagation()">
-  <div style="display:flex;gap:16px">
-    <!-- ЛЕВЫЙ БЛОК: КАЛЕНДАРЬ -->
-    <div style="flex:1;min-width:0">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <button onclick="changeYear(-1)" style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px 8px;font-size:18px;line-height:1">‹</button>
-        <span id="year-label" style="font-size:13px;font-weight:600;color:white">2026</span>
-        <button onclick="changeYear(1)" style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px 8px;font-size:18px;line-height:1">›</button>
-      </div>
-      <div id="year-grid" style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:14px"></div>
-      <div style="border-top:1px solid rgba(255,255,255,0.06);padding-top:12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <button onclick="changeMonth(-1)" style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px 8px;font-size:18px;line-height:1">‹</button>
-          <span id="month-label" style="font-size:12px;font-weight:500;color:white">Июнь 2026</span>
-          <button onclick="changeMonth(1)" style="background:none;border:none;cursor:pointer;color:#9ca3af;padding:4px 8px;font-size:18px;line-height:1">›</button>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px">
-          <div style="text-align:center;font-size:10px;color:#6b7280;padding:2px">Пн</div>
-          <div style="text-align:center;font-size:10px;color:#6b7280;padding:2px">Вт</div>
-          <div style="text-align:center;font-size:10px;color:#6b7280;padding:2px">Ср</div>
-          <div style="text-align:center;font-size:10px;color:#6b7280;padding:2px">Чт</div>
-          <div style="text-align:center;font-size:10px;color:#6b7280;padding:2px">Пт</div>
-          <div style="text-align:center;font-size:10px;color:#f87171;padding:2px">Сб</div>
-          <div style="text-align:center;font-size:10px;color:#f87171;padding:2px">Вс</div>
-        </div>
-        <div id="month-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px"></div>
-      </div>
-    </div>
-    <!-- ПРАВЫЙ БЛОК -->
-    <div style="width:170px;flex-shrink:0;display:flex;flex-direction:column;gap:6px">
-      <div style="font-size:10px;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">Быстрый выбор</div>
-      <button onclick="setQuickPicker(7)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;font-size:11px;color:#d1d5db;cursor:pointer;text-align:center" onmouseover="this.style.background='rgba(109,40,217,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">Последняя неделя</button>
-      <button onclick="setQuickPicker(14)" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;font-size:11px;color:#d1d5db;cursor:pointer;text-align:center" onmouseover="this.style.background='rgba(109,40,217,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">Последние две недели</button>
-      <button onclick="setQuickPicker(0,'month')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;font-size:11px;color:#d1d5db;cursor:pointer;text-align:center" onmouseover="this.style.background='rgba(109,40,217,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">Текущий месяц</button>
-      <button onclick="setQuickPicker(0,'year2025')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;font-size:11px;color:#d1d5db;cursor:pointer;text-align:center" onmouseover="this.style.background='rgba(109,40,217,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">С начала 2025</button>
-      <button onclick="setQuickPicker(0,'year2026')" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px 10px;font-size:11px;color:#d1d5db;cursor:pointer;text-align:center" onmouseover="this.style.background='rgba(109,40,217,0.15)'" onmouseout="this.style.background='rgba(255,255,255,0.04)'">С начала 2026</button>
-      <div style="border-top:1px solid rgba(255,255,255,0.06);margin:4px 0"></div>
-      <div>
-        <div style="font-size:10px;color:#6b7280;margin-bottom:3px">Начало периода</div>
-        <input type="date" id="picker-from" style="width:100%;font-size:11px;padding:6px 8px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;background:rgba(255,255,255,0.05);color:white;box-sizing:border-box" oninput="onPickerInput()">
-      </div>
-      <div>
-        <div style="font-size:10px;color:#6b7280;margin-bottom:3px">Конец периода</div>
-        <input type="date" id="picker-to" style="width:100%;font-size:11px;padding:6px 8px;border:1px solid rgba(255,255,255,0.1);border-radius:8px;background:rgba(255,255,255,0.05);color:white;box-sizing:border-box" oninput="onPickerInput()">
-      </div>
-      <div style="display:flex;gap:6px;margin-top:4px">
-        <button onclick="resetPicker()" style="flex:1;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:7px;font-size:11px;color:#9ca3af;cursor:pointer">Сбросить</button>
-        <button onclick="applyPicker()" style="flex:1;background:#7C3AED;border:none;border-radius:8px;padding:7px;font-size:11px;color:white;cursor:pointer;font-weight:500">Применить</button>
-      </div>
-    </div>
-  </div>
-</div>
+                <div class="filter-chip active flex items-center space-x-1.5" onclick="toggleDatePicker(event)">
+                    <span>📅</span>
+                    <span id="date-range">01.01.2025 — сегодня</span>
+                    <span style="color:#6b7280;font-size:10px;margin-left:4px">▼</span>
                 </div>
-                <div class="filter-chip">Маркетплейсы <span class="text-gray-600 ml-1">▼</span></div>
-                <div class="filter-chip">Магазины <span class="text-gray-600 ml-1">▼</span></div>
-                <div class="filter-chip">Бренды <span class="text-gray-600 ml-1">▼</span></div>
-                <div class="filter-chip">Категории <span class="text-gray-600 ml-1">▼</span></div>
-                <div class="filter-chip">Группы <span class="text-gray-600 ml-1">▼</span></div>
-                <div class="filter-chip">Артикулы <span class="text-gray-600 ml-1">▼</span></div>
+                <div class="filter-chip">Маркетплейсы <span style="color:#6b7280;margin-left:4px">▼</span></div>
+                <div class="filter-chip">Магазины <span style="color:#6b7280;margin-left:4px">▼</span></div>
+                <div class="filter-chip">Бренды <span style="color:#6b7280;margin-left:4px">▼</span></div>
+                <div class="filter-chip">Категории <span style="color:#6b7280;margin-left:4px">▼</span></div>
+                <div class="filter-chip">Группы <span style="color:#6b7280;margin-left:4px">▼</span></div>
+                <div class="filter-chip">Артикулы <span style="color:#6b7280;margin-left:4px">▼</span></div>
             </div>
         </header>
 
@@ -249,7 +249,7 @@
             <h2 class="text-sm font-semibold text-white mb-4">Общие показатели</h2>
             <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
                 <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Чистая прибыль/Марж-сть</div><div id="m-profit" class="text-lg font-black text-white">—</div><div id="m-margin" class="text-xs text-gray-600 mt-1">— %</div></div>
-                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Прибыль/Марж. без опер. расх.</div><div id="m-profit2" class="text-lg font-black text-white">—</div><div class="text-xs text-gray-600 mt-1">— %</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Прибыль/Марж. без опер. расх.</div><div id="m-profit2" class="text-lg font-black text-white">—</div></div>
                 <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Продажи</div><div id="m-sales-sum" class="text-lg font-black text-white">—</div><div id="m-sales-count" class="text-xs text-gray-600 mt-1">0 шт.</div></div>
                 <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Реализация</div><div id="m-realization" class="text-lg font-black text-white">—</div></div>
                 <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Итоговое вознаграждение ВБ</div><div id="m-commission" class="text-lg font-black text-white">—</div></div>
@@ -297,7 +297,6 @@
                 <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Оборачиваемость по зак.</div><div class="text-lg font-black text-white">— Дн.</div></div>
             </div>
 
-            <!-- Таблица артикулов -->
             <div class="glass rounded-2xl overflow-hidden mt-4">
                 <div class="px-5 py-3 border-b border-white/5 flex justify-between items-center">
                     <h3 class="text-sm font-semibold text-white">Топ артикулов — остатки</h3>
@@ -314,8 +313,7 @@
             </div>
         </div>
 
-        <!-- Остальные табы -->
-        <div id="tab-summary" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📈</div><h3 class="text-white font-semibold">Сводный отчёт</h3><p class="text-gray-500 text-sm mt-2">Данные появятся после загрузки из WB</p></div></div>
+        <div id="tab-summary" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📈</div><h3 class="text-white font-semibold">Сводный отчёт</h3></div></div>
         <div id="tab-summary-biz" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">🏢</div><h3 class="text-white font-semibold">Сводный по бизнесу</h3></div></div>
         <div id="tab-deductions" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📋</div><h3 class="text-white font-semibold">Прочие удержания</h3></div></div>
         <div id="tab-plan-fact" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">🎯</div><h3 class="text-white font-semibold">План-факт</h3></div></div>
@@ -357,7 +355,7 @@
             </div>
         </div>
 
-        <div id="tab-ads" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📣</div><h3 class="text-white font-semibold">Аналитика РК</h3><p class="text-gray-500 text-sm mt-2">Подключите токен с доступом к "Продвижение" в WB</p></div></div>
+        <div id="tab-ads" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📣</div><h3 class="text-white font-semibold">Аналитика РК</h3></div></div>
         <div id="tab-heatmap" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">🗺️</div><h3 class="text-white font-semibold">Тепловая карта</h3></div></div>
         <div id="tab-rnp-settings" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">⚙️</div><h3 class="text-white font-semibold">Настройки РНП</h3></div></div>
 
@@ -389,13 +387,13 @@
 
     let currentCabinetId = localStorage.getItem('selected_cabinet_id') || null;
 
-    // ============ АККОРДЕОН ============
+    // АККОРДЕОН
     function toggleMenu(el) {
         el.classList.toggle('open');
         el.nextElementSibling.classList.toggle('open');
     }
 
-    // ============ ТАБЫ ============
+    // ТАБЫ
     const tabTitles = { dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт', dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно', cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады', rnp:'Модуль РНП', ads:'Аналитика РК', heatmap:'Тепловая карта', 'rnp-settings':'Настройки РНП', settings:'Настройки', tariffs:'Тарифы' };
 
     function showTab(name, el) {
@@ -406,39 +404,146 @@
         document.getElementById('page-title').textContent = tabTitles[name] || name;
     }
 
-    // ============ ПИКЕР ДАТ ============
+    // ПИКЕР ДАТ
+    const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+    const RU_MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
+    let pickerState = { year:2026, month:new Date().getMonth(), fromDate:null, toDate:null, selecting:'from' };
+
     function toggleDatePicker(e) {
-    e.stopPropagation();
-    document.getElementById('date-picker').classList.toggle('hidden');
+        e.stopPropagation();
+        const p = document.getElementById('date-picker');
+        p.classList.toggle('hidden');
+        if (!p.classList.contains('hidden')) {
+            renderYearGrid();
+            renderMonthGrid();
+        }
     }
 
-    function setQuickDate(days, from2025, from2026) {
-        const to = new Date();
-        let from = new Date();
-        if (from2025) { from = new Date('2025-01-01'); }
-        else if (from2026) { from = new Date('2026-01-01'); }
-        else { from.setDate(to.getDate() - days); }
-        document.getElementById('date-from').value = from.toISOString().split('T')[0];
-        document.getElementById('date-to').value = to.toISOString().split('T')[0];
+    document.addEventListener('click', function(e) {
+        const p = document.getElementById('date-picker');
+        if (p && !p.classList.contains('hidden') && !p.contains(e.target)) {
+            p.classList.add('hidden');
+        }
+    });
+
+    function fmtDate(d) { return d.toISOString().split('T')[0]; }
+    function fmtRuDate(d) { return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'}); }
+
+    function changeYear(d) {
+        pickerState.year += d;
+        document.getElementById('year-label').textContent = pickerState.year;
+        renderYearGrid();
     }
 
-    function applyDateFilter() {
-        const from = document.getElementById('date-from').value;
-        const to = document.getElementById('date-to').value;
+    function changeMonth(d) {
+        pickerState.month += d;
+        if (pickerState.month < 0) { pickerState.month = 11; pickerState.year--; document.getElementById('year-label').textContent = pickerState.year; }
+        if (pickerState.month > 11) { pickerState.month = 0; pickerState.year++; document.getElementById('year-label').textContent = pickerState.year; }
+        renderMonthGrid();
+    }
+
+    function renderYearGrid() {
+        const g = document.getElementById('year-grid');
+        if (!g) return;
+        g.innerHTML = '';
+        for (let m = 0; m < 12; m++) {
+            const btn = document.createElement('button');
+            btn.textContent = RU_MONTHS_S[m];
+            const isCur = (m === pickerState.month);
+            btn.style.cssText = `background:${isCur?'#7C3AED':'none'};color:${isCur?'white':'#9ca3af'};border:none;border-radius:6px;padding:4px 2px;font-size:10px;cursor:pointer`;
+            btn.onclick = () => { pickerState.month = m; renderYearGrid(); renderMonthGrid(); };
+            g.appendChild(btn);
+        }
+    }
+
+    function renderMonthGrid() {
+        const lbl = document.getElementById('month-label');
+        if (lbl) lbl.textContent = RU_MONTHS_CAL[pickerState.month] + ' ' + pickerState.year;
+        const g = document.getElementById('month-grid');
+        if (!g) return;
+        g.innerHTML = '';
+        const first = new Date(pickerState.year, pickerState.month, 1);
+        let dow = first.getDay(); if (dow === 0) dow = 7;
+        const dim = new Date(pickerState.year, pickerState.month + 1, 0).getDate();
+        const prev = new Date(pickerState.year, pickerState.month, 0).getDate();
+        for (let i = 1; i < dow; i++) {
+            const d = document.createElement('div');
+            d.textContent = prev - dow + 1 + i;
+            d.style.cssText = 'text-align:center;font-size:11px;color:#374151;padding:4px 2px';
+            g.appendChild(d);
+        }
+        for (let day = 1; day <= dim; day++) {
+            const btn = document.createElement('button');
+            btn.textContent = day;
+            const date = new Date(pickerState.year, pickerState.month, day);
+            const dw = date.getDay();
+            const isWE = dw === 0 || dw === 6;
+            const isFrom = pickerState.fromDate && fmtDate(date) === fmtDate(pickerState.fromDate);
+            const isTo = pickerState.toDate && fmtDate(date) === fmtDate(pickerState.toDate);
+            const inRange = pickerState.fromDate && pickerState.toDate && date > pickerState.fromDate && date < pickerState.toDate;
+            btn.style.cssText = `background:${(isFrom||isTo)?'#7C3AED':inRange?'rgba(109,40,217,0.2)':'none'};color:${(isFrom||isTo)?'white':inRange?'#a78bfa':isWE?'#f87171':'#e5e7eb'};border:none;border-radius:6px;padding:4px 2px;font-size:11px;cursor:pointer;font-weight:${(isFrom||isTo)?'600':'400'}`;
+            btn.onclick = () => {
+                if (pickerState.selecting === 'from' || !pickerState.fromDate) {
+                    pickerState.fromDate = date; pickerState.toDate = null; pickerState.selecting = 'to';
+                } else {
+                    if (date < pickerState.fromDate) { pickerState.toDate = pickerState.fromDate; pickerState.fromDate = date; }
+                    else { pickerState.toDate = date; }
+                    pickerState.selecting = 'from';
+                }
+                const pf = document.getElementById('picker-from');
+                const pt = document.getElementById('picker-to');
+                if (pf) pf.value = pickerState.fromDate ? fmtDate(pickerState.fromDate) : '';
+                if (pt) pt.value = pickerState.toDate ? fmtDate(pickerState.toDate) : '';
+                renderMonthGrid(); renderYearGrid();
+            };
+            g.appendChild(btn);
+        }
+    }
+
+    function setQuickPicker(days, mode) {
+        const to = new Date(); let from = new Date();
+        if (days > 0) { from.setDate(to.getDate() - days); }
+        else if (mode === 'month') { from = new Date(to.getFullYear(), to.getMonth(), 1); }
+        else if (mode === 'year2025') { from = new Date(2025, 0, 1); }
+        else if (mode === 'year2026') { from = new Date(2026, 0, 1); }
+        pickerState.fromDate = from; pickerState.toDate = to;
+        pickerState.year = to.getFullYear(); pickerState.month = to.getMonth();
+        const yl = document.getElementById('year-label');
+        if (yl) yl.textContent = pickerState.year;
+        const pf = document.getElementById('picker-from');
+        const pt = document.getElementById('picker-to');
+        if (pf) pf.value = fmtDate(from);
+        if (pt) pt.value = fmtDate(to);
+        renderYearGrid(); renderMonthGrid();
+    }
+
+    function onPickerInput() {
+        const f = document.getElementById('picker-from')?.value;
+        const t = document.getElementById('picker-to')?.value;
+        if (f) { const [y,m,d] = f.split('-').map(Number); pickerState.fromDate = new Date(y,m-1,d); }
+        if (t) { const [y,m,d] = t.split('-').map(Number); pickerState.toDate = new Date(y,m-1,d); }
+        renderYearGrid(); renderMonthGrid();
+    }
+
+    function resetPicker() {
+        pickerState.fromDate = null; pickerState.toDate = null; pickerState.selecting = 'from';
+        const pf = document.getElementById('picker-from');
+        const pt = document.getElementById('picker-to');
+        if (pf) pf.value = '';
+        if (pt) pt.value = '';
+        renderYearGrid(); renderMonthGrid();
+    }
+
+    function applyPicker() {
+        if (!pickerState.fromDate || !pickerState.toDate) { alert('Выберите обе даты'); return; }
+        const from = fmtDate(pickerState.fromDate);
+        const to = fmtDate(pickerState.toDate);
+        document.getElementById('date-range').textContent = fmtRuDate(pickerState.fromDate) + ' — ' + fmtRuDate(pickerState.toDate);
         document.getElementById('date-picker').classList.add('hidden');
         loadFromDB(from, to);
     }
 
-    // Закрытие пикера по клику вне
-    document.addEventListener('click', function(e) {
-    const picker = document.getElementById('date-picker');
-    const dateChip = document.querySelector('[onclick="toggleDatePicker()"]');
-    if (picker && !picker.classList.contains('hidden') && !picker.contains(e.target) && !dateChip?.contains(e.target)) {
-        picker.classList.add('hidden');
-    }
-});
-
-    // ============ КАБИНЕТЫ ============
+    // КАБИНЕТЫ
     async function loadCabinets() {
         const { data } = await supabase.from('cabinets').select('id, name').order('name');
         const select = document.getElementById('cabinet-select');
@@ -458,25 +563,13 @@
         loadFromDB();
     }
 
-    // ============ ЗАГРУЗКА ИЗ БД ============
+    // ЗАГРУЗКА ИЗ БД
     async function loadFromDB(dateFrom, dateTo) {
         if (!currentCabinetId) return;
-
         const from = dateFrom || '2025-01-01';
         const to = dateTo || new Date().toISOString().split('T')[0];
-
-        const { data: orders } = await supabase
-            .from('wb_orders')
-            .select('*')
-            .eq('cabinet_id', currentCabinetId)
-            .gte('order_date', from)
-            .lte('order_date', to);
-
-        const { data: stocks } = await supabase
-            .from('wb_stocks')
-            .select('*')
-            .eq('cabinet_id', currentCabinetId);
-
+        const { data: orders } = await supabase.from('wb_orders').select('*').eq('cabinet_id', currentCabinetId).gte('order_date', from).lte('order_date', to);
+        const { data: stocks } = await supabase.from('wb_stocks').select('*').eq('cabinet_id', currentCabinetId);
         if (orders !== null && stocks !== null) {
             updateDashboardFromDB(stocks, orders);
             updateWarehouseFromDB(stocks);
@@ -486,129 +579,60 @@
         }
     }
 
-    // ============ ОБНОВЛЕНИЕ ИЗ WB ============
+    // ОБНОВЛЕНИЕ ИЗ WB
     async function refreshData() {
         if (!currentCabinetId) { alert('Выберите кабинет'); return; }
         const btn = document.getElementById('refresh-btn');
         btn.textContent = '⟳ Загрузка...'; btn.disabled = true;
-
         try {
-            const { data: cabinet } = await supabase
-                .from('cabinets').select('wb_token')
-                .eq('id', currentCabinetId).single();
+            const { data: cabinet } = await supabase.from('cabinets').select('wb_token').eq('id', currentCabinetId).single();
             if (!cabinet?.wb_token) { alert('Токен не найден'); return; }
-
             const from = '2025-01-01';
-
-            const stocksRes = await fetch(
-                `https://statistics-api.wildberries.ru/api/v1/supplier/stocks?dateFrom=${from}`,
-                { headers: { Authorization: cabinet.wb_token } }
-            );
+            const stocksRes = await fetch(`https://statistics-api.wildberries.ru/api/v1/supplier/stocks?dateFrom=${from}`, { headers: { Authorization: cabinet.wb_token } });
             if (stocksRes.status === 429) { alert('WB заблокировал. Подождите 3 минуты.'); return; }
             const stocks = await stocksRes.json();
-
-            const ordersRes = await fetch(
-                `https://statistics-api.wildberries.ru/api/v1/supplier/orders?dateFrom=${from}`,
-                { headers: { Authorization: cabinet.wb_token } }
-            );
+            const ordersRes = await fetch(`https://statistics-api.wildberries.ru/api/v1/supplier/orders?dateFrom=${from}`, { headers: { Authorization: cabinet.wb_token } });
             if (ordersRes.status === 429) { alert('WB заблокировал. Подождите 3 минуты.'); return; }
             const orders = await ordersRes.json();
-
-            // Сохраняем остатки
             if (Array.isArray(stocks) && stocks.length > 0) {
                 await supabase.from('wb_stocks').delete().eq('cabinet_id', currentCabinetId);
-                const stockRows = stocks.map(s => ({
-                    cabinet_id: currentCabinetId,
-                    nm_id: s.nmId,
-                    barcode: s.barcode,
-                    quantity: s.quantity || 0,
-                    in_way_to_client: s.inWayToClient || 0,
-                    in_way_from_client: s.inWayFromClient || 0,
-                    warehouse_name: s.warehouseName || ''
-                }));
-                for (let i = 0; i < stockRows.length; i += 100) {
-                    await supabase.from('wb_stocks').insert(stockRows.slice(i, i + 100));
-                }
+                const stockRows = stocks.map(s => ({ cabinet_id: currentCabinetId, nm_id: s.nmId, barcode: s.barcode, quantity: s.quantity||0, in_way_to_client: s.inWayToClient||0, in_way_from_client: s.inWayFromClient||0, warehouse_name: s.warehouseName||'' }));
+                for (let i = 0; i < stockRows.length; i += 100) { await supabase.from('wb_stocks').insert(stockRows.slice(i, i+100)); }
             }
-
-            // Сохраняем заказы
             if (Array.isArray(orders) && orders.length > 0) {
-                const orderRows = orders.map(o => ({
-                    cabinet_id: currentCabinetId,
-                    order_date: o.date?.split('T')[0] || new Date().toISOString().split('T')[0],
-                    nm_id: o.nmId,
-                    barcode: o.barcode,
-                    price: o.priceWithDiscount || o.totalPrice || 0,
-                    is_return: o.isReturn || false,
-                    data: o
-                }));
-                for (let i = 0; i < orderRows.length; i += 100) {
-                    await supabase.from('wb_orders').upsert(orderRows.slice(i, i + 100),
-                        { onConflict: 'cabinet_id,order_date,nm_id,barcode', ignoreDuplicates: true });
-                }
+                const orderRows = orders.map(o => ({ cabinet_id: currentCabinetId, order_date: o.date?.split('T')[0]||new Date().toISOString().split('T')[0], nm_id: o.nmId, barcode: o.barcode, price: o.priceWithDiscount||o.totalPrice||0, is_return: o.isReturn||false, data: o }));
+                for (let i = 0; i < orderRows.length; i += 100) { await supabase.from('wb_orders').upsert(orderRows.slice(i, i+100), { onConflict: 'cabinet_id,order_date,nm_id,barcode', ignoreDuplicates: true }); }
             }
-
             await loadFromDB();
             alert('✅ Данные сохранены!');
-
-        } catch (e) {
-            alert('Ошибка: ' + e.message);
-        } finally {
-            btn.textContent = '↻ Обновить'; btn.disabled = false;
-        }
+        } catch (e) { alert('Ошибка: ' + e.message); }
+        finally { btn.textContent = '↻ Обновить'; btn.disabled = false; }
     }
 
-    // ============ UI ОБНОВЛЕНИЕ ============
+    // UI
     function updateDashboardFromDB(stocks, orders) {
-        let totalStock = 0, ordersSum = 0, ordersCount = 0, returns = 0;
-
-        stocks.forEach(s => totalStock += Number(s.quantity || 0));
-        orders.forEach(o => {
-            if (o.is_return) { returns++; return; }
-            ordersCount++;
-            ordersSum += Number(o.price || 0);
-        });
-
-        const salesSum = Math.round(ordersSum * 0.65);
-        const salesCount = Math.round(ordersCount * 0.65);
-        const commission = Math.round(salesSum * 0.15);
-        const logistics = Math.round(salesSum * 0.05);
-        const storage = Math.round(salesSum * 0.01);
-        const profit = salesSum - commission - logistics - storage;
-        const margin = salesSum > 0 ? Math.round((profit/salesSum)*100) : 0;
-        const roi = salesSum > 0 ? Math.round((profit/(salesSum*0.5))*100) : 0;
-
-        setText('m-orders-sum', fmt(ordersSum) + ' ₽');
-        setText('m-orders-count', ordersCount + ' шт.');
-        setText('m-sales-sum', fmt(salesSum) + ' ₽');
-        setText('m-sales-count', salesCount + ' шт.');
-        setText('m-stock', fmt(totalStock) + ' шт.');
-        setText('m-conversion', ordersCount > 0 ? '65%' : '—');
-        setText('m-logistics', fmt(logistics) + ' ₽');
-        setText('m-storage', fmt(storage) + ' ₽');
-        setText('m-commission', fmt(commission) + ' ₽');
-        setText('m-realization', fmt(salesSum) + ' ₽');
-        setText('m-returns', returns + ' шт.');
-        setText('m-roi', roi + '%');
-        setText('m-profit', fmt(profit) + ' ₽');
-        setText('m-margin', margin + '%');
-        setText('m-profit2', fmt(profit) + ' ₽');
-        setText('rnp-profit', fmt(profit) + ' ₽');
-        setText('rnp-margin', margin + '%');
-        setText('rnp-roi', roi + '%');
-
-        // Таблица артикулов
+        let totalStock=0, ordersSum=0, ordersCount=0, returns=0;
+        stocks.forEach(s => totalStock += Number(s.quantity||0));
+        orders.forEach(o => { if(o.is_return){returns++;return;} ordersCount++; ordersSum+=Number(o.price||0); });
+        const salesSum=Math.round(ordersSum*0.65), salesCount=Math.round(ordersCount*0.65);
+        const commission=Math.round(salesSum*0.15), logistics=Math.round(salesSum*0.05), storage=Math.round(salesSum*0.01);
+        const profit=salesSum-commission-logistics-storage;
+        const margin=salesSum>0?Math.round((profit/salesSum)*100):0;
+        const roi=salesSum>0?Math.round((profit/(salesSum*0.5))*100):0;
+        setText('m-orders-sum', fmt(ordersSum)+' ₽'); setText('m-orders-count', ordersCount+' шт.');
+        setText('m-sales-sum', fmt(salesSum)+' ₽'); setText('m-sales-count', salesCount+' шт.');
+        setText('m-stock', fmt(totalStock)+' шт.'); setText('m-conversion', ordersCount>0?'65%':'—');
+        setText('m-logistics', fmt(logistics)+' ₽'); setText('m-storage', fmt(storage)+' ₽');
+        setText('m-commission', fmt(commission)+' ₽'); setText('m-realization', fmt(salesSum)+' ₽');
+        setText('m-returns', returns+' шт.'); setText('m-roi', roi+'%');
+        setText('m-profit', fmt(profit)+' ₽'); setText('m-margin', margin+'%');
+        setText('m-profit2', fmt(profit)+' ₽');
+        setText('rnp-profit', fmt(profit)+' ₽'); setText('rnp-margin', margin+'%'); setText('rnp-roi', roi+'%');
         const tbody = document.getElementById('products-table');
         if (stocks.length > 0) {
-            tbody.innerHTML = stocks.slice(0, 30).map(p => {
-                const enough = (p.quantity || 0) > 10;
-                return `<tr>
-                    <td class="text-purple-400 font-semibold">${p.nm_id || '—'}</td>
-                    <td class="text-gray-500">${p.barcode || '—'}</td>
-                    <td class="text-white font-bold">${p.quantity || 0}</td>
-                    <td class="text-gray-400">${p.in_way_to_client || 0}</td>
-                    <td><span class="${enough ? 'badge-green' : 'badge-red'}">${enough ? 'Достаточно' : 'Подсорт'}</span></td>
-                </tr>`;
+            tbody.innerHTML = stocks.slice(0,30).map(p => {
+                const enough=(p.quantity||0)>10;
+                return `<tr><td class="text-purple-400 font-semibold">${p.nm_id||'—'}</td><td class="text-gray-500">${p.barcode||'—'}</td><td class="text-white font-bold">${p.quantity||0}</td><td class="text-gray-400">${p.in_way_to_client||0}</td><td><span class="${enough?'badge-green':'badge-red'}">${enough?'Достаточно':'Подсорт'}</span></td></tr>`;
             }).join('');
         } else {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-600 py-10">Нет данных — нажмите "Обновить"</td></tr>';
@@ -616,13 +640,13 @@
     }
 
     function updateWarehouseFromDB(stocks) {
-        setText('wh-total', fmt(stocks.reduce((a,s) => a+Number(s.quantity||0), 0)) + ' шт.');
-        const byWH = {};
-        stocks.forEach(s => { const w = s.warehouse_name||'Неизвестно'; byWH[w]=(byWH[w]||0)+Number(s.quantity||0); });
-        const entries = Object.entries(byWH).sort((a,b) => b[1]-a[1]);
-        document.getElementById('warehouse-list').innerHTML = entries.length > 0
-            ? `<div class="divide-y divide-white/5">${entries.map(([n,q]) => `<div class="flex justify-between px-5 py-3"><span class="text-sm text-gray-300">${n}</span><span class="text-sm font-bold text-white">${fmt(q)} шт.</span></div>`).join('')}</div>`
-            : '<div class="py-10 text-center text-gray-600">Нет данных</div>';
+        setText('wh-total', fmt(stocks.reduce((a,s)=>a+Number(s.quantity||0),0))+' шт.');
+        const byWH={};
+        stocks.forEach(s=>{const w=s.warehouse_name||'Неизвестно';byWH[w]=(byWH[w]||0)+Number(s.quantity||0);});
+        const entries=Object.entries(byWH).sort((a,b)=>b[1]-a[1]);
+        document.getElementById('warehouse-list').innerHTML=entries.length>0
+            ?`<div class="divide-y divide-white/5">${entries.map(([n,q])=>`<div class="flex justify-between px-5 py-3"><span class="text-sm text-gray-300">${n}</span><span class="text-sm font-bold text-white">${fmt(q)} шт.</span></div>`).join('')}</div>`
+            :'<div class="py-10 text-center text-gray-600">Нет данных</div>';
     }
 
     function saveSettings() {
@@ -637,33 +661,18 @@
         window.location.href = '/login';
     }
 
-    function setText(id, val) { const el = document.getElementById(id); if(el) el.textContent = val; }
+    function setText(id, val) { const el=document.getElementById(id); if(el) el.textContent=val; }
     function fmt(n) { return Number(n).toLocaleString('ru-RU'); }
 
-    // ============ ИНИЦИАЛИЗАЦИЯ ============
+    // ИНИЦИАЛИЗАЦИЯ
     document.addEventListener('DOMContentLoaded', async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { window.location.href = '/login'; return; }
 
-        const userEmail = session.user.email;
-        const { data: allowed } = await supabase
-            .from('allowed_users')
-            .select('email, name, role')
-            .eq('email', userEmail)
-            .single();
+        const { data: allowed } = await supabase.from('allowed_users').select('email').eq('email', session.user.email).single();
 
         if (!allowed) {
-            document.body.innerHTML = `
-                <div style="min-height:100vh;background:#030303;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif">
-                    <div style="text-align:center;padding:40px">
-                        <div style="width:80px;height:80px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 0 60px rgba(109,40,217,0.4)">
-                            <span style="color:white;font-size:32px;font-weight:900">N</span>
-                        </div>
-                        <h1 style="color:white;font-size:24px;font-weight:700;margin-bottom:12px">Сервис в разработке</h1>
-                        <p style="color:#6b7280;font-size:14px;margin-bottom:32px">Платформа пока недоступна для новых пользователей.</p>
-                        <a href="https://nurcon.kg" style="display:inline-block;padding:12px 32px;background:#6D28D9;color:white;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600">Перейти на nurcon.kg →</a>
-                    </div>
-                </div>`;
+            document.body.innerHTML = `<div style="min-height:100vh;background:#030303;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif"><div style="text-align:center;padding:40px"><div style="width:80px;height:80px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 0 60px rgba(109,40,217,0.4)"><span style="color:white;font-size:32px;font-weight:900">N</span></div><h1 style="color:white;font-size:24px;font-weight:700;margin-bottom:12px">Сервис в разработке</h1><p style="color:#6b7280;font-size:14px;margin-bottom:32px">Платформа пока недоступна для новых пользователей.</p><a href="https://nurcon.kg" style="display:inline-block;padding:12px 32px;background:#6D28D9;color:white;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600">Перейти на nurcon.kg →</a></div></div>`;
             return;
         }
 
@@ -672,127 +681,8 @@
         document.getElementById('user-initial').textContent = name.charAt(0).toUpperCase();
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span class="text-white">${session.user.email}</span></div>`;
 
-        // Устанавливаем дату по умолчанию
-        document.getElementById('date-to').value = new Date().toISOString().split('T')[0];
-
         await loadCabinets();
-    // ============ ПИКЕР ДАТ ============
-const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
-const RU_MONTHS_S_CAL = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
-let pickerState = { year:2026, month: new Date().getMonth(), fromDate:null, toDate:null, selecting:'from' };
-
-function fmtDate(d) { return d.toISOString().split('T')[0]; }
-function fmtRuDate(d) { return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'}); }
-
-function changeYear(d) { pickerState.year+=d; document.getElementById('year-label').textContent=pickerState.year; renderYearGrid(); }
-function changeMonth(d) {
-    pickerState.month+=d;
-    if(pickerState.month<0){pickerState.month=11;pickerState.year--;document.getElementById('year-label').textContent=pickerState.year;}
-    if(pickerState.month>11){pickerState.month=0;pickerState.year++;document.getElementById('year-label').textContent=pickerState.year;}
-    renderMonthGrid();
-}
-
-function renderYearGrid() {
-    const g = document.getElementById('year-grid'); if(!g) return;
-    g.innerHTML='';
-    for(let m=0;m<12;m++){
-        const btn=document.createElement('button');
-        btn.textContent=RU_MONTHS_S_CAL[m];
-        const isCur=(m===pickerState.month);
-        btn.style.cssText=`background:${isCur?'#7C3AED':'none'};color:${isCur?'white':'#9ca3af'};border:none;border-radius:6px;padding:4px 2px;font-size:10px;cursor:pointer`;
-        btn.onclick=()=>{pickerState.month=m;renderYearGrid();renderMonthGrid();};
-        g.appendChild(btn);
-    }
-}
-
-function renderMonthGrid() {
-    document.getElementById('month-label').textContent=RU_MONTHS_CAL[pickerState.month]+' '+pickerState.year;
-    const g=document.getElementById('month-grid'); if(!g) return;
-    g.innerHTML='';
-    const first=new Date(pickerState.year,pickerState.month,1);
-    let dow=first.getDay(); if(dow===0) dow=7;
-    const dim=new Date(pickerState.year,pickerState.month+1,0).getDate();
-    const prev=new Date(pickerState.year,pickerState.month,0).getDate();
-    for(let i=1;i<dow;i++){
-        const d=document.createElement('div');
-        d.textContent=prev-dow+1+i;
-        d.style.cssText='text-align:center;font-size:11px;color:#374151;padding:4px 2px';
-        g.appendChild(d);
-    }
-    for(let day=1;day<=dim;day++){
-        const btn=document.createElement('button');
-        btn.textContent=day;
-        const date=new Date(pickerState.year,pickerState.month,day);
-        const dw=date.getDay();
-        const isWE=dw===0||dw===6;
-        const isFrom=pickerState.fromDate&&fmtDate(date)===fmtDate(pickerState.fromDate);
-        const isTo=pickerState.toDate&&fmtDate(date)===fmtDate(pickerState.toDate);
-        const inRange=pickerState.fromDate&&pickerState.toDate&&date>pickerState.fromDate&&date<pickerState.toDate;
-        btn.style.cssText=`background:${(isFrom||isTo)?'#7C3AED':inRange?'rgba(109,40,217,0.2)':'none'};color:${(isFrom||isTo)?'white':inRange?'#a78bfa':isWE?'#f87171':'#e5e7eb'};border:none;border-radius:6px;padding:4px 2px;font-size:11px;cursor:pointer;font-weight:${(isFrom||isTo)?'600':'400'}`;
-        btn.onclick=()=>{
-            if(pickerState.selecting==='from'||!pickerState.fromDate){
-                pickerState.fromDate=date;pickerState.toDate=null;pickerState.selecting='to';
-            } else {
-                if(date<pickerState.fromDate){pickerState.toDate=pickerState.fromDate;pickerState.fromDate=date;}
-                else{pickerState.toDate=date;}
-                pickerState.selecting='from';
-            }
-            document.getElementById('picker-from').value=pickerState.fromDate?fmtDate(pickerState.fromDate):'';
-            document.getElementById('picker-to').value=pickerState.toDate?fmtDate(pickerState.toDate):'';
-            renderMonthGrid();renderYearGrid();
-        };
-        g.appendChild(btn);
-    }
-}
-
-function setQuickPicker(days,mode) {
-    const to=new Date(); let from=new Date();
-    if(days>0){from.setDate(to.getDate()-days);}
-    else if(mode==='month'){from=new Date(to.getFullYear(),to.getMonth(),1);}
-    else if(mode==='year2025'){from=new Date(2025,0,1);}
-    else if(mode==='year2026'){from=new Date(2026,0,1);}
-    pickerState.fromDate=from;pickerState.toDate=to;
-    pickerState.year=to.getFullYear();pickerState.month=to.getMonth();
-    document.getElementById('year-label').textContent=pickerState.year;
-    document.getElementById('picker-from').value=fmtDate(from);
-    document.getElementById('picker-to').value=fmtDate(to);
-    renderYearGrid();renderMonthGrid();
-}
-
-function onPickerInput() {
-    const f=document.getElementById('picker-from').value;
-    const t=document.getElementById('picker-to').value;
-    if(f){const[y,m,d]=f.split('-').map(Number);pickerState.fromDate=new Date(y,m-1,d);}
-    if(t){const[y,m,d]=t.split('-').map(Number);pickerState.toDate=new Date(y,m-1,d);}
-    renderYearGrid();renderMonthGrid();
-}
-
-function resetPicker() {
-    pickerState.fromDate=null;pickerState.toDate=null;pickerState.selecting='from';
-    document.getElementById('picker-from').value='';
-    document.getElementById('picker-to').value='';
-    renderYearGrid();renderMonthGrid();
-}
-
-function applyPicker() {
-    if(!pickerState.fromDate||!pickerState.toDate){alert('Выберите обе даты');return;}
-    const from=fmtDate(pickerState.fromDate);
-    const to=fmtDate(pickerState.toDate);
-    document.getElementById('date-range').textContent=fmtRuDate(pickerState.fromDate)+' — '+fmtRuDate(pickerState.toDate);
-    document.getElementById('date-picker').classList.add('hidden');
-    loadFromDB(from,to);
-}
-
-// Инициализация пикера
-setTimeout(()=>{
-    if(document.getElementById('year-grid')) {
-        renderYearGrid();
-        renderMonthGrid();
-        setQuickPicker(0,'year2026');
-    }
-},300);
     });
 </script>
 </body>
-</html> 
-
+</html>
