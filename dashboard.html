@@ -180,7 +180,7 @@
             <!-- Фильтры с пикером дат -->
             <div class="flex items-center space-x-2 overflow-x-auto pb-1">
                 <div class="relative">
-                    <div class="filter-chip active flex items-center space-x-1.5" onclick="toggleDatePicker()">
+                    <div class="filter-chip active flex items-center space-x-1.5" id="date-chip" onclick="toggleDatePicker(event)"></div>
                         <span>📅</span>
                         <span id="date-range">01.01.2025 — сегодня</span>
                         <span class="text-gray-600 text-[10px]">▼</span>
@@ -385,8 +385,9 @@
     }
 
     // ============ ПИКЕР ДАТ ============
-    function toggleDatePicker() {
-        document.getElementById('date-picker').classList.toggle('hidden');
+    function toggleDatePicker(e) {
+    e.stopPropagation();
+    document.getElementById('date-picker').classList.toggle('hidden');
     }
 
     function setQuickDate(days, from2025, from2026) {
