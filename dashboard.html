@@ -1,14 +1,13 @@
 <!DOCTYPE html>
 <html lang="ru">
-    <!-- Favicon круглый -->
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23030303'/><text y='72' font-size='58' font-family='Arial Black,sans-serif' font-weight='900' fill='white' x='4'>N</text><text y='72' font-size='58' font-family='Arial Black,sans-serif' font-weight='900' fill='%236D28D9' x='50'>R</text></svg>">
-<!-- PWA -->
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><circle cx='256' cy='256' r='256' fill='%23030303'/><text y='340' font-size='240' font-family='Arial Black,sans-serif' font-weight='900' fill='white' x='20'>N</text><text y='340' font-size='240' font-family='Arial Black,sans-serif' font-weight='900' fill='%236D28D9' x='268'>R</text></svg>">
-<meta name="theme-color" content="#030303">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="NR Space">
 <head>
+    <!-- Favicon круглый -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23030303'/><text y='72' font-size='58' font-family='Arial Black,sans-serif' font-weight='900' fill='white' x='4'>N</text><text y='72' font-size='58' font-family='Arial Black,sans-serif' font-weight='900' fill='%236D28D9' x='50'>R</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><circle cx='256' cy='256' r='256' fill='%23030303'/><text y='340' font-size='240' font-family='Arial Black,sans-serif' font-weight='900' fill='white' x='20'>N</text><text y='340' font-size='240' font-family='Arial Black,sans-serif' font-weight='900' fill='%236D28D9' x='268'>R</text></svg>">
+    <meta name="theme-color" content="#030303">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="NR Space">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NR Space — Аналитика</title>
@@ -18,74 +17,45 @@
     <style>
         * { font-family: 'Plus Jakarta Sans', sans-serif; }
         body { background: #030303; color: #e5e7eb; }
-
         .sidebar { width: 240px; min-height: 100vh; background: rgba(7,7,20,0.97); border-right: 1px solid rgba(255,255,255,0.05); }
-
         .glass { background: rgba(13,13,25,0.6); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.06); }
-
-        .metric-card {
-            background: rgba(13,13,25,0.5); border: 1px solid rgba(255,255,255,0.05);
-            border-radius: 14px; padding: 18px; transition: all 0.25s; position: relative; overflow: hidden;
-        }
+        .metric-card { background: rgba(13,13,25,0.5); border: 1px solid rgba(255,255,255,0.05); border-radius: 14px; padding: 18px; transition: all 0.25s; }
         .metric-card:hover { border-color: rgba(109,40,217,0.3); transform: translateY(-1px); box-shadow: 0 8px 30px rgba(109,40,217,0.1); }
-
-        /* Accordion menu */
         .menu-group { margin: 2px 0; }
-        .menu-group-title {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 9px 16px; cursor: pointer; color: #9ca3af; font-size: 12px; font-weight: 600;
-            border-radius: 8px; margin: 1px 8px; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.05em;
-        }
+        .menu-group-title { display: flex; align-items: center; justify-content: space-between; padding: 9px 16px; cursor: pointer; color: #9ca3af; font-size: 12px; font-weight: 600; border-radius: 8px; margin: 1px 8px; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.05em; }
         .menu-group-title:hover { background: rgba(255,255,255,0.04); color: #d1d5db; }
         .menu-group-title.open { color: #a78bfa; }
         .menu-group-title .arrow { transition: transform 0.2s; font-size: 10px; }
         .menu-group-title.open .arrow { transform: rotate(180deg); }
-
         .menu-sub { overflow: hidden; max-height: 0; transition: max-height 0.3s ease; }
         .menu-sub.open { max-height: 300px; }
-
-        .nav-item {
-            display: flex; align-items: center; gap: 8px;
-            padding: 7px 16px 7px 28px; cursor: pointer; color: #6b7280; font-size: 12.5px;
-            transition: all 0.2s; margin: 1px 8px; border-radius: 7px; border: 1px solid transparent;
-        }
+        .nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 16px 7px 28px; cursor: pointer; color: #6b7280; font-size: 12.5px; transition: all 0.2s; margin: 1px 8px; border-radius: 7px; border: 1px solid transparent; }
         .nav-item:hover { background: rgba(109,40,217,0.08); color: #d1d5db; }
         .nav-item.active { background: rgba(109,40,217,0.15); color: #a78bfa; border-color: rgba(109,40,217,0.2); }
-
-        .cabinet-select {
-            background: rgba(109,40,217,0.1); border: 1px solid rgba(109,40,217,0.3);
-            border-radius: 10px; color: #a78bfa; padding: 8px 12px; font-size: 13px;
-            cursor: pointer; outline: none; width: 100%;
-        }
+        .cabinet-select { background: rgba(109,40,217,0.1); border: 1px solid rgba(109,40,217,0.3); border-radius: 10px; color: #a78bfa; padding: 8px 12px; font-size: 13px; cursor: pointer; outline: none; width: 100%; }
         .cabinet-select option { background: #0d0d19; color: white; }
-
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-thumb { background: rgba(109,40,217,0.3); border-radius: 2px; }
-
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.25s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-
         .badge-green { background: rgba(6,78,59,0.4); color: #34d399; padding: 2px 8px; border-radius: 5px; font-size: 11px; border: 1px solid rgba(52,211,153,0.2); }
         .badge-red { background: rgba(69,10,10,0.4); color: #f87171; padding: 2px 8px; border-radius: 5px; font-size: 11px; border: 1px solid rgba(248,113,113,0.2); }
-
         .neon { box-shadow: 0 0 20px rgba(109,40,217,0.25); }
         .orb { position: fixed; border-radius: 50%; pointer-events: none; filter: blur(120px); opacity: 0.05; }
-
         .data-table { border-collapse: collapse; width: 100%; }
         .data-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.01); }
         .data-table td { padding: 10px 14px; font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.03); }
         .data-table tr:hover td { background: rgba(255,255,255,0.02); }
-
-        /* Filter chips */
-        .filter-chip {
-            display: inline-flex; align-items: center; space-x: 1;
-            padding: 5px 12px; border-radius: 8px; font-size: 12px; cursor: pointer;
-            background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
-            color: #9ca3af; transition: all 0.2s; white-space: nowrap;
-        }
+        .filter-chip { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #9ca3af; transition: all 0.2s; white-space: nowrap; }
         .filter-chip:hover { border-color: rgba(109,40,217,0.4); color: #a78bfa; background: rgba(109,40,217,0.08); }
         .filter-chip.active { border-color: rgba(109,40,217,0.5); color: #a78bfa; background: rgba(109,40,217,0.12); }
+        /* Пикер дат */
+        .date-picker { position: absolute; top: 100%; left: 0; z-index: 100; background: #0d0d19; border: 1px solid rgba(109,40,217,0.3); border-radius: 12px; padding: 16px; margin-top: 8px; min-width: 280px; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+        .date-picker input { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: white; padding: 8px 12px; font-size: 13px; outline: none; width: 100%; }
+        .date-picker input:focus { border-color: rgba(109,40,217,0.5); }
+        .quick-btn { padding: 6px 12px; border-radius: 8px; font-size: 11px; cursor: pointer; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); color: #9ca3af; transition: all 0.2s; }
+        .quick-btn:hover { background: rgba(109,40,217,0.15); color: #a78bfa; border-color: rgba(109,40,217,0.3); }
     </style>
 </head>
 <body class="flex overflow-hidden h-screen">
@@ -93,10 +63,8 @@
     <div class="orb w-96 h-96 bg-purple-600" style="top:-50px;left:100px"></div>
     <div class="orb w-72 h-72 bg-blue-600" style="bottom:0;right:300px"></div>
 
-    <!-- ===== БОКОВОЕ МЕНЮ ===== -->
+    <!-- БОКОВОЕ МЕНЮ -->
     <aside class="sidebar flex flex-col fixed left-0 top-0 z-40 h-full overflow-y-auto shrink-0">
-
-        <!-- Логотип -->
         <div class="px-5 py-4 border-b border-white/5">
             <div class="flex items-center space-x-2.5">
                 <div class="w-8 h-8 bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg flex items-center justify-center neon">
@@ -109,7 +77,6 @@
             </div>
         </div>
 
-        <!-- Кабинет -->
         <div class="px-4 py-3 border-b border-white/5">
             <div class="text-[9px] text-gray-600 uppercase tracking-widest mb-1.5 font-semibold">Кабинет WB</div>
             <select id="cabinet-select" class="cabinet-select" onchange="onCabinetChange()">
@@ -117,14 +84,10 @@
             </select>
         </div>
 
-        <!-- Аккордеон навигация -->
         <nav class="flex-1 py-2 overflow-y-auto">
-
-            <!-- Оцифровка -->
             <div class="menu-group">
                 <div class="menu-group-title open" onclick="toggleMenu(this)">
-                    <span>📊 Оцифровка</span>
-                    <span class="arrow">▼</span>
+                    <span>📊 Оцифровка</span><span class="arrow">▼</span>
                 </div>
                 <div class="menu-sub open">
                     <div class="nav-item active" onclick="showTab('dashboard', this)">Дашборд</div>
@@ -134,12 +97,9 @@
                     <div class="nav-item" onclick="showTab('plan-fact', this)">План-факт</div>
                 </div>
             </div>
-
-            <!-- Финансы -->
             <div class="menu-group">
                 <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span>💰 Финансы</span>
-                    <span class="arrow">▼</span>
+                    <span>💰 Финансы</span><span class="arrow">▼</span>
                 </div>
                 <div class="menu-sub">
                     <div class="nav-item" onclick="showTab('dds', this)">ДДС</div>
@@ -148,12 +108,9 @@
                     <div class="nav-item" onclick="showTab('finance-extra', this)">Дополнительно</div>
                 </div>
             </div>
-
-            <!-- Товары -->
             <div class="menu-group">
                 <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span>🏷️ Товары</span>
-                    <span class="arrow">▼</span>
+                    <span>🏷️ Товары</span><span class="arrow">▼</span>
                 </div>
                 <div class="menu-sub">
                     <div class="nav-item" onclick="showTab('cost', this)">Себестоимость</div>
@@ -161,12 +118,9 @@
                     <div class="nav-item" onclick="showTab('warehouse', this)">Склады</div>
                 </div>
             </div>
-
-            <!-- РНП -->
             <div class="menu-group">
                 <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span>📦 РНП</span>
-                    <span class="arrow">▼</span>
+                    <span>📦 РНП</span><span class="arrow">▼</span>
                 </div>
                 <div class="menu-sub">
                     <div class="nav-item" onclick="showTab('rnp', this)">Модуль РНП</div>
@@ -175,22 +129,17 @@
                     <div class="nav-item" onclick="showTab('rnp-settings', this)">Настройки РНП</div>
                 </div>
             </div>
-
-            <!-- Одиночные пункты -->
             <div class="menu-group">
                 <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span>⚙️ Управление</span>
-                    <span class="arrow">▼</span>
+                    <span>⚙️ Управление</span><span class="arrow">▼</span>
                 </div>
                 <div class="menu-sub">
                     <div class="nav-item" onclick="showTab('settings', this)">Настройки</div>
                     <div class="nav-item" onclick="showTab('tariffs', this)">Тарифы</div>
                 </div>
             </div>
-
         </nav>
 
-        <!-- Пользователь -->
         <div class="px-4 py-3 border-t border-white/5">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2">
@@ -207,12 +156,10 @@
         </div>
     </aside>
 
-    <!-- ===== ОСНОВНОЙ КОНТЕНТ ===== -->
+    <!-- ОСНОВНОЙ КОНТЕНТ -->
     <main class="flex-1 ml-[240px] flex flex-col h-full overflow-hidden">
 
-        <!-- Шапка -->
         <header class="glass border-b border-white/5 px-6 py-3 shrink-0">
-            <!-- Строка 1: заголовок + кнопки -->
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center space-x-3">
                     <h1 id="page-title" class="text-sm font-semibold text-white">Дашборд</h1>
@@ -230,12 +177,39 @@
                 </div>
             </div>
 
-            <!-- Строка 2: период + фильтры -->
+            <!-- Фильтры с пикером дат -->
             <div class="flex items-center space-x-2 overflow-x-auto pb-1">
-                <div class="filter-chip active flex items-center space-x-1.5">
-                    <span>📅</span>
-                    <span id="date-range">17.06 — 23.06.2026</span>
-                    <span class="text-gray-600 text-[10px]">▼</span>
+                <div class="relative">
+                    <div class="filter-chip active flex items-center space-x-1.5" onclick="toggleDatePicker()">
+                        <span>📅</span>
+                        <span id="date-range">01.01.2025 — сегодня</span>
+                        <span class="text-gray-600 text-[10px]">▼</span>
+                    </div>
+                    <!-- Пикер дат -->
+                    <div id="date-picker" class="date-picker hidden">
+                        <div class="text-xs text-gray-400 mb-3 font-semibold">Выберите период</div>
+                        <div class="flex flex-wrap gap-2 mb-4">
+                            <button class="quick-btn" onclick="setQuickDate(7)">7 дней</button>
+                            <button class="quick-btn" onclick="setQuickDate(30)">30 дней</button>
+                            <button class="quick-btn" onclick="setQuickDate(90)">90 дней</button>
+                            <button class="quick-btn" onclick="setQuickDate(365)">Год</button>
+                            <button class="quick-btn" onclick="setQuickDate(0, true)">С начала 2025</button>
+                            <button class="quick-btn" onclick="setQuickDate(0, false, true)">С начала 2026</button>
+                        </div>
+                        <div class="space-y-2">
+                            <div>
+                                <div class="text-xs text-gray-500 mb-1">От</div>
+                                <input type="date" id="date-from" value="2025-01-01">
+                            </div>
+                            <div>
+                                <div class="text-xs text-gray-500 mb-1">До</div>
+                                <input type="date" id="date-to">
+                            </div>
+                        </div>
+                        <button onclick="applyDateFilter()" class="mt-4 w-full py-2 bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold rounded-lg transition">
+                            Применить
+                        </button>
+                    </div>
                 </div>
                 <div class="filter-chip">Маркетплейсы <span class="text-gray-600 ml-1">▼</span></div>
                 <div class="filter-chip">Магазины <span class="text-gray-600 ml-1">▼</span></div>
@@ -246,135 +220,101 @@
             </div>
         </header>
 
-        <!-- Контент -->
         <div class="flex-1 overflow-y-auto p-6">
 
         <!-- ДАШБОРД -->
         <div id="tab-dashboard" class="tab-content active space-y-5">
-            <div>
-                <h2 class="text-sm font-semibold text-white mb-4">Общие показатели</h2>
-                <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Чистая прибыль/Марж-сть</div><div id="m-profit" class="text-lg font-black text-white">—</div><div id="m-margin" class="text-xs text-gray-600 mt-1">— %</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Прибыль/Марж. без опер. расх.</div><div id="m-profit2" class="text-lg font-black text-white">—</div><div class="text-xs text-gray-600 mt-1">— %</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Продажи</div><div id="m-sales-sum" class="text-lg font-black text-white">—</div><div id="m-sales-count" class="text-xs text-gray-600 mt-1">0 шт.</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Реализация</div><div id="m-realization" class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Итоговое вознаграждение ВБ</div><div id="m-commission" class="text-lg font-black text-white">—</div></div>
-                </div>
+            <h2 class="text-sm font-semibold text-white mb-4">Общие показатели</h2>
+            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Чистая прибыль/Марж-сть</div><div id="m-profit" class="text-lg font-black text-white">—</div><div id="m-margin" class="text-xs text-gray-600 mt-1">— %</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Прибыль/Марж. без опер. расх.</div><div id="m-profit2" class="text-lg font-black text-white">—</div><div class="text-xs text-gray-600 mt-1">— %</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Продажи</div><div id="m-sales-sum" class="text-lg font-black text-white">—</div><div id="m-sales-count" class="text-xs text-gray-600 mt-1">0 шт.</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Реализация</div><div id="m-realization" class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Итоговое вознаграждение ВБ</div><div id="m-commission" class="text-lg font-black text-white">—</div></div>
+            </div>
+            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Заказы</div><div id="m-orders-sum" class="text-lg font-black text-white">—</div><div id="m-orders-count" class="text-xs text-gray-600 mt-1">0 шт.</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Процент выкупа</div><div id="m-conversion" class="text-lg font-black text-purple-400">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Логистика</div><div id="m-logistics" class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Реклама/ДРР</div><div id="m-ads" class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Хранение</div><div id="m-storage" class="text-lg font-black text-white">—</div></div>
+            </div>
+            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Плат. приёмка</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Прочие удержания</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">ROI</div><div id="m-roi" class="text-lg font-black text-blue-400">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Себестоимость продаж</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Операционные расходы</div><div id="m-opex" class="text-lg font-black text-white">—</div></div>
+            </div>
+            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Налоги</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Налоговая база</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Комиссия</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Ср. цена до скидок МП</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Капитализация по себес.</div><div class="text-lg font-black text-white">—</div></div>
+            </div>
+            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Капитализация по розн.</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Остатки</div><div id="m-stock" class="text-lg font-black text-amber-400">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Остатки на моих складах</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Капитализ. на моих складах</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">GMROI</div><div class="text-lg font-black text-white">—</div></div>
+            </div>
+            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Годовой GMROI</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Штрафы</div><div class="text-lg font-black text-red-400">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Компенсации</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Ср. цена продажи</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Ср. стоимость логистики</div><div class="text-lg font-black text-white">—</div></div>
+            </div>
+            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Средняя прибыль на 1 шт.</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Реклама/ДРРз</div><div class="text-lg font-black text-white">—</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Возвраты</div><div id="m-returns" class="text-lg font-black text-red-400">—</div><div class="text-xs text-gray-600 mt-1">0 шт.</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Оборачиваемость по прод.</div><div class="text-lg font-black text-white">— Дн.</div></div>
+                <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Оборачиваемость по зак.</div><div class="text-lg font-black text-white">— Дн.</div></div>
+            </div>
 
-                <div class="grid grid-cols-2 xl:grid-cols-5 gap-3 mt-3">
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Заказы</div><div id="m-orders-sum" class="text-lg font-black text-white">—</div><div id="m-orders-count" class="text-xs text-gray-600 mt-1">0 шт.</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Процент выкупа</div><div id="m-conversion" class="text-lg font-black text-purple-400">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Логистика</div><div id="m-logistics" class="text-lg font-black text-white">—</div><div class="text-xs text-gray-600 mt-1">— %</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Реклама/ДРР</div><div id="m-ads" class="text-lg font-black text-white">—</div><div class="text-xs text-gray-600 mt-1">— %</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Хранение</div><div id="m-storage" class="text-lg font-black text-white">—</div><div class="text-xs text-gray-600 mt-1">— %</div></div>
+            <!-- Таблица артикулов -->
+            <div class="glass rounded-2xl overflow-hidden mt-4">
+                <div class="px-5 py-3 border-b border-white/5 flex justify-between items-center">
+                    <h3 class="text-sm font-semibold text-white">Топ артикулов — остатки</h3>
+                    <span class="text-xs bg-purple-500/10 text-purple-400 px-3 py-1 rounded-full border border-purple-500/20">Realtime</span>
                 </div>
-
-                <div class="grid grid-cols-2 xl:grid-cols-5 gap-3 mt-3">
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Плат. приёмка</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Прочие удержания</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">ROI</div><div id="m-roi" class="text-lg font-black text-blue-400">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Себестоимость продаж</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Операционные расходы</div><div id="m-opex" class="text-lg font-black text-white">—</div></div>
-                </div>
-
-                <div class="grid grid-cols-2 xl:grid-cols-5 gap-3 mt-3">
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Налоги</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Налоговая база</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Комиссия</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Ср. цена до скидок МП</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Капитализация по себес.</div><div class="text-lg font-black text-white">—</div></div>
-                </div>
-
-                <div class="grid grid-cols-2 xl:grid-cols-5 gap-3 mt-3">
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Капитализация по розн.</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Остатки</div><div id="m-stock" class="text-lg font-black text-amber-400">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Остатки на моих складах</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Капитализ. на моих складах</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">GMROI</div><div class="text-lg font-black text-white">—</div></div>
-                </div>
-
-                <div class="grid grid-cols-2 xl:grid-cols-5 gap-3 mt-3">
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Годовой GMROI</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Штрафы</div><div class="text-lg font-black text-red-400">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Компенсации</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Ср. цена продажи</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Ср. стоимость логистики</div><div class="text-lg font-black text-white">—</div></div>
-                </div>
-
-                <div class="grid grid-cols-2 xl:grid-cols-5 gap-3 mt-3">
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Средняя прибыль на 1 шт.</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Реклама/ДРРз</div><div class="text-lg font-black text-white">—</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Возвраты</div><div id="m-returns" class="text-lg font-black text-red-400">—</div><div class="text-xs text-gray-600 mt-1">0 шт.</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Оборачиваемость по прод.</div><div class="text-lg font-black text-white">— Дн.</div></div>
-                    <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Оборачиваемость по зак.</div><div class="text-lg font-black text-white">— Дн.</div></div>
+                <div class="overflow-x-auto">
+                    <table class="data-table">
+                        <thead><tr><th>Артикул WB</th><th>Баркод</th><th>На складе</th><th>В пути</th><th>Статус</th></tr></thead>
+                        <tbody id="products-table">
+                            <tr><td colspan="5" class="text-center text-gray-600 py-10">Нажмите "Обновить" для загрузки данных</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <!-- СВОДНЫЙ ОТЧЁТ -->
-        <div id="tab-summary" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📈</div><h3 class="text-white font-semibold">Сводный отчёт</h3><p class="text-gray-500 text-sm mt-2">Данные появятся после загрузки из WB</p></div>
-        </div>
+        <!-- Остальные табы -->
+        <div id="tab-summary" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📈</div><h3 class="text-white font-semibold">Сводный отчёт</h3><p class="text-gray-500 text-sm mt-2">Данные появятся после загрузки из WB</p></div></div>
+        <div id="tab-summary-biz" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">🏢</div><h3 class="text-white font-semibold">Сводный по бизнесу</h3></div></div>
+        <div id="tab-deductions" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📋</div><h3 class="text-white font-semibold">Прочие удержания</h3></div></div>
+        <div id="tab-plan-fact" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">🎯</div><h3 class="text-white font-semibold">План-факт</h3></div></div>
+        <div id="tab-dds" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">💸</div><h3 class="text-white font-semibold">ДДС</h3></div></div>
+        <div id="tab-operations" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">🔄</div><h3 class="text-white font-semibold">Операции</h3></div></div>
+        <div id="tab-obligations" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📌</div><h3 class="text-white font-semibold">Обязательства</h3></div></div>
+        <div id="tab-finance-extra" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">➕</div><h3 class="text-white font-semibold">Дополнительно</h3></div></div>
 
-        <!-- СВОДНЫЙ ПО БИЗНЕСУ -->
-        <div id="tab-summary-biz" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">🏢</div><h3 class="text-white font-semibold">Сводный по бизнесу</h3><p class="text-gray-500 text-sm mt-2">Агрегированные данные по всем кабинетам</p></div>
-        </div>
-
-        <!-- ПРОЧИЕ УДЕРЖАНИЯ -->
-        <div id="tab-deductions" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📋</div><h3 class="text-white font-semibold">Прочие удержания</h3><p class="text-gray-500 text-sm mt-2">Штрафы, компенсации, корректировки</p></div>
-        </div>
-
-        <!-- ПЛАН-ФАКТ -->
-        <div id="tab-plan-fact" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">🎯</div><h3 class="text-white font-semibold">План-факт</h3><p class="text-gray-500 text-sm mt-2">Сравнение плановых и фактических показателей</p></div>
-        </div>
-
-        <!-- ДДС -->
-        <div id="tab-dds" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">💸</div><h3 class="text-white font-semibold">ДДС</h3><p class="text-gray-500 text-sm mt-2">Движение денежных средств</p></div>
-        </div>
-
-        <!-- ОПЕРАЦИИ -->
-        <div id="tab-operations" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">🔄</div><h3 class="text-white font-semibold">Операции</h3><p class="text-gray-500 text-sm mt-2">Все финансовые операции по кабинету</p></div>
-        </div>
-
-        <!-- ОБЯЗАТЕЛЬСТВА -->
-        <div id="tab-obligations" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📌</div><h3 class="text-white font-semibold">Обязательства</h3></div>
-        </div>
-
-        <!-- ДОПОЛНИТЕЛЬНО -->
-        <div id="tab-finance-extra" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">➕</div><h3 class="text-white font-semibold">Дополнительно</h3></div>
-        </div>
-
-        <!-- СЕБЕСТОИМОСТЬ -->
         <div id="tab-cost" class="tab-content space-y-5">
             <div class="glass rounded-2xl p-6">
                 <h3 class="text-white font-semibold mb-5">Параметры расчёта прибыли</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="text-xs text-gray-400 block mb-2">Налоговая ставка (%)</label>
-                        <input type="number" id="tax-rate" placeholder="6" value="6" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-purple-500">
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-400 block mb-2">Операционные расходы в месяц (₽)</label>
-                        <input type="number" id="opex" placeholder="150000" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-purple-500">
-                    </div>
+                    <div><label class="text-xs text-gray-400 block mb-2">Налоговая ставка (%)</label><input type="number" id="tax-rate" placeholder="6" value="6" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-purple-500"></div>
+                    <div><label class="text-xs text-gray-400 block mb-2">Операционные расходы в месяц (₽)</label><input type="number" id="opex" placeholder="150000" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-purple-500"></div>
                 </div>
                 <button onclick="saveSettings()" class="mt-4 px-6 py-2.5 bg-purple-700 hover:bg-purple-600 text-white text-sm font-semibold rounded-xl transition">Сохранить</button>
             </div>
         </div>
 
-        <!-- ГРУППЫ ТОВАРОВ -->
-        <div id="tab-goods-groups" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📦</div><h3 class="text-white font-semibold">Группы товаров</h3></div>
-        </div>
+        <div id="tab-goods-groups" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📦</div><h3 class="text-white font-semibold">Группы товаров</h3></div></div>
 
-        <!-- СКЛАДЫ -->
         <div id="tab-warehouse" class="tab-content space-y-5">
             <div class="grid grid-cols-3 gap-4">
                 <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Всего на складах WB</div><div id="wh-total" class="text-2xl font-black text-white">—</div></div>
@@ -387,34 +327,18 @@
             </div>
         </div>
 
-        <!-- РНП -->
         <div id="tab-rnp" class="tab-content space-y-5">
             <div class="grid grid-cols-3 gap-4">
                 <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Чистая прибыль</div><div id="rnp-profit" class="text-2xl font-black text-emerald-400">—</div></div>
                 <div class="metric-card"><div class="text-xs text-gray-500 mb-2">Маржинальность</div><div id="rnp-margin" class="text-2xl font-black text-purple-400">—</div></div>
                 <div class="metric-card"><div class="text-xs text-gray-500 mb-2">ROI</div><div id="rnp-roi" class="text-2xl font-black text-blue-400">—</div></div>
             </div>
-            <div class="glass rounded-2xl p-5 border-amber-500/10">
-                <p class="text-sm text-amber-300">⚠️ Для точного расчёта укажите себестоимость в разделе <span class="text-purple-400 cursor-pointer underline" onclick="showTab('cost', null)">Себестоимость</span></p>
-            </div>
         </div>
 
-        <!-- АНАЛИТИКА РК -->
-        <div id="tab-ads" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📣</div><h3 class="text-white font-semibold">Аналитика РК</h3><p class="text-gray-500 text-sm mt-2">Подключите токен с доступом к "Продвижение" в WB</p></div>
-        </div>
+        <div id="tab-ads" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">📣</div><h3 class="text-white font-semibold">Аналитика РК</h3><p class="text-gray-500 text-sm mt-2">Подключите токен с доступом к "Продвижение" в WB</p></div></div>
+        <div id="tab-heatmap" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">🗺️</div><h3 class="text-white font-semibold">Тепловая карта</h3></div></div>
+        <div id="tab-rnp-settings" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">⚙️</div><h3 class="text-white font-semibold">Настройки РНП</h3></div></div>
 
-        <!-- ТЕПЛОВАЯ КАРТА -->
-        <div id="tab-heatmap" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">🗺️</div><h3 class="text-white font-semibold">Тепловая карта</h3></div>
-        </div>
-
-        <!-- НАСТРОЙКИ РНП -->
-        <div id="tab-rnp-settings" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">⚙️</div><h3 class="text-white font-semibold">Настройки РНП</h3></div>
-        </div>
-
-        <!-- НАСТРОЙКИ -->
         <div id="tab-settings" class="tab-content space-y-4">
             <div class="glass rounded-2xl p-6">
                 <h3 class="text-white font-semibold mb-4">Профиль</h3>
@@ -424,35 +348,32 @@
             <div class="glass rounded-2xl p-6">
                 <h3 class="text-white font-semibold mb-3">О платформе</h3>
                 <div class="text-sm text-gray-400 space-y-1.5">
-                    <div>Версия: <span class="text-white">Nur Platform v1.0</span></div>
+                    <div>Версия: <span class="text-white">NR Space v1.0</span></div>
                     <div>База данных: <span class="text-emerald-400">Supabase ✓</span></div>
                     <div>WB API: <span class="text-emerald-400">Подключено ✓</span></div>
                 </div>
             </div>
         </div>
 
-        <!-- ТАРИФЫ -->
-        <div id="tab-tariffs" class="tab-content">
-            <div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">💎</div><h3 class="text-white font-semibold">Тарифы</h3><p class="text-gray-500 text-sm mt-2">Управление подпиской</p></div>
-        </div>
+        <div id="tab-tariffs" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div class="text-4xl mb-3">💎</div><h3 class="text-white font-semibold">Тарифы</h3></div></div>
 
         </div>
     </main>
 
 <script>
     SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
-    SUPABASE_KEY ='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q'; 
+    SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
     supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     let currentCabinetId = localStorage.getItem('selected_cabinet_id') || null;
 
-    // Аккордеон
+    // ============ АККОРДЕОН ============
     function toggleMenu(el) {
         el.classList.toggle('open');
         el.nextElementSibling.classList.toggle('open');
     }
 
-    // Табы
+    // ============ ТАБЫ ============
     const tabTitles = { dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт', dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно', cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады', rnp:'Модуль РНП', ads:'Аналитика РК', heatmap:'Тепловая карта', 'rnp-settings':'Настройки РНП', settings:'Настройки', tariffs:'Тарифы' };
 
     function showTab(name, el) {
@@ -463,7 +384,38 @@
         document.getElementById('page-title').textContent = tabTitles[name] || name;
     }
 
-    // Кабинеты
+    // ============ ПИКЕР ДАТ ============
+    function toggleDatePicker() {
+        document.getElementById('date-picker').classList.toggle('hidden');
+    }
+
+    function setQuickDate(days, from2025, from2026) {
+        const to = new Date();
+        let from = new Date();
+        if (from2025) { from = new Date('2025-01-01'); }
+        else if (from2026) { from = new Date('2026-01-01'); }
+        else { from.setDate(to.getDate() - days); }
+        document.getElementById('date-from').value = from.toISOString().split('T')[0];
+        document.getElementById('date-to').value = to.toISOString().split('T')[0];
+    }
+
+    function applyDateFilter() {
+        const from = document.getElementById('date-from').value;
+        const to = document.getElementById('date-to').value;
+        document.getElementById('date-picker').classList.add('hidden');
+        loadFromDB(from, to);
+    }
+
+    // Закрытие пикера по клику вне
+    document.addEventListener('click', function(e) {
+        const picker = document.getElementById('date-picker');
+        const chip = picker?.previousElementSibling;
+        if (picker && !picker.contains(e.target) && chip && !chip.contains(e.target)) {
+            picker.classList.add('hidden');
+        }
+    });
+
+    // ============ КАБИНЕТЫ ============
     async function loadCabinets() {
         const { data } = await supabase.from('cabinets').select('id, name').order('name');
         const select = document.getElementById('cabinet-select');
@@ -472,7 +424,7 @@
         if (!currentCabinetId) { currentCabinetId = data[0].id; localStorage.setItem('selected_cabinet_id', currentCabinetId); }
         const sel = data.find(c => c.id === currentCabinetId);
         if (sel) document.getElementById('cabinet-name-header').textContent = sel.name;
-        loadCachedData();
+        await loadFromDB();
     }
 
     function onCabinetChange() {
@@ -480,76 +432,120 @@
         currentCabinetId = s.value;
         localStorage.setItem('selected_cabinet_id', currentCabinetId);
         document.getElementById('cabinet-name-header').textContent = s.options[s.selectedIndex].text;
-        loadCachedData();
+        loadFromDB();
     }
 
-   async function loadCachedData() {
-    if (!currentCabinetId) return;
-    
-    try {
-        const { data, error } = await supabase
-            .from('wb_cache')
-            .select('data_type, data')
+    // ============ ЗАГРУЗКА ИЗ БД ============
+    async function loadFromDB(dateFrom, dateTo) {
+        if (!currentCabinetId) return;
+
+        const from = dateFrom || '2025-01-01';
+        const to = dateTo || new Date().toISOString().split('T')[0];
+
+        const { data: orders } = await supabase
+            .from('wb_orders')
+            .select('*')
+            .eq('cabinet_id', currentCabinetId)
+            .gte('order_date', from)
+            .lte('order_date', to);
+
+        const { data: stocks } = await supabase
+            .from('wb_stocks')
+            .select('*')
             .eq('cabinet_id', currentCabinetId);
-        
-        console.log('Кэш:', data, error);
-        
-        if (error || !data || data.length === 0) {
-            console.log('Кэш пустой');
-            return;
+
+        if (orders !== null && stocks !== null) {
+            updateDashboardFromDB(stocks, orders);
+            updateWarehouseFromDB(stocks);
+            const fromStr = from.split('-').reverse().join('.');
+            const toStr = to.split('-').reverse().join('.');
+            document.getElementById('date-range').textContent = `${fromStr} — ${toStr}`;
         }
-        
-       const stocksRow = data.find(d => d.data_type === 'stocks');
-        const ordersRow = data.find(d => d.data_type === 'orders');
-        
-        console.log('stocks row:', JSON.stringify(stocksRow).slice(0, 100));
-        console.log('orders row:', JSON.stringify(ordersRow).slice(0, 100));
-        
-        const stocks = Array.isArray(stocksRow?.data) ? stocksRow.data : stocksRow?.data?.data;
-        const orders = Array.isArray(ordersRow?.data) ? ordersRow.data : ordersRow?.data?.data;
-        
-        if (stocks && orders) {
-            console.log('Загружаем из кэша:', stocks.length, orders.length);
-            updateDashboard(stocks, orders);
-            updateWarehouse(stocks);
-        }
-    } catch(e) {
-        console.log('Ошибка кэша:', e);
-    }
     }
 
+    // ============ ОБНОВЛЕНИЕ ИЗ WB ============
     async function refreshData() {
         if (!currentCabinetId) { alert('Выберите кабинет'); return; }
         const btn = document.getElementById('refresh-btn');
         btn.textContent = '⟳ Загрузка...'; btn.disabled = true;
+
         try {
-            const { data: cabinet } = await supabase.from('cabinets').select('wb_token').eq('id', currentCabinetId).single();
+            const { data: cabinet } = await supabase
+                .from('cabinets').select('wb_token')
+                .eq('id', currentCabinetId).single();
             if (!cabinet?.wb_token) { alert('Токен не найден'); return; }
+
             const from = '2025-01-01';
-            const [sRes, oRes] = await Promise.all([
-                fetch(`https://statistics-api.wildberries.ru/api/v1/supplier/stocks?dateFrom=${from}`, { headers: { Authorization: cabinet.wb_token } }),
-                fetch(`https://statistics-api.wildberries.ru/api/v1/supplier/orders?dateFrom=${from}`, { headers: { Authorization: cabinet.wb_token } })
-            ]);
-            if (sRes.status === 429) { alert('WB ограничил запросы. Подождите 2-3 минуты.'); return; }
-            const stocks = await sRes.json();
-            const orders = await oRes.json();
-            await supabase.from('wb_cache').upsert([
-                { cabinet_id: currentCabinetId, data_type: 'stocks', data: stocks, updated_at: new Date() },
-                { cabinet_id: currentCabinetId, data_type: 'orders', data: orders, updated_at: new Date() }
-            ], { onConflict: 'cabinet_id,data_type' });
-            updateDashboard(stocks, orders);
-            updateWarehouse(stocks);
-        } catch(e) { alert('Ошибка: ' + e.message); }
-        finally { btn.textContent = '↻ Обновить'; btn.disabled = false; }
+
+            const stocksRes = await fetch(
+                `https://statistics-api.wildberries.ru/api/v1/supplier/stocks?dateFrom=${from}`,
+                { headers: { Authorization: cabinet.wb_token } }
+            );
+            if (stocksRes.status === 429) { alert('WB заблокировал. Подождите 3 минуты.'); return; }
+            const stocks = await stocksRes.json();
+
+            const ordersRes = await fetch(
+                `https://statistics-api.wildberries.ru/api/v1/supplier/orders?dateFrom=${from}`,
+                { headers: { Authorization: cabinet.wb_token } }
+            );
+            if (ordersRes.status === 429) { alert('WB заблокировал. Подождите 3 минуты.'); return; }
+            const orders = await ordersRes.json();
+
+            // Сохраняем остатки
+            if (Array.isArray(stocks) && stocks.length > 0) {
+                await supabase.from('wb_stocks').delete().eq('cabinet_id', currentCabinetId);
+                const stockRows = stocks.map(s => ({
+                    cabinet_id: currentCabinetId,
+                    nm_id: s.nmId,
+                    barcode: s.barcode,
+                    quantity: s.quantity || 0,
+                    in_way_to_client: s.inWayToClient || 0,
+                    in_way_from_client: s.inWayFromClient || 0,
+                    warehouse_name: s.warehouseName || ''
+                }));
+                for (let i = 0; i < stockRows.length; i += 100) {
+                    await supabase.from('wb_stocks').insert(stockRows.slice(i, i + 100));
+                }
+            }
+
+            // Сохраняем заказы
+            if (Array.isArray(orders) && orders.length > 0) {
+                const orderRows = orders.map(o => ({
+                    cabinet_id: currentCabinetId,
+                    order_date: o.date?.split('T')[0] || new Date().toISOString().split('T')[0],
+                    nm_id: o.nmId,
+                    barcode: o.barcode,
+                    price: o.priceWithDiscount || o.totalPrice || 0,
+                    is_return: o.isReturn || false,
+                    data: o
+                }));
+                for (let i = 0; i < orderRows.length; i += 100) {
+                    await supabase.from('wb_orders').upsert(orderRows.slice(i, i + 100),
+                        { onConflict: 'cabinet_id,order_date,nm_id,barcode', ignoreDuplicates: true });
+                }
+            }
+
+            await loadFromDB();
+            alert('✅ Данные сохранены!');
+
+        } catch (e) {
+            alert('Ошибка: ' + e.message);
+        } finally {
+            btn.textContent = '↻ Обновить'; btn.disabled = false;
+        }
     }
 
-    function updateDashboard(stocks, orders) {
-        let totalStock=0, ordersSum=0, ordersCount=0, returns=0;
-        if (Array.isArray(stocks)) stocks.forEach(s => totalStock += Number(s.quantity||0));
-        if (Array.isArray(orders)) {
-            ordersCount = orders.length;
-            orders.forEach(o => { ordersSum += Number(o.priceWithDiscount||o.totalPrice||0); if(o.isReturn) returns++; });
-        }
+    // ============ UI ОБНОВЛЕНИЕ ============
+    function updateDashboardFromDB(stocks, orders) {
+        let totalStock = 0, ordersSum = 0, ordersCount = 0, returns = 0;
+
+        stocks.forEach(s => totalStock += Number(s.quantity || 0));
+        orders.forEach(o => {
+            if (o.is_return) { returns++; return; }
+            ordersCount++;
+            ordersSum += Number(o.price || 0);
+        });
+
         const salesSum = Math.round(ordersSum * 0.65);
         const salesCount = Math.round(ordersCount * 0.65);
         const commission = Math.round(salesSum * 0.15);
@@ -564,7 +560,7 @@
         setText('m-sales-sum', fmt(salesSum) + ' ₽');
         setText('m-sales-count', salesCount + ' шт.');
         setText('m-stock', fmt(totalStock) + ' шт.');
-        setText('m-conversion', salesSum>0 ? '65%' : '—');
+        setText('m-conversion', ordersCount > 0 ? '65%' : '—');
         setText('m-logistics', fmt(logistics) + ' ₽');
         setText('m-storage', fmt(storage) + ' ₽');
         setText('m-commission', fmt(commission) + ' ₽');
@@ -574,24 +570,35 @@
         setText('m-profit', fmt(profit) + ' ₽');
         setText('m-margin', margin + '%');
         setText('m-profit2', fmt(profit) + ' ₽');
-        setText('m-opex', '— ₽');
         setText('rnp-profit', fmt(profit) + ' ₽');
         setText('rnp-margin', margin + '%');
         setText('rnp-roi', roi + '%');
 
-        const today = new Date();
-        const weekAgo = new Date(); weekAgo.setDate(today.getDate()-7);
-        document.getElementById('date-range').textContent = `${weekAgo.toLocaleDateString('ru-RU')} — ${today.toLocaleDateString('ru-RU')}`;
+        // Таблица артикулов
+        const tbody = document.getElementById('products-table');
+        if (stocks.length > 0) {
+            tbody.innerHTML = stocks.slice(0, 30).map(p => {
+                const enough = (p.quantity || 0) > 10;
+                return `<tr>
+                    <td class="text-purple-400 font-semibold">${p.nm_id || '—'}</td>
+                    <td class="text-gray-500">${p.barcode || '—'}</td>
+                    <td class="text-white font-bold">${p.quantity || 0}</td>
+                    <td class="text-gray-400">${p.in_way_to_client || 0}</td>
+                    <td><span class="${enough ? 'badge-green' : 'badge-red'}">${enough ? 'Достаточно' : 'Подсорт'}</span></td>
+                </tr>`;
+            }).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-600 py-10">Нет данных — нажмите "Обновить"</td></tr>';
+        }
     }
 
-    function updateWarehouse(stocks) {
-        if (!Array.isArray(stocks)) return;
-        setText('wh-total', fmt(stocks.reduce((a,s)=>a+Number(s.quantity||0),0)) + ' шт.');
+    function updateWarehouseFromDB(stocks) {
+        setText('wh-total', fmt(stocks.reduce((a,s) => a+Number(s.quantity||0), 0)) + ' шт.');
         const byWH = {};
-        stocks.forEach(s => { const w = s.warehouseName||'Неизвестно'; byWH[w]=(byWH[w]||0)+Number(s.quantity||0); });
-        const entries = Object.entries(byWH).sort((a,b)=>b[1]-a[1]);
-        document.getElementById('warehouse-list').innerHTML = entries.length>0
-            ? `<div class="divide-y divide-white/5">${entries.map(([n,q])=>`<div class="flex justify-between px-5 py-3"><span class="text-sm text-gray-300">${n}</span><span class="text-sm font-bold text-white">${fmt(q)} шт.</span></div>`).join('')}</div>`
+        stocks.forEach(s => { const w = s.warehouse_name||'Неизвестно'; byWH[w]=(byWH[w]||0)+Number(s.quantity||0); });
+        const entries = Object.entries(byWH).sort((a,b) => b[1]-a[1]);
+        document.getElementById('warehouse-list').innerHTML = entries.length > 0
+            ? `<div class="divide-y divide-white/5">${entries.map(([n,q]) => `<div class="flex justify-between px-5 py-3"><span class="text-sm text-gray-300">${n}</span><span class="text-sm font-bold text-white">${fmt(q)} шт.</span></div>`).join('')}</div>`
             : '<div class="py-10 text-center text-gray-600">Нет данных</div>';
     }
 
@@ -604,48 +611,49 @@
     async function handleLogout() {
         await supabase.auth.signOut();
         localStorage.removeItem('selected_cabinet_id');
-        window.location.href = '/login.html';
+        window.location.href = '/login';
     }
 
-    function setText(id, val) { const el=document.getElementById(id); if(el) el.textContent=val; }
+    function setText(id, val) { const el = document.getElementById(id); if(el) el.textContent = val; }
     function fmt(n) { return Number(n).toLocaleString('ru-RU'); }
 
+    // ============ ИНИЦИАЛИЗАЦИЯ ============
     document.addEventListener('DOMContentLoaded', async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { window.location.href = '/login'; return; }
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { window.location.href = '/login'; return; }
 
-    // Проверяем доступ
-    const userEmail = session.user.email;
-    const { data: allowed } = await supabase
-        .from('allowed_users')
-        .select('email, name, role')
-        .eq('email', userEmail)
-        .single();
+        const userEmail = session.user.email;
+        const { data: allowed } = await supabase
+            .from('allowed_users')
+            .select('email, name, role')
+            .eq('email', userEmail)
+            .single();
 
-    if (!allowed) {
-        document.body.innerHTML = `
-            <div style="min-height:100vh;background:#030303;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif">
-                <div style="text-align:center;padding:40px">
-                    <div style="width:80px;height:80px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 0 60px rgba(109,40,217,0.4)">
-                        <span style="color:white;font-size:32px;font-weight:900">N</span>
+        if (!allowed) {
+            document.body.innerHTML = `
+                <div style="min-height:100vh;background:#030303;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif">
+                    <div style="text-align:center;padding:40px">
+                        <div style="width:80px;height:80px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 0 60px rgba(109,40,217,0.4)">
+                            <span style="color:white;font-size:32px;font-weight:900">N</span>
+                        </div>
+                        <h1 style="color:white;font-size:24px;font-weight:700;margin-bottom:12px">Сервис в разработке</h1>
+                        <p style="color:#6b7280;font-size:14px;margin-bottom:32px">Платформа пока недоступна для новых пользователей.</p>
+                        <a href="https://nurcon.kg" style="display:inline-block;padding:12px 32px;background:#6D28D9;color:white;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600">Перейти на nurcon.kg →</a>
                     </div>
-                    <h1 style="color:white;font-size:24px;font-weight:700;margin-bottom:12px">Сервис в разработке</h1>
-                    <p style="color:#6b7280;font-size:14px;margin-bottom:32px">Платформа пока недоступна для новых пользователей.<br>Следите за обновлениями на нашем сайте.</p>
-                    <a href="https://nurcon.kg" style="display:inline-block;padding:12px 32px;background:#6D28D9;color:white;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600">
-                        Перейти на nurcon.kg →
-                    </a>
-                </div>
-            </div>
-        `;
-        return;
-    }
+                </div>`;
+            return;
+        }
 
-    const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '—';
-    document.getElementById('sidebar-user').textContent = name;
-    document.getElementById('user-initial').textContent = name.charAt(0).toUpperCase();
-    document.getElementById('settings-user-info').innerHTML = `<div>Email: <span class="text-white">${session.user.email}</span></div>`;
-    await loadCabinets();
-});
+        const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '—';
+        document.getElementById('sidebar-user').textContent = name;
+        document.getElementById('user-initial').textContent = name.charAt(0).toUpperCase();
+        document.getElementById('settings-user-info').innerHTML = `<div>Email: <span class="text-white">${session.user.email}</span></div>`;
+
+        // Устанавливаем дату по умолчанию
+        document.getElementById('date-to').value = new Date().toISOString().split('T')[0];
+
+        await loadCabinets();
+    });
 </script>
 </body>
 </html>
