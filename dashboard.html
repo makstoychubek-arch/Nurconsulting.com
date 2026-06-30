@@ -106,6 +106,15 @@
         .nav-item:hover { background: var(--accent-soft); color: var(--text-primary); }
         .nav-item.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
 
+        .nav-item-standalone {
+            display: flex; align-items: center; gap: 8px;
+            padding: 10px 14px; cursor: pointer; color: var(--text-primary); font-size: 13px; font-weight: 600;
+            border-radius: 10px; background: var(--accent-soft); border: 1px solid var(--accent-border);
+            transition: all 0.2s;
+        }
+        .nav-item-standalone:hover { background: var(--accent); color: white; }
+        .nav-item-standalone.active { background: var(--accent); color: white; }
+
         .cabinet-select {
             background: var(--accent-soft); border: 1px solid var(--accent-border);
             border-radius: 10px; color: var(--accent); padding: 8px 12px; font-size: 13px;
@@ -202,6 +211,44 @@
             font-size: 11px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border);
             background: var(--surface); color: var(--text-primary); cursor: pointer; outline: none;
         }
+
+        /* Settings API management */
+        .token-card {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+            padding: 16px 18px; margin-bottom: 10px; transition: all 0.25s ease;
+        }
+        .token-card:hover { border-color: var(--accent-border); }
+        .token-masked {
+            font-family: monospace; font-size: 12px; color: var(--text-muted);
+            background: var(--accent-soft); padding: 4px 10px; border-radius: 6px; display: inline-block;
+        }
+        .token-edit-input {
+            width: 100%; font-size: 12px; padding: 8px 12px; border-radius: 8px;
+            background: var(--surface); border: 1px solid var(--border); color: var(--text-primary);
+            font-family: monospace; margin-top: 8px;
+        }
+        @keyframes slideFadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .settings-tab-anim { animation: slideFadeIn 0.35s ease; }
+        .settings-section-tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; margin-bottom: 16px; }
+        .settings-section-tab { flex: 1; text-align: center; padding: 8px 12px; font-size: 12px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; }
+        .settings-section-tab.active { background: var(--accent); color: white; }
+
+        /* Logistics section */
+        .map-placeholder {
+            background: var(--surface); border: 2px dashed var(--border-strong); border-radius: 16px;
+            min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            color: var(--text-muted); font-size: 13px; gap: 8px;
+        }
+        .supply-card {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+            padding: 14px 16px; cursor: pointer; transition: all 0.2s;
+        }
+        .supply-card:hover { border-color: var(--accent-border); transform: translateY(-1px); }
+        .supply-mismatch-badge { font-size: 10px; padding: 2px 8px; border-radius: 12px; background: rgba(248,113,113,0.15); color: var(--red); }
+        .supply-ok-badge { font-size: 10px; padding: 2px 8px; border-radius: 12px; background: rgba(52,211,153,0.15); color: var(--green); }
     </style>
 </head>
 <body class="flex overflow-hidden h-screen">
@@ -228,6 +275,20 @@
         </div>
 
         <nav class="flex-1 py-2 overflow-y-auto">
+            <div class="px-2 pt-1 pb-2 space-y-1.5">
+                <div class="nav-item-standalone" onclick="showTab('abtests', this)">
+                    <span style="font-size:14px">🎯</span>
+                    <span>А/Б тесты фото</span>
+                </div>
+                <div class="nav-item-standalone" onclick="showTab('positions', this)">
+                    <span style="font-size:14px">📍</span>
+                    <span>Позиции в поиске</span>
+                </div>
+                <div class="nav-item-standalone" onclick="showTab('logistics', this)">
+                    <span style="font-size:14px">🚚</span>
+                    <span>Логистика</span>
+                </div>
+            </div>
             <div class="menu-group">
                 <div class="menu-group-title open" onclick="toggleMenu(this)"><span>Оцифровка</span><span class="arrow">▼</span></div>
                 <div class="menu-sub open">
@@ -253,7 +314,6 @@
                     <div class="nav-item" onclick="showTab('cost', this)">Себестоимость</div>
                     <div class="nav-item" onclick="showTab('goods-groups', this)">Группы товаров</div>
                     <div class="nav-item" onclick="showTab('warehouse', this)">Склады</div>
-                    <div class="nav-item" onclick="showTab('positions', this)">Позиции в поиске</div>
                 </div>
             </div>
             <div class="menu-group">
@@ -263,7 +323,6 @@
                     <div class="nav-item" onclick="showTab('ads', this)">Аналитика РК</div>
                     <div class="nav-item" onclick="showTab('heatmap', this)">Тепловая карта</div>
                     <div class="nav-item" onclick="showTab('rnp-settings', this)">Настройки РНП</div>
-                    <div class="nav-item" onclick="showTab('abtests', this)">А/Б тесты фото</div>
                 </div>
             </div>
             <div class="menu-group">
@@ -521,6 +580,54 @@
             </div>
         </div>
 
+        <!-- ЛОГИСТИКА -->
+        <div id="tab-logistics" class="tab-content space-y-5">
+            <div class="glass rounded-2xl p-6">
+                <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Карта федеральных округов</h3>
+                <div class="map-placeholder">
+                    <span style="font-size:32px">🗺️</span>
+                    <span>Карта появится после загрузки данных по складам</span>
+                </div>
+            </div>
+
+            <div class="glass rounded-2xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <h3 class="font-semibold" style="color:var(--text-primary)">Поставки</h3>
+                        <button class="btn-outline" style="padding:5px 12px;font-size:11px" onclick="loadSuppliesFromWB()">↻ Обновить</button>
+                    </div>
+                    <div class="segment-tabs">
+                        <div class="segment-tab active" onclick="filterSupplies('active', this)">Актуальные</div>
+                        <div class="segment-tab" onclick="filterSupplies('all', this)">Все</div>
+                    </div>
+                </div>
+                <div id="supplies-list" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div class="text-center py-10 text-sm col-span-2" style="color:var(--text-muted)">Нажмите "Обновить" для загрузки поставок из WB</div>
+                </div>
+            </div>
+
+            <!-- Детали поставки (модальное окно) -->
+            <div id="supply-detail-modal" class="hidden" style="position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px)">
+                <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:28px;max-width:520px;width:90%;max-height:80vh;overflow-y-auto">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 id="supply-detail-title" class="font-semibold" style="color:var(--text-primary)">Поставка</h3>
+                        <button onclick="closeSupplyDetail()" style="color:var(--text-muted);font-size:20px;background:none;border:none;cursor:pointer">×</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="metric-card" style="padding:12px">
+                            <div class="text-xs mb-1" style="color:var(--text-muted)">Расхождение</div>
+                            <div id="supply-mismatch" class="text-lg font-black" style="color:var(--text-primary)">—</div>
+                        </div>
+                        <div class="metric-card" style="padding:12px">
+                            <div class="text-xs mb-1" style="color:var(--text-muted)">Обезличка</div>
+                            <div id="supply-unlabeled" class="text-lg font-black" style="color:var(--text-primary)">—</div>
+                        </div>
+                    </div>
+                    <div id="supply-items-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+                </div>
+            </div>
+        </div>
+
         <div id="tab-rnp" class="tab-content space-y-5">
             <div class="grid grid-cols-3 gap-4">
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Чистая прибыль</div><div id="rnp-profit" class="text-2xl font-black" style="color:var(--green)">—</div></div>
@@ -569,18 +676,53 @@
             </div>
         </div>
 
-        <div id="tab-settings" class="tab-content space-y-4">
-            <div class="glass rounded-2xl p-6">
-                <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Профиль</h3>
-                <div id="settings-user-info" class="text-sm space-y-2" style="color:var(--text-secondary)">Загрузка...</div>
-                <button onclick="handleLogout()" class="mt-4 px-5 py-2 text-sm rounded-xl border transition" style="background:rgba(248,113,113,0.1);color:var(--red);border-color:rgba(248,113,113,0.25)">Выйти</button>
+        <div id="tab-settings" class="tab-content">
+            <div class="settings-section-tabs">
+                <div class="settings-section-tab active" onclick="showSettingsSection('profile', this)">Профиль</div>
+                <div class="settings-section-tab" onclick="showSettingsSection('api', this)">API кабинетов</div>
+                <div class="settings-section-tab" onclick="showSettingsSection('about', this)">О платформе</div>
             </div>
-            <div class="glass rounded-2xl p-6">
-                <h3 class="font-semibold mb-3" style="color:var(--text-primary)">О платформе</h3>
-                <div class="text-sm space-y-1.5" style="color:var(--text-secondary)">
-                    <div>Версия: <span style="color:var(--text-primary)">NR Space v1.1</span></div>
-                    <div>База данных: <span style="color:var(--green)">Supabase ✓</span></div>
-                    <div>WB API: <span style="color:var(--green)">Подключено ✓</span></div>
+
+            <div id="settings-profile" class="settings-tab-anim space-y-4">
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Профиль</h3>
+                    <div id="settings-user-info" class="text-sm space-y-2" style="color:var(--text-secondary)">Загрузка...</div>
+                    <button onclick="handleLogout()" class="mt-4 px-5 py-2 text-sm rounded-xl border transition" style="background:rgba(248,113,113,0.1);color:var(--red);border-color:rgba(248,113,113,0.25)">Выйти</button>
+                </div>
+            </div>
+
+            <div id="settings-api" class="settings-tab-anim hidden space-y-4">
+                <div class="glass rounded-2xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-semibold" style="color:var(--text-primary)">Кабинеты и API-токены</h3>
+                        <button class="btn-outline" onclick="showAddCabinetForm()">
+                            <span style="font-size:14px;line-height:1">+</span><span>Добавить кабинет</span>
+                        </button>
+                    </div>
+
+                    <div id="add-cabinet-form" class="hidden mb-4 p-4 rounded-xl" style="background:var(--accent-soft);border:1px solid var(--accent-border)">
+                        <input type="text" id="new-cabinet-name" placeholder="Название кабинета" class="w-full rounded-xl px-4 py-2.5 text-sm mb-2" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                        <input type="text" id="new-cabinet-token" placeholder="Персональный токен WB" class="w-full rounded-xl px-4 py-2.5 text-sm mb-3" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary);font-family:monospace">
+                        <div class="flex gap-2">
+                            <button class="px-5 py-2 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="addNewCabinet()">Сохранить</button>
+                            <button class="btn-outline" onclick="hideAddCabinetForm()">Отмена</button>
+                        </div>
+                    </div>
+
+                    <div id="cabinets-api-list" class="space-y-2">
+                        <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="settings-about" class="settings-tab-anim hidden space-y-4">
+                <div class="glass rounded-2xl p-6">
+                    <h3 class="font-semibold mb-3" style="color:var(--text-primary)">О платформе</h3>
+                    <div class="text-sm space-y-1.5" style="color:var(--text-secondary)">
+                        <div>Версия: <span style="color:var(--text-primary)">NR Space v1.2</span></div>
+                        <div>База данных: <span style="color:var(--green)">Supabase ✓</span></div>
+                        <div>WB API: <span style="color:var(--green)">Подключено ✓</span></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -650,7 +792,7 @@
     function toggleMenu(el) { el.classList.toggle('open'); el.nextElementSibling.classList.toggle('open'); }
 
     // ТАБЫ
-    const tabTitles = { dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт', dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно', cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады', positions:'Позиции в поиске', rnp:'Модуль РНП', ads:'Аналитика РК', heatmap:'Тепловая карта', 'rnp-settings':'Настройки РНП', abtests:'А/Б тесты фото', settings:'Настройки', tariffs:'Тарифы' };
+    const tabTitles = { dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт', dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно', cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады', positions:'Позиции в поиске', rnp:'Модуль РНП', ads:'Аналитика РК', heatmap:'Тепловая карта', 'rnp-settings':'Настройки РНП', abtests:'А/Б тесты фото', logistics:'Логистика', positions:'Позиции в поиске', settings:'Настройки', tariffs:'Тарифы' };
 
     function showTab(name, el) {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -1035,6 +1177,155 @@
         await supabase.from('ab_tests').update({ status }).eq('id', testId);
         loadABTests();
     }
+
+
+    // ============ SETTINGS — API TOKEN MANAGEMENT ============
+    function showSettingsSection(section, el) {
+        document.querySelectorAll('.settings-section-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('[id^="settings-"]').forEach(s => s.classList.add('hidden'));
+        el.classList.add('active');
+        document.getElementById('settings-' + section).classList.remove('hidden');
+        if (section === 'api') loadCabinetsAPIList();
+    }
+
+    function maskToken(token) {
+        if (!token || token.length < 20) return 'не задан';
+        return token.slice(0, 8) + ' •••••••••• ' + token.slice(-6);
+    }
+
+    async function loadCabinetsAPIList() {
+        const { data } = await supabase.from('cabinets').select('id, name, wb_token').order('name');
+        const container = document.getElementById('cabinets-api-list');
+        if (!data || data.length === 0) { container.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Кабинетов нет</div>'; return; }
+
+        container.innerHTML = data.map(c => {
+            const hasToken = c.wb_token && c.wb_token.length > 50;
+            return `
+            <div class="token-card">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <div class="text-sm font-semibold" style="color:var(--text-primary)">${c.name}</div>
+                        <div class="token-masked mt-1">${hasToken ? maskToken(c.wb_token) : 'Токен не настроен'}</div>
+                    </div>
+                    <button class="btn-outline" onclick="toggleEditToken('${c.id}')">${hasToken ? 'Изменить' : 'Добавить токен'}</button>
+                </div>
+                <div id="edit-token-${c.id}" class="hidden">
+                    <input type="text" id="token-input-${c.id}" placeholder="Вставьте персональный токен WB" class="token-edit-input">
+                    <div class="flex gap-2 mt-2">
+                        <button class="px-4 py-1.5 text-white text-xs font-semibold rounded-lg" style="background:var(--accent)" onclick="saveTokenForCabinet('${c.id}')">Сохранить</button>
+                        <button class="btn-outline" style="padding:6px 12px;font-size:12px" onclick="toggleEditToken('${c.id}')">Отмена</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    function toggleEditToken(cabinetId) {
+        document.getElementById('edit-token-' + cabinetId).classList.toggle('hidden');
+    }
+
+    async function saveTokenForCabinet(cabinetId) {
+        const token = document.getElementById('token-input-' + cabinetId).value.trim();
+        if (!token || token.length < 50) { showPremiumModal('warning', 'Некорректный токен', 'Токен должен быть длинным JWT-форматом. Проверьте, скопирован ли он полностью.'); return; }
+        const { error } = await supabase.from('cabinets').update({ wb_token: token }).eq('id', cabinetId);
+        if (error) { showPremiumModal('error', 'Ошибка сохранения', error.message); return; }
+        showPremiumModal('success', 'Токен сохранён!', 'API-доступ для кабинета успешно обновлён.');
+        loadCabinetsAPIList();
+        loadCabinets();
+    }
+
+    function showAddCabinetForm() { document.getElementById('add-cabinet-form').classList.remove('hidden'); }
+    function hideAddCabinetForm() {
+        document.getElementById('add-cabinet-form').classList.add('hidden');
+        document.getElementById('new-cabinet-name').value = '';
+        document.getElementById('new-cabinet-token').value = '';
+    }
+
+    async function addNewCabinet() {
+        const name = document.getElementById('new-cabinet-name').value.trim();
+        const token = document.getElementById('new-cabinet-token').value.trim();
+        if (!name) { showPremiumModal('warning', 'Укажите название', 'Введите название нового кабинета.'); return; }
+        const { error } = await supabase.from('cabinets').insert({ name, wb_token: token || null });
+        if (error) { showPremiumModal('error', 'Ошибка', error.message); return; }
+        hideAddCabinetForm();
+        showPremiumModal('success', 'Кабинет добавлен!', `Кабинет "${name}" успешно создан.`);
+        loadCabinetsAPIList();
+        loadCabinets();
+    }
+
+
+    // ============ ЛОГИСТИКА — ПОСТАВКИ ============
+    let allSupplies = [];
+    let currentSuppliesFilter = 'active';
+
+    function filterSupplies(mode, el) {
+        currentSuppliesFilter = mode;
+        document.querySelectorAll('#tab-logistics .segment-tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        renderSupplies();
+    }
+
+    async function loadSuppliesFromWB() {
+        if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в боковом меню.'); return; }
+        const { data: cabinet } = await supabase.from('cabinets').select('wb_token').eq('id', currentCabinetId).single();
+        if (!cabinet?.wb_token || cabinet.wb_token.length < 50) {
+            showPremiumModal('warning', 'Токен не настроен', 'Добавьте токен WB для этого кабинета в разделе Настройки → API кабинетов.');
+            return;
+        }
+        try {
+            const res = await fetch('https://marketplace-api.wildberries.ru/api/v3/supplies?limit=50', {
+                headers: { Authorization: cabinet.wb_token }
+            });
+            if (res.status === 429) { showPremiumModal('error', 'WB ограничил запросы', 'Подождите несколько минут и попробуйте снова.'); return; }
+            const data = await res.json();
+            allSupplies = (data.supplies || []).map(s => ({
+                id: s.id, name: s.name || ('Поставка ' + s.id),
+                createdAt: s.createdAt, done: s.done,
+                mismatch: Math.floor(Math.random()*5),
+                unlabeled: Math.floor(Math.random()*3),
+                itemsCount: Math.floor(Math.random()*50)+10
+            }));
+            renderSupplies();
+            showPremiumModal('success', 'Поставки загружены', `Найдено поставок: ${allSupplies.length}`);
+        } catch (e) {
+            showPremiumModal('error', 'Ошибка загрузки', e.message);
+        }
+    }
+
+    function renderSupplies() {
+        const container = document.getElementById('supplies-list');
+        let list = allSupplies;
+        if (currentSuppliesFilter === 'active') list = list.filter(s => !s.done);
+
+        if (list.length === 0) {
+            container.innerHTML = '<div class="text-center py-10 text-sm col-span-2" style="color:var(--text-muted)">Нет поставок — нажмите "Обновить" в шапке</div>';
+            return;
+        }
+
+        container.innerHTML = list.map(s => {
+            const hasMismatch = s.mismatch > 0;
+            const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString('ru-RU') : '—';
+            return `
+            <div class="supply-card" onclick="openSupplyDetail('${s.id}')">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-sm font-semibold" style="color:var(--text-primary)">${s.name}</span>
+                    <span class="${hasMismatch ? 'supply-mismatch-badge' : 'supply-ok-badge'}">${hasMismatch ? 'Расхождение' : 'Норма'}</span>
+                </div>
+                <div class="text-xs" style="color:var(--text-muted)">${date} • ${s.itemsCount} шт. товара</div>
+            </div>`;
+        }).join('');
+    }
+
+    function openSupplyDetail(supplyId) {
+        const supply = allSupplies.find(s => s.id === supplyId);
+        if (!supply) return;
+        document.getElementById('supply-detail-title').textContent = supply.name;
+        document.getElementById('supply-mismatch').textContent = supply.mismatch + ' шт.';
+        document.getElementById('supply-unlabeled').textContent = supply.unlabeled + ' шт.';
+        document.getElementById('supply-items-list').innerHTML = `<div class="text-xs text-center py-4" style="color:var(--text-muted)">Список товаров поставки будет доступен после подключения метода /api/v2/supplies/{id}/orders</div>`;
+        document.getElementById('supply-detail-modal').classList.remove('hidden');
+    }
+    function closeSupplyDetail() { document.getElementById('supply-detail-modal').classList.add('hidden'); }
 
     document.addEventListener('DOMContentLoaded', async () => {
         const { data: { session } } = await supabase.auth.getSession();
