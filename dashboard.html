@@ -124,8 +124,6 @@
         .badge-red { background: rgba(248,113,113,0.18); color: var(--red); padding: 2px 8px; border-radius: 5px; font-size: 11px; border: 1px solid rgba(248,113,113,0.3); }
 
         .neon { box-shadow: var(--use-glow); }
-        .orb { position: fixed; border-radius: 50%; pointer-events: none; filter: blur(120px); opacity: 0.05; }
-        [data-theme="beige"] .orb { display: none; }
 
         .data-table { border-collapse: collapse; width: 100%; }
         .data-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
@@ -162,9 +160,6 @@
     </style>
 </head>
 <body class="flex overflow-hidden h-screen">
-
-    <div class="orb w-96 h-96 bg-purple-600" style="top:-50px;left:100px"></div>
-    <div class="orb w-72 h-72 bg-blue-600" style="bottom:0;right:300px"></div>
 
     <!-- БОКОВОЕ МЕНЮ -->
     <aside class="sidebar flex flex-col fixed left-0 top-0 z-40 h-full overflow-y-auto shrink-0">
