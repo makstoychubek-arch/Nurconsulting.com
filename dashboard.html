@@ -166,6 +166,7 @@
         /* Premium modal */
         #premium-modal { position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); }
         #premium-modal:not(.hidden) { display: flex; }
+        #supply-detail-modal:not(.hidden) { display: flex; }
         #modal-box { background: var(--surface-solid); border: 1px solid var(--border-strong); border-radius: 20px; padding: 32px; max-width: 380px; width: 90%; text-align: center; box-shadow: 0 25px 80px rgba(0,0,0,0.3); transform: scale(0.9); opacity: 0; transition: all 0.3s ease; }
 
         /* A/B Tests styles */
@@ -249,6 +250,78 @@
         .supply-card:hover { border-color: var(--accent-border); transform: translateY(-1px); }
         .supply-mismatch-badge { font-size: 10px; padding: 2px 8px; border-radius: 12px; background: rgba(248,113,113,0.15); color: var(--red); }
         .supply-ok-badge { font-size: 10px; padding: 2px 8px; border-radius: 12px; background: rgba(52,211,153,0.15); color: var(--green); }
+
+        /* ===================================================== */
+        /* ЕДИНАЯ ДИЗАЙН-СИСТЕМА: flat, минимализм, без теней     */
+        /* ===================================================== */
+
+        /* Кнопки — основной паттерн */
+        .ui-btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 7px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 500;
+            cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease;
+            border: 1px solid transparent; line-height: 1.2;
+        }
+        .ui-btn-primary { background: var(--accent); color: white; }
+        .ui-btn-primary:hover { background: var(--accent-hover); }
+        .ui-btn-secondary { background: transparent; border-color: var(--border-strong); color: var(--text-primary); }
+        .ui-btn-secondary:hover { background: var(--accent-soft); border-color: var(--accent-border); }
+        .ui-btn-text { background: transparent; border: none; color: var(--accent); padding: 7px 8px; }
+        .ui-btn-text:hover { color: var(--accent-hover); }
+
+        /* Квадратные icon-only кнопки — все одного размера */
+        .ui-icon-btn {
+            width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 6px; border: 1px solid var(--border-strong); background: transparent;
+            color: var(--text-secondary); cursor: pointer; transition: all 0.15s ease; font-size: 14px;
+        }
+        .ui-icon-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
+
+        /* Бейджи-статусы — единый паттерн: точка + текст в пилюле */
+        .ui-status {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 10px 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 500;
+            background: var(--border); color: var(--text-secondary);
+        }
+        .ui-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+        .ui-status-success { background: rgba(52,211,153,0.12); color: var(--green); }
+        .ui-status-success .ui-status-dot { background: var(--green); }
+        .ui-status-danger { background: rgba(248,113,113,0.12); color: var(--red); }
+        .ui-status-danger .ui-status-dot { background: var(--red); }
+        .ui-status-warning { background: rgba(251,191,36,0.12); color: var(--amber); }
+        .ui-status-warning .ui-status-dot { background: var(--amber); }
+        .ui-status-neutral { background: var(--border); color: var(--text-secondary); }
+        .ui-status-neutral .ui-status-dot { background: var(--text-muted); }
+
+        /* Строки списка — разделитель снизу, без рамок и теней */
+        .ui-list { border-top: 1px solid var(--border); }
+        .ui-list-row {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 12px 4px; border-bottom: 1px solid var(--border);
+            transition: background 0.1s ease;
+        }
+        .ui-list-row:hover { background: var(--accent-soft); }
+        .ui-list-row-main { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+        .ui-list-row-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+        .ui-list-row-value { font-size: 13px; font-weight: 500; color: var(--text-primary); text-align: right; min-width: 80px; }
+        .ui-list-row-actions { display: flex; gap: 4px; align-items: center; }
+
+        /* Поля ввода — единый паттерн */
+        .ui-input, .ui-select {
+            width: 100%; font-size: 12.5px; padding: 8px 12px; border-radius: 6px;
+            border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary);
+            outline: none; transition: border-color 0.15s ease;
+        }
+        .ui-input::placeholder { color: var(--text-muted); }
+        .ui-input:focus, .ui-select:focus { border-color: var(--accent-border); }
+
+        /* Карточки секций — единый плоский паттерн */
+        .ui-card {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+            padding: 20px;
+        }
+        .ui-card-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+        .ui-card-subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
     </style>
 </head>
 <body class="flex overflow-hidden h-screen">
@@ -275,18 +348,9 @@
         </div>
 
         <nav class="flex-1 py-2 overflow-y-auto">
-            <div class="px-2 pt-1 pb-2 space-y-1.5">
+            <div class="px-2 pt-1 pb-2">
                 <div class="nav-item-standalone" onclick="showTab('abtests', this)">
-                    <span style="font-size:14px">🎯</span>
                     <span>А/Б тесты фото</span>
-                </div>
-                <div class="nav-item-standalone" onclick="showTab('positions', this)">
-                    <span style="font-size:14px">📍</span>
-                    <span>Позиции в поиске</span>
-                </div>
-                <div class="nav-item-standalone" onclick="showTab('logistics', this)">
-                    <span style="font-size:14px">🚚</span>
-                    <span>Логистика</span>
                 </div>
             </div>
             <div class="menu-group">
@@ -314,6 +378,7 @@
                     <div class="nav-item" onclick="showTab('cost', this)">Себестоимость</div>
                     <div class="nav-item" onclick="showTab('goods-groups', this)">Группы товаров</div>
                     <div class="nav-item" onclick="showTab('warehouse', this)">Склады</div>
+                    <div class="nav-item" onclick="showTab('positions', this)">Позиции в поиске</div>
                 </div>
             </div>
             <div class="menu-group">
@@ -323,6 +388,7 @@
                     <div class="nav-item" onclick="showTab('ads', this)">Аналитика РК</div>
                     <div class="nav-item" onclick="showTab('heatmap', this)">Тепловая карта</div>
                     <div class="nav-item" onclick="showTab('rnp-settings', this)">Настройки РНП</div>
+                    <div class="nav-item" onclick="showTab('logistics', this)">Логистика</div>
                 </div>
             </div>
             <div class="menu-group">
@@ -433,7 +499,7 @@
                 </div>
             </div>
 
-            <div class="flex items-center space-x-2 overflow-x-auto pb-1">
+            <div id="top-filters-bar" class="flex items-center space-x-2 overflow-x-auto pb-1">
                 <div class="filter-chip active flex items-center space-x-1.5" onclick="toggleDatePicker(event)">
                     <span>📅</span>
                     <span id="date-range">01.01.2025 — сегодня</span>
@@ -594,20 +660,20 @@
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-3">
                         <h3 class="font-semibold" style="color:var(--text-primary)">Поставки</h3>
-                        <button class="btn-outline" style="padding:5px 12px;font-size:11px" onclick="loadSuppliesFromWB()">↻ Обновить</button>
+                        <button class="ui-btn ui-btn-secondary" style="padding:5px 12px;font-size:11px" onclick="loadSuppliesFromWB()">↻ Обновить</button>
                     </div>
                     <div class="segment-tabs">
                         <div class="segment-tab active" onclick="filterSupplies('active', this)">Актуальные</div>
                         <div class="segment-tab" onclick="filterSupplies('all', this)">Все</div>
                     </div>
                 </div>
-                <div id="supplies-list" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div id="supplies-list">
                     <div class="text-center py-10 text-sm col-span-2" style="color:var(--text-muted)">Нажмите "Обновить" для загрузки поставок из WB</div>
                 </div>
             </div>
 
             <!-- Детали поставки (модальное окно) -->
-            <div id="supply-detail-modal" class="hidden" style="position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px)">
+            <div id="supply-detail-modal" class="hidden" style="position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px)">
                 <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:28px;max-width:520px;width:90%;max-height:80vh;overflow-y-auto">
                     <div class="flex items-center justify-between mb-4">
                         <h3 id="supply-detail-title" class="font-semibold" style="color:var(--text-primary)">Поставка</h3>
@@ -643,7 +709,7 @@
         <!-- A/B ТЕСТЫ ФОТО -->
         <div id="tab-abtests" class="tab-content space-y-4">
             <div class="flex items-center justify-between mb-2">
-                <button class="btn-outline" onclick="showNewTestForm()">
+                <button class="ui-btn ui-btn-secondary" onclick="showNewTestForm()">
                     <span style="font-size:16px;line-height:1">+</span><span>Создать новый тест</span>
                 </button>
                 <div class="segment-tabs">
@@ -664,10 +730,10 @@
                     <input type="text" placeholder="Ссылка на фото — Вариант А" class="variant-url-input w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
                     <input type="text" placeholder="Ссылка на фото — Вариант Б" class="variant-url-input w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
                 </div>
-                <button class="btn-outline mb-3" onclick="addVariantInput()">+ Добавить вариант</button>
+                <button class="ui-btn ui-btn-secondary mb-3" onclick="addVariantInput()">+ Добавить вариант</button>
                 <div class="flex gap-2">
                     <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()">Создать тест</button>
-                    <button class="btn-outline" onclick="hideNewTestForm()">Отмена</button>
+                    <button class="ui-btn ui-btn-secondary" onclick="hideNewTestForm()">Отмена</button>
                 </div>
             </div>
 
@@ -695,7 +761,7 @@
                 <div class="glass rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="font-semibold" style="color:var(--text-primary)">Кабинеты и API-токены</h3>
-                        <button class="btn-outline" onclick="showAddCabinetForm()">
+                        <button class="ui-btn ui-btn-secondary" onclick="showAddCabinetForm()">
                             <span style="font-size:14px;line-height:1">+</span><span>Добавить кабинет</span>
                         </button>
                     </div>
@@ -705,7 +771,7 @@
                         <input type="text" id="new-cabinet-token" placeholder="Персональный токен WB" class="w-full rounded-xl px-4 py-2.5 text-sm mb-3" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary);font-family:monospace">
                         <div class="flex gap-2">
                             <button class="px-5 py-2 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="addNewCabinet()">Сохранить</button>
-                            <button class="btn-outline" onclick="hideAddCabinetForm()">Отмена</button>
+                            <button class="ui-btn ui-btn-secondary" onclick="hideAddCabinetForm()">Отмена</button>
                         </div>
                     </div>
 
@@ -796,10 +862,15 @@
 
     function showTab(name, el) {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.nav-item, .nav-item-standalone').forEach(n => n.classList.remove('active'));
         document.getElementById('tab-' + name)?.classList.add('active');
         if (el) el.classList.add('active');
         document.getElementById('page-title').textContent = tabTitles[name] || name;
+
+        const filtersBar = document.getElementById('top-filters-bar');
+        if (filtersBar) {
+            filtersBar.style.display = (name === 'dashboard' || name === 'rnp') ? 'flex' : 'none';
+        }
     }
 
     // ПИКЕР ДАТ
@@ -1140,7 +1211,7 @@
                     <div class="abtest-variant-meta">
                         <div class="abtest-ctr">${v.ctr.toFixed(2)}%</div>
                         <div class="${delta >= 0 ? 'abtest-delta-pos' : 'abtest-delta-neg'}">${deltaText}</div>
-                        <div class="abtest-status-badge ${isWinner ? '' : 'losing'}">${isWinner ? 'Лидирует' : 'Проигрывает'}</div>
+                        ${isWinner ? '<span class="ui-status ui-status-success"><span class="ui-status-dot"></span>Лидирует</span>' : '<span class="ui-status ui-status-neutral"><span class="ui-status-dot"></span>Проигрывает</span>'}
                     </div>
                 </div>`;
             }).join('');
@@ -1156,7 +1227,7 @@
                         <div class="text-sm font-semibold" style="color:var(--text-primary)">${test.product_name}</div>
                         <div class="text-xs" style="color:var(--text-muted)">Артикул ${test.nm_id} • с ${new Date(test.started_at).toLocaleDateString('ru-RU')}</div>
                     </div>
-                    <select class="status-select" onchange="updateTestStatus('${test.id}', this.value)">
+                    <select class="ui-select" style="width:auto;padding:5px 10px;font-size:11px" onchange="updateTestStatus('${test.id}', this.value)">
                         <option value="active" ${test.status==='active'?'selected':''}>Активен</option>
                         <option value="paused" ${test.status==='paused'?'selected':''}>Отключен</option>
                     </select>
@@ -1198,26 +1269,26 @@
         const container = document.getElementById('cabinets-api-list');
         if (!data || data.length === 0) { container.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Кабинетов нет</div>'; return; }
 
-        container.innerHTML = data.map(c => {
+        container.innerHTML = `<div class="ui-list">` + data.map(c => {
             const hasToken = c.wb_token && c.wb_token.length > 50;
             return `
-            <div class="token-card">
-                <div class="flex items-center justify-between">
+            <div>
+                <div class="ui-list-row">
                     <div>
-                        <div class="text-sm font-semibold" style="color:var(--text-primary)">${c.name}</div>
-                        <div class="token-masked mt-1">${hasToken ? maskToken(c.wb_token) : 'Токен не настроен'}</div>
+                        <div class="ui-list-row-main">${c.name}</div>
+                        <div class="ui-list-row-sub" style="font-family:monospace">${hasToken ? maskToken(c.wb_token) : 'Токен не настроен'}</div>
                     </div>
-                    <button class="btn-outline" onclick="toggleEditToken('${c.id}')">${hasToken ? 'Изменить' : 'Добавить токен'}</button>
+                    <button class="ui-btn ui-btn-secondary" onclick="toggleEditToken('${c.id}')">${hasToken ? 'Изменить' : 'Добавить'}</button>
                 </div>
-                <div id="edit-token-${c.id}" class="hidden">
-                    <input type="text" id="token-input-${c.id}" placeholder="Вставьте персональный токен WB" class="token-edit-input">
+                <div id="edit-token-${c.id}" class="hidden" style="padding:0 4px 14px">
+                    <input type="text" id="token-input-${c.id}" placeholder="Вставьте персональный токен WB" class="ui-input" style="font-family:monospace">
                     <div class="flex gap-2 mt-2">
-                        <button class="px-4 py-1.5 text-white text-xs font-semibold rounded-lg" style="background:var(--accent)" onclick="saveTokenForCabinet('${c.id}')">Сохранить</button>
-                        <button class="btn-outline" style="padding:6px 12px;font-size:12px" onclick="toggleEditToken('${c.id}')">Отмена</button>
+                        <button class="ui-btn ui-btn-primary" onclick="saveTokenForCabinet('${c.id}')">Сохранить</button>
+                        <button class="ui-btn ui-btn-secondary" onclick="toggleEditToken('${c.id}')">Отмена</button>
                     </div>
                 </div>
             </div>`;
-        }).join('');
+        }).join('') + `</div>`;
     }
 
     function toggleEditToken(cabinetId) {
@@ -1281,9 +1352,9 @@
             allSupplies = (data.supplies || []).map(s => ({
                 id: s.id, name: s.name || ('Поставка ' + s.id),
                 createdAt: s.createdAt, done: s.done,
-                mismatch: Math.floor(Math.random()*5),
-                unlabeled: Math.floor(Math.random()*3),
-                itemsCount: Math.floor(Math.random()*50)+10
+                mismatch: null,
+                unlabeled: null,
+                itemsCount: null
             }));
             renderSupplies();
             showPremiumModal('success', 'Поставки загружены', `Найдено поставок: ${allSupplies.length}`);
@@ -1302,27 +1373,47 @@
             return;
         }
 
-        container.innerHTML = list.map(s => {
-            const hasMismatch = s.mismatch > 0;
+        container.innerHTML = `<div class="ui-list">` + list.map(s => {
+            const hasMismatch = s.mismatch !== null && s.mismatch > 0;
             const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString('ru-RU') : '—';
+            const itemsText = s.itemsCount !== null ? `${s.itemsCount} шт.` : 'нажмите, чтобы открыть';
             return `
-            <div class="supply-card" onclick="openSupplyDetail('${s.id}')">
-                <div class="flex items-center justify-between mb-1">
-                    <span class="text-sm font-semibold" style="color:var(--text-primary)">${s.name}</span>
-                    <span class="${hasMismatch ? 'supply-mismatch-badge' : 'supply-ok-badge'}">${hasMismatch ? 'Расхождение' : 'Норма'}</span>
+            <div class="ui-list-row" style="cursor:pointer" onclick="openSupplyDetail('${s.id}')">
+                <div>
+                    <div class="ui-list-row-main">${s.name}</div>
+                    <div class="ui-list-row-sub">${date} • ${itemsText}</div>
                 </div>
-                <div class="text-xs" style="color:var(--text-muted)">${date} • ${s.itemsCount} шт. товара</div>
+                ${hasMismatch ? '<span class="ui-status ui-status-danger"><span class="ui-status-dot"></span>Расхождение</span>' : '<span class="ui-status ui-status-neutral"><span class="ui-status-dot"></span>В норме</span>'}
             </div>`;
-        }).join('');
+        }).join('') + `</div>`;
     }
 
-    function openSupplyDetail(supplyId) {
+    async function openSupplyDetail(supplyId) {
         const supply = allSupplies.find(s => s.id === supplyId);
         if (!supply) return;
         document.getElementById('supply-detail-title').textContent = supply.name;
-        document.getElementById('supply-mismatch').textContent = supply.mismatch + ' шт.';
-        document.getElementById('supply-unlabeled').textContent = supply.unlabeled + ' шт.';
-        document.getElementById('supply-items-list').innerHTML = `<div class="text-xs text-center py-4" style="color:var(--text-muted)">Список товаров поставки будет доступен после подключения метода /api/v2/supplies/{id}/orders</div>`;
+
+        const mismatchEl = document.getElementById('supply-mismatch');
+        const unlabeledEl = document.getElementById('supply-unlabeled');
+        const mismatchCard = mismatchEl.closest('.metric-card');
+        const unlabeledCard = unlabeledEl.closest('.metric-card');
+
+        if (supply.mismatch === null) {
+            mismatchEl.textContent = 'Не проверено';
+            mismatchCard.style.display = 'none';
+        } else {
+            mismatchEl.textContent = supply.mismatch + ' шт.';
+            mismatchCard.style.display = '';
+        }
+        if (supply.unlabeled === null) {
+            unlabeledEl.textContent = 'Не проверено';
+            unlabeledCard.style.display = 'none';
+        } else {
+            unlabeledEl.textContent = supply.unlabeled + ' шт.';
+            unlabeledCard.style.display = '';
+        }
+
+        document.getElementById('supply-items-list').innerHTML = `<div class="text-xs text-center py-4" style="color:var(--text-muted)">Детали по товарам и приёмке появятся здесь после обработки поставки складом WB</div>`;
         document.getElementById('supply-detail-modal').classList.remove('hidden');
     }
     function closeSupplyDetail() { document.getElementById('supply-detail-modal').classList.add('hidden'); }
