@@ -580,8 +580,13 @@
     }
 
     // ОБНОВЛЕНИЕ ИЗ WB
-    async function refreshData() {
-        if (!currentCabinetId) { alert('Выберите кабинет'); return; }
+        async function refreshData() {
+        if (!cabinet?.wb_token || cabinet.wb_token.length < 50) {
+        alert('У этого кабинета ещё нет настоящего токена WB. Добавьте токен в базе данных.');
+        btn.textContent = '↻ Обновить';
+        btn.disabled = false;
+        return;
+}
         const btn = document.getElementById('refresh-btn');
         btn.textContent = '⟳ Загрузка...'; btn.disabled = true;
         try {
@@ -683,6 +688,51 @@
 
         await loadCabinets();
     });
+          function showPremiumModal(type, title, text) {
+    const modal = document.getElementById('premium-modal');
+    const box = document.getElementById('modal-box');
+    const icon = document.getElementById('modal-icon');
+    const titleEl = document.getElementById('modal-title');
+    const textEl = document.getElementById('modal-text');
+
+    const styles = {
+        success: { bg: 'rgba(6,78,59,0.3)', color: '#34d399', emoji: '✓' },
+        error: { bg: 'rgba(69,10,10,0.3)', color: '#f87171', emoji: '✕' },
+        warning: { bg: 'rgba(78,60,6,0.3)', color: '#fbbf24', emoji: '⚠' },
+        info: { bg: 'rgba(30,58,138,0.3)', color: '#60a5fa', emoji: 'ℹ' }
+    };
+    const s = styles[type] || styles.info;
+
+    icon.style.background = s.bg;
+    icon.style.color = s.color;
+    icon.textContent = s.emoji;
+    titleEl.textContent = title;
+    textEl.textContent = text;
+
+    modal.classList.remove('hidden');
+    setTimeout(() => {
+        box.style.transform = 'scale(1)';
+        box.style.opacity = '1';
+    }, 10);
+}
+
+function closePremiumModal() {
+    const box = document.getElementById('modal-box');
+    box.style.transform = 'scale(0.9)';
+    box.style.opacity = '0';
+    setTimeout(() => {
+        document.getElementById('premium-modal').classList.add('hidden');
+    }, 200);
+}
 </script>
+      <!-- Премиум модалка для уведомлений -->
+<div id="premium-modal" class="hidden" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px)">
+    <div id="modal-box" style="background:#0d0d19;border:1px solid rgba(109,40,217,0.3);border-radius:20px;padding:32px;max-width:380px;width:90%;text-align:center;box-shadow:0 25px 80px rgba(0,0,0,0.6);transform:scale(0.9);opacity:0;transition:all 0.3s ease">
+        <div id="modal-icon" style="width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px"></div>
+        <div id="modal-title" style="color:white;font-size:17px;font-weight:600;margin-bottom:8px"></div>
+        <div id="modal-text" style="color:#9ca3af;font-size:13px;line-height:1.6;margin-bottom:24px"></div>
+        <button onclick="closePremiumModal()" style="width:100%;padding:11px;background:#7C3AED;color:white;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer">Понятно</button>
+    </div>
+</div>
 </body>
 </html>
