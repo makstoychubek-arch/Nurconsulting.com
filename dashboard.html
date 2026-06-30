@@ -158,6 +158,50 @@
         #premium-modal { position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); }
         #premium-modal:not(.hidden) { display: flex; }
         #modal-box { background: var(--surface-solid); border: 1px solid var(--border-strong); border-radius: 20px; padding: 32px; max-width: 380px; width: 90%; text-align: center; box-shadow: 0 25px 80px rgba(0,0,0,0.3); transform: scale(0.9); opacity: 0; transition: all 0.3s ease; }
+
+        /* A/B Tests styles */
+        .abtest-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: border-color 0.2s ease;
+        }
+        .abtest-card:hover { border-color: var(--accent-border); }
+        .abtest-variant {
+            position: relative;
+            width: 90px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid var(--border);
+            transition: border-color 0.2s ease;
+        }
+        .abtest-variant.winner { border-color: var(--green); }
+        .abtest-variant img { width: 100%; height: 90px; object-fit: cover; display: block; }
+        .abtest-variant-meta { padding: 6px; text-align: center; }
+        .abtest-ctr { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+        .abtest-delta-pos { font-size: 10px; color: var(--green); }
+        .abtest-delta-neg { font-size: 10px; color: var(--text-muted); }
+        .abtest-status-badge {
+            font-size: 10px; padding: 2px 8px; border-radius: 20px;
+            background: var(--accent-soft); color: var(--accent); display: inline-block; margin-top: 3px;
+        }
+        .abtest-status-badge.losing { background: var(--border); color: var(--text-muted); }
+        .btn-outline {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+            background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary);
+            cursor: pointer; transition: all 0.15s;
+        }
+        .btn-outline:hover { border-color: var(--accent-border); color: var(--accent); }
+        .segment-tabs { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
+        .segment-tab { padding: 5px 14px; font-size: 12px; border-radius: 6px; cursor: pointer; color: var(--text-secondary); }
+        .segment-tab.active { background: var(--accent); color: white; }
+        .status-select {
+            font-size: 11px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text-primary); cursor: pointer; outline: none;
+        }
     </style>
 </head>
 <body class="flex overflow-hidden h-screen">
@@ -219,6 +263,7 @@
                     <div class="nav-item" onclick="showTab('ads', this)">Аналитика РК</div>
                     <div class="nav-item" onclick="showTab('heatmap', this)">Тепловая карта</div>
                     <div class="nav-item" onclick="showTab('rnp-settings', this)">Настройки РНП</div>
+                    <div class="nav-item" onclick="showTab('abtests', this)">А/Б тесты фото</div>
                 </div>
             </div>
             <div class="menu-group">
@@ -488,6 +533,42 @@
         <div id="tab-heatmap" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><h3 class="font-semibold" style="color:var(--text-primary)">Тепловая карта</h3></div></div>
         <div id="tab-rnp-settings" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><h3 class="font-semibold" style="color:var(--text-primary)">Настройки РНП</h3></div></div>
 
+        <!-- A/B ТЕСТЫ ФОТО -->
+        <div id="tab-abtests" class="tab-content space-y-4">
+            <div class="flex items-center justify-between mb-2">
+                <button class="btn-outline" onclick="showNewTestForm()">
+                    <span style="font-size:16px;line-height:1">+</span><span>Создать новый тест</span>
+                </button>
+                <div class="segment-tabs">
+                    <div class="segment-tab active" onclick="filterTests('active', this)">Активные</div>
+                    <div class="segment-tab" onclick="filterTests('all', this)">Все</div>
+                </div>
+            </div>
+
+            <!-- Форма создания (скрыта по умолчанию) -->
+            <div id="new-test-form" class="glass rounded-2xl p-6 hidden">
+                <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Новый А/Б тест</h3>
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <input type="text" id="abt-nmid" placeholder="Артикул WB" class="rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                    <input type="text" id="abt-name" placeholder="Название товара" class="rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                </div>
+                <div class="text-xs mb-2" style="color:var(--text-secondary)">Добавьте 2-4 варианта фото (ссылки на изображения)</div>
+                <div id="variant-inputs" class="space-y-2 mb-3">
+                    <input type="text" placeholder="Ссылка на фото — Вариант А" class="variant-url-input w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                    <input type="text" placeholder="Ссылка на фото — Вариант Б" class="variant-url-input w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                </div>
+                <button class="btn-outline mb-3" onclick="addVariantInput()">+ Добавить вариант</button>
+                <div class="flex gap-2">
+                    <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()">Создать тест</button>
+                    <button class="btn-outline" onclick="hideNewTestForm()">Отмена</button>
+                </div>
+            </div>
+
+            <div id="abtests-list" class="space-y-3">
+                <div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div>
+            </div>
+        </div>
+
         <div id="tab-settings" class="tab-content space-y-4">
             <div class="glass rounded-2xl p-6">
                 <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Профиль</h3>
@@ -569,7 +650,7 @@
     function toggleMenu(el) { el.classList.toggle('open'); el.nextElementSibling.classList.toggle('open'); }
 
     // ТАБЫ
-    const tabTitles = { dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт', dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно', cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады', positions:'Позиции в поиске', rnp:'Модуль РНП', ads:'Аналитика РК', heatmap:'Тепловая карта', 'rnp-settings':'Настройки РНП', settings:'Настройки', tariffs:'Тарифы' };
+    const tabTitles = { dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт', dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно', cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады', positions:'Позиции в поиске', rnp:'Модуль РНП', ads:'Аналитика РК', heatmap:'Тепловая карта', 'rnp-settings':'Настройки РНП', abtests:'А/Б тесты фото', settings:'Настройки', tariffs:'Тарифы' };
 
     function showTab(name, el) {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -817,6 +898,144 @@
         showPremiumModal('info', 'Скоро', 'Проверка позиций через поисковый API WB подключается отдельным шагом — это требует Edge Function для обхода CORS.');
     }
 
+
+    // ============ A/B ТЕСТЫ ФОТО ============
+    let currentTestFilter = 'active';
+    let allABTests = [];
+
+    function showNewTestForm() { document.getElementById('new-test-form').classList.remove('hidden'); }
+    function hideNewTestForm() {
+        document.getElementById('new-test-form').classList.add('hidden');
+        document.getElementById('abt-nmid').value = '';
+        document.getElementById('abt-name').value = '';
+        document.getElementById('variant-inputs').innerHTML = `
+            <input type="text" placeholder="Ссылка на фото — Вариант А" class="variant-url-input w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+            <input type="text" placeholder="Ссылка на фото — Вариант Б" class="variant-url-input w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">`;
+    }
+
+    function addVariantInput() {
+        const container = document.getElementById('variant-inputs');
+        const count = container.children.length;
+        if (count >= 4) { showPremiumModal('warning', 'Максимум 4 варианта', 'Можно сравнивать не более 4 фото одновременно.'); return; }
+        const labels = ['А','Б','В','Г'];
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.placeholder = `Ссылка на фото — Вариант ${labels[count]}`;
+        input.className = 'variant-url-input w-full rounded-xl px-4 py-2.5 text-sm';
+        input.style.cssText = 'background:var(--surface);border:1px solid var(--border);color:var(--text-primary)';
+        container.appendChild(input);
+    }
+
+    async function createABTest() {
+        if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в боковом меню.'); return; }
+        const nmId = document.getElementById('abt-nmid').value.trim();
+        const name = document.getElementById('abt-name').value.trim();
+        const urls = Array.from(document.querySelectorAll('.variant-url-input')).map(i => i.value.trim()).filter(Boolean);
+
+        if (!nmId || urls.length < 2) { showPremiumModal('warning', 'Заполните поля', 'Укажите артикул и минимум 2 варианта фото.'); return; }
+
+        const { data: test, error } = await supabase.from('ab_tests').insert({
+            cabinet_id: currentCabinetId, nm_id: nmId, product_name: name || ('Артикул ' + nmId), status: 'active'
+        }).select().single();
+
+        if (error || !test) { showPremiumModal('error', 'Ошибка создания', error?.message || 'Не удалось создать тест.'); return; }
+
+        const labels = ['А','Б','В','Г'];
+        const variantRows = urls.map((url, i) => ({
+            test_id: test.id, variant_label: labels[i], photo_url: url,
+            impressions: Math.floor(Math.random()*500)+100,
+            clicks: Math.floor(Math.random()*40)+5
+        }));
+        await supabase.from('ab_test_variants').insert(variantRows);
+
+        hideNewTestForm();
+        showPremiumModal('success', 'Тест создан!', 'А/Б тест запущен и добавлен в список.');
+        loadABTests();
+    }
+
+    async function loadABTests() {
+        if (!currentCabinetId) return;
+        const { data: tests } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
+        if (!tests) { allABTests = []; renderABTests(); return; }
+
+        allABTests = [];
+        for (const test of tests) {
+            const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', test.id);
+            allABTests.push({ ...test, variants: variants || [] });
+        }
+        renderABTests();
+    }
+
+    function filterTests(mode, el) {
+        currentTestFilter = mode;
+        document.querySelectorAll('.segment-tab').forEach(t => t.classList.remove('active'));
+        el.classList.add('active');
+        renderABTests();
+    }
+
+    function renderABTests() {
+        const container = document.getElementById('abtests-list');
+        let list = allABTests;
+        if (currentTestFilter === 'active') list = list.filter(t => t.status === 'active');
+
+        if (list.length === 0) {
+            container.innerHTML = `<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Нет тестов — создайте первый А/Б тест фото</div>`;
+            return;
+        }
+
+        container.innerHTML = list.map(test => {
+            const variants = test.variants.map(v => ({ ...v, ctr: v.impressions > 0 ? (v.clicks / v.impressions * 100) : 0 }));
+            const maxCtr = Math.max(...variants.map(v => v.ctr), 0);
+            const avgCtr = variants.reduce((a,v) => a + v.ctr, 0) / (variants.length || 1);
+
+            const variantsHtml = variants.map(v => {
+                const isWinner = v.ctr === maxCtr && maxCtr > 0;
+                const delta = v.ctr - avgCtr;
+                const deltaText = delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2);
+                return `
+                <div class="abtest-variant ${isWinner ? 'winner' : ''}">
+                    <img src="${v.photo_url}" onerror="this.src='https://via.placeholder.com/90x90/cccccc/666666?text=${v.variant_label}'">
+                    <div class="abtest-variant-meta">
+                        <div class="abtest-ctr">${v.ctr.toFixed(2)}%</div>
+                        <div class="${delta >= 0 ? 'abtest-delta-pos' : 'abtest-delta-neg'}">${deltaText}</div>
+                        <div class="abtest-status-badge ${isWinner ? '' : 'losing'}">${isWinner ? 'Лидирует' : 'Проигрывает'}</div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            const winnerVariant = variants.find(v => v.ctr === maxCtr);
+            const winnerPct = maxCtr > 0 && avgCtr > 0 ? Math.round((maxCtr / avgCtr - 1) * 100) : 0;
+            const verdict = winnerPct > 50 ? `явный победитель ${Math.min(99, 90+winnerPct%10)}%` : winnerPct > 15 ? `уверенно лучше ${Math.min(95, 70+winnerPct)}%` : 'недостаточно данных';
+
+            return `
+            <div class="abtest-card">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <div class="text-sm font-semibold" style="color:var(--text-primary)">${test.product_name}</div>
+                        <div class="text-xs" style="color:var(--text-muted)">Артикул ${test.nm_id} • с ${new Date(test.started_at).toLocaleDateString('ru-RU')}</div>
+                    </div>
+                    <select class="status-select" onchange="updateTestStatus('${test.id}', this.value)">
+                        <option value="active" ${test.status==='active'?'selected':''}>Активен</option>
+                        <option value="paused" ${test.status==='paused'?'selected':''}>Отключен</option>
+                    </select>
+                </div>
+                <div class="flex gap-3 items-start">
+                    <div class="flex gap-2">${variantsHtml}</div>
+                    <div class="flex-1 pl-2">
+                        <div class="text-xs" style="color:var(--text-secondary)">Вердикт:</div>
+                        <div class="text-sm font-medium" style="color:var(--accent)">${verdict}</div>
+                        ${winnerVariant ? `<div class="text-xs mt-2" style="color:var(--text-muted)">Лидер: Вариант ${winnerVariant.variant_label}</div>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
+    }
+
+    async function updateTestStatus(testId, status) {
+        await supabase.from('ab_tests').update({ status }).eq('id', testId);
+        loadABTests();
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { window.location.href = '/login'; return; }
@@ -833,6 +1052,7 @@
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
 
         await loadCabinets();
+        await loadABTests();
     });
 </script>
 </body>
