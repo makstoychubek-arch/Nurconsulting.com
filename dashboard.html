@@ -120,8 +120,8 @@
         .tab-content.active { display: block; animation: fadeIn 0.25s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
-        .badge-green { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); padding: 2px 8px; border-radius: 5px; font-size: 11px; border: 1px solid color-mix(in srgb, var(--green) 30%, transparent); }
-        .badge-red { background: color-mix(in srgb, var(--red) 18%, transparent); color: var(--red); padding: 2px 8px; border-radius: 5px; font-size: 11px; border: 1px solid color-mix(in srgb, var(--red) 30%, transparent); }
+        .badge-green { background: rgba(52,211,153,0.18); color: var(--green); padding: 2px 8px; border-radius: 5px; font-size: 11px; border: 1px solid rgba(52,211,153,0.3); }
+        .badge-red { background: rgba(248,113,113,0.18); color: var(--red); padding: 2px 8px; border-radius: 5px; font-size: 11px; border: 1px solid rgba(248,113,113,0.3); }
 
         .neon { box-shadow: var(--use-glow); }
         .orb { position: fixed; border-radius: 50%; pointer-events: none; filter: blur(120px); opacity: 0.05; }
@@ -496,7 +496,7 @@
             <div class="glass rounded-2xl p-6">
                 <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Профиль</h3>
                 <div id="settings-user-info" class="text-sm space-y-2" style="color:var(--text-secondary)">Загрузка...</div>
-                <button onclick="handleLogout()" class="mt-4 px-5 py-2 text-sm rounded-xl border transition" style="background:color-mix(in srgb, var(--red) 10%, transparent);color:var(--red);border-color:color-mix(in srgb, var(--red) 25%, transparent)">Выйти</button>
+                <button onclick="handleLogout()" class="mt-4 px-5 py-2 text-sm rounded-xl border transition" style="background:rgba(248,113,113,0.1);color:var(--red);border-color:rgba(248,113,113,0.25)">Выйти</button>
             </div>
             <div class="glass rounded-2xl p-6">
                 <h3 class="font-semibold mb-3" style="color:var(--text-primary)">О платформе</h3>
@@ -552,10 +552,10 @@
         const titleEl = document.getElementById('modal-title');
         const textEl = document.getElementById('modal-text');
         const styles = {
-            success: { bg: 'color-mix(in srgb, var(--green) 20%, transparent)', color: 'var(--green)', emoji: '✓' },
-            error: { bg: 'color-mix(in srgb, var(--red) 20%, transparent)', color: 'var(--red)', emoji: '✕' },
-            warning: { bg: 'color-mix(in srgb, var(--amber) 20%, transparent)', color: 'var(--amber)', emoji: '⚠' },
-            info: { bg: 'color-mix(in srgb, var(--blue) 20%, transparent)', color: 'var(--blue)', emoji: 'ℹ' }
+            success: { bg: 'rgba(52,211,153,0.2)', color: 'var(--green)', emoji: '✓' },
+            error: { bg: 'rgba(248,113,113,0.2)', color: 'var(--red)', emoji: '✕' },
+            warning: { bg: 'rgba(251,191,36,0.2)', color: 'var(--amber)', emoji: '⚠' },
+            info: { bg: 'rgba(96,165,250,0.2)', color: 'var(--blue)', emoji: 'ℹ' }
         };
         const s = styles[type] || styles.info;
         icon.style.background = s.bg; icon.style.color = s.color; icon.textContent = s.emoji;
