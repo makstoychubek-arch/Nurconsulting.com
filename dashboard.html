@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="dark">
+<html lang="ru" data-theme="ios">
 <head>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23030303'/><text y='72' font-size='58' font-family='Arial Black,sans-serif' font-weight='900' fill='white' x='4'>N</text><text y='72' font-size='58' font-family='Arial Black,sans-serif' font-weight='900' fill='%236D28D9' x='50'>R</text></svg>">
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><circle cx='256' cy='256' r='256' fill='%23030303'/><text y='340' font-size='240' font-family='Arial Black,sans-serif' font-weight='900' fill='white' x='20'>N</text><text y='340' font-size='240' font-family='Arial Black,sans-serif' font-weight='900' fill='%236D28D9' x='268'>R</text></svg>">
@@ -13,320 +13,150 @@
     <style>
         * { font-family: 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; }
 
-        /* ============ ТЕМА: DARK PURPLE (по умолчанию) ============ */
-        :root, [data-theme="dark"] {
-            --bg: #030303;
-            --surface: rgba(13,13,25,0.55);
-            --surface-solid: #0d0d19;
-            --sidebar-bg: rgba(7,7,20,0.97);
-            --border: rgba(255,255,255,0.06);
-            --border-strong: rgba(255,255,255,0.12);
-            --text-primary: #ffffff;
-            --text-secondary: #9ca3af;
-            --text-muted: #6b7280;
-            --accent: #7C3AED;
-            --accent-hover: #6D28D9;
-            --accent-soft: rgba(109,40,217,0.12);
-            --accent-border: rgba(109,40,217,0.3);
-            --green: #34d399;
-            --red: #f87171;
-            --amber: #fbbf24;
-            --blue: #60a5fa;
-            --card-shadow: none;
-            --use-blur: blur(16px);
-            --use-glow: 0 0 20px rgba(124,58,237,0.25);
-        }
-
-        /* ============ ТЕМА: BEIGE OLIVE (минимализм) ============ */
-        [data-theme="beige"] {
-            --bg: #F5F1E8;
+        /* ============ ТЕМА: iOS CLEAN ============ */
+        :root, [data-theme="ios"] {
+            --bg: #F2F2F7;
             --surface: #FFFFFF;
             --surface-solid: #FFFFFF;
-            --sidebar-bg: #FBF9F3;
-            --border: rgba(44,42,36,0.09);
-            --border-strong: rgba(44,42,36,0.18);
-            --text-primary: #2C2A24;
-            --text-secondary: #6B6759;
-            --text-muted: #948F7E;
-            --accent: #6B7355;
-            --accent-hover: #565D44;
-            --accent-soft: rgba(107,115,85,0.1);
-            --accent-border: rgba(107,115,85,0.35);
-            --green: #5C7A4F;
-            --red: #B5594A;
-            --amber: #A8823D;
-            --blue: #4F6B7A;
-            --card-shadow: 0 1px 2px rgba(44,42,36,0.04);
+            --sidebar-bg: #FFFFFF;
+            --border: rgba(60,60,67,0.08);
+            --border-strong: rgba(60,60,67,0.16);
+            --text-primary: #1C1C1E;
+            --text-secondary: #6E6E73;
+            --text-muted: #AEAEB2;
+            --accent: #007AFF;
+            --accent-hover: #0066D6;
+            --accent-soft: rgba(0,122,255,0.1);
+            --accent-border: rgba(0,122,255,0.25);
+            --green: #34C759;
+            --red: #FF3B30;
+            --amber: #FF9500;
+            --blue: #5AC8FA;
+            --card-shadow: 0 2px 14px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
             --use-blur: none;
-            --use-glow: none;
+            --use-glow: 0 0 0 3px rgba(0,122,255,0.15);
+        }
+
+        /* ============ ТЕМА: NEON GLASSMORPHISM ============ */
+        [data-theme="neon"] {
+            --bg: #0A0A0F;
+            --surface: rgba(20,20,32,0.6);
+            --surface-solid: #14141E;
+            --sidebar-bg: rgba(10,10,18,0.96);
+            --border: rgba(168,85,247,0.16);
+            --border-strong: rgba(168,85,247,0.32);
+            --text-primary: #F5F5FF;
+            --text-secondary: #A8A8C0;
+            --text-muted: #6B6B85;
+            --accent: #A855F7;
+            --accent-hover: #C084FC;
+            --accent-soft: rgba(168,85,247,0.15);
+            --accent-border: rgba(168,85,247,0.4);
+            --green: #00FFA3;
+            --red: #FF4D6D;
+            --amber: #FFD60A;
+            --blue: #22D3EE;
+            --card-shadow: 0 0 0 1px rgba(168,85,247,0.08), 0 0 28px rgba(168,85,247,0.07);
+            --use-blur: blur(20px);
+            --use-glow: 0 0 28px rgba(168,85,247,0.35);
         }
 
         body { background: var(--bg); color: var(--text-primary); transition: background 0.3s ease, color 0.3s ease; }
-
         .sidebar { width: 240px; min-height: 100vh; background: var(--sidebar-bg); border-right: 1px solid var(--border); transition: background 0.3s ease; }
-
-        .glass {
-            background: var(--surface);
-            backdrop-filter: var(--use-blur);
-            border: 1px solid var(--border);
-            box-shadow: var(--card-shadow);
-            transition: background 0.3s ease, border 0.3s ease;
-        }
-
-        .metric-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 18px;
-            transition: border-color 0.2s ease, transform 0.2s ease;
-            box-shadow: var(--card-shadow);
-        }
+        .glass { background: var(--surface); backdrop-filter: var(--use-blur); border: 1px solid var(--border); box-shadow: var(--card-shadow); transition: background 0.3s ease, border 0.3s ease; }
+        .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; transition: border-color 0.2s ease, transform 0.2s ease; box-shadow: var(--card-shadow); }
         .metric-card:hover { border-color: var(--accent-border); }
-        [data-theme="dark"] .metric-card:hover { transform: translateY(-1px); }
-
+        [data-theme="neon"] .metric-card:hover { transform: translateY(-1px); box-shadow: var(--use-glow); }
+        [data-theme="ios"] .metric-card:hover { transform: translateY(-1px); }
         .menu-group { margin: 2px 0; }
-        .menu-group-title {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 9px 16px; cursor: pointer; color: var(--text-secondary); font-size: 12px; font-weight: 600;
-            border-radius: 8px; margin: 1px 8px; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.05em;
-        }
+        .menu-group-title { display: flex; align-items: center; justify-content: space-between; padding: 9px 16px; cursor: pointer; color: var(--text-secondary); font-size: 12px; font-weight: 600; border-radius: 8px; margin: 1px 8px; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.05em; }
         .menu-group-title:hover { background: var(--accent-soft); color: var(--text-primary); }
         .menu-group-title.open { color: var(--accent); }
         .menu-group-title .arrow { transition: transform 0.2s; font-size: 10px; }
         .menu-group-title.open .arrow { transform: rotate(180deg); }
-
         .menu-sub { overflow: hidden; max-height: 0; transition: max-height 0.3s ease; }
         .menu-sub.open { max-height: 300px; }
-
-        .nav-item {
-            display: flex; align-items: center; gap: 8px;
-            padding: 7px 16px 7px 28px; cursor: pointer; color: var(--text-muted); font-size: 12.5px;
-            transition: all 0.2s; margin: 1px 8px; border-radius: 7px; border: 1px solid transparent;
-        }
+        .nav-item { display: flex; align-items: center; gap: 8px; padding: 7px 16px 7px 28px; cursor: pointer; color: var(--text-muted); font-size: 12.5px; transition: all 0.2s; margin: 1px 8px; border-radius: 7px; border: 1px solid transparent; }
         .nav-item:hover { background: var(--accent-soft); color: var(--text-primary); }
         .nav-item.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
-
-        .nav-item-standalone {
-            display: flex; align-items: center; gap: 8px;
-            padding: 10px 14px; cursor: pointer; color: var(--text-primary); font-size: 13px; font-weight: 600;
-            border-radius: 10px; background: var(--accent-soft); border: 1px solid var(--accent-border);
-            transition: all 0.2s;
-        }
+        .nav-item-standalone { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; color: var(--text-primary); font-size: 13px; font-weight: 600; border-radius: 10px; background: var(--accent-soft); border: 1px solid var(--accent-border); transition: all 0.2s; }
         .nav-item-standalone:hover { background: var(--accent); color: white; }
         .nav-item-standalone.active { background: var(--accent); color: white; }
-
-        .cabinet-select {
-            background: var(--accent-soft); border: 1px solid var(--accent-border);
-            border-radius: 10px; color: var(--accent); padding: 8px 12px; font-size: 13px;
-            cursor: pointer; outline: none; width: 100%;
-        }
+        .cabinet-select { background: var(--accent-soft); border: 1px solid var(--accent-border); border-radius: 10px; color: var(--accent); padding: 8px 12px; font-size: 13px; cursor: pointer; outline: none; width: 100%; }
         .cabinet-select option { background: var(--surface-solid); color: var(--text-primary); }
-
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-thumb { background: var(--accent-border); border-radius: 2px; }
-
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.25s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-
         .badge-green { background: rgba(52,211,153,0.18); color: var(--green); padding: 2px 8px; border-radius: 5px; font-size: 11px; border: 1px solid rgba(52,211,153,0.3); }
         .badge-red { background: rgba(248,113,113,0.18); color: var(--red); padding: 2px 8px; border-radius: 5px; font-size: 11px; border: 1px solid rgba(248,113,113,0.3); }
-
         .neon { box-shadow: var(--use-glow); }
-
         .data-table { border-collapse: collapse; width: 100%; }
         .data-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
         .data-table td { padding: 10px 14px; font-size: 12px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
         .data-table tr:hover td { background: var(--accent-soft); }
-
-        .filter-chip {
-            display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 8px; font-size: 12px; cursor: pointer;
-            background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); transition: all 0.2s; white-space: nowrap; user-select: none;
-        }
+        .filter-chip { display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); transition: all 0.2s; white-space: nowrap; user-select: none; }
         .filter-chip:hover { border-color: var(--accent-border); color: var(--accent); }
         .filter-chip.active { border-color: var(--accent-border); color: var(--accent); background: var(--accent-soft); }
-
-        /* Theme toggle switch */
-        .theme-toggle {
-            display: flex; align-items: center; gap: 6px; padding: 4px;
-            background: var(--surface); border: 1px solid var(--border); border-radius: 10px; cursor: pointer;
-        }
-        .theme-dot { width: 18px; height: 18px; border-radius: 50%; transition: all 0.2s; }
-        .theme-dot.dark-dot { background: #7C3AED; }
-        .theme-dot.beige-dot { background: #6B7355; }
-        .theme-toggle .indicator { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--accent); transition: all 0.25s ease; }
-
-        #date-picker {
-            position: fixed; top: 100px; left: 280px; z-index: 9999;
-            background: var(--surface-solid); border: 1px solid var(--accent-border);
-            border-radius: 16px; padding: 20px; width: 480px;
-            box-shadow: 0 25px 80px rgba(0,0,0,0.35);
-        }
-
-        /* Premium modal */
+        .theme-pill { position: relative; width: 52px; height: 28px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); cursor: pointer; transition: all 0.3s ease; flex-shrink: 0; }
+        .theme-pill-thumb { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease; box-shadow: var(--use-glow); }
+        [data-theme="neon"] .theme-pill-thumb { transform: translateX(24px); }
+        #date-picker { position: fixed; top: 100px; left: 280px; z-index: 9999; background: var(--surface-solid); border: 1px solid var(--accent-border); border-radius: 16px; padding: 20px; width: 480px; box-shadow: 0 25px 80px rgba(0,0,0,0.35); }
         #premium-modal { position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); }
         #premium-modal:not(.hidden) { display: flex; }
         #supply-detail-modal:not(.hidden) { display: flex; }
         #modal-box { background: var(--surface-solid); border: 1px solid var(--border-strong); border-radius: 20px; padding: 32px; max-width: 380px; width: 90%; text-align: center; box-shadow: 0 25px 80px rgba(0,0,0,0.3); transform: scale(0.9); opacity: 0; transition: all 0.3s ease; }
-
-        /* A/B Tests styles */
-        .abtest-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 16px;
-            transition: border-color 0.2s ease;
-        }
+        .abtest-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; transition: border-color 0.2s ease; }
         .abtest-card:hover { border-color: var(--accent-border); }
-        .abtest-variant {
-            position: relative;
-            width: 90px;
-            border-radius: 10px;
-            overflow: hidden;
-            border: 2px solid var(--border);
-            transition: border-color 0.2s ease;
-        }
+        .abtest-variant { position: relative; width: 90px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); transition: border-color 0.2s ease; }
         .abtest-variant.winner { border-color: var(--green); }
         .abtest-variant img { width: 100%; height: 90px; object-fit: cover; display: block; }
         .abtest-variant-meta { padding: 6px; text-align: center; }
         .abtest-ctr { font-size: 13px; font-weight: 700; color: var(--text-primary); }
         .abtest-delta-pos { font-size: 10px; color: var(--green); }
         .abtest-delta-neg { font-size: 10px; color: var(--text-muted); }
-        .abtest-status-badge {
-            font-size: 10px; padding: 2px 8px; border-radius: 20px;
-            background: var(--accent-soft); color: var(--accent); display: inline-block; margin-top: 3px;
-        }
-        .abtest-status-badge.losing { background: var(--border); color: var(--text-muted); }
-        .btn-outline {
-            display: inline-flex; align-items: center; gap: 6px;
-            padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
-            background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary);
-            cursor: pointer; transition: all 0.15s;
-        }
+        .btn-outline { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary); cursor: pointer; transition: all 0.15s; }
         .btn-outline:hover { border-color: var(--accent-border); color: var(--accent); }
         .segment-tabs { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
         .segment-tab { padding: 5px 14px; font-size: 12px; border-radius: 6px; cursor: pointer; color: var(--text-secondary); }
         .segment-tab.active { background: var(--accent); color: white; }
-        .status-select {
-            font-size: 11px; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border);
-            background: var(--surface); color: var(--text-primary); cursor: pointer; outline: none;
-        }
-
-        /* Settings API management */
-        .token-card {
-            background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-            padding: 16px 18px; margin-bottom: 10px; transition: all 0.25s ease;
-        }
+        .token-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin-bottom: 10px; transition: all 0.25s ease; }
         .token-card:hover { border-color: var(--accent-border); }
-        .token-masked {
-            font-family: monospace; font-size: 12px; color: var(--text-muted);
-            background: var(--accent-soft); padding: 4px 10px; border-radius: 6px; display: inline-block;
-        }
-        .token-edit-input {
-            width: 100%; font-size: 12px; padding: 8px 12px; border-radius: 8px;
-            background: var(--surface); border: 1px solid var(--border); color: var(--text-primary);
-            font-family: monospace; margin-top: 8px;
-        }
-        @keyframes slideFadeIn {
-            from { opacity: 0; transform: translateY(8px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes slideFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         .settings-tab-anim { animation: slideFadeIn 0.35s ease; }
         .settings-section-tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; margin-bottom: 16px; }
         .settings-section-tab { flex: 1; text-align: center; padding: 8px 12px; font-size: 12px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; }
         .settings-section-tab.active { background: var(--accent); color: white; }
-
-        /* Logistics section */
-        .map-placeholder {
-            background: var(--surface); border: 2px dashed var(--border-strong); border-radius: 16px;
-            min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            color: var(--text-muted); font-size: 13px; gap: 8px;
-        }
-        .supply-card {
-            background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-            padding: 14px 16px; cursor: pointer; transition: all 0.2s;
-        }
-        .supply-card:hover { border-color: var(--accent-border); transform: translateY(-1px); }
-        .supply-mismatch-badge { font-size: 10px; padding: 2px 8px; border-radius: 12px; background: rgba(248,113,113,0.15); color: var(--red); }
-        .supply-ok-badge { font-size: 10px; padding: 2px 8px; border-radius: 12px; background: rgba(52,211,153,0.15); color: var(--green); }
-
-        /* ===================================================== */
-        /* ЕДИНАЯ ДИЗАЙН-СИСТЕМА: flat, минимализм, без теней     */
-        /* ===================================================== */
-
-        /* Кнопки — основной паттерн */
-        .ui-btn {
-            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-            padding: 7px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 500;
-            cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease;
-            border: 1px solid transparent; line-height: 1.2;
-        }
+        .map-placeholder { background: var(--surface); border: 2px dashed var(--border-strong); border-radius: 16px; min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; gap: 8px; }
+        .ui-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; border: 1px solid transparent; line-height: 1.2; }
         .ui-btn-primary { background: var(--accent); color: white; }
         .ui-btn-primary:hover { background: var(--accent-hover); }
         .ui-btn-secondary { background: transparent; border-color: var(--border-strong); color: var(--text-primary); }
         .ui-btn-secondary:hover { background: var(--accent-soft); border-color: var(--accent-border); }
-        .ui-btn-text { background: transparent; border: none; color: var(--accent); padding: 7px 8px; }
-        .ui-btn-text:hover { color: var(--accent-hover); }
-
-        /* Квадратные icon-only кнопки — все одного размера */
-        .ui-icon-btn {
-            width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center;
-            border-radius: 6px; border: 1px solid var(--border-strong); background: transparent;
-            color: var(--text-secondary); cursor: pointer; transition: all 0.15s ease; font-size: 14px;
-        }
-        .ui-icon-btn:hover { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-border); }
-
-        /* Бейджи-статусы — единый паттерн: точка + текст в пилюле */
-        .ui-status {
-            display: inline-flex; align-items: center; gap: 5px;
-            padding: 3px 10px 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 500;
-            background: var(--border); color: var(--text-secondary);
-        }
+        .ui-status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; background: var(--border); color: var(--text-secondary); }
         .ui-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
         .ui-status-success { background: rgba(52,211,153,0.12); color: var(--green); }
         .ui-status-success .ui-status-dot { background: var(--green); }
         .ui-status-danger { background: rgba(248,113,113,0.12); color: var(--red); }
         .ui-status-danger .ui-status-dot { background: var(--red); }
-        .ui-status-warning { background: rgba(251,191,36,0.12); color: var(--amber); }
-        .ui-status-warning .ui-status-dot { background: var(--amber); }
         .ui-status-neutral { background: var(--border); color: var(--text-secondary); }
         .ui-status-neutral .ui-status-dot { background: var(--text-muted); }
-
-        /* Строки списка — разделитель снизу, без рамок и теней */
         .ui-list { border-top: 1px solid var(--border); }
-        .ui-list-row {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 12px 4px; border-bottom: 1px solid var(--border);
-            transition: background 0.1s ease;
-        }
+        .ui-list-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 4px; border-bottom: 1px solid var(--border); transition: background 0.1s ease; }
         .ui-list-row:hover { background: var(--accent-soft); }
         .ui-list-row-main { font-size: 13px; font-weight: 500; color: var(--text-primary); }
         .ui-list-row-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
-        .ui-list-row-value { font-size: 13px; font-weight: 500; color: var(--text-primary); text-align: right; min-width: 80px; }
-        .ui-list-row-actions { display: flex; gap: 4px; align-items: center; }
-
-        /* Поля ввода — единый паттерн */
-        .ui-input, .ui-select {
-            width: 100%; font-size: 12.5px; padding: 8px 12px; border-radius: 6px;
-            border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary);
-            outline: none; transition: border-color 0.15s ease;
-        }
+        .ui-input, .ui-select { width: 100%; font-size: 12.5px; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-strong); background: transparent; color: var(--text-primary); outline: none; transition: border-color 0.15s ease; }
         .ui-input::placeholder { color: var(--text-muted); }
         .ui-input:focus, .ui-select:focus { border-color: var(--accent-border); }
 
-        /* Карточки секций — единый плоский паттерн */
-        .ui-card {
-            background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-            padding: 20px;
-        }
-        .ui-card-title { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
-        .ui-card-subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+        .picker-quick-btn { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:11px; color:var(--text-secondary); cursor:pointer; text-align:center; transition:all 0.15s; }
+        .picker-quick-btn:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent-border); }
+        .picker-date-input { width:100%; font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text-primary); }
     </style>
 </head>
 <body class="flex overflow-hidden h-screen">
-
-    <!-- БОКОВОЕ МЕНЮ -->
     <aside class="sidebar flex flex-col fixed left-0 top-0 z-40 h-full overflow-y-auto shrink-0">
         <div class="px-5 py-4 border-b" style="border-color:var(--border)">
             <div class="flex items-baseline justify-center gap-1.5">
@@ -334,19 +164,13 @@
                 <span class="font-medium text-lg" style="color:var(--text-primary); letter-spacing:0.02em">SPACE</span>
             </div>
         </div>
-
         <div class="px-4 py-3 border-b" style="border-color:var(--border)">
             <div class="text-[9px] uppercase tracking-widest mb-1.5 font-semibold" style="color:var(--text-muted)">Кабинет WB</div>
-            <select id="cabinet-select" class="cabinet-select" onchange="onCabinetChange()">
-                <option value="">Загрузка...</option>
-            </select>
+            <select id="cabinet-select" class="cabinet-select" onchange="onCabinetChange()"><option value="">Загрузка...</option></select>
         </div>
-
         <nav class="flex-1 py-2 overflow-y-auto">
             <div class="px-2 pt-1 pb-2">
-                <div class="nav-item-standalone" onclick="showTab('abtests', this)">
-                    <span>А/Б тесты фото</span>
-                </div>
+                <div class="nav-item-standalone" onclick="showTab('abtests', this)"><span>А/Б тесты фото</span></div>
             </div>
             <div class="menu-group">
                 <div class="menu-group-title open" onclick="toggleMenu(this)"><span>Оцифровка</span><span class="arrow">▼</span></div>
@@ -394,7 +218,6 @@
                 </div>
             </div>
         </nav>
-
         <div class="px-4 py-3 border-t" style="border-color:var(--border)">
             <div class="flex items-center justify-between">
                 <div class="flex items-center space-x-2">
@@ -411,7 +234,6 @@
         </div>
     </aside>
 
-    <!-- ПИКЕР ДАТ -->
     <div id="date-picker" class="hidden" onclick="event.stopPropagation()">
         <div style="display:flex;gap:16px">
             <div style="flex:1;min-width:0">
@@ -462,15 +284,8 @@
             </div>
         </div>
     </div>
-    <style>
-        .picker-quick-btn { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:11px; color:var(--text-secondary); cursor:pointer; text-align:center; transition:all 0.15s; }
-        .picker-quick-btn:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent-border); }
-        .picker-date-input { width:100%; font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text-primary); }
-    </style>
 
-    <!-- ОСНОВНОЙ КОНТЕНТ -->
     <main class="flex-1 ml-[240px] flex flex-col h-full overflow-hidden">
-
         <header class="glass border-b px-6 py-3 shrink-0" style="border-color:var(--border)">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center space-x-3">
@@ -481,24 +296,18 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-2">
-                    <!-- THEME TOGGLE -->
-                    <div class="theme-toggle" onclick="toggleTheme()" title="Сменить тему">
-                        <div class="theme-dot dark-dot"></div>
-                        <div class="theme-dot beige-dot"></div>
+                    <div class="theme-pill" onclick="toggleTheme()" title="Сменить тему">
+                        <div class="theme-pill-thumb"></div>
                     </div>
-                    <button onclick="refreshData()" id="refresh-btn"
-                        class="flex items-center space-x-1.5 px-4 py-1.5 text-white text-xs font-semibold rounded-lg transition neon" style="background:var(--accent)">
+                    <button onclick="refreshData()" id="refresh-btn" class="flex items-center space-x-1.5 px-4 py-1.5 text-white text-xs font-semibold rounded-lg transition neon" style="background:var(--accent)">
                         <span>↻</span><span>Обновить</span>
                     </button>
                     <button onclick="handleLogout()" class="px-3 py-1.5 text-xs rounded-lg transition border" style="color:var(--text-muted);border-color:var(--border)">Выйти</button>
                 </div>
             </div>
-
             <div id="top-filters-bar" class="flex items-center space-x-2 overflow-x-auto pb-1">
                 <div class="filter-chip active flex items-center space-x-1.5" onclick="toggleDatePicker(event)">
-                    <span>📅</span>
-                    <span id="date-range">01.01.2025 — сегодня</span>
-                    <span style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>
+                    <span>📅</span><span id="date-range">01.01.2025 — сегодня</span><span style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>
                 </div>
                 <div class="filter-chip">Маркетплейсы <span style="color:var(--text-muted);margin-left:4px">▼</span></div>
                 <div class="filter-chip">Магазины <span style="color:var(--text-muted);margin-left:4px">▼</span></div>
@@ -510,8 +319,6 @@
         </header>
 
         <div class="flex-1 overflow-y-auto p-6">
-
-        <!-- ДАШБОРД -->
         <div id="tab-dashboard" class="tab-content active space-y-5">
             <h2 class="text-sm font-semibold mb-4" style="color:var(--text-primary)">Общие показатели</h2>
             <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
@@ -563,7 +370,6 @@
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Оборачиваемость по прод.</div><div class="text-lg font-black" style="color:var(--text-primary)">— Дн.</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Оборачиваемость по зак.</div><div class="text-lg font-black" style="color:var(--text-primary)">— Дн.</div></div>
             </div>
-
             <div class="glass rounded-2xl overflow-hidden mt-4">
                 <div class="px-5 py-3 border-b flex justify-between items-center" style="border-color:var(--border)">
                     <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Топ артикулов — остатки</h3>
@@ -572,9 +378,7 @@
                 <div class="overflow-x-auto">
                     <table class="data-table">
                         <thead><tr><th>Артикул WB</th><th>Баркод</th><th>На складе</th><th>В пути</th><th>Статус</th></tr></thead>
-                        <tbody id="products-table">
-                            <tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нажмите "Обновить" для загрузки данных</td></tr>
-                        </tbody>
+                        <tbody id="products-table"><tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нажмите "Обновить" для загрузки данных</td></tr></tbody>
                     </table>
                 </div>
             </div>
@@ -614,7 +418,6 @@
             </div>
         </div>
 
-        <!-- НОВЫЙ РАЗДЕЛ: ПОЗИЦИИ В ПОИСКЕ -->
         <div id="tab-positions" class="tab-content space-y-5">
             <div class="glass rounded-2xl p-6">
                 <h3 class="font-semibold mb-2" style="color:var(--text-primary)">Отслеживание позиций в поиске</h3>
@@ -633,24 +436,17 @@
                 <div class="overflow-x-auto">
                     <table class="data-table">
                         <thead><tr><th>Артикул</th><th>Ключ</th><th>Позиция</th><th>Тип</th><th>Обновлено</th></tr></thead>
-                        <tbody id="positions-table">
-                            <tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Добавьте артикул и ключ для отслеживания</td></tr>
-                        </tbody>
+                        <tbody id="positions-table"><tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Добавьте артикул и ключ для отслеживания</td></tr></tbody>
                     </table>
                 </div>
             </div>
         </div>
 
-        <!-- ЛОГИСТИКА -->
         <div id="tab-logistics" class="tab-content space-y-5">
             <div class="glass rounded-2xl p-6">
                 <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Карта федеральных округов</h3>
-                <div class="map-placeholder">
-                    <span style="font-size:32px">🗺️</span>
-                    <span>Карта появится после загрузки данных по складам</span>
-                </div>
+                <div class="map-placeholder"><span style="font-size:32px">🗺️</span><span>Карта появится после загрузки данных по складам</span></div>
             </div>
-
             <div class="glass rounded-2xl p-6">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-3">
@@ -662,12 +458,8 @@
                         <div class="segment-tab" onclick="filterSupplies('all', this)">Все</div>
                     </div>
                 </div>
-                <div id="supplies-list">
-                    <div class="text-center py-10 text-sm col-span-2" style="color:var(--text-muted)">Нажмите "Обновить" для загрузки поставок из WB</div>
-                </div>
+                <div id="supplies-list"><div class="text-center py-10 text-sm col-span-2" style="color:var(--text-muted)">Нажмите "Обновить" для загрузки поставок из WB</div></div>
             </div>
-
-            <!-- Детали поставки (модальное окно) -->
             <div id="supply-detail-modal" class="hidden" style="position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px)">
                 <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:28px;max-width:520px;width:90%;max-height:80vh;overflow-y-auto">
                     <div class="flex items-center justify-between mb-4">
@@ -701,19 +493,14 @@
         <div id="tab-heatmap" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><h3 class="font-semibold" style="color:var(--text-primary)">Тепловая карта</h3></div></div>
         <div id="tab-rnp-settings" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><h3 class="font-semibold" style="color:var(--text-primary)">Настройки РНП</h3></div></div>
 
-        <!-- A/B ТЕСТЫ ФОТО -->
         <div id="tab-abtests" class="tab-content space-y-4">
             <div class="flex items-center justify-between mb-2">
-                <button class="ui-btn ui-btn-secondary" onclick="showNewTestForm()">
-                    <span style="font-size:16px;line-height:1">+</span><span>Создать новый тест</span>
-                </button>
+                <button class="ui-btn ui-btn-secondary" onclick="showNewTestForm()"><span style="font-size:16px;line-height:1">+</span><span>Создать новый тест</span></button>
                 <div class="segment-tabs">
                     <div class="segment-tab active" onclick="filterTests('active', this)">Активные</div>
                     <div class="segment-tab" onclick="filterTests('all', this)">Все</div>
                 </div>
             </div>
-
-            <!-- Форма создания (скрыта по умолчанию) -->
             <div id="new-test-form" class="glass rounded-2xl p-6 hidden">
                 <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Новый А/Б тест</h3>
                 <div class="grid grid-cols-2 gap-3 mb-3">
@@ -731,10 +518,7 @@
                     <button class="ui-btn ui-btn-secondary" onclick="hideNewTestForm()">Отмена</button>
                 </div>
             </div>
-
-            <div id="abtests-list" class="space-y-3">
-                <div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div>
-            </div>
+            <div id="abtests-list" class="space-y-3"><div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div></div>
         </div>
 
         <div id="tab-settings" class="tab-content">
@@ -743,7 +527,6 @@
                 <div class="settings-section-tab" onclick="showSettingsSection('api', this)">API кабинетов</div>
                 <div class="settings-section-tab" onclick="showSettingsSection('about', this)">О платформе</div>
             </div>
-
             <div id="settings-profile" class="settings-tab-anim space-y-4">
                 <div class="glass rounded-2xl p-6">
                     <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Профиль</h3>
@@ -751,16 +534,12 @@
                     <button onclick="handleLogout()" class="mt-4 px-5 py-2 text-sm rounded-xl border transition" style="background:rgba(248,113,113,0.1);color:var(--red);border-color:rgba(248,113,113,0.25)">Выйти</button>
                 </div>
             </div>
-
             <div id="settings-api" class="settings-tab-anim hidden space-y-4">
                 <div class="glass rounded-2xl p-6">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="font-semibold" style="color:var(--text-primary)">Кабинеты и API-токены</h3>
-                        <button class="ui-btn ui-btn-secondary" onclick="showAddCabinetForm()">
-                            <span style="font-size:14px;line-height:1">+</span><span>Добавить кабинет</span>
-                        </button>
+                        <button class="ui-btn ui-btn-secondary" onclick="showAddCabinetForm()"><span style="font-size:14px;line-height:1">+</span><span>Добавить кабинет</span></button>
                     </div>
-
                     <div id="add-cabinet-form" class="hidden mb-4 p-4 rounded-xl" style="background:var(--accent-soft);border:1px solid var(--accent-border)">
                         <input type="text" id="new-cabinet-name" placeholder="Название кабинета" class="w-full rounded-xl px-4 py-2.5 text-sm mb-2" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
                         <input type="text" id="new-cabinet-token" placeholder="Персональный токен WB" class="w-full rounded-xl px-4 py-2.5 text-sm mb-3" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary);font-family:monospace">
@@ -769,31 +548,25 @@
                             <button class="ui-btn ui-btn-secondary" onclick="hideAddCabinetForm()">Отмена</button>
                         </div>
                     </div>
-
-                    <div id="cabinets-api-list" class="space-y-2">
-                        <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div>
-                    </div>
+                    <div id="cabinets-api-list" class="space-y-2"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div></div>
                 </div>
             </div>
-
             <div id="settings-about" class="settings-tab-anim hidden space-y-4">
                 <div class="glass rounded-2xl p-6">
                     <h3 class="font-semibold mb-3" style="color:var(--text-primary)">О платформе</h3>
                     <div class="text-sm space-y-1.5" style="color:var(--text-secondary)">
-                        <div>Версия: <span style="color:var(--text-primary)">NR Space v1.2</span></div>
+                        <div>Версия: <span style="color:var(--text-primary)">NR Space v1.3</span></div>
                         <div>База данных: <span style="color:var(--green)">Supabase ✓</span></div>
-                        <div>WB API: <span style="color:var(--green)">Подключено ✓</span></div>
+                        <div>WB API: <span style="color:var(--green)">Через защищённый прокси ✓</span></div>
                     </div>
                 </div>
             </div>
         </div>
 
         <div id="tab-tariffs" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><h3 class="font-semibold" style="color:var(--text-primary)">Тарифы</h3></div></div>
-
         </div>
     </main>
 
-    <!-- Premium modal -->
     <div id="premium-modal" class="hidden">
         <div id="modal-box">
             <div id="modal-icon" style="width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px"></div>
@@ -807,28 +580,50 @@
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
     var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    var WB_PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
 
     function escapeHtml(str) {
         return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    async function callWbProxy(action, params) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { showPremiumModal('error', 'Не авторизован', 'Сессия истекла, перезайдите.'); return null; }
+        let res;
+        try {
+            res = await fetch(WB_PROXY_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+                body: JSON.stringify({ cabinet_id: currentCabinetId, action, params })
+            });
+        } catch (e) {
+            showPremiumModal('error', 'Ошибка соединения', e.message);
+            return null;
+        }
+        if (res.status === 429) { showPremiumModal('error', 'WB ограничил запросы', 'Слишком много запросов подряд. Подождите 3-5 минут и попробуйте снова.'); return null; }
+        if (res.status === 400 || res.status === 403) {
+            const errData = await res.json().catch(() => ({}));
+            showPremiumModal('warning', 'Не удалось выполнить запрос', errData.error || 'Проверьте токен кабинета.');
+            return null;
+        }
+        return await res.json();
+    }
+
     let currentCabinetId = localStorage.getItem('selected_cabinet_id') || null;
 
-    // ============ ТЕМА ============
     function applyTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('nr_theme', theme);
     }
     function toggleTheme() {
         const cur = document.documentElement.getAttribute('data-theme');
-        applyTheme(cur === 'dark' ? 'beige' : 'dark');
+        applyTheme(cur === 'ios' ? 'neon' : 'ios');
     }
     (function initTheme() {
-        const saved = localStorage.getItem('nr_theme') || 'dark';
+        const saved = localStorage.getItem('nr_theme') || 'ios';
         applyTheme(saved);
     })();
 
-    // ============ МОДАЛКИ ============
     function showPremiumModal(type, title, text) {
         const modal = document.getElementById('premium-modal');
         const box = document.getElementById('modal-box');
@@ -853,11 +648,9 @@
         setTimeout(() => { document.getElementById('premium-modal').classList.add('hidden'); }, 200);
     }
 
-    // АККОРДЕОН
     function toggleMenu(el) { el.classList.toggle('open'); el.nextElementSibling.classList.toggle('open'); }
 
-    // ТАБЫ
-    const tabTitles = { dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт', dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно', cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады', positions:'Позиции в поиске', rnp:'Модуль РНП', ads:'Аналитика РК', heatmap:'Тепловая карта', 'rnp-settings':'Настройки РНП', abtests:'А/Б тесты фото', logistics:'Логистика', positions:'Позиции в поиске', settings:'Настройки', tariffs:'Тарифы' };
+    const tabTitles = { dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт', dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно', cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады', positions:'Позиции в поиске', rnp:'Модуль РНП', ads:'Аналитика РК', heatmap:'Тепловая карта', 'rnp-settings':'Настройки РНП', abtests:'А/Б тесты фото', logistics:'Логистика', settings:'Настройки', tariffs:'Тарифы' };
 
     function showTab(name, el) {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -865,14 +658,10 @@
         document.getElementById('tab-' + name)?.classList.add('active');
         if (el) el.classList.add('active');
         document.getElementById('page-title').textContent = tabTitles[name] || name;
-
         const filtersBar = document.getElementById('top-filters-bar');
-        if (filtersBar) {
-            filtersBar.style.display = (name === 'dashboard' || name === 'rnp') ? 'flex' : 'none';
-        }
+        if (filtersBar) filtersBar.style.display = (name === 'dashboard' || name === 'rnp') ? 'flex' : 'none';
     }
 
-    // ПИКЕР ДАТ
     const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
     const RU_MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
     let pickerState = { year:2026, month:new Date().getMonth(), fromDate:null, toDate:null, selecting:'from' };
@@ -970,7 +759,6 @@
         loadFromDB(from, to);
     }
 
-    // КАБИНЕТЫ
     async function loadCabinets() {
         const { data } = await supabase.from('cabinets').select('id, name').order('name');
         const select = document.getElementById('cabinet-select');
@@ -989,7 +777,6 @@
         loadFromDB();
     }
 
-    // ЗАГРУЗКА ИЗ БД
     async function loadFromDB(dateFrom, dateTo) {
         if (!currentCabinetId) return;
         const from = dateFrom || '2025-01-01';
@@ -1003,24 +790,18 @@
         }
     }
 
-    // ОБНОВЛЕНИЕ ИЗ WB
     async function refreshData() {
         if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в боковом меню.'); return; }
         const btn = document.getElementById('refresh-btn');
         btn.textContent = '⟳ Загрузка...'; btn.disabled = true;
         try {
-            const { data: cabinet } = await supabase.from('cabinets').select('wb_token').eq('id', currentCabinetId).single();
-            if (!cabinet?.wb_token || cabinet.wb_token.length < 50) {
-                showPremiumModal('warning', 'Токен не настроен', 'У этого кабинета ещё нет настоящего токена WB. Добавьте токен в базе данных.');
-                return;
-            }
             const from = '2025-01-01';
-            const stocksRes = await fetch(`https://statistics-api.wildberries.ru/api/v1/supplier/stocks?dateFrom=${from}`, { headers: { Authorization: cabinet.wb_token } });
-            if (stocksRes.status === 429) { showPremiumModal('error', 'WB ограничил запросы', 'Слишком много запросов подряд. Подождите 3-5 минут и попробуйте снова.'); return; }
-            const stocks = await stocksRes.json();
-            const ordersRes = await fetch(`https://statistics-api.wildberries.ru/api/v1/supplier/orders?dateFrom=${from}`, { headers: { Authorization: cabinet.wb_token } });
-            if (ordersRes.status === 429) { showPremiumModal('error', 'WB ограничил запросы', 'Слишком много запросов подряд. Подождите 3-5 минут и попробуйте снова.'); return; }
-            const orders = await ordersRes.json();
+
+            const stocks = await callWbProxy('stocks', { dateFrom: from });
+            if (!stocks) return;
+            const orders = await callWbProxy('orders', { dateFrom: from });
+            if (!orders) return;
+
             if (Array.isArray(stocks) && stocks.length > 0) {
                 const stockRows = stocks.map(s => ({ cabinet_id: currentCabinetId, nm_id: s.nmId, barcode: s.barcode, quantity: s.quantity||0, in_way_to_client: s.inWayToClient||0, in_way_from_client: s.inWayFromClient||0, warehouse_name: s.warehouseName||'' }));
                 const { error: delError } = await supabase.from('wb_stocks').delete().eq('cabinet_id', currentCabinetId);
@@ -1040,7 +821,6 @@
         finally { btn.textContent = '↻ Обновить'; btn.disabled = false; }
     }
 
-    // UI
     function updateDashboardFromDB(stocks, orders) {
         let totalStock=0, ordersSum=0, ordersCount=0, returns=0;
         stocks.forEach(s => totalStock += Number(s.quantity||0));
@@ -1095,7 +875,6 @@
     function setText(id, val) { const el=document.getElementById(id); if(el) el.textContent=val; }
     function fmt(n) { return Number(n).toLocaleString('ru-RU'); }
 
-    // ============ ПОЗИЦИИ В ПОИСКЕ (заглушка UI, логика подключим следующим шагом) ============
     let trackedKeywords = [];
     function addKeyword() {
         const nmid = document.getElementById('pos-nmid').value.trim();
@@ -1111,11 +890,9 @@
         tbody.innerHTML = trackedKeywords.map(k => `<tr><td style="color:var(--accent);font-weight:600">${k.nmid}</td><td style="color:var(--text-primary)">${k.keyword}</td><td style="color:var(--text-primary)">${k.position || '—'}</td><td style="color:var(--text-muted)">${k.isAd?'Реклама':'Органика'}</td><td style="color:var(--text-muted)">${k.checked||'не проверено'}</td></tr>`).join('');
     }
     function checkAllPositions() {
-        showPremiumModal('info', 'Скоро', 'Проверка позиций через поисковый API WB подключается отдельным шагом — это требует Edge Function для обхода CORS.');
+        showPremiumModal('info', 'Скоро', 'Проверка позиций через поисковый API WB подключается отдельным шагом.');
     }
 
-
-    // ============ A/B ТЕСТЫ ФОТО ============
     let currentTestFilter = 'active';
     let allABTests = [];
 
@@ -1147,28 +924,17 @@
         const nmId = document.getElementById('abt-nmid').value.trim();
         const name = document.getElementById('abt-name').value.trim();
         const urls = Array.from(document.querySelectorAll('.variant-url-input')).map(i => i.value.trim()).filter(Boolean);
-
         if (!nmId || urls.length < 2) { showPremiumModal('warning', 'Заполните поля', 'Укажите артикул и минимум 2 варианта фото.'); return; }
-
-        const { data: test, error } = await supabase.from('ab_tests').insert({
-            cabinet_id: currentCabinetId, nm_id: nmId, product_name: name || ('Артикул ' + nmId), status: 'active'
-        }).select().single();
-
+        const { data: test, error } = await supabase.from('ab_tests').insert({ cabinet_id: currentCabinetId, nm_id: nmId, product_name: name || ('Артикул ' + nmId), status: 'active' }).select().single();
         if (error || !test) { showPremiumModal('error', 'Ошибка создания', error?.message || 'Не удалось создать тест.'); return; }
-
         const labels = ['А','Б','В','Г'];
-        const variantRows = urls.map((url, i) => ({
-            test_id: test.id, variant_label: labels[i], photo_url: url,
-            impressions: Math.floor(Math.random()*500)+100,
-            clicks: Math.floor(Math.random()*40)+5
-        }));
+        const variantRows = urls.map((url, i) => ({ test_id: test.id, variant_label: labels[i], photo_url: url, impressions: Math.floor(Math.random()*500)+100, clicks: Math.floor(Math.random()*40)+5 }));
         const { error: variantError } = await supabase.from('ab_test_variants').insert(variantRows);
         if (variantError) {
             await supabase.from('ab_tests').delete().eq('id', test.id);
             showPremiumModal('error', 'Ошибка создания вариантов', variantError.message);
             return;
         }
-
         hideNewTestForm();
         showPremiumModal('success', 'Тест создан!', 'А/Б тест запущен и добавлен в список.');
         loadABTests();
@@ -1178,7 +944,6 @@
         if (!currentCabinetId) return;
         const { data: tests } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
         if (!tests) { allABTests = []; renderABTests(); return; }
-
         allABTests = [];
         for (const test of tests) {
             const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', test.id);
@@ -1198,17 +963,11 @@
         const container = document.getElementById('abtests-list');
         let list = allABTests;
         if (currentTestFilter === 'active') list = list.filter(t => t.status === 'active');
-
-        if (list.length === 0) {
-            container.innerHTML = `<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Нет тестов — создайте первый А/Б тест фото</div>`;
-            return;
-        }
-
+        if (list.length === 0) { container.innerHTML = `<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Нет тестов — создайте первый А/Б тест фото</div>`; return; }
         container.innerHTML = list.map(test => {
             const variants = test.variants.map(v => ({ ...v, ctr: v.impressions > 0 ? (v.clicks / v.impressions * 100) : 0 }));
             const maxCtr = Math.max(...variants.map(v => v.ctr), 0);
             const avgCtr = variants.reduce((a,v) => a + v.ctr, 0) / (variants.length || 1);
-
             const variantsHtml = variants.map(v => {
                 const isWinner = v.ctr === maxCtr && maxCtr > 0;
                 const delta = v.ctr - avgCtr;
@@ -1223,11 +982,9 @@
                     </div>
                 </div>`;
             }).join('');
-
             const winnerVariant = variants.find(v => v.ctr === maxCtr);
             const winnerPct = maxCtr > 0 && avgCtr > 0 ? Math.round((maxCtr / avgCtr - 1) * 100) : 0;
             const verdict = winnerPct > 50 ? `явный победитель ${Math.min(99, 90+winnerPct%10)}%` : winnerPct > 15 ? `уверенно лучше ${Math.min(95, 70+winnerPct)}%` : 'недостаточно данных';
-
             return `
             <div class="abtest-card">
                 <div class="flex items-start justify-between mb-3">
@@ -1257,8 +1014,6 @@
         loadABTests();
     }
 
-
-    // ============ SETTINGS — API TOKEN MANAGEMENT ============
     function showSettingsSection(section, el) {
         document.querySelectorAll('.settings-section-tab').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('[id^="settings-"]').forEach(s => s.classList.add('hidden'));
@@ -1277,12 +1032,10 @@
         let data, error;
         ({ data, error } = await supabase.from('cabinets').select('id, name, wb_token, wb_content_token').order('name'));
         if (error) {
-            // Fallback: wb_content_token колонка может не существовать — пробуем без неё
             ({ data, error } = await supabase.from('cabinets').select('id, name, wb_token').order('name'));
         }
-        if (error) { container.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--accent-red)">Ошибка загрузки кабинетов: ${escapeHtml(error.message)}</div>`; return; }
+        if (error) { container.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--red)">Ошибка загрузки кабинетов: ${escapeHtml(error.message)}</div>`; return; }
         if (!data || data.length === 0) { container.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Кабинетов нет</div>'; return; }
-
         container.innerHTML = `<div class="ui-list">` + data.map(c => {
             const hasToken = c.wb_token && c.wb_token.length > 50;
             const hasContentToken = c.wb_content_token && c.wb_content_token.length > 50;
@@ -1296,7 +1049,7 @@
                     <button class="ui-btn ui-btn-secondary" onclick="toggleEditToken('${c.id}')">${hasToken ? 'Изменить' : 'Добавить'}</button>
                 </div>
                 <div id="edit-token-${c.id}" class="hidden" style="padding:0 4px 14px">
-                    <input type="text" id="token-input-${c.id}" placeholder="Вставьте основной токен WB (Статистика)" class="ui-input" style="font-family:monospace">
+                    <input type="text" id="token-input-${c.id}" placeholder="Вставьте основной токен WB" class="ui-input" style="font-family:monospace">
                     <div class="flex gap-2 mt-2">
                         <button class="ui-btn ui-btn-primary" onclick="saveTokenForCabinet('${c.id}')">Сохранить</button>
                         <button class="ui-btn ui-btn-secondary" onclick="toggleEditToken('${c.id}')">Отмена</button>
@@ -1310,7 +1063,7 @@
                     <button class="ui-btn ui-btn-secondary" onclick="toggleEditContentToken('${c.id}')">${hasContentToken ? 'Изменить' : 'Добавить'}</button>
                 </div>
                 <div id="edit-content-token-${c.id}" class="hidden" style="padding:0 4px 14px">
-                    <input type="text" id="content-token-input-${c.id}" placeholder="Вставьте токен с доступом к Content API (Контент)" class="ui-input" style="font-family:monospace">
+                    <input type="text" id="content-token-input-${c.id}" placeholder="Вставьте токен с доступом к Content API" class="ui-input" style="font-family:monospace">
                     <div class="flex gap-2 mt-2">
                         <button class="ui-btn ui-btn-primary" onclick="saveContentTokenForCabinet('${c.id}')">Сохранить</button>
                         <button class="ui-btn ui-btn-secondary" onclick="toggleEditContentToken('${c.id}')">Отмена</button>
@@ -1320,13 +1073,11 @@
         }).join('') + `</div>`;
     }
 
-    function toggleEditToken(cabinetId) {
-        document.getElementById('edit-token-' + cabinetId).classList.toggle('hidden');
-    }
+    function toggleEditToken(cabinetId) { document.getElementById('edit-token-' + cabinetId).classList.toggle('hidden'); }
 
     async function saveTokenForCabinet(cabinetId) {
         const token = document.getElementById('token-input-' + cabinetId).value.trim();
-        if (!token || token.length < 50) { showPremiumModal('warning', 'Некорректный токен', 'Токен должен быть длинным JWT-форматом. Проверьте, скопирован ли он полностью.'); return; }
+        if (!token || token.length < 50) { showPremiumModal('warning', 'Некорректный токен', 'Токен должен быть длинным JWT-форматом.'); return; }
         const { error } = await supabase.from('cabinets').update({ wb_token: token }).eq('id', cabinetId);
         if (error) { showPremiumModal('error', 'Ошибка сохранения', error.message); return; }
         showPremiumModal('success', 'Токен сохранён!', 'API-доступ для кабинета успешно обновлён.');
@@ -1334,13 +1085,11 @@
         loadCabinets();
     }
 
-    function toggleEditContentToken(cabinetId) {
-        document.getElementById('edit-content-token-' + cabinetId).classList.toggle('hidden');
-    }
+    function toggleEditContentToken(cabinetId) { document.getElementById('edit-content-token-' + cabinetId).classList.toggle('hidden'); }
 
     async function saveContentTokenForCabinet(cabinetId) {
         const token = document.getElementById('content-token-input-' + cabinetId).value.trim();
-        if (!token || token.length < 50) { showPremiumModal('warning', 'Некорректный токен', 'Content токен должен быть длинным JWT-форматом. Проверьте, скопирован ли он полностью.'); return; }
+        if (!token || token.length < 50) { showPremiumModal('warning', 'Некорректный токен', 'Content токен должен быть длинным JWT-форматом.'); return; }
         const { error } = await supabase.from('cabinets').update({ wb_content_token: token }).eq('id', cabinetId);
         if (error) { showPremiumModal('error', 'Ошибка сохранения', error.message); return; }
         showPremiumModal('success', 'Content токен сохранён!', 'Доступ к Content API для кабинета успешно обновлён.');
@@ -1366,8 +1115,6 @@
         loadCabinets();
     }
 
-
-    // ============ ЛОГИСТИКА — ПОСТАВКИ ============
     let allSupplies = [];
     let currentSuppliesFilter = 'active';
 
@@ -1380,41 +1127,22 @@
 
     async function loadSuppliesFromWB() {
         if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в боковом меню.'); return; }
-        const { data: cabinet } = await supabase.from('cabinets').select('wb_token').eq('id', currentCabinetId).single();
-        if (!cabinet?.wb_token || cabinet.wb_token.length < 50) {
-            showPremiumModal('warning', 'Токен не настроен', 'Добавьте токен WB для этого кабинета в разделе Настройки → API кабинетов.');
-            return;
-        }
-        try {
-            const res = await fetch('https://marketplace-api.wildberries.ru/api/v3/supplies?limit=50', {
-                headers: { Authorization: cabinet.wb_token }
-            });
-            if (res.status === 429) { showPremiumModal('error', 'WB ограничил запросы', 'Подождите несколько минут и попробуйте снова.'); return; }
-            const data = await res.json();
-            allSupplies = (data.supplies || []).map(s => ({
-                id: s.id, name: s.name || ('Поставка ' + s.id),
-                createdAt: s.createdAt, done: s.done,
-                mismatch: null,
-                unlabeled: null,
-                itemsCount: null
-            }));
-            renderSupplies();
-            showPremiumModal('success', 'Поставки загружены', `Найдено поставок: ${allSupplies.length}`);
-        } catch (e) {
-            showPremiumModal('error', 'Ошибка загрузки', e.message);
-        }
+        const data = await callWbProxy('supplies', { limit: 50 });
+        if (!data) return;
+        allSupplies = (data.supplies || []).map(s => ({
+            id: s.id, name: s.name || ('Поставка ' + s.id),
+            createdAt: s.createdAt, done: s.done,
+            mismatch: null, unlabeled: null, itemsCount: null
+        }));
+        renderSupplies();
+        showPremiumModal('success', 'Поставки загружены', `Найдено поставок: ${allSupplies.length}`);
     }
 
     function renderSupplies() {
         const container = document.getElementById('supplies-list');
         let list = allSupplies;
         if (currentSuppliesFilter === 'active') list = list.filter(s => !s.done);
-
-        if (list.length === 0) {
-            container.innerHTML = '<div class="text-center py-10 text-sm col-span-2" style="color:var(--text-muted)">Нет поставок — нажмите "Обновить" в шапке</div>';
-            return;
-        }
-
+        if (list.length === 0) { container.innerHTML = '<div class="text-center py-10 text-sm col-span-2" style="color:var(--text-muted)">Нет поставок — нажмите "Обновить" в шапке</div>'; return; }
         container.innerHTML = `<div class="ui-list">` + list.map(s => {
             const hasMismatch = s.mismatch !== null && s.mismatch > 0;
             const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString('ru-RU') : '—';
@@ -1434,27 +1162,14 @@
         const supply = allSupplies.find(s => String(s.id) === String(supplyId));
         if (!supply) return;
         document.getElementById('supply-detail-title').textContent = supply.name;
-
         const mismatchEl = document.getElementById('supply-mismatch');
         const unlabeledEl = document.getElementById('supply-unlabeled');
         const mismatchCard = mismatchEl.closest('.metric-card');
         const unlabeledCard = unlabeledEl.closest('.metric-card');
-
-        if (supply.mismatch === null) {
-            mismatchEl.textContent = 'Не проверено';
-            mismatchCard.style.display = 'none';
-        } else {
-            mismatchEl.textContent = supply.mismatch + ' шт.';
-            mismatchCard.style.display = '';
-        }
-        if (supply.unlabeled === null) {
-            unlabeledEl.textContent = 'Не проверено';
-            unlabeledCard.style.display = 'none';
-        } else {
-            unlabeledEl.textContent = supply.unlabeled + ' шт.';
-            unlabeledCard.style.display = '';
-        }
-
+        if (supply.mismatch === null) { mismatchEl.textContent = 'Не проверено'; mismatchCard.style.display = 'none'; }
+        else { mismatchEl.textContent = supply.mismatch + ' шт.'; mismatchCard.style.display = ''; }
+        if (supply.unlabeled === null) { unlabeledEl.textContent = 'Не проверено'; unlabeledCard.style.display = 'none'; }
+        else { unlabeledEl.textContent = supply.unlabeled + ' шт.'; unlabeledCard.style.display = ''; }
         document.getElementById('supply-items-list').innerHTML = `<div class="text-xs text-center py-4" style="color:var(--text-muted)">Детали по товарам и приёмке появятся здесь после обработки поставки складом WB</div>`;
         document.getElementById('supply-detail-modal').classList.remove('hidden');
     }
@@ -1463,18 +1178,15 @@
     document.addEventListener('DOMContentLoaded', async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { window.location.href = '/login'; return; }
-
         const { data: allowed } = await supabase.from('allowed_users').select('email').eq('email', session.user.email).single();
         if (!allowed) {
             document.body.innerHTML = `<div style="min-height:100vh;background:#030303;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif"><div style="text-align:center;padding:40px"><div style="width:80px;height:80px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 0 60px rgba(109,40,217,0.4)"><span style="color:white;font-size:32px;font-weight:900">N</span></div><h1 style="color:white;font-size:24px;font-weight:700;margin-bottom:12px">Сервис в разработке</h1><p style="color:#6b7280;font-size:14px;margin-bottom:32px">Платформа пока недоступна для новых пользователей.</p><a href="https://nurcon.kg" style="display:inline-block;padding:12px 32px;background:#6D28D9;color:white;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600">Перейти на nurcon.kg →</a></div></div>`;
             return;
         }
-
         const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '—';
         document.getElementById('sidebar-user').textContent = name;
         document.getElementById('user-initial').textContent = name.charAt(0).toUpperCase();
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
-
         await loadCabinets();
         await loadABTests();
     });
