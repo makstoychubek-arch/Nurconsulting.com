@@ -79,7 +79,7 @@
   const SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co'
   const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q'
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY)
-</script>с
+</script>
 </head>
 <body class="bg-[#030303] text-gray-200 font-sans antialiased selection:bg-purple-600 selection:text-white overflow-x-hidden">
 
@@ -420,12 +420,12 @@
 
             <!-- ===== БЛОК АВТОРИЗАЦИИ С ВЫБОРОМ СОТРУДНИКОВ ===== -->
             <div id="wb-auth-form" class="max-w-xl mx-auto py-6 space-y-6">
-                <p class="text-xs text-gray-400 text-center">Выберите сотрудника для быстрого заполнения или введите логин вручную:</p>
+                <p class="text-xs text-gray-400 text-center">Выберите сотрудника или введите email и пароль вручную:</p>
                 
                 <!-- Сетка кликабельных карточек сотрудников -->
                 <div class="grid grid-cols-3 gap-3 max-w-md mx-auto">
                     <!-- Карточка: Нурболот -->
-                    <div onclick="selectStaff('nurbolot')" class="bg-white/5 border border-white/5 hover:border-purple-500/50 p-3 rounded-xl text-center cursor-pointer transition group">
+                    <div onclick="selectStaff()" class="bg-white/5 border border-white/5 hover:border-purple-500/50 p-3 rounded-xl text-center cursor-pointer transition group">
                         <div class="w-10 h-10 bg-purple-500/10 text-purple-400 font-bold rounded-full flex items-center justify-center mx-auto mb-2 text-sm border border-purple-500/20 group-hover:scale-105 transition">
                             Н
                         </div>
@@ -434,7 +434,7 @@
                     </div>
 
                     <!-- Карточка: Марлен -->
-                    <div onclick="selectStaff('marlen')" class="bg-white/5 border border-white/5 hover:border-purple-500/50 p-3 rounded-xl text-center cursor-pointer transition group">
+                    <div onclick="selectStaff()" class="bg-white/5 border border-white/5 hover:border-purple-500/50 p-3 rounded-xl text-center cursor-pointer transition group">
                         <div class="w-10 h-10 bg-blue-500/10 text-blue-400 font-bold rounded-full flex items-center justify-center mx-auto mb-2 text-sm border border-blue-500/20 group-hover:scale-105 transition">
                             М
                         </div>
@@ -443,7 +443,7 @@
                     </div>
 
                     <!-- Карточка: Инсия -->
-                    <div onclick="selectStaff('insiya')" class="bg-white/5 border border-white/5 hover:border-purple-500/50 p-3 rounded-xl text-center cursor-pointer transition group">
+                    <div onclick="selectStaff()" class="bg-white/5 border border-white/5 hover:border-purple-500/50 p-3 rounded-xl text-center cursor-pointer transition group">
                         <div class="w-10 h-10 bg-emerald-500/10 text-emerald-400 font-bold rounded-full flex items-center justify-center mx-auto mb-2 text-sm border border-emerald-500/20 group-hover:scale-105 transition">
                             И
                         </div>
@@ -454,7 +454,7 @@
 
                 <!-- Форма ввода данных -->
                 <div class="space-y-2 max-w-sm mx-auto pt-2">
-                    <input type="text" id="wb-user" placeholder="Имя сотрудника" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition">
+                    <input type="email" id="wb-user" placeholder="Email сотрудника" autocomplete="email" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition">
                     <input type="password" id="wb-pass" placeholder="Пароль доступа" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm focus:outline-none focus:border-purple-500 transition">
                 </div>
                 

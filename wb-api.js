@@ -1,6 +1,6 @@
 /**
- * NR Consulting — ёодуль интеграции через защищённый прокси
- * Токены WB теперь хранятся в базе данных и никогда не видны в браузере
+ * NR Consulting — Модуль интеграции через защищённый прокси
+ * Токены WB хранятся в базе данных и никогда не видны в браузере
  */
 
 const PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
@@ -8,6 +8,8 @@ const PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-prox
 async function fetchWbFullData(cabinetId) {
     if (!cabinetId) throw new Error('Кабинет не выбран');
 
+    // Supabase anon key — публичный ключ, предназначен для client-side использования.
+    // Безопасность данных обеспечивается политиками RLS на стороне Supabase.
     const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
 
     try {
@@ -29,6 +31,9 @@ async function fetchWbFullData(cabinetId) {
                 body: JSON.stringify({ cabinetId, endpoint: 'orders' })
             })
         ]);
+
+        if (!stocksRes.ok) throw new Error(`WB stocks API: ошибка ${stocksRes.status}`);
+        if (!ordersRes.ok) throw new Error(`WB orders API: ошибка ${ordersRes.status}`);
 
         const stocksData = await stocksRes.json();
         const ordersData = await ordersRes.json();

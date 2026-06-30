@@ -804,9 +804,15 @@
     </div>
 
 <script>
-    SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
-    SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    // Supabase anon key — публичный ключ для client-side использования.
+    // Безопасность данных обеспечивается политиками RLS на стороне Supabase.
+    const SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    function escapeHtml(str) {
+        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
 
     let currentCabinetId = localStorage.getItem('selected_cabinet_id') || null;
 
@@ -971,7 +977,7 @@
         const { data } = await supabase.from('cabinets').select('id, name').order('name');
         const select = document.getElementById('cabinet-select');
         if (!data || data.length === 0) { select.innerHTML = '<option>Нет кабинетов</option>'; return; }
-        select.innerHTML = data.map(c => `<option value="${c.id}" ${c.id===currentCabinetId?'selected':''}>${c.name}</option>`).join('');
+        select.innerHTML = data.map(c => `<option value="${escapeHtml(String(c.id))}"${c.id===currentCabinetId?' selected':''}>${escapeHtml(c.name)}</option>`).join('');
         if (!currentCabinetId) { currentCabinetId = data[0].id; localStorage.setItem('selected_cabinet_id', currentCabinetId); }
         const sel = data.find(c => c.id === currentCabinetId);
         if (sel) document.getElementById('cabinet-name-header').textContent = sel.name;
@@ -1018,9 +1024,13 @@
             if (ordersRes.status === 429) { showPremiumModal('error', 'WB ограничил запросы', 'Слишком много запросов подряд. Подождите 3-5 минут и попробуйте снова.'); return; }
             const orders = await ordersRes.json();
             if (Array.isArray(stocks) && stocks.length > 0) {
-                await supabase.from('wb_stocks').delete().eq('cabinet_id', currentCabinetId);
                 const stockRows = stocks.map(s => ({ cabinet_id: currentCabinetId, nm_id: s.nmId, barcode: s.barcode, quantity: s.quantity||0, in_way_to_client: s.inWayToClient||0, in_way_from_client: s.inWayFromClient||0, warehouse_name: s.warehouseName||'' }));
-                for (let i = 0; i < stockRows.length; i += 100) await supabase.from('wb_stocks').insert(stockRows.slice(i, i+100));
+                const { error: delError } = await supabase.from('wb_stocks').delete().eq('cabinet_id', currentCabinetId);
+                if (delError) throw new Error('Ошибка очистки остатков: ' + delError.message);
+                for (let i = 0; i < stockRows.length; i += 100) {
+                    const { error: insError } = await supabase.from('wb_stocks').insert(stockRows.slice(i, i+100));
+                    if (insError) throw new Error('Ошибка сохранения остатков: ' + insError.message);
+                }
             }
             if (Array.isArray(orders) && orders.length > 0) {
                 const orderRows = orders.map(o => ({ cabinet_id: currentCabinetId, order_date: o.date?.split('T')[0]||new Date().toISOString().split('T')[0], nm_id: o.nmId, barcode: o.barcode, price: o.priceWithDiscount||o.totalPrice||0, is_return: o.isReturn||false, data: o }));
@@ -1055,7 +1065,7 @@
         if (stocks.length > 0) {
             tbody.innerHTML = stocks.slice(0,30).map(p => {
                 const enough=(p.quantity||0)>10;
-                return `<tr><td style="color:var(--accent);font-weight:600">${p.nm_id||'—'}</td><td style="color:var(--text-muted)">${p.barcode||'—'}</td><td style="color:var(--text-primary);font-weight:700">${p.quantity||0}</td><td style="color:var(--text-muted)">${p.in_way_to_client||0}</td><td><span class="${enough?'badge-green':'badge-red'}">${enough?'Достаточно':'Подсорт'}</span></td></tr>`;
+                return `<tr><td style="color:var(--accent);font-weight:600">${escapeHtml(p.nm_id||'—')}</td><td style="color:var(--text-muted)">${escapeHtml(p.barcode||'—')}</td><td style="color:var(--text-primary);font-weight:700">${Number(p.quantity||0)}</td><td style="color:var(--text-muted)">${Number(p.in_way_to_client||0)}</td><td><span class="${enough?'badge-green':'badge-red'}">${enough?'Достаточно':'Подсорт'}</span></td></tr>`;
             }).join('');
         } else {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет данных — нажмите "Обновить"</td></tr>';
@@ -1154,7 +1164,12 @@
             impressions: Math.floor(Math.random()*500)+100,
             clicks: Math.floor(Math.random()*40)+5
         }));
-        await supabase.from('ab_test_variants').insert(variantRows);
+        const { error: variantError } = await supabase.from('ab_test_variants').insert(variantRows);
+        if (variantError) {
+            await supabase.from('ab_tests').delete().eq('id', test.id);
+            showPremiumModal('error', 'Ошибка создания вариантов', variantError.message);
+            return;
+        }
 
         hideNewTestForm();
         showPremiumModal('success', 'Тест создан!', 'А/Б тест запущен и добавлен в список.');
@@ -1202,7 +1217,7 @@
                 const deltaText = delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2);
                 return `
                 <div class="abtest-variant ${isWinner ? 'winner' : ''}">
-                    <img src="${v.photo_url}" onerror="this.src='https://via.placeholder.com/90x90/cccccc/666666?text=${v.variant_label}'">
+                    <img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://via.placeholder.com/90x90/cccccc/666666?text=${escapeHtml(v.variant_label)}'">
                     <div class="abtest-variant-meta">
                         <div class="abtest-ctr">${v.ctr.toFixed(2)}%</div>
                         <div class="${delta >= 0 ? 'abtest-delta-pos' : 'abtest-delta-neg'}">${deltaText}</div>
@@ -1219,8 +1234,8 @@
             <div class="abtest-card">
                 <div class="flex items-start justify-between mb-3">
                     <div>
-                        <div class="text-sm font-semibold" style="color:var(--text-primary)">${test.product_name}</div>
-                        <div class="text-xs" style="color:var(--text-muted)">Артикул ${test.nm_id} • с ${new Date(test.started_at).toLocaleDateString('ru-RU')}</div>
+                        <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(test.product_name)}</div>
+                        <div class="text-xs" style="color:var(--text-muted)">Артикул ${escapeHtml(String(test.nm_id))} • с ${new Date(test.started_at).toLocaleDateString('ru-RU')}</div>
                     </div>
                     <select class="ui-select" style="width:auto;padding:5px 10px;font-size:11px" onchange="updateTestStatus('${test.id}', this.value)">
                         <option value="active" ${test.status==='active'?'selected':''}>Активен</option>
@@ -1384,7 +1399,7 @@
     }
 
     async function openSupplyDetail(supplyId) {
-        const supply = allSupplies.find(s => s.id === supplyId);
+        const supply = allSupplies.find(s => String(s.id) === String(supplyId));
         if (!supply) return;
         document.getElementById('supply-detail-title').textContent = supply.name;
 

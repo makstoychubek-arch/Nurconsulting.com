@@ -2,21 +2,13 @@
  * NR Consulting — Основной модуль интерфейса и авторизации РНП
  */
 
-// База сотрудников и их паролей доступа
-const allowedStaff = {
-    nurbolot: "founder78",
-    marlen: "logistics12",
-    insiya: "data33"
-};
+function escapeHtml(str) {
+    return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
 
-// Функция клика по карточке сотрудника для автоподстановки
-function selectStaff(name) {
-    const userInput = document.getElementById("wb-user");
-    const passInput = document.getElementById("wb-pass");
-    if (userInput) {
-        userInput.value = name;
-        passInput?.focus();
-    }
+// Функция клика по карточке сотрудника — фокус на поле пароля
+function selectStaff() {
+    document.getElementById("wb-pass")?.focus();
 }
 
 // Открытие модального окна РНП
@@ -37,8 +29,8 @@ function closeRnpAnalytics() {
     }
 }
 
-// Логика авторизации
-function handleWbLogin() {
+// Авторизация через Supabase
+async function handleWbLogin() {
     const userInput = document.getElementById("wb-user");
     const passInput = document.getElementById("wb-pass");
     const err = document.getElementById("wb-auth-error");
@@ -48,24 +40,34 @@ function handleWbLogin() {
 
     if (!userInput || !passInput) return;
 
-    const u = userInput.value.trim().toLowerCase();
-    const p = passInput.value.trim();
+    const email = userInput.value.trim();
+    const password = passInput.value.trim();
 
-    if (allowedStaff[u] && allowedStaff[u] === p) {
-        err?.classList.add("hidden");
-        authForm?.classList.add("hidden");     
-        dashboard?.classList.remove("hidden");  
-        if (welcomeUser) {
-            welcomeUser.innerText = "Сотрудник: " + u.toUpperCase();
-        }
-        // Автоматически подставляем ранее сохраненный токен, если он есть
-        const savedToken = localStorage.getItem(`wb_token_${u}`);
-        const tokenInput = document.getElementById("wb-token-input");
-        if (savedToken && tokenInput) {
-            tokenInput.value = savedToken;
-        }
-    } else {
-        err?.classList.remove("hidden"); 
+    if (!email || !password) {
+        err?.classList.remove("hidden");
+        return;
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+    if (error || !data?.user) {
+        err?.classList.remove("hidden");
+        return;
+    }
+
+    err?.classList.add("hidden");
+    authForm?.classList.add("hidden");
+    dashboard?.classList.remove("hidden");
+
+    if (welcomeUser) {
+        const name = data.user.user_metadata?.full_name || email.split('@')[0].toUpperCase();
+        welcomeUser.innerText = "Сотрудник: " + name;
+    }
+
+    const savedToken = sessionStorage.getItem(`wb_token_${data.user.id}`);
+    const tokenInput = document.getElementById("wb-token-input");
+    if (savedToken && tokenInput) {
+        tokenInput.value = savedToken;
     }
 }
 
@@ -80,10 +82,9 @@ async function fetchWbData() {
         return;
     }
 
-    // Сохраняем токен в память для текущего сотрудника, чтобы не вводить каждый раз
-    const currentUser = document.getElementById("wb-welcome-user")?.innerText.split(": ")[1]?.toLowerCase();
-    if (currentUser) {
-        localStorage.setItem(`wb_token_${currentUser}`, token);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        sessionStorage.setItem(`wb_token_${user.id}`, token);
     }
 
     const loading = document.getElementById("wb-loading");
@@ -93,20 +94,17 @@ async function fetchWbData() {
     statsGrid?.classList.add("opacity-30");
 
     try {
-        // Вызываем функцию из файла wb-api.js
         const data = await fetchWbFullData(token);
 
-        // Обновляем карточки показателей (по ID из твоего HTML)
         document.getElementById("wb-orders-today").innerText = data.ordersSum.toLocaleString("ru-RU") + " ₽";
         document.getElementById("wb-orders-count").innerText = `Всего: ${data.ordersCount} шт.`;
-        
+
         document.getElementById("wb-sales-today").innerText = data.salesSum.toLocaleString("ru-RU") + " ₽";
         document.getElementById("wb-sales-count").innerText = `Позиций: ${data.salesCount} шт.`;
-        
+
         document.getElementById("wb-stock-total").innerText = data.stockTotal.toLocaleString("ru-RU") + " шт.";
         document.getElementById("wb-conversion").innerText = data.conversion + "%";
 
-        // Рендеринг таблицы топ артикулов
         const tableBody = document.getElementById("wb-products-table");
         if (tableBody) {
             tableBody.innerHTML = "";
@@ -117,11 +115,16 @@ async function fetchWbData() {
                     tr.className = "border-b border-white/5 hover:bg-white/[0.02] transition";
                     const isEnough = (prod.quantity || 0) > 10;
 
+                    const nmId = escapeHtml(prod.nmId);
+                    const barcode = escapeHtml(prod.barcode);
+                    const quantity = Number(prod.quantity || 0);
+                    const inWay = Number(prod.inWayToClient || 0);
+
                     tr.innerHTML = `
-                        <td class="p-3 text-purple-400 font-semibold">${prod.nmId || "-"}</td>
-                        <td class="p-3 text-gray-400">${prod.barcode || "-"}</td>
-                        <td class="p-3 text-white font-bold">${prod.quantity || 0}</td>
-                        <td class="p-3 text-gray-400">${prod.inWayToClient || 0}</td>
+                        <td class="p-3 text-purple-400 font-semibold">${nmId || "—"}</td>
+                        <td class="p-3 text-gray-400">${barcode || "—"}</td>
+                        <td class="p-3 text-white font-bold">${quantity}</td>
+                        <td class="p-3 text-gray-400">${inWay}</td>
                         <td class="p-3">
                             <span class="${isEnough ? 'text-emerald-400 bg-emerald-500/10' : 'text-red-400 bg-red-500/10'} px-2 py-1 rounded text-[10px] inline-block min-w-[85px] text-center">
                                 ${isEnough ? "Достаточно" : "Подсорт"}

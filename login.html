@@ -191,7 +191,7 @@
                 <div id="forgot-success" class="hidden text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
                     ✅ Письмо отправлено! Проверьте почту.
                 </div>
-                <button onclick="handleForgotPassword()"
+                <button onclick="handleForgotPassword(event)"
                     class="w-full py-3 bg-purple-700 hover:bg-purple-600 text-white font-medium rounded-xl transition neon-glow text-sm">
                     Отправить ссылку
                 </button>
@@ -270,10 +270,10 @@
         }
         
 
-        async function handleForgotPassword() {
+        async function handleForgotPassword(event) {
             const email = document.getElementById('forgot-email').value.trim();
             if (!email) { showError('forgot-error', 'Введите email'); return; }
-            const btn = event.target;
+            const btn = event.currentTarget;
             btn.textContent = 'Отправляем...'; btn.disabled = true;
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: window.location.origin + '/reset-password'
@@ -291,11 +291,17 @@
 
         async function showCabinets(user) {
             // Проверяем доступ
-            const { data: allowed } = await supabase
+            const { data: allowed, error: allowedError } = await supabase
                 .from('allowed_users')
                 .select('email')
                 .eq('email', user.email)
                 .single();
+
+            if (allowedError && allowedError.code !== 'PGRST116') {
+                // Реальная ошибка БД, а не просто "строка не найдена"
+                showError('login-error', 'Ошибка проверки доступа. Попробуйте позже.');
+                return;
+            }
 
             if (!allowed) {
                 document.body.style.transition = 'opacity 0.5s ease';
