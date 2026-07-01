@@ -154,6 +154,101 @@
         .picker-quick-btn { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:11px; color:var(--text-secondary); cursor:pointer; text-align:center; transition:all 0.15s; }
         .picker-quick-btn:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent-border); }
         .picker-date-input { width:100%; font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text-primary); }
+
+        /* ====== ПЛАВНОСТЬ И АНИМАЦИИ ====== */
+        html { scroll-behavior: smooth; }
+        * { -webkit-font-smoothing: antialiased; }
+
+        @keyframes dotPulse {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+
+        /* Плавный переход всех интерактивных элементов */
+        button, select, input, a { transition: all 0.2s ease; }
+        button:active { transform: scale(0.97); }
+
+        /* Кнопки — единый современный стиль */
+        .ui-btn { border-radius: 10px !important; font-weight: 600 !important; letter-spacing: -0.01em; }
+        .ui-btn-primary { box-shadow: 0 2px 8px rgba(0,122,255,0.3); }
+        .ui-btn-primary:hover { box-shadow: 0 4px 16px rgba(0,122,255,0.4); transform: translateY(-1px); }
+        [data-theme="neon"] .ui-btn-primary { box-shadow: 0 2px 12px rgba(168,85,247,0.4); }
+        [data-theme="neon"] .ui-btn-primary:hover { box-shadow: 0 4px 20px rgba(168,85,247,0.5); }
+        .ui-btn-secondary { border-radius: 10px !important; }
+        .ui-btn-secondary:hover { transform: translateY(-1px); }
+
+        /* Кнопка "Обновить" */
+        #refresh-btn { border-radius: 10px !important; font-weight: 600 !important; box-shadow: 0 2px 8px rgba(0,122,255,0.25); }
+        #refresh-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,122,255,0.35); }
+        [data-theme="neon"] #refresh-btn { box-shadow: 0 2px 12px rgba(168,85,247,0.3); }
+
+        /* Карточки метрик — плавнее */
+        .metric-card { border-radius: 18px !important; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important; }
+
+        /* Боковое меню — улучшено */
+        .nav-item { border-radius: 10px !important; transition: all 0.2s ease !important; }
+        .nav-item-standalone { border-radius: 12px !important; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important; }
+        .nav-item-standalone:hover { transform: translateY(-1px); }
+
+        /* Стеклянный хедер */
+        header.glass { backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; }
+        [data-theme="neon"] header.glass { border-bottom: 1px solid rgba(168,85,247,0.2) !important; }
+
+        /* A/B тест карточки */
+        .abtest-card { border-radius: 20px !important; transition: all 0.25s ease !important; }
+        .abtest-card:hover { transform: translateY(-2px); box-shadow: var(--card-shadow); }
+        .abtest-variant { border-radius: 14px !important; }
+        .abtest-variant img { border-radius: 12px !important; }
+
+        /* Segment tabs */
+        .segment-tabs { border-radius: 12px !important; padding: 4px !important; }
+        .segment-tab { border-radius: 8px !important; transition: all 0.2s ease !important; font-weight: 500 !important; }
+
+        /* Glass карточки секций */
+        .glass.rounded-2xl { border-radius: 20px !important; }
+
+        /* Scrollbar красивее */
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--accent-border); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* === МОБИЛЬНАЯ ВЕРСИЯ === */
+        .mobile-menu-btn { display: none; }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+                z-index: 50;
+            }
+            .sidebar.mobile-open {
+                transform: translateX(0);
+                box-shadow: 4px 0 40px rgba(0,0,0,0.15);
+            }
+            .mobile-menu-btn {
+                display: flex; align-items: center; justify-content: center;
+                width: 36px; height: 36px; border-radius: 10px;
+                background: var(--accent-soft); border: 1px solid var(--accent-border);
+                cursor: pointer; color: var(--accent); font-size: 18px;
+            }
+            main { margin-left: 0 !important; }
+            .mobile-overlay {
+                display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
+                z-index: 45; backdrop-filter: blur(4px);
+            }
+            .mobile-overlay.active { display: block; }
+            #date-picker { left: 10px !important; width: calc(100vw - 20px) !important; }
+            .grid.xl\:grid-cols-5 { grid-template-columns: repeat(2, 1fr) !important; }
+        }
     </style>
 </head>
 <body class="flex overflow-hidden h-screen">
@@ -286,9 +381,13 @@
     </div>
 
     <main class="flex-1 ml-[240px] flex flex-col h-full overflow-hidden">
+        <!-- Mobile overlay -->
+        <div class="mobile-overlay" id="mobile-overlay" onclick="closeMobileMenu()"></div>
+
         <header class="glass border-b px-6 py-3 shrink-0" style="border-color:var(--border)">
             <div class="flex items-center justify-between mb-3">
                 <div class="flex items-center space-x-3">
+                    <button class="mobile-menu-btn" onclick="toggleMobileMenu()" id="mobile-menu-btn">☰</button>
                     <h1 id="page-title" class="text-sm font-semibold" style="color:var(--text-primary)">Дашборд</h1>
                     <div class="flex items-center space-x-1.5 text-xs" style="color:var(--text-muted)">
                         <span class="w-1.5 h-1.5 rounded-full animate-pulse inline-block" style="background:var(--green)"></span>
@@ -303,6 +402,10 @@
                         <span>↻</span><span>Обновить</span>
                     </button>
                     <button onclick="handleLogout()" class="px-3 py-1.5 text-xs rounded-lg transition border" style="color:var(--text-muted);border-color:var(--border)">Выйти</button>
+                    <div style="width:1px;height:20px;background:var(--border)"></div>
+                    <select id="cabinet-select-header" class="cabinet-select" style="width:auto;max-width:130px;font-size:11px;padding:6px 10px" onchange="onCabinetChangeHeader()">
+                        <option value="">Кабинет...</option>
+                    </select>
                 </div>
             </div>
             <div id="top-filters-bar" class="flex items-center space-x-2 overflow-x-auto pb-1">
@@ -495,7 +598,9 @@
 
         <div id="tab-abtests" class="tab-content space-y-4">
             <div class="flex items-center justify-between mb-2">
-                <button class="ui-btn ui-btn-secondary" onclick="showNewTestForm()"><span style="font-size:16px;line-height:1">+</span><span>Создать новый тест</span></button>
+                <button class="ui-btn ui-btn-primary" onclick="showNewTestForm()" style="border-radius:12px;padding:9px 18px;font-size:13px;font-weight:600;gap:8px">
+                    <span style="font-size:18px;line-height:1;margin-right:2px">+</span><span>Создать А/Б тест</span>
+                </button>
                 <div class="segment-tabs">
                     <div class="segment-tab active" onclick="filterTests('active', this)">Активные</div>
                     <div class="segment-tab" onclick="filterTests('all', this)">Все</div>
@@ -566,6 +671,22 @@
         <div id="tab-tariffs" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><h3 class="font-semibold" style="color:var(--text-primary)">Тарифы</h3></div></div>
         </div>
     </main>
+
+    <!-- Cabinet Switch Overlay -->
+    <div id="cabinet-overlay" class="hidden" style="position:fixed;inset:0;z-index:199999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+        <div style="text-align:center">
+            <div class="flex items-baseline justify-center gap-1.5 mb-4">
+                <span style="font-size:28px;font-weight:800;color:#E8568E;letter-spacing:-0.02em">NR</span>
+                <span style="font-size:28px;font-weight:500;color:var(--text-primary);letter-spacing:0.02em">SPACE</span>
+            </div>
+            <div id="cabinet-overlay-name" style="font-size:14px;color:var(--text-secondary);margin-bottom:20px">Загрузка...</div>
+            <div style="display:flex;gap:6px;justify-content:center">
+                <div class="cabinet-dot" style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:dotPulse 1.2s ease-in-out infinite"></div>
+                <div class="cabinet-dot" style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:dotPulse 1.2s ease-in-out 0.2s infinite"></div>
+                <div class="cabinet-dot" style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:dotPulse 1.2s ease-in-out 0.4s infinite"></div>
+            </div>
+        </div>
+    </div>
 
     <div id="premium-modal" class="hidden">
         <div id="modal-box">
@@ -676,7 +797,7 @@
         const p = document.getElementById('date-picker');
         if (p && !p.classList.contains('hidden') && !p.contains(e.target)) p.classList.add('hidden');
     });
-    function fmtDate(d) { return d.toISOString().split('T')[0]; }
+    function fmtDate(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
     function fmtRuDate(d) { return d.toLocaleDateString('ru-RU',{day:'2-digit',month:'2-digit',year:'numeric'}); }
     function changeYear(d) { pickerState.year += d; document.getElementById('year-label').textContent = pickerState.year; renderYearGrid(); }
     function changeMonth(d) {
@@ -762,36 +883,124 @@
     async function loadCabinets() {
         const { data } = await supabase.from('cabinets').select('id, name').order('name');
         const select = document.getElementById('cabinet-select');
-        if (!data || data.length === 0) { select.innerHTML = '<option>Нет кабинетов</option>'; return; }
-        select.innerHTML = data.map(c => `<option value="${escapeHtml(String(c.id))}"${c.id===currentCabinetId?' selected':''}>${escapeHtml(c.name)}</option>`).join('');
+        const selectHeader = document.getElementById('cabinet-select-header');
+        if (!data || data.length === 0) {
+            select.innerHTML = '<option>Нет кабинетов</option>';
+            if (selectHeader) selectHeader.innerHTML = '<option>Нет кабинетов</option>';
+            return;
+        }
+        const opts = data.map(c => `<option value="${escapeHtml(String(c.id))}"${c.id===currentCabinetId?' selected':''}>${escapeHtml(c.name)}</option>`).join('');
+        select.innerHTML = opts;
+        if (selectHeader) selectHeader.innerHTML = opts;
         if (!currentCabinetId) { currentCabinetId = data[0].id; localStorage.setItem('selected_cabinet_id', currentCabinetId); }
         const sel = data.find(c => c.id === currentCabinetId);
-        if (sel) document.getElementById('cabinet-name-header').textContent = sel.name;
+        if (sel) {
+            document.getElementById('cabinet-name-header').textContent = sel.name;
+            select.value = currentCabinetId;
+            if (selectHeader) selectHeader.value = currentCabinetId;
+        }
         await loadFromDB();
     }
+
+    function onCabinetChangeHeader() {
+        const s = document.getElementById('cabinet-select-header');
+        document.getElementById('cabinet-select').value = s.value;
+        onCabinetChange();
+    }
+
+    // Мобильное меню
+    function toggleMobileMenu() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('mobile-overlay');
+        sidebar.classList.toggle('mobile-open');
+        overlay.classList.toggle('active');
+    }
+    function closeMobileMenu() {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('mobile-overlay');
+        sidebar.classList.remove('mobile-open');
+        overlay.classList.remove('active');
+    }
+    // Закрываем меню при выборе пункта на мобиле
+    document.addEventListener('click', function(e) {
+        if (e.target.closest('.nav-item') || e.target.closest('.nav-item-standalone')) {
+            if (window.innerWidth <= 768) closeMobileMenu();
+        }
+    });
     function onCabinetChange() {
         const s = document.getElementById('cabinet-select');
         currentCabinetId = s.value;
         localStorage.setItem('selected_cabinet_id', currentCabinetId);
-        document.getElementById('cabinet-name-header').textContent = s.options[s.selectedIndex].text;
-        loadFromDB();
+        const cabinetName = s.options[s.selectedIndex].text;
+        document.getElementById('cabinet-name-header').textContent = cabinetName;
+        // Сбрасываем все метрики в —
+        ['m-profit','m-margin','m-profit2','m-sales-sum','m-sales-count','m-realization',
+         'm-commission','m-orders-sum','m-orders-count','m-conversion','m-logistics',
+         'm-ads','m-storage','m-roi','m-opex','m-returns','m-stock',
+         'rnp-profit','rnp-margin','rnp-roi','wh-total'].forEach(id => setText(id, '—'));
+        document.getElementById('products-table').innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Переключение кабинета...</td></tr>';
+        // Показываем оверлей перехода
+        showCabinetTransition(cabinetName, () => loadFromDB());
+    }
+
+    function showCabinetTransition(name, callback) {
+        const overlay = document.getElementById('cabinet-overlay');
+        const nameEl = document.getElementById('cabinet-overlay-name');
+        if (nameEl) nameEl.textContent = name;
+        overlay.classList.remove('hidden');
+        overlay.style.opacity = '0';
+        requestAnimationFrame(() => {
+            overlay.style.transition = 'opacity 0.3s ease';
+            overlay.style.opacity = '1';
+        });
+        // Загружаем данные пока показываем анимацию
+        const loadPromise = callback();
+        // Минимум 1.5 секунды оверлея для красоты
+        const minDelay = new Promise(r => setTimeout(r, 1500));
+        Promise.all([loadPromise, minDelay]).then(() => {
+            overlay.style.opacity = '0';
+            setTimeout(() => overlay.classList.add('hidden'), 300);
+        });
     }
 
     async function loadFromDB(dateFrom, dateTo) {
         if (!currentCabinetId) return;
         const from = dateFrom || '2025-01-01';
-        const to = dateTo || new Date().toISOString().split('T')[0];
+        const today = new Date();
+        const to = dateTo || fmtDate(today);
         const { data: orders } = await supabase.from('wb_orders').select('*').eq('cabinet_id', currentCabinetId).gte('order_date', from).lte('order_date', to);
         const { data: stocks } = await supabase.from('wb_stocks').select('*').eq('cabinet_id', currentCabinetId);
         if (orders !== null && stocks !== null) {
-          // Загружаем реальный финансовый отчёт
-const financeRows = await WBFormulas.loadFinanceReport(callWbProxy, from, to);
-const settings = {
-    taxRate: Number(localStorage.getItem('tax_rate') || 6),
-    opex: Number(localStorage.getItem('opex') || 0)
-};
-const metrics = WBFormulas.calculateMetrics(financeRows, settings);
-WBFormulas.applyMetricsToDashboard(metrics, setText);
+            updateWarehouseFromDB(stocks);
+            setText('m-stock', fmt(stocks.reduce((a,s)=>a+Number(s.quantity||0),0))+' шт.');
+            document.getElementById('date-range').textContent = `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
+            // Обновляем таблицу остатков
+            const tbody = document.getElementById('products-table');
+            if (stocks.length > 0) {
+                tbody.innerHTML = stocks.slice(0,30).map(p => {
+                    const enough=(p.quantity||0)>10;
+                    return `<tr><td style="color:var(--accent);font-weight:600">${escapeHtml(p.nm_id||'—')}</td><td style="color:var(--text-muted)">${escapeHtml(p.barcode||'—')}</td><td style="color:var(--text-primary);font-weight:700">${Number(p.quantity||0)}</td><td style="color:var(--text-muted)">${Number(p.in_way_to_client||0)}</td><td><span class="${enough?'badge-green':'badge-red'}">${enough?'Достаточно':'Подсорт'}</span></td></tr>`;
+                }).join('');
+            }
+            // Загружаем финансовый отчёт через wb-formulas.js (если подключён)
+            if (typeof WBFormulas !== 'undefined') {
+                try {
+                    const financeRows = await WBFormulas.loadFinanceReport(callWbProxy, from, to);
+                    const settings = {
+                        taxRate: Number(localStorage.getItem('tax_rate') || 6),
+                        opex: Number(localStorage.getItem('opex') || 0)
+                    };
+                    const metrics = WBFormulas.calculateMetrics(financeRows, settings);
+                    WBFormulas.applyMetricsToDashboard(metrics, setText);
+                } catch(e) {
+                    console.warn('WBFormulas error:', e.message);
+                    updateDashboardFromDB(stocks, orders);
+                }
+            } else {
+                updateDashboardFromDB(stocks, orders);
+            }
+        }
+    }
 
     async function refreshData() {
         if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в боковом меню.'); return; }
@@ -1193,7 +1402,7 @@ WBFormulas.applyMetricsToDashboard(metrics, setText);
         await loadCabinets();
         await loadABTests();
     });
-</script> 
+</script>
     <script src="/wb-formulas.js"></script>
 </body>
 </html>
