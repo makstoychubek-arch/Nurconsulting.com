@@ -109,13 +109,29 @@
         #modal-box { background: var(--surface-solid); border: 1px solid var(--border-strong); border-radius: 20px; padding: 32px; max-width: 380px; width: 90%; text-align: center; box-shadow: 0 25px 80px rgba(0,0,0,0.3); transform: scale(0.9); opacity: 0; transition: all 0.3s ease; }
         .abtest-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; transition: border-color 0.2s ease; }
         .abtest-card:hover { border-color: var(--accent-border); }
-        .abtest-variant { position: relative; width: 90px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); transition: border-color 0.2s ease; }
-        .abtest-variant.winner { border-color: var(--green); }
-        .abtest-variant img { width: 100%; height: 90px; object-fit: cover; display: block; }
-        .abtest-variant-meta { padding: 6px; text-align: center; }
+        .abtest-variant { position: relative; width: 100px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); transition: all 0.2s ease; cursor: default; }
+        .abtest-variant.winner { border-color: var(--green); box-shadow: 0 0 0 3px rgba(52,199,89,0.15); }
+        .abtest-variant.current-active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .abtest-variant img { width: 100%; height: 100px; object-fit: cover; display: block; }
+        .abtest-variant-meta { padding: 7px 6px; text-align: center; }
         .abtest-ctr { font-size: 13px; font-weight: 700; color: var(--text-primary); }
-        .abtest-delta-pos { font-size: 10px; color: var(--green); }
-        .abtest-delta-neg { font-size: 10px; color: var(--text-muted); }
+        .abtest-orders { font-size: 11px; color: var(--text-secondary); }
+        .abtest-delta-pos { font-size: 10px; color: var(--green); font-weight: 600; }
+        .abtest-delta-neg { font-size: 10px; color: var(--red); }
+        .abtest-winner-badge { position: absolute; top: 4px; right: 4px; background: var(--green); color: #000; font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 4px; }
+        .abtest-active-badge { position: absolute; top: 4px; left: 4px; background: var(--accent); color: #fff; font-size: 9px; font-weight: 700; padding: 2px 5px; border-radius: 4px; }
+        /* Drag & drop зона */
+        .drop-zone { border: 2px dashed var(--border-strong); border-radius: 12px; padding: 20px 16px; text-align: center; cursor: pointer; transition: all 0.2s ease; position: relative; }
+        .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: var(--accent-soft); }
+        .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+        .drop-zone-preview { width: 100%; height: 100px; object-fit: cover; border-radius: 8px; display: block; margin-bottom: 6px; }
+        /* Progress bar ротации */
+        .rotation-progress-wrap { background: var(--border); border-radius: 4px; height: 4px; overflow: hidden; margin-top: 8px; }
+        .rotation-progress-bar { height: 4px; background: var(--accent); border-radius: 4px; transition: width 1s linear; }
+        /* Итоговый вердикт */
+        .verdict-winner-card { background: rgba(52,199,89,0.08); border: 1.5px solid rgba(52,199,89,0.3); border-radius: 12px; padding: 14px 16px; margin-top: 12px; }
+        .verdict-bar-wrap { background: var(--border); border-radius: 4px; height: 6px; margin-top: 4px; overflow: hidden; }
+        .verdict-bar { height: 6px; border-radius: 4px; transition: width 0.6s ease; }
         .btn-outline { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary); cursor: pointer; transition: all 0.15s; }
         .btn-outline:hover { border-color: var(--accent-border); color: var(--accent); }
         .segment-tabs { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
@@ -643,26 +659,37 @@
                 </button>
                 <div class="segment-tabs">
                     <div class="segment-tab active" onclick="filterTests('active', this)">Активные</div>
+                    <div class="segment-tab" onclick="filterTests('finished', this)">Завершённые</div>
                     <div class="segment-tab" onclick="filterTests('all', this)">Все</div>
                 </div>
             </div>
+
+            <!-- ФОРМА СОЗДАНИЯ ТЕСТА -->
             <div id="new-test-form" class="glass rounded-2xl p-6 hidden">
-                <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Новый А/Б тест</h3>
-                <div class="grid grid-cols-2 gap-3 mb-3">
-                    <input type="text" id="abt-nmid" placeholder="Артикул WB" class="rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Новый А/Б тест фото</h3>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <input type="text" id="abt-nmid" placeholder="Артикул WB (nm_id)" class="rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
                     <input type="text" id="abt-name" placeholder="Название товара" class="rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
                 </div>
-                <div class="text-xs mb-2" style="color:var(--text-secondary)">Добавьте 2-4 варианта фото (ссылки на изображения)</div>
-                <div id="variant-inputs" class="space-y-2 mb-3">
-                    <input type="text" placeholder="Ссылка на фото — Вариант А" class="variant-url-input w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                    <input type="text" placeholder="Ссылка на фото — Вариант Б" class="variant-url-input w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div>
+                        <div class="text-xs mb-1" style="color:var(--text-secondary)">Менять фото каждые (мин)</div>
+                        <input type="number" id="abt-interval" value="30" min="5" max="1440" class="rounded-xl px-4 py-2.5 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
+                    <div>
+                        <div class="text-xs mb-1" style="color:var(--text-secondary)">Макс. ротаций (0 = без лимита)</div>
+                        <input type="number" id="abt-maxrot" value="0" min="0" class="rounded-xl px-4 py-2.5 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
                 </div>
-                <button class="ui-btn ui-btn-secondary mb-3" onclick="addVariantInput()">+ Добавить вариант</button>
+                <div class="text-xs mb-3 font-semibold" style="color:var(--text-primary)">Варианты фото (2–4 шт.)</div>
+                <div id="variant-inputs" class="grid grid-cols-2 gap-3 mb-3"></div>
+                <button class="ui-btn ui-btn-secondary mb-4 text-sm" onclick="addVariantSlot()" id="add-variant-btn">+ Добавить вариант</button>
                 <div class="flex gap-2">
-                    <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()">Создать тест</button>
+                    <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()">🚀 Запустить тест</button>
                     <button class="ui-btn ui-btn-secondary" onclick="hideNewTestForm()">Отмена</button>
                 </div>
             </div>
+
             <div id="abtests-list" class="space-y-3"><div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div></div>
         </div>
 
@@ -901,6 +928,7 @@
         document.getElementById('page-title').textContent = tabTitles[name] || name;
         const filtersBar = document.getElementById('top-filters-bar');
         if (filtersBar) filtersBar.style.display = (name === 'dashboard' || name === 'rnp') ? 'flex' : 'none';
+        if (name === 'abtests') loadABTests();
     }
 
     const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
@@ -1361,63 +1389,164 @@
         showPremiumModal('info', 'Скоро', 'Проверка позиций через поисковый API WB подключается отдельным шагом.');
     }
 
+    // ═══════════════════════════════════════════════
+    //  А/Б ТЕСТЫ — полный модуль v2
+    // ═══════════════════════════════════════════════
     let currentTestFilter = 'active';
     let allABTests = [];
+    let abRotationTimers = {}; // testId → intervalId
+    const LABELS = ['А','Б','В','Г'];
 
-    function showNewTestForm() { document.getElementById('new-test-form').classList.remove('hidden'); }
+    // --- Форма создания ---
+    function showNewTestForm() {
+        document.getElementById('new-test-form').classList.remove('hidden');
+        // Инициализируем 2 слота
+        document.getElementById('variant-inputs').innerHTML = '';
+        abVariantFiles = {};
+        addVariantSlot(); addVariantSlot();
+    }
     function hideNewTestForm() {
         document.getElementById('new-test-form').classList.add('hidden');
         document.getElementById('abt-nmid').value = '';
         document.getElementById('abt-name').value = '';
-        document.getElementById('variant-inputs').innerHTML = `
-            <input type="text" placeholder="Ссылка на фото — Вариант А" class="variant-url-input w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-            <input type="text" placeholder="Ссылка на фото — Вариант Б" class="variant-url-input w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">`;
+        document.getElementById('variant-inputs').innerHTML = '';
+        abVariantFiles = {};
     }
 
-    function addVariantInput() {
+    let abVariantFiles = {}; // index → File
+
+    function addVariantSlot() {
         const container = document.getElementById('variant-inputs');
-        const count = container.children.length;
-        if (count >= 4) { showPremiumModal('warning', 'Максимум 4 варианта', 'Можно сравнивать не более 4 фото одновременно.'); return; }
-        const labels = ['А','Б','В','Г'];
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.placeholder = `Ссылка на фото — Вариант ${labels[count]}`;
-        input.className = 'variant-url-input w-full rounded-xl px-4 py-2.5 text-sm';
-        input.style.cssText = 'background:var(--surface);border:1px solid var(--border);color:var(--text-primary)';
-        container.appendChild(input);
+        const idx = container.children.length;
+        if (idx >= 4) { showPremiumModal('warning', 'Максимум 4 варианта', 'Можно сравнивать не более 4 фото.'); return; }
+        const label = LABELS[idx];
+        const slot = document.createElement('div');
+        slot.className = 'drop-zone';
+        slot.dataset.idx = idx;
+        slot.id = `variant-slot-${idx}`;
+        slot.innerHTML = `
+            <input type="file" accept="image/*" onchange="handleVariantFile(${idx}, this)">
+            <div id="slot-inner-${idx}">
+                <div style="font-size:28px;margin-bottom:6px">📷</div>
+                <div class="text-xs font-semibold" style="color:var(--accent)">Вариант ${label}</div>
+                <div class="text-xs mt-1" style="color:var(--text-muted)">Перетащи или кликни</div>
+            </div>`;
+        slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('dragover'); });
+        slot.addEventListener('dragleave', () => slot.classList.remove('dragover'));
+        slot.addEventListener('drop', e => {
+            e.preventDefault(); slot.classList.remove('dragover');
+            const f = e.dataTransfer.files[0];
+            if (f) applyVariantFile(idx, f);
+        });
+        container.appendChild(slot);
+        if (idx >= 3) document.getElementById('add-variant-btn').style.display = 'none';
+    }
+
+    function handleVariantFile(idx, input) {
+        if (input.files[0]) applyVariantFile(idx, input.files[0]);
+    }
+
+    function applyVariantFile(idx, file) {
+        abVariantFiles[idx] = file;
+        const reader = new FileReader();
+        reader.onload = e => {
+            document.getElementById(`slot-inner-${idx}`).innerHTML = `
+                <img src="${e.target.result}" class="drop-zone-preview">
+                <div class="text-xs font-semibold" style="color:var(--green)">✓ Вариант ${LABELS[idx]}</div>
+                <div class="text-xs" style="color:var(--text-muted)">${(file.size/1024).toFixed(0)} KB</div>`;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function uploadVariantPhoto(file, testId, label) {
+        const { data: { session } } = await supabase.auth.getSession();
+        const ext = file.name.split('.').pop();
+        const path = `${testId}/${label}.${ext}`;
+        const { error } = await supabase.storage.from('abtest-photos').upload(path, file, { upsert: true, contentType: file.type });
+        if (error) throw new Error('Ошибка загрузки фото: ' + error.message);
+        const { data: { publicUrl } } = supabase.storage.from('abtest-photos').getPublicUrl(path);
+        return publicUrl;
     }
 
     async function createABTest() {
-        if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в боковом меню.'); return; }
+        if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет.'); return; }
         const nmId = document.getElementById('abt-nmid').value.trim();
         const name = document.getElementById('abt-name').value.trim();
-        const urls = Array.from(document.querySelectorAll('.variant-url-input')).map(i => i.value.trim()).filter(Boolean);
-        if (!nmId || urls.length < 2) { showPremiumModal('warning', 'Заполните поля', 'Укажите артикул и минимум 2 варианта фото.'); return; }
-        const { data: test, error } = await supabase.from('ab_tests').insert({ cabinet_id: currentCabinetId, nm_id: nmId, product_name: name || ('Артикул ' + nmId), status: 'active' }).select().single();
-        if (error || !test) { showPremiumModal('error', 'Ошибка создания', error?.message || 'Не удалось создать тест.'); return; }
-        const labels = ['А','Б','В','Г'];
-        const variantRows = urls.map((url, i) => ({ test_id: test.id, variant_label: labels[i], photo_url: url, impressions: Math.floor(Math.random()*500)+100, clicks: Math.floor(Math.random()*40)+5 }));
-        const { error: variantError } = await supabase.from('ab_test_variants').insert(variantRows);
-        if (variantError) {
+        const interval = parseInt(document.getElementById('abt-interval').value) || 30;
+        const maxRot = parseInt(document.getElementById('abt-maxrot').value) || 0;
+
+        if (!nmId) { showPremiumModal('warning', 'Укажите артикул', 'Введите nm_id товара на WB.'); return; }
+        if (Object.keys(abVariantFiles).length < 2) { showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите хотя бы 2 варианта фото.'); return; }
+
+        showPremiumModal('info', 'Создаём тест...', 'Загружаем фото в хранилище, подождите.');
+
+        // Создаём тест
+        const { data: test, error } = await supabase.from('ab_tests').insert({
+            cabinet_id: currentCabinetId,
+            nm_id: nmId,
+            product_name: name || ('Артикул ' + nmId),
+            status: 'active',
+            rotation_interval_min: interval,
+            max_rotations: maxRot || null,
+            current_variant_index: 0,
+            rotation_count: 0,
+            started_at: new Date().toISOString()
+        }).select().single();
+
+        if (error || !test) { showPremiumModal('error', 'Ошибка создания', error?.message || 'Попробуйте ещё раз.'); return; }
+
+        // Загружаем фото и создаём варианты
+        try {
+            const fileIndices = Object.keys(abVariantFiles).map(Number).sort();
+            const variantRows = [];
+            for (let i = 0; i < fileIndices.length; i++) {
+                const file = abVariantFiles[fileIndices[i]];
+                const url = await uploadVariantPhoto(file, test.id, LABELS[i]);
+                variantRows.push({ test_id: test.id, variant_label: LABELS[i], photo_url: url, impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: i === 0 });
+            }
+            const { error: vErr } = await supabase.from('ab_test_variants').insert(variantRows);
+            if (vErr) throw new Error(vErr.message);
+
+            // Устанавливаем первое фото на WB сразу
+            await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, nmId);
+
+        } catch(e) {
             await supabase.from('ab_tests').delete().eq('id', test.id);
-            showPremiumModal('error', 'Ошибка создания вариантов', variantError.message);
+            showPremiumModal('error', 'Ошибка загрузки', e.message);
             return;
         }
+
         hideNewTestForm();
-        showPremiumModal('success', 'Тест создан!', 'А/Б тест запущен и добавлен в список.');
+        showPremiumModal('success', 'Тест запущен!', `Фото будет меняться каждые ${interval} мин. Первое фото уже установлено на WB.`);
         loadABTests();
     }
 
+    async function rotateTestPhoto(testId, variantIndex, photoUrl, nmId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        try {
+            await fetch(WB_PROXY_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+                body: JSON.stringify({ cabinet_id: currentCabinetId, action: 'media_save', params: { nmId: Number(nmId), photoUrl } })
+            });
+        } catch(e) { console.warn('WB media_save error:', e); }
+        // Логируем ротацию
+        await supabase.from('ab_test_rotation_log').insert({ test_id: testId, variant_label: LABELS[variantIndex], action: variantIndex === 0 ? 'start' : 'rotate' }).catch(()=>{});
+    }
+
+    // --- Загрузка и отображение ---
     async function loadABTests() {
         if (!currentCabinetId) return;
         const { data: tests } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
         if (!tests) { allABTests = []; renderABTests(); return; }
         allABTests = [];
         for (const test of tests) {
-            const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', test.id);
+            const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', test.id).order('variant_label');
             allABTests.push({ ...test, variants: variants || [] });
         }
         renderABTests();
+        startRotationTimers();
     }
 
     function filterTests(mode, el) {
@@ -1431,56 +1560,235 @@
         const container = document.getElementById('abtests-list');
         let list = allABTests;
         if (currentTestFilter === 'active') list = list.filter(t => t.status === 'active');
-        if (list.length === 0) { container.innerHTML = `<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Нет тестов — создайте первый А/Б тест фото</div>`; return; }
-        container.innerHTML = list.map(test => {
-            const variants = test.variants.map(v => ({ ...v, ctr: v.impressions > 0 ? (v.clicks / v.impressions * 100) : 0 }));
-            const maxCtr = Math.max(...variants.map(v => v.ctr), 0);
-            const avgCtr = variants.reduce((a,v) => a + v.ctr, 0) / (variants.length || 1);
-            const variantsHtml = variants.map(v => {
-                const isWinner = v.ctr === maxCtr && maxCtr > 0;
-                const delta = v.ctr - avgCtr;
-                const deltaText = delta >= 0 ? `+${delta.toFixed(2)}` : delta.toFixed(2);
-                return `
-                <div class="abtest-variant ${isWinner ? 'winner' : ''}">
-                    <img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://via.placeholder.com/90x90/cccccc/666666?text=${escapeHtml(v.variant_label)}'">
-                    <div class="abtest-variant-meta">
-                        <div class="abtest-ctr">${v.ctr.toFixed(2)}%</div>
-                        <div class="${delta >= 0 ? 'abtest-delta-pos' : 'abtest-delta-neg'}">${deltaText}</div>
-                        ${isWinner ? '<span class="ui-status ui-status-success"><span class="ui-status-dot"></span>Лидирует</span>' : '<span class="ui-status ui-status-neutral"><span class="ui-status-dot"></span>Проигрывает</span>'}
-                    </div>
-                </div>`;
-            }).join('');
-            const winnerVariant = variants.find(v => v.ctr === maxCtr);
-            const winnerPct = maxCtr > 0 && avgCtr > 0 ? Math.round((maxCtr / avgCtr - 1) * 100) : 0;
-            const verdict = winnerPct > 50 ? `явный победитель ${Math.min(99, 90+winnerPct%10)}%` : winnerPct > 15 ? `уверенно лучше ${Math.min(95, 70+winnerPct)}%` : 'недостаточно данных';
+        else if (currentTestFilter === 'finished') list = list.filter(t => t.status === 'finished');
+
+        if (list.length === 0) {
+            container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
+                <div style="font-size:40px;margin-bottom:12px">📊</div>
+                ${currentTestFilter === 'active' ? 'Нет активных тестов — создайте первый А/Б тест фото' : 'Нет тестов'}
+            </div>`;
+            return;
+        }
+
+        container.innerHTML = list.map(test => renderTestCard(test)).join('');
+    }
+
+    function renderTestCard(test) {
+        const variants = test.variants || [];
+        const totalOrders = variants.reduce((a,v) => a + (v.orders||0), 0);
+        const totalMinutes = variants.reduce((a,v) => a + (v.minutes_active||0), 0);
+
+        // Считаем заказов/час для каждого варианта
+        const withRate = variants.map(v => ({
+            ...v,
+            ordersPerHour: v.minutes_active > 0 ? ((v.orders||0) / v.minutes_active * 60) : 0
+        }));
+        const maxRate = Math.max(...withRate.map(v => v.ordersPerHour), 0);
+        const winner = maxRate > 0 ? withRate.find(v => v.ordersPerHour === maxRate) : null;
+
+        const intervalMin = test.rotation_interval_min || 30;
+        const nextRotateMs = test.last_rotated_at
+            ? Math.max(0, intervalMin*60*1000 - (Date.now() - new Date(test.last_rotated_at).getTime()))
+            : 0;
+        const progressPct = test.last_rotated_at
+            ? Math.min(100, ((intervalMin*60*1000 - nextRotateMs) / (intervalMin*60*1000)) * 100)
+            : 0;
+        const nextRotateStr = nextRotateMs > 0
+            ? `${Math.floor(nextRotateMs/60000)}м ${Math.floor((nextRotateMs%60000)/1000)}с`
+            : 'сейчас';
+
+        const variantsHtml = withRate.map((v, i) => {
+            const isWinner = winner && v.id === winner.id && maxRate > 0;
+            const isActive = v.is_currently_on_wb;
+            const barPct = maxRate > 0 ? Math.round(v.ordersPerHour / maxRate * 100) : 0;
             return `
-            <div class="abtest-card">
-                <div class="flex items-start justify-between mb-3">
-                    <div>
-                        <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(test.product_name)}</div>
-                        <div class="text-xs" style="color:var(--text-muted)">Артикул ${escapeHtml(String(test.nm_id))} • с ${new Date(test.started_at).toLocaleDateString('ru-RU')}</div>
-                    </div>
-                    <select class="ui-select" style="width:auto;padding:5px 10px;font-size:11px" onchange="updateTestStatus('${test.id}', this.value)">
-                        <option value="active" ${test.status==='active'?'selected':''}>Активен</option>
-                        <option value="paused" ${test.status==='paused'?'selected':''}>Отключен</option>
-                    </select>
-                </div>
-                <div class="flex gap-3 items-start">
-                    <div class="flex gap-2">${variantsHtml}</div>
-                    <div class="flex-1 pl-2">
-                        <div class="text-xs" style="color:var(--text-secondary)">Вердикт:</div>
-                        <div class="text-sm font-medium" style="color:var(--accent)">${verdict}</div>
-                        ${winnerVariant ? `<div class="text-xs mt-2" style="color:var(--text-muted)">Лидер: Вариант ${winnerVariant.variant_label}</div>` : ''}
+            <div class="abtest-variant ${isWinner ? 'winner' : ''} ${isActive ? 'current-active' : ''}">
+                ${isWinner ? '<div class="abtest-winner-badge">🏆 ТОП</div>' : ''}
+                ${isActive ? '<div class="abtest-active-badge">▶ WB</div>' : ''}
+                <img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://placehold.co/100x100/888/fff?text=${escapeHtml(v.variant_label)}'">
+                <div class="abtest-variant-meta">
+                    <div class="text-xs font-bold mb-1" style="color:var(--text-secondary)">Вар. ${escapeHtml(v.variant_label)}</div>
+                    <div class="abtest-ctr">${v.ordersPerHour.toFixed(2)}</div>
+                    <div class="abtest-orders" style="color:var(--text-muted)">зак/час</div>
+                    <div class="abtest-orders">${v.orders||0} зак · ${v.minutes_active||0}м</div>
+                    <div class="verdict-bar-wrap mt-1">
+                        <div class="verdict-bar" style="width:${barPct}%;background:${isWinner ? 'var(--green)' : 'var(--accent)'}"></div>
                     </div>
                 </div>
             </div>`;
         }).join('');
+
+        // Вердикт
+        let verdictHtml = '';
+        if (test.status === 'finished' && winner) {
+            const secondBest = withRate.filter(v => v.id !== winner.id).sort((a,b) => b.ordersPerHour - a.ordersPerHour)[0];
+            const uplift = secondBest && secondBest.ordersPerHour > 0
+                ? Math.round((winner.ordersPerHour / secondBest.ordersPerHour - 1) * 100)
+                : null;
+            verdictHtml = `<div class="verdict-winner-card">
+                <div class="flex items-center gap-2">
+                    <span style="font-size:20px">🏆</span>
+                    <div>
+                        <div class="text-sm font-bold" style="color:var(--green)">Победитель: Вариант ${winner.variant_label}</div>
+                        <div class="text-xs" style="color:var(--text-secondary)">${winner.ordersPerHour.toFixed(2)} заказов/час · ${winner.orders||0} заказов за ${winner.minutes_active||0} мин</div>
+                        ${uplift ? `<div class="text-xs font-semibold mt-1" style="color:var(--green)">+${uplift}% лучше ближайшего конкурента</div>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        } else if (test.status === 'active' && winner && totalOrders > 0) {
+            verdictHtml = `<div class="text-xs mt-2 px-1" style="color:var(--text-secondary)">
+                Промежуточный лидер: <span style="color:var(--accent);font-weight:600">Вариант ${winner.variant_label}</span> (${winner.ordersPerHour.toFixed(2)} зак/час) · Ротаций: ${test.rotation_count||0}
+            </div>`;
+        } else if (test.status === 'active') {
+            verdictHtml = `<div class="text-xs mt-2 px-1" style="color:var(--text-muted)">Тест идёт · Ротаций: ${test.rotation_count||0} · Данных пока недостаточно для вердикта</div>`;
+        }
+
+        const statusBadge = test.status === 'active'
+            ? `<span class="badge-green">● Активен</span>`
+            : test.status === 'finished'
+            ? `<span class="badge-green" style="background:rgba(168,85,247,0.1);color:var(--accent);border-color:rgba(168,85,247,0.3)">✓ Завершён</span>`
+            : `<span class="badge-red">⏸ Приостановлен</span>`;
+
+        const progressHtml = test.status === 'active' ? `
+            <div class="mt-3">
+                <div class="flex justify-between text-xs mb-1" style="color:var(--text-muted)">
+                    <span>Следующая ротация</span>
+                    <span id="next-rotate-${test.id}">${nextRotateStr}</span>
+                </div>
+                <div class="rotation-progress-wrap">
+                    <div class="rotation-progress-bar" id="progress-${test.id}" style="width:${progressPct}%"></div>
+                </div>
+            </div>` : '';
+
+        return `
+        <div class="abtest-card" id="abtest-card-${test.id}">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(test.product_name)}</div>
+                    <div class="text-xs mt-0.5" style="color:var(--text-muted)">Арт. ${escapeHtml(String(test.nm_id))} · Интервал ${intervalMin} мин · c ${new Date(test.started_at||test.created_at).toLocaleDateString('ru-RU')}</div>
+                    <div class="mt-1">${statusBadge}</div>
+                </div>
+                <div class="flex gap-2 items-center">
+                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="finishABTest('${test.id}')">Завершить</button>` : ''}
+                    <select class="ui-select" style="width:auto;padding:5px 10px;font-size:11px" onchange="updateTestStatus('${test.id}', this.value)">
+                        <option value="active" ${test.status==='active'?'selected':''}>Активен</option>
+                        <option value="paused" ${test.status==='paused'?'selected':''}>Пауза</option>
+                        <option value="finished" ${test.status==='finished'?'selected':''}>Завершён</option>
+                    </select>
+                </div>
+            </div>
+            <div class="flex gap-2 flex-wrap">${variantsHtml}</div>
+            ${verdictHtml}
+            ${progressHtml}
+        </div>`;
+    }
+
+    // --- Ротация на клиенте (резервная — основная через pg_cron) ---
+    function startRotationTimers() {
+        // Очищаем старые таймеры
+        Object.values(abRotationTimers).forEach(id => clearInterval(id));
+        abRotationTimers = {};
+
+        // Обновляем прогресс-бары каждую секунду
+        clearInterval(window._abProgressInterval);
+        window._abProgressInterval = setInterval(updateRotationProgress, 1000);
+
+        // Клиентская ротация для каждого активного теста
+        allABTests.filter(t => t.status === 'active').forEach(test => {
+            const intervalMs = (test.rotation_interval_min || 30) * 60 * 1000;
+            abRotationTimers[test.id] = setInterval(async () => {
+                await doClientRotation(test.id);
+            }, intervalMs);
+        });
+    }
+
+    function updateRotationProgress() {
+        allABTests.filter(t => t.status === 'active').forEach(test => {
+            const progressEl = document.getElementById(`progress-${test.id}`);
+            const nextEl = document.getElementById(`next-rotate-${test.id}`);
+            if (!progressEl || !nextEl) return;
+            const intervalMs = (test.rotation_interval_min || 30) * 60 * 1000;
+            const elapsed = test.last_rotated_at ? Date.now() - new Date(test.last_rotated_at).getTime() : intervalMs;
+            const pct = Math.min(100, (elapsed / intervalMs) * 100);
+            const remaining = Math.max(0, intervalMs - elapsed);
+            progressEl.style.width = pct + '%';
+            nextEl.textContent = remaining < 1000 ? 'сейчас' : `${Math.floor(remaining/60000)}м ${Math.floor((remaining%60000)/1000)}с`;
+        });
+    }
+
+    async function doClientRotation(testId) {
+        const test = allABTests.find(t => t.id === testId);
+        if (!test || test.status !== 'active') return;
+
+        const variants = test.variants || [];
+        if (variants.length < 2) return;
+
+        const nextIdx = ((test.current_variant_index || 0) + 1) % variants.length;
+        const nextVariant = variants[nextIdx];
+
+        // Обновляем время активности текущего варианта
+        const currentVariant = variants[test.current_variant_index || 0];
+        if (currentVariant) {
+            await supabase.from('ab_test_variants').update({
+                minutes_active: (currentVariant.minutes_active || 0) + (test.rotation_interval_min || 30),
+                is_currently_on_wb: false
+            }).eq('id', currentVariant.id);
+        }
+
+        // Ставим следующее фото
+        await rotateTestPhoto(testId, nextIdx, nextVariant.photo_url, test.nm_id);
+
+        // Обновляем тест
+        const newRotCount = (test.rotation_count || 0) + 1;
+        const shouldFinish = test.max_rotations && newRotCount >= test.max_rotations;
+        await supabase.from('ab_tests').update({
+            current_variant_index: nextIdx,
+            rotation_count: newRotCount,
+            last_rotated_at: new Date().toISOString(),
+            status: shouldFinish ? 'finished' : 'active',
+            finished_at: shouldFinish ? new Date().toISOString() : null
+        }).eq('id', testId);
+
+        await supabase.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', nextVariant.id);
+
+        if (shouldFinish) {
+            clearInterval(abRotationTimers[testId]);
+            delete abRotationTimers[testId];
+        }
+
+        // Перезагружаем тесты чтобы обновить UI
+        await loadABTests();
+    }
+
+    async function finishABTest(testId) {
+        const test = allABTests.find(t => t.id === testId);
+        if (!test) return;
+        // Записываем финальное время активности текущего варианта
+        const current = (test.variants || [])[test.current_variant_index || 0];
+        if (current) {
+            const elapsedMin = test.last_rotated_at
+                ? Math.floor((Date.now() - new Date(test.last_rotated_at).getTime()) / 60000)
+                : 0;
+            await supabase.from('ab_test_variants').update({
+                minutes_active: (current.minutes_active || 0) + elapsedMin,
+                is_currently_on_wb: false
+            }).eq('id', current.id);
+        }
+        await supabase.from('ab_tests').update({ status: 'finished', finished_at: new Date().toISOString() }).eq('id', testId);
+        await supabase.from('ab_test_rotation_log').insert({ test_id: testId, variant_label: null, action: 'stop' }).catch(()=>{});
+        clearInterval(abRotationTimers[testId]);
+        delete abRotationTimers[testId];
+        loadABTests();
     }
 
     async function updateTestStatus(testId, status) {
-        await supabase.from('ab_tests').update({ status }).eq('id', testId);
+        await supabase.from('ab_tests').update({ status, ...(status === 'finished' ? { finished_at: new Date().toISOString() } : {}) }).eq('id', testId);
+        if (status !== 'active') { clearInterval(abRotationTimers[testId]); delete abRotationTimers[testId]; }
         loadABTests();
     }
+
+    // Устаревшие функции (для совместимости)
+    function addVariantInput() { addVariantSlot(); }
 
     function showSettingsSection(section, el) {
         document.querySelectorAll('.settings-section-tab').forEach(t => t.classList.remove('active'));
