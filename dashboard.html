@@ -344,10 +344,6 @@
                 </div>
             </div>
         </div>
-        <div class="px-4 py-3 border-b" style="border-color:var(--border)">
-            <div class="text-[9px] uppercase tracking-widest mb-1.5 font-semibold" style="color:var(--text-muted)">Кабинет WB</div>
-            <select id="cabinet-select" class="cabinet-select" onchange="onCabinetChange()"><option value="">Загрузка...</option></select>
-        </div>
         <nav class="flex-1 py-2 overflow-y-auto">
             <div class="px-2 pt-1 pb-2">
                 <div class="nav-item-standalone" onclick="showTab('abtests', this)"><span>А/Б тесты фото</span></div>
@@ -491,7 +487,7 @@
                     </button>
                     <button onclick="handleLogout()" class="px-3 py-1.5 text-xs rounded-lg transition border" style="color:var(--text-muted);border-color:var(--border)">Выйти</button>
                     <div style="width:1px;height:20px;background:var(--border)"></div>
-                    <select id="cabinet-select-header" class="cabinet-select" style="width:auto;max-width:130px;font-size:11px;padding:6px 10px" onchange="onCabinetChangeHeader()">
+                    <select id="cabinet-select-header" class="cabinet-select" style="width:auto;max-width:130px;font-size:11px;padding:6px 10px" onchange="onCabinetChange()">
                         <option value="">Кабинет...</option>
                     </select>
                 </div>
@@ -1101,33 +1097,22 @@
 
     async function loadCabinets() {
         const { data } = await supabase.from('cabinets').select('id, name').order('name');
-        const select = document.getElementById('cabinet-select');
         const selectHeader = document.getElementById('cabinet-select-header');
         if (!data || data.length === 0) {
-            select.innerHTML = '<option>Нет кабинетов</option>';
             if (selectHeader) selectHeader.innerHTML = '<option>Нет кабинетов</option>';
             return;
         }
         const opts = data.map(c => `<option value="${escapeHtml(String(c.id))}"${c.id===currentCabinetId?' selected':''}>${escapeHtml(c.name)}</option>`).join('');
-        select.innerHTML = opts;
         if (selectHeader) selectHeader.innerHTML = opts;
         if (!currentCabinetId) { currentCabinetId = data[0].id; localStorage.setItem('selected_cabinet_id', currentCabinetId); }
         const sel = data.find(c => c.id === currentCabinetId);
         if (sel) {
             document.getElementById('cabinet-name-header').textContent = sel.name;
-            select.value = currentCabinetId;
             if (selectHeader) selectHeader.value = currentCabinetId;
-            // Первая загрузка — через оверлей с гарантированным закрытием
             showCabinetTransition(sel.name, () => loadFromDB());
         } else {
             await loadFromDB();
         }
-    }
-
-    function onCabinetChangeHeader() {
-        const s = document.getElementById('cabinet-select-header');
-        document.getElementById('cabinet-select').value = s.value;
-        onCabinetChange();
     }
 
     // Мобильное меню
@@ -1150,7 +1135,7 @@
         }
     });
     function onCabinetChange() {
-        const s = document.getElementById('cabinet-select');
+        const s = document.getElementById('cabinet-select-header');
         currentCabinetId = s.value;
         localStorage.setItem('selected_cabinet_id', currentCabinetId);
         const cabinetName = s.options[s.selectedIndex].text;
