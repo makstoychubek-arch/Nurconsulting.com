@@ -9,66 +9,66 @@
     <title>NR Space — Аналитика</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * { font-family: 'Inter', 'Plus Jakarta Sans', sans-serif; box-sizing: border-box; }
 
-        /* ============ NR PRO — СВЕТЛАЯ (Pearl) ============ */
+        /* ============ NR PRO LIGHT (Pearl) ============ */
         :root, [data-theme="ios"] {
-            --bg: #F4F4F8;
+            --bg: #EEF0F6;
             --bg-mesh: none;
             --surface: #FFFFFF;
             --surface-solid: #FFFFFF;
             --sidebar-bg: #FFFFFF;
-            --border: rgba(28,28,36,0.07);
-            --border-strong: rgba(28,28,36,0.14);
-            --text-primary: #12121A;
-            --text-secondary: #5C5C6B;
-            --text-muted: #9494A3;
-            --accent: #E8568E;
-            --accent-hover: #D4447A;
-            --accent-soft: rgba(232,86,142,0.09);
-            --accent-border: rgba(232,86,142,0.28);
-            --purple: #6D28D9;
-            --purple-soft: rgba(109,40,217,0.08);
-            --accent-gradient: linear-gradient(135deg, #E8568E 0%, #6D28D9 100%);
-            --green: #16A34A;
-            --red: #DC2626;
-            --amber: #D97706;
-            --blue: #2563EB;
-            --card-shadow: 0 1px 2px rgba(18,18,26,0.04), 0 8px 24px rgba(18,18,26,0.06);
+            --border: rgba(15,23,42,0.08);
+            --border-strong: rgba(15,23,42,0.14);
+            --text-primary: #0F172A;
+            --text-secondary: #64748B;
+            --text-muted: #94A3B8;
+            --accent: #7B61FF;
+            --accent-hover: #6B4FE0;
+            --accent-soft: rgba(123,97,255,0.1);
+            --accent-border: rgba(123,97,255,0.28);
+            --purple: #7B61FF;
+            --purple-soft: rgba(123,97,255,0.08);
+            --accent-gradient: linear-gradient(135deg, #7B61FF 0%, #3B82F6 100%);
+            --green: #10B981;
+            --red: #EF4444;
+            --amber: #F59E0B;
+            --blue: #3B82F6;
+            --card-shadow: 0 4px 24px rgba(15,23,42,0.06);
             --use-blur: none;
-            --use-glow: 0 0 0 3px rgba(232,86,142,0.12);
+            --use-glow: 0 8px 24px rgba(123,97,255,0.18);
         }
 
-        /* ============ NR PRO — ТЁМНАЯ (Obsidian) ============ */
+        /* ============ NR PRO DARK (Obsidian) — как референс ============ */
         [data-theme="neon"] {
-            --bg: #07070D;
-            --bg-mesh: radial-gradient(ellipse 80% 50% at 20% -10%, rgba(109,40,217,0.18) 0%, transparent 55%),
-                       radial-gradient(ellipse 60% 40% at 90% 10%, rgba(232,86,142,0.12) 0%, transparent 50%),
-                       radial-gradient(ellipse 50% 30% at 50% 100%, rgba(109,40,217,0.08) 0%, transparent 50%);
-            --surface: rgba(14,14,22,0.72);
-            --surface-solid: #101018;
-            --sidebar-bg: rgba(8,8,14,0.97);
+            --bg: #0D0D12;
+            --bg-mesh: radial-gradient(ellipse 70% 50% at 10% -20%, rgba(123,97,255,0.2) 0%, transparent 55%),
+                       radial-gradient(ellipse 50% 40% at 95% 0%, rgba(59,130,246,0.12) 0%, transparent 50%);
+            --surface: #16161F;
+            --surface-solid: #16161F;
+            --sidebar-bg: #101016;
             --border: rgba(255,255,255,0.06);
-            --border-strong: rgba(255,255,255,0.11);
-            --text-primary: #F4F4F8;
-            --text-secondary: #A0A0B8;
-            --text-muted: #64647A;
-            --accent: #F06292;
-            --accent-hover: #F48FB1;
-            --accent-soft: rgba(240,98,146,0.12);
-            --accent-border: rgba(240,98,146,0.35);
-            --purple: #A78BFA;
-            --purple-soft: rgba(167,139,250,0.1);
-            --accent-gradient: linear-gradient(135deg, #F06292 0%, #8B5CF6 100%);
+            --border-strong: rgba(255,255,255,0.1);
+            --text-primary: #F1F5F9;
+            --text-secondary: #94A3B8;
+            --text-muted: #64748B;
+            --accent: #7B61FF;
+            --accent-hover: #9B87FF;
+            --accent-soft: rgba(123,97,255,0.14);
+            --accent-border: rgba(123,97,255,0.35);
+            --purple: #9B87FF;
+            --purple-soft: rgba(123,97,255,0.1);
+            --accent-gradient: linear-gradient(135deg, #7B61FF 0%, #3B82F6 100%);
             --green: #34D399;
             --red: #F87171;
             --amber: #FBBF24;
             --blue: #60A5FA;
-            --card-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 8px 32px rgba(0,0,0,0.35);
-            --use-blur: blur(24px);
-            --use-glow: 0 0 32px rgba(240,98,146,0.22);
+            --card-shadow: 0 4px 32px rgba(0,0,0,0.35);
+            --use-blur: blur(20px);
+            --use-glow: 0 8px 32px rgba(123,97,255,0.25);
         }
 
         body {
@@ -79,15 +79,22 @@
             font-family: 'Inter', 'Plus Jakarta Sans', sans-serif;
         }
         .sidebar {
-            width: 252px;
+            width: 260px;
             min-height: 100vh;
             background: var(--sidebar-bg);
             border-right: 1px solid var(--border);
             transition: background 0.35s ease;
-            box-shadow: 4px 0 24px rgba(0,0,0,0.03);
         }
-        [data-theme="neon"] .sidebar { box-shadow: 4px 0 32px rgba(0,0,0,0.25); }
-        .glass { background: var(--surface); backdrop-filter: var(--use-blur); -webkit-backdrop-filter: var(--use-blur); border: 1px solid var(--border); box-shadow: var(--card-shadow); transition: background 0.3s ease, border 0.3s ease; }
+        .glass, .widget-card {
+            background: var(--surface);
+            backdrop-filter: var(--use-blur);
+            -webkit-backdrop-filter: var(--use-blur);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            box-shadow: var(--card-shadow);
+            transition: background 0.3s ease, border 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .widget-card:hover { border-color: var(--accent-border); }
         .metric-card {
             background: var(--surface);
             border: 1px solid var(--border);
@@ -116,19 +123,21 @@
         .metric-card:hover { border-color: var(--accent-border); transform: translateY(-2px); }
         [data-theme="neon"] .metric-card:hover { box-shadow: var(--use-glow); }
         .menu-group { margin: 2px 0; }
-        .menu-group-title { display: flex; align-items: center; justify-content: space-between; padding: 9px 16px; cursor: pointer; color: var(--text-secondary); font-size: 12px; font-weight: 600; border-radius: 8px; margin: 1px 8px; transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.05em; }
-        .menu-group-title:hover { background: var(--accent-soft); color: var(--text-primary); }
+        .menu-group-title { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; cursor: pointer; color: var(--text-muted); font-size: 10px; font-weight: 700; border-radius: 8px; margin: 8px 12px 2px; text-transform: uppercase; letter-spacing: 0.08em; transition: all 0.2s; }
+        .menu-group-title:hover { color: var(--text-secondary); }
         .menu-group-title.open { color: var(--accent); }
         .menu-group-title .arrow { transition: transform 0.2s; font-size: 10px; }
         .menu-group-title.open .arrow { transform: rotate(180deg); }
         .menu-sub { overflow: hidden; max-height: 0; transition: max-height 0.3s ease; }
         .menu-sub.open { max-height: 300px; }
-        .nav-item { display: flex; align-items: center; gap: 8px; padding: 8px 14px 8px 24px; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 500; transition: all 0.2s; margin: 1px 10px; border-radius: 10px; border: 1px solid transparent; border-left: 2px solid transparent; }
-        .nav-item:hover { background: var(--accent-soft); color: var(--text-primary); }
-        .nav-item.active { background: var(--accent-soft); color: var(--accent); border-left-color: var(--accent); font-weight: 600; }
-        .nav-item-standalone { display: flex; align-items: center; gap: 8px; padding: 10px 14px; cursor: pointer; color: white; font-size: 13px; font-weight: 600; border-radius: 12px; background: var(--accent-gradient); border: none; transition: all 0.2s; margin: 0 10px; box-shadow: 0 4px 14px rgba(232,86,142,0.25); }
-        .nav-item-standalone:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(232,86,142,0.35); filter: brightness(1.05); }
-        .nav-item-standalone.active { box-shadow: 0 4px 18px rgba(232,86,142,0.4); }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; color: var(--text-secondary); font-size: 13px; font-weight: 500; transition: all 0.25s cubic-bezier(0.4,0,0.2,1); margin: 2px 12px; border-radius: 12px; border: 1px solid transparent; }
+        .nav-item:hover { background: var(--accent-soft); color: var(--text-primary); transform: translateX(2px); }
+        .nav-item.active { background: var(--accent-gradient); color: #fff; font-weight: 600; box-shadow: var(--use-glow); border-color: transparent; }
+        .nav-item.active .nav-ico { opacity: 1; }
+        .nav-ico { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.7; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .nav-item-standalone { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; color: white; font-size: 13px; font-weight: 600; border-radius: 12px; background: var(--accent-gradient); border: none; transition: all 0.25s ease; margin: 4px 12px; box-shadow: var(--use-glow); }
+        .nav-item-standalone:hover { transform: translateY(-1px); filter: brightness(1.08); }
+        .nav-item-standalone.active { box-shadow: 0 8px 28px rgba(123,97,255,0.45); }
         .cabinet-select { background: var(--accent-soft); border: 1px solid var(--accent-border); border-radius: 10px; color: var(--accent); padding: 8px 12px; font-size: 13px; cursor: pointer; outline: none; width: 100%; }
         .cabinet-select option { background: var(--surface-solid); color: var(--text-primary); }
         ::-webkit-scrollbar { width: 3px; }
@@ -164,11 +173,39 @@
             font-size: 11px; font-weight: 800; color: white; letter-spacing: -0.04em;
             box-shadow: 0 4px 12px rgba(232,86,142,0.3);
         }
-        .sidebar-brand-nr { font-weight: 800; font-size: 17px; color: var(--accent); letter-spacing: -0.03em; }
+        .sidebar-brand-nr { font-weight: 800; font-size: 17px; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.03em; }
         .sidebar-brand-space { font-weight: 500; font-size: 17px; color: var(--text-primary); letter-spacing: 0.04em; }
         .section-title { font-size: 13px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
         .section-title::before { content: ''; width: 3px; height: 14px; border-radius: 2px; background: var(--accent-gradient); }
-        #date-picker { position: fixed; top: 100px; left: 292px; z-index: 9999; background: var(--surface-solid); border: 1px solid var(--accent-border); border-radius: 16px; padding: 20px; width: 480px; box-shadow: 0 25px 80px rgba(0,0,0,0.35); }
+        .kpi-hero-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 20px; box-shadow: var(--card-shadow); transition: all 0.25s ease; }
+        .kpi-hero-card:hover { border-color: var(--accent-border); transform: translateY(-2px); }
+        .kpi-hero-label { font-size: 12px; color: var(--text-muted); font-weight: 500; margin-bottom: 8px; }
+        .kpi-hero-value { font-size: 22px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+        .kpi-hero-sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+        .kpi-spark-wrap { height: 48px; margin-top: 12px; }
+        .chart-box { padding: 20px; min-height: 280px; }
+        .chart-box-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+        .chart-box-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 16px; }
+        .chart-canvas-wrap { position: relative; height: 220px; }
+        .metrics-details { padding: 0; overflow: hidden; }
+        .metrics-details summary { padding: 16px 20px; cursor: pointer; font-weight: 700; font-size: 14px; color: var(--text-primary); list-style: none; display: flex; align-items: center; justify-content: space-between; }
+        .metrics-details summary::-webkit-details-marker { display: none; }
+        .metrics-details .metrics-inner { padding: 0 20px 20px; }
+        .sidebar-footer { border-top: 1px solid var(--border); padding: 12px; }
+        .sidebar-footer .nav-item { margin: 2px 0; }
+        .sidebar-theme-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; margin-top: 8px; }
+        .sidebar-theme-label { font-size: 11px; color: var(--text-muted); font-weight: 500; }
+        .header-greeting { font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
+        .header-title { font-size: 20px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
+        .header-profile { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); }
+        .header-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-gradient); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #fff; }
+        .placeholder-widget { padding: 48px 24px; text-align: center; }
+        .placeholder-widget-icon { font-size: 40px; margin-bottom: 16px; opacity: 0.8; }
+        .btn-smooth { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
+        .btn-smooth:hover { transform: translateY(-1px); }
+        .btn-smooth:active { transform: scale(0.97); }
+        .main-content { background: var(--bg); background-image: var(--bg-mesh); }
+        #date-picker { position: fixed; top: 100px; left: 300px; z-index: 9999; background: var(--surface-solid); border: 1px solid var(--accent-border); border-radius: 16px; padding: 20px; width: 480px; box-shadow: 0 25px 80px rgba(0,0,0,0.35); }
         #premium-modal { position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); }
         #premium-modal:not(.hidden) { display: flex; }
         #supply-detail-modal:not(.hidden) { display: flex; }
@@ -344,69 +381,72 @@
                 </div>
             </div>
         </div>
-        <nav class="flex-1 py-2 overflow-y-auto">
-            <div class="px-2 pt-1 pb-2">
-                <div class="nav-item-standalone" onclick="showTab('abtests', this)"><span>А/Б тесты фото</span></div>
-            </div>
+        <nav class="flex-1 py-3 overflow-y-auto">
+            <div class="nav-item-standalone" onclick="showTab('abtests', this)"><span class="nav-ico">🧪</span><span>А/Б тесты фото</span></div>
             <div class="menu-group">
                 <div class="menu-group-title open" onclick="toggleMenu(this)"><span>Оцифровка</span><span class="arrow">▼</span></div>
                 <div class="menu-sub open">
-                    <div class="nav-item active" onclick="showTab('dashboard', this)">Дашборд</div>
-                    <div class="nav-item" onclick="showTab('summary', this)">Сводный отчёт</div>
-                    <div class="nav-item" onclick="showTab('summary-biz', this)">Сводный по бизнесу</div>
-                    <div class="nav-item" onclick="showTab('deductions', this)">Прочие удержания</div>
-                    <div class="nav-item" onclick="showTab('plan-fact', this)">План-факт</div>
+                    <div class="nav-item active" onclick="showTab('dashboard', this)"><span class="nav-ico">📊</span><span>Дашборд</span></div>
+                    <div class="nav-item" onclick="showTab('summary', this)"><span class="nav-ico">📋</span><span>Сводный отчёт</span></div>
+                    <div class="nav-item" onclick="showTab('summary-biz', this)"><span class="nav-ico">🏢</span><span>Сводный по бизнесу</span></div>
+                    <div class="nav-item" onclick="showTab('deductions', this)"><span class="nav-ico">📉</span><span>Прочие удержания</span></div>
+                    <div class="nav-item" onclick="showTab('plan-fact', this)"><span class="nav-ico">🎯</span><span>План-факт</span></div>
                 </div>
             </div>
             <div class="menu-group">
                 <div class="menu-group-title" onclick="toggleMenu(this)"><span>Финансы</span><span class="arrow">▼</span></div>
                 <div class="menu-sub">
-                    <div class="nav-item" onclick="showTab('dds', this)">ДДС</div>
-                    <div class="nav-item" onclick="showTab('operations', this)">Операции</div>
-                    <div class="nav-item" onclick="showTab('obligations', this)">Обязательства</div>
-                    <div class="nav-item" onclick="showTab('finance-extra', this)">Дополнительно</div>
+                    <div class="nav-item" onclick="showTab('dds', this)"><span class="nav-ico">💧</span><span>ДДС</span></div>
+                    <div class="nav-item" onclick="showTab('operations', this)"><span class="nav-ico">💳</span><span>Операции</span></div>
+                    <div class="nav-item" onclick="showTab('obligations', this)"><span class="nav-ico">📅</span><span>Обязательства</span></div>
+                    <div class="nav-item" onclick="showTab('finance-extra', this)"><span class="nav-ico">📎</span><span>Дополнительно</span></div>
                 </div>
             </div>
             <div class="menu-group">
                 <div class="menu-group-title" onclick="toggleMenu(this)"><span>Товары</span><span class="arrow">▼</span></div>
                 <div class="menu-sub">
-                    <div class="nav-item" onclick="showTab('cost', this)">Себестоимость</div>
-                    <div class="nav-item" onclick="showTab('goods-groups', this)">Группы товаров</div>
-                    <div class="nav-item" onclick="showTab('warehouse', this)">Склады</div>
-                    <div class="nav-item" onclick="showTab('positions', this)">Позиции в поиске</div>
+                    <div class="nav-item" onclick="showTab('cost', this)"><span class="nav-ico">💰</span><span>Себестоимость</span></div>
+                    <div class="nav-item" onclick="showTab('goods-groups', this)"><span class="nav-ico">📦</span><span>Группы товаров</span></div>
+                    <div class="nav-item" onclick="showTab('warehouse', this)"><span class="nav-ico">🏭</span><span>Склады</span></div>
+                    <div class="nav-item" onclick="showTab('positions', this)"><span class="nav-ico">🔍</span><span>Позиции в поиске</span></div>
                 </div>
             </div>
             <div class="menu-group">
                 <div class="menu-group-title" onclick="toggleMenu(this)"><span>РНП</span><span class="arrow">▼</span></div>
                 <div class="menu-sub">
-                    <div class="nav-item" onclick="showTab('rnp', this)">Модуль РНП</div>
-                    <div class="nav-item" onclick="showTab('ads', this)">Аналитика РК</div>
-                    <div class="nav-item" onclick="showTab('heatmap', this)">Тепловая карта</div>
-                    <div class="nav-item" onclick="showTab('rnp-settings', this)">Настройки РНП</div>
-                    <div class="nav-item" onclick="showTab('logistics', this)">Логистика</div>
+                    <div class="nav-item" onclick="showTab('rnp', this)"><span class="nav-ico">📈</span><span>Модуль РНП</span></div>
+                    <div class="nav-item" onclick="showTab('ads', this)"><span class="nav-ico">📣</span><span>Аналитика РК</span></div>
+                    <div class="nav-item" onclick="showTab('heatmap', this)"><span class="nav-ico">🗺️</span><span>Тепловая карта</span></div>
+                    <div class="nav-item" onclick="showTab('rnp-settings', this)"><span class="nav-ico">⚙️</span><span>Настройки РНП</span></div>
+                    <div class="nav-item" onclick="showTab('logistics', this)"><span class="nav-ico">🚚</span><span>Логистика</span></div>
                 </div>
             </div>
             <div class="menu-group">
                 <div class="menu-group-title" onclick="toggleMenu(this)"><span>Управление</span><span class="arrow">▼</span></div>
                 <div class="menu-sub">
-                    <div class="nav-item" onclick="showTab('settings', this)">Настройки</div>
-                    <div class="nav-item" onclick="showTab('tariffs', this)">Тарифы</div>
-                    <div class="nav-item" onclick="showTab('calculator', this)">🧮 Калькулятор</div>
+                    <div class="nav-item" id="nav-settings" onclick="showTab('settings', this)"><span class="nav-ico">⚙️</span><span>Настройки</span></div>
+                    <div class="nav-item" onclick="showTab('tariffs', this)"><span class="nav-ico">💎</span><span>Тарифы</span></div>
+                    <div class="nav-item" onclick="showTab('calculator', this)"><span class="nav-ico">🧮</span><span>Калькулятор</span></div>
                 </div>
             </div>
         </nav>
-        <div class="px-4 py-3 border-t" style="border-color:var(--border)">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-2">
-                    <div class="w-7 h-7 rounded-lg flex items-center justify-center" style="background:var(--accent-soft);border:1px solid var(--accent-border)">
-                        <span class="text-xs font-bold" id="user-initial" style="color:var(--accent)">—</span>
-                    </div>
-                    <div>
-                        <div id="sidebar-user" class="text-xs font-medium truncate max-w-[130px]" style="color:var(--text-primary)">...</div>
-                        <div class="text-[9px]" style="color:var(--text-muted)">Сотрудник</div>
-                    </div>
+        <div class="sidebar-footer">
+            <div class="nav-item" onclick="showTab('settings', document.getElementById('nav-settings'))"><span class="nav-ico">⚙️</span><span>Настройки</span></div>
+            <div class="nav-item" onclick="handleLogout()"><span class="nav-ico">↩</span><span>Выйти</span></div>
+            <div class="sidebar-theme-row">
+                <span class="sidebar-theme-label">Тема</span>
+                <div class="theme-pill" onclick="toggleTheme()" title="Сменить тему">
+                    <span class="theme-icon theme-icon-sun">☀</span>
+                    <span class="theme-icon theme-icon-moon">☽</span>
+                    <div class="theme-pill-thumb"></div>
                 </div>
-                <button onclick="handleLogout()" title="Выйти" class="text-sm" style="color:var(--text-muted)">↩</button>
+            </div>
+            <div class="flex items-center gap-2 px-3 pt-3 mt-2 border-t" style="border-color:var(--border)">
+                <div class="header-avatar" id="user-initial">—</div>
+                <div class="min-w-0">
+                    <div id="sidebar-user" class="text-xs font-semibold truncate" style="color:var(--text-primary)">...</div>
+                    <div class="text-[10px]" style="color:var(--text-muted)">Сотрудник</div>
+                </div>
             </div>
         </div>
     </aside>
@@ -462,37 +502,33 @@
         </div>
     </div>
 
-    <main class="flex-1 ml-[252px] flex flex-col h-full overflow-hidden">
-        <!-- Mobile overlay -->
+    <main class="flex-1 ml-[260px] flex flex-col h-full overflow-hidden">
         <div class="mobile-overlay" id="mobile-overlay" onclick="closeMobileMenu()"></div>
 
-        <header class="glass border-b px-6 py-3 shrink-0" style="border-color:var(--border)">
-            <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center space-x-3">
-                    <button class="mobile-menu-btn" onclick="toggleMobileMenu()" id="mobile-menu-btn">☰</button>
-                    <h1 id="page-title" class="text-sm font-semibold" style="color:var(--text-primary)">Дашборд</h1>
-                    <div class="flex items-center space-x-1.5 text-xs" style="color:var(--text-muted)">
-                        <span class="w-1.5 h-1.5 rounded-full animate-pulse inline-block" style="background:var(--green)"></span>
-                        <span id="cabinet-name-header">Выберите кабинет</span>
+        <header class="glass border-b px-6 py-4 shrink-0 rounded-none" style="border-color:var(--border);border-radius:0">
+            <div class="flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3 min-w-0">
+                    <button class="mobile-menu-btn btn-smooth" onclick="toggleMobileMenu()" id="mobile-menu-btn">☰</button>
+                    <div class="min-w-0">
+                        <p class="header-greeting">Привет, <span id="header-user-name">—</span> — добро пожаловать</p>
+                        <h1 id="page-title" class="header-title truncate">Дашборд</h1>
                     </div>
                 </div>
-                <div class="flex items-center space-x-2">
-                    <div class="theme-pill" onclick="toggleTheme()" title="Сменить тему">
-                        <span class="theme-icon theme-icon-sun">☀</span>
-                        <span class="theme-icon theme-icon-moon">☽</span>
-                        <div class="theme-pill-thumb"></div>
-                    </div>
-                    <button onclick="refreshData()" id="refresh-btn" class="flex items-center space-x-1.5 px-4 py-1.5 text-white text-xs font-semibold rounded-lg transition">
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="refreshData()" id="refresh-btn" class="btn-smooth flex items-center gap-1.5 px-4 py-2 text-white text-xs font-semibold rounded-xl">
                         <span>↻</span><span>Обновить</span>
                     </button>
-                    <button onclick="handleLogout()" class="px-3 py-1.5 text-xs rounded-lg transition border" style="color:var(--text-muted);border-color:var(--border)">Выйти</button>
-                    <div style="width:1px;height:20px;background:var(--border)"></div>
-                    <select id="cabinet-select-header" class="cabinet-select" style="width:auto;max-width:130px;font-size:11px;padding:6px 10px" onchange="onCabinetChange()">
+                    <select id="cabinet-select-header" class="cabinet-select btn-smooth" style="width:auto;max-width:150px;font-size:11px;padding:8px 12px" onchange="onCabinetChange()">
                         <option value="">Кабинет...</option>
                     </select>
+                    <div class="header-profile hidden sm:flex">
+                        <div class="header-avatar" id="header-avatar">—</div>
+                        <div class="text-xs font-semibold max-w-[100px] truncate" id="header-profile-name" style="color:var(--text-primary)">—</div>
+                    </div>
+                    <span id="cabinet-name-header" class="hidden" aria-hidden="true"></span>
                 </div>
             </div>
-            <div id="top-filters-bar" class="flex items-center space-x-2 overflow-x-auto pb-1">
+            <div id="top-filters-bar" class="flex items-center gap-2 overflow-x-auto pt-3 mt-1">
                 <div class="filter-chip active flex items-center space-x-1.5" onclick="toggleDatePicker(event)">
                     <span>📅</span><span id="date-range">01.01.2025 — сегодня</span><span style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>
                 </div>
@@ -505,31 +541,74 @@
             </div>
         </header>
 
-        <div class="flex-1 overflow-y-auto p-6">
-        <div id="tab-dashboard" class="tab-content active space-y-5">
-            <h2 class="section-title mb-4">Общие показатели</h2>
+        <div class="flex-1 overflow-y-auto p-6 main-content">
+        <div id="tab-dashboard" class="tab-content active space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                <div class="kpi-hero-card">
+                    <div class="kpi-hero-label">Чистая прибыль</div>
+                    <div id="m-profit" class="kpi-hero-value">—</div>
+                    <div id="m-margin" class="kpi-hero-sub">— %</div>
+                    <div class="kpi-spark-wrap"><canvas id="spark-profit"></canvas></div>
+                </div>
+                <div class="kpi-hero-card">
+                    <div class="kpi-hero-label">Продажи</div>
+                    <div id="m-sales-sum" class="kpi-hero-value">—</div>
+                    <div id="m-sales-count" class="kpi-hero-sub">0 шт.</div>
+                    <div class="kpi-spark-wrap"><canvas id="spark-sales"></canvas></div>
+                </div>
+                <div class="kpi-hero-card">
+                    <div class="kpi-hero-label">Заказы</div>
+                    <div id="m-orders-sum" class="kpi-hero-value">—</div>
+                    <div id="m-orders-count" class="kpi-hero-sub">0 шт.</div>
+                    <div class="kpi-spark-wrap"><canvas id="spark-orders"></canvas></div>
+                </div>
+                <div class="kpi-hero-card">
+                    <div class="kpi-hero-label">Остатки на складах</div>
+                    <div id="m-stock" class="kpi-hero-value" style="color:var(--amber)">—</div>
+                    <div class="kpi-hero-sub">WB realtime</div>
+                    <div class="kpi-spark-wrap"><canvas id="spark-stock"></canvas></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                <div class="widget-card chart-box xl:col-span-2">
+                    <div class="chart-box-title">Динамика заказов</div>
+                    <div class="chart-box-sub">Сумма и количество по дням — данные из wb_orders</div>
+                    <div class="chart-canvas-wrap"><canvas id="chart-orders-bar"></canvas></div>
+                </div>
+                <div class="widget-card chart-box">
+                    <div class="chart-box-title">Остатки по складам</div>
+                    <div class="chart-box-sub">Топ складов WB</div>
+                    <div class="chart-canvas-wrap"><canvas id="chart-warehouse-donut"></canvas></div>
+                </div>
+            </div>
+
+            <div class="widget-card chart-box">
+                <div class="chart-box-title">Заказы за период</div>
+                <div class="chart-box-sub">Тренд суммы и количества заказов</div>
+                <div class="chart-canvas-wrap" style="height:260px"><canvas id="chart-orders-line"></canvas></div>
+            </div>
+
+            <details class="widget-card metrics-details" open>
+                <summary>Все показатели <span style="font-size:11px;color:var(--text-muted);font-weight:500">развернуть / свернуть</span></summary>
+                <div class="metrics-inner space-y-4">
             <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
-                <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Чистая прибыль/Марж-сть</div><div id="m-profit" class="text-lg font-black" style="color:var(--text-primary)">—</div><div id="m-margin" class="text-xs mt-1" style="color:var(--text-muted)">— %</div></div>
                 <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Прибыль/Марж. без опер. расх.</div><div id="m-profit2" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Продажи</div><div id="m-sales-sum" class="text-lg font-black" style="color:var(--text-primary)">—</div><div id="m-sales-count" class="text-xs mt-1" style="color:var(--text-muted)">0 шт.</div></div>
                 <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Реализация</div><div id="m-realization" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
                 <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Итоговое вознаграждение ВБ</div><div id="m-commission" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-            </div>
-            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Заказы</div><div id="m-orders-sum" class="text-lg font-black" style="color:var(--text-primary)">—</div><div id="m-orders-count" class="text-xs mt-1" style="color:var(--text-muted)">0 шт.</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Процент выкупа</div><div id="m-conversion" class="text-lg font-black" style="color:var(--accent)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Логистика</div><div id="m-logistics" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Реклама/ДРР</div><div id="m-ads" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Хранение</div><div id="m-storage" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
             </div>
             <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Реклама/ДРР</div><div id="m-ads" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Хранение</div><div id="m-storage" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Плат. приёмка</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Прочие удержания</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">ROI</div><div id="m-roi" class="text-lg font-black" style="color:var(--blue)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Себестоимость продаж</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Операционные расходы</div><div id="m-opex" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
             </div>
             <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Себестоимость продаж</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Операционные расходы</div><div id="m-opex" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Налоги</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Налоговая база</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Комиссия</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
@@ -538,7 +617,6 @@
             </div>
             <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Капитализация по розн.</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Остатки</div><div id="m-stock" class="text-lg font-black" style="color:var(--amber)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Остатки на моих складах</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Капитализ. на моих складах</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">GMROI</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
@@ -557,7 +635,10 @@
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Оборачиваемость по прод.</div><div class="text-lg font-black" style="color:var(--text-primary)">— Дн.</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Оборачиваемость по зак.</div><div class="text-lg font-black" style="color:var(--text-primary)">— Дн.</div></div>
             </div>
-            <div class="glass rounded-2xl overflow-hidden mt-4">
+                </div>
+            </details>
+
+            <div class="widget-card overflow-hidden">
                 <div class="px-5 py-3 border-b flex justify-between items-center" style="border-color:var(--border)">
                     <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Топ артикулов — остатки</h3>
                     <span class="text-xs px-3 py-1 rounded-full border" style="background:var(--accent-soft);color:var(--accent);border-color:var(--accent-border)">Realtime</span>
@@ -572,7 +653,7 @@
         </div>
 
         <div id="tab-summary" class="tab-content space-y-5">
-    <div class="glass rounded-2xl p-6">
+    <div class="widget-card p-6">
         <h3 class="font-semibold mb-5" style="color:var(--text-primary)">Сводный отчёт по периоду</h3>
         <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
             <div class="metric-card"><div class="text-xs mb-1" style="color:var(--text-muted)">Чистая прибыль</div><div id="sum-profit" class="text-xl font-black" style="color:var(--green)">—</div></div>
@@ -588,16 +669,16 @@
         </div>
         <p class="text-xs mt-4" style="color:var(--text-muted)">Данные синхронизированы с Дашбордом. Нажмите "Обновить" для актуализации.</p>
     </div></div>
-        <div id="tab-summary-biz" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Сводный по бизнесу</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Совокупные показатели по всем кабинетам. Доступно после подключения нескольких кабинетов с токенами WB.</p></div></div>
-        <div id="tab-deductions" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Прочие удержания</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Детализация удержаний из отчёта реализации: подписки, штрафы, транзитные поставки, отзывы за баллы. Доступно после подключения Finance API.</p></div></div>
-        <div id="tab-plan-fact" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">План-факт</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Инструмент постановки целей и отслеживания выполнения плана по выбранным показателям. В разработке.</p></div></div>
-        <div id="tab-dds" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">ДДС</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Движение денежных средств: фактические приходы и расходы по счетам. Требует ручного ввода операций. В разработке.</p></div></div>
-        <div id="tab-operations" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Операции</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Журнал финансовых операций: расходы, доходы, переводы между счетами. В разработке.</p></div></div>
-        <div id="tab-obligations" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Обязательства</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Платёжный календарь и плановые операции. В разработке.</p></div></div>
-        <div id="tab-finance-extra" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Дополнительно</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Расширенные финансовые отчёты и аналитика. В разработке.</p></div></div>
+        <div id="tab-summary-biz" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Сводный по бизнесу</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Совокупные показатели по всем кабинетам. Доступно после подключения нескольких кабинетов с токенами WB.</p></div></div>
+        <div id="tab-deductions" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Прочие удержания</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Детализация удержаний из отчёта реализации: подписки, штрафы, транзитные поставки, отзывы за баллы. Доступно после подключения Finance API.</p></div></div>
+        <div id="tab-plan-fact" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">План-факт</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Инструмент постановки целей и отслеживания выполнения плана по выбранным показателям. В разработке.</p></div></div>
+        <div id="tab-dds" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">ДДС</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Движение денежных средств: фактические приходы и расходы по счетам. Требует ручного ввода операций. В разработке.</p></div></div>
+        <div id="tab-operations" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Операции</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Журнал финансовых операций: расходы, доходы, переводы между счетами. В разработке.</p></div></div>
+        <div id="tab-obligations" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Обязательства</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Платёжный календарь и плановые операции. В разработке.</p></div></div>
+        <div id="tab-finance-extra" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Дополнительно</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Расширенные финансовые отчёты и аналитика. В разработке.</p></div></div>
 
         <div id="tab-cost" class="tab-content space-y-5">
-            <div class="glass rounded-2xl p-6">
+            <div class="widget-card p-6">
                 <h3 class="font-semibold mb-5" style="color:var(--text-primary)">Параметры расчёта прибыли</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div><label class="text-xs block mb-2" style="color:var(--text-secondary)">Налоговая ставка (%)</label><input type="number" id="tax-rate" placeholder="6" value="6" class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)"></div>
@@ -607,7 +688,7 @@
             </div>
         </div>
 
-        <div id="tab-goods-groups" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Группы товаров</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Создавайте группы артикулов для анализа по категориям, брендам или кампаниям. В разработке.</p></div></div>
+        <div id="tab-goods-groups" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Группы товаров</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Создавайте группы артикулов для анализа по категориям, брендам или кампаниям. В разработке.</p></div></div>
 
         <div id="tab-warehouse" class="tab-content space-y-5">
             <div class="grid grid-cols-3 gap-4">
@@ -622,7 +703,7 @@
         </div>
 
         <div id="tab-positions" class="tab-content space-y-5">
-            <div class="glass rounded-2xl p-6">
+            <div class="widget-card p-6">
                 <h3 class="font-semibold mb-2" style="color:var(--text-primary)">Отслеживание позиций в поиске</h3>
                 <p class="text-xs mb-4" style="color:var(--text-secondary)">Добавьте артикул и ключевые слова — проверим позиции в выдаче WB</p>
                 <div class="flex gap-2 mb-4">
@@ -646,11 +727,11 @@
         </div>
 
         <div id="tab-logistics" class="tab-content space-y-5">
-            <div class="glass rounded-2xl p-6">
+            <div class="widget-card p-6">
                 <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Карта федеральных округов</h3>
                 <div class="map-placeholder"><span style="font-size:32px">🗺️</span><span>Карта появится после загрузки данных по складам</span></div>
             </div>
-            <div class="glass rounded-2xl p-6">
+            <div class="widget-card p-6">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center gap-3">
                         <h3 class="font-semibold" style="color:var(--text-primary)">Поставки</h3>
@@ -691,7 +772,7 @@
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">ROI</div><div id="rnp-roi" class="text-2xl font-black" style="color:var(--blue)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Выкуп</div><div id="rnp-buyout" class="text-2xl font-black" style="color:var(--accent)">—</div></div>
             </div>
-            <div class="glass rounded-2xl p-6">
+            <div class="widget-card p-6">
                 <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Воронка продаж</h3>
                 <div class="space-y-3">
                     <div class="flex items-center justify-between py-2 border-b" style="border-color:var(--border)">
@@ -767,14 +848,14 @@
                 <div class="settings-section-tab" onclick="showSettingsSection('about', this)">О платформе</div>
             </div>
             <div id="settings-profile" class="settings-tab-anim space-y-4">
-                <div class="glass rounded-2xl p-6">
+                <div class="widget-card p-6">
                     <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Профиль</h3>
                     <div id="settings-user-info" class="text-sm space-y-2" style="color:var(--text-secondary)">Загрузка...</div>
                     <button onclick="handleLogout()" class="mt-4 px-5 py-2 text-sm rounded-xl border transition" style="background:rgba(248,113,113,0.1);color:var(--red);border-color:rgba(248,113,113,0.25)">Выйти</button>
                 </div>
             </div>
             <div id="settings-api" class="settings-tab-anim hidden space-y-4">
-                <div class="glass rounded-2xl p-6">
+                <div class="widget-card p-6">
                     <div class="flex items-center justify-between mb-4">
                         <h3 class="font-semibold" style="color:var(--text-primary)">Кабинеты и API-токены</h3>
                         <button class="ui-btn ui-btn-secondary" onclick="showAddCabinetForm()"><span style="font-size:14px;line-height:1">+</span><span>Добавить кабинет</span></button>
@@ -791,7 +872,7 @@
                 </div>
             </div>
             <div id="settings-about" class="settings-tab-anim hidden space-y-4">
-                <div class="glass rounded-2xl p-6">
+                <div class="widget-card p-6">
                     <h3 class="font-semibold mb-3" style="color:var(--text-primary)">О платформе</h3>
                     <div class="text-sm space-y-1.5" style="color:var(--text-secondary)">
                         <div>Версия: <span style="color:var(--text-primary)">NR Space v1.3</span></div>
@@ -803,7 +884,7 @@
         </div>
 
                 <div id="tab-calculator" class="tab-content space-y-5">
-            <div class="glass rounded-2xl p-6">
+            <div class="widget-card p-6">
                 <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Калькулятор юнит-экономики</h3>
                 <p class="text-xs mb-5" style="color:var(--text-muted)">Считает рентабельность товара до закупки — без подключения кабинета</p>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -949,6 +1030,7 @@
     function applyTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('nr_theme', theme);
+        if (window.NRCharts) NRCharts.refreshChartTheme();
     }
     function toggleTheme() {
         const cur = document.documentElement.getAttribute('data-theme');
@@ -1108,6 +1190,8 @@
         const sel = data.find(c => c.id === currentCabinetId);
         if (sel) {
             document.getElementById('cabinet-name-header').textContent = sel.name;
+            const hp = document.getElementById('header-profile-name');
+            if (hp) hp.textContent = sel.name;
             if (selectHeader) selectHeader.value = currentCabinetId;
             showCabinetTransition(sel.name, () => loadFromDB());
         } else {
@@ -1140,6 +1224,8 @@
         localStorage.setItem('selected_cabinet_id', currentCabinetId);
         const cabinetName = s.options[s.selectedIndex].text;
         document.getElementById('cabinet-name-header').textContent = cabinetName;
+        const hp = document.getElementById('header-profile-name');
+        if (hp) hp.textContent = cabinetName;
         // Сбрасываем все метрики в —
         ['m-profit','m-margin','m-profit2','m-sales-sum','m-sales-count','m-realization',
          'm-commission','m-orders-sum','m-orders-count','m-conversion','m-logistics',
@@ -1198,6 +1284,7 @@
             }
             // Сначала показываем данные из кеша — мгновенно
             updateDashboardFromDB(stocks, orders);
+            syncRNPTab(stocks, orders);
         }
         // Финансовый отчёт — ОТДЕЛЬНО, не блокирует возврат функции
         // Оверлей уже закроется, а данные обновятся в фоне
@@ -1219,7 +1306,7 @@
     }
 
     async function refreshData() {
-        if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в боковом меню.'); return; }
+        if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в шапке справа.'); return; }
         const btn = document.getElementById('refresh-btn');
         btn.textContent = '⟳ Загрузка...'; btn.disabled = true;
         try {
@@ -1281,6 +1368,7 @@
         } else {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет данных — нажмите "Обновить"</td></tr>';
         }
+        if (window.NRCharts) NRCharts.renderAllCharts(orders, stocks);
     }
 
     function updateWarehouseFromDB(stocks) {
@@ -1961,7 +2049,7 @@
     }
 
     async function loadSuppliesFromWB() {
-        if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в боковом меню.'); return; }
+        if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в шапке справа.'); return; }
         const data = await callWbProxy('supplies', { limit: 50 });
         if (!data) return;
         allSupplies = (data.supplies || []).map(s => ({
@@ -2019,13 +2107,21 @@
             return;
         }
         const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '—';
+        const initial = name.charAt(0).toUpperCase();
         document.getElementById('sidebar-user').textContent = name;
-        document.getElementById('user-initial').textContent = name.charAt(0).toUpperCase();
+        document.getElementById('user-initial').textContent = initial;
+        const ha = document.getElementById('header-avatar');
+        if (ha) ha.textContent = initial;
+        const hun = document.getElementById('header-user-name');
+        if (hun) hun.textContent = name.split(' ')[0];
+        const hpn = document.getElementById('header-profile-name');
+        if (hpn) hpn.textContent = name;
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
         await loadCabinets();
         await loadABTests();
     });
 </script>
+    <script src="/dashboard-charts.js"></script>
     <script src="/wb-formulas.js"></script>
 </body>
 </html>
