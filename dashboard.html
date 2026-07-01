@@ -784,11 +784,14 @@
         const { data: orders } = await supabase.from('wb_orders').select('*').eq('cabinet_id', currentCabinetId).gte('order_date', from).lte('order_date', to);
         const { data: stocks } = await supabase.from('wb_stocks').select('*').eq('cabinet_id', currentCabinetId);
         if (orders !== null && stocks !== null) {
-            updateDashboardFromDB(stocks, orders);
-            updateWarehouseFromDB(stocks);
-            document.getElementById('date-range').textContent = `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
-        }
-    }
+          // Загружаем реальный финансовый отчёт
+const financeRows = await WBFormulas.loadFinanceReport(callWbProxy, from, to);
+const settings = {
+    taxRate: Number(localStorage.getItem('tax_rate') || 6),
+    opex: Number(localStorage.getItem('opex') || 0)
+};
+const metrics = WBFormulas.calculateMetrics(financeRows, settings);
+WBFormulas.applyMetricsToDashboard(metrics, setText);
 
     async function refreshData() {
         if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в боковом меню.'); return; }
@@ -1190,6 +1193,7 @@
         await loadCabinets();
         await loadABTests();
     });
-</script>
+</script> 
+    <script src="/wb-formulas.js"></script>
 </body>
 </html>
