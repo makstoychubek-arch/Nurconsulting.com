@@ -820,7 +820,7 @@
     </main>
 
     <!-- Cabinet Switch Overlay -->
-    <div id="cabinet-overlay" class="hidden" style="position:fixed;inset:0;z-index:199999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px">
+    <div id="cabinet-overlay" style="display:none;position:fixed;inset:0;z-index:199999;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;gap:20px">
         <div style="text-align:center">
             <div class="flex items-baseline justify-center gap-1.5 mb-4">
                 <span style="font-size:28px;font-weight:800;color:#E8568E;letter-spacing:-0.02em">NR</span>
@@ -1046,8 +1046,11 @@
             document.getElementById('cabinet-name-header').textContent = sel.name;
             select.value = currentCabinetId;
             if (selectHeader) selectHeader.value = currentCabinetId;
+            // Первая загрузка — через оверлей с гарантированным закрытием
+            showCabinetTransition(sel.name, () => loadFromDB());
+        } else {
+            await loadFromDB();
         }
-        await loadFromDB();
     }
 
     function onCabinetChangeHeader() {
@@ -1095,7 +1098,7 @@
         const overlay = document.getElementById('cabinet-overlay');
         if (!overlay) return;
         overlay.style.opacity = '0';
-        setTimeout(() => overlay.classList.add('hidden'), 300);
+        setTimeout(() => { overlay.style.display = 'none'; }, 300);
     }
 
     function showCabinetTransition(name, callback) {
@@ -1103,14 +1106,14 @@
         const nameEl = document.getElementById('cabinet-overlay-name');
         if (!overlay) { callback(); return; }
         if (nameEl) nameEl.textContent = name;
-        overlay.classList.remove('hidden');
         overlay.style.opacity = '0';
+        overlay.style.display = 'flex';
         requestAnimationFrame(() => {
             overlay.style.transition = 'opacity 0.3s ease';
             overlay.style.opacity = '1';
         });
         const minDelay = new Promise(r => setTimeout(r, 1400));
-        // ОБЯЗАТЕЛЬНЫЙ таймаут 8 сек — оверлей всегда закроется
+        // ОБЯЗАТЕЛЬНЫЙ таймаут 8 сек — оверлей ВСЕГДА закроется
         const timeout = new Promise(r => setTimeout(r, 8000));
         const loadWithTimeout = Promise.race([
             Promise.resolve(callback()).catch(() => {}),
@@ -1130,7 +1133,6 @@
             updateWarehouseFromDB(stocks);
             setText('m-stock', fmt(stocks.reduce((a,s)=>a+Number(s.quantity||0),0))+' шт.');
             document.getElementById('date-range').textContent = `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
-            // Обновляем таблицу остатков
             const tbody = document.getElementById('products-table');
             if (stocks.length > 0) {
                 tbody.innerHTML = stocks.slice(0,30).map(p => {
@@ -1138,24 +1140,25 @@
                     return `<tr><td style="color:var(--accent);font-weight:600">${escapeHtml(p.nm_id||'—')}</td><td style="color:var(--text-muted)">${escapeHtml(p.barcode||'—')}</td><td style="color:var(--text-primary);font-weight:700">${Number(p.quantity||0)}</td><td style="color:var(--text-muted)">${Number(p.in_way_to_client||0)}</td><td><span class="${enough?'badge-green':'badge-red'}">${enough?'Достаточно':'Подсорт'}</span></td></tr>`;
                 }).join('');
             }
-            // Сначала показываем данные из кеша (заказы/остатки) — мгновенно
+            // Сначала показываем данные из кеша — мгновенно
             updateDashboardFromDB(stocks, orders);
-            // Параллельно пытаемся загрузить реальный финансовый отчёт (с таймаутом)
-            if (typeof WBFormulas !== 'undefined') {
-                const financeTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000));
-                Promise.race([
-                    WBFormulas.loadFinanceReport(callWbProxy, from, to),
-                    financeTimeout
-                ]).then(rows => {
-                    if (!rows || rows.length === 0) return;
-                    const settings = {
-                        taxRate: Number(localStorage.getItem('tax_rate') || 6),
-                        opex: Number(localStorage.getItem('opex') || 0)
-                    };
-                    const metrics = WBFormulas.calculateMetrics(rows, settings);
-                    WBFormulas.applyMetricsToDashboard(metrics, setText);
-                }).catch(e => console.warn('Finance report:', e.message));
-            }
+        }
+        // Финансовый отчёт — ОТДЕЛЬНО, не блокирует возврат функции
+        // Оверлей уже закроется, а данные обновятся в фоне
+        if (typeof WBFormulas !== 'undefined' && currentCabinetId) {
+            const financeTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000));
+            Promise.race([
+                WBFormulas.loadFinanceReport(callWbProxy, from, to),
+                financeTimeout
+            ]).then(rows => {
+                if (!rows || rows.length === 0) return;
+                const settings = {
+                    taxRate: Number(localStorage.getItem('tax_rate') || 6),
+                    opex: Number(localStorage.getItem('opex') || 0)
+                };
+                const metrics = WBFormulas.calculateMetrics(rows, settings);
+                WBFormulas.applyMetricsToDashboard(metrics, setText);
+            }).catch(e => console.warn('Finance report:', e.message));
         }
     }
 
