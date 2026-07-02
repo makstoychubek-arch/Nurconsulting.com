@@ -145,8 +145,13 @@ serve(async (req) => {
             // ── Promotion (Advertising) API v2/v3 ──────────────────────────
             case 'advert_list': {
                 // NEW v2 API (old /adv/v1/promotion/adverts deprecated Feb 2026)
-                const url = 'https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=9,11';
-                result = await wbGet(url, WB_TOKEN);
+                try {
+                    const url = 'https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=9,11';
+                    result = await wbGet(url, WB_TOKEN);
+                } catch(e) {
+                    console.warn('[wb-proxy] advert_list error (non-fatal):', String(e));
+                    result = { adverts: [] };
+                }
                 break;
             }
             case 'advert_stats': {
@@ -172,8 +177,12 @@ serve(async (req) => {
                 for (const dc of dateChunks) {
                     for (let i = 0; i < ids.length; i += 50) {
                         const chunk = ids.slice(i, i + 50).join(',');
-                        const data = await wbGet(`https://advert-api.wildberries.ru/adv/v3/fullstats?ids=${chunk}&beginDate=${dc.from}&endDate=${dc.to}`, WB_TOKEN);
-                        if (Array.isArray(data)) allStats.push(...data);
+                        try {
+                            const data = await wbGet(`https://advert-api.wildberries.ru/adv/v3/fullstats?ids=${chunk}&beginDate=${dc.from}&endDate=${dc.to}`, WB_TOKEN);
+                            if (Array.isArray(data)) allStats.push(...data);
+                        } catch(e) {
+                            console.warn('[wb-proxy] advert_stats chunk error:', String(e));
+                        }
                     }
                 }
                 result = allStats;
