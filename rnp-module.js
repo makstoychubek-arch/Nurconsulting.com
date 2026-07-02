@@ -106,7 +106,18 @@ const RNP = (() => {
         ]},
     ];
 
-    // ─── PHOTO URL ────────────────────────────────────────────────────────────
+    function _normSize(raw) {
+        const s = (raw || '').trim().toUpperCase();
+        if (!s || s === '—') return '—';
+        if (s === '2XL' || s === 'XXL') return 'XXL';
+        if (s === 'ONE SIZE' || s === 'OS' || s === 'UNIVERSAL') return 'ONE';
+        return s;
+    }
+
+    function _nrDialog(title, text, type = 'warning') {
+        if (typeof window.showNrDialog === 'function') window.showNrDialog(type, title, text);
+        else alert(text || title);
+    }
     function _basketNum(vol) {
         const map = [
             [0,143,1],[144,287,2],[288,431,3],[432,719,4],
@@ -160,6 +171,42 @@ const RNP = (() => {
 
     const _photoResolveCache = {};
 
+    async function _probePhoto(url) {
+        if (!url) return null;
+        return new Promise(resolve => {
+            const img = new Image();
+            img.referrerPolicy = 'no-referrer';
+            img.onload = () => resolve(url);
+            img.onerror = () => resolve(null);
+            img.src = url;
+        });
+    }
+
+    async function _fetchCardPhoto(nmId) {
+        const apis = [
+            `https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&nm=${nmId}`,
+            `https://card.wb.ru/cards/v1/detail?appType=1&curr=rub&dest=-1257786&nm=${nmId}`,
+        ];
+        for (const api of apis) {
+            try {
+                const r = await fetch(api, { referrerPolicy: 'no-referrer' });
+                const j = await r.json();
+                const p = j.data?.products?.[0];
+                if (!p) continue;
+                if (p.photo) {
+                    let u = String(p.photo);
+                    if (u.startsWith('//')) u = 'https:' + u;
+                    if (await _probePhoto(u)) return u;
+                }
+                const id = p.id || nmId;
+                for (const u of _photoUrls(id, 'big').slice(0, 8)) {
+                    if (await _probePhoto(u)) return u;
+                }
+            } catch (e) { /* next */ }
+        }
+        return null;
+    }
+
     async function _ensurePhoto(art) {
         if (!art?.nm_id) return;
         if (_photoResolveCache[art.nm_id]) {
@@ -167,26 +214,26 @@ const RNP = (() => {
             return;
         }
         if (art.photo_url?.startsWith('http') && !art.photo_url.includes('wbbasket')) {
-            _photoResolveCache[art.nm_id] = art.photo_url;
+            const ok = await _probePhoto(art.photo_url);
+            if (ok) { _photoResolveCache[art.nm_id] = ok; return; }
+        }
+        const cardUrl = await _fetchCardPhoto(art.nm_id);
+        if (cardUrl) {
+            _photoResolveCache[art.nm_id] = cardUrl;
+            art.photo_url = cardUrl;
+            if (_db && _cab) {
+                _db.from('rnp_articles').update({ photo_url: cardUrl })
+                    .eq('cabinet_id', _cab).eq('nm_id', art.nm_id).then(() => {});
+            }
             return;
         }
-        try {
-            const r = await fetch(
-                `https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&nm=${art.nm_id}`,
-                { referrerPolicy: 'no-referrer' }
-            );
-            const j = await r.json();
-            const prod = j.data?.products?.[0];
-            if (prod?.id) {
-                const url = _photoUrl(prod.id, 'big');
-                _photoResolveCache[art.nm_id] = url;
-                art.photo_url = url;
-                if (_db && _cab) {
-                    _db.from('rnp_articles').update({ photo_url: url })
-                        .eq('cabinet_id', _cab).eq('nm_id', art.nm_id).then(() => {});
-                }
+        for (const u of _photoUrls(art.nm_id, 'c516x688').slice(0, 16)) {
+            if (await _probePhoto(u)) {
+                _photoResolveCache[art.nm_id] = u;
+                art.photo_url = u;
+                return;
             }
-        } catch (e) { /* basket fallback in img */ }
+        }
     }
 
     function _imgHtml(art, className, size = 'c516x688', extraStyle = '') {
@@ -267,7 +314,7 @@ const RNP = (() => {
                 .eq('cabinet_id', _cab)
                 .not('nm_id', 'is', null);
             if (error) throw error;
-            if (!orders?.length) { alert('Нет данных в wb_orders. Сначала загрузите данные кабинета на вкладке Оцифровка → Дашборд.'); return; }
+            if (!orders?.length) { _nrDialog('Нет данных', 'Сначала загрузите данные кабинета на вкладке Оцифровка → Дашборд.', 'warning'); return; }
             const uniq = new Map();
             orders.forEach(o => {
                 const nm = o.nm_id;
@@ -398,7 +445,8 @@ const RNP = (() => {
             (data || []).forEach(s => {
                 const nm = s.nm_id;
                 if (!_stockCache[nm]) _stockCache[nm] = {};
-                const size = (s.tech_size || s.techSize || s.size || '').trim().toUpperCase() || '—';
+                const size = _normSize(s.tech_size || s.techSize || s.size || '');
+                if (size === '—') return;
                 if (!_stockCache[nm][size]) _stockCache[nm][size] = { wh: 0, transit: 0 };
                 _stockCache[nm][size].wh += Number(s.quantity || 0);
                 _stockCache[nm][size].transit +=
@@ -461,8 +509,10 @@ const RNP = (() => {
     }
 
     function _getSize(bySize, sz) {
+        const n = _normSize(sz);
         if (bySize[sz]) return bySize[sz];
-        const key = Object.keys(bySize).find(k => k.toUpperCase() === sz.toUpperCase());
+        if (bySize[n]) return bySize[n];
+        const key = Object.keys(bySize).find(k => _normSize(k) === n);
         return key ? bySize[key] : { wh: 0, transit: 0 };
     }
 
@@ -471,7 +521,15 @@ const RNP = (() => {
     }
 
     function _buildStockSizeHTML(bySize) {
-        const extra = Object.keys(bySize).filter(s => !ALL_SIZES.includes(s.toUpperCase()) && s !== '—');
+        const merged = {};
+        Object.entries(bySize).forEach(([k, v]) => {
+            const nk = _normSize(k);
+            if (nk === '—') return;
+            if (!merged[nk]) merged[nk] = { wh: 0, transit: 0 };
+            merged[nk].wh += v.wh;
+            merged[nk].transit += v.transit;
+        });
+        const extra = Object.keys(merged).filter(s => !ALL_SIZES.includes(s) && s !== 'ONE');
         const sizes = [...ALL_SIZES, ...extra.sort(_sortSizes)];
 
         const cell = (sz, v) => {
@@ -479,13 +537,13 @@ const RNP = (() => {
             return `<td class="${_sizeCellCls(n)}">${n > 0 ? n : 0}</td>`;
         };
         const hdrCell = (sz) => {
-            const x = _getSize(bySize, sz);
+            const x = _getSize(merged, sz);
             const t = x.wh + x.transit;
             return `<th class="${_sizeCellCls(t)}">${sz}</th>`;
         };
         const row = (label, rowCls, fn) => {
-            const cells = sizes.map(sz => cell(sz, fn(_getSize(bySize, sz))));
-            const total = sizes.reduce((s, sz) => s + fn(_getSize(bySize, sz)), 0);
+            const cells = sizes.map(sz => cell(sz, fn(_getSize(merged, sz))));
+            const total = sizes.reduce((s, sz) => s + fn(_getSize(merged, sz)), 0);
             return `<tr class="${rowCls}"><td class="rnp-stock-label">${label}</td>${cells.join('')}<td class="${_sizeCellCls(total)}" style="font-weight:800">${total}</td></tr>`;
         };
 
@@ -553,7 +611,7 @@ const RNP = (() => {
         }
         ['M', 'S', 'L'].forEach(sz => {
             const x = _getSize(stockBySize, sz);
-            if ((x.wh + x.transit) === 0) alerts.push({ type: 'danger', text: `Размер ${sz} = 0` });
+            if ((x.wh + x.transit) === 0) alerts.push({ type: 'danger', text: `${sz} = 0` });
         });
         if (kpi.plan_orders_pct > 0 && kpi.plan_orders_pct < 80) {
             alerts.push({ type: 'warn', text: `План заказов ${kpi.plan_orders_pct.toFixed(0)}%` });
@@ -809,7 +867,7 @@ const RNP = (() => {
             const lw = cal.weeks[cal.weeks.length - 1];
             src = md.plans[lw.weekStart || lw.dates[0]] || {};
         }
-        if (!Object.keys(src).length) { alert('Нет плана за прошлую неделю'); return; }
+        if (!Object.keys(src).length) { _nrDialog('План не найден', 'Нет плана за прошлую неделю — заполните вручную или выберите другую неделю.', 'info'); return; }
         cal.days.filter(d => _weekStartStr(d.date) === curWs).forEach(d => {
             if (!md.plans[d.date]) md.plans[d.date] = {};
             PLAN_KEYS.forEach(k => { if (src[k] != null) md.plans[d.date][k] = src[k]; });
@@ -1502,8 +1560,9 @@ const RNP = (() => {
         if (bar) bar.innerHTML = _buildActionBar(active);
 
         if (_photoResolveCache[art.nm_id]) {
-            const ph = body.querySelector('.rnp-top-photo img');
-            if (ph) ph.src = _photoResolveCache[art.nm_id];
+            body.querySelectorAll('.rnp-top-photo img, .rnp-sheet-tab img[data-nmid="' + art.nm_id + '"]').forEach(ph => {
+                ph.src = _photoResolveCache[art.nm_id];
+            });
         }
     }
 
@@ -1599,7 +1658,7 @@ const RNP = (() => {
                                : m.bold ? 'var(--text-primary)' : 'var(--text-secondary)';
                 return `<td class="${cls} rnp-data-col" style="${bg?bg+';':''}color:${txtColor};font-weight:${m.bold?700:400}">${str||'—'}</td>`;
             }).join('');
-            return `<tr>
+            return `<tr class="${m.isPlan ? 'rnp-row-plan' : ''}">
               <td class="rnp-metric-col" style="font-weight:${m.bold?700:400};font-style:${m.isPlan?'italic':'normal'}">
                 ${m.label}${m.isPlan?' <span style="opacity:0.5;font-size:9px">✏</span>':''}${m.src==='manual'&&!m.isPlan?' <span style="opacity:0.35;font-size:9px">✏</span>':''}${m.src==='promo'?' <span style="opacity:0.35;font-size:9px">📣</span>':''}
               </td>

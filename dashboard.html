@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="ru" data-theme="neon">
 <head>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='50' fill='%23030303'/><text y='72' font-size='58' font-family='Arial Black,sans-serif' font-weight='900' fill='white' x='4'>N</text><text y='72' font-size='58' font-family='Arial Black,sans-serif' font-weight='900' fill='%236D28D9' x='50'>R</text></svg>">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><circle cx='256' cy='256' r='256' fill='%23030303'/><text y='340' font-size='240' font-family='Arial Black,sans-serif' font-weight='900' fill='white' x='20'>N</text><text y='340' font-size='240' font-family='Arial Black,sans-serif' font-weight='900' fill='%236D28D9' x='268'>R</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fff'/><text y='66' font-size='38' font-family='Arial Black,sans-serif' font-weight='900' fill='%23000' x='50' text-anchor='middle'>NR</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%23fff'/><text y='340' font-size='200' font-family='Arial Black,sans-serif' font-weight='900' fill='%23000' x='256' text-anchor='middle'>NR</text></svg>">
     <meta name="theme-color" content="#030303">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -357,54 +357,54 @@
         }
         .rnp-top-panel {
             display: grid;
-            grid-template-columns: auto 1fr minmax(0, 1fr);
+            grid-template-columns: 64px minmax(150px, 200px) minmax(380px, 1fr);
             gap: 0;
             border-bottom: 2px solid var(--border);
             background: #fff;
-            min-height: 130px;
+            min-height: 88px;
+            max-height: 96px;
             flex-shrink: 0;
             width: 100%;
             overflow: hidden;
         }
         [data-theme="neon"] .rnp-top-panel { background: var(--surface); }
         .rnp-top-photo {
-            width: 96px; flex-shrink: 0; border-right: 1px solid var(--border);
+            width: 64px; flex-shrink: 0; border-right: 1px solid var(--border);
             display: flex; align-items: stretch; justify-content: center;
             background: #fafafa; overflow: hidden;
         }
         [data-theme="neon"] .rnp-top-photo { background: #0d0d14; }
         .rnp-top-photo img {
-            width: 100%; height: 100%; min-height: 130px; object-fit: cover; display: block;
+            width: 100%; height: 100%; min-height: 88px; max-height: 96px; object-fit: cover; display: block;
         }
         .rnp-top-info {
-            padding: 8px 10px; border-right: 1px solid var(--border);
-            display: flex; flex-direction: column; gap: 4px; min-width: 180px;
+            padding: 6px 8px; border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow: hidden;
         }
         .rnp-top-title {
-            font-size: 13px; font-weight: 700; color: var(--text-primary);
-            line-height: 1.2; max-width: 280px;
+            font-size: 11px; font-weight: 700; color: var(--text-primary);
+            line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .rnp-top-nmid { font-size: 10px; color: var(--text-muted); }
+        .rnp-top-nmid { font-size: 9px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .rnp-kpi-grid {
-            display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 10px;
-            margin-top: 4px;
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px 6px;
+            margin-top: 2px;
         }
         .rnp-kpi {
-            font-size: 9px; color: var(--text-muted); line-height: 1.3;
-        }
-        .rnp-kpi b {
-            display: block; font-size: 12px; font-weight: 800; color: var(--text-primary);
+            font-size: 8px; color: var(--text-muted); line-height: 1.2;
         }
         .rnp-kpi b.pos { color: var(--green); }
         .rnp-kpi b.neg { color: var(--red); }
+        .rnp-kpi b {
+            display: block; font-size: 10px; font-weight: 800; color: var(--text-primary);
+        }
         .rnp-stock-totals {
-            display: flex; gap: 12px; font-size: 10px; color: var(--text-secondary); margin-top: 2px;
+            display: flex; gap: 8px; font-size: 9px; color: var(--text-secondary); margin-top: 1px; flex-wrap: nowrap;
         }
         .rnp-stock-totals span b { color: var(--text-primary); }
-        .rnp-top-actions { margin-top: auto; }
         .rnp-top-stock-wrap {
-            overflow-x: auto; padding: 4px 6px; align-self: stretch;
-            display: flex; align-items: center; min-width: 0;
+            overflow-x: auto; overflow-y: hidden; padding: 2px 4px 2px 2px;
+            display: flex; align-items: center; justify-content: flex-end; min-width: 0;
         }
         .rnp-table-scroll {
             overflow: auto; flex: 1; min-height: 0; min-width: 0;
@@ -468,12 +468,12 @@
         .rnp-table-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
         .rnp-stock-block { padding: 0; border: none; background: transparent; overflow: visible; }
         .rnp-stock-block-title { display: none; }
-        .rnp-stock-table { border-collapse: collapse; font-size: 10px; min-width: max-content; }
-        .rnp-stock-table th, .rnp-stock-table td { border: 1px solid #ccc; padding: 1px 4px; text-align: center; min-width: 24px; font-weight: 600; font-size: 8px; }
+        .rnp-stock-table { border-collapse: collapse; font-size: 9px; min-width: max-content; }
+        .rnp-stock-table th, .rnp-stock-table td { border: 1px solid #ccc; padding: 0 3px; text-align: center; min-width: 20px; font-weight: 600; font-size: 7px; line-height: 1.25; }
         [data-theme="neon"] .rnp-stock-table th, [data-theme="neon"] .rnp-stock-table td { border-color: var(--border); }
-        .rnp-stock-table th { background: #f5f5f5; font-weight: 700; color: #333; font-size: 9px; }
+        .rnp-stock-table th { background: #f5f5f5; font-weight: 700; color: #333; font-size: 7px; padding: 1px 2px; }
         [data-theme="neon"] .rnp-stock-table th { background: var(--bg); color: var(--text-muted); }
-        .rnp-stock-table .rnp-stock-label { text-align: left; font-weight: 600; color: #333; min-width: 72px; background: #f5f5f5; font-size: 9px; padding-left: 6px; }
+        .rnp-stock-table .rnp-stock-label { text-align: left; font-weight: 600; color: #333; min-width: 58px; max-width: 58px; background: #f5f5f5; font-size: 7px; padding: 0 4px; white-space: nowrap; }
         .rnp-stock-table .rnp-size-has { background: #fff3cd; color: #856404; }
         .rnp-stock-table .rnp-size-zero { background: #f8d7da; color: #721c24; }
         .rnp-stock-table tr.rnp-row-wh td:not(.rnp-stock-label) { background: #d1ecf1; color: #0c5460; }
@@ -537,10 +537,61 @@
         .rnp-sync-green { background: #22c55e; box-shadow: 0 0 4px #22c55e88; }
         .rnp-sync-yellow { background: #eab308; }
         .rnp-sync-red { background: #ef4444; }
-        .rnp-alerts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-        .rnp-alert {
-            font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 600;
+        .rnp-alerts { display: flex; flex-wrap: nowrap; gap: 3px; margin-top: 2px; overflow: hidden; max-height: 16px; }
+        .rnp-alert { font-size: 8px; padding: 1px 4px; border-radius: 3px; font-weight: 600; white-space: nowrap; }
+        .rnp-sheet-table tr.rnp-row-plan .rnp-metric-col,
+        .rnp-sheet-table tr.rnp-row-plan .rnp-spark-col {
+            background: var(--surface) !important;
+            z-index: 9;
         }
+        .rnp-sheet-table tr.rnp-row-plan .rnp-cell-plan {
+            background: rgba(99,102,241,0.06) !important;
+            vertical-align: middle;
+            padding: 0 !important;
+        }
+        .rnp-sheet-table tr.rnp-row-plan .rnp-plan-input {
+            background: transparent;
+            position: relative;
+            z-index: 1;
+        }
+        .rnp-sheet-table tr.rnp-row-plan .rnp-cell-plan:focus-within {
+            background: rgba(99,102,241,0.12) !important;
+            z-index: 2;
+        }
+        .rnp-sheet-table tr.rnp-row-plan:hover .rnp-metric-col,
+        .rnp-sheet-table tr.rnp-row-plan:hover .rnp-spark-col { background: var(--surface) !important; }
+        #premium-modal {
+            position: fixed; inset: 0; z-index: 99999;
+            display: flex; align-items: center; justify-content: center;
+            padding: 24px;
+            background: rgba(0,0,0,0.52);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            opacity: 0; visibility: hidden;
+            transition: opacity 0.22s ease, visibility 0.22s;
+        }
+        #premium-modal.is-open { opacity: 1; visibility: visible; }
+        #modal-box {
+            background: var(--surface-solid);
+            border: 1px solid var(--border-strong);
+            border-radius: 20px;
+            padding: 28px 28px 22px;
+            max-width: 400px; width: 100%;
+            text-align: center;
+            box-shadow: 0 24px 80px rgba(0,0,0,0.35);
+            transform: scale(0.94) translateY(10px);
+            opacity: 0;
+            transition: transform 0.32s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.22s ease;
+        }
+        #premium-modal.is-open #modal-box { transform: scale(1) translateY(0); opacity: 1; }
+        #modal-btn {
+            width: 100%; padding: 11px 16px; margin-top: 4px;
+            background: var(--text-primary); color: var(--sidebar-bg);
+            border: none; border-radius: 12px; font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: opacity 0.15s ease, transform 0.15s ease;
+        }
+        #modal-btn:hover { opacity: 0.92; transform: translateY(-1px); }
+        #supply-detail-modal:not(.hidden) { display: flex; }
         .rnp-alert-warn { background: rgba(245,158,11,0.2); color: var(--amber); }
         .rnp-alert-danger { background: rgba(239,68,68,0.2); color: var(--red); }
         .rnp-summary-table { font-size: 10px; width: 100%; border-collapse: collapse; }
@@ -551,26 +602,21 @@
         .rnp-summary-name { text-align: left; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .rnp-note-input {
             width: 100%; border: none; background: transparent; font-size: 8px;
-            color: var(--text-secondary); text-align: center; padding: 2px 1px;
-            min-height: 14px;
+            color: var(--text-secondary); text-align: center; padding: 2px 1px; min-height: 14px;
         }
         .rnp-note-input::placeholder { color: var(--text-muted); opacity: 0.6; }
         .rnp-note-input:focus { outline: none; background: rgba(99,102,241,0.12); color: var(--text-primary); }
         .rnp-th-notes-label { font-size: 8px !important; color: var(--text-muted) !important; text-align: left !important; padding-left: 6px !important; }
         .rnp-top-photo img.rnp-photo-fail { object-fit: contain; padding: 8px; opacity: 0.35; }
         .rnp-compare-split { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 2px solid var(--accent); }
-        .rnp-compare-split .rnp-top-panel { min-height: 110px; border-bottom: none; }
-        .rnp-compare-split .rnp-top-photo { width: 72px; }
-        .rnp-compare-split .rnp-top-photo img { min-height: 110px; }
+        .rnp-compare-split .rnp-top-panel { min-height: 88px; max-height: 96px; border-bottom: none; }
+        .rnp-compare-split .rnp-top-photo { width: 56px; }
+        .rnp-compare-split .rnp-top-photo img { min-height: 88px; }
         .rnp-compare-label { font-size: 8px; font-weight: 800; text-transform: uppercase; color: var(--accent); padding: 2px 8px; background: var(--accent-soft); }
         .rnp-sheet-tab .rnp-sync-dot { margin-right: 2px; }
         .rnp-tab-summary { font-weight: 700; }
         .main-content { background: var(--bg); background-image: var(--bg-mesh); }
         #date-picker { position: fixed; top: 100px; left: 300px; z-index: 9999; background: var(--surface-solid); border: 1px solid var(--accent-border); border-radius: 16px; padding: 20px; width: 480px; box-shadow: 0 25px 80px rgba(0,0,0,0.35); }
-        #premium-modal { position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); }
-        #premium-modal:not(.hidden) { display: flex; }
-        #supply-detail-modal:not(.hidden) { display: flex; }
-        #modal-box { background: var(--surface-solid); border: 1px solid var(--border-strong); border-radius: 20px; padding: 32px; max-width: 380px; width: 90%; text-align: center; box-shadow: 0 25px 80px rgba(0,0,0,0.3); transform: scale(0.9); opacity: 0; transition: all 0.3s ease; }
         .abtest-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; transition: border-color 0.2s ease; }
         .abtest-card:hover { border-color: var(--accent-border); }
         .abtest-variant { position: relative; width: 100px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); transition: all 0.2s ease; cursor: default; }
@@ -1431,12 +1477,12 @@
         </div>
     </div>
 
-    <div id="premium-modal" class="hidden">
+    <div id="premium-modal">
         <div id="modal-box">
-            <div id="modal-icon" style="width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:28px"></div>
-            <div id="modal-title" style="color:var(--text-primary);font-size:17px;font-weight:600;margin-bottom:8px"></div>
-            <div id="modal-text" style="color:var(--text-secondary);font-size:13px;line-height:1.6;margin-bottom:24px"></div>
-            <button onclick="closePremiumModal()" style="width:100%;padding:11px;background:var(--accent);color:white;border:none;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer">Понятно</button>
+            <div id="modal-icon" style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"></div>
+            <div id="modal-title" style="color:var(--text-primary);font-size:17px;font-weight:700;margin-bottom:8px;letter-spacing:-0.02em"></div>
+            <div id="modal-text" style="color:var(--text-secondary);font-size:13px;line-height:1.55;margin-bottom:20px"></div>
+            <button type="button" id="modal-btn" onclick="closePremiumModal()">Понятно</button>
         </div>
     </div>
 
@@ -1494,6 +1540,36 @@
     })();
 
     // ── Toast notifications (replaces modal alerts) ──────────────────────────
+    function showNrDialog(type, title, text) {
+        const modal = document.getElementById('premium-modal');
+        if (!modal) return;
+        const cfg = {
+            success: { bg: 'rgba(52,211,153,0.15)', color: 'var(--green)', icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' },
+            error:   { bg: 'rgba(248,113,113,0.15)', color: 'var(--red)', icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' },
+            warning: { bg: 'rgba(251,191,36,0.15)', color: 'var(--amber)', icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' },
+            info:    { bg: 'rgba(96,165,250,0.15)', color: 'var(--blue)', icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>' },
+        };
+        const c = cfg[type] || cfg.info;
+        const icon = document.getElementById('modal-icon');
+        if (icon) { icon.style.background = c.bg; icon.style.color = c.color; icon.innerHTML = c.icon; }
+        const t = document.getElementById('modal-title'); if (t) t.textContent = title || '';
+        const x = document.getElementById('modal-text'); if (x) x.textContent = text || '';
+        modal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+    }
+    function closePremiumModal() {
+        const modal = document.getElementById('premium-modal');
+        if (!modal) return;
+        modal.classList.remove('is-open');
+        document.body.style.overflow = '';
+    }
+    document.getElementById('premium-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'premium-modal') closePremiumModal();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closePremiumModal();
+    });
+
     function showPremiumModal(type, title, text) {
         const cfg = {
             success: { color: 'var(--green)',  bar: '#34d399', icon: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>` },
