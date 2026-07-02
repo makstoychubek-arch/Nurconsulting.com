@@ -150,18 +150,31 @@ serve(async (req) => {
                 break;
             }
             case 'advert_stats': {
-                // NEW v3 fullstats (old /adv/v1/stat/interval deprecated Feb 2026)
-                // params: { advertIds: number[], dateFrom: string, dateTo: string }
+                // WB Promotion API v3 fullstats — max 50 ids, max 31 days per request
                 const ids: number[] = params.advertIds || [];
                 if (!ids.length) { result = []; break; }
 
-                // Max 50 campaigns per request, max 31 day period
+                // Split date range into <=30 day chunks (WB API limit: 31 days)
+                const begin = new Date(params.dateFrom);
+                const end   = new Date(params.dateTo);
+                const dateChunks: { from: string; to: string }[] = [];
+                let cur = new Date(begin);
+                while (cur <= end) {
+                    const chunkEnd = new Date(cur);
+                    chunkEnd.setDate(chunkEnd.getDate() + 29);
+                    if (chunkEnd > end) chunkEnd.setTime(end.getTime());
+                    dateChunks.push({ from: cur.toISOString().split('T')[0], to: chunkEnd.toISOString().split('T')[0] });
+                    cur = new Date(chunkEnd);
+                    cur.setDate(cur.getDate() + 1);
+                }
+
                 const allStats: unknown[] = [];
-                for (let i = 0; i < ids.length; i += 50) {
-                    const chunk = ids.slice(i, i + 50).join(',');
-                    const url = `https://advert-api.wildberries.ru/adv/v3/fullstats?ids=${chunk}&beginDate=${params.dateFrom}&endDate=${params.dateTo}`;
-                    const data = await wbGet(url, WB_TOKEN);
-                    if (Array.isArray(data)) allStats.push(...data);
+                for (const dc of dateChunks) {
+                    for (let i = 0; i < ids.length; i += 50) {
+                        const chunk = ids.slice(i, i + 50).join(',');
+                        const data = await wbGet(`https://advert-api.wildberries.ru/adv/v3/fullstats?ids=${chunk}&beginDate=${dc.from}&endDate=${dc.to}`, WB_TOKEN);
+                        if (Array.isArray(data)) allStats.push(...data);
+                    }
                 }
                 result = allStats;
                 break;
