@@ -8,7 +8,8 @@ const RNP = (() => {
     // ─── STATE ────────────────────────────────────────────────────────────────
     let _db = null;
     let _cab = null;
-    let _settings = { exchangeRate: 13.5, calcPeriod: 7, promotionToken: '' };
+    let _callProxy = null; // async (action, params) => data
+    let _settings = { exchangeRate: 13.5, calcPeriod: 7 };
     let _articles = [];
     let _activeNm = null;
     let _collapsed = new Set();
@@ -252,6 +253,123 @@ const RNP = (() => {
             stock_total: stockWh + stockTr,
             updated_at: new Date().toISOString()
         };
+    }
+
+    // ─── FINANCE REPORT SYNC ─────────────────────────────────────────────────
+    async function _syncFinanceRange(nmId) {
+        if (!_callProxy) return;
+        const now = new Date();
+        const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+        const dateTo   = now.toISOString().split('T')[0];
+        try {
+            const rows = await _callProxy('finance_report', { dateFrom, dateTo });
+            if (!Array.isArray(rows) || !rows.length) return;
+
+            const byDate = {};
+            rows.filter(r => String(r.nm_id) === String(nmId)).forEach(row => {
+                const date = (row.sale_dt || '').split('T')[0];
+                if (!date) return;
+                if (!byDate[date]) byDate[date] = { sc: 0, ss: 0, tt: 0, log: 0, sto: 0, rc: 0 };
+                const d = byDate[date];
+                const type = (row.doc_type_name || '').toLowerCase();
+                const qty  = Number(row.quantity || 0);
+                if (type === 'продажа') {
+                    d.sc  += qty;
+                    d.ss  += Number(row.retail_price_withdisc_rub || 0) * qty;
+                    d.tt  += Number(row.ppvz_for_pay || 0);
+                } else if (type === 'возврат') {
+                    d.rc  += qty;
+                    d.tt  += Number(row.ppvz_for_pay || 0); // negative for returns
+                }
+                d.log += Number(row.delivery_rub || 0);
+                d.sto += Number(row.storage_fee  || 0);
+            });
+
+            const upserts = Object.entries(byDate).map(([date, d]) => {
+                const total       = d.sc + d.rc;
+                const buyoutPct   = total > 0 ? d.sc / total * 100 : 0;
+                const returnPct   = total > 0 ? d.rc / total * 100 : 0;
+                const commission  = d.ss - d.tt;
+                const commPct     = d.ss > 0 ? commission / d.ss * 100 : 0;
+                const logPct      = d.ss > 0 ? d.log / d.ss * 100 : 0;
+                const stoPct      = d.ss > 0 ? d.sto / d.ss * 100 : 0;
+                const logUnit     = d.sc > 0  ? d.log / d.sc      : 0;
+                return {
+                    cabinet_id: _cab, nm_id: nmId, date,
+                    sales_count: d.sc,   sales_sum: d.ss,
+                    returns_count: d.rc, buyout_pct: buyoutPct, return_pct: returnPct,
+                    to_transfer: d.tt,   to_transfer_unit: d.sc > 0 ? d.tt / d.sc : 0,
+                    logistics_per_unit: logUnit, logistics_pct: logPct,
+                    storage_sum: d.sto,  storage_pct: stoPct,
+                    commission_pct: commPct,
+                    updated_at: new Date().toISOString()
+                };
+            });
+            if (upserts.length) {
+                await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
+            }
+        } catch(e) { console.warn('[RNP] syncFinance:', e.message); }
+    }
+
+    // ─── PROMOTION / AD SYNC ─────────────────────────────────────────────────
+    async function _syncAdStats(nmId) {
+        if (!_callProxy) return;
+        const now = new Date();
+        const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+        const dateTo   = now.toISOString().split('T')[0];
+        try {
+            // 1. Get list of active campaigns for this cabinet
+            const campaigns = await _callProxy('advert_list', {});
+            if (!Array.isArray(campaigns) || !campaigns.length) return;
+
+            // 2. Filter campaigns that target this nmId
+            const relevantIds = campaigns
+                .filter(c => {
+                    const nms = (c.unitedParams || []).flatMap(p => p.nms || []);
+                    return nms.includes(Number(nmId));
+                })
+                .map(c => c.advertId);
+            if (!relevantIds.length) return;
+
+            // 3. Fetch stats for those campaigns
+            const stats = await _callProxy('advert_stats', { advertIds: relevantIds, dateFrom, dateTo });
+            if (!Array.isArray(stats) || !stats.length) return;
+
+            // 4. Aggregate by date
+            const byDate = {};
+            stats.forEach(camp => {
+                (camp.days || []).forEach(day => {
+                    const date = (day.date || '').split('T')[0];
+                    if (!date) return;
+                    const nms = (camp.nm || []);
+                    const nmRow = nms.find(n => n.nmId == nmId);
+                    if (!nmRow) return;
+                    if (!byDate[date]) byDate[date] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
+                    const d = byDate[date];
+                    d.imp    += Number(nmRow.views   || 0);
+                    d.cl     += Number(nmRow.clicks  || 0);
+                    d.spend  += Number(nmRow.sum     || 0);
+                    d.orders += Number(nmRow.orders  || 0);
+                    d.basket += Number(nmRow.atbs    || 0); // добавлено в корзину
+                });
+            });
+
+            const upserts = Object.entries(byDate).map(([date, d]) => ({
+                cabinet_id: _cab, nm_id: nmId, date,
+                ad_impressions: d.imp,
+                ad_clicks: d.cl,
+                ad_ctr: d.imp > 0 ? d.cl / d.imp * 100 : 0,
+                ad_spend: d.spend,
+                ad_cpc: d.cl > 0 ? d.spend / d.cl : 0,
+                ad_orders: d.orders,
+                ad_basket: d.basket,
+                ad_cro: d.cl > 0 ? d.orders / d.cl * 100 : 0,
+                updated_at: new Date().toISOString()
+            }));
+            if (upserts.length) {
+                await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
+            }
+        } catch(e) { console.warn('[RNP] syncAds:', e.message); }
     }
 
     // ─── AGGREGATION ──────────────────────────────────────────────────────────
@@ -577,8 +695,9 @@ const RNP = (() => {
     }
 
     // ─── PUBLIC API ───────────────────────────────────────────────────────────
-    async function init(supabase, cabId) {
+    async function init(supabase, cabId, proxyFn) {
         _db = supabase; _cab = cabId;
+        if (typeof proxyFn === 'function') _callProxy = proxyFn;
         await _loadSettings();
         await _loadArticles();
     }
@@ -632,10 +751,21 @@ const RNP = (() => {
     async function refresh(nmId) {
         const btn = document.getElementById('rnp-refresh-btn');
         if (btn) { btn.textContent = '⏳...'; btn.disabled = true; }
+
+        // Quick: sync today from orders/stocks cache
         await _syncToday(nmId);
+
+        // Full: sync finance report + ads if proxy available (runs in background, re-renders after)
+        if (_callProxy) {
+            if (btn) btn.textContent = '⏳ Финансы...';
+            await _syncFinanceRange(nmId);
+            if (btn) btn.textContent = '⏳ Реклама...';
+            await _syncAdStats(nmId);
+        }
+
         const art = _articles.find(a => a.nm_id == nmId);
         if (art) await _renderTable(art);
-        if (btn) { btn.textContent = '✓ Обновлено'; setTimeout(() => { btn.disabled = false; }, 2000); }
+        if (btn) { btn.textContent = '✓ Обновлено'; setTimeout(() => { btn.disabled = false; btn.textContent = '↻ Обновить'; }, 2500); }
     }
 
     function toggle(sectionId) {
@@ -645,5 +775,6 @@ const RNP = (() => {
         if (art) _renderTable(art);
     }
 
-    return { init, openSettings, openMain, pick, syncArts, toggleArt, setCost, saveRate, savePeriod, savePromo, refresh, toggle };
+    return { init, openSettings, openMain, pick, syncArts, toggleArt, setCost, saveRate, savePeriod, savePromo, refresh, toggle,
+             syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();

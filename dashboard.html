@@ -2226,7 +2226,7 @@
         // Init RNP after cabinet is set
         setTimeout(async () => {
             if (currentCabinetId && typeof RNP !== 'undefined') {
-                await RNP.init(supabase, currentCabinetId);
+                await RNP.init(supabase, currentCabinetId, callWbProxy);
             }
         }, 1500);
     });
