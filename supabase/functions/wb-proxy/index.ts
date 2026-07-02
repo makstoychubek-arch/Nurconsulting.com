@@ -144,42 +144,51 @@ serve(async (req) => {
 
             // ── Promotion (Advertising) API v2/v3 ──────────────────────────
             case 'advert_list': {
-                // Step 1: GET /adv/v1/promotion/count → all campaign IDs grouped by type/status
-                // Fallback: GET /api/advert/v2/adverts?statuses=9,11
+                // GET /adv/v1/promotion/count — all campaigns grouped by type/status
+                const allIds: number[] = [];
                 try {
-                    const countData = await wbGet(
-                        'https://advert-api.wildberries.ru/adv/v1/promotion/count', WB_TOKEN
-                    ) as Record<string, unknown>;
-                    console.log('[wb-proxy] advert count:', JSON.stringify(countData).slice(0, 300));
-
-                    const allIds: number[] = [];
-                    const groups = countData?.adverts as Array<Record<string, unknown>> | null;
-                    if (Array.isArray(groups)) {
-                        for (const group of groups) {
-                            const inner = group.adverts as Array<Record<string, unknown>> | undefined;
-                            if (Array.isArray(inner)) {
-                                inner.forEach((a) => { if (a.advertId) allIds.push(Number(a.advertId)); });
+                    const res1 = await fetch('https://advert-api.wildberries.ru/adv/v1/promotion/count', {
+                        headers: { Authorization: WB_TOKEN }
+                    });
+                    const text1 = await res1.text();
+                    console.log('[wb-proxy] promotion/count status:', res1.status, 'body:', text1.slice(0, 300));
+                    if (res1.ok) {
+                        const data1 = JSON.parse(text1);
+                        const groups = data1?.adverts;
+                        if (Array.isArray(groups)) {
+                            for (const g of groups) {
+                                if (Array.isArray(g?.adverts)) {
+                                    for (const a of g.adverts) {
+                                        if (a?.advertId) allIds.push(Number(a.advertId));
+                                    }
+                                }
                             }
                         }
                     }
-
-                    // Fallback if count endpoint doesn't give IDs
-                    if (!allIds.length) {
-                        const listData = await wbGet(
-                            'https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=9%2C11', WB_TOKEN
-                        ) as Record<string, unknown>;
-                        const adverts = (listData?.adverts as Array<Record<string, unknown>>) ||
-                                        (Array.isArray(listData) ? listData as Array<Record<string, unknown>> : []);
-                        adverts.forEach((a) => { if (a.advertId) allIds.push(Number(a.advertId)); });
-                        console.log('[wb-proxy] advert fallback list:', adverts.length, 'campaigns');
-                    }
-
-                    console.log(`[wb-proxy] advert_list total IDs: ${allIds.length}`);
-                    result = { ids: allIds };
                 } catch(e) {
-                    console.warn('[wb-proxy] advert_list error (non-fatal):', String(e));
-                    result = { ids: [] };
+                    console.warn('[wb-proxy] promotion/count error:', String(e));
                 }
+                // Fallback: /api/advert/v2/adverts?statuses=9,11
+                if (!allIds.length) {
+                    try {
+                        const res2 = await fetch('https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=9%2C11', {
+                            headers: { Authorization: WB_TOKEN }
+                        });
+                        const text2 = await res2.text();
+                        console.log('[wb-proxy] advert/v2 status:', res2.status, 'body:', text2.slice(0, 300));
+                        if (res2.ok) {
+                            const data2 = JSON.parse(text2);
+                            const adverts = data2?.adverts || (Array.isArray(data2) ? data2 : []);
+                            for (const a of adverts) {
+                                if (a?.advertId) allIds.push(Number(a.advertId));
+                            }
+                        }
+                    } catch(e) {
+                        console.warn('[wb-proxy] advert/v2 error:', String(e));
+                    }
+                }
+                console.log('[wb-proxy] advert_list: found', allIds.length, 'IDs');
+                result = { ids: allIds };
                 break;
             }
             case 'advert_stats': {
