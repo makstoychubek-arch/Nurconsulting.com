@@ -284,6 +284,28 @@ serve(async (req) => {
                 break;
             }
 
+            // ── Analytics API — Sales Funnel ────────────────────────────────
+            case 'sales_funnel_history': {
+                const dateFrom = String(params.dateFrom || '').split('T')[0];
+                const dateTo   = String(params.dateTo   || '').split('T')[0];
+                const nmIds = params.nmIds ||
+                    (params.nmId != null ? [Number(params.nmId)] : []);
+                if (!dateFrom || !dateTo || !nmIds.length) {
+                    return json({ error: 'dateFrom, dateTo and nmId required' }, 400);
+                }
+                result = await wbPost(
+                    'https://seller-analytics-api.wildberries.ru/api/analytics/v3/sales-funnel/products/history',
+                    WB_TOKEN,
+                    {
+                        selectedPeriod: { start: dateFrom, end: dateTo },
+                        nmIds,
+                        skipDeletedNm: params.skipDeletedNm !== false,
+                        aggregationLevel: params.aggregationLevel || 'day',
+                    }
+                );
+                break;
+            }
+
             // ── Media (AB tests) ────────────────────────────────────────────
             case 'media_save': {
                 const url = `https://content-api.wildberries.ru/api/v1/media/save`;

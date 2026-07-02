@@ -106,5 +106,14 @@ create policy "rnp_daily_data_own" on rnp_daily_data
         )
     );
 
+-- ── 4. Funnel columns (Analytics API) ───────────────────────
+alter table rnp_daily_data add column if not exists spp_pct numeric default 0;
+alter table rnp_daily_data add column if not exists impressions bigint default 0;
+alter table rnp_daily_data add column if not exists clicks int default 0;
+alter table rnp_daily_data add column if not exists ctr_pct numeric default 0;
+alter table rnp_daily_data add column if not exists basket_count int default 0;
+alter table rnp_daily_data add column if not exists basket_pct numeric default 0;
+alter table rnp_daily_data add column if not exists funnel_order_conv numeric default 0;
+
 -- ── Done ────────────────────────────────────────────────────
 select 'RNP tables ready' as status;

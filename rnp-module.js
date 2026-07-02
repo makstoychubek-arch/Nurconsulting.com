@@ -217,6 +217,29 @@ const RNP = (() => {
         return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     }
 
+    function _sleep(ms) {
+        return new Promise(r => setTimeout(r, ms));
+    }
+
+    /** Split [from..to] into chunks of maxDays (WB limit: 7) */
+    function _splitDateRange(from, to, maxDays = 7) {
+        const chunks = [];
+        let cur = new Date(from);
+        const end = new Date(to);
+        while (cur <= end) {
+            const chunkEnd = new Date(cur);
+            chunkEnd.setDate(chunkEnd.getDate() + maxDays - 1);
+            if (chunkEnd > end) chunkEnd.setTime(end.getTime());
+            chunks.push({
+                from: cur.toISOString().split('T')[0],
+                to: chunkEnd.toISOString().split('T')[0],
+            });
+            cur = new Date(chunkEnd);
+            cur.setDate(cur.getDate() + 1);
+        }
+        return chunks;
+    }
+
     // ─── DATA LOADING ─────────────────────────────────────────────────────────
     async function _loadDailyData(nmId) {
         const cal = _buildCalendar();
@@ -286,7 +309,7 @@ const RNP = (() => {
             const now = new Date();
             const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
             const { data: orders } = await _db.from('wb_orders')
-                .select('order_date, price, is_return')
+                .select('order_date, price, is_return, data')
                 .eq('cabinet_id', _cab)
                 .eq('nm_id', nmId)
                 .gte('order_date', dateFrom);
@@ -297,10 +320,15 @@ const RNP = (() => {
             orders.forEach(o => {
                 const date = (o.order_date || '').split('T')[0];
                 if (!date) return;
-                if (!byDate[date]) byDate[date] = { count: 0, sum: 0 };
+                if (!byDate[date]) byDate[date] = { count: 0, sum: 0, sppSum: 0, sppCnt: 0 };
                 if (!o.is_return) {
                     byDate[date].count++;
                     byDate[date].sum += Number(o.price || 0);
+                    const spp = o.data?.spp ?? o.data?.Spp;
+                    if (spp != null && Number(spp) > 0) {
+                        byDate[date].sppSum += Number(spp);
+                        byDate[date].sppCnt++;
+                    }
                 }
             });
 
@@ -309,6 +337,7 @@ const RNP = (() => {
                 orders_count: d.count,
                 orders_sum: d.sum,
                 avg_check: d.count > 0 ? d.sum / d.count : 0,
+                spp_pct: d.sppCnt > 0 ? d.sppSum / d.sppCnt : 0,
                 updated_at: new Date().toISOString()
             }));
             if (upserts.length) {
@@ -377,6 +406,65 @@ const RNP = (() => {
                 await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
             }
         } catch(e) { console.warn('[RNP] syncFinance:', e.message); }
+    }
+
+    // ─── SALES FUNNEL (Analytics API v3) ─────────────────────────────────────
+    async function _syncFunnelHistory(nmId, onProgress) {
+        if (!_callProxy) return;
+        const now = new Date();
+        const rangeStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const chunks = _splitDateRange(rangeStart, now, 7);
+        const byDate = {};
+
+        for (let i = 0; i < chunks.length; i++) {
+            if (i > 0) await _sleep(21000); // WB rate limit: 3 req/min, 20s interval
+            if (onProgress) onProgress(i + 1, chunks.length);
+
+            let resp;
+            try {
+                resp = await _callProxy('sales_funnel_history', {
+                    dateFrom: chunks[i].from,
+                    dateTo: chunks[i].to,
+                    nmId,
+                    aggregationLevel: 'day',
+                });
+            } catch (e) {
+                console.warn('[RNP] funnel chunk error:', e.message);
+                continue;
+            }
+
+            const items = Array.isArray(resp) ? resp : (resp?.data || []);
+            for (const item of items) {
+                if (String(item.product?.nmId) !== String(nmId)) continue;
+                for (const day of (item.history || [])) {
+                    const date = (day.date || '').split('T')[0];
+                    if (!date) continue;
+                    const opens = Number(day.openCount || 0);
+                    const cart  = Number(day.cartCount || 0);
+                    byDate[date] = {
+                        impressions: opens,
+                        clicks: opens, // переходы в карточку = openCount
+                        ctr_pct: opens > 0 ? cart / opens * 100 : 0,
+                        basket_count: cart,
+                        basket_pct: Number(day.addToCartConversion || 0),
+                        funnel_order_conv: Number(day.cartToOrderConversion || 0),
+                    };
+                }
+            }
+        }
+
+        if (!Object.keys(byDate).length) {
+            console.info('[RNP] funnel: no data returned');
+            return;
+        }
+
+        console.info(`[RNP] funnel: ${Object.keys(byDate).length} dates synced`);
+        const upserts = Object.entries(byDate).map(([date, d]) => ({
+            cabinet_id: _cab, nm_id: nmId, date,
+            ...d,
+            updated_at: new Date().toISOString(),
+        }));
+        await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
     }
 
     // ─── PROMOTION / AD SYNC (WB API v2/v3) ─────────────────────────────────
@@ -473,9 +561,11 @@ const RNP = (() => {
         const rows = dates.map(d => map[d]).filter(Boolean);
         if (!rows.length) return null;
         const SUM = ['orders_count','orders_sum','sales_count','sales_sum','ad_impressions','ad_clicks',
-                     'ad_basket','ad_orders','ad_spend','to_transfer','profit','giveaways','in_production'];
+                     'ad_basket','ad_orders','ad_spend','to_transfer','profit','giveaways','in_production',
+                     'impressions','clicks','basket_count'];
         const AVG = ['spp_pct','avg_check','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
-                     'storage_pct','ctr_pct','drr_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct'];
+                     'storage_pct','ctr_pct','basket_pct','drr_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
+                     'funnel_order_conv'];
         const LAST = ['stock_warehouse','stock_transit','stock_total','plan_orders','plan_sales',
                       'plan_impressions','plan_clicks','plan_drr','competitor_basket','competitor_orders',
                       'competitor_cro','competitor_ctr'];
@@ -529,8 +619,13 @@ const RNP = (() => {
         const adImpr    = (d.ad_impressions || 0);
         d.organic_imp_pct = totalImpr > 0 ? (totalImpr - adImpr) / totalImpr * 100 : 0;
         d.ad_imp_pct      = totalImpr > 0 ? adImpr / totalImpr * 100 : 0;
-        d.orders_conv_pct = (d.basket_count || 0) > 0 ? (d.orders_count || 0) / d.basket_count * 100 : 0;
+        d.orders_conv_pct = (d.funnel_order_conv > 0)
+            ? d.funnel_order_conv
+            : ((d.basket_count || 0) > 0 ? (d.orders_count || 0) / d.basket_count * 100 : 0);
         d.cro_pct         = (d.clicks || 0) > 0 ? (d.orders_count || 0) / d.clicks * 100 : 0;
+        if (!d.ctr_pct && (d.impressions || 0) > 0) {
+            d.ctr_pct = (d.clicks || 0) / d.impressions * 100;
+        }
         return d;
     }
 
@@ -943,8 +1038,12 @@ const RNP = (() => {
         if (btn) btn.textContent = '⏳ Заказы...';
         await _syncOrdersHistory(nmId);
 
-        // Full: sync finance report + ads if proxy available
         if (_callProxy) {
+            if (btn) btn.textContent = '⏳ Воронка...';
+            await _syncFunnelHistory(nmId, (n, total) => {
+                if (btn) btn.textContent = `⏳ Воронка ${n}/${total}...`;
+            }).catch(e => console.warn('[RNP] funnel skipped:', e.message));
+
             if (btn) btn.textContent = '⏳ Финансы...';
             await _syncFinanceRange(nmId);
             if (btn) btn.textContent = '⏳ Реклама...';
