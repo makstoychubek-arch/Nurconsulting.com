@@ -18,8 +18,10 @@ const RNP = (() => {
     let _stockCache = {}; // nmId -> { size -> { wh, transit } }
 
     const SIZE_ORDER = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL','4XL','5XL'];
-    const ALL_SIZES = ['XXS','XS','S','M','L','XL','XXL','3XL','4XL','5XL'];
-    const PLAN_KEYS = ['plan_orders','plan_sales','plan_impressions','plan_clicks','plan_drr'];
+    const ALL_SIZES = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL','4XL','5XL'];
+    const GALLERY_SIZE = 6;
+    const GALLERY_DEFAULT_COMMENTS = ['', 'Нестабильно', 'СВЕРХ-КОСТЮМ', 'Рекламная таблица', 'Размерная сетка', 'Выход в прибыль'];
+    const PLAN_KEYS = ['plan_orders','plan_sales','plan_impressions','plan_clicks','plan_drr','plan_ad_spend'];
     const SUMMARY_TAB = 'summary';
     const VIEW_PRESETS = {
         all: null,
@@ -34,82 +36,86 @@ const RNP = (() => {
 
     // ─── SECTIONS & METRICS ──────────────────────────────────────────────────
     const SECTIONS = [
-        { id: 'stocks', label: 'Остатки', color: '#6366f1', rows: [
-            { key: 'stock_warehouse',    label: 'На складах',       type: 'int', src: 'auto' },
-            { key: 'stock_transit',      label: 'В пути',           type: 'int', src: 'auto' },
-            { key: 'stock_total',        label: 'Общий',            type: 'int', src: 'auto' },
-            { key: 'in_production',      label: 'В пошиве',         type: 'int', src: 'manual' },
+        { id: 'stocks', label: 'ОСТАТКИ', color: '#6366f1', rows: [
+            { key: 'stock_warehouse',    label: 'На складе',                type: 'int', src: 'auto' },
+            { key: 'stock_transit',      label: 'В пути',                   type: 'int', src: 'auto' },
+            { key: 'stock_total',        label: 'Общий',                    type: 'int', src: 'auto' },
+            { key: 'in_production',      label: 'В пошиве',                 type: 'int', src: 'manual' },
         ]},
-        { id: 'sales', label: 'Продажи', color: '#10b981', rows: [
-            { key: 'orders_count',       label: 'ЗАКАЗЫ',                   type: 'int', src: 'auto',   bold: true },
-            { key: 'plan_orders',        label: 'План заказов',             type: 'int', src: 'manual', isPlan: true },
-            { key: 'spp_pct',            label: 'СПП %',                    type: 'pct', src: 'auto' },
-            { key: 'sales_count',        label: 'Продажи',                  type: 'int', src: 'auto',   bold: true },
-            { key: 'plan_sales',         label: 'План продаж',              type: 'int', src: 'manual', isPlan: true },
-            { key: 'avg_check',          label: 'СР. Чек',                  type: 'som', src: 'auto' },
-            { key: 'giveaways',          label: 'Раздачи',                  type: 'int', src: 'manual' },
-            { key: 'plan_orders_pct',    label: 'Выпол. план ЗАКАЗЫ %',     type: 'pct', src: 'calc',   cl: 'plan' },
-            { key: 'plan_sales_pct',     label: 'Выпол. план ПРОДАЖИ %',    type: 'pct', src: 'calc',   cl: 'plan' },
-            { key: 'orders_sum',         label: 'Сумма Заказов',            type: 'som', src: 'auto' },
-            { key: 'sales_sum',          label: 'Сумма Продаж',             type: 'som', src: 'auto' },
+        { id: 'sales', label: 'ПРОДАЖИ', color: '#10b981', rows: [
+            { key: 'orders_count',       label: 'ЗАКАЗЫ',                           type: 'int', src: 'auto',   bold: true },
+            { key: 'plan_orders',        label: 'План заказов',                     type: 'int', src: 'manual', isPlan: true },
+            { key: 'spp_pct',            label: 'СПП %',                            type: 'pct', src: 'auto' },
+            { key: 'sales_count',        label: 'Продажи',                          type: 'int', src: 'auto',   bold: true },
+            { key: 'plan_sales',         label: 'План продаж',                      type: 'int', src: 'manual', isPlan: true },
+            { key: 'avg_check',          label: 'СР. Чек',                          type: 'som', src: 'auto' },
+            { key: 'giveaways',          label: 'Раздачи',                          type: 'int', src: 'manual' },
+            { key: 'plan_fulfillment_pct', label: 'Процент выполнения плана',       type: 'pct', src: 'calc',   cl: 'plan', bold: true },
+            { key: 'plan_orders_pct',    label: 'Выпол. плана ЗАКАЗ, шт %',        type: 'pct', src: 'calc',   cl: 'plan' },
+            { key: 'plan_sales_pct',     label: 'Выпол. плана ПРОДАЖИ %',           type: 'pct', src: 'calc',   cl: 'plan' },
         ]},
-        { id: 'funnel', label: 'Воронка (общая)', color: '#f59e0b', rows: [
-            { key: 'impressions',        label: 'Показы',                   type: 'int',  src: 'promo' },
-            { key: 'organic_imp_pct',    label: '% органики показов',       type: 'pct',  src: 'calc' },
-            { key: 'plan_impressions',   label: 'План показов',             type: 'int',  src: 'manual', isPlan: true },
-            { key: 'clicks',             label: 'Клики',                    type: 'int',  src: 'promo' },
-            { key: 'ctr_pct',            label: 'CTR%',                     type: 'pct2', src: 'promo' },
-            { key: 'basket_pct',         label: 'Корзина%',                 type: 'pct2', src: 'promo' },
-            { key: 'competitor_basket',  label: '% Корзины конкурентов',    type: 'pct2', src: 'manual' },
-            { key: 'basket_count',       label: 'Корзина',                  type: 'int',  src: 'promo' },
-            { key: 'orders_conv_pct',    label: 'Заказы%',                  type: 'pct2', src: 'calc' },
-            { key: 'competitor_orders',  label: '% Заказов конкурентов',    type: 'pct2', src: 'manual' },
-            { key: 'cro_pct',            label: 'CRO%',                     type: 'pct2', src: 'calc' },
-            { key: 'competitor_cro',     label: '% CRO конкурентов',        type: 'pct2', src: 'manual' },
+        { id: 'cash', label: 'Сумма продаж в кассе', color: '#0ea5e9', rows: [
+            { key: 'orders_sum',         label: 'Сумма Заказов',                    type: 'som', src: 'auto' },
+            { key: 'sales_sum',          label: 'Сумма Продаж',                     type: 'som', src: 'auto' },
         ]},
-        { id: 'ads', label: 'Воронка (реклама)', color: '#8b5cf6', rows: [
-            { key: 'ad_impressions',     label: 'Показы с РК',              type: 'int',  src: 'promo' },
-            { key: 'ad_imp_pct',         label: '% показов с рекламы',      type: 'pct',  src: 'calc' },
-            { key: 'ad_clicks',          label: 'Клики РК',                 type: 'int',  src: 'promo' },
-            { key: 'plan_clicks',        label: 'План кликов РК',           type: 'int',  src: 'manual', isPlan: true },
-            { key: 'ad_ctr',             label: 'CTR% РК',                  type: 'pct2', src: 'promo' },
-            { key: 'competitor_ctr',     label: '% CTR конкурентов',        type: 'pct2', src: 'manual' },
-            { key: 'ad_cro',             label: 'CRO РК%',                  type: 'pct2', src: 'promo' },
-            { key: 'ad_cpc',             label: 'Стоимость клика',          type: 'som',  src: 'promo' },
-            { key: 'ad_basket',          label: 'Корзин с РК',              type: 'int',  src: 'promo' },
-            { key: 'ad_orders',          label: 'Заказов с РК',             type: 'int',  src: 'promo' },
+        { id: 'funnel', label: 'Показатели воронки Общие', color: '#f59e0b', rows: [
+            { key: 'impressions',        label: 'Показы',                           type: 'int',  src: 'promo' },
+            { key: 'organic_imp_pct',    label: 'Процент органики показов',         type: 'pct',  src: 'calc' },
+            { key: 'plan_impressions',   label: 'План Показов',                     type: 'int',  src: 'manual', isPlan: true },
+            { key: 'clicks',             label: 'Клики',                            type: 'int',  src: 'promo' },
+            { key: 'ctr_pct',            label: 'CTR%',                             type: 'pct2', src: 'promo' },
+            { key: 'basket_pct',         label: 'Корзина%',                         type: 'pct2', src: 'promo' },
+            { key: 'competitor_basket',  label: '% Корзина конкурентов',            type: 'pct2', src: 'manual' },
+            { key: 'basket_count',       label: 'Корзина',                          type: 'int',  src: 'promo' },
+            { key: 'orders_conv_pct',    label: 'Заказы%',                          type: 'pct2', src: 'calc' },
+            { key: 'competitor_orders',  label: '% Заказов конкурентов',            type: 'pct2', src: 'manual' },
+            { key: 'cro_pct',            label: 'CR0 %',                            type: 'pct2', src: 'calc' },
+            { key: 'competitor_cro',   label: '% CR0 конкурентов',                type: 'pct2', src: 'manual' },
         ]},
-        { id: 'adspend', label: 'Расходы РК', color: '#ef4444', rows: [
-            { key: 'ad_spend',           label: 'Расход РК',                type: 'som',  src: 'promo' },
-            { key: 'plan_drr',           label: 'ДРР% план',                type: 'pct',  src: 'manual', isPlan: true },
-            { key: 'drr_pct',            label: 'ДРР%',                     type: 'pct',  src: 'calc',  hm: 'low' },
+        { id: 'ads', label: 'Показатели воронки Рекламы', color: '#8b5cf6', rows: [
+            { key: 'ad_impressions',     label: 'Показы с рк',                      type: 'int',  src: 'promo' },
+            { key: 'ad_imp_pct',         label: 'Процент показов с Рекламы',        type: 'pct',  src: 'calc' },
+            { key: 'ad_clicks',          label: 'Клики РК',                         type: 'int',  src: 'promo' },
+            { key: 'plan_clicks',        label: 'План Кликов из РК',                type: 'int',  src: 'manual', isPlan: true },
+            { key: 'ad_ctr',             label: 'CTR % РК',                         type: 'pct2', src: 'promo' },
+            { key: 'competitor_ctr',     label: '% CTR Конкурентов',                type: 'pct2', src: 'manual' },
+            { key: 'ad_cro',             label: 'CR0 РК%',                          type: 'pct2', src: 'promo' },
+            { key: 'ad_cpc',             label: 'Стоимость Клика',                  type: 'som',  src: 'promo' },
+            { key: 'ad_basket',          label: 'Корзин с РК',                      type: 'int',  src: 'promo' },
+            { key: 'ad_orders',          label: 'Заказов с РК',                     type: 'int',  src: 'promo' },
         ]},
-        { id: 'finance', label: 'Финансы', color: '#06b6d4', rows: [
-            { key: 'sales_count',        label: 'Продаж, шт',               type: 'int',  src: 'auto' },
-            { key: 'sales_sum',          label: 'Сумма продаж',             type: 'som',  src: 'auto' },
-            { key: 'avg_check_sales',    label: 'Средний чек',              type: 'som',  src: 'auto' },
-            { key: 'return_pct',         label: '% возврата',               type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'buyout_pct',         label: '% выкупа',                 type: 'pct',  src: 'auto',  hm: 'high' },
-            { key: 'logistics_per_unit', label: 'Логистика на ед',          type: 'som',  src: 'auto',  hm: 'low' },
-            { key: 'logistics_pct',      label: 'Логистика%',               type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'storage_pct',        label: 'Хранение%',                type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'wb_share_pct',       label: 'Вся доля ВБ с ДРР%',       type: 'pct',  src: 'calc',  hm: 'low' },
+        { id: 'adspend', label: 'Доля Рекламных Расходов', color: '#ef4444', rows: [
+            { key: 'ad_spend',           label: 'Расход РК (пополнение)',           type: 'som',  src: 'promo' },
+            { key: 'plan_ad_spend',      label: 'Расход План',                      type: 'som',  src: 'manual', isPlan: true },
+            { key: 'plan_drr',           label: 'ДРР % План',                       type: 'pct',  src: 'manual', isPlan: true },
+            { key: 'drr_pct',            label: 'ДРР %',                            type: 'pct',  src: 'calc',  hm: 'low' },
         ]},
-        { id: 'result', label: 'Финансовый итог', color: '#84cc16', rows: [
-            { key: 'to_transfer',        label: 'К перечислению',           type: 'som',  src: 'auto' },
-            { key: 'to_transfer_unit',   label: 'К перечислению на ед',     type: 'som',  src: 'auto' },
-            { key: 'cost_price_val',     label: 'Себестоимость',            type: 'som',  src: 'settings' },
-            { key: 'profit',             label: 'Прибыль',                  type: 'som',  src: 'calc',  bold: true, hm: 'profit' },
-            { key: 'profit_per_unit',    label: 'Прибыль на 1 ед',          type: 'som',  src: 'calc',  bold: true },
-            { key: 'margin_pct',         label: 'Маржинальность%',          type: 'pct',  src: 'calc',  bold: true, hm: 'margin' },
-            { key: 'roi_pct',            label: 'Рентабельность%',          type: 'pct',  src: 'calc',  bold: true },
+        { id: 'finance', label: 'Физ. показатели', color: '#06b6d4', rows: [
+            { key: 'sales_count',        label: 'Продаж, шт',                       type: 'int',  src: 'auto' },
+            { key: 'sales_sum',          label: 'Сумма продаж',                     type: 'som',  src: 'auto' },
+            { key: 'avg_check_sales',    label: 'Средний чек',                      type: 'som',  src: 'auto' },
+            { key: 'return_pct',         label: 'Процент возврата %',               type: 'pct',  src: 'auto',  hm: 'low' },
+            { key: 'buyout_pct',         label: 'Процент выкупа%',                  type: 'pct',  src: 'auto',  hm: 'high' },
+            { key: 'ad_spend',           label: 'Расход РК ком',                    type: 'som',  src: 'promo' },
+            { key: 'logistics_per_unit', label: 'Логистика на ед',                  type: 'som',  src: 'auto',  hm: 'low' },
+            { key: 'logistics_pct',      label: 'Логистика %',                      type: 'pct',  src: 'auto',  hm: 'low' },
+            { key: 'storage_pct',        label: 'Хранение %',                       type: 'pct',  src: 'auto',  hm: 'low' },
+            { key: 'wb_share_pct',       label: 'Все допы ВБ + ДРР %',              type: 'pct',  src: 'calc',  hm: 'low' },
+        ]},
+        { id: 'result', label: 'Финансовый итог по дням', color: '#84cc16', rows: [
+            { key: 'to_transfer',        label: 'К перечислению',                   type: 'som',  src: 'auto' },
+            { key: 'to_transfer_unit',   label: 'К перечислению на ед',             type: 'som',  src: 'auto' },
+            { key: 'cost_price_val',     label: 'Себестоимость',                    type: 'som',  src: 'settings' },
+            { key: 'profit',             label: 'Прибыль',                          type: 'som',  src: 'calc',  bold: true, hm: 'profit' },
+            { key: 'profit_per_unit',    label: 'Прибыль на 1 ед',                  type: 'som',  src: 'calc',  bold: true },
+            { key: 'margin_pct',         label: 'Маржинальность %',                 type: 'pct',  src: 'calc',  bold: true, hm: 'margin' },
+            { key: 'roi_pct',            label: 'Рентабельность %',                 type: 'pct',  src: 'calc',  bold: true },
         ]},
     ];
 
     function _normSize(raw) {
         const s = (raw || '').trim().toUpperCase();
         if (!s || s === '—') return '—';
-        if (s === '2XL' || s === 'XXL') return 'XXL';
         if (s === 'ONE SIZE' || s === 'OS' || s === 'UNIVERSAL') return 'ONE';
         return s;
     }
@@ -147,9 +153,10 @@ const RNP = (() => {
         return { vol, part, basket, basketStr };
     }
 
-    function _photoUrls(nmId, size = 'c516x688') {
+    function _photoUrls(nmId, size = 'c516x688', photoIndex = 1) {
         const { vol, part, basket, basketStr } = _photoMeta(nmId);
         const urls = [];
+        const idx = Math.max(1, Math.min(15, photoIndex || 1));
         const sizes = size === 'c246x328'
             ? ['c246x328', 'tm', 'big']
             : ['c516x688', 'big', 'tm', 'c246x328'];
@@ -157,16 +164,16 @@ const RNP = (() => {
         [basketStr, String(basket).padStart(2, '0')].forEach(b => {
             sizes.forEach(s => {
                 exts.forEach(ext => {
-                    urls.push(`https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${s}/1.${ext}`);
-                    urls.push(`https://basket-${b}.wb.ru/vol${vol}/part${part}/${nmId}/images/${s}/1.${ext}`);
+                    urls.push(`https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${s}/${idx}.${ext}`);
+                    urls.push(`https://basket-${b}.wb.ru/vol${vol}/part${part}/${nmId}/images/${s}/${idx}.${ext}`);
                 });
             });
         });
         return [...new Set(urls)];
     }
 
-    function _photoUrl(nmId, size = 'c516x688') {
-        return _photoUrls(nmId, size)[0];
+    function _photoUrl(nmId, size = 'c516x688', photoIndex = 1) {
+        return _photoUrls(nmId, size, photoIndex)[0];
     }
 
     const _photoResolveCache = {};
@@ -236,17 +243,20 @@ const RNP = (() => {
         }
     }
 
-    function _imgHtml(art, className, size = 'c516x688', extraStyle = '') {
+    function _imgHtml(art, className, size = 'c516x688', extraStyle = '', photoIndex = 1) {
         const nmId = art.nm_id;
         const meta = _photoMeta(nmId);
-        const src = _photoResolveCache[nmId]
-            || (art.photo_url?.startsWith('http') ? art.photo_url : null)
-            || _photoUrl(nmId, size);
+        const idx = Math.max(1, photoIndex || 1);
+        const src = idx === 1
+            ? (_photoResolveCache[nmId]
+                || (art.photo_url?.startsWith('http') ? art.photo_url : null)
+                || _photoUrl(nmId, size, idx))
+            : _photoUrl(nmId, size, idx);
         const cls = className ? ` class="${className}"` : '';
         const sty = extraStyle ? ` style="${extraStyle}"` : '';
-        const urls = _photoUrls(nmId, size).slice(0, 12).join('|');
+        const urls = _photoUrls(nmId, size, idx).slice(0, 12).join('|');
         return `<img${cls}${sty} src="${src}" referrerpolicy="no-referrer" loading="lazy" alt=""
-          data-nmid="${nmId}" data-vol="${meta.vol}" data-part="${meta.part}" data-basket="${meta.basket}" data-size="${size}"
+          data-nmid="${nmId}" data-vol="${meta.vol}" data-part="${meta.part}" data-basket="${meta.basket}" data-size="${size}" data-photo="${idx}"
           data-urls="${urls}"
           onerror="RNP.imgFallback(this)">`;
     }
@@ -262,11 +272,12 @@ const RNP = (() => {
         const nmId = img.dataset.nmid;
         const vol = img.dataset.vol;
         const part = img.dataset.part;
+        const photoIdx = img.dataset.photo || '1';
         const base = parseInt(img.dataset.basket || '1', 10);
         if (attempt <= queue.length + 8) {
             const i = attempt - queue.length - 1;
             const b = String(Math.max(1, Math.min(99, base + (i % 2 ? Math.ceil(i / 2) : -Math.ceil(i / 2))))).padStart(2, '0');
-            img.src = `https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/big/1.jpg`;
+            img.src = `https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/big/${photoIdx}.jpg`;
             return;
         }
         img.onerror = null;
@@ -491,6 +502,7 @@ const RNP = (() => {
         const n = parseFloat(val);
         if (type === 'pct') return n.toFixed(1).replace('.', ',') + '%';
         if (type === 'som') return Math.round(n).toLocaleString('ru');
+        if (type === 'int') return Math.round(n).toLocaleString('ru');
         return String(n);
     }
 
@@ -520,7 +532,7 @@ const RNP = (() => {
         return (Number(total) || 0) > 0 ? 'rnp-size-has' : 'rnp-size-zero';
     }
 
-    function _buildStockSizeHTML(bySize) {
+    function _buildStockSizeHTML(bySize, art) {
         const merged = {};
         Object.entries(bySize).forEach(([k, v]) => {
             const nk = _normSize(k);
@@ -531,6 +543,7 @@ const RNP = (() => {
         });
         const extra = Object.keys(merged).filter(s => !ALL_SIZES.includes(s) && s !== 'ONE');
         const sizes = [...ALL_SIZES, ...extra.sort(_sortSizes)];
+        const inProd = Number(art?.manual_data?.in_production) || 0;
 
         const cell = (sz, v) => {
             const n = Number(v) || 0;
@@ -546,6 +559,8 @@ const RNP = (() => {
             const total = sizes.reduce((s, sz) => s + fn(_getSize(merged, sz)), 0);
             return `<tr class="${rowCls}"><td class="rnp-stock-label">${label}</td>${cells.join('')}<td class="${_sizeCellCls(total)}" style="font-weight:800">${total}</td></tr>`;
         };
+        const prodCells = sizes.map(() => `<td class="rnp-size-zero">0</td>`).join('');
+        const prodRow = `<tr class="rnp-row-prod"><td class="rnp-stock-label">В пошиве</td>${prodCells}<td class="${_sizeCellCls(inProd)}" style="font-weight:800">${inProd}</td></tr>`;
 
         return `<div class="rnp-stock-block">
           <table class="rnp-stock-table">
@@ -555,10 +570,10 @@ const RNP = (() => {
               <th>Σ</th>
             </tr></thead>
             <tbody>
-              ${row('На складах', 'rnp-row-wh', x => x.wh)}
+              ${row('На складе', 'rnp-row-wh', x => x.wh)}
               ${row('В пути', 'rnp-row-tr', x => x.transit)}
               ${row('Общий', 'rnp-row-sum', x => x.wh + x.transit)}
-              ${row('В продаже', 'rnp-row-sale', x => x.wh)}
+              ${prodRow}
             </tbody>
           </table>
         </div>`;
@@ -896,37 +911,81 @@ const RNP = (() => {
         if (_activeNm !== SUMMARY_TAB) _renderActiveTable();
     }
 
+    function _gallerySlots(art) {
+        const saved = art?.manual_data?.photo_gallery;
+        if (Array.isArray(saved) && saved.length >= GALLERY_SIZE) {
+            return saved.slice(0, GALLERY_SIZE).map((s, i) => ({
+                comment: s.comment || '',
+                large: i === 2 || !!s.large,
+            }));
+        }
+        return Array.from({ length: GALLERY_SIZE }, (_, i) => ({
+            comment: GALLERY_DEFAULT_COMMENTS[i] || '',
+            large: i === 2,
+        }));
+    }
+
+    function _buildPhotoGalleryHTML(art) {
+        const slots = _gallerySlots(art);
+        const nmId = art.nm_id;
+        return `<div class="rnp-gallery-row">
+          ${slots.map((slot, i) => {
+            const cls = (i === 2 || slot.large) ? ' rnp-gallery-item--lg' : '';
+            const comment = (slot.comment || '').replace(/"/g, '&quot;');
+            const img = _imgHtml(art, 'rnp-gallery-img', 'c246x328', (i === 2 || slot.large) ? '' : 'filter:grayscale(1) contrast(1.05);', i + 1);
+            return `<div class="rnp-gallery-item${cls}">
+              <div class="rnp-gallery-photo">${img}</div>
+              <input type="text" class="rnp-gallery-comment" value="${comment}" placeholder="комментарий"
+                title="Подпись под фото (как в Google Sheets)"
+                onblur="RNP.savePhotoComment(${nmId}, ${i}, this.value)">
+            </div>`;
+          }).join('')}
+        </div>`;
+    }
+
     function _buildTopPanelHTML(art, stockBySize, rawData, cal) {
         const kpi = _periodSummary(art, rawData, cal);
         const stockT = _stockTotals(stockBySize);
+        const er = _settings.exchangeRate;
+        const toTransferSom = Math.round((kpi.to_transfer || 0) * er);
+        const costTotal = Math.round((kpi.sales_count || 0) * (art.cost_price || 0));
         const roiCls = (kpi.roi_pct || 0) >= 100 ? 'pos' : '';
         const marginCls = (kpi.margin_pct || 0) >= 15 ? 'pos' : ((kpi.margin_pct || 0) < 5 ? 'neg' : '');
         const profitCls = (kpi.profit || 0) >= 0 ? 'pos' : 'neg';
         const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'pos' : ((kpi.plan_orders_pct || 0) < 80 ? 'neg' : '');
         const syncSt = _syncStatus(art.nm_id);
         const alerts = _buildAlerts(art, stockBySize, kpi);
+        const md = art.manual_data || {};
+        const priceTag = md.price ? ` · Цена: <b>${md.price}</b>` : '';
 
         return `<div class="rnp-top-panel">
-          <div class="rnp-top-photo">${_imgHtml(art, 'rnp-top-photo-img', 'c516x688')}</div>
+          <div class="rnp-top-photo rnp-top-photo--main">${_imgHtml(art, 'rnp-top-photo-img', 'c516x688')}</div>
           <div class="rnp-top-info">
-            <div class="rnp-top-title">${_syncDot(syncSt.level)} ${art.name || '—'} <span style="font-size:9px;color:var(--text-muted);font-weight:400">(${syncSt.label})</span></div>
-            <div class="rnp-top-nmid">Арт. WB: <b>${art.nm_id}</b> · Себест: <b>${art.cost_price || 0}</b> сом</div>
-            <div class="rnp-kpi-grid">
+            <div class="rnp-top-title">${_syncDot(syncSt.level)} ${art.name || '—'}</div>
+            <div class="rnp-top-nmid">Арт. WB: <b>${art.nm_id}</b>${priceTag} · Себест: <b>${art.cost_price || 0}</b> сом · <span style="color:var(--text-muted)">${syncSt.label}</span></div>
+            <div class="rnp-kpi-grid rnp-kpi-grid--gs">
               <div class="rnp-kpi"><span>Рентабельность</span><b class="${roiCls}">${_fmtKpi(kpi.roi_pct, 'pct')}</b></div>
+              <div class="rnp-kpi"><span>К перечислению</span><b>${toTransferSom.toLocaleString('ru')}</b></div>
               <div class="rnp-kpi"><span>ДРР %</span><b>${_fmtKpi(kpi.drr_pct, 'pct')}</b></div>
               <div class="rnp-kpi"><span>Маржа %</span><b class="${marginCls}">${_fmtKpi(kpi.margin_pct, 'pct')}</b></div>
               <div class="rnp-kpi"><span>Прибыль</span><b class="${profitCls}">${_fmtKpi(kpi.profit, 'som')}</b></div>
-              <div class="rnp-kpi"><span>План/факт %</span><b class="${planCls}">${_fmtKpi(kpi.plan_orders_pct, 'pct')}</b></div>
+              <div class="rnp-kpi"><span>План заказ %</span><b class="${planCls}">${_fmtKpi(kpi.plan_orders_pct, 'pct')}</b></div>
               <div class="rnp-kpi"><span>CTR %</span><b>${_fmtKpi(kpi.ctr_pct, 'pct')}</b></div>
+              <div class="rnp-kpi"><span>Показов</span><b>${_fmtKpi(kpi.impressions, 'int')}</b></div>
+              <div class="rnp-kpi"><span>Логистика ед</span><b>${_fmtKpi(kpi.logistics_per_unit, 'som')}</b></div>
+              <div class="rnp-kpi"><span>Выкуп %</span><b>${_fmtKpi(kpi.buyout_pct, 'pct')}</b></div>
+              <div class="rnp-kpi"><span>CRO %</span><b>${_fmtKpi(kpi.cro_pct, 'pct')}</b></div>
+              <div class="rnp-kpi"><span>Пр. Себес</span><b>${costTotal.toLocaleString('ru')}</b></div>
             </div>
             <div class="rnp-stock-totals">
-              <span>На складах: <b>${stockT.wh.toLocaleString('ru')}</b></span>
+              <span>На складе: <b>${stockT.wh.toLocaleString('ru')}</b></span>
               <span>В пути: <b>${stockT.tr.toLocaleString('ru')}</b></span>
               <span>Общий: <b>${stockT.total.toLocaleString('ru')}</b></span>
             </div>
             ${_alertsHTML(alerts)}
           </div>
-          <div class="rnp-top-stock-wrap">${_buildStockSizeHTML(stockBySize)}</div>
+          <div class="rnp-top-stock-wrap">${_buildStockSizeHTML(stockBySize, art)}</div>
+          <div class="rnp-top-gallery">${_buildPhotoGalleryHTML(art)}</div>
         </div>`;
     }
     async function _loadDailyData(nmId) {
@@ -1279,7 +1338,7 @@ const RNP = (() => {
                      'storage_pct','ctr_pct','basket_pct','drr_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv'];
         const LAST = ['stock_warehouse','stock_transit','stock_total','plan_orders','plan_sales',
-                      'plan_impressions','plan_clicks','plan_drr','competitor_basket','competitor_orders',
+                      'plan_impressions','plan_clicks','plan_drr','plan_ad_spend','competitor_basket','competitor_orders',
                       'competitor_cro','competitor_ctr'];
         const a = {};
         SUM.forEach(k => a[k] = rows.reduce((s, r) => s + (r[k] || 0), 0));
@@ -1310,6 +1369,9 @@ const RNP = (() => {
 
         d.plan_orders_pct = d.plan_orders > 0 ? d.orders_count / d.plan_orders * 100 : 0;
         d.plan_sales_pct  = d.plan_sales  > 0 ? d.sales_count  / d.plan_sales  * 100 : 0;
+        d.plan_fulfillment_pct = (d.plan_orders_pct > 0 && d.plan_sales_pct > 0)
+            ? (d.plan_orders_pct + d.plan_sales_pct) / 2
+            : (d.plan_orders_pct || d.plan_sales_pct || 0);
         d.avg_check_sales = d.sales_count > 0 ? (d.sales_sum || 0) / d.sales_count : 0;
         d.to_transfer_unit = d.sales_count > 0 ? (d.to_transfer || 0) / d.sales_count : 0;
         d.drr_pct = (d.sales_sum || 0) > 0 ? (d.ad_spend || 0) / (d.sales_sum || 1) * 100 : 0;
@@ -1733,6 +1795,16 @@ const RNP = (() => {
         if (_activeNm == nmId) await _renderActiveTable();
     }
 
+    async function savePhotoComment(nmId, idx, text) {
+        const art = _articles.find(a => a.nm_id == nmId);
+        if (!art) return;
+        const md = { ...(art.manual_data || {}) };
+        const slots = _gallerySlots(art);
+        slots[idx] = { ...(slots[idx] || {}), comment: (text || '').trim(), large: idx === 2 };
+        md.photo_gallery = slots;
+        await _updateArticle(nmId, { manual_data: md });
+    }
+
     async function saveManual(nmId, key, val) {
         const art = _articles.find(a => a.nm_id == nmId);
         if (!art) return;
@@ -1797,7 +1869,7 @@ const RNP = (() => {
         if (_activeNm == nmId) await _renderActiveTable();
     }
 
-    return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, saveManual, savePlan, saveNote, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, saveManual, savePlan, saveNote, savePhotoComment, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();
