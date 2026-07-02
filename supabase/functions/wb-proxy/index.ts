@@ -51,6 +51,7 @@ serve(async (req) => {
         if (cabErr || !cab) return json({ error: 'Cabinet not found or access denied' }, 403);
 
         const WB_TOKEN = cab.wb_token;
+        const WB_PROMO_TOKEN = WB_TOKEN; // same token has all permissions
         if (!WB_TOKEN) return json({ error: 'WB token not configured for this cabinet' }, 400);
 
         // ── Route to WB API ───────────────────────────────────────────────────
@@ -73,8 +74,8 @@ serve(async (req) => {
                 const rows: unknown[] = [];
                 let rrdid = 0;
                 const limit = 100000;
-                // Paginate through the full report
-                for (let attempt = 0; attempt < 50; attempt++) {
+                // Paginate through the full report (max 10 pages to avoid timeout)
+                for (let attempt = 0; attempt < 10; attempt++) {
                     const url = `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=${params.dateFrom}&dateTo=${params.dateTo}&rrdid=${rrdid}&limit=${limit}`;
                     const page = await wbGet(url, WB_TOKEN) as unknown[];
                     if (!Array.isArray(page) || !page.length) break;
@@ -148,20 +149,21 @@ serve(async (req) => {
                 const allIds: number[] = [];
                 try {
                     const res1 = await fetch('https://advert-api.wildberries.ru/adv/v1/promotion/count', {
-                        headers: { Authorization: WB_TOKEN }
+                        headers: { Authorization: WB_PROMO_TOKEN }
                     });
                     const text1 = await res1.text();
                     console.log('[wb-proxy] promotion/count status:', res1.status, 'body:', text1.slice(0, 600));
                     if (res1.ok) {
                         const data1 = JSON.parse(text1);
+                        // Structure: { adverts: [{ type, status, count, advert_list: [{advertId, changeTime}] }] }
                         const groups = data1?.adverts;
                         if (Array.isArray(groups)) {
-                            for (const g of groups) {
-                                // g may be an array of campaigns OR an object with .adverts
-                                const inner: unknown[] = Array.isArray(g) ? g : (Array.isArray(g?.adverts) ? g.adverts : []);
-                                for (const a of inner as Record<string, unknown>[]) {
-                                    const id = a?.advertId ?? a?.id ?? a?.advert_id;
-                                    if (id) allIds.push(Number(id));
+                            for (const g of groups as Record<string, unknown>[]) {
+                                const inner = g?.advert_list as Record<string, unknown>[] | undefined;
+                                if (Array.isArray(inner)) {
+                                    for (const a of inner) {
+                                        if (a?.advertId) allIds.push(Number(a.advertId));
+                                    }
                                 }
                             }
                         }
@@ -173,7 +175,7 @@ serve(async (req) => {
                 if (!allIds.length) {
                     try {
                         const res2 = await fetch('https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=9%2C11', {
-                            headers: { Authorization: WB_TOKEN }
+                            headers: { Authorization: WB_PROMO_TOKEN }
                         });
                         const text2 = await res2.text();
                         console.log('[wb-proxy] advert/v2 status:', res2.status, 'body:', text2.slice(0, 600));
@@ -220,7 +222,7 @@ serve(async (req) => {
                         const chunk = ids.slice(i, i + 50).join(',');
                         try {
                             const url = `https://advert-api.wildberries.ru/adv/v3/fullstats?ids=${chunk}&beginDate=${dc.from}&endDate=${dc.to}`;
-                            const data = await wbGet(url, WB_TOKEN);
+                            const data = await wbGet(url, WB_PROMO_TOKEN);
                             if (Array.isArray(data)) allStats.push(...data);
                             else console.warn('[wb-proxy] advert_stats non-array response:', typeof data);
                         } catch(e) {
