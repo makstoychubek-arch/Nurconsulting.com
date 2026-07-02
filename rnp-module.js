@@ -369,19 +369,12 @@ const RNP = (() => {
             </div>
           </div>
 
-          <div class="widget-card p-5">
-            <h3 class="font-semibold mb-3 flex items-center gap-2" style="color:var(--text-primary)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              Токен WB Promotion API
-              <span class="text-xs font-normal px-2 py-0.5 rounded-full ml-1" style="background:rgba(139,92,246,0.15);color:#8b5cf6">${_settings.promotionToken ? '✓ подключён' : 'не подключён'}</span>
-            </h3>
-            <div class="flex gap-2">
-              <input id="rnp-promo" type="password" placeholder="Вставьте токен Promotion API..." value="${_settings.promotionToken||''}"
-                class="rounded-xl px-3 py-2 text-sm flex-1" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-              <button onclick="RNP.savePromo()" class="px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap"
-                style="background:var(--accent-gradient);color:#fff">Сохранить</button>
+          <div class="widget-card p-5" style="border-left:3px solid var(--green)">
+            <div class="flex items-center gap-2">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--green)"><polyline points="20 6 9 17 4 12"/></svg>
+              <span class="text-sm font-semibold" style="color:var(--text-primary)">Реклама подключена автоматически</span>
             </div>
-            <p class="text-xs mt-2" style="color:var(--text-muted)">Нужен для: Показы, Клики, CTR, CPC, Расход РК, ДРР%. Отдельный от основного токена WB.</p>
+            <p class="text-xs mt-2" style="color:var(--text-muted)">Данные рекламных кампаний (Показы, Клики, CTR, ДРР) загружаются через тот же токен кабинета WB — отдельный токен не нужен.</p>
           </div>
 
           <div class="widget-card p-5">
