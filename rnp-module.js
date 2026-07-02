@@ -379,45 +379,69 @@ const RNP = (() => {
         const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
         const dateTo   = now.toISOString().split('T')[0];
         try {
-            // 1. Get ALL active campaigns (v2 API: /api/advert/v2/adverts)
-            //    NB: campaign list does NOT contain nm_id targeting — filter at stats level
+            // 1. Get all campaign IDs via /adv/v1/promotion/count
             const resp = await _callProxy('advert_list', {});
-            const campaigns = resp?.adverts || (Array.isArray(resp) ? resp : []);
-            if (!campaigns.length) { console.info('[RNP] advert_list: no campaigns'); return; }
+            // New format: { ids: [...] }; old fallback: { adverts: [...] } or array
+            const allIds = resp?.ids ||
+                           (resp?.adverts ? resp.adverts.map(c => c.advertId || c.id).filter(Boolean) : null) ||
+                           (Array.isArray(resp) ? resp.map(c => c.advertId || c.id).filter(Boolean) : []);
+            if (!allIds.length) { console.info('[RNP] advert_list: no campaign IDs'); return; }
+            console.info(`[RNP] advert_list: ${allIds.length} campaign IDs`);
 
-            // 2. Extract all campaign IDs (v2 field: advertId)
-            const allIds = campaigns.map(c => c.advertId || c.id).filter(Boolean);
-            if (!allIds.length) return;
-            console.info(`[RNP] advert_list: ${allIds.length} campaigns`);
-
-            // 3. Fetch stats (GET /adv/v3/fullstats)
+            // 2. Fetch stats (GET /adv/v3/fullstats)
             const stats = await _callProxy('advert_stats', { advertIds: allIds, dateFrom, dateTo });
             if (!Array.isArray(stats) || !stats.length) { console.info('[RNP] advert_stats: empty response'); return; }
+            console.info(`[RNP] advert_stats: ${stats.length} campaigns returned`);
 
-            // 4. Aggregate by date
-            // v3 structure: campaign → days[] → apps[] → nms[] (NOT day.nm directly!)
+            // 3. Aggregate by date — handle multiple possible structures from WB:
+            //    a) days[] → {date, nm[]/nms[]/apps[{nm/nms}]} — per-article breakdown
+            //    b) days[] → {date, views, clicks, sum, ...} — day-level aggregate
             const byDate = {};
             stats.forEach(camp => {
                 (camp.days || []).forEach(day => {
                     const date = (day.date || '').split('T')[0];
                     if (!date) return;
-                    // Flatten nms from all platforms (apps[])
-                    const allNms = (day.apps || []).flatMap(app => app.nms || app.nm || []);
-                    // Fallback: some campaigns may put nm at day level directly
-                    const nmList = allNms.length ? allNms : (day.nm || day.nms || []);
-                    const nmRow = nmList.find(n => String(n.nmId || n.nm_id) === String(nmId));
-                    if (!nmRow) return;
+
+                    let imp = 0, cl = 0, spend = 0, orders = 0, basket = 0;
+
+                    // Collect all nm-level entries from any nesting
+                    const allNms = [];
+                    if (Array.isArray(day.nm))   allNms.push(...day.nm);
+                    if (Array.isArray(day.nms))  allNms.push(...day.nms);
+                    (day.apps || []).forEach(app => {
+                        const nms = app.nm || app.nms || [];
+                        if (Array.isArray(nms)) allNms.push(...nms);
+                    });
+
+                    if (allNms.length) {
+                        // Per-article data available — find our nmId
+                        const row = allNms.find(n => String(n.nmId || n.nm_id) === String(nmId));
+                        if (!row) return;
+                        imp    = Number(row.views  || 0);
+                        cl     = Number(row.clicks || 0);
+                        spend  = Number(row.sum    || 0);
+                        orders = Number(row.orders || 0);
+                        basket = Number(row.atbs   || 0);
+                    } else {
+                        // Day-level aggregate (no nm breakdown) — use as-is
+                        imp    = Number(day.views  || 0);
+                        cl     = Number(day.clicks || 0);
+                        spend  = Number(day.sum    || 0);
+                        orders = Number(day.orders || 0);
+                        basket = Number(day.atbs   || 0);
+                    }
+
+                    if (!imp && !cl && !spend) return;
                     if (!byDate[date]) byDate[date] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
-                    const d = byDate[date];
-                    d.imp    += Number(nmRow.views   || 0);
-                    d.cl     += Number(nmRow.clicks  || 0);
-                    d.spend  += Number(nmRow.sum     || 0);
-                    d.orders += Number(nmRow.orders  || 0);
-                    d.basket += Number(nmRow.atbs    || 0);
+                    byDate[date].imp    += imp;
+                    byDate[date].cl     += cl;
+                    byDate[date].spend  += spend;
+                    byDate[date].orders += orders;
+                    byDate[date].basket += basket;
                 });
             });
 
-            console.info(`[RNP] advert_stats: data for ${Object.keys(byDate).length} dates`);
+            console.info(`[RNP] advert_stats: aggregated for ${Object.keys(byDate).length} dates`);
 
             const upserts = Object.entries(byDate).map(([date, d]) => ({
                 cabinet_id: _cab, nm_id: nmId, date,

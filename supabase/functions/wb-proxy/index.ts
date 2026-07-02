@@ -144,15 +144,41 @@ serve(async (req) => {
 
             // ── Promotion (Advertising) API v2/v3 ──────────────────────────
             case 'advert_list': {
-                // GET /api/advert/v2/adverts — active campaigns (status 9=active, 11=paused)
+                // Step 1: GET /adv/v1/promotion/count → all campaign IDs grouped by type/status
+                // Fallback: GET /api/advert/v2/adverts?statuses=9,11
                 try {
-                    const url = 'https://advert-api.wildberries.ru/api/advert/v2/adverts';
-                    const raw = await wbGet(url, WB_TOKEN);
-                    console.log('[wb-proxy] advert_list raw type:', typeof raw, Array.isArray(raw) ? `array[${(raw as unknown[]).length}]` : 'object');
-                    result = raw;
+                    const countData = await wbGet(
+                        'https://advert-api.wildberries.ru/adv/v1/promotion/count', WB_TOKEN
+                    ) as Record<string, unknown>;
+                    console.log('[wb-proxy] advert count:', JSON.stringify(countData).slice(0, 300));
+
+                    const allIds: number[] = [];
+                    const groups = countData?.adverts as Array<Record<string, unknown>> | null;
+                    if (Array.isArray(groups)) {
+                        for (const group of groups) {
+                            const inner = group.adverts as Array<Record<string, unknown>> | undefined;
+                            if (Array.isArray(inner)) {
+                                inner.forEach((a) => { if (a.advertId) allIds.push(Number(a.advertId)); });
+                            }
+                        }
+                    }
+
+                    // Fallback if count endpoint doesn't give IDs
+                    if (!allIds.length) {
+                        const listData = await wbGet(
+                            'https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=9%2C11', WB_TOKEN
+                        ) as Record<string, unknown>;
+                        const adverts = (listData?.adverts as Array<Record<string, unknown>>) ||
+                                        (Array.isArray(listData) ? listData as Array<Record<string, unknown>> : []);
+                        adverts.forEach((a) => { if (a.advertId) allIds.push(Number(a.advertId)); });
+                        console.log('[wb-proxy] advert fallback list:', adverts.length, 'campaigns');
+                    }
+
+                    console.log(`[wb-proxy] advert_list total IDs: ${allIds.length}`);
+                    result = { ids: allIds };
                 } catch(e) {
                     console.warn('[wb-proxy] advert_list error (non-fatal):', String(e));
-                    result = { adverts: [] };
+                    result = { ids: [] };
                 }
                 break;
             }
