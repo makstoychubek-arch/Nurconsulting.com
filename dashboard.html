@@ -124,6 +124,8 @@
         [data-theme="neon"] .metric-card:hover { box-shadow: var(--use-glow); }
         .menu-group { margin: 2px 0; }
         .menu-group-title { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; cursor: pointer; color: var(--text-muted); font-size: 10px; font-weight: 700; border-radius: 8px; margin: 8px 12px 2px; text-transform: uppercase; letter-spacing: 0.08em; transition: all 0.2s; }
+        .menu-group-title svg { flex-shrink: 0; opacity: 0.7; }
+        .menu-group-title.open svg { opacity: 1; }
         .menu-group-title:hover { color: var(--text-secondary); }
         .menu-group-title.open { color: var(--accent); }
         .menu-group-title .arrow { transition: transform 0.2s; font-size: 10px; }
@@ -134,7 +136,9 @@
         .nav-item:hover { background: var(--accent-soft); color: var(--text-primary); transform: translateX(2px); }
         .nav-item.active { background: var(--accent-gradient); color: #fff; font-weight: 600; box-shadow: var(--use-glow); border-color: transparent; }
         .nav-item.active .nav-ico { opacity: 1; }
-        .nav-ico { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.7; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+        .nav-ico { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.65; display: block; }
+        .nav-item.active .nav-ico { opacity: 1; }
+        .nav-item:hover .nav-ico { opacity: 0.9; }
         .nav-item-standalone { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; color: white; font-size: 13px; font-weight: 600; border-radius: 12px; background: var(--accent-gradient); border: none; transition: all 0.25s ease; margin: 4px 12px; box-shadow: var(--use-glow); }
         .nav-item-standalone:hover { transform: translateY(-1px); filter: brightness(1.08); }
         .nav-item-standalone.active { box-shadow: 0 8px 28px rgba(123,97,255,0.45); }
@@ -382,57 +386,168 @@
             </div>
         </div>
         <nav class="flex-1 py-3 overflow-y-auto">
-            <div class="nav-item-standalone" onclick="showTab('abtests', this)"><span class="nav-ico">🧪</span><span>А/Б тесты фото</span></div>
+
+            <!-- Оцифровка -->
             <div class="menu-group">
-                <div class="menu-group-title open" onclick="toggleMenu(this)"><span>Оцифровка</span><span class="arrow">▼</span></div>
+                <div class="menu-group-title open" onclick="toggleMenu(this)">
+                    <span class="flex items-center gap-2">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                        Оцифровка
+                    </span>
+                    <span class="arrow">▼</span>
+                </div>
                 <div class="menu-sub open">
-                    <div class="nav-item active" onclick="showTab('dashboard', this)"><span class="nav-ico">📊</span><span>Дашборд</span></div>
-                    <div class="nav-item" onclick="showTab('summary', this)"><span class="nav-ico">📋</span><span>Сводный отчёт</span></div>
-                    <div class="nav-item" onclick="showTab('summary-biz', this)"><span class="nav-ico">🏢</span><span>Сводный по бизнесу</span></div>
-                    <div class="nav-item" onclick="showTab('deductions', this)"><span class="nav-ico">📉</span><span>Прочие удержания</span></div>
-                    <div class="nav-item" onclick="showTab('plan-fact', this)"><span class="nav-ico">🎯</span><span>План-факт</span></div>
+                    <div class="nav-item active" onclick="showTab('dashboard', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                        <span>Дашборд</span>
+                    </div>
+                    <div class="nav-item" onclick="showTab('summary', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                        <span>Сводный отчёт</span>
+                    </div>
+                    <div class="nav-item" onclick="showTab('summary-biz', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                        <span>Сводный по бизнесу</span>
+                    </div>
+                    <div class="nav-item" onclick="showTab('deductions', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <span>Прочие удержания</span>
+                    </div>
+                    <div class="nav-item" onclick="showTab('plan-fact', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                        <span>План-факт</span>
+                    </div>
                 </div>
             </div>
+
+            <!-- РНП -->
             <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)"><span>Финансы</span><span class="arrow">▼</span></div>
+                <div class="menu-group-title" onclick="toggleMenu(this)">
+                    <span class="flex items-center gap-2">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                        РНП
+                    </span>
+                    <span class="arrow">▼</span>
+                </div>
                 <div class="menu-sub">
-                    <div class="nav-item" onclick="showTab('dds', this)"><span class="nav-ico">💧</span><span>ДДС</span></div>
-                    <div class="nav-item" onclick="showTab('operations', this)"><span class="nav-ico">💳</span><span>Операции</span></div>
-                    <div class="nav-item" onclick="showTab('obligations', this)"><span class="nav-ico">📅</span><span>Обязательства</span></div>
-                    <div class="nav-item" onclick="showTab('finance-extra', this)"><span class="nav-ico">📎</span><span>Дополнительно</span></div>
+                    <div class="nav-item" onclick="showTab('rnp', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                        <span>Модуль РНП</span>
+                    </div>
+                    <div class="nav-item" onclick="showTab('rnp-settings', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
+                        <span>Настройки РНП</span>
+                    </div>
                 </div>
             </div>
+
+            <!-- Товары -->
             <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)"><span>Товары</span><span class="arrow">▼</span></div>
+                <div class="menu-group-title" onclick="toggleMenu(this)">
+                    <span class="flex items-center gap-2">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                        Товары
+                    </span>
+                    <span class="arrow">▼</span>
+                </div>
                 <div class="menu-sub">
-                    <div class="nav-item" onclick="showTab('cost', this)"><span class="nav-ico">💰</span><span>Себестоимость</span></div>
-                    <div class="nav-item" onclick="showTab('goods-groups', this)"><span class="nav-ico">📦</span><span>Группы товаров</span></div>
-                    <div class="nav-item" onclick="showTab('warehouse', this)"><span class="nav-ico">🏭</span><span>Склады</span></div>
-                    <div class="nav-item" onclick="showTab('positions', this)"><span class="nav-ico">🔍</span><span>Позиции в поиске</span></div>
+                    <div class="nav-item" onclick="showTab('cost', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                        <span>Себестоимость</span>
+                    </div>
+                    <div class="nav-item" onclick="showTab('goods-groups', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                        <span>Группы товаров</span>
+                    </div>
+                    <div class="nav-item" onclick="showTab('warehouse', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                        <span>Склады</span>
+                    </div>
+                    <div class="nav-item" onclick="showTab('positions', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        <span>Позиции в поиске</span>
+                    </div>
                 </div>
             </div>
+
+            <!-- Финансы -->
             <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)"><span>РНП</span><span class="arrow">▼</span></div>
+                <div class="menu-group-title" onclick="toggleMenu(this)">
+                    <span class="flex items-center gap-2">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                        Финансы
+                    </span>
+                    <span class="arrow">▼</span>
+                </div>
                 <div class="menu-sub">
-                    <div class="nav-item" onclick="showTab('rnp', this)"><span class="nav-ico">📈</span><span>Модуль РНП</span></div>
-                    <div class="nav-item" onclick="showTab('ads', this)"><span class="nav-ico">📣</span><span>Аналитика РК</span></div>
-                    <div class="nav-item" onclick="showTab('heatmap', this)"><span class="nav-ico">🗺️</span><span>Тепловая карта</span></div>
-                    <div class="nav-item" onclick="showTab('rnp-settings', this)"><span class="nav-ico">⚙️</span><span>Настройки РНП</span></div>
-                    <div class="nav-item" onclick="showTab('logistics', this)"><span class="nav-ico">🚚</span><span>Логистика</span></div>
+                    <div class="nav-item" onclick="showTab('dds', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                        <span>ДДС</span>
+                    </div>
+                    <div class="nav-item" onclick="showTab('operations', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                        <span>Операции</span>
+                    </div>
+                    <div class="nav-item" onclick="showTab('obligations', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <span>Обязательства</span>
+                    </div>
+                    <div class="nav-item" onclick="showTab('finance-extra', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                        <span>Дополнительно</span>
+                    </div>
                 </div>
             </div>
+
+            <!-- Управление -->
             <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)"><span>Управление</span><span class="arrow">▼</span></div>
+                <div class="menu-group-title" onclick="toggleMenu(this)">
+                    <span class="flex items-center gap-2">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
+                        Управление
+                    </span>
+                    <span class="arrow">▼</span>
+                </div>
                 <div class="menu-sub">
-                    <div class="nav-item" id="nav-settings" onclick="showTab('settings', this)"><span class="nav-ico">⚙️</span><span>Настройки</span></div>
-                    <div class="nav-item" onclick="showTab('tariffs', this)"><span class="nav-ico">💎</span><span>Тарифы</span></div>
-                    <div class="nav-item" onclick="showTab('calculator', this)"><span class="nav-ico">🧮</span><span>Калькулятор</span></div>
+                    <div class="nav-item" id="nav-settings" onclick="showTab('settings', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
+                        <span>Настройки</span>
+                    </div>
+                    <div class="nav-item" onclick="showTab('calculator', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
+                        <span>Калькулятор</span>
+                    </div>
                 </div>
             </div>
+
+            <!-- Тарифы -->
+            <div class="menu-group">
+                <div class="menu-group-title" onclick="toggleMenu(this)">
+                    <span class="flex items-center gap-2">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        Тарифы
+                    </span>
+                    <span class="arrow">▼</span>
+                </div>
+                <div class="menu-sub">
+                    <div class="nav-item" onclick="showTab('tariffs', this)">
+                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        <span>Тарифный план</span>
+                    </div>
+                </div>
+            </div>
+
         </nav>
         <div class="sidebar-footer">
-            <div class="nav-item" onclick="showTab('settings', document.getElementById('nav-settings'))"><span class="nav-ico">⚙️</span><span>Настройки</span></div>
-            <div class="nav-item" onclick="handleLogout()"><span class="nav-ico">↩</span><span>Выйти</span></div>
+            <div class="nav-item" onclick="showTab('abtests', this)" style="opacity:0.7">
+                <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg>
+                <span>А/Б тесты фото</span>
+                <span style="margin-left:auto;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:var(--amber);color:#000;letter-spacing:0.05em">БЕТА</span>
+            </div>
+            <div class="nav-item" onclick="handleLogout()">
+                <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                <span>Выйти</span>
+            </div>
             <div class="sidebar-theme-row">
                 <span class="sidebar-theme-label">Тема</span>
                 <div class="theme-pill" onclick="toggleTheme()" title="Сменить тему">
@@ -1293,11 +1408,7 @@
                 WBFormulas.loadFinanceReport(callWbProxy, from, to),
                 financeTimeout
             ]).then(rows => {
-                console.log('[Finance] Строк получено:', rows ? rows.length : 0);
-                if (!rows || rows.length === 0) {
-                    console.warn('[Finance] Пустой ответ — проверьте токен и доступ к Statistics API');
-                    return;
-                }
+                if (!rows || rows.length === 0) return;
                 const settings = {
                     taxRate: Number(localStorage.getItem('tax_rate') || 6),
                     opex: Number(localStorage.getItem('opex') || 0)
@@ -1305,10 +1416,7 @@
                 const metrics = WBFormulas.calculateMetrics(rows, settings);
                 WBFormulas.applyMetricsToDashboard(metrics, setText);
                 syncSummaryTab(metrics);
-                console.log('[Finance] Метрики применены:', metrics);
-            }).catch(e => console.error('[Finance] Ошибка:', e.message));
-        } else {
-            console.warn('[Finance] WBFormulas не загружен или нет кабинета');
+            }).catch(e => console.warn('Finance report:', e.message));
         }
     }
 
