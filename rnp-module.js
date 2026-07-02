@@ -130,12 +130,16 @@ const RNP = (() => {
 
     async function _syncFromOrders() {
         try {
-            const { data: orders } = await _db.from('wb_orders').select('nmId,nm_id,subject').eq('cabinet_id', _cab);
-            if (!orders?.length) { alert('Нет данных в wb_orders. Сначала загрузите данные кабинета.'); return; }
+            const { data: orders, error } = await _db.from('wb_orders')
+                .select('nm_id')
+                .eq('cabinet_id', _cab)
+                .not('nm_id', 'is', null);
+            if (error) throw error;
+            if (!orders?.length) { alert('Нет данных в wb_orders. Сначала загрузите данные кабинета на вкладке Оцифровка → Дашборд.'); return; }
             const uniq = new Map();
             orders.forEach(o => {
-                const nm = o.nmId || o.nm_id;
-                if (nm && !uniq.has(nm)) uniq.set(nm, o.subject || `Артикул ${nm}`);
+                const nm = o.nm_id;
+                if (nm && !uniq.has(nm)) uniq.set(nm, `Артикул ${nm}`);
             });
             for (const [nmId, name] of uniq) {
                 if (!_articles.find(a => a.nm_id == nmId)) {
@@ -221,11 +225,11 @@ const RNP = (() => {
             // Pull from wb_orders for today
             const { data: orders } = await _db.from('wb_orders').select('*')
                 .eq('cabinet_id', _cab)
-                .filter('nmId', 'eq', nmId);
+                .eq('nm_id', nmId);
 
             const { data: stocks } = await _db.from('wb_stocks').select('*')
                 .eq('cabinet_id', _cab)
-                .filter('nmId', 'eq', nmId);
+                .eq('nm_id', nmId);
 
             const row = _buildRow(nmId, today, orders || [], stocks || []);
             await _db.from('rnp_daily_data').upsert(row, { onConflict: 'cabinet_id,nm_id,date' });
@@ -234,17 +238,19 @@ const RNP = (() => {
 
     function _buildRow(nmId, date, orders, stocks) {
         const todayOrders = orders.filter(o => {
-            const d = (o.date || o.lastChangeDate || '').split('T')[0];
+            // support both direct column and nested data JSONB
+            const d = (o.order_date || o.date || (o.data && o.data.date) || '').split('T')[0];
             return d === date;
         });
-        const active = todayOrders.filter(o => !o.isCancel && !o.is_cancel);
+        const active = todayOrders.filter(o => !o.is_return && !(o.data && o.data.isCancel));
         const ordersCount = active.length;
-        const ordersSum = active.reduce((s, o) => s + (o.priceWithDiscount || o.price_with_disc || o.totalPrice || 0), 0);
+        const ordersSum = active.reduce((s, o) => s + (o.price || (o.data && o.data.priceWithDiscount) || 0), 0);
         const avgCheck = ordersCount > 0 ? ordersSum / ordersCount : 0;
 
-        const stockWh = stocks.reduce((s, st) => s + (st.quantity || st.quantityFull || 0), 0);
-        const stockTr = stocks.reduce((s, st) => s + (st.inWayToClient || 0), 0) +
-                        stocks.reduce((s, st) => s + (st.inWayFromClient || 0), 0);
+        // wb_stocks columns vary — support multiple schemas
+        const stockWh = stocks.reduce((s, st) => s + (st.quantity || st.quantity_full || st.quantityFull || 0), 0);
+        const stockTr = stocks.reduce((s, st) => s + (st.in_way_to_client || st.inWayToClient || 0), 0) +
+                        stocks.reduce((s, st) => s + (st.in_way_from_client || st.inWayFromClient || 0), 0);
 
         return {
             cabinet_id: _cab, nm_id: nmId, date,
