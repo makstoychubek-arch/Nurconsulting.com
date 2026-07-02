@@ -2,6 +2,8 @@
   "rewrites": [
     { "source": "/login", "destination": "/login.html" },
     { "source": "/space", "destination": "/dashboard.html" },
+    { "source": "/rnp-app", "destination": "/rnp-app/index.html" },
+    { "source": "/rnp-app/:path*", "destination": "/rnp-app/:path*" },
     { "source": "/", "destination": "/index.html" }
   ]
 }

@@ -36,25 +36,19 @@ const RNP = (() => {
 
     // ─── SECTIONS & METRICS ──────────────────────────────────────────────────
     const SECTIONS = [
-        { id: 'stocks', label: 'ОСТАТКИ', color: '#6366f1', rows: [
-            { key: 'stock_warehouse',    label: 'На складе',                type: 'int', src: 'auto' },
-            { key: 'stock_transit',      label: 'В пути',                   type: 'int', src: 'auto' },
-            { key: 'stock_total',        label: 'Общий',                    type: 'int', src: 'auto' },
-            { key: 'in_production',      label: 'В пошиве',                 type: 'int', src: 'manual' },
-        ]},
-        { id: 'sales', label: 'ПРОДАЖИ', color: '#10b981', rows: [
-            { key: 'orders_count',       label: 'ЗАКАЗЫ',                           type: 'int', src: 'auto',   bold: true },
-            { key: 'plan_orders',        label: 'План заказов',                     type: 'int', src: 'manual', isPlan: true },
+        { id: 'sales', label: '', noHeader: true, color: '#217346', rows: [
+            { key: 'orders_count',       label: 'ЗАКАЗЫ',                           type: 'int', src: 'auto',   bold: true, hero: true },
+            { key: 'plan_orders',        label: 'План заказ',                       type: 'int', src: 'manual', isPlan: true },
             { key: 'spp_pct',            label: 'СПП %',                            type: 'pct', src: 'auto' },
             { key: 'sales_count',        label: 'Продажи',                          type: 'int', src: 'auto',   bold: true },
             { key: 'plan_sales',         label: 'План продаж',                      type: 'int', src: 'manual', isPlan: true },
             { key: 'avg_check',          label: 'СР. Чек',                          type: 'som', src: 'auto' },
             { key: 'giveaways',          label: 'Раздачи',                          type: 'int', src: 'manual' },
-            { key: 'plan_fulfillment_pct', label: 'Процент выполнения плана',       type: 'pct', src: 'calc',   cl: 'plan', bold: true },
+            { key: 'plan_fulfillment_pct', label: 'Процент выполнения плана',       type: 'pct', src: 'calc',   cl: 'planStrong', bold: true },
             { key: 'plan_orders_pct',    label: 'Выпол. плана ЗАКАЗ, шт %',        type: 'pct', src: 'calc',   cl: 'plan' },
             { key: 'plan_sales_pct',     label: 'Выпол. плана ПРОДАЖИ %',           type: 'pct', src: 'calc',   cl: 'plan' },
         ]},
-        { id: 'cash', label: 'Сумма продаж в кассе', color: '#0ea5e9', rows: [
+        { id: 'cash', label: 'Сумма продаж в кассе', color: '#1a73e8', rows: [
             { key: 'orders_sum',         label: 'Сумма Заказов',                    type: 'som', src: 'auto' },
             { key: 'sales_sum',          label: 'Сумма Продаж',                     type: 'som', src: 'auto' },
         ]},
@@ -65,12 +59,12 @@ const RNP = (() => {
             { key: 'clicks',             label: 'Клики',                            type: 'int',  src: 'promo' },
             { key: 'ctr_pct',            label: 'CTR%',                             type: 'pct2', src: 'promo' },
             { key: 'basket_pct',         label: 'Корзина%',                         type: 'pct2', src: 'promo' },
-            { key: 'competitor_basket',  label: '% Корзина конкурентов',            type: 'pct2', src: 'manual' },
+            { key: 'competitor_basket',  label: '% Корзина конкурентов',            type: 'pct2', src: 'manual', competitor: true },
             { key: 'basket_count',       label: 'Корзина',                          type: 'int',  src: 'promo' },
             { key: 'orders_conv_pct',    label: 'Заказы%',                          type: 'pct2', src: 'calc' },
-            { key: 'competitor_orders',  label: '% Заказов конкурентов',            type: 'pct2', src: 'manual' },
+            { key: 'competitor_orders',  label: '% Заказов конкурентов',            type: 'pct2', src: 'manual', competitor: true },
             { key: 'cro_pct',            label: 'CR0 %',                            type: 'pct2', src: 'calc' },
-            { key: 'competitor_cro',   label: '% CR0 конкурентов',                type: 'pct2', src: 'manual' },
+            { key: 'competitor_cro',   label: '% CR0 конкурентов',                type: 'pct2', src: 'manual', competitor: true },
         ]},
         { id: 'ads', label: 'Показатели воронки Рекламы', color: '#8b5cf6', rows: [
             { key: 'ad_impressions',     label: 'Показы с рк',                      type: 'int',  src: 'promo' },
@@ -78,7 +72,7 @@ const RNP = (() => {
             { key: 'ad_clicks',          label: 'Клики РК',                         type: 'int',  src: 'promo' },
             { key: 'plan_clicks',        label: 'План Кликов из РК',                type: 'int',  src: 'manual', isPlan: true },
             { key: 'ad_ctr',             label: 'CTR % РК',                         type: 'pct2', src: 'promo' },
-            { key: 'competitor_ctr',     label: '% CTR Конкурентов',                type: 'pct2', src: 'manual' },
+            { key: 'competitor_ctr',     label: '% CTR Конкурентов',                type: 'pct2', src: 'manual', competitor: true },
             { key: 'ad_cro',             label: 'CR0 РК%',                          type: 'pct2', src: 'promo' },
             { key: 'ad_cpc',             label: 'Стоимость Клика',                  type: 'som',  src: 'promo' },
             { key: 'ad_basket',          label: 'Корзин с РК',                      type: 'int',  src: 'promo' },
@@ -214,6 +208,93 @@ const RNP = (() => {
         return null;
     }
 
+    async function _fetchCardPhotosBatch(nmIds) {
+        const ids = [...new Set(nmIds.map(Number).filter(Boolean))];
+        if (!ids.length) return;
+        for (let i = 0; i < ids.length; i += 100) {
+            const chunk = ids.slice(i, i + 100);
+            const nmParam = chunk.join(';');
+            const apis = [
+                `https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&nm=${nmParam}`,
+                `https://card.wb.ru/cards/v1/detail?appType=1&curr=rub&dest=-1257786&nm=${nmParam}`,
+            ];
+            for (const api of apis) {
+                try {
+                    const r = await fetch(api, { referrerPolicy: 'no-referrer' });
+                    const j = await r.json();
+                    const products = j.data?.products || j.products || [];
+                    products.forEach(p => {
+                        const id = p.id || p.nmId;
+                        if (!id) return;
+                        let u = p.photo || p.photos?.[0]?.big || p.photos?.[0]?.c516x688;
+                        if (!u && Array.isArray(p.photos) && p.photos[0]) u = typeof p.photos[0] === 'string' ? p.photos[0] : null;
+                        if (u?.startsWith('//')) u = 'https:' + u;
+                        if (u) _photoResolveCache[id] = u;
+                    });
+                    if (products.length) break;
+                } catch (e) { /* next api version */ }
+            }
+        }
+    }
+
+    async function _fetchPhotosViaProxy(nmIds) {
+        if (!_callProxy || !nmIds.length) return;
+        try {
+            const data = await _callProxy('product_photos', { nmIds: nmIds.slice(0, 100) });
+            if (data && typeof data === 'object') {
+                Object.entries(data).forEach(([id, url]) => {
+                    if (url) _photoResolveCache[Number(id)] = String(url);
+                });
+            }
+        } catch (e) { console.warn('[RNP] product_photos proxy:', e.message); }
+    }
+
+    async function _probePhotoParallel(urls, concurrency = 6) {
+        const list = urls.filter(Boolean);
+        for (let i = 0; i < list.length; i += concurrency) {
+            const batch = list.slice(i, i + concurrency);
+            const results = await Promise.all(batch.map(u => _probePhoto(u)));
+            const hit = results.find(Boolean);
+            if (hit) return hit;
+        }
+        return null;
+    }
+
+    async function _preloadPhotos(articles) {
+        if (!articles?.length) return;
+        articles.forEach(a => {
+            if (a.photo_url?.startsWith('http') && !a.photo_url.includes('placeholder')) {
+                _photoResolveCache[a.nm_id] = a.photo_url;
+            }
+        });
+        const missing = articles.filter(a => !_photoResolveCache[a.nm_id]).map(a => a.nm_id);
+        if (!missing.length) return;
+        await _fetchCardPhotosBatch(missing);
+        const stillMissing = missing.filter(id => !_photoResolveCache[id]);
+        if (stillMissing.length) await _fetchPhotosViaProxy(stillMissing);
+        const persist = [];
+        stillMissing.forEach(nmId => {
+            if (_photoResolveCache[nmId]) return;
+        });
+        for (const nmId of stillMissing.filter(id => !_photoResolveCache[id])) {
+            const hit = await _probePhotoParallel(_photoUrls(nmId, 'c246x328').slice(0, 12), 8);
+            if (hit) {
+                _photoResolveCache[nmId] = hit;
+                persist.push({ nm_id: nmId, photo_url: hit });
+            }
+        }
+        if (_db && _cab && persist.length) {
+            await Promise.all(persist.map(p =>
+                _db.from('rnp_articles').update({ photo_url: p.photo_url })
+                    .eq('cabinet_id', _cab).eq('nm_id', p.nm_id)
+            ));
+            persist.forEach(p => {
+                const art = articles.find(a => a.nm_id === p.nm_id);
+                if (art) art.photo_url = p.photo_url;
+            });
+        }
+    }
+
     async function _ensurePhoto(art) {
         if (!art?.nm_id) return;
         if (_photoResolveCache[art.nm_id]) {
@@ -221,8 +302,17 @@ const RNP = (() => {
             return;
         }
         if (art.photo_url?.startsWith('http') && !art.photo_url.includes('wbbasket')) {
-            const ok = await _probePhoto(art.photo_url);
-            if (ok) { _photoResolveCache[art.nm_id] = ok; return; }
+            _photoResolveCache[art.nm_id] = art.photo_url;
+            return;
+        }
+        await _fetchCardPhotosBatch([art.nm_id]);
+        if (_photoResolveCache[art.nm_id]) {
+            art.photo_url = _photoResolveCache[art.nm_id];
+            if (_db && _cab) {
+                _db.from('rnp_articles').update({ photo_url: art.photo_url })
+                    .eq('cabinet_id', _cab).eq('nm_id', art.nm_id).then(() => {});
+            }
+            return;
         }
         const cardUrl = await _fetchCardPhoto(art.nm_id);
         if (cardUrl) {
@@ -234,12 +324,10 @@ const RNP = (() => {
             }
             return;
         }
-        for (const u of _photoUrls(art.nm_id, 'c516x688').slice(0, 16)) {
-            if (await _probePhoto(u)) {
-                _photoResolveCache[art.nm_id] = u;
-                art.photo_url = u;
-                return;
-            }
+        const hit = await _probePhotoParallel(_photoUrls(art.nm_id, 'c516x688').slice(0, 16), 8);
+        if (hit) {
+            _photoResolveCache[art.nm_id] = hit;
+            art.photo_url = hit;
         }
     }
 
@@ -368,8 +456,9 @@ const RNP = (() => {
             const iso = dt.getDay() === 0 ? 7 : dt.getDay();
             if (iso === 1 || d === 1) {
                 if (wk?.dates.length) {
-                    wk.label = _weekLabel(wk.dates);
+                    wk.label = _weekLabel(wk.dates, weeks.length + 1);
                     wk.weekStart = wk.dates[0];
+                    wk.weekNum = weeks.length + 1;
                     weeks.push(wk);
                 }
                 wk = { type: 'week', label: '', dates: [], weekStart: _dateStr(prevY, prevM + 1, d) };
@@ -377,8 +466,9 @@ const RNP = (() => {
             wk.dates.push(_dateStr(prevY, prevM + 1, d));
         }
         if (wk?.dates.length) {
-            wk.label = _weekLabel(wk.dates);
+            wk.label = _weekLabel(wk.dates, weeks.length + 1);
             wk.weekStart = wk.dates[0];
+            wk.weekNum = weeks.length + 1;
             weeks.push(wk);
         }
 
@@ -431,11 +521,30 @@ const RNP = (() => {
         return chunks;
     }
 
-    function _weekLabel(dates) {
+    function _weekLabel(dates, weekNum) {
+        if (weekNum) return `Нед ${weekNum}`;
         const fmtD = ds => { const p = ds.split('-'); return p[2]; };
         const fmtDM = ds => { const p = ds.split('-'); return `${p[2]}.${p[1]}`; };
         if (dates.length === 1) return fmtDM(dates[0]);
         return `${fmtD(dates[0])}–${fmtDM(dates[dates.length - 1])}`;
+    }
+
+    function _buildCols(rawData, art, cal) {
+        const weekCols = cal.weeks.map(w => {
+            const colKey = w.weekStart || w.dates[0];
+            const agg = _derive(_aggWeek(rawData, w.dates), art);
+            return { ...w, colKey, data: _applyColPlans(agg, art, colKey) };
+        });
+        const allPrevDates = cal.weeks.flatMap(w => w.dates);
+        const totalCol = allPrevDates.length ? {
+            type: 'total', colKey: 'prev-total', label: 'ИТОГ',
+            data: _applyColPlans(_derive(_aggWeek(rawData, allPrevDates), art), art, 'prev-total'),
+        } : null;
+        const dayCols = cal.days.map(d => {
+            const derived = _derive(rawData[d.date] || null, art);
+            return { ...d, colKey: d.date, data: _applyColPlans(derived, art, d.date) };
+        });
+        return totalCol ? [...weekCols, totalCol, ...dayCols] : [...weekCols, ...dayCols];
     }
 
     function _sortSizes(a, b) {
@@ -517,7 +626,7 @@ const RNP = (() => {
             const y = h - 2 - ((n - min) / range) * (h - 4);
             return `${x.toFixed(1)},${y.toFixed(1)}`;
         }).join(' ');
-        return `<svg class="rnp-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="#10b981" stroke-width="1.5" points="${pts}"/></svg>`;
+        return `<svg class="rnp-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="#c4a882" stroke-width="1.5" points="${pts}"/></svg>`;
     }
 
     function _getSize(bySize, sz) {
@@ -845,12 +954,7 @@ const RNP = (() => {
         const art = _articles.find(a => a.nm_id == _activeNm);
         if (!art) return;
         const raw = _dataCache[art.nm_id] || {};
-        const cols = [
-            ...cal.weeks.map(w => ({ label: w.label, colKey: w.weekStart || w.dates[0], type: 'week',
-                data: _applyColPlans(_derive(_aggWeek(raw, w.dates), art), art, w.weekStart || w.dates[0]) })),
-            ...cal.days.map(d => ({ label: d.label, colKey: d.date, type: 'day',
-                data: _applyColPlans(_derive(raw[d.date] || null, art), art, d.date) }))
-        ];
+        const cols = _buildCols(raw, art, cal);
         const header = ['Метрика', ...cols.map(c => c.label)];
         const lines = [header.map(_csvCell).join(sep)];
         _sectionsForView().forEach(sec => {
@@ -1404,14 +1508,15 @@ const RNP = (() => {
 
     // ─── FORMATTERS ───────────────────────────────────────────────────────────
     function _fmt(val, type) {
-        if (val === null || val === undefined || val === '' || val === 0) return null;
+        if (val === null || val === undefined || val === '') return null;
         const n = parseFloat(val);
         if (isNaN(n)) return null;
+        if (n === 0 && type !== 'pct' && type !== 'pct2') return '0';
         switch (type) {
             case 'int':  return Math.round(n).toLocaleString('ru');
             case 'som':  return Math.round(n).toLocaleString('ru');
-            case 'pct':  return n.toFixed(1) + '%';
-            case 'pct2': return n.toFixed(2) + '%';
+            case 'pct':  return n.toFixed(1).replace('.', ',') + '%';
+            case 'pct2': return n.toFixed(2).replace('.', ',') + '%';
         }
         return n;
     }
@@ -1421,11 +1526,13 @@ const RNP = (() => {
         const n = parseFloat(val);
         if (isNaN(n)) return '';
         switch (hm) {
-            case 'high':   return n >= 70 ? 'rnp-green' : n >= 50 ? 'rnp-yellow' : 'rnp-red';
-            case 'low':    return n <= 20 ? 'rnp-green' : n <= 35 ? 'rnp-yellow' : 'rnp-red';
-            case 'profit': return n > 0 ? 'rnp-green' : n < 0 ? 'rnp-red' : '';
-            case 'margin': return n >= 20 ? 'rnp-green' : n >= 10 ? 'rnp-yellow' : 'rnp-red';
-            case 'plan':   return n >= 100 ? 'rnp-green' : n >= 80 ? 'rnp-yellow' : 'rnp-red';
+            case 'high':   return n >= 70 ? 'rnp-plan-ok' : n >= 50 ? 'rnp-plan-warn' : 'rnp-plan-bad';
+            case 'low':    return n <= 20 ? 'rnp-plan-ok' : n <= 35 ? 'rnp-plan-warn' : 'rnp-plan-bad';
+            case 'profit': return n > 0 ? 'rnp-plan-ok' : n < 0 ? 'rnp-plan-bad' : '';
+            case 'margin': return n >= 20 ? 'rnp-plan-ok' : n >= 10 ? 'rnp-plan-warn' : 'rnp-plan-bad';
+            case 'plan':
+            case 'planStrong':
+                return n >= 100 ? 'rnp-plan-ok' : n >= 70 ? 'rnp-plan-warn' : 'rnp-plan-bad';
         }
         return '';
     }
@@ -1552,7 +1659,7 @@ const RNP = (() => {
         }
 
         el.innerHTML = `
-        <div class="rnp-workspace">
+        <div class="rnp-workspace rnp-premium-dark">
           <div class="rnp-sheet-tabs" id="rnp-sheet-tabs">
             ${_renderTabsHTML(active)}
           </div>
@@ -1568,6 +1675,7 @@ const RNP = (() => {
         await _loadAllDailyData(active.map(a => a.nm_id));
         await _loadAllStocks(active.map(a => a.nm_id));
         await _loadNotes(active.map(a => a.nm_id));
+        _preloadPhotos(active).catch(e => console.warn('[RNP] photo preload:', e.message));
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
         await _renderActiveTable();
     }
@@ -1613,7 +1721,7 @@ const RNP = (() => {
 
         body.innerHTML = `
           ${topHTML}
-          <div class="rnp-table-scroll" id="rnp-table-wrap">
+          <div class="rnp-table-scroll rnp-gs-sheet rnp-premium-dark" id="rnp-table-wrap">
             ${_buildTableHTML(art, rawData, cal)}
           </div>`;
 
@@ -1622,46 +1730,71 @@ const RNP = (() => {
         if (bar) bar.innerHTML = _buildActionBar(active);
 
         if (_photoResolveCache[art.nm_id]) {
-            body.querySelectorAll('.rnp-top-photo img, .rnp-sheet-tab img[data-nmid="' + art.nm_id + '"]').forEach(ph => {
+            body.querySelectorAll(`img[data-nmid="${art.nm_id}"]`).forEach(ph => {
                 ph.src = _photoResolveCache[art.nm_id];
             });
         }
+        _preloadPhotos(_articles.filter(a => a.is_active)).then(() => {
+            if (_photoResolveCache[art.nm_id]) {
+                body.querySelectorAll(`img[data-nmid="${art.nm_id}"]`).forEach(ph => {
+                    ph.src = _photoResolveCache[art.nm_id];
+                });
+            }
+        }).catch(() => {});
+    }
+
+    function _buildMetaRows(cols, art) {
+        const md = art.manual_data || {};
+        const responsible = (md.responsible || '').replace(/"/g, '&quot;');
+        const status = md.status || 'Локомотив';
+        return `<tr class="rnp-meta-row">
+          <td class="rnp-metric-col">Ответственный</td>
+          <td class="rnp-spark-col"></td>
+          <td class="rnp-meta-cell" colspan="${cols.length}">
+            <input class="rnp-meta-input" value="${responsible}" placeholder="Дастан"
+              onblur="RNP.saveMeta(${art.nm_id},'responsible',this.value)">
+            <span class="rnp-meta-status">Статус: <b>${status}</b></span>
+          </td>
+        </tr>`;
     }
 
     function _buildTableHTML(art, rawData, cal) {
-        const cols = [
-            ...cal.weeks.map(w => {
-                const colKey = w.weekStart || w.dates[0];
-                const agg = _derive(_aggWeek(rawData, w.dates), art);
-                return { ...w, colKey, data: _applyColPlans(agg, art, colKey) };
-            }),
-            ...cal.days.map(d => {
-                const derived = _derive(rawData[d.date] || null, art);
-                return { ...d, colKey: d.date, data: _applyColPlans(derived, art, d.date) };
-            })
-        ];
-        const nPrev = cal.weeks.length;
+        const cols = _buildCols(rawData, art, cal);
+        const nPrev = cal.weeks.length + (cal.weeks.length ? 1 : 0);
         const nCurr = cal.days.length;
         const firstDayIdx = cols.findIndex(c => c.type === 'day');
+
+        const weekThs = cal.weeks.map(w =>
+            `<th class="rnp-th-week">${w.label || ('Нед ' + w.weekNum)}</th>`).join('');
+        const totalTh = cal.weeks.length ? '<th class="rnp-th-week rnp-th-total">ИТОГ</th>' : '';
+        const dayThs = cal.days.map((d, i) =>
+            `<th class="rnp-th-date${d.isToday ? ' today' : ''}${d.isFuture ? ' rnp-th-future' : ''}${i === 0 ? ' rnp-cell-month-start' : ''}">${d.label}</th>`).join('');
+        const dowWeeks = cal.weeks.map(() => '<th class="rnp-th-dow"></th>').join('');
+        const dowTotal = cal.weeks.length ? '<th class="rnp-th-dow"></th>' : '';
+        const dowDays = cal.days.map(d =>
+            `<th class="rnp-th-dow">${d.dow || ''}</th>`).join('');
 
         return `
         <table class="rnp-sheet-table">
           <thead>
             <tr>
-              <th class="rnp-th-metric" rowspan="3">Метрика</th>
-              <th class="rnp-th-spark" rowspan="3">↗</th>
+              <th class="rnp-th-metric" rowspan="4"></th>
+              <th class="rnp-th-spark" rowspan="4"></th>
               <th class="rnp-th-month" colspan="${nPrev}">${cal.prevName}</th>
-              <th class="rnp-th-month" colspan="${nCurr}" style="color:var(--accent);border-left:2px solid var(--accent)">${cal.currName}</th>
+              <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${cal.currName}</th>
             </tr>
             <tr>
-              ${cal.weeks.map(w => `<th class="rnp-th-day rnp-th-week">${w.label}</th>`).join('')}
-              ${cal.days.map((d,i) => `<th class="rnp-th-day${d.isToday?' today':''}${d.isFuture?' rnp-th-future':''}${i===0?' rnp-cell-month-start':''}">${d.label}${d.dow ? `<span class="rnp-dow">${d.dow}</span>` : ''}</th>`).join('')}
+              ${weekThs}${totalTh}${dayThs}
+            </tr>
+            <tr class="rnp-dow-head-row">
+              ${dowWeeks}${dowTotal}${dowDays}
             </tr>
             <tr class="rnp-notes-head-row">
               ${_buildNotesHeadCells(cols, art)}
             </tr>
           </thead>
           <tbody>
+            ${_buildMetaRows(cols, art)}
             ${_sectionsForView().map(s => _renderSection(s, cols, art, firstDayIdx)).join('')}
           </tbody>
         </table>`;
@@ -1671,31 +1804,35 @@ const RNP = (() => {
         const key = `${art.nm_id}:${sec.id}`;
         const collapsed = _collapsedSections.has(key);
         const arrow = collapsed ? '▸' : '▾';
-        const hdr = `<tr class="rnp-section-hdr" onclick="RNP.toggleSection(${art.nm_id},'${sec.id}')">
-          <td class="rnp-metric-col rnp-section-stick" style="color:${sec.color};border-color:${sec.color}40">${arrow}</td>
-          <td class="rnp-spark-col rnp-section-stick" style="border-color:${sec.color}40"></td>
-          <td class="rnp-section-title" colspan="${cols.length}" style="color:${sec.color};background:${sec.color}18;border-color:${sec.color}40">
-            ${sec.label}
-          </td>
+        const hdr = sec.noHeader ? '' : `<tr class="rnp-section-hdr" onclick="RNP.toggleSection(${art.nm_id},'${sec.id}')">
+          <td class="rnp-metric-col rnp-section-stick rnp-gs-section-title">${arrow} ${sec.label}</td>
+          <td class="rnp-spark-col rnp-section-stick"></td>
+          <td class="rnp-section-fill" colspan="${cols.length}"></td>
         </tr>`;
-        if (collapsed) return hdr;
+        if (collapsed && !sec.noHeader) return hdr;
+        if (collapsed && sec.noHeader) return '';
 
         const daySeries = cols.filter(c => c.type === 'day' && !c.isFuture);
 
         const rows = sec.rows.map(m => {
             const sparkVals = daySeries.map(c => (c.data && c.data[m.key]) || 0);
-            const spark = m.isPlan ? '' : _sparkline(sparkVals);
+            const spark = m.isPlan ? '' : _sparkline(sparkVals, 48, 16);
 
             const cells = cols.map((col, ci) => {
                 const d = col.data;
                 const isWeek = col.type === 'week';
+                const isTotal = col.type === 'total';
                 const isToday = col.isToday;
                 const isMonthStart = ci === firstDayIdx;
                 const isFuture = col.isFuture;
                 const cls = [
                     isToday ? 'rnp-cell-today' : '',
                     isMonthStart ? 'rnp-cell-month-start' : '',
-                    isFuture ? 'rnp-cell-future' : ''
+                    isFuture ? 'rnp-cell-future' : '',
+                    isWeek ? 'rnp-cell-week' : '',
+                    isTotal ? 'rnp-cell-total' : '',
+                    m.competitor ? 'rnp-cell-competitor' : '',
+                    m.hero && (isWeek || isTotal) ? 'rnp-cell-hero' : '',
                 ].filter(Boolean).join(' ');
 
                 if (m.isPlan) {
@@ -1704,27 +1841,26 @@ const RNP = (() => {
                     return `<td class="${cls} rnp-cell-plan rnp-data-col">
                       <input type="text" inputmode="decimal"${valAttr}
                         class="rnp-plan-input" placeholder=""
-                        title="План"
                         onchange="RNP.savePlan(${art.nm_id},'${m.key}','${col.colKey}',this.value)">
                     </td>`;
                 }
 
                 const val = d ? d[m.key] : null;
                 const str = _fmt(val, m.type);
-                const cc  = m.hm ? _cellColor(val, m.hm) : (m.cl === 'plan' ? _cellColor(val, 'plan') : '');
-                let bg = isWeek ? 'rnp-cell-week' : '';
-                if (cc === 'rnp-green')  bg = 'background:rgba(16,185,129,0.15)';
-                else if (cc === 'rnp-yellow') bg = 'background:rgba(245,158,11,0.15)';
-                else if (cc === 'rnp-red')    bg = 'background:rgba(239,68,68,0.15)';
-                const txtColor = cc === 'rnp-green' ? 'var(--green)'
-                               : cc === 'rnp-yellow' ? 'var(--amber)'
-                               : cc === 'rnp-red' ? 'var(--red)'
-                               : m.bold ? 'var(--text-primary)' : 'var(--text-secondary)';
-                return `<td class="${cls} rnp-data-col" style="${bg?bg+';':''}color:${txtColor};font-weight:${m.bold?700:400}">${str||'—'}</td>`;
+                const cc  = m.hm ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
+                const planStrong = m.cl === 'planStrong' && cc ? ` ${cc} rnp-plan-strong` : (cc ? ` ${cc}` : '');
+                const txtColor = m.bold ? 'rnp-text-bold' : '';
+                return `<td class="${cls} rnp-data-col${planStrong} ${txtColor}">${str ?? ''}</td>`;
             }).join('');
-            return `<tr class="${m.isPlan ? 'rnp-row-plan' : ''}">
-              <td class="rnp-metric-col" style="font-weight:${m.bold?700:400};font-style:${m.isPlan?'italic':'normal'}">
-                ${m.label}${m.isPlan?' <span style="opacity:0.5;font-size:9px">✏</span>':''}${m.src==='manual'&&!m.isPlan?' <span style="opacity:0.35;font-size:9px">✏</span>':''}${m.src==='promo'?' <span style="opacity:0.35;font-size:9px">📣</span>':''}
+            const rowCls = [
+                m.isPlan ? 'rnp-row-plan' : '',
+                m.hero ? 'rnp-row-hero' : '',
+                m.competitor ? 'rnp-row-competitor' : '',
+                m.cl === 'planStrong' ? 'rnp-row-plan-strong' : '',
+            ].filter(Boolean).join(' ');
+            return `<tr class="${rowCls}">
+              <td class="rnp-metric-col${m.bold ? ' rnp-metric-bold' : ''}${m.hero ? ' rnp-metric-hero' : ''}">
+                ${m.label}
               </td>
               <td class="rnp-spark-col">${spark}</td>${cells}
             </tr>`;
@@ -1793,6 +1929,13 @@ const RNP = (() => {
         else md.plans[colKey][key] = num;
         await _updateArticle(nmId, { manual_data: md });
         if (_activeNm == nmId) await _renderActiveTable();
+    }
+
+    async function saveMeta(nmId, key, val) {
+        const art = _articles.find(a => a.nm_id == nmId);
+        if (!art) return;
+        const manual_data = { ...(art.manual_data || {}), [key]: (val || '').trim() };
+        await _updateArticle(nmId, { manual_data });
     }
 
     async function savePhotoComment(nmId, idx, text) {
@@ -1869,7 +2012,7 @@ const RNP = (() => {
         if (_activeNm == nmId) await _renderActiveTable();
     }
 
-    return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, saveManual, savePlan, saveNote, savePhotoComment, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();

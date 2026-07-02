@@ -191,6 +191,39 @@ serve(async (req) => {
                 );
                 break;
             }
+            case 'product_photos': {
+                const nmIds: number[] = (params.nmIds || []).map(Number).filter(Boolean);
+                const out: Record<string, string> = {};
+                if (!nmIds.length) { result = out; break; }
+                for (let i = 0; i < nmIds.length; i += 100) {
+                    const chunk = nmIds.slice(i, i + 100);
+                    const body = {
+                        settings: {
+                            sort: { ascending: false },
+                            filter: { textSearch: '', withPhoto: 1, nmID: chunk },
+                            cursor: { limit: chunk.length }
+                        }
+                    };
+                    try {
+                        const cards = await wbPost(
+                            'https://content-api.wildberries.ru/content/v2/get/cards/list',
+                            WB_TOKEN, body
+                        ) as { cards?: Record<string, unknown>[] };
+                        for (const card of cards?.cards || []) {
+                            const nm = Number(card.nmID ?? card.nmId ?? 0);
+                            if (!nm) continue;
+                            const photos = card.photos as { big?: string; c516x688?: string }[] | undefined;
+                            let url = photos?.[0]?.big || photos?.[0]?.c516x688 || '';
+                            if (url.startsWith('//')) url = 'https:' + url;
+                            if (url) out[String(nm)] = url;
+                        }
+                    } catch (e) {
+                        console.warn('[wb-proxy] product_photos chunk:', String(e));
+                    }
+                }
+                result = out;
+                break;
+            }
 
             // ── Promotion (Advertising) API v2/v3 ──────────────────────────
             case 'advert_list': {
