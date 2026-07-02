@@ -1536,16 +1536,16 @@ const RNP = (() => {
         const rawData = _dataCache[art.nm_id] || {};
         const stockBySize = _stockCache[art.nm_id] || {};
 
-        let topHTML = _buildTopPanelHTML(art, stockBySize, rawData, cal);
+        let topHTML = `<div class="rnp-top-panel-wrap">${_buildTopPanelHTML(art, stockBySize, rawData, cal)}</div>`;
         if (_compareNm && _compareNm !== art.nm_id) {
             const art2 = _articles.find(a => a.nm_id == _compareNm);
             if (art2) {
                 const raw2 = _dataCache[art2.nm_id] || {};
                 const stock2 = _stockCache[art2.nm_id] || {};
-                topHTML = `<div class="rnp-compare-split">
+                topHTML = `<div class="rnp-top-panel-wrap"><div class="rnp-compare-split">
                   <div><div class="rnp-compare-label">A — ${(art.name || art.nm_id).substring(0, 24)}</div>${_buildTopPanelHTML(art, stockBySize, rawData, cal)}</div>
                   <div><div class="rnp-compare-label">B — ${(art2.name || art2.nm_id).substring(0, 24)}</div>${_buildTopPanelHTML(art2, stock2, raw2, cal)}</div>
-                </div>`;
+                </div></div>`;
             }
         }
 
@@ -1610,8 +1610,10 @@ const RNP = (() => {
         const collapsed = _collapsedSections.has(key);
         const arrow = collapsed ? '▸' : '▾';
         const hdr = `<tr class="rnp-section-hdr" onclick="RNP.toggleSection(${art.nm_id},'${sec.id}')">
-          <td colspan="${cols.length+2}" style="color:${sec.color};background:${sec.color}18;border-color:${sec.color}40">
-            ${arrow} ${sec.label}
+          <td class="rnp-metric-col rnp-section-stick" style="color:${sec.color};border-color:${sec.color}40">${arrow}</td>
+          <td class="rnp-spark-col rnp-section-stick" style="border-color:${sec.color}40"></td>
+          <td class="rnp-section-title" colspan="${cols.length}" style="color:${sec.color};background:${sec.color}18;border-color:${sec.color}40">
+            ${sec.label}
           </td>
         </tr>`;
         if (collapsed) return hdr;
