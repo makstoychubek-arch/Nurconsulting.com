@@ -2248,12 +2248,18 @@
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
         await loadCabinets();
         await loadABTests();
-        // Init RNP after cabinet is set
+
+        // Restore non-RNP tabs immediately
+        const _savedTab = localStorage.getItem('nr_active_tab');
+        if (_savedTab && _savedTab !== 'dashboard' && _savedTab !== 'rnp' && _savedTab !== 'rnp-settings') {
+            showTab(_savedTab, null);
+        }
+
+        // Init RNP after cabinet is set, then restore RNP tabs
         setTimeout(async () => {
             if (currentCabinetId && typeof RNP !== 'undefined') {
                 await RNP.init(supabase, currentCabinetId, callWbProxy);
             }
-            // Restore last active tab after everything is loaded
             const savedTab = localStorage.getItem('nr_active_tab');
             if (savedTab && savedTab !== 'dashboard') {
                 showTab(savedTab, null);
