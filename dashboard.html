@@ -1204,7 +1204,7 @@
         }
         document.getElementById('page-title').textContent = tabTitles[name] || name;
         const filtersBar = document.getElementById('top-filters-bar');
-        if (filtersBar) filtersBar.style.display = (name === 'dashboard' || name === 'rnp') ? 'flex' : 'none';
+        if (filtersBar) filtersBar.style.display = name === 'dashboard' ? 'flex' : 'none';
         if (name === 'abtests') loadABTests();
         if (name === 'rnp') RNP.openMain();
         if (name === 'rnp-settings') RNP.openSettings();
@@ -1366,7 +1366,15 @@
          'rnp-profit','rnp-margin','rnp-roi','wh-total'].forEach(id => setText(id, '—'));
         document.getElementById('products-table').innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Переключение кабинета...</td></tr>';
         // Показываем оверлей перехода
-        showCabinetTransition(cabinetName, () => loadFromDB());
+        showCabinetTransition(cabinetName, async () => {
+            await loadFromDB();
+            if (typeof RNP !== 'undefined') {
+                await RNP.init(supabase, currentCabinetId, callWbProxy);
+                const cur = localStorage.getItem('nr_active_tab');
+                if (cur === 'rnp') RNP.openMain();
+                if (cur === 'rnp-settings') RNP.openSettings();
+            }
+        });
     }
 
     function hideOverlay() {
