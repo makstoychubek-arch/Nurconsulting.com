@@ -372,39 +372,40 @@ const RNP = (() => {
         } catch(e) { console.warn('[RNP] syncFinance:', e.message); }
     }
 
-    // ─── PROMOTION / AD SYNC (WB API v2/v3, updated Feb 2026) ────────────────
+    // ─── PROMOTION / AD SYNC (WB API v2/v3) ─────────────────────────────────
     async function _syncAdStats(nmId) {
         if (!_callProxy) return;
         const now = new Date();
         const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
         const dateTo   = now.toISOString().split('T')[0];
         try {
-            // 1. Get list of active campaigns (v2 API)
+            // 1. Get ALL active campaigns (v2 API: /api/advert/v2/adverts)
+            //    NB: campaign list does NOT contain nm_id targeting — filter at stats level
             const resp = await _callProxy('advert_list', {});
-            // v2 returns { adverts: [...] } or directly array
             const campaigns = resp?.adverts || (Array.isArray(resp) ? resp : []);
-            if (!campaigns.length) return;
+            if (!campaigns.length) { console.info('[RNP] advert_list: no campaigns'); return; }
 
-            // 2. Filter campaigns targeting this nmId (v2: nm_settings[].nm_id)
-            const relevantIds = campaigns
-                .filter(c => {
-                    const nms = (c.nm_settings || []).map(n => n.nm_id);
-                    return nms.includes(Number(nmId));
-                })
-                .map(c => c.id || c.advertId);
-            if (!relevantIds.length) return;
+            // 2. Extract all campaign IDs (v2 field: advertId)
+            const allIds = campaigns.map(c => c.advertId || c.id).filter(Boolean);
+            if (!allIds.length) return;
+            console.info(`[RNP] advert_list: ${allIds.length} campaigns`);
 
-            // 3. Fetch stats (v3 fullstats — GET with query params)
-            const stats = await _callProxy('advert_stats', { advertIds: relevantIds, dateFrom, dateTo });
-            if (!Array.isArray(stats) || !stats.length) return;
+            // 3. Fetch stats (GET /adv/v3/fullstats)
+            const stats = await _callProxy('advert_stats', { advertIds: allIds, dateFrom, dateTo });
+            if (!Array.isArray(stats) || !stats.length) { console.info('[RNP] advert_stats: empty response'); return; }
 
-            // 4. Aggregate by date (structure: [{ advertId, days:[{ date, nm:[{ nmId, views, clicks, sum, orders, atbs }] }] }])
+            // 4. Aggregate by date
+            // v3 structure: campaign → days[] → apps[] → nms[] (NOT day.nm directly!)
             const byDate = {};
             stats.forEach(camp => {
                 (camp.days || []).forEach(day => {
                     const date = (day.date || '').split('T')[0];
                     if (!date) return;
-                    const nmRow = (day.nm || []).find(n => (n.nmId || n.nm_id) == nmId);
+                    // Flatten nms from all platforms (apps[])
+                    const allNms = (day.apps || []).flatMap(app => app.nms || app.nm || []);
+                    // Fallback: some campaigns may put nm at day level directly
+                    const nmList = allNms.length ? allNms : (day.nm || day.nms || []);
+                    const nmRow = nmList.find(n => String(n.nmId || n.nm_id) === String(nmId));
                     if (!nmRow) return;
                     if (!byDate[date]) byDate[date] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
                     const d = byDate[date];
@@ -415,6 +416,8 @@ const RNP = (() => {
                     d.basket += Number(nmRow.atbs    || 0);
                 });
             });
+
+            console.info(`[RNP] advert_stats: data for ${Object.keys(byDate).length} dates`);
 
             const upserts = Object.entries(byDate).map(([date, d]) => ({
                 cabinet_id: _cab, nm_id: nmId, date,

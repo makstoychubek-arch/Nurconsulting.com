@@ -144,10 +144,12 @@ serve(async (req) => {
 
             // ── Promotion (Advertising) API v2/v3 ──────────────────────────
             case 'advert_list': {
-                // NEW v2 API (old /adv/v1/promotion/adverts deprecated Feb 2026)
+                // GET /api/advert/v2/adverts — active campaigns (status 9=active, 11=paused)
                 try {
-                    const url = 'https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=9,11';
-                    result = await wbGet(url, WB_TOKEN);
+                    const url = 'https://advert-api.wildberries.ru/api/advert/v2/adverts';
+                    const raw = await wbGet(url, WB_TOKEN);
+                    console.log('[wb-proxy] advert_list raw type:', typeof raw, Array.isArray(raw) ? `array[${(raw as unknown[]).length}]` : 'object');
+                    result = raw;
                 } catch(e) {
                     console.warn('[wb-proxy] advert_list error (non-fatal):', String(e));
                     result = { adverts: [] };
@@ -155,13 +157,15 @@ serve(async (req) => {
                 break;
             }
             case 'advert_stats': {
-                // WB Promotion API v3 fullstats — max 50 ids, max 31 days per request
-                const ids: number[] = params.advertIds || [];
+                // GET /adv/v3/fullstats — max 50 ids per request, max 31 days
+                const ids: (number | string)[] = params.advertIds || [];
                 if (!ids.length) { result = []; break; }
 
-                // Split date range into <=30 day chunks (WB API limit: 31 days)
-                const begin = new Date(params.dateFrom);
-                const end   = new Date(params.dateTo);
+                const dateFrom = params.dateFrom || new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0];
+                const dateTo   = params.dateTo   || new Date().toISOString().split('T')[0];
+
+                const begin = new Date(dateFrom);
+                const end   = new Date(dateTo);
                 const dateChunks: { from: string; to: string }[] = [];
                 let cur = new Date(begin);
                 while (cur <= end) {
@@ -178,13 +182,16 @@ serve(async (req) => {
                     for (let i = 0; i < ids.length; i += 50) {
                         const chunk = ids.slice(i, i + 50).join(',');
                         try {
-                            const data = await wbGet(`https://advert-api.wildberries.ru/adv/v3/fullstats?ids=${chunk}&beginDate=${dc.from}&endDate=${dc.to}`, WB_TOKEN);
+                            const url = `https://advert-api.wildberries.ru/adv/v3/fullstats?ids=${chunk}&beginDate=${dc.from}&endDate=${dc.to}`;
+                            const data = await wbGet(url, WB_TOKEN);
                             if (Array.isArray(data)) allStats.push(...data);
+                            else console.warn('[wb-proxy] advert_stats non-array response:', typeof data);
                         } catch(e) {
                             console.warn('[wb-proxy] advert_stats chunk error:', String(e));
                         }
                     }
                 }
+                console.log(`[wb-proxy] advert_stats: ${allStats.length} campaign-stats returned`);
                 result = allStats;
                 break;
             }
