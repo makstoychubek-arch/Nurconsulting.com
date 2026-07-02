@@ -118,5 +118,29 @@ alter table rnp_daily_data add column if not exists funnel_order_conv numeric de
 -- Stock by size support
 alter table wb_stocks add column if not exists tech_size text default '';
 
+-- ── 5. Date notes (with history) ───────────────────────────
+create table if not exists rnp_date_notes (
+    id          bigint generated always as identity primary key,
+    cabinet_id  text not null,
+    nm_id       bigint not null,
+    note_date   date not null,
+    note        text not null default '',
+    author      text default '',
+    created_at  timestamptz default now()
+);
+
+create index if not exists rnp_date_notes_lookup
+    on rnp_date_notes (cabinet_id, nm_id, note_date desc);
+
+alter table rnp_date_notes enable row level security;
+
+drop policy if exists "rnp_date_notes_own" on rnp_date_notes;
+create policy "rnp_date_notes_own" on rnp_date_notes
+    using (
+        cabinet_id::uuid in (
+            select id from cabinets where user_id = auth.uid()
+        )
+    );
+
 -- ── Done ────────────────────────────────────────────────────
 select 'RNP tables ready' as status;

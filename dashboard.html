@@ -211,15 +211,20 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes toast-bar { from { width: 100%; } to { width: 0%; } }
         /* ── RNP Spreadsheet (Google Sheets style) ── */
-        .rnp-workspace { display: flex; flex-direction: column; gap: 0; min-height: calc(100vh - 120px); }
-        .rnp-toolbar {
-            display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
-            padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
-            border-radius: 12px 12px 0 0; font-size: 12px;
+        .rnp-workspace { display: flex; flex-direction: column; gap: 0; height: calc(100vh - 130px); max-height: calc(100vh - 130px); }
+        .main-content.rnp-compact { padding: 10px 14px; }
+        .rnp-header-refresh {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+            border: 1px solid var(--border); background: var(--surface);
+            color: var(--text-secondary); cursor: pointer; transition: all 0.15s;
         }
+        .rnp-header-refresh:hover { border-color: var(--accent-border); color: var(--accent); background: var(--accent-soft); }
+        .rnp-header-refresh:disabled { opacity: 0.5; cursor: wait; }
+        .rnp-header-refresh svg { width: 14px; height: 14px; }
         .rnp-sheet-tabs {
             display: flex; overflow-x: auto; background: #e8e8e8; border: 1px solid var(--border);
-            border-top: none; scrollbar-width: thin;
+            border-radius: 12px 12px 0 0; scrollbar-width: thin; flex-shrink: 0;
         }
         [data-theme="neon"] .rnp-sheet-tabs { background: #1a1a24; }
         .rnp-sheet-tab {
@@ -240,6 +245,7 @@
         .rnp-sheet-body {
             flex: 1; background: var(--surface); border: 1px solid var(--border);
             border-top: none; border-radius: 0 0 12px 12px; overflow: hidden;
+            display: flex; flex-direction: column; min-height: 0;
         }
         .rnp-product-header {
             display: flex; align-items: center; gap: 12px; padding: 10px 14px;
@@ -251,21 +257,22 @@
             gap: 0;
             border-bottom: 2px solid var(--border);
             background: #fff;
-            min-height: 168px;
+            min-height: 130px;
+            flex-shrink: 0;
         }
         [data-theme="neon"] .rnp-top-panel { background: var(--surface); }
         .rnp-top-photo {
-            width: 118px; flex-shrink: 0; border-right: 1px solid var(--border);
+            width: 96px; flex-shrink: 0; border-right: 1px solid var(--border);
             display: flex; align-items: stretch; justify-content: center;
             background: #fafafa; overflow: hidden;
         }
         [data-theme="neon"] .rnp-top-photo { background: #0d0d14; }
         .rnp-top-photo img {
-            width: 100%; height: 100%; min-height: 168px; object-fit: cover; display: block;
+            width: 100%; height: 100%; min-height: 130px; object-fit: cover; display: block;
         }
         .rnp-top-info {
-            padding: 10px 14px; border-right: 1px solid var(--border);
-            display: flex; flex-direction: column; gap: 6px; min-width: 220px;
+            padding: 8px 10px; border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; gap: 4px; min-width: 180px;
         }
         .rnp-top-title {
             font-size: 13px; font-weight: 700; color: var(--text-primary);
@@ -290,28 +297,48 @@
         .rnp-stock-totals span b { color: var(--text-primary); }
         .rnp-top-actions { margin-top: auto; }
         .rnp-top-stock-wrap {
-            overflow-x: auto; padding: 6px 8px; align-self: stretch;
-            display: flex; align-items: center;
+            overflow-x: auto; padding: 4px 6px; align-self: stretch;
+            display: flex; align-items: center; max-width: 52vw;
         }
-        .rnp-table-scroll { overflow: auto; max-height: calc(100vh - 320px); }
-        .rnp-sheet-table { border-collapse: collapse; font-size: 10.5px; min-width: max-content; width: 100%; }
+        .rnp-table-scroll { overflow: auto; flex: 1; min-height: 0; }
+        .rnp-sheet-table {
+            border-collapse: separate; border-spacing: 0;
+            font-size: 9px; min-width: max-content; width: 100%;
+            --rnp-h1: 20px; --rnp-h2: 36px;
+        }
         .rnp-sheet-table th, .rnp-sheet-table td {
-            border: 1px solid var(--border); padding: 2px 6px; text-align: center;
+            border: 1px solid var(--border); padding: 1px 3px; text-align: center;
+            line-height: 1.2;
         }
+        .rnp-sheet-table thead th {
+            position: sticky; background: var(--surface);
+            box-shadow: 0 1px 0 var(--border);
+        }
+        .rnp-sheet-table thead tr:nth-child(1) th { top: 0; z-index: 22; height: var(--rnp-h1); }
+        .rnp-sheet-table thead tr:nth-child(2) th { top: var(--rnp-h1); z-index: 21; height: calc(var(--rnp-h2) - var(--rnp-h1)); }
+        .rnp-sheet-table thead .rnp-th-metric,
+        .rnp-sheet-table thead .rnp-th-spark { top: 0; z-index: 32; }
         .rnp-sheet-table .rnp-metric-col {
-            text-align: left; min-width: 200px; max-width: 200px;
-            position: sticky; left: 0; z-index: 5; background: var(--surface);
-            padding: 2px 10px; white-space: nowrap; font-weight: 400; color: var(--text-secondary);
+            text-align: left; min-width: 132px; max-width: 132px; width: 132px;
+            position: sticky; left: 0; z-index: 6; background: var(--surface);
+            padding: 1px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            font-weight: 400; color: var(--text-secondary);
             border-right: 2px solid var(--border-strong);
         }
         .rnp-sheet-table .rnp-th-metric {
-            position: sticky; left: 0; z-index: 30; background: var(--surface);
-            text-align: left; min-width: 200px; font-size: 10px; font-weight: 700;
+            position: sticky; left: 0; z-index: 33; background: var(--surface);
+            text-align: left; min-width: 132px; width: 132px; font-size: 9px; font-weight: 700;
             color: var(--text-muted); border-right: 2px solid var(--border-strong);
         }
-        .rnp-sheet-table .rnp-th-month { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
-        .rnp-sheet-table .rnp-th-day { font-size: 10px; font-weight: 600; min-width: 36px; position: sticky; top: 0; z-index: 20; background: var(--surface); }
+        .rnp-sheet-table .rnp-th-month { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 4px; }
+        .rnp-sheet-table .rnp-th-day {
+            font-size: 8px; font-weight: 600; min-width: 26px; max-width: 34px;
+            padding: 1px 2px; vertical-align: middle;
+        }
+        .rnp-sheet-table .rnp-th-day .rnp-dow { font-size: 7px; font-weight: 400; color: var(--text-muted); display: block; line-height: 1; margin-top: 1px; }
+        .rnp-sheet-table .rnp-th-week { font-size: 7px; min-width: 38px; max-width: 44px; color: var(--text-muted); }
         .rnp-sheet-table .rnp-th-day.today { color: var(--accent); font-weight: 800; border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); }
+        .rnp-sheet-table .rnp-data-col { min-width: 26px; max-width: 34px; font-size: 9px; padding: 1px 2px; }
         .rnp-sheet-table .rnp-section-hdr td {
             font-size: 9.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
             text-align: left; padding: 4px 10px; cursor: pointer; position: sticky; left: 0;
@@ -326,7 +353,7 @@
         .rnp-stock-block { padding: 0; border: none; background: transparent; overflow: visible; }
         .rnp-stock-block-title { display: none; }
         .rnp-stock-table { border-collapse: collapse; font-size: 10px; min-width: max-content; }
-        .rnp-stock-table th, .rnp-stock-table td { border: 1px solid #ccc; padding: 2px 6px; text-align: center; min-width: 32px; font-weight: 600; }
+        .rnp-stock-table th, .rnp-stock-table td { border: 1px solid #ccc; padding: 1px 4px; text-align: center; min-width: 24px; font-weight: 600; font-size: 8px; }
         [data-theme="neon"] .rnp-stock-table th, [data-theme="neon"] .rnp-stock-table td { border-color: var(--border); }
         .rnp-stock-table th { background: #f5f5f5; font-weight: 700; color: #333; font-size: 9px; }
         [data-theme="neon"] .rnp-stock-table th { background: var(--bg); color: var(--text-muted); }
@@ -341,26 +368,82 @@
         .rnp-stock-table tr.rnp-row-sum td.rnp-size-zero { background: #f8d7da; color: #721c24; }
         .rnp-stock-table tr.rnp-row-sale td:not(.rnp-stock-label):not(.rnp-size-zero) { background: #d4edda; color: #155724; }
         .rnp-sheet-table .rnp-th-spark {
-            position: sticky; left: 168px; z-index: 30; background: var(--surface);
-            min-width: 58px; max-width: 58px; width: 58px;
-            border-right: 1px solid var(--border); font-size: 9px; color: var(--text-muted);
+            position: sticky; left: 132px; z-index: 33; background: var(--surface);
+            min-width: 40px; max-width: 40px; width: 40px;
+            border-right: 1px solid var(--border); font-size: 8px; color: var(--text-muted);
         }
         .rnp-sheet-table .rnp-spark-col {
-            position: sticky; left: 168px; z-index: 4; background: var(--surface);
-            min-width: 58px; max-width: 58px; padding: 1px 2px;
+            position: sticky; left: 132px; z-index: 5; background: var(--surface);
+            min-width: 40px; max-width: 40px; width: 40px; padding: 0 1px;
             border-right: 1px solid var(--border);
         }
-        .rnp-sheet-table .rnp-metric-col { min-width: 168px; max-width: 168px; }
-        .rnp-sheet-table .rnp-th-metric { min-width: 168px; }
-        .rnp-spark { display: block; margin: 0 auto; }
-        .rnp-spark-empty { color: var(--text-muted); font-size: 9px; }
-        .rnp-sheet-tab img { width: 22px; height: 28px; border-radius: 2px; object-fit: cover; }
-        .rnp-plan-input {
-            width: 42px; padding: 1px 2px; text-align: center; font-size: 10px;
-            border: 1px dashed var(--accent-border); border-radius: 3px;
-            background: rgba(232,86,142,0.06); color: var(--text-primary);
+        .rnp-sheet-table .rnp-metric-col { min-width: 132px; max-width: 132px; width: 132px; }
+        .rnp-sheet-table .rnp-th-metric { min-width: 132px; width: 132px; }
+        .rnp-spark { display: block; margin: 0 auto; width: 36px; height: 14px; }
+        .rnp-spark-empty { color: var(--text-muted); font-size: 8px; }
+        .rnp-sheet-tab img { width: 20px; height: 26px; border-radius: 2px; object-fit: cover; }
+        .rnp-sheet-table .rnp-th-future { opacity: 0.45; }
+        .rnp-sheet-table .rnp-cell-future { opacity: 0.5; }
+        .rnp-sheet-table .rnp-cell-plan {
+            padding: 0 !important; background: inherit;
         }
-        .rnp-plan-input:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+        .rnp-plan-input {
+            width: 100%; height: 100%; min-height: 16px;
+            padding: 0 1px; margin: 0; text-align: center; font-size: 9px;
+            border: none; border-radius: 0; background: transparent;
+            color: inherit; font-family: inherit;
+            -moz-appearance: textfield; appearance: textfield;
+        }
+        .rnp-plan-input::-webkit-outer-spin-button,
+        .rnp-plan-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .rnp-plan-input::placeholder { color: transparent; }
+        .rnp-plan-input:hover { background: rgba(128,128,128,0.08); }
+        .rnp-plan-input:focus {
+            outline: none; background: rgba(128,128,128,0.12);
+            color: var(--text-primary);
+        }
+        .rnp-cell-plan:focus-within { outline: 1px solid var(--border-strong); outline-offset: -1px; }
+        .rnp-action-bar {
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+            padding: 6px 10px; background: var(--bg); border-bottom: 1px solid var(--border);
+            font-size: 10px; flex-shrink: 0;
+        }
+        .rnp-action-bar select, .rnp-action-btn {
+            font-size: 10px; padding: 4px 8px; border-radius: 6px;
+            border: 1px solid var(--border); background: var(--surface);
+            color: var(--text-secondary); cursor: pointer;
+        }
+        .rnp-action-btn:hover { border-color: var(--accent-border); color: var(--accent); }
+        .rnp-action-btn.active { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
+        .rnp-sync-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+        .rnp-sync-green { background: #22c55e; box-shadow: 0 0 4px #22c55e88; }
+        .rnp-sync-yellow { background: #eab308; }
+        .rnp-sync-red { background: #ef4444; }
+        .rnp-alerts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+        .rnp-alert {
+            font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 600;
+        }
+        .rnp-alert-warn { background: rgba(245,158,11,0.2); color: var(--amber); }
+        .rnp-alert-danger { background: rgba(239,68,68,0.2); color: var(--red); }
+        .rnp-summary-table { font-size: 10px; width: 100%; border-collapse: collapse; }
+        .rnp-summary-table th, .rnp-summary-table td { border: 1px solid var(--border); padding: 6px 8px; text-align: center; }
+        .rnp-summary-table th { background: var(--surface); font-weight: 700; font-size: 9px; color: var(--text-muted); position: sticky; top: 0; }
+        .rnp-summary-table tr.rnp-summary-row { cursor: pointer; transition: background 0.12s; }
+        .rnp-summary-table tr.rnp-summary-row:hover { background: var(--accent-soft); }
+        .rnp-summary-name { text-align: left; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rnp-note-input {
+            width: 100%; border: none; background: transparent; font-size: 8px;
+            color: var(--text-muted); text-align: center; padding: 0 1px;
+        }
+        .rnp-note-input:focus { outline: none; background: rgba(128,128,128,0.1); color: var(--text-primary); }
+        .rnp-notes-row td { background: rgba(99,102,241,0.04); padding: 1px 2px; vertical-align: middle; }
+        .rnp-compare-split { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 2px solid var(--accent); }
+        .rnp-compare-split .rnp-top-panel { min-height: 110px; border-bottom: none; }
+        .rnp-compare-split .rnp-top-photo { width: 72px; }
+        .rnp-compare-split .rnp-top-photo img { min-height: 110px; }
+        .rnp-compare-label { font-size: 8px; font-weight: 800; text-transform: uppercase; color: var(--accent); padding: 2px 8px; background: var(--accent-soft); }
+        .rnp-sheet-tab .rnp-sync-dot { margin-right: 2px; }
+        .rnp-tab-summary { font-weight: 700; }
         .main-content { background: var(--bg); background-image: var(--bg-mesh); }
         #date-picker { position: fixed; top: 100px; left: 300px; z-index: 9999; background: var(--surface-solid); border: 1px solid var(--accent-border); border-radius: 16px; padding: 20px; width: 480px; box-shadow: 0 25px 80px rgba(0,0,0,0.35); }
         #premium-modal { position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); }
@@ -779,7 +862,12 @@
                     <button class="mobile-menu-btn btn-smooth" onclick="toggleMobileMenu()" id="mobile-menu-btn">☰</button>
                     <div class="min-w-0">
                         <p class="header-greeting">Привет, <span id="header-user-name">—</span> — добро пожаловать</p>
-                        <h1 id="page-title" class="header-title truncate">Дашборд</h1>
+                        <div class="flex items-center gap-2 min-w-0">
+                            <h1 id="page-title" class="header-title truncate">Дашборд</h1>
+                            <button type="button" id="rnp-header-refresh" class="rnp-header-refresh hidden" title="Обновить все артикулы РНП" onclick="RNP.refreshAll()">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
@@ -1278,6 +1366,7 @@
     }
 
     let currentCabinetId = localStorage.getItem('selected_cabinet_id') || null;
+    let currentUserEmail = '';
 
     function applyTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
@@ -1351,6 +1440,11 @@
         document.getElementById('page-title').textContent = tabTitles[name] || name;
         const filtersBar = document.getElementById('top-filters-bar');
         if (filtersBar) filtersBar.style.display = name === 'dashboard' ? 'flex' : 'none';
+        const rnpRefresh = document.getElementById('rnp-header-refresh');
+        const mainRefresh = document.getElementById('refresh-btn');
+        if (rnpRefresh) rnpRefresh.classList.toggle('hidden', name !== 'rnp');
+        if (mainRefresh) mainRefresh.style.display = name === 'rnp' ? 'none' : '';
+        document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         if (name === 'abtests') loadABTests();
         if (name === 'rnp') RNP.openMain();
         if (name === 'rnp-settings') RNP.openSettings();
@@ -1515,7 +1609,7 @@
         showCabinetTransition(cabinetName, async () => {
             await loadFromDB();
             if (typeof RNP !== 'undefined') {
-                await RNP.init(supabase, currentCabinetId, callWbProxy);
+                await RNP.init(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
                 const cur = localStorage.getItem('nr_active_tab');
                 if (cur === 'rnp') RNP.openMain();
                 if (cur === 'rnp-settings') RNP.openSettings();
@@ -2399,13 +2493,14 @@
         const hpn = document.getElementById('header-profile-name');
         if (hpn) hpn.textContent = name;
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
+        currentUserEmail = session.user.email || '';
         await loadCabinets();
         await loadABTests();
 
         // Init RNP, then restore last tab, then hide loader — all in one step
         setTimeout(async () => {
             if (currentCabinetId && typeof RNP !== 'undefined') {
-                await RNP.init(supabase, currentCabinetId, callWbProxy);
+                await RNP.init(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
             }
             const savedTab = localStorage.getItem('nr_active_tab');
             if (savedTab && savedTab !== 'dashboard') {
