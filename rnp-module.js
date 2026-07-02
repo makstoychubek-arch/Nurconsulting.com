@@ -13,6 +13,7 @@ const RNP = (() => {
     let _articles = [];
     let _activeNm = null;
     let _collapsed = new Set();
+    let _financeCache = { key: '', rows: [], ts: 0 };
 
     // ─── SECTIONS & METRICS ──────────────────────────────────────────────────
     const SECTIONS = [
@@ -317,33 +318,39 @@ const RNP = (() => {
     }
 
     // ─── FINANCE REPORT SYNC ─────────────────────────────────────────────────
-    async function _syncFinanceRange(nmId) {
-        if (!_callProxy) return;
+    async function _fetchFinanceAgg(nmId) {
         const now = new Date();
         const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
         const dateTo   = now.toISOString().split('T')[0];
+        const cacheKey = `${_cab}_${dateFrom}_${dateTo}_${nmId}`;
+        if (_financeCache.key === cacheKey && Date.now() - _financeCache.ts < 30 * 60 * 1000) {
+            return _financeCache.rows;
+        }
+        const rows = await _callProxy('finance_report', { dateFrom, dateTo, aggregate: true, nmId });
+        if (Array.isArray(rows) && rows.length) {
+            _financeCache = { key: cacheKey, rows, ts: Date.now() };
+        }
+        return Array.isArray(rows) ? rows : [];
+    }
+
+    async function _syncFinanceRange(nmId) {
+        if (!_callProxy) return;
         try {
-            const rows = await _callProxy('finance_report', { dateFrom, dateTo });
-            if (!Array.isArray(rows) || !rows.length) return;
+            const rows = await _fetchFinanceAgg(nmId);
+            if (!rows.length) return;
 
             const byDate = {};
-            rows.filter(r => String(r.nm_id) === String(nmId)).forEach(row => {
-                const date = (row.sale_dt || '').split('T')[0];
+            rows.forEach(row => {
+                const date = row.date || (row.sale_dt || '').split('T')[0];
                 if (!date) return;
                 if (!byDate[date]) byDate[date] = { sc: 0, ss: 0, tt: 0, log: 0, sto: 0, rc: 0 };
                 const d = byDate[date];
-                const type = (row.doc_type_name || '').toLowerCase();
-                const qty  = Number(row.quantity || 0);
-                if (type === 'продажа') {
-                    d.sc  += qty;
-                    d.ss  += Number(row.retail_price_withdisc_rub || 0) * qty;
-                    d.tt  += Number(row.ppvz_for_pay || 0);
-                } else if (type === 'возврат') {
-                    d.rc  += qty;
-                    d.tt  += Number(row.ppvz_for_pay || 0); // negative for returns
-                }
-                d.log += Number(row.delivery_rub || 0);
-                d.sto += Number(row.storage_fee  || 0);
+                d.sc  += Number(row.sc  || 0);
+                d.ss  += Number(row.ss  || 0);
+                d.tt  += Number(row.tt  || 0);
+                d.rc  += Number(row.rc  || 0);
+                d.log += Number(row.log || 0);
+                d.sto += Number(row.sto || 0);
             });
 
             const upserts = Object.entries(byDate).map(([date, d]) => {

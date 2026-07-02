@@ -71,12 +71,61 @@ serve(async (req) => {
                 break;
             }
             case 'finance_report': {
+                const dateFrom = String(params.dateFrom || '').split('T')[0];
+                const dateTo   = String(params.dateTo   || '').split('T')[0];
+                const limit    = Math.min(Number(params.limit) || 5000, 10000);
+                const maxPages = params.aggregate ? 8 : 6;
+                const filterNmId = params.nmId != null ? String(params.nmId) : null;
+
+                // RNP mode: aggregate on server to avoid 546 (out of memory)
+                if (params.aggregate) {
+                    type Agg = { sc: number; ss: number; tt: number; log: number; sto: number; rc: number };
+                    const byKey = new Map<string, Agg>();
+                    let rrdid = Number(params.rrdid || 0);
+
+                    for (let attempt = 0; attempt < maxPages; attempt++) {
+                        const url = `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=${dateFrom}&dateTo=${dateTo}&rrdid=${rrdid}&limit=${limit}`;
+                        const page = await wbGet(url, WB_TOKEN) as Record<string, unknown>[];
+                        if (!Array.isArray(page) || !page.length) break;
+
+                        for (const row of page) {
+                            const nm = String(row.nm_id ?? '');
+                            if (filterNmId && nm !== filterNmId) continue;
+                            const date = String(row.sale_dt ?? '').split('T')[0];
+                            if (!date) continue;
+                            const key = `${nm}|${date}`;
+                            if (!byKey.has(key)) byKey.set(key, { sc: 0, ss: 0, tt: 0, log: 0, sto: 0, rc: 0 });
+                            const d = byKey.get(key)!;
+                            const type = String(row.doc_type_name ?? '').toLowerCase();
+                            const qty  = Number(row.quantity || 0);
+                            if (type === 'продажа') {
+                                d.sc += qty;
+                                d.ss += Number(row.retail_price_withdisc_rub || 0) * qty;
+                                d.tt += Number(row.ppvz_for_pay || 0);
+                            } else if (type === 'возврат') {
+                                d.rc += qty;
+                                d.tt += Number(row.ppvz_for_pay || 0);
+                            }
+                            d.log += Number(row.delivery_rub || 0);
+                            d.sto += Number(row.storage_fee  || 0);
+                        }
+
+                        if (page.length < limit) break;
+                        rrdid = Number(page[page.length - 1].rrd_id || 0);
+                    }
+
+                    result = Array.from(byKey.entries()).map(([key, d]) => {
+                        const [nm_id, date] = key.split('|');
+                        return { nm_id: Number(nm_id), date, ...d };
+                    });
+                    break;
+                }
+
+                // Dashboard mode: raw rows with smaller pages
                 const rows: unknown[] = [];
-                let rrdid = 0;
-                const limit = 100000;
-                // Paginate through the full report (max 10 pages to avoid timeout)
-                for (let attempt = 0; attempt < 10; attempt++) {
-                    const url = `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=${params.dateFrom}&dateTo=${params.dateTo}&rrdid=${rrdid}&limit=${limit}`;
+                let rrdid = Number(params.rrdid || 0);
+                for (let attempt = 0; attempt < maxPages; attempt++) {
+                    const url = `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=${dateFrom}&dateTo=${dateTo}&rrdid=${rrdid}&limit=${limit}`;
                     const page = await wbGet(url, WB_TOKEN) as unknown[];
                     if (!Array.isArray(page) || !page.length) break;
                     rows.push(...page);
