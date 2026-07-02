@@ -136,44 +136,97 @@ const RNP = (() => {
         return { vol, part, basket, basketStr };
     }
 
+    function _photoUrls(nmId, size = 'c516x688') {
+        const { vol, part, basket, basketStr } = _photoMeta(nmId);
+        const urls = [];
+        const sizes = size === 'c246x328'
+            ? ['c246x328', 'tm', 'big']
+            : ['c516x688', 'big', 'tm', 'c246x328'];
+        const exts = ['webp', 'jpg'];
+        [basketStr, String(basket).padStart(2, '0')].forEach(b => {
+            sizes.forEach(s => {
+                exts.forEach(ext => {
+                    urls.push(`https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${s}/1.${ext}`);
+                    urls.push(`https://basket-${b}.wb.ru/vol${vol}/part${part}/${nmId}/images/${s}/1.${ext}`);
+                });
+            });
+        });
+        return [...new Set(urls)];
+    }
+
     function _photoUrl(nmId, size = 'c516x688') {
-        const { vol, part, basketStr } = _photoMeta(nmId);
-        return `https://basket-${basketStr}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${size}/1.webp`;
+        return _photoUrls(nmId, size)[0];
+    }
+
+    const _photoResolveCache = {};
+
+    async function _ensurePhoto(art) {
+        if (!art?.nm_id) return;
+        if (_photoResolveCache[art.nm_id]) {
+            art.photo_url = _photoResolveCache[art.nm_id];
+            return;
+        }
+        if (art.photo_url?.startsWith('http') && !art.photo_url.includes('wbbasket')) {
+            _photoResolveCache[art.nm_id] = art.photo_url;
+            return;
+        }
+        try {
+            const r = await fetch(
+                `https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&nm=${art.nm_id}`,
+                { referrerPolicy: 'no-referrer' }
+            );
+            const j = await r.json();
+            const prod = j.data?.products?.[0];
+            if (prod?.id) {
+                const url = _photoUrl(prod.id, 'big');
+                _photoResolveCache[art.nm_id] = url;
+                art.photo_url = url;
+                if (_db && _cab) {
+                    _db.from('rnp_articles').update({ photo_url: url })
+                        .eq('cabinet_id', _cab).eq('nm_id', art.nm_id).then(() => {});
+                }
+            }
+        } catch (e) { /* basket fallback in img */ }
     }
 
     function _imgHtml(art, className, size = 'c516x688', extraStyle = '') {
         const nmId = art.nm_id;
         const meta = _photoMeta(nmId);
-        const src = (art.photo_url && art.photo_url.startsWith('http'))
-            ? art.photo_url
-            : _photoUrl(nmId, size);
+        const src = _photoResolveCache[nmId]
+            || (art.photo_url?.startsWith('http') ? art.photo_url : null)
+            || _photoUrl(nmId, size);
         const cls = className ? ` class="${className}"` : '';
         const sty = extraStyle ? ` style="${extraStyle}"` : '';
+        const urls = _photoUrls(nmId, size).slice(0, 12).join('|');
         return `<img${cls}${sty} src="${src}" referrerpolicy="no-referrer" loading="lazy" alt=""
           data-nmid="${nmId}" data-vol="${meta.vol}" data-part="${meta.part}" data-basket="${meta.basket}" data-size="${size}"
+          data-urls="${urls}"
           onerror="RNP.imgFallback(this)">`;
     }
 
     function imgFallback(img) {
         const attempt = parseInt(img.dataset.attempt || '0', 10) + 1;
         img.dataset.attempt = String(attempt);
+        const queue = (img.dataset.urls || '').split('|').filter(Boolean);
+        if (attempt <= queue.length) {
+            img.src = queue[attempt - 1];
+            return;
+        }
         const nmId = img.dataset.nmid;
         const vol = img.dataset.vol;
         const part = img.dataset.part;
-        const size = img.dataset.size || 'c516x688';
         const base = parseInt(img.dataset.basket || '1', 10);
-        if (attempt <= 6) {
-            const delta = Math.ceil(attempt / 2) * (attempt % 2 ? 1 : -1);
-            const b = String(Math.max(1, Math.min(99, base + delta))).padStart(2, '0');
-            img.src = `https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${size}/1.webp`;
+        if (attempt <= queue.length + 8) {
+            const i = attempt - queue.length - 1;
+            const b = String(Math.max(1, Math.min(99, base + (i % 2 ? Math.ceil(i / 2) : -Math.ceil(i / 2))))).padStart(2, '0');
+            img.src = `https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/big/1.jpg`;
             return;
         }
-        if (attempt === 7) {
-            img.src = `https://basket-${String(base).padStart(2, '0')}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/big/1.jpg`;
-            return;
-        }
-        img.style.background = 'var(--surface)';
-        img.alt = 'нет фото';
+        img.onerror = null;
+        img.classList.add('rnp-photo-fail');
+        img.src = 'data:image/svg+xml,' + encodeURIComponent(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="100" viewBox="0 0 80 100"><rect fill="%23eee" width="80" height="100"/><text x="40" y="52" text-anchor="middle" fill="%23999" font-size="10" font-family="sans-serif">WB</text></svg>'
+        );
     }
 
     // ─── SETTINGS ─────────────────────────────────────────────────────────────
@@ -587,20 +640,18 @@ const RNP = (() => {
         _notesCache[nmId][date] = { text: t, history: hist };
     }
 
-    function _buildNotesRow(cols, art) {
+    function _buildNotesHeadCells(cols, art) {
         const nmId = art.nm_id;
-        const cells = cols.map(col => {
+        return cols.map(col => {
             const d = col.colKey || col.date || col.weekStart;
-            const text = _notesCache[nmId]?.[d]?.text || '';
+            const text = (_notesCache[nmId]?.[d]?.text || '').replace(/"/g, '&quot;');
             const tip = _noteTip(nmId, d).replace(/"/g, '&quot;');
-            return `<td class="rnp-data-col"><input class="rnp-note-input" value="${text.replace(/"/g, '&quot;')}"
-              title="${tip}" placeholder="…"
-              onchange="RNP.saveNote(${nmId},'${d}',this.value)"></td>`;
+            return `<th class="rnp-th-note rnp-data-col">
+              <input class="rnp-note-input" value="${text}" title="${tip || 'Комментарий к дате'}"
+                placeholder="+"
+                onblur="RNP.saveNote(${nmId},'${d}',this.value)">
+            </th>`;
         }).join('');
-        return `<tr class="rnp-notes-row">
-          <td class="rnp-metric-col" style="font-size:8px;color:var(--text-muted)">📝 Заметки</td>
-          <td class="rnp-spark-col"></td>${cells}
-        </tr>`;
     }
 
     function _buildActionBar(active) {
@@ -618,6 +669,7 @@ const RNP = (() => {
           </select>
           <button type="button" class="rnp-action-btn${_compareNm ? ' active' : ''}" onclick="RNP.toggleCompare()" ${_activeNm === SUMMARY_TAB ? 'disabled' : ''}>A/B</button>
           <button type="button" class="rnp-action-btn" onclick="RNP.exportExcel()">⬇ Excel</button>
+          <span style="color:var(--text-muted);font-size:9px;margin-left:4px" title="Строка комментариев — сразу под датами">💬 коммент. под датами</span>
         </div>`;
     }
 
@@ -1417,6 +1469,12 @@ const RNP = (() => {
         const art = _articles.find(a => a.nm_id == _activeNm);
         if (!art) return;
 
+        await _ensurePhoto(art);
+        if (_compareNm) {
+            const art2 = _articles.find(a => a.nm_id == _compareNm);
+            if (art2) await _ensurePhoto(art2);
+        }
+
         const rawData = _dataCache[art.nm_id] || {};
         const stockBySize = _stockCache[art.nm_id] || {};
 
@@ -1442,6 +1500,11 @@ const RNP = (() => {
         _updateTabHighlight();
         const bar = document.getElementById('rnp-action-bar-wrap');
         if (bar) bar.innerHTML = _buildActionBar(active);
+
+        if (_photoResolveCache[art.nm_id]) {
+            const ph = body.querySelector('.rnp-top-photo img');
+            if (ph) ph.src = _photoResolveCache[art.nm_id];
+        }
     }
 
     function _buildTableHTML(art, rawData, cal) {
@@ -1464,8 +1527,8 @@ const RNP = (() => {
         <table class="rnp-sheet-table">
           <thead>
             <tr>
-              <th class="rnp-th-metric" rowspan="2">Метрика</th>
-              <th class="rnp-th-spark" rowspan="2">↗</th>
+              <th class="rnp-th-metric" rowspan="3">Метрика</th>
+              <th class="rnp-th-spark" rowspan="3">↗</th>
               <th class="rnp-th-month" colspan="${nPrev}">${cal.prevName}</th>
               <th class="rnp-th-month" colspan="${nCurr}" style="color:var(--accent);border-left:2px solid var(--accent)">${cal.currName}</th>
             </tr>
@@ -1473,9 +1536,11 @@ const RNP = (() => {
               ${cal.weeks.map(w => `<th class="rnp-th-day rnp-th-week">${w.label}</th>`).join('')}
               ${cal.days.map((d,i) => `<th class="rnp-th-day${d.isToday?' today':''}${d.isFuture?' rnp-th-future':''}${i===0?' rnp-cell-month-start':''}">${d.label}${d.dow ? `<span class="rnp-dow">${d.dow}</span>` : ''}</th>`).join('')}
             </tr>
+            <tr class="rnp-notes-head-row">
+              ${_buildNotesHeadCells(cols, art)}
+            </tr>
           </thead>
           <tbody>
-            ${_buildNotesRow(cols, art)}
             ${_sectionsForView().map(s => _renderSection(s, cols, art, firstDayIdx)).join('')}
           </tbody>
         </table>`;

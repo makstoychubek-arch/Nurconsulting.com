@@ -83,8 +83,40 @@
             min-height: 100vh;
             background: var(--sidebar-bg);
             border-right: 1px solid var(--border);
-            transition: background 0.35s ease;
+            transition: width 0.22s ease, background 0.35s ease;
         }
+        /* Свёрнутый сайдбар — только лого, раскрытие по hover / клику */
+        .sidebar-rail {
+            width: 68px;
+            overflow-x: hidden;
+            overflow-y: auto;
+            z-index: 50;
+        }
+        .sidebar-rail:hover,
+        .sidebar-rail.sidebar-pinned { width: 260px; }
+        .main-rail {
+            margin-left: 68px;
+            transition: margin-left 0.22s ease;
+        }
+        .sidebar-rail:hover ~ .main-rail,
+        .sidebar-rail.sidebar-pinned ~ .main-rail { margin-left: 260px; }
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .sidebar-brand .flex.items-baseline { display: none; }
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .sidebar-brand { justify-content: center; }
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .nav-item > span { display: none; }
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .nav-item { justify-content: center; gap: 0; padding: 10px 8px; margin: 2px 8px; }
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .menu-group-title {
+            justify-content: center; font-size: 0; padding: 8px; margin: 8px 8px 2px;
+        }
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .menu-group-title .arrow { display: none; }
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .menu-group-title svg { width: 16px; height: 16px; }
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .menu-sub { max-height: 0 !important; }
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .sidebar-theme-label,
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) #sidebar-user,
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .cabinet-select,
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .sidebar-footer .nav-item span { display: none; }
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .sidebar-footer .nav-item { justify-content: center; }
+        .sidebar-rail:not(:hover):not(.sidebar-pinned) .sidebar-theme-row { justify-content: center; padding: 10px 8px; }
+        .sidebar-brand-icon { cursor: pointer; flex-shrink: 0; }
         .glass, .widget-card {
             background: var(--surface);
             backdrop-filter: var(--use-blur);
@@ -211,7 +243,7 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes toast-bar { from { width: 100%; } to { width: 0%; } }
         /* ── RNP Spreadsheet (Google Sheets style) ── */
-        .rnp-workspace { display: flex; flex-direction: column; gap: 0; height: calc(100vh - 130px); max-height: calc(100vh - 130px); }
+        .rnp-workspace { display: flex; flex-direction: column; gap: 0; height: calc(100vh - 130px); max-height: calc(100vh - 130px); overflow: hidden; }
         .main-content.rnp-compact { padding: 10px 14px; }
         .rnp-header-refresh {
             display: inline-flex; align-items: center; justify-content: center;
@@ -253,12 +285,14 @@
         }
         .rnp-top-panel {
             display: grid;
-            grid-template-columns: auto 1fr auto;
+            grid-template-columns: auto 1fr minmax(0, 1fr);
             gap: 0;
             border-bottom: 2px solid var(--border);
             background: #fff;
             min-height: 130px;
             flex-shrink: 0;
+            width: 100%;
+            overflow: hidden;
         }
         [data-theme="neon"] .rnp-top-panel { background: var(--surface); }
         .rnp-top-photo {
@@ -298,13 +332,17 @@
         .rnp-top-actions { margin-top: auto; }
         .rnp-top-stock-wrap {
             overflow-x: auto; padding: 4px 6px; align-self: stretch;
-            display: flex; align-items: center; max-width: 52vw;
+            display: flex; align-items: center; min-width: 0;
         }
-        .rnp-table-scroll { overflow: auto; flex: 1; min-height: 0; }
+        .rnp-table-scroll {
+            overflow: auto; flex: 1; min-height: 0; min-width: 0;
+            width: 100%; position: relative;
+            -webkit-overflow-scrolling: touch;
+        }
         .rnp-sheet-table {
             border-collapse: separate; border-spacing: 0;
-            font-size: 9px; min-width: max-content; width: 100%;
-            --rnp-h1: 20px; --rnp-h2: 36px;
+            font-size: 9px; width: max-content; min-width: 100%;
+            --rnp-h1: 20px; --rnp-h2: 36px; --rnp-h3: 52px;
         }
         .rnp-sheet-table th, .rnp-sheet-table td {
             border: 1px solid var(--border); padding: 1px 3px; text-align: center;
@@ -316,19 +354,25 @@
         }
         .rnp-sheet-table thead tr:nth-child(1) th { top: 0; z-index: 22; height: var(--rnp-h1); }
         .rnp-sheet-table thead tr:nth-child(2) th { top: var(--rnp-h1); z-index: 21; height: calc(var(--rnp-h2) - var(--rnp-h1)); }
+        .rnp-sheet-table thead tr.rnp-notes-head-row th {
+            top: var(--rnp-h2); z-index: 20; height: 18px; padding: 0 1px;
+            background: rgba(99,102,241,0.07); vertical-align: middle;
+        }
         .rnp-sheet-table thead .rnp-th-metric,
-        .rnp-sheet-table thead .rnp-th-spark { top: 0; z-index: 32; }
+        .rnp-sheet-table thead .rnp-th-spark { top: 0; z-index: 35; }
         .rnp-sheet-table .rnp-metric-col {
             text-align: left; min-width: 132px; max-width: 132px; width: 132px;
-            position: sticky; left: 0; z-index: 6; background: var(--surface);
+            position: sticky; left: 0; z-index: 8; background: var(--surface);
             padding: 1px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             font-weight: 400; color: var(--text-secondary);
             border-right: 2px solid var(--border-strong);
+            box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12);
         }
         .rnp-sheet-table .rnp-th-metric {
-            position: sticky; left: 0; z-index: 33; background: var(--surface);
+            position: sticky; left: 0; z-index: 36; background: var(--surface);
             text-align: left; min-width: 132px; width: 132px; font-size: 9px; font-weight: 700;
             color: var(--text-muted); border-right: 2px solid var(--border-strong);
+            box-shadow: 3px 0 6px -2px rgba(0,0,0,0.12);
         }
         .rnp-sheet-table .rnp-th-month { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 4px; }
         .rnp-sheet-table .rnp-th-day {
@@ -368,14 +412,16 @@
         .rnp-stock-table tr.rnp-row-sum td.rnp-size-zero { background: #f8d7da; color: #721c24; }
         .rnp-stock-table tr.rnp-row-sale td:not(.rnp-stock-label):not(.rnp-size-zero) { background: #d4edda; color: #155724; }
         .rnp-sheet-table .rnp-th-spark {
-            position: sticky; left: 132px; z-index: 33; background: var(--surface);
+            position: sticky; left: 132px; z-index: 36; background: var(--surface);
             min-width: 40px; max-width: 40px; width: 40px;
             border-right: 1px solid var(--border); font-size: 8px; color: var(--text-muted);
+            box-shadow: 3px 0 6px -2px rgba(0,0,0,0.08);
         }
         .rnp-sheet-table .rnp-spark-col {
-            position: sticky; left: 132px; z-index: 5; background: var(--surface);
+            position: sticky; left: 132px; z-index: 7; background: var(--surface);
             min-width: 40px; max-width: 40px; width: 40px; padding: 0 1px;
             border-right: 1px solid var(--border);
+            box-shadow: 3px 0 6px -2px rgba(0,0,0,0.08);
         }
         .rnp-sheet-table .rnp-metric-col { min-width: 132px; max-width: 132px; width: 132px; }
         .rnp-sheet-table .rnp-th-metric { min-width: 132px; width: 132px; }
@@ -433,10 +479,13 @@
         .rnp-summary-name { text-align: left; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .rnp-note-input {
             width: 100%; border: none; background: transparent; font-size: 8px;
-            color: var(--text-muted); text-align: center; padding: 0 1px;
+            color: var(--text-secondary); text-align: center; padding: 2px 1px;
+            min-height: 14px;
         }
-        .rnp-note-input:focus { outline: none; background: rgba(128,128,128,0.1); color: var(--text-primary); }
-        .rnp-notes-row td { background: rgba(99,102,241,0.04); padding: 1px 2px; vertical-align: middle; }
+        .rnp-note-input::placeholder { color: var(--text-muted); opacity: 0.6; }
+        .rnp-note-input:focus { outline: none; background: rgba(99,102,241,0.12); color: var(--text-primary); }
+        .rnp-th-notes-label { font-size: 8px !important; color: var(--text-muted) !important; text-align: left !important; padding-left: 6px !important; }
+        .rnp-top-photo img.rnp-photo-fail { object-fit: contain; padding: 8px; opacity: 0.35; }
         .rnp-compare-split { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 2px solid var(--accent); }
         .rnp-compare-split .rnp-top-panel { min-height: 110px; border-bottom: none; }
         .rnp-compare-split .rnp-top-photo { width: 72px; }
@@ -599,7 +648,10 @@
                 background: var(--accent-soft); border: 1px solid var(--accent-border);
                 cursor: pointer; color: var(--accent); font-size: 18px;
             }
-            main { margin-left: 0 !important; }
+            .sidebar-rail { width: 260px; }
+            .sidebar-rail:hover ~ .main-rail,
+            .sidebar-rail.sidebar-pinned ~ .main-rail { margin-left: 0; }
+            .main-rail { margin-left: 0 !important; }
             .mobile-overlay {
                 display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
                 z-index: 45; backdrop-filter: blur(4px);
@@ -611,10 +663,10 @@
     </style>
 </head>
 <body class="flex overflow-hidden h-screen">
-    <aside class="sidebar flex flex-col fixed left-0 top-0 z-40 h-full overflow-y-auto shrink-0">
+    <aside class="sidebar sidebar-rail flex flex-col fixed left-0 top-0 z-40 h-full overflow-y-auto shrink-0">
         <div class="px-5 py-4 border-b" style="border-color:var(--border)">
             <div class="sidebar-brand">
-                <div class="sidebar-brand-icon">NR</div>
+                <div class="sidebar-brand-icon" id="sidebar-pin-btn" title="Закрепить меню">NR</div>
                 <div class="flex items-baseline gap-1">
                     <span class="sidebar-brand-nr">NR</span>
                     <span class="sidebar-brand-space">SPACE</span>
@@ -853,7 +905,7 @@
         </div>
     </div>
 
-    <main class="flex-1 ml-[260px] flex flex-col h-full overflow-hidden">
+    <main class="main-rail flex-1 flex flex-col h-full overflow-hidden">
         <div class="mobile-overlay" id="mobile-overlay" onclick="closeMobileMenu()"></div>
 
         <header class="glass border-b px-6 py-4 shrink-0 rounded-none" style="border-color:var(--border);border-radius:0">
@@ -2509,6 +2561,11 @@
             // Tab is switched — now fade out overlay
             hideOverlay();
         }, 1500);
+
+        document.getElementById('sidebar-pin-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            document.querySelector('.sidebar-rail')?.classList.toggle('sidebar-pinned');
+        });
     });
 </script>
     <script src="/dashboard-charts.js"></script>
