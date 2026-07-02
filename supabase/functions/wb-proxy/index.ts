@@ -151,16 +151,17 @@ serve(async (req) => {
                         headers: { Authorization: WB_TOKEN }
                     });
                     const text1 = await res1.text();
-                    console.log('[wb-proxy] promotion/count status:', res1.status, 'body:', text1.slice(0, 300));
+                    console.log('[wb-proxy] promotion/count status:', res1.status, 'body:', text1.slice(0, 600));
                     if (res1.ok) {
                         const data1 = JSON.parse(text1);
                         const groups = data1?.adverts;
                         if (Array.isArray(groups)) {
                             for (const g of groups) {
-                                if (Array.isArray(g?.adverts)) {
-                                    for (const a of g.adverts) {
-                                        if (a?.advertId) allIds.push(Number(a.advertId));
-                                    }
+                                // g may be an array of campaigns OR an object with .adverts
+                                const inner: unknown[] = Array.isArray(g) ? g : (Array.isArray(g?.adverts) ? g.adverts : []);
+                                for (const a of inner as Record<string, unknown>[]) {
+                                    const id = a?.advertId ?? a?.id ?? a?.advert_id;
+                                    if (id) allIds.push(Number(id));
                                 }
                             }
                         }
@@ -175,12 +176,13 @@ serve(async (req) => {
                             headers: { Authorization: WB_TOKEN }
                         });
                         const text2 = await res2.text();
-                        console.log('[wb-proxy] advert/v2 status:', res2.status, 'body:', text2.slice(0, 300));
+                        console.log('[wb-proxy] advert/v2 status:', res2.status, 'body:', text2.slice(0, 600));
                         if (res2.ok) {
                             const data2 = JSON.parse(text2);
-                            const adverts = data2?.adverts || (Array.isArray(data2) ? data2 : []);
+                            const adverts: Record<string, unknown>[] = data2?.adverts || (Array.isArray(data2) ? data2 : []);
                             for (const a of adverts) {
-                                if (a?.advertId) allIds.push(Number(a.advertId));
+                                const id = a?.advertId ?? a?.id ?? a?.advert_id;
+                                if (id) allIds.push(Number(id));
                             }
                         }
                     } catch(e) {
