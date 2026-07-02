@@ -78,45 +78,129 @@
             transition: background 0.35s ease, color 0.35s ease;
             font-family: 'Inter', 'Plus Jakarta Sans', sans-serif;
         }
-        .sidebar {
-            width: 260px;
-            min-height: 100vh;
+        /* ── Sidebar: icon rail + flyout (Sellego-style) ── */
+        .sidebar-app {
+            position: fixed; left: 0; top: 0; z-index: 50;
+            display: flex; height: 100vh; pointer-events: none;
+        }
+        .sidebar-app > * { pointer-events: auto; }
+        .sidebar-rail {
+            width: 72px; min-width: 72px; height: 100vh;
             background: var(--sidebar-bg);
             border-right: 1px solid var(--border);
-            transition: width 0.22s ease, background 0.35s ease;
+            display: flex; flex-direction: column;
+            align-items: center; padding: 14px 0 12px;
         }
-        /* Свёрнутый сайдбар — только лого, раскрытие по hover / клику */
-        .sidebar-rail {
-            width: 68px;
-            overflow-x: hidden;
-            overflow-y: auto;
-            z-index: 50;
+        .main-rail { margin-left: 72px; }
+        .rail-logo {
+            width: 40px; height: 40px; border: none; border-radius: 12px;
+            background: var(--text-primary); color: var(--sidebar-bg);
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; flex-shrink: 0; margin-bottom: 18px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
         }
-        .sidebar-rail:hover,
-        .sidebar-rail.sidebar-pinned { width: 260px; }
-        .main-rail {
-            margin-left: 68px;
-            transition: margin-left 0.22s ease;
+        [data-theme="neon"] .rail-logo { background: #fff; color: #0D0D12; }
+        .rail-logo:hover { transform: scale(1.04); }
+        .rail-logo svg { width: 22px; height: 22px; }
+        .rail-nav {
+            flex: 1; display: flex; flex-direction: column; align-items: center;
+            gap: 4px; width: 100%; overflow-y: auto; padding: 0 8px;
         }
-        .sidebar-rail:hover ~ .main-rail,
-        .sidebar-rail.sidebar-pinned ~ .main-rail { margin-left: 260px; }
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .sidebar-brand .flex.items-baseline { display: none; }
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .sidebar-brand { justify-content: center; }
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .nav-item > span { display: none; }
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .nav-item { justify-content: center; gap: 0; padding: 10px 8px; margin: 2px 8px; }
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .menu-group-title {
-            justify-content: center; font-size: 0; padding: 8px; margin: 8px 8px 2px;
+        .rail-btn {
+            width: 100%; border: none; background: transparent; cursor: pointer;
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            padding: 8px 4px 6px; border-radius: 12px;
+            color: var(--text-muted); transition: color 0.1s ease, background 0.1s ease;
         }
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .menu-group-title .arrow { display: none; }
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .menu-group-title svg { width: 16px; height: 16px; }
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .menu-sub { max-height: 0 !important; }
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .sidebar-theme-label,
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) #sidebar-user,
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .cabinet-select,
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .sidebar-footer .nav-item span { display: none; }
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .sidebar-footer .nav-item { justify-content: center; }
-        .sidebar-rail:not(:hover):not(.sidebar-pinned) .sidebar-theme-row { justify-content: center; padding: 10px 8px; }
-        .sidebar-brand-icon { cursor: pointer; flex-shrink: 0; }
+        .rail-btn-ico {
+            width: 36px; height: 36px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.1s ease, color 0.1s ease;
+        }
+        .rail-btn-ico svg { width: 18px; height: 18px; opacity: 0.75; }
+        .rail-btn-lbl {
+            font-size: 9px; font-weight: 600; letter-spacing: 0.01em;
+            line-height: 1.1; max-width: 64px; text-align: center;
+        }
+        .rail-btn:hover { color: var(--text-secondary); }
+        .rail-btn:hover .rail-btn-ico { background: var(--accent-soft); }
+        .rail-btn:hover .rail-btn-ico svg { opacity: 1; }
+        .rail-btn.active { color: var(--text-primary); }
+        .rail-btn.active .rail-btn-ico {
+            background: rgba(16,185,129,0.14); color: #059669;
+        }
+        [data-theme="neon"] .rail-btn.active .rail-btn-ico {
+            background: rgba(52,211,153,0.16); color: #34D399;
+        }
+        .rail-btn.active .rail-btn-ico svg { opacity: 1; }
+        .rail-bottom {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 6px; padding: 10px 8px 0; width: 100%;
+            border-top: 1px solid var(--border); margin-top: 8px;
+        }
+        .rail-icon-btn {
+            width: 36px; height: 36px; border: none; border-radius: 10px;
+            background: transparent; color: var(--text-muted); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.1s ease, color 0.1s ease;
+        }
+        .rail-icon-btn:hover { background: var(--accent-soft); color: var(--text-primary); }
+        .rail-icon-btn svg { width: 17px; height: 17px; opacity: 0.8; }
+        .rail-avatar {
+            width: 32px; height: 32px; border-radius: 50%;
+            background: var(--accent-gradient); color: #fff;
+            font-size: 11px; font-weight: 800;
+            display: flex; align-items: center; justify-content: center;
+            cursor: default; margin-top: 4px;
+        }
+        .sidebar-flyout {
+            position: fixed; left: 72px; top: 0;
+            width: 228px; height: 100vh;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            box-shadow: 8px 0 32px rgba(15,23,42,0.08);
+            display: flex; flex-direction: column;
+            opacity: 0; visibility: hidden;
+            transform: translateX(-6px);
+            transition: opacity 0.1s ease, transform 0.1s ease, visibility 0.1s;
+            pointer-events: none; z-index: 49;
+        }
+        [data-theme="neon"] .sidebar-flyout { box-shadow: 8px 0 40px rgba(0,0,0,0.45); }
+        .sidebar-flyout.visible, .sidebar-flyout.pinned {
+            opacity: 1; visibility: visible; transform: translateX(0); pointer-events: auto;
+        }
+        .flyout-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 16px 12px; flex-shrink: 0;
+        }
+        .flyout-title { font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
+        .flyout-pin {
+            width: 28px; height: 28px; border: none; border-radius: 8px;
+            background: transparent; color: var(--text-muted); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.1s ease, color 0.1s ease;
+        }
+        .flyout-pin:hover { background: var(--accent-soft); color: var(--text-primary); }
+        .flyout-pin.pinned { color: var(--accent); background: var(--accent-soft); }
+        .flyout-pin svg { width: 14px; height: 14px; }
+        .flyout-body { flex: 1; overflow-y: auto; padding: 4px 10px 16px; }
+        .flyout-body .nav-item {
+            margin: 1px 0; padding: 9px 12px; border-radius: 10px;
+            font-size: 13px; transform: none !important;
+        }
+        .flyout-body .nav-item:hover { transform: none; background: var(--accent-soft); }
+        .flyout-body .nav-item.active {
+            background: var(--accent-soft); color: var(--accent);
+            font-weight: 600; box-shadow: none; border-color: transparent;
+        }
+        .flyout-body .nav-item.active .nav-ico { opacity: 1; color: var(--accent); }
+        .flyout-user {
+            padding: 12px 16px; border-top: 1px solid var(--border);
+            display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+        }
+        .flyout-user-name { font-size: 12px; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .flyout-user-role { font-size: 10px; color: var(--text-muted); }
         .glass, .widget-card {
             background: var(--surface);
             backdrop-filter: var(--use-blur);
@@ -201,16 +285,6 @@
         [data-theme="neon"] .theme-icon-moon { opacity: 0.9; color: var(--accent); }
         [data-theme="ios"] .theme-icon-sun { opacity: 0.9; color: var(--amber); }
         [data-theme="ios"] .theme-icon-moon { opacity: 0.25; }
-        .sidebar-brand { display: flex; align-items: center; gap: 10px; }
-        .sidebar-brand-icon {
-            width: 36px; height: 36px; border-radius: 11px;
-            background: var(--accent-gradient);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 11px; font-weight: 800; color: white; letter-spacing: -0.04em;
-            box-shadow: 0 4px 12px rgba(232,86,142,0.3);
-        }
-        .sidebar-brand-nr { font-weight: 800; font-size: 17px; background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: -0.03em; }
-        .sidebar-brand-space { font-weight: 500; font-size: 17px; color: var(--text-primary); letter-spacing: 0.04em; }
         .section-title { font-size: 13px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
         .section-title::before { content: ''; width: 3px; height: 14px; border-radius: 2px; background: var(--accent-gradient); }
         .kpi-hero-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 20px; box-shadow: var(--card-shadow); transition: all 0.25s ease; }
@@ -227,10 +301,6 @@
         .metrics-details summary { padding: 16px 20px; cursor: pointer; font-weight: 700; font-size: 14px; color: var(--text-primary); list-style: none; display: flex; align-items: center; justify-content: space-between; }
         .metrics-details summary::-webkit-details-marker { display: none; }
         .metrics-details .metrics-inner { padding: 0 20px 20px; }
-        .sidebar-footer { border-top: 1px solid var(--border); padding: 12px; }
-        .sidebar-footer .nav-item { margin: 2px 0; }
-        .sidebar-theme-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; margin-top: 8px; }
-        .sidebar-theme-label { font-size: 11px; color: var(--text-muted); font-weight: 500; }
         .header-greeting { font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
         .header-title { font-size: 20px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
         .header-profile { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); }
@@ -633,12 +703,12 @@
         .mobile-menu-btn { display: none; }
 
         @media (max-width: 768px) {
-            .sidebar {
+            .sidebar-app {
                 transform: translateX(-100%);
-                transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-                z-index: 50;
+                transition: transform 0.25s ease;
+                pointer-events: auto;
             }
-            .sidebar.mobile-open {
+            .sidebar-app.mobile-open {
                 transform: translateX(0);
                 box-shadow: 4px 0 40px rgba(0,0,0,0.15);
             }
@@ -648,9 +718,7 @@
                 background: var(--accent-soft); border: 1px solid var(--accent-border);
                 cursor: pointer; color: var(--accent); font-size: 18px;
             }
-            .sidebar-rail { width: 260px; }
-            .sidebar-rail:hover ~ .main-rail,
-            .sidebar-rail.sidebar-pinned ~ .main-rail { margin-left: 0; }
+            .sidebar-flyout { left: 72px; }
             .main-rail { margin-left: 0 !important; }
             .mobile-overlay {
                 display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
@@ -663,196 +731,188 @@
     </style>
 </head>
 <body class="flex overflow-hidden h-screen">
-    <aside class="sidebar sidebar-rail flex flex-col fixed left-0 top-0 z-40 h-full overflow-y-auto shrink-0">
-        <div class="px-5 py-4 border-b" style="border-color:var(--border)">
-            <div class="sidebar-brand">
-                <div class="sidebar-brand-icon" id="sidebar-pin-btn" title="Закрепить меню">NR</div>
-                <div class="flex items-baseline gap-1">
-                    <span class="sidebar-brand-nr">NR</span>
-                    <span class="sidebar-brand-space">SPACE</span>
-                </div>
+    <div class="sidebar-app" id="sidebar-app">
+        <aside class="sidebar-rail">
+            <button type="button" class="rail-logo" id="sidebar-home-btn" title="NR Space">
+                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h8l6 18h-4.2l-1.1-3.4H7.3L6.2 21H2L6 3zm4.8 11.2h3.4L10 7.8 10.8 14.2z"/></svg>
+            </button>
+            <nav class="rail-nav">
+                <button type="button" class="rail-btn active" data-flyout="fly-ocr">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+                    <span class="rail-btn-lbl">Отчёты</span>
+                </button>
+                <button type="button" class="rail-btn" data-flyout="fly-rnp">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
+                    <span class="rail-btn-lbl">РНП</span>
+                </button>
+                <button type="button" class="rail-btn" data-flyout="fly-goods">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>
+                    <span class="rail-btn-lbl">Товары</span>
+                </button>
+                <button type="button" class="rail-btn" data-flyout="fly-finance">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>
+                    <span class="rail-btn-lbl">Финансы</span>
+                </button>
+                <button type="button" class="rail-btn" data-flyout="fly-manage">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg></span>
+                    <span class="rail-btn-lbl">Ещё</span>
+                </button>
+                <button type="button" class="rail-btn" data-flyout="fly-tariffs">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+                    <span class="rail-btn-lbl">Тарифы</span>
+                </button>
+            </nav>
+            <div class="rail-bottom">
+                <button type="button" class="rail-icon-btn" onclick="showTab('abtests', document.querySelector('[data-tab=abtests]'))" title="А/Б тесты">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg>
+                </button>
+                <button type="button" class="rail-icon-btn" onclick="toggleTheme()" title="Тема">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                </button>
+                <button type="button" class="rail-icon-btn" onclick="handleLogout()" title="Выйти">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </button>
+                <div class="rail-avatar" id="user-initial">—</div>
             </div>
-        </div>
-        <nav class="flex-1 py-3 overflow-y-auto">
+        </aside>
 
-            <!-- Оцифровка -->
-            <div class="menu-group">
-                <div class="menu-group-title open" onclick="toggleMenu(this)">
-                    <span class="flex items-center gap-2">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-                        Оцифровка
-                    </span>
-                    <span class="arrow">▼</span>
+        <div class="sidebar-flyout" id="fly-ocr" data-group="ocr">
+            <div class="flyout-header">
+                <span class="flyout-title">Оцифровка</span>
+                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
+            </div>
+            <div class="flyout-body">
+                <div class="nav-item active" onclick="showTab('dashboard', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    <span>Дашборд</span>
                 </div>
-                <div class="menu-sub open">
-                    <div class="nav-item active" onclick="showTab('dashboard', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                        <span>Дашборд</span>
-                    </div>
-                    <div class="nav-item" onclick="showTab('summary', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                        <span>Сводный отчёт</span>
-                    </div>
-                    <div class="nav-item" onclick="showTab('summary-biz', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                        <span>Сводный по бизнесу</span>
-                    </div>
-                    <div class="nav-item" onclick="showTab('deductions', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                        <span>Прочие удержания</span>
-                    </div>
-                    <div class="nav-item" onclick="showTab('plan-fact', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                        <span>План-факт</span>
-                    </div>
+                <div class="nav-item" onclick="showTab('summary', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    <span>Сводный отчёт</span>
+                </div>
+                <div class="nav-item" onclick="showTab('summary-biz', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    <span>Сводный по бизнесу</span>
+                </div>
+                <div class="nav-item" onclick="showTab('deductions', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span>Прочие удержания</span>
+                </div>
+                <div class="nav-item" onclick="showTab('plan-fact', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <span>План-факт</span>
                 </div>
             </div>
-
-            <!-- РНП -->
-            <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span class="flex items-center gap-2">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-                        РНП
-                    </span>
-                    <span class="arrow">▼</span>
-                </div>
-                <div class="menu-sub">
-                    <div class="nav-item" onclick="showTab('rnp', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-                        <span>Модуль РНП</span>
-                    </div>
-                    <div class="nav-item" onclick="showTab('rnp-settings', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
-                        <span>Настройки РНП</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Товары -->
-            <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span class="flex items-center gap-2">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-                        Товары
-                    </span>
-                    <span class="arrow">▼</span>
-                </div>
-                <div class="menu-sub">
-                    <div class="nav-item" onclick="showTab('cost', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                        <span>Себестоимость</span>
-                    </div>
-                    <div class="nav-item" onclick="showTab('goods-groups', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-                        <span>Группы товаров</span>
-                    </div>
-                    <div class="nav-item" onclick="showTab('warehouse', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-                        <span>Склады</span>
-                    </div>
-                    <div class="nav-item" onclick="showTab('positions', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                        <span>Позиции в поиске</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Финансы -->
-            <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span class="flex items-center gap-2">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                        Финансы
-                    </span>
-                    <span class="arrow">▼</span>
-                </div>
-                <div class="menu-sub">
-                    <div class="nav-item" onclick="showTab('dds', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                        <span>ДДС</span>
-                    </div>
-                    <div class="nav-item" onclick="showTab('operations', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                        <span>Операции</span>
-                    </div>
-                    <div class="nav-item" onclick="showTab('obligations', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                        <span>Обязательства</span>
-                    </div>
-                    <div class="nav-item" onclick="showTab('finance-extra', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                        <span>Дополнительно</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Управление -->
-            <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span class="flex items-center gap-2">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
-                        Управление
-                    </span>
-                    <span class="arrow">▼</span>
-                </div>
-                <div class="menu-sub">
-                    <div class="nav-item" id="nav-settings" onclick="showTab('settings', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
-                        <span>Настройки</span>
-                    </div>
-                    <div class="nav-item" onclick="showTab('calculator', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
-                        <span>Калькулятор</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Тарифы -->
-            <div class="menu-group">
-                <div class="menu-group-title" onclick="toggleMenu(this)">
-                    <span class="flex items-center gap-2">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                        Тарифы
-                    </span>
-                    <span class="arrow">▼</span>
-                </div>
-                <div class="menu-sub">
-                    <div class="nav-item" onclick="showTab('tariffs', this)">
-                        <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                        <span>Тарифный план</span>
-                    </div>
-                </div>
-            </div>
-
-        </nav>
-        <div class="sidebar-footer">
-            <div class="nav-item" onclick="showTab('abtests', this)" style="opacity:0.7">
-                <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg>
-                <span>А/Б тесты фото</span>
-                <span style="margin-left:auto;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;background:var(--amber);color:#000;letter-spacing:0.05em">БЕТА</span>
-            </div>
-            <div class="nav-item" onclick="handleLogout()">
-                <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                <span>Выйти</span>
-            </div>
-            <div class="sidebar-theme-row">
-                <span class="sidebar-theme-label">Тема</span>
-                <div class="theme-pill" onclick="toggleTheme()" title="Сменить тему">
-                    <span class="theme-icon theme-icon-sun">☀</span>
-                    <span class="theme-icon theme-icon-moon">☽</span>
-                    <div class="theme-pill-thumb"></div>
-                </div>
-            </div>
-            <div class="flex items-center gap-2 px-3 pt-3 mt-2 border-t" style="border-color:var(--border)">
-                <div class="header-avatar" id="user-initial">—</div>
+            <div class="flyout-user">
+                <div class="header-avatar" id="flyout-user-initial">—</div>
                 <div class="min-w-0">
-                    <div id="sidebar-user" class="text-xs font-semibold truncate" style="color:var(--text-primary)">...</div>
-                    <div class="text-[10px]" style="color:var(--text-muted)">Сотрудник</div>
+                    <div id="sidebar-user" class="flyout-user-name">...</div>
+                    <div class="flyout-user-role">Сотрудник</div>
                 </div>
             </div>
         </div>
-    </aside>
+
+        <div class="sidebar-flyout" id="fly-rnp" data-group="rnp">
+            <div class="flyout-header">
+                <span class="flyout-title">РНП</span>
+                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
+            </div>
+            <div class="flyout-body">
+                <div class="nav-item" onclick="showTab('rnp', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                    <span>Модуль РНП</span>
+                </div>
+                <div class="nav-item" onclick="showTab('rnp-settings', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
+                    <span>Настройки РНП</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-flyout" id="fly-goods" data-group="goods">
+            <div class="flyout-header">
+                <span class="flyout-title">Товары</span>
+                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
+            </div>
+            <div class="flyout-body">
+                <div class="nav-item" onclick="showTab('cost', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    <span>Себестоимость</span>
+                </div>
+                <div class="nav-item" onclick="showTab('goods-groups', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+                    <span>Группы товаров</span>
+                </div>
+                <div class="nav-item" onclick="showTab('warehouse', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                    <span>Склады</span>
+                </div>
+                <div class="nav-item" onclick="showTab('positions', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <span>Позиции в поиске</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-flyout" id="fly-finance" data-group="finance">
+            <div class="flyout-header">
+                <span class="flyout-title">Финансы</span>
+                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
+            </div>
+            <div class="flyout-body">
+                <div class="nav-item" onclick="showTab('dds', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    <span>ДДС</span>
+                </div>
+                <div class="nav-item" onclick="showTab('operations', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                    <span>Операции</span>
+                </div>
+                <div class="nav-item" onclick="showTab('obligations', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    <span>Обязательства</span>
+                </div>
+                <div class="nav-item" onclick="showTab('finance-extra', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                    <span>Дополнительно</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-flyout" id="fly-manage" data-group="manage">
+            <div class="flyout-header">
+                <span class="flyout-title">Управление</span>
+                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
+            </div>
+            <div class="flyout-body">
+                <div class="nav-item" id="nav-settings" onclick="showTab('settings', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
+                    <span>Настройки</span>
+                </div>
+                <div class="nav-item" onclick="showTab('calculator', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
+                    <span>Калькулятор</span>
+                </div>
+                <div class="nav-item" data-tab="abtests" onclick="showTab('abtests', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg>
+                    <span>А/Б тесты фото</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar-flyout" id="fly-tariffs" data-group="tariffs">
+            <div class="flyout-header">
+                <span class="flyout-title">Тарифы</span>
+                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
+            </div>
+            <div class="flyout-body">
+                <div class="nav-item" onclick="showTab('tariffs', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                    <span>Тарифный план</span>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <div id="date-picker" class="hidden" onclick="event.stopPropagation()">
         <div style="display:flex;gap:16px">
@@ -1478,6 +1538,22 @@
 
     const tabTitles = { dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт', dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно', cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады', positions:'Позиции в поиске', rnp:'Модуль РНП', ads:'Аналитика РК', heatmap:'Тепловая карта', 'rnp-settings':'Настройки РНП', abtests:'А/Б тесты фото', logistics:'Логистика', settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики' };
 
+    const TAB_GROUP = {
+        dashboard:'ocr', summary:'ocr', 'summary-biz':'ocr', deductions:'ocr', 'plan-fact':'ocr',
+        rnp:'rnp', 'rnp-settings':'rnp',
+        cost:'goods', 'goods-groups':'goods', warehouse:'goods', positions:'goods',
+        dds:'finance', operations:'finance', obligations:'finance', 'finance-extra':'finance',
+        settings:'manage', calculator:'manage', abtests:'manage',
+        tariffs:'tariffs'
+    };
+
+    function syncRailGroup(tabName) {
+        const g = TAB_GROUP[tabName] || 'ocr';
+        document.querySelectorAll('.rail-btn[data-flyout]').forEach(b => {
+            b.classList.toggle('active', b.dataset.flyout === 'fly-' + g);
+        });
+    }
+
     function showTab(name, el) {
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.nav-item, .nav-item-standalone').forEach(n => n.classList.remove('active'));
@@ -1500,6 +1576,7 @@
         if (name === 'abtests') loadABTests();
         if (name === 'rnp') RNP.openMain();
         if (name === 'rnp-settings') RNP.openSettings();
+        syncRailGroup(name);
         // Remember last tab
         try { localStorage.setItem('nr_active_tab', name); } catch(e) {}
     }
@@ -1626,16 +1703,16 @@
 
     // Мобильное меню
     function toggleMobileMenu() {
-        const sidebar = document.querySelector('.sidebar');
+        const sidebar = document.getElementById('sidebar-app');
         const overlay = document.getElementById('mobile-overlay');
-        sidebar.classList.toggle('mobile-open');
-        overlay.classList.toggle('active');
+        sidebar?.classList.toggle('mobile-open');
+        overlay?.classList.toggle('active');
     }
     function closeMobileMenu() {
-        const sidebar = document.querySelector('.sidebar');
+        const sidebar = document.getElementById('sidebar-app');
         const overlay = document.getElementById('mobile-overlay');
-        sidebar.classList.remove('mobile-open');
-        overlay.classList.remove('active');
+        sidebar?.classList.remove('mobile-open');
+        overlay?.classList.remove('active');
     }
     // Закрываем меню при выборе пункта на мобиле
     document.addEventListener('click', function(e) {
@@ -2538,6 +2615,8 @@
         const initial = name.charAt(0).toUpperCase();
         document.getElementById('sidebar-user').textContent = name;
         document.getElementById('user-initial').textContent = initial;
+        const fi = document.getElementById('flyout-user-initial');
+        if (fi) fi.textContent = initial;
         const ha = document.getElementById('header-avatar');
         if (ha) ha.textContent = initial;
         const hun = document.getElementById('header-user-name');
@@ -2562,11 +2641,65 @@
             hideOverlay();
         }, 1500);
 
-        document.getElementById('sidebar-pin-btn')?.addEventListener('click', (e) => {
-            e.stopPropagation();
-            document.querySelector('.sidebar-rail')?.classList.toggle('sidebar-pinned');
-        });
+        initSidebarFlyouts();
     });
+
+    function initSidebarFlyouts() {
+        const app = document.getElementById('sidebar-app');
+        if (!app) return;
+        const flyouts = app.querySelectorAll('.sidebar-flyout');
+        let hideTimer = null;
+
+        function showFlyout(id) {
+            clearTimeout(hideTimer);
+            flyouts.forEach(f => f.classList.toggle('visible', f.id === id));
+        }
+        function hideFlyouts() {
+            flyouts.forEach(f => f.classList.toggle('visible', f.classList.contains('pinned')));
+        }
+
+        app.querySelectorAll('.rail-btn[data-flyout]').forEach(btn => {
+            const id = btn.dataset.flyout;
+            btn.addEventListener('mouseenter', () => showFlyout(id));
+            btn.addEventListener('click', () => showFlyout(id));
+        });
+        flyouts.forEach(fly => {
+            fly.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+            fly.addEventListener('mouseleave', () => { hideTimer = setTimeout(hideFlyouts, 60); });
+            fly.querySelector('.flyout-pin')?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const pin = e.currentTarget;
+                const now = !fly.classList.contains('pinned');
+                flyouts.forEach(f => {
+                    f.classList.remove('pinned');
+                    f.querySelector('.flyout-pin')?.classList.remove('pinned');
+                });
+                if (now) {
+                    fly.classList.add('pinned', 'visible');
+                    pin.classList.add('pinned');
+                    try { localStorage.setItem('nr_flyout_pinned', fly.id); } catch (_) {}
+                } else {
+                    try { localStorage.removeItem('nr_flyout_pinned'); } catch (_) {}
+                }
+            });
+        });
+        app.addEventListener('mouseleave', () => { hideTimer = setTimeout(hideFlyouts, 80); });
+
+        const pinnedId = localStorage.getItem('nr_flyout_pinned');
+        if (pinnedId) {
+            const f = document.getElementById(pinnedId);
+            if (f) {
+                f.classList.add('pinned', 'visible');
+                f.querySelector('.flyout-pin')?.classList.add('pinned');
+            }
+        }
+
+        document.getElementById('sidebar-home-btn')?.addEventListener('click', () => {
+            const dash = document.querySelector('#fly-ocr .nav-item');
+            showTab('dashboard', dash);
+            showFlyout('fly-ocr');
+        });
+    }
 </script>
     <script src="/dashboard-charts.js"></script>
     <script src="/rnp-module.js"></script>
