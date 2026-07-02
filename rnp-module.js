@@ -626,7 +626,7 @@ const RNP = (() => {
             const y = h - 2 - ((n - min) / range) * (h - 4);
             return `${x.toFixed(1)},${y.toFixed(1)}`;
         }).join(' ');
-        return `<svg class="rnp-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="#c4a882" stroke-width="1.5" points="${pts}"/></svg>`;
+        return `<svg class="rnp-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="var(--green)" stroke-width="1.5" points="${pts}"/></svg>`;
     }
 
     function _getSize(bySize, sz) {
@@ -1526,13 +1526,13 @@ const RNP = (() => {
         const n = parseFloat(val);
         if (isNaN(n)) return '';
         switch (hm) {
-            case 'high':   return n >= 70 ? 'rnp-plan-ok' : n >= 50 ? 'rnp-plan-warn' : 'rnp-plan-bad';
-            case 'low':    return n <= 20 ? 'rnp-plan-ok' : n <= 35 ? 'rnp-plan-warn' : 'rnp-plan-bad';
-            case 'profit': return n > 0 ? 'rnp-plan-ok' : n < 0 ? 'rnp-plan-bad' : '';
-            case 'margin': return n >= 20 ? 'rnp-plan-ok' : n >= 10 ? 'rnp-plan-warn' : 'rnp-plan-bad';
+            case 'high':   return n >= 70 ? 'rnp-green' : n >= 50 ? 'rnp-yellow' : 'rnp-red';
+            case 'low':    return n <= 20 ? 'rnp-green' : n <= 35 ? 'rnp-yellow' : 'rnp-red';
+            case 'profit': return n > 0 ? 'rnp-green' : n < 0 ? 'rnp-red' : '';
+            case 'margin': return n >= 20 ? 'rnp-green' : n >= 10 ? 'rnp-yellow' : 'rnp-red';
             case 'plan':
             case 'planStrong':
-                return n >= 100 ? 'rnp-plan-ok' : n >= 70 ? 'rnp-plan-warn' : 'rnp-plan-bad';
+                return n >= 100 ? 'rnp-green' : n >= 80 ? 'rnp-yellow' : 'rnp-red';
         }
         return '';
     }
@@ -1659,7 +1659,7 @@ const RNP = (() => {
         }
 
         el.innerHTML = `
-        <div class="rnp-workspace rnp-premium-dark">
+        <div class="rnp-workspace">
           <div class="rnp-sheet-tabs" id="rnp-sheet-tabs">
             ${_renderTabsHTML(active)}
           </div>
@@ -1721,7 +1721,7 @@ const RNP = (() => {
 
         body.innerHTML = `
           ${topHTML}
-          <div class="rnp-table-scroll rnp-gs-sheet rnp-premium-dark" id="rnp-table-wrap">
+          <div class="rnp-table-scroll" id="rnp-table-wrap">
             ${_buildTableHTML(art, rawData, cal)}
           </div>`;
 
@@ -1848,9 +1848,13 @@ const RNP = (() => {
                 const val = d ? d[m.key] : null;
                 const str = _fmt(val, m.type);
                 const cc  = m.hm ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
-                const planStrong = m.cl === 'planStrong' && cc ? ` ${cc} rnp-plan-strong` : (cc ? ` ${cc}` : '');
-                const txtColor = m.bold ? 'rnp-text-bold' : '';
-                return `<td class="${cls} rnp-data-col${planStrong} ${txtColor}">${str ?? ''}</td>`;
+                let style = '';
+                if (cc === 'rnp-green')  style = 'background:rgba(16,185,129,0.15);color:var(--green)';
+                else if (cc === 'rnp-yellow') style = 'background:rgba(245,158,11,0.15);color:var(--amber)';
+                else if (cc === 'rnp-red')    style = 'background:rgba(239,68,68,0.15);color:var(--red)';
+                else if (m.bold) style = 'font-weight:600';
+                if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-size:10px;font-weight:700';
+                return `<td class="${cls} rnp-data-col"${style ? ` style="${style}"` : ''}>${str ?? ''}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',
