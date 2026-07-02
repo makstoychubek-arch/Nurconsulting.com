@@ -279,6 +279,43 @@ const RNP = (() => {
         };
     }
 
+    // ─── HISTORICAL ORDERS SYNC (from wb_orders table) ───────────────────────
+    async function _syncOrdersHistory(nmId) {
+        try {
+            const now = new Date();
+            const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+            const { data: orders } = await _db.from('wb_orders')
+                .select('order_date, price, is_return')
+                .eq('cabinet_id', _cab)
+                .eq('nm_id', nmId)
+                .gte('order_date', dateFrom);
+            if (!orders?.length) return;
+
+            // Group by date
+            const byDate = {};
+            orders.forEach(o => {
+                const date = (o.order_date || '').split('T')[0];
+                if (!date) return;
+                if (!byDate[date]) byDate[date] = { count: 0, sum: 0 };
+                if (!o.is_return) {
+                    byDate[date].count++;
+                    byDate[date].sum += Number(o.price || 0);
+                }
+            });
+
+            const upserts = Object.entries(byDate).map(([date, d]) => ({
+                cabinet_id: _cab, nm_id: nmId, date,
+                orders_count: d.count,
+                orders_sum: d.sum,
+                avg_check: d.count > 0 ? d.sum / d.count : 0,
+                updated_at: new Date().toISOString()
+            }));
+            if (upserts.length) {
+                await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
+            }
+        } catch(e) { console.warn('[RNP] syncOrdersHistory:', e.message); }
+    }
+
     // ─── FINANCE REPORT SYNC ─────────────────────────────────────────────────
     async function _syncFinanceRange(nmId) {
         if (!_callProxy) return;
@@ -779,12 +816,16 @@ const RNP = (() => {
         // Quick: sync today from orders/stocks cache
         await _syncToday(nmId);
 
-        // Full: sync finance report + ads if proxy available (runs in background, re-renders after)
+        // Sync historical orders from wb_orders table (always available)
+        if (btn) btn.textContent = '⏳ Заказы...';
+        await _syncOrdersHistory(nmId);
+
+        // Full: sync finance report + ads if proxy available
         if (_callProxy) {
             if (btn) btn.textContent = '⏳ Финансы...';
             await _syncFinanceRange(nmId);
             if (btn) btn.textContent = '⏳ Реклама...';
-            await _syncAdStats(nmId);
+            await _syncAdStats(nmId).catch(e => console.warn('[RNP] ads skipped:', e.message));
         }
 
         const art = _articles.find(a => a.nm_id == nmId);
