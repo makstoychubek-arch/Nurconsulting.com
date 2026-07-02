@@ -1322,7 +1322,8 @@
             const hp = document.getElementById('header-profile-name');
             if (hp) hp.textContent = sel.name;
             if (selectHeader) selectHeader.value = currentCabinetId;
-            showCabinetTransition(sel.name, () => loadFromDB());
+            // On initial load: load data silently, overlay stays up until RNP init is done
+            await loadFromDB();
         } else {
             await loadFromDB();
         }
@@ -1367,9 +1368,10 @@
 
     function hideOverlay() {
         const overlay = document.getElementById('cabinet-overlay');
-        if (!overlay) return;
+        if (!overlay || overlay.style.display === 'none') return;
+        overlay.style.transition = 'opacity 0.35s ease';
         overlay.style.opacity = '0';
-        setTimeout(() => { overlay.style.display = 'none'; }, 300);
+        setTimeout(() => { overlay.style.display = 'none'; overlay.style.opacity = '1'; }, 360);
     }
 
     function showCabinetTransition(name, callback) {
@@ -2243,13 +2245,7 @@
         await loadCabinets();
         await loadABTests();
 
-        // Restore non-RNP tabs immediately
-        const _savedTab = localStorage.getItem('nr_active_tab');
-        if (_savedTab && _savedTab !== 'dashboard' && _savedTab !== 'rnp' && _savedTab !== 'rnp-settings') {
-            showTab(_savedTab, null);
-        }
-
-        // Init RNP after cabinet is set, then restore tab and hide loader
+        // Init RNP, then restore last tab, then hide loader — all in one step
         setTimeout(async () => {
             if (currentCabinetId && typeof RNP !== 'undefined') {
                 await RNP.init(supabase, currentCabinetId, callWbProxy);
@@ -2258,7 +2254,7 @@
             if (savedTab && savedTab !== 'dashboard') {
                 showTab(savedTab, null);
             }
-            // Hide initial loading overlay
+            // Tab is switched — now fade out overlay
             hideOverlay();
         }, 1500);
     });

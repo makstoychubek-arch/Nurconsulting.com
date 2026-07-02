@@ -462,6 +462,17 @@ const RNP = (() => {
         const cost = (art?.cost_price || 0); // already in soms
         const er = _settings.exchangeRate;
 
+        // Overlay manual_data from article settings (plans, competitor benchmarks, etc.)
+        const md = art?.manual_data || {};
+        const MANUAL_KEYS = ['in_production','plan_orders','plan_sales','giveaways',
+                             'plan_impressions','plan_clicks','plan_drr',
+                             'competitor_basket','competitor_orders','competitor_ctr','competitor_cro'];
+        MANUAL_KEYS.forEach(k => {
+            if (md[k] !== undefined && md[k] !== null && Number(md[k]) > 0) {
+                d[k] = Number(md[k]);
+            }
+        });
+
         d.plan_orders_pct = d.plan_orders > 0 ? d.orders_count / d.plan_orders * 100 : 0;
         d.plan_sales_pct  = d.plan_sales  > 0 ? d.sales_count  / d.plan_sales  * 100 : 0;
         d.avg_check_sales = d.sales_count > 0 ? (d.sales_sum || 0) / d.sales_count : 0;
@@ -576,33 +587,103 @@ const RNP = (() => {
               <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto mb-3 opacity-30"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
               <p class="text-sm">Нажмите «Из заказов» чтобы загрузить список артикулов</p>
             </div>` : `
-            <div class="space-y-2">
-              ${_articles.map(a => `
-              <div class="flex items-center gap-3 p-3 rounded-xl" style="background:var(--bg);border:1px solid var(--border)">
-                <img src="${a.photo_url || _photoUrl(a.nm_id)}" onerror="this.style.visibility='hidden'"
-                  class="w-12 h-12 rounded-lg object-cover flex-shrink-0" style="background:var(--surface)">
-                <div class="flex-1 min-w-0">
-                  <div class="text-sm font-semibold truncate" style="color:var(--text-primary)">${a.name || '—'}</div>
-                  <div class="text-xs" style="color:var(--text-muted)">nmId: ${a.nm_id}</div>
-                </div>
-                <div class="flex items-center gap-4 flex-shrink-0">
-                  <div class="text-right">
-                    <div class="text-xs mb-1" style="color:var(--text-muted)">Себест. (сом)</div>
-                    <input type="number" value="${a.cost_price||0}" min="0"
-                      onchange="RNP.setCost(${a.nm_id},this.value)"
-                      class="w-24 rounded-lg px-2 py-1.5 text-sm text-center font-semibold"
-                      style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+            <div class="space-y-3">
+              ${_articles.map(a => {
+                const md = a.manual_data || {};
+                return `
+              <div class="rounded-xl overflow-hidden" style="border:1px solid var(--border)">
+                <!-- Article header -->
+                <div class="flex items-center gap-3 p-3" style="background:var(--bg)">
+                  <img src="${a.photo_url || _photoUrl(a.nm_id)}" onerror="this.style.visibility='hidden'"
+                    class="w-12 h-12 rounded-lg object-cover flex-shrink-0" style="background:var(--surface)">
+                  <div class="flex-1 min-w-0">
+                    <div class="text-sm font-semibold truncate" style="color:var(--text-primary)">${a.name || '—'}</div>
+                    <div class="text-xs" style="color:var(--text-muted)">nmId: ${a.nm_id}</div>
                   </div>
-                  <div class="text-center">
-                    <div class="text-xs mb-1" style="color:var(--text-muted)">В РНП</div>
-                    <button onclick="RNP.toggleArt(${a.nm_id},this)" class="relative w-11 h-6 rounded-full transition-all duration-200 flex-shrink-0"
-                      style="background:${a.is_active?'var(--accent)':'var(--border)'}">
-                      <span class="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200"
-                        style="left:${a.is_active?'22px':'2px'}"></span>
-                    </button>
+                  <div class="flex items-center gap-4 flex-shrink-0">
+                    <div class="text-right">
+                      <div class="text-xs mb-1" style="color:var(--text-muted)">Себест. (сом)</div>
+                      <input type="number" value="${a.cost_price||0}" min="0"
+                        onchange="RNP.setCost(${a.nm_id},this.value)"
+                        class="w-24 rounded-lg px-2 py-1.5 text-sm text-center font-semibold"
+                        style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
+                    <div class="text-center">
+                      <div class="text-xs mb-1" style="color:var(--text-muted)">В РНП</div>
+                      <button onclick="RNP.toggleArt(${a.nm_id},this)" class="relative w-11 h-6 rounded-full transition-all duration-200 flex-shrink-0"
+                        style="background:${a.is_active?'var(--accent)':'var(--border)'}">
+                        <span class="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200"
+                          style="left:${a.is_active?'22px':'2px'}"></span>
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>`).join('')}
+                <!-- Manual plan inputs -->
+                <div style="border-top:1px solid var(--border);padding:12px 14px;background:var(--surface)">
+                  <div class="text-xs font-bold mb-3 flex items-center gap-1.5" style="color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Плановые показатели
+                  </div>
+                  <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div>
+                      <div class="text-xs mb-1" style="color:var(--text-muted)">В пошиве (шт)</div>
+                      <input type="number" min="0" value="${md.in_production||''}" placeholder="0"
+                        onchange="RNP.saveManual(${a.nm_id},'in_production',this.value)"
+                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
+                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
+                    <div>
+                      <div class="text-xs mb-1" style="color:var(--text-muted)">План заказов/нед</div>
+                      <input type="number" min="0" value="${md.plan_orders||''}" placeholder="0"
+                        onchange="RNP.saveManual(${a.nm_id},'plan_orders',this.value)"
+                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
+                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
+                    <div>
+                      <div class="text-xs mb-1" style="color:var(--text-muted)">План продаж/нед</div>
+                      <input type="number" min="0" value="${md.plan_sales||''}" placeholder="0"
+                        onchange="RNP.saveManual(${a.nm_id},'plan_sales',this.value)"
+                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
+                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
+                    <div>
+                      <div class="text-xs mb-1" style="color:var(--text-muted)">Раздачи/мес</div>
+                      <input type="number" min="0" value="${md.giveaways||''}" placeholder="0"
+                        onchange="RNP.saveManual(${a.nm_id},'giveaways',this.value)"
+                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
+                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
+                    <div>
+                      <div class="text-xs mb-1" style="color:var(--text-muted)">% Корзины конк.</div>
+                      <input type="number" min="0" step="0.1" value="${md.competitor_basket||''}" placeholder="0"
+                        onchange="RNP.saveManual(${a.nm_id},'competitor_basket',this.value)"
+                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
+                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
+                    <div>
+                      <div class="text-xs mb-1" style="color:var(--text-muted)">% Заказов конк.</div>
+                      <input type="number" min="0" step="0.1" value="${md.competitor_orders||''}" placeholder="0"
+                        onchange="RNP.saveManual(${a.nm_id},'competitor_orders',this.value)"
+                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
+                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
+                    <div>
+                      <div class="text-xs mb-1" style="color:var(--text-muted)">% CTR конк.</div>
+                      <input type="number" min="0" step="0.01" value="${md.competitor_ctr||''}" placeholder="0"
+                        onchange="RNP.saveManual(${a.nm_id},'competitor_ctr',this.value)"
+                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
+                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
+                    <div>
+                      <div class="text-xs mb-1" style="color:var(--text-muted)">ДРР% план</div>
+                      <input type="number" min="0" step="0.1" value="${md.plan_drr||''}" placeholder="0"
+                        onchange="RNP.saveManual(${a.nm_id},'plan_drr',this.value)"
+                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
+                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
+                  </div>
+                </div>
+              </div>`;}).join('')}
             </div>`}
           </div>
         </div>`;
@@ -795,6 +876,13 @@ const RNP = (() => {
         await _updateArticle(nmId, { cost_price: parseFloat(val) || 0 });
     }
 
+    async function saveManual(nmId, key, val) {
+        const art = _articles.find(a => a.nm_id == nmId);
+        if (!art) return;
+        const manual_data = { ...(art.manual_data || {}), [key]: parseFloat(val) || 0 };
+        await _updateArticle(nmId, { manual_data });
+    }
+
     async function saveRate() {
         const v = parseFloat(document.getElementById('rnp-rate')?.value);
         if (v > 0) { await _saveSettings({ exchangeRate: v }); }
@@ -841,6 +929,6 @@ const RNP = (() => {
         if (art) _renderTable(art);
     }
 
-    return { init, openSettings, openMain, pick, syncArts, toggleArt, setCost, saveRate, savePeriod, savePromo, refresh, toggle,
+    return { init, openSettings, openMain, pick, syncArts, toggleArt, setCost, saveManual, saveRate, savePeriod, savePromo, refresh, toggle,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();
