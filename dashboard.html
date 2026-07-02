@@ -208,6 +208,12 @@
         .btn-smooth { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
         .btn-smooth:hover { transform: translateY(-1px); }
         .btn-smooth:active { transform: scale(0.97); }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        /* ── RNP Table ── */
+        #rnp-table-wrap table tr:hover td { filter: brightness(1.06); }
+        #rnp-table-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+        #rnp-table-wrap::-webkit-scrollbar-track { background: transparent; }
+        #rnp-table-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
         .main-content { background: var(--bg); background-image: var(--bg-mesh); }
         #date-picker { position: fixed; top: 100px; left: 300px; z-index: 9999; background: var(--surface-solid); border: 1px solid var(--accent-border); border-radius: 16px; padding: 20px; width: 480px; box-shadow: 0 25px 80px rgba(0,0,0,0.35); }
         #premium-modal { position: fixed; inset: 0; z-index: 99999; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); }
@@ -880,40 +886,21 @@
             </div>
         </div>
 
-        <div id="tab-rnp" class="tab-content space-y-5">
-            <div class="grid grid-cols-2 xl:grid-cols-4 gap-3">
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Чистая прибыль</div><div id="rnp-profit" class="text-2xl font-black" style="color:var(--green)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Маржинальность</div><div id="rnp-margin" class="text-2xl font-black" style="color:var(--accent)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">ROI</div><div id="rnp-roi" class="text-2xl font-black" style="color:var(--blue)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Выкуп</div><div id="rnp-buyout" class="text-2xl font-black" style="color:var(--accent)">—</div></div>
-            </div>
-            <div class="widget-card p-6">
-                <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Воронка продаж</h3>
-                <div class="space-y-3">
-                    <div class="flex items-center justify-between py-2 border-b" style="border-color:var(--border)">
-                        <span class="text-sm" style="color:var(--text-secondary)">📦 Заказы</span>
-                        <span id="rnp-orders" class="font-bold" style="color:var(--text-primary)">—</span>
-                    </div>
-                    <div class="flex items-center justify-between py-2 border-b" style="border-color:var(--border)">
-                        <span class="text-sm" style="color:var(--text-secondary)">✅ Продажи (выкупы)</span>
-                        <span id="rnp-sales" class="font-bold" style="color:var(--green)">—</span>
-                    </div>
-                    <div class="flex items-center justify-between py-2 border-b" style="border-color:var(--border)">
-                        <span class="text-sm" style="color:var(--text-secondary)">↩️ Возвраты</span>
-                        <span id="rnp-returns" class="font-bold" style="color:var(--red)">—</span>
-                    </div>
-                    <div class="flex items-center justify-between py-2">
-                        <span class="text-sm" style="color:var(--text-secondary)">🚚 Логистика</span>
-                        <span id="rnp-logistics" class="font-bold" style="color:var(--text-primary)">—</span>
-                    </div>
-                </div>
-                <p class="text-xs mt-3" style="color:var(--text-muted)">Данные берутся из кабинета выбранного сверху. Нажмите "Обновить" для актуализации.</p>
+        <div id="tab-rnp" class="tab-content">
+            <div class="p-10 text-center" style="color:var(--text-muted)">
+                <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+                Инициализация РНП...
             </div>
         </div>
 
         <div id="tab-ads" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Аналитика РК</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">CTR, CPC, ДРР по рекламным кампаниям. Требует подключения Promotion API. В разработке.</p></div></div>
         <div id="tab-heatmap" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Тепловая карта</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Визуализация метрик по дням/неделям цветовым кодированием. В разработке.</p></div></div>
-        <div id="tab-rnp-settings" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Настройки РНП</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Управление артикулами в модуле РНП, настройка процента выкупа. В разработке.</p></div></div>
+        <div id="tab-rnp-settings" class="tab-content">
+            <div class="p-10 text-center" style="color:var(--text-muted)">
+                <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+                Загрузка настроек...
+            </div>
+        </div>
 
         <div id="tab-abtests" class="tab-content space-y-4">
             <div class="flex items-center justify-between mb-2">
@@ -1193,6 +1180,8 @@
         const filtersBar = document.getElementById('top-filters-bar');
         if (filtersBar) filtersBar.style.display = (name === 'dashboard' || name === 'rnp') ? 'flex' : 'none';
         if (name === 'abtests') loadABTests();
+        if (name === 'rnp') RNP.openMain();
+        if (name === 'rnp-settings') RNP.openSettings();
     }
 
     const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
@@ -2234,9 +2223,16 @@
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
         await loadCabinets();
         await loadABTests();
+        // Init RNP after cabinet is set
+        setTimeout(async () => {
+            if (currentCabinetId && typeof RNP !== 'undefined') {
+                await RNP.init(supabase, currentCabinetId);
+            }
+        }, 1500);
     });
 </script>
     <script src="/dashboard-charts.js"></script>
+    <script src="/rnp-module.js"></script>
     <script src="/wb-formulas.js"></script>
 </body>
 </html>
