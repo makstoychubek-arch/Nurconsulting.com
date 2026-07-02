@@ -1120,12 +1120,15 @@
             return null;
         }
         if (res.status === 429) { showPremiumModal('error', 'WB ограничил запросы', 'Слишком много запросов подряд. Подождите 3-5 минут и попробуйте снова.'); return null; }
-        if (res.status === 400 || res.status === 403) {
+        if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
-            showPremiumModal('warning', 'Не удалось выполнить запрос', errData.error || 'Проверьте токен кабинета.');
+            const msg = errData.error || errData.message || `HTTP ${res.status}`;
+            if (res.status === 403) showPremiumModal('warning', 'Доступ запрещён', msg);
+            else if (res.status >= 500) console.warn(`[callWbProxy] ${action} server error:`, msg);
+            else showPremiumModal('warning', 'Ошибка запроса', msg);
             return null;
         }
-        return await res.json();
+        return await res.json().catch(() => null);
     }
 
     let currentCabinetId = localStorage.getItem('selected_cabinet_id') || null;
