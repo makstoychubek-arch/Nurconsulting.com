@@ -12,8 +12,14 @@ const RNP = (() => {
     let _settings = { exchangeRate: 13.5, calcPeriod: 7 };
     let _articles = [];
     let _activeNm = null;
-    let _collapsed = new Set();
+    let _collapsedSections = new Set();
     let _financeCache = { key: '', rows: [], ts: 0 };
+    let _dataCache = {}; // nmId -> { date -> row }
+    let _stockCache = {}; // nmId -> { size -> { wh, transit } }
+
+    const SIZE_ORDER = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL','4XL','5XL'];
+    const ALL_SIZES = ['XXS','XS','S','M','L','XL','XXL','3XL','4XL','5XL'];
+    const PLAN_KEYS = ['plan_orders','plan_sales','plan_impressions','plan_clicks','plan_drr'];
 
     // ─── SECTIONS & METRICS ──────────────────────────────────────────────────
     const SECTIONS = [
@@ -90,10 +96,7 @@ const RNP = (() => {
     ];
 
     // ─── PHOTO URL ────────────────────────────────────────────────────────────
-    function _photoUrl(nmId) {
-        const vol  = Math.floor(nmId / 100000);
-        const part = Math.floor(nmId / 1000);
-        // Extended basket map — each entry [volFrom, volTo, basketNum]
+    function _basketNum(vol) {
         const map = [
             [0,143,1],[144,287,2],[288,431,3],[432,719,4],
             [720,1007,5],[1008,1061,6],[1062,1115,7],[1116,1169,8],
@@ -111,9 +114,55 @@ const RNP = (() => {
             [8238,8453,43],[8454,8669,44],[8670,8885,45],
         ];
         const found = map.find(([lo, hi]) => vol >= lo && vol <= hi);
-        const num = found ? found[2] : 46 + Math.floor((vol - 8886) / 216);
-        const b = String(Math.max(1, num)).padStart(2, '0');
-        return `https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/big/1.webp`;
+        return found ? found[2] : 46 + Math.floor((vol - 8886) / 216);
+    }
+
+    function _photoMeta(nmId) {
+        const vol  = Math.floor(nmId / 100000);
+        const part = Math.floor(nmId / 1000);
+        const basket = _basketNum(vol);
+        const basketStr = String(Math.max(1, basket)).padStart(2, '0');
+        return { vol, part, basket, basketStr };
+    }
+
+    function _photoUrl(nmId, size = 'c516x688') {
+        const { vol, part, basketStr } = _photoMeta(nmId);
+        return `https://basket-${basketStr}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${size}/1.webp`;
+    }
+
+    function _imgHtml(art, className, size = 'c516x688', extraStyle = '') {
+        const nmId = art.nm_id;
+        const meta = _photoMeta(nmId);
+        const src = (art.photo_url && art.photo_url.startsWith('http'))
+            ? art.photo_url
+            : _photoUrl(nmId, size);
+        const cls = className ? ` class="${className}"` : '';
+        const sty = extraStyle ? ` style="${extraStyle}"` : '';
+        return `<img${cls}${sty} src="${src}" referrerpolicy="no-referrer" loading="lazy" alt=""
+          data-nmid="${nmId}" data-vol="${meta.vol}" data-part="${meta.part}" data-basket="${meta.basket}" data-size="${size}"
+          onerror="RNP.imgFallback(this)">`;
+    }
+
+    function imgFallback(img) {
+        const attempt = parseInt(img.dataset.attempt || '0', 10) + 1;
+        img.dataset.attempt = String(attempt);
+        const nmId = img.dataset.nmid;
+        const vol = img.dataset.vol;
+        const part = img.dataset.part;
+        const size = img.dataset.size || 'c516x688';
+        const base = parseInt(img.dataset.basket || '1', 10);
+        if (attempt <= 6) {
+            const delta = Math.ceil(attempt / 2) * (attempt % 2 ? 1 : -1);
+            const b = String(Math.max(1, Math.min(99, base + delta))).padStart(2, '0');
+            img.src = `https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${size}/1.webp`;
+            return;
+        }
+        if (attempt === 7) {
+            img.src = `https://basket-${String(base).padStart(2, '0')}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/big/1.jpg`;
+            return;
+        }
+        img.style.background = 'var(--surface)';
+        img.alt = 'нет фото';
     }
 
     // ─── SETTINGS ─────────────────────────────────────────────────────────────
@@ -196,18 +245,35 @@ const RNP = (() => {
             const dt = new Date(prevY, prevM, d);
             const iso = dt.getDay() === 0 ? 7 : dt.getDay();
             if (iso === 1 || d === 1) {
-                if (wk) weeks.push(wk);
-                wk = { type: 'week', label: `Нед ${weeks.length + 1}`, dates: [] };
+                if (wk?.dates.length) {
+                    wk.label = _weekLabel(wk.dates);
+                    wk.weekStart = wk.dates[0];
+                    weeks.push(wk);
+                }
+                wk = { type: 'week', label: '', dates: [], weekStart: _dateStr(prevY, prevM + 1, d) };
             }
             wk.dates.push(_dateStr(prevY, prevM + 1, d));
         }
-        if (wk?.dates.length) weeks.push(wk);
+        if (wk?.dates.length) {
+            wk.label = _weekLabel(wk.dates);
+            wk.weekStart = wk.dates[0];
+            weeks.push(wk);
+        }
 
         // Current month
         const currName = today.toLocaleString('ru', { month: 'long', year: 'numeric' });
         const days = [];
         for (let d = 1; d <= today.getDate(); d++) {
-            days.push({ type: 'day', date: _dateStr(Y, M + 1, d), label: String(d), isToday: d === today.getDate() });
+            const date = _dateStr(Y, M + 1, d);
+            const dt = new Date(Y, M, d);
+            const dd = String(d).padStart(2, '0');
+            const mm = String(M + 1).padStart(2, '0');
+            days.push({
+                type: 'day', date,
+                label: `${dd}.${mm}`,
+                dow: dt.toLocaleString('ru', { weekday: 'short' }),
+                isToday: d === today.getDate()
+            });
         }
 
         return { prevName, weeks, currName, days, todayStr: _dateStr(Y, M + 1, today.getDate()) };
@@ -240,8 +306,177 @@ const RNP = (() => {
         return chunks;
     }
 
-    // ─── DATA LOADING ─────────────────────────────────────────────────────────
+    function _weekLabel(dates) {
+        const fmt = ds => { const p = ds.split('-'); return `${p[2]}.${p[1]}`; };
+        return `${fmt(dates[0])}–${fmt(dates[dates.length - 1])}`;
+    }
+
+    function _sortSizes(a, b) {
+        const ia = SIZE_ORDER.indexOf(a.toUpperCase());
+        const ib = SIZE_ORDER.indexOf(b.toUpperCase());
+        if (ia >= 0 && ib >= 0) return ia - ib;
+        if (ia >= 0) return -1;
+        if (ib >= 0) return 1;
+        return a.localeCompare(b, 'ru');
+    }
+
+    async function _loadAllStocks(nmIds) {
+        if (!nmIds.length) return;
+        try {
+            const { data } = await _db.from('wb_stocks').select('*')
+                .eq('cabinet_id', _cab).in('nm_id', nmIds);
+            nmIds.forEach(id => { _stockCache[id] = {}; });
+            (data || []).forEach(s => {
+                const nm = s.nm_id;
+                if (!_stockCache[nm]) _stockCache[nm] = {};
+                const size = (s.tech_size || s.techSize || s.size || '').trim().toUpperCase() || '—';
+                if (!_stockCache[nm][size]) _stockCache[nm][size] = { wh: 0, transit: 0 };
+                _stockCache[nm][size].wh += Number(s.quantity || 0);
+                _stockCache[nm][size].transit +=
+                    Number(s.in_way_to_client || s.inWayToClient || 0) +
+                    Number(s.in_way_from_client || s.inWayFromClient || 0);
+            });
+        } catch (e) { console.warn('[RNP] load stocks:', e.message); }
+    }
+
+    function _planVal(art, key, colKey) {
+        const v = art.manual_data?.plans?.[colKey]?.[key];
+        return (v != null && v !== '') ? v : '';
+    }
+
+    function _applyColPlans(data, art, colKey) {
+        const d = data ? { ...data } : {};
+        const md = art.manual_data?.plans?.[colKey] || {};
+        PLAN_KEYS.forEach(k => {
+            if (md[k] != null && md[k] !== '') d[k] = Number(md[k]);
+        });
+        d.plan_orders_pct = d.plan_orders > 0 ? (d.orders_count || 0) / d.plan_orders * 100 : 0;
+        d.plan_sales_pct  = d.plan_sales  > 0 ? (d.sales_count  || 0) / d.plan_sales  * 100 : 0;
+        return d;
+    }
+
+    function _stockTotals(bySize) {
+        let wh = 0, tr = 0;
+        Object.values(bySize).forEach(x => { wh += x.wh; tr += x.transit; });
+        return { wh, tr, total: wh + tr };
+    }
+
+    function _periodSummary(art, rawData, cal) {
+        const dates = cal.days.map(d => d.date);
+        if (!dates.length) return {};
+        const agg = _aggWeek(rawData, dates);
+        const d = _derive(agg, art);
+        return _applyColPlans(d, art, dates[dates.length - 1]);
+    }
+
+    function _fmtKpi(val, type) {
+        if (val == null || val === '' || isNaN(val)) return '—';
+        const n = parseFloat(val);
+        if (type === 'pct') return n.toFixed(1).replace('.', ',') + '%';
+        if (type === 'som') return Math.round(n).toLocaleString('ru');
+        return String(n);
+    }
+
+    function _sparkline(values, w = 54, h = 16) {
+        const nums = values.map(v => Number(v) || 0);
+        if (!nums.length || nums.every(n => n === 0)) return '<span class="rnp-spark-empty">—</span>';
+        const max = Math.max(...nums, 1);
+        const min = Math.min(...nums);
+        const range = max - min || 1;
+        const pts = nums.map((n, i) => {
+            const x = (i / Math.max(nums.length - 1, 1)) * (w - 2) + 1;
+            const y = h - 2 - ((n - min) / range) * (h - 4);
+            return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+        return `<svg class="rnp-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><polyline fill="none" stroke="#10b981" stroke-width="1.5" points="${pts}"/></svg>`;
+    }
+
+    function _getSize(bySize, sz) {
+        if (bySize[sz]) return bySize[sz];
+        const key = Object.keys(bySize).find(k => k.toUpperCase() === sz.toUpperCase());
+        return key ? bySize[key] : { wh: 0, transit: 0 };
+    }
+
+    function _sizeCellCls(total) {
+        return (Number(total) || 0) > 0 ? 'rnp-size-has' : 'rnp-size-zero';
+    }
+
+    function _buildStockSizeHTML(bySize) {
+        const extra = Object.keys(bySize).filter(s => !ALL_SIZES.includes(s.toUpperCase()) && s !== '—');
+        const sizes = [...ALL_SIZES, ...extra.sort(_sortSizes)];
+
+        const cell = (sz, v) => {
+            const n = Number(v) || 0;
+            return `<td class="${_sizeCellCls(n)}">${n > 0 ? n : 0}</td>`;
+        };
+        const hdrCell = (sz) => {
+            const x = _getSize(bySize, sz);
+            const t = x.wh + x.transit;
+            return `<th class="${_sizeCellCls(t)}">${sz}</th>`;
+        };
+        const row = (label, rowCls, fn) => {
+            const cells = sizes.map(sz => cell(sz, fn(_getSize(bySize, sz))));
+            const total = sizes.reduce((s, sz) => s + fn(_getSize(bySize, sz)), 0);
+            return `<tr class="${rowCls}"><td class="rnp-stock-label">${label}</td>${cells.join('')}<td class="${_sizeCellCls(total)}" style="font-weight:800">${total}</td></tr>`;
+        };
+
+        return `<div class="rnp-stock-block">
+          <table class="rnp-stock-table">
+            <thead><tr>
+              <th class="rnp-stock-label"></th>
+              ${sizes.map(hdrCell).join('')}
+              <th>Σ</th>
+            </tr></thead>
+            <tbody>
+              ${row('На складах', 'rnp-row-wh', x => x.wh)}
+              ${row('В пути', 'rnp-row-tr', x => x.transit)}
+              ${row('Общий', 'rnp-row-sum', x => x.wh + x.transit)}
+              ${row('В продаже', 'rnp-row-sale', x => x.wh)}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    function _buildTopPanelHTML(art, stockBySize, rawData, cal) {
+        const kpi = _periodSummary(art, rawData, cal);
+        const st = _stockTotals(stockBySize);
+        const roiCls = (kpi.roi_pct || 0) >= 100 ? 'pos' : '';
+        const marginCls = (kpi.margin_pct || 0) >= 15 ? 'pos' : ((kpi.margin_pct || 0) < 5 ? 'neg' : '');
+        const profitCls = (kpi.profit || 0) >= 0 ? 'pos' : 'neg';
+        const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'pos' : ((kpi.plan_orders_pct || 0) < 80 ? 'neg' : '');
+
+        return `<div class="rnp-top-panel">
+          <div class="rnp-top-photo">${_imgHtml(art, 'rnp-top-photo-img', 'c516x688')}</div>
+          <div class="rnp-top-info">
+            <div class="rnp-top-title">${art.name || '—'}</div>
+            <div class="rnp-top-nmid">Арт. WB: <b>${art.nm_id}</b> · Себест: <b>${art.cost_price || 0}</b> сом</div>
+            <div class="rnp-kpi-grid">
+              <div class="rnp-kpi"><span>Рентабельность</span><b class="${roiCls}">${_fmtKpi(kpi.roi_pct, 'pct')}</b></div>
+              <div class="rnp-kpi"><span>ДРР %</span><b>${_fmtKpi(kpi.drr_pct, 'pct')}</b></div>
+              <div class="rnp-kpi"><span>Маржа %</span><b class="${marginCls}">${_fmtKpi(kpi.margin_pct, 'pct')}</b></div>
+              <div class="rnp-kpi"><span>Прибыль</span><b class="${profitCls}">${_fmtKpi(kpi.profit, 'som')}</b></div>
+              <div class="rnp-kpi"><span>План/факт %</span><b class="${planCls}">${_fmtKpi(kpi.plan_orders_pct, 'pct')}</b></div>
+              <div class="rnp-kpi"><span>CTR %</span><b>${_fmtKpi(kpi.ctr_pct, 'pct')}</b></div>
+            </div>
+            <div class="rnp-stock-totals">
+              <span>На складах: <b>${st.wh.toLocaleString('ru')}</b></span>
+              <span>В пути: <b>${st.tr.toLocaleString('ru')}</b></span>
+              <span>Общий: <b>${st.total.toLocaleString('ru')}</b></span>
+            </div>
+            <div class="rnp-top-actions">
+              <button onclick="RNP.refresh(${art.nm_id})" id="rnp-refresh-btn"
+                class="flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold btn-smooth"
+                style="background:var(--surface);border:1px solid var(--border);color:var(--text-secondary)">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                Обновить
+              </button>
+            </div>
+          </div>
+          <div class="rnp-top-stock-wrap">${_buildStockSizeHTML(stockBySize)}</div>
+        </div>`;
+    }
     async function _loadDailyData(nmId) {
+        if (_dataCache[nmId]) return _dataCache[nmId];
         const cal = _buildCalendar();
         const allDates = [...cal.weeks.flatMap(w => w.dates), ...cal.days.map(d => d.date)];
         if (!allDates.length) return {};
@@ -251,8 +486,31 @@ const RNP = (() => {
                 .gte('date', allDates[0]).lte('date', allDates[allDates.length - 1]);
             const map = {};
             (data || []).forEach(r => { map[r.date] = r; });
+            _dataCache[nmId] = map;
             return map;
         } catch(e) { console.warn('[RNP] load daily:', e.message); return {}; }
+    }
+
+    async function _loadAllDailyData(nmIds) {
+        const cal = _buildCalendar();
+        const allDates = [...cal.weeks.flatMap(w => w.dates), ...cal.days.map(d => d.date)];
+        if (!allDates.length || !nmIds.length) return;
+        try {
+            const { data } = await _db.from('rnp_daily_data')
+                .select('*').eq('cabinet_id', _cab)
+                .in('nm_id', nmIds)
+                .gte('date', allDates[0]).lte('date', allDates[allDates.length - 1]);
+            nmIds.forEach(id => { _dataCache[id] = {}; });
+            (data || []).forEach(r => {
+                if (!_dataCache[r.nm_id]) _dataCache[r.nm_id] = {};
+                _dataCache[r.nm_id][r.date] = r;
+            });
+        } catch(e) { console.warn('[RNP] load all daily:', e.message); }
+    }
+
+    function _invalidateCache(nmId) {
+        if (nmId) delete _dataCache[nmId];
+        else _dataCache = {};
     }
 
     async function _syncToday(nmId) {
@@ -586,10 +844,9 @@ const RNP = (() => {
         const cost = (art?.cost_price || 0); // already in soms
         const er = _settings.exchangeRate;
 
-        // Overlay manual_data from article settings (plans, competitor benchmarks, etc.)
+        // Overlay manual benchmarks (plans are per-column via _applyColPlans)
         const md = art?.manual_data || {};
-        const MANUAL_KEYS = ['in_production','plan_orders','plan_sales','giveaways',
-                             'plan_impressions','plan_clicks','plan_drr',
+        const MANUAL_KEYS = ['in_production','giveaways',
                              'competitor_basket','competitor_orders','competitor_ctr','competitor_cro'];
         MANUAL_KEYS.forEach(k => {
             if (md[k] !== undefined && md[k] !== null && Number(md[k]) > 0) {
@@ -698,127 +955,58 @@ const RNP = (() => {
           </div>
 
           <div class="widget-card p-5">
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h3 class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
                 Артикулы
-                <span class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} активных из ${_articles.length}</span>
+                <span class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} / ${_articles.length} в РНП</span>
               </h3>
-              <button onclick="RNP.syncArts()" id="rnp-sync-btn"
-                class="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold"
-                style="background:var(--surface);border:1px solid var(--border);color:var(--text-secondary)">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
-                Из заказов
-              </button>
+              <div class="flex gap-2 flex-wrap">
+                <button onclick="RNP.syncArts()" id="rnp-sync-btn"
+                  class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style="background:var(--surface);border:1px solid var(--border);color:var(--text-secondary)">Из заказов</button>
+                <button onclick="RNP.enableAll(true)" class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style="background:var(--accent-soft);border:1px solid var(--accent-border);color:var(--accent)">Включить все</button>
+                <button onclick="RNP.enableAll(false)" class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  style="background:var(--surface);border:1px solid var(--border);color:var(--text-muted)">Выключить все</button>
+              </div>
             </div>
             ${_articles.length === 0 ? `
             <div class="text-center py-10" style="color:var(--text-muted)">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="mx-auto mb-3 opacity-30"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
-              <p class="text-sm">Нажмите «Из заказов» чтобы загрузить список артикулов</p>
+              <p class="text-sm">Нажмите «Из заказов» чтобы загрузить артикулы</p>
             </div>` : `
-            <div class="space-y-3">
-              ${_articles.map(a => {
-                const md = a.manual_data || {};
-                return `
-              <div class="rounded-xl overflow-hidden" style="border:1px solid var(--border)">
-                <!-- Article header -->
-                <div class="flex items-center gap-3 p-3" style="background:var(--bg)">
-                  <img src="${a.photo_url || _photoUrl(a.nm_id)}" onerror="this.style.visibility='hidden'"
-                    class="w-12 h-12 rounded-lg object-cover flex-shrink-0" style="background:var(--surface)">
-                  <div class="flex-1 min-w-0">
-                    <div class="text-sm font-semibold truncate" style="color:var(--text-primary)">${a.name || '—'}</div>
-                    <div class="text-xs" style="color:var(--text-muted)">nmId: ${a.nm_id}</div>
-                  </div>
-                  <div class="flex items-center gap-4 flex-shrink-0">
-                    <div class="text-right">
-                      <div class="text-xs mb-1" style="color:var(--text-muted)">Себест. (сом)</div>
-                      <input type="number" value="${a.cost_price||0}" min="0"
-                        onchange="RNP.setCost(${a.nm_id},this.value)"
-                        class="w-24 rounded-lg px-2 py-1.5 text-sm text-center font-semibold"
-                        style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                    </div>
-                    <div class="text-center">
-                      <div class="text-xs mb-1" style="color:var(--text-muted)">В РНП</div>
-                      <button onclick="RNP.toggleArt(${a.nm_id},this)" class="relative w-11 h-6 rounded-full transition-all duration-200 flex-shrink-0"
-                        style="background:${a.is_active?'var(--accent)':'var(--border)'}">
-                        <span class="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all duration-200"
-                          style="left:${a.is_active?'22px':'2px'}"></span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <!-- Manual plan inputs -->
-                <div style="border-top:1px solid var(--border);padding:12px 14px;background:var(--surface)">
-                  <div class="text-xs font-bold mb-3 flex items-center gap-1.5" style="color:var(--text-muted);text-transform:uppercase;letter-spacing:0.07em">
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    Плановые показатели
-                  </div>
-                  <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <div>
-                      <div class="text-xs mb-1" style="color:var(--text-muted)">В пошиве (шт)</div>
-                      <input type="number" min="0" value="${md.in_production||''}" placeholder="0"
-                        onchange="RNP.saveManual(${a.nm_id},'in_production',this.value)"
-                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
-                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
-                    </div>
-                    <div>
-                      <div class="text-xs mb-1" style="color:var(--text-muted)">План заказов/нед</div>
-                      <input type="number" min="0" value="${md.plan_orders||''}" placeholder="0"
-                        onchange="RNP.saveManual(${a.nm_id},'plan_orders',this.value)"
-                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
-                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
-                    </div>
-                    <div>
-                      <div class="text-xs mb-1" style="color:var(--text-muted)">План продаж/нед</div>
-                      <input type="number" min="0" value="${md.plan_sales||''}" placeholder="0"
-                        onchange="RNP.saveManual(${a.nm_id},'plan_sales',this.value)"
-                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
-                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
-                    </div>
-                    <div>
-                      <div class="text-xs mb-1" style="color:var(--text-muted)">Раздачи/мес</div>
-                      <input type="number" min="0" value="${md.giveaways||''}" placeholder="0"
-                        onchange="RNP.saveManual(${a.nm_id},'giveaways',this.value)"
-                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
-                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
-                    </div>
-                    <div>
-                      <div class="text-xs mb-1" style="color:var(--text-muted)">% Корзины конк.</div>
-                      <input type="number" min="0" step="0.1" value="${md.competitor_basket||''}" placeholder="0"
-                        onchange="RNP.saveManual(${a.nm_id},'competitor_basket',this.value)"
-                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
-                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
-                    </div>
-                    <div>
-                      <div class="text-xs mb-1" style="color:var(--text-muted)">% Заказов конк.</div>
-                      <input type="number" min="0" step="0.1" value="${md.competitor_orders||''}" placeholder="0"
-                        onchange="RNP.saveManual(${a.nm_id},'competitor_orders',this.value)"
-                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
-                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
-                    </div>
-                    <div>
-                      <div class="text-xs mb-1" style="color:var(--text-muted)">% CTR конк.</div>
-                      <input type="number" min="0" step="0.01" value="${md.competitor_ctr||''}" placeholder="0"
-                        onchange="RNP.saveManual(${a.nm_id},'competitor_ctr',this.value)"
-                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
-                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
-                    </div>
-                    <div>
-                      <div class="text-xs mb-1" style="color:var(--text-muted)">ДРР% план</div>
-                      <input type="number" min="0" step="0.1" value="${md.plan_drr||''}" placeholder="0"
-                        onchange="RNP.saveManual(${a.nm_id},'plan_drr',this.value)"
-                        class="w-full rounded-lg px-2 py-1.5 text-sm text-center"
-                        style="background:var(--bg);border:1px solid var(--border);color:var(--text-primary)">
-                    </div>
-                  </div>
-                </div>
-              </div>`;}).join('')}
+            <div style="overflow-x:auto;max-height:calc(100vh - 320px);overflow-y:auto">
+              <table class="rnp-sheet-table" style="font-size:11px">
+                <thead>
+                  <tr>
+                    <th class="rnp-th-metric" style="width:40px"></th>
+                    <th class="rnp-th-metric">Товар</th>
+                    <th style="min-width:90px">nmId</th>
+                    <th style="min-width:80px">Себест. (сом)</th>
+                    <th style="min-width:60px">В РНП</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${_articles.map(a => `
+                  <tr>
+                    <td>${_imgHtml(a, '', 'c246x328', 'width:32px;height:40px;border-radius:3px;object-fit:cover;display:block')}</td>
+                    <td class="rnp-metric-col" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${a.name||'—'}</td>
+                    <td style="color:var(--text-muted)">${a.nm_id}</td>
+                    <td><input type="number" value="${a.cost_price||0}" min="0"
+                      onchange="RNP.setCost(${a.nm_id},this.value)"
+                      style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
+                    <td><button onclick="RNP.toggleArt(${a.nm_id})" class="relative w-9 h-5 rounded-full"
+                      style="background:${a.is_active?'var(--accent)':'var(--border)'}">
+                      <span style="position:absolute;top:2px;left:${a.is_active?'18px':'2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
+                    </button></td>
+                  </tr>`).join('')}
+                </tbody>
+              </table>
             </div>`}
           </div>
         </div>`;
     }
 
-    // ─── RENDER MAIN TAB ──────────────────────────────────────────────────────
+    // ─── RENDER MAIN TAB (Google Sheets layout) ─────────────────────────────
     async function _renderMain() {
         const el = document.getElementById('tab-rnp');
         if (!el) return;
@@ -827,9 +1015,8 @@ const RNP = (() => {
         if (!active.length) {
             el.innerHTML = `
             <div class="glass rounded-2xl p-14 text-center">
-              <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" class="mx-auto mb-5 opacity-20" style="color:var(--text-primary)"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
               <h3 class="text-lg font-bold mb-2" style="color:var(--text-primary)">Нет активных артикулов</h3>
-              <p class="text-sm mb-5" style="color:var(--text-muted)">Перейдите в Настройки РНП, включите тумблеры нужных товаров</p>
+              <p class="text-sm mb-5" style="color:var(--text-muted)">Перейдите в Настройки РНП → «Из заказов» → включите нужные товары</p>
               <button onclick="showTab('rnp-settings',null)" class="px-5 py-2.5 rounded-xl text-sm font-bold"
                 style="background:var(--accent-gradient);color:#fff">Открыть Настройки РНП</button>
             </div>`;
@@ -837,132 +1024,162 @@ const RNP = (() => {
         }
 
         if (!_activeNm || !active.find(a => a.nm_id == _activeNm)) _activeNm = active[0].nm_id;
-        const art = active.find(a => a.nm_id == _activeNm);
 
         el.innerHTML = `
-        <!-- Picker -->
-        <div class="flex items-center gap-2 mb-4 flex-wrap">
-          ${active.map(a => `
-          <button onclick="RNP.pick(${a.nm_id})"
-            class="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all border"
-            style="background:${a.nm_id==_activeNm?'var(--accent-gradient)':'var(--surface)'};
-                   color:${a.nm_id==_activeNm?'#fff':'var(--text-secondary)'};
-                   border-color:${a.nm_id==_activeNm?'transparent':'var(--border)'}">
-            <img src="${a.photo_url||_photoUrl(a.nm_id)}" onerror="this.style.display='none'"
-              class="w-6 h-6 rounded object-cover flex-shrink-0">
-            <span class="truncate" style="max-width:140px">${a.name||a.nm_id}</span>
-          </button>`).join('')}
-        </div>
-
-        <!-- Header card -->
-        <div class="widget-card p-4 mb-4 flex items-center gap-4">
-          <img src="${art.photo_url||_photoUrl(art.nm_id)}" onerror="this.onerror=null;this.style.display='none'"
-            class="w-16 h-16 rounded-xl object-cover flex-shrink-0" style="background:var(--surface)">
-          <div class="flex-1 min-w-0">
-            <div class="text-base font-bold truncate" style="color:var(--text-primary)">${art.name||'—'}</div>
-            <div class="text-xs mt-0.5" style="color:var(--text-muted)">nmId: ${art.nm_id} &nbsp;·&nbsp; Себестоимость: <b>${art.cost_price||0} сом</b> &nbsp;·&nbsp; Курс: <b>1₽ = ${_settings.exchangeRate} сом</b></div>
+        <div class="rnp-workspace">
+          <div class="rnp-toolbar">
+            <div class="flex items-center gap-3 flex-wrap">
+              <span style="font-weight:700;color:var(--text-primary)">РНП</span>
+              <span style="color:var(--text-muted)">${active.length} артикулов</span>
+              <span style="color:var(--text-muted)">·</span>
+              <span style="color:var(--text-muted)">1₽ = <b style="color:var(--text-primary)">${_settings.exchangeRate}</b> сом</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="RNP.refreshAll()" id="rnp-refresh-all-btn"
+                class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold btn-smooth"
+                style="background:var(--accent-gradient);color:#fff">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                Обновить все
+              </button>
+            </div>
           </div>
-          <button onclick="RNP.refresh(${art.nm_id})" id="rnp-refresh-btn"
-            class="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-semibold flex-shrink-0"
-            style="background:var(--surface);border:1px solid var(--border);color:var(--text-secondary)">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
-            Обновить
-          </button>
-        </div>
-
-        <!-- Table -->
-        <div id="rnp-table-wrap" class="widget-card overflow-hidden">
-          <div class="p-10 text-center" style="color:var(--text-muted)">
-            <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
-            Загрузка данных...
+          <div class="rnp-sheet-tabs" id="rnp-sheet-tabs">
+            ${active.map(a => `
+            <div class="rnp-sheet-tab${a.nm_id==_activeNm?' active':''}" onclick="RNP.pick(${a.nm_id})" title="${a.name||a.nm_id}">
+              ${_imgHtml(a, 'rnp-tab-img', 'c246x328')}
+              <span>${(a.name||String(a.nm_id)).substring(0,22)}</span>
+            </div>`).join('')}
+          </div>
+          <div class="rnp-sheet-body" id="rnp-sheet-body">
+            <div class="p-10 text-center" style="color:var(--text-muted)">
+              <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+              Загрузка...
+            </div>
           </div>
         </div>`;
 
-        await _renderTable(art);
+        await _loadAllDailyData(active.map(a => a.nm_id));
+        await _loadAllStocks(active.map(a => a.nm_id));
+        await _renderActiveTable();
     }
 
-    async function _renderTable(art) {
-        const wrap = document.getElementById('rnp-table-wrap');
-        if (!wrap) return;
+    async function _renderActiveTable() {
+        const body = document.getElementById('rnp-sheet-body');
+        if (!body) return;
+        const art = _articles.find(a => a.nm_id == _activeNm);
+        if (!art) return;
 
-        const rawData = await _loadDailyData(art.nm_id);
+        const rawData = _dataCache[art.nm_id] || {};
         const cal = _buildCalendar();
 
-        // Build columns
-        const cols = [
-            ...cal.weeks.map(w => ({ ...w, data: _derive(_aggWeek(rawData, w.dates), art) })),
-            ...cal.days.map(d => ({ ...d, data: _derive(rawData[d.date] || null, art) }))
-        ];
+        const stockBySize = _stockCache[art.nm_id] || {};
 
+        body.innerHTML = `
+          ${_buildTopPanelHTML(art, stockBySize, rawData, cal)}
+          <div class="rnp-table-scroll" id="rnp-table-wrap">
+            ${_buildTableHTML(art, rawData, cal)}
+          </div>`;
+
+        // Update active tab highlight
+        document.querySelectorAll('.rnp-sheet-tab').forEach(tab => {
+            const nm = tab.getAttribute('onclick')?.match(/pick\((\d+)\)/)?.[1];
+            tab.classList.toggle('active', nm == _activeNm);
+        });
+    }
+
+    function _buildTableHTML(art, rawData, cal) {
+        const cols = [
+            ...cal.weeks.map(w => {
+                const colKey = w.weekStart || w.dates[0];
+                const agg = _derive(_aggWeek(rawData, w.dates), art);
+                return { ...w, colKey, data: _applyColPlans(agg, art, colKey) };
+            }),
+            ...cal.days.map(d => {
+                const derived = _derive(rawData[d.date] || null, art);
+                return { ...d, colKey: d.date, data: _applyColPlans(derived, art, d.date) };
+            })
+        ];
         const nPrev = cal.weeks.length;
         const nCurr = cal.days.length;
+        const firstDayIdx = cols.findIndex(c => c.type === 'day');
 
-        const html = `
-        <div style="overflow-x:auto;max-height:calc(100vh - 280px);overflow-y:auto">
-        <table style="border-collapse:separate;border-spacing:0;font-size:11.5px;min-width:max-content;width:100%">
+        return `
+        <table class="rnp-sheet-table">
           <thead>
             <tr>
-              <th style="min-width:188px;position:sticky;left:0;top:0;z-index:30;background:var(--surface);padding:8px 14px;text-align:left;font-size:10px;font-weight:700;color:var(--text-muted);border-bottom:1px solid var(--border);border-right:1px solid var(--border)" rowspan="2">Метрика</th>
-              <th colspan="${nPrev}" style="text-align:center;padding:6px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--text-muted);background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:20;opacity:0.7">
-                ${cal.prevName}
-              </th>
-              <th colspan="${nCurr}" style="text-align:center;padding:6px 8px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.07em;color:var(--accent);background:var(--surface);border-bottom:1px solid var(--border);border-left:2px solid var(--accent);position:sticky;top:0;z-index:20">
-                ${cal.currName}
-              </th>
+              <th class="rnp-th-metric" rowspan="3" style="top:0">Метрика</th>
+              <th class="rnp-th-spark" rowspan="3" style="top:0">тренд</th>
+              <th class="rnp-th-month" colspan="${nPrev}" style="color:var(--text-muted);opacity:0.8;top:0">${cal.prevName}</th>
+              <th class="rnp-th-month" colspan="${nCurr}" style="color:var(--accent);top:0;border-left:2px solid var(--accent)">${cal.currName}</th>
             </tr>
             <tr>
-              ${cal.weeks.map(w => `<th style="text-align:center;padding:4px 6px;font-size:10px;font-weight:600;color:var(--text-muted);background:var(--surface);border-bottom:2px solid var(--border);min-width:52px;position:sticky;top:28px;z-index:20">${w.label}</th>`).join('')}
-              ${cal.days.map(d => `<th style="text-align:center;padding:4px 6px;font-size:10px;font-weight:${d.isToday?'800':'600'};color:${d.isToday?'var(--accent)':'var(--text-muted)'};background:var(--surface);border-bottom:2px solid var(--border);${d.isToday?'border-left:2px solid var(--accent);border-right:2px solid var(--accent);':''}min-width:40px;position:sticky;top:28px;z-index:20;${!d.isToday&&d===cal.days[0]?'border-left:2px solid var(--accent);':''}">${d.label}</th>`).join('')}
+              ${cal.weeks.map(w => `<th class="rnp-th-day" style="top:22px;color:var(--text-muted)">${w.label}</th>`).join('')}
+              ${cal.days.map((d,i) => `<th class="rnp-th-day${d.isToday?' today':''}${i===0?' rnp-cell-month-start':''}" style="top:22px" title="${d.dow||''}">${d.label}</th>`).join('')}
+            </tr>
+            <tr>
+              ${cal.weeks.map(() => `<th class="rnp-th-day" style="top:44px;font-weight:400;color:var(--text-muted);font-size:9px">нед</th>`).join('')}
+              ${cal.days.map((d,i) => `<th class="rnp-th-day${i===0?' rnp-cell-month-start':''}" style="top:44px;font-weight:400;color:var(--text-muted);font-size:9px">${d.dow||''}</th>`).join('')}
             </tr>
           </thead>
           <tbody>
-            ${SECTIONS.map(s => _renderSection(s, cols, art)).join('')}
+            ${SECTIONS.map(s => _renderSection(s, cols, art, firstDayIdx)).join('')}
           </tbody>
-        </table>
-        </div>`;
-
-        wrap.innerHTML = html;
+        </table>`;
     }
 
-    function _renderSection(sec, cols, art) {
-        const collapsed = _collapsed.has(sec.id);
+    function _renderSection(sec, cols, art, firstDayIdx) {
+        const key = `${art.nm_id}:${sec.id}`;
+        const collapsed = _collapsedSections.has(key);
         const arrow = collapsed ? '▸' : '▾';
-
-        const hdr = `<tr onclick="RNP.toggle('${sec.id}')" style="cursor:pointer">
-          <td colspan="${cols.length+1}" style="padding:5px 14px;font-size:9.5px;font-weight:800;letter-spacing:0.09em;text-transform:uppercase;color:${sec.color};background:var(--bg);position:sticky;left:0;border-bottom:1px solid var(--border)">
-            <span style="display:inline-flex;align-items:center;gap:6px">${arrow} ${sec.label}</span>
+        const hdr = `<tr class="rnp-section-hdr" onclick="RNP.toggleSection(${art.nm_id},'${sec.id}')">
+          <td colspan="${cols.length+2}" style="color:${sec.color};background:${sec.color}18;border-color:${sec.color}40">
+            ${arrow} ${sec.label}
           </td>
         </tr>`;
-
         if (collapsed) return hdr;
 
-        const rows = sec.rows.map(m => {
-            const lbl = `<td style="position:sticky;left:0;z-index:5;background:var(--surface);padding:3px 14px;white-space:nowrap;font-weight:${m.bold?700:400};color:var(--text-secondary);border-bottom:1px solid var(--border);font-style:${m.isPlan?'italic':'normal'};border-right:1px solid var(--border)">
-              ${m.label}${m.src==='manual'?' <span style="font-size:9px;opacity:0.4">✏</span>':''}${m.src==='promo'?' <span style="font-size:9px;opacity:0.4">📣</span>':''}
-            </td>`;
+        const daySeries = cols.filter(c => c.type === 'day');
 
-            const cells = cols.map((col,ci) => {
+        const rows = sec.rows.map(m => {
+            const sparkVals = daySeries.map(c => (c.data && c.data[m.key]) || 0);
+            const spark = m.isPlan ? '' : _sparkline(sparkVals);
+
+            const cells = cols.map((col, ci) => {
                 const d = col.data;
                 const isWeek = col.type === 'week';
                 const isToday = col.isToday;
-                const isCurrFirst = !isWeek && ci === cols.findIndex(c=>c.type==='day');
+                const isMonthStart = ci === firstDayIdx;
+                const cls = [isToday?'rnp-cell-today':'', isMonthStart?'rnp-cell-month-start':''].filter(Boolean).join(' ');
+
+                if (m.isPlan) {
+                    const pv = _planVal(art, m.key, col.colKey);
+                    return `<td class="${cls} rnp-cell-plan" style="padding:1px 2px">
+                      <input type="number" min="0" step="any" class="rnp-plan-input" value="${pv}"
+                        placeholder="—" title="План — заполните вручную"
+                        onchange="RNP.savePlan(${art.nm_id},'${m.key}','${col.colKey}',this.value)">
+                    </td>`;
+                }
+
                 const val = d ? d[m.key] : null;
                 const str = _fmt(val, m.type);
                 const cc  = m.hm ? _cellColor(val, m.hm) : (m.cl === 'plan' ? _cellColor(val, 'plan') : '');
-                const bgColor = cc === 'rnp-green'  ? 'rgba(16,185,129,0.12)'
-                              : cc === 'rnp-yellow' ? 'rgba(245,158,11,0.12)'
-                              : cc === 'rnp-red'    ? 'rgba(239,68,68,0.12)'
-                              : isWeek ? 'rgba(99,102,241,0.04)' : 'transparent';
-                const txtColor = cc === 'rnp-green'  ? 'var(--green)'
+                let bg = isWeek ? 'rnp-cell-week' : '';
+                if (cc === 'rnp-green')  bg = 'background:rgba(16,185,129,0.15)';
+                else if (cc === 'rnp-yellow') bg = 'background:rgba(245,158,11,0.15)';
+                else if (cc === 'rnp-red')    bg = 'background:rgba(239,68,68,0.15)';
+                const txtColor = cc === 'rnp-green' ? 'var(--green)'
                                : cc === 'rnp-yellow' ? 'var(--amber)'
-                               : cc === 'rnp-red'    ? 'var(--red)'
+                               : cc === 'rnp-red' ? 'var(--red)'
                                : m.bold ? 'var(--text-primary)' : 'var(--text-secondary)';
-                return `<td style="text-align:center;padding:3px 6px;background:${bgColor};color:${txtColor};border-bottom:1px solid var(--border);font-weight:${m.bold?700:400};${isToday?'border-left:2px solid var(--accent);border-right:2px solid var(--accent);':''}${isCurrFirst?'border-left:2px solid var(--accent);':''}">${str||'—'}</td>`;
+                return `<td class="${cls}" style="${bg?bg+';':''}color:${txtColor};font-weight:${m.bold?700:400}">${str||'—'}</td>`;
             }).join('');
-
-            return `<tr style="transition:background 0.1s" onmouseenter="this.style.filter='brightness(1.05)'" onmouseleave="this.style.filter=''">${lbl}${cells}</tr>`;
+            return `<tr>
+              <td class="rnp-metric-col" style="font-weight:${m.bold?700:400};font-style:${m.isPlan?'italic':'normal'}">
+                ${m.label}${m.isPlan?' <span style="opacity:0.5;font-size:9px">✏</span>':''}${m.src==='manual'&&!m.isPlan?' <span style="opacity:0.35;font-size:9px">✏</span>':''}${m.src==='promo'?' <span style="opacity:0.35;font-size:9px">📣</span>':''}
+              </td>
+              <td class="rnp-spark-col">${spark}</td>${cells}
+            </tr>`;
         }).join('');
-
         return hdr + rows;
     }
 
@@ -984,7 +1201,7 @@ const RNP = (() => {
 
     async function pick(nmId) {
         _activeNm = nmId;
-        await _renderMain();
+        await _renderActiveTable();
     }
 
     async function syncArts() {
@@ -994,15 +1211,35 @@ const RNP = (() => {
         _renderSettings();
     }
 
-    async function toggleArt(nmId, btn) {
+    async function toggleArt(nmId) {
         const art = _articles.find(a => a.nm_id == nmId);
         if (!art) return;
         await _updateArticle(nmId, { is_active: !art.is_active });
         _renderSettings();
     }
 
+    async function enableAll(on) {
+        for (const a of _articles) {
+            if (a.is_active !== on) await _updateArticle(a.nm_id, { is_active: on });
+        }
+        _renderSettings();
+    }
+
     async function setCost(nmId, val) {
         await _updateArticle(nmId, { cost_price: parseFloat(val) || 0 });
+    }
+
+    async function savePlan(nmId, key, colKey, val) {
+        const art = _articles.find(a => a.nm_id == nmId);
+        if (!art) return;
+        const md = { ...(art.manual_data || {}) };
+        if (!md.plans) md.plans = {};
+        if (!md.plans[colKey]) md.plans[colKey] = {};
+        const num = val === '' ? null : (parseFloat(val) || 0);
+        if (num === null) delete md.plans[colKey][key];
+        else md.plans[colKey][key] = num;
+        await _updateArticle(nmId, { manual_data: md });
+        if (_activeNm == nmId) await _renderActiveTable();
     }
 
     async function saveManual(nmId, key, val) {
@@ -1031,10 +1268,7 @@ const RNP = (() => {
         const btn = document.getElementById('rnp-refresh-btn');
         if (btn) { btn.textContent = '⏳...'; btn.disabled = true; }
 
-        // Quick: sync today from orders/stocks cache
         await _syncToday(nmId);
-
-        // Sync historical orders from wb_orders table (always available)
         if (btn) btn.textContent = '⏳ Заказы...';
         await _syncOrdersHistory(nmId);
 
@@ -1043,25 +1277,45 @@ const RNP = (() => {
             await _syncFunnelHistory(nmId, (n, total) => {
                 if (btn) btn.textContent = `⏳ Воронка ${n}/${total}...`;
             }).catch(e => console.warn('[RNP] funnel skipped:', e.message));
-
             if (btn) btn.textContent = '⏳ Финансы...';
             await _syncFinanceRange(nmId);
             if (btn) btn.textContent = '⏳ Реклама...';
             await _syncAdStats(nmId).catch(e => console.warn('[RNP] ads skipped:', e.message));
         }
 
-        const art = _articles.find(a => a.nm_id == nmId);
-        if (art) await _renderTable(art);
-        if (btn) { btn.textContent = '✓ Обновлено'; setTimeout(() => { btn.disabled = false; btn.textContent = '↻ Обновить'; }, 2500); }
+        _invalidateCache(nmId);
+        await _loadDailyData(nmId);
+        await _loadAllStocks([nmId]);
+        if (_activeNm == nmId) await _renderActiveTable();
+        if (btn) { btn.textContent = '✓ Готово'; setTimeout(() => { btn.disabled = false; btn.textContent = '↻ Обновить'; }, 2000); }
     }
 
-    function toggle(sectionId) {
-        if (_collapsed.has(sectionId)) _collapsed.delete(sectionId);
-        else _collapsed.add(sectionId);
-        const art = _articles.find(a => a.nm_id == _activeNm);
-        if (art) _renderTable(art);
+    async function refreshAll() {
+        const btn = document.getElementById('rnp-refresh-all-btn');
+        const active = _articles.filter(a => a.is_active);
+        if (!active.length) return;
+        if (btn) { btn.disabled = true; btn.textContent = '⏳ 0/' + active.length; }
+
+        for (let i = 0; i < active.length; i++) {
+            const a = active[i];
+            if (btn) btn.textContent = `⏳ ${i+1}/${active.length}: ${(a.name||a.nm_id).substring(0,15)}...`;
+            await refresh(a.nm_id);
+        }
+
+        _invalidateCache();
+        await _loadAllDailyData(active.map(a => a.nm_id));
+        await _loadAllStocks(active.map(a => a.nm_id));
+        await _renderActiveTable();
+        if (btn) { btn.textContent = '✓ Все обновлено'; setTimeout(() => { btn.disabled = false; btn.textContent = '↻ Обновить все'; }, 2500); }
     }
 
-    return { init, openSettings, openMain, pick, syncArts, toggleArt, setCost, saveManual, saveRate, savePeriod, savePromo, refresh, toggle,
+    async function toggleSection(nmId, sectionId) {
+        const key = `${nmId}:${sectionId}`;
+        if (_collapsedSections.has(key)) _collapsedSections.delete(key);
+        else _collapsedSections.add(key);
+        if (_activeNm == nmId) await _renderActiveTable();
+    }
+
+    return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, saveManual, savePlan, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();

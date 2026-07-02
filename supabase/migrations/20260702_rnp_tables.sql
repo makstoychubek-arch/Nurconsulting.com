@@ -115,5 +115,8 @@ alter table rnp_daily_data add column if not exists basket_count int default 0;
 alter table rnp_daily_data add column if not exists basket_pct numeric default 0;
 alter table rnp_daily_data add column if not exists funnel_order_conv numeric default 0;
 
+-- Stock by size support
+alter table wb_stocks add column if not exists tech_size text default '';
+
 -- ── Done ────────────────────────────────────────────────────
 select 'RNP tables ready' as status;
