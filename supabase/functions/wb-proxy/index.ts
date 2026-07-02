@@ -142,42 +142,28 @@ serve(async (req) => {
                 break;
             }
 
-            // ── Promotion (Advertising) API ─────────────────────────────────
+            // ── Promotion (Advertising) API v2/v3 ──────────────────────────
             case 'advert_list': {
-                // Returns all campaigns (active=9, paused=11)
-                const url = 'https://advert-api.wildberries.ru/adv/v1/promotion/adverts?status=9,11';
+                // NEW v2 API (old /adv/v1/promotion/adverts deprecated Feb 2026)
+                const url = 'https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=9,11';
                 result = await wbGet(url, WB_TOKEN);
                 break;
             }
             case 'advert_stats': {
-                // Stats for specific campaigns by date range
+                // NEW v3 fullstats (old /adv/v1/stat/interval deprecated Feb 2026)
                 // params: { advertIds: number[], dateFrom: string, dateTo: string }
                 const ids: number[] = params.advertIds || [];
                 if (!ids.length) { result = []; break; }
 
-                // WB allows max 100 ids per request; batch if needed
+                // Max 50 campaigns per request, max 31 day period
                 const allStats: unknown[] = [];
-                for (let i = 0; i < ids.length; i += 100) {
-                    const chunk = ids.slice(i, i + 100);
-                    const data = await wbPost(
-                        'https://advert-api.wildberries.ru/adv/v1/stat/interval',
-                        WB_TOKEN,
-                        { id: chunk, interval: { begin: params.dateFrom, end: params.dateTo } }
-                    );
+                for (let i = 0; i < ids.length; i += 50) {
+                    const chunk = ids.slice(i, i + 50).join(',');
+                    const url = `https://advert-api.wildberries.ru/adv/v3/fullstats?ids=${chunk}&beginDate=${params.dateFrom}&endDate=${params.dateTo}`;
+                    const data = await wbGet(url, WB_TOKEN);
                     if (Array.isArray(data)) allStats.push(...data);
                 }
                 result = allStats;
-                break;
-            }
-            case 'advert_daily': {
-                // Full daily stats per nm_id for a campaign
-                // params: { advertId: number, dateFrom: string, dateTo: string }
-                const url = `https://advert-api.wildberries.ru/adv/v2/fullstats`;
-                const data = await wbPost(url, WB_TOKEN, {
-                    id: [params.advertId],
-                    interval: { begin: params.dateFrom, end: params.dateTo }
-                });
-                result = data;
                 break;
             }
 

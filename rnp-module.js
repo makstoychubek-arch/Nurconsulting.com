@@ -372,38 +372,39 @@ const RNP = (() => {
         } catch(e) { console.warn('[RNP] syncFinance:', e.message); }
     }
 
-    // ─── PROMOTION / AD SYNC ─────────────────────────────────────────────────
+    // ─── PROMOTION / AD SYNC (WB API v2/v3, updated Feb 2026) ────────────────
     async function _syncAdStats(nmId) {
         if (!_callProxy) return;
         const now = new Date();
         const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
         const dateTo   = now.toISOString().split('T')[0];
         try {
-            // 1. Get list of active campaigns for this cabinet
-            const campaigns = await _callProxy('advert_list', {});
-            if (!Array.isArray(campaigns) || !campaigns.length) return;
+            // 1. Get list of active campaigns (v2 API)
+            const resp = await _callProxy('advert_list', {});
+            // v2 returns { adverts: [...] } or directly array
+            const campaigns = resp?.adverts || (Array.isArray(resp) ? resp : []);
+            if (!campaigns.length) return;
 
-            // 2. Filter campaigns that target this nmId
+            // 2. Filter campaigns targeting this nmId (v2: nm_settings[].nm_id)
             const relevantIds = campaigns
                 .filter(c => {
-                    const nms = (c.unitedParams || []).flatMap(p => p.nms || []);
+                    const nms = (c.nm_settings || []).map(n => n.nm_id);
                     return nms.includes(Number(nmId));
                 })
-                .map(c => c.advertId);
+                .map(c => c.id || c.advertId);
             if (!relevantIds.length) return;
 
-            // 3. Fetch stats for those campaigns
+            // 3. Fetch stats (v3 fullstats — GET with query params)
             const stats = await _callProxy('advert_stats', { advertIds: relevantIds, dateFrom, dateTo });
             if (!Array.isArray(stats) || !stats.length) return;
 
-            // 4. Aggregate by date
+            // 4. Aggregate by date (structure: [{ advertId, days:[{ date, nm:[{ nmId, views, clicks, sum, orders, atbs }] }] }])
             const byDate = {};
             stats.forEach(camp => {
                 (camp.days || []).forEach(day => {
                     const date = (day.date || '').split('T')[0];
                     if (!date) return;
-                    const nms = (camp.nm || []);
-                    const nmRow = nms.find(n => n.nmId == nmId);
+                    const nmRow = (day.nm || []).find(n => (n.nmId || n.nm_id) == nmId);
                     if (!nmRow) return;
                     if (!byDate[date]) byDate[date] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
                     const d = byDate[date];
@@ -411,7 +412,7 @@ const RNP = (() => {
                     d.cl     += Number(nmRow.clicks  || 0);
                     d.spend  += Number(nmRow.sum     || 0);
                     d.orders += Number(nmRow.orders  || 0);
-                    d.basket += Number(nmRow.atbs    || 0); // добавлено в корзину
+                    d.basket += Number(nmRow.atbs    || 0);
                 });
             });
 
