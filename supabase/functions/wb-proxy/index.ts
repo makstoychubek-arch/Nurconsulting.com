@@ -202,8 +202,8 @@ serve(async (req) => {
                     settings: {
                         sort: { ascending: false },
                         filter: {
-                            textSearch: '',
-                            withPhoto: -1,
+                            textSearch: String(params.textSearch || ''),
+                            withPhoto: params.withPhoto ?? -1,
                             ...(params.nmIds?.length ? { nmID: params.nmIds } : {})
                         },
                         cursor: { limit: params.limit || 100 }
@@ -299,6 +299,40 @@ serve(async (req) => {
                 }
                 console.log('[wb-proxy] advert_list: found', allIds.length, 'IDs');
                 result = { ids: allIds };
+                break;
+            }
+            case 'advert_campaigns': {
+                const campaigns: { id: number; name: string; status: number; statusLabel: string }[] = [];
+                const statusMap: Record<number, string> = {
+                    4: 'Готова', 7: 'Завершена', 8: 'Отклонена', 9: 'Работает', 11: 'Остановлен',
+                };
+                try {
+                    const res = await fetch(
+                        'https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=4%2C9%2C11',
+                        { headers: { Authorization: WB_PROMO_TOKEN } },
+                    );
+                    const text = await res.text();
+                    if (res.ok) {
+                        const data = JSON.parse(text);
+                        const adverts: Record<string, unknown>[] = data?.adverts || (Array.isArray(data) ? data : []);
+                        for (const a of adverts) {
+                            const id = Number(a.advertId ?? a.id ?? a.advert_id ?? 0);
+                            if (!id) continue;
+                            const status = Number(a.status ?? 0);
+                            campaigns.push({
+                                id,
+                                name: String(a.name ?? a.campaignName ?? `Кампания ${id}`),
+                                status,
+                                statusLabel: statusMap[status] || 'Остановлен',
+                            });
+                        }
+                    } else {
+                        console.warn('[wb-proxy] advert_campaigns status:', res.status, text.slice(0, 300));
+                    }
+                } catch (e) {
+                    console.warn('[wb-proxy] advert_campaigns error:', String(e));
+                }
+                result = { campaigns };
                 break;
             }
             case 'advert_stats': {
