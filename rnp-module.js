@@ -2084,6 +2084,7 @@ const RNP = (() => {
         _refreshMarqueeBaseHtml(body);
         requestAnimationFrame(() => {
             _syncMarqueeFill(body);
+            requestAnimationFrame(() => _syncMarqueeFill(body));
             _bindMarqueeResize(body);
         });
         _preloadGalleryPhotos(art.nm_id).then(() => {
@@ -2116,10 +2117,11 @@ const RNP = (() => {
         const scope = root || document;
         const left = scope.querySelector('.rnp-head-left');
         const wrap = scope.querySelector('.rnp-marquee-wrap');
+        const marqueeTh = scope.querySelector('.rnp-head-marquee');
         if (!left || !wrap) return;
         _marqueeRo = new ResizeObserver(() => _syncMarqueeFill(scope));
         _marqueeRo.observe(left);
-        _marqueeRo.observe(wrap);
+        if (marqueeTh) _marqueeRo.observe(marqueeTh);
     }
 
     function _syncMarqueeFill(root) {
@@ -2138,20 +2140,19 @@ const RNP = (() => {
         const h = left?.offsetHeight || 0;
         const gap = 3;
         const aspect = 516 / 688;
-        let cardW = 72;
+        let cardW = 56;
         if (h > 0) {
-            cardW = Math.max(44, Math.round(h * aspect));
-            if (marqueeTh) marqueeTh.style.height = h + 'px';
-            wrap.style.height = h + 'px';
-            wrap.style.minHeight = '0';
-            track.style.height = h + 'px';
+            cardW = Math.max(40, Math.round(h * aspect));
+            track.style.height = '100%';
         }
 
         const baseCount = parseInt(track.dataset.baseCount, 10) || track.children.length;
         const oneSetHtml = track.dataset.baseHtml || '';
         const setW = baseCount * (cardW + gap) - gap;
-        const viewW = wrap.clientWidth || 0;
-        const totalReps = Math.max(3, Math.ceil((viewW || setW) / Math.max(setW, 1)));
+        const dayW = DAY_COL_W;
+        const nDays = scope.querySelectorAll('.rnp-th-date.rnp-day-col').length;
+        const viewW = wrap.clientWidth || marqueeTh?.clientWidth || nDays * dayW || 0;
+        const totalReps = Math.max(3, Math.ceil(viewW / Math.max(setW, 1)));
 
         if (track.children.length !== baseCount * totalReps && oneSetHtml) {
             track.innerHTML = oneSetHtml.repeat(totalReps);
