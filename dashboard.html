@@ -319,9 +319,10 @@
         .nav-item-standalone { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; color: white; font-size: 13px; font-weight: 600; border-radius: 12px; background: var(--accent-gradient); border: none; transition: all 0.25s ease; margin: 4px 12px; box-shadow: var(--use-glow); }
         .nav-item-standalone:hover { transform: translateY(-1px); filter: brightness(1.08); }
         .nav-item-standalone.active { box-shadow: 0 8px 28px rgba(123,97,255,0.45); }
+        .header-actions { position: relative; z-index: 200; }
         .cabinet-picker {
             position: relative; display: inline-flex; align-items: center;
-            min-width: 0; z-index: 60;
+            min-width: 0;
         }
         .cabinet-picker-native { display: none !important; }
         .cabinet-picker-btn {
@@ -345,7 +346,7 @@
             pointer-events: none; min-width: 0;
         }
         .cabinet-dropdown-menu {
-            position: fixed; z-index: 100000;
+            position: fixed; z-index: 200001;
             min-width: 240px; max-width: 300px; max-height: min(360px, 55vh);
             overflow: hidden; display: flex; flex-direction: column;
             background: var(--surface-solid);
@@ -356,9 +357,20 @@
                         transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.22s;
             pointer-events: none;
         }
+        .cabinet-dropdown-menu.open,
         .cabinet-picker.open .cabinet-dropdown-menu {
             opacity: 1; visibility: visible; transform: translateY(0) scale(1);
             pointer-events: auto;
+        }
+        .cabinet-dropdown-backdrop {
+            position: fixed; inset: 0; z-index: 200000;
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(2px);
+            opacity: 0; visibility: hidden; pointer-events: none;
+            transition: opacity 0.2s ease, visibility 0.2s;
+        }
+        .cabinet-dropdown-backdrop.open {
+            opacity: 1; visibility: visible; pointer-events: auto;
         }
         .cabinet-dropdown-head {
             padding: 10px 14px 8px; font-size: 10px; font-weight: 700;
@@ -372,6 +384,8 @@
             padding: 10px 12px; border-radius: 10px; cursor: pointer;
             font-size: 13px; font-weight: 500; color: var(--text-primary);
             transition: background 0.15s;
+            position: relative; z-index: 1;
+            background: var(--surface-solid);
         }
         .cabinet-dropdown-item:hover { background: var(--accent-soft); }
         .cabinet-dropdown-item.active {
@@ -2561,6 +2575,9 @@
         </div>
     </div>
 
+    <!-- Cabinet dropdown portal -->
+    <div id="cabinet-dropdown-backdrop" class="cabinet-dropdown-backdrop"></div>
+
     <div id="premium-modal">
         <div id="modal-box">
             <div id="modal-icon" style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"></div>
@@ -3106,6 +3123,40 @@
     }
 
     let cabinetListCache = [];
+    let cabinetDropdownInited = false;
+
+    function initCabinetDropdownPortal() {
+        if (cabinetDropdownInited) return;
+        cabinetDropdownInited = true;
+        const menu = document.getElementById('cabinet-dropdown-menu');
+        const backdrop = document.getElementById('cabinet-dropdown-backdrop');
+        if (menu && menu.parentElement !== document.body) document.body.appendChild(menu);
+        backdrop?.addEventListener('click', closeCabinetDropdown);
+        menu?.addEventListener('click', (e) => {
+            const item = e.target.closest('.cabinet-dropdown-item');
+            if (!item) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const id = item.getAttribute('data-cabinet-id');
+            if (id) selectCabinet(id);
+        });
+    }
+
+    function closeCabinetDropdown() {
+        document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
+        document.getElementById('cabinet-dropdown-menu')?.classList.remove('open');
+        document.getElementById('cabinet-dropdown-backdrop')?.classList.remove('open');
+    }
+
+    function openCabinetDropdown() {
+        initCabinetDropdownPortal();
+        renderCabinetDropdown(cabinetListCache);
+        positionCabinetDropdown();
+        document.getElementById('cabinet-picker-wrap')?.classList.add('open');
+        document.getElementById('cabinet-dropdown-menu')?.classList.add('open');
+        document.getElementById('cabinet-dropdown-backdrop')?.classList.add('open');
+    }
+
     function renderCabinetDropdown(data) {
         cabinetListCache = data || [];
         const menu = document.getElementById('cabinet-dropdown-menu');
@@ -3118,14 +3169,14 @@
         }
         menu.innerHTML = `<div class="cabinet-dropdown-head">Кабинет WB</div><div class="cabinet-dropdown-list">` +
             data.map(c => `
-            <div class="cabinet-dropdown-item${c.id === currentCabinetId ? ' active' : ''}" data-cabinet-id="${escapeHtml(String(c.id))}" onclick="selectCabinet(this.dataset.cabinetId)">
+            <div class="cabinet-dropdown-item${String(c.id) === String(currentCabinetId) ? ' active' : ''}" data-cabinet-id="${escapeHtml(String(c.id))}">
                 <span class="cab-dot">${escapeHtml(c.name.charAt(0).toUpperCase())}</span>
                 <span class="cab-name">${escapeHtml(c.name)}</span>
                 <span class="cab-check">✓</span>
             </div>`).join('') + `</div>`;
         if (selectHeader) {
             selectHeader.innerHTML = data.map(c =>
-                `<option value="${escapeHtml(String(c.id))}"${c.id === currentCabinetId ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
+                `<option value="${escapeHtml(String(c.id))}"${String(c.id) === String(currentCabinetId) ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
             ).join('');
         }
     }
@@ -3145,29 +3196,22 @@
         e.stopPropagation();
         const wrap = document.getElementById('cabinet-picker-wrap');
         if (!wrap) return;
-        const open = wrap.classList.toggle('open');
-        if (open) {
-            renderCabinetDropdown(cabinetListCache);
-            positionCabinetDropdown();
-        }
+        if (wrap.classList.contains('open')) closeCabinetDropdown();
+        else openCabinetDropdown();
     }
 
     function selectCabinet(id) {
+        if (!id) return;
+        closeCabinetDropdown();
         const selectHeader = document.getElementById('cabinet-select-header');
         if (selectHeader) {
             selectHeader.value = id;
             onCabinetChange();
         }
-        document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
     }
 
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('#cabinet-picker-wrap')) {
-            document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
-        }
-    });
     window.addEventListener('resize', () => {
-        if (document.getElementById('cabinet-picker-wrap')?.classList.contains('open')) {
+        if (document.getElementById('cabinet-dropdown-menu')?.classList.contains('open')) {
             positionCabinetDropdown();
         }
     });
@@ -3217,7 +3261,7 @@
         const cabinetName = s.options[s.selectedIndex].text;
         updateCabinetPickerUI(cabinetName);
         renderCabinetDropdown(cabinetListCache);
-        document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
+        closeCabinetDropdown();
         // Сбрасываем все метрики в —
         ['m-profit','m-margin','m-profit2','m-sales-sum','m-sales-count','m-realization',
          'm-commission','m-orders-sum','m-orders-count','m-conversion','m-logistics',
