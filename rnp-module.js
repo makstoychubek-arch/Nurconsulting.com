@@ -1240,7 +1240,6 @@ const RNP = (() => {
 
     function _buildKpiPanelHTML(art, stockBySize, rawData, cal) {
         const kpi = _periodSummary(art, rawData, cal);
-        const stockT = _stockTotals(stockBySize);
         const er = _settings.exchangeRate;
         const toTransferSom = Math.round((kpi.to_transfer || 0) * er);
         const costTotal = Math.round((kpi.sales_count || 0) * (art.cost_price || 0));
@@ -1250,35 +1249,44 @@ const RNP = (() => {
         const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'pos' : ((kpi.plan_orders_pct || 0) < 80 ? 'neg' : '');
         const syncSt = _syncStatus(art.nm_id);
         const alerts = _buildAlerts(art, stockBySize, kpi);
-        const md = art.manual_data || {};
-        const priceTag = md.price ? ` · ${md.price} ₽` : '';
+        const moneySom = Math.round((kpi.sales_sum || 0) * er);
+        const moneyUsd = moneySom > 0 ? (moneySom / 87.5).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 }) : '0';
+        const prodName = (art.name || '—').replace(/"/g, '&quot;');
 
         return `<div class="rnp-kpi-block${_strategyTab === 4 ? ' rnp-kpi-block--sizes-focus' : ''}">
-          <div class="rnp-kpi-left">
-            <div class="rnp-kpi-photo">${_imgHtml(art, 'rnp-kpi-photo-img', 'c516x688')}</div>
-            <div class="rnp-kpi-sizes">${_buildStockSizeHTML(stockBySize, art)}</div>
-          </div>
-          <div class="rnp-kpi-right">
-            <div class="rnp-kpi-head">
-              <div class="rnp-kpi-title">${_syncDot(syncSt.level)} ${(art.name || '—').substring(0, 42)}</div>
-              <div class="rnp-kpi-meta">Арт. WB: <b>${art.nm_id}</b>${priceTag} · Себест: <b>${art.cost_price || 0}</b> сом · <span>${syncSt.label}</span></div>
+          <div class="rnp-kpi-top">
+            <div class="rnp-gs-photo">${_imgHtml(art, 'rnp-gs-photo-img', 'c516x688')}</div>
+            <div class="rnp-gs-name" title="${prodName}">${_syncDot(syncSt.level)} ${(art.name || '—')}</div>
+            <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
+            <div class="rnp-gs-cost">
+              <span class="rnp-gs-lbl">себест.</span>
+              <input type="number" class="rnp-gs-cost-input" value="${art.cost_price || 0}" min="0" step="1"
+                title="Себестоимость за ед. (сом)"
+                onchange="RNP.setCost(${art.nm_id}, this.value)">
             </div>
-            <div class="rnp-kpi-grid rnp-kpi-grid--compact">
-              <div class="rnp-kpi"><span>Рентабельность</span><b class="${roiCls}">${_fmtKpi(kpi.roi_pct, 'pct')}</b></div>
-              <div class="rnp-kpi"><span>Выкуп %</span><b>${_fmtKpi(kpi.buyout_pct, 'pct')}</b></div>
-              <div class="rnp-kpi"><span>ДРР %</span><b>${_fmtKpi(kpi.drr_pct, 'pct')}</b></div>
-              <div class="rnp-kpi"><span>Маржа %</span><b class="${marginCls}">${_fmtKpi(kpi.margin_pct, 'pct')}</b></div>
-              <div class="rnp-kpi"><span>Прибыль</span><b class="${profitCls}">${_fmtKpi(kpi.profit, 'som')}</b></div>
-              <div class="rnp-kpi"><span>План заказ %</span><b class="${planCls}">${_fmtKpi(kpi.plan_orders_pct, 'pct')}</b></div>
-              <div class="rnp-kpi"><span>К перечислению</span><b>${toTransferSom.toLocaleString('ru')}</b></div>
-              <div class="rnp-kpi"><span>CTR %</span><b>${_fmtKpi(kpi.ctr_pct, 'pct')}</b></div>
-              <div class="rnp-kpi"><span>CRO %</span><b>${_fmtKpi(kpi.cro_pct, 'pct')}</b></div>
-              <div class="rnp-kpi"><span>Показов</span><b>${_fmtKpi(kpi.impressions, 'int')}</b></div>
-              <div class="rnp-kpi"><span>На складе</span><b>${stockT.wh.toLocaleString('ru')}</b></div>
-              <div class="rnp-kpi"><span>Общий остаток</span><b>${stockT.total.toLocaleString('ru')}</b></div>
+            <div class="rnp-gs-money-lbl">В деньгах</div>
+            <div class="rnp-gs-money-val">${moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
+            <div class="rnp-gs-usd-lbl">В долларах</div>
+            <div class="rnp-gs-usd-val">$${moneyUsd}</div>
+            <div class="rnp-gs-kpis">
+              <div class="rnp-kpi-grid rnp-kpi-grid--gs">
+                <div class="rnp-kpi"><span>Рентабельность</span><b class="${roiCls}">${_fmtKpi(kpi.roi_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>К перечислению</span><b>${toTransferSom.toLocaleString('ru')}</b></div>
+                <div class="rnp-kpi"><span>ДРР %</span><b>${_fmtKpi(kpi.drr_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>Маржа %</span><b class="${marginCls}">${_fmtKpi(kpi.margin_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>Прибыль</span><b class="${profitCls}">${_fmtKpi(kpi.profit, 'som')}</b></div>
+                <div class="rnp-kpi"><span>План заказ %</span><b class="${planCls}">${_fmtKpi(kpi.plan_orders_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>CTR %</span><b>${_fmtKpi(kpi.ctr_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>Показов</span><b>${_fmtKpi(kpi.impressions, 'int')}</b></div>
+                <div class="rnp-kpi"><span>Логистика ед</span><b>${_fmtKpi(kpi.logistics_per_unit, 'som')}</b></div>
+                <div class="rnp-kpi"><span>Выкуп %</span><b>${_fmtKpi(kpi.buyout_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>CRO %</span><b>${_fmtKpi(kpi.cro_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>Пр. Себес</span><b>${costTotal.toLocaleString('ru')}</b></div>
+              </div>
             </div>
-            ${_alertsHTML(alerts)}
           </div>
+          <div class="rnp-kpi-sizes-row${_strategyTab === 4 ? ' rnp-kpi-sizes-row--focus' : ''}">${_buildStockSizeHTML(stockBySize, art)}</div>
+          ${_alertsHTML(alerts)}
         </div>`;
     }
 
