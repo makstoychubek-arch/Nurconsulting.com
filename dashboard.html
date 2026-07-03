@@ -416,8 +416,8 @@
         }
         .rnp-strategy-bar {
             display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-            padding: 6px 10px; border-bottom: 1px solid var(--border);
-            background: var(--bg); flex-shrink: 0;
+            padding: 6px 10px; border-bottom: none;
+            background: transparent; flex-shrink: 0;
         }
         .rnp-strategy-tab {
             font-size: 9px; font-weight: 600; padding: 4px 10px; border-radius: 999px;
@@ -431,9 +431,34 @@
             color: var(--accent); font-weight: 700;
         }
         .rnp-gallery-strip {
-            flex-shrink: 0; padding: 4px 10px 6px; border-bottom: 1px solid var(--border);
-            background: var(--surface-solid); overflow-x: auto;
+            padding: 0 10px 8px; background: var(--surface-solid);
         }
+        .rnp-media-panel {
+            flex-shrink: 0; border-bottom: 1px solid var(--border);
+            background: var(--surface-solid);
+        }
+        .rnp-media-panel-head {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            padding: 4px 10px 0; border-bottom: 1px solid var(--border);
+        }
+        .rnp-media-panel-head .rnp-strategy-bar { flex: 1; min-width: 0; padding: 4px 0; }
+        .rnp-media-panel.is-collapsed .rnp-media-panel-head { border-bottom: none; padding-bottom: 4px; }
+        .rnp-gallery-toggle {
+            flex-shrink: 0; font-size: 9px; font-weight: 600; padding: 4px 10px;
+            border-radius: 8px; border: 1px solid var(--border); background: var(--surface);
+            color: var(--text-muted); cursor: pointer; white-space: nowrap;
+        }
+        .rnp-gallery-toggle:hover { border-color: var(--accent-border); color: var(--accent); }
+        .rnp-gallery-scroll {
+            display: flex; align-items: flex-end; gap: 8px;
+            overflow-x: auto; overflow-y: hidden;
+            scroll-snap-type: x proximity;
+            padding: 6px 2px 4px;
+            scrollbar-width: thin;
+            -webkit-overflow-scrolling: touch;
+        }
+        .rnp-gallery-scroll::-webkit-scrollbar { height: 6px; }
+        .rnp-gallery-scroll::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
         .rnp-gallery-row {
             display: flex; align-items: flex-end; gap: 6px; min-width: min-content;
         }
@@ -441,7 +466,9 @@
             flex: 0 0 auto; width: 52px; display: flex; flex-direction: column; gap: 2px;
         }
         .rnp-gallery-item--lg { width: 78px; }
-        .rnp-gallery-item--active .rnp-gallery-photo { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+        .rnp-gallery-item--active .rnp-gallery-photo { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+        .rnp-gallery-item { scroll-snap-align: center; }
+        .rnp-gallery-num { display: block; font-size: 7px; color: var(--text-muted); text-align: center; padding-top: 2px; }
         .rnp-gallery-photo {
             width: 100%; aspect-ratio: 3/4; border-radius: 4px; overflow: hidden;
             border: 1px solid var(--border); background: #eee;
@@ -558,6 +585,27 @@
         .rnp-sheet-table .rnp-metric-bold { font-weight: 600; color: var(--text-primary); }
         .rnp-sheet-table .rnp-metric-hero { font-weight: 700; font-size: 10px; color: var(--accent); }
         .rnp-sheet-table .rnp-cell-total { background: var(--accent-soft) !important; font-weight: 700; color: var(--accent); }
+        .rnp-sheet-table .rnp-col-sticky {
+            position: sticky;
+            background-clip: padding-box;
+        }
+        .rnp-sheet-table thead .rnp-col-sticky {
+            background: var(--surface-solid) !important;
+        }
+        .rnp-sheet-table tbody .rnp-col-sticky {
+            background: var(--surface-solid) !important;
+        }
+        .rnp-sheet-table tbody .rnp-cell-week.rnp-col-sticky {
+            background: rgba(99,102,241,0.06) !important;
+        }
+        .rnp-sheet-table tbody .rnp-cell-total.rnp-col-sticky {
+            background: var(--accent-soft) !important;
+        }
+        .rnp-sheet-table .rnp-col-sticky-total {
+            border-right: 2px solid var(--accent) !important;
+            box-shadow: 4px 0 10px rgba(0,0,0,0.14);
+        }
+        .rnp-sheet-table thead .rnp-col-sticky-total { z-index: 33 !important; }
         .rnp-sheet-table .rnp-cell-hero { font-size: 12px !important; font-weight: 700 !important; color: var(--accent) !important; }
         .rnp-sheet-table .rnp-cell-competitor { background: rgba(245, 158, 11, 0.08) !important; }
         .rnp-sheet-table .rnp-gs-section-title { font-weight: 700; font-size: 9px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; }
@@ -578,6 +626,11 @@
         }
         .rnp-sheet-table .rnp-th-day .rnp-dow { font-size: 7px; font-weight: 400; color: var(--text-muted); display: block; line-height: 1; margin-top: 1px; }
         .rnp-sheet-table .rnp-th-week { font-size: 7px; min-width: 38px; max-width: 44px; color: var(--text-muted); }
+        .rnp-sheet-table .rnp-th-week.rnp-data-col,
+        .rnp-sheet-table .rnp-th-dow.rnp-data-col,
+        .rnp-sheet-table .rnp-col-sticky.rnp-data-col {
+            min-width: 38px; max-width: 38px; width: 38px;
+        }
         .rnp-sheet-table .rnp-th-day.today { color: var(--accent); font-weight: 800; border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); }
         .rnp-sheet-table .rnp-data-col { min-width: 26px; max-width: 34px; font-size: 9px; padding: 1px 2px; }
         .rnp-sheet-table .rnp-section-hdr td { cursor: pointer; }

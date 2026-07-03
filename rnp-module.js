@@ -35,6 +35,12 @@ const RNP = (() => {
     let _notesCache = {}; // nmId -> date -> { text, history[] }
     let _strategyTab = 0;
     let _notesVisible = true;
+    let _galleryCollapsed = true;
+
+    const FROZEN_METRIC_W = 132;
+    const FROZEN_SPARK_W = 40;
+    const FROZEN_COL_W = 38;
+    const GALLERY_PHOTO_COUNT = 12;
 
     const STRATEGY_TABS = [
         { label: 'Комментарий', galleryIdx: 0 },
@@ -908,13 +914,46 @@ const RNP = (() => {
         _notesCache[nmId][date] = { text: t, history: hist };
     }
 
+    function _frozenLeft(ci, cols) {
+        const col = cols[ci];
+        if (!col) return null;
+        const base = FROZEN_METRIC_W + FROZEN_SPARK_W;
+        if (col.type === 'week') {
+            const wi = cols.slice(0, ci).filter(c => c.type === 'week').length;
+            return base + wi * FROZEN_COL_W;
+        }
+        if (col.type === 'total') return base + cols.filter(c => c.type === 'week').length * FROZEN_COL_W;
+        return null;
+    }
+
+    function _stickyColAttrs(ci, cols, zBody = 11, zHead = 28) {
+        const left = _frozenLeft(ci, cols);
+        if (left == null) return { cls: '', style: '' };
+        const isTotal = cols[ci]?.type === 'total';
+        return {
+            cls: ` rnp-col-sticky${isTotal ? ' rnp-col-sticky-total' : ''}`,
+            style: `left:${left}px;z-index:${zHead}`,
+        };
+    }
+
+    function _stickyDataAttrs(ci, cols) {
+        const left = _frozenLeft(ci, cols);
+        if (left == null) return { cls: '', style: '' };
+        const isTotal = cols[ci]?.type === 'total';
+        return {
+            cls: ` rnp-col-sticky${isTotal ? ' rnp-col-sticky-total' : ''}`,
+            style: `left:${left}px;z-index:11`,
+        };
+    }
+
     function _buildNotesHeadCells(cols, art) {
         const nmId = art.nm_id;
-        return cols.map(col => {
+        return cols.map((col, ci) => {
             const d = col.colKey || col.date || col.weekStart;
             const text = (_notesCache[nmId]?.[d]?.text || '').replace(/"/g, '&quot;');
             const tip = _noteTip(nmId, d).replace(/"/g, '&quot;');
-            return `<th class="rnp-th-note rnp-data-col">
+            const st = _stickyColAttrs(ci, cols, 11, 27);
+            return `<th class="rnp-th-note rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}>
               <input class="rnp-note-input" value="${text}" title="${tip || 'Комментарий к дате'}"
                 placeholder="+"
                 onblur="RNP.saveNote(${nmId},'${d}',this.value)">
@@ -1098,7 +1137,13 @@ const RNP = (() => {
     function setStrategyTab(idx) {
         _strategyTab = Number(idx) || 0;
         try { localStorage.setItem('rnp_strategy_tab', String(_strategyTab)); } catch (e) {}
-        if (_activeNm !== SUMMARY_TAB) _renderActiveTable();
+        if (_activeNm !== SUMMARY_TAB) {
+            _renderActiveTable();
+            requestAnimationFrame(() => {
+                const el = document.querySelector(`.rnp-gallery-item[data-photo-idx="${STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0}"]`);
+                el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            });
+        }
     }
 
     function toggleNotes(on) {
@@ -1143,17 +1188,22 @@ const RNP = (() => {
         const slots = _gallerySlots(art);
         const nmId = art.nm_id;
         const activeIdx = STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0;
-        return `<div class="rnp-gallery-row">
-          ${slots.map((slot, i) => {
+        return `<div class="rnp-gallery-scroll">
+          ${Array.from({ length: GALLERY_PHOTO_COUNT }, (_, i) => {
+            const slot = slots[i] || { comment: GALLERY_DEFAULT_COMMENTS[i] || '', large: i === 2 };
             const cls = (i === 2 || slot.large) ? ' rnp-gallery-item--lg' : '';
             const active = i === activeIdx ? ' rnp-gallery-item--active' : '';
             const comment = (slot.comment || '').replace(/"/g, '&quot;');
-            const img = _imgHtml(art, 'rnp-gallery-img', 'c246x328', (i === 2 || slot.large) ? '' : 'filter:grayscale(1) contrast(1.05);', i + 1);
-            return `<div class="rnp-gallery-item${cls}${active}">
+            const gray = (i === 2 || slot.large) ? '' : 'filter:grayscale(0.15) contrast(1.05);';
+            const img = _imgHtml(art, 'rnp-gallery-img', 'c246x328', gray, i + 1);
+            const commentField = i < GALLERY_SIZE
+                ? `<input type="text" class="rnp-gallery-comment" value="${comment}" placeholder="комментарий"
+                    title="Подпись под фото"
+                    onblur="RNP.savePhotoComment(${nmId}, ${i}, this.value)">`
+                : `<span class="rnp-gallery-num">#${i + 1}</span>`;
+            return `<div class="rnp-gallery-item${cls}${active}" data-photo-idx="${i}">
               <div class="rnp-gallery-photo">${img}</div>
-              <input type="text" class="rnp-gallery-comment" value="${comment}" placeholder="комментарий"
-                title="Подпись под фото (как в Google Sheets)"
-                onblur="RNP.savePhotoComment(${nmId}, ${i}, this.value)">
+              ${commentField}
             </div>`;
           }).join('')}
         </div>`;
@@ -1168,9 +1218,24 @@ const RNP = (() => {
         </div>`;
     }
 
-    function _buildGalleryStrip(art) {
-        if (_strategyTab === 4) return '';
-        return `<div class="rnp-gallery-strip">${_buildPhotoGalleryHTML(art)}</div>`;
+    function _buildMediaPanel(art) {
+        if (_strategyTab === 4 && _galleryCollapsed) return _buildStrategyBar();
+        const collapsed = _galleryCollapsed;
+        return `<div class="rnp-media-panel${collapsed ? ' is-collapsed' : ''}">
+          <div class="rnp-media-panel-head">
+            ${_buildStrategyBar()}
+            <button type="button" class="rnp-gallery-toggle" onclick="RNP.toggleGalleryPanel()" title="${collapsed ? 'Развернуть фото' : 'Свернуть фото'}">
+              ${collapsed ? '▸ Фото' : '▾ Свернуть'}
+            </button>
+          </div>
+          ${collapsed ? '' : `<div class="rnp-gallery-strip">${_buildPhotoGalleryHTML(art)}</div>`}
+        </div>`;
+    }
+
+    function toggleGalleryPanel() {
+        _galleryCollapsed = !_galleryCollapsed;
+        try { localStorage.setItem('rnp_gallery_collapsed', _galleryCollapsed ? '1' : '0'); } catch (e) {}
+        if (_activeNm !== SUMMARY_TAB) _renderActiveTable();
     }
 
     function _buildKpiPanelHTML(art, stockBySize, rawData, cal) {
@@ -1807,6 +1872,10 @@ const RNP = (() => {
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
         try { _notesVisible = localStorage.getItem('rnp_notes_visible') !== '0'; } catch (e) {}
         try { _strategyTab = parseInt(localStorage.getItem('rnp_strategy_tab') || '0', 10) || 0; } catch (e) {}
+        try {
+            const gc = localStorage.getItem('rnp_gallery_collapsed');
+            _galleryCollapsed = gc === null ? true : gc === '1';
+        } catch (e) {}
         await _renderActiveTable();
     }
 
@@ -1852,8 +1921,7 @@ const RNP = (() => {
 
         body.innerHTML = `
           ${topHTML}
-          ${_buildStrategyBar()}
-          ${_buildGalleryStrip(art)}
+          ${_buildMediaPanel(art)}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
             ${_buildTableHTML(art, rawData, cal)}
           </div>`;
@@ -1889,13 +1957,27 @@ const RNP = (() => {
         const nCurr = cal.days.length;
         const firstDayIdx = cols.findIndex(c => c.type === 'day');
 
-        const weekThs = cal.weeks.map(w =>
-            `<th class="rnp-th-week">${w.label || ('Нед ' + w.weekNum)}</th>`).join('');
-        const totalTh = cal.weeks.length ? '<th class="rnp-th-week rnp-th-total">ИТОГ</th>' : '';
-        const dayThs = cal.days.map((d, i) =>
-            `<th class="rnp-th-date${d.isToday ? ' today' : ''}${d.isFuture ? ' rnp-th-future' : ''}${i === 0 ? ' rnp-cell-month-start' : ''}">${d.label}</th>`).join('');
-        const dowWeeks = cal.weeks.map(() => '<th class="rnp-th-dow"></th>').join('');
-        const dowTotal = cal.weeks.length ? '<th class="rnp-th-dow"></th>' : '';
+        const weekThs = cal.weeks.map((w, wi) => {
+            const st = _stickyColAttrs(wi, cols, 11, 30);
+            return `<th class="rnp-th-week rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}>${w.label || ('Нед ' + w.weekNum)}</th>`;
+        }).join('');
+        const totalCi = cal.weeks.length;
+        const totalSt = totalCi < cols.length ? _stickyColAttrs(totalCi, cols, 11, 31) : { cls: '', style: '' };
+        const totalTh = cal.weeks.length
+            ? `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>`
+            : '';
+        const dayThs = cal.days.map((d, i) => {
+            const ci = totalCi + (cal.weeks.length ? 1 : 0) + i;
+            return `<th class="rnp-th-date${d.isToday ? ' today' : ''}${d.isFuture ? ' rnp-th-future' : ''}${i === 0 ? ' rnp-cell-month-start' : ''}">${d.label}</th>`;
+        }).join('');
+        const dowWeeks = cal.weeks.map((w, wi) => {
+            const st = _stickyColAttrs(wi, cols, 11, 29);
+            return `<th class="rnp-th-dow rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}></th>`;
+        }).join('');
+        const dowTotalSt = totalCi < cols.length ? _stickyColAttrs(totalCi, cols, 11, 29) : { cls: '', style: '' };
+        const dowTotal = cal.weeks.length
+            ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>`
+            : '';
         const dowDays = cal.days.map(d =>
             `<th class="rnp-th-dow">${d.dow || ''}</th>`).join('');
 
@@ -1962,11 +2044,12 @@ const RNP = (() => {
                     m.competitor ? 'rnp-cell-competitor' : '',
                     m.hero && (isWeek || isTotal) ? 'rnp-cell-hero' : '',
                 ].filter(Boolean).join(' ');
+                const sticky = _stickyDataAttrs(ci, cols);
 
                 if (m.isPlan) {
                     const pv = _planVal(art, m.key, col.colKey);
                     const valAttr = pv !== '' && pv != null ? ` value="${pv}"` : '';
-                    return `<td class="${cls} rnp-cell-plan rnp-data-col">
+                    return `<td class="${cls} rnp-cell-plan rnp-data-col${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>
                       <input type="text" inputmode="decimal"${valAttr}
                         class="rnp-plan-input" placeholder=""
                         onchange="RNP.savePlan(${art.nm_id},'${m.key}','${col.colKey}',this.value)">
@@ -1976,13 +2059,13 @@ const RNP = (() => {
                 const val = d ? d[m.key] : null;
                 const str = _fmt(val, m.type);
                 const cc  = m.hm ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
-                let style = '';
-                if (cc === 'rnp-green')  style = 'background:rgba(16,185,129,0.15);color:var(--green)';
-                else if (cc === 'rnp-yellow') style = 'background:rgba(245,158,11,0.15);color:var(--amber)';
-                else if (cc === 'rnp-red')    style = 'background:rgba(239,68,68,0.15);color:var(--red)';
-                else if (m.bold) style = 'font-weight:600';
+                let style = sticky.style || '';
+                if (cc === 'rnp-green')  style += (style ? ';' : '') + 'background:rgba(16,185,129,0.15);color:var(--green)';
+                else if (cc === 'rnp-yellow') style += (style ? ';' : '') + 'background:rgba(245,158,11,0.15);color:var(--amber)';
+                else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:rgba(239,68,68,0.15);color:var(--red)';
+                else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
                 if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-size:10px;font-weight:700';
-                return `<td class="${cls} rnp-data-col"${style ? ` style="${style}"` : ''}>${str ?? ''}</td>`;
+                return `<td class="${cls} rnp-data-col${sticky.cls}"${style ? ` style="${style}"` : ''}>${str ?? ''}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',
@@ -2145,6 +2228,6 @@ const RNP = (() => {
     }
 
     return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
-             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod,
+             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, toggleGalleryPanel,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();
