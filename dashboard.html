@@ -1371,6 +1371,127 @@
         html { scroll-behavior: smooth; }
         * { -webkit-font-smoothing: antialiased; }
 
+        @keyframes overlaySpin {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes overlayCorePulse {
+            0%, 100% { transform: scale(0.92); opacity: 0.5; }
+            50% { transform: scale(1.08); opacity: 1; }
+        }
+        @keyframes overlayShimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+        }
+        @keyframes overlayLogoIn {
+            from { opacity: 0; transform: translateY(8px) scale(0.97); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        #cabinet-overlay {
+            position: fixed; inset: 0; z-index: 199999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: var(--bg, #0f0f17);
+            overflow: hidden;
+            opacity: 1; visibility: visible;
+            transition: opacity 0.9s cubic-bezier(0.4, 0, 0.2, 1),
+                        visibility 0.9s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #cabinet-overlay::before,
+        #cabinet-overlay::after {
+            content: ''; position: absolute; border-radius: 50%; pointer-events: none;
+            filter: blur(80px); opacity: 0.18;
+        }
+        #cabinet-overlay::before {
+            width: 280px; height: 280px; top: 20%; left: 25%;
+            background: rgba(255,255,255,0.08);
+            animation: orbDrift 10s ease-in-out infinite;
+        }
+        #cabinet-overlay::after {
+            width: 220px; height: 220px; bottom: 18%; right: 22%;
+            background: rgba(139,92,246,0.12);
+            animation: orbDrift 12s ease-in-out infinite reverse;
+        }
+        #cabinet-overlay.overlay-exiting {
+            opacity: 0; visibility: hidden; pointer-events: none;
+        }
+        #cabinet-overlay.overlay-exiting .overlay-brand {
+            transform: translateY(-16px) scale(1.05);
+            opacity: 0; filter: blur(8px);
+        }
+        #cabinet-overlay.overlay-exiting .overlay-loader-wrap {
+            transform: scale(0.5) translateY(10px);
+            opacity: 0;
+        }
+        .overlay-content {
+            position: relative; z-index: 1; text-align: center;
+            animation: overlayLogoIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        .overlay-brand {
+            display: flex; align-items: baseline; justify-content: center; gap: 6px;
+            transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1),
+                        opacity 0.75s ease, filter 0.75s ease;
+        }
+        .overlay-logo-nr {
+            font-size: 34px; font-weight: 800; color: #fff;
+            letter-spacing: -0.03em; line-height: 1;
+        }
+        .overlay-logo-space {
+            font-size: 34px; font-weight: 500; color: rgba(255,255,255,0.88);
+            letter-spacing: 0.04em; line-height: 1;
+        }
+        .overlay-loader-wrap {
+            margin-top: 32px; display: flex; flex-direction: column; align-items: center; gap: 14px;
+            transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.65s ease;
+        }
+        .overlay-loader {
+            position: relative; width: 56px; height: 56px;
+        }
+        .overlay-ring {
+            position: absolute; inset: 0; border-radius: 50%;
+            border: 2px solid transparent;
+        }
+        .overlay-ring-1 {
+            border-top-color: rgba(255,255,255,0.95);
+            border-right-color: rgba(255,255,255,0.12);
+            animation: overlaySpin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+        }
+        .overlay-ring-2 {
+            inset: 7px;
+            border-bottom-color: rgba(255,255,255,0.45);
+            border-left-color: rgba(255,255,255,0.06);
+            animation: overlaySpin 1.5s cubic-bezier(0.5, 0, 0.5, 1) infinite reverse;
+        }
+        .overlay-ring-3 {
+            inset: 14px;
+            border-top-color: rgba(255,255,255,0.25);
+            animation: overlaySpin 2s linear infinite;
+        }
+        .overlay-core {
+            position: absolute; inset: 20px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.14) 0%, transparent 72%);
+            animation: overlayCorePulse 2.2s ease-in-out infinite;
+        }
+        .overlay-progress-track {
+            width: 120px; height: 2px; border-radius: 2px;
+            background: rgba(255,255,255,0.08); overflow: hidden; position: relative;
+        }
+        .overlay-progress-shine {
+            position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.7), transparent);
+            animation: overlayShimmer 1.8s ease-in-out infinite;
+        }
+        #cabinet-overlay-name {
+            display: none; margin-top: 12px; font-size: 13px;
+            color: rgba(255,255,255,0.45); font-weight: 500;
+        }
+        body.app-loading .sidebar-app,
+        body.app-loading .main-rail {
+            opacity: 0;
+        }
+        body.app-ready .sidebar-app,
+        body.app-ready .main-rail {
+            opacity: 1;
+            transition: opacity 0.85s cubic-bezier(0.22, 1, 0.36, 1) 0.12s;
+        }
         @keyframes dotPulse {
             0%, 100% { opacity: 0.3; transform: scale(0.8); }
             50% { opacity: 1; transform: scale(1.2); }
@@ -2382,17 +2503,21 @@
     </main>
 
     <!-- Cabinet Switch Overlay -->
-    <div id="cabinet-overlay" style="display:flex;position:fixed;inset:0;z-index:199999;background:var(--bg, #0f0f17);flex-direction:column;align-items:center;justify-content:center;gap:20px;transition:opacity 0.4s ease">
-        <div style="text-align:center">
-            <div class="flex items-baseline justify-center gap-1.5 mb-6">
-                <span style="font-size:32px;font-weight:800;color:#E8568E;letter-spacing:-0.02em">NR</span>
-                <span style="font-size:32px;font-weight:500;color:var(--text-primary,#fff);letter-spacing:0.02em">SPACE</span>
+    <div id="cabinet-overlay">
+        <div class="overlay-content">
+            <div class="overlay-brand">
+                <span class="overlay-logo-nr">NR</span>
+                <span class="overlay-logo-space">SPACE</span>
             </div>
-            <div id="cabinet-overlay-name" style="display:none"></div>
-            <div style="display:flex;gap:8px;justify-content:center">
-                <div style="width:8px;height:8px;border-radius:50%;background:var(--accent,#8b5cf6);animation:dotPulse 1.2s ease-in-out infinite"></div>
-                <div style="width:8px;height:8px;border-radius:50%;background:var(--accent,#8b5cf6);animation:dotPulse 1.2s ease-in-out 0.2s infinite"></div>
-                <div style="width:8px;height:8px;border-radius:50%;background:var(--accent,#8b5cf6);animation:dotPulse 1.2s ease-in-out 0.4s infinite"></div>
+            <div id="cabinet-overlay-name"></div>
+            <div class="overlay-loader-wrap">
+                <div class="overlay-loader">
+                    <div class="overlay-ring overlay-ring-1"></div>
+                    <div class="overlay-ring overlay-ring-2"></div>
+                    <div class="overlay-ring overlay-ring-3"></div>
+                    <div class="overlay-core"></div>
+                </div>
+                <div class="overlay-progress-track"><div class="overlay-progress-shine"></div></div>
             </div>
         </div>
     </div>
@@ -2988,6 +3113,7 @@
     });
 
     async function loadCabinets() {
+        const selectHeader = document.getElementById('cabinet-select-header');
         const { data } = await supabase.from('cabinets').select('id, name').order('name');
         if (!data || data.length === 0) {
             renderCabinetDropdown([]);
@@ -2999,7 +3125,6 @@
         if (sel) {
             updateCabinetPickerUI(sel.name);
             if (selectHeader) selectHeader.value = currentCabinetId;
-            // On initial load: load data silently, overlay stays up until RNP init is done
             await loadFromDB();
         } else {
             await loadFromDB();
@@ -3053,19 +3178,37 @@
 
     function hideOverlay() {
         const overlay = document.getElementById('cabinet-overlay');
-        if (!overlay || overlay.style.display === 'none') return;
-        overlay.style.transition = 'opacity 0.35s ease';
-        overlay.style.opacity = '0';
-        setTimeout(() => { overlay.style.display = 'none'; overlay.style.opacity = '1'; }, 360);
+        if (!overlay || overlay.classList.contains('overlay-exiting')) return;
+        overlay.classList.add('overlay-exiting');
+        setTimeout(() => {
+            overlay.style.display = 'none';
+            overlay.classList.remove('overlay-exiting');
+            document.body.classList.remove('app-loading');
+            document.body.classList.add('app-ready');
+        }, 920);
+    }
+
+    function showOverlay() {
+        const overlay = document.getElementById('cabinet-overlay');
+        if (!overlay) return;
+        overlay.classList.remove('overlay-exiting');
+        overlay.style.display = 'flex';
+        document.body.classList.add('app-loading');
+        document.body.classList.remove('app-ready');
     }
 
     function showCabinetTransition(name, callback) {
         const overlay = document.getElementById('cabinet-overlay');
         if (!overlay) { callback(); return; }
-        overlay.style.display = 'flex';
-        overlay.style.opacity = '1';
+        showOverlay();
+        const nameEl = document.getElementById('cabinet-overlay-name');
+        if (nameEl && name) {
+            nameEl.textContent = name;
+            nameEl.style.display = 'block';
+        } else if (nameEl) {
+            nameEl.style.display = 'none';
+        }
         const minDelay = new Promise(r => setTimeout(r, 1400));
-        // ОБЯЗАТЕЛЬНЫЙ таймаут 8 сек — оверлей ВСЕГДА закроется
         const timeout = new Promise(r => setTimeout(r, 8000));
         const loadWithTimeout = Promise.race([
             Promise.resolve(callback()).catch(() => {}),
@@ -4342,6 +4485,7 @@
     function closeSupplyDetail() { document.getElementById('supply-detail-modal').classList.add('hidden'); }
 
     document.addEventListener('DOMContentLoaded', async () => {
+        document.body.classList.add('app-loading');
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { window.location.href = '/login'; return; }
         const { data: allowed } = await supabase.from('allowed_users').select('email').eq('email', session.user.email).single();
@@ -4359,11 +4503,15 @@
         if (fi) fi.textContent = initial;
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
         currentUserEmail = session.user.email || '';
-        await loadCabinets();
-        updateDateRangeLabel();
-        await loadABTests();
+        try {
+            await loadCabinets();
+            updateDateRangeLabel();
+            await loadABTests();
+        } catch (e) {
+            console.error('[init] load error:', e);
+        }
 
-        // Init RNP, then restore last tab, then hide loader — all in one step
+        // Init RNP, then restore last tab, then hide loader — always hide overlay
         setTimeout(async () => {
             try {
                 if (currentCabinetId && typeof RNP !== 'undefined') {
