@@ -40,6 +40,7 @@ const RNP = (() => {
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 38;
+    const DAY_COL_W = 30;
     const GALLERY_PHOTO_COUNT = 12;
 
     const STRATEGY_TABS = [
@@ -914,6 +915,130 @@ const RNP = (() => {
         _notesCache[nmId][date] = { text: t, history: hist };
     }
 
+    function _leftFrozenSpan(cal) {
+        return 2 + cal.weeks.length + (cal.weeks.length ? 1 : 0);
+    }
+
+    function _timelinePeriods(art, cal) {
+        const saved = art?.manual_data?.strategy_timeline;
+        if (Array.isArray(saved) && saved.length) {
+            return saved.map((p, i) => ({
+                galleryIdx: p.galleryIdx ?? p.idx ?? i,
+                label: (p.label || '').trim(),
+                from: p.from || p.start || p.date,
+                to: p.to || p.end || p.from || p.date,
+            })).filter(p => p.from);
+        }
+        const slots = _gallerySlots(art);
+        const days = cal.days;
+        if (!days.length) return [];
+        const n = days.length;
+        const bounds = [
+            [0, 0],
+            [0, Math.min(10, n - 1)],
+            [Math.min(11, n - 1), Math.min(14, n - 1)],
+            [Math.min(15, n - 1), Math.min(19, n - 1)],
+            [Math.min(20, n - 1), Math.min(24, n - 1)],
+            [Math.min(25, n - 1), n - 1],
+        ];
+        return bounds.map(([a, b], i) => ({
+            galleryIdx: i,
+            label: (slots[i]?.comment || STRATEGY_TABS[i]?.label || '').trim(),
+            from: days[Math.min(a, n - 1)]?.date,
+            to: days[Math.min(b, n - 1)]?.date,
+        })).filter(p => p.from && p.label);
+    }
+
+    function _buildDaySpanCells(cal, periods, renderSpan, renderGap) {
+        const parts = [];
+        let i = 0;
+        while (i < cal.days.length) {
+            const date = cal.days[i].date;
+            const period = periods.find(p => p.from && date >= p.from && date <= p.to);
+            if (period && date === period.from) {
+                let endIdx = i;
+                while (endIdx < cal.days.length && cal.days[endIdx].date <= period.to) endIdx++;
+                parts.push(renderSpan(period, endIdx - i, i));
+                i = endIdx;
+            } else {
+                parts.push(renderGap(cal.days[i], i));
+                i++;
+            }
+        }
+        return parts.join('');
+    }
+
+    function _buildStrategyLabelCells(art, cal) {
+        const periods = _timelinePeriods(art, cal);
+        return _buildDaySpanCells(
+            cal,
+            periods,
+            (p, span) => `<th colspan="${span}" class="rnp-head-strategy-cell rnp-day-col">
+              <span class="rnp-strategy-badge">${(p.label || '').replace(/</g, '&lt;')}</span>
+            </th>`,
+            () => '<th class="rnp-head-day-gap rnp-day-col"></th>'
+        );
+    }
+
+    function _buildGalleryTimelineCells(art, cal) {
+        const periods = _timelinePeriods(art, cal);
+        const nmId = art.nm_id;
+        return _buildDaySpanCells(
+            cal,
+            periods,
+            (p, span, dayIdx) => {
+                const gi = p.galleryIdx ?? 0;
+                const slot = _gallerySlots(art)[gi] || {};
+                const comment = (slot.comment || p.label || '').replace(/"/g, '&quot;');
+                const cls = gi === 2 || slot.large ? ' rnp-head-gallery-cell--lg' : '';
+                const gray = cls ? '' : 'filter:grayscale(0.15) contrast(1.05);';
+                const img = _imgHtml(art, 'rnp-gallery-img', 'c246x328', gray, gi + 1);
+                const commentField = gi < GALLERY_SIZE
+                    ? `<input type="text" class="rnp-gallery-comment" value="${comment}" placeholder="комментарий"
+                        title="Подпись периода"
+                        onblur="RNP.savePhotoComment(${nmId}, ${gi}, this.value)">`
+                    : '';
+                return `<th colspan="${span}" class="rnp-head-gallery-cell rnp-day-col${cls}" data-photo-idx="${gi}" data-day-idx="${dayIdx}">
+                  <div class="rnp-head-gallery-photo">${img}</div>
+                  ${commentField}
+                </th>`;
+            },
+            (d, dayIdx) => {
+                const note = (_notesCache[nmId]?.[d.date]?.text || '').replace(/</g, '&lt;');
+                return `<th class="rnp-head-note-cell rnp-day-col" title="${note}">
+                  ${note ? `<span class="rnp-head-note-text">${note}</span>` : ''}
+                </th>`;
+            }
+        );
+    }
+
+    function _buildSheetHeadRows(art, stockBySize, rawData, cal) {
+        const leftSpan = _leftFrozenSpan(cal);
+        const nDays = cal.days.length;
+        const galleryHidden = _galleryCollapsed ? ' rnp-head-gallery-row--hidden' : '';
+
+        return `
+            <tr class="rnp-head-kpi">
+              <th colspan="${leftSpan}" class="rnp-head-left">${_buildKpiTopHTML(art, stockBySize, rawData, cal)}</th>
+              <th colspan="${nDays}" class="rnp-head-tabs-cell">
+                <div class="rnp-head-tabs-inner">
+                  ${_buildStrategyBar()}
+                  <button type="button" class="rnp-gallery-toggle" onclick="RNP.toggleGalleryPanel()" title="${_galleryCollapsed ? 'Развернуть фото' : 'Свернуть фото'}">
+                    ${_galleryCollapsed ? '▸ Фото' : '▾ Свернуть'}
+                  </button>
+                </div>
+              </th>
+            </tr>
+            <tr class="rnp-head-strategy">
+              <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--sizes">${_buildStockSizeHTML(stockBySize, art)}</th>
+              ${_buildStrategyLabelCells(art, cal)}
+            </tr>
+            <tr class="rnp-head-gallery${galleryHidden}">
+              <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--pad"></th>
+              ${_buildGalleryTimelineCells(art, cal)}
+            </tr>`;
+    }
+
     function _frozenLeft(ci, cols) {
         const col = cols[ci];
         if (!col) return null;
@@ -953,7 +1078,8 @@ const RNP = (() => {
             const text = (_notesCache[nmId]?.[d]?.text || '').replace(/"/g, '&quot;');
             const tip = _noteTip(nmId, d).replace(/"/g, '&quot;');
             const st = _stickyColAttrs(ci, cols, 11, 27);
-            return `<th class="rnp-th-note rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}>
+            const colCls = col.type === 'day' ? 'rnp-day-col' : 'rnp-data-col';
+            return `<th class="rnp-th-note ${colCls}${st.cls}"${st.style ? ` style="${st.style}"` : ''}>
               <input class="rnp-note-input" value="${text}" title="${tip || 'Комментарий к дате'}"
                 placeholder="+"
                 onblur="RNP.saveNote(${nmId},'${d}',this.value)">
@@ -1140,7 +1266,8 @@ const RNP = (() => {
         if (_activeNm !== SUMMARY_TAB) {
             _renderActiveTable();
             requestAnimationFrame(() => {
-                const el = document.querySelector(`.rnp-gallery-item[data-photo-idx="${STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0}"]`);
+                const el = document.querySelector(`.rnp-head-gallery-cell[data-photo-idx="${STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0}"]`)
+                    || document.querySelector(`.rnp-gallery-item[data-photo-idx="${STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0}"]`);
                 el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
             });
         }
@@ -1238,7 +1365,7 @@ const RNP = (() => {
         if (_activeNm !== SUMMARY_TAB) _renderActiveTable();
     }
 
-    function _buildKpiPanelHTML(art, stockBySize, rawData, cal) {
+    function _buildKpiTopHTML(art, stockBySize, rawData, cal) {
         const kpi = _periodSummary(art, rawData, cal);
         const er = _settings.exchangeRate;
         const toTransferSom = Math.round((kpi.to_transfer || 0) * er);
@@ -1285,9 +1412,13 @@ const RNP = (() => {
               </div>
             </div>
           </div>
-          <div class="rnp-kpi-sizes-row${_strategyTab === 4 ? ' rnp-kpi-sizes-row--focus' : ''}">${_buildStockSizeHTML(stockBySize, art)}</div>
           ${_alertsHTML(alerts)}
         </div>`;
+    }
+
+    function _buildKpiPanelHTML(art, stockBySize, rawData, cal) {
+        return `${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
+          <div class="rnp-kpi-sizes-row${_strategyTab === 4 ? ' rnp-kpi-sizes-row--focus' : ''}">${_buildStockSizeHTML(stockBySize, art)}</div>`;
     }
 
     function _buildTopPanelHTML(art, stockBySize, rawData, cal) {
@@ -1914,7 +2045,7 @@ const RNP = (() => {
         const rawData = _dataCache[art.nm_id] || {};
         const stockBySize = _stockCache[art.nm_id] || {};
 
-        let topHTML = `<div class="rnp-article-panel">${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>`;
+        let topHTML = '';
         if (_compareNm && _compareNm !== art.nm_id) {
             const art2 = _articles.find(a => a.nm_id == _compareNm);
             if (art2) {
@@ -1929,9 +2060,8 @@ const RNP = (() => {
 
         body.innerHTML = `
           ${topHTML}
-          ${_buildMediaPanel(art)}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
-            ${_buildTableHTML(art, rawData, cal)}
+            ${_buildTableHTML(art, stockBySize, rawData, cal)}
           </div>`;
 
         _updateTabHighlight();
@@ -1959,11 +2089,15 @@ const RNP = (() => {
         </tr>`;
     }
 
-    function _buildTableHTML(art, rawData, cal) {
+    function _buildTableHTML(art, stockBySize, rawData, cal) {
         const cols = _buildCols(rawData, art, cal);
         const nPrev = cal.weeks.length + (cal.weeks.length ? 1 : 0);
         const nCurr = cal.days.length;
         const firstDayIdx = cols.findIndex(c => c.type === 'day');
+        const sheetHead = _compareNm && _compareNm !== art.nm_id
+            ? ''
+            : _buildSheetHeadRows(art, stockBySize, rawData, cal);
+        const galleryCls = _galleryCollapsed ? ' rnp-sheet-table--gallery-collapsed' : '';
 
         const weekThs = cal.weeks.map((w, wi) => {
             const st = _stickyColAttrs(wi, cols, 11, 30);
@@ -1976,7 +2110,7 @@ const RNP = (() => {
             : '';
         const dayThs = cal.days.map((d, i) => {
             const ci = totalCi + (cal.weeks.length ? 1 : 0) + i;
-            return `<th class="rnp-th-date${d.isToday ? ' today' : ''}${d.isFuture ? ' rnp-th-future' : ''}${i === 0 ? ' rnp-cell-month-start' : ''}">${d.label}</th>`;
+            return `<th class="rnp-th-date rnp-day-col${d.isToday ? ' today' : ''}${d.isFuture ? ' rnp-th-future' : ''}${i === 0 ? ' rnp-cell-month-start' : ''}">${d.label}</th>`;
         }).join('');
         const dowWeeks = cal.weeks.map((w, wi) => {
             const st = _stickyColAttrs(wi, cols, 11, 29);
@@ -1987,7 +2121,7 @@ const RNP = (() => {
             ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>`
             : '';
         const dowDays = cal.days.map(d =>
-            `<th class="rnp-th-dow">${d.dow || ''}</th>`).join('');
+            `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
         const headRows = _notesVisible ? 4 : 3;
         const notesRow = _notesVisible ? `<tr class="rnp-notes-head-row">
@@ -1995,15 +2129,16 @@ const RNP = (() => {
             </tr>` : '';
 
         return `
-        <table class="rnp-sheet-table${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}">
+        <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}">
           <thead>
-            <tr>
+            ${sheetHead}
+            <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
               <th class="rnp-th-month" colspan="${nPrev}">${cal.prevName}</th>
               <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${cal.currName}</th>
             </tr>
-            <tr>
+            <tr class="rnp-cal-date-row">
               ${weekThs}${totalTh}${dayThs}
             </tr>
             <tr class="rnp-dow-head-row">
@@ -2043,7 +2178,9 @@ const RNP = (() => {
                 const isToday = col.isToday;
                 const isMonthStart = ci === firstDayIdx;
                 const isFuture = col.isFuture;
+                const isDay = col.type === 'day';
                 const cls = [
+                    isDay ? 'rnp-day-col' : '',
                     isToday ? 'rnp-cell-today' : '',
                     isMonthStart ? 'rnp-cell-month-start' : '',
                     isFuture ? 'rnp-cell-future' : '',
@@ -2053,11 +2190,12 @@ const RNP = (() => {
                     m.hero && (isWeek || isTotal) ? 'rnp-cell-hero' : '',
                 ].filter(Boolean).join(' ');
                 const sticky = _stickyDataAttrs(ci, cols);
+                const colWCls = isDay ? 'rnp-day-col' : 'rnp-data-col';
 
                 if (m.isPlan) {
                     const pv = _planVal(art, m.key, col.colKey);
                     const valAttr = pv !== '' && pv != null ? ` value="${pv}"` : '';
-                    return `<td class="${cls} rnp-cell-plan rnp-data-col${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>
+                    return `<td class="${cls} rnp-cell-plan ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>
                       <input type="text" inputmode="decimal"${valAttr}
                         class="rnp-plan-input" placeholder=""
                         onchange="RNP.savePlan(${art.nm_id},'${m.key}','${col.colKey}',this.value)">
@@ -2073,7 +2211,7 @@ const RNP = (() => {
                 else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:rgba(239,68,68,0.15);color:var(--red)';
                 else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
                 if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-size:10px;font-weight:700';
-                return `<td class="${cls} rnp-data-col${sticky.cls}"${style ? ` style="${style}"` : ''}>${str ?? ''}</td>`;
+                return `<td class="${cls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}>${str ?? ''}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',

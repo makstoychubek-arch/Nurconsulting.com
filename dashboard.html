@@ -371,6 +371,71 @@
             flex-shrink: 0; background: var(--surface-solid);
             border-bottom: 1px solid var(--border);
         }
+        .rnp-head-left {
+            position: sticky; left: 0; z-index: 46;
+            background: var(--surface-solid) !important;
+            text-align: left; vertical-align: top;
+            padding: 0 !important;
+            border-right: 2px solid var(--border-strong);
+            box-shadow: 4px 0 8px rgba(0,0,0,0.06);
+        }
+        .rnp-head-left--sizes { vertical-align: middle; padding: 2px 4px !important; }
+        .rnp-head-left--pad { padding: 0 !important; height: 0; border: none; }
+        .rnp-head-left .rnp-kpi-block { border: none; }
+        .rnp-head-left .rnp-kpi-top {
+            width: 100%;
+            grid-template-columns: 72px minmax(52px, 1fr) minmax(52px, 72px) minmax(120px, 1.4fr);
+        }
+        .rnp-head-left--sizes .rnp-stock-block { max-width: 100%; overflow-x: auto; }
+        .rnp-head-tabs-cell {
+            padding: 4px 6px !important; vertical-align: middle;
+            background: var(--surface-solid) !important; text-align: left;
+        }
+        .rnp-head-tabs-inner {
+            display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+        }
+        .rnp-head-tabs-inner .rnp-strategy-bar { flex: 1; min-width: 0; padding: 0; border: none; }
+        .rnp-head-strategy-cell {
+            padding: 2px 1px !important; vertical-align: middle;
+            background: rgba(99,102,241,0.04) !important;
+        }
+        .rnp-strategy-badge {
+            display: block; font-size: 7px; font-weight: 700; line-height: 1.15;
+            color: var(--accent); text-transform: uppercase; letter-spacing: 0.03em;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            padding: 2px 3px; border-radius: 3px;
+            background: var(--accent-soft); border: 1px solid var(--accent-border);
+        }
+        .rnp-head-gallery-cell {
+            padding: 2px 1px !important; vertical-align: bottom;
+            background: var(--surface-solid) !important;
+        }
+        .rnp-head-gallery-photo {
+            width: 100%; aspect-ratio: 3/4; max-height: 64px;
+            border-radius: 3px; overflow: hidden;
+            border: 1px solid var(--border); background: #eee;
+        }
+        .rnp-head-gallery-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .rnp-head-gallery-cell--lg .rnp-head-gallery-photo { max-height: 72px; border-color: var(--accent); }
+        .rnp-head-gallery-cell .rnp-gallery-comment {
+            width: 100%; font-size: 6px; margin-top: 1px;
+        }
+        .rnp-head-note-cell {
+            padding: 1px 2px !important; vertical-align: top;
+            background: var(--bg) !important;
+        }
+        .rnp-head-note-text {
+            display: block; font-size: 6px; line-height: 1.1;
+            color: var(--text-secondary); overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
+        }
+        .rnp-head-day-gap { padding: 0 !important; background: var(--surface-solid) !important; }
+        .rnp-head-gallery-row--hidden { display: none; }
+        .rnp-sheet-table thead tr.rnp-head-kpi th,
+        .rnp-sheet-table thead tr.rnp-head-strategy th,
+        .rnp-sheet-table thead tr.rnp-head-gallery th {
+            position: relative; top: auto;
+        }
         .rnp-compare-split {
             display: grid; grid-template-columns: 1fr 1fr; gap: 0;
             border-bottom: 1px solid var(--border);
@@ -483,6 +548,7 @@
             border-top: 1px solid var(--border);
             background: var(--surface-solid);
         }
+        .rnp-head-left--sizes .rnp-kpi-sizes-row { border-top: none; padding: 0; }
         .rnp-kpi-grid--gs {
             grid-template-columns: repeat(6, 1fr);
             gap: 2px 10px;
@@ -582,7 +648,11 @@
             font-size: 9px; width: max-content; min-width: 100%;
             --rnp-row1: 22px; --rnp-row2: 20px; --rnp-row3: 16px; --rnp-row4: 18px;
             --rnp-head-h: calc(var(--rnp-row1) + var(--rnp-row2) + var(--rnp-row3) + var(--rnp-row4));
-            --rnp-metric-w: 132px; --rnp-spark-w: 40px;
+            --rnp-metric-w: 132px; --rnp-spark-w: 40px; --rnp-day-w: 30px;
+        }
+        .rnp-sheet-table .rnp-day-col {
+            width: var(--rnp-day-w); min-width: var(--rnp-day-w); max-width: var(--rnp-day-w);
+            box-sizing: border-box;
         }
         .rnp-sheet-table--no-notes {
             --rnp-head-h: calc(var(--rnp-row1) + var(--rnp-row2) + var(--rnp-row3));
@@ -598,10 +668,10 @@
             box-shadow: 0 1px 0 var(--border);
             backface-visibility: hidden;
         }
-        .rnp-sheet-table thead tr:nth-child(1) th:not(.rnp-th-metric):not(.rnp-th-spark) {
+        .rnp-sheet-table thead tr.rnp-cal-month-row th:not(.rnp-th-metric):not(.rnp-th-spark) {
             top: 0; z-index: 32; height: var(--rnp-row1);
         }
-        .rnp-sheet-table thead tr:nth-child(2) th {
+        .rnp-sheet-table thead tr.rnp-cal-date-row th {
             top: var(--rnp-row1); z-index: 31; height: var(--rnp-row2);
         }
         .rnp-sheet-table thead tr.rnp-dow-head-row th {
@@ -664,9 +734,9 @@
         .rnp-sheet-table .rnp-th-month { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 4px; }
         .rnp-sheet-table .rnp-th-month-curr { border-left: 2px solid var(--accent) !important; color: var(--accent); }
         .rnp-sheet-table .rnp-th-total { background: var(--accent-soft) !important; color: var(--accent); font-weight: 800; }
-        .rnp-sheet-table .rnp-th-date { font-size: 8px; font-weight: 600; min-width: 26px; max-width: 34px; padding: 1px 2px; }
+        .rnp-sheet-table .rnp-th-date { font-size: 8px; font-weight: 600; padding: 1px 2px; }
         .rnp-sheet-table .rnp-th-date.today { color: var(--accent); font-weight: 800; border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); }
-        .rnp-sheet-table .rnp-th-dow { font-size: 7px; font-weight: 400; color: var(--text-muted); min-width: 26px; max-width: 34px; }
+        .rnp-sheet-table .rnp-th-dow { font-size: 7px; font-weight: 400; color: var(--text-muted); }
         .rnp-sheet-table .rnp-metric-bold { font-weight: 600; color: var(--text-primary); }
         .rnp-sheet-table .rnp-metric-hero { font-weight: 700; font-size: 10px; color: var(--accent); }
         .rnp-sheet-table .rnp-cell-total { background: var(--accent-soft) !important; font-weight: 700; color: var(--accent); }
@@ -706,7 +776,7 @@
         .rnp-meta-status b { color: var(--accent); font-weight: 600; }
         .rnp-note-input { font-size: 8px; color: var(--text-muted); }
         .rnp-sheet-table .rnp-th-day {
-            font-size: 8px; font-weight: 600; min-width: 26px; max-width: 34px;
+            font-size: 8px; font-weight: 600;
             padding: 1px 2px; vertical-align: middle;
         }
         .rnp-sheet-table .rnp-th-day .rnp-dow { font-size: 7px; font-weight: 400; color: var(--text-muted); display: block; line-height: 1; margin-top: 1px; }
@@ -717,7 +787,7 @@
             min-width: 38px; max-width: 38px; width: 38px;
         }
         .rnp-sheet-table .rnp-th-day.today { color: var(--accent); font-weight: 800; border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); }
-        .rnp-sheet-table .rnp-data-col { min-width: 26px; max-width: 34px; font-size: 9px; padding: 1px 2px; }
+        .rnp-sheet-table .rnp-data-col { min-width: 38px; max-width: 38px; width: 38px; font-size: 9px; padding: 1px 2px; }
         .rnp-sheet-table .rnp-section-hdr td { cursor: pointer; }
         .rnp-sheet-table .rnp-cell-week { background: rgba(99,102,241,0.05); }
         .rnp-sheet-table .rnp-cell-today { border-left: 2px solid var(--accent) !important; border-right: 2px solid var(--accent) !important; }
