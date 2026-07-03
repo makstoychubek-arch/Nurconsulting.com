@@ -4014,46 +4014,32 @@
         return token.slice(0, 8) + ' •••••••••• ' + token.slice(-6);
     }
 
+    // ВАЖНО — НЕ МЕНЯТЬ: 1 кабинет = 1 токен WB, в нём уже есть ВСЕ права
+    // (статистика, контент, продвижение, аналитика и т.д.). Отдельного
+    // "Content токена" больше нет и не должно быть — это была ошибка, которая
+    // приводила к 401 при загрузке фото. wb-proxy использует wb_token для
+    // абсолютно всех вызовов к WB API.
     async function loadCabinetsAPIList() {
         const container = document.getElementById('cabinets-api-list');
-        let data, error;
-        ({ data, error } = await supabase.from('cabinets').select('id, name, wb_token, wb_content_token').order('name'));
-        if (error) {
-            ({ data, error } = await supabase.from('cabinets').select('id, name, wb_token').order('name'));
-        }
+        const { data, error } = await supabase.from('cabinets').select('id, name, wb_token').order('name');
         if (error) { container.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--red)">Ошибка загрузки кабинетов: ${escapeHtml(error.message)}</div>`; return; }
         if (!data || data.length === 0) { container.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Кабинетов нет</div>'; return; }
         container.innerHTML = `<div class="ui-list">` + data.map(c => {
             const hasToken = c.wb_token && c.wb_token.length > 50;
-            const hasContentToken = c.wb_content_token && c.wb_content_token.length > 50;
             return `
             <div>
                 <div class="ui-list-row">
                     <div>
                         <div class="ui-list-row-main">${escapeHtml(c.name)}</div>
-                        <div class="ui-list-row-sub" style="font-family:monospace">Основной: ${hasToken ? maskToken(c.wb_token) : 'не задан'}</div>
+                        <div class="ui-list-row-sub" style="font-family:monospace">Токен: ${hasToken ? maskToken(c.wb_token) : 'не задан'}</div>
                     </div>
                     <button class="ui-btn ui-btn-secondary" onclick="toggleEditToken('${c.id}')">${hasToken ? 'Изменить' : 'Добавить'}</button>
                 </div>
                 <div id="edit-token-${c.id}" class="hidden" style="padding:0 4px 14px">
-                    <input type="text" id="token-input-${c.id}" placeholder="Вставьте основной токен WB" class="ui-input" style="font-family:monospace">
+                    <input type="text" id="token-input-${c.id}" placeholder="Вставьте токен WB (со всеми правами)" class="ui-input" style="font-family:monospace">
                     <div class="flex gap-2 mt-2">
                         <button class="ui-btn ui-btn-primary" onclick="saveTokenForCabinet('${c.id}')">Сохранить</button>
                         <button class="ui-btn ui-btn-secondary" onclick="toggleEditToken('${c.id}')">Отмена</button>
-                    </div>
-                </div>
-                <div class="ui-list-row">
-                    <div>
-                        <div class="ui-list-row-sub" style="font-size:11px;color:var(--text-muted)">Content токен</div>
-                        <div class="ui-list-row-sub" style="font-family:monospace">${hasContentToken ? maskToken(c.wb_content_token) : 'не задан'}</div>
-                    </div>
-                    <button class="ui-btn ui-btn-secondary" onclick="toggleEditContentToken('${c.id}')">${hasContentToken ? 'Изменить' : 'Добавить'}</button>
-                </div>
-                <div id="edit-content-token-${c.id}" class="hidden" style="padding:0 4px 14px">
-                    <input type="text" id="content-token-input-${c.id}" placeholder="Вставьте токен с доступом к Content API" class="ui-input" style="font-family:monospace">
-                    <div class="flex gap-2 mt-2">
-                        <button class="ui-btn ui-btn-primary" onclick="saveContentTokenForCabinet('${c.id}')">Сохранить</button>
-                        <button class="ui-btn ui-btn-secondary" onclick="toggleEditContentToken('${c.id}')">Отмена</button>
                     </div>
                 </div>
             </div>`;
@@ -4070,17 +4056,6 @@
         showPremiumModal('success', 'Токен сохранён!', 'API-доступ для кабинета успешно обновлён.');
         loadCabinetsAPIList();
         loadCabinets();
-    }
-
-    function toggleEditContentToken(cabinetId) { document.getElementById('edit-content-token-' + cabinetId).classList.toggle('hidden'); }
-
-    async function saveContentTokenForCabinet(cabinetId) {
-        const token = document.getElementById('content-token-input-' + cabinetId).value.trim();
-        if (!token || token.length < 50) { showPremiumModal('warning', 'Некорректный токен', 'Content токен должен быть длинным JWT-форматом.'); return; }
-        const { error } = await supabase.from('cabinets').update({ wb_content_token: token }).eq('id', cabinetId);
-        if (error) { showPremiumModal('error', 'Ошибка сохранения', error.message); return; }
-        showPremiumModal('success', 'Content токен сохранён!', 'Доступ к Content API для кабинета успешно обновлён.');
-        loadCabinetsAPIList();
     }
 
     function showAddCabinetForm() { document.getElementById('add-cabinet-form').classList.remove('hidden'); }
@@ -4449,7 +4424,7 @@
     }
 </script>
     <script src="/dashboard-charts.js"></script>
-    <script src="/rnp-module.js?v=20260703-photos7"></script>
-    <script src="/wb-formulas.js?v=20260703-photos7"></script>
+    <script src="/rnp-module.js?v=20260703-photos8"></script>
+    <script src="/wb-formulas.js?v=20260703-photos8"></script>
 </body>
 </html>

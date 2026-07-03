@@ -43,16 +43,21 @@ serve(async (req) => {
         const admin = createClient(supabaseUrl, supabaseService);
         const { data: cab, error: cabErr } = await admin
             .from('cabinets')
-            .select('wb_token, wb_content_token, name')
+            .select('wb_token, name')
             .eq('id', cabinet_id)
             .eq('user_id', user.id)
             .maybeSingle();
 
         if (cabErr || !cab) return json({ error: 'Cabinet not found or access denied' }, 403);
 
+        // IMPORTANT — DO NOT CHANGE THIS: one cabinet = one WB token, and that
+        // single token already has ALL scopes (stats, content, promotion,
+        // analytics, etc). There is no separate "content token". Never add
+        // fallback/probe logic between "content token" and "main token" again —
+        // WB_TOKEN is used for every single API call, always.
         const WB_TOKEN = cab.wb_token;
-        const WB_CONTENT_TOKEN = cab.wb_content_token || cab.wb_token;
-        const WB_PROMO_TOKEN = WB_TOKEN; // same token has all permissions
+        const WB_CONTENT_TOKEN = WB_TOKEN;
+        const WB_PROMO_TOKEN = WB_TOKEN;
         if (!WB_TOKEN) return json({ error: 'WB token not configured for this cabinet' }, 400);
 
         // ── Route to WB API ───────────────────────────────────────────────────
@@ -214,22 +219,11 @@ serve(async (req) => {
                 try {
                     result = await wbPost(
                         'https://content-api.wildberries.ru/content/v2/get/cards/list',
-                        WB_CONTENT_TOKEN, body
+                        WB_TOKEN, body
                     );
                 } catch (e) {
                     const status = (e as { status?: number })?.status;
-                    if ((status === 401 || status === 403) && WB_CONTENT_TOKEN !== WB_TOKEN) {
-                        // Content token invalid/wrong-scope — retry with main token.
-                        try {
-                            result = await wbPost(
-                                'https://content-api.wildberries.ru/content/v2/get/cards/list',
-                                WB_TOKEN, body
-                            );
-                        } catch (e2) {
-                            console.warn('[wb-proxy] content_cards auth (fallback failed):', String(e2));
-                            result = { cards: [] };
-                        }
-                    } else if (status === 401 || status === 403) {
+                    if (status === 401 || status === 403) {
                         console.warn('[wb-proxy] content_cards auth:', String(e));
                         result = { cards: [] };
                     } else throw e;
@@ -249,10 +243,7 @@ serve(async (req) => {
                 const nmIds: number[] = [...new Set((params.nmIds || []).map(Number).filter(Boolean))];
                 const out: Record<string, string> = {};
                 const gallery: Record<string, string[]> = {};
-                const debug = {
-                    requested: nmIds.length, viaBasket: 0, viaContent: 0, notFound: 0,
-                    tokenUsed: 'content' as 'content' | 'main',
-                };
+                const debug = { requested: nmIds.length, viaBasket: 0, viaContent: 0, notFound: 0 };
                 if (!nmIds.length) { result = out; break; }
 
                 const basketByVol = new Map<number, number>();
@@ -283,17 +274,6 @@ serve(async (req) => {
                 // FALLBACK: seller Content API for anything the public CDN probe
                 // couldn't resolve (e.g. brand-new cards not yet on the CDN).
                 if (stillNeed.length) {
-                    let activeToken = WB_CONTENT_TOKEN;
-                    const probeBody = { settings: { filter: { textSearch: String(stillNeed[0]), withPhoto: -1 }, cursor: { limit: 10 } } };
-                    try {
-                        await wbPost('https://content-api.wildberries.ru/content/v2/get/cards/list', activeToken, probeBody);
-                    } catch (e) {
-                        const status = (e as { status?: number })?.status;
-                        if ((status === 401 || status === 403) && activeToken !== WB_TOKEN) {
-                            activeToken = WB_TOKEN;
-                            debug.tokenUsed = 'main';
-                        }
-                    }
                     const contentDeadline = Date.now() + 15000;
                     for (const nm of stillNeed) {
                         if (Date.now() > contentDeadline) { debug.notFound++; continue; }
@@ -301,7 +281,7 @@ serve(async (req) => {
                         try {
                             const cards = await wbPost(
                                 'https://content-api.wildberries.ru/content/v2/get/cards/list',
-                                activeToken, body
+                                WB_TOKEN, body
                             ) as { cards?: Record<string, unknown>[] };
                             const card = (cards?.cards || []).find(c => Number(c.nmID ?? c.nmId ?? 0) === nm);
                             if (card) {
