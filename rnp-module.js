@@ -978,19 +978,19 @@ const RNP = (() => {
         if (!days.length) return [];
         const n = days.length;
         const bounds = [
-            [0, 0],
             [0, Math.min(10, n - 1)],
             [Math.min(11, n - 1), Math.min(14, n - 1)],
             [Math.min(15, n - 1), Math.min(19, n - 1)],
             [Math.min(20, n - 1), Math.min(24, n - 1)],
             [Math.min(25, n - 1), n - 1],
         ];
+        const idxMap = [1, 2, 3, 4, 5];
         return bounds.map(([a, b], i) => ({
-            galleryIdx: i,
-            label: (slots[i]?.comment || STRATEGY_TABS[i]?.label || '').trim(),
+            galleryIdx: idxMap[i] ?? i,
+            label: (slots[idxMap[i]]?.comment || STRATEGY_TABS[idxMap[i]]?.label || '').trim(),
             from: days[Math.min(a, n - 1)]?.date,
             to: days[Math.min(b, n - 1)]?.date,
-        })).filter(p => p.from && p.label);
+        })).filter(p => p.from && p.label && p.from <= p.to);
     }
 
     function _buildDaySpanCells(cal, periods, renderSpan, renderGap) {
@@ -1024,31 +1024,30 @@ const RNP = (() => {
         );
     }
 
-    function _buildSlideshowHTML(art) {
+    function _buildGalleryPeriodCells(art, cal) {
+        const periods = _timelinePeriods(art, cal);
         const nmId = art.nm_id;
-        const photos = _galleryPhotosCache[nmId] || [];
-        const slots = _gallerySlots(art);
-        const count = Math.max(photos.length, 6);
-
-        const items = Array.from({ length: count }, (_, i) => {
-            const photoIdx = i + 2;
-            const slot = slots[i] || {};
-            const comment = (slot.comment || GALLERY_DEFAULT_COMMENTS[i] || '').replace(/"/g, '&quot;');
-            const commentField = i < GALLERY_SIZE
-                ? `<input type="text" class="rnp-gallery-comment" value="${comment}" placeholder="комментарий"
-                    title="Подпись"
-                    onblur="RNP.savePhotoComment(${nmId}, ${i}, this.value)">`
-                : `<span class="rnp-gallery-num">#${photoIdx}</span>`;
-            const img = _imgHtml(art, 'rnp-slideshow-img', 'c246x328', '', photoIdx);
-            return `<div class="rnp-slideshow-item" data-photo-idx="${photoIdx}">
-              <div class="rnp-slideshow-photo">${img}</div>
-              ${commentField}
-            </div>`;
-        }).join('');
-
-        return `<div class="rnp-slideshow-wrap">
-          <div class="rnp-slideshow-track">${items}${items}</div>
-        </div>`;
+        return _buildDaySpanCells(
+            cal,
+            periods,
+            (p, span) => {
+                const gi = p.galleryIdx ?? 0;
+                const photoIdx = gi + 2;
+                const slot = _gallerySlots(art)[gi] || {};
+                const comment = (slot.comment || p.label || '').replace(/"/g, '&quot;');
+                const img = _imgHtml(art, 'rnp-period-img', 'c246x328', '', photoIdx);
+                const commentField = gi < GALLERY_SIZE
+                    ? `<input type="text" class="rnp-gallery-comment" value="${comment}" placeholder="комментарий"
+                        title="Подпись периода"
+                        onblur="RNP.savePhotoComment(${nmId}, ${gi}, this.value)">`
+                    : '';
+                return `<th colspan="${span}" class="rnp-head-gallery-cell rnp-day-col" data-photo-idx="${photoIdx}">
+                  <div class="rnp-period-photo">${img}</div>
+                  ${commentField}
+                </th>`;
+            },
+            () => '<th class="rnp-head-day-gap rnp-day-col"></th>'
+        );
     }
 
     function _buildSizesLeftHTML(art, stockBySize, rawData, cal) {
@@ -1065,14 +1064,7 @@ const RNP = (() => {
         return `
             <tr class="rnp-head-kpi">
               <th colspan="${leftSpan}" class="rnp-head-left">${_buildKpiTopHTML(art, stockBySize, rawData, cal)}</th>
-              <th colspan="${nDays}" class="rnp-head-tabs-cell">
-                <div class="rnp-head-tabs-inner">
-                  ${_buildStrategyBar()}
-                  <button type="button" class="rnp-gallery-toggle" onclick="RNP.toggleGalleryPanel()" title="${_galleryCollapsed ? 'Развернуть фото' : 'Свернуть фото'}">
-                    ${_galleryCollapsed ? '▸ Фото' : '▾ Свернуть'}
-                  </button>
-                </div>
-              </th>
+              <th colspan="${nDays}" class="rnp-head-spacer"></th>
             </tr>
             <tr class="rnp-head-strategy">
               <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--sizes">${_buildSizesLeftHTML(art, stockBySize, rawData, cal)}</th>
@@ -1080,7 +1072,7 @@ const RNP = (() => {
             </tr>
             <tr class="rnp-head-gallery${galleryHidden}">
               <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--pad"></th>
-              <th colspan="${nDays}" class="rnp-head-slideshow-cell">${_buildSlideshowHTML(art)}</th>
+              ${_buildGalleryPeriodCells(art, cal)}
             </tr>`;
     }
 
@@ -1311,8 +1303,7 @@ const RNP = (() => {
         if (_activeNm !== SUMMARY_TAB) {
             _renderActiveTable();
             requestAnimationFrame(() => {
-                const el = document.querySelector(`.rnp-slideshow-item[data-photo-idx="${(STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0) + 2}"]`)
-                    || document.querySelector(`.rnp-head-gallery-cell[data-photo-idx="${STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0}"]`);
+                const el = document.querySelector(`.rnp-head-gallery-cell[data-photo-idx="${(STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0) + 2}"]`);
                 el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
             });
         }
@@ -2113,17 +2104,7 @@ const RNP = (() => {
         if (bar) bar.innerHTML = _buildActionBar(active);
 
         _applyResolvedPhotos(body);
-        _preloadGalleryPhotos(art.nm_id).then(() => {
-            _applyResolvedPhotos(body);
-            if (_activeNm === art.nm_id) {
-                const wrap = document.querySelector('.rnp-slideshow-wrap');
-                if (wrap && _galleryPhotosCache[art.nm_id]?.length) {
-                    const cell = wrap.closest('.rnp-head-slideshow-cell');
-                    if (cell) cell.innerHTML = _buildSlideshowHTML(art);
-                    _applyResolvedPhotos(body);
-                }
-            }
-        }).catch(() => {});
+        _preloadGalleryPhotos(art.nm_id).then(() => _applyResolvedPhotos(body)).catch(() => {});
         _preloadPhotos(_articles.filter(a => a.is_active)).then(() => {
             _applyResolvedPhotos(body);
         }).catch(() => {});
