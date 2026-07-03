@@ -246,6 +246,7 @@ serve(async (req) => {
                 // one nmID per request.
                 const nmIds: number[] = [...new Set((params.nmIds || []).map(Number).filter(Boolean))];
                 const out: Record<string, string> = {};
+                const gallery: Record<string, string[]> = {};
                 const debug = { requested: nmIds.length, found: 0, authFailed: false, lastStatus: null as number | null, errors: 0, tokenUsed: 'content' as 'content' | 'main' };
                 if (!nmIds.length) { result = out; break; }
 
@@ -281,11 +282,17 @@ serve(async (req) => {
                         ) as { cards?: Record<string, unknown>[] };
                         const card = (cards?.cards || []).find(c => Number(c.nmID ?? c.nmId ?? 0) === nm);
                         if (card) {
-                            const photos = card.photos as Record<string, string>[] | undefined;
-                            const ph = photos?.[0];
-                            let url = ph?.big || ph?.c516x688 || ph?.c246x328 || ph?.tm || '';
-                            if (url.startsWith('//')) url = 'https:' + url;
-                            if (url) { out[String(nm)] = url; debug.found++; }
+                            const photos = (card.photos as Record<string, string>[] | undefined) || [];
+                            const urls = photos.map(ph => {
+                                let u = ph?.big || ph?.c516x688 || ph?.c246x328 || ph?.tm || '';
+                                if (u && u.startsWith('//')) u = 'https:' + u;
+                                return u;
+                            }).filter(Boolean);
+                            if (urls.length) {
+                                out[String(nm)] = urls[0];
+                                gallery[String(nm)] = urls;
+                                debug.found++;
+                            }
                         }
                     } catch (e) {
                         const status = (e as { status?: number })?.status;
@@ -304,6 +311,7 @@ serve(async (req) => {
                 }
                 console.log('[wb-proxy] product_photos debug:', JSON.stringify(debug));
                 (out as Record<string, unknown>)._debug = debug;
+                (out as Record<string, unknown>)._gallery = gallery;
                 result = out;
                 break;
             }

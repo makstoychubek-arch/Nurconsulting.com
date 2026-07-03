@@ -312,17 +312,25 @@ const RNP = (() => {
         try {
             const data = await _callProxy('product_photos', { nmIds: slice });
             if (data && typeof data === 'object') {
+                const gallery = data._gallery || {};
+                if (data._debug) console.info('[RNP] product_photos debug:', data._debug);
                 Object.entries(data).forEach(([id, url]) => {
-                    if (id === '_debug') {
-                        console.info('[RNP] product_photos debug:', url);
-                        return;
-                    }
+                    if (id === '_debug' || id === '_gallery') return;
                     const norm = _normalizePhotoUrl(url);
                     const nmId = Number(id);
                     if (norm && nmId) {
                         _photoResolveCache[nmId] = norm;
                         _markPhotoVerified(nmId, norm);
                         stillNeed.delete(nmId);
+                    }
+                    const urls = gallery[id];
+                    if (Array.isArray(urls) && urls.length > 1) {
+                        const extras = urls.slice(1).map(_normalizePhotoUrl).filter(Boolean);
+                        if (extras.length) {
+                            _galleryPhotosCache[nmId] = extras;
+                            if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
+                            extras.forEach((u, i) => { _photoIndexCache[nmId][i + 2] = u; });
+                        }
                     }
                 });
             }
