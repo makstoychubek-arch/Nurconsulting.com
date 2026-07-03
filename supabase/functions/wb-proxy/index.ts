@@ -218,7 +218,18 @@ serve(async (req) => {
                     );
                 } catch (e) {
                     const status = (e as { status?: number })?.status;
-                    if (status === 401 || status === 403) {
+                    if ((status === 401 || status === 403) && WB_CONTENT_TOKEN !== WB_TOKEN) {
+                        // Content token invalid/wrong-scope — retry with main token.
+                        try {
+                            result = await wbPost(
+                                'https://content-api.wildberries.ru/content/v2/get/cards/list',
+                                WB_TOKEN, body
+                            );
+                        } catch (e2) {
+                            console.warn('[wb-proxy] content_cards auth (fallback failed):', String(e2));
+                            result = { cards: [] };
+                        }
+                    } else if (status === 401 || status === 403) {
                         console.warn('[wb-proxy] content_cards auth:', String(e));
                         result = { cards: [] };
                     } else throw e;
@@ -235,8 +246,26 @@ serve(async (req) => {
                 // one nmID per request.
                 const nmIds: number[] = [...new Set((params.nmIds || []).map(Number).filter(Boolean))];
                 const out: Record<string, string> = {};
-                const debug = { requested: nmIds.length, found: 0, authFailed: false, lastStatus: null as number | null, errors: 0 };
+                const debug = { requested: nmIds.length, found: 0, authFailed: false, lastStatus: null as number | null, errors: 0, tokenUsed: 'content' as 'content' | 'main' };
                 if (!nmIds.length) { result = out; break; }
+
+                // Separate wb_content_token can be missing/invalid/wrong-scope.
+                // Detect that up front with one probe call and fall back to the
+                // main WB_TOKEN, which historically has always worked for this API.
+                let activeToken = WB_CONTENT_TOKEN;
+                {
+                    const probeBody = { settings: { filter: { textSearch: String(nmIds[0]), withPhoto: -1 }, cursor: { limit: 10 } } };
+                    try {
+                        await wbPost('https://content-api.wildberries.ru/content/v2/get/cards/list', activeToken, probeBody);
+                    } catch (e) {
+                        const status = (e as { status?: number })?.status;
+                        if ((status === 401 || status === 403) && activeToken !== WB_TOKEN) {
+                            console.warn('[wb-proxy] product_photos: content token failed, falling back to main WB_TOKEN');
+                            activeToken = WB_TOKEN;
+                            debug.tokenUsed = 'main';
+                        }
+                    }
+                }
 
                 for (const nm of nmIds) {
                     const body = {
@@ -248,7 +277,7 @@ serve(async (req) => {
                     try {
                         const cards = await wbPost(
                             'https://content-api.wildberries.ru/content/v2/get/cards/list',
-                            WB_CONTENT_TOKEN, body
+                            activeToken, body
                         ) as { cards?: Record<string, unknown>[] };
                         const card = (cards?.cards || []).find(c => Number(c.nmID ?? c.nmId ?? 0) === nm);
                         if (card) {
@@ -273,8 +302,8 @@ serve(async (req) => {
                     // WB Content API v2: ~100 req/min limit — keep a small gap.
                     await sleep(120);
                 }
-                console.log('[wb-proxy] product_photos debug:', JSON.stringify(debug), 'hasContentToken:', WB_CONTENT_TOKEN !== WB_TOKEN);
-                (out as Record<string, unknown>)._debug = { ...debug, usedContentToken: WB_CONTENT_TOKEN !== WB_TOKEN };
+                console.log('[wb-proxy] product_photos debug:', JSON.stringify(debug));
+                (out as Record<string, unknown>)._debug = debug;
                 result = out;
                 break;
             }
@@ -530,6 +559,18 @@ function json(data: unknown, status = 200) {
     });
 }
 
+async function parseWbJson(res: Response): Promise<unknown> {
+    const text = await res.text();
+    if (!text) return null; // WB sometimes returns 200 with an empty body
+    try {
+        return JSON.parse(text);
+    } catch {
+        const err = new Error(`WB API ${res.status}: invalid JSON body: ${text.slice(0, 200)}`) as Error & { status?: number };
+        err.status = res.status;
+        throw err;
+    }
+}
+
 async function wbGet(url: string, token: string): Promise<unknown> {
     const res = await fetch(url, { headers: { Authorization: token } });
     if (!res.ok) {
@@ -538,7 +579,7 @@ async function wbGet(url: string, token: string): Promise<unknown> {
         err.status = res.status;
         throw err;
     }
-    return res.json();
+    return parseWbJson(res);
 }
 
 async function wbPost(url: string, token: string, body: unknown): Promise<unknown> {
@@ -553,5 +594,5 @@ async function wbPost(url: string, token: string, body: unknown): Promise<unknow
         err.status = res.status;
         throw err;
     }
-    return res.json();
+    return parseWbJson(res);
 }
