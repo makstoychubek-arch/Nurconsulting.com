@@ -1013,25 +1013,12 @@ const RNP = (() => {
     }
 
     function _buildTestCardHTML(art, period) {
-        const nmId = art.nm_id;
         const gi = period.galleryIdx ?? 0;
         const photoIdx = gi + 2;
-        const slot = _gallerySlots(art)[gi] || {};
-        const label = (period.label || '').replace(/</g, '&lt;');
-        const comment = (slot.comment || period.label || '').replace(/"/g, '&quot;');
-        const img = _imgHtml(art, 'rnp-test-img', 'c246x328', '', photoIdx);
-        const fromLbl = period.from ? period.from.slice(5).replace('-', '.') : '';
-        const toLbl = period.to && period.to !== period.from ? period.to.slice(5).replace('-', '.') : '';
-        const dates = toLbl && fromLbl !== toLbl ? `${fromLbl}–${toLbl}` : fromLbl;
-        return `<div class="rnp-test-card" data-gallery-idx="${gi}" data-photo-idx="${photoIdx}">
-          <span class="rnp-test-badge">${label}</span>
+        const label = (period.label || '').replace(/"/g, '&quot;');
+        const img = _imgHtml(art, 'rnp-test-img', 'c516x688', '', photoIdx);
+        return `<div class="rnp-test-card" data-gallery-idx="${gi}" data-photo-idx="${photoIdx}" title="${label}">
           <div class="rnp-test-photo">${img}</div>
-          ${dates ? `<span class="rnp-test-dates">${dates}</span>` : ''}
-          ${gi < GALLERY_SIZE
-            ? `<input type="text" class="rnp-test-comment" value="${comment}" placeholder="комментарий"
-                title="Подпись теста"
-                onblur="RNP.savePhotoComment(${nmId}, ${gi}, this.value)">`
-            : ''}
         </div>`;
     }
 
@@ -1039,8 +1026,9 @@ const RNP = (() => {
         const periods = _timelinePeriods(art, cal);
         if (!periods.length) return '<div class="rnp-marquee-empty">—</div>';
         const cards = periods.map(p => _buildTestCardHTML(art, p)).join('');
+        const loop = cards + cards + cards;
         return `<div class="rnp-marquee-wrap">
-          <div class="rnp-marquee-track">${cards}${cards}</div>
+          <div class="rnp-marquee-track">${loop}</div>
         </div>`;
     }
 
@@ -2090,10 +2078,26 @@ const RNP = (() => {
         if (bar) bar.innerHTML = _buildActionBar(active);
 
         _applyResolvedPhotos(body);
-        _preloadGalleryPhotos(art.nm_id).then(() => _applyResolvedPhotos(body)).catch(() => {});
+        _syncMarqueeFill(body);
+        _preloadGalleryPhotos(art.nm_id).then(() => {
+            _applyResolvedPhotos(body);
+            _syncMarqueeFill(body);
+        }).catch(() => {});
         _preloadPhotos(_articles.filter(a => a.is_active)).then(() => {
             _applyResolvedPhotos(body);
+            _syncMarqueeFill(body);
         }).catch(() => {});
+    }
+
+    function _syncMarqueeFill(root) {
+        const wrap = (root || document).querySelector('.rnp-marquee-wrap');
+        const track = wrap?.querySelector('.rnp-marquee-track');
+        if (!wrap || !track || !track.children.length) return;
+        const loopW = track.scrollWidth / 3;
+        if (loopW > 0) {
+            const sec = Math.max(22, Math.min(42, loopW / 22));
+            track.style.animationDuration = sec + 's';
+        }
     }
 
     function _buildMetaRows(cols, art) {

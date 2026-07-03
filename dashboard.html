@@ -383,31 +383,33 @@
         .rnp-head-sizes-inline { padding: 1px 2px 2px; overflow-x: auto; }
         .rnp-head-sizes-inline .rnp-stock-block { max-width: 100%; }
         .rnp-head-marquee {
-            padding: 0 !important; vertical-align: middle;
+            padding: 0 !important; vertical-align: top;
             background: var(--surface-solid) !important;
-            overflow: hidden;
+            overflow: hidden; height: 100%;
         }
         .rnp-marquee-wrap {
-            overflow: hidden; width: 100%; padding: 2px 0;
-            mask-image: linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
-            -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
+            overflow: hidden; width: 100%; height: 100%;
+            min-height: 108px;
+            display: flex; align-items: stretch;
+            mask-image: linear-gradient(90deg, transparent 0%, #000 2%, #000 98%, transparent 100%);
+            -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 2%, #000 98%, transparent 100%);
         }
         .rnp-marquee-wrap:has(.rnp-test-card:hover) .rnp-marquee-track {
             animation-play-state: paused;
         }
         .rnp-marquee-track {
-            display: flex; align-items: flex-end; gap: 6px;
-            width: max-content;
-            animation: rnp-marquee-scroll 70s linear infinite;
+            display: flex; align-items: stretch; gap: 4px;
+            width: max-content; height: 100%;
+            animation: rnp-marquee-scroll 36s linear infinite;
             will-change: transform;
         }
         @keyframes rnp-marquee-scroll {
-            0% { transform: translateX(-50%); }
+            0% { transform: translateX(-33.333%); }
             100% { transform: translateX(0); }
         }
         .rnp-test-card {
-            flex: 0 0 64px; display: flex; flex-direction: column; gap: 1px;
-            padding: 2px; border-radius: 4px;
+            flex: 0 0 72px; height: 100%; min-height: 100px;
+            display: block; border-radius: 4px; overflow: hidden;
             border: 1px solid var(--border);
             background: var(--surface);
             transition: border-color 0.2s, box-shadow 0.2s;
@@ -418,37 +420,17 @@
             box-shadow: 0 0 0 2px var(--accent-soft);
             z-index: 2;
         }
-        .rnp-test-badge {
-            display: block; font-size: 5px; font-weight: 700; line-height: 1.1;
-            color: var(--accent); text-transform: uppercase; letter-spacing: 0.02em;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            padding: 1px 2px; border-radius: 2px;
-            background: var(--accent-soft); border: 1px solid var(--accent-border);
-        }
         .rnp-test-photo {
-            width: 100%; height: 36px; border-radius: 2px; overflow: hidden;
+            width: 100%; height: 100%; min-height: 100px;
             background: var(--surface-solid);
         }
         .rnp-test-photo img {
-            width: 100%; height: 100%; object-fit: cover; object-position: top center;
+            width: 100%; height: 100%; min-height: 100px;
+            object-fit: cover; object-position: center top;
             display: block;
-        }
-        .rnp-test-dates {
-            font-size: 5px; color: var(--text-muted); text-align: center; line-height: 1;
-        }
-        .rnp-test-comment {
-            width: 100%; border: none; border-bottom: 1px solid var(--border);
-            background: transparent; font-size: 5px; color: var(--text-secondary);
-            text-align: center; padding: 0;
-        }
-        .rnp-test-comment:focus {
-            outline: none; border-bottom-color: var(--accent); color: var(--text-primary);
         }
         .rnp-marquee-empty {
             font-size: 8px; color: var(--text-muted); padding: 4px 8px;
-        }
-        .rnp-sheet-table thead tr.rnp-head-panel th {
-            position: relative; top: auto;
         }
         .rnp-compare-split {
             display: grid; grid-template-columns: 1fr 1fr; gap: 0;
@@ -649,7 +631,7 @@
         .rnp-table-scroll {
             overflow: auto; flex: 1; min-height: 0; min-width: 0;
             width: 100%; position: relative;
-            isolation: isolate;
+            overflow-anchor: none;
             -webkit-overflow-scrolling: touch;
         }
         .rnp-sheet-table {
@@ -668,14 +650,33 @@
         }
         .rnp-sheet-table th, .rnp-sheet-table td {
             border: 1px solid var(--border); padding: 1px 3px; text-align: center;
-            line-height: 1.2;
+            line-height: 1.2; vertical-align: middle;
             background-clip: padding-box;
+            box-sizing: border-box;
+        }
+        .rnp-sheet-table tbody tr {
+            min-height: 18px;
+        }
+        .rnp-sheet-table tbody td,
+        .rnp-sheet-table tbody .rnp-metric-col,
+        .rnp-sheet-table tbody .rnp-spark-col {
+            vertical-align: middle;
+        }
+        .rnp-sheet-table tbody tr.rnp-row-hero td,
+        .rnp-sheet-table tbody tr.rnp-row-hero .rnp-metric-col,
+        .rnp-sheet-table tbody tr.rnp-row-hero .rnp-spark-col {
+            height: auto; max-height: none;
         }
         .rnp-sheet-table thead th {
             position: sticky;
             background: var(--surface-solid);
             box-shadow: 0 1px 0 var(--border);
-            backface-visibility: hidden;
+        }
+        .rnp-sheet-table thead tr.rnp-head-panel th {
+            position: relative;
+            top: auto !important;
+            box-shadow: none;
+            vertical-align: top;
         }
         .rnp-sheet-table thead tr.rnp-cal-month-row th:not(.rnp-th-metric):not(.rnp-th-spark) {
             top: 0; z-index: 32; height: var(--rnp-row1);
@@ -701,14 +702,12 @@
             color: var(--text-muted);
             background: var(--surface-solid) !important;
             border-right: 2px solid var(--border-strong);
-            box-shadow: 2px 0 0 var(--border-strong);
         }
         .rnp-sheet-table .rnp-th-spark {
             position: sticky; left: var(--rnp-metric-w); top: 0; z-index: 51;
             min-width: var(--rnp-spark-w); max-width: var(--rnp-spark-w); width: var(--rnp-spark-w);
             background: var(--surface-solid) !important;
             border-right: 1px solid var(--border);
-            box-shadow: 2px 0 0 rgba(0,0,0,0.06);
             font-size: 8px; color: var(--text-muted);
         }
         .rnp-sheet-table .rnp-metric-col {
@@ -718,21 +717,16 @@
             padding: 1px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             font-weight: 400; color: var(--text-secondary);
             border-right: 2px solid var(--border-strong);
-            box-shadow: 2px 0 0 var(--border-strong);
-            backface-visibility: hidden;
         }
         .rnp-sheet-table .rnp-spark-col {
             position: sticky; left: var(--rnp-metric-w); z-index: 13;
             min-width: var(--rnp-spark-w); max-width: var(--rnp-spark-w); width: var(--rnp-spark-w);
             padding: 0 1px; background: var(--surface-solid) !important;
             border-right: 1px solid var(--border);
-            box-shadow: 2px 0 0 rgba(0,0,0,0.06);
-            backface-visibility: hidden;
         }
         .rnp-sheet-table .rnp-section-hdr .rnp-section-stick {
             position: sticky; z-index: 15;
             background: var(--surface-solid) !important;
-            backface-visibility: hidden;
         }
         .rnp-sheet-table .rnp-section-hdr .rnp-metric-col { left: 0; z-index: 16; }
         .rnp-sheet-table .rnp-section-hdr .rnp-spark-col { left: var(--rnp-metric-w); z-index: 15; }
@@ -767,7 +761,6 @@
         }
         .rnp-sheet-table .rnp-col-sticky-total {
             border-right: 2px solid var(--accent) !important;
-            box-shadow: 4px 0 10px rgba(0,0,0,0.14);
         }
         .rnp-sheet-table thead .rnp-col-sticky-total { z-index: 33 !important; }
         .rnp-sheet-table .rnp-cell-hero { font-size: 12px !important; font-weight: 700 !important; color: var(--accent) !important; }
