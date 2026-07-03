@@ -208,11 +208,33 @@ const RNP = (() => {
         '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="100" viewBox="0 0 80 100"><rect fill="%23e8e8ec" width="80" height="100"/><text x="40" y="52" text-anchor="middle" fill="%23999" font-size="10" font-family="sans-serif">WB</text></svg>'
     );
 
+    function _normalizePhotoUrl(url) {
+        if (!url) return null;
+        let u = String(url).trim();
+        if (!u || u === '1.webp' || u === '1.jpg') return null;
+        if (u.startsWith('//')) u = 'https:' + u;
+        if (!/^https?:\/\//i.test(u)) return null;
+        return u;
+    }
+
+    function _isWbasketGuessUrl(url) {
+        return /basket-\d+\.wbbasket\.ru/i.test(String(url || ''))
+            && !/wbstatic|content-api/i.test(String(url || ''));
+    }
+
+    function _photoHosts(basketStr) {
+        const bs = basketStr;
+        return [`basket-${bs}.wbbasket.ru`, `basket-${bs}.wb.ru`];
+    }
+
+    const _photoProxyPending = new Set();
+
     function _resetPhotoCaches() {
         Object.keys(_photoResolveCache).forEach(k => delete _photoResolveCache[k]);
         Object.keys(_photoIndexCache).forEach(k => delete _photoIndexCache[k]);
         Object.keys(_galleryPhotosCache).forEach(k => delete _galleryPhotosCache[k]);
         Object.keys(_basketCache).forEach(k => delete _basketCache[k]);
+        _photoProxyPending.clear();
     }
 
     function _photoLsKey() {
@@ -231,17 +253,19 @@ const RNP = (() => {
             }
             Object.entries(data.photos || {}).forEach(([id, url]) => {
                 const nmId = Number(id);
-                if (nmId && url && !_photoResolveCache[nmId]) _photoResolveCache[nmId] = String(url);
+                const norm = _normalizePhotoUrl(url);
+                if (nmId && norm && !_photoResolveCache[nmId]) _photoResolveCache[nmId] = norm;
             });
             Object.entries(data.gallery || {}).forEach(([id, gal]) => {
                 const nmId = Number(id);
                 if (!nmId || !gal || typeof gal !== 'object') return;
                 if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
                 Object.entries(gal).forEach(([idx, url]) => {
-                    if (url) _photoIndexCache[nmId][Number(idx)] = String(url);
+                    const norm = _normalizePhotoUrl(url);
+                    if (norm) _photoIndexCache[nmId][Number(idx)] = norm;
                 });
                 const extras = Object.keys(gal).sort((a, b) => Number(a) - Number(b))
-                    .map(k => gal[k]).filter(Boolean);
+                    .map(k => _normalizePhotoUrl(gal[k])).filter(Boolean);
                 if (extras.length) _galleryPhotosCache[nmId] = extras;
             });
         } catch (e) { console.warn('[RNP] photo cache load:', e.message); }
@@ -268,18 +292,22 @@ const RNP = (() => {
         const nmId = art.nm_id;
         if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
         Object.entries(gal).forEach(([idx, url]) => {
-            if (url) _photoIndexCache[nmId][Number(idx)] = String(url);
+            const norm = _normalizePhotoUrl(url);
+            if (norm) _photoIndexCache[nmId][Number(idx)] = norm;
         });
         const extras = Object.keys(gal).sort((a, b) => Number(a) - Number(b))
-            .map(k => gal[k]).filter(Boolean);
+            .map(k => _normalizePhotoUrl(gal[k])).filter(Boolean);
         if (extras.length) _galleryPhotosCache[nmId] = extras;
         return extras.length > 0;
     }
 
     function _hydratePhotoCacheFromArticles() {
         _articles.forEach(a => {
-            if (a.photo_url?.startsWith('http') && !_photoResolveCache[a.nm_id]) {
-                _photoResolveCache[a.nm_id] = a.photo_url;
+            const norm = _normalizePhotoUrl(a.photo_url);
+            if (norm && !_photoResolveCache[a.nm_id]) {
+                _photoResolveCache[a.nm_id] = norm;
+            } else if (_isWbasketGuessUrl(a.photo_url)) {
+                delete _photoResolveCache[a.nm_id];
             }
             _hydrateGalleryFromArticle(a);
         });
@@ -290,8 +318,9 @@ const RNP = (() => {
         if (!_db || !_cab || !articles?.length) return;
         const updates = [];
         articles.forEach(a => {
-            const url = _photoResolveCache[a.nm_id];
+            const url = _normalizePhotoUrl(_photoResolveCache[a.nm_id]);
             if (!url || a.photo_url === url) return;
+            _photoResolveCache[a.nm_id] = url;
             a.photo_url = url;
             updates.push(a.nm_id);
         });
@@ -321,11 +350,14 @@ const RNP = (() => {
         if (!nmId) return null;
         const idx = Math.max(1, photoIndex || 1);
         if (idx === 1) {
-            return _photoResolveCache[nmId]
-                || (art.photo_url?.startsWith('http') ? art.photo_url : null);
+            const fromCache = _normalizePhotoUrl(_photoResolveCache[nmId]);
+            const fromArt = _normalizePhotoUrl(art.photo_url);
+            if (fromCache && !_isWbasketGuessUrl(fromCache)) return fromCache;
+            if (fromArt && !_isWbasketGuessUrl(fromArt)) return fromArt;
+            return fromCache || fromArt;
         }
-        return _photoIndexCache[nmId]?.[idx]
-            || _galleryPhotosCache[nmId]?.[idx - 2]
+        return _normalizePhotoUrl(_photoIndexCache[nmId]?.[idx])
+            || _normalizePhotoUrl(_galleryPhotosCache[nmId]?.[idx - 2])
             || null;
     }
 
@@ -370,9 +402,11 @@ const RNP = (() => {
             : ['c516x688', 'big', 'tm', 'c246x328'];
         const exts = ['webp', 'jpg'];
         [bStr, basketStr].forEach(bs => {
-            sizes.forEach(s => {
-                exts.forEach(ext => {
-                    urls.push(`https://basket-${bs}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${s}/${idx}.${ext}`);
+            _photoHosts(bs).forEach(host => {
+                sizes.forEach(s => {
+                    exts.forEach(ext => {
+                        urls.push(`https://${host}/vol${vol}/part${part}/${nmId}/images/${s}/${idx}.${ext}`);
+                    });
                 });
             });
         });
@@ -395,11 +429,13 @@ const RNP = (() => {
         }
         for (let i = 0; i < candidates.length; i += 4) {
             const batch = candidates.slice(i, i + 4);
-            const hits = await Promise.all(batch.map(async b => {
+            const hits = await Promise.all(batch.flatMap(b => {
                 const bs = String(b).padStart(2, '0');
-                const url = `https://basket-${bs}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/c246x328/1.webp`;
-                const ok = await _probePhoto(url);
-                return ok ? b : null;
+                return _photoHosts(bs).map(async host => {
+                    const url = `https://${host}/vol${vol}/part${part}/${nmId}/images/c246x328/1.webp`;
+                    const ok = await _probePhoto(url);
+                    return ok ? b : null;
+                });
             }));
             const hit = hits.find(Boolean);
             if (hit) {
@@ -466,7 +502,7 @@ const RNP = (() => {
         p.photos.forEach((ph, i) => {
             if (i === 0) return;
             let pu = typeof ph === 'string' ? ph : (ph.big || ph.c516x688 || ph.c246x328 || ph.tm);
-            if (pu?.startsWith('//')) pu = 'https:' + pu;
+            pu = _normalizePhotoUrl(pu);
             if (pu) extras.push(pu);
         });
         if (!extras.length) return;
@@ -506,7 +542,8 @@ const RNP = (() => {
             const data = await _callProxy('product_photos', { nmIds: slice });
             if (data && typeof data === 'object') {
                 Object.entries(data).forEach(([id, url]) => {
-                    if (url) _photoResolveCache[Number(id)] = String(url);
+                    const norm = _normalizePhotoUrl(url);
+                    if (norm) _photoResolveCache[Number(id)] = norm;
                 });
             }
         } catch (e) { console.warn('[RNP] product_photos proxy:', e.message); }
@@ -518,7 +555,7 @@ const RNP = (() => {
                 if (!id || !Array.isArray(card.photos) || !card.photos.length) return;
                 const first = card.photos[0];
                 let url = typeof first === 'string' ? first : (first?.big || first?.c516x688 || first?.c246x328 || first?.tm);
-                if (url?.startsWith('//')) url = 'https:' + url;
+                url = _normalizePhotoUrl(url);
                 if (url) _photoResolveCache[id] = url;
                 _storeCardGalleryExtras(card, id);
             });
@@ -539,8 +576,12 @@ const RNP = (() => {
     async function _preloadPhotos(articles) {
         if (!articles?.length) return;
         _hydratePhotoCacheFromArticles();
-        const missing = articles.filter(a => !_photoResolveCache[a.nm_id]).map(a => a.nm_id);
+        const missing = articles.filter(a => {
+            const u = _normalizePhotoUrl(_photoResolveCache[a.nm_id] || a.photo_url);
+            return !u || _isWbasketGuessUrl(u);
+        }).map(a => a.nm_id);
         if (missing.length) {
+            missing.forEach(id => delete _photoResolveCache[id]);
             await _fetchPhotosViaProxy(missing);
             const stillMissing = missing.filter(id => !_photoResolveCache[id]);
             if (stillMissing.length) await _fetchCardPhotosBatch(stillMissing);
@@ -642,10 +683,37 @@ const RNP = (() => {
         const size = img.dataset.size || 'c246x328';
         const base = parseInt(img.dataset.basket || '1', 10);
         const offsets = [0, 1, -1, 2];
-        const offIdx = attempt - queue.length - 1;
-        if (offIdx < offsets.length) {
-            const b = String(Math.max(1, Math.min(45, base + offsets[offIdx]))).padStart(2, '0');
-            img.src = `https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${size}/${photoIdx}.webp`;
+        const basketTryIdx = attempt - queue.length - 1;
+        const hostsPerOffset = 2;
+        if (basketTryIdx < offsets.length * hostsPerOffset) {
+            const off = offsets[Math.floor(basketTryIdx / hostsPerOffset)];
+            const host = _photoHosts(String(Math.max(1, Math.min(45, base + off)).padStart(2, '0')))[basketTryIdx % hostsPerOffset];
+            img.src = `https://${host}/vol${vol}/part${part}/${nmId}/images/${size}/${photoIdx}.webp`;
+            return;
+        }
+        const nmIdNum = Number(nmId);
+        if (nmIdNum && _callProxy && !img.dataset.proxyTried && !_photoProxyPending.has(nmIdNum)) {
+            img.dataset.proxyTried = '1';
+            _photoProxyPending.add(nmIdNum);
+            _fetchPhotosViaProxy([nmIdNum]).then(() => {
+                const url = _normalizePhotoUrl(_photoResolveCache[nmIdNum]);
+                if (url) {
+                    img.src = url;
+                    img.classList.remove('rnp-photo-fail');
+                    const art = _articles.find(a => a.nm_id == nmIdNum);
+                    if (art) {
+                        art.photo_url = url;
+                        _persistResolvedPhotos([art]).catch(() => {});
+                    }
+                    _applyResolvedPhotos(_rnpRoot());
+                    return;
+                }
+                img.classList.add('rnp-photo-fail');
+                img.src = _PHOTO_PLACEHOLDER;
+            }).catch(() => {
+                img.classList.add('rnp-photo-fail');
+                img.src = _PHOTO_PLACEHOLDER;
+            }).finally(() => _photoProxyPending.delete(nmIdNum));
             return;
         }
         img.onerror = null;
@@ -836,7 +904,7 @@ const RNP = (() => {
                 if (!existing) {
                     await _db.from('rnp_articles').upsert({
                         cabinet_id: _cab, nm_id: nmId, name: displayName,
-                        photo_url: _photoUrl(nmId), is_active: false, cost_price: 0,
+                        photo_url: '', is_active: false, cost_price: 0,
                         manual_data: md,
                     }, { onConflict: 'cabinet_id,nm_id', ignoreDuplicates: true });
                 } else if (meta.sa) {
