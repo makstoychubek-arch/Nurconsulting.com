@@ -202,25 +202,17 @@ serve(async (req) => {
                     settings: {
                         sort: { ascending: false },
                         filter: {
-                            textSearch: '',
-                            withPhoto: -1,
+                            textSearch: String(params.textSearch || ''),
+                            withPhoto: params.withPhoto ?? -1,
                             ...(params.nmIds?.length ? { nmID: params.nmIds } : {})
                         },
                         cursor: { limit: params.limit || 100 }
                     }
                 };
-                try {
-                    result = await wbPost(
-                        'https://content-api.wildberries.ru/content/v2/get/cards/list',
-                        WB_CONTENT_TOKEN, body
-                    );
-                } catch (e) {
-                    const status = (e as { status?: number })?.status;
-                    if (status === 401 || status === 403) {
-                        console.warn('[wb-proxy] content_cards auth:', String(e));
-                        result = { cards: [] };
-                    } else throw e;
-                }
+                result = await wbPost(
+                    'https://content-api.wildberries.ru/content/v2/get/cards/list',
+                    WB_CONTENT_TOKEN, body
+                );
                 break;
             }
             case 'product_photos': {
@@ -232,7 +224,7 @@ serve(async (req) => {
                     const body = {
                         settings: {
                             sort: { ascending: false },
-                            filter: { textSearch: '', withPhoto: -1, nmID: chunk },
+                            filter: { textSearch: '', withPhoto: 1, nmID: chunk },
                             cursor: { limit: chunk.length }
                         }
                     };
@@ -244,19 +236,13 @@ serve(async (req) => {
                         for (const card of cards?.cards || []) {
                             const nm = Number(card.nmID ?? card.nmId ?? 0);
                             if (!nm) continue;
-                            const photos = card.photos as Record<string, string>[] | undefined;
-                            const ph = photos?.[0];
-                            let url = ph?.big || ph?.c516x688 || ph?.c246x328 || ph?.tm || '';
+                            const photos = card.photos as { big?: string; c516x688?: string }[] | undefined;
+                            let url = photos?.[0]?.big || photos?.[0]?.c516x688 || '';
                             if (url.startsWith('//')) url = 'https:' + url;
                             if (url) out[String(nm)] = url;
                         }
                     } catch (e) {
-                        const status = (e as { status?: number })?.status;
-                        if (status === 401 || status === 403) {
-                            console.warn('[wb-proxy] product_photos auth:', String(e));
-                        } else {
-                            console.warn('[wb-proxy] product_photos chunk:', String(e));
-                        }
+                        console.warn('[wb-proxy] product_photos chunk:', String(e));
                     }
                 }
                 result = out;
@@ -313,6 +299,40 @@ serve(async (req) => {
                 }
                 console.log('[wb-proxy] advert_list: found', allIds.length, 'IDs');
                 result = { ids: allIds };
+                break;
+            }
+            case 'advert_campaigns': {
+                const campaigns: { id: number; name: string; status: number; statusLabel: string }[] = [];
+                const statusMap: Record<number, string> = {
+                    4: 'Готова', 7: 'Завершена', 8: 'Отклонена', 9: 'Работает', 11: 'Остановлен',
+                };
+                try {
+                    const res = await fetch(
+                        'https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=4%2C9%2C11',
+                        { headers: { Authorization: WB_PROMO_TOKEN } },
+                    );
+                    const text = await res.text();
+                    if (res.ok) {
+                        const data = JSON.parse(text);
+                        const adverts: Record<string, unknown>[] = data?.adverts || (Array.isArray(data) ? data : []);
+                        for (const a of adverts) {
+                            const id = Number(a.advertId ?? a.id ?? a.advert_id ?? 0);
+                            if (!id) continue;
+                            const status = Number(a.status ?? 0);
+                            campaigns.push({
+                                id,
+                                name: String(a.name ?? a.campaignName ?? `Кампания ${id}`),
+                                status,
+                                statusLabel: statusMap[status] || 'Остановлен',
+                            });
+                        }
+                    } else {
+                        console.warn('[wb-proxy] advert_campaigns status:', res.status, text.slice(0, 300));
+                    }
+                } catch (e) {
+                    console.warn('[wb-proxy] advert_campaigns error:', String(e));
+                }
+                result = { campaigns };
                 break;
             }
             case 'advert_stats': {

@@ -321,24 +321,56 @@
         .nav-item-standalone.active { box-shadow: 0 8px 28px rgba(123,97,255,0.45); }
         .cabinet-picker {
             position: relative; display: inline-flex; align-items: center;
-            min-width: 0; max-width: 200px;
+            min-width: 0; max-width: 220px; z-index: 60;
         }
-        .cabinet-picker-native {
-            position: absolute; inset: 0; width: 100%; height: 100%;
-            opacity: 0; cursor: pointer; z-index: 2; appearance: none; border: none;
+        .cabinet-picker-native { display: none !important; }
+        .cabinet-picker-btn {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 12px 4px 4px; border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.04);
+            backdrop-filter: blur(8px); cursor: pointer;
+            transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+            font-family: inherit; color: inherit;
+        }
+        .cabinet-picker-btn:hover,
+        .cabinet-picker.open .cabinet-picker-btn {
+            border-color: rgba(139, 92, 246, 0.35);
+            background: rgba(139, 92, 246, 0.1);
+            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08);
         }
         .cabinet-picker-face {
             display: flex; align-items: center; gap: 8px;
-            padding: 4px 12px 4px 4px; border-radius: 999px;
-            border: 1px solid rgba(255,255,255,0.07);
-            background: rgba(255,255,255,0.03);
-            backdrop-filter: blur(8px); pointer-events: none;
-            transition: border-color 0.2s, background 0.2s;
+            pointer-events: none;
         }
-        .cabinet-picker:hover .cabinet-picker-face,
-        .cabinet-picker:focus-within .cabinet-picker-face {
-            border-color: rgba(139, 92, 246, 0.25);
-            background: rgba(139, 92, 246, 0.06);
+        .cabinet-dropdown-menu {
+            position: absolute; top: calc(100% + 8px); right: 0;
+            min-width: 220px; max-width: 280px; max-height: 300px;
+            overflow-y: auto; background: var(--surface-solid);
+            border: 1px solid var(--border-strong); border-radius: 14px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.55); padding: 6px;
+            opacity: 0; visibility: hidden; transform: translateY(-6px) scale(0.97);
+            transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .cabinet-picker.open .cabinet-dropdown-menu {
+            opacity: 1; visibility: visible; transform: translateY(0) scale(1);
+        }
+        .cabinet-dropdown-item {
+            display: flex; align-items: center; gap: 10px;
+            padding: 9px 12px; border-radius: 10px; cursor: pointer;
+            font-size: 13px; font-weight: 500; color: var(--text-primary);
+            transition: background 0.15s;
+        }
+        .cabinet-dropdown-item:hover { background: var(--accent-soft); }
+        .cabinet-dropdown-item.active {
+            background: var(--accent-soft); color: var(--accent); font-weight: 600;
+        }
+        .cabinet-dropdown-item .cab-dot {
+            width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(145deg, rgba(139,92,246,0.45), rgba(79,70,229,0.25));
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 700; color: #fff;
         }
         .cabinet-picker-dot {
             width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
@@ -1177,6 +1209,7 @@
         }
         #modal-btn:hover { opacity: 0.92; transform: translateY(-1px); }
         #supply-detail-modal:not(.hidden) { display: flex; }
+        #ab-edit-modal:not(.hidden) { display: flex; }
         .rnp-summary-table { font-size: 10px; width: 100%; border-collapse: collapse; }
         .rnp-summary-table th, .rnp-summary-table td { border: 1px solid var(--border); padding: 6px 8px; text-align: center; }
         .rnp-summary-table th { background: var(--surface); font-weight: 700; font-size: 9px; color: var(--text-muted); position: sticky; top: 0; }
@@ -1223,6 +1256,71 @@
         .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: var(--accent-soft); }
         .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
         .drop-zone-preview { width: 100%; height: 100px; object-fit: cover; border-radius: 8px; display: block; margin-bottom: 6px; }
+        /* AB wizard */
+        .ab-wizard-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 12px; }
+        .ab-wizard-card h4 { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 12px; }
+        .ab-wizard-hint { font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-top: 8px; }
+        .ab-product-search {
+            width: 100%; padding: 10px 14px; border-radius: 12px; font-size: 13px;
+            background: var(--surface); border: 1px solid var(--border); color: var(--text-primary);
+        }
+        .ab-product-search:focus { border-color: var(--accent-border); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+        .ab-product-list { max-height: 320px; overflow-y: auto; margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; }
+        .ab-product-item {
+            display: flex; align-items: center; gap: 12px; padding: 10px 12px; cursor: pointer;
+            border-bottom: 1px solid var(--border); transition: background 0.15s;
+        }
+        .ab-product-item:last-child { border-bottom: none; }
+        .ab-product-item:hover, .ab-product-item.selected { background: var(--accent-soft); }
+        .ab-product-item img { width: 44px; height: 58px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: var(--surface); }
+        .ab-product-item-title { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+        .ab-product-item-id { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .ab-selected-card {
+            display: flex; align-items: center; gap: 12px; padding: 12px;
+            border: 1px solid var(--accent-border); border-radius: 12px; background: var(--accent-soft);
+        }
+        .ab-selected-card img { width: 48px; height: 64px; object-fit: cover; border-radius: 8px; }
+        .ab-photo-gallery { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .ab-photo-thumb { width: 56px; height: 72px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); }
+        .ab-pill-toggle { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+        .ab-pill {
+            padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 600; cursor: pointer;
+            border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
+            transition: all 0.15s; user-select: none;
+        }
+        .ab-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .ab-pill:not(.active):hover { border-color: var(--accent-border); color: var(--accent); }
+        .ab-campaign-list { max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; }
+        .ab-campaign-row {
+            display: grid; grid-template-columns: 28px 1fr auto auto; gap: 10px; align-items: center;
+            padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 12px;
+        }
+        .ab-campaign-row:last-child { border-bottom: none; }
+        .ab-campaign-status {
+            font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
+        }
+        .ab-campaign-status.run { background: rgba(52,211,153,0.15); color: var(--green); }
+        .ab-campaign-status.stop { background: rgba(255,255,255,0.06); color: var(--text-muted); }
+        .ab-variant-row { display: grid; grid-template-columns: 120px 1fr; gap: 12px; margin-bottom: 12px; align-items: start; }
+        .ab-variant-preview { width: 120px; height: 150px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border); background: var(--surface); }
+        .ab-wizard-steps { display: flex; gap: 8px; margin-bottom: 16px; }
+        .ab-wizard-step-dot {
+            width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700; border: 2px solid var(--border); color: var(--text-muted);
+        }
+        .ab-wizard-step-dot.active { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+        .ab-wizard-step-dot.done { border-color: var(--green); color: var(--green); background: rgba(52,211,153,0.1); }
+        .ab-confidence-pill { font-size: 11px; padding: 8px 10px; }
+        #modal-actions { display: none; gap: 8px; justify-content: center; margin-top: 4px; }
+        #modal-actions.visible { display: flex; }
+        #modal-cancel-btn {
+            padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 600;
+            background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); cursor: pointer;
+        }
+        #modal-confirm-btn {
+            padding: 10px 20px; border-radius: 10px; font-size: 13px; font-weight: 600;
+            background: var(--accent); border: none; color: #fff; cursor: pointer;
+        }
         /* Progress bar ротации */
         .rotation-progress-wrap { background: var(--border); border-radius: 4px; height: 4px; overflow: hidden; margin-top: 8px; }
         .rotation-progress-bar { height: 4px; background: var(--accent); border-radius: 4px; transition: width 1s linear; }
@@ -1300,9 +1398,14 @@
         .ui-btn-secondary:hover { transform: translateY(-1px); }
 
         /* Кнопка "Обновить" */
-        #refresh-btn { border-radius: 10px !important; font-weight: 600 !important; background: var(--accent-gradient) !important; box-shadow: 0 2px 12px rgba(232,86,142,0.3) !important; border: none !important; }
-        #refresh-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(232,86,142,0.4) !important; }
-        [data-theme="neon"] #refresh-btn { box-shadow: 0 2px 16px rgba(240,98,146,0.35) !important; }
+        #refresh-btn, .header-refresh-btn {
+            width: 34px !important; height: 34px !important; padding: 0 !important;
+            display: inline-flex !important; align-items: center; justify-content: center;
+            border-radius: 10px !important; min-width: unset !important;
+            box-shadow: 0 2px 10px rgba(232,86,142,0.25) !important;
+        }
+        #refresh-btn:hover { transform: translateY(-1px); }
+        #refresh-btn .refresh-label { display: none; }
 
         /* Карточки метрик — плавнее */
         .metric-card { border-radius: 18px !important; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important; }
@@ -1647,19 +1750,23 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                    <button onclick="refreshData()" id="refresh-btn" class="btn-smooth flex items-center gap-1.5 px-4 py-2 text-white text-xs font-semibold rounded-xl">
-                        <span>↻</span><span>Обновить</span>
+                    <button onclick="refreshData()" id="refresh-btn" class="btn-smooth header-refresh-btn text-white font-semibold" title="Обновить данные" style="background:var(--accent-gradient);border:none">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                        <span class="refresh-label">Обновить</span>
                     </button>
-                    <label class="cabinet-picker" title="Выбор кабинета">
-                        <select id="cabinet-select-header" class="cabinet-picker-native" onchange="onCabinetChange()">
+                    <div class="cabinet-picker" id="cabinet-picker-wrap">
+                        <button type="button" class="cabinet-picker-btn" id="cabinet-picker-btn" onclick="toggleCabinetDropdown(event)">
+                            <span class="cabinet-picker-face">
+                                <span class="cabinet-picker-dot" id="cabinet-picker-initial">—</span>
+                                <span class="cabinet-picker-label" id="cabinet-picker-label">Кабинет</span>
+                                <svg class="cabinet-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            </span>
+                        </button>
+                        <div id="cabinet-dropdown-menu" class="cabinet-dropdown-menu"></div>
+                        <select id="cabinet-select-header" class="cabinet-picker-native" aria-hidden="true" tabindex="-1" onchange="onCabinetChange()">
                             <option value="">Кабинет...</option>
                         </select>
-                        <span class="cabinet-picker-face">
-                            <span class="cabinet-picker-dot" id="cabinet-picker-initial">—</span>
-                            <span class="cabinet-picker-label" id="cabinet-picker-label">Кабинет</span>
-                            <svg class="cabinet-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-                        </span>
-                    </label>
+                    </div>
                     <span id="cabinet-name-header" class="hidden" aria-hidden="true"></span>
                 </div>
             </div>
@@ -2018,29 +2125,123 @@
                 </div>
             </div>
 
-            <!-- ФОРМА СОЗДАНИЯ ТЕСТА -->
+            <!-- МАСТЕР СОЗДАНИЯ А/Б ТЕСТА -->
             <div id="new-test-form" class="glass rounded-2xl p-6 hidden">
-                <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Новый А/Б тест фото</h3>
-                <div class="grid grid-cols-2 gap-3 mb-4">
-                    <input type="text" id="abt-nmid" placeholder="Артикул WB (nm_id)" class="rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                    <input type="text" id="abt-name" placeholder="Название товара" class="rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold" style="color:var(--text-primary)" id="ab-wizard-title">Новый А/Б тест</h3>
+                    <button class="ui-btn ui-btn-secondary text-xs" onclick="hideNewTestForm()">✕ Закрыть</button>
                 </div>
-                <div class="grid grid-cols-2 gap-3 mb-4">
-                    <div>
-                        <div class="text-xs mb-1" style="color:var(--text-secondary)">Менять фото каждые (мин)</div>
-                        <input type="number" id="abt-interval" value="30" min="5" max="1440" class="rounded-xl px-4 py-2.5 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                    </div>
-                    <div>
-                        <div class="text-xs mb-1" style="color:var(--text-secondary)">Макс. ротаций (0 = без лимита)</div>
-                        <input type="number" id="abt-maxrot" value="0" min="0" class="rounded-xl px-4 py-2.5 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                <div class="ab-wizard-steps">
+                    <div class="ab-wizard-step-dot active" id="ab-step-dot-1">1</div>
+                    <div style="flex:1;height:2px;background:var(--border);align-self:center;border-radius:1px"></div>
+                    <div class="ab-wizard-step-dot" id="ab-step-dot-2">2</div>
+                </div>
+
+                <!-- Шаг 1: выбор артикула -->
+                <div id="ab-wizard-step-1">
+                    <div class="ab-wizard-card">
+                        <h4>Карточка товара</h4>
+                        <input type="text" id="ab-product-search" class="ab-product-search" placeholder="Поиск по названию или артикулу..." oninput="debounceABProductSearch()">
+                        <div id="ab-product-list" class="ab-product-list">
+                            <div class="text-center py-8 text-sm" style="color:var(--text-muted)">Загрузка карточек из WB...</div>
+                        </div>
                     </div>
                 </div>
-                <div class="text-xs mb-3 font-semibold" style="color:var(--text-primary)">Варианты фото (2–10 шт.)</div>
-                <div id="variant-inputs" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-3"></div>
-                <button class="ui-btn ui-btn-secondary mb-4 text-sm" onclick="addVariantSlot()" id="add-variant-btn">+ Добавить вариант</button>
-                <div class="flex gap-2">
-                    <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()">🚀 Запустить тест</button>
-                    <button class="ui-btn ui-btn-secondary" onclick="hideNewTestForm()">Отмена</button>
+
+                <!-- Шаг 2: настройки -->
+                <div id="ab-wizard-step-2" class="hidden">
+                    <div class="ab-wizard-card">
+                        <h4>Карточка товара</h4>
+                        <div id="ab-selected-card" class="ab-selected-card"></div>
+                        <div id="ab-wb-photo-gallery" class="ab-photo-gallery"></div>
+                    </div>
+
+                    <div class="ab-wizard-card">
+                        <h4>Источники статистики</h4>
+                        <div class="ab-pill-toggle">
+                            <div class="ab-pill active" id="ab-src-ads" onclick="toggleABSource('ads', this)">Реклама</div>
+                            <div class="ab-pill active" id="ab-src-funnel" onclick="toggleABSource('funnel', this)">Воронка продаж</div>
+                        </div>
+                        <div class="ab-wizard-hint">Реклама — нужна РК. Воронка — органика + реклама, обновляется раз в час.</div>
+                    </div>
+
+                    <div class="ab-wizard-card">
+                        <h4>Что считаем победой</h4>
+                        <select id="ab-metric" class="ab-product-search" style="margin-bottom:8px">
+                            <option value="ctr">CTR (клики / показы)</option>
+                            <option value="orders">Заказы</option>
+                            <option value="cr">CR (заказы / клики)</option>
+                        </select>
+                        <div class="ab-wizard-hint">Победа — выше выбранный показатель по рекламной статистике.</div>
+                        <div class="mt-3 text-xs font-semibold mb-2" style="color:var(--text-secondary)">Платформы:</div>
+                        <div class="ab-pill-toggle" id="ab-platforms">
+                            <div class="ab-pill active" data-plat="all" onclick="toggleABPlatform('all', this)">Все</div>
+                            <div class="ab-pill" data-plat="web" onclick="toggleABPlatform('web', this)">Сайт</div>
+                            <div class="ab-pill" data-plat="android" onclick="toggleABPlatform('android', this)">Android</div>
+                            <div class="ab-pill" data-plat="ios" onclick="toggleABPlatform('ios', this)">iOS</div>
+                        </div>
+                    </div>
+
+                    <div class="ab-wizard-card">
+                        <h4>Выберите РК, в которой идут показы</h4>
+                        <div id="ab-campaign-list" class="ab-campaign-list">
+                            <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка кампаний...</div>
+                        </div>
+                    </div>
+
+                    <div class="ab-wizard-card">
+                        <h4>Варианты фото</h4>
+                        <div id="variant-inputs"></div>
+                        <button class="ui-btn ui-btn-secondary mb-2 text-sm" onclick="addVariantSlot()" id="add-variant-btn">+ Добавить вариант</button>
+                        <div class="ab-wizard-hint">Минимум 2 варианта. Можно загрузить новые фото или выбрать из галереи WB выше.</div>
+                    </div>
+
+                    <div class="ab-wizard-card">
+                        <h4>Настройки ротации</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                                <div class="text-xs mb-1" style="color:var(--text-secondary)">Менять главное фото каждые (мин)</div>
+                                <input type="number" id="abt-interval" value="60" min="60" max="1440" step="60" class="ab-product-search">
+                            </div>
+                            <div>
+                                <div class="text-xs mb-1" style="color:var(--text-secondary)">Отключать после ротаций (0 = без лимита)</div>
+                                <input type="number" id="abt-maxrot" value="0" min="0" class="ab-product-search">
+                            </div>
+                        </div>
+                        <div class="ab-wizard-hint">Минимум 60 мин — воронка WB обновляется раз в час.</div>
+                    </div>
+
+                    <div class="ab-wizard-card">
+                        <h4>Автоматическая остановка</h4>
+                        <label class="flex items-center gap-2 cursor-pointer mb-3">
+                            <input type="checkbox" id="ab-auto-stop" checked style="accent-color:var(--accent)">
+                            <span class="text-sm" style="color:var(--text-primary)">Остановить тест, когда определится победитель</span>
+                        </label>
+                        <div class="text-xs mb-2" style="color:var(--text-muted)">Минимум показов на каждое фото:</div>
+                        <input type="number" id="ab-min-impressions" value="100" min="50" class="ab-product-search" style="max-width:140px">
+                    </div>
+
+                    <div class="flex gap-2 flex-wrap">
+                        <button class="ui-btn ui-btn-secondary text-sm" onclick="abWizardGoStep(1)">← Назад</button>
+                        <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()">Создать тест</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Редактирование вариантов -->
+            <div id="ab-edit-modal" class="hidden" style="position:fixed;inset:0;z-index:99997;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px)">
+                <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;max-width:640px;width:94%;max-height:85vh;overflow-y:auto">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-semibold" style="color:var(--text-primary)">Редактировать варианты</h3>
+                        <button onclick="closeABEditModal()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">×</button>
+                    </div>
+                    <div id="ab-edit-existing" class="flex gap-2 flex-wrap mb-4"></div>
+                    <div id="ab-edit-new-variants" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4"></div>
+                    <button class="ui-btn ui-btn-secondary text-sm mb-4" onclick="addEditVariantSlot()">+ Добавить вариант</button>
+                    <div class="flex gap-2">
+                        <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="saveABEditVariants()">Сохранить</button>
+                        <button class="ui-btn ui-btn-secondary" onclick="closeABEditModal()">Отмена</button>
+                    </div>
                 </div>
             </div>
 
@@ -2201,6 +2402,10 @@
             <div id="modal-icon" style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"></div>
             <div id="modal-title" style="color:var(--text-primary);font-size:17px;font-weight:700;margin-bottom:8px;letter-spacing:-0.02em"></div>
             <div id="modal-text" style="color:var(--text-secondary);font-size:13px;line-height:1.55;margin-bottom:20px"></div>
+            <div id="modal-actions">
+                <button type="button" id="modal-cancel-btn" onclick="closeConfirmModal(false)">Отмена</button>
+                <button type="button" id="modal-confirm-btn" onclick="closeConfirmModal(true)">Подтвердить</button>
+            </div>
             <button type="button" id="modal-btn" onclick="closePremiumModal()">Понятно</button>
         </div>
     </div>
@@ -2264,6 +2469,9 @@
     function showNrDialog(type, title, text) {
         const modal = document.getElementById('premium-modal');
         if (!modal) return;
+        document.getElementById('modal-actions')?.classList.remove('visible');
+        const btn = document.getElementById('modal-btn');
+        if (btn) btn.style.display = '';
         const cfg = {
             success: { bg: 'rgba(52,211,153,0.15)', color: 'var(--green)', icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>' },
             error:   { bg: 'rgba(248,113,113,0.15)', color: 'var(--red)', icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' },
@@ -2283,6 +2491,33 @@
         if (!modal) return;
         modal.classList.remove('is-open');
         document.body.style.overflow = '';
+        const actions = document.getElementById('modal-actions');
+        const btn = document.getElementById('modal-btn');
+        if (actions) actions.classList.remove('visible');
+        if (btn) btn.style.display = '';
+        window._confirmResolve = null;
+    }
+    function showConfirmModal(title, text) {
+        return new Promise(resolve => {
+            window._confirmResolve = resolve;
+            const cfg = {
+                warning: { bg: 'rgba(251,191,36,0.15)', color: 'var(--amber)', icon: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>' },
+            };
+            const c = cfg.warning;
+            const icon = document.getElementById('modal-icon');
+            if (icon) { icon.style.background = c.bg; icon.style.color = c.color; icon.innerHTML = c.icon; }
+            document.getElementById('modal-title').textContent = title || '';
+            document.getElementById('modal-text').textContent = text || '';
+            document.getElementById('modal-actions')?.classList.add('visible');
+            document.getElementById('modal-btn').style.display = 'none';
+            document.getElementById('premium-modal').classList.add('is-open');
+            document.body.style.overflow = 'hidden';
+        });
+    }
+    function closeConfirmModal(confirmed) {
+        const resolve = window._confirmResolve;
+        closePremiumModal();
+        if (resolve) resolve(!!confirmed);
     }
     document.getElementById('premium-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'premium-modal') closePremiumModal();
@@ -2328,7 +2563,6 @@
             setTimeout(() => t.remove(), 300);
         }, dur);
     }
-    function closePremiumModal() {} // kept for compatibility
 
     function toggleMenu(el) { el.classList.toggle('open'); el.nextElementSibling.classList.toggle('open'); }
 
@@ -2707,15 +2941,59 @@
         if (hidden) hidden.textContent = n;
     }
 
-    async function loadCabinets() {
-        const { data } = await supabase.from('cabinets').select('id, name').order('name');
+    let cabinetListCache = [];
+    function renderCabinetDropdown(data) {
+        cabinetListCache = data || [];
+        const menu = document.getElementById('cabinet-dropdown-menu');
         const selectHeader = document.getElementById('cabinet-select-header');
-        if (!data || data.length === 0) {
+        if (!menu) return;
+        if (!data?.length) {
+            menu.innerHTML = '<div class="text-center py-4 text-xs" style="color:var(--text-muted)">Нет кабинетов</div>';
             if (selectHeader) selectHeader.innerHTML = '<option>Нет кабинетов</option>';
             return;
         }
-        const opts = data.map(c => `<option value="${escapeHtml(String(c.id))}"${c.id===currentCabinetId?' selected':''}>${escapeHtml(c.name)}</option>`).join('');
-        if (selectHeader) selectHeader.innerHTML = opts;
+        menu.innerHTML = data.map(c => `
+            <div class="cabinet-dropdown-item${c.id === currentCabinetId ? ' active' : ''}" onclick="selectCabinet('${escapeHtml(String(c.id))}')">
+                <span class="cab-dot">${escapeHtml(c.name.charAt(0).toUpperCase())}</span>
+                <span>${escapeHtml(c.name)}</span>
+            </div>`).join('');
+        if (selectHeader) {
+            selectHeader.innerHTML = data.map(c =>
+                `<option value="${escapeHtml(String(c.id))}"${c.id === currentCabinetId ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
+            ).join('');
+        }
+    }
+
+    function toggleCabinetDropdown(e) {
+        e.stopPropagation();
+        const wrap = document.getElementById('cabinet-picker-wrap');
+        if (!wrap) return;
+        const open = wrap.classList.toggle('open');
+        if (open) renderCabinetDropdown(cabinetListCache);
+    }
+
+    function selectCabinet(id) {
+        const selectHeader = document.getElementById('cabinet-select-header');
+        if (selectHeader) {
+            selectHeader.value = id;
+            onCabinetChange();
+        }
+        document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
+    }
+
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#cabinet-picker-wrap')) {
+            document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
+        }
+    });
+
+    async function loadCabinets() {
+        const { data } = await supabase.from('cabinets').select('id, name').order('name');
+        if (!data || data.length === 0) {
+            renderCabinetDropdown([]);
+            return;
+        }
+        renderCabinetDropdown(data);
         if (!currentCabinetId) { currentCabinetId = data[0].id; localStorage.setItem('selected_cabinet_id', currentCabinetId); }
         const sel = data.find(c => c.id === currentCabinetId);
         if (sel) {
@@ -2753,6 +3031,8 @@
         localStorage.setItem('selected_cabinet_id', currentCabinetId);
         const cabinetName = s.options[s.selectedIndex].text;
         updateCabinetPickerUI(cabinetName);
+        renderCabinetDropdown(cabinetListCache);
+        document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
         // Сбрасываем все метрики в —
         ['m-profit','m-margin','m-profit2','m-sales-sum','m-sales-count','m-realization',
          'm-commission','m-orders-sum','m-orders-count','m-conversion','m-logistics',
@@ -3077,32 +3357,207 @@
     }
 
     // ═══════════════════════════════════════════════
-    //  А/Б ТЕСТЫ — полный модуль v2
+    //  А/Б ТЕСТЫ — wizard v3
     // ═══════════════════════════════════════════════
     let currentTestFilter = 'active';
     let allABTests = [];
-    let abRotationTimers = {}; // testId → intervalId
+    let abRotationTimers = {};
     const MAX_AB_VARIANTS = 10;
-    function abVariantLabel(i) { return String(i + 1); }
+    let abVariantFiles = {};
+    let abWizardStep = 1;
+    let abSelectedCard = null;
+    let abProductCards = [];
+    let abSearchTimer = null;
+    let abSelectedCampaigns = new Set();
+    let abWizardSources = { ads: true, funnel: true };
+    let abWizardPlatforms = new Set(['all']);
+    let abEditingTestId = null;
+    let abEditNewFiles = {};
 
-    // --- Форма создания ---
-    function showNewTestForm() {
-        document.getElementById('new-test-form').classList.remove('hidden');
-        document.getElementById('variant-inputs').innerHTML = '';
-        abVariantFiles = {};
-        const addBtn = document.getElementById('add-variant-btn');
-        if (addBtn) addBtn.style.display = '';
-        addVariantSlot(); addVariantSlot();
+    function abVariantLabel(i) { return String(i + 1); }
+    function abSettingsKey(testId) { return `nr_ab_settings_${testId}`; }
+    function saveABSettings(testId, settings) {
+        try { localStorage.setItem(abSettingsKey(testId), JSON.stringify(settings)); } catch (e) {}
     }
+    function loadABSettings(testId) {
+        try { return JSON.parse(localStorage.getItem(abSettingsKey(testId)) || '{}'); } catch (e) { return {}; }
+    }
+
+    function showNewTestForm() {
+        abWizardStep = 1;
+        abSelectedCard = null;
+        abVariantFiles = {};
+        abSelectedCampaigns = new Set();
+        abWizardSources = { ads: true, funnel: true };
+        abWizardPlatforms = new Set(['all']);
+        document.getElementById('new-test-form').classList.remove('hidden');
+        document.getElementById('ab-wizard-step-1').classList.remove('hidden');
+        document.getElementById('ab-wizard-step-2').classList.add('hidden');
+        document.getElementById('ab-step-dot-1').className = 'ab-wizard-step-dot active';
+        document.getElementById('ab-step-dot-2').className = 'ab-wizard-step-dot';
+        document.getElementById('ab-product-search').value = '';
+        document.getElementById('variant-inputs').innerHTML = '';
+        loadABProductCards('');
+        document.getElementById('new-test-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     function hideNewTestForm() {
         document.getElementById('new-test-form').classList.add('hidden');
-        document.getElementById('abt-nmid').value = '';
-        document.getElementById('abt-name').value = '';
-        document.getElementById('variant-inputs').innerHTML = '';
+        abSelectedCard = null;
         abVariantFiles = {};
+        document.getElementById('variant-inputs').innerHTML = '';
     }
 
-    let abVariantFiles = {}; // index → File
+    function abWizardGoStep(step) {
+        abWizardStep = step;
+        document.getElementById('ab-wizard-step-1').classList.toggle('hidden', step !== 1);
+        document.getElementById('ab-wizard-step-2').classList.toggle('hidden', step !== 2);
+        document.getElementById('ab-step-dot-1').className = 'ab-wizard-step-dot' + (step === 1 ? ' active' : ' done');
+        document.getElementById('ab-step-dot-2').className = 'ab-wizard-step-dot' + (step === 2 ? ' active' : '');
+        if (step === 2) {
+            renderABSelectedCard();
+            loadABCampaigns();
+            if (!document.getElementById('variant-inputs').children.length) {
+                addVariantSlot(); addVariantSlot();
+            }
+        }
+    }
+
+    function debounceABProductSearch() {
+        clearTimeout(abSearchTimer);
+        abSearchTimer = setTimeout(() => {
+            loadABProductCards(document.getElementById('ab-product-search')?.value.trim() || '');
+        }, 350);
+    }
+
+    function parseWBCard(card) {
+        const nmID = Number(card.nmID ?? card.nmId ?? 0);
+        const title = String(card.title ?? card.imtName ?? card.vendorCode ?? `Артикул ${nmID}`);
+        const photos = (card.photos || []).map(p => {
+            let u = p.big || p.c516x688 || p.tm || '';
+            if (u.startsWith('//')) u = 'https:' + u;
+            return u;
+        }).filter(Boolean);
+        return { nmID, title, photos, thumb: photos[0] || '' };
+    }
+
+    async function loadABProductCards(search) {
+        const list = document.getElementById('ab-product-list');
+        if (!list) return;
+        list.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)"><div class="nr-loader-ring"></div></div>';
+        const data = await callWbProxy('content_cards', { limit: 50, textSearch: search, withPhoto: 1 });
+        const cards = (data?.cards || []).map(parseWBCard).filter(c => c.nmID);
+        abProductCards = cards;
+        if (!cards.length) {
+            list.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)">Карточки не найдены. Проверьте токен Content API.</div>';
+            return;
+        }
+        list.innerHTML = cards.map(c => `
+            <div class="ab-product-item" onclick="selectABProduct(${c.nmID})">
+                <img src="${escapeHtml(c.thumb)}" onerror="this.style.opacity=0.3" alt="">
+                <div>
+                    <div class="ab-product-item-title">${escapeHtml(c.title)}</div>
+                    <div class="ab-product-item-id">${c.nmID}</div>
+                </div>
+            </div>`).join('');
+    }
+
+    function selectABProduct(nmID) {
+        abSelectedCard = abProductCards.find(c => c.nmID === nmID) || null;
+        if (!abSelectedCard) return;
+        abWizardGoStep(2);
+    }
+
+    function renderABSelectedCard() {
+        const el = document.getElementById('ab-selected-card');
+        const gal = document.getElementById('ab-wb-photo-gallery');
+        if (!el || !abSelectedCard) return;
+        el.innerHTML = `
+            <img src="${escapeHtml(abSelectedCard.thumb)}" onerror="this.style.opacity=0.3" alt="">
+            <div>
+                <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(abSelectedCard.title)}</div>
+                <div class="text-xs mt-1" style="color:var(--text-muted)">${abSelectedCard.nmID}</div>
+            </div>`;
+        if (gal) {
+            gal.innerHTML = (abSelectedCard.photos || []).slice(0, 20).map((u, i) =>
+                `<img src="${escapeHtml(u)}" class="ab-photo-thumb" title="Фото ${i + 1}" onclick="useWBPhotoFromGallery(${i})" onerror="this.remove()">`
+            ).join('');
+        }
+    }
+
+    function useWBPhotoFromGallery(photoIdx) {
+        const url = abSelectedCard?.photos?.[photoIdx];
+        if (!url) return;
+        useWBPhotoAsVariant(url);
+    }
+
+    function useWBPhotoAsVariant(url) {
+        const container = document.getElementById('variant-inputs');
+        const idx = container.children.length;
+        if (idx >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10', 'Можно сравнивать до 10 фото.'); return; }
+        abVariantFiles[idx] = { url, fromWB: true };
+        const slot = document.createElement('div');
+        slot.className = 'ab-variant-row';
+        slot.id = `variant-slot-${idx}`;
+        slot.innerHTML = `
+            <img src="${escapeHtml(url)}" class="ab-variant-preview">
+            <div class="drop-zone" style="min-height:150px" data-idx="${idx}">
+                <input type="file" accept="image/*" onchange="handleVariantFile(${idx}, this)">
+                <div id="slot-inner-${idx}">
+                    <div class="text-xs font-semibold" style="color:var(--green)">✓ Фото WB · Вариант ${abVariantLabel(idx)}</div>
+                    <div class="text-xs mt-1" style="color:var(--text-muted)">Кликни чтобы заменить файлом</div>
+                </div>
+            </div>`;
+        container.appendChild(slot);
+    }
+
+    function toggleABSource(key, el) {
+        abWizardSources[key] = !abWizardSources[key];
+        el.classList.toggle('active', abWizardSources[key]);
+    }
+
+    function toggleABPlatform(plat, el) {
+        if (plat === 'all') {
+            abWizardPlatforms = new Set(['all']);
+            document.querySelectorAll('#ab-platforms .ab-pill').forEach(p => p.classList.toggle('active', p.dataset.plat === 'all'));
+            return;
+        }
+        abWizardPlatforms.delete('all');
+        document.querySelector('#ab-platforms .ab-pill[data-plat="all"]')?.classList.remove('active');
+        if (abWizardPlatforms.has(plat)) abWizardPlatforms.delete(plat);
+        else abWizardPlatforms.add(plat);
+        el.classList.toggle('active', abWizardPlatforms.has(plat));
+        if (!abWizardPlatforms.size) {
+            abWizardPlatforms.add('all');
+            document.querySelector('#ab-platforms .ab-pill[data-plat="all"]')?.classList.add('active');
+        }
+    }
+
+    async function loadABCampaigns() {
+        const el = document.getElementById('ab-campaign-list');
+        if (!el) return;
+        el.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div>';
+        const data = await callWbProxy('advert_campaigns', {});
+        const campaigns = data?.campaigns || [];
+        if (!campaigns.length) {
+            el.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Кампании не найдены. Тест можно создать без привязки к РК.</div>';
+            return;
+        }
+        el.innerHTML = campaigns.map(c => {
+            const run = c.status === 9;
+            return `<label class="ab-campaign-row" style="cursor:pointer">
+                <input type="checkbox" ${abSelectedCampaigns.has(c.id) ? 'checked' : ''} onchange="toggleABCampaign(${c.id}, this.checked)" style="accent-color:var(--accent)">
+                <span style="color:var(--text-primary);font-weight:500">${escapeHtml(c.name)}</span>
+                <span style="color:var(--text-muted);font-family:monospace;font-size:11px">${c.id}</span>
+                <span class="ab-campaign-status ${run ? 'run' : 'stop'}">${escapeHtml(c.statusLabel)}</span>
+            </label>`;
+        }).join('');
+    }
+
+    function toggleABCampaign(id, checked) {
+        if (checked) abSelectedCampaigns.add(id);
+        else abSelectedCampaigns.delete(id);
+    }
 
     function addVariantSlot() {
         const container = document.getElementById('variant-inputs');
@@ -3110,25 +3565,31 @@
         if (idx >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10 вариантов', 'Можно сравнивать до 10 фото.'); return; }
         const label = abVariantLabel(idx);
         const slot = document.createElement('div');
-        slot.className = 'drop-zone';
+        slot.className = 'ab-variant-row';
         slot.dataset.idx = idx;
         slot.id = `variant-slot-${idx}`;
         slot.innerHTML = `
-            <input type="file" accept="image/*" onchange="handleVariantFile(${idx}, this)">
-            <div id="slot-inner-${idx}">
-                <div style="font-size:28px;margin-bottom:6px">📷</div>
-                <div class="text-xs font-semibold" style="color:var(--accent)">Вариант ${label}</div>
-                <div class="text-xs mt-1" style="color:var(--text-muted)">Перетащи или кликни</div>
+            <div class="ab-variant-preview" style="display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;border:2px dashed var(--border)">Нет фото</div>
+            <div class="drop-zone" style="min-height:150px">
+                <input type="file" accept="image/*" onchange="handleVariantFile(${idx}, this)">
+                <div id="slot-inner-${idx}">
+                    <div style="font-size:24px;margin-bottom:6px">📷</div>
+                    <div class="text-xs font-semibold" style="color:var(--accent)">Вариант ${label}</div>
+                    <div class="text-xs mt-1" style="color:var(--text-muted)">Перетащите или кликните · JPG, PNG, WebP</div>
+                </div>
             </div>`;
-        slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('dragover'); });
-        slot.addEventListener('dragleave', () => slot.classList.remove('dragover'));
-        slot.addEventListener('drop', e => {
-            e.preventDefault(); slot.classList.remove('dragover');
-            const f = e.dataTransfer.files[0];
-            if (f) applyVariantFile(idx, f);
+        const dz = slot.querySelector('.drop-zone');
+        dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+        dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+        dz.addEventListener('drop', e => {
+            e.preventDefault(); dz.classList.remove('dragover');
+            if (e.dataTransfer.files[0]) applyVariantFile(idx, e.dataTransfer.files[0]);
         });
         container.appendChild(slot);
-        if (idx >= MAX_AB_VARIANTS - 1) document.getElementById('add-variant-btn').style.display = 'none';
+        if (idx >= MAX_AB_VARIANTS - 1) {
+            const btn = document.getElementById('add-variant-btn');
+            if (btn) btn.style.display = 'none';
+        }
     }
 
     function handleVariantFile(idx, input) {
@@ -3139,19 +3600,26 @@
         abVariantFiles[idx] = file;
         const reader = new FileReader();
         reader.onload = e => {
+            const slot = document.getElementById(`variant-slot-${idx}`);
+            const preview = slot?.querySelector('.ab-variant-preview');
+            if (preview) {
+                preview.outerHTML = `<img src="${e.target.result}" class="ab-variant-preview">`;
+            }
             document.getElementById(`slot-inner-${idx}`).innerHTML = `
-                <img src="${e.target.result}" class="drop-zone-preview">
                 <div class="text-xs font-semibold" style="color:var(--green)">✓ Вариант ${abVariantLabel(idx)}</div>
-                <div class="text-xs" style="color:var(--text-muted)">${(file.size/1024).toFixed(0)} KB</div>`;
+                <div class="text-xs" style="color:var(--text-muted)">${(file.size / 1024).toFixed(0)} KB</div>`;
         };
         reader.readAsDataURL(file);
     }
 
-    async function uploadVariantPhoto(file, testId, label) {
-        const { data: { session } } = await supabase.auth.getSession();
-        const ext = file.name.split('.').pop();
+    async function uploadVariantPhoto(fileOrUrl, testId, label) {
+        if (fileOrUrl && fileOrUrl.fromWB) {
+            return fileOrUrl.url;
+        }
+        if (typeof fileOrUrl === 'string') return fileOrUrl;
+        const ext = fileOrUrl.name.split('.').pop();
         const path = `${testId}/${label}.${ext}`;
-        const { error } = await supabase.storage.from('abtest-photos').upload(path, file, { upsert: true, contentType: file.type });
+        const { error } = await supabase.storage.from('abtest-photos').upload(path, fileOrUrl, { upsert: true, contentType: fileOrUrl.type });
         if (error) throw new Error('Ошибка загрузки фото: ' + error.message);
         const { data: { publicUrl } } = supabase.storage.from('abtest-photos').getPublicUrl(path);
         return publicUrl;
@@ -3159,21 +3627,20 @@
 
     async function createABTest() {
         if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет.'); return; }
-        const nmId = document.getElementById('abt-nmid').value.trim();
-        const name = document.getElementById('abt-name').value.trim();
-        const interval = parseInt(document.getElementById('abt-interval').value) || 30;
-        const maxRot = parseInt(document.getElementById('abt-maxrot').value) || 0;
+        if (!abSelectedCard) { showPremiumModal('warning', 'Выберите товар', 'Сначала выберите карточку на шаге 1.'); abWizardGoStep(1); return; }
+        const nmId = String(abSelectedCard.nmID);
+        const name = abSelectedCard.title;
+        const interval = Math.max(60, parseInt(document.getElementById('abt-interval').value, 10) || 60);
+        const maxRot = parseInt(document.getElementById('abt-maxrot').value, 10) || 0;
+        const fileIndices = Object.keys(abVariantFiles).map(Number).sort();
+        if (fileIndices.length < 2) { showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите или выберите из галереи WB минимум 2 варианта.'); return; }
 
-        if (!nmId) { showPremiumModal('warning', 'Укажите артикул', 'Введите nm_id товара на WB.'); return; }
-        if (Object.keys(abVariantFiles).length < 2) { showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите хотя бы 2 варианта фото.'); return; }
+        showPremiumModal('info', 'Создаём тест...', 'Загружаем фото, подождите.');
 
-        showPremiumModal('info', 'Создаём тест...', 'Загружаем фото в хранилище, подождите.');
-
-        // Создаём тест
         const { data: test, error } = await supabase.from('ab_tests').insert({
             cabinet_id: currentCabinetId,
             nm_id: nmId,
-            product_name: name || ('Артикул ' + nmId),
+            product_name: name,
             status: 'active',
             rotation_interval_min: interval,
             max_rotations: maxRot || null,
@@ -3184,9 +3651,16 @@
 
         if (error || !test) { showPremiumModal('error', 'Ошибка создания', error?.message || 'Попробуйте ещё раз.'); return; }
 
-        // Загружаем фото и создаём варианты
+        saveABSettings(test.id, {
+            metric: document.getElementById('ab-metric')?.value || 'ctr',
+            sources: abWizardSources,
+            platforms: [...abWizardPlatforms],
+            campaigns: [...abSelectedCampaigns],
+            autoStop: document.getElementById('ab-auto-stop')?.checked,
+            minImpressions: parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 100,
+        });
+
         try {
-            const fileIndices = Object.keys(abVariantFiles).map(Number).sort();
             const variantRows = [];
             for (let i = 0; i < fileIndices.length; i++) {
                 const file = abVariantFiles[fileIndices[i]];
@@ -3199,15 +3673,14 @@
 
             const ok = await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, nmId, variantRows[0].variant_label);
             if (!ok) throw new Error('WB не принял первое фото. Попробуйте ещё раз.');
-
-        } catch(e) {
+        } catch (e) {
             await supabase.from('ab_tests').delete().eq('id', test.id);
             showPremiumModal('error', 'Ошибка загрузки', e.message);
             return;
         }
 
         hideNewTestForm();
-        showPremiumModal('success', 'Тест запущен!', `Фото будет меняться каждые ${interval} мин. Первое фото уже установлено на WB.`);
+        showPremiumModal('success', 'Тест запущен!', `Фото будет меняться каждые ${interval} мин.`);
         loadABTests();
     }
 
@@ -3220,25 +3693,20 @@
             || (typeof data.error === 'string' && data.error !== 'false' ? data.error : null);
         if (errText) {
             console.error('[AB] media_save:', errText, data);
-            showNrDialog('error', 'WB не сменил фото', String(errText));
+            showPremiumModal('error', 'WB не сменил фото', String(errText));
             return false;
         }
-        if (data.ok !== true && data.error !== false && !data.data) {
-            console.warn('[AB] media_save unclear response:', data);
-        }
-        await supabase.from('ab_test_rotation_log').insert({
+        const { error: logErr } = await supabase.from('ab_test_rotation_log').insert({
             test_id: testId,
             variant_label: variantLabel || abVariantLabel(variantIndex),
             action: variantIndex === 0 ? 'start' : 'rotate',
-        }).catch(() => {});
+        });
+        if (logErr) console.warn('[AB] rotation log:', logErr.message);
         return true;
     }
 
-    async function forceRotateABTest(testId) {
-        await doClientRotation(testId);
-    }
+    async function forceRotateABTest(testId) { await doClientRotation(testId); }
 
-    // --- Загрузка и отображение ---
     async function loadABTests() {
         if (!currentCabinetId) return;
         const { data: tests } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
@@ -3246,7 +3714,7 @@
         allABTests = [];
         for (const test of tests) {
             const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', test.id).order('variant_label');
-            allABTests.push({ ...test, variants: variants || [] });
+            allABTests.push({ ...test, variants: variants || [], settings: loadABSettings(test.id) });
         }
         renderABTests();
         startRotationTimers();
@@ -3254,7 +3722,7 @@
 
     function filterTests(mode, el) {
         currentTestFilter = mode;
-        document.querySelectorAll('.segment-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('#tab-ab-testing .segment-tab').forEach(t => t.classList.remove('active'));
         el.classList.add('active');
         renderABTests();
     }
@@ -3268,39 +3736,33 @@
         if (list.length === 0) {
             container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
                 <div style="font-size:40px;margin-bottom:12px">📊</div>
-                ${currentTestFilter === 'active' ? 'Нет активных тестов — создайте первый А/Б тест фото' : 'Нет тестов'}
+                ${currentTestFilter === 'active' ? 'Нет активных тестов — создайте первый А/Б тест' : 'Нет тестов'}
             </div>`;
             return;
         }
-
         container.innerHTML = list.map(test => renderTestCard(test)).join('');
     }
 
     function renderTestCard(test) {
         const variants = test.variants || [];
-        const totalOrders = variants.reduce((a,v) => a + (v.orders||0), 0);
-        const totalMinutes = variants.reduce((a,v) => a + (v.minutes_active||0), 0);
-
-        // Считаем заказов/час для каждого варианта
         const withRate = variants.map(v => ({
             ...v,
-            ordersPerHour: v.minutes_active > 0 ? ((v.orders||0) / v.minutes_active * 60) : 0
+            ordersPerHour: v.minutes_active > 0 ? ((v.orders || 0) / v.minutes_active * 60) : 0
         }));
         const maxRate = Math.max(...withRate.map(v => v.ordersPerHour), 0);
         const winner = maxRate > 0 ? withRate.find(v => v.ordersPerHour === maxRate) : null;
-
-        const intervalMin = test.rotation_interval_min || 30;
+        const intervalMin = test.rotation_interval_min || 60;
         const nextRotateMs = test.last_rotated_at
-            ? Math.max(0, intervalMin*60*1000 - (Date.now() - new Date(test.last_rotated_at).getTime()))
+            ? Math.max(0, intervalMin * 60 * 1000 - (Date.now() - new Date(test.last_rotated_at).getTime()))
             : 0;
         const progressPct = test.last_rotated_at
-            ? Math.min(100, ((intervalMin*60*1000 - nextRotateMs) / (intervalMin*60*1000)) * 100)
+            ? Math.min(100, ((intervalMin * 60 * 1000 - nextRotateMs) / (intervalMin * 60 * 1000)) * 100)
             : 0;
         const nextRotateStr = nextRotateMs > 0
-            ? `${Math.floor(nextRotateMs/60000)}м ${Math.floor((nextRotateMs%60000)/1000)}с`
+            ? `${Math.floor(nextRotateMs / 60000)}м ${Math.floor((nextRotateMs % 60000) / 1000)}с`
             : 'сейчас';
 
-        const variantsHtml = withRate.map((v, i) => {
+        const variantsHtml = withRate.map(v => {
             const isWinner = winner && v.id === winner.id && maxRate > 0;
             const isActive = v.is_currently_on_wb;
             const barPct = maxRate > 0 ? Math.round(v.ordersPerHour / maxRate * 100) : 0;
@@ -3313,96 +3775,53 @@
                     <div class="text-xs font-bold mb-1" style="color:var(--text-secondary)">Вар. ${escapeHtml(v.variant_label)}</div>
                     <div class="abtest-ctr">${v.ordersPerHour.toFixed(2)}</div>
                     <div class="abtest-orders" style="color:var(--text-muted)">зак/час</div>
-                    <div class="abtest-orders">${v.orders||0} зак · ${v.minutes_active||0}м</div>
-                    <div class="verdict-bar-wrap mt-1">
-                        <div class="verdict-bar" style="width:${barPct}%;background:${isWinner ? 'var(--green)' : 'var(--accent)'}"></div>
-                    </div>
+                    <div class="verdict-bar-wrap mt-1"><div class="verdict-bar" style="width:${barPct}%;background:${isWinner ? 'var(--green)' : 'var(--accent)'}"></div></div>
                 </div>
             </div>`;
         }).join('');
 
-        // Вердикт
-        let verdictHtml = '';
-        if (test.status === 'finished' && winner) {
-            const secondBest = withRate.filter(v => v.id !== winner.id).sort((a,b) => b.ordersPerHour - a.ordersPerHour)[0];
-            const uplift = secondBest && secondBest.ordersPerHour > 0
-                ? Math.round((winner.ordersPerHour / secondBest.ordersPerHour - 1) * 100)
-                : null;
-            verdictHtml = `<div class="verdict-winner-card">
-                <div class="flex items-center gap-2">
-                    <span style="font-size:20px">🏆</span>
-                    <div>
-                        <div class="text-sm font-bold" style="color:var(--green)">Победитель: Вариант ${winner.variant_label}</div>
-                        <div class="text-xs" style="color:var(--text-secondary)">${winner.ordersPerHour.toFixed(2)} заказов/час · ${winner.orders||0} заказов за ${winner.minutes_active||0} мин</div>
-                        ${uplift ? `<div class="text-xs font-semibold mt-1" style="color:var(--green)">+${uplift}% лучше ближайшего конкурента</div>` : ''}
-                    </div>
-                </div>
-            </div>`;
-        } else if (test.status === 'active' && winner && totalOrders > 0) {
-            verdictHtml = `<div class="text-xs mt-2 px-1" style="color:var(--text-secondary)">
-                Промежуточный лидер: <span style="color:var(--accent);font-weight:600">Вариант ${winner.variant_label}</span> (${winner.ordersPerHour.toFixed(2)} зак/час) · Ротаций: ${test.rotation_count||0}
-            </div>`;
-        } else if (test.status === 'active') {
-            verdictHtml = `<div class="text-xs mt-2 px-1" style="color:var(--text-muted)">Тест идёт · Ротаций: ${test.rotation_count||0} · Данных пока недостаточно для вердикта</div>`;
-        }
-
         const statusBadge = test.status === 'active'
-            ? `<span class="badge-green">● Активен</span>`
+            ? '<span class="badge-green">● Активен</span>'
             : test.status === 'finished'
-            ? `<span class="badge-green" style="background:rgba(168,85,247,0.1);color:var(--accent);border-color:rgba(168,85,247,0.3)">✓ Завершён</span>`
-            : `<span class="badge-red">⏸ Приостановлен</span>`;
+            ? '<span class="badge-green" style="background:rgba(168,85,247,0.1);color:var(--accent);border-color:rgba(168,85,247,0.3)">✓ Завершён</span>'
+            : '<span class="badge-red">⏸ Приостановлен</span>';
 
         const progressHtml = test.status === 'active' ? `
             <div class="mt-3">
                 <div class="flex justify-between text-xs mb-1" style="color:var(--text-muted)">
-                    <span>Следующая ротация</span>
-                    <span id="next-rotate-${test.id}">${nextRotateStr}</span>
+                    <span>Следующая ротация</span><span id="next-rotate-${test.id}">${nextRotateStr}</span>
                 </div>
-                <div class="rotation-progress-wrap">
-                    <div class="rotation-progress-bar" id="progress-${test.id}" style="width:${progressPct}%"></div>
-                </div>
+                <div class="rotation-progress-wrap"><div class="rotation-progress-bar" id="progress-${test.id}" style="width:${progressPct}%"></div></div>
             </div>` : '';
 
+        const tid = String(test.id);
         return `
-        <div class="abtest-card" id="abtest-card-${test.id}">
-            <div class="flex items-start justify-between mb-3">
+        <div class="abtest-card" id="abtest-card-${tid}">
+            <div class="flex items-start justify-between mb-3 gap-3">
                 <div>
                     <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(test.product_name)}</div>
-                    <div class="text-xs mt-0.5" style="color:var(--text-muted)">Арт. ${escapeHtml(String(test.nm_id))} · Интервал ${intervalMin} мин · c ${new Date(test.started_at||test.created_at).toLocaleDateString('ru-RU')}</div>
+                    <div class="text-xs mt-0.5" style="color:var(--text-muted)">Арт. ${escapeHtml(String(test.nm_id))} · ${intervalMin} мин · ${variants.length} вар.</div>
                     <div class="mt-1">${statusBadge}</div>
                 </div>
-                <div class="flex gap-2 items-center">
-                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="forceRotateABTest('${test.id}')">↻ Сменить фото</button>` : ''}
-                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="finishABTest('${test.id}')">Завершить</button>` : ''}
-                    <select class="ui-select" style="width:auto;padding:5px 10px;font-size:11px" onchange="updateTestStatus('${test.id}', this.value)">
-                        <option value="active" ${test.status==='active'?'selected':''}>Активен</option>
-                        <option value="paused" ${test.status==='paused'?'selected':''}>Пауза</option>
-                        <option value="finished" ${test.status==='finished'?'selected':''}>Завершён</option>
-                    </select>
+                <div class="flex gap-2 items-center flex-wrap justify-end">
+                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="forceRotateABTest('${tid}')">↻ Сменить</button>` : ''}
+                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="editABTest('${tid}')">✎ Редактировать</button>` : ''}
+                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--green);border-color:rgba(52,211,153,0.3)" onclick="finishABTest('${tid}')">Завершить</button>` : ''}
                 </div>
             </div>
             <div class="flex gap-2 flex-wrap">${variantsHtml}</div>
-            ${verdictHtml}
             ${progressHtml}
         </div>`;
     }
 
-    // --- Ротация на клиенте (резервная — основная через pg_cron) ---
     function startRotationTimers() {
-        // Очищаем старые таймеры
         Object.values(abRotationTimers).forEach(id => clearInterval(id));
         abRotationTimers = {};
-
-        // Обновляем прогресс-бары каждую секунду
         clearInterval(window._abProgressInterval);
         window._abProgressInterval = setInterval(updateRotationProgress, 1000);
-
-        // Клиентская ротация для каждого активного теста
         allABTests.filter(t => t.status === 'active').forEach(test => {
-            const intervalMs = (test.rotation_interval_min || 30) * 60 * 1000;
-            abRotationTimers[test.id] = setInterval(async () => {
-                await doClientRotation(test.id);
-            }, intervalMs);
+            const intervalMs = (test.rotation_interval_min || 60) * 60 * 1000;
+            abRotationTimers[String(test.id)] = setInterval(() => doClientRotation(test.id), intervalMs);
         });
     }
 
@@ -3411,39 +3830,30 @@
             const progressEl = document.getElementById(`progress-${test.id}`);
             const nextEl = document.getElementById(`next-rotate-${test.id}`);
             if (!progressEl || !nextEl) return;
-            const intervalMs = (test.rotation_interval_min || 30) * 60 * 1000;
+            const intervalMs = (test.rotation_interval_min || 60) * 60 * 1000;
             const elapsed = test.last_rotated_at ? Date.now() - new Date(test.last_rotated_at).getTime() : intervalMs;
-            const pct = Math.min(100, (elapsed / intervalMs) * 100);
+            progressEl.style.width = Math.min(100, (elapsed / intervalMs) * 100) + '%';
             const remaining = Math.max(0, intervalMs - elapsed);
-            progressEl.style.width = pct + '%';
-            nextEl.textContent = remaining < 1000 ? 'сейчас' : `${Math.floor(remaining/60000)}м ${Math.floor((remaining%60000)/1000)}с`;
+            nextEl.textContent = remaining < 1000 ? 'сейчас' : `${Math.floor(remaining / 60000)}м ${Math.floor((remaining % 60000) / 1000)}с`;
         });
     }
 
     async function doClientRotation(testId) {
-        const test = allABTests.find(t => t.id === testId);
+        const test = allABTests.find(t => String(t.id) === String(testId));
         if (!test || test.status !== 'active') return;
-
         const variants = test.variants || [];
         if (variants.length < 2) return;
-
         const nextIdx = ((test.current_variant_index || 0) + 1) % variants.length;
         const nextVariant = variants[nextIdx];
-
-        // Обновляем время активности текущего варианта
         const currentVariant = variants[test.current_variant_index || 0];
         if (currentVariant) {
             await supabase.from('ab_test_variants').update({
-                minutes_active: (currentVariant.minutes_active || 0) + (test.rotation_interval_min || 30),
+                minutes_active: (currentVariant.minutes_active || 0) + (test.rotation_interval_min || 60),
                 is_currently_on_wb: false
             }).eq('id', currentVariant.id);
         }
-
-        // Ставим следующее фото
         const ok = await rotateTestPhoto(testId, nextIdx, nextVariant.photo_url, test.nm_id, nextVariant.variant_label);
         if (!ok) return;
-
-        // Обновляем тест
         const newRotCount = (test.rotation_count || 0) + 1;
         const shouldFinish = test.max_rotations && newRotCount >= test.max_rotations;
         await supabase.from('ab_tests').update({
@@ -3453,22 +3863,20 @@
             status: shouldFinish ? 'finished' : 'active',
             finished_at: shouldFinish ? new Date().toISOString() : null
         }).eq('id', testId);
-
         await supabase.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', nextVariant.id);
-
         if (shouldFinish) {
-            clearInterval(abRotationTimers[testId]);
-            delete abRotationTimers[testId];
+            clearInterval(abRotationTimers[String(testId)]);
+            delete abRotationTimers[String(testId)];
         }
-
-        // Перезагружаем тесты чтобы обновить UI
         await loadABTests();
     }
 
     async function finishABTest(testId) {
-        const test = allABTests.find(t => t.id === testId);
+        const test = allABTests.find(t => String(t.id) === String(testId));
         if (!test) return;
-        // Записываем финальное время активности текущего варианта
+        const ok = await showConfirmModal('Завершить тест?', 'Ротация фото остановится. Текущее фото останется на WB.');
+        if (!ok) return;
+
         const current = (test.variants || [])[test.current_variant_index || 0];
         if (current) {
             const elapsedMin = test.last_rotated_at
@@ -3479,20 +3887,118 @@
                 is_currently_on_wb: false
             }).eq('id', current.id);
         }
-        await supabase.from('ab_tests').update({ status: 'finished', finished_at: new Date().toISOString() }).eq('id', testId);
-        await supabase.from('ab_test_rotation_log').insert({ test_id: testId, variant_label: null, action: 'stop' }).catch(()=>{});
-        clearInterval(abRotationTimers[testId]);
-        delete abRotationTimers[testId];
-        loadABTests();
+
+        const { error } = await supabase.from('ab_tests').update({
+            status: 'finished',
+            finished_at: new Date().toISOString()
+        }).eq('id', testId);
+
+        if (error) {
+            showPremiumModal('error', 'Не удалось завершить', error.message);
+            return;
+        }
+
+        await supabase.from('ab_test_rotation_log').insert({
+            test_id: testId,
+            variant_label: current?.variant_label || 'stop',
+            action: 'stop',
+        });
+
+        clearInterval(abRotationTimers[String(testId)]);
+        delete abRotationTimers[String(testId)];
+        showPremiumModal('success', 'Тест завершён', 'А/Б тест остановлен.');
+        await loadABTests();
     }
 
     async function updateTestStatus(testId, status) {
-        await supabase.from('ab_tests').update({ status, ...(status === 'finished' ? { finished_at: new Date().toISOString() } : {}) }).eq('id', testId);
-        if (status !== 'active') { clearInterval(abRotationTimers[testId]); delete abRotationTimers[testId]; }
+        const { error } = await supabase.from('ab_tests').update({
+            status,
+            ...(status === 'finished' ? { finished_at: new Date().toISOString() } : {})
+        }).eq('id', testId);
+        if (error) { showPremiumModal('error', 'Ошибка', error.message); return; }
+        if (status !== 'active') {
+            clearInterval(abRotationTimers[String(testId)]);
+            delete abRotationTimers[String(testId)];
+        }
         loadABTests();
     }
 
-    // Устаревшие функции (для совместимости)
+    function editABTest(testId) {
+        const test = allABTests.find(t => String(t.id) === String(testId));
+        if (!test) return;
+        abEditingTestId = testId;
+        abEditNewFiles = {};
+        const existing = document.getElementById('ab-edit-existing');
+        const newBox = document.getElementById('ab-edit-new-variants');
+        existing.innerHTML = (test.variants || []).map(v => `
+            <div class="abtest-variant" style="width:80px">
+                <img src="${escapeHtml(v.photo_url)}" style="height:80px">
+                <div class="text-xs text-center py-1" style="color:var(--text-muted)">Вар. ${escapeHtml(v.variant_label)}</div>
+            </div>`).join('');
+        newBox.innerHTML = '';
+        document.getElementById('ab-edit-modal').classList.remove('hidden');
+    }
+
+    function closeABEditModal() {
+        document.getElementById('ab-edit-modal').classList.add('hidden');
+        abEditingTestId = null;
+        abEditNewFiles = {};
+    }
+
+    function addEditVariantSlot() {
+        const test = allABTests.find(t => String(t.id) === String(abEditingTestId));
+        if (!test) return;
+        const total = (test.variants?.length || 0) + Object.keys(abEditNewFiles).length;
+        if (total >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10', ''); return; }
+        const idx = Object.keys(abEditNewFiles).length;
+        const slot = document.createElement('div');
+        slot.className = 'drop-zone';
+        slot.innerHTML = `
+            <input type="file" accept="image/*" onchange="handleEditVariantFile(${idx}, this)">
+            <div id="edit-slot-${idx}">
+                <div style="font-size:22px">📷</div>
+                <div class="text-xs" style="color:var(--accent)">Новый вариант</div>
+            </div>`;
+        document.getElementById('ab-edit-new-variants').appendChild(slot);
+    }
+
+    function handleEditVariantFile(idx, input) {
+        if (!input.files[0]) return;
+        abEditNewFiles[idx] = input.files[0];
+        const reader = new FileReader();
+        reader.onload = e => {
+            document.getElementById(`edit-slot-${idx}`).innerHTML = `
+                <img src="${e.target.result}" class="drop-zone-preview">
+                <div class="text-xs" style="color:var(--green)">✓ Готово</div>`;
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+
+    async function saveABEditVariants() {
+        const test = allABTests.find(t => String(t.id) === String(abEditingTestId));
+        if (!test) return;
+        const indices = Object.keys(abEditNewFiles).map(Number).sort();
+        if (!indices.length) { showPremiumModal('warning', 'Нет новых фото', 'Добавьте хотя бы один новый вариант.'); return; }
+        const startLabel = (test.variants?.length || 0);
+        try {
+            for (let i = 0; i < indices.length; i++) {
+                const file = abEditNewFiles[indices[i]];
+                const label = abVariantLabel(startLabel + i);
+                const url = await uploadVariantPhoto(file, test.id, label);
+                const { error } = await supabase.from('ab_test_variants').insert({
+                    test_id: test.id, variant_label: label, photo_url: url,
+                    impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: false
+                });
+                if (error) throw new Error(error.message);
+            }
+            closeABEditModal();
+            showPremiumModal('success', 'Варианты добавлены', `Добавлено ${indices.length} новых фото.`);
+            await loadABTests();
+        } catch (e) {
+            showPremiumModal('error', 'Ошибка', e.message);
+        }
+    }
+
     function addVariantInput() { addVariantSlot(); }
 
     function showSettingsSection(section, el) {

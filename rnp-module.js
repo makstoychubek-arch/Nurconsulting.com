@@ -23,11 +23,6 @@ const RNP = (() => {
     let _activeNm = null;
     let _collapsedSections = new Set();
     let _financeCache = { key: '', rows: [], ts: 0 };
-    let _advertListCache = { ids: [], ts: 0 };
-    let _advertStatsCache = { key: '', data: [], ts: 0 };
-    let _photoProxyCooldown = {}; // nmId -> last attempt ts
-    let _photosPreloaded = false;
-    let _wbSyncBusy = false;
     let _dataCache = {}; // nmId -> { date -> row }
     let _stockCache = {}; // nmId -> { size -> { wh, transit } }
 
@@ -193,215 +188,10 @@ const RNP = (() => {
     const _photoIndexCache = {};  // nmId -> { 2: url, 3: url, ... }
     const _galleryPhotosCache = {}; // nmId -> [url, url, ...] (photos 2+)
     const _basketCache = {};
-    const PHOTO_LS_TTL_MS = 30 * 24 * 3600000;
-    const FUNNEL_SYNC_TTL_MS = 12 * 3600000;
-    const AD_SYNC_TTL_MS = 6 * 3600000;
-    const FINANCE_SYNC_TTL_MS = 6 * 3600000;
-    const PHOTO_PROXY_COOLDOWN_MS = 10 * 60 * 1000;
-    const ADVERT_CACHE_TTL_MS = 30 * 60 * 1000;
-    let _dailyLoadMeta = null;
-
-    const DAILY_COLS = [
-        'date', 'nm_id', 'orders_count', 'orders_sum', 'avg_check',
-        'stock_warehouse', 'stock_transit', 'stock_total',
-        'sales_count', 'sales_sum', 'returns_count', 'buyout_pct', 'return_pct',
-        'to_transfer', 'to_transfer_unit', 'logistics_per_unit', 'logistics_pct',
-        'storage_sum', 'storage_pct', 'commission_pct',
-        'ad_impressions', 'ad_clicks', 'ad_ctr', 'ad_spend', 'ad_cpc', 'ad_orders', 'ad_basket', 'ad_cro',
-        'spp_pct', 'impressions', 'clicks', 'ctr_pct', 'basket_count', 'basket_pct', 'funnel_order_conv',
-        'updated_at',
-    ].join(',');
 
     const _PHOTO_PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent(
         '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="100" viewBox="0 0 80 100"><rect fill="%23e8e8ec" width="80" height="100"/><text x="40" y="52" text-anchor="middle" fill="%23999" font-size="10" font-family="sans-serif">WB</text></svg>'
     );
-
-    function _normalizePhotoUrl(url) {
-        if (!url) return null;
-        let u = String(url).trim();
-        if (!u || u === '1.webp' || u === '1.jpg') return null;
-        if (u.startsWith('//')) u = 'https:' + u;
-        if (!/^https?:\/\//i.test(u)) return null;
-        return u;
-    }
-
-    function _isWbasketGuessUrl(url) {
-        return /basket-\d+\.wbbasket\.ru/i.test(String(url || ''))
-            && !/wbstatic|content-api/i.test(String(url || ''));
-    }
-
-    function _photoHosts(basketStr) {
-        return [`basket-${basketStr}.wbbasket.ru`];
-    }
-
-    function _photoFallbackUrls(nmId, size, photoIndex) {
-        const { vol, part, basket } = _photoMeta(nmId);
-        const bs = String(Math.max(1, basket)).padStart(2, '0');
-        const idx = Math.max(1, photoIndex || 1);
-        const host = `basket-${bs}.wbbasket.ru`;
-        return [
-            `https://${host}/vol${vol}/part${part}/${nmId}/images/${size}/${idx}.webp`,
-            `https://${host}/vol${vol}/part${part}/${nmId}/images/c246x328/${idx}.jpg`,
-        ];
-    }
-
-    const _photoProxyPending = new Set();
-
-    function _resetPhotoCaches() {
-        Object.keys(_photoResolveCache).forEach(k => delete _photoResolveCache[k]);
-        Object.keys(_photoIndexCache).forEach(k => delete _photoIndexCache[k]);
-        Object.keys(_galleryPhotosCache).forEach(k => delete _galleryPhotosCache[k]);
-        Object.keys(_basketCache).forEach(k => delete _basketCache[k]);
-        _photoProxyPending.clear();
-        _photoProxyCooldown = {};
-        _photosPreloaded = false;
-    }
-
-    function _photoLsKey() {
-        return `rnp_photo_cache_v1_${_cab || 'none'}`;
-    }
-
-    function _loadPhotoCacheFromStorage() {
-        if (!_cab) return;
-        try {
-            const raw = localStorage.getItem(_photoLsKey());
-            if (!raw) return;
-            const data = JSON.parse(raw);
-            if (!data || Date.now() - (data.at || 0) > PHOTO_LS_TTL_MS) {
-                localStorage.removeItem(_photoLsKey());
-                return;
-            }
-            Object.entries(data.photos || {}).forEach(([id, url]) => {
-                const nmId = Number(id);
-                const norm = _normalizePhotoUrl(url);
-                if (nmId && norm && !_photoResolveCache[nmId]) _photoResolveCache[nmId] = norm;
-            });
-            Object.entries(data.gallery || {}).forEach(([id, gal]) => {
-                const nmId = Number(id);
-                if (!nmId || !gal || typeof gal !== 'object') return;
-                if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
-                Object.entries(gal).forEach(([idx, url]) => {
-                    const norm = _normalizePhotoUrl(url);
-                    if (norm) _photoIndexCache[nmId][Number(idx)] = norm;
-                });
-                const extras = Object.keys(gal).sort((a, b) => Number(a) - Number(b))
-                    .map(k => _normalizePhotoUrl(gal[k])).filter(Boolean);
-                if (extras.length) _galleryPhotosCache[nmId] = extras;
-            });
-        } catch (e) { console.warn('[RNP] photo cache load:', e.message); }
-    }
-
-    function _savePhotoCacheToStorage() {
-        if (!_cab) return;
-        try {
-            const photos = {};
-            Object.entries(_photoResolveCache).forEach(([id, url]) => {
-                if (url) photos[id] = url;
-            });
-            const gallery = {};
-            Object.entries(_photoIndexCache).forEach(([id, gal]) => {
-                if (gal && Object.keys(gal).length) gallery[id] = gal;
-            });
-            localStorage.setItem(_photoLsKey(), JSON.stringify({ at: Date.now(), photos, gallery }));
-        } catch (e) { console.warn('[RNP] photo cache save:', e.message); }
-    }
-
-    function _hydrateGalleryFromArticle(art) {
-        const gal = art?.manual_data?.cached_gallery_urls;
-        if (!gal || typeof gal !== 'object') return false;
-        const nmId = art.nm_id;
-        if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
-        Object.entries(gal).forEach(([idx, url]) => {
-            const norm = _normalizePhotoUrl(url);
-            if (norm) _photoIndexCache[nmId][Number(idx)] = norm;
-        });
-        const extras = Object.keys(gal).sort((a, b) => Number(a) - Number(b))
-            .map(k => _normalizePhotoUrl(gal[k])).filter(Boolean);
-        if (extras.length) _galleryPhotosCache[nmId] = extras;
-        return extras.length > 0;
-    }
-
-    function _hydratePhotoCacheFromArticles() {
-        _articles.forEach(a => {
-            const norm = _normalizePhotoUrl(a.photo_url);
-            if (norm && !_photoResolveCache[a.nm_id]) {
-                _photoResolveCache[a.nm_id] = norm;
-            } else if (_isWbasketGuessUrl(a.photo_url)) {
-                delete _photoResolveCache[a.nm_id];
-            }
-            _hydrateGalleryFromArticle(a);
-        });
-        _loadPhotoCacheFromStorage();
-    }
-
-    async function _persistResolvedPhotos(articles) {
-        if (!_db || !_cab || !articles?.length) return;
-        const updates = [];
-        articles.forEach(a => {
-            const url = _normalizePhotoUrl(_photoResolveCache[a.nm_id]);
-            if (!url || a.photo_url === url) return;
-            _photoResolveCache[a.nm_id] = url;
-            a.photo_url = url;
-            updates.push(a.nm_id);
-        });
-        if (!updates.length) return;
-        await Promise.all(updates.map(nm_id =>
-            _db.from('rnp_articles').update({ photo_url: _photoResolveCache[nm_id] })
-                .eq('cabinet_id', _cab).eq('nm_id', nm_id)
-        ));
-        _savePhotoCacheToStorage();
-    }
-
-    async function _persistGalleryToArticle(nmId) {
-        const idxMap = _photoIndexCache[nmId];
-        if (!idxMap || !Object.keys(idxMap).length) return;
-        const art = _articles.find(a => a.nm_id === nmId);
-        if (!art) return;
-        const md = { ...(art.manual_data || {}), cached_gallery_urls: { ...idxMap } };
-        art.manual_data = md;
-        try {
-            await _updateArticle(nmId, { manual_data: md });
-            _savePhotoCacheToStorage();
-        } catch (e) { console.warn('[RNP] gallery persist:', e.message); }
-    }
-
-    function _cachedPhotoUrl(art, photoIndex = 1) {
-        const nmId = art?.nm_id;
-        if (!nmId) return null;
-        const idx = Math.max(1, photoIndex || 1);
-        if (idx === 1) {
-            const fromCache = _normalizePhotoUrl(_photoResolveCache[nmId]);
-            const fromArt = _normalizePhotoUrl(art.photo_url);
-            if (fromCache && !_isWbasketGuessUrl(fromCache)) return fromCache;
-            if (fromArt && !_isWbasketGuessUrl(fromArt)) return fromArt;
-            return fromCache || fromArt;
-        }
-        return _normalizePhotoUrl(_photoIndexCache[nmId]?.[idx])
-            || _normalizePhotoUrl(_galleryPhotosCache[nmId]?.[idx - 2])
-            || null;
-    }
-
-    function _dailyCacheKey(nmIds, cal) {
-        const dates = _calAllDates(cal);
-        if (!dates.length) return '';
-        return `${_cab}|${cal.mode}|${_planPeriod}|${dates[0]}|${dates[dates.length - 1]}|${nmIds.slice().sort((a, b) => a - b).join(',')}`;
-    }
-
-    function _syncFresh(md, key, ttlMs) {
-        const at = md?.[key];
-        if (!at) return true;
-        return Date.now() - new Date(at).getTime() > ttlMs;
-    }
-
-    async function _touchArticleSyncMeta(nmId, patch) {
-        const art = _articles.find(a => a.nm_id == nmId);
-        if (!art) return;
-        const md = { ...(art.manual_data || {}), ...patch };
-        art.manual_data = md;
-        try {
-            await _updateArticle(nmId, { manual_data: md });
-        } catch (e) { console.warn('[RNP] sync meta:', e.message); }
-    }
 
     function _photoMeta(nmId) {
         const vol  = Math.floor(nmId / 100000);
@@ -412,7 +202,23 @@ const RNP = (() => {
     }
 
     function _photoUrls(nmId, size = 'c516x688', photoIndex = 1, basketOverride) {
-        return _photoFallbackUrls(nmId, size, photoIndex);
+        const { vol, part, basket, basketStr } = _photoMeta(nmId);
+        const b = basketOverride || basket;
+        const bStr = String(Math.max(1, b)).padStart(2, '0');
+        const urls = [];
+        const idx = Math.max(1, Math.min(15, photoIndex || 1));
+        const sizes = size === 'c246x328'
+            ? ['c246x328', 'tm', 'big']
+            : ['c516x688', 'big', 'tm', 'c246x328'];
+        const exts = ['webp', 'jpg'];
+        [bStr, basketStr].forEach(bs => {
+            sizes.forEach(s => {
+                exts.forEach(ext => {
+                    urls.push(`https://basket-${bs}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${s}/${idx}.${ext}`);
+                });
+            });
+        });
+        return [...new Set(urls)];
     }
 
     function _photoUrl(nmId, size = 'c516x688', photoIndex = 1) {
@@ -420,11 +226,6 @@ const RNP = (() => {
     }
 
     async function _resolveBasketProbe(nmId) {
-        if (_callProxy) {
-            const guess = _basketNum(Math.floor(nmId / 100000));
-            _basketCache[nmId] = guess;
-            return guess;
-        }
         if (_basketCache[nmId]) return _basketCache[nmId];
         const vol = Math.floor(nmId / 100000);
         const part = Math.floor(nmId / 1000);
@@ -436,13 +237,11 @@ const RNP = (() => {
         }
         for (let i = 0; i < candidates.length; i += 4) {
             const batch = candidates.slice(i, i + 4);
-            const hits = await Promise.all(batch.flatMap(b => {
+            const hits = await Promise.all(batch.map(async b => {
                 const bs = String(b).padStart(2, '0');
-                return _photoHosts(bs).map(async host => {
-                    const url = `https://${host}/vol${vol}/part${part}/${nmId}/images/c246x328/1.webp`;
-                    const ok = await _probePhoto(url);
-                    return ok ? b : null;
-                });
+                const url = `https://basket-${bs}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/c246x328/1.webp`;
+                const ok = await _probePhoto(url);
+                return ok ? b : null;
             }));
             const hit = hits.find(Boolean);
             if (hit) {
@@ -456,30 +255,14 @@ const RNP = (() => {
 
     async function _resolvePhotoUrl(nmId, size = 'c246x328') {
         if (_photoResolveCache[nmId]) return _photoResolveCache[nmId];
-        if (_callProxy) {
-            await _fetchPhotosViaProxy([nmId]);
-            return _photoResolveCache[nmId] || null;
-        }
         await _resolveBasketProbe(nmId);
-        const hit = await _probePhotoParallel(_photoUrls(nmId, size, 1).slice(0, 2), 2);
+        const hit = await _probePhotoParallel(_photoUrls(nmId, size, 1).slice(0, 6), 4);
         if (hit) _photoResolveCache[nmId] = hit;
         return hit;
     }
 
-    function _rnpRoot() {
-        return document.getElementById('rnp-workspace') || document;
-    }
-
-    function _refreshTabsAfterPhotos() {
-        const tabsEl = document.getElementById('rnp-sheet-tabs');
-        if (!tabsEl) return;
-        const active = _articles.filter(a => a.is_active);
-        tabsEl.innerHTML = _renderTabsHTML(active);
-        _updateTabHighlight();
-    }
-
     function _applyResolvedPhotos(root) {
-        const scope = root || _rnpRoot();
+        const scope = root || document;
         scope.querySelectorAll('img[data-nmid]').forEach(img => {
             const id = Number(img.dataset.nmid);
             const idx = parseInt(img.dataset.photo || '1', 10);
@@ -513,27 +296,27 @@ const RNP = (() => {
         p.photos.forEach((ph, i) => {
             if (i === 0) return;
             let pu = typeof ph === 'string' ? ph : (ph.big || ph.c516x688 || ph.c246x328 || ph.tm);
-            pu = _normalizePhotoUrl(pu);
+            if (pu?.startsWith('//')) pu = 'https:' + pu;
             if (pu) extras.push(pu);
         });
         if (!extras.length) return;
         _galleryPhotosCache[id] = extras;
         if (!_photoIndexCache[id]) _photoIndexCache[id] = {};
         extras.forEach((pu, i) => { _photoIndexCache[id][i + 2] = pu; });
-        _persistGalleryToArticle(id).catch(() => {});
     }
 
     async function _fetchCardPhoto(nmId) {
         await _fetchPhotosViaProxy([nmId]);
-        return _photoResolveCache[nmId] || null;
+        if (_photoResolveCache[nmId]) return _photoResolveCache[nmId];
+        await _resolveBasketProbe(nmId);
+        return _resolvePhotoUrl(nmId);
     }
 
     async function _fetchCardPhotosBatch(nmIds) {
         const ids = [...new Set(nmIds.map(Number).filter(Boolean))];
         if (!ids.length) return;
         await _fetchPhotosViaProxy(ids);
-        if (_callProxy) return;
-        const stillMissing = ids.filter(id => !_photoResolveCache[id]).slice(0, 3);
+        const stillMissing = ids.filter(id => !_photoResolveCache[id]);
         for (const nmId of stillMissing) {
             await _resolveBasketProbe(nmId);
             const hit = await _resolvePhotoUrl(nmId);
@@ -543,48 +326,14 @@ const RNP = (() => {
 
     async function _fetchPhotosViaProxy(nmIds) {
         if (!_callProxy || !nmIds.length) return;
-        const now = Date.now();
-        const slice = [...new Set(nmIds.map(Number).filter(Boolean))].filter(id => {
-            if (_photoResolveCache[id] && !_isWbasketGuessUrl(_photoResolveCache[id])) return false;
-            const last = _photoProxyCooldown[id] || 0;
-            return now - last >= PHOTO_PROXY_COOLDOWN_MS;
-        }).slice(0, 100);
-        if (!slice.length) return;
-        slice.forEach(id => { _photoProxyCooldown[id] = now; });
-
-        const stillNeed = new Set(slice);
         try {
-            const data = await _callProxy('product_photos', { nmIds: slice });
+            const data = await _callProxy('product_photos', { nmIds: nmIds.slice(0, 100) });
             if (data && typeof data === 'object') {
                 Object.entries(data).forEach(([id, url]) => {
-                    const norm = _normalizePhotoUrl(url);
-                    const nmId = Number(id);
-                    if (norm && nmId) {
-                        _photoResolveCache[nmId] = norm;
-                        stillNeed.delete(nmId);
-                    }
+                    if (url) _photoResolveCache[Number(id)] = String(url);
                 });
             }
         } catch (e) { console.warn('[RNP] product_photos proxy:', e.message); }
-
-        if (!stillNeed.size) return;
-        try {
-            const resp = await _callProxy('content_cards', {
-                nmIds: [...stillNeed],
-                limit: stillNeed.size,
-                withPhoto: -1,
-            });
-            const cards = resp?.cards || resp?.data?.cards || [];
-            cards.forEach(card => {
-                const id = Number(card.nmID ?? card.nmId ?? 0);
-                if (!id || !Array.isArray(card.photos) || !card.photos.length) return;
-                const first = card.photos[0];
-                let url = typeof first === 'string' ? first : (first?.big || first?.c516x688 || first?.c246x328 || first?.tm);
-                url = _normalizePhotoUrl(url);
-                if (url) _photoResolveCache[id] = url;
-                _storeCardGalleryExtras(card, id);
-            });
-        } catch (e) { console.warn('[RNP] content_cards photos:', e.message); }
     }
 
     async function _probePhotoParallel(urls, concurrency = 6) {
@@ -600,82 +349,117 @@ const RNP = (() => {
 
     async function _preloadPhotos(articles) {
         if (!articles?.length) return;
-        _hydratePhotoCacheFromArticles();
-        const missing = articles.filter(a => {
-            const u = _normalizePhotoUrl(_photoResolveCache[a.nm_id] || a.photo_url);
-            return !u || _isWbasketGuessUrl(u);
-        }).map(a => a.nm_id);
-        if (missing.length) {
-            missing.forEach(id => delete _photoResolveCache[id]);
-            await _fetchPhotosViaProxy(missing);
+        articles.forEach(a => {
+            const u = a.photo_url;
+            if (_isTrustedPhotoUrl(u) && !u.includes('wbbasket.ru')) {
+                _photoResolveCache[a.nm_id] = u;
+            }
+        });
+        const missing = articles.filter(a => !_photoResolveCache[a.nm_id]).map(a => a.nm_id);
+        if (!missing.length) return;
+        await _fetchPhotosViaProxy(missing);
+        const stillMissing = missing.filter(id => !_photoResolveCache[id]);
+        if (stillMissing.length) await _fetchCardPhotosBatch(stillMissing);
+        const persist = stillMissing
+            .filter(id => _photoResolveCache[id])
+            .map(nm_id => ({ nm_id, photo_url: _photoResolveCache[nm_id] }));
+        if (_db && _cab && persist.length) {
+            await Promise.all(persist.map(p =>
+                _db.from('rnp_articles').update({ photo_url: p.photo_url })
+                    .eq('cabinet_id', _cab).eq('nm_id', p.nm_id)
+            ));
+            persist.forEach(p => {
+                const art = articles.find(a => a.nm_id === p.nm_id);
+                if (art) art.photo_url = p.photo_url;
+            });
         }
-        await _persistResolvedPhotos(articles);
         _applyResolvedPhotos();
-        _photosPreloaded = true;
     }
 
     async function _preloadGalleryPhotos(nmId) {
         if (_galleryPhotosCache[nmId]?.length) return;
-        const art = _articles.find(a => a.nm_id === nmId);
-        if (art && _hydrateGalleryFromArticle(art)) return;
-        await _fetchPhotosViaProxy([nmId]);
-        if (_galleryPhotosCache[nmId]?.length) {
-            await _persistGalleryToArticle(nmId);
+        await _fetchCardPhotosBatch([nmId]);
+        if (_galleryPhotosCache[nmId]?.length) return;
+        await _resolveBasketProbe(nmId);
+        const extras = [];
+        if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
+        for (let idx = 2; idx <= 15; idx++) {
+            const hit = await _probePhotoParallel(_photoUrls(nmId, 'c246x328', idx).slice(0, 12), 6);
+            if (hit) {
+                extras.push(hit);
+                _photoIndexCache[nmId][idx] = hit;
+            } else if (idx > 4 && extras.length) break;
         }
+        if (extras.length) _galleryPhotosCache[nmId] = extras;
     }
 
     async function _ensurePhoto(art) {
         if (!art?.nm_id) return;
-        const cached = _cachedPhotoUrl(art, 1);
-        if (cached && !_isWbasketGuessUrl(cached)) {
-            art.photo_url = cached;
-            return;
-        }
-        if (_photoResolveCache[art.nm_id] && !_isWbasketGuessUrl(_photoResolveCache[art.nm_id])) {
+        if (_photoResolveCache[art.nm_id]) {
             art.photo_url = _photoResolveCache[art.nm_id];
             return;
         }
-        if (art.photo_url?.startsWith('http')) {
-            const norm = _normalizePhotoUrl(art.photo_url);
-            if (norm && !_isWbasketGuessUrl(norm)) {
-                _photoResolveCache[art.nm_id] = norm;
-                art.photo_url = norm;
-                return;
-            }
+        if (art.photo_url?.startsWith('http') && _isTrustedPhotoUrl(art.photo_url) && !art.photo_url.includes('wbbasket.ru')) {
+            _photoResolveCache[art.nm_id] = art.photo_url;
+            return;
         }
         await _fetchPhotosViaProxy([art.nm_id]);
         if (_photoResolveCache[art.nm_id]) {
             art.photo_url = _photoResolveCache[art.nm_id];
-            await _persistResolvedPhotos([art]);
+            if (_db && _cab) {
+                _db.from('rnp_articles').update({ photo_url: art.photo_url })
+                    .eq('cabinet_id', _cab).eq('nm_id', art.nm_id).then(() => {});
+            }
+            return;
         }
+        await _fetchCardPhotosBatch([art.nm_id]);
+        if (_photoResolveCache[art.nm_id]) {
+            art.photo_url = _photoResolveCache[art.nm_id];
+            if (_db && _cab) {
+                _db.from('rnp_articles').update({ photo_url: art.photo_url })
+                    .eq('cabinet_id', _cab).eq('nm_id', art.nm_id).then(() => {});
+            }
+            return;
+        }
+        const cardUrl = await _fetchCardPhoto(art.nm_id);
+        if (cardUrl) {
+            _photoResolveCache[art.nm_id] = cardUrl;
+            art.photo_url = cardUrl;
+            if (_db && _cab) {
+                _db.from('rnp_articles').update({ photo_url: cardUrl })
+                    .eq('cabinet_id', _cab).eq('nm_id', art.nm_id).then(() => {});
+            }
+            return;
+        }
+        const hit = await _resolvePhotoUrl(art.nm_id, 'c516x688');
+        if (hit) art.photo_url = hit;
     }
 
     function _imgHtml(art, className, size = 'c516x688', extraStyle = '', photoIndex = 1, eager = false) {
         const nmId = art.nm_id;
         const meta = _photoMeta(nmId);
         const idx = Math.max(1, photoIndex || 1);
-        const cached = _cachedPhotoUrl(art, idx);
-        const trusted = cached && !_isWbasketGuessUrl(cached);
+        let cached = null;
+        if (idx === 1) {
+            cached = _photoResolveCache[nmId]
+                || (_isTrustedPhotoUrl(art.photo_url) ? art.photo_url : null);
+        } else {
+            cached = _photoIndexCache[nmId]?.[idx]
+                || _galleryPhotosCache[nmId]?.[idx - 2]
+                || null;
+        }
         const src = cached || _PHOTO_PLACEHOLDER;
         const cls = className ? ` class="${className}"` : '';
         const sty = extraStyle ? ` style="${extraStyle}"` : '';
+        const urls = _photoUrls(nmId, size, idx).slice(0, 6).join('|');
         const loading = eager ? 'eager' : 'lazy';
-        let errAttr = '';
-        if (trusted) {
-            errAttr = '';
-        } else if (_callProxy) {
-            if (idx === 1) errAttr = ' onerror="RNP.imgFallback(this)"';
-        } else if (cached) {
-            errAttr = ` data-urls="${_photoFallbackUrls(nmId, size, idx).join('|')}" onerror="RNP.imgFallback(this)"`;
-        } else if (idx === 1) {
-            errAttr = ' onerror="RNP.imgFallback(this)"';
-        }
         return `<img${cls}${sty} src="${src}" referrerpolicy="no-referrer" loading="${loading}" alt=""
-          data-nmid="${nmId}" data-vol="${meta.vol}" data-part="${meta.part}" data-basket="${meta.basket}" data-size="${size}" data-photo="${idx}"${errAttr}>`;
+          data-nmid="${nmId}" data-vol="${meta.vol}" data-part="${meta.part}" data-basket="${meta.basket}" data-size="${size}" data-photo="${idx}"
+          data-urls="${urls}"
+          onerror="RNP.imgFallback(this)">`;
     }
 
     function imgFallback(img) {
-        if (img.dataset.done === '1') return;
         const attempt = parseInt(img.dataset.attempt || '0', 10) + 1;
         img.dataset.attempt = String(attempt);
         const queue = (img.dataset.urls || '').split('|').filter(Boolean);
@@ -683,46 +467,19 @@ const RNP = (() => {
             img.src = queue[attempt - 1];
             return;
         }
-        const nmIdNum = Number(img.dataset.nmid);
-        if (nmIdNum && _callProxy && !img.dataset.proxyTried && !_photoProxyPending.has(nmIdNum)) {
-            const last = _photoProxyCooldown[nmIdNum] || 0;
-            if (Date.now() - last < PHOTO_PROXY_COOLDOWN_MS) {
-                img.dataset.done = '1';
-                img.onerror = null;
-                img.src = _PHOTO_PLACEHOLDER;
-                return;
-            }
-            img.dataset.proxyTried = '1';
-            _photoProxyPending.add(nmIdNum);
-            _fetchPhotosViaProxy([nmIdNum]).then(() => {
-                const photoIdx = parseInt(img.dataset.photo || '1', 10);
-                const url = photoIdx === 1
-                    ? _normalizePhotoUrl(_photoResolveCache[nmIdNum])
-                    : _normalizePhotoUrl(_photoIndexCache[nmIdNum]?.[photoIdx]);
-                if (url) {
-                    img.src = url;
-                    img.classList.remove('rnp-photo-fail');
-                    const art = _articles.find(a => a.nm_id == nmIdNum);
-                    if (art && photoIdx === 1) {
-                        art.photo_url = url;
-                        _persistResolvedPhotos([art]).catch(() => {});
-                    }
-                    _applyResolvedPhotos(_rnpRoot());
-                    return;
-                }
-                img.dataset.done = '1';
-                img.onerror = null;
-                img.classList.add('rnp-photo-fail');
-                img.src = _PHOTO_PLACEHOLDER;
-            }).catch(() => {
-                img.dataset.done = '1';
-                img.onerror = null;
-                img.classList.add('rnp-photo-fail');
-                img.src = _PHOTO_PLACEHOLDER;
-            }).finally(() => _photoProxyPending.delete(nmIdNum));
+        const nmId = img.dataset.nmid;
+        const vol = img.dataset.vol;
+        const part = img.dataset.part;
+        const photoIdx = img.dataset.photo || '1';
+        const size = img.dataset.size || 'c246x328';
+        const base = parseInt(img.dataset.basket || '1', 10);
+        const offsets = [0, 1, -1, 2];
+        const offIdx = attempt - queue.length - 1;
+        if (offIdx < offsets.length) {
+            const b = String(Math.max(1, Math.min(45, base + offsets[offIdx]))).padStart(2, '0');
+            img.src = `https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${size}/${photoIdx}.webp`;
             return;
         }
-        img.dataset.done = '1';
         img.onerror = null;
         img.classList.add('rnp-photo-fail');
         img.src = _PHOTO_PLACEHOLDER;
@@ -911,7 +668,7 @@ const RNP = (() => {
                 if (!existing) {
                     await _db.from('rnp_articles').upsert({
                         cabinet_id: _cab, nm_id: nmId, name: displayName,
-                        photo_url: '', is_active: false, cost_price: 0,
+                        photo_url: _photoUrl(nmId), is_active: false, cost_price: 0,
                         manual_data: md,
                     }, { onConflict: 'cabinet_id,nm_id', ignoreDuplicates: true });
                 } else if (meta.sa) {
@@ -1769,7 +1526,6 @@ const RNP = (() => {
         _planPeriod = next;
         try { localStorage.setItem('rnp_plan_period', _planPeriod); } catch (e) {}
         _dataCache = {};
-        _dailyLoadMeta = null;
         const active = _articles.filter(a => a.is_active);
         await _loadAllDailyData(active.map(a => a.nm_id));
         await _renderActiveTable();
@@ -1916,13 +1672,13 @@ const RNP = (() => {
         return _buildKpiPanelHTML(art, stockBySize, rawData, cal);
     }
     async function _loadDailyData(nmId) {
-        if (_dataCache[nmId] && Object.keys(_dataCache[nmId]).length) return _dataCache[nmId];
+        if (_dataCache[nmId]) return _dataCache[nmId];
         const cal = _buildCalendar();
         const allDates = _calAllDates(cal);
         if (!allDates.length) return {};
         try {
             const { data } = await _db.from('rnp_daily_data')
-                .select(DAILY_COLS).eq('cabinet_id', _cab).eq('nm_id', nmId)
+                .select('*').eq('cabinet_id', _cab).eq('nm_id', nmId)
                 .gte('date', allDates[0]).lte('date', allDates[allDates.length - 1]);
             const map = {};
             (data || []).forEach(r => { map[r.date] = r; });
@@ -1935,11 +1691,9 @@ const RNP = (() => {
         const cal = _buildCalendar();
         const allDates = _calAllDates(cal);
         if (!allDates.length || !nmIds.length) return;
-        const key = _dailyCacheKey(nmIds, cal);
-        if (_dailyLoadMeta?.key === key) return;
         try {
             const { data } = await _db.from('rnp_daily_data')
-                .select(DAILY_COLS).eq('cabinet_id', _cab)
+                .select('*').eq('cabinet_id', _cab)
                 .in('nm_id', nmIds)
                 .gte('date', allDates[0]).lte('date', allDates[allDates.length - 1]);
             nmIds.forEach(id => { _dataCache[id] = {}; });
@@ -1947,14 +1701,12 @@ const RNP = (() => {
                 if (!_dataCache[r.nm_id]) _dataCache[r.nm_id] = {};
                 _dataCache[r.nm_id][r.date] = r;
             });
-            _dailyLoadMeta = { key, at: Date.now() };
         } catch(e) { console.warn('[RNP] load all daily:', e.message); }
     }
 
     function _invalidateCache(nmId) {
         if (nmId) delete _dataCache[nmId];
         else _dataCache = {};
-        _dailyLoadMeta = null;
     }
 
     async function _syncToday(nmId) {
@@ -2049,51 +1801,25 @@ const RNP = (() => {
     }
 
     // ─── FINANCE REPORT SYNC ─────────────────────────────────────────────────
-    function _financeDateRange() {
+    async function _fetchFinanceAgg(nmId) {
         const now = new Date();
-        return {
-            dateFrom: new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0],
-            dateTo: now.toISOString().split('T')[0],
-        };
-    }
-
-    function _financeSyncFresh() {
-        try {
-            const raw = sessionStorage.getItem(`rnp_fin_sync_${_cab}`);
-            if (!raw) return false;
-            return Date.now() - JSON.parse(raw).at < FINANCE_SYNC_TTL_MS;
-        } catch { return false; }
-    }
-
-    function _markFinanceSynced() {
-        try { sessionStorage.setItem(`rnp_fin_sync_${_cab}`, JSON.stringify({ at: Date.now() })); } catch {}
-    }
-
-    async function _fetchFinanceCabinet(opts = {}) {
-        const { dateFrom, dateTo } = _financeDateRange();
-        const cacheKey = `${_cab}_${dateFrom}_${dateTo}`;
+        const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+        const dateTo   = now.toISOString().split('T')[0];
+        const cacheKey = `${_cab}_${dateFrom}_${dateTo}_${nmId}`;
         if (_financeCache.key === cacheKey && Date.now() - _financeCache.ts < 30 * 60 * 1000) {
             return _financeCache.rows;
         }
-        if (opts.cacheOnly) return [];
-        if (!opts.force && _financeSyncFresh()) return _financeCache.rows || [];
-        const rows = await _callProxy('finance_report', { dateFrom, dateTo, aggregate: true });
-        const list = Array.isArray(rows) ? rows : [];
-        if (list.length) _financeCache = { key: cacheKey, rows: list, ts: Date.now() };
-        return list;
+        const rows = await _callProxy('finance_report', { dateFrom, dateTo, aggregate: true, nmId });
+        if (Array.isArray(rows) && rows.length) {
+            _financeCache = { key: cacheKey, rows, ts: Date.now() };
+        }
+        return Array.isArray(rows) ? rows : [];
     }
 
-    async function _fetchFinanceAgg(nmId, opts = {}) {
-        const all = await _fetchFinanceCabinet(opts);
-        if (nmId == null) return all;
-        return all.filter(r => String(r.nm_id) === String(nmId));
-    }
-
-    async function _syncFinanceRange(nmId, opts = {}) {
+    async function _syncFinanceRange(nmId) {
         if (!_callProxy) return;
-        if (!opts.force && _financeSyncFresh()) return;
         try {
-            const rows = await _fetchFinanceAgg(nmId, opts);
+            const rows = await _fetchFinanceAgg(nmId);
             if (!rows.length) return;
 
             const byDate = {};
@@ -2193,125 +1919,95 @@ const RNP = (() => {
             updated_at: new Date().toISOString(),
         }));
         await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
-        await _touchArticleSyncMeta(nmId, { funnel_sync_at: new Date().toISOString() });
-    }
-
-    async function _syncFunnelHistoryIfNeeded(nmId, onProgress) {
-        const art = _articles.find(a => a.nm_id == nmId);
-        if (!_syncFresh(art?.manual_data, 'funnel_sync_at', FUNNEL_SYNC_TTL_MS)) return;
-        await _syncFunnelHistory(nmId, onProgress);
     }
 
     // ─── PROMOTION / AD SYNC (WB API v2/v3) ─────────────────────────────────
-    async function _getAdvertIds() {
-        if (_advertListCache.ids.length && Date.now() - _advertListCache.ts < ADVERT_CACHE_TTL_MS) {
-            return _advertListCache.ids;
-        }
-        const resp = await _callProxy('advert_list', {});
-        const allIds = resp?.ids ||
-                       (resp?.adverts ? resp.adverts.map(c => c.advertId || c.id).filter(Boolean) : null) ||
-                       (Array.isArray(resp) ? resp.map(c => c.advertId || c.id).filter(Boolean) : []);
-        _advertListCache = { ids: allIds || [], ts: Date.now() };
-        if (_advertListCache.ids.length) console.info(`[RNP] advert_list: ${_advertListCache.ids.length} campaign IDs`);
-        return _advertListCache.ids;
-    }
-
-    async function _fetchAdvertStatsRaw() {
+    async function _syncAdStats(nmId) {
+        if (!_callProxy) return;
         const now = new Date();
         const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
         const dateTo   = now.toISOString().split('T')[0];
-        const cacheKey = `${_cab}_${dateFrom}_${dateTo}`;
-        if (_advertStatsCache.key === cacheKey && Date.now() - _advertStatsCache.ts < ADVERT_CACHE_TTL_MS) {
-            return _advertStatsCache.data;
-        }
-        const allIds = await _getAdvertIds();
-        if (!allIds.length) return [];
-        const stats = await _callProxy('advert_stats', { advertIds: allIds, dateFrom, dateTo });
-        const arr = Array.isArray(stats) ? stats : [];
-        if (arr.length) {
-            console.info(`[RNP] advert_stats: ${arr.length} campaigns returned`);
-            _advertStatsCache = { key: cacheKey, data: arr, ts: Date.now() };
-        }
-        return arr;
-    }
+        try {
+            // 1. Get all campaign IDs via /adv/v1/promotion/count
+            const resp = await _callProxy('advert_list', {});
+            // New format: { ids: [...] }; old fallback: { adverts: [...] } or array
+            const allIds = resp?.ids ||
+                           (resp?.adverts ? resp.adverts.map(c => c.advertId || c.id).filter(Boolean) : null) ||
+                           (Array.isArray(resp) ? resp.map(c => c.advertId || c.id).filter(Boolean) : []);
+            if (!allIds.length) { console.info('[RNP] advert_list: no campaign IDs'); return; }
+            console.info(`[RNP] advert_list: ${allIds.length} campaign IDs`);
 
-    function _aggregateAdStatsForNm(stats, nmId) {
-        const byDate = {};
-        stats.forEach(camp => {
-            (camp.days || []).forEach(day => {
-                const date = (day.date || '').split('T')[0];
-                if (!date) return;
-                let imp = 0, cl = 0, spend = 0, orders = 0, basket = 0;
-                const allNms = [];
-                if (Array.isArray(day.nm))   allNms.push(...day.nm);
-                if (Array.isArray(day.nms))  allNms.push(...day.nms);
-                (day.apps || []).forEach(app => {
-                    const nms = app.nm || app.nms || [];
-                    if (Array.isArray(nms)) allNms.push(...nms);
+            // 2. Fetch stats (GET /adv/v3/fullstats)
+            const stats = await _callProxy('advert_stats', { advertIds: allIds, dateFrom, dateTo });
+            if (!Array.isArray(stats) || !stats.length) { console.info('[RNP] advert_stats: empty response'); return; }
+            console.info(`[RNP] advert_stats: ${stats.length} campaigns returned`);
+
+            // 3. Aggregate by date — handle multiple possible structures from WB:
+            //    a) days[] → {date, nm[]/nms[]/apps[{nm/nms}]} — per-article breakdown
+            //    b) days[] → {date, views, clicks, sum, ...} — day-level aggregate
+            const byDate = {};
+            stats.forEach(camp => {
+                (camp.days || []).forEach(day => {
+                    const date = (day.date || '').split('T')[0];
+                    if (!date) return;
+
+                    let imp = 0, cl = 0, spend = 0, orders = 0, basket = 0;
+
+                    // Collect all nm-level entries from any nesting
+                    const allNms = [];
+                    if (Array.isArray(day.nm))   allNms.push(...day.nm);
+                    if (Array.isArray(day.nms))  allNms.push(...day.nms);
+                    (day.apps || []).forEach(app => {
+                        const nms = app.nm || app.nms || [];
+                        if (Array.isArray(nms)) allNms.push(...nms);
+                    });
+
+                    if (allNms.length) {
+                        // Per-article data available — find our nmId
+                        const row = allNms.find(n => String(n.nmId || n.nm_id) === String(nmId));
+                        if (!row) return;
+                        imp    = Number(row.views  || 0);
+                        cl     = Number(row.clicks || 0);
+                        spend  = Number(row.sum    || 0);
+                        orders = Number(row.orders || 0);
+                        basket = Number(row.atbs   || 0);
+                    } else {
+                        // Day-level aggregate (no nm breakdown) — use as-is
+                        imp    = Number(day.views  || 0);
+                        cl     = Number(day.clicks || 0);
+                        spend  = Number(day.sum    || 0);
+                        orders = Number(day.orders || 0);
+                        basket = Number(day.atbs   || 0);
+                    }
+
+                    if (!imp && !cl && !spend) return;
+                    if (!byDate[date]) byDate[date] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
+                    byDate[date].imp    += imp;
+                    byDate[date].cl     += cl;
+                    byDate[date].spend  += spend;
+                    byDate[date].orders += orders;
+                    byDate[date].basket += basket;
                 });
-                if (allNms.length) {
-                    const row = allNms.find(n => String(n.nmId || n.nm_id) === String(nmId));
-                    if (!row) return;
-                    imp = Number(row.views || 0); cl = Number(row.clicks || 0);
-                    spend = Number(row.sum || 0); orders = Number(row.orders || 0);
-                    basket = Number(row.atbs || 0);
-                } else {
-                    imp = Number(day.views || 0); cl = Number(day.clicks || 0);
-                    spend = Number(day.sum || 0); orders = Number(day.orders || 0);
-                    basket = Number(day.atbs || 0);
-                }
-                if (!imp && !cl && !spend) return;
-                if (!byDate[date]) byDate[date] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
-                byDate[date].imp += imp; byDate[date].cl += cl; byDate[date].spend += spend;
-                byDate[date].orders += orders; byDate[date].basket += basket;
             });
-        });
-        return byDate;
-    }
 
-    async function _upsertAdStatsForNm(nmId, stats) {
-        const byDate = _aggregateAdStatsForNm(stats, nmId);
-        const upserts = Object.entries(byDate).map(([date, d]) => ({
-            cabinet_id: _cab, nm_id: nmId, date,
-            ad_impressions: d.imp, ad_clicks: d.cl,
-            ad_ctr: d.imp > 0 ? d.cl / d.imp * 100 : 0,
-            ad_spend: d.spend, ad_cpc: d.cl > 0 ? d.spend / d.cl : 0,
-            ad_orders: d.orders, ad_basket: d.basket,
-            ad_cro: d.cl > 0 ? d.orders / d.cl * 100 : 0,
-            updated_at: new Date().toISOString()
-        }));
-        if (upserts.length) {
-            await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
-        }
-        await _touchArticleSyncMeta(nmId, { ad_sync_at: new Date().toISOString() });
-    }
+            console.info(`[RNP] advert_stats: aggregated for ${Object.keys(byDate).length} dates`);
 
-    async function _syncAdStats(nmId) {
-        if (!_callProxy) return;
-        try {
-            const stats = await _fetchAdvertStatsRaw();
-            if (!stats.length) return;
-            await _upsertAdStatsForNm(nmId, stats);
-        } catch(e) { console.warn('[RNP] syncAds:', e.message); }
-    }
-
-    async function _syncAdStatsCabinet(nmIds) {
-        if (!_callProxy) return;
-        try {
-            const stats = await _fetchAdvertStatsRaw();
-            if (!stats.length) return;
-            for (const nmId of nmIds) {
-                const art = _articles.find(a => a.nm_id == nmId);
-                if (!_syncFresh(art?.manual_data, 'ad_sync_at', AD_SYNC_TTL_MS)) continue;
-                await _upsertAdStatsForNm(nmId, stats);
+            const upserts = Object.entries(byDate).map(([date, d]) => ({
+                cabinet_id: _cab, nm_id: nmId, date,
+                ad_impressions: d.imp,
+                ad_clicks: d.cl,
+                ad_ctr: d.imp > 0 ? d.cl / d.imp * 100 : 0,
+                ad_spend: d.spend,
+                ad_cpc: d.cl > 0 ? d.spend / d.cl : 0,
+                ad_orders: d.orders,
+                ad_basket: d.basket,
+                ad_cro: d.cl > 0 ? d.orders / d.cl * 100 : 0,
+                updated_at: new Date().toISOString()
+            }));
+            if (upserts.length) {
+                await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
             }
-        } catch(e) { console.warn('[RNP] syncAds cabinet:', e.message); }
-    }
-
-    async function _syncAdStatsIfNeeded(nmId) {
-        const art = _articles.find(a => a.nm_id == nmId);
-        if (!_syncFresh(art?.manual_data, 'ad_sync_at', AD_SYNC_TTL_MS)) return;
-        await _syncAdStats(nmId);
+        } catch(e) { console.warn('[RNP] syncAds:', e.message); }
     }
 
     // ─── AGGREGATION ──────────────────────────────────────────────────────────
@@ -2561,7 +2257,6 @@ const RNP = (() => {
         const el = document.getElementById('tab-rnp');
         if (!el) return;
         const active = _articles.filter(a => a.is_active);
-        _hydratePhotoCacheFromArticles();
 
         if (!active.length) {
             el.innerHTML = `
@@ -2611,23 +2306,8 @@ const RNP = (() => {
         await _loadAllDailyData(active.map(a => a.nm_id));
         await _loadAllStocks(active.map(a => a.nm_id));
         await _loadNotes(active.map(a => a.nm_id));
-        try {
-            await _renderActiveTable();
-        } catch (e) {
-            console.error('[RNP] render:', e);
-            const body = document.getElementById('rnp-sheet-body');
-            if (body) body.innerHTML = `<div class="p-10 text-center" style="color:var(--text-muted)">
-              <p class="mb-3">Не удалось загрузить таблицу</p>
-              <button type="button" onclick="RNP.openMain()" class="px-4 py-2 rounded-lg text-sm font-semibold"
-                style="background:var(--accent-gradient);color:#fff">Повторить</button></div>`;
-        }
-        _preloadPhotos(active).then(() => {
-            _refreshTabsAfterPhotos();
-            _applyResolvedPhotos();
-            const body = document.getElementById('rnp-sheet-body');
-            if (!body) return;
-            return _renderActiveTable();
-        }).catch(e => console.warn('[RNP] photos preload:', e.message));
+        await _preloadPhotos(active);
+        await _renderActiveTable();
     }
 
     async function _renderActiveTable() {
@@ -2638,7 +2318,7 @@ const RNP = (() => {
 
         if (_activeNm === SUMMARY_TAB) {
             body.innerHTML = _buildSummaryHTML(active, cal);
-            _applyResolvedPhotos(_rnpRoot());
+            _applyResolvedPhotos(body);
             _updateTabHighlight();
             const bar = document.getElementById('rnp-action-bar-wrap');
             if (bar) bar.innerHTML = _buildActionBar(active);
@@ -2649,9 +2329,7 @@ const RNP = (() => {
         if (!art) return;
 
         await _ensurePhoto(art);
-        if (!_galleryPhotosCache[art.nm_id]?.length) {
-            await _preloadGalleryPhotos(art.nm_id);
-        }
+        await _preloadGalleryPhotos(art.nm_id);
         if (_compareNm) {
             const art2 = _articles.find(a => a.nm_id == _compareNm);
             if (art2) await _ensurePhoto(art2);
@@ -2683,13 +2361,23 @@ const RNP = (() => {
         const bar = document.getElementById('rnp-action-bar-wrap');
         if (bar) bar.innerHTML = _buildActionBar(active);
 
-        _applyResolvedPhotos(_rnpRoot());
+        _applyResolvedPhotos(body);
         _refreshMarqueeBaseHtml(body);
         requestAnimationFrame(() => {
             _syncMarqueeFill(body);
             requestAnimationFrame(() => _syncMarqueeFill(body));
             _bindMarqueeResize(body);
         });
+        _preloadGalleryPhotos(art.nm_id).then(() => {
+            _applyResolvedPhotos(body);
+            _refreshMarqueeBaseHtml(body);
+            _syncMarqueeFill(body);
+        }).catch(() => {});
+        _preloadPhotos(_articles.filter(a => a.is_active)).then(() => {
+            _applyResolvedPhotos(body);
+            _refreshMarqueeBaseHtml(body);
+            _syncMarqueeFill(body);
+        }).catch(() => {});
     }
 
     function _refreshMarqueeBaseHtml(scope) {
@@ -2973,13 +2661,9 @@ const RNP = (() => {
         _db = supabase; _cab = cabId;
         if (typeof proxyFn === 'function') _callProxy = proxyFn;
         if (opts?.userEmail) _userEmail = opts.userEmail;
-        _resetPhotoCaches();
-        _dailyLoadMeta = null;
-        _dataCache = {};
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
         await _loadSettings();
         await _loadArticles();
-        _hydratePhotoCacheFromArticles();
         _backfillSellerArticlesFromDb().catch(e => console.warn('[RNP] seller backfill:', e.message));
     }
 
@@ -3096,15 +2780,14 @@ const RNP = (() => {
         _renderSettings();
     }
 
-    async function refresh(nmId, opts = {}) {
-        if (_wbSyncBusy && !opts.force) return;
+    async function refresh(nmId) {
         await _syncToday(nmId);
         await _syncOrdersHistory(nmId);
 
         if (_callProxy) {
-            await _syncFunnelHistoryIfNeeded(nmId).catch(e => console.warn('[RNP] funnel skipped:', e.message));
-            if (!opts.skipFinance) await _syncFinanceRange(nmId, opts);
-            if (!opts.skipAds) await _syncAdStatsIfNeeded(nmId).catch(e => console.warn('[RNP] ads skipped:', e.message));
+            await _syncFunnelHistory(nmId).catch(e => console.warn('[RNP] funnel skipped:', e.message));
+            await _syncFinanceRange(nmId);
+            await _syncAdStats(nmId).catch(e => console.warn('[RNP] ads skipped:', e.message));
         }
 
         _invalidateCache(nmId);
@@ -3114,49 +2797,22 @@ const RNP = (() => {
     }
 
     async function refreshAll() {
-        if (_wbSyncBusy) return;
         const btn = document.getElementById('rnp-header-refresh');
         const active = _articles.filter(a => a.is_active);
         if (!active.length) return;
-        _wbSyncBusy = true;
         if (btn) btn.disabled = true;
 
-        const nmIds = active.map(a => a.nm_id);
-        const needFinance = !_financeSyncFresh();
-        const needAd = active.some(a => _syncFresh(a.manual_data, 'ad_sync_at', AD_SYNC_TTL_MS));
-
-        try {
-            if (_callProxy) {
-                if (needFinance) {
-                    await _fetchFinanceCabinet().catch(e => console.warn('[RNP] finance prefetch:', e.message));
-                    for (const nmId of nmIds) {
-                        await _syncFinanceRange(nmId, { force: true, cacheOnly: true });
-                    }
-                    _markFinanceSynced();
-                }
-                if (needAd) {
-                    await _syncAdStatsCabinet(nmIds).catch(e => console.warn('[RNP] ads cabinet:', e.message));
-                }
-            }
-
-            for (let i = 0; i < active.length; i++) {
-                await refresh(active[i].nm_id, { skipFinance: true, skipAds: true });
-                if (i < active.length - 1) await _sleep(800);
-            }
-
-            _invalidateCache();
-            await _loadAllDailyData(nmIds);
-            await _loadAllStocks(nmIds);
-            _notesCache = {};
-            await _loadNotes(nmIds);
-            if (!_photosPreloaded) await _preloadPhotos(active);
-            _refreshTabsAfterPhotos();
-            _applyResolvedPhotos();
-            await _renderActiveTable();
-        } finally {
-            _wbSyncBusy = false;
-            if (btn) btn.disabled = false;
+        for (let i = 0; i < active.length; i++) {
+            await refresh(active[i].nm_id);
         }
+
+        _invalidateCache();
+        await _loadAllDailyData(active.map(a => a.nm_id));
+        await _loadAllStocks(active.map(a => a.nm_id));
+        _notesCache = {};
+        await _loadNotes(active.map(a => a.nm_id));
+        await _renderActiveTable();
+        if (btn) { btn.disabled = false; }
     }
 
     async function toggleSection(nmId, sectionId) {
