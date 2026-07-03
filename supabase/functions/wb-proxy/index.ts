@@ -167,6 +167,33 @@ serve(async (req) => {
                 result = await wbGet(url, WB_TOKEN);
                 break;
             }
+            case 'fbw_supplies': {
+                const limit = Math.min(Number(params.limit) || 1000, 1000);
+                const offset = Number(params.offset || 0);
+                const url = `https://supplies-api.wildberries.ru/api/v1/supplies?limit=${limit}&offset=${offset}`;
+                try {
+                    result = await wbPost(url, WB_TOKEN, params.filters || {});
+                } catch (e) {
+                    const errStr = String(e);
+                    if (errStr.includes('401')) {
+                        return json({ error: 'Токен WB неверный или истёк (401).' }, 401);
+                    }
+                    if (errStr.includes('403')) {
+                        return json({ error: 'Нет доступа к Supplies API. В токене WB включите категорию «Поставки».' }, 403);
+                    }
+                    throw e;
+                }
+                break;
+            }
+            case 'fbw_supply_goods': {
+                const supplyId = String(params.supplyId || '').trim();
+                if (!supplyId) return json({ error: 'supplyId required' }, 400);
+                const limit = Math.min(Number(params.limit) || 100, 1000);
+                const offset = Number(params.offset || 0);
+                const url = `https://supplies-api.wildberries.ru/api/v1/supplies/${encodeURIComponent(supplyId)}/goods?limit=${limit}&offset=${offset}`;
+                result = await wbGet(url, WB_TOKEN);
+                break;
+            }
             case 'supply_barcode': {
                 const url = `https://marketplace-api.wildberries.ru/api/v3/supplies/${params.supplyId}/barcode?type=png`;
                 const res = await fetch(url, { headers: { Authorization: WB_TOKEN } });

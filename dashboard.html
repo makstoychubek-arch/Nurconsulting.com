@@ -6,6 +6,7 @@
     <meta name="theme-color" content="#030303">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <title>NR Space — Аналитика</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -1806,7 +1807,7 @@
             <div class="beta-module-hero" style="padding:20px 24px;margin-bottom:0">
                 <div class="beta-pill">BETA · Логистика</div>
                 <h2 style="font-size:17px">Остатки и поставки WB</h2>
-                <p style="font-size:12px;margin:0">Мониторинг складов и архив отгрузок в виде компактных карточек.</p>
+                <p style="font-size:12px;margin:0">Мониторинг складов и архив отгрузок в виде компактных карточек. <span id="logistics-build-tag" style="opacity:0.45;font-size:10px">v2026-07-03</span></p>
             </div>
             <div class="widget-card p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -3370,6 +3371,38 @@
         renderSupplies();
     }
 
+    function mapFbsSupply(s) {
+        return {
+            id: s.id || s.supplyId,
+            type: 'fbs',
+            name: s.name || ('Поставка FBS ' + (s.id || '')),
+            createdAt: s.createdAt || s.createDate,
+            done: s.done === true,
+            cargoType: s.cargoType ?? s.boxType ?? s.deliveryType ?? 'FBS',
+            warehouse: s.warehouseName || s.warehouse || (s.destinationOfficeId ? ('Склад #' + s.destinationOfficeId) : null),
+            itemsCount: s.quantity ?? s.ordersCount ?? s.orderCount ?? null,
+        };
+    }
+
+    function mapFbwSupply(s) {
+        const id = s.supplyID || s.supplyId || s.id;
+        const statusId = Number(s.statusID ?? s.statusId ?? 0);
+        const statusName = String(s.statusName || s.status || '');
+        const done = statusId >= 5 || /принят|закрыт|заверш|отгружен/i.test(statusName);
+        const date = s.createDate || s.supplyDate || s.factDate || s.updatedDate;
+        return {
+            id,
+            type: 'fbw',
+            name: statusName ? ('Поставка · ' + statusName) : ('Поставка FBW ' + id),
+            createdAt: date,
+            done,
+            cargoType: 'FBW',
+            warehouse: s.warehouseName || s.warehouse || null,
+            itemsCount: s.quantity ?? s.detailsQuantity ?? s.goodsQuantity ?? null,
+            statusName,
+        };
+    }
+
     async function loadSuppliesFromWB(silent) {
         if (!currentCabinetId) {
             const msg = 'Сначала выберите кабинет в шапке справа.';
@@ -3378,49 +3411,62 @@
             return;
         }
         const listEl = document.getElementById('supplies-list');
-        if (listEl) listEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка поставок из WB...</div>';
-        const merged = [];
+        if (listEl) listEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка поставок FBW + FBS из WB...</div>';
+
+        const collected = [];
+        const notes = [];
+
+        const fbw = await callWbProxy('fbw_supplies', { limit: 1000, offset: 0 });
+        if (Array.isArray(fbw)) {
+            collected.push(...fbw.map(mapFbwSupply).filter(s => s.id));
+            if (fbw.length) notes.push(`FBW: ${fbw.length}`);
+        } else if (fbw?.error) {
+            notes.push('FBW: ' + fbw.error);
+        } else if (fbw === null) {
+            notes.push('FBW: нет доступа (категория «Поставки» в токене)');
+        }
+
         let next = 0;
-        let fetchError = null;
+        let fbsTotal = 0;
         for (let page = 0; page < 10; page++) {
             const data = await callWbProxy('supplies', { limit: 100, next });
             if (!data) {
-                fetchError = fetchError || 'WB не ответил. Проверьте токен кабинета — нужна категория «Маркетплейс» (FBS).';
+                if (!fbsTotal) notes.push('FBS: нет доступа (категория «Маркетплейс»)');
                 break;
             }
             if (data.error && !data.supplies) {
-                fetchError = String(data.error);
+                notes.push('FBS: ' + data.error);
                 break;
             }
             const batch = Array.isArray(data) ? data : (data.supplies || []);
             if (!batch.length) break;
-            merged.push(...batch);
+            collected.push(...batch.map(mapFbsSupply).filter(s => s.id));
+            fbsTotal += batch.length;
             const newNext = data.next;
             if (newNext == null || newNext === next || batch.length < 100) break;
             next = Number(newNext);
         }
-        if (fetchError) {
-            renderSuppliesError(fetchError);
-            if (!silent) showPremiumModal('error', 'Поставки не загрузились', fetchError);
+        if (fbsTotal) notes.push(`FBS: ${fbsTotal}`);
+
+        allSupplies = collected.sort((a, b) => {
+            const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return tb - ta;
+        });
+
+        if (!allSupplies.length) {
+            const hint = notes.length ? notes.join(' · ') : 'Проверьте токен WB в Настройки → API';
+            renderSuppliesError('Поставок не найдено. ' + hint);
+            if (!silent) showPremiumModal('warning', 'Поставки пусто', hint);
             return;
         }
-        allSupplies = merged.map(s => ({
-            id: s.id || s.supplyId,
-            name: s.name || ('Поставка ' + (s.id || '')),
-            createdAt: s.createdAt || s.createDate,
-            closedAt: s.closedAt || s.doneDate || null,
-            done: s.done === true,
-            cargoType: s.cargoType ?? s.boxType ?? s.deliveryType ?? null,
-            warehouse: s.warehouseName || s.warehouse || (s.destinationOfficeId ? ('Склад #' + s.destinationOfficeId) : null),
-            scanDt: s.scanDt || null,
-            mismatch: null,
-            unlabeled: null,
-            itemsCount: s.quantity ?? s.ordersCount ?? s.orderCount ?? null,
-        })).filter(s => s.id);
+
         renderSupplies();
         if (!silent) {
             const activeCount = allSupplies.filter(s => !s.done).length;
-            showPremiumModal('success', 'Поставки загружены', `Всего: ${allSupplies.length}${activeCount !== allSupplies.length ? ` · активных: ${activeCount}` : ''}`);
+            const fbwCount = allSupplies.filter(s => s.type === 'fbw').length;
+            const fbsCount = allSupplies.filter(s => s.type === 'fbs').length;
+            showPremiumModal('success', 'Поставки загружены', `Всего: ${allSupplies.length} (FBW: ${fbwCount}, FBS: ${fbsCount}) · активных: ${activeCount}`);
         }
     }
 
@@ -3439,7 +3485,7 @@
         let list = allSupplies;
         if (currentSuppliesFilter === 'active') list = list.filter(s => !s.done);
         if (allSupplies.length === 0) {
-            container.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Поставок нет в кабинете WB (FBS) или токен без доступа к Маркетплейсу</div>';
+            container.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Нажмите «Обновить» — загрузим поставки FBW (на склад) и FBS (сборка)</div>';
             return;
         }
         if (list.length === 0) {
@@ -3454,6 +3500,7 @@
             const pillText = s.done ? 'Завершена' : 'Активна';
             const cargo = s.cargoType ? ` · ${escapeHtml(String(s.cargoType))}` : '';
             const wh = s.warehouse ? `<div class="supply-card-wh">📦 ${escapeHtml(String(s.warehouse))}</div>` : '';
+            const typeBadge = s.type === 'fbw' ? 'FBW' : 'FBS';
             return `
             <div class="supply-card" onclick="openSupplyDetail('${escapeHtml(String(s.id))}')">
                 <div class="supply-card-top">
@@ -3461,7 +3508,7 @@
                     <span class="supply-status-pill ${pillClass}">${pillText}</span>
                 </div>
                 ${wh}
-                <div class="supply-card-meta">${date}${cargo}</div>
+                <div class="supply-card-meta">${date} · ${typeBadge}${cargo}</div>
                 <div class="supply-card-footer">
                     <span class="supply-card-id">#${escapeHtml(String(s.id))}</span>
                     <span class="text-xs" style="color:var(--text-muted)">${s.itemsCount != null ? s.itemsCount + ' поз.' : 'Подробнее →'}</span>
@@ -3477,8 +3524,23 @@
         const itemsEl = document.getElementById('supply-items-list');
         itemsEl.innerHTML = '<div class="text-xs text-center py-4" style="color:var(--text-muted)">Загрузка заказов поставки...</div>';
         document.getElementById('supply-detail-modal').classList.remove('hidden');
+        let list = [];
+        if (supply.type === 'fbw') {
+            const goods = await callWbProxy('fbw_supply_goods', { supplyId });
+            list = Array.isArray(goods) ? goods : (goods?.goods || goods?.data || []);
+            if (!list.length) {
+                itemsEl.innerHTML = '<div class="text-xs text-center py-4" style="color:var(--text-muted)">Нет товаров в поставке или нет доступа к Supplies API</div>';
+                return;
+            }
+            itemsEl.innerHTML = list.slice(0, 50).map(g => `
+                <div class="flex justify-between text-xs py-2 border-b" style="border-color:var(--border)">
+                    <span style="color:var(--text-primary)">${escapeHtml(String(g.vendorCode || g.article || g.sa || '—'))}</span>
+                    <span style="color:var(--text-muted)">${escapeHtml(String(g.nmID || g.nmId || ''))} · ${g.quantity || g.acceptedQuantity || 0} шт.</span>
+                </div>`).join('');
+            return;
+        }
         const orders = await callWbProxy('supply_orders', { supplyId });
-        const list = Array.isArray(orders) ? orders : (orders?.orders || []);
+        list = Array.isArray(orders) ? orders : (orders?.orders || []);
         if (!list.length) {
             itemsEl.innerHTML = '<div class="text-xs text-center py-4" style="color:var(--text-muted)">Нет заказов в поставке или поставка ещё формируется</div>';
         } else {
@@ -3509,6 +3571,8 @@
         const initial = name.charAt(0).toUpperCase();
         document.getElementById('sidebar-user').textContent = name;
         document.getElementById('user-initial').textContent = initial;
+        const headerName = document.getElementById('header-user-name');
+        if (headerName) headerName.textContent = name;
         const fi = document.getElementById('flyout-user-initial');
         if (fi) fi.textContent = initial;
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
