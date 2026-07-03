@@ -588,6 +588,38 @@ const RNP = (() => {
         return _sellerArticle(a).localeCompare(_sellerArticle(b), 'ru', { sensitivity: 'base' });
     }
 
+    const UNCATEGORIZED = 'Без категории';
+    function _articleCategory(a) {
+        return (a.category || '').trim() || UNCATEGORIZED;
+    }
+    function _groupByCategory(list) {
+        const groups = new Map();
+        list.slice().sort(_sortBySeller).forEach(a => {
+            const cat = _articleCategory(a);
+            if (!groups.has(cat)) groups.set(cat, []);
+            groups.get(cat).push(a);
+        });
+        const entries = [...groups.entries()];
+        entries.sort((x, y) => {
+            if (x[0] === UNCATEGORIZED) return 1;
+            if (y[0] === UNCATEGORIZED) return -1;
+            return x[0].localeCompare(y[0], 'ru', { sensitivity: 'base' });
+        });
+        return entries;
+    }
+    function _isCatCollapsed(cat) {
+        try { return (JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'))[cat] === true; }
+        catch (e) { return false; }
+    }
+    function toggleCategory(cat) {
+        let map = {};
+        try { map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'); } catch (e) {}
+        map[cat] = !map[cat];
+        try { localStorage.setItem('rnp_collapsed_cats', JSON.stringify(map)); } catch (e) {}
+        _refreshTabsBar();
+        if (_activeNm === SUMMARY_TAB) _renderActiveTable();
+    }
+
     async function _loadSettings() {
         try {
             const { data } = await _db.from('rnp_settings').select('*').eq('cabinet_id', _cab).maybeSingle();
@@ -674,9 +706,40 @@ const RNP = (() => {
     }
 
     // ─── CALENDAR ─────────────────────────────────────────────────────────────
+    let _refMonthKey = null; // e.g. '2026-06' — null = live current month
+
+    function _refDate() {
+        if (!_refMonthKey) return null;
+        const [y, m] = _refMonthKey.split('-').map(Number);
+        return new Date(y, m - 1, 1);
+    }
+
+    function _monthOptionsHtml() {
+        const real = new Date();
+        const opts = [];
+        for (let i = 0; i < 12; i++) {
+            const d = new Date(real.getFullYear(), real.getMonth() - i, 1);
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+            const label = d.toLocaleString('ru', { month: 'long', year: 'numeric' });
+            const selected = (i === 0 && !_refMonthKey) || _refMonthKey === key;
+            opts.push(`<option value="${key}"${selected ? ' selected' : ''}>${i === 0 ? 'Текущий · ' : ''}${label}</option>`);
+        }
+        return opts.join('');
+    }
+
+    async function setRefMonth(val) {
+        const real = new Date();
+        const liveKey = `${real.getFullYear()}-${String(real.getMonth() + 1).padStart(2, '0')}`;
+        _refMonthKey = (!val || val === liveKey) ? null : val;
+        try { localStorage.setItem('rnp_ref_month', _refMonthKey || ''); } catch (e) {}
+        const active = _articles.filter(a => a.is_active);
+        await _loadAllDailyData(active.map(a => a.nm_id));
+        await _renderActiveTable();
+    }
+
     function _buildCalendar() {
-        const today = new Date();
-        return _planPeriod === 'month' ? _buildMonthCalendar(today) : _buildWeekCalendar(today);
+        if (_planPeriod === 'month') return _buildMonthCalendar(new Date());
+        return _buildWeekCalendar(_refDate());
     }
 
     function _calAllDates(cal) {
@@ -689,7 +752,9 @@ const RNP = (() => {
         return cal.days.length;
     }
 
-    function _buildWeekCalendar(today) {
+    function _buildWeekCalendar(refDate) {
+        const realNow = new Date();
+        const today = refDate || realNow;
         const Y = today.getFullYear();
         const M = today.getMonth();
 
@@ -723,7 +788,8 @@ const RNP = (() => {
 
         const currName = today.toLocaleString('ru', { month: 'long', year: 'numeric' });
         const currDaysInMonth = new Date(Y, M + 1, 0).getDate();
-        const todayMid = new Date(Y, M, today.getDate());
+        const realMid = new Date(realNow.getFullYear(), realNow.getMonth(), realNow.getDate());
+        const realTodayStr = _dateStr(realNow.getFullYear(), realNow.getMonth() + 1, realNow.getDate());
         const days = [];
         for (let d = 1; d <= currDaysInMonth; d++) {
             const date = _dateStr(Y, M + 1, d);
@@ -734,12 +800,17 @@ const RNP = (() => {
                 type: 'day', date,
                 label: `${dd}.${mm}`,
                 dow: dt.toLocaleString('ru', { weekday: 'short' }),
-                isToday: d === today.getDate(),
-                isFuture: dt > todayMid
+                isToday: date === realTodayStr,
+                isFuture: dt > realMid
             });
         }
 
-        return { mode: 'week', prevName, weeks, currName, days, todayStr: _dateStr(Y, M + 1, today.getDate()) };
+        // Cap "today" reference to the last in-range date so past-month views
+        // include their full data instead of being clipped by the real date.
+        const cappedTodayStr = currDaysInMonth ? _dateStr(Y, M + 1, currDaysInMonth) : realTodayStr;
+        const todayStr = realTodayStr < cappedTodayStr ? realTodayStr : cappedTodayStr;
+
+        return { mode: 'week', prevName, weeks, currName, days, todayStr, isLive: refDate == null };
     }
 
     function _buildMonthCalendar(today) {
@@ -1307,6 +1378,9 @@ const RNP = (() => {
             <option value="week"${_planPeriod === 'week' ? ' selected' : ''}>План → неделя</option>
             <option value="month"${_planPeriod === 'month' ? ' selected' : ''}>План → месяц</option>
           </select>
+          ${_planPeriod === 'week' ? `<select title="Месяц: недели прошлого + дни выбранного" onchange="RNP.setRefMonth(this.value)">
+            ${_monthOptionsHtml()}
+          </select>` : ''}
           <button type="button" class="rnp-action-btn" onclick="RNP.copyPlanFromPrevWeek()" title="${_planPeriod === 'month' ? 'Скопировать план с прошлого месяца' : 'Скопировать план с прошлой недели'}">↵ План</button>
           <select id="rnp-compare-sel" onchange="RNP.setCompare(this.value)" title="Сравнить с…" ${_activeNm === SUMMARY_TAB ? 'disabled' : ''}>
             <option value="">Сравнить с…</option>${compareOpts}
@@ -1320,28 +1394,43 @@ const RNP = (() => {
         </div>`;
     }
 
+    function _summaryRowHtml(a, cal) {
+        const raw = _dataCache[a.nm_id] || {};
+        const kpi = _periodSummary(a, raw, cal);
+        const st = _syncStatus(a.nm_id);
+        const stock = _stockCache[a.nm_id] || {};
+        const alerts = _buildAlerts(a, stock, kpi);
+        const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'var(--green)' : (kpi.plan_orders_pct || 0) < 80 ? 'var(--red)' : 'var(--text-primary)';
+        const profitCls = (kpi.profit || 0) >= 0 ? 'var(--green)' : 'var(--red)';
+        return `<tr class="rnp-summary-row" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}">
+          <td>${_syncDot(st.level)}</td>
+          <td>${_imgHtml(a, '', 'c246x328', 'width:28px;height:36px;border-radius:3px;object-fit:cover')}</td>
+          <td class="rnp-summary-name">${_sellerArticle(a)}</td>
+          <td style="color:var(--text-muted)">${a.nm_id}</td>
+          <td>${Math.round(kpi.orders_count || 0)}</td>
+          <td style="color:${planCls}">${kpi.plan_orders_pct ? kpi.plan_orders_pct.toFixed(0) + '%' : '—'}</td>
+          <td style="color:${profitCls}">${Math.round(kpi.profit || 0).toLocaleString('ru')}</td>
+          <td>${kpi.margin_pct ? kpi.margin_pct.toFixed(1) + '%' : '—'}</td>
+          <td>${kpi.drr_pct ? kpi.drr_pct.toFixed(1) + '%' : '—'}</td>
+          <td>${_stockTotals(stock).total}</td>
+          <td>${alerts.length ? alerts.map(x => x.text).join('; ') : '—'}</td>
+        </tr>`;
+    }
+
     function _buildSummaryHTML(active, cal) {
-        const rows = active.map(a => {
-            const raw = _dataCache[a.nm_id] || {};
-            const kpi = _periodSummary(a, raw, cal);
-            const st = _syncStatus(a.nm_id);
-            const stock = _stockCache[a.nm_id] || {};
-            const alerts = _buildAlerts(a, stock, kpi);
-            const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'var(--green)' : (kpi.plan_orders_pct || 0) < 80 ? 'var(--red)' : 'var(--text-primary)';
-            const profitCls = (kpi.profit || 0) >= 0 ? 'var(--green)' : 'var(--red)';
-            return `<tr class="rnp-summary-row" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}">
-              <td>${_syncDot(st.level)}</td>
-              <td>${_imgHtml(a, '', 'c246x328', 'width:28px;height:36px;border-radius:3px;object-fit:cover')}</td>
-              <td class="rnp-summary-name">${_sellerArticle(a)}</td>
-              <td style="color:var(--text-muted)">${a.nm_id}</td>
-              <td>${Math.round(kpi.orders_count || 0)}</td>
-              <td style="color:${planCls}">${kpi.plan_orders_pct ? kpi.plan_orders_pct.toFixed(0) + '%' : '—'}</td>
-              <td style="color:${profitCls}">${Math.round(kpi.profit || 0).toLocaleString('ru')}</td>
-              <td>${kpi.margin_pct ? kpi.margin_pct.toFixed(1) + '%' : '—'}</td>
-              <td>${kpi.drr_pct ? kpi.drr_pct.toFixed(1) + '%' : '—'}</td>
-              <td>${_stockTotals(stock).total}</td>
-              <td>${alerts.length ? alerts.map(x => x.text).join('; ') : '—'}</td>
+        const groups = _groupByCategory(active);
+        const body = groups.map(([cat, list]) => {
+            const collapsed = _isCatCollapsed(cat);
+            const catEsc = cat.replace(/'/g, "\\'");
+            const headerRow = `<tr class="rnp-summary-cat-row${collapsed ? ' collapsed' : ''}" onclick="RNP.toggleCategory('${catEsc}')">
+              <td colspan="11">
+                <span class="rnp-cat-arrow">${collapsed ? '▸' : '▾'}</span>
+                <span class="rnp-cat-name">${cat.replace(/</g, '&lt;')}</span>
+                <span class="rnp-cat-count">${list.length}</span>
+              </td>
             </tr>`;
+            const dataRows = collapsed ? '' : list.map(a => _summaryRowHtml(a, cal)).join('');
+            return headerRow + dataRows;
         }).join('');
         return `<div class="rnp-table-scroll" style="padding:8px">
           <table class="rnp-summary-table">
@@ -1349,9 +1438,9 @@ const RNP = (() => {
               <th></th><th></th><th style="text-align:left">Товар</th><th>nmId</th>
               <th>Заказы</th><th>План%</th><th>Прибыль</th><th>Маржа</th><th>ДРР</th><th>Остаток</th><th>Алерты</th>
             </tr></thead>
-            <tbody>${rows}</tbody>
+            <tbody>${body}</tbody>
           </table>
-          <p style="font-size:10px;color:var(--text-muted);margin-top:8px">Клик по строке → открыть артикул</p>
+          <p style="font-size:10px;color:var(--text-muted);margin-top:8px">Клик по строке → открыть артикул · Клик по группе → свернуть/развернуть</p>
         </div>`;
     }
 
@@ -1367,17 +1456,43 @@ const RNP = (() => {
 
     function _renderTabsHTML(active) {
         const sumActive = _activeNm === SUMMARY_TAB;
+        const groups = _groupByCategory(active);
+        const groupsHtml = groups.map(([cat, list]) => {
+            const collapsed = _isCatCollapsed(cat);
+            const hasActive = list.some(a => a.nm_id == _activeNm);
+            const catEsc = cat.replace(/'/g, "\\'");
+            return `<div class="rnp-cat-group${collapsed ? ' collapsed' : ''}">
+              <div class="rnp-cat-header${hasActive ? ' has-active' : ''}" onclick="RNP.toggleCategory('${catEsc}')" title="Свернуть/развернуть группу">
+                <span class="rnp-cat-arrow">${collapsed ? '▸' : '▾'}</span>
+                <span class="rnp-cat-name">${cat.replace(/</g, '&lt;')}</span>
+                <span class="rnp-cat-count">${list.length}</span>
+              </div>
+              ${collapsed ? '' : `<div class="rnp-cat-tabs">${list.map(a => {
+                const st = _syncStatus(a.nm_id);
+                const label = _sellerArticle(a);
+                return `<div class="rnp-sheet-tab${a.nm_id == _activeNm ? ' active' : ''}" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}${a.name ? ' · ' + a.name : ''}">
+                  ${_syncDot(st.level)}${_imgHtml(a, 'rnp-tab-img', 'c246x328')}
+                  <span class="rnp-tab-label">${label.replace(/</g, '&lt;')}</span>
+                </div>`;
+              }).join('')}</div>`}
+            </div>`;
+        }).join('');
         return `<div class="rnp-sheet-tab rnp-tab-summary${sumActive ? ' active' : ''}" onclick="RNP.pick('summary')">
             <span class="rnp-tab-icon">📊</span><span>Сводная</span>
           </div>
-          ${[...active].sort(_sortBySeller).map(a => {
-            const st = _syncStatus(a.nm_id);
-            const label = _sellerArticle(a);
-            return `<div class="rnp-sheet-tab${a.nm_id == _activeNm ? ' active' : ''}" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}${a.name ? ' · ' + a.name : ''}">
-              ${_syncDot(st.level)}${_imgHtml(a, 'rnp-tab-img', 'c246x328')}
-              <span class="rnp-tab-label">${label.replace(/</g, '&lt;')}</span>
-            </div>`;
-          }).join('')}`;
+          ${groupsHtml}`;
+    }
+
+    function _refreshTabsBar() {
+        const wrap = document.getElementById('rnp-sheet-tabs');
+        if (!wrap) return;
+        wrap.innerHTML = _renderTabsHTML(_articles.filter(a => a.is_active));
+    }
+
+    function _refreshActionBar() {
+        const wrap = document.getElementById('rnp-action-bar-wrap');
+        if (!wrap) return;
+        wrap.innerHTML = _buildActionBar(_articles.filter(a => a.is_active));
     }
 
     function _csvCell(v) {
@@ -1515,6 +1630,7 @@ const RNP = (() => {
         _dataCache = {};
         const active = _articles.filter(a => a.is_active);
         await _loadAllDailyData(active.map(a => a.nm_id));
+        _refreshActionBar();
         await _renderActiveTable();
     }
 
@@ -2230,12 +2346,16 @@ const RNP = (() => {
                     <th style="min-width:120px">Артикул продавца <span style="font-weight:400;color:var(--text-muted)">(из WB)</span></th>
                     <th style="min-width:90px">Артикул WB</th>
                     <th class="rnp-th-metric">Название WB</th>
+                    <th style="min-width:110px">Категория/группа</th>
                     <th style="min-width:80px">Себест. (сом)</th>
                     <th style="min-width:60px">В РНП</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${_articles.slice().sort(_sortBySeller).map(a => {
+                  ${(() => {
+                    const cats = [...new Set(_articles.map(a => (a.category||'').trim()).filter(Boolean))].sort();
+                    const catList = cats.length ? `<datalist id="rnp-cat-list">${cats.map(c => `<option value="${c.replace(/</g,'&lt;')}">`).join('')}</datalist>` : '';
+                    const rows = _articles.slice().sort(_sortBySeller).map(a => {
                     const sa = _sellerArticle(a).replace(/</g, '&lt;');
                     const auto = !!(a.manual_data?.seller_article);
                     return `
@@ -2244,6 +2364,9 @@ const RNP = (() => {
                     <td style="font-weight:600;color:var(--text-primary)">${sa || '—'}${auto ? ' <span style="color:var(--green);font-weight:400;font-size:10px">авто</span>' : ' <span style="color:var(--text-muted);font-weight:400;font-size:10px">(нет данных — Обновить на дашборде)</span>'}</td>
                     <td style="color:var(--text-muted)">${a.nm_id}</td>
                     <td class="rnp-metric-col" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${(a.name||'—').replace(/</g,'&lt;')}</td>
+                    <td><input type="text" value="${(a.category||'').replace(/"/g,'&quot;')}" list="rnp-cat-list" placeholder="Рубашки, Кимоно…"
+                      onchange="RNP.setCategory(${a.nm_id},this.value)"
+                      style="width:100px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
                     <td><input type="number" value="${a.cost_price||0}" min="0"
                       onchange="RNP.setCost(${a.nm_id},this.value)"
                       style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
@@ -2252,7 +2375,9 @@ const RNP = (() => {
                       <span style="position:absolute;top:2px;left:${a.is_active?'18px':'2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
                     </button></td>
                   </tr>`;
-                  }).join('')}
+                    }).join('');
+                    return catList + rows;
+                  })()}
                 </tbody>
               </table>
             </div>`}
@@ -2286,6 +2411,19 @@ const RNP = (() => {
             } catch (e) { _activeNm = SUMMARY_TAB; }
         }
 
+        try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
+        try { _notesVisible = localStorage.getItem('rnp_notes_visible') !== '0'; } catch (e) {}
+        try { _strategyTab = parseInt(localStorage.getItem('rnp_strategy_tab') || '0', 10) || 0; } catch (e) {}
+        try {
+            const pp = localStorage.getItem('rnp_plan_period');
+            _planPeriod = pp === 'month' ? 'month' : (pp === 'week' ? 'week' : (_settings.defaultPlanPeriod || 'week'));
+        } catch (e) { _planPeriod = _settings.defaultPlanPeriod || 'week'; }
+        try { _refMonthKey = localStorage.getItem('rnp_ref_month') || null; } catch (e) { _refMonthKey = null; }
+        try {
+            const gc = localStorage.getItem('rnp_gallery_collapsed');
+            _galleryCollapsed = gc === null ? false : gc === '1';
+        } catch (e) {}
+
         el.innerHTML = `
         <div class="rnp-workspace">
           <div id="rnp-action-bar-wrap">${_buildActionBar(active)}</div>
@@ -2299,18 +2437,6 @@ const RNP = (() => {
             </div>
           </div>
         </div>`;
-
-        try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
-        try { _notesVisible = localStorage.getItem('rnp_notes_visible') !== '0'; } catch (e) {}
-        try { _strategyTab = parseInt(localStorage.getItem('rnp_strategy_tab') || '0', 10) || 0; } catch (e) {}
-        try {
-            const pp = localStorage.getItem('rnp_plan_period');
-            _planPeriod = pp === 'month' ? 'month' : (pp === 'week' ? 'week' : (_settings.defaultPlanPeriod || 'week'));
-        } catch (e) { _planPeriod = _settings.defaultPlanPeriod || 'week'; }
-        try {
-            const gc = localStorage.getItem('rnp_gallery_collapsed');
-            _galleryCollapsed = gc === null ? false : gc === '1';
-        } catch (e) {}
 
         await _loadAllDailyData(active.map(a => a.nm_id));
         await _loadAllStocks(active.map(a => a.nm_id));
@@ -2722,6 +2848,11 @@ const RNP = (() => {
         await _updateArticle(nmId, { cost_price: parseFloat(val) || 0 });
     }
 
+    async function setCategory(nmId, val) {
+        await _updateArticle(nmId, { category: (val || '').trim() });
+        await _renderMain();
+    }
+
     async function savePlan(nmId, key, colKey, val) {
         const art = _articles.find(a => a.nm_id == nmId);
         if (!art) return;
@@ -2833,7 +2964,7 @@ const RNP = (() => {
         if (_activeNm == nmId) await _renderActiveTable();
     }
 
-    return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
-             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, toggleGalleryPanel,
+    return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();
