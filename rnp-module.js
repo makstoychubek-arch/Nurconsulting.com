@@ -226,6 +226,7 @@ const RNP = (() => {
     }
 
     async function _resolveBasketProbe(nmId) {
+        if (_callProxy) return _basketNum(Math.floor(nmId / 100000));
         if (_basketCache[nmId]) return _basketCache[nmId];
         const vol = Math.floor(nmId / 100000);
         const part = Math.floor(nmId / 1000);
@@ -255,8 +256,16 @@ const RNP = (() => {
 
     async function _resolvePhotoUrl(nmId, size = 'c246x328') {
         if (_photoResolveCache[nmId]) return _photoResolveCache[nmId];
+        if (_callProxy) {
+            try {
+                const data = await _callProxy('product_photos', { nmIds: [nmId] });
+                const url = data?.[String(nmId)] || data?.[nmId];
+                if (url) { _photoResolveCache[nmId] = String(url); return _photoResolveCache[nmId]; }
+            } catch (e) { console.warn('[RNP] product_photos:', e.message); }
+            return null;
+        }
         await _resolveBasketProbe(nmId);
-        const hit = await _probePhotoParallel(_photoUrls(nmId, size, 1).slice(0, 6), 4);
+        const hit = await _probePhotoParallel(_photoUrls(nmId, size, 1).slice(0, 2), 2);
         if (hit) _photoResolveCache[nmId] = hit;
         return hit;
     }
@@ -379,7 +388,7 @@ const RNP = (() => {
     async function _preloadGalleryPhotos(nmId) {
         if (_galleryPhotosCache[nmId]?.length) return;
         await _fetchCardPhotosBatch([nmId]);
-        if (_galleryPhotosCache[nmId]?.length) return;
+        if (_galleryPhotosCache[nmId]?.length || _callProxy) return;
         await _resolveBasketProbe(nmId);
         const extras = [];
         if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
@@ -451,15 +460,16 @@ const RNP = (() => {
         const src = cached || _PHOTO_PLACEHOLDER;
         const cls = className ? ` class="${className}"` : '';
         const sty = extraStyle ? ` style="${extraStyle}"` : '';
-        const urls = _photoUrls(nmId, size, idx).slice(0, 6).join('|');
+        const urls = cached ? '' : (_callProxy ? '' : _photoUrls(nmId, size, idx).slice(0, 2).join('|'));
         const loading = eager ? 'eager' : 'lazy';
+        const errAttr = cached || _callProxy ? '' : ' onerror="RNP.imgFallback(this)"';
         return `<img${cls}${sty} src="${src}" referrerpolicy="no-referrer" loading="${loading}" alt=""
           data-nmid="${nmId}" data-vol="${meta.vol}" data-part="${meta.part}" data-basket="${meta.basket}" data-size="${size}" data-photo="${idx}"
-          data-urls="${urls}"
-          onerror="RNP.imgFallback(this)">`;
+          data-urls="${urls}"${errAttr}>`;
     }
 
     function imgFallback(img) {
+        if (img.dataset.done === '1') return;
         const attempt = parseInt(img.dataset.attempt || '0', 10) + 1;
         img.dataset.attempt = String(attempt);
         const queue = (img.dataset.urls || '').split('|').filter(Boolean);
@@ -467,19 +477,22 @@ const RNP = (() => {
             img.src = queue[attempt - 1];
             return;
         }
-        const nmId = img.dataset.nmid;
-        const vol = img.dataset.vol;
-        const part = img.dataset.part;
-        const photoIdx = img.dataset.photo || '1';
-        const size = img.dataset.size || 'c246x328';
-        const base = parseInt(img.dataset.basket || '1', 10);
-        const offsets = [0, 1, -1, 2];
-        const offIdx = attempt - queue.length - 1;
-        if (offIdx < offsets.length) {
-            const b = String(Math.max(1, Math.min(45, base + offsets[offIdx]))).padStart(2, '0');
-            img.src = `https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${size}/${photoIdx}.webp`;
+        const nmId = Number(img.dataset.nmid);
+        if (_callProxy && nmId && attempt === queue.length + 1) {
+            _callProxy('product_photos', { nmIds: [nmId] }).then(data => {
+                const url = data?.[String(nmId)] || data?.[nmId];
+                if (url && img.dataset.done !== '1') { img.src = String(url); _photoResolveCache[nmId] = String(url); return; }
+                img.dataset.done = '1';
+                img.onerror = null;
+                img.src = _PHOTO_PLACEHOLDER;
+            }).catch(() => {
+                img.dataset.done = '1';
+                img.onerror = null;
+                img.src = _PHOTO_PLACEHOLDER;
+            });
             return;
         }
+        img.dataset.done = '1';
         img.onerror = null;
         img.classList.add('rnp-photo-fail');
         img.src = _PHOTO_PLACEHOLDER;
