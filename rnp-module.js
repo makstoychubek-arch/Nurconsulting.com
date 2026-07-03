@@ -33,6 +33,17 @@ const RNP = (() => {
     let _compareNm = null;
     let _sectionView = 'all';
     let _notesCache = {}; // nmId -> date -> { text, history[] }
+    let _strategyTab = 0;
+    let _notesVisible = true;
+
+    const STRATEGY_TABS = [
+        { label: 'Комментарий', galleryIdx: 0 },
+        { label: 'Нестабильно', galleryIdx: 1 },
+        { label: 'СВЕРХ-КОСТЮМ (Локомотив)', galleryIdx: 2 },
+        { label: 'Рекламная таб.', galleryIdx: 3 },
+        { label: 'Размерная сетка', galleryIdx: 4 },
+        { label: 'Выход в прибыль', galleryIdx: 5 },
+    ];
 
     // ─── SECTIONS & METRICS ──────────────────────────────────────────────────
     const SECTIONS = [
@@ -920,13 +931,20 @@ const RNP = (() => {
             <option value="sales_finance"${_sectionView === 'sales_finance' ? ' selected' : ''}>Заказы + Финансы</option>
             <option value="compact"${_sectionView === 'compact' ? ' selected' : ''}>Компакт</option>
           </select>
-          <button type="button" class="rnp-action-btn" onclick="RNP.copyPlanFromPrevWeek()" title="Скопировать план с прошлой недели">План ← неделя</button>
-          <select id="rnp-compare-sel" onchange="RNP.setCompare(this.value)" title="Сравнение A/B" ${_activeNm === SUMMARY_TAB ? 'disabled' : ''}>
+          <select title="Период планирования" onchange="RNP.setPlanPeriod(this.value)">
+            <option value="week" selected>План → неделя</option>
+            <option value="month">План → месяц</option>
+          </select>
+          <button type="button" class="rnp-action-btn" onclick="RNP.copyPlanFromPrevWeek()" title="Скопировать план с прошлой недели">↵ План</button>
+          <select id="rnp-compare-sel" onchange="RNP.setCompare(this.value)" title="Сравнить с…" ${_activeNm === SUMMARY_TAB ? 'disabled' : ''}>
             <option value="">Сравнить с…</option>${compareOpts}
           </select>
-          <button type="button" class="rnp-action-btn${_compareNm ? ' active' : ''}" onclick="RNP.toggleCompare()" ${_activeNm === SUMMARY_TAB ? 'disabled' : ''}>A/B</button>
-          <button type="button" class="rnp-action-btn" onclick="RNP.exportExcel()">⬇ Excel</button>
-          <span style="color:var(--text-muted);font-size:9px;margin-left:4px" title="Строка комментариев — сразу под датами">💬 коммент. под датами</span>
+          <button type="button" class="rnp-action-btn${_compareNm ? ' active' : ''}" onclick="RNP.toggleCompare()" ${_activeNm === SUMMARY_TAB ? 'disabled' : ''} title="Режим A/B">А/Б тест</button>
+          <button type="button" class="rnp-action-btn" onclick="RNP.exportExcel()">Excel</button>
+          <label class="rnp-notes-toggle" title="Строка комментариев под датами">
+            <input type="checkbox"${_notesVisible ? ' checked' : ''} onchange="RNP.toggleNotes(this.checked)">
+            Комментарии под датами
+          </label>
         </div>`;
     }
 
@@ -978,13 +996,14 @@ const RNP = (() => {
     function _renderTabsHTML(active) {
         const sumActive = _activeNm === SUMMARY_TAB;
         return `<div class="rnp-sheet-tab rnp-tab-summary${sumActive ? ' active' : ''}" onclick="RNP.pick('summary')">
-            📊 Сводная
+            <span class="rnp-tab-icon">📊</span><span>Сводная</span>
           </div>
           ${active.map(a => {
             const st = _syncStatus(a.nm_id);
-            return `<div class="rnp-sheet-tab${a.nm_id == _activeNm ? ' active' : ''}" onclick="RNP.pick(${a.nm_id})" title="${a.name || a.nm_id}">
+            const label = `Артикул ${a.nm_id}`;
+            return `<div class="rnp-sheet-tab${a.nm_id == _activeNm ? ' active' : ''}" onclick="RNP.pick(${a.nm_id})" title="${a.name || label}">
               ${_syncDot(st.level)}${_imgHtml(a, 'rnp-tab-img', 'c246x328')}
-              <span>${(a.name || String(a.nm_id)).substring(0, 18)}</span>
+              <span class="rnp-tab-label">${label}</span>
             </div>`;
           }).join('')}`;
     }
@@ -1076,6 +1095,22 @@ const RNP = (() => {
         if (_activeNm !== SUMMARY_TAB) _renderActiveTable();
     }
 
+    function setStrategyTab(idx) {
+        _strategyTab = Number(idx) || 0;
+        try { localStorage.setItem('rnp_strategy_tab', String(_strategyTab)); } catch (e) {}
+        if (_activeNm !== SUMMARY_TAB) _renderActiveTable();
+    }
+
+    function toggleNotes(on) {
+        _notesVisible = !!on;
+        try { localStorage.setItem('rnp_notes_visible', _notesVisible ? '1' : '0'); } catch (e) {}
+        if (_activeNm !== SUMMARY_TAB) _renderActiveTable();
+    }
+
+    function setPlanPeriod(val) {
+        try { localStorage.setItem('rnp_plan_period', val || 'week'); } catch (e) {}
+    }
+
     function setCompare(nmId) {
         _compareNm = nmId ? Number(nmId) : null;
         if (_activeNm !== SUMMARY_TAB) _renderActiveTable();
@@ -1107,12 +1142,14 @@ const RNP = (() => {
     function _buildPhotoGalleryHTML(art) {
         const slots = _gallerySlots(art);
         const nmId = art.nm_id;
+        const activeIdx = STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0;
         return `<div class="rnp-gallery-row">
           ${slots.map((slot, i) => {
             const cls = (i === 2 || slot.large) ? ' rnp-gallery-item--lg' : '';
+            const active = i === activeIdx ? ' rnp-gallery-item--active' : '';
             const comment = (slot.comment || '').replace(/"/g, '&quot;');
             const img = _imgHtml(art, 'rnp-gallery-img', 'c246x328', (i === 2 || slot.large) ? '' : 'filter:grayscale(1) contrast(1.05);', i + 1);
-            return `<div class="rnp-gallery-item${cls}">
+            return `<div class="rnp-gallery-item${cls}${active}">
               <div class="rnp-gallery-photo">${img}</div>
               <input type="text" class="rnp-gallery-comment" value="${comment}" placeholder="комментарий"
                 title="Подпись под фото (как в Google Sheets)"
@@ -1122,7 +1159,21 @@ const RNP = (() => {
         </div>`;
     }
 
-    function _buildTopPanelHTML(art, stockBySize, rawData, cal) {
+    function _buildStrategyBar() {
+        return `<div class="rnp-strategy-bar">
+          ${STRATEGY_TABS.map((t, i) =>
+            `<button type="button" class="rnp-strategy-tab${_strategyTab === i ? ' active' : ''}"
+              onclick="RNP.setStrategyTab(${i})">${t.label}</button>`
+          ).join('')}
+        </div>`;
+    }
+
+    function _buildGalleryStrip(art) {
+        if (_strategyTab === 4) return '';
+        return `<div class="rnp-gallery-strip">${_buildPhotoGalleryHTML(art)}</div>`;
+    }
+
+    function _buildKpiPanelHTML(art, stockBySize, rawData, cal) {
         const kpi = _periodSummary(art, rawData, cal);
         const stockT = _stockTotals(stockBySize);
         const er = _settings.exchangeRate;
@@ -1135,37 +1186,39 @@ const RNP = (() => {
         const syncSt = _syncStatus(art.nm_id);
         const alerts = _buildAlerts(art, stockBySize, kpi);
         const md = art.manual_data || {};
-        const priceTag = md.price ? ` · Цена: <b>${md.price}</b>` : '';
+        const priceTag = md.price ? ` · ${md.price} ₽` : '';
 
-        return `<div class="rnp-top-panel">
-          <div class="rnp-top-photo rnp-top-photo--main">${_imgHtml(art, 'rnp-top-photo-img', 'c516x688')}</div>
-          <div class="rnp-top-info">
-            <div class="rnp-top-title">${_syncDot(syncSt.level)} ${art.name || '—'}</div>
-            <div class="rnp-top-nmid">Арт. WB: <b>${art.nm_id}</b>${priceTag} · Себест: <b>${art.cost_price || 0}</b> сом · <span style="color:var(--text-muted)">${syncSt.label}</span></div>
-            <div class="rnp-kpi-grid rnp-kpi-grid--gs">
+        return `<div class="rnp-kpi-block${_strategyTab === 4 ? ' rnp-kpi-block--sizes-focus' : ''}">
+          <div class="rnp-kpi-left">
+            <div class="rnp-kpi-photo">${_imgHtml(art, 'rnp-kpi-photo-img', 'c516x688')}</div>
+            <div class="rnp-kpi-sizes">${_buildStockSizeHTML(stockBySize, art)}</div>
+          </div>
+          <div class="rnp-kpi-right">
+            <div class="rnp-kpi-head">
+              <div class="rnp-kpi-title">${_syncDot(syncSt.level)} ${(art.name || '—').substring(0, 42)}</div>
+              <div class="rnp-kpi-meta">Арт. WB: <b>${art.nm_id}</b>${priceTag} · Себест: <b>${art.cost_price || 0}</b> сом · <span>${syncSt.label}</span></div>
+            </div>
+            <div class="rnp-kpi-grid rnp-kpi-grid--compact">
               <div class="rnp-kpi"><span>Рентабельность</span><b class="${roiCls}">${_fmtKpi(kpi.roi_pct, 'pct')}</b></div>
-              <div class="rnp-kpi"><span>К перечислению</span><b>${toTransferSom.toLocaleString('ru')}</b></div>
+              <div class="rnp-kpi"><span>Выкуп %</span><b>${_fmtKpi(kpi.buyout_pct, 'pct')}</b></div>
               <div class="rnp-kpi"><span>ДРР %</span><b>${_fmtKpi(kpi.drr_pct, 'pct')}</b></div>
               <div class="rnp-kpi"><span>Маржа %</span><b class="${marginCls}">${_fmtKpi(kpi.margin_pct, 'pct')}</b></div>
               <div class="rnp-kpi"><span>Прибыль</span><b class="${profitCls}">${_fmtKpi(kpi.profit, 'som')}</b></div>
               <div class="rnp-kpi"><span>План заказ %</span><b class="${planCls}">${_fmtKpi(kpi.plan_orders_pct, 'pct')}</b></div>
+              <div class="rnp-kpi"><span>К перечислению</span><b>${toTransferSom.toLocaleString('ru')}</b></div>
               <div class="rnp-kpi"><span>CTR %</span><b>${_fmtKpi(kpi.ctr_pct, 'pct')}</b></div>
-              <div class="rnp-kpi"><span>Показов</span><b>${_fmtKpi(kpi.impressions, 'int')}</b></div>
-              <div class="rnp-kpi"><span>Логистика ед</span><b>${_fmtKpi(kpi.logistics_per_unit, 'som')}</b></div>
-              <div class="rnp-kpi"><span>Выкуп %</span><b>${_fmtKpi(kpi.buyout_pct, 'pct')}</b></div>
               <div class="rnp-kpi"><span>CRO %</span><b>${_fmtKpi(kpi.cro_pct, 'pct')}</b></div>
-              <div class="rnp-kpi"><span>Пр. Себес</span><b>${costTotal.toLocaleString('ru')}</b></div>
-            </div>
-            <div class="rnp-stock-totals">
-              <span>На складе: <b>${stockT.wh.toLocaleString('ru')}</b></span>
-              <span>В пути: <b>${stockT.tr.toLocaleString('ru')}</b></span>
-              <span>Общий: <b>${stockT.total.toLocaleString('ru')}</b></span>
+              <div class="rnp-kpi"><span>Показов</span><b>${_fmtKpi(kpi.impressions, 'int')}</b></div>
+              <div class="rnp-kpi"><span>На складе</span><b>${stockT.wh.toLocaleString('ru')}</b></div>
+              <div class="rnp-kpi"><span>Общий остаток</span><b>${stockT.total.toLocaleString('ru')}</b></div>
             </div>
             ${_alertsHTML(alerts)}
           </div>
-          <div class="rnp-top-stock-wrap">${_buildStockSizeHTML(stockBySize, art)}</div>
-          <div class="rnp-top-gallery">${_buildPhotoGalleryHTML(art)}</div>
         </div>`;
+    }
+
+    function _buildTopPanelHTML(art, stockBySize, rawData, cal) {
+        return _buildKpiPanelHTML(art, stockBySize, rawData, cal);
     }
     async function _loadDailyData(nmId) {
         if (_dataCache[nmId]) return _dataCache[nmId];
@@ -1735,10 +1788,10 @@ const RNP = (() => {
 
         el.innerHTML = `
         <div class="rnp-workspace">
+          <div id="rnp-action-bar-wrap">${_buildActionBar(active)}</div>
           <div class="rnp-sheet-tabs" id="rnp-sheet-tabs">
             ${_renderTabsHTML(active)}
           </div>
-          <div id="rnp-action-bar-wrap">${_buildActionBar(active)}</div>
           <div class="rnp-sheet-body" id="rnp-sheet-body">
             <div class="p-10 text-center" style="color:var(--text-muted)">
               <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
@@ -1752,6 +1805,8 @@ const RNP = (() => {
         await _loadNotes(active.map(a => a.nm_id));
         await _preloadPhotos(active);
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
+        try { _notesVisible = localStorage.getItem('rnp_notes_visible') !== '0'; } catch (e) {}
+        try { _strategyTab = parseInt(localStorage.getItem('rnp_strategy_tab') || '0', 10) || 0; } catch (e) {}
         await _renderActiveTable();
     }
 
@@ -1782,21 +1837,23 @@ const RNP = (() => {
         const rawData = _dataCache[art.nm_id] || {};
         const stockBySize = _stockCache[art.nm_id] || {};
 
-        let topHTML = `<div class="rnp-top-panel-wrap">${_buildTopPanelHTML(art, stockBySize, rawData, cal)}</div>`;
+        let topHTML = `<div class="rnp-article-panel">${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>`;
         if (_compareNm && _compareNm !== art.nm_id) {
             const art2 = _articles.find(a => a.nm_id == _compareNm);
             if (art2) {
                 const raw2 = _dataCache[art2.nm_id] || {};
                 const stock2 = _stockCache[art2.nm_id] || {};
-                topHTML = `<div class="rnp-top-panel-wrap"><div class="rnp-compare-split">
-                  <div><div class="rnp-compare-label">A — ${(art.name || art.nm_id).substring(0, 24)}</div>${_buildTopPanelHTML(art, stockBySize, rawData, cal)}</div>
-                  <div><div class="rnp-compare-label">B — ${(art2.name || art2.nm_id).substring(0, 24)}</div>${_buildTopPanelHTML(art2, stock2, raw2, cal)}</div>
-                </div></div>`;
+                topHTML = `<div class="rnp-article-panel rnp-compare-split">
+                  <div><div class="rnp-compare-label">A — ${(art.name || art.nm_id).substring(0, 24)}</div>${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>
+                  <div><div class="rnp-compare-label">B — ${(art2.name || art2.nm_id).substring(0, 24)}</div>${_buildKpiPanelHTML(art2, stock2, raw2, cal)}</div>
+                </div>`;
             }
         }
 
         body.innerHTML = `
           ${topHTML}
+          ${_buildStrategyBar()}
+          ${_buildGalleryStrip(art)}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
             ${_buildTableHTML(art, rawData, cal)}
           </div>`;
@@ -1842,12 +1899,17 @@ const RNP = (() => {
         const dowDays = cal.days.map(d =>
             `<th class="rnp-th-dow">${d.dow || ''}</th>`).join('');
 
+        const headRows = _notesVisible ? 4 : 3;
+        const notesRow = _notesVisible ? `<tr class="rnp-notes-head-row">
+              ${_buildNotesHeadCells(cols, art)}
+            </tr>` : '';
+
         return `
-        <table class="rnp-sheet-table">
+        <table class="rnp-sheet-table${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}">
           <thead>
             <tr>
-              <th class="rnp-th-metric" rowspan="4"></th>
-              <th class="rnp-th-spark" rowspan="4"></th>
+              <th class="rnp-th-metric" rowspan="${headRows}"></th>
+              <th class="rnp-th-spark" rowspan="${headRows}"></th>
               <th class="rnp-th-month" colspan="${nPrev}">${cal.prevName}</th>
               <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${cal.currName}</th>
             </tr>
@@ -1857,9 +1919,7 @@ const RNP = (() => {
             <tr class="rnp-dow-head-row">
               ${dowWeeks}${dowTotal}${dowDays}
             </tr>
-            <tr class="rnp-notes-head-row">
-              ${_buildNotesHeadCells(cols, art)}
-            </tr>
+            ${notesRow}
           </thead>
           <tbody>
             ${_buildMetaRows(cols, art)}
@@ -2085,6 +2145,6 @@ const RNP = (() => {
     }
 
     return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
-             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel,
+             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();
