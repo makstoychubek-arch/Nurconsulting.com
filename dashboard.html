@@ -297,8 +297,47 @@
         .nav-item-standalone { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; color: white; font-size: 13px; font-weight: 600; border-radius: 12px; background: var(--accent-gradient); border: none; transition: all 0.25s ease; margin: 4px 12px; box-shadow: var(--use-glow); }
         .nav-item-standalone:hover { transform: translateY(-1px); filter: brightness(1.08); }
         .nav-item-standalone.active { box-shadow: 0 8px 28px rgba(123,97,255,0.45); }
-        .cabinet-select { background: var(--accent-soft); border: 1px solid var(--accent-border); border-radius: 10px; color: var(--accent); padding: 8px 12px; font-size: 13px; cursor: pointer; outline: none; width: 100%; }
-        .cabinet-select option { background: var(--surface-solid); color: var(--text-primary); }
+        .cabinet-picker {
+            position: relative; display: inline-flex; align-items: center;
+            min-width: 0; max-width: 200px;
+        }
+        .cabinet-picker-native {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            opacity: 0; cursor: pointer; z-index: 2; appearance: none; border: none;
+        }
+        .cabinet-picker-face {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 12px 4px 4px; border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.07);
+            background: rgba(255,255,255,0.03);
+            backdrop-filter: blur(8px); pointer-events: none;
+            transition: border-color 0.2s, background 0.2s;
+        }
+        .cabinet-picker:hover .cabinet-picker-face,
+        .cabinet-picker:focus-within .cabinet-picker-face {
+            border-color: rgba(139, 92, 246, 0.25);
+            background: rgba(139, 92, 246, 0.06);
+        }
+        .cabinet-picker-dot {
+            width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(145deg, rgba(139,92,246,0.45), rgba(79,70,229,0.25));
+            border: 1px solid rgba(139, 92, 246, 0.2);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px; font-weight: 700; color: #fff; letter-spacing: -0.02em;
+        }
+        .cabinet-picker-label {
+            font-size: 12px; font-weight: 600; color: var(--text-primary);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 110px; line-height: 1.2;
+        }
+        .cabinet-picker-chevron {
+            width: 14px; height: 14px; flex-shrink: 0; opacity: 0.45;
+            color: var(--text-muted);
+        }
+        [data-theme="ios"] .cabinet-picker-face {
+            border-color: rgba(0,0,0,0.08); background: rgba(0,0,0,0.03);
+        }
+        .cabinet-select { display: none; }
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-thumb { background: var(--accent-border); border-radius: 2px; }
         .tab-content { display: none; }
@@ -342,8 +381,7 @@
         .metrics-details .metrics-inner { padding: 0 20px 20px; }
         .header-greeting { font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
         .header-title { font-size: 20px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
-        .header-profile { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); }
-        .header-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-gradient); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #fff; }
+        .header-profile { display: none; }
         .placeholder-widget { padding: 48px 24px; text-align: center; }
         .placeholder-widget-icon { font-size: 40px; margin-bottom: 16px; opacity: 0.8; }
         .btn-smooth { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
@@ -1484,13 +1522,16 @@
                     <button onclick="refreshData()" id="refresh-btn" class="btn-smooth flex items-center gap-1.5 px-4 py-2 text-white text-xs font-semibold rounded-xl">
                         <span>↻</span><span>Обновить</span>
                     </button>
-                    <select id="cabinet-select-header" class="cabinet-select btn-smooth" style="width:auto;max-width:150px;font-size:11px;padding:8px 12px" onchange="onCabinetChange()">
-                        <option value="">Кабинет...</option>
-                    </select>
-                    <div class="header-profile hidden sm:flex">
-                        <div class="header-avatar" id="header-avatar">—</div>
-                        <div class="text-xs font-semibold max-w-[100px] truncate" id="header-profile-name" style="color:var(--text-primary)">—</div>
-                    </div>
+                    <label class="cabinet-picker" title="Выбор кабинета">
+                        <select id="cabinet-select-header" class="cabinet-picker-native" onchange="onCabinetChange()">
+                            <option value="">Кабинет...</option>
+                        </select>
+                        <span class="cabinet-picker-face">
+                            <span class="cabinet-picker-dot" id="cabinet-picker-initial">—</span>
+                            <span class="cabinet-picker-label" id="cabinet-picker-label">Кабинет</span>
+                            <svg class="cabinet-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
+                    </label>
                     <span id="cabinet-name-header" class="hidden" aria-hidden="true"></span>
                 </div>
             </div>
@@ -2313,6 +2354,16 @@
         loadFromDB(from, to);
     }
 
+    function updateCabinetPickerUI(name) {
+        const label = document.getElementById('cabinet-picker-label');
+        const dot = document.getElementById('cabinet-picker-initial');
+        const n = name || 'Кабинет';
+        if (label) label.textContent = n;
+        if (dot) dot.textContent = n.charAt(0).toUpperCase();
+        const hidden = document.getElementById('cabinet-name-header');
+        if (hidden) hidden.textContent = n;
+    }
+
     async function loadCabinets() {
         const { data } = await supabase.from('cabinets').select('id, name').order('name');
         const selectHeader = document.getElementById('cabinet-select-header');
@@ -2325,9 +2376,7 @@
         if (!currentCabinetId) { currentCabinetId = data[0].id; localStorage.setItem('selected_cabinet_id', currentCabinetId); }
         const sel = data.find(c => c.id === currentCabinetId);
         if (sel) {
-            document.getElementById('cabinet-name-header').textContent = sel.name;
-            const hp = document.getElementById('header-profile-name');
-            if (hp) hp.textContent = sel.name;
+            updateCabinetPickerUI(sel.name);
             if (selectHeader) selectHeader.value = currentCabinetId;
             // On initial load: load data silently, overlay stays up until RNP init is done
             await loadFromDB();
@@ -2360,9 +2409,7 @@
         currentCabinetId = s.value;
         localStorage.setItem('selected_cabinet_id', currentCabinetId);
         const cabinetName = s.options[s.selectedIndex].text;
-        document.getElementById('cabinet-name-header').textContent = cabinetName;
-        const hp = document.getElementById('header-profile-name');
-        if (hp) hp.textContent = cabinetName;
+        updateCabinetPickerUI(cabinetName);
         // Сбрасываем все метрики в —
         ['m-profit','m-margin','m-profit2','m-sales-sum','m-sales-count','m-realization',
          'm-commission','m-orders-sum','m-orders-count','m-conversion','m-logistics',
@@ -3251,12 +3298,6 @@
         document.getElementById('user-initial').textContent = initial;
         const fi = document.getElementById('flyout-user-initial');
         if (fi) fi.textContent = initial;
-        const ha = document.getElementById('header-avatar');
-        if (ha) ha.textContent = initial;
-        const hun = document.getElementById('header-user-name');
-        if (hun) hun.textContent = name.split(' ')[0];
-        const hpn = document.getElementById('header-profile-name');
-        if (hpn) hpn.textContent = name;
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
         currentUserEmail = session.user.email || '';
         await loadCabinets();

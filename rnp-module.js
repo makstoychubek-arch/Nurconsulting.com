@@ -230,33 +230,14 @@ const RNP = (() => {
         const vol = Math.floor(nmId / 100000);
         const part = Math.floor(nmId / 1000);
         const guess = _basketNum(vol);
-        const order = [];
-        for (let d = 0; d <= 14; d++) {
-            if (d === 0) order.push(guess);
-            else {
-                if (guess + d <= 45) order.push(guess + d);
-                if (guess - d >= 1) order.push(guess - d);
-            }
+        const candidates = [guess];
+        for (let d = 1; d <= 3; d++) {
+            if (guess + d <= 45) candidates.push(guess + d);
+            if (guess - d >= 1) candidates.push(guess - d);
         }
-        for (let i = 0; i < order.length; i += 6) {
-            const batch = order.slice(i, i + 6);
+        for (let i = 0; i < candidates.length; i += 4) {
+            const batch = candidates.slice(i, i + 4);
             const hits = await Promise.all(batch.map(async b => {
-                const bs = String(b).padStart(2, '0');
-                const url = `https://basket-${bs}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/c246x328/1.webp`;
-                const ok = await _probePhoto(url);
-                return ok ? b : null;
-            }));
-            const hit = hits.find(Boolean);
-            if (hit) {
-                _basketCache[nmId] = hit;
-                return hit;
-            }
-        }
-        for (let start = 1; start <= 45; start += 8) {
-            const batch = [];
-            for (let b = start; b < start + 8 && b <= 45; b++) batch.push(b);
-            const hits = await Promise.all(batch.map(async b => {
-                if (order.includes(b)) return null;
                 const bs = String(b).padStart(2, '0');
                 const url = `https://basket-${bs}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/c246x328/1.webp`;
                 const ok = await _probePhoto(url);
@@ -275,7 +256,7 @@ const RNP = (() => {
     async function _resolvePhotoUrl(nmId, size = 'c246x328') {
         if (_photoResolveCache[nmId]) return _photoResolveCache[nmId];
         await _resolveBasketProbe(nmId);
-        const hit = await _probePhotoParallel(_photoUrls(nmId, size, 1).slice(0, 16), 8);
+        const hit = await _probePhotoParallel(_photoUrls(nmId, size, 1).slice(0, 6), 4);
         if (hit) _photoResolveCache[nmId] = hit;
         return hit;
     }
@@ -325,58 +306,21 @@ const RNP = (() => {
     }
 
     async function _fetchCardPhoto(nmId) {
-        const apis = [
-            `https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&nm=${nmId}`,
-            `https://card.wb.ru/cards/v1/detail?appType=1&curr=rub&dest=-1257786&nm=${nmId}`,
-        ];
-        for (const api of apis) {
-            try {
-                const r = await fetch(api, { referrerPolicy: 'no-referrer' });
-                const j = await r.json();
-                const p = j.data?.products?.[0];
-                if (!p) continue;
-                const id = p.id || nmId;
-                _storeCardGalleryExtras(p, id);
-                if (p.photo) {
-                    let u = String(p.photo);
-                    if (u.startsWith('//')) u = 'https:' + u;
-                    if (await _probePhoto(u)) return u;
-                }
-                for (const u of _photoUrls(id, 'big').slice(0, 8)) {
-                    if (await _probePhoto(u)) return u;
-                }
-            } catch (e) { /* next */ }
-        }
-        return null;
+        await _fetchPhotosViaProxy([nmId]);
+        if (_photoResolveCache[nmId]) return _photoResolveCache[nmId];
+        await _resolveBasketProbe(nmId);
+        return _resolvePhotoUrl(nmId);
     }
 
     async function _fetchCardPhotosBatch(nmIds) {
         const ids = [...new Set(nmIds.map(Number).filter(Boolean))];
         if (!ids.length) return;
-        for (let i = 0; i < ids.length; i += 100) {
-            const chunk = ids.slice(i, i + 100);
-            const nmParam = chunk.join(';');
-            const apis = [
-                `https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&nm=${nmParam}`,
-                `https://card.wb.ru/cards/v1/detail?appType=1&curr=rub&dest=-1257786&nm=${nmParam}`,
-            ];
-            for (const api of apis) {
-                try {
-                    const r = await fetch(api, { referrerPolicy: 'no-referrer' });
-                    const j = await r.json();
-                    const products = j.data?.products || j.products || [];
-                    products.forEach(p => {
-                        const id = p.id || p.nmId;
-                        if (!id) return;
-                        let u = p.photo || p.photos?.[0]?.big || p.photos?.[0]?.c516x688;
-                        if (!u && Array.isArray(p.photos) && p.photos[0]) u = typeof p.photos[0] === 'string' ? p.photos[0] : null;
-                        if (u?.startsWith('//')) u = 'https:' + u;
-                        if (u) _photoResolveCache[id] = u;
-                        _storeCardGalleryExtras(p, id);
-                    });
-                    if (products.length) break;
-                } catch (e) { /* next api version */ }
-            }
+        await _fetchPhotosViaProxy(ids);
+        const stillMissing = ids.filter(id => !_photoResolveCache[id]);
+        for (const nmId of stillMissing) {
+            await _resolveBasketProbe(nmId);
+            const hit = await _resolvePhotoUrl(nmId);
+            if (hit) _photoResolveCache[nmId] = hit;
         }
     }
 
@@ -416,11 +360,9 @@ const RNP = (() => {
         await _fetchPhotosViaProxy(missing);
         const stillMissing = missing.filter(id => !_photoResolveCache[id]);
         if (stillMissing.length) await _fetchCardPhotosBatch(stillMissing);
-        const persist = [];
-        for (const nmId of missing.filter(id => !_photoResolveCache[id])) {
-            const hit = await _resolvePhotoUrl(nmId, 'c246x328');
-            if (hit) persist.push({ nm_id: nmId, photo_url: hit });
-        }
+        const persist = stillMissing
+            .filter(id => _photoResolveCache[id])
+            .map(nm_id => ({ nm_id, photo_url: _photoResolveCache[nm_id] }));
         if (_db && _cab && persist.length) {
             await Promise.all(persist.map(p =>
                 _db.from('rnp_articles').update({ photo_url: p.photo_url })
@@ -509,7 +451,7 @@ const RNP = (() => {
         const src = cached || _PHOTO_PLACEHOLDER;
         const cls = className ? ` class="${className}"` : '';
         const sty = extraStyle ? ` style="${extraStyle}"` : '';
-        const urls = _photoUrls(nmId, size, idx).slice(0, 16).join('|');
+        const urls = _photoUrls(nmId, size, idx).slice(0, 6).join('|');
         const loading = eager ? 'eager' : 'lazy';
         return `<img${cls}${sty} src="${src}" referrerpolicy="no-referrer" loading="${loading}" alt=""
           data-nmid="${nmId}" data-vol="${meta.vol}" data-part="${meta.part}" data-basket="${meta.basket}" data-size="${size}" data-photo="${idx}"
@@ -520,7 +462,7 @@ const RNP = (() => {
     function imgFallback(img) {
         const attempt = parseInt(img.dataset.attempt || '0', 10) + 1;
         img.dataset.attempt = String(attempt);
-        const queue = (img.dataset.urls || '').split('|').filter(u => u && !u.includes('.wb.ru/'));
+        const queue = (img.dataset.urls || '').split('|').filter(Boolean);
         if (attempt <= queue.length) {
             img.src = queue[attempt - 1];
             return;
@@ -531,9 +473,10 @@ const RNP = (() => {
         const photoIdx = img.dataset.photo || '1';
         const size = img.dataset.size || 'c246x328';
         const base = parseInt(img.dataset.basket || '1', 10);
-        if (attempt <= queue.length + 10) {
-            const i = attempt - queue.length - 1;
-            const b = String(Math.max(1, Math.min(99, base + (i % 2 ? Math.ceil(i / 2) : -Math.ceil(i / 2))))).padStart(2, '0');
+        const offsets = [0, 1, -1, 2];
+        const offIdx = attempt - queue.length - 1;
+        if (offIdx < offsets.length) {
+            const b = String(Math.max(1, Math.min(45, base + offsets[offIdx]))).padStart(2, '0');
             img.src = `https://basket-${b}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/${size}/${photoIdx}.webp`;
             return;
         }
@@ -608,29 +551,7 @@ const RNP = (() => {
     }
 
     async function _fetchSellerArticlesFromCards(nmIds) {
-        const map = new Map();
-        const ids = [...new Set(nmIds.map(Number).filter(Boolean))];
-        if (!ids.length) return map;
-        for (let i = 0; i < ids.length; i += 100) {
-            const chunk = ids.slice(i, i + 100);
-            const apis = [
-                `https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&nm=${chunk.join(';')}`,
-                `https://card.wb.ru/cards/v1/detail?appType=1&curr=rub&dest=-1257786&nm=${chunk.join(';')}`,
-            ];
-            for (const api of apis) {
-                try {
-                    const r = await fetch(api, { referrerPolicy: 'no-referrer' });
-                    const j = await r.json();
-                    (j.data?.products || j.products || []).forEach(p => {
-                        const id = p.id || p.nmId;
-                        const sa = _extractSellerArticle(p);
-                        if (id && sa) map.set(Number(id), sa);
-                    });
-                    if (map.size) break;
-                } catch (e) { /* next */ }
-            }
-        }
-        return map;
+        return _fetchSellerArticlesFromContentApi(nmIds);
     }
 
     async function _backfillSellerArticlesFromDb() {
@@ -882,6 +803,10 @@ const RNP = (() => {
         return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     }
 
+    function _localDateStr(d) {
+        return _dateStr(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    }
+
     function _sleep(ms) {
         return new Promise(r => setTimeout(r, ms));
     }
@@ -896,8 +821,8 @@ const RNP = (() => {
             chunkEnd.setDate(chunkEnd.getDate() + maxDays - 1);
             if (chunkEnd > end) chunkEnd.setTime(end.getTime());
             chunks.push({
-                from: cur.toISOString().split('T')[0],
-                to: chunkEnd.toISOString().split('T')[0],
+                from: _localDateStr(cur),
+                to: _localDateStr(chunkEnd),
             });
             cur = new Date(chunkEnd);
             cur.setDate(cur.getDate() + 1);
@@ -1938,47 +1863,47 @@ const RNP = (() => {
     }
 
     // ─── SALES FUNNEL (Analytics API v3) ─────────────────────────────────────
+    // WB limit: only the last 7 days (no historical chunks without Jam CSV)
     async function _syncFunnelHistory(nmId, onProgress) {
         if (!_callProxy) return;
         const now = new Date();
-        const rangeStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const chunks = _splitDateRange(rangeStart, now, 7);
+        const rangeStart = new Date(now);
+        rangeStart.setDate(rangeStart.getDate() - 6);
+        const dateFrom = _localDateStr(rangeStart);
+        const dateTo = _localDateStr(now);
+        if (onProgress) onProgress(1, 1);
+
+        let resp;
+        try {
+            resp = await _callProxy('sales_funnel_history', {
+                dateFrom,
+                dateTo,
+                nmId,
+                aggregationLevel: 'day',
+            });
+        } catch (e) {
+            console.warn('[RNP] funnel error:', e.message);
+            return;
+        }
+        if (!resp) return;
+
         const byDate = {};
-
-        for (let i = 0; i < chunks.length; i++) {
-            if (i > 0) await _sleep(21000); // WB rate limit: 3 req/min, 20s interval
-            if (onProgress) onProgress(i + 1, chunks.length);
-
-            let resp;
-            try {
-                resp = await _callProxy('sales_funnel_history', {
-                    dateFrom: chunks[i].from,
-                    dateTo: chunks[i].to,
-                    nmId,
-                    aggregationLevel: 'day',
-                });
-            } catch (e) {
-                console.warn('[RNP] funnel chunk error:', e.message);
-                continue;
-            }
-
-            const items = Array.isArray(resp) ? resp : (resp?.data || []);
-            for (const item of items) {
-                if (String(item.product?.nmId) !== String(nmId)) continue;
-                for (const day of (item.history || [])) {
-                    const date = (day.date || '').split('T')[0];
-                    if (!date) continue;
-                    const opens = Number(day.openCount || 0);
-                    const cart  = Number(day.cartCount || 0);
-                    byDate[date] = {
-                        impressions: opens,
-                        clicks: opens, // переходы в карточку = openCount
-                        ctr_pct: opens > 0 ? cart / opens * 100 : 0,
-                        basket_count: cart,
-                        basket_pct: Number(day.addToCartConversion || 0),
-                        funnel_order_conv: Number(day.cartToOrderConversion || 0),
-                    };
-                }
+        const items = Array.isArray(resp) ? resp : (resp?.data || []);
+        for (const item of items) {
+            if (String(item.product?.nmId) !== String(nmId)) continue;
+            for (const day of (item.history || [])) {
+                const date = (day.date || '').split('T')[0];
+                if (!date) continue;
+                const opens = Number(day.openCount || 0);
+                const cart  = Number(day.cartCount || 0);
+                byDate[date] = {
+                    impressions: opens,
+                    clicks: opens,
+                    ctr_pct: opens > 0 ? cart / opens * 100 : 0,
+                    basket_count: cart,
+                    basket_pct: Number(day.addToCartConversion || 0),
+                    funnel_order_conv: Number(day.cartToOrderConversion || 0),
+                };
             }
         }
 
