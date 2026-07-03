@@ -385,33 +385,33 @@
         .rnp-head-marquee {
             padding: 0 !important; vertical-align: top;
             background: var(--surface-solid) !important;
-            overflow: hidden; height: 100%;
+            overflow: hidden; position: relative; z-index: 1;
         }
         .rnp-marquee-wrap {
             overflow: hidden; width: 100%; height: 100%;
-            min-height: 108px;
             display: flex; align-items: stretch;
-            mask-image: linear-gradient(90deg, transparent 0%, #000 2%, #000 98%, transparent 100%);
-            -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 2%, #000 98%, transparent 100%);
+            mask-image: linear-gradient(90deg, #000 0%, #000 96%, transparent 100%);
+            -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 96%, transparent 100%);
         }
         .rnp-marquee-wrap:has(.rnp-test-card:hover) .rnp-marquee-track {
             animation-play-state: paused;
         }
         .rnp-marquee-track {
-            display: flex; align-items: stretch; gap: 4px;
+            display: flex; align-items: stretch; gap: 3px;
             width: max-content; height: 100%;
+            --rnp-marquee-reps: 3;
             animation: rnp-marquee-scroll 36s linear infinite;
             will-change: transform;
         }
         @keyframes rnp-marquee-scroll {
-            0% { transform: translateX(-33.333%); }
+            0% { transform: translateX(calc(-100% / var(--rnp-marquee-reps, 3))); }
             100% { transform: translateX(0); }
         }
         .rnp-test-card {
-            flex: 0 0 72px; height: 100%; min-height: 100px;
-            display: block; border-radius: 4px; overflow: hidden;
+            flex: 0 0 auto; height: 100%;
+            display: block; border-radius: 3px; overflow: hidden;
             border: 1px solid var(--border);
-            background: var(--surface);
+            background: var(--surface-solid);
             transition: border-color 0.2s, box-shadow 0.2s;
             cursor: default;
         }
@@ -421,11 +421,11 @@
             z-index: 2;
         }
         .rnp-test-photo {
-            width: 100%; height: 100%; min-height: 100px;
+            width: 100%; height: 100%;
             background: var(--surface-solid);
         }
         .rnp-test-photo img {
-            width: 100%; height: 100%; min-height: 100px;
+            width: 100%; height: 100%;
             object-fit: cover; object-position: center top;
             display: block;
         }

@@ -36,6 +36,7 @@ const RNP = (() => {
     let _strategyTab = 0;
     let _notesVisible = true;
     let _galleryCollapsed = true;
+    let _marqueeRo = null;
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
@@ -409,6 +410,8 @@ const RNP = (() => {
 
     async function _preloadGalleryPhotos(nmId) {
         if (_galleryPhotosCache[nmId]?.length) return;
+        await _fetchCardPhotosBatch([nmId]);
+        if (_galleryPhotosCache[nmId]?.length) return;
         await _resolveBasketProbe(nmId);
         const extras = [];
         if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
@@ -464,7 +467,7 @@ const RNP = (() => {
         if (hit) art.photo_url = hit;
     }
 
-    function _imgHtml(art, className, size = 'c516x688', extraStyle = '', photoIndex = 1) {
+    function _imgHtml(art, className, size = 'c516x688', extraStyle = '', photoIndex = 1, eager = false) {
         const nmId = art.nm_id;
         const meta = _photoMeta(nmId);
         const idx = Math.max(1, photoIndex || 1);
@@ -481,7 +484,8 @@ const RNP = (() => {
         const cls = className ? ` class="${className}"` : '';
         const sty = extraStyle ? ` style="${extraStyle}"` : '';
         const urls = _photoUrls(nmId, size, idx).slice(0, 16).join('|');
-        return `<img${cls}${sty} src="${src}" referrerpolicy="no-referrer" loading="lazy" alt=""
+        const loading = eager ? 'eager' : 'lazy';
+        return `<img${cls}${sty} src="${src}" referrerpolicy="no-referrer" loading="${loading}" alt=""
           data-nmid="${nmId}" data-vol="${meta.vol}" data-part="${meta.part}" data-basket="${meta.basket}" data-size="${size}" data-photo="${idx}"
           data-urls="${urls}"
           onerror="RNP.imgFallback(this)">`;
@@ -1016,7 +1020,7 @@ const RNP = (() => {
         const gi = period.galleryIdx ?? 0;
         const photoIdx = gi + 2;
         const label = (period.label || '').replace(/"/g, '&quot;');
-        const img = _imgHtml(art, 'rnp-test-img', 'c516x688', '', photoIdx);
+        const img = _imgHtml(art, 'rnp-test-img', 'c516x688', '', photoIdx, true);
         return `<div class="rnp-test-card" data-gallery-idx="${gi}" data-photo-idx="${photoIdx}" title="${label}">
           <div class="rnp-test-photo">${img}</div>
         </div>`;
@@ -1026,9 +1030,8 @@ const RNP = (() => {
         const periods = _timelinePeriods(art, cal);
         if (!periods.length) return '<div class="rnp-marquee-empty">—</div>';
         const cards = periods.map(p => _buildTestCardHTML(art, p)).join('');
-        const loop = cards + cards + cards;
         return `<div class="rnp-marquee-wrap">
-          <div class="rnp-marquee-track">${loop}</div>
+          <div class="rnp-marquee-track">${cards}</div>
         </div>`;
     }
 
@@ -2078,24 +2081,93 @@ const RNP = (() => {
         if (bar) bar.innerHTML = _buildActionBar(active);
 
         _applyResolvedPhotos(body);
-        _syncMarqueeFill(body);
+        _refreshMarqueeBaseHtml(body);
+        requestAnimationFrame(() => {
+            _syncMarqueeFill(body);
+            _bindMarqueeResize(body);
+        });
         _preloadGalleryPhotos(art.nm_id).then(() => {
             _applyResolvedPhotos(body);
+            _refreshMarqueeBaseHtml(body);
             _syncMarqueeFill(body);
         }).catch(() => {});
         _preloadPhotos(_articles.filter(a => a.is_active)).then(() => {
             _applyResolvedPhotos(body);
+            _refreshMarqueeBaseHtml(body);
             _syncMarqueeFill(body);
         }).catch(() => {});
     }
 
+    function _refreshMarqueeBaseHtml(scope) {
+        const track = (scope || document).querySelector('.rnp-marquee-track');
+        if (!track?.dataset.baseCount) return;
+        const n = parseInt(track.dataset.baseCount, 10);
+        if (n > 0 && track.children.length >= n) {
+            track.dataset.baseHtml = [...track.children].slice(0, n).map(c => c.outerHTML).join('');
+        }
+    }
+
+    function _bindMarqueeResize(root) {
+        if (_marqueeRo) {
+            _marqueeRo.disconnect();
+            _marqueeRo = null;
+        }
+        if (typeof ResizeObserver === 'undefined') return;
+        const scope = root || document;
+        const left = scope.querySelector('.rnp-head-left');
+        const wrap = scope.querySelector('.rnp-marquee-wrap');
+        if (!left || !wrap) return;
+        _marqueeRo = new ResizeObserver(() => _syncMarqueeFill(scope));
+        _marqueeRo.observe(left);
+        _marqueeRo.observe(wrap);
+    }
+
     function _syncMarqueeFill(root) {
-        const wrap = (root || document).querySelector('.rnp-marquee-wrap');
+        const scope = root || document;
+        const left = scope.querySelector('.rnp-head-left');
+        const marqueeTh = scope.querySelector('.rnp-head-marquee');
+        const wrap = scope.querySelector('.rnp-marquee-wrap');
         const track = wrap?.querySelector('.rnp-marquee-track');
         if (!wrap || !track || !track.children.length) return;
-        const loopW = track.scrollWidth / 3;
+
+        if (!track.dataset.baseCount) {
+            track.dataset.baseCount = String(track.children.length);
+            track.dataset.baseHtml = [...track.children].map(c => c.outerHTML).join('');
+        }
+
+        const h = left?.offsetHeight || 0;
+        const gap = 3;
+        const aspect = 516 / 688;
+        let cardW = 72;
+        if (h > 0) {
+            cardW = Math.max(44, Math.round(h * aspect));
+            if (marqueeTh) marqueeTh.style.height = h + 'px';
+            wrap.style.height = h + 'px';
+            wrap.style.minHeight = '0';
+            track.style.height = h + 'px';
+        }
+
+        const baseCount = parseInt(track.dataset.baseCount, 10) || track.children.length;
+        const oneSetHtml = track.dataset.baseHtml || '';
+        const setW = baseCount * (cardW + gap) - gap;
+        const viewW = wrap.clientWidth || 0;
+        const totalReps = Math.max(3, Math.ceil((viewW || setW) / Math.max(setW, 1)));
+
+        if (track.children.length !== baseCount * totalReps && oneSetHtml) {
+            track.innerHTML = oneSetHtml.repeat(totalReps);
+            _applyResolvedPhotos(scope);
+        }
+
+        track.querySelectorAll('.rnp-test-card').forEach(card => {
+            card.style.flex = `0 0 ${cardW}px`;
+            card.style.width = `${cardW}px`;
+            card.style.height = '100%';
+        });
+
+        track.style.setProperty('--rnp-marquee-reps', String(totalReps));
+        const loopW = track.scrollWidth / totalReps;
         if (loopW > 0) {
-            const sec = Math.max(22, Math.min(42, loopW / 22));
+            const sec = Math.max(22, Math.min(48, loopW / 20));
             track.style.animationDuration = sec + 's';
         }
     }
