@@ -2996,10 +2996,10 @@
         renderCabinetDropdown(data);
         if (!currentCabinetId) { currentCabinetId = data[0].id; localStorage.setItem('selected_cabinet_id', currentCabinetId); }
         const sel = data.find(c => c.id === currentCabinetId);
+        const selectHeader = document.getElementById('cabinet-select-header');
         if (sel) {
             updateCabinetPickerUI(sel.name);
             if (selectHeader) selectHeader.value = currentCabinetId;
-            // On initial load: load data silently, overlay stays up until RNP init is done
             await loadFromDB();
         } else {
             await loadFromDB();
@@ -4359,11 +4359,14 @@
         if (fi) fi.textContent = initial;
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
         currentUserEmail = session.user.email || '';
-        await loadCabinets();
-        updateDateRangeLabel();
-        await loadABTests();
+        try {
+            await loadCabinets();
+            updateDateRangeLabel();
+            await loadABTests();
+        } catch (e) {
+            console.error('[init] load:', e);
+        }
 
-        // Init RNP, then restore last tab, then hide loader — all in one step
         setTimeout(async () => {
             try {
                 if (currentCabinetId && typeof RNP !== 'undefined') {
@@ -4383,7 +4386,7 @@
             } finally {
                 hideOverlay();
             }
-        }, 1500);
+        }, 800);
 
         initSidebarFlyouts();
     });
