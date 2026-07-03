@@ -43,7 +43,7 @@ serve(async (req) => {
         const admin = createClient(supabaseUrl, supabaseService);
         const { data: cab, error: cabErr } = await admin
             .from('cabinets')
-            .select('wb_token, name')
+            .select('wb_token, wb_content_token, name')
             .eq('id', cabinet_id)
             .eq('user_id', user.id)
             .maybeSingle();
@@ -51,6 +51,7 @@ serve(async (req) => {
         if (cabErr || !cab) return json({ error: 'Cabinet not found or access denied' }, 403);
 
         const WB_TOKEN = cab.wb_token;
+        const WB_CONTENT_TOKEN = cab.wb_content_token || cab.wb_token;
         const WB_PROMO_TOKEN = WB_TOKEN; // same token has all permissions
         if (!WB_TOKEN) return json({ error: 'WB token not configured for this cabinet' }, 400);
 
@@ -187,7 +188,7 @@ serve(async (req) => {
                 };
                 result = await wbPost(
                     'https://content-api.wildberries.ru/content/v2/get/cards/list',
-                    WB_TOKEN, body
+                    WB_CONTENT_TOKEN, body
                 );
                 break;
             }
@@ -207,7 +208,7 @@ serve(async (req) => {
                     try {
                         const cards = await wbPost(
                             'https://content-api.wildberries.ru/content/v2/get/cards/list',
-                            WB_TOKEN, body
+                            WB_CONTENT_TOKEN, body
                         ) as { cards?: Record<string, unknown>[] };
                         for (const card of cards?.cards || []) {
                             const nm = Number(card.nmID ?? card.nmId ?? 0);
@@ -319,12 +320,22 @@ serve(async (req) => {
 
             // ── Analytics API — Sales Funnel ────────────────────────────────
             case 'sales_funnel_history': {
-                const dateFrom = String(params.dateFrom || '').split('T')[0];
-                const dateTo   = String(params.dateTo   || '').split('T')[0];
+                const today = new Date();
+                const minStart = new Date(today);
+                minStart.setDate(minStart.getDate() - 6);
+                const fmt = (d: Date) => d.toISOString().split('T')[0];
+                let dateFrom = String(params.dateFrom || '').split('T')[0];
+                let dateTo   = String(params.dateTo   || '').split('T')[0];
                 const nmIds = params.nmIds ||
                     (params.nmId != null ? [Number(params.nmId)] : []);
                 if (!dateFrom || !dateTo || !nmIds.length) {
                     return json({ error: 'dateFrom, dateTo and nmId required' }, 400);
+                }
+                // WB: history only for the last 7 days
+                if (dateFrom < fmt(minStart)) dateFrom = fmt(minStart);
+                if (dateTo > fmt(today)) dateTo = fmt(today);
+                if (dateFrom > dateTo) {
+                    return json({ error: 'date range outside WB 7-day history limit' }, 400);
                 }
                 result = await wbPost(
                     'https://seller-analytics-api.wildberries.ru/api/analytics/v3/sales-funnel/products/history',
@@ -341,13 +352,68 @@ serve(async (req) => {
 
             // ── Media (AB tests) ────────────────────────────────────────────
             case 'media_save': {
-                const url = `https://content-api.wildberries.ru/api/v1/media/save`;
-                const res = await fetch(url, {
+                const nmId = Number(params.nmId);
+                const photoUrl = String(params.photoUrl || '').trim();
+                if (!nmId || !photoUrl) return json({ error: 'nmId and photoUrl required' }, 400);
+                if (!cab.wb_content_token) {
+                    return json({
+                        error: true,
+                        errorText: 'Нужен Content-токен WB (Настройки → API кабинетов). Обычный токен не подходит для смены фото.',
+                    }, 400);
+                }
+
+                let imageBytes: Uint8Array;
+                let mimeType = 'image/jpeg';
+
+                const storageMatch = photoUrl.match(/\/storage\/v1\/object\/(?:public|authenticated|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
+                if (storageMatch) {
+                    const bucket = storageMatch[1];
+                    const path = decodeURIComponent(storageMatch[2]);
+                    const { data: blob, error: dlErr } = await admin.storage.from(bucket).download(path);
+                    if (dlErr || !blob) {
+                        return json({
+                            error: true,
+                            errorText: `Не удалось скачать фото из хранилища: ${dlErr?.message || 'файл не найден'}`,
+                        }, 400);
+                    }
+                    imageBytes = new Uint8Array(await blob.arrayBuffer());
+                    mimeType = blob.type || mimeType;
+                } else {
+                    const imgRes = await fetch(photoUrl);
+                    if (!imgRes.ok) {
+                        return json({
+                            error: true,
+                            errorText: `WB не сможет скачать фото (HTTP ${imgRes.status}). Ссылка должна быть публичной.`,
+                        }, 400);
+                    }
+                    imageBytes = new Uint8Array(await imgRes.arrayBuffer());
+                    mimeType = imgRes.headers.get('content-type') || mimeType;
+                }
+
+                if (imageBytes.length < 1000) {
+                    return json({ error: true, errorText: 'Файл слишком маленький или пустой' }, 400);
+                }
+
+                const ext = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg';
+                const form = new FormData();
+                form.append('uploadfile', new Blob([imageBytes], { type: mimeType }), `abtest.${ext}`);
+
+                const fileRes = await fetch('https://content-api.wildberries.ru/content/v3/media/file', {
                     method: 'POST',
-                    headers: { Authorization: WB_TOKEN, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ nmId: params.nmId, photoUrl: params.photoUrl })
+                    headers: {
+                        Authorization: WB_CONTENT_TOKEN,
+                        'X-Nm-Id': String(nmId),
+                        'X-Photo-Number': '1',
+                    },
+                    body: form,
                 });
-                result = await res.json().catch(() => ({ ok: res.ok }));
+                const fileJson = await fileRes.json().catch(() => ({})) as Record<string, unknown>;
+                const errText = String(fileJson?.errorText || fileJson?.additionalErrors || '');
+                if (!fileRes.ok || fileJson?.error === true || errText) {
+                    const msg = errText || `WB API ${fileRes.status}`;
+                    return json({ error: true, errorText: msg, details: fileJson }, fileRes.ok ? 200 : (fileRes.status >= 400 ? fileRes.status : 502));
+                }
+                result = { ok: true, error: false, errorText: '', nmId, photoSlot: 1, ...fileJson };
                 break;
             }
 
@@ -359,7 +425,9 @@ serve(async (req) => {
 
     } catch (err) {
         console.error('[wb-proxy] error:', err);
-        return json({ error: String(err) }, 500);
+        const status = (err as { status?: number })?.status;
+        const httpStatus = status && status >= 400 && status < 500 ? status : 500;
+        return json({ error: String(err) }, httpStatus);
     }
 });
 
@@ -389,7 +457,9 @@ async function wbPost(url: string, token: string, body: unknown): Promise<unknow
     });
     if (!res.ok) {
         const text = await res.text().catch(() => res.statusText);
-        throw new Error(`WB API ${res.status}: ${text}`);
+        const err = new Error(`WB API ${res.status}: ${text}`) as Error & { status?: number };
+        err.status = res.status;
+        throw err;
     }
     return res.json();
 }

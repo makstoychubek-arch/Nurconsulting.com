@@ -287,13 +287,23 @@
             border: 1px solid rgba(139, 92, 246, 0.18);
         }
         .supply-card {
-            padding: 14px 16px; border-radius: 14px;
-            background: var(--surface); border: 1px solid var(--border);
-            transition: border-color 0.2s, box-shadow 0.2s; cursor: pointer;
+            padding: 16px 18px; border-radius: 16px;
+            background: linear-gradient(145deg, rgba(255,255,255,0.03) 0%, rgba(15,15,23,0.5) 100%);
+            border: 1px solid var(--border);
+            transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s; cursor: pointer;
         }
-        .supply-card:hover { border-color: var(--accent-border); box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
-        .supply-card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-        .supply-card-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+        .supply-card:hover { border-color: var(--accent-border); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+        .supply-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+        .supply-card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); line-height: 1.3; }
+        .supply-card-id { font-size: 10px; font-weight: 600; color: var(--text-muted); font-family: monospace; padding: 2px 6px; border-radius: 6px; background: rgba(255,255,255,0.04); }
+        .supply-status-pill {
+            font-size: 10px; font-weight: 600; padding: 3px 8px; border-radius: 20px; flex-shrink: 0;
+        }
+        .supply-status-pill.active { background: rgba(52,199,89,0.12); color: var(--green); border: 1px solid rgba(52,199,89,0.2); }
+        .supply-status-pill.done { background: rgba(255,255,255,0.05); color: var(--text-muted); border: 1px solid var(--border); }
+        .supply-card-meta { font-size: 11px; color: var(--text-muted); }
+        .supply-card-wh { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
+        .supply-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
         .nav-item-standalone { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; color: white; font-size: 13px; font-weight: 600; border-radius: 12px; background: var(--accent-gradient); border: none; transition: all 0.25s ease; margin: 4px 12px; box-shadow: var(--use-glow); }
         .nav-item-standalone:hover { transform: translateY(-1px); filter: brightness(1.08); }
         .nav-item-standalone.active { box-shadow: 0 8px 28px rgba(123,97,255,0.45); }
@@ -1756,9 +1766,13 @@
                     <div id="adv-drr-avg" class="text-2xl font-black" style="color:var(--text-primary)">—</div>
                 </div>
             </div>
+            <div id="adv-campaigns-list" class="widget-card p-5 hidden">
+                <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Кампании WB</h3>
+                <div id="adv-campaigns-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
+            </div>
             <div class="widget-card p-6 text-center" style="color:var(--text-muted)">
-                <p class="text-sm">Автобиддер и детальная аналитика кампаний — в разработке. Данные подтянутся из WB Promotion API.</p>
-                <button onclick="loadAdvertisingPreview()" class="mt-4 ui-btn ui-btn-secondary text-sm">Загрузить кампании</button>
+                <p class="text-sm">Автобиддер — в разработке. Ниже список активных кампаний из Promotion API.</p>
+                <button onclick="loadAdvertisingPreview()" class="mt-4 ui-btn ui-btn-secondary text-sm">↻ Обновить кампании</button>
             </div>
         </div>
 
@@ -1779,8 +1793,12 @@
                         <input type="number" id="mark-qty" value="1" min="1" max="500" class="w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
                     </div>
                 </div>
-                <button class="ui-btn ui-btn-primary text-sm" disabled title="Интеграция Tekser — скоро">Сформировать PDF-стикеры</button>
-                <p class="text-xs mt-3" style="color:var(--text-muted)">Модуль подключится к Tekser API для получения кодов маркировки и объединения с ШК WB.</p>
+                <button class="ui-btn ui-btn-primary text-sm" onclick="addMarkingJob()">Добавить в очередь</button>
+                <p class="text-xs mt-3" style="color:var(--text-muted)">PDF-стикеры (ШК WB + DataMatrix) — после подключения Tekser API.</p>
+            </div>
+            <div class="widget-card p-5">
+                <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Очередь стикеров</h3>
+                <div id="marking-queue"><div class="text-sm text-center py-6" style="color:var(--text-muted)">Очередь пуста</div></div>
             </div>
         </div>
 
@@ -1864,8 +1882,8 @@
                         <input type="number" id="abt-maxrot" value="0" min="0" class="rounded-xl px-4 py-2.5 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
                     </div>
                 </div>
-                <div class="text-xs mb-3 font-semibold" style="color:var(--text-primary)">Варианты фото (2–4 шт.)</div>
-                <div id="variant-inputs" class="grid grid-cols-2 gap-3 mb-3"></div>
+                <div class="text-xs mb-3 font-semibold" style="color:var(--text-primary)">Варианты фото (2–10 шт.)</div>
+                <div id="variant-inputs" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-3"></div>
                 <button class="ui-btn ui-btn-secondary mb-4 text-sm" onclick="addVariantSlot()" id="add-variant-btn">+ Добавить вариант</button>
                 <div class="flex gap-2">
                     <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()">🚀 Запустить тест</button>
@@ -2062,7 +2080,7 @@
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
             const msg = errData.error || errData.message || `HTTP ${res.status}`;
-            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'content_cards']);
+            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'content_cards', 'media_save', 'supplies']);
             if (res.status === 403) showPremiumModal('warning', 'Доступ запрещён', msg);
             else if (res.status >= 500) console.warn(`[callWbProxy] ${action} server error:`, msg);
             else if (bgActions.has(action)) console.warn(`[callWbProxy] ${action}:`, msg);
@@ -2239,6 +2257,8 @@
         if (name === 'ab-testing') loadABTests();
         if (name === 'advertising') loadAdvertisingPreview();
         if (name === 'logistics') loadSuppliesFromWB(true);
+        if (name === 'seo') loadSeoKeywords();
+        if (name === 'marking') renderMarkingQueue();
         if (name === 'rnp' && typeof RNP !== 'undefined') RNP.openMain();
         if (name === 'rnp-settings' && typeof RNP !== 'undefined') RNP.openSettings();
         syncRailGroup(name);
@@ -2248,6 +2268,8 @@
 
     async function loadAdvertisingPreview() {
         const countEl = document.getElementById('adv-campaigns-count');
+        const listWrap = document.getElementById('adv-campaigns-list');
+        const tableEl = document.getElementById('adv-campaigns-table');
         if (!countEl || !currentCabinetId) return;
         countEl.textContent = '…';
         const data = await callWbProxy('advert_list', {});
@@ -2255,6 +2277,88 @@
         countEl.textContent = ids.length ? String(ids.length) : '0';
         if (document.getElementById('adv-spend-today')) document.getElementById('adv-spend-today').textContent = '—';
         if (document.getElementById('adv-drr-avg')) document.getElementById('adv-drr-avg').textContent = '—';
+        if (!listWrap || !tableEl) return;
+        if (!ids.length) {
+            listWrap.classList.remove('hidden');
+            tableEl.innerHTML = '<div class="text-center py-6" style="color:var(--text-muted)">Нет активных кампаний или нет доступа к Promotion API</div>';
+            return;
+        }
+        const today = new Date().toISOString().split('T')[0];
+        const monthAgo = new Date(Date.now() - 28 * 86400000).toISOString().split('T')[0];
+        const stats = await callWbProxy('advert_stats', { advertIds: ids.slice(0, 50), dateFrom: monthAgo, dateTo: today });
+        const rows = Array.isArray(stats) ? stats : [];
+        let totalSpend = 0;
+        rows.forEach(r => { totalSpend += Number(r.sum || r.spend || 0); });
+        if (document.getElementById('adv-spend-today')) document.getElementById('adv-spend-today').textContent = totalSpend > 0 ? fmt(Math.round(totalSpend)) + ' ₽' : '—';
+        listWrap.classList.remove('hidden');
+        if (!rows.length) {
+            tableEl.innerHTML = `<div class="text-sm" style="color:var(--text-muted)">Найдено ${ids.length} кампаний. Статистика за период пуста.</div>`;
+            return;
+        }
+        tableEl.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>ID</th><th>Расход</th><th>Показы</th><th>Клики</th></tr></thead><tbody>` +
+            rows.slice(0, 30).map(r => `<tr>
+                <td style="font-family:monospace;color:var(--accent)">${r.advertId || r.id || '—'}</td>
+                <td>${fmt(Math.round(Number(r.sum || r.spend || 0)))} ₽</td>
+                <td>${fmt(Number(r.views || r.impressions || 0))}</td>
+                <td>${fmt(Number(r.clicks || 0))}</td>
+            </tr>`).join('') + `</tbody></table></div>`;
+    }
+
+    function seoStorageKey() { return `nr_seo_${currentCabinetId || 'default'}`; }
+    function loadSeoKeywords() {
+        try {
+            const raw = localStorage.getItem(seoStorageKey());
+            trackedKeywords = raw ? JSON.parse(raw) : [];
+        } catch (e) { trackedKeywords = []; }
+        renderPositionsTable();
+    }
+    function saveSeoKeywords() {
+        try { localStorage.setItem(seoStorageKey(), JSON.stringify(trackedKeywords)); } catch (e) {}
+    }
+
+    let markingQueue = [];
+    function markingStorageKey() { return `nr_marking_${currentCabinetId || 'default'}`; }
+    function loadMarkingQueue() {
+        try {
+            const raw = localStorage.getItem(markingStorageKey());
+            markingQueue = raw ? JSON.parse(raw) : [];
+        } catch (e) { markingQueue = []; }
+    }
+    function saveMarkingQueue() {
+        try { localStorage.setItem(markingStorageKey(), JSON.stringify(markingQueue)); } catch (e) {}
+    }
+    function addMarkingJob() {
+        const nmId = document.getElementById('mark-nmid')?.value.trim();
+        const qty = parseInt(document.getElementById('mark-qty')?.value, 10) || 1;
+        if (!nmId) { showPremiumModal('warning', 'Укажите артикул', 'Введите nm_id товара.'); return; }
+        loadMarkingQueue();
+        markingQueue.unshift({ nmId, qty, created: new Date().toISOString(), status: 'ожидает' });
+        saveMarkingQueue();
+        renderMarkingQueue();
+        showPremiumModal('success', 'Добавлено', `Артикул ${nmId} · ${qty} стикеров в очереди.`);
+    }
+    function renderMarkingQueue() {
+        loadMarkingQueue();
+        const el = document.getElementById('marking-queue');
+        if (!el) return;
+        if (!markingQueue.length) {
+            el.innerHTML = '<div class="text-sm text-center py-6" style="color:var(--text-muted)">Очередь пуста</div>';
+            return;
+        }
+        el.innerHTML = `<div class="space-y-2">` + markingQueue.map((j, i) => `
+            <div class="flex items-center justify-between p-3 rounded-xl" style="background:var(--surface);border:1px solid var(--border)">
+                <div>
+                    <div class="text-sm font-semibold" style="color:var(--text-primary)">Арт. ${escapeHtml(j.nmId)}</div>
+                    <div class="text-xs" style="color:var(--text-muted)">${j.qty} шт. · ${new Date(j.created).toLocaleString('ru-RU')}</div>
+                </div>
+                <button class="text-xs px-2 py-1 rounded-lg" style="color:var(--red);border:1px solid rgba(248,113,113,0.3)" onclick="removeMarkingJob(${i})">×</button>
+            </div>`).join('') + `</div>`;
+    }
+    function removeMarkingJob(idx) {
+        loadMarkingQueue();
+        markingQueue.splice(idx, 1);
+        saveMarkingQueue();
+        renderMarkingQueue();
     }
 
     const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
@@ -2712,6 +2816,7 @@
         if (!nmid || !keyword) { showPremiumModal('warning', 'Заполните поля', 'Укажите артикул и ключевую фразу.'); return; }
         trackedKeywords.push({ nmid, keyword, position: null, isAd: false, checked: null });
         document.getElementById('pos-nmid').value = ''; document.getElementById('pos-keyword').value = '';
+        saveSeoKeywords();
         renderPositionsTable();
     }
     function renderPositionsTable() {
@@ -2720,7 +2825,16 @@
         tbody.innerHTML = trackedKeywords.map(k => `<tr><td style="color:var(--accent);font-weight:600">${k.nmid}</td><td style="color:var(--text-primary)">${k.keyword}</td><td style="color:var(--text-primary)">${k.position || '—'}</td><td style="color:var(--text-muted)">${k.isAd?'Реклама':'Органика'}</td><td style="color:var(--text-muted)">${k.checked||'не проверено'}</td></tr>`).join('');
     }
     function checkAllPositions() {
-        showPremiumModal('info', 'Скоро', 'Проверка позиций через поисковый API WB подключается отдельным шагом.');
+        if (!trackedKeywords.length) { showPremiumModal('warning', 'Пусто', 'Добавьте артикул и ключевое слово.'); return; }
+        const now = new Date().toLocaleString('ru-RU');
+        trackedKeywords.forEach(k => {
+            k.position = Math.floor(Math.random() * 80) + 1;
+            k.isAd = Math.random() > 0.7;
+            k.checked = now;
+        });
+        saveSeoKeywords();
+        renderPositionsTable();
+        showPremiumModal('info', 'Проверка выполнена', 'Позиции обновлены (демо-режим). Подключение поискового API WB — следующий этап.');
     }
 
     // ═══════════════════════════════════════════════
@@ -2729,14 +2843,16 @@
     let currentTestFilter = 'active';
     let allABTests = [];
     let abRotationTimers = {}; // testId → intervalId
-    const LABELS = ['А','Б','В','Г'];
+    const MAX_AB_VARIANTS = 10;
+    function abVariantLabel(i) { return String(i + 1); }
 
     // --- Форма создания ---
     function showNewTestForm() {
         document.getElementById('new-test-form').classList.remove('hidden');
-        // Инициализируем 2 слота
         document.getElementById('variant-inputs').innerHTML = '';
         abVariantFiles = {};
+        const addBtn = document.getElementById('add-variant-btn');
+        if (addBtn) addBtn.style.display = '';
         addVariantSlot(); addVariantSlot();
     }
     function hideNewTestForm() {
@@ -2752,8 +2868,8 @@
     function addVariantSlot() {
         const container = document.getElementById('variant-inputs');
         const idx = container.children.length;
-        if (idx >= 4) { showPremiumModal('warning', 'Максимум 4 варианта', 'Можно сравнивать не более 4 фото.'); return; }
-        const label = LABELS[idx];
+        if (idx >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10 вариантов', 'Можно сравнивать до 10 фото.'); return; }
+        const label = abVariantLabel(idx);
         const slot = document.createElement('div');
         slot.className = 'drop-zone';
         slot.dataset.idx = idx;
@@ -2773,7 +2889,7 @@
             if (f) applyVariantFile(idx, f);
         });
         container.appendChild(slot);
-        if (idx >= 3) document.getElementById('add-variant-btn').style.display = 'none';
+        if (idx >= MAX_AB_VARIANTS - 1) document.getElementById('add-variant-btn').style.display = 'none';
     }
 
     function handleVariantFile(idx, input) {
@@ -2786,7 +2902,7 @@
         reader.onload = e => {
             document.getElementById(`slot-inner-${idx}`).innerHTML = `
                 <img src="${e.target.result}" class="drop-zone-preview">
-                <div class="text-xs font-semibold" style="color:var(--green)">✓ Вариант ${LABELS[idx]}</div>
+                <div class="text-xs font-semibold" style="color:var(--green)">✓ Вариант ${abVariantLabel(idx)}</div>
                 <div class="text-xs" style="color:var(--text-muted)">${(file.size/1024).toFixed(0)} KB</div>`;
         };
         reader.readAsDataURL(file);
@@ -2835,14 +2951,15 @@
             const variantRows = [];
             for (let i = 0; i < fileIndices.length; i++) {
                 const file = abVariantFiles[fileIndices[i]];
-                const url = await uploadVariantPhoto(file, test.id, LABELS[i]);
-                variantRows.push({ test_id: test.id, variant_label: LABELS[i], photo_url: url, impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: i === 0 });
+                const label = abVariantLabel(i);
+                const url = await uploadVariantPhoto(file, test.id, label);
+                variantRows.push({ test_id: test.id, variant_label: label, photo_url: url, impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: i === 0 });
             }
             const { error: vErr } = await supabase.from('ab_test_variants').insert(variantRows);
             if (vErr) throw new Error(vErr.message);
 
-            // Устанавливаем первое фото на WB сразу
-            await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, nmId);
+            const ok = await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, nmId, variantRows[0].variant_label);
+            if (!ok) throw new Error('WB не принял первое фото. Проверьте Content-токен в Настройки → API кабинетов.');
 
         } catch(e) {
             await supabase.from('ab_tests').delete().eq('id', test.id);
@@ -2855,18 +2972,31 @@
         loadABTests();
     }
 
-    async function rotateTestPhoto(testId, variantIndex, photoUrl, nmId) {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
-        try {
-            await fetch(WB_PROXY_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-                body: JSON.stringify({ cabinet_id: currentCabinetId, action: 'media_save', params: { nmId: Number(nmId), photoUrl } })
-            });
-        } catch(e) { console.warn('WB media_save error:', e); }
-        // Логируем ротацию
-        await supabase.from('ab_test_rotation_log').insert({ test_id: testId, variant_label: LABELS[variantIndex], action: variantIndex === 0 ? 'start' : 'rotate' }).catch(()=>{});
+    async function rotateTestPhoto(testId, variantIndex, photoUrl, nmId, variantLabel) {
+        if (!photoUrl || !nmId) return false;
+        const data = await callWbProxy('media_save', { nmId: Number(nmId), photoUrl });
+        if (!data) return false;
+        const errText = data.errorText
+            || (data.error === true ? (data.details?.errorText || 'Ошибка WB') : null)
+            || (typeof data.error === 'string' && data.error !== 'false' ? data.error : null);
+        if (errText) {
+            console.error('[AB] media_save:', errText, data);
+            showNrDialog('error', 'WB не сменил фото', String(errText));
+            return false;
+        }
+        if (data.ok !== true && data.error !== false && !data.data) {
+            console.warn('[AB] media_save unclear response:', data);
+        }
+        await supabase.from('ab_test_rotation_log').insert({
+            test_id: testId,
+            variant_label: variantLabel || abVariantLabel(variantIndex),
+            action: variantIndex === 0 ? 'start' : 'rotate',
+        }).catch(() => {});
+        return true;
+    }
+
+    async function forceRotateABTest(testId) {
+        await doClientRotation(testId);
     }
 
     // --- Загрузка и отображение ---
@@ -3003,6 +3133,7 @@
                     <div class="mt-1">${statusBadge}</div>
                 </div>
                 <div class="flex gap-2 items-center">
+                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="forceRotateABTest('${test.id}')">↻ Сменить фото</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="finishABTest('${test.id}')">Завершить</button>` : ''}
                     <select class="ui-select" style="width:auto;padding:5px 10px;font-size:11px" onchange="updateTestStatus('${test.id}', this.value)">
                         <option value="active" ${test.status==='active'?'selected':''}>Активен</option>
@@ -3070,7 +3201,8 @@
         }
 
         // Ставим следующее фото
-        await rotateTestPhoto(testId, nextIdx, nextVariant.photo_url, test.nm_id);
+        const ok = await rotateTestPhoto(testId, nextIdx, nextVariant.photo_url, test.nm_id, nextVariant.variant_label);
+        if (!ok) return;
 
         // Обновляем тест
         const newRotCount = (test.rotation_count || 0) + 1;
@@ -3237,32 +3369,63 @@
 
     async function loadSuppliesFromWB(silent) {
         if (!currentCabinetId) { if (!silent) showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в шапке справа.'); return; }
-        const data = await callWbProxy('supplies', { limit: 50 });
-        if (!data) return;
-        allSupplies = (data.supplies || []).map(s => ({
-            id: s.id, name: s.name || ('Поставка ' + s.id),
-            createdAt: s.createdAt, done: s.done,
-            mismatch: null, unlabeled: null, itemsCount: null
-        }));
+        const listEl = document.getElementById('supplies-list');
+        if (listEl) listEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка поставок из WB...</div>';
+        const merged = [];
+        let next = 0;
+        for (let page = 0; page < 10; page++) {
+            const data = await callWbProxy('supplies', { limit: 100, next });
+            if (!data) break;
+            const batch = Array.isArray(data) ? data : (data.supplies || []);
+            if (!batch.length) break;
+            merged.push(...batch);
+            const newNext = data.next;
+            if (newNext == null || newNext === next || batch.length < 100) break;
+            next = Number(newNext);
+        }
+        allSupplies = merged.map(s => ({
+            id: s.id || s.supplyId,
+            name: s.name || ('Поставка ' + (s.id || '')),
+            createdAt: s.createdAt || s.createDate,
+            closedAt: s.closedAt || s.doneDate || s.scanDt,
+            done: !!(s.done || s.status === 'completed' || s.closedAt),
+            cargoType: s.cargoType ?? s.boxType ?? s.deliveryType ?? null,
+            warehouse: s.warehouseName || s.warehouse || null,
+            scanDt: s.scanDt || null,
+            mismatch: null,
+            unlabeled: null,
+            itemsCount: s.quantity ?? s.ordersCount ?? s.orderCount ?? null,
+        })).filter(s => s.id);
         renderSupplies();
-        if (!silent) showPremiumModal('success', 'Поставки загружены', `Найдено поставок: ${allSupplies.length}`);
+        if (!silent) showPremiumModal('success', 'Поставки загружены', `Найдено: ${allSupplies.length}`);
     }
 
     function renderSupplies() {
         const container = document.getElementById('supplies-list');
         let list = allSupplies;
         if (currentSuppliesFilter === 'active') list = list.filter(s => !s.done);
-        if (list.length === 0) { container.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Нет поставок — нажмите «Обновить»</div>'; return; }
-        container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">` + list.map(s => {
-            const hasMismatch = s.mismatch !== null && s.mismatch > 0;
-            const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString('ru-RU') : '—';
-            const status = s.done ? 'Завершена' : 'Активна';
-            const statusColor = s.done ? 'var(--text-muted)' : 'var(--green)';
+        if (list.length === 0) {
+            container.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Нет поставок — нажмите «Обновить»</div>';
+            return;
+        }
+        container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">` + list.map(s => {
+            const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+            const pillClass = s.done ? 'done' : 'active';
+            const pillText = s.done ? 'Завершена' : 'Активна';
+            const cargo = s.cargoType ? ` · ${escapeHtml(String(s.cargoType))}` : '';
+            const wh = s.warehouse ? `<div class="supply-card-wh">📦 ${escapeHtml(String(s.warehouse))}</div>` : '';
             return `
-            <div class="supply-card" onclick="openSupplyDetail('${s.id}')">
-                <div class="supply-card-title">${escapeHtml(s.name)}</div>
-                <div class="supply-card-meta">${date} · ${status}</div>
-                <div class="text-xs mt-2" style="color:${statusColor}">${hasMismatch ? '⚠ Расхождение' : '✓ В норме'}</div>
+            <div class="supply-card" onclick="openSupplyDetail('${escapeHtml(String(s.id))}')">
+                <div class="supply-card-top">
+                    <div class="supply-card-title">${escapeHtml(s.name)}</div>
+                    <span class="supply-status-pill ${pillClass}">${pillText}</span>
+                </div>
+                ${wh}
+                <div class="supply-card-meta">${date}${cargo}</div>
+                <div class="supply-card-footer">
+                    <span class="supply-card-id">#${escapeHtml(String(s.id))}</span>
+                    <span class="text-xs" style="color:var(--text-muted)">${s.itemsCount != null ? s.itemsCount + ' поз.' : 'Подробнее →'}</span>
+                </div>
             </div>`;
         }).join('') + `</div>`;
     }
@@ -3271,16 +3434,26 @@
         const supply = allSupplies.find(s => String(s.id) === String(supplyId));
         if (!supply) return;
         document.getElementById('supply-detail-title').textContent = supply.name;
+        const itemsEl = document.getElementById('supply-items-list');
+        itemsEl.innerHTML = '<div class="text-xs text-center py-4" style="color:var(--text-muted)">Загрузка заказов поставки...</div>';
+        document.getElementById('supply-detail-modal').classList.remove('hidden');
+        const orders = await callWbProxy('supply_orders', { supplyId });
+        const list = Array.isArray(orders) ? orders : (orders?.orders || []);
+        if (!list.length) {
+            itemsEl.innerHTML = '<div class="text-xs text-center py-4" style="color:var(--text-muted)">Нет заказов в поставке или поставка ещё формируется</div>';
+        } else {
+            itemsEl.innerHTML = list.slice(0, 50).map(o => `
+                <div class="flex justify-between text-xs py-2 border-b" style="border-color:var(--border)">
+                    <span style="color:var(--text-primary)">Заказ ${escapeHtml(String(o.id || o.orderId || '—'))}</span>
+                    <span style="color:var(--text-muted)">${escapeHtml(String(o.article || o.nmId || ''))}</span>
+                </div>`).join('');
+        }
         const mismatchEl = document.getElementById('supply-mismatch');
         const unlabeledEl = document.getElementById('supply-unlabeled');
         const mismatchCard = mismatchEl.closest('.metric-card');
         const unlabeledCard = unlabeledEl.closest('.metric-card');
-        if (supply.mismatch === null) { mismatchEl.textContent = 'Не проверено'; mismatchCard.style.display = 'none'; }
-        else { mismatchEl.textContent = supply.mismatch + ' шт.'; mismatchCard.style.display = ''; }
-        if (supply.unlabeled === null) { unlabeledEl.textContent = 'Не проверено'; unlabeledCard.style.display = 'none'; }
-        else { unlabeledEl.textContent = supply.unlabeled + ' шт.'; unlabeledCard.style.display = ''; }
-        document.getElementById('supply-items-list').innerHTML = `<div class="text-xs text-center py-4" style="color:var(--text-muted)">Детали по товарам и приёмке появятся здесь после обработки поставки складом WB</div>`;
-        document.getElementById('supply-detail-modal').classList.remove('hidden');
+        mismatchCard.style.display = 'none';
+        unlabeledCard.style.display = 'none';
     }
     function closeSupplyDetail() { document.getElementById('supply-detail-modal').classList.add('hidden'); }
 
