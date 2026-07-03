@@ -305,6 +305,17 @@
         .supply-card-meta { font-size: 11px; color: var(--text-muted); }
         .supply-card-wh { font-size: 11px; color: var(--text-secondary); margin-bottom: 6px; }
         .supply-card-footer { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+        .supply-goods-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .supply-goods-table th {
+            text-align: left; padding: 8px 6px; font-size: 9px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted);
+            border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface-solid);
+        }
+        .supply-goods-table td { padding: 8px 6px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        .supply-goods-table tr:hover td { background: var(--accent-soft); }
+        .supply-qty-ok { color: var(--green); font-weight: 700; }
+        .supply-qty-diff { color: var(--red); font-weight: 700; }
+        .supply-qty-pending { color: var(--amber); font-weight: 600; }
         .nav-item-standalone { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; color: white; font-size: 13px; font-weight: 600; border-radius: 12px; background: var(--accent-gradient); border: none; transition: all 0.25s ease; margin: 4px 12px; box-shadow: var(--use-glow); }
         .nav-item-standalone:hover { transform: translateY(-1px); filter: brightness(1.08); }
         .nav-item-standalone.active { box-shadow: 0 8px 28px rgba(123,97,255,0.45); }
@@ -351,9 +362,90 @@
         .cabinet-select { display: none; }
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-thumb { background: var(--accent-border); border-radius: 2px; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.25s ease; }
+        .tab-content { display: none; position: relative; overflow: hidden; }
+        .tab-content.active {
+            display: block;
+            animation: tabPanelIn 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+        .tab-content.active::before,
+        .tab-content.active::after {
+            content: '';
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(50px);
+            opacity: 0.22;
+        }
+        .tab-content.active::before {
+            width: 220px; height: 220px;
+            background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+            top: -80px; right: -60px;
+            animation: orbDrift 9s ease-in-out infinite;
+        }
+        .tab-content.active::after {
+            width: 160px; height: 160px;
+            background: radial-gradient(circle, var(--blue) 0%, transparent 70%);
+            bottom: -50px; left: -40px;
+            animation: orbDrift 11s ease-in-out infinite reverse;
+        }
+        .tab-content.active > * { position: relative; z-index: 1; }
+        @keyframes tabPanelIn {
+            from { opacity: 0; transform: translateY(10px) scale(0.99); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes orbDrift {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(18px, 12px) scale(1.08); }
+        }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+        .widget-card { animation: cardPop 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
+        .tab-content.active .widget-card:nth-child(2) { animation-delay: 0.06s; }
+        .tab-content.active .widget-card:nth-child(3) { animation-delay: 0.12s; }
+        .tab-content.active .widget-card:nth-child(4) { animation-delay: 0.18s; }
+        @keyframes cardPop {
+            from { opacity: 0; transform: translateY(8px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .beta-module-hero { position: relative; overflow: hidden; }
+        .beta-module-hero .beta-orb {
+            position: absolute; border-radius: 50%; pointer-events: none;
+            filter: blur(35px); opacity: 0.35;
+        }
+        .beta-module-hero .beta-orb-1 {
+            width: 90px; height: 90px; top: -20px; right: 40px;
+            background: var(--accent);
+            animation: orbDrift 7s ease-in-out infinite;
+        }
+        .beta-module-hero .beta-orb-2 {
+            width: 60px; height: 60px; bottom: -10px; left: 30%;
+            background: var(--blue);
+            animation: orbDrift 5s ease-in-out infinite reverse;
+        }
+        .module-date-bar {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            margin-bottom: 4px;
+        }
+        .module-date-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 7px 14px; border-radius: 999px; font-size: 12px; font-weight: 600;
+            cursor: pointer; background: var(--surface); border: 1px solid var(--border);
+            color: var(--text-secondary); transition: all 0.2s; user-select: none;
+        }
+        .module-date-chip:hover, .module-date-chip.active {
+            border-color: var(--accent-border); color: var(--accent); background: var(--accent-soft);
+        }
+        .module-date-chip .date-pulse-dot {
+            width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+            animation: dotPulse 1.4s ease-in-out infinite;
+        }
+        .nr-loader-ring {
+            width: 32px; height: 32px; border-radius: 50%;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent);
+            animation: spin 0.75s linear infinite;
+            margin: 0 auto;
+        }
         .badge-green { background: rgba(52,211,153,0.18); color: var(--green); padding: 2px 8px; border-radius: 5px; font-size: 11px; border: 1px solid rgba(52,211,153,0.3); }
         .badge-red { background: rgba(248,113,113,0.18); color: var(--red); padding: 2px 8px; border-radius: 5px; font-size: 11px; border: 1px solid rgba(248,113,113,0.3); }
         .neon { box-shadow: var(--use-glow); }
@@ -393,8 +485,32 @@
         .header-greeting { font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
         .header-title { font-size: 20px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
         .header-profile { display: none; }
-        .placeholder-widget { padding: 48px 24px; text-align: center; }
-        .placeholder-widget-icon { font-size: 40px; margin-bottom: 16px; opacity: 0.8; }
+        .placeholder-widget { padding: 48px 24px; text-align: center; position: relative; overflow: hidden; }
+        .placeholder-widget-icon {
+            font-size: 28px; margin: 0 auto 16px; width: 72px; height: 72px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            background: var(--accent-soft); border: 1px solid var(--accent-border);
+            animation: iconRingPulse 2.4s ease-in-out infinite;
+        }
+        @keyframes iconRingPulse {
+            0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); transform: scale(1); }
+            50% { box-shadow: 0 0 0 14px transparent; transform: scale(1.04); }
+        }
+        #month-grid button {
+            border-radius: 50% !important;
+            aspect-ratio: 1;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        #month-grid button:hover { transform: scale(1.12); }
+        #month-grid button[style*="var(--accent)"]:not([style*="accent-soft"]) {
+            animation: dayPop 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+        }
+        @keyframes dayPop {
+            from { transform: scale(0.85); }
+            to { transform: scale(1); }
+        }
         .btn-smooth { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
         .btn-smooth:hover { transform: translateY(-1px); }
         .btn-smooth:active { transform: scale(0.97); }
@@ -1490,6 +1606,7 @@
             </div>
             <div style="width:170px;flex-shrink:0;display:flex;flex-direction:column;gap:6px">
                 <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">Быстрый выбор</div>
+                <button onclick="setQuickPicker(0,'today')" class="picker-quick-btn">Сегодня</button>
                 <button onclick="setQuickPicker(7)" class="picker-quick-btn">Последняя неделя</button>
                 <button onclick="setQuickPicker(14)" class="picker-quick-btn">Последние две недели</button>
                 <button onclick="setQuickPicker(0,'month')" class="picker-quick-btn">Текущий месяц</button>
@@ -1547,7 +1664,8 @@
                 </div>
             </div>
             <div id="top-filters-bar" class="flex items-center gap-2 overflow-x-auto pt-3 mt-1">
-                <div class="filter-chip active flex items-center space-x-1.5" onclick="toggleDatePicker(event)">
+                <div class="filter-chip date-filter-chip active flex items-center space-x-1.5" onclick="toggleDatePicker(event)">
+                    <span class="date-pulse-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);animation:dotPulse 1.4s ease-in-out infinite"></span>
                     <span>📅</span><span id="date-range">01.01.2025 — сегодня</span><span style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>
                 </div>
                 <div class="filter-chip">Маркетплейсы <span style="color:var(--text-muted);margin-left:4px">▼</span></div>
@@ -1722,6 +1840,7 @@
 
         <div id="tab-seo" class="tab-content space-y-5">
             <div class="beta-module-hero">
+                <span class="beta-orb beta-orb-1"></span><span class="beta-orb beta-orb-2"></span>
                 <div class="beta-pill">BETA · SEO-Позиции</div>
                 <h2>Мониторинг позиций в поиске WB</h2>
                 <p>Отслеживание позиций артикулов по ключевым словам в выдаче маркетплейса. Добавьте артикул и фразу — система проверит место в поиске.</p>
@@ -1749,9 +1868,17 @@
 
         <div id="tab-advertising" class="tab-content space-y-5">
             <div class="beta-module-hero">
+                <span class="beta-orb beta-orb-1"></span><span class="beta-orb beta-orb-2"></span>
                 <div class="beta-pill">BETA · Контроль РК</div>
                 <h2>Управление рекламными кампаниями WB</h2>
                 <p>Мониторинг CTR, CPC, ДРР и автоматический биддер ставок. Подключение через Promotion API кабинета.</p>
+            </div>
+            <div class="module-date-bar">
+                <div class="module-date-chip active" onclick="toggleModuleDatePicker(event, this)">
+                    <span class="date-pulse-dot"></span><span>📅</span>
+                    <span class="module-date-label">Период</span><span style="opacity:0.5;font-size:10px">▼</span>
+                </div>
+                <span class="text-xs" style="color:var(--text-muted)">Статистика РК за выбранный день или период</span>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="widget-card p-5">
@@ -1759,7 +1886,7 @@
                     <div id="adv-campaigns-count" class="text-2xl font-black" style="color:var(--text-primary)">—</div>
                 </div>
                 <div class="widget-card p-5">
-                    <div class="text-xs mb-1" style="color:var(--text-muted)">Расход сегодня</div>
+                    <div class="text-xs mb-1" style="color:var(--text-muted)">Расход за период</div>
                     <div id="adv-spend-today" class="text-2xl font-black" style="color:var(--text-primary)">—</div>
                 </div>
                 <div class="widget-card p-5">
@@ -1779,9 +1906,17 @@
 
         <div id="tab-marking" class="tab-content space-y-5">
             <div class="beta-module-hero">
+                <span class="beta-orb beta-orb-1"></span><span class="beta-orb beta-orb-2"></span>
                 <div class="beta-pill">BETA · Маркировка &amp; ШК</div>
                 <h2>Tekser · Честный Знак</h2>
                 <p>Интеграция с системой маркировки Tekser (tekser.kg). Генерация объединённых PDF-стикеров: логистический ШК WB + DataMatrix код маркировки.</p>
+            </div>
+            <div class="module-date-bar">
+                <div class="module-date-chip active" onclick="toggleModuleDatePicker(event, this)">
+                    <span class="date-pulse-dot"></span><span>📅</span>
+                    <span class="module-date-label">Период</span><span style="opacity:0.5;font-size:10px">▼</span>
+                </div>
+                <span class="text-xs" style="color:var(--text-muted)">Очередь стикеров за выбранный день</span>
             </div>
             <div class="widget-card p-6">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -1805,9 +1940,17 @@
 
         <div id="tab-logistics" class="tab-content space-y-5">
             <div class="beta-module-hero" style="padding:20px 24px;margin-bottom:0">
+                <span class="beta-orb beta-orb-1"></span><span class="beta-orb beta-orb-2"></span>
                 <div class="beta-pill">BETA · Логистика</div>
                 <h2 style="font-size:17px">Остатки и поставки WB</h2>
                 <p style="font-size:12px;margin:0">Мониторинг складов и архив отгрузок в виде компактных карточек. <span id="logistics-build-tag" style="opacity:0.45;font-size:10px">v2026-07-03</span></p>
+            </div>
+            <div class="module-date-bar">
+                <div class="module-date-chip active" onclick="toggleModuleDatePicker(event, this)">
+                    <span class="date-pulse-dot"></span><span>📅</span>
+                    <span class="module-date-label">Период</span><span style="opacity:0.5;font-size:10px">▼</span>
+                </div>
+                <span class="text-xs" style="color:var(--text-muted)">Поставки за выбранный день или диапазон</span>
             </div>
             <div class="widget-card p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -1823,22 +1966,30 @@
                 <div id="supplies-list"><div class="text-center py-10 text-sm col-span-2" style="color:var(--text-muted)">Нажмите "Обновить" для загрузки поставок из WB</div></div>
             </div>
             <div id="supply-detail-modal" class="hidden" style="position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px)">
-                <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:28px;max-width:520px;width:90%;max-height:80vh;overflow-y-auto">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 id="supply-detail-title" class="font-semibold" style="color:var(--text-primary)">Поставка</h3>
+                <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:28px;max-width:760px;width:94%;max-height:85vh;overflow-y-auto">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <h3 id="supply-detail-title" class="font-semibold" style="color:var(--text-primary)">Поставка</h3>
+                            <div id="supply-detail-meta" class="text-xs mt-1" style="color:var(--text-muted)"></div>
+                        </div>
                         <button onclick="closeSupplyDetail()" style="color:var(--text-muted);font-size:20px;background:none;border:none;cursor:pointer">×</button>
                     </div>
-                    <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                        <div class="metric-card" style="padding:12px">
+                            <div class="text-xs mb-1" style="color:var(--text-muted)">В поставке</div>
+                            <div id="supply-total-qty" class="text-lg font-black" style="color:var(--text-primary)">—</div>
+                        </div>
+                        <div class="metric-card" style="padding:12px">
+                            <div class="text-xs mb-1" style="color:var(--text-muted)">Принято</div>
+                            <div id="supply-accepted-qty" class="text-lg font-black" style="color:var(--green)">—</div>
+                        </div>
                         <div class="metric-card" style="padding:12px">
                             <div class="text-xs mb-1" style="color:var(--text-muted)">Расхождение</div>
                             <div id="supply-mismatch" class="text-lg font-black" style="color:var(--text-primary)">—</div>
                         </div>
-                        <div class="metric-card" style="padding:12px">
-                            <div class="text-xs mb-1" style="color:var(--text-muted)">Обезличка</div>
-                            <div id="supply-unlabeled" class="text-lg font-black" style="color:var(--text-primary)">—</div>
-                        </div>
                     </div>
-                    <div id="supply-items-list" class="space-y-2 max-h-64 overflow-y-auto"></div>
+                    <div class="text-xs font-semibold mb-2" style="color:var(--text-secondary)">Товары в поставке</div>
+                    <div id="supply-items-list" class="max-h-[50vh] overflow-y-auto rounded-xl" style="border:1px solid var(--border)"></div>
                 </div>
             </div>
         </div>
@@ -1852,6 +2003,7 @@
 
         <div id="tab-ab-testing" class="tab-content space-y-4">
             <div class="beta-module-hero" style="padding:16px 20px;margin-bottom:0">
+                <span class="beta-orb beta-orb-1"></span><span class="beta-orb beta-orb-2"></span>
                 <div class="beta-pill">BETA · А/Б Тесты</div>
                 <p style="font-size:12px;margin:0;color:var(--text-muted)">Аналитика кликабельности фото и эффективности смены CPM-ставок.</p>
             </div>
@@ -2248,8 +2400,14 @@
         document.getElementById('page-title').textContent = tabTitles[name] || name;
         const greeting = document.querySelector('.header-greeting');
         if (greeting) greeting.style.display = (name === 'rnp' || name === 'rnp-settings') ? 'none' : '';
+        const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'marking']);
         const filtersBar = document.getElementById('top-filters-bar');
-        if (filtersBar) filtersBar.style.display = name === 'dashboard' ? 'flex' : 'none';
+        if (filtersBar) {
+            filtersBar.style.display = DATE_FILTER_TABS.has(name) ? 'flex' : 'none';
+            filtersBar.querySelectorAll('.filter-chip:not(.date-filter-chip)').forEach(el => {
+                el.style.display = name === 'dashboard' ? '' : 'none';
+            });
+        }
         const rnpRefresh = document.getElementById('rnp-header-refresh');
         const mainRefresh = document.getElementById('refresh-btn');
         if (rnpRefresh) rnpRefresh.classList.toggle('hidden', name !== 'rnp');
@@ -2265,6 +2423,7 @@
         if (name === 'marking') renderMarkingQueue();
         if (name === 'rnp' && typeof RNP !== 'undefined') RNP.openMain();
         if (name === 'rnp-settings' && typeof RNP !== 'undefined') RNP.openSettings();
+        if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
         syncRailGroup(name);
         syncModuleUrl(name);
         try { localStorage.setItem('nr_active_tab', name); } catch(e) {}
@@ -2287,9 +2446,8 @@
             tableEl.innerHTML = '<div class="text-center py-6" style="color:var(--text-muted)">Нет активных кампаний или нет доступа к Promotion API</div>';
             return;
         }
-        const today = new Date().toISOString().split('T')[0];
-        const monthAgo = new Date(Date.now() - 28 * 86400000).toISOString().split('T')[0];
-        const stats = await callWbProxy('advert_stats', { advertIds: ids.slice(0, 50), dateFrom: monthAgo, dateTo: today });
+        const { from, to } = getActiveDateRange();
+        const stats = await callWbProxy('advert_stats', { advertIds: ids.slice(0, 50), dateFrom: from, dateTo: to });
         const rows = Array.isArray(stats) ? stats : [];
         let totalSpend = 0;
         rows.forEach(r => { totalSpend += Number(r.sum || r.spend || 0); });
@@ -2345,18 +2503,34 @@
         loadMarkingQueue();
         const el = document.getElementById('marking-queue');
         if (!el) return;
-        if (!markingQueue.length) {
-            el.innerHTML = '<div class="text-sm text-center py-6" style="color:var(--text-muted)">Очередь пуста</div>';
+        const { from, to } = getActiveDateRange();
+        const filtered = markingQueue.filter(j => {
+            const day = (j.created || '').slice(0, 10);
+            return day >= from && day <= to;
+        });
+        if (!filtered.length) {
+            el.innerHTML = `<div class="text-sm text-center py-6" style="color:var(--text-muted)">${markingQueue.length ? 'За выбранный день очередь пуста' : 'Очередь пуста'}</div>`;
             return;
         }
-        el.innerHTML = `<div class="space-y-2">` + markingQueue.map((j, i) => `
+        el.innerHTML = `<div class="space-y-2">` + filtered.map((j) => {
+            const key = encodeURIComponent(j.created) + '|' + encodeURIComponent(j.nmId);
+            return `
             <div class="flex items-center justify-between p-3 rounded-xl" style="background:var(--surface);border:1px solid var(--border)">
                 <div>
                     <div class="text-sm font-semibold" style="color:var(--text-primary)">Арт. ${escapeHtml(j.nmId)}</div>
                     <div class="text-xs" style="color:var(--text-muted)">${j.qty} шт. · ${new Date(j.created).toLocaleString('ru-RU')}</div>
                 </div>
-                <button class="text-xs px-2 py-1 rounded-lg" style="color:var(--red);border:1px solid rgba(248,113,113,0.3)" onclick="removeMarkingJob(${i})">×</button>
-            </div>`).join('') + `</div>`;
+                <button class="text-xs px-2 py-1 rounded-lg" style="color:var(--red);border:1px solid rgba(248,113,113,0.3)" onclick="removeMarkingJobByKey('${key}')">×</button>
+            </div>`;
+        }).join('') + `</div>`;
+    }
+    function removeMarkingJobByKey(key) {
+        const [created, nmId] = key.split('|').map(decodeURIComponent);
+        loadMarkingQueue();
+        const idx = markingQueue.findIndex(j => j.created === created && String(j.nmId) === String(nmId));
+        if (idx >= 0) markingQueue.splice(idx, 1);
+        saveMarkingQueue();
+        renderMarkingQueue();
     }
     function removeMarkingJob(idx) {
         loadMarkingQueue();
@@ -2368,12 +2542,70 @@
     const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
     const RU_MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
     let pickerState = { year:2026, month:new Date().getMonth(), fromDate:null, toDate:null, selecting:'from' };
+    let activeDateFrom = '2025-01-01';
+    let activeDateTo = (() => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
+
+    function getActiveDateRange() {
+        return { from: activeDateFrom, to: activeDateTo };
+    }
+
+    function updateDateRangeLabel() {
+        const fromD = new Date(activeDateFrom + 'T12:00:00');
+        const toD = new Date(activeDateTo + 'T12:00:00');
+        const text = activeDateFrom === activeDateTo
+            ? fmtRuDate(fromD)
+            : fmtRuDate(fromD) + ' — ' + fmtRuDate(toD);
+        const main = document.getElementById('date-range');
+        if (main) main.textContent = text;
+        document.querySelectorAll('.module-date-label').forEach(el => { el.textContent = text; });
+    }
+
+    function syncPickerFromActive() {
+        const [fy, fm, fd] = activeDateFrom.split('-').map(Number);
+        const [ty, tm, td] = activeDateTo.split('-').map(Number);
+        pickerState.fromDate = new Date(fy, fm - 1, fd);
+        pickerState.toDate = new Date(ty, tm - 1, td);
+        pickerState.year = ty;
+        pickerState.month = tm - 1;
+        pickerState.selecting = 'from';
+        const yl = document.getElementById('year-label');
+        if (yl) yl.textContent = pickerState.year;
+        const pf = document.getElementById('picker-from');
+        const pt = document.getElementById('picker-to');
+        if (pf) pf.value = activeDateFrom;
+        if (pt) pt.value = activeDateTo;
+    }
+
+    function onDateRangeApplied() {
+        const active = document.querySelector('.tab-content.active');
+        const name = active?.id?.replace('tab-', '') || 'dashboard';
+        if (name === 'dashboard' || name === 'summary') loadFromDB(activeDateFrom, activeDateTo);
+        else if (name === 'advertising') loadAdvertisingPreview();
+        else if (name === 'logistics') filterSuppliesByDate();
+        else if (name === 'marking') renderMarkingQueue();
+    }
+
+    function toggleModuleDatePicker(e, el) {
+        e.stopPropagation();
+        const p = document.getElementById('date-picker');
+        if (!p) return;
+        const rect = el.getBoundingClientRect();
+        p.style.top = (rect.bottom + 8) + 'px';
+        p.style.left = Math.min(rect.left, window.innerWidth - 500) + 'px';
+        p.classList.toggle('hidden');
+        if (!p.classList.contains('hidden')) { syncPickerFromActive(); renderYearGrid(); renderMonthGrid(); }
+    }
 
     function toggleDatePicker(e) {
         e.stopPropagation();
         const p = document.getElementById('date-picker');
         p.classList.toggle('hidden');
-        if (!p.classList.contains('hidden')) { renderYearGrid(); renderMonthGrid(); }
+        if (!p.classList.contains('hidden')) {
+            p.style.top = '100px';
+            p.style.left = '300px';
+            syncPickerFromActive();
+            renderYearGrid(); renderMonthGrid();
+        }
     }
     document.addEventListener('click', function(e) {
         const p = document.getElementById('date-picker');
@@ -2418,7 +2650,7 @@
             const isFrom = pickerState.fromDate && fmtDate(date) === fmtDate(pickerState.fromDate);
             const isTo = pickerState.toDate && fmtDate(date) === fmtDate(pickerState.toDate);
             const inRange = pickerState.fromDate && pickerState.toDate && date > pickerState.fromDate && date < pickerState.toDate;
-            btn.style.cssText = `background:${(isFrom||isTo)?'var(--accent)':inRange?'var(--accent-soft)':'none'};color:${(isFrom||isTo)?'white':inRange?'var(--accent)':isWE?'var(--red)':'var(--text-primary)'};border:none;border-radius:6px;padding:4px 2px;font-size:11px;cursor:pointer;font-weight:${(isFrom||isTo)?'600':'400'}`;
+            btn.style.cssText = `background:${(isFrom||isTo)?'var(--accent)':inRange?'var(--accent-soft)':'none'};color:${(isFrom||isTo)?'white':inRange?'var(--accent)':isWE?'var(--red)':'var(--text-primary)'};border:none;border-radius:50%;padding:0;font-size:11px;cursor:pointer;font-weight:${(isFrom||isTo)?'700':'400'};width:100%;aspect-ratio:1`;
             btn.onclick = () => {
                 if (pickerState.selecting === 'from' || !pickerState.fromDate) { pickerState.fromDate = date; pickerState.toDate = null; pickerState.selecting = 'to'; }
                 else { if (date < pickerState.fromDate) { pickerState.toDate = pickerState.fromDate; pickerState.fromDate = date; } else { pickerState.toDate = date; } pickerState.selecting = 'from'; }
@@ -2432,7 +2664,8 @@
     }
     function setQuickPicker(days, mode) {
         const to = new Date(); let from = new Date();
-        if (days > 0) { from.setDate(to.getDate() - days); }
+        if (mode === 'today') { from = new Date(to); }
+        else if (days > 0) { from.setDate(to.getDate() - days); }
         else if (mode === 'month') { from = new Date(to.getFullYear(), to.getMonth(), 1); }
         else if (mode === 'year2025') { from = new Date(2025, 0, 1); }
         else if (mode === 'year2026') { from = new Date(2026, 0, 1); }
@@ -2455,11 +2688,13 @@
         renderYearGrid(); renderMonthGrid();
     }
     function applyPicker() {
-        if (!pickerState.fromDate || !pickerState.toDate) { showPremiumModal('warning','Выберите период','Нужно указать обе даты — начало и конец.'); return; }
-        const from = fmtDate(pickerState.fromDate); const to = fmtDate(pickerState.toDate);
-        document.getElementById('date-range').textContent = fmtRuDate(pickerState.fromDate) + ' — ' + fmtRuDate(pickerState.toDate);
+        if (!pickerState.fromDate) { showPremiumModal('warning','Выберите дату','Нужно указать хотя бы одну дату.'); return; }
+        if (!pickerState.toDate) pickerState.toDate = pickerState.fromDate;
+        activeDateFrom = fmtDate(pickerState.fromDate);
+        activeDateTo = fmtDate(pickerState.toDate);
+        updateDateRangeLabel();
         document.getElementById('date-picker').classList.add('hidden');
-        loadFromDB(from, to);
+        onDateRangeApplied();
     }
 
     function updateCabinetPickerUI(name) {
@@ -2963,7 +3198,7 @@
             if (vErr) throw new Error(vErr.message);
 
             const ok = await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, nmId, variantRows[0].variant_label);
-            if (!ok) throw new Error('WB не принял первое фото. Проверьте Content-токен в Настройки → API кабинетов.');
+            if (!ok) throw new Error('WB не принял первое фото. Попробуйте ещё раз.');
 
         } catch(e) {
             await supabase.from('ab_tests').delete().eq('id', test.id);
@@ -3361,27 +3596,27 @@
         loadCabinets();
     }
 
+    let allSuppliesRaw = [];
     let allSupplies = [];
     let currentSuppliesFilter = 'all';
+
+    function supplyInDateRange(s, from, to) {
+        if (!s.createdAt) return true;
+        const day = String(s.createdAt).slice(0, 10);
+        return day >= from && day <= to;
+    }
+
+    function filterSuppliesByDate() {
+        const { from, to } = getActiveDateRange();
+        allSupplies = allSuppliesRaw.filter(s => supplyInDateRange(s, from, to));
+        renderSupplies();
+    }
 
     function filterSupplies(mode, el) {
         currentSuppliesFilter = mode;
         document.querySelectorAll('#tab-logistics .segment-tab').forEach(t => t.classList.remove('active'));
         el.classList.add('active');
         renderSupplies();
-    }
-
-    function mapFbsSupply(s) {
-        return {
-            id: s.id || s.supplyId,
-            type: 'fbs',
-            name: s.name || ('Поставка FBS ' + (s.id || '')),
-            createdAt: s.createdAt || s.createDate,
-            done: s.done === true,
-            cargoType: s.cargoType ?? s.boxType ?? s.deliveryType ?? 'FBS',
-            warehouse: s.warehouseName || s.warehouse || (s.destinationOfficeId ? ('Склад #' + s.destinationOfficeId) : null),
-            itemsCount: s.quantity ?? s.ordersCount ?? s.orderCount ?? null,
-        };
     }
 
     function mapFbwSupply(s) {
@@ -3392,11 +3627,9 @@
         const date = s.createDate || s.supplyDate || s.factDate || s.updatedDate;
         return {
             id,
-            type: 'fbw',
-            name: statusName ? ('Поставка · ' + statusName) : ('Поставка FBW ' + id),
+            name: statusName ? ('Поставка · ' + statusName) : ('Поставка ' + id),
             createdAt: date,
             done,
-            cargoType: 'FBW',
             warehouse: s.warehouseName || s.warehouse || null,
             itemsCount: s.quantity ?? s.detailsQuantity ?? s.goodsQuantity ?? null,
             statusName,
@@ -3411,62 +3644,37 @@
             return;
         }
         const listEl = document.getElementById('supplies-list');
-        if (listEl) listEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка поставок FBW + FBS из WB...</div>';
+        if (listEl) listEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка поставок из WB...</div>';
 
-        const collected = [];
-        const notes = [];
-
-        const fbw = await callWbProxy('fbw_supplies', { limit: 1000, offset: 0 });
-        if (Array.isArray(fbw)) {
-            collected.push(...fbw.map(mapFbwSupply).filter(s => s.id));
-            if (fbw.length) notes.push(`FBW: ${fbw.length}`);
-        } else if (fbw?.error) {
-            notes.push('FBW: ' + fbw.error);
-        } else if (fbw === null) {
-            notes.push('FBW: нет доступа (категория «Поставки» в токене)');
+        const data = await callWbProxy('fbw_supplies', { limit: 1000, offset: 0 });
+        if (!data) {
+            renderSuppliesError('WB не ответил. Попробуйте ещё раз.');
+            if (!silent) showPremiumModal('error', 'Ошибка загрузки', 'WB не ответил. Попробуйте ещё раз.');
+            return;
+        }
+        if (data.error) {
+            renderSuppliesError(String(data.error));
+            if (!silent) showPremiumModal('error', 'Ошибка загрузки', String(data.error));
+            return;
         }
 
-        let next = 0;
-        let fbsTotal = 0;
-        for (let page = 0; page < 10; page++) {
-            const data = await callWbProxy('supplies', { limit: 100, next });
-            if (!data) {
-                if (!fbsTotal) notes.push('FBS: нет доступа (категория «Маркетплейс»)');
-                break;
-            }
-            if (data.error && !data.supplies) {
-                notes.push('FBS: ' + data.error);
-                break;
-            }
-            const batch = Array.isArray(data) ? data : (data.supplies || []);
-            if (!batch.length) break;
-            collected.push(...batch.map(mapFbsSupply).filter(s => s.id));
-            fbsTotal += batch.length;
-            const newNext = data.next;
-            if (newNext == null || newNext === next || batch.length < 100) break;
-            next = Number(newNext);
-        }
-        if (fbsTotal) notes.push(`FBS: ${fbsTotal}`);
-
-        allSupplies = collected.sort((a, b) => {
+        const batch = Array.isArray(data) ? data : (data.supplies || data.data || []);
+        allSuppliesRaw = batch.map(mapFbwSupply).filter(s => s.id).sort((a, b) => {
             const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
             return tb - ta;
         });
 
-        if (!allSupplies.length) {
-            const hint = notes.length ? notes.join(' · ') : 'Проверьте токен WB в Настройки → API';
-            renderSuppliesError('Поставок не найдено. ' + hint);
-            if (!silent) showPremiumModal('warning', 'Поставки пусто', hint);
+        if (!allSuppliesRaw.length) {
+            renderSuppliesError('Поставок не найдено в кабинете.');
+            if (!silent) showPremiumModal('info', 'Поставки', 'В кабинете нет поставок.');
             return;
         }
 
-        renderSupplies();
+        filterSuppliesByDate();
         if (!silent) {
             const activeCount = allSupplies.filter(s => !s.done).length;
-            const fbwCount = allSupplies.filter(s => s.type === 'fbw').length;
-            const fbsCount = allSupplies.filter(s => s.type === 'fbs').length;
-            showPremiumModal('success', 'Поставки загружены', `Всего: ${allSupplies.length} (FBW: ${fbwCount}, FBS: ${fbsCount}) · активных: ${activeCount}`);
+            showPremiumModal('success', 'Поставки загружены', `Всего: ${allSupplies.length} за период · активных: ${activeCount}`);
         }
     }
 
@@ -3485,7 +3693,10 @@
         let list = allSupplies;
         if (currentSuppliesFilter === 'active') list = list.filter(s => !s.done);
         if (allSupplies.length === 0) {
-            container.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Нажмите «Обновить» — загрузим поставки FBW (на склад) и FBS (сборка)</div>';
+            const msg = allSuppliesRaw.length
+                ? 'За выбранный период поставок нет — смените дату в календаре'
+                : 'Нажмите «Обновить» для загрузки поставок';
+            container.innerHTML = `<div class="text-center py-10 text-sm" style="color:var(--text-muted)">${msg}</div>`;
             return;
         }
         if (list.length === 0) {
@@ -3498,9 +3709,8 @@
             const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
             const pillClass = s.done ? 'done' : 'active';
             const pillText = s.done ? 'Завершена' : 'Активна';
-            const cargo = s.cargoType ? ` · ${escapeHtml(String(s.cargoType))}` : '';
+            const cargo = s.statusName ? ` · ${escapeHtml(s.statusName)}` : '';
             const wh = s.warehouse ? `<div class="supply-card-wh">📦 ${escapeHtml(String(s.warehouse))}</div>` : '';
-            const typeBadge = s.type === 'fbw' ? 'FBW' : 'FBS';
             return `
             <div class="supply-card" onclick="openSupplyDetail('${escapeHtml(String(s.id))}')">
                 <div class="supply-card-top">
@@ -3508,7 +3718,7 @@
                     <span class="supply-status-pill ${pillClass}">${pillText}</span>
                 </div>
                 ${wh}
-                <div class="supply-card-meta">${date} · ${typeBadge}${cargo}</div>
+                <div class="supply-card-meta">${date}${cargo}</div>
                 <div class="supply-card-footer">
                     <span class="supply-card-id">#${escapeHtml(String(s.id))}</span>
                     <span class="text-xs" style="color:var(--text-muted)">${s.itemsCount != null ? s.itemsCount + ' поз.' : 'Подробнее →'}</span>
@@ -3517,45 +3727,111 @@
         }).join('') + `</div>`;
     }
 
+    async function fetchAllSupplyGoods(supplyId) {
+        const merged = [];
+        for (let offset = 0; offset < 10000; offset += 1000) {
+            const chunk = await callWbProxy('fbw_supply_goods', { supplyId, limit: 1000, offset });
+            if (!chunk) break;
+            const list = Array.isArray(chunk) ? chunk : (chunk.goods || chunk.data || []);
+            if (!list.length) break;
+            merged.push(...list);
+            if (list.length < 1000) break;
+        }
+        return merged;
+    }
+
+    function renderSupplyGoodsRow(g) {
+        const vendor = g.vendorCode || g.article || g.sa || '—';
+        const nmId = g.nmID || g.nmId || '—';
+        const size = g.techSize || g.size || '—';
+        const planned = Number(g.quantity ?? 0);
+        const accepted = Number(g.acceptedQuantity ?? 0);
+        const ready = Number(g.readyForSaleQuantity ?? 0);
+        const diff = planned - accepted;
+        let acceptedClass = 'supply-qty-pending';
+        let acceptedText = String(accepted);
+        if (accepted > 0 && diff <= 0) {
+            acceptedClass = 'supply-qty-ok';
+            acceptedText = accepted + ' ✓';
+        } else if (diff > 0 && accepted > 0) {
+            acceptedClass = 'supply-qty-diff';
+            acceptedText = accepted + ' (−' + diff + ')';
+        } else if (accepted === 0 && planned > 0) {
+            acceptedClass = 'supply-qty-diff';
+            acceptedText = '0';
+        }
+        return `<tr>
+            <td style="color:var(--text-primary);font-weight:600">${escapeHtml(String(vendor))}</td>
+            <td style="color:var(--accent);font-family:monospace">${escapeHtml(String(nmId))}</td>
+            <td style="color:var(--text-muted)">${escapeHtml(String(size))}</td>
+            <td style="text-align:center">${planned}</td>
+            <td style="text-align:center" class="${acceptedClass}">${acceptedText}</td>
+            <td style="text-align:center;color:var(--text-muted)">${ready > 0 ? ready : '—'}</td>
+        </tr>`;
+    }
+
     async function openSupplyDetail(supplyId) {
         const supply = allSupplies.find(s => String(s.id) === String(supplyId));
         if (!supply) return;
         document.getElementById('supply-detail-title').textContent = supply.name;
+        document.getElementById('supply-detail-meta').textContent = '#' + supply.id + (supply.warehouse ? ' · ' + supply.warehouse : '');
         const itemsEl = document.getElementById('supply-items-list');
-        itemsEl.innerHTML = '<div class="text-xs text-center py-4" style="color:var(--text-muted)">Загрузка заказов поставки...</div>';
+        document.getElementById('supply-total-qty').textContent = '…';
+        document.getElementById('supply-accepted-qty').textContent = '…';
+        document.getElementById('supply-mismatch').textContent = '…';
+        itemsEl.innerHTML = '<div class="text-xs text-center py-6" style="color:var(--text-muted)">Загрузка товаров...</div>';
         document.getElementById('supply-detail-modal').classList.remove('hidden');
-        let list = [];
-        if (supply.type === 'fbw') {
-            const goods = await callWbProxy('fbw_supply_goods', { supplyId });
-            list = Array.isArray(goods) ? goods : (goods?.goods || goods?.data || []);
-            if (!list.length) {
-                itemsEl.innerHTML = '<div class="text-xs text-center py-4" style="color:var(--text-muted)">Нет товаров в поставке или нет доступа к Supplies API</div>';
-                return;
-            }
-            itemsEl.innerHTML = list.slice(0, 50).map(g => `
-                <div class="flex justify-between text-xs py-2 border-b" style="border-color:var(--border)">
-                    <span style="color:var(--text-primary)">${escapeHtml(String(g.vendorCode || g.article || g.sa || '—'))}</span>
-                    <span style="color:var(--text-muted)">${escapeHtml(String(g.nmID || g.nmId || ''))} · ${g.quantity || g.acceptedQuantity || 0} шт.</span>
-                </div>`).join('');
+
+        const [detail, goods] = await Promise.all([
+            callWbProxy('fbw_supply_detail', { supplyId }),
+            fetchAllSupplyGoods(supplyId),
+        ]);
+
+        if (detail && !detail.error) {
+            const wh = detail.actualWarehouseName || detail.warehouseName;
+            const date = detail.factDate || detail.supplyDate || detail.createDate;
+            const dateStr = date ? new Date(date).toLocaleDateString('ru-RU') : '';
+            document.getElementById('supply-detail-meta').textContent =
+                '#' + supply.id + (wh ? ' · ' + wh : '') + (dateStr ? ' · ' + dateStr : '');
+        }
+
+        if (!goods.length) {
+            itemsEl.innerHTML = '<div class="text-xs text-center py-6" style="color:var(--text-muted)">Товаров в поставке нет</div>';
+            document.getElementById('supply-total-qty').textContent = '0';
+            document.getElementById('supply-accepted-qty').textContent = '0';
+            document.getElementById('supply-mismatch').textContent = '0';
             return;
         }
-        const orders = await callWbProxy('supply_orders', { supplyId });
-        list = Array.isArray(orders) ? orders : (orders?.orders || []);
-        if (!list.length) {
-            itemsEl.innerHTML = '<div class="text-xs text-center py-4" style="color:var(--text-muted)">Нет заказов в поставке или поставка ещё формируется</div>';
-        } else {
-            itemsEl.innerHTML = list.slice(0, 50).map(o => `
-                <div class="flex justify-between text-xs py-2 border-b" style="border-color:var(--border)">
-                    <span style="color:var(--text-primary)">Заказ ${escapeHtml(String(o.id || o.orderId || '—'))}</span>
-                    <span style="color:var(--text-muted)">${escapeHtml(String(o.article || o.nmId || ''))}</span>
-                </div>`).join('');
-        }
+
+        let totalPlanned = 0;
+        let totalAccepted = 0;
+        goods.forEach(g => {
+            totalPlanned += Number(g.quantity ?? 0);
+            totalAccepted += Number(g.acceptedQuantity ?? 0);
+        });
+        const totalDiff = Math.max(0, totalPlanned - totalAccepted);
+
+        document.getElementById('supply-total-qty').textContent = totalPlanned + ' шт.';
+        document.getElementById('supply-accepted-qty').textContent = totalAccepted + ' шт.';
         const mismatchEl = document.getElementById('supply-mismatch');
-        const unlabeledEl = document.getElementById('supply-unlabeled');
-        const mismatchCard = mismatchEl.closest('.metric-card');
-        const unlabeledCard = unlabeledEl.closest('.metric-card');
-        mismatchCard.style.display = 'none';
-        unlabeledCard.style.display = 'none';
+        mismatchEl.textContent = totalDiff > 0 ? ('−' + totalDiff + ' шт.') : '0';
+        mismatchEl.style.color = totalDiff > 0 ? 'var(--red)' : 'var(--green)';
+
+        const sorted = goods.slice().sort((a, b) => {
+            const diffA = Number(a.quantity ?? 0) - Number(a.acceptedQuantity ?? 0);
+            const diffB = Number(b.quantity ?? 0) - Number(b.acceptedQuantity ?? 0);
+            return diffB - diffA;
+        });
+
+        itemsEl.innerHTML = `<table class="supply-goods-table">
+            <thead><tr>
+                <th>Артикул</th><th>WB</th><th>Размер</th>
+                <th style="text-align:center">В поставке</th>
+                <th style="text-align:center">Принято</th>
+                <th style="text-align:center">В продаже</th>
+            </tr></thead>
+            <tbody>${sorted.map(renderSupplyGoodsRow).join('')}</tbody>
+        </table>`;
     }
     function closeSupplyDetail() { document.getElementById('supply-detail-modal').classList.add('hidden'); }
 
@@ -3578,6 +3854,7 @@
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
         currentUserEmail = session.user.email || '';
         await loadCabinets();
+        updateDateRangeLabel();
         await loadABTests();
 
         // Init RNP, then restore last tab, then hide loader — all in one step
