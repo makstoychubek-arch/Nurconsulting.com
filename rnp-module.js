@@ -33,6 +33,7 @@ const RNP = (() => {
     const PLAN_KEYS = ['plan_orders','plan_sales','plan_impressions','plan_clicks','plan_drr','plan_ad_spend'];
     const SUMMARY_TAB = 'summary';
     const GENERAL_TAB = 'general';
+    const UNCATEGORIZED = 'Без категории';
     const CABINET_ART = { nm_id: -1, name: 'Общий', manual_data: {}, cost_price: 0, logistics_unit: 0, other_costs_unit: 0 };
     const VIEW_PRESETS = {
         all: null,
