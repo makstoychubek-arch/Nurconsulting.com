@@ -1351,18 +1351,17 @@ const RNP = (() => {
     function _buildGeneralBottomGallery(active) {
         const items = active.map(a => {
             const label = _sellerArticle(a).replace(/</g, '&lt;');
-            return `<div class="rnp-gallery-item rnp-gallery-item--lg" title="${label}">
+            return `<div class="rnp-gallery-item rnp-gallery-item--lg rnp-general-pick" role="button" tabindex="0"
+              onclick="RNP.pick(${a.nm_id})" title="Открыть: ${label}">
               <div class="rnp-gallery-photo">${_imgHtml(a, 'rnp-gallery-img', 'c246x328', '', 1)}</div>
               <span class="rnp-gallery-num">${label.substring(0, 18)}</span>
             </div>`;
         }).join('');
         if (!items) return '';
         return `<div class="rnp-general-gallery">
-          <div class="rnp-general-gallery-label">Все товары · главные фото</div>
-          <div class="rnp-gallery-scroll">
-            <div class="rnp-marquee-wrap rnp-general-gallery-marquee">
-              <div class="rnp-marquee-track">${items}</div>
-            </div>
+          <div class="rnp-general-gallery-label">Все товары · главные фото <span class="rnp-general-gallery-hint">клик — открыть артикул</span></div>
+          <div class="rnp-general-gallery-viewport">
+            <div class="rnp-general-gallery-track">${items}${items}</div>
           </div>
         </div>`;
     }
@@ -2829,12 +2828,6 @@ const RNP = (() => {
             const bar = document.getElementById('rnp-action-bar-wrap');
             if (bar) bar.innerHTML = _buildActionBar(active);
             _applyResolvedPhotos(body);
-            _refreshMarqueeBaseHtml(body);
-            requestAnimationFrame(() => {
-                _syncMarqueeFill(body);
-                requestAnimationFrame(() => _syncMarqueeFill(body));
-                _bindMarqueeResize(body);
-            });
             return;
         }
 

@@ -627,7 +627,24 @@
         }
         .rnp-general-gallery { border-top: 1px solid var(--border); background: var(--surface); padding: 8px 10px; flex-shrink: 0; }
         .rnp-general-gallery-label { font-size: 10px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
-        .rnp-general-gallery-marquee .rnp-gallery-item { flex: 0 0 auto; }
+        .rnp-general-gallery-hint { font-weight: 500; opacity: 0.75; margin-left: 6px; }
+        .rnp-general-gallery-viewport {
+            overflow: hidden; padding: 4px 2px;
+            mask-image: linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
+            -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
+        }
+        .rnp-general-gallery-track {
+            display: flex; align-items: flex-end; gap: 8px; width: max-content;
+            animation: rnp-general-gallery-scroll 42s linear infinite;
+        }
+        .rnp-general-gallery-viewport:hover .rnp-general-gallery-track { animation-play-state: paused; }
+        @keyframes rnp-general-gallery-scroll {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0); }
+        }
+        .rnp-general-pick { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
+        .rnp-general-pick:hover { transform: translateY(-2px); }
+        .rnp-general-pick:hover .rnp-gallery-photo { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
         .rnp-rate-row td { background: rgba(132, 204, 22, 0.08); font-weight: 600; font-size: 10px; color: var(--text-secondary); }
         .rnp-rate-row .rnp-metric-col { color: #84cc16; }
         .rnp-sheet-table--cabinet .rnp-general-photo-card .rnp-test-photo img { object-fit: cover; }
@@ -4459,7 +4476,7 @@
     }
 </script>
     <script src="/dashboard-charts.js"></script>
-    <script src="/rnp-module.js?v=20260704-general3"></script>
+    <script src="/rnp-module.js?v=20260704-general4"></script>
     <script src="/wb-formulas.js?v=20260703-photos9"></script>
 </body>
 </html>
