@@ -1309,17 +1309,13 @@ const RNP = (() => {
         </div>`;
     }
 
-    function _buildGeneralMarqueeHTML(active) {
-        const cards = active.map(a => {
-            const label = _sellerArticle(a).replace(/</g, '&lt;');
-            return `<div class="rnp-test-card rnp-general-photo-card" data-nm-id="${a.nm_id}" title="${label}">
-              <div class="rnp-test-photo">${_imgHtml(a, 'rnp-test-img', 'c516x688', '', 1, true)}</div>
-            </div>`;
-        }).join('');
-        if (!cards) return '<div class="rnp-marquee-empty">—</div>';
-        return `<div class="rnp-marquee-wrap">
-          <div class="rnp-marquee-track">${cards}</div>
-        </div>`;
+    function _buildGeneralSheetHeadRows(active, cal) {
+        const leftSpan = _leftFrozenSpan(cal);
+        const nTimeline = _calTimelineSpan(cal);
+        return `<tr class="rnp-head-panel rnp-head-panel--cabinet">
+          <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--cabinet">${_buildGeneralLeftPanel(active, cal)}</th>
+          <th colspan="${nTimeline}" class="rnp-head-marquee rnp-head-marquee--empty"></th>
+        </tr>`;
     }
 
     function _buildGeneralLeftPanel(active, cal) {
@@ -1350,15 +1346,6 @@ const RNP = (() => {
             </div>
           </div>
         </div>`;
-    }
-
-    function _buildGeneralSheetHeadRows(active, cal) {
-        const leftSpan = _leftFrozenSpan(cal);
-        const nTimeline = _calTimelineSpan(cal);
-        return `<tr class="rnp-head-panel">
-          <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--cabinet">${_buildGeneralLeftPanel(active, cal)}</th>
-          <th colspan="${nTimeline}" class="rnp-head-marquee">${_buildGeneralMarqueeHTML(active)}</th>
-        </tr>`;
     }
 
     function _buildGeneralBottomGallery(active) {

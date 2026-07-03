@@ -622,6 +622,9 @@
         .rnp-kpi-block--cabinet .rnp-kpi-top { grid-template-columns: 1fr 1fr; }
         .rnp-kpi-block--cabinet .rnp-gs-photo { display: none; }
         .rnp-head-left--cabinet { min-width: 280px; }
+        .rnp-sheet-table--cabinet thead tr.rnp-head-panel th.rnp-head-marquee--empty {
+            height: 0; max-height: 0; padding: 0; border: none; overflow: hidden; visibility: hidden;
+        }
         .rnp-general-gallery { border-top: 1px solid var(--border); background: var(--surface); padding: 8px 10px; flex-shrink: 0; }
         .rnp-general-gallery-label { font-size: 10px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
         .rnp-general-gallery-marquee .rnp-gallery-item { flex: 0 0 auto; }
@@ -4456,7 +4459,7 @@
     }
 </script>
     <script src="/dashboard-charts.js"></script>
-    <script src="/rnp-module.js?v=20260704-general2"></script>
+    <script src="/rnp-module.js?v=20260704-general3"></script>
     <script src="/wb-formulas.js?v=20260703-photos9"></script>
 </body>
 </html>
