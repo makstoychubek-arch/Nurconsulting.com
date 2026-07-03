@@ -85,7 +85,7 @@ serve(async (req) => {
 
                 // RNP mode: aggregate on server to avoid 546 (out of memory)
                 if (params.aggregate) {
-                    type Agg = { sc: number; ss: number; tt: number; log: number; sto: number; rc: number };
+                    type Agg = { sc: number; ss: number; tt: number; log: number; sto: number; rc: number; locAmt: number; rubAmt: number };
                     const byKey = new Map<string, Agg>();
                     let rrdid = Number(params.rrdid || 0);
 
@@ -100,7 +100,7 @@ serve(async (req) => {
                             const date = String(row.sale_dt ?? '').split('T')[0];
                             if (!date) continue;
                             const key = `${nm}|${date}`;
-                            if (!byKey.has(key)) byKey.set(key, { sc: 0, ss: 0, tt: 0, log: 0, sto: 0, rc: 0 });
+                            if (!byKey.has(key)) byKey.set(key, { sc: 0, ss: 0, tt: 0, log: 0, sto: 0, rc: 0, locAmt: 0, rubAmt: 0 });
                             const d = byKey.get(key)!;
                             const type = String(row.doc_type_name ?? '').toLowerCase();
                             const qty  = Number(row.quantity || 0);
@@ -114,6 +114,16 @@ serve(async (req) => {
                             }
                             d.log += Number(row.delivery_rub || 0);
                             d.sto += Number(row.storage_fee  || 0);
+
+                            // RUB→local rate source: rows for non-RUB sellers carry both
+                            // retail_amount (report currency, e.g. KGS) and
+                            // retail_price_withdisc_rub (RUB, per unit).
+                            const curr = String(row.currency_name ?? '').toUpperCase();
+                            if (curr && curr !== 'RUB' && curr !== 'РУБ') {
+                                const rub = Number(row.retail_price_withdisc_rub || 0) * qty;
+                                const loc = Number(row.retail_amount || 0);
+                                if (rub > 0 && loc > 0) { d.rubAmt += rub; d.locAmt += loc; }
+                            }
                         }
 
                         if (page.length < limit) break;
@@ -122,7 +132,10 @@ serve(async (req) => {
 
                     result = Array.from(byKey.entries()).map(([key, d]) => {
                         const [nm_id, date] = key.split('|');
-                        return { nm_id: Number(nm_id), date, ...d };
+                        const { locAmt, rubAmt, ...sums } = d;
+                        // rate: local currency per 1 RUB for this nm/date (0 = unknown)
+                        const rate = rubAmt > 0 && locAmt > 0 ? locAmt / rubAmt : 0;
+                        return { nm_id: Number(nm_id), date, ...sums, rate };
                     });
                     break;
                 }

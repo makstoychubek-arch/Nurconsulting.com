@@ -1718,7 +1718,8 @@ const RNP = (() => {
 
     function _buildKpiTopHTML(art, stockBySize, rawData, cal) {
         const kpi = _periodSummary(art, rawData, cal);
-        const er = _settings.exchangeRate;
+        // Period-average RUB→KGS rate from WB reports; static settings rate as fallback
+        const er = (Number(kpi.wb_rate) > 0) ? Number(kpi.wb_rate) : _settings.exchangeRate;
         const toTransferSom = Math.round((kpi.to_transfer || 0) * er);
         const costTotal = Math.round((kpi.sales_count || 0) * (art.cost_price || 0));
         const roiCls = (kpi.roi_pct || 0) >= 100 ? 'pos' : '';
@@ -1950,7 +1951,7 @@ const RNP = (() => {
             rows.forEach(row => {
                 const date = row.date || (row.sale_dt || '').split('T')[0];
                 if (!date) return;
-                if (!byDate[date]) byDate[date] = { sc: 0, ss: 0, tt: 0, log: 0, sto: 0, rc: 0 };
+                if (!byDate[date]) byDate[date] = { sc: 0, ss: 0, tt: 0, log: 0, sto: 0, rc: 0, rateSum: 0, rateN: 0 };
                 const d = byDate[date];
                 d.sc  += Number(row.sc  || 0);
                 d.ss  += Number(row.ss  || 0);
@@ -1958,6 +1959,10 @@ const RNP = (() => {
                 d.rc  += Number(row.rc  || 0);
                 d.log += Number(row.log || 0);
                 d.sto += Number(row.sto || 0);
+                // Daily RUB→KGS rate from the report (proxy: retail_amount / rub amount).
+                // Sanity range guards against garbage from unexpected currencies.
+                const rate = Number(row.rate || 0);
+                if (rate > 0.5 && rate < 200) { d.rateSum += rate; d.rateN++; }
             });
 
             const upserts = Object.entries(byDate).map(([date, d]) => {
@@ -1969,7 +1974,8 @@ const RNP = (() => {
                 const logPct      = d.ss > 0 ? d.log / d.ss * 100 : 0;
                 const stoPct      = d.ss > 0 ? d.sto / d.ss * 100 : 0;
                 const logUnit     = d.sc > 0  ? d.log / d.sc      : 0;
-                return {
+                const wbRate      = d.rateN > 0 ? d.rateSum / d.rateN : 0;
+                const rec = {
                     cabinet_id: _cab, nm_id: nmId, date,
                     sales_count: d.sc,   sales_sum: d.ss,
                     returns_count: d.rc, buyout_pct: buyoutPct, return_pct: returnPct,
@@ -1979,9 +1985,16 @@ const RNP = (() => {
                     commission_pct: commPct,
                     updated_at: new Date().toISOString()
                 };
+                if (wbRate > 0) rec.wb_rate = wbRate;
+                return rec;
             });
             if (upserts.length) {
-                await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
+                const { error } = await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
+                if (error && /wb_rate/.test(error.message || '')) {
+                    // Migration 20260703_rnp_costs_rate.sql not applied yet — save without the rate
+                    upserts.forEach(u => { delete u.wb_rate; });
+                    await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
+                }
             }
         } catch(e) { console.warn('[RNP] syncFinance:', e.message); }
     }
@@ -2143,7 +2156,7 @@ const RNP = (() => {
                      'impressions','clicks','basket_count'];
         const AVG = ['spp_pct','avg_check','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
-                     'funnel_order_conv'];
+                     'funnel_order_conv','wb_rate'];
         const LAST = ['stock_warehouse','stock_transit','stock_total','plan_orders','plan_sales',
                       'plan_impressions','plan_clicks','plan_drr','plan_ad_spend','competitor_basket','competitor_orders',
                       'competitor_cro','competitor_ctr'];
@@ -2162,7 +2175,10 @@ const RNP = (() => {
         if (!r) return null;
         const d = { ...r };
         const cost = (art?.cost_price || 0); // already in soms
-        const er = _settings.exchangeRate;
+        const logisticsUnitSom = (art?.logistics_unit || 0);   // сом, baseline from settings
+        const otherCostsUnitSom = (art?.other_costs_unit || 0); // сом, from settings
+        // Day's RUB→KGS rate from WB report (wb_rate); static settings rate is a fallback
+        const er = (Number(d.wb_rate) > 0) ? Number(d.wb_rate) : _settings.exchangeRate;
 
         // Overlay manual benchmarks (plans are per-column via _applyColPlans)
         const md = art?.manual_data || {};
@@ -2182,15 +2198,29 @@ const RNP = (() => {
         d.avg_check_sales = d.sales_count > 0 ? (d.sales_sum || 0) / d.sales_count : 0;
         d.to_transfer_unit = d.sales_count > 0 ? (d.to_transfer || 0) / d.sales_count : 0;
         d.drr_pct = (d.sales_sum || 0) > 0 ? (d.ad_spend || 0) / (d.sales_sum || 1) * 100 : 0;
+
+        // Логистика: real report data (delivery_rub, RUB → сом by day's rate) wins;
+        // when the report has nothing for the day — baseline "Логистика ед." from settings.
+        const units = (d.sales_count || 0);
+        if ((d.logistics_per_unit || 0) > 0) {
+            d.logistics_per_unit = d.logistics_per_unit * er;
+        } else if (logisticsUnitSom > 0 && units > 0) {
+            d.logistics_per_unit = logisticsUnitSom;
+        }
+        if (!((d.logistics_pct || 0) > 0) && logisticsUnitSom > 0 && units > 0) {
+            const ssSom = (d.sales_sum || 0) * er;
+            d.logistics_pct = ssSom > 0 ? logisticsUnitSom * units / ssSom * 100 : 0;
+        }
         d.wb_share_pct = (d.logistics_pct || 0) + (d.storage_pct || 0) + (d.commission_pct || 0) + (d.drr_pct || 0);
 
         // Financials — to_transfer already in RUB, convert to soms
         const revenue  = (d.to_transfer || 0) * er;
-        const totalCost = (d.sales_count || 0) * cost;
+        const totalCost = units * cost;
+        const otherCosts = units * otherCostsUnitSom;
         const adSpend  = (d.ad_spend || 0) * er;
-        d.cost_price_val  = cost;
-        d.profit          = revenue - totalCost - adSpend;
-        d.profit_per_unit = (d.sales_count || 0) > 0 ? d.profit / d.sales_count : 0;
+        d.cost_price_val  = totalCost; // Себестоимость = продажи, шт × себест. за ед.
+        d.profit          = revenue - totalCost - adSpend - otherCosts;
+        d.profit_per_unit = units > 0 ? d.profit / units : 0;
         d.margin_pct      = revenue > 0 ? d.profit / revenue * 100 : 0;
         d.roi_pct         = totalCost > 0 ? d.profit / totalCost * 100 : 0;
 
@@ -2348,27 +2378,41 @@ const RNP = (() => {
                     <th class="rnp-th-metric">Название WB</th>
                     <th style="min-width:110px">Категория/группа</th>
                     <th style="min-width:80px">Себест. (сом)</th>
+                    <th style="min-width:80px">Логистика ед. (сом)</th>
+                    <th style="min-width:80px">Пр. косты ед. (сом)</th>
                     <th style="min-width:60px">В РНП</th>
                   </tr>
                 </thead>
                 <tbody>
                   ${(() => {
-                    const cats = [...new Set(_articles.map(a => (a.category||'').trim()).filter(Boolean))].sort();
-                    const catList = cats.length ? `<datalist id="rnp-cat-list">${cats.map(c => `<option value="${c.replace(/</g,'&lt;')}">`).join('')}</datalist>` : '';
-                    const rows = _articles.slice().sort(_sortBySeller).map(a => {
+                    const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+                    const cats = [...new Set(_articles.map(a => (a.category||'').trim()).filter(Boolean))]
+                        .sort((x, y) => x.localeCompare(y, 'ru'));
+                    return _articles.slice().sort(_sortBySeller).map(a => {
                     const sa = _sellerArticle(a).replace(/</g, '&lt;');
                     const auto = !!(a.manual_data?.seller_article);
+                    const cur = (a.category||'').trim();
+                    const catOpts = [
+                        `<option value=""${!cur ? ' selected' : ''}>— Без категории —</option>`,
+                        ...cats.map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`),
+                        `<option value="__new__">＋ Новая категория…</option>`,
+                    ].join('');
                     return `
                   <tr>
                     <td>${_imgHtml(a, '', 'c246x328', 'width:32px;height:40px;border-radius:3px;object-fit:cover;display:block')}</td>
                     <td style="font-weight:600;color:var(--text-primary)">${sa || '—'}${auto ? ' <span style="color:var(--green);font-weight:400;font-size:10px">авто</span>' : ' <span style="color:var(--text-muted);font-weight:400;font-size:10px">(нет данных — Обновить на дашборде)</span>'}</td>
                     <td style="color:var(--text-muted)">${a.nm_id}</td>
                     <td class="rnp-metric-col" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${(a.name||'—').replace(/</g,'&lt;')}</td>
-                    <td><input type="text" value="${(a.category||'').replace(/"/g,'&quot;')}" list="rnp-cat-list" placeholder="Рубашки, Кимоно…"
-                      onchange="RNP.setCategory(${a.nm_id},this.value)"
-                      style="width:100px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
+                    <td><select onchange="RNP.setCategory(${a.nm_id},this.value)"
+                      style="width:110px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px">${catOpts}</select></td>
                     <td><input type="number" value="${a.cost_price||0}" min="0"
                       onchange="RNP.setCost(${a.nm_id},this.value)"
+                      style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
+                    <td><input type="number" value="${a.logistics_unit||0}" min="0"
+                      onchange="RNP.setLogisticsUnit(${a.nm_id},this.value)"
+                      style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
+                    <td><input type="number" value="${a.other_costs_unit||0}" min="0"
+                      onchange="RNP.setOtherCosts(${a.nm_id},this.value)"
                       style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
                     <td><button onclick="RNP.toggleArt(${a.nm_id})" class="relative w-9 h-5 rounded-full"
                       style="background:${a.is_active?'var(--accent)':'var(--border)'}">
@@ -2376,7 +2420,6 @@ const RNP = (() => {
                     </button></td>
                   </tr>`;
                     }).join('');
-                    return catList + rows;
                   })()}
                 </tbody>
               </table>
@@ -2848,8 +2891,23 @@ const RNP = (() => {
         await _updateArticle(nmId, { cost_price: parseFloat(val) || 0 });
     }
 
+    async function setLogisticsUnit(nmId, val) {
+        await _updateArticle(nmId, { logistics_unit: parseFloat(val) || 0 });
+    }
+
+    async function setOtherCosts(nmId, val) {
+        await _updateArticle(nmId, { other_costs_unit: parseFloat(val) || 0 });
+    }
+
     async function setCategory(nmId, val) {
-        await _updateArticle(nmId, { category: (val || '').trim() });
+        let v = (val || '').trim();
+        if (v === '__new__') {
+            const entered = prompt('Название новой категории/группы:', '');
+            v = (entered || '').trim();
+            if (!v) { _renderSettings(); return; } // cancelled — reset the select
+        }
+        await _updateArticle(nmId, { category: v });
+        _renderSettings();
         await _renderMain();
     }
 
@@ -2964,7 +3022,7 @@ const RNP = (() => {
         if (_activeNm == nmId) await _renderActiveTable();
     }
 
-    return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();
