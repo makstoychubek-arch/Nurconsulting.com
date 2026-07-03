@@ -588,7 +588,18 @@ const RNP = (() => {
         return _sellerArticle(a).localeCompare(_sellerArticle(b), 'ru', { sensitivity: 'base' });
     }
 
-    const UNCATEGORIZED = 'Без категории';
+    function _otherCostsUnit(art) {
+        if (!art) return 0;
+        if (art.other_costs_unit != null && art.other_costs_unit !== '') return Number(art.other_costs_unit) || 0;
+        return Number(art.other_costs) || 0;
+    }
+
+    function _otherCostsField(art) {
+        if (art && Object.prototype.hasOwnProperty.call(art, 'other_costs_unit')) return 'other_costs_unit';
+        if (art && Object.prototype.hasOwnProperty.call(art, 'other_costs')) return 'other_costs';
+        return 'other_costs_unit';
+    }
+
     function _articleCategory(a) {
         return (a.category || '').trim() || UNCATEGORIZED;
     }
@@ -2176,7 +2187,7 @@ const RNP = (() => {
         const d = { ...r };
         const cost = (art?.cost_price || 0); // already in soms
         const logisticsUnitSom = (art?.logistics_unit || 0);   // сом, baseline from settings
-        const otherCostsUnitSom = (art?.other_costs_unit || 0); // сом, from settings
+        const otherCostsUnitSom = _otherCostsUnit(art); // сом, from settings
         // Day's RUB→KGS rate from WB report (wb_rate); static settings rate is a fallback
         const er = (Number(d.wb_rate) > 0) ? Number(d.wb_rate) : _settings.exchangeRate;
 
@@ -2411,7 +2422,7 @@ const RNP = (() => {
                     <td><input type="number" value="${a.logistics_unit||0}" min="0"
                       onchange="RNP.setLogisticsUnit(${a.nm_id},this.value)"
                       style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
-                    <td><input type="number" value="${a.other_costs_unit||0}" min="0"
+                    <td><input type="number" value="${_otherCostsUnit(a)}" min="0"
                       onchange="RNP.setOtherCosts(${a.nm_id},this.value)"
                       style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
                     <td><button onclick="RNP.toggleArt(${a.nm_id})" class="relative w-9 h-5 rounded-full"
@@ -2896,7 +2907,9 @@ const RNP = (() => {
     }
 
     async function setOtherCosts(nmId, val) {
-        await _updateArticle(nmId, { other_costs_unit: parseFloat(val) || 0 });
+        const art = _articles.find(a => a.nm_id == nmId);
+        const field = _otherCostsField(art);
+        await _updateArticle(nmId, { [field]: parseFloat(val) || 0 });
     }
 
     async function setCategory(nmId, val) {
