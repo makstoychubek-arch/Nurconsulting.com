@@ -142,5 +142,8 @@ create policy "rnp_date_notes_own" on rnp_date_notes
         )
     );
 
+-- ── 6. RNP settings options (manual fields, months range) ───
+alter table rnp_settings add column if not exists options jsonb default '{}';
+
 -- ── Done ────────────────────────────────────────────────────
 select 'RNP tables ready' as status;

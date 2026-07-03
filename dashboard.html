@@ -361,7 +361,11 @@
             box-shadow: inset 0 -2px 0 var(--accent);
         }
         .rnp-sheet-tab .rnp-tab-img { width: 22px; height: 28px; border-radius: 3px; object-fit: cover; flex-shrink: 0; }
-        .rnp-sheet-tab .rnp-tab-label { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+        .rnp-sheet-tab .rnp-tab-label { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+        .rnp-manual-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+        .rnp-manual-list li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); }
+        .rnp-set-chk { font-size: 10px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+        .rnp-set-lock { font-size: 10px; color: var(--accent); }
         .rnp-sheet-body {
             flex: 1; background: var(--surface); border: 1px solid var(--border);
             border-top: none; border-radius: 0 0 12px 12px;
@@ -646,6 +650,57 @@
         .rnp-sheet-table .rnp-day-col {
             width: var(--rnp-day-w); min-width: var(--rnp-day-w); max-width: var(--rnp-day-w);
             box-sizing: border-box;
+        }
+        .rnp-sheet-table--months {
+            --rnp-month-w: 58px;
+            --rnp-rowq1: 20px;
+            --rnp-rowq2: 16px;
+        }
+        .rnp-sheet-table--months .rnp-month-col {
+            width: var(--rnp-month-w); min-width: var(--rnp-month-w); max-width: var(--rnp-month-w);
+            box-sizing: border-box;
+        }
+        .rnp-sheet-table--months thead tr.rnp-cal-quarter-row th:not(.rnp-th-metric):not(.rnp-th-spark) {
+            top: 0; z-index: 33; height: var(--rnp-rowq1);
+        }
+        .rnp-sheet-table--months thead tr.rnp-cal-quarter-sub-row th {
+            top: var(--rnp-rowq1); z-index: 32; height: var(--rnp-rowq2);
+            font-size: 7px; font-weight: 600; color: var(--text-muted);
+            letter-spacing: 0.05em; text-transform: uppercase;
+            background: var(--surface-solid) !important;
+        }
+        .rnp-sheet-table--months thead tr.rnp-cal-date-row th {
+            top: calc(var(--rnp-rowq1) + var(--rnp-rowq2)); z-index: 31; height: var(--rnp-row2);
+        }
+        .rnp-sheet-table--months thead tr.rnp-dow-head-row th {
+            top: calc(var(--rnp-rowq1) + var(--rnp-rowq2) + var(--rnp-row2)); z-index: 30;
+        }
+        .rnp-sheet-table--months thead tr.rnp-notes-head-row th {
+            top: calc(var(--rnp-rowq1) + var(--rnp-rowq2) + var(--rnp-row2) + var(--rnp-row3)); z-index: 29;
+        }
+        .rnp-th-year-band {
+            font-size: 9px; font-weight: 800; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--accent);
+            background: var(--accent-soft) !important;
+            border-bottom: 1px solid var(--accent-border);
+        }
+        .rnp-th-quarter-gap { background: var(--surface-solid) !important; }
+        .rnp-th-month-col {
+            font-size: 9px; font-weight: 700; padding: 2px 4px;
+        }
+        .rnp-th-month-col.is-current {
+            color: var(--accent); font-weight: 800;
+            border-left: 2px solid var(--accent) !important;
+            border-right: 2px solid var(--accent) !important;
+            background: var(--accent-soft) !important;
+        }
+        .rnp-sheet-table--months .rnp-cell-today.rnp-month-col,
+        .rnp-sheet-table--months td.rnp-month-col.rnp-cell-month-start + .rnp-month-col.is-current {
+            border-color: var(--accent);
+        }
+        .rnp-sheet-table--months tbody td.rnp-month-col.rnp-cell-today {
+            border-left: 2px solid var(--accent) !important;
+            border-right: 2px solid var(--accent) !important;
         }
         .rnp-sheet-table--no-notes {
             --rnp-head-h: calc(var(--rnp-row1) + var(--rnp-row2) + var(--rnp-row3));

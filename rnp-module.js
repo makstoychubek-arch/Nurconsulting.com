@@ -9,7 +9,16 @@ const RNP = (() => {
     let _db = null;
     let _cab = null;
     let _callProxy = null; // async (action, params) => data
-    let _settings = { exchangeRate: 13.5, calcPeriod: 7 };
+    let _settings = {
+        exchangeRate: 13.5,
+        calcPeriod: 7,
+        usdRate: 87.5,
+        defaultPlanPeriod: 'week',
+        monthFrom: 6,
+        monthTo: 12,
+        showGiveaways: true,
+        showCompetitor: true,
+    };
     let _articles = [];
     let _activeNm = null;
     let _collapsedSections = new Set();
@@ -37,11 +46,32 @@ const RNP = (() => {
     let _notesVisible = true;
     let _galleryCollapsed = true;
     let _marqueeRo = null;
+    let _planPeriod = 'week';
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 38;
     const DAY_COL_W = 30;
+    const MONTH_COL_W = 58;
+    const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+    const CAL_MONTH_FROM = 5;  // Июнь (fallback)
+    const CAL_MONTH_TO = 11;   // Декабрь (fallback)
+
+    /** Поля, которые в Google Sheets РНП заполняются вручную */
+    const MANUAL_RNP_FIELDS = [
+        { key: 'plans', label: 'Планы (заказы, продажи, показы, клики, ДРР, расход РК)', locked: true },
+        { key: 'giveaways', label: 'Раздачи', setting: 'showGiveaways' },
+        { key: 'competitor', label: 'Показатели конкурентов (CTR, корзина, заказы, CR0)', setting: 'showCompetitor' },
+        { key: 'cost_price', label: 'Себестоимость за ед.', locked: true },
+        { key: 'in_production', label: 'В пошиве (размерная сетка)', locked: true },
+        { key: 'meta', label: 'Ответственный и статус артикула', locked: true },
+        { key: 'notes', label: 'Комментарии под датами / месяцами', locked: true },
+        { key: 'gallery', label: 'Комментарии к фото тестов', locked: true },
+    ];
+    const MONTH_COL_W = 68;
+    const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+    const CAL_MONTH_FROM = 5;  // июнь (0-based)
+    const CAL_MONTH_TO = 11;   // декабрь
     const GALLERY_PHOTO_COUNT = 12;
 
     const STRATEGY_TABS = [
@@ -517,10 +547,155 @@ const RNP = (() => {
     }
 
     // ─── SETTINGS ─────────────────────────────────────────────────────────────
+    function _normalizeOptions(raw) {
+        const o = raw && typeof raw === 'object' ? raw : {};
+        return {
+            usdRate: Number(o.usdRate) > 0 ? Number(o.usdRate) : 87.5,
+            defaultPlanPeriod: o.defaultPlanPeriod === 'month' ? 'month' : 'week',
+            monthFrom: Math.min(12, Math.max(1, parseInt(o.monthFrom, 10) || 6)),
+            monthTo: Math.min(12, Math.max(1, parseInt(o.monthTo, 10) || 12)),
+            showGiveaways: o.showGiveaways !== false,
+            showCompetitor: o.showCompetitor !== false,
+        };
+    }
+
+    function _settingsOptions() {
+        return {
+            usdRate: _settings.usdRate,
+            defaultPlanPeriod: _settings.defaultPlanPeriod,
+            monthFrom: _settings.monthFrom,
+            monthTo: _settings.monthTo,
+            showGiveaways: _settings.showGiveaways,
+            showCompetitor: _settings.showCompetitor,
+        };
+    }
+
+    function _sellerArticle(art) {
+        const sa = String(art?.manual_data?.seller_article || art?.manual_data?.sa_name || '').trim();
+        if (sa) return sa;
+        const name = String(art?.name || '').trim();
+        if (name && !/^артикул\s+\d+$/i.test(name)) return name;
+        return String(art?.nm_id || '—');
+    }
+
+    function _extractSellerArticle(d) {
+        if (!d || typeof d !== 'object') return '';
+        const keys = ['supplierArticle', 'supplier_article', 'sa_name', 'vendorCode', 'vendor_code', 'supplierVendorCode', 'article'];
+        for (const k of keys) {
+            const v = d[k];
+            if (v != null && String(v).trim()) return String(v).trim();
+        }
+        return '';
+    }
+
+    async function _fetchSellerArticlesFromContentApi(nmIds) {
+        const map = new Map();
+        const ids = [...new Set(nmIds.map(Number).filter(Boolean))];
+        if (!_callProxy || !ids.length) return map;
+        for (let i = 0; i < ids.length; i += 100) {
+            const chunk = ids.slice(i, i + 100);
+            try {
+                const resp = await _callProxy('content_cards', { nmIds: chunk, limit: chunk.length });
+                const cards = resp?.cards || resp?.data?.cards || [];
+                cards.forEach(card => {
+                    const id = Number(card.nmID || card.nmId);
+                    const sa = _extractSellerArticle(card);
+                    if (id && sa) map.set(id, sa);
+                });
+            } catch (e) { console.warn('[RNP] content_cards seller:', e.message); }
+        }
+        return map;
+    }
+
+    function _orderSellerArticle(order) {
+        return _extractSellerArticle(order?.data) || _extractSellerArticle(order);
+    }
+
+    async function _fetchSellerArticlesFromCards(nmIds) {
+        const map = new Map();
+        const ids = [...new Set(nmIds.map(Number).filter(Boolean))];
+        if (!ids.length) return map;
+        for (let i = 0; i < ids.length; i += 100) {
+            const chunk = ids.slice(i, i + 100);
+            const apis = [
+                `https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&nm=${chunk.join(';')}`,
+                `https://card.wb.ru/cards/v1/detail?appType=1&curr=rub&dest=-1257786&nm=${chunk.join(';')}`,
+            ];
+            for (const api of apis) {
+                try {
+                    const r = await fetch(api, { referrerPolicy: 'no-referrer' });
+                    const j = await r.json();
+                    (j.data?.products || j.products || []).forEach(p => {
+                        const id = p.id || p.nmId;
+                        const sa = _extractSellerArticle(p);
+                        if (id && sa) map.set(Number(id), sa);
+                    });
+                    if (map.size) break;
+                } catch (e) { /* next */ }
+            }
+        }
+        return map;
+    }
+
+    async function _backfillSellerArticlesFromDb() {
+        if (!_cab || !_articles.length) return;
+        const map = new Map();
+        const nmIds = _articles.map(a => a.nm_id);
+
+        const contentMap = await _fetchSellerArticlesFromContentApi(nmIds);
+        contentMap.forEach((sa, id) => map.set(id, sa));
+
+        try {
+            const { data: orders } = await _db.from('wb_orders')
+                .select('nm_id, data')
+                .eq('cabinet_id', _cab)
+                .not('nm_id', 'is', null);
+            (orders || []).forEach(o => {
+                if (map.has(Number(o.nm_id))) return;
+                const sa = _orderSellerArticle(o);
+                if (sa && o.nm_id) map.set(Number(o.nm_id), sa);
+            });
+        } catch (e) { console.warn('[RNP] seller_article orders:', e.message); }
+
+        const missing = _articles.filter(a => !map.has(Number(a.nm_id))).map(a => a.nm_id);
+        if (missing.length) {
+            const cardMap = await _fetchSellerArticlesFromCards(missing);
+            cardMap.forEach((sa, id) => map.set(id, sa));
+        }
+
+        for (const art of _articles) {
+            const sa = map.get(Number(art.nm_id));
+            if (!sa) continue;
+            if (art.manual_data?.seller_article === sa && art.name === sa) continue;
+            const md = { ...(art.manual_data || {}), seller_article: sa };
+            await _updateArticle(art.nm_id, { manual_data: md, name: sa });
+        }
+    }
+
+    function _sectionRows(sec) {
+        return sec.rows.filter(m => {
+            if (m.key === 'giveaways' && !_settings.showGiveaways) return false;
+            if (m.competitor && !_settings.showCompetitor) return false;
+            return true;
+        });
+    }
+
+    function _sortBySeller(a, b) {
+        return _sellerArticle(a).localeCompare(_sellerArticle(b), 'ru', { sensitivity: 'base' });
+    }
+
     async function _loadSettings() {
         try {
             const { data } = await _db.from('rnp_settings').select('*').eq('cabinet_id', _cab).maybeSingle();
-            if (data) _settings = { ..._settings, exchangeRate: data.exchange_rate || 13.5, calcPeriod: data.calc_period || 7, promotionToken: data.promotion_api_token || '' };
+            if (data) {
+                _settings = {
+                    ..._settings,
+                    exchangeRate: data.exchange_rate || 13.5,
+                    calcPeriod: data.calc_period || 7,
+                    promotionToken: data.promotion_api_token || '',
+                    ..._normalizeOptions(data.options),
+                };
+            }
         } catch(e) { console.warn('[RNP] settings load:', e.message); }
     }
 
@@ -528,12 +703,14 @@ const RNP = (() => {
         if (updates.exchangeRate !== undefined) _settings.exchangeRate = updates.exchangeRate;
         if (updates.calcPeriod !== undefined) _settings.calcPeriod = updates.calcPeriod;
         if (updates.promotionToken !== undefined) _settings.promotionToken = updates.promotionToken;
+        if (updates.options) Object.assign(_settings, _normalizeOptions({ ..._settingsOptions(), ...updates.options }));
         try {
             await _db.from('rnp_settings').upsert({
                 cabinet_id: _cab,
                 exchange_rate: _settings.exchangeRate,
                 calc_period: _settings.calcPeriod,
                 promotion_api_token: _settings.promotionToken,
+                options: _settingsOptions(),
                 updated_at: new Date().toISOString()
             }, { onConflict: 'cabinet_id' });
         } catch(e) { console.warn('[RNP] settings save:', e.message); }
@@ -550,7 +727,7 @@ const RNP = (() => {
     async function _syncFromOrders() {
         try {
             const { data: orders, error } = await _db.from('wb_orders')
-                .select('nm_id')
+                .select('nm_id, data')
                 .eq('cabinet_id', _cab)
                 .not('nm_id', 'is', null);
             if (error) throw error;
@@ -558,17 +735,31 @@ const RNP = (() => {
             const uniq = new Map();
             orders.forEach(o => {
                 const nm = o.nm_id;
-                if (nm && !uniq.has(nm)) uniq.set(nm, `Артикул ${nm}`);
+                if (!nm) return;
+                const sa = _orderSellerArticle(o);
+                const subject = String(o.data?.subject || o.data?.brand || '').trim();
+                const prev = uniq.get(nm) || { sa: '', subject: '' };
+                if (sa) prev.sa = sa;
+                if (subject && !prev.subject) prev.subject = subject;
+                uniq.set(nm, prev);
             });
-            for (const [nmId, name] of uniq) {
-                if (!_articles.find(a => a.nm_id == nmId)) {
+            for (const [nmId, meta] of uniq) {
+                const existing = _articles.find(a => a.nm_id == nmId);
+                const md = { ...(existing?.manual_data || {}) };
+                if (meta.sa) md.seller_article = meta.sa;
+                const displayName = meta.sa || meta.subject || md.seller_article || `Артикул ${nmId}`;
+                if (!existing) {
                     await _db.from('rnp_articles').upsert({
-                        cabinet_id: _cab, nm_id: nmId, name,
-                        photo_url: _photoUrl(nmId), is_active: false, cost_price: 0
+                        cabinet_id: _cab, nm_id: nmId, name: displayName,
+                        photo_url: _photoUrl(nmId), is_active: false, cost_price: 0,
+                        manual_data: md,
                     }, { onConflict: 'cabinet_id,nm_id', ignoreDuplicates: true });
+                } else if (meta.sa) {
+                    await _updateArticle(nmId, { manual_data: md, name: displayName });
                 }
             }
             await _loadArticles();
+            await _backfillSellerArticlesFromDb();
         } catch(e) { console.error('[RNP] sync:', e.message); }
     }
 
@@ -581,10 +772,23 @@ const RNP = (() => {
     // ─── CALENDAR ─────────────────────────────────────────────────────────────
     function _buildCalendar() {
         const today = new Date();
-        const Y = today.getFullYear();
-        const M = today.getMonth(); // 0-based current month
+        return _planPeriod === 'month' ? _buildMonthCalendar(today) : _buildWeekCalendar(today);
+    }
 
-        // Previous month
+    function _calAllDates(cal) {
+        if (cal.mode === 'month') return (cal.months || []).flatMap(m => m.dates);
+        return [...cal.weeks.flatMap(w => w.dates), ...cal.days.map(d => d.date)];
+    }
+
+    function _calTimelineSpan(cal) {
+        if (cal.mode === 'month') return cal.months?.length || 0;
+        return cal.days.length;
+    }
+
+    function _buildWeekCalendar(today) {
+        const Y = today.getFullYear();
+        const M = today.getMonth();
+
         const prevY = M === 0 ? Y - 1 : Y;
         const prevM = M === 0 ? 11 : M - 1;
         const prevDays = new Date(Y, M, 0).getDate();
@@ -613,7 +817,6 @@ const RNP = (() => {
             weeks.push(wk);
         }
 
-        // Current month — all days through end of month (for plan entry ahead)
         const currName = today.toLocaleString('ru', { month: 'long', year: 'numeric' });
         const currDaysInMonth = new Date(Y, M + 1, 0).getDate();
         const todayMid = new Date(Y, M, today.getDate());
@@ -632,7 +835,51 @@ const RNP = (() => {
             });
         }
 
-        return { prevName, weeks, currName, days, todayStr: _dateStr(Y, M + 1, today.getDate()) };
+        return { mode: 'week', prevName, weeks, currName, days, todayStr: _dateStr(Y, M + 1, today.getDate()) };
+    }
+
+    function _buildMonthCalendar(today) {
+        const Y = today.getFullYear();
+        const todayM = today.getMonth();
+        const fromM = Math.min(_settings.monthFrom, _settings.monthTo) - 1;
+        const toM = Math.max(_settings.monthFrom, _settings.monthTo) - 1;
+        const fromLabel = MONTH_SHORT[fromM] || '';
+        const toLabel = MONTH_SHORT[toM] || '';
+        const months = [];
+        for (let m = fromM; m <= toM; m++) {
+            const daysInMonth = new Date(Y, m + 1, 0).getDate();
+            const dates = [];
+            for (let d = 1; d <= daysInMonth; d++) dates.push(_dateStr(Y, m + 1, d));
+            months.push({
+                type: 'month',
+                month: m + 1,
+                year: Y,
+                colKey: `${Y}-${String(m + 1).padStart(2, '0')}`,
+                date: dates[0],
+                label: MONTH_SHORT[m],
+                fullName: new Date(Y, m, 1).toLocaleString('ru', { month: 'long' }),
+                dayCount: daysInMonth,
+                dates,
+                isCurrent: todayM === m && today.getFullYear() === Y,
+                isFuture: new Date(Y, m, 1) > new Date(Y, todayM, 1),
+            });
+        }
+        return {
+            mode: 'month',
+            year: Y,
+            rangeLabel: `${Y} · ${fromLabel} — ${toLabel}`,
+            months,
+            quarters: [
+                { label: 'II кв.', span: 1 },
+                { label: 'III кв.', span: 3 },
+                { label: 'IV кв.', span: 3 },
+            ],
+            weeks: [],
+            days: [],
+            prevName: '',
+            currName: '',
+            todayStr: _dateStr(Y, todayM + 1, today.getDate()),
+        };
     }
 
     function _dateStr(y, m, d) {
@@ -671,6 +918,18 @@ const RNP = (() => {
     }
 
     function _buildCols(rawData, art, cal) {
+        if (cal.mode === 'month') {
+            const allDates = cal.months.flatMap(m => m.dates);
+            const totalCol = {
+                type: 'total', colKey: 'ytd-total', label: 'ИТОГ',
+                data: _applyColPlans(_derive(_aggWeek(rawData, allDates), art), art, 'ytd-total'),
+            };
+            const monthCols = cal.months.map(m => {
+                const agg = _derive(_aggWeek(rawData, m.dates), art);
+                return { ...m, data: _applyColPlans(agg, art, m.colKey) };
+            });
+            return [totalCol, ...monthCols];
+        }
         const weekCols = cal.weeks.map(w => {
             const colKey = w.weekStart || w.dates[0];
             const agg = _derive(_aggWeek(rawData, w.dates), art);
@@ -740,6 +999,15 @@ const RNP = (() => {
     }
 
     function _periodSummary(art, rawData, cal) {
+        if (cal.mode === 'month') {
+            const cur = cal.months.find(m => m.isCurrent)
+                || [...cal.months].reverse().find(m => !m.isFuture)
+                || cal.months[0];
+            if (!cur) return {};
+            const dates = cur.dates.filter(d => d <= cal.todayStr);
+            const agg = _aggWeek(rawData, dates.length ? dates : cur.dates);
+            return _applyColPlans(_derive(agg, art), art, cur.colKey);
+        }
         const dates = cal.days.map(d => d.date);
         if (!dates.length) return {};
         const agg = _aggWeek(rawData, dates);
@@ -899,8 +1167,9 @@ const RNP = (() => {
         nmIds.forEach(id => { if (!_notesCache[id]) _notesCache[id] = {}; });
         try {
             const cal = _buildCalendar();
-            const from = cal.weeks[0]?.dates[0] || cal.days[0]?.date;
-            const to = cal.days[cal.days.length - 1]?.date;
+            const allDates = _calAllDates(cal);
+            const from = allDates[0];
+            const to = allDates[allDates.length - 1];
             if (!from || !to) return;
             const { data, error } = await _db.from('rnp_date_notes')
                 .select('*').eq('cabinet_id', _cab).in('nm_id', nmIds)
@@ -964,6 +1233,7 @@ const RNP = (() => {
     }
 
     function _leftFrozenSpan(cal) {
+        if (cal.mode === 'month') return 3;
         return 2 + cal.weeks.length + (cal.weeks.length ? 1 : 0);
     }
 
@@ -978,6 +1248,18 @@ const RNP = (() => {
             })).filter(p => p.from);
         }
         const slots = _gallerySlots(art);
+        const idxMap = [1, 2, 3, 4, 5];
+        if (cal.mode === 'month') {
+            const months = cal.months || [];
+            if (!months.length) return [];
+            const bounds = [[0, 0], [1, 1], [2, 2], [3, 4], [5, 6]];
+            return bounds.map(([a, b], i) => ({
+                galleryIdx: idxMap[i] ?? i,
+                label: (slots[idxMap[i]]?.comment || STRATEGY_TABS[idxMap[i]]?.label || '').trim(),
+                from: months[Math.min(a, months.length - 1)]?.colKey,
+                to: months[Math.min(b, months.length - 1)]?.colKey,
+            })).filter(p => p.from && p.label);
+        }
         const days = cal.days;
         if (!days.length) return [];
         const n = days.length;
@@ -988,7 +1270,6 @@ const RNP = (() => {
             [Math.min(20, n - 1), Math.min(24, n - 1)],
             [Math.min(25, n - 1), n - 1],
         ];
-        const idxMap = [1, 2, 3, 4, 5];
         return bounds.map(([a, b], i) => ({
             galleryIdx: idxMap[i] ?? i,
             label: (slots[idxMap[i]]?.comment || STRATEGY_TABS[idxMap[i]]?.label || '').trim(),
@@ -1044,12 +1325,12 @@ const RNP = (() => {
 
     function _buildSheetHeadRows(art, stockBySize, rawData, cal) {
         const leftSpan = _leftFrozenSpan(cal);
-        const nDays = cal.days.length;
+        const nTimeline = _calTimelineSpan(cal);
 
         return `
             <tr class="rnp-head-panel">
               <th colspan="${leftSpan}" class="rnp-head-left">${_buildLeftPanelHTML(art, stockBySize, rawData, cal)}</th>
-              <th colspan="${nDays}" class="rnp-head-marquee">${_buildMarqueeHTML(art, cal)}</th>
+              <th colspan="${nTimeline}" class="rnp-head-marquee">${_buildMarqueeHTML(art, cal)}</th>
             </tr>`;
     }
 
@@ -1061,7 +1342,11 @@ const RNP = (() => {
             const wi = cols.slice(0, ci).filter(c => c.type === 'week').length;
             return base + wi * FROZEN_COL_W;
         }
-        if (col.type === 'total') return base + cols.filter(c => c.type === 'week').length * FROZEN_COL_W;
+        if (col.type === 'total') {
+            const weekCount = cols.filter(c => c.type === 'week').length;
+            if (!weekCount && cols[0]?.type === 'total') return base;
+            return base + weekCount * FROZEN_COL_W;
+        }
         return null;
     }
 
@@ -1088,7 +1373,7 @@ const RNP = (() => {
     function _buildNotesHeadCells(cols, art) {
         const nmId = art.nm_id;
         return cols.map((col, ci) => {
-            const d = col.colKey || col.date || col.weekStart;
+            const d = col.date || col.colKey || col.weekStart;
             const text = (_notesCache[nmId]?.[d]?.text || '').replace(/"/g, '&quot;');
             const tip = _noteTip(nmId, d).replace(/"/g, '&quot;');
             const st = _stickyColAttrs(ci, cols, 11, 27);
@@ -1103,7 +1388,7 @@ const RNP = (() => {
 
     function _buildActionBar(active) {
         const compareOpts = active.filter(a => a.nm_id != _activeNm && _activeNm !== SUMMARY_TAB)
-            .map(a => `<option value="${a.nm_id}"${_compareNm == a.nm_id ? ' selected' : ''}>${(a.name || a.nm_id).substring(0, 20)}</option>`).join('');
+            .map(a => `<option value="${a.nm_id}"${_compareNm == a.nm_id ? ' selected' : ''}>${_sellerArticle(a).substring(0, 24)}</option>`).join('');
         return `<div class="rnp-action-bar">
           <select onchange="RNP.setView(this.value)" title="Секции таблицы">
             <option value="all"${_sectionView === 'all' ? ' selected' : ''}>Все секции</option>
@@ -1111,10 +1396,10 @@ const RNP = (() => {
             <option value="compact"${_sectionView === 'compact' ? ' selected' : ''}>Компакт</option>
           </select>
           <select title="Период планирования" onchange="RNP.setPlanPeriod(this.value)">
-            <option value="week" selected>План → неделя</option>
-            <option value="month">План → месяц</option>
+            <option value="week"${_planPeriod === 'week' ? ' selected' : ''}>План → неделя</option>
+            <option value="month"${_planPeriod === 'month' ? ' selected' : ''}>План → месяц</option>
           </select>
-          <button type="button" class="rnp-action-btn" onclick="RNP.copyPlanFromPrevWeek()" title="Скопировать план с прошлой недели">↵ План</button>
+          <button type="button" class="rnp-action-btn" onclick="RNP.copyPlanFromPrevWeek()" title="${_planPeriod === 'month' ? 'Скопировать план с прошлого месяца' : 'Скопировать план с прошлой недели'}">↵ План</button>
           <select id="rnp-compare-sel" onchange="RNP.setCompare(this.value)" title="Сравнить с…" ${_activeNm === SUMMARY_TAB ? 'disabled' : ''}>
             <option value="">Сравнить с…</option>${compareOpts}
           </select>
@@ -1136,10 +1421,10 @@ const RNP = (() => {
             const alerts = _buildAlerts(a, stock, kpi);
             const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'var(--green)' : (kpi.plan_orders_pct || 0) < 80 ? 'var(--red)' : 'var(--text-primary)';
             const profitCls = (kpi.profit || 0) >= 0 ? 'var(--green)' : 'var(--red)';
-            return `<tr class="rnp-summary-row" onclick="RNP.pick(${a.nm_id})" title="Открыть артикул">
+            return `<tr class="rnp-summary-row" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}">
               <td>${_syncDot(st.level)}</td>
               <td>${_imgHtml(a, '', 'c246x328', 'width:28px;height:36px;border-radius:3px;object-fit:cover')}</td>
-              <td class="rnp-summary-name">${a.name || a.nm_id}</td>
+              <td class="rnp-summary-name">${_sellerArticle(a)}</td>
               <td style="color:var(--text-muted)">${a.nm_id}</td>
               <td>${Math.round(kpi.orders_count || 0)}</td>
               <td style="color:${planCls}">${kpi.plan_orders_pct ? kpi.plan_orders_pct.toFixed(0) + '%' : '—'}</td>
@@ -1177,12 +1462,12 @@ const RNP = (() => {
         return `<div class="rnp-sheet-tab rnp-tab-summary${sumActive ? ' active' : ''}" onclick="RNP.pick('summary')">
             <span class="rnp-tab-icon">📊</span><span>Сводная</span>
           </div>
-          ${active.map(a => {
+          ${[...active].sort(_sortBySeller).map(a => {
             const st = _syncStatus(a.nm_id);
-            const label = `Артикул ${a.nm_id}`;
-            return `<div class="rnp-sheet-tab${a.nm_id == _activeNm ? ' active' : ''}" onclick="RNP.pick(${a.nm_id})" title="${a.name || label}">
+            const label = _sellerArticle(a);
+            return `<div class="rnp-sheet-tab${a.nm_id == _activeNm ? ' active' : ''}" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}${a.name ? ' · ' + a.name : ''}">
               ${_syncDot(st.level)}${_imgHtml(a, 'rnp-tab-img', 'c246x328')}
-              <span class="rnp-tab-label">${label}</span>
+              <span class="rnp-tab-label">${label.replace(/</g, '&lt;')}</span>
             </div>`;
           }).join('')}`;
     }
@@ -1207,14 +1492,14 @@ const RNP = (() => {
         const BOM = '\uFEFF';
         if (_activeNm === SUMMARY_TAB) {
             const active = _articles.filter(a => a.is_active);
-            const header = ['Статус', 'Товар', 'nmId', 'Заказы', 'План%', 'Прибыль', 'Маржа%', 'ДРР%', 'Остаток', 'Алерты'];
+            const header = ['Статус', 'Артикул продавца', 'Артикул WB', 'Заказы', 'План%', 'Прибыль', 'Маржа%', 'ДРР%', 'Остаток', 'Алерты'];
             const lines = [header.map(_csvCell).join(sep)];
             active.forEach(a => {
                 const kpi = _periodSummary(a, _dataCache[a.nm_id] || {}, cal);
                 const st = _syncStatus(a.nm_id);
                 const alerts = _buildAlerts(a, _stockCache[a.nm_id] || {}, kpi);
                 lines.push([
-                    st.label, a.name || '', a.nm_id,
+                    st.label, _sellerArticle(a), a.nm_id,
                     kpi.orders_count || 0, (kpi.plan_orders_pct || 0).toFixed(1),
                     Math.round(kpi.profit || 0), (kpi.margin_pct || 0).toFixed(1),
                     (kpi.drr_pct || 0).toFixed(1), _stockTotals(_stockCache[a.nm_id] || {}).total,
@@ -1232,7 +1517,7 @@ const RNP = (() => {
         const lines = [header.map(_csvCell).join(sep)];
         _sectionsForView().forEach(sec => {
             lines.push([sec.label, ...cols.map(() => '')].map(_csvCell).join(sep));
-            sec.rows.forEach(m => {
+            _sectionRows(sec).forEach(m => {
                 const vals = cols.map(c => {
                     if (m.isPlan) return _planVal(art, m.key, c.colKey);
                     const v = c.data?.[m.key];
@@ -1241,19 +1526,41 @@ const RNP = (() => {
                 lines.push([m.label, ...vals].map(_csvCell).join(sep));
             });
         });
-        _downloadBlob(`RNP_${art.nm_id}_${cal.todayStr}.csv`, BOM + lines.join('\n'), 'text/csv;charset=utf-8');
+        _downloadBlob(`RNP_${_sellerArticle(art)}_${cal.todayStr}.csv`, BOM + lines.join('\n'), 'text/csv;charset=utf-8');
     }
 
     async function copyPlanFromPrevWeek() {
         const art = _articles.find(a => a.nm_id == _activeNm);
         if (!art || _activeNm === SUMMARY_TAB) return;
         const cal = _buildCalendar();
+        const md = { ...(art.manual_data || {}) };
+        if (!md.plans) md.plans = {};
+
+        if (cal.mode === 'month') {
+            const cur = cal.months.find(m => m.isCurrent) || cal.months.filter(m => !m.isFuture).pop();
+            if (!cur) return;
+            const idx = cal.months.indexOf(cur);
+            if (idx <= 0) {
+                _nrDialog('План не найден', 'Нет предыдущего месяца для копирования.', 'info');
+                return;
+            }
+            const prev = cal.months[idx - 1];
+            const src = md.plans[prev.colKey] || {};
+            if (!Object.keys(src).length) {
+                _nrDialog('План не найден', `Нет плана за ${prev.fullName} — заполните вручную.`, 'info');
+                return;
+            }
+            if (!md.plans[cur.colKey]) md.plans[cur.colKey] = {};
+            PLAN_KEYS.forEach(k => { if (src[k] != null) md.plans[cur.colKey][k] = src[k]; });
+            await _updateArticle(art.nm_id, { manual_data: md });
+            await _renderActiveTable();
+            return;
+        }
+
         const curWs = _weekStartStr(cal.todayStr);
         const prevD = new Date(curWs + 'T12:00:00');
         prevD.setDate(prevD.getDate() - 7);
         const prevWs = prevD.toISOString().split('T')[0];
-        const md = { ...(art.manual_data || {}) };
-        if (!md.plans) md.plans = {};
         let src = md.plans[prevWs] || {};
         if (!Object.keys(src).length && cal.weeks.length) {
             const lw = cal.weeks[cal.weeks.length - 1];
@@ -1292,8 +1599,15 @@ const RNP = (() => {
         if (_activeNm !== SUMMARY_TAB) _renderActiveTable();
     }
 
-    function setPlanPeriod(val) {
-        try { localStorage.setItem('rnp_plan_period', val || 'week'); } catch (e) {}
+    async function setPlanPeriod(val) {
+        const next = val === 'month' ? 'month' : 'week';
+        if (next === _planPeriod) return;
+        _planPeriod = next;
+        try { localStorage.setItem('rnp_plan_period', _planPeriod); } catch (e) {}
+        _dataCache = {};
+        const active = _articles.filter(a => a.is_active);
+        await _loadAllDailyData(active.map(a => a.nm_id));
+        await _renderActiveTable();
     }
 
     function setCompare(nmId) {
@@ -1389,13 +1703,14 @@ const RNP = (() => {
         const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'pos' : ((kpi.plan_orders_pct || 0) < 80 ? 'neg' : '');
         const syncSt = _syncStatus(art.nm_id);
         const moneySom = Math.round((kpi.sales_sum || 0) * er);
-        const moneyUsd = moneySom > 0 ? (moneySom / 87.5).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 }) : '0';
+        const moneyUsd = moneySom > 0 ? (moneySom / (_settings.usdRate || 87.5)).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 }) : '0';
+        const seller = _sellerArticle(art).replace(/"/g, '&quot;');
         const prodName = (art.name || '—').replace(/"/g, '&quot;');
 
         return `<div class="rnp-kpi-block${_strategyTab === 4 ? ' rnp-kpi-block--sizes-focus' : ''}">
           <div class="rnp-kpi-top">
             <div class="rnp-gs-photo">${_imgHtml(art, 'rnp-gs-photo-img', 'c516x688')}</div>
-            <div class="rnp-gs-name" title="${prodName}">${_syncDot(syncSt.level)} ${(art.name || '—')}</div>
+            <div class="rnp-gs-name" title="${seller}">${_syncDot(syncSt.level)} ${seller}</div>
             <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
             <div class="rnp-gs-cost">
               <span class="rnp-gs-lbl">себест.</span>
@@ -1438,7 +1753,7 @@ const RNP = (() => {
     async function _loadDailyData(nmId) {
         if (_dataCache[nmId]) return _dataCache[nmId];
         const cal = _buildCalendar();
-        const allDates = [...cal.weeks.flatMap(w => w.dates), ...cal.days.map(d => d.date)];
+        const allDates = _calAllDates(cal);
         if (!allDates.length) return {};
         try {
             const { data } = await _db.from('rnp_daily_data')
@@ -1453,7 +1768,7 @@ const RNP = (() => {
 
     async function _loadAllDailyData(nmIds) {
         const cal = _buildCalendar();
-        const allDates = [...cal.weeks.flatMap(w => w.dates), ...cal.days.map(d => d.date)];
+        const allDates = _calAllDates(cal);
         if (!allDates.length || !nmIds.length) return;
         try {
             const { data } = await _db.from('rnp_daily_data')
@@ -1884,51 +2199,85 @@ const RNP = (() => {
     function _renderSettings() {
         const el = document.getElementById('tab-rnp-settings');
         if (!el) return;
+        const monthOpts = (n, sel) => Array.from({ length: 12 }, (_, i) => {
+            const m = i + 1;
+            return `<option value="${m}"${m === sel ? ' selected' : ''}>${MONTH_SHORT[i]}</option>`;
+        }).join('');
+        const manualList = MANUAL_RNP_FIELDS.map(f => {
+            const chk = f.setting
+                ? `<label class="rnp-set-chk"><input type="checkbox" data-opt="${f.setting}"${_settings[f.setting] ? ' checked' : ''}> показывать</label>`
+                : '<span class="rnp-set-lock">всегда</span>';
+            return `<li><b>${f.label}</b> ${chk}</li>`;
+        }).join('');
         el.innerHTML = `
         <div class="space-y-5">
           <div class="widget-card p-5">
-            <h3 class="font-semibold mb-4 flex items-center gap-2" style="color:var(--text-primary)">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
-              Основные настройки
-            </h3>
+            <h3 class="font-semibold mb-4 flex items-center gap-2" style="color:var(--text-primary)">Основные настройки</h3>
             <div class="flex flex-wrap gap-4 mb-4 text-xs" style="color:var(--text-muted)">
-              <span>Активных артикулов: <b style="color:var(--text-primary)">${_articles.filter(a=>a.is_active).length}</b> / ${_articles.length}</span>
+              <span>Активных: <b style="color:var(--text-primary)">${_articles.filter(a=>a.is_active).length}</b> / ${_articles.length}</span>
               <span>Курс: <b style="color:var(--text-primary)">1₽ = ${_settings.exchangeRate} сом</b></span>
+              <span>$: <b style="color:var(--text-primary)">1$ = ${_settings.usdRate} сом</b></span>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Курс ₽ → сом</label>
                 <div class="flex gap-2">
                   <input id="rnp-rate" type="number" step="0.1" min="0.1" value="${_settings.exchangeRate}"
                     class="rounded-xl px-3 py-2 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
                   <button onclick="RNP.saveRate()" class="px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap"
-                    style="background:var(--accent-gradient);color:#fff">Сохранить</button>
+                    style="background:var(--accent-gradient);color:#fff">OK</button>
                 </div>
+              </div>
+              <div>
+                <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Курс $ → сом (для KPI)</label>
+                <input id="rnp-usd-rate" type="number" step="0.1" min="1" value="${_settings.usdRate}"
+                  class="rounded-xl px-3 py-2 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
               </div>
               <div>
                 <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Период расчёта метрик</label>
                 <select id="rnp-period" onchange="RNP.savePeriod(this.value)"
                   class="rounded-xl px-3 py-2 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                  <option value="7" ${_settings.calcPeriod==7?'selected':''}>7 дней (быстрее реагирует)</option>
-                  <option value="28" ${_settings.calcPeriod==28?'selected':''}>28 дней (сглаживает колебания)</option>
+                  <option value="7" ${_settings.calcPeriod==7?'selected':''}>7 дней</option>
+                  <option value="28" ${_settings.calcPeriod==28?'selected':''}>28 дней</option>
                 </select>
               </div>
+              <div>
+                <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">План по умолчанию</label>
+                <select id="rnp-default-plan" class="rounded-xl px-3 py-2 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                  <option value="week"${_settings.defaultPlanPeriod === 'week' ? ' selected' : ''}>Неделя</option>
+                  <option value="month"${_settings.defaultPlanPeriod === 'month' ? ' selected' : ''}>Месяц</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Месяцы в таблице (с — по)</label>
+                <div class="flex gap-2">
+                  <select id="rnp-month-from" class="rounded-xl px-2 py-2 text-sm flex-1" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">${monthOpts(6, _settings.monthFrom)}</select>
+                  <select id="rnp-month-to" class="rounded-xl px-2 py-2 text-sm flex-1" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">${monthOpts(12, _settings.monthTo)}</select>
+                </div>
+              </div>
             </div>
+            <button onclick="RNP.saveRnpOptions()" class="mt-4 px-4 py-2 rounded-xl text-xs font-bold"
+              style="background:var(--accent-gradient);color:#fff">Сохранить параметры РНП</button>
+          </div>
+
+          <div class="widget-card p-5">
+            <h3 class="font-semibold mb-2" style="color:var(--text-primary)">Ручные поля (как в Google Sheets)</h3>
+            <p class="text-xs mb-3" style="color:var(--text-muted)">Планы, себестоимость, «В пошиве», ответственный и комментарии всегда доступны для ручного ввода. Остальное можно скрыть.</p>
+            <ul class="rnp-manual-list text-xs" style="color:var(--text-secondary)">${manualList}</ul>
           </div>
 
           <div class="widget-card p-5" style="border-left:3px solid var(--green)">
             <div class="flex items-center gap-2">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--green)"><polyline points="20 6 9 17 4 12"/></svg>
               <span class="text-sm font-semibold" style="color:var(--text-primary)">Реклама подключена автоматически</span>
             </div>
-            <p class="text-xs mt-2" style="color:var(--text-muted)">Данные рекламных кампаний (Показы, Клики, CTR, ДРР) загружаются через тот же токен кабинета WB — отдельный токен не нужен.</p>
+            <p class="text-xs mt-2" style="color:var(--text-muted)">Показы, клики, CTR, ДРР — через токен кабинета WB.</p>
           </div>
 
           <div class="widget-card p-5">
             <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h3 class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">
                 Артикулы
-                <span class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} / ${_articles.length} в РНП</span>
+                <span class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} / ${_articles.length} в РНП · артикул продавца из WB</span>
               </h3>
               <div class="flex gap-2 flex-wrap">
                 <button onclick="RNP.syncArts()" id="rnp-sync-btn"
@@ -1942,25 +2291,30 @@ const RNP = (() => {
             </div>
             ${_articles.length === 0 ? `
             <div class="text-center py-10" style="color:var(--text-muted)">
-              <p class="text-sm">Нажмите «Из заказов» чтобы загрузить артикулы</p>
+              <p class="text-sm">Нажмите «Из заказов» — подтянутся артикулы WB и <b>артикулы продавца</b> из заказов автоматически</p>
             </div>` : `
             <div style="overflow-x:auto;max-height:calc(100vh - 320px);overflow-y:auto">
               <table class="rnp-sheet-table" style="font-size:11px">
                 <thead>
                   <tr>
                     <th class="rnp-th-metric" style="width:40px"></th>
-                    <th class="rnp-th-metric">Товар</th>
-                    <th style="min-width:90px">nmId</th>
+                    <th style="min-width:120px">Артикул продавца <span style="font-weight:400;color:var(--text-muted)">(из WB)</span></th>
+                    <th style="min-width:90px">Артикул WB</th>
+                    <th class="rnp-th-metric">Название WB</th>
                     <th style="min-width:80px">Себест. (сом)</th>
                     <th style="min-width:60px">В РНП</th>
                   </tr>
                 </thead>
                 <tbody>
-                  ${_articles.map(a => `
+                  ${_articles.slice().sort(_sortBySeller).map(a => {
+                    const sa = _sellerArticle(a).replace(/</g, '&lt;');
+                    const auto = !!(a.manual_data?.seller_article);
+                    return `
                   <tr>
                     <td>${_imgHtml(a, '', 'c246x328', 'width:32px;height:40px;border-radius:3px;object-fit:cover;display:block')}</td>
-                    <td class="rnp-metric-col" style="max-width:200px;overflow:hidden;text-overflow:ellipsis">${a.name||'—'}</td>
+                    <td style="font-weight:600;color:var(--text-primary)">${sa || '—'}${auto ? ' <span style="color:var(--green);font-weight:400;font-size:10px">авто</span>' : ' <span style="color:var(--text-muted);font-weight:400;font-size:10px">(нет данных — Обновить на дашборде)</span>'}</td>
                     <td style="color:var(--text-muted)">${a.nm_id}</td>
+                    <td class="rnp-metric-col" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${(a.name||'—').replace(/</g,'&lt;')}</td>
                     <td><input type="number" value="${a.cost_price||0}" min="0"
                       onchange="RNP.setCost(${a.nm_id},this.value)"
                       style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
@@ -1968,7 +2322,8 @@ const RNP = (() => {
                       style="background:${a.is_active?'var(--accent)':'var(--border)'}">
                       <span style="position:absolute;top:2px;left:${a.is_active?'18px':'2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
                     </button></td>
-                  </tr>`).join('')}
+                  </tr>`;
+                  }).join('')}
                 </tbody>
               </table>
             </div>`}
@@ -2015,17 +2370,22 @@ const RNP = (() => {
           </div>
         </div>`;
 
-        await _loadAllDailyData(active.map(a => a.nm_id));
-        await _loadAllStocks(active.map(a => a.nm_id));
-        await _loadNotes(active.map(a => a.nm_id));
-        await _preloadPhotos(active);
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
         try { _notesVisible = localStorage.getItem('rnp_notes_visible') !== '0'; } catch (e) {}
         try { _strategyTab = parseInt(localStorage.getItem('rnp_strategy_tab') || '0', 10) || 0; } catch (e) {}
         try {
+            const pp = localStorage.getItem('rnp_plan_period');
+            _planPeriod = pp === 'month' ? 'month' : (pp === 'week' ? 'week' : (_settings.defaultPlanPeriod || 'week'));
+        } catch (e) { _planPeriod = _settings.defaultPlanPeriod || 'week'; }
+        try {
             const gc = localStorage.getItem('rnp_gallery_collapsed');
             _galleryCollapsed = gc === null ? false : gc === '1';
         } catch (e) {}
+
+        await _loadAllDailyData(active.map(a => a.nm_id));
+        await _loadAllStocks(active.map(a => a.nm_id));
+        await _loadNotes(active.map(a => a.nm_id));
+        await _preloadPhotos(active);
         await _renderActiveTable();
     }
 
@@ -2064,8 +2424,8 @@ const RNP = (() => {
                 const raw2 = _dataCache[art2.nm_id] || {};
                 const stock2 = _stockCache[art2.nm_id] || {};
                 topHTML = `<div class="rnp-article-panel rnp-compare-split">
-                  <div><div class="rnp-compare-label">A — ${(art.name || art.nm_id).substring(0, 24)}</div>${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>
-                  <div><div class="rnp-compare-label">B — ${(art2.name || art2.nm_id).substring(0, 24)}</div>${_buildKpiPanelHTML(art2, stock2, raw2, cal)}</div>
+                  <div><div class="rnp-compare-label">A — ${_sellerArticle(art).substring(0, 24)}</div>${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>
+                  <div><div class="rnp-compare-label">B — ${_sellerArticle(art2).substring(0, 24)}</div>${_buildKpiPanelHTML(art2, stock2, raw2, cal)}</div>
                 </div>`;
             }
         }
@@ -2149,9 +2509,11 @@ const RNP = (() => {
         const baseCount = parseInt(track.dataset.baseCount, 10) || track.children.length;
         const oneSetHtml = track.dataset.baseHtml || '';
         const setW = baseCount * (cardW + gap) - gap;
-        const dayW = DAY_COL_W;
-        const nDays = scope.querySelectorAll('.rnp-th-date.rnp-day-col').length;
-        const viewW = wrap.clientWidth || marqueeTh?.clientWidth || nDays * dayW || 0;
+        const nMonthCols = scope.querySelectorAll('.rnp-th-month-col').length;
+        const nDayCols = scope.querySelectorAll('.rnp-th-date.rnp-day-col').length;
+        const colUnit = nMonthCols ? MONTH_COL_W : DAY_COL_W;
+        const nCols = nMonthCols || nDayCols;
+        const viewW = wrap.clientWidth || marqueeTh?.clientWidth || nCols * colUnit || 0;
         const totalReps = Math.max(3, Math.ceil(viewW / Math.max(setW, 1)));
 
         if (track.children.length !== baseCount * totalReps && oneSetHtml) {
@@ -2190,13 +2552,61 @@ const RNP = (() => {
 
     function _buildTableHTML(art, stockBySize, rawData, cal) {
         const cols = _buildCols(rawData, art, cal);
-        const nPrev = cal.weeks.length + (cal.weeks.length ? 1 : 0);
-        const nCurr = cal.days.length;
-        const firstDayIdx = cols.findIndex(c => c.type === 'day');
         const sheetHead = _compareNm && _compareNm !== art.nm_id
             ? ''
             : _buildSheetHeadRows(art, stockBySize, rawData, cal);
-        const galleryCls = '';
+        const galleryCls = cal.mode === 'month' ? ' rnp-sheet-table--months' : '';
+        const headRows = _notesVisible ? 4 : 3;
+        const notesRow = _notesVisible ? `<tr class="rnp-notes-head-row">
+              ${_buildNotesHeadCells(cols, art)}
+            </tr>` : '';
+        const firstTimelineIdx = cols.findIndex(c => c.type === 'day' || c.type === 'month');
+
+        if (cal.mode === 'month') {
+            const monthHeadRows = _notesVisible ? 4 : 3;
+            const totalSt = _stickyColAttrs(0, cols, 11, 31);
+            const totalTh = `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>`;
+            const monthThs = cal.months.map((m, i) => {
+                const cls = [
+                    'rnp-th-month-col', 'rnp-month-col',
+                    m.isCurrent ? 'is-current' : '',
+                    m.isFuture ? 'rnp-th-future' : '',
+                    i === 0 ? 'rnp-cell-month-start' : '',
+                ].filter(Boolean).join(' ');
+                return `<th class="rnp-th-date ${cls}" title="${m.fullName}">${m.label}</th>`;
+            }).join('');
+            const monthSubs = cal.months.map(m =>
+                `<th class="rnp-th-dow rnp-month-col${m.isCurrent ? ' is-current' : ''}">${m.dayCount} дн</th>`
+            ).join('');
+
+            return `
+        <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}">
+          <thead>
+            ${sheetHead}
+            <tr class="rnp-cal-quarter-row">
+              <th class="rnp-th-metric" rowspan="${monthHeadRows}"></th>
+              <th class="rnp-th-spark" rowspan="${monthHeadRows}"></th>
+              <th class="rnp-th-year-band" colspan="${cols.length}">${cal.rangeLabel}</th>
+            </tr>
+            <tr class="rnp-cal-date-row">
+              ${totalTh}${monthThs}
+            </tr>
+            <tr class="rnp-dow-head-row">
+              <th class="rnp-th-dow rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}></th>
+              ${monthSubs}
+            </tr>
+            ${notesRow}
+          </thead>
+          <tbody>
+            ${_buildMetaRows(cols, art)}
+            ${_sectionsForView().map(s => _renderSection(s, cols, art, firstTimelineIdx)).join('')}
+          </tbody>
+        </table>`;
+        }
+
+        const nPrev = cal.weeks.length + (cal.weeks.length ? 1 : 0);
+        const nCurr = cal.days.length;
+        const firstDayIdx = firstTimelineIdx;
 
         const weekThs = cal.weeks.map((w, wi) => {
             const st = _stickyColAttrs(wi, cols, 11, 30);
@@ -2221,11 +2631,6 @@ const RNP = (() => {
             : '';
         const dowDays = cal.days.map(d =>
             `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
-
-        const headRows = _notesVisible ? 4 : 3;
-        const notesRow = _notesVisible ? `<tr class="rnp-notes-head-row">
-              ${_buildNotesHeadCells(cols, art)}
-            </tr>` : '';
 
         return `
         <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}">
@@ -2264,9 +2669,9 @@ const RNP = (() => {
         if (collapsed && !sec.noHeader) return hdr;
         if (collapsed && sec.noHeader) return '';
 
-        const daySeries = cols.filter(c => c.type === 'day' && !c.isFuture);
+        const daySeries = cols.filter(c => (c.type === 'day' || c.type === 'month') && !c.isFuture);
 
-        const rows = sec.rows.map(m => {
+        const rows = _sectionRows(sec).map(m => {
             const sparkVals = daySeries.map(c => (c.data && c.data[m.key]) || 0);
             const spark = m.isPlan ? '' : _sparkline(sparkVals, 48, 16);
 
@@ -2274,22 +2679,24 @@ const RNP = (() => {
                 const d = col.data;
                 const isWeek = col.type === 'week';
                 const isTotal = col.type === 'total';
-                const isToday = col.isToday;
+                const isToday = col.isToday || col.isCurrent;
                 const isMonthStart = ci === firstDayIdx;
                 const isFuture = col.isFuture;
                 const isDay = col.type === 'day';
+                const isMonth = col.type === 'month';
                 const cls = [
                     isDay ? 'rnp-day-col' : '',
+                    isMonth ? 'rnp-month-col' : '',
                     isToday ? 'rnp-cell-today' : '',
                     isMonthStart ? 'rnp-cell-month-start' : '',
                     isFuture ? 'rnp-cell-future' : '',
                     isWeek ? 'rnp-cell-week' : '',
                     isTotal ? 'rnp-cell-total' : '',
                     m.competitor ? 'rnp-cell-competitor' : '',
-                    m.hero && (isWeek || isTotal) ? 'rnp-cell-hero' : '',
+                    m.hero && (isWeek || isTotal || isMonth) ? 'rnp-cell-hero' : '',
                 ].filter(Boolean).join(' ');
                 const sticky = _stickyDataAttrs(ci, cols);
-                const colWCls = isDay ? 'rnp-day-col' : 'rnp-data-col';
+                const colWCls = isDay ? 'rnp-day-col' : (isMonth ? 'rnp-month-col' : 'rnp-data-col');
 
                 if (m.isPlan) {
                     const pv = _planVal(art, m.key, col.colKey);
@@ -2336,6 +2743,7 @@ const RNP = (() => {
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
         await _loadSettings();
         await _loadArticles();
+        await _backfillSellerArticlesFromDb();
     }
 
     async function openSettings() {
@@ -2356,7 +2764,11 @@ const RNP = (() => {
     async function syncArts() {
         const btn = document.getElementById('rnp-sync-btn');
         if (btn) btn.textContent = '⏳ Загрузка...';
-        await _syncFromOrders();
+        try {
+            await _syncFromOrders();
+        } finally {
+            if (btn) btn.textContent = 'Из заказов';
+        }
         _renderSettings();
     }
 
@@ -2413,6 +2825,23 @@ const RNP = (() => {
         if (!art) return;
         const manual_data = { ...(art.manual_data || {}), [key]: parseFloat(val) || 0 };
         await _updateArticle(nmId, { manual_data });
+    }
+
+    async function saveRnpOptions() {
+        const opts = {
+            usdRate: parseFloat(document.getElementById('rnp-usd-rate')?.value) || 87.5,
+            defaultPlanPeriod: document.getElementById('rnp-default-plan')?.value === 'month' ? 'month' : 'week',
+            monthFrom: parseInt(document.getElementById('rnp-month-from')?.value, 10) || 6,
+            monthTo: parseInt(document.getElementById('rnp-month-to')?.value, 10) || 12,
+            showGiveaways: !!document.querySelector('[data-opt="showGiveaways"]')?.checked,
+            showCompetitor: !!document.querySelector('[data-opt="showCompetitor"]')?.checked,
+        };
+        await _saveSettings({ options: opts });
+        if (!localStorage.getItem('rnp_plan_period')) {
+            _planPeriod = opts.defaultPlanPeriod;
+        }
+        _nrDialog('Сохранено', 'Параметры РНП обновлены.', 'success');
+        _renderSettings();
     }
 
     async function saveRate() {
@@ -2472,7 +2901,7 @@ const RNP = (() => {
         if (_activeNm == nmId) await _renderActiveTable();
     }
 
-    return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, toggleGalleryPanel,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();
