@@ -52,10 +52,10 @@ const RNP = (() => {
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 38;
     const DAY_COL_W = 30;
-    const MONTH_COL_W = 58;
+    const MONTH_COL_W = 68;
     const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
-    const CAL_MONTH_FROM = 5;  // Июнь (fallback)
-    const CAL_MONTH_TO = 11;   // Декабрь (fallback)
+    const CAL_MONTH_FROM = 5;  // июнь (0-based)
+    const CAL_MONTH_TO = 11;   // декабрь
 
     /** Поля, которые в Google Sheets РНП заполняются вручную */
     const MANUAL_RNP_FIELDS = [
@@ -68,10 +68,6 @@ const RNP = (() => {
         { key: 'notes', label: 'Комментарии под датами / месяцами', locked: true },
         { key: 'gallery', label: 'Комментарии к фото тестов', locked: true },
     ];
-    const MONTH_COL_W = 68;
-    const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
-    const CAL_MONTH_FROM = 5;  // июнь (0-based)
-    const CAL_MONTH_TO = 11;   // декабрь
     const GALLERY_PHOTO_COUNT = 12;
 
     const STRATEGY_TABS = [
@@ -2743,7 +2739,7 @@ const RNP = (() => {
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
         await _loadSettings();
         await _loadArticles();
-        await _backfillSellerArticlesFromDb();
+        _backfillSellerArticlesFromDb().catch(e => console.warn('[RNP] seller backfill:', e.message));
     }
 
     async function openSettings() {

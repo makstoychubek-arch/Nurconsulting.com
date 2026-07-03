@@ -2037,8 +2037,8 @@
         if (mainRefresh) mainRefresh.style.display = name === 'rnp' ? 'none' : '';
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         if (name === 'abtests') loadABTests();
-        if (name === 'rnp') RNP.openMain();
-        if (name === 'rnp-settings') RNP.openSettings();
+        if (name === 'rnp' && typeof RNP !== 'undefined') RNP.openMain();
+        if (name === 'rnp-settings' && typeof RNP !== 'undefined') RNP.openSettings();
         syncRailGroup(name);
         // Remember last tab
         try { localStorage.setItem('nr_active_tab', name); } catch(e) {}
@@ -3093,15 +3093,23 @@
 
         // Init RNP, then restore last tab, then hide loader — all in one step
         setTimeout(async () => {
-            if (currentCabinetId && typeof RNP !== 'undefined') {
-                await RNP.init(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+            try {
+                if (currentCabinetId && typeof RNP !== 'undefined') {
+                    const initTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('RNP init timeout')), 12000));
+                    await Promise.race([
+                        RNP.init(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail }),
+                        initTimeout,
+                    ]).catch(e => console.warn('[RNP] init:', e.message));
+                }
+                const savedTab = localStorage.getItem('nr_active_tab');
+                if (savedTab && savedTab !== 'dashboard') {
+                    showTab(savedTab, null);
+                }
+            } catch (e) {
+                console.error('[init]', e);
+            } finally {
+                hideOverlay();
             }
-            const savedTab = localStorage.getItem('nr_active_tab');
-            if (savedTab && savedTab !== 'dashboard') {
-                showTab(savedTab, null);
-            }
-            // Tab is switched — now fade out overlay
-            hideOverlay();
         }, 1500);
 
         initSidebarFlyouts();
