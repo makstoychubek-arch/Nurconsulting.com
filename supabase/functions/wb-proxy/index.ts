@@ -209,10 +209,18 @@ serve(async (req) => {
                         cursor: { limit: params.limit || 100 }
                     }
                 };
-                result = await wbPost(
-                    'https://content-api.wildberries.ru/content/v2/get/cards/list',
-                    WB_CONTENT_TOKEN, body
-                );
+                try {
+                    result = await wbPost(
+                        'https://content-api.wildberries.ru/content/v2/get/cards/list',
+                        WB_CONTENT_TOKEN, body
+                    );
+                } catch (e) {
+                    const status = (e as { status?: number })?.status;
+                    if (status === 401 || status === 403) {
+                        console.warn('[wb-proxy] content_cards auth:', String(e));
+                        result = { cards: [] };
+                    } else throw e;
+                }
                 break;
             }
             case 'product_photos': {
@@ -224,7 +232,7 @@ serve(async (req) => {
                     const body = {
                         settings: {
                             sort: { ascending: false },
-                            filter: { textSearch: '', withPhoto: 1, nmID: chunk },
+                            filter: { textSearch: '', withPhoto: -1, nmID: chunk },
                             cursor: { limit: chunk.length }
                         }
                     };
@@ -236,12 +244,18 @@ serve(async (req) => {
                         for (const card of cards?.cards || []) {
                             const nm = Number(card.nmID ?? card.nmId ?? 0);
                             if (!nm) continue;
-                            const photos = card.photos as { big?: string; c516x688?: string }[] | undefined;
-                            let url = photos?.[0]?.big || photos?.[0]?.c516x688 || '';
+                            const photos = card.photos as Record<string, string>[] | undefined;
+                            const ph = photos?.[0];
+                            let url = ph?.big || ph?.c516x688 || ph?.c246x328 || ph?.tm || '';
                             if (url.startsWith('//')) url = 'https:' + url;
                             if (url) out[String(nm)] = url;
                         }
                     } catch (e) {
+                        const status = (e as { status?: number })?.status;
+                        if (status === 401 || status === 403) {
+                            console.warn('[wb-proxy] product_photos auth:', String(e));
+                            break;
+                        }
                         console.warn('[wb-proxy] product_photos chunk:', String(e));
                     }
                 }
