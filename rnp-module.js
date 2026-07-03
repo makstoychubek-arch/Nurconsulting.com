@@ -223,8 +223,18 @@ const RNP = (() => {
     }
 
     function _photoHosts(basketStr) {
-        const bs = basketStr;
-        return [`basket-${bs}.wbbasket.ru`, `basket-${bs}.wb.ru`];
+        return [`basket-${basketStr}.wbbasket.ru`];
+    }
+
+    function _photoFallbackUrls(nmId, size, photoIndex) {
+        const { vol, part, basket } = _photoMeta(nmId);
+        const bs = String(Math.max(1, basket)).padStart(2, '0');
+        const idx = Math.max(1, photoIndex || 1);
+        const host = `basket-${bs}.wbbasket.ru`;
+        return [
+            `https://${host}/vol${vol}/part${part}/${nmId}/images/${size}/${idx}.webp`,
+            `https://${host}/vol${vol}/part${part}/${nmId}/images/c246x328/${idx}.jpg`,
+        ];
     }
 
     const _photoProxyPending = new Set();
@@ -392,25 +402,7 @@ const RNP = (() => {
     }
 
     function _photoUrls(nmId, size = 'c516x688', photoIndex = 1, basketOverride) {
-        const { vol, part, basket, basketStr } = _photoMeta(nmId);
-        const b = basketOverride || basket;
-        const bStr = String(Math.max(1, b)).padStart(2, '0');
-        const urls = [];
-        const idx = Math.max(1, Math.min(15, photoIndex || 1));
-        const sizes = size === 'c246x328'
-            ? ['c246x328', 'tm', 'big']
-            : ['c516x688', 'big', 'tm', 'c246x328'];
-        const exts = ['webp', 'jpg'];
-        [bStr, basketStr].forEach(bs => {
-            _photoHosts(bs).forEach(host => {
-                sizes.forEach(s => {
-                    exts.forEach(ext => {
-                        urls.push(`https://${host}/vol${vol}/part${part}/${nmId}/images/${s}/${idx}.${ext}`);
-                    });
-                });
-            });
-        });
-        return [...new Set(urls)];
+        return _photoFallbackUrls(nmId, size, photoIndex);
     }
 
     function _photoUrl(nmId, size = 'c516x688', photoIndex = 1) {
@@ -418,6 +410,11 @@ const RNP = (() => {
     }
 
     async function _resolveBasketProbe(nmId) {
+        if (_callProxy) {
+            const guess = _basketNum(Math.floor(nmId / 100000));
+            _basketCache[nmId] = guess;
+            return guess;
+        }
         if (_basketCache[nmId]) return _basketCache[nmId];
         const vol = Math.floor(nmId / 100000);
         const part = Math.floor(nmId / 1000);
@@ -514,24 +511,19 @@ const RNP = (() => {
 
     async function _fetchCardPhoto(nmId) {
         await _fetchPhotosViaProxy([nmId]);
-        if (_photoResolveCache[nmId]) return _photoResolveCache[nmId];
-        await _resolveBasketProbe(nmId);
-        return _resolvePhotoUrl(nmId);
+        return _photoResolveCache[nmId] || null;
     }
 
     async function _fetchCardPhotosBatch(nmIds) {
         const ids = [...new Set(nmIds.map(Number).filter(Boolean))];
         if (!ids.length) return;
         await _fetchPhotosViaProxy(ids);
-        const stillMissing = ids.filter(id => !_photoResolveCache[id]).slice(0, 12);
-        const concurrency = 3;
-        for (let i = 0; i < stillMissing.length; i += concurrency) {
-            const batch = stillMissing.slice(i, i + concurrency);
-            await Promise.all(batch.map(async nmId => {
-                await _resolveBasketProbe(nmId);
-                const hit = await _resolvePhotoUrl(nmId);
-                if (hit) _photoResolveCache[nmId] = hit;
-            }));
+        if (_callProxy) return;
+        const stillMissing = ids.filter(id => !_photoResolveCache[id]).slice(0, 3);
+        for (const nmId of stillMissing) {
+            await _resolveBasketProbe(nmId);
+            const hit = await _resolvePhotoUrl(nmId);
+            if (hit) _photoResolveCache[nmId] = hit;
         }
     }
 
@@ -594,23 +586,8 @@ const RNP = (() => {
         if (_galleryPhotosCache[nmId]?.length) return;
         const art = _articles.find(a => a.nm_id === nmId);
         if (art && _hydrateGalleryFromArticle(art)) return;
-        await _fetchCardPhotosBatch([nmId]);
+        await _fetchPhotosViaProxy([nmId]);
         if (_galleryPhotosCache[nmId]?.length) {
-            await _persistGalleryToArticle(nmId);
-            return;
-        }
-        await _resolveBasketProbe(nmId);
-        const extras = [];
-        if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
-        for (let idx = 2; idx <= 8; idx++) {
-            const hit = await _probePhotoParallel(_photoUrls(nmId, 'c246x328', idx).slice(0, 8), 4);
-            if (hit) {
-                extras.push(hit);
-                _photoIndexCache[nmId][idx] = hit;
-            } else if (idx > 4 && extras.length) break;
-        }
-        if (extras.length) {
-            _galleryPhotosCache[nmId] = extras;
             await _persistGalleryToArticle(nmId);
         }
     }
@@ -642,13 +619,6 @@ const RNP = (() => {
             _photoResolveCache[art.nm_id] = cardUrl;
             art.photo_url = cardUrl;
             await _persistResolvedPhotos([art]);
-            return;
-        }
-        const hit = await _resolvePhotoUrl(art.nm_id, 'c516x688');
-        if (hit) {
-            art.photo_url = hit;
-            _photoResolveCache[art.nm_id] = hit;
-            await _persistResolvedPhotos([art]);
         }
     }
 
@@ -660,15 +630,16 @@ const RNP = (() => {
         const src = cached || _PHOTO_PLACEHOLDER;
         const cls = className ? ` class="${className}"` : '';
         const sty = extraStyle ? ` style="${extraStyle}"` : '';
-        const urls = _photoUrls(nmId, size, idx).slice(0, 6).join('|');
         const loading = eager ? 'eager' : 'lazy';
+        const errAttr = cached
+            ? ` data-urls="${_photoFallbackUrls(nmId, size, idx).join('|')}" onerror="RNP.imgFallback(this)"`
+            : (idx === 1 ? ' onerror="RNP.imgFallback(this)"' : '');
         return `<img${cls}${sty} src="${src}" referrerpolicy="no-referrer" loading="${loading}" alt=""
-          data-nmid="${nmId}" data-vol="${meta.vol}" data-part="${meta.part}" data-basket="${meta.basket}" data-size="${size}" data-photo="${idx}"
-          data-urls="${urls}"
-          onerror="RNP.imgFallback(this)">`;
+          data-nmid="${nmId}" data-vol="${meta.vol}" data-part="${meta.part}" data-basket="${meta.basket}" data-size="${size}" data-photo="${idx}"${errAttr}>`;
     }
 
     function imgFallback(img) {
+        if (img.dataset.done === '1') return;
         const attempt = parseInt(img.dataset.attempt || '0', 10) + 1;
         img.dataset.attempt = String(attempt);
         const queue = (img.dataset.urls || '').split('|').filter(Boolean);
@@ -676,46 +647,39 @@ const RNP = (() => {
             img.src = queue[attempt - 1];
             return;
         }
-        const nmId = img.dataset.nmid;
-        const vol = img.dataset.vol;
-        const part = img.dataset.part;
-        const photoIdx = img.dataset.photo || '1';
-        const size = img.dataset.size || 'c246x328';
-        const base = parseInt(img.dataset.basket || '1', 10);
-        const offsets = [0, 1, -1, 2];
-        const basketTryIdx = attempt - queue.length - 1;
-        const hostsPerOffset = 2;
-        if (basketTryIdx < offsets.length * hostsPerOffset) {
-            const off = offsets[Math.floor(basketTryIdx / hostsPerOffset)];
-            const host = _photoHosts(String(Math.max(1, Math.min(45, base + off)).padStart(2, '0')))[basketTryIdx % hostsPerOffset];
-            img.src = `https://${host}/vol${vol}/part${part}/${nmId}/images/${size}/${photoIdx}.webp`;
-            return;
-        }
-        const nmIdNum = Number(nmId);
+        const nmIdNum = Number(img.dataset.nmid);
         if (nmIdNum && _callProxy && !img.dataset.proxyTried && !_photoProxyPending.has(nmIdNum)) {
             img.dataset.proxyTried = '1';
             _photoProxyPending.add(nmIdNum);
             _fetchPhotosViaProxy([nmIdNum]).then(() => {
-                const url = _normalizePhotoUrl(_photoResolveCache[nmIdNum]);
+                const photoIdx = parseInt(img.dataset.photo || '1', 10);
+                const url = photoIdx === 1
+                    ? _normalizePhotoUrl(_photoResolveCache[nmIdNum])
+                    : _normalizePhotoUrl(_photoIndexCache[nmIdNum]?.[photoIdx]);
                 if (url) {
                     img.src = url;
                     img.classList.remove('rnp-photo-fail');
                     const art = _articles.find(a => a.nm_id == nmIdNum);
-                    if (art) {
+                    if (art && photoIdx === 1) {
                         art.photo_url = url;
                         _persistResolvedPhotos([art]).catch(() => {});
                     }
                     _applyResolvedPhotos(_rnpRoot());
                     return;
                 }
+                img.dataset.done = '1';
+                img.onerror = null;
                 img.classList.add('rnp-photo-fail');
                 img.src = _PHOTO_PLACEHOLDER;
             }).catch(() => {
+                img.dataset.done = '1';
+                img.onerror = null;
                 img.classList.add('rnp-photo-fail');
                 img.src = _PHOTO_PLACEHOLDER;
             }).finally(() => _photoProxyPending.delete(nmIdNum));
             return;
         }
+        img.dataset.done = '1';
         img.onerror = null;
         img.classList.add('rnp-photo-fail');
         img.src = _PHOTO_PLACEHOLDER;
