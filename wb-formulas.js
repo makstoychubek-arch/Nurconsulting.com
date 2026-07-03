@@ -284,25 +284,15 @@ function initArticle(row) {
  * @param {string} dateTo — конец периода YYYY-MM-DD
  * @returns {Array} — все строки отчёта
  */
-async function loadFinanceReport(callWbProxy, dateFrom, dateTo, cabinetId) {
-    const cacheKey = `nr_fin_${cabinetId || 'default'}_${dateFrom}_${dateTo}`;
-    try {
-        const cached = sessionStorage.getItem(cacheKey);
-        if (cached) {
-            const { at, rows } = JSON.parse(cached);
-            if (Date.now() - at < 30 * 60 * 1000 && Array.isArray(rows)) return rows;
-        }
-    } catch {}
-
+async function loadFinanceReport(callWbProxy, dateFrom, dateTo) {
     const allRows = [];
     let rrdid = 0;
-    const maxPages = 4;
 
-    for (let page = 0; page < maxPages; page++) {
+    while (true) {
         const data = await callWbProxy('finance_report', {
             dateFrom: dateFrom + 'T00:00:00.000Z',
             dateTo: dateTo + 'T23:59:59.000Z',
-            limit: 10000,
+            limit: 100000,
             rrdid,
         });
 
@@ -310,15 +300,10 @@ async function loadFinanceReport(callWbProxy, dateFrom, dateTo, cabinetId) {
 
         allRows.push(...data);
 
+        // Пагинация — берём максимальный rrd_id из пришедшего пакета
         const maxRrdId = Math.max(...data.map(r => r.rrd_id || 0));
-        if (maxRrdId <= rrdid || data.length < 10000) break;
+        if (maxRrdId <= rrdid || data.length < 100000) break;
         rrdid = maxRrdId;
-    }
-
-    if (allRows.length) {
-        try {
-            sessionStorage.setItem(cacheKey, JSON.stringify({ at: Date.now(), rows: allRows }));
-        } catch {}
     }
 
     return allRows;
