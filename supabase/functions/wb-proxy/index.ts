@@ -198,13 +198,15 @@ serve(async (req) => {
 
             // ── Content API ─────────────────────────────────────────────────
             case 'content_cards': {
+                // Note: filter.nmID (array) is NOT a real WB Content API field —
+                // it's silently ignored. Only textSearch (single value) works
+                // for looking up a specific article.
                 const body = {
                     settings: {
                         sort: { ascending: false },
                         filter: {
-                            textSearch: String(params.textSearch || ''),
+                            textSearch: String(params.textSearch || (params.nmIds?.[0] ?? '')),
                             withPhoto: params.withPhoto ?? -1,
-                            ...(params.nmIds?.length ? { nmID: params.nmIds } : {})
                         },
                         cursor: { limit: params.limit || 100 }
                     }
@@ -224,16 +226,23 @@ serve(async (req) => {
                 break;
             }
             case 'product_photos': {
-                const nmIds: number[] = (params.nmIds || []).map(Number).filter(Boolean);
+                // IMPORTANT: WB Content API v2 `get/cards/list` has NO filter to
+                // fetch multiple specific nmIDs at once — filter.nmID is not a
+                // real field and is silently ignored by WB, causing the endpoint
+                // to return arbitrary cards instead of the ones requested.
+                // The only reliable way to look up a specific article is
+                // filter.textSearch (matches vendor code / nmID / barcode),
+                // one nmID per request.
+                const nmIds: number[] = [...new Set((params.nmIds || []).map(Number).filter(Boolean))];
                 const out: Record<string, string> = {};
+                const debug = { requested: nmIds.length, found: 0, authFailed: false, lastStatus: null as number | null, errors: 0 };
                 if (!nmIds.length) { result = out; break; }
-                for (let i = 0; i < nmIds.length; i += 100) {
-                    const chunk = nmIds.slice(i, i + 100);
+
+                for (const nm of nmIds) {
                     const body = {
                         settings: {
-                            sort: { ascending: false },
-                            filter: { textSearch: '', withPhoto: -1, nmID: chunk },
-                            cursor: { limit: chunk.length }
+                            filter: { textSearch: String(nm), withPhoto: -1 },
+                            cursor: { limit: 100 }
                         }
                     };
                     try {
@@ -241,24 +250,31 @@ serve(async (req) => {
                             'https://content-api.wildberries.ru/content/v2/get/cards/list',
                             WB_CONTENT_TOKEN, body
                         ) as { cards?: Record<string, unknown>[] };
-                        for (const card of cards?.cards || []) {
-                            const nm = Number(card.nmID ?? card.nmId ?? 0);
-                            if (!nm) continue;
+                        const card = (cards?.cards || []).find(c => Number(c.nmID ?? c.nmId ?? 0) === nm);
+                        if (card) {
                             const photos = card.photos as Record<string, string>[] | undefined;
                             const ph = photos?.[0];
                             let url = ph?.big || ph?.c516x688 || ph?.c246x328 || ph?.tm || '';
                             if (url.startsWith('//')) url = 'https:' + url;
-                            if (url) out[String(nm)] = url;
+                            if (url) { out[String(nm)] = url; debug.found++; }
                         }
                     } catch (e) {
                         const status = (e as { status?: number })?.status;
+                        debug.lastStatus = status ?? null;
                         if (status === 401 || status === 403) {
+                            debug.authFailed = true;
                             console.warn('[wb-proxy] product_photos auth:', String(e));
                             break;
                         }
-                        console.warn('[wb-proxy] product_photos chunk:', String(e));
+                        debug.errors++;
+                        console.warn('[wb-proxy] product_photos nm', nm, ':', String(e));
+                        if (status === 429) await sleep(500);
                     }
+                    // WB Content API v2: ~100 req/min limit — keep a small gap.
+                    await sleep(120);
                 }
+                console.log('[wb-proxy] product_photos debug:', JSON.stringify(debug), 'hasContentToken:', WB_CONTENT_TOKEN !== WB_TOKEN);
+                (out as Record<string, unknown>)._debug = { ...debug, usedContentToken: WB_CONTENT_TOKEN !== WB_TOKEN };
                 result = out;
                 break;
             }
@@ -502,6 +518,10 @@ serve(async (req) => {
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 function json(data: unknown, status = 200) {
     return new Response(JSON.stringify(data), {

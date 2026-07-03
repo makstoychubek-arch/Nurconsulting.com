@@ -313,6 +313,10 @@ const RNP = (() => {
             const data = await _callProxy('product_photos', { nmIds: slice });
             if (data && typeof data === 'object') {
                 Object.entries(data).forEach(([id, url]) => {
+                    if (id === '_debug') {
+                        console.info('[RNP] product_photos debug:', url);
+                        return;
+                    }
                     const norm = _normalizePhotoUrl(url);
                     const nmId = Number(id);
                     if (norm && nmId) {
@@ -324,27 +328,9 @@ const RNP = (() => {
             }
         } catch (e) { console.warn('[RNP] product_photos:', e.message); }
 
-        if (!stillNeed.size) return;
-        try {
-            const resp = await _callProxy('content_cards', {
-                nmIds: [...stillNeed],
-                limit: stillNeed.size,
-                withPhoto: -1,
-            });
-            const cards = resp?.cards || resp?.data?.cards || [];
-            cards.forEach(card => {
-                const id = Number(card.nmID ?? card.nmId ?? 0);
-                if (!id || !Array.isArray(card.photos) || !card.photos.length) return;
-                const first = card.photos[0];
-                let url = typeof first === 'string' ? first : (first?.big || first?.c516x688 || first?.c246x328 || first?.tm);
-                url = _normalizePhotoUrl(url);
-                if (url) {
-                    _photoResolveCache[id] = url;
-                    _markPhotoVerified(id, url);
-                }
-                _storeCardGalleryExtras(card, id);
-            });
-        } catch (e) { console.warn('[RNP] content_cards photos:', e.message); }
+        if (stillNeed.size) {
+            console.info(`[RNP] photos: ${stillNeed.size}/${slice.length} not found on WB (nmIds: ${[...stillNeed].join(',')})`);
+        }
     }
 
     function _applyResolvedPhotos(root) {
