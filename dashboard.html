@@ -321,17 +321,17 @@
         .nav-item-standalone.active { box-shadow: 0 8px 28px rgba(123,97,255,0.45); }
         .cabinet-picker {
             position: relative; display: inline-flex; align-items: center;
-            min-width: 0; max-width: 220px; z-index: 60;
+            min-width: 0; z-index: 60;
         }
         .cabinet-picker-native { display: none !important; }
         .cabinet-picker-btn {
             display: flex; align-items: center; gap: 8px;
-            padding: 4px 12px 4px 4px; border-radius: 999px;
+            height: 34px; padding: 0 12px 0 4px; border-radius: 999px;
             border: 1px solid rgba(255,255,255,0.08);
             background: rgba(255,255,255,0.04);
             backdrop-filter: blur(8px); cursor: pointer;
             transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
-            font-family: inherit; color: inherit;
+            font-family: inherit; color: inherit; max-width: 200px;
         }
         .cabinet-picker-btn:hover,
         .cabinet-picker.open .cabinet-picker-btn {
@@ -339,25 +339,37 @@
             background: rgba(139, 92, 246, 0.1);
             box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08);
         }
+        .cabinet-picker.open .cabinet-picker-chevron { transform: rotate(180deg); opacity: 0.8; }
         .cabinet-picker-face {
             display: flex; align-items: center; gap: 8px;
-            pointer-events: none;
+            pointer-events: none; min-width: 0;
         }
         .cabinet-dropdown-menu {
-            position: absolute; top: calc(100% + 8px); right: 0;
-            min-width: 220px; max-width: 280px; max-height: 300px;
-            overflow-y: auto; background: var(--surface-solid);
+            position: fixed; z-index: 100000;
+            min-width: 240px; max-width: 300px; max-height: min(360px, 55vh);
+            overflow: hidden; display: flex; flex-direction: column;
+            background: var(--surface-solid);
             border: 1px solid var(--border-strong); border-radius: 14px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.55); padding: 6px;
-            opacity: 0; visibility: hidden; transform: translateY(-6px) scale(0.97);
-            transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+            box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+            opacity: 0; visibility: hidden; transform: translateY(-8px) scale(0.96);
+            transition: opacity 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+                        transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), visibility 0.22s;
+            pointer-events: none;
         }
         .cabinet-picker.open .cabinet-dropdown-menu {
             opacity: 1; visibility: visible; transform: translateY(0) scale(1);
+            pointer-events: auto;
         }
+        .cabinet-dropdown-head {
+            padding: 10px 14px 8px; font-size: 10px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.07em;
+            color: var(--text-muted); border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .cabinet-dropdown-list { overflow-y: auto; padding: 6px; flex: 1; }
         .cabinet-dropdown-item {
             display: flex; align-items: center; gap: 10px;
-            padding: 9px 12px; border-radius: 10px; cursor: pointer;
+            padding: 10px 12px; border-radius: 10px; cursor: pointer;
             font-size: 13px; font-weight: 500; color: var(--text-primary);
             transition: background 0.15s;
         }
@@ -366,11 +378,25 @@
             background: var(--accent-soft); color: var(--accent); font-weight: 600;
         }
         .cabinet-dropdown-item .cab-dot {
-            width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+            width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
             background: linear-gradient(145deg, rgba(139,92,246,0.45), rgba(79,70,229,0.25));
             border: 1px solid rgba(139, 92, 246, 0.2);
             display: flex; align-items: center; justify-content: center;
             font-size: 10px; font-weight: 700; color: #fff;
+        }
+        .cabinet-dropdown-item .cab-name {
+            flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .cabinet-dropdown-item .cab-check {
+            width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 700; color: var(--accent);
+            background: rgba(139,92,246,0.15); opacity: 0;
+        }
+        .cabinet-dropdown-item.active .cab-check { opacity: 1; }
+        .cabinet-picker-chevron {
+            width: 14px; height: 14px; flex-shrink: 0; opacity: 0.45;
+            color: var(--text-muted); transition: transform 0.2s ease, opacity 0.2s;
         }
         .cabinet-picker-dot {
             width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
@@ -383,10 +409,6 @@
             font-size: 12px; font-weight: 600; color: var(--text-primary);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             max-width: 110px; line-height: 1.2;
-        }
-        .cabinet-picker-chevron {
-            width: 14px; height: 14px; flex-shrink: 0; opacity: 0.45;
-            color: var(--text-muted);
         }
         [data-theme="ios"] .cabinet-picker-face {
             border-color: rgba(0,0,0,0.08); background: rgba(0,0,0,0.03);
@@ -1520,13 +1542,30 @@
 
         /* Кнопка "Обновить" */
         #refresh-btn, .header-refresh-btn {
-            width: 34px !important; height: 34px !important; padding: 0 !important;
-            display: inline-flex !important; align-items: center; justify-content: center;
-            border-radius: 10px !important; min-width: unset !important;
+            display: inline-flex !important; align-items: center; justify-content: flex-end;
+            flex-direction: row-reverse; gap: 0;
+            height: 34px !important; width: 34px !important; min-width: 34px !important;
+            padding: 0 9px !important; overflow: hidden;
+            border-radius: 10px !important;
             box-shadow: 0 2px 10px rgba(232,86,142,0.25) !important;
+            transition: width 0.38s cubic-bezier(0.22, 1, 0.36, 1),
+                        gap 0.3s ease, box-shadow 0.2s ease, transform 0.2s ease !important;
         }
-        #refresh-btn:hover { transform: translateY(-1px); }
-        #refresh-btn .refresh-label { display: none; }
+        #refresh-btn:hover {
+            width: 112px !important;
+            gap: 7px !important;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(232,86,142,0.35) !important;
+        }
+        #refresh-btn .refresh-label {
+            display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 600;
+            max-width: 0; opacity: 0; overflow: hidden;
+            transition: max-width 0.38s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease;
+        }
+        #refresh-btn:hover .refresh-label {
+            max-width: 72px; opacity: 1;
+        }
+        #refresh-btn svg { flex-shrink: 0; }
 
         /* Карточки метрик — плавнее */
         .metric-card { border-radius: 18px !important; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important; }
@@ -1870,10 +1909,10 @@
                         </div>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <button onclick="refreshData()" id="refresh-btn" class="btn-smooth header-refresh-btn text-white font-semibold" title="Обновить данные" style="background:var(--accent-gradient);border:none">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+                <div class="flex items-center gap-2 shrink-0 header-actions">
+                    <button onclick="refreshData()" id="refresh-btn" class="btn-smooth header-refresh-btn text-white font-semibold" title="Обновить" style="background:var(--accent-gradient);border:none">
                         <span class="refresh-label">Обновить</span>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
                     </button>
                     <div class="cabinet-picker" id="cabinet-picker-wrap">
                         <button type="button" class="cabinet-picker-btn" id="cabinet-picker-btn" onclick="toggleCabinetDropdown(event)">
@@ -2563,7 +2602,7 @@
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
             const msg = errData.error || errData.message || `HTTP ${res.status}`;
-            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'content_cards', 'media_save']);
+            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'advert_campaigns']);
             if (res.status === 403) showPremiumModal('warning', 'Доступ запрещён', msg);
             else if (res.status >= 500) console.warn(`[callWbProxy] ${action} server error:`, msg);
             else if (bgActions.has(action)) console.warn(`[callWbProxy] ${action}:`, msg);
@@ -3073,15 +3112,17 @@
         const selectHeader = document.getElementById('cabinet-select-header');
         if (!menu) return;
         if (!data?.length) {
-            menu.innerHTML = '<div class="text-center py-4 text-xs" style="color:var(--text-muted)">Нет кабинетов</div>';
+            menu.innerHTML = '<div class="cabinet-dropdown-head">Кабинет WB</div><div class="cabinet-dropdown-list"><div class="text-center py-4 text-xs" style="color:var(--text-muted)">Нет кабинетов</div></div>';
             if (selectHeader) selectHeader.innerHTML = '<option>Нет кабинетов</option>';
             return;
         }
-        menu.innerHTML = data.map(c => `
-            <div class="cabinet-dropdown-item${c.id === currentCabinetId ? ' active' : ''}" onclick="selectCabinet('${escapeHtml(String(c.id))}')">
+        menu.innerHTML = `<div class="cabinet-dropdown-head">Кабинет WB</div><div class="cabinet-dropdown-list">` +
+            data.map(c => `
+            <div class="cabinet-dropdown-item${c.id === currentCabinetId ? ' active' : ''}" data-cabinet-id="${escapeHtml(String(c.id))}" onclick="selectCabinet(this.dataset.cabinetId)">
                 <span class="cab-dot">${escapeHtml(c.name.charAt(0).toUpperCase())}</span>
-                <span>${escapeHtml(c.name)}</span>
-            </div>`).join('');
+                <span class="cab-name">${escapeHtml(c.name)}</span>
+                <span class="cab-check">✓</span>
+            </div>`).join('') + `</div>`;
         if (selectHeader) {
             selectHeader.innerHTML = data.map(c =>
                 `<option value="${escapeHtml(String(c.id))}"${c.id === currentCabinetId ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
@@ -3089,12 +3130,26 @@
         }
     }
 
+    function positionCabinetDropdown() {
+        const btn = document.getElementById('cabinet-picker-btn');
+        const menu = document.getElementById('cabinet-dropdown-menu');
+        if (!btn || !menu) return;
+        const rect = btn.getBoundingClientRect();
+        menu.style.top = (rect.bottom + 8) + 'px';
+        menu.style.right = Math.max(8, window.innerWidth - rect.right) + 'px';
+        menu.style.left = 'auto';
+        menu.style.minWidth = Math.max(rect.width, 240) + 'px';
+    }
+
     function toggleCabinetDropdown(e) {
         e.stopPropagation();
         const wrap = document.getElementById('cabinet-picker-wrap');
         if (!wrap) return;
         const open = wrap.classList.toggle('open');
-        if (open) renderCabinetDropdown(cabinetListCache);
+        if (open) {
+            renderCabinetDropdown(cabinetListCache);
+            positionCabinetDropdown();
+        }
     }
 
     function selectCabinet(id) {
@@ -3109,6 +3164,11 @@
     document.addEventListener('click', (e) => {
         if (!e.target.closest('#cabinet-picker-wrap')) {
             document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
+        }
+    });
+    window.addEventListener('resize', () => {
+        if (document.getElementById('cabinet-picker-wrap')?.classList.contains('open')) {
+            positionCabinetDropdown();
         }
     });
 
@@ -3584,20 +3644,71 @@
         return { nmID, title, photos, thumb: photos[0] || '' };
     }
 
-    async function loadABProductCards(search) {
+    async function loadABProductCardsFromDB(search) {
+        const q = (search || '').toLowerCase().trim();
+        const cards = [];
+        const seen = new Set();
+
+        const { data: arts } = await supabase
+            .from('rnp_articles')
+            .select('nm_id, name, photo_url')
+            .eq('cabinet_id', currentCabinetId)
+            .order('nm_id');
+        for (const a of arts || []) {
+            const nmID = Number(a.nm_id);
+            if (!nmID || seen.has(nmID)) continue;
+            seen.add(nmID);
+            cards.push({
+                nmID,
+                title: a.name || `Артикул ${nmID}`,
+                photos: a.photo_url ? [a.photo_url] : [],
+                thumb: a.photo_url || '',
+            });
+        }
+
+        if (!cards.length) {
+            const { data: orders } = await supabase
+                .from('wb_orders')
+                .select('nm_id, data')
+                .eq('cabinet_id', currentCabinetId)
+                .not('nm_id', 'is', null)
+                .limit(3000);
+            for (const o of orders || []) {
+                const nmID = Number(o.nm_id);
+                if (!nmID || seen.has(nmID)) continue;
+                seen.add(nmID);
+                const d = o.data || {};
+                const title = d.supplierArticle || d.sa_name || d.subject || d.brand || `Артикул ${nmID}`;
+                cards.push({ nmID, title: String(title), photos: [], thumb: '' });
+            }
+            cards.sort((a, b) => a.nmID - b.nmID);
+            if (cards.length) {
+                const photoMap = await callWbProxy('product_photos', { nmIds: cards.slice(0, 100).map(c => c.nmID) }) || {};
+                cards.forEach(c => {
+                    const u = photoMap[String(c.nmID)];
+                    if (u) { c.thumb = u; c.photos = [u]; }
+                });
+            }
+        }
+
+        if (!q) return cards;
+        return cards.filter(c =>
+            String(c.nmID).includes(q) || (c.title || '').toLowerCase().includes(q)
+        );
+    }
+
+    function renderABProductList(cards, hint) {
         const list = document.getElementById('ab-product-list');
         if (!list) return;
-        list.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)"><div class="nr-loader-ring"></div></div>';
-        const data = await callWbProxy('content_cards', { limit: 50, textSearch: search, withPhoto: 1 });
-        const cards = (data?.cards || []).map(parseWBCard).filter(c => c.nmID);
-        abProductCards = cards;
         if (!cards.length) {
-            list.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)">Карточки не найдены. Проверьте токен Content API.</div>';
+            list.innerHTML = `<div class="text-center py-8 px-4 text-sm" style="color:var(--text-muted)">${hint || 'Артикулы не найдены'}</div>`;
             return;
         }
         list.innerHTML = cards.map(c => `
             <div class="ab-product-item" onclick="selectABProduct(${c.nmID})">
-                <img src="${escapeHtml(c.thumb)}" onerror="this.style.opacity=0.3" alt="">
+                ${c.thumb
+                    ? `<img src="${escapeHtml(c.thumb)}" onerror="this.style.opacity=0.3" alt="">`
+                    : `<div style="width:44px;height:58px;border-radius:8px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text-muted)">WB</div>`}
                 <div>
                     <div class="ab-product-item-title">${escapeHtml(c.title)}</div>
                     <div class="ab-product-item-id">${c.nmID}</div>
@@ -3605,9 +3716,75 @@
             </div>`).join('');
     }
 
-    function selectABProduct(nmID) {
+    async function loadABProductCards(search) {
+        const list = document.getElementById('ab-product-list');
+        if (!list) return;
+        if (!currentCabinetId) {
+            renderABProductList([], 'Сначала выберите кабинет в шапке.');
+            return;
+        }
+        list.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)"><div class="nr-loader-ring"></div><div class="mt-3">Загрузка артикулов кабинета...</div></div>';
+
+        const data = await callWbProxy('content_cards', {
+            fetchAll: true,
+            limit: 100,
+            textSearch: search || '',
+            withPhoto: -1,
+        });
+
+        let cards = [];
+        let source = 'wb';
+
+        if (data?.error || data?.errorText) {
+            console.warn('[AB] content_cards:', data.errorText);
+        } else if (data?.cards?.length) {
+            cards = data.cards.map(parseWBCard).filter(c => c.nmID);
+        }
+
+        if (!cards.length) {
+            cards = await loadABProductCardsFromDB(search);
+            source = 'db';
+        }
+
+        abProductCards = cards;
+
+        if (!cards.length) {
+            const errHint = data?.errorText
+                ? `Content API: ${String(data.errorText).slice(0, 120)}`
+                : 'Нет артикулов в кабинете. Загрузите данные на Дашборде (кнопка ↻).';
+            renderABProductList([], errHint);
+            return;
+        }
+
+        renderABProductList(cards, '');
+        if (source === 'db') {
+            list.insertAdjacentHTML('afterbegin',
+                `<div class="text-xs px-3 py-2" style="color:var(--text-muted);border-bottom:1px solid var(--border)">Показано ${cards.length} арт. из базы кабинета${data?.errorText ? ' (Content API недоступен)' : ''}</div>`
+            );
+        } else {
+            list.insertAdjacentHTML('afterbegin',
+                `<div class="text-xs px-3 py-2" style="color:var(--text-muted);border-bottom:1px solid var(--border)">Всего ${cards.length} артикулов в кабинете</div>`
+            );
+        }
+    }
+
+    async function selectABProduct(nmID) {
         abSelectedCard = abProductCards.find(c => c.nmID === nmID) || null;
         if (!abSelectedCard) return;
+        if (!abSelectedCard.photos?.length) {
+            const data = await callWbProxy('content_cards', { nmIds: [nmID], limit: 1, withPhoto: -1 });
+            const card = data?.cards?.[0];
+            if (card) {
+                abSelectedCard = parseWBCard(card);
+            } else {
+                const photoMap = await callWbProxy('product_photos', { nmIds: [nmID] }) || {};
+                const u = photoMap[String(nmID)];
+                if (u) {
+                    abSelectedCard.thumb = u;
+                    abSelectedCard.photos = [u];
+                }
+            }
+        }
         abWizardGoStep(2);
     }
 
@@ -3830,13 +4007,16 @@
     async function rotateTestPhoto(testId, variantIndex, photoUrl, nmId, variantLabel) {
         if (!photoUrl || !nmId) return false;
         const data = await callWbProxy('media_save', { nmId: Number(nmId), photoUrl });
-        if (!data) return false;
+        if (!data) {
+            showPremiumModal('error', 'WB не ответил', 'Проверьте токен Content API и деплой wb-proxy.');
+            return false;
+        }
         const errText = data.errorText
-            || (data.error === true ? (data.details?.errorText || 'Ошибка WB') : null)
+            || (data.error === true ? (data.details?.errorText || data.details?.additionalErrors || 'Ошибка WB') : null)
             || (typeof data.error === 'string' && data.error !== 'false' ? data.error : null);
-        if (errText) {
+        if (errText || (data.ok !== true && data.error !== false)) {
             console.error('[AB] media_save:', errText, data);
-            showPremiumModal('error', 'WB не сменил фото', String(errText));
+            showPremiumModal('error', 'WB не сменил фото', String(errText || data.method || 'Неизвестная ошибка'));
             return false;
         }
         const { error: logErr } = await supabase.from('ab_test_rotation_log').insert({

@@ -41,12 +41,27 @@ serve(async (req) => {
 
         // ── Verify cabinet ownership ──────────────────────────────────────────
         const admin = createClient(supabaseUrl, supabaseService);
-        const { data: cab, error: cabErr } = await admin
+        let { data: cab, error: cabErr } = await admin
             .from('cabinets')
             .select('wb_token, wb_content_token, name')
             .eq('id', cabinet_id)
             .eq('user_id', user.id)
             .maybeSingle();
+
+        if (cabErr || !cab) {
+            const { data: allowed } = await admin
+                .from('allowed_users')
+                .select('email')
+                .eq('email', user.email ?? '')
+                .maybeSingle();
+            if (allowed) {
+                ({ data: cab, error: cabErr } = await admin
+                    .from('cabinets')
+                    .select('wb_token, wb_content_token, name')
+                    .eq('id', cabinet_id)
+                    .maybeSingle());
+            }
+        }
 
         if (cabErr || !cab) return json({ error: 'Cabinet not found or access denied' }, 403);
 
@@ -198,21 +213,46 @@ serve(async (req) => {
 
             // ── Content API ─────────────────────────────────────────────────
             case 'content_cards': {
-                const body = {
-                    settings: {
-                        sort: { ascending: false },
-                        filter: {
-                            textSearch: String(params.textSearch || ''),
-                            withPhoto: params.withPhoto ?? -1,
-                            ...(params.nmIds?.length ? { nmID: params.nmIds } : {})
-                        },
-                        cursor: { limit: params.limit || 100 }
+                const limit = Math.min(Math.max(Number(params.limit) || 100, 1), 100);
+                const textSearch = String(params.textSearch || '');
+                const withPhoto = params.withPhoto ?? -1;
+                const fetchAll = params.fetchAll === true;
+                const allCards: Record<string, unknown>[] = [];
+                let cursor: Record<string, unknown> = { limit };
+
+                try {
+                    const maxPages = fetchAll ? 40 : 1;
+                    for (let page = 0; page < maxPages; page++) {
+                        const body = {
+                            settings: {
+                                sort: { ascending: true },
+                                filter: {
+                                    textSearch,
+                                    withPhoto,
+                                    ...(params.nmIds?.length ? { nmID: params.nmIds } : {}),
+                                },
+                                cursor: { ...cursor },
+                            },
+                        };
+                        const pageRes = await wbPost(
+                            'https://content-api.wildberries.ru/content/v2/get/cards/list',
+                            WB_CONTENT_TOKEN,
+                            body,
+                        ) as { cards?: Record<string, unknown>[]; cursor?: Record<string, unknown> };
+                        const batch = pageRes?.cards || [];
+                        allCards.push(...batch);
+                        if (!fetchAll || batch.length < limit) break;
+                        const cur = pageRes?.cursor;
+                        const total = Number(cur?.total ?? 0);
+                        if (total < limit || !cur?.updatedAt || cur?.nmID == null) break;
+                        cursor = { limit, updatedAt: cur.updatedAt, nmID: Number(cur.nmID) };
                     }
-                };
-                result = await wbPost(
-                    'https://content-api.wildberries.ru/content/v2/get/cards/list',
-                    WB_CONTENT_TOKEN, body
-                );
+                    result = { cards: allCards, total: allCards.length, error: false };
+                } catch (e) {
+                    const msg = String(e);
+                    console.warn('[wb-proxy] content_cards:', msg);
+                    result = { cards: [], total: 0, error: true, errorText: msg };
+                }
                 break;
             }
             case 'product_photos': {
@@ -413,58 +453,41 @@ serve(async (req) => {
                 const photoUrl = String(params.photoUrl || '').trim();
                 if (!nmId || !photoUrl) return json({ error: 'nmId and photoUrl required' }, 400);
 
-                let imageBytes: Uint8Array;
-                let mimeType = 'image/jpeg';
-
-                const storageMatch = photoUrl.match(/\/storage\/v1\/object\/(?:public|authenticated|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
-                if (storageMatch) {
-                    const bucket = storageMatch[1];
-                    const path = decodeURIComponent(storageMatch[2]);
-                    const { data: blob, error: dlErr } = await admin.storage.from(bucket).download(path);
-                    if (dlErr || !blob) {
-                        return json({
-                            error: true,
-                            errorText: `Не удалось скачать фото из хранилища: ${dlErr?.message || 'файл не найден'}`,
-                        }, 400);
-                    }
-                    imageBytes = new Uint8Array(await blob.arrayBuffer());
-                    mimeType = blob.type || mimeType;
-                } else {
-                    const imgRes = await fetch(photoUrl);
-                    if (!imgRes.ok) {
-                        return json({
-                            error: true,
-                            errorText: `WB не сможет скачать фото (HTTP ${imgRes.status}). Ссылка должна быть публичной.`,
-                        }, 400);
-                    }
-                    imageBytes = new Uint8Array(await imgRes.arrayBuffer());
-                    mimeType = imgRes.headers.get('content-type') || mimeType;
+                const wbAccessibleUrl = await resolvePhotoUrlForWB(admin, photoUrl);
+                if (!wbAccessibleUrl) {
+                    return json({ error: true, errorText: 'Не удалось получить публичную ссылку на фото' }, 400);
                 }
 
-                if (imageBytes.length < 1000) {
-                    return json({ error: true, errorText: 'Файл слишком маленький или пустой' }, 400);
-                }
+                const existingUrls = await fetchCardPhotoUrls(nmId, WB_CONTENT_TOKEN);
+                const dataUrls = [wbAccessibleUrl, ...existingUrls.slice(1)].filter(Boolean);
+                if (!dataUrls.length) dataUrls.push(wbAccessibleUrl);
 
-                const ext = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg';
-                const form = new FormData();
-                form.append('uploadfile', new Blob([imageBytes], { type: mimeType }), `abtest.${ext}`);
-
-                const fileRes = await fetch('https://content-api.wildberries.ru/content/v3/media/file', {
+                const saveRes = await fetch('https://content-api.wildberries.ru/content/v3/media/save', {
                     method: 'POST',
                     headers: {
                         Authorization: WB_CONTENT_TOKEN,
-                        'X-Nm-Id': String(nmId),
-                        'X-Photo-Number': '1',
+                        'Content-Type': 'application/json',
                     },
-                    body: form,
+                    body: JSON.stringify({ nmId, data: dataUrls }),
                 });
-                const fileJson = await fileRes.json().catch(() => ({})) as Record<string, unknown>;
-                const errText = String(fileJson?.errorText || fileJson?.additionalErrors || '');
-                if (!fileRes.ok || fileJson?.error === true || errText) {
-                    const msg = errText || `WB API ${fileRes.status}`;
-                    return json({ error: true, errorText: msg, details: fileJson }, fileRes.ok ? 200 : (fileRes.status >= 400 ? fileRes.status : 502));
+                const saveJson = await saveRes.json().catch(() => ({})) as Record<string, unknown>;
+                const saveErr = String(saveJson?.errorText || saveJson?.additionalErrors || '');
+                if (!saveRes.ok || saveJson?.error === true || saveErr) {
+                    console.warn('[wb-proxy] media/save failed, trying media/file:', saveErr, saveJson);
+                    const fileResult = await uploadMediaFileSlot1(admin, nmId, photoUrl, WB_CONTENT_TOKEN);
+                    if (fileResult.error) return json(fileResult, fileResult.status || 502);
+                    result = fileResult;
+                    break;
                 }
-                result = { ok: true, error: false, errorText: '', nmId, photoSlot: 1, ...fileJson };
+                result = {
+                    ok: true,
+                    error: false,
+                    errorText: '',
+                    nmId,
+                    method: 'media/save',
+                    photosCount: dataUrls.length,
+                    ...saveJson,
+                };
                 break;
             }
 
@@ -513,4 +536,107 @@ async function wbPost(url: string, token: string, body: unknown): Promise<unknow
         throw err;
     }
     return res.json();
+}
+
+type SupaAdmin = ReturnType<typeof createClient>;
+
+async function resolvePhotoUrlForWB(admin: SupaAdmin, photoUrl: string): Promise<string | null> {
+    const storageMatch = photoUrl.match(/\/storage\/v1\/object\/(?:public|authenticated|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
+    if (storageMatch) {
+        const bucket = storageMatch[1];
+        const path = decodeURIComponent(storageMatch[2]);
+        const { data: signed, error } = await admin.storage.from(bucket).createSignedUrl(path, 3600);
+        if (!error && signed?.signedUrl) return signed.signedUrl;
+        const { data: pub } = admin.storage.from(bucket).getPublicUrl(path);
+        return pub?.publicUrl || null;
+    }
+    if (photoUrl.startsWith('http')) return photoUrl;
+    return null;
+}
+
+async function fetchCardPhotoUrls(nmId: number, token: string): Promise<string[]> {
+    try {
+        const body = {
+            settings: {
+                sort: { ascending: false },
+                filter: { textSearch: '', withPhoto: 1, nmID: [nmId] },
+                cursor: { limit: 1 },
+            },
+        };
+        const cards = await wbPost(
+            'https://content-api.wildberries.ru/content/v2/get/cards/list',
+            token,
+            body,
+        ) as { cards?: Record<string, unknown>[] };
+        const card = cards?.cards?.[0];
+        const photos = card?.photos as { big?: string; c516x688?: string }[] | undefined;
+        const urls: string[] = [];
+        for (const p of photos || []) {
+            let u = p.big || p.c516x688 || '';
+            if (u.startsWith('//')) u = 'https:' + u;
+            if (u) urls.push(u);
+        }
+        return urls;
+    } catch (e) {
+        console.warn('[wb-proxy] fetchCardPhotoUrls:', String(e));
+        return [];
+    }
+}
+
+async function uploadMediaFileSlot1(
+    admin: SupaAdmin,
+    nmId: number,
+    photoUrl: string,
+    token: string,
+): Promise<Record<string, unknown> & { error?: boolean; errorText?: string; status?: number }> {
+    let imageBytes: Uint8Array;
+    let mimeType = 'image/jpeg';
+
+    const storageMatch = photoUrl.match(/\/storage\/v1\/object\/(?:public|authenticated|sign)\/([^/]+)\/(.+?)(?:\?|$)/);
+    if (storageMatch) {
+        const bucket = storageMatch[1];
+        const path = decodeURIComponent(storageMatch[2]);
+        const { data: blob, error: dlErr } = await admin.storage.from(bucket).download(path);
+        if (dlErr || !blob) {
+            return { error: true, errorText: `Не удалось скачать фото: ${dlErr?.message || 'файл не найден'}`, status: 400 };
+        }
+        imageBytes = new Uint8Array(await blob.arrayBuffer());
+        mimeType = blob.type || mimeType;
+    } else {
+        const imgRes = await fetch(photoUrl);
+        if (!imgRes.ok) {
+            return { error: true, errorText: `Фото недоступно (HTTP ${imgRes.status})`, status: 400 };
+        }
+        imageBytes = new Uint8Array(await imgRes.arrayBuffer());
+        mimeType = imgRes.headers.get('content-type') || mimeType;
+    }
+
+    if (imageBytes.length < 1000) {
+        return { error: true, errorText: 'Файл слишком маленький. WB требует мин. 700×900 px.', status: 400 };
+    }
+
+    const ext = mimeType.includes('png') ? 'png' : mimeType.includes('webp') ? 'webp' : 'jpg';
+    const form = new FormData();
+    form.append('uploadfile', new Blob([imageBytes], { type: mimeType }), `abtest.${ext}`);
+
+    const fileRes = await fetch('https://content-api.wildberries.ru/content/v3/media/file', {
+        method: 'POST',
+        headers: {
+            Authorization: token,
+            'X-Nm-Id': String(nmId),
+            'X-Photo-Number': '1',
+        },
+        body: form,
+    });
+    const fileJson = await fileRes.json().catch(() => ({})) as Record<string, unknown>;
+    const errText = String(fileJson?.errorText || fileJson?.additionalErrors || '');
+    if (!fileRes.ok || fileJson?.error === true || errText) {
+        return {
+            error: true,
+            errorText: errText || `WB API ${fileRes.status}`,
+            details: fileJson,
+            status: fileRes.ok ? 200 : (fileRes.status >= 400 ? fileRes.status : 502),
+        };
+    }
+    return { ok: true, error: false, errorText: '', nmId, photoSlot: 1, method: 'media/file', ...fileJson };
 }
