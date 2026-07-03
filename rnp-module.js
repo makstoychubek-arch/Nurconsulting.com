@@ -158,6 +158,8 @@ const RNP = (() => {
     }
 
     const _photoResolveCache = {};
+    const _photoIndexCache = {};  // nmId -> { 2: url, 3: url, ... }
+    const _galleryPhotosCache = {}; // nmId -> [url, url, ...] (photos 2+)
     const _basketCache = {};
 
     const _PHOTO_PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent(
@@ -255,7 +257,10 @@ const RNP = (() => {
         const scope = root || document;
         scope.querySelectorAll('img[data-nmid]').forEach(img => {
             const id = Number(img.dataset.nmid);
-            const url = _photoResolveCache[id];
+            const idx = parseInt(img.dataset.photo || '1', 10);
+            let url = null;
+            if (idx === 1) url = _photoResolveCache[id];
+            else url = _photoIndexCache[id]?.[idx] || _galleryPhotosCache[id]?.[idx - 2];
             if (url && img.src !== url) img.src = url;
         });
     }
@@ -277,6 +282,21 @@ const RNP = (() => {
         });
     }
 
+    function _storeCardGalleryExtras(p, id) {
+        if (!id || !Array.isArray(p.photos) || p.photos.length < 2) return;
+        const extras = [];
+        p.photos.forEach((ph, i) => {
+            if (i === 0) return;
+            let pu = typeof ph === 'string' ? ph : (ph.big || ph.c516x688 || ph.c246x328 || ph.tm);
+            if (pu?.startsWith('//')) pu = 'https:' + pu;
+            if (pu) extras.push(pu);
+        });
+        if (!extras.length) return;
+        _galleryPhotosCache[id] = extras;
+        if (!_photoIndexCache[id]) _photoIndexCache[id] = {};
+        extras.forEach((pu, i) => { _photoIndexCache[id][i + 2] = pu; });
+    }
+
     async function _fetchCardPhoto(nmId) {
         const apis = [
             `https://card.wb.ru/cards/v2/detail?appType=1&curr=rub&dest=-1257786&nm=${nmId}`,
@@ -288,12 +308,13 @@ const RNP = (() => {
                 const j = await r.json();
                 const p = j.data?.products?.[0];
                 if (!p) continue;
+                const id = p.id || nmId;
+                _storeCardGalleryExtras(p, id);
                 if (p.photo) {
                     let u = String(p.photo);
                     if (u.startsWith('//')) u = 'https:' + u;
                     if (await _probePhoto(u)) return u;
                 }
-                const id = p.id || nmId;
                 for (const u of _photoUrls(id, 'big').slice(0, 8)) {
                     if (await _probePhoto(u)) return u;
                 }
@@ -324,6 +345,7 @@ const RNP = (() => {
                         if (!u && Array.isArray(p.photos) && p.photos[0]) u = typeof p.photos[0] === 'string' ? p.photos[0] : null;
                         if (u?.startsWith('//')) u = 'https:' + u;
                         if (u) _photoResolveCache[id] = u;
+                        _storeCardGalleryExtras(p, id);
                     });
                     if (products.length) break;
                 } catch (e) { /* next api version */ }
@@ -385,6 +407,21 @@ const RNP = (() => {
         _applyResolvedPhotos();
     }
 
+    async function _preloadGalleryPhotos(nmId) {
+        if (_galleryPhotosCache[nmId]?.length) return;
+        await _resolveBasketProbe(nmId);
+        const extras = [];
+        if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
+        for (let idx = 2; idx <= 15; idx++) {
+            const hit = await _probePhotoParallel(_photoUrls(nmId, 'c246x328', idx).slice(0, 12), 6);
+            if (hit) {
+                extras.push(hit);
+                _photoIndexCache[nmId][idx] = hit;
+            } else if (idx > 4 && extras.length) break;
+        }
+        if (extras.length) _galleryPhotosCache[nmId] = extras;
+    }
+
     async function _ensurePhoto(art) {
         if (!art?.nm_id) return;
         if (_photoResolveCache[art.nm_id]) {
@@ -431,8 +468,15 @@ const RNP = (() => {
         const nmId = art.nm_id;
         const meta = _photoMeta(nmId);
         const idx = Math.max(1, photoIndex || 1);
-        const cached = _photoResolveCache[nmId]
-            || (_isTrustedPhotoUrl(art.photo_url) ? art.photo_url : null);
+        let cached = null;
+        if (idx === 1) {
+            cached = _photoResolveCache[nmId]
+                || (_isTrustedPhotoUrl(art.photo_url) ? art.photo_url : null);
+        } else {
+            cached = _photoIndexCache[nmId]?.[idx]
+                || _galleryPhotosCache[nmId]?.[idx - 2]
+                || null;
+        }
         const src = cached || _PHOTO_PLACEHOLDER;
         const cls = className ? ` class="${className}"` : '';
         const sty = extraStyle ? ` style="${extraStyle}"` : '';
@@ -980,36 +1024,37 @@ const RNP = (() => {
         );
     }
 
-    function _buildGalleryTimelineCells(art, cal) {
-        const periods = _timelinePeriods(art, cal);
+    function _buildSlideshowHTML(art) {
         const nmId = art.nm_id;
-        return _buildDaySpanCells(
-            cal,
-            periods,
-            (p, span, dayIdx) => {
-                const gi = p.galleryIdx ?? 0;
-                const slot = _gallerySlots(art)[gi] || {};
-                const comment = (slot.comment || p.label || '').replace(/"/g, '&quot;');
-                const cls = gi === 2 || slot.large ? ' rnp-head-gallery-cell--lg' : '';
-                const gray = cls ? '' : 'filter:grayscale(0.15) contrast(1.05);';
-                const img = _imgHtml(art, 'rnp-gallery-img', 'c246x328', gray, gi + 1);
-                const commentField = gi < GALLERY_SIZE
-                    ? `<input type="text" class="rnp-gallery-comment" value="${comment}" placeholder="комментарий"
-                        title="Подпись периода"
-                        onblur="RNP.savePhotoComment(${nmId}, ${gi}, this.value)">`
-                    : '';
-                return `<th colspan="${span}" class="rnp-head-gallery-cell rnp-day-col${cls}" data-photo-idx="${gi}" data-day-idx="${dayIdx}">
-                  <div class="rnp-head-gallery-photo">${img}</div>
-                  ${commentField}
-                </th>`;
-            },
-            (d, dayIdx) => {
-                const note = (_notesCache[nmId]?.[d.date]?.text || '').replace(/</g, '&lt;');
-                return `<th class="rnp-head-note-cell rnp-day-col" title="${note}">
-                  ${note ? `<span class="rnp-head-note-text">${note}</span>` : ''}
-                </th>`;
-            }
-        );
+        const photos = _galleryPhotosCache[nmId] || [];
+        const slots = _gallerySlots(art);
+        const count = Math.max(photos.length, 6);
+
+        const items = Array.from({ length: count }, (_, i) => {
+            const photoIdx = i + 2;
+            const slot = slots[i] || {};
+            const comment = (slot.comment || GALLERY_DEFAULT_COMMENTS[i] || '').replace(/"/g, '&quot;');
+            const commentField = i < GALLERY_SIZE
+                ? `<input type="text" class="rnp-gallery-comment" value="${comment}" placeholder="комментарий"
+                    title="Подпись"
+                    onblur="RNP.savePhotoComment(${nmId}, ${i}, this.value)">`
+                : `<span class="rnp-gallery-num">#${photoIdx}</span>`;
+            const img = _imgHtml(art, 'rnp-slideshow-img', 'c246x328', '', photoIdx);
+            return `<div class="rnp-slideshow-item" data-photo-idx="${photoIdx}">
+              <div class="rnp-slideshow-photo">${img}</div>
+              ${commentField}
+            </div>`;
+        }).join('');
+
+        return `<div class="rnp-slideshow-wrap">
+          <div class="rnp-slideshow-track">${items}${items}</div>
+        </div>`;
+    }
+
+    function _buildSizesLeftHTML(art, stockBySize, rawData, cal) {
+        const kpi = _periodSummary(art, rawData, cal);
+        const alerts = _buildAlerts(art, stockBySize, kpi);
+        return `${_buildStockSizeHTML(stockBySize, art)}${_alertsHTML(alerts)}`;
     }
 
     function _buildSheetHeadRows(art, stockBySize, rawData, cal) {
@@ -1030,12 +1075,12 @@ const RNP = (() => {
               </th>
             </tr>
             <tr class="rnp-head-strategy">
-              <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--sizes">${_buildStockSizeHTML(stockBySize, art)}</th>
+              <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--sizes">${_buildSizesLeftHTML(art, stockBySize, rawData, cal)}</th>
               ${_buildStrategyLabelCells(art, cal)}
             </tr>
             <tr class="rnp-head-gallery${galleryHidden}">
               <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--pad"></th>
-              ${_buildGalleryTimelineCells(art, cal)}
+              <th colspan="${nDays}" class="rnp-head-slideshow-cell">${_buildSlideshowHTML(art)}</th>
             </tr>`;
     }
 
@@ -1266,8 +1311,8 @@ const RNP = (() => {
         if (_activeNm !== SUMMARY_TAB) {
             _renderActiveTable();
             requestAnimationFrame(() => {
-                const el = document.querySelector(`.rnp-head-gallery-cell[data-photo-idx="${STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0}"]`)
-                    || document.querySelector(`.rnp-gallery-item[data-photo-idx="${STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0}"]`);
+                const el = document.querySelector(`.rnp-slideshow-item[data-photo-idx="${(STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0) + 2}"]`)
+                    || document.querySelector(`.rnp-head-gallery-cell[data-photo-idx="${STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0}"]`);
                 el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
             });
         }
@@ -1375,7 +1420,6 @@ const RNP = (() => {
         const profitCls = (kpi.profit || 0) >= 0 ? 'pos' : 'neg';
         const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'pos' : ((kpi.plan_orders_pct || 0) < 80 ? 'neg' : '');
         const syncSt = _syncStatus(art.nm_id);
-        const alerts = _buildAlerts(art, stockBySize, kpi);
         const moneySom = Math.round((kpi.sales_sum || 0) * er);
         const moneyUsd = moneySom > 0 ? (moneySom / 87.5).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 }) : '0';
         const prodName = (art.name || '—').replace(/"/g, '&quot;');
@@ -1412,7 +1456,6 @@ const RNP = (() => {
               </div>
             </div>
           </div>
-          ${_alertsHTML(alerts)}
         </div>`;
     }
 
@@ -2013,7 +2056,7 @@ const RNP = (() => {
         try { _strategyTab = parseInt(localStorage.getItem('rnp_strategy_tab') || '0', 10) || 0; } catch (e) {}
         try {
             const gc = localStorage.getItem('rnp_gallery_collapsed');
-            _galleryCollapsed = gc === null ? true : gc === '1';
+            _galleryCollapsed = gc === null ? false : gc === '1';
         } catch (e) {}
         await _renderActiveTable();
     }
@@ -2037,6 +2080,7 @@ const RNP = (() => {
         if (!art) return;
 
         await _ensurePhoto(art);
+        await _preloadGalleryPhotos(art.nm_id);
         if (_compareNm) {
             const art2 = _articles.find(a => a.nm_id == _compareNm);
             if (art2) await _ensurePhoto(art2);
@@ -2069,6 +2113,17 @@ const RNP = (() => {
         if (bar) bar.innerHTML = _buildActionBar(active);
 
         _applyResolvedPhotos(body);
+        _preloadGalleryPhotos(art.nm_id).then(() => {
+            _applyResolvedPhotos(body);
+            if (_activeNm === art.nm_id) {
+                const wrap = document.querySelector('.rnp-slideshow-wrap');
+                if (wrap && _galleryPhotosCache[art.nm_id]?.length) {
+                    const cell = wrap.closest('.rnp-head-slideshow-cell');
+                    if (cell) cell.innerHTML = _buildSlideshowHTML(art);
+                    _applyResolvedPhotos(body);
+                }
+            }
+        }).catch(() => {});
         _preloadPhotos(_articles.filter(a => a.is_active)).then(() => {
             _applyResolvedPhotos(body);
         }).catch(() => {});
