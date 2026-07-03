@@ -32,6 +32,8 @@ const RNP = (() => {
     const GALLERY_DEFAULT_COMMENTS = ['', 'Нестабильно', 'СВЕРХ-КОСТЮМ', 'Рекламная таблица', 'Размерная сетка', 'Выход в прибыль'];
     const PLAN_KEYS = ['plan_orders','plan_sales','plan_impressions','plan_clicks','plan_drr','plan_ad_spend'];
     const SUMMARY_TAB = 'summary';
+    const GENERAL_TAB = 'general';
+    const CABINET_ART = { nm_id: -1, name: 'Общий', manual_data: {}, cost_price: 0, logistics_unit: 0, other_costs_unit: 0 };
     const VIEW_PRESETS = {
         all: null,
         sales_finance: new Set(['sales', 'finance', 'result']),
@@ -628,7 +630,7 @@ const RNP = (() => {
         map[cat] = !map[cat];
         try { localStorage.setItem('rnp_collapsed_cats', JSON.stringify(map)); } catch (e) {}
         _refreshTabsBar();
-        if (_activeNm === SUMMARY_TAB) _renderActiveTable();
+        if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB) _renderActiveTable();
     }
 
     async function _loadSettings() {
@@ -1306,6 +1308,149 @@ const RNP = (() => {
         </div>`;
     }
 
+    function _buildGeneralMarqueeHTML(active) {
+        const cards = active.map(a => {
+            const label = _sellerArticle(a).replace(/</g, '&lt;');
+            return `<div class="rnp-test-card rnp-general-photo-card" data-nm-id="${a.nm_id}" title="${label}">
+              <div class="rnp-test-photo">${_imgHtml(a, 'rnp-test-img', 'c516x688', '', 1, true)}</div>
+            </div>`;
+        }).join('');
+        if (!cards) return '<div class="rnp-marquee-empty">—</div>';
+        return `<div class="rnp-marquee-wrap">
+          <div class="rnp-marquee-track">${cards}</div>
+        </div>`;
+    }
+
+    function _buildGeneralLeftPanel(active, cal) {
+        const kpi = _cabinetPeriodSummary(active, cal);
+        const er = (Number(kpi.wb_rate) > 0) ? Number(kpi.wb_rate) : _settings.exchangeRate;
+        const toTransferSom = Math.round((kpi.to_transfer || 0) * er);
+        const profitCls = (kpi.profit || 0) >= 0 ? 'pos' : 'neg';
+        const marginCls = (kpi.margin_pct || 0) >= 15 ? 'pos' : ((kpi.margin_pct || 0) < 5 ? 'neg' : '');
+        const moneySom = Math.round((kpi.sales_sum || 0) * er);
+        const moneyUsd = moneySom > 0 ? (moneySom / (_settings.usdRate || 87.5)).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 }) : '0';
+        return `<div class="rnp-kpi-block rnp-kpi-block--cabinet">
+          <div class="rnp-kpi-top">
+            <div class="rnp-gs-name">📊 Общий РНП</div>
+            <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">кабинет</span><b>${active.length} арт.</b></div>
+            <div class="rnp-gs-money-lbl">В деньгах</div>
+            <div class="rnp-gs-money-val">${moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
+            <div class="rnp-gs-usd-lbl">В долларах</div>
+            <div class="rnp-gs-usd-val">$${moneyUsd}</div>
+            <div class="rnp-gs-kpis">
+              <div class="rnp-kpi-grid rnp-kpi-grid--gs">
+                <div class="rnp-kpi"><span>К перечислению</span><b>${toTransferSom.toLocaleString('ru')}</b></div>
+                <div class="rnp-kpi"><span>Прибыль</span><b class="${profitCls}">${_fmtKpi(kpi.profit, 'som')}</b></div>
+                <div class="rnp-kpi"><span>Маржа %</span><b class="${marginCls}">${_fmtKpi(kpi.margin_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>Заказы</span><b>${_fmtKpi(kpi.orders_count, 'int')}</b></div>
+                <div class="rnp-kpi"><span>ДРР %</span><b>${_fmtKpi(kpi.drr_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>Курс ср.</span><b>${er.toFixed(2).replace('.', ',')}</b></div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function _buildGeneralSheetHeadRows(active, cal) {
+        const leftSpan = _leftFrozenSpan(cal);
+        const nTimeline = _calTimelineSpan(cal);
+        return `<tr class="rnp-head-panel">
+          <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--cabinet">${_buildGeneralLeftPanel(active, cal)}</th>
+          <th colspan="${nTimeline}" class="rnp-head-marquee">${_buildGeneralMarqueeHTML(active)}</th>
+        </tr>`;
+    }
+
+    function _buildGeneralBottomGallery(active) {
+        const items = active.map(a => {
+            const label = _sellerArticle(a).replace(/</g, '&lt;');
+            return `<div class="rnp-gallery-item rnp-gallery-item--lg" title="${label}">
+              <div class="rnp-gallery-photo">${_imgHtml(a, 'rnp-gallery-img', 'c246x328', '', 1)}</div>
+              <span class="rnp-gallery-num">${label.substring(0, 18)}</span>
+            </div>`;
+        }).join('');
+        if (!items) return '';
+        return `<div class="rnp-general-gallery">
+          <div class="rnp-general-gallery-label">Все товары · главные фото</div>
+          <div class="rnp-gallery-scroll">
+            <div class="rnp-marquee-wrap rnp-general-gallery-marquee">
+              <div class="rnp-marquee-track">${items}</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    function _buildGeneralTableHTML(active, cal) {
+        const cols = _buildCabinetCols(active, cal);
+        const sheetHead = _buildGeneralSheetHeadRows(active, cal);
+        const galleryCls = cal.mode === 'month' ? ' rnp-sheet-table--months' : '';
+        const headRows = 3;
+        const firstTimelineIdx = cols.findIndex(c => c.type === 'day' || c.type === 'month');
+
+        if (cal.mode === 'month') {
+            const monthThs = cal.months.map((m, i) => {
+                const cls = ['rnp-th-month-col', 'rnp-month-col', m.isCurrent ? 'is-current' : '', m.isFuture ? 'rnp-th-future' : '', i === 0 ? 'rnp-cell-month-start' : ''].filter(Boolean).join(' ');
+                return `<th class="rnp-th-date ${cls}" title="${m.fullName}">${m.label}</th>`;
+            }).join('');
+            const totalSt = _stickyColAttrs(0, cols, 11, 31);
+            const totalTh = `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>`;
+            const monthSubs = cal.months.map(m => `<th class="rnp-th-dow rnp-month-col${m.isCurrent ? ' is-current' : ''}">${m.dayCount} дн</th>`).join('');
+            return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes">
+          <thead>
+            ${sheetHead}
+            <tr class="rnp-cal-quarter-row">
+              <th class="rnp-th-metric" rowspan="${headRows}"></th>
+              <th class="rnp-th-spark" rowspan="${headRows}"></th>
+              <th class="rnp-th-year-band" colspan="${cols.length}">${cal.rangeLabel}</th>
+            </tr>
+            <tr class="rnp-cal-date-row">${totalTh}${monthThs}</tr>
+            <tr class="rnp-dow-head-row"><th class="rnp-th-dow rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}></th>${monthSubs}</tr>
+          </thead>
+          <tbody>
+            ${_buildCabinetMetaRows(cols)}
+            ${_sectionsForView().map(s => _renderSection(s, cols, CABINET_ART, firstTimelineIdx)).join('')}
+            ${_buildCabinetRateRow(cols, active)}
+          </tbody>
+        </table>`;
+        }
+
+        const nPrev = cal.weeks.length + (cal.weeks.length ? 1 : 0);
+        const nCurr = cal.days.length;
+        const weekThs = cal.weeks.map((w, wi) => {
+            const st = _stickyColAttrs(wi, cols, 11, 30);
+            return `<th class="rnp-th-week rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}>${w.label || ('Нед ' + w.weekNum)}</th>`;
+        }).join('');
+        const totalCi = cal.weeks.length;
+        const totalSt = totalCi < cols.length ? _stickyColAttrs(totalCi, cols, 11, 31) : { cls: '', style: '' };
+        const totalTh = cal.weeks.length ? `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>` : '';
+        const dayThs = cal.days.map((d, i) => `<th class="rnp-th-date rnp-day-col${d.isToday ? ' today' : ''}${d.isFuture ? ' rnp-th-future' : ''}${i === 0 ? ' rnp-cell-month-start' : ''}">${d.label}</th>`).join('');
+        const dowWeeks = cal.weeks.map((w, wi) => {
+            const st = _stickyColAttrs(wi, cols, 11, 29);
+            return `<th class="rnp-th-dow rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}></th>`;
+        }).join('');
+        const dowTotalSt = totalCi < cols.length ? _stickyColAttrs(totalCi, cols, 11, 29) : { cls: '', style: '' };
+        const dowTotal = cal.weeks.length ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>` : '';
+        const dowDays = cal.days.map(d => `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
+
+        return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes">
+          <thead>
+            ${sheetHead}
+            <tr class="rnp-cal-month-row">
+              <th class="rnp-th-metric" rowspan="${headRows}"></th>
+              <th class="rnp-th-spark" rowspan="${headRows}"></th>
+              <th class="rnp-th-month" colspan="${nPrev}">${cal.prevName}</th>
+              <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${cal.currName}</th>
+            </tr>
+            <tr class="rnp-cal-date-row">${weekThs}${totalTh}${dayThs}</tr>
+            <tr class="rnp-dow-head-row">${dowWeeks}${dowTotal}${dowDays}</tr>
+          </thead>
+          <tbody>
+            ${_buildCabinetMetaRows(cols)}
+            ${_sectionsForView().map(s => _renderSection(s, cols, CABINET_ART, firstTimelineIdx)).join('')}
+            ${_buildCabinetRateRow(cols, active)}
+          </tbody>
+        </table>`;
+    }
+
     function _buildLeftPanelHTML(art, stockBySize, rawData, cal) {
         return `<div class="rnp-head-left-stack">
           ${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
@@ -1377,7 +1522,7 @@ const RNP = (() => {
     }
 
     function _buildActionBar(active) {
-        const compareOpts = active.filter(a => a.nm_id != _activeNm && _activeNm !== SUMMARY_TAB)
+        const compareOpts = active.filter(a => a.nm_id != _activeNm && !_isCabinetView())
             .map(a => `<option value="${a.nm_id}"${_compareNm == a.nm_id ? ' selected' : ''}>${_sellerArticle(a).substring(0, 24)}</option>`).join('');
         return `<div class="rnp-action-bar">
           <select onchange="RNP.setView(this.value)" title="Секции таблицы">
@@ -1393,10 +1538,10 @@ const RNP = (() => {
             ${_monthOptionsHtml()}
           </select>` : ''}
           <button type="button" class="rnp-action-btn" onclick="RNP.copyPlanFromPrevWeek()" title="${_planPeriod === 'month' ? 'Скопировать план с прошлого месяца' : 'Скопировать план с прошлой недели'}">↵ План</button>
-          <select id="rnp-compare-sel" onchange="RNP.setCompare(this.value)" title="Сравнить с…" ${_activeNm === SUMMARY_TAB ? 'disabled' : ''}>
+          <select id="rnp-compare-sel" onchange="RNP.setCompare(this.value)" title="Сравнить с…" ${_isCabinetView() ? 'disabled' : ''}>
             <option value="">Сравнить с…</option>${compareOpts}
           </select>
-          <button type="button" class="rnp-action-btn${_compareNm ? ' active' : ''}" onclick="RNP.toggleCompare()" ${_activeNm === SUMMARY_TAB ? 'disabled' : ''} title="Режим A/B">А/Б тест</button>
+          <button type="button" class="rnp-action-btn${_compareNm ? ' active' : ''}" onclick="RNP.toggleCompare()" ${_isCabinetView() ? 'disabled' : ''} title="Режим A/B">А/Б тест</button>
           <button type="button" class="rnp-action-btn" onclick="RNP.exportExcel()">Excel</button>
           <label class="rnp-notes-toggle" title="Строка комментариев под датами">
             <input type="checkbox"${_notesVisible ? ' checked' : ''} onchange="RNP.toggleNotes(this.checked)">
@@ -1459,14 +1604,18 @@ const RNP = (() => {
         document.querySelectorAll('.rnp-sheet-tab').forEach(tab => {
             const onclick = tab.getAttribute('onclick') || '';
             const isSummary = onclick.includes("'summary'") || onclick.includes('"summary"');
-            const nm = onclick.match(/pick\((\d+|'summary'|"summary")\)/)?.[1]?.replace(/['"]/g, '');
-            const active = nm === String(_activeNm) || (nm === 'summary' && _activeNm === SUMMARY_TAB);
+            const isGeneral = onclick.includes("'general'") || onclick.includes('"general"');
+            const nm = onclick.match(/pick\((\d+|'summary'|"summary"|'general'|"general")\)/)?.[1]?.replace(/['"]/g, '');
+            const active = nm === String(_activeNm)
+                || (nm === 'summary' && _activeNm === SUMMARY_TAB)
+                || (nm === 'general' && _activeNm === GENERAL_TAB);
             tab.classList.toggle('active', active);
         });
     }
 
     function _renderTabsHTML(active) {
         const sumActive = _activeNm === SUMMARY_TAB;
+        const genActive = _activeNm === GENERAL_TAB;
         const groups = _groupByCategory(active);
         const groupsHtml = groups.map(([cat, list]) => {
             const collapsed = _isCatCollapsed(cat);
@@ -1488,10 +1637,17 @@ const RNP = (() => {
               }).join('')}</div>`}
             </div>`;
         }).join('');
-        return `<div class="rnp-sheet-tab rnp-tab-summary${sumActive ? ' active' : ''}" onclick="RNP.pick('summary')">
+        return `<div class="rnp-sheet-tab rnp-tab-general${genActive ? ' active' : ''}" onclick="RNP.pick('general')">
+            <span class="rnp-tab-icon">🏢</span><span>Общий</span>
+          </div>
+          <div class="rnp-sheet-tab rnp-tab-summary${sumActive ? ' active' : ''}" onclick="RNP.pick('summary')">
             <span class="rnp-tab-icon">📊</span><span>Сводная</span>
           </div>
           ${groupsHtml}`;
+    }
+
+    function _isCabinetView() {
+        return _activeNm === GENERAL_TAB || _activeNm === SUMMARY_TAB;
     }
 
     function _refreshTabsBar() {
@@ -2181,6 +2337,159 @@ const RNP = (() => {
         return a;
     }
 
+    const DERIVED_SUM_KEYS = [
+        'orders_count','orders_sum','sales_count','sales_sum','returns_count',
+        'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend',
+        'to_transfer','profit','cost_price_val','giveaways','storage_sum',
+    ];
+
+    function _cabinetWbRate(active, date) {
+        const rates = active.map(a => Number(_dataCache[a.nm_id]?.[date]?.wb_rate || 0))
+            .filter(r => r > 0.5 && r < 200);
+        return rates.length ? rates.reduce((s, r) => s + r, 0) / rates.length : 0;
+    }
+
+    function _rateForCol(col, active) {
+        if (col.type === 'day') return _cabinetWbRate(active, col.date);
+        const dates = col.dates || [];
+        if (dates.length) {
+            const rs = dates.map(d => _cabinetWbRate(active, d)).filter(r => r > 0);
+            return rs.length ? rs.reduce((s, r) => s + r, 0) / rs.length : 0;
+        }
+        return 0;
+    }
+
+    function _mergeDerivedMetrics(parts) {
+        if (!parts.length) return null;
+        const a = {};
+        DERIVED_SUM_KEYS.forEach(k => { a[k] = parts.reduce((s, d) => s + (Number(d[k]) || 0), 0); });
+        const rates = parts.map(d => Number(d.wb_rate || 0)).filter(r => r > 0.5 && r < 200);
+        a.wb_rate = rates.length ? rates.reduce((s, r) => s + r, 0) / rates.length : 0;
+        a.avg_check = a.orders_count > 0 ? a.orders_sum / a.orders_count : 0;
+        a.avg_check_sales = a.sales_count > 0 ? a.sales_sum / a.sales_count : 0;
+        const totalSales = a.sales_count + a.returns_count;
+        a.buyout_pct = totalSales > 0 ? a.sales_count / totalSales * 100 : 0;
+        a.return_pct = totalSales > 0 ? a.returns_count / totalSales * 100 : 0;
+        a.ctr_pct = a.impressions > 0 ? a.clicks / a.impressions * 100 : 0;
+        a.basket_pct = a.clicks > 0 ? a.basket_count / a.clicks * 100 : 0;
+        a.orders_conv_pct = a.basket_count > 0 ? a.orders_count / a.basket_count * 100 : 0;
+        a.cro_pct = a.clicks > 0 ? a.orders_count / a.clicks * 100 : 0;
+        a.ad_ctr = a.ad_impressions > 0 ? a.ad_clicks / a.ad_impressions * 100 : 0;
+        a.ad_cro = a.ad_clicks > 0 ? a.ad_orders / a.ad_clicks * 100 : 0;
+        a.ad_cpc = a.ad_clicks > 0 ? a.ad_spend / a.ad_clicks : 0;
+        a.ad_imp_pct = a.impressions > 0 ? a.ad_impressions / a.impressions * 100 : 0;
+        a.drr_pct = a.sales_sum > 0 ? a.ad_spend / a.sales_sum * 100 : 0;
+        const revenue = parts.reduce((s, d) => {
+            const er = Number(d.wb_rate) > 0 ? Number(d.wb_rate) : _settings.exchangeRate;
+            return s + (Number(d.to_transfer) || 0) * er;
+        }, 0);
+        a.margin_pct = revenue > 0 ? a.profit / revenue * 100 : 0;
+        a.roi_pct = a.cost_price_val > 0 ? a.profit / a.cost_price_val * 100 : 0;
+        a.to_transfer_unit = a.sales_count > 0 ? a.to_transfer / a.sales_count : 0;
+        a.profit_per_unit = a.sales_count > 0 ? a.profit / a.sales_count : 0;
+        a.logistics_pct = a.sales_sum > 0 ? (parts.reduce((s, d) => s + (d.logistics_pct || 0), 0) / parts.length) : 0;
+        a.storage_pct = a.sales_sum > 0 ? (parts.reduce((s, d) => s + (d.storage_pct || 0), 0) / parts.length) : 0;
+        a.commission_pct = parts.reduce((s, d) => s + (d.commission_pct || 0), 0) / Math.max(parts.length, 1);
+        a.wb_share_pct = (a.logistics_pct || 0) + (a.storage_pct || 0) + (a.commission_pct || 0) + (a.drr_pct || 0);
+        const logUnits = parts.map(d => d.logistics_per_unit || 0).filter(v => v > 0);
+        a.logistics_per_unit = logUnits.length ? logUnits.reduce((s, v) => s + v, 0) / logUnits.length : 0;
+        return a;
+    }
+
+    function _cabinetDayDerived(active, date) {
+        const parts = active.map(a => _derive(_dataCache[a.nm_id]?.[date] || null, a)).filter(Boolean);
+        return _mergeDerivedMetrics(parts);
+    }
+
+    function _cabinetAggWeek(active, dates) {
+        const daily = dates.map(d => _cabinetDayDerived(active, d)).filter(Boolean);
+        return _mergeDerivedMetrics(daily);
+    }
+
+    function _cabinetPeriodSummary(active, cal) {
+        if (cal.mode === 'month') {
+            const cur = cal.months.find(m => m.isCurrent)
+                || [...cal.months].reverse().find(m => !m.isFuture)
+                || cal.months[0];
+            if (!cur) return {};
+            const dates = cur.dates.filter(d => d <= cal.todayStr);
+            return _cabinetAggWeek(active, dates.length ? dates : cur.dates) || {};
+        }
+        const dates = cal.days.filter(d => !d.isFuture).map(d => d.date);
+        return _cabinetAggWeek(active, dates.length ? dates : cal.days.map(d => d.date)) || {};
+    }
+
+    function _buildCabinetCols(active, cal) {
+        if (cal.mode === 'month') {
+            const allDates = cal.months.flatMap(m => m.dates);
+            const totalCol = {
+                type: 'total', colKey: 'ytd-total', label: 'ИТОГ',
+                dates: allDates,
+                data: _cabinetAggWeek(active, allDates),
+            };
+            const monthCols = cal.months.map(m => ({
+                ...m,
+                data: _cabinetAggWeek(active, m.dates),
+            }));
+            return [totalCol, ...monthCols];
+        }
+        const weekCols = cal.weeks.map(w => ({
+            ...w,
+            colKey: w.weekStart || w.dates[0],
+            data: _cabinetAggWeek(active, w.dates),
+        }));
+        const allPrevDates = cal.weeks.flatMap(w => w.dates);
+        const totalCol = allPrevDates.length ? {
+            type: 'total', colKey: 'prev-total', label: 'ИТОГ',
+            dates: allPrevDates,
+            data: _cabinetAggWeek(active, allPrevDates),
+        } : null;
+        const dayCols = cal.days.map(d => ({
+            ...d,
+            colKey: d.date,
+            data: _cabinetDayDerived(active, d.date),
+        }));
+        return totalCol ? [...weekCols, totalCol, ...dayCols] : [...weekCols, ...dayCols];
+    }
+
+    function _buildCabinetRateRow(cols, active) {
+        const cells = cols.map((col, ci) => {
+            const rate = _rateForCol(col, active);
+            const isToday = col.isToday || col.isCurrent;
+            const isDay = col.type === 'day';
+            const isMonth = col.type === 'month';
+            const isWeek = col.type === 'week';
+            const isTotal = col.type === 'total';
+            const cls = [
+                isDay ? 'rnp-day-col' : '',
+                isMonth ? 'rnp-month-col' : '',
+                isToday ? 'rnp-cell-today' : '',
+                isWeek ? 'rnp-cell-week' : '',
+                isTotal ? 'rnp-cell-total' : '',
+                'rnp-cell-rate',
+            ].filter(Boolean).join(' ');
+            const sticky = _stickyDataAttrs(ci, cols);
+            const colWCls = isDay ? 'rnp-day-col' : (isMonth ? 'rnp-month-col' : 'rnp-data-col');
+            const str = rate > 0 ? rate.toFixed(4).replace('.', ',') : '—';
+            const hint = rate > 0 ? '' : ' title="Нет курса в отчёте WB за день"';
+            return `<td class="${cls} ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}${hint}>${str}</td>`;
+        }).join('');
+        return `<tr class="rnp-rate-row">
+          <td class="rnp-metric-col rnp-metric-bold">Курс ₽ → сом</td>
+          <td class="rnp-spark-col"></td>${cells}
+        </tr>`;
+    }
+
+    function _buildCabinetMetaRows(cols) {
+        return `<tr class="rnp-meta-row">
+          <td class="rnp-metric-col">Общий РНП</td>
+          <td class="rnp-spark-col"></td>
+          <td class="rnp-meta-cell" colspan="${cols.length}">
+            <span class="rnp-meta-status">Сводка по кабинету · ${cols.length} колонок · курс WB внизу</span>
+          </td>
+        </tr>`;
+    }
+
     // ─── DERIVED METRICS ──────────────────────────────────────────────────────
     function _derive(r, art) {
         if (!r) return null;
@@ -2457,12 +2766,15 @@ const RNP = (() => {
             return;
         }
 
-        if (!_activeNm || (_activeNm !== SUMMARY_TAB && !active.find(a => a.nm_id == _activeNm))) {
+        if (!_activeNm || (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && !active.find(a => a.nm_id == _activeNm))) {
             try {
                 const saved = sessionStorage.getItem('rnp_active_nm');
-                _activeNm = saved === SUMMARY_TAB || active.find(a => a.nm_id == saved) ? saved : SUMMARY_TAB;
-                if (_activeNm !== SUMMARY_TAB) _activeNm = Number(_activeNm);
-            } catch (e) { _activeNm = SUMMARY_TAB; }
+                if (saved === GENERAL_TAB || saved === 'general') _activeNm = GENERAL_TAB;
+                else if (saved === SUMMARY_TAB || saved === 'summary') _activeNm = SUMMARY_TAB;
+                else if (active.find(a => a.nm_id == saved)) _activeNm = Number(saved);
+                else _activeNm = GENERAL_TAB;
+                if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB) _activeNm = Number(_activeNm);
+            } catch (e) { _activeNm = GENERAL_TAB; }
         }
 
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
@@ -2492,10 +2804,14 @@ const RNP = (() => {
           </div>
         </div>`;
 
-        await _loadAllDailyData(active.map(a => a.nm_id));
-        await _loadAllStocks(active.map(a => a.nm_id));
-        await _loadNotes(active.map(a => a.nm_id));
-        await _preloadPhotos(active);
+        try {
+            await _loadAllDailyData(active.map(a => a.nm_id));
+            await _loadAllStocks(active.map(a => a.nm_id));
+            await _loadNotes(active.map(a => a.nm_id));
+            await _preloadPhotos(active);
+        } catch (e) {
+            console.error('[RNP] load:', e);
+        }
         await _renderActiveTable();
     }
 
@@ -2511,6 +2827,26 @@ const RNP = (() => {
             _updateTabHighlight();
             const bar = document.getElementById('rnp-action-bar-wrap');
             if (bar) bar.innerHTML = _buildActionBar(active);
+            return;
+        }
+
+        if (_activeNm === GENERAL_TAB) {
+            await _preloadPhotos(active);
+            body.innerHTML = `
+          <div class="rnp-table-scroll" id="rnp-table-wrap">
+            ${_buildGeneralTableHTML(active, cal)}
+          </div>
+          ${_buildGeneralBottomGallery(active)}`;
+            _updateTabHighlight();
+            const bar = document.getElementById('rnp-action-bar-wrap');
+            if (bar) bar.innerHTML = _buildActionBar(active);
+            _applyResolvedPhotos(body);
+            _refreshMarqueeBaseHtml(body);
+            requestAnimationFrame(() => {
+                _syncMarqueeFill(body);
+                requestAnimationFrame(() => _syncMarqueeFill(body));
+                _bindMarqueeResize(body);
+            });
             return;
         }
 
@@ -2570,12 +2906,13 @@ const RNP = (() => {
     }
 
     function _refreshMarqueeBaseHtml(scope) {
-        const track = (scope || document).querySelector('.rnp-marquee-track');
-        if (!track?.dataset.baseCount) return;
-        const n = parseInt(track.dataset.baseCount, 10);
-        if (n > 0 && track.children.length >= n) {
-            track.dataset.baseHtml = [...track.children].slice(0, n).map(c => c.outerHTML).join('');
-        }
+        (scope || document).querySelectorAll('.rnp-marquee-track').forEach(track => {
+            if (!track.dataset.baseCount) return;
+            const n = parseInt(track.dataset.baseCount, 10);
+            if (n > 0 && track.children.length >= n) {
+                track.dataset.baseHtml = [...track.children].slice(0, n).map(c => c.outerHTML).join('');
+            }
+        });
     }
 
     function _bindMarqueeResize(root) {
@@ -2598,51 +2935,53 @@ const RNP = (() => {
         const scope = root || document;
         const left = scope.querySelector('.rnp-head-left');
         const marqueeTh = scope.querySelector('.rnp-head-marquee');
-        const wrap = scope.querySelector('.rnp-marquee-wrap');
-        const track = wrap?.querySelector('.rnp-marquee-track');
-        if (!wrap || !track || !track.children.length) return;
+        scope.querySelectorAll('.rnp-marquee-wrap').forEach(wrap => {
+            const track = wrap.querySelector('.rnp-marquee-track');
+            if (!track || !track.children.length) return;
 
-        if (!track.dataset.baseCount) {
-            track.dataset.baseCount = String(track.children.length);
-            track.dataset.baseHtml = [...track.children].map(c => c.outerHTML).join('');
-        }
+            if (!track.dataset.baseCount) {
+                track.dataset.baseCount = String(track.children.length);
+                track.dataset.baseHtml = [...track.children].map(c => c.outerHTML).join('');
+            }
 
-        const h = left?.offsetHeight || 0;
-        const gap = 3;
-        const aspect = 516 / 688;
-        let cardW = 56;
-        if (h > 0) {
-            cardW = Math.max(40, Math.round(h * aspect));
-            track.style.height = '100%';
-        }
+            const isBottomGallery = wrap.classList.contains('rnp-general-gallery-marquee');
+            const h = isBottomGallery ? 0 : (left?.offsetHeight || 0);
+            const gap = 3;
+            const aspect = 516 / 688;
+            let cardW = isBottomGallery ? 72 : 56;
+            if (h > 0) {
+                cardW = Math.max(40, Math.round(h * aspect));
+                track.style.height = '100%';
+            }
 
-        const baseCount = parseInt(track.dataset.baseCount, 10) || track.children.length;
-        const oneSetHtml = track.dataset.baseHtml || '';
-        const setW = baseCount * (cardW + gap) - gap;
-        const nMonthCols = scope.querySelectorAll('.rnp-th-month-col').length;
-        const nDayCols = scope.querySelectorAll('.rnp-th-date.rnp-day-col').length;
-        const colUnit = nMonthCols ? MONTH_COL_W : DAY_COL_W;
-        const nCols = nMonthCols || nDayCols;
-        const viewW = wrap.clientWidth || marqueeTh?.clientWidth || nCols * colUnit || 0;
-        const totalReps = Math.max(3, Math.ceil(viewW / Math.max(setW, 1)));
+            const baseCount = parseInt(track.dataset.baseCount, 10) || track.children.length;
+            const oneSetHtml = track.dataset.baseHtml || '';
+            const setW = baseCount * (cardW + gap) - gap;
+            const nMonthCols = scope.querySelectorAll('.rnp-th-month-col').length;
+            const nDayCols = scope.querySelectorAll('.rnp-th-date.rnp-day-col').length;
+            const colUnit = nMonthCols ? MONTH_COL_W : DAY_COL_W;
+            const nCols = nMonthCols || nDayCols;
+            const viewW = wrap.clientWidth || marqueeTh?.clientWidth || (isBottomGallery ? wrap.clientWidth : nCols * colUnit) || 0;
+            const totalReps = Math.max(3, Math.ceil(viewW / Math.max(setW, 1)));
 
-        if (track.children.length !== baseCount * totalReps && oneSetHtml) {
-            track.innerHTML = oneSetHtml.repeat(totalReps);
-            _applyResolvedPhotos(scope);
-        }
+            if (track.children.length !== baseCount * totalReps && oneSetHtml) {
+                track.innerHTML = oneSetHtml.repeat(totalReps);
+                _applyResolvedPhotos(scope);
+            }
 
-        track.querySelectorAll('.rnp-test-card').forEach(card => {
-            card.style.flex = `0 0 ${cardW}px`;
-            card.style.width = `${cardW}px`;
-            card.style.height = '100%';
+            track.querySelectorAll('.rnp-test-card, .rnp-gallery-item').forEach(card => {
+                card.style.flex = `0 0 ${cardW}px`;
+                card.style.width = `${cardW}px`;
+                if (!isBottomGallery) card.style.height = '100%';
+            });
+
+            track.style.setProperty('--rnp-marquee-reps', String(totalReps));
+            const loopW = track.scrollWidth / totalReps;
+            if (loopW > 0) {
+                const sec = Math.max(22, Math.min(48, loopW / 20));
+                track.style.animationDuration = sec + 's';
+            }
         });
-
-        track.style.setProperty('--rnp-marquee-reps', String(totalReps));
-        const loopW = track.scrollWidth / totalReps;
-        if (loopW > 0) {
-            const sec = Math.max(22, Math.min(48, loopW / 20));
-            track.style.animationDuration = sec + 's';
-        }
     }
 
     function _buildMetaRows(cols, art) {
@@ -2809,6 +3148,9 @@ const RNP = (() => {
                 const colWCls = isDay ? 'rnp-day-col' : (isMonth ? 'rnp-month-col' : 'rnp-data-col');
 
                 if (m.isPlan) {
+                    if (art.nm_id < 0) {
+                        return `<td class="${cls} rnp-cell-plan ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>—</td>`;
+                    }
                     const pv = _planVal(art, m.key, col.colKey);
                     const valAttr = pv !== '' && pv != null ? ` value="${pv}"` : '';
                     return `<td class="${cls} rnp-cell-plan ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>
@@ -2867,8 +3209,10 @@ const RNP = (() => {
     }
 
     async function pick(nmId) {
-        _activeNm = nmId === SUMMARY_TAB || nmId === 'summary' ? SUMMARY_TAB : Number(nmId);
-        if (_activeNm !== SUMMARY_TAB && _activeNm === _compareNm) _compareNm = null;
+        if (nmId === GENERAL_TAB || nmId === 'general') _activeNm = GENERAL_TAB;
+        else if (nmId === SUMMARY_TAB || nmId === 'summary') _activeNm = SUMMARY_TAB;
+        else _activeNm = Number(nmId);
+        if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm === _compareNm) _compareNm = null;
         try { sessionStorage.setItem('rnp_active_nm', String(_activeNm)); } catch (e) {}
         await _renderActiveTable();
     }
