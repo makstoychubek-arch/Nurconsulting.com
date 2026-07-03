@@ -189,6 +189,7 @@ const RNP = (() => {
     const _galleryPhotosCache = {};
     const _photoProxyPending = new Set();
     const _photoProxyCooldown = {};
+    const _galleryFetchAttempted = new Set();
     const PHOTO_PROXY_COOLDOWN_MS = 10 * 60 * 1000;
 
     const _PHOTO_PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent(
@@ -246,6 +247,7 @@ const RNP = (() => {
         Object.keys(_galleryPhotosCache).forEach(k => delete _galleryPhotosCache[k]);
         _photoProxyPending.clear();
         Object.keys(_photoProxyCooldown).forEach(k => delete _photoProxyCooldown[k]);
+        _galleryFetchAttempted.clear();
     }
 
     function _hydratePhotoCacheFromArticles() {
@@ -297,16 +299,28 @@ const RNP = (() => {
         extras.forEach((pu, i) => { _photoIndexCache[id][i + 2] = pu; });
     }
 
-    async function _fetchPhotosViaProxy(nmIds) {
+    async function _fetchPhotosViaProxy(nmIds, opts = {}) {
         if (!_callProxy || !nmIds.length) return;
         const now = Date.now();
+        const forceGallery = !!opts.forceGallery;
         const slice = [...new Set(nmIds.map(Number).filter(Boolean))].filter(id => {
-            if (_isUsablePhotoUrl(id, _photoResolveCache[id])) return false;
+            // Even if the main photo (index 1) is already resolved/cached, the
+            // gallery (index 2+) may never have been fetched for this nmId
+            // (e.g. main photo came from a persisted DB value or localStorage
+            // from a previous session). Only skip the proxy call entirely once
+            // BOTH the main photo is usable AND the gallery has been fetched
+            // at least once (or explicitly isn't being requested).
+            const needMain = !_isUsablePhotoUrl(id, _photoResolveCache[id]);
+            const needGallery = forceGallery && !_galleryPhotosCache[id]?.length && !_galleryFetchAttempted.has(id);
+            if (!needMain && !needGallery) return false;
             const last = _photoProxyCooldown[id] || 0;
             return now - last >= PHOTO_PROXY_COOLDOWN_MS;
         }).slice(0, 100);
         if (!slice.length) return;
-        slice.forEach(id => { _photoProxyCooldown[id] = now; });
+        slice.forEach(id => {
+            _photoProxyCooldown[id] = now;
+            if (forceGallery) _galleryFetchAttempted.add(id);
+        });
 
         const stillNeed = new Set(slice);
         try {
@@ -370,7 +384,7 @@ const RNP = (() => {
             _hydratePhotoCacheFromArticles();
             if (_galleryPhotosCache[nmId]?.length) return;
         }
-        await _fetchPhotosViaProxy([nmId]);
+        await _fetchPhotosViaProxy([nmId], { forceGallery: true });
     }
 
     async function _ensurePhoto(art) {
