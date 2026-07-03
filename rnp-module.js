@@ -23,6 +23,8 @@ const RNP = (() => {
     let _activeNm = null;
     let _collapsedSections = new Set();
     let _financeCache = { key: '', rows: [], ts: 0 };
+    let _advertListCache = { ids: [], ts: 0 };
+    let _advertStatsCache = { key: '', data: [], ts: 0 };
     let _dataCache = {}; // nmId -> { date -> row }
     let _stockCache = {}; // nmId -> { size -> { wh, transit } }
 
@@ -191,6 +193,8 @@ const RNP = (() => {
     const PHOTO_LS_TTL_MS = 30 * 24 * 3600000;
     const FUNNEL_SYNC_TTL_MS = 12 * 3600000;
     const AD_SYNC_TTL_MS = 6 * 3600000;
+    const FINANCE_SYNC_TTL_MS = 6 * 3600000;
+    const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
     let _dailyLoadMeta = null;
 
     const DAILY_COLS = [
@@ -2006,25 +2010,55 @@ const RNP = (() => {
     }
 
     // ─── FINANCE REPORT SYNC ─────────────────────────────────────────────────
-    async function _fetchFinanceAgg(nmId) {
+    function _financeDateRange() {
         const now = new Date();
-        const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
-        const dateTo   = now.toISOString().split('T')[0];
-        const cacheKey = `${_cab}_${dateFrom}_${dateTo}_${nmId}`;
+        return {
+            dateFrom: new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0],
+            dateTo: now.toISOString().split('T')[0],
+        };
+    }
+
+    function _financeSyncFresh() {
+        try {
+            const raw = sessionStorage.getItem(`rnp_fin_sync_${_cab}`);
+            if (!raw) return false;
+            return Date.now() - JSON.parse(raw).at < FINANCE_SYNC_TTL_MS;
+        } catch { return false; }
+    }
+
+    function _markFinanceSynced() {
+        try { sessionStorage.setItem(`rnp_fin_sync_${_cab}`, JSON.stringify({ at: Date.now() })); } catch {}
+    }
+
+    async function _fetchFinanceCabinet(opts = {}) {
+        const { dateFrom, dateTo } = _financeDateRange();
+        const cacheKey = `${_cab}_${dateFrom}_${dateTo}`;
         if (_financeCache.key === cacheKey && Date.now() - _financeCache.ts < 30 * 60 * 1000) {
             return _financeCache.rows;
         }
-        const rows = await _callProxy('finance_report', { dateFrom, dateTo, aggregate: true, nmId });
-        if (Array.isArray(rows) && rows.length) {
-            _financeCache = { key: cacheKey, rows, ts: Date.now() };
+        if (opts.cacheOnly) return [];
+        if (!opts.force && _financeSyncFresh() && _financeCache.key === cacheKey) {
+            return _financeCache.rows;
         }
-        return Array.isArray(rows) ? rows : [];
+        const rows = await _callProxy('finance_report', { dateFrom, dateTo, aggregate: true });
+        const list = Array.isArray(rows) ? rows : [];
+        if (list.length) {
+            _financeCache = { key: cacheKey, rows: list, ts: Date.now() };
+        }
+        return list;
     }
 
-    async function _syncFinanceRange(nmId) {
+    async function _fetchFinanceAgg(nmId, opts = {}) {
+        const all = await _fetchFinanceCabinet(opts);
+        if (nmId == null || nmId === 0) return all;
+        return all.filter(r => String(r.nm_id) === String(nmId));
+    }
+
+    async function _syncFinanceRange(nmId, opts = {}) {
         if (!_callProxy) return;
+        if (!opts.force && _financeSyncFresh()) return;
         try {
-            const rows = await _fetchFinanceAgg(nmId);
+            const rows = await _fetchFinanceAgg(nmId, opts);
             if (!rows.length) return;
 
             const byDate = {};
@@ -2134,93 +2168,129 @@ const RNP = (() => {
     }
 
     // ─── PROMOTION / AD SYNC (WB API v2/v3) ─────────────────────────────────
-    async function _syncAdStats(nmId) {
-        if (!_callProxy) return;
+    async function _getAdvertIds() {
+        if (_advertListCache.ids.length && Date.now() - _advertListCache.ts < 30 * 60 * 1000) {
+            return _advertListCache.ids;
+        }
+        const resp = await _callProxy('advert_list', {});
+        const allIds = resp?.ids ||
+                       (resp?.adverts ? resp.adverts.map(c => c.advertId || c.id).filter(Boolean) : null) ||
+                       (Array.isArray(resp) ? resp.map(c => c.advertId || c.id).filter(Boolean) : []);
+        _advertListCache = { ids: allIds || [], ts: Date.now() };
+        if (_advertListCache.ids.length) {
+            console.info(`[RNP] advert_list: ${_advertListCache.ids.length} campaign IDs`);
+        } else {
+            console.info('[RNP] advert_list: no campaign IDs');
+        }
+        return _advertListCache.ids;
+    }
+
+    async function _fetchAdvertStatsRaw() {
         const now = new Date();
         const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
         const dateTo   = now.toISOString().split('T')[0];
-        try {
-            // 1. Get all campaign IDs via /adv/v1/promotion/count
-            const resp = await _callProxy('advert_list', {});
-            // New format: { ids: [...] }; old fallback: { adverts: [...] } or array
-            const allIds = resp?.ids ||
-                           (resp?.adverts ? resp.adverts.map(c => c.advertId || c.id).filter(Boolean) : null) ||
-                           (Array.isArray(resp) ? resp.map(c => c.advertId || c.id).filter(Boolean) : []);
-            if (!allIds.length) { console.info('[RNP] advert_list: no campaign IDs'); return; }
-            console.info(`[RNP] advert_list: ${allIds.length} campaign IDs`);
+        const cacheKey = `${_cab}_${dateFrom}_${dateTo}`;
+        if (_advertStatsCache.key === cacheKey && Date.now() - _advertStatsCache.ts < 30 * 60 * 1000) {
+            return _advertStatsCache.data;
+        }
+        const allIds = await _getAdvertIds();
+        if (!allIds.length) return [];
+        const stats = await _callProxy('advert_stats', { advertIds: allIds, dateFrom, dateTo });
+        const arr = Array.isArray(stats) ? stats : [];
+        if (arr.length) {
+            console.info(`[RNP] advert_stats: ${arr.length} campaigns returned`);
+            _advertStatsCache = { key: cacheKey, data: arr, ts: Date.now() };
+        } else {
+            console.info('[RNP] advert_stats: empty response');
+        }
+        return arr;
+    }
 
-            // 2. Fetch stats (GET /adv/v3/fullstats)
-            const stats = await _callProxy('advert_stats', { advertIds: allIds, dateFrom, dateTo });
-            if (!Array.isArray(stats) || !stats.length) { console.info('[RNP] advert_stats: empty response'); return; }
-            console.info(`[RNP] advert_stats: ${stats.length} campaigns returned`);
+    function _aggregateAdStatsForNm(stats, nmId) {
+        const byDate = {};
+        stats.forEach(camp => {
+            (camp.days || []).forEach(day => {
+                const date = (day.date || '').split('T')[0];
+                if (!date) return;
 
-            // 3. Aggregate by date — handle multiple possible structures from WB:
-            //    a) days[] → {date, nm[]/nms[]/apps[{nm/nms}]} — per-article breakdown
-            //    b) days[] → {date, views, clicks, sum, ...} — day-level aggregate
-            const byDate = {};
-            stats.forEach(camp => {
-                (camp.days || []).forEach(day => {
-                    const date = (day.date || '').split('T')[0];
-                    if (!date) return;
-
-                    let imp = 0, cl = 0, spend = 0, orders = 0, basket = 0;
-
-                    // Collect all nm-level entries from any nesting
-                    const allNms = [];
-                    if (Array.isArray(day.nm))   allNms.push(...day.nm);
-                    if (Array.isArray(day.nms))  allNms.push(...day.nms);
-                    (day.apps || []).forEach(app => {
-                        const nms = app.nm || app.nms || [];
-                        if (Array.isArray(nms)) allNms.push(...nms);
-                    });
-
-                    if (allNms.length) {
-                        // Per-article data available — find our nmId
-                        const row = allNms.find(n => String(n.nmId || n.nm_id) === String(nmId));
-                        if (!row) return;
-                        imp    = Number(row.views  || 0);
-                        cl     = Number(row.clicks || 0);
-                        spend  = Number(row.sum    || 0);
-                        orders = Number(row.orders || 0);
-                        basket = Number(row.atbs   || 0);
-                    } else {
-                        // Day-level aggregate (no nm breakdown) — use as-is
-                        imp    = Number(day.views  || 0);
-                        cl     = Number(day.clicks || 0);
-                        spend  = Number(day.sum    || 0);
-                        orders = Number(day.orders || 0);
-                        basket = Number(day.atbs   || 0);
-                    }
-
-                    if (!imp && !cl && !spend) return;
-                    if (!byDate[date]) byDate[date] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
-                    byDate[date].imp    += imp;
-                    byDate[date].cl     += cl;
-                    byDate[date].spend  += spend;
-                    byDate[date].orders += orders;
-                    byDate[date].basket += basket;
+                let imp = 0, cl = 0, spend = 0, orders = 0, basket = 0;
+                const allNms = [];
+                if (Array.isArray(day.nm))   allNms.push(...day.nm);
+                if (Array.isArray(day.nms))  allNms.push(...day.nms);
+                (day.apps || []).forEach(app => {
+                    const nms = app.nm || app.nms || [];
+                    if (Array.isArray(nms)) allNms.push(...nms);
                 });
+
+                if (allNms.length) {
+                    const row = allNms.find(n => String(n.nmId || n.nm_id) === String(nmId));
+                    if (!row) return;
+                    imp    = Number(row.views  || 0);
+                    cl     = Number(row.clicks || 0);
+                    spend  = Number(row.sum    || 0);
+                    orders = Number(row.orders || 0);
+                    basket = Number(row.atbs   || 0);
+                } else {
+                    imp    = Number(day.views  || 0);
+                    cl     = Number(day.clicks || 0);
+                    spend  = Number(day.sum    || 0);
+                    orders = Number(day.orders || 0);
+                    basket = Number(day.atbs   || 0);
+                }
+
+                if (!imp && !cl && !spend) return;
+                if (!byDate[date]) byDate[date] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
+                byDate[date].imp    += imp;
+                byDate[date].cl     += cl;
+                byDate[date].spend  += spend;
+                byDate[date].orders += orders;
+                byDate[date].basket += basket;
             });
+        });
+        return byDate;
+    }
 
-            console.info(`[RNP] advert_stats: aggregated for ${Object.keys(byDate).length} dates`);
+    async function _upsertAdStatsForNm(nmId, stats) {
+        const byDate = _aggregateAdStatsForNm(stats, nmId);
+        console.info(`[RNP] advert_stats nm=${nmId}: aggregated for ${Object.keys(byDate).length} dates`);
+        const upserts = Object.entries(byDate).map(([date, d]) => ({
+            cabinet_id: _cab, nm_id: nmId, date,
+            ad_impressions: d.imp,
+            ad_clicks: d.cl,
+            ad_ctr: d.imp > 0 ? d.cl / d.imp * 100 : 0,
+            ad_spend: d.spend,
+            ad_cpc: d.cl > 0 ? d.spend / d.cl : 0,
+            ad_orders: d.orders,
+            ad_basket: d.basket,
+            ad_cro: d.cl > 0 ? d.orders / d.cl * 100 : 0,
+            updated_at: new Date().toISOString()
+        }));
+        if (upserts.length) {
+            await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
+        }
+        await _touchArticleSyncMeta(nmId, { ad_sync_at: new Date().toISOString() });
+    }
 
-            const upserts = Object.entries(byDate).map(([date, d]) => ({
-                cabinet_id: _cab, nm_id: nmId, date,
-                ad_impressions: d.imp,
-                ad_clicks: d.cl,
-                ad_ctr: d.imp > 0 ? d.cl / d.imp * 100 : 0,
-                ad_spend: d.spend,
-                ad_cpc: d.cl > 0 ? d.spend / d.cl : 0,
-                ad_orders: d.orders,
-                ad_basket: d.basket,
-                ad_cro: d.cl > 0 ? d.orders / d.cl * 100 : 0,
-                updated_at: new Date().toISOString()
-            }));
-            if (upserts.length) {
-                await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
-            }
-            await _touchArticleSyncMeta(nmId, { ad_sync_at: new Date().toISOString() });
+    async function _syncAdStats(nmId) {
+        if (!_callProxy) return;
+        try {
+            const stats = await _fetchAdvertStatsRaw();
+            if (!stats.length) return;
+            await _upsertAdStatsForNm(nmId, stats);
         } catch(e) { console.warn('[RNP] syncAds:', e.message); }
+    }
+
+    async function _syncAdStatsCabinet(nmIds) {
+        if (!_callProxy) return;
+        try {
+            const stats = await _fetchAdvertStatsRaw();
+            if (!stats.length) return;
+            for (const nmId of nmIds) {
+                const art = _articles.find(a => a.nm_id == nmId);
+                if (!_syncFresh(art?.manual_data, 'ad_sync_at', AD_SYNC_TTL_MS)) continue;
+                await _upsertAdStatsForNm(nmId, stats);
+            }
+        } catch(e) { console.warn('[RNP] syncAds cabinet:', e.message); }
     }
 
     async function _syncAdStatsIfNeeded(nmId) {
@@ -3020,14 +3090,14 @@ const RNP = (() => {
         _renderSettings();
     }
 
-    async function refresh(nmId) {
+    async function refresh(nmId, opts = {}) {
         await _syncToday(nmId);
         await _syncOrdersHistory(nmId);
 
         if (_callProxy) {
             await _syncFunnelHistoryIfNeeded(nmId).catch(e => console.warn('[RNP] funnel skipped:', e.message));
-            await _syncFinanceRange(nmId);
-            await _syncAdStatsIfNeeded(nmId).catch(e => console.warn('[RNP] ads skipped:', e.message));
+            if (!opts.skipFinance) await _syncFinanceRange(nmId);
+            if (!opts.skipAds) await _syncAdStatsIfNeeded(nmId).catch(e => console.warn('[RNP] ads skipped:', e.message));
         }
 
         _invalidateCache(nmId);
@@ -3042,8 +3112,26 @@ const RNP = (() => {
         if (!active.length) return;
         if (btn) btn.disabled = true;
 
+        const nmIds = active.map(a => a.nm_id);
+        const needFinance = !_financeSyncFresh();
+        const needAd = active.some(a => _syncFresh(a.manual_data, 'ad_sync_at', AD_SYNC_TTL_MS));
+
+        if (_callProxy) {
+            if (needFinance) {
+                await _fetchFinanceCabinet().catch(e => console.warn('[RNP] finance prefetch:', e.message));
+                for (const nmId of nmIds) {
+                    await _syncFinanceRange(nmId, { force: true, cacheOnly: true });
+                }
+                _markFinanceSynced();
+            }
+            if (needAd) {
+                await _syncAdStatsCabinet(nmIds).catch(e => console.warn('[RNP] ads cabinet:', e.message));
+            }
+        }
+
         for (let i = 0; i < active.length; i++) {
-            await refresh(active[i].nm_id);
+            await refresh(active[i].nm_id, { skipFinance: true, skipAds: true });
+            if (i < active.length - 1) await _sleep(700);
         }
 
         _invalidateCache();

@@ -2627,7 +2627,7 @@
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
             const msg = errData.error || errData.message || `HTTP ${res.status}`;
-            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'advert_campaigns', 'content_cards']);
+            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'advert_campaigns', 'content_cards', 'finance_report']);
             const tokenBad = /token withdrawn|unauthorized|invalid session/i.test(msg);
             if (tokenBad) {
                 if (!_wbTokenModalShown) {
@@ -3365,11 +3365,18 @@
         }
         // Финансовый отчёт — ОТДЕЛЬНО, не блокирует возврат функции
         if (typeof WBFormulas !== 'undefined' && currentCabinetId) {
-            const financeTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Finance report timeout (60s)')), 60000));
-            Promise.race([
-                WBFormulas.loadFinanceReport(callWbProxy, from, to),
-                financeTimeout
-            ]).then(rows => {
+            const rnpFinFresh = (() => {
+                try {
+                    const raw = sessionStorage.getItem(`rnp_fin_sync_${currentCabinetId}`);
+                    return raw && Date.now() - JSON.parse(raw).at < 30 * 60 * 1000;
+                } catch { return false; }
+            })();
+            if (!rnpFinFresh) {
+                const financeTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Finance report timeout (60s)')), 60000));
+                Promise.race([
+                    WBFormulas.loadFinanceReport(callWbProxy, from, to, currentCabinetId),
+                    financeTimeout
+                ]).then(rows => {
                 if (!rows || rows.length === 0) return;
                 const settings = {
                     taxRate: Number(localStorage.getItem('tax_rate') || 6),
@@ -3379,6 +3386,7 @@
                 WBFormulas.applyMetricsToDashboard(metrics, setText);
                 syncSummaryTab(metrics);
             }).catch(e => console.warn('Finance report:', e.message));
+            }
         }
     }
 

@@ -101,7 +101,17 @@ serve(async (req) => {
 
                     for (let attempt = 0; attempt < maxPages; attempt++) {
                         const url = `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=${dateFrom}&dateTo=${dateTo}&rrdid=${rrdid}&limit=${limit}`;
-                        const page = await wbGet(url, WB_TOKEN) as Record<string, unknown>[];
+                        let page: Record<string, unknown>[];
+                        try {
+                            page = await wbGet(url, WB_TOKEN) as Record<string, unknown>[];
+                        } catch (e) {
+                            const status = (e as { status?: number })?.status;
+                            if (status === 429) {
+                                console.warn('[wb-proxy] finance_report aggregate 429 — partial result');
+                                break;
+                            }
+                            throw e;
+                        }
                         if (!Array.isArray(page) || !page.length) break;
 
                         for (const row of page) {
@@ -128,6 +138,7 @@ serve(async (req) => {
 
                         if (page.length < limit) break;
                         rrdid = Number(page[page.length - 1].rrd_id || 0);
+                        if (attempt < maxPages - 1) await sleep(350);
                     }
 
                     result = Array.from(byKey.entries()).map(([key, d]) => {
@@ -142,12 +153,23 @@ serve(async (req) => {
                 let rrdid = Number(params.rrdid || 0);
                 for (let attempt = 0; attempt < maxPages; attempt++) {
                     const url = `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=${dateFrom}&dateTo=${dateTo}&rrdid=${rrdid}&limit=${limit}`;
-                    const page = await wbGet(url, WB_TOKEN) as unknown[];
+                    let page: unknown[];
+                    try {
+                        page = await wbGet(url, WB_TOKEN) as unknown[];
+                    } catch (e) {
+                        const status = (e as { status?: number })?.status;
+                        if (status === 429) {
+                            console.warn('[wb-proxy] finance_report raw 429 — partial result');
+                            break;
+                        }
+                        throw e;
+                    }
                     if (!Array.isArray(page) || !page.length) break;
                     rows.push(...page);
                     if (page.length < limit) break;
                     const last = page[page.length - 1] as Record<string, unknown>;
                     rrdid = Number(last.rrd_id || 0);
+                    if (attempt < maxPages - 1) await sleep(350);
                 }
                 result = rows;
                 break;
@@ -504,8 +526,9 @@ serve(async (req) => {
 
     } catch (err) {
         console.error('[wb-proxy] error:', err);
-        const status = (err as { status?: number })?.status;
-        const httpStatus = status && status >= 400 && status < 500 ? status : 500;
+        const status = (err as { status?: number })?.status
+            ?? Number(String(err).match(/WB API (\d{3}):/)?.[1]);
+        const httpStatus = status && status >= 400 && status < 600 ? status : 500;
         return json({ error: String(err) }, httpStatus);
     }
 });
@@ -519,11 +542,15 @@ function json(data: unknown, status = 200) {
     });
 }
 
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
 async function wbGet(url: string, token: string): Promise<unknown> {
     const res = await fetch(url, { headers: { Authorization: token } });
     if (!res.ok) {
         const text = await res.text().catch(() => res.statusText);
-        throw new Error(`WB API ${res.status}: ${text}`);
+        const err = new Error(`WB API ${res.status}: ${text}`) as Error & { status?: number };
+        err.status = res.status;
+        throw err;
     }
     return res.json();
 }
