@@ -237,78 +237,94 @@ serve(async (req) => {
                 break;
             }
             case 'product_photos': {
-                // IMPORTANT: WB Content API v2 `get/cards/list` has NO filter to
-                // fetch multiple specific nmIDs at once — filter.nmID is not a
-                // real field and is silently ignored by WB, causing the endpoint
-                // to return arbitrary cards instead of the ones requested.
-                // The only reliable way to look up a specific article is
-                // filter.textSearch (matches vendor code / nmID / barcode),
-                // one nmID per request.
+                // PRIMARY: public WB media CDN (basket-XX.wbbasket.ru) — needs NO
+                // seller token at all, so it's immune to invalid/expired content
+                // tokens. WB shards products across basket hosts by `vol`
+                // (nmId / 100000); there's no public mapping table anymore, so we
+                // resolve it by probing card.json (a few hundred bytes) across
+                // basket hosts. All probing happens server-side (Deno) so DNS/404
+                // failures never reach the user's browser console. Once the
+                // correct basket for a vol is found, it's reused for every other
+                // requested nmId that shares the same vol (no extra probing).
                 const nmIds: number[] = [...new Set((params.nmIds || []).map(Number).filter(Boolean))];
                 const out: Record<string, string> = {};
                 const gallery: Record<string, string[]> = {};
-                const debug = { requested: nmIds.length, found: 0, authFailed: false, lastStatus: null as number | null, errors: 0, tokenUsed: 'content' as 'content' | 'main' };
+                const debug = {
+                    requested: nmIds.length, viaBasket: 0, viaContent: 0, notFound: 0,
+                    tokenUsed: 'content' as 'content' | 'main',
+                };
                 if (!nmIds.length) { result = out; break; }
 
-                // Separate wb_content_token can be missing/invalid/wrong-scope.
-                // Detect that up front with one probe call and fall back to the
-                // main WB_TOKEN, which historically has always worked for this API.
-                let activeToken = WB_CONTENT_TOKEN;
-                {
-                    const probeBody = { settings: { filter: { textSearch: String(nmIds[0]), withPhoto: -1 }, cursor: { limit: 10 } } };
+                const basketByVol = new Map<number, number>();
+                const stillNeed: number[] = [];
+                const basketDeadline = Date.now() + 20000; // safety budget for CDN probing
+
+                for (const nm of nmIds) {
+                    if (Date.now() > basketDeadline) { stillNeed.push(nm); continue; }
+                    const vol = Math.floor(nm / 100000);
+                    const part = Math.floor(nm / 1000);
+                    let basket = basketByVol.get(vol);
+                    if (basket == null) {
+                        const found = await probeBasketHost(vol, part, nm);
+                        if (found) { basket = found; basketByVol.set(vol, found); }
+                    }
+                    if (basket == null) { stillNeed.push(nm); continue; }
+
+                    const urls = await verifyPhotoUrls(basket, vol, part, nm);
+                    if (urls.length) {
+                        out[String(nm)] = urls[0];
+                        if (urls.length > 1) gallery[String(nm)] = urls;
+                        debug.viaBasket++;
+                    } else {
+                        stillNeed.push(nm);
+                    }
+                }
+
+                // FALLBACK: seller Content API for anything the public CDN probe
+                // couldn't resolve (e.g. brand-new cards not yet on the CDN).
+                if (stillNeed.length) {
+                    let activeToken = WB_CONTENT_TOKEN;
+                    const probeBody = { settings: { filter: { textSearch: String(stillNeed[0]), withPhoto: -1 }, cursor: { limit: 10 } } };
                     try {
                         await wbPost('https://content-api.wildberries.ru/content/v2/get/cards/list', activeToken, probeBody);
                     } catch (e) {
                         const status = (e as { status?: number })?.status;
                         if ((status === 401 || status === 403) && activeToken !== WB_TOKEN) {
-                            console.warn('[wb-proxy] product_photos: content token failed, falling back to main WB_TOKEN');
                             activeToken = WB_TOKEN;
                             debug.tokenUsed = 'main';
                         }
                     }
+                    const contentDeadline = Date.now() + 15000;
+                    for (const nm of stillNeed) {
+                        if (Date.now() > contentDeadline) { debug.notFound++; continue; }
+                        const body = { settings: { filter: { textSearch: String(nm), withPhoto: -1 }, cursor: { limit: 100 } } };
+                        try {
+                            const cards = await wbPost(
+                                'https://content-api.wildberries.ru/content/v2/get/cards/list',
+                                activeToken, body
+                            ) as { cards?: Record<string, unknown>[] };
+                            const card = (cards?.cards || []).find(c => Number(c.nmID ?? c.nmId ?? 0) === nm);
+                            if (card) {
+                                const photos = (card.photos as Record<string, string>[] | undefined) || [];
+                                const urls = photos.map(ph => {
+                                    let u = ph?.big || ph?.c516x688 || ph?.c246x328 || ph?.tm || '';
+                                    if (u && u.startsWith('//')) u = 'https:' + u;
+                                    return u;
+                                }).filter(Boolean);
+                                if (urls.length) {
+                                    out[String(nm)] = urls[0];
+                                    gallery[String(nm)] = urls;
+                                    debug.viaContent++;
+                                } else debug.notFound++;
+                            } else debug.notFound++;
+                        } catch (e) {
+                            console.warn('[wb-proxy] product_photos content fallback nm', nm, ':', String(e));
+                            debug.notFound++;
+                        }
+                        await sleep(120);
+                    }
                 }
 
-                for (const nm of nmIds) {
-                    const body = {
-                        settings: {
-                            filter: { textSearch: String(nm), withPhoto: -1 },
-                            cursor: { limit: 100 }
-                        }
-                    };
-                    try {
-                        const cards = await wbPost(
-                            'https://content-api.wildberries.ru/content/v2/get/cards/list',
-                            activeToken, body
-                        ) as { cards?: Record<string, unknown>[] };
-                        const card = (cards?.cards || []).find(c => Number(c.nmID ?? c.nmId ?? 0) === nm);
-                        if (card) {
-                            const photos = (card.photos as Record<string, string>[] | undefined) || [];
-                            const urls = photos.map(ph => {
-                                let u = ph?.big || ph?.c516x688 || ph?.c246x328 || ph?.tm || '';
-                                if (u && u.startsWith('//')) u = 'https:' + u;
-                                return u;
-                            }).filter(Boolean);
-                            if (urls.length) {
-                                out[String(nm)] = urls[0];
-                                gallery[String(nm)] = urls;
-                                debug.found++;
-                            }
-                        }
-                    } catch (e) {
-                        const status = (e as { status?: number })?.status;
-                        debug.lastStatus = status ?? null;
-                        if (status === 401 || status === 403) {
-                            debug.authFailed = true;
-                            console.warn('[wb-proxy] product_photos auth:', String(e));
-                            break;
-                        }
-                        debug.errors++;
-                        console.warn('[wb-proxy] product_photos nm', nm, ':', String(e));
-                        if (status === 429) await sleep(500);
-                    }
-                    // WB Content API v2: ~100 req/min limit — keep a small gap.
-                    await sleep(120);
-                }
                 console.log('[wb-proxy] product_photos debug:', JSON.stringify(debug));
                 (out as Record<string, unknown>)._debug = debug;
                 (out as Record<string, unknown>)._gallery = gallery;
@@ -558,6 +574,58 @@ serve(async (req) => {
 
 function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// WB shards product media across ~60+ basket-XX.wbbasket.ru hosts by `vol`
+// (nmId / 100000), but there's no public host-range table anymore (old ranges
+// like basket-01..14 only cover very old/low nmIds). We resolve the current
+// host by probing the small card.json file across a wide range of basket
+// numbers, done fully server-side so failed DNS lookups never surface as
+// console errors in the user's browser.
+const MAX_BASKET = 60;
+const BASKET_PROBE_BATCH = 12;
+
+async function probeBasketHost(vol: number, part: number, nm: number): Promise<number | null> {
+    for (let start = 1; start <= MAX_BASKET; start += BASKET_PROBE_BATCH) {
+        const batch = Array.from(
+            { length: Math.min(BASKET_PROBE_BATCH, MAX_BASKET - start + 1) },
+            (_, i) => start + i
+        );
+        const results = await Promise.all(batch.map(async (b) => {
+            const bStr = String(b).padStart(2, '0');
+            const url = `https://basket-${bStr}.wbbasket.ru/vol${vol}/part${part}/${nm}/info/ru/card.json`;
+            try {
+                const res = await fetch(url);
+                return res.ok ? b : null;
+            } catch {
+                return null;
+            }
+        }));
+        const found = results.find((r) => r != null);
+        if (found != null) return found;
+    }
+    return null;
+}
+
+// Once the basket host is known, verify which numbered images actually exist
+// (WB always uses .webp for current uploads) and return only working URLs.
+async function verifyPhotoUrls(basket: number, vol: number, part: number, nm: number): Promise<string[]> {
+    const bStr = String(basket).padStart(2, '0');
+    const base = `https://basket-${bStr}.wbbasket.ru/vol${vol}/part${part}/${nm}/images/big`;
+    const indices = Array.from({ length: 12 }, (_, i) => i + 1);
+    const checks = await Promise.all(indices.map(async (i) => {
+        const url = `${base}/${i}.webp`;
+        try {
+            const res = await fetch(url, { method: 'HEAD' });
+            return res.ok ? { i, url } : null;
+        } catch {
+            return null;
+        }
+    }));
+    return checks
+        .filter((c): c is { i: number; url: string } => c != null)
+        .sort((a, b) => a.i - b.i)
+        .map((c) => c.url);
 }
 
 function json(data: unknown, status = 200) {
