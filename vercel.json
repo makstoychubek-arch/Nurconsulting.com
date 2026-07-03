@@ -2,6 +2,11 @@
   "rewrites": [
     { "source": "/login", "destination": "/login.html" },
     { "source": "/space", "destination": "/dashboard.html" },
+    { "source": "/ab-testing", "destination": "/dashboard.html" },
+    { "source": "/advertising", "destination": "/dashboard.html" },
+    { "source": "/seo", "destination": "/dashboard.html" },
+    { "source": "/marking", "destination": "/dashboard.html" },
+    { "source": "/logistics", "destination": "/dashboard.html" },
     { "source": "/rnp-app", "destination": "/rnp-app/index.html" },
     { "source": "/rnp-app/:path*", "destination": "/rnp-app/:path*" },
     { "source": "/", "destination": "/index.html" }

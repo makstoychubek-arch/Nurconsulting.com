@@ -257,6 +257,43 @@
         .nav-ico { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.65; display: block; }
         .nav-item.active .nav-ico { opacity: 1; }
         .nav-item:hover .nav-ico { opacity: 0.9; }
+        .nav-item-label { flex: 1; min-width: 0; }
+        .nav-beta-badge {
+            font-size: 9px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+            padding: 2px 6px; border-radius: 5px; flex-shrink: 0; line-height: 1.3;
+            background: rgba(139, 92, 246, 0.1); color: rgba(167, 139, 250, 0.75);
+            border: 1px solid rgba(139, 92, 246, 0.18);
+        }
+        [data-theme="ios"] .nav-beta-badge {
+            background: rgba(109, 40, 217, 0.08); color: rgba(109, 40, 217, 0.65);
+            border-color: rgba(109, 40, 217, 0.15);
+        }
+        .flyout-body .nav-item.active .nav-beta-badge {
+            background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);
+            border-color: rgba(255,255,255,0.2);
+        }
+        .beta-module-hero {
+            padding: 28px 32px; border-radius: 20px;
+            background: linear-gradient(135deg, rgba(139,92,246,0.06) 0%, rgba(15,15,23,0.4) 100%);
+            border: 1px solid rgba(139, 92, 246, 0.12);
+        }
+        .beta-module-hero h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+        .beta-module-hero p { font-size: 13px; color: var(--text-muted); line-height: 1.55; max-width: 560px; }
+        .beta-pill {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+            padding: 4px 10px; border-radius: 20px; margin-bottom: 14px;
+            background: rgba(139, 92, 246, 0.1); color: rgba(167, 139, 250, 0.8);
+            border: 1px solid rgba(139, 92, 246, 0.18);
+        }
+        .supply-card {
+            padding: 14px 16px; border-radius: 14px;
+            background: var(--surface); border: 1px solid var(--border);
+            transition: border-color 0.2s, box-shadow 0.2s; cursor: pointer;
+        }
+        .supply-card:hover { border-color: var(--accent-border); box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+        .supply-card-title { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+        .supply-card-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
         .nav-item-standalone { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; color: white; font-size: 13px; font-weight: 600; border-radius: 12px; background: var(--accent-gradient); border: none; transition: all 0.25s ease; margin: 4px 12px; box-shadow: var(--use-glow); }
         .nav-item-standalone:hover { transform: translateY(-1px); filter: brightness(1.08); }
         .nav-item-standalone.active { box-shadow: 0 8px 28px rgba(123,97,255,0.45); }
@@ -1179,6 +1216,10 @@
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
                     <span class="rail-btn-lbl">РНП</span>
                 </button>
+                <button type="button" class="rail-btn" data-flyout="fly-beta">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
+                    <span class="rail-btn-lbl">BETA</span>
+                </button>
                 <button type="button" class="rail-btn" data-flyout="fly-goods">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>
                     <span class="rail-btn-lbl">Товары</span>
@@ -1260,6 +1301,40 @@
             </div>
         </div>
 
+        <div class="sidebar-flyout" id="fly-beta" data-group="beta">
+            <div class="flyout-header">
+                <span class="flyout-title">Модули BETA</span>
+                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
+            </div>
+            <div class="flyout-body">
+                <div class="nav-item" onclick="showTab('ab-testing', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg>
+                    <span class="nav-item-label">А/Б Тесты</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="nav-item" onclick="showTab('advertising', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <span class="nav-item-label">Контроль РК</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="nav-item" onclick="showTab('seo', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <span class="nav-item-label">SEO-Позиции</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="nav-item" onclick="showTab('marking', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><rect x="18" y="14" width="3" height="3"/><rect x="14" y="18" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/></svg>
+                    <span class="nav-item-label">Маркировка &amp; ШК</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="nav-item" onclick="showTab('logistics', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    <span class="nav-item-label">Логистика &amp; Поставки</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+            </div>
+        </div>
+
         <div class="sidebar-flyout" id="fly-goods" data-group="goods">
             <div class="flyout-header">
                 <span class="flyout-title">Товары</span>
@@ -1277,10 +1352,6 @@
                 <div class="nav-item" onclick="showTab('warehouse', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
                     <span>Склады</span>
-                </div>
-                <div class="nav-item" onclick="showTab('positions', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                    <span>Позиции в поиске</span>
                 </div>
             </div>
         </div>
@@ -1323,10 +1394,6 @@
                 <div class="nav-item" onclick="showTab('calculator', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
                     <span>Калькулятор</span>
-                </div>
-                <div class="nav-item" data-tab="abtests" onclick="showTab('abtests', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg>
-                    <span>А/Б тесты фото</span>
                 </div>
             </div>
         </div>
@@ -1601,13 +1668,16 @@
             </div>
         </div>
 
-        <div id="tab-positions" class="tab-content space-y-5">
+        <div id="tab-seo" class="tab-content space-y-5">
+            <div class="beta-module-hero">
+                <div class="beta-pill">BETA · SEO-Позиции</div>
+                <h2>Мониторинг позиций в поиске WB</h2>
+                <p>Отслеживание позиций артикулов по ключевым словам в выдаче маркетплейса. Добавьте артикул и фразу — система проверит место в поиске.</p>
+            </div>
             <div class="widget-card p-6">
-                <h3 class="font-semibold mb-2" style="color:var(--text-primary)">Отслеживание позиций в поиске</h3>
-                <p class="text-xs mb-4" style="color:var(--text-secondary)">Добавьте артикул и ключевые слова — проверим позиции в выдаче WB</p>
-                <div class="flex gap-2 mb-4">
-                    <input type="text" id="pos-nmid" placeholder="Артикул WB" class="flex-1 rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                    <input type="text" id="pos-keyword" placeholder="Ключевая фраза" class="flex-1 rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                <div class="flex gap-2 mb-4 flex-wrap">
+                    <input type="text" id="pos-nmid" placeholder="Артикул WB" class="flex-1 min-w-[140px] rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                    <input type="text" id="pos-keyword" placeholder="Ключевая фраза" class="flex-1 min-w-[140px] rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
                     <button onclick="addKeyword()" class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)">Добавить</button>
                 </div>
             </div>
@@ -1625,10 +1695,59 @@
             </div>
         </div>
 
-        <div id="tab-logistics" class="tab-content space-y-5">
+        <div id="tab-advertising" class="tab-content space-y-5">
+            <div class="beta-module-hero">
+                <div class="beta-pill">BETA · Контроль РК</div>
+                <h2>Управление рекламными кампаниями WB</h2>
+                <p>Мониторинг CTR, CPC, ДРР и автоматический биддер ставок. Подключение через Promotion API кабинета.</p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="widget-card p-5">
+                    <div class="text-xs mb-1" style="color:var(--text-muted)">Активных РК</div>
+                    <div id="adv-campaigns-count" class="text-2xl font-black" style="color:var(--text-primary)">—</div>
+                </div>
+                <div class="widget-card p-5">
+                    <div class="text-xs mb-1" style="color:var(--text-muted)">Расход сегодня</div>
+                    <div id="adv-spend-today" class="text-2xl font-black" style="color:var(--text-primary)">—</div>
+                </div>
+                <div class="widget-card p-5">
+                    <div class="text-xs mb-1" style="color:var(--text-muted)">Средний ДРР</div>
+                    <div id="adv-drr-avg" class="text-2xl font-black" style="color:var(--text-primary)">—</div>
+                </div>
+            </div>
+            <div class="widget-card p-6 text-center" style="color:var(--text-muted)">
+                <p class="text-sm">Автобиддер и детальная аналитика кампаний — в разработке. Данные подтянутся из WB Promotion API.</p>
+                <button onclick="loadAdvertisingPreview()" class="mt-4 ui-btn ui-btn-secondary text-sm">Загрузить кампании</button>
+            </div>
+        </div>
+
+        <div id="tab-marking" class="tab-content space-y-5">
+            <div class="beta-module-hero">
+                <div class="beta-pill">BETA · Маркировка &amp; ШК</div>
+                <h2>Tekser · Честный Знак</h2>
+                <p>Интеграция с системой маркировки Tekser (tekser.kg). Генерация объединённых PDF-стикеров: логистический ШК WB + DataMatrix код маркировки.</p>
+            </div>
             <div class="widget-card p-6">
-                <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Карта федеральных округов</h3>
-                <div class="map-placeholder"><span style="font-size:32px">🗺️</span><span>Карта появится после загрузки данных по складам</span></div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Артикул WB (nm_id)</label>
+                        <input type="text" id="mark-nmid" placeholder="740877378" class="w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
+                    <div>
+                        <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Количество стикеров</label>
+                        <input type="number" id="mark-qty" value="1" min="1" max="500" class="w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                    </div>
+                </div>
+                <button class="ui-btn ui-btn-primary text-sm" disabled title="Интеграция Tekser — скоро">Сформировать PDF-стикеры</button>
+                <p class="text-xs mt-3" style="color:var(--text-muted)">Модуль подключится к Tekser API для получения кодов маркировки и объединения с ШК WB.</p>
+            </div>
+        </div>
+
+        <div id="tab-logistics" class="tab-content space-y-5">
+            <div class="beta-module-hero" style="padding:20px 24px;margin-bottom:0">
+                <div class="beta-pill">BETA · Логистика</div>
+                <h2 style="font-size:17px">Остатки и поставки WB</h2>
+                <p style="font-size:12px;margin:0">Мониторинг складов и архив отгрузок в виде компактных карточек.</p>
             </div>
             <div class="widget-card p-6">
                 <div class="flex items-center justify-between mb-4">
@@ -1671,16 +1790,11 @@
             </div>
         </div>
 
-        <div id="tab-ads" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Аналитика РК</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">CTR, CPC, ДРР по рекламным кампаниям. Требует подключения Promotion API. В разработке.</p></div></div>
-        <div id="tab-heatmap" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Тепловая карта</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Визуализация метрик по дням/неделям цветовым кодированием. В разработке.</p></div></div>
-        <div id="tab-rnp-settings" class="tab-content">
-            <div class="p-10 text-center" style="color:var(--text-muted)">
-                <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
-                Загрузка настроек...
+        <div id="tab-ab-testing" class="tab-content space-y-4">
+            <div class="beta-module-hero" style="padding:16px 20px;margin-bottom:0">
+                <div class="beta-pill">BETA · А/Б Тесты</div>
+                <p style="font-size:12px;margin:0;color:var(--text-muted)">Аналитика кликабельности фото и эффективности смены CPM-ставок.</p>
             </div>
-        </div>
-
-        <div id="tab-abtests" class="tab-content space-y-4">
             <div class="flex items-center justify-between mb-2">
                 <button class="ui-btn ui-btn-primary" onclick="showNewTestForm()" style="border-radius:12px;padding:9px 18px;font-size:13px;font-weight:600;gap:8px">
                     <span style="font-size:18px;line-height:1;margin-right:2px">+</span><span>Создать А/Б тест</span>
@@ -1719,6 +1833,13 @@
             </div>
 
             <div id="abtests-list" class="space-y-3"><div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div></div>
+        </div>
+
+        <div id="tab-rnp-settings" class="tab-content">
+            <div class="p-10 text-center" style="color:var(--text-muted)">
+                <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+                Загрузка настроек...
+            </div>
         </div>
 
         <div id="tab-settings" class="tab-content">
@@ -1900,8 +2021,10 @@
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
             const msg = errData.error || errData.message || `HTTP ${res.status}`;
+            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'content_cards']);
             if (res.status === 403) showPremiumModal('warning', 'Доступ запрещён', msg);
             else if (res.status >= 500) console.warn(`[callWbProxy] ${action} server error:`, msg);
+            else if (bgActions.has(action)) console.warn(`[callWbProxy] ${action}:`, msg);
             else showPremiumModal('warning', 'Ошибка запроса', msg);
             return null;
         }
@@ -1997,16 +2120,51 @@
 
     function toggleMenu(el) { el.classList.toggle('open'); el.nextElementSibling.classList.toggle('open'); }
 
-    const tabTitles = { dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт', dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно', cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады', positions:'Позиции в поиске', rnp:'Модуль РНП', ads:'Аналитика РК', heatmap:'Тепловая карта', 'rnp-settings':'Настройки РНП', abtests:'А/Б тесты фото', logistics:'Логистика', settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики' };
+    const TAB_ALIASES = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo' };
+    const MODULE_PATHS = {
+        'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
+        marking: '/marking', logistics: '/logistics', dashboard: '/space',
+    };
+    const PATH_TO_TAB = Object.fromEntries(Object.entries(MODULE_PATHS).map(([k, v]) => [v, k]));
+
+    const tabTitles = {
+        dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт',
+        dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно',
+        cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады',
+        rnp:'Модуль РНП', 'rnp-settings':'Настройки РНП',
+        'ab-testing':'А/Б Тесты', advertising:'Контроль РК', seo:'SEO-Позиции', marking:'Маркировка & ШК', logistics:'Логистика & Поставки',
+        settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики',
+    };
 
     const TAB_GROUP = {
         dashboard:'ocr', summary:'ocr', 'summary-biz':'ocr', deductions:'ocr', 'plan-fact':'ocr',
         rnp:'rnp', 'rnp-settings':'rnp',
-        cost:'goods', 'goods-groups':'goods', warehouse:'goods', positions:'goods',
+        'ab-testing':'beta', advertising:'beta', seo:'beta', marking:'beta', logistics:'beta',
+        cost:'goods', 'goods-groups':'goods', warehouse:'goods',
         dds:'finance', operations:'finance', obligations:'finance', 'finance-extra':'finance',
-        settings:'manage', calculator:'manage', abtests:'manage',
-        tariffs:'tariffs'
+        settings:'manage', calculator:'manage',
+        tariffs:'tariffs',
     };
+
+    function resolveTabFromUrl() {
+        const path = location.pathname.replace(/\/$/, '') || '/space';
+        if (path === '/space' || path === '/') return null;
+        if (PATH_TO_TAB[path]) return PATH_TO_TAB[path];
+        const q = new URLSearchParams(location.search).get('tab');
+        if (q) return TAB_ALIASES[q] || q;
+        return null;
+    }
+
+    function syncModuleUrl(tabName) {
+        const path = MODULE_PATHS[tabName];
+        if (!path || path === '/space') {
+            if (location.pathname !== '/space' && location.pathname !== '/') {
+                history.replaceState(null, '', '/space');
+            }
+            return;
+        }
+        if (location.pathname !== path) history.replaceState(null, '', path);
+    }
 
     function syncRailGroup(tabName) {
         const g = TAB_GROUP[tabName] || 'ocr';
@@ -2016,14 +2174,15 @@
     }
 
     function showTab(name, el) {
+        name = TAB_ALIASES[name] || name;
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.nav-item, .nav-item-standalone').forEach(n => n.classList.remove('active'));
         document.getElementById('tab-' + name)?.classList.add('active');
         if (el) el.classList.add('active');
         else {
-            // Restore active nav highlight without click element
             document.querySelectorAll('.nav-item, .nav-item-standalone').forEach(n => {
-                if (n.getAttribute('onclick')?.includes(`'${name}'`)) n.classList.add('active');
+                const onclick = n.getAttribute('onclick') || '';
+                if (onclick.includes(`'${name}'`) || onclick.includes(`"${name}"`)) n.classList.add('active');
             });
         }
         document.getElementById('page-title').textContent = tabTitles[name] || name;
@@ -2036,12 +2195,25 @@
         if (rnpRefresh) rnpRefresh.classList.toggle('hidden', name !== 'rnp');
         if (mainRefresh) mainRefresh.style.display = name === 'rnp' ? 'none' : '';
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
-        if (name === 'abtests') loadABTests();
+        if (name === 'ab-testing') loadABTests();
+        if (name === 'advertising') loadAdvertisingPreview();
+        if (name === 'logistics') loadSuppliesFromWB(true);
         if (name === 'rnp' && typeof RNP !== 'undefined') RNP.openMain();
         if (name === 'rnp-settings' && typeof RNP !== 'undefined') RNP.openSettings();
         syncRailGroup(name);
-        // Remember last tab
+        syncModuleUrl(name);
         try { localStorage.setItem('nr_active_tab', name); } catch(e) {}
+    }
+
+    async function loadAdvertisingPreview() {
+        const countEl = document.getElementById('adv-campaigns-count');
+        if (!countEl || !currentCabinetId) return;
+        countEl.textContent = '…';
+        const data = await callWbProxy('advert_list', {});
+        const ids = data?.ids || [];
+        countEl.textContent = ids.length ? String(ids.length) : '0';
+        if (document.getElementById('adv-spend-today')) document.getElementById('adv-spend-today').textContent = '—';
+        if (document.getElementById('adv-drr-avg')) document.getElementById('adv-drr-avg').textContent = '—';
     }
 
     const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
@@ -3016,8 +3188,8 @@
         renderSupplies();
     }
 
-    async function loadSuppliesFromWB() {
-        if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в шапке справа.'); return; }
+    async function loadSuppliesFromWB(silent) {
+        if (!currentCabinetId) { if (!silent) showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в шапке справа.'); return; }
         const data = await callWbProxy('supplies', { limit: 50 });
         if (!data) return;
         allSupplies = (data.supplies || []).map(s => ({
@@ -3026,25 +3198,24 @@
             mismatch: null, unlabeled: null, itemsCount: null
         }));
         renderSupplies();
-        showPremiumModal('success', 'Поставки загружены', `Найдено поставок: ${allSupplies.length}`);
+        if (!silent) showPremiumModal('success', 'Поставки загружены', `Найдено поставок: ${allSupplies.length}`);
     }
 
     function renderSupplies() {
         const container = document.getElementById('supplies-list');
         let list = allSupplies;
         if (currentSuppliesFilter === 'active') list = list.filter(s => !s.done);
-        if (list.length === 0) { container.innerHTML = '<div class="text-center py-10 text-sm col-span-2" style="color:var(--text-muted)">Нет поставок — нажмите "Обновить" в шапке</div>'; return; }
-        container.innerHTML = `<div class="ui-list">` + list.map(s => {
+        if (list.length === 0) { container.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Нет поставок — нажмите «Обновить»</div>'; return; }
+        container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">` + list.map(s => {
             const hasMismatch = s.mismatch !== null && s.mismatch > 0;
             const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString('ru-RU') : '—';
-            const itemsText = s.itemsCount !== null ? `${s.itemsCount} шт.` : 'нажмите, чтобы открыть';
+            const status = s.done ? 'Завершена' : 'Активна';
+            const statusColor = s.done ? 'var(--text-muted)' : 'var(--green)';
             return `
-            <div class="ui-list-row" style="cursor:pointer" onclick="openSupplyDetail('${s.id}')">
-                <div>
-                    <div class="ui-list-row-main">${s.name}</div>
-                    <div class="ui-list-row-sub">${date} • ${itemsText}</div>
-                </div>
-                ${hasMismatch ? '<span class="ui-status ui-status-danger"><span class="ui-status-dot"></span>Расхождение</span>' : '<span class="ui-status ui-status-neutral"><span class="ui-status-dot"></span>В норме</span>'}
+            <div class="supply-card" onclick="openSupplyDetail('${s.id}')">
+                <div class="supply-card-title">${escapeHtml(s.name)}</div>
+                <div class="supply-card-meta">${date} · ${status}</div>
+                <div class="text-xs mt-2" style="color:${statusColor}">${hasMismatch ? '⚠ Расхождение' : '✓ В норме'}</div>
             </div>`;
         }).join('') + `</div>`;
     }
@@ -3101,7 +3272,8 @@
                         initTimeout,
                     ]).catch(e => console.warn('[RNP] init:', e.message));
                 }
-                const savedTab = localStorage.getItem('nr_active_tab');
+                let savedTab = resolveTabFromUrl() || localStorage.getItem('nr_active_tab');
+                if (savedTab) savedTab = TAB_ALIASES[savedTab] || savedTab;
                 if (savedTab && savedTab !== 'dashboard') {
                     showTab(savedTab, null);
                 }
