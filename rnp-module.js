@@ -261,8 +261,20 @@ const RNP = (() => {
         return hit;
     }
 
+    function _rnpRoot() {
+        return document.getElementById('rnp-workspace') || document;
+    }
+
+    function _refreshTabsAfterPhotos() {
+        const tabsEl = document.getElementById('rnp-sheet-tabs');
+        if (!tabsEl) return;
+        const active = _articles.filter(a => a.is_active);
+        tabsEl.innerHTML = _renderTabsHTML(active);
+        _updateTabHighlight();
+    }
+
     function _applyResolvedPhotos(root) {
-        const scope = root || document;
+        const scope = root || _rnpRoot();
         scope.querySelectorAll('img[data-nmid]').forEach(img => {
             const id = Number(img.dataset.nmid);
             const idx = parseInt(img.dataset.photo || '1', 10);
@@ -326,14 +338,28 @@ const RNP = (() => {
 
     async function _fetchPhotosViaProxy(nmIds) {
         if (!_callProxy || !nmIds.length) return;
+        const slice = nmIds.slice(0, 100);
         try {
-            const data = await _callProxy('product_photos', { nmIds: nmIds.slice(0, 100) });
+            const data = await _callProxy('product_photos', { nmIds: slice });
             if (data && typeof data === 'object') {
                 Object.entries(data).forEach(([id, url]) => {
                     if (url) _photoResolveCache[Number(id)] = String(url);
                 });
             }
         } catch (e) { console.warn('[RNP] product_photos proxy:', e.message); }
+        try {
+            const resp = await _callProxy('content_cards', { nmIds: slice, limit: slice.length, withPhoto: -1 });
+            const cards = resp?.cards || resp?.data?.cards || [];
+            cards.forEach(card => {
+                const id = Number(card.nmID ?? card.nmId ?? 0);
+                if (!id || !Array.isArray(card.photos) || !card.photos.length) return;
+                const first = card.photos[0];
+                let url = typeof first === 'string' ? first : (first?.big || first?.c516x688 || first?.c246x328 || first?.tm);
+                if (url?.startsWith('//')) url = 'https:' + url;
+                if (url) _photoResolveCache[id] = url;
+                _storeCardGalleryExtras(card, id);
+            });
+        } catch (e) { console.warn('[RNP] content_cards photos:', e.message); }
     }
 
     async function _probePhotoParallel(urls, concurrency = 6) {
@@ -442,7 +468,8 @@ const RNP = (() => {
         let cached = null;
         if (idx === 1) {
             cached = _photoResolveCache[nmId]
-                || (_isTrustedPhotoUrl(art.photo_url) ? art.photo_url : null);
+                || (_isTrustedPhotoUrl(art.photo_url) && !String(art.photo_url).includes('wbbasket.ru')
+                    ? art.photo_url : null);
         } else {
             cached = _photoIndexCache[nmId]?.[idx]
                 || _galleryPhotosCache[nmId]?.[idx - 2]
@@ -2307,6 +2334,8 @@ const RNP = (() => {
         await _loadAllStocks(active.map(a => a.nm_id));
         await _loadNotes(active.map(a => a.nm_id));
         await _preloadPhotos(active);
+        _refreshTabsAfterPhotos();
+        _applyResolvedPhotos();
         await _renderActiveTable();
     }
 
@@ -2318,7 +2347,7 @@ const RNP = (() => {
 
         if (_activeNm === SUMMARY_TAB) {
             body.innerHTML = _buildSummaryHTML(active, cal);
-            _applyResolvedPhotos(body);
+            _applyResolvedPhotos(_rnpRoot());
             _updateTabHighlight();
             const bar = document.getElementById('rnp-action-bar-wrap');
             if (bar) bar.innerHTML = _buildActionBar(active);
@@ -2361,7 +2390,7 @@ const RNP = (() => {
         const bar = document.getElementById('rnp-action-bar-wrap');
         if (bar) bar.innerHTML = _buildActionBar(active);
 
-        _applyResolvedPhotos(body);
+        _applyResolvedPhotos(_rnpRoot());
         _refreshMarqueeBaseHtml(body);
         requestAnimationFrame(() => {
             _syncMarqueeFill(body);
@@ -2369,12 +2398,13 @@ const RNP = (() => {
             _bindMarqueeResize(body);
         });
         _preloadGalleryPhotos(art.nm_id).then(() => {
-            _applyResolvedPhotos(body);
+            _applyResolvedPhotos(_rnpRoot());
             _refreshMarqueeBaseHtml(body);
             _syncMarqueeFill(body);
         }).catch(() => {});
         _preloadPhotos(_articles.filter(a => a.is_active)).then(() => {
-            _applyResolvedPhotos(body);
+            _refreshTabsAfterPhotos();
+            _applyResolvedPhotos(_rnpRoot());
             _refreshMarqueeBaseHtml(body);
             _syncMarqueeFill(body);
         }).catch(() => {});
@@ -2811,6 +2841,9 @@ const RNP = (() => {
         await _loadAllStocks(active.map(a => a.nm_id));
         _notesCache = {};
         await _loadNotes(active.map(a => a.nm_id));
+        await _preloadPhotos(active);
+        _refreshTabsAfterPhotos();
+        _applyResolvedPhotos();
         await _renderActiveTable();
         if (btn) { btn.disabled = false; }
     }

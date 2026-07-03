@@ -264,7 +264,7 @@ serve(async (req) => {
                     const body = {
                         settings: {
                             sort: { ascending: false },
-                            filter: { textSearch: '', withPhoto: 1, nmID: chunk },
+                            filter: { textSearch: '', withPhoto: -1, nmID: chunk },
                             cursor: { limit: chunk.length }
                         }
                     };
@@ -276,8 +276,10 @@ serve(async (req) => {
                         for (const card of cards?.cards || []) {
                             const nm = Number(card.nmID ?? card.nmId ?? 0);
                             if (!nm) continue;
-                            const photos = card.photos as { big?: string; c516x688?: string }[] | undefined;
-                            let url = photos?.[0]?.big || photos?.[0]?.c516x688 || '';
+                            const photos = card.photos as ({ big?: string; c516x688?: string; c246x328?: string; tm?: string } | string)[] | undefined;
+                            if (!Array.isArray(photos) || !photos.length) continue;
+                            const first = photos[0];
+                            let url = typeof first === 'string' ? first : (first?.big || first?.c516x688 || first?.c246x328 || first?.tm || '');
                             if (url.startsWith('//')) url = 'https:' + url;
                             if (url) out[String(nm)] = url;
                         }
