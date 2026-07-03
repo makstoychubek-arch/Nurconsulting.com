@@ -251,7 +251,8 @@ serve(async (req) => {
                 } catch (e) {
                     const msg = String(e);
                     console.warn('[wb-proxy] content_cards:', msg);
-                    result = { cards: [], total: 0, error: true, errorText: msg };
+                    const authFail = msg.includes('401') || /token withdrawn|unauthorized/i.test(msg);
+                    result = { cards: [], total: 0, error: true, authError: authFail, errorText: msg };
                 }
                 break;
             }
@@ -284,7 +285,9 @@ serve(async (req) => {
                             if (url) out[String(nm)] = url;
                         }
                     } catch (e) {
-                        console.warn('[wb-proxy] product_photos chunk:', String(e));
+                        const msg = String(e);
+                        console.warn('[wb-proxy] product_photos chunk:', msg);
+                        if (msg.includes('401') || /token withdrawn|unauthorized/i.test(msg)) break;
                     }
                 }
                 result = out;

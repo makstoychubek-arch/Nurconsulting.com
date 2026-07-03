@@ -328,11 +328,15 @@ const RNP = (() => {
         const ids = [...new Set(nmIds.map(Number).filter(Boolean))];
         if (!ids.length) return;
         await _fetchPhotosViaProxy(ids);
-        const stillMissing = ids.filter(id => !_photoResolveCache[id]);
-        for (const nmId of stillMissing) {
-            await _resolveBasketProbe(nmId);
-            const hit = await _resolvePhotoUrl(nmId);
-            if (hit) _photoResolveCache[nmId] = hit;
+        const stillMissing = ids.filter(id => !_photoResolveCache[id]).slice(0, 12);
+        const concurrency = 3;
+        for (let i = 0; i < stillMissing.length; i += concurrency) {
+            const batch = stillMissing.slice(i, i + concurrency);
+            await Promise.all(batch.map(async nmId => {
+                await _resolveBasketProbe(nmId);
+                const hit = await _resolvePhotoUrl(nmId);
+                if (hit) _photoResolveCache[nmId] = hit;
+            }));
         }
     }
 
@@ -2333,10 +2337,23 @@ const RNP = (() => {
         await _loadAllDailyData(active.map(a => a.nm_id));
         await _loadAllStocks(active.map(a => a.nm_id));
         await _loadNotes(active.map(a => a.nm_id));
-        await _preloadPhotos(active);
-        _refreshTabsAfterPhotos();
-        _applyResolvedPhotos();
-        await _renderActiveTable();
+        try {
+            await _renderActiveTable();
+        } catch (e) {
+            console.error('[RNP] render:', e);
+            const body = document.getElementById('rnp-sheet-body');
+            if (body) body.innerHTML = `<div class="p-10 text-center" style="color:var(--text-muted)">
+              <p class="mb-3">Не удалось загрузить таблицу</p>
+              <button type="button" onclick="RNP.openMain()" class="px-4 py-2 rounded-lg text-sm font-semibold"
+                style="background:var(--accent-gradient);color:#fff">Повторить</button></div>`;
+        }
+        _preloadPhotos(active).then(() => {
+            _refreshTabsAfterPhotos();
+            _applyResolvedPhotos();
+            const body = document.getElementById('rnp-sheet-body');
+            if (!body) return;
+            return _renderActiveTable();
+        }).catch(e => console.warn('[RNP] photos preload:', e.message));
     }
 
     async function _renderActiveTable() {

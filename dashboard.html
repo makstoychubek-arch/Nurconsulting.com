@@ -2627,8 +2627,19 @@
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
             const msg = errData.error || errData.message || `HTTP ${res.status}`;
-            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'advert_campaigns']);
-            if (res.status === 403) showPremiumModal('warning', 'Доступ запрещён', msg);
+            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'advert_campaigns', 'content_cards']);
+            const tokenBad = /token withdrawn|unauthorized|invalid session/i.test(msg);
+            if (tokenBad) {
+                if (!_wbTokenModalShown) {
+                    _wbTokenModalShown = true;
+                    setTimeout(() => { _wbTokenModalShown = false; }, 15000);
+                    showPremiumModal('warning', 'Токен WB недействителен',
+                        'Токен Content API для этого кабинета отозван или истёк.\n\n' +
+                        '1. seller.wildberries.ru → Настройки → Доступ к API\n' +
+                        '2. Создайте новый токен (Контент + Статистика)\n' +
+                        '3. NR Space → Настройки → Content токен → вставьте для кабинета');
+                }
+            } else if (res.status === 403) showPremiumModal('warning', 'Доступ запрещён', msg);
             else if (res.status >= 500) console.warn(`[callWbProxy] ${action} server error:`, msg);
             else if (bgActions.has(action)) console.warn(`[callWbProxy] ${action}:`, msg);
             else showPremiumModal('warning', 'Ошибка запроса', msg);
@@ -2639,6 +2650,7 @@
 
     let currentCabinetId = localStorage.getItem('selected_cabinet_id') || null;
     let currentUserEmail = '';
+    let _wbTokenModalShown = false;
 
     function applyTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
