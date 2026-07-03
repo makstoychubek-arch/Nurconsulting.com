@@ -1815,8 +1815,8 @@
                         <button class="ui-btn ui-btn-secondary" style="padding:5px 12px;font-size:11px" onclick="loadSuppliesFromWB()">↻ Обновить</button>
                     </div>
                     <div class="segment-tabs">
-                        <div class="segment-tab active" onclick="filterSupplies('active', this)">Актуальные</div>
-                        <div class="segment-tab" onclick="filterSupplies('all', this)">Все</div>
+                        <div class="segment-tab active" onclick="filterSupplies('all', this)">Все</div>
+                        <div class="segment-tab" onclick="filterSupplies('active', this)">Актуальные</div>
                     </div>
                 </div>
                 <div id="supplies-list"><div class="text-center py-10 text-sm col-span-2" style="color:var(--text-muted)">Нажмите "Обновить" для загрузки поставок из WB</div></div>
@@ -2080,7 +2080,7 @@
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
             const msg = errData.error || errData.message || `HTTP ${res.status}`;
-            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'content_cards', 'media_save', 'supplies']);
+            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'content_cards', 'media_save']);
             if (res.status === 403) showPremiumModal('warning', 'Доступ запрещён', msg);
             else if (res.status >= 500) console.warn(`[callWbProxy] ${action} server error:`, msg);
             else if (bgActions.has(action)) console.warn(`[callWbProxy] ${action}:`, msg);
@@ -2252,7 +2252,10 @@
         const rnpRefresh = document.getElementById('rnp-header-refresh');
         const mainRefresh = document.getElementById('refresh-btn');
         if (rnpRefresh) rnpRefresh.classList.toggle('hidden', name !== 'rnp');
-        if (mainRefresh) mainRefresh.style.display = name === 'rnp' ? 'none' : '';
+        if (mainRefresh) {
+            mainRefresh.style.display = name === 'rnp' ? 'none' : '';
+            mainRefresh.onclick = name === 'logistics' ? () => loadSuppliesFromWB() : refreshData;
+        }
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         if (name === 'ab-testing') loadABTests();
         if (name === 'advertising') loadAdvertisingPreview();
@@ -3358,7 +3361,7 @@
     }
 
     let allSupplies = [];
-    let currentSuppliesFilter = 'active';
+    let currentSuppliesFilter = 'all';
 
     function filterSupplies(mode, el) {
         currentSuppliesFilter = mode;
@@ -3368,14 +3371,27 @@
     }
 
     async function loadSuppliesFromWB(silent) {
-        if (!currentCabinetId) { if (!silent) showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в шапке справа.'); return; }
+        if (!currentCabinetId) {
+            const msg = 'Сначала выберите кабинет в шапке справа.';
+            if (!silent) showPremiumModal('warning', 'Выберите кабинет', msg);
+            renderSuppliesError(msg);
+            return;
+        }
         const listEl = document.getElementById('supplies-list');
         if (listEl) listEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка поставок из WB...</div>';
         const merged = [];
         let next = 0;
+        let fetchError = null;
         for (let page = 0; page < 10; page++) {
             const data = await callWbProxy('supplies', { limit: 100, next });
-            if (!data) break;
+            if (!data) {
+                fetchError = fetchError || 'WB не ответил. Проверьте токен кабинета — нужна категория «Маркетплейс» (FBS).';
+                break;
+            }
+            if (data.error && !data.supplies) {
+                fetchError = String(data.error);
+                break;
+            }
             const batch = Array.isArray(data) ? data : (data.supplies || []);
             if (!batch.length) break;
             merged.push(...batch);
@@ -3383,29 +3399,53 @@
             if (newNext == null || newNext === next || batch.length < 100) break;
             next = Number(newNext);
         }
+        if (fetchError) {
+            renderSuppliesError(fetchError);
+            if (!silent) showPremiumModal('error', 'Поставки не загрузились', fetchError);
+            return;
+        }
         allSupplies = merged.map(s => ({
             id: s.id || s.supplyId,
             name: s.name || ('Поставка ' + (s.id || '')),
             createdAt: s.createdAt || s.createDate,
-            closedAt: s.closedAt || s.doneDate || s.scanDt,
-            done: !!(s.done || s.status === 'completed' || s.closedAt),
+            closedAt: s.closedAt || s.doneDate || null,
+            done: s.done === true,
             cargoType: s.cargoType ?? s.boxType ?? s.deliveryType ?? null,
-            warehouse: s.warehouseName || s.warehouse || null,
+            warehouse: s.warehouseName || s.warehouse || (s.destinationOfficeId ? ('Склад #' + s.destinationOfficeId) : null),
             scanDt: s.scanDt || null,
             mismatch: null,
             unlabeled: null,
             itemsCount: s.quantity ?? s.ordersCount ?? s.orderCount ?? null,
         })).filter(s => s.id);
         renderSupplies();
-        if (!silent) showPremiumModal('success', 'Поставки загружены', `Найдено: ${allSupplies.length}`);
+        if (!silent) {
+            const activeCount = allSupplies.filter(s => !s.done).length;
+            showPremiumModal('success', 'Поставки загружены', `Всего: ${allSupplies.length}${activeCount !== allSupplies.length ? ` · активных: ${activeCount}` : ''}`);
+        }
+    }
+
+    function renderSuppliesError(msg) {
+        const container = document.getElementById('supplies-list');
+        if (!container) return;
+        container.innerHTML = `<div class="text-center py-10 px-4 text-sm" style="color:var(--red)">
+            <div style="font-size:28px;margin-bottom:8px">⚠</div>
+            <div style="color:var(--text-primary);font-weight:600;margin-bottom:6px">Не удалось загрузить поставки</div>
+            <div style="color:var(--text-muted);max-width:360px;margin:0 auto">${escapeHtml(msg)}</div>
+        </div>`;
     }
 
     function renderSupplies() {
         const container = document.getElementById('supplies-list');
         let list = allSupplies;
         if (currentSuppliesFilter === 'active') list = list.filter(s => !s.done);
+        if (allSupplies.length === 0) {
+            container.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Поставок нет в кабинете WB (FBS) или токен без доступа к Маркетплейсу</div>';
+            return;
+        }
         if (list.length === 0) {
-            container.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Нет поставок — нажмите «Обновить»</div>';
+            container.innerHTML = `<div class="text-center py-10 text-sm" style="color:var(--text-muted)">
+                Активных поставок нет (${allSupplies.length} в архиве). Переключите на «Все».
+            </div>`;
             return;
         }
         container.innerHTML = `<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">` + list.map(s => {

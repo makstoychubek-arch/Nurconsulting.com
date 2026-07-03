@@ -145,10 +145,21 @@ serve(async (req) => {
 
             // ── Marketplace API (Supplies) ──────────────────────────────────
             case 'supplies': {
-                const limit  = params.limit  || 50;
-                const next   = params.next   || 0;
+                const limit  = Math.min(Number(params.limit) || 100, 1000);
+                const next   = Number(params.next ?? 0);
                 const url = `https://marketplace-api.wildberries.ru/api/v3/supplies?limit=${limit}&next=${next}`;
-                result = await wbGet(url, WB_TOKEN);
+                try {
+                    result = await wbGet(url, WB_TOKEN);
+                } catch (e) {
+                    const errStr = String(e);
+                    if (errStr.includes('401')) {
+                        return json({ error: 'Токен WB неверный или истёк (401). Обновите токен в Настройки → API.' }, 401);
+                    }
+                    if (errStr.includes('403')) {
+                        return json({ error: 'Нет доступа к Marketplace API. В токене WB включите категорию «Маркетплейс» (FBS).' }, 403);
+                    }
+                    throw e;
+                }
                 break;
             }
             case 'supply_orders': {
