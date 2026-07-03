@@ -379,52 +379,75 @@
             border-right: 2px solid var(--border-strong);
             box-shadow: 4px 0 8px rgba(0,0,0,0.06);
         }
-        .rnp-head-left--sizes { vertical-align: middle; padding: 1px 3px !important; }
-        .rnp-head-left--pad { padding: 0 !important; height: 0; border: none; }
-        .rnp-head-left .rnp-kpi-block { border: none; }
-        .rnp-head-left .rnp-kpi-top {
-            width: 100%;
-            grid-template-columns: 56px minmax(44px, 1fr) minmax(44px, 60px) minmax(96px, 1.2fr);
-            grid-template-rows: repeat(4, minmax(17px, auto));
-        }
-        .rnp-head-left--sizes .rnp-stock-block { max-width: 100%; overflow-x: auto; }
-        .rnp-head-spacer {
-            padding: 0 !important; height: 0; border: none;
+        .rnp-head-left-stack { display: flex; flex-direction: column; gap: 0; }
+        .rnp-head-sizes-inline { padding: 1px 2px 2px; overflow-x: auto; }
+        .rnp-head-sizes-inline .rnp-stock-block { max-width: 100%; }
+        .rnp-head-marquee {
+            padding: 0 !important; vertical-align: middle;
             background: var(--surface-solid) !important;
+            overflow: hidden;
         }
-        .rnp-head-strategy-cell {
-            padding: 1px !important; vertical-align: middle;
-            background: var(--accent-soft) !important;
+        .rnp-marquee-wrap {
+            overflow: hidden; width: 100%; padding: 2px 0;
+            mask-image: linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
+            -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
         }
-        .rnp-strategy-badge {
-            display: block; font-size: 6px; font-weight: 700; line-height: 1.1;
+        .rnp-marquee-wrap:has(.rnp-test-card:hover) .rnp-marquee-track {
+            animation-play-state: paused;
+        }
+        .rnp-marquee-track {
+            display: flex; align-items: flex-end; gap: 6px;
+            width: max-content;
+            animation: rnp-marquee-scroll 70s linear infinite;
+            will-change: transform;
+        }
+        @keyframes rnp-marquee-scroll {
+            0% { transform: translateX(-50%); }
+            100% { transform: translateX(0); }
+        }
+        .rnp-test-card {
+            flex: 0 0 64px; display: flex; flex-direction: column; gap: 1px;
+            padding: 2px; border-radius: 4px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            cursor: default;
+        }
+        .rnp-test-card:hover {
+            border-color: var(--accent-border);
+            box-shadow: 0 0 0 2px var(--accent-soft);
+            z-index: 2;
+        }
+        .rnp-test-badge {
+            display: block; font-size: 5px; font-weight: 700; line-height: 1.1;
             color: var(--accent); text-transform: uppercase; letter-spacing: 0.02em;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             padding: 1px 2px; border-radius: 2px;
-            background: var(--surface); border: 1px solid var(--accent-border);
+            background: var(--accent-soft); border: 1px solid var(--accent-border);
         }
-        .rnp-head-gallery-cell {
-            padding: 1px !important; vertical-align: bottom;
-            background: var(--surface-solid) !important;
+        .rnp-test-photo {
+            width: 100%; height: 36px; border-radius: 2px; overflow: hidden;
+            background: var(--surface-solid);
         }
-        .rnp-period-photo {
-            width: 100%; height: 44px; border-radius: 3px; overflow: hidden;
-            border: 1px solid var(--border); background: var(--surface);
-        }
-        .rnp-period-photo img {
+        .rnp-test-photo img {
             width: 100%; height: 100%; object-fit: cover; object-position: top center;
             display: block;
         }
-        .rnp-head-gallery-cell .rnp-gallery-comment {
-            width: 100%; font-size: 6px; margin-top: 1px; padding: 0;
-            border: none; border-bottom: 1px solid var(--border);
-            background: transparent; color: var(--text-secondary); text-align: center;
+        .rnp-test-dates {
+            font-size: 5px; color: var(--text-muted); text-align: center; line-height: 1;
         }
-        .rnp-head-day-gap { padding: 0 !important; background: var(--surface-solid) !important; }
-        .rnp-head-gallery-row--hidden { display: none; }
-        .rnp-sheet-table thead tr.rnp-head-kpi th,
-        .rnp-sheet-table thead tr.rnp-head-strategy th,
-        .rnp-sheet-table thead tr.rnp-head-gallery th {
+        .rnp-test-comment {
+            width: 100%; border: none; border-bottom: 1px solid var(--border);
+            background: transparent; font-size: 5px; color: var(--text-secondary);
+            text-align: center; padding: 0;
+        }
+        .rnp-test-comment:focus {
+            outline: none; border-bottom-color: var(--accent); color: var(--text-primary);
+        }
+        .rnp-marquee-empty {
+            font-size: 8px; color: var(--text-muted); padding: 4px 8px;
+        }
+        .rnp-sheet-table thead tr.rnp-head-panel th {
             position: relative; top: auto;
         }
         .rnp-compare-split {
@@ -443,10 +466,16 @@
         .rnp-kpi-sizes-row--focus {
             outline: 2px solid var(--accent); background: var(--accent-soft);
         }
+        .rnp-head-left .rnp-kpi-block { border: none; margin: 0; }
+        .rnp-head-left .rnp-kpi-top {
+            width: 100%;
+            grid-template-columns: 48px minmax(40px, 1fr) minmax(40px, 52px) minmax(88px, 1.1fr);
+            grid-template-rows: repeat(4, minmax(14px, auto));
+        }
         .rnp-kpi-top {
             display: grid;
-            grid-template-columns: 56px minmax(80px, 1fr) minmax(60px, 72px) minmax(200px, 1.4fr);
-            grid-template-rows: repeat(4, minmax(17px, auto));
+            grid-template-columns: 48px minmax(72px, 1fr) minmax(52px, 64px) minmax(160px, 1.3fr);
+            grid-template-rows: repeat(4, minmax(14px, auto));
             grid-template-areas:
                 "photo name  name  kpis"
                 "photo nmid  cost  kpis"
@@ -460,31 +489,31 @@
             border-right: 1px solid var(--border);
             background: var(--surface);
             display: flex; align-items: stretch; overflow: hidden;
-            min-height: 68px;
+            min-height: 56px;
         }
         .rnp-gs-photo img {
-            width: 100%; height: 100%; min-height: 68px;
+            width: 100%; height: 100%; min-height: 56px;
             object-fit: cover; display: block;
         }
         .rnp-gs-name {
             grid-area: name;
             grid-column: 2 / 4;
-            padding: 2px 6px;
-            font-size: 10px; font-weight: 700; color: var(--text-primary);
+            padding: 1px 4px;
+            font-size: 9px; font-weight: 700; color: var(--text-primary);
             border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             display: flex; align-items: center; gap: 4px;
         }
         .rnp-gs-nmid {
             grid-area: nmid;
-            padding: 1px 6px;
+            padding: 0 4px;
             border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
-            display: flex; flex-direction: column; justify-content: center; gap: 1px;
-            font-size: 10px;
+            display: flex; flex-direction: column; justify-content: center;
+            font-size: 8px;
         }
         .rnp-gs-cost {
             grid-area: cost;
-            padding: 1px 4px;
+            padding: 0 3px;
             border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
             display: flex; flex-direction: column; justify-content: center; gap: 1px;
         }
@@ -492,24 +521,24 @@
             font-size: 7px; color: var(--text-muted); text-transform: lowercase;
             line-height: 1;
         }
-        .rnp-gs-nmid b { font-size: 11px; font-weight: 800; color: var(--text-primary); }
+        .rnp-gs-nmid b { font-size: 9px; font-weight: 800; color: var(--text-primary); }
         .rnp-gs-cost-input {
             width: 100%; border: none; background: transparent;
-            font-size: 11px; font-weight: 800; color: var(--text-primary);
+            font-size: 9px; font-weight: 800; color: var(--text-primary);
             padding: 0; font-family: inherit; text-align: left;
         }
         .rnp-gs-cost-input:focus { outline: none; background: var(--accent-soft); border-radius: 2px; }
         .rnp-gs-money-lbl, .rnp-gs-usd-lbl {
-            padding: 1px 6px;
-            font-size: 9px; font-weight: 600; color: var(--text-secondary);
+            padding: 0 4px;
+            font-size: 8px; font-weight: 600; color: var(--text-secondary);
             border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
             display: flex; align-items: center;
         }
         .rnp-gs-money-lbl { grid-area: mlbl; }
         .rnp-gs-usd-lbl { grid-area: ulbl; }
         .rnp-gs-money-val, .rnp-gs-usd-val {
-            padding: 1px 6px;
-            font-size: 10px; font-weight: 800; color: var(--text-primary);
+            padding: 0 4px;
+            font-size: 9px; font-weight: 800; color: var(--text-primary);
             border-bottom: 1px solid var(--border); border-right: 1px solid var(--border);
             display: flex; align-items: center;
         }
@@ -518,9 +547,9 @@
         .rnp-gs-kpis {
             grid-area: kpis;
             grid-row: 1 / 5;
-            border: 2px solid var(--accent-border);
-            margin: 2px 3px 2px 1px;
-            padding: 2px 4px;
+            border: 1px solid var(--accent-border);
+            margin: 1px 2px 1px 0;
+            padding: 1px 3px;
             background: var(--surface-solid);
             display: flex; align-items: center;
         }
@@ -530,7 +559,6 @@
             border-top: 1px solid var(--border);
             background: var(--surface-solid);
         }
-        .rnp-head-left--sizes .rnp-kpi-sizes-row { border-top: none; padding: 0; }
         .rnp-kpi-grid--gs {
             grid-template-columns: repeat(6, 1fr);
             gap: 1px 6px;
@@ -545,7 +573,7 @@
         .rnp-kpi b.pos { color: var(--green); }
         .rnp-kpi b.neg { color: var(--red); }
         .rnp-kpi b {
-            display: block; font-size: 9px; font-weight: 800; color: var(--text-primary);
+            display: block; font-size: 8px; font-weight: 800; color: var(--text-primary);
         }
         .rnp-strategy-bar {
             display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
@@ -804,7 +832,6 @@
         .rnp-stock-table tr.rnp-row-sum td:not(.rnp-stock-label):not(.rnp-size-zero) { background: rgba(245,158,11,0.1); color: var(--amber); font-weight: 800; }
         .rnp-stock-table tr.rnp-row-sum td.rnp-size-zero { background: rgba(239,68,68,0.08); color: var(--red); }
         .rnp-stock-table tr.rnp-row-prod td:not(.rnp-stock-label):not(.rnp-size-zero) { background: var(--surface); color: var(--text-muted); }
-        .rnp-head-left--sizes .rnp-alerts { margin-top: 4px; max-height: none; flex-wrap: wrap; }
         .rnp-sheet-table .rnp-metric-col { min-width: var(--rnp-metric-w); max-width: var(--rnp-metric-w); width: var(--rnp-metric-w); }
         .rnp-sheet-table .rnp-th-metric { min-width: var(--rnp-metric-w); width: var(--rnp-metric-w); }
         .rnp-spark { display: block; margin: 0 auto; width: 36px; height: 14px; }

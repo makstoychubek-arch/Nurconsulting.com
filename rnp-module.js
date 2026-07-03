@@ -1012,67 +1012,53 @@ const RNP = (() => {
         return parts.join('');
     }
 
-    function _buildStrategyLabelCells(art, cal) {
-        const periods = _timelinePeriods(art, cal);
-        return _buildDaySpanCells(
-            cal,
-            periods,
-            (p, span) => `<th colspan="${span}" class="rnp-head-strategy-cell rnp-day-col">
-              <span class="rnp-strategy-badge">${(p.label || '').replace(/</g, '&lt;')}</span>
-            </th>`,
-            () => '<th class="rnp-head-day-gap rnp-day-col"></th>'
-        );
-    }
-
-    function _buildGalleryPeriodCells(art, cal) {
-        const periods = _timelinePeriods(art, cal);
+    function _buildTestCardHTML(art, period) {
         const nmId = art.nm_id;
-        return _buildDaySpanCells(
-            cal,
-            periods,
-            (p, span) => {
-                const gi = p.galleryIdx ?? 0;
-                const photoIdx = gi + 2;
-                const slot = _gallerySlots(art)[gi] || {};
-                const comment = (slot.comment || p.label || '').replace(/"/g, '&quot;');
-                const img = _imgHtml(art, 'rnp-period-img', 'c246x328', '', photoIdx);
-                const commentField = gi < GALLERY_SIZE
-                    ? `<input type="text" class="rnp-gallery-comment" value="${comment}" placeholder="комментарий"
-                        title="Подпись периода"
-                        onblur="RNP.savePhotoComment(${nmId}, ${gi}, this.value)">`
-                    : '';
-                return `<th colspan="${span}" class="rnp-head-gallery-cell rnp-day-col" data-photo-idx="${photoIdx}">
-                  <div class="rnp-period-photo">${img}</div>
-                  ${commentField}
-                </th>`;
-            },
-            () => '<th class="rnp-head-day-gap rnp-day-col"></th>'
-        );
+        const gi = period.galleryIdx ?? 0;
+        const photoIdx = gi + 2;
+        const slot = _gallerySlots(art)[gi] || {};
+        const label = (period.label || '').replace(/</g, '&lt;');
+        const comment = (slot.comment || period.label || '').replace(/"/g, '&quot;');
+        const img = _imgHtml(art, 'rnp-test-img', 'c246x328', '', photoIdx);
+        const fromLbl = period.from ? period.from.slice(5).replace('-', '.') : '';
+        const toLbl = period.to && period.to !== period.from ? period.to.slice(5).replace('-', '.') : '';
+        const dates = toLbl && fromLbl !== toLbl ? `${fromLbl}–${toLbl}` : fromLbl;
+        return `<div class="rnp-test-card" data-gallery-idx="${gi}" data-photo-idx="${photoIdx}">
+          <span class="rnp-test-badge">${label}</span>
+          <div class="rnp-test-photo">${img}</div>
+          ${dates ? `<span class="rnp-test-dates">${dates}</span>` : ''}
+          ${gi < GALLERY_SIZE
+            ? `<input type="text" class="rnp-test-comment" value="${comment}" placeholder="комментарий"
+                title="Подпись теста"
+                onblur="RNP.savePhotoComment(${nmId}, ${gi}, this.value)">`
+            : ''}
+        </div>`;
     }
 
-    function _buildSizesLeftHTML(art, stockBySize, rawData, cal) {
-        const kpi = _periodSummary(art, rawData, cal);
-        const alerts = _buildAlerts(art, stockBySize, kpi);
-        return `${_buildStockSizeHTML(stockBySize, art)}${_alertsHTML(alerts)}`;
+    function _buildMarqueeHTML(art, cal) {
+        const periods = _timelinePeriods(art, cal);
+        if (!periods.length) return '<div class="rnp-marquee-empty">—</div>';
+        const cards = periods.map(p => _buildTestCardHTML(art, p)).join('');
+        return `<div class="rnp-marquee-wrap">
+          <div class="rnp-marquee-track">${cards}${cards}</div>
+        </div>`;
+    }
+
+    function _buildLeftPanelHTML(art, stockBySize, rawData, cal) {
+        return `<div class="rnp-head-left-stack">
+          ${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
+          <div class="rnp-head-sizes-inline">${_buildStockSizeHTML(stockBySize, art)}</div>
+        </div>`;
     }
 
     function _buildSheetHeadRows(art, stockBySize, rawData, cal) {
         const leftSpan = _leftFrozenSpan(cal);
         const nDays = cal.days.length;
-        const galleryHidden = _galleryCollapsed ? ' rnp-head-gallery-row--hidden' : '';
 
         return `
-            <tr class="rnp-head-kpi">
-              <th colspan="${leftSpan}" class="rnp-head-left">${_buildKpiTopHTML(art, stockBySize, rawData, cal)}</th>
-              <th colspan="${nDays}" class="rnp-head-spacer"></th>
-            </tr>
-            <tr class="rnp-head-strategy">
-              <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--sizes">${_buildSizesLeftHTML(art, stockBySize, rawData, cal)}</th>
-              ${_buildStrategyLabelCells(art, cal)}
-            </tr>
-            <tr class="rnp-head-gallery${galleryHidden}">
-              <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--pad"></th>
-              ${_buildGalleryPeriodCells(art, cal)}
+            <tr class="rnp-head-panel">
+              <th colspan="${leftSpan}" class="rnp-head-left">${_buildLeftPanelHTML(art, stockBySize, rawData, cal)}</th>
+              <th colspan="${nDays}" class="rnp-head-marquee">${_buildMarqueeHTML(art, cal)}</th>
             </tr>`;
     }
 
@@ -1303,7 +1289,7 @@ const RNP = (() => {
         if (_activeNm !== SUMMARY_TAB) {
             _renderActiveTable();
             requestAnimationFrame(() => {
-                const el = document.querySelector(`.rnp-head-gallery-cell[data-photo-idx="${(STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0) + 2}"]`);
+                const el = document.querySelector(`.rnp-test-card[data-gallery-idx="${STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0}"]`);
                 el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
             });
         }
@@ -2133,7 +2119,7 @@ const RNP = (() => {
         const sheetHead = _compareNm && _compareNm !== art.nm_id
             ? ''
             : _buildSheetHeadRows(art, stockBySize, rawData, cal);
-        const galleryCls = _galleryCollapsed ? ' rnp-sheet-table--gallery-collapsed' : '';
+        const galleryCls = '';
 
         const weekThs = cal.weeks.map((w, wi) => {
             const st = _stickyColAttrs(wi, cols, 11, 30);
