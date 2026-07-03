@@ -192,7 +192,7 @@ const RNP = (() => {
     const PHOTO_PROXY_COOLDOWN_MS = 10 * 60 * 1000;
 
     const _PHOTO_PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent(
-        '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="100" viewBox="0 0 80 100"><rect fill="%23e8e8ec" width="80" height="100"/><text x="40" y="52" text-anchor="middle" fill="%23999" font-size="10" font-family="sans-serif">WB</text></svg>'
+        '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="100" viewBox="0 0 80 100"><rect fill="#2a2a35" width="80" height="100"/><text x="40" y="52" text-anchor="middle" fill="#777" font-size="10" font-family="sans-serif">WB</text></svg>'
     );
 
     function _normalizePhotoUrl(url) {
@@ -208,12 +208,22 @@ const RNP = (() => {
         return /basket-\d+\.wbbasket\.ru/i.test(String(url || ''));
     }
 
-    function _isTrustedPhotoUrl(url) {
+    // Content API returns URLs on the same basket-XX.wbbasket.ru CDN as the old
+    // (broken) guessed URLs. Only URLs verified via Content API are trusted;
+    // they are remembered in localStorage so they survive reloads.
+    let _verifiedPhotoUrls = {};
+    try { _verifiedPhotoUrls = JSON.parse(localStorage.getItem('rnp_photos_v2') || '{}') || {}; } catch (e) {}
+
+    function _markPhotoVerified(nmId, url) {
+        _verifiedPhotoUrls[nmId] = url;
+        try { localStorage.setItem('rnp_photos_v2', JSON.stringify(_verifiedPhotoUrls)); } catch (e) {}
+    }
+
+    function _isUsablePhotoUrl(nmId, url) {
         const u = _normalizePhotoUrl(url);
-        if (!u || u.includes('placeholder')) return false;
-        if (_isWbasketGuessUrl(u)) return false;
-        if (url.includes('wb.ru/') && !url.includes('wbbasket.ru')) return false;
-        return true;
+        if (!u || u.includes('placeholder')) return null;
+        if (_isWbasketGuessUrl(u) && _verifiedPhotoUrls[nmId] !== u) return null;
+        return u;
     }
 
     function _cachedPhotoUrl(art, photoIndex = 1) {
@@ -221,11 +231,9 @@ const RNP = (() => {
         if (!nmId) return null;
         const idx = Math.max(1, photoIndex || 1);
         if (idx === 1) {
-            const fromCache = _normalizePhotoUrl(_photoResolveCache[nmId]);
-            const fromArt = _normalizePhotoUrl(art.photo_url);
-            if (fromCache && !_isWbasketGuessUrl(fromCache)) return fromCache;
-            if (fromArt && !_isWbasketGuessUrl(fromArt)) return fromArt;
-            return null;
+            return _isUsablePhotoUrl(nmId, _photoResolveCache[nmId])
+                || _isUsablePhotoUrl(nmId, art.photo_url)
+                || null;
         }
         return _normalizePhotoUrl(_photoIndexCache[nmId]?.[idx])
             || _normalizePhotoUrl(_galleryPhotosCache[nmId]?.[idx - 2])
@@ -242,8 +250,8 @@ const RNP = (() => {
 
     function _hydratePhotoCacheFromArticles() {
         (_articles || []).forEach(a => {
-            const u = _normalizePhotoUrl(a.photo_url);
-            if (u && !_isWbasketGuessUrl(u)) _photoResolveCache[a.nm_id] = u;
+            const u = _isUsablePhotoUrl(a.nm_id, a.photo_url);
+            if (u) _photoResolveCache[a.nm_id] = u;
             const gal = a.manual_data?.cached_gallery_urls;
             if (gal && typeof gal === 'object') {
                 if (!_photoIndexCache[a.nm_id]) _photoIndexCache[a.nm_id] = {};
@@ -293,7 +301,7 @@ const RNP = (() => {
         if (!_callProxy || !nmIds.length) return;
         const now = Date.now();
         const slice = [...new Set(nmIds.map(Number).filter(Boolean))].filter(id => {
-            if (_photoResolveCache[id] && !_isWbasketGuessUrl(_photoResolveCache[id])) return false;
+            if (_isUsablePhotoUrl(id, _photoResolveCache[id])) return false;
             const last = _photoProxyCooldown[id] || 0;
             return now - last >= PHOTO_PROXY_COOLDOWN_MS;
         }).slice(0, 100);
@@ -309,6 +317,7 @@ const RNP = (() => {
                     const nmId = Number(id);
                     if (norm && nmId) {
                         _photoResolveCache[nmId] = norm;
+                        _markPhotoVerified(nmId, norm);
                         stillNeed.delete(nmId);
                     }
                 });
@@ -329,7 +338,10 @@ const RNP = (() => {
                 const first = card.photos[0];
                 let url = typeof first === 'string' ? first : (first?.big || first?.c516x688 || first?.c246x328 || first?.tm);
                 url = _normalizePhotoUrl(url);
-                if (url) _photoResolveCache[id] = url;
+                if (url) {
+                    _photoResolveCache[id] = url;
+                    _markPhotoVerified(id, url);
+                }
                 _storeCardGalleryExtras(card, id);
             });
         } catch (e) { console.warn('[RNP] content_cards photos:', e.message); }
@@ -1768,19 +1780,40 @@ const RNP = (() => {
     }
 
     // ─── FINANCE REPORT SYNC ─────────────────────────────────────────────────
+    // WB reportDetailByPeriod limit: 1 request/minute per seller.
+    // Fetch ONCE per cabinet (no nmId filter), filter client-side per article.
     async function _fetchFinanceAgg(nmId) {
         const now = new Date();
         const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
         const dateTo   = now.toISOString().split('T')[0];
-        const cacheKey = `${_cab}_${dateFrom}_${dateTo}_${nmId}`;
+        const cacheKey = `${_cab}_${dateFrom}_${dateTo}`;
+        const filterRows = rows => rows.filter(r => String(r.nm_id) === String(nmId));
+
         if (_financeCache.key === cacheKey && Date.now() - _financeCache.ts < 30 * 60 * 1000) {
-            return _financeCache.rows;
+            return filterRows(_financeCache.rows);
         }
-        const rows = await _callProxy('finance_report', { dateFrom, dateTo, aggregate: true, nmId });
-        if (Array.isArray(rows) && rows.length) {
-            _financeCache = { key: cacheKey, rows, ts: Date.now() };
+        // sessionStorage survives page reloads within the tab
+        try {
+            const stored = JSON.parse(sessionStorage.getItem('rnp_fin_' + cacheKey) || 'null');
+            if (stored && Date.now() - stored.ts < 30 * 60 * 1000 && Array.isArray(stored.rows)) {
+                _financeCache = { key: cacheKey, rows: stored.rows, ts: stored.ts };
+                return filterRows(stored.rows);
+            }
+        } catch (e) {}
+
+        let rows;
+        try {
+            rows = await _callProxy('finance_report', { dateFrom, dateTo, aggregate: true });
+        } catch (e) {
+            // 429 etc — negative-cache for 5 min so we don't hammer WB
+            console.warn('[RNP] finance_report:', e.message);
+            _financeCache = { key: cacheKey, rows: [], ts: Date.now() - 25 * 60 * 1000 };
+            return [];
         }
-        return Array.isArray(rows) ? rows : [];
+        if (!Array.isArray(rows)) rows = [];
+        _financeCache = { key: cacheKey, rows, ts: Date.now() };
+        try { sessionStorage.setItem('rnp_fin_' + cacheKey, JSON.stringify({ rows, ts: Date.now() })); } catch (e) {}
+        return filterRows(rows);
     }
 
     async function _syncFinanceRange(nmId) {

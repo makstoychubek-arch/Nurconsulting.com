@@ -285,27 +285,47 @@ function initArticle(row) {
  * @returns {Array} — все строки отчёта
  */
 async function loadFinanceReport(callWbProxy, dateFrom, dateTo) {
+    // WB limit: reportDetailByPeriod — 1 запрос/минуту на продавца.
+    // Кэшируем в sessionStorage на 30 минут, при 429 не ретраим.
+    const cacheKey = `wbf_fin_${dateFrom}_${dateTo}`;
+    try {
+        const stored = JSON.parse(sessionStorage.getItem(cacheKey) || 'null');
+        if (stored && Date.now() - stored.ts < 30 * 60 * 1000 && Array.isArray(stored.rows)) {
+            return stored.rows;
+        }
+    } catch (e) {}
+
     const allRows = [];
     let rrdid = 0;
+    const limit = 10000;
+    const maxPages = 4;
 
-    while (true) {
-        const data = await callWbProxy('finance_report', {
-            dateFrom: dateFrom + 'T00:00:00.000Z',
-            dateTo: dateTo + 'T23:59:59.000Z',
-            limit: 100000,
-            rrdid,
-        });
+    for (let page = 0; page < maxPages; page++) {
+        let data;
+        try {
+            data = await callWbProxy('finance_report', {
+                dateFrom: dateFrom + 'T00:00:00.000Z',
+                dateTo: dateTo + 'T23:59:59.000Z',
+                limit,
+                rrdid,
+            });
+        } catch (e) {
+            // 429 (лимит WB) — отдаём то, что успели собрать, без ретраев
+            console.warn('[WBFormulas] finance_report:', e.message);
+            break;
+        }
 
         if (!data || !Array.isArray(data) || data.length === 0) break;
-
         allRows.push(...data);
 
-        // Пагинация — берём максимальный rrd_id из пришедшего пакета
         const maxRrdId = Math.max(...data.map(r => r.rrd_id || 0));
-        if (maxRrdId <= rrdid || data.length < 100000) break;
+        if (maxRrdId <= rrdid || data.length < limit) break;
         rrdid = maxRrdId;
     }
 
+    if (allRows.length) {
+        try { sessionStorage.setItem(cacheKey, JSON.stringify({ rows: allRows, ts: Date.now() })); } catch (e) {}
+    }
     return allRows;
 }
 

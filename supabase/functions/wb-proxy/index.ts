@@ -490,9 +490,14 @@ serve(async (req) => {
 
     } catch (err) {
         console.error('[wb-proxy] error:', err);
-        const status = (err as { status?: number })?.status;
+        let status = (err as { status?: number })?.status;
+        // Fallback: extract status from "WB API 429: ..." message
+        if (!status) {
+            const m = String(err).match(/WB API (\d{3})/);
+            if (m) status = Number(m[1]);
+        }
         const httpStatus = status && status >= 400 && status < 500 ? status : 500;
-        return json({ error: String(err) }, httpStatus);
+        return json({ error: String(err), wb_status: status || null }, httpStatus);
     }
 });
 
@@ -509,7 +514,9 @@ async function wbGet(url: string, token: string): Promise<unknown> {
     const res = await fetch(url, { headers: { Authorization: token } });
     if (!res.ok) {
         const text = await res.text().catch(() => res.statusText);
-        throw new Error(`WB API ${res.status}: ${text}`);
+        const err = new Error(`WB API ${res.status}: ${text}`) as Error & { status?: number };
+        err.status = res.status;
+        throw err;
     }
     return res.json();
 }
