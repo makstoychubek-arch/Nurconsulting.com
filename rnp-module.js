@@ -1535,6 +1535,8 @@ const RNP = (() => {
           </select>` : ''}
           <button type="button" class="rnp-action-btn" onclick="RNP.copyPlanFromPrevWeek()" title="${_planPeriod === 'month' ? 'Скопировать план с прошлого месяца' : 'Скопировать план с прошлой недели'}">↵ План</button>
           <button type="button" class="rnp-action-btn" onclick="RNP.exportExcel()">Excel</button>
+          <button type="button" class="rnp-action-btn rnp-action-btn--edit${_editMode ? ' active' : ''}" id="rnp-edit-mode-btn"
+            onclick="RNP.toggleEditMode()" title="Режим выделения ячеек">${_editMode ? 'Готово' : 'Редактировать'}</button>
         </div>`;
     }
 
@@ -1881,13 +1883,16 @@ const RNP = (() => {
         const marginCls = (kpi.margin_pct || 0) >= 15 ? 'pos' : ((kpi.margin_pct || 0) < 5 ? 'neg' : '');
         const profitCls = (kpi.profit || 0) >= 0 ? 'pos' : 'neg';
         const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'pos' : ((kpi.plan_orders_pct || 0) < 80 ? 'neg' : '');
+        const syncSt = _syncStatus(art.nm_id);
         const moneySom = Math.round((kpi.sales_sum || 0) * er);
         const moneyUsd = moneySom > 0 ? (moneySom / (_settings.usdRate || 87.5)).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 }) : '0';
         const seller = _sellerArticle(art).replace(/"/g, '&quot;');
 
         return `<div class="rnp-kpi-block${_strategyTab === 4 ? ' rnp-kpi-block--sizes-focus' : ''}">
-          <div class="rnp-kpi-top rnp-kpi-top--compact">
-            <div class="rnp-gs-nmid" title="${seller}"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
+          <div class="rnp-kpi-top">
+            <div class="rnp-gs-photo">${_imgHtml(art, 'rnp-gs-photo-img', 'c516x688')}</div>
+            <div class="rnp-gs-name" title="${seller}">${_syncDot(syncSt.level)} ${seller}</div>
+            <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
             <div class="rnp-gs-cost">
               <span class="rnp-gs-lbl">себест.</span>
               <input type="number" class="rnp-gs-cost-input" value="${art.cost_price || 0}" min="0" step="1"
@@ -3440,7 +3445,7 @@ const RNP = (() => {
     }
 
     async function refreshAll() {
-        const btn = document.getElementById('rnp-header-refresh');
+        const btn = document.getElementById('refresh-btn');
         const active = _articles.filter(a => a.is_active);
         if (!active.length) return;
         if (btn) btn.disabled = true;
