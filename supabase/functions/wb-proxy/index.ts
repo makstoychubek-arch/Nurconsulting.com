@@ -55,10 +55,13 @@ serve(async (req) => {
         // analytics, etc). There is no separate "content token". Never add
         // fallback/probe logic between "content token" and "main token" again —
         // WB_TOKEN is used for every single API call, always.
-        const WB_TOKEN = cab.wb_token;
+        const WB_TOKEN = sanitizeWbToken(cab.wb_token);
         const WB_CONTENT_TOKEN = WB_TOKEN;
         const WB_PROMO_TOKEN = WB_TOKEN;
         if (!WB_TOKEN) return json({ error: 'WB token not configured for this cabinet' }, 400);
+        if (!isValidWbToken(WB_TOKEN)) {
+            return json({ error: 'WB token contains invalid characters. Re-paste the token in Supabase without spaces or line breaks.' }, 400);
+        }
 
         // ── Route to WB API ───────────────────────────────────────────────────
         let result: unknown;
@@ -626,6 +629,15 @@ function json(data: unknown, status = 200) {
         status,
         headers: { ...CORS, 'Content-Type': 'application/json' }
     });
+}
+
+function sanitizeWbToken(raw: unknown): string {
+    if (typeof raw !== 'string') return '';
+    return raw.replace(/^\uFEFF/, '').replace(/\s+/g, '').trim();
+}
+
+function isValidWbToken(token: string): boolean {
+    return token.length > 50 && /^[\x21-\x7E]+$/.test(token);
 }
 
 async function parseWbJson(res: Response): Promise<unknown> {

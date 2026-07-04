@@ -82,17 +82,18 @@
         /* ── Sidebar: icon rail + flyout (Sellego-style) ── */
         .sidebar-app {
             position: fixed; left: 0; top: 0; z-index: 50;
-            display: flex; height: 100vh; pointer-events: none;
+            display: flex; flex-direction: row; height: 100vh; pointer-events: none;
         }
         .sidebar-app > * { pointer-events: auto; }
         .sidebar-rail {
-            width: 72px; min-width: 72px; height: 100vh;
+            width: 72px; min-width: 72px; height: 100vh; flex-shrink: 0;
             background: var(--sidebar-bg);
             border-right: 1px solid var(--border);
             display: flex; flex-direction: column;
             align-items: center; padding: 14px 0 12px;
         }
-        .main-rail { margin-left: 72px; }
+        .main-rail { margin-left: 72px; transition: margin-left 0.12s ease; }
+        body.flyout-expanded .main-rail { margin-left: 300px; }
         .rail-logo {
             width: 40px; height: 40px; border: none; border-radius: 12px;
             background: var(--text-primary); color: var(--sidebar-bg);
@@ -158,20 +159,22 @@
             cursor: default; margin-top: 4px;
         }
         .sidebar-flyout {
-            position: fixed; left: 72px; top: 0;
-            width: 228px; height: 100vh;
+            position: relative; flex-shrink: 0;
+            width: 0; min-width: 0; height: 100vh;
             background: var(--sidebar-bg);
-            border-right: 1px solid var(--border);
-            box-shadow: 8px 0 32px rgba(15,23,42,0.08);
+            border-right: 1px solid transparent;
+            box-shadow: none;
             display: flex; flex-direction: column;
-            opacity: 0; visibility: hidden;
-            transform: translateX(-6px);
-            transition: opacity 0.1s ease, transform 0.1s ease, visibility 0.1s;
-            pointer-events: none; z-index: 49;
+            opacity: 0; visibility: hidden; overflow: hidden;
+            transition: width 0.12s ease, min-width 0.12s ease, opacity 0.1s ease, visibility 0.1s, border-color 0.1s ease, box-shadow 0.1s ease;
+            pointer-events: none; z-index: 1;
         }
-        [data-theme="neon"] .sidebar-flyout { box-shadow: 8px 0 40px rgba(0,0,0,0.45); }
+        [data-theme="neon"] .sidebar-flyout.visible, [data-theme="neon"] .sidebar-flyout.pinned { box-shadow: 8px 0 40px rgba(0,0,0,0.45); }
         .sidebar-flyout.visible, .sidebar-flyout.pinned {
-            opacity: 1; visibility: visible; transform: translateX(0); pointer-events: auto;
+            width: 228px; min-width: 228px;
+            opacity: 1; visibility: visible; pointer-events: auto;
+            border-right-color: var(--border);
+            box-shadow: 8px 0 32px rgba(15,23,42,0.08);
         }
         .flyout-header {
             display: flex; align-items: center; justify-content: space-between;
@@ -577,7 +580,7 @@
         /* ── RNP Spreadsheet (Google Sheets style) ── */
         .rnp-workspace { display: flex; flex-direction: column; gap: 0; height: calc(100vh - 118px); max-height: calc(100vh - 118px); overflow: hidden; }
         .main-content.rnp-compact { padding: 8px 12px; }
-        .main-content.logistics-compact { padding: 8px 12px; overflow: hidden; }
+        .main-content.logistics-compact { padding: 8px 12px; overflow: visible; }
         #tab-logistics.tab-content.active {
             display: flex; flex-direction: column;
             height: calc(100vh - 132px); max-height: calc(100vh - 132px);
@@ -1638,8 +1641,8 @@
                 background: var(--accent-soft); border: 1px solid var(--accent-border);
                 cursor: pointer; color: var(--accent); font-size: 18px;
             }
-            .sidebar-flyout { left: 72px; }
             .main-rail { margin-left: 0 !important; }
+            body.flyout-expanded .main-rail { margin-left: 0 !important; }
             .mobile-overlay {
                 display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
                 z-index: 45; backdrop-filter: blur(4px);
@@ -4219,7 +4222,7 @@
     function toggleEditToken(cabinetId) { document.getElementById('edit-token-' + cabinetId).classList.toggle('hidden'); }
 
     async function saveTokenForCabinet(cabinetId) {
-        const token = document.getElementById('token-input-' + cabinetId).value.trim();
+        const token = document.getElementById('token-input-' + cabinetId).value.trim().replace(/\s+/g, '');
         if (!token || token.length < 50) { showPremiumModal('warning', 'Некорректный токен', 'Токен должен быть длинным JWT-форматом.'); return; }
         const { error } = await supabase.from('cabinets').update({ wb_token: token }).eq('id', cabinetId);
         if (error) { showPremiumModal('error', 'Ошибка сохранения', error.message); return; }
@@ -4237,7 +4240,7 @@
 
     async function addNewCabinet() {
         const name = document.getElementById('new-cabinet-name').value.trim();
-        const token = document.getElementById('new-cabinet-token').value.trim();
+        const token = document.getElementById('new-cabinet-token').value.trim().replace(/\s+/g, '');
         if (!name) { showPremiumModal('warning', 'Укажите название', 'Введите название нового кабинета.'); return; }
         if (!currentUserId) { showPremiumModal('error', 'Сессия', 'Войдите заново и повторите.'); return; }
         const { error } = await supabase.from('cabinets').insert({ name, wb_token: token || null, user_id: currentUserId });
@@ -4751,12 +4754,19 @@
         const flyouts = app.querySelectorAll('.sidebar-flyout');
         let hideTimer = null;
 
+        function syncFlyoutLayout() {
+            const expanded = Array.from(flyouts).some(f => f.classList.contains('visible'));
+            document.body.classList.toggle('flyout-expanded', expanded);
+        }
+
         function showFlyout(id) {
             clearTimeout(hideTimer);
             flyouts.forEach(f => f.classList.toggle('visible', f.id === id));
+            syncFlyoutLayout();
         }
         function hideFlyouts() {
             flyouts.forEach(f => f.classList.toggle('visible', f.classList.contains('pinned')));
+            syncFlyoutLayout();
         }
 
         app.querySelectorAll('.rail-btn[data-flyout]').forEach(btn => {
@@ -4782,6 +4792,7 @@
                 } else {
                     try { localStorage.removeItem('nr_flyout_pinned'); } catch (_) {}
                 }
+                syncFlyoutLayout();
             });
         });
         app.addEventListener('mouseleave', () => { hideTimer = setTimeout(hideFlyouts, 80); });
@@ -4794,6 +4805,7 @@
                 f.querySelector('.flyout-pin')?.classList.add('pinned');
             }
         }
+        syncFlyoutLayout();
 
         document.getElementById('sidebar-home-btn')?.addEventListener('click', () => {
             const dash = document.querySelector('#fly-ocr .nav-item');
