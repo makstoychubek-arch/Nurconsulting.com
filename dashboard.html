@@ -2808,10 +2808,7 @@
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
         if (name === 'ab-testing') loadABTests();
         if (name === 'advertising') loadAdvertisingPreview();
-        if (name === 'logistics') {
-            if (!allSuppliesRaw.length) showSuppliesFromCache();
-            loadSuppliesFromWB(true);
-        }
+        if (name === 'logistics') initLogisticsSupplies();
         if (name === 'seo') loadSeoKeywords();
         if (name === 'marking') renderMarkingQueue();
         if (name === 'rnp' && typeof RNP !== 'undefined') RNP.openMain();
@@ -3211,10 +3208,7 @@
                 if (cur === 'rnp-settings') RNP.openSettings();
             }
             const curTab = localStorage.getItem('nr_active_tab');
-            if (curTab === 'logistics') {
-                showSuppliesFromCache();
-                loadSuppliesFromWB(true);
-            }
+            if (curTab === 'logistics') initLogisticsSupplies();
         });
     }
 
@@ -4248,8 +4242,8 @@
     let allSupplies = [];
     let currentSuppliesFilter = 'all';
     let _supplyEnrichGen = 0;
-    const SUPPLIES_META_TTL_DONE_MS = 7 * 24 * 60 * 60 * 1000;
-    const SUPPLIES_META_TTL_ACTIVE_MS = 6 * 60 * 60 * 1000;
+    const SUPPLIES_CACHE_V = 2;
+    const SUPPLIES_META_TTL_ACTIVE_MS = 24 * 60 * 60 * 1000;
 
     function suppliesMetaCacheKey() {
         return `nr_supplies_meta_${currentCabinetId || 'default'}`;
@@ -4289,15 +4283,71 @@
                 ids.slice(2500).forEach(id => delete existing[id]);
             }
             localStorage.setItem(suppliesMetaCacheKey(), JSON.stringify({ v: 1, byId: existing }));
-        } catch (e) {}
+        } catch (e) { console.warn('[supplies] meta cache save failed', e); }
     }
 
     function metaCacheEntryValid(entry, supply) {
         if (!entry || !entry.ts) return false;
-        const age = Date.now() - entry.ts;
         const done = supply?.done ?? entry.done;
-        const ttl = done ? SUPPLIES_META_TTL_DONE_MS : SUPPLIES_META_TTL_ACTIVE_MS;
-        return age < ttl;
+        if (done) return true;
+        return (Date.now() - entry.ts) < SUPPLIES_META_TTL_ACTIVE_MS;
+    }
+
+    function supplyItemFromCache(item) {
+        const hasMeta = !!(item.warehouse || (item.itemsCount != null && item.itemsCount > 0));
+        return {
+            id: item.id,
+            createdAt: item.createdAt,
+            done: !!item.done,
+            statusName: item.statusName || '',
+            warehouse: item.warehouse || null,
+            itemsCount: item.itemsCount ?? null,
+            _enriched: !!(item.enriched || hasMeta),
+            _fromCache: true,
+        };
+    }
+
+    function loadSuppliesCacheSnapshot() {
+        try {
+            const raw = localStorage.getItem(suppliesListCacheKey());
+            if (!raw) return null;
+            return JSON.parse(raw);
+        } catch (e) { return null; }
+    }
+
+    function suppliesCacheIsReady(snapshot) {
+        if (!snapshot?.items?.length) return false;
+        if (snapshot.metaComplete) return true;
+        const enriched = snapshot.items.filter(i =>
+            i.enriched || i.warehouse || (i.itemsCount != null && i.itemsCount > 0)
+        ).length;
+        return enriched >= snapshot.items.length * 0.85;
+    }
+
+    function saveSuppliesFullCache(list, metaComplete) {
+        try {
+            const src = list || allSuppliesRaw;
+            if (!src.length) return;
+            const items = src.map(s => ({
+                id: s.id,
+                createdAt: s.createdAt,
+                done: !!s.done,
+                statusName: s.statusName || '',
+                warehouse: s.warehouse || null,
+                itemsCount: s.itemsCount ?? null,
+                enriched: !!s._enriched,
+            }));
+            const complete = metaComplete != null
+                ? !!metaComplete
+                : items.every(i => i.enriched || i.warehouse || (i.itemsCount != null && i.itemsCount > 0));
+            localStorage.setItem(suppliesListCacheKey(), JSON.stringify({
+                v: SUPPLIES_CACHE_V,
+                ts: Date.now(),
+                metaComplete: complete,
+                items,
+            }));
+            saveSuppliesMetaToCache(src.filter(s => s._enriched));
+        } catch (e) { console.warn('[supplies] full cache save failed', e); }
     }
 
     function applyCachedMetaToSupply(s, cache) {
@@ -4315,45 +4365,33 @@
 
     function hydrateSuppliesFromCache(supplies) {
         const cache = loadSuppliesMetaCache();
-        supplies.forEach(s => applyCachedMetaToSupply(s, cache));
-    }
-
-    function saveSuppliesListCache(list) {
-        try {
-            localStorage.setItem(suppliesListCacheKey(), JSON.stringify({
-                v: 1,
-                ts: Date.now(),
-                items: (list || []).map(s => ({
-                    id: s.id,
-                    createdAt: s.createdAt,
-                    done: s.done,
-                    statusName: s.statusName || '',
-                })),
-            }));
-        } catch (e) {}
+        supplies.forEach(s => {
+            if (!s._enriched) applyCachedMetaToSupply(s, cache);
+        });
     }
 
     function showSuppliesFromCache() {
         try {
-            const raw = localStorage.getItem(suppliesListCacheKey());
-            if (!raw) return false;
-            const parsed = JSON.parse(raw);
-            if (!parsed.items?.length) return false;
-            allSuppliesRaw = parsed.items.map(item => ({
-                id: item.id,
-                createdAt: item.createdAt,
-                done: !!item.done,
-                statusName: item.statusName || '',
-                warehouse: null,
-                itemsCount: null,
-                _enriched: false,
-            }));
+            const snapshot = loadSuppliesCacheSnapshot();
+            if (!snapshot?.items?.length) return false;
+            allSuppliesRaw = snapshot.items.map(supplyItemFromCache);
             hydrateSuppliesFromCache(allSuppliesRaw);
             const { from, to } = getActiveDateRange();
             allSupplies = allSuppliesRaw.filter(s => supplyInDateRange(s, from, to));
             renderSupplies();
             return true;
         } catch (e) { return false; }
+    }
+
+    function initLogisticsSupplies() {
+        const snapshot = loadSuppliesCacheSnapshot();
+        const shown = showSuppliesFromCache();
+        if (shown && suppliesCacheIsReady(snapshot)) return;
+        if (!shown) loadSuppliesFromWB(true);
+        else {
+            const pending = allSuppliesRaw.filter(s => !s._enriched);
+            if (pending.length) enrichSuppliesMeta(pending);
+        }
     }
 
     function applySupplyDetail(s, detail) {
@@ -4372,7 +4410,7 @@
         const gen = ++_supplyEnrichGen;
         const pending = (supplies || []).filter(s => s && !s._enriched);
         if (!pending.length) return;
-        const BATCH = 10;
+        const BATCH = 6;
         for (let i = 0; i < pending.length; i += BATCH) {
             if (gen !== _supplyEnrichGen) return;
             const chunk = pending.slice(i, i + BATCH);
@@ -4384,9 +4422,11 @@
                 } catch (e) { /* skip failed */ }
             }));
             if (gen !== _supplyEnrichGen) return;
+            saveSuppliesFullCache(allSuppliesRaw, false);
             renderSupplies();
-            if (i + BATCH < pending.length) await new Promise(r => setTimeout(r, 900));
+            if (i + BATCH < pending.length) await new Promise(r => setTimeout(r, 1200));
         }
+        saveSuppliesFullCache(allSuppliesRaw, allSuppliesRaw.every(s => s._enriched));
     }
 
     function supplyInDateRange(s, from, to) {
@@ -4399,7 +4439,8 @@
         const { from, to } = getActiveDateRange();
         allSupplies = allSuppliesRaw.filter(s => supplyInDateRange(s, from, to));
         renderSupplies();
-        enrichSuppliesMeta(allSupplies);
+        const pending = allSupplies.filter(s => !s._enriched);
+        if (pending.length) enrichSuppliesMeta(pending);
     }
 
     function filterSupplies(mode, el) {
@@ -4462,7 +4503,7 @@
             return tb - ta;
         });
         hydrateSuppliesFromCache(allSuppliesRaw);
-        saveSuppliesListCache(allSuppliesRaw);
+        saveSuppliesFullCache(allSuppliesRaw, allSuppliesRaw.every(s => s._enriched));
 
         if (!allSuppliesRaw.length) {
             renderSuppliesError('Поставок не найдено в кабинете.');
@@ -4594,6 +4635,7 @@
         if (detail && !detail.error) {
             applySupplyDetail(supply, detail);
             saveSuppliesMetaToCache([supply]);
+            saveSuppliesFullCache(allSuppliesRaw);
             renderSupplies();
             const wh = detail.actualWarehouseName || detail.warehouseName;
             const date = detail.factDate || detail.supplyDate || detail.createDate;
