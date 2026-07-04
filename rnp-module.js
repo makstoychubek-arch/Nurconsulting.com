@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260704-cabinet-bootstrap';
+    const RNP_BUILD = '20260704-apple-design';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -1736,7 +1736,7 @@ const RNP = (() => {
         const profitCls = (kpi.profit || 0) >= 0 ? 'var(--green)' : 'var(--red)';
         return `<tr class="rnp-summary-row" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}">
           <td>${_syncDot(st.level)}</td>
-          <td>${_imgHtml(a, '', 'c246x328', 'width:28px;height:36px;border-radius:3px;object-fit:cover')}</td>
+          <td>${_imgHtml(a, '', 'c246x328', 'width:28px;height:36px;border-radius:12px;object-fit:cover')}</td>
           <td class="rnp-summary-name">${_sellerArticle(a)}</td>
           <td style="color:var(--text-muted)">${a.nm_id}</td>
           <td>${Math.round(kpi.orders_count || 0)}</td>
@@ -2832,11 +2832,11 @@ const RNP = (() => {
               </h3>
               <div class="flex gap-2 flex-wrap">
                 <button onclick="RNP.syncArts()" id="rnp-sync-btn"
-                  class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                  class="px-3 py-1.5 rounded-xl text-xs font-semibold"
                   style="background:var(--surface);border:1px solid var(--border);color:var(--text-secondary)">Из заказов</button>
-                <button onclick="RNP.enableAll(true)" class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                <button onclick="RNP.enableAll(true)" class="px-3 py-1.5 rounded-xl text-xs font-semibold"
                   style="background:var(--accent-soft);border:1px solid var(--accent-border);color:var(--accent)">Включить все</button>
-                <button onclick="RNP.enableAll(false)" class="px-3 py-1.5 rounded-lg text-xs font-semibold"
+                <button onclick="RNP.enableAll(false)" class="px-3 py-1.5 rounded-xl text-xs font-semibold"
                   style="background:var(--surface);border:1px solid var(--border);color:var(--text-muted)">Выключить все</button>
               </div>
             </div>
@@ -2875,21 +2875,21 @@ const RNP = (() => {
                     ].join('');
                     return `
                   <tr>
-                    <td>${_imgHtml(a, '', 'c246x328', 'width:32px;height:40px;border-radius:3px;object-fit:cover;display:block')}</td>
+                    <td>${_imgHtml(a, '', 'c246x328', 'width:32px;height:40px;border-radius:12px;object-fit:cover;display:block')}</td>
                     <td style="font-weight:600;color:var(--text-primary)">${sa || '—'}${auto ? ' <span style="color:var(--green);font-weight:400;font-size:10px">авто</span>' : ' <span style="color:var(--text-muted);font-weight:400;font-size:10px">(нет данных — Обновить на дашборде)</span>'}</td>
                     <td style="color:var(--text-muted)">${a.nm_id}</td>
                     <td class="rnp-metric-col" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${(a.name||'—').replace(/</g,'&lt;')}</td>
                     <td><select onchange="RNP.setCategory(${a.nm_id},this.value)"
-                      style="width:110px;padding:2px 4px;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px">${catOpts}</select></td>
+                      style="width:110px;padding:2px 4px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px">${catOpts}</select></td>
                     <td><input type="number" value="${a.cost_price||0}" min="0"
                       onchange="RNP.setCost(${a.nm_id},this.value)"
-                      style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
+                      style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
                     <td><input type="number" value="${a.logistics_unit||0}" min="0"
                       onchange="RNP.setLogisticsUnit(${a.nm_id},this.value)"
-                      style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
+                      style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
                     <td><input type="number" value="${_otherCostsUnit(a)}" min="0"
                       onchange="RNP.setOtherCosts(${a.nm_id},this.value)"
-                      style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:4px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
+                      style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
                     <td><button onclick="RNP.toggleArt(${a.nm_id})" class="relative w-9 h-5 rounded-full"
                       style="background:${a.is_active?'var(--accent)':'var(--border)'}">
                       <span style="position:absolute;top:2px;left:${a.is_active?'18px':'2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
