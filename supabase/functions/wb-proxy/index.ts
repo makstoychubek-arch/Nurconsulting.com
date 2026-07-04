@@ -33,6 +33,26 @@ serve(async (req) => {
         const { data: { user }, error: authErr } = await userClient.auth.getUser();
         if (authErr || !user) return json({ error: 'Invalid session' }, 401);
 
+        const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
+        const isSuperAdmin = String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL;
+
+        if (!isSuperAdmin) {
+            const adminCheck = createClient(supabaseUrl, supabaseService);
+            const { data: space, error: spaceErr } = await adminCheck
+                .from('spaces')
+                .select('status')
+                .eq('user_id', user.id)
+                .maybeSingle();
+
+            if (spaceErr) return json({ error: 'Space status check failed' }, 500);
+            if (!space || space.status !== 'active') {
+                const msg = space?.status === 'blocked'
+                    ? 'Спейс заблокирован. Обратитесь в поддержку.'
+                    : 'Спейс ожидает активации администратором.';
+                return json({ error: msg, code: 'SPACE_INACTIVE', status: space?.status || 'pending' }, 403);
+            }
+        }
+
         // ── Parse body ────────────────────────────────────────────────────────
         const body = await req.json().catch(() => ({}));
         const { action, params = {}, cabinet_id } = body;

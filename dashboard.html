@@ -1560,6 +1560,191 @@
         .settings-section-tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; margin-bottom: 16px; }
         .settings-section-tab { flex: 1; text-align: center; padding: 8px 12px; font-size: 12px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; }
         .settings-section-tab.active { background: var(--accent-gradient); color: white; }
+
+        /* ====== Безопасность — активные сеансы (Apple style) ====== */
+        .security-sessions-card {
+            border-radius: 24px;
+            overflow: hidden;
+        }
+        .security-session-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s ease;
+        }
+        .security-session-row:last-child { border-bottom: none; }
+        .security-session-row:hover { background: rgba(0, 0, 0, 0.02); }
+        [data-theme="neon"] .security-session-row:hover { background: rgba(255, 255, 255, 0.03); }
+        .security-device-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: var(--text-secondary);
+        }
+        .security-session-main { flex: 1; min-width: 0; }
+        .security-session-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.01em;
+        }
+        .security-session-meta {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 3px;
+            line-height: 1.4;
+        }
+        .security-badge-current {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(52, 211, 153, 0.14);
+            color: #059669;
+            letter-spacing: -0.01em;
+        }
+        .security-badge-current::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #34d399;
+            box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.25);
+        }
+        .security-badge-active {
+            font-size: 11px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        .security-end-btn {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 6px 10px;
+            border-radius: 8px;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+        .security-end-btn:hover {
+            color: var(--red);
+            background: rgba(248, 113, 113, 0.08);
+        }
+        .security-end-all-btn {
+            display: block;
+            width: 100%;
+            margin-top: 16px;
+            padding: 14px 20px;
+            background: none;
+            border: none;
+            color: #ef4444;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 14px;
+            transition: background 0.15s ease;
+            letter-spacing: -0.01em;
+        }
+        .security-end-all-btn:hover:not(:disabled) {
+            background: rgba(239, 68, 68, 0.08);
+        }
+        .security-end-all-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        /* ====== Super Admin — управление спейсами ====== */
+        .admin-spaces-table-wrap {
+            overflow-x: auto;
+            border-top: 1px solid var(--border);
+        }
+        .admin-spaces-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12.5px;
+        }
+        .admin-spaces-table th {
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            border-bottom: 1px solid var(--border);
+            background: var(--surface);
+            white-space: nowrap;
+        }
+        .admin-spaces-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            color: var(--text-secondary);
+            vertical-align: middle;
+        }
+        .admin-spaces-table tr:last-child td { border-bottom: none; }
+        .admin-spaces-table tr:hover td { background: rgba(0, 0, 0, 0.02); }
+        .space-status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+        .space-status-pending { background: rgba(148, 163, 184, 0.15); color: #64748b; }
+        .space-status-active { background: rgba(52, 211, 153, 0.14); color: #059669; }
+        .space-status-blocked { background: rgba(248, 113, 113, 0.12); color: #dc2626; }
+        .admin-space-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .admin-btn-activate {
+            padding: 6px 12px;
+            border-radius: 10px;
+            border: none;
+            background: rgba(52, 211, 153, 0.14);
+            color: #059669;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .admin-btn-activate:hover:not(:disabled) { background: rgba(52, 211, 153, 0.22); }
+        .admin-btn-block {
+            padding: 6px 12px;
+            border-radius: 10px;
+            border: none;
+            background: rgba(248, 113, 113, 0.1);
+            color: #dc2626;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .admin-btn-block:hover:not(:disabled) { background: rgba(248, 113, 113, 0.18); }
+        .admin-btn-activate:disabled, .admin-btn-block:disabled { opacity: 0.4; cursor: not-allowed; }
+        .space-pending-banner {
+            margin-bottom: 16px;
+            padding: 14px 18px;
+            border-radius: 16px;
+            background: rgba(148, 163, 184, 0.12);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+            color: var(--text-secondary);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .settings-section-tab.hidden-tab { display: none !important; }
         .map-placeholder { background: var(--surface); border: 2px dashed var(--border-strong); border-radius: 16px; min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; gap: 8px; }
         .ui-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; border: 1px solid transparent; line-height: 1.2; }
         .ui-btn-primary { background: var(--accent-gradient); color: white; }
@@ -1714,6 +1899,71 @@
         .abtest-card, .chart-box { border: none !important; box-shadow: var(--card-shadow) !important; }
         header.glass { border-bottom: none !important; box-shadow: 0 1px 0 rgba(0,0,0,0.04); }
         [data-theme="ios"] header.glass { background: rgba(255,255,255,0.72) !important; }
+
+        /* ===== Тарифы (Apple) ===== */
+        .pricing-wrap { padding: 8px 4px 4px; }
+        .pricing-head { margin-bottom: 28px; }
+        .pricing-head h2 { font-size: 28px; font-weight: 600; letter-spacing: -0.03em; color: var(--text-primary); margin-bottom: 8px; }
+        .pricing-head p { font-size: 14px; font-weight: 400; color: var(--text-muted); max-width: 520px; }
+        .pricing-card {
+            position: relative; display: flex; flex-direction: column; height: 100%;
+            background: var(--surface); border: none; border-radius: 20px;
+            padding: 24px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            transition: transform 0.22s ease, box-shadow 0.22s ease;
+        }
+        .pricing-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08); }
+        .pricing-card--featured { box-shadow: 0 8px 28px rgba(0, 113, 227, 0.12); }
+        .pricing-card--featured:hover { box-shadow: 0 12px 32px rgba(0, 113, 227, 0.18); }
+        .pricing-badge {
+            position: absolute; top: 16px; right: 16px;
+            font-size: 10px; font-weight: 600; letter-spacing: 0.02em;
+            padding: 4px 10px; border-radius: 999px;
+            background: linear-gradient(180deg, #0077ED 0%, #0071E3 100%);
+            color: #fff; box-shadow: 0 2px 8px rgba(0, 113, 227, 0.28);
+        }
+        .pricing-name { font-size: 18px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+        .pricing-price { font-size: 26px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.03em; margin-bottom: 2px; }
+        .pricing-price span { font-size: 13px; font-weight: 400; color: var(--text-muted); }
+        .pricing-cabinets { font-size: 12px; font-weight: 500; color: var(--text-secondary); margin-bottom: 18px; }
+        .pricing-features { list-style: none; margin: 0 0 24px; padding: 0; flex: 1; }
+        .pricing-features li {
+            display: flex; align-items: flex-start; gap: 8px;
+            font-size: 13px; font-weight: 400; color: var(--text-secondary);
+            line-height: 1.45; margin-bottom: 10px;
+        }
+        .pricing-features li strong { color: var(--text-primary); font-weight: 600; }
+        .pricing-check {
+            width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px;
+            color: var(--green);
+        }
+        .pricing-btn {
+            width: 100%; padding: 12px 16px; border: none; border-radius: 12px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: background 0.2s ease, transform 0.15s ease, opacity 0.2s ease;
+            display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
+        }
+        .pricing-btn:disabled { cursor: wait; opacity: 0.72; transform: none; }
+        .pricing-btn--secondary {
+            background: rgba(0, 0, 0, 0.05); color: var(--text-primary);
+        }
+        .pricing-btn--secondary:hover:not(:disabled) { background: rgba(0, 0, 0, 0.08); }
+        [data-theme="neon"] .pricing-btn--secondary { background: rgba(255,255,255,0.08); }
+        [data-theme="neon"] .pricing-btn--secondary:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
+        .pricing-btn--accent {
+            background: var(--accent-gradient); color: #fff;
+            box-shadow: 0 4px 14px rgba(0, 113, 227, 0.28);
+        }
+        .pricing-btn--accent:hover:not(:disabled) { filter: brightness(1.05); transform: translateY(-1px); }
+        .tariff-btn-spinner {
+            width: 18px; height: 18px; border: 2px solid currentColor;
+            border-top-color: transparent; border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .pricing-addon {
+            margin-top: 28px; text-align: center;
+            font-size: 12px; font-weight: 400; color: var(--text-muted);
+            font-style: italic; line-height: 1.5;
+        }
 
         /* === МОБИЛЬНАЯ ВЕРСИЯ === */
         .mobile-menu-btn { display: none; }
@@ -2517,16 +2767,65 @@
         </div>
 
         <div id="tab-settings" class="tab-content">
-            <div class="settings-section-tabs">
-                <div class="settings-section-tab active" onclick="showSettingsSection('profile', this)">Профиль</div>
-                <div class="settings-section-tab" onclick="showSettingsSection('api', this)">API кабинетов</div>
-                <div class="settings-section-tab" onclick="showSettingsSection('about', this)">О платформе</div>
+            <div id="space-pending-banner" class="space-pending-banner hidden">
+                Ваш спейс ожидает активации администратором. Пока синхронизация с Wildberries и Edge-функции отключены.
             </div>
-            <div id="settings-profile" class="settings-tab-anim space-y-4">
+            <div class="settings-section-tabs" id="settings-section-tabs">
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-profile" onclick="showSettingsSection('profile', this)">Профиль</div>
+                <div class="settings-section-tab" id="settings-tab-btn-security" onclick="showSettingsSection('security', this)">Безопасность</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-devsessions" onclick="showSettingsSection('devsessions', this)">Сессии разработчиков</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-spaces" onclick="showSettingsSection('spaces', this)">Управление Спейсами</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">API кабинетов</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-about" onclick="showSettingsSection('about', this)">О платформе</div>
+            </div>
+            <div id="settings-profile" class="settings-tab-anim hidden space-y-4">
                 <div class="widget-card p-6">
                     <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Профиль</h3>
                     <div id="settings-user-info" class="text-sm space-y-2" style="color:var(--text-secondary)">Загрузка...</div>
                     <button onclick="handleLogout()" class="mt-4 px-5 py-2 text-sm rounded-xl border transition" style="background:rgba(248,113,113,0.1);color:var(--red);border-color:rgba(248,113,113,0.25)">Выйти</button>
+                </div>
+            </div>
+            <div id="settings-security" class="settings-tab-anim space-y-4">
+                <div class="widget-card security-sessions-card p-0">
+                    <div class="p-6 pb-4">
+                        <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Активные сеансы</h3>
+                        <p class="text-xs" style="color:var(--text-muted)">Устройства, с которых выполнен вход в ваш аккаунт</p>
+                    </div>
+                    <div id="security-sessions-list">
+                        <div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка сеансов...</div>
+                    </div>
+                    <div class="px-6 pb-6">
+                        <button type="button" id="security-end-all-btn" class="security-end-all-btn" onclick="terminateAllOtherSessions()" disabled>
+                            [ Завершить все остальные сеансы ]
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="settings-devsessions" class="settings-tab-anim hidden space-y-4">
+                <div class="widget-card security-sessions-card p-0">
+                    <div class="p-6 pb-4">
+                        <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Сессии разработчиков</h3>
+                        <p class="text-xs" style="color:var(--text-muted)">Активные входы аккаунта global.pro.1004@gmail.com — только для команды NR</p>
+                    </div>
+                    <div id="dev-sessions-list">
+                        <div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка сеансов...</div>
+                    </div>
+                    <div class="px-6 pb-6">
+                        <button type="button" id="dev-end-all-btn" class="security-end-all-btn" onclick="terminateAllOtherDevSessions()" disabled>
+                            [ Завершить все остальные сеансы ]
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="settings-spaces" class="settings-tab-anim hidden space-y-4">
+                <div class="widget-card security-sessions-card p-0">
+                    <div class="p-6 pb-4">
+                        <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Управление Спейсами</h3>
+                        <p class="text-xs" style="color:var(--text-muted)">Пре-модерация клиентов, активация и блокировка спейсов</p>
+                    </div>
+                    <div id="admin-spaces-table-wrap" class="admin-spaces-table-wrap">
+                        <div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка клиентов...</div>
+                    </div>
                 </div>
             </div>
             <div id="settings-api" class="settings-tab-anim hidden space-y-4">
@@ -2638,7 +2937,71 @@
             </div>
         </div>
 
-<div id="tab-tariffs" class="tab-content"><div class="glass rounded-2xl p-10 text-center"><div style="font-size:32px;margin-bottom:16px">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Тарифы</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Текущий тарифный план и история подписки. В разработке.</p></div></div>
+        <div id="tab-tariffs" class="tab-content">
+            <div class="glass rounded-3xl p-8 pricing-wrap">
+                <div class="pricing-head">
+                    <h2>Тарифные планы</h2>
+                    <p>Выберите подписку под масштаб вашего бизнеса на Wildberries. Все тарифы включают безопасное хранение токенов и доступ через NR Space.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- Старт -->
+                    <article class="pricing-card">
+                        <h3 class="pricing-name">Старт</h3>
+                        <div class="pricing-price">2 000 <span>сом / мес</span></div>
+                        <div class="pricing-cabinets">1 WB-кабинет</div>
+                        <ul class="pricing-features">
+                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Дашборд аналитики</span></li>
+                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Модуль РНП</span></li>
+                        </ul>
+                        <button type="button" class="pricing-btn pricing-btn--secondary" onclick="selectTariffPlan(this, 'start')">Выбрать Старт</button>
+                    </article>
+
+                    <!-- Бизнес -->
+                    <article class="pricing-card">
+                        <h3 class="pricing-name">Бизнес</h3>
+                        <div class="pricing-price">4 500 <span>сом / мес</span></div>
+                        <div class="pricing-cabinets">3 WB-кабинета</div>
+                        <ul class="pricing-features">
+                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Дашборд и Модуль РНП</span></li>
+                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Аналитика «Товары»</span></li>
+                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Отслеживание позиций</strong> (до 50 запросов)</span></li>
+                        </ul>
+                        <button type="button" class="pricing-btn pricing-btn--secondary" onclick="selectTariffPlan(this, 'business')">Выбрать Бизнес</button>
+                    </article>
+
+                    <!-- Премиум -->
+                    <article class="pricing-card pricing-card--featured">
+                        <span class="pricing-badge">Популярно</span>
+                        <h3 class="pricing-name">Премиум</h3>
+                        <div class="pricing-price">7 500 <span>сом / мес</span></div>
+                        <div class="pricing-cabinets">5 WB-кабинетов</div>
+                        <ul class="pricing-features">
+                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Все разделы (Дашборд, РНП, Товары, Финансы)</span></li>
+                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Отслеживание позиций</strong> (до 300 запросов)</span></li>
+                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span><strong>А/Б тестирование</strong> карточек</span></li>
+                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Telegram-уведомления</span></li>
+                        </ul>
+                        <button type="button" class="pricing-btn pricing-btn--accent" onclick="selectTariffPlan(this, 'premium')">Выбрать Премиум</button>
+                    </article>
+
+                    <!-- VIP -->
+                    <article class="pricing-card">
+                        <h3 class="pricing-name">VIP</h3>
+                        <div class="pricing-price">15 000 <span>сом / мес</span></div>
+                        <div class="pricing-cabinets">Безлимитно кабинетов</div>
+                        <ul class="pricing-features">
+                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Безлимитный трекер и А/Б тесты</span></li>
+                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>VIP-поддержка 24/7</span></li>
+                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Выделенный сервер для Edge-функций</span></li>
+                        </ul>
+                        <button type="button" class="pricing-btn pricing-btn--secondary" onclick="selectTariffPlan(this, 'vip')">Связаться</button>
+                    </article>
+                </div>
+
+                <p class="pricing-addon">Нужно больше кабинетов? Дополнительный кабинет: +1$ (~87.5 сом) / мес к любому тарифному плану.</p>
+            </div>
+        </div>
         </div>
     </main>
 
@@ -2676,12 +3039,27 @@
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
     var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     var WB_PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
+    var ADMIN_SPACE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/admin-space';
+    const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
+
+    function isSuperAdminEmail(email) {
+        return String(email || '').toLowerCase() === SUPER_ADMIN_EMAIL;
+    }
+
+    let isSuperAdmin = false;
+    let currentSpaceStatus = 'active';
 
     function escapeHtml(str) {
         return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
     async function callWbProxy(action, params) {
+        if (!isSuperAdmin && currentSpaceStatus !== 'active') {
+            showPremiumModal('warning', 'Спейс не активен', currentSpaceStatus === 'blocked'
+                ? 'Ваш спейс заблокирован. Синхронизация с WB отключена.'
+                : 'Спейс ожидает активации администратором. Синхронизация с WB будет доступна после подтверждения.');
+            return null;
+        }
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { showPremiumModal('error', 'Не авторизован', 'Сессия истекла, перезайдите.'); return null; }
         let res;
@@ -2827,6 +3205,15 @@
     }
 
     function toggleMenu(el) { el.classList.toggle('open'); el.nextElementSibling.classList.toggle('open'); }
+
+    function selectTariffPlan(btn, planId) {
+        if (!btn || btn.disabled) return;
+        btn.disabled = true;
+        btn.dataset.plan = planId;
+        btn.innerHTML = '<span class="tariff-btn-spinner" aria-hidden="true"></span>';
+        btn.setAttribute('aria-busy', 'true');
+        console.info('[tariffs] plan selected:', planId);
+    }
 
     const TAB_ALIASES = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo' };
     const MODULE_PATHS = {
@@ -3464,6 +3851,12 @@
     }
 
     async function handleLogout() {
+        const sessionKey = localStorage.getItem(NR_SESSION_KEY_STORAGE);
+        if (currentUserId && sessionKey) {
+            await supabase.from('user_sessions').delete()
+                .eq('user_id', currentUserId)
+                .eq('current_session_token', sessionKey);
+        }
         await supabase.auth.signOut();
         localStorage.removeItem('selected_cabinet_id');
         window.location.href = '/login';
@@ -4269,10 +4662,481 @@
 
     function showSettingsSection(section, el) {
         document.querySelectorAll('.settings-section-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('[id^="settings-"]').forEach(s => s.classList.add('hidden'));
+        ['profile', 'security', 'devsessions', 'spaces', 'api', 'about'].forEach(s => {
+            const pane = document.getElementById('settings-' + s);
+            if (pane) pane.classList.add('hidden');
+        });
         el.classList.add('active');
         document.getElementById('settings-' + section).classList.remove('hidden');
         if (section === 'api') loadCabinetsAPIList();
+        if (section === 'security') loadSecuritySessions();
+        if (section === 'devsessions') loadDevSessions();
+        if (section === 'spaces') loadSpacesAdmin();
+    }
+
+    function applySettingsTabsForRole() {
+        const tabs = {
+            profile: document.getElementById('settings-tab-btn-profile'),
+            security: document.getElementById('settings-tab-btn-security'),
+            devsessions: document.getElementById('settings-tab-btn-devsessions'),
+            spaces: document.getElementById('settings-tab-btn-spaces'),
+            api: document.getElementById('settings-tab-btn-api'),
+            about: document.getElementById('settings-tab-btn-about'),
+        };
+        Object.values(tabs).forEach(t => t?.classList.add('hidden-tab'));
+
+        if (isSuperAdmin) {
+            tabs.profile?.classList.remove('hidden-tab');
+            tabs.devsessions?.classList.remove('hidden-tab');
+            tabs.spaces?.classList.remove('hidden-tab');
+            tabs.api?.classList.remove('hidden-tab');
+            tabs.about?.classList.remove('hidden-tab');
+            ['profile', 'security', 'devsessions', 'spaces', 'api', 'about'].forEach(s => {
+                document.getElementById('settings-' + s)?.classList.add('hidden');
+            });
+            if (tabs.profile) showSettingsSection('profile', tabs.profile);
+        } else {
+            tabs.security?.classList.remove('hidden-tab');
+            ['profile', 'security', 'devsessions', 'spaces', 'api', 'about'].forEach(s => {
+                document.getElementById('settings-' + s)?.classList.add('hidden');
+            });
+            document.getElementById('settings-security')?.classList.remove('hidden');
+            if (tabs.security) {
+                tabs.security.classList.add('active');
+            }
+        }
+    }
+
+    async function ensureUserSpace(user) {
+        if (!user?.id) return null;
+        const { data: existing } = await supabase.from('spaces').select('id, status, tariff_plan, is_super_admin')
+            .eq('user_id', user.id).maybeSingle();
+        if (existing) return existing;
+
+        const admin = isSuperAdminEmail(user.email);
+        if (admin) {
+            return { status: 'active', is_super_admin: true, tariff_plan: 'vip' };
+        }
+        const row = {
+            user_id: user.id,
+            email: user.email,
+            status: 'pending',
+            is_super_admin: false,
+            tariff_plan: 'start',
+        };
+        const { data: created, error } = await supabase.from('spaces').insert(row).select('id, status, tariff_plan, is_super_admin').maybeSingle();
+        if (error) console.warn('[spaces] ensure:', error.message);
+        return created || row;
+    }
+
+    function updateSpaceStatusUI() {
+        const banner = document.getElementById('space-pending-banner');
+        if (banner) {
+            banner.classList.toggle('hidden', isSuperAdmin || currentSpaceStatus !== 'pending');
+        }
+        const refreshBtn = document.getElementById('refresh-btn');
+        if (refreshBtn && !isSuperAdmin && currentSpaceStatus !== 'active') {
+            refreshBtn.disabled = true;
+            refreshBtn.title = currentSpaceStatus === 'blocked' ? 'Спейс заблокирован' : 'Ожидает активации';
+            refreshBtn.style.opacity = '0.45';
+        }
+    }
+
+    const TARIFF_LABELS = { start: 'Старт', business: 'Бизнес', premium: 'Премиум', vip: 'VIP' };
+    const SPACE_STATUS_LABELS = { pending: 'В ожидании', active: 'Активен', blocked: 'Заблокирован' };
+
+    function renderSpaceStatusBadge(status) {
+        const label = SPACE_STATUS_LABELS[status] || status;
+        const cls = status === 'active' ? 'space-status-active' : (status === 'blocked' ? 'space-status-blocked' : 'space-status-pending');
+        return `<span class="space-status-badge ${cls}">${label}</span>`;
+    }
+
+    function formatRegDate(iso) {
+        if (!iso) return '—';
+        try {
+            return new Date(iso).toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' });
+        } catch (_) { return '—'; }
+    }
+
+    function cabinetCountLabel(n) {
+        const num = Number(n) || 0;
+        const mod10 = num % 10;
+        const mod100 = num % 100;
+        let word = 'кабинетов';
+        if (mod10 === 1 && mod100 !== 11) word = 'кабинет';
+        else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'кабинета';
+        return `${num} ${word}`;
+    }
+
+    async function loadSpacesAdmin() {
+        const wrap = document.getElementById('admin-spaces-table-wrap');
+        if (!wrap || !isSuperAdmin) return;
+
+        wrap.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка клиентов...</div>';
+
+        const [{ data: spaces, error: spErr }, { data: cabinets, error: cabErr }] = await Promise.all([
+            supabase.from('spaces').select('id, user_id, email, status, tariff_plan, created_at, is_super_admin').order('created_at', { ascending: false }),
+            supabase.from('cabinets').select('user_id'),
+        ]);
+
+        if (spErr) {
+            wrap.innerHTML = `<div class="text-center py-10 text-sm px-6" style="color:var(--red)">${escapeHtml(spErr.message)}</div>`;
+            return;
+        }
+
+        const counts = {};
+        (cabinets || []).forEach(c => {
+            if (!c.user_id) return;
+            counts[c.user_id] = (counts[c.user_id] || 0) + 1;
+        });
+
+        const rows = (spaces || []).filter(s => !s.is_super_admin);
+        if (!rows.length) {
+            wrap.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Клиентов пока нет</div>';
+            return;
+        }
+
+        wrap.innerHTML = `<table class="admin-spaces-table">
+            <thead><tr>
+                <th>Пользователь</th>
+                <th>Статус</th>
+                <th>Тариф</th>
+                <th>Нагрузка</th>
+                <th>Действия</th>
+            </tr></thead>
+            <tbody>${rows.map(s => {
+                const activateDisabled = s.status === 'active' ? 'disabled' : '';
+                const blockDisabled = s.status === 'blocked' ? 'disabled' : '';
+                return `<tr>
+                    <td>
+                        <div style="font-weight:600;color:var(--text-primary)">${escapeHtml(s.email)}</div>
+                        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">с ${formatRegDate(s.created_at)}</div>
+                    </td>
+                    <td>${renderSpaceStatusBadge(s.status)}</td>
+                    <td>${escapeHtml(TARIFF_LABELS[s.tariff_plan] || s.tariff_plan || '—')}</td>
+                    <td>${cabinetCountLabel(counts[s.user_id] || 0)}</td>
+                    <td>
+                        <div class="admin-space-actions">
+                            <button type="button" class="admin-btn-activate" ${activateDisabled} onclick="adminActivateSpace('${s.user_id}', this)">Активировать</button>
+                            <button type="button" class="admin-btn-block" ${blockDisabled} onclick="adminBlockSpace('${s.user_id}', this)">Заблокировать Спейс</button>
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('')}</tbody>
+        </table>`;
+        if (cabErr) console.warn('[admin] cabinets count:', cabErr.message);
+    }
+
+    async function callAdminSpace(action, userId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Сессия истекла');
+        const res = await fetch(ADMIN_SPACE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+            body: JSON.stringify({ action, user_id: userId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        return data;
+    }
+
+    async function adminActivateSpace(userId, btn) {
+        if (!userId || !isSuperAdmin) return;
+        if (btn) { btn.disabled = true; btn.textContent = '…'; }
+        try {
+            await callAdminSpace('activate', userId);
+            showPremiumModal('success', 'Спейс активирован', 'Клиенту включены синхронизация WB и Edge-функции.');
+            await loadSpacesAdmin();
+        } catch (e) {
+            showPremiumModal('error', 'Ошибка', e.message || 'Не удалось активировать');
+            if (btn) { btn.disabled = false; btn.textContent = 'Активировать'; }
+        }
+    }
+
+    async function adminBlockSpace(userId, btn) {
+        if (!userId || !isSuperAdmin) return;
+        if (!confirm('Заблокировать спейс? Все сессии клиента будут аннулированы, WB-синхронизация заморожена.')) return;
+        if (btn) { btn.disabled = true; btn.textContent = '…'; }
+        try {
+            await callAdminSpace('block', userId);
+            showPremiumModal('success', 'Спейс заблокирован', 'Сессии клиента завершены, Edge-функции отключены.');
+            await loadSpacesAdmin();
+        } catch (e) {
+            showPremiumModal('error', 'Ошибка', e.message || 'Не удалось заблокировать');
+            if (btn) { btn.disabled = false; btn.textContent = 'Заблокировать Спейс'; }
+        }
+    }
+
+    async function loadDevSessions() {
+        await loadSessionsPanel({
+            listId: 'dev-sessions-list',
+            endAllBtnId: 'dev-end-all-btn',
+            heartbeatPaneId: 'settings-devsessions',
+            terminateHandler: 'terminateDevSession',
+            reloadFn: loadDevSessions,
+        });
+    }
+
+    async function terminateDevSession(sessionId) {
+        await terminateSessionById(sessionId, loadDevSessions);
+    }
+
+    async function terminateAllOtherDevSessions() {
+        await terminateAllOtherSessionsForPanel('dev-end-all-btn', loadDevSessions);
+    }
+
+    const NR_SESSION_KEY_STORAGE = 'nr_session_key';
+    let _securityHeartbeatTimer = null;
+
+    function getOrCreateSessionKey() {
+        let key = localStorage.getItem(NR_SESSION_KEY_STORAGE);
+        if (!key) {
+            key = (crypto.randomUUID && crypto.randomUUID()) || ('nr-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+            localStorage.setItem(NR_SESSION_KEY_STORAGE, key);
+        }
+        return key;
+    }
+
+    function parseUserAgent(ua) {
+        const s = String(ua || '');
+        let os = 'Неизвестная ОС';
+        let deviceType = 'desktop';
+        let deviceLabel = 'Компьютер';
+
+        if (/iPhone|iPad|iPod/i.test(s)) {
+            os = /iPad/i.test(s) ? 'iPad' : 'iPhone';
+            deviceType = 'mobile';
+            deviceLabel = os;
+        } else if (/Android/i.test(s)) {
+            os = 'Android';
+            deviceType = 'mobile';
+            deviceLabel = 'Android';
+        } else if (/Windows NT/i.test(s)) {
+            os = 'Windows';
+        } else if (/Mac OS X|Macintosh/i.test(s)) {
+            os = /Mobile/i.test(s) ? 'iOS' : 'macOS';
+            if (/Mobile/i.test(s)) { deviceType = 'mobile'; deviceLabel = 'iPhone'; }
+        } else if (/Linux/i.test(s)) {
+            os = 'Linux';
+        }
+
+        let browser = 'Браузер';
+        if (/Edg\//i.test(s)) browser = 'Edge';
+        else if (/OPR\/|Opera/i.test(s)) browser = 'Opera';
+        else if (/Chrome\//i.test(s) && !/Edg\//i.test(s)) browser = 'Chrome';
+        else if (/Safari\//i.test(s) && !/Chrome\//i.test(s)) browser = 'Safari';
+        else if (/Firefox\//i.test(s)) browser = 'Firefox';
+        else if (/YaBrowser/i.test(s)) browser = 'Яндекс';
+
+        return { os, browser, deviceType, deviceLabel, title: `${browser} на ${os === 'iPhone' || os === 'iPad' ? os : (os === 'macOS' ? 'macOS' : os)}` };
+    }
+
+    function maskIpAddress(ip) {
+        if (!ip) return '';
+        const parts = String(ip).split('.');
+        if (parts.length === 4) return `${parts[0]}.${parts[1]}.X.X`;
+        return ip.slice(0, Math.min(8, ip.length)) + '…';
+    }
+
+    async function fetchClientGeo() {
+        try {
+            const ctrl = new AbortController();
+            const t = setTimeout(() => ctrl.abort(), 4000);
+            const res = await fetch('https://ipapi.co/json/', { signal: ctrl.signal });
+            clearTimeout(t);
+            if (!res.ok) return {};
+            const data = await res.json();
+            return {
+                ip: data.ip || '',
+                city: data.city || '',
+                country: data.country_name || data.country || '',
+            };
+        } catch (_) {
+            return {};
+        }
+    }
+
+    async function registerUserSession() {
+        if (!currentUserId) return;
+        const sessionKey = getOrCreateSessionKey();
+        const ua = parseUserAgent(navigator.userAgent);
+        const geo = await fetchClientGeo();
+        const row = {
+            user_id: currentUserId,
+            current_session_token: sessionKey,
+            device_name: ua.deviceLabel,
+            browser: ua.browser,
+            os_name: ua.os,
+            device_type: ua.deviceType,
+            last_active: new Date().toISOString(),
+        };
+        if (geo.ip) row.ip_address = geo.ip;
+        if (geo.city) row.geo_city = geo.city;
+        if (geo.country) row.geo_country = geo.country;
+
+        const { error } = await supabase.from('user_sessions').upsert(row, { onConflict: 'user_id,current_session_token' });
+        if (error) console.warn('[security] register session:', error.message);
+    }
+
+    async function touchUserSession() {
+        if (!currentUserId) return;
+        const sessionKey = getOrCreateSessionKey();
+        await supabase.from('user_sessions')
+            .update({ last_active: new Date().toISOString() })
+            .eq('user_id', currentUserId)
+            .eq('current_session_token', sessionKey);
+    }
+
+    function formatSessionActivity(iso, isCurrent) {
+        if (isCurrent) return { html: '<span class="security-badge-current">Текущий сеанс</span>', sort: Infinity };
+        if (!iso) return { html: '<span class="security-badge-active">Активен</span>', sort: 0 };
+        const then = new Date(iso).getTime();
+        const diffMin = Math.floor((Date.now() - then) / 60000);
+        if (diffMin < 1) return { html: '<span class="security-badge-active">Активен только что</span>', sort: Date.now() - then };
+        if (diffMin < 60) return { html: `<span class="security-badge-active">Активен ${diffMin} мин назад</span>`, sort: Date.now() - then };
+        const diffH = Math.floor(diffMin / 60);
+        if (diffH < 24) return { html: `<span class="security-badge-active">Активен ${diffH} ч назад</span>`, sort: Date.now() - then };
+        const diffD = Math.floor(diffH / 24);
+        if (diffD === 1) return { html: '<span class="security-badge-active">Активен вчера</span>', sort: Date.now() - then };
+        return { html: `<span class="security-badge-active">Активен ${diffD} дн назад</span>`, sort: Date.now() - then };
+    }
+
+    function securityDeviceIconSvg(deviceType) {
+        if (deviceType === 'mobile') {
+            return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>';
+        }
+        return '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="18" x2="12" y2="20"/></svg>';
+    }
+
+    function formatSessionLocation(row) {
+        const city = (row.geo_city || '').trim();
+        const country = (row.geo_country || '').trim();
+        const ip = maskIpAddress(row.ip_address);
+        let place = '';
+        if (city && country) place = `${city}, ${country}`;
+        else if (country) place = country;
+        else if (city) place = city;
+        if (place && ip) return `${place} (IP: ${ip})`;
+        if (ip) return `IP: ${ip}`;
+        return 'Местоположение не определено';
+    }
+
+    function renderSecuritySessionRow(row, currentKey, terminateHandler) {
+        const isCurrent = row.current_session_token === currentKey;
+        const title = row.browser && row.os_name
+            ? `${row.browser} на ${row.os_name}`
+            : (row.device_name || 'Устройство');
+        const activity = formatSessionActivity(row.last_active, isCurrent);
+        const icon = securityDeviceIconSvg(row.device_type || 'desktop');
+        const handler = terminateHandler || 'terminateSession';
+        const endBtn = isCurrent ? '' : `<button type="button" class="security-end-btn" onclick="${handler}('${row.id}')" title="Завершить сеанс">Завершить сеанс</button>`;
+        return `<div class="security-session-row" data-session-id="${row.id}">
+            <div class="security-device-icon">${icon}</div>
+            <div class="security-session-main">
+                <div class="security-session-title">${escapeHtml(title)}</div>
+                <div class="security-session-meta">${escapeHtml(formatSessionLocation(row))}</div>
+                <div class="mt-1.5">${activity.html}</div>
+            </div>
+            ${endBtn}
+        </div>`;
+    }
+
+    async function loadSessionsPanel(opts) {
+        const listEl = document.getElementById(opts.listId);
+        const endAllBtn = document.getElementById(opts.endAllBtnId);
+        if (!listEl || !currentUserId) return;
+
+        await registerUserSession();
+        const currentKey = getOrCreateSessionKey();
+
+        const { data, error } = await supabase
+            .from('user_sessions')
+            .select('*')
+            .eq('user_id', currentUserId)
+            .order('last_active', { ascending: false });
+
+        if (error) {
+            listEl.innerHTML = `<div class="text-center py-10 text-sm px-6" style="color:var(--red)">Не удалось загрузить сеансы: ${escapeHtml(error.message)}</div>`;
+            if (endAllBtn) endAllBtn.disabled = true;
+            return;
+        }
+
+        const rows = data || [];
+        const others = rows.filter(r => r.current_session_token !== currentKey);
+        const terminateHandler = opts.terminateHandler || 'terminateSession';
+
+        if (!rows.length) {
+            listEl.innerHTML = '<div class="text-center py-10 text-sm px-6" style="color:var(--text-muted)">Нет зарегистрированных сеансов</div>';
+        } else {
+            listEl.innerHTML = rows.map(r => renderSecuritySessionRow(r, currentKey, terminateHandler)).join('');
+        }
+
+        if (endAllBtn) endAllBtn.disabled = others.length === 0;
+
+        if (opts.heartbeatPaneId) {
+            clearInterval(_securityHeartbeatTimer);
+            _securityHeartbeatTimer = setInterval(() => {
+                const pane = document.getElementById(opts.heartbeatPaneId);
+                if (pane && !pane.classList.contains('hidden')) {
+                    touchUserSession().then(() => (opts.reloadFn || loadSecuritySessions)());
+                }
+            }, 120000);
+        }
+    }
+
+    async function loadSecuritySessions() {
+        await loadSessionsPanel({
+            listId: 'security-sessions-list',
+            endAllBtnId: 'security-end-all-btn',
+            heartbeatPaneId: 'settings-security',
+            terminateHandler: 'terminateSession',
+            reloadFn: loadSecuritySessions,
+        });
+    }
+
+    async function terminateSessionById(sessionId, reloadFn) {
+        if (!sessionId || !currentUserId) return;
+        const currentKey = getOrCreateSessionKey();
+        const { data: row } = await supabase.from('user_sessions').select('current_session_token').eq('id', sessionId).eq('user_id', currentUserId).maybeSingle();
+        if (!row) return;
+        if (row.current_session_token === currentKey) {
+            showPremiumModal('warning', 'Текущий сеанс', 'Нельзя завершить сеанс, с которого вы сейчас работаете.');
+            return;
+        }
+        const { error } = await supabase.from('user_sessions').delete().eq('id', sessionId).eq('user_id', currentUserId);
+        if (error) {
+            showPremiumModal('error', 'Ошибка', error.message);
+            return;
+        }
+        showPremiumModal('success', 'Сеанс завершён', 'Устройство удалено из списка активных сеансов.');
+        await (reloadFn || loadSecuritySessions)();
+    }
+
+    async function terminateSession(sessionId) {
+        await terminateSessionById(sessionId, loadSecuritySessions);
+    }
+
+    async function terminateAllOtherSessionsForPanel(endAllBtnId, reloadFn) {
+        const endAllBtn = document.getElementById(endAllBtnId);
+        if (endAllBtn) endAllBtn.disabled = true;
+        try {
+            const { error } = await supabase.auth.signOut({ scope: 'others' });
+            if (error) throw error;
+            const currentKey = getOrCreateSessionKey();
+            await supabase.from('user_sessions')
+                .delete()
+                .eq('user_id', currentUserId)
+                .neq('current_session_token', currentKey);
+            showPremiumModal('success', 'Готово', 'Вы вышли на всех остальных устройствах. Текущий сеанс сохранён.');
+            await (reloadFn || loadSecuritySessions)();
+        } catch (e) {
+            showPremiumModal('error', 'Ошибка', e.message || 'Не удалось завершить сеансы');
+            if (endAllBtn) endAllBtn.disabled = false;
+        }
+    }
+
+    async function terminateAllOtherSessions() {
+        await terminateAllOtherSessionsForPanel('security-end-all-btn', loadSecuritySessions);
     }
 
     function maskToken(token) {
@@ -4793,11 +5657,34 @@
     document.addEventListener('DOMContentLoaded', async () => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { window.location.href = '/login'; return; }
-        const { data: allowed } = await supabase.from('allowed_users').select('email').eq('email', session.user.email).single();
-        if (!allowed) {
-            document.body.innerHTML = `<div style="min-height:100vh;background:#030303;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif"><div style="text-align:center;padding:40px"><div style="width:80px;height:80px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 0 60px rgba(109,40,217,0.4)"><span style="color:white;font-size:32px;font-weight:900">N</span></div><h1 style="color:white;font-size:24px;font-weight:700;margin-bottom:12px">Сервис в разработке</h1><p style="color:#6b7280;font-size:14px;margin-bottom:32px">Платформа пока недоступна для новых пользователей.</p><a href="https://nurcon.kg" style="display:inline-block;padding:12px 32px;background:#6D28D9;color:white;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600">Перейти на nurcon.kg →</a></div></div>`;
+
+        isSuperAdmin = isSuperAdminEmail(session.user.email);
+        currentUserEmail = session.user.email || '';
+        currentUserId = session.user.id || '';
+
+        const spaceRow = await ensureUserSpace(session.user);
+        currentSpaceStatus = spaceRow?.status || (isSuperAdmin ? 'active' : 'pending');
+
+        if (!isSuperAdmin && currentSpaceStatus === 'blocked') {
+            await supabase.auth.signOut();
+            document.body.innerHTML = `<div style="min-height:100vh;background:#030303;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif"><div style="text-align:center;padding:40px;max-width:420px"><div style="width:80px;height:80px;background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px"><span style="color:white;font-size:32px">⛔</span></div><h1 style="color:white;font-size:24px;font-weight:700;margin-bottom:12px">Спейс заблокирован</h1><p style="color:#6b7280;font-size:14px;margin-bottom:32px">Доступ к платформе отключён администратором. Обратитесь в поддержку NR Consulting.</p><a href="/login" style="display:inline-block;padding:12px 32px;background:#6D28D9;color:white;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600">На страницу входа</a></div></div>`;
             return;
         }
+
+        if (!isSuperAdmin && currentSpaceStatus !== 'active') {
+            const { data: allowed } = await supabase.from('allowed_users').select('email').eq('email', session.user.email).maybeSingle();
+            if (!allowed) {
+                if (currentSpaceStatus === 'pending') {
+                    // pending users may enter dashboard in limited mode
+                } else {
+                    document.body.innerHTML = `<div style="min-height:100vh;background:#030303;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif"><div style="text-align:center;padding:40px"><div style="width:80px;height:80px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 0 60px rgba(109,40,217,0.4)"><span style="color:white;font-size:32px;font-weight:900">N</span></div><h1 style="color:white;font-size:24px;font-weight:700;margin-bottom:12px">Сервис в разработке</h1><p style="color:#6b7280;font-size:14px;margin-bottom:32px">Платформа пока недоступна для новых пользователей.</p><a href="https://nurcon.kg" style="display:inline-block;padding:12px 32px;background:#6D28D9;color:white;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600">Перейти на nurcon.kg →</a></div></div>`;
+                    return;
+                }
+            } else {
+                currentSpaceStatus = 'active';
+            }
+        }
+
         const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '—';
         const initial = name.charAt(0).toUpperCase();
         document.getElementById('sidebar-user').textContent = name;
@@ -4806,9 +5693,10 @@
         if (headerName) headerName.textContent = name;
         const fi = document.getElementById('flyout-user-initial');
         if (fi) fi.textContent = initial;
-        document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
-        currentUserEmail = session.user.email || '';
-        currentUserId = session.user.id || '';
+        document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>${isSuperAdmin ? '<div class="mt-1"><span style="color:var(--green)">Super Admin</span></div>' : ''}`;
+        registerUserSession().catch(e => console.warn('[security] init:', e));
+        applySettingsTabsForRole();
+        updateSpaceStatusUI();
         try {
             await loadCabinets();
             updateDateRangeLabel();

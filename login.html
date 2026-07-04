@@ -257,9 +257,16 @@
             if (error) showError('login-error', error.message);
         }
 
+        const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
+
         async function handleLogin() {
-             showError('login-error', 'Пожалуйста, используйте кнопку "Войти через Google"');
-ь       }
+            const email = (document.getElementById('login-email')?.value || '').trim().toLowerCase();
+            if (email === SUPER_ADMIN_EMAIL) {
+                showError('login-error', 'Для Super Admin доступен только вход через Google.');
+                return;
+            }
+            showError('login-error', 'Пожалуйста, используйте кнопку "Войти через Google"');
+        }
 
         async function handleRegister() {
             showError('reg-error', 'Регистрация через email недоступна. Используйте Google.');
@@ -286,24 +293,35 @@
         }
 
         async function showCabinets(user) {
-            // Проверяем доступ
-            const { data: allowed, error: allowedError } = await supabase
-                .from('allowed_users')
-                .select('email')
-                .eq('email', user.email)
-                .single();
+            const isSuperAdmin = String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL;
 
-            if (allowedError && allowedError.code !== 'PGRST116') {
-                // Реальная ошибка БД, а не просто "строка не найдена"
-                showError('login-error', 'Ошибка проверки доступа. Попробуйте позже.');
-                return;
-            }
+            if (!isSuperAdmin) {
+                const { data: space, error: spaceErr } = await supabase
+                    .from('spaces')
+                    .select('status')
+                    .eq('user_id', user.id)
+                    .maybeSingle();
 
-            if (!allowed) {
-                document.body.style.transition = 'opacity 0.5s ease';
-                document.body.style.opacity = '0';
-                setTimeout(() => { window.location.href = 'https://nurcon.kg'; }, 500);
-                return;
+                if (spaceErr && spaceErr.code !== 'PGRST116') {
+                    showError('login-error', 'Ошибка проверки спейса. Попробуйте позже.');
+                    return;
+                }
+
+                if (space?.status === 'blocked') {
+                    showError('login-error', 'Ваш спейс заблокирован администратором.');
+                    await supabase.auth.signOut();
+                    return;
+                }
+
+                if (!space) {
+                    await supabase.from('spaces').insert({
+                        user_id: user.id,
+                        email: user.email,
+                        status: 'pending',
+                        tariff_plan: 'start',
+                        is_super_admin: false,
+                    });
+                }
             }
 
             // Показываем приветственный экран
