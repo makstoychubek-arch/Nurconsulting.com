@@ -4,6 +4,8 @@
  */
 const RNP = (() => {
     'use strict';
+    const RNP_BUILD = '20260704-general-fix2';
+    console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
     let _db = null;
@@ -1302,84 +1304,60 @@ const RNP = (() => {
         </div>`;
     }
 
-    function _buildGeneralTimelineKPI(active, cal) {
+    function _buildGeneralMetricsStrip(active, cal) {
         const kpi = _cabinetPeriodSummary(active, cal);
         const er = (Number(kpi.wb_rate) > 0) ? Number(kpi.wb_rate) : _settings.exchangeRate;
-        const items = [
-            ['Заказы', _fmtKpi(kpi.orders_count, 'int')],
-            ['Продажи', _fmtKpi(kpi.sales_count, 'int')],
-            ['Сумма', Math.round((kpi.sales_sum || 0) * er).toLocaleString('ru')],
-            ['Прибыль', _fmtKpi(kpi.profit, 'som')],
-            ['Маржа', _fmtKpi(kpi.margin_pct, 'pct')],
-            ['ДРР', _fmtKpi(kpi.drr_pct, 'pct')],
-            ['К переч.', Math.round((kpi.to_transfer || 0) * er).toLocaleString('ru')],
-        ];
-        return `<div class="rnp-cabinet-kpi-strip">${items.map(([l, v]) =>
-            `<div class="rnp-cabinet-kpi-pill"><span>${l}</span><b>${v}</b></div>`
-        ).join('')}</div>`;
-    }
-
-    function _buildGeneralSheetHeadRows(active, cal) {
-        const leftSpan = _leftFrozenSpan(cal);
-        const nTimeline = _calTimelineSpan(cal);
-        return `<tr class="rnp-head-panel rnp-head-panel--cabinet">
-          <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--cabinet">${_buildGeneralLeftPanel(active, cal)}</th>
-          <th colspan="${nTimeline}" class="rnp-head-marquee rnp-head-marquee--cabinet-kpi">${_buildGeneralTimelineKPI(active, cal)}</th>
-        </tr>`;
-    }
-
-    function _buildGeneralLeftPanel(active, cal) {
-        const kpi = _cabinetPeriodSummary(active, cal);
-        const er = (Number(kpi.wb_rate) > 0) ? Number(kpi.wb_rate) : _settings.exchangeRate;
-        const toTransferSom = Math.round((kpi.to_transfer || 0) * er);
+        const moneySom = Math.round((kpi.sales_sum || 0) * er);
+        const moneyUsd = moneySom > 0
+            ? (moneySom / (_settings.usdRate || 87.5)).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 })
+            : '0';
         const profitCls = (kpi.profit || 0) >= 0 ? 'pos' : 'neg';
         const marginCls = (kpi.margin_pct || 0) >= 15 ? 'pos' : ((kpi.margin_pct || 0) < 5 ? 'neg' : '');
-        const moneySom = Math.round((kpi.sales_sum || 0) * er);
-        const moneyUsd = moneySom > 0 ? (moneySom / (_settings.usdRate || 87.5)).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 }) : '0';
-        return `<div class="rnp-kpi-block rnp-kpi-block--cabinet">
-          <div class="rnp-kpi-top rnp-kpi-top--compact rnp-kpi-top--cabinet">
-            <div class="rnp-gs-name">📊 Общий РНП</div>
-            <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">кабинет</span><b>${active.length} арт.</b></div>
-            <div class="rnp-gs-money-lbl">В деньгах</div>
-            <div class="rnp-gs-money-val">${moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
-            <div class="rnp-gs-usd-lbl">В долларах</div>
-            <div class="rnp-gs-usd-val">$${moneyUsd}</div>
-            <div class="rnp-gs-kpis">
-              <div class="rnp-kpi-grid rnp-kpi-grid--gs">
-                <div class="rnp-kpi"><span>К перечислению</span><b>${toTransferSom.toLocaleString('ru')}</b></div>
-                <div class="rnp-kpi"><span>Прибыль</span><b class="${profitCls}">${_fmtKpi(kpi.profit, 'som')}</b></div>
-                <div class="rnp-kpi"><span>Маржа %</span><b class="${marginCls}">${_fmtKpi(kpi.margin_pct, 'pct')}</b></div>
-                <div class="rnp-kpi"><span>Заказы</span><b>${_fmtKpi(kpi.orders_count, 'int')}</b></div>
-                <div class="rnp-kpi"><span>ДРР %</span><b>${_fmtKpi(kpi.drr_pct, 'pct')}</b></div>
-                <div class="rnp-kpi"><span>Курс ср.</span><b>${er.toFixed(2).replace('.', ',')}</b></div>
-              </div>
-            </div>
-          </div>
+        const items = [
+            { label: 'Общий РНП', value: `${active.length} арт.`, title: true },
+            { label: 'В деньгах', value: moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) },
+            { label: 'В долларах', value: '$' + moneyUsd },
+            { label: 'Заказы', value: _fmtKpi(kpi.orders_count, 'int') },
+            { label: 'Продажи', value: _fmtKpi(kpi.sales_count, 'int') },
+            { label: 'Сумма', value: moneySom.toLocaleString('ru') },
+            { label: 'Прибыль', value: _fmtKpi(kpi.profit, 'som'), cls: profitCls },
+            { label: 'Маржа', value: _fmtKpi(kpi.margin_pct, 'pct'), cls: marginCls },
+            { label: 'ДРР', value: _fmtKpi(kpi.drr_pct, 'pct') },
+            { label: 'К переч.', value: Math.round((kpi.to_transfer || 0) * er).toLocaleString('ru') },
+        ];
+        return `<div class="rnp-general-metrics">${items.map(it => {
+            const pillCls = it.title ? ' rnp-general-metric-pill--title' : '';
+            const bCls = it.cls ? ` class="${it.cls}"` : '';
+            return `<div class="rnp-cabinet-kpi-pill rnp-general-metric-pill${pillCls}">
+              <span>${it.label}</span><b${bCls}>${it.value}</b>
+            </div>`;
+        }).join('')}</div>`;
+    }
+
+    function _buildGeneralTopGallery(active) {
+        const items = active.map(a => {
+            const label = _sellerArticle(a).replace(/"/g, '&quot;').replace(/</g, '&lt;');
+            return `<button type="button" class="rnp-general-thumb rnp-general-pick"
+              onclick="RNP.pick(${a.nm_id})" title="${label}">
+              ${_imgHtml(a, 'rnp-general-thumb-img', 'c246x328', '', 1)}
+            </button>`;
+        }).join('');
+        if (!items) return '<div class="rnp-general-thumb-empty">—</div>';
+        return `<div class="rnp-general-thumb-strip">
+          <div class="rnp-general-thumb-track">${items}</div>
         </div>`;
     }
 
-    function _buildGeneralBottomGallery(active) {
-        const items = active.map(a => {
-            const label = _sellerArticle(a).replace(/</g, '&lt;');
-            return `<div class="rnp-gallery-item rnp-gallery-item--lg rnp-general-pick" role="button" tabindex="0"
-              onclick="RNP.pick(${a.nm_id})" title="Открыть: ${label}">
-              <div class="rnp-gallery-photo">${_imgHtml(a, 'rnp-gallery-img', 'c246x328', '', 1)}</div>
-              <span class="rnp-gallery-num">${label.substring(0, 18)}</span>
-            </div>`;
-        }).join('');
-        if (!items) return '';
-        return `<div class="rnp-general-gallery">
-          <div class="rnp-general-gallery-label">Все товары · главные фото <span class="rnp-general-gallery-hint">клик — открыть артикул</span></div>
-          <div class="rnp-general-gallery-viewport">
-            <div class="rnp-general-gallery-track">${items}${items}</div>
-          </div>
+    function _buildGeneralTopBar(active, cal) {
+        return `<div class="rnp-general-topbar">
+          <div class="rnp-general-bar-metrics">${_buildGeneralMetricsStrip(active, cal)}</div>
+          <div class="rnp-general-bar-photos">${_buildGeneralTopGallery(active)}</div>
         </div>`;
     }
 
     function _buildGeneralTableHTML(active, cal) {
         _metricRowSeq = 0;
         const cols = _buildCabinetCols(active, cal);
-        const sheetHead = _buildGeneralSheetHeadRows(active, cal);
         const galleryCls = cal.mode === 'month' ? ' rnp-sheet-table--months' : '';
         const headRows = 3;
         const firstTimelineIdx = cols.findIndex(c => c.type === 'day' || c.type === 'month');
@@ -1394,7 +1372,6 @@ const RNP = (() => {
             const monthSubs = cal.months.map(m => `<th class="rnp-th-dow rnp-month-col${m.isCurrent ? ' is-current' : ''}">${m.dayCount} дн</th>`).join('');
             return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes">
           <thead>
-            ${sheetHead}
             <tr class="rnp-cal-quarter-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
@@ -1431,7 +1408,6 @@ const RNP = (() => {
 
         return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes">
           <thead>
-            ${sheetHead}
             <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
@@ -2806,10 +2782,10 @@ const RNP = (() => {
             await _preloadPhotos(active);
             _metricRowSeq = 0;
             body.innerHTML = `
+          ${_buildGeneralTopBar(active, cal)}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
             ${_buildGeneralTableHTML(active, cal)}
           </div>
-          ${_buildGeneralBottomGallery(active)}
           ${_selectionBarHTML()}`;
             _updateTabHighlight();
             const bar = document.getElementById('rnp-action-bar-wrap');

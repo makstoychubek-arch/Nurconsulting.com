@@ -648,24 +648,77 @@
         .rnp-summary-table tr.rnp-summary-cat-row .rnp-cat-name { margin: 0 6px; }
         .rnp-summary-table tr.rnp-summary-cat-row:hover td { color: var(--text-primary); }
         .rnp-tab-general { border-left: 2px solid var(--accent) !important; }
-        .rnp-kpi-block--cabinet .rnp-kpi-top { grid-template-columns: 1fr 1fr; }
-        .rnp-kpi-block--cabinet .rnp-gs-photo { display: none; }
-        .rnp-head-left--cabinet { min-width: 240px; }
-        .rnp-head-marquee--cabinet-kpi {
-            padding: 4px 8px !important; vertical-align: middle;
-            background: var(--surface-solid) !important; overflow: hidden;
+        .rnp-general-topbar {
+            flex-shrink: 0;
+            display: flex; align-items: center;
+            width: 100%; min-height: 50px;
+            padding: 2px 4px; margin: 0;
+            gap: 0; box-sizing: border-box;
+            background: var(--surface-solid);
+            border-bottom: 1px solid var(--border);
         }
-        .rnp-cabinet-kpi-strip {
-            display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
-            height: 100%; min-height: 52px;
+        .rnp-general-bar-metrics {
+            flex: 0 0 50%; max-width: 50%; min-width: 0;
+            padding: 0 4px 0 0; margin: 0;
         }
-        .rnp-cabinet-kpi-pill {
-            display: flex; flex-direction: column; gap: 1px;
-            padding: 3px 8px; border-radius: 6px;
+        .rnp-general-metrics {
+            display: flex; flex-wrap: wrap; align-items: center;
+            justify-content: flex-start;
+            gap: 1px 2px; margin: 0; padding: 0;
+        }
+        .rnp-cabinet-kpi-pill,
+        .rnp-general-metric-pill {
+            display: flex; flex-direction: column; gap: 0;
+            padding: 1px 4px; margin: 0;
+            border-radius: 4px;
             background: var(--accent-soft); border: 1px solid var(--accent-border);
-            font-size: 8px; color: var(--text-muted); white-space: nowrap;
+            font-size: 6px; color: var(--text-muted); white-space: nowrap;
+            line-height: 1.1;
         }
-        .rnp-cabinet-kpi-pill b { font-size: 10px; color: var(--text-primary); font-weight: 800; }
+        .rnp-cabinet-kpi-pill span,
+        .rnp-general-metric-pill span { font-size: 6px; }
+        .rnp-cabinet-kpi-pill b,
+        .rnp-general-metric-pill b { font-size: 8px; color: var(--text-primary); font-weight: 800; }
+        .rnp-cabinet-kpi-pill b.pos, .rnp-general-metric-pill b.pos { color: var(--green); }
+        .rnp-cabinet-kpi-pill b.neg, .rnp-general-metric-pill b.neg { color: var(--red); }
+        .rnp-general-metric-pill--title {
+            background: var(--surface); border-color: var(--border-strong);
+        }
+        .rnp-general-metric-pill--title b { color: var(--accent); }
+        .rnp-general-bar-photos {
+            flex: 1 1 50%; min-width: 0; overflow: hidden;
+            border-left: 1px solid var(--border);
+            padding: 0 0 0 4px; margin: 0;
+        }
+        .rnp-general-thumb-strip {
+            overflow-x: auto; overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+        }
+        .rnp-general-thumb-strip::-webkit-scrollbar { height: 3px; }
+        .rnp-general-thumb-strip::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+        .rnp-general-thumb-track {
+            display: flex; align-items: center; gap: 3px;
+            padding: 1px 2px; min-height: 46px;
+        }
+        .rnp-general-thumb {
+            flex: 0 0 46px; width: 46px; height: 46px;
+            padding: 0; margin: 0;
+            border: 1px solid var(--border); border-radius: 5px;
+            overflow: hidden; background: var(--surface);
+            cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .rnp-general-thumb:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-soft);
+        }
+        .rnp-general-thumb img, .rnp-general-thumb-img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+        .rnp-general-thumb-empty {
+            font-size: 8px; color: var(--text-muted); padding: 4px 8px;
+        }
+        .rnp-general-pick { cursor: pointer; }
         .rnp-kpi-top--compact {
             grid-template-columns: minmax(56px, 0.7fr) minmax(48px, 0.6fr) minmax(72px, 0.8fr) minmax(140px, 1.5fr);
             grid-template-areas:
@@ -678,27 +731,6 @@
         .rnp-kpi-top--compact .rnp-gs-kpis { grid-row: 1 / 5; }
         .rnp-kpi-top--cabinet .rnp-gs-name { grid-area: nmid; grid-column: auto; border-right: 1px solid var(--border); }
         .rnp-kpi-top--cabinet .rnp-gs-nmid { display: none; }
-        .rnp-general-gallery { border-top: 1px solid var(--border); background: var(--surface); padding: 8px 4px; flex-shrink: 0; width: 100%; }
-        .rnp-general-gallery-label { font-size: 10px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
-        .rnp-general-gallery-hint { font-weight: 500; opacity: 0.75; margin-left: 6px; }
-        .rnp-general-gallery-viewport {
-            overflow: hidden; padding: 4px 2px;
-            mask-image: linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
-            -webkit-mask-image: linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%);
-        }
-        .rnp-general-gallery-track {
-            display: flex; align-items: flex-end; gap: 8px; width: max-content;
-            animation: rnp-general-gallery-scroll 42s linear infinite;
-        }
-        .rnp-general-gallery-viewport:hover .rnp-general-gallery-track { animation-play-state: paused; }
-        @keyframes rnp-general-gallery-scroll {
-            0% { transform: translateX(-50%); }
-            100% { transform: translateX(0); }
-        }
-        .rnp-general-pick { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
-        .rnp-general-pick:hover { transform: translateY(-2px); }
-        .rnp-general-pick:hover .rnp-gallery-photo { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
-        .rnp-gallery-item--lg { width: 96px; }
         .rnp-selection-bar {
             flex-shrink: 0; padding: 6px 12px; font-size: 10px; color: var(--text-muted);
             background: var(--surface-solid); border-top: 1px solid var(--border);
@@ -2766,7 +2798,10 @@
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
         if (name === 'ab-testing') loadABTests();
         if (name === 'advertising') loadAdvertisingPreview();
-        if (name === 'logistics') loadSuppliesFromWB(true);
+        if (name === 'logistics') {
+            if (!allSuppliesRaw.length) showSuppliesFromCache();
+            loadSuppliesFromWB(true);
+        }
         if (name === 'seo') loadSeoKeywords();
         if (name === 'marking') renderMarkingQueue();
         if (name === 'rnp' && typeof RNP !== 'undefined') RNP.openMain();
@@ -3153,6 +3188,9 @@
          'm-ads','m-storage','m-roi','m-opex','m-returns','m-stock',
          'rnp-profit','rnp-margin','rnp-roi','wh-total'].forEach(id => setText(id, '—'));
         document.getElementById('products-table').innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Переключение кабинета...</td></tr>';
+        allSuppliesRaw = [];
+        allSupplies = [];
+        _supplyEnrichGen++;
         // Показываем оверлей перехода
         showCabinetTransition(cabinetName, async () => {
             await loadFromDB();
@@ -3161,6 +3199,11 @@
                 const cur = localStorage.getItem('nr_active_tab');
                 if (cur === 'rnp') RNP.openMain();
                 if (cur === 'rnp-settings') RNP.openSettings();
+            }
+            const curTab = localStorage.getItem('nr_active_tab');
+            if (curTab === 'logistics') {
+                showSuppliesFromCache();
+                loadSuppliesFromWB(true);
             }
         });
     }
@@ -4195,6 +4238,113 @@
     let allSupplies = [];
     let currentSuppliesFilter = 'all';
     let _supplyEnrichGen = 0;
+    const SUPPLIES_META_TTL_DONE_MS = 7 * 24 * 60 * 60 * 1000;
+    const SUPPLIES_META_TTL_ACTIVE_MS = 6 * 60 * 60 * 1000;
+
+    function suppliesMetaCacheKey() {
+        return `nr_supplies_meta_${currentCabinetId || 'default'}`;
+    }
+
+    function suppliesListCacheKey() {
+        return `nr_supplies_list_${currentCabinetId || 'default'}`;
+    }
+
+    function loadSuppliesMetaCache() {
+        try {
+            const raw = localStorage.getItem(suppliesMetaCacheKey());
+            if (!raw) return {};
+            const parsed = JSON.parse(raw);
+            return parsed.byId || {};
+        } catch (e) { return {}; }
+    }
+
+    function saveSuppliesMetaToCache(supplies) {
+        try {
+            const existing = loadSuppliesMetaCache();
+            const now = Date.now();
+            (supplies || []).forEach(s => {
+                if (!s?.id || !s._enriched) return;
+                existing[String(s.id)] = {
+                    warehouse: s.warehouse || null,
+                    itemsCount: s.itemsCount ?? null,
+                    createdAt: s.createdAt || null,
+                    statusName: s.statusName || '',
+                    done: !!s.done,
+                    ts: now,
+                };
+            });
+            const ids = Object.keys(existing);
+            if (ids.length > 2500) {
+                ids.sort((a, b) => (existing[b].ts || 0) - (existing[a].ts || 0));
+                ids.slice(2500).forEach(id => delete existing[id]);
+            }
+            localStorage.setItem(suppliesMetaCacheKey(), JSON.stringify({ v: 1, byId: existing }));
+        } catch (e) {}
+    }
+
+    function metaCacheEntryValid(entry, supply) {
+        if (!entry || !entry.ts) return false;
+        const age = Date.now() - entry.ts;
+        const done = supply?.done ?? entry.done;
+        const ttl = done ? SUPPLIES_META_TTL_DONE_MS : SUPPLIES_META_TTL_ACTIVE_MS;
+        return age < ttl;
+    }
+
+    function applyCachedMetaToSupply(s, cache) {
+        const entry = cache[String(s.id)];
+        if (!entry || !metaCacheEntryValid(entry, s)) return false;
+        if (entry.warehouse) s.warehouse = entry.warehouse;
+        if (entry.itemsCount != null && entry.itemsCount > 0) s.itemsCount = entry.itemsCount;
+        if (entry.createdAt) s.createdAt = entry.createdAt;
+        if (entry.statusName) s.statusName = entry.statusName;
+        if (entry.done != null) s.done = entry.done;
+        s._enriched = true;
+        s._fromCache = true;
+        return true;
+    }
+
+    function hydrateSuppliesFromCache(supplies) {
+        const cache = loadSuppliesMetaCache();
+        supplies.forEach(s => applyCachedMetaToSupply(s, cache));
+    }
+
+    function saveSuppliesListCache(list) {
+        try {
+            localStorage.setItem(suppliesListCacheKey(), JSON.stringify({
+                v: 1,
+                ts: Date.now(),
+                items: (list || []).map(s => ({
+                    id: s.id,
+                    createdAt: s.createdAt,
+                    done: s.done,
+                    statusName: s.statusName || '',
+                })),
+            }));
+        } catch (e) {}
+    }
+
+    function showSuppliesFromCache() {
+        try {
+            const raw = localStorage.getItem(suppliesListCacheKey());
+            if (!raw) return false;
+            const parsed = JSON.parse(raw);
+            if (!parsed.items?.length) return false;
+            allSuppliesRaw = parsed.items.map(item => ({
+                id: item.id,
+                createdAt: item.createdAt,
+                done: !!item.done,
+                statusName: item.statusName || '',
+                warehouse: null,
+                itemsCount: null,
+                _enriched: false,
+            }));
+            hydrateSuppliesFromCache(allSuppliesRaw);
+            const { from, to } = getActiveDateRange();
+            allSupplies = allSuppliesRaw.filter(s => supplyInDateRange(s, from, to));
+            renderSupplies();
+            return true;
+        } catch (e) { return false; }
+    }
 
     function applySupplyDetail(s, detail) {
         if (!s || !detail || detail.error) return;
@@ -4212,7 +4362,7 @@
         const gen = ++_supplyEnrichGen;
         const pending = (supplies || []).filter(s => s && !s._enriched);
         if (!pending.length) return;
-        const BATCH = 8;
+        const BATCH = 10;
         for (let i = 0; i < pending.length; i += BATCH) {
             if (gen !== _supplyEnrichGen) return;
             const chunk = pending.slice(i, i + BATCH);
@@ -4220,11 +4370,12 @@
                 try {
                     const detail = await callWbProxy('fbw_supply_detail', { supplyId: s.id });
                     applySupplyDetail(s, detail);
+                    if (s._enriched) saveSuppliesMetaToCache([s]);
                 } catch (e) { /* skip failed */ }
             }));
             if (gen !== _supplyEnrichGen) return;
             renderSupplies();
-            if (i + BATCH < pending.length) await new Promise(r => setTimeout(r, 1200));
+            if (i + BATCH < pending.length) await new Promise(r => setTimeout(r, 900));
         }
     }
 
@@ -4277,7 +4428,10 @@
             return;
         }
         const listEl = document.getElementById('supplies-list');
-        if (listEl) listEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка поставок из WB...</div>';
+        const hadCache = showSuppliesFromCache();
+        if (!hadCache && listEl) {
+            listEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка поставок из WB...</div>';
+        }
 
         const data = await callWbProxy('fbw_supplies', { limit: 1000, offset: 0 });
         if (!data) {
@@ -4297,6 +4451,8 @@
             const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
             return tb - ta;
         });
+        hydrateSuppliesFromCache(allSuppliesRaw);
+        saveSuppliesListCache(allSuppliesRaw);
 
         if (!allSuppliesRaw.length) {
             renderSuppliesError('Поставок не найдено в кабинете.');
@@ -4427,6 +4583,7 @@
 
         if (detail && !detail.error) {
             applySupplyDetail(supply, detail);
+            saveSuppliesMetaToCache([supply]);
             renderSupplies();
             const wh = detail.actualWarehouseName || detail.warehouseName;
             const date = detail.factDate || detail.supplyDate || detail.createDate;
@@ -4583,7 +4740,7 @@
     }
 </script>
     <script src="/dashboard-charts.js"></script>
-    <script src="/rnp-module.js?v=20260704-refactor2"></script>
+    <script src="/rnp-module.js?v=20260704-general-fix2"></script>
     <script src="/wb-formulas.js?v=20260703-photos9"></script>
 </body>
 </html>
