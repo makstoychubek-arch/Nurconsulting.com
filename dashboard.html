@@ -1734,6 +1734,148 @@
         }
         .admin-btn-block:hover:not(:disabled) { background: rgba(248, 113, 113, 0.18); }
         .admin-btn-activate:disabled, .admin-btn-block:disabled { opacity: 0.4; cursor: not-allowed; }
+        .admin-space-user {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 0;
+        }
+        .admin-space-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex-shrink: 0;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+        }
+        .admin-space-avatar-fallback {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: var(--surface);
+            border: 1px solid var(--border);
+        }
+        .admin-space-user-info { min-width: 0; }
+        .admin-space-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            line-height: 1.3;
+        }
+        .admin-space-email {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 2px;
+            line-height: 1.3;
+            word-break: break-all;
+        }
+        .admin-space-meta {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 4px;
+            opacity: 0.85;
+        }
+        .admin-spaces-subtabs {
+            display: flex;
+            gap: 4px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 4px;
+            margin-top: 14px;
+        }
+        .admin-spaces-subtab {
+            flex: 1;
+            text-align: center;
+            padding: 9px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            border-radius: 9px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            letter-spacing: -0.01em;
+        }
+        .admin-spaces-subtab.active {
+            background: var(--accent-gradient);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+        }
+        .admin-spaces-subtab-count {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 5px;
+            margin-left: 6px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .admin-spaces-subtab:not(.active) .admin-spaces-subtab-count {
+            background: var(--border);
+            color: var(--text-muted);
+        }
+        .space-creator-badge {
+            display: inline-flex;
+            align-items: center;
+            margin-left: 8px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, rgba(109, 40, 217, 0.14), rgba(167, 139, 250, 0.18));
+            color: #6d28d9;
+            border: 1px solid rgba(109, 40, 217, 0.2);
+            vertical-align: middle;
+        }
+        .admin-row-pinned td {
+            background: rgba(109, 40, 217, 0.03) !important;
+        }
+        .admin-btn-grant {
+            padding: 7px 14px;
+            border-radius: 10px;
+            border: none;
+            background: rgba(52, 211, 153, 0.14);
+            color: #059669;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+            white-space: nowrap;
+        }
+        .admin-btn-grant:hover:not(:disabled) { background: rgba(52, 211, 153, 0.24); }
+        .admin-btn-grant:disabled { opacity: 0.4; cursor: not-allowed; }
+        .oauth-intensity-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(59, 130, 246, 0.1);
+            color: #2563eb;
+        }
+        .oauth-intensity-high {
+            background: rgba(249, 115, 22, 0.12);
+            color: #ea580c;
+        }
         .space-pending-banner {
             margin-bottom: 16px;
             padding: 14px 18px;
@@ -2819,12 +2961,20 @@
             </div>
             <div id="settings-spaces" class="settings-tab-anim hidden space-y-4">
                 <div class="widget-card security-sessions-card p-0">
-                    <div class="p-6 pb-4">
+                    <div class="p-6 pb-0">
                         <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Управление Спейсами</h3>
-                        <p class="text-xs" style="color:var(--text-muted)">Пре-модерация клиентов, активация и блокировка спейсов</p>
+                        <p class="text-xs" style="color:var(--text-muted)">Действующие клиенты и лог OAuth-запросов</p>
+                        <div class="admin-spaces-subtabs" id="admin-spaces-subtabs">
+                            <button type="button" class="admin-spaces-subtab active" id="admin-spaces-tab-active" onclick="switchSpacesAdminTab('active', this)">
+                                Действующие клиенты<span class="admin-spaces-subtab-count" id="admin-spaces-count-active">0</span>
+                            </button>
+                            <button type="button" class="admin-spaces-subtab" id="admin-spaces-tab-requests" onclick="switchSpacesAdminTab('requests', this)">
+                                Запросы на вход<span class="admin-spaces-subtab-count" id="admin-spaces-count-requests">0</span>
+                            </button>
+                        </div>
                     </div>
                     <div id="admin-spaces-table-wrap" class="admin-spaces-table-wrap">
-                        <div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка клиентов...</div>
+                        <div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка...</div>
                     </div>
                 </div>
             </div>
@@ -3044,6 +3194,248 @@
 
     function isSuperAdminEmail(email) {
         return String(email || '').toLowerCase() === SUPER_ADMIN_EMAIL;
+    }
+
+    function extractGoogleProfile(user) {
+        const meta = user?.user_metadata || user?.raw_user_meta_data || {};
+        const firstName = meta.given_name || meta.first_name || '';
+        const lastName = meta.family_name || meta.last_name || '';
+        let fullName = meta.full_name || meta.name || '';
+        if (!fullName && (firstName || lastName)) {
+            fullName = [firstName, lastName].filter(Boolean).join(' ');
+        }
+        const avatarUrl = meta.avatar_url || meta.picture || '';
+        return { first_name: firstName, last_name: lastName, full_name: fullName, avatar_url: avatarUrl };
+    }
+
+    async function syncSpaceProfile(user) {
+        if (!user?.id) return null;
+        const p = extractGoogleProfile(user);
+        const { error } = await supabase.rpc('upsert_space_sign_in', {
+            p_first_name: p.first_name,
+            p_last_name: p.last_name,
+            p_full_name: p.full_name,
+            p_avatar_url: p.avatar_url,
+        });
+        if (error) console.warn('[spaces] sync profile:', error.message);
+        return p;
+    }
+
+    function spaceDisplayName(row) {
+        if (row?.full_name) return row.full_name;
+        const parts = [row?.first_name, row?.last_name].filter(Boolean);
+        if (parts.length) return parts.join(' ');
+        return row?.email?.split('@')[0] || '—';
+    }
+
+    function spaceUserInitial(row) {
+        const name = spaceDisplayName(row);
+        return (name.charAt(0) || '?').toUpperCase();
+    }
+
+    function formatLastSignIn(iso) {
+        if (!iso) return '—';
+        try {
+            const d = new Date(iso);
+            const now = new Date();
+            const isToday = d.toDateString() === now.toDateString();
+            const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            if (isToday) return `сегодня в ${time}`;
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (d.toDateString() === yesterday.toDateString()) return `вчера в ${time}`;
+            return `${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })} в ${time}`;
+        } catch (_) {
+            return '—';
+        }
+    }
+
+    function formatAttemptTime(iso) {
+        if (!iso) return '—';
+        try {
+            const d = new Date(iso);
+            const now = new Date();
+            const time = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+            if (d.toDateString() === now.toDateString()) return `Сегодня, ${time}`;
+            const yesterday = new Date(now);
+            yesterday.setDate(yesterday.getDate() - 1);
+            if (d.toDateString() === yesterday.toDateString()) return `Вчера, ${time}`;
+            return `${d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}, ${time}`;
+        } catch (_) {
+            return '—';
+        }
+    }
+
+    function formatAttemptIntensity(n) {
+        const num = Math.max(1, Number(n) || 1);
+        const mod10 = num % 10;
+        const mod100 = num % 100;
+        let word = 'раз';
+        if (mod10 === 1 && mod100 !== 11) word = 'раз';
+        else if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) word = 'раза';
+        else word = 'раз';
+        return `${num} ${word}`;
+    }
+
+    function renderAdminSpaceUserCell(row, opts = {}) {
+        const name = spaceDisplayName(row);
+        const email = row.email || '—';
+        const avatar = (row.avatar_url || '').trim();
+        const showCreator = opts.showCreator && (row.is_super_admin || isSuperAdminEmail(row.email));
+        const creatorBadge = showCreator ? '<span class="space-creator-badge">Создатель / Админ</span>' : '';
+        const metaLine = opts.hideMeta ? '' : `<div class="admin-space-meta">${escapeHtml(formatLastSignIn(row.last_sign_in_at))}</div>`;
+        const avatarHtml = avatar
+            ? `<img class="admin-space-avatar" src="${escapeHtml(avatar)}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="admin-space-avatar-fallback" style="display:none">${escapeHtml(spaceUserInitial(row))}</div>`
+            : `<div class="admin-space-avatar-fallback">${escapeHtml(spaceUserInitial(row))}</div>`;
+        return `<div class="admin-space-user">
+            ${avatarHtml}
+            <div class="admin-space-user-info">
+                <div class="admin-space-name">${escapeHtml(name)}${creatorBadge}</div>
+                <div class="admin-space-email">${escapeHtml(email)}</div>
+                ${metaLine}
+            </div>
+        </div>`;
+    }
+
+    let _spacesAdminTab = 'active';
+    let _spacesAdminCache = null;
+
+    function switchSpacesAdminTab(tab, el) {
+        _spacesAdminTab = tab;
+        document.querySelectorAll('.admin-spaces-subtab').forEach(t => t.classList.remove('active'));
+        if (el) el.classList.add('active');
+        if (_spacesAdminCache) renderSpacesAdminView();
+        else loadSpacesAdmin();
+    }
+
+    function sortActiveSpaces(rows) {
+        const admins = rows.filter(s => s.is_super_admin || isSuperAdminEmail(s.email));
+        const clients = rows.filter(s => s.status === 'active' && !s.is_super_admin && !isSuperAdminEmail(s.email));
+        clients.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+        return [...admins, ...clients];
+    }
+
+    function sortOAuthRequests(rows) {
+        return rows
+            .filter(s => s.status === 'pending' && !s.is_super_admin && !isSuperAdminEmail(s.email))
+            .sort((a, b) => new Date(b.last_sign_in_at || 0) - new Date(a.last_sign_in_at || 0));
+    }
+
+    function renderSpacesAdminView() {
+        const wrap = document.getElementById('admin-spaces-table-wrap');
+        if (!wrap || !_spacesAdminCache) return;
+
+        const { activeRows, requestRows, counts } = _spacesAdminCache;
+        const countActiveEl = document.getElementById('admin-spaces-count-active');
+        const countReqEl = document.getElementById('admin-spaces-count-requests');
+        if (countActiveEl) countActiveEl.textContent = String(activeRows.length);
+        if (countReqEl) countReqEl.textContent = String(requestRows.length);
+
+        if (_spacesAdminTab === 'requests') {
+            if (!requestRows.length) {
+                wrap.innerHTML = '<div class="text-center py-12 text-sm px-6" style="color:var(--text-muted)">Запросов на вход пока нет.<br><span style="font-size:11px;opacity:0.8">Здесь появятся гости, которые нажали «Вход через Google», но ещё не получили спейс.</span></div>';
+                return;
+            }
+            wrap.innerHTML = `<table class="admin-spaces-table">
+                <thead><tr>
+                    <th>Пользователь</th>
+                    <th>Время попытки</th>
+                    <th>Интенсивность</th>
+                    <th>Действия</th>
+                </tr></thead>
+                <tbody>${requestRows.map(s => {
+                    const attempts = Number(s.sign_in_attempts) || 1;
+                    const intensityCls = attempts >= 3 ? 'oauth-intensity-badge oauth-intensity-high' : 'oauth-intensity-badge';
+                    return `<tr>
+                        <td>${renderAdminSpaceUserCell(s, { hideMeta: true })}</td>
+                        <td style="white-space:nowrap">${escapeHtml(formatAttemptTime(s.last_sign_in_at))}</td>
+                        <td><span class="${intensityCls}">${escapeHtml(formatAttemptIntensity(attempts))}</span></td>
+                        <td>
+                            <button type="button" class="admin-btn-grant" onclick="adminGrantSpaceAccess('${s.user_id}', this)">Разрешить доступ / Создать Спейс</button>
+                        </td>
+                    </tr>`;
+                }).join('')}</tbody>
+            </table>`;
+            return;
+        }
+
+        if (!activeRows.length) {
+            wrap.innerHTML = '<div class="text-center py-12 text-sm" style="color:var(--text-muted)">Активных спейсов пока нет</div>';
+            return;
+        }
+
+        wrap.innerHTML = `<table class="admin-spaces-table">
+            <thead><tr>
+                <th>Пользователь</th>
+                <th>Тариф</th>
+                <th>Кабинеты</th>
+                <th>Регистрация</th>
+                <th>Последняя активность</th>
+                <th>Действия</th>
+            </tr></thead>
+            <tbody>${activeRows.map(s => {
+                const isCreator = s.is_super_admin || isSuperAdminEmail(s.email);
+                const rowCls = isCreator ? ' class="admin-row-pinned"' : '';
+                const blockBtn = isCreator ? '<span style="font-size:11px;color:var(--text-muted)">—</span>' :
+                    `<button type="button" class="admin-btn-block" onclick="adminBlockSpace('${s.user_id}', this)">Заблокировать Спейс</button>`;
+                return `<tr${rowCls}>
+                    <td>${renderAdminSpaceUserCell(s, { showCreator: true, hideMeta: true })}</td>
+                    <td>${escapeHtml(TARIFF_LABELS[s.tariff_plan] || s.tariff_plan || '—')}</td>
+                    <td>${cabinetCountLabel(counts[s.user_id] || 0)}</td>
+                    <td style="white-space:nowrap">${formatRegDate(s.created_at)}</td>
+                    <td style="white-space:nowrap">${escapeHtml(formatLastSignIn(s.last_sign_in_at))}</td>
+                    <td>${blockBtn}</td>
+                </tr>`;
+            }).join('')}</tbody>
+        </table>`;
+    }
+
+    async function loadSpacesAdmin() {
+        const wrap = document.getElementById('admin-spaces-table-wrap');
+        if (!wrap || !isSuperAdmin) return;
+
+        wrap.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка...</div>';
+
+        const [{ data: spaces, error: spErr }, { data: cabinets, error: cabErr }] = await Promise.all([
+            supabase.from('spaces').select('id, user_id, email, status, tariff_plan, created_at, is_super_admin, first_name, last_name, full_name, avatar_url, last_sign_in_at, sign_in_attempts'),
+            supabase.from('cabinets').select('user_id'),
+        ]);
+
+        if (spErr) {
+            wrap.innerHTML = `<div class="text-center py-10 text-sm px-6" style="color:var(--red)">${escapeHtml(spErr.message)}</div>`;
+            return;
+        }
+
+        const counts = {};
+        (cabinets || []).forEach(c => {
+            if (!c.user_id) return;
+            counts[c.user_id] = (counts[c.user_id] || 0) + 1;
+        });
+
+        const all = spaces || [];
+        _spacesAdminCache = {
+            activeRows: sortActiveSpaces(all),
+            requestRows: sortOAuthRequests(all),
+            counts,
+        };
+        renderSpacesAdminView();
+        if (cabErr) console.warn('[admin] cabinets count:', cabErr.message);
+    }
+
+    async function adminGrantSpaceAccess(userId, btn) {
+        if (!userId || !isSuperAdmin) return;
+        const label = 'Разрешить доступ / Создать Спейс';
+        if (btn) { btn.disabled = true; btn.textContent = '…'; }
+        try {
+            await callAdminSpace('activate', userId);
+            showPremiumModal('success', 'Доступ разрешён', 'Пользователь перенесён в «Действующие клиенты». При следующем входе через Google он попадёт в личный кабинет.');
+            _spacesAdminCache = null;
+            await loadSpacesAdmin();
+            switchSpacesAdminTab('active', document.getElementById('admin-spaces-tab-active'));
+        } catch (e) {
+            showPremiumModal('error', 'Ошибка', e.message || 'Не удалось выдать доступ');
+            if (btn) { btn.disabled = false; btn.textContent = label; }
+        }
     }
 
     let isSuperAdmin = false;
@@ -4709,24 +5101,10 @@
 
     async function ensureUserSpace(user) {
         if (!user?.id) return null;
-        const { data: existing } = await supabase.from('spaces').select('id, status, tariff_plan, is_super_admin')
+        await syncSpaceProfile(user);
+        const { data: existing } = await supabase.from('spaces').select('id, status, tariff_plan, is_super_admin, first_name, last_name, full_name, avatar_url, last_sign_in_at')
             .eq('user_id', user.id).maybeSingle();
-        if (existing) return existing;
-
-        const admin = isSuperAdminEmail(user.email);
-        if (admin) {
-            return { status: 'active', is_super_admin: true, tariff_plan: 'vip' };
-        }
-        const row = {
-            user_id: user.id,
-            email: user.email,
-            status: 'pending',
-            is_super_admin: false,
-            tariff_plan: 'start',
-        };
-        const { data: created, error } = await supabase.from('spaces').insert(row).select('id, status, tariff_plan, is_super_admin').maybeSingle();
-        if (error) console.warn('[spaces] ensure:', error.message);
-        return created || row;
+        return existing;
     }
 
     function updateSpaceStatusUI() {
@@ -4768,65 +5146,6 @@
         return `${num} ${word}`;
     }
 
-    async function loadSpacesAdmin() {
-        const wrap = document.getElementById('admin-spaces-table-wrap');
-        if (!wrap || !isSuperAdmin) return;
-
-        wrap.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка клиентов...</div>';
-
-        const [{ data: spaces, error: spErr }, { data: cabinets, error: cabErr }] = await Promise.all([
-            supabase.from('spaces').select('id, user_id, email, status, tariff_plan, created_at, is_super_admin').order('created_at', { ascending: false }),
-            supabase.from('cabinets').select('user_id'),
-        ]);
-
-        if (spErr) {
-            wrap.innerHTML = `<div class="text-center py-10 text-sm px-6" style="color:var(--red)">${escapeHtml(spErr.message)}</div>`;
-            return;
-        }
-
-        const counts = {};
-        (cabinets || []).forEach(c => {
-            if (!c.user_id) return;
-            counts[c.user_id] = (counts[c.user_id] || 0) + 1;
-        });
-
-        const rows = (spaces || []).filter(s => !s.is_super_admin);
-        if (!rows.length) {
-            wrap.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Клиентов пока нет</div>';
-            return;
-        }
-
-        wrap.innerHTML = `<table class="admin-spaces-table">
-            <thead><tr>
-                <th>Пользователь</th>
-                <th>Статус</th>
-                <th>Тариф</th>
-                <th>Нагрузка</th>
-                <th>Действия</th>
-            </tr></thead>
-            <tbody>${rows.map(s => {
-                const activateDisabled = s.status === 'active' ? 'disabled' : '';
-                const blockDisabled = s.status === 'blocked' ? 'disabled' : '';
-                return `<tr>
-                    <td>
-                        <div style="font-weight:600;color:var(--text-primary)">${escapeHtml(s.email)}</div>
-                        <div style="font-size:11px;color:var(--text-muted);margin-top:2px">с ${formatRegDate(s.created_at)}</div>
-                    </td>
-                    <td>${renderSpaceStatusBadge(s.status)}</td>
-                    <td>${escapeHtml(TARIFF_LABELS[s.tariff_plan] || s.tariff_plan || '—')}</td>
-                    <td>${cabinetCountLabel(counts[s.user_id] || 0)}</td>
-                    <td>
-                        <div class="admin-space-actions">
-                            <button type="button" class="admin-btn-activate" ${activateDisabled} onclick="adminActivateSpace('${s.user_id}', this)">Активировать</button>
-                            <button type="button" class="admin-btn-block" ${blockDisabled} onclick="adminBlockSpace('${s.user_id}', this)">Заблокировать Спейс</button>
-                        </div>
-                    </td>
-                </tr>`;
-            }).join('')}</tbody>
-        </table>`;
-        if (cabErr) console.warn('[admin] cabinets count:', cabErr.message);
-    }
-
     async function callAdminSpace(action, userId) {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error('Сессия истекла');
@@ -4841,16 +5160,7 @@
     }
 
     async function adminActivateSpace(userId, btn) {
-        if (!userId || !isSuperAdmin) return;
-        if (btn) { btn.disabled = true; btn.textContent = '…'; }
-        try {
-            await callAdminSpace('activate', userId);
-            showPremiumModal('success', 'Спейс активирован', 'Клиенту включены синхронизация WB и Edge-функции.');
-            await loadSpacesAdmin();
-        } catch (e) {
-            showPremiumModal('error', 'Ошибка', e.message || 'Не удалось активировать');
-            if (btn) { btn.disabled = false; btn.textContent = 'Активировать'; }
-        }
+        await adminGrantSpaceAccess(userId, btn);
     }
 
     async function adminBlockSpace(userId, btn) {
@@ -4860,6 +5170,7 @@
         try {
             await callAdminSpace('block', userId);
             showPremiumModal('success', 'Спейс заблокирован', 'Сессии клиента завершены, Edge-функции отключены.');
+            _spacesAdminCache = null;
             await loadSpacesAdmin();
         } catch (e) {
             showPremiumModal('error', 'Ошибка', e.message || 'Не удалось заблокировать');

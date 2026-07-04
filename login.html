@@ -259,6 +259,31 @@
 
         const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
 
+        function extractGoogleProfile(user) {
+            const meta = user?.user_metadata || user?.raw_user_meta_data || {};
+            const firstName = meta.given_name || meta.first_name || '';
+            const lastName = meta.family_name || meta.last_name || '';
+            let fullName = meta.full_name || meta.name || '';
+            if (!fullName && (firstName || lastName)) {
+                fullName = [firstName, lastName].filter(Boolean).join(' ');
+            }
+            const avatarUrl = meta.avatar_url || meta.picture || '';
+            return { first_name: firstName, last_name: lastName, full_name: fullName, avatar_url: avatarUrl };
+        }
+
+        async function syncSpaceProfile(user) {
+            if (!user?.id) return null;
+            const p = extractGoogleProfile(user);
+            const { error } = await supabase.rpc('upsert_space_sign_in', {
+                p_first_name: p.first_name,
+                p_last_name: p.last_name,
+                p_full_name: p.full_name,
+                p_avatar_url: p.avatar_url,
+            });
+            if (error) console.warn('[spaces] sync profile:', error.message);
+            return p;
+        }
+
         async function handleLogin() {
             const email = (document.getElementById('login-email')?.value || '').trim().toLowerCase();
             if (email === SUPER_ADMIN_EMAIL) {
@@ -295,6 +320,9 @@
         async function showCabinets(user) {
             const isSuperAdmin = String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL;
 
+            // Фиксируем имя/фамилию/аватар и время входа — даже для blocked/pending
+            const profile = await syncSpaceProfile(user);
+
             if (!isSuperAdmin) {
                 const { data: space, error: spaceErr } = await supabase
                     .from('spaces')
@@ -312,23 +340,13 @@
                     await supabase.auth.signOut();
                     return;
                 }
-
-                if (!space) {
-                    await supabase.from('spaces').insert({
-                        user_id: user.id,
-                        email: user.email,
-                        status: 'pending',
-                        tariff_plan: 'start',
-                        is_super_admin: false,
-                    });
-                }
             }
 
             // Показываем приветственный экран
             document.getElementById('screen-auth').classList.add('hidden');
             document.getElementById('screen-cabinets').classList.remove('hidden');
 
-            const name = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Пользователь';
+            const name = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Пользователь';
             document.getElementById('user-name').textContent = name;
 
             // Через 2.5 сек плавный переход на Space
@@ -344,11 +362,30 @@
             if (el) { el.textContent = '❌ ' + message; el.classList.remove('hidden'); }
         }
 
+        let _authFlowHandled = false;
+
+        async function startAuthFlow(user) {
+            if (_authFlowHandled) return;
+            _authFlowHandled = true;
+            await showCabinets(user);
+        }
+
         document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('tab') === 'register') switchTab('register');
+
+            supabase.auth.onAuthStateChange(async (event, session) => {
+                if (!session?.user) return;
+                if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
+                    await syncSpaceProfile(session.user);
+                }
+                if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+                    await startAuthFlow(session.user);
+                }
+            });
+
             const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) showCabinets(session.user);
+            if (session?.user) await startAuthFlow(session.user);
         });
     </script>
 </body>
