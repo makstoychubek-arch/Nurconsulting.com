@@ -317,10 +317,17 @@
             document.getElementById('screen-auth').classList.remove('hidden');
         }
 
+        async function denyLoginAccess(errorCode) {
+            try { await supabase.auth.signOut({ scope: 'global' }); } catch (_) {}
+            try { localStorage.removeItem('nr_session_key'); } catch (_) {}
+            _authFlowHandled = false;
+            window.location.replace('/login?error=' + encodeURIComponent(errorCode || 'access_denied'));
+        }
+
         async function showCabinets(user) {
             const isSuperAdmin = String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL;
 
-            // Фиксируем имя/фамилию/аватар и время входа — даже для blocked/pending
+            // Фиксируем попытку в лог OAuth (даже если доступ закрыт)
             const profile = await syncSpaceProfile(user);
 
             if (!isSuperAdmin) {
@@ -331,18 +338,19 @@
                     .maybeSingle();
 
                 if (spaceErr && spaceErr.code !== 'PGRST116') {
-                    showError('login-error', 'Ошибка проверки спейса. Попробуйте позже.');
+                    showError('login-error', 'Ошибка проверки доступа. Попробуйте позже.');
+                    _authFlowHandled = false;
                     return;
                 }
 
-                if (space?.status === 'blocked') {
-                    showError('login-error', 'Ваш спейс заблокирован администратором.');
-                    await supabase.auth.signOut();
+                if (space?.status !== 'active') {
+                    const code = space?.status === 'blocked' ? 'blocked' : 'access_denied';
+                    await denyLoginAccess(code);
                     return;
                 }
             }
 
-            // Показываем приветственный экран
+            // Показываем приветственный экран — только активные клиенты и Super Admin
             document.getElementById('screen-auth').classList.add('hidden');
             document.getElementById('screen-cabinets').classList.remove('hidden');
 
@@ -374,18 +382,36 @@
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('tab') === 'register') switchTab('register');
 
+            const authError = urlParams.get('error');
+            if (authError === 'access_denied') {
+                showError('login-error', 'Доступ к платформе закрыт. Дождитесь активации спейса администратором — ваша попытка входа зафиксирована.');
+            } else if (authError === 'blocked') {
+                showError('login-error', 'Ваш спейс заблокирован администратором. Обратитесь в поддержку NR Consulting.');
+            } else if (authError === 'access_check_failed') {
+                showError('login-error', 'Не удалось проверить доступ. Попробуйте войти снова через несколько минут.');
+            }
+
             supabase.auth.onAuthStateChange(async (event, session) => {
                 if (!session?.user) return;
                 if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
                     await syncSpaceProfile(session.user);
                 }
                 if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
+                    const err = new URLSearchParams(window.location.search).get('error');
+                    if (err) {
+                        try { await supabase.auth.signOut({ scope: 'global' }); } catch (_) {}
+                        return;
+                    }
                     await startAuthFlow(session.user);
                 }
             });
 
             const { data: { session } } = await supabase.auth.getSession();
-            if (session?.user) await startAuthFlow(session.user);
+            if (authError && session?.user) {
+                try { await supabase.auth.signOut({ scope: 'global' }); } catch (_) {}
+            } else if (session?.user) {
+                await startAuthFlow(session.user);
+            }
         });
     </script>
 </body>

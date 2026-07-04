@@ -3196,6 +3196,43 @@
         return String(email || '').toLowerCase() === SUPER_ADMIN_EMAIL;
     }
 
+    async function denyDashboardAccess(errorCode) {
+        try { await supabase.auth.signOut({ scope: 'global' }); } catch (_) {}
+        try {
+            localStorage.removeItem('nr_session_key');
+            localStorage.removeItem('selected_cabinet_id');
+        } catch (_) {}
+        window.location.replace('/login?error=' + encodeURIComponent(errorCode || 'access_denied'));
+    }
+
+    /** Шлагбаум: только Super Admin или status=active в spaces */
+    async function enforceAccessGate(user) {
+        if (!user?.id) {
+            window.location.replace('/login');
+            return false;
+        }
+        if (isSuperAdminEmail(user.email)) return true;
+
+        await syncSpaceProfile(user);
+
+        const { data: space, error } = await supabase
+            .from('spaces')
+            .select('status')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') {
+            await denyDashboardAccess('access_check_failed');
+            return false;
+        }
+
+        if (space?.status === 'active') return true;
+
+        const code = space?.status === 'blocked' ? 'blocked' : 'access_denied';
+        await denyDashboardAccess(code);
+        return false;
+    }
+
     function extractGoogleProfile(user) {
         const meta = user?.user_metadata || user?.raw_user_meta_data || {};
         const firstName = meta.given_name || meta.first_name || '';
@@ -5967,34 +6004,15 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { window.location.href = '/login'; return; }
+        if (!session) { window.location.replace('/login'); return; }
+
+        const allowed = await enforceAccessGate(session.user);
+        if (!allowed) return;
 
         isSuperAdmin = isSuperAdminEmail(session.user.email);
         currentUserEmail = session.user.email || '';
         currentUserId = session.user.id || '';
-
-        const spaceRow = await ensureUserSpace(session.user);
-        currentSpaceStatus = spaceRow?.status || (isSuperAdmin ? 'active' : 'pending');
-
-        if (!isSuperAdmin && currentSpaceStatus === 'blocked') {
-            await supabase.auth.signOut();
-            document.body.innerHTML = `<div style="min-height:100vh;background:#030303;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif"><div style="text-align:center;padding:40px;max-width:420px"><div style="width:80px;height:80px;background:linear-gradient(135deg,#dc2626,#991b1b);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px"><span style="color:white;font-size:32px">⛔</span></div><h1 style="color:white;font-size:24px;font-weight:700;margin-bottom:12px">Спейс заблокирован</h1><p style="color:#6b7280;font-size:14px;margin-bottom:32px">Доступ к платформе отключён администратором. Обратитесь в поддержку NR Consulting.</p><a href="/login" style="display:inline-block;padding:12px 32px;background:#6D28D9;color:white;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600">На страницу входа</a></div></div>`;
-            return;
-        }
-
-        if (!isSuperAdmin && currentSpaceStatus !== 'active') {
-            const { data: allowed } = await supabase.from('allowed_users').select('email').eq('email', session.user.email).maybeSingle();
-            if (!allowed) {
-                if (currentSpaceStatus === 'pending') {
-                    // pending users may enter dashboard in limited mode
-                } else {
-                    document.body.innerHTML = `<div style="min-height:100vh;background:#030303;display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif"><div style="text-align:center;padding:40px"><div style="width:80px;height:80px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:24px;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;box-shadow:0 0 60px rgba(109,40,217,0.4)"><span style="color:white;font-size:32px;font-weight:900">N</span></div><h1 style="color:white;font-size:24px;font-weight:700;margin-bottom:12px">Сервис в разработке</h1><p style="color:#6b7280;font-size:14px;margin-bottom:32px">Платформа пока недоступна для новых пользователей.</p><a href="https://nurcon.kg" style="display:inline-block;padding:12px 32px;background:#6D28D9;color:white;border-radius:12px;text-decoration:none;font-size:14px;font-weight:600">Перейти на nurcon.kg →</a></div></div>`;
-                    return;
-                }
-            } else {
-                currentSpaceStatus = 'active';
-            }
-        }
+        currentSpaceStatus = 'active';
 
         const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '—';
         const initial = name.charAt(0).toUpperCase();
