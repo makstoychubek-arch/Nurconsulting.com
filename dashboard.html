@@ -312,6 +312,7 @@
         }
         .supply-card-qty { font-weight: 700; color: var(--accent); }
         .supply-card-date { white-space: nowrap; }
+        .supply-card-loading { color: var(--text-muted); font-style: italic; font-weight: 400; }
         .logistics-tab { display: flex; flex-direction: column; gap: 0; min-height: 0; height: 100%; }
         .logistics-toolbar {
             display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -4193,6 +4194,39 @@
     let allSuppliesRaw = [];
     let allSupplies = [];
     let currentSuppliesFilter = 'all';
+    let _supplyEnrichGen = 0;
+
+    function applySupplyDetail(s, detail) {
+        if (!s || !detail || detail.error) return;
+        const wh = (detail.actualWarehouseName || detail.warehouseName || detail.transitWarehouseName || '').trim();
+        if (wh) s.warehouse = wh;
+        const qty = Number(detail.quantity ?? detail.acceptedQuantity ?? 0);
+        if (qty > 0) s.itemsCount = qty;
+        const date = detail.factDate || detail.supplyDate || detail.createDate;
+        if (date) s.createdAt = date;
+        if (detail.statusName) s.statusName = String(detail.statusName);
+        s._enriched = true;
+    }
+
+    async function enrichSuppliesMeta(supplies) {
+        const gen = ++_supplyEnrichGen;
+        const pending = (supplies || []).filter(s => s && !s._enriched);
+        if (!pending.length) return;
+        const BATCH = 8;
+        for (let i = 0; i < pending.length; i += BATCH) {
+            if (gen !== _supplyEnrichGen) return;
+            const chunk = pending.slice(i, i + BATCH);
+            await Promise.all(chunk.map(async s => {
+                try {
+                    const detail = await callWbProxy('fbw_supply_detail', { supplyId: s.id });
+                    applySupplyDetail(s, detail);
+                } catch (e) { /* skip failed */ }
+            }));
+            if (gen !== _supplyEnrichGen) return;
+            renderSupplies();
+            if (i + BATCH < pending.length) await new Promise(r => setTimeout(r, 1200));
+        }
+    }
 
     function supplyInDateRange(s, from, to) {
         if (!s.createdAt) return true;
@@ -4204,6 +4238,7 @@
         const { from, to } = getActiveDateRange();
         allSupplies = allSuppliesRaw.filter(s => supplyInDateRange(s, from, to));
         renderSupplies();
+        enrichSuppliesMeta(allSupplies);
     }
 
     function filterSupplies(mode, el) {
@@ -4227,9 +4262,10 @@
             id,
             createdAt: date,
             done,
-            warehouse: s.warehouseName || s.warehouse || s.actualWarehouseName || '—',
+            warehouse: (s.warehouseName || s.warehouse || s.actualWarehouseName || '').trim() || null,
             itemsCount: qty,
             statusName,
+            _enriched: false,
         };
     }
 
@@ -4306,8 +4342,12 @@
             const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
             const pillClass = s.done ? 'done' : 'active';
             const pillText = s.done ? 'Завершена' : 'Активна';
-            const qtyText = s.itemsCount != null ? (s.itemsCount.toLocaleString('ru') + ' шт.') : '— шт.';
-            const wh = s.warehouse && s.warehouse !== '—' ? escapeHtml(String(s.warehouse)) : 'Склад не указан';
+            const qtyText = s.itemsCount != null && s.itemsCount > 0
+                ? (s.itemsCount.toLocaleString('ru') + ' шт.')
+                : (s._enriched ? '— шт.' : '…');
+            const wh = s.warehouse
+                ? escapeHtml(String(s.warehouse))
+                : (s._enriched ? 'Склад не указан' : '<span class="supply-card-loading">загрузка…</span>');
             return `
             <div class="supply-card" onclick="openSupplyDetail('${escapeHtml(String(s.id))}')" title="Открыть детали поставки">
                 <div class="supply-card-top">
@@ -4386,11 +4426,13 @@
         ]);
 
         if (detail && !detail.error) {
+            applySupplyDetail(supply, detail);
+            renderSupplies();
             const wh = detail.actualWarehouseName || detail.warehouseName;
             const date = detail.factDate || detail.supplyDate || detail.createDate;
             const dateStr = date ? new Date(date).toLocaleDateString('ru-RU') : '';
             document.getElementById('supply-detail-meta').textContent =
-                '#' + supply.id + (wh ? ' · ' + wh : '') + (dateStr ? ' · ' + dateStr : '');
+                (wh ? wh + ' · ' : '') + (dateStr || '') + (supply.statusName ? ' · ' + supply.statusName : '');
         }
 
         if (!goods.length) {
