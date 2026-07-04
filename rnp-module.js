@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260704-general-fix2';
+    const RNP_BUILD = '20260704-general-money';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -1304,34 +1304,51 @@ const RNP = (() => {
         </div>`;
     }
 
+    function _sumArticlesMoney(active, cal) {
+        let totalSom = 0;
+        (active || []).forEach(art => {
+            const rawData = _dataCache[art.nm_id] || {};
+            const kpi = _periodSummary(art, rawData, cal);
+            const er = (Number(kpi.wb_rate) > 0) ? Number(kpi.wb_rate) : _settings.exchangeRate;
+            totalSom += Math.round((kpi.sales_sum || 0) * er);
+        });
+        const usdRate = _settings.usdRate || 87.5;
+        const moneyUsd = totalSom > 0
+            ? (totalSom / usdRate).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 })
+            : '0';
+        return {
+            moneySom: totalSom,
+            moneyUsd,
+            moneySomFmt: totalSom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+        };
+    }
+
     function _buildGeneralMetricsStrip(active, cal) {
         const kpi = _cabinetPeriodSummary(active, cal);
         const er = (Number(kpi.wb_rate) > 0) ? Number(kpi.wb_rate) : _settings.exchangeRate;
-        const moneySom = Math.round((kpi.sales_sum || 0) * er);
-        const moneyUsd = moneySom > 0
-            ? (moneySom / (_settings.usdRate || 87.5)).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 })
-            : '0';
+        const money = _sumArticlesMoney(active, cal);
         const profitCls = (kpi.profit || 0) >= 0 ? 'pos' : 'neg';
         const marginCls = (kpi.margin_pct || 0) >= 15 ? 'pos' : ((kpi.margin_pct || 0) < 5 ? 'neg' : '');
         const items = [
-            { label: 'Общий РНП', value: `${active.length} арт.`, title: true },
-            { label: 'В деньгах', value: moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) },
-            { label: 'В долларах', value: '$' + moneyUsd },
+            { label: 'В деньгах', value: money.moneySomFmt },
+            { label: 'В долларах', value: '$' + money.moneyUsd },
             { label: 'Заказы', value: _fmtKpi(kpi.orders_count, 'int') },
             { label: 'Продажи', value: _fmtKpi(kpi.sales_count, 'int') },
-            { label: 'Сумма', value: moneySom.toLocaleString('ru') },
+            { label: 'Сумма', value: money.moneySomFmt },
             { label: 'Прибыль', value: _fmtKpi(kpi.profit, 'som'), cls: profitCls },
             { label: 'Маржа', value: _fmtKpi(kpi.margin_pct, 'pct'), cls: marginCls },
             { label: 'ДРР', value: _fmtKpi(kpi.drr_pct, 'pct') },
             { label: 'К переч.', value: Math.round((kpi.to_transfer || 0) * er).toLocaleString('ru') },
         ];
-        return `<div class="rnp-general-metrics">${items.map(it => {
-            const pillCls = it.title ? ' rnp-general-metric-pill--title' : '';
+        return `<div class="rnp-general-metrics">
+          <div class="rnp-general-art-count">${active.length} арт.</div>
+          ${items.map(it => {
             const bCls = it.cls ? ` class="${it.cls}"` : '';
-            return `<div class="rnp-cabinet-kpi-pill rnp-general-metric-pill${pillCls}">
+            return `<div class="rnp-cabinet-kpi-pill rnp-general-metric-pill">
               <span>${it.label}</span><b${bCls}>${it.value}</b>
             </div>`;
-        }).join('')}</div>`;
+          }).join('')}
+        </div>`;
     }
 
     function _buildGeneralTopGallery(active) {
