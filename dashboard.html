@@ -344,7 +344,9 @@
         .cabinet-picker {
             position: relative; display: inline-flex; align-items: center;
             min-width: 0; max-width: 220px; z-index: 60;
+            overflow: visible;
         }
+        .cabinet-picker.open { z-index: 9999; }
         .cabinet-picker-native { display: none !important; }
         .cabinet-picker-btn {
             display: flex; align-items: center; gap: 8px;
@@ -373,7 +375,9 @@
             box-shadow: 0 20px 60px rgba(0,0,0,0.55); padding: 6px;
             opacity: 0; visibility: hidden; transform: translateY(-6px) scale(0.97);
             transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+            z-index: 9999; pointer-events: none;
         }
+        .cabinet-picker.open .cabinet-dropdown-menu { pointer-events: auto; }
         .cabinet-picker.open .cabinet-dropdown-menu {
             opacity: 1; visibility: visible; transform: translateY(0) scale(1);
         }
@@ -1588,7 +1592,11 @@
         .nav-item-standalone { border-radius: 12px !important; }
 
         /* Стеклянный хедер */
-        header.glass { backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important; }
+        header.glass {
+            position: relative; z-index: 200; overflow: visible;
+            backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important;
+        }
+        header.glass > div { overflow: visible; }
         [data-theme="neon"] header.glass { border-bottom: 1px solid rgba(240,98,146,0.12) !important; background: rgba(10,10,16,0.85) !important; }
         [data-theme="ios"] header.glass { background: rgba(255,255,255,0.88) !important; }
 
@@ -2433,7 +2441,7 @@
                     </div>
                     <div id="add-cabinet-form" class="hidden mb-4 p-4 rounded-xl" style="background:var(--accent-soft);border:1px solid var(--accent-border)">
                         <input type="text" id="new-cabinet-name" placeholder="Название кабинета" class="w-full rounded-xl px-4 py-2.5 text-sm mb-2" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                        <input type="text" id="new-cabinet-token" placeholder="Персональный токен WB" class="w-full rounded-xl px-4 py-2.5 text-sm mb-3" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary);font-family:monospace">
+                        <input type="password" id="new-cabinet-token" placeholder="Персональный токен WB" autocomplete="off" class="w-full rounded-xl px-4 py-2.5 text-sm mb-3" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary);font-family:monospace">
                         <div class="flex gap-2">
                             <button class="px-5 py-2 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="addNewCabinet()">Сохранить</button>
                             <button class="ui-btn ui-btn-secondary" onclick="hideAddCabinetForm()">Отмена</button>
@@ -2607,6 +2615,7 @@
 
     let currentCabinetId = localStorage.getItem('selected_cabinet_id') || null;
     let currentUserEmail = '';
+    let currentUserId = '';
 
     function applyTheme(theme) {
         document.documentElement.setAttribute('data-theme', theme);
@@ -4197,7 +4206,7 @@
                     <button class="ui-btn ui-btn-secondary" onclick="toggleEditToken('${c.id}')">${hasToken ? 'Изменить' : 'Добавить'}</button>
                 </div>
                 <div id="edit-token-${c.id}" class="hidden" style="padding:0 4px 14px">
-                    <input type="text" id="token-input-${c.id}" placeholder="Вставьте токен WB (со всеми правами)" class="ui-input" style="font-family:monospace">
+                    <input type="password" id="token-input-${c.id}" placeholder="Вставьте токен WB (со всеми правами)" autocomplete="off" class="ui-input" style="font-family:monospace">
                     <div class="flex gap-2 mt-2">
                         <button class="ui-btn ui-btn-primary" onclick="saveTokenForCabinet('${c.id}')">Сохранить</button>
                         <button class="ui-btn ui-btn-secondary" onclick="toggleEditToken('${c.id}')">Отмена</button>
@@ -4230,7 +4239,8 @@
         const name = document.getElementById('new-cabinet-name').value.trim();
         const token = document.getElementById('new-cabinet-token').value.trim();
         if (!name) { showPremiumModal('warning', 'Укажите название', 'Введите название нового кабинета.'); return; }
-        const { error } = await supabase.from('cabinets').insert({ name, wb_token: token || null });
+        if (!currentUserId) { showPremiumModal('error', 'Сессия', 'Войдите заново и повторите.'); return; }
+        const { error } = await supabase.from('cabinets').insert({ name, wb_token: token || null, user_id: currentUserId });
         if (error) { showPremiumModal('error', 'Ошибка', error.message); return; }
         hideAddCabinetForm();
         showPremiumModal('success', 'Кабинет добавлен!', `Кабинет "${name}" успешно создан.`);
@@ -4702,6 +4712,7 @@
         if (fi) fi.textContent = initial;
         document.getElementById('settings-user-info').innerHTML = `<div>Email: <span style="color:var(--text-primary)">${session.user.email}</span></div>`;
         currentUserEmail = session.user.email || '';
+        currentUserId = session.user.id || '';
         try {
             await loadCabinets();
             updateDateRangeLabel();
@@ -4792,7 +4803,7 @@
     }
 </script>
     <script src="/dashboard-charts.js"></script>
-    <script src="/rnp-module.js?v=20260704-general-money2"></script>
+    <script src="/rnp-module.js?v=20260704-photo-cache"></script>
     <script src="/wb-formulas.js?v=20260703-photos9"></script>
 </body>
 </html>

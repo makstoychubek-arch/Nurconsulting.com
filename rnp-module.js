@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260704-general-money2';
+    const RNP_BUILD = '20260704-photo-cache';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -189,6 +189,79 @@ const RNP = (() => {
     const _photoProxyCooldown = {};
     const _galleryFetchAttempted = new Set();
     const PHOTO_PROXY_COOLDOWN_MS = 10 * 60 * 1000;
+    const PHOTO_CACHE_V = 3;
+
+    function _photoStorageKey() {
+        return `nr_rnp_photos_v3_${_cab || 'default'}`;
+    }
+
+    function _hydratePhotoCacheFromStorage() {
+        try {
+            const raw = localStorage.getItem(_photoStorageKey());
+            if (raw) {
+                const snap = JSON.parse(raw);
+                Object.entries(snap.main || {}).forEach(([id, url]) => {
+                    const nmId = Number(id);
+                    const norm = _normalizePhotoUrl(url);
+                    if (!norm || !nmId) return;
+                    _photoResolveCache[nmId] = norm;
+                    const ver = _normalizePhotoUrl(snap.verified?.[id]);
+                    if (ver) _verifiedPhotoUrls[nmId] = ver;
+                });
+                Object.entries(snap.gallery || {}).forEach(([id, urls]) => {
+                    const nmId = Number(id);
+                    if (!nmId || !Array.isArray(urls)) return;
+                    const extras = urls.map(_normalizePhotoUrl).filter(Boolean);
+                    if (!extras.length) return;
+                    _galleryPhotosCache[nmId] = extras;
+                    if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
+                    extras.forEach((u, i) => { _photoIndexCache[nmId][i + 2] = u; });
+                    _galleryFetchAttempted.add(nmId);
+                });
+                return;
+            }
+        } catch (e) {}
+        Object.entries(_verifiedPhotoUrls).forEach(([id, url]) => {
+            const nmId = Number(id);
+            const norm = _normalizePhotoUrl(url);
+            if (norm && nmId && !_photoResolveCache[nmId]) _photoResolveCache[nmId] = norm;
+        });
+    }
+
+    function _photosCacheReady(articles) {
+        const list = articles || (_articles || []).filter(a => a.is_active);
+        if (!list.length) return false;
+        return list.every(a => !!_cachedPhotoUrl(a, 1));
+    }
+
+    function _savePhotoCacheSnapshot(articles) {
+        if (!_cab) return;
+        try {
+            const list = articles || (_articles || []).filter(a => a.is_active);
+            const main = {};
+            const gallery = {};
+            const verified = {};
+            list.forEach(a => {
+                const id = String(a.nm_id);
+                const url = _normalizePhotoUrl(_photoResolveCache[a.nm_id])
+                    || _normalizePhotoUrl(a.photo_url);
+                if (url) {
+                    main[id] = url;
+                    if (_verifiedPhotoUrls[a.nm_id]) verified[id] = _verifiedPhotoUrls[a.nm_id];
+                }
+                const gal = _galleryPhotosCache[a.nm_id];
+                if (gal?.length) gallery[id] = gal;
+            });
+            const metaComplete = list.length > 0 && list.every(a => main[String(a.nm_id)]);
+            const payload = { v: PHOTO_CACHE_V, ts: Date.now(), metaComplete, main, gallery, verified };
+            localStorage.setItem(_photoStorageKey(), JSON.stringify(payload));
+            list.forEach(a => {
+                const u = main[String(a.nm_id)];
+                if (u) _verifiedPhotoUrls[a.nm_id] = verified[String(a.nm_id)] || u;
+            });
+            localStorage.setItem('rnp_photos_v2', JSON.stringify(_verifiedPhotoUrls));
+        } catch (e) { console.warn('[RNP] photo cache save failed', e); }
+    }
 
     const _PHOTO_PLACEHOLDER = 'data:image/svg+xml,' + encodeURIComponent(
         '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="100" viewBox="0 0 80 100"><rect fill="#2a2a35" width="80" height="100"/><text x="40" y="52" text-anchor="middle" fill="#777" font-size="10" font-family="sans-serif">WB</text></svg>'
@@ -216,6 +289,7 @@ const RNP = (() => {
     function _markPhotoVerified(nmId, url) {
         _verifiedPhotoUrls[nmId] = url;
         try { localStorage.setItem('rnp_photos_v2', JSON.stringify(_verifiedPhotoUrls)); } catch (e) {}
+        _savePhotoCacheSnapshot();
     }
 
     function _isUsablePhotoUrl(nmId, url) {
@@ -351,6 +425,7 @@ const RNP = (() => {
         if (stillNeed.size) {
             console.info(`[RNP] photos: ${stillNeed.size}/${slice.length} not found on WB (nmIds: ${[...stillNeed].join(',')})`);
         }
+        _savePhotoCacheSnapshot();
     }
 
     function _applyResolvedPhotos(root) {
@@ -366,13 +441,25 @@ const RNP = (() => {
         });
     }
 
-    async function _preloadPhotos(articles) {
+    async function _preloadPhotos(articles, opts = {}) {
         if (!articles?.length) return;
+        _hydratePhotoCacheFromStorage();
         _hydratePhotoCacheFromArticles();
+        _applyResolvedPhotos();
+        if (opts.cacheOnly || _photosCacheReady(articles)) {
+            _savePhotoCacheSnapshot(articles);
+            return;
+        }
         const missing = articles.filter(a => !_cachedPhotoUrl(a, 1)).map(a => a.nm_id);
         if (missing.length) await _fetchPhotosViaProxy(missing);
         await _persistResolvedPhotos(articles);
+        _savePhotoCacheSnapshot(articles);
         _applyResolvedPhotos();
+    }
+
+    async function _preloadPhotosBackground(articles) {
+        if (!articles?.length || _photosCacheReady(articles)) return;
+        try { await _preloadPhotos(articles); } catch (e) { console.warn('[RNP] photo preload:', e.message); }
     }
 
     async function _preloadGalleryPhotos(nmId) {
@@ -2729,6 +2816,7 @@ const RNP = (() => {
         const el = document.getElementById('tab-rnp');
         if (!el) return;
         const active = _articles.filter(a => a.is_active);
+        _hydratePhotoCacheFromStorage();
         _hydratePhotoCacheFromArticles();
 
         if (!active.length) {
@@ -2785,11 +2873,19 @@ const RNP = (() => {
             await _loadAllDailyData(active.map(a => a.nm_id));
             await _loadAllStocks(active.map(a => a.nm_id));
             await _loadNotes(active.map(a => a.nm_id));
-            await _preloadPhotos(active);
+            _hydratePhotoCacheFromStorage();
+            _hydratePhotoCacheFromArticles();
         } catch (e) {
             console.error('[RNP] load:', e);
         }
         await _renderActiveTable();
+        _applyResolvedPhotos();
+        _preloadPhotosBackground(active).then(() => {
+            _applyResolvedPhotos();
+            const tabs = document.getElementById('rnp-sheet-tabs');
+            if (tabs) tabs.innerHTML = _renderTabsHTML(_articles.filter(a => a.is_active));
+            _updateTabHighlight();
+        });
         _updateEditModeBtn();
     }
 
@@ -2809,7 +2905,8 @@ const RNP = (() => {
         }
 
         if (_activeNm === GENERAL_TAB) {
-            await _preloadPhotos(active);
+            _hydratePhotoCacheFromStorage();
+            _hydratePhotoCacheFromArticles();
             _metricRowSeq = 0;
             body.innerHTML = `
           ${_buildGeneralTopBar(active, cal)}
@@ -2822,6 +2919,7 @@ const RNP = (() => {
             if (bar) bar.innerHTML = _buildActionBar(active);
             _applyResolvedPhotos(body);
             _afterTableRender();
+            _preloadPhotosBackground(active).then(() => _applyResolvedPhotos(body));
             return;
         }
 
@@ -3293,6 +3391,7 @@ const RNP = (() => {
         _bindSelectionHandlers();
         await _loadSettings();
         await _loadArticles();
+        _hydratePhotoCacheFromStorage();
         _hydratePhotoCacheFromArticles();
         _backfillSellerArticlesFromDb().catch(e => console.warn('[RNP] seller backfill:', e.message));
     }
