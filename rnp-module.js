@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260704-general-money';
+    const RNP_BUILD = '20260704-general-money2';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -1304,13 +1304,26 @@ const RNP = (() => {
         </div>`;
     }
 
+    function _articleMoneyRub(kpi) {
+        if (!kpi) return 0;
+        const salesSum = Number(kpi.sales_sum) || 0;
+        if (salesSum > 0) return salesSum;
+        const ordersSum = Number(kpi.orders_sum) || 0;
+        if (ordersSum > 0) return ordersSum;
+        return Number(kpi.to_transfer) || 0;
+    }
+
+    function _articleMoneySom(kpi, er) {
+        const rate = (Number(kpi?.wb_rate) > 0) ? Number(kpi.wb_rate) : (er || _settings.exchangeRate);
+        return Math.round(_articleMoneyRub(kpi) * rate);
+    }
+
     function _sumArticlesMoney(active, cal) {
         let totalSom = 0;
         (active || []).forEach(art => {
             const rawData = _dataCache[art.nm_id] || {};
             const kpi = _periodSummary(art, rawData, cal);
-            const er = (Number(kpi.wb_rate) > 0) ? Number(kpi.wb_rate) : _settings.exchangeRate;
-            totalSom += Math.round((kpi.sales_sum || 0) * er);
+            totalSom += _articleMoneySom(kpi);
         });
         const usdRate = _settings.usdRate || 87.5;
         const moneyUsd = totalSom > 0
@@ -1877,7 +1890,7 @@ const RNP = (() => {
         const profitCls = (kpi.profit || 0) >= 0 ? 'pos' : 'neg';
         const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'pos' : ((kpi.plan_orders_pct || 0) < 80 ? 'neg' : '');
         const syncSt = _syncStatus(art.nm_id);
-        const moneySom = Math.round((kpi.sales_sum || 0) * er);
+        const moneySom = _articleMoneySom(kpi, er);
         const moneyUsd = moneySom > 0 ? (moneySom / (_settings.usdRate || 87.5)).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 }) : '0';
         const seller = _sellerArticle(art).replace(/"/g, '&quot;');
 
