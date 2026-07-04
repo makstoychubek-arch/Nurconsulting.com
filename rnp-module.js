@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260704-photo-cache';
+    const RNP_BUILD = '20260704-cabinet-bootstrap';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -21,6 +21,7 @@ const RNP = (() => {
         showGiveaways: true,
         showCompetitor: true,
     };
+    let _settingsInDb = false;
     let _articles = [];
     let _activeNm = null;
     let _collapsedSections = new Set();
@@ -717,9 +718,11 @@ const RNP = (() => {
     }
 
     async function _loadSettings() {
+        _settingsInDb = false;
         try {
             const { data } = await _db.from('rnp_settings').select('*').eq('cabinet_id', _cab).maybeSingle();
             if (data) {
+                _settingsInDb = true;
                 _settings = {
                     ..._settings,
                     exchangeRate: data.exchange_rate || 13.5,
@@ -729,6 +732,15 @@ const RNP = (() => {
                 };
             }
         } catch(e) { console.warn('[RNP] settings load:', e.message); }
+    }
+
+    async function _ensureDefaultSettings() {
+        if (_settingsInDb || !_cab) return;
+        try {
+            await _saveSettings({});
+            _settingsInDb = true;
+            console.info('[RNP] default settings created for cabinet', _cab);
+        } catch (e) { console.warn('[RNP] default settings:', e.message); }
     }
 
     async function _saveSettings(updates) {
@@ -756,14 +768,18 @@ const RNP = (() => {
         } catch(e) { console.warn('[RNP] articles load:', e.message); }
     }
 
-    async function _syncFromOrders() {
+    async function _syncFromOrders(opts = {}) {
+        const { silent = false, activateNew = false } = opts;
         try {
             const { data: orders, error } = await _db.from('wb_orders')
                 .select('nm_id, data')
                 .eq('cabinet_id', _cab)
                 .not('nm_id', 'is', null);
             if (error) throw error;
-            if (!orders?.length) { _nrDialog('Нет данных', 'Сначала загрузите данные кабинета на вкладке Оцифровка → Дашборд.', 'warning'); return; }
+            if (!orders?.length) {
+                if (!silent) _nrDialog('Нет данных', 'Сначала загрузите данные кабинета на вкладке Оцифровка → Дашборд.', 'warning');
+                return false;
+            }
             const uniq = new Map();
             orders.forEach(o => {
                 const nm = o.nm_id;
@@ -783,7 +799,7 @@ const RNP = (() => {
                 if (!existing) {
                     await _db.from('rnp_articles').upsert({
                         cabinet_id: _cab, nm_id: nmId, name: displayName,
-                        photo_url: '', is_active: false, cost_price: 0,
+                        photo_url: '', is_active: activateNew, cost_price: 0,
                         manual_data: md,
                     }, { onConflict: 'cabinet_id,nm_id', ignoreDuplicates: true });
                 } else if (meta.sa) {
@@ -792,7 +808,84 @@ const RNP = (() => {
             }
             await _loadArticles();
             await _backfillSellerArticlesFromDb();
-        } catch(e) { console.error('[RNP] sync:', e.message); }
+            return _articles.length > 0;
+        } catch(e) {
+            console.error('[RNP] sync:', e.message);
+            if (!silent) _nrDialog('Ошибка', 'Не удалось подтянуть артикулы из заказов.', 'error');
+            return false;
+        }
+    }
+
+    async function _syncFromContentCards(opts = {}) {
+        const { silent = false, activateNew = false } = opts;
+        if (!_callProxy) return false;
+        try {
+            const resp = await _callProxy('content_cards', { limit: 1000, withPhoto: -1, textSearch: '' });
+            const cards = resp?.cards || resp?.data?.cards || [];
+            if (!cards.length) {
+                if (!silent) _nrDialog('Нет карточек', 'WB не вернул карточки товаров. Проверьте токен кабинета.', 'warning');
+                return false;
+            }
+            for (const card of cards) {
+                const nmId = Number(card.nmID || card.nmId);
+                if (!nmId) continue;
+                const sa = _extractSellerArticle(card);
+                const displayName = sa
+                    || String(card.title || card.object || card.vendorCode || `Артикул ${nmId}`).trim();
+                const existing = _articles.find(a => a.nm_id == nmId);
+                const md = { ...(existing?.manual_data || {}) };
+                if (sa) md.seller_article = sa;
+                await _db.from('rnp_articles').upsert({
+                    cabinet_id: _cab, nm_id: nmId, name: displayName,
+                    photo_url: '', is_active: activateNew || !!existing?.is_active,
+                    cost_price: existing?.cost_price || 0,
+                    manual_data: md,
+                }, { onConflict: 'cabinet_id,nm_id' });
+            }
+            await _loadArticles();
+            return _articles.length > 0;
+        } catch (e) {
+            console.error('[RNP] content sync:', e.message);
+            if (!silent) _nrDialog('Ошибка', 'Не удалось загрузить карточки из WB.', 'error');
+            return false;
+        }
+    }
+
+    async function _setAllActive(on) {
+        for (const a of _articles) {
+            if (a.is_active !== on) await _updateArticle(a.nm_id, { is_active: on });
+        }
+    }
+
+    async function _bootstrapCabinetIfNeeded() {
+        if (!_cab) return;
+        await _ensureDefaultSettings();
+
+        const initKey = `rnp_cabinet_init_${_cab}`;
+        let initialized = false;
+        try { initialized = !!localStorage.getItem(initKey); } catch (e) {}
+
+        if (!_articles.length) {
+            console.info('[RNP] bootstrapping new cabinet', _cab);
+            let ok = await _syncFromOrders({ silent: true, activateNew: true });
+            if (!ok || !_articles.length) {
+                ok = await _syncFromContentCards({ silent: true, activateNew: true });
+            }
+            if (_articles.length && !_articles.some(a => a.is_active)) {
+                await _setAllActive(true);
+            }
+            if (_articles.length) {
+                try { localStorage.setItem(initKey, '1'); } catch (e) {}
+                console.info('[RNP] bootstrap done:', _articles.filter(a => a.is_active).length, '/', _articles.length, 'active');
+            }
+            return;
+        }
+
+        if (!initialized && !_articles.some(a => a.is_active)) {
+            await _setAllActive(true);
+            try { localStorage.setItem(initKey, '1'); } catch (e) {}
+            console.info('[RNP] activated', _articles.length, 'articles for new cabinet', _cab);
+        }
     }
 
     async function _updateArticle(nmId, updates) {
@@ -2820,12 +2913,22 @@ const RNP = (() => {
         _hydratePhotoCacheFromArticles();
 
         if (!active.length) {
+            const total = _articles.length;
+            const hint = total === 0
+                ? 'Артикулы ещё не подтянуты. Нажмите «Из заказов» или дождитесь автозагрузки после обновления дашборда.'
+                : `В базе ${total} арт., но ни один не активен. Нажмите «Включить все» для активации товаров.`;
             el.innerHTML = `
             <div class="glass rounded-2xl p-14 text-center">
               <h3 class="text-lg font-bold mb-2" style="color:var(--text-primary)">Нет активных артикулов</h3>
-              <p class="text-sm mb-5" style="color:var(--text-muted)">Перейдите в Настройки РНП → «Из заказов» → включите нужные товары</p>
-              <button onclick="showTab('rnp-settings',null)" class="px-5 py-2.5 rounded-xl text-sm font-bold"
-                style="background:var(--accent-gradient);color:#fff">Открыть Настройки РНП</button>
+              <p class="text-sm mb-5" style="color:var(--text-muted)">${hint}</p>
+              <div class="flex flex-wrap gap-2 justify-center">
+                <button onclick="RNP.syncArts().then(() => RNP.openMain())" class="px-5 py-2.5 rounded-xl text-sm font-bold"
+                  style="background:var(--surface);border:1px solid var(--border);color:var(--text-secondary)">Из заказов</button>
+                <button onclick="RNP.enableAll(true).then(() => RNP.openMain())" class="px-5 py-2.5 rounded-xl text-sm font-bold"
+                  style="background:var(--accent-gradient);color:#fff">Включить все</button>
+                <button onclick="showTab('rnp-settings',null)" class="px-5 py-2.5 rounded-xl text-sm font-bold"
+                  style="background:var(--accent-soft);border:1px solid var(--accent-border);color:var(--accent)">Настройки РНП</button>
+              </div>
             </div>`;
             return;
         }
@@ -3391,6 +3494,7 @@ const RNP = (() => {
         _bindSelectionHandlers();
         await _loadSettings();
         await _loadArticles();
+        await _bootstrapCabinetIfNeeded();
         _hydratePhotoCacheFromStorage();
         _hydratePhotoCacheFromArticles();
         _backfillSellerArticlesFromDb().catch(e => console.warn('[RNP] seller backfill:', e.message));
@@ -3432,9 +3536,7 @@ const RNP = (() => {
     }
 
     async function enableAll(on) {
-        for (const a of _articles) {
-            if (a.is_active !== on) await _updateArticle(a.nm_id, { is_active: on });
-        }
+        await _setAllActive(on);
         _renderSettings();
     }
 
