@@ -579,8 +579,9 @@
         .rnp-notes-toggle input { accent-color: var(--accent); cursor: pointer; }
         .rnp-sheet-tabs {
             display: flex; overflow-x: auto; background: var(--bg); border: 1px solid var(--border);
-            border-top: none; scrollbar-width: thin; flex-shrink: 0;
+            border-top: none; scrollbar-width: none; -ms-overflow-style: none; flex-shrink: 0;
         }
+        .rnp-sheet-tabs::-webkit-scrollbar { display: none; height: 0; }
         [data-theme="neon"] .rnp-sheet-tabs { background: #1a1a24; }
         .rnp-sheet-tab {
             display: flex; align-items: center; gap: 6px; padding: 6px 12px;
@@ -621,11 +622,35 @@
         .rnp-tab-general { border-left: 2px solid var(--accent) !important; }
         .rnp-kpi-block--cabinet .rnp-kpi-top { grid-template-columns: 1fr 1fr; }
         .rnp-kpi-block--cabinet .rnp-gs-photo { display: none; }
-        .rnp-head-left--cabinet { min-width: 280px; }
-        .rnp-sheet-table--cabinet thead tr.rnp-head-panel th.rnp-head-marquee--empty {
-            height: 0; max-height: 0; padding: 0; border: none; overflow: hidden; visibility: hidden;
+        .rnp-head-left--cabinet { min-width: 240px; }
+        .rnp-head-marquee--cabinet-kpi {
+            padding: 4px 8px !important; vertical-align: middle;
+            background: var(--surface-solid) !important; overflow: hidden;
         }
-        .rnp-general-gallery { border-top: 1px solid var(--border); background: var(--surface); padding: 8px 10px; flex-shrink: 0; }
+        .rnp-cabinet-kpi-strip {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+            height: 100%; min-height: 52px;
+        }
+        .rnp-cabinet-kpi-pill {
+            display: flex; flex-direction: column; gap: 1px;
+            padding: 3px 8px; border-radius: 6px;
+            background: var(--accent-soft); border: 1px solid var(--accent-border);
+            font-size: 8px; color: var(--text-muted); white-space: nowrap;
+        }
+        .rnp-cabinet-kpi-pill b { font-size: 10px; color: var(--text-primary); font-weight: 800; }
+        .rnp-kpi-top--compact {
+            grid-template-columns: minmax(56px, 0.7fr) minmax(48px, 0.6fr) minmax(72px, 0.8fr) minmax(140px, 1.5fr);
+            grid-template-areas:
+                "nmid  cost  mlbl  kpis"
+                "nmid  cost  mval  kpis"
+                "nmid  cost  ulbl  kpis"
+                "nmid  cost  uval  kpis";
+            grid-template-rows: repeat(4, minmax(13px, auto));
+        }
+        .rnp-kpi-top--compact .rnp-gs-kpis { grid-row: 1 / 5; }
+        .rnp-kpi-top--cabinet .rnp-gs-name { grid-area: nmid; grid-column: auto; border-right: 1px solid var(--border); }
+        .rnp-kpi-top--cabinet .rnp-gs-nmid { display: none; }
+        .rnp-general-gallery { border-top: 1px solid var(--border); background: var(--surface); padding: 8px 4px; flex-shrink: 0; width: 100%; }
         .rnp-general-gallery-label { font-size: 10px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
         .rnp-general-gallery-hint { font-weight: 500; opacity: 0.75; margin-left: 6px; }
         .rnp-general-gallery-viewport {
@@ -645,6 +670,22 @@
         .rnp-general-pick { cursor: pointer; transition: transform 0.15s, box-shadow 0.15s; }
         .rnp-general-pick:hover { transform: translateY(-2px); }
         .rnp-general-pick:hover .rnp-gallery-photo { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+        .rnp-gallery-item--lg { width: 96px; }
+        .rnp-selection-bar {
+            flex-shrink: 0; padding: 6px 12px; font-size: 10px; color: var(--text-muted);
+            background: var(--surface-solid); border-top: 1px solid var(--border);
+        }
+        .rnp-selection-bar.hidden { display: none; }
+        .rnp-selection-bar b { color: var(--text-primary); font-weight: 800; }
+        .rnp-sheet-table--edit-mode td[data-rnp-value] { cursor: cell; }
+        .rnp-sheet-table--edit-mode td.rnp-cell-selected {
+            background: var(--accent-soft) !important;
+            outline: 1px solid var(--accent-border);
+            outline-offset: -1px;
+        }
+        #rnp-edit-mode-btn.active {
+            background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent);
+        }
         .rnp-rate-row td { background: rgba(132, 204, 22, 0.08); font-weight: 600; font-size: 10px; color: var(--text-secondary); }
         .rnp-rate-row .rnp-metric-col { color: #84cc16; }
         .rnp-sheet-table--cabinet .rnp-general-photo-card .rnp-test-photo img { object-fit: cover; }
@@ -743,8 +784,8 @@
         .rnp-head-left .rnp-kpi-block { border: none; margin: 0; }
         .rnp-head-left .rnp-kpi-top {
             width: 100%;
-            grid-template-columns: 48px minmax(40px, 1fr) minmax(40px, 52px) minmax(88px, 1.1fr);
-            grid-template-rows: repeat(4, minmax(14px, auto));
+            grid-template-columns: minmax(56px, 0.7fr) minmax(48px, 0.6fr) minmax(72px, 0.8fr) minmax(88px, 1.1fr);
+            grid-template-rows: repeat(4, minmax(13px, auto));
         }
         .rnp-kpi-top {
             display: grid;
@@ -1802,6 +1843,7 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" id="rnp-edit-mode-btn" class="rnp-header-refresh hidden" title="Режим выделения ячеек" onclick="RNP.toggleEditMode()">Редактировать</button>
                     <button onclick="refreshData()" id="refresh-btn" class="btn-smooth header-refresh-btn text-white font-semibold" title="Обновить данные" style="background:var(--accent-gradient);border:none">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
                         <span class="refresh-label">Обновить</span>
@@ -2695,8 +2737,19 @@
             });
         }
         const rnpRefresh = document.getElementById('rnp-header-refresh');
+        const rnpEditBtn = document.getElementById('rnp-edit-mode-btn');
         const mainRefresh = document.getElementById('refresh-btn');
         if (rnpRefresh) rnpRefresh.classList.toggle('hidden', name !== 'rnp');
+        if (rnpEditBtn) {
+            rnpEditBtn.classList.toggle('hidden', name !== 'rnp');
+            if (name === 'rnp' && typeof RNP !== 'undefined' && RNP.toggleEditMode) {
+                try {
+                    const on = sessionStorage.getItem('rnp_edit_mode') === '1';
+                    rnpEditBtn.classList.toggle('active', on);
+                    rnpEditBtn.textContent = on ? 'Готово' : 'Редактировать';
+                } catch (e) {}
+            }
+        }
         if (mainRefresh) {
             mainRefresh.style.display = name === 'rnp' ? 'none' : '';
             mainRefresh.onclick = name === 'logistics' ? () => loadSuppliesFromWB() : refreshData;
@@ -4476,7 +4529,7 @@
     }
 </script>
     <script src="/dashboard-charts.js"></script>
-    <script src="/rnp-module.js?v=20260704-general4"></script>
+    <script src="/rnp-module.js?v=20260704-refactor1"></script>
     <script src="/wb-formulas.js?v=20260703-photos9"></script>
 </body>
 </html>

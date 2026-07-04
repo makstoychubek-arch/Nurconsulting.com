@@ -44,9 +44,14 @@ const RNP = (() => {
     let _userEmail = '';
     let _compareNm = null;
     let _sectionView = 'all';
-    let _notesCache = {}; // nmId -> date -> { text, history[] }
+    let _notesCache = {};
     let _strategyTab = 0;
-    let _notesVisible = true;
+    let _notesVisible = false;
+    let _editMode = false;
+    let _selAnchor = null;
+    let _selEnd = null;
+    let _selectionHandlersBound = false;
+    let _metricRowSeq = 0;
     let _galleryCollapsed = true;
     let _marqueeRo = null;
     let _planPeriod = 'week';
@@ -57,20 +62,8 @@ const RNP = (() => {
     const DAY_COL_W = 30;
     const MONTH_COL_W = 68;
     const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
-    const CAL_MONTH_FROM = 5;  // июнь (0-based)
-    const CAL_MONTH_TO = 11;   // декабрь
-
-    /** Поля, которые в Google Sheets РНП заполняются вручную */
-    const MANUAL_RNP_FIELDS = [
-        { key: 'plans', label: 'Планы (заказы, продажи, показы, клики, ДРР, расход РК)', locked: true },
-        { key: 'giveaways', label: 'Раздачи', setting: 'showGiveaways' },
-        { key: 'competitor', label: 'Показатели конкурентов (CTR, корзина, заказы, CR0)', setting: 'showCompetitor' },
-        { key: 'cost_price', label: 'Себестоимость за ед.', locked: true },
-        { key: 'in_production', label: 'В пошиве (размерная сетка)', locked: true },
-        { key: 'meta', label: 'Ответственный и статус артикула', locked: true },
-        { key: 'notes', label: 'Комментарии под датами / месяцами', locked: true },
-        { key: 'gallery', label: 'Комментарии к фото тестов', locked: true },
-    ];
+    const CAL_MONTH_FROM = 5;
+    const CAL_MONTH_TO = 11;
     const GALLERY_PHOTO_COUNT = 12;
 
     const STRATEGY_TABS = [
@@ -1309,12 +1302,29 @@ const RNP = (() => {
         </div>`;
     }
 
+    function _buildGeneralTimelineKPI(active, cal) {
+        const kpi = _cabinetPeriodSummary(active, cal);
+        const er = (Number(kpi.wb_rate) > 0) ? Number(kpi.wb_rate) : _settings.exchangeRate;
+        const items = [
+            ['Заказы', _fmtKpi(kpi.orders_count, 'int')],
+            ['Продажи', _fmtKpi(kpi.sales_count, 'int')],
+            ['Сумма', Math.round((kpi.sales_sum || 0) * er).toLocaleString('ru')],
+            ['Прибыль', _fmtKpi(kpi.profit, 'som')],
+            ['Маржа', _fmtKpi(kpi.margin_pct, 'pct')],
+            ['ДРР', _fmtKpi(kpi.drr_pct, 'pct')],
+            ['К переч.', Math.round((kpi.to_transfer || 0) * er).toLocaleString('ru')],
+        ];
+        return `<div class="rnp-cabinet-kpi-strip">${items.map(([l, v]) =>
+            `<div class="rnp-cabinet-kpi-pill"><span>${l}</span><b>${v}</b></div>`
+        ).join('')}</div>`;
+    }
+
     function _buildGeneralSheetHeadRows(active, cal) {
         const leftSpan = _leftFrozenSpan(cal);
         const nTimeline = _calTimelineSpan(cal);
         return `<tr class="rnp-head-panel rnp-head-panel--cabinet">
           <th colspan="${leftSpan}" class="rnp-head-left rnp-head-left--cabinet">${_buildGeneralLeftPanel(active, cal)}</th>
-          <th colspan="${nTimeline}" class="rnp-head-marquee rnp-head-marquee--empty"></th>
+          <th colspan="${nTimeline}" class="rnp-head-marquee rnp-head-marquee--cabinet-kpi">${_buildGeneralTimelineKPI(active, cal)}</th>
         </tr>`;
     }
 
@@ -1327,7 +1337,7 @@ const RNP = (() => {
         const moneySom = Math.round((kpi.sales_sum || 0) * er);
         const moneyUsd = moneySom > 0 ? (moneySom / (_settings.usdRate || 87.5)).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 }) : '0';
         return `<div class="rnp-kpi-block rnp-kpi-block--cabinet">
-          <div class="rnp-kpi-top">
+          <div class="rnp-kpi-top rnp-kpi-top--compact rnp-kpi-top--cabinet">
             <div class="rnp-gs-name">📊 Общий РНП</div>
             <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">кабинет</span><b>${active.length} арт.</b></div>
             <div class="rnp-gs-money-lbl">В деньгах</div>
@@ -1367,6 +1377,7 @@ const RNP = (() => {
     }
 
     function _buildGeneralTableHTML(active, cal) {
+        _metricRowSeq = 0;
         const cols = _buildCabinetCols(active, cal);
         const sheetHead = _buildGeneralSheetHeadRows(active, cal);
         const galleryCls = cal.mode === 'month' ? ' rnp-sheet-table--months' : '';
@@ -1509,8 +1520,6 @@ const RNP = (() => {
     }
 
     function _buildActionBar(active) {
-        const compareOpts = active.filter(a => a.nm_id != _activeNm && !_isCabinetView())
-            .map(a => `<option value="${a.nm_id}"${_compareNm == a.nm_id ? ' selected' : ''}>${_sellerArticle(a).substring(0, 24)}</option>`).join('');
         return `<div class="rnp-action-bar">
           <select onchange="RNP.setView(this.value)" title="Секции таблицы">
             <option value="all"${_sectionView === 'all' ? ' selected' : ''}>Все секции</option>
@@ -1525,15 +1534,7 @@ const RNP = (() => {
             ${_monthOptionsHtml()}
           </select>` : ''}
           <button type="button" class="rnp-action-btn" onclick="RNP.copyPlanFromPrevWeek()" title="${_planPeriod === 'month' ? 'Скопировать план с прошлого месяца' : 'Скопировать план с прошлой недели'}">↵ План</button>
-          <select id="rnp-compare-sel" onchange="RNP.setCompare(this.value)" title="Сравнить с…" ${_isCabinetView() ? 'disabled' : ''}>
-            <option value="">Сравнить с…</option>${compareOpts}
-          </select>
-          <button type="button" class="rnp-action-btn${_compareNm ? ' active' : ''}" onclick="RNP.toggleCompare()" ${_isCabinetView() ? 'disabled' : ''} title="Режим A/B">А/Б тест</button>
           <button type="button" class="rnp-action-btn" onclick="RNP.exportExcel()">Excel</button>
-          <label class="rnp-notes-toggle" title="Строка комментариев под датами">
-            <input type="checkbox"${_notesVisible ? ' checked' : ''} onchange="RNP.toggleNotes(this.checked)">
-            Комментарии под датами
-          </label>
         </div>`;
     }
 
@@ -1880,17 +1881,13 @@ const RNP = (() => {
         const marginCls = (kpi.margin_pct || 0) >= 15 ? 'pos' : ((kpi.margin_pct || 0) < 5 ? 'neg' : '');
         const profitCls = (kpi.profit || 0) >= 0 ? 'pos' : 'neg';
         const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'pos' : ((kpi.plan_orders_pct || 0) < 80 ? 'neg' : '');
-        const syncSt = _syncStatus(art.nm_id);
         const moneySom = Math.round((kpi.sales_sum || 0) * er);
         const moneyUsd = moneySom > 0 ? (moneySom / (_settings.usdRate || 87.5)).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 }) : '0';
         const seller = _sellerArticle(art).replace(/"/g, '&quot;');
-        const prodName = (art.name || '—').replace(/"/g, '&quot;');
 
         return `<div class="rnp-kpi-block${_strategyTab === 4 ? ' rnp-kpi-block--sizes-focus' : ''}">
-          <div class="rnp-kpi-top">
-            <div class="rnp-gs-photo">${_imgHtml(art, 'rnp-gs-photo-img', 'c516x688')}</div>
-            <div class="rnp-gs-name" title="${seller}">${_syncDot(syncSt.level)} ${seller}</div>
-            <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
+          <div class="rnp-kpi-top rnp-kpi-top--compact">
+            <div class="rnp-gs-nmid" title="${seller}"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
             <div class="rnp-gs-cost">
               <span class="rnp-gs-lbl">себест.</span>
               <input type="number" class="rnp-gs-cost-input" value="${art.cost_price || 0}" min="0" step="1"
@@ -2585,12 +2582,6 @@ const RNP = (() => {
             const m = i + 1;
             return `<option value="${m}"${m === sel ? ' selected' : ''}>${MONTH_SHORT[i]}</option>`;
         }).join('');
-        const manualList = MANUAL_RNP_FIELDS.map(f => {
-            const chk = f.setting
-                ? `<label class="rnp-set-chk"><input type="checkbox" data-opt="${f.setting}"${_settings[f.setting] ? ' checked' : ''}> показывать</label>`
-                : '<span class="rnp-set-lock">всегда</span>';
-            return `<li><b>${f.label}</b> ${chk}</li>`;
-        }).join('');
         el.innerHTML = `
         <div class="space-y-5">
           <div class="widget-card p-5">
@@ -2640,19 +2631,6 @@ const RNP = (() => {
             </div>
             <button onclick="RNP.saveRnpOptions()" class="mt-4 px-4 py-2 rounded-xl text-xs font-bold"
               style="background:var(--accent-gradient);color:#fff">Сохранить параметры РНП</button>
-          </div>
-
-          <div class="widget-card p-5">
-            <h3 class="font-semibold mb-2" style="color:var(--text-primary)">Ручные поля (как в Google Sheets)</h3>
-            <p class="text-xs mb-3" style="color:var(--text-muted)">Планы, себестоимость, «В пошиве», ответственный и комментарии всегда доступны для ручного ввода. Остальное можно скрыть.</p>
-            <ul class="rnp-manual-list text-xs" style="color:var(--text-secondary)">${manualList}</ul>
-          </div>
-
-          <div class="widget-card p-5" style="border-left:3px solid var(--green)">
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-semibold" style="color:var(--text-primary)">Реклама подключена автоматически</span>
-            </div>
-            <p class="text-xs mt-2" style="color:var(--text-muted)">Показы, клики, CTR, ДРР — через токен кабинета WB.</p>
           </div>
 
           <div class="widget-card p-5">
@@ -2765,7 +2743,8 @@ const RNP = (() => {
         }
 
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
-        try { _notesVisible = localStorage.getItem('rnp_notes_visible') !== '0'; } catch (e) {}
+        _notesVisible = false;
+        try { _editMode = sessionStorage.getItem('rnp_edit_mode') === '1'; } catch (e) {}
         try { _strategyTab = parseInt(localStorage.getItem('rnp_strategy_tab') || '0', 10) || 0; } catch (e) {}
         try {
             const pp = localStorage.getItem('rnp_plan_period');
@@ -2800,9 +2779,8 @@ const RNP = (() => {
             console.error('[RNP] load:', e);
         }
         await _renderActiveTable();
+        _updateEditModeBtn();
     }
-
-    async function _renderActiveTable() {
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return;
         const active = _articles.filter(a => a.is_active);
@@ -2819,15 +2797,18 @@ const RNP = (() => {
 
         if (_activeNm === GENERAL_TAB) {
             await _preloadPhotos(active);
+            _metricRowSeq = 0;
             body.innerHTML = `
           <div class="rnp-table-scroll" id="rnp-table-wrap">
             ${_buildGeneralTableHTML(active, cal)}
           </div>
-          ${_buildGeneralBottomGallery(active)}`;
+          ${_buildGeneralBottomGallery(active)}
+          ${_selectionBarHTML()}`;
             _updateTabHighlight();
             const bar = document.getElementById('rnp-action-bar-wrap');
             if (bar) bar.innerHTML = _buildActionBar(active);
             _applyResolvedPhotos(body);
+            _afterTableRender();
             return;
         }
 
@@ -2857,17 +2838,20 @@ const RNP = (() => {
             }
         }
 
+        _metricRowSeq = 0;
         body.innerHTML = `
           ${topHTML}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
             ${_buildTableHTML(art, stockBySize, rawData, cal)}
-          </div>`;
+          </div>
+          ${_selectionBarHTML()}`;
 
         _updateTabHighlight();
         const bar = document.getElementById('rnp-action-bar-wrap');
         if (bar) bar.innerHTML = _buildActionBar(active);
 
         _applyResolvedPhotos(body);
+        _afterTableRender();
         _refreshMarqueeBaseHtml(body);
         requestAnimationFrame(() => {
             _syncMarqueeFill(body);
@@ -2981,6 +2965,7 @@ const RNP = (() => {
     }
 
     function _buildTableHTML(art, stockBySize, rawData, cal) {
+        _metricRowSeq = 0;
         const cols = _buildCols(rawData, art, cal);
         const sheetHead = _compareNm && _compareNm !== art.nm_id
             ? ''
@@ -3150,7 +3135,12 @@ const RNP = (() => {
                 else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:rgba(239,68,68,0.15);color:var(--red)';
                 else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
                 if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-size:10px;font-weight:700';
-                return `<td class="${cls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}>${str ?? ''}</td>`;
+                const rowNum = _metricRowSeq++;
+                const numVal = (val != null && val !== '' && !isNaN(parseFloat(val))) ? parseFloat(val) : null;
+                const dataAttr = numVal != null
+                    ? ` data-rnp-value="${numVal}" data-rnp-row="${rowNum}" data-rnp-col-idx="${ci}" data-rnp-metric="${m.key}"`
+                    : '';
+                return `<td class="${cls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${dataAttr}>${str ?? ''}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',
@@ -3168,6 +3158,117 @@ const RNP = (() => {
         return hdr + rows;
     }
 
+    // ─── EXCEL SELECTION MODE ─────────────────────────────────────────────────
+    function _selectionBarHTML() {
+        return `<div id="rnp-selection-bar" class="rnp-selection-bar hidden">
+          Выделено: <b id="rnp-sel-count">0</b> · Сумма: <b id="rnp-sel-sum">0</b>
+        </div>`;
+    }
+
+    function _parseCellNumber(text) {
+        if (!text) return null;
+        const s = String(text).replace(/\s/g, '').replace(',', '.').replace(/%$/, '');
+        const n = parseFloat(s);
+        return isNaN(n) ? null : n;
+    }
+
+    function _clearSelection() {
+        document.querySelectorAll('.rnp-cell-selected').forEach(el => el.classList.remove('rnp-cell-selected'));
+        _selAnchor = null;
+        _selEnd = null;
+        _updateSelectionSum();
+    }
+
+    function _cellCoords(td) {
+        if (!td?.dataset?.rnpValue) return null;
+        return { row: parseInt(td.dataset.rnpRow, 10), col: parseInt(td.dataset.rnpColIdx, 10) };
+    }
+
+    function _applySelectionRange() {
+        document.querySelectorAll('.rnp-cell-selected').forEach(el => el.classList.remove('rnp-cell-selected'));
+        if (_selAnchor == null || _selEnd == null) return;
+        const r0 = Math.min(_selAnchor.row, _selEnd.row);
+        const r1 = Math.max(_selAnchor.row, _selEnd.row);
+        const c0 = Math.min(_selAnchor.col, _selEnd.col);
+        const c1 = Math.max(_selAnchor.col, _selEnd.col);
+        document.querySelectorAll('td[data-rnp-value]').forEach(td => {
+            const r = parseInt(td.dataset.rnpRow, 10);
+            const c = parseInt(td.dataset.rnpColIdx, 10);
+            if (r >= r0 && r <= r1 && c >= c0 && c <= c1) td.classList.add('rnp-cell-selected');
+        });
+        _updateSelectionSum();
+    }
+
+    function _updateSelectionSum() {
+        const bar = document.getElementById('rnp-selection-bar');
+        if (!bar) return;
+        const cells = [...document.querySelectorAll('td.rnp-cell-selected')];
+        if (!cells.length || !_editMode) {
+            bar.classList.add('hidden');
+            return;
+        }
+        bar.classList.remove('hidden');
+        const nums = cells.map(td => parseFloat(td.dataset.rnpValue) || _parseCellNumber(td.textContent)).filter(n => n != null && !isNaN(n));
+        const countEl = document.getElementById('rnp-sel-count');
+        const sumEl = document.getElementById('rnp-sel-sum');
+        if (countEl) countEl.textContent = String(cells.length);
+        if (sumEl) sumEl.textContent = nums.length
+            ? nums.reduce((a, b) => a + b, 0).toLocaleString('ru', { maximumFractionDigits: 2 })
+            : '—';
+    }
+
+    function _applyEditMode() {
+        const btn = document.getElementById('rnp-edit-mode-btn');
+        if (btn) btn.classList.toggle('active', _editMode);
+        document.querySelectorAll('.rnp-sheet-table').forEach(t => {
+            t.classList.toggle('rnp-sheet-table--edit-mode', _editMode);
+        });
+        if (!_editMode) _clearSelection();
+        else _updateSelectionSum();
+    }
+
+    function _bindSelectionHandlers() {
+        if (_selectionHandlersBound) return;
+        _selectionHandlersBound = true;
+        let dragging = false;
+        document.addEventListener('mousedown', e => {
+            if (!_editMode) return;
+            const td = e.target.closest('td[data-rnp-value]');
+            if (!td) return;
+            e.preventDefault();
+            dragging = true;
+            _selAnchor = _selEnd = _cellCoords(td);
+            _applySelectionRange();
+        });
+        document.addEventListener('mouseover', e => {
+            if (!dragging || !_editMode) return;
+            const td = e.target.closest?.('td[data-rnp-value]');
+            if (!td) return;
+            _selEnd = _cellCoords(td);
+            _applySelectionRange();
+        });
+        document.addEventListener('mouseup', () => { dragging = false; });
+    }
+
+    function _afterTableRender() {
+        _applyEditMode();
+        _updateEditModeBtn();
+    }
+
+    function _updateEditModeBtn() {
+        const btn = document.getElementById('rnp-edit-mode-btn');
+        if (!btn) return;
+        btn.classList.toggle('active', _editMode);
+        btn.textContent = _editMode ? 'Готово' : 'Редактировать';
+    }
+
+    function toggleEditMode() {
+        _editMode = !_editMode;
+        try { sessionStorage.setItem('rnp_edit_mode', _editMode ? '1' : '0'); } catch (e) {}
+        _applyEditMode();
+        _updateEditModeBtn();
+    }
+
     // ─── PUBLIC API ───────────────────────────────────────────────────────────
     async function init(supabase, cabId, proxyFn, opts) {
         _db = supabase; _cab = cabId;
@@ -3175,6 +3276,8 @@ const RNP = (() => {
         if (opts?.userEmail) _userEmail = opts.userEmail;
         _resetPhotoCaches();
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
+        try { _editMode = sessionStorage.getItem('rnp_edit_mode') === '1'; } catch (e) {}
+        _bindSelectionHandlers();
         await _loadSettings();
         await _loadArticles();
         _hydratePhotoCacheFromArticles();
@@ -3292,8 +3395,8 @@ const RNP = (() => {
             defaultPlanPeriod: document.getElementById('rnp-default-plan')?.value === 'month' ? 'month' : 'week',
             monthFrom: parseInt(document.getElementById('rnp-month-from')?.value, 10) || 6,
             monthTo: parseInt(document.getElementById('rnp-month-to')?.value, 10) || 12,
-            showGiveaways: !!document.querySelector('[data-opt="showGiveaways"]')?.checked,
-            showCompetitor: !!document.querySelector('[data-opt="showCompetitor"]')?.checked,
+            showGiveaways: true,
+            showCompetitor: true,
         };
         await _saveSettings({ options: opts });
         if (!localStorage.getItem('rnp_plan_period')) {
@@ -3361,6 +3464,6 @@ const RNP = (() => {
     }
 
     return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
-             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel,
+             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();
