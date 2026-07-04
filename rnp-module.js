@@ -2781,6 +2781,8 @@ const RNP = (() => {
         await _renderActiveTable();
         _updateEditModeBtn();
     }
+
+    async function _renderActiveTable() {
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return;
         const active = _articles.filter(a => a.is_active);
