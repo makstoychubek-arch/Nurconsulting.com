@@ -6,11 +6,15 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:marking": "tsc -b && vite build --config vite.marking.config.ts",
+    "build:all": "npm run build && npm run build:marking",
     "preview": "vite preview"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
     "@tanstack/react-table": "^8.21.2",
+    "bwip-js": "^4.11.2",
+    "jspdf": "^4.2.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },

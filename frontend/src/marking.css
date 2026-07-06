@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.marking-module {
+  --marking-bg: #030303;
+  background: var(--marking-bg);
+  color: #fff;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+
+  .marking-module,
+  .marking-module * {
+    visibility: visible;
+  }
+
+  .marking-module {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white;
+  }
+
+  .marking-label {
+    break-after: page;
+    page-break-after: always;
+  }
+}

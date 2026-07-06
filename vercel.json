@@ -23,6 +23,7 @@
     { "source": "/logistics", "destination": "/dashboard.html" },
     { "source": "/rnp-app", "destination": "/rnp-app/index.html" },
     { "source": "/rnp-app/:path*", "destination": "/rnp-app/:path*" },
+    { "source": "/marking-app/:path*", "destination": "/marking-app/:path*" },
     { "source": "/", "destination": "/index.html" }
   ]
 }

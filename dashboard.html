@@ -2830,38 +2830,8 @@
             </div>
         </div>
 
-        <div id="tab-marking" class="tab-content space-y-5">
-            <div class="beta-module-hero">
-                <span class="beta-orb beta-orb-1"></span><span class="beta-orb beta-orb-2"></span>
-                <div class="beta-pill">BETA · Маркировка &amp; ШК</div>
-                <h2>Tekser · Честный Знак</h2>
-                <p>Интеграция с системой маркировки Tekser (tekser.kg). Генерация объединённых PDF-стикеров: логистический ШК WB + DataMatrix код маркировки.</p>
-            </div>
-            <div class="module-date-bar">
-                <div class="module-date-chip active" onclick="toggleModuleDatePicker(event, this)">
-                    <span class="date-pulse-dot"></span><span>📅</span>
-                    <span class="module-date-label">Период</span><span style="opacity:0.5;font-size:10px">▼</span>
-                </div>
-                <span class="text-xs" style="color:var(--text-muted)">Очередь стикеров за выбранный день</span>
-            </div>
-            <div class="widget-card p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <div>
-                        <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Артикул WB (nm_id)</label>
-                        <input type="text" id="mark-nmid" placeholder="740877378" class="w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                    </div>
-                    <div>
-                        <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Количество стикеров</label>
-                        <input type="number" id="mark-qty" value="1" min="1" max="500" class="w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                    </div>
-                </div>
-                <button class="ui-btn ui-btn-primary text-sm" onclick="addMarkingJob()">Добавить в очередь</button>
-                <p class="text-xs mt-3" style="color:var(--text-muted)">PDF-стикеры (ШК WB + DataMatrix) — после подключения Tekser API.</p>
-            </div>
-            <div class="widget-card p-5">
-                <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Очередь стикеров</h3>
-                <div id="marking-queue"><div class="text-sm text-center py-6" style="color:var(--text-muted)">Очередь пуста</div></div>
-            </div>
+        <div id="tab-marking" class="tab-content">
+            <div id="marking-root"></div>
         </div>
 
         <div id="tab-logistics" class="tab-content logistics-tab">
@@ -3401,7 +3371,7 @@
             if (showEmpty) {
                 filtersBar.style.display = 'none';
             } else {
-                const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'marking']);
+                const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics']);
                 filtersBar.style.display = DATE_FILTER_TABS.has(tab) ? 'flex' : 'none';
             }
         }
@@ -3772,6 +3742,39 @@
         }
         return await res.json().catch(() => null);
     }
+    window.callWbProxy = callWbProxy;
+
+    let markingModulePromise = null;
+    function initMarkingModule() {
+        const root = document.getElementById('marking-root');
+        if (!root || window.__markingMounted) return;
+        if (markingModulePromise) return markingModulePromise;
+        markingModulePromise = new Promise(function(resolve, reject) {
+            if (!document.getElementById('marking-css')) {
+                var link = document.createElement('link');
+                link.id = 'marking-css';
+                link.rel = 'stylesheet';
+                link.href = '/marking-app/marking.css';
+                document.head.appendChild(link);
+            }
+            if (!document.getElementById('marking-js')) {
+                var script = document.createElement('script');
+                script.id = 'marking-js';
+                script.type = 'module';
+                script.src = '/marking-app/marking.js';
+                script.onload = function() { resolve(); };
+                script.onerror = function() {
+                    markingModulePromise = null;
+                    root.innerHTML = '<div class="widget-card p-6 text-sm" style="color:var(--text-muted)">Модуль маркировки не загружен. Выполните <code>npm run build:marking</code> в папке frontend.</div>';
+                    reject(new Error('marking module load failed'));
+                };
+                document.head.appendChild(script);
+            } else {
+                resolve();
+            }
+        });
+        return markingModulePromise;
+    }
 
     let currentCabinetId = localStorage.getItem('selected_cabinet_id') || null;
     let currentUserEmail = '';
@@ -3967,7 +3970,7 @@
             });
         }
         document.getElementById('page-title').textContent = tabTitles[name] || name;
-        const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'marking']);
+        const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics']);
         const filtersBar = document.getElementById('top-filters-bar');
         if (filtersBar) {
             filtersBar.style.display = DATE_FILTER_TABS.has(name) ? 'flex' : 'none';
@@ -3986,7 +3989,7 @@
         if (name === 'advertising' && hasUserCabinets) loadAdvertisingPreview();
         if (name === 'logistics' && hasUserCabinets) initLogisticsSupplies();
         if (name === 'seo' && hasUserCabinets) loadSeoKeywords();
-        if (name === 'marking') renderMarkingQueue();
+        if (name === 'marking') initMarkingModule();
         if (name === 'rnp' && hasUserCabinets && typeof RNP !== 'undefined') RNP.openMain();
         if (name === 'rnp-settings' && hasUserCabinets && typeof RNP !== 'undefined') RNP.openSettings();
         if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
@@ -4152,7 +4155,6 @@
         if (name === 'dashboard' || name === 'summary') loadFromDB(activeDateFrom, activeDateTo);
         else if (name === 'advertising') loadAdvertisingPreview();
         else if (name === 'logistics') filterSuppliesByDate();
-        else if (name === 'marking') renderMarkingQueue();
     }
 
     function toggleModuleDatePicker(e, el) {

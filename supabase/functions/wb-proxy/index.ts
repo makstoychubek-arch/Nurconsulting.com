@@ -250,7 +250,10 @@ serve(async (req) => {
                             textSearch: String(params.textSearch || (params.nmIds?.[0] ?? '')),
                             withPhoto: params.withPhoto ?? -1,
                         },
-                        cursor: { limit: params.limit || 100 }
+                        cursor: {
+                            limit: params.limit || 100,
+                            ...(params.cursorNmId ? { nmID: Number(params.cursorNmId) } : {}),
+                        }
                     }
                 };
                 try {
