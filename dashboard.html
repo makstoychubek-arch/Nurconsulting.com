@@ -1876,6 +1876,12 @@
             background: rgba(249, 115, 22, 0.12);
             color: #ea580c;
         }
+        .admin-row-blocked td {
+            opacity: 0.6;
+        }
+        .admin-row-blocked:hover td {
+            opacity: 0.75;
+        }
         .space-pending-banner {
             margin-bottom: 16px;
             padding: 14px 18px;
@@ -3354,7 +3360,7 @@
 
     function sortOAuthRequests(rows) {
         return rows
-            .filter(s => s.status === 'pending' && !s.is_super_admin && !isSuperAdminEmail(s.email))
+            .filter(s => (s.status === 'pending' || s.status === 'blocked') && !s.is_super_admin && !isSuperAdminEmail(s.email))
             .sort((a, b) => new Date(b.last_sign_in_at || 0) - new Date(a.last_sign_in_at || 0));
     }
 
@@ -3376,20 +3382,25 @@
             wrap.innerHTML = `<table class="admin-spaces-table">
                 <thead><tr>
                     <th>Пользователь</th>
+                    <th>Статус</th>
                     <th>Время попытки</th>
                     <th>Интенсивность</th>
                     <th>Действия</th>
                 </tr></thead>
                 <tbody>${requestRows.map(s => {
+                    const isBlocked = s.status === 'blocked';
                     const attempts = Number(s.sign_in_attempts) || 1;
                     const intensityCls = attempts >= 3 ? 'oauth-intensity-badge oauth-intensity-high' : 'oauth-intensity-badge';
-                    return `<tr>
+                    const rowCls = isBlocked ? ' class="admin-row-blocked"' : '';
+                    const actionBtn = isBlocked
+                        ? `<button type="button" class="admin-btn-grant" onclick="adminUnblockSpace('${s.user_id}', this)">Разблокировать</button>`
+                        : `<button type="button" class="admin-btn-grant" onclick="adminGrantSpaceAccess('${s.user_id}', this)">Разрешить доступ / Создать Спейс</button>`;
+                    return `<tr${rowCls}>
                         <td>${renderAdminSpaceUserCell(s, { hideMeta: true })}</td>
+                        <td>${renderSpaceStatusBadge(s.status)}</td>
                         <td style="white-space:nowrap">${escapeHtml(formatAttemptTime(s.last_sign_in_at))}</td>
                         <td><span class="${intensityCls}">${escapeHtml(formatAttemptIntensity(attempts))}</span></td>
-                        <td>
-                            <button type="button" class="admin-btn-grant" onclick="adminGrantSpaceAccess('${s.user_id}', this)">Разрешить доступ / Создать Спейс</button>
-                        </td>
+                        <td>${actionBtn}</td>
                     </tr>`;
                 }).join('')}</tbody>
             </table>`;
@@ -3466,11 +3477,25 @@
         try {
             await callAdminSpace('activate', userId);
             showPremiumModal('success', 'Доступ разрешён', 'Пользователь перенесён в «Действующие клиенты». При следующем входе через Google он попадёт в личный кабинет.');
-            _spacesAdminCache = null;
             await loadSpacesAdmin();
             switchSpacesAdminTab('active', document.getElementById('admin-spaces-tab-active'));
         } catch (e) {
             showPremiumModal('error', 'Ошибка', e.message || 'Не удалось выдать доступ');
+            if (btn) { btn.disabled = false; btn.textContent = label; }
+        }
+    }
+
+    async function adminUnblockSpace(userId, btn) {
+        if (!userId || !isSuperAdmin) return;
+        const label = 'Разблокировать';
+        if (btn) { btn.disabled = true; btn.textContent = '…'; }
+        try {
+            await callAdminSpace('activate', userId);
+            showPremiumModal('success', 'Спейс разблокирован', 'Пользователь снова в «Действующие клиенты» и может войти через Google.');
+            await loadSpacesAdmin();
+            switchSpacesAdminTab('active', document.getElementById('admin-spaces-tab-active'));
+        } catch (e) {
+            showPremiumModal('error', 'Ошибка', e.message || 'Не удалось разблокировать');
             if (btn) { btn.disabled = false; btn.textContent = label; }
         }
     }
@@ -5206,9 +5231,9 @@
         if (btn) { btn.disabled = true; btn.textContent = '…'; }
         try {
             await callAdminSpace('block', userId);
-            showPremiumModal('success', 'Спейс заблокирован', 'Сессии клиента завершены, Edge-функции отключены.');
-            _spacesAdminCache = null;
+            showPremiumModal('success', 'Спейс заблокирован', 'Пользователь остаётся в «Запросы на вход» со статусом «Заблокирован». Сессии завершены.');
             await loadSpacesAdmin();
+            switchSpacesAdminTab('requests', document.getElementById('admin-spaces-tab-requests'));
         } catch (e) {
             showPremiumModal('error', 'Ошибка', e.message || 'Не удалось заблокировать');
             if (btn) { btn.disabled = false; btn.textContent = 'Заблокировать Спейс'; }
