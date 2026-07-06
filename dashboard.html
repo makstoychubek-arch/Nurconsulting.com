@@ -3073,7 +3073,60 @@
             </div>
         </div>
 
-        <div id="tab-goods-groups" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Группы товаров</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Создавайте группы артикулов для анализа по категориям, брендам или кампаниям. В разработке.</p></div></div>
+        <div id="tab-goods-groups" class="tab-content space-y-5">
+            <div class="widget-card p-5">
+                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                    <div>
+                        <h3 class="font-semibold" style="color:var(--text-primary)">Группы товаров</h3>
+                        <p class="text-xs mt-1" style="color:var(--text-muted)">Все артикулы по кабинетам: WB, продавца и остаток на складах</p>
+                    </div>
+                    <button type="button" onclick="loadGoodsGroups()" id="gg-load-btn"
+                        class="px-4 py-2 rounded-xl text-xs font-semibold text-white"
+                        style="background:var(--accent-gradient);border:none">Загрузить все артикулы</button>
+                </div>
+                <div class="flex flex-wrap gap-2 mb-4">
+                    <select id="gg-cabinet-filter" onchange="renderGoodsGroupsTable()"
+                        class="rounded-xl px-3 py-2 text-sm min-w-[160px]"
+                        style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                        <option value="">Все кабинеты</option>
+                    </select>
+                    <input type="search" id="gg-search" placeholder="Поиск: артикул, название, категория…"
+                        oninput="renderGoodsGroupsTable()"
+                        class="flex-1 min-w-[200px] rounded-xl px-3 py-2 text-sm"
+                        style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                    <div class="metric-card p-4">
+                        <div class="text-xs mb-1" style="color:var(--text-muted)">Кабинетов</div>
+                        <div id="gg-cabinets-count" class="text-xl font-black" style="color:var(--text-primary)">—</div>
+                    </div>
+                    <div class="metric-card p-4">
+                        <div class="text-xs mb-1" style="color:var(--text-muted)">Артикулов</div>
+                        <div id="gg-articles-count" class="text-xl font-black" style="color:var(--text-primary)">—</div>
+                    </div>
+                    <div class="metric-card p-4">
+                        <div class="text-xs mb-1" style="color:var(--text-muted)">Остаток всего</div>
+                        <div id="gg-stock-total" class="text-xl font-black" style="color:var(--accent)">—</div>
+                    </div>
+                </div>
+                <div class="gg-table-scroll" style="overflow:auto;max-height:calc(100vh - 340px)">
+                    <table class="data-table" style="font-size:12px">
+                        <thead>
+                            <tr>
+                                <th>Кабинет</th>
+                                <th>Артикул WB</th>
+                                <th>Артикул продавца</th>
+                                <th>Категория</th>
+                                <th style="text-align:right">Остаток</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gg-table-body">
+                            <tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нажмите «Загрузить все артикулы»</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
 
         <div id="tab-warehouse" class="tab-content space-y-5">
             <div class="grid grid-cols-3 gap-4">
@@ -4335,6 +4388,7 @@
         if (name === 'advertising' && hasUserCabinets) loadAdvertisingPreview();
         if (name === 'logistics' && hasUserCabinets) initLogisticsSupplies();
         if (name === 'seo' && hasUserCabinets) loadSeoKeywords();
+        if (name === 'goods-groups' && hasUserCabinets) loadGoodsGroups();
         if (name === 'marking') initMarkingModule();
         if (name === 'rnp' && hasUserCabinets && typeof RNP !== 'undefined') RNP.openMain();
         if (name === 'rnp-settings' && hasUserCabinets && typeof RNP !== 'undefined') RNP.openSettings();
@@ -4382,6 +4436,173 @@
                 <td>${fmt(Number(r.views || r.impressions || 0))}</td>
                 <td>${fmt(Number(r.clicks || 0))}</td>
             </tr>`).join('') + `</tbody></table></div>`;
+    }
+
+    let goodsGroupsRows = [];
+
+    function extractSellerArticleFromOrder(order) {
+        const d = order?.data || order || {};
+        const keys = ['supplierArticle', 'supplier_article', 'sa_name', 'vendorCode', 'vendor_code', 'supplierVendorCode', 'article'];
+        for (const k of keys) {
+            const v = String(d[k] || '').trim();
+            if (v) return v;
+        }
+        return '';
+    }
+
+    function renderGoodsGroupsTable() {
+        const tbody = document.getElementById('gg-table-body');
+        if (!tbody) return;
+        const scrollEl = tbody.closest('.gg-table-scroll');
+        const scrollTop = scrollEl?.scrollTop || 0;
+
+        const cabFilter = document.getElementById('gg-cabinet-filter')?.value || '';
+        const q = (document.getElementById('gg-search')?.value || '').trim().toLowerCase();
+
+        let rows = goodsGroupsRows;
+        if (cabFilter) rows = rows.filter(r => r.cabinetId === cabFilter);
+        if (q) {
+            rows = rows.filter(r =>
+                String(r.nmId).includes(q) ||
+                (r.sellerArticle || '').toLowerCase().includes(q) ||
+                (r.category || '').toLowerCase().includes(q) ||
+                (r.cabinetName || '').toLowerCase().includes(q)
+            );
+        }
+
+        const cabSet = new Set(rows.map(r => r.cabinetId));
+        const stockSum = rows.reduce((s, r) => s + Number(r.stock || 0), 0);
+        setText('gg-cabinets-count', String(cabSet.size));
+        setText('gg-articles-count', String(rows.length));
+        setText('gg-stock-total', fmt(stockSum) + ' шт.');
+
+        if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет данных по фильтру</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = rows.map(r => `<tr>
+            <td style="font-weight:600;color:var(--text-primary)">${escapeHtml(r.cabinetName)}</td>
+            <td style="font-family:monospace;color:var(--accent);font-weight:600">${escapeHtml(String(r.nmId))}</td>
+            <td style="color:var(--text-primary)">${escapeHtml(r.sellerArticle || '—')}</td>
+            <td style="color:var(--text-muted)">${escapeHtml(r.category || '—')}</td>
+            <td style="text-align:right;font-weight:700;color:var(--text-primary)">${fmt(Number(r.stock || 0))}</td>
+        </tr>`).join('');
+
+        if (scrollEl && scrollTop > 0) scrollEl.scrollTop = scrollTop;
+    }
+
+    async function loadGoodsGroups() {
+        const tbody = document.getElementById('gg-table-body');
+        const btn = document.getElementById('gg-load-btn');
+        if (!tbody) return;
+        if (btn) { btn.disabled = true; btn.textContent = 'Загрузка…'; }
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Загрузка артикулов…</td></tr>';
+
+        try {
+            let cabinets = cabinetListCache;
+            if (!cabinets?.length) {
+                const { data } = await supabase.from('cabinets').select('id, name').order('name');
+                cabinets = data || [];
+            }
+            if (!cabinets.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет кабинетов</td></tr>';
+                return;
+            }
+
+            const cabIds = cabinets.map(c => c.id);
+            const cabName = Object.fromEntries(cabinets.map(c => [c.id, c.name]));
+
+            const filterEl = document.getElementById('gg-cabinet-filter');
+            if (filterEl) {
+                const prev = filterEl.value;
+                filterEl.innerHTML = '<option value="">Все кабинеты</option>' +
+                    cabinets.map(c => `<option value="${escapeHtml(String(c.id))}">${escapeHtml(c.name)}</option>`).join('');
+                filterEl.value = prev && cabIds.includes(prev) ? prev : '';
+            }
+
+            const [artsRes, stocksRes] = await Promise.all([
+                supabase.from('rnp_articles').select('*').in('cabinet_id', cabIds),
+                supabase.from('wb_stocks').select('cabinet_id, nm_id, quantity').in('cabinet_id', cabIds),
+            ]);
+            if (artsRes.error) throw artsRes.error;
+            if (stocksRes.error) throw stocksRes.error;
+
+            const articles = artsRes.data || [];
+            const stocks = stocksRes.data || [];
+
+            const stockMap = {};
+            stocks.forEach(s => {
+                const k = `${s.cabinet_id}|${s.nm_id}`;
+                stockMap[k] = (stockMap[k] || 0) + Number(s.quantity || 0);
+            });
+
+            const rowMap = new Map();
+            articles.forEach(a => {
+                const k = `${a.cabinet_id}|${a.nm_id}`;
+                rowMap.set(k, {
+                    cabinetId: a.cabinet_id,
+                    cabinetName: cabName[a.cabinet_id] || '—',
+                    nmId: a.nm_id,
+                    sellerArticle: String(a.manual_data?.seller_article || a.manual_data?.sa_name || a.name || '').trim(),
+                    category: (a.category || '').trim(),
+                    stock: stockMap[k] || 0,
+                });
+            });
+
+            Object.entries(stockMap).forEach(([k, qty]) => {
+                if (rowMap.has(k)) {
+                    rowMap.get(k).stock = qty;
+                    return;
+                }
+                const sep = k.indexOf('|');
+                const cabinetId = k.slice(0, sep);
+                const nmId = Number(k.slice(sep + 1));
+                rowMap.set(k, {
+                    cabinetId,
+                    cabinetName: cabName[cabinetId] || '—',
+                    nmId,
+                    sellerArticle: '',
+                    category: '',
+                    stock: qty,
+                });
+            });
+
+            for (const cab of cabinets) {
+                const missing = [...rowMap.values()].filter(r => r.cabinetId === cab.id && !r.sellerArticle);
+                if (!missing.length) continue;
+                const nmIds = [...new Set(missing.map(r => r.nmId))];
+                for (let i = 0; i < nmIds.length; i += 80) {
+                    const chunk = nmIds.slice(i, i + 80);
+                    const { data: orders } = await supabase.from('wb_orders')
+                        .select('nm_id, data')
+                        .eq('cabinet_id', cab.id)
+                        .in('nm_id', chunk);
+                    const saMap = {};
+                    (orders || []).forEach(o => {
+                        if (saMap[o.nm_id]) return;
+                        const sa = extractSellerArticleFromOrder(o);
+                        if (sa) saMap[o.nm_id] = sa;
+                    });
+                    missing.forEach(r => {
+                        if (saMap[r.nmId]) r.sellerArticle = saMap[r.nmId];
+                    });
+                }
+            }
+
+            goodsGroupsRows = [...rowMap.values()].sort((a, b) =>
+                a.cabinetName.localeCompare(b.cabinetName, 'ru') ||
+                (a.sellerArticle || '').localeCompare(b.sellerArticle || '', 'ru') ||
+                Number(a.nmId) - Number(b.nmId)
+            );
+
+            renderGoodsGroupsTable();
+        } catch (e) {
+            console.error('[goods-groups]', e);
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10" style="color:var(--red)">${escapeHtml(e.message)}</td></tr>`;
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Загрузить все артикулы'; }
+        }
     }
 
     function seoStorageKey() { return `nr_seo_${currentCabinetId || 'default'}`; }
