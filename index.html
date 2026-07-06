@@ -137,6 +137,102 @@
         ::-webkit-scrollbar-track { background: #030303; }
         ::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #a855f7; }
+
+        /* === STEP 9: Visual effects === */
+        body { animation: siteReveal 0.6s ease-out both; }
+        @keyframes siteReveal { from { opacity: 0; } to { opacity: 1; } }
+
+        .grid-bg {
+            position: fixed; inset: 0; pointer-events: none; z-index: 0;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 80px 80px;
+            mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+            -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
+        }
+        .geo-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+        .geo-sq {
+            position: absolute; border: 1px solid rgba(168, 85, 247, 0.15);
+            border-radius: 4px; animation: geoFloat linear infinite;
+        }
+        .geo-sq:nth-child(1)  { width:40px;height:40px;top:8%;left:5%;animation-duration:18s;opacity:.6; }
+        .geo-sq:nth-child(2)  { width:16px;height:16px;top:15%;left:82%;animation-duration:22s;animation-delay:-4s;opacity:.4; }
+        .geo-sq:nth-child(3)  { width:60px;height:60px;top:55%;left:90%;animation-duration:28s;animation-delay:-8s;opacity:.3;transform:rotate(15deg);animation-name:geoFloatRotated; }
+        .geo-sq:nth-child(4)  { width:24px;height:24px;top:70%;left:12%;animation-duration:20s;animation-delay:-2s;opacity:.5; }
+        .geo-sq:nth-child(5)  { width:8px;height:8px;top:35%;left:48%;animation-duration:15s;animation-delay:-6s;opacity:.7; }
+        .geo-sq:nth-child(6)  { width:32px;height:32px;top:85%;left:65%;animation-duration:25s;animation-delay:-10s;opacity:.35;transform:rotate(30deg);animation-name:geoFloatRotated2; }
+        .geo-sq:nth-child(7)  { width:12px;height:12px;top:25%;left:25%;animation-duration:19s;animation-delay:-1s;opacity:.55; }
+        .geo-sq:nth-child(8)  { width:48px;height:48px;top:45%;left:3%;animation-duration:30s;animation-delay:-14s;opacity:.2;transform:rotate(45deg);animation-name:geoFloatRotated3; }
+        .geo-sq:nth-child(9)  { width:20px;height:20px;top:92%;left:38%;animation-duration:17s;animation-delay:-7s;opacity:.45; }
+        .geo-sq:nth-child(10) { width:6px;height:6px;top:60%;left:72%;animation-duration:13s;animation-delay:-3s;opacity:.8; }
+        @keyframes geoFloat {
+            0%,100% { transform: translateY(0); }
+            25% { transform: translateY(-18px); }
+            50% { transform: translateY(-8px); }
+            75% { transform: translateY(-22px); }
+        }
+        @keyframes geoFloatRotated { 0%,100% { transform: translateY(0) rotate(15deg); } 50% { transform: translateY(-20px) rotate(20deg); } }
+        @keyframes geoFloatRotated2 { 0%,100% { transform: translateY(0) rotate(30deg); } 50% { transform: translateY(-15px) rotate(25deg); } }
+        @keyframes geoFloatRotated3 { 0%,100% { transform: translateY(0) rotate(45deg); } 50% { transform: translateY(-25px) rotate(50deg); } }
+
+        .cursor-glow {
+            position: fixed; width: 500px; height: 500px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(168,85,247,0.06) 0%, transparent 70%);
+            pointer-events: none; z-index: 1; transform: translate(-50%, -50%);
+            transition: left 0.08s ease, top 0.08s ease; will-change: left, top;
+        }
+        @media (hover: none) { .cursor-glow { display: none; } }
+
+        @keyframes heroEntrance {
+            0% { opacity: 0; transform: translateY(28px); filter: blur(6px); }
+            100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+        }
+        .hero-el-1 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 0.2s both; }
+        .hero-el-2 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 0.4s both; }
+        .hero-el-3 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 0.6s both; }
+        .hero-el-4 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 0.8s both; }
+        .hero-el-5 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 1.0s both; }
+
+        @keyframes lineExpand {
+            from { transform: scaleX(0); opacity: 0; }
+            to { transform: scaleX(1); opacity: 1; }
+        }
+        .section-divider.revealed {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+            transform-origin: left;
+            animation: lineExpand 1.2s cubic-bezier(0.16,1,0.3,1) both;
+        }
+
+        .reveal { will-change: opacity, transform, filter; }
+        .reveal-stagger > * { filter: blur(3px); will-change: opacity, transform; }
+        .reveal-stagger.revealed > *:nth-child(n) { filter: blur(0); }
+
+        @keyframes shimmerSlide {
+            0% { transform: translateX(-100%) skewX(-15deg); }
+            100% { transform: translateX(200%) skewX(-15deg); }
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .card-shimmer { position: relative; overflow: hidden; }
+            .card-shimmer::before {
+                content: ''; position: absolute; top: 0; left: 0;
+                width: 50%; height: 100%;
+                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+                transform: translateX(-100%) skewX(-15deg); pointer-events: none;
+            }
+            .card-shimmer:hover::before { animation: shimmerSlide 0.6s ease forwards; }
+        }
+
+        .team-avatar-wrap {
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 1rem; border-radius: 9999px;
+            background: rgba(255,255,255,0.02);
+            overflow: hidden;
+        }
+        .team-avatar-wrap.lg { width: 96px; height: 96px; }
+        .team-avatar-wrap.sm { width: 48px; height: 48px; margin-bottom: 0.75rem; }
+        .page-layer { position: relative; z-index: 10; }
     </style>
     <!-- Supabase — наша база данных и авторизация -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -148,14 +244,14 @@
 </head>
 <body class="bg-[#030303] text-gray-200 font-sans antialiased selection:bg-purple-600 selection:text-white overflow-x-hidden">
 
-    <!-- Фоновые glow-подложки -->
-    <div class="absolute inset-0 overflow-hidden pointer-events-none">
-        <div class="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-purple-600/20 blur-[120px]"></div>
-        <div class="absolute top-[800px] right-0 w-80 h-80 rounded-full bg-purple-500/10 blur-[100px]"></div>
-        <div class="absolute bottom-[400px] left-1/3 w-96 h-96 rounded-full bg-purple-600/15 blur-[130px]"></div>
+    <div class="grid-bg" aria-hidden="true"></div>
+    <div class="geo-bg" aria-hidden="true">
+        <div class="geo-sq"></div><div class="geo-sq"></div><div class="geo-sq"></div><div class="geo-sq"></div><div class="geo-sq"></div>
+        <div class="geo-sq"></div><div class="geo-sq"></div><div class="geo-sq"></div><div class="geo-sq"></div><div class="geo-sq"></div>
     </div>
+    <div id="cursor-glow" class="cursor-glow" aria-hidden="true"></div>
 
-    <!-- HEADER -->
+    <div class="page-layer">
     <header class="fixed top-0 left-0 right-0 z-50 glass-card bg-opacity-70 border-b border-white/5">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 md:h-20 flex items-center justify-between">
             <a href="#" class="flex items-center gap-2 shrink-0">
@@ -215,17 +311,17 @@
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div class="lg:col-span-7 space-y-6 md:space-y-8">
-                <div class="animate-hero-badge inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-500/30 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-purple-400">
+                <div class="hero-el-1 inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-500/30 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-purple-400">
                     <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
                     <span>Nur Consulting × NR Space</span>
                 </div>
-                <h1 class="animate-hero-1 text-[2.5rem] leading-[1.05] sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white">
+                <h1 class="hero-el-2 text-[2.5rem] leading-[1.05] sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white">
                     Превращаем <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600">Wildberries</span><br>в систему роста и прибыли
                 </h1>
-                <p class="animate-hero-2 text-sm sm:text-base md:text-lg text-white/50 max-w-xl leading-relaxed">
+                <p class="hero-el-3 text-sm sm:text-base md:text-lg text-white/50 max-w-xl leading-relaxed">
                     Мы не просто агентство. Мы операционная команда для масштабирования крупного бизнеса на маркетплейсах. Передайте управление экспертам и сфокусируйтесь на развитии стратегии.
                 </p>
-                <div class="animate-hero-3 flex flex-wrap gap-4 pt-2">
+                <div class="hero-el-4 flex flex-wrap gap-4 pt-2">
                     <a href="https://t.me/maraomg" target="_blank" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white font-semibold rounded-xl transition neon-glow text-center w-full sm:w-auto text-sm">
                         Получить бесплатный аудит
                     </a>
@@ -236,7 +332,7 @@
                 </div>
             </div>
             
-            <div class="animate-hero-4 lg:col-span-5 relative">
+            <div class="hero-el-5 lg:col-span-5 relative">
                 <div class="glass-card rounded-2xl p-4 sm:p-6 border-white/10 relative overflow-hidden">
                     <div class="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
                         <div class="flex items-center space-x-2">
@@ -288,7 +384,7 @@
         </div>
     </section>
 
-    <div class="section-divider max-w-7xl mx-auto"></div>
+    <div class="section-divider reveal max-w-7xl mx-auto"></div>
 
     <!-- SERVICES SECTION -->
     <section id="services" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
@@ -316,7 +412,7 @@
         </div>
     </section>
 
-    <div class="section-divider max-w-7xl mx-auto"></div>
+    <div class="section-divider reveal max-w-7xl mx-auto"></div>
 
     <!-- CASE STUDY SECTION -->
     <section id="cases" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
@@ -346,7 +442,7 @@
         </div>
     </section>
 
-    <div class="section-divider max-w-7xl mx-auto"></div>
+    <div class="section-divider reveal max-w-7xl mx-auto"></div>
 
     <!-- TEAM SECTION -->
     <section id="team" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
@@ -356,51 +452,43 @@
         </div>
 
         <!-- Уровень 1: ключевая команда -->
-        <div class="reveal-stagger grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-5">
+        <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-5">
             <!-- Нурболот -->
-            <div class="relative glass-card p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group">
-                <span class="absolute top-3 right-3 z-10 text-[10px] font-black tracking-widest px-2 py-1 rounded-md bg-purple-600 text-white uppercase">FOUNDER</span>
-                <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5">
-                    <img src="images/nurbolot.jpg" alt="Нурболот" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
+            <div class="relative glass-card card-shimmer p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group">
+                <div class="relative mb-4 mx-auto w-fit">
+                    <div class="team-avatar-wrap lg border border-white/10" data-gender="male" data-size="80"></div>
+                    <span class="absolute -top-1 -right-1 z-10 text-[9px] font-black tracking-widest px-2 py-0.5 rounded-md bg-purple-600 text-white uppercase">FOUNDER</span>
                 </div>
-                <h4 class="text-white font-bold text-base sm:text-lg">Нурболот</h4>
-                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Основатель / Стратег</p>
+                <h4 class="text-white font-bold text-base sm:text-lg text-center">Нурболот</h4>
+                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5 text-center">Основатель / Стратег</p>
                 <p class="text-xs text-white/50 font-light mt-3 leading-relaxed">Эксперт по развитию и масштабированию крупного бизнеса на Wildberries. Управляет внутренней архитектурой экосистемы и координирует ключевые процессы автоматизации.</p>
             </div>
             <!-- Марлен -->
-            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group">
-                <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5">
-                    <img src="images/marlen.jpg" alt="Марлен" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
-                </div>
-                <h4 class="text-white font-bold text-base sm:text-lg">Марлен</h4>
-                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Логистика</p>
+            <div class="glass-card card-shimmer p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group">
+                <div class="team-avatar-wrap lg border border-white/10" data-gender="male" data-size="80"></div>
+                <h4 class="text-white font-bold text-base sm:text-lg text-center">Марлен</h4>
+                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5 text-center">Логистика</p>
                 <p class="text-xs text-white/50 font-light mt-3 leading-relaxed">Оптимизирует цепочки поставок, управляет отгрузками на 7+ ключевых складов и контролирует оборачиваемость стока.</p>
             </div>
             <!-- Инсия -->
-            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group">
-                <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5">
-                    <img src="images/insiya.jpg" alt="Инсия" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
-                </div>
-                <h4 class="text-white font-bold text-base sm:text-lg">Инсия</h4>
-                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Аналитика данных</p>
+            <div class="glass-card card-shimmer p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group">
+                <div class="team-avatar-wrap lg border border-white/10" data-gender="female" data-size="80"></div>
+                <h4 class="text-white font-bold text-base sm:text-lg text-center">Инсия</h4>
+                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5 text-center">Аналитика данных</p>
                 <p class="text-xs text-white/50 font-light mt-3 leading-relaxed">Строит управленческую отчетность, настраивает интеграции через API и находит скрытые точки потери маржинальности.</p>
             </div>
             <!-- Ольга -->
-            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group">
-                <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5">
-                    <img src="images/olga.jpg" alt="Ольга" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
-                </div>
-                <h4 class="text-white font-bold text-base sm:text-lg">Ольга</h4>
-                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">UI/UX Дизайнер</p>
+            <div class="glass-card card-shimmer p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group">
+                <div class="team-avatar-wrap lg border border-white/10" data-gender="female" data-size="80"></div>
+                <h4 class="text-white font-bold text-base sm:text-lg text-center">Ольга</h4>
+                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5 text-center">UI/UX Дизайнер</p>
                 <p class="text-xs text-white/50 font-light mt-3 leading-relaxed">Создает премиальный визуальный стиль брендов, проектирует высококонверсионные воронки и карточки товаров.</p>
             </div>
             <!-- Дарья -->
-            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group col-span-2 sm:col-span-1">
-                <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5">
-                    <img src="images/darya.jpg" alt="Дарья" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
-                </div>
-                <h4 class="text-white font-bold text-base sm:text-lg">Дарья</h4>
-                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Продвижение</p>
+            <div class="glass-card card-shimmer p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group sm:col-span-2 lg:col-span-1 xl:col-span-1">
+                <div class="team-avatar-wrap lg border border-white/10" data-gender="female" data-size="80"></div>
+                <h4 class="text-white font-bold text-base sm:text-lg text-center">Дарья</h4>
+                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5 text-center">Продвижение</p>
                 <p class="text-xs text-white/50 font-light mt-3 leading-relaxed">Управляет трафиком, выстраивает performance-маркетинг стратегии и максимизирует ROI рекламных кампаний.</p>
             </div>
         </div>
@@ -410,20 +498,20 @@
             <p class="text-white/30 text-xs uppercase tracking-widest text-center">Операционный состав</p>
         </div>
         <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="glass-card p-4 rounded-2xl border border-white/5 hover-glow">
-                <div class="w-12 h-12 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 font-bold text-sm mb-3">ДА</div>
+            <div class="glass-card card-shimmer p-4 rounded-2xl border border-white/5 hover-glow">
+                <div class="team-avatar-wrap sm border border-white/10" data-gender="male" data-size="48"></div>
                 <h4 class="text-white font-semibold text-sm">Данияр Асанов</h4>
                 <p class="text-[10px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Младший аналитик</p>
                 <p class="text-xs text-white/40 mt-2 leading-relaxed">Сбор первичных данных для модулей РНП, базовый аудит личных кабинетов селлеров и выгрузка отчетов.</p>
             </div>
-            <div class="glass-card p-4 rounded-2xl border border-white/5 hover-glow">
-                <div class="w-12 h-12 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 font-bold text-sm mb-3">АИ</div>
+            <div class="glass-card card-shimmer p-4 rounded-2xl border border-white/5 hover-glow">
+                <div class="team-avatar-wrap sm border border-white/10" data-gender="male" data-size="48"></div>
                 <h4 class="text-white font-semibold text-sm">Амир Исаев</h4>
                 <p class="text-[10px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Ассистент по логистике</p>
                 <p class="text-xs text-white/40 mt-2 leading-relaxed">Мониторинг текущего индекса локализации, отслеживание тарифов складов и пакетная генерация штрихкодов.</p>
             </div>
-            <div class="glass-card p-4 rounded-2xl border border-white/5 hover-glow">
-                <div class="w-12 h-12 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 font-bold text-sm mb-3">АВ</div>
+            <div class="glass-card card-shimmer p-4 rounded-2xl border border-white/5 hover-glow">
+                <div class="team-avatar-wrap sm border border-white/10" data-gender="female" data-size="48"></div>
                 <h4 class="text-white font-semibold text-sm">Алина Волкова</h4>
                 <p class="text-[10px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Младший SEO-специалист</p>
                 <p class="text-xs text-white/40 mt-2 leading-relaxed">Ежедневный трекинг позиций артикулов в поисковой выдаче Wildberries и сбор ключевых запросов.</p>
@@ -431,7 +519,7 @@
         </div>
     </section>
 
-    <div class="section-divider max-w-7xl mx-auto"></div>
+    <div class="section-divider reveal max-w-7xl mx-auto"></div>
 
     <!-- MODULES SECTION -->
     <section id="platform" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6">
@@ -442,18 +530,18 @@
                 <p class="text-white/50 text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed">Один инструмент — полный контроль бизнеса на Wildberries</p>
             </div>
             <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
-                <div class="module-card hover-glow"><div class="module-icon">📊</div><h3 class="module-title">Главный Дашборд & Оцифровка</h3><p class="module-desc">Полная автоматическая оцифровка бизнеса на Wildberries. Интерактивные графики выручки, чистой прибыли, маржинальности и ключевых метрик в реальном времени. Вся картина бизнеса на одном экране.</p></div>
-                <div class="module-card hover-glow"><div class="module-icon">🎯</div><h3 class="module-title">Модуль РНП по артикулам</h3><p class="module-desc">Глубокая аналитика по каждому артикулу. Детальные конверсии воронки, подсветка сильных сторон и моментальное выявление товаров, которые генерируют прибыль или сливают бюджет.</p></div>
-                <div class="module-card hover-glow"><div class="module-icon">🧪</div><h3 class="module-title">Встроенные А/Б Тесты</h3><p class="module-desc">Тестируйте главные фото, инфографику и цены прямо внутри платформы. Система замеряет кликабельность (CTR) каждого варианта и автоматически определяет победителя.</p></div>
-                <div class="module-card hover-glow"><div class="module-icon">🚀</div><h3 class="module-title">Управление и Контроль РК</h3><p class="module-desc">Тотальный контроль рекламных кабинетов. Анализ эффективности каждой кампании, отслеживание CPC, ДРР, реальных затрат и ROI без рутины.</p></div>
-                <div class="module-card hover-glow"><div class="module-icon">🔍</div><h3 class="module-title">Позиции в выдаче WB</h3><p class="module-desc">Введите артикул — система ежедневно автоматически проверяет его позиции по ключевым запросам. Узнайте первыми, когда карточка поднимается в топ или проседает.</p></div>
-                <div class="module-card hover-glow"><div class="module-icon">🖨️</div><h3 class="module-title">Маркировка и Генерация ШК</h3><p class="module-desc">Загружайте баркоды из Wildberries напрямую. Мгновенная генерация готовых к печати штрихкодов. Пакетное создание по размерам и экспорт в PDF под термопринтер в 1 клик.</p></div>
-                <div class="module-card hover-glow sm:col-span-2 lg:col-span-3"><div class="module-icon">📦</div><h3 class="module-title">Умная Логистика & Индекс Локализации</h3><p class="module-desc">Автоматический расчёт Индекса Локализации и доли заказов по регионам. Точные рекомендации: на какие склады загрузить товар, чтобы снизить стоимость логистики WB.</p></div>
+                <div class="module-card card-shimmer hover-glow"><div class="module-icon">📊</div><h3 class="module-title">Главный Дашборд & Оцифровка</h3><p class="module-desc">Полная автоматическая оцифровка бизнеса на Wildberries. Интерактивные графики выручки, чистой прибыли, маржинальности и ключевых метрик в реальном времени. Вся картина бизнеса на одном экране.</p></div>
+                <div class="module-card card-shimmer hover-glow"><div class="module-icon">🎯</div><h3 class="module-title">Модуль РНП по артикулам</h3><p class="module-desc">Глубокая аналитика по каждому артикулу. Детальные конверсии воронки, подсветка сильных сторон и моментальное выявление товаров, которые генерируют прибыль или сливают бюджет.</p></div>
+                <div class="module-card card-shimmer hover-glow"><div class="module-icon">🧪</div><h3 class="module-title">Встроенные А/Б Тесты</h3><p class="module-desc">Тестируйте главные фото, инфографику и цены прямо внутри платформы. Система замеряет кликабельность (CTR) каждого варианта и автоматически определяет победителя.</p></div>
+                <div class="module-card card-shimmer hover-glow"><div class="module-icon">🚀</div><h3 class="module-title">Управление и Контроль РК</h3><p class="module-desc">Тотальный контроль рекламных кабинетов. Анализ эффективности каждой кампании, отслеживание CPC, ДРР, реальных затрат и ROI без рутины.</p></div>
+                <div class="module-card card-shimmer hover-glow"><div class="module-icon">🔍</div><h3 class="module-title">Позиции в выдаче WB</h3><p class="module-desc">Введите артикул — система ежедневно автоматически проверяет его позиции по ключевым запросам. Узнайте первыми, когда карточка поднимается в топ или проседает.</p></div>
+                <div class="module-card card-shimmer hover-glow"><div class="module-icon">🖨️</div><h3 class="module-title">Маркировка и Генерация ШК</h3><p class="module-desc">Загружайте баркоды из Wildberries напрямую. Мгновенная генерация готовых к печати штрихкодов. Пакетное создание по размерам и экспорт в PDF под термопринтер в 1 клик.</p></div>
+                <div class="module-card card-shimmer hover-glow sm:col-span-2 lg:col-span-3"><div class="module-icon">📦</div><h3 class="module-title">Умная Логистика & Индекс Локализации</h3><p class="module-desc">Автоматический расчёт Индекса Локализации и доли заказов по регионам. Точные рекомендации: на какие склады загрузить товар, чтобы снизить стоимость логистики WB.</p></div>
             </div>
         </div>
     </section>
 
-    <div class="section-divider max-w-7xl mx-auto"></div>
+    <div class="section-divider reveal max-w-7xl mx-auto"></div>
 
     <!-- PLATFORM SHOWCASE -->
     <section id="platform-showcase" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
@@ -486,7 +574,7 @@
         </div>
     </section>
 
-    <div class="section-divider max-w-7xl mx-auto"></div>
+    <div class="section-divider reveal max-w-7xl mx-auto"></div>
 
     <!-- FOOTER / CONTACTS -->
     <footer id="contacts" class="reveal py-16 px-4 sm:px-6 max-w-7xl mx-auto border-t border-white/5 text-white/50 text-sm pb-32">
@@ -665,13 +753,58 @@
         </div>
     </div>   
 
+    </div><!-- /.page-layer -->
+
    <!-- Подключаем модуль работы с API WB -->
     <script src="wb-api.js"></script>
     <script src="script.js"></script>
     <script>
-        // Scroll reveal
+        // SVG-аватары команды
         (function () {
-            const els = document.querySelectorAll('.reveal, .reveal-stagger');
+            var gradCounter = 0;
+            function avatarBody(gender) {
+                if (gender === 'female') {
+                    return '<circle cx="40" cy="26" r="11" fill="rgba(255,255,255,0.9)"/>' +
+                        '<rect x="37" y="36" width="6" height="5" rx="2" fill="rgba(255,255,255,0.9)"/>' +
+                        '<path d="M22 62 C22 50 28 44 40 44 C52 44 58 50 58 62" fill="rgba(255,255,255,0.85)"/>' +
+                        '<path d="M29 24 C29 14 51 14 51 24 C51 28 49 32 49 36 C47 34 44 33 40 33 C36 33 33 34 31 36 C31 32 29 28 29 24Z" fill="rgba(168,85,247,0.6)"/>';
+                }
+                return '<circle cx="40" cy="27" r="11" fill="rgba(255,255,255,0.9)"/>' +
+                    '<rect x="37" y="37" width="6" height="4" rx="2" fill="rgba(255,255,255,0.9)"/>' +
+                    '<path d="M21 63 C21 51 28 45 40 45 C52 45 59 51 59 63" fill="rgba(255,255,255,0.85)"/>' +
+                    '<path d="M37 41 L34 46 L40 49 L46 46 L43 41" fill="rgba(168,85,247,0.5)"/>' +
+                    '<path d="M29 25 C29 15 51 15 51 25 C51 20 48 17 40 17 C32 17 29 20 29 25Z" fill="rgba(100,100,120,0.7)"/>';
+            }
+            function buildAvatarSvg(gender, size, gradId) {
+                return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+                    '<defs><radialGradient id="' + gradId + '" cx="40%" cy="35%" r="60%">' +
+                    '<stop offset="0%" stop-color="rgba(168,85,247,0.25)"/>' +
+                    '<stop offset="100%" stop-color="rgba(10,10,20,0.95)"/></radialGradient></defs>' +
+                    '<circle cx="40" cy="40" r="40" fill="url(#' + gradId + ')"/>' +
+                    avatarBody(gender) + '</svg>';
+            }
+            document.querySelectorAll('.team-avatar-wrap[data-gender]').forEach(function (el) {
+                var gender = el.getAttribute('data-gender') || 'male';
+                var size = parseInt(el.getAttribute('data-size'), 10) || 80;
+                var gradId = 'avatarGrad' + (gradCounter++);
+                el.innerHTML = buildAvatarSvg(gender, size, gradId);
+            });
+        })();
+
+        // Cursor glow (desktop only)
+        (function () {
+            var glow = document.getElementById('cursor-glow');
+            if (!glow || window.matchMedia('(hover: none)').matches) return;
+            var onMove = function (e) {
+                glow.style.left = e.clientX + 'px';
+                glow.style.top = e.clientY + 'px';
+            };
+            window.addEventListener('mousemove', onMove, { passive: true });
+        })();
+
+        // Scroll reveal + section dividers
+        (function () {
+            const els = document.querySelectorAll('.reveal, .reveal-stagger, .section-divider.reveal');
             if (!els.length) return;
             const obs = new IntersectionObserver(function (entries) {
                 entries.forEach(function (e) {
@@ -680,7 +813,7 @@
                         obs.unobserve(e.target);
                     }
                 });
-            }, { threshold: 0.12 });
+            }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
             els.forEach(function (el) { obs.observe(el); });
         })();
 
