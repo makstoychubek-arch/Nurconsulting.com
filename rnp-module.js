@@ -827,12 +827,10 @@ const RNP = (() => {
                     await _updateArticle(nmId, { manual_data: md, name: displayName });
                 }
             }
-            if (!silent) {
-                const keepSet = new Set([...uniq.keys()].map(Number));
-                const stale = _articles.filter(a => !keepSet.has(Number(a.nm_id)));
-                for (const art of stale) {
-                    await _db.from('rnp_articles').delete().eq('cabinet_id', _cab).eq('nm_id', art.nm_id);
-                }
+            const keepSet = new Set([...uniq.keys()].map(Number));
+            const stale = _articles.filter(a => !keepSet.has(Number(a.nm_id)));
+            for (const art of stale) {
+                await _db.from('rnp_articles').delete().eq('cabinet_id', _cab).eq('nm_id', art.nm_id);
             }
             await _loadArticles(_cab);
             await _backfillSellerArticlesFromDb();
@@ -3563,6 +3561,10 @@ const RNP = (() => {
         _renderSettings();
     }
 
+    async function resyncArticles() {
+        await _syncFromOrders({ silent: true });
+    }
+
     async function toggleArt(nmId) {
         const art = _articles.find(a => a.nm_id == nmId);
         if (!art) return;
@@ -3712,7 +3714,7 @@ const RNP = (() => {
         if (_activeNm == nmId) await _renderActiveTable();
     }
 
-    return { init, openSettings, openMain, pick, syncArts, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, openSettings, openMain, pick, syncArts, resyncArticles, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();

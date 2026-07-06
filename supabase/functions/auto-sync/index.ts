@@ -138,6 +138,7 @@ Deno.serve(async (req) => {
                         const orders = await ordersRes.json();
                         if (Array.isArray(orders) && orders.length > 0) {
                             ordersCount = orders.length;
+                            await admin.from('wb_orders').delete().eq('cabinet_id', cabinet.id).gte('order_date', DATE_FROM);
                             const orderRows = orders.map((o: Record<string, unknown>) => ({
                                 cabinet_id: cabinet.id,
                                 order_date: String(o.date || '').split('T')[0] ||

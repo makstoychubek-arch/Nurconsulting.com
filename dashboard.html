@@ -4051,8 +4051,9 @@
         return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    async function callWbProxy(action, params) {
-        if (!hasUserCabinets || !currentCabinetId) return null;
+    async function callWbProxy(action, params, cabinetId) {
+        const cabId = cabinetId || currentCabinetId;
+        if (!hasUserCabinets || !cabId) return null;
         if (!isSuperAdmin && currentSpaceStatus !== 'active') {
             showPremiumModal('warning', 'Спейс не активен', currentSpaceStatus === 'blocked'
                 ? 'Ваш спейс заблокирован. Синхронизация с WB отключена.'
@@ -4066,7 +4067,7 @@
             res = await fetch(WB_PROXY_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-                body: JSON.stringify({ cabinet_id: currentCabinetId, action, params })
+                body: JSON.stringify({ cabinet_id: cabId, action, params })
             });
         } catch (e) {
             showPremiumModal('error', 'Ошибка соединения', e.message);
@@ -4962,11 +4963,11 @@
         try {
             const from = '2026-01-01';
 
-            const stocks = await callWbProxy('stocks', { dateFrom: from });
+            const stocks = await callWbProxy('stocks', { dateFrom: from }, snapshotCabinet);
             if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
             if (!stocks) return;
 
-            const orders = await callWbProxy('orders', { dateFrom: from });
+            const orders = await callWbProxy('orders', { dateFrom: from }, snapshotCabinet);
             if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
             if (!orders) return;
 
@@ -4987,7 +4988,9 @@
                 }
             }
 
-            if (Array.isArray(orders) && orders.length > 0) {
+            if (Array.isArray(orders)) {
+                await supabase.from('wb_orders').delete().eq('cabinet_id', snapshotCabinet).gte('order_date', from);
+                if (orders.length > 0) {
                 const orderRows = orders.map(o => ({
                     cabinet_id: snapshotCabinet,
                     order_date: o.date?.split('T')[0] || new Date().toISOString().split('T')[0],
@@ -5003,6 +5006,7 @@
                         { onConflict: 'cabinet_id,order_date,nm_id,barcode', ignoreDuplicates: true }
                     );
                 }
+                }
             }
 
             if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
@@ -5010,6 +5014,7 @@
             await loadFromDB();
             if (typeof RNP !== 'undefined' && snapshotCabinet === currentCabinetId) {
                 await RNP.init(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+                if (typeof RNP.resyncArticles === 'function') await RNP.resyncArticles();
                 const cur = localStorage.getItem('nr_active_tab');
                 if (cur === 'rnp') RNP.openMain();
                 if (cur === 'rnp-settings') RNP.openSettings();
