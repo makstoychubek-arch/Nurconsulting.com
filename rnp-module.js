@@ -2827,9 +2827,11 @@ const RNP = (() => {
     }
 
     // ─── RENDER SETTINGS ──────────────────────────────────────────────────────
-    function _renderSettings() {
+    function _renderSettings(opts = {}) {
         const el = document.getElementById('tab-rnp-settings');
         if (!el) return;
+        const scrollEl = el.querySelector('.rnp-settings-articles-scroll');
+        const scrollTop = opts.preserveScroll && scrollEl ? scrollEl.scrollTop : 0;
         const monthOpts = (n, sel) => Array.from({ length: 12 }, (_, i) => {
             const m = i + 1;
             return `<option value="${m}"${m === sel ? ' selected' : ''}>${MONTH_SHORT[i]}</option>`;
@@ -2908,7 +2910,7 @@ const RNP = (() => {
             <div class="text-center py-10" style="color:var(--text-muted)">
               <p class="text-sm">Нажмите «Из заказов» — подтянутся артикулы WB и <b>артикулы продавца</b> из заказов автоматически</p>
             </div>` : `
-            <div style="overflow-x:auto;max-height:calc(100vh - 320px);overflow-y:auto">
+            <div class="rnp-settings-articles-scroll" style="overflow-x:auto;max-height:calc(100vh - 320px);overflow-y:auto">
               <table class="rnp-sheet-table" style="font-size:11px">
                 <thead>
                   <tr>
@@ -2943,7 +2945,7 @@ const RNP = (() => {
                     <td style="font-weight:600;color:var(--text-primary)">${sa || '—'}${auto ? ' <span style="color:var(--green);font-weight:400;font-size:10px">авто</span>' : ' <span style="color:var(--text-muted);font-weight:400;font-size:10px">(нет данных — Обновить на дашборде)</span>'}</td>
                     <td style="color:var(--text-muted)">${a.nm_id}</td>
                     <td class="rnp-metric-col" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${(a.name||'—').replace(/</g,'&lt;')}</td>
-                    <td><select onchange="RNP.setCategory(${a.nm_id},this.value)"
+                    <td><select data-rnp-cat="${a.nm_id}" onchange="RNP.setCategory(${a.nm_id},this.value)"
                       style="width:110px;padding:2px 4px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px">${catOpts}</select></td>
                     <td><input type="number" value="${a.cost_price||0}" min="0"
                       onchange="RNP.setCost(${a.nm_id},this.value)"
@@ -2966,6 +2968,10 @@ const RNP = (() => {
             </div>`}
           </div>
         </div>`;
+        if (scrollTop > 0) {
+            const nextScroll = el.querySelector('.rnp-settings-articles-scroll');
+            if (nextScroll) nextScroll.scrollTop = scrollTop;
+        }
     }
 
     // ─── RENDER MAIN TAB (Google Sheets layout) ─────────────────────────────
@@ -3605,12 +3611,12 @@ const RNP = (() => {
         const art = _articles.find(a => a.nm_id == nmId);
         if (!art) return;
         await _updateArticle(nmId, { is_active: !art.is_active });
-        _renderSettings();
+        _renderSettings({ preserveScroll: true });
     }
 
     async function enableAll(on) {
         await _setAllActive(on);
-        _renderSettings();
+        _renderSettings({ preserveScroll: true });
     }
 
     async function setCost(nmId, val) {
@@ -3632,11 +3638,17 @@ const RNP = (() => {
         if (v === '__new__') {
             const entered = prompt('Название новой категории/группы:', '');
             v = (entered || '').trim();
-            if (!v) { _renderSettings(); return; } // cancelled — reset the select
+            if (!v) {
+                const sel = document.querySelector(`select[data-rnp-cat="${nmId}"]`);
+                const art = _articles.find(a => a.nm_id == nmId);
+                if (sel) sel.value = (art?.category || '').trim();
+                return;
+            }
+            await _updateArticle(nmId, { category: v });
+            _renderSettings({ preserveScroll: true });
+            return;
         }
         await _updateArticle(nmId, { category: v });
-        _renderSettings();
-        await _renderMain();
     }
 
     async function savePlan(nmId, key, colKey, val) {
