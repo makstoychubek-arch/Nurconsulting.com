@@ -2605,6 +2605,22 @@
             </div>
         </div>
         <div id="tab-dashboard" class="tab-content active space-y-6">
+            <div id="sync-status-bar"
+                 class="flex items-center justify-between px-4 py-2.5 rounded-xl mb-4"
+                 style="background:var(--surface);border:1px solid var(--border)">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block"></span>
+                    <span class="text-xs" style="color:var(--text-muted)">
+                        Последнее обновление: <span id="last-sync-time">—</span>
+                    </span>
+                </div>
+                <button type="button" onclick="manualSync()"
+                        id="manual-sync-btn"
+                        class="text-xs px-3 py-1 rounded-lg"
+                        style="background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-border)">
+                    Синхронизировать сейчас
+                </button>
+            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div class="kpi-hero-card">
                     <div class="kpi-hero-label">Чистая прибыль</div>
@@ -3325,6 +3341,7 @@
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
     var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     var WB_PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
+    var AUTO_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/auto-sync';
     var ADMIN_SPACE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/admin-space';
     const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
     const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
@@ -3394,10 +3411,29 @@
         const token = document.getElementById('modal-cabinet-token')?.value.trim().replace(/\s+/g, '');
         if (!name) { showPremiumModal('warning', 'Укажите название', 'Введите название нового кабинета.'); return; }
         if (!currentUserId) { showPremiumModal('error', 'Сессия', 'Войдите заново и повторите.'); return; }
-        const { error } = await supabase.from('cabinets').insert({ name, wb_token: token || null, user_id: currentUserId });
+        const { data: cabinet, error } = await supabase.from('cabinets')
+            .insert({ name, wb_token: token || null, user_id: currentUserId })
+            .select()
+            .single();
         if (error) { showPremiumModal('error', 'Ошибка', error.message); return; }
         closeAddCabinetModal();
-        showPremiumModal('success', 'Кабинет добавлен!', `Кабинет "${name}" успешно создан.`);
+        showPremiumModal('success', 'Кабинет добавлен!', `Запускаем загрузку данных для "${name}"...`);
+        if (token && token.length > 50) {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    await fetch(AUTO_SYNC_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + session.access_token
+                        },
+                        body: JSON.stringify({ mode: 'full', cabinet_id: cabinet.id })
+                    });
+                    showPremiumModal('success', 'Готово!', `Кабинет "${name}" добавлен и данные загружены.`);
+                }
+            } catch (e) { console.warn('Auto-sync failed:', e); }
+        }
         if (typeof loadCabinetsAPIList === 'function') loadCabinetsAPIList();
         await loadCabinets();
     }
@@ -4349,6 +4385,7 @@
             await loadFromDB();
         }
         updateEmptyCabinetState();
+        await loadLastSyncTime();
     }
 
     // Мобильное меню
@@ -4403,6 +4440,7 @@
         // Показываем оверлей перехода
         showCabinetTransition(cabinetName, async () => {
             await loadFromDB();
+            await loadLastSyncTime();
             if (typeof RNP !== 'undefined') {
                 await RNP.init(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
                 const cur = localStorage.getItem('nr_active_tab');
@@ -4475,6 +4513,56 @@
                 WBFormulas.applyMetricsToDashboard(metrics, setText);
                 syncSummaryTab(metrics);
             }).catch(e => console.warn('Finance report:', e.message));
+        }
+    }
+
+    async function loadLastSyncTime() {
+        if (!currentCabinetId) return;
+        const { data } = await supabase
+            .from('sync_log')
+            .select('synced_at, status')
+            .eq('cabinet_id', currentCabinetId)
+            .order('synced_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        const el = document.getElementById('last-sync-time');
+        if (!el) return;
+        if (!data) { el.textContent = 'никогда'; return; }
+        const dt = new Date(data.synced_at);
+        const diff = Math.round((Date.now() - dt) / 60000);
+        const text = diff < 60
+            ? `${diff} мин назад`
+            : diff < 1440
+            ? `${Math.round(diff / 60)} ч назад`
+            : dt.toLocaleDateString('ru-RU');
+        el.textContent = `${text} ${data.status === 'error' ? '⚠️' : '✓'}`;
+    }
+
+    async function manualSync() {
+        if (!hasUserCabinets || !currentCabinetId) return;
+        const btn = document.getElementById('manual-sync-btn');
+        if (btn) { btn.textContent = '⏳ Загрузка...'; btn.disabled = true; }
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Сессия истекла, перезайдите.');
+            const res = await fetch(AUTO_SYNC_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + session.access_token
+                },
+                body: JSON.stringify({ mode: 'full', cabinet_id: currentCabinetId })
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
+            await loadFromDB();
+            await loadLastSyncTime();
+            showPremiumModal('success', 'Синхронизация завершена',
+                `Загружено: ${result.results?.[0]?.stocks || 0} остатков, ${result.results?.[0]?.orders || 0} заказов`);
+        } catch (e) {
+            showPremiumModal('error', 'Ошибка синхронизации', e.message);
+        } finally {
+            if (btn) { btn.textContent = 'Синхронизировать сейчас'; btn.disabled = false; }
         }
     }
 
@@ -5829,10 +5917,29 @@
         const token = document.getElementById('new-cabinet-token').value.trim().replace(/\s+/g, '');
         if (!name) { showPremiumModal('warning', 'Укажите название', 'Введите название нового кабинета.'); return; }
         if (!currentUserId) { showPremiumModal('error', 'Сессия', 'Войдите заново и повторите.'); return; }
-        const { error } = await supabase.from('cabinets').insert({ name, wb_token: token || null, user_id: currentUserId });
+        const { data: cabinet, error } = await supabase.from('cabinets')
+            .insert({ name, wb_token: token || null, user_id: currentUserId })
+            .select()
+            .single();
         if (error) { showPremiumModal('error', 'Ошибка', error.message); return; }
         hideAddCabinetForm();
-        showPremiumModal('success', 'Кабинет добавлен!', `Кабинет "${name}" успешно создан.`);
+        showPremiumModal('success', 'Кабинет добавлен!', `Запускаем загрузку данных для "${name}"...`);
+        if (token && token.length > 50) {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    await fetch(AUTO_SYNC_URL, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + session.access_token
+                        },
+                        body: JSON.stringify({ mode: 'full', cabinet_id: cabinet.id })
+                    });
+                    showPremiumModal('success', 'Готово!', `Кабинет "${name}" добавлен и данные загружены.`);
+                }
+            } catch (e) { console.warn('Auto-sync failed:', e); }
+        }
         loadCabinetsAPIList();
         loadCabinets();
     }
