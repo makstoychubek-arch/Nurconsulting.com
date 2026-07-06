@@ -21,8 +21,9 @@ export function TabNomenclature() {
     try {
       const all = await syncNomenclatureFromWB();
       setProducts(all);
+      alert(`✅ Синхронизировано ${all.length} товаров`);
     } catch (e) {
-      alert((e as Error).message);
+      alert(`❌ ${(e as Error).message}`);
     } finally {
       setLoading(false);
     }

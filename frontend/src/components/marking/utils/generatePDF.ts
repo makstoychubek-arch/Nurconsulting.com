@@ -14,6 +14,7 @@ function getTemplate(): LabelTemplate {
 }
 
 export async function generatePDFRoll(records: KIZRecord[]) {
+  // Динамический импорт — только на клиенте
   const [{ jsPDF }, bwipjs] = await Promise.all([import('jspdf'), import('bwip-js')]);
 
   const matched = records.filter((r) => r.matched);

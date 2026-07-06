@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef } from 'react';
 import type { KIZRecord } from './types';
 
@@ -12,35 +14,36 @@ export function LabelPreview({ record }: Props) {
   useEffect(() => {
     let cancelled = false;
 
-    import('bwip-js').then((bwipjs) => {
+    (async () => {
+      const bwipjs = await import('bwip-js');
       if (cancelled) return;
 
       if (eanRef.current && record.barcode) {
         try {
-          bwipjs.default.toCanvas(eanRef.current, {
+          await bwipjs.default.toCanvas(eanRef.current, {
             bcid: 'ean13',
             text: record.barcode,
             scale: 2,
             height: 8,
             includetext: true,
           });
-        } catch {
-          /* skip */
+        } catch (e) {
+          console.warn('EAN render:', e);
         }
       }
 
       if (dmRef.current && record.kiz) {
         try {
-          bwipjs.default.toCanvas(dmRef.current, {
+          await bwipjs.default.toCanvas(dmRef.current, {
             bcid: 'datamatrix',
-            text: record.kiz.slice(0, 80),
+            text: record.kiz.slice(0, 50),
             scale: 3,
           });
-        } catch {
-          /* skip */
+        } catch (e) {
+          console.warn('DM render:', e);
         }
       }
-    });
+    })();
 
     return () => {
       cancelled = true;

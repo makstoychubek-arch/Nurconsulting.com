@@ -24,9 +24,35 @@ async function parseCSV(file: File): Promise<string[]> {
 
 async function parsePDF(file: File): Promise<string[]> {
   const buffer = await file.arrayBuffer();
-  const text = new TextDecoder('utf-8', { fatal: false }).decode(buffer);
-  const kizRegex = /01\d{14}21[\w\d]{6,}[\dA-Z]{4,}/g;
-  return text.match(kizRegex) || [];
+  const bytes = new Uint8Array(buffer);
+
+  const textDecoded = new TextDecoder('latin1').decode(bytes);
+  const kizRegex = /01\d{14}21[\w\d!"%&'()*+,\-./:;<=>?]{6,}/g;
+  const fromText = textDecoded.match(kizRegex) || [];
+
+  if (fromText.length > 0) {
+    console.log(`PDF текстовый слой: найдено ${fromText.length} КИЗ`);
+    return fromText;
+  }
+
+  const kizList: string[] = [];
+  const asciiStr = Array.from(bytes)
+    .map((b) => (b >= 32 && b < 127 ? String.fromCharCode(b) : ' '))
+    .join('');
+
+  const matches = asciiStr.match(/01\d{14}21[^\s]{6,50}/g) || [];
+  kizList.push(...matches);
+
+  if (kizList.length === 0) {
+    throw new Error(
+      'КИЗ не найдены в PDF. Возможные причины:\n' +
+        '• PDF является сканом (изображением) — текстовый слой отсутствует\n' +
+        '• Попробуйте экспортировать данные в CSV формат из системы Честный Знак\n' +
+        '• Или используйте файл из личного кабинета "Текшер" в формате .csv',
+    );
+  }
+
+  return kizList;
 }
 
 export function extractGTIN(kiz: string): string {
