@@ -34,7 +34,8 @@ serve(async (req) => {
         if (authErr || !user) return json({ error: 'Invalid session' }, 401);
 
         const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
-        const isSuperAdmin = String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL;
+        const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
+        const isSuperAdmin = String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL || user.id === SUPER_ADMIN_ID;
 
         if (!isSuperAdmin) {
             const adminCheck = createClient(supabaseUrl, supabaseService);

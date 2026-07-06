@@ -7,7 +7,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <title>NR Space — Аналитика</title>
+    <meta name="apple-mobile-web-app-title" content="NR Space">
+    <title>NR Space</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
@@ -574,7 +575,7 @@
         .metrics-details summary { padding: 16px 20px; cursor: pointer; font-weight: 700; font-size: 14px; color: var(--text-primary); list-style: none; display: flex; align-items: center; justify-content: space-between; }
         .metrics-details summary::-webkit-details-marker { display: none; }
         .metrics-details .metrics-inner { padding: 0 20px 20px; }
-        .header-greeting { font-size: 12px; color: var(--text-muted); margin-bottom: 2px; }
+        .header-greeting { display: none; }
         .header-title { font-size: 22px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.03em; }
         .header-profile { display: none; }
         .placeholder-widget { padding: 48px 24px; text-align: center; position: relative; overflow: hidden; }
@@ -1892,6 +1893,97 @@
             font-size: 13px;
             line-height: 1.5;
         }
+
+        /* ====== Empty State — нет кабинетов WB ====== */
+        .space-empty-state {
+            position: absolute;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 32px 24px;
+            background: var(--bg);
+            background-image: var(--bg-mesh);
+        }
+        .space-empty-state.hidden { display: none !important; }
+        .main-content.empty-cabinet-mode { position: relative; min-height: 420px; }
+        .main-content.empty-cabinet-mode > .tab-content { visibility: hidden; pointer-events: none; }
+        .space-empty-card {
+            max-width: 480px;
+            width: 100%;
+            text-align: center;
+            padding: 48px 36px;
+            border-radius: 24px;
+            background: var(--surface-solid, var(--surface));
+            border: 1px solid var(--border);
+            box-shadow: var(--card-shadow-lg, 0 8px 32px rgba(0,0,0,0.08));
+        }
+        .space-empty-icon {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 20px;
+            border-radius: 18px;
+            background: var(--text-primary);
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 900;
+            letter-spacing: -0.04em;
+            color: var(--sidebar-bg);
+        }
+        .space-empty-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            margin-bottom: 10px;
+        }
+        .space-empty-sub {
+            font-size: 14px;
+            color: var(--text-muted);
+            line-height: 1.55;
+            margin-bottom: 28px;
+        }
+        .space-empty-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 14px 28px;
+            border-radius: 14px;
+            border: none;
+            background: var(--accent-gradient);
+            color: white;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(109, 40, 217, 0.25);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .space-empty-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(109, 40, 217, 0.32); }
+        #add-cabinet-modal {
+            position: fixed;
+            inset: 0;
+            z-index: 200000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(8px);
+            padding: 20px;
+        }
+        #add-cabinet-modal.hidden { display: none !important; }
+        .add-cabinet-modal-box {
+            width: 100%;
+            max-width: 440px;
+            padding: 28px;
+            border-radius: 20px;
+            background: var(--surface-solid);
+            border: 1px solid var(--border-strong);
+            box-shadow: var(--card-shadow-lg);
+        }
         .settings-section-tab.hidden-tab { display: none !important; }
         .map-placeholder { background: var(--surface); border: 2px dashed var(--border-strong); border-radius: 16px; min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; gap: 8px; }
         .ui-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; border: 1px solid transparent; line-height: 1.2; }
@@ -1973,6 +2065,7 @@
             backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important;
         }
         header.glass > div { overflow: visible; }
+        .app-header-main { padding: 16px 24px; }
         [data-theme="neon"] header.glass { border-bottom: 1px solid rgba(240,98,146,0.12) !important; background: rgba(10,10,16,0.85) !important; }
         [data-theme="ios"] header.glass { background: rgba(255,255,255,0.88) !important; }
 
@@ -2118,27 +2211,72 @@
 
         @media (max-width: 768px) {
             .sidebar-app {
+                position: fixed;
+                inset: 0 auto 0 0;
+                z-index: 50;
                 transform: translateX(-100%);
-                transition: transform 0.25s ease;
+                transition: transform 0.28s cubic-bezier(0.32, 0.72, 0, 1);
                 pointer-events: auto;
+                height: 100vh;
+                height: 100dvh;
             }
             .sidebar-app.mobile-open {
                 transform: translateX(0);
-                box-shadow: 4px 0 40px rgba(0,0,0,0.15);
+                box-shadow: 8px 0 32px rgba(0, 0, 0, 0.2);
+            }
+            .sidebar-app.mobile-open .sidebar-flyout.mobile-active {
+                width: 228px;
+                min-width: 228px;
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+                border-right-color: var(--border);
+                box-shadow: none;
             }
             .mobile-menu-btn {
                 display: flex; align-items: center; justify-content: center;
-                width: 36px; height: 36px; border-radius: 10px;
+                width: 40px; height: 40px; border-radius: 12px;
                 background: var(--accent-soft); border: 1px solid var(--accent-border);
-                cursor: pointer; color: var(--accent); font-size: 18px;
+                cursor: pointer; color: var(--accent); font-size: 20px;
+                flex-shrink: 0;
             }
-            .main-rail { margin-left: 0 !important; }
+            .main-rail { margin-left: 0 !important; width: 100%; }
             body.flyout-expanded .main-rail { margin-left: 0 !important; }
             .mobile-overlay {
-                display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-                z-index: 45; backdrop-filter: blur(4px);
+                display: none; position: fixed; inset: 0;
+                background: rgba(0, 0, 0, 0.4);
+                z-index: 49;
+                backdrop-filter: blur(4px);
+                -webkit-backdrop-filter: blur(4px);
             }
             .mobile-overlay.active { display: block; }
+            header.glass {
+                padding: 0 !important;
+                flex-shrink: 0;
+            }
+            .app-header-main {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                height: 56px;
+                min-height: 56px;
+                max-height: 56px;
+                padding: 0 12px;
+                padding-top: env(safe-area-inset-top, 0);
+            }
+            .header-greeting { display: none !important; }
+            .header-title { font-size: 18px !important; line-height: 1.2 !important; font-weight: 600 !important; }
+            #top-filters-bar {
+                padding: 8px 12px 10px !important;
+                margin: 0 !important;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .cabinet-picker-label { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .cabinet-picker-btn { padding: 6px 10px !important; }
+            #refresh-btn { width: 40px; height: 40px; padding: 0 !important; justify-content: center; }
+            .main-content { padding: 16px 12px !important; }
             #date-picker { left: 10px !important; width: calc(100vw - 20px) !important; }
             .grid.xl\:grid-cols-5 { grid-template-columns: repeat(2, 1fr) !important; }
         }
@@ -2410,15 +2548,14 @@
     <main class="main-rail flex-1 flex flex-col h-full overflow-hidden">
         <div class="mobile-overlay" id="mobile-overlay" onclick="closeMobileMenu()"></div>
 
-        <header class="glass border-b px-6 py-4 shrink-0 rounded-none" style="border-color:var(--border);border-radius:0">
-            <div class="flex items-center justify-between gap-4">
+        <header class="glass border-b shrink-0 rounded-none app-header" style="border-color:var(--border);border-radius:0">
+            <div class="app-header-main flex items-center justify-between gap-4">
                 <div class="flex items-center gap-3 min-w-0">
-                    <button class="mobile-menu-btn btn-smooth" onclick="toggleMobileMenu()" id="mobile-menu-btn">☰</button>
+                    <button type="button" class="mobile-menu-btn btn-smooth" onclick="toggleMobileMenu()" id="mobile-menu-btn" aria-label="Меню">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
                     <div class="min-w-0">
-                        <p class="header-greeting">Привет, <span id="header-user-name">—</span> — добро пожаловать</p>
-                        <div class="flex items-center gap-2 min-w-0">
-                            <h1 id="page-title" class="header-title truncate">Дашборд</h1>
-                        </div>
+                        <h1 id="page-title" class="header-title truncate">Дашборд</h1>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
@@ -2457,6 +2594,16 @@
         </header>
 
         <div class="flex-1 overflow-y-auto p-6 main-content">
+        <div id="space-empty-state" class="space-empty-state hidden">
+            <div class="space-empty-card">
+                <div class="space-empty-icon">NR</div>
+                <div class="space-empty-title">Добро пожаловать в NR Space</div>
+                <p class="space-empty-sub">Подключите магазин Wildberries по API, чтобы начать работу.</p>
+                <button type="button" class="space-empty-btn" onclick="openAddCabinetModal()">
+                    <span style="font-size:18px;line-height:1">+</span> Добавить кабинет
+                </button>
+            </div>
+        </div>
         <div id="tab-dashboard" class="tab-content active space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div class="kpi-hero-card">
@@ -2924,7 +3071,7 @@
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-devsessions" onclick="showSettingsSection('devsessions', this)">Сессии разработчиков</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-spaces" onclick="showSettingsSection('spaces', this)">Управление Спейсами</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">API кабинетов</div>
-                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-about" onclick="showSettingsSection('about', this)">О платформе</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-about" onclick="showSettingsSection('about', this)">NR Space</div>
             </div>
             <div id="settings-profile" class="settings-tab-anim hidden space-y-4">
                 <div class="widget-card p-6">
@@ -3003,7 +3150,7 @@
             </div>
             <div id="settings-about" class="settings-tab-anim hidden space-y-4">
                 <div class="widget-card p-6">
-                    <h3 class="font-semibold mb-3" style="color:var(--text-primary)">О платформе</h3>
+                    <h3 class="font-semibold mb-3" style="color:var(--text-primary)">NR Space</h3>
                     <div class="text-sm space-y-1.5" style="color:var(--text-secondary)">
                         <div>Версия: <span style="color:var(--text-primary)">NR Space v1.3</span></div>
                         <div>База данных: <span style="color:var(--green)">Supabase ✓</span></div>
@@ -3177,6 +3324,19 @@
         </div>
     </div>
 
+    <div id="add-cabinet-modal" class="hidden" onclick="if(event.target===this)closeAddCabinetModal()">
+        <div class="add-cabinet-modal-box" onclick="event.stopPropagation()">
+            <h3 class="font-semibold mb-1" style="color:var(--text-primary);font-size:17px">Добавить WB-кабинет</h3>
+            <p class="text-xs mb-4" style="color:var(--text-muted)">Вставьте персональный API-токен Wildberries</p>
+            <input type="text" id="modal-cabinet-name" placeholder="Название кабинета" class="w-full rounded-xl px-4 py-2.5 text-sm mb-3" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+            <input type="password" id="modal-cabinet-token" placeholder="Персональный токен WB" autocomplete="off" class="w-full rounded-xl px-4 py-2.5 text-sm mb-4" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary);font-family:monospace">
+            <div class="flex gap-2">
+                <button type="button" class="flex-1 px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="submitAddCabinetModal()">Сохранить</button>
+                <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAddCabinetModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+
     <div id="premium-modal">
         <div id="modal-box">
             <div id="modal-icon" style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"></div>
@@ -3197,9 +3357,79 @@
     var WB_PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
     var ADMIN_SPACE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/admin-space';
     const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
+    const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
 
     function isSuperAdminEmail(email) {
         return String(email || '').toLowerCase() === SUPER_ADMIN_EMAIL;
+    }
+
+    function isSuperAdminUser(user) {
+        if (!user) return false;
+        return isSuperAdminEmail(user.email) || user.id === SUPER_ADMIN_ID;
+    }
+
+    function isSuperAdminRow(row) {
+        if (!row) return false;
+        return !!(row.is_super_admin || isSuperAdminEmail(row.email) || row.user_id === SUPER_ADMIN_ID);
+    }
+
+    const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs']);
+    let hasUserCabinets = false;
+
+    function getCurrentActiveTab() {
+        const active = document.querySelector('.tab-content.active');
+        if (active?.id?.startsWith('tab-')) return active.id.replace('tab-', '');
+        try {
+            const saved = localStorage.getItem('nr_active_tab');
+            return TAB_ALIASES[saved] || saved || 'dashboard';
+        } catch (_) { return 'dashboard'; }
+    }
+
+    function updateEmptyCabinetState() {
+        const emptyEl = document.getElementById('space-empty-state');
+        const mainContent = document.querySelector('.main-content');
+        const filtersBar = document.getElementById('top-filters-bar');
+        if (!emptyEl || !mainContent) return;
+
+        const tab = getCurrentActiveTab();
+        const showEmpty = !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tab);
+
+        emptyEl.classList.toggle('hidden', !showEmpty);
+        mainContent.classList.toggle('empty-cabinet-mode', showEmpty);
+
+        if (filtersBar) {
+            if (showEmpty) {
+                filtersBar.style.display = 'none';
+            } else {
+                const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'marking']);
+                filtersBar.style.display = DATE_FILTER_TABS.has(tab) ? 'flex' : 'none';
+            }
+        }
+    }
+
+    function openAddCabinetModal() {
+        const nameEl = document.getElementById('modal-cabinet-name');
+        const tokenEl = document.getElementById('modal-cabinet-token');
+        if (nameEl) nameEl.value = '';
+        if (tokenEl) tokenEl.value = '';
+        document.getElementById('add-cabinet-modal')?.classList.remove('hidden');
+    }
+
+    function closeAddCabinetModal() {
+        document.getElementById('add-cabinet-modal')?.classList.add('hidden');
+    }
+
+    async function submitAddCabinetModal() {
+        const name = document.getElementById('modal-cabinet-name')?.value.trim();
+        const token = document.getElementById('modal-cabinet-token')?.value.trim().replace(/\s+/g, '');
+        if (!name) { showPremiumModal('warning', 'Укажите название', 'Введите название нового кабинета.'); return; }
+        if (!currentUserId) { showPremiumModal('error', 'Сессия', 'Войдите заново и повторите.'); return; }
+        const { error } = await supabase.from('cabinets').insert({ name, wb_token: token || null, user_id: currentUserId });
+        if (error) { showPremiumModal('error', 'Ошибка', error.message); return; }
+        closeAddCabinetModal();
+        showPremiumModal('success', 'Кабинет добавлен!', `Кабинет "${name}" успешно создан.`);
+        if (typeof loadCabinetsAPIList === 'function') loadCabinetsAPIList();
+        await loadCabinets();
     }
 
     async function denyDashboardAccess(errorCode) {
@@ -3217,7 +3447,7 @@
             window.location.replace('/login');
             return false;
         }
-        if (isSuperAdminEmail(user.email)) return true;
+        if (isSuperAdminUser(user)) return true;
 
         await syncSpaceProfile(user);
 
@@ -3324,8 +3554,8 @@
         const name = spaceDisplayName(row);
         const email = row.email || '—';
         const avatar = (row.avatar_url || '').trim();
-        const showCreator = opts.showCreator && (row.is_super_admin || isSuperAdminEmail(row.email));
-        const creatorBadge = showCreator ? '<span class="space-creator-badge">Создатель / Админ</span>' : '';
+        const showCreator = opts.showCreator && isSuperAdminRow(row);
+        const creatorBadge = showCreator ? '<span class="space-creator-badge">Создатель</span>' : '';
         const metaLine = opts.hideMeta ? '' : `<div class="admin-space-meta">${escapeHtml(formatLastSignIn(row.last_sign_in_at))}</div>`;
         const avatarHtml = avatar
             ? `<img class="admin-space-avatar" src="${escapeHtml(avatar)}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="admin-space-avatar-fallback" style="display:none">${escapeHtml(spaceUserInitial(row))}</div>`
@@ -3352,15 +3582,15 @@
     }
 
     function sortActiveSpaces(rows) {
-        const admins = rows.filter(s => s.is_super_admin || isSuperAdminEmail(s.email));
-        const clients = rows.filter(s => s.status === 'active' && !s.is_super_admin && !isSuperAdminEmail(s.email));
+        const admins = rows.filter(s => isSuperAdminRow(s));
+        const clients = rows.filter(s => s.status === 'active' && !isSuperAdminRow(s));
         clients.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
         return [...admins, ...clients];
     }
 
     function sortOAuthRequests(rows) {
         return rows
-            .filter(s => (s.status === 'pending' || s.status === 'blocked') && !s.is_super_admin && !isSuperAdminEmail(s.email))
+            .filter(s => (s.status === 'pending' || s.status === 'blocked') && !isSuperAdminRow(s))
             .sort((a, b) => new Date(b.last_sign_in_at || 0) - new Date(a.last_sign_in_at || 0));
     }
 
@@ -3422,7 +3652,7 @@
                 <th>Действия</th>
             </tr></thead>
             <tbody>${activeRows.map(s => {
-                const isCreator = s.is_super_admin || isSuperAdminEmail(s.email);
+                const isCreator = isSuperAdminRow(s);
                 const rowCls = isCreator ? ' class="admin-row-pinned"' : '';
                 const blockBtn = isCreator ? '<span style="font-size:11px;color:var(--text-muted)">—</span>' :
                     `<button type="button" class="admin-btn-block" onclick="adminBlockSpace('${s.user_id}', this)">Заблокировать Спейс</button>`;
@@ -3508,6 +3738,7 @@
     }
 
     async function callWbProxy(action, params) {
+        if (!hasUserCabinets || !currentCabinetId) return null;
         if (!isSuperAdmin && currentSpaceStatus !== 'active') {
             showPremiumModal('warning', 'Спейс не активен', currentSpaceStatus === 'blocked'
                 ? 'Ваш спейс заблокирован. Синхронизация с WB отключена.'
@@ -3531,7 +3762,8 @@
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
             const msg = errData.error || errData.message || `HTTP ${res.status}`;
-            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'content_cards', 'media_save']);
+            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'content_cards', 'media_save', 'fbw_supplies', 'fbw_supply_detail', 'stocks', 'orders']);
+            if (!hasUserCabinets || !currentCabinetId) return null;
             if (res.status === 403) showPremiumModal('warning', 'Доступ запрещён', msg);
             else if (res.status >= 500) console.warn(`[callWbProxy] ${action} server error:`, msg);
             else if (bgActions.has(action)) console.warn(`[callWbProxy] ${action}:`, msg);
@@ -3735,8 +3967,6 @@
             });
         }
         document.getElementById('page-title').textContent = tabTitles[name] || name;
-        const greeting = document.querySelector('.header-greeting');
-        if (greeting) greeting.style.display = (name === 'rnp' || name === 'rnp-settings') ? 'none' : '';
         const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'marking']);
         const filtersBar = document.getElementById('top-filters-bar');
         if (filtersBar) {
@@ -3752,20 +3982,23 @@
         }
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
-        if (name === 'ab-testing') loadABTests();
-        if (name === 'advertising') loadAdvertisingPreview();
-        if (name === 'logistics') initLogisticsSupplies();
-        if (name === 'seo') loadSeoKeywords();
+        if (name === 'ab-testing' && hasUserCabinets) loadABTests();
+        if (name === 'advertising' && hasUserCabinets) loadAdvertisingPreview();
+        if (name === 'logistics' && hasUserCabinets) initLogisticsSupplies();
+        if (name === 'seo' && hasUserCabinets) loadSeoKeywords();
         if (name === 'marking') renderMarkingQueue();
-        if (name === 'rnp' && typeof RNP !== 'undefined') RNP.openMain();
-        if (name === 'rnp-settings' && typeof RNP !== 'undefined') RNP.openSettings();
+        if (name === 'rnp' && hasUserCabinets && typeof RNP !== 'undefined') RNP.openMain();
+        if (name === 'rnp-settings' && hasUserCabinets && typeof RNP !== 'undefined') RNP.openSettings();
         if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
         syncRailGroup(name);
         syncModuleUrl(name);
         try { localStorage.setItem('nr_active_tab', name); } catch(e) {}
+        if (window.innerWidth <= 768) openMobileFlyoutForTab(name);
+        updateEmptyCabinetState();
     }
 
     async function loadAdvertisingPreview() {
+        if (!hasUserCabinets || !currentCabinetId) return;
         const countEl = document.getElementById('adv-campaigns-count');
         const listWrap = document.getElementById('adv-campaigns-list');
         const tableEl = document.getElementById('adv-campaigns-table');
@@ -3913,6 +4146,7 @@
     }
 
     function onDateRangeApplied() {
+        if (!hasUserCabinets || !currentCabinetId) return;
         const active = document.querySelector('.tab-content.active');
         const name = active?.id?.replace('tab-', '') || 'dashboard';
         if (name === 'dashboard' || name === 'summary') loadFromDB(activeDateFrom, activeDateTo);
@@ -4052,6 +4286,7 @@
         if (!data?.length) {
             menu.innerHTML = '<div class="text-center py-4 text-xs" style="color:var(--text-muted)">Нет кабинетов</div>';
             if (selectHeader) selectHeader.innerHTML = '<option>Нет кабинетов</option>';
+            updateCabinetPickerUI('Кабинет');
             return;
         }
         menu.innerHTML = data.map(c => `
@@ -4092,9 +4327,14 @@
     async function loadCabinets() {
         const { data } = await supabase.from('cabinets').select('id, name').order('name');
         if (!data || data.length === 0) {
+            hasUserCabinets = false;
+            currentCabinetId = null;
+            try { localStorage.removeItem('selected_cabinet_id'); } catch (_) {}
             renderCabinetDropdown([]);
+            updateEmptyCabinetState();
             return;
         }
+        hasUserCabinets = true;
         renderCabinetDropdown(data);
         if (!currentCabinetId) { currentCabinetId = data[0].id; localStorage.setItem('selected_cabinet_id', currentCabinetId); }
         const sel = data.find(c => c.id === currentCabinetId);
@@ -4106,20 +4346,34 @@
         } else {
             await loadFromDB();
         }
+        updateEmptyCabinetState();
     }
 
     // Мобильное меню
+    function openMobileFlyoutForTab(tabName) {
+        if (window.innerWidth > 768) return;
+        const g = TAB_GROUP[tabName] || 'ocr';
+        const flyId = 'fly-' + g;
+        document.querySelectorAll('.sidebar-flyout').forEach(f => {
+            f.classList.toggle('mobile-active', f.id === flyId);
+            if (f.id === flyId) f.classList.add('visible');
+        });
+    }
+
     function toggleMobileMenu() {
         const sidebar = document.getElementById('sidebar-app');
         const overlay = document.getElementById('mobile-overlay');
-        sidebar?.classList.toggle('mobile-open');
-        overlay?.classList.toggle('active');
+        if (!sidebar) return;
+        const open = sidebar.classList.toggle('mobile-open');
+        overlay?.classList.toggle('active', open);
+        if (open) openMobileFlyoutForTab(getCurrentActiveTab());
     }
     function closeMobileMenu() {
         const sidebar = document.getElementById('sidebar-app');
         const overlay = document.getElementById('mobile-overlay');
         sidebar?.classList.remove('mobile-open');
         overlay?.classList.remove('active');
+        document.querySelectorAll('.sidebar-flyout').forEach(f => f.classList.remove('mobile-active'));
     }
     // Закрываем меню при выборе пункта на мобиле
     document.addEventListener('click', function(e) {
@@ -4182,7 +4436,7 @@
     }
 
     async function loadFromDB(dateFrom, dateTo) {
-        if (!currentCabinetId) return;
+        if (!hasUserCabinets || !currentCabinetId) return;
         const from = dateFrom || '2025-01-01';
         const today = new Date();
         const to = dateTo || fmtDate(today);
@@ -4223,7 +4477,7 @@
     }
 
     async function refreshData() {
-        if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет в шапке справа.'); return; }
+        if (!hasUserCabinets || !currentCabinetId) return;
         const btn = document.getElementById('refresh-btn');
         btn.textContent = '⟳ Загрузка...'; btn.disabled = true;
         try {
@@ -5727,6 +5981,7 @@
     }
 
     function initLogisticsSupplies() {
+        if (!hasUserCabinets || !currentCabinetId) return;
         const snapshot = loadSuppliesCacheSnapshot();
         const shown = showSuppliesFromCache();
         if (shown && suppliesCacheIsReady(snapshot)) return;
@@ -5750,6 +6005,7 @@
     }
 
     async function enrichSuppliesMeta(supplies) {
+        if (!hasUserCabinets || !currentCabinetId) return;
         const gen = ++_supplyEnrichGen;
         const pending = (supplies || []).filter(s => s && !s._enriched);
         if (!pending.length) return;
@@ -5815,12 +6071,7 @@
     }
 
     async function loadSuppliesFromWB(silent) {
-        if (!currentCabinetId) {
-            const msg = 'Сначала выберите кабинет в шапке справа.';
-            if (!silent) showPremiumModal('warning', 'Выберите кабинет', msg);
-            renderSuppliesError(msg);
-            return;
-        }
+        if (!hasUserCabinets || !currentCabinetId) return;
         const listEl = document.getElementById('supplies-list');
         const hadCache = showSuppliesFromCache();
         if (!hadCache && listEl) {
@@ -6034,7 +6285,7 @@
         const allowed = await enforceAccessGate(session.user);
         if (!allowed) return;
 
-        isSuperAdmin = isSuperAdminEmail(session.user.email);
+        isSuperAdmin = isSuperAdminUser(session.user);
         currentUserEmail = session.user.email || '';
         currentUserId = session.user.id || '';
         currentSpaceStatus = 'active';
@@ -6053,15 +6304,15 @@
         updateSpaceStatusUI();
         try {
             await loadCabinets();
-            updateDateRangeLabel();
-            await loadABTests();
+            if (hasUserCabinets) updateDateRangeLabel();
+            if (hasUserCabinets) await loadABTests();
         } catch (e) {
             console.error('[init] load:', e);
         }
 
         setTimeout(async () => {
             try {
-                if (currentCabinetId && typeof RNP !== 'undefined') {
+                if (currentCabinetId && hasUserCabinets && typeof RNP !== 'undefined') {
                     const initTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('RNP init timeout')), 12000));
                     await Promise.race([
                         RNP.init(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail }),
@@ -6106,8 +6357,15 @@
 
         app.querySelectorAll('.rail-btn[data-flyout]').forEach(btn => {
             const id = btn.dataset.flyout;
-            btn.addEventListener('mouseenter', () => showFlyout(id));
-            btn.addEventListener('click', () => showFlyout(id));
+            btn.addEventListener('mouseenter', () => { if (window.innerWidth > 768) showFlyout(id); });
+            btn.addEventListener('click', () => {
+                showFlyout(id);
+                if (window.innerWidth <= 768) {
+                    document.querySelectorAll('.sidebar-flyout').forEach(f => {
+                        f.classList.toggle('mobile-active', f.id === id);
+                    });
+                }
+            });
         });
         flyouts.forEach(fly => {
             fly.addEventListener('mouseenter', () => clearTimeout(hideTimer));

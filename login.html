@@ -10,7 +10,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NR Consulting — Вход в платформу</title>
+    <title>NR Space — Вход</title>
+    <script>
+        (function () {
+            var h = window.location.hash || '';
+            var q = new URLSearchParams(window.location.search);
+            if (h.indexOf('access_token') !== -1 || h.indexOf('type=recovery') !== -1 || q.has('code')) {
+                document.documentElement.classList.add('oauth-pending');
+            }
+        })();
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -65,6 +74,67 @@
             border-radius: 12px;
         }
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        #screen-oauth-loading {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: #030303;
+        }
+        html.oauth-pending #screen-auth { display: none !important; }
+        html.oauth-pending #screen-oauth-loading { display: flex !important; }
+        .oauth-logo {
+            width: 88px; height: 88px;
+            background: linear-gradient(135deg, #6D28D9, #4C1D95);
+            border-radius: 26px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 28px;
+            animation: pulse-glow 2s ease infinite;
+        }
+        .oauth-logo span { color: white; font-size: 34px; font-weight: 900; letter-spacing: -0.04em; }
+        .oauth-space {
+            color: white;
+            font-size: 22px;
+            font-weight: 500;
+            letter-spacing: 0.12em;
+            margin-bottom: 20px;
+        }
+        .nr-brand-mark {
+            width: 44px; height: 44px;
+            border-radius: 14px;
+            background: #fff;
+            color: #030303;
+            font-size: 14px;
+            font-weight: 900;
+            letter-spacing: -0.05em;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .nr-brand-space {
+            font-size: 22px;
+            font-weight: 500;
+            color: #fff;
+            letter-spacing: 0.08em;
+        }
+        html.oauth-pending .oauth-home-link { display: none; }
+        .oauth-loading-text {
+            color: #9ca3af;
+            font-size: 14px;
+            line-height: 1.6;
+            text-align: center;
+            max-width: 320px;
+        }
+        .oauth-dots { display: flex; gap: 10px; margin-top: 28px; }
+        .oauth-dots span {
+            width: 10px; height: 10px; border-radius: 50%;
+            background: #8B5CF6;
+            animation: bounce 1s infinite;
+        }
+        .oauth-dots span:nth-child(2) { animation-delay: 150ms; }
+        .oauth-dots span:nth-child(3) { animation-delay: 300ms; }
     </style>
 </head>
 <body class="bg-[#030303] text-gray-200 font-sans antialiased min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
@@ -72,20 +142,26 @@
     <div class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-purple-900/10 rounded-full blur-[130px] pointer-events-none"></div>
     <div class="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-blue-900/8 rounded-full blur-[120px] pointer-events-none"></div>
 
-    <a href="/" class="absolute top-6 left-6 flex items-center justify-center w-10 h-10 rounded-xl bg-white text-black font-black text-xs tracking-tighter shadow-lg">NR</a>
+    <a href="/" class="absolute top-6 left-6 flex items-center justify-center w-10 h-10 rounded-xl bg-white text-black font-black text-xs tracking-tighter shadow-lg oauth-home-link">NR</a>
+
+    <!-- ЭКРАН: OAuth / проверка сессии -->
+    <div id="screen-oauth-loading">
+        <div class="oauth-logo"><span>NR</span></div>
+        <div class="oauth-space">Space</div>
+        <p id="oauth-loading-text" class="oauth-loading-text">Вход в NR Space...</p>
+        <div class="oauth-dots"><span></span><span></span><span></span></div>
+    </div>
 
     <!-- ЭКРАН 1: ВХОД / РЕГИСТРАЦИЯ -->
     <div id="screen-auth" class="w-full max-w-md fade-in">
         <div class="glass-card rounded-3xl p-8 shadow-2xl">
 
             <div class="text-center mb-8">
-                <div class="w-12 h-12 bg-purple-950/60 border border-purple-500/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                    <svg class="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-                    </svg>
+                <div class="flex items-center justify-center gap-2.5 mb-5">
+                    <div class="nr-brand-mark">NR</div>
+                    <span class="nr-brand-space">Space</span>
                 </div>
-                <h1 class="text-2xl font-bold text-white">Nur Platform</h1>
-                <p class="text-sm text-gray-400 mt-1">Аналитика Wildberries для вашего бизнеса</p>
+                <h1 class="text-xl font-semibold text-white tracking-tight">Вход в NR Space</h1>
             </div>
 
             <div class="flex bg-white/5 rounded-xl p-1 mb-6 border border-white/5">
@@ -138,7 +214,7 @@
                 <div id="login-error" class="hidden text-xs text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <button onclick="handleLogin()"
                     class="w-full py-3 bg-purple-700 hover:bg-purple-600 text-white font-medium rounded-xl transition neon-glow text-sm">
-                    Войти в платформу
+                    Продолжить
                 </button>
             </div>
 
@@ -199,16 +275,15 @@
         </div>
     </div>
 
-    <!-- ЭКРАН 2: ПРИВЕТСТВИЕ -->
+    <!-- ЭКРАН 2: ПРИВЕТСТВИЕ (legacy, не показывается при OAuth) -->
     <div id="screen-cabinets" class="w-full max-w-md fade-in hidden text-center">
         <div style="padding:40px 20px">
-            <div style="width:90px;height:90px;background:linear-gradient(135deg,#6D28D9,#4C1D95);border-radius:28px;display:flex;align-items:center;justify-content:center;margin:0 auto 28px;animation:pulse-glow 2s ease infinite">
-                <span style="color:white;font-size:36px;font-weight:900">N</span>
+            <div style="width:90px;height:90px;background:#fff;border-radius:26px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;animation:pulse-glow 2s ease infinite">
+                <span style="color:#030303;font-size:32px;font-weight:900;letter-spacing:-0.04em">NR</span>
             </div>
-            <div style="color:white;font-size:24px;font-weight:700;margin-bottom:6px">NR Consulting</div>
-            <div style="color:#6b7280;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:32px">Nur Platform Analytics</div>
-            <h2 style="color:white;font-size:20px;font-weight:600;margin-bottom:10px">Добро пожаловать, <span id="user-name" style="color:#a78bfa">—</span>!</h2>
-            <p style="color:#6b7280;font-size:13px;margin-bottom:36px;line-height:1.6">Спасибо, что выбрали нас.<br>Загружаем вашу аналитику...</p>
+            <div style="color:#9ca3af;font-size:14px;font-weight:500;letter-spacing:0.12em;margin-bottom:28px">Space</div>
+            <h2 style="color:white;font-size:20px;font-weight:600;margin-bottom:10px">Добро пожаловать, <span id="user-name" style="color:#a78bfa">—</span></h2>
+            <p style="color:#6b7280;font-size:13px;margin-bottom:36px;line-height:1.6">Вход в NR Space...</p>
             <div style="display:flex;justify-content:center;gap:10px">
                 <div style="width:12px;height:12px;background:#7C3AED;border-radius:50%;animation:bounce 1s infinite 0ms"></div>
                 <div style="width:12px;height:12px;background:#8B5CF6;border-radius:50%;animation:bounce 1s infinite 150ms"></div>
@@ -249,15 +324,28 @@
             input.type = input.type === 'password' ? 'text' : 'password';
         }
 
+        const OAUTH_LOADING_TEXT = 'Вход в NR Space...';
+
         async function signInWithGoogle() {
+            showOAuthLoading(OAUTH_LOADING_TEXT);
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: { redirectTo: window.location.origin + '/login.html' }
             });
-            if (error) showError('login-error', error.message);
+            if (error) {
+                hideOAuthLoading();
+                showAuthScreen();
+                showError('login-error', error.message);
+            }
         }
 
         const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
+        const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
+
+        function isSuperAdminUser(user) {
+            if (!user) return false;
+            return String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL || user.id === SUPER_ADMIN_ID;
+        }
 
         function extractGoogleProfile(user) {
             const meta = user?.user_metadata || user?.raw_user_meta_data || {};
@@ -311,10 +399,33 @@
             btn.textContent = 'Отправить ссылку'; btn.disabled = false;
         }
 
+        function showOAuthLoading(message) {
+            document.documentElement.classList.add('oauth-pending');
+            document.getElementById('screen-auth')?.classList.add('hidden');
+            document.getElementById('screen-cabinets')?.classList.add('hidden');
+            const loader = document.getElementById('screen-oauth-loading');
+            const text = document.getElementById('oauth-loading-text');
+            if (text && message) text.textContent = message;
+            loader?.classList.remove('hidden');
+            loader?.style.setProperty('display', 'flex');
+        }
+
+        function hideOAuthLoading() {
+            document.documentElement.classList.remove('oauth-pending');
+            const loader = document.getElementById('screen-oauth-loading');
+            if (loader) { loader.classList.add('hidden'); loader.style.display = 'none'; }
+        }
+
+        function showAuthScreen() {
+            hideOAuthLoading();
+            document.getElementById('screen-cabinets')?.classList.add('hidden');
+            document.getElementById('screen-auth')?.classList.remove('hidden');
+        }
+
         async function handleLogout() {
             await supabase.auth.signOut();
-            document.getElementById('screen-cabinets').classList.add('hidden');
-            document.getElementById('screen-auth').classList.remove('hidden');
+            _authFlowHandled = false;
+            showAuthScreen();
         }
 
         async function denyLoginAccess(errorCode) {
@@ -325,7 +436,7 @@
         }
 
         async function showCabinets(user) {
-            const isSuperAdmin = String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL;
+            const isSuperAdmin = isSuperAdminUser(user);
 
             // Фиксируем попытку в лог OAuth (даже если доступ закрыт)
             const profile = await syncSpaceProfile(user);
@@ -338,6 +449,8 @@
                     .maybeSingle();
 
                 if (spaceErr && spaceErr.code !== 'PGRST116') {
+                    hideOAuthLoading();
+                    showAuthScreen();
                     showError('login-error', 'Ошибка проверки доступа. Попробуйте позже.');
                     _authFlowHandled = false;
                     return;
@@ -350,19 +463,18 @@
                 }
             }
 
-            // Показываем приветственный экран — только активные клиенты и Super Admin
-            document.getElementById('screen-auth').classList.add('hidden');
-            document.getElementById('screen-cabinets').classList.remove('hidden');
+            // Только экран загрузки — без мигания формы логина
+            showOAuthLoading(OAUTH_LOADING_TEXT);
 
             const name = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Пользователь';
             document.getElementById('user-name').textContent = name;
 
-            // Через 2.5 сек плавный переход на Space
+            // Переход в Space за ~1.2 с без мигания формы логина
             setTimeout(() => {
-                document.body.style.transition = 'opacity 0.8s ease';
+                document.body.style.transition = 'opacity 0.5s ease';
                 document.body.style.opacity = '0';
-                setTimeout(() => { window.location.href = '/space'; }, 800);
-            }, 2500);
+                setTimeout(() => { window.location.href = '/space'; }, 500);
+            }, 1200);
         }
 
         function showError(id, message) {
@@ -380,14 +492,24 @@
 
         document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
+            const authError = urlParams.get('error');
+            const hash = window.location.hash || '';
+            const isOAuthReturn = hash.includes('access_token') || urlParams.has('code');
+
+            if (isOAuthReturn && !authError) {
+                showOAuthLoading(OAUTH_LOADING_TEXT);
+            }
+
             if (urlParams.get('tab') === 'register') switchTab('register');
 
-            const authError = urlParams.get('error');
             if (authError === 'access_denied') {
-                showError('login-error', 'Доступ к платформе закрыт. Дождитесь активации спейса администратором — ваша попытка входа зафиксирована.');
+                showAuthScreen();
+                showError('login-error', 'Доступ к NR Space закрыт. Дождитесь активации спейса администратором.');
             } else if (authError === 'blocked') {
-                showError('login-error', 'Ваш спейс заблокирован администратором. Обратитесь в поддержку NR Consulting.');
+                showAuthScreen();
+                showError('login-error', 'Ваш спейс заблокирован. Обратитесь в поддержку NR Space.');
             } else if (authError === 'access_check_failed') {
+                showAuthScreen();
                 showError('login-error', 'Не удалось проверить доступ. Попробуйте войти снова через несколько минут.');
             }
 
@@ -402,6 +524,7 @@
                         try { await supabase.auth.signOut({ scope: 'global' }); } catch (_) {}
                         return;
                     }
+                    showOAuthLoading(OAUTH_LOADING_TEXT);
                     await startAuthFlow(session.user);
                 }
             });
@@ -410,7 +533,10 @@
             if (authError && session?.user) {
                 try { await supabase.auth.signOut({ scope: 'global' }); } catch (_) {}
             } else if (session?.user) {
+                showOAuthLoading(OAUTH_LOADING_TEXT);
                 await startAuthFlow(session.user);
+            } else if (!isOAuthReturn) {
+                showAuthScreen();
             }
         });
     </script>

@@ -5,6 +5,11 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
+const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
+
+function isSuperAdmin(user: { email?: string | null; id?: string }) {
+    return String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL || user.id === SUPER_ADMIN_ID;
+}
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -36,7 +41,7 @@ serve(async (req) => {
         const { data: { user }, error: authErr } = await userClient.auth.getUser();
         if (authErr || !user) return json({ error: 'Invalid session' }, 401);
 
-        if (String(user.email || '').toLowerCase() !== SUPER_ADMIN_EMAIL) {
+        if (!isSuperAdmin(user)) {
             return json({ error: 'Super Admin access required' }, 403);
         }
 
