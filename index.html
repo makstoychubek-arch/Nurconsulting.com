@@ -9,7 +9,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NR Space</title>
+    <title>Nur Consulting — NR Space</title>
     <!-- Подключение Tailwind CSS и шрифтов -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,42 +37,107 @@
     </script>
     
     <style>
-        /* Эффект стеклянного морфизма (Glassmorphism) как на макете */
+        :root {
+            --bg-base: #030303;
+            --bg-surface: #0a0a0a;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255,255,255,0.6);
+            --text-muted: rgba(255,255,255,0.3);
+            --accent: #a855f7;
+            --accent-glow: rgba(168,85,247,0.15);
+            --border: rgba(255,255,255,0.05);
+        }
+        html {
+            scroll-behavior: smooth;
+            -webkit-tap-highlight-color: transparent;
+            text-size-adjust: 100%;
+        }
+        * {
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        body { overflow-x: hidden; background-color: var(--bg-base); }
+        img { max-width: 100%; height: auto; }
+
         .glass-card {
-            background: rgba(13, 13, 25, 0.45);
+            background: rgba(10, 10, 10, 0.55);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
             box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.3s ease;
         }
-        .glass-card:hover {
-            border-color: rgba(109, 40, 217, 0.4);
-            box-shadow: 0 0 25px rgba(109, 40, 217, 0.15);
+        @media (hover: hover) and (pointer: fine) {
+            .glass-card:hover {
+                border-color: rgba(168, 85, 247, 0.3);
+                box-shadow: 0 0 30px rgba(168, 85, 247, 0.12);
+            }
+            .hover-glow:hover {
+                border-color: rgba(168, 85, 247, 0.3);
+                box-shadow: 0 0 40px rgba(168, 85, 247, 0.12), inset 0 1px 0 rgba(255,255,255,0.05);
+                background: rgba(255,255,255,0.05);
+            }
+            .module-card:hover .module-icon { transform: scale(1.1); }
+            .module-card:hover .module-title { color: #e9d5ff; }
+            .module-card:hover .module-desc { color: rgba(255,255,255,0.6); }
         }
-        /* Неоновое свечение */
-        .neon-glow {
-            box-shadow: 0 0 40px rgba(109, 40, 217, 0.25);
+        @media (hover: none) {
+            .hover-glow:active { background: rgba(168, 85, 247, 0.08); }
         }
+        .neon-glow { box-shadow: 0 0 40px rgba(168, 85, 247, 0.25); }
         .text-gradient {
-            background: linear-gradient(135deg, #FFFFFF 30%, #A78BFA 100%);
+            background: linear-gradient(135deg, #FFFFFF 30%, #a855f7 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
-        /* Скрытие скроллбара для сохранения футуристичного вида */
-        ::-webkit-scrollbar {
-            width: 6px;
+        .section-divider { width: 100%; height: 1px; background: var(--border); }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(24px); filter: blur(4px); }
+            to { opacity: 1; transform: translateY(0); filter: blur(0); }
         }
-        ::-webkit-scrollbar-track {
-            background: #030303;
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .animate-hero-badge { animation: fadeIn 0.6s ease 0.05s both; }
+        .animate-hero-1 { animation: fadeInUp 0.9s cubic-bezier(0.16,1,0.3,1) 0.1s both; }
+        .animate-hero-2 { animation: fadeInUp 0.9s cubic-bezier(0.16,1,0.3,1) 0.3s both; }
+        .animate-hero-3 { animation: fadeInUp 0.9s cubic-bezier(0.16,1,0.3,1) 0.5s both; }
+        .animate-hero-4 { animation: fadeInUp 0.9s cubic-bezier(0.16,1,0.3,1) 0.7s both; }
+
+        .reveal {
+            opacity: 0; transform: translateY(32px); filter: blur(3px);
+            transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1), filter 0.6s ease;
         }
-        ::-webkit-scrollbar-thumb {
-            background: #1F1F2E;
-            border-radius: 3px;
+        .reveal.revealed { opacity: 1; transform: translateY(0); filter: blur(0); }
+        .reveal-stagger > * {
+            opacity: 0; transform: translateY(24px);
+            transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1);
         }
-        ::-webkit-scrollbar-thumb:hover {
-            background: #6D28D9;
+        .reveal-stagger.revealed > *:nth-child(1) { opacity:1; transform:none; transition-delay: 0.05s; }
+        .reveal-stagger.revealed > *:nth-child(2) { opacity:1; transform:none; transition-delay: 0.12s; }
+        .reveal-stagger.revealed > *:nth-child(3) { opacity:1; transform:none; transition-delay: 0.19s; }
+        .reveal-stagger.revealed > *:nth-child(4) { opacity:1; transform:none; transition-delay: 0.26s; }
+        .reveal-stagger.revealed > *:nth-child(5) { opacity:1; transform:none; transition-delay: 0.33s; }
+        .reveal-stagger.revealed > *:nth-child(6) { opacity:1; transform:none; transition-delay: 0.40s; }
+        .reveal-stagger.revealed > *:nth-child(7) { opacity:1; transform:none; transition-delay: 0.47s; }
+
+        .module-card {
+            position: relative; padding: 1.5rem; border-radius: 1rem;
+            border: 1px solid var(--border); background: rgba(255,255,255,0.02);
+            backdrop-filter: blur(4px); transition: all 0.5s ease;
         }
-    </style> 
+        .module-icon { font-size: 1.875rem; margin-bottom: 1rem; transition: transform 0.3s ease; }
+        .module-title { color: #fff; font-weight: 600; font-size: 1rem; margin-bottom: 0.5rem; transition: color 0.3s; }
+        .module-desc { color: rgba(255,255,255,0.4); font-size: 0.875rem; line-height: 1.6; transition: color 0.3s; }
+
+        #mobile-menu-panel { transition: transform 0.3s ease-out; }
+        #mobile-menu-panel.open { transform: translateX(0); }
+        #mobile-menu-panel.closed { transform: translateX(100%); }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #030303; }
+        ::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a855f7; }
+    </style>
     <!-- Supabase — наша база данных и авторизация -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -83,84 +148,119 @@
 </head>
 <body class="bg-[#030303] text-gray-200 font-sans antialiased selection:bg-purple-600 selection:text-white overflow-x-hidden">
 
-    <!-- Фоновые интерактивные частицы и свечения -->
-    <div class="absolute top-0 left-1/4 w-[600px] h-[600px] bg-purple-900/10 rounded-full blur-[150px] pointer-events-none"></div>
-    <div class="absolute top-[1200px] right-1/4 w-[500px] h-[500px] bg-blue-900/10 rounded-full blur-[130px] pointer-events-none"></div>
-    <div class="absolute bottom-[800px] left-1/3 w-[700px] h-[700px] bg-purple-900/10 rounded-full blur-[160px] pointer-events-none"></div>
+    <!-- Фоновые glow-подложки -->
+    <div class="absolute inset-0 overflow-hidden pointer-events-none">
+        <div class="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-purple-600/20 blur-[120px]"></div>
+        <div class="absolute top-[800px] right-0 w-80 h-80 rounded-full bg-purple-500/10 blur-[100px]"></div>
+        <div class="absolute bottom-[400px] left-1/3 w-96 h-96 rounded-full bg-purple-600/15 blur-[130px]"></div>
+    </div>
 
     <!-- HEADER -->
- <header class="fixed top-0 left-0 right-0 z-50 glass-card bg-opacity-70 border-b border-white/5">
-    <div class="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-        <a href="#" class="flex items-center justify-center w-10 h-10 rounded-xl bg-white text-black font-black text-xs tracking-tighter shadow-md">NR</a>
-        <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-400">
-            <a href="#services" class="hover:text-white transition">Услуги</a>
-            <a href="#cases" class="hover:text-white transition">Кейсы</a>
-            <a href="#team" class="hover:text-white transition">Команда</a>
-            <a href="#platform" class="hover:text-white transition">Платформа</a>
-            <a href="#contacts" class="hover:text-white transition">Контакты</a>
+    <header class="fixed top-0 left-0 right-0 z-50 glass-card bg-opacity-70 border-b border-white/5">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 md:h-20 flex items-center justify-between">
+            <a href="#" class="flex items-center gap-2 shrink-0">
+                <span class="flex items-center justify-center w-10 h-10 rounded-xl bg-white text-black font-black text-xs tracking-tighter shadow-md">NR</span>
+                <span class="hidden sm:inline text-sm font-medium text-white/60 tracking-widest">Space</span>
+            </a>
+            <nav class="hidden lg:flex items-center space-x-1 text-sm font-medium text-white/60">
+                <a href="#services" class="nav-link px-3 py-3 min-h-[44px] flex items-center hover:text-white transition-colors duration-200">Услуги</a>
+                <a href="#cases" class="nav-link px-3 py-3 min-h-[44px] flex items-center hover:text-white transition-colors duration-200">Кейсы</a>
+                <a href="#team" class="nav-link px-3 py-3 min-h-[44px] flex items-center hover:text-white transition-colors duration-200">Команда</a>
+                <a href="#platform" class="nav-link px-3 py-3 min-h-[44px] flex items-center hover:text-white transition-colors duration-200">Платформа</a>
+                <a href="#contacts" class="nav-link px-3 py-3 min-h-[44px] flex items-center hover:text-white transition-colors duration-200">Контакты</a>
+            </nav>
+            <div class="flex items-center gap-2">
+                <a href="/login.html" class="hidden sm:flex items-center px-4 py-2.5 min-h-[44px] text-sm font-medium text-white/60 hover:text-white glass-card rounded-xl transition">
+                    Войти
+                </a>
+                <a href="/login.html" class="hidden sm:flex items-center px-5 py-2.5 min-h-[44px] bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white text-sm font-semibold rounded-xl transition neon-glow">
+                    NR Space →
+                </a>
+                <button type="button" id="burger-btn" class="lg:hidden flex flex-col justify-center items-center w-11 h-11 rounded-xl border border-white/10 active:bg-white/5 transition-colors gap-1.5" aria-label="Меню">
+                    <span id="burger-line-1" class="block w-5 h-0.5 bg-white transition-all duration-300"></span>
+                    <span id="burger-line-2" class="block w-5 h-0.5 bg-white transition-all duration-300"></span>
+                    <span id="burger-line-3" class="block w-5 h-0.5 bg-white transition-all duration-300"></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile menu overlay -->
+    <div id="mobile-menu-overlay" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden hidden" onclick="closeMobileNav()"></div>
+    <div id="mobile-menu-panel" class="fixed top-0 right-0 z-50 h-full w-72 sm:w-80 bg-[#0a0a0a] border-l border-white/5 closed lg:hidden flex flex-col">
+        <div class="flex items-center justify-between p-4 border-b border-white/5">
+            <div class="flex items-baseline gap-1">
+                <span class="font-black text-lg text-white">NR</span>
+                <span class="font-medium text-lg text-white/60">Space</span>
+            </div>
+            <button type="button" onclick="closeMobileNav()" class="w-9 h-9 flex items-center justify-center rounded-lg border border-white/10 text-white/60 text-lg active:bg-white/5">×</button>
+        </div>
+        <nav class="flex-1 p-4 space-y-1">
+            <button type="button" onclick="handleNavClick('#services')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-white/60 text-sm font-medium active:bg-white/5 min-h-[48px]">Услуги</button>
+            <button type="button" onclick="handleNavClick('#cases')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-white/60 text-sm font-medium active:bg-white/5 min-h-[48px]">Кейсы</button>
+            <button type="button" onclick="handleNavClick('#team')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-white/60 text-sm font-medium active:bg-white/5 min-h-[48px]">Команда</button>
+            <button type="button" onclick="handleNavClick('#platform')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-white/60 text-sm font-medium active:bg-white/5 min-h-[48px]">Платформа</button>
+            <button type="button" onclick="handleNavClick('#contacts')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-white/60 text-sm font-medium active:bg-white/5 min-h-[48px]">Контакты</button>
         </nav>
-        <div class="flex items-center space-x-3">
-            <a href="/login.html" class="px-4 py-2.5 text-sm font-medium text-gray-300 hover:text-white glass-card rounded-xl transition hidden sm:block">
-                Войти
-            </a>
-            <a href="/login.html?tab=register" class="px-5 py-2.5 bg-purple-700 hover:bg-purple-600 text-white text-sm font-medium rounded-xl transition neon-glow hidden sm:block">
-                Регистрация
-            </a>
+        <div class="p-4 border-t border-white/5">
+            <a href="/login.html" class="flex items-center justify-center w-full py-3.5 rounded-xl bg-purple-600 active:bg-purple-700 text-white text-sm font-semibold min-h-[48px]">Войти в NR Space →</a>
         </div>
     </div>
-</header>
 
     <!-- HERO SECTION -->
-    <section class="relative pt-40 pb-20 px-6 max-w-7xl mx-auto min-h-screen flex flex-col justify-center">
-        <div class="grid lg:grid-cols-12 gap-12 items-center">
-            <div class="lg:col-span-7 space-y-8">
-                <div class="inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-500/30 text-xs font-medium uppercase tracking-wider text-purple-300">
+    <section class="relative pt-32 md:pt-40 pb-16 md:pb-20 px-4 sm:px-6 max-w-7xl mx-auto min-h-screen flex flex-col justify-center">
+        <div class="absolute inset-0 overflow-hidden pointer-events-none -z-10">
+            <div class="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-purple-600/20 blur-[120px]"></div>
+            <div class="absolute top-20 right-0 w-80 h-80 rounded-full bg-purple-500/10 blur-[100px]"></div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            <div class="lg:col-span-7 space-y-6 md:space-y-8">
+                <div class="animate-hero-badge inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-500/30 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-purple-400">
                     <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
-                    <span>Консалтинг нового поколения</span>
+                    <span>Nur Consulting × NR Space</span>
                 </div>
-                <h1 class="text-4xl sm:text-6xl font-bold tracking-tight text-white leading-[1.1]">
-                    Превращаем <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400">Wildberries</span> <br>в систему роста и прибыли
+                <h1 class="animate-hero-1 text-[2.5rem] leading-[1.05] sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white">
+                    Превращаем <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600">Wildberries</span><br>в систему роста и прибыли
                 </h1>
-                <p class="text-lg text-gray-400 max-w-xl font-light">
+                <p class="animate-hero-2 text-sm sm:text-base md:text-lg text-white/50 max-w-xl leading-relaxed">
                     Мы не просто агентство. Мы операционная команда для масштабирования крупного бизнеса на маркетплейсах. Передайте управление экспертам и сфокусируйтесь на развитии стратегии.
                 </p>
-                <div class="flex flex-wrap gap-4 pt-2">
-                    <a href="https://t.me/maraomg" target="_blank" class="px-8 py-4 bg-purple-700 hover:bg-purple-600 text-white font-medium rounded-xl transition neon-glow shadow-lg shadow-purple-700/20 text-center w-full sm:w-auto">
+                <div class="animate-hero-3 flex flex-wrap gap-4 pt-2">
+                    <a href="https://t.me/maraomg" target="_blank" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white font-semibold rounded-xl transition neon-glow text-center w-full sm:w-auto text-sm">
                         Получить бесплатный аудит
                     </a>
-                    <a href="https://t.me/maraomg" target="_blank" class="px-8 py-4 glass-card text-white hover:bg-white/10 font-medium rounded-xl transition text-center w-full sm:w-auto flex items-center justify-center space-x-3">
+                    <a href="https://t.me/maraomg" target="_blank" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] glass-card text-white hover-glow font-medium rounded-xl transition text-center w-full sm:w-auto text-sm">
                         <svg class="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
                         <span>Написать в Telegram</span>
                     </a>
                 </div>
             </div>
             
-            <!-- Интерактивный UI SaaS дашборда справа -->
-            <div class="lg:col-span-5 relative">
-                <div class="glass-card rounded-2xl p-6 border-white/10 relative overflow-hidden group">
+            <div class="animate-hero-4 lg:col-span-5 relative">
+                <div class="glass-card rounded-2xl p-4 sm:p-6 border-white/10 relative overflow-hidden">
                     <div class="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
                         <div class="flex items-center space-x-2">
-                            <span class="w-3 h-3 rounded-full bg-red-500/60"></span>
-                            <span class="w-3 h-3 rounded-full bg-yellow-500/60"></span>
-                            <span class="w-3 h-3 rounded-full bg-green-500/60"></span>
-                            <span class="text-xs text-gray-500 ml-2">NR Space</span>
+                            <span class="w-3 h-3 rounded-full bg-white/20"></span>
+                            <span class="w-3 h-3 rounded-full bg-white/20"></span>
+                            <span class="w-3 h-3 rounded-full bg-white/20"></span>
+                            <span class="text-xs text-white/40 ml-2">NR Space v1.0</span>
                         </div>
                         <span class="text-xs px-2 py-1 rounded bg-purple-950/50 border border-purple-500/20 text-purple-300">Live</span>
                     </div>
                     <div class="space-y-4">
-                        <div class="p-4 rounded-xl bg-white/5">
-                            <p class="text-xs text-gray-400 uppercase tracking-wider">Выручка клиентов</p>
-                            <p class="text-2xl font-bold text-white mt-1">120 430 000 ₽</p>
-                            <span class="text-xs text-emerald-400 flex items-center mt-1">▲ +48.7% за 3 мес.</span>
+                        <div class="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                            <p class="text-[10px] sm:text-xs text-white/40 uppercase tracking-wider">Выручка клиентов</p>
+                            <p class="text-xl sm:text-2xl font-bold text-white mt-1">120 430 000 ₽</p>
+                            <span class="text-xs text-white/60 flex items-center mt-1">▲ +48.7% за 3 мес.</span>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
-                            <div class="p-4 rounded-xl bg-white/5">
-                                <p class="text-xs text-gray-400">Заказы</p>
-                                <p class="text-lg font-semibold text-white mt-1">356 780 шт</p>
+                            <div class="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                                <p class="text-xs text-white/40">Заказы</p>
+                                <p class="text-base sm:text-lg font-semibold text-white mt-1">356 780 шт</p>
                             </div>
-                            <div class="p-4 rounded-xl bg-white/5">
-                                <p class="text-xs text-gray-400">Индекс локализации</p>
-                                <p class="text-lg font-semibold text-purple-400 mt-1">94%</p>
+                            <div class="p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                                <p class="text-xs text-white/40">Индекс локализации</p>
+                                <p class="text-base sm:text-lg font-semibold text-purple-400 mt-1">94%</p>
                             </div>
                         </div>
                     </div>
@@ -168,8 +268,7 @@
             </div>
         </div>
 
-        <!-- GRID ЦИФР КОМПАНИИ -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mt-24">
+        <div class="reveal grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-16 md:mt-24">
             <div class="glass-card p-6 rounded-2xl text-center md:text-left">
                 <p class="text-3xl sm:text-4xl font-bold text-white">120+ млн</p>
                 <p class="text-xs text-gray-400 uppercase tracking-widest mt-2">Оборот клиента за 3 месяца</p>
@@ -189,14 +288,16 @@
         </div>
     </section>
 
+    <div class="section-divider max-w-7xl mx-auto"></div>
+
     <!-- SERVICES SECTION -->
-    <section id="services" class="py-30 px-6 max-w-7xl mx-auto">
-        <div class="text-center max-w-3xl mx-auto space-y-4 mb-16">
-            <p class="text-xs font-bold uppercase tracking-[0.2em] text-purple-400">What мы делаем</p>
-            <h2 class="text-3xl sm:text-5xl font-bold text-white tracking-tight">Полное управление процессами</h2>
+    <section id="services" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
+        <div class="text-center max-w-3xl mx-auto space-y-4 mb-12 md:mb-16">
+            <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-purple-400">Что мы делаем</p>
+            <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight">Полное управление процессами</h2>
         </div>
         
-        <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="reveal-stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
             <div class="glass-card p-8 rounded-2xl space-y-4">
                 <div class="w-12 h-12 rounded-xl bg-purple-950/50 border border-purple-500/30 flex items-center justify-center text-purple-400 font-bold">01</div>
                 <h3 class="text-xl font-semibold text-white">Управление рекламой & Performance</h3>
@@ -215,8 +316,10 @@
         </div>
     </section>
 
+    <div class="section-divider max-w-7xl mx-auto"></div>
+
     <!-- CASE STUDY SECTION -->
-    <section id="cases" class="py-24 px-6 max-w-7xl mx-auto">
+    <section id="cases" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
         <div class="glass-card rounded-3xl p-8 sm:p-12 border-purple-500/20 relative overflow-hidden">
             <div class="absolute top-0 right-0 w-[400px] h-[400px] bg-purple-600/10 rounded-full blur-[100px] pointer-events-none"></div>
             <div class="grid lg:grid-cols-12 gap-12 items-center">
@@ -243,125 +346,154 @@
         </div>
     </section>
 
+    <div class="section-divider max-w-7xl mx-auto"></div>
+
     <!-- TEAM SECTION -->
-    <section id="team" class="py-24 px-6 max-w-7xl mx-auto">
-        <div class="text-center max-w-3xl mx-auto space-y-4 mb-16">
-            <p class="text-xs font-bold uppercase tracking-[0.2em] text-purple-400">Экспертиза</p>
-            <h2 class="text-3xl sm:text-5xl font-bold text-white tracking-tight">Операционная команда</h2>
+    <section id="team" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
+        <div class="text-center max-w-3xl mx-auto space-y-4 mb-12 md:mb-16">
+            <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-purple-400">Экспертиза</p>
+            <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white tracking-tight">Операционная команда</h2>
         </div>
-        
-        <!-- СЕТКА КОМАНДЫ (GRID) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-6 max-w-7xl mx-auto px-6 mt-12">
 
-            <!-- 1. КРУПНАЯ КАРТОЧКА: Нурболот (Занимает 2 колонки) -->
-            <div class="glass-card p-6 rounded-2xl border border-purple-500/30 bg-gradient-to-b from-brand-dark via-brand-dark to-purple-950/20 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-2 shadow-xl shadow-purple-950/10">
-                <span class="absolute top-4 right-4 bg-purple-600 text-white text-[10px] uppercase tracking-wider font-bold px-3 py-1 rounded-md z-10 neon-glow">Founder</span>
-                <div>
-                    <div class="w-full aspect-[4/3] sm:aspect-[3/2] lg:aspect-[16/10] rounded-xl overflow-hidden mb-5 bg-white/5 relative">
-                        <img src="images/nurbolot.jpg" alt="Нурболот" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
-                    </div>
-                    <h4 class="text-white font-bold text-2xl tracking-tight">Нурболот</h4>
-                    <p class="text-xs text-purple-400 uppercase tracking-wider font-semibold mt-1">Основатель / Стратег</p>
-                    <p class="text-sm text-gray-300 font-light mt-4 leading-relaxed max-w-xl">
-                        Эксперт по развитию и масштабированию крупного бизнеса на Wildberries. Управляет внутренней архитектурой экосистемы и координирует ключевые процессы автоматизации.
-                    </p>
+        <!-- Уровень 1: ключевая команда -->
+        <div class="reveal-stagger grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 md:gap-5">
+            <!-- Нурболот -->
+            <div class="relative glass-card p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group">
+                <span class="absolute top-3 right-3 z-10 text-[10px] font-black tracking-widest px-2 py-1 rounded-md bg-purple-600 text-white uppercase">FOUNDER</span>
+                <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5">
+                    <img src="images/nurbolot.jpg" alt="Нурболот" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
                 </div>
+                <h4 class="text-white font-bold text-base sm:text-lg">Нурболот</h4>
+                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Основатель / Стратег</p>
+                <p class="text-xs text-white/50 font-light mt-3 leading-relaxed">Эксперт по развитию и масштабированию крупного бизнеса на Wildberries. Управляет внутренней архитектурой экосистемы и координирует ключевые процессы автоматизации.</p>
             </div>
-
-            <!-- 2. Карточка: Марлен -->
-            <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
-                <div>
-                    <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
-                        <img src="images/marlen.jpg" alt="Марлен" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
-                    </div>
-                    <h4 class="text-white font-bold text-lg">Марлен</h4>
-                    <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Логистика</p>
-                    <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
-                        Оптимизирует цепочки поставок, управляет отгрузками на 7+ ключевых складов и контролирует оборачиваемость стока.
-                    </p>
+            <!-- Марлен -->
+            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group">
+                <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5">
+                    <img src="images/marlen.jpg" alt="Марлен" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
                 </div>
+                <h4 class="text-white font-bold text-base sm:text-lg">Марлен</h4>
+                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Логистика</p>
+                <p class="text-xs text-white/50 font-light mt-3 leading-relaxed">Оптимизирует цепочки поставок, управляет отгрузками на 7+ ключевых складов и контролирует оборачиваемость стока.</p>
             </div>
-
-            <!-- 3. Карточка: Инсия -->
-            <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
-                <div>
-                    <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
-                        <img src="images/insiya.jpg" alt="Инсия" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
-                    </div>
-                    <h4 class="text-white font-bold text-lg">Инсия</h4>
-                    <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Аналитика данных</p>
-                    <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
-                        Строит управленческую отчетность, настраивает интеграции через API и находит скрытые точки потери маржинальности.
-                    </p>
+            <!-- Инсия -->
+            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group">
+                <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5">
+                    <img src="images/insiya.jpg" alt="Инсия" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
                 </div>
+                <h4 class="text-white font-bold text-base sm:text-lg">Инсия</h4>
+                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Аналитика данных</p>
+                <p class="text-xs text-white/50 font-light mt-3 leading-relaxed">Строит управленческую отчетность, настраивает интеграции через API и находит скрытые точки потери маржинальности.</p>
             </div>
-
-            <!-- 4. Карточка: Ольга -->
-            <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
-                <div>
-                    <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
-                        <img src="images/olga.jpg" alt="Ольга" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
-                    </div>
-                    <h4 class="text-white font-bold text-lg">Ольга</h4>
-                    <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">UI/UX Дизайнер</p>
-                    <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
-                        Создает премиальный визуальный стиль брендов, проектирует высококонверсионные воронки и карточки товаров.
-                    </p>
+            <!-- Ольга -->
+            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group">
+                <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5">
+                    <img src="images/olga.jpg" alt="Ольга" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
                 </div>
+                <h4 class="text-white font-bold text-base sm:text-lg">Ольга</h4>
+                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">UI/UX Дизайнер</p>
+                <p class="text-xs text-white/50 font-light mt-3 leading-relaxed">Создает премиальный визуальный стиль брендов, проектирует высококонверсионные воронки и карточки товаров.</p>
             </div>
-
-            <!-- 5. Карточка: Дарья -->
-            <div class="glass-card p-5 rounded-2xl border border-white/5 bg-gradient-to-b from-brand-dark to-purple-950/5 flex flex-col justify-between relative overflow-hidden group w-full lg:col-span-1">
-                <div>
-                    <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5 relative">
-                        <img src="images/darya.jpg" alt="Дарья" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
-                    </div>
-                    <h4 class="text-white font-bold text-lg">Дарья</h4>
-                    <p class="text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Продвижение</p>
-                    <p class="text-xs text-gray-400 font-light mt-3 leading-relaxed">
-                        Управляет трафиком, выстраивает performance-маркетинг стратегии и максимизирует ROI рекламных кампаний.
-                    </p>
+            <!-- Дарья -->
+            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-white/5 hover-glow overflow-hidden group col-span-2 sm:col-span-1">
+                <div class="w-full aspect-[3/4] rounded-xl overflow-hidden mb-4 bg-white/5">
+                    <img src="images/darya.jpg" alt="Дарья" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition duration-500">
                 </div>
+                <h4 class="text-white font-bold text-base sm:text-lg">Дарья</h4>
+                <p class="text-[10px] sm:text-[11px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Продвижение</p>
+                <p class="text-xs text-white/50 font-light mt-3 leading-relaxed">Управляет трафиком, выстраивает performance-маркетинг стратегии и максимизирует ROI рекламных кампаний.</p>
             </div>
+        </div>
 
+        <!-- Уровень 2: операционный состав -->
+        <div class="mt-12 mb-6">
+            <p class="text-white/30 text-xs uppercase tracking-widest text-center">Операционный состав</p>
+        </div>
+        <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="glass-card p-4 rounded-2xl border border-white/5 hover-glow">
+                <div class="w-12 h-12 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 font-bold text-sm mb-3">ДА</div>
+                <h4 class="text-white font-semibold text-sm">Данияр Асанов</h4>
+                <p class="text-[10px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Младший аналитик</p>
+                <p class="text-xs text-white/40 mt-2 leading-relaxed">Сбор первичных данных для модулей РНП, базовый аудит личных кабинетов селлеров и выгрузка отчетов.</p>
+            </div>
+            <div class="glass-card p-4 rounded-2xl border border-white/5 hover-glow">
+                <div class="w-12 h-12 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 font-bold text-sm mb-3">АИ</div>
+                <h4 class="text-white font-semibold text-sm">Амир Исаев</h4>
+                <p class="text-[10px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Ассистент по логистике</p>
+                <p class="text-xs text-white/40 mt-2 leading-relaxed">Мониторинг текущего индекса локализации, отслеживание тарифов складов и пакетная генерация штрихкодов.</p>
+            </div>
+            <div class="glass-card p-4 rounded-2xl border border-white/5 hover-glow">
+                <div class="w-12 h-12 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300 font-bold text-sm mb-3">АВ</div>
+                <h4 class="text-white font-semibold text-sm">Алина Волкова</h4>
+                <p class="text-[10px] text-purple-400 uppercase tracking-wider font-semibold mt-0.5">Младший SEO-специалист</p>
+                <p class="text-xs text-white/40 mt-2 leading-relaxed">Ежедневный трекинг позиций артикулов в поисковой выдаче Wildberries и сбор ключевых запросов.</p>
+            </div>
         </div>
     </section>
 
-    <!-- FUTURE PLATFORM SECTION -->
-    <section id="platform" class="py-24 px-6 max-w-7xl mx-auto">
-        <div class="glass-card rounded-3xl p-8 sm:p-12 border-purple-500/20 relative overflow-hidden bg-gradient-to-r from-brand-dark to-brand-navy">
-            <div class="grid lg:grid-cols-2 gap-12 items-center">
+    <div class="section-divider max-w-7xl mx-auto"></div>
+
+    <!-- MODULES SECTION -->
+    <section id="platform" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-12 md:mb-16">
+                <span class="text-purple-400 text-[10px] sm:text-xs font-semibold tracking-[0.2em] uppercase mb-3 block">Экосистема NR Space</span>
+                <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 tracking-tight">Все модули платформы</h2>
+                <p class="text-white/50 text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed">Один инструмент — полный контроль бизнеса на Wildberries</p>
+            </div>
+            <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
+                <div class="module-card hover-glow"><div class="module-icon">📊</div><h3 class="module-title">Главный Дашборд & Оцифровка</h3><p class="module-desc">Полная автоматическая оцифровка бизнеса на Wildberries. Интерактивные графики выручки, чистой прибыли, маржинальности и ключевых метрик в реальном времени. Вся картина бизнеса на одном экране.</p></div>
+                <div class="module-card hover-glow"><div class="module-icon">🎯</div><h3 class="module-title">Модуль РНП по артикулам</h3><p class="module-desc">Глубокая аналитика по каждому артикулу. Детальные конверсии воронки, подсветка сильных сторон и моментальное выявление товаров, которые генерируют прибыль или сливают бюджет.</p></div>
+                <div class="module-card hover-glow"><div class="module-icon">🧪</div><h3 class="module-title">Встроенные А/Б Тесты</h3><p class="module-desc">Тестируйте главные фото, инфографику и цены прямо внутри платформы. Система замеряет кликабельность (CTR) каждого варианта и автоматически определяет победителя.</p></div>
+                <div class="module-card hover-glow"><div class="module-icon">🚀</div><h3 class="module-title">Управление и Контроль РК</h3><p class="module-desc">Тотальный контроль рекламных кабинетов. Анализ эффективности каждой кампании, отслеживание CPC, ДРР, реальных затрат и ROI без рутины.</p></div>
+                <div class="module-card hover-glow"><div class="module-icon">🔍</div><h3 class="module-title">Позиции в выдаче WB</h3><p class="module-desc">Введите артикул — система ежедневно автоматически проверяет его позиции по ключевым запросам. Узнайте первыми, когда карточка поднимается в топ или проседает.</p></div>
+                <div class="module-card hover-glow"><div class="module-icon">🖨️</div><h3 class="module-title">Маркировка и Генерация ШК</h3><p class="module-desc">Загружайте баркоды из Wildberries напрямую. Мгновенная генерация готовых к печати штрихкодов. Пакетное создание по размерам и экспорт в PDF под термопринтер в 1 клик.</p></div>
+                <div class="module-card hover-glow sm:col-span-2 lg:col-span-3"><div class="module-icon">📦</div><h3 class="module-title">Умная Логистика & Индекс Локализации</h3><p class="module-desc">Автоматический расчёт Индекса Локализации и доли заказов по регионам. Точные рекомендации: на какие склады загрузить товар, чтобы снизить стоимость логистики WB.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider max-w-7xl mx-auto"></div>
+
+    <!-- PLATFORM SHOWCASE -->
+    <section id="platform-showcase" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
+        <div class="glass-card rounded-3xl p-6 sm:p-8 md:p-12 border-purple-500/20 relative overflow-hidden bg-[#0a0a0a]">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
                 <div class="space-y-6">
-                    <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-purple-950 border border-purple-500/30 text-xs text-purple-300 uppercase tracking-widest">
+                    <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-purple-950 border border-purple-500/30 text-[10px] sm:text-xs text-purple-300 uppercase tracking-widest">
                         <span>Статус: В разработке</span>
                     </div>
-                    <h2 class="text-3xl sm:text-4xl font-bold text-white">NR Space</h2>
-                    <p class="text-gray-400 font-light text-sm leading-relaxed">
-                        Рабочее пространство для продавцов Wildberries. Прямая интеграция по официальному API.
+                    <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight">NR Space</h2>
+                    <p class="text-white/50 text-sm sm:text-base leading-relaxed">
+                        Собственная комплексная экосистема автоматизации и сквозной бизнес-аналитики для крупных партнеров Nur Consulting. Прямая интеграция по официальному API Wildberries.
                     </p>
-                    <div class="grid grid-cols-2 gap-4 text-sm text-gray-300">
-                        <div class="flex items-center space-x-2"><span>✦</span> <span>AI-прогнозирование спроса</span></div>
-                        <div class="flex items-center space-x-2"><span>✦</span> <span>Автоматическое управление ставками</span></div>
-                        <div class="flex items-center space-x-2"><span>✦</span> <span>Мгновенные дашборды данных</span></div>
-                        <div class="flex items-center space-x-2"><span>✦</span> <span>Кастомный Telegram-бот</span></div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-white/60">
+                        <div class="flex items-center space-x-2"><span class="text-purple-400">✦</span> <span>AI-прогнозирование спроса</span></div>
+                        <div class="flex items-center space-x-2"><span class="text-purple-400">✦</span> <span>Автоматическое управление ставками</span></div>
+                        <div class="flex items-center space-x-2"><span class="text-purple-400">✦</span> <span>Мгновенные дашборды данных</span></div>
+                        <div class="flex items-center space-x-2"><span class="text-purple-400">✦</span> <span>Кастомный Telegram-бот</span></div>
                     </div>
+                    <a href="/login.html" class="inline-flex items-center justify-center px-6 py-3.5 min-h-[48px] bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white text-sm font-semibold rounded-xl transition">Войти в NR Space →</a>
                 </div>
-                <div class="relative flex items-center justify-center">
-                    <div class="w-72 h-72 bg-gradient-to-tr from-purple-600 to-blue-500 rounded-3xl opacity-20 blur-3xl absolute"></div>
-                    <div class="w-64 h-64 border border-white/10 rounded-3xl relative glass-card flex items-center justify-center transform rotate-12 shadow-2xl">
-                        <span class="text-4xl font-black text-white tracking-widest">NR</span>
+                <div class="relative flex items-center justify-center py-8">
+                    <div class="w-72 h-72 bg-purple-600/20 rounded-3xl blur-3xl absolute"></div>
+                    <div class="w-56 h-56 sm:w-64 sm:h-64 border border-white/10 rounded-3xl relative glass-card flex flex-col items-center justify-center transform rotate-6 shadow-2xl">
+                        <span class="text-3xl sm:text-4xl font-black text-white tracking-tighter">NR</span>
+                        <span class="text-sm font-medium text-white/50 tracking-[0.2em] mt-1">Space</span>
                     </div>
                 </div>
             </div>
         </div>
     </section>
 
+    <div class="section-divider max-w-7xl mx-auto"></div>
+
     <!-- FOOTER / CONTACTS -->
-    <footer id="contacts" class="py-16 px-6 max-w-7xl mx-auto border-t border-white/5 text-gray-500 text-sm pb-32">
-        <div class="grid md:grid-cols-3 gap-8 mb-12">
+    <footer id="contacts" class="reveal py-16 px-4 sm:px-6 max-w-7xl mx-auto border-t border-white/5 text-white/50 text-sm pb-32">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
             <div class="space-y-4">
                 <div class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-white text-black font-black text-[10px] tracking-tighter">NR</div>
-                <p class="text-xs text-gray-400 font-light">ИП Нурболот. Все права защищены. 2026</p>
+                <p class="text-xs text-white/40 font-light">© Nur Consulting & NR Space. Все права защищены. 2026</p>
             </div>
             <div class="space-y-2">
                 <p class="text-white font-medium text-xs uppercase tracking-wider">Контакты компании</p>
@@ -382,11 +514,11 @@
                 <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.72.73.73 0 00.9.5l3.4-1.36a1 1 0 011.02.22M21 19a2 2 0 01-2 2h-3.28a1 1 0 01-.94-.72l-.9-.5a1 1 0 01-.22-1.02l1.36-3.4a1 1 0 011.02-.22M21 19V5m0 14h-6"></path></svg>
                 <span>Позвонить</span>
             </a>
-            <a href="https://wa.me/996558200327" target="_blank" class="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-950/40 text-emerald-400 border border-emerald-500/20">
+            <a href="https://wa.me/996558200327" target="_blank" class="flex flex-col items-center justify-center p-2 rounded-xl bg-purple-950/40 text-purple-300 border border-purple-500/20 min-h-[44px]">
                 <svg class="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.411 0 11.973 0c3.178.001 6.165 1.24 8.407 3.483 2.242 2.244 3.477 5.232 3.474 8.411-.004 6.623-5.354 11.971-11.916 11.971-2.004-.001-3.973-.51-5.716-1.486L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.42 9.864-9.858.002-2.634-1.023-5.11-2.885-6.974C16.526 1.908 14.053.882 11.422.882c-5.44 0-9.863 4.42-9.867 9.861-.001 1.742.476 3.442 1.381 4.935L1.87 21.066l5.777-1.512z"/></svg>
                 <span>WhatsApp</span>
             </a>
-            <a href="https://t.me/maraomg" target="_blank" class="flex flex-col items-center justify-center p-2 rounded-xl bg-blue-950/40 text-blue-400 border border-blue-500/20">
+            <a href="https://t.me/maraomg" target="_blank" class="flex flex-col items-center justify-center p-2 rounded-xl bg-purple-950/40 text-purple-300 border border-purple-500/20 min-h-[44px]">
                 <svg class="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
                 <span>Telegram</span>
             </a>
@@ -429,7 +561,7 @@
 
                     <!-- Карточка: Марлен -->
                     <div onclick="selectStaff()" class="bg-white/5 border border-white/5 hover:border-purple-500/50 p-3 rounded-xl text-center cursor-pointer transition group">
-                        <div class="w-10 h-10 bg-blue-500/10 text-blue-400 font-bold rounded-full flex items-center justify-center mx-auto mb-2 text-sm border border-blue-500/20 group-hover:scale-105 transition">
+                        <div class="w-10 h-10 bg-purple-500/10 text-purple-400 font-bold rounded-full flex items-center justify-center mx-auto mb-2 text-sm border border-purple-500/20 group-hover:scale-105 transition">
                             М
                         </div>
                         <div class="font-bold text-xs text-gray-200">Марлен</div>
@@ -438,7 +570,7 @@
 
                     <!-- Карточка: Инсия -->
                     <div onclick="selectStaff()" class="bg-white/5 border border-white/5 hover:border-purple-500/50 p-3 rounded-xl text-center cursor-pointer transition group">
-                        <div class="w-10 h-10 bg-emerald-500/10 text-emerald-400 font-bold rounded-full flex items-center justify-center mx-auto mb-2 text-sm border border-emerald-500/20 group-hover:scale-105 transition">
+                        <div class="w-10 h-10 bg-purple-500/10 text-purple-400 font-bold rounded-full flex items-center justify-center mx-auto mb-2 text-sm border border-purple-500/20 group-hover:scale-105 transition">
                             И
                         </div>
                         <div class="font-bold text-xs text-gray-200">Инсия</div>
@@ -466,11 +598,11 @@
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white/5 p-4 rounded-xl border border-white/5 gap-4">
                     <div>
                         <span id="wb-welcome-user" class="text-sm font-bold text-white uppercase tracking-wider">Сотрудник</span>
-                        <p class="text-xs text-purple-400 mt-0.5">Статус подключения: <span class="text-emerald-400 font-semibold">Активно (API WB)</span></p>
+                        <p class="text-xs text-purple-400 mt-0.5">Статус подключения: <span class="text-purple-300 font-semibold">Активно (API WB)</span></p>
                     </div>
                     <div class="flex items-center space-x-2 w-full sm:w-auto">
                         <input type="password" id="wb-token-input" placeholder="Вставьте ваш API Токен (Статистика)" class="bg-black/50 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-purple-500 flex-1 sm:w-64">
-                        <button onclick="fetchWbData()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs px-4 py-2 rounded-lg transition shrink-0">
+                        <button onclick="fetchWbData()" class="bg-purple-600 hover:bg-purple-700 text-white font-medium text-xs px-4 py-2 rounded-lg transition shrink-0">
                             Обновить из WB
                         </button>
                     </div>
@@ -489,17 +621,17 @@
                     </div>
                     <div class="bg-gradient-to-br from-white/5 to-purple-950/10 p-5 rounded-xl border border-white/5">
                         <p class="text-xs text-gray-400 uppercase tracking-wider">Выкупы / Продажи</p>
-                        <p id="wb-sales-today" class="text-3xl font-black text-emerald-400 mt-2 font-mono">0 ₽</p>
+                        <p id="wb-sales-today" class="text-3xl font-black text-white mt-2 font-mono">0 ₽</p>
                         <span id="wb-sales-count" class="text-[11px] text-gray-400 block mt-1">Позиций: 0 шт.</span>
                     </div>
                     <div class="bg-gradient-to-br from-white/5 to-purple-950/10 p-5 rounded-xl border border-white/5">
                         <p class="text-xs text-gray-400 uppercase tracking-wider">Товарный остаток</p>
-                        <p id="wb-stock-total" class="text-3xl font-black text-amber-400 mt-2 font-mono">0 шт.</p>
+                        <p id="wb-stock-total" class="text-3xl font-black text-purple-300 mt-2 font-mono">0 шт.</p>
                         <span class="text-[11px] text-gray-400 block mt-1">На всех складах WB</span>
                     </div>
                     <div class="bg-gradient-to-br from-white/5 to-purple-950/10 p-5 rounded-xl border border-white/5">
                         <p class="text-xs text-gray-400 uppercase tracking-wider">Конверсия выкупа</p>
-                        <p id="wb-conversion" class="text-3xl font-black text-blue-400 mt-2 font-mono">0%</p>
+                        <p id="wb-conversion" class="text-3xl font-black text-white/80 mt-2 font-mono">0%</p>
                         <span class="text-[11px] text-gray-400 block mt-1">Средний показатель бренда</span>
                     </div>
                 </div>
@@ -535,10 +667,63 @@
 
    <!-- Подключаем модуль работы с API WB -->
     <script src="wb-api.js"></script>
-    
-    <!-- Твой основной файл интерфейса и авторизации -->
     <script src="script.js"></script>
-</body>
-</html>
+    <script>
+        // Scroll reveal
+        (function () {
+            const els = document.querySelectorAll('.reveal, .reveal-stagger');
+            if (!els.length) return;
+            const obs = new IntersectionObserver(function (entries) {
+                entries.forEach(function (e) {
+                    if (e.isIntersecting) {
+                        e.target.classList.add('revealed');
+                        obs.unobserve(e.target);
+                    }
+                });
+            }, { threshold: 0.12 });
+            els.forEach(function (el) { obs.observe(el); });
+        })();
+
+        // Mobile nav
+        var menuOpen = false;
+        function setMenuOpen(open) {
+            menuOpen = open;
+            var panel = document.getElementById('mobile-menu-panel');
+            var overlay = document.getElementById('mobile-menu-overlay');
+            var l1 = document.getElementById('burger-line-1');
+            var l2 = document.getElementById('burger-line-2');
+            var l3 = document.getElementById('burger-line-3');
+            if (panel) {
+                panel.classList.toggle('open', open);
+                panel.classList.toggle('closed', !open);
+            }
+            if (overlay) overlay.classList.toggle('hidden', !open);
+            document.body.style.overflow = open ? 'hidden' : '';
+            if (l1) l1.style.transform = open ? 'rotate(45deg) translateY(6px)' : '';
+            if (l2) l2.style.opacity = open ? '0' : '1';
+            if (l3) l3.style.transform = open ? 'rotate(-45deg) translateY(-6px)' : '';
+        }
+        function closeMobileNav() { setMenuOpen(false); }
+        function handleNavClick(href) {
+            closeMobileNav();
+            setTimeout(function () {
+                var el = document.querySelector(href);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 300);
+        }
+        document.getElementById('burger-btn')?.addEventListener('click', function () {
+            setMenuOpen(!menuOpen);
+        });
+        document.querySelectorAll('.nav-link').forEach(function (a) {
+            a.addEventListener('click', function (e) {
+                e.preventDefault();
+                var href = a.getAttribute('href');
+                if (href) {
+                    var el = document.querySelector(href);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+    </script>
 </body>
 </html>
