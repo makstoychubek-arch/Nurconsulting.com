@@ -91,6 +91,7 @@ Deno.serve(async (req) => {
         let stocksCount = 0;
         let ordersCount = 0;
         let financeRows = 0;
+        let rnpDailyRows = 0;
         let status = 'success';
         let errorMsg = '';
 
@@ -161,6 +162,14 @@ Deno.serve(async (req) => {
                     errorMsg += `orders: ${(e as Error).message}; `;
                     status = 'partial';
                 }
+                if (ordersCount > 0) {
+                    try {
+                        rnpDailyRows = await syncRnpDailyFromOrders(admin, cabinet.id);
+                    } catch (e) {
+                        errorMsg += `rnp_daily: ${(e as Error).message}; `;
+                        status = 'partial';
+                    }
+                }
                 await sleep(2000);
             }
 
@@ -214,6 +223,7 @@ Deno.serve(async (req) => {
             stocks: stocksCount,
             orders: ordersCount,
             finance: financeRows,
+            rnp_daily: rnpDailyRows,
             ms: duration,
         });
 
@@ -243,4 +253,67 @@ function sleep(ms: number) {
 function sanitizeWbToken(raw: unknown): string {
     if (typeof raw !== 'string') return '';
     return raw.replace(/^\uFEFF/, '').replace(/\s+/g, '').trim();
+}
+
+async function syncRnpDailyFromOrders(
+    admin: ReturnType<typeof createClient>,
+    cabinetId: string,
+): Promise<number> {
+    const now = new Date();
+    const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+    const { data: orders, error } = await admin
+        .from('wb_orders')
+        .select('nm_id, order_date, price, is_return, data')
+        .eq('cabinet_id', cabinetId)
+        .gte('order_date', dateFrom);
+    if (error || !orders?.length) return 0;
+
+    const byKey = new Map<string, { count: number; sum: number; sppSum: number; sppCnt: number }>();
+    for (const o of orders) {
+        if (o.is_return) continue;
+        const date = String(o.order_date || '').split('T')[0];
+        if (!date || o.nm_id == null) continue;
+        const key = `${o.nm_id}|${date}`;
+        let d = byKey.get(key);
+        if (!d) {
+            d = { count: 0, sum: 0, sppSum: 0, sppCnt: 0 };
+            byKey.set(key, d);
+        }
+        d.count++;
+        d.sum += Number(o.price || 0);
+        const raw = o.data as Record<string, unknown> | null;
+        const spp = raw?.spp ?? raw?.Spp;
+        if (spp != null && Number(spp) > 0) {
+            d.sppSum += Number(spp);
+            d.sppCnt++;
+        }
+    }
+
+    const upserts = [...byKey.entries()].map(([key, d]) => {
+        const sep = key.indexOf('|');
+        const nmId = Number(key.slice(0, sep));
+        const date = key.slice(sep + 1);
+        return {
+            cabinet_id: cabinetId,
+            nm_id: nmId,
+            date,
+            orders_count: d.count,
+            orders_sum: d.sum,
+            avg_check: d.count > 0 ? d.sum / d.count : 0,
+            spp_pct: d.sppCnt > 0 ? d.sppSum / d.sppCnt : 0,
+            updated_at: new Date().toISOString(),
+        };
+    });
+
+    let written = 0;
+    for (let i = 0; i < upserts.length; i += 100) {
+        const chunk = upserts.slice(i, i + 100);
+        const { error: upErr } = await admin.from('rnp_daily_data').upsert(
+            chunk,
+            { onConflict: 'cabinet_id,nm_id,date' },
+        );
+        if (upErr) throw upErr;
+        written += chunk.length;
+    }
+    return written;
 }

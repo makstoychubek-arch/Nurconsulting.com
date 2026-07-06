@@ -4894,7 +4894,7 @@
                 .eq('cabinet_id', currentCabinetId)
                 .order('synced_at', { ascending: false })
                 .limit(1)
-                .single();
+                .maybeSingle();
 
             const el = document.getElementById('last-sync-time');
             if (!el) return;

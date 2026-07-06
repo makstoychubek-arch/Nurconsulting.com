@@ -2230,42 +2230,77 @@ const RNP = (() => {
     }
 
     // ─── HISTORICAL ORDERS SYNC (from wb_orders table) ───────────────────────
+    function _ordersHistoryDateFrom() {
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+    }
+
+    function _aggregateOrdersToDaily(orders, nmId) {
+        const byDate = {};
+        (orders || []).forEach(o => {
+            if (nmId != null && Number(o.nm_id) !== Number(nmId)) return;
+            const date = (o.order_date || '').split('T')[0];
+            if (!date) return;
+            if (!byDate[date]) byDate[date] = { count: 0, sum: 0, sppSum: 0, sppCnt: 0 };
+            if (!o.is_return) {
+                byDate[date].count++;
+                byDate[date].sum += Number(o.price || 0);
+                const spp = o.data?.spp ?? o.data?.Spp;
+                if (spp != null && Number(spp) > 0) {
+                    byDate[date].sppSum += Number(spp);
+                    byDate[date].sppCnt++;
+                }
+            }
+        });
+        return Object.entries(byDate).map(([date, d]) => ({
+            cabinet_id: _cab, nm_id: Number(nmId), date,
+            orders_count: d.count,
+            orders_sum: d.sum,
+            avg_check: d.count > 0 ? d.sum / d.count : 0,
+            spp_pct: d.sppCnt > 0 ? d.sppSum / d.sppCnt : 0,
+            updated_at: new Date().toISOString()
+        }));
+    }
+
+    async function _syncAllOrdersHistory(nmIds) {
+        const ids = (nmIds || []).map(Number).filter(Boolean);
+        if (!ids.length) return;
+        try {
+            const dateFrom = _ordersHistoryDateFrom();
+            const { data: orders } = await _db.from('wb_orders')
+                .select('nm_id, order_date, price, is_return, data')
+                .eq('cabinet_id', _cab)
+                .in('nm_id', ids)
+                .gte('order_date', dateFrom);
+            if (!orders?.length) return;
+
+            const upserts = [];
+            ids.forEach(nmId => {
+                upserts.push(..._aggregateOrdersToDaily(orders, nmId));
+            });
+            if (!upserts.length) return;
+
+            for (let i = 0; i < upserts.length; i += 100) {
+                await _db.from('rnp_daily_data').upsert(
+                    upserts.slice(i, i + 100),
+                    { onConflict: 'cabinet_id,nm_id,date' }
+                );
+            }
+            console.info('[RNP] orders cache:', upserts.length, 'rows for', ids.length, 'articles');
+        } catch (e) { console.warn('[RNP] syncAllOrdersHistory:', e.message); }
+    }
+
     async function _syncOrdersHistory(nmId) {
         try {
-            const now = new Date();
-            const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
+            const dateFrom = _ordersHistoryDateFrom();
             const { data: orders } = await _db.from('wb_orders')
-                .select('order_date, price, is_return, data')
+                .select('nm_id, order_date, price, is_return, data')
                 .eq('cabinet_id', _cab)
                 .eq('nm_id', nmId)
                 .gte('order_date', dateFrom);
             if (!orders?.length) return;
 
-            // Group by date
-            const byDate = {};
-            orders.forEach(o => {
-                const date = (o.order_date || '').split('T')[0];
-                if (!date) return;
-                if (!byDate[date]) byDate[date] = { count: 0, sum: 0, sppSum: 0, sppCnt: 0 };
-                if (!o.is_return) {
-                    byDate[date].count++;
-                    byDate[date].sum += Number(o.price || 0);
-                    const spp = o.data?.spp ?? o.data?.Spp;
-                    if (spp != null && Number(spp) > 0) {
-                        byDate[date].sppSum += Number(spp);
-                        byDate[date].sppCnt++;
-                    }
-                }
-            });
-
-            const upserts = Object.entries(byDate).map(([date, d]) => ({
-                cabinet_id: _cab, nm_id: nmId, date,
-                orders_count: d.count,
-                orders_sum: d.sum,
-                avg_check: d.count > 0 ? d.sum / d.count : 0,
-                spp_pct: d.sppCnt > 0 ? d.sppSum / d.sppCnt : 0,
-                updated_at: new Date().toISOString()
-            }));
+            const upserts = _aggregateOrdersToDaily(orders, nmId);
             if (upserts.length) {
                 await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
             }
@@ -3002,6 +3037,7 @@ const RNP = (() => {
         </div>`;
 
         try {
+            await _syncAllOrdersHistory(active.map(a => a.nm_id));
             await _loadAllDailyData(active.map(a => a.nm_id));
             await _loadAllStocks(active.map(a => a.nm_id));
             await _loadNotes(active.map(a => a.nm_id));
