@@ -92,18 +92,18 @@ serve(async (req) => {
             // ── Statistics API ──────────────────────────────────────────────
             case 'orders': {
                 const url = `https://statistics-api.wildberries.ru/api/v1/supplier/orders?dateFrom=${params.dateFrom || '2020-01-01'}&flag=0`;
-                result = await wbGet(url, WB_TOKEN);
-                break;
+                const wbRes = await fetch(url, { headers: { Authorization: WB_TOKEN } });
+                return streamWbResponse(wbRes);
             }
             case 'stocks': {
                 const url = `https://statistics-api.wildberries.ru/api/v1/supplier/stocks?dateFrom=${params.dateFrom || '2020-01-01'}`;
-                result = await wbGet(url, WB_TOKEN);
-                break;
+                const wbRes = await fetch(url, { headers: { Authorization: WB_TOKEN } });
+                return streamWbResponse(wbRes);
             }
             case 'finance_report': {
                 const dateFrom = String(params.dateFrom || '').split('T')[0];
                 const dateTo   = String(params.dateTo   || '').split('T')[0];
-                const limit    = Math.min(Number(params.limit) || 5000, 10000);
+                const limit    = Math.min(Number(params.limit) || 10000, 10000);
                 const maxPages = params.aggregate ? 8 : 6;
                 const filterNmId = params.nmId != null ? String(params.nmId) : null;
 
@@ -662,6 +662,21 @@ function sanitizeWbToken(raw: unknown): string {
 
 function isValidWbToken(token: string): boolean {
     return token.length > 50 && /^[\x21-\x7E]+$/.test(token);
+}
+
+async function streamWbResponse(wbRes: Response): Promise<Response> {
+    if (!wbRes.ok) {
+        const text = await wbRes.text().catch(() => wbRes.statusText);
+        return json({ error: `WB API ${wbRes.status}: ${text}` }, wbRes.status >= 400 ? wbRes.status : 502);
+    }
+    return new Response(wbRes.body, {
+        status: wbRes.status,
+        headers: {
+            ...CORS,
+            'Content-Type': wbRes.headers.get('Content-Type') || 'application/json',
+            'Transfer-Encoding': 'chunked',
+        },
+    });
 }
 
 async function parseWbJson(res: Response): Promise<unknown> {

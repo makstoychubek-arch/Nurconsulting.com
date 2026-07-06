@@ -188,11 +188,11 @@
             0% { opacity: 0; transform: translateY(28px); filter: blur(6px); }
             100% { opacity: 1; transform: translateY(0); filter: blur(0); }
         }
-        .hero-el-1 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 0.2s both; }
-        .hero-el-2 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 0.4s both; }
-        .hero-el-3 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 0.6s both; }
-        .hero-el-4 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 0.8s both; }
-        .hero-el-5 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 1.0s both; }
+        .hero-el-badge { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 0.6s both; }
+        .hero-el-1 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 1.0s both; }
+        .hero-el-2 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 1.2s both; }
+        .hero-el-3 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 1.4s both; }
+        .hero-el-4 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 1.6s both; }
 
         @keyframes lineExpand {
             from { transform: scaleX(0); opacity: 0; }
@@ -233,6 +233,319 @@
         .team-avatar-wrap.lg { width: 96px; height: 96px; }
         .team-avatar-wrap.sm { width: 48px; height: 48px; margin-bottom: 0.75rem; }
         .page-layer { position: relative; z-index: 10; }
+
+        /* ============================================================
+           NR SPACE — LOGIN PAGE CINEMATIC ENTRANCE
+           ============================================================ */
+        .login-page {
+            background: transparent;
+            min-height: auto;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: visible;
+            position: relative;
+            z-index: 2;
+        }
+
+        .neon-rays {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .ray-left {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 55%;
+            height: 100%;
+            background: linear-gradient(
+                to right,
+                transparent 0%,
+                rgba(236, 72, 153, 0.0) 30%,
+                rgba(236, 72, 153, 0.18) 70%,
+                rgba(168, 85, 247, 0.35) 85%,
+                rgba(255, 255, 255, 0.08) 100%
+            );
+            filter: blur(8px);
+            animation: rayLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both,
+                       rayFadeOut 0.8s ease-out 1.6s both;
+            transform-origin: left center;
+        }
+
+        .ray-right {
+            position: absolute;
+            top: 0;
+            right: -100%;
+            width: 55%;
+            height: 100%;
+            background: linear-gradient(
+                to left,
+                transparent 0%,
+                rgba(236, 72, 153, 0.0) 30%,
+                rgba(236, 72, 153, 0.18) 70%,
+                rgba(168, 85, 247, 0.35) 85%,
+                rgba(255, 255, 255, 0.08) 100%
+            );
+            filter: blur(8px);
+            animation: rayRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both,
+                       rayFadeOut 0.8s ease-out 1.6s both;
+            transform-origin: right center;
+        }
+
+        .ray-top {
+            position: absolute;
+            top: -100%;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0.06) 0%,
+                rgba(168, 85, 247, 0.25) 40%,
+                rgba(236, 72, 153, 0.12) 75%,
+                transparent 100%
+            );
+            filter: blur(12px);
+            animation: rayTop 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.0s both,
+                       rayFadeOut 0.8s ease-out 1.5s both;
+        }
+
+        .ray-top-line {
+            position: absolute;
+            top: 0;
+            left: 10%;
+            width: 80%;
+            height: 2px;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(236, 72, 153, 0.6) 20%,
+                rgba(255, 255, 255, 0.9) 50%,
+                rgba(236, 72, 153, 0.6) 80%,
+                transparent
+            );
+            box-shadow:
+                0 0 8px rgba(236, 72, 153, 0.8),
+                0 0 20px rgba(236, 72, 153, 0.4),
+                0 0 40px rgba(168, 85, 247, 0.3);
+            animation: rayTopLine 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both,
+                       rayLineHold 1.0s ease-out 0.6s both,
+                       rayFadeOut 0.6s ease-out 1.6s both;
+            transform-origin: top center;
+        }
+
+        .ray-left-line {
+            position: absolute;
+            top: 5%;
+            left: 0;
+            width: 2px;
+            height: 90%;
+            background: linear-gradient(
+                to bottom,
+                transparent,
+                rgba(236, 72, 153, 0.8) 20%,
+                rgba(255, 255, 255, 0.6) 50%,
+                rgba(236, 72, 153, 0.8) 80%,
+                transparent
+            );
+            box-shadow:
+                0 0 6px rgba(236, 72, 153, 0.9),
+                0 0 16px rgba(236, 72, 153, 0.5),
+                0 0 30px rgba(168, 85, 247, 0.3);
+            animation: sideLineReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both,
+                       rayFadeOut 0.7s ease-out 1.5s both;
+            transform-origin: top center;
+        }
+
+        .ray-right-line {
+            position: absolute;
+            top: 5%;
+            right: 0;
+            width: 2px;
+            height: 90%;
+            background: linear-gradient(
+                to bottom,
+                transparent,
+                rgba(236, 72, 153, 0.8) 20%,
+                rgba(255, 255, 255, 0.6) 50%,
+                rgba(236, 72, 153, 0.8) 80%,
+                transparent
+            );
+            box-shadow:
+                0 0 6px rgba(236, 72, 153, 0.9),
+                0 0 16px rgba(236, 72, 153, 0.5),
+                0 0 30px rgba(168, 85, 247, 0.3);
+            animation: sideLineReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both,
+                       rayFadeOut 0.7s ease-out 1.5s both;
+            transform-origin: top center;
+        }
+
+        .center-glow {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            background: radial-gradient(
+                circle,
+                rgba(168, 85, 247, 0.20) 0%,
+                rgba(236, 72, 153, 0.10) 35%,
+                transparent 70%
+            );
+            animation: glowPulse 0.8s ease-out 0.4s both;
+        }
+
+        @keyframes rayLeft {
+            0%   { left: -100%; opacity: 0; }
+            100% { left: -10%;  opacity: 1; }
+        }
+        @keyframes rayRight {
+            0%   { right: -100%; opacity: 0; }
+            100% { right: -10%;  opacity: 1; }
+        }
+        @keyframes rayTop {
+            0%   { top: -100%; opacity: 0; }
+            100% { top: -5%;   opacity: 1; }
+        }
+        @keyframes rayTopLine {
+            0%   { transform: scaleX(0); opacity: 0; }
+            100% { transform: scaleX(1); opacity: 1; }
+        }
+        @keyframes rayLineHold {
+            0%   { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+        @keyframes sideLineReveal {
+            0%   { transform: scaleY(0); opacity: 0; }
+            100% { transform: scaleY(1); opacity: 1; }
+        }
+        @keyframes rayFadeOut {
+            0%   { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        @keyframes glowPulse {
+            0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+            60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+        }
+
+        .login-logo {
+            opacity: 0;
+            filter: blur(12px);
+            transform: scale(0.85);
+            animation: logoReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both;
+        }
+        @keyframes logoReveal {
+            0% { opacity: 0; filter: blur(12px); transform: scale(0.85); }
+            60% { opacity: 1; filter: blur(0px); transform: scale(1.03); }
+            100% { opacity: 1; filter: blur(0px); transform: scale(1); }
+        }
+
+        .login-title {
+            opacity: 0;
+            transform: translateY(20px);
+            filter: blur(6px);
+            animation: titleReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 1.0s both;
+        }
+        .login-subtitle {
+            opacity: 0;
+            transform: translateY(16px);
+            animation: titleReveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) 1.2s both;
+        }
+        @keyframes titleReveal {
+            0%   { opacity: 0; transform: translateY(20px); filter: blur(6px); }
+            100% { opacity: 1; transform: translateY(0);    filter: blur(0);   }
+        }
+
+        .login-card {
+            opacity: 0;
+            transform: translateY(24px) scale(0.97);
+            filter: blur(4px);
+            animation: cardReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) 1.4s both;
+            width: 100%;
+        }
+        @keyframes cardReveal {
+            0% { opacity: 0; transform: translateY(24px) scale(0.97); filter: blur(4px); }
+            100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+        }
+
+        .login-footer-text {
+            opacity: 0;
+            animation: titleReveal 0.6s ease-out 1.8s both;
+        }
+
+        .ray-left-glow-static,
+        .ray-right-glow-static {
+            position: fixed;
+            top: 0;
+            width: 1px;
+            height: 100%;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 0;
+            animation:
+                staticGlowIn 0.6s ease-out 2.0s both,
+                breathe 4s ease-in-out 2.6s infinite;
+        }
+        .ray-left-glow-static {
+            left: 0;
+            background: linear-gradient(
+                to bottom,
+                transparent 0%,
+                rgba(236, 72, 153, 0.25) 30%,
+                rgba(168, 85, 247, 0.35) 50%,
+                rgba(236, 72, 153, 0.25) 70%,
+                transparent 100%
+            );
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
+        }
+        .ray-right-glow-static {
+            right: 0;
+            background: linear-gradient(
+                to bottom,
+                transparent 0%,
+                rgba(236, 72, 153, 0.25) 30%,
+                rgba(168, 85, 247, 0.35) 50%,
+                rgba(236, 72, 153, 0.25) 70%,
+                transparent 100%
+            );
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
+        }
+        @keyframes staticGlowIn {
+            0%   { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        @keyframes breathe {
+            0%, 100% { opacity: 0.6; }
+            50%       { opacity: 1.0; }
+        }
+
+        @media (max-width: 768px) {
+            .center-glow { width: 350px; height: 350px; }
+            .ray-left, .ray-right { width: 70%; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .neon-rays, .center-glow,
+            .ray-left-glow-static, .ray-right-glow-static { display: none; }
+            .login-logo, .login-title, .login-subtitle,
+            .login-card, .login-footer-text,
+            .hero-el-badge, .hero-el-1, .hero-el-2, .hero-el-3, .hero-el-4 {
+                opacity: 1 !important;
+                animation: none !important;
+                filter: none !important;
+                transform: none !important;
+            }
+        }
     </style>
     <!-- Supabase — наша база данных и авторизация -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -243,6 +556,18 @@
 </script>
 </head>
 <body class="bg-[#030303] text-gray-200 font-sans antialiased selection:bg-purple-600 selection:text-white overflow-x-hidden">
+
+    <div class="neon-rays" aria-hidden="true">
+        <div class="ray-top"></div>
+        <div class="ray-top-line"></div>
+        <div class="ray-left"></div>
+        <div class="ray-left-line"></div>
+        <div class="ray-right"></div>
+        <div class="ray-right-line"></div>
+    </div>
+    <div class="center-glow" aria-hidden="true"></div>
+    <div class="ray-left-glow-static" aria-hidden="true"></div>
+    <div class="ray-right-glow-static" aria-hidden="true"></div>
 
     <div class="grid-bg" aria-hidden="true"></div>
     <div class="geo-bg" aria-hidden="true">
@@ -311,17 +636,17 @@
         </div>
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div class="lg:col-span-7 space-y-6 md:space-y-8">
-                <div class="hero-el-1 inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-500/30 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-purple-400">
+                <div class="hero-el-badge inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-purple-950/40 border border-purple-500/30 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-purple-400">
                     <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
                     <span>Nur Consulting × NR Space</span>
                 </div>
-                <h1 class="hero-el-2 text-[2.5rem] leading-[1.05] sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white">
+                <h1 class="hero-el-1 text-[2.5rem] leading-[1.05] sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter text-white">
                     Превращаем <span class="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-purple-600">Wildberries</span><br>в систему роста и прибыли
                 </h1>
-                <p class="hero-el-3 text-sm sm:text-base md:text-lg text-white/50 max-w-xl leading-relaxed">
+                <p class="hero-el-2 text-sm sm:text-base md:text-lg text-white/50 max-w-xl leading-relaxed">
                     Мы не просто агентство. Мы операционная команда для масштабирования крупного бизнеса на маркетплейсах. Передайте управление экспертам и сфокусируйтесь на развитии стратегии.
                 </p>
-                <div class="hero-el-4 flex flex-wrap gap-4 pt-2">
+                <div class="hero-el-3 flex flex-wrap gap-4 pt-2">
                     <a href="https://t.me/maraomg" target="_blank" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white font-semibold rounded-xl transition neon-glow text-center w-full sm:w-auto text-sm">
                         Получить бесплатный аудит
                     </a>
@@ -332,7 +657,7 @@
                 </div>
             </div>
             
-            <div class="hero-el-5 lg:col-span-5 relative">
+            <div class="hero-el-4 lg:col-span-5 relative">
                 <div class="glass-card rounded-2xl p-4 sm:p-6 border-white/10 relative overflow-hidden">
                     <div class="flex items-center justify-between border-b border-white/5 pb-4 mb-4">
                         <div class="flex items-center space-x-2">
