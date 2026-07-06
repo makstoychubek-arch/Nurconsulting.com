@@ -2120,6 +2120,16 @@
             background: rgba(255, 255, 255, 0.06) !important;
             box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
         }
+        /* Выпадающие списки — читаемые option (Windows/Chrome: белый фон + светлый текст = невидимо) */
+        select { color: var(--text-primary); }
+        select option {
+            color: #1a1a2e !important;
+            background-color: #ffffff !important;
+        }
+        [data-theme="neon"] select option {
+            color: #e8e8f0 !important;
+            background-color: #1a1a24 !important;
+        }
         .ui-btn { border: none !important; box-shadow: var(--card-shadow); }
         .ui-btn-secondary { background: var(--surface) !important; box-shadow: var(--card-shadow) !important; }
         .segment-tabs {
@@ -3085,10 +3095,9 @@
                         style="background:var(--accent-gradient);border:none">Загрузить все артикулы</button>
                 </div>
                 <div class="flex flex-wrap gap-2 mb-4">
-                    <select id="gg-cabinet-filter" onchange="renderGoodsGroupsTable()"
+                    <select id="gg-cabinet-filter" onchange="onGoodsGroupsCabinetChange()"
                         class="rounded-xl px-3 py-2 text-sm min-w-[160px]"
                         style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                        <option value="">Все кабинеты</option>
                     </select>
                     <input type="search" id="gg-search" placeholder="Поиск: артикул, название, категория…"
                         oninput="renderGoodsGroupsTable()"
@@ -4456,11 +4465,9 @@
         const scrollEl = tbody.closest('.gg-table-scroll');
         const scrollTop = scrollEl?.scrollTop || 0;
 
-        const cabFilter = document.getElementById('gg-cabinet-filter')?.value || '';
         const q = (document.getElementById('gg-search')?.value || '').trim().toLowerCase();
 
         let rows = goodsGroupsRows;
-        if (cabFilter) rows = rows.filter(r => r.cabinetId === cabFilter);
         if (q) {
             rows = rows.filter(r =>
                 String(r.nmId).includes(q) ||
@@ -4492,6 +4499,49 @@
         if (scrollEl && scrollTop > 0) scrollEl.scrollTop = scrollTop;
     }
 
+    async function loadGoodsGroupsCabinet(cab) {
+        const [{ data: stocks }, { data: orders }, { data: arts }] = await Promise.all([
+            supabase.from('wb_stocks').select('nm_id, quantity').eq('cabinet_id', cab.id),
+            supabase.from('wb_orders').select('nm_id, data').eq('cabinet_id', cab.id).gte('order_date', '2026-01-01'),
+            supabase.from('rnp_articles').select('nm_id, name, category, manual_data').eq('cabinet_id', cab.id),
+        ]);
+
+        const nmSet = new Set();
+        const stockMap = {};
+        (stocks || []).forEach(s => {
+            if (!s.nm_id) return;
+            nmSet.add(Number(s.nm_id));
+            stockMap[s.nm_id] = (stockMap[s.nm_id] || 0) + Number(s.quantity || 0);
+        });
+        (orders || []).forEach(o => {
+            if (o.nm_id) nmSet.add(Number(o.nm_id));
+        });
+
+        const artMap = {};
+        (arts || []).forEach(a => {
+            if (nmSet.has(Number(a.nm_id))) artMap[a.nm_id] = a;
+        });
+
+        const saMap = {};
+        (orders || []).forEach(o => {
+            if (saMap[o.nm_id]) return;
+            const sa = extractSellerArticleFromOrder(o);
+            if (sa) saMap[o.nm_id] = sa;
+        });
+
+        return [...nmSet].map(nmId => {
+            const art = artMap[nmId];
+            return {
+                cabinetId: cab.id,
+                cabinetName: cab.name,
+                nmId,
+                sellerArticle: String(art?.manual_data?.seller_article || art?.manual_data?.sa_name || saMap[nmId] || art?.name || '').trim(),
+                category: (art?.category || '').trim(),
+                stock: stockMap[nmId] || 0,
+            };
+        });
+    }
+
     async function loadGoodsGroups() {
         const tbody = document.getElementById('gg-table-body');
         const btn = document.getElementById('gg-load-btn');
@@ -4511,87 +4561,24 @@
             }
 
             const cabIds = cabinets.map(c => c.id);
-            const cabName = Object.fromEntries(cabinets.map(c => [c.id, c.name]));
 
             const filterEl = document.getElementById('gg-cabinet-filter');
             if (filterEl) {
                 const prev = filterEl.value;
-                filterEl.innerHTML = '<option value="">Все кабинеты</option>' +
-                    cabinets.map(c => `<option value="${escapeHtml(String(c.id))}">${escapeHtml(c.name)}</option>`).join('');
-                filterEl.value = prev && cabIds.includes(prev) ? prev : '';
+                filterEl.innerHTML = cabinets.map(c =>
+                    `<option value="${escapeHtml(String(c.id))}">${escapeHtml(c.name)}</option>`
+                ).join('');
+                const defaultId = (prev && cabIds.includes(prev)) ? prev : (currentCabinetId && cabIds.includes(currentCabinetId) ? currentCabinetId : cabIds[0]);
+                filterEl.value = defaultId;
             }
 
-            const [artsRes, stocksRes] = await Promise.all([
-                supabase.from('rnp_articles').select('*').in('cabinet_id', cabIds),
-                supabase.from('wb_stocks').select('cabinet_id, nm_id, quantity').in('cabinet_id', cabIds),
-            ]);
-            if (artsRes.error) throw artsRes.error;
-            if (stocksRes.error) throw stocksRes.error;
-
-            const articles = artsRes.data || [];
-            const stocks = stocksRes.data || [];
-
-            const stockMap = {};
-            stocks.forEach(s => {
-                const k = `${s.cabinet_id}|${s.nm_id}`;
-                stockMap[k] = (stockMap[k] || 0) + Number(s.quantity || 0);
+            const targetCabs = cabinets.filter(c => {
+                const sel = document.getElementById('gg-cabinet-filter')?.value;
+                return !sel || c.id === sel;
             });
 
-            const rowMap = new Map();
-            articles.forEach(a => {
-                const k = `${a.cabinet_id}|${a.nm_id}`;
-                rowMap.set(k, {
-                    cabinetId: a.cabinet_id,
-                    cabinetName: cabName[a.cabinet_id] || '—',
-                    nmId: a.nm_id,
-                    sellerArticle: String(a.manual_data?.seller_article || a.manual_data?.sa_name || a.name || '').trim(),
-                    category: (a.category || '').trim(),
-                    stock: stockMap[k] || 0,
-                });
-            });
-
-            Object.entries(stockMap).forEach(([k, qty]) => {
-                if (rowMap.has(k)) {
-                    rowMap.get(k).stock = qty;
-                    return;
-                }
-                const sep = k.indexOf('|');
-                const cabinetId = k.slice(0, sep);
-                const nmId = Number(k.slice(sep + 1));
-                rowMap.set(k, {
-                    cabinetId,
-                    cabinetName: cabName[cabinetId] || '—',
-                    nmId,
-                    sellerArticle: '',
-                    category: '',
-                    stock: qty,
-                });
-            });
-
-            for (const cab of cabinets) {
-                const missing = [...rowMap.values()].filter(r => r.cabinetId === cab.id && !r.sellerArticle);
-                if (!missing.length) continue;
-                const nmIds = [...new Set(missing.map(r => r.nmId))];
-                for (let i = 0; i < nmIds.length; i += 80) {
-                    const chunk = nmIds.slice(i, i + 80);
-                    const { data: orders } = await supabase.from('wb_orders')
-                        .select('nm_id, data')
-                        .eq('cabinet_id', cab.id)
-                        .in('nm_id', chunk);
-                    const saMap = {};
-                    (orders || []).forEach(o => {
-                        if (saMap[o.nm_id]) return;
-                        const sa = extractSellerArticleFromOrder(o);
-                        if (sa) saMap[o.nm_id] = sa;
-                    });
-                    missing.forEach(r => {
-                        if (saMap[r.nmId]) r.sellerArticle = saMap[r.nmId];
-                    });
-                }
-            }
-
-            goodsGroupsRows = [...rowMap.values()].sort((a, b) =>
-                a.cabinetName.localeCompare(b.cabinetName, 'ru') ||
+            const chunks = await Promise.all(targetCabs.map(cab => loadGoodsGroupsCabinet(cab)));
+            goodsGroupsRows = chunks.flat().sort((a, b) =>
                 (a.sellerArticle || '').localeCompare(b.sellerArticle || '', 'ru') ||
                 Number(a.nmId) - Number(b.nmId)
             );
@@ -4603,6 +4590,10 @@
         } finally {
             if (btn) { btn.disabled = false; btn.textContent = 'Загрузить все артикулы'; }
         }
+    }
+
+    function onGoodsGroupsCabinetChange() {
+        loadGoodsGroups();
     }
 
     function seoStorageKey() { return `nr_seo_${currentCabinetId || 'default'}`; }
@@ -5000,6 +4991,7 @@
             }
             const curTab = localStorage.getItem('nr_active_tab');
             if (curTab === 'logistics') initLogisticsSupplies();
+            if (curTab === 'goods-groups') loadGoodsGroups();
         });
     }
 
