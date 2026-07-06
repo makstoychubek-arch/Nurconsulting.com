@@ -2051,6 +2051,21 @@
         }
         #refresh-btn:hover { transform: translateY(-1px); }
         #refresh-btn .refresh-label { display: none; }
+        #refresh-btn.is-loading svg { animation: refresh-spin 0.75s linear infinite; }
+        #refresh-btn.is-loading { opacity: 0.8; cursor: wait; }
+        @keyframes refresh-spin { to { transform: rotate(360deg); } }
+        .rnp-cab-badge {
+            font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 8px;
+            background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border);
+        }
+        .rnp-save-btn {
+            display: inline-flex; align-items: center; padding: 7px 14px; border-radius: 10px;
+            font-size: 12px; font-weight: 600; background: var(--surface); border: 1px solid var(--border);
+            color: var(--text-primary); cursor: pointer; transition: all 0.2s ease;
+        }
+        .rnp-save-btn:hover {
+            border-color: var(--accent-border); background: var(--accent-soft); color: var(--accent);
+        }
 
         /* Карточки метрик — плавнее */
         .metric-card { border-radius: 18px !important; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important; }
@@ -4939,8 +4954,10 @@
         const snapshotCabinet = currentCabinetId;
         const requestId = ++_loadRequestId;
 
-        btn.textContent = '⟳ Загрузка...';
-        btn.disabled = true;
+        if (btn) {
+            btn.classList.add('is-loading');
+            btn.disabled = true;
+        }
 
         try {
             const from = '2026-01-01';
@@ -4991,6 +5008,12 @@
             if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
 
             await loadFromDB();
+            if (typeof RNP !== 'undefined' && snapshotCabinet === currentCabinetId) {
+                await RNP.init(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+                const cur = localStorage.getItem('nr_active_tab');
+                if (cur === 'rnp') RNP.openMain();
+                if (cur === 'rnp-settings') RNP.openSettings();
+            }
             showPremiumModal('success', 'Готово!', 'Данные успешно загружены.');
 
         } catch (e) {
@@ -4998,8 +5021,10 @@
                 showPremiumModal('error', 'Ошибка', e.message);
             }
         } finally {
-            btn.textContent = '↻ Обновить';
-            btn.disabled = false;
+            if (btn) {
+                btn.classList.remove('is-loading');
+                btn.disabled = false;
+            }
         }
     }
 

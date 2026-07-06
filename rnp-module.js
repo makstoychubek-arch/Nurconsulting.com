@@ -45,6 +45,7 @@ const RNP = (() => {
     };
 
     let _userEmail = '';
+    let _initGen = 0;
     let _compareNm = null;
     let _sectionView = 'all';
     let _notesCache = {};
@@ -321,6 +322,24 @@ const RNP = (() => {
         _photoProxyPending.clear();
         Object.keys(_photoProxyCooldown).forEach(k => delete _photoProxyCooldown[k]);
         _galleryFetchAttempted.clear();
+    }
+
+    function _clearCabinetState() {
+        _dataCache = {};
+        _financeCache = { key: '', rows: [], ts: 0 };
+        _notesCache = {};
+        _articles = [];
+        _activeNm = null;
+        _settingsInDb = false;
+        _resetPhotoCaches();
+    }
+
+    function _cabinetLabel() {
+        return document.getElementById('cabinet-picker-label')?.textContent?.trim() || '';
+    }
+
+    function _isStaleInit(gen, cab) {
+        return gen !== _initGen || cab !== _cab;
     }
 
     function _hydratePhotoCacheFromArticles() {
@@ -717,10 +736,11 @@ const RNP = (() => {
         if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB) _renderActiveTable();
     }
 
-    async function _loadSettings() {
+    async function _loadSettings(cab, gen) {
         _settingsInDb = false;
         try {
-            const { data } = await _db.from('rnp_settings').select('*').eq('cabinet_id', _cab).maybeSingle();
+            const { data } = await _db.from('rnp_settings').select('*').eq('cabinet_id', cab).maybeSingle();
+            if (_isStaleInit(gen, cab)) return;
             if (data) {
                 _settingsInDb = true;
                 _settings = {
@@ -761,9 +781,10 @@ const RNP = (() => {
     }
 
     // ─── ARTICLES ─────────────────────────────────────────────────────────────
-    async function _loadArticles() {
+    async function _loadArticles(cab, gen) {
         try {
-            const { data } = await _db.from('rnp_articles').select('*').eq('cabinet_id', _cab).order('nm_id');
+            const { data } = await _db.from('rnp_articles').select('*').eq('cabinet_id', cab).order('nm_id');
+            if (gen !== undefined && _isStaleInit(gen, cab)) return;
             _articles = data || [];
         } catch(e) { console.warn('[RNP] articles load:', e.message); }
     }
@@ -806,7 +827,14 @@ const RNP = (() => {
                     await _updateArticle(nmId, { manual_data: md, name: displayName });
                 }
             }
-            await _loadArticles();
+            if (!silent) {
+                const keepSet = new Set([...uniq.keys()].map(Number));
+                const stale = _articles.filter(a => !keepSet.has(Number(a.nm_id)));
+                for (const art of stale) {
+                    await _db.from('rnp_articles').delete().eq('cabinet_id', _cab).eq('nm_id', art.nm_id);
+                }
+            }
+            await _loadArticles(_cab);
             await _backfillSellerArticlesFromDb();
             return _articles.length > 0;
         } catch(e) {
@@ -842,7 +870,7 @@ const RNP = (() => {
                     manual_data: md,
                 }, { onConflict: 'cabinet_id,nm_id' });
             }
-            await _loadArticles();
+            await _loadArticles(_cab);
             return _articles.length > 0;
         } catch (e) {
             console.error('[RNP] content sync:', e.message);
@@ -2773,10 +2801,14 @@ const RNP = (() => {
             const m = i + 1;
             return `<option value="${m}"${m === sel ? ' selected' : ''}>${MONTH_SHORT[i]}</option>`;
         }).join('');
+        const cabLabel = _cabinetLabel();
         el.innerHTML = `
         <div class="space-y-5">
           <div class="widget-card p-5">
-            <h3 class="font-semibold mb-4 flex items-center gap-2" style="color:var(--text-primary)">Основные настройки</h3>
+            <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
+              <h3 class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">Основные настройки</h3>
+              ${cabLabel ? `<span class="rnp-cab-badge">${cabLabel}</span>` : ''}
+            </div>
             <div class="flex flex-wrap gap-4 mb-4 text-xs" style="color:var(--text-muted)">
               <span>Активных: <b style="color:var(--text-primary)">${_articles.filter(a=>a.is_active).length}</b> / ${_articles.length}</span>
               <span>Курс: <b style="color:var(--text-primary)">1₽ = ${_settings.exchangeRate} сом</b></span>
@@ -2820,8 +2852,7 @@ const RNP = (() => {
                 </div>
               </div>
             </div>
-            <button onclick="RNP.saveRnpOptions()" class="mt-4 px-4 py-2 rounded-xl text-xs font-bold"
-              style="background:var(--accent-gradient);color:#fff">Сохранить параметры РНП</button>
+            <button onclick="RNP.saveRnpOptions()" class="rnp-save-btn mt-4" type="button">Сохранить параметры</button>
           </div>
 
           <div class="widget-card p-5">
@@ -3485,16 +3516,20 @@ const RNP = (() => {
 
     // ─── PUBLIC API ───────────────────────────────────────────────────────────
     async function init(supabase, cabId, proxyFn, opts) {
+        const gen = ++_initGen;
         _db = supabase; _cab = cabId;
         if (typeof proxyFn === 'function') _callProxy = proxyFn;
         if (opts?.userEmail) _userEmail = opts.userEmail;
-        _resetPhotoCaches();
+        _clearCabinetState();
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
         try { _editMode = sessionStorage.getItem('rnp_edit_mode') === '1'; } catch (e) {}
         _bindSelectionHandlers();
-        await _loadSettings();
-        await _loadArticles();
+        await _loadSettings(cabId, gen);
+        if (_isStaleInit(gen, cabId)) return;
+        await _loadArticles(cabId, gen);
+        if (_isStaleInit(gen, cabId)) return;
         await _bootstrapCabinetIfNeeded();
+        if (_isStaleInit(gen, cabId)) return;
         _hydratePhotoCacheFromStorage();
         _hydratePhotoCacheFromArticles();
         _backfillSellerArticlesFromDb().catch(e => console.warn('[RNP] seller backfill:', e.message));
