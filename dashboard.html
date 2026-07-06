@@ -2280,9 +2280,301 @@
             #date-picker { left: 10px !important; width: calc(100vw - 20px) !important; }
             .grid.xl\:grid-cols-5 { grid-template-columns: repeat(2, 1fr) !important; }
         }
+
+        /* ============================================================
+           NR SPACE — DASHBOARD CINEMATIC ENTRANCE
+           ============================================================ */
+        body {
+            background: #030303;
+        }
+
+        .neon-rays {
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        .ray-left {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 55%;
+            height: 100%;
+            background: linear-gradient(
+                to right,
+                transparent 0%,
+                rgba(236, 72, 153, 0.0) 30%,
+                rgba(236, 72, 153, 0.18) 70%,
+                rgba(168, 85, 247, 0.35) 85%,
+                rgba(255, 255, 255, 0.08) 100%
+            );
+            filter: blur(8px);
+            animation: rayLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both,
+                       rayFadeOut 0.8s ease-out 1.6s both;
+            transform-origin: left center;
+        }
+
+        .ray-right {
+            position: absolute;
+            top: 0;
+            right: -100%;
+            width: 55%;
+            height: 100%;
+            background: linear-gradient(
+                to left,
+                transparent 0%,
+                rgba(236, 72, 153, 0.0) 30%,
+                rgba(236, 72, 153, 0.18) 70%,
+                rgba(168, 85, 247, 0.35) 85%,
+                rgba(255, 255, 255, 0.08) 100%
+            );
+            filter: blur(8px);
+            animation: rayRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both,
+                       rayFadeOut 0.8s ease-out 1.6s both;
+            transform-origin: right center;
+        }
+
+        .ray-top {
+            position: absolute;
+            top: -100%;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            background: linear-gradient(
+                to bottom,
+                rgba(255, 255, 255, 0.06) 0%,
+                rgba(168, 85, 247, 0.25) 40%,
+                rgba(236, 72, 153, 0.12) 75%,
+                transparent 100%
+            );
+            filter: blur(12px);
+            animation: rayTop 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.0s both,
+                       rayFadeOut 0.8s ease-out 1.5s both;
+        }
+
+        .ray-top-line {
+            position: absolute;
+            top: 0;
+            left: 10%;
+            width: 80%;
+            height: 2px;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(236, 72, 153, 0.6) 20%,
+                rgba(255, 255, 255, 0.9) 50%,
+                rgba(236, 72, 153, 0.6) 80%,
+                transparent
+            );
+            box-shadow:
+                0 0 8px rgba(236, 72, 153, 0.8),
+                0 0 20px rgba(236, 72, 153, 0.4),
+                0 0 40px rgba(168, 85, 247, 0.3);
+            animation: rayTopLine 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both,
+                       rayLineHold 1.0s ease-out 0.6s both,
+                       rayFadeOut 0.6s ease-out 1.6s both;
+            transform-origin: top center;
+        }
+
+        .ray-left-line {
+            position: absolute;
+            top: 5%;
+            left: 0;
+            width: 2px;
+            height: 90%;
+            background: linear-gradient(
+                to bottom,
+                transparent,
+                rgba(236, 72, 153, 0.8) 20%,
+                rgba(255, 255, 255, 0.6) 50%,
+                rgba(236, 72, 153, 0.8) 80%,
+                transparent
+            );
+            box-shadow:
+                0 0 6px rgba(236, 72, 153, 0.9),
+                0 0 16px rgba(236, 72, 153, 0.5),
+                0 0 30px rgba(168, 85, 247, 0.3);
+            animation: sideLineReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both,
+                       rayFadeOut 0.7s ease-out 1.5s both;
+            transform-origin: top center;
+        }
+
+        .ray-right-line {
+            position: absolute;
+            top: 5%;
+            right: 0;
+            width: 2px;
+            height: 90%;
+            background: linear-gradient(
+                to bottom,
+                transparent,
+                rgba(236, 72, 153, 0.8) 20%,
+                rgba(255, 255, 255, 0.6) 50%,
+                rgba(236, 72, 153, 0.8) 80%,
+                transparent
+            );
+            box-shadow:
+                0 0 6px rgba(236, 72, 153, 0.9),
+                0 0 16px rgba(236, 72, 153, 0.5),
+                0 0 30px rgba(168, 85, 247, 0.3);
+            animation: sideLineReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both,
+                       rayFadeOut 0.7s ease-out 1.5s both;
+            transform-origin: top center;
+        }
+
+        .center-glow {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            background: radial-gradient(
+                circle,
+                rgba(168, 85, 247, 0.20) 0%,
+                rgba(236, 72, 153, 0.10) 35%,
+                transparent 70%
+            );
+            animation: glowPulse 0.8s ease-out 0.4s both;
+        }
+
+        .ray-left-glow-static,
+        .ray-right-glow-static {
+            position: fixed;
+            top: 0;
+            width: 1px;
+            height: 100%;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 0;
+            animation:
+                staticGlowIn 0.6s ease-out 2.0s both,
+                breathe 4s ease-in-out 2.6s infinite;
+        }
+
+        .ray-left-glow-static {
+            left: 0;
+            background: linear-gradient(
+                to bottom,
+                transparent 0%,
+                rgba(236, 72, 153, 0.25) 30%,
+                rgba(168, 85, 247, 0.35) 50%,
+                rgba(236, 72, 153, 0.25) 70%,
+                transparent 100%
+            );
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
+        }
+
+        .ray-right-glow-static {
+            right: 0;
+            background: linear-gradient(
+                to bottom,
+                transparent 0%,
+                rgba(236, 72, 153, 0.25) 30%,
+                rgba(168, 85, 247, 0.35) 50%,
+                rgba(236, 72, 153, 0.25) 70%,
+                transparent 100%
+            );
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
+        }
+
+        .dashboard-app-shell {
+            opacity: 0;
+            transform: translateY(12px) scale(0.99);
+            filter: blur(4px);
+            animation: cardReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) 1.4s both;
+            position: relative;
+            z-index: 2;
+        }
+
+        @keyframes rayLeft {
+            0%   { left: -100%; opacity: 0; }
+            100% { left: -10%;  opacity: 1; }
+        }
+        @keyframes rayRight {
+            0%   { right: -100%; opacity: 0; }
+            100% { right: -10%;  opacity: 1; }
+        }
+        @keyframes rayTop {
+            0%   { top: -100%; opacity: 0; }
+            100% { top: -5%;   opacity: 1; }
+        }
+        @keyframes rayTopLine {
+            0%   { transform: scaleX(0); opacity: 0; }
+            100% { transform: scaleX(1); opacity: 1; }
+        }
+        @keyframes rayLineHold {
+            0%   { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
+        @keyframes sideLineReveal {
+            0%   { transform: scaleY(0); opacity: 0; }
+            100% { transform: scaleY(1); opacity: 1; }
+        }
+        @keyframes rayFadeOut {
+            0%   { opacity: 1; }
+            100% { opacity: 0; }
+        }
+        @keyframes glowPulse {
+            0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+            60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+            100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+        }
+        @keyframes staticGlowIn {
+            0%   { opacity: 0; }
+            100% { opacity: 1; }
+        }
+        @keyframes breathe {
+            0%, 100% { opacity: 0.6; }
+            50%       { opacity: 1.0; }
+        }
+        @keyframes cardReveal {
+            0% {
+                opacity: 0;
+                transform: translateY(24px) scale(0.97);
+                filter: blur(4px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                filter: blur(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .center-glow { width: 350px; height: 350px; }
+            .ray-left, .ray-right { width: 70%; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .neon-rays, .center-glow,
+            .ray-left-glow-static, .ray-right-glow-static { display: none; }
+            .dashboard-app-shell {
+                opacity: 1 !important;
+                animation: none !important;
+                filter: none !important;
+                transform: none !important;
+            }
+        }
     </style>
 </head>
-<body class="flex overflow-hidden h-screen">
+<body>
+    <div class="neon-rays" aria-hidden="true">
+        <div class="ray-top"></div>
+        <div class="ray-top-line"></div>
+        <div class="ray-left"></div>
+        <div class="ray-left-line"></div>
+        <div class="ray-right"></div>
+        <div class="ray-right-line"></div>
+    </div>
+    <div class="center-glow" aria-hidden="true"></div>
+    <div class="ray-left-glow-static" aria-hidden="true"></div>
+    <div class="ray-right-glow-static" aria-hidden="true"></div>
+    <div id="dashboard-app-shell" class="dashboard-app-shell flex overflow-hidden h-screen w-full">
     <div class="sidebar-app" id="sidebar-app">
         <aside class="sidebar-rail">
             <button type="button" class="rail-logo" id="sidebar-home-btn" title="NR Space">
@@ -2526,7 +2818,7 @@
                 <button onclick="setQuickPicker(7)" class="picker-quick-btn">Последняя неделя</button>
                 <button onclick="setQuickPicker(14)" class="picker-quick-btn">Последние две недели</button>
                 <button onclick="setQuickPicker(0,'month')" class="picker-quick-btn">Текущий месяц</button>
-                <button onclick="setQuickPicker(0,'year2025')" class="picker-quick-btn">С начала 2025</button>
+                <button onclick="setQuickPicker(30)" class="picker-quick-btn">Последние 30 дней</button>
                 <button onclick="setQuickPicker(0,'year2026')" class="picker-quick-btn">С начала 2026</button>
                 <div style="border-top:1px solid var(--border);margin:4px 0"></div>
                 <div>
@@ -2582,7 +2874,7 @@
             <div id="top-filters-bar" class="flex items-center gap-2 overflow-x-auto pt-3 mt-1">
                 <div class="filter-chip date-filter-chip active flex items-center space-x-1.5" onclick="toggleDatePicker(event)">
                     <span class="date-pulse-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);animation:dotPulse 1.4s ease-in-out infinite"></span>
-                    <span>📅</span><span id="date-range">01.01.2025 — сегодня</span><span style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>
+                    <span>📅</span><span id="date-range">01.01.2026 — сегодня</span><span style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>
                 </div>
                 <div class="filter-chip">Маркетплейсы <span style="color:var(--text-muted);margin-left:4px">▼</span></div>
                 <div class="filter-chip">Магазины <span style="color:var(--text-muted);margin-left:4px">▼</span></div>
@@ -3335,6 +3627,7 @@
             <button type="button" id="modal-btn" onclick="closePremiumModal()">Понятно</button>
         </div>
     </div>
+    </div>
 
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -3813,6 +4106,7 @@
     }
 
     let currentCabinetId = localStorage.getItem('selected_cabinet_id') || null;
+    let _loadRequestId = 0;
     let currentUserEmail = '';
     let currentUserId = '';
 
@@ -4150,7 +4444,7 @@
     const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
     const RU_MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
     let pickerState = { year:2026, month:new Date().getMonth(), fromDate:null, toDate:null, selecting:'from' };
-    let activeDateFrom = '2025-01-01';
+    let activeDateFrom = '2026-01-01';
     let activeDateTo = (() => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
 
     function getActiveDateRange() {
@@ -4275,7 +4569,6 @@
         if (mode === 'today') { from = new Date(to); }
         else if (days > 0) { from.setDate(to.getDate() - days); }
         else if (mode === 'month') { from = new Date(to.getFullYear(), to.getMonth(), 1); }
-        else if (mode === 'year2025') { from = new Date(2025, 0, 1); }
         else if (mode === 'year2026') { from = new Date(2026, 0, 1); }
         pickerState.fromDate = from; pickerState.toDate = to;
         pickerState.year = to.getFullYear(); pickerState.month = to.getMonth();
@@ -4363,7 +4656,11 @@
     });
 
     async function loadCabinets() {
-        const { data } = await supabase.from('cabinets').select('id, name').order('name');
+        const { data } = await supabase
+            .from('cabinets')
+            .select('id, name')
+            .order('name');
+
         if (!data || data.length === 0) {
             hasUserCabinets = false;
             currentCabinetId = null;
@@ -4372,18 +4669,22 @@
             updateEmptyCabinetState();
             return;
         }
+
         hasUserCabinets = true;
-        renderCabinetDropdown(data);
-        if (!currentCabinetId) { currentCabinetId = data[0].id; localStorage.setItem('selected_cabinet_id', currentCabinetId); }
-        const sel = data.find(c => c.id === currentCabinetId);
-        const selectHeader = document.getElementById('cabinet-select-header');
-        if (sel) {
-            updateCabinetPickerUI(sel.name);
-            if (selectHeader) selectHeader.value = currentCabinetId;
-            await loadFromDB();
-        } else {
-            await loadFromDB();
+        const ids = data.map(c => c.id);
+        if (!currentCabinetId || !ids.includes(currentCabinetId)) {
+            currentCabinetId = data[0].id;
+            localStorage.setItem('selected_cabinet_id', currentCabinetId);
         }
+
+        renderCabinetDropdown(data);
+        const sel = data.find(c => c.id === currentCabinetId);
+        if (sel) updateCabinetPickerUI(sel.name);
+
+        const selectHeader = document.getElementById('cabinet-select-header');
+        if (selectHeader) selectHeader.value = currentCabinetId;
+
+        await loadFromDB();
         updateEmptyCabinetState();
         await loadLastSyncTime();
     }
@@ -4422,23 +4723,36 @@
     });
     function onCabinetChange() {
         const s = document.getElementById('cabinet-select-header');
-        currentCabinetId = s.value;
-        localStorage.setItem('selected_cabinet_id', currentCabinetId);
-        const cabinetName = s.options[s.selectedIndex].text;
-        updateCabinetPickerUI(cabinetName);
+        const newCabinetId = s.value;
+        const newCabinetName = s.options[s.selectedIndex].text;
+
+        _loadRequestId++;
+
+        currentCabinetId = newCabinetId;
+        localStorage.setItem('selected_cabinet_id', newCabinetId);
+        updateCabinetPickerUI(newCabinetName);
         renderCabinetDropdown(cabinetListCache);
         document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
-        // Сбрасываем все метрики в —
-        ['m-profit','m-margin','m-profit2','m-sales-sum','m-sales-count','m-realization',
-         'm-commission','m-orders-sum','m-orders-count','m-conversion','m-logistics',
-         'm-ads','m-storage','m-roi','m-opex','m-returns','m-stock',
-         'rnp-profit','rnp-margin','rnp-roi','wh-total'].forEach(id => setText(id, '—'));
-        document.getElementById('products-table').innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Переключение кабинета...</td></tr>';
+
+        [
+            'm-profit','m-margin','m-profit2','m-sales-sum','m-sales-count',
+            'm-realization','m-commission','m-orders-sum','m-orders-count',
+            'm-conversion','m-logistics','m-ads','m-storage','m-roi',
+            'm-opex','m-returns','m-stock','rnp-profit','rnp-margin',
+            'rnp-roi','rnp-buyout','rnp-orders','rnp-sales','rnp-returns',
+            'rnp-logistics','wh-total'
+        ].forEach(id => setText(id, '—'));
+
+        const productsTable = document.getElementById('products-table');
+        if (productsTable) {
+            productsTable.innerHTML = '<tr><td colspan="5" class="text-center py-6" style="color:var(--text-muted)">Переключение...</td></tr>';
+        }
+
         allSuppliesRaw = [];
         allSupplies = [];
         _supplyEnrichGen++;
-        // Показываем оверлей перехода
-        showCabinetTransition(cabinetName, async () => {
+
+        showCabinetTransition(newCabinetName, async () => {
             await loadFromDB();
             await loadLastSyncTime();
             if (typeof RNP !== 'undefined') {
@@ -4450,6 +4764,12 @@
             const curTab = localStorage.getItem('nr_active_tab');
             if (curTab === 'logistics') initLogisticsSupplies();
         });
+    }
+
+    function onCabinetChangeHeader() {
+        const headerSelect = document.getElementById('cabinet-select-header');
+        if (!headerSelect) return;
+        onCabinetChange();
     }
 
     function hideOverlay() {
@@ -4476,43 +4796,76 @@
     }
 
     async function loadFromDB(dateFrom, dateTo) {
-        if (!hasUserCabinets || !currentCabinetId) return;
-        const from = dateFrom || '2025-01-01';
+        if (!currentCabinetId) return;
+
+        const requestId = ++_loadRequestId;
+        const snapshotCabinet = currentCabinetId;
+
+        const from = dateFrom || '2026-01-01';
         const today = new Date();
         const to = dateTo || fmtDate(today);
-        const { data: orders } = await supabase.from('wb_orders').select('*').eq('cabinet_id', currentCabinetId).gte('order_date', from).lte('order_date', to);
-        const { data: stocks } = await supabase.from('wb_stocks').select('*').eq('cabinet_id', currentCabinetId);
+
+        const { data: orders } = await supabase
+            .from('wb_orders')
+            .select('*')
+            .eq('cabinet_id', snapshotCabinet)
+            .gte('order_date', from)
+            .lte('order_date', to);
+
+        const { data: stocks } = await supabase
+            .from('wb_stocks')
+            .select('*')
+            .eq('cabinet_id', snapshotCabinet);
+
+        if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) {
+            console.log(`[loadFromDB] Устаревший запрос кабинета ${snapshotCabinet} — игнорируем`);
+            return;
+        }
+
         if (orders !== null && stocks !== null) {
             updateWarehouseFromDB(stocks);
-            setText('m-stock', fmt(stocks.reduce((a,s)=>a+Number(s.quantity||0),0))+' шт.');
-            document.getElementById('date-range').textContent = `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
+            setText('m-stock', fmt(stocks.reduce((a, s) => a + Number(s.quantity || 0), 0)) + ' шт.');
+            document.getElementById('date-range').textContent =
+                `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
+
             const tbody = document.getElementById('products-table');
             if (stocks.length > 0) {
-                tbody.innerHTML = stocks.slice(0,30).map(p => {
-                    const enough=(p.quantity||0)>10;
-                    return `<tr><td style="color:var(--accent);font-weight:600">${escapeHtml(p.nm_id||'—')}</td><td style="color:var(--text-muted)">${escapeHtml(p.barcode||'—')}</td><td style="color:var(--text-primary);font-weight:700">${Number(p.quantity||0)}</td><td style="color:var(--text-muted)">${Number(p.in_way_to_client||0)}</td><td><span class="${enough?'badge-green':'badge-red'}">${enough?'Достаточно':'Подсорт'}</span></td></tr>`;
+                tbody.innerHTML = stocks.slice(0, 30).map(p => {
+                    const enough = (p.quantity || 0) > 10;
+                    return `<tr>
+                    <td style="color:var(--accent);font-weight:600">${escapeHtml(p.nm_id || '—')}</td>
+                    <td style="color:var(--text-muted)">${escapeHtml(p.barcode || '—')}</td>
+                    <td style="color:var(--text-primary);font-weight:700">${Number(p.quantity || 0)}</td>
+                    <td style="color:var(--text-muted)">${Number(p.in_way_to_client || 0)}</td>
+                    <td><span class="${enough ? 'badge-green' : 'badge-red'}">${enough ? 'Достаточно' : 'Подсорт'}</span></td>
+                </tr>`;
                 }).join('');
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет данных — нажмите "Обновить"</td></tr>';
             }
-            // Сначала показываем данные из кеша — мгновенно
+
             updateDashboardFromDB(stocks, orders);
-            syncRNPTab(stocks, orders);
-        }
-        // Финансовый отчёт — ОТДЕЛЬНО, не блокирует возврат функции
-        if (typeof WBFormulas !== 'undefined' && currentCabinetId) {
-            const financeTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Finance report timeout (60s)')), 60000));
-            Promise.race([
-                WBFormulas.loadFinanceReport(callWbProxy, from, to),
-                financeTimeout
-            ]).then(rows => {
-                if (!rows || rows.length === 0) return;
-                const settings = {
-                    taxRate: Number(localStorage.getItem('tax_rate') || 6),
-                    opex: Number(localStorage.getItem('opex') || 0)
-                };
-                const metrics = WBFormulas.calculateMetrics(rows, settings);
-                WBFormulas.applyMetricsToDashboard(metrics, setText);
-                syncSummaryTab(metrics);
-            }).catch(e => console.warn('Finance report:', e.message));
+
+            if (typeof WBFormulas !== 'undefined') {
+                const finId = requestId;
+                const finCabinet = snapshotCabinet;
+
+                Promise.race([
+                    WBFormulas.loadFinanceReport(callWbProxy, from, to),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000))
+                ]).then(rows => {
+                    if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
+                    if (!rows || rows.length === 0) return;
+                    const settings = {
+                        taxRate: Number(localStorage.getItem('tax_rate') || 6),
+                        opex: Number(localStorage.getItem('opex') || 0)
+                    };
+                    const metrics = WBFormulas.calculateMetrics(rows, settings);
+                    if (finCabinet === currentCabinetId) {
+                        WBFormulas.applyMetricsToDashboard(metrics, setText);
+                    }
+                }).catch(e => console.warn('Finance report:', e.message));
+            }
         }
     }
 
@@ -4567,34 +4920,77 @@
     }
 
     async function refreshData() {
-        if (!hasUserCabinets || !currentCabinetId) return;
+        if (!currentCabinetId) {
+            showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет.');
+            return;
+        }
+
         const btn = document.getElementById('refresh-btn');
-        btn.textContent = '⟳ Загрузка...'; btn.disabled = true;
+        const snapshotCabinet = currentCabinetId;
+        const requestId = ++_loadRequestId;
+
+        btn.textContent = '⟳ Загрузка...';
+        btn.disabled = true;
+
         try {
-            const from = '2025-01-01';
+            const from = '2026-01-01';
 
             const stocks = await callWbProxy('stocks', { dateFrom: from });
+            if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
             if (!stocks) return;
+
             const orders = await callWbProxy('orders', { dateFrom: from });
+            if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
             if (!orders) return;
 
             if (Array.isArray(stocks) && stocks.length > 0) {
-                const stockRows = stocks.map(s => ({ cabinet_id: currentCabinetId, nm_id: s.nmId, barcode: s.barcode, tech_size: s.techSize||'', quantity: s.quantity||0, in_way_to_client: s.inWayToClient||0, in_way_from_client: s.inWayFromClient||0, warehouse_name: s.warehouseName||'' }));
-                const { error: delError } = await supabase.from('wb_stocks').delete().eq('cabinet_id', currentCabinetId);
-                if (delError) throw new Error('Ошибка очистки остатков: ' + delError.message);
+                const stockRows = stocks.map(s => ({
+                    cabinet_id: snapshotCabinet,
+                    nm_id: s.nmId,
+                    barcode: s.barcode,
+                    tech_size: s.techSize || '',
+                    quantity: s.quantity || 0,
+                    in_way_to_client: s.inWayToClient || 0,
+                    in_way_from_client: s.inWayFromClient || 0,
+                    warehouse_name: s.warehouseName || ''
+                }));
+                await supabase.from('wb_stocks').delete().eq('cabinet_id', snapshotCabinet);
                 for (let i = 0; i < stockRows.length; i += 100) {
-                    const { error: insError } = await supabase.from('wb_stocks').insert(stockRows.slice(i, i+100));
-                    if (insError) throw new Error('Ошибка сохранения остатков: ' + insError.message);
+                    await supabase.from('wb_stocks').insert(stockRows.slice(i, i + 100));
                 }
             }
+
             if (Array.isArray(orders) && orders.length > 0) {
-                const orderRows = orders.map(o => ({ cabinet_id: currentCabinetId, order_date: o.date?.split('T')[0]||new Date().toISOString().split('T')[0], nm_id: o.nmId, barcode: o.barcode, price: o.priceWithDiscount||o.totalPrice||0, is_return: o.isReturn||false, data: o }));
-                for (let i = 0; i < orderRows.length; i += 100) await supabase.from('wb_orders').upsert(orderRows.slice(i, i+100), { onConflict: 'cabinet_id,order_date,nm_id,barcode', ignoreDuplicates: true });
+                const orderRows = orders.map(o => ({
+                    cabinet_id: snapshotCabinet,
+                    order_date: o.date?.split('T')[0] || new Date().toISOString().split('T')[0],
+                    nm_id: o.nmId,
+                    barcode: o.barcode,
+                    price: o.priceWithDiscount || o.totalPrice || 0,
+                    is_return: o.isReturn || false,
+                    data: o
+                }));
+                for (let i = 0; i < orderRows.length; i += 100) {
+                    await supabase.from('wb_orders').upsert(
+                        orderRows.slice(i, i + 100),
+                        { onConflict: 'cabinet_id,order_date,nm_id,barcode', ignoreDuplicates: true }
+                    );
+                }
             }
+
+            if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
+
             await loadFromDB();
-            showPremiumModal('success', 'Готово!', 'Данные успешно загружены и сохранены в базу.');
-        } catch (e) { showPremiumModal('error', 'Произошла ошибка', e.message); }
-        finally { btn.textContent = '↻ Обновить'; btn.disabled = false; }
+            showPremiumModal('success', 'Готово!', 'Данные успешно загружены.');
+
+        } catch (e) {
+            if (snapshotCabinet === currentCabinetId) {
+                showPremiumModal('error', 'Ошибка', e.message);
+            }
+        } finally {
+            btn.textContent = '↻ Обновить';
+            btn.disabled = false;
+        }
     }
 
     function updateDashboardFromDB(stocks, orders) {

@@ -12,7 +12,7 @@ const CORS = {
 const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
 const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
 const WB_STATS = 'https://statistics-api.wildberries.ru';
-const DATE_FROM = '2025-01-01';
+const DATE_FROM = '2026-01-01';
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
