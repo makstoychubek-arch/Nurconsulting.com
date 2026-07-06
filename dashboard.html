@@ -4185,6 +4185,33 @@
 
     let currentCabinetId = localStorage.getItem('selected_cabinet_id') || null;
     let _loadRequestId = 0;
+    window.currentCabinetId = currentCabinetId;
+    window.__nrLoadRequestId = () => _loadRequestId;
+
+    // Загружает ВСЕ строки таблицы с пагинацией (обходит лимит Supabase 1000)
+    async function fetchAllRows(table, filters, columns = '*') {
+        const PAGE = 1000;
+        let all = [];
+        let from = 0;
+        while (true) {
+            let query = supabase.from(table).select(columns).range(from, from + PAGE - 1);
+            for (const f of (filters || [])) {
+                if (f.op === 'eq') query = query.eq(f.column, f.value);
+                else if (f.op === 'gte') query = query.gte(f.column, f.value);
+                else if (f.op === 'lte') query = query.lte(f.column, f.value);
+                else if (f.op === 'in') query = query.in(f.column, f.value);
+                else if (f.op === 'notIsNull') query = query.not(f.column, 'is', null);
+            }
+            const { data, error } = await query;
+            if (error) { console.error(`[fetchAllRows] ${table}:`, error.message); break; }
+            if (!data?.length) break;
+            all = all.concat(data);
+            if (data.length < PAGE) break;
+            from += PAGE;
+            if (all.length > 100000) break;
+        }
+        return all;
+    }
     let currentUserEmail = '';
     let currentUserId = '';
 
@@ -4500,10 +4527,13 @@
     }
 
     async function loadGoodsGroupsCabinet(cab) {
-        const [{ data: stocks }, { data: orders }, { data: arts }] = await Promise.all([
-            supabase.from('wb_stocks').select('nm_id, quantity').eq('cabinet_id', cab.id),
-            supabase.from('wb_orders').select('nm_id, data').eq('cabinet_id', cab.id).gte('order_date', '2026-01-01'),
-            supabase.from('rnp_articles').select('nm_id, name, category, manual_data').eq('cabinet_id', cab.id),
+        const [stocks, orders, arts] = await Promise.all([
+            fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: cab.id }], 'nm_id, quantity'),
+            fetchAllRows('wb_orders', [
+                { op: 'eq', column: 'cabinet_id', value: cab.id },
+                { op: 'gte', column: 'order_date', value: '2026-01-01' },
+            ], 'nm_id, data'),
+            fetchAllRows('rnp_articles', [{ op: 'eq', column: 'cabinet_id', value: cab.id }], 'nm_id, name, category, manual_data'),
         ]);
 
         const nmSet = new Set();
@@ -4957,7 +4987,9 @@
         _loadRequestId++;
 
         currentCabinetId = newCabinetId;
+        window.currentCabinetId = newCabinetId;
         localStorage.setItem('selected_cabinet_id', newCabinetId);
+        document.dispatchEvent(new CustomEvent('cabinet-changed', { detail: { cabinetId: newCabinetId } }));
         updateCabinetPickerUI(newCabinetName);
         renderCabinetDropdown(cabinetListCache);
         document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
@@ -5034,17 +5066,15 @@
         const today = new Date();
         const to = dateTo || fmtDate(today);
 
-        const { data: orders } = await supabase
-            .from('wb_orders')
-            .select('*')
-            .eq('cabinet_id', snapshotCabinet)
-            .gte('order_date', from)
-            .lte('order_date', to);
+        const orders = await fetchAllRows('wb_orders', [
+            { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
+            { op: 'gte', column: 'order_date', value: from },
+            { op: 'lte', column: 'order_date', value: to },
+        ]);
 
-        const { data: stocks } = await supabase
-            .from('wb_stocks')
-            .select('*')
-            .eq('cabinet_id', snapshotCabinet);
+        const stocks = await fetchAllRows('wb_stocks', [
+            { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
+        ]);
 
         if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) {
             console.log(`[loadFromDB] Устаревший запрос кабинета ${snapshotCabinet} — игнорируем`);
@@ -7166,7 +7196,7 @@
     }
 </script>
     <script src="/dashboard-charts.js"></script>
-    <script src="/rnp-module.js?v=20260704-apple-design"></script>
+    <script src="/rnp-module.js?v=20260707-full-articles"></script>
     <script src="/wb-formulas.js?v=20260703-photos9"></script>
 </body>
 </html>

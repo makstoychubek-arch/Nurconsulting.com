@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260704-apple-design';
+    const RNP_BUILD = '20260707-full-articles';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -28,6 +28,7 @@ const RNP = (() => {
     let _financeCache = { key: '', rows: [], ts: 0 };
     let _dataCache = {}; // nmId -> { date -> row }
     let _stockCache = {}; // nmId -> { size -> { wh, transit } }
+    const _cabinetStateCache = new Map(); // cabinet_id -> { dataCache, stockCache, financeCache }
 
     const SIZE_ORDER = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL','4XL','5XL'];
     const ALL_SIZES = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL','4XL','5XL'];
@@ -308,11 +309,29 @@ const RNP = (() => {
         if (idx === 1) {
             return _isUsablePhotoUrl(nmId, _photoResolveCache[nmId])
                 || _isUsablePhotoUrl(nmId, art.photo_url)
+                || _wbPhotoUrl(nmId, 'c246x328')
                 || null;
         }
         return _normalizePhotoUrl(_photoIndexCache[nmId]?.[idx])
             || _normalizePhotoUrl(_galleryPhotosCache[nmId]?.[idx - 2])
             || null;
+    }
+
+    function _wbPhotoUrl(nmId, size = 'c246x328') {
+        const n = Number(nmId);
+        if (!n) return null;
+        const vol = Math.floor(n / 100000);
+        const part = Math.floor(n / 1000);
+        const host = String(_basketNum(vol)).padStart(2, '0');
+        return `https://basket-${host}.wbbasket.ru/vol${vol}/part${part}/${n}/images/${size}/1.webp`;
+    }
+
+    function _photoLetterPlaceholder(art) {
+        const label = _sellerArticle(art || {});
+        const ch = (label || '?').trim().charAt(0).toUpperCase() || '?';
+        return 'data:image/svg+xml,' + encodeURIComponent(
+            `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="100" viewBox="0 0 80 100"><rect fill="#2a2a35" width="80" height="100"/><text x="40" y="58" text-anchor="middle" fill="#aaa" font-size="22" font-family="sans-serif">${ch}</text></svg>`
+        );
     }
 
     function _resetPhotoCaches() {
@@ -326,6 +345,7 @@ const RNP = (() => {
 
     function _clearCabinetState() {
         _dataCache = {};
+        _stockCache = {};
         _financeCache = { key: '', rows: [], ts: 0 };
         _notesCache = {};
         _articles = [];
@@ -340,6 +360,67 @@ const RNP = (() => {
 
     function _isStaleInit(gen, cab) {
         return gen !== _initGen || cab !== _cab;
+    }
+
+    function _loadRequestId() {
+        return typeof window.__nrLoadRequestId === 'function' ? window.__nrLoadRequestId() : 0;
+    }
+
+    function _isStaleLoad(snapReq, snapCab) {
+        const curCab = window.currentCabinetId || _cab;
+        return snapReq !== _loadRequestId() || snapCab !== curCab;
+    }
+
+    async function _fetchAllRows(table, filters, columns = '*') {
+        if (!_db) return [];
+        const PAGE = 1000;
+        let all = [];
+        let from = 0;
+        while (true) {
+            let query = _db.from(table).select(columns).range(from, from + PAGE - 1);
+            for (const f of (filters || [])) {
+                if (f.op === 'eq') query = query.eq(f.column, f.value);
+                else if (f.op === 'gte') query = query.gte(f.column, f.value);
+                else if (f.op === 'lte') query = query.lte(f.column, f.value);
+                else if (f.op === 'in') query = query.in(f.column, f.value);
+                else if (f.op === 'notIsNull') query = query.not(f.column, 'is', null);
+            }
+            const { data, error } = await query;
+            if (error) { console.error(`[RNP fetchAllRows] ${table}:`, error.message); break; }
+            if (!data?.length) break;
+            all = all.concat(data);
+            if (data.length < PAGE) break;
+            from += PAGE;
+            if (all.length > 100000) break;
+        }
+        return all;
+    }
+
+    function _saveCabinetCache(cabId) {
+        if (!cabId) return;
+        _cabinetStateCache.set(cabId, {
+            dataCache: { ..._dataCache },
+            stockCache: JSON.parse(JSON.stringify(_stockCache)),
+            financeCache: { ..._financeCache, rows: [...(_financeCache.rows || [])] },
+        });
+    }
+
+    function _restoreCabinetCache(cabId) {
+        const snap = _cabinetStateCache.get(cabId);
+        if (!snap) return false;
+        _dataCache = { ...snap.dataCache };
+        _stockCache = JSON.parse(JSON.stringify(snap.stockCache));
+        _financeCache = { ...snap.financeCache, rows: [...(snap.financeCache.rows || [])] };
+        return true;
+    }
+
+    function _clearRnpMainUI() {
+        const el = document.getElementById('tab-rnp');
+        if (!el) return;
+        el.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
+          <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+          Загрузка кабинета…
+        </div>`;
     }
 
     function _hydratePhotoCacheFromArticles() {
@@ -511,7 +592,8 @@ const RNP = (() => {
         const nmId = art.nm_id;
         const idx = Math.max(1, photoIndex || 1);
         const cached = _cachedPhotoUrl(art, idx);
-        const src = cached || _PHOTO_PLACEHOLDER;
+        const guess = (!cached && idx === 1) ? _wbPhotoUrl(nmId, size.includes('c') ? size : 'c246x328') : null;
+        const src = cached || guess || _PHOTO_PLACEHOLDER;
         const cls = className ? ` class="${className}"` : '';
         const sty = extraStyle ? ` style="${extraStyle}"` : '';
         const loading = eager ? 'eager' : 'lazy';
@@ -524,17 +606,18 @@ const RNP = (() => {
     function imgFallback(img) {
         if (img.dataset.done === '1') return;
         const nmId = Number(img.dataset.nmid);
+        const art = _articles.find(a => a.nm_id == nmId);
         if (!nmId || !_callProxy || _photoProxyPending.has(nmId)) {
             img.dataset.done = '1';
             img.onerror = null;
-            img.src = _PHOTO_PLACEHOLDER;
+            img.src = art ? _photoLetterPlaceholder(art) : _PHOTO_PLACEHOLDER;
             return;
         }
         const last = _photoProxyCooldown[nmId] || 0;
         if (Date.now() - last < PHOTO_PROXY_COOLDOWN_MS && !_photoResolveCache[nmId]) {
             img.dataset.done = '1';
             img.onerror = null;
-            img.src = _PHOTO_PLACEHOLDER;
+            img.src = art ? _photoLetterPlaceholder(art) : _PHOTO_PLACEHOLDER;
             return;
         }
         img.dataset.done = '1';
@@ -555,16 +638,20 @@ const RNP = (() => {
                 }
                 _applyResolvedPhotos();
             } else {
-                img.src = _PHOTO_PLACEHOLDER;
+                img.src = art ? _photoLetterPlaceholder(art) : _PHOTO_PLACEHOLDER;
             }
         }).catch(() => {
-            img.src = _PHOTO_PLACEHOLDER;
+            img.src = art ? _photoLetterPlaceholder(art) : _PHOTO_PLACEHOLDER;
         }).finally(() => _photoProxyPending.delete(nmId));
     }
 
-    // legacy stubs — basket probing disabled (domains don't resolve)
+    // legacy stubs — basket URL builder for WB CDN
     function _photoMeta(nmId) {
-        return { vol: Math.floor(nmId / 100000), part: Math.floor(nmId / 1000), basket: 1, basketStr: '01' };
+        const n = Number(nmId);
+        const vol = Math.floor(n / 100000);
+        const part = Math.floor(n / 1000);
+        const basket = _basketNum(vol);
+        return { vol, part, basket, basketStr: String(basket).padStart(2, '0') };
     }
     function _photoUrls() { return []; }
     function _photoUrl() { return ''; }
@@ -655,10 +742,10 @@ const RNP = (() => {
         contentMap.forEach((sa, id) => map.set(id, sa));
 
         try {
-            const { data: orders } = await _db.from('wb_orders')
-                .select('nm_id, data')
-                .eq('cabinet_id', _cab)
-                .not('nm_id', 'is', null);
+            const orders = await _fetchAllRows('wb_orders', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'notIsNull', column: 'nm_id', value: null },
+            ], 'nm_id, data');
             (orders || []).forEach(o => {
                 if (map.has(Number(o.nm_id))) return;
                 const sa = _orderSellerArticle(o);
@@ -783,26 +870,43 @@ const RNP = (() => {
     // ─── ARTICLES ─────────────────────────────────────────────────────────────
     async function _loadArticles(cab, gen) {
         try {
-            const { data } = await _db.from('rnp_articles').select('*').eq('cabinet_id', cab).order('nm_id');
+            const data = await _fetchAllRows('rnp_articles', [
+                { op: 'eq', column: 'cabinet_id', value: cab },
+            ]);
             if (gen !== undefined && _isStaleInit(gen, cab)) return;
-            _articles = data || [];
+            _articles = (data || []).sort((a, b) => Number(a.nm_id) - Number(b.nm_id));
         } catch(e) { console.warn('[RNP] articles load:', e.message); }
     }
 
     async function _syncFromOrders(opts = {}) {
         const { silent = false, activateNew = false } = opts;
+        const snapReq = _loadRequestId();
+        const snapCab = _cab;
         try {
-            const { data: orders, error } = await _db.from('wb_orders')
-                .select('nm_id, data')
-                .eq('cabinet_id', _cab)
-                .not('nm_id', 'is', null);
-            if (error) throw error;
-            if (!orders?.length) {
+            const orders = await _fetchAllRows('wb_orders', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'notIsNull', column: 'nm_id', value: null },
+            ], 'nm_id, data');
+            if (_isStaleLoad(snapReq, snapCab)) {
+                console.log('[RNP] устаревший запрос syncFromOrders — игнорируем');
+                return false;
+            }
+
+            const stocks = await _fetchAllRows('wb_stocks', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+            ], 'nm_id');
+            if (_isStaleLoad(snapReq, snapCab)) return false;
+
+            const nmFromOrders = new Set((orders || []).map(o => String(o.nm_id)).filter(Boolean));
+            const nmFromStocks = new Set((stocks || []).map(s => String(s.nm_id)).filter(Boolean));
+            const allNmIds = [...new Set([...nmFromOrders, ...nmFromStocks])];
+
+            if (!allNmIds.length) {
                 if (!silent) _nrDialog('Нет данных', 'Сначала загрузите данные кабинета на вкладке Оцифровка → Дашборд.', 'warning');
                 return false;
             }
             const uniq = new Map();
-            orders.forEach(o => {
+            (orders || []).forEach(o => {
                 const nm = o.nm_id;
                 if (!nm) return;
                 const sa = _orderSellerArticle(o);
@@ -811,6 +915,11 @@ const RNP = (() => {
                 if (sa) prev.sa = sa;
                 if (subject && !prev.subject) prev.subject = subject;
                 uniq.set(nm, prev);
+            });
+            allNmIds.forEach(nmStr => {
+                const nm = Number(nmStr);
+                if (!nm || uniq.has(nm)) return;
+                uniq.set(nm, { sa: '', subject: '' });
             });
             for (const [nmId, meta] of uniq) {
                 const existing = _articles.find(a => a.nm_id == nmId);
@@ -827,7 +936,7 @@ const RNP = (() => {
                     await _updateArticle(nmId, { manual_data: md, name: displayName });
                 }
             }
-            const keepSet = new Set([...uniq.keys()].map(Number));
+            const keepSet = new Set(allNmIds.map(Number));
             const stale = _articles.filter(a => !keepSet.has(Number(a.nm_id)));
             for (const art of stale) {
                 await _db.from('rnp_articles').delete().eq('cabinet_id', _cab).eq('nm_id', art.nm_id);
@@ -1152,12 +1261,18 @@ const RNP = (() => {
 
     async function _loadAllStocks(nmIds) {
         if (!nmIds.length) return;
+        const snapReq = _loadRequestId();
+        const snapCab = _cab;
+        const idSet = new Set(nmIds.map(Number));
         try {
-            const { data } = await _db.from('wb_stocks').select('*')
-                .eq('cabinet_id', _cab).in('nm_id', nmIds);
+            const data = await _fetchAllRows('wb_stocks', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+            ]);
+            if (_isStaleLoad(snapReq, snapCab)) return;
             nmIds.forEach(id => { _stockCache[id] = {}; });
             (data || []).forEach(s => {
                 const nm = s.nm_id;
+                if (!idSet.has(Number(nm))) return;
                 if (!_stockCache[nm]) _stockCache[nm] = {};
                 const size = _normSize(s.tech_size || s.techSize || s.size || '');
                 if (size === '—') return;
@@ -2149,9 +2264,12 @@ const RNP = (() => {
         const allDates = _calAllDates(cal);
         if (!allDates.length) return {};
         try {
-            const { data } = await _db.from('rnp_daily_data')
-                .select('*').eq('cabinet_id', _cab).eq('nm_id', nmId)
-                .gte('date', allDates[0]).lte('date', allDates[allDates.length - 1]);
+            const data = await _fetchAllRows('rnp_daily_data', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'eq', column: 'nm_id', value: nmId },
+                { op: 'gte', column: 'date', value: allDates[0] },
+                { op: 'lte', column: 'date', value: allDates[allDates.length - 1] },
+            ]);
             const map = {};
             (data || []).forEach(r => { map[r.date] = r; });
             _dataCache[nmId] = map;
@@ -2163,13 +2281,19 @@ const RNP = (() => {
         const cal = _buildCalendar();
         const allDates = _calAllDates(cal);
         if (!allDates.length || !nmIds.length) return;
+        const snapReq = _loadRequestId();
+        const snapCab = _cab;
+        const idSet = new Set(nmIds.map(Number));
         try {
-            const { data } = await _db.from('rnp_daily_data')
-                .select('*').eq('cabinet_id', _cab)
-                .in('nm_id', nmIds)
-                .gte('date', allDates[0]).lte('date', allDates[allDates.length - 1]);
+            const data = await _fetchAllRows('rnp_daily_data', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'gte', column: 'date', value: allDates[0] },
+                { op: 'lte', column: 'date', value: allDates[allDates.length - 1] },
+            ]);
+            if (_isStaleLoad(snapReq, snapCab)) return;
             nmIds.forEach(id => { _dataCache[id] = {}; });
             (data || []).forEach(r => {
+                if (!idSet.has(Number(r.nm_id))) return;
                 if (!_dataCache[r.nm_id]) _dataCache[r.nm_id] = {};
                 _dataCache[r.nm_id][r.date] = r;
             });
@@ -2191,13 +2315,15 @@ const RNP = (() => {
                 if (hrs < 2) return;
             }
             // Pull from wb_orders for today
-            const { data: orders } = await _db.from('wb_orders').select('*')
-                .eq('cabinet_id', _cab)
-                .eq('nm_id', nmId);
+            const orders = await _fetchAllRows('wb_orders', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'eq', column: 'nm_id', value: nmId },
+            ]);
 
-            const { data: stocks } = await _db.from('wb_stocks').select('*')
-                .eq('cabinet_id', _cab)
-                .eq('nm_id', nmId);
+            const stocks = await _fetchAllRows('wb_stocks', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'eq', column: 'nm_id', value: nmId },
+            ]);
 
             const row = _buildRow(nmId, today, orders || [], stocks || []);
             await _db.from('rnp_daily_data').upsert(row, { onConflict: 'cabinet_id,nm_id,date' });
@@ -2265,13 +2391,15 @@ const RNP = (() => {
     async function _syncAllOrdersHistory(nmIds) {
         const ids = (nmIds || []).map(Number).filter(Boolean);
         if (!ids.length) return;
+        const snapReq = _loadRequestId();
+        const snapCab = _cab;
         try {
             const dateFrom = _ordersHistoryDateFrom();
-            const { data: orders } = await _db.from('wb_orders')
-                .select('nm_id, order_date, price, is_return, data')
-                .eq('cabinet_id', _cab)
-                .in('nm_id', ids)
-                .gte('order_date', dateFrom);
+            const orders = await _fetchAllRows('wb_orders', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'gte', column: 'order_date', value: dateFrom },
+            ], 'nm_id, order_date, price, is_return, data');
+            if (_isStaleLoad(snapReq, snapCab)) return;
             if (!orders?.length) return;
 
             const upserts = [];
@@ -2293,11 +2421,11 @@ const RNP = (() => {
     async function _syncOrdersHistory(nmId) {
         try {
             const dateFrom = _ordersHistoryDateFrom();
-            const { data: orders } = await _db.from('wb_orders')
-                .select('nm_id, order_date, price, is_return, data')
-                .eq('cabinet_id', _cab)
-                .eq('nm_id', nmId)
-                .gte('order_date', dateFrom);
+            const orders = await _fetchAllRows('wb_orders', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'eq', column: 'nm_id', value: nmId },
+                { op: 'gte', column: 'order_date', value: dateFrom },
+            ], 'nm_id, order_date, price, is_return, data');
             if (!orders?.length) return;
 
             const upserts = _aggregateOrdersToDaily(orders, nmId);
@@ -3043,9 +3171,14 @@ const RNP = (() => {
         </div>`;
 
         try {
+            const snapReq = _loadRequestId();
+            const snapCab = _cab;
             await _syncAllOrdersHistory(active.map(a => a.nm_id));
+            if (_isStaleLoad(snapReq, snapCab)) return;
             await _loadAllDailyData(active.map(a => a.nm_id));
+            if (_isStaleLoad(snapReq, snapCab)) return;
             await _loadAllStocks(active.map(a => a.nm_id));
+            if (_isStaleLoad(snapReq, snapCab)) return;
             await _loadNotes(active.map(a => a.nm_id));
             _hydratePhotoCacheFromStorage();
             _hydratePhotoCacheFromArticles();
@@ -3556,11 +3689,14 @@ const RNP = (() => {
 
     // ─── PUBLIC API ───────────────────────────────────────────────────────────
     async function init(supabase, cabId, proxyFn, opts) {
+        const prevCab = _cab;
+        if (prevCab && prevCab !== cabId) _saveCabinetCache(prevCab);
         const gen = ++_initGen;
         _db = supabase; _cab = cabId;
         if (typeof proxyFn === 'function') _callProxy = proxyFn;
         if (opts?.userEmail) _userEmail = opts.userEmail;
         _clearCabinetState();
+        _restoreCabinetCache(cabId);
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
         try { _editMode = sessionStorage.getItem('rnp_edit_mode') === '1'; } catch (e) {}
         _bindSelectionHandlers();
@@ -3761,6 +3897,17 @@ const RNP = (() => {
         else _collapsedSections.add(key);
         if (_activeNm == nmId) await _renderActiveTable();
     }
+
+    let _cabinetListenerBound = false;
+    function _bindCabinetListener() {
+        if (_cabinetListenerBound) return;
+        _cabinetListenerBound = true;
+        document.addEventListener('cabinet-changed', () => {
+            _initGen++;
+            _clearRnpMainUI();
+        });
+    }
+    _bindCabinetListener();
 
     return { init, openSettings, openMain, pick, syncArts, resyncArticles, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
