@@ -111,8 +111,10 @@ Deno.serve(async (req) => {
         let campaignsFound = 0;
         let rowsWritten = 0;
 
+        let campaignsWritten = 0;
+
         try {
-            const ids = await fetchCampaignIds(token);
+            const { ids, meta } = await fetchCampaignIdsAndMeta(token);
             campaignsFound = ids.length;
             await sleep(800);
 
@@ -120,7 +122,35 @@ Deno.serve(async (req) => {
                 const nameById = await fetchCampaignNames(token);
                 await sleep(800);
 
+                // Upsert campaign status/type/name into advertising_campaigns.
+                // Cheap: reuses the promotion/count response already fetched
+                // above, no extra WB request.
+                const campaignRows = ids.map((id) => ({
+                    cabinet_id: cabinet.id,
+                    campaign_id: id,
+                    campaign_name: nameById.get(id) || `Кампания ${id}`,
+                    status: meta.get(id)?.status ?? null,
+                    type: meta.get(id)?.type ?? null,
+                    updated_at: new Date().toISOString(),
+                }));
+                for (let i = 0; i < campaignRows.length; i += 200) {
+                    const chunk = campaignRows.slice(i, i + 200);
+                    const { error: campErr } = await admin
+                        .from('advertising_campaigns')
+                        .upsert(chunk, { onConflict: 'cabinet_id,campaign_id' });
+                    if (campErr) {
+                        errorMsg += `campaigns upsert: ${campErr.message}; `;
+                        status = 'partial';
+                    } else {
+                        campaignsWritten += chunk.length;
+                    }
+                }
+
                 const rows: Record<string, unknown>[] = [];
+                // WB's fullstats is capped at 3 requests/min regardless of ids-per-request
+                // (up to 50 ids per call), so pace chunks well under that limit — 20s
+                // between calls keeps us at 3/min even in the worst case.
+                const FULLSTATS_CHUNK_DELAY_MS = 20000;
                 for (let i = 0; i < ids.length; i += 50) {
                     const chunk = ids.slice(i, i + 50);
                     try {
@@ -166,7 +196,9 @@ Deno.serve(async (req) => {
                         errorMsg += `fullstats chunk: ${(e as Error).message}; `;
                         status = 'partial';
                     }
-                    await sleep(1200);
+                    // Skip the trailing sleep after the last chunk to avoid wasting
+                    // time when there's nothing left to send.
+                    if (i + 50 < ids.length) await sleep(FULLSTATS_CHUNK_DELAY_MS);
                 }
 
                 for (let i = 0; i < rows.length; i += 200) {
@@ -191,6 +223,7 @@ Deno.serve(async (req) => {
             cabinet: cabinet.name,
             status,
             campaigns: campaignsFound,
+            campaigns_meta_written: campaignsWritten,
             rows: rowsWritten,
             error: errorMsg || undefined,
             ms: Date.now() - cabStart,
@@ -209,9 +242,17 @@ Deno.serve(async (req) => {
     });
 });
 
-// Mirrors wb-proxy's `advert_list` action.
-async function fetchCampaignIds(token: string): Promise<number[]> {
+// Mirrors wb-proxy's `advert_list` action. Extended to also capture each
+// campaign's `status`/`type` from the SAME /adv/v1/promotion/count response
+// (grouped by type+status, so every advert_list item inherits its group's
+// type/status) — no extra WB request needed for advertising_campaigns.
+// Status codes: -1 удалена, 4 готова к запуску, 7 завершена, 8 отклонена,
+// 9 активна, 11 на паузе.
+async function fetchCampaignIdsAndMeta(
+    token: string,
+): Promise<{ ids: number[]; meta: Map<number, { status: number | null; type: number | null }> }> {
     const allIds: number[] = [];
+    const meta = new Map<number, { status: number | null; type: number | null }>();
     try {
         const res1 = await fetch(`${ADV_API}/adv/v1/promotion/count`, { headers: { Authorization: token } });
         const text1 = await res1.text();
@@ -221,9 +262,14 @@ async function fetchCampaignIds(token: string): Promise<number[]> {
             if (Array.isArray(groups)) {
                 for (const g of groups as Record<string, unknown>[]) {
                     const inner = g?.advert_list as Record<string, unknown>[] | undefined;
+                    const groupStatus = g?.status != null ? Number(g.status) : null;
+                    const groupType = g?.type != null ? Number(g.type) : null;
                     if (Array.isArray(inner)) {
                         for (const a of inner) {
-                            if (a?.advertId) allIds.push(Number(a.advertId));
+                            if (!a?.advertId) continue;
+                            const id = Number(a.advertId);
+                            allIds.push(id);
+                            meta.set(id, { status: groupStatus, type: groupType });
                         }
                     }
                 }
@@ -241,14 +287,18 @@ async function fetchCampaignIds(token: string): Promise<number[]> {
                 const adverts: Record<string, unknown>[] = data2?.adverts || (Array.isArray(data2) ? data2 : []);
                 for (const a of adverts) {
                     const id = Number(a.advertId ?? a.id ?? a.advert_id ?? 0);
-                    if (id) allIds.push(id);
+                    if (!id) continue;
+                    allIds.push(id);
+                    const st = a.status != null ? Number(a.status) : null;
+                    const ty = a.type != null ? Number(a.type) : null;
+                    meta.set(id, { status: st, type: ty });
                 }
             }
         } catch (e) {
             console.warn('[advertising-sync] advert/v2 error:', String(e));
         }
     }
-    return [...new Set(allIds)];
+    return { ids: [...new Set(allIds)], meta };
 }
 
 // Mirrors wb-proxy's `advert_campaigns` action — used only for names.

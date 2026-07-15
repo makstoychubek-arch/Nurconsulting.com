@@ -196,7 +196,66 @@
 
     function refreshChartTheme() {
         if (cachedOrders.length || cachedStocks.length) renderAllCharts(cachedOrders, cachedStocks);
+        if (cachedAdvSeries) renderAdvertisingCharts(cachedAdvSeries);
     }
 
-    window.NRCharts = { renderAllCharts, refreshChartTheme };
+    // ═══════════════════════════════════════════════════════════════════════
+    // Контроль РК — детальный дашборд кабинета: 6 графиков по дням
+    // (расход, показы, клики, CTR, заказы, эффективность/ROAS), кабинет-level
+    // агрегация (сумма по всем кампаниям кабинета за день). Следует тем же
+    // конвенциям, что и графики выше (chartColors/baseOptions/destroyChart).
+    // ═══════════════════════════════════════════════════════════════════════
+    let cachedAdvSeries = null;
+
+    const ADV_CHART_IDS = ['chart-adv-spend', 'chart-adv-views', 'chart-adv-clicks', 'chart-adv-ctr', 'chart-adv-orders', 'chart-adv-efficiency'];
+
+    function renderAdvSingleLine(canvasId, labels, values, color, suffix) {
+        const el = document.getElementById(canvasId);
+        if (!el || typeof Chart === 'undefined') return;
+        destroyChart(canvasId);
+        const c = chartColors();
+        charts[canvasId] = new Chart(el, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    data: values, borderColor: color, backgroundColor: color + '22',
+                    fill: true, tension: 0.35, pointRadius: 0, borderWidth: 2
+                }]
+            },
+            options: {
+                ...baseOptions(c),
+                plugins: {
+                    ...baseOptions(c).plugins,
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: (ctx) => `${ctx.parsed.y}${suffix || ''}` } }
+                }
+            }
+        });
+    }
+
+    // series: [{ date, spend, views, clicks, orders, sum_price }] sorted by date,
+    // already aggregated across all campaigns of the cabinet per day.
+    function renderAdvertisingCharts(series) {
+        cachedAdvSeries = series || [];
+        if (!cachedAdvSeries.length) {
+            ADV_CHART_IDS.forEach(destroyChart);
+            return;
+        }
+        const c = chartColors();
+        const labels = cachedAdvSeries.map(d => d.date.slice(5));
+        const ctrVals = cachedAdvSeries.map(d => d.views > 0 ? +(d.clicks / d.views * 100).toFixed(2) : 0);
+        // Эффективность (ROAS), % — см. EFFICIENCY_* константы в dashboard.html,
+        // здесь пересчитывается из дневных агрегатов, а не усредняется наивно.
+        const effVals = cachedAdvSeries.map(d => d.spend > 0 ? +(d.sum_price / d.spend * 100).toFixed(1) : 0);
+
+        renderAdvSingleLine('chart-adv-spend', labels, cachedAdvSeries.map(d => Math.round(d.spend)), c.purple, ' ₽');
+        renderAdvSingleLine('chart-adv-views', labels, cachedAdvSeries.map(d => d.views), c.blue, '');
+        renderAdvSingleLine('chart-adv-clicks', labels, cachedAdvSeries.map(d => d.clicks), c.pink, '');
+        renderAdvSingleLine('chart-adv-ctr', labels, ctrVals, c.green, '%');
+        renderAdvSingleLine('chart-adv-orders', labels, cachedAdvSeries.map(d => d.orders), c.blue, '');
+        renderAdvSingleLine('chart-adv-efficiency', labels, effVals, c.green, '%');
+    }
+
+    window.NRCharts = { renderAllCharts, refreshChartTheme, renderAdvertisingCharts };
 })();

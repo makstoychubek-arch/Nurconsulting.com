@@ -571,6 +571,33 @@
         .chart-box-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
         .chart-box-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 16px; }
         .chart-canvas-wrap { position: relative; height: 220px; }
+
+        /* Контроль РК — карточки кабинетов (главная страница рекламы) */
+        .advcab-card {
+            width: 100%; font-family: inherit; background: var(--surface); border: none; border-radius: var(--radius-card);
+            padding: 20px; box-shadow: var(--card-shadow); transition: all 0.2s ease;
+            cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 12px;
+        }
+        .advcab-card:hover { box-shadow: var(--card-shadow-lg); transform: translateY(-2px); }
+        .advcab-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .advcab-card-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+        .advcab-status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+        .advcab-status-pill.ok { background: rgba(52,199,89,0.15); color: var(--green); }
+        .advcab-status-pill.none { background: rgba(142,142,147,0.15); color: var(--text-muted); }
+        .advcab-status-pill.warn { background: rgba(255,149,0,0.15); color: var(--amber); }
+        .advcab-card-metrics { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+        .advcab-metric { background: var(--surface-solid); border-radius: 10px; padding: 8px 10px; }
+        .advcab-metric-label { font-size: 10px; color: var(--text-muted); margin-bottom: 2px; }
+        .advcab-metric-value { font-size: 13px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .advcab-eff-wrap { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); }
+        .advcab-eff-label { font-size: 11px; color: var(--text-secondary); font-weight: 600; }
+        .advcab-eff-value { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
+        .adv-back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--accent); cursor: pointer; background: none; border: none; padding: 0; }
+        .adv-back-btn:hover { text-decoration: underline; }
+        .adv-kpi-tile { background: var(--surface); border-radius: var(--radius-card); padding: 16px; box-shadow: var(--card-shadow); }
+        .adv-kpi-tile-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+        .adv-kpi-tile-value { font-size: 18px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .adv-help-dot { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: var(--border); color: var(--text-muted); font-size: 9px; font-weight: 700; cursor: help; }
         .metrics-details { padding: 0; overflow: hidden; }
         .metrics-details summary { padding: 16px 20px; cursor: pointer; font-weight: 700; font-size: 14px; color: var(--text-primary); list-style: none; display: flex; align-items: center; justify-content: space-between; }
         .metrics-details summary::-webkit-details-marker { display: none; }
@@ -3307,29 +3334,98 @@
                 </div>
                 <span class="text-xs" style="color:var(--text-muted)">Статистика РК за выбранный день или период</span>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="widget-card p-5">
-                    <div class="text-xs mb-1" style="color:var(--text-muted)">Активных РК</div>
-                    <div id="adv-campaigns-count" class="text-2xl font-black" style="color:var(--text-primary)">—</div>
-                </div>
-                <div class="widget-card p-5">
-                    <div class="text-xs mb-1" style="color:var(--text-muted)">Расход за период</div>
-                    <div id="adv-spend-today" class="text-2xl font-black" style="color:var(--text-primary)">—</div>
-                </div>
-                <div class="widget-card p-5">
-                    <div class="text-xs mb-1" style="color:var(--text-muted)">Средний ДРР</div>
-                    <div id="adv-drr-avg" class="text-2xl font-black" style="color:var(--text-primary)">—</div>
+
+            <!-- Главная страница рекламных кабинетов: карточки по всем кабинетам пользователя -->
+            <div id="adv-view-cards">
+                <div id="adv-cards-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    <div class="text-center py-10" style="color:var(--text-muted);grid-column:1/-1">Загрузка кабинетов…</div>
                 </div>
             </div>
-            <div id="adv-campaigns-list" class="widget-card p-5 hidden">
-                <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Кампании WB</h3>
-                <div id="adv-campaigns-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
-            </div>
-            <div class="widget-card p-6 text-center" style="color:var(--text-muted)">
-                <p class="text-sm">Автобиддер — в разработке. Данные — из кэша БД, обновляются по кнопке или автоматически по расписанию.</p>
-                <div class="flex items-center justify-center gap-3 mt-4" style="flex-wrap:wrap">
-                    <button onclick="syncAdvertisingNow()" id="adv-sync-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить</button>
-                    <span id="adv-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+
+            <!-- Детальный дашборд конкретного рекламного кабинета -->
+            <div id="adv-view-detail" class="hidden space-y-5">
+                <button type="button" class="adv-back-btn" onclick="backToAdvertisingCards()">← Все кабинеты</button>
+                <h3 id="adv-detail-cabinet-name" class="text-lg font-bold" style="color:var(--text-primary)">—</h3>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">Расход</div>
+                        <div id="adv-kpi-spend" class="adv-kpi-tile-value">—</div>
+                    </div>
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">CTR</div>
+                        <div id="adv-kpi-ctr" class="adv-kpi-tile-value">—</div>
+                    </div>
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">CPC</div>
+                        <div id="adv-kpi-cpc" class="adv-kpi-tile-value">—</div>
+                    </div>
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">CPM <span class="adv-help-dot" title="Расход / показы × 1000. WB не отдаёт CPM напрямую в fullstats — считаем сами.">?</span></div>
+                        <div id="adv-kpi-cpm" class="adv-kpi-tile-value">—</div>
+                    </div>
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">Конверсии (CR) <span class="adv-help-dot" title="Конверсия из клика в заказ (WB поле cr, по заказам).">?</span></div>
+                        <div id="adv-kpi-cr" class="adv-kpi-tile-value">—</div>
+                    </div>
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">Заказы</div>
+                        <div id="adv-kpi-orders" class="adv-kpi-tile-value">—</div>
+                    </div>
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">Выручка</div>
+                        <div id="adv-kpi-revenue" class="adv-kpi-tile-value">—</div>
+                    </div>
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">Эффективность (ROAS) <span class="adv-help-dot" title="Выручка от заказов по рекламе / расход × 100%. 100% — реклама окупается «в ноль», выше — прибыльно.">?</span></div>
+                        <div id="adv-kpi-efficiency" class="adv-kpi-tile-value">—</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="widget-card chart-box">
+                        <div class="chart-box-title">Расход</div>
+                        <div class="chart-box-sub">Сумма затрат на рекламу по дням, ₽</div>
+                        <div class="chart-canvas-wrap"><canvas id="chart-adv-spend"></canvas></div>
+                    </div>
+                    <div class="widget-card chart-box">
+                        <div class="chart-box-title">Показы</div>
+                        <div class="chart-box-sub">Показы объявлений по дням</div>
+                        <div class="chart-canvas-wrap"><canvas id="chart-adv-views"></canvas></div>
+                    </div>
+                    <div class="widget-card chart-box">
+                        <div class="chart-box-title">Клики</div>
+                        <div class="chart-box-sub">Клики по объявлениям по дням</div>
+                        <div class="chart-canvas-wrap"><canvas id="chart-adv-clicks"></canvas></div>
+                    </div>
+                    <div class="widget-card chart-box">
+                        <div class="chart-box-title">CTR</div>
+                        <div class="chart-box-sub">Клики / показы × 100%, по дням</div>
+                        <div class="chart-canvas-wrap"><canvas id="chart-adv-ctr"></canvas></div>
+                    </div>
+                    <div class="widget-card chart-box">
+                        <div class="chart-box-title">Заказы</div>
+                        <div class="chart-box-sub">Заказы, атрибутированные рекламе, по дням</div>
+                        <div class="chart-canvas-wrap"><canvas id="chart-adv-orders"></canvas></div>
+                    </div>
+                    <div class="widget-card chart-box">
+                        <div class="chart-box-title">Эффективность (ROAS)</div>
+                        <div class="chart-box-sub">Выручка / расход × 100%, по дням</div>
+                        <div class="chart-canvas-wrap"><canvas id="chart-adv-efficiency"></canvas></div>
+                    </div>
+                </div>
+
+                <div id="adv-campaigns-list" class="widget-card p-5">
+                    <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Кампании WB</h3>
+                    <div id="adv-campaigns-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                </div>
+
+                <div class="widget-card p-6 text-center" style="color:var(--text-muted)">
+                    <p class="text-sm">Автобиддер — в разработке. Данные — из кэша БД, обновляются по кнопке или автоматически по расписанию.</p>
+                    <div class="flex items-center justify-center gap-3 mt-4" style="flex-wrap:wrap">
+                        <button onclick="syncAdvertisingNow()" id="adv-sync-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить</button>
+                        <span id="adv-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -4693,17 +4789,184 @@
 
     window._advLastLoadedAt = window._advLastLoadedAt || 0;
     window._advLoadedForCabinet = window._advLoadedForCabinet || null;
+    // 'cards' — главная страница рекламных кабинетов (все кабинеты пользователя),
+    // 'detail' — аналитика одного кабинета. Тab по умолчанию открывается в 'cards'.
+    window._advView = window._advView || 'cards';
+    window._advOpenDetailAfterSwitch = false;
+
+    // Эффективность (ROAS), %: выручка по заказам с рекламы / расход × 100.
+    // 100% = реклама окупается "в ноль" (100 потрачено → 100 продано по рекламе).
+    // Пороги ниже — именованные константы, чтобы их легко было поменять в одном месте.
+    const EFFICIENCY_LOSS_MAX = 100;   // < 100% — реклама не окупается (убыточна), красный
+    const EFFICIENCY_OK_MAX = 200;     // 100–200% — окупается, но не более чем в 2 раза, жёлтый
+    // >= 200% — эффективно, зелёный
+
+    function calcEfficiencyPct(spend, sumPrice) {
+        const s = Number(spend || 0);
+        if (s <= 0) return null;
+        return (Number(sumPrice || 0) / s) * 100;
+    }
+    function efficiencyColorVar(pct) {
+        if (pct === null || pct === undefined) return 'var(--text-muted)';
+        if (pct < EFFICIENCY_LOSS_MAX) return 'var(--red)';
+        if (pct < EFFICIENCY_OK_MAX) return 'var(--amber)';
+        return 'var(--green)';
+    }
+    function fmtEfficiency(pct) {
+        return pct === null || pct === undefined ? '—' : Math.round(pct) + '%';
+    }
+
+    function advStatusPillHtml(activeCount, pausedCount, hasSpendDespiteCampaigns) {
+        if (activeCount + pausedCount === 0) return `<span class="advcab-status-pill none">Нет кампаний</span>`;
+        if (activeCount === 0 || hasSpendDespiteCampaigns) return `<span class="advcab-status-pill warn">Требует внимания</span>`;
+        return `<span class="advcab-status-pill ok">Активна</span>`;
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Главная страница рекламных кабинетов — карточки по ВСЕМ кабинетам
+    // пользователя с токеном WB (не только currentCabinetId). Читает
+    // advertising_daily_stats + advertising_campaigns сразу для всех
+    // cabinet_id, группирует на клиенте. Без спиннеров/оверлеев — рендер
+    // происходит один раз, когда данные готовы.
+    // ═══════════════════════════════════════════════════════════════════════
+    let _advCardsRequestId = 0;
+
+    async function loadAdvertisingCardsOverview() {
+        const grid = document.getElementById('adv-cards-grid');
+        if (!grid) return;
+        const requestId = ++_advCardsRequestId;
+
+        const { data: cabRows } = await supabase
+            .from('cabinets')
+            .select('id, name, wb_token')
+            .order('name');
+        if (requestId !== _advCardsRequestId) return;
+
+        const cabinets = (cabRows || []).filter(c => c.wb_token && String(c.wb_token).length > 50);
+        if (!cabinets.length) {
+            grid.innerHTML = `<div class="text-center py-10" style="color:var(--text-muted);grid-column:1/-1">Нет кабинетов с подключённым токеном WB Promotion API.</div>`;
+            return;
+        }
+
+        const cabinetIds = cabinets.map(c => c.id);
+        const { from, to } = getActiveDateRange();
+
+        const [statsRows, campaignRows] = await Promise.all([
+            fetchAllRows('advertising_daily_stats', [
+                { op: 'in', column: 'cabinet_id', value: cabinetIds },
+                { op: 'gte', column: 'stat_date', value: from },
+                { op: 'lte', column: 'stat_date', value: to },
+            ]),
+            fetchAllRows('advertising_campaigns', [
+                { op: 'in', column: 'cabinet_id', value: cabinetIds },
+            ]),
+        ]);
+        if (requestId !== _advCardsRequestId) return;
+
+        const byCabinet = new Map();
+        for (const c of cabinets) byCabinet.set(c.id, { id: c.id, name: c.name, spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0 });
+        for (const r of statsRows) {
+            const agg = byCabinet.get(r.cabinet_id);
+            if (!agg) continue;
+            agg.spend += Number(r.spend || 0);
+            agg.views += Number(r.views || 0);
+            agg.clicks += Number(r.clicks || 0);
+            agg.orders += Number(r.orders || 0);
+            agg.sum_price += Number(r.sum_price || 0);
+        }
+        const campaignCountByCabinet = new Map();
+        for (const cc of campaignRows) {
+            let m = campaignCountByCabinet.get(cc.cabinet_id);
+            if (!m) { m = { active: 0, paused: 0 }; campaignCountByCabinet.set(cc.cabinet_id, m); }
+            if (cc.status === 9) m.active++;
+            else if (cc.status === 11) m.paused++;
+        }
+
+        const cards = cabinets.map(c => {
+            const agg = byCabinet.get(c.id);
+            const counts = campaignCountByCabinet.get(c.id) || { active: 0, paused: 0 };
+            const ctr = agg.views > 0 ? (agg.clicks / agg.views * 100) : 0;
+            const efficiency = calcEfficiencyPct(agg.spend, agg.sum_price);
+            const hasSpendNoResult = agg.spend > 0 && agg.orders === 0;
+            return { ...agg, activeCampaigns: counts.active, pausedCampaigns: counts.paused, ctr, efficiency, hasSpendNoResult };
+        }).sort((a, b) => b.spend - a.spend);
+
+        renderAdvertisingCards(cards);
+    }
+
+    function renderAdvertisingCards(cards) {
+        const grid = document.getElementById('adv-cards-grid');
+        if (!grid) return;
+        grid.innerHTML = cards.map(c => `
+            <button type="button" class="advcab-card" onclick="openAdvertisingCabinetDetail('${escapeHtml(String(c.id))}','${escapeHtml(c.name).replace(/'/g, "\\'")}')">
+                <div class="advcab-card-head">
+                    <span class="advcab-card-name">${escapeHtml(c.name)}</span>
+                    ${advStatusPillHtml(c.activeCampaigns, c.pausedCampaigns, c.hasSpendNoResult)}
+                </div>
+                <div class="text-xs" style="color:var(--text-muted)">Активных РК: ${c.activeCampaigns}${c.pausedCampaigns ? ` · на паузе: ${c.pausedCampaigns}` : ''}</div>
+                <div class="advcab-card-metrics">
+                    <div class="advcab-metric"><div class="advcab-metric-label">Расход</div><div class="advcab-metric-value">${c.spend > 0 ? fmt(Math.round(c.spend)) + ' ₽' : '—'}</div></div>
+                    <div class="advcab-metric"><div class="advcab-metric-label">Заказы</div><div class="advcab-metric-value">${fmt(c.orders)}</div></div>
+                    <div class="advcab-metric"><div class="advcab-metric-label">Показы</div><div class="advcab-metric-value">${fmt(c.views)}</div></div>
+                    <div class="advcab-metric"><div class="advcab-metric-label">Клики</div><div class="advcab-metric-value">${fmt(c.clicks)}</div></div>
+                </div>
+                <div class="text-xs" style="color:var(--text-muted)">CTR: ${c.ctr.toFixed(2)}%</div>
+                <div class="advcab-eff-wrap">
+                    <span class="advcab-eff-label">Эффективность (ROAS)</span>
+                    <span class="advcab-eff-value" style="color:${efficiencyColorVar(c.efficiency)}">${fmtEfficiency(c.efficiency)}</span>
+                </div>
+            </button>
+        `).join('');
+    }
+
+    function showAdvertisingCardsView() {
+        window._advView = 'cards';
+        document.getElementById('adv-view-cards')?.classList.remove('hidden');
+        document.getElementById('adv-view-detail')?.classList.add('hidden');
+    }
+    function showAdvertisingDetailView() {
+        window._advView = 'detail';
+        document.getElementById('adv-view-cards')?.classList.add('hidden');
+        document.getElementById('adv-view-detail')?.classList.remove('hidden');
+    }
+
+    // Клик по карточке кабинета: переключает выбранный кабинет приложения
+    // (тот же путь, что и селектор кабинета в хедере — сохраняет полную
+    // изоляцию данных между кабинетами) и открывает детальный дашборд.
+    function openAdvertisingCabinetDetail(cabinetId, cabinetName) {
+        const nameEl = document.getElementById('adv-detail-cabinet-name');
+        if (nameEl) nameEl.textContent = cabinetName || '';
+        showAdvertisingDetailView();
+        if (cabinetId === currentCabinetId) {
+            loadAdvertisingFromDB();
+            return;
+        }
+        const selectHeader = document.getElementById('cabinet-select-header');
+        if (selectHeader && [...selectHeader.options].some(o => o.value === cabinetId)) {
+            selectHeader.value = cabinetId;
+            window._advOpenDetailAfterSwitch = true;
+            onCabinetChange();
+        }
+    }
+    window.openAdvertisingCabinetDetail = openAdvertisingCabinetDetail;
+
+    function backToAdvertisingCards() {
+        showAdvertisingCardsView();
+        loadAdvertisingCardsOverview();
+    }
+    window.backToAdvertisingCards = backToAdvertisingCards;
 
     // Задача 6: кэширование данных рекламы. Больше НЕ ходим в WB API при
     // каждом открытии вкладки — читаем из advertising_daily_stats (наполняется
     // edge-функцией advertising-sync по кнопке «Обновить» или по расписанию
     // pg_cron). Следует паттерну снапшот-кабинета/requestId из loadFromDB.
+    // Детальный дашборд конкретного кабинета: KPI-плитки + 6 графиков (агрегация
+    // по всем кампаниям кабинета за день) + таблица кампаний для гранулярного разбора.
     async function loadAdvertisingFromDB() {
         if (!hasUserCabinets || !currentCabinetId) return;
-        const countEl = document.getElementById('adv-campaigns-count');
         const listWrap = document.getElementById('adv-campaigns-list');
         const tableEl = document.getElementById('adv-campaigns-table');
-        if (!countEl || !listWrap || !tableEl) return;
+        if (!listWrap || !tableEl) return;
 
         const requestId = ++_loadRequestId;
         const snapshotCabinet = currentCabinetId;
@@ -4722,42 +4985,75 @@
         updateAdvertisingFreshness();
 
         const byCampaign = new Map();
+        const byDate = new Map();
         for (const r of rows) {
             const key = r.campaign_id;
             let agg = byCampaign.get(key);
             if (!agg) {
-                agg = { id: key, name: r.campaign_name || `Кампания ${key}`, spend: 0, views: 0, clicks: 0, orders: 0 };
+                agg = { id: key, name: r.campaign_name || `Кампания ${key}`, spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0, atbs: 0 };
                 byCampaign.set(key, agg);
             }
             agg.spend += Number(r.spend || 0);
             agg.views += Number(r.views || 0);
             agg.clicks += Number(r.clicks || 0);
             agg.orders += Number(r.orders || 0);
+            agg.sum_price += Number(r.sum_price || 0);
+            agg.atbs += Number(r.atbs || 0);
+
+            let day = byDate.get(r.stat_date);
+            if (!day) { day = { date: r.stat_date, spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0 }; byDate.set(r.stat_date, day); }
+            day.spend += Number(r.spend || 0);
+            day.views += Number(r.views || 0);
+            day.clicks += Number(r.clicks || 0);
+            day.orders += Number(r.orders || 0);
+            day.sum_price += Number(r.sum_price || 0);
         }
         const campaigns = [...byCampaign.values()].sort((a, b) => b.spend - a.spend);
+        const dailySeries = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 
-        countEl.textContent = campaigns.length ? String(campaigns.length) : '0';
         const totalSpend = campaigns.reduce((s, c) => s + c.spend, 0);
-        if (document.getElementById('adv-spend-today')) {
-            document.getElementById('adv-spend-today').textContent = totalSpend > 0 ? fmt(Math.round(totalSpend)) + ' ₽' : '—';
-        }
-        if (document.getElementById('adv-drr-avg')) {
-            document.getElementById('adv-drr-avg').textContent = '—'; // ДРР требует суммы продаж — считается в РНП
-        }
+        const totalViews = campaigns.reduce((s, c) => s + c.views, 0);
+        const totalClicks = campaigns.reduce((s, c) => s + c.clicks, 0);
+        const totalOrders = campaigns.reduce((s, c) => s + c.orders, 0);
+        const totalRevenue = campaigns.reduce((s, c) => s + c.sum_price, 0);
+        const totalAtbs = campaigns.reduce((s, c) => s + c.atbs, 0);
+        const ctr = totalViews > 0 ? (totalClicks / totalViews * 100) : 0;
+        const cpc = totalClicks > 0 ? (totalSpend / totalClicks) : 0;
+        const cpm = totalViews > 0 ? (totalSpend / totalViews * 1000) : 0; // WB fullstats не отдаёт CPM напрямую — считаем сами
+        const cr = totalClicks > 0 ? (totalOrders / totalClicks * 100) : 0; // конверсия клик → заказ (orders-based, самая практичная для продавца)
+        const efficiency = calcEfficiencyPct(totalSpend, totalRevenue);
+
+        setText('adv-kpi-spend', totalSpend > 0 ? fmt(Math.round(totalSpend)) + ' ₽' : '—');
+        setText('adv-kpi-ctr', ctr.toFixed(2) + '%');
+        setText('adv-kpi-cpc', cpc > 0 ? fmt(Math.round(cpc)) + ' ₽' : '—');
+        setText('adv-kpi-cpm', cpm > 0 ? fmt(Math.round(cpm)) + ' ₽' : '—');
+        setText('adv-kpi-cr', cr.toFixed(2) + '%');
+        setText('adv-kpi-orders', fmt(totalOrders));
+        setText('adv-kpi-revenue', totalRevenue > 0 ? fmt(Math.round(totalRevenue)) + ' ₽' : '—');
+        const effEl = document.getElementById('adv-kpi-efficiency');
+        if (effEl) { effEl.textContent = fmtEfficiency(efficiency); effEl.style.color = efficiencyColorVar(efficiency); }
+        void totalAtbs; // добавлено в корзину — доступно в data, показатель не используется в KPI-плитках
+
+        if (window.NRCharts) NRCharts.renderAdvertisingCharts(dailySeries);
 
         listWrap.classList.remove('hidden');
         if (!campaigns.length) {
             tableEl.innerHTML = `<div class="text-center py-6" style="color:var(--text-muted)">Нет данных за выбранный период. Нажмите «Обновить», чтобы загрузить статистику из WB.</div>`;
             return;
         }
-        tableEl.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Кампания</th><th>Расход</th><th>Показы</th><th>Клики</th><th>Заказы</th></tr></thead><tbody>` +
-            campaigns.slice(0, 50).map(c => `<tr>
+        tableEl.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Кампания</th><th>Расход</th><th>Показы</th><th>Клики</th><th>Заказы</th><th>Выручка</th><th>ROAS</th></tr></thead><tbody>` +
+            campaigns.slice(0, 50).map(c => {
+                const cEff = calcEfficiencyPct(c.spend, c.sum_price);
+                return `<tr>
                 <td style="color:var(--text-primary)">${escapeHtml(c.name)} <span style="color:var(--text-muted);font-family:monospace;font-size:11px">#${c.id}</span></td>
                 <td>${fmt(Math.round(c.spend))} ₽</td>
                 <td>${fmt(c.views)}</td>
                 <td>${fmt(c.clicks)}</td>
                 <td>${fmt(c.orders)}</td>
-            </tr>`).join('') + `</tbody></table></div>`;
+                <td>${fmt(Math.round(c.sum_price))} ₽</td>
+                <td style="color:${efficiencyColorVar(cEff)};font-weight:700">${fmtEfficiency(cEff)}</td>
+            </tr>`;
+            }).join('') + `</tbody></table></div>`;
     }
 
     function updateAdvertisingFreshness() {
@@ -4770,12 +5066,18 @@
     }
     setInterval(updateAdvertisingFreshness, 60000);
 
-    // Открытие вкладки / смена периода — читаем из БД, никаких вызовов WB.
+    // Открытие вкладки — по умолчанию показываем карточки всех кабинетов;
+    // если карточку кликнули и кабинет переключился, откроем сразу детальный
+    // дашборд (флаг _advOpenDetailAfterSwitch, выставляется в openAdvertisingCabinetDetail).
     function openAdvertisingTab() {
-        const stale = Date.now() - (window._advLastLoadedAt || 0) > 10 * 60 * 1000;
-        const wrongCabinet = window._advLoadedForCabinet !== currentCabinetId;
-        if (stale || wrongCabinet) loadAdvertisingFromDB();
-        else updateAdvertisingFreshness();
+        if (window._advOpenDetailAfterSwitch) {
+            window._advOpenDetailAfterSwitch = false;
+            showAdvertisingDetailView();
+            loadAdvertisingFromDB();
+            return;
+        }
+        showAdvertisingCardsView();
+        loadAdvertisingCardsOverview();
     }
 
     // Кнопка «Обновить»: запускает живую синхронизацию с WB через
@@ -5305,7 +5607,10 @@
         const active = document.querySelector('.tab-content.active');
         const name = active?.id?.replace('tab-', '') || 'dashboard';
         if (name === 'dashboard' || name === 'summary') loadFromDB(activeDateFrom, activeDateTo);
-        else if (name === 'advertising') loadAdvertisingFromDB();
+        else if (name === 'advertising') {
+            if (window._advView === 'detail') loadAdvertisingFromDB();
+            else loadAdvertisingCardsOverview();
+        }
         else if (name === 'logistics') filterSuppliesByDate();
         else if (name === 'planning') loadPlanningTab();
     }
@@ -5584,9 +5889,8 @@
         // сейчас открыта.
         window._advLastLoadedAt = 0;
         window._advLoadedForCabinet = null;
-        setText('adv-campaigns-count', '—');
-        setText('adv-spend-today', '—');
-        setText('adv-drr-avg', '—');
+        ['adv-kpi-spend','adv-kpi-ctr','adv-kpi-cpc','adv-kpi-cpm','adv-kpi-cr','adv-kpi-orders','adv-kpi-revenue','adv-kpi-efficiency']
+            .forEach(id => setText(id, '—'));
         const advTableEl = document.getElementById('adv-campaigns-table');
         if (advTableEl) advTableEl.innerHTML = 'Загрузка...';
         const advFreshEl = document.getElementById('adv-freshness');
