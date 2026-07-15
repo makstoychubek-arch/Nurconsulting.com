@@ -7700,6 +7700,21 @@
             console.error('[init] load:', e);
         }
 
+        // Восстанавливаем сохранённую вкладку СРАЗУ, не дожидаясь RNP.init()
+        // (которая может идти до 12с) — иначе пользователь до 12с видит
+        // дефолтную вкладку «Дашборд» и это выглядит так, будто обновление
+        // страницы "выбрасывает" его туда, даже если потом всё-таки
+        // переключится на сохранённую вкладку.
+        try {
+            let savedTab = resolveTabFromUrl() || localStorage.getItem('nr_active_tab');
+            if (savedTab) savedTab = TAB_ALIASES[savedTab] || savedTab;
+            if (savedTab && savedTab !== 'dashboard') {
+                showTab(savedTab, null);
+            }
+        } catch (e) {
+            console.error('[init] tab restore:', e);
+        }
+
         setTimeout(async () => {
             try {
                 if (currentCabinetId && hasUserCabinets && typeof RNP !== 'undefined') {
@@ -7708,11 +7723,13 @@
                         RNP.init(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail }),
                         initTimeout,
                     ]).catch(e => console.warn('[RNP] init:', e.message));
-                }
-                let savedTab = resolveTabFromUrl() || localStorage.getItem('nr_active_tab');
-                if (savedTab) savedTab = TAB_ALIASES[savedTab] || savedTab;
-                if (savedTab && savedTab !== 'dashboard') {
-                    showTab(savedTab, null);
+                    // RNP.init() может само перерисовать своё вью только если
+                    // вкладка РНП уже активна — на случай если оно ничего не
+                    // подхватило само, дублируем открытие текущей сохранённой
+                    // вкладки РНП после инициализации.
+                    const cur = getCurrentActiveTab();
+                    if (cur === 'rnp') RNP.openMain();
+                    else if (cur === 'rnp-settings') RNP.openSettings();
                 }
             } catch (e) {
                 console.error('[init]', e);
