@@ -3232,8 +3232,11 @@
                 <div id="adv-campaigns-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
             </div>
             <div class="widget-card p-6 text-center" style="color:var(--text-muted)">
-                <p class="text-sm">Автобиддер — в разработке. Ниже список активных кампаний из Promotion API.</p>
-                <button onclick="loadAdvertisingPreview()" class="mt-4 ui-btn ui-btn-secondary text-sm">↻ Обновить кампании</button>
+                <p class="text-sm">Автобиддер — в разработке. Данные — из кэша БД, обновляются по кнопке или автоматически по расписанию.</p>
+                <div class="flex items-center justify-center gap-3 mt-4" style="flex-wrap:wrap">
+                    <button onclick="syncAdvertisingNow()" id="adv-sync-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить</button>
+                    <span id="adv-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+                </div>
             </div>
         </div>
 
@@ -3739,6 +3742,7 @@
     var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     var WB_PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
     var AUTO_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/auto-sync';
+    var ADVERTISING_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/advertising-sync';
     var ADMIN_SPACE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/admin-space';
     const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
     const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
@@ -4542,7 +4546,7 @@
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
         if (name === 'ab-testing' && hasUserCabinets) loadABTests();
-        if (name === 'advertising' && hasUserCabinets) loadAdvertisingPreview();
+        if (name === 'advertising' && hasUserCabinets) openAdvertisingTab();
         if (name === 'logistics' && hasUserCabinets) initLogisticsSupplies();
         if (name === 'seo' && hasUserCabinets) loadSeoKeywords();
         if (name === 'goods-groups' && hasUserCabinets) loadGoodsGroups();
@@ -4565,43 +4569,127 @@
         updateEmptyCabinetState();
     }
 
-    async function loadAdvertisingPreview() {
+    window._advLastLoadedAt = window._advLastLoadedAt || 0;
+    window._advLoadedForCabinet = window._advLoadedForCabinet || null;
+
+    // Задача 6: кэширование данных рекламы. Больше НЕ ходим в WB API при
+    // каждом открытии вкладки — читаем из advertising_daily_stats (наполняется
+    // edge-функцией advertising-sync по кнопке «Обновить» или по расписанию
+    // pg_cron). Следует паттерну снапшот-кабинета/requestId из loadFromDB.
+    async function loadAdvertisingFromDB() {
         if (!hasUserCabinets || !currentCabinetId) return;
         const countEl = document.getElementById('adv-campaigns-count');
         const listWrap = document.getElementById('adv-campaigns-list');
         const tableEl = document.getElementById('adv-campaigns-table');
-        if (!countEl || !currentCabinetId) return;
-        countEl.textContent = '…';
-        const data = await callWbProxy('advert_list', {});
-        const ids = data?.ids || [];
-        countEl.textContent = ids.length ? String(ids.length) : '0';
-        if (document.getElementById('adv-spend-today')) document.getElementById('adv-spend-today').textContent = '—';
-        if (document.getElementById('adv-drr-avg')) document.getElementById('adv-drr-avg').textContent = '—';
-        if (!listWrap || !tableEl) return;
-        if (!ids.length) {
-            listWrap.classList.remove('hidden');
-            tableEl.innerHTML = '<div class="text-center py-6" style="color:var(--text-muted)">Нет активных кампаний или нет доступа к Promotion API</div>';
-            return;
-        }
+        if (!countEl || !listWrap || !tableEl) return;
+
+        const requestId = ++_loadRequestId;
+        const snapshotCabinet = currentCabinetId;
         const { from, to } = getActiveDateRange();
-        const stats = await callWbProxy('advert_stats', { advertIds: ids.slice(0, 50), dateFrom: from, dateTo: to });
-        const rows = Array.isArray(stats) ? stats : [];
-        let totalSpend = 0;
-        rows.forEach(r => { totalSpend += Number(r.sum || r.spend || 0); });
-        if (document.getElementById('adv-spend-today')) document.getElementById('adv-spend-today').textContent = totalSpend > 0 ? fmt(Math.round(totalSpend)) + ' ₽' : '—';
+
+        const rows = await fetchAllRows('advertising_daily_stats', [
+            { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
+            { op: 'gte', column: 'stat_date', value: from },
+            { op: 'lte', column: 'stat_date', value: to },
+        ]);
+
+        if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
+
+        window._advLastLoadedAt = Date.now();
+        window._advLoadedForCabinet = snapshotCabinet;
+        updateAdvertisingFreshness();
+
+        const byCampaign = new Map();
+        for (const r of rows) {
+            const key = r.campaign_id;
+            let agg = byCampaign.get(key);
+            if (!agg) {
+                agg = { id: key, name: r.campaign_name || `Кампания ${key}`, spend: 0, views: 0, clicks: 0, orders: 0 };
+                byCampaign.set(key, agg);
+            }
+            agg.spend += Number(r.spend || 0);
+            agg.views += Number(r.views || 0);
+            agg.clicks += Number(r.clicks || 0);
+            agg.orders += Number(r.orders || 0);
+        }
+        const campaigns = [...byCampaign.values()].sort((a, b) => b.spend - a.spend);
+
+        countEl.textContent = campaigns.length ? String(campaigns.length) : '0';
+        const totalSpend = campaigns.reduce((s, c) => s + c.spend, 0);
+        if (document.getElementById('adv-spend-today')) {
+            document.getElementById('adv-spend-today').textContent = totalSpend > 0 ? fmt(Math.round(totalSpend)) + ' ₽' : '—';
+        }
+        if (document.getElementById('adv-drr-avg')) {
+            document.getElementById('adv-drr-avg').textContent = '—'; // ДРР требует суммы продаж — считается в РНП
+        }
+
         listWrap.classList.remove('hidden');
-        if (!rows.length) {
-            tableEl.innerHTML = `<div class="text-sm" style="color:var(--text-muted)">Найдено ${ids.length} кампаний. Статистика за период пуста.</div>`;
+        if (!campaigns.length) {
+            tableEl.innerHTML = `<div class="text-center py-6" style="color:var(--text-muted)">Нет данных за выбранный период. Нажмите «Обновить», чтобы загрузить статистику из WB.</div>`;
             return;
         }
-        tableEl.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>ID</th><th>Расход</th><th>Показы</th><th>Клики</th></tr></thead><tbody>` +
-            rows.slice(0, 30).map(r => `<tr>
-                <td style="font-family:monospace;color:var(--accent)">${r.advertId || r.id || '—'}</td>
-                <td>${fmt(Math.round(Number(r.sum || r.spend || 0)))} ₽</td>
-                <td>${fmt(Number(r.views || r.impressions || 0))}</td>
-                <td>${fmt(Number(r.clicks || 0))}</td>
+        tableEl.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Кампания</th><th>Расход</th><th>Показы</th><th>Клики</th><th>Заказы</th></tr></thead><tbody>` +
+            campaigns.slice(0, 50).map(c => `<tr>
+                <td style="color:var(--text-primary)">${escapeHtml(c.name)} <span style="color:var(--text-muted);font-family:monospace;font-size:11px">#${c.id}</span></td>
+                <td>${fmt(Math.round(c.spend))} ₽</td>
+                <td>${fmt(c.views)}</td>
+                <td>${fmt(c.clicks)}</td>
+                <td>${fmt(c.orders)}</td>
             </tr>`).join('') + `</tbody></table></div>`;
     }
+
+    function updateAdvertisingFreshness() {
+        const el = document.getElementById('adv-freshness');
+        if (!el) return;
+        const ts = window._advLastLoadedAt;
+        if (!ts || window._advLoadedForCabinet !== currentCabinetId) { el.textContent = ''; return; }
+        const min = Math.round((Date.now() - ts) / 60000);
+        el.textContent = min < 1 ? 'данные свежие' : `обновлено ${min} мин назад`;
+    }
+    setInterval(updateAdvertisingFreshness, 60000);
+
+    // Открытие вкладки / смена периода — читаем из БД, никаких вызовов WB.
+    function openAdvertisingTab() {
+        const stale = Date.now() - (window._advLastLoadedAt || 0) > 10 * 60 * 1000;
+        const wrongCabinet = window._advLoadedForCabinet !== currentCabinetId;
+        if (stale || wrongCabinet) loadAdvertisingFromDB();
+        else updateAdvertisingFreshness();
+    }
+
+    // Кнопка «Обновить»: запускает живую синхронизацию с WB через
+    // advertising-sync (тот же вызов конвенции, что manualSync/auto-sync),
+    // затем перечитывает из БД. Без полноэкранных оверлеев/анимаций —
+    // только текстовый индикатор рядом с кнопкой.
+    async function syncAdvertisingNow() {
+        if (!hasUserCabinets || !currentCabinetId) return;
+        const btn = document.getElementById('adv-sync-btn');
+        const freshEl = document.getElementById('adv-freshness');
+        const snapshotCabinet = currentCabinetId;
+        if (btn) { btn.textContent = '⏳ Обновление...'; btn.disabled = true; }
+        if (freshEl) freshEl.textContent = 'обновляем...';
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Сессия истекла, перезайдите.');
+            const res = await fetch(ADVERTISING_SYNC_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + session.access_token
+                },
+                body: JSON.stringify({ cabinet_id: snapshotCabinet })
+            });
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
+            if (snapshotCabinet !== currentCabinetId) return; // кабинет сменили во время синка
+            await loadAdvertisingFromDB();
+        } catch (e) {
+            if (freshEl) freshEl.textContent = '';
+            showPremiumModal('error', 'Ошибка синхронизации рекламы', e.message);
+        } finally {
+            if (btn) { btn.textContent = '↻ Обновить'; btn.disabled = false; }
+        }
+    }
+    window.syncAdvertisingNow = syncAdvertisingNow;
 
     let goodsGroupsRows = [];
 
@@ -4870,7 +4958,7 @@
         const active = document.querySelector('.tab-content.active');
         const name = active?.id?.replace('tab-', '') || 'dashboard';
         if (name === 'dashboard' || name === 'summary') loadFromDB(activeDateFrom, activeDateTo);
-        else if (name === 'advertising') loadAdvertisingPreview();
+        else if (name === 'advertising') loadAdvertisingFromDB();
         else if (name === 'logistics') filterSuppliesByDate();
     }
 
@@ -5141,6 +5229,21 @@
         allSupplies = [];
         _supplyEnrichGen++;
 
+        // Реклама: сбрасываем отрисованные данные сразу же (без анимации/
+        // мигания), чтобы данные старого кабинета не "просвечивали" во время
+        // переключения — сама перезагрузка из БД для нового кабинета
+        // произойдёт ниже через openAdvertisingTab(), только если вкладка
+        // сейчас открыта.
+        window._advLastLoadedAt = 0;
+        window._advLoadedForCabinet = null;
+        setText('adv-campaigns-count', '—');
+        setText('adv-spend-today', '—');
+        setText('adv-drr-avg', '—');
+        const advTableEl = document.getElementById('adv-campaigns-table');
+        if (advTableEl) advTableEl.innerHTML = 'Загрузка...';
+        const advFreshEl = document.getElementById('adv-freshness');
+        if (advFreshEl) advFreshEl.textContent = '';
+
         showCabinetTransition(newCabinetName, async () => {
             await loadFromDB();
             await loadLastSyncTime();
@@ -5153,6 +5256,7 @@
             const curTab = localStorage.getItem('nr_active_tab');
             if (curTab === 'logistics') initLogisticsSupplies();
             if (curTab === 'goods-groups') loadGoodsGroups();
+            if (curTab === 'advertising') openAdvertisingTab();
         });
     }
 
