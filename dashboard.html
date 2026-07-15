@@ -2590,7 +2590,30 @@
                 transform: none !important;
             }
         }
+
+        /* Cinematic entrance is nice on first sign-in, but replaying the full
+           ray-sweep animation on every plain page refresh (F5/Ctrl+R) inside
+           the same session is just visual noise — skip it after the first
+           load (see inline script right below, which sets this class before
+           the body paints). */
+        html.nr-entrance-seen .neon-rays, html.nr-entrance-seen .center-glow,
+        html.nr-entrance-seen .ray-left-glow-static, html.nr-entrance-seen .ray-right-glow-static { display: none; }
+        html.nr-entrance-seen .dashboard-app-shell {
+            opacity: 1 !important;
+            animation: none !important;
+            filter: none !important;
+            transform: none !important;
+        }
     </style>
+    <script>
+        try {
+            if (sessionStorage.getItem('nr_entrance_seen')) {
+                document.documentElement.classList.add('nr-entrance-seen');
+            } else {
+                sessionStorage.setItem('nr_entrance_seen', '1');
+            }
+        } catch (e) {}
+    </script>
 </head>
 <body>
     <div class="neon-rays" aria-hidden="true">
