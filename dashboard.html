@@ -2837,6 +2837,10 @@
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
                     <span>Модуль РНП</span>
                 </div>
+                <div class="nav-item" onclick="showTab('advertising', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                    <span>Контроль РК</span>
+                </div>
                 <div class="nav-item" onclick="showTab('rnp-settings', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
                     <span>Настройки РНП</span>
@@ -2857,11 +2861,6 @@
                 <div class="nav-item" onclick="showTab('ab-testing', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg>
                     <span class="nav-item-label">А/Б Тесты</span>
-                    <span class="nav-beta-badge">BETA</span>
-                </div>
-                <div class="nav-item" onclick="showTab('advertising', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                    <span class="nav-item-label">Контроль РК</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="nav-item" onclick="showTab('seo', this)">
@@ -3321,20 +3320,6 @@
         </div>
 
         <div id="tab-advertising" class="tab-content space-y-5">
-            <div class="beta-module-hero">
-                <span class="beta-orb beta-orb-1"></span><span class="beta-orb beta-orb-2"></span>
-                <div class="beta-pill">BETA · Контроль РК</div>
-                <h2>Управление рекламными кампаниями WB</h2>
-                <p>Мониторинг CTR, CPC, ДРР и автоматический биддер ставок. Подключение через Promotion API кабинета.</p>
-            </div>
-            <div class="module-date-bar">
-                <div class="module-date-chip active" onclick="toggleModuleDatePicker(event, this)">
-                    <span class="date-pulse-dot"></span><span>📅</span>
-                    <span class="module-date-label">Период</span><span style="opacity:0.5;font-size:10px">▼</span>
-                </div>
-                <span class="text-xs" style="color:var(--text-muted)">Статистика РК за выбранный день или период</span>
-            </div>
-
             <!-- Главная страница рекламных кабинетов: карточки по всем кабинетам пользователя -->
             <div id="adv-view-cards">
                 <div id="adv-cards-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -4699,8 +4684,8 @@
 
     const TAB_GROUP = {
         dashboard:'ocr', summary:'ocr', 'summary-biz':'ocr', deductions:'ocr', 'plan-fact':'ocr',
-        rnp:'rnp', 'rnp-settings':'rnp', planning:'rnp',
-        'ab-testing':'beta', advertising:'beta', seo:'beta', marking:'beta', logistics:'beta',
+        rnp:'rnp', 'rnp-settings':'rnp', planning:'rnp', advertising:'rnp',
+        'ab-testing':'beta', seo:'beta', marking:'beta', logistics:'beta',
         cost:'goods', 'goods-groups':'goods', warehouse:'goods',
         dds:'finance', operations:'finance', obligations:'finance', 'finance-extra':'finance',
         settings:'manage', calculator:'manage',
