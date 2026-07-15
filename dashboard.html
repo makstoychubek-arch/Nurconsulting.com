@@ -2731,6 +2731,32 @@
             }
         } catch (e) {}
     </script>
+    <script>
+        /* Показать нужную вкладку СРАЗУ, ДО первой отрисовки — иначе браузер
+           на долю секунды красит вкладку "Дашборд" (она active по умолчанию
+           в разметке), а потом JS-инициализация (после await сессии/кабинетов)
+           переключает на реально сохранённую вкладку. Это и есть тот самый
+           "дёргающийся дашборд" при F5. Читаем URL/localStorage синхронно и
+           форсируем display через <style>, ещё до парсинга <body>. Реальный
+           showTab() ниже всё равно расставит классы правильно и снимет этот
+           временный style. */
+        try {
+            var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
+            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics' };
+            var __nrTab = __nrPathMap[__nrPath] || null;
+            if (!__nrTab) {
+                var __nrQ = new URLSearchParams(location.search).get('tab');
+                __nrTab = __nrQ || null;
+            }
+            if (!__nrTab) __nrTab = localStorage.getItem('nr_active_tab');
+            if (__nrTab && __nrTab !== 'dashboard') {
+                var __nrStyle = document.createElement('style');
+                __nrStyle.id = 'nr-early-tab-style';
+                __nrStyle.textContent = '#tab-dashboard.active{display:none !important}#tab-' + __nrTab + '{display:block !important}';
+                document.head.appendChild(__nrStyle);
+            }
+        } catch (e) {}
+    </script>
 </head>
 <body>
     <div class="neon-rays" aria-hidden="true">
@@ -3965,6 +3991,13 @@
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs']);
     let hasUserCabinets = false;
+    // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
+    // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
+    // ДО завершения loadCabinets() нельзя: у реальных активных пользователей
+    // hasUserCabinets ещё false в момент первого showTab() при рефреше
+    // страницы, и они на секунду видят "приветствие новичка", хотя у них уже
+    // подключены кабинеты — это и есть тот самый мигающий баг.
+    let cabinetsLoaded = false;
 
     function getCurrentActiveTab() {
         const active = document.querySelector('.tab-content.active');
@@ -3982,7 +4015,7 @@
         if (!emptyEl || !mainContent) return;
 
         const tab = getCurrentActiveTab();
-        const showEmpty = !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tab);
+        const showEmpty = cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tab);
 
         emptyEl.classList.toggle('hidden', !showEmpty);
         mainContent.classList.toggle('empty-cabinet-mode', showEmpty);
@@ -5774,6 +5807,7 @@
             .select('id, name')
             .order('name');
 
+        cabinetsLoaded = true;
         if (!data || data.length === 0) {
             hasUserCabinets = false;
             currentCabinetId = null;
@@ -8057,6 +8091,11 @@
             }
         } catch (e) {
             console.error('[init] tab restore:', e);
+        } finally {
+            // Реальные классы .active расставлены — временный early-style
+            // (см. <head>) больше не нужен, убираем, чтобы не блокировать
+            // будущие переключения вкладок жёстким display:block.
+            document.getElementById('nr-early-tab-style')?.remove();
         }
 
         try {
