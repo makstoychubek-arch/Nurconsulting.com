@@ -1284,6 +1284,11 @@
         }
         .rnp-meta-status { color: var(--text-muted); }
         .rnp-meta-status b { color: var(--accent); font-weight: 600; }
+        .rnp-meta-select {
+            border: 1px solid var(--border); border-radius: 3px; padding: 1px 5px;
+            font-size: 9px; margin-right: 12px; cursor: pointer;
+            background: var(--surface); color: var(--text-primary);
+        }
         .rnp-note-input { font-size: 8px; color: var(--text-muted); }
         .rnp-sheet-table .rnp-th-day {
             font-size: 8px; font-weight: 600;
@@ -4113,6 +4118,98 @@
         return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
+    // ─── DOM MORPH: dependency-free keyed reconciliation for lists/tables ─────
+    // Reconciles the children of `container` against `newHtml` (a string of
+    // sibling elements, e.g. a bunch of <tr> rows) by matching a stable
+    // key attribute (default "data-key"). Matching nodes are updated in place
+    // (attributes + innerHTML only when content actually changed) instead of
+    // being torn down and recreated — this preserves scroll position and any
+    // per-row DOM state (open <details>, focus, animations, etc.) that would
+    // otherwise be lost on a full innerHTML replace.
+    window.domMorph = (function () {
+        function morphAttrs(oldEl, newEl) {
+            const oldAttrs = oldEl.attributes;
+            for (let i = oldAttrs.length - 1; i >= 0; i--) {
+                const name = oldAttrs[i].name;
+                if (!newEl.hasAttribute(name)) oldEl.removeAttribute(name);
+            }
+            const newAttrs = newEl.attributes;
+            for (let i = 0; i < newAttrs.length; i++) {
+                const { name, value } = newAttrs[i];
+                if (oldEl.getAttribute(name) !== value) oldEl.setAttribute(name, value);
+            }
+        }
+
+        function morphNode(oldEl, newEl) {
+            morphAttrs(oldEl, newEl);
+            if (oldEl.innerHTML !== newEl.innerHTML) oldEl.innerHTML = newEl.innerHTML;
+        }
+
+        // container: element whose direct children are the keyed items (e.g. a <tbody>)
+        // newHtml: string markup of the new full set of sibling items
+        // keyAttr: attribute name used as the stable identity (default 'data-key')
+        function morphList(container, newHtml, keyAttr = 'data-key') {
+            if (!container) return;
+            const tmp = document.createElement(container.tagName === 'TBODY' || container.tagName === 'TABLE' ? 'tbody' : 'div');
+            tmp.innerHTML = newHtml;
+            const newNodes = Array.from(tmp.children);
+
+            const oldByKey = new Map();
+            Array.from(container.children).forEach(ch => {
+                const k = ch.getAttribute(keyAttr);
+                if (k != null) oldByKey.set(k, ch);
+            });
+
+            let cursor = container.firstChild;
+            const usedKeys = new Set();
+            newNodes.forEach(newEl => {
+                const key = newEl.getAttribute(keyAttr);
+                let el;
+                if (key != null && oldByKey.has(key) && !usedKeys.has(key)) {
+                    el = oldByKey.get(key);
+                    usedKeys.add(key);
+                    morphNode(el, newEl);
+                } else {
+                    el = newEl;
+                }
+                if (cursor !== el) {
+                    container.insertBefore(el, cursor);
+                } else {
+                    cursor = cursor.nextSibling;
+                }
+            });
+
+            // Remove any leftover old nodes that were not reused
+            Array.from(container.children).forEach(ch => {
+                const key = ch.getAttribute(keyAttr);
+                if (key != null && oldByKey.get(key) === ch && !usedKeys.has(key)) ch.remove();
+                else if (key == null && !newNodes.includes(ch)) ch.remove();
+            });
+        }
+
+        // Captures scroll offsets of window + any number of scrollable elements,
+        // runs `fn`, then restores the offsets. Use around any operation that
+        // may replace/rebuild DOM and could otherwise reset scroll position.
+        function preserveScroll(elements, fn) {
+            const els = (elements || []).filter(Boolean);
+            const snap = { win: [window.scrollX, window.scrollY], els: els.map(el => [el.scrollLeft, el.scrollTop]) };
+            const result = fn();
+            const restore = () => {
+                if (snap.win[0] || snap.win[1]) window.scrollTo(snap.win[0], snap.win[1]);
+                els.forEach((el, i) => {
+                    const [l, t] = snap.els[i];
+                    if (el.scrollLeft !== l) el.scrollLeft = l;
+                    if (el.scrollTop !== t) el.scrollTop = t;
+                });
+            };
+            if (result && typeof result.then === 'function') return result.then(v => { restore(); return v; });
+            restore();
+            return result;
+        }
+
+        return { morphList, preserveScroll };
+    })();
+
     async function callWbProxy(action, params, cabinetId) {
         const cabId = cabinetId || currentCabinetId;
         if (!hasUserCabinets || !cabId) return null;
@@ -5044,26 +5141,29 @@
     }
 
     function hideOverlay() {
+        if (window._nrOverlayWatchdog) { clearTimeout(window._nrOverlayWatchdog); window._nrOverlayWatchdog = null; }
         const overlay = document.getElementById('cabinet-overlay');
         if (!overlay || overlay.style.display === 'none') return;
-        overlay.style.transition = 'opacity 0.35s ease';
+        overlay.style.transition = 'opacity 0.15s ease';
         overlay.style.opacity = '0';
-        setTimeout(() => { overlay.style.display = 'none'; overlay.style.opacity = '1'; }, 360);
+        setTimeout(() => { overlay.style.display = 'none'; overlay.style.opacity = '1'; }, 160);
     }
 
     function showCabinetTransition(name, callback) {
         const overlay = document.getElementById('cabinet-overlay');
         if (!overlay) { callback(); return; }
         overlay.style.display = 'flex';
+        overlay.style.transition = 'none';
         overlay.style.opacity = '1';
-        const minDelay = new Promise(r => setTimeout(r, 1400));
-        // ОБЯЗАТЕЛЬНЫЙ таймаут 8 сек — оверлей ВСЕГДА закроется
+        // Быстрое переключение: без искусственной задержки — оверлей исчезает,
+        // как только реально загрузились данные (обычно <1с), максимум 8с как
+        // аварийный предохранитель, если что-то реально подвисло.
         const timeout = new Promise(r => setTimeout(r, 8000));
         const loadWithTimeout = Promise.race([
             Promise.resolve(callback()).catch(() => {}),
             timeout
         ]);
-        Promise.all([loadWithTimeout, minDelay]).then(hideOverlay).catch(hideOverlay);
+        loadWithTimeout.then(hideOverlay).catch(hideOverlay);
     }
 
     async function loadFromDB(dateFrom, dateTo) {
@@ -5099,9 +5199,10 @@
 
             const tbody = document.getElementById('products-table');
             if (stocks.length > 0) {
-                tbody.innerHTML = stocks.slice(0, 30).map(p => {
+                const rowsHtml = stocks.slice(0, 30).map(p => {
                     const enough = (p.quantity || 0) > 10;
-                    return `<tr>
+                    const key = escapeHtml(`${p.nm_id || ''}-${p.barcode || ''}`);
+                    return `<tr data-key="${key}">
                     <td style="color:var(--accent);font-weight:600">${escapeHtml(p.nm_id || '—')}</td>
                     <td style="color:var(--text-muted)">${escapeHtml(p.barcode || '—')}</td>
                     <td style="color:var(--text-primary);font-weight:700">${Number(p.quantity || 0)}</td>
@@ -5109,6 +5210,16 @@
                     <td><span class="${enough ? 'badge-green' : 'badge-red'}">${enough ? 'Достаточно' : 'Подсорт'}</span></td>
                 </tr>`;
                 }).join('');
+                // Reconcile rows in place (instead of nuking innerHTML) so refreshes
+                // of the same cabinet don't cause flicker or scroll/state loss.
+                if (tbody.children.length && tbody.children[0].hasAttribute('data-key')) {
+                    const scroller = tbody.closest('.overflow-x-auto, .overflow-auto') || tbody;
+                    window.domMorph.preserveScroll([window.document.scrollingElement, scroller], () => {
+                        window.domMorph.morphList(tbody, rowsHtml, 'data-key');
+                    });
+                } else {
+                    tbody.innerHTML = rowsHtml;
+                }
             } else {
                 tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет данных — нажмите "Обновить"</td></tr>';
             }
@@ -6937,7 +7048,7 @@
             </div>`;
             return;
         }
-        container.innerHTML = `<div class="supplies-grid">` + list.map(s => {
+        const cardsHtml = list.map(s => {
             const date = s.createdAt ? new Date(s.createdAt).toLocaleDateString('ru-RU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
             const pillClass = s.done ? 'done' : 'active';
             const pillText = s.done ? 'Завершена' : 'Активна';
@@ -6948,7 +7059,7 @@
                 ? escapeHtml(String(s.warehouse))
                 : (s._enriched ? 'Склад не указан' : '<span class="supply-card-loading">загрузка…</span>');
             return `
-            <div class="supply-card" onclick="openSupplyDetail('${escapeHtml(String(s.id))}')" title="Открыть детали поставки">
+            <div class="supply-card" data-key="${escapeHtml(String(s.id))}" onclick="openSupplyDetail('${escapeHtml(String(s.id))}')" title="Открыть детали поставки">
                 <div class="supply-card-top">
                     <span class="supply-card-num">№ ${escapeHtml(String(s.id))}</span>
                     <span class="supply-status-pill ${pillClass}">${pillText}</span>
@@ -6959,7 +7070,20 @@
                     <span class="supply-card-date">${date}</span>
                 </div>
             </div>`;
-        }).join('') + `</div>`;
+        }).join('');
+
+        // Reuse the existing grid + morph cards in place when possible — this
+        // runs repeatedly during background enrichment (every ~1.2s), so a
+        // full innerHTML rebuild here would otherwise cause visible flicker
+        // and reset scroll on every batch.
+        const grid = container.querySelector(':scope > .supplies-grid');
+        if (grid) {
+            window.domMorph.preserveScroll([container, window.document.scrollingElement], () => {
+                window.domMorph.morphList(grid, cardsHtml, 'data-key');
+            });
+        } else {
+            container.innerHTML = `<div class="supplies-grid">${cardsHtml}</div>`;
+        }
     }
 
     async function fetchAllSupplyGoods(supplyId) {
@@ -7077,8 +7201,28 @@
     function closeSupplyDetail() { document.getElementById('supply-detail-modal').classList.add('hidden'); }
 
     document.addEventListener('DOMContentLoaded', async () => {
+        // Watchdog: if init hangs (slow/failed network call to Supabase, an
+        // unexpected exception, etc.) the "NR SPACE" overlay must never get
+        // stuck forever — force it down after 15s with a retry button instead
+        // of an infinite spinner. Cleared inside hideOverlay() once real init
+        // actually finishes (including the redirect/deny-access early returns
+        // below, which call hideOverlay-independent navigation but don't need
+        // the watchdog once they fire).
+        window._nrOverlayWatchdog = setTimeout(() => {
+            const overlay = document.getElementById('cabinet-overlay');
+            if (!overlay || overlay.style.display === 'none') return;
+            overlay.innerHTML = `<div style="text-align:center;max-width:320px;padding:0 20px">
+                <div class="flex items-baseline justify-center gap-1.5 mb-4">
+                    <span style="font-size:32px;font-weight:800;color:#E8568E;letter-spacing:-0.02em">NR</span>
+                    <span style="font-size:32px;font-weight:500;color:var(--text-primary,#fff);letter-spacing:0.02em">SPACE</span>
+                </div>
+                <p style="color:var(--text-muted,#999);font-size:14px;margin-bottom:16px">Загрузка занимает больше времени, чем обычно — проверьте соединение.</p>
+                <button onclick="location.reload()" style="padding:10px 20px;border-radius:12px;background:var(--accent,#8b5cf6);color:#fff;border:none;font-weight:600;cursor:pointer">Повторить</button>
+            </div>`;
+        }, 15000);
+
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { window.location.replace('/login'); return; }
+        if (!session) { clearTimeout(window._nrOverlayWatchdog); window.location.replace('/login'); return; }
 
         const allowed = await enforceAccessGate(session.user);
         if (!allowed) return;

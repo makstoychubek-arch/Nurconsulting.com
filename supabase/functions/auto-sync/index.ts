@@ -140,21 +140,32 @@ Deno.serve(async (req) => {
                         if (Array.isArray(orders) && orders.length > 0) {
                             ordersCount = orders.length;
                             await admin.from('wb_orders').delete().eq('cabinet_id', cabinet.id).gte('order_date', DATE_FROM);
+                            // NOTE: WB legitimately returns multiple distinct orders for the
+                            // same nm_id+barcode on the same day (different buyers/units).
+                            // Dedup must use WB's own unique order-line id ("srid"), NOT
+                            // (date, nm_id, barcode) — the old key silently dropped every
+                            // extra same-day order for a product, undercounting order counts.
                             const orderRows = orders.map((o: Record<string, unknown>) => ({
                                 cabinet_id: cabinet.id,
                                 order_date: String(o.date || '').split('T')[0] ||
                                     new Date().toISOString().split('T')[0],
                                 nm_id: o.nmId,
                                 barcode: o.barcode,
+                                srid: o.srid || null,
                                 price: o.priceWithDiscount || o.totalPrice || 0,
                                 is_return: o.isReturn || false,
                                 data: o,
                             }));
-                            for (let i = 0; i < orderRows.length; i += 100) {
+                            const withSrid = orderRows.filter(r => r.srid);
+                            const withoutSrid = orderRows.filter(r => !r.srid);
+                            for (let i = 0; i < withSrid.length; i += 100) {
                                 await admin.from('wb_orders').upsert(
-                                    orderRows.slice(i, i + 100),
-                                    { onConflict: 'cabinet_id,order_date,nm_id,barcode', ignoreDuplicates: true },
+                                    withSrid.slice(i, i + 100),
+                                    { onConflict: 'cabinet_id,srid' },
                                 );
+                            }
+                            for (let i = 0; i < withoutSrid.length; i += 100) {
+                                await admin.from('wb_orders').insert(withoutSrid.slice(i, i + 100));
                             }
                         }
                     }

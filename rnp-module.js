@@ -360,6 +360,48 @@ const RNP = (() => {
         return document.getElementById('cabinet-picker-label')?.textContent?.trim() || '';
     }
 
+    // Falls back to a no-op-safe implementation if the host page's dom-morph
+    // helper (dashboard.html) isn't loaded for some reason, so RNP never throws.
+    function _domMorph() {
+        if (window.domMorph && typeof window.domMorph.morphList === 'function') return window.domMorph;
+        return {
+            morphList(container, html) { if (container) container.innerHTML = html; },
+            preserveScroll(_els, fn) { return fn(); },
+        };
+    }
+
+    // Captures scroll of window + `#rnp-sheet-body` + `#rnp-table-wrap` (if present),
+    // runs `fn` (which may replace/rebuild those elements' DOM), then restores the
+    // offsets on whatever elements now exist at those ids. Used to stop background/
+    // periodic refreshes of the RNP tab from resetting the user's scroll position.
+    function _preserveRnpScroll(fn) {
+        // Captured by id (not by element reference) because a full innerHTML
+        // rebuild of `#rnp-sheet-body` destroys `#rnp-table-wrap` and creates a
+        // fresh node with the same id — restoring scrollTop on the old detached
+        // node would be a no-op, so we must re-query after `fn()` runs.
+        const ids = ['rnp-sheet-body', 'rnp-table-wrap'];
+        const snap = { win: [window.scrollX, window.scrollY], ids: {} };
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) snap.ids[id] = [el.scrollLeft, el.scrollTop];
+        });
+        const restore = () => {
+            if (snap.win[0] || snap.win[1]) window.scrollTo(snap.win[0], snap.win[1]);
+            ids.forEach(id => {
+                const pos = snap.ids[id];
+                if (!pos) return;
+                const el = document.getElementById(id);
+                if (!el) return;
+                if (el.scrollLeft !== pos[0]) el.scrollLeft = pos[0];
+                if (el.scrollTop !== pos[1]) el.scrollTop = pos[1];
+            });
+        };
+        const result = fn();
+        if (result && typeof result.then === 'function') return result.then(v => { restore(); return v; });
+        restore();
+        return result;
+    }
+
     function _isStaleInit(gen, cab) {
         return gen !== _initGen || cab !== _cab;
     }
@@ -1885,7 +1927,7 @@ const RNP = (() => {
         const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'var(--green)' : (kpi.plan_orders_pct || 0) < 80 ? 'var(--red)' : 'var(--text-primary)';
         const profitCls = (kpi.profit || 0) >= 0 ? 'var(--green)' : 'var(--red)';
         const orders = kpi.orders_count || m?.ordersCount || 0;
-        return `<tr class="rnp-summary-row" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}">
+        return `<tr class="rnp-summary-row" data-key="row-${a.nm_id}" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}">
           <td>${_syncDot(st.level)}</td>
           <td>${_imgHtml(a, '', 'c246x328', 'width:28px;height:36px;border-radius:12px;object-fit:cover')}</td>
           <td class="rnp-summary-name">${_sellerArticle(a)}</td>
@@ -1900,12 +1942,13 @@ const RNP = (() => {
         </tr>`;
     }
 
-    function _buildSummaryHTML(active, cal) {
+    function _buildSummaryRowsHTML(active, cal) {
         const groups = _groupByCategory(active);
-        const body = groups.map(([cat, list]) => {
+        return groups.map(([cat, list]) => {
             const collapsed = _isCatCollapsed(cat);
             const catEsc = cat.replace(/'/g, "\\'");
-            const headerRow = `<tr class="rnp-summary-cat-row${collapsed ? ' collapsed' : ''}" onclick="RNP.toggleCategory('${catEsc}')">
+            const catKey = 'cat-' + cat.replace(/"/g, '&quot;');
+            const headerRow = `<tr class="rnp-summary-cat-row${collapsed ? ' collapsed' : ''}" data-key="${catKey}" onclick="RNP.toggleCategory('${catEsc}')">
               <td colspan="11">
                 <span class="rnp-cat-arrow">${collapsed ? '▸' : '▾'}</span>
                 <span class="rnp-cat-name">${cat.replace(/</g, '&lt;')}</span>
@@ -1915,6 +1958,10 @@ const RNP = (() => {
             const dataRows = collapsed ? '' : list.map(a => _summaryRowHtml(a, cal)).join('');
             return headerRow + dataRows;
         }).join('');
+    }
+
+    function _buildSummaryHTML(active, cal) {
+        const body = _buildSummaryRowsHTML(active, cal);
         return `<div class="rnp-table-scroll" style="padding:8px">
           <table class="rnp-summary-table">
             <thead><tr>
@@ -3392,9 +3439,9 @@ const RNP = (() => {
           </div>
         </div>`;
 
+        const snapReq = _loadRequestId();
+        const snapCab = _cab;
         try {
-            const snapReq = _loadRequestId();
-            const snapCab = _cab;
             await _loadRnpData();
             if (_isStaleLoad(snapReq, snapCab)) return;
             await _loadNotes(active.map(a => a.nm_id));
@@ -3422,7 +3469,17 @@ const RNP = (() => {
         const cal = _buildCalendar();
 
         if (_activeNm === SUMMARY_TAB) {
-            body.innerHTML = _buildSummaryHTML(active, cal);
+            const existingTbody = body.querySelector('.rnp-summary-table > tbody');
+            if (existingTbody) {
+                // Same tab re-rendered (e.g. background refresh) — reconcile rows
+                // by nm_id/category key in place instead of rebuilding the table,
+                // preserving scroll position and collapsed-category DOM state.
+                _preserveRnpScroll(() => {
+                    _domMorph().morphList(existingTbody, _buildSummaryRowsHTML(active, cal), 'data-key');
+                });
+            } else {
+                body.innerHTML = _buildSummaryHTML(active, cal);
+            }
             _applyResolvedPhotos(body);
             _updateTabHighlight();
             const bar = document.getElementById('rnp-action-bar-wrap');
@@ -3434,12 +3491,14 @@ const RNP = (() => {
             _hydratePhotoCacheFromStorage();
             _hydratePhotoCacheFromArticles();
             _metricRowSeq = 0;
-            body.innerHTML = `
+            _preserveRnpScroll(() => {
+                body.innerHTML = `
           ${_buildGeneralTopBar(active, cal)}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
             ${_buildGeneralTableHTML(active, cal)}
           </div>
           ${_selectionBarHTML()}`;
+            });
             _updateTabHighlight();
             const bar = document.getElementById('rnp-action-bar-wrap');
             if (bar) bar.innerHTML = _buildActionBar(active);
@@ -3476,12 +3535,14 @@ const RNP = (() => {
         }
 
         _metricRowSeq = 0;
-        body.innerHTML = `
+        _preserveRnpScroll(() => {
+            body.innerHTML = `
           ${topHTML}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
             ${_buildTableHTML(art, stockBySize, rawData, cal)}
           </div>
           ${_selectionBarHTML()}`;
+        });
 
         _updateTabHighlight();
         const bar = document.getElementById('rnp-action-bar-wrap');
@@ -3586,17 +3647,23 @@ const RNP = (() => {
         });
     }
 
+    const PRODUCT_STATUSES = ['Локомотив', 'Новинка', 'Стабильный', 'Затухающий', 'Выведен из ассортимента'];
+
     function _buildMetaRows(cols, art) {
         const md = art.manual_data || {};
         const responsible = (md.responsible || '').replace(/"/g, '&quot;');
         const status = md.status || 'Локомотив';
+        const statusOptions = PRODUCT_STATUSES.map(s =>
+            `<option value="${s}"${s === status ? ' selected' : ''}>${s}</option>`).join('');
         return `<tr class="rnp-meta-row">
           <td class="rnp-metric-col">Ответственный</td>
           <td class="rnp-spark-col"></td>
           <td class="rnp-meta-cell" colspan="${cols.length}">
             <input class="rnp-meta-input" value="${responsible}" placeholder="Дастан"
               onblur="RNP.saveMeta(${art.nm_id},'responsible',this.value)">
-            <span class="rnp-meta-status">Статус: <b>${status}</b></span>
+            <span class="rnp-meta-status">Статус:
+              <select class="rnp-meta-select" onchange="RNP.saveMeta(${art.nm_id},'status',this.value)">${statusOptions}</select>
+            </span>
           </td>
         </tr>`;
     }
@@ -3939,6 +4006,14 @@ const RNP = (() => {
     }
 
     async function openMain() {
+        // If the RNP workspace is already mounted and fresh for the current
+        // cabinet (e.g. user just switched away to another tab and back),
+        // leave the existing DOM untouched — showTab() already toggled the
+        // `.active` class, so re-rendering here would just be a needless
+        // teardown/rebuild (flicker + lost scroll/collapsed state) for a
+        // tab-switch that isn't actually reloading any data.
+        const mounted = document.querySelector('#tab-rnp .rnp-workspace');
+        if (mounted && window._rnpLoadedForCabinet === _cab) return;
         await _renderMain();
     }
 
