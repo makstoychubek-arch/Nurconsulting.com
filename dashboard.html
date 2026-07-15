@@ -5180,20 +5180,13 @@
     }
 
     function showCabinetTransition(name, callback) {
-        const overlay = document.getElementById('cabinet-overlay');
-        if (!overlay) { callback(); return; }
-        overlay.style.display = 'flex';
-        overlay.style.transition = 'none';
-        overlay.style.opacity = '1';
-        // Быстрое переключение: без искусственной задержки — оверлей исчезает,
-        // как только реально загрузились данные (обычно <1с), максимум 8с как
-        // аварийный предохранитель, если что-то реально подвисло.
-        const timeout = new Promise(r => setTimeout(r, 8000));
-        const loadWithTimeout = Promise.race([
-            Promise.resolve(callback()).catch(() => {}),
-            timeout
-        ]);
-        loadWithTimeout.then(hideOverlay).catch(hideOverlay);
+        // No full-page overlay/animation on cabinet switch either — the caller
+        // (onCabinetChange) already resets metrics/tables to placeholders
+        // before this runs, so the switch just updates in place as the new
+        // cabinet's data loads. Isolation is enforced in the data layer
+        // (per-request snapshot checks in loadFromDB/RNP, not by blocking
+        // the UI), so removing the visual takeover doesn't affect it.
+        Promise.resolve(callback()).catch(e => console.error('[cabinet switch]', e));
     }
 
     async function loadFromDB(dateFrom, dateTo) {
