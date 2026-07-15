@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260707-full-articles';
+    const RNP_BUILD = '20260715-full-articles';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -3185,6 +3185,7 @@ const RNP = (() => {
         } catch (e) {
             console.error('[RNP] load:', e);
         }
+        if (_isStaleLoad(snapReq, snapCab)) return;
         await _renderActiveTable();
         _applyResolvedPhotos();
         _preloadPhotosBackground(active).then(() => {
@@ -3701,6 +3702,10 @@ const RNP = (() => {
         try { _editMode = sessionStorage.getItem('rnp_edit_mode') === '1'; } catch (e) {}
         _bindSelectionHandlers();
         await _loadSettings(cabId, gen);
+        if (_isStaleInit(gen, cabId)) return;
+        await _loadArticles(cabId, gen);
+        if (_isStaleInit(gen, cabId)) return;
+        await _syncFromOrders({ silent: true });
         if (_isStaleInit(gen, cabId)) return;
         await _loadArticles(cabId, gen);
         if (_isStaleInit(gen, cabId)) return;
