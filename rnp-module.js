@@ -3326,8 +3326,7 @@ const RNP = (() => {
                 <div class="flex gap-2">
                   <input id="rnp-rate" type="number" step="0.1" min="0.1" value="${_settings.exchangeRate}"
                     class="rounded-xl px-3 py-2 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                  <button onclick="RNP.saveRate()" class="px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap"
-                    style="background:var(--accent-gradient);color:#fff">OK</button>
+                  <button onclick="RNP.saveRate()" class="ui-btn ui-btn-primary text-xs whitespace-nowrap">OK</button>
                 </div>
               </div>
               <div>
@@ -3368,13 +3367,9 @@ const RNP = (() => {
                 <span class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} / ${_articles.length} в РНП · артикул продавца из WB</span>
               </h3>
               <div class="flex gap-2 flex-wrap">
-                <button onclick="RNP.syncArts()" id="rnp-sync-btn"
-                  class="px-3 py-1.5 rounded-xl text-xs font-semibold"
-                  style="background:var(--surface);border:1px solid var(--border);color:var(--text-secondary)">Из заказов</button>
-                <button onclick="RNP.enableAll(true)" class="px-3 py-1.5 rounded-xl text-xs font-semibold"
-                  style="background:var(--accent-soft);border:1px solid var(--accent-border);color:var(--accent)">Включить все</button>
-                <button onclick="RNP.enableAll(false)" class="px-3 py-1.5 rounded-xl text-xs font-semibold"
-                  style="background:var(--surface);border:1px solid var(--border);color:var(--text-muted)">Выключить все</button>
+                <button onclick="RNP.syncArts()" id="rnp-sync-btn" class="ui-btn ui-btn-secondary text-xs">Из заказов</button>
+                <button onclick="RNP.enableAll(true)" class="ui-btn ui-btn-secondary text-xs">Включить все</button>
+                <button onclick="RNP.enableAll(false)" class="ui-btn ui-btn-secondary text-xs">Выключить все</button>
               </div>
             </div>
             ${_articles.length === 0 ? `
@@ -3726,18 +3721,21 @@ const RNP = (() => {
     function _buildMetaRows(cols, art) {
         const md = art.manual_data || {};
         const responsible = (md.responsible || '').replace(/"/g, '&quot;');
-        const status = md.status || 'Локомотив';
-        const statusOptions = PRODUCT_STATUSES.map(s =>
+        const status = md.status || '';
+        const statusOptions = `<option value=""${!status ? ' selected' : ''}>—</option>` +
+            PRODUCT_STATUSES.map(s =>
             `<option value="${s}"${s === status ? ' selected' : ''}>${s}</option>`).join('');
         return `<tr class="rnp-meta-row">
           <td class="rnp-metric-col">Ответственный</td>
           <td class="rnp-spark-col"></td>
           <td class="rnp-meta-cell" colspan="${cols.length}">
-            <input class="rnp-meta-input" value="${responsible}" placeholder="Дастан"
-              onblur="RNP.saveMeta(${art.nm_id},'responsible',this.value)">
-            <span class="rnp-meta-status">Статус:
-              <select class="rnp-meta-select" onchange="RNP.saveMeta(${art.nm_id},'status',this.value)">${statusOptions}</select>
-            </span>
+            <div class="rnp-meta-row-inner">
+              <input class="rnp-meta-input" value="${responsible}" placeholder=""
+                onblur="RNP.saveMeta(${art.nm_id},'responsible',this.value)">
+              <span class="rnp-meta-status">Статус:
+                <select class="rnp-meta-select" onchange="RNP.saveMeta(${art.nm_id},'status',this.value)">${statusOptions}</select>
+              </span>
+            </div>
           </td>
         </tr>`;
     }
