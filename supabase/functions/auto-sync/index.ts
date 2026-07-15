@@ -14,6 +14,19 @@ const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
 const WB_STATS = 'https://statistics-api.wildberries.ru';
 const DATE_FROM = '2026-01-01';
 
+// How many of the most recent days (including today) get precisely
+// re-verified against WB on every single sync cycle via the flag=1
+// "exact calendar day" query (see Pass B below). 4 = today + 3 full
+// prior days, comfortably covering WB's own ~1-day report-publish lag
+// plus a safety margin for late-arriving status changes.
+const RECENT_DAYS_LOOKBACK = 4;
+
+// Minimum time between full-history (flag=0) pulls per cabinet. That
+// pull only matters for backfilling months-old history (which never
+// changes), so it doesn't need to run every 4h — recent days are kept
+// correct by the cheap per-day flag=1 pass on every cycle regardless.
+const FULL_SYNC_INTERVAL_MS = 20 * 60 * 60 * 1000;
+
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -69,7 +82,7 @@ Deno.serve(async (req) => {
 
     let query = admin
         .from('cabinets')
-        .select('id, name, wb_token')
+        .select('id, name, wb_token, last_full_orders_sync_at')
         .not('wb_token', 'is', null)
         .gt('wb_token', '');
 
@@ -130,56 +143,149 @@ Deno.serve(async (req) => {
             }
 
             if (mode === 'full' || mode === 'rnp') {
-                try {
-                    const ordersRes = await fetch(
-                        `${WB_STATS}/api/v1/supplier/orders?dateFrom=${DATE_FROM}&flag=0`,
-                        { headers: { Authorization: token } },
-                    );
-                    if (ordersRes.ok) {
-                        const orders = await ordersRes.json();
-                        if (Array.isArray(orders) && orders.length > 0) {
-                            ordersCount = orders.length;
-                            await admin.from('wb_orders').delete().eq('cabinet_id', cabinet.id).gte('order_date', DATE_FROM);
-                            // NOTE: WB legitimately returns multiple distinct orders for the
-                            // same nm_id+barcode on the same day (different buyers/units).
-                            // Dedup must use WB's own unique order-line id ("srid"), NOT
-                            // (date, nm_id, barcode) — the old key silently dropped every
-                            // extra same-day order for a product, undercounting order counts.
-                            const orderRows = orders.map((o: Record<string, unknown>) => ({
-                                cabinet_id: cabinet.id,
-                                order_date: String(o.date || '').split('T')[0] ||
-                                    new Date().toISOString().split('T')[0],
-                                nm_id: o.nmId,
-                                barcode: o.barcode,
-                                srid: o.srid || null,
-                                price: o.priceWithDiscount || o.totalPrice || 0,
-                                is_return: o.isReturn || false,
-                                data: o,
-                            }));
-                            const withSrid = orderRows.filter(r => r.srid);
-                            const withoutSrid = orderRows.filter(r => !r.srid);
-                            for (let i = 0; i < withSrid.length; i += 100) {
-                                await admin.from('wb_orders').upsert(
-                                    withSrid.slice(i, i + 100),
-                                    { onConflict: 'cabinet_id,srid' },
-                                );
-                            }
-                            for (let i = 0; i < withoutSrid.length; i += 100) {
-                                await admin.from('wb_orders').insert(withoutSrid.slice(i, i + 100));
-                            }
-                        }
-                    }
-                } catch (e) {
-                    errorMsg += `orders: ${(e as Error).message}; `;
-                    status = 'partial';
-                }
-                if (ordersCount > 0) {
+                let historicalOrdersCount = 0;
+                let recentOrdersCount = 0;
+
+                // ── Pass A: full historical backfill (flag=0) ──────────────
+                // ROOT CAUSE of the "yesterday's order count is short by a few
+                // orders vs WB's own Воронка продаж" bug: WB's flag=0 (or
+                // omitted) `dateFrom` does NOT mean "orders placed since
+                // dateFrom" — it means "orders whose lastChangeDate (ANY
+                // status change: delivered/returned/cancelled/etc, not just
+                // placement) is >= dateFrom", sorted ascending by
+                // lastChangeDate. Because DATE_FROM never moved, every 4h
+                // cron tick re-downloaded WB's ENTIRE order history (~6.5
+                // months and growing) in one unpaginated request, deleted
+                // ALL of wb_orders for the cabinet, and reinserted everything
+                // from scratch. Under load this large payload/loop is exactly
+                // the kind of thing that can get truncated or hit the Edge
+                // Function's time/CPU budget mid-upsert — and since orders
+                // are processed in ascending lastChangeDate order, the most
+                // recently-changed rows (= today/yesterday, the ones users
+                // actually look at) are the ones most likely to be cut off
+                // before they're written. That matches the reported symptom
+                // exactly: historical months look fine, but the most recent
+                // day is short by a couple of orders.
+                //
+                // Fix: this expensive full-history pull only backfills
+                // months-old data that never changes, so it doesn't need to
+                // run every cycle. It now runs at most once per
+                // FULL_SYNC_INTERVAL_MS per cabinet (tracked via
+                // cabinets.last_full_orders_sync_at), or immediately on a
+                // cabinet's very first sync (column is null). Recent-day
+                // correctness no longer depends on this pass at all — see
+                // Pass B below, which runs on every single cycle.
+                const lastFullSyncAt = cabinet.last_full_orders_sync_at
+                    ? new Date(cabinet.last_full_orders_sync_at as string).getTime()
+                    : 0;
+                const shouldRunFullSync = (Date.now() - lastFullSyncAt) > FULL_SYNC_INTERVAL_MS;
+
+                if (shouldRunFullSync) {
                     try {
-                        rnpDailyRows = await syncRnpDailyFromOrders(admin, cabinet.id);
+                        const ordersRes = await fetch(
+                            `${WB_STATS}/api/v1/supplier/orders?dateFrom=${DATE_FROM}&flag=0`,
+                            { headers: { Authorization: token } },
+                        );
+                        if (ordersRes.ok) {
+                            const orders = await ordersRes.json();
+                            if (Array.isArray(orders) && orders.length > 0) {
+                                historicalOrdersCount = orders.length;
+                                await admin.from('wb_orders').delete().eq('cabinet_id', cabinet.id).gte('order_date', DATE_FROM);
+                                // NOTE: WB legitimately returns multiple distinct orders for the
+                                // same nm_id+barcode on the same day (different buyers/units).
+                                // Dedup must use WB's own unique order-line id ("srid"), NOT
+                                // (date, nm_id, barcode) — the old key silently dropped every
+                                // extra same-day order for a product, undercounting order counts.
+                                const orderRows = orders.map((o: Record<string, unknown>) => toOrderRow(cabinet.id, o));
+                                const withSrid = orderRows.filter(r => r.srid);
+                                const withoutSrid = orderRows.filter(r => !r.srid);
+                                for (let i = 0; i < withSrid.length; i += 100) {
+                                    await admin.from('wb_orders').upsert(
+                                        withSrid.slice(i, i + 100),
+                                        { onConflict: 'cabinet_id,srid' },
+                                    );
+                                }
+                                for (let i = 0; i < withoutSrid.length; i += 100) {
+                                    await admin.from('wb_orders').insert(withoutSrid.slice(i, i + 100));
+                                }
+                            }
+                            await admin.from('cabinets')
+                                .update({ last_full_orders_sync_at: new Date().toISOString() })
+                                .eq('id', cabinet.id);
+                        }
                     } catch (e) {
-                        errorMsg += `rnp_daily: ${(e as Error).message}; `;
+                        errorMsg += `orders_full: ${(e as Error).message}; `;
                         status = 'partial';
                     }
+                    await sleep(2000);
+                }
+
+                // ── Pass B: precise recent-days resync (flag=1) ────────────
+                // Runs on EVERY sync cycle regardless of Pass A. flag=1
+                // changes dateFrom's meaning to "return ONLY orders whose
+                // orderDate falls on this exact single calendar date" — a
+                // small, precise, single-day snapshot, immune to the
+                // lastChangeDate noise from Pass A. For each of the last
+                // RECENT_DAYS_LOOKBACK days we fetch that day's orders and
+                // do a targeted delete-then-insert scoped to exactly
+                // (cabinet_id, order_date = that day) — never touching other
+                // days — so today/yesterday/etc. are always exactly correct
+                // on every 4h tick, independent of whatever Pass A is doing.
+                try {
+                    for (let dayOffset = RECENT_DAYS_LOOKBACK - 1; dayOffset >= 0; dayOffset--) {
+                        const d = new Date();
+                        d.setUTCDate(d.getUTCDate() - dayOffset);
+                        const dayStr = d.toISOString().split('T')[0];
+
+                        const dayRes = await fetch(
+                            `${WB_STATS}/api/v1/supplier/orders?dateFrom=${dayStr}&flag=1`,
+                            { headers: { Authorization: token } },
+                        );
+                        if (dayRes.ok) {
+                            const dayOrders = await dayRes.json();
+                            if (Array.isArray(dayOrders)) {
+                                recentOrdersCount += dayOrders.length;
+                                // Scoped delete: only this cabinet + this exact day, never
+                                // the blanket delete-everything used in Pass A.
+                                await admin.from('wb_orders').delete()
+                                    .eq('cabinet_id', cabinet.id)
+                                    .eq('order_date', dayStr);
+                                if (dayOrders.length > 0) {
+                                    const rows = dayOrders.map((o: Record<string, unknown>) => toOrderRow(cabinet.id, o));
+                                    const withSrid = rows.filter(r => r.srid);
+                                    const withoutSrid = rows.filter(r => !r.srid);
+                                    for (let i = 0; i < withSrid.length; i += 100) {
+                                        await admin.from('wb_orders').upsert(
+                                            withSrid.slice(i, i + 100),
+                                            { onConflict: 'cabinet_id,srid' },
+                                        );
+                                    }
+                                    for (let i = 0; i < withoutSrid.length; i += 100) {
+                                        await admin.from('wb_orders').insert(withoutSrid.slice(i, i + 100));
+                                    }
+                                }
+                            }
+                        } else {
+                            errorMsg += `orders_recent(${dayStr}): HTTP ${dayRes.status}; `;
+                            status = 'partial';
+                        }
+                        // WB Statistics API has strict rate limits — small pause between
+                        // the per-day requests, matching the sleep() pattern already used
+                        // elsewhere in this file.
+                        await sleep(1200);
+                    }
+                } catch (e) {
+                    errorMsg += `orders_recent: ${(e as Error).message}; `;
+                    status = 'partial';
+                }
+
+                ordersCount = historicalOrdersCount + recentOrdersCount;
+
+                try {
+                    rnpDailyRows = await syncRnpDailyFromOrders(admin, cabinet.id);
+                } catch (e) {
+                    errorMsg += `rnp_daily: ${(e as Error).message}; `;
+                    status = 'partial';
                 }
                 await sleep(2000);
             }
@@ -264,6 +370,20 @@ function sleep(ms: number) {
 function sanitizeWbToken(raw: unknown): string {
     if (typeof raw !== 'string') return '';
     return raw.replace(/^\uFEFF/, '').replace(/\s+/g, '').trim();
+}
+
+function toOrderRow(cabinetId: string, o: Record<string, unknown>) {
+    return {
+        cabinet_id: cabinetId,
+        order_date: String(o.date || '').split('T')[0] ||
+            new Date().toISOString().split('T')[0],
+        nm_id: o.nmId,
+        barcode: o.barcode,
+        srid: o.srid || null,
+        price: o.priceWithDiscount || o.totalPrice || 0,
+        is_return: o.isReturn || false,
+        data: o,
+    };
 }
 
 async function syncRnpDailyFromOrders(

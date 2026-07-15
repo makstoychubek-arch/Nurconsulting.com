@@ -2445,7 +2445,18 @@ const RNP = (() => {
             const d = (o.order_date || o.date || (o.data && o.data.date) || '').split('T')[0];
             return d === date;
         });
-        const active = todayOrders.filter(o => !o.is_return && !(o.data && o.data.isCancel));
+        // Filtering here MUST match every other order-count aggregator in this
+        // file (_buildRnpMetrics, _populateDataCacheFromOrders,
+        // _aggregateOrdersToDaily) and the edge function's
+        // syncRnpDailyFromOrders — all of them exclude only `is_return`.
+        // This function used to ALSO exclude `data.isCancel`, which made it
+        // the only aggregator with stricter filtering, silently undercounting
+        // "заказы" vs every other code path (and vs WB's own Воронка продаж,
+        // which counts an order as "заказано" the moment it's placed — a
+        // later cancellation doesn't retroactively remove it from that count,
+        // it only prevents it from ever becoming a sale). Keep this aligned
+        // with is_return-only filtering everywhere.
+        const active = todayOrders.filter(o => !o.is_return);
         const ordersCount = active.length;
         const ordersSum = active.reduce((s, o) => s + (o.price || (o.data && o.data.priceWithDiscount) || 0), 0);
         const avgCheck = ordersCount > 0 ? ordersSum / ordersCount : 0;
@@ -3926,7 +3937,19 @@ const RNP = (() => {
                 const dataAttr = numVal != null
                     ? ` data-rnp-value="${numVal}" data-rnp-row="${rowNum}" data-rnp-col-idx="${ci}" data-rnp-metric="${m.key}"`
                     : '';
-                return `<td class="${cls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${dataAttr}>${str ?? ''}</td>`;
+                // Today's orders_count is live/preliminary — WB publishes its own
+                // final per-day report ~1 day later, but its own funnel widget
+                // also shows a live-updating number for today, so we show ours
+                // live too rather than hiding it. Just mark it clearly so it's
+                // not mistaken for a finalized number. Only this metric, only
+                // today's day column, no popups/animations per longstanding
+                // project preference against UI interruptions.
+                const isLiveToday = isDay && isToday && m.key === 'orders_count';
+                const liveCls = isLiveToday ? ' rnp-cell-live' : '';
+                const liveBadge = isLiveToday
+                    ? '<sup class="rnp-live-badge" title="Данные за сегодня — предварительные и могут измениться в течение дня (обновляются из статистики WB в реальном времени, а не из финального отчёта).">•live</sup>'
+                    : '';
+                return `<td class="${cls}${liveCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${dataAttr}>${str ?? ''}${liveBadge}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',

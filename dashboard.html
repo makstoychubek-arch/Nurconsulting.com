@@ -1313,6 +1313,9 @@
         .rnp-sheet-table .rnp-section-hdr td { cursor: pointer; }
         .rnp-sheet-table .rnp-cell-week { background: rgba(99,102,241,0.05); }
         .rnp-sheet-table .rnp-cell-today { border-left: 2px solid var(--accent) !important; border-right: 2px solid var(--accent) !important; }
+        /* Preliminary/live indicator for today's orders_count cell (see rnp-module.js _renderSection) */
+        .rnp-sheet-table .rnp-cell-live { border-bottom: 1px dashed var(--accent) !important; position: relative; }
+        .rnp-live-badge { font-size: 6px; color: var(--accent); font-weight: 700; margin-left: 1px; cursor: help; opacity: 0.85; vertical-align: super; }
         .rnp-sheet-table .rnp-cell-month-start { border-left: 2px solid var(--accent) !important; }
         .rnp-sheet-table tbody tr:not(.rnp-row-plan):hover .rnp-metric-col,
         .rnp-sheet-table tbody tr:not(.rnp-row-plan):hover .rnp-spark-col {
