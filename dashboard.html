@@ -4187,6 +4187,8 @@
     let _loadRequestId = 0;
     window.currentCabinetId = currentCabinetId;
     window.__nrLoadRequestId = () => _loadRequestId;
+    window._rnpLastLoadedAt = window._rnpLastLoadedAt || 0;
+    window._rnpLoadedForCabinet = window._rnpLoadedForCabinet || null;
 
     // Загружает ВСЕ строки таблицы с пагинацией (обходит лимит Supabase 1000)
     async function fetchAllRows(table, filters, columns = '*') {
@@ -4426,7 +4428,15 @@
         if (name === 'seo' && hasUserCabinets) loadSeoKeywords();
         if (name === 'goods-groups' && hasUserCabinets) loadGoodsGroups();
         if (name === 'marking') initMarkingModule();
-        if (name === 'rnp' && hasUserCabinets && typeof RNP !== 'undefined') RNP.openMain();
+        if (name === 'rnp' && hasUserCabinets && typeof RNP !== 'undefined') {
+            const stale = Date.now() - (window._rnpLastLoadedAt || 0) > 10 * 60 * 1000;
+            const wrongCabinet = window._rnpLoadedForCabinet !== currentCabinetId;
+            if (stale || wrongCabinet) {
+                document.dispatchEvent(new CustomEvent('rnp-reload-requested'));
+            } else {
+                RNP.openMain();
+            }
+        }
         if (name === 'rnp-settings' && hasUserCabinets && typeof RNP !== 'undefined') RNP.openSettings();
         if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
         syncRailGroup(name);
@@ -7196,7 +7206,7 @@
     }
 </script>
     <script src="/dashboard-charts.js"></script>
-    <script src="/rnp-module.js?v=20260715-full-articles"></script>
+    <script src="/rnp-module.js?v=20260715-metrics-autorefresh"></script>
     <script src="/wb-formulas.js?v=20260703-photos9"></script>
 </body>
 </html>

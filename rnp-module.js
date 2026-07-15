@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260715-full-articles';
+    const RNP_BUILD = '20260715-metrics-autorefresh';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -29,6 +29,7 @@ const RNP = (() => {
     let _dataCache = {}; // nmId -> { date -> row }
     let _stockCache = {}; // nmId -> { size -> { wh, transit } }
     const _cabinetStateCache = new Map(); // cabinet_id -> { dataCache, stockCache, financeCache }
+    let _metricsCache = new Map(); // nmId -> aggregate metrics from wb_orders+wb_stocks
 
     const SIZE_ORDER = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL','4XL','5XL'];
     const ALL_SIZES = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL','4XL','5XL'];
@@ -346,6 +347,7 @@ const RNP = (() => {
     function _clearCabinetState() {
         _dataCache = {};
         _stockCache = {};
+        _metricsCache = new Map();
         _financeCache = { key: '', rows: [], ts: 0 };
         _notesCache = {};
         _articles = [];
@@ -402,6 +404,7 @@ const RNP = (() => {
             dataCache: { ..._dataCache },
             stockCache: JSON.parse(JSON.stringify(_stockCache)),
             financeCache: { ..._financeCache, rows: [...(_financeCache.rows || [])] },
+            metricsCache: new Map(_metricsCache),
         });
     }
 
@@ -411,6 +414,7 @@ const RNP = (() => {
         _dataCache = { ...snap.dataCache };
         _stockCache = JSON.parse(JSON.stringify(snap.stockCache));
         _financeCache = { ...snap.financeCache, rows: [...(snap.financeCache.rows || [])] };
+        _metricsCache = snap.metricsCache ? new Map(snap.metricsCache) : new Map();
         return true;
     }
 
@@ -1056,8 +1060,7 @@ const RNP = (() => {
         const liveKey = `${real.getFullYear()}-${String(real.getMonth() + 1).padStart(2, '0')}`;
         _refMonthKey = (!val || val === liveKey) ? null : val;
         try { localStorage.setItem('rnp_ref_month', _refMonthKey || ''); } catch (e) {}
-        const active = _articles.filter(a => a.is_active);
-        await _loadAllDailyData(active.map(a => a.nm_id));
+        await _loadRnpData();
         await _renderActiveTable();
     }
 
@@ -1864,28 +1867,35 @@ const RNP = (() => {
           <button type="button" class="rnp-action-btn" onclick="RNP.exportExcel()">Excel</button>
           <button type="button" class="rnp-action-btn rnp-action-btn--edit${_editMode ? ' active' : ''}" id="rnp-edit-mode-btn"
             onclick="RNP.toggleEditMode()" title="Режим выделения ячеек">${_editMode ? 'Готово' : 'Редактировать'}</button>
+          <span id="rnp-freshness" class="text-xs" style="color:var(--text-muted);margin-left:auto;white-space:nowrap"></span>
         </div>`;
     }
 
     function _summaryRowHtml(a, cal) {
         const raw = _dataCache[a.nm_id] || {};
         const kpi = _periodSummary(a, raw, cal);
+        const m = _metricsCache.get(String(a.nm_id));
         const st = _syncStatus(a.nm_id);
         const stock = _stockCache[a.nm_id] || {};
+        const stockTotal = _stockTotals(stock).total || (m ? m.stock + m.inWayTo + m.inWayFrom : 0);
         const alerts = _buildAlerts(a, stock, kpi);
+        if (m?.turnoverDays != null && m.turnoverDays > 60) {
+            alerts.push({ type: 'warn', text: `Оборач. ${m.turnoverDays} дн.` });
+        }
         const planCls = (kpi.plan_orders_pct || 0) >= 100 ? 'var(--green)' : (kpi.plan_orders_pct || 0) < 80 ? 'var(--red)' : 'var(--text-primary)';
         const profitCls = (kpi.profit || 0) >= 0 ? 'var(--green)' : 'var(--red)';
+        const orders = kpi.orders_count || m?.ordersCount || 0;
         return `<tr class="rnp-summary-row" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}">
           <td>${_syncDot(st.level)}</td>
           <td>${_imgHtml(a, '', 'c246x328', 'width:28px;height:36px;border-radius:12px;object-fit:cover')}</td>
           <td class="rnp-summary-name">${_sellerArticle(a)}</td>
           <td style="color:var(--text-muted)">${a.nm_id}</td>
-          <td>${Math.round(kpi.orders_count || 0)}</td>
+          <td>${Math.round(orders)}</td>
           <td style="color:${planCls}">${kpi.plan_orders_pct ? kpi.plan_orders_pct.toFixed(0) + '%' : '—'}</td>
           <td style="color:${profitCls}">${Math.round(kpi.profit || 0).toLocaleString('ru')}</td>
           <td>${kpi.margin_pct ? kpi.margin_pct.toFixed(1) + '%' : '—'}</td>
           <td>${kpi.drr_pct ? kpi.drr_pct.toFixed(1) + '%' : '—'}</td>
-          <td>${_stockTotals(stock).total}</td>
+          <td>${stockTotal}</td>
           <td>${alerts.length ? alerts.map(x => x.text).join('; ') : '—'}</td>
         </tr>`;
     }
@@ -2353,6 +2363,218 @@ const RNP = (() => {
             stock_total: stockWh + stockTr,
             updated_at: new Date().toISOString()
         };
+    }
+
+    // ─── CLIENT METRICS (wb_orders + wb_stocks) ───────────────────────────────
+    function _emptyArticle(nm) {
+        return {
+            nmId: nm, name: '', article: '', stock: 0, inWayTo: 0, inWayFrom: 0,
+            ordersCount: 0, ordersSum: 0, returns: 0,
+            salesCount: 0, salesSum: 0, avgPrice: 0, turnoverDays: null,
+        };
+    }
+
+    function _rnpMetricSettings() {
+        const opts = _settingsOptions?.() || {};
+        return {
+            taxRate: Number(opts.taxRate) > 0 ? Number(opts.taxRate) : 6,
+            buyoutRate: Number(_settings.buyoutRate) > 0 ? Number(_settings.buyoutRate) : 0.65,
+            periodDays: Math.max(1, Number(_settings.calcPeriod) || 30),
+        };
+    }
+
+    function _buildRnpMetrics(allOrders, allStocks, settings) {
+        const cfg = settings || _rnpMetricSettings();
+        const buyout = cfg.buyoutRate ?? 0.65;
+        const days = cfg.periodDays || 30;
+        const byNm = new Map();
+
+        for (const s of (allStocks || [])) {
+            const nm = String(s.nm_id);
+            if (!nm || nm === 'null') continue;
+            if (!byNm.has(nm)) byNm.set(nm, _emptyArticle(nm));
+            const a = byNm.get(nm);
+            a.stock += Number(s.quantity || 0);
+            a.inWayTo += Number(s.in_way_to_client || 0);
+            a.inWayFrom += Number(s.in_way_from_client || 0);
+        }
+
+        for (const o of (allOrders || [])) {
+            const nm = String(o.nm_id);
+            if (!nm || nm === 'null') continue;
+            if (!byNm.has(nm)) byNm.set(nm, _emptyArticle(nm));
+            const a = byNm.get(nm);
+            if (o.is_return) { a.returns++; continue; }
+            a.ordersCount++;
+            a.ordersSum += Number(o.price || 0);
+            const d = o.data || {};
+            if (!a.name) a.name = String(d.subject || d.supplierArticle || '').trim();
+            if (!a.article && d.supplierArticle) a.article = String(d.supplierArticle);
+        }
+
+        for (const a of byNm.values()) {
+            a.salesCount = Math.round(a.ordersCount * buyout);
+            a.salesSum = Math.round(a.ordersSum * buyout);
+            a.avgPrice = a.ordersCount > 0 ? Math.round(a.ordersSum / a.ordersCount) : 0;
+            const perDay = a.ordersCount / days;
+            a.turnoverDays = perDay > 0 ? Math.round(a.stock / perDay) : null;
+        }
+        return byNm;
+    }
+
+    function _populateDataCacheFromOrders(orders, nmIds, cal, settings) {
+        const cfg = settings || _rnpMetricSettings();
+        const buyout = cfg.buyoutRate ?? 0.65;
+        const dateSet = new Set(_calAllDates(cal));
+        const idSet = new Set((nmIds || []).map(Number));
+        const today = new Date().toISOString().split('T')[0];
+
+        (nmIds || []).forEach(id => { _dataCache[id] = _dataCache[id] || {}; });
+
+        const buckets = {};
+        (orders || []).forEach(o => {
+            const nm = Number(o.nm_id);
+            if (!idSet.has(nm)) return;
+            const date = (o.order_date || '').split('T')[0];
+            if (!date || !dateSet.has(date)) return;
+            const key = `${nm}:${date}`;
+            if (!buckets[key]) buckets[key] = { count: 0, sum: 0, returns: 0 };
+            if (o.is_return) { buckets[key].returns++; return; }
+            buckets[key].count++;
+            buckets[key].sum += Number(o.price || 0);
+        });
+
+        Object.entries(buckets).forEach(([key, b]) => {
+            const [nmStr, date] = key.split(':');
+            const salesCount = Math.round(b.count * buyout);
+            const salesSum = Math.round(b.sum * buyout);
+            _dataCache[nmStr][date] = {
+                cabinet_id: _cab,
+                nm_id: Number(nmStr),
+                date,
+                orders_count: b.count,
+                orders_sum: b.sum,
+                returns_count: b.returns,
+                sales_count: salesCount,
+                sales_sum: salesSum,
+                avg_check: b.count > 0 ? b.sum / b.count : 0,
+                buyout_pct: buyout * 100,
+                to_transfer: salesSum > 0 ? Math.round(salesSum * 0.72) : 0,
+                updated_at: new Date().toISOString(),
+            };
+        });
+
+        // Текущие остатки на последний день периода
+        idSet.forEach(nm => {
+            const m = _metricsCache.get(String(nm));
+            if (!m) return;
+            const anchor = dateSet.has(today) ? today : [...dateSet].sort().pop();
+            if (!anchor) return;
+            const row = _dataCache[nm]?.[anchor] || {
+                cabinet_id: _cab, nm_id: nm, date: anchor, updated_at: new Date().toISOString(),
+            };
+            row.stock_warehouse = m.stock;
+            row.stock_transit = m.inWayTo + m.inWayFrom;
+            row.stock_total = m.stock + m.inWayTo + m.inWayFrom;
+            if (!_dataCache[nm]) _dataCache[nm] = {};
+            _dataCache[nm][anchor] = row;
+        });
+    }
+
+    function _applyStocksToCache(allStocks, nmIds) {
+        const idSet = new Set((nmIds || []).map(Number));
+        (nmIds || []).forEach(id => { _stockCache[id] = {}; });
+        (allStocks || []).forEach(s => {
+            const nm = s.nm_id;
+            if (!idSet.has(Number(nm))) return;
+            if (!_stockCache[nm]) _stockCache[nm] = {};
+            const size = _normSize(s.tech_size || s.techSize || s.size || '');
+            if (size === '—') return;
+            if (!_stockCache[nm][size]) _stockCache[nm][size] = { wh: 0, transit: 0 };
+            _stockCache[nm][size].wh += Number(s.quantity || 0);
+            _stockCache[nm][size].transit +=
+                Number(s.in_way_to_client || s.inWayToClient || 0) +
+                Number(s.in_way_from_client || s.inWayFromClient || 0);
+        });
+    }
+
+    async function _mergeFinanceDailyFromDb(nmIds, cal) {
+        const allDates = _calAllDates(cal);
+        if (!allDates.length || !nmIds.length) return;
+        const idSet = new Set(nmIds.map(Number));
+        try {
+            const data = await _fetchAllRows('rnp_daily_data', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'gte', column: 'date', value: allDates[0] },
+                { op: 'lte', column: 'date', value: allDates[allDates.length - 1] },
+            ]);
+            (data || []).forEach(r => {
+                if (!idSet.has(Number(r.nm_id))) return;
+                if (!_dataCache[r.nm_id]) _dataCache[r.nm_id] = {};
+                const client = _dataCache[r.nm_id][r.date] || {};
+                _dataCache[r.nm_id][r.date] = {
+                    ...r,
+                    orders_count: client.orders_count || r.orders_count || 0,
+                    orders_sum: client.orders_sum || r.orders_sum || 0,
+                    sales_count: client.sales_count || r.sales_count || 0,
+                    sales_sum: client.sales_sum || r.sales_sum || 0,
+                    stock_warehouse: client.stock_warehouse ?? r.stock_warehouse,
+                    stock_transit: client.stock_transit ?? r.stock_transit,
+                    stock_total: client.stock_total ?? r.stock_total,
+                };
+            });
+        } catch (e) { console.warn('[RNP] merge finance daily:', e.message); }
+    }
+
+    async function _loadRnpData() {
+        const snapReq = _loadRequestId();
+        const snapCab = _cab;
+        if (!_cab || !_db) return false;
+
+        const active = _articles.filter(a => a.is_active);
+        const nmIds = active.map(a => a.nm_id);
+        const cal = _buildCalendar();
+        const allDates = _calAllDates(cal);
+        const today = new Date().toISOString().split('T')[0];
+        const dateFrom = allDates[0] || '2026-01-01';
+        const dateTo = allDates[allDates.length - 1] || today;
+
+        const orders = await _fetchAllRows('wb_orders', [
+            { op: 'eq', column: 'cabinet_id', value: _cab },
+            { op: 'gte', column: 'order_date', value: dateFrom },
+            { op: 'lte', column: 'order_date', value: dateTo },
+        ], 'nm_id, order_date, price, is_return, data');
+        if (_isStaleLoad(snapReq, snapCab)) return false;
+
+        const stocks = await _fetchAllRows('wb_stocks', [
+            { op: 'eq', column: 'cabinet_id', value: _cab },
+        ]);
+        if (_isStaleLoad(snapReq, snapCab)) return false;
+
+        const settings = _rnpMetricSettings();
+        settings.periodDays = cal.days?.length || cal.months?.[0]?.dates?.length || settings.periodDays;
+        _metricsCache = _buildRnpMetrics(orders, stocks, settings);
+        _populateDataCacheFromOrders(orders, nmIds, cal, settings);
+        _applyStocksToCache(stocks, nmIds);
+        await _mergeFinanceDailyFromDb(nmIds, cal);
+        if (_isStaleLoad(snapReq, snapCab)) return false;
+
+        _syncAllOrdersHistory(nmIds).catch(e => console.warn('[RNP] bg orders cache:', e.message));
+
+        window._rnpLastLoadedAt = Date.now();
+        window._rnpLoadedForCabinet = _cab;
+        _updateRnpFreshness();
+        console.info('[RNP] loaded', orders.length, 'orders,', stocks.length, 'stocks,', _metricsCache.size, 'articles');
+        return true;
+    }
+
+    function _updateRnpFreshness() {
+        const el = document.getElementById('rnp-freshness');
+        if (!el) return;
+        const ts = window._rnpLastLoadedAt;
+        if (!ts) { el.textContent = ''; return; }
+        const min = Math.round((Date.now() - ts) / 60000);
+        el.textContent = min < 1 ? 'данные свежие' : `обновлено ${min} мин назад`;
     }
 
     // ─── HISTORICAL ORDERS SYNC (from wb_orders table) ───────────────────────
@@ -3173,11 +3395,7 @@ const RNP = (() => {
         try {
             const snapReq = _loadRequestId();
             const snapCab = _cab;
-            await _syncAllOrdersHistory(active.map(a => a.nm_id));
-            if (_isStaleLoad(snapReq, snapCab)) return;
-            await _loadAllDailyData(active.map(a => a.nm_id));
-            if (_isStaleLoad(snapReq, snapCab)) return;
-            await _loadAllStocks(active.map(a => a.nm_id));
+            await _loadRnpData();
             if (_isStaleLoad(snapReq, snapCab)) return;
             await _loadNotes(active.map(a => a.nm_id));
             _hydratePhotoCacheFromStorage();
@@ -3883,13 +4101,7 @@ const RNP = (() => {
         if (!active.length) return;
         if (btn) btn.disabled = true;
 
-        for (let i = 0; i < active.length; i++) {
-            await refresh(active[i].nm_id);
-        }
-
-        _invalidateCache();
-        await _loadAllDailyData(active.map(a => a.nm_id));
-        await _loadAllStocks(active.map(a => a.nm_id));
+        await _loadRnpData();
         _notesCache = {};
         await _loadNotes(active.map(a => a.nm_id));
         await _renderActiveTable();
@@ -3904,15 +4116,56 @@ const RNP = (() => {
     }
 
     let _cabinetListenerBound = false;
+    let _autoRefreshBound = false;
+
     function _bindCabinetListener() {
         if (_cabinetListenerBound) return;
         _cabinetListenerBound = true;
         document.addEventListener('cabinet-changed', () => {
             _initGen++;
+            window._rnpLastLoadedAt = 0;
+            window._rnpLoadedForCabinet = null;
             _clearRnpMainUI();
         });
     }
+
+    function _bindAutoRefresh() {
+        if (_autoRefreshBound) return;
+        _autoRefreshBound = true;
+
+        document.addEventListener('rnp-reload-requested', async () => {
+            const snapReq = _loadRequestId();
+            const snapCab = _cab;
+            await _loadRnpData();
+            if (_isStaleLoad(snapReq, snapCab)) return;
+            if (!document.getElementById('tab-rnp')?.classList.contains('active')) return;
+            if (document.getElementById('rnp-sheet-body')) {
+                await _renderActiveTable();
+            } else {
+                await openMain();
+            }
+        });
+
+        setInterval(() => {
+            const rnpTab = document.getElementById('tab-rnp');
+            if (rnpTab?.classList.contains('active') && !document.hidden) {
+                document.dispatchEvent(new CustomEvent('rnp-reload-requested'));
+            }
+        }, 30 * 60 * 1000);
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) return;
+            const rnpTab = document.getElementById('tab-rnp');
+            if (!rnpTab?.classList.contains('active')) return;
+            const stale = Date.now() - (window._rnpLastLoadedAt || 0) > 10 * 60 * 1000;
+            if (stale) document.dispatchEvent(new CustomEvent('rnp-reload-requested'));
+        });
+
+        setInterval(_updateRnpFreshness, 60000);
+    }
+
     _bindCabinetListener();
+    _bindAutoRefresh();
 
     return { init, openSettings, openMain, pick, syncArts, resyncArticles, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
