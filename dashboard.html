@@ -1394,6 +1394,38 @@
         }
         .rnp-sheet-table tr.rnp-row-plan:hover .rnp-metric-col,
         .rnp-sheet-table tr.rnp-row-plan:hover .rnp-spark-col { background: var(--surface-solid) !important; }
+
+        /* ── Планирование (Задача 3) ─────────────────────────────────────── */
+        .plan-grid-wrap { overflow: auto; max-height: 70vh; border: 1px solid var(--border); border-radius: 12px; }
+        .plan-grid-table { border-collapse: separate; border-spacing: 0; font-size: 11px; white-space: nowrap; }
+        .plan-grid-table th, .plan-grid-table td { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); padding: 0; }
+        .plan-grid-table thead th {
+            position: sticky; top: 0; z-index: 3; background: var(--surface-solid);
+            color: var(--text-muted); font-weight: 600; padding: 6px 8px; text-align: center;
+        }
+        .plan-grid-table .plan-art-col {
+            position: sticky; left: 0; z-index: 4; background: var(--surface-solid);
+            text-align: left; padding: 6px 10px; min-width: 190px; max-width: 220px;
+            white-space: normal; color: var(--text-primary); font-weight: 500;
+        }
+        .plan-grid-table thead th.plan-art-col { z-index: 5; }
+        .plan-grid-table .plan-art-nm { color: var(--text-muted); font-size: 10px; }
+        .plan-grid-table .plan-cell-today { background: rgba(59,130,246,0.06); }
+        .plan-cell-input {
+            width: 62px; height: 28px; padding: 0 4px; margin: 0; text-align: center;
+            font-size: 11px; border: none; border-radius: 0; background: transparent;
+            color: var(--text-primary); font-family: inherit; -moz-appearance: textfield;
+        }
+        .plan-cell-input::-webkit-outer-spin-button, .plan-cell-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .plan-cell-input:hover { background: rgba(128,128,128,0.08); }
+        .plan-cell-input:focus { outline: none; background: var(--accent-soft); }
+        .plan-cell-input.plan-cell-dirty { background: rgba(245,158,11,0.14); }
+        .plan-metric-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+        .plan-metric-tab {
+            padding: 6px 12px; border-radius: 8px; font-size: 11px; cursor: pointer;
+            border: 1px solid var(--border); color: var(--text-muted); background: var(--surface);
+        }
+        .plan-metric-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
         #premium-modal {
             position: fixed; inset: 0; z-index: 99999;
             display: flex; align-items: center; justify-content: center;
@@ -2724,6 +2756,10 @@
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
                     <span>Настройки РНП</span>
                 </div>
+                <div class="nav-item" onclick="showTab('planning', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg>
+                    <span>Планирование</span>
+                </div>
             </div>
         </div>
 
@@ -3441,6 +3477,33 @@
             </div>
         </div>
 
+        <div id="tab-planning" class="tab-content space-y-4">
+            <div class="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                    <h3 class="font-semibold text-sm" style="color:var(--text-primary)">Планирование</h3>
+                    <p class="text-xs" style="color:var(--text-muted)">Плановые показатели по артикулам и датам. Автоматически подтягиваются в РНП — копировать вручную не нужно.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span id="plan-save-status" class="text-xs" style="color:var(--text-muted)"></span>
+                    <button class="ui-btn ui-btn-secondary text-sm" onclick="reloadPlanningGrid()">↻ Обновить</button>
+                </div>
+            </div>
+            <div class="module-date-bar">
+                <div class="module-date-chip active" onclick="toggleModuleDatePicker(event, this)">
+                    <span class="date-pulse-dot"></span><span>📅</span>
+                    <span class="module-date-label">Период</span><span style="opacity:0.5;font-size:10px">▼</span>
+                </div>
+                <span class="text-xs" style="color:var(--text-muted)">Даты, для которых показываются и редактируются планы</span>
+            </div>
+            <div class="plan-metric-tabs" id="plan-metric-tabs"></div>
+            <div class="widget-card p-3">
+                <div id="plan-grid-container" class="plan-grid-wrap">
+                    <div class="p-10 text-center text-sm" style="color:var(--text-muted)">Загрузка артикулов...</div>
+                </div>
+                <p class="text-xs mt-2" style="color:var(--text-muted)">Совет: можно вставить диапазон из Excel — выделите ячейку и нажмите Ctrl+V, значения заполнят соседние дни/артикулы. Изменения сохраняются автоматически.</p>
+            </div>
+        </div>
+
         <div id="tab-settings" class="tab-content">
             <div id="space-pending-banner" class="space-pending-banner hidden">
                 Ваш спейс ожидает активации администратором. Пока синхронизация с Wildberries и Edge-функции отключены.
@@ -3789,7 +3852,7 @@
             if (showEmpty) {
                 filtersBar.style.display = 'none';
             } else {
-                const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics']);
+                const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning']);
                 filtersBar.style.display = DATE_FILTER_TABS.has(tab) ? 'flex' : 'none';
             }
         }
@@ -4475,14 +4538,14 @@
         dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт',
         dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно',
         cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады',
-        rnp:'Модуль РНП', 'rnp-settings':'Настройки РНП',
+        rnp:'Модуль РНП', 'rnp-settings':'Настройки РНП', planning:'Планирование',
         'ab-testing':'А/Б Тесты', advertising:'Контроль РК', seo:'SEO-Позиции', marking:'Маркировка & ШК', logistics:'Логистика & Поставки',
         settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики',
     };
 
     const TAB_GROUP = {
         dashboard:'ocr', summary:'ocr', 'summary-biz':'ocr', deductions:'ocr', 'plan-fact':'ocr',
-        rnp:'rnp', 'rnp-settings':'rnp',
+        rnp:'rnp', 'rnp-settings':'rnp', planning:'rnp',
         'ab-testing':'beta', advertising:'beta', seo:'beta', marking:'beta', logistics:'beta',
         cost:'goods', 'goods-groups':'goods', warehouse:'goods',
         dds:'finance', operations:'finance', obligations:'finance', 'finance-extra':'finance',
@@ -4530,7 +4593,7 @@
             });
         }
         document.getElementById('page-title').textContent = tabTitles[name] || name;
-        const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics']);
+        const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning']);
         const filtersBar = document.getElementById('top-filters-bar');
         if (filtersBar) {
             filtersBar.style.display = DATE_FILTER_TABS.has(name) ? 'flex' : 'none';
@@ -4561,6 +4624,7 @@
             }
         }
         if (name === 'rnp-settings' && hasUserCabinets && typeof RNP !== 'undefined') RNP.openSettings();
+        if (name === 'planning' && hasUserCabinets) loadPlanningTab();
         if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
         syncRailGroup(name);
         syncModuleUrl(name);
@@ -4690,6 +4754,231 @@
         }
     }
     window.syncAdvertisingNow = syncAdvertisingNow;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // Планирование (Задача 3): plan quantities per article+date, stored in the
+    // dedicated `rnp_plans` table (single source of truth, shared with RNP —
+    // see rnp-module.js). Bulk-friendly: cell edits are queued and flushed as
+    // one batched upsert (debounced), not one request per keystroke.
+    // ═══════════════════════════════════════════════════════════════════════
+    const PLAN_METRICS = [
+        { key: 'planned_orders',      label: 'План заказов' },
+        { key: 'planned_sales',       label: 'План продаж' },
+        { key: 'planned_impressions', label: 'План показов' },
+        { key: 'planned_clicks',      label: 'План кликов РК' },
+        { key: 'planned_drr',         label: 'ДРР % план' },
+        { key: 'planned_ad_spend',    label: 'Расход РК план' },
+    ];
+    let _planActiveMetric = 'planned_orders';
+    let _planArticles = [];           // [{ nm_id, name }]
+    let _planRows = {};               // nm_id -> plan_date -> row (from DB)
+    let _planDirty = new Map();       // "nmId|date" -> { nm_id, plan_date, [metric]: value }
+    let _planFlushTimer = null;
+    let _planLoadRequestId = 0;
+    window._planLoadedForCabinet = null;
+
+    function _planDebounceFlush() {
+        if (_planFlushTimer) clearTimeout(_planFlushTimer);
+        _planFlushTimer = setTimeout(_planFlushPending, 700);
+        // Bulk-paste safety net: if a lot of cells get dirtied in one go, flush sooner.
+        if (_planDirty.size >= 40) { clearTimeout(_planFlushTimer); _planFlushPending(); }
+    }
+
+    async function _planFlushPending() {
+        if (_planFlushTimer) { clearTimeout(_planFlushTimer); _planFlushTimer = null; }
+        if (!_planDirty.size || !hasUserCabinets || !currentCabinetId) return;
+        const rows = Array.from(_planDirty.values()).map(r => ({ ...r, cabinet_id: currentCabinetId, updated_at: new Date().toISOString() }));
+        _planDirty.clear();
+        const statusEl = document.getElementById('plan-save-status');
+        if (statusEl) statusEl.textContent = `сохранение ${rows.length}...`;
+        try {
+            const { error } = await supabase.from('rnp_plans').upsert(rows, { onConflict: 'cabinet_id,nm_id,plan_date' });
+            if (error) throw error;
+            rows.forEach(r => {
+                if (!_planRows[r.nm_id]) _planRows[r.nm_id] = {};
+                _planRows[r.nm_id][r.plan_date] = { ..._planRows[r.nm_id][r.plan_date], ...r };
+            });
+            document.querySelectorAll('.plan-cell-input.plan-cell-dirty').forEach(el => el.classList.remove('plan-cell-dirty'));
+            if (statusEl) { statusEl.textContent = 'сохранено ✓'; setTimeout(() => { if (statusEl.textContent === 'сохранено ✓') statusEl.textContent = ''; }, 2000); }
+            document.dispatchEvent(new CustomEvent('rnp-plans-changed', { detail: { source: 'planning', cabinetId: currentCabinetId } }));
+        } catch (e) {
+            console.error('[planning] flush failed:', e.message);
+            if (statusEl) statusEl.textContent = 'ошибка сохранения';
+        }
+    }
+    window.addEventListener('beforeunload', () => { if (_planDirty.size) _planFlushPending(); });
+
+    function renderPlanMetricTabs() {
+        const wrap = document.getElementById('plan-metric-tabs');
+        if (!wrap) return;
+        wrap.innerHTML = PLAN_METRICS.map(m =>
+            `<div class="plan-metric-tab${m.key === _planActiveMetric ? ' active' : ''}" onclick="setPlanMetric('${m.key}')">${m.label}</div>`
+        ).join('');
+    }
+
+    function setPlanMetric(key) {
+        if (key === _planActiveMetric) return;
+        _planFlushPending();
+        _planActiveMetric = key;
+        renderPlanMetricTabs();
+        renderPlanGrid();
+    }
+    window.setPlanMetric = setPlanMetric;
+
+    function _planDateList() {
+        const { from, to } = getActiveDateRange();
+        const dates = [];
+        let cur = new Date(from + 'T12:00:00');
+        const end = new Date(to + 'T12:00:00');
+        while (cur <= end && dates.length < 62) { // safety cap — keeps the grid usable/fast
+            dates.push(cur.toISOString().split('T')[0]);
+            cur.setDate(cur.getDate() + 1);
+        }
+        return dates;
+    }
+
+    async function loadPlanningTab() {
+        if (!hasUserCabinets || !currentCabinetId) return;
+        const container = document.getElementById('plan-grid-container');
+        if (!container) return;
+        const requestId = ++_planLoadRequestId;
+        const snapshotCabinet = currentCabinetId;
+
+        const [articles, planRows] = await Promise.all([
+            fetchAllRows('rnp_articles', [
+                { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
+                { op: 'eq', column: 'is_active', value: true },
+            ], 'nm_id,name,manual_data'),
+            fetchAllRows('rnp_plans', [
+                { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
+            ]),
+        ]);
+        if (requestId !== _planLoadRequestId || snapshotCabinet !== currentCabinetId) return;
+
+        _planArticles = (articles || [])
+            .map(a => ({ nm_id: a.nm_id, name: a.manual_data?.seller_article || a.name || String(a.nm_id) }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
+        _planRows = {};
+        (planRows || []).forEach(r => {
+            if (!_planRows[r.nm_id]) _planRows[r.nm_id] = {};
+            _planRows[r.nm_id][r.plan_date] = r;
+        });
+        window._planLoadedForCabinet = snapshotCabinet;
+
+        renderPlanMetricTabs();
+        renderPlanGrid();
+    }
+    window.loadPlanningTab = loadPlanningTab;
+
+    function reloadPlanningGrid() {
+        _planFlushPending();
+        loadPlanningTab();
+    }
+    window.reloadPlanningGrid = reloadPlanningGrid;
+
+    function renderPlanGrid() {
+        const container = document.getElementById('plan-grid-container');
+        if (!container) return;
+        if (!_planArticles.length) {
+            container.innerHTML = '<div class="p-10 text-center text-sm" style="color:var(--text-muted)">Нет активных артикулов РНП. Активируйте артикулы в модуле РНП.</div>';
+            return;
+        }
+        const dates = _planDateList();
+        const todayStr = new Date().toISOString().split('T')[0];
+        const metric = _planActiveMetric;
+
+        const head = `<tr><th class="plan-art-col">Артикул</th>${dates.map(d => {
+            const [, m, dd] = d.split('-');
+            return `<th class="${d === todayStr ? 'plan-cell-today' : ''}">${dd}.${m}</th>`;
+        }).join('')}</tr>`;
+
+        const body = _planArticles.map(a => {
+            const cells = dates.map(d => {
+                const v = _planRows[a.nm_id]?.[d]?.[metric];
+                const val = v != null ? v : '';
+                return `<td class="${d === todayStr ? 'plan-cell-today' : ''}"><input type="text" inputmode="decimal" class="plan-cell-input"
+                    value="${val}" data-nm="${a.nm_id}" data-date="${d}"
+                    onfocus="_planCellFocus(this)" onblur="_planCellCommit(this)"
+                    onkeydown="_planCellKeydown(event,this)" onpaste="_planCellPaste(event,this)"></td>`;
+            }).join('');
+            return `<tr><td class="plan-art-col">${a.name}<div class="plan-art-nm">${a.nm_id}</div></td>${cells}</tr>`;
+        }).join('');
+
+        container.innerHTML = `<table class="plan-grid-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+    }
+
+    function _planCellFocus(el) { el.dataset.prev = el.value; }
+
+    function _planQueueCell(nmId, date, value) {
+        const num = value === '' ? null : (parseFloat(String(value).replace(',', '.')) || 0);
+        const key = `${nmId}|${date}`;
+        const existing = _planDirty.get(key) || { nm_id: Number(nmId), plan_date: date };
+        existing[_planActiveMetric] = num;
+        _planDirty.set(key, existing);
+    }
+
+    function _planCellCommit(el) {
+        if (el.value === el.dataset.prev) return;
+        el.classList.add('plan-cell-dirty');
+        _planQueueCell(el.dataset.nm, el.dataset.date, el.value);
+        _planDebounceFlush();
+    }
+
+    function _planCellKeydown(ev, el) {
+        // Excel-like arrow navigation between cells of the grid.
+        const map = { ArrowRight: [0, 1], ArrowLeft: [0, -1], ArrowUp: [-1, 0], ArrowDown: [1, 0], Enter: [1, 0] };
+        const move = map[ev.key];
+        if (!move) return;
+        const td = el.closest('td');
+        const tr = td?.closest('tr');
+        const table = tr?.closest('table');
+        if (!td || !tr || !table) return;
+        const rowIdx = Array.from(table.querySelectorAll('tbody tr')).indexOf(tr);
+        const colIdx = Array.from(tr.children).indexOf(td) - 1; // minus sticky article column
+        if (rowIdx < 0 || colIdx < 0) return;
+        ev.preventDefault();
+        const rows = table.querySelectorAll('tbody tr');
+        const targetRow = rows[rowIdx + move[0]];
+        if (!targetRow) return;
+        const targetCell = targetRow.children[colIdx + 1 + move[1]];
+        const input = targetCell?.querySelector('input');
+        if (input) { input.focus(); input.select(); }
+    }
+
+    /** Excel/clipboard paste: fills the pasted TSV grid starting at the focused
+     *  cell, across dates (columns) and articles (rows) — the "fast bulk
+     *  editing" shortcut for filling dozens/hundreds of cells at once. */
+    function _planCellPaste(ev, el) {
+        const text = (ev.clipboardData || window.clipboardData)?.getData('text');
+        if (!text || !text.includes('\t') && !text.includes('\n')) return; // let default paste happen for a single value
+        ev.preventDefault();
+        const gridRows = text.replace(/\r/g, '').split('\n').filter(r => r.length).map(r => r.split('\t'));
+        const td = el.closest('td');
+        const tr = td?.closest('tr');
+        const table = tr?.closest('table');
+        if (!td || !tr || !table) return;
+        const bodyRows = Array.from(table.querySelectorAll('tbody tr'));
+        const startRow = bodyRows.indexOf(tr);
+        const startCol = Array.from(tr.children).indexOf(td);
+        gridRows.forEach((rowVals, ri) => {
+            const targetRow = bodyRows[startRow + ri];
+            if (!targetRow) return;
+            rowVals.forEach((cellVal, ci) => {
+                const targetCell = targetRow.children[startCol + ci];
+                const input = targetCell?.querySelector('input');
+                if (!input) return;
+                const v = cellVal.trim();
+                input.value = v;
+                input.classList.add('plan-cell-dirty');
+                _planQueueCell(input.dataset.nm, input.dataset.date, v);
+            });
+        });
+        _planDebounceFlush();
+    }
+    window._planCellFocus = _planCellFocus;
+    window._planCellCommit = _planCellCommit;
+    window._planCellKeydown = _planCellKeydown;
+    window._planCellPaste = _planCellPaste;
 
     let goodsGroupsRows = [];
 
@@ -4960,6 +5249,7 @@
         if (name === 'dashboard' || name === 'summary') loadFromDB(activeDateFrom, activeDateTo);
         else if (name === 'advertising') loadAdvertisingFromDB();
         else if (name === 'logistics') filterSuppliesByDate();
+        else if (name === 'planning') loadPlanningTab();
     }
 
     function toggleModuleDatePicker(e, el) {
@@ -5244,6 +5534,14 @@
         const advFreshEl = document.getElementById('adv-freshness');
         if (advFreshEl) advFreshEl.textContent = '';
 
+        // Планирование (Задача 3): сбрасываем сетку сразу же без анимации,
+        // чтобы план старого кабинета не "просвечивал" — перезагрузка из БД
+        // для нового кабинета произойдёт ниже, только если вкладка открыта.
+        _planFlushPending();
+        window._planLoadedForCabinet = null;
+        const planGridEl = document.getElementById('plan-grid-container');
+        if (planGridEl) planGridEl.innerHTML = '<div class="p-10 text-center text-sm" style="color:var(--text-muted)">Загрузка артикулов...</div>';
+
         showCabinetTransition(newCabinetName, async () => {
             await loadFromDB();
             await loadLastSyncTime();
@@ -5257,6 +5555,7 @@
             if (curTab === 'logistics') initLogisticsSupplies();
             if (curTab === 'goods-groups') loadGoodsGroups();
             if (curTab === 'advertising') openAdvertisingTab();
+            if (curTab === 'planning') loadPlanningTab();
         });
     }
 

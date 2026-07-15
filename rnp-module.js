@@ -27,6 +27,7 @@ const RNP = (() => {
     let _collapsedSections = new Set();
     let _financeCache = { key: '', rows: [], ts: 0 };
     let _dataCache = {}; // nmId -> { date -> row }
+    let _planCache = {}; // nmId -> { 'YYYY-MM-DD' -> rnp_plans row } — Задача 3: planning source of truth
     let _stockCache = {}; // nmId -> { size -> { wh, transit } }
     const _cabinetStateCache = new Map(); // cabinet_id -> { dataCache, stockCache, financeCache }
     let _metricsCache = new Map(); // nmId -> aggregate metrics from wb_orders+wb_stocks
@@ -36,6 +37,17 @@ const RNP = (() => {
     const GALLERY_SIZE = 6;
     const GALLERY_DEFAULT_COMMENTS = ['', 'Нестабильно', 'СВЕРХ-КОСТЮМ', 'Рекламная таблица', 'Размерная сетка', 'Выход в прибыль'];
     const PLAN_KEYS = ['plan_orders','plan_sales','plan_impressions','plan_clicks','plan_drr','plan_ad_spend'];
+    // Задача 3: raw planned quantities live in the dedicated `rnp_plans` table
+    // (one row per cabinet+nm_id+plan_date), populated from the "Планирование"
+    // section. This maps the legacy in-code plan metric keys to the DB columns.
+    const PLAN_KEY_TO_COLUMN = {
+        plan_orders: 'planned_orders',
+        plan_sales: 'planned_sales',
+        plan_impressions: 'planned_impressions',
+        plan_clicks: 'planned_clicks',
+        plan_drr: 'planned_drr',
+        plan_ad_spend: 'planned_ad_spend',
+    };
     const SUMMARY_TAB = 'summary';
     const GENERAL_TAB = 'general';
     const UNCATEGORIZED = 'Без категории';
@@ -1269,28 +1281,28 @@ const RNP = (() => {
         if (cal.mode === 'month') {
             const allDates = cal.months.flatMap(m => m.dates);
             const totalCol = {
-                type: 'total', colKey: 'ytd-total', label: 'ИТОГ',
-                data: _applyColPlans(_derive(_aggWeek(rawData, allDates), art), art, 'ytd-total'),
+                type: 'total', colKey: 'ytd-total', label: 'ИТОГ', dates: allDates,
+                data: _applyColPlans(_derive(_aggWeek(rawData, allDates), art), art, allDates),
             };
             const monthCols = cal.months.map(m => {
                 const agg = _derive(_aggWeek(rawData, m.dates), art);
-                return { ...m, data: _applyColPlans(agg, art, m.colKey) };
+                return { ...m, data: _applyColPlans(agg, art, m.dates) };
             });
             return [totalCol, ...monthCols];
         }
         const weekCols = cal.weeks.map(w => {
             const colKey = w.weekStart || w.dates[0];
             const agg = _derive(_aggWeek(rawData, w.dates), art);
-            return { ...w, colKey, data: _applyColPlans(agg, art, colKey) };
+            return { ...w, colKey, data: _applyColPlans(agg, art, w.dates) };
         });
         const allPrevDates = cal.weeks.flatMap(w => w.dates);
         const totalCol = allPrevDates.length ? {
-            type: 'total', colKey: 'prev-total', label: 'ИТОГ',
-            data: _applyColPlans(_derive(_aggWeek(rawData, allPrevDates), art), art, 'prev-total'),
+            type: 'total', colKey: 'prev-total', label: 'ИТОГ', dates: allPrevDates,
+            data: _applyColPlans(_derive(_aggWeek(rawData, allPrevDates), art), art, allPrevDates),
         } : null;
         const dayCols = cal.days.map(d => {
             const derived = _derive(rawData[d.date] || null, art);
-            return { ...d, colKey: d.date, data: _applyColPlans(derived, art, d.date) };
+            return { ...d, colKey: d.date, dates: [d.date], data: _applyColPlans(derived, art, [d.date]) };
         });
         return totalCol ? [...weekCols, totalCol, ...dayCols] : [...weekCols, ...dayCols];
     }
@@ -1330,16 +1342,33 @@ const RNP = (() => {
         } catch (e) { console.warn('[RNP] load stocks:', e.message); }
     }
 
-    function _planVal(art, key, colKey) {
-        const v = art.manual_data?.plans?.[colKey]?.[key];
+    /** Sum a raw planned metric (JS key, e.g. 'plan_orders') from _planCache
+     *  across a list of dates. Returns null when no plan row covers any of
+     *  those dates (so the UI can show a blank cell instead of "0"). */
+    function _planSum(nmId, dates, jsKey) {
+        const col = PLAN_KEY_TO_COLUMN[jsKey];
+        const byDate = _planCache[nmId];
+        if (!col || !byDate || !dates?.length) return null;
+        let sum = 0, any = false;
+        dates.forEach(dt => {
+            const v = byDate[dt]?.[col];
+            if (v != null) { sum += Number(v) || 0; any = true; }
+        });
+        return any ? sum : null;
+    }
+
+    function _planVal(art, key, dates) {
+        const ds = Array.isArray(dates) ? dates : [dates];
+        const v = _planSum(art.nm_id, ds, key);
         return (v != null && v !== '') ? v : '';
     }
 
-    function _applyColPlans(data, art, colKey) {
+    function _applyColPlans(data, art, dates) {
         const d = data ? { ...data } : {};
-        const md = art.manual_data?.plans?.[colKey] || {};
+        const ds = Array.isArray(dates) ? dates : [dates];
         PLAN_KEYS.forEach(k => {
-            if (md[k] != null && md[k] !== '') d[k] = Number(md[k]);
+            const v = _planSum(art.nm_id, ds, k);
+            if (v != null) d[k] = v;
         });
         d.plan_orders_pct = d.plan_orders > 0 ? (d.orders_count || 0) / d.plan_orders * 100 : 0;
         d.plan_sales_pct  = d.plan_sales  > 0 ? (d.sales_count  || 0) / d.plan_sales  * 100 : 0;
@@ -1359,14 +1388,15 @@ const RNP = (() => {
                 || cal.months[0];
             if (!cur) return {};
             const dates = cur.dates.filter(d => d <= cal.todayStr);
-            const agg = _aggWeek(rawData, dates.length ? dates : cur.dates);
-            return _applyColPlans(_derive(agg, art), art, cur.colKey);
+            const useDates = dates.length ? dates : cur.dates;
+            const agg = _aggWeek(rawData, useDates);
+            return _applyColPlans(_derive(agg, art), art, useDates);
         }
         const dates = cal.days.map(d => d.date);
         if (!dates.length) return {};
         const agg = _aggWeek(rawData, dates);
         const d = _derive(agg, art);
-        return _applyColPlans(d, art, dates[dates.length - 1]);
+        return _applyColPlans(d, art, dates);
     }
 
     function _fmtKpi(val, type) {
@@ -2083,7 +2113,7 @@ const RNP = (() => {
             lines.push([sec.label, ...cols.map(() => '')].map(_csvCell).join(sep));
             _sectionRows(sec).forEach(m => {
                 const vals = cols.map(c => {
-                    if (m.isPlan) return _planVal(art, m.key, c.colKey);
+                    if (m.isPlan) return _planVal(art, m.key, c.dates || [c.colKey]);
                     const v = c.data?.[m.key];
                     return v != null && v !== '' ? _fmt(v, m.type) || v : '';
                 });
@@ -2093,13 +2123,19 @@ const RNP = (() => {
         _downloadBlob(`RNP_${_sellerArticle(art)}_${cal.todayStr}.csv`, BOM + lines.join('\n'), 'text/csv;charset=utf-8');
     }
 
+    /** Задача 3: copies previous week/month's daily `rnp_plans` rows into the
+     *  current period (day-for-day, ±7 days for week mode / same day-of-month,
+     *  clamped, for month mode) via a single batch upsert. Superseded as the
+     *  primary editing surface by the "Планирование" tab, but kept as a handy
+     *  bulk-fill shortcut while working inside RNP itself. */
     async function copyPlanFromPrevWeek() {
         const art = _articles.find(a => a.nm_id == _activeNm);
-        if (!art || _activeNm === SUMMARY_TAB) return;
+        if (!art || _activeNm === SUMMARY_TAB || !_db || !_cab) return;
         const cal = _buildCalendar();
-        const md = { ...(art.manual_data || {}) };
-        if (!md.plans) md.plans = {};
+        const byDate = _planCache[art.nm_id] || {};
+        const hasPlan = (dt) => byDate[dt] && Object.values(PLAN_KEY_TO_COLUMN).some(c => byDate[dt][c] != null);
 
+        let pairs = [];
         if (cal.mode === 'month') {
             const cur = cal.months.find(m => m.isCurrent) || cal.months.filter(m => !m.isFuture).pop();
             if (!cur) return;
@@ -2109,34 +2145,50 @@ const RNP = (() => {
                 return;
             }
             const prev = cal.months[idx - 1];
-            const src = md.plans[prev.colKey] || {};
-            if (!Object.keys(src).length) {
+            pairs = cur.dates.map((d, i) => [prev.dates[Math.min(i, prev.dates.length - 1)], d]);
+            if (!pairs.some(([src]) => hasPlan(src))) {
                 _nrDialog('План не найден', `Нет плана за ${prev.fullName} — заполните вручную.`, 'info');
                 return;
             }
-            if (!md.plans[cur.colKey]) md.plans[cur.colKey] = {};
-            PLAN_KEYS.forEach(k => { if (src[k] != null) md.plans[cur.colKey][k] = src[k]; });
-            await _updateArticle(art.nm_id, { manual_data: md });
-            await _renderActiveTable();
-            return;
+        } else {
+            const curWs = _weekStartStr(cal.todayStr);
+            const curWeekDates = cal.days.filter(d => _weekStartStr(d.date) === curWs).map(d => d.date);
+            pairs = curWeekDates.map(d => {
+                const dt = new Date(d + 'T12:00:00');
+                dt.setDate(dt.getDate() - 7);
+                return [dt.toISOString().split('T')[0], d];
+            });
+            if (!pairs.some(([src]) => hasPlan(src))) {
+                _nrDialog('План не найден', 'Нет плана за прошлую неделю — заполните вручную или выберите другую неделю.', 'info');
+                return;
+            }
         }
 
-        const curWs = _weekStartStr(cal.todayStr);
-        const prevD = new Date(curWs + 'T12:00:00');
-        prevD.setDate(prevD.getDate() - 7);
-        const prevWs = prevD.toISOString().split('T')[0];
-        let src = md.plans[prevWs] || {};
-        if (!Object.keys(src).length && cal.weeks.length) {
-            const lw = cal.weeks[cal.weeks.length - 1];
-            src = md.plans[lw.weekStart || lw.dates[0]] || {};
-        }
-        if (!Object.keys(src).length) { _nrDialog('План не найден', 'Нет плана за прошлую неделю — заполните вручную или выберите другую неделю.', 'info'); return; }
-        cal.days.filter(d => _weekStartStr(d.date) === curWs).forEach(d => {
-            if (!md.plans[d.date]) md.plans[d.date] = {};
-            PLAN_KEYS.forEach(k => { if (src[k] != null) md.plans[d.date][k] = src[k]; });
+        const nowIso = new Date().toISOString();
+        const rows = pairs.map(([src, dest]) => {
+            const srow = byDate[src];
+            if (!srow) return null;
+            const row = { cabinet_id: _cab, nm_id: art.nm_id, plan_date: dest, updated_at: nowIso };
+            let any = false;
+            Object.values(PLAN_KEY_TO_COLUMN).forEach(col => {
+                if (srow[col] != null) { row[col] = srow[col]; any = true; }
+            });
+            return any ? row : null;
+        }).filter(Boolean);
+        if (!rows.length) return;
+
+        try {
+            const { error } = await _db.from('rnp_plans')
+                .upsert(rows, { onConflict: 'cabinet_id,nm_id,plan_date' });
+            if (error) { console.error('[RNP] copyPlanFromPrevWeek:', error.message); return; }
+        } catch (e) { console.error('[RNP] copyPlanFromPrevWeek:', e.message); return; }
+
+        rows.forEach(r => {
+            if (!_planCache[art.nm_id]) _planCache[art.nm_id] = {};
+            _planCache[art.nm_id][r.plan_date] = { ...(_planCache[art.nm_id][r.plan_date] || {}), ...r };
         });
-        await _updateArticle(art.nm_id, { manual_data: md });
         await _renderActiveTable();
+        document.dispatchEvent(new CustomEvent('rnp-plans-changed', { detail: { source: 'rnp-copy', nmId: art.nm_id } }));
     }
 
     function setView(v) {
@@ -2573,6 +2625,25 @@ const RNP = (() => {
         } catch (e) { console.warn('[RNP] merge finance daily:', e.message); }
     }
 
+    /** Задача 3: loads all raw plan rows for the cabinet from `rnp_plans`
+     *  (populated by the "Планирование" tab and/or RNP's own day-cell edits)
+     *  into _planCache, keyed by nm_id -> plan_date -> row. */
+    async function _loadPlans() {
+        const snapReq = _loadRequestId();
+        const snapCab = _cab;
+        if (!_cab || !_db) return;
+        const rows = await _fetchAllRows('rnp_plans', [
+            { op: 'eq', column: 'cabinet_id', value: _cab },
+        ]);
+        if (_isStaleLoad(snapReq, snapCab)) return;
+        const next = {};
+        (rows || []).forEach(r => {
+            if (!next[r.nm_id]) next[r.nm_id] = {};
+            next[r.nm_id][r.plan_date] = r;
+        });
+        _planCache = next;
+    }
+
     async function _loadRnpData() {
         const snapReq = _loadRequestId();
         const snapCab = _cab;
@@ -2585,6 +2656,9 @@ const RNP = (() => {
         const today = new Date().toISOString().split('T')[0];
         const dateFrom = allDates[0] || '2026-01-01';
         const dateTo = allDates[allDates.length - 1] || today;
+
+        await _loadPlans();
+        if (_isStaleLoad(snapReq, snapCab)) return false;
 
         const orders = await _fetchAllRows('wb_orders', [
             { op: 'eq', column: 'cabinet_id', value: _cab },
@@ -3821,13 +3895,23 @@ const RNP = (() => {
                     if (art.nm_id < 0) {
                         return `<td class="${cls} rnp-cell-plan ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>—</td>`;
                     }
-                    const pv = _planVal(art, m.key, col.colKey);
-                    const valAttr = pv !== '' && pv != null ? ` value="${pv}"` : '';
-                    return `<td class="${cls} rnp-cell-plan ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>
-                      <input type="text" inputmode="decimal"${valAttr}
-                        class="rnp-plan-input" placeholder=""
-                        onchange="RNP.savePlan(${art.nm_id},'${m.key}','${col.colKey}',this.value)">
-                    </td>`;
+                    // Raw plan quantities now live in `rnp_plans`, keyed per day (see
+                    // Задача 3 — "Планирование"). Day cells stay directly editable here
+                    // (writes straight into rnp_plans); week/month/total plan cells are
+                    // now read-only aggregates (sum of their days) — matching how every
+                    // other aggregated metric in these columns is display-only.
+                    if (isDay) {
+                        const pv = _planVal(art, m.key, [col.colKey]);
+                        const valAttr = pv !== '' && pv != null ? ` value="${pv}"` : '';
+                        return `<td class="${cls} rnp-cell-plan ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>
+                          <input type="text" inputmode="decimal"${valAttr}
+                            class="rnp-plan-input" placeholder=""
+                            onchange="RNP.savePlan(${art.nm_id},'${m.key}','${col.colKey}',this.value)">
+                        </td>`;
+                    }
+                    const aggVal = _planVal(art, m.key, col.dates || []);
+                    const aggStr = aggVal !== '' && aggVal != null ? _fmt(aggVal, m.type) : '—';
+                    return `<td class="${cls} rnp-cell-plan ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>${aggStr}</td>`;
                 }
 
                 const val = d ? d[m.key] : null;
@@ -4085,16 +4169,27 @@ const RNP = (() => {
         await _updateArticle(nmId, { category: v });
     }
 
+    /** Задача 3: raw plan quantities are upserted straight into `rnp_plans`
+     *  (one row per cabinet+nm_id+day), the same source of truth used by the
+     *  "Планирование" tab — so edits made here show up there and vice versa. */
     async function savePlan(nmId, key, colKey, val) {
         const art = _articles.find(a => a.nm_id == nmId);
-        if (!art) return;
-        const md = { ...(art.manual_data || {}) };
-        if (!md.plans) md.plans = {};
-        if (!md.plans[colKey]) md.plans[colKey] = {};
+        if (!art || !_db || !_cab) return;
+        const column = PLAN_KEY_TO_COLUMN[key];
+        if (!column) return;
         const num = val === '' ? null : (parseFloat(val) || 0);
-        if (num === null) delete md.plans[colKey][key];
-        else md.plans[colKey][key] = num;
-        await _updateArticle(nmId, { manual_data: md });
+
+        if (!_planCache[nmId]) _planCache[nmId] = {};
+        _planCache[nmId][colKey] = { ...(_planCache[nmId][colKey] || {}), [column]: num };
+
+        try {
+            const { error } = await _db.from('rnp_plans').upsert({
+                cabinet_id: _cab, nm_id: nmId, plan_date: colKey,
+                [column]: num, updated_at: new Date().toISOString(),
+            }, { onConflict: 'cabinet_id,nm_id,plan_date' });
+            if (error) console.error('[RNP] savePlan:', error.message);
+        } catch (e) { console.error('[RNP] savePlan:', e.message); }
+
         if (_activeNm == nmId) await _renderActiveTable();
     }
 
@@ -4239,8 +4334,29 @@ const RNP = (() => {
         setInterval(_updateRnpFreshness, 60000);
     }
 
+    let _plansListenerBound = false;
+
+    /** Задача 3: live-update hook — the "Планирование" tab dispatches
+     *  'rnp-plans-changed' after a successful save/batch-save, so RNP reloads
+     *  its plan cache and re-renders (no manual copy step, no full page reload,
+     *  no spinner/flicker — reuses the existing stale-aware render pipeline). */
+    function _bindPlansListener() {
+        if (_plansListenerBound) return;
+        _plansListenerBound = true;
+        document.addEventListener('rnp-plans-changed', async (ev) => {
+            if (ev?.detail?.source === 'rnp' || ev?.detail?.source === 'rnp-copy') return;
+            const snapReq = _loadRequestId();
+            const snapCab = _cab;
+            await _loadPlans();
+            if (_isStaleLoad(snapReq, snapCab)) return;
+            if (!document.getElementById('tab-rnp')?.classList.contains('active')) return;
+            if (document.getElementById('rnp-sheet-body')) await _renderActiveTable();
+        });
+    }
+
     _bindCabinetListener();
     _bindAutoRefresh();
+    _bindPlansListener();
 
     return { init, openSettings, openMain, pick, syncArts, resyncArticles, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
