@@ -6088,14 +6088,33 @@
         </div>`;
     }
 
+    // Реальная ротация фото теперь выполняется на сервере (edge-функция
+    // ab-test-rotate по pg_cron каждые 10 мин), поэтому работает даже если
+    // вкладка/браузер закрыты. Здесь только:
+    // 1) визуальный прогресс-бар до следующей ротации,
+    // 2) фоновая переподгрузка тестов, чтобы увидеть серверную ротацию,
+    // 3) подстраховка — если сервер почему-то не сработал сильно позже срока.
     function startRotationTimers() {
         Object.values(abRotationTimers).forEach(id => clearInterval(id));
         abRotationTimers = {};
         clearInterval(window._abProgressInterval);
         window._abProgressInterval = setInterval(updateRotationProgress, 1000);
+        clearInterval(window._abReloadInterval);
+        window._abReloadInterval = setInterval(() => {
+            const tab = document.getElementById('tab-ab-testing');
+            if (tab && tab.classList.contains('active') && !document.hidden) loadABTests();
+        }, 60 * 1000);
         allABTests.filter(t => t.status === 'active').forEach(test => {
             const intervalMs = (test.rotation_interval_min || 60) * 60 * 1000;
-            abRotationTimers[String(test.id)] = setInterval(() => doClientRotation(test.id), intervalMs);
+            const dueSince = test.last_rotated_at || test.started_at;
+            const elapsed = dueSince ? Date.now() - new Date(dueSince).getTime() : 0;
+            const graceMs = 12 * 60 * 1000; // даём серверному cron (раз в 10 мин) время сработать первым
+            const msUntilFallback = Math.max(5000, intervalMs + graceMs - elapsed);
+            abRotationTimers[String(test.id)] = setTimeout(function fallbackRotate() {
+                doClientRotation(test.id).finally(() => {
+                    abRotationTimers[String(test.id)] = setTimeout(fallbackRotate, intervalMs);
+                });
+            }, msUntilFallback);
         });
     }
 
@@ -6113,9 +6132,20 @@
     }
 
     async function doClientRotation(testId) {
-        const test = allABTests.find(t => String(t.id) === String(testId));
-        if (!test || test.status !== 'active') return;
-        const variants = test.variants || [];
+        // Подстраховка: перечитываем свежую строку теста — если серверный
+        // cron уже провернул ротацию, last_rotated_at будет недавним и мы
+        // просто выходим, не дублируя ротацию.
+        const { data: freshTest } = await supabase.from('ab_tests').select('*').eq('id', testId).maybeSingle();
+        if (!freshTest || freshTest.status !== 'active') return;
+        const intervalMsCheck = (freshTest.rotation_interval_min || 60) * 60 * 1000;
+        const dueSinceCheck = freshTest.last_rotated_at || freshTest.started_at;
+        const elapsedCheck = dueSinceCheck ? Date.now() - new Date(dueSinceCheck).getTime() : Infinity;
+        if (elapsedCheck < intervalMsCheck) { await loadABTests(); return; }
+
+        const cached = allABTests.find(t => String(t.id) === String(testId));
+        const test = { ...freshTest };
+        const { data: freshVariants } = await supabase.from('ab_test_variants').select('*').eq('test_id', testId).order('variant_label');
+        const variants = freshVariants || cached?.variants || [];
         if (variants.length < 2) return;
         const nextIdx = ((test.current_variant_index || 0) + 1) % variants.length;
         const nextVariant = variants[nextIdx];
