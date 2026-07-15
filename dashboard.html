@@ -8054,21 +8054,18 @@
         registerUserSession().catch(e => console.warn('[security] init:', e));
         applySettingsTabsForRole();
         updateSpaceStatusUI();
-        try {
-            await loadCabinets();
-            if (hasUserCabinets) updateDateRangeLabel();
-            if (hasUserCabinets) await loadABTests();
-        } catch (e) {
-            console.error('[init] load:', e);
-        }
 
-        // Восстанавливаем сохранённую вкладку СРАЗУ, не дожидаясь RNP.init()
-        // (которая может идти до 12с) — иначе пользователь до 12с видит
-        // дефолтную вкладку «Дашборд» и это выглядит так, будто обновление
-        // страницы "выбрасывает" его туда, даже если потом всё-таки
-        // переключится на сохранённую вкладку.
+        // Восстанавливаем сохранённую вкладку СРАЗУ, ДО любых await (loadCabinets
+        // может идти 5-8с на большом кабинете) — иначе пользователь всё это время
+        // видит дефолтную вкладку «Дашборд», что выглядит как редирект/дёрганье
+        // при каждом обновлении страницы. hasUserCabinets ещё false в этот момент,
+        // так что все guarded on-tab-open загрузчики (RNP.openMain, openAdvertisingTab,
+        // initLogisticsSupplies и т.п.) внутри showTab() безопасно no-op'нутся —
+        // мы дозапускаем нужный загрузчик ниже, уже после того как кабинеты и данные
+        // готовы.
+        let savedTab = null;
         try {
-            let savedTab = resolveTabFromUrl() || localStorage.getItem('nr_active_tab');
+            savedTab = resolveTabFromUrl() || localStorage.getItem('nr_active_tab');
             if (savedTab) savedTab = TAB_ALIASES[savedTab] || savedTab;
             if (savedTab && savedTab !== 'dashboard') {
                 showTab(savedTab, null);
@@ -8077,8 +8074,17 @@
             console.error('[init] tab restore:', e);
         }
 
+        try {
+            await loadCabinets();
+            if (hasUserCabinets) updateDateRangeLabel();
+            if (hasUserCabinets) await loadABTests();
+        } catch (e) {
+            console.error('[init] load:', e);
+        }
+
         setTimeout(async () => {
             try {
+                const cur = getCurrentActiveTab();
                 if (currentCabinetId && hasUserCabinets && typeof RNP !== 'undefined') {
                     const initTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('RNP init timeout')), 12000));
                     await Promise.race([
@@ -8089,9 +8095,18 @@
                     // вкладка РНП уже активна — на случай если оно ничего не
                     // подхватило само, дублируем открытие текущей сохранённой
                     // вкладки РНП после инициализации.
-                    const cur = getCurrentActiveTab();
                     if (cur === 'rnp') RNP.openMain();
                     else if (cur === 'rnp-settings') RNP.openSettings();
+                }
+                // Прочие вкладки, чьи on-tab-open загрузчики были no-op'нуты выше
+                // (hasUserCabinets был false в момент первого showTab) — дозапускаем
+                // теперь, когда кабинеты и данные уже готовы.
+                if (hasUserCabinets) {
+                    if (cur === 'logistics') initLogisticsSupplies();
+                    else if (cur === 'goods-groups') loadGoodsGroups();
+                    else if (cur === 'advertising') openAdvertisingTab();
+                    else if (cur === 'planning') loadPlanningTab();
+                    else if (cur === 'seo') loadSeoKeywords();
                 }
             } catch (e) {
                 console.error('[init]', e);
