@@ -3691,8 +3691,13 @@
         </div>
     </main>
 
-    <!-- Cabinet Switch Overlay -->
-    <div id="cabinet-overlay" style="display:flex;position:fixed;inset:0;z-index:199999;background:var(--bg, #0f0f17);flex-direction:column;align-items:center;justify-content:center;gap:20px;transition:opacity 0.4s ease">
+    <!-- Cabinet Switch Overlay — hidden by default so a plain page refresh
+         (F5/Ctrl+R) never shows this splash; the dashboard's own per-widget
+         placeholders act as the loading state instead, and content fills in
+         as data arrives. Explicitly shown only for an actual cabinet SWITCH
+         via showCabinetTransition(), where a brief indicator still makes
+         sense since the whole page's data context changes. -->
+    <div id="cabinet-overlay" style="display:none;position:fixed;inset:0;z-index:199999;background:var(--bg, #0f0f17);flex-direction:column;align-items:center;justify-content:center;gap:20px;transition:opacity 0.4s ease">
         <div style="text-align:center">
             <div class="flex items-baseline justify-center gap-1.5 mb-6">
                 <span style="font-size:32px;font-weight:800;color:#E8568E;letter-spacing:-0.02em">NR</span>
@@ -5164,7 +5169,9 @@
     }
 
     function hideOverlay() {
+        window._nrInitDone = true;
         if (window._nrOverlayWatchdog) { clearTimeout(window._nrOverlayWatchdog); window._nrOverlayWatchdog = null; }
+        document.getElementById('nr-init-stall-banner')?.remove();
         const overlay = document.getElementById('cabinet-overlay');
         if (!overlay || overlay.style.display === 'none') return;
         overlay.style.transition = 'opacity 0.15s ease';
@@ -7224,31 +7231,29 @@
     function closeSupplyDetail() { document.getElementById('supply-detail-modal').classList.add('hidden'); }
 
     document.addEventListener('DOMContentLoaded', async () => {
-        // Watchdog: if init hangs (slow/failed network call to Supabase, an
-        // unexpected exception, etc.) the "NR SPACE" overlay must never get
-        // stuck forever — force it down after 15s with a retry button instead
-        // of an infinite spinner. Cleared inside hideOverlay() once real init
-        // actually finishes (including the redirect/deny-access early returns
-        // below, which call hideOverlay-independent navigation but don't need
-        // the watchdog once they fire).
+        // Watchdog: page init (session check, RNP init, etc.) no longer shows
+        // any full-page splash on a plain refresh — the dashboard shell is
+        // visible immediately and fills in as data arrives. But if init
+        // genuinely hangs (dead network, unexpected exception) the user
+        // should still get *some* signal instead of silently-empty widgets
+        // forever — show a small, unobtrusive retry banner after 15s instead
+        // of hijacking the whole page. Cleared once real init finishes
+        // (see `window._nrInitDone = true` in the `finally` block below).
         window._nrOverlayWatchdog = setTimeout(() => {
-            const overlay = document.getElementById('cabinet-overlay');
-            if (!overlay || overlay.style.display === 'none') return;
-            overlay.innerHTML = `<div style="text-align:center;max-width:320px;padding:0 20px">
-                <div class="flex items-baseline justify-center gap-1.5 mb-4">
-                    <span style="font-size:32px;font-weight:800;color:#E8568E;letter-spacing:-0.02em">NR</span>
-                    <span style="font-size:32px;font-weight:500;color:var(--text-primary,#fff);letter-spacing:0.02em">SPACE</span>
-                </div>
-                <p style="color:var(--text-muted,#999);font-size:14px;margin-bottom:16px">Загрузка занимает больше времени, чем обычно — проверьте соединение.</p>
-                <button onclick="location.reload()" style="padding:10px 20px;border-radius:12px;background:var(--accent,#8b5cf6);color:#fff;border:none;font-weight:600;cursor:pointer">Повторить</button>
-            </div>`;
+            if (window._nrInitDone || document.getElementById('nr-init-stall-banner')) return;
+            const banner = document.createElement('div');
+            banner.id = 'nr-init-stall-banner';
+            banner.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:199999;background:#1a1a24;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,0.4);font-size:13px;color:#ccc';
+            banner.innerHTML = `<span>Загрузка занимает больше времени, чем обычно — проверьте соединение.</span>
+                <button onclick="location.reload()" style="padding:6px 14px;border-radius:10px;background:var(--accent,#8b5cf6);color:#fff;border:none;font-weight:600;cursor:pointer;white-space:nowrap">Повторить</button>`;
+            document.body.appendChild(banner);
         }, 15000);
 
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { clearTimeout(window._nrOverlayWatchdog); window.location.replace('/login'); return; }
 
         const allowed = await enforceAccessGate(session.user);
-        if (!allowed) return;
+        if (!allowed) { clearTimeout(window._nrOverlayWatchdog); return; }
 
         isSuperAdmin = isSuperAdminUser(session.user);
         currentUserEmail = session.user.email || '';
