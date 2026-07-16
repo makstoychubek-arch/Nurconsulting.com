@@ -3361,8 +3361,27 @@
                         <button onclick="syncAdvertisingNow()" id="adv-sync-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить</button>
                     </div>
                 </div>
-                <h3 id="adv-detail-cabinet-name" class="text-lg font-bold" style="color:var(--text-primary)">—</h3>
+                <div class="flex items-center justify-between" style="flex-wrap:wrap;gap:10px">
+                    <h3 id="adv-detail-cabinet-name" class="text-lg font-bold" style="color:var(--text-primary)">—</h3>
+                    <div class="segment-tabs" id="adv-detail-view-tabs">
+                        <div class="segment-tab active" data-adv-view="overview" onclick="switchAdvDetailView('overview', this)">Обзор</div>
+                        <div class="segment-tab" data-adv-view="campaigns" onclick="switchAdvDetailView('campaigns', this)">Кампании</div>
+                        <div class="segment-tab" data-adv-view="articles" onclick="switchAdvDetailView('articles', this)">Товары</div>
+                    </div>
+                </div>
 
+                <div id="adv-campaigns-list" class="widget-card p-5 hidden">
+                    <div id="adv-subtab-campaigns">
+                        <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Кампании WB</h3>
+                        <div id="adv-campaigns-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                    </div>
+                    <div id="adv-subtab-articles" class="hidden">
+                        <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Товары</h3>
+                        <div id="adv-articles-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                    </div>
+                </div>
+
+                <div id="adv-detail-overview" class="space-y-5">
                 <div id="adv-alerts-wrap" class="space-y-2 hidden"></div>
 
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -3441,21 +3460,6 @@
                         <div class="chart-canvas-wrap"><canvas id="chart-adv-efficiency"></canvas></div>
                     </div>
                 </div>
-
-                <div id="adv-campaigns-list" class="widget-card p-5">
-                    <div class="flex items-center justify-between mb-3" style="flex-wrap:wrap;gap:8px">
-                        <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Кампании WB</h3>
-                        <div class="segment-tabs" id="adv-subtabs">
-                            <div class="segment-tab active" data-adv-subtab="campaigns" onclick="switchAdvSubTab('campaigns', this)">Кампании</div>
-                            <div class="segment-tab" data-adv-subtab="articles" onclick="switchAdvSubTab('articles', this)">Артикулы</div>
-                        </div>
-                    </div>
-                    <div id="adv-subtab-campaigns">
-                        <div id="adv-campaigns-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
-                    </div>
-                    <div id="adv-subtab-articles" class="hidden">
-                        <div id="adv-articles-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
-                    </div>
                 </div>
             </div>
         </div>
@@ -5026,7 +5030,7 @@
         const nameEl = document.getElementById('adv-detail-cabinet-name');
         if (nameEl) nameEl.textContent = cabinetName || '';
         showAdvertisingDetailView();
-        switchAdvSubTab('campaigns', document.querySelector('#adv-subtabs .segment-tab[data-adv-subtab="campaigns"]'));
+        switchAdvDetailView('campaigns');
         loadAdvertisingBalance(cabinetId);
         if (cabinetId === currentCabinetId) {
             loadAdvertisingFromDB();
@@ -5204,16 +5208,23 @@
             }).join('') + `</tbody></table></div>`;
     }
 
-    // Переключение подраздела «Кампании» / «Артикулы» внутри Контроля РК —
-    // визуально копирует структуру вкладок в личном кабинете WB
-    // (cmp.wildberries.ru/campaigns/list — «Кампании» и «Товары»).
-    function switchAdvSubTab(name, el) {
-        document.querySelectorAll('#adv-subtabs .segment-tab').forEach(t => t.classList.remove('active'));
+    // Переключение верхнего уровня детального дашборда кабинета: «Обзор»
+    // (KPI+графики), «Кампании», «Товары» — теперь это отдельные полноэкранные
+    // виды, а не вложенная вкладка внизу страницы, поэтому клик сразу
+    // показывает нужную таблицу без скролла (было: только внутренний тумблер
+    // внутри блока «Кампании WB», который всё равно был ниже графиков).
+    function switchAdvDetailView(view, el) {
+        window._advDetailView = view;
+        document.querySelectorAll('#adv-detail-view-tabs .segment-tab').forEach(t => t.classList.remove('active'));
         if (el) el.classList.add('active');
-        document.getElementById('adv-subtab-campaigns')?.classList.toggle('hidden', name !== 'campaigns');
-        document.getElementById('adv-subtab-articles')?.classList.toggle('hidden', name !== 'articles');
+        else document.querySelector(`#adv-detail-view-tabs .segment-tab[data-adv-view="${view}"]`)?.classList.add('active');
+
+        document.getElementById('adv-detail-overview')?.classList.toggle('hidden', view !== 'overview');
+        document.getElementById('adv-campaigns-list')?.classList.toggle('hidden', view === 'overview');
+        document.getElementById('adv-subtab-campaigns')?.classList.toggle('hidden', view !== 'campaigns');
+        document.getElementById('adv-subtab-articles')?.classList.toggle('hidden', view !== 'articles');
     }
-    window.switchAdvSubTab = switchAdvSubTab;
+    window.switchAdvDetailView = switchAdvDetailView;
 
     // Разбивка расходов/показов/кликов/заказов по артикулам (SKU), с
     // раскрытием по кампаниям — визуально копирует вкладку «Товары» в личном
