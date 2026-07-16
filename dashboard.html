@@ -567,7 +567,7 @@
         .kpi-hero-value { font-size: 22px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
         .kpi-hero-sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
         .kpi-spark-wrap { height: 48px; margin-top: 12px; }
-        .chart-box { padding: 20px; min-height: 280px; }
+        .chart-box { padding: 20px; min-height: 240px; }
         .chart-box-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
         .chart-box-sub { font-size: 11px; color: var(--text-muted); margin-bottom: 16px; }
         .chart-canvas-wrap { position: relative; height: 220px; }
@@ -623,6 +623,17 @@
         .adv-kpi-tile-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
         .adv-kpi-tile-value { font-size: 18px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
         .adv-help-dot { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: var(--border); color: var(--text-muted); font-size: 9px; font-weight: 700; cursor: help; }
+        .dashboard-metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+        @media (min-width: 768px) {
+            .dashboard-metrics-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+        @media (min-width: 1280px) {
+            .dashboard-metrics-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        }
         .metrics-details { padding: 0; overflow: hidden; }
         .metrics-details summary { padding: 16px 20px; cursor: pointer; font-weight: 700; font-size: 14px; color: var(--text-primary); list-style: none; display: flex; align-items: center; justify-content: space-between; }
         .metrics-details summary::-webkit-details-marker { display: none; }
@@ -3118,22 +3129,6 @@
             </div>
         </div>
         <div id="tab-dashboard" class="tab-content active space-y-6">
-            <div id="sync-status-bar"
-                 class="flex items-center justify-between px-4 py-2.5 rounded-xl mb-4"
-                 style="background:var(--surface);border:1px solid var(--border)">
-                <div class="flex items-center gap-2">
-                    <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse inline-block"></span>
-                    <span class="text-xs" style="color:var(--text-muted)">
-                        Последнее обновление: <span id="last-sync-time">—</span>
-                    </span>
-                </div>
-                <button type="button" onclick="manualSync()"
-                        id="manual-sync-btn"
-                        class="text-xs px-3 py-1 rounded-lg"
-                        style="background:var(--accent-soft);color:var(--accent);border:1px solid var(--accent-border)">
-                    Синхронизировать сейчас
-                </button>
-            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div class="kpi-hero-card">
                     <div class="kpi-hero-label">Чистая прибыль</div>
@@ -3164,75 +3159,35 @@
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
                 <div class="widget-card chart-box xl:col-span-2">
                     <div class="chart-box-title">Динамика заказов</div>
-                    <div class="chart-box-sub">Сумма и количество по дням — данные из wb_orders</div>
                     <div class="chart-canvas-wrap"><canvas id="chart-orders-bar"></canvas></div>
                 </div>
                 <div class="widget-card chart-box">
                     <div class="chart-box-title">Остатки по складам</div>
-                    <div class="chart-box-sub">Топ складов WB</div>
                     <div class="chart-canvas-wrap"><canvas id="chart-warehouse-donut"></canvas></div>
                 </div>
             </div>
 
-            <div class="widget-card chart-box">
-                <div class="chart-box-title">Заказы за период</div>
-                <div class="chart-box-sub">Тренд суммы и количества заказов</div>
-                <div class="chart-canvas-wrap" style="height:260px"><canvas id="chart-orders-line"></canvas></div>
-            </div>
-
-            <details class="widget-card metrics-details" open>
-                <summary>Все показатели <span style="font-size:11px;color:var(--text-muted);font-weight:500">развернуть / свернуть</span></summary>
-                <div class="metrics-inner space-y-4">
-            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
-                <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Прибыль/Марж. без опер. расх.</div><div id="m-profit2" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
+            <details class="widget-card metrics-details">
+                <summary>Доп. показатели</summary>
+                <div class="metrics-inner">
+            <div class="dashboard-metrics-grid">
+                <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Прибыль</div><div id="m-profit2" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
                 <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Реализация</div><div id="m-realization" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Итоговое вознаграждение ВБ</div><div id="m-commission" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Процент выкупа</div><div id="m-conversion" class="text-lg font-black" style="color:var(--accent)">—</div></div>
+                <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Комиссия WB</div><div id="m-commission" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Выкуп %</div><div id="m-conversion" class="text-lg font-black" style="color:var(--accent)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Логистика</div><div id="m-logistics" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-            </div>
-            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Реклама/ДРР</div><div id="m-ads" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Хранение</div><div id="m-storage" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Плат. приёмка</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Прочие удержания</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Реклама</div><div id="m-ads" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">ROI</div><div id="m-roi" class="text-lg font-black" style="color:var(--blue)">—</div></div>
-            </div>
-            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Себестоимость продаж</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Операционные расходы</div><div id="m-opex" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Налоги</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Налоговая база</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Комиссия</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Ср. цена до скидок МП</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Капитализация по себес.</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-            </div>
-            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Капитализация по розн.</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Остатки на моих складах</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Капитализ. на моих складах</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">GMROI</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-            </div>
-            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Годовой GMROI</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Штрафы</div><div class="text-lg font-black" style="color:var(--red)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Компенсации</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Ср. цена продажи</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Ср. стоимость логистики</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-            </div>
-            <div class="grid grid-cols-2 xl:grid-cols-5 gap-3">
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Средняя прибыль на 1 шт.</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Реклама/ДРРз</div><div class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Возвраты</div><div id="m-returns" class="text-lg font-black" style="color:var(--red)">—</div><div class="text-xs mt-1" style="color:var(--text-muted)">0 шт.</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Оборачиваемость по прод.</div><div class="text-lg font-black" style="color:var(--text-primary)">— Дн.</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Оборачиваемость по зак.</div><div class="text-lg font-black" style="color:var(--text-primary)">— Дн.</div></div>
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Опер. расходы</div><div id="m-opex" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Возвраты</div><div id="m-returns" class="text-lg font-black" style="color:var(--red)">—</div></div>
             </div>
                 </div>
             </details>
 
             <div class="widget-card overflow-hidden">
-                <div class="px-5 py-3 border-b flex justify-between items-center" style="border-color:var(--border)">
+                <div class="px-5 py-3 border-b" style="border-color:var(--border)">
                     <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Топ артикулов — остатки</h3>
-                    <span class="text-xs px-3 py-1 rounded-full border" style="background:var(--accent-soft);color:var(--accent);border-color:var(--accent-border)">Realtime</span>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="data-table">
