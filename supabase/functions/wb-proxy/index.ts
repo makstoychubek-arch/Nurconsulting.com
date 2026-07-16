@@ -513,6 +513,31 @@ serve(async (req) => {
                 break;
             }
 
+            // ── Поисковые фразы (кластеры) по кампании ───────────────────────
+            // POST /adv/v0/normquery/stats — статистика кластеров-запросов
+            // покупателей для кампании за период. Формат ответа WB не строго
+            // документирован — разбираем на фронте максимально терпимо к
+            // разным вариантам полей, здесь просто отдаём "как есть".
+            case 'advert_keyword_stats': {
+                const advertId = Number(params.advertId || 0);
+                if (!advertId) return json({ error: 'advertId required' }, 400);
+                const dateFrom = params.dateFrom || new Date(new Date().setMonth(new Date().getMonth() - 1)).toISOString().split('T')[0];
+                const dateTo = params.dateTo || new Date().toISOString().split('T')[0];
+                const url = 'https://advert-api.wildberries.ru/adv/v0/normquery/stats';
+                const wbRes = await fetch(url, {
+                    method: 'POST',
+                    headers: { Authorization: WB_PROMO_TOKEN, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ from: dateFrom, to: dateTo, items: [{ id: advertId }] }),
+                });
+                const text = await wbRes.text();
+                if (!wbRes.ok) {
+                    console.warn('[wb-proxy] advert_keyword_stats failed:', wbRes.status, text.slice(0, 300));
+                    return json({ error: `WB normquery/stats error ${wbRes.status}: ${text.slice(0, 200)}` }, wbRes.status >= 500 ? 502 : 400);
+                }
+                result = text ? JSON.parse(text) : [];
+                break;
+            }
+
             // ── Analytics API — Sales Funnel ────────────────────────────────
             case 'sales_funnel_history': {
                 const today = new Date();
