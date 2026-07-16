@@ -407,6 +407,14 @@ function applyMetricsToDashboard(m, setText) {
     const compEl = document.querySelector('[data-metric="compensation"]');
     if (compEl) compEl.textContent = fmtRub(m.compensationSum);
 
+    // Платная приёмка
+    const acceptEl = document.querySelector('[data-metric="acceptance"]');
+    if (acceptEl) acceptEl.textContent = fmtRub(m.acceptanceSum);
+
+    // Прочие удержания
+    const deductEl = document.querySelector('[data-metric="deduction"]');
+    if (deductEl) deductEl.textContent = fmtRub(m.deductionSum);
+
     // Ср. цена продажи
     const avgPriceEl = document.querySelector('[data-metric="avg-sale-price"]');
     if (avgPriceEl) avgPriceEl.textContent = fmtRub(m.avgSalePrice);

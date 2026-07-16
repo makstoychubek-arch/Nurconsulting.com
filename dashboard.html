@@ -266,6 +266,15 @@
             font-variant-numeric: tabular-nums;
             letter-spacing: -0.02em;
         }
+        .metric-card-label { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; font-weight: 500; line-height: 1.3; }
+        .metric-card-value { font-size: 17px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+        .metric-trend { font-size: 11px; font-weight: 600; margin-top: 8px; display: flex; align-items: center; gap: 4px; min-height: 16px; }
+        .metric-trend.up { color: #059669; }
+        .metric-trend.down { color: #dc2626; }
+        .metric-trend.flat { color: var(--text-muted); }
+        [data-theme="neon"] .metric-trend.up { color: #34d399; }
+        [data-theme="neon"] .metric-trend.down { color: #f87171; }
+        .kpi-hero-trend { margin-top: 4px; margin-bottom: 2px; }
         .metric-card:hover { border-color: var(--accent-border); transform: translateY(-2px); }
         [data-theme="neon"] .metric-card:hover { box-shadow: var(--use-glow); }
         .menu-group { margin: 2px 0; }
@@ -3134,18 +3143,21 @@
                     <div class="kpi-hero-label">Чистая прибыль</div>
                     <div id="m-profit" class="kpi-hero-value">—</div>
                     <div id="m-margin" class="kpi-hero-sub">— %</div>
+                    <div id="trend-m-profit" class="metric-trend kpi-hero-trend"></div>
                     <div class="kpi-spark-wrap"><canvas id="spark-profit"></canvas></div>
                 </div>
                 <div class="kpi-hero-card">
                     <div class="kpi-hero-label">Продажи</div>
                     <div id="m-sales-sum" class="kpi-hero-value">—</div>
                     <div id="m-sales-count" class="kpi-hero-sub">0 шт.</div>
+                    <div id="trend-m-sales-sum" class="metric-trend kpi-hero-trend"></div>
                     <div class="kpi-spark-wrap"><canvas id="spark-sales"></canvas></div>
                 </div>
                 <div class="kpi-hero-card">
                     <div class="kpi-hero-label">Заказы</div>
                     <div id="m-orders-sum" class="kpi-hero-value">—</div>
                     <div id="m-orders-count" class="kpi-hero-sub">0 шт.</div>
+                    <div id="trend-m-orders-sum" class="metric-trend kpi-hero-trend"></div>
                     <div class="kpi-spark-wrap"><canvas id="spark-orders"></canvas></div>
                 </div>
                 <div class="kpi-hero-card">
@@ -3167,34 +3179,38 @@
                 </div>
             </div>
 
-            <details class="widget-card metrics-details">
-                <summary>Доп. показатели</summary>
-                <div class="metrics-inner">
-            <div class="dashboard-metrics-grid">
-                <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Прибыль</div><div id="m-profit2" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Реализация</div><div id="m-realization" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card metric-card--highlight"><div class="text-xs mb-2 font-medium" style="color:var(--text-muted)">Комиссия WB</div><div id="m-commission" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Выкуп %</div><div id="m-conversion" class="text-lg font-black" style="color:var(--accent)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Логистика</div><div id="m-logistics" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Хранение</div><div id="m-storage" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Реклама</div><div id="m-ads" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">ROI</div><div id="m-roi" class="text-lg font-black" style="color:var(--blue)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Опер. расходы</div><div id="m-opex" class="text-lg font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Возвраты</div><div id="m-returns" class="text-lg font-black" style="color:var(--red)">—</div></div>
-            </div>
-                </div>
-            </details>
-
-            <div class="widget-card overflow-hidden">
-                <div class="px-5 py-3 border-b" style="border-color:var(--border)">
-                    <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Топ артикулов — остатки</h3>
-                </div>
-                <div class="overflow-x-auto">
-                    <table class="data-table">
-                        <thead><tr><th>Артикул WB</th><th>Баркод</th><th>На складе</th><th>В пути</th><th>Статус</th></tr></thead>
-                        <tbody id="products-table"><tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нажмите "Обновить" для загрузки данных</td></tr></tbody>
-                    </table>
-                </div>
+            <div id="dashboard-metrics-grid" class="dashboard-metrics-grid">
+                <div class="metric-card metric-card--highlight"><div class="metric-card-label">Прибыль без опер. расх.</div><div class="metric-card-value" id="m-profit2">—</div><div class="metric-trend" id="trend-m-profit2"></div></div>
+                <div class="metric-card metric-card--highlight"><div class="metric-card-label">Реализация</div><div class="metric-card-value" id="m-realization">—</div><div class="metric-trend" id="trend-m-realization"></div></div>
+                <div class="metric-card metric-card--highlight"><div class="metric-card-label">Итоговое вознаграждение ВБ</div><div class="metric-card-value" id="m-commission">—</div><div class="metric-trend" id="trend-m-commission" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Процент выкупа</div><div class="metric-card-value" id="m-conversion">—</div><div class="metric-trend" id="trend-m-conversion"></div></div>
+                <div class="metric-card"><div class="metric-card-label">Логистика</div><div class="metric-card-value" id="m-logistics">—</div><div class="metric-trend" id="trend-m-logistics" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Реклама / ДРР</div><div class="metric-card-value" id="m-ads">—</div><div class="metric-trend" id="trend-m-ads" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Хранение</div><div class="metric-card-value" id="m-storage">—</div><div class="metric-trend" id="trend-m-storage" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Плат. приёмка</div><div class="metric-card-value" data-metric="acceptance">—</div><div class="metric-trend" data-trend-for="acceptance" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Прочие удержания</div><div class="metric-card-value" data-metric="deduction">—</div><div class="metric-trend" data-trend-for="deduction" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">ROI</div><div class="metric-card-value" id="m-roi">—</div><div class="metric-trend" id="trend-m-roi"></div></div>
+                <div class="metric-card"><div class="metric-card-label">Себестоимость продаж</div><div class="metric-card-value" data-metric="cost-of-sales">—</div><div class="metric-trend" data-trend-for="cost-of-sales" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Операционные расходы</div><div class="metric-card-value" id="m-opex">—</div><div class="metric-trend" id="trend-m-opex" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Налоги</div><div class="metric-card-value" data-metric="tax">—</div><div class="metric-trend" data-trend-for="tax" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Налоговая база</div><div class="metric-card-value" data-metric="tax-base">—</div><div class="metric-trend" data-trend-for="tax-base"></div></div>
+                <div class="metric-card"><div class="metric-card-label">Комиссия</div><div class="metric-card-value" data-metric="commission">—</div><div class="metric-trend" data-trend-for="commission" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Ср. цена продажи</div><div class="metric-card-value" data-metric="avg-sale-price">—</div><div class="metric-trend" data-trend-for="avg-sale-price"></div></div>
+                <div class="metric-card"><div class="metric-card-label">Ср. стоимость логистики</div><div class="metric-card-value" data-metric="avg-logistics">—</div><div class="metric-trend" data-trend-for="avg-logistics" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Средняя прибыль на 1 шт.</div><div class="metric-card-value" data-metric="avg-profit">—</div><div class="metric-trend" data-trend-for="avg-profit"></div></div>
+                <div class="metric-card"><div class="metric-card-label">Возвраты</div><div class="metric-card-value" id="m-returns">—</div><div class="metric-trend" id="trend-m-returns" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Штрафы</div><div class="metric-card-value" data-metric="penalty">—</div><div class="metric-trend" data-trend-for="penalty" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Компенсации</div><div class="metric-card-value" data-metric="compensation">—</div><div class="metric-trend" data-trend-for="compensation"></div></div>
+                <div class="metric-card"><div class="metric-card-label">Эквайринг</div><div class="metric-card-value" data-metric="acquiring">—</div><div class="metric-trend" data-trend-for="acquiring" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">СПП</div><div class="metric-card-value" data-metric="spp">—</div><div class="metric-trend" data-trend-for="spp" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Ср. цена до скидок МП</div><div class="metric-card-value" data-metric="avg-retail-price">—</div><div class="metric-trend" data-trend-for="avg-retail-price"></div></div>
+                <div class="metric-card"><div class="metric-card-label">Капитализация по себес.</div><div class="metric-card-value" data-metric="cap-cost">—</div><div class="metric-trend" data-trend-for="cap-cost"></div></div>
+                <div class="metric-card"><div class="metric-card-label">Капитализация по розн.</div><div class="metric-card-value" data-metric="cap-retail">—</div><div class="metric-trend" data-trend-for="cap-retail"></div></div>
+                <div class="metric-card"><div class="metric-card-label">Остатки на складах</div><div class="metric-card-value" data-metric="stock-total">—</div><div class="metric-trend" data-trend-for="stock-total"></div></div>
+                <div class="metric-card"><div class="metric-card-label">GMROI</div><div class="metric-card-value" data-metric="gmroi">—</div><div class="metric-trend" data-trend-for="gmroi"></div></div>
+                <div class="metric-card"><div class="metric-card-label">Годовой GMROI</div><div class="metric-card-value" data-metric="gmroi-year">—</div><div class="metric-trend" data-trend-for="gmroi-year"></div></div>
+                <div class="metric-card"><div class="metric-card-label">Оборачиваемость по прод.</div><div class="metric-card-value" data-metric="turnover-sales">—</div><div class="metric-trend" data-trend-for="turnover-sales" data-trend-inverse></div></div>
+                <div class="metric-card"><div class="metric-card-label">Оборачиваемость по зак.</div><div class="metric-card-value" data-metric="turnover-orders">—</div><div class="metric-trend" data-trend-for="turnover-orders" data-trend-inverse></div></div>
             </div>
         </div>
 
@@ -6097,10 +6113,7 @@
             'rnp-logistics','wh-total'
         ].forEach(id => setText(id, '—'));
 
-        const productsTable = document.getElementById('products-table');
-        if (productsTable) {
-            productsTable.innerHTML = '<tr><td colspan="5" class="text-center py-6" style="color:var(--text-muted)">Переключение...</td></tr>';
-        }
+        clearAllMetricTrends();
 
         allSuppliesRaw = [];
         allSupplies = [];
@@ -6172,24 +6185,210 @@
         Promise.resolve(callback()).catch(e => console.error('[cabinet switch]', e));
     }
 
+    function prevPeriodRange(from, to) {
+        const fromD = new Date(from + 'T12:00:00');
+        const toD = new Date(to + 'T12:00:00');
+        const days = Math.max(1, Math.round((toD - fromD) / 86400000) + 1);
+        const prevTo = new Date(fromD);
+        prevTo.setDate(prevTo.getDate() - 1);
+        const prevFrom = new Date(prevTo);
+        prevFrom.setDate(prevFrom.getDate() - days + 1);
+        return { from: fmtDate(prevFrom), to: fmtDate(prevTo) };
+    }
+
+    function setMetricTrend(elOrId, curr, prev, inverse) {
+        const el = typeof elOrId === 'string' ? document.getElementById(elOrId) : elOrId;
+        if (!el) return;
+        const extra = el.classList.contains('kpi-hero-trend') ? ' kpi-hero-trend' : '';
+        if (curr == null || prev == null || typeof curr !== 'number' || typeof prev !== 'number' || isNaN(curr) || isNaN(prev)) {
+            el.textContent = '';
+            el.className = 'metric-trend' + extra;
+            return;
+        }
+        const diff = curr - prev;
+        const pct = prev === 0 ? (curr > 0 ? 100 : curr < 0 ? -100 : 0) : (diff / Math.abs(prev)) * 100;
+        const flat = Math.abs(pct) < 0.4;
+        const up = pct > 0;
+        const inv = inverse || el.hasAttribute('data-trend-inverse');
+        let cls = 'metric-trend flat';
+        if (!flat) {
+            if (up) cls = inv ? 'metric-trend down' : 'metric-trend up';
+            else cls = inv ? 'metric-trend up' : 'metric-trend down';
+        }
+        el.className = cls + extra;
+        const arrow = flat ? '→' : up ? '↑' : '↓';
+        el.textContent = flat ? 'без изменений' : `${arrow} ${Math.abs(pct).toFixed(1)}%`;
+    }
+
+    function clearAllMetricTrends() {
+        document.querySelectorAll('.metric-trend').forEach(el => {
+            const extra = el.classList.contains('kpi-hero-trend') ? ' kpi-hero-trend' : '';
+            el.textContent = '';
+            el.className = 'metric-trend' + extra;
+        });
+    }
+
+    const METRIC_TREND_DEFS = [
+        { el: 'trend-m-profit', prop: 'profitFull' },
+        { el: 'trend-m-sales-sum', prop: 'salesSum' },
+        { el: 'trend-m-orders-sum', prop: 'ordersSum' },
+        { el: 'trend-m-profit2', prop: 'profitBeforeCost' },
+        { el: 'trend-m-realization', prop: 'realizationSum' },
+        { el: 'trend-m-commission', prop: 'totalWbFee', inverse: true },
+        { el: 'trend-m-conversion', prop: 'buyoutRate' },
+        { el: 'trend-m-logistics', prop: 'logisticsSum', inverse: true },
+        { el: 'trend-m-ads', prop: 'adsSum', inverse: true },
+        { el: 'trend-m-storage', prop: 'storageSum', inverse: true },
+        { el: 'trend-m-roi', prop: 'roi' },
+        { el: 'trend-m-opex', prop: 'opexForPeriod', inverse: true },
+        { el: 'trend-m-returns', prop: 'returnsSum', inverse: true },
+        { dataFor: 'acceptance', prop: 'acceptanceSum', inverse: true },
+        { dataFor: 'deduction', prop: 'deductionSum', inverse: true },
+        { dataFor: 'cost-of-sales', prop: 'costOfSalesSum', inverse: true },
+        { dataFor: 'tax', prop: 'taxSum', inverse: true },
+        { dataFor: 'tax-base', prop: 'taxBase' },
+        { dataFor: 'commission', prop: 'commissionSum', inverse: true },
+        { dataFor: 'avg-sale-price', prop: 'avgSalePrice' },
+        { dataFor: 'avg-logistics', prop: 'avgLogisticsPerUnit', inverse: true },
+        { dataFor: 'avg-profit', prop: 'avgProfitPerUnit' },
+        { dataFor: 'penalty', prop: 'penaltySum', inverse: true },
+        { dataFor: 'compensation', prop: 'compensationSum' },
+        { dataFor: 'acquiring', prop: 'acquiringSum', inverse: true },
+        { dataFor: 'spp', prop: 'sppSum', inverse: true },
+        { dataFor: 'avg-retail-price', prop: 'avgRetailPrice' },
+        { dataFor: 'cap-cost', prop: 'capCost' },
+        { dataFor: 'cap-retail', prop: 'capRetail' },
+        { dataFor: 'stock-total', prop: 'stockTotal' },
+        { dataFor: 'gmroi', prop: 'gmroi' },
+        { dataFor: 'gmroi-year', prop: 'gmroiYear' },
+        { dataFor: 'turnover-sales', prop: 'turnoverSales', inverse: true },
+        { dataFor: 'turnover-orders', prop: 'turnoverOrders', inverse: true },
+    ];
+
+    function applyMetricTrends(curr, prev) {
+        if (!curr || !prev) return;
+        METRIC_TREND_DEFS.forEach(def => {
+            const c = curr[def.prop];
+            const p = prev[def.prop];
+            if (def.el) setMetricTrend(def.el, c, p, def.inverse);
+            else if (def.dataFor) {
+                const el = document.querySelector(`[data-trend-for="${def.dataFor}"]`);
+                if (el) setMetricTrend(el, c, p, def.inverse);
+            }
+        });
+    }
+
+    function computeQuickOrderMetrics(orders) {
+        let ordersSum = 0, ordersCount = 0, returnsCount = 0;
+        (orders || []).forEach(o => {
+            if (o.is_return) { returnsCount++; return; }
+            ordersCount++;
+            ordersSum += Number(o.price || 0);
+        });
+        const salesSum = Math.round(ordersSum * 0.65);
+        const salesCount = Math.round(ordersCount * 0.65);
+        const commission = Math.round(salesSum * 0.15);
+        const logistics = Math.round(salesSum * 0.05);
+        const storage = Math.round(salesSum * 0.01);
+        const profit = salesSum - commission - logistics - storage;
+        const margin = salesSum > 0 ? Math.round((profit / salesSum) * 1000) / 10 : 0;
+        const roi = salesSum > 0 ? Math.round((profit / (salesSum * 0.5)) * 100) : null;
+        const buyoutRate = ordersCount > 0 ? 65 : 0;
+        return {
+            ordersSum, ordersCount, salesSum, salesCount,
+            profitFull: profit, profitBeforeCost: profit,
+            realizationSum: salesSum, totalWbFee: commission,
+            logisticsSum: logistics, storageSum: storage, adsSum: 0,
+            returnsSum: returnsCount, buyoutRate, roi,
+            opexForPeriod: 0, acceptanceSum: 0, deductionSum: 0,
+            costOfSalesSum: 0, taxSum: 0, taxBase: salesSum,
+            commissionSum: commission, avgSalePrice: salesCount > 0 ? Math.round(salesSum / salesCount) : 0,
+            avgLogisticsPerUnit: salesCount > 0 ? Math.round(logistics / salesCount) : 0,
+            avgProfitPerUnit: salesCount > 0 ? Math.round(profit / salesCount) : 0,
+            penaltySum: 0, compensationSum: 0, margin,
+            acquiringSum: 0, sppSum: 0,
+            avgRetailPrice: salesCount > 0 ? Math.round(salesSum / salesCount) : 0,
+            capCost: 0, capRetail: 0, stockTotal: 0,
+            gmroi: null, gmroiYear: null, turnoverSales: null, turnoverOrders: null,
+        };
+    }
+
+    function enrichMetricsWithStockExtras(metrics, stocks, orders) {
+        if (!metrics) return metrics;
+        let stockTotal = 0;
+        (stocks || []).forEach(s => { stockTotal += Number(s.quantity || 0); });
+        metrics.stockTotal = stockTotal;
+        const avgRetail = metrics.salesCount > 0
+            ? Math.round(metrics.realizationSum / metrics.salesCount)
+            : 0;
+        metrics.avgRetailPrice = avgRetail;
+        metrics.capRetail = avgRetail > 0 ? Math.round(avgRetail * stockTotal) : 0;
+        metrics.capCost = metrics.costOfSalesSum > 0 && metrics.salesCount > 0
+            ? Math.round((metrics.costOfSalesSum / metrics.salesCount) * stockTotal)
+            : 0;
+        const periodDays = metrics.periodDays || 30;
+        if (metrics.salesCount > 0 && stockTotal > 0) {
+            metrics.turnoverSales = Math.round((stockTotal / metrics.salesCount) * periodDays);
+        }
+        let ordersCount = 0;
+        (orders || []).forEach(o => { if (!o.is_return) ordersCount++; });
+        if (ordersCount > 0 && stockTotal > 0) {
+            metrics.turnoverOrders = Math.round((stockTotal / ordersCount) * periodDays);
+        }
+        if (metrics.costOfSalesSum > 0 && metrics.profitFull != null) {
+            metrics.gmroi = Math.round((metrics.profitFull / metrics.costOfSalesSum) * 100) / 100;
+            metrics.gmroiYear = Math.round(metrics.gmroi * (365 / periodDays) * 100) / 100;
+        }
+        return metrics;
+    }
+
+    function applyExtendedMetricDisplay(m) {
+        if (!m) return;
+        const rub = n => n == null ? '—' : Number(n).toLocaleString('ru-RU') + ' ₽';
+        const el = key => document.querySelector(`[data-metric="${key}"]`);
+        const avgEl = el('avg-retail-price');
+        if (avgEl) avgEl.textContent = m.avgRetailPrice > 0 ? rub(m.avgRetailPrice) : '—';
+        const capCostEl = el('cap-cost');
+        if (capCostEl) capCostEl.textContent = m.capCost > 0 ? rub(m.capCost) : '—';
+        const capRetailEl = el('cap-retail');
+        if (capRetailEl) capRetailEl.textContent = m.capRetail > 0 ? rub(m.capRetail) : '—';
+        const stockEl = el('stock-total');
+        if (stockEl) stockEl.textContent = m.stockTotal != null ? Number(m.stockTotal).toLocaleString('ru-RU') + ' шт.' : '—';
+        const gmroiEl = el('gmroi');
+        if (gmroiEl) gmroiEl.textContent = m.gmroi != null ? m.gmroi + '×' : '—';
+        const gmroiYearEl = el('gmroi-year');
+        if (gmroiYearEl) gmroiYearEl.textContent = m.gmroiYear != null ? m.gmroiYear + '×' : '—';
+        const turnSalesEl = el('turnover-sales');
+        if (turnSalesEl) turnSalesEl.textContent = m.turnoverSales != null ? m.turnoverSales + ' дн.' : '—';
+        const turnOrdersEl = el('turnover-orders');
+        if (turnOrdersEl) turnOrdersEl.textContent = m.turnoverOrders != null ? m.turnoverOrders + ' дн.' : '—';
+    }
+
     async function loadFromDB(dateFrom, dateTo) {
         if (!currentCabinetId) return;
 
         const requestId = ++_loadRequestId;
         const snapshotCabinet = currentCabinetId;
 
-        const from = dateFrom || '2026-01-01';
-        const today = new Date();
-        const to = dateTo || fmtDate(today);
+        const range = dateFrom && dateTo ? { from: dateFrom, to: dateTo } : getActiveDateRange();
+        const from = range.from;
+        const to = range.to;
+        const prev = prevPeriodRange(from, to);
 
-        const orders = await fetchAllRows('wb_orders', [
-            { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
-            { op: 'gte', column: 'order_date', value: from },
-            { op: 'lte', column: 'order_date', value: to },
-        ]);
-
-        const stocks = await fetchAllRows('wb_stocks', [
-            { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
+        const [orders, prevOrders, stocks] = await Promise.all([
+            fetchAllRows('wb_orders', [
+                { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
+                { op: 'gte', column: 'order_date', value: from },
+                { op: 'lte', column: 'order_date', value: to },
+            ]),
+            fetchAllRows('wb_orders', [
+                { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
+                { op: 'gte', column: 'order_date', value: prev.from },
+                { op: 'lte', column: 'order_date', value: prev.to },
+            ]),
+            fetchAllRows('wb_stocks', [
+                { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
+            ]),
         ]);
 
         if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) {
@@ -6203,52 +6402,36 @@
             document.getElementById('date-range').textContent =
                 `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
 
-            const tbody = document.getElementById('products-table');
-            if (stocks.length > 0) {
-                const rowsHtml = stocks.slice(0, 30).map(p => {
-                    const enough = (p.quantity || 0) > 10;
-                    const key = escapeHtml(`${p.nm_id || ''}-${p.barcode || ''}`);
-                    return `<tr data-key="${key}">
-                    <td style="color:var(--accent);font-weight:600">${escapeHtml(p.nm_id || '—')}</td>
-                    <td style="color:var(--text-muted)">${escapeHtml(p.barcode || '—')}</td>
-                    <td style="color:var(--text-primary);font-weight:700">${Number(p.quantity || 0)}</td>
-                    <td style="color:var(--text-muted)">${Number(p.in_way_to_client || 0)}</td>
-                    <td><span class="${enough ? 'badge-green' : 'badge-red'}">${enough ? 'Достаточно' : 'Подсорт'}</span></td>
-                </tr>`;
-                }).join('');
-                // Reconcile rows in place (instead of nuking innerHTML) so refreshes
-                // of the same cabinet don't cause flicker or scroll/state loss.
-                if (tbody.children.length && tbody.children[0].hasAttribute('data-key')) {
-                    const scroller = tbody.closest('.overflow-x-auto, .overflow-auto') || tbody;
-                    window.domMorph.preserveScroll([window.document.scrollingElement, scroller], () => {
-                        window.domMorph.morphList(tbody, rowsHtml, 'data-key');
-                    });
-                } else {
-                    tbody.innerHTML = rowsHtml;
-                }
-            } else {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет данных — нажмите "Обновить"</td></tr>';
-            }
-
-            updateDashboardFromDB(stocks, orders);
+            updateDashboardFromDB(stocks, orders, prevOrders);
 
             if (typeof WBFormulas !== 'undefined') {
                 const finId = requestId;
                 const finCabinet = snapshotCabinet;
+                const settings = {
+                    taxRate: Number(localStorage.getItem('tax_rate') || 6),
+                    opex: Number(localStorage.getItem('opex') || 0)
+                };
 
                 Promise.race([
-                    WBFormulas.loadFinanceReport(callWbProxy, from, to),
-                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 12000))
-                ]).then(rows => {
+                    Promise.all([
+                        WBFormulas.loadFinanceReport(callWbProxy, from, to),
+                        WBFormulas.loadFinanceReport(callWbProxy, prev.from, prev.to),
+                    ]),
+                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
+                ]).then(([rows, prevRows]) => {
                     if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
                     if (!rows || rows.length === 0) return;
-                    const settings = {
-                        taxRate: Number(localStorage.getItem('tax_rate') || 6),
-                        opex: Number(localStorage.getItem('opex') || 0)
-                    };
-                    const metrics = WBFormulas.calculateMetrics(rows, settings);
+                    const metrics = enrichMetricsWithStockExtras(
+                        WBFormulas.calculateMetrics(rows, settings), stocks, orders);
+                    const prevMetrics = prevRows && prevRows.length > 0
+                        ? enrichMetricsWithStockExtras(
+                            WBFormulas.calculateMetrics(prevRows, settings), stocks, prevOrders)
+                        : null;
                     if (finCabinet === currentCabinetId) {
                         WBFormulas.applyMetricsToDashboard(metrics, setText);
+                        applyExtendedMetricDisplay(metrics);
+                        if (prevMetrics) applyMetricTrends(metrics, prevMetrics);
+                        syncSummaryTab(metrics);
                     }
                 }).catch(e => console.warn('Finance report:', e.message));
             }
@@ -6403,7 +6586,7 @@
         }
     }
 
-    function updateDashboardFromDB(stocks, orders) {
+    function updateDashboardFromDB(stocks, orders, prevOrders) {
         let totalStock=0, ordersSum=0, ordersCount=0, returns=0;
         stocks.forEach(s => totalStock += Number(s.quantity||0));
         orders.forEach(o => { if(o.is_return){returns++;return;} ordersCount++; ordersSum+=Number(o.price||0); });
@@ -6426,14 +6609,11 @@
         setText('rnp-sales', Math.round(ordersCount*0.65)+' шт.');
         setText('rnp-returns', returns+' шт.');
         setText('rnp-logistics', fmt(logistics)+' ₽');
-        const tbody = document.getElementById('products-table');
-        if (stocks.length > 0) {
-            tbody.innerHTML = stocks.slice(0,30).map(p => {
-                const enough=(p.quantity||0)>10;
-                return `<tr><td style="color:var(--accent);font-weight:600">${escapeHtml(p.nm_id||'—')}</td><td style="color:var(--text-muted)">${escapeHtml(p.barcode||'—')}</td><td style="color:var(--text-primary);font-weight:700">${Number(p.quantity||0)}</td><td style="color:var(--text-muted)">${Number(p.in_way_to_client||0)}</td><td><span class="${enough?'badge-green':'badge-red'}">${enough?'Достаточно':'Подсорт'}</span></td></tr>`;
-            }).join('');
-        } else {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет данных — нажмите "Обновить"</td></tr>';
+        if (prevOrders) {
+            const currM = enrichMetricsWithStockExtras(computeQuickOrderMetrics(orders), stocks, orders);
+            const prevM = enrichMetricsWithStockExtras(computeQuickOrderMetrics(prevOrders), stocks, prevOrders);
+            applyExtendedMetricDisplay(currM);
+            applyMetricTrends(currM, prevM);
         }
         if (window.NRCharts) NRCharts.renderAllCharts(orders, stocks);
     }
