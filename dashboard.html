@@ -3321,8 +3321,31 @@
         <div id="tab-summary-biz" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Сводный по бизнесу</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Совокупные показатели по всем кабинетам. Доступно после подключения нескольких кабинетов с токенами WB.</p></div></div>
         <div id="tab-deductions" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Прочие удержания</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Детализация удержаний из отчёта реализации: подписки, штрафы, транзитные поставки, отзывы за баллы. Доступно после подключения Finance API.</p></div></div>
         <div id="tab-plan-fact" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">План-факт</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Инструмент постановки целей и отслеживания выполнения плана по выбранным показателям. В разработке.</p></div></div>
-        <div id="tab-dds" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">ДДС</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Движение денежных средств: фактические приходы и расходы по счетам. Требует ручного ввода операций. В разработке.</p></div></div>
-        <div id="tab-operations" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Операции</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Журнал финансовых операций: расходы, доходы, переводы между счетами. В разработке.</p></div></div>
+        <div id="tab-dds" class="tab-content space-y-4">
+            <div class="widget-card p-5">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                    <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Баланс продавца WB</h3>
+                    <button type="button" class="ui-btn ui-btn-secondary" onclick="loadFinanceDds()">↻ Обновить</button>
+                </div>
+                <div id="finance-balance-cards" class="grid grid-cols-2 gap-3 mb-2">
+                    <div class="metric-card"><div class="metric-card-label">Текущий баланс</div><div class="metric-card-value" id="finance-balance-current">—</div></div>
+                    <div class="metric-card"><div class="metric-card-label">Доступно к выводу</div><div class="metric-card-value" id="finance-balance-withdraw">—</div></div>
+                </div>
+            </div>
+            <div class="widget-card p-5">
+                <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Отчёты о реализации (движение средств по периодам)</h3>
+                <div id="finance-reports-list"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Нажмите «Обновить» выше, чтобы загрузить отчёты.</div></div>
+            </div>
+        </div>
+        <div id="tab-operations" class="tab-content space-y-4">
+            <div class="widget-card p-5">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                    <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Журнал финансовых операций</h3>
+                    <p class="text-xs" style="color:var(--text-muted)">Детализация последнего отчёта о реализации — откройте вкладку «ДДС» и выберите отчёт.</p>
+                </div>
+                <div id="finance-operations-table"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Отчёт не выбран. Перейдите в «ДДС» и нажмите «Показать операции» у нужного периода.</div></div>
+            </div>
+        </div>
         <div id="tab-obligations" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Обязательства</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Платёжный календарь и плановые операции. В разработке.</p></div></div>
         <div id="tab-finance-extra" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Дополнительно</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Расширенные финансовые отчёты и аналитика. В разработке.</p></div></div>
 
@@ -3334,6 +3357,23 @@
                     <div><label class="text-xs block mb-2" style="color:var(--text-secondary)">Операционные расходы в месяц (₽)</label><input type="number" id="opex" placeholder="150000" class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)"></div>
                 </div>
                 <button onclick="saveSettings()" class="mt-4 px-6 py-2.5 text-white text-sm font-semibold rounded-xl transition" style="background:var(--accent)">Сохранить</button>
+            </div>
+            <div class="widget-card p-5">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                    <div>
+                        <h3 class="font-semibold" style="color:var(--text-primary)">Тарифы комиссии WB по категориям</h3>
+                        <p class="text-xs mt-1" style="color:var(--text-muted)">Официальные ставки комиссии Wildberries — для точного расчёта маржи вместо приближённой формулы.</p>
+                    </div>
+                    <button type="button" class="ui-btn ui-btn-secondary" onclick="loadCommissionTariffs()">↻ Загрузить</button>
+                </div>
+                <input type="search" id="commission-search" placeholder="Поиск категории…" oninput="renderCommissionTariffs()"
+                    class="w-full rounded-xl px-3 py-2 text-sm mb-3" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
+                <div class="overflow-auto" style="max-height:360px">
+                    <table class="data-table" style="font-size:12px">
+                        <thead><tr><th>Категория</th><th style="text-align:right">Комиссия FBW, %</th><th style="text-align:right">Комиссия FBS, %</th><th style="text-align:right">Комиссия Витрина, %</th></tr></thead>
+                        <tbody id="commission-tariffs-body"><tr><td colspan="4" class="text-center py-8" style="color:var(--text-muted)">Нажмите «Загрузить»</td></tr></tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -3552,6 +3592,18 @@
         </div>
 
         <div id="tab-marking" class="tab-content">
+            <div class="widget-card p-5 mb-4">
+                <div class="flex items-center justify-between mb-3 flex-wrap gap-3">
+                    <div>
+                        <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Штрафы за маркировку и отчёт по акцизным товарам</h3>
+                        <p class="text-xs mt-1" style="color:var(--text-muted)">Данные WB: отсутствие/нечитаемость КИЗ (с фото) и операции с маркированными товарами за последние 30 дней.</p>
+                    </div>
+                    <button type="button" class="ui-btn ui-btn-secondary" id="marking-report-refresh-btn" onclick="loadMarkingComplianceReport()">↻ Обновить</button>
+                </div>
+                <div id="marking-report-body">
+                    <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Нажмите «Обновить», чтобы загрузить данные из WB.</div>
+                </div>
+            </div>
             <div id="marking-root"></div>
         </div>
 
@@ -4920,10 +4972,17 @@
         if (name === 'ab-testing' && hasUserCabinets) loadABTests();
         if (name === 'advertising' && hasUserCabinets) openAdvertisingTab();
         if (name === 'wb-clusters' && hasUserCabinets && window.WBClusters) window.WBClusters.openTab();
+        if (name === 'dds' && hasUserCabinets && window._financeDdsLoadedForCabinet !== currentCabinetId) {
+            window._financeDdsLoadedForCabinet = currentCabinetId;
+            loadFinanceDds();
+        }
         if (name === 'logistics' && hasUserCabinets) initLogisticsSupplies();
         if (name === 'seo' && hasUserCabinets) loadSeoKeywords();
         if (name === 'goods-groups' && hasUserCabinets) loadGoodsGroups();
-        if (name === 'marking') initMarkingModule();
+        if (name === 'marking') {
+            initMarkingModule();
+            if (hasUserCabinets && window._markingReportLoadedForCabinet !== currentCabinetId) loadMarkingComplianceReport();
+        }
         if (name === 'rnp' && hasUserCabinets && typeof RNP !== 'undefined') {
             const stale = Date.now() - (window._rnpLastLoadedAt || 0) > 10 * 60 * 1000;
             const wrongCabinet = window._rnpLoadedForCabinet !== currentCabinetId;
@@ -6064,6 +6123,255 @@
     function saveMarkingQueue() {
         try { localStorage.setItem(markingStorageKey(), JSON.stringify(markingQueue)); } catch (e) {}
     }
+    // Штрафы за маркировку + отчёт по акцизным товарам — отдельная
+    // vanilla-панель над React-модулем маркировки (#marking-root), не
+    // затрагивает сам модуль печати/склейки КИЗ.
+    window._markingReportLoadedForCabinet = null;
+    async function loadMarkingComplianceReport() {
+        const body = document.getElementById('marking-report-body');
+        const btn = document.getElementById('marking-report-refresh-btn');
+        if (!body) return;
+        if (!currentCabinetId) { body.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Выберите кабинет.</div>'; return; }
+
+        if (btn) { btn.disabled = true; btn.textContent = '↻ Загрузка...'; }
+        body.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)"><span class="wbc-spinner"></span> Загрузка...</div>';
+
+        const to = new Date();
+        const from = new Date(); from.setDate(from.getDate() - 30);
+        const dateFrom = from.toISOString().split('T')[0];
+        const dateTo = to.toISOString().split('T')[0];
+
+        try {
+            const [labelingRes, exciseRes] = await Promise.all([
+                callWbProxy('marking_goods_labeling', { dateFrom, dateTo }),
+                callWbProxy('marking_excise_report', { dateFrom, dateTo }),
+            ]);
+            window._markingReportLoadedForCabinet = currentCabinetId;
+
+            const penalties = Array.isArray(labelingRes) ? labelingRes
+                : Array.isArray(labelingRes?.data) ? labelingRes.data
+                : Array.isArray(labelingRes?.report) ? labelingRes.report : [];
+            const exciseRows = Array.isArray(exciseRes) ? exciseRes
+                : Array.isArray(exciseRes?.data) ? exciseRes.data
+                : Array.isArray(exciseRes?.report) ? exciseRes.report : [];
+
+            if (!penalties.length && !exciseRows.length) {
+                body.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">За выбранный период штрафов и акцизных операций не найдено (или отчёт пока пуст).</div>';
+                return;
+            }
+
+            let html = '';
+            if (penalties.length) {
+                const totalFine = penalties.reduce((s, p) => s + Number(p.penaltyAmount ?? p.fine ?? p.sum ?? 0), 0);
+                html += `<div class="mb-3 text-sm" style="color:var(--text-primary)"><b>Штрафы за маркировку:</b> ${penalties.length} шт. на сумму ${Math.round(totalFine).toLocaleString('ru-RU')} ₽</div>`;
+                html += `<div class="overflow-x-auto mb-4"><table class="data-table"><thead><tr><th>Артикул</th><th>Дата</th><th>Причина</th><th>Сумма</th></tr></thead><tbody>`;
+                html += penalties.slice(0, 50).map(p => `<tr>
+                    <td style="color:var(--accent);font-weight:600">${escapeHtml(String(p.nmId ?? p.nm_id ?? '—'))}</td>
+                    <td style="color:var(--text-muted)">${escapeHtml(String(p.date ?? p.createDate ?? '').split('T')[0] || '—')}</td>
+                    <td style="color:var(--text-primary)">${escapeHtml(String(p.reason ?? p.violationType ?? 'Не указано'))}</td>
+                    <td style="color:var(--red);font-weight:700">${Math.round(Number(p.penaltyAmount ?? p.fine ?? p.sum ?? 0)).toLocaleString('ru-RU')} ₽</td>
+                </tr>`).join('');
+                html += `</tbody></table></div>`;
+            }
+            if (exciseRows.length) {
+                html += `<div class="mb-2 text-sm" style="color:var(--text-primary)"><b>Операции с маркированными товарами:</b> ${exciseRows.length} шт.</div>`;
+                html += `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Артикул</th><th>Дата</th><th>Операция</th><th>Кол-во</th></tr></thead><tbody>`;
+                html += exciseRows.slice(0, 50).map(r => `<tr>
+                    <td style="color:var(--accent);font-weight:600">${escapeHtml(String(r.nmId ?? r.nm_id ?? '—'))}</td>
+                    <td style="color:var(--text-muted)">${escapeHtml(String(r.date ?? '').split('T')[0] || '—')}</td>
+                    <td style="color:var(--text-primary)">${escapeHtml(String(r.operationType ?? r.docType ?? '—'))}</td>
+                    <td style="color:var(--text-primary)">${Number(r.quantity ?? r.qty ?? 0)}</td>
+                </tr>`).join('');
+                html += `</tbody></table></div>`;
+            }
+            body.innerHTML = html;
+        } catch (e) {
+            console.warn('[marking] compliance report error:', e);
+            body.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Не удалось загрузить данные из WB.</div>';
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = '↻ Обновить'; }
+        }
+    }
+    window.loadMarkingComplianceReport = loadMarkingComplianceReport;
+
+    // ═══════════════════════════════════════════════
+    //  ФИНАНСЫ — ДДС / Операции (finance-api.wildberries.ru)
+    // ═══════════════════════════════════════════════
+    function extractFinanceArray(data) {
+        if (Array.isArray(data)) return data;
+        if (data && typeof data === 'object') {
+            for (const key of ['data', 'reports', 'items', 'report']) {
+                if (Array.isArray(data[key])) return data[key];
+            }
+        }
+        return [];
+    }
+    // Поля detailed-отчёта у finance-api дублируют reportDetailByPeriod, но
+    // могут прийти как camelCase (ppvzForPay) или snake_case (ppvz_for_pay) —
+    // берём максимально терпимо оба варианта.
+    function ffield(row, ...names) {
+        for (const n of names) {
+            if (row[n] != null) return row[n];
+        }
+        return null;
+    }
+
+    async function loadFinanceDds() {
+        if (!currentCabinetId) { showPremiumModal('warning', 'Нет кабинета', 'Выберите кабинет.'); return; }
+        const balCurEl = document.getElementById('finance-balance-current');
+        const balWEl = document.getElementById('finance-balance-withdraw');
+        const listEl = document.getElementById('finance-reports-list');
+        if (balCurEl) balCurEl.textContent = '…';
+        if (balWEl) balWEl.textContent = '…';
+        if (listEl) listEl.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)"><span class="wbc-spinner"></span> Загрузка...</div>';
+
+        const to = new Date();
+        const from = new Date(); from.setDate(from.getDate() - 90);
+        const dateFrom = from.toISOString().split('T')[0];
+        const dateTo = to.toISOString().split('T')[0];
+
+        const [balanceRes, reportsRes] = await Promise.all([
+            callWbProxy('finance_balance', {}),
+            callWbProxy('finance_sales_reports_list', { dateFrom, dateTo }),
+        ]);
+
+        if (balanceRes && !balanceRes.error) {
+            const cur = ffield(balanceRes, 'currentRUB', 'current', 'balance') ?? ffield(balanceRes, 'currentBalance');
+            const withdraw = ffield(balanceRes, 'for_withdraw', 'forWithdraw', 'availableForWithdraw');
+            if (balCurEl) balCurEl.textContent = cur != null ? Math.round(Number(cur)).toLocaleString('ru-RU') + ' ₽' : '—';
+            if (balWEl) balWEl.textContent = withdraw != null ? Math.round(Number(withdraw)).toLocaleString('ru-RU') + ' ₽' : '—';
+        } else {
+            if (balCurEl) balCurEl.textContent = '—';
+            if (balWEl) balWEl.textContent = '—';
+        }
+
+        if (!reportsRes || reportsRes.error) {
+            if (listEl) listEl.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Не удалось загрузить отчёты о реализации: ${escapeHtml(reportsRes?.error || 'ошибка WB API')}</div>`;
+            return;
+        }
+        const reports = extractFinanceArray(reportsRes);
+        if (!reports.length) {
+            if (listEl) listEl.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Отчётов о реализации за последние 90 дней не найдено.</div>';
+            return;
+        }
+        window._financeReportsCache = reports;
+        if (listEl) {
+            listEl.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>№ отчёта</th><th>Период</th><th>К перечислению</th><th></th></tr></thead><tbody>` +
+                reports.slice(0, 30).map((r, idx) => {
+                    const id = ffield(r, 'realizationReportId', 'reportId', 'id');
+                    const dFrom = String(ffield(r, 'dateFrom', 'date_from') || '').split('T')[0];
+                    const dTo = String(ffield(r, 'dateTo', 'date_to') || '').split('T')[0];
+                    const forPay = ffield(r, 'ppvzForPay', 'forPay', 'ppvz_for_pay');
+                    return `<tr>
+                        <td style="color:var(--accent);font-weight:600">${escapeHtml(String(id ?? '—'))}</td>
+                        <td style="color:var(--text-primary)">${dFrom && dTo ? `${dFrom.split('-').reverse().join('.')} — ${dTo.split('-').reverse().join('.')}` : '—'}</td>
+                        <td style="color:var(--text-primary)">${forPay != null ? Math.round(Number(forPay)).toLocaleString('ru-RU') + ' ₽' : '—'}</td>
+                        <td><button type="button" class="ui-btn ui-btn-secondary text-xs" onclick="showFinanceOperationsForReport(${idx})">Показать операции</button></td>
+                    </tr>`;
+                }).join('') + `</tbody></table></div>`;
+        }
+    }
+    window.loadFinanceDds = loadFinanceDds;
+
+    async function showFinanceOperationsForReport(idx) {
+        const reports = window._financeReportsCache || [];
+        const report = reports[idx];
+        if (!report) return;
+        const reportId = ffield(report, 'realizationReportId', 'reportId', 'id');
+        if (!reportId) { showPremiumModal('warning', 'Ошибка', 'У отчёта нет идентификатора.'); return; }
+
+        showTab('operations', null);
+        const tableEl = document.getElementById('finance-operations-table');
+        if (tableEl) tableEl.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)"><span class="wbc-spinner"></span> Загрузка операций...</div>';
+
+        const res = await callWbProxy('finance_sales_report_detailed', { reportId: String(reportId) });
+        if (!tableEl) return;
+        if (!res || res.error) {
+            tableEl.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Не удалось загрузить детализацию: ${escapeHtml(res?.error || 'ошибка WB API')}</div>`;
+            return;
+        }
+        const rows = extractFinanceArray(res);
+        if (!rows.length) {
+            tableEl.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">В этом отчёте нет строк операций.</div>';
+            return;
+        }
+        tableEl.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr>
+                <th>Дата</th><th>Артикул</th><th>Операция</th><th>Сумма продажи</th><th>К перечислению</th><th>Логистика</th><th>Хранение</th>
+            </tr></thead><tbody>` +
+            rows.slice(0, 200).map(r => {
+                const date = String(ffield(r, 'saleDt', 'sale_dt', 'rrDt', 'rr_dt') || '').split('T')[0];
+                const nmId = ffield(r, 'nmId', 'nm_id');
+                const opType = ffield(r, 'docTypeName', 'doc_type_name') || '—';
+                const salePrice = ffield(r, 'retailPriceWithdiscRub', 'retail_price_withdisc_rub');
+                const forPay = ffield(r, 'ppvzForPay', 'ppvz_for_pay');
+                const delivery = ffield(r, 'deliveryRub', 'delivery_rub');
+                const storage = ffield(r, 'storageFee', 'storage_fee');
+                const fmt = v => v != null ? Math.round(Number(v)).toLocaleString('ru-RU') + ' ₽' : '—';
+                return `<tr>
+                    <td style="color:var(--text-muted)">${escapeHtml(date || '—')}</td>
+                    <td style="color:var(--accent);font-weight:600">${escapeHtml(String(nmId ?? '—'))}</td>
+                    <td style="color:var(--text-primary)">${escapeHtml(String(opType))}</td>
+                    <td style="color:var(--text-primary)">${fmt(salePrice)}</td>
+                    <td style="color:var(--green);font-weight:600">${fmt(forPay)}</td>
+                    <td style="color:var(--text-muted)">${fmt(delivery)}</td>
+                    <td style="color:var(--text-muted)">${fmt(storage)}</td>
+                </tr>`;
+            }).join('') + `</tbody></table></div>`;
+    }
+    window.showFinanceOperationsForReport = showFinanceOperationsForReport;
+
+    // ═══════════════════════════════════════════════
+    //  ТОВАРЫ / СЕБЕСТОИМОСТЬ — тарифы комиссии WB
+    // ═══════════════════════════════════════════════
+    window._commissionTariffsCache = [];
+    async function loadCommissionTariffs() {
+        if (!currentCabinetId) { showPremiumModal('warning', 'Нет кабинета', 'Выберите кабинет.'); return; }
+        const body = document.getElementById('commission-tariffs-body');
+        if (body) body.innerHTML = '<tr><td colspan="4" class="text-center py-8" style="color:var(--text-muted)"><span class="wbc-spinner"></span> Загрузка...</td></tr>';
+        try {
+            const res = await callWbProxy('tariffs_commission', { locale: 'ru' });
+            if (!res || res.error) {
+                if (body) body.innerHTML = `<tr><td colspan="4" class="text-center py-8" style="color:var(--text-muted)">Не удалось загрузить тарифы: ${escapeHtml(res?.error || 'ошибка WB API')}</td></tr>`;
+                return;
+            }
+            const list = Array.isArray(res) ? res
+                : Array.isArray(res?.report) ? res.report
+                : Array.isArray(res?.data) ? res.data : [];
+            window._commissionTariffsCache = list;
+            renderCommissionTariffs();
+        } catch (e) {
+            console.warn('[commission] load error:', e);
+            if (body) body.innerHTML = '<tr><td colspan="4" class="text-center py-8" style="color:var(--text-muted)">Не удалось связаться с WB API.</td></tr>';
+        }
+    }
+    window.loadCommissionTariffs = loadCommissionTariffs;
+
+    function renderCommissionTariffs() {
+        const body = document.getElementById('commission-tariffs-body');
+        if (!body) return;
+        const q = (document.getElementById('commission-search')?.value || '').trim().toLowerCase();
+        const list = window._commissionTariffsCache || [];
+        if (!list.length) { body.innerHTML = `<tr><td colspan="4" class="text-center py-8" style="color:var(--text-muted)">Нажмите «Загрузить»</td></tr>`; return; }
+        const filtered = q
+            ? list.filter(r => String(r.subjectName ?? r.parentName ?? r.name ?? '').toLowerCase().includes(q))
+            : list;
+        if (!filtered.length) { body.innerHTML = `<tr><td colspan="4" class="text-center py-8" style="color:var(--text-muted)">Ничего не найдено</td></tr>`; return; }
+        body.innerHTML = filtered.slice(0, 500).map(r => {
+            const name = r.subjectName ?? r.parentName ?? r.name ?? '—';
+            const fbw = r.kgvpMarketplace ?? r.paidStorageKgvp ?? r.kgvpSupplier ?? null;
+            const fbs = r.kgvpSupplierExpress ?? r.kgvpBooking ?? null;
+            const showcase = r.kgvpMarketplace ?? null;
+            const pct = v => v != null ? Number(v).toFixed(1) + '%' : '—';
+            return `<tr>
+                <td style="color:var(--text-primary)">${escapeHtml(String(name))}</td>
+                <td style="text-align:right;color:var(--text-primary)">${pct(fbw)}</td>
+                <td style="text-align:right;color:var(--text-primary)">${pct(fbs)}</td>
+                <td style="text-align:right;color:var(--text-muted)">${pct(showcase)}</td>
+            </tr>`;
+        }).join('');
+    }
+    window.renderCommissionTariffs = renderCommissionTariffs;
+
     function addMarkingJob() {
         const nmId = document.getElementById('mark-nmid')?.value.trim();
         const qty = parseInt(document.getElementById('mark-qty')?.value, 10) || 1;
@@ -6440,6 +6748,8 @@
         // сейчас открыта.
         window._advLastLoadedAt = 0;
         window._advLoadedForCabinet = null;
+        window._markingReportLoadedForCabinet = null;
+        window._financeDdsLoadedForCabinet = null;
         ['adv-kpi-spend','adv-kpi-ctr','adv-kpi-cpc','adv-kpi-cpm','adv-kpi-cr','adv-kpi-orders','adv-kpi-revenue','adv-kpi-efficiency','adv-kpi-spend-share','adv-kpi-roas']
             .forEach(id => setText(id, '—'));
         const advTableEl = document.getElementById('adv-campaigns-table');
@@ -7151,17 +7461,80 @@
         if (trackedKeywords.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Добавьте артикул и ключ для отслеживания</td></tr>'; return; }
         tbody.innerHTML = trackedKeywords.map(k => `<tr><td style="color:var(--accent);font-weight:600">${k.nmid}</td><td style="color:var(--text-primary)">${k.keyword}</td><td style="color:var(--text-primary)">${k.position || '—'}</td><td style="color:var(--text-muted)">${k.isAd?'Реклама':'Органика'}</td><td style="color:var(--text-muted)">${k.checked||'не проверено'}</td></tr>`).join('');
     }
-    function checkAllPositions() {
+    // Реальный трекер позиций через seller-analytics-api
+    // (POST /api/v2/search-report/product/orders) — доступен только с
+    // подпиской Wildberries «Джем». Формат ответа WB не строго
+    // документирован, поэтому парсинг максимально терпимый к разным
+    // вариантам вложенности (data.groups / groups / data / чистый массив).
+    function extractSeoItemsArray(data) {
+        if (Array.isArray(data)) return data;
+        if (data && typeof data === 'object') {
+            for (const key of ['groups', 'items', 'nmIds', 'nmReport', 'data']) {
+                if (Array.isArray(data[key])) return data[key];
+                if (data.data && Array.isArray(data.data[key])) return data.data[key];
+            }
+            if (data.data && Array.isArray(data.data)) return data.data;
+        }
+        return [];
+    }
+    function extractSeoTexts(item) {
+        for (const key of ['texts', 'items', 'searchTexts', 'phrases']) {
+            if (Array.isArray(item?.[key])) return item[key];
+        }
+        return [];
+    }
+
+    async function checkAllPositions() {
         if (!trackedKeywords.length) { showPremiumModal('warning', 'Пусто', 'Добавьте артикул и ключевое слово.'); return; }
-        const now = new Date().toLocaleString('ru-RU');
-        trackedKeywords.forEach(k => {
-            k.position = Math.floor(Math.random() * 80) + 1;
-            k.isAd = Math.random() > 0.7;
-            k.checked = now;
-        });
-        saveSeoKeywords();
-        renderPositionsTable();
-        showPremiumModal('info', 'Проверка выполнена', 'Позиции обновлены (демо-режим). Подключение поискового API WB — следующий этап.');
+        if (!currentCabinetId) { showPremiumModal('warning', 'Нет кабинета', 'Выберите кабинет.'); return; }
+
+        const btn = document.querySelector('#tab-seo button[onclick="checkAllPositions()"]');
+        if (btn) { btn.disabled = true; btn.textContent = 'Проверка...'; }
+
+        const nmIds = [...new Set(trackedKeywords.map(k => Number(k.nmid)).filter(Boolean))];
+        const to = new Date();
+        const from = new Date(); from.setDate(from.getDate() - 6); // WB: история поиска — последние 7 дней
+        const dateFrom = from.toISOString().split('T')[0];
+        const dateTo = to.toISOString().split('T')[0];
+
+        try {
+            const res = await callWbProxy('seo_keyword_positions', { nmIds, dateFrom, dateTo });
+            if (!res || res.error) {
+                const msg = res?.code === 'JAM_SUBSCRIPTION_REQUIRED'
+                    ? 'Для трекера позиций нужна подписка Wildberries «Джем» — без неё WB не отдаёт этот отчёт.'
+                    : `Не удалось получить позиции: ${res?.error || 'ошибка WB API'}`;
+                showPremiumModal('warning', 'Позиции недоступны', msg);
+                return;
+            }
+            const now = new Date().toLocaleString('ru-RU');
+            const byNmId = {};
+            extractSeoItemsArray(res).forEach(item => {
+                const nmId = String(item.nmId ?? item.nm_id ?? item.id ?? '');
+                if (!nmId) return;
+                byNmId[nmId] = extractSeoTexts(item);
+            });
+
+            trackedKeywords.forEach(k => {
+                const texts = byNmId[String(k.nmid)] || [];
+                const kwLower = k.keyword.trim().toLowerCase();
+                const match = texts.find(t => String(t.text ?? t.query ?? t.phrase ?? '').toLowerCase().includes(kwLower));
+                if (match) {
+                    k.position = Number(match.avgPosition ?? match.position ?? match.avg_position ?? null) || null;
+                    k.isAd = !!(match.isAd ?? match.is_ad ?? match.advert);
+                } else {
+                    k.position = null;
+                }
+                k.checked = now;
+            });
+            saveSeoKeywords();
+            renderPositionsTable();
+            showPremiumModal('info', 'Проверка выполнена', 'Позиции обновлены по данным WB за последние 7 дней. Если позиция не найдена — WB не показывал этот запрос в поиске за период.');
+        } catch (e) {
+            console.warn('[seo] checkAllPositions error:', e);
+            showPremiumModal('warning', 'Ошибка', 'Не удалось связаться с WB API. Попробуйте позже.');
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Проверить все'; }
+        }
     }
 
     // ═══════════════════════════════════════════════

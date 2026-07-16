@@ -672,6 +672,205 @@ serve(async (req) => {
                 break;
             }
 
+            // ── SEO-Позиции — реальные данные из seller-analytics-api ────────
+            // (раньше был демо-рандом в checkAllPositions(), теперь настоящий API)
+            case 'seo_keyword_positions': {
+                // POST /api/v2/search-report/product/orders — для каждого nmId
+                // возвращает список поисковых фраз с avgPosition/orders за период.
+                // Мы находим среди них фразу, совпадающую с трекаемым ключом.
+                const nmIds: number[] = [...new Set((params.nmIds || []).map(Number).filter(Boolean))];
+                if (!nmIds.length) return json({ error: 'nmIds required' }, 400);
+                const dateFrom = String(params.dateFrom || new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]);
+                const dateTo = String(params.dateTo || new Date().toISOString().split('T')[0]);
+                try {
+                    const data = await wbPost(
+                        'https://seller-analytics-api.wildberries.ru/api/v2/search-report/product/orders',
+                        WB_TOKEN,
+                        { currentPeriod: { start: dateFrom, end: dateTo }, nmIds, topOrderBy: 'orders', orderBy: { field: 'orders', mode: 'desc' }, limit: 1000 },
+                    );
+                    result = data;
+                } catch (e) {
+                    const status = (e as { status?: number })?.status;
+                    if (status === 403 || status === 401) {
+                        return json({ error: 'Для трекера позиций нужна подписка Wildberries «Джем» — этот отчёт доступен только с ней.', code: 'JAM_SUBSCRIPTION_REQUIRED' }, 403);
+                    }
+                    console.warn('[wb-proxy] seo_keyword_positions error:', String(e));
+                    return json({ error: `WB search-report error: ${String(e)}` }, status || 502);
+                }
+                break;
+            }
+            case 'seo_search_texts': {
+                // POST /api/v2/search-report/product/search-texts — топ поисковых
+                // запросов по товару (для подсказки, какие ключи стоит отслеживать).
+                const nmId = Number(params.nmId || 0);
+                if (!nmId) return json({ error: 'nmId required' }, 400);
+                const dateFrom = String(params.dateFrom || new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0]);
+                const dateTo = String(params.dateTo || new Date().toISOString().split('T')[0]);
+                try {
+                    result = await wbPost(
+                        'https://seller-analytics-api.wildberries.ru/api/v2/search-report/product/search-texts',
+                        WB_TOKEN,
+                        { currentPeriod: { start: dateFrom, end: dateTo }, nmIds: [nmId], topOrderBy: 'orders', limit: 50 },
+                    );
+                } catch (e) {
+                    const status = (e as { status?: number })?.status;
+                    if (status === 403 || status === 401) {
+                        return json({ error: 'Для этого отчёта нужна подписка Wildberries «Джем».', code: 'JAM_SUBSCRIPTION_REQUIRED' }, 403);
+                    }
+                    console.warn('[wb-proxy] seo_search_texts error:', String(e));
+                    return json({ error: `WB search-report error: ${String(e)}` }, status || 502);
+                }
+                break;
+            }
+
+            // ── Маркировка & ШК — акциз / штрафы за маркировку ────────────────
+            case 'marking_excise_report': {
+                // GET /api/v1/analytics/excise-report — отчёт по операциям с
+                // маркированными (обязательная маркировка КИЗ) товарами.
+                const dateFrom = String(params.dateFrom || '').split('T')[0];
+                const dateTo = String(params.dateTo || '').split('T')[0];
+                if (!dateFrom || !dateTo) return json({ error: 'dateFrom, dateTo required' }, 400);
+                const url = `https://seller-analytics-api.wildberries.ru/api/v1/analytics/excise-report?dateFrom=${dateFrom}&dateTo=${dateTo}`;
+                try {
+                    result = await wbGet(url, WB_TOKEN);
+                } catch (e) {
+                    console.warn('[wb-proxy] marking_excise_report error:', String(e));
+                    result = [];
+                }
+                break;
+            }
+            case 'marking_goods_labeling': {
+                // GET /api/v1/analytics/goods-labeling — штрафы за отсутствие/
+                // нечитаемость маркировки (с фото-подтверждением от WB).
+                const dateFrom = String(params.dateFrom || '').split('T')[0];
+                const dateTo = String(params.dateTo || '').split('T')[0];
+                if (!dateFrom || !dateTo) return json({ error: 'dateFrom, dateTo required' }, 400);
+                const url = `https://seller-analytics-api.wildberries.ru/api/v1/analytics/goods-labeling?dateFrom=${dateFrom}&dateTo=${dateTo}`;
+                try {
+                    result = await wbGet(url, WB_TOKEN);
+                } catch (e) {
+                    console.warn('[wb-proxy] marking_goods_labeling error:', String(e));
+                    result = [];
+                }
+                break;
+            }
+
+            // ── Финансы — отчёты о реализации / эквайринг / баланс ────────────
+            case 'finance_balance': {
+                // GET /api/v1/account/balance — баланс продавца (currentRUB, для вывода).
+                try {
+                    result = await wbGet('https://finance-api.wildberries.ru/api/v1/account/balance', WB_TOKEN);
+                } catch (e) {
+                    console.warn('[wb-proxy] finance_balance error:', String(e));
+                    return json({ error: `WB finance balance error: ${String(e)}` }, (e as { status?: number })?.status || 502);
+                }
+                break;
+            }
+            case 'finance_sales_reports_list': {
+                // POST /api/finance/v1/sales-reports/list — список отчётов о
+                // реализации за период (для журнала операций ДДС).
+                const dateFrom = String(params.dateFrom || '').split('T')[0];
+                const dateTo = String(params.dateTo || '').split('T')[0];
+                if (!dateFrom || !dateTo) return json({ error: 'dateFrom, dateTo required' }, 400);
+                try {
+                    result = await wbPost(
+                        'https://finance-api.wildberries.ru/api/finance/v1/sales-reports/list',
+                        WB_TOKEN,
+                        { dateFrom, dateTo },
+                    );
+                } catch (e) {
+                    console.warn('[wb-proxy] finance_sales_reports_list error:', String(e));
+                    result = [];
+                }
+                break;
+            }
+            case 'finance_sales_report_detailed': {
+                // POST /api/finance/v1/sales-reports/detailed/{reportId} — построчная
+                // детализация конкретного отчёта (ppvzSalesCommission, acquiringFee,
+                // paidStorage, deduction, penalty, forPay и т.д.)
+                const reportId = String(params.reportId || '').trim();
+                if (!reportId) return json({ error: 'reportId required' }, 400);
+                try {
+                    result = await wbPost(
+                        `https://finance-api.wildberries.ru/api/finance/v1/sales-reports/detailed/${encodeURIComponent(reportId)}`,
+                        WB_TOKEN, {},
+                    );
+                } catch (e) {
+                    console.warn('[wb-proxy] finance_sales_report_detailed error:', String(e));
+                    return json({ error: `WB sales-report detailed error: ${String(e)}` }, (e as { status?: number })?.status || 502);
+                }
+                break;
+            }
+            case 'finance_acquiring_list': {
+                // POST /api/finance/v1/acquiring/list — список отчётов по эквайрингу.
+                const dateFrom = String(params.dateFrom || '').split('T')[0];
+                const dateTo = String(params.dateTo || '').split('T')[0];
+                if (!dateFrom || !dateTo) return json({ error: 'dateFrom, dateTo required' }, 400);
+                try {
+                    result = await wbPost(
+                        'https://finance-api.wildberries.ru/api/finance/v1/acquiring/list',
+                        WB_TOKEN,
+                        { dateFrom, dateTo },
+                    );
+                } catch (e) {
+                    console.warn('[wb-proxy] finance_acquiring_list error:', String(e));
+                    result = [];
+                }
+                break;
+            }
+            case 'finance_acquiring_detailed': {
+                // POST /api/finance/v1/acquiring/detailed/{reportId}
+                const reportId = String(params.reportId || '').trim();
+                if (!reportId) return json({ error: 'reportId required' }, 400);
+                try {
+                    result = await wbPost(
+                        `https://finance-api.wildberries.ru/api/finance/v1/acquiring/detailed/${encodeURIComponent(reportId)}`,
+                        WB_TOKEN, {},
+                    );
+                } catch (e) {
+                    console.warn('[wb-proxy] finance_acquiring_detailed error:', String(e));
+                    return json({ error: `WB acquiring detailed error: ${String(e)}` }, (e as { status?: number })?.status || 502);
+                }
+                break;
+            }
+
+            // ── Товары — новая аналитика остатков + тарифы комиссии WB ────────
+            case 'goods_stocks_groups': {
+                // POST /api/v2/stocks-report/products/groups — остатки с разбивкой
+                // по складам WB/продавца, с фильтрами по бренду/предмету/тегу.
+                try {
+                    result = await wbPost(
+                        'https://seller-analytics-api.wildberries.ru/api/v2/stocks-report/products/groups',
+                        WB_TOKEN,
+                        {
+                            currentPeriod: { start: params.dateFrom, end: params.dateTo },
+                            stockType: params.stockType || '',
+                            skipDeletedNm: params.skipDeletedNm !== false,
+                            availabilityFilters: params.availabilityFilters || ['deficient', 'actual', 'balanced', 'nonActual', 'nonLiquid', 'invalidData'],
+                            groupBy: params.groupBy || 'imtId',
+                            limit: params.limit || 1000,
+                            offset: params.offset || 0,
+                        },
+                    );
+                } catch (e) {
+                    console.warn('[wb-proxy] goods_stocks_groups error:', String(e));
+                    result = { groups: [] };
+                }
+                break;
+            }
+            case 'tariffs_commission': {
+                // GET common-api /api/v1/tariffs/commission — комиссия WB по категориям
+                // (для точного расчёта маржи вместо приближённой внутренней формулы).
+                const locale = String(params.locale || 'ru');
+                try {
+                    result = await wbGet(`https://common-api.wildberries.ru/api/v1/tariffs/commission?locale=${locale}`, WB_TOKEN);
+                } catch (e) {
+                    console.warn('[wb-proxy] tariffs_commission error:', String(e));
+                    result = { report: [] };
+                }
+                break;
+            }
+
             default:
                 return json({ error: `Unknown action: ${action}` }, 400);
         }
