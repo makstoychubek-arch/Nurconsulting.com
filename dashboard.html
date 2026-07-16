@@ -3365,15 +3365,29 @@
 
                 <div id="adv-alerts-wrap" class="space-y-2 hidden"></div>
 
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
                     <div class="adv-kpi-tile">
-                        <div class="adv-kpi-tile-label">Расход</div>
+                        <div class="adv-kpi-tile-label">Сумма заказов</div>
+                        <div id="adv-kpi-revenue" class="adv-kpi-tile-value">—</div>
+                    </div>
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">Затраты</div>
                         <div id="adv-kpi-spend" class="adv-kpi-tile-value">—</div>
+                    </div>
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">Доля затрат <span class="adv-help-dot" title="Затраты на рекламу / сумма заказов × 100%. Как в ЛК WB.">?</span></div>
+                        <div id="adv-kpi-spend-share" class="adv-kpi-tile-value">—</div>
+                    </div>
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">ROAS <span class="adv-help-dot" title="Сумма заказов / затраты. Как в ЛК WB (значение, не проценты).">?</span></div>
+                        <div id="adv-kpi-roas" class="adv-kpi-tile-value">—</div>
                     </div>
                     <div class="adv-kpi-tile">
                         <div class="adv-kpi-tile-label">CTR</div>
                         <div id="adv-kpi-ctr" class="adv-kpi-tile-value">—</div>
                     </div>
+                </div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div class="adv-kpi-tile">
                         <div class="adv-kpi-tile-label">CPC</div>
                         <div id="adv-kpi-cpc" class="adv-kpi-tile-value">—</div>
@@ -3390,14 +3404,9 @@
                         <div class="adv-kpi-tile-label">Заказы</div>
                         <div id="adv-kpi-orders" class="adv-kpi-tile-value">—</div>
                     </div>
-                    <div class="adv-kpi-tile">
-                        <div class="adv-kpi-tile-label">Выручка</div>
-                        <div id="adv-kpi-revenue" class="adv-kpi-tile-value">—</div>
-                    </div>
-                    <div class="adv-kpi-tile">
-                        <div class="adv-kpi-tile-label">Эффективность (ROAS) <span class="adv-help-dot" title="Выручка от заказов по рекламе / расход × 100%. 100% — реклама окупается «в ноль», выше — прибыльно.">?</span></div>
-                        <div id="adv-kpi-efficiency" class="adv-kpi-tile-value">—</div>
-                    </div>
+                </div>
+                <div class="hidden">
+                    <span id="adv-kpi-efficiency"></span>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -5082,6 +5091,7 @@
         updateAdvertisingFreshness();
         window._advDailyRowsCache = rows;
         window._advCampaignNameCache = nameByCampaign;
+        window._advCampaignTypeCache = typeByCampaign;
 
         const byCampaign = new Map();
         const byDate = new Map();
@@ -5132,6 +5142,10 @@
         const cpm = totalViews > 0 ? (totalSpend / totalViews * 1000) : 0; // WB fullstats не отдаёт CPM напрямую — считаем сами
         const cr = totalClicks > 0 ? (totalOrders / totalClicks * 100) : 0; // конверсия клик → заказ (orders-based, самая практичная для продавца)
         const efficiency = calcEfficiencyPct(totalSpend, totalRevenue);
+        // Как в ЛК WB: «Доля затрат» = затраты / сумма заказов × 100%,
+        // «ROAS» — коэффициент (сумма заказов / затраты), а не проценты.
+        const spendShare = totalRevenue > 0 ? (totalSpend / totalRevenue * 100) : null;
+        const roasRatio = totalSpend > 0 ? (totalRevenue / totalSpend) : null;
 
         setText('adv-kpi-spend', totalSpend > 0 ? fmt(Math.round(totalSpend)) + ' ₽' : '—');
         setText('adv-kpi-ctr', ctr.toFixed(2) + '%');
@@ -5140,6 +5154,8 @@
         setText('adv-kpi-cr', cr.toFixed(2) + '%');
         setText('adv-kpi-orders', fmt(totalOrders));
         setText('adv-kpi-revenue', totalRevenue > 0 ? fmt(Math.round(totalRevenue)) + ' ₽' : '—');
+        setText('adv-kpi-spend-share', spendShare != null ? spendShare.toFixed(2) + '%' : '—');
+        setText('adv-kpi-roas', roasRatio != null ? roasRatio.toFixed(2) : '—');
         const effEl = document.getElementById('adv-kpi-efficiency');
         if (effEl) { effEl.textContent = fmtEfficiency(efficiency); effEl.style.color = efficiencyColorVar(efficiency); }
         void totalAtbs; // добавлено в корзину — доступно в data, показатель не используется в KPI-плитках
@@ -5154,22 +5170,25 @@
             tableEl.innerHTML = `<div class="text-center py-6" style="color:var(--text-muted)">Нет данных за выбранный период. Нажмите «Обновить», чтобы загрузить статистику из WB.</div>`;
             return;
         }
-        tableEl.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Кампания</th><th>Статус</th><th>Расход</th><th>Показы</th><th>Клики</th><th>Заказы</th><th>Выручка</th><th>ROAS</th><th></th><th></th></tr></thead><tbody>` +
+        tableEl.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Кампания</th><th>Тип кампании</th><th>Остаток бюджета</th><th>Дневной лимит</th><th>Затраты</th><th>Показы</th><th>CTR</th><th>Заказы</th><th>Доля затрат</th><th>Статус</th><th></th><th></th></tr></thead><tbody>` +
             campaigns.slice(0, 50).map(c => {
-                const cEff = calcEfficiencyPct(c.spend, c.sum_price);
+                const cCtr = c.views > 0 ? (c.clicks / c.views * 100) : 0;
+                const cSpendShare = c.sum_price > 0 ? (c.spend / c.sum_price * 100) : null;
                 return `<tr id="adv-camp-row-${c.id}">
-                <td style="color:var(--text-primary)">${escapeHtml(c.name)} <span style="color:var(--text-muted);font-family:monospace;font-size:11px">#${c.id}</span>${campaignTypeLabelHtml(c.type)}</td>
-                <td>${campaignStatusPillHtml(c.status)}</td>
+                <td style="color:var(--text-primary)">${escapeHtml(c.name)} <span style="color:var(--text-muted);font-family:monospace;font-size:11px">#${c.id}</span></td>
+                <td style="color:var(--text-muted)">${CAMPAIGN_TYPE_LABELS[Number(c.type)] || '—'}</td>
+                <td style="color:var(--text-muted)">Н/Д</td>
+                <td style="color:var(--text-muted)">Н/Д</td>
                 <td>${fmt(Math.round(c.spend))} ₽</td>
                 <td>${fmt(c.views)}</td>
-                <td>${fmt(c.clicks)}</td>
+                <td>${cCtr.toFixed(2)}%</td>
                 <td>${fmt(c.orders)}</td>
-                <td>${fmt(Math.round(c.sum_price))} ₽</td>
-                <td style="color:${efficiencyColorVar(cEff)};font-weight:700">${fmtEfficiency(cEff)}</td>
+                <td>${cSpendShare != null ? cSpendShare.toFixed(2) + '%' : '—'}</td>
+                <td>${campaignStatusPillHtml(c.status)}</td>
                 <td>${campaignActionBtnHtml(c.id, c.status)}</td>
                 <td><button type="button" class="adv-camp-action-btn" onclick="toggleKeywordStats(${c.id})">🔍 Фразы</button></td>
             </tr>
-            <tr id="adv-camp-kw-row-${c.id}" class="hidden"><td colspan="10" style="padding:0"><div id="adv-camp-kw-${c.id}" class="p-4" style="background:var(--accent-soft)"></div></td></tr>`;
+            <tr id="adv-camp-kw-row-${c.id}" class="hidden"><td colspan="12" style="padding:0"><div id="adv-camp-kw-${c.id}" class="p-4" style="background:var(--accent-soft)"></div></td></tr>`;
             }).join('') + `</tbody></table></div>`;
     }
 
@@ -5184,13 +5203,18 @@
     }
     window.switchAdvSubTab = switchAdvSubTab;
 
-    // Разбивка расходов/показов/кликов/заказов по артикулам (SKU) — WB
-    // отдаёт этот breakdown внутри fullstats: days[].apps[].nms[]. Данные уже
-    // закэшированы в advertising_daily_stats.data (весь объект дня), поэтому
-    // строим таблицу артикулов без доп. запросов к WB.
+    // Разбивка расходов/показов/кликов/заказов по артикулам (SKU), с
+    // раскрытием по кампаниям — визуально копирует вкладку «Товары» в личном
+    // кабинете WB (cmp.wildberries.ru/campaigns/products): жирная строка
+    // товара сверху + список кампаний, которые на него рекламируются, под ней.
+    // WB отдаёт этот breakdown внутри fullstats: days[].apps[].nms[]. Данные
+    // уже закэшированы в advertising_daily_stats.data (весь объект дня),
+    // поэтому строим таблицу без доп. запросов к WB.
     function renderAdvertisingArticles(rows) {
         const el = document.getElementById('adv-articles-table');
         if (!el) return;
+        const nameByCampaign = window._advCampaignNameCache || new Map();
+        const typeByCampaign = window._advCampaignTypeCache || new Map();
         const byNm = new Map();
         for (const r of (rows || [])) {
             const day = r.data;
@@ -5202,7 +5226,7 @@
                     if (!nmId) continue;
                     let agg = byNm.get(nmId);
                     if (!agg) {
-                        agg = { nmId, name: nm.name || '', spend: 0, views: 0, clicks: 0, orders: 0, campaigns: new Set() };
+                        agg = { nmId, name: nm.name || '', spend: 0, views: 0, clicks: 0, orders: 0, byCampaign: new Map() };
                         byNm.set(nmId, agg);
                     }
                     agg.spend += Number(nm.sum || 0);
@@ -5210,7 +5234,21 @@
                     agg.clicks += Number(nm.clicks || 0);
                     agg.orders += Number(nm.orders || 0);
                     if (!agg.name && nm.name) agg.name = nm.name;
-                    agg.campaigns.add(r.campaign_id);
+
+                    let camp = agg.byCampaign.get(r.campaign_id);
+                    if (!camp) {
+                        camp = {
+                            id: r.campaign_id,
+                            name: nameByCampaign.get(String(r.campaign_id)) || r.campaign_name || `Кампания ${r.campaign_id}`,
+                            type: typeByCampaign.get(String(r.campaign_id)),
+                            spend: 0, views: 0, clicks: 0, orders: 0,
+                        };
+                        agg.byCampaign.set(r.campaign_id, camp);
+                    }
+                    camp.spend += Number(nm.sum || 0);
+                    camp.views += Number(nm.views || 0);
+                    camp.clicks += Number(nm.clicks || 0);
+                    camp.orders += Number(nm.orders || 0);
                 }
             }
         }
@@ -5219,20 +5257,45 @@
             el.innerHTML = `<div class="text-center py-6" style="color:var(--text-muted)">Нет данных по артикулам за выбранный период. WB отдаёт разбивку по товарам только для кампаний с показами — нажмите «Обновить», если данные недавно синхронизировались.</div>`;
             return;
         }
-        el.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Артикул WB</th><th>Расход</th><th>Показы</th><th>Клики</th><th>CTR</th><th>Заказы (реклама)</th><th>Кампаний</th></tr></thead><tbody>` +
-            list.slice(0, 100).map(a => {
-                const ctr = a.views > 0 ? (a.clicks / a.views * 100) : 0;
-                return `<tr>
-                <td style="color:var(--accent);font-weight:600">${escapeHtml(String(a.nmId))}${a.name ? ` <span style="color:var(--text-muted);font-weight:400">— ${escapeHtml(a.name)}</span>` : ''}</td>
-                <td>${fmt(Math.round(a.spend))} ₽</td>
+        const rowsHtml = list.slice(0, 100).map(a => {
+            const ctr = a.views > 0 ? (a.clicks / a.views * 100) : 0;
+            const cpc = a.clicks > 0 ? (a.spend / a.clicks) : 0;
+            const campaignsArr = [...a.byCampaign.values()].sort((x, y) => y.spend - x.spend);
+            const hasMultiple = campaignsArr.length > 0;
+            const subRowsHtml = campaignsArr.map(c => {
+                const cCtr = c.views > 0 ? (c.clicks / c.views * 100) : 0;
+                const cCpc = c.clicks > 0 ? (c.spend / c.clicks) : 0;
+                return `<tr class="adv-nm-sub-row hidden" data-nm-parent="${a.nmId}">
+                    <td style="padding-left:32px;color:var(--text-secondary)">↳ ${escapeHtml(c.name)} <span style="color:var(--text-muted);font-family:monospace;font-size:11px">#${c.id}</span></td>
+                    <td style="color:var(--text-muted)">${CAMPAIGN_TYPE_LABELS[Number(c.type)] || '—'}</td>
+                    <td>${fmt(Math.round(c.spend))} ₽</td>
+                    <td>${fmt(c.views)}</td>
+                    <td>${cCtr.toFixed(2)}%</td>
+                    <td>${fmt(c.orders)}</td>
+                    <td>${cCpc > 0 ? fmt(Math.round(cCpc)) + ' ₽' : '—'}</td>
+                </tr>`;
+            }).join('');
+            return `<tr class="adv-nm-row" data-nm-toggle="${a.nmId}" style="cursor:${hasMultiple ? 'pointer' : 'default'}" onclick="${hasMultiple ? `toggleNmRow(${a.nmId})` : ''}">
+                <td style="color:var(--accent);font-weight:700">${hasMultiple ? `<span id="adv-nm-caret-${a.nmId}" style="display:inline-block;margin-right:4px;transition:transform .15s">▸</span>` : ''}${escapeHtml(String(a.nmId))}${a.name ? ` <span style="color:var(--text-muted);font-weight:400">— ${escapeHtml(a.name)}</span>` : ''}</td>
+                <td style="color:var(--text-muted)">${campaignsArr.length} камп.</td>
+                <td style="font-weight:700">${fmt(Math.round(a.spend))} ₽</td>
                 <td>${fmt(a.views)}</td>
-                <td>${fmt(a.clicks)}</td>
                 <td>${ctr.toFixed(2)}%</td>
                 <td>${fmt(a.orders)}</td>
-                <td style="color:var(--text-muted)">${a.campaigns.size}</td>
-            </tr>`;
-            }).join('') + `</tbody></table></div>`;
+                <td>${cpc > 0 ? fmt(Math.round(cpc)) + ' ₽' : '—'}</td>
+            </tr>${subRowsHtml}`;
+        }).join('');
+        el.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Товар / Кампания</th><th>Тип кампании</th><th>Затраты</th><th>Показы</th><th>CTR</th><th>Заказы</th><th>CPC</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
     }
+
+    function toggleNmRow(nmId) {
+        const caret = document.getElementById('adv-nm-caret-' + nmId);
+        const subRows = document.querySelectorAll(`.adv-nm-sub-row[data-nm-parent="${nmId}"]`);
+        const willShow = subRows.length && subRows[0].classList.contains('hidden');
+        subRows.forEach(r => r.classList.toggle('hidden', !willShow));
+        if (caret) caret.style.transform = willShow ? 'rotate(90deg)' : 'rotate(0deg)';
+    }
+    window.toggleNmRow = toggleNmRow;
 
     // Поисковые фразы (кластеры) по кампании — живой запрос по клику
     // (не кэшируем: это drill-down данные, нужны редко и точечно, не на
@@ -5313,16 +5376,11 @@
     }
 
     // Тип кампании WB (см. /adv/v1/promotion/count и /api/advert/v2/adverts).
-    // Показываем как в ЛК WB — маленькой подписью рядом с названием.
+    // Показываем отдельной колонкой в таблице кампаний — как в ЛК WB.
     const CAMPAIGN_TYPE_LABELS = {
         4: 'Каталог', 5: 'Карточка товара', 6: 'Поиск', 7: 'Рекомендации',
         8: 'Автоматическая', 9: 'Аукцион',
     };
-    function campaignTypeLabelHtml(type) {
-        const label = CAMPAIGN_TYPE_LABELS[Number(type)];
-        if (!label) return '';
-        return ` <span class="advcab-status-pill none" style="font-size:10px;padding:1px 7px">${label}</span>`;
-    }
 
     // Пауза/Старт — только вкл/выкл уже настроенной кампании, без изменения
     // ставок и бюджета (осознанно: движение денег с сайта не автоматизируем,
@@ -5362,7 +5420,7 @@
                 .eq('cabinet_id', snapshotCabinet).eq('campaign_id', advertId);
             if (snapshotCabinet !== currentCabinetId) return;
             if (row) {
-                const statusCell = row.children[1];
+                const statusCell = row.children[9];
                 if (statusCell) statusCell.innerHTML = campaignStatusPillHtml(newStatus);
                 const actionCell = row.children[row.children.length - 2];
                 if (actionCell) actionCell.innerHTML = campaignActionBtnHtml(advertId, newStatus);
@@ -6233,7 +6291,7 @@
         // сейчас открыта.
         window._advLastLoadedAt = 0;
         window._advLoadedForCabinet = null;
-        ['adv-kpi-spend','adv-kpi-ctr','adv-kpi-cpc','adv-kpi-cpm','adv-kpi-cr','adv-kpi-orders','adv-kpi-revenue','adv-kpi-efficiency']
+        ['adv-kpi-spend','adv-kpi-ctr','adv-kpi-cpc','adv-kpi-cpm','adv-kpi-cr','adv-kpi-orders','adv-kpi-revenue','adv-kpi-efficiency','adv-kpi-spend-share','adv-kpi-roas']
             .forEach(id => setText(id, '—'));
         const advTableEl = document.getElementById('adv-campaigns-table');
         if (advTableEl) advTableEl.innerHTML = 'Загрузка...';
