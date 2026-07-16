@@ -478,6 +478,19 @@ serve(async (req) => {
                 break;
             }
 
+            // ── Финансы: баланс рекламного кабинета ──────────────────────────
+            case 'advert_balance': {
+                const url = 'https://advert-api.wildberries.ru/adv/v1/balance';
+                const wbRes = await fetch(url, { headers: { Authorization: WB_PROMO_TOKEN } });
+                const text = await wbRes.text();
+                if (!wbRes.ok) {
+                    console.warn('[wb-proxy] advert_balance failed:', wbRes.status, text.slice(0, 300));
+                    return json({ error: `WB balance error ${wbRes.status}` }, wbRes.status >= 500 ? 502 : 400);
+                }
+                result = JSON.parse(text);
+                break;
+            }
+
             // ── Управление кампанией: старт / пауза ──────────────────────────
             // GET /adv/v0/start|pause?id={id}. Ставки/бюджет не трогаем —
             // это только включение/выключение уже настроенной кампании.

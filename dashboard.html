@@ -602,6 +602,13 @@
         }
         .adv-camp-action-btn:hover { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
         .adv-camp-action-btn:disabled { opacity: 0.6; cursor: default; }
+        .adv-alert { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--radius-card); font-size: 12.5px; line-height: 1.45; }
+        .adv-alert-icon { flex-shrink: 0; font-size: 15px; line-height: 1; }
+        .adv-alert.warn { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #b91c1c; }
+        [data-theme="neon"] .adv-alert.warn { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.25); color: #fca5a5; }
+        .adv-alert.info { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); color: #92400e; }
+        [data-theme="neon"] .adv-alert.info { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.25); color: #fcd34d; }
+        .adv-alert b { font-weight: 700; }
         .adv-kpi-tile { background: var(--surface); border-radius: var(--radius-card); padding: 16px; box-shadow: var(--card-shadow); }
         .adv-kpi-tile-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
         .adv-kpi-tile-value { font-size: 18px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
@@ -3373,11 +3380,14 @@
                 <div class="adv-toolbar">
                     <button type="button" class="adv-back-btn" onclick="backToAdvertisingCards()">← Все кабинеты</button>
                     <div class="flex items-center gap-3" style="flex-wrap:wrap">
+                        <span id="adv-balance-badge" class="text-xs hidden" style="color:var(--text-muted)"></span>
                         <span id="adv-freshness" class="text-xs" style="color:var(--text-muted)"></span>
                         <button onclick="syncAdvertisingNow()" id="adv-sync-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить</button>
                     </div>
                 </div>
                 <h3 id="adv-detail-cabinet-name" class="text-lg font-bold" style="color:var(--text-primary)">—</h3>
+
+                <div id="adv-alerts-wrap" class="space-y-2 hidden"></div>
 
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                     <div class="adv-kpi-tile">
@@ -5016,6 +5026,7 @@
         const nameEl = document.getElementById('adv-detail-cabinet-name');
         if (nameEl) nameEl.textContent = cabinetName || '';
         showAdvertisingDetailView();
+        loadAdvertisingBalance(cabinetId);
         if (cabinetId === currentCabinetId) {
             loadAdvertisingFromDB();
             return;
@@ -5129,6 +5140,7 @@
         void totalAtbs; // добавлено в корзину — доступно в data, показатель не используется в KPI-плитках
 
         if (window.NRCharts) NRCharts.renderAdvertisingCharts(dailySeries);
+        renderAdvertisingAlerts(campaigns, efficiency, totalSpend);
 
         listWrap.classList.remove('hidden');
         if (!campaigns.length) {
@@ -5150,6 +5162,37 @@
                 <td>${campaignActionBtnHtml(c.id, c.status)}</td>
             </tr>`;
             }).join('') + `</tbody></table></div>`;
+    }
+
+    // Умные уведомления по текущему периоду/кабинету: слив бюджета без
+    // заказов, низкая общая эффективность, забытые на паузе кампании,
+    // которые раньше приносили заказы. Только аналитика, никаких действий
+    // не выполняет сама — решение всегда за продавцом.
+    function renderAdvertisingAlerts(campaigns, efficiency, totalSpend) {
+        const wrap = document.getElementById('adv-alerts-wrap');
+        if (!wrap) return;
+        const alerts = [];
+
+        const drains = campaigns.filter(c => c.spend > 0 && c.orders === 0).sort((a, b) => b.spend - a.spend);
+        if (drains.length) {
+            const sum = drains.reduce((s, c) => s + c.spend, 0);
+            const names = drains.slice(0, 3).map(c => `«${escapeHtml(c.name)}»`).join(', ');
+            alerts.push({ type: 'warn', icon: '⚠️', html: `Слив бюджета без заказов: ${drains.length === 1 ? 'кампания' : `${drains.length} кампании`} ${names}${drains.length > 3 ? ' и др.' : ''} потратили <b>${fmt(Math.round(sum))} ₽</b> за период без единого заказа.` });
+        }
+
+        if (totalSpend > 0 && efficiency > 0 && efficiency < 100) {
+            alerts.push({ type: 'warn', icon: '📉', html: `Общая эффективность рекламы <b>${fmtEfficiency(efficiency)}</b> — расход на рекламу пока не окупается выручкой от рекламных заказов.` });
+        }
+
+        const forgottenPaused = campaigns.filter(c => c.status === 11 && c.orders > 0).sort((a, b) => b.orders - a.orders);
+        if (forgottenPaused.length) {
+            const names = forgottenPaused.slice(0, 3).map(c => `«${escapeHtml(c.name)}» (${fmt(c.orders)} зак.)`).join(', ');
+            alerts.push({ type: 'info', icon: '⏸', html: `На паузе, но приносили заказы за период: ${names}${forgottenPaused.length > 3 ? ' и др.' : ''} — возможно, стоит вернуть в работу.` });
+        }
+
+        if (!alerts.length) { wrap.classList.add('hidden'); wrap.innerHTML = ''; return; }
+        wrap.classList.remove('hidden');
+        wrap.innerHTML = alerts.map(a => `<div class="adv-alert ${a.type}"><span class="adv-alert-icon">${a.icon}</span><span>${a.html}</span></div>`).join('');
     }
 
     // Пауза/Старт — только вкл/выкл уже настроенной кампании, без изменения
@@ -5199,6 +5242,24 @@
     }
     window.toggleCampaignStatus = toggleCampaignStatus;
 
+    // Баланс рекламного кабинета WB (adv/v1/balance) — читаем живым запросом
+    // при открытии дашборда кабинета (не кэшируем в БД: это единичный лёгкий
+    // запрос без списка/пагинации, а показывать устаревший остаток бюджета
+    // продавцу опаснее, чем лишний раз дёрнуть WB).
+    async function loadAdvertisingBalance(cabinetId) {
+        const el = document.getElementById('adv-balance-badge');
+        if (!el) return;
+        el.classList.add('hidden');
+        const data = await callWbProxy('advert_balance', {}, cabinetId);
+        if (!data) return;
+        const balance = Number(data.balance || 0);
+        const bonus = Number(data.bonus || 0);
+        el.textContent = `Баланс РК: ${fmt(Math.round(balance))} ₽${bonus > 0 ? ` (+${fmt(Math.round(bonus))} бонус)` : ''}`;
+        el.classList.toggle('hidden', false);
+        el.style.color = balance < 500 ? '#ef4444' : 'var(--text-muted)';
+        el.title = balance < 500 ? 'Низкий баланс — активные кампании могут скоро остановиться. Пополните в личном кабинете WB.' : '';
+    }
+
     function updateAdvertisingFreshness() {
         const el = document.getElementById('adv-freshness');
         if (!el) return;
@@ -5217,6 +5278,7 @@
             window._advOpenDetailAfterSwitch = false;
             showAdvertisingDetailView();
             loadAdvertisingFromDB();
+            loadAdvertisingBalance(currentCabinetId);
             return;
         }
         showAdvertisingCardsView();
@@ -5249,6 +5311,7 @@
             if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
             if (snapshotCabinet !== currentCabinetId) return; // кабинет сменили во время синка
             await loadAdvertisingFromDB();
+            loadAdvertisingBalance(snapshotCabinet);
         } catch (e) {
             if (freshEl) freshEl.textContent = '';
             showPremiumModal('error', 'Ошибка синхронизации рекламы', e.message);
