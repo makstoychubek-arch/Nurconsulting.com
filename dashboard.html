@@ -274,6 +274,31 @@
         .metric-trend.flat { color: var(--text-muted); }
         [data-theme="neon"] .metric-trend.up { color: #34d399; }
         [data-theme="neon"] .metric-trend.down { color: #f87171; }
+        /* Цветовое кодирование метрик "как у конкурента" (Маяк/MPSTATS):
+           доходные метрики — зелёный фон+текст, расходные — красный, остальные
+           нейтральные. Это семантическая раскраска по типу метрики (не по знаку
+           значения), задаётся атрибутом data-tone на самой .metric-card / .kpi-hero-card. */
+        .metric-card[data-tone="good"] { background: rgba(52,199,89,0.12); }
+        .metric-card[data-tone="good"] .metric-card-value { color: var(--green); }
+        .metric-card[data-tone="good"]::before { opacity: 1; background: var(--green); }
+        .metric-card[data-tone="bad"] { background: rgba(255,59,48,0.09); }
+        .metric-card[data-tone="bad"] .metric-card-value { color: var(--red); }
+        .metric-card[data-tone="bad"]::before { opacity: 1; background: var(--red); }
+        [data-theme="neon"] .metric-card[data-tone="good"] { background: rgba(52,211,153,0.10); }
+        [data-theme="neon"] .metric-card[data-tone="bad"] { background: rgba(248,113,113,0.10); }
+        .kpi-hero-card[data-tone="good"] { background: rgba(52,199,89,0.12); }
+        .kpi-hero-card[data-tone="good"] .kpi-hero-value { color: var(--green); }
+        .kpi-hero-card[data-tone="bad"] { background: rgba(255,59,48,0.09); }
+        .kpi-hero-card[data-tone="bad"] .kpi-hero-value { color: var(--red); }
+        [data-theme="neon"] .kpi-hero-card[data-tone="good"] { background: rgba(52,211,153,0.10); }
+        [data-theme="neon"] .kpi-hero-card[data-tone="bad"] { background: rgba(248,113,113,0.10); }
+        .dashboard-top-margin-body { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; }
+        .dashboard-top-margin-chart { width: 200px; height: 200px; flex-shrink: 0; position: relative; }
+        .dashboard-top-margin-legend { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: 10px; }
+        .dashboard-top-margin-row { display: flex; align-items: center; gap: 10px; font-size: 12.5px; }
+        .dashboard-top-margin-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+        .dashboard-top-margin-name { color: var(--text-primary); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dashboard-top-margin-pct { color: var(--text-secondary); font-weight: 700; font-variant-numeric: tabular-nums; }
         .kpi-hero-trend { margin-top: 4px; margin-bottom: 2px; }
         .metric-card:hover { border-color: var(--accent-border); transform: translateY(-2px); }
         [data-theme="neon"] .metric-card:hover { box-shadow: var(--use-glow); }
@@ -2115,7 +2140,7 @@
         .ui-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; border: 1px solid transparent; line-height: 1.2; }
         .ui-btn-primary { background: var(--accent-gradient); color: white; }
         .ui-btn-primary:hover { background: var(--accent-hover); }
-        .ui-btn-secondary { background: transparent; border-color: var(--border-strong); color: var(--text-primary); }
+        .ui-btn-secondary { background: var(--surface); border-color: var(--border-strong); color: var(--text-primary); box-shadow: var(--card-shadow); }
         .ui-btn-secondary:hover { background: var(--accent-soft); border-color: var(--accent-border); }
         .ui-status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px 3px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; background: var(--border); color: var(--text-secondary); }
         .ui-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
@@ -3145,21 +3170,21 @@
         </div>
         <div id="tab-dashboard" class="tab-content active space-y-6">
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                <div class="kpi-hero-card">
+                <div class="kpi-hero-card" data-tone="good">
                     <div class="kpi-hero-label">Чистая прибыль</div>
                     <div id="m-profit" class="kpi-hero-value">—</div>
                     <div id="m-margin" class="kpi-hero-sub">— %</div>
                     <div id="trend-m-profit" class="metric-trend kpi-hero-trend"></div>
                     <div class="kpi-spark-wrap"><canvas id="spark-profit"></canvas></div>
                 </div>
-                <div class="kpi-hero-card">
+                <div class="kpi-hero-card" data-tone="good">
                     <div class="kpi-hero-label">Продажи</div>
                     <div id="m-sales-sum" class="kpi-hero-value">—</div>
                     <div id="m-sales-count" class="kpi-hero-sub">0 шт.</div>
                     <div id="trend-m-sales-sum" class="metric-trend kpi-hero-trend"></div>
                     <div class="kpi-spark-wrap"><canvas id="spark-sales"></canvas></div>
                 </div>
-                <div class="kpi-hero-card">
+                <div class="kpi-hero-card" data-tone="good">
                     <div class="kpi-hero-label">Заказы</div>
                     <div id="m-orders-sum" class="kpi-hero-value">—</div>
                     <div id="m-orders-count" class="kpi-hero-sub">0 шт.</div>
@@ -3186,28 +3211,28 @@
             </div>
 
             <div id="dashboard-metrics-grid" class="dashboard-metrics-grid">
-                <div class="metric-card metric-card--highlight"><div class="metric-card-label">Прибыль без опер. расх.</div><div class="metric-card-value" id="m-profit2">—</div><div class="metric-trend" id="trend-m-profit2"></div></div>
-                <div class="metric-card metric-card--highlight"><div class="metric-card-label">Реализация</div><div class="metric-card-value" id="m-realization">—</div><div class="metric-trend" id="trend-m-realization"></div></div>
-                <div class="metric-card metric-card--highlight"><div class="metric-card-label">Итоговое вознаграждение ВБ</div><div class="metric-card-value" id="m-commission">—</div><div class="metric-trend" id="trend-m-commission" data-trend-inverse></div></div>
+                <div class="metric-card metric-card--highlight" data-tone="good"><div class="metric-card-label">Прибыль без опер. расх.</div><div class="metric-card-value" id="m-profit2">—</div><div class="metric-trend" id="trend-m-profit2"></div></div>
+                <div class="metric-card metric-card--highlight" data-tone="good"><div class="metric-card-label">Реализация</div><div class="metric-card-value" id="m-realization">—</div><div class="metric-trend" id="trend-m-realization"></div></div>
+                <div class="metric-card metric-card--highlight" data-tone="bad"><div class="metric-card-label">Итоговое вознаграждение ВБ</div><div class="metric-card-value" id="m-commission">—</div><div class="metric-trend" id="trend-m-commission" data-trend-inverse></div></div>
                 <div class="metric-card"><div class="metric-card-label">Процент выкупа</div><div class="metric-card-value" id="m-conversion">—</div><div class="metric-trend" id="trend-m-conversion"></div></div>
-                <div class="metric-card"><div class="metric-card-label">Логистика</div><div class="metric-card-value" id="m-logistics">—</div><div class="metric-trend" id="trend-m-logistics" data-trend-inverse></div></div>
-                <div class="metric-card"><div class="metric-card-label">Реклама / ДРР</div><div class="metric-card-value" id="m-ads">—</div><div class="metric-trend" id="trend-m-ads" data-trend-inverse></div></div>
-                <div class="metric-card"><div class="metric-card-label">Хранение</div><div class="metric-card-value" id="m-storage">—</div><div class="metric-trend" id="trend-m-storage" data-trend-inverse></div></div>
-                <div class="metric-card"><div class="metric-card-label">Плат. приёмка</div><div class="metric-card-value" data-metric="acceptance">—</div><div class="metric-trend" data-trend-for="acceptance" data-trend-inverse></div></div>
-                <div class="metric-card"><div class="metric-card-label">Прочие удержания</div><div class="metric-card-value" data-metric="deduction">—</div><div class="metric-trend" data-trend-for="deduction" data-trend-inverse></div></div>
+                <div class="metric-card" data-tone="bad"><div class="metric-card-label">Логистика</div><div class="metric-card-value" id="m-logistics">—</div><div class="metric-trend" id="trend-m-logistics" data-trend-inverse></div></div>
+                <div class="metric-card" data-tone="bad"><div class="metric-card-label">Реклама / ДРР</div><div class="metric-card-value" id="m-ads">—</div><div class="metric-trend" id="trend-m-ads" data-trend-inverse></div></div>
+                <div class="metric-card" data-tone="bad"><div class="metric-card-label">Хранение</div><div class="metric-card-value" id="m-storage">—</div><div class="metric-trend" id="trend-m-storage" data-trend-inverse></div></div>
+                <div class="metric-card" data-tone="bad"><div class="metric-card-label">Плат. приёмка</div><div class="metric-card-value" data-metric="acceptance">—</div><div class="metric-trend" data-trend-for="acceptance" data-trend-inverse></div></div>
+                <div class="metric-card" data-tone="bad"><div class="metric-card-label">Прочие удержания</div><div class="metric-card-value" data-metric="deduction">—</div><div class="metric-trend" data-trend-for="deduction" data-trend-inverse></div></div>
                 <div class="metric-card"><div class="metric-card-label">ROI</div><div class="metric-card-value" id="m-roi">—</div><div class="metric-trend" id="trend-m-roi"></div></div>
-                <div class="metric-card"><div class="metric-card-label">Себестоимость продаж</div><div class="metric-card-value" data-metric="cost-of-sales">—</div><div class="metric-trend" data-trend-for="cost-of-sales" data-trend-inverse></div></div>
-                <div class="metric-card"><div class="metric-card-label">Операционные расходы</div><div class="metric-card-value" id="m-opex">—</div><div class="metric-trend" id="trend-m-opex" data-trend-inverse></div></div>
-                <div class="metric-card"><div class="metric-card-label">Налоги</div><div class="metric-card-value" data-metric="tax">—</div><div class="metric-trend" data-trend-for="tax" data-trend-inverse></div></div>
+                <div class="metric-card" data-tone="bad"><div class="metric-card-label">Себестоимость продаж</div><div class="metric-card-value" data-metric="cost-of-sales">—</div><div class="metric-trend" data-trend-for="cost-of-sales" data-trend-inverse></div></div>
+                <div class="metric-card" data-tone="bad"><div class="metric-card-label">Операционные расходы</div><div class="metric-card-value" id="m-opex">—</div><div class="metric-trend" id="trend-m-opex" data-trend-inverse></div></div>
+                <div class="metric-card" data-tone="bad"><div class="metric-card-label">Налоги</div><div class="metric-card-value" data-metric="tax">—</div><div class="metric-trend" data-trend-for="tax" data-trend-inverse></div></div>
                 <div class="metric-card"><div class="metric-card-label">Налоговая база</div><div class="metric-card-value" data-metric="tax-base">—</div><div class="metric-trend" data-trend-for="tax-base"></div></div>
-                <div class="metric-card"><div class="metric-card-label">Комиссия</div><div class="metric-card-value" data-metric="commission">—</div><div class="metric-trend" data-trend-for="commission" data-trend-inverse></div></div>
+                <div class="metric-card" data-tone="bad"><div class="metric-card-label">Комиссия</div><div class="metric-card-value" data-metric="commission">—</div><div class="metric-trend" data-trend-for="commission" data-trend-inverse></div></div>
                 <div class="metric-card"><div class="metric-card-label">Ср. цена продажи</div><div class="metric-card-value" data-metric="avg-sale-price">—</div><div class="metric-trend" data-trend-for="avg-sale-price"></div></div>
                 <div class="metric-card"><div class="metric-card-label">Ср. стоимость логистики</div><div class="metric-card-value" data-metric="avg-logistics">—</div><div class="metric-trend" data-trend-for="avg-logistics" data-trend-inverse></div></div>
-                <div class="metric-card"><div class="metric-card-label">Средняя прибыль на 1 шт.</div><div class="metric-card-value" data-metric="avg-profit">—</div><div class="metric-trend" data-trend-for="avg-profit"></div></div>
-                <div class="metric-card"><div class="metric-card-label">Возвраты</div><div class="metric-card-value" id="m-returns">—</div><div class="metric-trend" id="trend-m-returns" data-trend-inverse></div></div>
-                <div class="metric-card"><div class="metric-card-label">Штрафы</div><div class="metric-card-value" data-metric="penalty">—</div><div class="metric-trend" data-trend-for="penalty" data-trend-inverse></div></div>
-                <div class="metric-card"><div class="metric-card-label">Компенсации</div><div class="metric-card-value" data-metric="compensation">—</div><div class="metric-trend" data-trend-for="compensation"></div></div>
-                <div class="metric-card"><div class="metric-card-label">Эквайринг</div><div class="metric-card-value" data-metric="acquiring">—</div><div class="metric-trend" data-trend-for="acquiring" data-trend-inverse></div></div>
+                <div class="metric-card" data-tone="good"><div class="metric-card-label">Средняя прибыль на 1 шт.</div><div class="metric-card-value" data-metric="avg-profit">—</div><div class="metric-trend" data-trend-for="avg-profit"></div></div>
+                <div class="metric-card" data-tone="bad"><div class="metric-card-label">Возвраты</div><div class="metric-card-value" id="m-returns">—</div><div class="metric-trend" id="trend-m-returns" data-trend-inverse></div></div>
+                <div class="metric-card" data-tone="bad"><div class="metric-card-label">Штрафы</div><div class="metric-card-value" data-metric="penalty">—</div><div class="metric-trend" data-trend-for="penalty" data-trend-inverse></div></div>
+                <div class="metric-card" data-tone="good"><div class="metric-card-label">Компенсации</div><div class="metric-card-value" data-metric="compensation">—</div><div class="metric-trend" data-trend-for="compensation"></div></div>
+                <div class="metric-card" data-tone="bad"><div class="metric-card-label">Эквайринг</div><div class="metric-card-value" data-metric="acquiring">—</div><div class="metric-trend" data-trend-for="acquiring" data-trend-inverse></div></div>
                 <div class="metric-card"><div class="metric-card-label">СПП</div><div class="metric-card-value" data-metric="spp">—</div><div class="metric-trend" data-trend-for="spp" data-trend-inverse></div></div>
                 <div class="metric-card"><div class="metric-card-label">Ср. цена до скидок МП</div><div class="metric-card-value" data-metric="avg-retail-price">—</div><div class="metric-trend" data-trend-for="avg-retail-price"></div></div>
                 <div class="metric-card"><div class="metric-card-label">Капитализация по себес.</div><div class="metric-card-value" data-metric="cap-cost">—</div><div class="metric-trend" data-trend-for="cap-cost"></div></div>
@@ -3217,6 +3242,18 @@
                 <div class="metric-card"><div class="metric-card-label">Годовой GMROI</div><div class="metric-card-value" data-metric="gmroi-year">—</div><div class="metric-trend" data-trend-for="gmroi-year"></div></div>
                 <div class="metric-card"><div class="metric-card-label">Оборачиваемость по прод.</div><div class="metric-card-value" data-metric="turnover-sales">—</div><div class="metric-trend" data-trend-for="turnover-sales" data-trend-inverse></div></div>
                 <div class="metric-card"><div class="metric-card-label">Оборачиваемость по зак.</div><div class="metric-card-value" data-metric="turnover-orders">—</div><div class="metric-trend" data-trend-for="turnover-orders" data-trend-inverse></div></div>
+            </div>
+
+            <div class="widget-card p-5" id="dashboard-top-margin-card">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Топ 5 маржинальных товаров</h3>
+                </div>
+                <div class="dashboard-top-margin-body">
+                    <div class="dashboard-top-margin-chart"><canvas id="chart-top-margin-donut"></canvas></div>
+                    <div id="dashboard-top-margin-legend" class="dashboard-top-margin-legend">
+                        <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -6644,10 +6681,61 @@
                         applyExtendedMetricDisplay(metrics);
                         if (prevMetrics) applyMetricTrends(metrics, prevMetrics);
                         syncSummaryTab(metrics);
+                        renderTopMarginalProducts(metrics);
                     }
-                }).catch(e => console.warn('Finance report:', e.message));
+                }).catch(e => {
+                    console.warn('Finance report:', e.message);
+                    const legendEl = document.getElementById('dashboard-top-margin-legend');
+                    if (legendEl && finCabinet === currentCabinetId) {
+                        legendEl.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Не удалось загрузить данные</div>`;
+                    }
+                });
             }
         }
+    }
+
+    // "Топ 5 маржинальных товаров" на главном дашборде — конкретно для
+    // выбранного кабинета (currentCabinetId, через metrics.byNmId, который
+    // WBFormulas.calculateMetrics уже считает из отчёта по текущему периоду).
+    // У нас нет себестоимости на уровне SKU в этом движке, поэтому
+    // распределяем общую чистую прибыль периода (metrics.profitFull)
+    // пропорционально доле каждого артикула в "к перечислению" (forPay) —
+    // это лучшая доступная оценка вклада товара в итоговую прибыль без
+    // отдельного ввода себестоимости по каждому SKU.
+    function renderTopMarginalProducts(metrics) {
+        const legendEl = document.getElementById('dashboard-top-margin-legend');
+        if (!legendEl) return;
+        const byNmId = metrics?.byNmId || {};
+        const entries = Object.values(byNmId).filter(a => (a.forPay || 0) > 0);
+        const totalForPay = entries.reduce((s, a) => s + a.forPay, 0);
+        if (!entries.length || !totalForPay) {
+            legendEl.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Нет данных за период — нажмите «Обновить» или выберите другой диапазон дат.</div>`;
+            if (window.NRCharts) NRCharts.renderTopMarginDonut([]);
+            return;
+        }
+        const profitFull = Number(metrics.profitFull || 0);
+        const ranked = entries
+            .map(a => ({
+                name: (a.subjectName ? a.subjectName + '/' : '') + (a.saName || `Артикул ${a.nmId}`),
+                nmId: a.nmId,
+                estProfit: profitFull * (a.forPay / totalForPay),
+                share: a.forPay / totalForPay,
+            }))
+            .sort((x, y) => y.estProfit - x.estProfit);
+        const top5 = ranked.slice(0, 5);
+        const restShare = ranked.slice(5).reduce((s, a) => s + a.share, 0);
+        const chartItems = top5.map(a => ({ name: a.name, value: Math.abs(a.estProfit) || 0.0001, pct: a.share * 100 }));
+        if (restShare > 0) chartItems.push({ name: 'Остальные товары', value: Math.abs(profitFull) * restShare || 0.0001, pct: restShare * 100 });
+
+        if (window.NRCharts) NRCharts.renderTopMarginDonut(chartItems);
+
+        const dotColors = ['#7B61FF', '#3B82F6', '#EC4899', '#34D399', '#FBBF24', '#60A5FA'];
+        legendEl.innerHTML = chartItems.map((it, i) => `
+            <div class="dashboard-top-margin-row">
+                <span class="dashboard-top-margin-dot" style="background:${dotColors[i % dotColors.length]}"></span>
+                <span class="dashboard-top-margin-name" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
+                <span class="dashboard-top-margin-pct">${it.pct.toFixed(2)}%</span>
+            </div>`).join('');
     }
 
     async function loadLastSyncTime() {

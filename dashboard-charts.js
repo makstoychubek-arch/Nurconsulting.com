@@ -257,5 +257,40 @@
         renderAdvSingleLine('chart-adv-efficiency', labels, effVals, c.green, '%');
     }
 
-    window.NRCharts = { renderAllCharts, refreshChartTheme, renderAdvertisingCharts };
+    // ═══════════════════════════════════════════════════════════════════════
+    // "Топ 5 маржинальных товаров" — донат-диаграмма на главном дашборде,
+    // items: [{ name, value, pct }] уже отсортированные по убыванию доли.
+    // ═══════════════════════════════════════════════════════════════════════
+    function renderTopMarginDonut(items) {
+        const el = document.getElementById('chart-top-margin-donut');
+        if (!el || typeof Chart === 'undefined') return;
+        destroyChart('chart-top-margin-donut');
+        const c = chartColors();
+        if (!items || !items.length) {
+            charts['chart-top-margin-donut'] = new Chart(el, {
+                type: 'doughnut',
+                data: { labels: ['Нет данных'], datasets: [{ data: [1], backgroundColor: ['#333'] }] },
+                options: { plugins: { legend: { display: false }, tooltip: { enabled: false } }, cutout: '62%' }
+            });
+            return;
+        }
+        charts['chart-top-margin-donut'] = new Chart(el, {
+            type: 'doughnut',
+            data: {
+                labels: items.map(i => i.name),
+                datasets: [{ data: items.map(i => Math.max(0, i.value)), backgroundColor: c.fills, borderWidth: 0 }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '62%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: (ctx) => `${ctx.label}: ${items[ctx.dataIndex].pct.toFixed(2)}%` } }
+                }
+            }
+        });
+    }
+
+    window.NRCharts = { renderAllCharts, refreshChartTheme, renderAdvertisingCharts, renderTopMarginDonut };
 })();
