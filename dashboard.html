@@ -1643,6 +1643,13 @@
         .ab-campaign-status.stop { background: rgba(255,255,255,0.06); color: var(--text-muted); }
         .ab-variant-row { display: grid; grid-template-columns: 120px 1fr; gap: 12px; margin-bottom: 12px; align-items: start; }
         .ab-variant-preview { width: 120px; height: 150px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border); background: var(--surface); }
+        .ab-variant-remove-btn {
+            position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%;
+            background: var(--red); color: #fff; border: 2px solid var(--surface); font-size: 13px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1; padding: 0;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3); transition: transform 0.15s ease;
+        }
+        .ab-variant-remove-btn:hover { transform: scale(1.1); }
         .ab-wizard-steps { display: flex; gap: 8px; margin-bottom: 16px; }
         .ab-wizard-step-dot {
             width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
@@ -3627,7 +3634,7 @@
 
                     <div class="flex gap-2 flex-wrap">
                         <button class="ui-btn ui-btn-secondary text-sm" onclick="abWizardGoStep(1)">← Назад</button>
-                        <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()">Создать тест</button>
+                        <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()" id="ab-create-test-btn">Создать тест</button>
                     </div>
                 </div>
             </div>
@@ -7042,6 +7049,7 @@
         abWizardStep = 1;
         abSelectedCard = null;
         abVariantFiles = {};
+        abCreatingTest = false;
         abSelectedCampaigns = new Set();
         abWizardSources = { ads: true, funnel: true };
         abWizardPlatforms = new Set(['all']);
@@ -7147,23 +7155,13 @@
     }
 
     function useWBPhotoAsVariant(url) {
-        const container = document.getElementById('variant-inputs');
-        const idx = container.children.length;
-        if (idx >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10', 'Можно сравнивать до 10 фото.'); return; }
-        abVariantFiles[idx] = { url, fromWB: true };
-        const slot = document.createElement('div');
-        slot.className = 'ab-variant-row';
-        slot.id = `variant-slot-${idx}`;
-        slot.innerHTML = `
-            <img src="${escapeHtml(url)}" class="ab-variant-preview">
-            <div class="drop-zone" style="min-height:150px" data-idx="${idx}">
-                <input type="file" accept="image/*" onchange="handleVariantFile(${idx}, this)">
-                <div id="slot-inner-${idx}">
-                    <div class="text-xs font-semibold" style="color:var(--green)">✓ Фото WB · Вариант ${abVariantLabel(idx)}</div>
-                    <div class="text-xs mt-1" style="color:var(--text-muted)">Кликни чтобы заменить файлом</div>
-                </div>
-            </div>`;
-        container.appendChild(slot);
+        const count = Object.keys(abVariantFiles).length;
+        if (count >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10', 'Можно сравнивать до 10 фото.'); return; }
+        const entry = { url, fromWB: true };
+        abVariantFiles[count] = entry;
+        appendVariantSlotDom(count, entry);
+        const btn = document.getElementById('add-variant-btn');
+        if (btn) btn.style.display = count + 1 >= MAX_AB_VARIANTS ? 'none' : '';
     }
 
     function toggleABSource(key, el) {
@@ -7215,23 +7213,51 @@
     }
 
     function addVariantSlot() {
+        const count = Object.keys(abVariantFiles).length;
+        if (count >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10 вариантов', 'Можно сравнивать до 10 фото.'); return; }
+        abVariantFiles[count] = null;
+        appendVariantSlotDom(count, null);
+        const btn = document.getElementById('add-variant-btn');
+        if (btn && count + 1 >= MAX_AB_VARIANTS) btn.style.display = 'none';
+    }
+
+    // Собирает DOM-разметку одного слота варианта (пустой / файл / фото из
+    // галереи WB) и навешивает drag&drop. Вынесено в отдельную функцию, чтобы
+    // и addVariantSlot, и useWBPhotoAsVariant, и rebuildVariantInputs (после
+    // удаления слота) рисовали слоты одинаково.
+    function appendVariantSlotDom(idx, entry) {
         const container = document.getElementById('variant-inputs');
-        const idx = container.children.length;
-        if (idx >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10 вариантов', 'Можно сравнивать до 10 фото.'); return; }
+        if (!container) return;
         const label = abVariantLabel(idx);
         const slot = document.createElement('div');
         slot.className = 'ab-variant-row';
         slot.dataset.idx = idx;
         slot.id = `variant-slot-${idx}`;
+
+        let previewHtml, innerHtml;
+        if (entry && entry.fromWB) {
+            previewHtml = `<img src="${escapeHtml(entry.url)}" class="ab-variant-preview">`;
+            innerHtml = `<div class="text-xs font-semibold" style="color:var(--green)">✓ Фото WB · Вариант ${label}</div>
+                <div class="text-xs mt-1" style="color:var(--text-muted)">Кликни чтобы заменить файлом</div>`;
+        } else if (entry) {
+            previewHtml = `<div class="ab-variant-preview" style="display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;border:2px dashed var(--border)">...</div>`;
+            innerHtml = `<div class="text-xs font-semibold" style="color:var(--green)">✓ Вариант ${label}</div>
+                <div class="text-xs" style="color:var(--text-muted)">${(entry.size / 1024).toFixed(0)} KB</div>`;
+        } else {
+            previewHtml = `<div class="ab-variant-preview" style="display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;border:2px dashed var(--border)">Нет фото</div>`;
+            innerHtml = `<div style="font-size:24px;margin-bottom:6px">📷</div>
+                <div class="text-xs font-semibold" style="color:var(--accent)">Вариант ${label}</div>
+                <div class="text-xs mt-1" style="color:var(--text-muted)">Перетащите или кликните · JPG, PNG, WebP</div>`;
+        }
+
         slot.innerHTML = `
-            <div class="ab-variant-preview" style="display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;border:2px dashed var(--border)">Нет фото</div>
+            <div style="position:relative">
+                ${previewHtml}
+                <button type="button" class="ab-variant-remove-btn" onclick="event.stopPropagation();removeVariantSlot(${idx})" title="Удалить вариант">✕</button>
+            </div>
             <div class="drop-zone" style="min-height:150px">
                 <input type="file" accept="image/*" onchange="handleVariantFile(${idx}, this)">
-                <div id="slot-inner-${idx}">
-                    <div style="font-size:24px;margin-bottom:6px">📷</div>
-                    <div class="text-xs font-semibold" style="color:var(--accent)">Вариант ${label}</div>
-                    <div class="text-xs mt-1" style="color:var(--text-muted)">Перетащите или кликните · JPG, PNG, WebP</div>
-                </div>
+                <div id="slot-inner-${idx}">${innerHtml}</div>
             </div>`;
         const dz = slot.querySelector('.drop-zone');
         dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
@@ -7241,11 +7267,43 @@
             if (e.dataTransfer.files[0]) applyVariantFile(idx, e.dataTransfer.files[0]);
         });
         container.appendChild(slot);
-        if (idx >= MAX_AB_VARIANTS - 1) {
-            const btn = document.getElementById('add-variant-btn');
-            if (btn) btn.style.display = 'none';
+
+        if (entry && !entry.fromWB) {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const s = document.getElementById(`variant-slot-${idx}`);
+                const preview = s?.querySelector('.ab-variant-preview');
+                if (preview) preview.outerHTML = `<img src="${e.target.result}" class="ab-variant-preview">`;
+            };
+            reader.readAsDataURL(entry);
         }
     }
+
+    // Удаление слота варианта. Индексы завязаны на позицию в DOM
+    // (container.children.length при добавлении), поэтому после удаления
+    // не последнего слота их нужно полностью переиндексировать 0..n-1 —
+    // иначе новый слот, добавленный позже, получит idx, который уже
+    // занят другим вариантом, и файлы перепутаются.
+    function removeVariantSlot(idx) {
+        const container = document.getElementById('variant-inputs');
+        if (!container) return;
+        const remainingCount = Object.keys(abVariantFiles).length - 1;
+        if (remainingCount < 2) {
+            showPremiumModal('warning', 'Минимум 2 варианта', 'Для А/Б теста нужно хотя бы 2 фото.');
+            return;
+        }
+        const ordered = Object.keys(abVariantFiles).map(Number).sort((a, b) => a - b)
+            .filter(i => i !== idx).map(i => abVariantFiles[i]);
+        abVariantFiles = {};
+        container.innerHTML = '';
+        ordered.forEach((entry, i) => {
+            abVariantFiles[i] = entry;
+            appendVariantSlotDom(i, entry);
+        });
+        const btn = document.getElementById('add-variant-btn');
+        if (btn) btn.style.display = ordered.length >= MAX_AB_VARIANTS ? 'none' : '';
+    }
+    window.removeVariantSlot = removeVariantSlot;
 
     function handleVariantFile(idx, input) {
         if (input.files[0]) applyVariantFile(idx, input.files[0]);
@@ -7280,18 +7338,25 @@
         return publicUrl;
     }
 
+    let abCreatingTest = false;
     async function createABTest() {
+        if (abCreatingTest) return; // защита от повторного клика — иначе создаётся 2 одинаковых теста
         if (!currentCabinetId) { showPremiumModal('warning', 'Выберите кабинет', 'Сначала выберите кабинет.'); return; }
         if (!abSelectedCard) { showPremiumModal('warning', 'Выберите товар', 'Сначала выберите карточку на шаге 1.'); abWizardGoStep(1); return; }
         const nmId = String(abSelectedCard.nmID);
         const name = abSelectedCard.title;
         const interval = Math.max(60, parseInt(document.getElementById('abt-interval').value, 10) || 60);
         const maxRot = parseInt(document.getElementById('abt-maxrot').value, 10) || 0;
-        const fileIndices = Object.keys(abVariantFiles).map(Number).sort();
+        const fileIndices = Object.keys(abVariantFiles).map(Number).sort((a, b) => a - b).filter(i => abVariantFiles[i]);
         if (fileIndices.length < 2) { showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите или выберите из галереи WB минимум 2 варианта.'); return; }
+
+        abCreatingTest = true;
+        const submitBtn = document.getElementById('ab-create-test-btn');
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.6'; submitBtn.style.pointerEvents = 'none'; }
 
         showPremiumModal('info', 'Создаём тест...', 'Загружаем фото, подождите.');
 
+        try {
         const { data: test, error } = await supabase.from('ab_tests').insert({
             cabinet_id: currentCabinetId,
             nm_id: nmId,
@@ -7337,6 +7402,10 @@
         hideNewTestForm();
         showPremiumModal('success', 'Тест запущен!', `Фото будет меняться каждые ${interval} мин.`);
         loadABTests();
+        } finally {
+            abCreatingTest = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.pointerEvents = ''; }
+        }
     }
 
     async function rotateTestPhoto(testId, variantIndex, photoUrl, nmId, variantLabel) {
@@ -7482,6 +7551,7 @@
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="forceRotateABTest('${tid}')">↻ Сменить</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="editABTest('${tid}')">✎ Редактировать</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--green);border-color:rgba(52,211,153,0.3)" onclick="finishABTest('${tid}')">Завершить</button>` : ''}
+                    <button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--red);border-color:rgba(248,113,113,0.3)" onclick="deleteABTest('${tid}')">🗑 Удалить</button>
                 </div>
             </div>
             <div class="flex gap-2 flex-wrap">${variantsHtml}</div>
@@ -7576,8 +7646,7 @@
         await loadABTests();
     }
 
-    async function finishABTest(testId) {
-        const test = allABTests.find(t => String(t.id) === String(testId));
+    async function finishABTest(testId) {        const test = allABTests.find(t => String(t.id) === String(testId));
         if (!test) return;
         const ok = await showConfirmModal('Завершить тест?', 'Ротация фото остановится. Текущее фото останется на WB.');
         if (!ok) return;
@@ -7614,6 +7683,25 @@
         showPremiumModal('success', 'Тест завершён', 'А/Б тест остановлен.');
         await loadABTests();
     }
+
+    // Полное удаление теста — нужно, например, чтобы убрать случайные
+    // дубликаты (двойной клик на «Создать тест» и т.п.). Удаляет сам тест,
+    // его варианты и лог ротаций.
+    async function deleteABTest(testId) {
+        const test = allABTests.find(t => String(t.id) === String(testId));
+        const ok = await showConfirmModal('Удалить тест?', `«${test?.product_name || 'Тест'}» будет удалён без возможности восстановления, вместе со всей статистикой по вариантам.`);
+        if (!ok) return;
+        clearInterval(abRotationTimers[String(testId)]);
+        delete abRotationTimers[String(testId)];
+        await supabase.from('ab_test_rotation_log').delete().eq('test_id', testId);
+        await supabase.from('ab_test_variants').delete().eq('test_id', testId);
+        const { error } = await supabase.from('ab_tests').delete().eq('id', testId);
+        if (error) { showPremiumModal('error', 'Не удалось удалить', error.message); return; }
+        try { localStorage.removeItem(abSettingsKey(testId)); } catch (e) {}
+        showPremiumModal('success', 'Тест удалён', '');
+        await loadABTests();
+    }
+    window.deleteABTest = deleteABTest;
 
     async function updateTestStatus(testId, status) {
         const { error } = await supabase.from('ab_tests').update({
@@ -7656,16 +7744,45 @@
         const total = (test.variants?.length || 0) + Object.keys(abEditNewFiles).length;
         if (total >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10', ''); return; }
         const idx = Object.keys(abEditNewFiles).length;
-        const slot = document.createElement('div');
-        slot.className = 'drop-zone';
-        slot.innerHTML = `
-            <input type="file" accept="image/*" onchange="handleEditVariantFile(${idx}, this)">
-            <div id="edit-slot-${idx}">
-                <div style="font-size:22px">📷</div>
-                <div class="text-xs" style="color:var(--accent)">Новый вариант</div>
-            </div>`;
-        document.getElementById('ab-edit-new-variants').appendChild(slot);
+        abEditNewFiles[idx] = null;
+        renderEditVariantSlots();
     }
+
+    function renderEditVariantSlots() {
+        const box = document.getElementById('ab-edit-new-variants');
+        if (!box) return;
+        box.innerHTML = '';
+        Object.keys(abEditNewFiles).map(Number).sort((a, b) => a - b).forEach(idx => {
+            const file = abEditNewFiles[idx];
+            const slot = document.createElement('div');
+            slot.className = 'drop-zone';
+            slot.style.position = 'relative';
+            slot.innerHTML = `
+                <button type="button" class="ab-variant-remove-btn" style="top:4px;right:4px" onclick="event.stopPropagation();removeEditVariantSlot(${idx})" title="Удалить">✕</button>
+                <input type="file" accept="image/*" onchange="handleEditVariantFile(${idx}, this)">
+                <div id="edit-slot-${idx}">
+                    <div style="font-size:22px">📷</div>
+                    <div class="text-xs" style="color:var(--accent)">Новый вариант</div>
+                </div>`;
+            box.appendChild(slot);
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const inner = document.getElementById(`edit-slot-${idx}`);
+                    if (inner) inner.innerHTML = `<img src="${e.target.result}" class="drop-zone-preview"><div class="text-xs" style="color:var(--green)">✓ Готово</div>`;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    function removeEditVariantSlot(idx) {
+        const remaining = Object.keys(abEditNewFiles).map(Number).sort((a, b) => a - b).filter(i => i !== idx).map(i => abEditNewFiles[i]);
+        abEditNewFiles = {};
+        remaining.forEach((f, i) => { abEditNewFiles[i] = f; });
+        renderEditVariantSlots();
+    }
+    window.removeEditVariantSlot = removeEditVariantSlot;
 
     function handleEditVariantFile(idx, input) {
         if (!input.files[0]) return;
@@ -7682,7 +7799,7 @@
     async function saveABEditVariants() {
         const test = allABTests.find(t => String(t.id) === String(abEditingTestId));
         if (!test) return;
-        const indices = Object.keys(abEditNewFiles).map(Number).sort();
+        const indices = Object.keys(abEditNewFiles).map(Number).sort((a, b) => a - b).filter(i => abEditNewFiles[i]);
         if (!indices.length) { showPremiumModal('warning', 'Нет новых фото', 'Добавьте хотя бы один новый вариант.'); return; }
         const startLabel = (test.variants?.length || 0);
         try {
