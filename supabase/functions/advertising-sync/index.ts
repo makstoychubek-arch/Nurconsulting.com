@@ -119,7 +119,7 @@ Deno.serve(async (req) => {
             await sleep(800);
 
             if (ids.length > 0) {
-                const nameById = await fetchCampaignNames(token);
+                const detailsById = await fetchCampaignDetails(token);
                 await sleep(800);
 
                 // Не даём временный сбой запроса имён затереть уже известное
@@ -138,14 +138,19 @@ Deno.serve(async (req) => {
                 // Upsert campaign status/type/name into advertising_campaigns.
                 // Cheap: reuses the promotion/count response already fetched
                 // above, no extra WB request.
-                const campaignRows = ids.map((id) => ({
-                    cabinet_id: cabinet.id,
-                    campaign_id: id,
-                    campaign_name: nameById.get(id) || existingNameById.get(id) || `Кампания ${id}`,
-                    status: meta.get(id)?.status ?? null,
-                    type: meta.get(id)?.type ?? null,
-                    updated_at: new Date().toISOString(),
-                }));
+                const campaignRows = ids.map((id) => {
+                    const details = detailsById.get(id);
+                    return {
+                        cabinet_id: cabinet.id,
+                        campaign_id: id,
+                        campaign_name: details?.name || existingNameById.get(id) || `Кампания ${id}`,
+                        status: meta.get(id)?.status ?? null,
+                        type: meta.get(id)?.type ?? null,
+                        payment_type: details?.paymentType ?? null,
+                        bid_type: details?.bidType ?? null,
+                        updated_at: new Date().toISOString(),
+                    };
+                });
                 for (let i = 0; i < campaignRows.length; i += 200) {
                     const chunk = campaignRows.slice(i, i + 200);
                     const { error: campErr } = await admin
@@ -183,7 +188,7 @@ Deno.serve(async (req) => {
                                         rows.push({
                                             cabinet_id: cabinet.id,
                                             campaign_id: advertId,
-                                            campaign_name: nameById.get(advertId) || existingNameById.get(advertId) || `Кампания ${advertId}`,
+                                            campaign_name: detailsById.get(advertId)?.name || existingNameById.get(advertId) || `Кампания ${advertId}`,
                                             stat_date,
                                             views: Number(day.views || 0),
                                             clicks: Number(day.clicks || 0),
@@ -314,13 +319,16 @@ async function fetchCampaignIdsAndMeta(
     return { ids: [...new Set(allIds)], meta };
 }
 
-// Mirrors wb-proxy's `advert_campaigns` action — used only for names. Widen
-// the statuses filter beyond what fetchCampaignIdsAndMeta returns so a
-// campaign that changed status between the two calls (e.g. finished/declined
-// mid-sync) still resolves its real WB name instead of falling back to a
-// placeholder.
-async function fetchCampaignNames(token: string): Promise<Map<number, string>> {
-    const map = new Map<number, string>();
+// Mirrors wb-proxy's `advert_campaigns` action — fetches name + payment_type
+// (cpm/cpc) + bid_type (auto/manual, показывается в ЛК WB как «Единая
+// ставка»/«Ручной»). Widen the statuses filter beyond what
+// fetchCampaignIdsAndMeta returns so a campaign that changed status between
+// the two calls (e.g. finished/declined mid-sync) still resolves its real
+// WB data instead of falling back to placeholders.
+async function fetchCampaignDetails(
+    token: string,
+): Promise<Map<number, { name: string; paymentType: string | null; bidType: string | null }>> {
+    const map = new Map<number, { name: string; paymentType: string | null; bidType: string | null }>();
     try {
         const res = await fetch(`${ADV_API}/api/advert/v2/adverts?statuses=-1%2C4%2C7%2C8%2C9%2C11`, { headers: { Authorization: token } });
         const text = await res.text();
@@ -331,11 +339,15 @@ async function fetchCampaignNames(token: string): Promise<Map<number, string>> {
                 const id = Number(a.advertId ?? a.id ?? a.advert_id ?? 0);
                 if (!id) continue;
                 const name = String(a.name ?? a.campaignName ?? '').trim();
-                if (name) map.set(id, name);
+                map.set(id, {
+                    name,
+                    paymentType: a.payment_type != null ? String(a.payment_type) : null,
+                    bidType: a.bid_type != null ? String(a.bid_type) : null,
+                });
             }
         }
     } catch (e) {
-        console.warn('[advertising-sync] advert_campaigns names error:', String(e));
+        console.warn('[advertising-sync] advert_campaigns details error:', String(e));
     }
     return map;
 }

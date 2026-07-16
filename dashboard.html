@@ -5079,10 +5079,14 @@
         const statusByCampaign = new Map();
         const nameByCampaign = new Map();
         const typeByCampaign = new Map();
+        const paymentTypeByCampaign = new Map();
+        const bidTypeByCampaign = new Map();
         for (const cc of campaignMetaRows) {
             statusByCampaign.set(String(cc.campaign_id), cc.status);
             if (cc.campaign_name) nameByCampaign.set(String(cc.campaign_id), cc.campaign_name);
             typeByCampaign.set(String(cc.campaign_id), cc.type);
+            paymentTypeByCampaign.set(String(cc.campaign_id), cc.payment_type);
+            bidTypeByCampaign.set(String(cc.campaign_id), cc.bid_type);
         }
         window._advCampaignStatusCache = statusByCampaign;
 
@@ -5092,6 +5096,8 @@
         window._advDailyRowsCache = rows;
         window._advCampaignNameCache = nameByCampaign;
         window._advCampaignTypeCache = typeByCampaign;
+        window._advCampaignPaymentTypeCache = paymentTypeByCampaign;
+        window._advCampaignBidTypeCache = bidTypeByCampaign;
 
         const byCampaign = new Map();
         const byDate = new Map();
@@ -5104,7 +5110,13 @@
                 // напрямую из WB v2/adverts, см. advertising-sync), а не из
                 // кэша конкретной строки daily_stats, которая может быть старее.
                 const name = nameByCampaign.get(String(key)) || r.campaign_name || `Кампания ${key}`;
-                agg = { id: key, name, type: typeByCampaign.get(String(key)), spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0, atbs: 0, status: statusByCampaign.get(String(key)) };
+                agg = {
+                    id: key, name, type: typeByCampaign.get(String(key)),
+                    paymentType: paymentTypeByCampaign.get(String(key)),
+                    bidType: bidTypeByCampaign.get(String(key)),
+                    spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0, atbs: 0,
+                    status: statusByCampaign.get(String(key)),
+                };
                 byCampaign.set(key, agg);
             }
             agg.spend += Number(r.spend || 0);
@@ -5176,7 +5188,7 @@
                 const cSpendShare = c.sum_price > 0 ? (c.spend / c.sum_price * 100) : null;
                 return `<tr id="adv-camp-row-${c.id}">
                 <td style="color:var(--text-primary)">${escapeHtml(c.name)} <span style="color:var(--text-muted);font-family:monospace;font-size:11px">#${c.id}</span></td>
-                <td style="color:var(--text-muted)">${CAMPAIGN_TYPE_LABELS[Number(c.type)] || '—'}</td>
+                <td style="color:var(--text-muted)">${campaignTypeCellHtml(c)}</td>
                 <td style="color:var(--text-muted)">Н/Д</td>
                 <td style="color:var(--text-muted)">Н/Д</td>
                 <td>${fmt(Math.round(c.spend))} ₽</td>
@@ -5215,6 +5227,8 @@
         if (!el) return;
         const nameByCampaign = window._advCampaignNameCache || new Map();
         const typeByCampaign = window._advCampaignTypeCache || new Map();
+        const paymentTypeByCampaign = window._advCampaignPaymentTypeCache || new Map();
+        const bidTypeByCampaign = window._advCampaignBidTypeCache || new Map();
         const byNm = new Map();
         for (const r of (rows || [])) {
             const day = r.data;
@@ -5241,6 +5255,8 @@
                             id: r.campaign_id,
                             name: nameByCampaign.get(String(r.campaign_id)) || r.campaign_name || `Кампания ${r.campaign_id}`,
                             type: typeByCampaign.get(String(r.campaign_id)),
+                            paymentType: paymentTypeByCampaign.get(String(r.campaign_id)),
+                            bidType: bidTypeByCampaign.get(String(r.campaign_id)),
                             spend: 0, views: 0, clicks: 0, orders: 0,
                         };
                         agg.byCampaign.set(r.campaign_id, camp);
@@ -5267,7 +5283,7 @@
                 const cCpc = c.clicks > 0 ? (c.spend / c.clicks) : 0;
                 return `<tr class="adv-nm-sub-row hidden" data-nm-parent="${a.nmId}">
                     <td style="padding-left:32px;color:var(--text-secondary)">↳ ${escapeHtml(c.name)} <span style="color:var(--text-muted);font-family:monospace;font-size:11px">#${c.id}</span></td>
-                    <td style="color:var(--text-muted)">${CAMPAIGN_TYPE_LABELS[Number(c.type)] || '—'}</td>
+                    <td style="color:var(--text-muted)">${campaignTypeCellHtml(c)}</td>
                     <td>${fmt(Math.round(c.spend))} ₽</td>
                     <td>${fmt(c.views)}</td>
                     <td>${cCtr.toFixed(2)}%</td>
@@ -5381,6 +5397,20 @@
         4: 'Каталог', 5: 'Карточка товара', 6: 'Поиск', 7: 'Рекомендации',
         8: 'Автоматическая', 9: 'Аукцион',
     };
+    const BID_TYPE_LABELS = { auto: 'Единая ставка', manual: 'Ручной' };
+    // В ЛК WB (cmp.wildberries.ru) колонка «Тип кампании» показывает способ
+    // оплаты (CPM/CPC) и подпись со способом ставки (Ручной/Единая ставка) —
+    // именно так продавец сравнивает наш дашборд с оригиналом. Показываем
+    // то же самое, если WB уже отдал payment_type/bid_type; иначе — старую
+    // группировку по коду типа кампании как приблизительный запасной вариант.
+    function campaignTypeCellHtml(c) {
+        const payment = c.paymentType ? String(c.paymentType).toUpperCase() : '';
+        const bid = BID_TYPE_LABELS[c.bidType] || '';
+        if (payment) {
+            return `${escapeHtml(payment)}${bid ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px">${escapeHtml(bid)}</div>` : ''}`;
+        }
+        return CAMPAIGN_TYPE_LABELS[Number(c.type)] || '—';
+    }
 
     // Пауза/Старт — только вкл/выкл уже настроенной кампании, без изменения
     // ставок и бюджета (осознанно: движение денег с сайта не автоматизируем,
