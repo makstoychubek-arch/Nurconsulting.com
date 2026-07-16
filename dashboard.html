@@ -2785,6 +2785,10 @@
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
                     <span class="rail-btn-lbl">РНП</span>
                 </button>
+                <button type="button" class="rail-btn" data-tab="advertising" title="Контроль РК">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
+                    <span class="rail-btn-lbl">РК</span>
+                </button>
                 <button type="button" class="rail-btn" data-flyout="fly-beta">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
                     <span class="rail-btn-lbl">BETA</span>
@@ -2862,10 +2866,6 @@
                 <div class="nav-item" onclick="showTab('rnp', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
                     <span>Модуль РНП</span>
-                </div>
-                <div class="nav-item" onclick="showTab('advertising', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-                    <span>Контроль РК</span>
                 </div>
                 <div class="nav-item" onclick="showTab('rnp-settings', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
@@ -4717,7 +4717,8 @@
 
     const TAB_GROUP = {
         dashboard:'ocr', summary:'ocr', 'summary-biz':'ocr', deductions:'ocr', 'plan-fact':'ocr',
-        rnp:'rnp', 'rnp-settings':'rnp', planning:'rnp', advertising:'rnp',
+        rnp:'rnp', 'rnp-settings':'rnp', planning:'rnp',
+        advertising:'ads',
         'ab-testing':'beta', seo:'beta', marking:'beta', logistics:'beta',
         cost:'goods', 'goods-groups':'goods', warehouse:'goods',
         dds:'finance', operations:'finance', obligations:'finance', 'finance-extra':'finance',
@@ -4747,8 +4748,12 @@
 
     function syncRailGroup(tabName) {
         const g = TAB_GROUP[tabName] || 'ocr';
-        document.querySelectorAll('.rail-btn[data-flyout]').forEach(b => {
-            b.classList.toggle('active', b.dataset.flyout === 'fly-' + g);
+        document.querySelectorAll('.rail-btn').forEach(b => {
+            if (b.dataset.tab) {
+                b.classList.toggle('active', b.dataset.tab === tabName);
+            } else if (b.dataset.flyout) {
+                b.classList.toggle('active', b.dataset.flyout === 'fly-' + g);
+            }
         });
     }
 
@@ -5840,10 +5845,14 @@
     function openMobileFlyoutForTab(tabName) {
         if (window.innerWidth > 768) return;
         const g = TAB_GROUP[tabName] || 'ocr';
+        // Вкладки с прямой кнопкой в rail (без flyout) — просто закрываем панели
         const flyId = 'fly-' + g;
+        const hasFlyout = !!document.getElementById(flyId);
         document.querySelectorAll('.sidebar-flyout').forEach(f => {
-            f.classList.toggle('mobile-active', f.id === flyId);
-            if (f.id === flyId) f.classList.add('visible');
+            const on = hasFlyout && f.id === flyId;
+            f.classList.toggle('mobile-active', on);
+            if (on) f.classList.add('visible');
+            else if (!f.classList.contains('pinned')) f.classList.remove('visible');
         });
     }
 
@@ -8173,6 +8182,18 @@
                         f.classList.toggle('mobile-active', f.id === id);
                     });
                 }
+            });
+        });
+        // Прямые вкладки без flyout (например Контроль РК) — клик сразу открывает раздел
+        app.querySelectorAll('.rail-btn[data-tab]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                hideFlyouts();
+                showTab(btn.dataset.tab, null);
+                if (window.innerWidth <= 768) closeMobileMenu();
+            });
+            // При наведении на прямую кнопку — прячем чужие flyout'ы, чтобы не мешали
+            btn.addEventListener('mouseenter', () => {
+                if (window.innerWidth > 768) hideFlyouts();
             });
         });
         flyouts.forEach(fly => {
