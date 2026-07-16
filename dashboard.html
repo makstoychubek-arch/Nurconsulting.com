@@ -595,6 +595,13 @@
         .adv-back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--accent); cursor: pointer; background: none; border: none; padding: 0; }
         .adv-back-btn:hover { text-decoration: underline; }
         .adv-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .adv-camp-action-btn {
+            border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-primary);
+            font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 8px; cursor: pointer;
+            white-space: nowrap; transition: all 0.15s ease;
+        }
+        .adv-camp-action-btn:hover { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
+        .adv-camp-action-btn:disabled { opacity: 0.6; cursor: default; }
         .adv-kpi-tile { background: var(--surface); border-radius: var(--radius-card); padding: 16px; box-shadow: var(--card-shadow); }
         .adv-kpi-tile-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
         .adv-kpi-tile-value { font-size: 18px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
@@ -5044,13 +5051,22 @@
         const snapshotCabinet = currentCabinetId;
         const { from, to } = getActiveDateRange();
 
-        const rows = await fetchAllRows('advertising_daily_stats', [
-            { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
-            { op: 'gte', column: 'stat_date', value: from },
-            { op: 'lte', column: 'stat_date', value: to },
+        const [rows, campaignMetaRows] = await Promise.all([
+            fetchAllRows('advertising_daily_stats', [
+                { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
+                { op: 'gte', column: 'stat_date', value: from },
+                { op: 'lte', column: 'stat_date', value: to },
+            ]),
+            fetchAllRows('advertising_campaigns', [
+                { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
+            ]),
         ]);
 
         if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
+
+        const statusByCampaign = new Map();
+        for (const cc of campaignMetaRows) statusByCampaign.set(String(cc.campaign_id), cc.status);
+        window._advCampaignStatusCache = statusByCampaign;
 
         window._advLastLoadedAt = Date.now();
         window._advLoadedForCabinet = snapshotCabinet;
@@ -5062,7 +5078,7 @@
             const key = r.campaign_id;
             let agg = byCampaign.get(key);
             if (!agg) {
-                agg = { id: key, name: r.campaign_name || `Кампания ${key}`, spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0, atbs: 0 };
+                agg = { id: key, name: r.campaign_name || `Кампания ${key}`, spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0, atbs: 0, status: statusByCampaign.get(String(key)) };
                 byCampaign.set(key, agg);
             }
             agg.spend += Number(r.spend || 0);
@@ -5079,6 +5095,12 @@
             day.clicks += Number(r.clicks || 0);
             day.orders += Number(r.orders || 0);
             day.sum_price += Number(r.sum_price || 0);
+        }
+        for (const cc of campaignMetaRows) {
+            const key = cc.campaign_id;
+            if (!byCampaign.has(key) && (cc.status === 9 || cc.status === 11 || cc.status === 4)) {
+                byCampaign.set(key, { id: key, name: cc.campaign_name || `Кампания ${key}`, spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0, atbs: 0, status: cc.status });
+            }
         }
         const campaigns = [...byCampaign.values()].sort((a, b) => b.spend - a.spend);
         const dailySeries = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
@@ -5113,20 +5135,69 @@
             tableEl.innerHTML = `<div class="text-center py-6" style="color:var(--text-muted)">Нет данных за выбранный период. Нажмите «Обновить», чтобы загрузить статистику из WB.</div>`;
             return;
         }
-        tableEl.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Кампания</th><th>Расход</th><th>Показы</th><th>Клики</th><th>Заказы</th><th>Выручка</th><th>ROAS</th></tr></thead><tbody>` +
+        tableEl.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Кампания</th><th>Статус</th><th>Расход</th><th>Показы</th><th>Клики</th><th>Заказы</th><th>Выручка</th><th>ROAS</th><th></th></tr></thead><tbody>` +
             campaigns.slice(0, 50).map(c => {
                 const cEff = calcEfficiencyPct(c.spend, c.sum_price);
-                return `<tr>
+                return `<tr id="adv-camp-row-${c.id}">
                 <td style="color:var(--text-primary)">${escapeHtml(c.name)} <span style="color:var(--text-muted);font-family:monospace;font-size:11px">#${c.id}</span></td>
+                <td>${campaignStatusPillHtml(c.status)}</td>
                 <td>${fmt(Math.round(c.spend))} ₽</td>
                 <td>${fmt(c.views)}</td>
                 <td>${fmt(c.clicks)}</td>
                 <td>${fmt(c.orders)}</td>
                 <td>${fmt(Math.round(c.sum_price))} ₽</td>
                 <td style="color:${efficiencyColorVar(cEff)};font-weight:700">${fmtEfficiency(cEff)}</td>
+                <td>${campaignActionBtnHtml(c.id, c.status)}</td>
             </tr>`;
             }).join('') + `</tbody></table></div>`;
     }
+
+    // Пауза/Старт — только вкл/выкл уже настроенной кампании, без изменения
+    // ставок и бюджета (осознанно: движение денег с сайта не автоматизируем,
+    // см. WB API doc §5.3 — только явные ручные пополнения самим продавцом в ЛК WB).
+    function campaignStatusPillHtml(status) {
+        if (status === 9) return `<span class="advcab-status-pill ok">Активна</span>`;
+        if (status === 11) return `<span class="advcab-status-pill warn">На паузе</span>`;
+        if (status === 4) return `<span class="advcab-status-pill none">Готова к запуску</span>`;
+        return `<span class="advcab-status-pill none">—</span>`;
+    }
+    function campaignActionBtnHtml(id, status) {
+        if (status === 9) return `<button type="button" class="adv-camp-action-btn" onclick="toggleCampaignStatus(${id}, 'pause')">⏸ Пауза</button>`;
+        if (status === 11 || status === 4) return `<button type="button" class="adv-camp-action-btn" onclick="toggleCampaignStatus(${id}, 'start')">▶ Старт</button>`;
+        return '';
+    }
+    async function toggleCampaignStatus(advertId, verb) {
+        if (!hasUserCabinets || !currentCabinetId) return;
+        const snapshotCabinet = currentCabinetId;
+        const row = document.getElementById('adv-camp-row-' + advertId);
+        const btn = row?.querySelector('.adv-camp-action-btn');
+        if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
+        try {
+            const result = await callWbProxy(verb === 'start' ? 'advert_start' : 'advert_pause', { advertId }, snapshotCabinet);
+            if (!result) { // callWbProxy уже показало своё модальное окно с ошибкой
+                if (btn) { btn.disabled = false; btn.textContent = verb === 'start' ? '▶ Старт' : '⏸ Пауза'; }
+                return;
+            }
+            const newStatus = verb === 'start' ? 9 : 11;
+            // Оптимистично отражаем новый статус в БД-кэше и в UI сразу — WB
+            // подтвердит реальный статус в течение ~1 мин, следующий фоновый
+            // /ручной advertising-sync перезапишет это тем же значением.
+            await supabase.from('advertising_campaigns')
+                .update({ status: newStatus, updated_at: new Date().toISOString() })
+                .eq('cabinet_id', snapshotCabinet).eq('campaign_id', advertId);
+            if (snapshotCabinet !== currentCabinetId) return;
+            if (row) {
+                const statusCell = row.children[1];
+                if (statusCell) statusCell.innerHTML = campaignStatusPillHtml(newStatus);
+                const actionCell = row.children[row.children.length - 1];
+                if (actionCell) actionCell.innerHTML = campaignActionBtnHtml(advertId, newStatus);
+            }
+        } catch (e) {
+            if (btn) { btn.disabled = false; btn.textContent = verb === 'start' ? '▶ Старт' : '⏸ Пауза'; }
+            showPremiumModal('error', 'Не удалось изменить статус кампании', e.message);
+        }
+    }
+    window.toggleCampaignStatus = toggleCampaignStatus;
 
     function updateAdvertisingFreshness() {
         const el = document.getElementById('adv-freshness');

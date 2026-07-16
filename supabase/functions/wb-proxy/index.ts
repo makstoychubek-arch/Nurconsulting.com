@@ -478,6 +478,28 @@ serve(async (req) => {
                 break;
             }
 
+            // ── Управление кампанией: старт / пауза ──────────────────────────
+            // GET /adv/v0/start|pause?id={id}. Ставки/бюджет не трогаем —
+            // это только включение/выключение уже настроенной кампании.
+            case 'advert_start':
+            case 'advert_pause': {
+                const advertId = Number(params.advertId || 0);
+                if (!advertId) return json({ error: 'advertId required' }, 400);
+                const verb = action === 'advert_start' ? 'start' : 'pause';
+                const url = `https://advert-api.wildberries.ru/adv/v0/${verb}?id=${advertId}`;
+                const wbRes = await fetch(url, { method: 'GET', headers: { Authorization: WB_PROMO_TOKEN } });
+                const text = await wbRes.text();
+                if (!wbRes.ok) {
+                    console.warn(`[wb-proxy] ${action} failed:`, wbRes.status, text.slice(0, 300));
+                    return json({ error: `WB ${verb} error ${wbRes.status}: ${text.slice(0, 200)}` }, wbRes.status >= 500 ? 502 : 400);
+                }
+                // WB campaign status changes are not instant (documented ~1 min
+                // propagation) — the caller should re-fetch advert_campaigns
+                // after a short delay to reflect the real status, not assume it here.
+                result = { ok: true, advertId, action: verb };
+                break;
+            }
+
             // ── Analytics API — Sales Funnel ────────────────────────────────
             case 'sales_funnel_history': {
                 const today = new Date();
