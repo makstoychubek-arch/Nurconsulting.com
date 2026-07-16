@@ -138,6 +138,8 @@ Deno.serve(async (req) => {
                     .eq('test_id', test.id);
                 if (!variants || variants.length === 0) continue;
 
+                const windows = buildVariantWindows(log);
+
                 const { data: orders } = await admin
                     .from('wb_orders')
                     .select('order_date, price, is_return, data')
@@ -145,8 +147,8 @@ Deno.serve(async (req) => {
                     .eq('nm_id', test.nm_id)
                     .gte('order_date', String(test.started_at || '').split('T')[0] || '2020-01-01');
 
-                const tally = new Map<string, { orders: number; revenue: number }>();
-                for (const v of variants) tally.set(v.variant_label, { orders: 0, revenue: 0 });
+                const tally = new Map<string, { orders: number; revenue: number; impressions: number; clicks: number }>();
+                for (const v of variants) tally.set(v.variant_label, { orders: 0, revenue: 0, impressions: 0, clicks: 0 });
 
                 const windowEnd = new Date();
                 for (const order of orders || []) {
@@ -167,11 +169,73 @@ Deno.serve(async (req) => {
                     bucket.revenue += Number(order.price) || 0;
                 }
 
+                // ── Показы/клики по рекламе для этого артикула ───────────────
+                // WB fullstats отдаёт разбивку по товарам (nms) только на
+                // уровне дня, без внутрисуточных временных отметок — поэтому
+                // делим суточные показы/клики между вариантами пропорционально
+                // тому, сколько времени (в мс) в течение этого дня был активен
+                // каждый вариант (реальное окно ротации из лога).
+                const selectedCampaigns: number[] = Array.isArray((test.settings as Record<string, unknown> | null)?.campaigns)
+                    ? ((test.settings as Record<string, unknown>).campaigns as unknown[]).map(Number).filter((n) => !isNaN(n))
+                    : [];
+                const adsEnabled = (test.settings as Record<string, unknown> | null)?.sources
+                    ? Boolean(((test.settings as Record<string, unknown>).sources as Record<string, unknown>).ads)
+                    : true; // по умолчанию считаем (старые тесты без settings)
+
+                if (adsEnabled) {
+                    const sinceDate = String(test.started_at || '').split('T')[0] || '2020-01-01';
+                    const { data: dailyRows } = await admin
+                        .from('advertising_daily_stats')
+                        .select('campaign_id, stat_date, data')
+                        .eq('cabinet_id', test.cabinet_id)
+                        .gte('stat_date', sinceDate);
+
+                    for (const row of dailyRows || []) {
+                        if (selectedCampaigns.length && !selectedCampaigns.includes(Number(row.campaign_id))) continue;
+                        const apps = Array.isArray((row.data as Record<string, unknown> | null)?.apps)
+                            ? ((row.data as Record<string, unknown>).apps as Array<Record<string, unknown>>)
+                            : [];
+                        let dayViews = 0;
+                        let dayClicks = 0;
+                        for (const app of apps) {
+                            const nms = Array.isArray(app?.nms) ? (app.nms as Array<Record<string, unknown>>) : [];
+                            for (const nm of nms) {
+                                const nmId = Number(nm.nmId ?? nm.nm_id ?? 0);
+                                if (nmId !== Number(test.nm_id)) continue;
+                                dayViews += Number(nm.views || 0);
+                                dayClicks += Number(nm.clicks || 0);
+                            }
+                        }
+                        if (!dayViews && !dayClicks) continue;
+
+                        const dayStart = new Date(`${row.stat_date}T00:00:00Z`);
+                        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+                        const overlaps: Array<{ label: string; ms: number }> = [];
+                        let totalMs = 0;
+                        for (const w of windows) {
+                            const start = w.start > dayStart ? w.start : dayStart;
+                            const end = (w.end < dayEnd ? w.end : dayEnd);
+                            const ms = end.getTime() - start.getTime();
+                            if (ms > 0) { overlaps.push({ label: w.label, ms }); totalMs += ms; }
+                        }
+                        if (!totalMs) continue;
+                        for (const o of overlaps) {
+                            if (!tally.has(o.label)) continue;
+                            const share = o.ms / totalMs;
+                            const bucket = tally.get(o.label)!;
+                            bucket.impressions += dayViews * share;
+                            bucket.clicks += dayClicks * share;
+                        }
+                    }
+                }
+
                 for (const v of variants) {
-                    const t = tally.get(v.variant_label) || { orders: 0, revenue: 0 };
+                    const t = tally.get(v.variant_label) || { orders: 0, revenue: 0, impressions: 0, clicks: 0 };
                     await admin.from('ab_test_variants').update({
                         orders: t.orders,
                         revenue: t.revenue,
+                        impressions: Math.round(t.impressions),
+                        clicks: Math.round(t.clicks),
                     }).eq('id', v.id);
                 }
                 statsResults.push({ test_id: test.id, tally: Object.fromEntries(tally) });
@@ -187,6 +251,20 @@ Deno.serve(async (req) => {
         return json({ error: String(err) }, 500);
     }
 });
+
+// Строит непрерывные временные окна показа каждого варианта фото на основе
+// лога ротаций: [created_at текущей записи; created_at следующей записи или
+// "сейчас", если запись последняя].
+function buildVariantWindows(
+    log: Array<{ variant_label: string; created_at: string }>,
+): Array<{ label: string; start: Date; end: Date }> {
+    const now = new Date();
+    return log.map((entry, i) => ({
+        label: entry.variant_label,
+        start: new Date(entry.created_at),
+        end: i + 1 < log.length ? new Date(log[i + 1].created_at) : now,
+    }));
+}
 
 // Mirrors wb-proxy's `media_save` action so the cron job can push a photo to
 // WB without going through the user-JWT-gated proxy.

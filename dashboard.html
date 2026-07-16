@@ -2838,6 +2838,10 @@
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
                     <span class="rail-btn-lbl">РК</span>
                 </button>
+                <button type="button" class="rail-btn" data-tab="ab-testing" title="А/Б Тесты">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg></span>
+                    <span class="rail-btn-lbl">А/Б Тесты</span>
+                </button>
                 <button type="button" class="rail-btn" data-flyout="fly-beta">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
                     <span class="rail-btn-lbl">BETA</span>
@@ -2933,11 +2937,6 @@
                 <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
             </div>
             <div class="flyout-body">
-                <div class="nav-item" onclick="showTab('ab-testing', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg>
-                    <span class="nav-item-label">А/Б Тесты</span>
-                    <span class="nav-beta-badge">BETA</span>
-                </div>
                 <div class="nav-item" onclick="showTab('seo', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     <span class="nav-item-label">SEO-Позиции</span>
@@ -4715,7 +4714,7 @@
         dashboard:'ocr', summary:'ocr', 'summary-biz':'ocr', deductions:'ocr', 'plan-fact':'ocr',
         rnp:'rnp', 'rnp-settings':'rnp', planning:'rnp',
         advertising:'ads',
-        'ab-testing':'beta', seo:'beta', marking:'beta', logistics:'beta',
+        'ab-testing':'ab-testing', seo:'beta', marking:'beta', logistics:'beta',
         cost:'goods', 'goods-groups':'goods', warehouse:'goods',
         dds:'finance', operations:'finance', obligations:'finance', 'finance-extra':'finance',
         settings:'manage', calculator:'manage',
@@ -7025,8 +7024,15 @@
 
     function abVariantLabel(i) { return String(i + 1); }
     function abSettingsKey(testId) { return `nr_ab_settings_${testId}`; }
+    // Настройки теста (метрика победы/РК/платформы) храним и в БД (settings
+    // jsonb на ab_tests) — это единственный способ, которым серверный
+    // cron ab-test-rotate может их увидеть и посчитать клики/показы по
+    // рекламе для теста. localStorage оставляем как мгновенный кэш для UI.
     function saveABSettings(testId, settings) {
         try { localStorage.setItem(abSettingsKey(testId), JSON.stringify(settings)); } catch (e) {}
+        supabase.from('ab_tests').update({ settings }).eq('id', testId).then(({ error }) => {
+            if (error) console.warn('[AB] settings->DB save failed:', error.message);
+        });
     }
     function loadABSettings(testId) {
         try { return JSON.parse(localStorage.getItem(abSettingsKey(testId)) || '{}'); } catch (e) { return {}; }
@@ -7363,7 +7369,14 @@
         allABTests = [];
         for (const test of tests) {
             const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', test.id).order('variant_label');
-            allABTests.push({ ...test, variants: variants || [], settings: loadABSettings(test.id) });
+            const dbSettings = test.settings && Object.keys(test.settings).length ? test.settings : null;
+            const localSettings = dbSettings ? null : loadABSettings(test.id);
+            if (!dbSettings && localSettings && Object.keys(localSettings).length) {
+                // Старый тест, настройки были только в localStorage — переносим
+                // в БД один раз, чтобы серверный cron тоже мог их использовать.
+                saveABSettings(test.id, localSettings);
+            }
+            allABTests.push({ ...test, variants: variants || [], settings: dbSettings || localSettings || {} });
         }
         renderABTests();
         startRotationTimers();
@@ -7394,12 +7407,21 @@
 
     function renderTestCard(test) {
         const variants = test.variants || [];
-        const withRate = variants.map(v => ({
-            ...v,
-            ordersPerHour: v.minutes_active > 0 ? ((v.orders || 0) / v.minutes_active * 60) : 0
-        }));
-        const maxRate = Math.max(...withRate.map(v => v.ordersPerHour), 0);
-        const winner = maxRate > 0 ? withRate.find(v => v.ordersPerHour === maxRate) : null;
+        const metric = test.settings?.metric || 'ctr';
+        const withRate = variants.map(v => {
+            const impressions = Number(v.impressions || 0);
+            const clicks = Number(v.clicks || 0);
+            const orders = Number(v.orders || 0);
+            const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+            const cr = clicks > 0 ? (orders / clicks * 100) : 0;
+            const ordersPerHour = v.minutes_active > 0 ? (orders / v.minutes_active * 60) : 0;
+            const score = metric === 'ctr' ? ctr : metric === 'cr' ? cr : ordersPerHour;
+            return { ...v, impressions, clicks, orders, ctr, cr, ordersPerHour, score };
+        });
+        const hasAdsData = withRate.some(v => v.impressions > 0);
+        const maxScore = Math.max(...withRate.map(v => v.score), 0);
+        const winner = maxScore > 0 ? withRate.find(v => v.score === maxScore) : null;
+        const metricLabel = metric === 'ctr' ? 'CTR' : metric === 'cr' ? 'CR' : 'зак/час';
         const intervalMin = test.rotation_interval_min || 60;
         const nextRotateMs = test.last_rotated_at
             ? Math.max(0, intervalMin * 60 * 1000 - (Date.now() - new Date(test.last_rotated_at).getTime()))
@@ -7412,9 +7434,10 @@
             : 'сейчас';
 
         const variantsHtml = withRate.map(v => {
-            const isWinner = winner && v.id === winner.id && maxRate > 0;
+            const isWinner = winner && v.id === winner.id && maxScore > 0;
             const isActive = v.is_currently_on_wb;
-            const barPct = maxRate > 0 ? Math.round(v.ordersPerHour / maxRate * 100) : 0;
+            const barPct = maxScore > 0 ? Math.round(v.score / maxScore * 100) : 0;
+            const scoreStr = metric === 'ctr' ? v.ctr.toFixed(2) + '%' : metric === 'cr' ? v.cr.toFixed(2) + '%' : v.ordersPerHour.toFixed(2);
             return `
             <div class="abtest-variant ${isWinner ? 'winner' : ''} ${isActive ? 'current-active' : ''}">
                 ${isWinner ? '<div class="abtest-winner-badge">🏆 ТОП</div>' : ''}
@@ -7422,9 +7445,10 @@
                 <img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://placehold.co/100x100/888/fff?text=${escapeHtml(v.variant_label)}'">
                 <div class="abtest-variant-meta">
                     <div class="text-xs font-bold mb-1" style="color:var(--text-secondary)">Вар. ${escapeHtml(v.variant_label)}</div>
-                    <div class="abtest-ctr">${v.ordersPerHour.toFixed(2)}</div>
-                    <div class="abtest-orders" style="color:var(--text-muted)">зак/час</div>
+                    <div class="abtest-ctr">${scoreStr}</div>
+                    <div class="abtest-orders" style="color:var(--text-muted)">${metricLabel}</div>
                     <div class="verdict-bar-wrap mt-1"><div class="verdict-bar" style="width:${barPct}%;background:${isWinner ? 'var(--green)' : 'var(--accent)'}"></div></div>
+                    <div class="text-xs mt-1" style="color:var(--text-muted);line-height:1.4">👁 ${fmt(v.impressions)} · 🖱 ${fmt(v.clicks)} · 🛒 ${fmt(v.orders)}</div>
                 </div>
             </div>`;
         }).join('');
@@ -7450,7 +7474,9 @@
                 <div>
                     <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(test.product_name)}</div>
                     <div class="text-xs mt-0.5" style="color:var(--text-muted)">Арт. ${escapeHtml(String(test.nm_id))} · ${intervalMin} мин · ${variants.length} вар.</div>
-                    <div class="mt-1">${statusBadge}</div>
+                    <div class="mt-1 flex items-center gap-2 flex-wrap">${statusBadge}${hasAdsData
+                        ? '<span class="text-xs" style="color:var(--green)">📡 связан с рекламой</span>'
+                        : '<span class="text-xs" style="color:var(--text-muted)">📡 ждём данные РК (обновляются по крону)</span>'}</div>
                 </div>
                 <div class="flex gap-2 items-center flex-wrap justify-end">
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="forceRotateABTest('${tid}')">↻ Сменить</button>` : ''}
