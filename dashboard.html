@@ -595,6 +595,16 @@
         .adv-back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--accent); cursor: pointer; background: none; border: none; padding: 0; }
         .adv-back-btn:hover { text-decoration: underline; }
         .adv-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .header-back-btn {
+            display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+            font-size: 13px; font-weight: 600; color: var(--accent);
+            background: none; border: none; cursor: pointer; padding: 4px 0;
+            white-space: nowrap;
+        }
+        .header-back-btn:hover { text-decoration: underline; }
+        .header-back-btn.hidden { display: none !important; }
+        #page-title.header-hidden { display: none !important; }
+        #header-date-chip-wrap { flex-shrink: 0; }
         .adv-camp-action-btn {
             border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-primary);
             font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 8px; cursor: pointer;
@@ -2429,11 +2439,15 @@
             }
             .header-greeting { display: none !important; }
             .header-title { font-size: 18px !important; line-height: 1.2 !important; font-weight: 600 !important; }
-            #top-filters-bar {
-                padding: 8px 12px 10px !important;
-                margin: 0 !important;
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
+            #header-date-chip-wrap {
+                max-width: calc(100vw - 200px);
+                overflow: hidden;
+            }
+            #header-date-chip-wrap #date-range {
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                max-width: 140px;
             }
             .cabinet-picker-label { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .cabinet-picker-btn { padding: 6px 10px !important; }
@@ -3056,12 +3070,17 @@
 
         <header class="glass border-b shrink-0 rounded-none app-header" style="border-color:var(--border);border-radius:0">
             <div class="app-header-main flex items-center justify-between gap-4">
-                <div class="flex items-center gap-3 min-w-0">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
                     <button type="button" class="mobile-menu-btn btn-smooth" onclick="toggleMobileMenu()" id="mobile-menu-btn" aria-label="Меню">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                     </button>
+                    <button type="button" id="header-back-btn" class="header-back-btn hidden" onclick="headerGoBack()" title="Назад">← Назад</button>
                     <div class="min-w-0">
                         <h1 id="page-title" class="header-title truncate">Дашборд</h1>
+                    </div>
+                    <div id="header-date-chip-wrap" class="filter-chip date-filter-chip active flex items-center space-x-1.5 hidden" onclick="toggleDatePicker(event)">
+                        <span class="date-pulse-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);animation:dotPulse 1.4s ease-in-out infinite"></span>
+                        <span>📅</span><span id="date-range">01.01.2026 — сегодня</span><span style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
@@ -3083,12 +3102,6 @@
                         </select>
                     </div>
                     <span id="cabinet-name-header" class="hidden" aria-hidden="true"></span>
-                </div>
-            </div>
-            <div id="top-filters-bar" class="flex items-center gap-2 overflow-x-auto pt-3 mt-1">
-                <div class="filter-chip date-filter-chip active flex items-center space-x-1.5" onclick="toggleDatePicker(event)">
-                    <span class="date-pulse-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);animation:dotPulse 1.4s ease-in-out infinite"></span>
-                    <span>📅</span><span id="date-range">01.01.2026 — сегодня</span><span style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>
                 </div>
             </div>
         </header>
@@ -3333,12 +3346,6 @@
         </div>
 
         <div id="tab-seo" class="tab-content space-y-5">
-            <div class="beta-module-hero">
-                <span class="beta-orb beta-orb-1"></span><span class="beta-orb beta-orb-2"></span>
-                <div class="beta-pill">BETA · SEO-Позиции</div>
-                <h2>Мониторинг позиций в поиске WB</h2>
-                <p>Отслеживание позиций артикулов по ключевым словам в выдаче маркетплейса. Добавьте артикул и фразу — система проверит место в поиске.</p>
-            </div>
             <div class="widget-card p-6">
                 <div class="flex gap-2 mb-4 flex-wrap">
                     <input type="text" id="pos-nmid" placeholder="Артикул WB" class="flex-1 min-w-[140px] rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
@@ -3363,8 +3370,7 @@
         <div id="tab-advertising" class="tab-content space-y-5">
             <!-- Главная страница рекламных кабинетов: карточки по всем кабинетам пользователя -->
             <div id="adv-view-cards">
-                <div class="adv-toolbar">
-                    <span class="text-xs" style="color:var(--text-muted)">Все рекламные кабинеты</span>
+                <div class="adv-toolbar" style="justify-content:flex-end">
                     <div class="flex items-center gap-3" style="flex-wrap:wrap">
                         <span id="adv-cards-freshness" class="text-xs" style="color:var(--text-muted)"></span>
                         <button onclick="syncAllAdvertisingNow()" id="adv-sync-all-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить все</button>
@@ -3377,8 +3383,7 @@
 
             <!-- Детальный дашборд конкретного рекламного кабинета -->
             <div id="adv-view-detail" class="hidden space-y-5">
-                <div class="adv-toolbar">
-                    <button type="button" class="adv-back-btn" onclick="backToAdvertisingCards()">← Все кабинеты</button>
+                <div class="adv-toolbar" style="justify-content:flex-end">
                     <div class="flex items-center gap-3" style="flex-wrap:wrap">
                         <span id="adv-balance-badge" class="text-xs hidden" style="color:var(--text-muted)"></span>
                         <span id="adv-freshness" class="text-xs" style="color:var(--text-muted)"></span>
@@ -3519,11 +3524,6 @@
         </div>
 
         <div id="tab-ab-testing" class="tab-content space-y-4">
-            <div class="beta-module-hero" style="padding:16px 20px;margin-bottom:0">
-                <span class="beta-orb beta-orb-1"></span><span class="beta-orb beta-orb-2"></span>
-                <div class="beta-pill">BETA · А/Б Тесты</div>
-                <p style="font-size:12px;margin:0;color:var(--text-muted)">Аналитика кликабельности фото и эффективности смены CPM-ставок.</p>
-            </div>
             <div class="flex items-center justify-between mb-2">
                 <button class="ui-btn ui-btn-primary" onclick="showNewTestForm()" style="border-radius:12px;padding:9px 18px;font-size:13px;font-weight:600;gap:8px">
                     <span style="font-size:18px;line-height:1;margin-right:2px">+</span><span>Создать А/Б тест</span>
@@ -3666,22 +3666,9 @@
         </div>
 
         <div id="tab-planning" class="tab-content space-y-4">
-            <div class="flex items-center justify-between flex-wrap gap-3">
-                <div>
-                    <h3 class="font-semibold text-sm" style="color:var(--text-primary)">Планирование</h3>
-                    <p class="text-xs" style="color:var(--text-muted)">Плановые показатели по артикулам и датам. Автоматически подтягиваются в РНП — копировать вручную не нужно.</p>
-                </div>
-                <div class="flex items-center gap-2">
-                    <span id="plan-save-status" class="text-xs" style="color:var(--text-muted)"></span>
-                    <button class="ui-btn ui-btn-secondary text-sm" onclick="reloadPlanningGrid()">↻ Обновить</button>
-                </div>
-            </div>
-            <div class="module-date-bar">
-                <div class="module-date-chip active" onclick="toggleModuleDatePicker(event, this)">
-                    <span class="date-pulse-dot"></span><span>📅</span>
-                    <span class="module-date-label">Период</span><span style="opacity:0.5;font-size:10px">▼</span>
-                </div>
-                <span class="text-xs" style="color:var(--text-muted)">Даты, для которых показываются и редактируются планы</span>
+            <div class="flex items-center justify-end flex-wrap gap-2">
+                <span id="plan-save-status" class="text-xs" style="color:var(--text-muted)"></span>
+                <button class="ui-btn ui-btn-secondary text-sm" onclick="reloadPlanningGrid()">↻ Обновить</button>
             </div>
             <div class="plan-metric-tabs" id="plan-metric-tabs"></div>
             <div class="widget-card p-3">
@@ -4034,7 +4021,6 @@
     function updateEmptyCabinetState() {
         const emptyEl = document.getElementById('space-empty-state');
         const mainContent = document.querySelector('.main-content');
-        const filtersBar = document.getElementById('top-filters-bar');
         if (!emptyEl || !mainContent) return;
 
         const tab = getCurrentActiveTab();
@@ -4042,15 +4028,7 @@
 
         emptyEl.classList.toggle('hidden', !showEmpty);
         mainContent.classList.toggle('empty-cabinet-mode', showEmpty);
-
-        if (filtersBar) {
-            if (showEmpty) {
-                filtersBar.style.display = 'none';
-            } else {
-                const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning']);
-                filtersBar.style.display = DATE_FILTER_TABS.has(tab) ? 'flex' : 'none';
-            }
-        }
+        updateHeaderNav(tab);
     }
 
     function openAddCabinetModal() {
@@ -4780,6 +4758,43 @@
         });
     }
 
+    const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning']);
+
+    function updateHeaderNav(tabName) {
+        const backBtn = document.getElementById('header-back-btn');
+        const pageTitle = document.getElementById('page-title');
+        const dateWrap = document.getElementById('header-date-chip-wrap');
+        const isDashboard = tabName === 'dashboard';
+        const isAdvDetail = tabName === 'advertising' && window._advView === 'detail';
+        const showEmpty = cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tabName);
+
+        if (backBtn) {
+            backBtn.classList.toggle('hidden', isDashboard);
+            backBtn.textContent = isAdvDetail ? '← Все кабинеты' : '← Назад';
+        }
+        if (pageTitle) {
+            pageTitle.classList.toggle('header-hidden', !isDashboard);
+            if (isDashboard) pageTitle.textContent = tabTitles.dashboard || 'Дашборд';
+        }
+        if (dateWrap) {
+            const showDate = DATE_FILTER_TABS.has(tabName) && !showEmpty;
+            dateWrap.classList.toggle('hidden', !showDate);
+            dateWrap.style.display = showDate ? 'flex' : 'none';
+        }
+    }
+
+    function headerGoBack() {
+        const tab = getCurrentActiveTab();
+        if (tab === 'advertising' && window._advView === 'detail') {
+            backToAdvertisingCards();
+            return;
+        }
+        const dash = document.querySelector('#fly-ocr .nav-item');
+        showTab('dashboard', dash);
+        if (window.innerWidth <= 768) closeMobileMenu();
+    }
+    window.headerGoBack = headerGoBack;
+
     function showTab(name, el) {
         name = TAB_ALIASES[name] || name;
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -4792,20 +4807,12 @@
                 if (onclick.includes(`'${name}'`) || onclick.includes(`"${name}"`)) n.classList.add('active');
             });
         }
-        document.getElementById('page-title').textContent = tabTitles[name] || name;
-        const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning']);
-        const filtersBar = document.getElementById('top-filters-bar');
-        if (filtersBar) {
-            filtersBar.style.display = DATE_FILTER_TABS.has(name) ? 'flex' : 'none';
-            filtersBar.querySelectorAll('.filter-chip:not(.date-filter-chip)').forEach(el => {
-                el.style.display = name === 'dashboard' ? '' : 'none';
-            });
-        }
         const mainRefresh = document.getElementById('refresh-btn');
         if (mainRefresh) {
             mainRefresh.style.display = name === 'dashboard' ? '' : 'none';
             mainRefresh.onclick = refreshData;
         }
+        updateHeaderNav(name);
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
         if (name === 'ab-testing' && hasUserCabinets) loadABTests();
@@ -5012,11 +5019,13 @@
         window._advView = 'cards';
         document.getElementById('adv-view-cards')?.classList.remove('hidden');
         document.getElementById('adv-view-detail')?.classList.add('hidden');
+        updateHeaderNav('advertising');
     }
     function showAdvertisingDetailView() {
         window._advView = 'detail';
         document.getElementById('adv-view-cards')?.classList.add('hidden');
         document.getElementById('adv-view-detail')?.classList.remove('hidden');
+        updateHeaderNav('advertising');
     }
 
     // Клик по карточке кабинета: переключает выбранный кабинет приложения
