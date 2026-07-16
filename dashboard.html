@@ -3434,8 +3434,19 @@
                 </div>
 
                 <div id="adv-campaigns-list" class="widget-card p-5">
-                    <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Кампании WB</h3>
-                    <div id="adv-campaigns-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                    <div class="flex items-center justify-between mb-3" style="flex-wrap:wrap;gap:8px">
+                        <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Кампании WB</h3>
+                        <div class="segment-tabs" id="adv-subtabs">
+                            <div class="segment-tab active" data-adv-subtab="campaigns" onclick="switchAdvSubTab('campaigns', this)">Кампании</div>
+                            <div class="segment-tab" data-adv-subtab="articles" onclick="switchAdvSubTab('articles', this)">Артикулы</div>
+                        </div>
+                    </div>
+                    <div id="adv-subtab-campaigns">
+                        <div id="adv-campaigns-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                    </div>
+                    <div id="adv-subtab-articles" class="hidden">
+                        <div id="adv-articles-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -5006,6 +5017,7 @@
         const nameEl = document.getElementById('adv-detail-cabinet-name');
         if (nameEl) nameEl.textContent = cabinetName || '';
         showAdvertisingDetailView();
+        switchAdvSubTab('campaigns', document.querySelector('#adv-subtabs .segment-tab[data-adv-subtab="campaigns"]'));
         loadAdvertisingBalance(cabinetId);
         if (cabinetId === currentCabinetId) {
             loadAdvertisingFromDB();
@@ -5056,12 +5068,20 @@
         if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
 
         const statusByCampaign = new Map();
-        for (const cc of campaignMetaRows) statusByCampaign.set(String(cc.campaign_id), cc.status);
+        const nameByCampaign = new Map();
+        const typeByCampaign = new Map();
+        for (const cc of campaignMetaRows) {
+            statusByCampaign.set(String(cc.campaign_id), cc.status);
+            if (cc.campaign_name) nameByCampaign.set(String(cc.campaign_id), cc.campaign_name);
+            typeByCampaign.set(String(cc.campaign_id), cc.type);
+        }
         window._advCampaignStatusCache = statusByCampaign;
 
         window._advLastLoadedAt = Date.now();
         window._advLoadedForCabinet = snapshotCabinet;
         updateAdvertisingFreshness();
+        window._advDailyRowsCache = rows;
+        window._advCampaignNameCache = nameByCampaign;
 
         const byCampaign = new Map();
         const byDate = new Map();
@@ -5069,7 +5089,12 @@
             const key = r.campaign_id;
             let agg = byCampaign.get(key);
             if (!agg) {
-                agg = { id: key, name: r.campaign_name || `Кампания ${key}`, spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0, atbs: 0, status: statusByCampaign.get(String(key)) };
+                // Название кампании должно быть 1:1 как в ЛК WB — берём из
+                // advertising_campaigns (обновляется на каждой синхронизации
+                // напрямую из WB v2/adverts, см. advertising-sync), а не из
+                // кэша конкретной строки daily_stats, которая может быть старее.
+                const name = nameByCampaign.get(String(key)) || r.campaign_name || `Кампания ${key}`;
+                agg = { id: key, name, type: typeByCampaign.get(String(key)), spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0, atbs: 0, status: statusByCampaign.get(String(key)) };
                 byCampaign.set(key, agg);
             }
             agg.spend += Number(r.spend || 0);
@@ -5090,7 +5115,7 @@
         for (const cc of campaignMetaRows) {
             const key = cc.campaign_id;
             if (!byCampaign.has(key) && (cc.status === 9 || cc.status === 11 || cc.status === 4)) {
-                byCampaign.set(key, { id: key, name: cc.campaign_name || `Кампания ${key}`, spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0, atbs: 0, status: cc.status });
+                byCampaign.set(key, { id: key, name: cc.campaign_name || `Кампания ${key}`, type: cc.type, spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0, atbs: 0, status: cc.status });
             }
         }
         const campaigns = [...byCampaign.values()].sort((a, b) => b.spend - a.spend);
@@ -5122,6 +5147,8 @@
         if (window.NRCharts) NRCharts.renderAdvertisingCharts(dailySeries);
         renderAdvertisingAlerts(campaigns, efficiency, totalSpend);
 
+        renderAdvertisingArticles(rows);
+
         listWrap.classList.remove('hidden');
         if (!campaigns.length) {
             tableEl.innerHTML = `<div class="text-center py-6" style="color:var(--text-muted)">Нет данных за выбранный период. Нажмите «Обновить», чтобы загрузить статистику из WB.</div>`;
@@ -5131,7 +5158,7 @@
             campaigns.slice(0, 50).map(c => {
                 const cEff = calcEfficiencyPct(c.spend, c.sum_price);
                 return `<tr id="adv-camp-row-${c.id}">
-                <td style="color:var(--text-primary)">${escapeHtml(c.name)} <span style="color:var(--text-muted);font-family:monospace;font-size:11px">#${c.id}</span></td>
+                <td style="color:var(--text-primary)">${escapeHtml(c.name)} <span style="color:var(--text-muted);font-family:monospace;font-size:11px">#${c.id}</span>${campaignTypeLabelHtml(c.type)}</td>
                 <td>${campaignStatusPillHtml(c.status)}</td>
                 <td>${fmt(Math.round(c.spend))} ₽</td>
                 <td>${fmt(c.views)}</td>
@@ -5143,6 +5170,67 @@
                 <td><button type="button" class="adv-camp-action-btn" onclick="toggleKeywordStats(${c.id})">🔍 Фразы</button></td>
             </tr>
             <tr id="adv-camp-kw-row-${c.id}" class="hidden"><td colspan="10" style="padding:0"><div id="adv-camp-kw-${c.id}" class="p-4" style="background:var(--accent-soft)"></div></td></tr>`;
+            }).join('') + `</tbody></table></div>`;
+    }
+
+    // Переключение подраздела «Кампании» / «Артикулы» внутри Контроля РК —
+    // визуально копирует структуру вкладок в личном кабинете WB
+    // (cmp.wildberries.ru/campaigns/list — «Кампании» и «Товары»).
+    function switchAdvSubTab(name, el) {
+        document.querySelectorAll('#adv-subtabs .segment-tab').forEach(t => t.classList.remove('active'));
+        if (el) el.classList.add('active');
+        document.getElementById('adv-subtab-campaigns')?.classList.toggle('hidden', name !== 'campaigns');
+        document.getElementById('adv-subtab-articles')?.classList.toggle('hidden', name !== 'articles');
+    }
+    window.switchAdvSubTab = switchAdvSubTab;
+
+    // Разбивка расходов/показов/кликов/заказов по артикулам (SKU) — WB
+    // отдаёт этот breakdown внутри fullstats: days[].apps[].nms[]. Данные уже
+    // закэшированы в advertising_daily_stats.data (весь объект дня), поэтому
+    // строим таблицу артикулов без доп. запросов к WB.
+    function renderAdvertisingArticles(rows) {
+        const el = document.getElementById('adv-articles-table');
+        if (!el) return;
+        const byNm = new Map();
+        for (const r of (rows || [])) {
+            const day = r.data;
+            const apps = Array.isArray(day?.apps) ? day.apps : [];
+            for (const app of apps) {
+                const nms = Array.isArray(app?.nms) ? app.nms : [];
+                for (const nm of nms) {
+                    const nmId = Number(nm.nmId || nm.nm_id || 0);
+                    if (!nmId) continue;
+                    let agg = byNm.get(nmId);
+                    if (!agg) {
+                        agg = { nmId, name: nm.name || '', spend: 0, views: 0, clicks: 0, orders: 0, campaigns: new Set() };
+                        byNm.set(nmId, agg);
+                    }
+                    agg.spend += Number(nm.sum || 0);
+                    agg.views += Number(nm.views || 0);
+                    agg.clicks += Number(nm.clicks || 0);
+                    agg.orders += Number(nm.orders || 0);
+                    if (!agg.name && nm.name) agg.name = nm.name;
+                    agg.campaigns.add(r.campaign_id);
+                }
+            }
+        }
+        const list = [...byNm.values()].sort((a, b) => b.spend - a.spend);
+        if (!list.length) {
+            el.innerHTML = `<div class="text-center py-6" style="color:var(--text-muted)">Нет данных по артикулам за выбранный период. WB отдаёт разбивку по товарам только для кампаний с показами — нажмите «Обновить», если данные недавно синхронизировались.</div>`;
+            return;
+        }
+        el.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Артикул WB</th><th>Расход</th><th>Показы</th><th>Клики</th><th>CTR</th><th>Заказы (реклама)</th><th>Кампаний</th></tr></thead><tbody>` +
+            list.slice(0, 100).map(a => {
+                const ctr = a.views > 0 ? (a.clicks / a.views * 100) : 0;
+                return `<tr>
+                <td style="color:var(--accent);font-weight:600">${escapeHtml(String(a.nmId))}${a.name ? ` <span style="color:var(--text-muted);font-weight:400">— ${escapeHtml(a.name)}</span>` : ''}</td>
+                <td>${fmt(Math.round(a.spend))} ₽</td>
+                <td>${fmt(a.views)}</td>
+                <td>${fmt(a.clicks)}</td>
+                <td>${ctr.toFixed(2)}%</td>
+                <td>${fmt(a.orders)}</td>
+                <td style="color:var(--text-muted)">${a.campaigns.size}</td>
+            </tr>`;
             }).join('') + `</tbody></table></div>`;
     }
 
@@ -5224,6 +5312,18 @@
         wrap.innerHTML = alerts.map(a => `<div class="adv-alert ${a.type}"><span class="adv-alert-icon">${a.icon}</span><span>${a.html}</span></div>`).join('');
     }
 
+    // Тип кампании WB (см. /adv/v1/promotion/count и /api/advert/v2/adverts).
+    // Показываем как в ЛК WB — маленькой подписью рядом с названием.
+    const CAMPAIGN_TYPE_LABELS = {
+        4: 'Каталог', 5: 'Карточка товара', 6: 'Поиск', 7: 'Рекомендации',
+        8: 'Автоматическая', 9: 'Аукцион',
+    };
+    function campaignTypeLabelHtml(type) {
+        const label = CAMPAIGN_TYPE_LABELS[Number(type)];
+        if (!label) return '';
+        return ` <span class="advcab-status-pill none" style="font-size:10px;padding:1px 7px">${label}</span>`;
+    }
+
     // Пауза/Старт — только вкл/выкл уже настроенной кампании, без изменения
     // ставок и бюджета (осознанно: движение денег с сайта не автоматизируем,
     // см. WB API doc §5.3 — только явные ручные пополнения самим продавцом в ЛК WB).
@@ -5250,10 +5350,13 @@
                 if (btn) { btn.disabled = false; btn.textContent = verb === 'start' ? '▶ Старт' : '⏸ Пауза'; }
                 return;
             }
-            const newStatus = verb === 'start' ? 9 : 11;
-            // Оптимистично отражаем новый статус в БД-кэше и в UI сразу — WB
-            // подтвердит реальный статус в течение ~1 мин, следующий фоновый
-            // /ручной advertising-sync перезапишет это тем же значением.
+            // Если WB успел подтвердить реальный статус за ~1.2с (см. wb-proxy
+            // advert_start/pause) — используем его; иначе оптимистично считаем,
+            // что запрошенное действие применится (следующий advertising-sync
+            // перезапишет это тем же или актуальным значением).
+            const newStatus = (result.confirmedStatus === 9 || result.confirmedStatus === 11 || result.confirmedStatus === 4)
+                ? result.confirmedStatus
+                : (verb === 'start' ? 9 : 11);
             await supabase.from('advertising_campaigns')
                 .update({ status: newStatus, updated_at: new Date().toISOString() })
                 .eq('cabinet_id', snapshotCabinet).eq('campaign_id', advertId);
@@ -5261,8 +5364,12 @@
             if (row) {
                 const statusCell = row.children[1];
                 if (statusCell) statusCell.innerHTML = campaignStatusPillHtml(newStatus);
-                const actionCell = row.children[row.children.length - 1];
+                const actionCell = row.children[row.children.length - 2];
                 if (actionCell) actionCell.innerHTML = campaignActionBtnHtml(advertId, newStatus);
+            }
+            if (result.confirmedStatus == null) {
+                showPremiumModal('success', verb === 'start' ? 'Кампания запускается' : 'Кампания ставится на паузу',
+                    'WB применяет изменение статуса в течение минуты — обновите страницу через минуту, если статус не изменится.');
             }
         } catch (e) {
             if (btn) { btn.disabled = false; btn.textContent = verb === 'start' ? '▶ Старт' : '⏸ Пауза'; }

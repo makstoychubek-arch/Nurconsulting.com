@@ -405,13 +405,14 @@ serve(async (req) => {
                 break;
             }
             case 'advert_campaigns': {
-                const campaigns: { id: number; name: string; status: number; statusLabel: string }[] = [];
+                const campaigns: { id: number; name: string; status: number; statusLabel: string; type: number | null }[] = [];
                 const statusMap: Record<number, string> = {
                     4: 'Готова', 7: 'Завершена', 8: 'Отклонена', 9: 'Работает', 11: 'Остановлен',
                 };
+                const idsFilter = params.advertIds ? `&ids=${(params.advertIds as (number|string)[]).join(',')}` : '';
                 try {
                     const res = await fetch(
-                        'https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=4%2C9%2C11',
+                        `https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=4%2C9%2C11${idsFilter}`,
                         { headers: { Authorization: WB_PROMO_TOKEN } },
                     );
                     const text = await res.text();
@@ -422,11 +423,17 @@ serve(async (req) => {
                             const id = Number(a.advertId ?? a.id ?? a.advert_id ?? 0);
                             if (!id) continue;
                             const status = Number(a.status ?? 0);
+                            // Название кампании должно совпадать 1:1 с тем, что
+                            // продавец видит в личном кабинете WB (cmp.wildberries.ru) —
+                            // берём поле как есть, без изменений, и падаем на
+                            // плейсхолдер только если WB реально не отдал имя.
+                            const rawName = String(a.name ?? a.campaignName ?? '').trim();
                             campaigns.push({
                                 id,
-                                name: String(a.name ?? a.campaignName ?? `Кампания ${id}`),
+                                name: rawName || `Кампания ${id}`,
                                 status,
                                 statusLabel: statusMap[status] || 'Остановлен',
+                                type: a.type != null ? Number(a.type) : null,
                             });
                         }
                     } else {
@@ -504,12 +511,46 @@ serve(async (req) => {
                 const text = await wbRes.text();
                 if (!wbRes.ok) {
                     console.warn(`[wb-proxy] ${action} failed:`, wbRes.status, text.slice(0, 300));
-                    return json({ error: `WB ${verb} error ${wbRes.status}: ${text.slice(0, 200)}` }, wbRes.status >= 500 ? 502 : 400);
+                    // WB часто отдаёт пустое тело или неинформативный текст на
+                    // 400/401/403 для этих ручек — переводим типовые случаи в
+                    // понятное сообщение вместо голого "WB start error 400".
+                    let detail = text.slice(0, 200);
+                    try {
+                        const parsed = JSON.parse(text);
+                        detail = String(parsed?.error || parsed?.errorText || parsed?.message || detail);
+                    } catch { /* not json, keep raw text */ }
+                    let friendly = '';
+                    if (wbRes.status === 401 || wbRes.status === 403) {
+                        friendly = 'Токен WB не имеет прав на управление рекламой. В личном кабинете WB → «Управление API» проверьте, что у токена включена категория «Продвижение» с доступом на изменение (не только просмотр).';
+                    } else if (verb === 'start' && /budget|бюджет/i.test(detail)) {
+                        friendly = 'Недостаточно бюджета для запуска кампании. Пополните баланс РК в личном кабинете WB.';
+                    } else if (!detail) {
+                        friendly = `Кампанию не удалось ${verb === 'start' ? 'запустить' : 'поставить на паузу'} — WB вернул пустой ответ с кодом ${wbRes.status}. Возможно, кампания уже в этом статусе или недоступна для управления через API.`;
+                    }
+                    return json({ error: friendly || `WB ${verb} error ${wbRes.status}: ${detail}` }, wbRes.status >= 500 ? 502 : 400);
                 }
                 // WB campaign status changes are not instant (documented ~1 min
-                // propagation) — the caller should re-fetch advert_campaigns
-                // after a short delay to reflect the real status, not assume it here.
-                result = { ok: true, advertId, action: verb };
+                // propagation) — попробуем один раз подтвердить реальный статус
+                // почти сразу, но не блокируем ответ надолго; если WB ещё не
+                // применил изменение, вызывающий код (dashboard.html) досчитает
+                // через оптимистичное обновление и следующий advertising-sync.
+                let confirmedStatus: number | null = null;
+                try {
+                    await new Promise((r) => setTimeout(r, 1200));
+                    const checkRes = await fetch(
+                        `https://advert-api.wildberries.ru/api/advert/v2/adverts?statuses=4%2C9%2C11&ids=${advertId}`,
+                        { headers: { Authorization: WB_PROMO_TOKEN } },
+                    );
+                    if (checkRes.ok) {
+                        const checkData = JSON.parse(await checkRes.text());
+                        const adverts: Record<string, unknown>[] = checkData?.adverts || (Array.isArray(checkData) ? checkData : []);
+                        const found = adverts.find((a) => Number(a.advertId ?? a.id ?? 0) === advertId);
+                        if (found) confirmedStatus = Number(found.status ?? 0);
+                    }
+                } catch (e) {
+                    console.warn('[wb-proxy] status confirm after', action, 'failed:', String(e));
+                }
+                result = { ok: true, advertId, action: verb, confirmedStatus };
                 break;
             }
 

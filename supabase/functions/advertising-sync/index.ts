@@ -122,13 +122,26 @@ Deno.serve(async (req) => {
                 const nameById = await fetchCampaignNames(token);
                 await sleep(800);
 
+                // Не даём временный сбой запроса имён затереть уже известное
+                // хорошее название плейсхолдером «Кампания {id}» — подмешиваем
+                // то, что уже лежит в БД с прошлой успешной синхронизации.
+                const { data: existingCampaigns } = await admin
+                    .from('advertising_campaigns')
+                    .select('campaign_id, campaign_name')
+                    .eq('cabinet_id', cabinet.id);
+                const existingNameById = new Map<number, string>(
+                    (existingCampaigns || [])
+                        .filter((c) => c.campaign_name && !/^Кампания \d+$/.test(c.campaign_name))
+                        .map((c) => [Number(c.campaign_id), String(c.campaign_name)]),
+                );
+
                 // Upsert campaign status/type/name into advertising_campaigns.
                 // Cheap: reuses the promotion/count response already fetched
                 // above, no extra WB request.
                 const campaignRows = ids.map((id) => ({
                     cabinet_id: cabinet.id,
                     campaign_id: id,
-                    campaign_name: nameById.get(id) || `Кампания ${id}`,
+                    campaign_name: nameById.get(id) || existingNameById.get(id) || `Кампания ${id}`,
                     status: meta.get(id)?.status ?? null,
                     type: meta.get(id)?.type ?? null,
                     updated_at: new Date().toISOString(),
@@ -170,7 +183,7 @@ Deno.serve(async (req) => {
                                         rows.push({
                                             cabinet_id: cabinet.id,
                                             campaign_id: advertId,
-                                            campaign_name: nameById.get(advertId) || `Кампания ${advertId}`,
+                                            campaign_name: nameById.get(advertId) || existingNameById.get(advertId) || `Кампания ${advertId}`,
                                             stat_date,
                                             views: Number(day.views || 0),
                                             clicks: Number(day.clicks || 0),
@@ -301,11 +314,15 @@ async function fetchCampaignIdsAndMeta(
     return { ids: [...new Set(allIds)], meta };
 }
 
-// Mirrors wb-proxy's `advert_campaigns` action — used only for names.
+// Mirrors wb-proxy's `advert_campaigns` action — used only for names. Widen
+// the statuses filter beyond what fetchCampaignIdsAndMeta returns so a
+// campaign that changed status between the two calls (e.g. finished/declined
+// mid-sync) still resolves its real WB name instead of falling back to a
+// placeholder.
 async function fetchCampaignNames(token: string): Promise<Map<number, string>> {
     const map = new Map<number, string>();
     try {
-        const res = await fetch(`${ADV_API}/api/advert/v2/adverts?statuses=4%2C9%2C11`, { headers: { Authorization: token } });
+        const res = await fetch(`${ADV_API}/api/advert/v2/adverts?statuses=-1%2C4%2C7%2C8%2C9%2C11`, { headers: { Authorization: token } });
         const text = await res.text();
         if (res.ok) {
             const data = JSON.parse(text);
@@ -313,7 +330,8 @@ async function fetchCampaignNames(token: string): Promise<Map<number, string>> {
             for (const a of adverts) {
                 const id = Number(a.advertId ?? a.id ?? a.advert_id ?? 0);
                 if (!id) continue;
-                map.set(id, String(a.name ?? a.campaignName ?? ''));
+                const name = String(a.name ?? a.campaignName ?? '').trim();
+                if (name) map.set(id, name);
             }
         }
     } catch (e) {
