@@ -594,6 +594,7 @@
         .advcab-eff-value { font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums; }
         .adv-back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--accent); cursor: pointer; background: none; border: none; padding: 0; }
         .adv-back-btn:hover { text-decoration: underline; }
+        .adv-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .adv-kpi-tile { background: var(--surface); border-radius: var(--radius-card); padding: 16px; box-shadow: var(--card-shadow); }
         .adv-kpi-tile-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
         .adv-kpi-tile-value { font-size: 18px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; }
@@ -3348,6 +3349,13 @@
         <div id="tab-advertising" class="tab-content space-y-5">
             <!-- Главная страница рекламных кабинетов: карточки по всем кабинетам пользователя -->
             <div id="adv-view-cards">
+                <div class="adv-toolbar">
+                    <span class="text-xs" style="color:var(--text-muted)">Все рекламные кабинеты</span>
+                    <div class="flex items-center gap-3" style="flex-wrap:wrap">
+                        <span id="adv-cards-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+                        <button onclick="syncAllAdvertisingNow()" id="adv-sync-all-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить все</button>
+                    </div>
+                </div>
                 <div id="adv-cards-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     <div class="text-center py-10" style="color:var(--text-muted);grid-column:1/-1">Загрузка кабинетов…</div>
                 </div>
@@ -3355,7 +3363,13 @@
 
             <!-- Детальный дашборд конкретного рекламного кабинета -->
             <div id="adv-view-detail" class="hidden space-y-5">
-                <button type="button" class="adv-back-btn" onclick="backToAdvertisingCards()">← Все кабинеты</button>
+                <div class="adv-toolbar">
+                    <button type="button" class="adv-back-btn" onclick="backToAdvertisingCards()">← Все кабинеты</button>
+                    <div class="flex items-center gap-3" style="flex-wrap:wrap">
+                        <span id="adv-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+                        <button onclick="syncAdvertisingNow()" id="adv-sync-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить</button>
+                    </div>
+                </div>
                 <h3 id="adv-detail-cabinet-name" class="text-lg font-bold" style="color:var(--text-primary)">—</h3>
 
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -3429,14 +3443,6 @@
                 <div id="adv-campaigns-list" class="widget-card p-5">
                     <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Кампании WB</h3>
                     <div id="adv-campaigns-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
-                </div>
-
-                <div class="widget-card p-6 text-center" style="color:var(--text-muted)">
-                    <p class="text-sm">Автобиддер — в разработке. Данные — из кэша БД, обновляются по кнопке или автоматически по расписанию.</p>
-                    <div class="flex items-center justify-center gap-3 mt-4" style="flex-wrap:wrap">
-                        <button onclick="syncAdvertisingNow()" id="adv-sync-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить</button>
-                        <span id="adv-freshness" class="text-xs" style="color:var(--text-muted)"></span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -4915,7 +4921,50 @@
         }).sort((a, b) => b.spend - a.spend);
 
         renderAdvertisingCards(cards);
+        window._advCardsLastLoadedAt = Date.now();
+        updateAdvertisingCardsFreshness();
     }
+
+    function updateAdvertisingCardsFreshness() {
+        const el = document.getElementById('adv-cards-freshness');
+        if (!el) return;
+        const ts = window._advCardsLastLoadedAt;
+        if (!ts) { el.textContent = ''; return; }
+        const min = Math.round((Date.now() - ts) / 60000);
+        el.textContent = min < 1 ? 'данные свежие' : `обновлено ${min} мин назад`;
+    }
+    setInterval(updateAdvertisingCardsFreshness, 60000);
+
+    // Обновить все кабинеты сразу (с главной карточек-страницы) — каждый
+    // кабинет использует свой собственный WB-токен, поэтому лимит WB
+    // (3 запроса/мин на fullstats) не пересекается между кабинетами и их
+    // можно синкать параллельно.
+    async function syncAllAdvertisingNow() {
+        const btn = document.getElementById('adv-sync-all-btn');
+        const freshEl = document.getElementById('adv-cards-freshness');
+        if (btn) { btn.textContent = '⏳ Обновление...'; btn.disabled = true; }
+        if (freshEl) freshEl.textContent = 'обновляем...';
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Сессия истекла, перезайдите.');
+            const { data: cabRows } = await supabase.from('cabinets').select('id, wb_token');
+            const targets = (cabRows || []).filter(c => c.wb_token && String(c.wb_token).length > 50);
+            await Promise.all(targets.map(c =>
+                fetch(ADVERTISING_SYNC_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+                    body: JSON.stringify({ cabinet_id: c.id }),
+                }).catch(e => console.warn('[adv] sync-all cabinet', c.id, e.message))
+            ));
+            await loadAdvertisingCardsOverview();
+        } catch (e) {
+            if (freshEl) freshEl.textContent = '';
+            showPremiumModal('error', 'Ошибка синхронизации рекламы', e.message);
+        } finally {
+            if (btn) { btn.textContent = '↻ Обновить все'; btn.disabled = false; }
+        }
+    }
+    window.syncAllAdvertisingNow = syncAllAdvertisingNow;
 
     function renderAdvertisingCards(cards) {
         const grid = document.getElementById('adv-cards-grid');
