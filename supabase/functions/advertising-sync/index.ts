@@ -338,10 +338,15 @@ async function fetchCampaignDetails(
             for (const a of adverts) {
                 const id = Number(a.advertId ?? a.id ?? a.advert_id ?? 0);
                 if (!id) continue;
-                const name = String(a.name ?? a.campaignName ?? '').trim();
+                // ВАЖНО: реальный /api/advert/v2/adverts кладёт name и
+                // payment_type ВНУТРИ вложенного объекта `settings`, а не на
+                // верхнем уровне записи — проверяем оба варианта.
+                const settings = (a.settings as Record<string, unknown>) || {};
+                const name = String(a.name ?? a.campaignName ?? settings.name ?? '').trim();
+                const paymentType = (a.payment_type ?? settings.payment_type ?? null) as string | null;
                 map.set(id, {
                     name,
-                    paymentType: a.payment_type != null ? String(a.payment_type) : null,
+                    paymentType,
                     bidType: a.bid_type != null ? String(a.bid_type) : null,
                 });
             }

@@ -162,13 +162,17 @@ async function fetchCampaigns(token: string): Promise<{ campaigns: Record<string
                 const id = Number(a.advertId ?? a.id ?? a.advert_id ?? 0);
                 if (!id) continue;
                 const status = Number(a.status ?? 0);
-                const name = String(a.name ?? a.campaignName ?? '').trim() || `Кампания ${id}`;
-                const paymentTypeRaw = a.payment_type != null ? String(a.payment_type).toLowerCase() : '';
+                // /api/advert/v2/adverts кладёт name и payment_type ВНУТРИ
+                // вложенного `settings`, а не на верхнем уровне записи.
+                const settings = (a.settings as Record<string, unknown>) || {};
+                const name = String(a.name ?? a.campaignName ?? settings.name ?? '').trim() || `Кампания ${id}`;
+                const paymentTypeVal = a.payment_type ?? settings.payment_type ?? null;
+                const paymentTypeRaw = paymentTypeVal != null ? String(paymentTypeVal).toLowerCase() : '';
                 campaigns.push({
                     id, name, status,
                     statusLabel: statusMap[status] || 'Остановлен',
                     type: a.type != null ? Number(a.type) : null,
-                    paymentType: paymentTypeMap[paymentTypeRaw] || (a.payment_type != null ? String(a.payment_type) : null),
+                    paymentType: paymentTypeMap[paymentTypeRaw] || (paymentTypeVal != null ? String(paymentTypeVal) : null),
                     bidType: a.bid_type != null ? String(a.bid_type) : null,
                 });
             }

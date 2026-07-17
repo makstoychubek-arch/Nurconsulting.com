@@ -405,7 +405,7 @@ serve(async (req) => {
                 break;
             }
             case 'advert_campaigns': {
-                const campaigns: { id: number; name: string; status: number; statusLabel: string; type: number | null }[] = [];
+                const campaigns: { id: number; name: string; status: number; statusLabel: string; type: number | null; paymentType: string | null; bidType: string | null }[] = [];
                 const statusMap: Record<number, string> = {
                     4: 'Готова', 7: 'Завершена', 8: 'Отклонена', 9: 'Работает', 11: 'Остановлен',
                 };
@@ -424,16 +424,22 @@ serve(async (req) => {
                             if (!id) continue;
                             const status = Number(a.status ?? 0);
                             // Название кампании должно совпадать 1:1 с тем, что
-                            // продавец видит в личном кабинете WB (cmp.wildberries.ru) —
-                            // берём поле как есть, без изменений, и падаем на
-                            // плейсхолдер только если WB реально не отдал имя.
-                            const rawName = String(a.name ?? a.campaignName ?? '').trim();
+                            // продавец видит в личном кабинете WB (cmp.wildberries.ru).
+                            // ВАЖНО: в реальном ответе /api/advert/v2/adverts имя и
+                            // payment_type лежат ВНУТРИ вложенного объекта `settings`,
+                            // а не на верхнем уровне (в отличие от документации/SDK) —
+                            // проверяем оба варианта на случай, если WB поменяет форму.
+                            const settings = (a.settings as Record<string, unknown>) || {};
+                            const rawName = String(a.name ?? a.campaignName ?? settings.name ?? '').trim();
+                            const paymentType = (a.payment_type ?? settings.payment_type ?? null) as string | null;
                             campaigns.push({
                                 id,
                                 name: rawName || `Кампания ${id}`,
                                 status,
                                 statusLabel: statusMap[status] || 'Остановлен',
                                 type: a.type != null ? Number(a.type) : null,
+                                paymentType,
+                                bidType: a.bid_type != null ? String(a.bid_type) : null,
                             });
                         }
                     } else {

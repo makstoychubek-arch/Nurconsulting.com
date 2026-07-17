@@ -1740,6 +1740,32 @@
         .verdict-winner-card { background: rgba(52,199,89,0.08); border: 1.5px solid rgba(52,199,89,0.3); border-radius: 12px; padding: 14px 16px; margin-top: 12px; }
         .verdict-bar-wrap { background: var(--border); border-radius: 4px; height: 6px; margin-top: 4px; overflow: hidden; }
         .verdict-bar { height: 6px; border-radius: 4px; transition: width 0.6s ease; }
+        /* Детальный отчёт А/Б теста */
+        .ab-report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+        .ab-report-card { border: 1.5px solid var(--border); border-radius: 14px; padding: 12px; background: var(--surface); position: relative; display: flex; flex-direction: column; gap: 8px; }
+        .ab-report-card.leading { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .ab-report-tag { font-size: 11px; font-weight: 600; color: var(--text-muted); min-height: 15px; }
+        .ab-report-tag.live { color: var(--accent); }
+        .ab-report-img-wrap { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+        .ab-report-img-wrap img { width: 100%; height: 150px; object-fit: cover; display: block; }
+        .ab-report-apply-btn { width: 100%; padding: 6px 0; font-size: 11px; font-weight: 700; border-radius: 8px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
+        .ab-report-apply-btn:hover { background: var(--accent-soft); }
+        .ab-report-ctr-row { display: flex; align-items: baseline; gap: 6px; }
+        .ab-report-ctr-val { font-size: 20px; font-weight: 800; color: var(--text-primary); }
+        .ab-report-ctr-delta { font-size: 12px; font-weight: 700; }
+        .ab-report-ctr-delta.pos { color: var(--green); }
+        .ab-report-ctr-delta.neg { color: var(--red); }
+        .ab-report-prob { font-size: 12px; font-weight: 700; }
+        .ab-report-prob.good { color: var(--green); }
+        .ab-report-prob.bad { background: rgba(248,113,113,0.12); color: var(--red); padding: 2px 7px; border-radius: 6px; display: inline-block; }
+        .ab-report-metrics-table { width: 100%; font-size: 12px; border-top: 1px solid var(--border); padding-top: 6px; }
+        .ab-report-metrics-table td { padding: 2px 0; color: var(--text-secondary); }
+        .ab-report-metrics-table td.lbl { color: var(--text-muted); }
+        .ab-report-metrics-table td.val { text-align: right; font-weight: 600; color: var(--text-primary); }
+        .ab-report-metrics-table tr.ads-head td { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.03em; padding-top: 6px; }
+        .ab-report-meta { font-size: 11px; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 6px; }
+        .ab-report-verdict-box { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 12px; background: rgba(168,85,247,0.08); border: 1px solid rgba(168,85,247,0.25); font-size: 13px; }
+        .ab-report-verdict-stars { font-size: 15px; letter-spacing: 1px; color: #FFB020; }
         .btn-outline { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary); cursor: pointer; transition: all 0.15s; }
         .btn-outline:hover { border-color: var(--accent-border); color: var(--accent); }
         .segment-tabs { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
@@ -3786,6 +3812,19 @@
                         <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="saveABEditVariants()">Сохранить</button>
                         <button class="ui-btn ui-btn-secondary" onclick="closeABEditModal()">Отмена</button>
                     </div>
+                </div>
+            </div>
+
+            <!-- Детальный отчёт по А/Б тесту -->
+            <div id="ab-report-modal" class="hidden" style="position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px)">
+                <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;max-width:1080px;width:96%;max-height:90vh;overflow-y:auto">
+                    <div class="flex items-center justify-between mb-1">
+                        <h3 class="font-semibold text-base" style="color:var(--text-primary)" id="ab-report-title">Отчёт по А/Б тесту</h3>
+                        <button onclick="closeABReportModal()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1">×</button>
+                    </div>
+                    <div class="text-xs mb-3" style="color:var(--text-muted)" id="ab-report-sub"></div>
+                    <div id="ab-report-verdict" class="mb-4"></div>
+                    <div id="ab-report-variants" class="ab-report-grid"></div>
                 </div>
             </div>
 
@@ -8048,10 +8087,15 @@
             </div>`;
         }).join('');
 
+        const finishReasonLabel = test.finish_reason === 'campaign_stopped'
+            ? ' · РК остановлена/бюджет закончился'
+            : test.finish_reason === 'winner_determined'
+            ? ' · определён победитель'
+            : '';
         const statusBadge = test.status === 'active'
             ? '<span class="badge-green">● Активен</span>'
             : test.status === 'finished'
-            ? '<span class="badge-green" style="background:rgba(168,85,247,0.1);color:var(--accent);border-color:rgba(168,85,247,0.3)">✓ Завершён</span>'
+            ? `<span class="badge-green" style="background:rgba(168,85,247,0.1);color:var(--accent);border-color:rgba(168,85,247,0.3)">✓ Завершён${finishReasonLabel}</span>`
             : '<span class="badge-red">⏸ Приостановлен</span>';
 
         const progressHtml = test.status === 'active' ? `
@@ -8074,6 +8118,7 @@
                         : '<span class="text-xs" style="color:var(--text-muted)">📡 ждём данные РК (обновляются по крону)</span>'}</div>
                 </div>
                 <div class="flex gap-2 items-center flex-wrap justify-end">
+                    ${hasAdsData ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--accent);border-color:var(--accent-border)" onclick="openABReportModal('${tid}')">📄 Отчёт</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="forceRotateABTest('${tid}')">↻ Сменить</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="editABTest('${tid}')">✎ Редактировать</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--green);border-color:rgba(52,211,153,0.3)" onclick="finishABTest('${tid}')">Завершить</button>` : ''}
@@ -8228,6 +8273,166 @@
         await loadABTests();
     }
     window.deleteABTest = deleteABTest;
+
+    // ── Детальный отчёт по тесту (как у конкурента) ──────────────────────────
+    // CTR = клики/показы, CR (клик→корзина) = атбс/клики, CR1 (корзина→заказ)
+    // = заказы/атбс. Вероятность "победы" каждого варианта считаем через
+    // Beta-биномиальное Монте-Карло семплирование по CTR (Beta(clicks+1,
+    // views-clicks+1)) — та же модель, что и на сервере (ab-test-rotate),
+    // чтобы цифры совпадали с тем, что реально решает автозавершение теста.
+    function abGaussianRandom() {
+        let u = 0, v = 0;
+        while (u === 0) u = Math.random();
+        while (v === 0) v = Math.random();
+        return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+    function abSampleGamma(shape) {
+        if (shape < 1) return abSampleGamma(shape + 1) * Math.pow(Math.random(), 1 / shape);
+        const d = shape - 1 / 3;
+        const c = 1 / Math.sqrt(9 * d);
+        for (;;) {
+            let x, v;
+            do { x = abGaussianRandom(); v = 1 + c * x; } while (v <= 0);
+            v = v * v * v;
+            const u = Math.random();
+            if (Math.log(u) < 0.5 * x * x + d - d * v + d * Math.log(v)) return d * v;
+        }
+    }
+    function abSampleBeta(alpha, beta) {
+        const x = abSampleGamma(Math.max(alpha, 0.01));
+        const y = abSampleGamma(Math.max(beta, 0.01));
+        return x / (x + y);
+    }
+    function computeProbabilityBestByCtr(variants, samples) {
+        samples = samples || 3000;
+        const wins = new Map();
+        variants.forEach(v => wins.set(v.variant_label, 0));
+        for (let i = 0; i < samples; i++) {
+            let bestLabel = null, bestVal = -1;
+            variants.forEach(v => {
+                const clicks = Math.max(0, Number(v.clicks) || 0);
+                const views = Math.max(clicks, Number(v.impressions) || 0);
+                const val = abSampleBeta(clicks + 1, views - clicks + 1);
+                if (val > bestVal) { bestVal = val; bestLabel = v.variant_label; }
+            });
+            if (bestLabel != null) wins.set(bestLabel, (wins.get(bestLabel) || 0) + 1);
+        }
+        const probs = new Map();
+        wins.forEach((count, label) => probs.set(label, count / samples));
+        return probs;
+    }
+
+    async function openABReportModal(testId) {
+        const test = allABTests.find(t => String(t.id) === String(testId));
+        if (!test) return;
+        const variants = (test.variants || []).slice().sort((a, b) => String(a.variant_label).localeCompare(String(b.variant_label), 'ru', { numeric: true }));
+        if (variants.length < 2) { showPremiumModal('warning', 'Мало вариантов', 'Для отчёта нужно минимум 2 варианта.'); return; }
+
+        const { data: log } = await supabase.from('ab_test_rotation_log').select('variant_label').eq('test_id', testId);
+        const rotationsByLabel = {};
+        (log || []).forEach(l => { rotationsByLabel[l.variant_label] = (rotationsByLabel[l.variant_label] || 0) + 1; });
+
+        const probs = computeProbabilityBestByCtr(variants);
+        const baseline = variants[0];
+        const baselineCtr = Number(baseline.impressions) > 0 ? (Number(baseline.clicks) / Number(baseline.impressions) * 100) : 0;
+        const maxProb = Math.max(...Array.from(probs.values()), 0);
+        const leaderLabel = Array.from(probs.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
+
+        document.getElementById('ab-report-title').textContent = test.product_name || `Артикул ${test.nm_id}`;
+        document.getElementById('ab-report-sub').textContent =
+            `Арт. ${test.nm_id} · Тест запущен: ${test.started_at ? new Date(test.started_at).toLocaleString('ru-RU') : '—'}` +
+            (test.finished_at ? ` · Завершён: ${new Date(test.finished_at).toLocaleString('ru-RU')}` : '');
+
+        let stars = '★☆☆', verdictText = 'Пока недостаточно данных для вывода';
+        if (maxProb >= 0.9) { stars = '★★★'; verdictText = `явный победитель (${Math.round(maxProb * 100)}%)`; }
+        else if (maxProb >= 0.6) { stars = '★★★'; verdictText = `скорее всего лучше (${Math.round(maxProb * 100)}%)`; }
+        else if (maxProb >= 0.4) { stars = '★★☆'; verdictText = `есть тенденция к лидеру (${Math.round(maxProb * 100)}%)`; }
+        document.getElementById('ab-report-verdict').innerHTML = `
+            <div class="ab-report-verdict-box">
+                <span class="ab-report-verdict-stars">${stars}</span>
+                <span style="color:var(--text-primary);font-weight:600">${escapeHtml(verdictText)}</span>
+                ${leaderLabel != null ? `<span style="color:var(--text-muted)">— лидирует вариант ${escapeHtml(String(leaderLabel))}</span>` : ''}
+            </div>`;
+
+        document.getElementById('ab-report-variants').innerHTML = variants.map(v => {
+            const impressions = Math.round(Number(v.impressions) || 0);
+            const clicks = Math.round(Number(v.clicks) || 0);
+            const atbs = Math.round(Number(v.atbs) || 0);
+            const orders = Number(v.orders) || 0;
+            const revenue = Number(v.revenue) || 0;
+            const adSpend = Number(v.ad_spend) || 0;
+            const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+            const cr = clicks > 0 ? (atbs / clicks * 100) : 0;
+            const cr1 = atbs > 0 ? (orders / atbs * 100) : 0;
+            const cpc = clicks > 0 ? (adSpend / clicks) : 0;
+            const cpv = impressions > 0 ? (adSpend / impressions) : 0;
+            const prob = probs.get(v.variant_label) || 0;
+            const isBaseline = v.variant_label === baseline.variant_label;
+            const delta = isBaseline ? null : ctr - baselineCtr;
+            const isLosing = prob > 0 && prob <= 0.15 && variants.length > 2;
+            const isLive = Boolean(v.is_currently_on_wb);
+            const isLeading = v.variant_label === leaderLabel && maxProb >= 0.6;
+            const rotations = rotationsByLabel[v.variant_label] || 0;
+
+            return `
+            <div class="ab-report-card ${isLeading ? 'leading' : ''}">
+                <div class="ab-report-tag ${isLive ? 'live' : ''}">${isLive ? '● Сейчас на ВБ' : `Вариант ${escapeHtml(String(v.variant_label))}`}</div>
+                <div class="ab-report-img-wrap"><img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://placehold.co/200x150/888/fff?text=${escapeHtml(v.variant_label)}'"></div>
+                ${!isLive ? `<button class="ab-report-apply-btn" onclick="applyWinningVariant('${test.id}','${v.id}')">Установить на ВБ</button>` : ''}
+                <div class="ab-report-ctr-row">
+                    <span class="ab-report-ctr-val">${ctr.toFixed(2)}%</span>
+                    ${delta != null ? `<span class="ab-report-ctr-delta ${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '+' : ''}${delta.toFixed(2)}</span>` : ''}
+                    ${isLosing ? '<span class="ab-report-prob bad">явно проигрывает</span>' : `<span class="ab-report-prob good">${Math.round(prob * 100)}%</span>`}
+                </div>
+                <table class="ab-report-metrics-table">
+                    <tr><td class="lbl">CTR</td><td class="val">${ctr.toFixed(2)}%</td></tr>
+                    <tr><td class="lbl">CR (клик→корзина)</td><td class="val">${cr.toFixed(2)}%</td></tr>
+                    <tr><td class="lbl">CR1 (корзина→заказ)</td><td class="val">${cr1.toFixed(2)}%</td></tr>
+                    <tr class="ads-head"><td colspan="2">Реклама</td></tr>
+                    <tr><td class="lbl">Показы</td><td class="val">${fmt(impressions)}</td></tr>
+                    <tr><td class="lbl">Клики</td><td class="val">${fmt(clicks)}</td></tr>
+                    <tr><td class="lbl">В корзину</td><td class="val">${fmt(atbs)}</td></tr>
+                    <tr><td class="lbl">Заказов</td><td class="val">${fmt(orders)}</td></tr>
+                    <tr><td class="lbl">На сумму</td><td class="val">${fmt(Math.round(revenue))} ₽</td></tr>
+                    <tr><td class="lbl">Затраты</td><td class="val">${fmt(Math.round(adSpend))} ₽</td></tr>
+                    <tr><td class="lbl">CPC</td><td class="val">${cpc.toFixed(2)} ₽</td></tr>
+                    <tr><td class="lbl">CPV</td><td class="val">${cpv.toFixed(2)} ₽</td></tr>
+                </table>
+                <div class="ab-report-meta">Ротаций: ${rotations} · На ВБ: ${fmt(Math.round(Number(v.minutes_active) || 0))} мин</div>
+            </div>`;
+        }).join('');
+
+        document.getElementById('ab-report-modal').classList.remove('hidden');
+        document.getElementById('ab-report-modal').style.display = 'flex';
+    }
+    window.openABReportModal = openABReportModal;
+
+    function closeABReportModal() {
+        const el = document.getElementById('ab-report-modal');
+        el.classList.add('hidden');
+        el.style.display = 'none';
+    }
+    window.closeABReportModal = closeABReportModal;
+
+    async function applyWinningVariant(testId, variantId) {
+        const test = allABTests.find(t => String(t.id) === String(testId));
+        if (!test) return;
+        const variant = (test.variants || []).find(v => String(v.id) === String(variantId));
+        if (!variant) return;
+        const ok = await showConfirmModal('Установить это фото на ВБ?', `Фото варианта «${escapeHtml(String(variant.variant_label))}» будет загружено на карточку товара на Wildberries.`);
+        if (!ok) return;
+        const applied = await rotateTestPhoto(testId, (test.variants || []).findIndex(v => String(v.id) === String(variantId)), variant.photo_url, test.nm_id, variant.variant_label);
+        if (!applied) return;
+        await supabase.from('ab_test_variants').update({ is_currently_on_wb: false }).eq('test_id', testId);
+        await supabase.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', variantId);
+        if (test.status === 'active') {
+            await supabase.from('ab_tests').update({ current_variant_index: (test.variants || []).findIndex(v => String(v.id) === String(variantId)) }).eq('id', testId);
+        }
+        showPremiumModal('success', 'Фото установлено', 'Вариант загружен на Wildberries.');
+        closeABReportModal();
+        await loadABTests();
+    }
+    window.applyWinningVariant = applyWinningVariant;
 
     async function updateTestStatus(testId, status) {
         const { error } = await supabase.from('ab_tests').update({
