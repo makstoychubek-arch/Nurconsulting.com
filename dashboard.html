@@ -2952,6 +2952,10 @@
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="18" r="3"/><path d="M8.5 7.5l7 7M15.5 7.5l-7 7"/></svg></span>
                     <span class="rail-btn-lbl">Кластеры</span>
                 </button>
+                <button type="button" class="rail-btn" data-tab="logistics" title="Логистика & Поставки">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
+                    <span class="rail-btn-lbl">Логистика</span>
+                </button>
                 <button type="button" class="rail-btn" data-flyout="fly-beta">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
                     <span class="rail-btn-lbl">BETA</span>
@@ -3055,11 +3059,6 @@
                 <div class="nav-item" onclick="showTab('marking', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/><rect x="18" y="14" width="3" height="3"/><rect x="14" y="18" width="3" height="3"/><rect x="18" y="18" width="3" height="3"/></svg>
                     <span class="nav-item-label">Маркировка &amp; ШК</span>
-                    <span class="nav-beta-badge">BETA</span>
-                </div>
-                <div class="nav-item" onclick="showTab('logistics', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                    <span class="nav-item-label">Логистика &amp; Поставки</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
             </div>
@@ -3642,6 +3641,11 @@
         </div>
 
         <div id="tab-logistics" class="tab-content logistics-tab">
+            <div class="segment-tabs" style="margin:0 0 10px" id="logistics-view-tabs">
+                <div class="segment-tab active" data-logistics-view="supplies" onclick="switchLogisticsView('supplies', this)">Поставки</div>
+                <div class="segment-tab" data-logistics-view="warehouse-sales" onclick="switchLogisticsView('warehouse-sales', this)">Продажи по складам</div>
+            </div>
+            <div id="logistics-view-supplies">
             <div class="logistics-toolbar">
                 <div class="flex items-center gap-3">
                     <h3 class="font-semibold text-sm" style="color:var(--text-primary)">Поставки</h3>
@@ -3654,6 +3658,29 @@
             </div>
             <div class="logistics-supplies-wrap">
                 <div id="supplies-list"><div class="text-center py-10 text-sm" style="color:var(--text-muted)">Нажмите «Обновить» для загрузки поставок из WB</div></div>
+            </div>
+            </div>
+            <div id="logistics-view-warehouse-sales" class="hidden" style="padding:2px 2px 16px">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="font-semibold text-sm" style="color:var(--text-primary)">Продажи по складам</h3>
+                    <button class="ui-btn ui-btn-secondary" style="padding:5px 12px;font-size:11px" onclick="loadWarehouseSales(true)">↻ Обновить</button>
+                </div>
+                <div id="warehouse-sales-table-wrap" style="border:1px solid var(--border);border-radius:16px;overflow:hidden">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr style="background:var(--surface);border-bottom:1px solid var(--border)">
+                                <th class="text-left px-4 py-3" style="color:var(--text-muted);font-weight:600">Склад отправки</th>
+                                <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Заказы, шт.</th>
+                                <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Сумма заказов</th>
+                                <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Возвраты, шт.</th>
+                                <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Доля, %</th>
+                            </tr>
+                        </thead>
+                        <tbody id="warehouse-sales-tbody">
+                            <tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нажмите «Обновить» для загрузки данных</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
             <div id="supply-detail-modal" class="hidden" style="position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px)">
                 <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:28px;max-width:760px;width:94%;max-height:85vh;overflow-y-auto">
@@ -4924,7 +4951,7 @@
         dashboard:'ocr', summary:'ocr', 'summary-biz':'ocr', deductions:'ocr', 'plan-fact':'ocr',
         rnp:'rnp', 'rnp-settings':'rnp', planning:'rnp',
         advertising:'ads',
-        'ab-testing':'ab-testing', 'wb-clusters':'wb-clusters', seo:'beta', marking:'beta', logistics:'beta',
+        'ab-testing':'ab-testing', 'wb-clusters':'wb-clusters', seo:'beta', marking:'beta', logistics:'logistics',
         cost:'goods', 'goods-groups':'goods', warehouse:'goods',
         dds:'finance', operations:'finance', obligations:'finance', 'finance-extra':'finance',
         settings:'manage', calculator:'manage',
@@ -6518,7 +6545,10 @@
             if (window._advView === 'detail') loadAdvertisingFromDB();
             else loadAdvertisingCardsOverview();
         }
-        else if (name === 'logistics') filterSuppliesByDate();
+        else if (name === 'logistics') {
+            filterSuppliesByDate();
+            if (!document.getElementById('logistics-view-warehouse-sales')?.classList.contains('hidden')) loadWarehouseSales(true);
+        }
         else if (name === 'planning') loadPlanningTab();
     }
 
@@ -6800,6 +6830,7 @@
         window._advLoadedForCabinet = null;
         window._markingReportLoadedForCabinet = null;
         window._financeDdsLoadedForCabinet = null;
+        _warehouseSalesLoadedForCabinet = null;
         ['adv-kpi-spend','adv-kpi-ctr','adv-kpi-cpc','adv-kpi-cpm','adv-kpi-cr','adv-kpi-orders','adv-kpi-revenue','adv-kpi-efficiency','adv-kpi-spend-share','adv-kpi-roas']
             .forEach(id => setText(id, '—'));
         const advTableEl = document.getElementById('adv-campaigns-table');
@@ -9338,6 +9369,62 @@
         else {
             const pending = allSuppliesRaw.filter(s => !s._enriched);
             if (pending.length) enrichSuppliesMeta(pending);
+        }
+    }
+
+    // ======= Логистика: подраздел "Продажи по складам" =======
+    // Раньше этот раздел был вложен в BETA-флайаут ("Логистика & Поставки").
+    // Теперь у него своя кнопка в левой полке (data-tab="logistics") и
+    // внутри — переключатель видов: "Поставки" (как было) и новый
+    // "Продажи по складам" (агрегат по wb_orders.data->>'warehouseName',
+    // считается в БД через RPC sales_by_warehouse, без выгрузки сырых строк).
+    let _warehouseSalesLoadedForCabinet = null;
+
+    function switchLogisticsView(view, el) {
+        document.querySelectorAll('#logistics-view-tabs .segment-tab').forEach(t => t.classList.remove('active'));
+        if (el) el.classList.add('active');
+        document.getElementById('logistics-view-supplies')?.classList.toggle('hidden', view !== 'supplies');
+        document.getElementById('logistics-view-warehouse-sales')?.classList.toggle('hidden', view !== 'warehouse-sales');
+        if (view === 'warehouse-sales') loadWarehouseSales();
+    }
+
+    async function loadWarehouseSales(forceReload) {
+        if (!currentCabinetId) return;
+        const tbody = document.getElementById('warehouse-sales-tbody');
+        if (!tbody) return;
+        if (!forceReload && _warehouseSalesLoadedForCabinet === currentCabinetId) return;
+        _warehouseSalesLoadedForCabinet = currentCabinetId;
+
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Загрузка…</td></tr>';
+        try {
+            const { from, to } = getActiveDateRange();
+            const { data, error } = await supabase.rpc('sales_by_warehouse', {
+                p_cabinet_id: currentCabinetId,
+                p_from: from,
+                p_to: to,
+            });
+            if (_warehouseSalesLoadedForCabinet !== currentCabinetId) return;
+            if (error) throw error;
+            const rows = Array.isArray(data) ? data : [];
+            if (!rows.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет данных за выбранный период</td></tr>';
+                return;
+            }
+            const totalSum = rows.reduce((s, r) => s + Number(r.orders_sum || 0), 0) || 1;
+            tbody.innerHTML = rows.map(r => {
+                const share = (Number(r.orders_sum || 0) / totalSum) * 100;
+                return `<tr style="border-bottom:1px solid var(--border)">
+                    <td class="px-4 py-3" style="color:var(--text-primary);font-weight:600">${escapeHtml(r.warehouse_name || 'Неизвестно')}</td>
+                    <td class="px-4 py-3 text-right" style="color:var(--text-secondary)">${fmt(Number(r.orders_count || 0))}</td>
+                    <td class="px-4 py-3 text-right" style="color:var(--text-primary);font-weight:600">${fmt(Math.round(Number(r.orders_sum || 0)))} ₽</td>
+                    <td class="px-4 py-3 text-right" style="color:var(--text-muted)">${fmt(Number(r.returns_count || 0))}</td>
+                    <td class="px-4 py-3 text-right" style="color:var(--accent)">${share.toFixed(1)}%</td>
+                </tr>`;
+            }).join('');
+        } catch (e) {
+            if (_warehouseSalesLoadedForCabinet !== currentCabinetId) return;
+            console.error('[loadWarehouseSales]', e.message);
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--red)">Не удалось загрузить данные</td></tr>';
         }
     }
 
