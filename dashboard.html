@@ -9390,9 +9390,40 @@
             });
             if (_warehouseSalesLoadedForCabinet !== currentCabinetId) return;
             if (error) throw error;
-            const rows = Array.isArray(data) ? data : [];
+            // PostgREST иногда отдаёт jsonb-массив как строку — нормализуем
+            let rows = data;
+            if (typeof rows === 'string') {
+                try { rows = JSON.parse(rows); } catch { rows = []; }
+            }
+            rows = Array.isArray(rows) ? rows : [];
             if (!rows.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет данных за выбранный период</td></tr>';
+                // Отличаем «нет заказов в периоде» от «заказы ещё не синхронизированы»
+                const { count: anyOrders } = await supabase
+                    .from('wb_orders')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('cabinet_id', currentCabinetId);
+                const { data: maxRow } = await supabase
+                    .from('wb_orders')
+                    .select('order_date')
+                    .eq('cabinet_id', currentCabinetId)
+                    .order('order_date', { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
+                if (_warehouseSalesLoadedForCabinet !== currentCabinetId) return;
+                if (!anyOrders) {
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">
+                        <div class="mb-2">Заказы по этому кабинету ещё не загружены в базу.</div>
+                        <div class="text-xs mb-3">Нажмите «Загрузить заказы» — синхронизация с WB займёт 1–2 минуты.</div>
+                        <button class="ui-btn ui-btn-primary" style="padding:6px 14px;font-size:12px" onclick="syncWarehouseOrdersNow()">↻ Загрузить заказы</button>
+                    </td></tr>`;
+                } else {
+                    const last = maxRow?.order_date ? String(maxRow.order_date).slice(0, 10) : '—';
+                    tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">
+                        <div class="mb-2">Нет заказов за выбранный период (${from} — ${to}).</div>
+                        <div class="text-xs mb-3">В базе есть данные до ${last}. Сдвиньте период или обновите синхронизацию.</div>
+                        <button class="ui-btn ui-btn-secondary" style="padding:6px 14px;font-size:12px" onclick="syncWarehouseOrdersNow()">↻ Обновить заказы</button>
+                    </td></tr>`;
+                }
                 return;
             }
             const totalSum = rows.reduce((s, r) => s + Number(r.orders_sum || 0), 0) || 1;
@@ -9420,6 +9451,40 @@
             if (_warehouseSalesLoadedForCabinet !== currentCabinetId) return;
             console.error('[loadWarehouseSales]', e.message);
             tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--red)">Не удалось загрузить данные</td></tr>';
+        }
+    }
+
+    // Догрузка заказов для раздела «Продажи по складам» — без неё таблица
+    // пустая, если auto-sync ещё не успел / упёрся в лимит WB (429).
+    async function syncWarehouseOrdersNow() {
+        if (!hasUserCabinets || !currentCabinetId) return;
+        const tbody = document.getElementById('warehouse-sales-tbody');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Загружаем заказы из WB… это займёт 1–2 минуты</td></tr>';
+        }
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) throw new Error('Сессия истекла, перезайдите.');
+            const res = await fetch(AUTO_SYNC_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + session.access_token,
+                },
+                body: JSON.stringify({ mode: 'rnp', cabinet_id: currentCabinetId }),
+            });
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
+            _warehouseSalesLoadedForCabinet = null;
+            await loadWarehouseSales(true);
+        } catch (e) {
+            console.error('[syncWarehouseOrdersNow]', e.message);
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10" style="color:var(--red)">
+                    Не удалось загрузить заказы: ${escapeHtml(e.message || String(e))}
+                    <div class="mt-3"><button class="ui-btn ui-btn-secondary" style="padding:6px 14px;font-size:12px" onclick="syncWarehouseOrdersNow()">Повторить</button></div>
+                </td></tr>`;
+            }
         }
     }
 
