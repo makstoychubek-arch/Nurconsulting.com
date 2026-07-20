@@ -45,6 +45,23 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey);
     const results: Array<Record<string, unknown>> = [];
 
+    // ── Тестовый режим: { "test": true } в теле запроса — просто шлёт одно
+    // проверочное сообщение в группу, минуя всю логику сравнения статусов/
+    // баланса. Нужен, чтобы проверить, что TELEGRAM_BOT_TOKEN и
+    // TELEGRAM_GROUP_CHAT_ID настроены правильно, без ожидания реального
+    // события смены статуса кампании.
+    try {
+        const body = await req.clone().json().catch(() => ({} as Record<string, unknown>));
+        if (body && body.test) {
+            if (!tgToken || !tgChatId) {
+                return json({ ok: false, error: 'TELEGRAM_BOT_TOKEN или TELEGRAM_GROUP_CHAT_ID не заданы в secrets' }, 400);
+            }
+            const text = '✅ Тестовое сообщение от NR Space: бот подключён, уведомления о статусе РК и балансе кабинета будут приходить сюда.';
+            const sent = await sendTelegramMessage(tgToken, tgChatId, text);
+            return json({ ok: sent, sent, text });
+        }
+    } catch { /* не тестовый режим — идём дальше по обычной логике */ }
+
     try {
         const { data: cabinets, error: cabErr } = await admin
             .from('cabinets')

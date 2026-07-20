@@ -145,6 +145,25 @@ Deno.serve(async (req) => {
                 if (!variants || variants.length === 0) continue;
 
                 const windows = buildVariantWindows(logNorm);
+                const windowEndNow = new Date();
+
+                // ── ab_test_rotations: материализуем окна показа каждого варианта
+                // (started_at/ended_at) в отдельную таблицу, как просили — вместо
+                // того чтобы каждый раз пересчитывать их из ab_test_rotation_log
+                // в памяти. Пересобираем полностью на каждый прогон (дешёво,
+                // тестов и ротаций на тест немного), это гарантирует консистентность
+                // с логом независимо от того, кто написал в лог (сервер или
+                // клиентский fallback-таймер).
+                const variantIdByLabel = new Map<string, string>(variants.map((v) => [v.variant_label, v.id]));
+                await admin.from('ab_test_rotations').delete().eq('test_id', test.id);
+                const rotationRows = windows.map((w) => ({
+                    test_id: test.id,
+                    variant_id: variantIdByLabel.get(w.label) || null,
+                    variant_label: w.label,
+                    started_at: w.start.toISOString(),
+                    ended_at: w.end.getTime() >= windowEndNow.getTime() - 1000 ? null : w.end.toISOString(),
+                }));
+                if (rotationRows.length) await admin.from('ab_test_rotations').insert(rotationRows);
 
                 const { data: orders } = await admin
                     .from('wb_orders')
@@ -251,8 +270,58 @@ Deno.serve(async (req) => {
                         atbs: Math.round(t.atbs),
                         ad_spend: Math.round(t.adSpend * 100) / 100,
                     }).eq('id', v.id);
+
+                    const ctr = t.impressions > 0 ? (t.clicks / t.impressions * 100) : 0;
+                    const cr = t.clicks > 0 ? (t.atbs / t.clicks * 100) : 0;
+                    await admin.from('ab_test_variant_stats').upsert({
+                        test_id: test.id,
+                        variant_id: v.id,
+                        source: 'ads',
+                        impressions: Math.round(t.impressions),
+                        clicks: Math.round(t.clicks),
+                        ctr: Math.round(ctr * 100) / 100,
+                        cr: Math.round(cr * 100) / 100,
+                        orders: t.orders,
+                        cart_adds: Math.round(t.atbs),
+                        spend: Math.round(t.adSpend * 100) / 100,
+                        updated_at: new Date().toISOString(),
+                    }, { onConflict: 'test_id,variant_id,source' });
                 }
                 statsResults.push({ test_id: test.id, tally: Object.fromEntries(tally) });
+
+                // ── Источник "Воронка продаж" (карточка товара): показы/переходы/
+                // заказы из seller-analytics-api sales-funnel — тем же способом
+                // делим по окнам ротации. ВАЖНО: WB отдаёт историю только за
+                // последние 7 дней, поэтому если тест идёт дольше — здесь будут
+                // цифры только за последнюю неделю, это ограничение самого API.
+                const funnelEnabled = Boolean(((test.settings as Record<string, unknown> | null)?.sources as Record<string, unknown> | undefined)?.funnel);
+                if (funnelEnabled) {
+                    try {
+                        const funnelTally = await computeFunnelTally(admin, test, windows);
+                        if (funnelTally) {
+                            for (const v of variants) {
+                                const t = funnelTally.get(v.variant_label) || { impressions: 0, clicks: 0, atbs: 0, orders: 0 };
+                                const ctr = t.impressions > 0 ? (t.clicks / t.impressions * 100) : 0;
+                                const cr = t.clicks > 0 ? (t.atbs / t.clicks * 100) : 0;
+                                await admin.from('ab_test_variant_stats').upsert({
+                                    test_id: test.id,
+                                    variant_id: v.id,
+                                    source: 'funnel',
+                                    impressions: Math.round(t.impressions),
+                                    clicks: Math.round(t.clicks),
+                                    ctr: Math.round(ctr * 100) / 100,
+                                    cr: Math.round(cr * 100) / 100,
+                                    orders: Math.round(t.orders),
+                                    cart_adds: Math.round(t.atbs),
+                                    spend: 0,
+                                    updated_at: new Date().toISOString(),
+                                }, { onConflict: 'test_id,variant_id,source' });
+                            }
+                        }
+                    } catch (e) {
+                        console.error('[ab-test-rotate] funnel stats', test.id, e);
+                    }
+                }
 
                 // ── Автозавершение теста ─────────────────────────────────────
                 // 1) РК, к которой привязан тест, встала на паузу/кончились
@@ -309,6 +378,17 @@ Deno.serve(async (req) => {
                         statsResults.push({ test_id: test.id, autoFinished: finishReason });
                     }
                 }
+
+                // ── Уведомление в Telegram-канал по завершении теста ─────────
+                // Срабатывает и для теста, завершённого автоматически прямо
+                // сейчас (веткой выше), и для теста, завершённого вручную с
+                // дашборда (status='finished' уже стоит) — notifyTestFinished
+                // сам проверяет notification_log и шлёт сообщение только один
+                // раз за всю жизнь теста (не по временному окну, а навсегда).
+                const freshStatus = (await admin.from('ab_tests').select('status').eq('id', test.id).maybeSingle()).data?.status;
+                if (freshStatus === 'finished') {
+                    await notifyTestFinished(admin, test, variants);
+                }
             } catch (e) {
                 console.error('[ab-test-rotate] stats', test.id, e);
                 statsResults.push({ test_id: test.id, error: String(e) });
@@ -321,6 +401,180 @@ Deno.serve(async (req) => {
         return json({ error: String(err) }, 500);
     }
 });
+
+// Считает показы/переходы/добавления в корзину/заказы по карточке товара
+// (не по рекламе) за окна ротации, используя WB seller-analytics
+// sales-funnel/products/history. У этого эндпоинта есть жёсткое
+// ограничение WB — история отдаётся максимум за последние 7 дней, поэтому
+// для тестов длиннее недели тут будут только цифры за последнюю неделю
+// (та часть, что вообще доступна через API). Поля в ответе WB не строго
+// документированы, поэтому парсим максимально защитно, с запасными
+// вариантами имён.
+async function computeFunnelTally(
+    admin: ReturnType<typeof createClient>,
+    test: Record<string, unknown>,
+    windows: Array<{ label: string; start: Date; end: Date }>,
+): Promise<Map<string, { impressions: number; clicks: number; atbs: number; orders: number }> | null> {
+    const { data: cab } = await admin.from('cabinets').select('wb_token').eq('id', test.cabinet_id as string).maybeSingle();
+    const token = sanitizeWbToken(cab?.wb_token);
+    if (!token || !isValidWbToken(token)) return null;
+
+    const today = new Date();
+    const minStart = new Date(today);
+    minStart.setDate(minStart.getDate() - 6);
+    const fmtD = (d: Date) => d.toISOString().split('T')[0];
+    let dateFrom = String(test.started_at || '').split('T')[0] || fmtD(minStart);
+    if (dateFrom < fmtD(minStart)) dateFrom = fmtD(minStart);
+    const dateTo = fmtD(today);
+    if (dateFrom > dateTo) return null;
+
+    const res = await fetch('https://seller-analytics-api.wildberries.ru/api/analytics/v3/sales-funnel/products/history', {
+        method: 'POST',
+        headers: { Authorization: token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            selectedPeriod: { start: dateFrom, end: dateTo },
+            nmIds: [Number(test.nm_id)],
+            skipDeletedNm: true,
+            aggregationLevel: 'day',
+        }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json().catch(() => null) as Record<string, unknown> | null;
+    if (!data) return null;
+
+    // Защитно ищем массив дневных точек в разных возможных обёртках ответа.
+    const days = extractFunnelDays(data);
+    if (!days.length) return null;
+
+    const tally = new Map<string, { impressions: number; clicks: number; atbs: number; orders: number }>();
+    for (const w of windows) {
+        if (!tally.has(w.label)) tally.set(w.label, { impressions: 0, clicks: 0, atbs: 0, orders: 0 });
+    }
+
+    for (const day of days) {
+        const dateStr = String(day.dt || day.date || day.day || '').split('T')[0];
+        if (!dateStr) continue;
+        const impressions = numField(day, ['openCardCount', 'views', 'opens', 'cardViews']);
+        const clicks = numField(day, ['addToCartCount', 'clicks', 'toCart', 'addToCart']);
+        const atbs = numField(day, ['addToCartCount', 'cartAdds']);
+        const orders = numField(day, ['ordersCount', 'orders', 'orderCount']);
+        if (!impressions && !clicks && !orders) continue;
+
+        const dayStart = new Date(`${dateStr}T00:00:00Z`);
+        const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+        const overlaps: Array<{ label: string; ms: number }> = [];
+        let totalMs = 0;
+        for (const w of windows) {
+            const start = w.start > dayStart ? w.start : dayStart;
+            const end = w.end < dayEnd ? w.end : dayEnd;
+            const ms = end.getTime() - start.getTime();
+            if (ms > 0) { overlaps.push({ label: w.label, ms }); totalMs += ms; }
+        }
+        if (!totalMs) continue;
+        for (const o of overlaps) {
+            const bucket = tally.get(o.label);
+            if (!bucket) continue;
+            const share = o.ms / totalMs;
+            bucket.impressions += impressions * share;
+            bucket.clicks += clicks * share;
+            bucket.atbs += atbs * share;
+            bucket.orders += orders * share;
+        }
+    }
+    return tally;
+}
+
+function numField(obj: Record<string, unknown>, keys: string[]): number {
+    for (const k of keys) {
+        if (obj[k] != null) return Number(obj[k]) || 0;
+    }
+    return 0;
+}
+
+function extractFunnelDays(data: Record<string, unknown>): Array<Record<string, unknown>> {
+    const candidates = [data.data, data.history, data.items, data.days, data.result];
+    for (const c of candidates) {
+        if (Array.isArray(c) && c.length) {
+            // Иногда это массив по товарам, каждый со своим history[]; иногда
+            // сразу массив дней. Проверяем первую запись.
+            const first = c[0] as Record<string, unknown>;
+            if (first && Array.isArray(first.history)) {
+                return (first.history as Array<Record<string, unknown>>);
+            }
+            return c as Array<Record<string, unknown>>;
+        }
+    }
+    if (Array.isArray(data.cards) && data.cards.length) {
+        const first = data.cards[0] as Record<string, unknown>;
+        if (Array.isArray(first?.history)) return first.history as Array<Record<string, unknown>>;
+    }
+    return [];
+}
+
+// Уведомление в Telegram-канал о завершении теста + защита от дублей через
+// notification_log (проверяем "было ли хоть раз отправлено для этого
+// test_id", а не временное окно — тест завершается один раз в жизни).
+async function notifyTestFinished(
+    admin: ReturnType<typeof createClient>,
+    test: Record<string, unknown>,
+    variants: Array<{ id: string; variant_label: string; impressions?: number; clicks?: number; is_currently_on_wb?: boolean }>,
+): Promise<void> {
+    const { data: dupes } = await admin
+        .from('notification_log')
+        .select('id')
+        .eq('test_id', test.id as string)
+        .eq('event_type', 'ab_test_finished')
+        .limit(1);
+    if (dupes && dupes.length) return;
+
+    const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
+    const tgChannelId = Deno.env.get('TELEGRAM_CHANNEL_ID') ?? '';
+
+    const withCtr = variants.map((v) => {
+        const impressions = Number(v.impressions) || 0;
+        const clicks = Number(v.clicks) || 0;
+        return { ...v, ctr: impressions > 0 ? (clicks / impressions * 100) : 0 };
+    });
+    const winner = withCtr.slice().sort((a, b) => b.ctr - a.ctr)[0];
+    const baseline = withCtr[0];
+    let text = `🏁 А/Б-тест «${test.product_name || 'Товар ' + test.nm_id}» (арт. ${test.nm_id}) завершён.`;
+    if (winner && baseline) {
+        text = winner.variant_label === baseline.variant_label
+            ? `🏁 А/Б-тест «${test.product_name || 'Товар ' + test.nm_id}» завершён: явного победителя нет, лучший CTR у текущего фото (вар. ${winner.variant_label}, ${winner.ctr.toFixed(2)}%).`
+            : `🏆 А/Б-тест «${test.product_name || 'Товар ' + test.nm_id}» завершён: победил вариант ${winner.variant_label}, CTR ${winner.ctr.toFixed(2)}% против ${baseline.ctr.toFixed(2)}% у текущего фото.`;
+    }
+
+    if (tgToken && tgChannelId) {
+        await sendTelegramMessage(tgToken, tgChannelId, text);
+    } else {
+        console.warn('[ab-test-rotate] TELEGRAM_BOT_TOKEN/TELEGRAM_CHANNEL_ID не заданы — уведомление о завершении теста не отправлено:', text);
+    }
+
+    await admin.from('notification_log').insert({
+        cabinet_id: test.cabinet_id as string,
+        test_id: test.id as string,
+        event_type: 'ab_test_finished',
+        message_text: text,
+    });
+}
+
+async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<boolean> {
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text }),
+        });
+        if (!res.ok) {
+            console.warn('[ab-test-rotate] telegram sendMessage failed:', res.status, await res.text());
+            return false;
+        }
+        return true;
+    } catch (e) {
+        console.warn('[ab-test-rotate] telegram sendMessage error:', String(e));
+        return false;
+    }
+}
 
 // Оценка вероятности "победы" каждого варианта по CTR методом Монте-Карло
 // на Beta-биномиальной модели (Beta(clicks+1, views-clicks+1)) — тот же

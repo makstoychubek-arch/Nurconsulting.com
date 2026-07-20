@@ -303,6 +303,8 @@
         /* ── Раздел "Кластеры" (/wb-clusters) — полностью изолированные стили ── */
         .wbc-spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle; }
         #wbc-period-picker button.active { background: var(--accent-gradient) !important; color: #fff !important; border-color: transparent !important; }
+        #ab-report-source-toggle button.active { background: var(--accent-gradient) !important; color: #fff !important; border-color: transparent !important; }
+        #ab-report-source-toggle button[disabled] { opacity: 0.4; cursor: not-allowed; }
         .wbc-campaign-card { border: 1px solid var(--border); border-radius: var(--radius-card); margin-bottom: 10px; overflow: hidden; background: var(--surface); }
         .wbc-campaign-head { display: flex; align-items: center; gap: 16px; padding: 14px 18px; cursor: pointer; flex-wrap: wrap; }
         .wbc-campaign-head:hover { background: var(--accent-soft); }
@@ -3823,6 +3825,7 @@
                         <button onclick="closeABReportModal()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1">×</button>
                     </div>
                     <div class="text-xs mb-3" style="color:var(--text-muted)" id="ab-report-sub"></div>
+                    <div class="flex items-center gap-2 mb-3" id="ab-report-source-toggle"></div>
                     <div id="ab-report-verdict" class="mb-4"></div>
                     <div id="ab-report-variants" class="ab-report-grid"></div>
                 </div>
@@ -7761,12 +7764,56 @@
             el.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Кампании не найдены. Тест можно создать без привязки к РК.</div>';
             return;
         }
-        el.innerHTML = campaigns.map(c => {
+
+        // Определяем, в каких РК этот артикул сейчас реально крутится (по
+        // свежим данным advertising_daily_stats за последние 7 дней) — чтобы
+        // не заставлять искать нужную кампанию среди всех вручную, а сразу
+        // показать/выделить и предвыбрать именно её.
+        const nmId = abSelectedCard?.nmID ? Number(abSelectedCard.nmID) : null;
+        const activeCampaignIds = new Set();
+        if (nmId && currentCabinetId) {
+            try {
+                const since = new Date(); since.setDate(since.getDate() - 7);
+                const { data: rows } = await supabase
+                    .from('advertising_daily_stats')
+                    .select('campaign_id, data')
+                    .eq('cabinet_id', currentCabinetId)
+                    .gte('stat_date', since.toISOString().split('T')[0]);
+                (rows || []).forEach(r => {
+                    const apps = Array.isArray(r.data?.apps) ? r.data.apps : [];
+                    for (const app of apps) {
+                        const nms = Array.isArray(app?.nms) ? app.nms : [];
+                        if (nms.some(nm => Number(nm.nmId ?? nm.nm_id) === nmId)) {
+                            activeCampaignIds.add(Number(r.campaign_id));
+                            break;
+                        }
+                    }
+                });
+                // Предвыбираем найденные РК автоматически, если пользователь
+                // ещё ничего не отмечал вручную.
+                if (activeCampaignIds.size && abSelectedCampaigns.size === 0) {
+                    activeCampaignIds.forEach(id => abSelectedCampaigns.add(id));
+                }
+            } catch (e) { console.warn('[AB] active campaign detect failed:', e); }
+        }
+
+        const sorted = campaigns.slice().sort((a, b) => {
+            const aActive = activeCampaignIds.has(a.id) ? 1 : 0;
+            const bActive = activeCampaignIds.has(b.id) ? 1 : 0;
+            return bActive - aActive;
+        });
+
+        el.innerHTML = (activeCampaignIds.size
+            ? `<div class="text-xs mb-2" style="color:var(--accent)">▶ Этот артикул уже крутится в ${activeCampaignIds.size} кампании(ях) — они выделены и отмечены выше остальных.</div>`
+            : nmId ? `<div class="text-xs mb-2" style="color:var(--text-muted)">Этот артикул сейчас не найден в активных РК за последние 7 дней — выберите кампанию вручную.</div>` : '')
+            + sorted.map(c => {
             const run = c.status === 9;
-            return `<label class="ab-campaign-row" style="cursor:pointer">
+            const isActiveForArticle = activeCampaignIds.has(c.id);
+            return `<label class="ab-campaign-row" style="cursor:pointer${isActiveForArticle ? ';background:var(--accent-soft);border-radius:8px' : ''}">
                 <input type="checkbox" ${abSelectedCampaigns.has(c.id) ? 'checked' : ''} onchange="toggleABCampaign(${c.id}, this.checked)" style="accent-color:var(--accent)">
                 <span style="color:var(--text-primary);font-weight:500">${escapeHtml(c.name)}</span>
                 <span style="color:var(--text-muted);font-family:monospace;font-size:11px">${c.id}</span>
+                ${isActiveForArticle ? '<span class="ab-campaign-status run" style="background:rgba(168,85,247,0.15);color:var(--accent)">▶ этот артикул</span>' : ''}
                 <span class="ab-campaign-status ${run ? 'run' : 'stop'}">${escapeHtml(c.statusLabel)}</span>
             </label>`;
         }).join('');
@@ -8056,6 +8103,13 @@
         const maxScore = Math.max(...withRate.map(v => v.score), 0);
         const winner = maxScore > 0 ? withRate.find(v => v.score === maxScore) : null;
         const metricLabel = metric === 'ctr' ? 'CTR' : metric === 'cr' ? 'CR' : 'зак/час';
+        // Вероятность "победы" по CTR (та же Beta-модель, что и в детальном
+        // отчёте) — используем только для явных бейджей "выигрывает"/
+        // "проигрывает" на самой карточке, чтобы статус был виден без
+        // открытия отчёта.
+        const probsForCard = hasAdsData ? computeProbabilityBestByCtr(withRate) : new Map();
+        const maxProbForCard = Math.max(...Array.from(probsForCard.values()), 0);
+        const leaderLabelForCard = Array.from(probsForCard.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
         const intervalMin = test.rotation_interval_min || 60;
         const nextRotateMs = test.last_rotated_at
             ? Math.max(0, intervalMin * 60 * 1000 - (Date.now() - new Date(test.last_rotated_at).getTime()))
@@ -8072,10 +8126,14 @@
             const isActive = v.is_currently_on_wb;
             const barPct = maxScore > 0 ? Math.round(v.score / maxScore * 100) : 0;
             const scoreStr = metric === 'ctr' ? v.ctr.toFixed(2) + '%' : metric === 'cr' ? v.cr.toFixed(2) + '%' : v.ordersPerHour.toFixed(2);
+            const prob = probsForCard.get(v.variant_label) || 0;
+            const clearWin = withRate.length > 1 && v.variant_label === leaderLabelForCard && maxProbForCard >= 0.85;
+            const clearLose = withRate.length > 2 && prob > 0 && prob <= 0.15;
             return `
             <div class="abtest-variant ${isWinner ? 'winner' : ''} ${isActive ? 'current-active' : ''}">
                 ${isWinner ? '<div class="abtest-winner-badge">🏆 ТОП</div>' : ''}
                 ${isActive ? '<div class="abtest-active-badge">▶ WB</div>' : ''}
+                ${clearWin ? '<div class="abtest-winner-badge" style="left:4px;right:auto;background:var(--green)">✅ явно выигрывает</div>' : clearLose ? '<div class="abtest-winner-badge" style="left:4px;right:auto;top:auto;bottom:4px;background:var(--red)">❌ явно проигрывает</div>' : ''}
                 <img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://placehold.co/100x100/888/fff?text=${escapeHtml(v.variant_label)}'">
                 <div class="abtest-variant-meta">
                     <div class="text-xs font-bold mb-1" style="color:var(--text-secondary)">Вар. ${escapeHtml(v.variant_label)}</div>
@@ -8108,16 +8166,17 @@
 
         const tid = String(test.id);
         return `
-        <div class="abtest-card" id="abtest-card-${tid}">
+        <div class="abtest-card" id="abtest-card-${tid}" ${hasAdsData ? `style="cursor:pointer" onclick="openABReportModal('${tid}')" title="Открыть подробный отчёт"` : ''}>
             <div class="flex items-start justify-between mb-3 gap-3">
                 <div>
                     <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(test.product_name)}</div>
                     <div class="text-xs mt-0.5" style="color:var(--text-muted)">Арт. ${escapeHtml(String(test.nm_id))} · ${intervalMin} мин · ${variants.length} вар.</div>
                     <div class="mt-1 flex items-center gap-2 flex-wrap">${statusBadge}${hasAdsData
                         ? '<span class="text-xs" style="color:var(--green)">📡 связан с рекламой</span>'
-                        : '<span class="text-xs" style="color:var(--text-muted)">📡 ждём данные РК (обновляются по крону)</span>'}</div>
+                        : '<span class="text-xs" style="color:var(--text-muted)">📡 ждём данные РК (обновляются по крону)</span>'}
+                        ${leaderLabelForCard != null && maxProbForCard >= 0.85 ? `<span class="text-xs" style="color:var(--green)">✅ явно выигрывает вар. ${escapeHtml(String(leaderLabelForCard))}</span>` : ''}</div>
                 </div>
-                <div class="flex gap-2 items-center flex-wrap justify-end">
+                <div class="flex gap-2 items-center flex-wrap justify-end" onclick="event.stopPropagation()">
                     ${hasAdsData ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--accent);border-color:var(--accent-border)" onclick="openABReportModal('${tid}')">📄 Отчёт</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="forceRotateABTest('${tid}')">↻ Сменить</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="editABTest('${tid}')">✎ Редактировать</button>` : ''}
@@ -8125,7 +8184,7 @@
                     <button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--red);border-color:rgba(248,113,113,0.3)" onclick="deleteABTest('${tid}')">🗑 Удалить</button>
                 </div>
             </div>
-            <div class="flex gap-2 flex-wrap">${variantsHtml}</div>
+            <div class="flex gap-2 flex-wrap" onclick="event.stopPropagation()">${variantsHtml}</div>
             ${progressHtml}
         </div>`;
     }
@@ -8322,7 +8381,7 @@
         return probs;
     }
 
-    async function openABReportModal(testId) {
+    async function openABReportModal(testId, sourceOverride) {
         const test = allABTests.find(t => String(t.id) === String(testId));
         if (!test) return;
         const variants = (test.variants || []).slice().sort((a, b) => String(a.variant_label).localeCompare(String(b.variant_label), 'ru', { numeric: true }));
@@ -8332,16 +8391,56 @@
         const rotationsByLabel = {};
         (log || []).forEach(l => { rotationsByLabel[l.variant_label] = (rotationsByLabel[l.variant_label] || 0) + 1; });
 
-        const probs = computeProbabilityBestByCtr(variants);
+        // ab_test_variant_stats хранит показатели раздельно по источнику
+        // (реклама/воронка) — тем же переключателем, что и при создании
+        // теста. Если строк для источника нет (старый тест до миграции, или
+        // источник не был включён) — красиво падаем обратно на ads-колонки
+        // в ab_test_variants, чтобы отчёт не был пустым.
+        const { data: statsRows } = await supabase.from('ab_test_variant_stats').select('*').eq('test_id', testId);
+        const bySource = { ads: new Map(), funnel: new Map() };
+        (statsRows || []).forEach(r => {
+            if (bySource[r.source]) bySource[r.source].set(r.variant_id, r);
+        });
+        const hasFunnelData = bySource.funnel.size > 0;
+        const testSources = test.settings?.sources || { ads: true, funnel: true };
+        window._abReportState = window._abReportState || {};
+        let source = sourceOverride || window._abReportState[testId] || (testSources.ads !== false ? 'ads' : 'funnel');
+        if (source === 'funnel' && !hasFunnelData) source = 'ads';
+        window._abReportState[testId] = source;
+
+        const toggleEl = document.getElementById('ab-report-source-toggle');
+        if (toggleEl) {
+            toggleEl.innerHTML = `
+                <span class="text-xs" style="color:var(--text-muted)">Источник данных:</span>
+                <button type="button" class="ui-btn ui-btn-secondary ${source === 'ads' ? 'active' : ''}" style="font-size:11px;padding:5px 10px" onclick="openABReportModal('${testId}','ads')">📣 Реклама</button>
+                <button type="button" class="ui-btn ui-btn-secondary ${source === 'funnel' ? 'active' : ''}" style="font-size:11px;padding:5px 10px" ${!hasFunnelData ? 'disabled title="Нет данных по воронке (не включена в настройках теста, либо тест старше 7 дней — ограничение самого WB API)"' : ''} onclick="openABReportModal('${testId}','funnel')">🛒 Воронка продаж</button>`;
+        }
+
+        // Метрики варианта в выбранном источнике: сперва пробуем
+        // ab_test_variant_stats, а если для этого варианта строки нет —
+        // берём ads-колонки прямо из ab_test_variants (совместимость со
+        // старыми тестами).
+        function metricsFor(v) {
+            const row = bySource[source].get(v.id);
+            if (row) {
+                return { impressions: Number(row.impressions) || 0, clicks: Number(row.clicks) || 0, atbs: Number(row.cart_adds) || 0, orders: Number(row.orders) || 0, revenue: Number(v.revenue) || 0, adSpend: Number(row.spend) || 0 };
+            }
+            return { impressions: Number(v.impressions) || 0, clicks: Number(v.clicks) || 0, atbs: Number(v.atbs) || 0, orders: Number(v.orders) || 0, revenue: Number(v.revenue) || 0, adSpend: Number(v.ad_spend) || 0 };
+        }
+        const metricsByVariant = new Map(variants.map(v => [v.id, metricsFor(v)]));
+
+        const probs = computeProbabilityBestByCtr(variants.map(v => ({ variant_label: v.variant_label, ...metricsByVariant.get(v.id) })));
         const baseline = variants[0];
-        const baselineCtr = Number(baseline.impressions) > 0 ? (Number(baseline.clicks) / Number(baseline.impressions) * 100) : 0;
+        const baselineM = metricsByVariant.get(baseline.id);
+        const baselineCtr = baselineM.impressions > 0 ? (baselineM.clicks / baselineM.impressions * 100) : 0;
         const maxProb = Math.max(...Array.from(probs.values()), 0);
         const leaderLabel = Array.from(probs.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
 
         document.getElementById('ab-report-title').textContent = test.product_name || `Артикул ${test.nm_id}`;
         document.getElementById('ab-report-sub').textContent =
             `Арт. ${test.nm_id} · Тест запущен: ${test.started_at ? new Date(test.started_at).toLocaleString('ru-RU') : '—'}` +
-            (test.finished_at ? ` · Завершён: ${new Date(test.finished_at).toLocaleString('ru-RU')}` : '');
+            (test.finished_at ? ` · Завершён: ${new Date(test.finished_at).toLocaleString('ru-RU')}` : '') +
+            (source === 'funnel' ? ' · воронка: WB отдаёт историю максимум за последние 7 дней' : '');
 
         let stars = '★☆☆', verdictText = 'Пока недостаточно данных для вывода';
         if (maxProb >= 0.9) { stars = '★★★'; verdictText = `явный победитель (${Math.round(maxProb * 100)}%)`; }
@@ -8354,13 +8453,15 @@
                 ${leaderLabel != null ? `<span style="color:var(--text-muted)">— лидирует вариант ${escapeHtml(String(leaderLabel))}</span>` : ''}
             </div>`;
 
+        const sourceLabel = source === 'funnel' ? 'Воронка (карточка)' : 'Реклама';
         document.getElementById('ab-report-variants').innerHTML = variants.map(v => {
-            const impressions = Math.round(Number(v.impressions) || 0);
-            const clicks = Math.round(Number(v.clicks) || 0);
-            const atbs = Math.round(Number(v.atbs) || 0);
-            const orders = Number(v.orders) || 0;
-            const revenue = Number(v.revenue) || 0;
-            const adSpend = Number(v.ad_spend) || 0;
+            const m = metricsByVariant.get(v.id);
+            const impressions = Math.round(m.impressions);
+            const clicks = Math.round(m.clicks);
+            const atbs = Math.round(m.atbs);
+            const orders = m.orders;
+            const revenue = m.revenue;
+            const adSpend = m.adSpend;
             const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
             const cr = clicks > 0 ? (atbs / clicks * 100) : 0;
             const cr1 = atbs > 0 ? (orders / atbs * 100) : 0;
@@ -8388,15 +8489,15 @@
                     <tr><td class="lbl">CTR</td><td class="val">${ctr.toFixed(2)}%</td></tr>
                     <tr><td class="lbl">CR (клик→корзина)</td><td class="val">${cr.toFixed(2)}%</td></tr>
                     <tr><td class="lbl">CR1 (корзина→заказ)</td><td class="val">${cr1.toFixed(2)}%</td></tr>
-                    <tr class="ads-head"><td colspan="2">Реклама</td></tr>
+                    <tr class="ads-head"><td colspan="2">${escapeHtml(sourceLabel)}</td></tr>
                     <tr><td class="lbl">Показы</td><td class="val">${fmt(impressions)}</td></tr>
                     <tr><td class="lbl">Клики</td><td class="val">${fmt(clicks)}</td></tr>
                     <tr><td class="lbl">В корзину</td><td class="val">${fmt(atbs)}</td></tr>
                     <tr><td class="lbl">Заказов</td><td class="val">${fmt(orders)}</td></tr>
                     <tr><td class="lbl">На сумму</td><td class="val">${fmt(Math.round(revenue))} ₽</td></tr>
-                    <tr><td class="lbl">Затраты</td><td class="val">${fmt(Math.round(adSpend))} ₽</td></tr>
+                    ${source === 'ads' ? `<tr><td class="lbl">Затраты</td><td class="val">${fmt(Math.round(adSpend))} ₽</td></tr>
                     <tr><td class="lbl">CPC</td><td class="val">${cpc.toFixed(2)} ₽</td></tr>
-                    <tr><td class="lbl">CPV</td><td class="val">${cpv.toFixed(2)} ₽</td></tr>
+                    <tr><td class="lbl">CPV</td><td class="val">${cpv.toFixed(2)} ₽</td></tr>` : ''}
                 </table>
                 <div class="ab-report-meta">Ротаций: ${rotations} · На ВБ: ${fmt(Math.round(Number(v.minutes_active) || 0))} мин</div>
             </div>`;
