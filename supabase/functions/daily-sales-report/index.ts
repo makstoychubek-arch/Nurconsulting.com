@@ -404,13 +404,15 @@ async function renderReportImage(
 
     // Геометрия: масштаб ×2 для чёткости на телефонах (retina)
     const S = 2;
-    const COLS = [
-        { title: 'Артикул продавца', w: 300, align: 'left' as const },
-        { title: 'Заказы\nшт', w: 95, align: 'right' as const },
-        { title: 'Заказы\nсом', w: 130, align: 'right' as const },
-        { title: 'Выкупы\nшт', w: 95, align: 'right' as const },
-        { title: 'Выкупы\nсом', w: 130, align: 'right' as const },
-        { title: 'Остаток\nтовара', w: 105, align: 'right' as const },
+    // Цифры по центру своих колонок — так шапка, значения и «Итого»
+    // стоят строго друг под другом
+    const COLS: Array<{ title: string; w: number; align: 'left' | 'center' | 'right' }> = [
+        { title: 'Артикул продавца', w: 300, align: 'left' },
+        { title: 'Заказы\nшт', w: 95, align: 'center' },
+        { title: 'Заказы\nсом', w: 130, align: 'center' },
+        { title: 'Выкупы\nшт', w: 95, align: 'center' },
+        { title: 'Выкупы\nсом', w: 130, align: 'center' },
+        { title: 'Остаток\nтовара', w: 105, align: 'center' },
     ];
     const PAD = 14;
     const width = COLS.reduce((a, c) => a + c.w, 0) + PAD * 2;
@@ -466,11 +468,11 @@ async function renderReportImage(
         ctx.fillStyle = '#222222';
         const cy = y + rowH / 2;
         drawCell(ctx, fitText(ctx, r.article, COLS[0].w - 16), colX[0], cy, COLS[0].w, 'left');
-        drawCell(ctx, String(r.ordersCount), colX[1], cy, COLS[1].w, 'right');
-        drawCell(ctx, fmtNum(r.ordersSum), colX[2], cy, COLS[2].w, 'right');
-        drawCell(ctx, String(r.buyoutCount), colX[3], cy, COLS[3].w, 'right');
-        drawCell(ctx, fmtNum(r.buyoutSum), colX[4], cy, COLS[4].w, 'right');
-        drawCell(ctx, String(r.stock), colX[5], cy, COLS[5].w, 'right');
+        drawCell(ctx, String(r.ordersCount), colX[1], cy, COLS[1].w, COLS[1].align);
+        drawCell(ctx, fmtNum(r.ordersSum), colX[2], cy, COLS[2].w, COLS[2].align);
+        drawCell(ctx, String(r.buyoutCount), colX[3], cy, COLS[3].w, COLS[3].align);
+        drawCell(ctx, fmtNum(r.buyoutSum), colX[4], cy, COLS[4].w, COLS[4].align);
+        drawCell(ctx, String(r.stock), colX[5], cy, COLS[5].w, COLS[5].align);
     });
 
     // Итого — только на последней странице
@@ -482,11 +484,11 @@ async function renderReportImage(
         ctx.font = 'bold 16px DejaVu';
         const tcy = totalY + totalH / 2;
         drawCell(ctx, 'Итого', colX[0], tcy, COLS[0].w, 'left');
-        drawCell(ctx, String(t.oc), colX[1], tcy, COLS[1].w, 'right');
-        drawCell(ctx, fmtNum(t.os), colX[2], tcy, COLS[2].w, 'right');
-        drawCell(ctx, String(t.bc), colX[3], tcy, COLS[3].w, 'right');
-        drawCell(ctx, fmtNum(t.bs), colX[4], tcy, COLS[4].w, 'right');
-        drawCell(ctx, String(t.st), colX[5], tcy, COLS[5].w, 'right');
+        drawCell(ctx, String(t.oc), colX[1], tcy, COLS[1].w, COLS[1].align);
+        drawCell(ctx, fmtNum(t.os), colX[2], tcy, COLS[2].w, COLS[2].align);
+        drawCell(ctx, String(t.bc), colX[3], tcy, COLS[3].w, COLS[3].align);
+        drawCell(ctx, fmtNum(t.bs), colX[4], tcy, COLS[4].w, COLS[4].align);
+        drawCell(ctx, String(t.st), colX[5], tcy, COLS[5].w, COLS[5].align);
     }
 
     // Тонкие разделители строк
@@ -500,14 +502,30 @@ async function renderReportImage(
         ctx.stroke();
     }
 
+    // Вертикальные разделители колонок — на всю высоту таблицы,
+    // чтобы столбцы были визуально ровными
+    const tableBottom = tableTop + headerH + rows.length * rowH + totalH;
+    ctx.strokeStyle = '#c5d5c5';
+    for (let ci = 1; ci < COLS.length; ci++) {
+        ctx.beginPath();
+        ctx.moveTo(colX[ci], tableTop);
+        ctx.lineTo(colX[ci], tableBottom);
+        ctx.stroke();
+    }
+    // Рамка вокруг таблицы
+    ctx.strokeRect(PAD, tableTop, tableW, tableBottom - tableTop);
+
     return canvas.toBuffer('image/png');
 }
 
 // deno-lint-ignore no-explicit-any
-function drawCell(ctx: any, text: string, x: number, y: number, w: number, align: 'left' | 'right') {
+function drawCell(ctx: any, text: string, x: number, y: number, w: number, align: 'left' | 'center' | 'right') {
     if (align === 'right') {
         const tw = ctx.measureText(text).width;
         ctx.fillText(text, x + w - 8 - tw, y);
+    } else if (align === 'center') {
+        const tw = ctx.measureText(text).width;
+        ctx.fillText(text, x + (w - tw) / 2, y);
     } else {
         ctx.fillText(text, x + 8, y);
     }
