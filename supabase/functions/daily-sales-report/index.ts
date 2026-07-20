@@ -16,6 +16,7 @@
 // Без date — берётся вчерашний день по Бишкеку (UTC+6).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createCanvas } from 'https://deno.land/x/canvas@v1.4.2/mod.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -109,23 +110,55 @@ Deno.serve(async (req) => {
                     : [];
                 if (Object.keys(endpointErrors).length) cabResult.endpoint_errors = endpointErrors;
 
-                const rows = buildArticleRows(orders, sales, stocks);
+                // Только товары с реальным движением за день: были заказы или выкупы
+                const rows = buildArticleRows(orders, sales, stocks)
+                    .filter((r) => r.ordersCount > 0 || r.buyoutCount > 0);
                 if (!rows.length) {
                     cabResult.skipped = 'no_data';
                     results.push(cabResult);
                     continue;
                 }
 
-                const messages = formatReportMessages(cabinet.name, reportDate, rows);
-                let sent = true;
-                for (let mi = 0; mi < messages.length; mi++) {
-                    // Пауза между частями — Telegram лимитирует ~1 сообщение/сек в чат
-                    if (mi > 0) await new Promise((r) => setTimeout(r, 1200));
-                    const tgErr = await sendTelegramMessage(tgToken, tgChatId, messages[mi]);
-                    if (tgErr) {
-                        sent = false;
-                        cabResult.telegram_error = `part ${mi + 1}/${messages.length}, len=${messages[mi].length}: ${tgErr}`;
-                        break;
+                let sent = false;
+                // Основной путь: компактная картинка-таблица (хорошо читается на
+                // телефоне). Большие отчёты режем на страницы по ROWS_PER_PAGE
+                // артикулов — иначе PNG выходит слишком высоким/тяжёлым и
+                // Telegram обрывает загрузку. Если картинки не ушли — фолбэк на
+                // текстовые сообщения, чтобы отчёт в любом случае дошёл.
+                try {
+                    const ROWS_PER_PAGE = 40;
+                    const pages: ArticleRow[][] = [];
+                    for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
+                        pages.push(rows.slice(i, i + ROWS_PER_PAGE));
+                    }
+                    const caption = buildCaption(cabinet.name, reportDate, rows);
+                    for (let pi = 0; pi < pages.length; pi++) {
+                        if (pi > 0) await new Promise((r) => setTimeout(r, 1200));
+                        const png = await renderReportImage(
+                            cabinet.name, reportDate, pages[pi],
+                            { pageNum: pi + 1, pageCount: pages.length, totalsRows: pi === pages.length - 1 ? rows : null },
+                        );
+                        // Повтор одной отправки при транзиентной сетевой ошибке
+                        let tgErr = await sendTelegramPhoto(tgToken, tgChatId, png, pi === 0 ? caption : '');
+                        if (tgErr) {
+                            await new Promise((r) => setTimeout(r, 2000));
+                            tgErr = await sendTelegramPhoto(tgToken, tgChatId, png, pi === 0 ? caption : '');
+                        }
+                        if (tgErr) throw new Error(tgErr);
+                    }
+                    sent = true;
+                } catch (imgErr) {
+                    cabResult.image_error = String(imgErr);
+                    const messages = formatReportMessages(cabinet.name, reportDate, rows);
+                    sent = true;
+                    for (let mi = 0; mi < messages.length; mi++) {
+                        if (mi > 0) await new Promise((r) => setTimeout(r, 1200));
+                        const tgErr = await sendTelegramMessage(tgToken, tgChatId, messages[mi]);
+                        if (tgErr) {
+                            sent = false;
+                            cabResult.telegram_error = `part ${mi + 1}/${messages.length}: ${tgErr}`;
+                            break;
+                        }
                     }
                 }
                 if (sent) {
@@ -321,6 +354,209 @@ async function wbGetArray(url: string, token: string): Promise<any[]> {
     if (!res.ok) throw new Error(`WB ${res.status}: ${text.slice(0, 180)}`);
     const data = JSON.parse(text);
     return Array.isArray(data) ? data : [];
+}
+
+// ── Картинка-отчёт ──────────────────────────────────────────────────────────
+
+// Шрифт с кириллицей для CanvasKit (в wasm-сборке нет встроенных шрифтов).
+// Качаем один раз на холодный старт и держим в памяти инстанса.
+let fontRegular: Uint8Array | null = null;
+let fontBold: Uint8Array | null = null;
+async function ensureFonts(): Promise<void> {
+    if (fontRegular && fontBold) return;
+    const base = 'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf';
+    const [reg, bold] = await Promise.all([
+        fetchWithTimeout(`${base}/DejaVuSans.ttf`, {}, 20000).then((r) => {
+            if (!r.ok) throw new Error(`font regular HTTP ${r.status}`);
+            return r.arrayBuffer();
+        }),
+        fetchWithTimeout(`${base}/DejaVuSans-Bold.ttf`, {}, 20000).then((r) => {
+            if (!r.ok) throw new Error(`font bold HTTP ${r.status}`);
+            return r.arrayBuffer();
+        }),
+    ]);
+    fontRegular = new Uint8Array(reg);
+    fontBold = new Uint8Array(bold);
+}
+
+// Рисует компактную таблицу в стиле фото-образца: зелёная шапка, зебра-строки,
+// жирная строка «Итого». Только реально продававшиеся товары (фильтр выше).
+// При постраничном выводе «Итого» рисуется только на последней странице и
+// считается по totalsRows (полному набору строк отчёта), не по странице.
+async function renderReportImage(
+    cabinetName: string,
+    date: string,
+    rows: ArticleRow[],
+    opts: { pageNum: number; pageCount: number; totalsRows: ArticleRow[] | null } = { pageNum: 1, pageCount: 1, totalsRows: rows },
+): Promise<Uint8Array> {
+    await ensureFonts();
+
+    const fmtNum = (n: number) => Math.round(n).toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
+    const d = date.split('-');
+    const prettyDate = `${d[2]}.${d[1]}.${d[0]}`;
+    const showTotals = opts.totalsRows != null;
+
+    const t = (opts.totalsRows || rows).reduce((acc, r) => ({
+        oc: acc.oc + r.ordersCount, os: acc.os + r.ordersSum,
+        bc: acc.bc + r.buyoutCount, bs: acc.bs + r.buyoutSum,
+        st: acc.st + r.stock,
+    }), { oc: 0, os: 0, bc: 0, bs: 0, st: 0 });
+
+    // Геометрия: масштаб ×2 для чёткости на телефонах (retina)
+    const S = 2;
+    const COLS = [
+        { title: 'Артикул продавца', w: 300, align: 'left' as const },
+        { title: 'Заказы\nшт', w: 95, align: 'right' as const },
+        { title: 'Заказы\nсом', w: 130, align: 'right' as const },
+        { title: 'Выкупы\nшт', w: 95, align: 'right' as const },
+        { title: 'Выкупы\nсом', w: 130, align: 'right' as const },
+        { title: 'Остаток\nтовара', w: 105, align: 'right' as const },
+    ];
+    const PAD = 14;
+    const width = COLS.reduce((a, c) => a + c.w, 0) + PAD * 2;
+    const titleH = 56;
+    const headerH = 58;
+    const rowH = 40;
+    const totalH = showTotals ? 48 : 0;
+    const height = titleH + headerH + rows.length * rowH + totalH + PAD * 2;
+
+    const canvas = createCanvas(width * S, height * S);
+    canvas.loadFont(fontRegular!, { family: 'DejaVu' });
+    canvas.loadFont(fontBold!, { family: 'DejaVu', weight: 'bold' });
+    const ctx = canvas.getContext('2d');
+    ctx.scale(S, S);
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+
+    // Заголовок
+    ctx.fillStyle = '#1a1a1a';
+    ctx.font = 'bold 22px DejaVu';
+    ctx.textBaseline = 'middle';
+    const pageSuffix = opts.pageCount > 1 ? ` (стр. ${opts.pageNum}/${opts.pageCount})` : '';
+    ctx.fillText(`${cabinetName} — отчёт за ${prettyDate}${pageSuffix}`, PAD, PAD + titleH / 2 - 4);
+
+    const colX: number[] = [];
+    let x = PAD;
+    for (const c of COLS) { colX.push(x); x += c.w; }
+    const tableTop = PAD + titleH;
+    const tableW = width - PAD * 2;
+
+    // Шапка таблицы
+    ctx.fillStyle = '#c9e7c5';
+    ctx.fillRect(PAD, tableTop, tableW, headerH);
+    ctx.fillStyle = '#143d14';
+    ctx.font = 'bold 15px DejaVu';
+    COLS.forEach((c, i) => {
+        const linesH = c.title.split('\n');
+        linesH.forEach((line, li) => {
+            const ty = tableTop + headerH / 2 + (li - (linesH.length - 1) / 2) * 18;
+            drawCell(ctx, line, colX[i], ty, c.w, c.align);
+        });
+    });
+
+    // Строки
+    ctx.font = '15px DejaVu';
+    rows.forEach((r, ri) => {
+        const y = tableTop + headerH + ri * rowH;
+        if (ri % 2 === 1) {
+            ctx.fillStyle = '#f3f7f3';
+            ctx.fillRect(PAD, y, tableW, rowH);
+        }
+        ctx.fillStyle = '#222222';
+        const cy = y + rowH / 2;
+        drawCell(ctx, fitText(ctx, r.article, COLS[0].w - 16), colX[0], cy, COLS[0].w, 'left');
+        drawCell(ctx, String(r.ordersCount), colX[1], cy, COLS[1].w, 'right');
+        drawCell(ctx, fmtNum(r.ordersSum), colX[2], cy, COLS[2].w, 'right');
+        drawCell(ctx, String(r.buyoutCount), colX[3], cy, COLS[3].w, 'right');
+        drawCell(ctx, fmtNum(r.buyoutSum), colX[4], cy, COLS[4].w, 'right');
+        drawCell(ctx, String(r.stock), colX[5], cy, COLS[5].w, 'right');
+    });
+
+    // Итого — только на последней странице
+    if (showTotals) {
+        const totalY = tableTop + headerH + rows.length * rowH;
+        ctx.fillStyle = '#c9e7c5';
+        ctx.fillRect(PAD, totalY, tableW, totalH);
+        ctx.fillStyle = '#143d14';
+        ctx.font = 'bold 16px DejaVu';
+        const tcy = totalY + totalH / 2;
+        drawCell(ctx, 'Итого', colX[0], tcy, COLS[0].w, 'left');
+        drawCell(ctx, String(t.oc), colX[1], tcy, COLS[1].w, 'right');
+        drawCell(ctx, fmtNum(t.os), colX[2], tcy, COLS[2].w, 'right');
+        drawCell(ctx, String(t.bc), colX[3], tcy, COLS[3].w, 'right');
+        drawCell(ctx, fmtNum(t.bs), colX[4], tcy, COLS[4].w, 'right');
+        drawCell(ctx, String(t.st), colX[5], tcy, COLS[5].w, 'right');
+    }
+
+    // Тонкие разделители строк
+    ctx.strokeStyle = '#dde5dd';
+    ctx.lineWidth = 1;
+    for (let ri = 0; ri <= rows.length; ri++) {
+        const y = tableTop + headerH + ri * rowH;
+        ctx.beginPath();
+        ctx.moveTo(PAD, y);
+        ctx.lineTo(PAD + tableW, y);
+        ctx.stroke();
+    }
+
+    return canvas.toBuffer('image/png');
+}
+
+// deno-lint-ignore no-explicit-any
+function drawCell(ctx: any, text: string, x: number, y: number, w: number, align: 'left' | 'right') {
+    if (align === 'right') {
+        const tw = ctx.measureText(text).width;
+        ctx.fillText(text, x + w - 8 - tw, y);
+    } else {
+        ctx.fillText(text, x + 8, y);
+    }
+}
+
+// Обрезает строку с многоточием под ширину колонки
+// deno-lint-ignore no-explicit-any
+function fitText(ctx: any, text: string, maxW: number): string {
+    if (ctx.measureText(text).width <= maxW) return text;
+    let s = text;
+    while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+    return s + '…';
+}
+
+function buildCaption(cabinetName: string, date: string, rows: ArticleRow[]): string {
+    const fmtNum = (n: number) => Math.round(n).toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
+    const d = date.split('-');
+    const t = rows.reduce((acc, r) => ({
+        oc: acc.oc + r.ordersCount, os: acc.os + r.ordersSum,
+        bc: acc.bc + r.buyoutCount, bs: acc.bs + r.buyoutSum,
+    }), { oc: 0, os: 0, bc: 0, bs: 0 });
+    return [
+        `📊 <b>${escapeHtml(cabinetName)}</b> — отчёт за ${d[2]}.${d[1]}.${d[0]}`,
+        `🛒 Заказы: <b>${t.oc} шт · ${fmtNum(t.os)} сом</b>`,
+        `✅ Выкупы: <b>${t.bc} шт · ${fmtNum(t.bs)} сом</b>`,
+    ].join('\n');
+}
+
+// Возвращает null при успехе, иначе строку с описанием ошибки Telegram.
+async function sendTelegramPhoto(token: string, chatId: string, png: Uint8Array, caption: string): Promise<string | null> {
+    try {
+        const form = new FormData();
+        form.append('chat_id', chatId);
+        form.append('caption', caption);
+        form.append('parse_mode', 'HTML');
+        form.append('photo', new Blob([png], { type: 'image/png' }), 'report.png');
+        const res = await fetchWithTimeout(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST',
+            body: form,
+        }, 30000);
+        if (!res.ok) {
+            const errText = await res.text();
+            console.warn('[daily-sales-report] telegram sendPhoto failed:', res.status, errText);
+            return `HTTP ${res.status}: ${errText.slice(0, 200)}`;
+        }
+        return null;
+    } catch (e) {
+        return String(e);
+    }
 }
 
 // Возвращает null при успехе, иначе строку с описанием ошибки Telegram.
