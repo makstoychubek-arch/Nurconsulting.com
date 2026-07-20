@@ -3619,25 +3619,72 @@
             </div>
             </div>
             <div id="logistics-view-warehouse-sales" class="hidden" style="padding:2px 2px 16px">
-                <div class="flex items-center justify-between mb-3">
-                    <h3 class="font-semibold text-sm" style="color:var(--text-primary)">Продажи по складам</h3>
-                    <button class="ui-btn ui-btn-secondary" style="padding:5px 12px;font-size:11px" onclick="loadWarehouseSales(true)">↻ Обновить</button>
+                <div id="warehouse-sales-list-view">
+                    <div class="flex items-center justify-between mb-3">
+                        <div>
+                            <h3 class="font-semibold text-sm" style="color:var(--text-primary)">Продажи по складам</h3>
+                            <p class="text-xs mt-1" style="color:var(--text-muted)">Нажмите на склад, чтобы посмотреть динамику заказов по дням</p>
+                        </div>
+                        <button class="ui-btn ui-btn-secondary" style="padding:5px 12px;font-size:11px" onclick="loadWarehouseSales(true)">↻ Обновить</button>
+                    </div>
+                    <div id="warehouse-sales-table-wrap" style="border:1px solid var(--border);border-radius:16px;overflow:hidden">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr style="background:var(--surface);border-bottom:1px solid var(--border)">
+                                    <th class="text-left px-4 py-3" style="color:var(--text-muted);font-weight:600">Склад отправки</th>
+                                    <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Заказы, шт.</th>
+                                    <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Сумма заказов</th>
+                                    <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Возвраты, шт.</th>
+                                    <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Доля, %</th>
+                                </tr>
+                            </thead>
+                            <tbody id="warehouse-sales-tbody">
+                                <tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нажмите «Обновить» для загрузки данных</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-                <div id="warehouse-sales-table-wrap" style="border:1px solid var(--border);border-radius:16px;overflow:hidden">
-                    <table class="w-full text-sm">
-                        <thead>
-                            <tr style="background:var(--surface);border-bottom:1px solid var(--border)">
-                                <th class="text-left px-4 py-3" style="color:var(--text-muted);font-weight:600">Склад отправки</th>
-                                <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Заказы, шт.</th>
-                                <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Сумма заказов</th>
-                                <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Возвраты, шт.</th>
-                                <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Доля, %</th>
-                            </tr>
-                        </thead>
-                        <tbody id="warehouse-sales-tbody">
-                            <tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нажмите «Обновить» для загрузки данных</td></tr>
-                        </tbody>
-                    </table>
+                <div id="warehouse-detail-view" class="hidden">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <button class="ui-btn ui-btn-secondary" style="padding:5px 12px;font-size:11px" onclick="closeWarehouseDetail()">← Все склады</button>
+                            <div>
+                                <h3 id="warehouse-detail-title" class="font-semibold text-sm" style="color:var(--text-primary)">Склад</h3>
+                                <p id="warehouse-detail-period" class="text-xs mt-1" style="color:var(--text-muted)"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                        <div class="metric-card" style="padding:12px">
+                            <div class="text-xs mb-1" style="color:var(--text-muted)">Заказы за период</div>
+                            <div id="warehouse-detail-orders" class="text-lg font-black" style="color:var(--text-primary)">—</div>
+                        </div>
+                        <div class="metric-card" style="padding:12px">
+                            <div class="text-xs mb-1" style="color:var(--text-muted)">Сумма заказов</div>
+                            <div id="warehouse-detail-sum" class="text-lg font-black" style="color:var(--green)">—</div>
+                        </div>
+                        <div class="metric-card" style="padding:12px">
+                            <div class="text-xs mb-1" style="color:var(--text-muted)">Возвраты</div>
+                            <div id="warehouse-detail-returns" class="text-lg font-black" style="color:var(--red)">—</div>
+                        </div>
+                    </div>
+                    <div style="border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:14px">
+                        <canvas id="warehouse-detail-chart" height="90"></canvas>
+                    </div>
+                    <div style="border:1px solid var(--border);border-radius:16px;overflow:hidden">
+                        <table class="w-full text-sm">
+                            <thead>
+                                <tr style="background:var(--surface);border-bottom:1px solid var(--border)">
+                                    <th class="text-left px-4 py-3" style="color:var(--text-muted);font-weight:600">Дата</th>
+                                    <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Заказы, шт.</th>
+                                    <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Сумма заказов</th>
+                                    <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Возвраты, шт.</th>
+                                    <th class="text-right px-4 py-3" style="color:var(--text-muted);font-weight:600">Динамика</th>
+                                </tr>
+                            </thead>
+                            <tbody id="warehouse-detail-tbody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
             <div id="supply-detail-modal" class="hidden" style="position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px)">
@@ -9331,6 +9378,7 @@
         if (!tbody) return;
         if (!forceReload && _warehouseSalesLoadedForCabinet === currentCabinetId) return;
         _warehouseSalesLoadedForCabinet = currentCabinetId;
+        closeWarehouseDetail();
 
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Загрузка…</td></tr>';
         try {
@@ -9348,20 +9396,145 @@
                 return;
             }
             const totalSum = rows.reduce((s, r) => s + Number(r.orders_sum || 0), 0) || 1;
-            tbody.innerHTML = rows.map(r => {
+            tbody.innerHTML = rows.map((r, i) => {
                 const share = (Number(r.orders_sum || 0) / totalSum) * 100;
-                return `<tr style="border-bottom:1px solid var(--border)">
-                    <td class="px-4 py-3" style="color:var(--text-primary);font-weight:600">${escapeHtml(r.warehouse_name || 'Неизвестно')}</td>
+                return `<tr class="warehouse-sales-row" data-wh-index="${i}" style="border-bottom:1px solid var(--border);cursor:pointer" onmouseover="this.style.background='var(--surface)'" onmouseout="this.style.background=''">
+                    <td class="px-4 py-3" style="color:var(--text-primary);font-weight:600">${escapeHtml(r.warehouse_name || 'Неизвестно')} <span style="color:var(--text-muted);font-weight:400">›</span></td>
                     <td class="px-4 py-3 text-right" style="color:var(--text-secondary)">${fmt(Number(r.orders_count || 0))}</td>
                     <td class="px-4 py-3 text-right" style="color:var(--text-primary);font-weight:600">${fmt(Math.round(Number(r.orders_sum || 0)))} ₽</td>
                     <td class="px-4 py-3 text-right" style="color:var(--text-muted)">${fmt(Number(r.returns_count || 0))}</td>
                     <td class="px-4 py-3 text-right" style="color:var(--accent)">${share.toFixed(1)}%</td>
                 </tr>`;
             }).join('');
+            // Делегирование клика: имя склада берём из данных по индексу,
+            // а не из inline-атрибута (безопасно для любых символов в названии)
+            _warehouseSalesRows = rows;
+            tbody.querySelectorAll('.warehouse-sales-row').forEach(tr => {
+                tr.addEventListener('click', () => {
+                    const idx = Number(tr.dataset.whIndex);
+                    const row = _warehouseSalesRows[idx];
+                    if (row) openWarehouseDetail(row.warehouse_name || 'Неизвестно');
+                });
+            });
         } catch (e) {
             if (_warehouseSalesLoadedForCabinet !== currentCabinetId) return;
             console.error('[loadWarehouseSales]', e.message);
             tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--red)">Не удалось загрузить данные</td></tr>';
+        }
+    }
+
+    // ── Детализация склада: заказы по дням (RPC warehouse_orders_daily) ──
+    let _warehouseSalesRows = [];
+    let _warehouseDetailChart = null;
+
+    function closeWarehouseDetail() {
+        document.getElementById('warehouse-detail-view')?.classList.add('hidden');
+        document.getElementById('warehouse-sales-list-view')?.classList.remove('hidden');
+    }
+
+    async function openWarehouseDetail(warehouseName) {
+        if (!currentCabinetId) return;
+        document.getElementById('warehouse-sales-list-view')?.classList.add('hidden');
+        document.getElementById('warehouse-detail-view')?.classList.remove('hidden');
+
+        const { from, to } = getActiveDateRange();
+        document.getElementById('warehouse-detail-title').textContent = warehouseName;
+        document.getElementById('warehouse-detail-period').textContent = `Период: ${from} — ${to}`;
+        const tbody = document.getElementById('warehouse-detail-tbody');
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Загрузка…</td></tr>';
+
+        try {
+            const { data, error } = await supabase.rpc('warehouse_orders_daily', {
+                p_cabinet_id: currentCabinetId,
+                p_warehouse: warehouseName,
+                p_from: from,
+                p_to: to,
+            });
+            if (error) throw error;
+            const days = Array.isArray(data) ? data : [];
+            if (!days.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет заказов с этого склада за период</td></tr>';
+                document.getElementById('warehouse-detail-orders').textContent = '0';
+                document.getElementById('warehouse-detail-sum').textContent = '0 ₽';
+                document.getElementById('warehouse-detail-returns').textContent = '0';
+                if (_warehouseDetailChart) { _warehouseDetailChart.destroy(); _warehouseDetailChart = null; }
+                return;
+            }
+
+            const totalOrders = days.reduce((s, d) => s + Number(d.orders_count || 0), 0);
+            const totalSum = days.reduce((s, d) => s + Number(d.orders_sum || 0), 0);
+            const totalReturns = days.reduce((s, d) => s + Number(d.returns_count || 0), 0);
+            document.getElementById('warehouse-detail-orders').textContent = fmt(totalOrders) + ' шт';
+            document.getElementById('warehouse-detail-sum').textContent = fmt(Math.round(totalSum)) + ' ₽';
+            document.getElementById('warehouse-detail-returns').textContent = fmt(totalReturns) + ' шт';
+
+            const fmtDay = (iso) => { const p = String(iso).split('-'); return `${p[2]}.${p[1]}`; };
+
+            // График: столбики заказов + линия суммы
+            const ctx = document.getElementById('warehouse-detail-chart').getContext('2d');
+            if (_warehouseDetailChart) _warehouseDetailChart.destroy();
+            _warehouseDetailChart = new Chart(ctx, {
+                data: {
+                    labels: days.map(d => fmtDay(d.date)),
+                    datasets: [
+                        {
+                            type: 'bar',
+                            label: 'Заказы, шт',
+                            data: days.map(d => Number(d.orders_count || 0)),
+                            backgroundColor: 'rgba(124, 92, 252, 0.55)',
+                            borderRadius: 6,
+                            yAxisID: 'y',
+                        },
+                        {
+                            type: 'line',
+                            label: 'Сумма, ₽',
+                            data: days.map(d => Number(d.orders_sum || 0)),
+                            borderColor: '#22c55e',
+                            backgroundColor: 'rgba(34,197,94,0.12)',
+                            tension: 0.35,
+                            fill: true,
+                            pointRadius: 2,
+                            yAxisID: 'y1',
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: { legend: { labels: { color: 'rgba(148,163,184,0.9)', font: { size: 11 } } } },
+                    scales: {
+                        x: { ticks: { color: 'rgba(148,163,184,0.7)', font: { size: 10 } }, grid: { display: false } },
+                        y: { position: 'left', ticks: { color: 'rgba(148,163,184,0.7)', font: { size: 10 }, precision: 0 }, grid: { color: 'rgba(148,163,184,0.1)' } },
+                        y1: { position: 'right', ticks: { color: 'rgba(34,197,94,0.8)', font: { size: 10 } }, grid: { display: false } },
+                    },
+                },
+            });
+
+            // Таблица по дням (свежие сверху) с динамикой к предыдущему дню
+            const rowsHtml = [];
+            for (let i = days.length - 1; i >= 0; i--) {
+                const d = days[i];
+                const prev = i > 0 ? days[i - 1] : null;
+                const cur = Number(d.orders_count || 0);
+                let trend = '<span style="color:var(--text-muted)">—</span>';
+                if (prev) {
+                    const diff = cur - Number(prev.orders_count || 0);
+                    if (diff > 0) trend = `<span style="color:var(--green)">▲ +${diff}</span>`;
+                    else if (diff < 0) trend = `<span style="color:var(--red)">▼ ${diff}</span>`;
+                    else trend = '<span style="color:var(--text-muted)">0</span>';
+                }
+                rowsHtml.push(`<tr style="border-bottom:1px solid var(--border)">
+                    <td class="px-4 py-3" style="color:var(--text-primary);font-weight:600">${fmtDay(d.date)}.${String(d.date).slice(0, 4)}</td>
+                    <td class="px-4 py-3 text-right" style="color:var(--text-secondary)">${fmt(cur)}</td>
+                    <td class="px-4 py-3 text-right" style="color:var(--text-primary);font-weight:600">${fmt(Math.round(Number(d.orders_sum || 0)))} ₽</td>
+                    <td class="px-4 py-3 text-right" style="color:var(--text-muted)">${fmt(Number(d.returns_count || 0))}</td>
+                    <td class="px-4 py-3 text-right">${trend}</td>
+                </tr>`);
+            }
+            tbody.innerHTML = rowsHtml.join('');
+        } catch (e) {
+            console.error('[openWarehouseDetail]', e.message);
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--red)">Не удалось загрузить детализацию</td></tr>';
         }
     }
 
