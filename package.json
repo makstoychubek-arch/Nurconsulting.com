@@ -1,0 +1,15 @@
+{
+  "name": "nr-space-static-build",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Build-time asset pipeline for the static site (dashboard.html/index.html/login.html): compiles Tailwind CSS instead of the cdn.tailwindcss.com runtime compiler, and minifies the vanilla dashboard scripts with content-hashed filenames instead of manual ?v= cache-busting.",
+  "scripts": {
+    "build": "node scripts/build-assets.js"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.20",
+    "esbuild": "^0.24.0",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17"
+  }
+}

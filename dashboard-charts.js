@@ -5,6 +5,8 @@
     const charts = {};
     let cachedOrders = [];
     let cachedStocks = [];
+    let cachedSeries = null;
+    let cachedWarehouseEntries = null;
 
     function chartColors() {
         const dark = document.documentElement.getAttribute('data-theme') === 'neon';
@@ -177,10 +179,7 @@
         });
     }
 
-    function renderAllCharts(orders, stocks) {
-        cachedOrders = orders || [];
-        cachedStocks = stocks || [];
-        const series = aggregateByDate(cachedOrders);
+    function renderChartsCore(series, warehouseEntries) {
         const recent = lastNDays(series, 14);
         const c = chartColors();
 
@@ -191,11 +190,34 @@
 
         renderBarChart(series);
         renderLineChart(series);
-        renderDonutChart(aggregateWarehouses(cachedStocks));
+        renderDonutChart(warehouseEntries);
+    }
+
+    function renderAllCharts(orders, stocks) {
+        cachedOrders = orders || [];
+        cachedStocks = stocks || [];
+        cachedSeries = null;
+        cachedWarehouseEntries = null;
+        renderChartsCore(aggregateByDate(cachedOrders), aggregateWarehouses(cachedStocks));
+    }
+
+    // Тот же результат, что renderAllCharts, но без сырых строк wb_orders/
+    // wb_stocks на клиенте — принимает уже готовую агрегацию с сервера
+    // (dashboard_summary RPC): series в формате aggregateByDate([[date,{sum,
+    // count,returns}],...]) и warehouseEntries в формате aggregateWarehouses
+    // ([[name,qty],...]). Раньше ради этих же графиков тянули постранично
+    // тысячи сырых строк — теперь клиенту приходит уже готовая агрегация.
+    function renderAllChartsAgg(series, warehouseEntries) {
+        cachedOrders = [];
+        cachedStocks = [];
+        cachedSeries = series || [];
+        cachedWarehouseEntries = warehouseEntries || [];
+        renderChartsCore(cachedSeries, cachedWarehouseEntries);
     }
 
     function refreshChartTheme() {
-        if (cachedOrders.length || cachedStocks.length) renderAllCharts(cachedOrders, cachedStocks);
+        if (cachedSeries || cachedWarehouseEntries) renderChartsCore(cachedSeries || [], cachedWarehouseEntries || []);
+        else if (cachedOrders.length || cachedStocks.length) renderAllCharts(cachedOrders, cachedStocks);
         if (cachedAdvSeries) renderAdvertisingCharts(cachedAdvSeries);
     }
 
@@ -292,5 +314,5 @@
         });
     }
 
-    window.NRCharts = { renderAllCharts, refreshChartTheme, renderAdvertisingCharts, renderTopMarginDonut };
+    window.NRCharts = { renderAllCharts, renderAllChartsAgg, refreshChartTheme, renderAdvertisingCharts, renderTopMarginDonut };
 })();

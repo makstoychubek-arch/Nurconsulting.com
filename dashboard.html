@@ -9,7 +9,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="apple-mobile-web-app-title" content="NR Space">
     <title>NR Space</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/dist/tailwind.f25af07eed.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -6952,13 +6952,10 @@
         });
     }
 
-    function computeQuickOrderMetrics(orders) {
-        let ordersSum = 0, ordersCount = 0, returnsCount = 0;
-        (orders || []).forEach(o => {
-            if (o.is_return) { returnsCount++; return; }
-            ordersCount++;
-            ordersSum += Number(o.price || 0);
-        });
+    function computeQuickOrderMetrics(agg) {
+        const ordersSum = Number(agg?.orders_sum || 0);
+        const ordersCount = Number(agg?.orders_count || 0);
+        const returnsCount = Number(agg?.returns_count || 0);
         const salesSum = Math.round(ordersSum * 0.65);
         const salesCount = Math.round(ordersCount * 0.65);
         const commission = Math.round(salesSum * 0.15);
@@ -6987,10 +6984,10 @@
         };
     }
 
-    function enrichMetricsWithStockExtras(metrics, stocks, orders) {
+    function enrichMetricsWithStockExtras(metrics, stockTotal, ordersCount) {
         if (!metrics) return metrics;
-        let stockTotal = 0;
-        (stocks || []).forEach(s => { stockTotal += Number(s.quantity || 0); });
+        stockTotal = Number(stockTotal) || 0;
+        ordersCount = Number(ordersCount) || 0;
         metrics.stockTotal = stockTotal;
         const avgRetail = metrics.salesCount > 0
             ? Math.round(metrics.realizationSum / metrics.salesCount)
@@ -7004,8 +7001,6 @@
         if (metrics.salesCount > 0 && stockTotal > 0) {
             metrics.turnoverSales = Math.round((stockTotal / metrics.salesCount) * periodDays);
         }
-        let ordersCount = 0;
-        (orders || []).forEach(o => { if (!o.is_return) ordersCount++; });
         if (ordersCount > 0 && stockTotal > 0) {
             metrics.turnoverOrders = Math.round((stockTotal / ordersCount) * periodDays);
         }
@@ -7049,34 +7044,41 @@
         const to = range.to;
         const prev = prevPeriodRange(from, to);
 
-        const [orders, prevOrders, stocks] = await Promise.all([
-            fetchAllRows('wb_orders', [
-                { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
-                { op: 'gte', column: 'order_date', value: from },
-                { op: 'lte', column: 'order_date', value: to },
-            ]),
-            fetchAllRows('wb_orders', [
-                { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
-                { op: 'gte', column: 'order_date', value: prev.from },
-                { op: 'lte', column: 'order_date', value: prev.to },
-            ]),
-            fetchAllRows('wb_stocks', [
-                { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
-            ]),
-        ]);
+        // Раньше здесь было 3 постраничных запроса (fetchAllRows по 1000 строк
+        // за раз — для wb_stocks у активных кабинетов это легко 15-20+ HTTP-
+        // запросов) ради того, чтобы на клиенте просуммировать несколько чисел.
+        // Теперь вся агрегация (суммы/количества/разбивка по складам) считается
+        // одним SQL-запросом на стороне базы через RPC dashboard_summary —
+        // клиенту приходит один компактный jsonb вместо тысяч сырых строк.
+        const { data: summary, error: summaryErr } = await supabase.rpc('dashboard_summary', {
+            p_cabinet_id: snapshotCabinet,
+            p_from: from,
+            p_to: to,
+            p_prev_from: prev.from,
+            p_prev_to: prev.to,
+        });
 
         if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) {
             console.log(`[loadFromDB] Устаревший запрос кабинета ${snapshotCabinet} — игнорируем`);
             return;
         }
 
-        if (orders !== null && stocks !== null) {
-            updateWarehouseFromDB(stocks);
-            setText('m-stock', fmt(stocks.reduce((a, s) => a + Number(s.quantity || 0), 0)) + ' шт.');
+        if (summaryErr) console.error('[loadFromDB] dashboard_summary RPC:', summaryErr.message);
+
+        if (!summaryErr && summary) {
+            const stockTotal = Number(summary.stock_total || 0);
+            updateWarehouseFromDB(stockTotal, summary.stock_by_warehouse || []);
+            setText('m-stock', fmt(stockTotal) + ' шт.');
             document.getElementById('date-range').textContent =
                 `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
 
-            updateDashboardFromDB(stocks, orders, prevOrders);
+            updateDashboardFromDB(stockTotal, summary.cur, summary.prev);
+
+            if (window.NRCharts) {
+                const series = (summary.cur_daily || []).map(d => [d.date, { sum: Number(d.sum || 0), count: Number(d.count || 0), returns: Number(d.returns || 0) }]);
+                const warehouseEntries = (summary.stock_by_warehouse || []).map(w => [w.warehouse_name, Number(w.qty || 0)]).slice(0, 6);
+                NRCharts.renderAllChartsAgg(series, warehouseEntries);
+            }
 
             if (typeof WBFormulas !== 'undefined') {
                 const finId = requestId;
@@ -7096,10 +7098,10 @@
                     if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
                     if (!rows || rows.length === 0) return;
                     const metrics = enrichMetricsWithStockExtras(
-                        WBFormulas.calculateMetrics(rows, settings), stocks, orders);
+                        WBFormulas.calculateMetrics(rows, settings), stockTotal, Number(summary.cur?.orders_count || 0));
                     const prevMetrics = prevRows && prevRows.length > 0
                         ? enrichMetricsWithStockExtras(
-                            WBFormulas.calculateMetrics(prevRows, settings), stocks, prevOrders)
+                            WBFormulas.calculateMetrics(prevRows, settings), stockTotal, Number(summary.prev?.orders_count || 0))
                         : null;
                     if (finCabinet === currentCabinetId) {
                         WBFormulas.applyMetricsToDashboard(metrics, setText);
@@ -7311,10 +7313,10 @@
         }
     }
 
-    function updateDashboardFromDB(stocks, orders, prevOrders) {
-        let totalStock=0, ordersSum=0, ordersCount=0, returns=0;
-        stocks.forEach(s => totalStock += Number(s.quantity||0));
-        orders.forEach(o => { if(o.is_return){returns++;return;} ordersCount++; ordersSum+=Number(o.price||0); });
+    function updateDashboardFromDB(totalStock, cur, prev) {
+        const ordersSum = Number(cur?.orders_sum || 0);
+        const ordersCount = Number(cur?.orders_count || 0);
+        const returns = Number(cur?.returns_count || 0);
         const salesSum=Math.round(ordersSum*0.65), salesCount=Math.round(ordersCount*0.65);
         const commission=Math.round(salesSum*0.15), logistics=Math.round(salesSum*0.05), storage=Math.round(salesSum*0.01);
         const profit=salesSum-commission-logistics-storage;
@@ -7334,20 +7336,17 @@
         setText('rnp-sales', Math.round(ordersCount*0.65)+' шт.');
         setText('rnp-returns', returns+' шт.');
         setText('rnp-logistics', fmt(logistics)+' ₽');
-        if (prevOrders) {
-            const currM = enrichMetricsWithStockExtras(computeQuickOrderMetrics(orders), stocks, orders);
-            const prevM = enrichMetricsWithStockExtras(computeQuickOrderMetrics(prevOrders), stocks, prevOrders);
+        if (prev) {
+            const currM = enrichMetricsWithStockExtras(computeQuickOrderMetrics(cur), totalStock, ordersCount);
+            const prevM = enrichMetricsWithStockExtras(computeQuickOrderMetrics(prev), totalStock, Number(prev?.orders_count || 0));
             applyExtendedMetricDisplay(currM);
             applyMetricTrends(currM, prevM);
         }
-        if (window.NRCharts) NRCharts.renderAllCharts(orders, stocks);
     }
 
-    function updateWarehouseFromDB(stocks) {
-        setText('wh-total', fmt(stocks.reduce((a,s)=>a+Number(s.quantity||0),0))+' шт.');
-        const byWH={};
-        stocks.forEach(s=>{const w=s.warehouse_name||'Неизвестно';byWH[w]=(byWH[w]||0)+Number(s.quantity||0);});
-        const entries=Object.entries(byWH).sort((a,b)=>b[1]-a[1]);
+    function updateWarehouseFromDB(stockTotal, stockByWarehouse) {
+        setText('wh-total', fmt(Number(stockTotal) || 0)+' шт.');
+        const entries=(stockByWarehouse || []).map(w => [w.warehouse_name, Number(w.qty || 0)]).sort((a,b)=>b[1]-a[1]);
         document.getElementById('warehouse-list').innerHTML=entries.length>0
             ?`<div class="divide-y" style="border-color:var(--border)">${entries.map(([n,q])=>`<div class="flex justify-between px-5 py-3"><span class="text-sm" style="color:var(--text-secondary)">${n}</span><span class="text-sm font-bold" style="color:var(--text-primary)">${fmt(q)} шт.</span></div>`).join('')}</div>`
             :'<div class="py-10 text-center" style="color:var(--text-muted)">Нет данных</div>';
@@ -8880,22 +8879,38 @@
         return ip.slice(0, Math.min(8, ip.length)) + '…';
     }
 
+    // registerUserSession() вызывается 2 раза за один заход (сразу после
+    // логина и при обычной инициализации страницы), и каждый раз дёргал
+    // ipapi.co/json — 2 одинаковых внешних запроса на каждую загрузку.
+    // Кэшируем результат на сессию вкладки (sessionStorage) + мемоизируем
+    // сам промис, чтобы даже параллельные вызовы не дублировали запрос.
+    let _clientGeoPromise = null;
     async function fetchClientGeo() {
         try {
-            const ctrl = new AbortController();
-            const t = setTimeout(() => ctrl.abort(), 4000);
-            const res = await fetch('https://ipapi.co/json/', { signal: ctrl.signal });
-            clearTimeout(t);
-            if (!res.ok) return {};
-            const data = await res.json();
-            return {
-                ip: data.ip || '',
-                city: data.city || '',
-                country: data.country_name || data.country || '',
-            };
-        } catch (_) {
-            return {};
-        }
+            const cached = sessionStorage.getItem('nr_client_geo');
+            if (cached) return JSON.parse(cached);
+        } catch (_) {}
+        if (_clientGeoPromise) return _clientGeoPromise;
+        _clientGeoPromise = (async () => {
+            try {
+                const ctrl = new AbortController();
+                const t = setTimeout(() => ctrl.abort(), 4000);
+                const res = await fetch('https://ipapi.co/json/', { signal: ctrl.signal });
+                clearTimeout(t);
+                if (!res.ok) return {};
+                const data = await res.json();
+                const geo = {
+                    ip: data.ip || '',
+                    city: data.city || '',
+                    country: data.country_name || data.country || '',
+                };
+                try { sessionStorage.setItem('nr_client_geo', JSON.stringify(geo)); } catch (_) {}
+                return geo;
+            } catch (_) {
+                return {};
+            }
+        })();
+        return _clientGeoPromise;
     }
 
     async function registerUserSession() {
@@ -9821,9 +9836,9 @@
         });
     }
 </script>
-    <script src="/dashboard-charts.js"></script>
-    <script src="/rnp-module.js?v=20260715-metrics-autorefresh"></script>
-    <script src="/wb-formulas.js?v=20260703-photos9"></script>
-    <script src="/wb-clusters.js?v=1"></script>
+    <script src="/dist/dashboard-charts.137201825f.min.js"></script>
+    <script src="/dist/rnp-module.2393577630.min.js"></script>
+    <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
+    <script src="/dist/wb-clusters.be62abd193.min.js"></script>
 </body>
 </html>
