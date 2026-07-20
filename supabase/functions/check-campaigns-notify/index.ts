@@ -82,8 +82,13 @@ Deno.serve(async (req) => {
                 }
 
                 // ── 1) Статусы кампаний (лёгкий запрос, без fullstats) ───────
+                // ВАЖНО: у fetch() в Deno нет таймаута по умолчанию — если WB
+                // не отвечает (сеть/рейт-лимит/зависший коннект), функция
+                // раньше могла зависнуть на 150+ секунд (idle timeout) и не
+                // добраться до отправки уведомления вообще ни для одного
+                // кабинета в очереди. Теперь у каждого запроса к WB жёсткий
+                // таймаут в 12 секунд через AbortController.
                 const { ids, statusById } = await fetchCampaignStatuses(token);
-                await sleep(400);
 
                 const { data: knownNames } = await admin
                     .from('advertising_campaigns')
@@ -101,10 +106,20 @@ Deno.serve(async (req) => {
                     (prevStates || []).map((r) => [Number(r.campaign_id), r.last_status]),
                 );
 
+                // Пишем в БД только то, что реально изменилось или ещё не
+                // сохранено — раньше писали построчно на каждую кампанию на
+                // каждый прогон (upsert + update = 2 запроса × N кампаний ×
+                // каждые 10 минут), что было и медленно, и совершенно не нужно,
+                // так как статус в 99% прогонов не меняется.
+                const stateUpserts: Array<{ cabinet_id: string; campaign_id: number; last_status: number | null; last_checked_at: string }> = [];
+                const campaignsToUpdate: number[] = [];
+                const now = new Date().toISOString();
+
                 for (const id of ids) {
                     const newStatus = statusById.get(id) ?? null;
                     const oldStatus = prevStatusById.has(id) ? prevStatusById.get(id)! : undefined;
                     const name = nameById.get(id) || `Кампания ${id}`;
+                    const changed = oldStatus === undefined || oldStatus !== newStatus;
 
                     if (oldStatus !== undefined && oldStatus !== null && newStatus !== null && oldStatus !== newStatus) {
                         let eventType: string | null = null;
@@ -124,13 +139,17 @@ Deno.serve(async (req) => {
                         }
                     }
 
-                    await admin.from('campaign_states').upsert({
-                        cabinet_id: cabinet.id,
-                        campaign_id: id,
-                        last_status: newStatus,
-                        last_checked_at: new Date().toISOString(),
-                    }, { onConflict: 'cabinet_id,campaign_id' });
+                    if (changed) {
+                        stateUpserts.push({ cabinet_id: cabinet.id, campaign_id: id, last_status: newStatus, last_checked_at: now });
+                        campaignsToUpdate.push(id);
+                    }
+                }
 
+                if (stateUpserts.length) {
+                    await admin.from('campaign_states').upsert(stateUpserts, { onConflict: 'cabinet_id,campaign_id' });
+                }
+                for (const id of campaignsToUpdate) {
+                    const newStatus = statusById.get(id) ?? null;
                     // Держим статус в advertising_campaigns свежим тоже — это
                     // тот же столбец, который уже пишет advertising-sync, просто
                     // теперь он обновляется чаще (без дорогого fullstats-запроса).
@@ -172,7 +191,6 @@ Deno.serve(async (req) => {
                 cabResult.error = String(e);
             }
             results.push(cabResult);
-            await sleep(600);
         }
 
         return json({ ok: true, cabinets_checked: results.length, results, ms: Date.now() - started });
@@ -224,7 +242,7 @@ async function notifyOnce(
 
 async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<boolean> {
     try {
-        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        const res = await fetchWithTimeout(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: chatId, text }),
@@ -240,13 +258,28 @@ async function sendTelegramMessage(token: string, chatId: string, text: string):
     }
 }
 
+// Обычный fetch() в Deno не имеет таймаута — если WB (или Telegram) не
+// ответит вовсе, промис будет висеть до идл-таймаута самой Edge Function
+// (~150 сек), и весь прогон крона зависает, не дойдя до остальных кабинетов
+// и до отправки уведомлений. Оборачиваем все внешние HTTP-вызовы жёстким
+// таймаутом через AbortController.
+async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 12000): Promise<Response> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...init, signal: controller.signal });
+    } finally {
+        clearTimeout(timer);
+    }
+}
+
 // Лёгкий эквивалент advertising-sync's fetchCampaignIdsAndMeta — только id+status,
 // без деталей/названий (имена берём из уже синхронизированной advertising_campaigns).
 async function fetchCampaignStatuses(token: string): Promise<{ ids: number[]; statusById: Map<number, number | null> }> {
     const ids: number[] = [];
     const statusById = new Map<number, number | null>();
     try {
-        const res = await fetch(`${ADV_API}/adv/v1/promotion/count`, { headers: { Authorization: token } });
+        const res = await fetchWithTimeout(`${ADV_API}/adv/v1/promotion/count`, { headers: { Authorization: token } });
         const text = await res.text();
         if (res.ok) {
             const data = JSON.parse(text);
@@ -274,7 +307,7 @@ async function fetchCampaignStatuses(token: string): Promise<{ ids: number[]; st
 
 async function fetchBalance(token: string): Promise<number | null> {
     try {
-        const res = await fetch(`${ADV_API}/adv/v1/balance`, { headers: { Authorization: token } });
+        const res = await fetchWithTimeout(`${ADV_API}/adv/v1/balance`, { headers: { Authorization: token } });
         const text = await res.text();
         if (!res.ok) return null;
         const data = JSON.parse(text) as Record<string, unknown>;
@@ -293,10 +326,6 @@ function sanitizeWbToken(raw: unknown): string {
 
 function isValidWbToken(token: string): boolean {
     return token.length > 50 && /^[\x21-\x7E]+$/.test(token);
-}
-
-function sleep(ms: number) {
-    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function json(data: unknown, status = 200) {

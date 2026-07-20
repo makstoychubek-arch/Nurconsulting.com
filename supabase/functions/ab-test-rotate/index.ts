@@ -511,13 +511,17 @@ function extractFunnelDays(data: Record<string, unknown>): Array<Record<string, 
     return [];
 }
 
-// Уведомление в Telegram-канал о завершении теста + защита от дублей через
-// notification_log (проверяем "было ли хоть раз отправлено для этого
-// test_id", а не временное окно — тест завершается один раз в жизни).
+// Уведомление в Telegram-канал о завершении теста: альбом из фото всех
+// вариантов (sendMediaGroup) с подписью на первом фото — название товара,
+// артикул, РК, время завершения и по каждому варианту CTR/дельта/вероятность
+// победы (та же Beta-биномиальная модель, что и в вердикте на сайте, чтобы
+// цифры не расходились). Защита от повторной отправки — notification_log по
+// test_id (тест завершается один раз в жизни, поэтому проверяем факт, а не
+// временное окно).
 async function notifyTestFinished(
     admin: ReturnType<typeof createClient>,
     test: Record<string, unknown>,
-    variants: Array<{ id: string; variant_label: string; impressions?: number; clicks?: number; is_currently_on_wb?: boolean }>,
+    variants: Array<{ id: string; variant_label: string; photo_url?: string; impressions?: number; clicks?: number; is_currently_on_wb?: boolean }>,
 ): Promise<void> {
     const { data: dupes } = await admin
         .from('notification_log')
@@ -529,33 +533,95 @@ async function notifyTestFinished(
 
     const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
     const tgChannelId = Deno.env.get('TELEGRAM_CHANNEL_ID') ?? '';
+    const REPORT_BASE_URL = Deno.env.get('REPORT_BASE_URL') || 'https://nurcon.kg/ab-testing';
 
-    const withCtr = variants.map((v) => {
+    const sorted = variants.slice().sort((a, b) => String(a.variant_label).localeCompare(String(b.variant_label), 'ru', { numeric: true }));
+    const probs = probabilityBestByCtr(sorted);
+    const maxProb = Math.max(...Array.from(probs.values()), 0);
+    const leaderLabel = Array.from(probs.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
+
+    // "Текущее" фото на карточке сейчас — та же логика, что при автозавершении
+    // (is_currently_on_wb ещё не сброшен на момент вызова, либо смотрим по
+    // current_variant_index как запасной вариант).
+    const currentVariant = sorted.find((v) => v.is_currently_on_wb) || sorted[Number(test.current_variant_index) || 0] || sorted[0];
+    const baselineCtr = currentVariant
+        ? (Number(currentVariant.impressions) > 0 ? (Number(currentVariant.clicks) / Number(currentVariant.impressions) * 100) : 0)
+        : 0;
+
+    const selectedCampaigns: number[] = Array.isArray((test.settings as Record<string, unknown> | null)?.campaigns)
+        ? ((test.settings as Record<string, unknown>).campaigns as unknown[]).map(Number).filter((n) => !isNaN(n))
+        : [];
+    const finishedAt = new Date();
+    const finishedAtStr = finishedAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
+
+    const lines: string[] = [];
+    lines.push(`${test.product_name || 'Товар ' + test.nm_id} · арт. ${test.nm_id}${selectedCampaigns.length ? ' · рк ' + selectedCampaigns[0] : ''}`);
+    lines.push(`Тест завершён ${finishedAtStr}.`);
+
+    for (const v of sorted) {
         const impressions = Number(v.impressions) || 0;
         const clicks = Number(v.clicks) || 0;
-        return { ...v, ctr: impressions > 0 ? (clicks / impressions * 100) : 0 };
-    });
-    const winner = withCtr.slice().sort((a, b) => b.ctr - a.ctr)[0];
-    const baseline = withCtr[0];
-    let text = `🏁 А/Б-тест «${test.product_name || 'Товар ' + test.nm_id}» (арт. ${test.nm_id}) завершён.`;
-    if (winner && baseline) {
-        text = winner.variant_label === baseline.variant_label
-            ? `🏁 А/Б-тест «${test.product_name || 'Товар ' + test.nm_id}» завершён: явного победителя нет, лучший CTR у текущего фото (вар. ${winner.variant_label}, ${winner.ctr.toFixed(2)}%).`
-            : `🏆 А/Б-тест «${test.product_name || 'Товар ' + test.nm_id}» завершён: победил вариант ${winner.variant_label}, CTR ${winner.ctr.toFixed(2)}% против ${baseline.ctr.toFixed(2)}% у текущего фото.`;
+        const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
+        const prob = probs.get(v.variant_label) || 0;
+        const isCurrent = currentVariant && v.id === currentVariant.id;
+        const isLeader = v.variant_label === leaderLabel && maxProb >= 0.5;
+        const isClearLoser = !isLeader && sorted.length > 2 && prob > 0 && prob <= 0.15;
+        const delta = isCurrent ? null : ctr - baselineCtr;
+
+        let line = `Вариант ${v.variant_label}${isCurrent ? ' (текущий на ВБ)' : ''}: CTR ${ctr.toFixed(2)}%`;
+        if (delta != null) line += ` (${delta >= 0 ? '+' : ''}${delta.toFixed(2)})`;
+        if (isLeader) line += `, вероятность лучшего — ${Math.round(prob * 100)}% — победитель`;
+        else if (isClearLoser) line += `, явно проигрывает`;
+        else line += `, ${Math.round(prob * 100)}%`;
+        lines.push(line);
     }
 
-    if (tgToken && tgChannelId) {
-        await sendTelegramMessage(tgToken, tgChannelId, text);
+    lines.push(`Подробный отчёт: ${REPORT_BASE_URL}?test=${test.id}`);
+    const caption = lines.join('\n');
+
+    const photoUrls = sorted.map((v) => v.photo_url).filter((u): u is string => Boolean(u));
+
+    if (tgToken && tgChannelId && photoUrls.length >= 2) {
+        await sendTelegramMediaGroup(tgToken, tgChannelId, photoUrls, caption);
+    } else if (tgToken && tgChannelId) {
+        // Меньше 2 фото — sendMediaGroup у Telegram требует минимум 2,
+        // отправляем просто текстом, чтобы уведомление всё равно дошло.
+        await sendTelegramMessage(tgToken, tgChannelId, caption);
     } else {
-        console.warn('[ab-test-rotate] TELEGRAM_BOT_TOKEN/TELEGRAM_CHANNEL_ID не заданы — уведомление о завершении теста не отправлено:', text);
+        console.warn('[ab-test-rotate] TELEGRAM_BOT_TOKEN/TELEGRAM_CHANNEL_ID не заданы — уведомление о завершении теста не отправлено:', caption);
     }
 
     await admin.from('notification_log').insert({
         cabinet_id: test.cabinet_id as string,
         test_id: test.id as string,
         event_type: 'ab_test_finished',
-        message_text: text,
+        message_text: caption,
     });
+}
+
+async function sendTelegramMediaGroup(token: string, chatId: string, photoUrls: string[], caption: string): Promise<boolean> {
+    try {
+        // Telegram allows up to 10 items per album; MAX_AB_VARIANTS on the
+        // frontend is already capped at 10, so no chunking needed here.
+        const media = photoUrls.slice(0, 10).map((url, i) => ({
+            type: 'photo',
+            media: url,
+            ...(i === 0 ? { caption } : {}),
+        }));
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendMediaGroup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, media }),
+        });
+        if (!res.ok) {
+            console.warn('[ab-test-rotate] telegram sendMediaGroup failed:', res.status, await res.text());
+            return false;
+        }
+        return true;
+    } catch (e) {
+        console.warn('[ab-test-rotate] telegram sendMediaGroup error:', String(e));
+        return false;
+    }
 }
 
 async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<boolean> {

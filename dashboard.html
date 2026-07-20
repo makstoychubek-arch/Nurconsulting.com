@@ -305,6 +305,12 @@
         #wbc-period-picker button.active { background: var(--accent-gradient) !important; color: #fff !important; border-color: transparent !important; }
         #ab-report-source-toggle button.active { background: var(--accent-gradient) !important; color: #fff !important; border-color: transparent !important; }
         #ab-report-source-toggle button[disabled] { opacity: 0.4; cursor: not-allowed; }
+        /* Универсальная плавная модалка (fade подложки + scale окна) — переиспользуем
+           для отчёта А/Б-теста, чтобы не писать анимацию с нуля. */
+        .nr-modal-overlay { opacity: 0; transition: opacity 0.2s ease; }
+        .nr-modal-overlay.nr-modal-open { opacity: 1; }
+        .nr-modal-overlay .nr-modal-box { transform: scale(0.95); transition: transform 0.2s ease; }
+        .nr-modal-overlay.nr-modal-open .nr-modal-box { transform: scale(1); }
         .wbc-campaign-card { border: 1px solid var(--border); border-radius: var(--radius-card); margin-bottom: 10px; overflow: hidden; background: var(--surface); }
         .wbc-campaign-head { display: flex; align-items: center; gap: 16px; padding: 14px 18px; cursor: pointer; flex-wrap: wrap; }
         .wbc-campaign-head:hover { background: var(--accent-soft); }
@@ -3817,9 +3823,11 @@
                 </div>
             </div>
 
-            <!-- Детальный отчёт по А/Б тесту -->
-            <div id="ab-report-modal" class="hidden" style="position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px)">
-                <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;max-width:1080px;width:96%;max-height:90vh;overflow-y:auto">
+            <!-- Детальный отчёт по А/Б тесту: модалка поверх страницы (не отдельный
+                 URL) — затемнённая подложка, плавное fade/scale появление,
+                 закрытие крестиком или кликом по подложке вне окна. -->
+            <div id="ab-report-modal" class="hidden nr-modal-overlay" onclick="if(event.target===this) closeABReportModal()" style="position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px)">
+                <div class="nr-modal-box" style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;max-width:1080px;width:96%;max-height:90vh;overflow-y:auto">
                     <div class="flex items-center justify-between mb-1">
                         <h3 class="font-semibold text-base" style="color:var(--text-primary)" id="ab-report-title">Отчёт по А/Б тесту</h3>
                         <button onclick="closeABReportModal()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1">×</button>
@@ -8061,6 +8069,19 @@
         }
         renderABTests();
         startRotationTimers();
+
+        // Ссылка "подробный отчёт" из Telegram-уведомления ведёт на
+        // /ab-testing?test=<id> — открываем модалку отчёта автоматически один
+        // раз после загрузки списка (не при каждом фоновом обновлении).
+        if (!window._abDeepLinkHandled) {
+            window._abDeepLinkHandled = true;
+            try {
+                const qTest = new URLSearchParams(location.search).get('test');
+                if (qTest && allABTests.some(t => String(t.id) === qTest)) {
+                    setTimeout(() => openABReportModal(qTest), 300);
+                }
+            } catch (e) {}
+        }
     }
 
     function filterTests(mode, el) {
@@ -8503,15 +8524,22 @@
             </div>`;
         }).join('');
 
-        document.getElementById('ab-report-modal').classList.remove('hidden');
-        document.getElementById('ab-report-modal').style.display = 'flex';
+        const modalEl = document.getElementById('ab-report-modal');
+        modalEl.classList.remove('hidden');
+        modalEl.style.display = 'flex';
+        // Двойной rAF, чтобы браузер успел применить display:flex/opacity:0
+        // до включения transition-класса — иначе fade/scale не проиграется.
+        requestAnimationFrame(() => requestAnimationFrame(() => modalEl.classList.add('nr-modal-open')));
     }
     window.openABReportModal = openABReportModal;
 
     function closeABReportModal() {
         const el = document.getElementById('ab-report-modal');
-        el.classList.add('hidden');
-        el.style.display = 'none';
+        el.classList.remove('nr-modal-open');
+        setTimeout(() => {
+            el.classList.add('hidden');
+            el.style.display = 'none';
+        }, 200);
     }
     window.closeABReportModal = closeABReportModal;
 
