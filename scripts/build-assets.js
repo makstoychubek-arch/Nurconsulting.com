@@ -55,7 +55,7 @@ function buildTailwind() {
 
 function buildScripts() {
     const esbuild = require('esbuild');
-    const scripts = ['dashboard-charts.js', 'rnp-module.js', 'wb-formulas.js', 'wb-clusters.js'];
+    const scripts = ['dashboard-charts.js', 'rnp-module.js', 'wb-formulas.js'];
     const map = {};
     for (const name of scripts) {
         const srcPath = path.join(ROOT, name);

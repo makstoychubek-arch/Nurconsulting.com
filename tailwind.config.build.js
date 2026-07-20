@@ -14,7 +14,6 @@ module.exports = {
     './dashboard-charts.js',
     './rnp-module.js',
     './wb-formulas.js',
-    './wb-clusters.js',
   ],
   darkMode: 'class',
   theme: {
