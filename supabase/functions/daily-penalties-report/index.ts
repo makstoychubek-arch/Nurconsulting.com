@@ -17,6 +17,8 @@ const CORS = {
 };
 
 const FINANCE_API = 'https://finance-api.wildberries.ru';
+// Кого тегать в TG, если есть штрафы (можно переопределить через secret)
+const ALERT_USERNAME = (Deno.env.get('TELEGRAM_ALERT_USERNAME') || 'maraWuW').replace(/^@/, '');
 
 // Реклама и прочее — не считаем «удержанием» для отчёта (как wb-formulas.js)
 const EXCLUDED_DEDUCTION_NAMES = [
@@ -231,6 +233,7 @@ function buildCaption(cabinetName: string, date: string, rows: PenaltyRow[]): st
     return [
         `⚠️ <b>${escapeHtml(cabinetName)}</b> — штрафы за ${pretty}`,
         `💸 Удержано: <b>${fmtNum(total)} сом</b> (${rows.length} поз.)`,
+        `@${escapeHtml(ALERT_USERNAME)} — <b>нужно разобраться</b>`,
     ].join('\n');
 }
 
