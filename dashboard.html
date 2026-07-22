@@ -5084,6 +5084,28 @@
     }
     window.headerGoBack = headerGoBack;
 
+    function bootRnpTab(force) {
+        const cur = getCurrentActiveTab();
+        if (cur !== 'rnp') return;
+        if (typeof RNP === 'undefined') {
+            scheduleRnpBoot();
+            return;
+        }
+        if (!hasUserCabinets || !currentCabinetId) {
+            scheduleRnpBoot();
+            return;
+        }
+        RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+        RNP.openMain(!!force);
+    }
+
+    function scheduleRnpBoot() {
+        clearTimeout(window._rnpBootTimer);
+        window._rnpBootTimer = setTimeout(() => bootRnpTab(true), 400);
+    }
+
+    window.bootRnpTab = bootRnpTab;
+
     function showTab(name, el) {
         name = TAB_ALIASES[name] || name;
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -5117,10 +5139,7 @@
             initMarkingModule();
             if (hasUserCabinets && window._markingReportLoadedForCabinet !== currentCabinetId) loadMarkingComplianceReport();
         }
-        if (name === 'rnp' && hasUserCabinets && typeof RNP !== 'undefined') {
-            RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
-            RNP.openMain();
-        }
+        if (name === 'rnp') bootRnpTab();
         if (name === 'rnp-settings' && hasUserCabinets && typeof RNP !== 'undefined') RNP.openSettings();
         if (name === 'planning' && hasUserCabinets) loadPlanningTab();
         if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
@@ -6805,6 +6824,7 @@
         await loadFromDB();
         updateEmptyCabinetState();
         await loadLastSyncTime();
+        bootRnpTab(true);
     }
 
     // Мобильное меню
@@ -6903,8 +6923,8 @@
             await loadLastSyncTime();
             if (typeof RNP !== 'undefined') {
                 RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+                bootRnpTab(true);
                 const cur = localStorage.getItem('nr_active_tab');
-                if (cur === 'rnp') RNP.openMain();
                 if (cur === 'rnp-settings') RNP.openSettings();
             }
             const curTab = localStorage.getItem('nr_active_tab');
@@ -10050,14 +10070,14 @@
                 const cur = getCurrentActiveTab();
                 if (currentCabinetId && hasUserCabinets && typeof RNP !== 'undefined') {
                     RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
-                    if (cur === 'rnp') RNP.openMain();
-                    else if (cur === 'rnp-settings') RNP.openSettings();
                 }
+                bootRnpTab(true);
                 // Прочие вкладки, чьи on-tab-open загрузчики были no-op'нуты выше
                 // (hasUserCabinets был false в момент первого showTab) — дозапускаем
                 // теперь, когда кабинеты и данные уже готовы.
                 if (hasUserCabinets) {
-                    if (cur === 'logistics') initLogisticsSupplies();
+                    if (cur === 'rnp-settings' && typeof RNP !== 'undefined') RNP.openSettings();
+                    else if (cur === 'logistics') initLogisticsSupplies();
                     else if (cur === 'goods-groups') loadGoodsGroups();
                     else if (cur === 'advertising') openAdvertisingTab();
                     else if (cur === 'planning') loadPlanningTab();
@@ -10159,7 +10179,7 @@
     }
 </script>
     <script src="/dist/dashboard-charts.137201825f.min.js"></script>
-    <script src="/dist/rnp-module.df5302c994.min.js"></script>
+    <script src="/dist/rnp-module.3aef819a8d.min.js"></script>
     <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 </body>
 </html>

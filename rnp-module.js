@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260722-proxy-cache';
+    const RNP_BUILD = '20260722-open-fix';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -2863,7 +2863,7 @@ const RNP = (() => {
 
         const stocks = await _fetchAllRows('wb_stocks', [
             { op: 'eq', column: 'cabinet_id', value: _cab },
-        ]);
+        ], 'nm_id, tech_size, quantity, in_way_to_client, in_way_from_client, warehouse_name');
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
         const settings = _rnpMetricSettings();
@@ -2875,10 +2875,23 @@ const RNP = (() => {
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
         window._rnpLastLoadedAt = Date.now();
-        window._rnpLoadedForCabinet = _cab;
         _updateRnpFreshness();
         console.info('[RNP] loaded', dailyRows.length, 'daily rows,', stocks.length, 'stocks,', _metricsCache.size, 'articles');
         return true;
+    }
+
+    async function _loadRnpDataTimed() {
+        const snapReq = _loadRequestId();
+        const snapCab = _cab;
+        const result = await Promise.race([
+            _loadRnpData(),
+            new Promise((_, rej) => setTimeout(
+                () => rej(new Error('Таймаут загрузки данных РНП (30 с)')),
+                PROXY_TIMEOUT_MS,
+            )),
+        ]);
+        if (_isStaleLoad(snapReq, snapCab)) return false;
+        return result;
     }
 
     function _updateRnpFreshness() {
@@ -3597,9 +3610,24 @@ const RNP = (() => {
     }
 
     // ─── RENDER MAIN TAB (Google Sheets layout) ─────────────────────────────
+    function _rnpMainRendered() {
+        const body = document.getElementById('rnp-sheet-body');
+        if (!body) return false;
+        return !!(body.querySelector('.rnp-table-scroll')
+            || body.querySelector('.rnp-summary-table')
+            || body.querySelector('.rnp-action-btn'));
+    }
+
     async function _renderMain() {
         const el = document.getElementById('tab-rnp');
         if (!el) return;
+
+        if (!el.querySelector('.rnp-workspace')) {
+            el.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
+              <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+              Загрузка РНП…
+            </div>`;
+        }
 
         if (_initInflight && !_articles.length) {
             el.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
@@ -3682,7 +3710,7 @@ const RNP = (() => {
         let loadOk = false;
         let loadErr = null;
         try {
-            loadOk = await _loadRnpData();
+            loadOk = await _loadRnpDataTimed();
             if (renderId !== _mainRenderGen) return;
             if (_isStaleLoad(snapReq, snapCab)) return;
             if (loadOk === false) {
@@ -3704,6 +3732,7 @@ const RNP = (() => {
             return;
         }
         await _renderActiveTable();
+        window._rnpLoadedForCabinet = _cab;
         _applyResolvedPhotos();
         _preloadPhotosBackground(active).then(() => {
             if (renderId !== _mainRenderGen) return;
@@ -4330,7 +4359,7 @@ const RNP = (() => {
         _renderSettings();
     }
 
-    async function openMain() {
+    async function openMain(force) {
         const el = document.getElementById('tab-rnp');
         if (!el) return;
         if (!_db || !_cab) {
@@ -4338,7 +4367,7 @@ const RNP = (() => {
             return;
         }
         const mounted = document.querySelector('#tab-rnp .rnp-workspace');
-        if (mounted && window._rnpLoadedForCabinet === _cab) return;
+        if (!force && mounted && _rnpMainRendered() && window._rnpLoadedForCabinet === _cab) return;
         try {
             await _renderMain();
         } catch (e) {
@@ -4625,6 +4654,23 @@ const RNP = (() => {
             bar.innerHTML = _buildActionBar(_articles.filter(a => a.is_active));
         }
     });
+    // Fallback: if dashboard missed boot (early showTab before cabinets), open when tab visible.
+    (function _rnpAutoBootWatch() {
+        let tries = 0;
+        const iv = setInterval(() => {
+            tries++;
+            if (tries > 60) { clearInterval(iv); return; }
+            const tab = document.getElementById('tab-rnp');
+            if (!tab?.classList.contains('active')) return;
+            if (tab.querySelector('.rnp-workspace')) { clearInterval(iv); return; }
+            if (typeof window.bootRnpTab === 'function') {
+                window.bootRnpTab(true);
+            } else if (_db && _cab) {
+                openMain(true).catch(e => console.warn('[RNP] auto-boot:', e.message));
+                clearInterval(iv);
+            }
+        }, 500);
+    })();
 
     return { init, initCore, ensureReady, openSettings, openMain, pick, syncArts, resyncArticles, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
