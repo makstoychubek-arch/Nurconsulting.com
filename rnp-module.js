@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260722-open-fix';
+    const RNP_BUILD = '20260722-sync-fix';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -216,30 +216,29 @@ const RNP = (() => {
     }
 
     function _hydratePhotoCacheFromStorage() {
+        _loadVerifiedPhotoUrlsLazy();
         try {
             const raw = localStorage.getItem(_photoStorageKey());
-            if (raw) {
-                const snap = JSON.parse(raw);
-                Object.entries(snap.main || {}).forEach(([id, url]) => {
-                    const nmId = Number(id);
-                    const norm = _normalizePhotoUrl(url);
-                    if (!norm || !nmId) return;
-                    _photoResolveCache[nmId] = norm;
-                    const ver = _normalizePhotoUrl(snap.verified?.[id]);
-                    if (ver) _verifiedPhotoUrls[nmId] = ver;
-                });
-                Object.entries(snap.gallery || {}).forEach(([id, urls]) => {
-                    const nmId = Number(id);
-                    if (!nmId || !Array.isArray(urls)) return;
-                    const extras = urls.map(_normalizePhotoUrl).filter(Boolean);
-                    if (!extras.length) return;
-                    _galleryPhotosCache[nmId] = extras;
-                    if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
-                    extras.forEach((u, i) => { _photoIndexCache[nmId][i + 2] = u; });
-                    _galleryFetchAttempted.add(nmId);
-                });
-                return;
-            }
+            if (!raw || raw.length > 4_000_000) return;
+            const snap = JSON.parse(raw);
+            Object.entries(snap.main || {}).forEach(([id, url]) => {
+                const nmId = Number(id);
+                const norm = _normalizePhotoUrl(url);
+                if (!norm || !nmId) return;
+                _photoResolveCache[nmId] = norm;
+                const ver = _normalizePhotoUrl(snap.verified?.[id]);
+                if (ver) _verifiedPhotoUrls[nmId] = ver;
+            });
+            Object.entries(snap.gallery || {}).forEach(([id, urls]) => {
+                const nmId = Number(id);
+                if (!nmId || !Array.isArray(urls)) return;
+                const extras = urls.map(_normalizePhotoUrl).filter(Boolean);
+                if (!extras.length) return;
+                _galleryPhotosCache[nmId] = extras;
+                if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
+                extras.forEach((u, i) => { _photoIndexCache[nmId][i + 2] = u; });
+                _galleryFetchAttempted.add(nmId);
+            });
         } catch (e) {}
         Object.entries(_verifiedPhotoUrls).forEach(([id, url]) => {
             const nmId = Number(id);
@@ -304,7 +303,16 @@ const RNP = (() => {
     // (broken) guessed URLs. Only URLs verified via Content API are trusted;
     // they are remembered in localStorage so they survive reloads.
     let _verifiedPhotoUrls = {};
-    try { _verifiedPhotoUrls = JSON.parse(localStorage.getItem('rnp_photos_v2') || '{}') || {}; } catch (e) {}
+    let _verifiedPhotoUrlsLoaded = false;
+    function _loadVerifiedPhotoUrlsLazy() {
+        if (_verifiedPhotoUrlsLoaded) return;
+        _verifiedPhotoUrlsLoaded = true;
+        try {
+            const raw = localStorage.getItem('rnp_photos_v2');
+            if (!raw || raw.length > 2_000_000) return;
+            _verifiedPhotoUrls = JSON.parse(raw) || {};
+        } catch (e) { _verifiedPhotoUrls = {}; }
+    }
 
     function _markPhotoVerified(nmId, url) {
         _verifiedPhotoUrls[nmId] = url;
@@ -313,6 +321,7 @@ const RNP = (() => {
     }
 
     function _isUsablePhotoUrl(nmId, url) {
+        _loadVerifiedPhotoUrlsLazy();
         const u = _normalizePhotoUrl(url);
         if (!u || u.includes('placeholder')) return null;
         if (_isWbasketGuessUrl(u) && _verifiedPhotoUrls[nmId] !== u) return null;
@@ -534,9 +543,13 @@ const RNP = (() => {
     async function _fetchAllRows(table, filters, columns = '*') {
         if (!_db) return [];
         const PAGE = 1000;
+        const MAX_PAGES = 40;
         let all = [];
         let from = 0;
-        while (true) {
+        let pages = 0;
+        let prevSig = '';
+        while (pages < MAX_PAGES) {
+            pages++;
             let query = _db.from(table).select(columns).range(from, from + PAGE - 1);
             for (const f of (filters || [])) {
                 if (f.op === 'eq') query = query.eq(f.column, f.value);
@@ -548,11 +561,18 @@ const RNP = (() => {
             const { data, error } = await query;
             if (error) { console.error(`[RNP fetchAllRows] ${table}:`, error.message); break; }
             if (!data?.length) break;
+            const sig = `${data.length}:${data[0]?.id ?? data[0]?.nm_id ?? ''}:${data[data.length - 1]?.id ?? ''}`;
+            if (sig === prevSig && data.length >= PAGE) {
+                console.warn(`[RNP fetchAllRows] duplicate page ${table} @${from}`);
+                break;
+            }
+            prevSig = sig;
             all = all.concat(data);
             if (data.length < PAGE) break;
             from += PAGE;
             if (all.length > 100000) break;
         }
+        if (pages >= MAX_PAGES) console.warn(`[RNP fetchAllRows] page cap ${table}`);
         return all;
     }
 
@@ -560,8 +580,8 @@ const RNP = (() => {
         if (!cabId) return;
         _cabinetStateCache.set(cabId, {
             dataCache: { ..._dataCache },
-            stockCache: JSON.parse(JSON.stringify(_stockCache)),
-            financeCache: { ..._financeCache, rows: [...(_financeCache.rows || [])] },
+            stockCache: { ..._stockCache },
+            financeCache: { key: _financeCache.key, rows: _financeCache.rows, ts: _financeCache.ts },
             metricsCache: new Map(_metricsCache),
         });
     }
@@ -570,8 +590,8 @@ const RNP = (() => {
         const snap = _cabinetStateCache.get(cabId);
         if (!snap) return false;
         _dataCache = { ...snap.dataCache };
-        _stockCache = JSON.parse(JSON.stringify(snap.stockCache));
-        _financeCache = { ...snap.financeCache, rows: [...(snap.financeCache.rows || [])] };
+        _stockCache = { ...snap.stockCache };
+        _financeCache = { key: snap.financeCache.key, rows: snap.financeCache.rows || [], ts: snap.financeCache.ts || 0 };
         _metricsCache = snap.metricsCache ? new Map(snap.metricsCache) : new Map();
         return true;
     }
@@ -1749,6 +1769,11 @@ const RNP = (() => {
             if (period && date === period.from) {
                 let endIdx = i;
                 while (endIdx < cal.days.length && cal.days[endIdx].date <= period.to) endIdx++;
+                if (endIdx <= i) {
+                    parts.push(renderGap(cal.days[i], i));
+                    i++;
+                    continue;
+                }
                 parts.push(renderSpan(period, endIdx - i, i));
                 i = endIdx;
             } else {
@@ -3467,6 +3492,60 @@ const RNP = (() => {
     }
 
     // ─── RENDER SETTINGS ──────────────────────────────────────────────────────
+    function _settingsArticleRowHtml(a, cats, esc) {
+        const sa = _sellerArticle(a).replace(/</g, '&lt;');
+        const auto = !!(a.manual_data?.seller_article);
+        const cur = (a.category || '').trim();
+        const catOpts = [
+            `<option value=""${!cur ? ' selected' : ''}>— Без категории —</option>`,
+            ...cats.map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`),
+            `<option value="__new__">＋ Новая категория…</option>`,
+        ].join('');
+        return `<tr>
+          <td>${_imgHtml(a, '', 'c246x328', 'width:32px;height:40px;border-radius:12px;object-fit:cover;display:block')}</td>
+          <td style="font-weight:600;color:var(--text-primary)">${sa || '—'}${auto ? ' <span style="color:var(--green);font-weight:400;font-size:10px">авто</span>' : ' <span style="color:var(--text-muted);font-weight:400;font-size:10px">(нет данных — Обновить на дашборде)</span>'}</td>
+          <td style="color:var(--text-muted)">${a.nm_id}</td>
+          <td class="rnp-metric-col" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${(a.name || '—').replace(/</g, '&lt;')}</td>
+          <td><select data-rnp-cat="${a.nm_id}" onchange="RNP.setCategory(${a.nm_id},this.value)"
+            style="width:110px;padding:2px 4px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px">${catOpts}</select></td>
+          <td><input type="number" value="${a.cost_price || 0}" min="0"
+            onchange="RNP.setCost(${a.nm_id},this.value)"
+            style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
+          <td><input type="number" value="${a.logistics_unit || 0}" min="0"
+            onchange="RNP.setLogisticsUnit(${a.nm_id},this.value)"
+            style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
+          <td><input type="number" value="${_otherCostsUnit(a)}" min="0"
+            onchange="RNP.setOtherCosts(${a.nm_id},this.value)"
+            style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
+          <td><button onclick="RNP.toggleArt(${a.nm_id})" class="relative w-9 h-5 rounded-full"
+            style="background:${a.is_active ? 'var(--accent)' : 'var(--border)'}">
+            <span style="position:absolute;top:2px;left:${a.is_active ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
+          </button></td>
+        </tr>`;
+    }
+
+    async function _fillSettingsArticlesAsync(opts = {}) {
+        const tbody = document.getElementById('rnp-settings-articles-tbody');
+        if (!tbody) return;
+        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+        const cats = [...new Set(_articles.map(a => (a.category || '').trim()).filter(Boolean))]
+            .sort((x, y) => x.localeCompare(y, 'ru'));
+        const sorted = _articles.slice().sort(_sortBySeller);
+        const CHUNK = 80;
+        tbody.innerHTML = '';
+        for (let i = 0; i < sorted.length; i += CHUNK) {
+            const slice = sorted.slice(i, i + CHUNK);
+            tbody.insertAdjacentHTML('beforeend', slice.map(a => _settingsArticleRowHtml(a, cats, esc)).join(''));
+            if (i + CHUNK < sorted.length) {
+                await new Promise(r => requestAnimationFrame(() => r()));
+            }
+        }
+        if (opts.preserveScroll) {
+            const scrollEl = document.querySelector('#tab-rnp-settings .rnp-settings-articles-scroll');
+            if (scrollEl && opts.scrollTop) scrollEl.scrollTop = opts.scrollTop;
+        }
+    }
+
     function _renderSettings(opts = {}) {
         const el = document.getElementById('tab-rnp-settings');
         if (!el) return;
@@ -3560,44 +3639,8 @@ const RNP = (() => {
                     <th style="min-width:60px">В РНП</th>
                   </tr>
                 </thead>
-                <tbody>
-                  ${(() => {
-                    const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-                    const cats = [...new Set(_articles.map(a => (a.category||'').trim()).filter(Boolean))]
-                        .sort((x, y) => x.localeCompare(y, 'ru'));
-                    return _articles.slice().sort(_sortBySeller).map(a => {
-                    const sa = _sellerArticle(a).replace(/</g, '&lt;');
-                    const auto = !!(a.manual_data?.seller_article);
-                    const cur = (a.category||'').trim();
-                    const catOpts = [
-                        `<option value=""${!cur ? ' selected' : ''}>— Без категории —</option>`,
-                        ...cats.map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`),
-                        `<option value="__new__">＋ Новая категория…</option>`,
-                    ].join('');
-                    return `
-                  <tr>
-                    <td>${_imgHtml(a, '', 'c246x328', 'width:32px;height:40px;border-radius:12px;object-fit:cover;display:block')}</td>
-                    <td style="font-weight:600;color:var(--text-primary)">${sa || '—'}${auto ? ' <span style="color:var(--green);font-weight:400;font-size:10px">авто</span>' : ' <span style="color:var(--text-muted);font-weight:400;font-size:10px">(нет данных — Обновить на дашборде)</span>'}</td>
-                    <td style="color:var(--text-muted)">${a.nm_id}</td>
-                    <td class="rnp-metric-col" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${(a.name||'—').replace(/</g,'&lt;')}</td>
-                    <td><select data-rnp-cat="${a.nm_id}" onchange="RNP.setCategory(${a.nm_id},this.value)"
-                      style="width:110px;padding:2px 4px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px">${catOpts}</select></td>
-                    <td><input type="number" value="${a.cost_price||0}" min="0"
-                      onchange="RNP.setCost(${a.nm_id},this.value)"
-                      style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
-                    <td><input type="number" value="${a.logistics_unit||0}" min="0"
-                      onchange="RNP.setLogisticsUnit(${a.nm_id},this.value)"
-                      style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
-                    <td><input type="number" value="${_otherCostsUnit(a)}" min="0"
-                      onchange="RNP.setOtherCosts(${a.nm_id},this.value)"
-                      style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
-                    <td><button onclick="RNP.toggleArt(${a.nm_id})" class="relative w-9 h-5 rounded-full"
-                      style="background:${a.is_active?'var(--accent)':'var(--border)'}">
-                      <span style="position:absolute;top:2px;left:${a.is_active?'18px':'2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
-                    </button></td>
-                  </tr>`;
-                    }).join('');
-                  })()}
+                <tbody id="rnp-settings-articles-tbody">
+                  <tr><td colspan="9" class="text-center py-6" style="color:var(--text-muted)">Загрузка списка артикулов…</td></tr>
                 </tbody>
               </table>
             </div>`}
@@ -3606,6 +3649,13 @@ const RNP = (() => {
         if (scrollTop > 0) {
             const nextScroll = el.querySelector('.rnp-settings-articles-scroll');
             if (nextScroll) nextScroll.scrollTop = scrollTop;
+        }
+        if (_articles.length) {
+            _fillSettingsArticlesAsync({ preserveScroll: opts.preserveScroll, scrollTop }).catch(e => {
+                console.warn('[RNP] settings articles:', e.message);
+                const tbody = document.getElementById('rnp-settings-articles-tbody');
+                if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="text-center py-6" style="color:var(--text-muted)">Ошибка: ${String(e.message || e).replace(/</g, '&lt;')}</td></tr>`;
+            });
         }
     }
 
@@ -3619,6 +3669,7 @@ const RNP = (() => {
     }
 
     async function _renderMain() {
+        await Promise.resolve();
         const el = document.getElementById('tab-rnp');
         if (!el) return;
 
@@ -4283,6 +4334,7 @@ const RNP = (() => {
     // ─── PUBLIC API ───────────────────────────────────────────────────────────
     /** Fast path: DB + RPC only — never awaits wb-proxy (photos, content_cards, ads). */
     async function initCore(supabase, cabId, proxyFn, opts) {
+        await Promise.resolve();
         const prevCab = _cab;
         if (prevCab && prevCab !== cabId) _saveCabinetCache(prevCab);
         const gen = ++_initGen;
@@ -4355,8 +4407,23 @@ const RNP = (() => {
         }
     }
 
-    async function openSettings() {
-        _renderSettings();
+    async function openSettings(opts) {
+        const el = document.getElementById('tab-rnp-settings');
+        if (!el) return;
+        if (!_db || !_cab) {
+            el.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
+              <p class="mb-4">Кабинет не инициализирован.</p>
+              <button type="button" class="rnp-action-btn" onclick="RNP.openSettings()">Повторить</button>
+            </div>`;
+            return;
+        }
+        if (_initInflight) {
+            await Promise.race([
+                _initInflight,
+                new Promise(r => setTimeout(r, 8000)),
+            ]);
+        }
+        _renderSettings(opts);
     }
 
     async function openMain(force) {
@@ -4654,23 +4721,13 @@ const RNP = (() => {
             bar.innerHTML = _buildActionBar(_articles.filter(a => a.is_active));
         }
     });
-    // Fallback: if dashboard missed boot (early showTab before cabinets), open when tab visible.
-    (function _rnpAutoBootWatch() {
-        let tries = 0;
-        const iv = setInterval(() => {
-            tries++;
-            if (tries > 60) { clearInterval(iv); return; }
-            const tab = document.getElementById('tab-rnp');
-            if (!tab?.classList.contains('active')) return;
-            if (tab.querySelector('.rnp-workspace')) { clearInterval(iv); return; }
-            if (typeof window.bootRnpTab === 'function') {
-                window.bootRnpTab(true);
-            } else if (_db && _cab) {
-                openMain(true).catch(e => console.warn('[RNP] auto-boot:', e.message));
-                clearInterval(iv);
-            }
-        }, 500);
-    })();
+    // One-shot fallback boot (no 500ms interval — it stacked openMain on a blocked thread).
+    setTimeout(() => {
+        const tab = document.getElementById('tab-rnp');
+        if (!tab?.classList.contains('active') || tab.querySelector('.rnp-workspace')) return;
+        if (typeof window.bootRnpTab === 'function') window.bootRnpTab(true);
+        else if (_db && _cab) openMain(true).catch(e => console.warn('[RNP] auto-boot:', e.message));
+    }, 1500);
 
     return { init, initCore, ensureReady, openSettings, openMain, pick, syncArts, resyncArticles, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
