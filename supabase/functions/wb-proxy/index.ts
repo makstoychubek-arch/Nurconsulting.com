@@ -5,11 +5,51 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+/** In-memory cache for heavy Content API actions (same seller token = shared WB rate limit). */
+const PROXY_RESPONSE_CACHE = new Map<string, { ts: number; data: unknown }>();
+const PROXY_CACHE_TTL_MS: Record<string, number> = {
+    content_cards: 6 * 60 * 60 * 1000,
+    product_photos: 24 * 60 * 60 * 1000,
+};
+
+function proxyCacheKey(action: string, cabinetId: string, params: Record<string, unknown>): string | null {
+    if (action === 'product_photos') {
+        const ids = [...new Set(((params.nmIds as number[]) || []).map(Number).filter(Boolean))].sort((a, b) => a - b);
+        return ids.length ? `pp:${cabinetId}:${ids.join(',')}` : null;
+    }
+    if (action === 'content_cards') {
+        const nmPart = Array.isArray(params.nmIds)
+            ? [...params.nmIds].map(Number).filter(Boolean).sort((a, b) => a - b).join(',')
+            : '';
+        return `cc:${cabinetId}:${params.textSearch || ''}:${params.limit || 100}:${params.withPhoto ?? -1}:${nmPart}`;
+    }
+    return null;
+}
+
+function readProxyCache(key: string, ttlMs: number): unknown | null {
+    const hit = PROXY_RESPONSE_CACHE.get(key);
+    if (!hit || Date.now() - hit.ts > ttlMs) return null;
+    return hit.data;
+}
+
+function writeProxyCache(key: string, data: unknown) {
+    PROXY_RESPONSE_CACHE.set(key, { ts: Date.now(), data });
+    if (PROXY_RESPONSE_CACHE.size > 400) {
+        let oldestKey: string | null = null;
+        let oldestTs = Infinity;
+        for (const [k, v] of PROXY_RESPONSE_CACHE) {
+            if (v.ts < oldestTs) { oldestTs = v.ts; oldestKey = k; }
+        }
+        if (oldestKey) PROXY_RESPONSE_CACHE.delete(oldestKey);
+    }
+}
 
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -240,6 +280,11 @@ serve(async (req) => {
 
             // ── Content API ─────────────────────────────────────────────────
             case 'content_cards': {
+                const ccKey = proxyCacheKey('content_cards', cabinet_id, params as Record<string, unknown>);
+                if (ccKey) {
+                    const cached = readProxyCache(ccKey, PROXY_CACHE_TTL_MS.content_cards);
+                    if (cached) { result = cached; break; }
+                }
                 // Note: filter.nmID (array) is NOT a real WB Content API field —
                 // it's silently ignored. Only textSearch (single value) works
                 // for looking up a specific article.
@@ -268,9 +313,15 @@ serve(async (req) => {
                         result = { cards: [] };
                     } else throw e;
                 }
+                if (ccKey) writeProxyCache(ccKey, result);
                 break;
             }
             case 'product_photos': {
+                const ppKey = proxyCacheKey('product_photos', cabinet_id, params as Record<string, unknown>);
+                if (ppKey) {
+                    const cached = readProxyCache(ppKey, PROXY_CACHE_TTL_MS.product_photos);
+                    if (cached) { result = cached; break; }
+                }
                 // PRIMARY: public WB media CDN (basket-XX.wbbasket.ru) — needs NO
                 // seller token at all, so it's immune to invalid/expired content
                 // tokens. WB shards products across basket hosts by `vol`
@@ -349,6 +400,7 @@ serve(async (req) => {
                 (out as Record<string, unknown>)._debug = debug;
                 (out as Record<string, unknown>)._gallery = gallery;
                 result = out;
+                if (ppKey) writeProxyCache(ppKey, result);
                 break;
             }
 
@@ -557,6 +609,33 @@ serve(async (req) => {
                     console.warn('[wb-proxy] status confirm after', action, 'failed:', String(e));
                 }
                 result = { ok: true, advertId, action: verb, confirmedStatus };
+                // Сразу шлём в Telegram: кто поставил на паузу / запустил с сайта
+                try {
+                    const { data: campRow } = await admin
+                        .from('advertising_campaigns')
+                        .select('campaign_name')
+                        .eq('cabinet_id', cabinet_id)
+                        .eq('campaign_id', advertId)
+                        .maybeSingle();
+                    const newStatus = (confirmedStatus === 9 || confirmedStatus === 11 || confirmedStatus === 4)
+                        ? confirmedStatus
+                        : (verb === 'start' ? 9 : 11);
+                    await notifyCampaignAction(admin, {
+                        cabinetId: cabinet_id,
+                        cabinetName: String(cab.name || 'Кабинет'),
+                        campaignId: advertId,
+                        campaignName: String(campRow?.campaign_name || `Кампания ${advertId}`),
+                        action: verb as 'start' | 'pause',
+                        userId: user.id,
+                        email: String(user.email || ''),
+                        metaName: String((user.user_metadata as Record<string, unknown> | undefined)?.full_name
+                            || (user.user_metadata as Record<string, unknown> | undefined)?.name
+                            || ''),
+                        newStatus,
+                    });
+                } catch (e) {
+                    console.warn('[wb-proxy] campaign TG notify failed:', String(e));
+                }
                 break;
             }
 
@@ -900,6 +979,104 @@ serve(async (req) => {
 
 function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Уведомление в Telegram о паузе/старте РК с сайта (кто нажал кнопку).
+async function notifyCampaignAction(
+    admin: ReturnType<typeof createClient>,
+    opts: {
+        cabinetId: string;
+        cabinetName: string;
+        campaignId: number;
+        campaignName: string;
+        action: 'start' | 'pause';
+        userId: string;
+        email: string;
+        metaName: string;
+        newStatus: number;
+    },
+): Promise<void> {
+    const tgToken = getTelegramToken();
+    const tgChatId = getTelegramChatId('ads');
+    if (!tgToken || !tgChatId) return;
+
+    const eventType = opts.action === 'pause' ? 'campaign_paused' : 'campaign_started';
+    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { data: dupes } = await admin
+        .from('notification_log')
+        .select('id')
+        .eq('cabinet_id', opts.cabinetId)
+        .eq('campaign_id', opts.campaignId)
+        .eq('event_type', eventType)
+        .gte('sent_at', since)
+        .limit(1);
+    if (dupes?.length) return;
+
+    const actor = await resolveActorLabel(admin, opts.userId, opts.email, opts.metaName);
+    const icon = opts.action === 'pause' ? '⏸' : '▶';
+    const verb = opts.action === 'pause' ? 'пауза' : 'старт';
+    const text = [
+        `${icon} ${verb} · <b>${tgEscape(opts.cabinetName)}</b> · «${tgEscape(opts.campaignName)}»`,
+        actor,
+    ].join('\n');
+
+    const res = await fetch(`https://api.telegram.org/bot${tgToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: tgChatId, text, parse_mode: 'HTML' }),
+    });
+    if (!res.ok) {
+        console.warn('[wb-proxy] TG notify failed:', res.status, await res.text());
+        return;
+    }
+
+    await admin.from('notification_log').insert({
+        cabinet_id: opts.cabinetId,
+        campaign_id: opts.campaignId,
+        event_type: eventType,
+        message_text: text.replace(/<[^>]+>/g, ''),
+    });
+    await admin.from('campaign_states').upsert({
+        cabinet_id: opts.cabinetId,
+        campaign_id: opts.campaignId,
+        last_status: opts.newStatus,
+        last_checked_at: new Date().toISOString(),
+    }, { onConflict: 'cabinet_id,campaign_id' });
+}
+
+async function resolveActorLabel(
+    admin: ReturnType<typeof createClient>,
+    userId: string,
+    email: string,
+    metaName: string,
+): Promise<string> {
+    let name = metaName.trim();
+    let mail = email.trim();
+
+    try {
+        const { data: space } = await admin
+            .from('spaces')
+            .select('full_name, first_name, last_name, email')
+            .eq('user_id', userId)
+            .maybeSingle();
+        if (space) {
+            const spaceName = String(space.full_name || '').trim()
+                || [space.first_name, space.last_name].filter(Boolean).join(' ').trim();
+            if (spaceName) name = spaceName;
+            if (!mail && space.email) mail = String(space.email).trim();
+        }
+    } catch { /* spaces optional */ }
+
+    if (name && mail && name.toLowerCase() !== mail.toLowerCase()) {
+        return `${tgEscape(name)} · ${tgEscape(mail)}`;
+    }
+    if (mail) return tgEscape(mail);
+    if (name) return tgEscape(name);
+    return tgEscape(userId.slice(0, 8));
+}
+
+function tgEscape(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 // WB shards product media across ~60+ basket-XX.wbbasket.ru hosts by `vol`

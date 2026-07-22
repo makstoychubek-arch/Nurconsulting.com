@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260715-metrics-autorefresh';
+    const RNP_BUILD = '20260722-proxy-cache';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -23,6 +23,10 @@ const RNP = (() => {
     };
     let _settingsInDb = false;
     let _articles = [];
+    let _mainRenderGen = 0;
+    let _initInflight = null;
+    let _initInflightCab = null;
+    let _wbEnrichmentDegraded = false;
     let _activeNm = null;
     let _collapsedSections = new Set();
     let _financeCache = { key: '', rows: [], ts: 0 };
@@ -427,6 +431,106 @@ const RNP = (() => {
         return snapReq !== _loadRequestId() || snapCab !== curCab;
     }
 
+    const PROXY_TIMEOUT_MS = 30000;
+    let _loadAbort = null;
+
+    function _abortPendingLoad() {
+        if (_loadAbort) {
+            _loadAbort.abort();
+            _loadAbort = null;
+        }
+    }
+
+    function _isAborted(signal) {
+        return !!signal?.aborted;
+    }
+
+    /** Edge Function calls with 30s timeout, 429-aware, cabinet staleness guard. */
+    async function _callProxyTimed(action, params, snapCab) {
+        if (!_callProxy) return null;
+        const cab = snapCab ?? _cab;
+        try {
+            const result = await Promise.race([
+                _callProxy(action, params, cab),
+                new Promise((_, rej) => setTimeout(
+                    () => rej(new Error(`timeout:${action}`)),
+                    PROXY_TIMEOUT_MS,
+                )),
+            ]);
+            if (cab !== _cab || cab !== (window.currentCabinetId || _cab)) return null;
+            if (result == null && window._rnpWbDegraded) _wbEnrichmentDegraded = true;
+            return result;
+        } catch (e) {
+            const msg = String(e?.message || e);
+            if (msg.startsWith('timeout:')) {
+                _wbEnrichmentDegraded = true;
+                throw new Error(`WB API: таймаут 30 с (${action})`);
+            }
+            throw e;
+        }
+    }
+
+    /** Aggregated orders from SQL — never pulls wb_orders.data to the client. */
+    async function _fetchOrdersDaily(from, to, snapCab, snapReq) {
+        if (!_db || !_cab) return [];
+        const { data, error } = await _db.rpc('rnp_orders_daily', {
+            p_cabinet_id: _cab,
+            p_from: from,
+            p_to: to,
+        });
+        if (error) throw new Error(error.message);
+        if (_isStaleLoad(snapReq, snapCab)) return null;
+        if (Array.isArray(data)) return data;
+        if (data && typeof data === 'object') return data;
+        return [];
+    }
+
+    async function _fetchCabinetNmIds(snapCab, snapReq) {
+        if (!_db || !_cab) return [];
+        const { data, error } = await _db.rpc('cabinet_wb_nm_ids', { p_cabinet_id: _cab });
+        if (error) throw new Error(error.message);
+        if (_isStaleLoad(snapReq, snapCab)) return null;
+        return Array.isArray(data) ? data : [];
+    }
+
+    function _setRnpSheetState(kind, detail) {
+        const body = document.getElementById('rnp-sheet-body');
+        if (!body) return;
+        if (kind === 'loading') {
+            body.innerHTML = `<div class="p-10 text-center" style="color:var(--text-muted)">
+              <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+              Загрузка...
+            </div>`;
+            return;
+        }
+        if (kind === 'error') {
+            const msg = detail || 'Не удалось загрузить данные РНП.';
+            body.innerHTML = `<div class="p-10 text-center" style="color:var(--text-muted)">
+              <p class="mb-4">${String(msg).replace(/</g, '&lt;')}</p>
+              <button type="button" class="rnp-action-btn" onclick="RNP.openMain()">Повторить</button>
+            </div>`;
+            return;
+        }
+        if (kind === 'empty') {
+            body.innerHTML = `<div class="p-10 text-center" style="color:var(--text-muted)">
+              <p class="mb-4">${detail || 'Нет данных за выбранный период. Обновите синхронизацию на дашборде.'}</p>
+              <button type="button" class="rnp-action-btn" onclick="RNP.openMain()">Повторить</button>
+            </div>`;
+        }
+    }
+
+    function _setRnpTabState(kind, detail) {
+        const el = document.getElementById('tab-rnp');
+        if (!el) return;
+        if (kind === 'error') {
+            const msg = detail || 'Ошибка инициализации РНП.';
+            el.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
+              <p class="mb-4">${String(msg).replace(/</g, '&lt;')}</p>
+              <button type="button" class="rnp-action-btn" onclick="RNP.openMain()">Повторить</button>
+            </div>`;
+        }
+    }
+
     async function _fetchAllRows(table, filters, columns = '*') {
         if (!_db) return [];
         const PAGE = 1000;
@@ -555,7 +659,7 @@ const RNP = (() => {
 
         const stillNeed = new Set(slice);
         try {
-            const data = await _callProxy('product_photos', { nmIds: slice });
+            const data = await _callProxyTimed('product_photos', { nmIds: slice }, _cab);
             if (data && typeof data === 'object') {
                 const gallery = data._gallery || {};
                 if (data._debug) console.info('[RNP] product_photos debug:', data._debug);
@@ -764,14 +868,23 @@ const RNP = (() => {
         return '';
     }
 
+    const _sellerArticleCache = new Map(); // cabId -> { ts, map: Map<nmId, sa> }
+    const SELLER_ARTICLE_CACHE_MS = 6 * 60 * 60 * 1000;
+
     async function _fetchSellerArticlesFromContentApi(nmIds) {
         const map = new Map();
         const ids = [...new Set(nmIds.map(Number).filter(Boolean))];
-        if (!_callProxy || !ids.length) return map;
+        if (!ids.length) return map;
+        const cacheHit = _sellerArticleCache.get(_cab);
+        if (cacheHit && Date.now() - cacheHit.ts < SELLER_ARTICLE_CACHE_MS) {
+            ids.forEach(id => { if (cacheHit.map.has(id)) map.set(id, cacheHit.map.get(id)); });
+            if (map.size === ids.length) return map;
+        }
+        if (!_callProxy) return map;
         for (let i = 0; i < ids.length; i += 100) {
             const chunk = ids.slice(i, i + 100);
             try {
-                const resp = await _callProxy('content_cards', { nmIds: chunk, limit: chunk.length });
+                const resp = await _callProxyTimed('content_cards', { nmIds: chunk, limit: chunk.length }, _cab);
                 const cards = resp?.cards || resp?.data?.cards || [];
                 cards.forEach(card => {
                     const id = Number(card.nmID || card.nmId);
@@ -779,6 +892,11 @@ const RNP = (() => {
                     if (id && sa) map.set(id, sa);
                 });
             } catch (e) { console.warn('[RNP] content_cards seller:', e.message); }
+        }
+        if (map.size) {
+            const prev = (_sellerArticleCache.get(_cab) || { ts: 0, map: new Map() }).map;
+            map.forEach((v, k) => prev.set(k, v));
+            _sellerArticleCache.set(_cab, { ts: Date.now(), map: prev });
         }
         return map;
     }
@@ -798,18 +916,6 @@ const RNP = (() => {
 
         const contentMap = await _fetchSellerArticlesFromContentApi(nmIds);
         contentMap.forEach((sa, id) => map.set(id, sa));
-
-        try {
-            const orders = await _fetchAllRows('wb_orders', [
-                { op: 'eq', column: 'cabinet_id', value: _cab },
-                { op: 'notIsNull', column: 'nm_id', value: null },
-            ], 'nm_id, data');
-            (orders || []).forEach(o => {
-                if (map.has(Number(o.nm_id))) return;
-                const sa = _orderSellerArticle(o);
-                if (sa && o.nm_id) map.set(Number(o.nm_id), sa);
-            });
-        } catch (e) { console.warn('[RNP] seller_article orders:', e.message); }
 
         const missing = _articles.filter(a => !map.has(Number(a.nm_id))).map(a => a.nm_id);
         if (missing.length) {
@@ -941,57 +1047,30 @@ const RNP = (() => {
         const snapReq = _loadRequestId();
         const snapCab = _cab;
         try {
-            const orders = await _fetchAllRows('wb_orders', [
-                { op: 'eq', column: 'cabinet_id', value: _cab },
-                { op: 'notIsNull', column: 'nm_id', value: null },
-            ], 'nm_id, data');
-            if (_isStaleLoad(snapReq, snapCab)) {
+            const nmIds = await _fetchCabinetNmIds(snapCab, snapReq);
+            if (nmIds === null) {
                 console.log('[RNP] устаревший запрос syncFromOrders — игнорируем');
                 return false;
             }
 
-            const stocks = await _fetchAllRows('wb_stocks', [
-                { op: 'eq', column: 'cabinet_id', value: _cab },
-            ], 'nm_id');
-            if (_isStaleLoad(snapReq, snapCab)) return false;
-
-            const nmFromOrders = new Set((orders || []).map(o => String(o.nm_id)).filter(Boolean));
-            const nmFromStocks = new Set((stocks || []).map(s => String(s.nm_id)).filter(Boolean));
-            const allNmIds = [...new Set([...nmFromOrders, ...nmFromStocks])];
+            const allNmIds = (nmIds || []).map(String).filter(Boolean);
 
             if (!allNmIds.length) {
                 if (!silent) _nrDialog('Нет данных', 'Сначала загрузите данные кабинета на вкладке Оцифровка → Дашборд.', 'warning');
                 return false;
             }
-            const uniq = new Map();
-            (orders || []).forEach(o => {
-                const nm = o.nm_id;
-                if (!nm) return;
-                const sa = _orderSellerArticle(o);
-                const subject = String(o.data?.subject || o.data?.brand || '').trim();
-                const prev = uniq.get(nm) || { sa: '', subject: '' };
-                if (sa) prev.sa = sa;
-                if (subject && !prev.subject) prev.subject = subject;
-                uniq.set(nm, prev);
-            });
-            allNmIds.forEach(nmStr => {
-                const nm = Number(nmStr);
-                if (!nm || uniq.has(nm)) return;
-                uniq.set(nm, { sa: '', subject: '' });
-            });
-            for (const [nmId, meta] of uniq) {
+            for (const nmStr of allNmIds) {
+                const nmId = Number(nmStr);
+                if (!nmId) continue;
                 const existing = _articles.find(a => a.nm_id == nmId);
                 const md = { ...(existing?.manual_data || {}) };
-                if (meta.sa) md.seller_article = meta.sa;
-                const displayName = meta.sa || meta.subject || md.seller_article || `Артикул ${nmId}`;
+                const displayName = md.seller_article || existing?.name || `Артикул ${nmId}`;
                 if (!existing) {
                     await _db.from('rnp_articles').upsert({
                         cabinet_id: _cab, nm_id: nmId, name: displayName,
                         photo_url: '', is_active: activateNew, cost_price: 0,
                         manual_data: md,
                     }, { onConflict: 'cabinet_id,nm_id', ignoreDuplicates: true });
-                } else if (meta.sa) {
-                    await _updateArticle(nmId, { manual_data: md, name: displayName });
                 }
             }
             const keepSet = new Set(allNmIds.map(Number));
@@ -1000,7 +1079,7 @@ const RNP = (() => {
                 await _db.from('rnp_articles').delete().eq('cabinet_id', _cab).eq('nm_id', art.nm_id);
             }
             await _loadArticles(_cab);
-            await _backfillSellerArticlesFromDb();
+            _backfillSellerArticlesFromDb().catch(e => console.warn('[RNP] seller backfill:', e.message));
             return _articles.length > 0;
         } catch(e) {
             console.error('[RNP] sync:', e.message);
@@ -1013,7 +1092,7 @@ const RNP = (() => {
         const { silent = false, activateNew = false } = opts;
         if (!_callProxy) return false;
         try {
-            const resp = await _callProxy('content_cards', { limit: 1000, withPhoto: -1, textSearch: '' });
+            const resp = await _callProxyTimed('content_cards', { limit: 1000, withPhoto: -1, textSearch: '' }, _cab);
             const cards = resp?.cards || resp?.data?.cards || [];
             if (!cards.length) {
                 if (!silent) _nrDialog('Нет карточек', 'WB не вернул карточки товаров. Проверьте токен кабинета.', 'warning');
@@ -1060,16 +1139,15 @@ const RNP = (() => {
 
         if (!_articles.length) {
             console.info('[RNP] bootstrapping new cabinet', _cab);
-            let ok = await _syncFromOrders({ silent: true, activateNew: true });
-            if (!ok || !_articles.length) {
-                ok = await _syncFromContentCards({ silent: true, activateNew: true });
-            }
+            const ok = await _syncFromOrders({ silent: true, activateNew: true });
             if (_articles.length && !_articles.some(a => a.is_active)) {
                 await _setAllActive(true);
             }
             if (_articles.length) {
                 try { localStorage.setItem(initKey, '1'); } catch (e) {}
                 console.info('[RNP] bootstrap done:', _articles.filter(a => a.is_active).length, '/', _articles.length, 'active');
+            } else if (!ok) {
+                console.warn('[RNP] bootstrap: no articles yet — run dashboard sync or «Из заказов»');
             }
             return;
         }
@@ -1940,6 +2018,7 @@ const RNP = (() => {
           <button type="button" class="rnp-action-btn rnp-action-btn--edit${_editMode ? ' active' : ''}" id="rnp-edit-mode-btn"
             onclick="RNP.toggleEditMode()" title="Режим выделения ячеек">${_editMode ? 'Готово' : 'Редактировать'}</button>
           <span id="rnp-freshness" class="text-xs" style="color:var(--text-muted);margin-left:auto;white-space:nowrap"></span>
+          ${_wbEnrichmentDegraded ? `<span class="text-xs" style="color:var(--amber);margin-left:8px" title="Лимит WB API — фото/воронка/реклама могут быть неполными">⚠ enrichment ограничен</span>` : ''}
         </div>`;
     }
 
@@ -2423,18 +2502,33 @@ const RNP = (() => {
                 const hrs = (Date.now() - new Date(ex.updated_at)) / 3600000;
                 if (hrs < 2) return;
             }
-            // Pull from wb_orders for today
-            const orders = await _fetchAllRows('wb_orders', [
-                { op: 'eq', column: 'cabinet_id', value: _cab },
-                { op: 'eq', column: 'nm_id', value: nmId },
-            ]);
+            // Aggregated row from SQL — no raw wb_orders on the client.
+            const snapReq = _loadRequestId();
+            const snapCab = _cab;
+            const daily = await _fetchOrdersDaily(today, today, snapCab, snapReq);
+            if (!daily?.length) return;
+            const agg = daily.find(r => Number(r.nm_id) === Number(nmId));
+            if (!agg) return;
 
             const stocks = await _fetchAllRows('wb_stocks', [
                 { op: 'eq', column: 'cabinet_id', value: _cab },
                 { op: 'eq', column: 'nm_id', value: nmId },
             ]);
 
-            const row = _buildRow(nmId, today, orders || [], stocks || []);
+            const stockWh = (stocks || []).reduce((s, st) => s + (st.quantity || st.quantity_full || st.quantityFull || 0), 0);
+            const stockTr = (stocks || []).reduce((s, st) => s + (st.in_way_to_client || st.inWayToClient || 0), 0) +
+                            (stocks || []).reduce((s, st) => s + (st.in_way_from_client || st.inWayFromClient || 0), 0);
+            const count = Number(agg.orders_count || 0);
+            const sum = Number(agg.orders_sum || 0);
+
+            const row = {
+                cabinet_id: _cab, nm_id: nmId, date: today,
+                orders_count: count, orders_sum: sum,
+                avg_check: count > 0 ? sum / count : 0,
+                stock_warehouse: stockWh, stock_transit: stockTr,
+                stock_total: stockWh + stockTr,
+                updated_at: new Date().toISOString(),
+            };
             await _db.from('rnp_daily_data').upsert(row, { onConflict: 'cabinet_id,nm_id,date' });
         } catch(e) { console.warn('[RNP] sync today:', e.message); }
     }
@@ -2493,6 +2587,47 @@ const RNP = (() => {
         };
     }
 
+    function _buildRnpMetricsFromDaily(dailyRows, allStocks, settings, articles) {
+        const cfg = settings || _rnpMetricSettings();
+        const buyout = cfg.buyoutRate ?? 0.65;
+        const days = cfg.periodDays || 30;
+        const byNm = new Map();
+
+        for (const s of (allStocks || [])) {
+            const nm = String(s.nm_id);
+            if (!nm || nm === 'null') continue;
+            if (!byNm.has(nm)) byNm.set(nm, _emptyArticle(nm));
+            const a = byNm.get(nm);
+            a.stock += Number(s.quantity || 0);
+            a.inWayTo += Number(s.in_way_to_client || 0);
+            a.inWayFrom += Number(s.in_way_from_client || 0);
+        }
+
+        for (const row of (dailyRows || [])) {
+            const nm = String(row.nm_id);
+            if (!nm || nm === 'null') continue;
+            if (!byNm.has(nm)) byNm.set(nm, _emptyArticle(nm));
+            const a = byNm.get(nm);
+            a.returns += Number(row.returns_count || 0);
+            a.ordersCount += Number(row.orders_count || 0);
+            a.ordersSum += Number(row.orders_sum || 0);
+            const art = (articles || []).find(x => String(x.nm_id) === nm);
+            if (art) {
+                if (!a.name) a.name = String(art.name || '').trim();
+                if (!a.article) a.article = String(art.manual_data?.seller_article || '').trim();
+            }
+        }
+
+        for (const a of byNm.values()) {
+            a.salesCount = Math.round(a.ordersCount * buyout);
+            a.salesSum = Math.round(a.ordersSum * buyout);
+            a.avgPrice = a.ordersCount > 0 ? Math.round(a.ordersSum / a.ordersCount) : 0;
+            const perDay = a.ordersCount / days;
+            a.turnoverDays = perDay > 0 ? Math.round(a.stock / perDay) : null;
+        }
+        return byNm;
+    }
+
     function _buildRnpMetrics(allOrders, allStocks, settings) {
         const cfg = settings || _rnpMetricSettings();
         const buyout = cfg.buyoutRate ?? 0.65;
@@ -2530,6 +2665,57 @@ const RNP = (() => {
             a.turnoverDays = perDay > 0 ? Math.round(a.stock / perDay) : null;
         }
         return byNm;
+    }
+
+    function _populateDataCacheFromDaily(dailyRows, nmIds, cal, settings) {
+        const cfg = settings || _rnpMetricSettings();
+        const buyout = cfg.buyoutRate ?? 0.65;
+        const dateSet = new Set(_calAllDates(cal));
+        const idSet = new Set((nmIds || []).map(Number));
+        const today = new Date().toISOString().split('T')[0];
+
+        (nmIds || []).forEach(id => { _dataCache[id] = _dataCache[id] || {}; });
+
+        for (const row of (dailyRows || [])) {
+            const nm = Number(row.nm_id);
+            if (!idSet.has(nm)) continue;
+            const date = String(row.order_date || '').split('T')[0];
+            if (!date || !dateSet.has(date)) continue;
+            const count = Number(row.orders_count || 0);
+            const sum = Number(row.orders_sum || 0);
+            const salesCount = Math.round(count * buyout);
+            const salesSum = Math.round(sum * buyout);
+            _dataCache[nm][date] = {
+                cabinet_id: _cab,
+                nm_id: nm,
+                date,
+                orders_count: count,
+                orders_sum: sum,
+                returns_count: Number(row.returns_count || 0),
+                sales_count: salesCount,
+                sales_sum: salesSum,
+                avg_check: count > 0 ? sum / count : 0,
+                spp_pct: Number(row.spp_pct || 0),
+                buyout_pct: buyout * 100,
+                to_transfer: salesSum > 0 ? Math.round(salesSum * 0.72) : 0,
+                updated_at: new Date().toISOString(),
+            };
+        }
+
+        idSet.forEach(nm => {
+            const m = _metricsCache.get(String(nm));
+            if (!m) return;
+            const anchor = dateSet.has(today) ? today : [...dateSet].sort().pop();
+            if (!anchor) return;
+            const existing = _dataCache[nm]?.[anchor] || {
+                cabinet_id: _cab, nm_id: nm, date: anchor, updated_at: new Date().toISOString(),
+            };
+            existing.stock_warehouse = m.stock;
+            existing.stock_transit = m.inWayTo + m.inWayFrom;
+            existing.stock_total = m.stock + m.inWayTo + m.inWayFrom;
+            if (!_dataCache[nm]) _dataCache[nm] = {};
+            _dataCache[nm][anchor] = existing;
+        });
     }
 
     function _populateDataCacheFromOrders(orders, nmIds, cal, settings) {
@@ -2671,11 +2857,8 @@ const RNP = (() => {
         await _loadPlans();
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
-        const orders = await _fetchAllRows('wb_orders', [
-            { op: 'eq', column: 'cabinet_id', value: _cab },
-            { op: 'gte', column: 'order_date', value: dateFrom },
-            { op: 'lte', column: 'order_date', value: dateTo },
-        ], 'nm_id, order_date, price, is_return, data');
+        const dailyRows = await _fetchOrdersDaily(dateFrom, dateTo, snapCab, snapReq);
+        if (dailyRows === null) return false;
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
         const stocks = await _fetchAllRows('wb_stocks', [
@@ -2685,18 +2868,16 @@ const RNP = (() => {
 
         const settings = _rnpMetricSettings();
         settings.periodDays = cal.days?.length || cal.months?.[0]?.dates?.length || settings.periodDays;
-        _metricsCache = _buildRnpMetrics(orders, stocks, settings);
-        _populateDataCacheFromOrders(orders, nmIds, cal, settings);
+        _metricsCache = _buildRnpMetricsFromDaily(dailyRows, stocks, settings, _articles);
+        _populateDataCacheFromDaily(dailyRows, nmIds, cal, settings);
         _applyStocksToCache(stocks, nmIds);
         await _mergeFinanceDailyFromDb(nmIds, cal);
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
-        _syncAllOrdersHistory(nmIds).catch(e => console.warn('[RNP] bg orders cache:', e.message));
-
         window._rnpLastLoadedAt = Date.now();
         window._rnpLoadedForCabinet = _cab;
         _updateRnpFreshness();
-        console.info('[RNP] loaded', orders.length, 'orders,', stocks.length, 'stocks,', _metricsCache.size, 'articles');
+        console.info('[RNP] loaded', dailyRows.length, 'daily rows,', stocks.length, 'stocks,', _metricsCache.size, 'articles');
         return true;
     }
 
@@ -2742,51 +2923,15 @@ const RNP = (() => {
         }));
     }
 
-    async function _syncAllOrdersHistory(nmIds) {
-        const ids = (nmIds || []).map(Number).filter(Boolean);
-        if (!ids.length) return;
-        const snapReq = _loadRequestId();
-        const snapCab = _cab;
-        try {
-            const dateFrom = _ordersHistoryDateFrom();
-            const orders = await _fetchAllRows('wb_orders', [
-                { op: 'eq', column: 'cabinet_id', value: _cab },
-                { op: 'gte', column: 'order_date', value: dateFrom },
-            ], 'nm_id, order_date, price, is_return, data');
-            if (_isStaleLoad(snapReq, snapCab)) return;
-            if (!orders?.length) return;
+    // Client-side upsert of rnp_daily_data from raw orders removed — auto-sync
+    // already aggregates wb_orders → rnp_daily_data on the server.
 
-            const upserts = [];
-            ids.forEach(nmId => {
-                upserts.push(..._aggregateOrdersToDaily(orders, nmId));
-            });
-            if (!upserts.length) return;
-
-            for (let i = 0; i < upserts.length; i += 100) {
-                await _db.from('rnp_daily_data').upsert(
-                    upserts.slice(i, i + 100),
-                    { onConflict: 'cabinet_id,nm_id,date' }
-                );
-            }
-            console.info('[RNP] orders cache:', upserts.length, 'rows for', ids.length, 'articles');
-        } catch (e) { console.warn('[RNP] syncAllOrdersHistory:', e.message); }
+    async function _syncAllOrdersHistory(_nmIds) {
+        return;
     }
 
-    async function _syncOrdersHistory(nmId) {
-        try {
-            const dateFrom = _ordersHistoryDateFrom();
-            const orders = await _fetchAllRows('wb_orders', [
-                { op: 'eq', column: 'cabinet_id', value: _cab },
-                { op: 'eq', column: 'nm_id', value: nmId },
-                { op: 'gte', column: 'order_date', value: dateFrom },
-            ], 'nm_id, order_date, price, is_return, data');
-            if (!orders?.length) return;
-
-            const upserts = _aggregateOrdersToDaily(orders, nmId);
-            if (upserts.length) {
-                await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
-            }
-        } catch(e) { console.warn('[RNP] syncOrdersHistory:', e.message); }
+    async function _syncOrdersHistory(_nmId) {
+        return;
     }
 
     // ─── FINANCE REPORT SYNC ─────────────────────────────────────────────────
@@ -2813,7 +2958,7 @@ const RNP = (() => {
 
         let rows;
         try {
-            rows = await _callProxy('finance_report', { dateFrom, dateTo, aggregate: true });
+            rows = await _callProxyTimed('finance_report', { dateFrom, dateTo, aggregate: true }, _cab);
         } catch (e) {
             // 429 etc — negative-cache for 5 min so we don't hammer WB
             console.warn('[RNP] finance_report:', e.message);
@@ -2897,12 +3042,12 @@ const RNP = (() => {
 
         let resp;
         try {
-            resp = await _callProxy('sales_funnel_history', {
+            resp = await _callProxyTimed('sales_funnel_history', {
                 dateFrom,
                 dateTo,
                 nmId,
                 aggregationLevel: 'day',
-            });
+            }, _cab);
         } catch (e) {
             console.warn('[RNP] funnel error:', e.message);
             return;
@@ -2951,7 +3096,7 @@ const RNP = (() => {
         const dateTo   = now.toISOString().split('T')[0];
         try {
             // 1. Get all campaign IDs via /adv/v1/promotion/count
-            const resp = await _callProxy('advert_list', {});
+            const resp = await _callProxyTimed('advert_list', {}, _cab);
             // New format: { ids: [...] }; old fallback: { adverts: [...] } or array
             const allIds = resp?.ids ||
                            (resp?.adverts ? resp.adverts.map(c => c.advertId || c.id).filter(Boolean) : null) ||
@@ -2960,7 +3105,7 @@ const RNP = (() => {
             console.info(`[RNP] advert_list: ${allIds.length} campaign IDs`);
 
             // 2. Fetch stats (GET /adv/v3/fullstats)
-            const stats = await _callProxy('advert_stats', { advertIds: allIds, dateFrom, dateTo });
+            const stats = await _callProxyTimed('advert_stats', { advertIds: allIds, dateFrom, dateTo }, _cab);
             if (!Array.isArray(stats) || !stats.length) { console.info('[RNP] advert_stats: empty response'); return; }
             console.info(`[RNP] advert_stats: ${stats.length} campaigns returned`);
 
@@ -3455,6 +3600,18 @@ const RNP = (() => {
     async function _renderMain() {
         const el = document.getElementById('tab-rnp');
         if (!el) return;
+
+        if (_initInflight && !_articles.length) {
+            el.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
+              <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+              Загрузка артикулов…
+            </div>`;
+            await Promise.race([
+                _initInflight,
+                new Promise(r => setTimeout(r, 8000)),
+            ]);
+        }
+
         const active = _articles.filter(a => a.is_active);
         _hydratePhotoCacheFromStorage();
         _hydratePhotoCacheFromArticles();
@@ -3519,21 +3676,37 @@ const RNP = (() => {
           </div>
         </div>`;
 
+        const renderId = ++_mainRenderGen;
         const snapReq = _loadRequestId();
         const snapCab = _cab;
+        let loadOk = false;
+        let loadErr = null;
         try {
-            await _loadRnpData();
+            loadOk = await _loadRnpData();
+            if (renderId !== _mainRenderGen) return;
             if (_isStaleLoad(snapReq, snapCab)) return;
+            if (loadOk === false) {
+                _setRnpSheetState('empty', 'Нет данных за выбранный период. Запустите синхронизацию на дашборде.');
+                return;
+            }
             await _loadNotes(active.map(a => a.nm_id));
+            if (renderId !== _mainRenderGen || _isStaleLoad(snapReq, snapCab)) return;
             _hydratePhotoCacheFromStorage();
             _hydratePhotoCacheFromArticles();
         } catch (e) {
+            loadErr = e;
             console.error('[RNP] load:', e);
         }
+        if (renderId !== _mainRenderGen) return;
         if (_isStaleLoad(snapReq, snapCab)) return;
+        if (loadErr) {
+            _setRnpSheetState('error', loadErr.message || 'Ошибка загрузки РНП');
+            return;
+        }
         await _renderActiveTable();
         _applyResolvedPhotos();
         _preloadPhotosBackground(active).then(() => {
+            if (renderId !== _mainRenderGen) return;
             _applyResolvedPhotos();
             const tabs = document.getElementById('rnp-sheet-tabs');
             if (tabs) tabs.innerHTML = _renderTabsHTML(_articles.filter(a => a.is_active));
@@ -4079,7 +4252,8 @@ const RNP = (() => {
     }
 
     // ─── PUBLIC API ───────────────────────────────────────────────────────────
-    async function init(supabase, cabId, proxyFn, opts) {
+    /** Fast path: DB + RPC only — never awaits wb-proxy (photos, content_cards, ads). */
+    async function initCore(supabase, cabId, proxyFn, opts) {
         const prevCab = _cab;
         if (prevCab && prevCab !== cabId) _saveCabinetCache(prevCab);
         const gen = ++_initGen;
@@ -4095,15 +4269,61 @@ const RNP = (() => {
         if (_isStaleInit(gen, cabId)) return;
         await _loadArticles(cabId, gen);
         if (_isStaleInit(gen, cabId)) return;
-        await _syncFromOrders({ silent: true });
-        if (_isStaleInit(gen, cabId)) return;
-        await _loadArticles(cabId, gen);
-        if (_isStaleInit(gen, cabId)) return;
+        if (!_articles.length) {
+            await _syncFromOrders({ silent: true });
+            if (_isStaleInit(gen, cabId)) return;
+            await _loadArticles(cabId, gen);
+            if (_isStaleInit(gen, cabId)) return;
+        }
         await _bootstrapCabinetIfNeeded();
         if (_isStaleInit(gen, cabId)) return;
         _hydratePhotoCacheFromStorage();
         _hydratePhotoCacheFromArticles();
-        _backfillSellerArticlesFromDb().catch(e => console.warn('[RNP] seller backfill:', e.message));
+    }
+
+    function _startBackgroundEnrichment() {
+        // Delay wb-proxy enrichment so opening RNP doesn't race dashboard
+        // finance_report / other tabs — WB Content API 429 is per seller token.
+        setTimeout(() => {
+            if (_cab !== (window.currentCabinetId || _cab)) return;
+            _backfillSellerArticlesFromDb().catch(e => console.warn('[RNP] seller backfill:', e.message));
+        }, 8000);
+        setTimeout(() => {
+            if (_cab !== (window.currentCabinetId || _cab)) return;
+            _preloadPhotosBackground(_articles.filter(a => a.is_active)).catch(e => {
+                console.warn('[RNP] photo preload:', e.message);
+                _wbEnrichmentDegraded = true;
+            });
+        }, 14000);
+    }
+
+    function ensureReady(supabase, cabId, proxyFn, opts) {
+        if (supabase) _db = supabase;
+        if (cabId) _cab = cabId;
+        if (typeof proxyFn === 'function') _callProxy = proxyFn;
+        if (opts?.userEmail) _userEmail = opts.userEmail;
+        if (!_db || !_cab) return;
+        if (_initInflight && _initInflightCab === cabId) return;
+        _initInflightCab = cabId;
+        _initInflight = initCore(supabase, cabId, proxyFn, opts)
+            .then(() => { _startBackgroundEnrichment(); })
+            .catch(e => console.warn('[RNP] initCore:', e.message))
+            .finally(() => {
+                if (_initInflightCab === cabId) {
+                    _initInflight = null;
+                    _initInflightCab = null;
+                }
+            });
+    }
+
+    async function init(supabase, cabId, proxyFn, opts) {
+        ensureReady(supabase, cabId, proxyFn, opts);
+        if (_initInflight) {
+            await Promise.race([
+                _initInflight,
+                new Promise(r => setTimeout(r, 8000)),
+            ]);
+        }
     }
 
     async function openSettings() {
@@ -4111,15 +4331,20 @@ const RNP = (() => {
     }
 
     async function openMain() {
-        // If the RNP workspace is already mounted and fresh for the current
-        // cabinet (e.g. user just switched away to another tab and back),
-        // leave the existing DOM untouched — showTab() already toggled the
-        // `.active` class, so re-rendering here would just be a needless
-        // teardown/rebuild (flicker + lost scroll/collapsed state) for a
-        // tab-switch that isn't actually reloading any data.
+        const el = document.getElementById('tab-rnp');
+        if (!el) return;
+        if (!_db || !_cab) {
+            _setRnpTabState('error', 'Кабинет не инициализирован. Обновите страницу.');
+            return;
+        }
         const mounted = document.querySelector('#tab-rnp .rnp-workspace');
         if (mounted && window._rnpLoadedForCabinet === _cab) return;
-        await _renderMain();
+        try {
+            await _renderMain();
+        } catch (e) {
+            console.error('[RNP] openMain:', e);
+            _setRnpTabState('error', e.message || 'Ошибка открытия РНП');
+        }
     }
 
     async function pick(nmId) {
@@ -4314,6 +4539,8 @@ const RNP = (() => {
         _cabinetListenerBound = true;
         document.addEventListener('cabinet-changed', () => {
             _initGen++;
+            _abortPendingLoad();
+            _mainRenderGen++;
             window._rnpLastLoadedAt = 0;
             window._rnpLoadedForCabinet = null;
             _clearRnpMainUI();
@@ -4327,9 +4554,22 @@ const RNP = (() => {
         document.addEventListener('rnp-reload-requested', async () => {
             const snapReq = _loadRequestId();
             const snapCab = _cab;
-            await _loadRnpData();
+            let ok = false;
+            try {
+                ok = await _loadRnpData();
+            } catch (e) {
+                console.error('[RNP] reload:', e);
+                if (!_isStaleLoad(snapReq, snapCab) && document.getElementById('rnp-sheet-body')) {
+                    _setRnpSheetState('error', e.message);
+                }
+                return;
+            }
             if (_isStaleLoad(snapReq, snapCab)) return;
             if (!document.getElementById('tab-rnp')?.classList.contains('active')) return;
+            if (!ok) {
+                _setRnpSheetState('empty');
+                return;
+            }
             if (document.getElementById('rnp-sheet-body')) {
                 await _renderActiveTable();
             } else {
@@ -4378,8 +4618,15 @@ const RNP = (() => {
     _bindCabinetListener();
     _bindAutoRefresh();
     _bindPlansListener();
+    document.addEventListener('rnp-wb-degraded', () => {
+        _wbEnrichmentDegraded = true;
+        const bar = document.getElementById('rnp-action-bar-wrap');
+        if (bar && document.getElementById('tab-rnp')?.classList.contains('active')) {
+            bar.innerHTML = _buildActionBar(_articles.filter(a => a.is_active));
+        }
+    });
 
-    return { init, openSettings, openMain, pick, syncArts, resyncArticles, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, initCore, ensureReady, openSettings, openMain, pick, syncArts, resyncArticles, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();

@@ -1,0 +1,171 @@
+NR Space — Модуль РНП («Рука на пульсе»)
+Документ для разработки / Claude. Проект: nurcon.kg/space, Supabase fiukyfyhotctvfdidktx.
+
+================================================================================
+1. НАЗНАЧЕНИЕ
+================================================================================
+РНП — ежедневный мониторинг по артикулам WB: заказы, продажи, воронка, реклама,
+остатки, планы, юнит-экономика. Мультикабинетный: все таблицы общие, изоляция
+через cabinet_id (отдельных таблиц на кабинет НЕТ).
+
+UI: dashboard.html → вкладка «РНП» (rnp-module.js), «Настройки РНП»,
+«Планирование» (отдельная вкладка, пишет в rnp_plans).
+
+================================================================================
+2. СХЕМА ТАБЛИЦ (Supabase)
+================================================================================
+
+cabinets
+  id uuid PK
+  name text
+  wb_token text          — токен WB Statistics API (заказы/остатки)
+  orders_backfilled_to date — курсор исторического бэкфила заказов (auto-sync)
+
+--- Сырые данные WB ---
+
+wb_orders
+  id bigint PK
+  cabinet_id text/uuid
+  order_date date        — из поля WB `date` (НЕ lastChangeDate)
+  nm_id bigint
+  srid text            — уникальный id строки заказа WB
+  barcode text
+  price numeric          — priceWithDiscount || totalPrice
+  is_return boolean
+  data jsonb             — полный объект WB (на фронт НЕ отдаётся)
+  UNIQUE (cabinet_id, srid) WHERE srid IS NOT NULL
+
+wb_stocks
+  cabinet_id, nm_id, quantity, warehouse_name, tech_size, in_way_to_client, ...
+
+--- РНП-таблицы ---
+
+rnp_settings
+  cabinet_id text UNIQUE — курс, calc_period, promotion_api_token, options jsonb
+
+rnp_articles
+  cabinet_id + nm_id UNIQUE
+  name, photo_url, is_active, cost_price, category, manual_data jsonb
+
+rnp_daily_data
+  cabinet_id + nm_id + date UNIQUE
+  orders_count, orders_sum, avg_check
+  stock_warehouse, stock_transit, stock_total
+  sales_count, sales_sum, returns_count, buyout_pct, ...
+  ad_impressions, ad_clicks, ad_spend, ...
+  impressions, clicks, basket_count, ctr_pct, ... (воронка Analytics)
+
+rnp_plans
+  cabinet_id uuid FK → cabinets
+  nm_id, plan_date UNIQUE
+  planned_orders, planned_sales, planned_impressions, planned_clicks,
+  planned_drr, planned_ad_spend
+
+rnp_date_notes
+  cabinet_id, nm_id, note_date, note, author
+
+sync_log — логи auto-sync (orders_count, status, error_msg, ...)
+
+================================================================================
+3. СИНХРОНИЗАЦИЯ ЗАКАЗОВ (auto-sync Edge Function)
+================================================================================
+Файл: supabase/functions/auto-sync/index.ts
+Cron: auto-sync-4h (0 */4 * * *), rnp-daily-bish (08:30 UTC = 14:30 Бишкек)
+
+WB API:
+  GET https://statistics-api.wildberries.ru/api/v1/supplier/orders
+      ?dateFrom={YYYY-MM-DD}&flag=1
+  flag=1 = снапшот одного календарного дня (orderDate = этот день)
+
+Два прохода:
+  Pass B — каждый прогон: последние 4 дня (today + 3)
+    delete wb_orders WHERE cabinet_id AND order_date = day
+    upsert onConflict (cabinet_id, srid)
+  Pass A — бэкфил истории: до 25 дней/прогон, курсор cabinets.orders_backfilled_to
+
+Агрегация в rnp_daily_data (syncRnpDailyFromOrders):
+  GROUP BY nm_id, order_date
+  Исключается только is_return (isCancel НЕ фильтруется — как у WB Воронки)
+  price = колонка price (уже priceWithDiscount при insert)
+
+================================================================================
+4. RPC НА БЭКЕНДЕ (фронт не тянет wb_orders.data)
+================================================================================
+
+rnp_orders_daily(p_cabinet_id, p_from, p_to) → jsonb[]
+  [{ nm_id, order_date, orders_count, orders_sum, returns_count, spp_pct }, ...]
+  Агрегация SQL: GROUP BY nm_id, order_date, filter is_return.
+
+cabinet_wb_nm_ids(p_cabinet_id) → bigint[]
+  DISTINCT nm_id из wb_orders ∪ wb_stocks (для bootstrap артикулов).
+
+dashboard_summary(...) — агрегаты для главного дашборда (не РНП).
+
+================================================================================
+5. ФРОНТ: rnp-module.js
+================================================================================
+
+Инициализация: RNP.ensureReady() → initCore (только DB/RPC, без wb-proxy) → openMain()
+  параллельно. wb-proxy (content_cards, product_photos) — initBackground после core.
+  _loadRnpData() → rpc rnp_orders_daily + rnp_settings + rnp_articles + rnp_plans + wb_stocks.
+  advert_stats / sales_funnel — только по кнопке refresh или фоном; 429 → деградация, не блок.
+  → rpc rnp_orders_daily(dateFrom, dateTo) — маленькие агрегаты
+  → wb_stocks (остатки)
+  → rnp_daily_data merge (реклама, воронка, finance cols)
+  → rnp_plans (планы)
+
+Отображение «ЗАКАЗЫ»: orders_count из _dataCache, построенного из RPC-агрегатов.
+
+Гонки при смене кабинета:
+  window.__nrLoadRequestId() + window.currentCabinetId
+  _isStaleLoad(snapReq, snapCab) перед применением результата
+  _mainRenderGen — отмена устаревшего _renderMain
+
+Edge Functions (callWbProxy): таймаут 30 с, обработка ошибки в UI.
+
+_wb-proxy actions используемые РНП:
+  finance_report, sales_funnel_history, advert_list, advert_stats,
+  content_cards, product_photos
+
+================================================================================
+6. ПЛАН ПРОДАЖ
+================================================================================
+Таблица: rnp_plans
+UI ввода:
+  1) Dashboard → «Планирование» (сетка артикул × день)
+  2) РНП → ячейки «План заказ», «План продаж» (savePlan → rnp_plans)
+Оба источника пишут в одну таблицу, событие rnp-plans-changed синхронизирует UI.
+
+================================================================================
+7. ИЗВЕСТНЫЕ КАБИНЕТЫ (prod)
+================================================================================
+Baza      dac666b6-88e7-4eae-997e-6d8519ba779c
+Zevina 1  (есть токен)
+Zevina 2  (есть токен)
+SAAI      (есть токен)
+Elium     — без токена, синк пропускается
+
+Пример артикулов Baza для отладки заказов:
+  771499220 (белый), 771571983 (чёрный)
+
+================================================================================
+8. ФАЙЛЫ
+================================================================================
+rnp-module.js              — логика РНП (исходник)
+dist/rnp-module.*.min.js   — бандл для dashboard.html
+dashboard.html             — вкладки, callWbProxy, showTab
+supabase/functions/auto-sync/index.ts — синк заказов + rnp_daily_data
+supabase/migrations/20260702_rnp_tables.sql
+supabase/migrations/20260715_rnp_plans.sql
+supabase/migrations/20260722183000_rnp_orders_daily_rpc.sql
+
+================================================================================
+9. ПРАВИЛА ПОДСЧЁТА ЗАКАЗОВ (единые везде)
+================================================================================
+Дата:     order_date ← WB field `date`
+Группа:   (cabinet_id, nm_id, order_date)
+Фильтр:   is_return = true → исключить
+          isCancel → НЕ исключать
+Сумма:    price (priceWithDiscount при insert)
+Дедуп:    upsert по (cabinet_id, srid)
+TZ:       день = split('T')[0] от ISO; Pass B auto-sync считает дни в UTC

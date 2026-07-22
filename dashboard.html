@@ -4688,9 +4688,53 @@
         return { morphList, preserveScroll };
     })();
 
-    async function callWbProxy(action, params, cabinetId) {
+    const WB_PROXY_CACHE_TTL = {
+        content_cards: 6 * 60 * 60 * 1000,
+        product_photos: 24 * 60 * 60 * 1000,
+    };
+
+    function wbProxyCacheKey(action, params, cabId) {
+        if (action === 'product_photos') {
+            const ids = [...new Set((params.nmIds || []).map(Number).filter(Boolean))].sort((a, b) => a - b);
+            return ids.length ? `pp:${cabId}:${ids.join(',')}` : null;
+        }
+        if (action === 'content_cards') {
+            const nmPart = (params.nmIds || []).map(Number).filter(Boolean).sort((a, b) => a - b).join(',');
+            return `cc:${cabId}:${params.textSearch || ''}:${params.limit || 100}:${params.withPhoto ?? -1}:${nmPart}`;
+        }
+        return null;
+    }
+
+    function readWbProxyCache(key, ttlMs) {
+        try {
+            const raw = sessionStorage.getItem('wbpc:' + key);
+            if (!raw) return null;
+            const parsed = JSON.parse(raw);
+            if (!parsed || Date.now() - parsed.ts > ttlMs) return null;
+            return parsed.data;
+        } catch (e) { return null; }
+    }
+
+    function writeWbProxyCache(key, data, ttlMs) {
+        try {
+            sessionStorage.setItem('wbpc:' + key, JSON.stringify({ ts: Date.now(), data, ttl: ttlMs }));
+        } catch (e) {}
+    }
+
+    async function callWbProxy(action, params, cabinetId, _retry429 = 0) {
         const cabId = cabinetId || currentCabinetId;
         if (!hasUserCabinets || !cabId) return null;
+        const cacheTtl = WB_PROXY_CACHE_TTL[action];
+        const cacheKey = cacheTtl ? wbProxyCacheKey(action, params, cabId) : null;
+        if (cacheKey) {
+            const cached = readWbProxyCache(cacheKey, cacheTtl);
+            if (cached != null) return cached;
+        }
+        const bgActions = new Set([
+            'sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos',
+            'content_cards', 'media_save', 'fbw_supplies', 'fbw_supply_detail',
+            'stocks', 'orders', 'advert_keyword_stats', 'advert_balance', 'finance_report',
+        ]);
         if (!isSuperAdmin && currentSpaceStatus !== 'active') {
             showPremiumModal('warning', 'Спейс не активен', currentSpaceStatus === 'blocked'
                 ? 'Ваш спейс заблокирован. Синхронизация с WB отключена.'
@@ -4699,22 +4743,49 @@
         }
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) { showPremiumModal('error', 'Не авторизован', 'Сессия истекла, перезайдите.'); return null; }
+        const PROXY_TIMEOUT_MS = 30000;
+        const ac = new AbortController();
+        const timer = setTimeout(() => ac.abort(), PROXY_TIMEOUT_MS);
         let res;
         try {
             res = await fetch(WB_PROXY_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
-                body: JSON.stringify({ cabinet_id: cabId, action, params })
+                body: JSON.stringify({ cabinet_id: cabId, action, params }),
+                signal: ac.signal,
             });
         } catch (e) {
-            showPremiumModal('error', 'Ошибка соединения', e.message);
+            clearTimeout(timer);
+            const msg = e.name === 'AbortError'
+                ? `Таймаут 30 с (${action})`
+                : e.message;
+            if (bgActions.has(action)) {
+                console.warn('[callWbProxy]', msg);
+                window._rnpWbDegraded = true;
+                document.dispatchEvent(new CustomEvent('rnp-wb-degraded'));
+                return null;
+            }
+            showPremiumModal('error', 'Ошибка соединения', msg);
             return null;
         }
-        if (res.status === 429) { showPremiumModal('error', 'WB ограничил запросы', 'Слишком много запросов подряд. Подождите 3-5 минут и попробуйте снова.'); return null; }
+        clearTimeout(timer);
+        if (res.status === 429) {
+            if (_retry429 < 1) {
+                await new Promise(r => setTimeout(r, 4000));
+                return callWbProxy(action, params, cabinetId, _retry429 + 1);
+            }
+            window._rnpWbDegraded = true;
+            document.dispatchEvent(new CustomEvent('rnp-wb-degraded'));
+            if (bgActions.has(action)) {
+                console.warn('[callWbProxy] 429 degraded:', action);
+                return null;
+            }
+            showPremiumModal('error', 'WB ограничил запросы', 'Слишком много запросов подряд. Таблица РНП доступна; обновление рекламы/воронки — позже.');
+            return null;
+        }
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
             const msg = errData.error || errData.message || `HTTP ${res.status}`;
-            const bgActions = new Set(['sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos', 'content_cards', 'media_save', 'fbw_supplies', 'fbw_supply_detail', 'stocks', 'orders', 'advert_keyword_stats', 'advert_balance']);
             if (!hasUserCabinets || !currentCabinetId) return null;
             if (res.status === 403) showPremiumModal('warning', 'Доступ запрещён', msg);
             else if (res.status >= 500) console.warn(`[callWbProxy] ${action} server error:`, msg);
@@ -4722,7 +4793,9 @@
             else showPremiumModal('warning', 'Ошибка запроса', msg);
             return null;
         }
-        return await res.json().catch(() => null);
+        const payload = await res.json().catch(() => null);
+        if (cacheKey && cacheTtl && payload != null) writeWbProxyCache(cacheKey, payload, cacheTtl);
+        return payload;
     }
     window.callWbProxy = callWbProxy;
 
@@ -5045,13 +5118,8 @@
             if (hasUserCabinets && window._markingReportLoadedForCabinet !== currentCabinetId) loadMarkingComplianceReport();
         }
         if (name === 'rnp' && hasUserCabinets && typeof RNP !== 'undefined') {
-            const stale = Date.now() - (window._rnpLastLoadedAt || 0) > 10 * 60 * 1000;
-            const wrongCabinet = window._rnpLoadedForCabinet !== currentCabinetId;
-            if (stale || wrongCabinet) {
-                document.dispatchEvent(new CustomEvent('rnp-reload-requested'));
-            } else {
-                RNP.openMain();
-            }
+            RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+            RNP.openMain();
         }
         if (name === 'rnp-settings' && hasUserCabinets && typeof RNP !== 'undefined') RNP.openSettings();
         if (name === 'planning' && hasUserCabinets) loadPlanningTab();
@@ -6834,7 +6902,7 @@
             await loadFromDB();
             await loadLastSyncTime();
             if (typeof RNP !== 'undefined') {
-                await RNP.init(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+                RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
                 const cur = localStorage.getItem('nr_active_tab');
                 if (cur === 'rnp') RNP.openMain();
                 if (cur === 'rnp-settings') RNP.openSettings();
@@ -7307,9 +7375,9 @@
             if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
 
             await loadFromDB();
-            if (typeof RNP !== 'undefined' && snapshotCabinet === currentCabinetId) {
-                await RNP.init(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
-                if (typeof RNP.resyncArticles === 'function') await RNP.resyncArticles();
+            if (typeof RNP !== 'undefined') {
+                RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+                if (typeof RNP.resyncArticles === 'function') RNP.resyncArticles().catch(() => {});
                 const cur = localStorage.getItem('nr_active_tab');
                 if (cur === 'rnp') RNP.openMain();
                 if (cur === 'rnp-settings') RNP.openSettings();
@@ -9981,15 +10049,7 @@
             try {
                 const cur = getCurrentActiveTab();
                 if (currentCabinetId && hasUserCabinets && typeof RNP !== 'undefined') {
-                    const initTimeout = new Promise((_, rej) => setTimeout(() => rej(new Error('RNP init timeout')), 12000));
-                    await Promise.race([
-                        RNP.init(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail }),
-                        initTimeout,
-                    ]).catch(e => console.warn('[RNP] init:', e.message));
-                    // RNP.init() может само перерисовать своё вью только если
-                    // вкладка РНП уже активна — на случай если оно ничего не
-                    // подхватило само, дублируем открытие текущей сохранённой
-                    // вкладки РНП после инициализации.
+                    RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
                     if (cur === 'rnp') RNP.openMain();
                     else if (cur === 'rnp-settings') RNP.openSettings();
                 }
@@ -10099,7 +10159,7 @@
     }
 </script>
     <script src="/dist/dashboard-charts.137201825f.min.js"></script>
-    <script src="/dist/rnp-module.2393577630.min.js"></script>
+    <script src="/dist/rnp-module.df5302c994.min.js"></script>
     <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 </body>
 </html>
