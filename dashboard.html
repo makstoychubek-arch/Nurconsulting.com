@@ -4228,10 +4228,22 @@
     function getCurrentActiveTab() {
         const active = document.querySelector('.tab-content.active');
         if (active?.id?.startsWith('tab-')) return active.id.replace('tab-', '');
+        // Early-tab CSS can show #tab-rnp before .active classes are synced.
         try {
+            const rnp = document.getElementById('tab-rnp');
+            const dash = document.getElementById('tab-dashboard');
+            if (rnp && dash && !dash.classList.contains('active')) {
+                const vis = getComputedStyle(rnp).display;
+                if (vis && vis !== 'none') return 'rnp';
+            }
             const saved = localStorage.getItem('nr_active_tab');
             return TAB_ALIASES[saved] || saved || 'dashboard';
         } catch (_) { return 'dashboard'; }
+    }
+
+    function isRnpTabOpen() {
+        return getCurrentActiveTab() === 'rnp'
+            || (document.getElementById('tab-rnp')?.classList.contains('active') ?? false);
     }
 
     function updateEmptyCabinetState() {
@@ -5087,8 +5099,7 @@
     window.headerGoBack = headerGoBack;
 
     function bootRnpTab(force) {
-        const cur = getCurrentActiveTab();
-        if (cur !== 'rnp') return;
+        if (!isRnpTabOpen()) return;
         if (typeof RNP === 'undefined') {
             scheduleRnpBoot();
             return;
@@ -5098,7 +5109,7 @@
             return;
         }
         RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
-        RNP.openMain(!!force);
+        RNP.openMain(true);
     }
 
     function bootRnpSettings(force) {
@@ -5160,7 +5171,7 @@
             initMarkingModule();
             if (hasUserCabinets && window._markingReportLoadedForCabinet !== currentCabinetId) loadMarkingComplianceReport();
         }
-        if (name === 'rnp') bootRnpTab();
+        if (name === 'rnp') bootRnpTab(true);
         if (name === 'rnp-settings') bootRnpSettings();
         if (name === 'planning' && hasUserCabinets) loadPlanningTab();
         if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
@@ -10200,7 +10211,7 @@
     }
 </script>
     <script src="/dist/dashboard-charts.137201825f.min.js"></script>
-    <script src="/dist/rnp-module.f5d1b99248.min.js"></script>
+    <script src="/dist/rnp-module.aa7f7e9dc7.min.js"></script>
     <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 </body>
 </html>

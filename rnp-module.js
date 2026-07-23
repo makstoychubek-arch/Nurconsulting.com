@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260722-sync-fix';
+    const RNP_BUILD = '20260723-open-fix';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -26,6 +26,12 @@ const RNP = (() => {
     let _mainRenderGen = 0;
     let _initInflight = null;
     let _initInflightCab = null;
+    let _cabinetColsCacheKey = '';
+    let _cabinetColsCacheVal = null;
+
+    function _yieldMain() {
+        return new Promise(r => requestAnimationFrame(() => r()));
+    }
     let _wbEnrichmentDegraded = false;
     let _activeNm = null;
     let _collapsedSections = new Set();
@@ -2900,6 +2906,8 @@ const RNP = (() => {
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
         window._rnpLastLoadedAt = Date.now();
+        _cabinetColsCacheKey = '';
+        _cabinetColsCacheVal = null;
         _updateRnpFreshness();
         console.info('[RNP] loaded', dailyRows.length, 'daily rows,', stocks.length, 'stocks,', _metricsCache.size, 'articles');
         return true;
@@ -3321,6 +3329,10 @@ const RNP = (() => {
     }
 
     function _buildCabinetCols(active, cal) {
+        const cacheKey = `${_cab}:${cal.mode}:${cal.todayStr}:${active.length}`;
+        if (_cabinetColsCacheKey === cacheKey && _cabinetColsCacheVal) return _cabinetColsCacheVal;
+
+        let result;
         if (cal.mode === 'month') {
             const allDates = cal.months.flatMap(m => m.dates);
             const totalCol = {
@@ -3332,8 +3344,8 @@ const RNP = (() => {
                 ...m,
                 data: _cabinetAggWeek(active, m.dates),
             }));
-            return [totalCol, ...monthCols];
-        }
+            result = [totalCol, ...monthCols];
+        } else {
         const weekCols = cal.weeks.map(w => ({
             ...w,
             colKey: w.weekStart || w.dates[0],
@@ -3350,7 +3362,12 @@ const RNP = (() => {
             colKey: d.date,
             data: _cabinetDayDerived(active, d.date),
         }));
-        return totalCol ? [...weekCols, totalCol, ...dayCols] : [...weekCols, ...dayCols];
+        result = totalCol ? [...weekCols, totalCol, ...dayCols] : [...weekCols, ...dayCols];
+        }
+
+        _cabinetColsCacheKey = cacheKey;
+        _cabinetColsCacheVal = result;
+        return result;
     }
 
     function _buildCabinetRateRow(cols, active) {
@@ -3663,9 +3680,19 @@ const RNP = (() => {
     function _rnpMainRendered() {
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return false;
-        return !!(body.querySelector('.rnp-table-scroll')
-            || body.querySelector('.rnp-summary-table')
-            || body.querySelector('.rnp-action-btn'));
+        if (body.querySelector('.rnp-table-scroll, .rnp-summary-table')) return true;
+        return false;
+    }
+
+    function _rnpIsLoading() {
+        const el = document.getElementById('tab-rnp');
+        if (!el) return false;
+        const text = el.textContent || '';
+        if (text.includes('Инициализация РНП') || text.includes('Загрузка РНП') || text.includes('Загрузка артикулов')) return true;
+        const body = document.getElementById('rnp-sheet-body');
+        if (!body) return false;
+        return !!body.querySelector('.rnp-workspace') && !_rnpMainRendered()
+            && !body.querySelector('.rnp-action-btn');
     }
 
     async function _renderMain() {
@@ -3722,10 +3749,11 @@ const RNP = (() => {
                 if (saved === GENERAL_TAB || saved === 'general') _activeNm = GENERAL_TAB;
                 else if (saved === SUMMARY_TAB || saved === 'summary') _activeNm = SUMMARY_TAB;
                 else if (active.find(a => a.nm_id == saved)) _activeNm = Number(saved);
-                else _activeNm = GENERAL_TAB;
+                else _activeNm = active.length > 40 ? SUMMARY_TAB : GENERAL_TAB;
                 if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB) _activeNm = Number(_activeNm);
-            } catch (e) { _activeNm = GENERAL_TAB; }
+            } catch (e) { _activeNm = active.length > 40 ? SUMMARY_TAB : GENERAL_TAB; }
         }
+        if (active.length > 40 && _activeNm === GENERAL_TAB) _activeNm = SUMMARY_TAB;
 
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
         _notesVisible = false;
@@ -3824,14 +3852,19 @@ const RNP = (() => {
             _hydratePhotoCacheFromStorage();
             _hydratePhotoCacheFromArticles();
             _metricRowSeq = 0;
-            _preserveRnpScroll(() => {
-                body.innerHTML = `
+            body.innerHTML = `
           ${_buildGeneralTopBar(active, cal)}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
-            ${_buildGeneralTableHTML(active, cal)}
+            <div class="p-10 text-center" style="color:var(--text-muted)">
+              <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+              Рисуем таблицу…
+            </div>
           </div>
           ${_selectionBarHTML()}`;
-            });
+            await _yieldMain();
+            const wrap = document.getElementById('rnp-table-wrap');
+            if (wrap) wrap.innerHTML = _buildGeneralTableHTML(active, cal);
+            await _yieldMain();
             _updateTabHighlight();
             const bar = document.getElementById('rnp-action-bar-wrap');
             if (bar) bar.innerHTML = _buildActionBar(active);
@@ -4358,8 +4391,11 @@ const RNP = (() => {
         }
         await _bootstrapCabinetIfNeeded();
         if (_isStaleInit(gen, cabId)) return;
-        _hydratePhotoCacheFromStorage();
-        _hydratePhotoCacheFromArticles();
+        setTimeout(() => {
+            if (_cab !== cabId) return;
+            _hydratePhotoCacheFromStorage();
+            _hydratePhotoCacheFromArticles();
+        }, 0);
     }
 
     function _startBackgroundEnrichment() {
@@ -4433,9 +4469,16 @@ const RNP = (() => {
             _setRnpTabState('error', 'Кабинет не инициализирован. Обновите страницу.');
             return;
         }
+        const stuck = _rnpIsLoading();
         const mounted = document.querySelector('#tab-rnp .rnp-workspace');
-        if (!force && mounted && _rnpMainRendered() && window._rnpLoadedForCabinet === _cab) return;
+        if (!force && !stuck && mounted && _rnpMainRendered() && window._rnpLoadedForCabinet === _cab) return;
         try {
+            if (_initInflight && !_articles.length) {
+                await Promise.race([
+                    _initInflight,
+                    new Promise(r => setTimeout(r, 12000)),
+                ]);
+            }
             await _renderMain();
         } catch (e) {
             console.error('[RNP] openMain:', e);
