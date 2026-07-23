@@ -4,7 +4,7 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260723-open-fix';
+    const RNP_BUILD = '20260723-large-cab-fix';
     console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
@@ -1001,6 +1001,14 @@ const RNP = (() => {
         return entries;
     }
     function _isCatCollapsed(cat) {
+        const activeCount = (_articles || []).filter(a => a.is_active).length;
+        if (activeCount > 40) {
+            try {
+                const map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}');
+                if (map[cat] === false) return false;
+                return true;
+            } catch (e) { return true; }
+        }
         try { return (JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'))[cat] === true; }
         catch (e) { return false; }
     }
@@ -1659,19 +1667,23 @@ const RNP = (() => {
             const from = allDates[0];
             const to = allDates[allDates.length - 1];
             if (!from || !to) return;
-            const { data, error } = await _db.from('rnp_date_notes')
-                .select('*').eq('cabinet_id', _cab).in('nm_id', nmIds)
-                .gte('note_date', from).lte('note_date', to)
-                .order('created_at', { ascending: false });
-            if (error) throw error;
-            (data || []).forEach(row => {
-                const nm = row.nm_id;
-                const d = row.note_date;
-                if (!_notesCache[nm][d]) _notesCache[nm][d] = { text: '', history: [] };
-                const entry = { text: row.note, author: row.author || '—', at: row.created_at };
-                _notesCache[nm][d].history.push(entry);
-                if (!_notesCache[nm][d].text) _notesCache[nm][d].text = row.note;
-            });
+            const CHUNK = 40;
+            for (let i = 0; i < nmIds.length; i += CHUNK) {
+                const batch = nmIds.slice(i, i + CHUNK);
+                const { data, error } = await _db.from('rnp_date_notes')
+                    .select('*').eq('cabinet_id', _cab).in('nm_id', batch)
+                    .gte('note_date', from).lte('note_date', to)
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                (data || []).forEach(row => {
+                    const nm = row.nm_id;
+                    const d = row.note_date;
+                    if (!_notesCache[nm][d]) _notesCache[nm][d] = { text: '', history: [] };
+                    const entry = { text: row.note, author: row.author || '—', at: row.created_at };
+                    _notesCache[nm][d].history.push(entry);
+                    if (!_notesCache[nm][d].text) _notesCache[nm][d].text = row.note;
+                });
+            }
         } catch (e) {
             console.warn('[RNP] notes from DB, fallback manual_data:', e.message);
             nmIds.forEach(nmId => {
@@ -2127,28 +2139,32 @@ const RNP = (() => {
         });
     }
 
-    function _renderTabsHTML(active) {
+    function _renderTabsHTML(active, opts = {}) {
+        const lite = opts.lite || active.length > 40;
         const sumActive = _activeNm === SUMMARY_TAB;
         const genActive = _activeNm === GENERAL_TAB;
         const groups = _groupByCategory(active);
         const groupsHtml = groups.map(([cat, list]) => {
-            const collapsed = _isCatCollapsed(cat);
+            const collapsed = lite ? true : _isCatCollapsed(cat);
             const hasActive = list.some(a => a.nm_id == _activeNm);
             const catEsc = cat.replace(/'/g, "\\'");
+            const tabsHtml = collapsed ? '' : list.map(a => {
+                const noImg = lite || list.length > 25;
+                const st = noImg ? { level: 'green' } : _syncStatus(a.nm_id);
+                const label = _sellerArticle(a);
+                const img = noImg ? '' : _imgHtml(a, 'rnp-tab-img', 'c246x328');
+                return `<div class="rnp-sheet-tab${a.nm_id == _activeNm ? ' active' : ''}" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}${a.name ? ' · ' + a.name : ''}">
+                  ${_syncDot(st.level)}${img}
+                  <span class="rnp-tab-label">${label.replace(/</g, '&lt;')}</span>
+                </div>`;
+            }).join('');
             return `<div class="rnp-cat-group${collapsed ? ' collapsed' : ''}">
               <div class="rnp-cat-header${hasActive ? ' has-active' : ''}" onclick="RNP.toggleCategory('${catEsc}')" title="Свернуть/развернуть группу">
                 <span class="rnp-cat-arrow">${collapsed ? '▸' : '▾'}</span>
                 <span class="rnp-cat-name">${cat.replace(/</g, '&lt;')}</span>
                 <span class="rnp-cat-count">${list.length}</span>
               </div>
-              ${collapsed ? '' : `<div class="rnp-cat-tabs">${list.map(a => {
-                const st = _syncStatus(a.nm_id);
-                const label = _sellerArticle(a);
-                return `<div class="rnp-sheet-tab${a.nm_id == _activeNm ? ' active' : ''}" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}${a.name ? ' · ' + a.name : ''}">
-                  ${_syncDot(st.level)}${_imgHtml(a, 'rnp-tab-img', 'c246x328')}
-                  <span class="rnp-tab-label">${label.replace(/</g, '&lt;')}</span>
-                </div>`;
-              }).join('')}</div>`}
+              ${collapsed ? '' : `<div class="rnp-cat-tabs">${tabsHtml}</div>`}
             </div>`;
         }).join('');
         return `<div class="rnp-sheet-tab rnp-tab-general${genActive ? ' active' : ''}" onclick="RNP.pick('general')">
@@ -2167,7 +2183,8 @@ const RNP = (() => {
     function _refreshTabsBar() {
         const wrap = document.getElementById('rnp-sheet-tabs');
         if (!wrap) return;
-        wrap.innerHTML = _renderTabsHTML(_articles.filter(a => a.is_active));
+        const active = _articles.filter(a => a.is_active);
+        wrap.innerHTML = _renderTabsHTML(active, { lite: active.length > 40 });
     }
 
     function _refreshActionBar() {
@@ -3719,8 +3736,6 @@ const RNP = (() => {
         }
 
         const active = _articles.filter(a => a.is_active);
-        _hydratePhotoCacheFromStorage();
-        _hydratePhotoCacheFromArticles();
 
         if (!active.length) {
             const total = _articles.length;
@@ -3769,19 +3784,21 @@ const RNP = (() => {
             _galleryCollapsed = gc === null ? false : gc === '1';
         } catch (e) {}
 
+        await _yieldMain();
         el.innerHTML = `
         <div class="rnp-workspace">
           <div id="rnp-action-bar-wrap">${_buildActionBar(active)}</div>
           <div class="rnp-sheet-tabs" id="rnp-sheet-tabs">
-            ${_renderTabsHTML(active)}
+            ${_renderTabsHTML(active, { lite: active.length > 40 })}
           </div>
           <div class="rnp-sheet-body" id="rnp-sheet-body">
             <div class="p-10 text-center" style="color:var(--text-muted)">
               <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
-              Загрузка...
+              Загрузка данных…
             </div>
           </div>
         </div>`;
+        await _yieldMain();
 
         const renderId = ++_mainRenderGen;
         const snapReq = _loadRequestId();
@@ -3796,10 +3813,15 @@ const RNP = (() => {
                 _setRnpSheetState('empty', 'Нет данных за выбранный период. Запустите синхронизацию на дашборде.');
                 return;
             }
-            await _loadNotes(active.map(a => a.nm_id));
-            if (renderId !== _mainRenderGen || _isStaleLoad(snapReq, snapCab)) return;
-            _hydratePhotoCacheFromStorage();
-            _hydratePhotoCacheFromArticles();
+            if (active.length <= 60) {
+                await _loadNotes(active.map(a => a.nm_id));
+                if (renderId !== _mainRenderGen || _isStaleLoad(snapReq, snapCab)) return;
+            }
+            setTimeout(() => {
+                if (_cab !== snapCab) return;
+                _hydratePhotoCacheFromStorage();
+                _hydratePhotoCacheFromArticles();
+            }, 0);
         } catch (e) {
             loadErr = e;
             console.error('[RNP] load:', e);
@@ -3832,12 +3854,40 @@ const RNP = (() => {
         if (_activeNm === SUMMARY_TAB) {
             const existingTbody = body.querySelector('.rnp-summary-table > tbody');
             if (existingTbody) {
-                // Same tab re-rendered (e.g. background refresh) — reconcile rows
-                // by nm_id/category key in place instead of rebuilding the table,
-                // preserving scroll position and collapsed-category DOM state.
                 _preserveRnpScroll(() => {
                     _domMorph().morphList(existingTbody, _buildSummaryRowsHTML(active, cal), 'data-key');
                 });
+            } else if (active.length > 50) {
+                body.innerHTML = `<div class="rnp-table-scroll" style="padding:8px">
+                  <table class="rnp-summary-table">
+                    <thead><tr>
+                      <th></th><th></th><th style="text-align:left">Товар</th><th>nmId</th>
+                      <th>Заказы</th><th>План%</th><th>Прибыль</th><th>Маржа</th><th>ДРР</th><th>Остаток</th><th>Алерты</th>
+                    </tr></thead>
+                    <tbody id="rnp-summary-tbody"></tbody>
+                  </table>
+                  <p style="font-size:10px;color:var(--text-muted);margin-top:8px">Клик по строке → открыть артикул · Клик по группе → свернуть/развернуть</p>
+                </div>`;
+                const tbody = document.getElementById('rnp-summary-tbody');
+                const rowParts = _groupByCategory(active).map(([cat, list]) => {
+                    const collapsed = _isCatCollapsed(cat);
+                    const catEsc = cat.replace(/'/g, "\\'");
+                    const catKey = 'cat-' + cat.replace(/"/g, '&quot;');
+                    const headerRow = `<tr class="rnp-summary-cat-row${collapsed ? ' collapsed' : ''}" data-key="${catKey}" onclick="RNP.toggleCategory('${catEsc}')">
+                      <td colspan="11">
+                        <span class="rnp-cat-arrow">${collapsed ? '▸' : '▾'}</span>
+                        <span class="rnp-cat-name">${cat.replace(/</g, '&lt;')}</span>
+                        <span class="rnp-cat-count">${list.length}</span>
+                      </td>
+                    </tr>`;
+                    const dataRows = collapsed ? '' : list.map(a => _summaryRowHtml(a, cal)).join('');
+                    return headerRow + dataRows;
+                });
+                const CHUNK = 8;
+                for (let i = 0; i < rowParts.length; i += CHUNK) {
+                    tbody.insertAdjacentHTML('beforeend', rowParts.slice(i, i + CHUNK).join(''));
+                    if (i + CHUNK < rowParts.length) await _yieldMain();
+                }
             } else {
                 body.innerHTML = _buildSummaryHTML(active, cal);
             }
@@ -4764,13 +4814,19 @@ const RNP = (() => {
             bar.innerHTML = _buildActionBar(_articles.filter(a => a.is_active));
         }
     });
-    // One-shot fallback boot (no 500ms interval — it stacked openMain on a blocked thread).
-    setTimeout(() => {
+    // Retry boot if tab still stuck on initialization (e.g. loadCabinets delayed).
+    let _bootAttempts = 0;
+    function _retryRnpBoot() {
+        if (_bootAttempts >= 8) return;
+        _bootAttempts++;
         const tab = document.getElementById('tab-rnp');
-        if (!tab?.classList.contains('active') || tab.querySelector('.rnp-workspace')) return;
+        if (!tab?.classList.contains('active')) return;
+        if (tab.querySelector('.rnp-workspace') && document.querySelector('#rnp-sheet-body .rnp-summary-table, #rnp-sheet-body .rnp-table-scroll table')) return;
         if (typeof window.bootRnpTab === 'function') window.bootRnpTab(true);
-        else if (_db && _cab) openMain(true).catch(e => console.warn('[RNP] auto-boot:', e.message));
-    }, 1500);
+        else if (_db && _cab) openMain(true).catch(() => {});
+        setTimeout(_retryRnpBoot, 1500);
+    }
+    setTimeout(_retryRnpBoot, 800);
 
     return { init, initCore, ensureReady, openSettings, openMain, pick, syncArts, resyncArticles, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,

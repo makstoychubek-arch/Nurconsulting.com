@@ -5099,6 +5099,15 @@
     window.headerGoBack = headerGoBack;
 
     function bootRnpTab(force) {
+        const rnpEl = document.getElementById('tab-rnp');
+        if (rnpEl && (rnpEl.classList.contains('active') || getCurrentActiveTab() === 'rnp')) {
+            if (rnpEl.textContent.includes('Инициализация РНП')) {
+                rnpEl.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
+                  <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+                  Загрузка РНП…
+                </div>`;
+            }
+        }
         if (!isRnpTabOpen()) return;
         if (typeof RNP === 'undefined') {
             scheduleRnpBoot();
@@ -10211,7 +10220,7 @@
     }
 </script>
     <script src="/dist/dashboard-charts.137201825f.min.js"></script>
-    <script src="/dist/rnp-module.aa7f7e9dc7.min.js"></script>
+    <script src="/dist/rnp-module.a3a8592765.min.js"></script>
     <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 </body>
 </html>
