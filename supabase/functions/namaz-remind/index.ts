@@ -46,7 +46,12 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ') || authHeader.replace('Bearer ', '') !== serviceKey) {
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const authorized = Boolean(bearer) && (
+        bearer === serviceKey ||
+        isServiceRoleJwt(bearer)
+    );
+    if (!authorized) {
         return json({ error: 'Unauthorized' }, 401);
     }
 
@@ -323,6 +328,18 @@ function pad(n: number): string {
 
 function sleep(ms: number) {
     return new Promise((r) => setTimeout(r, ms));
+}
+
+function isServiceRoleJwt(token: string): boolean {
+    try {
+        const parts = token.split('.');
+        if (parts.length < 2) return false;
+        const json = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(json);
+        return payload?.role === 'service_role';
+    } catch {
+        return false;
+    }
 }
 
 function json(data: unknown, status = 200) {
