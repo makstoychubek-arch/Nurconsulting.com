@@ -1,72 +1,65 @@
-# Карина — WhatsApp-бот напоминаний о намазе
+# Карина — напоминания о намазе (WhatsApp)
 
-Бот 24/7 напоминает в WhatsApp-группу за **10 минут** до каждого намаза (Бишкек).
+Бот напоминает в WhatsApp-группу за **10 минут** до каждого намаза (Бишкек).
 
-## Стек
+## Где крутится
 
-- Node.js (LTS)
-- [Green API](https://green-api.com) — отправка в WhatsApp
-- [Aladhan API](https://aladhan.com/prayer-times-api) — времена намазов
-- `node-cron` — ежедневное обновление в 00:05
-- `pm2` — автозапуск / автоперезапуск
+**Не на Vercel.** Vercel у Nurconsulting — только сайт (HTML/JS). Там нельзя держать процесс 24/7.
 
-## Быстрый старт
+Карина работает как остальные фоновые боты NR Space:
+
+- **Supabase Edge Function** `namaz-remind`
+- **pg_cron** каждую минуту → тик проверяет «сейчас намаз − 10 мин?» и шлёт в WhatsApp через Green API
+
+Локальный `namaz-bot/` (Node + pm2) оставлен для отладки на своём VPS, если понадобится.
+
+## Secrets в Supabase
+
+Dashboard → Project Settings → Edge Functions → Secrets:
+
+| Secret | Значение |
+|---|---|
+| `GREEN_API_ID_INSTANCE` | `710722697110` |
+| `GREEN_API_TOKEN` | токен инстанса |
+| `GREEN_API_GROUP_CHAT_ID` | `120363416791586746@g.us` |
+| `GREEN_API_URL` | `https://api.green-api.com` (опционально) |
+
+Опционально: `CITY`, `COUNTRY`, `TIMEZONE`, `PRAYER_METHOD`.
+
+## Деплой
+
+```bash
+# 1) функция
+supabase functions deploy namaz-remind --project-ref fiukyfyhotctvfdidktx
+
+# 2) таблица + cron (в SQL Editor вставь миграцию
+#    supabase/migrations/20260730120000_namaz_remind_cron.sql
+#    и замени REPLACE_ME_SERVICE_ROLE_KEY на service_role)
+```
+
+## Проверка
+
+```bash
+curl -X POST 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/namaz-remind' \
+  -H "Authorization: Bearer <SERVICE_ROLE_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{"test":true}'
+```
+
+Первый обычный тик (без `test`) один раз отправит приветствие Карины в группу «11-жыл».
+
+## Сообщения
+
+- Приветствие: `Всем привет! Меня зовут Карина… 🕌`
+- Напоминание: `Через 10 минут время намаза Зухр (13:30) 🕌`
+
+Дедуп: таблица `namaz_bot_events` (ключ `greeting` и `YYYY-MM-DD:Dhuhr` и т.д.).
+
+## Локальный pm2 (опционально)
 
 ```bash
 cd namaz-bot
-cp .env.example .env
-# заполни GREEN_API_* в .env
+cp .env.example .env   # заполнить GREEN_API_*
 npm install
-```
-
-### Узнать ID группы
-
-```bash
-npm run get-group-id
-```
-
-Скопируй id вида `...@g.us` в `GREEN_API_GROUP_CHAT_ID`.
-
-### Запуск
-
-```bash
-npm start
-```
-
-### Постоянная работа (pm2)
-
-```bash
-npm install -g pm2
 pm2 start index.js --name namaz-bot
-pm2 save
-pm2 startup
 ```
-
-Проверка после ребута: `pm2 status`.
-
-## Поведение
-
-1. **Первый старт** — одно приветствие в группу (флаг в `.data/greeting-sent`, повторно не шлёт).
-2. **Каждый день в 00:05** (`Asia/Bishkek`) — запрос 5 намазов: Фаджр, Зухр, Аср, Магриб, Иша.
-3. За 10 минут до каждого — сообщение вида:  
-   `Через 10 минут время намаза Зухр (13:30) 🕌`
-4. Если бот перезапустился днём — подтягивает сегодняшнее расписание и ставит таймеры только на ещё не прошедшие намазы.
-
-## Отказоустойчивость
-
-- Aladhan: до 5 попыток с паузой 5 минут; ошибки → `logs/errors.log`
-- Green API: 1 повтор через 30 секунд при ошибке отправки
-- Все действия → `logs/bot.log` с ISO-таймстампом
-
-## Переменные окружения
-
-| Переменная | Описание |
-|---|---|
-| `GREEN_API_URL` | Базовый URL (по умолчанию `https://api.green-api.com`) |
-| `GREEN_API_ID_INSTANCE` | ID инстанса |
-| `GREEN_API_TOKEN` | Токен инстанса |
-| `GREEN_API_GROUP_CHAT_ID` | ID группы `...@g.us` |
-| `CITY` / `COUNTRY` / `TIMEZONE` | По умолчанию Bishkek / Kyrgyzstan / Asia/Bishkek |
-| `PRAYER_METHOD` | Метод Aladhan (по умолчанию `3` = MWL) |
-
-Ключи Мара берёт в кабинете [green-api.com](https://green-api.com) после привязки WhatsApp по QR.
