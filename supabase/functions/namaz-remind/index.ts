@@ -23,9 +23,6 @@ const PRAYERS = [
     { key: 'Isha', name: 'Иша', before: 0, fard: 4, after: 2, witr: 3 },
 ] as const;
 
-const GREETING =
-    'Всем привет! Меня зовут Карина, я буду напоминать о времени намаза за 10 минут до каждого намаза 🕌';
-
 function formatReminder(prayer: Prayer): string {
     return [
         `🕌 ${prayer.name} через 10 мин (${prayer.time})`,
@@ -73,34 +70,14 @@ Deno.serve(async (req) => {
     const actions: string[] = [];
 
     try {
+        // Приветствие отключено — в группе только напоминания по расписанию.
         if (test) {
-            const text = '✅ Тест Карины: Green API подключён, напоминания о намазе будут приходить сюда.';
+            const text = '✅ Тест Карины: Green API подключён.';
             const ok = await sendWhatsApp(greenUrl, greenId, greenToken, chatId, text);
             return json({ ok, text, actions: ['test'] });
         }
 
-        // 1) Приветствие один раз
-        const greetingKey = 'greeting';
-        const { data: greetingRow } = await admin
-            .from('namaz_bot_events')
-            .select('event_key')
-            .eq('event_key', greetingKey)
-            .maybeSingle();
-
-        if (!greetingRow || force) {
-            const ok = await sendWhatsApp(greenUrl, greenId, greenToken, chatId, GREETING);
-            if (ok) {
-                await admin.from('namaz_bot_events').upsert({
-                    event_key: greetingKey,
-                    payload: { text: GREETING },
-                });
-                actions.push('greeting_sent');
-            } else {
-                actions.push('greeting_failed');
-            }
-        }
-
-        // 2) Расписание на сегодня
+        // Расписание на сегодня
         const now = nowParts(timezone);
         const dateKey = `${now.year}-${pad(now.month)}-${pad(now.day)}`;
         const nowHm = `${pad(now.hour)}:${pad(now.minute)}`;
@@ -108,7 +85,7 @@ Deno.serve(async (req) => {
         const prayers = await fetchPrayerTimes({ city, country, method, timezone });
         actions.push(`schedule:${prayers.map((p) => `${p.name}@${p.time}`).join(',')}`);
 
-        // 3) Если сейчас ровно «намаз − 10 мин» — шлём напоминание
+        // Если сейчас ровно «намаз − 10 мин» — шлём напоминание
         for (const prayer of prayers) {
             const remindHm = shiftHm(prayer.time, -10);
             if (remindHm !== nowHm && !force) continue;

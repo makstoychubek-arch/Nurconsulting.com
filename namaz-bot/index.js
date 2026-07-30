@@ -2,8 +2,6 @@
 
 require('dotenv').config();
 
-const fs = require('fs');
-const path = require('path');
 const cron = require('node-cron');
 const { fetchPrayerTimes } = require('./services/prayerTimes');
 const { sendMessage } = require('./services/whatsapp');
@@ -11,8 +9,6 @@ const { formatReminder } = require('./services/message');
 const log = require('./services/logger');
 
 const TIMEZONE = process.env.TIMEZONE || 'Asia/Bishkek';
-const DATA_DIR = path.join(__dirname, '.data');
-const GREETING_FLAG = path.join(DATA_DIR, 'greeting-sent');
 
 /** @type {NodeJS.Timeout[]} */
 let reminderTimers = [];
@@ -24,10 +20,6 @@ function config() {
     method: process.env.PRAYER_METHOD || '3',
     timezone: TIMEZONE,
   };
-}
-
-function ensureDataDir() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 }
 
 /** Локальные часы/минуты/секунды в TIMEZONE. */
@@ -54,7 +46,7 @@ function nowParts() {
   };
 }
 
-/** Миллисекунды до HH:MM сегодня (или вчера/завтра offsetDays) в TIMEZONE — через AbsoluteTime. */
+/** Миллисекунды до HH:MM сегодня + offsetMinutes. */
 function msUntilToday(hhmm, offsetMinutes = 0) {
   const [hh, mm] = hhmm.split(':').map(Number);
   const now = nowParts();
@@ -87,10 +79,6 @@ function scheduleReminders(prayers) {
       await sendMessage(formatReminder(prayer));
     }, delay);
 
-    // Не блокировать выход процесса (на всякий случай при тестах)
-    if (typeof timer.unref === 'function') {
-      // оставляем ref — бот должен жить ради таймеров
-    }
     reminderTimers.push(timer);
   }
 }
@@ -105,22 +93,6 @@ async function refreshSchedule(reason) {
   }
 }
 
-async function sendGreetingOnce() {
-  ensureDataDir();
-  if (fs.existsSync(GREETING_FLAG)) {
-    log.info('Приветствие уже отправлялось ранее — пропускаем');
-    return;
-  }
-
-  const text =
-    'Всем привет! Меня зовут Карина, я буду напоминать о времени намаза за 10 минут до каждого намаза 🕌';
-  const ok = await sendMessage(text);
-  if (ok) {
-    fs.writeFileSync(GREETING_FLAG, new Date().toISOString(), 'utf8');
-    log.info('Приветствие отправлено, флаг сохранён');
-  }
-}
-
 function validateEnv() {
   const required = ['GREEN_API_ID_INSTANCE', 'GREEN_API_TOKEN', 'GREEN_API_GROUP_CHAT_ID'];
   const missing = required.filter((k) => !process.env[k]);
@@ -131,12 +103,10 @@ function validateEnv() {
 
 async function main() {
   validateEnv();
-  log.info(`Карина стартует · ${TIMEZONE} · ${config().city}, ${config().country}`);
+  log.info(`Карина стартует · ${TIMEZONE} · ${config().city}, ${config().country} · без приветствия`);
 
-  await sendGreetingOnce();
   await refreshSchedule('startup');
 
-  // Каждый день в 00:05 по Asia/Bishkek — новое расписание
   cron.schedule(
     '5 0 * * *',
     () => {
