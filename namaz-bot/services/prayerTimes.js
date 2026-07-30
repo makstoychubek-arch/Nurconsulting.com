@@ -12,6 +12,8 @@ const PRAYERS = [
 
 /**
  * Запрос времён намаза на сегодня через Aladhan API.
+ * Для каждого намаза считает окно: начало = время намаза, до = начало следующего
+ * (для Фаджр — до восхода Sunrise).
  * При ошибке — до 5 попыток с паузой 5 минут.
  */
 async function fetchPrayerTimes(config) {
@@ -39,17 +41,29 @@ async function fetchPrayerTimes(config) {
 
       const timings = body.data.timings;
       const date = body.data.date?.readable || 'today';
-      const prayers = PRAYERS.map(({ key, name }) => {
-        const raw = String(timings[key] || '').trim();
-        // Aladhan иногда возвращает "13:30 (EEST)" — берём только HH:MM
-        const hhmm = raw.slice(0, 5);
-        if (!/^\d{2}:\d{2}$/.test(hhmm)) {
-          throw new Error(`Invalid time for ${key}: "${raw}"`);
+      const sunrise = parseHm(timings.Sunrise);
+
+      const base = PRAYERS.map(({ key, name }) => ({
+        key,
+        name,
+        time: parseHm(timings[key]),
+      }));
+
+      const prayers = base.map((p, i) => {
+        if (p.key === 'Fajr') {
+          return { ...p, until: sunrise, untilLabel: 'восход' };
         }
-        return { key, name, time: hhmm };
+        if (p.key === 'Isha') {
+          return { ...p, until: base[0].time, untilLabel: 'Фаджр след. дня' };
+        }
+        const next = base[i + 1];
+        return { ...p, until: next.time, untilLabel: next.name };
       });
 
-      log.info(`Расписание намазов на ${date}: ${prayers.map((p) => `${p.name} ${p.time}`).join(', ')}`);
+      log.info(
+        `Расписание намазов на ${date}: ` +
+          prayers.map((p) => `${p.name} ${p.time}–${p.until}`).join(', '),
+      );
       return prayers;
     } catch (err) {
       lastError = err;
@@ -61,6 +75,14 @@ async function fetchPrayerTimes(config) {
   }
 
   throw lastError || new Error('Aladhan: all attempts failed');
+}
+
+function parseHm(raw) {
+  const hhmm = String(raw || '').trim().slice(0, 5);
+  if (!/^\d{2}:\d{2}$/.test(hhmm)) {
+    throw new Error(`Invalid time: "${raw}"`);
+  }
+  return hhmm;
 }
 
 function sleep(ms) {

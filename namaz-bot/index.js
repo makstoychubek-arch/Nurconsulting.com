@@ -7,6 +7,7 @@ const path = require('path');
 const cron = require('node-cron');
 const { fetchPrayerTimes } = require('./services/prayerTimes');
 const { sendMessage } = require('./services/whatsapp');
+const { formatReminder } = require('./services/message');
 const log = require('./services/logger');
 
 const TIMEZONE = process.env.TIMEZONE || 'Asia/Bishkek';
@@ -83,8 +84,7 @@ function scheduleReminders(prayers) {
     log.info(`Таймер: ${prayer.name} в ${prayer.time}, напоминание через ${Math.round(delay / 1000)}с (≈ ${fireAt})`);
 
     const timer = setTimeout(async () => {
-      const text = `Через 10 минут время намаза ${prayer.name} (${prayer.time}) 🕌`;
-      await sendMessage(text);
+      await sendMessage(formatReminder(prayer));
     }, delay);
 
     // Не блокировать выход процесса (на всякий случай при тестах)

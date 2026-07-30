@@ -16,15 +16,36 @@ const CORS = {
 };
 
 const PRAYERS = [
-    { key: 'Fajr', name: 'Фаджр' },
-    { key: 'Dhuhr', name: 'Зухр' },
-    { key: 'Asr', name: 'Аср' },
-    { key: 'Maghrib', name: 'Магриб' },
-    { key: 'Isha', name: 'Иша' },
+    { key: 'Fajr', name: 'Фаджр', fard: 2 },
+    { key: 'Dhuhr', name: 'Зухр', fard: 4 },
+    { key: 'Asr', name: 'Аср', fard: 4 },
+    { key: 'Maghrib', name: 'Магриб', fard: 3 },
+    { key: 'Isha', name: 'Иша', fard: 4 },
 ] as const;
 
 const GREETING =
     'Всем привет! Меня зовут Карина, я буду напоминать о времени намаза за 10 минут до каждого намаза 🕌';
+
+function formatReminder(prayer: Prayer): string {
+    const rakatWord = rakatLabel(prayer.fard);
+    return [
+        `Через 10 минут время намаза ${prayer.name} (${prayer.time}) 🕌`,
+        '',
+        `Фард: ${prayer.fard} ${rakatWord}`,
+        `Начало: ${prayer.time}`,
+        `До: ${prayer.until} (${prayer.untilLabel})`,
+        '',
+        'Не пропустите намаз.',
+    ].join('\n');
+}
+
+function rakatLabel(n: number): string {
+    const mod10 = n % 10;
+    const mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return 'ракаат';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'раката';
+    return 'ракаатов';
+}
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -115,7 +136,7 @@ Deno.serve(async (req) => {
                 if (!only || only !== prayer.key) continue;
             }
 
-            const text = `Через 10 минут время намаза ${prayer.name} (${prayer.time}) 🕌`;
+            const text = formatReminder(prayer);
             const ok = await sendWhatsApp(greenUrl, greenId, greenToken, chatId, text);
             if (ok) {
                 await admin.from('namaz_bot_events').upsert({
@@ -141,7 +162,14 @@ Deno.serve(async (req) => {
     }
 });
 
-type Prayer = { key: string; name: string; time: string };
+type Prayer = {
+    key: string;
+    name: string;
+    time: string;
+    fard: number;
+    until: string;
+    untilLabel: string;
+};
 
 async function fetchPrayerTimes(cfg: {
     city: string;
@@ -166,11 +194,23 @@ async function fetchPrayerTimes(cfg: {
                 throw new Error(`Aladhan unexpected: ${JSON.stringify(body)}`);
             }
             const timings = body.data.timings as Record<string, string>;
-            return PRAYERS.map(({ key, name }) => {
-                const raw = String(timings[key] || '').trim();
-                const hhmm = raw.slice(0, 5);
-                if (!/^\d{2}:\d{2}$/.test(hhmm)) throw new Error(`Invalid time for ${key}: "${raw}"`);
-                return { key, name, time: hhmm };
+            const sunrise = parseHm(timings.Sunrise);
+            const base = PRAYERS.map(({ key, name, fard }) => ({
+                key,
+                name,
+                fard,
+                time: parseHm(timings[key]),
+            }));
+
+            return base.map((p, i) => {
+                if (p.key === 'Fajr') {
+                    return { ...p, until: sunrise, untilLabel: 'восход' };
+                }
+                if (p.key === 'Isha') {
+                    return { ...p, until: base[0].time, untilLabel: 'Фаджр след. дня' };
+                }
+                const next = base[i + 1];
+                return { ...p, until: next.time, untilLabel: next.name };
             });
         } catch (e) {
             lastErr = e;
@@ -179,6 +219,12 @@ async function fetchPrayerTimes(cfg: {
         }
     }
     throw lastErr || new Error('Aladhan failed');
+}
+
+function parseHm(raw: string): string {
+    const hhmm = String(raw || '').trim().slice(0, 5);
+    if (!/^\d{2}:\d{2}$/.test(hhmm)) throw new Error(`Invalid time: "${raw}"`);
+    return hhmm;
 }
 
 async function sendWhatsApp(
