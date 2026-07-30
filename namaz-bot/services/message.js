@@ -1,38 +1,37 @@
 'use strict';
 
-/** Фард-ракаты (ханафи / Центральная Азия). */
-const FARD_RAKATS = {
-  Fajr: 2,
-  Dhuhr: 4,
-  Asr: 4,
-  Maghrib: 3,
-  Isha: 4,
+/**
+ * Ханафи / Центральная Азия (сунна муаккада + для Аср сунна до фарда).
+ * Порядок: сунна до → фард → сунна после → витр (Иша).
+ */
+const PRAYER_RAKATS = {
+  Fajr: { before: 2, fard: 2, after: 0, witr: 0 },
+  Dhuhr: { before: 4, fard: 4, after: 2, witr: 0 },
+  Asr: { before: 4, fard: 4, after: 0, witr: 0 },
+  Maghrib: { before: 0, fard: 3, after: 2, witr: 0 },
+  Isha: { before: 0, fard: 4, after: 2, witr: 3 },
 };
 
 /**
- * Текст напоминания: фард + окно времени (с … до …).
+ * Короткое напоминание с индивидуальными ракатами.
  * @param {{ key: string, name: string, time: string, until: string, untilLabel: string }} prayer
  */
 function formatReminder(prayer) {
-  const rakats = FARD_RAKATS[prayer.key] ?? '?';
-  const rakatWord = rakatLabel(rakats);
+  const r = PRAYER_RAKATS[prayer.key] || { before: 0, fard: 4, after: 0, witr: 0 };
   return [
-    `Через 10 минут время намаза ${prayer.name} (${prayer.time}) 🕌`,
-    '',
-    `Фард: ${rakats} ${rakatWord}`,
-    `Начало: ${prayer.time}`,
-    `До: ${prayer.until} (${prayer.untilLabel})`,
-    '',
-    'Не пропустите намаз.',
+    `🕌 ${prayer.name} через 10 мин (${prayer.time})`,
+    formatRakats(r),
+    `с ${prayer.time} до ${prayer.until}`,
   ].join('\n');
 }
 
-function rakatLabel(n) {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return 'ракаат';
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'раката';
-  return 'ракаатов';
+function formatRakats(r) {
+  const parts = [];
+  if (r.before) parts.push(`${r.before} сунна`);
+  parts.push(`${r.fard} фард`);
+  if (r.after) parts.push(`${r.after} сунна`);
+  if (r.witr) parts.push(`${r.witr} витр`);
+  return parts.join(' + ');
 }
 
-module.exports = { formatReminder, FARD_RAKATS };
+module.exports = { formatReminder, PRAYER_RAKATS, formatRakats };

@@ -16,35 +16,31 @@ const CORS = {
 };
 
 const PRAYERS = [
-    { key: 'Fajr', name: 'Фаджр', fard: 2 },
-    { key: 'Dhuhr', name: 'Зухр', fard: 4 },
-    { key: 'Asr', name: 'Аср', fard: 4 },
-    { key: 'Maghrib', name: 'Магриб', fard: 3 },
-    { key: 'Isha', name: 'Иша', fard: 4 },
+    { key: 'Fajr', name: 'Фаджр', before: 2, fard: 2, after: 0, witr: 0 },
+    { key: 'Dhuhr', name: 'Зухр', before: 4, fard: 4, after: 2, witr: 0 },
+    { key: 'Asr', name: 'Аср', before: 4, fard: 4, after: 0, witr: 0 },
+    { key: 'Maghrib', name: 'Магриб', before: 0, fard: 3, after: 2, witr: 0 },
+    { key: 'Isha', name: 'Иша', before: 0, fard: 4, after: 2, witr: 3 },
 ] as const;
 
 const GREETING =
     'Всем привет! Меня зовут Карина, я буду напоминать о времени намаза за 10 минут до каждого намаза 🕌';
 
 function formatReminder(prayer: Prayer): string {
-    const rakatWord = rakatLabel(prayer.fard);
     return [
-        `Через 10 минут время намаза ${prayer.name} (${prayer.time}) 🕌`,
-        '',
-        `Фард: ${prayer.fard} ${rakatWord}`,
-        `Начало: ${prayer.time}`,
-        `До: ${prayer.until} (${prayer.untilLabel})`,
-        '',
-        'Не пропустите намаз.',
+        `🕌 ${prayer.name} через 10 мин (${prayer.time})`,
+        formatRakats(prayer),
+        `с ${prayer.time} до ${prayer.until}`,
     ].join('\n');
 }
 
-function rakatLabel(n: number): string {
-    const mod10 = n % 10;
-    const mod100 = n % 100;
-    if (mod10 === 1 && mod100 !== 11) return 'ракаат';
-    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'раката';
-    return 'ракаатов';
+function formatRakats(p: { before: number; fard: number; after: number; witr: number }): string {
+    const parts: string[] = [];
+    if (p.before) parts.push(`${p.before} сунна`);
+    parts.push(`${p.fard} фард`);
+    if (p.after) parts.push(`${p.after} сунна`);
+    if (p.witr) parts.push(`${p.witr} витр`);
+    return parts.join(' + ');
 }
 
 Deno.serve(async (req) => {
@@ -166,7 +162,10 @@ type Prayer = {
     key: string;
     name: string;
     time: string;
+    before: number;
     fard: number;
+    after: number;
+    witr: number;
     until: string;
     untilLabel: string;
 };
@@ -195,10 +194,13 @@ async function fetchPrayerTimes(cfg: {
             }
             const timings = body.data.timings as Record<string, string>;
             const sunrise = parseHm(timings.Sunrise);
-            const base = PRAYERS.map(({ key, name, fard }) => ({
+            const base = PRAYERS.map(({ key, name, before, fard, after, witr }) => ({
                 key,
                 name,
+                before,
                 fard,
+                after,
+                witr,
                 time: parseHm(timings[key]),
             }));
 
