@@ -115,7 +115,7 @@ Deno.serve(async (req) => {
             }
 
             const text = formatReminder(prayer);
-            const ok = await sendWhatsApp(greenUrl, greenId, greenToken, chatId, text, true);
+            const ok = await sendWhatsApp(greenUrl, greenId, greenToken, chatId, text);
             if (ok) {
                 await admin.from('namaz_bot_events').upsert({
                     event_key: eventKey,
@@ -217,24 +217,13 @@ async function sendWhatsApp(
     token: string,
     chatId: string,
     message: string,
-    tagAll = false,
 ): Promise<boolean> {
-    let text = message;
-    if (tagAll) {
-        try {
-            const phones = await getMentionPhones(apiUrl, idInstance, token, chatId);
-            if (phones.length) text = `${phones.map((p) => `@${p}`).join(' ')}\n${message}`;
-        } catch (e) {
-            console.warn('[namaz-remind] mention fetch failed', e);
-        }
-    }
-
     const url = `${apiUrl}/waInstance${idInstance}/sendMessage/${token}`;
     const tryOnce = async () => {
         const res = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chatId, message: text }),
+            body: JSON.stringify({ chatId, message }),
         });
         const bodyText = await res.text();
         if (!res.ok) throw new Error(`Green API HTTP ${res.status}: ${bodyText}`);
@@ -255,41 +244,6 @@ async function sendWhatsApp(
             return false;
         }
     }
-}
-
-async function getMentionPhones(
-    apiUrl: string,
-    idInstance: string,
-    token: string,
-    chatId: string,
-): Promise<string[]> {
-    const res = await fetch(`${apiUrl}/waInstance${idInstance}/getGroupData/${token}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ groupId: chatId }),
-    });
-    if (!res.ok) throw new Error(`getGroupData ${res.status}`);
-    const data = await res.json();
-    const participants = Array.isArray(data?.participants) ? data.participants : [];
-
-    let selfPhone = '';
-    try {
-        const waRes = await fetch(`${apiUrl}/waInstance${idInstance}/getWaSettings/${token}`);
-        if (waRes.ok) {
-            const wa = await waRes.json();
-            selfPhone = String(wa?.phone || '').replace(/\D/g, '');
-        }
-    } catch { /* ignore */ }
-
-    const phones: string[] = [];
-    for (const p of participants) {
-        const id = String(p.id || p.phoneNumber || '');
-        const phone = id.replace(/@c\.us$/i, '').replace(/@s\.whatsapp\.net$/i, '').replace(/\D/g, '');
-        if (!phone) continue;
-        if (selfPhone && phone === selfPhone) continue;
-        phones.push(phone);
-    }
-    return [...new Set(phones)];
 }
 
 function nowParts(timeZone: string) {
