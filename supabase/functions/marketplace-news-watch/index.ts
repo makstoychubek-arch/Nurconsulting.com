@@ -1,12 +1,13 @@
 // Supabase Edge Function: marketplace-news-watch
-// Каждые 2 часа мониторит новости WB / Ozon в интернете (Google News RSS)
+// Каждый час мониторит свежие новости про маркетплейсы России
+// (WB, Ozon, Яндекс Маркет, Мегамаркет, Avito и отрасль в целом)
 // и шлёт в группу «Триггеры» (TELEGRAM_CHAT_TRIGGERS):
-//   дата · бренд · краткий контекст · ссылка «читать» на статью.
+//   дата · площадка · краткий контекст · ссылка «читать» на статью.
 //
 // Auth: service_role / legacy JWT (см. service-auth.ts)
 // Body: { "test": true } — проверка чата
-//       { "force": true } — игнор дедупа для найденных (осторожно)
-//       { "limit": 5 } — макс. постов за один прогон (по умолчанию 5)
+//       { "force": true } — игнор дедупа
+//       { "limit": 5 } — макс. постов за один прогон
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
@@ -23,62 +24,104 @@ const CORS = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-nr-setup-key',
 };
 
-const MAX_AGE_HOURS = 36; // только свежие (полтора суток)
-const DEFAULT_LIMIT = 5;
+const MAX_AGE_HOURS = 36;
+const DEFAULT_LIMIT = 6;
 const TG_DELAY_MS = 800;
 const FEED_TIMEOUT_MS = 12000;
 
-/** Российские СМИ + поиск по маркетплейсам (Google с edge часто 503). */
-const FEEDS: Array<{ market: 'WB' | 'Ozon' | 'Both'; label: string; url: string }> = [
+type Market = 'WB' | 'Ozon' | 'YM' | 'Mega' | 'Avito' | 'MP';
+
+/** Российские СМИ + поиск по всем крупным маркетплейсам РФ. */
+const FEEDS: Array<{ market: Market; label: string; url: string }> = [
     {
         market: 'WB',
         label: 'Bing·WB',
-        url: 'https://www.bing.com/news/search?q=Wildberries&format=RSS&mkt=ru-RU',
+        url: 'https://www.bing.com/news/search?q=Wildberries+OR+%D0%92%D0%B0%D0%B9%D0%BB%D0%B4%D0%B1%D0%B5%D1%80%D1%80%D0%B8%D0%B7&format=RSS&mkt=ru-RU',
     },
     {
         market: 'Ozon',
         label: 'Bing·Ozon',
-        url: 'https://www.bing.com/news/search?q=Ozon&format=RSS&mkt=ru-RU',
+        url: 'https://www.bing.com/news/search?q=Ozon+%D0%BC%D0%B0%D1%80%D0%BA%D0%B5%D1%82%D0%BF%D0%BB%D0%B5%D0%B9%D1%81+OR+Ozon.ru&format=RSS&mkt=ru-RU',
     },
     {
-        market: 'Both',
+        market: 'YM',
+        label: 'Bing·Я.Маркет',
+        url: 'https://www.bing.com/news/search?q=%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81+%D0%9C%D0%B0%D1%80%D0%BA%D0%B5%D1%82+OR+%22Yandex+Market%22&format=RSS&mkt=ru-RU',
+    },
+    {
+        market: 'Mega',
+        label: 'Bing·Мегамаркет',
+        url: 'https://www.bing.com/news/search?q=%D0%9C%D0%B5%D0%B3%D0%B0%D0%BC%D0%B0%D1%80%D0%BA%D0%B5%D1%82+OR+Megamarket+OR+%D0%A1%D0%B1%D0%B5%D1%80%D0%9C%D0%B5%D0%B3%D0%B0%D0%9C%D0%B0%D1%80%D0%BA%D0%B5%D1%82&format=RSS&mkt=ru-RU',
+    },
+    {
+        market: 'Avito',
+        label: 'Bing·Avito',
+        url: 'https://www.bing.com/news/search?q=Avito+%D0%BC%D0%B0%D1%80%D0%BA%D0%B5%D1%82%D0%BF%D0%BB%D0%B5%D0%B9%D1%81+OR+%D0%90%D0%B2%D0%B8%D1%82%D0%BE+%D1%81%D0%B5%D0%BB%D0%BB%D0%B5%D1%80&format=RSS&mkt=ru-RU',
+    },
+    {
+        market: 'MP',
+        label: 'Bing·маркетплейсы',
+        url: 'https://www.bing.com/news/search?q=%D0%BC%D0%B0%D1%80%D0%BA%D0%B5%D1%82%D0%BF%D0%BB%D0%B5%D0%B9%D1%81+%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F+OR+KazanExpress+OR+%D0%9A%D0%B0%D0%B7%D0%B0%D0%BD%D1%8D%D0%BA%D1%81%D0%BF%D1%80%D0%B5%D1%81%D1%81&format=RSS&mkt=ru-RU',
+    },
+    {
+        market: 'MP',
         label: 'Retail.ru',
         url: 'https://www.retail.ru/rss/news/',
     },
     {
-        market: 'Both',
+        market: 'MP',
         label: 'Vedomosti',
         url: 'https://www.vedomosti.ru/rss/news',
     },
     {
-        market: 'Both',
+        market: 'MP',
         label: 'Kommersant',
         url: 'https://www.kommersant.ru/RSS/news.xml',
     },
     {
-        market: 'Both',
+        market: 'MP',
         label: 'RBC',
         url: 'https://rssexport.rbc.ru/rbcnews/news/30/full.rss',
     },
     {
-        market: 'Both',
+        market: 'MP',
         label: 'Lenta',
         url: 'https://lenta.ru/rss/news',
     },
     {
-        market: 'Both',
+        market: 'MP',
         label: 'Interfax',
         url: 'https://www.interfax.ru/rss.asp',
     },
 ];
 
+/** Площадки и отрасль маркетплейсов РФ. */
 const MARKET_RE =
-    /wildberries|вайлдберр(?:из|иес)?|\bozon\b|ozon\.ru|wildberries\.ru|маркетплейс/i;
+    /wildberries|вайлдберр(?:из|иес)?|wildberries\.ru|\bozon\b|ozon\.ru|яндекс[\s.-]?маркет|yandex[\s.-]?market|мегамаркет|megamarket|sbermegamarket|сбермегамаркет|kazanexpress|казанэкспресс|\bavito\b|авито|маркетплейс|e-?commerce|электронн\w*\s+торговл/i;
 const MARKET_RU_RE = /(^|[^а-яёА-ЯЁ])(вб|озон)([^а-яёА-ЯЁ]|$)/i;
-const MARKET_CTX_RE = /склад|пвз|селлер|продавц|ритейл|фулфил|логистик|комисси|спп|карточек/i;
+const MARKET_CTX_RE =
+    /склад|пвз|селлер|продавц|ритейл|фулфил|логистик|комисси|спп|карточек|маркетплейс|курьер|доставк/i;
+
+const MARKET_LABEL: Record<Market, string> = {
+    WB: 'WB',
+    Ozon: 'Ozon',
+    YM: 'Я.Маркет',
+    Mega: 'Мегамаркет',
+    Avito: 'Avito',
+    MP: 'Маркетплейсы',
+};
+
+const MARKET_ICON: Record<Market, string> = {
+    WB: '🛒',
+    Ozon: '📦',
+    YM: '🟡',
+    Mega: '🟣',
+    Avito: '💙',
+    MP: '📰',
+};
 
 type NewsItem = {
-    market: 'WB' | 'Ozon' | 'Both';
+    market: Market;
     title: string;
     url: string;
     publishedAt: Date;
@@ -106,8 +149,9 @@ Deno.serve(async (req) => {
             return json({ ok: false, error: telegramConfigError('triggers'), chatId: tgChatId || null }, 400);
         }
         const text =
-            '✅ Тест «Триггеры»: мониторинг новостей WB / Ozon каждый час (24/7).\n' +
-            'Формат: дата · суть · <a href="https://example.com">читать</a>';
+            '✅ Тест «Триггеры»: мониторинг новостей маркетплейсов РФ каждый час (24/7).\n' +
+            'WB · Ozon · Я.Маркет · Мегамаркет · Avito · отрасль\n' +
+            'Формат: площадка · дата · суть · <a href="https://example.com">читать</a>';
         const send = await sendTelegramHtml(tgToken, tgChatId, text);
         return json({ ok: send.ok, ...send, chatId: tgChatId });
     }
@@ -226,8 +270,8 @@ Deno.serve(async (req) => {
 
 async function formatMessage(item: NewsItem): Promise<string> {
     const dateStr = formatRuDate(item.publishedAt);
-    const marketLabel = item.market === 'Both' ? 'WB/Ozon' : item.market;
-    const icon = item.market === 'Ozon' ? '📦' : item.market === 'WB' ? '🛒' : '📰';
+    const icon = MARKET_ICON[item.market] || MARKET_ICON.MP;
+    const marketLabel = MARKET_LABEL[item.market] || MARKET_LABEL.MP;
 
     let context = '';
     const ai = await summarizeForTelegram({
@@ -330,12 +374,15 @@ function isMarketplaceRelevant(title: string, snippet: string): boolean {
     return false;
 }
 
-function detectMarket(text: string, fallback: NewsItem['market']): NewsItem['market'] {
-    const hasWb = /wildberries|вайлдберр|\bвб\b/i.test(text);
-    const hasOz = /ozon|озон/i.test(text);
-    if (hasWb && hasOz) return 'Both';
-    if (hasWb) return 'WB';
-    if (hasOz) return 'Ozon';
+function detectMarket(text: string, fallback: Market): Market {
+    const hits: Market[] = [];
+    if (/wildberries|вайлдберр|(^|[^а-яё])вб([^а-яё]|$)/i.test(text)) hits.push('WB');
+    if (/\bozon\b|ozon\.ru|(^|[^а-яё])озон([^а-яё]|$)/i.test(text)) hits.push('Ozon');
+    if (/яндекс[\s.-]*маркет|yandex[\s.-]*market/i.test(text)) hits.push('YM');
+    if (/мегамаркет|megamarket|sbermegamarket|сбермегамаркет/i.test(text)) hits.push('Mega');
+    if (/\bavito\b|авито/i.test(text)) hits.push('Avito');
+    if (hits.length === 1) return hits[0];
+    if (hits.length > 1) return 'MP';
     return fallback;
 }
 
