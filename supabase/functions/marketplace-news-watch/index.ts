@@ -64,6 +64,36 @@ const FEEDS: Array<{ market: Market; label: string; url: string }> = [
         url: 'https://www.bing.com/news/search?q=%D0%BC%D0%B0%D1%80%D0%BA%D0%B5%D1%82%D0%BF%D0%BB%D0%B5%D0%B9%D1%81+%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F+OR+KazanExpress+OR+%D0%9A%D0%B0%D0%B7%D0%B0%D0%BD%D1%8D%D0%BA%D1%81%D0%BF%D1%80%D0%B5%D1%81%D1%81&format=RSS&mkt=ru-RU',
     },
     {
+        market: 'WB',
+        label: 'GNews·WB',
+        url: 'https://news.google.com/rss/search?q=Wildberries+OR+%D0%92%D0%B0%D0%B9%D0%BB%D0%B4%D0%B1%D0%B5%D1%80%D1%80%D0%B8%D0%B7&hl=ru&gl=RU&ceid=RU:ru',
+    },
+    {
+        market: 'Ozon',
+        label: 'GNews·Ozon',
+        url: 'https://news.google.com/rss/search?q=Ozon+OR+%D0%9E%D0%B7%D0%BE%D0%BD+%D0%BC%D0%B0%D1%80%D0%BA%D0%B5%D1%82%D0%BF%D0%BB%D0%B5%D0%B9%D1%81&hl=ru&gl=RU&ceid=RU:ru',
+    },
+    {
+        market: 'YM',
+        label: 'GNews·Я.Маркет',
+        url: 'https://news.google.com/rss/search?q=%D0%AF%D0%BD%D0%B4%D0%B5%D0%BA%D1%81+%D0%9C%D0%B0%D1%80%D0%BA%D0%B5%D1%82&hl=ru&gl=RU&ceid=RU:ru',
+    },
+    {
+        market: 'Mega',
+        label: 'GNews·Мегамаркет',
+        url: 'https://news.google.com/rss/search?q=%D0%9C%D0%B5%D0%B3%D0%B0%D0%BC%D0%B0%D1%80%D0%BA%D0%B5%D1%82+OR+Megamarket&hl=ru&gl=RU&ceid=RU:ru',
+    },
+    {
+        market: 'Avito',
+        label: 'GNews·Avito',
+        url: 'https://news.google.com/rss/search?q=Avito+OR+%D0%90%D0%B2%D0%B8%D1%82%D0%BE&hl=ru&gl=RU&ceid=RU:ru',
+    },
+    {
+        market: 'MP',
+        label: 'GNews·маркетплейсы',
+        url: 'https://news.google.com/rss/search?q=%D0%BC%D0%B0%D1%80%D0%BA%D0%B5%D1%82%D0%BF%D0%BB%D0%B5%D0%B9%D1%81%D1%8B+%D0%A0%D0%BE%D1%81%D1%81%D0%B8%D1%8F&hl=ru&gl=RU&ceid=RU:ru',
+    },
+    {
         market: 'MP',
         label: 'Retail.ru',
         url: 'https://www.retail.ru/rss/news/',
@@ -97,10 +127,11 @@ const FEEDS: Array<{ market: Market; label: string; url: string }> = [
 
 /** Площадки и отрасль маркетплейсов РФ. */
 const MARKET_RE =
-    /wildberries|вайлдберр(?:из|иес)?|wildberries\.ru|\bozon\b|ozon\.ru|яндекс[\s.-]?маркет|yandex[\s.-]?market|мегамаркет|megamarket|sbermegamarket|сбермегамаркет|kazanexpress|казанэкспресс|\bavito\b|авито|маркетплейс|e-?commerce|электронн\w*\s+торговл/i;
+    /wildberries|вайлдберр(?:из|иес)?|wildberries\.ru|\bozon\b|ozon\.ru|яндекс[\s.-]?маркет|yandex[\s.-]?market|мегамаркет|megamarket|sbermegamarket|сбермегамаркет|kazanexpress|казанэкспресс|маркетплейс|e-?commerce|электронн\w*\s+торговл/i;
 const MARKET_RU_RE = /(^|[^а-яёА-ЯЁ])(вб|озон)([^а-яёА-ЯЁ]|$)/i;
 const MARKET_CTX_RE =
-    /склад|пвз|селлер|продавц|ритейл|фулфил|логистик|комисси|спп|карточек|маркетплейс|курьер|доставк/i;
+    /склад|пвз|селлер|продавц|ритейл|фулфил|логистик|комисси|спп|карточек|маркетплейс|курьер|доставк|объявлен|реклам/i;
+const AVITO_RE = /\bavito\b|авито/i;
 
 const MARKET_LABEL: Record<Market, string> = {
     WB: 'WB',
@@ -347,10 +378,12 @@ function parseRssItems(xml: string, market: NewsItem['market']): NewsItem[] {
             (chunk.match(/<link[^>]*href="([^"]+)"/i)?.[1] ?? '');
         const pub = stripCdata(matchTag(chunk, 'pubDate')).trim();
         const desc = decodeXml(stripCdata(matchTag(chunk, 'description'))).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-        const source = decodeXml(stripCdata(matchTag(chunk, 'source'))).trim() || 'Google News';
+        const source = decodeXml(stripCdata(matchTag(chunk, 'source'))).trim() ||
+            decodeXml(stripCdata(matchTag(chunk, 'News:Source'))).trim() ||
+            'RSS';
         if (!title || !linkRaw) continue;
 
-        const url = unwrapGoogleNewsUrl(linkRaw);
+        const url = unwrapNewsUrl(linkRaw);
         const publishedAt = pub ? new Date(pub) : new Date();
         if (Number.isNaN(publishedAt.getTime())) continue;
 
@@ -386,12 +419,17 @@ function detectMarket(text: string, fallback: Market): Market {
     return fallback;
 }
 
-function unwrapGoogleNewsUrl(link: string): string {
+function unwrapNewsUrl(link: string): string {
     try {
         const u = new URL(link);
         const nested = u.searchParams.get('url');
-        if (nested) return nested;
-        // Google News article redirect sometimes embeds destination in path
+        if (nested) {
+            try {
+                return decodeURIComponent(nested);
+            } catch {
+                return nested;
+            }
+        }
         return link;
     } catch {
         return link;
