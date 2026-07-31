@@ -100,6 +100,31 @@ const FEEDS: Array<{ market: Market; label: string; url: string }> = [
     },
     {
         market: 'MP',
+        label: 'New-Retail',
+        url: 'https://www.new-retail.ru/rss/',
+    },
+    {
+        market: 'MP',
+        label: 'CNews',
+        url: 'https://www.cnews.ru/inc/rss/news.xml',
+    },
+    {
+        market: 'MP',
+        label: 'Kommersant·бизнес',
+        url: 'https://www.kommersant.ru/RSS/section-business.xml',
+    },
+    {
+        market: 'MP',
+        label: 'VC.ru',
+        url: 'https://vc.ru/rss',
+    },
+    {
+        market: 'MP',
+        label: 'TASS',
+        url: 'https://tass.ru/rss/v2.xml',
+    },
+    {
+        market: 'MP',
         label: 'Vedomosti',
         url: 'https://www.vedomosti.ru/rss/news',
     },
@@ -220,10 +245,13 @@ Deno.serve(async (req) => {
             .filter((n) => isMarketplaceRelevant(n.title, n.snippet))
             .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime());
 
+        // Разнообразие площадок: не забивать ленту одним WB/Ozon
+        const queue = diversifyByMarket(filtered, limit * 3);
+
         const actions: string[] = [];
         let sent = 0;
 
-        for (const item of filtered) {
+        for (const item of queue) {
             if (sent >= limit) break;
 
             const urlKey = normalizeUrlKey(item.url);
@@ -404,6 +432,8 @@ function isMarketplaceRelevant(title: string, snippet: string): boolean {
     if (MARKET_RE.test(t)) return true;
     // «ВБ»/«Озон» без латиницы — только с маркетплейс-контекстом (чтобы не ловить «озон» как вещество)
     if (MARKET_RU_RE.test(t) && MARKET_CTX_RE.test(t)) return true;
+    // Avito — только e-com/селлерский контекст (иначе бытовой шум)
+    if (AVITO_RE.test(t) && MARKET_CTX_RE.test(t)) return true;
     return false;
 }
 
@@ -417,6 +447,29 @@ function detectMarket(text: string, fallback: Market): Market {
     if (hits.length === 1) return hits[0];
     if (hits.length > 1) return 'MP';
     return fallback;
+}
+
+function diversifyByMarket(items: NewsItem[], max: number): NewsItem[] {
+    const buckets = new Map<Market, NewsItem[]>();
+    for (const it of items) {
+        const list = buckets.get(it.market) || [];
+        list.push(it);
+        buckets.set(it.market, list);
+    }
+    const keys = [...buckets.keys()].sort((a, b) => (buckets.get(b)?.length || 0) - (buckets.get(a)?.length || 0));
+    const out: NewsItem[] = [];
+    let progressed = true;
+    while (out.length < max && progressed) {
+        progressed = false;
+        for (const k of keys) {
+            const list = buckets.get(k);
+            if (!list?.length) continue;
+            out.push(list.shift()!);
+            progressed = true;
+            if (out.length >= max) break;
+        }
+    }
+    return out;
 }
 
 function unwrapNewsUrl(link: string): string {
