@@ -8,6 +8,8 @@
 
 Карина работает как остальные фоновые боты NR Space:
 
+> **Статус: ЗАМОРОЖЕН** (июль 2026). Cron снят, функция отвечает `frozen: true`, в WhatsApp ничего не шлёт. Код и таблица `namaz_bot_events` сохранены.
+
 - **Supabase Edge Function** `namaz-remind`
 - **pg_cron** каждую минуту → тик проверяет «сейчас намаз − 10 мин?» и шлёт в WhatsApp через Green API
 

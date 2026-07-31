@@ -1,4 +1,5 @@
 # Минутный тик Карины (напоминания о намазе).
+# ЗАМОРОЖЕН: не запускать, пока намаз-бот снова не включат.
 # Нужны Secrets в репо:
 #   GREEN_API_ID_INSTANCE, GREEN_API_TOKEN, GREEN_API_GROUP_CHAT_ID
 # Опционально: GREEN_API_URL, CITY, COUNTRY, TIMEZONE, PRAYER_METHOD
@@ -6,11 +7,11 @@
 name: namaz-remind
 
 on:
-  # Постоянный рантайм — long-running bot / Supabase. Этот workflow — ручной запасной.
   workflow_dispatch:
 
 jobs:
   tick:
+    if: false # frozen
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

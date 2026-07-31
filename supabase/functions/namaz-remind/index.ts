@@ -1,14 +1,17 @@
 // Supabase Edge Function: namaz-remind
 // WhatsApp-бот «Карина» — напоминания о намазе за 10 минут (Бишкек).
-// Вызывается pg_cron каждую минуту (см. миграцию namaz_remind_cron).
-// Vercel держит только сайт; долгий процесс там невозможен — тик живёт здесь,
-// рядом с daily-sales-report / check-campaigns-notify.
+//
+// ЗАМОРОЖЕН: cron снят (миграция freeze_namaz_remind), функция отвечает
+// frozen и ничего не шлёт. Чтобы включить: FROZEN=false + вернуть cron.
 //
 // Auth: service_role key only.
 // Secrets: GREEN_API_ID_INSTANCE, GREEN_API_TOKEN, GREEN_API_GROUP_CHAT_ID
 // Optional: GREEN_API_URL, CITY, COUNTRY, TIMEZONE, PRAYER_METHOD
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+/** Поставь false и верни pg_cron namaz-remind-bishkek, чтобы снова слать в WhatsApp. */
+const FROZEN = true;
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -42,6 +45,14 @@ function formatRakats(p: { before: number; fard: number; after: number; witr: nu
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+
+    if (FROZEN) {
+        return json({
+            ok: true,
+            frozen: true,
+            message: 'Карина заморожена: напоминания о намазе отключены.',
+        });
+    }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
