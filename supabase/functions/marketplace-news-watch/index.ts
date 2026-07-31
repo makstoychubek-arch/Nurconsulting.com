@@ -23,27 +23,42 @@ const CORS = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-nr-setup-key',
 };
 
-const MAX_AGE_HOURS = 72;
+const MAX_AGE_HOURS = 36; // только свежие (полтора суток)
 const DEFAULT_LIMIT = 5;
 const TG_DELAY_MS = 800;
 const FEED_TIMEOUT_MS = 12000;
 
-/** Источники, доступные с IP edge (Google News с датацентров часто 503). */
+/** Российские СМИ + поиск по маркетплейсам (Google с edge часто 503). */
 const FEEDS: Array<{ market: 'WB' | 'Ozon' | 'Both'; label: string; url: string }> = [
     {
         market: 'WB',
         label: 'Bing·WB',
-        url: 'https://www.bing.com/news/search?q=Wildberries+OR+%D0%92%D0%B0%D0%B9%D0%BB%D0%B4%D0%B1%D0%B5%D1%80%D1%80%D0%B8%D0%B7&format=RSS&mkt=ru-RU',
+        url: 'https://www.bing.com/news/search?q=Wildberries&format=RSS&mkt=ru-RU',
     },
     {
         market: 'Ozon',
         label: 'Bing·Ozon',
-        url: 'https://www.bing.com/news/search?q=Ozon+%D0%BC%D0%B0%D1%80%D0%BA%D0%B5%D1%82%D0%BF%D0%BB%D0%B5%D0%B9%D1%81&format=RSS&mkt=ru-RU',
+        url: 'https://www.bing.com/news/search?q=Ozon&format=RSS&mkt=ru-RU',
+    },
+    {
+        market: 'Both',
+        label: 'Retail.ru',
+        url: 'https://www.retail.ru/rss/news/',
+    },
+    {
+        market: 'Both',
+        label: 'Vedomosti',
+        url: 'https://www.vedomosti.ru/rss/news',
     },
     {
         market: 'Both',
         label: 'Kommersant',
         url: 'https://www.kommersant.ru/RSS/news.xml',
+    },
+    {
+        market: 'Both',
+        label: 'RBC',
+        url: 'https://rssexport.rbc.ru/rbcnews/news/30/full.rss',
     },
     {
         market: 'Both',
@@ -91,7 +106,7 @@ Deno.serve(async (req) => {
             return json({ ok: false, error: telegramConfigError('triggers'), chatId: tgChatId || null }, 400);
         }
         const text =
-            '✅ Тест «Триггеры»: мониторинг новостей WB / Ozon каждые 2 часа.\n' +
+            '✅ Тест «Триггеры»: мониторинг новостей WB / Ozon каждый час (24/7).\n' +
             'Формат: дата · суть · <a href="https://example.com">читать</a>';
         const send = await sendTelegramHtml(tgToken, tgChatId, text);
         return json({ ok: send.ok, ...send, chatId: tgChatId });
