@@ -7,7 +7,6 @@
 //   { "date": "YYYY-MM-DD" } — отчётный день (по умолчанию вчера Бишкек)
 //   { "force": true } — игнор дедупа
 //   { "test": true } — только проверка Telegram-канала (текст)
-//   { "test_voice": true } — тестовое голосовое сообщение Карины
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import {
@@ -34,9 +33,6 @@ import {
     karinaFbsCaption,
     karinaFbsDocumentCaption,
     karinaFbsTestMessage,
-    karinaFbsVoiceScript,
-    karinaVoiceTestScript,
-    synthesizeKarinaVoice,
 } from '../_shared/karina-voice.ts';
 
 const CORS = {
@@ -53,7 +49,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
 
-    if (!isServiceAuthorized(req, serviceKey, Boolean(body?.test || body?.test_voice || body?.force))) {
+    if (!isServiceAuthorized(req, serviceKey, Boolean(body?.test || body?.force))) {
         return json({ error: 'Unauthorized' }, 401);
     }
 
@@ -66,28 +62,6 @@ Deno.serve(async (req) => {
         }
         const err = await sendTelegramMessage(tgToken, tgChatId, karinaFbsTestMessage());
         return json({ ok: !err, error: err, chatId: tgChatId });
-    }
-
-    if (body?.test_voice) {
-        if (!isTelegramConfigured('fbs')) {
-            return json({ ok: false, error: telegramConfigError('fbs'), chatId: tgChatId || null }, 400);
-        }
-        try {
-            const script = typeof body?.text === 'string' && body.text.trim()
-                ? String(body.text).trim()
-                : karinaVoiceTestScript();
-            const opus = await synthesizeKarinaVoice(script);
-            const voiceErr = await sendTelegramVoice(tgToken, tgChatId, opus);
-            return json({
-                ok: !voiceErr,
-                error: voiceErr,
-                chatId: tgChatId,
-                bytes: opus.byteLength,
-                script,
-            });
-        } catch (e) {
-            return json({ ok: false, error: String(e), chatId: tgChatId }, 500);
-        }
     }
 
     if (!isTelegramConfigured('fbs')) {
@@ -249,23 +223,6 @@ Deno.serve(async (req) => {
         }
         if (photoErr) throw new Error(`telegram photo: ${photoErr}`);
 
-        // Опционально: голосовая сводка { "voice": true }
-        if (body?.voice) {
-            try {
-                const script = karinaFbsVoiceScript({
-                    prettyDate: pretty,
-                    totalQty,
-                    modelsCount: models.length,
-                    topModels: models,
-                });
-                const opus = await synthesizeKarinaVoice(script);
-                const voiceErr = await sendTelegramVoice(tgToken, tgChatId, opus);
-                if (voiceErr) console.warn('[daily-fbs-report] voice:', voiceErr);
-            } catch (voiceEx) {
-                console.warn('[daily-fbs-report] voice synth:', voiceEx);
-            }
-        }
-
         if (excelRows.length) {
             const xlsx = await buildFbsExcel(excelRows, reportDate);
             const fileName = `FBS_заказы_${reportDate}.xlsx`;
@@ -338,27 +295,6 @@ Deno.serve(async (req) => {
         return json({ error: String(e), date: reportDate }, 500);
     }
 });
-
-async function sendTelegramVoice(
-    token: string,
-    chatId: string,
-    opus: Uint8Array,
-): Promise<string | null> {
-    try {
-        const form = new FormData();
-        form.append('chat_id', chatId);
-        form.append('voice', new Blob([opus], { type: 'audio/ogg' }), 'karina.ogg');
-        const res = await fetch(`https://api.telegram.org/bot${token}/sendVoice`, {
-            method: 'POST',
-            body: form,
-            signal: AbortSignal.timeout(45000),
-        });
-        if (!res.ok) return `HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`;
-        return null;
-    } catch (e) {
-        return String(e);
-    }
-}
 
 async function sendTelegramPhoto(
     token: string,
