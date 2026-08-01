@@ -29,6 +29,11 @@ import {
 } from '../_shared/wb-fbs-orders.ts';
 import { buildFbsExcel } from '../_shared/fbs-excel.ts';
 import { aggregateByModel, renderFbsSummaryImage } from '../_shared/fbs-summary-image.ts';
+import {
+    karinaFbsCaption,
+    karinaFbsDocumentCaption,
+    karinaFbsTestMessage,
+} from '../_shared/karina-voice.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -55,11 +60,7 @@ Deno.serve(async (req) => {
         if (!isTelegramConfigured('fbs')) {
             return json({ ok: false, error: telegramConfigError('fbs'), chatId: tgChatId || null }, 400);
         }
-        const err = await sendTelegramMessage(
-            tgToken,
-            tgChatId,
-            '✅ Тест FBS-отчёта: канал подключён. Ежедневно в 07:00 (Бишкек) — сводка + Excel.',
-        );
+        const err = await sendTelegramMessage(tgToken, tgChatId, karinaFbsTestMessage());
         return json({ ok: !err, error: err, chatId: tgChatId });
     }
 
@@ -207,14 +208,13 @@ Deno.serve(async (req) => {
         const totalQty = excelRows.reduce((a, r) => a + r.qty, 0);
 
         const png = await renderFbsSummaryImage(pretty, models);
-        const captionParts = [
-            `📦 <b>Заказы FBS за ${pretty}</b>`,
-            totalQty > 0 ? `Итого: <b>${totalQty} шт</b> · моделей: ${models.length}` : 'Заказов за сутки не было',
-        ];
-        if (failedCabinets.length) {
-            captionParts.push(`⚠️ Не удалось получить данные: ${failedCabinets.join(', ')}`);
-        }
-        const caption = captionParts.join('\n');
+        const caption = karinaFbsCaption({
+            prettyDate: pretty,
+            totalQty,
+            modelsCount: models.length,
+            failedCabinets,
+        });
+        const docCaption = karinaFbsDocumentCaption();
 
         let photoErr = await sendTelegramPhoto(tgToken, tgChatId, png, caption);
         if (photoErr) {
@@ -231,7 +231,7 @@ Deno.serve(async (req) => {
                 tgChatId,
                 xlsx,
                 fileName,
-                'Детализация по баркодам',
+                docCaption,
             );
             if (docErr) {
                 await sleep(1500);
@@ -240,7 +240,7 @@ Deno.serve(async (req) => {
                     tgChatId,
                     xlsx,
                     fileName,
-                    'Детализация по баркодам',
+                    docCaption,
                 );
             }
             if (docErr) throw new Error(`telegram document: ${docErr}`);

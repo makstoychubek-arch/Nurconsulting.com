@@ -1,6 +1,11 @@
 // Программная PNG-сводка FBS (не AI): список моделей + итог.
 
 import { createCanvas } from 'https://deno.land/x/canvas@v1.4.2/mod.ts';
+import {
+    karinaFbsEmptyLine,
+    karinaFbsImageSubtitle,
+    karinaFbsImageTitle,
+} from './karina-voice.ts';
 
 export type FbsModelLine = {
     name: string;
@@ -85,11 +90,11 @@ export async function renderFbsSummaryImage(
     ctx.fillStyle = '#1a2e1a';
     ctx.font = 'bold 28px DejaVu';
     ctx.textBaseline = 'top';
-    ctx.fillText(`📦 Заказы FBS за ${reportDatePretty}`, pad, pad);
+    ctx.fillText(karinaFbsImageTitle(reportDatePretty), pad, pad);
 
     ctx.fillStyle = '#5a6b5a';
     ctx.font = '16px DejaVu';
-    ctx.fillText('Сводка по моделям · детали в Excel', pad, pad + 40);
+    ctx.fillText(karinaFbsImageSubtitle(), pad, pad + 40);
 
     let y = pad + titleH;
     const total = models.reduce((a, m) => a + m.qty, 0);
@@ -97,7 +102,7 @@ export async function renderFbsSummaryImage(
     if (!models.length) {
         ctx.fillStyle = '#445544';
         ctx.font = '20px DejaVu';
-        ctx.fillText('Заказов за сутки не было', pad, y + 8);
+        ctx.fillText(karinaFbsEmptyLine(), pad, y + 8);
         y += lineH;
     } else {
         models.forEach((m, i) => {
