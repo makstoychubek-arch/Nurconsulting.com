@@ -12,6 +12,13 @@ import {
   buildAgentWbContext,
   type AgentKey,
 } from "../_shared/agent-wb-context.ts";
+import {
+  alinaSelfbuyStatsText,
+  handleAlinaClientMessage,
+  isAlinaClientContext,
+  isAlinaStatsQuestion,
+} from "../_shared/alina-selfbuy.ts";
+import { generateMuhaPhoto, wantsPhoto } from "../_shared/muha-photos.ts";
 
 // ---------- Настройка ----------
 
@@ -26,6 +33,8 @@ const BOT_TOKENS: Record<string, string> = {
   amina: (Deno.env.get("AMINA_BOT_TOKEN") || "").trim(),
   anton: (Deno.env.get("ANTON_BOT_TOKEN") || "").trim(),
   alina: (Deno.env.get("ALINA_BOT_TOKEN") || "").trim(),
+  // Второй аккаунт Алины (клиентский) — опционально
+  alina2: (Deno.env.get("ALINA_SECOND_BOT_TOKEN") || "").trim(),
   muha: (Deno.env.get("MUHA_BOT_TOKEN") || "").trim(),
 };
 
@@ -54,10 +63,12 @@ ${STYLE_RULES}`,
   anton: `Ты Антон — логистика/FBS. Смотришь FBS-заказы и объёмы по кабинетам, риски отгрузок.
 ${STYLE_RULES}`,
 
-  alina: `Ты Алина — продвижение карточек/самовыкупы. Опирайся на топ артикулы продаж.
+  alina: `Ты Алина — самовыкупы и продвижение. В командном чате отвечаешь по статусу клиентов/самовыкупов из CRM.
+С клиентами работаешь по скрипту (дата заказа → дата отзыва → реквизиты) — это уже в системе.
+Опирайся на факты WB и статистику самовыкупов, если она есть в сообщении.
 ${STYLE_RULES}`,
 
-  muha: `Ты Муха — фотоворонка/контент. По топ артикулам даёшь короткие гипотезы по визуалу и конверсии.
+  muha: `Ты Муха — фотоворонка/контент. Генерируешь фото карточек по запросу; без запроса фото даёшь короткие гипотезы по визуалу.
 ${STYLE_RULES}`,
 };
 
@@ -101,6 +112,60 @@ async function sendTelegramMessage(
       }
     }
   }
+}
+
+async function sendTelegramPhoto(
+  botKey: string,
+  chatId: number,
+  opts: { imageUrl?: string; imageBytes?: Uint8Array; caption?: string },
+  replyToMessageId?: number,
+) {
+  const token = BOT_TOKENS[botKey];
+  if (!token) {
+    console.error(`Нет токена для бота: ${botKey}`);
+    return false;
+  }
+
+  if (opts.imageBytes) {
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    form.append(
+      "photo",
+      new Blob([opts.imageBytes], { type: "image/png" }),
+      "muha.png",
+    );
+    if (opts.caption) form.append("caption", opts.caption.slice(0, 900));
+    if (replyToMessageId) form.append("reply_to_message_id", String(replyToMessageId));
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) {
+      console.error(`[telegram-router] sendPhoto bytes ${botKey}:`, await res.text());
+      return false;
+    }
+    return true;
+  }
+
+  if (opts.imageUrl) {
+    const payload: Record<string, unknown> = {
+      chat_id: chatId,
+      photo: opts.imageUrl,
+      caption: (opts.caption || "").slice(0, 900),
+    };
+    if (replyToMessageId) payload.reply_to_message_id = replyToMessageId;
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      console.error(`[telegram-router] sendPhoto url ${botKey}:`, await res.text());
+      return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 async function saveMessage(chatId: number, sender: string, text: string) {
@@ -198,7 +263,7 @@ function normalizeBotKey(raw: string | null): string | null {
   if (t === "saule" || (t.startsWith("sau") && t.length <= 6 && /л|le|ле/.test(t))) {
     return "saule";
   }
-  if (["karina", "amina", "anton", "alina", "muha"].includes(t)) return t;
+  if (["karina", "amina", "anton", "alina", "alina2", "muha"].includes(t)) return t;
   return t;
 }
 
@@ -257,6 +322,45 @@ serve(async (req) => {
       return new Response("ok", { status: 200 });
     }
 
+    const fullName = [message.from?.first_name, message.from?.last_name]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    // ── Алина · клиентский чат/ЛС: скрипт самовыкупов → таблица ─────────────
+    // Не зависит от detectTargetAgent: любой текст клиента обрабатывает Алина.
+    // В ЛС статистику для команды всё ещё можно спросить («сколько самовыкупов»).
+    if (
+      (triggeringBot === "alina" || triggeringBot === "alina2") &&
+      isAlinaClientContext(message.chat) &&
+      !isAlinaStatsQuestion(text)
+    ) {
+      const replyBot = triggeringBot === "alina2" && BOT_TOKENS.alina2
+        ? "alina2"
+        : "alina";
+      if (!BOT_TOKENS[replyBot]) {
+        console.error(`[telegram-router] no token for ${replyBot}`);
+        return new Response("ok", { status: 200 });
+      }
+      const sourceAccount = replyBot === "alina2"
+        ? "second"
+        : (Deno.env.get("ALINA_SOURCE_ACCOUNT") || "main");
+      console.log(
+        `[telegram-router] alina-crm bot=${replyBot} chat=${chatId} user=${message.from?.id}`,
+      );
+      const reply = await handleAlinaClientMessage({
+        chatId,
+        userId: Number(message.from?.id),
+        username: message.from?.username,
+        fullName: fullName || undefined,
+        text,
+        sourceAccount,
+      });
+      await sendTelegramMessage(replyBot, chatId, reply, message.message_id);
+      await saveMessage(chatId, replyBot, reply);
+      return new Response("ok", { status: 200 });
+    }
+
     const targetAgent = detectTargetAgent(text, message.entities);
 
     // Отвечает только бот, чей ?bot= совпал с целевым агентом.
@@ -286,6 +390,48 @@ serve(async (req) => {
 
     await saveMessage(chatId, message.from?.first_name ?? "user", text);
 
+    // ── Алина · статистика самовыкупов в командном чате ─────────────────────
+    if (targetAgent === "alina" && isAlinaStatsQuestion(text)) {
+      const reply = await alinaSelfbuyStatsText();
+      await sendTelegramMessage("alina", chatId, reply, message.message_id);
+      await saveMessage(chatId, "alina", reply);
+      return new Response("ok", { status: 200 });
+    }
+
+    // ── Муха · генерация фото ───────────────────────────────────────────────
+    if (targetAgent === "muha" && wantsPhoto(text)) {
+      await sendTelegramMessage(
+        "muha",
+        chatId,
+        "Генерирую фото, минуту…",
+        message.message_id,
+      );
+      const photo = await generateMuhaPhoto(text);
+      if (!photo.ok) {
+        const fail =
+          `Не смог сгенерировать фото: ${photo.error || "unknown"}. Опиши товар подробнее.`;
+        await sendTelegramMessage("muha", chatId, fail);
+        await saveMessage(chatId, "muha", fail);
+        return new Response("ok", { status: 200 });
+      }
+      const sent = await sendTelegramPhoto(
+        "muha",
+        chatId,
+        {
+          imageUrl: photo.imageUrl,
+          imageBytes: photo.imageBytes,
+          caption: "Муха · фото для карточки",
+        },
+        message.message_id,
+      );
+      const note = sent
+        ? "Фото готово. Если нужно иначе — уточни свет/ракурс/фон."
+        : "Фото сгенерировал, но Telegram не принял файл. Попробуй ещё раз.";
+      await sendTelegramMessage("muha", chatId, note);
+      await saveMessage(chatId, "muha", note);
+      return new Response("ok", { status: 200 });
+    }
+
     const history = await loadRecentHistory(chatId);
     const standingTasks = await loadStandingTasks(targetAgent);
 
@@ -299,6 +445,15 @@ serve(async (req) => {
     } catch (e) {
       console.error("[telegram-router] wb context", e);
       wbContext = "Не удалось загрузить отчёты WB. Скажи об этом коротко.";
+    }
+
+    // Для Алины в чате — краткая CRM-сводка в контекст
+    if (targetAgent === "alina") {
+      try {
+        wbContext += `\n\nCRM самовыкупы:\n${await alinaSelfbuyStatsText()}`;
+      } catch (e) {
+        console.error("[telegram-router] alina stats context", e);
+      }
     }
 
     const systemPrompt =
