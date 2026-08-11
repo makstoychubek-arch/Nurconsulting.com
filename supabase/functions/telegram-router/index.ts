@@ -8,6 +8,10 @@
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  buildAgentWbContext,
+  type AgentKey,
+} from "../_shared/agent-wb-context.ts";
 
 // ---------- Настройка ----------
 
@@ -25,30 +29,36 @@ const BOT_TOKENS: Record<string, string> = {
   muha: (Deno.env.get("MUHA_BOT_TOKEN") || "").trim(),
 };
 
+const STYLE_RULES = `
+Формат ответа (строго):
+- Русский язык, деловой тон.
+- 3–7 коротких строк максимум. Без воды, без приветствий «как дела», без эмодзи-спама.
+- Сначала факты и цифры по кабинетам, потом 1–2 действия (как предложение, не делай сама).
+- Если данных нет — так и скажи одной строкой.
+- Не выдумывай цифры: только из блока «ФАКТЫ WB».
+- Деньги в ₽, штуки явно.`;
+
 const AGENT_PROMPTS: Record<string, string> = {
-  karina: `Ты Карина — главный координатор команды продавца на Wildberries/Ozon.
-Ты принимаешь общие вопросы владельца бизнеса и либо отвечаешь сама (используя
-данные из WB API), либо кратко делегируешь конкретному агенту, называя его по
-имени. Отвечай по-русски, кратко, по делу, без воды.`,
+  karina: `Ты Карина — координатор команды WB/Ozon (Сауле=продажи, Амина=реклама, Антон=логистика, Алина=продвижение, Муха=фотоворонка).
+Отвечаешь по общим вопросам сама по цифрам; узкие темы — коротко делегируй по имени.
+${STYLE_RULES}`,
 
-  saule: `Ты Сауле — агент по продажам. Анализируешь цены, остатки, динамику
-продаж по данным WB API. Предлагаешь конкретные действия (поднять/снизить
-цену, довезти остатки), но НИКОГДА не выполняешь их сама — только предлагаешь
-и ждёшь подтверждения от владельца.`,
+  saule: `Ты Сауле — продажи WB. Смотришь заказы/выкупы/отмены/топ артикулы по всем кабинетам.
+Предлагаешь действия (цена, остатки, фокус артикула), но не выполняешь их сама.
+${STYLE_RULES}`,
 
-  amina: `Ты Амина — менеджер по рекламе. Анализируешь CPC-кампании, расход
-бюджета, эффективность. Предлагаешь корректировки бюджета, но не меняешь их
-без явного подтверждения владельца.`,
+  amina: `Ты Амина — реклама WB. Смотришь активные/пауза кампании по кабинетам.
+Предлагаешь корректировки, не меняешь ничего без подтверждения.
+${STYLE_RULES}`,
 
-  anton: `Ты Антон — менеджер по логистике. Следишь за поставками, кластерами,
-сроками отгрузок и остатками на складах. Предупреждаешь о рисках (задержки,
-нехватка коробов и т.д.).`,
+  anton: `Ты Антон — логистика/FBS. Смотришь FBS-заказы и объёмы по кабинетам, риски отгрузок.
+${STYLE_RULES}`,
 
-  alina: `Ты Алина — менеджер по продвижению (самовыкупы, продвижение карточек).
-Даёшь рекомендации по стратегии продвижения на основе текущих показателей.`,
+  alina: `Ты Алина — продвижение карточек/самовыкупы. Опирайся на топ артикулы продаж.
+${STYLE_RULES}`,
 
-  muha: `Ты Муха — менеджер по фотоворонке. Анализируешь конверсию карточек,
-качество фото/контента, даёшь рекомендации по улучшению визуала.`,
+  muha: `Ты Муха — фотоворонка/контент. По топ артикулам даёшь короткие гипотезы по визуалу и конверсии.
+${STYLE_RULES}`,
 };
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -192,20 +202,12 @@ function normalizeBotKey(raw: string | null): string | null {
   return t;
 }
 
-async function fetchWbData(cabinet: string, endpoint: string) {
-  const res = await fetch(`${SUPABASE_URL}/functions/v1/wb-proxy`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-    },
-    body: JSON.stringify({ cabinet, endpoint }),
-  });
-  if (!res.ok) return null;
-  return await res.json();
-}
-
-async function askOpenAI(systemPrompt: string, history: string, userMessage: string) {
+async function askOpenAI(opts: {
+  systemPrompt: string;
+  history: string;
+  wbContext: string;
+  userMessage: string;
+}) {
   const res = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -213,17 +215,27 @@ async function askOpenAI(systemPrompt: string, history: string, userMessage: str
       Authorization: `Bearer ${OPENAI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "system", content: `Недавняя история чата:\n${history}` },
-        { role: "user", content: userMessage },
+        { role: "system", content: opts.systemPrompt },
+        { role: "system", content: `ФАКТЫ WB (по всем кабинетам):\n${opts.wbContext}` },
+        {
+          role: "system",
+          content: `Недавняя история чата (для контекста, не повторяй её):\n${opts.history || "—"}`,
+        },
+        { role: "user", content: opts.userMessage },
       ],
-      temperature: 0.4,
+      temperature: 0.2,
+      max_tokens: 350,
     }),
+    signal: AbortSignal.timeout(55000),
   });
   const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "Не удалось получить ответ.";
+  if (!res.ok) {
+    console.error("[telegram-router] openai error", JSON.stringify(data).slice(0, 300));
+    return "Не удалось получить ответ от модели. Попробуйте ещё раз.";
+  }
+  return data.choices?.[0]?.message?.content?.trim() ?? "Пустой ответ модели.";
 }
 
 serve(async (req) => {
@@ -281,13 +293,26 @@ serve(async (req) => {
       .map((h: { sender: string; text: string }) => `${h.sender}: ${h.text}`)
       .join("\n");
 
+    let wbContext = "";
+    try {
+      wbContext = await buildAgentWbContext(targetAgent as AgentKey);
+    } catch (e) {
+      console.error("[telegram-router] wb context", e);
+      wbContext = "Не удалось загрузить отчёты WB. Скажи об этом коротко.";
+    }
+
     const systemPrompt =
       AGENT_PROMPTS[targetAgent] +
       (standingTasks.length
-        ? `\n\nТвои постоянные задачи от владельца:\n- ${standingTasks.join("\n- ")}`
+        ? `\n\nПостоянные задачи от владельца:\n- ${standingTasks.join("\n- ")}`
         : "");
 
-    const reply = await askOpenAI(systemPrompt, historyText, text);
+    const reply = await askOpenAI({
+      systemPrompt,
+      history: historyText,
+      wbContext,
+      userMessage: text,
+    });
 
     await sendTelegramMessage(targetAgent, chatId, reply, message.message_id);
     await saveMessage(chatId, targetAgent, reply);
