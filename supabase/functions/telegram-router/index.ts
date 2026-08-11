@@ -37,6 +37,12 @@ import {
   expandAdsActionCommand,
   tryFastCommand,
 } from "../_shared/agent-fast-commands.ts";
+import {
+  AGENT_PROMPTS,
+  isNameOnlyPing,
+  liveNameReply,
+  namePingAgent,
+} from "../_shared/agent-personas.ts";
 
 // ---------- Настройка ----------
 
@@ -52,48 +58,6 @@ const BOT_TOKENS: Record<string, string> = {
   alina: (Deno.env.get("ALINA_BOT_TOKEN") || "").trim(),
   alina2: (Deno.env.get("ALINA_SECOND_BOT_TOKEN") || "").trim(),
   muha: (Deno.env.get("MUHA_BOT_TOKEN") || "").trim(),
-};
-
-const STYLE_RULES = `
-Формат ответа (строго):
-- Русский, деловой, сухо.
-- 2–5 коротких строк. Без приветствий, без эмодзи, без «как дела».
-- Структура: 1) факты/цифры по своей зоне 2) вывод 3) либо «Готово.» либо один @пинг.
-- Не выдумывай цифры: только из блока «ФАКТЫ WB».
-- Не повторяй то, что коллега уже сказал.
-- Деньги в ₽, штуки явно.`;
-
-const TEAM_PING_RULES = `
-Коллеги (пинг только так):
-@saulexxx_bot продажи | @aminaakd_bot реклама | @antonnnxx_bot логистика | @alinaaaxx_bot самовыкупы | @muxxxha_bot фото
-- Максимум один @username в конце, с конкретной задачей.
-- Не пингуй уже ответивших.
-- Не зови всех подряд. Нет нужды в коллеге → «Готово.»`;
-
-const AGENT_PROMPTS: Record<string, string> = {
-  karina: `Ты Карина — координатор WB-команды. Сожми суть и делегируй узкое одному специалисту через @.
-Действия (запуск РК и т.п.) — только через Амину и только после «подтверждаю» владельца.
-${STYLE_RULES}
-${TEAM_PING_RULES}
-${actionsCapabilityBrief()}`,
-  saule: `Ты Сауле — продажи WB (заказы/выкупы/отмены/топ/остатки/цена). Только своя зона.
-Не запускаешь рекламу сама — зови @aminaakd_bot.
-${STYLE_RULES}
-${TEAM_PING_RULES}`,
-  amina: `Ты Амина — реклама WB. Можешь готовить запуск/паузу РК, но НИКОГДА не утверждай, что уже изменила статус — только после слова владельца «подтверждаю» (это делает система).
-Покажи список, спроси какие РК, жди подтверждения.
-${STYLE_RULES}
-${TEAM_PING_RULES}
-${actionsCapabilityBrief()}`,
-  anton: `Ты Антон — логистика/FBS (отгрузки, объёмы, риски склада). Только своя зона.
-${STYLE_RULES}
-${TEAM_PING_RULES}`,
-  alina: `Ты Алина — самовыкупы/продвижение. В тимчате — статус CRM. Только своя зона.
-${STYLE_RULES}
-${TEAM_PING_RULES}`,
-  muha: `Ты Муха — фото/контент карточки. Гипотезы по визуалу; фото — только по прямому запросу.
-${STYLE_RULES}
-${TEAM_PING_RULES}`,
 };
 
 const MAX_AGENT_HOPS = clampHops(Deno.env.get("AGENT_CHAT_MAX_HOPS"), 3);
@@ -275,19 +239,50 @@ function normalizeBotKey(raw: string | null): string | null {
   return t;
 }
 
-/** Первый исполнитель по плану; Карина без webhook на router пропускается. */
-function pickStarter(plan: string[], triggeringBot: string | null): string | null {
+/**
+ * Кто говорит (токен отправителя) и какой webhook оркестрирует.
+ * Карина часто без своего ?bot= на router — тогда оркестрирует Сауле,
+ * а сообщение уходит токеном Карины (TELEGRAM_BOT_TOKEN).
+ */
+function resolveSpeakAndOrchestrator(
+  plan: string[],
+  triggeringBot: string | null,
+): { speakAs: string; orchestrator: string } | null {
+  let speakAs: string | null = null;
   for (const agent of plan) {
-    if (agent === "karina" && triggeringBot && triggeringBot !== "karina") continue;
-    if (BOT_TOKENS[agent]) return agent;
-  }
-  // Только если план был «пустой/только Карина» — берём первого живого специалиста
-  if (plan.length === 1 && plan[0] === "karina") {
-    for (const agent of ["saule", "amina", "anton", "alina", "muha"]) {
-      if (BOT_TOKENS[agent]) return agent;
+    if (BOT_TOKENS[agent]) {
+      speakAs = agent;
+      break;
     }
   }
-  return null;
+  if (!speakAs) {
+    for (const agent of ["saule", "amina", "anton", "alina", "muha"]) {
+      if (BOT_TOKENS[agent]) {
+        speakAs = agent;
+        break;
+      }
+    }
+  }
+  if (!speakAs) return null;
+
+  let orchestrator = speakAs;
+  if (speakAs === "karina" && triggeringBot && triggeringBot !== "karina") {
+    orchestrator = "saule"; // единственный дирижёр, чтобы не было 5 ответов
+    if (!BOT_TOKENS.saule) {
+      for (const agent of ["amina", "anton", "alina", "muha"]) {
+        if (BOT_TOKENS[agent]) {
+          orchestrator = agent;
+          break;
+        }
+      }
+    }
+  }
+  return { speakAs, orchestrator };
+}
+
+/** @deprecated alias for meta-commands */
+function pickStarter(plan: string[], triggeringBot: string | null): string | null {
+  return resolveSpeakAndOrchestrator(plan, triggeringBot)?.orchestrator ?? null;
 }
 
 async function askOpenAI(opts: {
@@ -317,8 +312,8 @@ async function askOpenAI(opts: {
           },
           { role: "user", content: opts.userMessage.slice(0, 2000) },
         ],
-        temperature: 0.15,
-        max_tokens: 220,
+        temperature: 0.4,
+        max_tokens: 280,
       }),
       signal: AbortSignal.timeout(25000),
     });
@@ -423,12 +418,13 @@ async function runAgentTurn(opts: {
   const history = await historyP;
   const systemPrompt =
     (AGENT_PROMPTS[targetAgent] || AGENT_PROMPTS.saule) +
+    `\n\n${actionsCapabilityBrief()}` +
     `\n\n${teamBriefForPrompt(plan, rootTask)}` +
     (fromAgent
-      ? `\n\nТебе пишет коллега ${fromAgent}. Ответь по своей зоне на задачу владельца.`
-      : "") +
+      ? `\n\nТебе пишет коллега ${fromAgent}. Ответь по своей зоне на задачу владельца — живо, как в команде.`
+      : `\n\nВладелец написал в рабочий чат. Ответь как живой сотрудник: по делу, с фактами, без пустого «да?».`) +
     (lastHop
-      ? `\n\nЭто последний ход цепочки — НЕ пингуй никого, закончи «Готово.»`
+      ? `\n\nЭто последний ход цепочки — НЕ пингуй никого, закончи конкретным выводом.`
       : "");
 
   console.log(
@@ -609,15 +605,54 @@ serve(async (req) => {
       return ok();
     }
 
+    // ── Живой отклик на «Карина» / «Сауле» без задачи (без пустого «да?») ───
+    if (isNameOnlyPing(text)) {
+      const pingAgent = namePingAgent(text);
+      if (pingAgent) {
+        const resolved = resolveSpeakAndOrchestrator([pingAgent], triggeringBot);
+        if (resolved && triggeringBot === resolved.orchestrator) {
+          await runWork((async () => {
+            let fact = "";
+            try {
+              if (pingAgent === "alina") {
+                const s = await alinaSelfbuyStatsText();
+                fact = s.split("\n").slice(1, 3).join(" · ");
+              } else if (pingAgent === "amina") {
+                const ctx = await buildAgentWbContext("amina", createWbContextCache());
+                const line = ctx.split("\n").find((l) => l.startsWith("▶ "));
+                fact = line || "";
+              } else if (pingAgent === "saule" || pingAgent === "karina" || pingAgent === "anton") {
+                const ctx = await buildAgentWbContext(
+                  pingAgent === "karina" ? "saule" : pingAgent as AgentKey,
+                  createWbContextCache(),
+                );
+                const line = ctx.split("\n").find((l) => l.startsWith("▶ "));
+                fact = line || "";
+              }
+            } catch { /* optional fact */ }
+            const reply = liveNameReply(pingAgent, fact || undefined);
+            await sendTelegramMessage(
+              resolved.speakAs,
+              chatId,
+              reply,
+              message.message_id,
+            );
+            saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
+            saveMessage(chatId, resolved.speakAs, reply).catch(() => {});
+          })());
+        }
+        return ok();
+      }
+    }
+
     const plan = buildTeamPlan(text, message.entities, MAX_AGENT_HOPS);
-    const targetAgent = pickStarter(plan, triggeringBot);
+    const resolved = resolveSpeakAndOrchestrator(plan, triggeringBot);
+    if (!resolved) return ok();
 
-    if (!targetAgent) return ok();
-
-    // Оркестрирует только стартовый бот
-    if (triggeringBot !== targetAgent) {
+    // Оркестрирует один webhook; говорит speakAs (Карина может говорить своим токеном)
+    if (triggeringBot !== resolved.orchestrator) {
       console.log(
-        `[telegram-router] skip bot=${triggeringBot} starter=${targetAgent} plan=${plan.join(">")} chat=${chatId}`,
+        `[telegram-router] skip bot=${triggeringBot} orch=${resolved.orchestrator} speak=${resolved.speakAs} plan=${plan.join(">")} chat=${chatId}`,
       );
       return ok();
     }
@@ -626,7 +661,7 @@ serve(async (req) => {
       await saveMessage(chatId, message.from?.first_name ?? "user", text);
       await runAgentTurn({
         chatId,
-        targetAgent,
+        targetAgent: resolved.speakAs,
         userMessage: text,
         rootTask: text,
         plan,
