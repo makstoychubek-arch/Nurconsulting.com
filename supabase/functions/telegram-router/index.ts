@@ -20,7 +20,6 @@ import {
 } from "../_shared/alina-selfbuy.ts";
 import { generateMuhaPhoto, wantsPhoto } from "../_shared/muha-photos.ts";
 import {
-  BOT_USERNAMES,
   buildTeamPlan,
   nextPingFromReply,
   teamBriefForPrompt,
