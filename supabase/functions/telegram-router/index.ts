@@ -16,12 +16,13 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
 const BOT_TOKENS: Record<string, string> = {
-  karina: Deno.env.get("KARINA_BOT_TOKEN")!,
-  sauле: Deno.env.get("SAULE_BOT_TOKEN")!,
-  amina: Deno.env.get("AMINA_BOT_TOKEN")!,
-  anton: Deno.env.get("ANTON_BOT_TOKEN")!,
-  alina: Deno.env.get("ALINA_BOT_TOKEN")!,
-  muha: Deno.env.get("MUHA_BOT_TOKEN")!,
+  // Карина: отдельный токен или текущий TELEGRAM_BOT_TOKEN проекта
+  karina: (Deno.env.get("KARINA_BOT_TOKEN") || Deno.env.get("TELEGRAM_BOT_TOKEN") || "").trim(),
+  sauле: (Deno.env.get("SAULE_BOT_TOKEN") || "").trim(),
+  amina: (Deno.env.get("AMINA_BOT_TOKEN") || "").trim(),
+  anton: (Deno.env.get("ANTON_BOT_TOKEN") || "").trim(),
+  alina: (Deno.env.get("ALINA_BOT_TOKEN") || "").trim(),
+  muha: (Deno.env.get("MUHA_BOT_TOKEN") || "").trim(),
 };
 
 const AGENT_PROMPTS: Record<string, string> = {
