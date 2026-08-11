@@ -25,6 +25,14 @@ import {
   nextPingFromReply,
   teamBriefForPrompt,
 } from "../_shared/agent-team.ts";
+import {
+  actionsCapabilityBrief,
+  getActivePending,
+  handleOwnerActionMessage,
+  isCancelText,
+  isConfirmText,
+  parseSelection,
+} from "../_shared/agent-actions.ts";
 
 // ---------- Настройка ----------
 
@@ -60,14 +68,19 @@ const TEAM_PING_RULES = `
 
 const AGENT_PROMPTS: Record<string, string> = {
   karina: `Ты Карина — координатор WB-команды. Сожми суть и делегируй узкое одному специалисту через @.
+Действия (запуск РК и т.п.) — только через Амину и только после «подтверждаю» владельца.
 ${STYLE_RULES}
-${TEAM_PING_RULES}`,
+${TEAM_PING_RULES}
+${actionsCapabilityBrief()}`,
   saule: `Ты Сауле — продажи WB (заказы/выкупы/отмены/топ/остатки/цена). Только своя зона.
+Не запускаешь рекламу сама — зови @aminaakd_bot.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
-  amina: `Ты Амина — реклама WB (кампании active/pause, ставки). Только своя зона. Ничего не меняешь сама.
+  amina: `Ты Амина — реклама WB. Можешь готовить запуск/паузу РК, но НИКОГДА не утверждай, что уже изменила статус — только после слова владельца «подтверждаю» (это делает система).
+Покажи список, спроси какие РК, жди подтверждения.
 ${STYLE_RULES}
-${TEAM_PING_RULES}`,
+${TEAM_PING_RULES}
+${actionsCapabilityBrief()}`,
   anton: `Ты Антон — логистика/FBS (отгрузки, объёмы, риски склада). Только своя зона.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
@@ -508,6 +521,44 @@ serve(async (req) => {
       .filter(Boolean)
       .join(" ")
       .trim();
+
+    // ── Действия с подтверждением (РК и т.п.) ───────────────────────────────
+    // Если в чате есть pending — обрабатывает только его agent_key.
+    // Новый интент «запусти РК…» → Амина (или кто в плане ads).
+    {
+      const pending = await getActivePending(chatId);
+      const actionAgent = pending?.agent_key ||
+        (/(рк|реклам|кампан)/i.test(text) ? "amina" : null);
+
+      if (actionAgent && triggeringBot === actionAgent) {
+        const actionResult = await handleOwnerActionMessage({
+          chatId,
+          tgUserId: Number(message.from?.id),
+          text,
+          agentKey: actionAgent,
+        });
+        if (actionResult.handled && actionResult.reply) {
+          await runWork((async () => {
+            await saveMessage(chatId, message.from?.first_name ?? "user", text);
+            await sendTelegramMessage(
+              actionAgent,
+              chatId,
+              actionResult.reply!,
+              message.message_id,
+            );
+            await saveMessage(chatId, actionAgent, actionResult.reply!);
+          })());
+          return ok();
+        }
+      } else if (pending && triggeringBot !== pending.agent_key) {
+        // Пока ждём номера/«подтверждаю» — другие боты не перебивают
+        const sticky =
+          isConfirmText(text) ||
+          isCancelText(text) ||
+          parseSelection(text, 100) !== null;
+        if (sticky) return ok();
+      }
+    }
 
     // ── Алина CRM (только люди, только клиентский контекст) ─────────────────
     if (

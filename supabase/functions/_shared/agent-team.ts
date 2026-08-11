@@ -60,7 +60,9 @@ export function detectTopicalAgents(text: string): string[] {
     lower.includes("cpc") ||
     lower.includes("ставк") ||
     lower.includes("ркл") ||
-    lower.includes("аукцион")
+    lower.includes("аукцион") ||
+    /(^|[^а-яё])рк([^а-яё]|$)/.test(lower) ||
+    (lower.includes("запусти") && lower.includes("кампан"))
   ) {
     found.push("amina");
   }
