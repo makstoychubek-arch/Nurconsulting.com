@@ -47,30 +47,59 @@ const STYLE_RULES = `
 - Не выдумывай цифры: только из блока «ФАКТЫ WB».
 - Деньги в ₽, штуки явно.`;
 
+/** Как агенты зовут коллег в тимчате (чтобы вебхук следующего сработал). */
+const TEAM_PING_RULES = `
+Команда в одном чате (общаетесь между собой по делу):
+- Сауле @saulexxx_bot — продажи/остатки/цены
+- Амина @aminaakd_bot — реклама
+- Антон @antonnnxx_bot — логистика/FBS
+- Алина @alinaaaxx_bot — самовыкупы/продвижение
+- Муха @muxxxha_bot — фото/контент
+Правила пинга:
+- Если нужен коллега — в конце одной строкой: «@username — короткий вопрос/задача».
+- Максимум ОДИН пинг коллеге за сообщение. Не пингуй всех подряд.
+- Не пингуй того, кто только что писал тебе, если ответ уже полный.
+- Если по своей зоне всё сказано и коллега не нужен — без @, закончи выводом.
+- Не болтайте: только факты, риски, следующий шаг.`;
+
 const AGENT_PROMPTS: Record<string, string> = {
   karina: `Ты Карина — координатор команды WB/Ozon (Сауле=продажи, Амина=реклама, Антон=логистика, Алина=продвижение, Муха=фотоворонка).
-Отвечаешь по общим вопросам сама по цифрам; узкие темы — коротко делегируй по имени.
-${STYLE_RULES}`,
+Отвечаешь по общим вопросам сама по цифрам; узкие темы — коротко делегируй коллеге через @username.
+${STYLE_RULES}
+${TEAM_PING_RULES}`,
 
   saule: `Ты Сауле — продажи WB. Смотришь заказы/выкупы/отмены/топ артикулы по всем кабинетам.
 Предлагаешь действия (цена, остатки, фокус артикула), но не выполняешь их сама.
-${STYLE_RULES}`,
+Если нужна реклама/логистика/фото/самовыкупы — пингуй коллегу @username.
+${STYLE_RULES}
+${TEAM_PING_RULES}`,
 
   amina: `Ты Амина — реклама WB. Смотришь активные/пауза кампании по кабинетам.
 Предлагаешь корректировки, не меняешь ничего без подтверждения.
-${STYLE_RULES}`,
+Если нужны продажи/логистика — пингуй коллегу.
+${STYLE_RULES}
+${TEAM_PING_RULES}`,
 
   anton: `Ты Антон — логистика/FBS. Смотришь FBS-заказы и объёмы по кабинетам, риски отгрузок.
-${STYLE_RULES}`,
+Если нужны продажи/реклама — пингуй коллегу.
+${STYLE_RULES}
+${TEAM_PING_RULES}`,
 
   alina: `Ты Алина — самовыкупы и продвижение. В командном чате отвечаешь по статусу клиентов/самовыкупов из CRM.
 С клиентами работаешь по скрипту (дата заказа → дата отзыва → реквизиты) — это уже в системе.
 Опирайся на факты WB и статистику самовыкупов, если она есть в сообщении.
-${STYLE_RULES}`,
+Если нужны продажи/фото — пингуй коллегу.
+${STYLE_RULES}
+${TEAM_PING_RULES}`,
 
   muha: `Ты Муха — фотоворонка/контент. Генерируешь фото карточек по запросу; без запроса фото даёшь короткие гипотезы по визуалу.
-${STYLE_RULES}`,
+Если нужны продажи/артикулы — пингуй Сауле.
+${STYLE_RULES}
+${TEAM_PING_RULES}`,
 };
+
+/** Сколько раз подряд агенты могут отвечать друг другу без человека. */
+const MAX_AGENT_HOPS = Number(Deno.env.get("AGENT_CHAT_MAX_HOPS") || "3");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -204,42 +233,64 @@ const BOT_USERNAMES: Record<string, string> = {
   karina: "", // задать, когда будет webhook на router
 };
 
-function detectTargetAgent(
+/** Явный адресат: @username или имя. Без тематических эвристик. */
+function detectExplicitTarget(
   text: string,
   // deno-lint-ignore no-explicit-any
   entities?: any[],
-): string {
+  excludeAgent?: string | null,
+): string | null {
   const lower = text.toLowerCase();
+  const candidates: string[] = [];
 
-  // 1) Явный @username / text_mention
   for (const [agent, username] of Object.entries(BOT_USERNAMES)) {
     if (!username) continue;
-    if (lower.includes(`@${username.toLowerCase()}`)) return agent;
+    if (lower.includes(`@${username.toLowerCase()}`)) candidates.push(agent);
   }
   for (const ent of entities || []) {
     if (ent?.type === "mention") {
       const mention = text.slice(ent.offset, ent.offset + ent.length).toLowerCase();
       for (const [agent, username] of Object.entries(BOT_USERNAMES)) {
-        if (username && mention === `@${username.toLowerCase()}`) return agent;
+        if (username && mention === `@${username.toLowerCase()}`) candidates.push(agent);
       }
     }
     if (ent?.type === "text_mention" && ent?.user?.username) {
       const u = String(ent.user.username).toLowerCase();
       for (const [agent, username] of Object.entries(BOT_USERNAMES)) {
-        if (username && u === username.toLowerCase()) return agent;
+        if (username && u === username.toLowerCase()) candidates.push(agent);
       }
     }
   }
 
-  // 2) Имя агента (Сауле/Саулэ — разные буквы е/э)
-  if (/саул[еэ]/.test(lower)) return "saule";
-  if (lower.includes("амина")) return "amina";
-  if (lower.includes("антон")) return "anton";
-  if (lower.includes("алина")) return "alina";
-  if (lower.includes("муха") || lower.includes("муху")) return "muha";
-  if (lower.includes("карина")) return "karina";
+  // Имя без @: «Сауле, глянь…»
+  if (/саул[еэ]/.test(lower)) candidates.push("saule");
+  if (lower.includes("амина")) candidates.push("amina");
+  if (lower.includes("антон")) candidates.push("anton");
+  if (lower.includes("алина")) candidates.push("alina");
+  if (/\bмуха\b|\bмуху\b/.test(lower)) candidates.push("muha");
+  if (lower.includes("карина")) candidates.push("karina");
 
-  // 3) Тема (осторожно — только явные маркеры)
+  for (const c of candidates) {
+    if (excludeAgent && c === excludeAgent) continue;
+    return c;
+  }
+  return null;
+}
+
+function detectTargetAgent(
+  text: string,
+  // deno-lint-ignore no-explicit-any
+  entities?: any[],
+  opts?: { strict?: boolean; excludeAgent?: string | null },
+): string {
+  const strict = opts?.strict === true;
+  const explicit = detectExplicitTarget(text, entities, opts?.excludeAgent);
+  if (explicit) return explicit;
+  if (strict) return ""; // бот→бот: только явный пинг
+
+  const lower = text.toLowerCase();
+
+  // Тема (только от человека)
   if (lower.includes("продаж") || lower.includes("остатк") || lower.includes("цен")) {
     return "saule";
   }
@@ -250,7 +301,9 @@ function detectTargetAgent(
     return "anton";
   }
   if (lower.includes("продвиж") || lower.includes("самовыкуп")) return "alina";
-  if (lower.includes("фотоворон") || lower.includes("конверс")) return "muha";
+  if (lower.includes("фотоворон") || lower.includes("конверс") || lower.includes("фото")) {
+    return "muha";
+  }
 
   return "karina";
 }
@@ -303,6 +356,129 @@ async function askOpenAI(opts: {
   return data.choices?.[0]?.message?.content?.trim() ?? "Пустой ответ модели.";
 }
 
+/**
+ * Один ход агента + при необходимости цепочка к коллеге.
+ * Важно: в Telegram боты НЕ получают сообщения других ботов,
+ * поэтому пинг @коллеге обрабатываем здесь же, не через webhook.
+ */
+async function runAgentTurn(opts: {
+  chatId: number;
+  targetAgent: string;
+  userMessage: string;
+  fromAgent?: string | null;
+  replyToMessageId?: number;
+  hop: number;
+}): Promise<void> {
+  const { chatId, targetAgent, userMessage, fromAgent, replyToMessageId, hop } = opts;
+
+  if (!BOT_TOKENS[targetAgent]) {
+    console.error(`[telegram-router] no token for target=${targetAgent}`);
+    return;
+  }
+  if (hop >= MAX_AGENT_HOPS) {
+    console.log(`[telegram-router] stop chain hop=${hop} chat=${chatId}`);
+    return;
+  }
+  if (fromAgent && fromAgent === targetAgent) return;
+
+  const history = await loadRecentHistory(chatId);
+  const standingTasks = await loadStandingTasks(targetAgent);
+  const historyText = history
+    .map((h: { sender: string; text: string }) => `${h.sender}: ${h.text}`)
+    .join("\n");
+
+  let wbContext = "";
+  try {
+    wbContext = await buildAgentWbContext(targetAgent as AgentKey);
+  } catch (e) {
+    console.error("[telegram-router] wb context", e);
+    wbContext = "Не удалось загрузить отчёты WB. Скажи об этом коротко.";
+  }
+
+  if (targetAgent === "alina") {
+    try {
+      wbContext += `\n\nCRM самовыкупы:\n${await alinaSelfbuyStatsText()}`;
+    } catch (e) {
+      console.error("[telegram-router] alina stats context", e);
+    }
+  }
+
+  const systemPrompt =
+    AGENT_PROMPTS[targetAgent] +
+    (standingTasks.length
+      ? `\n\nПостоянные задачи от владельца:\n- ${standingTasks.join("\n- ")}`
+      : "") +
+    (fromAgent
+      ? `\n\nСейчас тебе пишет коллега ${fromAgent}. Ответь по делу. Пингуй следующего коллегу только если без него нельзя закрыть задачу.`
+      : `\n\nЕсли задача требует другого специалиста — в конце пингани одного коллегу через @username.`);
+
+  console.log(
+    `[telegram-router] turn agent=${targetAgent} hop=${hop} from=${fromAgent || "human"} chat=${chatId}`,
+  );
+
+  // Спец-ветки
+  if (targetAgent === "alina" && !fromAgent && isAlinaStatsQuestion(userMessage)) {
+    const reply = await alinaSelfbuyStatsText();
+    await sendTelegramMessage("alina", chatId, reply, replyToMessageId);
+    await saveMessage(chatId, "alina", reply);
+    return;
+  }
+
+  if (targetAgent === "muha" && !fromAgent && wantsPhoto(userMessage)) {
+    await sendTelegramMessage("muha", chatId, "Генерирую фото, минуту…", replyToMessageId);
+    const photo = await generateMuhaPhoto(userMessage);
+    if (!photo.ok) {
+      const fail =
+        `Не смог сгенерировать фото: ${photo.error || "unknown"}. Опиши товар подробнее.`;
+      await sendTelegramMessage("muha", chatId, fail);
+      await saveMessage(chatId, "muha", fail);
+      return;
+    }
+    const sent = await sendTelegramPhoto(
+      "muha",
+      chatId,
+      {
+        imageUrl: photo.imageUrl,
+        imageBytes: photo.imageBytes,
+        caption: "Муха · фото для карточки",
+      },
+      replyToMessageId,
+    );
+    const note = sent
+      ? "Фото готово. Если нужно иначе — уточни свет/ракурс/фон."
+      : "Фото сгенерировал, но Telegram не принял файл. Попробуй ещё раз.";
+    await sendTelegramMessage("muha", chatId, note);
+    await saveMessage(chatId, "muha", note);
+    return;
+  }
+
+  const reply = await askOpenAI({
+    systemPrompt,
+    history: historyText,
+    wbContext,
+    userMessage: fromAgent
+      ? `[сообщение от коллеги ${fromAgent}]\n${userMessage}`
+      : userMessage,
+  });
+
+  await sendTelegramMessage(targetAgent, chatId, reply, replyToMessageId);
+  await saveMessage(chatId, targetAgent, reply);
+
+  // Цепочка: если в ответе пинг коллеги — вызываем его сами (Telegram бот→бот не доставляет).
+  const next = detectExplicitTarget(reply, undefined, targetAgent);
+  if (next && next !== targetAgent && BOT_TOKENS[next] && hop + 1 < MAX_AGENT_HOPS) {
+    // Небольшая пауза, чтобы в чате порядок сообщений был читаемым
+    await new Promise((r) => setTimeout(r, 700));
+    await runAgentTurn({
+      chatId,
+      targetAgent: next,
+      userMessage: reply,
+      fromAgent: targetAgent,
+      hop: hop + 1,
+    });
+  }
+}
+
 serve(async (req) => {
   try {
     const url = new URL(req.url);
@@ -316,8 +492,10 @@ serve(async (req) => {
 
     const chatId = message.chat.id;
     const text: string = message.text;
-    const fromBot = message.from?.is_bot;
+    const fromBot = Boolean(message.from?.is_bot);
 
+    // Сообщения ботов в Telegram другим ботам не приходят.
+    // Цепочку коллег запускаем сами внутри runAgentTurn после ответа.
     if (fromBot) {
       return new Response("ok", { status: 200 });
     }
@@ -328,8 +506,6 @@ serve(async (req) => {
       .trim();
 
     // ── Алина · клиентский чат/ЛС: скрипт самовыкупов → таблица ─────────────
-    // Не зависит от detectTargetAgent: любой текст клиента обрабатывает Алина.
-    // В ЛС статистику для команды всё ещё можно спросить («сколько самовыкупов»).
     if (
       (triggeringBot === "alina" || triggeringBot === "alina2") &&
       isAlinaClientContext(message.chat) &&
@@ -364,7 +540,7 @@ serve(async (req) => {
     const targetAgent = detectTargetAgent(text, message.entities);
 
     // Отвечает только бот, чей ?bot= совпал с целевым агентом.
-    // Иначе 5 вебхуков дублировали бы один и тот же ответ.
+    // (Дальше цепочку коллег крутит уже этот бот через runAgentTurn.)
     if (triggeringBot && triggeringBot !== targetAgent) {
       console.log(
         `[telegram-router] skip bot=${triggeringBot} target=${targetAgent} chat=${chatId}`,
@@ -377,100 +553,20 @@ serve(async (req) => {
       return new Response("ok", { status: 200 });
     }
 
-    if (!BOT_TOKENS[targetAgent]) {
+    if (!targetAgent || !BOT_TOKENS[targetAgent]) {
       console.error(`[telegram-router] no token for target=${targetAgent}`);
       return new Response("ok", { status: 200 });
     }
 
-    console.log(
-      `[telegram-router] handle bot=${triggeringBot} target=${targetAgent} chat=${chatId} text=${
-        text.slice(0, 80)
-      }`,
-    );
-
     await saveMessage(chatId, message.from?.first_name ?? "user", text);
 
-    // ── Алина · статистика самовыкупов в командном чате ─────────────────────
-    if (targetAgent === "alina" && isAlinaStatsQuestion(text)) {
-      const reply = await alinaSelfbuyStatsText();
-      await sendTelegramMessage("alina", chatId, reply, message.message_id);
-      await saveMessage(chatId, "alina", reply);
-      return new Response("ok", { status: 200 });
-    }
-
-    // ── Муха · генерация фото ───────────────────────────────────────────────
-    if (targetAgent === "muha" && wantsPhoto(text)) {
-      await sendTelegramMessage(
-        "muha",
-        chatId,
-        "Генерирую фото, минуту…",
-        message.message_id,
-      );
-      const photo = await generateMuhaPhoto(text);
-      if (!photo.ok) {
-        const fail =
-          `Не смог сгенерировать фото: ${photo.error || "unknown"}. Опиши товар подробнее.`;
-        await sendTelegramMessage("muha", chatId, fail);
-        await saveMessage(chatId, "muha", fail);
-        return new Response("ok", { status: 200 });
-      }
-      const sent = await sendTelegramPhoto(
-        "muha",
-        chatId,
-        {
-          imageUrl: photo.imageUrl,
-          imageBytes: photo.imageBytes,
-          caption: "Муха · фото для карточки",
-        },
-        message.message_id,
-      );
-      const note = sent
-        ? "Фото готово. Если нужно иначе — уточни свет/ракурс/фон."
-        : "Фото сгенерировал, но Telegram не принял файл. Попробуй ещё раз.";
-      await sendTelegramMessage("muha", chatId, note);
-      await saveMessage(chatId, "muha", note);
-      return new Response("ok", { status: 200 });
-    }
-
-    const history = await loadRecentHistory(chatId);
-    const standingTasks = await loadStandingTasks(targetAgent);
-
-    const historyText = history
-      .map((h: { sender: string; text: string }) => `${h.sender}: ${h.text}`)
-      .join("\n");
-
-    let wbContext = "";
-    try {
-      wbContext = await buildAgentWbContext(targetAgent as AgentKey);
-    } catch (e) {
-      console.error("[telegram-router] wb context", e);
-      wbContext = "Не удалось загрузить отчёты WB. Скажи об этом коротко.";
-    }
-
-    // Для Алины в чате — краткая CRM-сводка в контекст
-    if (targetAgent === "alina") {
-      try {
-        wbContext += `\n\nCRM самовыкупы:\n${await alinaSelfbuyStatsText()}`;
-      } catch (e) {
-        console.error("[telegram-router] alina stats context", e);
-      }
-    }
-
-    const systemPrompt =
-      AGENT_PROMPTS[targetAgent] +
-      (standingTasks.length
-        ? `\n\nПостоянные задачи от владельца:\n- ${standingTasks.join("\n- ")}`
-        : "");
-
-    const reply = await askOpenAI({
-      systemPrompt,
-      history: historyText,
-      wbContext,
+    await runAgentTurn({
+      chatId,
+      targetAgent,
       userMessage: text,
+      replyToMessageId: message.message_id,
+      hop: 0,
     });
-
-    await sendTelegramMessage(targetAgent, chatId, reply, message.message_id);
-    await saveMessage(chatId, targetAgent, reply);
 
     return new Response("ok", { status: 200 });
   } catch (err) {
