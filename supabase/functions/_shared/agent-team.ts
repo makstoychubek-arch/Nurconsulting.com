@@ -12,15 +12,15 @@ export const BOT_USERNAMES: Record<string, string> = {
   karina: "",
 };
 
-export const AGENT_ORDER = ["saule", "amina", "anton", "alina", "muha", "karina"] as const;
-
 /** Только @username — надёжный пинг без ложных срабатываний по имени. */
 export function detectMentionedAgents(text: string): string[] {
   const lower = text.toLowerCase();
   const found: string[] = [];
   for (const [agent, username] of Object.entries(BOT_USERNAMES)) {
     if (!username) continue;
-    if (lower.includes(`@${username.toLowerCase()}`)) found.push(agent);
+    // граница после username, чтобы не ловить префиксы
+    const re = new RegExp(`@${username.toLowerCase()}(?![a-z0-9_])`, "i");
+    if (re.test(lower)) found.push(agent);
   }
   return found;
 }
@@ -33,7 +33,8 @@ export function detectNamedAgents(text: string): string[] {
   if (lower.includes("амина")) found.push("amina");
   if (lower.includes("антон")) found.push("anton");
   if (lower.includes("алина")) found.push("alina");
-  if (/\bмуха\b|\bмуху\b|\bмухе\b/.test(lower)) found.push("muha");
+  // \b плохо работает с кириллицей в JS — явные формы
+  if (/(^|[^а-яё])мух[ауеы]([^а-яё]|$)/i.test(lower)) found.push("muha");
   if (lower.includes("карина")) found.push("karina");
   return found;
 }
@@ -42,12 +43,15 @@ export function detectNamedAgents(text: string): string[] {
 export function detectTopicalAgents(text: string): string[] {
   const lower = text.toLowerCase();
   const found: string[] = [];
+  const selfbuy = lower.includes("самовыкуп");
+
+  // «выкуп» внутри «самовыкуп» НЕ должен звать Сауле
   if (
     lower.includes("продаж") ||
     lower.includes("остатк") ||
-    lower.includes("выкуп") ||
     lower.includes("отмен") ||
-    /(^|[^а-яё])цен(а|ы|у|е|ой|ам)?([^а-яё]|$)/.test(lower)
+    /(^|[^а-яё])цен(а|ы|у|е|ой|ам)?([^а-яё]|$)/.test(lower) ||
+    (!selfbuy && /(^|[^а-яё])выкуп/.test(lower))
   ) {
     found.push("saule");
   }
@@ -70,7 +74,7 @@ export function detectTopicalAgents(text: string): string[] {
   ) {
     found.push("anton");
   }
-  if (lower.includes("продвиж") || lower.includes("самовыкуп")) {
+  if (selfbuy || lower.includes("продвиж")) {
     found.push("alina");
   }
   if (
@@ -78,7 +82,7 @@ export function detectTopicalAgents(text: string): string[] {
     lower.includes("конверс") ||
     lower.includes("инфограф") ||
     lower.includes("креатив") ||
-    (lower.includes("фото") && !lower.includes("самовыкуп"))
+    (lower.includes("фото") && !selfbuy)
   ) {
     found.push("muha");
   }
@@ -106,9 +110,11 @@ export function buildTeamPlan(
   entities?: any[],
   maxAgents = 3,
 ): string[] {
+  const cap = Number.isFinite(maxAgents) && maxAgents > 0 ? Math.floor(maxAgents) : 3;
   const fromEntities: string[] = [];
   for (const ent of entities || []) {
-    if (ent?.type === "mention" && typeof ent.offset === "number") {
+    if (ent?.type === "mention" && typeof ent.offset === "number" && typeof ent.length === "number") {
+      // Telegram offset — UTF-16 code units (как в JS string)
       const mention = text.slice(ent.offset, ent.offset + ent.length).toLowerCase();
       for (const [agent, username] of Object.entries(BOT_USERNAMES)) {
         if (username && mention === `@${username.toLowerCase()}`) fromEntities.push(agent);
@@ -127,7 +133,7 @@ export function buildTeamPlan(
     ...detectMentionedAgents(text),
     ...detectNamedAgents(text),
     ...detectTopicalAgents(text),
-  ]).slice(0, maxAgents);
+  ]).slice(0, cap);
 
   if (plan.length === 0) return ["karina"];
   return plan;
@@ -139,6 +145,18 @@ export function nextPingFromReply(reply: string, exclude: Set<string>): string |
     if (!exclude.has(agent)) return agent;
   }
   return null;
+}
+
+/** Агент явно закрыл свою часть без пинга. */
+export function isDoneReply(reply: string): boolean {
+  const t = reply.trim().toLowerCase();
+  if (detectMentionedAgents(reply).length > 0) return false;
+  return (
+    /(^|\n)\s*готово\.?\s*$/i.test(t) ||
+    t === "готово" ||
+    t.endsWith("готово.") ||
+    t.endsWith("готово")
+  );
 }
 
 export function teamBriefForPrompt(plan: string[], rootTask: string): string {
@@ -158,4 +176,10 @@ export function teamBriefForPrompt(plan: string[], rootTask: string): string {
     "Если следующий по плану нужен — в конце одна строка: @username — конкретная задача.",
     "Если твоя часть закрыта и следующий не нужен — закончи словом «Готово.» без @.",
   ].join("\n");
+}
+
+export function clampHops(raw: unknown, fallback = 3): number {
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.min(5, Math.floor(n));
 }

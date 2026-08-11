@@ -1,16 +1,15 @@
 // supabase/functions/telegram-router/index.ts
 //
-// Роутер для команды Telegram-агентов NR Space.
-// Принимает вебхуки от ЛЮБОГО из ботов (Карина, Сауле, Амина, Антон, Алина, Муха),
-// определяет, кто должен ответить, дёргает OpenAI с нужной ролью,
-// при необходимости обращается к wb-proxy за данными WB API,
-// и отправляет ответ ОТ ИМЕНИ нужного бота его собственным токеном.
+// Роутер команды Telegram-агентов NR Space.
+// Один webhook (?bot=) оркестрирует цепочку: ответ → @пинг/план → следующий агент.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   buildAgentWbContext,
+  createWbContextCache,
   type AgentKey,
+  type WbContextCache,
 } from "../_shared/agent-wb-context.ts";
 import {
   alinaSelfbuyStatsText,
@@ -21,6 +20,8 @@ import {
 import { generateMuhaPhoto, wantsPhoto } from "../_shared/muha-photos.ts";
 import {
   buildTeamPlan,
+  clampHops,
+  isDoneReply,
   nextPingFromReply,
   teamBriefForPrompt,
 } from "../_shared/agent-team.ts";
@@ -32,13 +33,11 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
 const BOT_TOKENS: Record<string, string> = {
-  // Карина: отдельный токен или текущий TELEGRAM_BOT_TOKEN проекта
   karina: (Deno.env.get("KARINA_BOT_TOKEN") || Deno.env.get("TELEGRAM_BOT_TOKEN") || "").trim(),
   saule: (Deno.env.get("SAULE_BOT_TOKEN") || "").trim(),
   amina: (Deno.env.get("AMINA_BOT_TOKEN") || "").trim(),
   anton: (Deno.env.get("ANTON_BOT_TOKEN") || "").trim(),
   alina: (Deno.env.get("ALINA_BOT_TOKEN") || "").trim(),
-  // Второй аккаунт Алины (клиентский) — опционально
   alina2: (Deno.env.get("ALINA_SECOND_BOT_TOKEN") || "").trim(),
   muha: (Deno.env.get("MUHA_BOT_TOKEN") || "").trim(),
 };
@@ -63,70 +62,102 @@ const AGENT_PROMPTS: Record<string, string> = {
   karina: `Ты Карина — координатор WB-команды. Сожми суть и делегируй узкое одному специалисту через @.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
-
   saule: `Ты Сауле — продажи WB (заказы/выкупы/отмены/топ/остатки/цена). Только своя зона.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
-
   amina: `Ты Амина — реклама WB (кампании active/pause, ставки). Только своя зона. Ничего не меняешь сама.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
-
   anton: `Ты Антон — логистика/FBS (отгрузки, объёмы, риски склада). Только своя зона.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
-
   alina: `Ты Алина — самовыкупы/продвижение. В тимчате — статус CRM. Только своя зона.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
-
   muha: `Ты Муха — фото/контент карточки. Гипотезы по визуалу; фото — только по прямому запросу.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
 };
 
-/** Сколько ходов подряд в одной задаче (человек не пишет). */
-const MAX_AGENT_HOPS = Number(Deno.env.get("AGENT_CHAT_MAX_HOPS") || "3");
+const MAX_AGENT_HOPS = clampHops(Deno.env.get("AGENT_CHAT_MAX_HOPS"), 3);
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+// Антидубль Telegram retries в рамках одного isolate
+const recentUpdateIds = new Map<number, number>();
+const DEDUP_TTL_MS = 5 * 60 * 1000;
+
+function rememberUpdate(updateId: number): boolean {
+  const now = Date.now();
+  if (recentUpdateIds.size > 500) {
+    for (const [id, ts] of recentUpdateIds) {
+      if (now - ts > DEDUP_TTL_MS) recentUpdateIds.delete(id);
+    }
+  }
+  const prev = recentUpdateIds.get(updateId);
+  if (prev && now - prev < DEDUP_TTL_MS) return false;
+  recentUpdateIds.set(updateId, now);
+  return true;
+}
+
+// deno-lint-ignore no-explicit-any
+const edgeRuntime = (globalThis as any).EdgeRuntime as
+  | { waitUntil?: (p: Promise<unknown>) => void }
+  | undefined;
+
+async function runWork(task: Promise<unknown>): Promise<void> {
+  const guarded = task.catch((e) => console.error("[telegram-router] bg", e));
+  // На Supabase Edge: отдаём 200 сразу, работа дожимается в waitUntil.
+  // Без waitUntil — ждём, иначе isolate убьёт промис.
+  if (edgeRuntime?.waitUntil) {
+    edgeRuntime.waitUntil(guarded);
+    return;
+  }
+  await guarded;
+}
 
 async function sendTelegramMessage(
   botKey: string,
   chatId: number,
   text: string,
   replyToMessageId?: number,
-) {
+): Promise<boolean> {
   const token = BOT_TOKENS[botKey];
   if (!token) {
     console.error(`Нет токена для бота: ${botKey}`);
-    return;
+    return false;
   }
-  // Без HTML: ответы LLM часто ломают parse_mode и сообщение молча не уходит.
-  const payload: Record<string, unknown> = {
-    chat_id: chatId,
-    text: text.slice(0, 4000),
-  };
+  const body = { chat_id: chatId, text: text.slice(0, 4000) };
+  const payload: Record<string, unknown> = { ...body };
   if (replyToMessageId) payload.reply_to_message_id = replyToMessageId;
 
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (res.ok) return true;
     const err = await res.text();
     console.error(`[telegram-router] sendMessage ${botKey} failed:`, err);
-    // Повтор без reply, если reply_to отклонён
     if (replyToMessageId) {
       const retry = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ chat_id: chatId, text: text.slice(0, 4000) }),
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(15000),
       });
       if (!retry.ok) {
         console.error(`[telegram-router] sendMessage retry failed:`, await retry.text());
+        return false;
       }
+      return true;
     }
+    return false;
+  } catch (e) {
+    console.error(`[telegram-router] sendMessage ${botKey} exception:`, e);
+    return false;
   }
 }
 
@@ -135,64 +166,71 @@ async function sendTelegramPhoto(
   chatId: number,
   opts: { imageUrl?: string; imageBytes?: Uint8Array; caption?: string },
   replyToMessageId?: number,
-) {
+): Promise<boolean> {
   const token = BOT_TOKENS[botKey];
-  if (!token) {
-    console.error(`Нет токена для бота: ${botKey}`);
-    return false;
-  }
+  if (!token) return false;
 
-  if (opts.imageBytes) {
-    const form = new FormData();
-    form.append("chat_id", String(chatId));
-    form.append(
-      "photo",
-      new Blob([opts.imageBytes], { type: "image/png" }),
-      "muha.png",
-    );
-    if (opts.caption) form.append("caption", opts.caption.slice(0, 900));
-    if (replyToMessageId) form.append("reply_to_message_id", String(replyToMessageId));
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-      method: "POST",
-      body: form,
-    });
-    if (!res.ok) {
-      console.error(`[telegram-router] sendPhoto bytes ${botKey}:`, await res.text());
-      return false;
+  try {
+    if (opts.imageBytes) {
+      const form = new FormData();
+      form.append("chat_id", String(chatId));
+      form.append(
+        "photo",
+        new Blob([opts.imageBytes], { type: "image/png" }),
+        "muha.png",
+      );
+      if (opts.caption) form.append("caption", opts.caption.slice(0, 900));
+      if (replyToMessageId) form.append("reply_to_message_id", String(replyToMessageId));
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+        method: "POST",
+        body: form,
+        signal: AbortSignal.timeout(60000),
+      });
+      if (!res.ok) {
+        console.error(`[telegram-router] sendPhoto bytes ${botKey}:`, await res.text());
+        return false;
+      }
+      return true;
     }
-    return true;
-  }
 
-  if (opts.imageUrl) {
-    const payload: Record<string, unknown> = {
-      chat_id: chatId,
-      photo: opts.imageUrl,
-      caption: (opts.caption || "").slice(0, 900),
-    };
-    if (replyToMessageId) payload.reply_to_message_id = replyToMessageId;
-    const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      console.error(`[telegram-router] sendPhoto url ${botKey}:`, await res.text());
-      return false;
+    if (opts.imageUrl) {
+      const payload: Record<string, unknown> = {
+        chat_id: chatId,
+        photo: opts.imageUrl,
+        caption: (opts.caption || "").slice(0, 900),
+      };
+      if (replyToMessageId) payload.reply_to_message_id = replyToMessageId;
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: AbortSignal.timeout(30000),
+      });
+      if (!res.ok) {
+        console.error(`[telegram-router] sendPhoto url ${botKey}:`, await res.text());
+        return false;
+      }
+      return true;
     }
-    return true;
+  } catch (e) {
+    console.error(`[telegram-router] sendPhoto ${botKey}:`, e);
   }
   return false;
 }
 
 async function saveMessage(chatId: number, sender: string, text: string) {
-  await supabase.from("agent_chat_history").insert({
-    chat_id: chatId,
-    sender,
-    text,
-  });
+  try {
+    await supabase.from("agent_chat_history").insert({
+      chat_id: chatId,
+      sender: sender.slice(0, 80),
+      text: text.slice(0, 4000),
+    });
+  } catch (e) {
+    console.error("[telegram-router] saveMessage", e);
+  }
 }
 
-async function loadRecentHistory(chatId: number, limit = 15) {
+async function loadRecentHistory(chatId: number, limit = 12) {
   const { data } = await supabase
     .from("agent_chat_history")
     .select("sender, text, created_at")
@@ -202,16 +240,24 @@ async function loadRecentHistory(chatId: number, limit = 15) {
   return (data ?? []).reverse();
 }
 
+function formatHistory(
+  history: Array<{ sender: string; text: string }>,
+): string {
+  return history
+    .map((h) => `${h.sender}: ${String(h.text || "").slice(0, 280)}`)
+    .join("\n");
+}
+
 async function loadStandingTasks(agentKey: string) {
   const { data } = await supabase
     .from("agent_standing_tasks")
     .select("task_description")
     .eq("agent_type", agentKey)
-    .eq("is_active", true);
-  return (data ?? []).map((r) => r.task_description);
+    .eq("is_active", true)
+    .limit(10);
+  return (data ?? []).map((r) => String(r.task_description).slice(0, 300));
 }
 
-/** Нормализация ?bot= (ASCII-ключи; старый mixed sau+кириллица → saule). */
 function normalizeBotKey(raw: string | null): string | null {
   if (!raw) return null;
   const t = raw.trim().toLowerCase();
@@ -222,15 +268,17 @@ function normalizeBotKey(raw: string | null): string | null {
   return t;
 }
 
-/** Первый исполнитель по плану; если Карины нет на router — следующий с токеном. */
+/** Первый исполнитель по плану; Карина без webhook на router пропускается. */
 function pickStarter(plan: string[], triggeringBot: string | null): string | null {
   for (const agent of plan) {
     if (agent === "karina" && triggeringBot && triggeringBot !== "karina") continue;
     if (BOT_TOKENS[agent]) return agent;
   }
-  // fallback: любой специалист с токеном из плана не нужен — первый доступный
-  for (const agent of ["saule", "amina", "anton", "alina", "muha"]) {
-    if (BOT_TOKENS[agent]) return agent;
+  // Только если план был «пустой/только Карина» — берём первого живого специалиста
+  if (plan.length === 1 && plan[0] === "karina") {
+    for (const agent of ["saule", "amina", "anton", "alina", "muha"]) {
+      if (BOT_TOKENS[agent]) return agent;
+    }
   }
   return null;
 }
@@ -241,41 +289,44 @@ async function askOpenAI(opts: {
   wbContext: string;
   userMessage: string;
 }) {
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
-      messages: [
-        { role: "system", content: opts.systemPrompt },
-        { role: "system", content: `ФАКТЫ WB (по всем кабинетам):\n${opts.wbContext}` },
-        {
-          role: "system",
-          content: `Недавняя история чата (для контекста, не повторяй её):\n${opts.history || "—"}`,
-        },
-        { role: "user", content: opts.userMessage },
-      ],
-      temperature: 0.2,
-      max_tokens: 350,
-    }),
-    signal: AbortSignal.timeout(55000),
-  });
-  const data = await res.json();
-  if (!res.ok) {
-    console.error("[telegram-router] openai error", JSON.stringify(data).slice(0, 300));
-    return "Не удалось получить ответ от модели. Попробуйте ещё раз.";
+  try {
+    const res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
+        messages: [
+          { role: "system", content: opts.systemPrompt },
+          {
+            role: "system",
+            content: `ФАКТЫ WB (по всем кабинетам):\n${opts.wbContext || "нет данных"}`,
+          },
+          {
+            role: "system",
+            content: `Недавняя история чата (для контекста, не повторяй её):\n${opts.history || "—"}`,
+          },
+          { role: "user", content: opts.userMessage.slice(0, 2000) },
+        ],
+        temperature: 0.2,
+        max_tokens: 320,
+      }),
+      signal: AbortSignal.timeout(45000),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error("[telegram-router] openai error", JSON.stringify(data).slice(0, 300));
+      return "Не удалось получить ответ от модели. Попробуйте ещё раз.";
+    }
+    return data.choices?.[0]?.message?.content?.trim() || "Пустой ответ модели.";
+  } catch (e) {
+    console.error("[telegram-router] openai exception", e);
+    return "Таймаут модели. Повторите коротко.";
   }
-  return data.choices?.[0]?.message?.content?.trim() ?? "Пустой ответ модели.";
 }
 
-/**
- * Один ход + цепочка.
- * Telegram не доставляет bot→bot, поэтому следующего зовём сами.
- * Защиты: visited (нет циклов), план команды, только @username-пинг.
- */
 async function runAgentTurn(opts: {
   chatId: number;
   targetAgent: string;
@@ -283,6 +334,7 @@ async function runAgentTurn(opts: {
   rootTask: string;
   plan: string[];
   visited: Set<string>;
+  wbCache: WbContextCache;
   fromAgent?: string | null;
   replyToMessageId?: number;
   hop: number;
@@ -294,68 +346,20 @@ async function runAgentTurn(opts: {
     rootTask,
     plan,
     visited,
+    wbCache,
     fromAgent,
     replyToMessageId,
     hop,
   } = opts;
 
-  if (!BOT_TOKENS[targetAgent]) {
-    console.error(`[telegram-router] no token for target=${targetAgent}`);
-    return;
-  }
-  if (hop >= MAX_AGENT_HOPS) {
-    console.log(`[telegram-router] stop chain hop=${hop} chat=${chatId}`);
-    return;
-  }
-  if (visited.has(targetAgent)) {
-    console.log(`[telegram-router] skip visited=${targetAgent} chat=${chatId}`);
-    return;
-  }
+  if (!BOT_TOKENS[targetAgent]) return;
+  if (hop >= MAX_AGENT_HOPS) return;
+  if (visited.has(targetAgent)) return;
   visited.add(targetAgent);
 
-  const history = await loadRecentHistory(chatId);
-  const standingTasks = await loadStandingTasks(targetAgent);
-  const historyText = history
-    .map((h: { sender: string; text: string }) => `${h.sender}: ${h.text}`)
-    .join("\n");
-
-  let wbContext = "";
-  try {
-    wbContext = await buildAgentWbContext(targetAgent as AgentKey);
-  } catch (e) {
-    console.error("[telegram-router] wb context", e);
-    wbContext = "Не удалось загрузить отчёты WB. Скажи об этом коротко.";
-  }
-
-  if (targetAgent === "alina") {
-    try {
-      wbContext += `\n\nCRM самовыкупы:\n${await alinaSelfbuyStatsText()}`;
-    } catch (e) {
-      console.error("[telegram-router] alina stats context", e);
-    }
-  }
-
   const lastHop = hop + 1 >= MAX_AGENT_HOPS;
-  const systemPrompt =
-    AGENT_PROMPTS[targetAgent] +
-    `\n\n${teamBriefForPrompt(plan, rootTask)}` +
-    (standingTasks.length
-      ? `\n\nПостоянные задачи от владельца:\n- ${standingTasks.join("\n- ")}`
-      : "") +
-    (fromAgent
-      ? `\n\nТебе пишет коллега ${fromAgent}. Ответь по своей зоне на задачу владельца.`
-      : "") +
-    (lastHop
-      ? `\n\nЭто последний ход цепочки — НЕ пингуй никого, закончи «Готово.»`
-      : "");
 
-  console.log(
-    `[telegram-router] turn agent=${targetAgent} hop=${hop} from=${
-      fromAgent || "human"
-    } plan=${plan.join(">")} chat=${chatId}`,
-  );
-
-  // Спец-ветки (только от человека, без цепочки)
+  // Спец-ветки — без тяжёлого WB/LLM
   if (targetAgent === "alina" && !fromAgent && isAlinaStatsQuestion(rootTask)) {
     const reply = await alinaSelfbuyStatsText();
     await sendTelegramMessage("alina", chatId, reply, replyToMessageId);
@@ -391,9 +395,49 @@ async function runAgentTurn(opts: {
     return;
   }
 
+  const [history, standingTasks] = await Promise.all([
+    loadRecentHistory(chatId),
+    loadStandingTasks(targetAgent),
+  ]);
+
+  let wbContext = "";
+  try {
+    wbContext = await buildAgentWbContext(targetAgent as AgentKey, wbCache);
+  } catch (e) {
+    console.error("[telegram-router] wb context", e);
+    wbContext = "Не удалось загрузить отчёты WB. Скажи об этом коротко.";
+  }
+
+  if (targetAgent === "alina") {
+    try {
+      wbContext += `\n\nCRM самовыкупы:\n${await alinaSelfbuyStatsText()}`;
+    } catch (e) {
+      console.error("[telegram-router] alina stats context", e);
+    }
+  }
+
+  const systemPrompt =
+    (AGENT_PROMPTS[targetAgent] || AGENT_PROMPTS.saule) +
+    `\n\n${teamBriefForPrompt(plan, rootTask)}` +
+    (standingTasks.length
+      ? `\n\nПостоянные задачи от владельца:\n- ${standingTasks.join("\n- ")}`
+      : "") +
+    (fromAgent
+      ? `\n\nТебе пишет коллега ${fromAgent}. Ответь по своей зоне на задачу владельца.`
+      : "") +
+    (lastHop
+      ? `\n\nЭто последний ход цепочки — НЕ пингуй никого, закончи «Готово.»`
+      : "");
+
+  console.log(
+    `[telegram-router] turn agent=${targetAgent} hop=${hop} from=${
+      fromAgent || "human"
+    } plan=${plan.join(">")} chat=${chatId}`,
+  );
+
   const reply = await askOpenAI({
     systemPrompt,
-    history: historyText,
+    history: formatHistory(history),
     wbContext,
     userMessage: fromAgent
       ? `Задача владельца: ${rootTask}\n\nКоллега ${fromAgent} передал:\n${userMessage}`
@@ -404,20 +448,16 @@ async function runAgentTurn(opts: {
   await saveMessage(chatId, targetAgent, reply);
 
   if (lastHop) return;
+  // Явно «Готово» без @ — не автопинаем дальше
+  if (isDoneReply(reply)) return;
 
-  // 1) Явный @пинг в ответе (не посещённый)
   let next = nextPingFromReply(reply, visited);
-
-  // 2) Иначе следующий из плана команды (надёжно, даже если LLM забыл @)
-  if (!next) {
+  if (!next && plan.length >= 2) {
     next = plan.find((a) => !visited.has(a) && BOT_TOKENS[a]) || null;
-    // Автопродолжение по плану — только если в корневой задаче явно >1 специалист/тема
-    if (next && plan.length < 2) next = null;
   }
-
   if (!next || !BOT_TOKENS[next]) return;
 
-  await new Promise((r) => setTimeout(r, 600));
+  await new Promise((r) => setTimeout(r, 400));
   await runAgentTurn({
     chatId,
     targetAgent: next,
@@ -425,38 +465,51 @@ async function runAgentTurn(opts: {
     rootTask,
     plan,
     visited,
+    wbCache,
     fromAgent: targetAgent,
     hop: hop + 1,
   });
 }
 
 serve(async (req) => {
+  // Telegram должен получать 200, иначе ретраи → дубли
+  const ok = () => new Response("ok", { status: 200 });
+
   try {
+    if (req.method !== "POST") return ok();
+
     const url = new URL(req.url);
-    const triggeringBot = normalizeBotKey(url.searchParams.get("bot")); // 'saule' | 'amina' | ...
+    const triggeringBot = normalizeBotKey(url.searchParams.get("bot"));
+
+    // Без ?bot= все вебхуки ответили бы сразу — запрещаем
+    if (!triggeringBot) {
+      console.error("[telegram-router] missing ?bot=");
+      return ok();
+    }
+    if (!BOT_TOKENS[triggeringBot] && triggeringBot !== "karina") {
+      console.error(`[telegram-router] unknown/empty bot=${triggeringBot}`);
+      return ok();
+    }
 
     const update = await req.json();
+    const updateId = Number(update?.update_id);
+    if (Number.isFinite(updateId) && !rememberUpdate(updateId)) {
+      console.log(`[telegram-router] dedup update_id=${updateId}`);
+      return ok();
+    }
+
     const message = update.message;
-    if (!message || !message.text) {
-      return new Response("ok", { status: 200 });
-    }
+    if (!message?.text) return ok();
+    if (message.from?.is_bot) return ok();
 
-    const chatId = message.chat.id;
-    const text: string = message.text;
-    const fromBot = Boolean(message.from?.is_bot);
-
-    // Сообщения ботов в Telegram другим ботам не приходят.
-    // Цепочку коллег запускаем сами внутри runAgentTurn после ответа.
-    if (fromBot) {
-      return new Response("ok", { status: 200 });
-    }
-
+    const chatId = Number(message.chat.id);
+    const text = String(message.text);
     const fullName = [message.from?.first_name, message.from?.last_name]
       .filter(Boolean)
       .join(" ")
       .trim();
 
-    // ── Алина · клиентский чат/ЛС: скрипт самовыкупов → таблица ─────────────
+    // ── Алина CRM (только люди, только клиентский контекст) ─────────────────
     if (
       (triggeringBot === "alina" || triggeringBot === "alina2") &&
       isAlinaClientContext(message.chat) &&
@@ -465,61 +518,57 @@ serve(async (req) => {
       const replyBot = triggeringBot === "alina2" && BOT_TOKENS.alina2
         ? "alina2"
         : "alina";
-      if (!BOT_TOKENS[replyBot]) {
-        console.error(`[telegram-router] no token for ${replyBot}`);
-        return new Response("ok", { status: 200 });
-      }
+      if (!BOT_TOKENS[replyBot]) return ok();
+
       const sourceAccount = replyBot === "alina2"
         ? "second"
         : (Deno.env.get("ALINA_SOURCE_ACCOUNT") || "main");
-      console.log(
-        `[telegram-router] alina-crm bot=${replyBot} chat=${chatId} user=${message.from?.id}`,
-      );
-      const reply = await handleAlinaClientMessage({
-        chatId,
-        userId: Number(message.from?.id),
-        username: message.from?.username,
-        fullName: fullName || undefined,
-        text,
-        sourceAccount,
-      });
-      await sendTelegramMessage(replyBot, chatId, reply, message.message_id);
-      await saveMessage(chatId, replyBot, reply);
-      return new Response("ok", { status: 200 });
+
+      await runWork((async () => {
+        const reply = await handleAlinaClientMessage({
+          chatId,
+          userId: Number(message.from?.id),
+          username: message.from?.username,
+          fullName: fullName || undefined,
+          text,
+          sourceAccount,
+        });
+        await sendTelegramMessage(replyBot, chatId, reply, message.message_id);
+        await saveMessage(chatId, replyBot, reply);
+      })());
+      return ok();
     }
 
     const plan = buildTeamPlan(text, message.entities, MAX_AGENT_HOPS);
     const targetAgent = pickStarter(plan, triggeringBot);
 
-    if (!targetAgent) {
-      console.error("[telegram-router] no starter agent", plan);
-      return new Response("ok", { status: 200 });
-    }
+    if (!targetAgent) return ok();
 
-    // Оркестрирует один webhook (первый по плану) — остальных вызывает сам.
-    if (triggeringBot && triggeringBot !== targetAgent) {
+    // Оркестрирует только стартовый бот
+    if (triggeringBot !== targetAgent) {
       console.log(
         `[telegram-router] skip bot=${triggeringBot} starter=${targetAgent} plan=${plan.join(">")} chat=${chatId}`,
       );
-      return new Response("ok", { status: 200 });
+      return ok();
     }
 
-    await saveMessage(chatId, message.from?.first_name ?? "user", text);
-
-    await runAgentTurn({
-      chatId,
-      targetAgent,
-      userMessage: text,
-      rootTask: text,
-      plan,
-      visited: new Set<string>(),
-      replyToMessageId: message.message_id,
-      hop: 0,
-    });
-
-    return new Response("ok", { status: 200 });
+    await runWork((async () => {
+      await saveMessage(chatId, message.from?.first_name ?? "user", text);
+      await runAgentTurn({
+        chatId,
+        targetAgent,
+        userMessage: text,
+        rootTask: text,
+        plan,
+        visited: new Set<string>(),
+        wbCache: createWbContextCache(),
+        replyToMessageId: message.message_id,
+        hop: 0,
+      });
+    })());
+    return ok();
   } catch (err) {
-    console.error(err);
-    return new Response("error", { status: 500 });
+    console.error("[telegram-router] handler", err);
+    return ok();
   }
 });

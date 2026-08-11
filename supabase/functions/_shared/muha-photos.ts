@@ -20,57 +20,67 @@ function buildPrompt(text: string): string {
 }
 
 async function generateWithImagesApi(apiKey: string, prompt: string): Promise<MuhaPhotoResult> {
-  const res = await fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "gpt-image-1",
-      prompt,
-      size: "1024x1024",
-      n: 1,
-    }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    return { ok: false, error: data?.error?.message || `images api ${res.status}` };
+  try {
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-image-1",
+        prompt,
+        size: "1024x1024",
+        n: 1,
+      }),
+      signal: AbortSignal.timeout(90000),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: data?.error?.message || `images api ${res.status}` };
+    }
+    const b64 = data?.data?.[0]?.b64_json as string | undefined;
+    const url = data?.data?.[0]?.url as string | undefined;
+    if (b64) {
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return { ok: true, imageBytes: bytes };
+    }
+    if (url) return { ok: true, imageUrl: url };
+    return { ok: false, error: "empty image response" };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
-  const b64 = data?.data?.[0]?.b64_json as string | undefined;
-  const url = data?.data?.[0]?.url as string | undefined;
-  if (b64) {
-    const bin = atob(b64);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return { ok: true, imageBytes: bytes };
-  }
-  if (url) return { ok: true, imageUrl: url };
-  return { ok: false, error: "empty image response" };
 }
 
 async function generateWithDalle(apiKey: string, prompt: string): Promise<MuhaPhotoResult> {
-  const res = await fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "dall-e-3",
-      prompt,
-      size: "1024x1024",
-      n: 1,
-      response_format: "url",
-    }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    return { ok: false, error: data?.error?.message || `dalle ${res.status}` };
+  try {
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "dall-e-3",
+        prompt,
+        size: "1024x1024",
+        n: 1,
+        response_format: "url",
+      }),
+      signal: AbortSignal.timeout(90000),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: data?.error?.message || `dalle ${res.status}` };
+    }
+    const url = data?.data?.[0]?.url as string | undefined;
+    if (!url) return { ok: false, error: "empty dalle url" };
+    return { ok: true, imageUrl: url };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
-  const url = data?.data?.[0]?.url as string | undefined;
-  if (!url) return { ok: false, error: "empty dalle url" };
-  return { ok: true, imageUrl: url };
 }
 
 export async function generateMuhaPhoto(userText: string): Promise<MuhaPhotoResult> {

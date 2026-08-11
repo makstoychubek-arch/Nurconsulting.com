@@ -43,12 +43,27 @@ export function getAlinaClientChatIds(): Set<number> {
   return ids;
 }
 
+/** Тимчат команды — никогда не CRM (даже если ошибочно попал в client ids). */
+function getTeamChatIds(): Set<number> {
+  const raw = (Deno.env.get('AGENT_TEAM_CHAT_IDS') || Deno.env.get('TELEGRAM_TEAM_CHAT_ID') || '').trim();
+  const ids = new Set<number>();
+  // Дефолт: NR Space тима
+  ids.add(-1004460164885);
+  for (const p of raw.split(/[,\s]+/).filter(Boolean)) {
+    const n = Number(p);
+    if (Number.isFinite(n)) ids.add(n);
+  }
+  return ids;
+}
+
 export function isAlinaClientContext(chat: {
   id: number;
   type?: string;
 }): boolean {
+  const id = Number(chat.id);
+  if (getTeamChatIds().has(id)) return false;
   if (chat.type === 'private') return true;
-  return getAlinaClientChatIds().has(Number(chat.id));
+  return getAlinaClientChatIds().has(id);
 }
 
 export async function handleAlinaClientMessage(opts: {
@@ -279,14 +294,16 @@ export async function alinaSelfbuyStatsText(): Promise<string> {
   ].join('\n');
 }
 
+/** Только явный запрос статистики — не любое слово «самовыкуп» (иначе ломает CRM). */
 export function isAlinaStatsQuestion(text: string): boolean {
   const t = text.toLowerCase();
+  const asksCount = t.includes('сколько') || t.includes('статус') || t.includes('итог');
+  if (!asksCount) return false;
   return (
     t.includes('самовыкуп') ||
-    t.includes('сколько клиент') ||
-    t.includes('сколько лид') ||
-    (t.includes('статус') && (t.includes('алин') || t.includes('выкуп'))) ||
-    (t.includes('сколько') && t.includes('выкуп'))
+    t.includes('лид') ||
+    (t.includes('клиент') && (t.includes('алин') || t.includes('выкуп'))) ||
+    (t.includes('алин') && t.includes('статус'))
   );
 }
 
@@ -375,11 +392,12 @@ async function googleAccessToken(saJson: string): Promise<string> {
     iat: now,
     exp: now + 3600,
   };
-  const enc = (obj: unknown) =>
-    btoa(String.fromCharCode(...new TextEncoder().encode(JSON.stringify(obj))))
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-      .replace(/=+$/g, '');
+  const b64url = (bytes: Uint8Array) => {
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+  };
+  const enc = (obj: unknown) => b64url(new TextEncoder().encode(JSON.stringify(obj)));
   const unsigned = `${enc(header)}.${enc(claim)}`;
   const key = await importPkcs8(sa.private_key);
   const sig = await crypto.subtle.sign(
@@ -387,11 +405,7 @@ async function googleAccessToken(saJson: string): Promise<string> {
     key,
     new TextEncoder().encode(unsigned),
   );
-  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/g, '');
-  const jwt = `${unsigned}.${sigB64}`;
+  const jwt = `${unsigned}.${b64url(new Uint8Array(sig))}`;
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
