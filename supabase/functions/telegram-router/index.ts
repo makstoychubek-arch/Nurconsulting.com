@@ -18,7 +18,7 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 const BOT_TOKENS: Record<string, string> = {
   // Карина: отдельный токен или текущий TELEGRAM_BOT_TOKEN проекта
   karina: (Deno.env.get("KARINA_BOT_TOKEN") || Deno.env.get("TELEGRAM_BOT_TOKEN") || "").trim(),
-  sauле: (Deno.env.get("SAULE_BOT_TOKEN") || "").trim(),
+  saule: (Deno.env.get("SAULE_BOT_TOKEN") || "").trim(),
   amina: (Deno.env.get("AMINA_BOT_TOKEN") || "").trim(),
   anton: (Deno.env.get("ANTON_BOT_TOKEN") || "").trim(),
   alina: (Deno.env.get("ALINA_BOT_TOKEN") || "").trim(),
@@ -31,7 +31,7 @@ const AGENT_PROMPTS: Record<string, string> = {
 данные из WB API), либо кратко делегируешь конкретному агенту, называя его по
 имени. Отвечай по-русски, кратко, по делу, без воды.`,
 
-  sauле: `Ты Сауле — агент по продажам. Анализируешь цены, остатки, динамику
+  saule: `Ты Сауле — агент по продажам. Анализируешь цены, остатки, динамику
 продаж по данным WB API. Предлагаешь конкретные действия (поднять/снизить
 цену, довезти остатки), но НИКОГДА не выполняешь их сама — только предлагаешь
 и ждёшь подтверждения от владельца.`,
@@ -105,12 +105,24 @@ async function loadStandingTasks(agentKey: string) {
 
 function detectTargetAgent(text: string): string {
   const lower = text.toLowerCase();
-  if (lower.includes("сауле") || lower.includes("продаж")) return "sauле";
+  if (lower.includes("сауле") || lower.includes("продаж")) return "saule";
   if (lower.includes("амина") || lower.includes("реклам")) return "amina";
   if (lower.includes("антон") || lower.includes("логист")) return "anton";
   if (lower.includes("алина") || lower.includes("продвиж")) return "alina";
   if (lower.includes("муха") || lower.includes("фото")) return "muha";
   return "karina";
+}
+
+/** Нормализация ?bot= (ASCII-ключи; старый mixed sau+кириллица → saule). */
+function normalizeBotKey(raw: string | null): string | null {
+  if (!raw) return null;
+  const t = raw.trim().toLowerCase();
+  // "saule" (latin) или "sauле" (sau + кириллические ле)
+  if (t === "saule" || (t.startsWith("sau") && t.length <= 6 && /л|le|ле/.test(t))) {
+    return "saule";
+  }
+  if (["karina", "amina", "anton", "alina", "muha"].includes(t)) return t;
+  return t;
 }
 
 async function fetchWbData(cabinet: string, endpoint: string) {
@@ -149,6 +161,9 @@ async function askOpenAI(systemPrompt: string, history: string, userMessage: str
 
 serve(async (req) => {
   try {
+    const url = new URL(req.url);
+    const triggeringBot = normalizeBotKey(url.searchParams.get("bot")); // 'saule' | 'amina' | ...
+
     const update = await req.json();
     const message = update.message;
     if (!message || !message.text) {
@@ -163,9 +178,16 @@ serve(async (req) => {
       return new Response("ok", { status: 200 });
     }
 
+    const targetAgent = detectTargetAgent(text);
+
+    // Отвечает только бот, чей ?bot= совпал с целевым агентом.
+    // Иначе 5 вебхуков дублировали бы один и тот же ответ.
+    if (triggeringBot && triggeringBot !== targetAgent) {
+      return new Response("ok", { status: 200 });
+    }
+
     await saveMessage(chatId, message.from?.first_name ?? "user", text);
 
-    const targetAgent = detectTargetAgent(text);
     const history = await loadRecentHistory(chatId);
     const standingTasks = await loadStandingTasks(targetAgent);
 
