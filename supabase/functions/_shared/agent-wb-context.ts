@@ -19,6 +19,23 @@ export function createWbContextCache(): WbContextCache {
   return { byAgent: new Map() };
 }
 
+/** Isolate-кэш между запросами — сильно ускоряет повторные /sales /fbs. */
+function globalWbTtlMs(): number {
+  try {
+    const n = Number(Deno.env.get("WB_CONTEXT_TTL_MS") || "90000");
+    return Number.isFinite(n) && n > 0 ? n : 90000;
+  } catch {
+    return 90000;
+  }
+}
+const globalWbByAgent = new Map<string, { ts: number; text: string }>();
+let globalShared: {
+  ts: number;
+  salesBlock?: string[];
+  adsLines?: string[];
+  fbsLines?: string[];
+} | null = null;
+
 function sanitizeWbToken(raw: unknown): string {
   if (typeof raw !== "string") return "";
   return raw.replace(/^\uFEFF/, "").replace(/\s+/g, "").trim();
@@ -147,7 +164,7 @@ async function loadSalesBlock(
   const list = (cabinets || []).filter((c) => sanitizeWbToken(c.wb_token).length >= 50);
   if (!list.length) return ["Кабинетов с WB-токеном нет."];
 
-  return await mapPool(list, 2, async (cab) => {
+  return await mapPool(list, 3, async (cab) => {
     const token = sanitizeWbToken(cab.wb_token);
     try {
       const [y, t] = await Promise.all([
@@ -175,10 +192,25 @@ export async function buildAgentWbContext(
 ): Promise<string> {
   if (cache?.byAgent.has(agent)) return cache.byAgent.get(agent)!;
 
+  const now = Date.now();
+  const ttl = globalWbTtlMs();
+  const gHit = globalWbByAgent.get(agent);
+  if (gHit && now - gHit.ts < ttl) {
+    cache?.byAgent.set(agent, gHit.text);
+    return gHit.text;
+  }
+
   const supabase = adminClient();
   const yDay = yesterdayBishkek();
   const tDay = todayBishkek();
   const bag = cache ?? createWbContextCache();
+
+  // Подтягиваем shared-блоки из isolate-кэша
+  if (globalShared && now - globalShared.ts < ttl) {
+    bag.salesBlock ??= globalShared.salesBlock;
+    bag.adsLines ??= globalShared.adsLines;
+    bag.fbsLines ??= globalShared.fbsLines;
+  }
 
   const lines: string[] = [
     `Дата: сегодня ${pretty(tDay)}, вчера ${pretty(yDay)} (Бишкек).`,
@@ -192,10 +224,8 @@ export async function buildAgentWbContext(
     agent === "muha" ||
     agent === "anton";
 
-  if (needsSales) {
-    if (!bag.salesBlock) {
-      bag.salesBlock = await loadSalesBlock(supabase, yDay, tDay);
-    }
+  if (needsSales && !bag.salesBlock) {
+    bag.salesBlock = await loadSalesBlock(supabase, yDay, tDay);
   }
 
   if (agent === "saule" || agent === "karina" || agent === "alina") {
@@ -222,8 +252,15 @@ export async function buildAgentWbContext(
   }
 
   const text = lines.join("\n");
-  const clipped = text.length > 9000 ? text.slice(0, 9000) + "\n…(обрезано)" : text;
+  const clipped = text.length > 7000 ? text.slice(0, 7000) + "\n…(обрезано)" : text;
   bag.byAgent.set(agent, clipped);
+  globalWbByAgent.set(agent, { ts: now, text: clipped });
+  globalShared = {
+    ts: now,
+    salesBlock: bag.salesBlock,
+    adsLines: bag.adsLines,
+    fbsLines: bag.fbsLines,
+  };
   return clipped;
 }
 

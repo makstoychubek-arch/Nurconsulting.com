@@ -33,6 +33,10 @@ import {
   isConfirmText,
   parseSelection,
 } from "../_shared/agent-actions.ts";
+import {
+  expandAdsActionCommand,
+  tryFastCommand,
+} from "../_shared/agent-fast-commands.ts";
 
 // ---------- Настройка ----------
 
@@ -243,7 +247,7 @@ async function saveMessage(chatId: number, sender: string, text: string) {
   }
 }
 
-async function loadRecentHistory(chatId: number, limit = 12) {
+async function loadRecentHistory(chatId: number, limit = 6) {
   const { data } = await supabase
     .from("agent_chat_history")
     .select("sender, text, created_at")
@@ -257,18 +261,8 @@ function formatHistory(
   history: Array<{ sender: string; text: string }>,
 ): string {
   return history
-    .map((h) => `${h.sender}: ${String(h.text || "").slice(0, 280)}`)
+    .map((h) => `${h.sender}: ${String(h.text || "").slice(0, 160)}`)
     .join("\n");
-}
-
-async function loadStandingTasks(agentKey: string) {
-  const { data } = await supabase
-    .from("agent_standing_tasks")
-    .select("task_description")
-    .eq("agent_type", agentKey)
-    .eq("is_active", true)
-    .limit(10);
-  return (data ?? []).map((r) => String(r.task_description).slice(0, 300));
 }
 
 function normalizeBotKey(raw: string | null): string | null {
@@ -323,10 +317,10 @@ async function askOpenAI(opts: {
           },
           { role: "user", content: opts.userMessage.slice(0, 2000) },
         ],
-        temperature: 0.2,
-        max_tokens: 320,
+        temperature: 0.15,
+        max_tokens: 220,
       }),
-      signal: AbortSignal.timeout(45000),
+      signal: AbortSignal.timeout(25000),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -408,11 +402,8 @@ async function runAgentTurn(opts: {
     return;
   }
 
-  const [history, standingTasks] = await Promise.all([
-    loadRecentHistory(chatId),
-    loadStandingTasks(targetAgent),
-  ]);
-
+  // Параллельно: история + WB (standing tasks редко нужны — лениво)
+  const historyP = loadRecentHistory(chatId);
   let wbContext = "";
   try {
     wbContext = await buildAgentWbContext(targetAgent as AgentKey, wbCache);
@@ -429,12 +420,10 @@ async function runAgentTurn(opts: {
     }
   }
 
+  const history = await historyP;
   const systemPrompt =
     (AGENT_PROMPTS[targetAgent] || AGENT_PROMPTS.saule) +
     `\n\n${teamBriefForPrompt(plan, rootTask)}` +
-    (standingTasks.length
-      ? `\n\nПостоянные задачи от владельца:\n- ${standingTasks.join("\n- ")}`
-      : "") +
     (fromAgent
       ? `\n\nТебе пишет коллега ${fromAgent}. Ответь по своей зоне на задачу владельца.`
       : "") +
@@ -457,11 +446,11 @@ async function runAgentTurn(opts: {
       : rootTask,
   });
 
+  // Сначала в чат, потом история — быстрее для пользователя
   await sendTelegramMessage(targetAgent, chatId, reply, replyToMessageId);
-  await saveMessage(chatId, targetAgent, reply);
+  saveMessage(chatId, targetAgent, reply).catch(() => {});
 
   if (lastHop) return;
-  // Явно «Готово» без @ — не автопинаем дальше
   if (isDoneReply(reply)) return;
 
   let next = nextPingFromReply(reply, visited);
@@ -470,7 +459,6 @@ async function runAgentTurn(opts: {
   }
   if (!next || !BOT_TOKENS[next]) return;
 
-  await new Promise((r) => setTimeout(r, 400));
   await runAgentTurn({
     chatId,
     targetAgent: next,
@@ -522,36 +510,67 @@ serve(async (req) => {
       .join(" ")
       .trim();
 
+    // ── Быстрые команды без OpenAI ──────────────────────────────────────────
+    {
+      const isMetaCmd =
+        /^\/?(help|ping|cabinets|помощь|команды|пинг|кабинеты)(@\w+)?(\s|$)/i
+          .test(text.trim());
+      const fast = await tryFastCommand(text, triggeringBot);
+
+      if (fast.handled && fast.reply) {
+        const replyAs = isMetaCmd
+          ? (pickStarter(["saule"], triggeringBot) || triggeringBot)
+          : (fast.agentKey || triggeringBot);
+
+        if (triggeringBot === replyAs) {
+          await runWork((async () => {
+            await sendTelegramMessage(
+              replyAs,
+              chatId,
+              fast.reply!,
+              message.message_id,
+            );
+            saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
+            saveMessage(chatId, replyAs, fast.reply!).catch(() => {});
+          })());
+        }
+        return ok();
+      }
+
+      // /ads start baza → не fast-reply, но нужен агент amina (ниже pending/actions)
+      if (fast.agentKey && fast.agentKey !== triggeringBot && !isMetaCmd) {
+        // другой webhook дойдёт до своего бота
+      }
+    }
+
     // ── Действия с подтверждением (РК и т.п.) ───────────────────────────────
-    // Если в чате есть pending — обрабатывает только его agent_key.
-    // Новый интент «запусти РК…» → Амина (или кто в плане ads).
     {
       const pending = await getActivePending(chatId);
+      const actionText = expandAdsActionCommand(text) || text;
       const actionAgent = pending?.agent_key ||
-        (/(рк|реклам|кампан)/i.test(text) ? "amina" : null);
+        (/(рк|реклам|кампан|\/ads)/i.test(actionText) ? "amina" : null);
 
       if (actionAgent && triggeringBot === actionAgent) {
         const actionResult = await handleOwnerActionMessage({
           chatId,
           tgUserId: Number(message.from?.id),
-          text,
+          text: actionText,
           agentKey: actionAgent,
         });
         if (actionResult.handled && actionResult.reply) {
           await runWork((async () => {
-            await saveMessage(chatId, message.from?.first_name ?? "user", text);
             await sendTelegramMessage(
               actionAgent,
               chatId,
               actionResult.reply!,
               message.message_id,
             );
-            await saveMessage(chatId, actionAgent, actionResult.reply!);
+            saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
+            saveMessage(chatId, actionAgent, actionResult.reply!).catch(() => {});
           })());
           return ok();
         }
       } else if (pending && triggeringBot !== pending.agent_key) {
-        // Пока ждём номера/«подтверждаю» — другие боты не перебивают
         const sticky =
           isConfirmText(text) ||
           isCancelText(text) ||
