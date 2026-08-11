@@ -64,16 +64,33 @@ async function sendTelegramMessage(
     console.error(`Нет токена для бота: ${botKey}`);
     return;
   }
-  await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+  // Без HTML: ответы LLM часто ломают parse_mode и сообщение молча не уходит.
+  const payload: Record<string, unknown> = {
+    chat_id: chatId,
+    text: text.slice(0, 4000),
+  };
+  if (replyToMessageId) payload.reply_to_message_id = replyToMessageId;
+
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text,
-      reply_to_message_id: replyToMessageId,
-      parse_mode: "HTML",
-    }),
+    body: JSON.stringify(payload),
   });
+  if (!res.ok) {
+    const err = await res.text();
+    console.error(`[telegram-router] sendMessage ${botKey} failed:`, err);
+    // Повтор без reply, если reply_to отклонён
+    if (replyToMessageId) {
+      const retry = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ chat_id: chatId, text: text.slice(0, 4000) }),
+      });
+      if (!retry.ok) {
+        console.error(`[telegram-router] sendMessage retry failed:`, await retry.text());
+      }
+    }
+  }
 }
 
 async function saveMessage(chatId: number, sender: string, text: string) {
@@ -103,13 +120,63 @@ async function loadStandingTasks(agentKey: string) {
   return (data ?? []).map((r) => r.task_description);
 }
 
-function detectTargetAgent(text: string): string {
+const BOT_USERNAMES: Record<string, string> = {
+  saule: "saulexxx_bot",
+  amina: "aminaakd_bot",
+  anton: "antonnnxx_bot",
+  alina: "alinaaaxx_bot",
+  muha: "muxxxha_bot",
+  karina: "", // задать, когда будет webhook на router
+};
+
+function detectTargetAgent(
+  text: string,
+  // deno-lint-ignore no-explicit-any
+  entities?: any[],
+): string {
   const lower = text.toLowerCase();
-  if (lower.includes("сауле") || lower.includes("продаж")) return "saule";
-  if (lower.includes("амина") || lower.includes("реклам")) return "amina";
-  if (lower.includes("антон") || lower.includes("логист")) return "anton";
-  if (lower.includes("алина") || lower.includes("продвиж")) return "alina";
-  if (lower.includes("муха") || lower.includes("фото")) return "muha";
+
+  // 1) Явный @username / text_mention
+  for (const [agent, username] of Object.entries(BOT_USERNAMES)) {
+    if (!username) continue;
+    if (lower.includes(`@${username.toLowerCase()}`)) return agent;
+  }
+  for (const ent of entities || []) {
+    if (ent?.type === "mention") {
+      const mention = text.slice(ent.offset, ent.offset + ent.length).toLowerCase();
+      for (const [agent, username] of Object.entries(BOT_USERNAMES)) {
+        if (username && mention === `@${username.toLowerCase()}`) return agent;
+      }
+    }
+    if (ent?.type === "text_mention" && ent?.user?.username) {
+      const u = String(ent.user.username).toLowerCase();
+      for (const [agent, username] of Object.entries(BOT_USERNAMES)) {
+        if (username && u === username.toLowerCase()) return agent;
+      }
+    }
+  }
+
+  // 2) Имя агента (Сауле/Саулэ — разные буквы е/э)
+  if (/саул[еэ]/.test(lower)) return "saule";
+  if (lower.includes("амина")) return "amina";
+  if (lower.includes("антон")) return "anton";
+  if (lower.includes("алина")) return "alina";
+  if (lower.includes("муха") || lower.includes("муху")) return "muha";
+  if (lower.includes("карина")) return "karina";
+
+  // 3) Тема (осторожно — только явные маркеры)
+  if (lower.includes("продаж") || lower.includes("остатк") || lower.includes("цен")) {
+    return "saule";
+  }
+  if (lower.includes("реклам") || lower.includes("cpc") || lower.includes("ставк")) {
+    return "amina";
+  }
+  if (lower.includes("логист") || lower.includes("поставк") || lower.includes("кластер")) {
+    return "anton";
+  }
+  if (lower.includes("продвиж") || lower.includes("самовыкуп")) return "alina";
+  if (lower.includes("фотоворон") || lower.includes("конверс")) return "muha";
+
   return "karina";
 }
 
@@ -178,13 +245,32 @@ serve(async (req) => {
       return new Response("ok", { status: 200 });
     }
 
-    const targetAgent = detectTargetAgent(text);
+    const targetAgent = detectTargetAgent(text, message.entities);
 
     // Отвечает только бот, чей ?bot= совпал с целевым агентом.
     // Иначе 5 вебхуков дублировали бы один и тот же ответ.
     if (triggeringBot && triggeringBot !== targetAgent) {
+      console.log(
+        `[telegram-router] skip bot=${triggeringBot} target=${targetAgent} chat=${chatId}`,
+      );
       return new Response("ok", { status: 200 });
     }
+
+    // Если цель — Карина, а её webhook ещё не на router — специалисты молчат.
+    if (targetAgent === "karina" && triggeringBot && triggeringBot !== "karina") {
+      return new Response("ok", { status: 200 });
+    }
+
+    if (!BOT_TOKENS[targetAgent]) {
+      console.error(`[telegram-router] no token for target=${targetAgent}`);
+      return new Response("ok", { status: 200 });
+    }
+
+    console.log(
+      `[telegram-router] handle bot=${triggeringBot} target=${targetAgent} chat=${chatId} text=${
+        text.slice(0, 80)
+      }`,
+    );
 
     await saveMessage(chatId, message.from?.first_name ?? "user", text);
 
