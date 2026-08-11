@@ -48,10 +48,47 @@ export function parseFastCommand(raw: string): { cmd: string; arg: string } | nu
   const text = stripBotMention(raw);
   if (!text) return null;
 
+  function normalizeAdsCmd(cmd: string, arg: string): { cmd: string; arg: string } {
+    if (cmd !== "ads" && cmd !== "рк" && cmd !== "реклама" && cmd !== "кампании") {
+      return { cmd, arg };
+    }
+    const rest = arg.trim();
+    if (/^(start|запуск|запусти)\b/i.test(rest)) {
+      return {
+        cmd: "ads_start",
+        arg: rest.replace(/^(start|запуск|запусти)\s*/i, "").trim(),
+      };
+    }
+    if (/^(pause|пауза)\b/i.test(rest)) {
+      return {
+        cmd: "ads_pause",
+        arg: rest.replace(/^(pause|пауза)\s*/i, "").trim(),
+      };
+    }
+    return { cmd: "ads", arg: rest };
+  }
+
   // /command args
   const slash = text.match(/^\/([a-zA-Zа-яА-ЯёЁ_]+)(?:@\w+)?\s*(.*)$/u);
   if (slash) {
-    return { cmd: slash[1].toLowerCase(), arg: (slash[2] || "").trim() };
+    const cmd = slash[1].toLowerCase();
+    const arg = (slash[2] || "").trim();
+    const aliases: Record<string, string> = {
+      помощь: "help",
+      команды: "help",
+      продажи: "sales",
+      заказы: "sales",
+      рк: "ads",
+      реклама: "ads",
+      кампании: "ads",
+      фбс: "fbs",
+      самовыкуп: "selfbuy",
+      самовыкупы: "selfbuy",
+      кабинеты: "cabinets",
+      пинг: "ping",
+    };
+    const mapped = aliases[cmd] || cmd;
+    return normalizeAdsCmd(mapped, arg);
   }
 
   const lower = text.toLowerCase();
@@ -67,14 +104,7 @@ export function parseFastCommand(raw: string): { cmd: string; arg: string } | nu
   // рк / реклама / ads
   m = lower.match(/^(рк|реклама|ads|кампании)\s*(.*)$/i);
   if (m) {
-    const rest = (m[2] || "").trim();
-    if (/^start\b|^запуск\b|^запусти\b/i.test(rest)) {
-      return { cmd: "ads_start", arg: rest.replace(/^(start|запуск|запусти)\s*/i, "").trim() };
-    }
-    if (/^pause\b|^пауза\b/i.test(rest)) {
-      return { cmd: "ads_pause", arg: rest.replace(/^(pause|пауза)\s*/i, "").trim() };
-    }
-    return { cmd: "ads", arg: rest };
+    return normalizeAdsCmd("ads", (m[2] || "").trim());
   }
 
   if (/^(fbs|фбс|отгрузк)/i.test(lower)) {
