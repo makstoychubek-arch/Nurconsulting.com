@@ -19,6 +19,12 @@ import {
   isAlinaStatsQuestion,
 } from "../_shared/alina-selfbuy.ts";
 import { generateMuhaPhoto, wantsPhoto } from "../_shared/muha-photos.ts";
+import {
+  BOT_USERNAMES,
+  buildTeamPlan,
+  nextPingFromReply,
+  teamBriefForPrompt,
+} from "../_shared/agent-team.ts";
 
 // ---------- Настройка ----------
 
@@ -40,65 +46,47 @@ const BOT_TOKENS: Record<string, string> = {
 
 const STYLE_RULES = `
 Формат ответа (строго):
-- Русский язык, деловой тон.
-- 3–7 коротких строк максимум. Без воды, без приветствий «как дела», без эмодзи-спама.
-- Сначала факты и цифры по кабинетам, потом 1–2 действия (как предложение, не делай сама).
-- Если данных нет — так и скажи одной строкой.
+- Русский, деловой, сухо.
+- 2–5 коротких строк. Без приветствий, без эмодзи, без «как дела».
+- Структура: 1) факты/цифры по своей зоне 2) вывод 3) либо «Готово.» либо один @пинг.
 - Не выдумывай цифры: только из блока «ФАКТЫ WB».
+- Не повторяй то, что коллега уже сказал.
 - Деньги в ₽, штуки явно.`;
 
-/** Как агенты зовут коллег в тимчате (чтобы вебхук следующего сработал). */
 const TEAM_PING_RULES = `
-Команда в одном чате (общаетесь между собой по делу):
-- Сауле @saulexxx_bot — продажи/остатки/цены
-- Амина @aminaakd_bot — реклама
-- Антон @antonnnxx_bot — логистика/FBS
-- Алина @alinaaaxx_bot — самовыкупы/продвижение
-- Муха @muxxxha_bot — фото/контент
-Правила пинга:
-- Если нужен коллега — в конце одной строкой: «@username — короткий вопрос/задача».
-- Максимум ОДИН пинг коллеге за сообщение. Не пингуй всех подряд.
-- Не пингуй того, кто только что писал тебе, если ответ уже полный.
-- Если по своей зоне всё сказано и коллега не нужен — без @, закончи выводом.
-- Не болтайте: только факты, риски, следующий шаг.`;
+Коллеги (пинг только так):
+@saulexxx_bot продажи | @aminaakd_bot реклама | @antonnnxx_bot логистика | @alinaaaxx_bot самовыкупы | @muxxxha_bot фото
+- Максимум один @username в конце, с конкретной задачей.
+- Не пингуй уже ответивших.
+- Не зови всех подряд. Нет нужды в коллеге → «Готово.»`;
 
 const AGENT_PROMPTS: Record<string, string> = {
-  karina: `Ты Карина — координатор команды WB/Ozon (Сауле=продажи, Амина=реклама, Антон=логистика, Алина=продвижение, Муха=фотоворонка).
-Отвечаешь по общим вопросам сама по цифрам; узкие темы — коротко делегируй коллеге через @username.
+  karina: `Ты Карина — координатор WB-команды. Сожми суть и делегируй узкое одному специалисту через @.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
 
-  saule: `Ты Сауле — продажи WB. Смотришь заказы/выкупы/отмены/топ артикулы по всем кабинетам.
-Предлагаешь действия (цена, остатки, фокус артикула), но не выполняешь их сама.
-Если нужна реклама/логистика/фото/самовыкупы — пингуй коллегу @username.
+  saule: `Ты Сауле — продажи WB (заказы/выкупы/отмены/топ/остатки/цена). Только своя зона.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
 
-  amina: `Ты Амина — реклама WB. Смотришь активные/пауза кампании по кабинетам.
-Предлагаешь корректировки, не меняешь ничего без подтверждения.
-Если нужны продажи/логистика — пингуй коллегу.
+  amina: `Ты Амина — реклама WB (кампании active/pause, ставки). Только своя зона. Ничего не меняешь сама.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
 
-  anton: `Ты Антон — логистика/FBS. Смотришь FBS-заказы и объёмы по кабинетам, риски отгрузок.
-Если нужны продажи/реклама — пингуй коллегу.
+  anton: `Ты Антон — логистика/FBS (отгрузки, объёмы, риски склада). Только своя зона.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
 
-  alina: `Ты Алина — самовыкупы и продвижение. В командном чате отвечаешь по статусу клиентов/самовыкупов из CRM.
-С клиентами работаешь по скрипту (дата заказа → дата отзыва → реквизиты) — это уже в системе.
-Опирайся на факты WB и статистику самовыкупов, если она есть в сообщении.
-Если нужны продажи/фото — пингуй коллегу.
+  alina: `Ты Алина — самовыкупы/продвижение. В тимчате — статус CRM. Только своя зона.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
 
-  muha: `Ты Муха — фотоворонка/контент. Генерируешь фото карточек по запросу; без запроса фото даёшь короткие гипотезы по визуалу.
-Если нужны продажи/артикулы — пингуй Сауле.
+  muha: `Ты Муха — фото/контент карточки. Гипотезы по визуалу; фото — только по прямому запросу.
 ${STYLE_RULES}
 ${TEAM_PING_RULES}`,
 };
 
-/** Сколько раз подряд агенты могут отвечать друг другу без человека. */
+/** Сколько ходов подряд в одной задаче (человек не пишет). */
 const MAX_AGENT_HOPS = Number(Deno.env.get("AGENT_CHAT_MAX_HOPS") || "3");
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -224,100 +212,28 @@ async function loadStandingTasks(agentKey: string) {
   return (data ?? []).map((r) => r.task_description);
 }
 
-const BOT_USERNAMES: Record<string, string> = {
-  saule: "saulexxx_bot",
-  amina: "aminaakd_bot",
-  anton: "antonnnxx_bot",
-  alina: "alinaaaxx_bot",
-  muha: "muxxxha_bot",
-  karina: "", // задать, когда будет webhook на router
-};
-
-/** Явный адресат: @username или имя. Без тематических эвристик. */
-function detectExplicitTarget(
-  text: string,
-  // deno-lint-ignore no-explicit-any
-  entities?: any[],
-  excludeAgent?: string | null,
-): string | null {
-  const lower = text.toLowerCase();
-  const candidates: string[] = [];
-
-  for (const [agent, username] of Object.entries(BOT_USERNAMES)) {
-    if (!username) continue;
-    if (lower.includes(`@${username.toLowerCase()}`)) candidates.push(agent);
-  }
-  for (const ent of entities || []) {
-    if (ent?.type === "mention") {
-      const mention = text.slice(ent.offset, ent.offset + ent.length).toLowerCase();
-      for (const [agent, username] of Object.entries(BOT_USERNAMES)) {
-        if (username && mention === `@${username.toLowerCase()}`) candidates.push(agent);
-      }
-    }
-    if (ent?.type === "text_mention" && ent?.user?.username) {
-      const u = String(ent.user.username).toLowerCase();
-      for (const [agent, username] of Object.entries(BOT_USERNAMES)) {
-        if (username && u === username.toLowerCase()) candidates.push(agent);
-      }
-    }
-  }
-
-  // Имя без @: «Сауле, глянь…»
-  if (/саул[еэ]/.test(lower)) candidates.push("saule");
-  if (lower.includes("амина")) candidates.push("amina");
-  if (lower.includes("антон")) candidates.push("anton");
-  if (lower.includes("алина")) candidates.push("alina");
-  if (/\bмуха\b|\bмуху\b/.test(lower)) candidates.push("muha");
-  if (lower.includes("карина")) candidates.push("karina");
-
-  for (const c of candidates) {
-    if (excludeAgent && c === excludeAgent) continue;
-    return c;
-  }
-  return null;
-}
-
-function detectTargetAgent(
-  text: string,
-  // deno-lint-ignore no-explicit-any
-  entities?: any[],
-  opts?: { strict?: boolean; excludeAgent?: string | null },
-): string {
-  const strict = opts?.strict === true;
-  const explicit = detectExplicitTarget(text, entities, opts?.excludeAgent);
-  if (explicit) return explicit;
-  if (strict) return ""; // бот→бот: только явный пинг
-
-  const lower = text.toLowerCase();
-
-  // Тема (только от человека)
-  if (lower.includes("продаж") || lower.includes("остатк") || lower.includes("цен")) {
-    return "saule";
-  }
-  if (lower.includes("реклам") || lower.includes("cpc") || lower.includes("ставк")) {
-    return "amina";
-  }
-  if (lower.includes("логист") || lower.includes("поставк") || lower.includes("кластер")) {
-    return "anton";
-  }
-  if (lower.includes("продвиж") || lower.includes("самовыкуп")) return "alina";
-  if (lower.includes("фотоворон") || lower.includes("конверс") || lower.includes("фото")) {
-    return "muha";
-  }
-
-  return "karina";
-}
-
 /** Нормализация ?bot= (ASCII-ключи; старый mixed sau+кириллица → saule). */
 function normalizeBotKey(raw: string | null): string | null {
   if (!raw) return null;
   const t = raw.trim().toLowerCase();
-  // "saule" (latin) или "sauле" (sau + кириллические ле)
   if (t === "saule" || (t.startsWith("sau") && t.length <= 6 && /л|le|ле/.test(t))) {
     return "saule";
   }
   if (["karina", "amina", "anton", "alina", "alina2", "muha"].includes(t)) return t;
   return t;
+}
+
+/** Первый исполнитель по плану; если Карины нет на router — следующий с токеном. */
+function pickStarter(plan: string[], triggeringBot: string | null): string | null {
+  for (const agent of plan) {
+    if (agent === "karina" && triggeringBot && triggeringBot !== "karina") continue;
+    if (BOT_TOKENS[agent]) return agent;
+  }
+  // fallback: любой специалист с токеном из плана не нужен — первый доступный
+  for (const agent of ["saule", "amina", "anton", "alina", "muha"]) {
+    if (BOT_TOKENS[agent]) return agent;
+  }
+  return null;
 }
 
 async function askOpenAI(opts: {
@@ -357,19 +273,32 @@ async function askOpenAI(opts: {
 }
 
 /**
- * Один ход агента + при необходимости цепочка к коллеге.
- * Важно: в Telegram боты НЕ получают сообщения других ботов,
- * поэтому пинг @коллеге обрабатываем здесь же, не через webhook.
+ * Один ход + цепочка.
+ * Telegram не доставляет bot→bot, поэтому следующего зовём сами.
+ * Защиты: visited (нет циклов), план команды, только @username-пинг.
  */
 async function runAgentTurn(opts: {
   chatId: number;
   targetAgent: string;
   userMessage: string;
+  rootTask: string;
+  plan: string[];
+  visited: Set<string>;
   fromAgent?: string | null;
   replyToMessageId?: number;
   hop: number;
 }): Promise<void> {
-  const { chatId, targetAgent, userMessage, fromAgent, replyToMessageId, hop } = opts;
+  const {
+    chatId,
+    targetAgent,
+    userMessage,
+    rootTask,
+    plan,
+    visited,
+    fromAgent,
+    replyToMessageId,
+    hop,
+  } = opts;
 
   if (!BOT_TOKENS[targetAgent]) {
     console.error(`[telegram-router] no token for target=${targetAgent}`);
@@ -379,7 +308,11 @@ async function runAgentTurn(opts: {
     console.log(`[telegram-router] stop chain hop=${hop} chat=${chatId}`);
     return;
   }
-  if (fromAgent && fromAgent === targetAgent) return;
+  if (visited.has(targetAgent)) {
+    console.log(`[telegram-router] skip visited=${targetAgent} chat=${chatId}`);
+    return;
+  }
+  visited.add(targetAgent);
 
   const history = await loadRecentHistory(chatId);
   const standingTasks = await loadStandingTasks(targetAgent);
@@ -403,30 +336,37 @@ async function runAgentTurn(opts: {
     }
   }
 
+  const lastHop = hop + 1 >= MAX_AGENT_HOPS;
   const systemPrompt =
     AGENT_PROMPTS[targetAgent] +
+    `\n\n${teamBriefForPrompt(plan, rootTask)}` +
     (standingTasks.length
       ? `\n\nПостоянные задачи от владельца:\n- ${standingTasks.join("\n- ")}`
       : "") +
     (fromAgent
-      ? `\n\nСейчас тебе пишет коллега ${fromAgent}. Ответь по делу. Пингуй следующего коллегу только если без него нельзя закрыть задачу.`
-      : `\n\nЕсли задача требует другого специалиста — в конце пингани одного коллегу через @username.`);
+      ? `\n\nТебе пишет коллега ${fromAgent}. Ответь по своей зоне на задачу владельца.`
+      : "") +
+    (lastHop
+      ? `\n\nЭто последний ход цепочки — НЕ пингуй никого, закончи «Готово.»`
+      : "");
 
   console.log(
-    `[telegram-router] turn agent=${targetAgent} hop=${hop} from=${fromAgent || "human"} chat=${chatId}`,
+    `[telegram-router] turn agent=${targetAgent} hop=${hop} from=${
+      fromAgent || "human"
+    } plan=${plan.join(">")} chat=${chatId}`,
   );
 
-  // Спец-ветки
-  if (targetAgent === "alina" && !fromAgent && isAlinaStatsQuestion(userMessage)) {
+  // Спец-ветки (только от человека, без цепочки)
+  if (targetAgent === "alina" && !fromAgent && isAlinaStatsQuestion(rootTask)) {
     const reply = await alinaSelfbuyStatsText();
     await sendTelegramMessage("alina", chatId, reply, replyToMessageId);
     await saveMessage(chatId, "alina", reply);
     return;
   }
 
-  if (targetAgent === "muha" && !fromAgent && wantsPhoto(userMessage)) {
+  if (targetAgent === "muha" && !fromAgent && wantsPhoto(rootTask)) {
     await sendTelegramMessage("muha", chatId, "Генерирую фото, минуту…", replyToMessageId);
-    const photo = await generateMuhaPhoto(userMessage);
+    const photo = await generateMuhaPhoto(rootTask);
     if (!photo.ok) {
       const fail =
         `Не смог сгенерировать фото: ${photo.error || "unknown"}. Опиши товар подробнее.`;
@@ -457,26 +397,38 @@ async function runAgentTurn(opts: {
     history: historyText,
     wbContext,
     userMessage: fromAgent
-      ? `[сообщение от коллеги ${fromAgent}]\n${userMessage}`
-      : userMessage,
+      ? `Задача владельца: ${rootTask}\n\nКоллега ${fromAgent} передал:\n${userMessage}`
+      : rootTask,
   });
 
   await sendTelegramMessage(targetAgent, chatId, reply, replyToMessageId);
   await saveMessage(chatId, targetAgent, reply);
 
-  // Цепочка: если в ответе пинг коллеги — вызываем его сами (Telegram бот→бот не доставляет).
-  const next = detectExplicitTarget(reply, undefined, targetAgent);
-  if (next && next !== targetAgent && BOT_TOKENS[next] && hop + 1 < MAX_AGENT_HOPS) {
-    // Небольшая пауза, чтобы в чате порядок сообщений был читаемым
-    await new Promise((r) => setTimeout(r, 700));
-    await runAgentTurn({
-      chatId,
-      targetAgent: next,
-      userMessage: reply,
-      fromAgent: targetAgent,
-      hop: hop + 1,
-    });
+  if (lastHop) return;
+
+  // 1) Явный @пинг в ответе (не посещённый)
+  let next = nextPingFromReply(reply, visited);
+
+  // 2) Иначе следующий из плана команды (надёжно, даже если LLM забыл @)
+  if (!next) {
+    next = plan.find((a) => !visited.has(a) && BOT_TOKENS[a]) || null;
+    // Автопродолжение по плану — только если в корневой задаче явно >1 специалист/тема
+    if (next && plan.length < 2) next = null;
   }
+
+  if (!next || !BOT_TOKENS[next]) return;
+
+  await new Promise((r) => setTimeout(r, 600));
+  await runAgentTurn({
+    chatId,
+    targetAgent: next,
+    userMessage: reply,
+    rootTask,
+    plan,
+    visited,
+    fromAgent: targetAgent,
+    hop: hop + 1,
+  });
 }
 
 serve(async (req) => {
@@ -537,24 +489,19 @@ serve(async (req) => {
       return new Response("ok", { status: 200 });
     }
 
-    const targetAgent = detectTargetAgent(text, message.entities);
+    const plan = buildTeamPlan(text, message.entities, MAX_AGENT_HOPS);
+    const targetAgent = pickStarter(plan, triggeringBot);
 
-    // Отвечает только бот, чей ?bot= совпал с целевым агентом.
-    // (Дальше цепочку коллег крутит уже этот бот через runAgentTurn.)
+    if (!targetAgent) {
+      console.error("[telegram-router] no starter agent", plan);
+      return new Response("ok", { status: 200 });
+    }
+
+    // Оркестрирует один webhook (первый по плану) — остальных вызывает сам.
     if (triggeringBot && triggeringBot !== targetAgent) {
       console.log(
-        `[telegram-router] skip bot=${triggeringBot} target=${targetAgent} chat=${chatId}`,
+        `[telegram-router] skip bot=${triggeringBot} starter=${targetAgent} plan=${plan.join(">")} chat=${chatId}`,
       );
-      return new Response("ok", { status: 200 });
-    }
-
-    // Если цель — Карина, а её webhook ещё не на router — специалисты молчат.
-    if (targetAgent === "karina" && triggeringBot && triggeringBot !== "karina") {
-      return new Response("ok", { status: 200 });
-    }
-
-    if (!targetAgent || !BOT_TOKENS[targetAgent]) {
-      console.error(`[telegram-router] no token for target=${targetAgent}`);
       return new Response("ok", { status: 200 });
     }
 
@@ -564,6 +511,9 @@ serve(async (req) => {
       chatId,
       targetAgent,
       userMessage: text,
+      rootTask: text,
+      plan,
+      visited: new Set<string>(),
       replyToMessageId: message.message_id,
       hop: 0,
     });
