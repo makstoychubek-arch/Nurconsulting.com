@@ -102,15 +102,19 @@ async function sendTelegramMessage(
   chatId: number,
   text: string,
   replyToMessageId?: number,
+  businessConnectionId?: string,
 ): Promise<boolean> {
   const token = BOT_TOKENS[botKey];
   if (!token) {
     console.error(`Нет токена для бота: ${botKey}`);
     return false;
   }
-  const body = { chat_id: chatId, text: text.slice(0, 4000) };
-  const payload: Record<string, unknown> = { ...body };
+  const payload: Record<string, unknown> = {
+    chat_id: chatId,
+    text: text.slice(0, 4000),
+  };
   if (replyToMessageId) payload.reply_to_message_id = replyToMessageId;
+  if (businessConnectionId) payload.business_connection_id = businessConnectionId;
 
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -123,10 +127,12 @@ async function sendTelegramMessage(
     const err = await res.text();
     console.error(`[telegram-router] sendMessage ${botKey} failed:`, err);
     if (replyToMessageId) {
+      const retryPayload = { ...payload };
+      delete retryPayload.reply_to_message_id;
       const retry = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify(retryPayload),
         signal: AbortSignal.timeout(15000),
       });
       if (!retry.ok) {
@@ -140,6 +146,30 @@ async function sendTelegramMessage(
     console.error(`[telegram-router] sendMessage ${botKey} exception:`, e);
     return false;
   }
+}
+
+/** Включает business_message в webhook Алины (нужно для рабочего аккаунта). */
+async function ensureAlinaBusinessWebhook(): Promise<Record<string, unknown>> {
+  const token = BOT_TOKENS.alina;
+  if (!token) return { ok: false, error: "ALINA_BOT_TOKEN missing" };
+  const hookUrl =
+    `${SUPABASE_URL}/functions/v1/telegram-router?bot=alina`;
+  const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: hookUrl,
+      allowed_updates: [
+        "message",
+        "business_message",
+        "business_connection",
+        "edited_business_message",
+      ],
+      drop_pending_updates: false,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: Boolean(data?.ok), hookUrl, data };
 }
 
 async function sendTelegramPhoto(
@@ -471,12 +501,22 @@ async function runAgentTurn(opts: {
 serve(async (req) => {
   // Telegram должен получать 200, иначе ретраи → дубли
   const ok = () => new Response("ok", { status: 200 });
+  const json = (d: unknown, s = 200) =>
+    new Response(JSON.stringify(d), {
+      status: s,
+      headers: { "Content-Type": "application/json" },
+    });
 
   try {
-    if (req.method !== "POST") return ok();
-
     const url = new URL(req.url);
     const triggeringBot = normalizeBotKey(url.searchParams.get("bot"));
+
+    // Разовая настройка webhook Алины под Telegram Business
+    if (req.method === "GET" && url.searchParams.get("ensure_alina_business") === "1") {
+      return json(await ensureAlinaBusinessWebhook());
+    }
+
+    if (req.method !== "POST") return ok();
 
     // Без ?bot= все вебхуки ответили бы сразу — запрещаем
     if (!triggeringBot) {
@@ -495,9 +535,38 @@ serve(async (req) => {
       return ok();
     }
 
-    const message = update.message;
+    // Подключение / отключение рабочего аккаунта к Алине
+    if (update.business_connection && triggeringBot === "alina") {
+      const bc = update.business_connection;
+      console.log(
+        `[telegram-router] business_connection id=${bc?.id} enabled=${bc?.is_enabled} user=${bc?.user?.id}`,
+      );
+      if (bc?.is_enabled && bc?.user_chat_id && BOT_TOKENS.alina) {
+        await sendTelegramMessage(
+          "alina",
+          Number(bc.user_chat_id),
+          "Алина подключена к рабочему аккаунту.\n" +
+            "Клиенты пишут тебе — я отвечу за тебя и соберу данные по раздачам.\n" +
+            "В тимчате: /selfbuy",
+        );
+      }
+      return ok();
+    }
+
+    // Обычное сообщение ИЛИ сообщение клиента на рабочий акк (Telegram Business)
+    const isBusiness = Boolean(update.business_message);
+    const message = update.business_message || update.message;
     if (!message?.text) return ok();
     if (message.from?.is_bot) return ok();
+
+    const businessConnectionId = isBusiness
+      ? String(message.business_connection_id || "")
+      : "";
+
+    // Business: отвечаем только Алиной (клиентский поток)
+    if (isBusiness && triggeringBot !== "alina") {
+      return ok();
+    }
 
     const chatId = Number(message.chat.id);
     const text = String(message.text);
@@ -575,10 +644,10 @@ serve(async (req) => {
       }
     }
 
-    // ── Алина CRM (только люди, только клиентский контекст) ─────────────────
+    // ── Алина CRM (ЛС / клиентский чат / Telegram Business рабочий акк) ─────
     if (
       (triggeringBot === "alina" || triggeringBot === "alina2") &&
-      isAlinaClientContext(message.chat) &&
+      (isBusiness || isAlinaClientContext(message.chat)) &&
       !isAlinaStatsQuestion(text)
     ) {
       const replyBot = triggeringBot === "alina2" && BOT_TOKENS.alina2
@@ -586,7 +655,9 @@ serve(async (req) => {
         : "alina";
       if (!BOT_TOKENS[replyBot]) return ok();
 
-      const sourceAccount = replyBot === "alina2"
+      const sourceAccount = isBusiness
+        ? "business"
+        : replyBot === "alina2"
         ? "second"
         : (Deno.env.get("ALINA_SOURCE_ACCOUNT") || "main");
 
@@ -599,11 +670,20 @@ serve(async (req) => {
           text,
           sourceAccount,
         });
-        await sendTelegramMessage(replyBot, chatId, reply, message.message_id);
+        await sendTelegramMessage(
+          replyBot,
+          chatId,
+          reply,
+          message.message_id,
+          businessConnectionId || undefined,
+        );
         await saveMessage(chatId, replyBot, reply);
       })());
       return ok();
     }
+
+    // Business-сообщения дальше в тим-роутер не пускаем
+    if (isBusiness) return ok();
 
     // ── Живой отклик на «Карина» / «Сауле» без задачи (без пустого «да?») ───
     if (isNameOnlyPing(text)) {
