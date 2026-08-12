@@ -19,6 +19,10 @@ import {
   TZ_CASHBACK,
   tzBarter,
 } from './alina-templates.ts';
+import {
+  fetchSheetPlan,
+  syncCampaignFromSheet,
+} from './alina-sheet-plan.ts';
 
 export type SelfbuyStatus =
   | 'new'

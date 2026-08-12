@@ -19,6 +19,7 @@ import {
   isAlinaStatsQuestion,
   isBusinessOwnerMessage,
   logAlinaRawEvent,
+  refreshAlinaFromSheet,
   tryAlinaOfferCommand,
 } from "../_shared/alina-selfbuy.ts";
 import { generateMuhaPhoto, wantsPhoto } from "../_shared/muha-photos.ts";
