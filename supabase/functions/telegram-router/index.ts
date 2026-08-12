@@ -17,7 +17,9 @@ import {
   handleAlinaClientMessage,
   isAlinaClientContext,
   isAlinaStatsQuestion,
+  isBusinessOwnerMessage,
   logAlinaRawEvent,
+  tryAlinaOfferCommand,
 } from "../_shared/alina-selfbuy.ts";
 import { generateMuhaPhoto, wantsPhoto } from "../_shared/muha-photos.ts";
 import {
@@ -591,8 +593,17 @@ serve(async (req) => {
     // Обычное сообщение ИЛИ сообщение клиента на рабочий акк (Telegram Business)
     const isBusiness = Boolean(update.business_message);
     const message = update.business_message || update.message;
-    if (!message?.text) return ok();
+    if (!message) return ok();
     if (message.from?.is_bot) return ok();
+
+    const hasPhoto = Boolean(
+      message.photo?.length ||
+        message.document?.mime_type?.startsWith?.("image/") ||
+        message.sticker,
+    );
+    const text = String(message.text || message.caption || "").trim();
+    // Нужен текст или фото (скрины по ТЗ)
+    if (!text && !hasPhoto) return ok();
 
     const businessConnectionId = isBusiness
       ? String(message.business_connection_id || "")
@@ -603,8 +614,18 @@ serve(async (req) => {
       return ok();
     }
 
+    // Сообщения с рабочего аккаунта в чужом ЛС — не считаем заявкой клиента
+    if (isBusiness && isBusinessOwnerMessage(message)) {
+      await logAlinaRawEvent(Number(message.chat?.id || 0), "business_skip", {
+        reason: "owner_message",
+        from_id: message.from?.id,
+        text: text.slice(0, 300),
+        hasPhoto,
+      });
+      return ok();
+    }
+
     const chatId = Number(message.chat.id);
-    const text = String(message.text);
     const fullName = [message.from?.first_name, message.from?.last_name]
       .filter(Boolean)
       .join(" ")
@@ -679,6 +700,18 @@ serve(async (req) => {
       }
     }
 
+    // ── Команда оффера из тимчата («алина оффер открыт кэшбек 70 …») ───────
+    if (triggeringBot === "alina" && !isBusiness) {
+      const offerReply = await tryAlinaOfferCommand(text);
+      if (offerReply) {
+        await runWork((async () => {
+          await sendTelegramMessage("alina", chatId, offerReply, message.message_id);
+          saveMessage(chatId, "alina", offerReply).catch(() => {});
+        })());
+        return ok();
+      }
+    }
+
     // ── Алина CRM (ЛС / клиентский чат / Telegram Business рабочий акк) ─────
     if (
       (triggeringBot === "alina" || triggeringBot === "alina2") &&
@@ -703,34 +736,39 @@ serve(async (req) => {
             username: message.from?.username,
             full_name: fullName || null,
             text,
+            hasPhoto,
             business_connection_id: businessConnectionId || null,
             message_id: message.message_id,
           });
         }
-        const reply = await handleAlinaClientMessage({
+        const { replies } = await handleAlinaClientMessage({
           chatId,
           userId: Number(message.from?.id),
           username: message.from?.username,
           fullName: fullName || undefined,
-          text,
+          text: text || (hasPhoto ? "скрин" : ""),
+          hasPhoto,
           sourceAccount,
         });
-        const sent = await sendTelegramMessage(
-          replyBot,
-          chatId,
-          reply,
-          message.message_id,
-          businessConnectionId || undefined,
-        );
-        if (isBusiness) {
-          await logAlinaRawEvent(chatId, "business_out", {
-            text: reply,
-            sent,
-            business_connection_id: businessConnectionId || null,
-            to_user: message.from?.id,
-          });
+        for (let i = 0; i < replies.length; i++) {
+          const reply = replies[i];
+          const sent = await sendTelegramMessage(
+            replyBot,
+            chatId,
+            reply,
+            i === 0 ? message.message_id : undefined,
+            businessConnectionId || undefined,
+          );
+          if (isBusiness) {
+            await logAlinaRawEvent(chatId, "business_out", {
+              text: reply,
+              sent,
+              business_connection_id: businessConnectionId || undefined,
+              to_user: message.from?.id,
+            });
+          }
+          await saveMessage(chatId, replyBot, reply);
         }
-        await saveMessage(chatId, replyBot, reply);
       })());
       return ok();
     }
