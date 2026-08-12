@@ -151,6 +151,33 @@ export async function getCampaign(): Promise<Campaign | null> {
   return (data as Campaign) || null;
 }
 
+/** Подтянуть план раздач из Google Sheet → alina_campaign. */
+export async function refreshAlinaFromSheet(): Promise<Record<string, unknown>> {
+  try {
+    const snap = await syncCampaignFromSheet((patch) => upsertCampaign(admin(), patch));
+    const camp = await getCampaign();
+    return { ...snap, campaign: camp };
+  } catch (e) {
+    return {
+      ok: false,
+      error: e instanceof Error ? e.message : String(e),
+    };
+  }
+}
+
+/** Перед ответом клиенту — освежить слоты из таблицы (кэш 45с). */
+async function ensureCampaignFresh(): Promise<Campaign | null> {
+  const sheetId = (Deno.env.get('ALINA_SHEET_ID') || '').trim();
+  if (sheetId) {
+    try {
+      await syncCampaignFromSheet((patch) => upsertCampaign(admin(), patch));
+    } catch (e) {
+      console.error('[alina-selfbuy] sheet refresh', e);
+    }
+  }
+  return await getCampaign();
+}
+
 /** Команды оффера из тимчата: «алина оффер …» */
 export async function tryAlinaOfferCommand(text: string): Promise<string | null> {
   const t = text.trim();
@@ -245,7 +272,8 @@ export async function handleAlinaClientMessage(opts: {
   const source = opts.sourceAccount || 'main';
   const text = (opts.text || '').trim();
   const hasPhoto = Boolean(opts.hasPhoto);
-  const camp = await getCampaign();
+  // «База в голове» = актуальный план из Google таблицы
+  const camp = await ensureCampaignFresh();
 
   let lead = await getOrCreateLead(db, opts, source);
 
@@ -743,6 +771,10 @@ export async function logAlinaRawEvent(
 
 export async function alinaRecentDialogs(limit = 20): Promise<Record<string, unknown>> {
   const db = admin();
+  let sheet: Record<string, unknown> | null = null;
+  try {
+    sheet = await refreshAlinaFromSheet();
+  } catch { /* optional */ }
   const camp = await getCampaign();
   const { data: leads, error: le } = await db
     .from('alina_selfbuy_leads')
@@ -777,12 +809,35 @@ export async function alinaRecentDialogs(limit = 20): Promise<Record<string, unk
     .order('created_at', { ascending: false })
     .limit(50);
 
-  return { ok: true, campaign: camp, leads: leads || [], events, recent_business: raw || [] };
+  return {
+    ok: true,
+    campaign: camp,
+    sheet,
+    knowledge: (camp as Campaign & { notes?: string })?.notes || sheet?.knowledge || null,
+    leads: leads || [],
+    events,
+    recent_business: raw || [],
+  };
 }
 
 export async function alinaSelfbuyStatsText(): Promise<string> {
   const db = admin();
+  await ensureCampaignFresh();
   const camp = await getCampaign();
+  let sheetLine = 'Sheet: не подключен (нужен ALINA_SHEET_ID)';
+  try {
+    const snap = await fetchSheetPlan();
+    if (snap.ok) {
+      sheetLine =
+        `Sheet OK (${snap.source}): офферов ${snap.offers.length}, ` +
+        `активный мест ${snap.active?.slots_left ?? 0}, строк лога ${snap.leads_rows}`;
+    } else {
+      sheetLine = `Sheet: ${snap.error || 'ошибка'}`;
+    }
+  } catch (e) {
+    sheetLine = `Sheet: ${e instanceof Error ? e.message : String(e)}`;
+  }
+
   const { data, error } = await db
     .from('alina_selfbuy_leads')
     .select('status, source_account, deal_type, created_at');
@@ -800,13 +855,14 @@ export async function alinaSelfbuyStatsText(): Promise<string> {
 
   return [
     'Алина · бартер / кэшбек',
+    sheetLine,
     `Оффер: ${camp?.is_open ? 'открыт' : 'закрыт'} · ${camp?.deal_type || '—'} · мест ${camp?.slots_left ?? '—'}`,
     `Товар: ${camp?.product_name || '—'}`,
     `Ключ: ${camp?.keyword || '—'}`,
-    `Всего заявок: ${total} (в работе ${inProgress}, готово ${done})`,
+    `Всего заявок в CRM: ${total} (в работе ${inProgress}, готово ${done})`,
     `кэшбек: ${cashback} · бартер: ${barter} · сегодня: ${todayCount}`,
-    'Команда: алина оффер открыт кэшбек 70 слоты:5 ключ: … товар: …',
-    'Закрыть: алина оффер закрыт',
+    'План берётся из Google «План»; места = план − занятые строки.',
+    'Вручную: алина оффер открыт … / алина оффер закрыт',
   ].join('\n');
 }
 
@@ -832,7 +888,8 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
   const sheetId = (Deno.env.get('ALINA_SHEET_ID') || '').trim();
   const saJson = (Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '').trim();
   if (!sheetId || !saJson) {
-    console.log('[alina-selfbuy] sheets skip: no ALINA_SHEET_ID / GOOGLE_SERVICE_ACCOUNT_JSON');
+    // Без SA пишем не можем — план читаем по CSV. Лог заявки остаётся в Supabase.
+    console.log('[alina-selfbuy] sheets write skip: need GOOGLE_SERVICE_ACCOUNT_JSON');
     return;
   }
 
@@ -842,28 +899,39 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
 
   try {
     const token = await googleAccessToken(saJson);
-    // вид | TG | username | имя | статус | ключ | заказ | забор | отзыв | реквизиты | кэш% | рилс | chat
+    const tab = (Deno.env.get('ALINA_LEADS_TAB') || 'Раздачи').trim();
+    // Колонки как в вкладке «Раздачи»:
+    // A Вид | B ТГ | C Дата заказа | D Размер | E Цена | F Размер кэша |
+    // G Примерная дата забора | H Факт забора | I ШК | J Дата рекламы |
+    // K Дата отзыва | L Вид отзыва | M Отзыв опубл | N Реквизиты | O Кэш выплачен |
+    // P План выплаты | Q Товар | R Reels | S Ответственный | T Ключ
+    const vid = lead.deal_type === 'barter' ? 'БЛОГЕР' : 'КЭШ';
+    const tg = lead.username ? `@${String(lead.username).replace(/^@/, '')}` : String(lead.telegram_user_id);
     const values = [[
-      lead.deal_type || '',
-      String(lead.telegram_user_id),
-      lead.username || '',
-      lead.full_name || '',
-      lead.status,
-      lead.keyword || '',
+      vid,
+      tg,
       lead.order_received_at || '',
-      lead.pickup_at || '',
-      lead.review_note || '',
-      lead.bank_details || '',
+      '',
+      lead.order_price || '',
       lead.cashback_pct != null ? String(lead.cashback_pct) : '',
-      lead.reels_url || '',
-      String(lead.chat_id),
+      lead.pickup_at || '',
+      lead.pickup_at || '',
+      '',
+      '',
+      lead.review_planned_at || '',
+      lead.review_note || '',
+      lead.status === 'done' ? 'Да' : '',
+      lead.bank_details || '',
+      '',
+      '',
       lead.product_name || '',
-      lead.screens_done || '',
-      lead.updated_at || lead.created_at,
+      lead.reels_url || '',
+      'Алина',
+      lead.keyword || '',
     ]];
 
     if (lead.sheet_row) {
-      const range = `Sheet1!A${lead.sheet_row}:P${lead.sheet_row}`;
+      const range = `${tab}!A${lead.sheet_row}:T${lead.sheet_row}`;
       const res = await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${
           encodeURIComponent(range)
@@ -882,7 +950,9 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
     }
 
     const res = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/Sheet1!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
+      `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${
+        encodeURIComponent(tab + '!A:T')
+      }:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
       {
         method: 'POST',
         headers: {

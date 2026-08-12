@@ -1,12 +1,12 @@
 /**
- * План раздач из Google Sheet → «база в голове» Алины.
- * Читает вкладку План + лог заявок, считает свободные места.
+ * План раздач Elium из Google Sheet «Кэшбэки / Выкупы Элиум».
  *
- * Env:
- *   ALINA_SHEET_ID
- *   GOOGLE_SERVICE_ACCOUNT_JSON (опционально для API; иначе CSV если лист «по ссылке»)
- *   ALINA_PLAN_TAB=План
- *   ALINA_LEADS_TAB=Sheet1
+ * Вкладки:
+ *  - Раздачи — лог заявок (Вид БЛОГЕР/КЭШ, ТГ, ключ, товар…)
+ *  - График раздач * — план по дням и ключам
+ *  - Калькулятор — объёмы
+ *
+ * Env: ALINA_SHEET_ID (обязательно)
  */
 
 export type SheetPlanOffer = {
@@ -14,6 +14,7 @@ export type SheetPlanOffer = {
   deal_type: 'cashback' | 'barter' | 'both';
   product_name: string | null;
   keyword: string | null;
+  article: string | null;
   cashback_pct: number | null;
   plan_slots: number;
   used_slots: number;
@@ -21,17 +22,18 @@ export type SheetPlanOffer = {
   order_deadline: string | null;
   is_open: boolean;
   status_raw: string | null;
+  tab: string;
   row_index: number;
 };
 
 export type SheetPlanSnapshot = {
   ok: boolean;
   error?: string;
-  source?: 'api' | 'csv';
+  source?: 'csv';
   offers: SheetPlanOffer[];
-  /** Лучший активный оффер на сейчас (для alina_campaign). */
   active: SheetPlanOffer | null;
   leads_rows: number;
+  knowledge: string;
   fetched_at: string;
 };
 
@@ -41,178 +43,65 @@ const planCache: { at: number; snap: SheetPlanSnapshot | null } = {
 };
 const CACHE_MS = 45_000;
 
+/** Известные gid вкладок этой таблицы. */
+const GRAPH_TABS: { gid: string; name: string }[] = [
+  { gid: '1266544300', name: 'График раздач муж кост' },
+  { gid: '1599855805', name: 'График раздач жилетки' },
+  { gid: '470127681', name: 'График раздач Жилетка серый' },
+  { gid: '171758857', name: 'БРЮКИ График раздач' },
+];
+const RAZDACHI_GID = '2093674426';
+const CALC_GID = '0';
+
 function norm(s: unknown): string {
   return String(s ?? '')
     .trim()
     .toLowerCase()
-    .replace(/\s+/g, ' ');
+    .replace(/\s+/g, ' ')
+    .replace(/\u00a0/g, ' ');
 }
 
-function headerKey(h: string): string {
-  const t = norm(h);
-  if (!t) return '';
-  if (/^(дата|день|date)/.test(t)) return 'date';
-  if (/^(тип|вид|формат|deal)/.test(t)) return 'deal_type';
-  if (/товар|артикул|продукт|название|position/.test(t)) return 'product';
-  if (/ключ|ключев|запрос|search/.test(t)) return 'keyword';
-  if (/кэш|кеш|cash|%|процент/.test(t) && !/выплат/.test(t)) return 'cashback_pct';
-  if (/план|нужно|лимит|мест|слот|qty|количество/.test(t) && !/остал|свобод/.test(t)) {
-    return 'plan';
-  }
-  if (/факт|занят|сделано|выдано|used/.test(t)) return 'used';
-  if (/остал|свобод|left/.test(t)) return 'left';
-  if (/срок|дедлайн|до\s*22|заказ.*до/.test(t)) return 'deadline';
-  if (/статус|открыт|актуаль|закрыт/.test(t)) return 'status';
-  if (/tg|телеграм|ник|username|user/.test(t)) return 'tg';
-  return t.slice(0, 40);
+function todayMsk(): Date {
+  return new Date(Date.now() + 3 * 3600_000);
 }
 
-function parseDeal(raw: string): 'cashback' | 'barter' | 'both' {
-  const t = norm(raw);
-  if (/бартер/.test(t) && /(кэш|кеш|cash|самовыкуп)/.test(t)) return 'both';
-  if (/бартер|блогер|рилс/.test(t)) return 'barter';
-  return 'cashback';
-}
-
-function parseNum(raw: string): number | null {
-  const m = String(raw).replace(',', '.').match(/-?\d+(\.\d+)?/);
-  if (!m) return null;
-  const n = Number(m[0]);
-  return Number.isFinite(n) ? n : null;
-}
-
-function isOpenStatus(raw: string, slotsLeft: number): boolean {
-  const t = norm(raw);
-  if (!t) return slotsLeft > 0;
-  if (/закрыт|законч|нет\s*мест|full|stop|off|аннул/.test(t)) return false;
-  if (/открыт|актуаль|идёт|идет|open|да\b/.test(t)) return true;
-  return slotsLeft > 0;
-}
-
-function todayKey(): string {
-  // Москва ≈ UTC+3
-  const d = new Date(Date.now() + 3 * 3600_000);
+function todayKeys(): string[] {
+  const d = todayMsk();
   const dd = String(d.getUTCDate()).padStart(2, '0');
   const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const yyyy = d.getUTCFullYear();
-  return `${dd}.${mm}.${yyyy}`;
+  const yyyy = String(d.getUTCFullYear());
+  return [`${dd}.${mm}`, `${dd}.${mm}.${yyyy}`, `${Number(dd)}.${mm}`];
 }
 
-function dateMatchesToday(raw: string | null): boolean {
-  if (!raw) return true; // пустая дата = действует сейчас
-  const t = norm(raw);
-  const today = todayKey();
-  if (t.includes(today)) return true;
-  // ISO / sheet serial-ish
-  const iso = new Date().toISOString().slice(0, 10); // UTC
-  if (t.includes(iso)) return true;
-  const msk = new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
-  if (t.includes(msk)) return true;
-  // «сегодня»
-  if (/сегодня|today/.test(t)) return true;
-  return false;
+function dateColMatchesToday(label: string): boolean {
+  const t = norm(label).replace(/\s/g, '');
+  return todayKeys().some((k) => t === norm(k).replace(/\s/g, '') || t.startsWith(norm(k).replace(/\s/g, '')));
 }
 
-async function getSaToken(): Promise<string | null> {
-  const raw = (Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '').trim();
-  if (!raw) return null;
-  let sa: { client_email?: string; private_key?: string; token_uri?: string };
+function parseIntSafe(raw: unknown): number {
+  const s = String(raw ?? '').replace(/\s/g, '').replace(',', '.');
+  if (!s || s === '-' ) return 0;
+  const m = s.match(/-?\d+/);
+  return m ? Number(m[0]) : 0;
+}
+
+async function readCsv(sheetId: string, gid: string): Promise<string[][] | null> {
+  const url =
+    `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
   try {
-    sa = JSON.parse(raw);
-  } catch {
+    const res = await fetch(url, {
+      redirect: 'follow',
+      signal: AbortSignal.timeout(20000),
+      headers: { 'User-Agent': 'NRSpace-Alina/1.0' },
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    if (/<!doctype html|<html/i.test(text.slice(0, 200))) return null;
+    return parseCsv(text);
+  } catch (e) {
+    console.error('[alina-sheet] csv', gid, e);
     return null;
   }
-  if (!sa.client_email || !sa.private_key) return null;
-
-  const now = Math.floor(Date.now() / 1000);
-  const header = { alg: 'RS256', typ: 'JWT' };
-  const claim = {
-    iss: sa.client_email,
-    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
-    aud: sa.token_uri || 'https://oauth2.googleapis.com/token',
-    iat: now,
-    exp: now + 3600,
-  };
-  const b64url = (data: ArrayBuffer | Uint8Array | string) => {
-    const bytes = typeof data === 'string'
-      ? new TextEncoder().encode(data)
-      : data instanceof Uint8Array
-      ? data
-      : new Uint8Array(data);
-    let bin = '';
-    for (const b of bytes) bin += String.fromCharCode(b);
-    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-  };
-  const pem = sa.private_key.replace(/\\n/g, '\n');
-  const b64 = pem.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '');
-  const rawKey = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
-  const key = await crypto.subtle.importKey(
-    'pkcs8',
-    rawKey,
-    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-    false,
-    ['sign'],
-  );
-  const unsigned = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(claim))}`;
-  const sig = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5',
-    key,
-    new TextEncoder().encode(unsigned),
-  );
-  const jwt = `${unsigned}.${b64url(sig)}`;
-  const res = await fetch(sa.token_uri || 'https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: jwt,
-    }),
-  });
-  const data = await res.json().catch(() => ({}));
-  return data.access_token || null;
-}
-
-async function readViaApi(
-  sheetId: string,
-  range: string,
-): Promise<string[][] | null> {
-  const token = await getSaToken();
-  if (!token) return null;
-  const url =
-    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(sheetId)}` +
-    `/values/${encodeURIComponent(range)}?valueRenderOption=FORMATTED_VALUE`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!res.ok) {
-    console.error('[alina-sheet] api', res.status, await res.text());
-    return null;
-  }
-  const data = await res.json();
-  return (data.values as string[][]) || [];
-}
-
-/** Публичный CSV (доступ «по ссылке» / anyone with link). */
-async function readViaCsv(
-  sheetId: string,
-  gid?: string,
-): Promise<string[][] | null> {
-  const q = gid ? `&gid=${encodeURIComponent(gid)}` : '';
-  const url =
-    `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv${q}`;
-  const res = await fetch(url, {
-    redirect: 'follow',
-    signal: AbortSignal.timeout(15000),
-    headers: { 'User-Agent': 'NRSpace-Alina/1.0' },
-  });
-  if (!res.ok) {
-    console.error('[alina-sheet] csv', res.status);
-    return null;
-  }
-  const text = await res.text();
-  if (/<!doctype html|<html/i.test(text.slice(0, 200))) return null;
-  return parseCsv(text);
 }
 
 function parseCsv(text: string): string[][] {
@@ -257,109 +146,358 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
-function mapRows(values: string[][]): {
-  headers: string[];
-  keys: string[];
-  rows: Record<string, string>[];
-} {
-  if (!values.length) return { headers: [], keys: [], rows: [] };
-  // найти строку заголовков: первая, где ≥2 известных ключей
-  let headerIdx = 0;
-  let keys: string[] = [];
-  for (let i = 0; i < Math.min(8, values.length); i++) {
-    const mapped = values[i].map(headerKey);
-    const known = mapped.filter((k) =>
-      [
-        'date',
-        'deal_type',
-        'product',
-        'keyword',
-        'plan',
-        'cashback_pct',
-        'status',
-        'tg',
-      ].includes(k)
-    ).length;
-    if (known >= 2) {
-      headerIdx = i;
-      keys = mapped;
-      break;
-    }
+type LeadRow = {
+  kind: string; // БЛОГЕР | КЭШ
+  tg: string;
+  order_date: string;
+  product: string;
+  keyword: string;
+  cash_paid: string;
+};
+
+function parseRazdachi(rows: string[][]): LeadRow[] {
+  if (!rows.length) return [];
+  // header row 0
+  const out: LeadRow[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    const r = rows[i];
+    const kind = String(r[0] || '').trim().toUpperCase();
+    const tg = String(r[1] || '').trim();
+    if (!kind && !tg) continue;
+    if (/кэшбек/i.test(tg) && !kind) continue; // separator
+    out.push({
+      kind,
+      tg,
+      order_date: String(r[2] || '').trim(),
+      product: String(r[16] || '').trim(),
+      keyword: String(r[19] || '').trim(),
+      cash_paid: String(r[14] || '').trim(),
+    });
   }
-  if (!keys.length) {
-    keys = values[0].map(headerKey);
-    headerIdx = 0;
-  }
-  const headers = values[headerIdx] || [];
-  const rows: Record<string, string>[] = [];
-  for (let i = headerIdx + 1; i < values.length; i++) {
-    const line = values[i];
-    if (!line?.some((c) => String(c).trim())) continue;
-    const obj: Record<string, string> = { __row: String(i + 1) };
-    for (let c = 0; c < keys.length; c++) {
-      const k = keys[c];
-      if (!k) continue;
-      obj[k] = String(line[c] ?? '').trim();
-    }
-    rows.push(obj);
-  }
-  return { headers: headers.map(String), keys, rows };
+  return out;
 }
 
-function countUsedInLeads(
-  leadRows: Record<string, string>[],
-  offer: { product_name: string | null; deal_type: string; date: string | null },
-): number {
-  let n = 0;
-  for (const r of leadRows) {
-    const status = norm(r.status || r['статус'] || '');
-    if (/аннул|отмен|отказ|spam|закрыт/.test(status)) continue;
+function dealFromKind(kind: string): 'cashback' | 'barter' {
+  if (/блог|barter|рилс/i.test(kind)) return 'barter';
+  return 'cashback';
+}
 
-    const deal = parseDeal(r.deal_type || r['вид'] || r['тип'] || '');
-    if (offer.deal_type !== 'both' && deal !== 'both' && deal !== offer.deal_type) {
-      // если в логе пустой тип — всё равно считаем
-      if (r.deal_type || r['вид'] || r['тип']) continue;
-    }
+type GraphBlock = {
+  tab: string;
+  article: string | null;
+  product: string;
+  dateCols: { idx: number; label: string }[];
+  dayTotals: Record<string, number>; // label -> plan
+  keywords: { key: string; byDay: Record<string, number>; cluster: number }[];
+};
 
-    if (offer.product_name) {
-      const p = norm(r.product || r['товар'] || '');
-      if (p && !p.includes(norm(offer.product_name).slice(0, 12)) &&
-        !norm(offer.product_name).includes(p.slice(0, 12))) {
-        // мягко: если товар указан в логе и не похож — пропуск
-        if (p.length > 3) continue;
+function parseGraphTab(rows: string[][], tabName: string): GraphBlock[] {
+  const blocks: GraphBlock[] = [];
+  let i = 0;
+  while (i < rows.length) {
+    const r = rows[i];
+    // Product header: ",Костюм черный,,,8,10,11" or "АРТ,8517..."
+    const joined = r.map((c) => String(c || '').trim()).filter(Boolean);
+    const artIdx = r.findIndex((c) => /^арт$/i.test(String(c || '').trim()));
+    let article: string | null = null;
+    if (artIdx >= 0 && r[artIdx + 1]) article = String(r[artIdx + 1]).trim();
+
+    // Look ahead for date header row within next 3 lines
+    let headerIdx = -1;
+    for (let k = i; k < Math.min(i + 4, rows.length); k++) {
+      const dates = rows[k]
+        .map((c, idx) => ({ idx, label: String(c || '').trim() }))
+        .filter((d) => /^\d{1,2}\.\d{2}/.test(d.label));
+      if (dates.length >= 2) {
+        headerIdx = k;
+        break;
       }
     }
+    if (headerIdx < 0) {
+      i++;
+      continue;
+    }
 
-    // дата заказа/строки ≈ сегодня, если в плане на сегодня
-    if (offer.date && dateMatchesToday(offer.date)) {
-      const rd = r.date || r['дата'] || r['дата заказа'] || '';
-      if (rd && !dateMatchesToday(rd) && !norm(rd).includes(norm(offer.date))) {
-        // старые строки не жрём слоты сегодняшнего плана
+    const dateCols = rows[headerIdx]
+      .map((c, idx) => ({ idx, label: String(c || '').trim() }))
+      .filter((d) => /^\d{1,2}\.\d{2}/.test(d.label));
+
+    // product name: row above header if not "Запрос"
+    let product = '';
+    for (let k = headerIdx - 1; k >= Math.max(0, headerIdx - 3); k--) {
+      const nameCell = String(rows[k][1] || rows[k][0] || '').trim();
+      if (nameCell && !/^арт$/i.test(nameCell) && !/^\d+$/.test(nameCell)) {
+        product = nameCell;
+        // day totals on that row
+        break;
+      }
+    }
+    if (!product) product = tabName;
+
+    const dayTotals: Record<string, number> = {};
+    const prodRow = rows[Math.max(0, headerIdx - 1)] || [];
+    for (const d of dateCols) {
+      dayTotals[d.label] = parseIntSafe(prodRow[d.idx]);
+    }
+
+    const keywords: GraphBlock['keywords'] = [];
+    let j = headerIdx + 1;
+    for (; j < rows.length; j++) {
+      const rr = rows[j];
+      const c0 = String(rr[0] || '').trim();
+      const c1 = String(rr[1] || '').trim();
+      // next block starts with АРТ or empty gap then new product
+      if (/^арт$/i.test(c0) || /^арт$/i.test(c1)) break;
+      if (
+        j > headerIdx + 1 &&
+        !c1 &&
+        !c0 &&
+        rr.every((x) => !String(x || '').trim())
+      ) {
+        // blank — maybe end
+        const peek = rows[j + 1];
+        if (peek && /^арт$/i.test(String(peek[0] || peek[1] || '').trim())) break;
         continue;
       }
+      // skip header-like
+      if (/^запрос$/i.test(c1) || /^запрос$/i.test(c0)) continue;
+
+      const key = c1 || c0;
+      if (!key || /^\d+$/.test(key)) continue;
+      // skip if looks like product title row without keyword pattern - still ok
+
+      const byDay: Record<string, number> = {};
+      let any = false;
+      for (const d of dateCols) {
+        const n = parseIntSafe(rr[d.idx]);
+        byDay[d.label] = n;
+        if (n > 0) any = true;
+      }
+      const cluster = parseIntSafe(rr[3]);
+      if (any || cluster > 0) {
+        keywords.push({ key, byDay, cluster });
+      }
+
+      // stop block if we hit another product name row with date totals and few text cols
+      if (
+        j > headerIdx + 2 &&
+        c1 &&
+        /костюм|жилет|брюк|топ|футбол/i.test(c1) &&
+        dateCols.some((d) => parseIntSafe(rr[d.idx]) > 0) &&
+        !/запрос|частота/i.test(c1)
+      ) {
+        // This might be next product header — back up
+        break;
+      }
+    }
+
+    blocks.push({
+      tab: tabName,
+      article,
+      product,
+      dateCols,
+      dayTotals,
+      keywords,
+    });
+    i = Math.max(j, headerIdx + 1);
+  }
+  return blocks;
+}
+
+function countUsed(
+  leads: LeadRow[],
+  opts: { dateLabel: string; product: string; keyword?: string | null },
+): number {
+  const day = opts.dateLabel.replace(/\.\d{4}$/, ''); // 24.03 or 24.03.2026
+  let n = 0;
+  for (const L of leads) {
+    if (!L.tg && !L.kind) continue;
+    const od = L.order_date.replace(/\.\d{4}$/, '');
+    // match day.month
+    if (od && day) {
+      const a = od.split('.').slice(0, 2).join('.');
+      const b = day.split('.').slice(0, 2).join('.');
+      if (a !== b && !L.order_date.startsWith(opts.dateLabel) &&
+        !opts.dateLabel.startsWith(od)) {
+        // also allow full date equality
+        if (norm(L.order_date) !== norm(opts.dateLabel)) continue;
+      }
+    }
+    if (opts.product) {
+      const p = norm(L.product);
+      const want = norm(opts.product);
+      if (p && want && !p.includes(want.slice(0, 6)) && !want.includes(p.slice(0, 6))) {
+        continue;
+      }
+    }
+    if (opts.keyword) {
+      const k = norm(L.keyword);
+      const want = norm(opts.keyword);
+      if (k && want && k !== want) continue;
     }
     n++;
   }
   return n;
 }
 
-function pickActive(offers: SheetPlanOffer[]): SheetPlanOffer | null {
-  const open = offers.filter((o) => o.is_open && o.slots_left > 0);
-  const today = open.filter((o) => dateMatchesToday(o.date));
-  const pool = today.length ? today : open;
-  if (!pool.length) {
-    // есть строки «открыто» но 0 мест
-    const zero = offers.find((o) => o.is_open && o.slots_left <= 0);
-    return zero || offers.find((o) => dateMatchesToday(o.date)) || offers[0] || null;
+function buildOffers(
+  blocks: GraphBlock[],
+  leads: LeadRow[],
+): SheetPlanOffer[] {
+  const offers: SheetPlanOffer[] = [];
+  const todayLabels = todayKeys();
+
+  for (const b of blocks) {
+    // найти колонку сегодня; если нет — ближайший будущий день с планом; иначе последний день с планом
+    let dateLabel: string | null = null;
+    for (const d of b.dateCols) {
+      if (dateColMatchesToday(d.label)) {
+        dateLabel = d.label;
+        break;
+      }
+    }
+
+    let planToday = dateLabel ? (b.dayTotals[dateLabel] || 0) : 0;
+
+    // если сегодня нет колонки — суммарный план по keywords на сегодня из byDay
+    if (dateLabel) {
+      const sumKw = b.keywords.reduce((s, k) => s + (k.byDay[dateLabel!] || 0), 0);
+      if (sumKw > planToday) planToday = sumKw;
+    }
+
+    // выбрать лучший ключ на сегодня
+    let bestKey: string | null = null;
+    let bestKeyPlan = 0;
+    if (dateLabel) {
+      for (const k of b.keywords) {
+        const n = k.byDay[dateLabel] || 0;
+        if (n > bestKeyPlan) {
+          bestKeyPlan = n;
+          bestKey = k.key;
+        }
+      }
+    }
+    // если на сегодня 0 — взять ключ с max cluster как «основной» для знания, но slots=0
+    if (!bestKey && b.keywords.length) {
+      const sorted = [...b.keywords].sort((a, c) => c.cluster - a.cluster);
+      bestKey = sorted[0].key;
+    }
+
+    const used = dateLabel
+      ? countUsed(leads, { dateLabel, product: b.product })
+      : 0;
+    const slotsLeft = Math.max(0, planToday - used);
+    const open = Boolean(dateLabel) && planToday > 0 && slotsLeft > 0;
+
+    offers.push({
+      date: dateLabel,
+      deal_type: 'both', // в графике смешанный поток; вид выбирает клиент/менеджер
+      product_name: b.product,
+      keyword: bestKey,
+      article: b.article,
+      cashback_pct: null,
+      plan_slots: planToday,
+      used_slots: used,
+      slots_left: slotsLeft,
+      order_deadline: dateLabel ? `${dateLabel} до 22:00 МСК` : null,
+      is_open: open,
+      status_raw: open ? 'открыто' : (planToday > 0 ? 'места закончились' : 'нет плана на сегодня'),
+      tab: b.tab,
+      row_index: 0,
+    });
+
+    // отдельные офферы по ключам с планом > 0 сегодня
+    if (dateLabel) {
+      for (const k of b.keywords) {
+        const kp = k.byDay[dateLabel] || 0;
+        if (kp <= 0) continue;
+        const ku = countUsed(leads, {
+          dateLabel,
+          product: b.product,
+          keyword: k.key,
+        });
+        const left = Math.max(0, kp - ku);
+        offers.push({
+          date: dateLabel,
+          deal_type: 'both',
+          product_name: b.product,
+          keyword: k.key,
+          article: b.article,
+          cashback_pct: null,
+          plan_slots: kp,
+          used_slots: ku,
+          slots_left: left,
+          order_deadline: `${dateLabel} до 22:00 МСК`,
+          is_open: left > 0,
+          status_raw: left > 0 ? 'открыто' : 'ключ закрыт',
+          tab: b.tab,
+          row_index: 0,
+        });
+      }
+    }
+
+    void todayLabels;
   }
-  // приоритет: больше оставшихся мест
-  pool.sort((a, b) => b.slots_left - a.slots_left);
-  return pool[0];
+  return offers;
 }
 
-export async function fetchSheetPlan(
-  force = false,
-): Promise<SheetPlanSnapshot> {
+function pickActive(offers: SheetPlanOffer[]): SheetPlanOffer | null {
+  // предпочитаем офферы с конкретным ключом и местами
+  const open = offers.filter((o) => o.is_open && o.slots_left > 0 && o.keyword);
+  if (open.length) {
+    open.sort((a, b) => b.slots_left - a.slots_left);
+    return open[0];
+  }
+  const openProd = offers.filter((o) => o.is_open && o.slots_left > 0);
+  if (openProd.length) {
+    openProd.sort((a, b) => b.slots_left - a.slots_left);
+    return openProd[0];
+  }
+  // закрыто — вернуть любой «сегодняшний» для статуса
+  return offers.find((o) => o.date && dateColMatchesToday(o.date)) ||
+    offers[0] ||
+    null;
+}
+
+function buildKnowledge(
+  blocks: GraphBlock[],
+  leads: LeadRow[],
+  offers: SheetPlanOffer[],
+): string {
+  const lines: string[] = [];
+  lines.push(`Сегодня (МСК): ${todayKeys()[1] || todayKeys()[0]}`);
+  lines.push(`В логе «Раздачи»: ${leads.length} заявок (БЛОГЕР=бартер, КЭШ=кэшбек)`);
+  const byKind = { barter: 0, cash: 0 };
+  for (const L of leads) {
+    if (/блог/i.test(L.kind)) byKind.barter++;
+    else if (/кэш|кеш|cash/i.test(L.kind)) byKind.cash++;
+  }
+  lines.push(`Из них бартер: ${byKind.barter}, кэш: ${byKind.cash}`);
+
+  for (const b of blocks) {
+    const todayCol = b.dateCols.find((d) => dateColMatchesToday(d.label));
+    const plan = todayCol ? b.dayTotals[todayCol.label] || 0 : 0;
+    lines.push(
+      `• ${b.product}${b.article ? ` (арт ${b.article})` : ''}: сегодня план ${plan}` +
+        (todayCol ? ` [${todayCol.label}]` : ' [нет колонки сегодня]'),
+    );
+    const top = [...b.keywords].sort((a, c) => c.cluster - a.cluster).slice(0, 4);
+    for (const k of top) {
+      const kp = todayCol ? (k.byDay[todayCol.label] || 0) : 0;
+      lines.push(`  – ключ «${k.key}»: сегодня ${kp}, вес ${k.cluster}`);
+    }
+  }
+
+  const open = offers.filter((o) => o.is_open);
+  lines.push(
+    open.length
+      ? `Свободно сейчас: ${open.map((o) => `${o.product_name}/${o.keyword}: ${o.slots_left}`).join('; ')}`
+      : 'Свободных мест на сегодня НЕТ — клиентам говорим, что раздачи на сегодня закончены.',
+  );
+  return lines.join('\n');
+}
+
+export async function fetchSheetPlan(force = false): Promise<SheetPlanSnapshot> {
   if (!force && planCache.snap && Date.now() - planCache.at < CACHE_MS) {
     return planCache.snap;
   }
@@ -368,49 +506,49 @@ export async function fetchSheetPlan(
   if (!sheetId) {
     return {
       ok: false,
-      error: 'ALINA_SHEET_ID missing — пришлите ссылку на Google таблицу',
+      error: 'ALINA_SHEET_ID missing',
       offers: [],
       active: null,
       leads_rows: 0,
+      knowledge: '',
       fetched_at: new Date().toISOString(),
     };
   }
 
-  const planTab = (Deno.env.get('ALINA_PLAN_TAB') || 'План').trim();
-  const leadsTab = (Deno.env.get('ALINA_LEADS_TAB') || 'Sheet1').trim();
-  const planGid = (Deno.env.get('ALINA_PLAN_GID') || '').trim();
-  const leadsGid = (Deno.env.get('ALINA_LEADS_GID') || '').trim();
+  const leadsGid = (Deno.env.get('ALINA_LEADS_GID') || RAZDACHI_GID).trim();
+  const raz = await readCsv(sheetId, leadsGid);
+  const leads = raz ? parseRazdachi(raz) : [];
 
-  let source: 'api' | 'csv' = 'api';
-  let planValues = await readViaApi(sheetId, `${planTab}!A1:Z80`);
-  let leadValues = await readViaApi(sheetId, `${leadsTab}!A1:Z500`);
+  const extraGids = (Deno.env.get('ALINA_GRAPH_GIDS') || '')
+    .split(/[,\s]+/)
+    .filter(Boolean);
+  const tabs = [
+    ...GRAPH_TABS,
+    ...extraGids.map((gid) => ({ gid, name: `gid:${gid}` })),
+  ];
 
-  if (!planValues) {
-    source = 'csv';
-    planValues = await readViaCsv(sheetId, planGid || undefined);
-  }
-  if (!leadValues) {
-    leadValues = (await readViaCsv(sheetId, leadsGid || undefined)) || [];
-  }
-
-  // Если вкладки План нет — пробуем тот же лист как план (мало строк с «план/ключ»)
-  if ((!planValues || planValues.length < 2) && leadValues?.length) {
-    const mapped = mapRows(leadValues);
-    if (mapped.keys.includes('plan') || mapped.keys.includes('keyword')) {
-      planValues = leadValues;
-    }
+  const blocks: GraphBlock[] = [];
+  for (const t of tabs) {
+    const rows = await readCsv(sheetId, t.gid);
+    if (!rows?.length) continue;
+    blocks.push(...parseGraphTab(rows, t.name));
   }
 
-  if (!planValues || planValues.length < 2) {
+  // Калькулятор — для knowledge (кол-ва)
+  const calc = await readCsv(sheetId, CALC_GID);
+  if (calc?.length) {
+    // noop parse into knowledge later via blocks; optional
+  }
+
+  if (!blocks.length && !leads.length) {
     const snap: SheetPlanSnapshot = {
       ok: false,
-      error:
-        'Не удалось прочитать таблицу. Дайте доступ: «Все у кого есть ссылка — читатель» ' +
-        'или GOOGLE_SERVICE_ACCOUNT_JSON + шаринг на email SA. Вкладка «План» обязательна.',
-      source,
+      error: 'Не прочитались вкладки Раздачи/График — проверьте доступ по ссылке',
+      source: 'csv',
       offers: [],
       active: null,
-      leads_rows: leadValues?.length || 0,
+      leads_rows: 0,
+      knowledge: '',
       fetched_at: new Date().toISOString(),
     };
     planCache.at = Date.now();
@@ -418,58 +556,17 @@ export async function fetchSheetPlan(
     return snap;
   }
 
-  const planMapped = mapRows(planValues);
-  const leadsMapped = leadValues?.length ? mapRows(leadValues) : {
-    headers: [],
-    keys: [],
-    rows: [],
-  };
-
-  const offers: SheetPlanOffer[] = [];
-  for (const row of planMapped.rows) {
-    const product = row.product || null;
-    const keyword = row.keyword || null;
-    const deal = parseDeal(row.deal_type || 'кэшбек');
-    const planSlots = parseNum(row.plan) ?? 0;
-    let used = parseNum(row.used);
-    if (used == null) {
-      used = countUsedInLeads(leadsMapped.rows, {
-        product_name: product,
-        deal_type: deal,
-        date: row.date || null,
-      });
-    }
-    let left = parseNum(row.left);
-    if (left == null) left = Math.max(0, planSlots - used);
-    const statusRaw = row.status || null;
-    const open = isOpenStatus(statusRaw || '', left);
-
-    // пустые строки без товара/ключа/плана — мусор
-    if (!product && !keyword && planSlots <= 0) continue;
-
-    offers.push({
-      date: row.date || null,
-      deal_type: deal,
-      product_name: product,
-      keyword,
-      cashback_pct: parseNum(row.cashback_pct),
-      plan_slots: planSlots,
-      used_slots: used,
-      slots_left: left,
-      order_deadline: row.deadline || null,
-      is_open: open,
-      status_raw: statusRaw,
-      row_index: Number(row.__row) || 0,
-    });
-  }
-
+  const offers = buildOffers(blocks, leads);
   const active = pickActive(offers);
+  const knowledge = buildKnowledge(blocks, leads, offers);
+
   const snap: SheetPlanSnapshot = {
     ok: true,
-    source,
+    source: 'csv',
     offers,
     active,
-    leads_rows: leadsMapped.rows.length,
+    leads_rows: leads.length,
+    knowledge,
     fetched_at: new Date().toISOString(),
   };
   planCache.at = Date.now();
@@ -477,7 +574,6 @@ export async function fetchSheetPlan(
   return snap;
 }
 
-/** Обновить alina_campaign из таблицы. */
 export async function syncCampaignFromSheet(
   // deno-lint-ignore no-explicit-any
   upsert: (patch: Record<string, unknown>) => Promise<any>,
@@ -486,27 +582,28 @@ export async function syncCampaignFromSheet(
   if (!snap.ok) return { ...snap, synced: false };
 
   const a = snap.active;
-  if (!a) {
+  if (!a || !a.is_open || a.slots_left <= 0) {
     await upsert({
       is_open: false,
       slots_left: 0,
-      notes: 'sheet: нет активных строк плана',
+      product_name: a?.product_name || null,
+      keyword: a?.keyword || null,
+      deal_type: 'both',
+      order_deadline: a?.order_deadline || null,
+      notes: (snap.knowledge || '').slice(0, 1800),
     });
     return { ...snap, synced: true };
   }
 
-  const open = a.is_open && a.slots_left > 0;
   await upsert({
-    is_open: open,
+    is_open: true,
     deal_type: a.deal_type,
     product_name: a.product_name,
     keyword: a.keyword,
     cashback_pct: a.cashback_pct ?? 70,
     slots_left: a.slots_left,
     order_deadline: a.order_deadline,
-    notes:
-      `sheet ${snap.source}: план ${a.plan_slots}, занято ${a.used_slots}, ` +
-      `статус «${a.status_raw || (open ? 'открыто' : 'закрыто')}»`,
+    notes: (snap.knowledge || '').slice(0, 1800),
   });
   return { ...snap, synced: true };
 }
