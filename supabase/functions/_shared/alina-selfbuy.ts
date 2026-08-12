@@ -247,7 +247,7 @@ async function updateLead(
 
 async function logEvent(
   db: SupabaseClient,
-  leadId: string,
+  leadId: string | null,
   chatId: number,
   eventType: string,
   payload: Record<string, unknown>,
@@ -258,6 +258,66 @@ async function logEvent(
     event_type: eventType,
     payload,
   });
+}
+
+/** Лог сырого сообщения (для отладки бизнес-чатов). */
+export async function logAlinaRawEvent(
+  chatId: number,
+  eventType: string,
+  payload: Record<string, unknown>,
+  leadId?: string | null,
+) {
+  try {
+    await logEvent(admin(), leadId || null, chatId, eventType, payload);
+  } catch (e) {
+    console.error('[alina-selfbuy] log raw', e);
+  }
+}
+
+/** Последние диалоги Алины — чтобы смотреть переписку без доступа в TG. */
+export async function alinaRecentDialogs(limit = 20): Promise<Record<string, unknown>> {
+  const db = admin();
+  const { data: leads, error: le } = await db
+    .from('alina_selfbuy_leads')
+    .select(
+      'id, telegram_user_id, chat_id, username, full_name, status, source_account, order_received_at, review_planned_at, bank_details, last_client_text, created_at, updated_at',
+    )
+    .order('updated_at', { ascending: false })
+    .limit(limit);
+  if (le) return { ok: false, error: le.message };
+
+  const ids = (leads || []).map((l) => l.id);
+  let events: unknown[] = [];
+  if (ids.length) {
+    const { data: ev, error: ee } = await db
+      .from('alina_selfbuy_events')
+      .select('id, lead_id, chat_id, event_type, payload, created_at')
+      .in('lead_id', ids)
+      .order('created_at', { ascending: true })
+      .limit(500);
+    if (ee) return { ok: false, error: ee.message, leads };
+    events = ev || [];
+  }
+
+  // Сырые business-события без lead (подключение и т.п.)
+  const { data: raw } = await db
+    .from('alina_selfbuy_events')
+    .select('id, lead_id, chat_id, event_type, payload, created_at')
+    .in('event_type', [
+      'business_connection',
+      'business_in',
+      'business_out',
+      'business_skip',
+    ])
+    .order('created_at', { ascending: false })
+    .limit(50);
+
+  return {
+    ok: true,
+    leads: leads || [],
+    events,
+    recent_business: raw || [],
+  };
 }
 
 /** Статистика для командного чата. */

@@ -12,10 +12,12 @@ import {
   type WbContextCache,
 } from "../_shared/agent-wb-context.ts";
 import {
+  alinaRecentDialogs,
   alinaSelfbuyStatsText,
   handleAlinaClientMessage,
   isAlinaClientContext,
   isAlinaStatsQuestion,
+  logAlinaRawEvent,
 } from "../_shared/alina-selfbuy.ts";
 import { generateMuhaPhoto, wantsPhoto } from "../_shared/muha-photos.ts";
 import {
@@ -537,6 +539,9 @@ serve(async (req) => {
     if (req.method === "GET" && url.searchParams.get("alina_business_status") === "1") {
       return json(await alinaBusinessStatus());
     }
+    if (req.method === "GET" && url.searchParams.get("alina_dialogs") === "1") {
+      return json(await alinaRecentDialogs(30));
+    }
 
     if (req.method !== "POST") return ok();
 
@@ -563,6 +568,14 @@ serve(async (req) => {
       console.log(
         `[telegram-router] business_connection id=${bc?.id} enabled=${bc?.is_enabled} user=${bc?.user?.id}`,
       );
+      await logAlinaRawEvent(Number(bc?.user_chat_id || 0), "business_connection", {
+        id: bc?.id,
+        is_enabled: bc?.is_enabled,
+        user_id: bc?.user?.id,
+        username: bc?.user?.username,
+        user_chat_id: bc?.user_chat_id,
+        rights: bc?.rights || null,
+      });
       if (bc?.is_enabled && bc?.user_chat_id && BOT_TOKENS.alina) {
         await sendTelegramMessage(
           "alina",
@@ -684,6 +697,16 @@ serve(async (req) => {
         : (Deno.env.get("ALINA_SOURCE_ACCOUNT") || "main");
 
       await runWork((async () => {
+        if (isBusiness) {
+          await logAlinaRawEvent(chatId, "business_in", {
+            from_id: message.from?.id,
+            username: message.from?.username,
+            full_name: fullName || null,
+            text,
+            business_connection_id: businessConnectionId || null,
+            message_id: message.message_id,
+          });
+        }
         const reply = await handleAlinaClientMessage({
           chatId,
           userId: Number(message.from?.id),
@@ -692,20 +715,37 @@ serve(async (req) => {
           text,
           sourceAccount,
         });
-        await sendTelegramMessage(
+        const sent = await sendTelegramMessage(
           replyBot,
           chatId,
           reply,
           message.message_id,
           businessConnectionId || undefined,
         );
+        if (isBusiness) {
+          await logAlinaRawEvent(chatId, "business_out", {
+            text: reply,
+            sent,
+            business_connection_id: businessConnectionId || null,
+            to_user: message.from?.id,
+          });
+        }
         await saveMessage(chatId, replyBot, reply);
       })());
       return ok();
     }
 
     // Business-сообщения дальше в тим-роутер не пускаем
-    if (isBusiness) return ok();
+    if (isBusiness) {
+      await logAlinaRawEvent(chatId, "business_skip", {
+        reason: "not_alina_crm_path",
+        triggeringBot,
+        from_id: message.from?.id,
+        text: text.slice(0, 500),
+        business_connection_id: businessConnectionId || null,
+      });
+      return ok();
+    }
 
     // ── Живой отклик на «Карина» / «Сауле» без задачи (без пустого «да?») ───
     if (isNameOnlyPing(text)) {
