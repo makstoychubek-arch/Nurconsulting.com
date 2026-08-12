@@ -82,7 +82,7 @@ export function msgOpenHuman(deal: 'cashback' | 'barter', product?: string | nul
       : `Да, актуально 🙌\nВысылаю ТЗ:`;
   }
   return p
-    ? `Да, актуально 🙌\nВысылаю ТЗ:`
+    ? `Да, актуально 🙌 по «${p}»\nВысылаю ТЗ:`
     : `Да, актуально 🙌\nВысылаю ТЗ:`;
 }
 
@@ -95,6 +95,25 @@ export function msgKey(keyword: string): string {
 
 /** Если совсем непонятно — одна короткая уточнялка, без объяснений. */
 export const MSG_NEED_TYPE = 'Бартер или кэш? 🙌';
+
+/** Приветствие: сначала выясняем объявление / товар. */
+export function msgAskAd(products: string[]): string {
+  const list = products.filter(Boolean);
+  if (list.length <= 1 && list[0]) {
+    return `Привет 🙌 Это по объявлению «${list[0]}»? Напишите да / цвет / артикул, или скиньте скрин объявления`;
+  }
+  if (list.length) {
+    return (
+      `Привет 🙌 По какому объявлению пишете?\n\n` +
+      list.map((p) => `• ${p}`).join('\n') +
+      `\n\nНапишите название/цвет или скиньте скрин объявления`
+    );
+  }
+  return 'Привет 🙌 По какому объявлению пишете? Название товара / цвет / артикул, или скрин объявления';
+}
+
+export const MSG_ASK_AD_AGAIN =
+  'Уточните, пожалуйста: какое объявление — название/цвет или артикул 🙌';
 
 export const MSG_APPROVED_PRODUCT =
   'Да, наш 👍 Корзина: наш + 2–3 конкурента из топа, бренд в избранное — и скрин';

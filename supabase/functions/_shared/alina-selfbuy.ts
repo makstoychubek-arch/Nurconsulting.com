@@ -5,6 +5,7 @@ import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supa
 import {
   MSG_APPROVED_CART,
   MSG_APPROVED_PRODUCT,
+  MSG_ASK_AD_AGAIN,
   MSG_ASK_BANK_BARTER,
   MSG_ASK_BANK_CASHBACK,
   MSG_ASK_PICKUP,
@@ -14,6 +15,7 @@ import {
   MSG_CLOSED_FULL,
   MSG_GOT_IG,
   MSG_NEED_TYPE,
+  msgAskAd,
   msgKey,
   msgOpenHuman,
   TZ_CASHBACK,
@@ -22,11 +24,23 @@ import {
 import {
   extractSheetId,
   fetchSheetPlan,
+  getOpenProductChoices,
+  matchOfferFromText,
   syncCampaignFromSheet,
+  type SheetPlanOffer,
 } from './alina-sheet-plan.ts';
+import {
+  analyzeAlinaScreenshot,
+  downloadTelegramFile,
+  visionBlocks,
+  visionRejectReply,
+  type ScreenStage,
+  type VisionResult,
+} from './alina-vision.ts';
 
 export type SelfbuyStatus =
   | 'new'
+  | 'ask_ad'
   | 'ask_type'
   | 'tz_sent'
   | 'key_sent'
@@ -81,6 +95,7 @@ export type Campaign = {
   slots_left: number | null;
   order_deadline: string | null;
   notes: string | null;
+  article?: string | null;
 };
 
 function admin(): SupabaseClient {
@@ -373,6 +388,8 @@ export async function handleAlinaClientMessage(opts: {
   fullName?: string;
   text: string;
   hasPhoto?: boolean;
+  photoFileId?: string | null;
+  botToken?: string | null;
   sourceAccount?: string;
 }): Promise<AlinaReply> {
   const db = admin();
@@ -383,6 +400,26 @@ export async function handleAlinaClientMessage(opts: {
   const camp = await ensureCampaignFresh();
 
   let lead = await getOrCreateLead(db, opts, source);
+
+  const expectArticle =
+    camp?.article ||
+    (camp?.notes || '').match(/article:(\d{6,})/i)?.[1] ||
+    (lead.notes || '').match(/арт\s*(\d{6,})/i)?.[1] ||
+    null;
+
+  const readScreen = async (stage: ScreenStage): Promise<VisionResult | null> => {
+    if (!hasPhoto || !opts.photoFileId || !opts.botToken) return null;
+    const file = await downloadTelegramFile(opts.botToken, opts.photoFileId);
+    if (!file) return null;
+    return await analyzeAlinaScreenshot({
+      imageBytes: file.bytes,
+      mime: file.mime,
+      stage,
+      expectKeyword: lead.keyword || camp?.keyword,
+      expectProduct: lead.product_name || camp?.product_name,
+      expectArticle,
+    });
+  };
 
   // Пауза
   if (/^(стоп|pause|пауза)$/i.test(text)) {
@@ -409,7 +446,7 @@ export async function handleAlinaClientMessage(opts: {
 
   // Закрытый оффер для новых
   if (
-    ['new', 'ask_type', 'closed'].includes(lead.status) &&
+    ['new', 'ask_ad', 'ask_type', 'closed'].includes(lead.status) &&
     !campaignAccepting(camp) &&
     !lead.deal_type
   ) {
@@ -423,14 +460,12 @@ export async function handleAlinaClientMessage(opts: {
     return r(MSG_CLOSED);
   }
 
-  // ── new: интерес ─────────────────────────────────────────────────────────
+  // ── new / closed: приветствие → уточнить объявление ─────────────────────
   if (lead.status === 'new' || lead.status === 'closed') {
-    const typed = detectDealType(text) || resolveDealFromCampaign(camp);
     await updateLead(db, lead.id, {
       full_name: opts.fullName || lead.full_name,
       username: opts.username || lead.username,
       last_client_text: text || (hasPhoto ? '[фото]' : ''),
-      product_name: camp?.product_name || lead.product_name,
       cashback_pct: camp?.cashback_pct ?? lead.cashback_pct,
     });
     await logEvent(db, lead.id, opts.chatId, 'interest', { text, hasPhoto });
@@ -439,24 +474,69 @@ export async function handleAlinaClientMessage(opts: {
       await updateLead(db, lead.id, { status: 'closed' });
       return r(MSG_CLOSED);
     }
-
     if (camp && (camp.slots_left ?? 0) <= 0 && camp.is_open) {
       await updateLead(db, lead.id, { status: 'closed' });
       return r(MSG_CLOSED_FULL);
     }
 
-    // Не читаем лекции: блогер сам пишет «бартер» / кидает IG.
-    // Остальных без маркера ведём как кэш (массовая раздача).
-    const deal = (typed ||
-      (camp?.deal_type === 'barter' ? 'barter' : 'cashback')) as DealType;
-    return await openDeal(db, lead, camp, deal, text);
+    const choices = await getOpenProductChoices();
+    const matched = await resolveAdChoice(text, hasPhoto, readScreen, choices);
+
+    // Одно открытое объявление + клиент уже назвал товар / «да» / бартер+IG → сразу
+    if (matched.offer) {
+      return await startDealFromOffer(db, lead, camp, matched.offer, text);
+    }
+    if (matched.ambiguous.length === 1) {
+      return await startDealFromOffer(db, lead, camp, matched.ambiguous[0], text);
+    }
+    // Уже ясно из текста (один продукт в плане) и не приветствие-пустышка
+    if (choices.length === 1 && !isBareGreeting(text) && (detectDealType(text) || hasPhoto)) {
+      return await startDealFromOffer(db, lead, camp, choices[0], text);
+    }
+
+    await updateLead(db, lead.id, { status: 'ask_ad' });
+    await logEvent(db, lead.id, opts.chatId, 'ask_ad', { text, hasPhoto });
+    const names = (matched.ambiguous.length ? matched.ambiguous : choices)
+      .map((o) => o.product_name)
+      .filter(Boolean) as string[];
+    return r(msgAskAd(names.length ? names : choices.map((o) => o.product_name || '').filter(Boolean)));
+  }
+
+  // ── ask_ad: ждём название / цвет / скрин объявления ─────────────────────
+  if (lead.status === 'ask_ad') {
+    const choices = await getOpenProductChoices();
+    if (!choices.length || !campaignAccepting(camp)) {
+      await updateLead(db, lead.id, { status: 'closed', last_client_text: text });
+      return r(MSG_CLOSED);
+    }
+    const matched = await resolveAdChoice(text, hasPhoto, readScreen, choices);
+    if (matched.offer) {
+      return await startDealFromOffer(db, lead, camp, matched.offer, text);
+    }
+    if (matched.ambiguous.length === 1) {
+      return await startDealFromOffer(db, lead, camp, matched.ambiguous[0], text);
+    }
+    if (matched.ambiguous.length > 1) {
+      const names = matched.ambiguous.map((o) => o.product_name).filter(Boolean) as string[];
+      return r(
+        `Уточните цвет/модель 🙌\n` + names.map((n) => `• ${n}`).join('\n'),
+      );
+    }
+    // «да» при одном открытом
+    if (choices.length === 1 && /^(да|ага|угу|yes|ок|окей|верно|оно)\b/i.test(text)) {
+      return await startDealFromOffer(db, lead, camp, choices[0], text);
+    }
+    await updateLead(db, lead.id, { last_client_text: text || (hasPhoto ? '[фото]' : '') });
+    return r(
+      MSG_ASK_AD_AGAIN,
+      choices.map((o) => `• ${o.product_name}`).filter((s) => s.length > 2).join('\n'),
+    );
   }
 
   // ── ask_type (редко) ─────────────────────────────────────────────────────
   if (lead.status === 'ask_type') {
     const typed = detectDealType(text);
     if (!typed) {
-      // без лекций — по умолчанию кэш
       return await openDeal(db, lead, camp, 'cashback', text);
     }
     return await openDeal(db, lead, camp, typed, text);
@@ -468,16 +548,20 @@ export async function handleAlinaClientMessage(opts: {
       return await sendKeyFlow(db, lead, camp, text);
     }
     if (hasPhoto) {
+      const vision = await readScreen('product');
+      if (visionBlocks(vision)) {
+        return r(visionRejectReply(vision!, 'На скрине не вижу наш товар/ключ. Пришлите поиск с ключом сверху и наш товар 🙌'));
+      }
       await updateLead(db, lead.id, {
-        status: 'wait_product',
+        status: 'wait_cart',
         last_client_text: text || '[фото]',
         screens_done: appendScreen(lead.screens_done, 'product'),
+        notes: visionNote(lead.notes, vision),
       });
-      await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto });
+      await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
       return r(MSG_APPROVED_PRODUCT);
     }
-    // Человек не заставляет писать «ключ» — просто шлёт ключ ещё раз коротко
     return await sendKeyFlow(db, lead, camp, text || 'ключ');
   }
 
@@ -485,12 +569,17 @@ export async function handleAlinaClientMessage(opts: {
   if (lead.status === 'key_sent' || lead.status === 'wait_product') {
     if (wantsKey(text)) return await sendKeyFlow(db, lead, camp, text);
     if (hasPhoto || /скрин|нашла|нашёл|наш товар|это он|артикул/i.test(text)) {
+      const vision = hasPhoto ? await readScreen('product') : null;
+      if (visionBlocks(vision)) {
+        return r(visionRejectReply(vision!, 'Нужен скрин поиска: ключ в строке сверху и наш товар в выдаче 🙌'));
+      }
       await updateLead(db, lead.id, {
         status: 'wait_cart',
         last_client_text: text || '[фото]',
         screens_done: appendScreen(lead.screens_done, 'product'),
+        notes: visionNote(lead.notes, vision),
       });
-      await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto });
+      await logEvent(db, lead.id, opts.chatId, 'screen_product', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
       return r(MSG_APPROVED_PRODUCT);
     }
@@ -500,12 +589,17 @@ export async function handleAlinaClientMessage(opts: {
   // ── wait_cart ────────────────────────────────────────────────────────────
   if (lead.status === 'wait_cart') {
     if (hasPhoto || /корзин|конкурент|избранн/i.test(text)) {
+      const vision = hasPhoto ? await readScreen('cart') : null;
+      if (visionBlocks(vision)) {
+        return r(visionRejectReply(vision!, 'В корзине нужны наш + 2–3 конкурента из топа, и скрин ещё раз 🙌'));
+      }
       await updateLead(db, lead.id, {
         status: 'wait_order',
         last_client_text: text || '[фото]',
         screens_done: appendScreen(lead.screens_done, 'cart'),
+        notes: visionNote(lead.notes, vision),
       });
-      await logEvent(db, lead.id, opts.chatId, 'screen_cart', { text, hasPhoto });
+      await logEvent(db, lead.id, opts.chatId, 'screen_cart', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
       return r(MSG_APPROVED_CART);
     }
@@ -515,13 +609,24 @@ export async function handleAlinaClientMessage(opts: {
   // ── wait_order ───────────────────────────────────────────────────────────
   if (lead.status === 'wait_order') {
     if (hasPhoto || /заказ|оформил|выкуп|пвз|доставк/i.test(text)) {
+      const vision = hasPhoto ? await readScreen('order') : null;
+      if (visionBlocks(vision)) {
+        return r(visionRejectReply(vision!, 'Нужен скрин заказа: цена, ПВЗ/город и дата получения 🙌'));
+      }
+      const orderMeta = [
+        vision?.price ? `цена ${vision.price}` : '',
+        vision?.pvz ? `ПВЗ ${vision.pvz}` : '',
+        vision?.delivery_date || text.slice(0, 200) || new Date().toISOString().slice(0, 10),
+      ].filter(Boolean).join(' · ');
       await updateLead(db, lead.id, {
         status: 'wait_bank',
-        order_received_at: text.slice(0, 300) || new Date().toISOString().slice(0, 10),
+        order_received_at: orderMeta.slice(0, 300),
+        order_price: vision?.price || lead.order_price,
         last_client_text: text || '[фото]',
         screens_done: appendScreen(lead.screens_done, 'order'),
+        notes: visionNote(lead.notes, vision),
       });
-      await logEvent(db, lead.id, opts.chatId, 'screen_order', { text, hasPhoto });
+      await logEvent(db, lead.id, opts.chatId, 'screen_order', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
       const bankMsg = lead.deal_type === 'barter' ? MSG_ASK_BANK_BARTER : MSG_ASK_BANK_CASHBACK;
       return r(bankMsg);
@@ -550,13 +655,16 @@ export async function handleAlinaClientMessage(opts: {
   // ── wait_pickup ──────────────────────────────────────────────────────────
   if (lead.status === 'wait_pickup') {
     if (hasPhoto || /забрал|получил|пвз|сегодня|завтра|\d{1,2}[./]/i.test(text)) {
+      const vision = hasPhoto ? await readScreen('pickup') : null;
       await updateLead(db, lead.id, {
-        pickup_at: text.slice(0, 200) || new Date().toISOString().slice(0, 10),
+        pickup_at: text.slice(0, 200) || vision?.delivery_date ||
+          new Date().toISOString().slice(0, 10),
         status: 'wait_review',
         last_client_text: text || '[фото]',
         screens_done: appendScreen(lead.screens_done, 'pickup'),
+        notes: visionNote(lead.notes, vision),
       });
-      await logEvent(db, lead.id, opts.chatId, 'pickup', { text, hasPhoto });
+      await logEvent(db, lead.id, opts.chatId, 'pickup', { text, hasPhoto, vision });
       await syncLeadToSheet(db, lead.id);
       return r(MSG_ASK_REVIEW);
     }
@@ -629,41 +737,86 @@ export async function handleAlinaClientMessage(opts: {
   return await openDeal(db, lead, camp, detectDealType(text) || 'cashback', text);
 }
 
+async function startDealFromOffer(
+  db: SupabaseClient,
+  lead: SelfbuyLead,
+  camp: Campaign | null,
+  offer: SheetPlanOffer,
+  text: string,
+): Promise<AlinaReply> {
+  const typed = detectDealType(text) || resolveDealFromCampaign(camp);
+  const deal = (typed ||
+    (camp?.deal_type === 'barter' ? 'barter' : 'cashback')) as DealType;
+  const campMerged: Campaign | null = camp
+    ? {
+      ...camp,
+      product_name: offer.product_name || camp.product_name,
+      keyword: offer.keyword || camp.keyword,
+      order_deadline: offer.order_deadline || camp.order_deadline,
+      article: offer.article || camp.article || null,
+      slots_left: offer.slots_left ?? camp.slots_left,
+      is_open: offer.is_open,
+    }
+    : {
+      id: '',
+      is_open: true,
+      deal_type: 'both',
+      product_name: offer.product_name,
+      keyword: offer.keyword,
+      cashback_pct: 70,
+      slots_left: offer.slots_left,
+      order_deadline: offer.order_deadline,
+      notes: null,
+      article: offer.article,
+    };
+  return await openDeal(db, lead, campMerged, deal, text, offer);
+}
+
 async function openDeal(
   db: SupabaseClient,
   lead: SelfbuyLead,
   camp: Campaign | null,
   deal: DealType,
   text: string,
+  offer?: SheetPlanOffer | null,
 ): Promise<AlinaReply> {
   const pct = camp?.cashback_pct ?? 70;
   const ig = extractInstagram(text);
-  const notesExtra = ig
-    ? `${lead.notes || ''}\n[ig ${ig}]`.trim()
-    : lead.notes;
+  const product = offer?.product_name || camp?.product_name || lead.product_name;
+  const keyword = (
+    offer?.keyword ||
+    camp?.keyword ||
+    lead.keyword ||
+    Deno.env.get('ALINA_OFFER_KEYWORD') ||
+    ''
+  ).trim();
+  const notesExtra = [
+    lead.notes || '',
+    ig ? `[ig ${ig}]` : '',
+    offer?.article ? `[арт ${offer.article}]` : '',
+  ].filter(Boolean).join('\n').trim();
 
   await updateLead(db, lead.id, {
     deal_type: deal,
     status: 'tz_sent',
     cashback_pct: deal === 'cashback' ? pct : null,
-    product_name: camp?.product_name || lead.product_name,
-    keyword: camp?.keyword || lead.keyword,
+    product_name: product,
+    keyword: keyword || null,
     last_client_text: text,
     notes: notesExtra || null,
   });
   // Слоты считаем из Google-графика при sync — тут не вычитаем,
   // иначе при тестах быстро уходит в «мест нет».
-  await logEvent(db, lead.id, lead.chat_id, 'tz_sent', { deal, ig });
+  await logEvent(db, lead.id, lead.chat_id, 'tz_sent', { deal, ig, product, keyword });
   await syncLeadToSheet(db, lead.id);
 
   const replies: string[] = [];
   if (ig) replies.push(MSG_GOT_IG);
-  replies.push(msgOpenHuman(deal, camp?.product_name));
-  replies.push(deal === 'barter' ? tzBarter(camp?.order_deadline) : TZ_CASHBACK);
+  replies.push(msgOpenHuman(deal, product));
+  replies.push(deal === 'barter'
+    ? tzBarter(offer?.order_deadline || camp?.order_deadline)
+    : TZ_CASHBACK);
 
-  // Сразу ключ — как живой менеджер, без «напишите ключ»
-  const keyword = (camp?.keyword || lead.keyword || Deno.env.get('ALINA_OFFER_KEYWORD') || '')
-    .trim();
   if (keyword) {
     await updateLead(db, lead.id, { keyword, status: 'key_sent' });
     await logEvent(db, lead.id, lead.chat_id, 'key_sent', { keyword });
@@ -763,8 +916,61 @@ function appendScreen(prev: string | null | undefined, name: string): string {
   return parts.join(',');
 }
 
+function isBareGreeting(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t) return true;
+  if (/(фонар|вырез|блузк|белый|черн|чёрн|\d{6,})/i.test(t)) return false;
+  if (
+    /^(привет|здравствуйте|здравсьте|добрый\s+(день|вечер|утро)|hi|hello|hey|ку|йоу|актуально|пиш[уа]|интересно|есть\s+места|можно|здравствуй)[\s!.?]*$/i
+      .test(t)
+  ) {
+    return true;
+  }
+  return /^(привет|здравствуйте)[\s,.!]+(актуально|пиш[уа]|по\s+объявлен)/i.test(t);
+}
+
+function visionNote(
+  prev: string | null | undefined,
+  vision: VisionResult | null | undefined,
+): string | null {
+  if (!vision || vision.via !== 'ai') return prev || null;
+  const bit = [
+    vision.kind,
+    vision.search_query ? `q=${vision.search_query}` : '',
+    vision.article ? `арт=${vision.article}` : '',
+    vision.notes,
+  ].filter(Boolean).join(' ');
+  const line = `[vision ${bit}]`.slice(0, 220);
+  return `${prev || ''}\n${line}`.trim().slice(0, 1800);
+}
+
+async function resolveAdChoice(
+  text: string,
+  hasPhoto: boolean,
+  readScreen: (stage: ScreenStage) => Promise<VisionResult | null>,
+  choices: SheetPlanOffer[],
+): Promise<{ offer: SheetPlanOffer | null; ambiguous: SheetPlanOffer[] }> {
+  const snapOffers = choices.length
+    ? choices
+    : (await fetchSheetPlan(false)).offers || [];
+  const fromText = matchOfferFromText(snapOffers, text);
+  if (fromText.offer) return fromText;
+
+  if (hasPhoto) {
+    const vision = await readScreen('ad');
+    const hint = [vision?.product_hint, vision?.article, vision?.notes, text]
+      .filter(Boolean)
+      .join(' ');
+    if (hint.trim()) {
+      const fromPhoto = matchOfferFromText(snapOffers, hint);
+      if (fromPhoto.offer || fromPhoto.ambiguous.length) return fromPhoto;
+    }
+  }
+  return fromText;
+}
+
 function resumeStatus(lead: SelfbuyLead): SelfbuyStatus {
-  if (!lead.deal_type) return 'ask_type';
+  if (!lead.deal_type) return 'ask_ad';
   if (!lead.keyword && lead.status !== 'tz_sent') return 'tz_sent';
   if (!lead.bank_details) {
     if ((lead.screens_done || '').includes('order')) return 'wait_bank';
@@ -785,8 +991,10 @@ function resumeHints(
   camp: Campaign | null,
 ): string[] {
   switch (status) {
+    case 'ask_ad':
+      return [MSG_ASK_AD_AGAIN];
     case 'ask_type':
-      return ['Бартер или кэш? 🙌'];
+      return [MSG_NEED_TYPE];
     case 'tz_sent':
       return tzBundle((lead.deal_type || 'cashback') as DealType, camp, lead);
     case 'key_sent':

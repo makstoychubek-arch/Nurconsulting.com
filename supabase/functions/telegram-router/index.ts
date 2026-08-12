@@ -600,11 +600,17 @@ serve(async (req) => {
     if (!message) return ok();
     if (message.from?.is_bot) return ok();
 
-    const hasPhoto = Boolean(
-      message.photo?.length ||
-        message.document?.mime_type?.startsWith?.("image/") ||
-        message.sticker,
-    );
+    const photoSizes = Array.isArray(message.photo) ? message.photo : [];
+    const largestPhoto = photoSizes.length
+      ? photoSizes[photoSizes.length - 1]
+      : null;
+    const docImage = message.document?.mime_type?.startsWith?.("image/")
+      ? message.document
+      : null;
+    const photoFileId = String(
+      largestPhoto?.file_id || docImage?.file_id || "",
+    ) || null;
+    const hasPhoto = Boolean(photoFileId || message.sticker);
     const text = String(message.text || message.caption || "").trim();
     // Нужен текст или фото (скрины по ТЗ)
     if (!text && !hasPhoto) return ok();
@@ -752,6 +758,8 @@ serve(async (req) => {
           fullName: fullName || undefined,
           text: text || (hasPhoto ? "скрин" : ""),
           hasPhoto,
+          photoFileId,
+          botToken: BOT_TOKENS[replyBot] || BOT_TOKENS.alina || null,
           sourceAccount,
         });
         for (let i = 0; i < replies.length; i++) {

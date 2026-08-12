@@ -544,6 +544,68 @@ function buildOffers(
   return offers;
 }
 
+/** Уникальные открытые товары (для «по какому объявлению»). */
+export function listOpenProductChoices(offers: SheetPlanOffer[]): SheetPlanOffer[] {
+  const out: SheetPlanOffer[] = [];
+  const seen = new Set<string>();
+  for (const o of offers) {
+    if (!o.is_open || o.slots_left <= 0) continue;
+    const key = norm(`${o.product_name || ''}|${o.article || ''}`);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(o);
+  }
+  out.sort((a, b) => String(a.product_name || '').localeCompare(String(b.product_name || ''), 'ru'));
+  return out;
+}
+
+export async function getOpenProductChoices(): Promise<SheetPlanOffer[]> {
+  const snap = await fetchSheetPlan(false);
+  if (!snap.ok) return [];
+  return listOpenProductChoices(snap.offers);
+}
+
+/** Найти оффер по тексту клиента / артикулу / подсказке с фото. */
+export function matchOfferFromText(
+  offers: SheetPlanOffer[],
+  text: string,
+): { offer: SheetPlanOffer | null; ambiguous: SheetPlanOffer[] } {
+  const open = listOpenProductChoices(offers);
+  if (!open.length) return { offer: null, ambiguous: [] };
+
+  const t = norm(text);
+  const digits = (text.match(/\d{6,}/g) || []);
+
+  // точный артикул
+  for (const art of digits) {
+    const hit = open.find((o) => o.article && String(o.article) === art);
+    if (hit) return { offer: hit, ambiguous: [] };
+  }
+
+  const scored = open.map((o) => {
+    const name = norm(o.product_name || '');
+    let score = 0;
+    if (name && t.includes(name)) score += 10;
+    const tokens = name.split(/\s+/).filter((w) => w.length >= 3);
+    for (const tok of tokens) {
+      if (t.includes(tok)) score += 3;
+    }
+    // цвет
+    if (/бел/i.test(t) && /бел/i.test(name)) score += 2;
+    if (/чёрн|черн/i.test(t) && /чёрн|черн/i.test(name)) score += 2;
+    if (/фонар/i.test(t) && /фонар/i.test(name)) score += 4;
+    if (/вырез/i.test(t) && /вырез/i.test(name)) score += 4;
+    if (/блузк/i.test(t) && (/фонар|вырез|блузк/i.test(name))) score += 1;
+    return { o, score };
+  }).filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
+
+  if (!scored.length) return { offer: null, ambiguous: open };
+  const top = scored[0].score;
+  const tied = scored.filter((x) => x.score === top).map((x) => x.o);
+  if (tied.length === 1) return { offer: tied[0], ambiguous: [] };
+  return { offer: null, ambiguous: tied };
+}
+
 function pickActive(offers: SheetPlanOffer[]): SheetPlanOffer | null {
   // предпочитаем офферы с конкретным ключом и местами
   const open = offers.filter((o) => o.is_open && o.slots_left > 0 && o.keyword);
@@ -800,7 +862,11 @@ export async function syncCampaignFromSheet(
     cashback_pct: a.cashback_pct ?? 70,
     slots_left: a.slots_left,
     order_deadline: a.order_deadline,
-    notes: (snap.knowledge || '').slice(0, 1800),
+    // артикул в notes-префиксе — колонки article в campaign может не быть
+    notes: [
+      a.article ? `article:${a.article}` : '',
+      (snap.knowledge || '').slice(0, 1700),
+    ].filter(Boolean).join('\n'),
     ...meta,
   });
   return { ...snap, synced: true };
