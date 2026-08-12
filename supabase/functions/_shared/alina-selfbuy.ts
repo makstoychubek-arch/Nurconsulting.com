@@ -37,6 +37,7 @@ import {
   type ScreenStage,
   type VisionResult,
 } from './alina-vision.ts';
+import { alinaBrain, shouldUseBrain } from './alina-brain.ts';
 
 export type SelfbuyStatus =
   | 'new'
@@ -401,6 +402,15 @@ export async function handleAlinaClientMessage(opts: {
 
   let lead = await getOrCreateLead(db, opts, source);
 
+  // Старые/зависшие статусы → снова уточняем объявление
+  if (
+    (lead.status === 'ask_type' || String(lead.status) === 'ask_order') &&
+    !lead.deal_type
+  ) {
+    await updateLead(db, lead.id, { status: 'ask_ad' });
+    lead = { ...lead, status: 'ask_ad' };
+  }
+
   const expectArticle =
     camp?.article ||
     (camp?.notes || '').match(/article:(\d{6,})/i)?.[1] ||
@@ -419,6 +429,44 @@ export async function handleAlinaClientMessage(opts: {
       expectProduct: lead.product_name || camp?.product_name,
       expectArticle,
     });
+  };
+
+  const runBrain = async () => {
+    const choices = await getOpenProductChoices();
+    return {
+      brain: await alinaBrain({
+        text,
+        hasPhoto,
+        status: lead.status,
+        dealType: lead.deal_type,
+        productName: lead.product_name || camp?.product_name,
+        keyword: lead.keyword || camp?.keyword,
+        openProducts: choices.map((o) => o.product_name || '').filter(Boolean),
+        campaignOpen: campaignAccepting(camp),
+        slotsLeft: camp?.slots_left,
+        cashbackPct: lead.cashback_pct ?? camp?.cashback_pct ?? 70,
+        orderDeadline: camp?.order_deadline,
+        knowledge: camp?.notes || null,
+      }),
+      choices,
+    };
+  };
+
+  const applyBrainPick = async (
+    productName: string | null,
+    choices: SheetPlanOffer[],
+    dealHint?: 'cashback' | 'barter' | null,
+  ): Promise<AlinaReply | null> => {
+    if (!productName) return null;
+    const hit = choices.find((o) =>
+      (o.product_name || '').toLowerCase() === productName.toLowerCase()
+    ) || matchOfferFromText(choices, productName).offer;
+    if (!hit) return null;
+    if (dealHint) {
+      await updateLead(db, lead.id, { deal_type: dealHint });
+      lead = { ...lead, deal_type: dealHint };
+    }
+    return await startDealFromOffer(db, lead, camp, hit, text);
   };
 
   // Пауза
@@ -482,16 +530,48 @@ export async function handleAlinaClientMessage(opts: {
     const choices = await getOpenProductChoices();
     const matched = await resolveAdChoice(text, hasPhoto, readScreen, choices);
 
-    // Одно открытое объявление + клиент уже назвал товар / «да» / бартер+IG → сразу
     if (matched.offer) {
       return await startDealFromOffer(db, lead, camp, matched.offer, text);
     }
     if (matched.ambiguous.length === 1) {
       return await startDealFromOffer(db, lead, camp, matched.ambiguous[0], text);
     }
-    // Уже ясно из текста (один продукт в плане) и не приветствие-пустышка
     if (choices.length === 1 && !isBareGreeting(text) && (detectDealType(text) || hasPhoto)) {
       return await startDealFromOffer(db, lead, camp, choices[0], text);
+    }
+
+    // Мозг: вопросы / «какие доступны» / свободный текст
+    if (
+      shouldUseBrain({
+        text,
+        status: 'ask_ad',
+        hasPhoto,
+        matchedProduct: Boolean(matched.offer),
+      })
+    ) {
+      const { brain } = await runBrain();
+      if (brain.via === 'ai') {
+        if (brain.action === 'pick_product') {
+          const started = await applyBrainPick(brain.product_name, choices, brain.deal_type);
+          if (started) return started;
+        }
+        if (brain.action === 'close') {
+          await updateLead(db, lead.id, { status: 'closed' });
+          return r(brain.reply || MSG_CLOSED);
+        }
+        if (brain.action === 'send_tz' || brain.action === 'send_key') {
+          // ещё нет товара — сначала спросим объявление, но ответим по делу
+          await updateLead(db, lead.id, { status: 'ask_ad' });
+          return r(
+            brain.reply || msgAskAd(choices.map((o) => o.product_name || '').filter(Boolean)),
+          );
+        }
+        if (brain.action === 'reply_only' && brain.reply) {
+          await updateLead(db, lead.id, { status: 'ask_ad' });
+          await logEvent(db, lead.id, opts.chatId, 'ask_ad_brain', { text, brain });
+          return r(brain.reply);
+        }
+      }
     }
 
     await updateLead(db, lead.id, { status: 'ask_ad' });
@@ -518,14 +598,45 @@ export async function handleAlinaClientMessage(opts: {
     }
     if (matched.ambiguous.length > 1) {
       const names = matched.ambiguous.map((o) => o.product_name).filter(Boolean) as string[];
+      // мозг может уточнить мягче
+      if (shouldUseBrain({ text, status: 'ask_ad', hasPhoto, matchedProduct: false })) {
+        const { brain } = await runBrain();
+        if (brain.action === 'pick_product') {
+          const started = await applyBrainPick(brain.product_name, choices, brain.deal_type);
+          if (started) return started;
+        }
+        if (brain.reply) {
+          return r(brain.reply);
+        }
+      }
       return r(
         `Уточните цвет/модель 🙌\n` + names.map((n) => `• ${n}`).join('\n'),
       );
     }
-    // «да» при одном открытом
     if (choices.length === 1 && /^(да|ага|угу|yes|ок|окей|верно|оно)\b/i.test(text)) {
       return await startDealFromOffer(db, lead, camp, choices[0], text);
     }
+
+    if (shouldUseBrain({ text, status: 'ask_ad', hasPhoto, matchedProduct: false })) {
+      const { brain } = await runBrain();
+      if (brain.via === 'ai') {
+        if (brain.action === 'pick_product') {
+          const started = await applyBrainPick(brain.product_name, choices, brain.deal_type);
+          if (started) return started;
+        }
+        if (brain.action === 'send_tz' && choices.length === 1) {
+          return await startDealFromOffer(db, lead, camp, choices[0], text);
+        }
+        if (brain.reply) {
+          await updateLead(db, lead.id, {
+            last_client_text: text || (hasPhoto ? '[фото]' : ''),
+          });
+          await logEvent(db, lead.id, opts.chatId, 'ask_ad_brain', { text, brain });
+          return r(brain.reply);
+        }
+      }
+    }
+
     await updateLead(db, lead.id, { last_client_text: text || (hasPhoto ? '[фото]' : '') });
     return r(
       MSG_ASK_AD_AGAIN,
@@ -565,6 +676,57 @@ export async function handleAlinaClientMessage(opts: {
     return await sendKeyFlow(db, lead, camp, text || 'ключ');
   }
 
+  // ── mid-flow FAQ через мозг (не ломает скрины/реквизиты) ───────────────
+  const midFlow = [
+    'key_sent',
+    'wait_product',
+    'wait_cart',
+    'wait_order',
+    'wait_bank',
+    'wait_pickup',
+    'wait_review',
+    'wait_reels',
+    'tz_sent',
+  ].includes(lead.status);
+  if (
+    midFlow &&
+    !hasPhoto &&
+    shouldUseBrain({
+      text,
+      status: lead.status,
+      hasPhoto: false,
+      matchedProduct: false,
+    }) &&
+    !wantsTz(text) &&
+    !wantsKey(text) &&
+    !looksLikeBank(text)
+  ) {
+    // если текст явно про текущий шаг — пусть CRM сам
+    const stepHint =
+      (lead.status === 'wait_cart' && /корзин|конкурент|избранн/i.test(text)) ||
+      (lead.status === 'wait_order' && /заказ|оформил|выкуп|пвз|доставк/i.test(text)) ||
+      ((lead.status === 'key_sent' || lead.status === 'wait_product') &&
+        /скрин|нашла|нашёл|наш товар|это он/i.test(text)) ||
+      (lead.status === 'wait_pickup' && /забрал|получил|пвз|сегодня|завтра/i.test(text)) ||
+      (lead.status === 'wait_review' && /отзыв|текст|звёзд|звезд|соглас/i.test(text));
+    if (!stepHint) {
+      const { brain } = await runBrain();
+      if (brain.via === 'ai') {
+        if (brain.action === 'send_tz') {
+          const deal = (lead.deal_type || resolveDealFromCampaign(camp) || 'cashback') as DealType;
+          return r(...tzBundle(deal, camp, lead));
+        }
+        if (brain.action === 'send_key') {
+          return await sendKeyFlow(db, lead, camp, text);
+        }
+        if (brain.action === 'reply_only' && brain.reply) {
+          await logEvent(db, lead.id, opts.chatId, 'brain_faq', { text, brain });
+          return r(brain.reply);
+        }
+      }
+    }
+  }
+
   // ── key_sent / wait_product ──────────────────────────────────────────────
   if (lead.status === 'key_sent' || lead.status === 'wait_product') {
     if (wantsKey(text)) return await sendKeyFlow(db, lead, camp, text);
@@ -583,7 +745,11 @@ export async function handleAlinaClientMessage(opts: {
       await syncLeadToSheet(db, lead.id);
       return r(MSG_APPROVED_PRODUCT);
     }
-    return r('Жду скрин: строка поиска (наш ключ) + наш товар в выдаче 🙌');
+    return r(
+      lead.keyword
+        ? `Жду скрин поиска по ключу «${lead.keyword}» — сверху строка запроса и наш товар 🙌`
+        : 'Жду скрин: строка поиска (наш ключ) + наш товар в выдаче 🙌',
+    );
   }
 
   // ── wait_cart ────────────────────────────────────────────────────────────
@@ -639,8 +805,13 @@ export async function handleAlinaClientMessage(opts: {
     if (hasPhoto && text.length < 8) {
       return r('Реквизиты текстом: телефон + ФИО + банк (СБП).');
     }
-    if (text.length < 10 && !looksLikeBank(text)) {
-      return r('Нужны реквизиты: номер телефона + ФИО + банк (СБП).');
+    if (!looksLikeBank(text)) {
+      // вопрос про реквизиты/кэш — мозг
+      if (shouldUseBrain({ text, status: 'wait_bank', hasPhoto: false, matchedProduct: false })) {
+        const { brain } = await runBrain();
+        if (brain.reply) return r(brain.reply);
+      }
+      return r('Нужны реквизиты одной строкой: телефон + ФИО + банк (СБП) 🙌');
     }
     await updateLead(db, lead.id, {
       bank_details: text.slice(0, 1000),
@@ -713,16 +884,29 @@ export async function handleAlinaClientMessage(opts: {
   if (lead.status === 'done') {
     if (/^реквизит/i.test(text)) {
       const details = text.replace(/^реквизит[аы]?\s*:?\s*/i, '').trim();
-      if (details.length < 8) {
+      if (!looksLikeBank(details) && !looksLikeBank(text)) {
         return r('Пришлите: телефон + ФИО + банк после слова «реквизиты:».');
       }
-      await updateLead(db, lead.id, { bank_details: details.slice(0, 1000), last_client_text: text });
+      await updateLead(db, lead.id, {
+        bank_details: (details || text).slice(0, 1000),
+        last_client_text: text,
+      });
       await syncLeadToSheet(db, lead.id);
       return r('Реквизиты обновила ✅');
     }
     if (wantsTz(text)) {
       const deal = (lead.deal_type || 'cashback') as DealType;
       return r(...tzBundle(deal, camp, lead));
+    }
+    if (shouldUseBrain({ text, status: 'done', hasPhoto, matchedProduct: false })) {
+      const { brain } = await runBrain();
+      if (brain.reply) {
+        await updateLead(db, lead.id, {
+          notes: `${lead.notes || ''}\n[+ ${text.slice(0, 200)}]`.trim(),
+          last_client_text: text || (hasPhoto ? '[фото]' : ''),
+        });
+        return r(brain.reply);
+      }
     }
     await updateLead(db, lead.id, {
       notes: `${lead.notes || ''}\n[+ ${text.slice(0, 200)}]`.trim(),
@@ -731,10 +915,19 @@ export async function handleAlinaClientMessage(opts: {
     return r('Ок, всё на месте 🙌 Если что — напишите');
   }
 
-  // fallback — без лекций
+  // fallback — мозг, иначе мягко в ask_ad
   if (!campaignAccepting(camp)) return r(MSG_CLOSED);
-  await updateLead(db, lead.id, { status: 'new', last_client_text: text });
-  return await openDeal(db, lead, camp, detectDealType(text) || 'cashback', text);
+  const { brain, choices } = await runBrain();
+  if (brain.action === 'pick_product') {
+    const started = await applyBrainPick(brain.product_name, choices, brain.deal_type);
+    if (started) return started;
+  }
+  if (brain.reply) {
+    await updateLead(db, lead.id, { status: 'ask_ad', last_client_text: text });
+    return r(brain.reply);
+  }
+  await updateLead(db, lead.id, { status: 'ask_ad', last_client_text: text });
+  return r(msgAskAd(choices.map((o) => o.product_name || '').filter(Boolean)));
 }
 
 async function startDealFromOffer(
@@ -906,8 +1099,21 @@ function wantsKey(text: string): boolean {
 }
 
 function looksLikeBank(text: string): boolean {
-  return /(\+?\d[\d\s\-()]{8,}|\d{10,})/.test(text) &&
-    /(фио|банк|сбп|тинькоф|сбер|альфа|втб|озон)/i.test(text);
+  const t = text.trim();
+  if (t.length < 12) return false;
+  const hasPhone = /(\+?\d[\d\s\-()]{8,}\d|\d{10,})/.test(t);
+  if (!hasPhone) return false;
+  const hasBank =
+    /(банк|сбп|тинькоф|т-банк|сбер|альфа|втб|озон|райф|газпром|юмани|qiwi|совком)/i
+      .test(t);
+  // ФИО: хотя бы 2 слова из букв (кроме телефона)
+  const words = t
+    .replace(/\+?\d[\d\s\-()]{8,}\d/g, ' ')
+    .split(/[\s,;]+/)
+    .map((w) => w.trim())
+    .filter((w) => /^[A-Za-zА-Яа-яЁё]{2,}$/.test(w));
+  const hasFio = words.length >= 2;
+  return hasBank || hasFio;
 }
 
 function appendScreen(prev: string | null | undefined, name: string): string {
