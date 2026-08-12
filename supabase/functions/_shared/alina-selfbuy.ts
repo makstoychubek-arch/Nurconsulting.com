@@ -38,7 +38,7 @@ import {
   type VisionResult,
 } from './alina-vision.ts';
 import { alinaBrain, shouldUseBrain } from './alina-brain.ts';
-import { getWbMainPhotoUrl, wantsProductPhoto } from './alina-wb-photo.ts';
+import { fetchWbMainPhoto, wantsProductPhoto } from './alina-wb-photo.ts';
 
 export type SelfbuyStatus =
   | 'new'
@@ -87,8 +87,14 @@ export type SelfbuyLead = {
 
 export type AlinaReply = {
   replies: string[];
-  /** Главные фото с WB — router шлёт sendPhoto в этот же чат */
-  photos?: { url: string; caption?: string }[];
+  /** Главные фото с WB — router шлёт sendPhoto в этот же чат (лучше bytes) */
+  photos?: {
+    url?: string;
+    bytes?: Uint8Array;
+    mime?: string;
+    filename?: string;
+    caption?: string;
+  }[];
 };
 
 export type Campaign = {
@@ -116,13 +122,19 @@ function r(...parts: string[]): AlinaReply {
 }
 
 function rPhoto(
-  url: string,
+  photo: {
+    url?: string;
+    bytes?: Uint8Array;
+    mime?: string;
+    filename?: string;
+  },
   caption: string,
   ...extra: string[]
 ): AlinaReply {
   return {
+    // текст только если фото не уйдёт — router добавит fallback
     replies: extra.filter(Boolean),
-    photos: [{ url, caption }],
+    photos: [{ ...photo, caption }],
   };
 }
 
@@ -1373,14 +1385,16 @@ async function handleProductPhotoRequest(
     return r('Секунду, уточните модель (фонарь/вырез и цвет) — пришлю фото с WB 🙌');
   }
 
-  const url = await getWbMainPhotoUrl(offer.article);
+  const photo = await fetchWbMainPhoto(offer.article);
   await logEvent(db, lead.id, lead.chat_id, 'product_photo', {
     article: offer.article,
     product: offer.product_name,
-    ok: Boolean(url),
+    ok: Boolean(photo),
+    url: photo?.url || null,
+    bytes: photo?.bytes?.length || 0,
     text,
   });
-  if (!url) {
+  if (!photo) {
     return r(
       `Не вытащила фото с WB по «${offer.product_name}» 🙌 Напишите ещё раз чуть позже или уточните цвет`,
     );
@@ -1394,9 +1408,18 @@ async function handleProductPhotoRequest(
     });
   }
 
+  const caption =
+    `Вот главное фото «${offer.product_name || 'товар'}» с WB` +
+    (offer.article ? ` · арт ${offer.article}` : '') +
+    ' 🙌';
   return rPhoto(
-    url,
-    `${offer.product_name || 'Товар'}${offer.article ? ` · арт ${offer.article}` : ''}`,
+    {
+      url: photo.url,
+      bytes: photo.bytes,
+      mime: photo.mime,
+      filename: photo.filename,
+    },
+    caption,
   );
 }
 

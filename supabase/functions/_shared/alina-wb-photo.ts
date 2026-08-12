@@ -26,8 +26,15 @@ async function probeBasketHost(vol: number, part: number, nm: number): Promise<n
   return null;
 }
 
-/** URL первого (главного) big-фото карточки или null. */
-export async function getWbMainPhotoUrl(nmId: number | string): Promise<string | null> {
+export type WbPhoto = {
+  url: string;
+  bytes: Uint8Array;
+  mime: string;
+  filename: string;
+};
+
+/** Скачать главное фото (байты) — Telegram Business часто не тянет webp по URL сам. */
+export async function fetchWbMainPhoto(nmId: number | string): Promise<WbPhoto | null> {
   const nm = Number(nmId);
   if (!Number.isFinite(nm) || nm < 100000) return null;
   const vol = Math.floor(nm / 100000);
@@ -35,31 +42,68 @@ export async function getWbMainPhotoUrl(nmId: number | string): Promise<string |
   const basket = await probeBasketHost(vol, part, nm);
   if (basket == null) return null;
   const bStr = String(basket).padStart(2, '0');
-  const base =
-    `https://basket-${bStr}.wbbasket.ru/vol${vol}/part${part}/${nm}/images/big`;
-  // главное почти всегда 1.webp; пробуем jpg на всякий
-  for (const ext of ['webp', 'jpg', 'png']) {
-    const url = `${base}/1.${ext}`;
-    try {
-      const res = await fetch(url, {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(5000),
-      });
-      if (res.ok) return url;
-    } catch { /* next */ }
+  const bases = [
+    `https://basket-${bStr}.wbbasket.ru/vol${vol}/part${part}/${nm}/images/big`,
+    `https://basket-${bStr}.wbbasket.ru/vol${vol}/part${part}/${nm}/images/c246x328`,
+    `https://basket-${bStr}.wbbasket.ru/vol${vol}/part${part}/${nm}/images/tm`,
+  ];
+  for (const base of bases) {
+    for (const ext of ['webp', 'jpg', 'jpeg', 'png']) {
+      const url = `${base}/1.${ext}`;
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+        if (!res.ok) continue;
+        const buf = new Uint8Array(await res.arrayBuffer());
+        if (buf.length < 800) continue;
+        const mime = ext === 'png'
+          ? 'image/png'
+          : ext === 'webp'
+          ? 'image/webp'
+          : 'image/jpeg';
+        return { url, bytes: buf, mime, filename: `wb-${nm}.${ext}` };
+      } catch { /* next */ }
+    }
   }
-  // fallback без HEAD — Telegram сам скачает
-  return `${base}/1.webp`;
+  return null;
 }
 
+/** URL первого big-фото (для логов / fallback). */
+export async function getWbMainPhotoUrl(nmId: number | string): Promise<string | null> {
+  const ph = await fetchWbMainPhoto(nmId);
+  return ph?.url || null;
+}
+
+/** Клиент просит фото товара (много разговорных / с опечатками). */
 export function wantsProductPhoto(text: string): boolean {
-  const t = text.trim();
+  const t = text.trim().toLowerCase().replace(/\s+/g, ' ');
   if (!t) return false;
-  return (
-    /^(фото|фотку|фотки|photo)\b/i.test(t) ||
-    /(можно|можешь|скинь|пришли|покажи|дайте|дай|есть)\s+.{0,20}(фото|фотк|photo)/i
-      .test(t) ||
-    /(фото|фотк|photo).{0,20}(товар|блузк|фонар|вырез|как\s+выгляд)/i.test(t) ||
-    /как\s+выглядит/i.test(t)
-  );
+
+  // «фоту», «фотку», «фоткуу», «фотку плз», «photo pls»
+  const photoWord =
+    /(фото|фотк\w*|фоту|фотик|фоточк\w*|картинк\w*|изображен\w*|внешн\w*|вид\w*|photo|pic|picture)/i;
+
+  if (/^(фото|фотк\w*|фоту|фотик|photo|pic)([!?.…]|\s|$)/i.test(t)) return true;
+  if (/^(главн\w*|основн\w*)\s+(фото|фотк\w*|фоту)\b/i.test(t)) return true;
+
+  if (
+    /(можно|можн|можешь|можете|скинь|скиньте|пришли|пришлите|покажи|покажите|дайте|дай|есть|нужно|надо|хочу|кинь|киньте|закинь|закиньте|скинька|плиз|плз|pls|please)/i
+      .test(t) && photoWord.test(t)
+  ) {
+    return true;
+  }
+
+  if (
+    /(главн\w*\s+фото|фото\s+главн|основн\w*\s+фото|фото\s+с\s*(вб|wildberries|карточки)|фото\s+товар)/i
+      .test(t)
+  ) {
+    return true;
+  }
+
+  if (/(как\s+выгляд|покажи\s+как|что\s+за\s+вид)/i.test(t)) return true;
+
+  if (photoWord.test(t) && /(товар|блузк|фонар|вырез|модель|арт)/i.test(t)) {
+    return true;
+  }
+
+  return false;
 }

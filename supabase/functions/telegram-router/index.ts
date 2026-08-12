@@ -199,24 +199,33 @@ async function alinaBusinessStatus(): Promise<Record<string, unknown>> {
 async function sendTelegramPhoto(
   botKey: string,
   chatId: number,
-  opts: { imageUrl?: string; imageBytes?: Uint8Array; caption?: string },
+  opts: {
+    imageUrl?: string;
+    imageBytes?: Uint8Array;
+    mime?: string;
+    filename?: string;
+    caption?: string;
+  },
   replyToMessageId?: number,
   businessConnectionId?: string,
-): Promise<boolean> {
+): Promise<{ ok: boolean; error?: string }> {
   const token = BOT_TOKENS[botKey];
-  if (!token) return false;
+  if (!token) return { ok: false, error: "no token" };
 
-  try {
-    if (opts.imageBytes) {
+  // 1) Сначала байты (надёжно для Business + WB webp)
+  if (opts.imageBytes?.length) {
+    try {
       const form = new FormData();
       form.append("chat_id", String(chatId));
       form.append(
         "photo",
-        new Blob([opts.imageBytes], { type: "image/png" }),
-        "muha.png",
+        new Blob([opts.imageBytes], { type: opts.mime || "image/webp" }),
+        opts.filename || "product.webp",
       );
       if (opts.caption) form.append("caption", opts.caption.slice(0, 900));
-      if (replyToMessageId) form.append("reply_to_message_id", String(replyToMessageId));
+      if (replyToMessageId) {
+        form.append("reply_to_message_id", String(replyToMessageId));
+      }
       if (businessConnectionId) {
         form.append("business_connection_id", businessConnectionId);
       }
@@ -225,14 +234,40 @@ async function sendTelegramPhoto(
         body: form,
         signal: AbortSignal.timeout(60000),
       });
-      if (!res.ok) {
-        console.error(`[telegram-router] sendPhoto bytes ${botKey}:`, await res.text());
-        return false;
+      const body = await res.text();
+      if (res.ok) return { ok: true };
+      console.error(`[telegram-router] sendPhoto bytes ${botKey}:`, body.slice(0, 400));
+      // без reply_to — иногда мешает
+      if (replyToMessageId) {
+        const form2 = new FormData();
+        form2.append("chat_id", String(chatId));
+        form2.append(
+          "photo",
+          new Blob([opts.imageBytes], { type: opts.mime || "image/webp" }),
+          opts.filename || "product.webp",
+        );
+        if (opts.caption) form2.append("caption", opts.caption.slice(0, 900));
+        if (businessConnectionId) {
+          form2.append("business_connection_id", businessConnectionId);
+        }
+        const retry = await fetch(
+          `https://api.telegram.org/bot${token}/sendPhoto`,
+          { method: "POST", body: form2, signal: AbortSignal.timeout(60000) },
+        );
+        const retryBody = await retry.text();
+        if (retry.ok) return { ok: true };
+        return { ok: false, error: retryBody.slice(0, 300) };
       }
-      return true;
+      return { ok: false, error: body.slice(0, 300) };
+    } catch (e) {
+      console.error(`[telegram-router] sendPhoto bytes ${botKey}:`, e);
+      return { ok: false, error: String(e) };
     }
+  }
 
-    if (opts.imageUrl) {
+  // 2) Fallback: URL (часто падает на WB webp)
+  if (opts.imageUrl) {
+    try {
       const payload: Record<string, unknown> = {
         chat_id: chatId,
         photo: opts.imageUrl,
@@ -246,16 +281,16 @@ async function sendTelegramPhoto(
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(30000),
       });
-      if (!res.ok) {
-        console.error(`[telegram-router] sendPhoto url ${botKey}:`, await res.text());
-        return false;
-      }
-      return true;
+      const body = await res.text();
+      if (res.ok) return { ok: true };
+      console.error(`[telegram-router] sendPhoto url ${botKey}:`, body.slice(0, 400));
+      return { ok: false, error: body.slice(0, 300) };
+    } catch (e) {
+      console.error(`[telegram-router] sendPhoto url ${botKey}:`, e);
+      return { ok: false, error: String(e) };
     }
-  } catch (e) {
-    console.error(`[telegram-router] sendPhoto ${botKey}:`, e);
   }
-  return false;
+  return { ok: false, error: "no image" };
 }
 
 async function saveMessage(chatId: number, sender: string, text: string) {
@@ -448,7 +483,7 @@ async function runAgentTurn(opts: {
       },
       replyToMessageId,
     );
-    const note = sent
+    const note = sent.ok
       ? "Фото готово. Если нужно иначе — уточни свет/ракурс/фон."
       : "Фото сгенерировал, но Telegram не принял файл. Попробуй ещё раз.";
     await sendTelegramMessage("muha", chatId, note);
@@ -768,25 +803,54 @@ serve(async (req) => {
           sourceAccount,
         });
         // Сначала фото товара (если есть), потом текст
+        let photoSent = false;
         if (photos?.length) {
           for (const ph of photos) {
             const sentPhoto = await sendTelegramPhoto(
               replyBot,
               chatId,
-              { imageUrl: ph.url, caption: ph.caption },
+              {
+                imageUrl: ph.url,
+                imageBytes: ph.bytes,
+                mime: ph.mime,
+                filename: ph.filename,
+                caption: ph.caption,
+              },
               message.message_id,
               businessConnectionId || undefined,
             );
+            photoSent = photoSent || sentPhoto.ok;
             if (isBusiness) {
               await logAlinaRawEvent(chatId, "business_out_photo", {
                 url: ph.url,
                 caption: ph.caption,
-                sent: sentPhoto,
+                sent: sentPhoto.ok,
+                error: sentPhoto.error || null,
+                bytes: ph.bytes?.length || 0,
                 business_connection_id: businessConnectionId || undefined,
                 to_user: message.from?.id,
               });
             }
-            if (ph.caption) await saveMessage(chatId, replyBot, `[фото] ${ph.caption}`);
+            if (!sentPhoto.ok && ph.caption) {
+              // fallback текстом + ссылка, если файл не приняли
+              const failText = ph.url
+                ? `${ph.caption}\n${ph.url}`
+                : `${ph.caption}\nНе смогла отправить файл, напишите ещё раз 🙌`;
+              await sendTelegramMessage(
+                replyBot,
+                chatId,
+                failText,
+                message.message_id,
+                businessConnectionId || undefined,
+              );
+            }
+            if (ph.caption) {
+              await saveMessage(
+                chatId,
+                replyBot,
+                `[фото${sentPhoto.ok ? "" : " fail"}] ${ph.caption}`,
+              );
+            }
           }
         }
         for (let i = 0; i < replies.length; i++) {
@@ -795,7 +859,7 @@ serve(async (req) => {
             replyBot,
             chatId,
             reply,
-            i === 0 && !photos?.length ? message.message_id : undefined,
+            i === 0 && !photoSent ? message.message_id : undefined,
             businessConnectionId || undefined,
           );
           if (isBusiness) {
