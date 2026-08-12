@@ -1006,11 +1006,14 @@ export function isAlinaStatsQuestion(text: string): boolean {
 // ── Google Sheets ───────────────────────────────────────────────────────────
 
 async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
-  const sheetId = (Deno.env.get('ALINA_SHEET_ID') || '').trim();
+  const sheetId = (
+    (await getCampaign())?.sheet_id ||
+    Deno.env.get('ALINA_SHEET_ID') ||
+    ''
+  ).trim();
   const saJson = (Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON') || '').trim();
   if (!sheetId || !saJson) {
-    // Без SA пишем не можем — план читаем по CSV. Лог заявки остаётся в Supabase.
-    console.log('[alina-selfbuy] sheets write skip: need GOOGLE_SERVICE_ACCOUNT_JSON');
+    console.log('[alina-selfbuy] sheets write skip: need GOOGLE_SERVICE_ACCOUNT_JSON / sheet_id');
     return;
   }
 
@@ -1020,39 +1023,44 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
 
   try {
     const token = await googleAccessToken(saJson);
-    const tab = (Deno.env.get('ALINA_LEADS_TAB') || 'Раздачи').trim();
-    // Колонки как в вкладке «Раздачи»:
-    // A Вид | B ТГ | C Дата заказа | D Размер | E Цена | F Размер кэша |
-    // G Примерная дата забора | H Факт забора | I ШК | J Дата рекламы |
-    // K Дата отзыва | L Вид отзыва | M Отзыв опубл | N Реквизиты | O Кэш выплачен |
-    // P План выплаты | Q Товар | R Reels | S Ответственный | T Ключ
-    const vid = lead.deal_type === 'barter' ? 'БЛОГЕР' : 'КЭШ';
-    const tg = lead.username ? `@${String(lead.username).replace(/^@/, '')}` : String(lead.telegram_user_id);
+    const tab = (Deno.env.get('ALINA_LEADS_TAB') || 'Список БЛУЗКИ ФОНАРЬ/ВЫРЕЗ ВБ').trim();
+    const tg = lead.username
+      ? `@${String(lead.username).replace(/^@/, '')}`
+      : String(lead.telegram_user_id);
+    // Формат BAZA «Список БЛУЗКИ ФОНАРЬ/ВЫРЕЗ ВБ»:
+    // A Вид | B ТГ | C Дата заказа | D Цена | E Размер кэша | F | G Кэш выплачен |
+    // H Примерная дата забора | I Факт забора | J Дата рекламы | K ШК | L Дата отзыва |
+    // M Вид отзыва | N Реквизиты | O План выплаты | P Отзыв опубл | Q Ответственный | R Ключ |
+    // S | T Фильтры | U ЧС | V Просмотры | W Reels
+    const vid = lead.deal_type === 'barter' ? 'БЛОГЕР' : 'КЭШБЕК';
     const values = [[
       vid,
       tg,
-      lead.order_received_at || '',
-      '',
+      lead.order_received_at || new Date().toLocaleDateString('ru-RU'),
       lead.order_price || '',
       lead.cashback_pct != null ? String(lead.cashback_pct) : '',
+      '',
+      '',
       lead.pickup_at || '',
       lead.pickup_at || '',
       '',
       '',
       lead.review_planned_at || '',
       lead.review_note || '',
-      lead.status === 'done' ? 'Да' : '',
       lead.bank_details || '',
       '',
-      '',
-      lead.product_name || '',
-      lead.reels_url || '',
+      lead.status === 'done' ? 'Да' : '',
       'Алина',
       lead.keyword || '',
+      '',
+      '',
+      '',
+      '',
+      lead.reels_url || '',
     ]];
 
     if (lead.sheet_row) {
-      const range = `${tab}!A${lead.sheet_row}:T${lead.sheet_row}`;
+      const range = `${tab}!A${lead.sheet_row}:W${lead.sheet_row}`;
       const res = await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${
           encodeURIComponent(range)
@@ -1072,7 +1080,7 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
 
     const res = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${
-        encodeURIComponent(tab + '!A:T')
+        encodeURIComponent(`${tab}!A:W`)
       }:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
       {
         method: 'POST',
@@ -1085,7 +1093,7 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
     );
     const body = await res.json();
     if (!res.ok) {
-      console.error('[alina-selfbuy] sheet append', JSON.stringify(body).slice(0, 300));
+      console.error('[alina-selfbuy] sheet append', JSON.stringify(body).slice(0, 400));
       return;
     }
     const updated = String(body?.updates?.updatedRange || '');
@@ -1093,6 +1101,7 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
     if (m) {
       await db.from('alina_selfbuy_leads').update({ sheet_row: Number(m[1]) }).eq('id', leadId);
     }
+    console.log('[alina-selfbuy] sheet append ok', updated);
   } catch (e) {
     console.error('[alina-selfbuy] sheet sync', e);
   }
