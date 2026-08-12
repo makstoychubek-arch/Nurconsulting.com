@@ -201,21 +201,47 @@ type LeadRow = {
 
 function parseRazdachi(rows: string[][]): LeadRow[] {
   if (!rows.length) return [];
-  // header row 0
+  // Найти строку заголовков (Ссылка ТГ / Дата заказа / Ключ)
+  let headerIdx = 0;
+  const col: Record<string, number> = {};
+  for (let i = 0; i < Math.min(5, rows.length); i++) {
+    const map: Record<string, number> = {};
+    rows[i].forEach((h, idx) => {
+      const t = norm(h);
+      if (/ссылка\s*тг|username|^тг$/.test(t)) map.tg = idx;
+      if (/дата\s*заказ/.test(t)) map.order_date = idx;
+      if (/^вид$|тип/.test(t) || idx === 0) map.kind = map.kind ?? idx;
+      if (/^ключ|ключев|запрос/.test(t)) map.keyword = idx;
+      if (/товар|артикул|цвет|столбец 1/.test(t)) map.product = idx;
+      if (/кэш\s*выплач|выплачен/.test(t)) map.cash_paid = idx;
+    });
+    if (map.tg != null && map.order_date != null) {
+      headerIdx = i;
+      Object.assign(col, map);
+      break;
+    }
+  }
+  if (col.kind == null) col.kind = 0;
+  if (col.tg == null) col.tg = 1;
+  if (col.order_date == null) col.order_date = 2;
+  if (col.keyword == null) col.keyword = 17;
+  if (col.product == null) col.product = 16;
+
   const out: LeadRow[] = [];
-  for (let i = 1; i < rows.length; i++) {
+  for (let i = headerIdx + 1; i < rows.length; i++) {
     const r = rows[i];
-    const kind = String(r[0] || '').trim().toUpperCase();
-    const tg = String(r[1] || '').trim();
+    const kind = String(r[col.kind] || '').trim().toUpperCase();
+    const tg = String(r[col.tg] || '').trim();
     if (!kind && !tg) continue;
-    if (/кэшбек/i.test(tg) && !kind) continue; // separator
+    if (/^@/.test(tg) === false && !kind && !/блог|кэш|кеш/i.test(tg)) continue;
+    if (/кэшбек/i.test(tg) && !kind) continue;
     out.push({
-      kind,
+      kind: kind || ( /блог/i.test(tg) ? 'БЛОГЕР' : 'КЭШБЕК'),
       tg,
-      order_date: String(r[2] || '').trim(),
-      product: String(r[16] || '').trim(),
-      keyword: String(r[19] || '').trim(),
-      cash_paid: String(r[14] || '').trim(),
+      order_date: String(r[col.order_date] || '').trim(),
+      product: String(r[col.product] || '').trim(),
+      keyword: String(r[col.keyword] || '').trim(),
+      cash_paid: col.cash_paid != null ? String(r[col.cash_paid] || '').trim() : '',
     });
   }
   return out;
@@ -240,20 +266,26 @@ function parseGraphTab(rows: string[][], tabName: string): GraphBlock[] {
   let i = 0;
   while (i < rows.length) {
     const r = rows[i];
-    // Product header: ",Костюм черный,,,8,10,11" or "АРТ,8517..."
-    const joined = r.map((c) => String(c || '').trim()).filter(Boolean);
     const artIdx = r.findIndex((c) => /^арт$/i.test(String(c || '').trim()));
     let article: string | null = null;
     if (artIdx >= 0 && r[artIdx + 1]) article = String(r[artIdx + 1]).trim();
 
-    // Look ahead for date header row within next 3 lines
+    // Заголовок: даты ИЛИ строка «Запрос / Частота / Частота кластера»
     let headerIdx = -1;
-    for (let k = i; k < Math.min(i + 4, rows.length); k++) {
+    let mode: 'dates' | 'cluster' = 'dates';
+    for (let k = i; k < Math.min(i + 5, rows.length); k++) {
       const dates = rows[k]
         .map((c, idx) => ({ idx, label: String(c || '').trim() }))
         .filter((d) => /^\d{1,2}\.\d{2}/.test(d.label));
       if (dates.length >= 2) {
         headerIdx = k;
+        mode = 'dates';
+        break;
+      }
+      const cells = rows[k].map((c) => norm(c));
+      if (cells.includes('запрос') && cells.some((c) => c.includes('кластер') || c === 'частота')) {
+        headerIdx = k;
+        mode = 'cluster';
         break;
       }
     }
@@ -262,17 +294,23 @@ function parseGraphTab(rows: string[][], tabName: string): GraphBlock[] {
       continue;
     }
 
-    const dateCols = rows[headerIdx]
-      .map((c, idx) => ({ idx, label: String(c || '').trim() }))
-      .filter((d) => /^\d{1,2}\.\d{2}/.test(d.label));
+    let dateCols = mode === 'dates'
+      ? rows[headerIdx]
+        .map((c, idx) => ({ idx, label: String(c || '').trim() }))
+        .filter((d) => /^\d{1,2}\.\d{2}/.test(d.label))
+      : [];
 
-    // product name: row above header if not "Запрос"
+    // product name + article from row above (e.g. "Фонарь белый 1240245305")
     let product = '';
     for (let k = headerIdx - 1; k >= Math.max(0, headerIdx - 3); k--) {
       const nameCell = String(rows[k][1] || rows[k][0] || '').trim();
-      if (nameCell && !/^арт$/i.test(nameCell) && !/^\d+$/.test(nameCell)) {
-        product = nameCell;
-        // day totals on that row
+      if (nameCell && !/^арт$/i.test(nameCell) && !/^запрос$/i.test(nameCell)) {
+        product = nameCell.replace(/\s{2,}/g, ' ');
+        const am = product.match(/(\d{6,})/);
+        if (am) {
+          article = article || am[1];
+          product = product.replace(am[1], '').trim();
+        }
         break;
       }
     }
@@ -284,31 +322,49 @@ function parseGraphTab(rows: string[][], tabName: string): GraphBlock[] {
       dayTotals[d.label] = parseIntSafe(prodRow[d.idx]);
     }
 
+    // индекс колонки «Частота кластера»
+    let clusterIdx = 3;
+    rows[headerIdx].forEach((h, idx) => {
+      if (norm(h).includes('кластер')) clusterIdx = idx;
+    });
+    let keyIdx = 1;
+    rows[headerIdx].forEach((h, idx) => {
+      if (norm(h) === 'запрос') keyIdx = idx;
+    });
+
     const keywords: GraphBlock['keywords'] = [];
     let j = headerIdx + 1;
     for (; j < rows.length; j++) {
       const rr = rows[j];
       const c0 = String(rr[0] || '').trim();
       const c1 = String(rr[1] || '').trim();
-      // next block starts with АРТ or empty gap then new product
       if (/^арт$/i.test(c0) || /^арт$/i.test(c1)) break;
+      if (/^запрос$/i.test(c1) || /^запрос$/i.test(c0)) break;
+
+      // следующий товар: "Фонарь черный …" / "Вырез белый …"
+      if (
+        j > headerIdx + 1 &&
+        c1 &&
+        /^(фонар|вырез|блузк|костюм|жилет|брюк|топ)/i.test(c1) &&
+        !/запрос|частота/i.test(c1)
+      ) {
+        break;
+      }
+
       if (
         j > headerIdx + 1 &&
         !c1 &&
         !c0 &&
         rr.every((x) => !String(x || '').trim())
       ) {
-        // blank — maybe end
         const peek = rows[j + 1];
-        if (peek && /^арт$/i.test(String(peek[0] || peek[1] || '').trim())) break;
+        const p1 = String(peek?.[1] || peek?.[0] || '');
+        if (peek && (/^арт$/i.test(p1) || /^(фонар|вырез|блузк)/i.test(p1))) break;
         continue;
       }
-      // skip header-like
-      if (/^запрос$/i.test(c1) || /^запрос$/i.test(c0)) continue;
 
-      const key = c1 || c0;
-      if (!key || /^\d+$/.test(key)) continue;
-      // skip if looks like product title row without keyword pattern - still ok
+      const key = String(rr[keyIdx] || c1 || c0).trim();
+      if (!key || /^\d+$/.test(key) || /https?:\/\//i.test(key)) continue;
 
       const byDay: Record<string, number> = {};
       let any = false;
@@ -317,32 +373,33 @@ function parseGraphTab(rows: string[][], tabName: string): GraphBlock[] {
         byDay[d.label] = n;
         if (n > 0) any = true;
       }
-      const cluster = parseIntSafe(rr[3]);
+      const cluster = parseIntSafe(rr[clusterIdx]);
       if (any || cluster > 0) {
         keywords.push({ key, byDay, cluster });
       }
+    }
 
-      // stop block if we hit another product name row with date totals and few text cols
-      if (
-        j > headerIdx + 2 &&
-        c1 &&
-        /костюм|жилет|брюк|топ|футбол/i.test(c1) &&
-        dateCols.some((d) => parseIntSafe(rr[d.idx]) > 0) &&
-        !/запрос|частота/i.test(c1)
-      ) {
-        // This might be next product header — back up
-        break;
+    // Если дат нет — синтетический «сегодня» из суммы кластеров (активная раздача)
+    if (!dateCols.length && keywords.some((k) => k.cluster > 0)) {
+      const todayLabel = todayKeys()[0]; // dd.mm
+      const total = keywords.reduce((s, k) => s + k.cluster, 0);
+      dateCols.push({ idx: -1, label: todayLabel });
+      dayTotals[todayLabel] = total;
+      for (const k of keywords) {
+        k.byDay[todayLabel] = k.cluster;
       }
     }
 
-    blocks.push({
-      tab: tabName,
-      article,
-      product,
-      dateCols,
-      dayTotals,
-      keywords,
-    });
+    if (keywords.length || Object.values(dayTotals).some((n) => n > 0)) {
+      blocks.push({
+        tab: tabName,
+        article,
+        product,
+        dateCols,
+        dayTotals,
+        keywords,
+      });
+    }
     i = Math.max(j, headerIdx + 1);
   }
   return blocks;
@@ -627,11 +684,25 @@ export async function fetchSheetPlan(
   const extraGids = (Deno.env.get('ALINA_GRAPH_GIDS') || '')
     .split(/[,\s]+/)
     .filter(Boolean);
-  const tabs = [
-    ...(discovered.graphs.length ? discovered.graphs : ELIUM_GRAPH_FALLBACK),
-    ...extraGids.map((gid) => ({ gid, name: `gid:${gid}` })),
-  ];
-  // unique by gid
+  // Если явно заданы GRAPH_GIDS — только они (текущая раздача).
+  // Иначе автодетект; можно сузить ALINA_GRAPH_FILTER=фонарь|вырез
+  const filterRe = (Deno.env.get('ALINA_GRAPH_FILTER') || '').trim();
+  let tabs: { gid: string; name: string }[] = [];
+  if (extraGids.length) {
+    tabs = extraGids.map((gid) => {
+      const known = discovered.graphs.find((g) => g.gid === gid);
+      return { gid, name: known?.name || `gid:${gid}` };
+    });
+  } else {
+    tabs = discovered.graphs.length ? [...discovered.graphs] : [...ELIUM_GRAPH_FALLBACK];
+    if (filterRe) {
+      try {
+        const re = new RegExp(filterRe, 'i');
+        const filtered = tabs.filter((t) => re.test(t.name));
+        if (filtered.length) tabs = filtered;
+      } catch { /* bad regex */ }
+    }
+  }
   const seen = new Set<string>();
   const uniqTabs = tabs.filter((t) => {
     if (seen.has(t.gid)) return false;
