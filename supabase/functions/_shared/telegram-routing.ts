@@ -11,20 +11,10 @@
 //   TELEGRAM_CHAT_REVIEWS       — автоответы на отзывы WB
 //   TELEGRAM_CHAT_BLOCKINGS     — блокировки карточек (NR / Блокировки)
 //   TELEGRAM_CHAT_WAREHOUSE     — склад: хранение, возвраты (NR / Склад)
-//   TELEGRAM_CHAT_TRIGGERS      — мониторинг новостей WB/Ozon (интернет)
 //
 // Обратная совместимость: TELEGRAM_CHANNEL_ID → ab_tests, если TELEGRAM_CHAT_AB_TESTS пуст.
 
-export type TelegramChannel =
-    | 'sales'
-    | 'penalties'
-    | 'ads'
-    | 'ab_tests'
-    | 'news'
-    | 'reviews'
-    | 'blockings'
-    | 'warehouse'
-    | 'triggers';
+export type TelegramChannel = 'sales' | 'penalties' | 'ads' | 'ab_tests' | 'news' | 'reviews' | 'blockings' | 'warehouse';
 
 export const TELEGRAM_CHANNEL_LABELS: Record<TelegramChannel, string> = {
     sales: 'Продажи',
@@ -35,7 +25,6 @@ export const TELEGRAM_CHANNEL_LABELS: Record<TelegramChannel, string> = {
     reviews: 'Отзывы',
     blockings: 'Блокировки',
     warehouse: 'Склад',
-    triggers: 'Триггеры',
 };
 
 const CHANNEL_ENV: Record<TelegramChannel, string> = {
@@ -47,24 +36,13 @@ const CHANNEL_ENV: Record<TelegramChannel, string> = {
     reviews: 'TELEGRAM_CHAT_REVIEWS',
     blockings: 'TELEGRAM_CHAT_BLOCKINGS',
     warehouse: 'TELEGRAM_CHAT_WAREHOUSE',
-    triggers: 'TELEGRAM_CHAT_TRIGGERS',
 };
 
 const LEGACY_ENV: Partial<Record<TelegramChannel, string>> = {
     ab_tests: 'TELEGRAM_CHANNEL_ID',
 };
 
-const ALL_CHANNELS: TelegramChannel[] = [
-    'sales',
-    'penalties',
-    'ads',
-    'ab_tests',
-    'news',
-    'reviews',
-    'blockings',
-    'warehouse',
-    'triggers',
-];
+const ALL_CHANNELS: TelegramChannel[] = ['sales', 'penalties', 'ads', 'ab_tests', 'news', 'reviews', 'blockings', 'warehouse'];
 
 export function getTelegramToken(): string {
     return (Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '').trim();
