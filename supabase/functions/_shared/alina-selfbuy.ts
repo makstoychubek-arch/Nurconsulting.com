@@ -1059,8 +1059,11 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
       lead.reels_url || '',
     ]];
 
+    // Имя вкладки с «/» обязательно в одинарных кавычках
+    const qtab = `'${tab.replace(/'/g, "''")}'`;
+
     if (lead.sheet_row) {
-      const range = `${tab}!A${lead.sheet_row}:W${lead.sheet_row}`;
+      const range = `${qtab}!A${lead.sheet_row}:W${lead.sheet_row}`;
       const res = await fetch(
         `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${
           encodeURIComponent(range)
@@ -1080,7 +1083,7 @@ async function syncLeadToSheet(db: SupabaseClient, leadId: string) {
 
     const res = await fetch(
       `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${
-        encodeURIComponent(`${tab}!A:W`)
+        encodeURIComponent(`${qtab}!A:W`)
       }:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
       {
         method: 'POST',
