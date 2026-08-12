@@ -405,32 +405,25 @@ function parseGraphTab(rows: string[][], tabName: string): GraphBlock[] {
   return blocks;
 }
 
+function sameDay(orderDate: string, dateLabel: string): boolean {
+  const od = norm(orderDate).replace(/\s/g, '');
+  const day = norm(dateLabel).replace(/\s/g, '').replace(/\.\d{4}$/, '');
+  if (!od || !day) return false;
+  const a = od.split('.').slice(0, 2).join('.');
+  const b = day.split('.').slice(0, 2).join('.');
+  return a === b || od.startsWith(day) || od.includes(day);
+}
+
 function countUsed(
   leads: LeadRow[],
   opts: { dateLabel: string; product: string; keyword?: string | null },
 ): number {
-  const day = opts.dateLabel.replace(/\.\d{4}$/, ''); // 24.03 or 24.03.2026
   let n = 0;
   for (const L of leads) {
     if (!L.tg && !L.kind) continue;
-    const od = L.order_date.replace(/\.\d{4}$/, '');
-    // match day.month
-    if (od && day) {
-      const a = od.split('.').slice(0, 2).join('.');
-      const b = day.split('.').slice(0, 2).join('.');
-      if (a !== b && !L.order_date.startsWith(opts.dateLabel) &&
-        !opts.dateLabel.startsWith(od)) {
-        // also allow full date equality
-        if (norm(L.order_date) !== norm(opts.dateLabel)) continue;
-      }
-    }
-    if (opts.product) {
-      const p = norm(L.product);
-      const want = norm(opts.product);
-      if (p && want && !p.includes(want.slice(0, 6)) && !want.includes(p.slice(0, 6))) {
-        continue;
-      }
-    }
+    if (/test|удалить|alina_test/i.test(`${L.tg} ${L.keyword} ${L.product}`)) continue;
+    // Только заявки с датой заказа на этот день (пустые даты не жрут слоты)
+    if (!sameDay(L.order_date, opts.dateLabel)) continue;
     if (opts.keyword) {
       const k = norm(L.keyword);
       const want = norm(opts.keyword);
@@ -457,38 +450,47 @@ function buildOffers(
         break;
       }
     }
+    if (!dateLabel) dateLabel = todayKeys()[0];
 
-    let planToday = dateLabel ? (b.dayTotals[dateLabel] || 0) : 0;
+    let planToday = b.dayTotals[dateLabel] || 0;
+    const sumKw = b.keywords.reduce((s, k) => s + (k.byDay[dateLabel!] || 0), 0);
+    if (sumKw > planToday) planToday = sumKw;
 
-    // если сегодня нет колонки — суммарный план по keywords на сегодня из byDay
-    if (dateLabel) {
-      const sumKw = b.keywords.reduce((s, k) => s + (k.byDay[dateLabel!] || 0), 0);
-      if (sumKw > planToday) planToday = sumKw;
+    // Колонка дня есть, но нули — берём «Частота кластера» (раздача идёт, график ещё не разметили)
+    const sumCluster = b.keywords.reduce((s, k) => s + (k.cluster || 0), 0);
+    let usingCluster = false;
+    if (planToday <= 0 && sumCluster > 0) {
+      planToday = sumCluster;
+      usingCluster = true;
+      for (const k of b.keywords) {
+        if (k.cluster > 0) k.byDay[dateLabel] = k.cluster;
+      }
+      b.dayTotals[dateLabel] = planToday;
     }
 
     // выбрать лучший ключ на сегодня
     let bestKey: string | null = null;
     let bestKeyPlan = 0;
-    if (dateLabel) {
-      for (const k of b.keywords) {
-        const n = k.byDay[dateLabel] || 0;
-        if (n > bestKeyPlan) {
-          bestKeyPlan = n;
-          bestKey = k.key;
-        }
+    for (const k of b.keywords) {
+      const n = usingCluster ? (k.cluster || 0) : (k.byDay[dateLabel!] || 0);
+      if (n > bestKeyPlan) {
+        bestKeyPlan = n;
+        bestKey = k.key;
       }
     }
-    // если на сегодня 0 — взять ключ с max cluster как «основной» для знания, но slots=0
     if (!bestKey && b.keywords.length) {
       const sorted = [...b.keywords].sort((a, c) => c.cluster - a.cluster);
       bestKey = sorted[0].key;
+      bestKeyPlan = sorted[0].cluster || 0;
     }
 
-    const used = dateLabel
-      ? countUsed(leads, { dateLabel, product: b.product })
-      : 0;
-    const slotsLeft = Math.max(0, planToday - used);
-    const open = Boolean(dateLabel) && planToday > 0 && slotsLeft > 0;
+    const used = countUsed(leads, {
+      dateLabel,
+      product: b.product,
+      keyword: bestKey,
+    });
+    const slotsLeft = Math.max(0, (bestKeyPlan || planToday) - used);
+    const open = planToday > 0 && slotsLeft > 0;
 
     offers.push({
       date: dateLabel,

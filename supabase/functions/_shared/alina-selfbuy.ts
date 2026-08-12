@@ -651,15 +651,8 @@ async function openDeal(
     last_client_text: text,
     notes: notesExtra || null,
   });
-  if (camp?.id && (camp.slots_left ?? 0) > 0) {
-    await db
-      .from('alina_campaign')
-      .update({
-        slots_left: Math.max(0, (camp.slots_left || 1) - 1),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', camp.id);
-  }
+  // Слоты считаем из Google-графика при sync — тут не вычитаем,
+  // иначе при тестах быстро уходит в «мест нет».
   await logEvent(db, lead.id, lead.chat_id, 'tz_sent', { deal, ig });
   await syncLeadToSheet(db, lead.id);
 

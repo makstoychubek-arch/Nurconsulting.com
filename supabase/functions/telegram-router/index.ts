@@ -545,6 +545,9 @@ serve(async (req) => {
     if (req.method === "GET" && url.searchParams.get("alina_dialogs") === "1") {
       return json(await alinaRecentDialogs(30));
     }
+    if (req.method === "GET" && url.searchParams.get("alina_sync_sheet") === "1") {
+      return json(await refreshAlinaFromSheet());
+    }
 
     if (req.method !== "POST") return ok();
 
