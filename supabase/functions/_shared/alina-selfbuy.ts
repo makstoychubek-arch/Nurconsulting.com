@@ -469,6 +469,16 @@ export async function handleAlinaClientMessage(opts: {
     return await startDealFromOffer(db, lead, camp, hit, text);
   };
 
+  // Тест: одна англ. фраза — сброс ТОЛЬКО этого чата (ваш лид + события)
+  if (/^resetme$/i.test(text.replace(/\s+/g, ''))) {
+    await resetMyAlinaChat(db, {
+      userId: opts.userId,
+      chatId: opts.chatId,
+      leadId: lead.id,
+    });
+    return r('Сбросила ваш диалог ✅ Пишите заново как новый клиент');
+  }
+
   // Пауза
   if (/^(стоп|pause|пауза)$/i.test(text)) {
     await updateLead(db, lead.id, { status: 'paused', last_client_text: text });
@@ -1267,6 +1277,27 @@ async function updateLead(
     .update({ ...patch, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) throw new Error(`alina lead update: ${error.message}`);
+}
+
+/** Сброс диалога только для этого user+chat (тесты). Других клиентов не трогает. */
+async function resetMyAlinaChat(
+  db: SupabaseClient,
+  opts: { userId: number; chatId: number; leadId: string },
+) {
+  await db.from('alina_selfbuy_events').delete().eq('lead_id', opts.leadId);
+  await db.from('alina_selfbuy_events').delete().eq('chat_id', opts.chatId);
+  await db
+    .from('alina_selfbuy_leads')
+    .delete()
+    .eq('telegram_user_id', opts.userId)
+    .eq('chat_id', opts.chatId);
+  try {
+    await db.from('agent_chat_history').delete().eq('chat_id', opts.chatId);
+  } catch { /* таблица может отсутствовать / RLS */ }
+  await logEvent(db, null, opts.chatId, 'resetme', {
+    user_id: opts.userId,
+    wiped_lead: opts.leadId,
+  });
 }
 
 async function logEvent(
