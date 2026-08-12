@@ -38,6 +38,7 @@ import {
   type VisionResult,
 } from './alina-vision.ts';
 import { alinaBrain, shouldUseBrain } from './alina-brain.ts';
+import { getWbMainPhotoUrl, wantsProductPhoto } from './alina-wb-photo.ts';
 
 export type SelfbuyStatus =
   | 'new'
@@ -84,7 +85,11 @@ export type SelfbuyLead = {
   last_client_text?: string | null;
 };
 
-export type AlinaReply = { replies: string[] };
+export type AlinaReply = {
+  replies: string[];
+  /** Главные фото с WB — router шлёт sendPhoto в этот же чат */
+  photos?: { url: string; caption?: string }[];
+};
 
 export type Campaign = {
   id: string;
@@ -108,6 +113,17 @@ function admin(): SupabaseClient {
 
 function r(...parts: string[]): AlinaReply {
   return { replies: parts.filter(Boolean) };
+}
+
+function rPhoto(
+  url: string,
+  caption: string,
+  ...extra: string[]
+): AlinaReply {
+  return {
+    replies: extra.filter(Boolean),
+    photos: [{ url, caption }],
+  };
 }
 
 /** Чаты, где Алина ведёт клиентов (канал/группа/второй акк). */
@@ -477,6 +493,12 @@ export async function handleAlinaClientMessage(opts: {
       leadId: lead.id,
     });
     return r('Сбросила ваш диалог ✅ Пишите заново как новый клиент');
+  }
+
+  // Фото товара с WB (по контексту диалога / названию в сообщении)
+  if (wantsProductPhoto(text)) {
+    const photoReply = await handleProductPhotoRequest(db, lead, camp, text);
+    if (photoReply) return photoReply;
   }
 
   // Пауза
@@ -1298,6 +1320,84 @@ async function resetMyAlinaChat(
     user_id: opts.userId,
     wiped_lead: opts.leadId,
   });
+}
+
+/** «Можно фото?» → главное фото с WB по товару из диалога / текста. */
+async function handleProductPhotoRequest(
+  db: SupabaseClient,
+  lead: SelfbuyLead,
+  camp: Campaign | null,
+  text: string,
+): Promise<AlinaReply | null> {
+  const choices = await getOpenProductChoices();
+  const allOffers = choices.length
+    ? choices
+    : ((await fetchSheetPlan(false)).offers || []).filter((o) => o.article);
+
+  // 1) явно в сообщении («фото фонарь черный»)
+  let matched = matchOfferFromText(allOffers, text);
+  // 2) товар уже выбран в диалоге
+  if (!matched.offer && lead.product_name) {
+    matched = matchOfferFromText(allOffers, lead.product_name);
+  }
+  // 3) артикул в notes лида / кампании
+  if (!matched.offer) {
+    const art =
+      (lead.notes || '').match(/(?:арт|article:)\s*(\d{6,})/i)?.[1] ||
+      (camp?.notes || '').match(/article:(\d{6,})/i)?.[1] ||
+      camp?.article ||
+      null;
+    if (art) {
+      const byArt = allOffers.find((o) => String(o.article) === art);
+      if (byArt) matched = { offer: byArt, ambiguous: [] };
+    }
+  }
+
+  if (!matched.offer && matched.ambiguous.length > 1) {
+    const names = matched.ambiguous.map((o) => o.product_name).filter(Boolean);
+    return r(
+      `Какую модель фото? 🙌\n` + names.map((n) => `• ${n}`).join('\n'),
+    );
+  }
+  if (!matched.offer && allOffers.length > 1 && !lead.product_name) {
+    const names = allOffers.map((o) => o.product_name).filter(Boolean);
+    return r(
+      `Фото какой модели? 🙌\n` + names.map((n) => `• ${n}`).join('\n'),
+    );
+  }
+
+  const offer = matched.offer ||
+    matched.ambiguous[0] ||
+    (allOffers.length === 1 ? allOffers[0] : null);
+  if (!offer?.article) {
+    return r('Секунду, уточните модель (фонарь/вырез и цвет) — пришлю фото с WB 🙌');
+  }
+
+  const url = await getWbMainPhotoUrl(offer.article);
+  await logEvent(db, lead.id, lead.chat_id, 'product_photo', {
+    article: offer.article,
+    product: offer.product_name,
+    ok: Boolean(url),
+    text,
+  });
+  if (!url) {
+    return r(
+      `Не вытащила фото с WB по «${offer.product_name}» 🙌 Напишите ещё раз чуть позже или уточните цвет`,
+    );
+  }
+
+  // если ещё не выбрали товар — запомним модель из запроса фото
+  if (!lead.product_name && offer.product_name) {
+    await updateLead(db, lead.id, {
+      product_name: offer.product_name,
+      keyword: offer.keyword || lead.keyword,
+    });
+  }
+
+  return rPhoto(
+    url,
+    `${offer.product_name || 'Товар'}${offer.article ? ` · арт ${offer.article}` : ''}`,
+  );
 }
 
 async function logEvent(

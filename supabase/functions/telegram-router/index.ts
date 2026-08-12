@@ -201,6 +201,7 @@ async function sendTelegramPhoto(
   chatId: number,
   opts: { imageUrl?: string; imageBytes?: Uint8Array; caption?: string },
   replyToMessageId?: number,
+  businessConnectionId?: string,
 ): Promise<boolean> {
   const token = BOT_TOKENS[botKey];
   if (!token) return false;
@@ -216,6 +217,9 @@ async function sendTelegramPhoto(
       );
       if (opts.caption) form.append("caption", opts.caption.slice(0, 900));
       if (replyToMessageId) form.append("reply_to_message_id", String(replyToMessageId));
+      if (businessConnectionId) {
+        form.append("business_connection_id", businessConnectionId);
+      }
       const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
         method: "POST",
         body: form,
@@ -235,6 +239,7 @@ async function sendTelegramPhoto(
         caption: (opts.caption || "").slice(0, 900),
       };
       if (replyToMessageId) payload.reply_to_message_id = replyToMessageId;
+      if (businessConnectionId) payload.business_connection_id = businessConnectionId;
       const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -751,7 +756,7 @@ serve(async (req) => {
             message_id: message.message_id,
           });
         }
-        const { replies } = await handleAlinaClientMessage({
+        const { replies, photos } = await handleAlinaClientMessage({
           chatId,
           userId: Number(message.from?.id),
           username: message.from?.username,
@@ -762,13 +767,35 @@ serve(async (req) => {
           botToken: BOT_TOKENS[replyBot] || BOT_TOKENS.alina || null,
           sourceAccount,
         });
+        // Сначала фото товара (если есть), потом текст
+        if (photos?.length) {
+          for (const ph of photos) {
+            const sentPhoto = await sendTelegramPhoto(
+              replyBot,
+              chatId,
+              { imageUrl: ph.url, caption: ph.caption },
+              message.message_id,
+              businessConnectionId || undefined,
+            );
+            if (isBusiness) {
+              await logAlinaRawEvent(chatId, "business_out_photo", {
+                url: ph.url,
+                caption: ph.caption,
+                sent: sentPhoto,
+                business_connection_id: businessConnectionId || undefined,
+                to_user: message.from?.id,
+              });
+            }
+            if (ph.caption) await saveMessage(chatId, replyBot, `[фото] ${ph.caption}`);
+          }
+        }
         for (let i = 0; i < replies.length; i++) {
           const reply = replies[i];
           const sent = await sendTelegramMessage(
             replyBot,
             chatId,
             reply,
-            i === 0 ? message.message_id : undefined,
+            i === 0 && !photos?.length ? message.message_id : undefined,
             businessConnectionId || undefined,
           );
           if (isBusiness) {
