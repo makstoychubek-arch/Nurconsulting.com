@@ -299,7 +299,7 @@ async function askOpenAI(opts: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
+        model: Deno.env.get("OPENAI_MODEL") || "gpt-4o",
         messages: [
           { role: "system", content: opts.systemPrompt },
           {
