@@ -43,15 +43,59 @@ const planCache: { at: number; snap: SheetPlanSnapshot | null } = {
 };
 const CACHE_MS = 45_000;
 
-/** Известные gid вкладок этой таблицы. */
-const GRAPH_TABS: { gid: string; name: string }[] = [
+/** Fallback gid'ы для старой таблицы Elium (если автодетект не сработал). */
+const ELIUM_GRAPH_FALLBACK: { gid: string; name: string }[] = [
   { gid: '1266544300', name: 'График раздач муж кост' },
   { gid: '1599855805', name: 'График раздач жилетки' },
   { gid: '470127681', name: 'График раздач Жилетка серый' },
   { gid: '171758857', name: 'БРЮКИ График раздач' },
 ];
-const RAZDACHI_GID = '2093674426';
-const CALC_GID = '0';
+const ELIUM_RAZDACHI_FALLBACK = '2093674426';
+
+export function extractSheetId(urlOrId: string): string | null {
+  const s = urlOrId.trim();
+  const m = s.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (m) return m[1];
+  if (/^[a-zA-Z0-9-_]{20,}$/.test(s)) return s;
+  return null;
+}
+
+/** Автодетект вкладок: Раздач* + График* */
+async function discoverTabs(
+  sheetId: string,
+): Promise<{ razdachiGid: string | null; graphs: { gid: string; name: string }[] }> {
+  try {
+    const res = await fetch(
+      `https://docs.google.com/spreadsheets/d/${sheetId}/edit?usp=sharing`,
+      {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(20000),
+        headers: { 'User-Agent': 'NRSpace-Alina/1.0' },
+      },
+    );
+    const html = await res.text();
+    const tabs = [
+      ...html.matchAll(/0,\\"(\d+)\\",\[\{\\"1\\":\[\[0,0,\\"([^\\"]+)\\"/g),
+    ].map((m) => ({ gid: m[1], name: m[2] }));
+
+    const graphs = tabs.filter((t) => /график|раздач/i.test(t.name) && !/^раздач/i.test(t.name));
+    // вкладка лога: «Раздачи» / «Раздача» / «Выкупы»
+    const raz = tabs.find((t) => /^раздач/i.test(t.name)) ||
+      tabs.find((t) => /выкуп|кэш|кеш|лог/i.test(t.name));
+    // графики: название содержит «график» или «раздач» но не сама «Раздачи»
+    const graphTabs = tabs.filter((t) =>
+      /график/i.test(t.name) ||
+      (/раздач/i.test(t.name) && raz && t.gid !== raz.gid)
+    );
+    return {
+      razdachiGid: raz?.gid || null,
+      graphs: graphTabs.length ? graphTabs : graphs,
+    };
+  } catch (e) {
+    console.error('[alina-sheet] discoverTabs', e);
+    return { razdachiGid: null, graphs: [] };
+  }
+}
 
 function norm(s: unknown): string {
   return String(s ?? '')
@@ -497,16 +541,75 @@ function buildKnowledge(
   return lines.join('\n');
 }
 
-export async function fetchSheetPlan(force = false): Promise<SheetPlanSnapshot> {
+export type ActiveSheet = {
+  sheet_id: string;
+  cabinet_key: string;
+  cabinet_name: string | null;
+};
+
+/** Активная таблица: env → alina_campaign.sheet_id → alina_cabinet_sheets.is_active */
+export async function resolveActiveSheet(
+  // deno-lint-ignore no-explicit-any
+  db: { from: (t: string) => any },
+): Promise<ActiveSheet | null> {
+  const envId = (Deno.env.get('ALINA_SHEET_ID') || '').trim();
+  const envCab = (Deno.env.get('ALINA_CABINET_KEY') || 'active').trim();
+
+  try {
+    const { data: camp } = await db
+      .from('alina_campaign')
+      .select('sheet_id, cabinet_key')
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (camp?.sheet_id) {
+      return {
+        sheet_id: String(camp.sheet_id),
+        cabinet_key: String(camp.cabinet_key || envCab),
+        cabinet_name: null,
+      };
+    }
+  } catch { /* table may miss cols */ }
+
+  try {
+    const { data: row } = await db
+      .from('alina_cabinet_sheets')
+      .select('sheet_id, cabinet_key, cabinet_name, is_active')
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (row?.sheet_id) {
+      return {
+        sheet_id: String(row.sheet_id),
+        cabinet_key: String(row.cabinet_key),
+        cabinet_name: row.cabinet_name || null,
+      };
+    }
+  } catch { /* optional */ }
+
+  if (envId) {
+    return { sheet_id: envId, cabinet_key: envCab, cabinet_name: null };
+  }
+  return null;
+}
+
+export async function fetchSheetPlan(
+  force = false,
+  sheetOverride?: ActiveSheet | null,
+): Promise<SheetPlanSnapshot & { cabinet_key?: string; sheet_id?: string }> {
   if (!force && planCache.snap && Date.now() - planCache.at < CACHE_MS) {
     return planCache.snap;
   }
 
-  const sheetId = (Deno.env.get('ALINA_SHEET_ID') || '').trim();
+  const sheetId = (sheetOverride?.sheet_id || Deno.env.get('ALINA_SHEET_ID') || '').trim();
+  const cabinetKey = sheetOverride?.cabinet_key ||
+    (Deno.env.get('ALINA_CABINET_KEY') || '').trim() ||
+    'active';
   if (!sheetId) {
     return {
       ok: false,
-      error: 'ALINA_SHEET_ID missing',
+      error: 'Нет sheet_id — пришлите ссылку на таблицу раздач кабинета',
       offers: [],
       active: null,
       leads_rows: 0,
@@ -515,7 +618,9 @@ export async function fetchSheetPlan(force = false): Promise<SheetPlanSnapshot> 
     };
   }
 
-  const leadsGid = (Deno.env.get('ALINA_LEADS_GID') || RAZDACHI_GID).trim();
+  const discovered = await discoverTabs(sheetId);
+  const leadsGid = (Deno.env.get('ALINA_LEADS_GID') || discovered.razdachiGid ||
+    ELIUM_RAZDACHI_FALLBACK).trim();
   const raz = await readCsv(sheetId, leadsGid);
   const leads = raz ? parseRazdachi(raz) : [];
 
@@ -523,27 +628,29 @@ export async function fetchSheetPlan(force = false): Promise<SheetPlanSnapshot> 
     .split(/[,\s]+/)
     .filter(Boolean);
   const tabs = [
-    ...GRAPH_TABS,
+    ...(discovered.graphs.length ? discovered.graphs : ELIUM_GRAPH_FALLBACK),
     ...extraGids.map((gid) => ({ gid, name: `gid:${gid}` })),
   ];
+  // unique by gid
+  const seen = new Set<string>();
+  const uniqTabs = tabs.filter((t) => {
+    if (seen.has(t.gid)) return false;
+    seen.add(t.gid);
+    return true;
+  });
 
   const blocks: GraphBlock[] = [];
-  for (const t of tabs) {
+  for (const t of uniqTabs) {
     const rows = await readCsv(sheetId, t.gid);
     if (!rows?.length) continue;
     blocks.push(...parseGraphTab(rows, t.name));
   }
 
-  // Калькулятор — для knowledge (кол-ва)
-  const calc = await readCsv(sheetId, CALC_GID);
-  if (calc?.length) {
-    // noop parse into knowledge later via blocks; optional
-  }
-
   if (!blocks.length && !leads.length) {
     const snap: SheetPlanSnapshot = {
       ok: false,
-      error: 'Не прочитались вкладки Раздачи/График — проверьте доступ по ссылке',
+      error:
+        'Не прочитались вкладки Раздачи/График — доступ «по ссылке — читатель» и названия вкладок',
       source: 'csv',
       offers: [],
       active: null,
@@ -553,12 +660,15 @@ export async function fetchSheetPlan(force = false): Promise<SheetPlanSnapshot> 
     };
     planCache.at = Date.now();
     planCache.snap = snap;
-    return snap;
+    return { ...snap, cabinet_key: cabinetKey, sheet_id: sheetId };
   }
 
   const offers = buildOffers(blocks, leads);
   const active = pickActive(offers);
-  const knowledge = buildKnowledge(blocks, leads, offers);
+  const cabLabel = sheetOverride?.cabinet_name || cabinetKey;
+  const knowledge =
+    `Кабинет: ${cabLabel}\nSheet: ${sheetId}\n` +
+    buildKnowledge(blocks, leads, offers);
 
   const snap: SheetPlanSnapshot = {
     ok: true,
@@ -571,17 +681,30 @@ export async function fetchSheetPlan(force = false): Promise<SheetPlanSnapshot> 
   };
   planCache.at = Date.now();
   planCache.snap = snap;
-  return snap;
+  return { ...snap, cabinet_key: cabinetKey, sheet_id: sheetId };
 }
 
 export async function syncCampaignFromSheet(
   // deno-lint-ignore no-explicit-any
   upsert: (patch: Record<string, unknown>) => Promise<any>,
-): Promise<SheetPlanSnapshot & { synced?: boolean }> {
-  const snap = await fetchSheetPlan(true);
+  // deno-lint-ignore no-explicit-any
+  db?: { from: (t: string) => any },
+): Promise<SheetPlanSnapshot & { synced?: boolean; cabinet_key?: string; sheet_id?: string }> {
+  let activeSheet: ActiveSheet | null = null;
+  if (db) {
+    try {
+      activeSheet = await resolveActiveSheet(db);
+    } catch { /* */ }
+  }
+  const snap = await fetchSheetPlan(true, activeSheet);
   if (!snap.ok) return { ...snap, synced: false };
 
   const a = snap.active;
+  const meta = {
+    cabinet_key: snap.cabinet_key || activeSheet?.cabinet_key || null,
+    sheet_id: snap.sheet_id || activeSheet?.sheet_id || null,
+  };
+
   if (!a || !a.is_open || a.slots_left <= 0) {
     await upsert({
       is_open: false,
@@ -591,6 +714,7 @@ export async function syncCampaignFromSheet(
       deal_type: 'both',
       order_deadline: a?.order_deadline || null,
       notes: (snap.knowledge || '').slice(0, 1800),
+      ...meta,
     });
     return { ...snap, synced: true };
   }
@@ -604,6 +728,7 @@ export async function syncCampaignFromSheet(
     slots_left: a.slots_left,
     order_deadline: a.order_deadline,
     notes: (snap.knowledge || '').slice(0, 1800),
+    ...meta,
   });
   return { ...snap, synced: true };
 }

@@ -20,6 +20,7 @@ import {
   tzBarter,
 } from './alina-templates.ts';
 import {
+  extractSheetId,
   fetchSheetPlan,
   syncCampaignFromSheet,
 } from './alina-sheet-plan.ts';
@@ -154,7 +155,11 @@ export async function getCampaign(): Promise<Campaign | null> {
 /** Подтянуть план раздач из Google Sheet → alina_campaign. */
 export async function refreshAlinaFromSheet(): Promise<Record<string, unknown>> {
   try {
-    const snap = await syncCampaignFromSheet((patch) => upsertCampaign(admin(), patch));
+    const db = admin();
+    const snap = await syncCampaignFromSheet(
+      (patch) => upsertCampaign(db, patch),
+      db,
+    );
     const camp = await getCampaign();
     return { ...snap, campaign: camp };
   } catch (e) {
@@ -167,19 +172,121 @@ export async function refreshAlinaFromSheet(): Promise<Record<string, unknown>> 
 
 /** Перед ответом клиенту — освежить слоты из таблицы (кэш 45с). */
 async function ensureCampaignFresh(): Promise<Campaign | null> {
-  const sheetId = (Deno.env.get('ALINA_SHEET_ID') || '').trim();
-  if (sheetId) {
-    try {
-      await syncCampaignFromSheet((patch) => upsertCampaign(admin(), patch));
-    } catch (e) {
-      console.error('[alina-selfbuy] sheet refresh', e);
-    }
+  try {
+    const db = admin();
+    await syncCampaignFromSheet((patch) => upsertCampaign(db, patch), db);
+  } catch (e) {
+    console.error('[alina-selfbuy] sheet refresh', e);
   }
   return await getCampaign();
 }
 
+/**
+ * Привязать/включить таблицу кабинета:
+ *   алина таблица elium https://docs.google.com/spreadsheets/d/...
+ *   алина кабинет elium
+ */
+export async function tryAlinaSheetCommand(text: string): Promise<string | null> {
+  const t = text.trim();
+  if (!/^(алина\s+)?(таблица|кабинет|sheet)\b/i.test(t) && !/^\/sheet\b/i.test(t)) {
+    return null;
+  }
+
+  const db = admin();
+  const sheetId = extractSheetId(t);
+  const cabMatch = t.match(
+    /(?:таблица|кабинет|sheet)\s+([a-zA-Zа-яА-Я0-9_-]+)/i,
+  );
+  let cabinetKey = cabMatch?.[1]?.toLowerCase() || '';
+  if (cabinetKey === 'таблица' || cabinetKey === 'sheet') cabinetKey = '';
+  // если «алина таблица https://...» без ключа
+  if (!cabinetKey || cabinetKey.startsWith('http') || cabinetKey.length > 40) {
+    cabinetKey = (Deno.env.get('ALINA_CABINET_KEY') || 'active').toLowerCase();
+  }
+  // русские имена → ключи
+  const cabMap: Record<string, string> = {
+    элиум: 'elium',
+    elium: 'elium',
+    база: 'baza',
+    baza: 'baza',
+    saai: 'saai',
+    сааи: 'saai',
+    zevina: 'zevina',
+    зевина: 'zevina',
+    зевина1: 'zevina1',
+    зевина2: 'zevina2',
+  };
+  cabinetKey = cabMap[cabinetKey] || cabinetKey;
+
+  if (/^(алина\s+)?кабинет\b/i.test(t) && !sheetId) {
+    // переключить активный кабинет
+    const { data: row } = await db
+      .from('alina_cabinet_sheets')
+      .select('*')
+      .eq('cabinet_key', cabinetKey)
+      .maybeSingle();
+    if (!row) {
+      const { data: all } = await db.from('alina_cabinet_sheets').select('cabinet_key, cabinet_name, is_active');
+      const list = (all || []).map((r: { cabinet_key: string; is_active: boolean }) =>
+        `${r.cabinet_key}${r.is_active ? ' ✅' : ''}`
+      ).join(', ') || '—';
+      return `Кабинет «${cabinetKey}» не найден.\nИзвестные: ${list}\nПример: алина таблица elium <ссылка>`;
+    }
+    await db.from('alina_cabinet_sheets').update({ is_active: false }).neq('cabinet_key', '');
+    await db.from('alina_cabinet_sheets').update({
+      is_active: true,
+      updated_at: new Date().toISOString(),
+    }).eq('cabinet_key', cabinetKey);
+    await upsertCampaign(db, {
+      sheet_id: row.sheet_id,
+      cabinet_key: cabinetKey,
+      is_open: false,
+    });
+    const snap = await refreshAlinaFromSheet();
+    return [
+      `Активный кабинет: ${cabinetKey}`,
+      `Таблица: ${row.sheet_id}`,
+      snap.ok
+        ? `План: ${snap.active && (snap.active as { is_open?: boolean }).is_open ? 'открыт' : 'закрыт / нет мест сегодня'}`
+        : `Sheet: ${snap.error || 'ок'}`,
+    ].join('\n');
+  }
+
+  if (!sheetId) {
+    return 'Пришлите ссылку: алина таблица elium https://docs.google.com/spreadsheets/d/…';
+  }
+
+  // выключить другие, включить этот
+  await db.from('alina_cabinet_sheets').update({ is_active: false }).neq('cabinet_key', '__none__');
+  const { error } = await db.from('alina_cabinet_sheets').upsert({
+    cabinet_key: cabinetKey,
+    cabinet_name: cabinetKey,
+    sheet_id: sheetId,
+    is_active: true,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'cabinet_key' });
+  if (error) return `Не удалось сохранить таблицу: ${error.message}`;
+
+  await upsertCampaign(db, {
+    sheet_id: sheetId,
+    cabinet_key: cabinetKey,
+  });
+
+  const snap = await refreshAlinaFromSheet();
+  const knowledge = String(snap.knowledge || '').split('\n').slice(0, 12).join('\n');
+  return [
+    `Таблица кабинета «${cabinetKey}» подключена.`,
+    `ID: ${sheetId}`,
+    snap.ok ? 'План прочитан ✅' : `Внимание: ${snap.error || 'не прочиталось'}`,
+    knowledge,
+  ].filter(Boolean).join('\n');
+}
+
 /** Команды оффера из тимчата: «алина оффер …» */
 export async function tryAlinaOfferCommand(text: string): Promise<string | null> {
+  const sheetCmd = await tryAlinaSheetCommand(text);
+  if (sheetCmd) return sheetCmd;
+
   const t = text.trim();
   if (!/^(алина\s+)?оффер\b/i.test(t) && !/^\/offer\b/i.test(t)) return null;
 
