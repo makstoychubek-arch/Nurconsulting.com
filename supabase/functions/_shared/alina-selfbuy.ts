@@ -12,10 +12,10 @@ import {
   MSG_ASK_REVIEW,
   MSG_CLOSED,
   MSG_CLOSED_FULL,
+  MSG_GOT_IG,
   MSG_NEED_TYPE,
   msgKey,
-  msgOpenBarter,
-  msgOpenCashback,
+  msgOpenHuman,
   TZ_CASHBACK,
   tzBarter,
 } from './alina-templates.ts';
@@ -445,26 +445,26 @@ export async function handleAlinaClientMessage(opts: {
       return r(MSG_CLOSED_FULL);
     }
 
-    if (!typed && camp?.deal_type === 'both') {
-      await updateLead(db, lead.id, { status: 'ask_type' });
-      await syncLeadToSheet(db, lead.id);
-      return r(MSG_NEED_TYPE);
-    }
-
-    const deal = (typed || (camp?.deal_type === 'barter' ? 'barter' : 'cashback')) as DealType;
+    // Не читаем лекции: блогер сам пишет «бартер» / кидает IG.
+    // Остальных без маркера ведём как кэш (массовая раздача).
+    const deal = (typed ||
+      (camp?.deal_type === 'barter' ? 'barter' : 'cashback')) as DealType;
     return await openDeal(db, lead, camp, deal, text);
   }
 
-  // ── ask_type ─────────────────────────────────────────────────────────────
+  // ── ask_type (редко) ─────────────────────────────────────────────────────
   if (lead.status === 'ask_type') {
     const typed = detectDealType(text);
-    if (!typed) return r(MSG_NEED_TYPE);
+    if (!typed) {
+      // без лекций — по умолчанию кэш
+      return await openDeal(db, lead, camp, 'cashback', text);
+    }
     return await openDeal(db, lead, camp, typed, text);
   }
 
-  // ── tz_sent: ждём «ключ» или скрин/готовность ────────────────────────────
+  // ── tz_sent: ключ сразу или скрин ────────────────────────────────────────
   if (lead.status === 'tz_sent') {
-    if (wantsKey(text) || /готов|ознаком|прочитал|понял|ок\b|хорошо/i.test(text)) {
+    if (wantsKey(text) || /готов|ознаком|прочитал|понял|ок\b|хорошо|давай|дальше/i.test(text)) {
       return await sendKeyFlow(db, lead, camp, text);
     }
     if (hasPhoto) {
@@ -477,10 +477,8 @@ export async function handleAlinaClientMessage(opts: {
       await syncLeadToSheet(db, lead.id);
       return r(MSG_APPROVED_PRODUCT);
     }
-    return r(
-      'После ТЗ напишите «ключ» — вышлю запрос для поиска.\n' +
-        'Или сразу пришлите скрин поиска с нашим товаром.',
-    );
+    // Человек не заставляет писать «ключ» — просто шлёт ключ ещё раз коротко
+    return await sendKeyFlow(db, lead, camp, text || 'ключ');
   }
 
   // ── key_sent / wait_product ──────────────────────────────────────────────
@@ -622,12 +620,13 @@ export async function handleAlinaClientMessage(opts: {
       notes: `${lead.notes || ''}\n[+ ${text.slice(0, 200)}]`.trim(),
       last_client_text: text || (hasPhoto ? '[фото]' : ''),
     });
-    return r('Все этапы по вам уже в работе. Если нужно ТЗ/ключ/реквизиты — напишите.');
+    return r('Ок, всё на месте 🙌 Если что — напишите');
   }
 
-  // fallback
+  // fallback — без лекций
+  if (!campaignAccepting(camp)) return r(MSG_CLOSED);
   await updateLead(db, lead.id, { status: 'new', last_client_text: text });
-  return r(campaignAccepting(camp) ? MSG_NEED_TYPE : MSG_CLOSED);
+  return await openDeal(db, lead, camp, detectDealType(text) || 'cashback', text);
 }
 
 async function openDeal(
@@ -638,6 +637,11 @@ async function openDeal(
   text: string,
 ): Promise<AlinaReply> {
   const pct = camp?.cashback_pct ?? 70;
+  const ig = extractInstagram(text);
+  const notesExtra = ig
+    ? `${lead.notes || ''}\n[ig ${ig}]`.trim()
+    : lead.notes;
+
   await updateLead(db, lead.id, {
     deal_type: deal,
     status: 'tz_sent',
@@ -645,6 +649,7 @@ async function openDeal(
     product_name: camp?.product_name || lead.product_name,
     keyword: camp?.keyword || lead.keyword,
     last_client_text: text,
+    notes: notesExtra || null,
   });
   if (camp?.id && (camp.slots_left ?? 0) > 0) {
     await db
@@ -655,13 +660,23 @@ async function openDeal(
       })
       .eq('id', camp.id);
   }
-  await logEvent(db, lead.id, lead.chat_id, 'tz_sent', { deal });
+  await logEvent(db, lead.id, lead.chat_id, 'tz_sent', { deal, ig });
   await syncLeadToSheet(db, lead.id);
 
-  const intro = deal === 'barter'
-    ? msgOpenBarter(camp?.product_name, camp?.order_deadline)
-    : msgOpenCashback(pct, camp?.product_name);
-  return r(intro, deal === 'barter' ? tzBarter(camp?.order_deadline) : TZ_CASHBACK);
+  const replies: string[] = [];
+  if (ig) replies.push(MSG_GOT_IG);
+  replies.push(msgOpenHuman(deal, camp?.product_name));
+  replies.push(deal === 'barter' ? tzBarter(camp?.order_deadline) : TZ_CASHBACK);
+
+  // Сразу ключ — как живой менеджер, без «напишите ключ»
+  const keyword = (camp?.keyword || lead.keyword || Deno.env.get('ALINA_OFFER_KEYWORD') || '')
+    .trim();
+  if (keyword) {
+    await updateLead(db, lead.id, { keyword, status: 'key_sent' });
+    await logEvent(db, lead.id, lead.chat_id, 'key_sent', { keyword });
+    replies.push(msgKey(keyword));
+  }
+  return r(...replies);
 }
 
 async function sendKeyFlow(
@@ -672,9 +687,7 @@ async function sendKeyFlow(
 ): Promise<AlinaReply> {
   const keyword = (camp?.keyword || lead.keyword || Deno.env.get('ALINA_OFFER_KEYWORD') || '').trim();
   if (!keyword) {
-    return r(
-      'Ключ сейчас уточняю у команды — через пару минут пришлю. Можно пока ещё раз глянуть ТЗ (напишите «тз»).',
-    );
+    return r('Секунду, ключ уточню и пришлю 🙌');
   }
   await updateLead(db, lead.id, {
     keyword,
@@ -690,18 +703,11 @@ async function sendKeyFlow(
   return r(msgKey(keyword));
 }
 
-function tzBundle(deal: DealType, camp: Campaign | null, lead: SelfbuyLead): string[] {
+function tzBundle(deal: DealType, camp: Campaign | null, _lead: SelfbuyLead): string[] {
   if (deal === 'barter') {
-    return [
-      'ТЗ ещё раз 👇',
-      tzBarter(camp?.order_deadline || null),
-    ];
+    return ['ТЗ ещё раз 👇', tzBarter(camp?.order_deadline || null)];
   }
-  const pct = lead.cashback_pct || camp?.cashback_pct || 70;
-  return [
-    `ТЗ по кэшбеку ${pct}% ещё раз 👇`,
-    TZ_CASHBACK,
-  ];
+  return ['ТЗ ещё раз 👇', TZ_CASHBACK];
 }
 
 function campaignAccepting(camp: Campaign | null): boolean {
@@ -725,12 +731,20 @@ function resolveDealFromCampaign(camp: Campaign | null): DealType | null {
   return 'cashback';
 }
 
+function extractInstagram(text: string): string | null {
+  const m = text.match(
+    /(?:https?:\/\/)?(?:www\.)?(?:instagram\.com|instagr\.am)\/[^\s]+/i,
+  );
+  return m ? m[0] : null;
+}
+
+/** Блогер: IG-ссылка / «бартер» / «актуально по бартеру». Без лекций. */
 function detectDealType(text: string): DealType | null {
   const t = text.toLowerCase();
-  if (/бартер|блогер|рилс|reels|интеграц/i.test(t)) return 'barter';
-  if (/кэш|кеш|cashback|самовыкуп|отзыв.*выкуп|выкуп.*отзыв|раздач/i.test(t)) {
-    return 'cashback';
-  }
+  if (extractInstagram(text)) return 'barter';
+  if (/бартер|блогер|рилс|reels|интеграц|коллаб/i.test(t)) return 'barter';
+  if (/по\s*бартеру|на\s*бартер|бартером/i.test(t)) return 'barter';
+  if (/кэш|кеш|cashback|самовыкуп|кэшбек|кешбек/i.test(t)) return 'cashback';
   return null;
 }
 
@@ -779,7 +793,7 @@ function resumeHints(
 ): string[] {
   switch (status) {
     case 'ask_type':
-      return [MSG_NEED_TYPE];
+      return ['Бартер или кэш? 🙌'];
     case 'tz_sent':
       return tzBundle((lead.deal_type || 'cashback') as DealType, camp, lead);
     case 'key_sent':
