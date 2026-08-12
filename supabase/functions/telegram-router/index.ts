@@ -172,6 +172,25 @@ async function ensureAlinaBusinessWebhook(): Promise<Record<string, unknown>> {
   return { ok: Boolean(data?.ok), hookUrl, data };
 }
 
+/** Диагностика: включён ли у Алины Secretary Mode (can_connect_to_business). */
+async function alinaBusinessStatus(): Promise<Record<string, unknown>> {
+  const token = BOT_TOKENS.alina;
+  if (!token) return { ok: false, error: "ALINA_BOT_TOKEN missing" };
+  const meRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+  const me = await meRes.json().catch(() => ({}));
+  const result = me?.result || {};
+  return {
+    ok: Boolean(me?.ok),
+    username: result.username || null,
+    can_connect_to_business: Boolean(result.can_connect_to_business),
+    can_join_groups: result.can_join_groups,
+    can_read_all_group_messages: result.can_read_all_group_messages,
+    hint: result.can_connect_to_business
+      ? "Secretary Mode ON — можно добавлять в Чат-боты"
+      : "Secretary Mode OFF — в @BotFather включи Mode Settings → Secretary Mode",
+  };
+}
+
 async function sendTelegramPhoto(
   botKey: string,
   chatId: number,
@@ -514,6 +533,9 @@ serve(async (req) => {
     // Разовая настройка webhook Алины под Telegram Business
     if (req.method === "GET" && url.searchParams.get("ensure_alina_business") === "1") {
       return json(await ensureAlinaBusinessWebhook());
+    }
+    if (req.method === "GET" && url.searchParams.get("alina_business_status") === "1") {
+      return json(await alinaBusinessStatus());
     }
 
     if (req.method !== "POST") return ok();
