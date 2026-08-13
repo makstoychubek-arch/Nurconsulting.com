@@ -58,7 +58,7 @@ export function normName(s: string): string {
     .trim();
 }
 
-const CABINET_ALIASES: Record<string, string[]> = {
+export const CABINET_ALIASES: Record<string, string[]> = {
   baza: ["baza", "база", "базы", "базу", "базе"],
   saai: ["saai", "сааи", "саи"],
   zevina: [
@@ -82,6 +82,31 @@ const CABINET_ALIASES: Record<string, string[]> = {
     "уметалиев",
   ],
 };
+
+/** Убрать имена/алиасы кабинетов из текста (чтобы «элиум» не считался товаром). */
+export function stripCabinetAliases(text: string): string {
+  let t = String(text || "");
+  const extras = [
+    "zevina\\s*1",
+    "zevina\\s*2",
+    "зевина\\s*1",
+    "зевина\\s*2",
+    "zevina1",
+    "zevina2",
+  ];
+  const all = [
+    ...Object.values(CABINET_ALIASES).flat(),
+    ...extras,
+  ];
+  for (const raw of all) {
+    const escaped = raw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    t = t.replace(
+      new RegExp(`(^|[\\s,.:;!?«»\"'])(${escaped})(?=$|[\\s,.:;!?«»\"'])`, "gi"),
+      "$1",
+    );
+  }
+  return t.replace(/\s+/g, " ").trim();
+}
 
 export async function listCabinets(): Promise<Array<{ id: string; name: string }>> {
   const db = admin();

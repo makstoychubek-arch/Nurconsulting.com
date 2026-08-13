@@ -18,6 +18,7 @@ import {
   normName,
   parseSelection,
   resolveCabinet,
+  stripCabinetAliases,
 } from './agent-actions.ts';
 import {
   CABINET_TOKEN_SELECT,
@@ -172,17 +173,35 @@ function scoreProductName(name: string, text: string): number {
 
 function extractProductText(text: string): string {
   // \b плохо работает с кириллицей в JS — режем служебные слова явно
-  return text
+  const cleaned = text
     .replace(/@\w+/g, ' ')
     .replace(/(^|[\s,.:;!?])(антон|anton|логист\w*)(?=$|[\s,.:;!?])/gi, ' ')
     .replace(/(^|[\s,.:;!?])(фбс|fbs)(?=$|[\s,.:;!?])/gi, ' ')
     .replace(
-      /(^|[\s,.:;!?])(остат\w*|осталось|сколько|налич\w*|склад\w*|кабинет\w*|слыш\w*|дай|скинь|покажи|нужен|нужно|есть)(?=$|[\s,.:;!?])/gi,
+      /(^|[\s,.:;!?])(остат\w*|осталось|сколько|налич\w*|склад\w*|кабинет\w*|слыш\w*|дай|скинь|покажи|нужен|нужно|есть|все|всех)(?=$|[\s,.:;!?])/gi,
       ' ',
     )
     .replace(/(^|[\s,.:;!?])по(?=$|[\s,.:;!?])/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+  // «остатки фбс элиум» → не оставлять «элиум» как товар
+  return stripCabinetAliases(cleaned);
+}
+
+/** Есть ли реальная модель/цвет (не мусор после вырезания кабинета). */
+function hasProductQuery(text: string | undefined): boolean {
+  const t = (text || '').trim();
+  if (t.length < 3) return false;
+  // одно короткое слово без модели/цвета — почти всегда кабинет/шум
+  const words = t.split(/\s+/).filter(Boolean);
+  if (
+    words.length === 1 &&
+    words[0].length <= 8 &&
+    !/(костюм|пиджак|блуз|фонар|вырез|жилет|брюк|укороч)/i.test(t)
+  ) {
+    return false;
+  }
+  return true;
 }
 
 async function findProducts(text: string, cabinetId?: string): Promise<ProductHit[]> {
@@ -468,6 +487,103 @@ function matchItemByText(
   return null;
 }
 
+async function loadCabinetArticles(
+  cabinetId: string,
+  limit = 12,
+): Promise<Array<{ nm_id: number; title: string }>> {
+  const db = admin();
+  const { data } = await db
+    .from('rnp_articles')
+    .select('nm_id, name')
+    .eq('cabinet_id', cabinetId)
+    .limit(Math.max(limit * 3, 40));
+  const out: Array<{ nm_id: number; title: string }> = [];
+  const seen = new Set<number>();
+  for (const row of data || []) {
+    const nm = Number(row.nm_id);
+    if (!Number.isFinite(nm) || seen.has(nm)) continue;
+    seen.add(nm);
+    out.push({ nm_id: nm, title: String(row.name || nm) });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/** Сводка остатков по выбранным складам без узкого товара (топ артикулов кабинета). */
+async function formatWarehouseOverview(opts: {
+  cabinetId: string;
+  cabinetName: string;
+  warehouseIds: number[] | 'all';
+}): Promise<string> {
+  const human = cabinetHumanName(opts.cabinetName);
+  const auth = await loadCabinetToken(opts.cabinetId);
+  if (!auth) return `${human}: нет WB-токена`;
+
+  let warehouses: Wh[];
+  try {
+    warehouses = await fetchSellerWarehouses(auth.token);
+  } catch (e) {
+    return `${human}: не смог получить склады (${e instanceof Error ? e.message : e})`;
+  }
+  if (!warehouses.length) return `${human}: FBS-складов нет`;
+
+  let selected: Wh[];
+  if (opts.warehouseIds === 'all') {
+    selected = warehouses;
+  } else {
+    const want = new Set(opts.warehouseIds);
+    selected = warehouses.filter((w) => want.has(w.id));
+  }
+  if (!selected.length) return `${human}: склад не найден`;
+
+  const articles = await loadCabinetArticles(opts.cabinetId, 6);
+  if (!articles.length) {
+    return antonAskProduct(human, true);
+  }
+
+  // Карточку тянем один раз на артикул, потом остатки по складам
+  const cards: Array<{ title: string; skus: string[] }> = [];
+  for (const art of articles) {
+    const card = await fetchCardSkus(auth.token, art.nm_id);
+    if (!card.skus.length) continue;
+    cards.push({ title: card.vendor || art.title, skus: card.skus });
+  }
+  if (!cards.length) {
+    return antonAskProduct(human, true);
+  }
+
+  const lines: string[] = [`${human} · FBS по складам:`];
+  let anyPositive = false;
+
+  for (const wh of selected) {
+    const rows: Array<{ title: string; qty: number }> = [];
+    for (const card of cards) {
+      const stocks = await fetchWarehouseStocks(auth.token, wh.id, card.skus);
+      let qty = 0;
+      for (const v of stocks.values()) qty += v;
+      if (qty <= 0) continue;
+      anyPositive = true;
+      rows.push({ title: card.title, qty });
+    }
+    rows.sort((a, b) => b.qty - a.qty);
+    lines.push(`▶ ${wh.name}`);
+    if (!rows.length) {
+      lines.push('  пусто / 0 по топ-артикулам');
+    } else {
+      for (const r of rows.slice(0, 8)) {
+        lines.push(`  • ${r.title}: ${r.qty}`);
+      }
+    }
+  }
+
+  if (!anyPositive) {
+    lines.push('', 'Если нужен конкретный — напиши модель/цвет');
+  } else {
+    lines.push('', 'Уточни модель/цвет — покажу точнее');
+  }
+  return lines.join('\n');
+}
+
 async function formatStocksForCabinet(opts: {
   cabinetId: string;
   cabinetName: string;
@@ -496,9 +612,26 @@ async function formatStocksForCabinet(opts: {
   }
   if (!selected.length) return `${human}: склад не найден`;
 
+  if (!hasProductQuery(opts.productText)) {
+    return await formatWarehouseOverview({
+      cabinetId: opts.cabinetId,
+      cabinetName: opts.cabinetName,
+      warehouseIds: opts.warehouseIds,
+    });
+  }
+
   const products = await findProducts(opts.productText, opts.cabinetId);
   if (!products.length) {
-    return antonNoProduct(human, Boolean(opts.minimal));
+    // Раньше «элиум» как товар → сразу ошибка. Теперь: сводка + просьба уточнить.
+    const overview = await formatWarehouseOverview({
+      cabinetId: opts.cabinetId,
+      cabinetName: opts.cabinetName,
+      warehouseIds: opts.warehouseIds,
+    });
+    if (/модель\/цвет|Какая модель/i.test(overview)) {
+      return antonNoProduct(human, Boolean(opts.minimal));
+    }
+    return `${overview}\n\nПо запросу «${opts.productText.slice(0, 40)}» точного артикула не нашёл.`;
   }
 
   const lines: string[] = [antonStocksLead(human, Boolean(opts.minimal))];
@@ -607,57 +740,41 @@ async function askWarehousesReply(
     };
   }
 
-  // Один склад — сразу остаток, без лишних вопросов
+  const cleanProduct = hasProductQuery(productText) ? productText.trim() : '';
+
+  // Один склад — сразу сводка/остаток, без лишних вопросов
   if (warehouses.length === 1) {
-    const needProduct = !productText || productText.length < 3;
     let productsPreview: ProductHit[] = [];
-    if (!needProduct) {
-      productsPreview = await findProducts(productText, cabinet.id);
+    if (cleanProduct) {
+      productsPreview = await findProducts(cleanProduct, cabinet.id);
     }
-    if (needProduct || !productsPreview.length) {
-      const payload: FbsPayload = {
-        step: 'await_product',
-        queryText,
-        productText: needProduct ? '' : productText,
+    if (cleanProduct && productsPreview.length) {
+      const text = await formatStocksForCabinet({
         cabinetId: cabinet.id,
         cabinetName: cabinet.name,
-        warehouses,
+        warehouseIds: [warehouses[0].id],
+        productText: cleanProduct,
         minimal,
-        items: [],
-      };
-      if (pendingId) {
-        await updatePending(pendingId, {
-          status: 'awaiting_selection',
-          cabinet_id: cabinet.id,
-          cabinet_name: cabinet.name,
-          payload,
-        });
-      } else {
-        await savePending(chatId, tgUserId, payload, cabinet.id, cabinet.name);
-      }
-      return {
-        handled: true,
-        agentKey: 'anton',
-        reply: antonAskProduct(human, minimal),
-      };
+      });
+      if (pendingId) await finishPending(pendingId, text);
+      return { handled: true, agentKey: 'anton', reply: text };
     }
 
-    const text = await formatStocksForCabinet({
+    // Нет точного товара — сводка по единственному складу
+    const overview = await formatWarehouseOverview({
       cabinetId: cabinet.id,
       cabinetName: cabinet.name,
       warehouseIds: [warehouses[0].id],
-      productText,
-      minimal,
     });
-    if (pendingId) await finishPending(pendingId, text);
-    return { handled: true, agentKey: 'anton', reply: text };
+    if (pendingId) await finishPending(pendingId, overview);
+    return { handled: true, agentKey: 'anton', reply: overview };
   }
 
   const items = warehouses.map((w) => ({ id: String(w.id), name: w.name }));
   const payload: FbsPayload = {
     step: 'await_warehouse',
     queryText,
-    productText,
+    productText: cleanProduct,
     cabinetId: cabinet.id,
     cabinetName: cabinet.name,
     warehouses,
@@ -710,22 +827,8 @@ async function resolveStocksAfterWarehouse(opts: {
   payload: FbsPayload;
   warehouseIds: number[] | 'all';
 }): Promise<FbsStockReply> {
-  const productText = opts.payload.productText || extractProductText(opts.payload.queryText);
-  if (!productText || productText.length < 3) {
-    await updatePending(opts.pendingId, {
-      status: 'awaiting_selection',
-      payload: {
-        ...opts.payload,
-        step: 'await_product',
-        warehouses: opts.payload.warehouses,
-      },
-    });
-    return {
-      handled: true,
-      agentKey: 'anton',
-      reply: antonAskProduct(cabinetHumanName(opts.payload.cabinetName || 'кабинет'), true),
-    };
-  }
+  const rawProduct = opts.payload.productText || extractProductText(opts.payload.queryText);
+  const productText = hasProductQuery(rawProduct) ? rawProduct.trim() : '';
 
   if (opts.payload.allCabinets) {
     const cabs = await listCabinets();
@@ -741,15 +844,19 @@ async function resolveStocksAfterWarehouse(opts: {
       }
       if (!whs.length) continue;
       const ids = opts.warehouseIds === 'all' ? 'all' as const : opts.warehouseIds;
-      // для «всех кабинетов» после выбора склада одного кабинета не бывает —
-      // здесь warehouseIds обычно 'all'
       chunks.push(
-        await formatStocksForCabinet({
-          cabinetId: cab.id,
-          cabinetName: cab.name,
-          warehouseIds: ids === 'all' ? 'all' : ids,
-          productText,
-        }),
+        productText
+          ? await formatStocksForCabinet({
+            cabinetId: cab.id,
+            cabinetName: cab.name,
+            warehouseIds: ids === 'all' ? 'all' : ids,
+            productText,
+          })
+          : await formatWarehouseOverview({
+            cabinetId: cab.id,
+            cabinetName: cab.name,
+            warehouseIds: ids === 'all' ? 'all' : ids,
+          }),
       );
     }
     const text = chunks.join('\n\n') || 'По кабинетам ничего не нашёл.';
@@ -762,13 +869,20 @@ async function resolveStocksAfterWarehouse(opts: {
     return { handled: true, agentKey: 'anton', reply: 'Сброс — кабинет потерялся. Спроси остаток ещё раз.' };
   }
 
-  const text = await formatStocksForCabinet({
-    cabinetId: opts.payload.cabinetId,
-    cabinetName: opts.payload.cabinetName,
-    warehouseIds: opts.warehouseIds,
-    productText,
-    minimal: opts.payload.minimal,
-  });
+  // Нет модели — сразу сводка по выбранному складу (не «не понял товар»)
+  const text = productText
+    ? await formatStocksForCabinet({
+      cabinetId: opts.payload.cabinetId,
+      cabinetName: opts.payload.cabinetName,
+      warehouseIds: opts.warehouseIds,
+      productText,
+      minimal: opts.payload.minimal,
+    })
+    : await formatWarehouseOverview({
+      cabinetId: opts.payload.cabinetId,
+      cabinetName: opts.payload.cabinetName,
+      warehouseIds: opts.warehouseIds,
+    });
   await finishPending(opts.pendingId, text);
   return { handled: true, agentKey: 'anton', reply: text };
 }
@@ -831,47 +945,39 @@ async function handleCabinetChoice(opts: {
   choice: { id: string; name: string } | 'all';
 }): Promise<FbsStockReply> {
   if (opts.choice === 'all') {
-    // По всем кабинетам сразу нужны склады каждого — спрашиваем товар если нет, иначе агрегат по всем складам
-    const productText = opts.payload.productText || extractProductText(opts.payload.queryText);
-    if (!productText || productText.length < 3) {
-      await updatePending(opts.pendingId, {
-        payload: {
-          ...opts.payload,
-          step: 'await_product',
-          allCabinets: true,
-          items: [],
-        },
-        cabinet_name: 'Все кабинеты',
-      });
-      return {
-        handled: true,
-        agentKey: 'anton',
-        reply: antonAskProductAllCabs(),
-      };
-    }
+    // По всем кабинетам: с товаром — точечно, без — сводка топ-артикулов
+    const raw = opts.payload.productText || extractProductText(opts.payload.queryText);
+    const productText = hasProductQuery(raw) ? raw.trim() : '';
     const cabs = await listCabinets();
     const chunks: string[] = [];
     for (const cab of cabs) {
       chunks.push(
-        await formatStocksForCabinet({
-          cabinetId: cab.id,
-          cabinetName: cab.name,
-          warehouseIds: 'all',
-          productText,
-        }),
+        productText
+          ? await formatStocksForCabinet({
+            cabinetId: cab.id,
+            cabinetName: cab.name,
+            warehouseIds: 'all',
+            productText,
+          })
+          : await formatWarehouseOverview({
+            cabinetId: cab.id,
+            cabinetName: cab.name,
+            warehouseIds: 'all',
+          }),
       );
     }
-    const text = chunks.join('\n\n') || 'Пусто.';
+    const text = chunks.join('\n\n') || antonAskProductAllCabs();
     await finishPending(opts.pendingId, text);
     return { handled: true, agentKey: 'anton', reply: text };
   }
 
+  const rawProduct = opts.payload.productText || extractProductText(opts.payload.queryText);
   return await askWarehousesReply(
     opts.chatId,
     opts.tgUserId,
     { id: opts.choice.id, name: opts.choice.name },
     opts.payload.queryText,
-    opts.payload.productText || extractProductText(opts.payload.queryText),
+    hasProductQuery(rawProduct) ? rawProduct.trim() : '',
     opts.pendingId,
   );
 }
