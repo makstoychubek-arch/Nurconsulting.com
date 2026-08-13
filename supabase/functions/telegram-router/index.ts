@@ -433,13 +433,43 @@ function pickStarter(plan: string[], triggeringBot: string | null): string | nul
   return resolveSpeakAndOrchestrator(plan, triggeringBot)?.orchestrator ?? null;
 }
 
+/**
+ * Выбор модели для OpenAI.
+ * - modelOverride задан → он
+ * - kind "fast" → AGENT_FAST_MODEL || gpt-4o-mini (для лёгких/структурированных сценариев)
+ * - иначе → OPENAI_MODEL || gpt-4o (свободный team plan / hop-диалог)
+ *
+ * Сейчас structured-ветки (/sales, pending РК, FBS-кнопки) OpenAI не вызывают —
+ * helper и override готовы, если позже туда добавят LLM.
+ */
+function resolveOpenAiModel(opts?: {
+  modelOverride?: string;
+  kind?: "fast" | "full";
+}): string {
+  const override = (opts?.modelOverride || "").trim();
+  if (override) return override;
+  if (opts?.kind === "fast") {
+    return (Deno.env.get("AGENT_FAST_MODEL") || "gpt-4o-mini").trim() || "gpt-4o-mini";
+  }
+  return (Deno.env.get("OPENAI_MODEL") || "gpt-4o").trim() || "gpt-4o";
+}
+
 async function askOpenAI(opts: {
   systemPrompt: string;
   history: string;
   wbContext: string;
   userMessage: string;
+  /** Если задан — используется вместо OPENAI_MODEL / gpt-4o */
+  modelOverride?: string;
+  /** "fast" → AGENT_FAST_MODEL || gpt-4o-mini; по умолчанию full (gpt-4o) */
+  modelKind?: "fast" | "full";
 }) {
+  const model = resolveOpenAiModel({
+    modelOverride: opts.modelOverride,
+    kind: opts.modelKind,
+  });
   try {
+    console.log(`[telegram-router] openai model=${model} kind=${opts.modelKind || "full"}`);
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -447,7 +477,7 @@ async function askOpenAI(opts: {
         Authorization: `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: Deno.env.get("OPENAI_MODEL") || "gpt-4o",
+        model,
         messages: [
           { role: "system", content: opts.systemPrompt },
           {
@@ -596,10 +626,12 @@ async function runAgentTurn(opts: {
     } plan=${plan.join(">")} chat=${chatId}`,
   );
 
+  // Свободный team plan / hop-диалог — качество рассуждения: full (gpt-4o)
   const reply = await askOpenAI({
     systemPrompt,
     history: formatHistory(history),
     wbContext,
+    modelKind: "full",
     userMessage: fromAgent
       ? [
         `Вопрос владельца: ${rootTask}`,
@@ -872,11 +904,16 @@ serve(async (req) => {
         if (triggeringBot !== "anton") return ok();
       } else {
         const actionText = expandAdsActionCommand(text) || text;
-        const actionAgent = pending?.agent_key ||
-          (/(рк|реклам|кампан|\/ads|пополни|запуст|автозапу|запомни.*(день|время|рк)|отмени\s+авто)/i
-              .test(actionText)
-            ? "amina"
-            : null);
+        const looksLikeAds =
+          /(рк|реклам|кампан|\/ads|пополни|запуст|автозапу|запомни.*(день|время|рк)|отмени\s+авто|какие\s+авто)/i
+            .test(actionText);
+        const actionAgent = pending?.agent_key || (looksLikeAds ? "amina" : null);
+
+        if (actionAgent === "amina" && triggeringBot !== "amina" &&
+          (pending?.agent_key === "amina" || looksLikeAds)) {
+          // чужие боты не лезут в диалог Амины по РК
+          return ok();
+        }
 
         if (actionAgent && triggeringBot === actionAgent) {
           const actionResult = await handleOwnerActionMessage({

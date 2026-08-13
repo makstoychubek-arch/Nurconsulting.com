@@ -19,7 +19,7 @@ export function createWbContextCache(): WbContextCache {
   return { byAgent: new Map() };
 }
 
-/** Isolate-кэш между запросами — сильно ускоряет повторные /sales /fbs. */
+/** Isolate-кэш между запросами — сильно ускоряет hop-chain и повторные /sales /fbs. */
 function globalWbTtlMs(): number {
   try {
     const n = Number(Deno.env.get("WB_CONTEXT_TTL_MS") || "90000");
@@ -28,6 +28,20 @@ function globalWbTtlMs(): number {
     return 90000;
   }
 }
+
+function wbCacheDisabled(): boolean {
+  try {
+    const v = (Deno.env.get("DISABLE_WB_CONTEXT_CACHE") || "").trim().toLowerCase();
+    if (v === "1" || v === "true" || v === "yes") return true;
+    // TTL=0 — явный выключатель без отдельного флага
+    const n = Number(Deno.env.get("WB_CONTEXT_TTL_MS") || "90000");
+    return Number.isFinite(n) && n <= 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Ключ: agent (+ готовый текст брифа). TTL 90с — hop-chain укладывается в окно. */
 const globalWbByAgent = new Map<string, { ts: number; text: string }>();
 let globalShared: {
   ts: number;
@@ -35,6 +49,61 @@ let globalShared: {
   adsLines?: string[];
   fbsLines?: string[];
 } | null = null;
+
+/** In-flight dedup: параллельные вызовы одного ключа ждут один Promise (без double-fetch). */
+const inflightByAgent = new Map<string, Promise<string>>();
+const inflightShared = new Map<string, Promise<string[]>>();
+
+async function getSharedBlock(
+  kind: "sales" | "ads" | "fbs",
+  bag: WbContextCache,
+  loader: () => Promise<string[]>,
+): Promise<string[]> {
+  const cached =
+    kind === "sales" ? bag.salesBlock : kind === "ads" ? bag.adsLines : bag.fbsLines;
+  if (cached) {
+    console.log(`[agent-wb-context] cache hit request kind=${kind}`);
+    return cached;
+  }
+
+  if (!wbCacheDisabled() && globalShared && Date.now() - globalShared.ts < globalWbTtlMs()) {
+    const fromGlobal =
+      kind === "sales"
+        ? globalShared.salesBlock
+        : kind === "ads"
+        ? globalShared.adsLines
+        : globalShared.fbsLines;
+    if (fromGlobal) {
+      console.log(`[agent-wb-context] cache hit isolate kind=${kind}`);
+      if (kind === "sales") bag.salesBlock = fromGlobal;
+      else if (kind === "ads") bag.adsLines = fromGlobal;
+      else bag.fbsLines = fromGlobal;
+      return fromGlobal;
+    }
+  }
+
+  const waiting = inflightShared.get(kind);
+  if (waiting) {
+    console.log(`[agent-wb-context] cache wait inflight kind=${kind}`);
+    const lines = await waiting;
+    if (kind === "sales") bag.salesBlock = lines;
+    else if (kind === "ads") bag.adsLines = lines;
+    else bag.fbsLines = lines;
+    return lines;
+  }
+
+  const p = loader();
+  inflightShared.set(kind, p);
+  try {
+    const lines = await p;
+    if (kind === "sales") bag.salesBlock = lines;
+    else if (kind === "ads") bag.adsLines = lines;
+    else bag.fbsLines = lines;
+    return lines;
+  } finally {
+    inflightShared.delete(kind);
+  }
+}
 
 function sanitizeWbToken(raw: unknown): string {
   if (typeof raw !== "string") return "";
@@ -190,78 +259,114 @@ export async function buildAgentWbContext(
   agent: AgentKey,
   cache?: WbContextCache,
 ): Promise<string> {
-  if (cache?.byAgent.has(agent)) return cache.byAgent.get(agent)!;
+  // 1) request-local (один hop-chain / один wbCache)
+  if (cache?.byAgent.has(agent)) {
+    console.log(`[agent-wb-context] cache hit request agent=${agent}`);
+    return cache.byAgent.get(agent)!;
+  }
 
   const now = Date.now();
   const ttl = globalWbTtlMs();
-  const gHit = globalWbByAgent.get(agent);
-  if (gHit && now - gHit.ts < ttl) {
-    cache?.byAgent.set(agent, gHit.text);
-    return gHit.text;
+  const disabled = wbCacheDisabled();
+
+  // 2) isolate TTL-кэш (между запросами в том же Deno isolate)
+  if (!disabled) {
+    const gHit = globalWbByAgent.get(agent);
+    if (gHit && now - gHit.ts < ttl) {
+      console.log(
+        `[agent-wb-context] cache hit isolate agent=${agent} ageMs=${now - gHit.ts}`,
+      );
+      cache?.byAgent.set(agent, gHit.text);
+      return gHit.text;
+    }
   }
 
-  const supabase = adminClient();
-  const yDay = yesterdayBishkek();
-  const tDay = todayBishkek();
-  const bag = cache ?? createWbContextCache();
-
-  // Подтягиваем shared-блоки из isolate-кэша
-  if (globalShared && now - globalShared.ts < ttl) {
-    bag.salesBlock ??= globalShared.salesBlock;
-    bag.adsLines ??= globalShared.adsLines;
-    bag.fbsLines ??= globalShared.fbsLines;
+  // 3) parallel same-key → один fetch
+  const waiting = inflightByAgent.get(agent);
+  if (waiting) {
+    console.log(`[agent-wb-context] cache wait inflight agent=${agent}`);
+    const text = await waiting;
+    cache?.byAgent.set(agent, text);
+    return text;
   }
 
-  const lines: string[] = [
-    `Дата: сегодня ${pretty(tDay)}, вчера ${pretty(yDay)} (Бишкек).`,
-    `Агент: ${agent}. Ниже факты из WB — опирайся только на них.`,
-  ];
+  const buildP = (async () => {
+    const supabase = adminClient();
+    const yDay = yesterdayBishkek();
+    const tDay = todayBishkek();
+    const bag = cache ?? createWbContextCache();
 
-  const needsSales =
-    agent === "saule" ||
-    agent === "karina" ||
-    agent === "alina" ||
-    agent === "muha" ||
-    agent === "anton";
+    // Подтягиваем shared-блоки из isolate-кэша (без повторных WB/DB)
+    if (!disabled && globalShared && Date.now() - globalShared.ts < ttl) {
+      bag.salesBlock ??= globalShared.salesBlock;
+      bag.adsLines ??= globalShared.adsLines;
+      bag.fbsLines ??= globalShared.fbsLines;
+    }
 
-  if (needsSales && !bag.salesBlock) {
-    bag.salesBlock = await loadSalesBlock(supabase, yDay, tDay);
+    const lines: string[] = [
+      `Дата: сегодня ${pretty(tDay)}, вчера ${pretty(yDay)} (Бишкек).`,
+      `Агент: ${agent}. Ниже факты из WB — опирайся только на них.`,
+    ];
+
+    const needsSales =
+      agent === "saule" ||
+      agent === "karina" ||
+      agent === "alina" ||
+      agent === "muha" ||
+      agent === "anton";
+
+    if (needsSales) {
+      await getSharedBlock("sales", bag, () => loadSalesBlock(supabase, yDay, tDay));
+    }
+
+    if (agent === "saule" || agent === "karina" || agent === "alina") {
+      lines.push("", "=== ПРОДАЖИ / ЗАКАЗЫ ===", ...(bag.salesBlock || []));
+    }
+
+    if (agent === "amina" || agent === "karina") {
+      await getSharedBlock("ads", bag, () => loadAdsBrief(supabase));
+      lines.push("", "=== РЕКЛАМА ===", ...(bag.adsLines || []));
+    }
+
+    if (agent === "anton" || agent === "karina" || agent === "saule") {
+      await getSharedBlock("fbs", bag, () => loadFbsBrief(supabase, yDay, tDay));
+      lines.push("", "=== FBS ===", ...(bag.fbsLines || []));
+    }
+
+    if (agent === "muha" || agent === "alina") {
+      if (!bag.salesBlock) {
+        await getSharedBlock("sales", bag, () => loadSalesBlock(supabase, yDay, tDay));
+      }
+      lines.push(
+        "",
+        "=== КОНТЕНТ / ПРОДВИЖЕНИЕ ===",
+        "Отдельного API фотоворонки нет — используй топ артикулы из продаж и давай гипотезы по контенту/продвижению кратко.",
+        ...(bag.salesBlock || []).slice(0, 6),
+      );
+    }
+
+    const text = lines.join("\n");
+    const clipped = text.length > 7000 ? text.slice(0, 7000) + "\n…(обрезано)" : text;
+    bag.byAgent.set(agent, clipped);
+    if (!disabled) {
+      const ts = Date.now();
+      globalWbByAgent.set(agent, { ts, text: clipped });
+      globalShared = {
+        ts,
+        salesBlock: bag.salesBlock,
+        adsLines: bag.adsLines,
+        fbsLines: bag.fbsLines,
+      };
+    }
+    return clipped;
+  })();
+
+  inflightByAgent.set(agent, buildP);
+  try {
+    return await buildP;
+  } finally {
+    inflightByAgent.delete(agent);
   }
-
-  if (agent === "saule" || agent === "karina" || agent === "alina") {
-    lines.push("", "=== ПРОДАЖИ / ЗАКАЗЫ ===", ...(bag.salesBlock || []));
-  }
-
-  if (agent === "amina" || agent === "karina") {
-    if (!bag.adsLines) bag.adsLines = await loadAdsBrief(supabase);
-    lines.push("", "=== РЕКЛАМА ===", ...bag.adsLines);
-  }
-
-  if (agent === "anton" || agent === "karina" || agent === "saule") {
-    if (!bag.fbsLines) bag.fbsLines = await loadFbsBrief(supabase, yDay, tDay);
-    lines.push("", "=== FBS ===", ...bag.fbsLines);
-  }
-
-  if (agent === "muha" || agent === "alina") {
-    lines.push(
-      "",
-      "=== КОНТЕНТ / ПРОДВИЖЕНИЕ ===",
-      "Отдельного API фотоворонки нет — используй топ артикулы из продаж и давай гипотезы по контенту/продвижению кратко.",
-      ...(bag.salesBlock || []).slice(0, 6),
-    );
-  }
-
-  const text = lines.join("\n");
-  const clipped = text.length > 7000 ? text.slice(0, 7000) + "\n…(обрезано)" : text;
-  bag.byAgent.set(agent, clipped);
-  globalWbByAgent.set(agent, { ts: now, text: clipped });
-  globalShared = {
-    ts: now,
-    salesBlock: bag.salesBlock,
-    adsLines: bag.adsLines,
-    fbsLines: bag.fbsLines,
-  };
-  return clipped;
 }
 
 // deno-lint-ignore no-explicit-any
