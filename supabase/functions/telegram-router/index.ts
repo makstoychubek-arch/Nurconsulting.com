@@ -23,6 +23,7 @@ import {
   tryAlinaOfferCommand,
 } from "../_shared/alina-selfbuy.ts";
 import { generateMuhaPhoto, wantsPhoto } from "../_shared/muha-photos.ts";
+import { teamQaFactsForAgent, tryTeamSmartQa } from "../_shared/agent-qa.ts";
 import {
   buildTeamPlan,
   clampHops,
@@ -463,7 +464,13 @@ async function runAgentTurn(opts: {
     return;
   }
 
-  if (targetAgent === "muha" && !fromAgent && wantsPhoto(rootTask)) {
+  if (
+    targetAgent === "muha" &&
+    !fromAgent &&
+    wantsPhoto(rootTask) &&
+    !/(главн\w*\s+фото|фото\s+(фонар|вырез|блузк|с\s*вб)|дай.*фото.*(фонар|вырез|блузк))/i
+      .test(rootTask)
+  ) {
     await sendTelegramMessage("muha", chatId, "Генерирую фото, минуту…", replyToMessageId);
     const photo = await generateMuhaPhoto(rootTask);
     if (!photo.ok) {
@@ -507,6 +514,12 @@ async function runAgentTurn(opts: {
     } catch (e) {
       console.error("[telegram-router] alina stats context", e);
     }
+  }
+  try {
+    const qaFacts = await teamQaFactsForAgent(targetAgent, rootTask);
+    if (qaFacts) wbContext += `\n\n${qaFacts}`;
+  } catch (e) {
+    console.error("[telegram-router] qa facts", e);
   }
 
   const history = await historyP;
@@ -886,6 +899,52 @@ serve(async (req) => {
         business_connection_id: businessConnectionId || null,
       });
       return ok();
+    }
+
+    // ── Умные ответы в тимчате (таблица / фото WB / остатки) ───────────────
+    {
+      const qa = await tryTeamSmartQa(text, triggeringBot);
+      if (qa.handled) {
+        if (qa.reply || qa.photos?.length) {
+          const speakAs = qa.agentKey && BOT_TOKENS[qa.agentKey]
+            ? qa.agentKey
+            : triggeringBot;
+          if (triggeringBot === speakAs || triggeringBot === qa.agentKey) {
+            await runWork((async () => {
+              if (qa.photos?.length) {
+                for (const ph of qa.photos) {
+                  await sendTelegramPhoto(
+                    speakAs,
+                    chatId,
+                    {
+                      imageUrl: ph.url,
+                      imageBytes: ph.bytes,
+                      mime: ph.mime,
+                      filename: ph.filename,
+                      caption: ph.caption,
+                    },
+                    message.message_id,
+                  );
+                }
+              }
+              if (qa.reply) {
+                await sendTelegramMessage(
+                  speakAs,
+                  chatId,
+                  qa.reply,
+                  qa.photos?.length ? undefined : message.message_id,
+                );
+                await saveMessage(chatId, speakAs, qa.reply);
+              }
+              saveMessage(chatId, message.from?.first_name ?? "user", text).catch(
+                () => {},
+              );
+            })());
+          }
+        }
+        // handled без reply = «проглотить», чтобы другие боты не дублировали
+        return ok();
+      }
     }
 
     // ── Живой отклик на «Карина» / «Сауле» без задачи (без пустого «да?») ───

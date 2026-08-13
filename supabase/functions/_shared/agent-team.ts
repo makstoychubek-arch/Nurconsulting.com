@@ -45,13 +45,21 @@ export function detectTopicalAgents(text: string): string[] {
   const found: string[] = [];
   const selfbuy = lower.includes("самовыкуп");
 
-  // «выкуп» внутри «самовыкуп» НЕ должен звать Сауле
+  const sheetGiveaway =
+    lower.includes("раздач") ||
+    lower.includes("самовыкуп") ||
+    (lower.includes("таблиц") && /(выкуп|кэш|кеш|бартер|раздач)/i.test(lower));
+  const wbCardPhoto =
+    /главн\w*\s+фото|фото\s+(фонар|вырез|блузк|товар|с\s*вб)/i.test(lower) ||
+    (/(дай|скинь|пришли|покажи).{0,16}фото/i.test(lower) &&
+      /(фонар|вырез|блузк|бел|черн)/i.test(lower));
+
+  // «выкуп» внутри «самовыкуп» / таблица раздач → Алина, не Сауле
   if (
     lower.includes("продаж") ||
-    lower.includes("остатк") ||
     lower.includes("отмен") ||
     /(^|[^а-яё])цен(а|ы|у|е|ой|ам)?([^а-яё]|$)/.test(lower) ||
-    (!selfbuy && /(^|[^а-яё])выкуп/.test(lower))
+    (!selfbuy && !sheetGiveaway && /(^|[^а-яё])выкуп/.test(lower))
   ) {
     found.push("saule");
   }
@@ -72,11 +80,13 @@ export function detectTopicalAgents(text: string): string[] {
     lower.includes("кластер") ||
     lower.includes("fbs") ||
     lower.includes("склад") ||
-    lower.includes("отгруз")
+    lower.includes("отгруз") ||
+    lower.includes("остатк") ||
+    lower.includes("остаток")
   ) {
     found.push("anton");
   }
-  if (selfbuy || lower.includes("продвиж")) {
+  if (selfbuy || lower.includes("продвиж") || sheetGiveaway || wbCardPhoto) {
     found.push("alina");
   }
   if (
@@ -84,7 +94,7 @@ export function detectTopicalAgents(text: string): string[] {
     lower.includes("конверс") ||
     lower.includes("инфограф") ||
     lower.includes("креатив") ||
-    (lower.includes("фото") && !selfbuy)
+    (lower.includes("фото") && !selfbuy && !wbCardPhoto && !sheetGiveaway)
   ) {
     found.push("muha");
   }
