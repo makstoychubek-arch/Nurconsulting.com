@@ -13,6 +13,7 @@ import {
   cancelOtherPending,
   getActivePending,
   isCancelText,
+  isConfirmText,
   listCabinets,
   normName,
   parseSelection,
@@ -38,7 +39,7 @@ export type FbsStockReply = {
 type Wh = { id: number; name: string };
 type ProductHit = { nm_id: number; title: string; cabinet_id: string; score: number };
 type FbsPayload = {
-  step: 'await_cabinet' | 'await_warehouse' | 'await_product';
+  step: 'await_cabinet' | 'await_confirm_cabinet' | 'await_warehouse' | 'await_product';
   queryText: string;
   productText?: string;
   cabinetId?: string;
@@ -46,7 +47,39 @@ type FbsPayload = {
   allCabinets?: boolean;
   warehouses?: Wh[];
   items?: Array<{ id: string; name: string }>;
+  /** Кабинет угадан по товару — после «да» показываем остаток коротко */
+  guessedFromProduct?: boolean;
+  minimal?: boolean;
 };
+
+/** Человекочитаемые имена кабинетов для уточнений. */
+function cabinetHumanName(name: string): string {
+  const n = normName(name);
+  if (n.includes('zevina1') || /^zevina1$/.test(n) || (n.includes('zevina') && /1/.test(name))) {
+    return 'ИП Уркунбаев';
+  }
+  if (n.includes('zevina2') || (n.includes('zevina') && /2/.test(name))) {
+    return 'Zevina 2';
+  }
+  if (n.includes('elium')) return 'Elium (Айзада / Уметалиева)';
+  if (n.includes('baza')) return 'Baza';
+  if (n.includes('saai')) return 'SAAI';
+  return name;
+}
+
+function kbYesNo() {
+  return {
+    inline_keyboard: [[
+      { text: 'Да', callback_data: `${CALLBACK_PREFIX}yes` },
+      { text: 'Нет', callback_data: `${CALLBACK_PREFIX}no` },
+    ]],
+  };
+}
+
+function isNoText(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  return /^(нет|не|не то|не тот|другой|мимо)$/i.test(t);
+}
 
 function admin(): SupabaseClient {
   return createClient(
@@ -207,9 +240,23 @@ async function findProducts(text: string, cabinetId?: string): Promise<ProductHi
 
 async function autoCabinetFromProduct(
   text: string,
-): Promise<{ match?: { id: string; name: string }; products: ProductHit[] }> {
+): Promise<{
+  match?: { id: string; name: string };
+  products: ProductHit[];
+  /** true = есть догадка, но лучше спросить «это кабинет …?» */
+  unsure: boolean;
+}> {
   const products = await findProducts(text);
-  if (!products.length) return { products: [] };
+  if (!products.length) {
+    // Слабый намёк по ассортименту (костюмы/пиджаки → Уркунбаев)
+    const t = extractProductText(text).toLowerCase();
+    if (/(костюм|пиджак|укороч|брюч)/i.test(t)) {
+      const cabs = await listCabinets();
+      const z1 = cabs.find((c) => /zevina\s*1/i.test(c.name) || normName(c.name) === 'zevina1');
+      if (z1) return { match: z1, products: [], unsure: true };
+    }
+    return { products: [], unsure: false };
+  }
   const byCab = new Map<string, { score: number; hits: ProductHit[] }>();
   for (const p of products) {
     const cur = byCab.get(p.cabinet_id) || { score: 0, hits: [] };
@@ -218,16 +265,24 @@ async function autoCabinetFromProduct(
     byCab.set(p.cabinet_id, cur);
   }
   const ranked = [...byCab.entries()].sort((a, b) => b[1].score - a[1].score);
-  if (!ranked.length) return { products };
+  if (!ranked.length) return { products, unsure: false };
   const [topId, top] = ranked[0];
   const second = ranked[1]?.[1].score ?? 0;
   if (ranked.length > 1 && top.score < second + 3) {
-    return { products };
+    return { products, unsure: false };
   }
   const cabs = await listCabinets();
   const cab = cabs.find((c) => c.id === topId);
-  if (!cab) return { products };
-  return { match: cab, products: top.hits };
+  if (!cab) return { products, unsure: false };
+
+  const productText = extractProductText(text);
+  const colorAsked = /(черн|бел|борд|бардо|шоко|коричнев|сер)/i.test(productText);
+  const topScore = top.hits[0]?.score ?? 0;
+  const manyHits = top.hits.length > 1;
+  const weak = topScore < 12;
+  const vague = productText.split(/\s+/).filter(Boolean).length <= 2 && !colorAsked;
+  const unsure = manyHits || weak || vague || top.hits.length === 0;
+  return { match: cab, products: top.hits, unsure };
 }
 
 async function loadCabinetToken(cabinetId: string): Promise<{
@@ -403,17 +458,19 @@ async function formatStocksForCabinet(opts: {
   cabinetName: string;
   warehouseIds: number[] | 'all';
   productText: string;
+  minimal?: boolean;
 }): Promise<string> {
+  const human = cabinetHumanName(opts.cabinetName);
   const auth = await loadCabinetToken(opts.cabinetId);
-  if (!auth) return `${opts.cabinetName}: нет WB-токена`;
+  if (!auth) return `${human}: нет WB-токена`;
 
   let warehouses: Wh[];
   try {
     warehouses = await fetchSellerWarehouses(auth.token);
   } catch (e) {
-    return `${opts.cabinetName}: не смог получить склады (${e instanceof Error ? e.message : e})`;
+    return `${human}: не смог получить склады (${e instanceof Error ? e.message : e})`;
   }
-  if (!warehouses.length) return `${opts.cabinetName}: FBS-складов нет`;
+  if (!warehouses.length) return `${human}: FBS-складов нет`;
 
   let selected: Wh[];
   if (opts.warehouseIds === 'all') {
@@ -422,18 +479,20 @@ async function formatStocksForCabinet(opts: {
     const want = new Set(opts.warehouseIds);
     selected = warehouses.filter((w) => want.has(w.id));
   }
-  if (!selected.length) return `${opts.cabinetName}: склад не найден`;
+  if (!selected.length) return `${human}: склад не найден`;
 
   const products = await findProducts(opts.productText, opts.cabinetId);
   if (!products.length) {
-    return `${opts.cabinetName}: не понял товар. Напиши модель/цвет, например «укороченный костюм черный»`;
+    return opts.minimal
+      ? `${human}\nне нашёл такой артикул — уточни модель/цвет`
+      : `${human}: не понял товар. Напиши модель/цвет, например «укороченный костюм черный»`;
   }
 
-  const lines: string[] = [`${opts.cabinetName} · FBS`];
-  for (const p of products.slice(0, 3)) {
+  const lines: string[] = opts.minimal ? [human] : [`${human} · FBS`];
+  for (const p of products.slice(0, opts.minimal ? 2 : 3)) {
     const card = await fetchCardSkus(auth.token, p.nm_id);
     if (!card.skus.length) {
-      lines.push(`• ${p.title}: нет баркодов в карточке`);
+      lines.push(opts.minimal ? `${p.title}: нет баркодов` : `• ${p.title}: нет баркодов в карточке`);
       continue;
     }
     let total = 0;
@@ -443,10 +502,18 @@ async function formatStocksForCabinet(opts: {
       let qty = 0;
       for (const v of stocks.values()) qty += v;
       total += qty;
-      if (selected.length > 1) byWh.push(`  – ${wh.name}: ${qty}`);
+      if (selected.length > 1) {
+        byWh.push(opts.minimal ? `${wh.name}: ${qty}` : `  – ${wh.name}: ${qty}`);
+      }
     }
     const title = card.vendor || p.title;
-    if (selected.length === 1) {
+    if (opts.minimal) {
+      if (selected.length === 1) lines.push(`${title}: ${total}`);
+      else {
+        lines.push(`${title}: ${total}`);
+        lines.push(...byWh);
+      }
+    } else if (selected.length === 1) {
       lines.push(`• ${title}: ${total} шт · склад «${selected[0].name}»`);
     } else {
       lines.push(`• ${title}: ${total} шт`);
@@ -456,6 +523,36 @@ async function formatStocksForCabinet(opts: {
   return lines.join('\n');
 }
 
+async function askConfirmCabinet(
+  chatId: number,
+  tgUserId: number,
+  cabinet: { id: string; name: string },
+  queryText: string,
+  productText: string,
+): Promise<FbsStockReply> {
+  const human = cabinetHumanName(cabinet.name);
+  await savePending(chatId, tgUserId, {
+    step: 'await_confirm_cabinet',
+    queryText,
+    productText,
+    cabinetId: cabinet.id,
+    cabinetName: cabinet.name,
+    guessedFromProduct: true,
+    minimal: true,
+    items: [
+      { id: 'yes', name: 'Да' },
+      { id: 'no', name: 'Нет' },
+    ],
+  }, cabinet.id, cabinet.name);
+
+  return {
+    handled: true,
+    agentKey: 'anton',
+    reply: `Это кабинет ${human}?`,
+    replyMarkup: kbYesNo(),
+  };
+}
+
 async function askWarehousesReply(
   chatId: number,
   tgUserId: number,
@@ -463,14 +560,17 @@ async function askWarehousesReply(
   queryText: string,
   productText: string,
   pendingId?: string,
+  opts?: { minimal?: boolean },
 ): Promise<FbsStockReply> {
+  const human = cabinetHumanName(cabinet.name);
+  const minimal = Boolean(opts?.minimal);
   const auth = await loadCabinetToken(cabinet.id);
   if (!auth) {
     if (pendingId) await cancelPending(pendingId);
     return {
       handled: true,
       agentKey: 'anton',
-      reply: `По «${cabinet.name}» нет рабочего WB-токена.`,
+      reply: `По «${human}» нет рабочего WB-токена.`,
     };
   }
 
@@ -482,7 +582,7 @@ async function askWarehousesReply(
     return {
       handled: true,
       agentKey: 'anton',
-      reply: `Не смог прочитать FBS-склады «${cabinet.name}»: ${
+      reply: `Не смог прочитать FBS-склады «${human}»: ${
         e instanceof Error ? e.message : e
       }`,
     };
@@ -493,20 +593,26 @@ async function askWarehousesReply(
     return {
       handled: true,
       agentKey: 'anton',
-      reply: `В «${cabinet.name}» нет FBS-складов продавца.`,
+      reply: `В «${human}» нет FBS-складов продавца.`,
     };
   }
 
   // Один склад — сразу остаток, без лишних вопросов
   if (warehouses.length === 1) {
-    if (!productText || productText.length < 3) {
+    const needProduct = !productText || productText.length < 3;
+    let productsPreview: ProductHit[] = [];
+    if (!needProduct) {
+      productsPreview = await findProducts(productText, cabinet.id);
+    }
+    if (needProduct || !productsPreview.length) {
       const payload: FbsPayload = {
         step: 'await_product',
         queryText,
-        productText: '',
+        productText: needProduct ? '' : productText,
         cabinetId: cabinet.id,
         cabinetName: cabinet.name,
         warehouses,
+        minimal,
         items: [],
       };
       if (pendingId) {
@@ -522,7 +628,9 @@ async function askWarehousesReply(
       return {
         handled: true,
         agentKey: 'anton',
-        reply: `Кабинет «${cabinet.name}», склад один — «${warehouses[0].name}».\nПо какому товару остаток?`,
+        reply: minimal
+          ? `Ок, ${human}. Какая модель/цвет?`
+          : `Кабинет «${human}», склад один — «${warehouses[0].name}».\nПо какому товару остаток?`,
       };
     }
 
@@ -531,11 +639,9 @@ async function askWarehousesReply(
       cabinetName: cabinet.name,
       warehouseIds: [warehouses[0].id],
       productText,
+      minimal,
     });
     if (pendingId) await finishPending(pendingId, text);
-    else {
-      // одноразовый ответ без pending
-    }
     return { handled: true, agentKey: 'anton', reply: text };
   }
 
@@ -547,6 +653,7 @@ async function askWarehousesReply(
     cabinetId: cabinet.id,
     cabinetName: cabinet.name,
     warehouses,
+    minimal,
     items,
   };
   if (pendingId) {
@@ -563,7 +670,9 @@ async function askWarehousesReply(
   return {
     handled: true,
     agentKey: 'anton',
-    reply: `Кабинет «${cabinet.name}». Какой склад FBS?`,
+    reply: minimal
+      ? `${human}. Какой склад?`
+      : `Кабинет «${human}». Какой склад FBS?`,
     replyMarkup: kbFromItems(items, { label: 'Все склады' }),
   };
 }
@@ -652,6 +761,7 @@ async function resolveStocksAfterWarehouse(opts: {
     cabinetName: opts.payload.cabinetName,
     warehouseIds: opts.warehouseIds,
     productText,
+    minimal: opts.payload.minimal,
   });
   await finishPending(opts.pendingId, text);
   return { handled: true, agentKey: 'anton', reply: text };
@@ -666,28 +776,45 @@ export async function startFbsStockDialog(opts: {
   const queryText = opts.text.trim();
   const productText = extractProductText(queryText);
 
-  // 1) Кабинет из текста / алиасов
+  // 1) Кабинет из текста / алиасов — уверенно, без «это он?»
   const resolved = await resolveCabinet(queryText);
-  let cabinet = resolved.match;
+  if (resolved.match) {
+    return await askWarehousesReply(
+      opts.chatId,
+      opts.tgUserId,
+      resolved.match,
+      queryText,
+      productText,
+    );
+  }
 
-  // 2) Авто из товара (укороченный костюм → Zevina 1)
-  if (!cabinet && productText.length >= 3) {
+  // 2) Авто из товара → если неуверен — коротко уточнить кабинет
+  if (productText.length >= 3) {
     const auto = await autoCabinetFromProduct(queryText);
-    cabinet = auto.match;
+    if (auto.match) {
+      if (auto.unsure || !auto.products.length || auto.products.length > 1) {
+        return await askConfirmCabinet(
+          opts.chatId,
+          opts.tgUserId,
+          auto.match,
+          queryText,
+          productText,
+        );
+      }
+      // уверенный матч одного артикула — можно сразу, но коротко
+      return await askWarehousesReply(
+        opts.chatId,
+        opts.tgUserId,
+        auto.match,
+        queryText,
+        productText,
+        undefined,
+        { minimal: true },
+      );
+    }
   }
 
-  if (!cabinet) {
-    // неоднозначно или не указан
-    return await askCabinetsReply(opts.chatId, opts.tgUserId, queryText, productText);
-  }
-
-  return await askWarehousesReply(
-    opts.chatId,
-    opts.tgUserId,
-    cabinet,
-    queryText,
-    productText,
-  );
+  return await askCabinetsReply(opts.chatId, opts.tgUserId, queryText, productText);
 }
 
 async function handleCabinetChoice(opts: {
@@ -755,6 +882,51 @@ export async function continueFbsStockDialog(opts: {
   }
   const payload = (pending.payload || {}) as FbsPayload;
   const text = opts.text.trim();
+
+  // Уточнение кабинета: «да» / «нет» — до общего cancel («нет» ≠ отмена диалога)
+  if (payload.step === 'await_confirm_cabinet') {
+    if (isConfirmText(text) || /^(ага|угу|верно|точно|тот)$/i.test(text.trim())) {
+      if (!payload.cabinetId || !payload.cabinetName) {
+        await cancelPending(pending.id);
+        return { handled: true, agentKey: 'anton', reply: 'Сброс. Спроси остаток ещё раз.' };
+      }
+      return await askWarehousesReply(
+        opts.chatId,
+        opts.tgUserId,
+        { id: payload.cabinetId, name: payload.cabinetName },
+        payload.queryText,
+        payload.productText || extractProductText(payload.queryText),
+        pending.id,
+        { minimal: true },
+      );
+    }
+    if (isNoText(text) || isCancelText(text)) {
+      // не тот кабинет → покажем все
+      const cabinets = await listCabinets();
+      const items = cabinets.map((c) => ({ id: c.id, name: c.name }));
+      await updatePending(pending.id, {
+        status: 'awaiting_selection',
+        payload: {
+          ...payload,
+          step: 'await_cabinet',
+          items,
+          guessedFromProduct: false,
+        },
+      });
+      return {
+        handled: true,
+        agentKey: 'anton',
+        reply: 'Ок, какой тогда?',
+        replyMarkup: kbFromItems(items, { label: 'Все кабинеты' }),
+      };
+    }
+    return {
+      handled: true,
+      agentKey: 'anton',
+      reply: `Это кабинет ${cabinetHumanName(payload.cabinetName || '')}? Напиши да / нет`,
+      replyMarkup: kbYesNo(),
+    };
+  }
 
   if (isCancelText(text)) {
     await cancelPending(pending.id);
@@ -844,6 +1016,7 @@ export async function continueFbsStockDialog(opts: {
       cabinetName: payload.cabinetName,
       warehouseIds: whs.length ? whs.map((w) => w.id) : 'all',
       productText,
+      minimal: payload.minimal,
     });
     await finishPending(pending.id, textOut);
     return { handled: true, agentKey: 'anton', reply: textOut };
@@ -871,6 +1044,43 @@ export async function handleFbsStockCallback(opts: {
 
   const payload = (pending.payload || {}) as FbsPayload;
   const items = payload.items || [];
+
+  if (payload.step === 'await_confirm_cabinet') {
+    if (key === 'yes') {
+      if (!payload.cabinetId || !payload.cabinetName) {
+        await cancelPending(pending.id);
+        return { handled: true, agentKey: 'anton', reply: 'Сброс. Спроси остаток ещё раз.' };
+      }
+      return await askWarehousesReply(
+        opts.chatId,
+        opts.tgUserId,
+        { id: payload.cabinetId, name: payload.cabinetName },
+        payload.queryText,
+        payload.productText || extractProductText(payload.queryText),
+        pending.id,
+        { minimal: true },
+      );
+    }
+    if (key === 'no') {
+      const cabinets = await listCabinets();
+      const cabItems = cabinets.map((c) => ({ id: c.id, name: c.name }));
+      await updatePending(pending.id, {
+        status: 'awaiting_selection',
+        payload: {
+          ...payload,
+          step: 'await_cabinet',
+          items: cabItems,
+          guessedFromProduct: false,
+        },
+      });
+      return {
+        handled: true,
+        agentKey: 'anton',
+        reply: 'Ок, какой тогда?',
+        replyMarkup: kbFromItems(cabItems, { label: 'Все кабинеты' }),
+      };
+    }
+  }
 
   if (payload.step === 'await_cabinet') {
     const choice = key === 'all'
