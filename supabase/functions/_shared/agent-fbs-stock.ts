@@ -24,6 +24,21 @@ import {
   isValidWbToken,
   pickCabinetToken,
 } from './wb-cabinet-tokens.ts';
+import {
+  antonAskCabinets,
+  antonAskModelColor,
+  antonAskProduct,
+  antonAskProductAllCabs,
+  antonAskWarehouse,
+  antonCancel,
+  antonConfirmCabinet,
+  antonNeedYesNo,
+  antonNoProduct,
+  antonPickCabinetAgain,
+  antonPickWarehouseAgain,
+  antonStocksLead,
+  antonWrongCabinet,
+} from './agent-voice.ts';
 
 export const FBS_STOCK_ACTION = 'fbs_stock';
 const CALLBACK_PREFIX = 'afs:';
@@ -483,12 +498,10 @@ async function formatStocksForCabinet(opts: {
 
   const products = await findProducts(opts.productText, opts.cabinetId);
   if (!products.length) {
-    return opts.minimal
-      ? `${human}\nне нашёл такой артикул — уточни модель/цвет`
-      : `${human}: не понял товар. Напиши модель/цвет, например «укороченный костюм черный»`;
+    return antonNoProduct(human, Boolean(opts.minimal));
   }
 
-  const lines: string[] = opts.minimal ? [human] : [`${human} · FBS`];
+  const lines: string[] = [antonStocksLead(human, Boolean(opts.minimal))];
   for (const p of products.slice(0, opts.minimal ? 2 : 3)) {
     const card = await fetchCardSkus(auth.token, p.nm_id);
     if (!card.skus.length) {
@@ -508,13 +521,10 @@ async function formatStocksForCabinet(opts: {
     }
     const title = card.vendor || p.title;
     if (opts.minimal) {
-      if (selected.length === 1) lines.push(`${title}: ${total}`);
-      else {
-        lines.push(`${title}: ${total}`);
-        lines.push(...byWh);
-      }
+      lines.push(`${title}: ${total}`);
+      if (selected.length > 1) lines.push(...byWh);
     } else if (selected.length === 1) {
-      lines.push(`• ${title}: ${total} шт · склад «${selected[0].name}»`);
+      lines.push(`• ${title}: ${total} шт · ${selected[0].name}`);
     } else {
       lines.push(`• ${title}: ${total} шт`);
       lines.push(...byWh);
@@ -548,7 +558,7 @@ async function askConfirmCabinet(
   return {
     handled: true,
     agentKey: 'anton',
-    reply: `Это кабинет ${human}?`,
+    reply: antonConfirmCabinet(human),
     replyMarkup: kbYesNo(),
   };
 }
@@ -628,9 +638,7 @@ async function askWarehousesReply(
       return {
         handled: true,
         agentKey: 'anton',
-        reply: minimal
-          ? `Ок, ${human}. Какая модель/цвет?`
-          : `Кабинет «${human}», склад один — «${warehouses[0].name}».\nПо какому товару остаток?`,
+        reply: antonAskProduct(human, minimal),
       };
     }
 
@@ -670,9 +678,7 @@ async function askWarehousesReply(
   return {
     handled: true,
     agentKey: 'anton',
-    reply: minimal
-      ? `${human}. Какой склад?`
-      : `Кабинет «${human}». Какой склад FBS?`,
+    reply: antonAskWarehouse(human, minimal),
     replyMarkup: kbFromItems(items, { label: 'Все склады' }),
   };
 }
@@ -694,7 +700,7 @@ async function askCabinetsReply(
   return {
     handled: true,
     agentKey: 'anton',
-    reply: 'По какому кабинету остаток FBS?',
+    reply: antonAskCabinets(),
     replyMarkup: kbFromItems(items, { label: 'Все кабинеты' }),
   };
 }
@@ -717,7 +723,7 @@ async function resolveStocksAfterWarehouse(opts: {
     return {
       handled: true,
       agentKey: 'anton',
-      reply: 'Ок. По какому товару остаток? Напиши модель/цвет или артикул.',
+      reply: antonAskProduct(cabinetHumanName(opts.payload.cabinetName || 'кабинет'), true),
     };
   }
 
@@ -840,7 +846,7 @@ async function handleCabinetChoice(opts: {
       return {
         handled: true,
         agentKey: 'anton',
-        reply: 'Ок, все кабинеты. По какому товару остаток FBS?',
+        reply: antonAskProductAllCabs(),
       };
     }
     const cabs = await listCabinets();
@@ -916,21 +922,21 @@ export async function continueFbsStockDialog(opts: {
       return {
         handled: true,
         agentKey: 'anton',
-        reply: 'Ок, какой тогда?',
+        reply: antonWrongCabinet(),
         replyMarkup: kbFromItems(items, { label: 'Все кабинеты' }),
       };
     }
     return {
       handled: true,
       agentKey: 'anton',
-      reply: `Это кабинет ${cabinetHumanName(payload.cabinetName || '')}? Напиши да / нет`,
+      reply: antonNeedYesNo(cabinetHumanName(payload.cabinetName || '')),
       replyMarkup: kbYesNo(),
     };
   }
 
   if (isCancelText(text)) {
     await cancelPending(pending.id);
-    return { handled: true, agentKey: 'anton', reply: 'Ок, отменил запрос по FBS.' };
+    return { handled: true, agentKey: 'anton', reply: antonCancel() };
   }
 
   if (payload.step === 'await_cabinet') {
@@ -946,7 +952,7 @@ export async function continueFbsStockDialog(opts: {
       return {
         handled: true,
         agentKey: 'anton',
-        reply: 'Не понял кабинет. Жми кнопку или напиши: Baza / Elium / SAAI / Zevina 1…',
+        reply: antonPickCabinetAgain(),
         replyMarkup: kbFromItems(items, { label: 'Все кабинеты' }),
       };
     }
@@ -966,7 +972,7 @@ export async function continueFbsStockDialog(opts: {
       return {
         handled: true,
         agentKey: 'anton',
-        reply: 'Какой склад? Жми кнопку или напиши название.',
+        reply: antonPickWarehouseAgain(),
         replyMarkup: kbFromItems(items, { label: 'Все склады' }),
       };
     }
@@ -986,7 +992,7 @@ export async function continueFbsStockDialog(opts: {
       return {
         handled: true,
         agentKey: 'anton',
-        reply: 'Напиши товар коротко: модель и цвет.',
+        reply: antonAskModelColor(),
       };
     }
     if (payload.allCabinets) {
@@ -1039,7 +1045,7 @@ export async function handleFbsStockCallback(opts: {
   const key = opts.data.slice(CALLBACK_PREFIX.length);
   if (key === 'cancel') {
     await cancelPending(pending.id);
-    return { handled: true, agentKey: 'anton', reply: 'Ок, отменил.' };
+    return { handled: true, agentKey: 'anton', reply: antonCancel() };
   }
 
   const payload = (pending.payload || {}) as FbsPayload;
@@ -1049,7 +1055,7 @@ export async function handleFbsStockCallback(opts: {
     if (key === 'yes') {
       if (!payload.cabinetId || !payload.cabinetName) {
         await cancelPending(pending.id);
-        return { handled: true, agentKey: 'anton', reply: 'Сброс. Спроси остаток ещё раз.' };
+        return { handled: true, agentKey: 'anton', reply: 'Сброс — спроси ещё раз' };
       }
       return await askWarehousesReply(
         opts.chatId,
@@ -1076,7 +1082,7 @@ export async function handleFbsStockCallback(opts: {
       return {
         handled: true,
         agentKey: 'anton',
-        reply: 'Ок, какой тогда?',
+        reply: antonWrongCabinet(),
         replyMarkup: kbFromItems(cabItems, { label: 'Все кабинеты' }),
       };
     }
@@ -1127,7 +1133,7 @@ export async function handleFbsStockCallback(opts: {
     });
   }
 
-  return { handled: true, agentKey: 'anton', reply: 'Жду название товара текстом.' };
+  return { handled: true, agentKey: 'anton', reply: antonAskModelColor() };
 }
 
 export async function hasActiveFbsStockDialog(chatId: number): Promise<boolean> {

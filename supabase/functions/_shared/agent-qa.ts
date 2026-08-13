@@ -19,6 +19,7 @@ import { alinaSelfbuyStatsText } from './alina-selfbuy.ts';
 import { fetchWbMainPhoto } from './alina-wb-photo.ts';
 import { detectNamedAgents, detectMentionedAgents } from './agent-team.ts';
 import { wantsFbsStock } from './agent-fbs-stock.ts';
+import { alinaSeesSheet, antonWbStockLead } from './agent-voice.ts';
 
 export type TeamQaResult = {
   handled: boolean;
@@ -93,38 +94,23 @@ async function answerAlinaSheet(text: string): Promise<TeamQaResult> {
   }
 
   const open = getOpenFromSnap(snap.offers || []);
-  const lines: string[] = [];
-  if (/видиш|видишь|есть\s+таблица|смотриш/i.test(text)) {
-    lines.push('Да, вижу таблицу раздач на сегодня 🙌');
-  } else {
-    lines.push('По выкупам/раздачам на сегодня:');
-  }
-
   const mode = snap.deal_mode === 'cashback'
     ? 'только кэшбек'
     : snap.deal_mode === 'barter'
     ? 'только бартер'
     : 'кэшбек и бартер';
-  lines.push(`Режим: ${mode}`);
-
-  if (open.length) {
-    lines.push('Открыто:');
-    for (const o of open.slice(0, 10)) {
-      lines.push(
-        `• ${o.product_name}${o.keyword ? ` · ключ «${o.keyword}»` : ''} · мест ${o.slots_left}`,
-      );
-    }
-  } else {
-    lines.push('Свободных мест на сегодня нет.');
-  }
+  const openLines = open.slice(0, 10).map((o) =>
+    `• ${o.product_name}${o.keyword ? ` · ключ «${o.keyword}»` : ''} · мест ${o.slots_left}`
+  );
+  let reply = alinaSeesSheet(openLines, mode);
 
   try {
     const stats = await alinaSelfbuyStatsText();
     const crmLine = stats.split('\n').find((l) => /лид|в работе|сегодня/i.test(l));
-    if (crmLine) lines.push(crmLine.replace(/^[-•\s]+/, ''));
+    if (crmLine) reply += '\n' + crmLine.replace(/^[-•\s]+/, '');
   } catch { /* */ }
 
-  return { handled: true, agentKey: 'alina', reply: lines.join('\n') };
+  return { handled: true, agentKey: 'alina', reply };
 }
 
 async function answerProductPhoto(text: string): Promise<TeamQaResult> {
@@ -289,7 +275,7 @@ async function answerStock(text: string): Promise<TeamQaResult> {
   }
 
   const db = admin();
-  const lines: string[] = [`Слышу 👍 ${cabinet.name}, остатки по складам WB:`];
+  const lines: string[] = [antonWbStockLead(cabinet.name)];
 
   for (const p of products) {
     const { data: rows } = await db
