@@ -31,6 +31,7 @@ import {
   isFbsStockCallback,
   startFbsStockDialog,
   wantsFbsStock,
+  type FbsStockReply,
 } from "../_shared/agent-fbs-stock.ts";
 import {
   AGENT_DISPLAY,
@@ -163,6 +164,39 @@ async function sendTelegramMessage(
   } catch (e) {
     console.error(`[telegram-router] sendMessage ${botKey} exception:`, e);
     return false;
+  }
+}
+
+/** Ответ Антона по FBS: сначала фото-таблица (если есть), потом текст/кнопки. */
+async function sendAntonFbsReply(
+  chatId: number,
+  result: FbsStockReply,
+  replyToMessageId?: number,
+): Promise<void> {
+  if (result.photos?.length) {
+    for (const ph of result.photos) {
+      await sendTelegramPhoto(
+        "anton",
+        chatId,
+        {
+          imageBytes: ph.bytes,
+          mime: ph.mime || "image/png",
+          filename: ph.filename || "fbs-sizes.png",
+          caption: ph.caption,
+        },
+        replyToMessageId,
+      );
+    }
+  }
+  if (result.reply) {
+    await sendTelegramMessage(
+      "anton",
+      chatId,
+      result.reply,
+      result.photos?.length ? undefined : replyToMessageId,
+      undefined,
+      result.replyMarkup,
+    );
   }
 }
 
@@ -741,16 +775,13 @@ serve(async (req) => {
             tgUserId,
             data,
           });
-          if (result.reply) {
-            await sendTelegramMessage(
-              "anton",
+          if (result.reply || result.photos?.length) {
+            await sendAntonFbsReply(
               chatId,
-              result.reply,
+              result,
               Number(cq?.message?.message_id) || undefined,
-              undefined,
-              result.replyMarkup,
             );
-            await saveMessage(chatId, "anton", result.reply);
+            if (result.reply) await saveMessage(chatId, "anton", result.reply);
           }
         })());
         return ok();
@@ -875,18 +906,11 @@ serve(async (req) => {
           text,
         });
         if (cont.handled) {
-          if (cont.reply) {
+          if (cont.reply || cont.photos?.length) {
             await runWork((async () => {
-              await sendTelegramMessage(
-                "anton",
-                chatId,
-                cont.reply!,
-                message.message_id,
-                undefined,
-                cont.replyMarkup,
-              );
+              await sendAntonFbsReply(chatId, cont, message.message_id);
               saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
-              saveMessage(chatId, "anton", cont.reply!).catch(() => {});
+              if (cont.reply) saveMessage(chatId, "anton", cont.reply).catch(() => {});
             })());
           }
           return ok();
@@ -1094,16 +1118,9 @@ serve(async (req) => {
               tgUserId: Number(message.from?.id),
               text,
             });
-            if (fbs.reply) {
-              await sendTelegramMessage(
-                "anton",
-                chatId,
-                fbs.reply,
-                message.message_id,
-                undefined,
-                fbs.replyMarkup,
-              );
-              await saveMessage(chatId, "anton", fbs.reply);
+            if (fbs.reply || fbs.photos?.length) {
+              await sendAntonFbsReply(chatId, fbs, message.message_id);
+              if (fbs.reply) await saveMessage(chatId, "anton", fbs.reply);
             }
             saveMessage(chatId, message.from?.first_name ?? "user", text).catch(
               () => {},

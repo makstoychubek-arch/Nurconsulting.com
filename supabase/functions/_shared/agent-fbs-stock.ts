@@ -40,6 +40,10 @@ import {
   antonStocksLead,
   antonWrongCabinet,
 } from './agent-voice.ts';
+import {
+  renderFbsSizeTablePng,
+  type FbsSizeTableRow,
+} from './agent-fbs-table.ts';
 
 export const FBS_STOCK_ACTION = 'fbs_stock';
 const CALLBACK_PREFIX = 'afs:';
@@ -50,10 +54,21 @@ export type FbsStockReply = {
   reply?: string;
   replyMarkup?: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> };
   clearMarkup?: boolean;
+  photos?: Array<{
+    bytes: Uint8Array;
+    mime?: string;
+    filename?: string;
+    caption?: string;
+  }>;
 };
 
 type Wh = { id: number; name: string };
 type ProductHit = { nm_id: number; title: string; cabinet_id: string; score: number };
+type StockReport = {
+  text: string;
+  photo?: Uint8Array;
+  caption?: string;
+};
 type FbsPayload = {
   step: 'await_cabinet' | 'await_confirm_cabinet' | 'await_warehouse' | 'await_product';
   queryText: string;
@@ -66,6 +81,8 @@ type FbsPayload = {
   /** Кабинет угадан по товару — после «да» показываем остаток коротко */
   guessedFromProduct?: boolean;
   minimal?: boolean;
+  /** Сводная таблица-фото по размерам */
+  wantTable?: boolean;
 };
 
 /** Человекочитаемые имена кабинетов для уточнений. */
@@ -106,19 +123,50 @@ function admin(): SupabaseClient {
 
 export function wantsFbsStock(text: string): boolean {
   const t = (text || '').trim();
-  if (!t || !/(фбс|fbs)/i.test(t)) return false;
-  // явный остаток/склад
-  if (/(остат|осталось|сколько|склад|налич|есть\s+ли)/i.test(t)) return true;
-  // «а по базы fbs?», «fbs элиум», «фбс база» — без слова «остаток»
-  if (
+  if (!t) return false;
+  const hasFbs = /(фбс|fbs)/i.test(t);
+  const hasCab =
     /(баз[аеуы]|baza|элиум|elium|saai|сааи|зевин|zevina|уркунбаев|айзада|уметалиев)/i
-      .test(t)
+      .test(t);
+  // «сводную по размерам база» / «таблица остатков zevina» — даже без слова fbs
+  if (
+    wantsFbsSizeTable(t) &&
+    (hasFbs || hasCab || /(остат|склад)/i.test(t))
   ) {
     return true;
   }
+  if (!hasFbs) return false;
+  // явный остаток/склад
+  if (/(остат|осталось|сколько|склад|налич|есть\s+ли)/i.test(t)) return true;
+  // «а по базы fbs?», «fbs элиум»
+  if (hasCab) return true;
   // короткая реплика про FBS в тимчате
   if (t.length <= 40) return true;
   return false;
+}
+
+/** «сводную», «по размерам», «таблицу» → PNG-таблица. */
+export function wantsFbsSizeTable(text: string): boolean {
+  return /(сводн|таблиц|по\s*размер|размер(ам|ов|ы)|красив\w*\s*(фото|таблиц)|фото\s*(свод|таблиц|остат))/i
+    .test(text || '');
+}
+
+function reportToReply(report: StockReport, extra?: Partial<FbsStockReply>): FbsStockReply {
+  const photos = report.photo
+    ? [{
+      bytes: report.photo,
+      mime: 'image/png',
+      filename: 'fbs-sizes.png',
+      caption: (report.caption || report.text.split('\n')[0] || 'FBS по размерам').slice(0, 900),
+    }]
+    : undefined;
+  return {
+    handled: true,
+    agentKey: 'anton',
+    reply: report.text,
+    photos,
+    ...extra,
+  };
 }
 
 export function isFbsStockCallback(data: string): boolean {
@@ -524,23 +572,93 @@ async function loadCabinetArticles(
   return out;
 }
 
+async function sizeRowForCard(opts: {
+  token: string;
+  title: string;
+  sizes: Array<{ techSize: string; skus: string[] }>;
+  warehouses: Wh[];
+}): Promise<FbsSizeTableRow | null> {
+  const sizes: Record<string, number> = {};
+  let total = 0;
+  for (const sz of opts.sizes) {
+    const label = (sz.techSize || '—').trim() || '—';
+    let qty = 0;
+    for (const wh of opts.warehouses) {
+      const stocks = await fetchWarehouseStocks(opts.token, wh.id, sz.skus);
+      for (const v of stocks.values()) qty += v;
+    }
+    if (qty > 0) sizes[label] = (sizes[label] || 0) + qty;
+    total += qty;
+  }
+  if (total <= 0 && !Object.keys(sizes).length) return null;
+  return { title: opts.title, sizes, total };
+}
+
+async function maybeRenderTable(
+  title: string,
+  subtitle: string,
+  rows: FbsSizeTableRow[],
+  wantTable: boolean,
+): Promise<{ photo?: Uint8Array; caption?: string }> {
+  if (!rows.length) return {};
+  // Сводка / «по размерам» — всегда фото; иначе тоже, если есть размеры
+  const hasSizes = rows.some((r) => Object.keys(r.sizes).length > 0);
+  if (!wantTable && !hasSizes) return {};
+  try {
+    const photo = await renderFbsSizeTablePng({ title, subtitle, rows });
+    return { photo, caption: `${title}${subtitle ? ` · ${subtitle}` : ''}` };
+  } catch (e) {
+    console.error('[agent-fbs-stock] table png', e);
+    return {};
+  }
+}
+
+function textFromSizeRows(
+  head: string,
+  rows: FbsSizeTableRow[],
+  warehouseLabel: string,
+): string {
+  const lines: string[] = [head];
+  if (warehouseLabel) lines.push(`Склад: ${warehouseLabel}`);
+  for (const r of rows.slice(0, 10)) {
+    const sizeBits = Object.entries(r.sizes)
+      .sort((a, b) => {
+        const na = Number(a[0]);
+        const nb = Number(b[0]);
+        if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+        return a[0].localeCompare(b[0], 'ru');
+      })
+      .map(([sz, q]) => `${sz}:${q}`);
+    lines.push(
+      sizeBits.length
+        ? `• ${r.title}: ${r.total} шт (${sizeBits.join(' · ')})`
+        : `• ${r.title}: ${r.total} шт`,
+    );
+  }
+  return lines.join('\n');
+}
+
 /** Сводка остатков по выбранным складам без узкого товара (топ артикулов кабинета). */
 async function formatWarehouseOverview(opts: {
   cabinetId: string;
   cabinetName: string;
   warehouseIds: number[] | 'all';
-}): Promise<string> {
+  wantTable?: boolean;
+}): Promise<StockReport> {
   const human = cabinetHumanName(opts.cabinetName);
+  const wantTable = opts.wantTable !== false; // сводка по умолчанию с фото-таблицей
   const auth = await loadCabinetToken(opts.cabinetId);
-  if (!auth) return `${human}: нет WB-токена`;
+  if (!auth) return { text: `${human}: нет WB-токена` };
 
   let warehouses: Wh[];
   try {
     warehouses = await fetchSellerWarehouses(auth.token);
   } catch (e) {
-    return `${human}: не смог получить склады (${e instanceof Error ? e.message : e})`;
+    return {
+      text: `${human}: не смог получить склады (${e instanceof Error ? e.message : e})`,
+    };
   }
-  if (!warehouses.length) return `${human}: FBS-складов нет`;
+  if (!warehouses.length) return { text: `${human}: FBS-складов нет` };
 
   let selected: Wh[];
   if (opts.warehouseIds === 'all') {
@@ -549,66 +667,50 @@ async function formatWarehouseOverview(opts: {
     const want = new Set(opts.warehouseIds);
     selected = warehouses.filter((w) => want.has(w.id));
   }
-  if (!selected.length) return `${human}: склад не найден`;
+  if (!selected.length) return { text: `${human}: склад не найден` };
 
   const articles = await loadCabinetArticles(opts.cabinetId, 8);
   if (!articles.length) {
     console.log(
       `[agent-fbs-stock] overview no rnp_articles cabinet=${opts.cabinetId}`,
     );
-    return `${human}: в базе артикулов нет — напиши модель/цвет, поищу в карточке`;
+    return {
+      text: `${human}: в базе артикулов нет — напиши модель/цвет, поищу в карточке`,
+    };
   }
 
-  // Карточку тянем один раз на артикул, потом остатки по складам
-  const cards: Array<{ title: string; skus: string[] }> = [];
+  const tableRows: FbsSizeTableRow[] = [];
   for (const art of articles) {
     const card = await fetchCardSkus(auth.token, art.nm_id);
     if (!card.skus.length) continue;
-    cards.push({ title: card.vendor || art.title, skus: card.skus });
+    const row = await sizeRowForCard({
+      token: auth.token,
+      title: card.vendor || art.title,
+      sizes: card.sizes.length
+        ? card.sizes
+        : [{ techSize: '—', skus: card.skus }],
+      warehouses: selected,
+    });
+    if (row) tableRows.push(row);
   }
-  if (!cards.length) {
-    console.log(
-      `[agent-fbs-stock] overview no card skus cabinet=${opts.cabinetId} arts=${articles.length}`,
-    );
-    return `${human}: карточки без баркодов — напиши модель/цвет иначе`;
-  }
+  tableRows.sort((a, b) => b.total - a.total);
 
+  const whLabel = selected.map((w) => w.name).join(', ');
   console.log(
-    `[agent-fbs-stock] overview cabinet=${opts.cabinetName} wh=${
-      selected.map((w) => w.name).join('|')
-    } cards=${cards.length}`,
+    `[agent-fbs-stock] overview cabinet=${opts.cabinetName} wh=${whLabel} rows=${tableRows.length}`,
   );
 
-  const lines: string[] = [`${human} · FBS по складам:`];
-  let anyPositive = false;
-
-  for (const wh of selected) {
-    const rows: Array<{ title: string; qty: number }> = [];
-    for (const card of cards) {
-      const stocks = await fetchWarehouseStocks(auth.token, wh.id, card.skus);
-      let qty = 0;
-      for (const v of stocks.values()) qty += v;
-      if (qty <= 0) continue;
-      anyPositive = true;
-      rows.push({ title: card.title, qty });
-    }
-    rows.sort((a, b) => b.qty - a.qty);
-    lines.push(`▶ ${wh.name}`);
-    if (!rows.length) {
-      lines.push('  по топ-артикулам 0');
-    } else {
-      for (const r of rows.slice(0, 8)) {
-        lines.push(`  • ${r.title}: ${r.qty}`);
-      }
-    }
+  if (!tableRows.length) {
+    return {
+      text: `${human} · FBS · ${whLabel}\nПо топ-артикулам пусто. Напиши модель/цвет — проверю точечно`,
+    };
   }
 
-  if (!anyPositive) {
-    lines.push('', 'По топ-артикулам пусто. Напиши модель/цвет — проверю точечно');
-  } else {
-    lines.push('', 'Нужен другой артикул — напиши модель/цвет');
-  }
-  return lines.join('\n');
+  const head = `${human} · FBS по размерам`;
+  const text = textFromSizeRows(head, tableRows, whLabel) +
+    '\n\nСводная таблица — на фото. Нужен другой артикул — напиши модель/цвет';
+  const img = await maybeRenderTable(head, whLabel, tableRows, wantTable);
+  return { text, photo: img.photo, caption: img.caption };
 }
 
 async function formatStocksForCabinet(opts: {
@@ -617,18 +719,22 @@ async function formatStocksForCabinet(opts: {
   warehouseIds: number[] | 'all';
   productText: string;
   minimal?: boolean;
-}): Promise<string> {
+  wantTable?: boolean;
+}): Promise<StockReport> {
   const human = cabinetHumanName(opts.cabinetName);
+  const wantTable = Boolean(opts.wantTable) || wantsFbsSizeTable(opts.productText);
   const auth = await loadCabinetToken(opts.cabinetId);
-  if (!auth) return `${human}: нет WB-токена`;
+  if (!auth) return { text: `${human}: нет WB-токена` };
 
   let warehouses: Wh[];
   try {
     warehouses = await fetchSellerWarehouses(auth.token);
   } catch (e) {
-    return `${human}: не смог получить склады (${e instanceof Error ? e.message : e})`;
+    return {
+      text: `${human}: не смог получить склады (${e instanceof Error ? e.message : e})`,
+    };
   }
-  if (!warehouses.length) return `${human}: FBS-складов нет`;
+  if (!warehouses.length) return { text: `${human}: FBS-складов нет` };
 
   let selected: Wh[];
   if (opts.warehouseIds === 'all') {
@@ -637,60 +743,81 @@ async function formatStocksForCabinet(opts: {
     const want = new Set(opts.warehouseIds);
     selected = warehouses.filter((w) => want.has(w.id));
   }
-  if (!selected.length) return `${human}: склад не найден`;
+  if (!selected.length) return { text: `${human}: склад не найден` };
 
   if (!hasProductQuery(opts.productText)) {
     return await formatWarehouseOverview({
       cabinetId: opts.cabinetId,
       cabinetName: opts.cabinetName,
       warehouseIds: opts.warehouseIds,
+      wantTable: true,
     });
   }
 
   const products = await findProducts(opts.productText, opts.cabinetId);
   if (!products.length) {
-    // Раньше «элиум» как товар → сразу ошибка. Теперь: сводка + просьба уточнить.
     const overview = await formatWarehouseOverview({
       cabinetId: opts.cabinetId,
       cabinetName: opts.cabinetName,
       warehouseIds: opts.warehouseIds,
+      wantTable: true,
     });
-    if (/модель\/цвет|Какая модель/i.test(overview)) {
-      return antonNoProduct(human, Boolean(opts.minimal));
+    if (/артикулов нет|без баркодов/i.test(overview.text)) {
+      return { text: antonNoProduct(human, Boolean(opts.minimal)) };
     }
-    return `${overview}\n\nПо запросу «${opts.productText.slice(0, 40)}» точного артикула не нашёл.`;
+    return {
+      text: `${overview.text}\n\nПо запросу «${opts.productText.slice(0, 40)}» точного артикула не нашёл.`,
+      photo: overview.photo,
+      caption: overview.caption,
+    };
   }
 
+  const tableRows: FbsSizeTableRow[] = [];
   const lines: string[] = [antonStocksLead(human, Boolean(opts.minimal))];
-  for (const p of products.slice(0, opts.minimal ? 2 : 3)) {
+  const whLabel = selected.map((w) => w.name).join(', ');
+
+  for (const p of products.slice(0, opts.minimal ? 2 : 4)) {
     const card = await fetchCardSkus(auth.token, p.nm_id);
     if (!card.skus.length) {
-      lines.push(opts.minimal ? `${p.title}: нет баркодов` : `• ${p.title}: нет баркодов в карточке`);
+      lines.push(
+        opts.minimal
+          ? `${p.title}: нет баркодов`
+          : `• ${p.title}: нет баркодов в карточке`,
+      );
       continue;
     }
-    let total = 0;
-    const byWh: string[] = [];
-    for (const wh of selected) {
-      const stocks = await fetchWarehouseStocks(auth.token, wh.id, card.skus);
-      let qty = 0;
-      for (const v of stocks.values()) qty += v;
-      total += qty;
-      if (selected.length > 1) {
-        byWh.push(opts.minimal ? `${wh.name}: ${qty}` : `  – ${wh.name}: ${qty}`);
-      }
+    const row = await sizeRowForCard({
+      token: auth.token,
+      title: card.vendor || p.title,
+      sizes: card.sizes.length
+        ? card.sizes
+        : [{ techSize: '—', skus: card.skus }],
+      warehouses: selected,
+    });
+    if (!row) {
+      lines.push(`• ${card.vendor || p.title}: 0 шт`);
+      continue;
     }
-    const title = card.vendor || p.title;
-    if (opts.minimal) {
-      lines.push(`${title}: ${total}`);
-      if (selected.length > 1) lines.push(...byWh);
-    } else if (selected.length === 1) {
-      lines.push(`• ${title}: ${total} шт · ${selected[0].name}`);
-    } else {
-      lines.push(`• ${title}: ${total} шт`);
-      lines.push(...byWh);
-    }
+    tableRows.push(row);
+    const sizeBits = Object.entries(row.sizes)
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'ru'))
+      .map(([sz, q]) => `${sz}:${q}`);
+    lines.push(
+      sizeBits.length
+        ? `• ${row.title}: ${row.total} шт (${sizeBits.join(' · ')})`
+        : `• ${row.title}: ${row.total} шт`,
+    );
   }
-  return lines.join('\n');
+  if (selected.length > 1) lines.push(`Склады: ${whLabel}`);
+
+  const img = await maybeRenderTable(
+    `${human} · FBS по размерам`,
+    whLabel,
+    tableRows,
+    wantTable || tableRows.length > 0,
+  );
+  if (img.photo) lines.push('', 'Таблица по размерам — на фото');
+  return { text: lines.join('\n'), photo: img.photo, caption: img.caption };
 }
 
 async function askConfirmCabinet(
@@ -709,6 +836,7 @@ async function askConfirmCabinet(
     cabinetName: cabinet.name,
     guessedFromProduct: true,
     minimal: true,
+    wantTable: wantsFbsSizeTable(queryText),
     items: [
       { id: 'yes', name: 'Да' },
       { id: 'no', name: 'Нет' },
@@ -730,10 +858,11 @@ async function askWarehousesReply(
   queryText: string,
   productText: string,
   pendingId?: string,
-  opts?: { minimal?: boolean },
+  opts?: { minimal?: boolean; wantTable?: boolean },
 ): Promise<FbsStockReply> {
   const human = cabinetHumanName(cabinet.name);
   const minimal = Boolean(opts?.minimal);
+  const wantTable = Boolean(opts?.wantTable) || wantsFbsSizeTable(queryText);
   const auth = await loadCabinetToken(cabinet.id);
   if (!auth) {
     if (pendingId) await cancelPending(pendingId);
@@ -776,25 +905,27 @@ async function askWarehousesReply(
       productsPreview = await findProducts(cleanProduct, cabinet.id);
     }
     if (cleanProduct && productsPreview.length) {
-      const text = await formatStocksForCabinet({
+      const report = await formatStocksForCabinet({
         cabinetId: cabinet.id,
         cabinetName: cabinet.name,
         warehouseIds: [warehouses[0].id],
         productText: cleanProduct,
         minimal,
+        wantTable,
       });
-      if (pendingId) await finishPending(pendingId, text);
-      return { handled: true, agentKey: 'anton', reply: text };
+      if (pendingId) await finishPending(pendingId, report.text);
+      return reportToReply(report);
     }
 
-    // Нет точного товара — сводка по единственному складу
+    // Нет точного товара — сводка по единственному складу (+ фото-таблица)
     const overview = await formatWarehouseOverview({
       cabinetId: cabinet.id,
       cabinetName: cabinet.name,
       warehouseIds: [warehouses[0].id],
+      wantTable: true,
     });
-    if (pendingId) await finishPending(pendingId, overview);
-    return { handled: true, agentKey: 'anton', reply: overview };
+    if (pendingId) await finishPending(pendingId, overview.text);
+    return reportToReply(overview);
   }
 
   const items = warehouses.map((w) => ({ id: String(w.id), name: w.name }));
@@ -806,6 +937,7 @@ async function askWarehousesReply(
     cabinetName: cabinet.name,
     warehouses,
     minimal,
+    wantTable,
     items,
   };
   if (pendingId) {
@@ -832,6 +964,7 @@ async function askCabinetsReply(
   tgUserId: number,
   queryText: string,
   productText: string,
+  wantTable = false,
 ): Promise<FbsStockReply> {
   const cabinets = await listCabinets();
   const items = cabinets.map((c) => ({ id: c.id, name: c.name }));
@@ -839,6 +972,7 @@ async function askCabinetsReply(
     step: 'await_cabinet',
     queryText,
     productText,
+    wantTable: wantTable || wantsFbsSizeTable(queryText),
     items,
   });
   return {
@@ -856,10 +990,13 @@ async function resolveStocksAfterWarehouse(opts: {
 }): Promise<FbsStockReply> {
   const rawProduct = opts.payload.productText || extractProductText(opts.payload.queryText);
   const productText = hasProductQuery(rawProduct) ? rawProduct.trim() : '';
+  const wantTable = Boolean(opts.payload.wantTable) ||
+    wantsFbsSizeTable(opts.payload.queryText);
 
   if (opts.payload.allCabinets) {
     const cabs = await listCabinets();
     const chunks: string[] = [];
+    const photos: NonNullable<FbsStockReply['photos']> = [];
     for (const cab of cabs) {
       const auth = await loadCabinetToken(cab.id);
       if (!auth) continue;
@@ -871,24 +1008,33 @@ async function resolveStocksAfterWarehouse(opts: {
       }
       if (!whs.length) continue;
       const ids = opts.warehouseIds === 'all' ? 'all' as const : opts.warehouseIds;
-      chunks.push(
-        productText
-          ? await formatStocksForCabinet({
-            cabinetId: cab.id,
-            cabinetName: cab.name,
-            warehouseIds: ids === 'all' ? 'all' : ids,
-            productText,
-          })
-          : await formatWarehouseOverview({
-            cabinetId: cab.id,
-            cabinetName: cab.name,
-            warehouseIds: ids === 'all' ? 'all' : ids,
-          }),
-      );
+      const report = productText
+        ? await formatStocksForCabinet({
+          cabinetId: cab.id,
+          cabinetName: cab.name,
+          warehouseIds: ids === 'all' ? 'all' : ids,
+          productText,
+          wantTable,
+        })
+        : await formatWarehouseOverview({
+          cabinetId: cab.id,
+          cabinetName: cab.name,
+          warehouseIds: ids === 'all' ? 'all' : ids,
+          wantTable: true,
+        });
+      chunks.push(report.text);
+      if (report.photo) {
+        photos.push({
+          bytes: report.photo,
+          mime: 'image/png',
+          filename: `fbs-${cab.name}.png`,
+          caption: report.caption || cab.name,
+        });
+      }
     }
     const text = chunks.join('\n\n') || 'По кабинетам ничего не нашёл.';
     await finishPending(opts.pendingId, text);
-    return { handled: true, agentKey: 'anton', reply: text };
+    return { handled: true, agentKey: 'anton', reply: text, photos: photos.slice(0, 4) };
   }
 
   if (!opts.payload.cabinetId || !opts.payload.cabinetName) {
@@ -896,22 +1042,24 @@ async function resolveStocksAfterWarehouse(opts: {
     return { handled: true, agentKey: 'anton', reply: 'Сброс — кабинет потерялся. Спроси остаток ещё раз.' };
   }
 
-  // Нет модели — сразу сводка по выбранному складу (не «не понял товар»)
-  const text = productText
+  // Нет модели — сразу сводка по выбранному складу (+ размеры / фото)
+  const report = productText
     ? await formatStocksForCabinet({
       cabinetId: opts.payload.cabinetId,
       cabinetName: opts.payload.cabinetName,
       warehouseIds: opts.warehouseIds,
       productText,
       minimal: opts.payload.minimal,
+      wantTable,
     })
     : await formatWarehouseOverview({
       cabinetId: opts.payload.cabinetId,
       cabinetName: opts.payload.cabinetName,
       warehouseIds: opts.warehouseIds,
+      wantTable: true,
     });
-  await finishPending(opts.pendingId, text);
-  return { handled: true, agentKey: 'anton', reply: text };
+  await finishPending(opts.pendingId, report.text);
+  return reportToReply(report);
 }
 
 /** Старт нового FBS-запроса (из тимчата). */
@@ -922,6 +1070,7 @@ export async function startFbsStockDialog(opts: {
 }): Promise<FbsStockReply> {
   const queryText = opts.text.trim();
   const productText = extractProductText(queryText);
+  const wantTable = wantsFbsSizeTable(queryText);
 
   // 1) Кабинет из текста / алиасов — уверенно, без «это он?»
   const resolved = await resolveCabinet(queryText);
@@ -932,11 +1081,13 @@ export async function startFbsStockDialog(opts: {
       resolved.match,
       queryText,
       productText,
+      undefined,
+      { wantTable },
     );
   }
 
   // 2) Авто из товара → если неуверен — коротко уточнить кабинет
-  if (productText.length >= 3) {
+  if (hasProductQuery(productText)) {
     const auto = await autoCabinetFromProduct(queryText);
     if (auto.match) {
       if (auto.unsure || !auto.products.length || auto.products.length > 1) {
@@ -956,12 +1107,12 @@ export async function startFbsStockDialog(opts: {
         queryText,
         productText,
         undefined,
-        { minimal: true },
+        { minimal: true, wantTable },
       );
     }
   }
 
-  return await askCabinetsReply(opts.chatId, opts.tgUserId, queryText, productText);
+  return await askCabinetsReply(opts.chatId, opts.tgUserId, queryText, productText, wantTable);
 }
 
 async function handleCabinetChoice(opts: {
@@ -975,27 +1126,39 @@ async function handleCabinetChoice(opts: {
     // По всем кабинетам: с товаром — точечно, без — сводка топ-артикулов
     const raw = opts.payload.productText || extractProductText(opts.payload.queryText);
     const productText = hasProductQuery(raw) ? raw.trim() : '';
+    const wantTable = Boolean(opts.payload.wantTable) ||
+      wantsFbsSizeTable(opts.payload.queryText);
     const cabs = await listCabinets();
     const chunks: string[] = [];
+    const photos: NonNullable<FbsStockReply['photos']> = [];
     for (const cab of cabs) {
-      chunks.push(
-        productText
-          ? await formatStocksForCabinet({
-            cabinetId: cab.id,
-            cabinetName: cab.name,
-            warehouseIds: 'all',
-            productText,
-          })
-          : await formatWarehouseOverview({
-            cabinetId: cab.id,
-            cabinetName: cab.name,
-            warehouseIds: 'all',
-          }),
-      );
+      const report = productText
+        ? await formatStocksForCabinet({
+          cabinetId: cab.id,
+          cabinetName: cab.name,
+          warehouseIds: 'all',
+          productText,
+          wantTable,
+        })
+        : await formatWarehouseOverview({
+          cabinetId: cab.id,
+          cabinetName: cab.name,
+          warehouseIds: 'all',
+          wantTable: true,
+        });
+      chunks.push(report.text);
+      if (report.photo) {
+        photos.push({
+          bytes: report.photo,
+          mime: 'image/png',
+          filename: `fbs-${cab.name}.png`,
+          caption: report.caption || cab.name,
+        });
+      }
     }
     const text = chunks.join('\n\n') || antonAskProductAllCabs();
     await finishPending(opts.pendingId, text);
-    return { handled: true, agentKey: 'anton', reply: text };
+    return { handled: true, agentKey: 'anton', reply: text, photos: photos.slice(0, 4) };
   }
 
   const rawProduct = opts.payload.productText || extractProductText(opts.payload.queryText);
@@ -1006,6 +1169,10 @@ async function handleCabinetChoice(opts: {
     opts.payload.queryText,
     hasProductQuery(rawProduct) ? rawProduct.trim() : '',
     opts.pendingId,
+    {
+      wantTable: Boolean(opts.payload.wantTable) ||
+        wantsFbsSizeTable(opts.payload.queryText),
+    },
   );
 }
 
@@ -1100,6 +1267,14 @@ export async function continueFbsStockDialog(opts: {
 
   if (payload.step === 'await_warehouse') {
     const items = payload.items || [];
+    // «сводную по размерам» без названия склада → все склады + фото-таблица
+    if (wantsFbsSizeTable(text) && !matchItemByText(text, items)) {
+      return await resolveStocksAfterWarehouse({
+        pendingId: pending.id,
+        payload: { ...payload, wantTable: true },
+        warehouseIds: 'all',
+      });
+    }
     const choice = matchItemByText(text, items);
     if (!choice) {
       return {
@@ -1114,13 +1289,18 @@ export async function continueFbsStockDialog(opts: {
       : [Number(choice.id)];
     return await resolveStocksAfterWarehouse({
       pendingId: pending.id,
-      payload,
+      payload: {
+        ...payload,
+        wantTable: Boolean(payload.wantTable) || wantsFbsSizeTable(text),
+      },
       warehouseIds,
     });
   }
 
   if (payload.step === 'await_product') {
     const productText = extractProductText(text) || text;
+    const wantTable = Boolean(payload.wantTable) || wantsFbsSizeTable(text) ||
+      wantsFbsSizeTable(payload.queryText);
     if (productText.length < 3) {
       return {
         handled: true,
@@ -1131,34 +1311,44 @@ export async function continueFbsStockDialog(opts: {
     if (payload.allCabinets) {
       const cabs = await listCabinets();
       const chunks: string[] = [];
+      const photos: NonNullable<FbsStockReply['photos']> = [];
       for (const cab of cabs) {
-        chunks.push(
-          await formatStocksForCabinet({
-            cabinetId: cab.id,
-            cabinetName: cab.name,
-            warehouseIds: 'all',
-            productText,
-          }),
-        );
+        const report = await formatStocksForCabinet({
+          cabinetId: cab.id,
+          cabinetName: cab.name,
+          warehouseIds: 'all',
+          productText,
+          wantTable,
+        });
+        chunks.push(report.text);
+        if (report.photo) {
+          photos.push({
+            bytes: report.photo,
+            mime: 'image/png',
+            filename: `fbs-${cab.name}.png`,
+            caption: report.caption || cab.name,
+          });
+        }
       }
       const out = chunks.join('\n\n') || 'Пусто.';
       await finishPending(pending.id, out);
-      return { handled: true, agentKey: 'anton', reply: out };
+      return { handled: true, agentKey: 'anton', reply: out, photos: photos.slice(0, 4) };
     }
     if (!payload.cabinetId || !payload.cabinetName) {
       await cancelPending(pending.id);
       return { handled: true, agentKey: 'anton', reply: 'Сброс. Спроси остаток FBS ещё раз.' };
     }
     const whs = payload.warehouses || [];
-    const textOut = await formatStocksForCabinet({
+    const report = await formatStocksForCabinet({
       cabinetId: payload.cabinetId,
       cabinetName: payload.cabinetName,
       warehouseIds: whs.length ? whs.map((w) => w.id) : 'all',
       productText,
       minimal: payload.minimal,
+      wantTable,
     });
-    await finishPending(pending.id, textOut);
-    return { handled: true, agentKey: 'anton', reply: textOut };
+    await finishPending(pending.id, report.text);
+    return reportToReply(report);
   }
 
   return { handled: false };

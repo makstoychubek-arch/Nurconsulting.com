@@ -107,8 +107,10 @@ export function parseFastCommand(raw: string): { cmd: string; arg: string } | nu
     return normalizeAdsCmd("ads", (m[2] || "").trim());
   }
 
-  if (/^(fbs|фбс|отгрузк)/i.test(lower)) {
-    return { cmd: "fbs", arg: text.replace(/^(fbs|фбс|отгрузки?)\s*/i, "").trim() };
+  // Только голое «fbs»/«фбс»/«отгрузки» → дальше в FBS-диалог остатков.
+  // «fbs остатки», «фбс база» НЕ fast-команда (иначе уходит в заказы fbs_daily).
+  if (/^(fbs|фбс|отгрузки?)$/i.test(lower)) {
+    return { cmd: "fbs", arg: "" };
   }
 
   if (/^(самовыкуп|selfbuy|выкупы клиент)/i.test(lower)) {
@@ -240,7 +242,8 @@ export async function tryFastCommand(
       return { handled: false, agentKey: "amina" };
     }
     if (cmd === "fbs") {
-      return { handled: true, agentKey: "anton", reply: await fbsBrief() };
+      // Реальные остатки FBS (склады/размеры) — через agent-fbs-stock, не brief заказов
+      return { handled: false, agentKey: "anton" };
     }
     if (cmd === "selfbuy" || cmd === "самовыкуп") {
       return { handled: true, agentKey: "alina", reply: await alinaSelfbuyStatsText() };
