@@ -420,7 +420,13 @@ export async function fetchSellerWarehouses(token: string): Promise<Wh[]> {
 async function fetchCardSkus(
   token: string,
   nmId: number,
-): Promise<{ vendor: string; skus: string[]; sizes: Array<{ techSize: string; skus: string[] }> }> {
+): Promise<{
+  vendor: string;
+  title: string;
+  skus: string[];
+  sizes: Array<{ techSize: string; skus: string[] }>;
+}> {
+  const empty = { vendor: '', title: '', skus: [] as string[], sizes: [] as Array<{ techSize: string; skus: string[] }> };
   const res = await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list', {
     method: 'POST',
     headers: {
@@ -436,13 +442,13 @@ async function fetchCardSkus(
     }),
     signal: AbortSignal.timeout(25000),
   });
-  if (!res.ok) return { vendor: '', skus: [], sizes: [] };
+  if (!res.ok) return empty;
   const data = await res.json().catch(() => ({}));
   const cards = Array.isArray(data?.cards) ? data.cards : [];
   const card = cards.find((c: Record<string, unknown>) =>
     Number(c.nmID || c.nmId) === nmId
   );
-  if (!card) return { vendor: '', skus: [], sizes: [] };
+  if (!card) return empty;
   const sizes: Array<{ techSize: string; skus: string[] }> = [];
   const skus: string[] = [];
   for (const s of card.sizes || []) {
@@ -450,7 +456,15 @@ async function fetchCardSkus(
     sizes.push({ techSize: String(s.techSize || s.wbSize || ''), skus: rowSkus });
     skus.push(...rowSkus);
   }
-  return { vendor: String(card.vendorCode || ''), skus: [...new Set(skus)], sizes };
+  const title = String(
+    card.title || card.subjectName || card.name || '',
+  ).trim();
+  return {
+    vendor: String(card.vendorCode || '').trim(),
+    title,
+    skus: [...new Set(skus)],
+    sizes,
+  };
 }
 
 async function fetchWarehouseStocks(
@@ -574,7 +588,8 @@ async function loadCabinetArticles(
 
 async function sizeRowForCard(opts: {
   token: string;
-  title: string;
+  article: string;
+  name: string;
   sizes: Array<{ techSize: string; skus: string[] }>;
   warehouses: Wh[];
 }): Promise<FbsSizeTableRow | null> {
@@ -591,7 +606,9 @@ async function sizeRowForCard(opts: {
     total += qty;
   }
   if (total <= 0 && !Object.keys(sizes).length) return null;
-  return { title: opts.title, sizes, total };
+  const article = opts.article || opts.name || '—';
+  const name = opts.name || opts.article || '—';
+  return { article, name, title: article, sizes, total };
 }
 
 async function maybeRenderTable(
@@ -620,7 +637,8 @@ function textFromSizeRows(
 ): string {
   const lines: string[] = [head];
   if (warehouseLabel) lines.push(`Склад: ${warehouseLabel}`);
-  for (const r of rows.slice(0, 10)) {
+  for (const r of rows.slice(0, 12)) {
+    const label = r.article || r.title || r.name;
     const sizeBits = Object.entries(r.sizes)
       .sort((a, b) => {
         const na = Number(a[0]);
@@ -631,10 +649,12 @@ function textFromSizeRows(
       .map(([sz, q]) => `${sz}:${q}`);
     lines.push(
       sizeBits.length
-        ? `• ${r.title}: ${r.total} шт (${sizeBits.join(' · ')})`
-        : `• ${r.title}: ${r.total} шт`,
+        ? `• ${label}: ${r.total} шт (${sizeBits.join(' · ')})`
+        : `• ${label}: ${r.total} шт`,
     );
   }
+  const grand = rows.reduce((s, r) => s + r.total, 0);
+  lines.push(`ОБЩИЙ ИТОГ: ${grand} шт`);
   return lines.join('\n');
 }
 
@@ -669,7 +689,8 @@ async function formatWarehouseOverview(opts: {
   }
   if (!selected.length) return { text: `${human}: склад не найден` };
 
-  const articles = await loadCabinetArticles(opts.cabinetId, 8);
+  // Больше строк для сводной «как в образце»
+  const articles = await loadCabinetArticles(opts.cabinetId, 28);
   if (!articles.length) {
     console.log(
       `[agent-fbs-stock] overview no rnp_articles cabinet=${opts.cabinetId}`,
@@ -685,7 +706,8 @@ async function formatWarehouseOverview(opts: {
     if (!card.skus.length) continue;
     const row = await sizeRowForCard({
       token: auth.token,
-      title: card.vendor || art.title,
+      article: card.vendor || art.title,
+      name: card.title || art.title || card.vendor,
       sizes: card.sizes.length
         ? card.sizes
         : [{ techSize: '—', skus: card.skus }],
@@ -706,7 +728,7 @@ async function formatWarehouseOverview(opts: {
     };
   }
 
-  const head = `${human} · FBS по размерам`;
+  const head = `${human} · FBS сводная`;
   const text = textFromSizeRows(head, tableRows, whLabel) +
     '\n\nСводная таблица — на фото. Нужен другой артикул — напиши модель/цвет';
   const img = await maybeRenderTable(head, whLabel, tableRows, wantTable);
@@ -788,7 +810,8 @@ async function formatStocksForCabinet(opts: {
     }
     const row = await sizeRowForCard({
       token: auth.token,
-      title: card.vendor || p.title,
+      article: card.vendor || p.title,
+      name: card.title || p.title || card.vendor,
       sizes: card.sizes.length
         ? card.sizes
         : [{ techSize: '—', skus: card.skus }],
@@ -802,10 +825,11 @@ async function formatStocksForCabinet(opts: {
     const sizeBits = Object.entries(row.sizes)
       .sort((a, b) => String(a[0]).localeCompare(String(b[0]), 'ru'))
       .map(([sz, q]) => `${sz}:${q}`);
+    const label = row.article || row.name;
     lines.push(
       sizeBits.length
-        ? `• ${row.title}: ${row.total} шт (${sizeBits.join(' · ')})`
-        : `• ${row.title}: ${row.total} шт`,
+        ? `• ${label}: ${row.total} шт (${sizeBits.join(' · ')})`
+        : `• ${label}: ${row.total} шт`,
     );
   }
   if (selected.length > 1) lines.push(`Склады: ${whLabel}`);

@@ -1,10 +1,17 @@
 /**
- * PNG-таблица остатков FBS по размерам (как daily-sales-report).
+ * PNG сводная остатков FBS — стиль образца:
+ * зелёная шапка, бежевые строки, красный «ОБЩИЙ ИТОГ».
+ * Колонки: Артикул продавца | Наименование | Остаток, шт
  */
 import { createCanvas } from "https://deno.land/x/canvas@v1.4.2/mod.ts";
 
 export type FbsSizeTableRow = {
-  title: string;
+  /** Артикул продавца (vendorCode) */
+  article: string;
+  /** Наименование */
+  name: string;
+  /** @deprecated alias для совместимости — article или name */
+  title?: string;
   sizes: Record<string, number>;
   total: number;
 };
@@ -40,12 +47,12 @@ function drawCell(
 ) {
   if (align === "right") {
     const tw = ctx.measureText(text).width;
-    ctx.fillText(text, x + w - 8 - tw, y);
+    ctx.fillText(text, x + w - 10 - tw, y);
   } else if (align === "center") {
     const tw = ctx.measureText(text).width;
     ctx.fillText(text, x + (w - tw) / 2, y);
   } else {
-    ctx.fillText(text, x + 8, y);
+    ctx.fillText(text, x + 10, y);
   }
 }
 
@@ -57,45 +64,45 @@ function fitText(ctx: any, text: string, maxW: number): string {
   return s + "…";
 }
 
-function collectSizeKeys(rows: FbsSizeTableRow[]): string[] {
-  const keys = new Set<string>();
-  for (const r of rows) {
-    for (const k of Object.keys(r.sizes)) keys.add(k);
-  }
-  const list = [...keys];
-  list.sort((a, b) => {
-    const na = Number(a);
-    const nb = Number(b);
-    if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
-    return a.localeCompare(b, "ru");
-  });
-  return list.slice(0, 12);
+function normalizeRows(rows: FbsSizeTableRow[]): Array<{
+  article: string;
+  name: string;
+  total: number;
+}> {
+  return rows
+    .filter((r) => r.total > 0)
+    .map((r) => ({
+      article: (r.article || r.title || "—").trim() || "—",
+      name: (r.name || r.title || "—").trim() || "—",
+      total: r.total,
+    }));
 }
 
-/** Рисует таблицу: артикул × размеры × итого. */
+/**
+ * Сводная таблица как на образце:
+ * шапка #1F5C3A белый текст, строки #F5E6C8, итог #B71C1C.
+ */
 export async function renderFbsSizeTablePng(opts: {
   title: string;
   subtitle?: string;
   rows: FbsSizeTableRow[];
 }): Promise<Uint8Array> {
   await ensureFonts();
-  const rows = opts.rows.filter((r) => r.total > 0 || Object.keys(r.sizes).length);
-  const drawRows = rows.length
-    ? rows
-    : [{ title: "нет данных", sizes: {} as Record<string, number>, total: 0 }];
+  const drawRows = normalizeRows(opts.rows);
+  const rows = drawRows.length
+    ? drawRows
+    : [{ article: "—", name: "нет данных", total: 0 }];
 
-  const sizeKeys = collectSizeKeys(drawRows);
   const S = 2;
-  const articleW = 280;
-  const sizeW = 64;
-  const totalW = 78;
-  const PAD = 14;
-  const width = PAD * 2 + articleW + sizeKeys.length * sizeW + totalW;
-  const titleH = opts.subtitle ? 64 : 52;
-  const headerH = 48;
-  const rowH = 38;
-  const totalH = 44;
-  const height = PAD * 2 + titleH + headerH + drawRows.length * rowH + totalH;
+  const PAD = 0;
+  const articleW = 260;
+  const nameW = 420;
+  const stockW = 120;
+  const width = articleW + nameW + stockW;
+  const headerH = 44;
+  const rowH = 36;
+  const totalH = 42;
+  const height = headerH + rows.length * rowH + totalH;
 
   const canvas = createCanvas(width * S, height * S);
   canvas.loadFont(fontRegular!, { family: "DejaVu" });
@@ -103,98 +110,69 @@ export async function renderFbsSizeTablePng(opts: {
   const ctx = canvas.getContext("2d");
   ctx.scale(S, S);
 
-  ctx.fillStyle = "#ffffff";
+  // фон
+  ctx.fillStyle = "#F5E6C8";
   ctx.fillRect(0, 0, width, height);
 
-  ctx.fillStyle = "#1a1a1a";
-  ctx.font = "bold 20px DejaVu";
-  ctx.textBaseline = "middle";
-  ctx.fillText(opts.title.slice(0, 80), PAD, PAD + (opts.subtitle ? 18 : titleH / 2));
-  if (opts.subtitle) {
-    ctx.fillStyle = "#555555";
-    ctx.font = "14px DejaVu";
-    ctx.fillText(opts.subtitle.slice(0, 90), PAD, PAD + 42);
-  }
+  const colX = [0, articleW, articleW + nameW];
+  const colsW = [articleW, nameW, stockW];
 
-  const colX: number[] = [PAD];
-  let x = PAD + articleW;
-  for (let i = 0; i < sizeKeys.length; i++) {
-    colX.push(x);
-    x += sizeW;
-  }
-  colX.push(x);
-  const colsW = [articleW, ...sizeKeys.map(() => sizeW), totalW];
-  const tableTop = PAD + titleH;
-  const tableW = width - PAD * 2;
-
-  ctx.fillStyle = "#c9e7c5";
-  ctx.fillRect(PAD, tableTop, tableW, headerH);
-  ctx.fillStyle = "#143d14";
-  ctx.font = "bold 14px DejaVu";
-  drawCell(ctx, "Артикул", colX[0], tableTop + headerH / 2, colsW[0], "left");
-  sizeKeys.forEach((sz, i) => {
-    drawCell(ctx, sz || "—", colX[i + 1], tableTop + headerH / 2, colsW[i + 1], "center");
-  });
-  drawCell(
-    ctx,
-    "Итого",
-    colX[colX.length - 1],
-    tableTop + headerH / 2,
-    totalW,
-    "center",
-  );
-
-  ctx.font = "14px DejaVu";
-  const sizeTotals: Record<string, number> = {};
-  let grand = 0;
-  drawRows.forEach((r, ri) => {
-    const y = tableTop + headerH + ri * rowH;
-    if (ri % 2 === 1) {
-      ctx.fillStyle = "#f3f7f3";
-      ctx.fillRect(PAD, y, tableW, rowH);
-    }
-    ctx.fillStyle = "#222222";
-    const cy = y + rowH / 2;
-    drawCell(ctx, fitText(ctx, r.title, articleW - 16), colX[0], cy, articleW, "left");
-    sizeKeys.forEach((sz, i) => {
-      const q = Number(r.sizes[sz] || 0);
-      sizeTotals[sz] = (sizeTotals[sz] || 0) + q;
-      drawCell(ctx, q ? String(q) : "·", colX[i + 1], cy, sizeW, "center");
-    });
-    grand += r.total;
-    drawCell(ctx, String(r.total), colX[colX.length - 1], cy, totalW, "center");
-  });
-
-  const totalY = tableTop + headerH + drawRows.length * rowH;
-  ctx.fillStyle = "#c9e7c5";
-  ctx.fillRect(PAD, totalY, tableW, totalH);
-  ctx.fillStyle = "#143d14";
+  // Шапка — тёмно-зелёная, белый текст
+  ctx.fillStyle = "#1F5C3A";
+  ctx.fillRect(0, 0, width, headerH);
+  ctx.fillStyle = "#FFFFFF";
   ctx.font = "bold 15px DejaVu";
-  const tcy = totalY + totalH / 2;
-  drawCell(ctx, "Итого", colX[0], tcy, articleW, "left");
-  sizeKeys.forEach((sz, i) => {
-    drawCell(ctx, String(sizeTotals[sz] || 0), colX[i + 1], tcy, sizeW, "center");
-  });
-  drawCell(ctx, String(grand), colX[colX.length - 1], tcy, totalW, "center");
+  ctx.textBaseline = "middle";
+  drawCell(ctx, "Артикул продавца", colX[0], headerH / 2, colsW[0], "left");
+  drawCell(ctx, "Наименование", colX[1], headerH / 2, colsW[1], "left");
+  drawCell(ctx, "Остаток, шт", colX[2], headerH / 2, colsW[2], "center");
 
-  ctx.strokeStyle = "#dde5dd";
-  ctx.lineWidth = 1;
-  for (let ri = 0; ri <= drawRows.length; ri++) {
-    const y = tableTop + headerH + ri * rowH;
+  // Строки — бежевый фон, чёрный текст, остаток жирный
+  let grand = 0;
+  rows.forEach((r, ri) => {
+    const y = headerH + ri * rowH;
+    ctx.fillStyle = "#F5E6C8";
+    ctx.fillRect(0, y, width, rowH);
+    ctx.fillStyle = "#1A1A1A";
+    ctx.font = "14px DejaVu";
+    const cy = y + rowH / 2;
+    drawCell(ctx, fitText(ctx, r.article, articleW - 20), colX[0], cy, colsW[0], "left");
+    drawCell(ctx, fitText(ctx, r.name, nameW - 20), colX[1], cy, colsW[1], "left");
+    ctx.font = "bold 15px DejaVu";
+    drawCell(ctx, String(r.total), colX[2], cy, colsW[2], "center");
+    grand += r.total;
+  });
+
+  // ОБЩИЙ ИТОГ — тёмно-красный, белый
+  const totalY = headerH + rows.length * rowH;
+  ctx.fillStyle = "#B71C1C";
+  ctx.fillRect(0, totalY, width, totalH);
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 16px DejaVu";
+  const tcy = totalY + totalH / 2;
+  drawCell(ctx, "ОБЩИЙ ИТОГ", colX[0], tcy, articleW + nameW, "left");
+  drawCell(ctx, String(grand), colX[2], tcy, colsW[2], "center");
+
+  // Чёрные границы сетки
+  ctx.strokeStyle = "#111111";
+  ctx.lineWidth = 1.25;
+  const ys = [0, headerH];
+  for (let i = 1; i <= rows.length; i++) ys.push(headerH + i * rowH);
+  ys.push(height);
+  for (const y of ys) {
     ctx.beginPath();
-    ctx.moveTo(PAD, y);
-    ctx.lineTo(PAD + tableW, y);
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
     ctx.stroke();
   }
-  const tableBottom = totalY + totalH;
-  ctx.strokeStyle = "#c5d5c5";
-  for (let ci = 1; ci < colX.length; ci++) {
+  for (const x of [0, articleW, articleW + nameW, width]) {
     ctx.beginPath();
-    ctx.moveTo(colX[ci], tableTop);
-    ctx.lineTo(colX[ci], tableBottom);
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, height);
     ctx.stroke();
   }
-  ctx.strokeRect(PAD, tableTop, tableW, tableBottom - tableTop);
+  ctx.lineWidth = 2;
+  ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
 
   return canvas.toBuffer("image/png");
 }
