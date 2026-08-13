@@ -105,8 +105,20 @@ function admin(): SupabaseClient {
 }
 
 export function wantsFbsStock(text: string): boolean {
-  return /(фбс|fbs)/i.test(text) &&
-    /(остат|осталось|сколько|склад|налич|есть\s+ли)/i.test(text);
+  const t = (text || '').trim();
+  if (!t || !/(фбс|fbs)/i.test(t)) return false;
+  // явный остаток/склад
+  if (/(остат|осталось|сколько|склад|налич|есть\s+ли)/i.test(t)) return true;
+  // «а по базы fbs?», «fbs элиум», «фбс база» — без слова «остаток»
+  if (
+    /(баз[аеуы]|baza|элиум|elium|saai|сааи|зевин|zevina|уркунбаев|айзада|уметалиев)/i
+      .test(t)
+  ) {
+    return true;
+  }
+  // короткая реплика про FBS в тимчате
+  if (t.length <= 40) return true;
+  return false;
 }
 
 export function isFbsStockCallback(data: string): boolean {
@@ -178,13 +190,14 @@ function extractProductText(text: string): string {
     .replace(/(^|[\s,.:;!?])(антон|anton|логист\w*)(?=$|[\s,.:;!?])/gi, ' ')
     .replace(/(^|[\s,.:;!?])(фбс|fbs)(?=$|[\s,.:;!?])/gi, ' ')
     .replace(
-      /(^|[\s,.:;!?])(остат\w*|осталось|сколько|налич\w*|склад\w*|кабинет\w*|слыш\w*|дай|скинь|покажи|нужен|нужно|есть|все|всех)(?=$|[\s,.:;!?])/gi,
+      /(^|[\s,.:;!?])(остат\w*|осталось|сколько|налич\w*|склад\w*|кабинет\w*|слыш\w*|дай|скинь|покажи|нужен|нужно|есть|все|всех|сейчас|сейча|вб|wb|wildberries|вайлд\w*|маркетплейс\w*|продавц\w*)(?=$|[\s,.:;!?])/gi,
       ' ',
     )
-    .replace(/(^|[\s,.:;!?])по(?=$|[\s,.:;!?])/gi, ' ')
+    .replace(/(^|[\s,.:;!?])(по|на|в|и|а|же|там|тут)(?=$|[\s,.:;!?])/gi, ' ')
+    .replace(/[?!.…]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-  // «остатки фбс элиум» → не оставлять «элиум» как товар
+  // «остатки фбс элиум» / «по базы fbs» → не оставлять кабинет как товар
   return stripCabinetAliases(cleaned);
 }
 
@@ -192,15 +205,17 @@ function extractProductText(text: string): string {
 function hasProductQuery(text: string | undefined): boolean {
   const t = (text || '').trim();
   if (t.length < 3) return false;
-  // одно короткое слово без модели/цвета — почти всегда кабинет/шум
   const words = t.split(/\s+/).filter(Boolean);
+  // одно короткое слово без модели/цвета — почти всегда кабинет/шум
   if (
     words.length === 1 &&
     words[0].length <= 8 &&
-    !/(костюм|пиджак|блуз|фонар|вырез|жилет|брюк|укороч)/i.test(t)
+    !/(костюм|пиджак|блуз|фонар|вырез|жилет|брюк|укороч|лапш)/i.test(t)
   ) {
     return false;
   }
+  // только служебный шум
+  if (!/([а-яa-z]{4,})/i.test(t)) return false;
   return true;
 }
 
@@ -536,9 +551,12 @@ async function formatWarehouseOverview(opts: {
   }
   if (!selected.length) return `${human}: склад не найден`;
 
-  const articles = await loadCabinetArticles(opts.cabinetId, 6);
+  const articles = await loadCabinetArticles(opts.cabinetId, 8);
   if (!articles.length) {
-    return antonAskProduct(human, true);
+    console.log(
+      `[agent-fbs-stock] overview no rnp_articles cabinet=${opts.cabinetId}`,
+    );
+    return `${human}: в базе артикулов нет — напиши модель/цвет, поищу в карточке`;
   }
 
   // Карточку тянем один раз на артикул, потом остатки по складам
@@ -549,8 +567,17 @@ async function formatWarehouseOverview(opts: {
     cards.push({ title: card.vendor || art.title, skus: card.skus });
   }
   if (!cards.length) {
-    return antonAskProduct(human, true);
+    console.log(
+      `[agent-fbs-stock] overview no card skus cabinet=${opts.cabinetId} arts=${articles.length}`,
+    );
+    return `${human}: карточки без баркодов — напиши модель/цвет иначе`;
   }
+
+  console.log(
+    `[agent-fbs-stock] overview cabinet=${opts.cabinetName} wh=${
+      selected.map((w) => w.name).join('|')
+    } cards=${cards.length}`,
+  );
 
   const lines: string[] = [`${human} · FBS по складам:`];
   let anyPositive = false;
@@ -568,7 +595,7 @@ async function formatWarehouseOverview(opts: {
     rows.sort((a, b) => b.qty - a.qty);
     lines.push(`▶ ${wh.name}`);
     if (!rows.length) {
-      lines.push('  пусто / 0 по топ-артикулам');
+      lines.push('  по топ-артикулам 0');
     } else {
       for (const r of rows.slice(0, 8)) {
         lines.push(`  • ${r.title}: ${r.qty}`);
@@ -577,9 +604,9 @@ async function formatWarehouseOverview(opts: {
   }
 
   if (!anyPositive) {
-    lines.push('', 'Если нужен конкретный — напиши модель/цвет');
+    lines.push('', 'По топ-артикулам пусто. Напиши модель/цвет — проверю точечно');
   } else {
-    lines.push('', 'Уточни модель/цвет — покажу точнее');
+    lines.push('', 'Нужен другой артикул — напиши модель/цвет');
   }
   return lines.join('\n');
 }
