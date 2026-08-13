@@ -13,7 +13,7 @@ export type PendingStatus =
   | "cancelled"
   | "expired";
 
-export type ActionType = "advert_start" | "advert_pause";
+export type ActionType = "advert_start" | "advert_pause" | "fbs_stock" | string;
 
 export type PendingAction = {
   id: string;
@@ -26,7 +26,8 @@ export type PendingAction = {
   payload: {
     campaignIds?: number[];
     selectedIds?: number[];
-    items?: Array<{ id: number; name: string; status: number }>;
+    items?: Array<{ id: number | string; name: string; status?: number }>;
+    [key: string]: unknown;
   };
 };
 
@@ -60,8 +61,26 @@ export function normName(s: string): string {
 const CABINET_ALIASES: Record<string, string[]> = {
   baza: ["baza", "база", "базы", "базу", "базе"],
   saai: ["saai", "сааи", "саи"],
-  zevina: ["zevina", "зевина", "зевину", "зевине"],
-  elium: ["elium", "элиум"],
+  zevina: [
+    "zevina",
+    "зевина",
+    "зевину",
+    "зевине",
+    "уркунбаев",
+    "urkunbaev",
+    "ипуркунбаев",
+  ],
+  elium: [
+    "elium",
+    "элиум",
+    "элиуме",
+    "айзада",
+    "аизада",
+    "aizada",
+    "уметалиева",
+    "umetalieva",
+    "уметалиев",
+  ],
 };
 
 export async function listCabinets(): Promise<Array<{ id: string; name: string }>> {
@@ -93,10 +112,20 @@ export async function resolveCabinet(text: string): Promise<{
   if (direct.length === 1) return { match: direct[0], candidates: direct };
   if (direct.length > 1) return { candidates: direct };
 
-  // Алиасы
+  // Алиасы (элиум / айзада / уркунбаев → конкретный кабинет)
   for (const [key, aliases] of Object.entries(CABINET_ALIASES)) {
     if (!aliases.some((a) => t.includes(normName(a)))) continue;
-    const hit = cabinets.filter((c) => normName(c.name).includes(key) || normName(c.name).startsWith(key));
+    let hit = cabinets.filter((c) =>
+      normName(c.name).includes(key) || normName(c.name).startsWith(key)
+    );
+    // «уркунбаев» → Zevina 1 (не Zevina 2), если оба матчятся
+    if (key === "zevina" && hit.length > 1) {
+      const prefer1 = hit.filter((c) => /1|один/.test(c.name) || /zevina1/.test(normName(c.name)));
+      // ИП Уркунбаев в команде = Zevina 1
+      if (/уркунбаев|urkunbaev|ипуркунбаев/.test(t) && prefer1.length === 1) {
+        hit = prefer1;
+      }
+    }
     if (hit.length === 1) return { match: hit[0], candidates: hit };
     if (hit.length > 1) return { candidates: hit };
   }
@@ -158,7 +187,7 @@ export async function getActivePending(chatId: number): Promise<PendingAction | 
   return (data as PendingAction) || null;
 }
 
-async function cancelOtherPending(db: SupabaseClient, chatId: number) {
+export async function cancelOtherPending(db: SupabaseClient, chatId: number) {
   await db
     .from("agent_pending_actions")
     .update({ status: "cancelled", updated_at: new Date().toISOString() })
@@ -243,6 +272,10 @@ export async function handleOwnerActionMessage(opts: {
   // 1) Активный pending: отмена / выбор / подтверждение
   const pending = await getActivePending(opts.chatId);
   if (pending) {
+    // FBS-диалог Антона обрабатывается отдельно (agent-fbs-stock)
+    if (pending.action_type === "fbs_stock") {
+      return { handled: false };
+    }
     // Отвечает тот же агент, кто вёл диалог
     if (opts.agentKey !== pending.agent_key) {
       return { handled: false };

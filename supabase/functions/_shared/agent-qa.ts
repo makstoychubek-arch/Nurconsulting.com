@@ -18,11 +18,13 @@ import {
 import { alinaSelfbuyStatsText } from './alina-selfbuy.ts';
 import { fetchWbMainPhoto } from './alina-wb-photo.ts';
 import { detectNamedAgents, detectMentionedAgents } from './agent-team.ts';
+import { wantsFbsStock } from './agent-fbs-stock.ts';
 
 export type TeamQaResult = {
   handled: boolean;
   agentKey?: string;
   reply?: string;
+  replyMarkup?: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> };
   photos?: Array<{
     url?: string;
     bytes?: Uint8Array;
@@ -30,6 +32,8 @@ export type TeamQaResult = {
     filename?: string;
     caption?: string;
   }>;
+  /** Нужны chatId/userId — роутер сам стартует FBS-диалог */
+  deferFbsStock?: boolean;
 };
 
 function admin() {
@@ -60,7 +64,9 @@ function wantsWbProductPhoto(text: string): boolean {
 }
 
 function wantsStock(text: string): boolean {
-  return /(остат|осталось|сколько\s+на\s+склад|фбс|fbs|на\s+склад)/i.test(text);
+  // FBS-остатки — отдельный диалог Антона (wantsFbsStock)
+  if (wantsFbsStock(text)) return false;
+  return /(остат|осталось|сколько\s+на\s+склад|на\s+склад)/i.test(text);
 }
 
 function getOpenFromSnap(offers: SheetPlanOffer[]): SheetPlanOffer[] {
@@ -192,7 +198,9 @@ function scoreArticleName(name: string, text: string): number {
   if (/блузк|лапш/.test(t) && (/блуз|лапш|фонар|вырез/.test(n))) score += 2;
   if (/бел/.test(t) && /бел/.test(n)) score += 3;
   if (/черн|чёрн/.test(t) && /черн/.test(n)) score += 3;
+  if (/укороч/.test(t) && /укороч/.test(n)) score += 4;
   if (/костюм/.test(t) && /костюм/.test(n)) score += 4;
+  if (/пиджак/.test(t) && /пиджак/.test(n)) score += 3;
   if (/жилет/.test(t) && /жилет/.test(n)) score += 4;
   return score;
 }
@@ -353,7 +361,18 @@ export async function tryTeamSmartQa(
     }
   }
 
-  // ── Остатки (Антон) ─────────────────────────────────────────────────────
+  // ── Остатки FBS (Антон, мультишаг с кнопками) ───────────────────────────
+  if (wantsFbsStock(t)) {
+    if (triggeringBot === 'anton' && (!named.length || named.includes('anton'))) {
+      return { handled: true, agentKey: 'anton', deferFbsStock: true };
+    }
+    // чужие боты молчат, пока вопрос про FBS-остатки
+    if (!named.length || named.includes('anton')) {
+      return { handled: true };
+    }
+  }
+
+  // ── Остатки WB-складов (Антон, без FBS) ─────────────────────────────────
   if (wantsStock(t)) {
     if (triggeringBot === 'anton' && (!named.length || named.includes('anton'))) {
       return await answerStock(t);

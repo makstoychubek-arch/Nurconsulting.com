@@ -25,6 +25,14 @@ import {
 import { generateMuhaPhoto, wantsPhoto } from "../_shared/muha-photos.ts";
 import { teamQaFactsForAgent, tryTeamSmartQa } from "../_shared/agent-qa.ts";
 import {
+  continueFbsStockDialog,
+  handleFbsStockCallback,
+  hasActiveFbsStockDialog,
+  isFbsStockCallback,
+  startFbsStockDialog,
+  wantsFbsStock,
+} from "../_shared/agent-fbs-stock.ts";
+import {
   buildTeamPlan,
   clampHops,
   isDoneReply,
@@ -109,6 +117,7 @@ async function sendTelegramMessage(
   text: string,
   replyToMessageId?: number,
   businessConnectionId?: string,
+  replyMarkup?: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> },
 ): Promise<boolean> {
   const token = BOT_TOKENS[botKey];
   if (!token) {
@@ -121,6 +130,7 @@ async function sendTelegramMessage(
   };
   if (replyToMessageId) payload.reply_to_message_id = replyToMessageId;
   if (businessConnectionId) payload.business_connection_id = businessConnectionId;
+  if (replyMarkup) payload.reply_markup = replyMarkup;
 
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
@@ -152,6 +162,47 @@ async function sendTelegramMessage(
     console.error(`[telegram-router] sendMessage ${botKey} exception:`, e);
     return false;
   }
+}
+
+async function answerTelegramCallback(
+  botKey: string,
+  callbackQueryId: string,
+  text?: string,
+): Promise<void> {
+  const token = BOT_TOKENS[botKey];
+  if (!token || !callbackQueryId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        callback_query_id: callbackQueryId,
+        text: text?.slice(0, 180),
+        show_alert: false,
+      }),
+      signal: AbortSignal.timeout(10000),
+    });
+  } catch (e) {
+    console.error(`[telegram-router] answerCallbackQuery ${botKey}`, e);
+  }
+}
+
+/** Вебхук Антона с callback_query (кнопки FBS). */
+async function ensureAntonWebhook(): Promise<Record<string, unknown>> {
+  const token = BOT_TOKENS.anton;
+  if (!token) return { ok: false, error: "ANTON_BOT_TOKEN missing" };
+  const hookUrl = `${SUPABASE_URL}/functions/v1/telegram-router?bot=anton`;
+  const res = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: hookUrl,
+      allowed_updates: ["message", "edited_message", "callback_query"],
+      drop_pending_updates: false,
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: Boolean(data?.ok), hookUrl, data };
 }
 
 /** Включает business_message в webhook Алины (нужно для рабочего аккаунта). */
@@ -592,6 +643,9 @@ serve(async (req) => {
     if (req.method === "GET" && url.searchParams.get("ensure_alina_business") === "1") {
       return json(await ensureAlinaBusinessWebhook());
     }
+    if (req.method === "GET" && url.searchParams.get("ensure_anton_webhook") === "1") {
+      return json(await ensureAntonWebhook());
+    }
     if (req.method === "GET" && url.searchParams.get("alina_business_status") === "1") {
       return json(await alinaBusinessStatus());
     }
@@ -618,6 +672,41 @@ serve(async (req) => {
     const updateId = Number(update?.update_id);
     if (Number.isFinite(updateId) && !rememberUpdate(updateId)) {
       console.log(`[telegram-router] dedup update_id=${updateId}`);
+      return ok();
+    }
+
+    // ── Inline-кнопки FBS (Антон) ──────────────────────────────────────────
+    if (update.callback_query) {
+      const cq = update.callback_query;
+      const data = String(cq?.data || "");
+      const chatId = Number(cq?.message?.chat?.id || cq?.from?.id || 0);
+      const tgUserId = Number(cq?.from?.id || 0);
+      if (!chatId) return ok();
+
+      if (isFbsStockCallback(data)) {
+        // Чужие боты не трогают кнопки логиста
+        if (triggeringBot !== "anton") return ok();
+        await runWork((async () => {
+          await answerTelegramCallback("anton", String(cq.id || ""));
+          const result = await handleFbsStockCallback({
+            chatId,
+            tgUserId,
+            data,
+          });
+          if (result.reply) {
+            await sendTelegramMessage(
+              "anton",
+              chatId,
+              result.reply,
+              Number(cq?.message?.message_id) || undefined,
+              undefined,
+              result.replyMarkup,
+            );
+            await saveMessage(chatId, "anton", result.reply);
+          }
+        })());
+        return ok();
+      }
       return ok();
     }
 
@@ -727,39 +816,76 @@ serve(async (req) => {
       }
     }
 
+    // ── FBS-диалог логиста (кнопки/уточнения) — другие боты молчат ──────────
+    {
+      const fbsActive = await hasActiveFbsStockDialog(chatId);
+      if (fbsActive) {
+        if (triggeringBot !== "anton") return ok();
+        const cont = await continueFbsStockDialog({
+          chatId,
+          tgUserId: Number(message.from?.id),
+          text,
+        });
+        if (cont.handled) {
+          if (cont.reply) {
+            await runWork((async () => {
+              await sendTelegramMessage(
+                "anton",
+                chatId,
+                cont.reply!,
+                message.message_id,
+                undefined,
+                cont.replyMarkup,
+              );
+              saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
+              saveMessage(chatId, "anton", cont.reply!).catch(() => {});
+            })());
+          }
+          return ok();
+        }
+      } else if (wantsFbsStock(text) && triggeringBot !== "anton") {
+        // Пока Антон ещё не создал pending — остальные webhook'и уже молчат в QA
+      }
+    }
+
     // ── Действия с подтверждением (РК и т.п.) ───────────────────────────────
     {
       const pending = await getActivePending(chatId);
-      const actionText = expandAdsActionCommand(text) || text;
-      const actionAgent = pending?.agent_key ||
-        (/(рк|реклам|кампан|\/ads)/i.test(actionText) ? "amina" : null);
+      if (pending?.action_type === "fbs_stock") {
+        // уже обработано выше / ждём Антона
+        if (triggeringBot !== "anton") return ok();
+      } else {
+        const actionText = expandAdsActionCommand(text) || text;
+        const actionAgent = pending?.agent_key ||
+          (/(рк|реклам|кампан|\/ads)/i.test(actionText) ? "amina" : null);
 
-      if (actionAgent && triggeringBot === actionAgent) {
-        const actionResult = await handleOwnerActionMessage({
-          chatId,
-          tgUserId: Number(message.from?.id),
-          text: actionText,
-          agentKey: actionAgent,
-        });
-        if (actionResult.handled && actionResult.reply) {
-          await runWork((async () => {
-            await sendTelegramMessage(
-              actionAgent,
-              chatId,
-              actionResult.reply!,
-              message.message_id,
-            );
-            saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
-            saveMessage(chatId, actionAgent, actionResult.reply!).catch(() => {});
-          })());
-          return ok();
+        if (actionAgent && triggeringBot === actionAgent) {
+          const actionResult = await handleOwnerActionMessage({
+            chatId,
+            tgUserId: Number(message.from?.id),
+            text: actionText,
+            agentKey: actionAgent,
+          });
+          if (actionResult.handled && actionResult.reply) {
+            await runWork((async () => {
+              await sendTelegramMessage(
+                actionAgent,
+                chatId,
+                actionResult.reply!,
+                message.message_id,
+              );
+              saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
+              saveMessage(chatId, actionAgent, actionResult.reply!).catch(() => {});
+            })());
+            return ok();
+          }
+        } else if (pending && triggeringBot !== pending.agent_key) {
+          const sticky =
+            isConfirmText(text) ||
+            isCancelText(text) ||
+            parseSelection(text, 100) !== null;
+          if (sticky) return ok();
         }
-      } else if (pending && triggeringBot !== pending.agent_key) {
-        const sticky =
-          isConfirmText(text) ||
-          isCancelText(text) ||
-          parseSelection(text, 100) !== null;
-        if (sticky) return ok();
       }
     }
 
@@ -905,6 +1031,30 @@ serve(async (req) => {
     {
       const qa = await tryTeamSmartQa(text, triggeringBot);
       if (qa.handled) {
+        if (qa.deferFbsStock && triggeringBot === "anton") {
+          await runWork((async () => {
+            const fbs = await startFbsStockDialog({
+              chatId,
+              tgUserId: Number(message.from?.id),
+              text,
+            });
+            if (fbs.reply) {
+              await sendTelegramMessage(
+                "anton",
+                chatId,
+                fbs.reply,
+                message.message_id,
+                undefined,
+                fbs.replyMarkup,
+              );
+              await saveMessage(chatId, "anton", fbs.reply);
+            }
+            saveMessage(chatId, message.from?.first_name ?? "user", text).catch(
+              () => {},
+            );
+          })());
+          return ok();
+        }
         if (qa.reply || qa.photos?.length) {
           const speakAs = qa.agentKey && BOT_TOKENS[qa.agentKey]
             ? qa.agentKey
@@ -933,6 +1083,8 @@ serve(async (req) => {
                   chatId,
                   qa.reply,
                   qa.photos?.length ? undefined : message.message_id,
+                  undefined,
+                  qa.replyMarkup,
                 );
                 await saveMessage(chatId, speakAs, qa.reply);
               }
