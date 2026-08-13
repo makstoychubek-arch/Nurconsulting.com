@@ -873,7 +873,10 @@ serve(async (req) => {
       } else {
         const actionText = expandAdsActionCommand(text) || text;
         const actionAgent = pending?.agent_key ||
-          (/(рк|реклам|кампан|\/ads)/i.test(actionText) ? "amina" : null);
+          (/(рк|реклам|кампан|\/ads|пополни|запуст|автозапу|запомни.*(день|время|рк)|отмени\s+авто)/i
+              .test(actionText)
+            ? "amina"
+            : null);
 
         if (actionAgent && triggeringBot === actionAgent) {
           const actionResult = await handleOwnerActionMessage({

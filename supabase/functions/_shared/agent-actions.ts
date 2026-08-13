@@ -196,11 +196,13 @@ export async function cancelOtherPending(db: SupabaseClient, chatId: number) {
 }
 
 export function isConfirmText(text: string): boolean {
-  const t = text.trim().toLowerCase();
-  return /^(подтверждаю|подтвердить|да,? запускай|да,? паузь|да,? делай|согласен|ok confirm|confirm)$/i.test(t) ||
-    t === "да" ||
-    t === "ок" ||
-    t === "ok";
+  const t = text.trim().toLowerCase().replace(/[.!]+$/g, "");
+  return (
+    /^(подтверждаю|подтвердить|да,? запускай|да,? паузь|да,? делай|согласен|ok confirm|confirm)$/i
+      .test(t) ||
+    /^(да|ага|угу|ок|ok|давай|запускай|запустить|поехали|делай)$/i.test(t) ||
+    /^да[, ]+(запускай|запусти|давай|ок)$/i.test(t)
+  );
 }
 
 export function isCancelText(text: string): boolean {
@@ -208,15 +210,17 @@ export function isCancelText(text: string): boolean {
   return /^(отмена|отменить|cancel|нет|не надо|стоп)$/i.test(t);
 }
 
-/** Выбор номеров: «все» / «1,3,5» / «1-3» */
+/** Выбор номеров: «все» / «1,3,5» / «1-3» / «запусти все» */
 export function parseSelection(text: string, max: number): number[] | null {
   const t = text.trim().toLowerCase();
-  if (/^(все|всех|all)$/i.test(t)) {
+  if (/(^|\s)(все|всех|all)(\s|$)/i.test(t) && !/\d/.test(t)) {
     return Array.from({ length: max }, (_, i) => i + 1);
   }
-  if (!/^\d/.test(t) && !t.includes(",")) return null;
+  // вытащим только номера из фразы «запусти 1 и 3»
+  const cleaned = t.replace(/[^\d,\s\-–—]/g, " ").replace(/\s+/g, " ").trim();
+  if (!cleaned || (!/^\d/.test(cleaned) && !cleaned.includes(","))) return null;
   const nums = new Set<number>();
-  for (const part of t.split(/[,;\s]+/)) {
+  for (const part of cleaned.split(/[,;\s]+/)) {
     if (!part) continue;
     const range = part.match(/^(\d+)\s*[-–—]\s*(\d+)$/);
     if (range) {
@@ -235,18 +239,30 @@ export function parseSelection(text: string, max: number): number[] | null {
 export function detectAdvertIntent(text: string): {
   kind: "start" | "pause" | "list" | null;
 } {
-  const t = text.toLowerCase();
+  const t = text.toLowerCase().replace(/ё/g, "е");
   const aboutAds =
     t.includes("рк") ||
     t.includes("реклам") ||
     t.includes("кампан") ||
-    t.includes("аукцион");
-  if (!aboutAds && !/(запуск|запусти|пауза|останови)/.test(t)) {
+    t.includes("аукцион") ||
+    t.includes("пополни");
+  // «сегодня нужно по базе пополнить рк и запустить»
+  const wantStart =
+    /(запусти|запуск|запустить|включи|стартани|пополни)/i.test(t) &&
+    (aboutAds || /(запусти|запуск).{0,20}(рк|реклам|кампан)/i.test(t) ||
+      /(рк|реклам).{0,40}(запуст|пополни)/i.test(t));
+  if (!aboutAds && !wantStart && !/(пауза|останови)/.test(t)) {
     return { kind: null };
   }
-  if (/(покажи|список|какие|что с)/.test(t) && aboutAds) return { kind: "list" };
-  if (/(пауза|поставь на паузу|останови|выключи|стопни)/.test(t)) return { kind: "pause" };
-  if (/(запусти|запуск|включи|стартани)/.test(t)) return { kind: "start" };
+  if (/(покажи|список|какие|что с)/.test(t) && aboutAds && !wantStart) {
+    return { kind: "list" };
+  }
+  if (/(пауза|поставь на паузу|останови|выключи|стопни)/.test(t) && !wantStart) {
+    return { kind: "pause" };
+  }
+  if (wantStart || /(запусти|запуск|включи|стартани)/.test(t)) {
+    return { kind: "start" };
+  }
   if (aboutAds && /(статус|рк)/.test(t)) return { kind: "list" };
   return { kind: null };
 }
@@ -269,6 +285,55 @@ export async function handleOwnerActionMessage(opts: {
   const db = admin();
   const text = opts.text.trim();
 
+  // 0) Расписание автозапуска (после недавнего запуска или список/отмена)
+  if (opts.agentKey === "amina") {
+    const {
+      wantsRememberDailyAds,
+      wantsListAdSchedules,
+      wantsCancelAdSchedule,
+      getRecentDoneAdsAction,
+      saveDailyAdSchedule,
+      listActiveSchedules,
+      cancelActiveSchedules,
+    } = await import("./agent-ad-schedule.ts");
+
+    if (wantsListAdSchedules(text)) {
+      return {
+        handled: true,
+        agentKey: "amina",
+        reply: await listActiveSchedules(opts.chatId),
+      };
+    }
+    if (wantsCancelAdSchedule(text)) {
+      return {
+        handled: true,
+        agentKey: "amina",
+        reply: await cancelActiveSchedules(opts.chatId, text),
+      };
+    }
+    if (wantsRememberDailyAds(text)) {
+      const recent = await getRecentDoneAdsAction(opts.chatId);
+      if (!recent) {
+        return {
+          handled: true,
+          agentKey: "amina",
+          reply:
+            "Сначала запустим РК (выбор → «да»), потом напиши «запомни каждый день» — запомню время.",
+        };
+      }
+      const saved = await saveDailyAdSchedule({
+        chatId: opts.chatId,
+        tgUserId: opts.tgUserId,
+        actionType: recent.action_type,
+        cabinetId: recent.cabinet_id,
+        cabinetName: recent.cabinet_name,
+        campaignIds: recent.campaign_ids,
+        campaignNames: recent.campaign_names,
+      });
+      return { handled: true, agentKey: "amina", reply: saved.reply };
+    }
+  }
+
   // 1) Активный pending: отмена / выбор / подтверждение
   const pending = await getActivePending(opts.chatId);
   if (pending) {
@@ -286,7 +351,11 @@ export async function handleOwnerActionMessage(opts: {
         .from("agent_pending_actions")
         .update({ status: "cancelled", updated_at: new Date().toISOString() })
         .eq("id", pending.id);
-      return { handled: true, reply: "Отменила. Ничего не меняла.", agentKey: pending.agent_key };
+      return {
+        handled: true,
+        reply: "Ок, отменила. Ничего не трогала.",
+        agentKey: pending.agent_key,
+      };
     }
 
     if (pending.status === "awaiting_selection") {
@@ -296,12 +365,10 @@ export async function handleOwnerActionMessage(opts: {
         return {
           handled: true,
           agentKey: pending.agent_key,
-          reply:
-            "Напиши номера РК через запятую (например 1,3,5), «все» или «отмена».\n" +
-            "Без подтверждения ничего не запущу.",
+          reply: "Какие РК? Номера (1,3,5), «все» или «отмена».",
         };
       }
-      const selectedIds = sel.map((n) => items[n - 1].id).filter(Boolean);
+      const selectedIds = sel.map((n) => items[n - 1].id).filter(Boolean).map(Number);
       const selectedNames = sel.map((n) => items[n - 1].name);
       await db
         .from("agent_pending_actions")
@@ -312,18 +379,15 @@ export async function handleOwnerActionMessage(opts: {
         })
         .eq("id", pending.id);
 
-      const verb = pending.action_type === "advert_start" ? "ЗАПУСТИТЬ" : "поставить на ПАУЗУ";
+      const verb = pending.action_type === "advert_start" ? "запустить" : "паузить";
       return {
         handled: true,
         agentKey: pending.agent_key,
         reply: [
-          `К ${verb}: ${selectedIds.length} РК · ${pending.cabinet_name}`,
-          ...selectedNames.slice(0, 15).map((n, i) => `• ${n}`),
-          selectedNames.length > 15 ? `… и ещё ${selectedNames.length - 15}` : "",
-          "",
-          "Чтобы выполнить — напиши: подтверждаю",
-          "Чтобы отменить — отмена",
-          "Без этого слова я ничего не сделаю.",
+          `${pending.cabinet_name}: ${verb} ${selectedIds.length} РК?`,
+          ...selectedNames.slice(0, 12).map((n) => `• ${n}`),
+          selectedNames.length > 12 ? `… +${selectedNames.length - 12}` : "",
+          "Напиши «да» — сделаю. «отмена» — стоп.",
         ].filter(Boolean).join("\n"),
       };
     }
@@ -333,14 +397,14 @@ export async function handleOwnerActionMessage(opts: {
         return {
           handled: true,
           agentKey: pending.agent_key,
-          reply: "Жду точное «подтверждаю» или «отмена». Пока ничего не делаю.",
+          reply: "Жду «да» или «отмена».",
         };
       }
       if (!ownerAllowed(opts.tgUserId)) {
         return {
           handled: true,
           agentKey: pending.agent_key,
-          reply: "Подтверждать действия может только владелец (AGENT_OWNER_TG_IDS).",
+          reply: "Подтверждать может только владелец (AGENT_OWNER_TG_IDS).",
         };
       }
       const result = await executePending(pending, opts.tgUserId);
@@ -422,25 +486,27 @@ export async function handleOwnerActionMessage(opts: {
   }
 
   const verb = intent.kind === "start" ? "запуска" : "паузы";
+  const topupNote = /пополни/i.test(text)
+    ? "\nБаланс РК пополняется в ЛК WB — я запущу выбранные, если бюджета хватит."
+    : "";
   return {
     handled: true,
     agentKey: opts.agentKey,
     reply: [
-      formatCampaignList(items, `${resolved.match.name} · РК для ${verb}`),
+      formatCampaignList(items, `${resolved.match.name} · РК на ${verb}`),
       "",
-      "Какие именно? Напиши номера (1,3,5), диапазон (1-4) или «все».",
-      "Потом отдельно попрошу слово «подтверждаю».",
-      "Без подтверждения ничего не изменю.",
-    ].join("\n"),
+      "Какие запускаем? Номера, «все» — или отмена.",
+      topupNote.trim(),
+    ].filter(Boolean).join("\n"),
   };
 }
 
 async function executePending(pending: PendingAction, tgUserId: number): Promise<string> {
   const db = admin();
-  const ids = pending.payload.selectedIds || [];
+  const ids = (pending.payload.selectedIds || []).map(Number).filter((n) => Number.isFinite(n));
   if (!ids.length || !pending.cabinet_id) {
     await db.from("agent_pending_actions").update({ status: "cancelled" }).eq("id", pending.id);
-    return "Нечего выполнять — список пуст. Отменила.";
+    return "Нечего делать — список пуст.";
   }
 
   await db
@@ -452,52 +518,26 @@ async function executePending(pending: PendingAction, tgUserId: number): Promise
     })
     .eq("id", pending.id);
 
-  const { data: cab } = await db
-    .from("cabinets")
-    .select("wb_token, name")
-    .eq("id", pending.cabinet_id)
-    .maybeSingle();
-  const token = sanitizeWbToken(cab?.wb_token);
-  if (!token) {
-    await db.from("agent_pending_actions").update({ status: "cancelled" }).eq("id", pending.id);
-    return "Нет WB-токена у кабинета. Ничего не сделала.";
-  }
-
+  const { runAdvertIds } = await import("./agent-ad-schedule.ts");
   const verb = pending.action_type === "advert_start" ? "start" : "pause";
-  const newStatus = verb === "start" ? 9 : 11;
-  const ok: number[] = [];
-  const fail: string[] = [];
+  const { ok, fail, cabinetName } = await runAdvertIds({
+    cabinetId: pending.cabinet_id,
+    campaignIds: ids,
+    action: verb,
+  });
 
-  for (const advertId of ids.slice(0, 40)) {
-    try {
-      const url = `https://advert-api.wildberries.ru/adv/v0/${verb}?id=${advertId}`;
-      const res = await fetch(url, {
-        method: "GET",
-        headers: { Authorization: token },
-        signal: AbortSignal.timeout(20000),
-      });
-      if (!res.ok) {
-        const t = await res.text().catch(() => "");
-        fail.push(`${advertId}: ${res.status} ${t.slice(0, 80)}`);
-      } else {
-        ok.push(advertId);
-        await db
-          .from("advertising_campaigns")
-          .update({ status: newStatus, updated_at: new Date().toISOString() })
-          .eq("cabinet_id", pending.cabinet_id)
-          .eq("campaign_id", advertId);
-      }
-    } catch (e) {
-      fail.push(`${advertId}: ${e instanceof Error ? e.message : String(e)}`);
-    }
-    await new Promise((r) => setTimeout(r, 350));
-  }
+  const budgetHint = fail.some((f) => /budget|бюджет|balance|баланс/i.test(f))
+    ? "\nЕсли ошибка про бюджет — пополни РК в ЛК WB и скажи ещё раз."
+    : "";
 
   const resultText = [
-    `${pending.cabinet_name} · ${verb === "start" ? "запуск" : "пауза"}`,
-    `Успешно: ${ok.length}`,
-    fail.length ? `Ошибки: ${fail.length}` : "",
-    fail.length ? fail.slice(0, 8).join("\n") : "",
+    `${pending.cabinet_name || cabinetName} · ${verb === "start" ? "запуск" : "пауза"}`,
+    `Ок: ${ok.length}` + (fail.length ? ` · ошибки: ${fail.length}` : ""),
+    fail.length ? fail.slice(0, 6).join("\n") : "",
+    budgetHint.trim(),
+    ok.length
+      ? "Чтобы каждый день в это же время само — напиши: запомни каждый день"
+      : "",
   ].filter(Boolean).join("\n");
 
   await db
@@ -505,6 +545,10 @@ async function executePending(pending: PendingAction, tgUserId: number): Promise
     .update({
       status: "done",
       result_text: resultText,
+      payload: {
+        ...pending.payload,
+        selectedIds: ids,
+      },
       updated_at: new Date().toISOString(),
     })
     .eq("id", pending.id);
@@ -515,12 +559,11 @@ async function executePending(pending: PendingAction, tgUserId: number): Promise
 /** Краткий каталог возможностей для промпта. */
 export function actionsCapabilityBrief(): string {
   return [
-    "ДОСТУП К ДЕЙСТВИЯМ (только после «подтверждаю» от человека):",
-    "- список РК кабинета",
-    "- запуск РК (пауза/готовые → активные)",
-    "- пауза РК (активные → пауза)",
-    "Процесс: список → человек выбирает номера → «подтверждаю».",
-    "Без слова «подтверждаю» ничего не меняй и не обещай, что уже сделала.",
-    "Кабинеты: Baza, SAAI, Zevina 1, Zevina 2 (и др. из базы).",
+    "ДОСТУП К ДЕЙСТВИЯМ (Амина, после «да» от человека):",
+    "- список / запуск / пауза РК",
+    "- процесс: список → выбор номеров → «да»",
+    "- «запомни каждый день» после запуска → автозапуск в это время (Бишкек)",
+    "Без «да» ничего в кабинете не меняй.",
+    "Кабинеты: Baza, SAAI, Zevina 1, Zevina 2, Elium.",
   ].join("\n");
 }

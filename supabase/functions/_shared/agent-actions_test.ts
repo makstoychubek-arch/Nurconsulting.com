@@ -11,6 +11,15 @@ Deno.test("intent: запусти рк базы", () => {
   assertEquals(detectAdvertIntent("запусти рк кабинета базы").kind, "start");
 });
 
+Deno.test("intent: простой текст пополнить и запустить", () => {
+  assertEquals(
+    detectAdvertIntent("сегодня нужно по базе пополнить рк и запустить").kind,
+    "start",
+  );
+  assert(isConfirmText("давай"));
+  assert(isConfirmText("запускай"));
+});
+
 Deno.test("intent: пауза рекламы", () => {
   assertEquals(detectAdvertIntent("поставь на паузу рекламу SAAI").kind, "pause");
 });
