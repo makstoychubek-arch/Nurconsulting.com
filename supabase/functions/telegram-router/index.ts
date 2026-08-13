@@ -33,10 +33,12 @@ import {
   wantsFbsStock,
 } from "../_shared/agent-fbs-stock.ts";
 import {
+  AGENT_DISPLAY,
   buildTeamPlan,
   clampHops,
   isDoneReply,
   nextPingFromReply,
+  peerTalkBrief,
   teamBriefForPrompt,
 } from "../_shared/agent-team.ts";
 import {
@@ -581,11 +583,11 @@ async function runAgentTurn(opts: {
     `\n\n${actionsCapabilityBrief()}` +
     `\n\n${teamBriefForPrompt(plan, rootTask)}` +
     (fromAgent
-      ? `\n\nТебе пишет коллега ${fromAgent}. Ответь по своей зоне на задачу владельца — как человек в чате, коротко.`
-      : `\n\nВладелец написал в рабочий чат. Ответь как живой сотрудник этой роли: сначала пойми смысл (даже кривой вопрос), потом факт/цифра или одно уточнение. Без канцелярита и без «чем могу помочь».`) +
-    `\n\nВарьируй формулировки. Не повторяй одни и те же стартовые фразы из прошлых сообщений.` +
+      ? `\n\n${peerTalkBrief(fromAgent, userMessage)}`
+      : `\n\nВладелец написал в рабочий чат. Ответь как живой сотрудник: пойми смысл → факт/цифра или одно уточнение. Коротко.`) +
+    `\n\nВарьируй формулировки. Не копируй шаблоны.` +
     (lastHop
-      ? `\n\nЭто последний ход цепочки — НЕ пингуй никого, закончи конкретным выводом.`
+      ? `\n\nПоследний ход — никого не зови, закончи коротко.`
       : "");
 
   console.log(
@@ -599,7 +601,11 @@ async function runAgentTurn(opts: {
     history: formatHistory(history),
     wbContext,
     userMessage: fromAgent
-      ? `Задача владельца: ${rootTask}\n\nКоллега ${fromAgent} передал:\n${userMessage}`
+      ? [
+        `Вопрос владельца: ${rootTask}`,
+        `${AGENT_DISPLAY[fromAgent] || fromAgent} в чате: ${userMessage}`,
+        `Ты — ${AGENT_DISPLAY[targetAgent] || targetAgent}. Ответь коротко по делу.`,
+      ].join("\n")
       : rootTask,
   });
 
@@ -610,16 +616,23 @@ async function runAgentTurn(opts: {
   if (lastHop) return;
   if (isDoneReply(reply)) return;
 
+  // Живой пинг (@ или по имени) — приоритет; иначе следующий из плана владельца
   let next = nextPingFromReply(reply, visited);
+  const pinged = Boolean(next);
   if (!next && plan.length >= 2) {
     next = plan.find((a) => !visited.has(a) && BOT_TOKENS[a]) || null;
   }
   if (!next || !BOT_TOKENS[next]) return;
 
+  // Если сами не позвали, а идём по плану — пусть следующий «подхватит» коротко
+  const handoffText = pinged
+    ? reply
+    : `${reply}\n\n(добавь коротко своё по зоне, без пересказа)`;
+
   await runAgentTurn({
     chatId,
     targetAgent: next,
-    userMessage: reply,
+    userMessage: handoffText,
     rootTask,
     plan,
     visited,

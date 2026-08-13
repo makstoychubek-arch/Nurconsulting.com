@@ -151,9 +151,22 @@ export function buildTeamPlan(
   return plan;
 }
 
-/** Следующий коллега строго по @username в ответе агента. */
+export const AGENT_DISPLAY: Record<string, string> = {
+  saule: "Сауле",
+  amina: "Амина",
+  anton: "Антон",
+  alina: "Алина",
+  muha: "Муха",
+  karina: "Карина",
+};
+
+/** Следующий коллега: @username или живое обращение по имени. */
 export function nextPingFromReply(reply: string, exclude: Set<string>): string | null {
   for (const agent of detectMentionedAgents(reply)) {
+    if (!exclude.has(agent)) return agent;
+  }
+  // «Антон, глянь остаток» / «Сауле смотри выкупы»
+  for (const agent of detectNamedAgents(reply)) {
     if (!exclude.has(agent)) return agent;
   }
   return null;
@@ -163,6 +176,7 @@ export function nextPingFromReply(reply: string, exclude: Set<string>): string |
 export function isDoneReply(reply: string): boolean {
   const t = reply.trim().toLowerCase();
   if (detectMentionedAgents(reply).length > 0) return false;
+  if (detectNamedAgents(reply).length > 0) return false;
   return (
     /(^|\n)\s*готово\.?\s*$/i.test(t) ||
     t === "готово" ||
@@ -172,21 +186,29 @@ export function isDoneReply(reply: string): boolean {
 }
 
 export function teamBriefForPrompt(plan: string[], rootTask: string): string {
-  const labels: Record<string, string> = {
-    saule: "Сауле (продажи)",
-    amina: "Амина (реклама)",
-    anton: "Антон (логистика)",
-    alina: "Алина (самовыкупы)",
-    muha: "Муха (фото)",
-    karina: "Карина (координатор)",
-  };
-  const line = plan.map((a) => labels[a] || a).join(" → ");
+  const line = plan.map((a) => AGENT_DISPLAY[a] || a).join(", ");
   return [
-    `Задача владельца (корень): ${rootTask.slice(0, 500)}`,
-    `План команды: ${line}`,
-    "Отвечай только своей зоной. Не повторяй чужие цифры дословно.",
-    "Если следующий по плану нужен — в конце одна строка: @username — конкретная задача.",
-    "Если твоя часть закрыта — закончи конкретным выводом без пустых «да?».",
+    `Вопрос владельца: ${rootTask.slice(0, 500)}`,
+    plan.length > 1
+      ? `В теме ещё могут ответить: ${line}. Это рабочий чат — можно коротко перекинуться с коллегой.`
+      : `Твоя зона. Ответь коротко по делу.`,
+    "Правила общения в команде:",
+    "- Пиши как в Telegram с коллегами: 1–4 коротких строки, без отчётов и без «коллега передал».",
+    "- Свой кусок — своими словами и цифрами из ФАКТОВ. Не копируй чужой текст.",
+    "- Нужен другой специалист — обратись живо: «Антон, глянь остаток по…» или @username + суть.",
+    "- Не устраивай цепочку ради цепочки. Не нужен следующий — просто закончи.",
+  ].join("\n");
+}
+
+/** Промпт, когда отвечает на реплику коллеги в чате. */
+export function peerTalkBrief(fromAgent: string, peerMessage: string): string {
+  const name = AGENT_DISPLAY[fromAgent] || fromAgent;
+  return [
+    `${name} только что написала/написал в чат:`,
+    `«${peerMessage.slice(0, 700)}»`,
+    "Ответь как живой коллега в том же чате: коротко, по своей зоне, можно согласиться/уточнить/добавить цифру.",
+    "Не начинай с «Спасибо» / «Принято» / «Коллега передал». Сразу по делу.",
+    "Если всё ясно и тебе добавить нечего — одна короткая реплика и стоп (без пинга дальше).",
   ].join("\n");
 }
 

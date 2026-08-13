@@ -23,19 +23,24 @@ Deno.test("продажи + реклама → план из двух", () => {
   assert(plan.includes("amina"));
 });
 
-Deno.test("пинг только по @username", () => {
+Deno.test("пинг по @username и по имени", () => {
   const mentioned = detectMentionedAgents("смотри @aminaakd_bot ставку");
   assertEquals(mentioned, ["amina"]);
   const next = nextPingFromReply("ок @saulexxx_bot глянь", new Set(["amina"]));
   assertEquals(next, "saule");
   const blocked = nextPingFromReply("ок @saulexxx_bot", new Set(["saule"]));
   assertEquals(blocked, null);
+  assertEquals(
+    nextPingFromReply("Антон, глянь остаток по фбс", new Set(["saule"])),
+    "anton",
+  );
 });
 
-Deno.test("Готово без @ останавливает цепочку", () => {
+Deno.test("Готово без пинга останавливает цепочку", () => {
   assertEquals(isDoneReply("Факты такие.\nГотово."), true);
   assertEquals(isDoneReply("Готово"), true);
   assertEquals(isDoneReply("Нужен @aminaakd_bot\nГотово."), false);
+  assertEquals(isDoneReply("Антон, глянь остаток"), false);
 });
 
 Deno.test("clampHops защищает от NaN", () => {
