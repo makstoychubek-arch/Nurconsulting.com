@@ -8,6 +8,7 @@ import {
   MSG_ASK_AD_AGAIN,
   MSG_ASK_BANK_BARTER,
   MSG_ASK_BANK_CASHBACK,
+  MSG_ASK_FILTERS,
   MSG_ASK_PICKUP,
   MSG_ASK_REELS,
   MSG_ASK_REVIEW,
@@ -16,6 +17,7 @@ import {
   MSG_GOT_IG,
   MSG_NEED_TYPE,
   msgAskAd,
+  msgFiltersBatch,
   msgKey,
   msgOpenHuman,
   TZ_CASHBACK,
@@ -38,12 +40,18 @@ import {
   type VisionResult,
 } from './alina-vision.ts';
 import { alinaBrain, shouldUseBrain } from './alina-brain.ts';
-import { fetchWbMainPhoto, wantsProductPhoto } from './alina-wb-photo.ts';
+import {
+  fetchWbMainPhoto,
+  fetchWbSearchFilters,
+  wantsProductPhoto,
+  type WbFilter,
+} from './alina-wb-photo.ts';
 
 export type SelfbuyStatus =
   | 'new'
   | 'ask_ad'
   | 'ask_type'
+  | 'ask_filters'
   | 'tz_sent'
   | 'key_sent'
   | 'wait_product'
@@ -513,6 +521,17 @@ export async function handleAlinaClientMessage(opts: {
     if (photoReply) return photoReply;
   }
 
+  // Не находят после ключа → фильтры с карточки (без бренда)
+  if (
+    lead.status === 'ask_filters' ||
+    ((lead.status === 'key_sent' || lead.status === 'wait_product' ||
+      lead.status === 'tz_sent') &&
+      (cantFindProduct(text) || awaitingFiltersYes(lead, text)))
+  ) {
+    const filt = await handleCantFindFilters(db, lead, camp, text);
+    if (filt) return filt;
+  }
+
   // Пауза
   if (/^(стоп|pause|пауза)$/i.test(text)) {
     await updateLead(db, lead.id, { status: 'paused', last_client_text: text });
@@ -774,7 +793,8 @@ export async function handleAlinaClientMessage(opts: {
   // ── key_sent / wait_product ──────────────────────────────────────────────
   if (lead.status === 'key_sent' || lead.status === 'wait_product') {
     if (wantsKey(text)) return await sendKeyFlow(db, lead, camp, text);
-    if (hasPhoto || /скрин|нашла|нашёл|наш товар|это он|артикул/i.test(text)) {
+    if (hasPhoto || /скрин|нашла|нашёл|наш товар|это он/i.test(text)) {
+      // «артикул» намеренно не принимаем как успех — по артикулу не ведём
       const vision = hasPhoto ? await readScreen('product') : null;
       if (visionBlocks(vision)) {
         return r(visionRejectReply(vision!, 'Нужен скрин поиска: ключ в строке сверху и наш товар в выдаче 🙌'));
@@ -791,7 +811,7 @@ export async function handleAlinaClientMessage(opts: {
     }
     return r(
       lead.keyword
-        ? `Жду скрин поиска по ключу «${lead.keyword}» — сверху строка запроса и наш товар 🙌`
+        ? `Жду скрин поиска по ключу «${lead.keyword}» — сверху строка запроса и наш товар 🙌\nЕсли не находите — напишите, скину фильтры`
         : 'Жду скрин: строка поиска (наш ключ) + наш товар в выдаче 🙌',
     );
   }
@@ -1221,6 +1241,9 @@ async function resolveAdChoice(
 
 function resumeStatus(lead: SelfbuyLead): SelfbuyStatus {
   if (!lead.deal_type) return 'ask_ad';
+  if (lead.status === 'ask_filters' || /\bawait_filters\b/.test(lead.notes || '')) {
+    return 'ask_filters';
+  }
   if (!lead.keyword && lead.status !== 'tz_sent') return 'tz_sent';
   if (!lead.bank_details) {
     if ((lead.screens_done || '').includes('order')) return 'wait_bank';
@@ -1245,11 +1268,13 @@ function resumeHints(
       return [MSG_ASK_AD_AGAIN];
     case 'ask_type':
       return [MSG_NEED_TYPE];
+    case 'ask_filters':
+      return [MSG_ASK_FILTERS];
     case 'tz_sent':
       return tzBundle((lead.deal_type || 'cashback') as DealType, camp, lead);
     case 'key_sent':
     case 'wait_product':
-      return ['Продолжаем: скрин поиска с ключом и нашим товаром.'];
+      return ['Продолжаем: скрин поиска с ключом и нашим товаром. Если не находите — напишите.'];
     case 'wait_cart':
       return [MSG_APPROVED_PRODUCT];
     case 'wait_order':
@@ -1408,10 +1433,10 @@ async function handleProductPhotoRequest(
     });
   }
 
+  // Артикул в подписи НЕ светим — иначе ищут по фото/арту, а нам нужны ключи
   const caption =
-    `Вот главное фото «${offer.product_name || 'товар'}» с WB` +
-    (offer.article ? ` · арт ${offer.article}` : '') +
-    ' 🙌';
+    `Вот как выглядит${offer.product_name ? ` «${offer.product_name}»` : ''} 🙌\n` +
+    `По фото не ищем — только по ключу из сообщения`;
   return rPhoto(
     {
       url: photo.url,
@@ -1421,6 +1446,165 @@ async function handleProductPhotoRequest(
     },
     caption,
   );
+}
+
+function cantFindProduct(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (!t) return false;
+  return (
+    /не\s*(могу|можем|получается|выходит)\s*(найти|найтии+|отыскать)/i.test(t) ||
+    /не\s*(нашел|нашёл|нашла|нашли|вижу|видно)/i.test(t) ||
+    /нет\s+в\s+выдаче|не\s+появляется|куда\s+делся|где\s+(ваш|наш)\s+товар/i.test(t) ||
+    /не\s*находит|поискала?\s*не|ищу\s*не\s*могу/i.test(t) ||
+    /^(нету|нет|нема)\s*(его|товар|блюд|блуз)?/i.test(t)
+  );
+}
+
+function isYes(text: string): boolean {
+  return /^(да|даа|дааа|ага|угу|yes|yep|ок|окей|давай|конечно|хочу|надо|скинь|пришли)([!?.…]|\s|$)/i
+    .test(text.trim());
+}
+
+function isNo(text: string): boolean {
+  return /^(нет|не|не надо|не надо|no|неа|не нужно)([!?.…]|\s|$)/i.test(text.trim());
+}
+
+function awaitingFiltersYes(lead: SelfbuyLead, text: string): boolean {
+  return lead.status === 'ask_filters' ||
+    (/\bawait_filters\b/.test(lead.notes || '') && (isYes(text) || isNo(text)));
+}
+
+function filterRoundDone(lead: SelfbuyLead): 0 | 1 | 2 {
+  const s = lead.screens_done || '';
+  if (/\bfilters2\b/.test(s)) return 2;
+  if (/\bfilters1\b/.test(s)) return 1;
+  return 0;
+}
+
+async function resolveLeadArticle(
+  lead: SelfbuyLead,
+  camp: Campaign | null,
+): Promise<{ article: string; product: string | null } | null> {
+  const choices = await getOpenProductChoices();
+  const all = choices.length
+    ? choices
+    : ((await fetchSheetPlan(false)).offers || []).filter((o) => o.article);
+
+  if (lead.product_name) {
+    const m = matchOfferFromText(all, lead.product_name);
+    if (m.offer?.article) {
+      return { article: m.offer.article, product: m.offer.product_name };
+    }
+  }
+  const art =
+    (lead.notes || '').match(/(?:арт|article:)\s*(\d{6,})/i)?.[1] ||
+    (camp?.notes || '').match(/article:(\d{6,})/i)?.[1] ||
+    camp?.article ||
+    null;
+  if (art) {
+    const by = all.find((o) => String(o.article) === art);
+    return { article: art, product: by?.product_name || lead.product_name || null };
+  }
+  if (all.length === 1 && all[0].article) {
+    return { article: all[0].article, product: all[0].product_name };
+  }
+  return null;
+}
+
+function pickFilterBatch(all: WbFilter[], round: 1 | 2): WbFilter[] {
+  if (round === 1) return all.slice(0, 3);
+  return all.slice(3, 5);
+}
+
+async function handleCantFindFilters(
+  db: SupabaseClient,
+  lead: SelfbuyLead,
+  camp: Campaign | null,
+  text: string,
+): Promise<AlinaReply | null> {
+  const round = filterRoundDone(lead);
+  const waiting = lead.status === 'ask_filters' || /\bawait_filters\b/.test(lead.notes || '');
+
+  // Ответ на «отправить фильтры?»
+  if (waiting) {
+    if (isNo(text)) {
+      await updateLead(db, lead.id, {
+        status: lead.keyword ? 'key_sent' : 'tz_sent',
+        notes: (lead.notes || '').replace(/\bawait_filters\b/g, '').trim() || null,
+        last_client_text: text,
+      });
+      return r(
+        lead.keyword
+          ? `Ок 🙌 Ещё раз ключ «${lead.keyword}» — и скрин поиска сверху`
+          : 'Ок 🙌 Напишите, если всё же понадобятся фильтры',
+      );
+    }
+    if (!isYes(text) && !cantFindProduct(text)) {
+      // ждём да/нет
+      if (lead.status === 'ask_filters') return r(MSG_ASK_FILTERS);
+      return null;
+    }
+    // yes → ниже отправим batch
+  } else if (cantFindProduct(text)) {
+    if (round >= 2) {
+      return r(
+        'Попробуйте сортировку «Популярные» и без лишних фильтров кроме тех, что скидывала. Потом скрин поиска с ключом сверху 🙌',
+      );
+    }
+    if (round === 1) {
+      // сразу вторая пачка без повторного «хотите?»
+    } else {
+      // первый раз — спросить
+      await updateLead(db, lead.id, {
+        status: 'ask_filters',
+        notes: `${lead.notes || ''}\nawait_filters`.trim(),
+        last_client_text: text,
+      });
+      await logEvent(db, lead.id, lead.chat_id, 'ask_filters', { text });
+      return r(MSG_ASK_FILTERS);
+    }
+  } else {
+    return null;
+  }
+
+  const targetRound: 1 | 2 = round >= 1 ? 2 : 1;
+  const resolved = await resolveLeadArticle(lead, camp);
+  if (!resolved?.article) {
+    await updateLead(db, lead.id, {
+      status: 'ask_filters',
+      notes: `${lead.notes || ''}\nawait_filters`.trim(),
+    });
+    return r('Уточните модель (фонарь/вырез и цвет) — и скину фильтры 🙌');
+  }
+
+  const all = await fetchWbSearchFilters(resolved.article);
+  const batch = pickFilterBatch(all, targetRound);
+  if (!batch.length) {
+    await updateLead(db, lead.id, {
+      status: lead.keyword ? 'key_sent' : 'wait_product',
+      notes: (lead.notes || '').replace(/\bawait_filters\b/g, '').trim() || null,
+    });
+    return r(
+      'Фильтры с карточки сейчас не подтянула 🙌 Проверьте ключ ещё раз и сортировку «Популярные»',
+    );
+  }
+
+  const screenTag = targetRound === 1 ? 'filters1' : 'filters2';
+  await updateLead(db, lead.id, {
+    status: lead.keyword ? 'key_sent' : 'wait_product',
+    screens_done: appendScreen(lead.screens_done, screenTag),
+    notes: (lead.notes || '').replace(/\bawait_filters\b/g, '').trim() || null,
+    last_client_text: text,
+  });
+  await logEvent(db, lead.id, lead.chat_id, 'filters_sent', {
+    round: targetRound,
+    filters: batch,
+    product: resolved.product,
+    // article только во внутренний лог
+    article: resolved.article,
+  });
+
+  return r(msgFiltersBatch(batch, targetRound));
 }
 
 async function logEvent(

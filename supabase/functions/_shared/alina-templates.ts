@@ -89,7 +89,30 @@ export function msgOpenHuman(deal: 'cashback' | 'barter', product?: string | nul
 export function msgKey(keyword: string): string {
   return (
     `Ключ для поиска:\n«${keyword}»\n\n` +
-    `Вбиваете в поиск → наш товар → скрин (чтобы сверху был запрос) 🙌`
+    `Вбиваете в поиск именно этот ключ → наш товар → скрин (чтобы сверху был запрос) 🙌\n` +
+    `По фото / артикулу не ищем`
+  );
+}
+
+export const MSG_ASK_FILTERS =
+  'Не находите? Могу скинуть фильтры с карточки — отправить? Напишите «да» 🙌';
+
+export function msgFiltersBatch(
+  filters: { name: string; value: string }[],
+  round: 1 | 2,
+): string {
+  const lines = filters.map((f) => `• ${f.name}: ${f.value}`);
+  if (round === 1) {
+    return (
+      `Фильтры для поиска (поставьте в фильтрах WB):\n` +
+      lines.join('\n') +
+      `\n\nКлюч тот же, бренд не трогаем. Если снова не найдёте — напишите`
+    );
+  }
+  return (
+    `Ещё фильтры:\n` +
+    lines.join('\n') +
+    `\n\nПоставьте их + прошлые. Потом скрин поиска сверху с ключом 🙌`
   );
 }
 

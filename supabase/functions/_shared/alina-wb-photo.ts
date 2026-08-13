@@ -73,6 +73,81 @@ export async function getWbMainPhotoUrl(nmId: number | string): Promise<string |
   return ph?.url || null;
 }
 
+export type WbFilter = { name: string; value: string };
+
+const BRAND_NAME_RE =
+  /бренд|brand|производител|торговая\s*марка|vendor|поставщик|seller/i;
+
+/** Приоритет характеристик для подсказки в поиске (бренд никогда). */
+const FILTER_PRIORITY = [
+  'цвет',
+  'сезон',
+  'состав',
+  'материал',
+  'фактура материала',
+  'покрой',
+  'вырез горловины',
+  'пол',
+  'особенности модели',
+  'вид застежки',
+  'декоративные элементы',
+  'стиль',
+  'коллекция',
+  'рисунок',
+  'узор',
+];
+
+async function resolveBasket(nm: number): Promise<{ basket: number; vol: number; part: number } | null> {
+  const vol = Math.floor(nm / 100000);
+  const part = Math.floor(nm / 1000);
+  const basket = await probeBasketHost(vol, part, nm);
+  if (basket == null) return null;
+  return { basket, vol, part };
+}
+
+/** Характеристики карточки для фильтров поиска — без бренда и артикула. */
+export async function fetchWbSearchFilters(nmId: number | string): Promise<WbFilter[]> {
+  const nm = Number(nmId);
+  if (!Number.isFinite(nm) || nm < 100000) return [];
+  const loc = await resolveBasket(nm);
+  if (!loc) return [];
+  const bStr = String(loc.basket).padStart(2, '0');
+  const url =
+    `https://basket-${bStr}.wbbasket.ru/vol${loc.vol}/part${loc.part}/${nm}/info/ru/card.json`;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return [];
+    const card = await res.json() as {
+      options?: Array<{ name?: string; value?: string }>;
+      selling?: { brand_name?: string };
+    };
+    const brand = String(card.selling?.brand_name || '').trim().toLowerCase();
+    const out: WbFilter[] = [];
+    const seen = new Set<string>();
+    for (const o of card.options || []) {
+      const name = String(o.name || '').trim();
+      const value = String(o.value || '').trim();
+      if (!name || !value) continue;
+      if (BRAND_NAME_RE.test(name)) continue;
+      if (brand && value.toLowerCase() === brand) continue;
+      if (/\d{6,}/.test(value)) continue; // не светим артикулы
+      const key = name.toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ name, value });
+    }
+    out.sort((a, b) => {
+      const ia = FILTER_PRIORITY.indexOf(a.name.toLowerCase());
+      const ib = FILTER_PRIORITY.indexOf(b.name.toLowerCase());
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+    return out;
+  } catch (e) {
+    console.warn('[alina-wb-photo] card filters', e);
+    return [];
+  }
+}
+
 /** Клиент просит фото товара (много разговорных / с опечатками). */
 export function wantsProductPhoto(text: string): boolean {
   const t = text.trim().toLowerCase().replace(/\s+/g, ' ');
