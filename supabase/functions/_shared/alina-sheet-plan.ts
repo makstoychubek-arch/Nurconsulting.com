@@ -32,6 +32,8 @@ export type SheetPlanSnapshot = {
   source?: 'csv';
   offers: SheetPlanOffer[];
   active: SheetPlanOffer | null;
+  /** Что реально ведётся в таблице: cashback / barter / both */
+  deal_mode: 'cashback' | 'barter' | 'both';
   leads_rows: number;
   knowledge: string;
   fetched_at: string;
@@ -252,6 +254,29 @@ function dealFromKind(kind: string): 'cashback' | 'barter' {
   return 'cashback';
 }
 
+/** По колонке «ВИД РАЗДАЧИ» в Списке: только КЭШБЕК → cashback, только БЛОГЕР → barter. */
+export function inferDealModeFromLeads(
+  leads: LeadRow[],
+): 'cashback' | 'barter' | 'both' {
+  const env = (Deno.env.get('ALINA_OFFER_TYPE') || '').trim().toLowerCase();
+  if (env === 'cashback' || env === 'barter' || env === 'both') return env;
+
+  let cash = false;
+  let barter = false;
+  for (const L of leads) {
+    const k = String(L.kind || '');
+    if (/блог|barter|рилс/i.test(k)) barter = true;
+    if (/кэш|кеш|cash/i.test(k)) cash = true;
+  }
+  if (cash && !barter) return 'cashback';
+  if (barter && !cash) return 'barter';
+  if (cash && barter) return 'both';
+  // пустой лог — для BAZA/выкупов по умолчанию кэш
+  const cab = (Deno.env.get('ALINA_CABINET_KEY') || '').toLowerCase();
+  if (/baza|база|выкуп|кэш|кеш/.test(cab)) return 'cashback';
+  return 'cashback';
+}
+
 type GraphBlock = {
   tab: string;
   article: string | null;
@@ -437,6 +462,7 @@ function countUsed(
 function buildOffers(
   blocks: GraphBlock[],
   leads: LeadRow[],
+  dealMode: 'cashback' | 'barter' | 'both' = 'cashback',
 ): SheetPlanOffer[] {
   const offers: SheetPlanOffer[] = [];
   const todayLabels = todayKeys();
@@ -494,11 +520,11 @@ function buildOffers(
 
     offers.push({
       date: dateLabel,
-      deal_type: 'both', // в графике смешанный поток; вид выбирает клиент/менеджер
+      deal_type: dealMode,
       product_name: b.product,
       keyword: bestKey,
       article: b.article,
-      cashback_pct: null,
+      cashback_pct: dealMode === 'barter' ? null : 70,
       plan_slots: planToday,
       used_slots: used,
       slots_left: slotsLeft,
@@ -522,11 +548,11 @@ function buildOffers(
         const left = Math.max(0, kp - ku);
         offers.push({
           date: dateLabel,
-          deal_type: 'both',
+          deal_type: dealMode,
           product_name: b.product,
           keyword: k.key,
           article: b.article,
-          cashback_pct: null,
+          cashback_pct: dealMode === 'barter' ? null : 70,
           plan_slots: kp,
           used_slots: ku,
           slots_left: left,
@@ -604,6 +630,102 @@ export function matchOfferFromText(
   const tied = scored.filter((x) => x.score === top).map((x) => x.o);
   if (tied.length === 1) return { offer: tied[0], ambiguous: [] };
   return { offer: null, ambiguous: tied };
+}
+
+export type ColorWant = 'black' | 'white' | 'other' | null;
+
+export function detectColorWant(text: string): ColorWant {
+  const t = norm(text);
+  if (/чёрн|черн|black/i.test(t)) return 'black';
+  if (/бел|white/i.test(t)) return 'white';
+  return null;
+}
+
+function offerHasColor(o: SheetPlanOffer, color: ColorWant): boolean {
+  const n = norm(o.product_name || '');
+  if (color === 'black') return /чёрн|черн/.test(n);
+  if (color === 'white') return /бел/.test(n);
+  return false;
+}
+
+/** Все уникальные товары из графика (и открытые, и закрытые на сегодня). */
+export function listAllProductChoices(offers: SheetPlanOffer[]): SheetPlanOffer[] {
+  const out: SheetPlanOffer[] = [];
+  const seen = new Set<string>();
+  for (const o of offers) {
+    const key = norm(`${o.product_name || ''}|${o.article || ''}`);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(o);
+  }
+  return out;
+}
+
+/**
+ * Подбор по цвету/модели с учётом плана на сегодня.
+ * Если просят чёрный, а слотов нет — предложить открытые альтернативы (белый…).
+ */
+export function resolveProductChoice(
+  offers: SheetPlanOffer[],
+  text: string,
+): {
+  offer: SheetPlanOffer | null;
+  ambiguous: SheetPlanOffer[];
+  unavailableColor: ColorWant;
+  alternatives: SheetPlanOffer[];
+} {
+  const open = listOpenProductChoices(offers);
+  const all = listAllProductChoices(offers);
+  const color = detectColorWant(text);
+  const matched = matchOfferFromText(offers, text);
+
+  if (matched.offer) {
+    return { offer: matched.offer, ambiguous: [], unavailableColor: null, alternatives: [] };
+  }
+  if (matched.ambiguous.length === 1) {
+    return {
+      offer: matched.ambiguous[0],
+      ambiguous: [],
+      unavailableColor: null,
+      alternatives: [],
+    };
+  }
+  if (matched.ambiguous.length > 1) {
+    return {
+      offer: null,
+      ambiguous: matched.ambiguous,
+      unavailableColor: null,
+      alternatives: [],
+    };
+  }
+
+  // Только цвет («черный») — среди открытых
+  if (color && color !== 'other') {
+    const openColor = open.filter((o) => offerHasColor(o, color));
+    if (openColor.length === 1) {
+      return { offer: openColor[0], ambiguous: [], unavailableColor: null, alternatives: [] };
+    }
+    if (openColor.length > 1) {
+      return { offer: null, ambiguous: openColor, unavailableColor: null, alternatives: [] };
+    }
+    // цвета нет в открытых — есть ли вообще в графике
+    const anyColor = all.filter((o) => offerHasColor(o, color));
+    if (anyColor.length || /чёрн|черн|бел/i.test(text)) {
+      return {
+        offer: null,
+        ambiguous: [],
+        unavailableColor: color,
+        alternatives: open,
+      };
+    }
+  }
+
+  return {
+    offer: null,
+    ambiguous: open,
+    unavailableColor: null,
+    alternatives: [],
+  };
 }
 
 function pickActive(offers: SheetPlanOffer[]): SheetPlanOffer | null {
@@ -733,6 +855,7 @@ export async function fetchSheetPlan(
       error: 'Нет sheet_id — пришлите ссылку на таблицу раздач кабинета',
       offers: [],
       active: null,
+      deal_mode: 'cashback',
       leads_rows: 0,
       knowledge: '',
       fetched_at: new Date().toISOString(),
@@ -789,6 +912,7 @@ export async function fetchSheetPlan(
       source: 'csv',
       offers: [],
       active: null,
+      deal_mode: 'cashback',
       leads_rows: 0,
       knowledge: '',
       fetched_at: new Date().toISOString(),
@@ -798,11 +922,14 @@ export async function fetchSheetPlan(
     return { ...snap, cabinet_key: cabinetKey, sheet_id: sheetId };
   }
 
-  const offers = buildOffers(blocks, leads);
+  const dealMode = inferDealModeFromLeads(leads);
+  const offers = buildOffers(blocks, leads, dealMode);
   const active = pickActive(offers);
+  if (active) active.deal_type = dealMode;
   const cabLabel = sheetOverride?.cabinet_name || cabinetKey;
   const knowledge =
     `Кабинет: ${cabLabel}\nSheet: ${sheetId}\n` +
+    `Режим раздачи: ${dealMode === 'cashback' ? 'только кэшбек' : dealMode === 'barter' ? 'только бартер' : 'кэшбек и бартер'}\n` +
     buildKnowledge(blocks, leads, offers);
 
   const snap: SheetPlanSnapshot = {
@@ -810,6 +937,7 @@ export async function fetchSheetPlan(
     source: 'csv',
     offers,
     active,
+    deal_mode: dealMode,
     leads_rows: leads.length,
     knowledge,
     fetched_at: new Date().toISOString(),
@@ -840,13 +968,15 @@ export async function syncCampaignFromSheet(
     sheet_id: snap.sheet_id || activeSheet?.sheet_id || null,
   };
 
+  const dealMode = snap.deal_mode || a?.deal_type || 'cashback';
+
   if (!a || !a.is_open || a.slots_left <= 0) {
     await upsert({
       is_open: false,
       slots_left: 0,
       product_name: a?.product_name || null,
       keyword: a?.keyword || null,
-      deal_type: 'both',
+      deal_type: dealMode,
       order_deadline: a?.order_deadline || null,
       notes: (snap.knowledge || '').slice(0, 1800),
       ...meta,
@@ -856,16 +986,17 @@ export async function syncCampaignFromSheet(
 
   await upsert({
     is_open: true,
-    deal_type: a.deal_type,
+    deal_type: dealMode,
     product_name: a.product_name,
     keyword: a.keyword,
-    cashback_pct: a.cashback_pct ?? 70,
+    cashback_pct: a.cashback_pct ?? (dealMode === 'barter' ? null : 70),
     slots_left: a.slots_left,
     order_deadline: a.order_deadline,
     // артикул в notes-префиксе — колонки article в campaign может не быть
     notes: [
       a.article ? `article:${a.article}` : '',
-      (snap.knowledge || '').slice(0, 1700),
+      `deal_mode:${dealMode}`,
+      (snap.knowledge || '').slice(0, 1600),
     ].filter(Boolean).join('\n'),
     ...meta,
   });

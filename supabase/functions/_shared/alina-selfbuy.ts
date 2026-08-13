@@ -16,7 +16,9 @@ import {
   MSG_CLOSED_FULL,
   MSG_GOT_IG,
   MSG_NEED_TYPE,
+  MSG_ONLY_CASHBACK,
   msgAskAd,
+  msgColorUnavailable,
   msgFiltersBatch,
   msgKey,
   msgOpenHuman,
@@ -28,6 +30,7 @@ import {
   fetchSheetPlan,
   getOpenProductChoices,
   matchOfferFromText,
+  resolveProductChoice,
   syncCampaignFromSheet,
   type SheetPlanOffer,
 } from './alina-sheet-plan.ts';
@@ -532,6 +535,36 @@ export async function handleAlinaClientMessage(opts: {
     if (filt) return filt;
   }
 
+  // Бартер просят, а в таблице BAZA только кэшбек
+  {
+    const barterBlock = handleBarterWhenCashOnly(text, camp);
+    if (barterBlock) {
+      await updateLead(db, lead.id, {
+        last_client_text: text,
+        notes: `${lead.notes || ''}\n[want_barter_cash_only]`.trim(),
+      });
+      await logEvent(db, lead.id, opts.chatId, 'barter_unavailable', { text });
+      // на входе оставим ask_ad, если ещё без сделки
+      if (['new', 'closed', 'ask_ad', 'ask_type'].includes(lead.status)) {
+        await updateLead(db, lead.id, { status: 'ask_ad' });
+      }
+      return barterBlock;
+    }
+  }
+  // После «только кэш — ок?» клиент сказал да → ведём как кэш
+  if (
+    /\bwant_barter_cash_only\b/.test(lead.notes || '') &&
+    isYes(text) &&
+    ['new', 'ask_ad', 'ask_type', 'closed'].includes(lead.status)
+  ) {
+    await updateLead(db, lead.id, {
+      notes: (lead.notes || '').replace(/\bwant_barter_cash_only\b/g, '').trim() || null,
+      deal_type: 'cashback',
+    });
+    lead = { ...lead, deal_type: 'cashback' };
+    // дальше обычный ask_ad / выбор модели
+  }
+
   // Пауза
   if (/^(стоп|pause|пауза)$/i.test(text)) {
     await updateLead(db, lead.id, { status: 'paused', last_client_text: text });
@@ -590,16 +623,32 @@ export async function handleAlinaClientMessage(opts: {
       return r(MSG_CLOSED_FULL);
     }
 
+    const snap = await fetchSheetPlan(false);
     const choices = await getOpenProductChoices();
-    const matched = await resolveAdChoice(text, hasPhoto, readScreen, choices);
+    const picked = await resolveClientProduct(text, hasPhoto, readScreen, snap.offers || choices);
 
-    if (matched.offer) {
-      return await startDealFromOffer(db, lead, camp, matched.offer, text);
+    if (picked.unavailableColor) {
+      await updateLead(db, lead.id, { status: 'ask_ad' });
+      const label = picked.unavailableColor === 'black' ? 'чёрный' : 'белый';
+      return r(msgColorUnavailable(
+        label,
+        picked.alternatives.map((o) => o.product_name || '').filter(Boolean),
+      ));
     }
-    if (matched.ambiguous.length === 1) {
-      return await startDealFromOffer(db, lead, camp, matched.ambiguous[0], text);
+    if (picked.offer) {
+      return await startDealFromOffer(db, lead, camp, picked.offer, text);
     }
-    if (choices.length === 1 && !isBareGreeting(text) && (detectDealType(text) || hasPhoto)) {
+    if (picked.ambiguous.length === 1) {
+      return await startDealFromOffer(db, lead, camp, picked.ambiguous[0], text);
+    }
+    if (picked.ambiguous.length > 1 && !isBareGreeting(text)) {
+      await updateLead(db, lead.id, { status: 'ask_ad' });
+      return r(
+        `Уточните модель 🙌\n` +
+          picked.ambiguous.map((o) => `• ${o.product_name}`).filter(Boolean).join('\n'),
+      );
+    }
+    if (choices.length === 1 && !isBareGreeting(text) && hasPhoto) {
       return await startDealFromOffer(db, lead, camp, choices[0], text);
     }
 
@@ -609,8 +658,8 @@ export async function handleAlinaClientMessage(opts: {
         text,
         status: 'ask_ad',
         hasPhoto,
-        matchedProduct: Boolean(matched.offer),
-      })
+        matchedProduct: Boolean(picked.offer),
+      }) && !isBareGreeting(text)
     ) {
       const { brain } = await runBrain();
       if (brain.via === 'ai') {
@@ -622,14 +671,7 @@ export async function handleAlinaClientMessage(opts: {
           await updateLead(db, lead.id, { status: 'closed' });
           return r(brain.reply || MSG_CLOSED);
         }
-        if (brain.action === 'send_tz' || brain.action === 'send_key') {
-          // ещё нет товара — сначала спросим объявление, но ответим по делу
-          await updateLead(db, lead.id, { status: 'ask_ad' });
-          return r(
-            brain.reply || msgAskAd(choices.map((o) => o.product_name || '').filter(Boolean)),
-          );
-        }
-        if (brain.action === 'reply_only' && brain.reply) {
+        if (brain.reply && brain.action === 'reply_only') {
           await updateLead(db, lead.id, { status: 'ask_ad' });
           await logEvent(db, lead.id, opts.chatId, 'ask_ad_brain', { text, brain });
           return r(brain.reply);
@@ -639,44 +681,38 @@ export async function handleAlinaClientMessage(opts: {
 
     await updateLead(db, lead.id, { status: 'ask_ad' });
     await logEvent(db, lead.id, opts.chatId, 'ask_ad', { text, hasPhoto });
-    const names = (matched.ambiguous.length ? matched.ambiguous : choices)
-      .map((o) => o.product_name)
-      .filter(Boolean) as string[];
-    return r(msgAskAd(names.length ? names : choices.map((o) => o.product_name || '').filter(Boolean)));
+    return r(msgAskAd(choices.map((o) => o.product_name || '').filter(Boolean)));
   }
 
-  // ── ask_ad: ждём название / цвет / скрин объявления ─────────────────────
+  // ── ask_ad: ждём модель / цвет ───────────────────────────────────────────
   if (lead.status === 'ask_ad') {
+    const snap = await fetchSheetPlan(false);
     const choices = await getOpenProductChoices();
     if (!choices.length || !campaignAccepting(camp)) {
       await updateLead(db, lead.id, { status: 'closed', last_client_text: text });
       return r(MSG_CLOSED);
     }
-    const matched = await resolveAdChoice(text, hasPhoto, readScreen, choices);
-    if (matched.offer) {
-      return await startDealFromOffer(db, lead, camp, matched.offer, text);
+    const picked = await resolveClientProduct(text, hasPhoto, readScreen, snap.offers || choices);
+    if (picked.unavailableColor) {
+      const label = picked.unavailableColor === 'black' ? 'чёрный' : 'белый';
+      return r(msgColorUnavailable(
+        label,
+        picked.alternatives.map((o) => o.product_name || '').filter(Boolean),
+      ));
     }
-    if (matched.ambiguous.length === 1) {
-      return await startDealFromOffer(db, lead, camp, matched.ambiguous[0], text);
+    if (picked.offer) {
+      return await startDealFromOffer(db, lead, camp, picked.offer, text);
     }
-    if (matched.ambiguous.length > 1) {
-      const names = matched.ambiguous.map((o) => o.product_name).filter(Boolean) as string[];
-      // мозг может уточнить мягче
-      if (shouldUseBrain({ text, status: 'ask_ad', hasPhoto, matchedProduct: false })) {
-        const { brain } = await runBrain();
-        if (brain.action === 'pick_product') {
-          const started = await applyBrainPick(brain.product_name, choices, brain.deal_type);
-          if (started) return started;
-        }
-        if (brain.reply) {
-          return r(brain.reply);
-        }
-      }
+    if (picked.ambiguous.length === 1) {
+      return await startDealFromOffer(db, lead, camp, picked.ambiguous[0], text);
+    }
+    if (picked.ambiguous.length > 1) {
       return r(
-        `Уточните цвет/модель 🙌\n` + names.map((n) => `• ${n}`).join('\n'),
+        `Уточните модель 🙌\n` +
+          picked.ambiguous.map((o) => `• ${o.product_name}`).filter(Boolean).join('\n'),
       );
     }
-    if (choices.length === 1 && /^(да|ага|угу|yes|ок|окей|верно|оно)\b/i.test(text)) {
+    if (choices.length === 1 && isYes(text)) {
       return await startDealFromOffer(db, lead, camp, choices[0], text);
     }
 
@@ -686,9 +722,6 @@ export async function handleAlinaClientMessage(opts: {
         if (brain.action === 'pick_product') {
           const started = await applyBrainPick(brain.product_name, choices, brain.deal_type);
           if (started) return started;
-        }
-        if (brain.action === 'send_tz' && choices.length === 1) {
-          return await startDealFromOffer(db, lead, camp, choices[0], text);
         }
         if (brain.reply) {
           await updateLead(db, lead.id, {
@@ -710,10 +743,10 @@ export async function handleAlinaClientMessage(opts: {
   // ── ask_type (редко) ─────────────────────────────────────────────────────
   if (lead.status === 'ask_type') {
     const typed = detectDealType(text);
-    if (!typed) {
-      return await openDeal(db, lead, camp, 'cashback', text);
+    if (typed === 'barter' && !barterAvailable(camp)) {
+      return r(MSG_ONLY_CASHBACK);
     }
-    return await openDeal(db, lead, camp, typed, text);
+    return await openDeal(db, lead, camp, typed || 'cashback', text);
   }
 
   // ── tz_sent: ключ сразу или скрин ────────────────────────────────────────
@@ -1001,12 +1034,30 @@ async function startDealFromOffer(
   offer: SheetPlanOffer,
   text: string,
 ): Promise<AlinaReply> {
-  const typed = detectDealType(text) || resolveDealFromCampaign(camp);
-  const deal = (typed ||
-    (camp?.deal_type === 'barter' ? 'barter' : 'cashback')) as DealType;
+  if (!offer.is_open || (offer.slots_left ?? 0) <= 0) {
+    const open = await getOpenProductChoices();
+    return r(msgColorUnavailable(
+      offer.product_name || 'этой модели',
+      open.map((o) => o.product_name || '').filter(Boolean),
+    ));
+  }
+
+  let typed = detectDealType(text) || lead.deal_type || resolveDealFromCampaign(camp);
+  // таблица говорит только кэш — бартер не открываем
+  if (typed === 'barter' && !barterAvailable(camp) && offer.deal_type !== 'barter' &&
+    offer.deal_type !== 'both') {
+    typed = 'cashback';
+  }
+  if (typed === 'barter' && !barterAvailable(camp)) {
+    return r(MSG_ONLY_CASHBACK);
+  }
+  const mode = campaignDealMode(camp);
+  const deal = (typed || (mode === 'barter' ? 'barter' : 'cashback')) as DealType;
+
   const campMerged: Campaign | null = camp
     ? {
       ...camp,
+      deal_type: mode,
       product_name: offer.product_name || camp.product_name,
       keyword: offer.keyword || camp.keyword,
       order_deadline: offer.order_deadline || camp.order_deadline,
@@ -1017,7 +1068,7 @@ async function startDealFromOffer(
     : {
       id: '',
       is_open: true,
-      deal_type: 'both',
+      deal_type: mode,
       product_name: offer.product_name,
       keyword: offer.keyword,
       cashback_pct: 70,
@@ -1122,16 +1173,41 @@ function campaignAccepting(camp: Campaign | null): boolean {
   return Boolean(camp.is_open) && (camp.slots_left == null || camp.slots_left > 0);
 }
 
-function resolveDealFromCampaign(camp: Campaign | null): DealType | null {
+function campaignDealMode(camp: Campaign | null): 'cashback' | 'barter' | 'both' {
   if (!camp) {
     const t = (Deno.env.get('ALINA_OFFER_TYPE') || 'cashback').toLowerCase();
-    if (t === 'barter') return 'barter';
-    if (t === 'both') return null;
+    if (t === 'barter' || t === 'both') return t;
     return 'cashback';
   }
-  if (camp.deal_type === 'both') return null;
-  if (camp.deal_type === 'barter') return 'barter';
+  const fromNotes = (camp.notes || '').match(/deal_mode:(cashback|barter|both)/i)?.[1];
+  if (fromNotes) return fromNotes.toLowerCase() as 'cashback' | 'barter' | 'both';
+  if (camp.deal_type === 'barter' || camp.deal_type === 'both') return camp.deal_type;
   return 'cashback';
+}
+
+function barterAvailable(camp: Campaign | null): boolean {
+  const m = campaignDealMode(camp);
+  return m === 'barter' || m === 'both';
+}
+
+function resolveDealFromCampaign(camp: Campaign | null): DealType | null {
+  const m = campaignDealMode(camp);
+  if (m === 'both') return null;
+  if (m === 'barter') return 'barter';
+  return 'cashback';
+}
+
+/** Бартер просят, а в таблице только кэш — ответить по-человечески. */
+function handleBarterWhenCashOnly(
+  text: string,
+  camp: Campaign | null,
+): AlinaReply | null {
+  if (barterAvailable(camp)) return null;
+  if (!detectDealType(text) || detectDealType(text) !== 'barter') {
+    // «бартер есть?» без явного detect — ловим вопросом
+    if (!/бартер/i.test(text)) return null;
+  }
+  return r(MSG_ONLY_CASHBACK);
 }
 
 function extractInstagram(text: string): string | null {
@@ -1214,29 +1290,29 @@ function visionNote(
   return `${prev || ''}\n${line}`.trim().slice(0, 1800);
 }
 
-async function resolveAdChoice(
+async function resolveClientProduct(
   text: string,
   hasPhoto: boolean,
   readScreen: (stage: ScreenStage) => Promise<VisionResult | null>,
-  choices: SheetPlanOffer[],
-): Promise<{ offer: SheetPlanOffer | null; ambiguous: SheetPlanOffer[] }> {
-  const snapOffers = choices.length
-    ? choices
-    : (await fetchSheetPlan(false)).offers || [];
-  const fromText = matchOfferFromText(snapOffers, text);
-  if (fromText.offer) return fromText;
+  offers: SheetPlanOffer[],
+): Promise<{
+  offer: SheetPlanOffer | null;
+  ambiguous: SheetPlanOffer[];
+  unavailableColor: 'black' | 'white' | 'other' | null;
+  alternatives: SheetPlanOffer[];
+}> {
+  const all = offers.length ? offers : (await fetchSheetPlan(false)).offers || [];
+  let picked = resolveProductChoice(all, text);
+  if (picked.offer || picked.unavailableColor || picked.ambiguous.length) return picked;
 
   if (hasPhoto) {
     const vision = await readScreen('ad');
-    const hint = [vision?.product_hint, vision?.article, vision?.notes, text]
-      .filter(Boolean)
-      .join(' ');
+    const hint = [vision?.product_hint, vision?.notes, text].filter(Boolean).join(' ');
     if (hint.trim()) {
-      const fromPhoto = matchOfferFromText(snapOffers, hint);
-      if (fromPhoto.offer || fromPhoto.ambiguous.length) return fromPhoto;
+      picked = resolveProductChoice(all, hint);
     }
   }
-  return fromText;
+  return picked;
 }
 
 function resumeStatus(lead: SelfbuyLead): SelfbuyStatus {
