@@ -4,6 +4,7 @@
  */
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { aminaConfirmStart, aminaWaitingYes, pick } from "./agent-voice.ts";
 
 export type PendingStatus =
   | "awaiting_selection"
@@ -405,14 +406,26 @@ export async function handleOwnerActionMessage(opts: {
         .eq("id", pending.id);
 
       const verb = pending.action_type === "advert_start" ? "запустить" : "паузить";
+      const cab = String(pending.cabinet_name || "кабинет");
+      const head = pending.action_type === "advert_start"
+        ? aminaConfirmStart(selectedIds.length, cab)
+        : pick([
+          `${cab}: пауза ${selectedIds.length} РК? Напиши «да»`,
+          `Паузим ${selectedIds.length} в ${cab}? «да» / «отмена»`,
+          `${selectedIds.length} РК · ${cab} на паузу. Подтверди «да»`,
+        ]);
       return {
         handled: true,
         agentKey: pending.agent_key,
         reply: [
-          `${pending.cabinet_name}: ${verb} ${selectedIds.length} РК?`,
+          head,
           ...selectedNames.slice(0, 12).map((n) => `• ${n}`),
           selectedNames.length > 12 ? `… +${selectedNames.length - 12}` : "",
-          "Напиши «да» — сделаю. «отмена» — стоп.",
+          pick([
+            "«да» — сделаю. «отмена» — стоп.",
+            "Жду «да» или «отмена».",
+            "Коротко: «да» / «отмена».",
+          ]),
         ].filter(Boolean).join("\n"),
       };
     }
@@ -422,7 +435,7 @@ export async function handleOwnerActionMessage(opts: {
         return {
           handled: true,
           agentKey: pending.agent_key,
-          reply: "Жду «да» или «отмена».",
+          reply: aminaWaitingYes(),
         };
       }
       if (!ownerAllowed(opts.tgUserId)) {

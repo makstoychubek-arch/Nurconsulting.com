@@ -138,10 +138,11 @@ function agentForCmd(cmd: string): string {
 }
 
 async function salesBrief(arg: string): Promise<string> {
+  const { sauleSalesLead } = await import("./agent-voice.ts");
   const ctx = await buildAgentWbContext("saule" as AgentKey, createWbContextCache());
   if (!arg) {
     // Ужимаем до первых ~25 строк
-    return "Сауле · продажи\n" + ctx.split("\n").slice(0, 28).join("\n");
+    return sauleSalesLead() + "\n" + ctx.split("\n").slice(0, 28).join("\n");
   }
   const resolved = await resolveCabinet(arg);
   if (!resolved.match) {
@@ -150,7 +151,7 @@ async function salesBrief(arg: string): Promise<string> {
   }
   const name = resolved.match.name;
   const lines = ctx.split("\n");
-  const out: string[] = [`Сауле · ${name}`];
+  const out: string[] = [sauleSalesLead(name)];
   let take = false;
   for (const line of lines) {
     if (line.startsWith("▶ ")) {

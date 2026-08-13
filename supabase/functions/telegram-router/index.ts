@@ -524,10 +524,10 @@ async function askOpenAI(opts: {
           },
           { role: "user", content: opts.userMessage.slice(0, 2000) },
         ],
-        temperature: 0.75,
+        temperature: 0.88,
         max_tokens: 320,
-        presence_penalty: 0.3,
-        frequency_penalty: 0.35,
+        presence_penalty: 0.55,
+        frequency_penalty: 0.5,
       }),
       signal: AbortSignal.timeout(25000),
     });
@@ -648,10 +648,10 @@ async function runAgentTurn(opts: {
     `\n\n${teamBriefForPrompt(plan, rootTask)}` +
     (fromAgent
       ? `\n\n${peerTalkBrief(fromAgent, userMessage)}`
-      : `\n\nВладелец написал в рабочий чат. Ответь как живой сотрудник: пойми смысл → факт/цифра или одно уточнение. Коротко.`) +
-    `\n\nВарьируй формулировки. Не копируй шаблоны.` +
+      : `\n\nВладелец написал в рабочий чат. Ответь как живой сотрудник: пойми смысл → факт/цифра или одно уточнение. Коротко. Выбери один из ФОРМАТОВ ОТВЕТА (не тот же, что в последних репликах истории).`) +
+    `\n\nВарьируй формулировки и структуру. Не копируй шаблоны и не начинай два раза подряд одинаково.` +
     (lastHop
-      ? `\n\nПоследний ход — никого не зови, закончи коротко.`
+      ? `\n\nПоследний ход — никого не зови, закончи коротко (формат СТОП или ИТОГ).`
       : "");
 
   console.log(
