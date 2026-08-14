@@ -501,7 +501,7 @@ export async function deleteCabinetUser(
 export function parseSizeRange(text: string): string[] | null {
   const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
   const m = t.match(
-    /(?:размер\w*|разм\.?)?\s*(?:с|от)?\s*(\d{2,3})\s*(?:по|до|-|–|—)\s*(\d{2,3})/i,
+    /(?:размер[а-яё]*|разм\.?)?\s*(?:с|от)?\s*(\d{2,3})\s*(?:по|до|-|–|—)\s*(\d{2,3})/i,
   );
   if (!m) {
     const list = t.match(/(?:^|[\s,.:;!?/\\|])размеры?\s*((?:\d{2,3}[\s,ии]+){1,20}\d{2,3})/i);

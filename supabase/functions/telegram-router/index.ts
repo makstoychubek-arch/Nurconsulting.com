@@ -159,6 +159,10 @@ const BOT_TOKENS: Record<string, string> = {
 
 const MAX_AGENT_HOPS = clampHops(Deno.env.get("AGENT_CHAT_MAX_HOPS"), 3);
 
+/** Precompiled: /help /skills… */
+const HELP_CMD_RE =
+  /^\/?(help|команды|помощь|skills|чтоумеешь|зона)(@\w+)?(\s|$)/i;
+
 const supabase = getAdminClient();
 
 /** AGENT_HUMAN_PAUSE=0 — без искусственных пауз (быстрее в проде/тестах). */
@@ -1174,19 +1178,14 @@ serve(async (req) => {
 
     // ── Быстрые команды без OpenAI ──────────────────────────────────────────
     {
-      const isMetaCmd =
-        /^\/?(help|ping|cabinets|помощь|команды|пинг|кабинеты|pulse|пульс|сводка|сегодня|срочно|urgent|whoami|ктоя|skills|чтоумеешь|зона|себес|себестоимость|cost)(@\w+)?(\s|$)/i
-          .test(text.trim());
+      const trimmedCmd = text.trim();
       const fast = await tryFastCommand(text, triggeringBot, {
         privateChat: !isGroupChat,
       });
 
       if (fast.handled && fast.reply) {
         // /help — зона названного/@бота; в группе без имени — Карина; в ЛС — этот бот
-        const isHelpCmd =
-          /^\/?(help|команды|помощь|skills|чтоумеешь|зона)(@\w+)?(\s|$)/i.test(
-            text.trim(),
-          );
+        const isHelpCmd = HELP_CMD_RE.test(trimmedCmd);
         if (isHelpCmd) {
           const helpWho =
             selfSkillsNamedAgent(text) ||

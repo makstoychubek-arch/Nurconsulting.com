@@ -97,12 +97,12 @@ export function wantsCompetitorAnalysis(text: string): boolean {
   }
   if (/анализ/.test(t) && /(конкурент|ниш|выдач)/i.test(t)) return true;
   if (/найди/.test(t) && /(конкурент|похож|аналог)/i.test(t)) return true;
-  if (/(похож|аналог)\w*/.test(t) && /(арт|nm\b|\d{6,12}|сравни)/i.test(t)) return true;
+  if (/(похож|аналог)[а-яё]*/.test(t) && /(арт|nm\b|\d{6,12}|сравни)/i.test(t)) return true;
   return false;
 }
 
 export function extractNmId(text: string): number | null {
-  const m = String(text || '').match(/\b(\d{6,12})\b/);
+  const m = String(text || "").match(/(?:^|[^\d])(\d{6,12})(?:[^\d]|$)/);
   if (!m) return null;
   const n = Number(m[1]);
   return Number.isFinite(n) && n >= 100000 ? n : null;

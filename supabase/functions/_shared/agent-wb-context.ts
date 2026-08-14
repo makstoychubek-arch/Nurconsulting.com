@@ -3,6 +3,8 @@
 
 import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getAdminClient } from "./supabase-admin.ts";
+import { sanitizeWbToken } from "./wb-cabinet-tokens.ts";
+import { todayBishkek, yesterdayBishkek } from "./agent-ru-text.ts";
 
 const STATS_API = "https://statistics-api.wildberries.ru";
 
@@ -120,24 +122,8 @@ async function getSharedBlock(
   }
 }
 
-function sanitizeWbToken(raw: unknown): string {
-  if (typeof raw !== "string") return "";
-  return raw.replace(/^\uFEFF/, "").replace(/\s+/g, "").trim();
-}
-
-function yesterdayBishkek(): string {
-  const now = new Date(Date.now() + 6 * 3600 * 1000);
-  now.setUTCDate(now.getUTCDate() - 1);
-  return now.toISOString().slice(0, 10);
-}
-
-function todayBishkek(): string {
-  return new Date(Date.now() + 6 * 3600 * 1000).toISOString().slice(0, 10);
-}
-
 function pretty(iso: string): string {
-  const [y, m, d] = iso.split("-");
-  return `${d}.${m}.${y}`;
+  return prettyDate(iso);
 }
 
 function fmt(n: number): string {

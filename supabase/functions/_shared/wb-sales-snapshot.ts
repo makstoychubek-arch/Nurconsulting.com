@@ -2,6 +2,18 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isValidWbToken, sanitizeWbToken } from "./wb-cabinet-tokens.ts";
+import {
+  hasRuDayOrDdMm,
+  parseRuDayToken,
+  ruBounded,
+  yesterdayBishkek,
+} from "./agent-ru-text.ts";
+
+export {
+  todayBishkek,
+  yesterdayBishkek,
+  daysAgoBishkek,
+} from "./agent-ru-text.ts";
 
 const STATS_API = "https://statistics-api.wildberries.ru";
 
@@ -146,27 +158,6 @@ export function prettyDate(iso: string): string {
   return `${d}.${m}.${y}`;
 }
 
-/** Календарная дата в Бишкеке (YYYY-MM-DD). */
-export function todayBishkek(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bishkek" });
-}
-
-export function yesterdayBishkek(): string {
-  return daysAgoBishkek(1);
-}
-
-/** N календарных дней назад по Бишкеку (не UTC-сдвиг). */
-export function daysAgoBishkek(days: number): string {
-  const today = todayBishkek(); // YYYY-MM-DD
-  const [y, m, d] = today.split("-").map(Number);
-  const utcNoon = Date.UTC(y, m - 1, d, 12, 0, 0);
-  const shifted = new Date(utcNoon - days * 86400000);
-  const yy = shifted.getUTCFullYear();
-  const mm = String(shifted.getUTCMonth() + 1).padStart(2, "0");
-  const dd = String(shifted.getUTCDate()).padStart(2, "0");
-  return `${yy}-${mm}-${dd}`;
-}
-
 /** Парсит запрос продаж. В группе «Продажи» достаточно даты: «12.07», «12.07 Baza». */
 export function parseSalesQuery(
   text: string,
@@ -177,27 +168,11 @@ export function parseSalesQuery(
 
   // без \b — кириллица
   const hasSalesWord = /(продаж|заказ|выкуп|отч[её]?т|sales)/i.test(lower);
-  const hasDateToken =
-    /\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?/.test(raw) ||
-    /(вчера|позавчера|сегодня)/i.test(lower);
+  const hasDateToken = hasRuDayOrDdMm(raw);
 
   if (!relaxed && !hasSalesWord && !hasDateToken) return null;
 
-  let date = "";
-  if (/позавчера/i.test(lower)) date = daysAgoBishkek(2);
-  else if (/вчера/i.test(lower)) date = yesterdayBishkek();
-  else if (/сегодня/i.test(lower)) date = todayBishkek();
-  else {
-    const m = raw.match(/(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?/);
-    if (m) {
-      const day = m[1].padStart(2, "0");
-      const month = m[2].padStart(2, "0");
-      const year = m[3]
-        ? (m[3].length === 2 ? `20${m[3]}` : m[3])
-        : String(new Date().getFullYear());
-      date = `${year}-${month}-${day}`;
-    }
-  }
+  let date = parseRuDayToken(raw) || "";
   if (!date) {
     if (
       hasSalesWord ||
@@ -215,8 +190,10 @@ export function parseSalesQuery(
   );
   if (tailCab) cabinet = tailCab[1];
   if (!cabinet) {
-    const cabMatch = lower.match(/(?:^|[\s,.:;!?/\\|])(?:кабинет|cabinet)\s+([a-zа-яё0-9._-]{2,40})(?:$|[\s,.:;!?/\\|])/i) ||
-      lower.match(/(?:^|[\s,.:;!?/\\|])(baza|zevina|saai|elium|сааи|база|зевина|элиум)(?:$|[\s,.:;!?/\\|])/i);
+    const cabMatch = lower.match(
+      ruBounded(`(?:кабинет|cabinet)\\s+([a-zа-яё0-9._-]{2,40})`),
+    ) ||
+      lower.match(ruBounded("(baza|zevina|saai|elium|сааи|база|зевина|элиум)"));
     if (cabMatch) cabinet = cabMatch[1];
   }
 

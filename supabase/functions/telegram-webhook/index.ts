@@ -43,6 +43,7 @@ import {
     parseSalesQuery,
     salesHelpText,
 } from '../_shared/wb-sales-snapshot.ts';
+import { hasRuDayOrDdMm, hasRuToken } from '../_shared/agent-ru-text.ts';
 import {
     applyEditedReply,
     approveAndPublish,
@@ -771,27 +772,20 @@ function wantsSalesQuery(text: string): boolean {
     const lower = text.toLowerCase().replace(/ё/g, 'е');
     // Не отвечаем на пересланные авто-отчёты (caption: «отчёт за 23.07.2026»).
     if (/отч[её]?т\s+за\s+\d{1,2}[./]\d{1,2}/i.test(lower)) return false;
-    // без \b — кириллица
     if (/(продаж|заказ|выкуп|sales|help|помощь)/i.test(lower)) return true;
-    if (/(вчера|позавчера|сегодня)/i.test(lower)) return true;
-    if (/\d{1,2}[./]\d{1,2}/.test(text)) return true;
-    return false;
+    return hasRuDayOrDdMm(text);
 }
 
 function wantsPenaltiesQuery(text: string): boolean {
     const lower = text.toLowerCase().replace(/ё/g, 'е');
     if (/(штраф|удерж|penalt|help|помощь)/i.test(lower)) return true;
-    if (/(вчера|позавчера|сегодня)/i.test(lower)) return true;
-    if (/\d{1,2}[./]\d{1,2}/.test(text)) return true;
-    return false;
+    return hasRuDayOrDdMm(text);
 }
 
 function wantsAdsQuery(text: string): boolean {
     const lower = text.toLowerCase().replace(/ё/g, 'е');
     if (/(реклам|рк|ads|баланс|balance|ctr|расход|help|помощь)/i.test(lower)) return true;
-    if (/(вчера|позавчера|сегодня)/i.test(lower)) return true;
-    if (/\d{1,2}[./]\d{1,2}/.test(text)) return true;
-    return false;
+    return hasRuDayOrDdMm(text);
 }
 
 
@@ -799,9 +793,7 @@ function wantsChatId(text: string, chatType: string): boolean {
     const t = text.toLowerCase().trim();
     if (/^\/(id|айди|chatid)(@\w+)?$/i.test(t)) return true;
     if (chatType === 'private' && /^(айди|id|chatid|chat_id)$/i.test(t)) return true;
-    // \b не работает с кириллицей — отдельно
-    if (/(?:^|[\s,.:;!?/\\|])айди(?=$|[\s,.:;!?/\\|])/i.test(t)) return true;
-    return /(?:^|[\s,.:;!?/\\|])(id|chatid|chat_id)(?=$|[\s,.:;!?/\\|])/i.test(t);
+    return hasRuToken(t, 'айди|id|chatid|chat_id');
 }
 
 function isBotMentioned(

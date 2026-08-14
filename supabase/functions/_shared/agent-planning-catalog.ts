@@ -6,6 +6,7 @@
 import catalogJson from './data/planning-catalog.json' with { type: 'json' };
 import { normProduct, scoreProductMatch } from './agent-product-catalog.ts';
 import { fuzzyIncludesAny, normalizeBotText } from './agent-fuzzy.ts';
+import { filterStopTokens } from './agent-ru-text.ts';
 
 export type PlanningItem = {
   nm_id: number;
@@ -58,20 +59,18 @@ export function wantsCostQuery(text: string): boolean {
 }
 
 /** Вытащить поисковую фразу без слов «себес/стоимость». */
+const COST_STOP = new Set([
+  'какая', 'какой', 'какие', 'сколько',
+  'себестоимость', 'себистоимость', 'себес', 'себис', 'cost',
+  'стоимость', 'товара', 'товар', 'артикул', 'артикула', 'артикулу', 'nm',
+  'unit',
+]);
+
 export function costQueryProductText(text: string): string {
-  let t = normalizeBotText(text);
-  const stop = new Set([
-    'какая', 'какой', 'какие', 'сколько',
-    'себестоимость', 'себистоимость', 'себес', 'себис', 'cost',
-    'стоимость', 'товара', 'товар', 'артикул', 'артикула', 'артикулу', 'nm',
-    'unit',
-  ]);
-  return t
-    .split(/\s+/)
-    .filter((w) => w.length >= 1)
-    .filter((w) => !stop.has(w))
-    .join(' ')
-    .trim();
+  return filterStopTokens(normalizeBotText(text), {
+    exact: COST_STOP,
+    minLen: 1,
+  });
 }
 
 export function findPlanningByNm(nmId: number): PlanningItem | null {

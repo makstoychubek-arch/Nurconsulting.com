@@ -4,6 +4,7 @@
  */
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { parseRuDayToken, yesterdayBishkek } from './agent-ru-text.ts';
 
 export function abTestsHelpText(): string {
   // re-export живых формулировок — импорт динамически нельзя в этом бандле,
@@ -42,22 +43,9 @@ export function parseAdsQuery(text: string): AdsQuery | null {
   const t = text.toLowerCase();
   if (/баланс|balance/.test(t)) return { mode: 'balance' };
   if (/реклам|рк|ads|ctr|расход/.test(t)) {
-    return { mode: 'day', date: pickDate(t) };
+    return { mode: 'day', date: parseRuDayToken(t) || yesterdayBishkek() };
   }
   return null;
-}
-
-function pickDate(t: string): string {
-  if (/сегодня/.test(t)) return new Date().toISOString().slice(0, 10);
-  if (/вчера/.test(t)) return new Date(Date.now() - 864e5).toISOString().slice(0, 10);
-  const m = t.match(/(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?/);
-  if (m) {
-    const d = m[1].padStart(2, '0');
-    const mo = m[2].padStart(2, '0');
-    const y = m[3] ? (m[3].length === 2 ? `20${m[3]}` : m[3]) : String(new Date().getFullYear());
-    return `${y}-${mo}-${d}`;
-  }
-  return new Date(Date.now() - 864e5).toISOString().slice(0, 10);
 }
 
 export async function fetchAllBalances(admin: SupabaseClient): Promise<Array<{ name: string; balance: number }>> {

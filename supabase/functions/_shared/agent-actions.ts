@@ -14,6 +14,8 @@ import {
 import { scoreProductMatch } from "./agent-product-catalog.ts";
 import { setChatFocus } from "./agent-chat-focus.ts";
 import { getAdminClient } from "./supabase-admin.ts";
+import { filterStopTokens } from "./agent-ru-text.ts";
+import { sanitizeWbToken } from "./wb-cabinet-tokens.ts";
 
 export type PendingStatus =
   | "awaiting_selection"
@@ -49,11 +51,6 @@ const STATUS_LABEL: Record<number, string> = {
 
 function admin(): SupabaseClient {
   return getAdminClient();
-}
-
-function sanitizeWbToken(raw: unknown): string {
-  if (typeof raw !== "string") return "";
-  return raw.replace(/^\uFEFF/, "").replace(/\s+/g, "").trim();
 }
 
 /** Нормализация для матчинга «Базы» → baza */
@@ -100,26 +97,32 @@ export const CABINET_ALIASES: Record<string, string[]> = {
 };
 
 /** Убрать имена/алиасы кабинетов из текста (чтобы «элиум» не считался товаром). */
+const CABINET_STRIP_EXTRAS = [
+  "zevina\\s*1",
+  "zevina\\s*2",
+  "зевина\\s*1",
+  "зевина\\s*2",
+  "zevina1",
+  "zevina2",
+];
+
+const CABINET_STRIP_RES: RegExp[] = [
+  ...Object.values(CABINET_ALIASES).flat(),
+  ...CABINET_STRIP_EXTRAS,
+].map((raw) => {
+  const escaped = raw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(
+    `(^|[\\s,.:;!?«»\"'])(${escaped})(?=$|[\\s,.:;!?«»\"'])`,
+    "gi",
+  );
+});
+
 export function stripCabinetAliases(text: string): string {
   let t = String(text || "");
-  const extras = [
-    "zevina\\s*1",
-    "zevina\\s*2",
-    "зевина\\s*1",
-    "зевина\\s*2",
-    "zevina1",
-    "zevina2",
-  ];
-  const all = [
-    ...Object.values(CABINET_ALIASES).flat(),
-    ...extras,
-  ];
-  for (const raw of all) {
-    const escaped = raw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    t = t.replace(
-      new RegExp(`(^|[\\s,.:;!?«»\"'])(${escaped})(?=$|[\\s,.:;!?«»\"'])`, "gi"),
-      "$1",
-    );
+  for (const re of CABINET_STRIP_RES) {
+    // lastIndex на /g — сбрасываем на каждый проход
+    re.lastIndex = 0;
+    t = t.replace(re, "$1");
   }
   return t.replace(/\s+/g, " ").trim();
 }
@@ -238,29 +241,22 @@ export function formatCampaignList(
 }
 
 /** Вытащить товар из фразы про РК («запусти рк лапша белая база»). */
+const ADS_HINT_STOP = new Set([
+  "рк", "и", "на", "по", "в", "с", "к", "а", "у", "из", "для",
+  "список", "покажи", "какие", "статус", "сегодня", "нужно", "надо",
+  "давай", "пожалуйста", "плиз", "help", "помощь", "start", "pause",
+  "запуск", "запусти", "пауза", "ads", "ad",
+]);
+const ADS_HINT_PREFIX =
+  /^(реклам|кампан|аукцион|запуст|пауз|пополни|активн|готов)/i;
+
 export function extractAdsProductHint(text: string): string {
   let t = stripCabinetAliases(text);
   t = t.replace(/[^\p{L}\p{N}\s\-]/gu, " ").replace(/\s+/g, " ").trim();
-  // \b ломает кириллицу — режем токенами / префиксами
-  const stopExact = new Set([
-    "рк", "и", "на", "по", "в", "с", "к", "а", "у", "из", "для",
-    "список", "покажи", "какие", "статус", "сегодня", "нужно", "надо",
-    "давай", "пожалуйста", "плиз", "help", "помощь", "start", "pause",
-    "запуск", "запусти", "пауза", "ads", "ad",
-  ]);
-  const stopPrefix =
-    /^(реклам|кампан|аукцион|запуст|пауз|пополни|активн|готов)/i;
-  return t
-    .split(/\s+/)
-    .filter((w) => w.length >= 2)
-    .filter((w) => {
-      const low = w.toLowerCase().replace(/ё/g, "е");
-      if (stopExact.has(low)) return false;
-      if (stopPrefix.test(low)) return false;
-      return true;
-    })
-    .join(" ")
-    .trim();
+  return filterStopTokens(t, {
+    exact: ADS_HINT_STOP,
+    prefix: ADS_HINT_PREFIX,
+  });
 }
 
 export function filterCampaignsByProduct(

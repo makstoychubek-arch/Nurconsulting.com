@@ -3,22 +3,14 @@
  */
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { hasRuDayOrDdMm, parseRuDayToken, yesterdayBishkek } from './agent-ru-text.ts';
 
 export type PenaltiesQuery = { date: string; cabinet?: string };
 
 export function parsePenaltiesQuery(text: string, _strict = false): PenaltiesQuery | null {
-  const t = text.toLowerCase();
-  if (!/(штраф|удерж|penalt|help|помощь|вчера|сегодня|\d{1,2}[./]\d{1,2})/.test(t)) return null;
-  let date = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
-  if (/сегодня/.test(t)) date = new Date().toISOString().slice(0, 10);
-  const m = t.match(/(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?/);
-  if (m) {
-    const d = m[1].padStart(2, '0');
-    const mo = m[2].padStart(2, '0');
-    const y = m[3] ? (m[3].length === 2 ? `20${m[3]}` : m[3]) : String(new Date().getFullYear());
-    date = `${y}-${mo}-${d}`;
-  }
-  return { date };
+  const t = text.toLowerCase().replace(/ё/g, 'е');
+  if (!/(штраф|удерж|penalt|help|помощь)/.test(t) && !hasRuDayOrDdMm(t)) return null;
+  return { date: parseRuDayToken(t) || yesterdayBishkek() };
 }
 
 export async function fetchAllCabinetPenalties(

@@ -156,7 +156,7 @@ function parseCreateHint(text: string): {
   const sizes = parseSizeRange(t) || undefined;
   if (sizes) {
     t = t.replace(
-      /(?:размер\w*|разм\.?)?\s*(?:с|от)?\s*\d{2,3}\s*(?:по|до|-|–|—)\s*\d{2,3}/i,
+      /(?:размер[а-яё]*|разм\.?)?\s*(?:с|от)?\s*\d{2,3}\s*(?:по|до|-|–|—)\s*\d{2,3}/i,
       ' ',
     );
   }

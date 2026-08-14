@@ -17,14 +17,19 @@ export const BOT_USERNAMES: Record<string, string> = {
   karina: "",
 };
 
+const MENTION_RES: Array<{ agent: string; re: RegExp }> = Object.entries(BOT_USERNAMES)
+  .filter(([, username]) => !!username)
+  .map(([agent, username]) => ({
+    agent,
+    re: new RegExp(`@${username.toLowerCase()}(?![a-z0-9_])`, "i"),
+  }));
+
 /** Только @username — надёжный пинг без ложных срабатываний по имени. */
 export function detectMentionedAgents(text: string): string[] {
   const lower = text.toLowerCase();
   const found: string[] = [];
-  for (const [agent, username] of Object.entries(BOT_USERNAMES)) {
-    if (!username) continue;
-    // граница после username, чтобы не ловить префиксы
-    const re = new RegExp(`@${username.toLowerCase()}(?![a-z0-9_])`, "i");
+  for (const { agent, re } of MENTION_RES) {
+    re.lastIndex = 0;
     if (re.test(lower)) found.push(agent);
   }
   return found;

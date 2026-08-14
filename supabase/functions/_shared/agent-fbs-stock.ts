@@ -23,7 +23,6 @@ import {
 } from './agent-actions.ts';
 import {
   findCatalogProducts,
-  scoreProductMatch,
 } from './agent-product-catalog.ts';
 import { setChatFocus } from './agent-chat-focus.ts';
 import {
@@ -190,10 +189,6 @@ function kbFromItems(items: Array<{ name: string }>, withAll?: { label: string }
   }
   rows.push([{ text: 'Отмена', callback_data: `${CALLBACK_PREFIX}cancel` }]);
   return { inline_keyboard: rows };
-}
-
-function scoreProductName(name: string, text: string): number {
-  return scoreProductMatch(name, text);
 }
 
 function extractProductText(text: string): string {
