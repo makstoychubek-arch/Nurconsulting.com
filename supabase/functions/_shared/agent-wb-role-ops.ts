@@ -80,16 +80,16 @@ export function detectWbRoleOp(text: string): string | null {
 
   // amina
   if (
-    /(баланс\s+рк|баланс\s+реклам|бюджет\s+рк|сколько\s+рк|список\s+рк|рекламн[а-я]*\s+баланс|advert|кампани[а-я]*\s+реклам)/i
+    /(баланс\s+рк|баланс\s+реклам|бюджет\s+рк|сколько\s+рк|список\s+рк|рекламн[а-я]*\s+баланс|advert|кампани[а-я]*\s+реклам|затрат[а-я]*\s+рк|fullstats|статистик[а-я]*\s+рк|пополнен[а-я]*\s+реклам)/i
       .test(t) ||
-    (/рк/.test(t) && /(баланс|бюджет|сколько|список|count)/i.test(t))
+    (/рк/.test(t) && /(баланс|бюджет|сколько|список|count|стат|затрат)/i.test(t))
   ) {
     return 'amina';
   }
 
   // anton
   if (
-    /(склад[а-я]?\s+(fbs|продавца)|мои\s+склады|новые\s+сбороч|сборочн[а-я]*\s+заказ|новые\s+заказ[а-я]*\s+fbs|поставк[а-я]*\s+fbs|офисы\s+wb|склад[а-я]?\s+wb\s+fbw|fbw\s+склад)/i
+    /(склад[а-я]?\s+(fbs|продавца)|мои\s+склады|новые\s+сбороч|сборочн[а-я]*\s+заказ|новые\s+заказ[а-я]*\s+fbs|поставк[а-я]*\s+fbs|офисы\s+wb|склад[а-я]?\s+wb\s+fbw|fbw\s+склад|архивн[а-я]*\s+(заказ|сбороч)|пропуск[а-я]*\s+на\s+склад|автовозврат)/i
       .test(t) ||
     /(заказ[а-я]*\s+на\s+сборк|сборочн[а-я]*\s+задани)/i.test(t)
   ) {
@@ -98,7 +98,7 @@ export function detectWbRoleOp(text: string): string | null {
 
   // alina
   if (
-    /(неотвеченн[а-я]*\s+(отзыв|вопрос)|новые\s+(отзыв|вопрос)|отзывы?\s+(wb|вб|кабинета)|вопросы?\s+покупател|возврат[а-я]*\s+(покупател|claim)|чат[а-я]*\s+покупател)/i
+    /(неотвеченн[а-я]*\s+(отзыв|вопрос)|новые\s+(отзыв|вопрос)|отзывы?\s+(wb|вб|кабинета)|вопросы?\s+покупател|возврат[а-я]*\s+(покупател|claim)|чат[а-я]*\s+покупател|архивн[а-я]*\s+отзыв|закрепл[а-я]*\s+отзыв)/i
       .test(t) ||
     /(отзывы|вопросы).{0,12}(зевина|база|элиум|saai|кабинет)/i.test(t) ||
     /возвраты?\s+покупател/i.test(t)
@@ -108,7 +108,7 @@ export function detectWbRoleOp(text: string): string | null {
 
   // saule — cards/prices/stats
   if (
-    /(лимит[а-я]*\s+карточек|сколько\s+карточек|список\s+карточек|карточки\s+кабинета|предмет[а-я]*\s+блуз|карантин[а-я]*\s+цен|история\s+загруз[а-я]*\s+цен|буфер\s+цен|промо\s+календар|воронк[а-я]*\s+продаж)/i
+    /(лимит[а-я]*\s+карточек|сколько\s+карточек|список\s+карточек|карточки\s+кабинета|предмет[а-я]*\s+блуз|карантин[а-я]*\s+цен|история\s+загруз[а-я]*\s+цен|буфер\s+цен|промо\s+календар|воронк[а-я]*\s+продаж|бренды?\s+кабинета|корзин[а-я]*\s+карточек|остатк[а-я]*\s+fbw|поступлен[а-я]*\s+на\s+склад|антифрод|самовыкуп[а-я]*\s+отч[её]т)/i
       .test(t) ||
     /(заказ[а-я]*\s+статистик|продаж[а-я]*\s+статистик|выгрузк[а-я]*\s+заказ|выгрузк[а-я]*\s+продаж|статистик[а-я]*\s+заказ|статистик[а-я]*\s+продаж)/i
       .test(t) ||
@@ -248,7 +248,21 @@ export async function runWbRoleOp(
     }
 
     if (role === 'amina') {
-      if (/баланс|бюджет/i.test(t) && !/список|сколько/i.test(t)) {
+      if (/затрат|upd|пополнен/i.test(t)) {
+        const from = daysAgoIso(7);
+        const to = todayIso();
+        const r = /пополнен/i.test(t)
+          ? await advertApi.payments(token, daysAgoIso(30), to)
+          : await advertApi.costsHistory(token, from, to);
+        return {
+          handled: true,
+          agentKey: role,
+          reply: r.ok
+            ? `${cabinetName} · ${/пополнен/i.test(t) ? 'пополнения' : 'затраты'} РК\n${shortJson(r.data, 800)}`
+            : `РК history: ${r.errorText}`,
+        };
+      }
+      if (/баланс|бюджет/i.test(t) && !/список|сколько|стат|затрат/i.test(t)) {
         const r = await advertApi.balance(token);
         const d = r.data as Record<string, unknown>;
         return {
@@ -276,6 +290,36 @@ export async function runWbRoleOp(
     }
 
     if (role === 'anton') {
+      if (/архивн/i.test(t)) {
+        const r = await marketApi.ordersArchive(token, 20, 0);
+        return {
+          handled: true,
+          agentKey: role,
+          reply: r.ok
+            ? `${cabinetName} · архив сборочных\n${shortJson(r.data, 700)}`
+            : `Архив: ${r.errorText}`,
+        };
+      }
+      if (/пропуск/i.test(t)) {
+        const r = await marketApi.passes(token);
+        return {
+          handled: true,
+          agentKey: role,
+          reply: r.ok
+            ? `${cabinetName} · пропуска\n${shortJson(r.data, 700)}`
+            : `Пропуска: ${r.errorText}`,
+        };
+      }
+      if (/автовозврат/i.test(t)) {
+        const r = await marketApi.autoreturns(token);
+        return {
+          handled: true,
+          agentKey: role,
+          reply: r.ok
+            ? `${cabinetName} · автовозврат\n${shortJson(r.data, 500)}`
+            : `Автовозврат: ${r.errorText}`,
+        };
+      }
       if (/fbw|приемк|коледин/i.test(t) || (/склад/i.test(t) && /wb/i.test(t) && !/fbs|продавца|мои/i.test(t))) {
         const r = await suppliesApi.warehouses(token);
         const list = Array.isArray(r.data) ? r.data as Array<Record<string, unknown>> : [];
@@ -344,6 +388,26 @@ export async function runWbRoleOp(
     }
 
     if (role === 'alina') {
+      if (/закрепл|pins/i.test(t)) {
+        const r = await feedbacksApi.pins(token);
+        return {
+          handled: true,
+          agentKey: role,
+          reply: r.ok
+            ? `${cabinetName} · закреплённые отзывы\n${shortJson(r.data, 700)}`
+            : `Pins: ${r.errorText}`,
+        };
+      }
+      if (/архивн.*отзыв|отзыв.*архив/i.test(t)) {
+        const r = await feedbacksApi.feedbacksArchive(token);
+        return {
+          handled: true,
+          agentKey: role,
+          reply: r.ok
+            ? `${cabinetName} · архив отзывов\n${shortJson(r.data, 800)}`
+            : `Архив отзывов: ${r.errorText}`,
+        };
+      }
       if (/вопрос/i.test(t)) {
         const r = await feedbacksApi.questions(token, false);
         return {
@@ -394,6 +458,48 @@ export async function runWbRoleOp(
     }
 
     if (role === 'saule') {
+      if (/бренд/i.test(t)) {
+        const r = await contentApi.brands(token);
+        return {
+          handled: true,
+          agentKey: role,
+          reply: r.ok
+            ? `${cabinetName} · бренды\n${shortJson(r.data, 700)}`
+            : `Бренды: ${r.errorText}`,
+        };
+      }
+      if (/корзин/i.test(t)) {
+        const r = await contentApi.cardsTrashList(token, 10);
+        return {
+          handled: true,
+          agentKey: role,
+          reply: r.ok
+            ? `${cabinetName} · корзина карточек\n${shortJson(r.data, 700)}`
+            : `Корзина: ${r.errorText}`,
+        };
+      }
+      if (/антифрод|самовыкуп/i.test(t)) {
+        const r = await analyticsApi.antifraud(token, daysAgoIso(7), todayIso());
+        return {
+          handled: true,
+          agentKey: role,
+          reply: r.ok
+            ? `${cabinetName} · антифрод\n${shortJson(r.data, 800)}`
+            : `Антифрод: ${r.errorText}`,
+        };
+      }
+      if (/остатк.*fbw|fbw.*остат|поступлен/i.test(t)) {
+        const r = /поступлен/i.test(t)
+          ? await statsApi.incomes(token, daysAgoIso(30))
+          : await statsApi.stocks(token, daysAgoIso(2));
+        return {
+          handled: true,
+          agentKey: role,
+          reply: r.ok
+            ? `${cabinetName} · ${/поступлен/i.test(t) ? 'поступления' : 'остатки FBW'}\n${shortJson(r.data, 800)}`
+            : `Stats: ${r.errorText}`,
+        };
+      }
       if (/лимит/i.test(t)) {
         const r = await contentApi.cardsLimits(token);
         const d = (r.data as { data?: Record<string, unknown> })?.data || {};
