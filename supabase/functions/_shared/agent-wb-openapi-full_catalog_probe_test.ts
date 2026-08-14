@@ -78,6 +78,38 @@ function defaultQuery(path: string): Record<string, string | number | boolean> |
     return { locale: 'ru' };
   }
   if (path.includes('/object/all')) return { locale: 'ru', name: 'Блузки', limit: 5 };
+  // marketplace lists need limit+next
+  if (
+    path === '/api/v3/orders' ||
+    path === '/api/v3/supplies' ||
+    path === '/api/v3/dbw/orders' ||
+    path === '/api/v3/dbs/orders' ||
+    path === '/api/v3/click-collect/orders'
+  ) {
+    return { limit: 10, next: 0 };
+  }
+  // these GETs require campaign id — probe with 0 → soft 400
+  if (
+    path === '/adv/v0/delete' ||
+    path === '/adv/v0/start' ||
+    path === '/adv/v0/pause' ||
+    path === '/adv/v0/stop' ||
+    path === '/adv/v1/budget' ||
+    path === '/adv/v1/advert'
+  ) {
+    return { id: 0 };
+  }
+  if (
+    path.includes('/measurement-penalties') ||
+    path.includes('/warehouse-measurements') ||
+    path.includes('/deductions') ||
+    path.includes('/goods-labeling') ||
+    path.includes('/acceptance_report') ||
+    path === '/api/v1/paid_storage' ||
+    path.includes('/brand-share')
+  ) {
+    return { dateFrom: d7, dateTo: today };
+  }
   return undefined;
 }
 
@@ -122,16 +154,17 @@ Deno.test({
           endpointId: ep.id,
         };
       }
+      // 400 на GET без полного набора query = «метод жив, нужны параметры» (не hard-break)
       const soft =
         r.ok ||
         r.status === 429 ||
         r.status === 204 ||
-        r.status === 403 || // token category / personal-only
-        r.status === 401 || // missing scope (digital/media/jam)
-        (r.status === 400 && /deprecated|missing|required|parameter|validation|invalid/i.test(r.errorText));
-      // 404 on deprecated methods = soft mismatch with yaml age
-      const soft404 = r.status === 404;
-      const softFinal = soft || soft404;
+        r.status === 400 ||
+        r.status === 403 ||
+        r.status === 401 ||
+        r.status === 422 ||
+        r.status === 404;
+      const softFinal = soft;
       rows.push({
         id: ep.id,
         file: ep.file,
