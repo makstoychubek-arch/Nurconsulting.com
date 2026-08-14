@@ -74,7 +74,8 @@ export function detectTopicalAgents(text: string): string[] {
     lower.includes("отмен") ||
     priceChange ||
     /(^|[^а-яё])цен(а|ы|у|е|ой|ам)?([^а-яё]|$)/.test(lower) ||
-    (!selfbuy && !sheetGiveaway && /(^|[^а-яё])выкуп/.test(lower))
+    (!selfbuy && !sheetGiveaway && /(^|[^а-яё])выкуп/.test(lower)) ||
+    /конкурент|сравни.*(арт|nm|\d{6,}|карточ)|найди.*(конкурент|похож|аналог)/i.test(lower)
   ) {
     found.push("saule");
   }

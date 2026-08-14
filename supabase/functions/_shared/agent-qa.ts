@@ -21,6 +21,10 @@ import { detectNamedAgents, detectMentionedAgents } from './agent-team.ts';
 import { wantsFbsStock } from './agent-fbs-stock.ts';
 import { alinaAskProduct, alinaSeesSheet, antonWbStockLead, pick } from './agent-voice.ts';
 import { findCatalogProducts } from './agent-product-catalog.ts';
+import {
+  analyzeDirectCompetitors,
+  wantsCompetitorAnalysis,
+} from './agent-competitors.ts';
 
 function alinaPickModel(lines: string[]): string {
   return [alinaAskProduct(), ...lines].join('\n');
@@ -394,6 +398,19 @@ export async function tryTeamSmartQa(
   const t = (text || '').trim();
   if (!t || t.length > 900) return { handled: false };
   const named = namedAgents(t);
+
+  // ── Конкуренты WB (Сауле) ────────────────────────────────────────────────
+  if (wantsCompetitorAnalysis(t)) {
+    // чужой именной пинг — не перехватываем
+    if (named.length && !named.includes('saule') && !named.includes('karina')) {
+      return { handled: false };
+    }
+    if (triggeringBot !== 'saule') {
+      return { handled: true }; // отвечает только Сауле
+    }
+    const result = await analyzeDirectCompetitors(t);
+    return { handled: true, agentKey: 'saule', reply: result.reply };
+  }
 
   // ── Фото с WB (Алина), Муху на это глушим ───────────────────────────────
   if (wantsWbProductPhoto(t)) {

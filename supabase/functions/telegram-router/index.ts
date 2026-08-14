@@ -1463,6 +1463,8 @@ serve(async (req) => {
                 }
               }
               if (qa.reply) {
+                await sendChatAction(speakAs, chatId, "typing");
+                await setChatFocus(chatId, speakAs, "qa_reply", 12);
                 await sendTelegramMessage(
                   speakAs,
                   chatId,
