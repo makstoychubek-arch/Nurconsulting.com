@@ -3,6 +3,8 @@
  * план специалистов → ответы по делу → пинг коллеги → без циклов.
  */
 
+import { collectivePeerStyle, wantsNewsDiscussion, newsDiscussionPlan } from "./agent-collective.ts";
+
 export const BOT_USERNAMES: Record<string, string> = {
   saule: "saulexxx_bot",
   amina: "aminaakd_bot",
@@ -44,6 +46,10 @@ export function detectTopicalAgents(text: string): string[] {
   const lower = text.toLowerCase();
   const found: string[] = [];
   const selfbuy = lower.includes("самовыкуп");
+
+  if (wantsNewsDiscussion(text)) {
+    return newsDiscussionPlan(text);
+  }
 
   const sheetGiveaway =
     lower.includes("раздач") ||
@@ -192,37 +198,35 @@ export function isDoneReply(reply: string): boolean {
 
 export function teamBriefForPrompt(plan: string[], rootTask: string): string {
   const line = plan.map((a) => AGENT_DISPLAY[a] || a).join(", ");
+  const news = wantsNewsDiscussion(rootTask);
   return [
     `Вопрос владельца: ${rootTask.slice(0, 500)}`,
     plan.length > 1
       ? `В теме ещё могут ответить: ${line}. Это рабочий чат — можно коротко перекинуться с коллегой.`
       : `Твоя зона. Ответь коротко по делу.`,
+    news
+      ? "Тема новостей: обсудите как смена — Карина задаёт тон, остальные дают взгляд из своей зоны, без эха."
+      : "",
     "Правила общения в команде:",
     "- Пиши как в Telegram с коллегами: 1–4 коротких строки, без отчётов и без «коллега передал».",
     "- Свой кусок — своими словами и цифрами из ФАКТОВ. Не копируй чужой текст.",
+    "- Можно мягко не согласиться по делу — это нормально для живой смены.",
     "- Нужен другой специалист — обратись живо: «Антон, глянь остаток по…» или @username + суть.",
     "- Не устраивай цепочку ради цепочки. Не нужен следующий — просто закончи.",
-  ].join("\n");
+  ].filter(Boolean).join("\n");
 }
 
 /** Промпт, когда отвечает на реплику коллеги в чате. */
 export function peerTalkBrief(fromAgent: string, peerMessage: string): string {
   const name = AGENT_DISPLAY[fromAgent] || fromAgent;
-  const styles = [
-    "Можно согласиться одной короткой фразой и добавить своё.",
-    "Можно уточнить у коллеги или у владельца — одной строкой.",
-    "Можно сразу дать цифру из своей зоны, без пересказа.",
-    "Можно коротко поправить/дополнить, если коллега рядом с темой.",
-    "Если добавить нечего — одна живая реплика и стоп.",
-  ];
-  const style = styles[Math.floor(Math.random() * styles.length)];
+  const style = collectivePeerStyle();
   return [
     `${name} только что написала/написал в чат:`,
     `«${peerMessage.slice(0, 700)}»`,
     "Ответь как живой коллега в том же чате: коротко, по своей зоне.",
     style,
-    "Не начинай с «Спасибо» / «Принято» / «Коллега передал» / «Ок, понял». Сразу по делу.",
-    "Не копируй текст коллеги. Чередуй формат ответа.",
+    "Не начинай с «Спасибо» / «Принято» / «Коллега передал» / «Ок, понял» / «Полностью согласен». Сразу по делу.",
+    "Не копируй текст коллеги. Не поддакивай без своего куска. Чередуй формат ответа.",
     "Если всё ясно и тебе добавить нечего — одна короткая реплика и стоп (без пинга дальше).",
   ].join("\n");
 }

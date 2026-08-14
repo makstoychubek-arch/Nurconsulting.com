@@ -21,6 +21,9 @@ export function antonConfirmCabinet(human: string): string {
     `Уточню: ${human}?`,
     `Кажется ${human}. Ок?`,
     `По ${human} копаем?`,
+    `${human} — тот?`,
+    `Беру ${human}, да?`,
+    `Стоп, это ${human}?`,
   ]);
 }
 
@@ -38,6 +41,8 @@ export function antonAskCabinets(): string {
     "С какого кабинета копаем?",
     "База? Элиум? Уркунбаев? Скажи",
     "Выбери кабинет — и дальше",
+    "Кабинет коротко",
+    "Точка какая — база / saai / элиум?",
   ]);
 }
 
@@ -310,15 +315,20 @@ export function saulePriceAsk(
     `${cabinet} · ${vendor}`,
     `${vendor} (${cabinet})`,
     `Нашла: ${cabinet} · ${vendor}`,
+    `Есть: ${vendor} · ${cabinet}`,
+    `Вот: ${cabinet} / ${vendor}`,
   ]);
   const mid = pick([
     `до скидки ${before} · после ${after}`,
     `до ${before} · после ${after}`,
+    `сейчас: до ${before}, после ${after}`,
   ]);
   const ask = pick([
     'что меняем — до или после? и новую цену',
     'до или после — и цену числом',
     'пиши: «после 3000» или «до 5000»',
+    'новая цена: «после …» или «до …»',
+    'кинь «после 2800» — сохраню',
   ]);
   return [head, mid, ask].join('\n');
 }
@@ -328,6 +338,9 @@ export function saulePriceSaved(label: string, money: string): string {
     `сохранила · ${label} ${money}`,
     `готово · ${label} ${money}`,
     `ок, сохранила · ${label} ${money}`,
+    `зафиксировала · ${label} ${money}`,
+    `есть · ${label} ${money}`,
+    `сделала · ${label} ${money}`,
   ]);
 }
 
@@ -337,6 +350,8 @@ export function sauleAskProduct(): string {
     'Что меняем — модель и цвет, или nm?',
     'Кинь товар: лапша / фонарь / жилетка… или nm',
     'Артикул коротко: фасон + цвет',
+    'Какую позицию? Можно по-человечески',
+    'Товар одной фразой — и покажу до/после',
   ]);
 }
 
@@ -345,8 +360,37 @@ export function sauleAmbiguousProducts(lines: string[]): string {
     'Несколько похожих — какой номер?',
     'Нашла несколько. Какой?',
     'Уточни номер:',
+    'Близко несколько — ткни номер',
+    'Какой из этих?',
   ]);
   return [head, ...lines].join('\n');
+}
+
+export function karinaNewsReact(title: string): string {
+  const head = pick([
+    'Карина · новости',
+    'Свежее:',
+    'Глянула:',
+    'По площадкам:',
+  ]);
+  return pick([
+    `${head}\n${title}\nСауле / Амина — как это у нас?`,
+    `${head}\n«${title}»\nКто задевает — кидайте по зоне`,
+    `${head}\n${title}\nКоротко: что делаем?`,
+  ]);
+}
+
+export function teamAck(): string {
+  return pick([
+    'ага',
+    'угу',
+    'норм',
+    'ок',
+    'поняла',
+    'принято',
+    'ща',
+    'есть',
+  ]);
 }
 
 /** Алина — товар / слот */

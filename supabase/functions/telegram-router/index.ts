@@ -76,6 +76,13 @@ import {
   liveNameReply,
   namePingAgent,
 } from "../_shared/agent-personas.ts";
+import {
+  formatNewsFacts,
+  openingDiversityHint,
+  recentMarketplaceNews,
+  wantsNewsDiscussion,
+  wantsTeamBanter,
+} from "../_shared/agent-collective.ts";
 
 // ---------- Настройка ----------
 
@@ -540,10 +547,10 @@ async function askOpenAI(opts: {
           },
           { role: "user", content: opts.userMessage.slice(0, 2000) },
         ],
-        temperature: 0.88,
-        max_tokens: 320,
-        presence_penalty: 0.55,
-        frequency_penalty: 0.5,
+        temperature: 0.95,
+        max_tokens: 360,
+        presence_penalty: 0.7,
+        frequency_penalty: 0.65,
       }),
       signal: AbortSignal.timeout(25000),
     });
@@ -659,8 +666,17 @@ async function runAgentTurn(opts: {
   } catch (e) {
     console.error("[telegram-router] qa facts", e);
   }
+  if (wantsNewsDiscussion(rootTask) || wantsTeamBanter(rootTask)) {
+    try {
+      const news = await recentMarketplaceNews(6);
+      wbContext += `\n\n${formatNewsFacts(news)}`;
+    } catch (e) {
+      console.error("[telegram-router] news facts", e);
+    }
+  }
 
   const history = await historyP;
+  const historyFmt = formatHistory(history);
   const systemPrompt =
     (AGENT_PROMPTS[targetAgent] || AGENT_PROMPTS.saule) +
     `\n\n${actionsCapabilityBrief()}` +
@@ -668,6 +684,7 @@ async function runAgentTurn(opts: {
     (fromAgent
       ? `\n\n${peerTalkBrief(fromAgent, userMessage)}`
       : `\n\nВладелец написал в рабочий чат. Ответь как живой сотрудник: пойми смысл → факт/цифра или одно уточнение. Коротко. Выбери один из ФОРМАТОВ ОТВЕТА (не тот же, что в последних репликах истории).`) +
+    `\n\n${openingDiversityHint(historyFmt)}` +
     `\n\nВарьируй формулировки и структуру. Не копируй шаблоны и не начинай два раза подряд одинаково.` +
     (lastHop
       ? `\n\nПоследний ход — никого не зови, закончи коротко (формат СТОП или ИТОГ).`
@@ -682,7 +699,7 @@ async function runAgentTurn(opts: {
   // Свободный team plan / hop-диалог — качество рассуждения: full (gpt-4o)
   const reply = await askOpenAI({
     systemPrompt,
-    history: formatHistory(history),
+    history: historyFmt,
     wbContext,
     modelKind: "full",
     userMessage: fromAgent
@@ -1358,7 +1375,13 @@ serve(async (req) => {
       ...detectMentionedAgents(text),
       ...detectNamedAgents(text),
     ];
-    let plan = buildTeamPlan(text, message.entities, MAX_AGENT_HOPS);
+    let plan = buildTeamPlan(
+      text,
+      message.entities,
+      wantsNewsDiscussion(text) || wantsTeamBanter(text)
+        ? Math.max(MAX_AGENT_HOPS, 4)
+        : MAX_AGENT_HOPS,
+    );
     // Пока диалог с конкретным агентом — короткие реплики не уходят «дефолтной» Карине
     if (
       stickyAgent &&
