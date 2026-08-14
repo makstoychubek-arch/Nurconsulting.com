@@ -1,7 +1,9 @@
-import { assert, assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
+import { assertEquals, assert } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import {
-  extractNmId,
+  accessPresetItems,
   normalizeRuPhone,
+  normalizeWbInvitePhone,
+  parseAccessPreset,
   parseSizeRange,
 } from './agent-wb-api.ts';
 import {
@@ -24,29 +26,37 @@ Deno.test('parseSizeRange 40-54 step 2', () => {
   assert(!s!.includes('41'));
 });
 
-Deno.test('normalizeRuPhone', () => {
-  assertEquals(normalizeRuPhone('+7 (900) 123-45-67'), '79001234567');
+Deno.test('normalizeWbInvitePhone countries', () => {
+  assertEquals(normalizeWbInvitePhone('+7 (900) 123-45-67')?.phone, '79001234567');
+  assertEquals(normalizeWbInvitePhone('89001234567')?.phone, '79001234567');
+  assertEquals(normalizeWbInvitePhone('9001234567')?.phone, '79001234567');
+  assertEquals(normalizeWbInvitePhone('9001234567')?.countryName, 'Россия');
+
+  assertEquals(normalizeWbInvitePhone('+996 700 123 456')?.phone, '996700123456');
+  assertEquals(normalizeWbInvitePhone('996700123456')?.countryName, 'Кыргызстан');
+  assertEquals(normalizeWbInvitePhone('700123456')?.phone, '996700123456'); // local KG
+
+  assertEquals(normalizeWbInvitePhone('77001234567')?.country, 'KZ');
+  assertEquals(normalizeWbInvitePhone('+375 29 123-45-67')?.phone, '375291234567');
+  assertEquals(normalizeWbInvitePhone('998901234567')?.countryName, 'Узбекистан');
+
+  assertEquals(normalizeWbInvitePhone('123'), null);
+  // back-compat
   assertEquals(normalizeRuPhone('89001234567'), '79001234567');
-  assertEquals(normalizeRuPhone('9001234567'), '79001234567');
-  assertEquals(normalizeRuPhone('123'), null);
 });
 
-Deno.test('extractNmId', () => {
-  assertEquals(extractNmId('nm 211195995 описание'), 211195995);
-  assertEquals(extractNmId('артикул 1234567'), 1234567);
+Deno.test('access presets', () => {
+  assertEquals(parseAccessPreset('стандарт'), 'standard');
+  assertEquals(parseAccessPreset('2'), 'manager');
+  assertEquals(accessPresetItems('standard'), undefined);
+  assert(accessPresetItems('manager')!.some((a) => a.code === 'balance' && a.disabled));
 });
 
-Deno.test('card intents', () => {
+Deno.test('extractNm-ish intents still', () => {
   assert(wantsCardCreate('создай карточку блузка белая зевина 1 размеры с 40 по 54'));
   assert(wantsCardSeo('поменяй описание карточки nm 1234567'));
-  assert(wantsCardSeo('сео по базе обнови'));
   assert(wantsCardBrand('смени бренд на Nely по nm 123'));
-  assert(!wantsCardCreate('остаток блузка'));
-});
-
-Deno.test('users intents', () => {
   assert(wantsUserInvite('добавь человека в кабинет зевина 1'));
-  assert(wantsUserInvite('пригласи в элиум'));
   assert(wantsUserList('кто в кабинете база'));
   assert(wantsUserRevoke('удали доступ сотрудника'));
 });

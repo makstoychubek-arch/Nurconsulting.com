@@ -248,21 +248,38 @@ export async function createUserInvite(
   token: string,
   phoneNumber: string,
   position = 'Сотрудник',
-): Promise<{ ok: boolean; inviteUrl?: string; inviteID?: string; errorText?: string }> {
-  const phone = normalizeRuPhone(phoneNumber);
-  if (!phone) {
-    return { ok: false, errorText: 'Нужен телефон в формате 79XXXXXXXXX' };
+  access?: AccessItem[],
+): Promise<{
+  ok: boolean;
+  inviteUrl?: string;
+  inviteID?: string;
+  phone?: string;
+  country?: string;
+  errorText?: string;
+}> {
+  const norm = normalizeWbInvitePhone(phoneNumber);
+  if (!norm) {
+    return {
+      ok: false,
+      errorText:
+        'Номер не разобрала. Нужны цифры с кодом страны без «+»: RU 79…, KG 996…, KZ 7…, BY 375…, UZ 998…',
+    };
   }
+  const body: Record<string, unknown> = {
+    invite: { phoneNumber: norm.phone, position: position.slice(0, 150) },
+  };
+  // пустой access / не передан → дефолт WB (всё кроме showcase и changeJam)
+  if (access && access.length) body.access = access;
+
   const { ok, data, status } = await wbJson(`${USERS_API}/api/v1/invite`, token, {
     method: 'POST',
-    body: JSON.stringify({
-      invite: { phoneNumber: phone, position: position.slice(0, 150) },
-      access: [],
-    }),
+    body: JSON.stringify(body),
   });
   if (!ok) {
     return {
       ok: false,
+      phone: norm.phone,
+      country: norm.country,
       errorText: String(
         data.errorText || data.message || data.detail || `HTTP ${status}`,
       ).slice(0, 400),
@@ -272,8 +289,173 @@ export async function createUserInvite(
     ok: Boolean(data.isSuccess !== false),
     inviteUrl: data.inviteUrl ? String(data.inviteUrl) : undefined,
     inviteID: data.inviteID ? String(data.inviteID) : undefined,
+    phone: norm.phone,
+    country: norm.country,
     errorText: data.isSuccess === false ? 'Повтори запрос' : undefined,
   };
+}
+
+export type AccessItem = { code: string; disabled: boolean };
+
+/** Коды доступов WB User Management (офиц. док). */
+export const WB_ACCESS_CODES = [
+  'balance',
+  'finance',
+  'supply',
+  'discountPrice',
+  'feedbacksQuestions',
+  'feedbacks',
+  'questions',
+  'pinFeedbacks',
+  'pointsForReviews',
+  'suppliersDocuments',
+  'brands',
+  'wbPoint',
+  'showcase',
+  'changeJam',
+] as const;
+
+/**
+ * Пресеты доступов для приглашения.
+ * «стандарт» = не шлём access → дефолт WB (все разделы, кроме showcase и changeJam).
+ */
+export type AccessPreset = 'standard' | 'manager' | 'no_finance' | 'readonly';
+
+export function accessPresetItems(preset: AccessPreset): AccessItem[] | undefined {
+  if (preset === 'standard') return undefined; // WB default
+  if (preset === 'manager') {
+    return [
+      { code: 'feedbacksQuestions', disabled: false },
+      { code: 'feedbacks', disabled: false },
+      { code: 'questions', disabled: false },
+      { code: 'supply', disabled: false },
+      { code: 'discountPrice', disabled: false },
+      { code: 'suppliersDocuments', disabled: false },
+      { code: 'finance', disabled: true },
+      { code: 'balance', disabled: true },
+      { code: 'showcase', disabled: true },
+      { code: 'changeJam', disabled: true },
+      { code: 'brands', disabled: true },
+    ];
+  }
+  if (preset === 'no_finance') {
+    return [
+      { code: 'finance', disabled: true },
+      { code: 'balance', disabled: true },
+      { code: 'showcase', disabled: true },
+      { code: 'changeJam', disabled: true },
+    ];
+  }
+  // readonly — смотреть отзывы/доки, без поставок/цен/финансов
+  return [
+    { code: 'feedbacksQuestions', disabled: false },
+    { code: 'suppliersDocuments', disabled: false },
+    { code: 'supply', disabled: true },
+    { code: 'discountPrice', disabled: true },
+    { code: 'finance', disabled: true },
+    { code: 'balance', disabled: true },
+    { code: 'showcase', disabled: true },
+    { code: 'changeJam', disabled: true },
+    { code: 'brands', disabled: true },
+  ];
+}
+
+export function parseAccessPreset(text: string): AccessPreset | null {
+  const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
+  if (/^(стандарт|по\s+умолчанию|дефолт|default)$/i.test(t.trim())) return 'standard';
+  if (/менеджер|manager|обычн/i.test(t)) return 'manager';
+  if (/без\s+финанс|no[_\s-]?finance|не\s+финанс/i.test(t)) return 'no_finance';
+  if (/только\s+смотр|read.?only|чтение|readonly/i.test(t)) return 'readonly';
+  if (/^\d$/.test(t.trim())) {
+    const n = Number(t.trim());
+    return (['standard', 'manager', 'no_finance', 'readonly'] as AccessPreset[])[n - 1] || null;
+  }
+  return null;
+}
+
+export function accessPresetLabel(preset: AccessPreset): string {
+  switch (preset) {
+    case 'standard':
+      return 'стандарт WB (всё кроме витрины и Jam)';
+    case 'manager':
+      return 'менеджер (отзывы/поставки/цены; без финансов/баланса)';
+    case 'no_finance':
+      return 'как стандарт, но без финансов и баланса';
+    case 'readonly':
+      return 'только просмотр (отзывы/доки)';
+  }
+}
+
+export type PhoneNorm = {
+  /** Цифры как ждёт WB: код страны + номер, без + и пробелов */
+  phone: string;
+  country: string;
+  countryName: string;
+};
+
+/**
+ * Нормализация телефона для POST /api/v1/invite.
+ * WB принимает номера стран: RU, KZ, KG, BY, UZ, TJ, AM, AZ, GE, TR, AE, CN, …
+ * Формат в API: строка цифр без «+» (пример RU: 79991234567, KG: 996700123456).
+ */
+export function normalizeWbInvitePhone(raw: string): PhoneNorm | null {
+  let d = String(raw || '').replace(/\D/g, '');
+  if (!d) return null;
+  // частые префиксы «00»
+  if (d.startsWith('00')) d = d.slice(2);
+
+  // Россия / Казахстан (оба +7)
+  if (d.length === 11 && d.startsWith('8')) d = '7' + d.slice(1);
+  if (d.length === 10 && /^9\d{9}$/.test(d)) d = '7' + d; // мобильный РФ без кода
+  if (d.length === 11 && d.startsWith('7')) {
+    // KZ мобильные часто 70x/77x; RU 9xx — помечаем мягко
+    const isKz = /^7(7\d|6\d)/.test(d);
+    return {
+      phone: d,
+      country: isKz ? 'KZ' : 'RU',
+      countryName: isKz ? 'Казахстан' : 'Россия',
+    };
+  }
+
+  const rules: Array<{ cc: string; len: number; name: string }> = [
+    { cc: '996', len: 12, name: 'Кыргызстан' }, // 996 + 9
+    { cc: '998', len: 12, name: 'Узбекистан' },
+    { cc: '992', len: 12, name: 'Таджикистан' },
+    { cc: '993', len: 11, name: 'Туркменистан' },
+    { cc: '994', len: 12, name: 'Азербайджан' },
+    { cc: '995', len: 12, name: 'Грузия' },
+    { cc: '374', len: 11, name: 'Армения' },
+    { cc: '375', len: 12, name: 'Беларусь' },
+    { cc: '90', len: 12, name: 'Турция' },
+    { cc: '971', len: 12, name: 'ОАЭ' },
+    { cc: '86', len: 13, name: 'Китай' },
+    { cc: '420', len: 12, name: 'Чехия' },
+    { cc: '39', len: 12, name: 'Италия' },
+    { cc: '46', len: 11, name: 'Швеция' },
+  ];
+
+  for (const r of rules) {
+    if (d.startsWith(r.cc) && d.length === r.len) {
+      return { phone: d, country: r.cc, countryName: r.name };
+    }
+  }
+
+  // KG без кода: 9 цифр, начинается с 5/7 → 996
+  if (d.length === 9 && /^[57]\d{8}$/.test(d)) {
+    return { phone: '996' + d, country: 'KG', countryName: 'Кыргызстан' };
+  }
+  // BY без кода: 9 цифр
+  if (d.length === 9 && /^[234]\d{8}$/.test(d)) {
+    return { phone: '375' + d, country: 'BY', countryName: 'Беларусь' };
+  }
+
+  return null;
+}
+
+/** @deprecated — используй normalizeWbInvitePhone */
+export function normalizeRuPhone(raw: string): string | null {
+  const n = normalizeWbInvitePhone(raw);
+  return n?.phone || null;
 }
 
 export async function listCabinetUsers(
@@ -313,17 +495,6 @@ export async function deleteCabinetUser(
     ok: false,
     errorText: String(data.errorText || data.message || `HTTP ${status}`).slice(0, 300),
   };
-}
-
-/** 79XXXXXXXXX из типичных вводов. */
-export function normalizeRuPhone(raw: string): string | null {
-  const digits = String(raw || '').replace(/\D/g, '');
-  if (!digits) return null;
-  let d = digits;
-  if (d.length === 11 && d.startsWith('8')) d = '7' + d.slice(1);
-  if (d.length === 10 && d.startsWith('9')) d = '7' + d;
-  if (d.length === 11 && d.startsWith('7')) return d;
-  return null;
 }
 
 /** Размеры «с 40 по 54» → [40,42,…,54] (шаг 2 для одежды) или подряд. */

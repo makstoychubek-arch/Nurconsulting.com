@@ -1,6 +1,9 @@
 /**
  * Диалог Карины: приглашения и доступы в кабинет WB (User Management API).
  * POST /api/v1/invite · GET /api/v1/users · DELETE /api/v1/user
+ *
+ * Телефон: цифры с кодом страны без «+» (RU 79…, KG 996…, KZ 7…, BY 375…).
+ * Доступы: пресеты standard / manager / no_finance / readonly.
  */
 
 import { getAdminClient } from './supabase-admin.ts';
@@ -13,11 +16,15 @@ import {
 } from './agent-actions.ts';
 import { setChatFocus } from './agent-chat-focus.ts';
 import {
+  accessPresetItems,
+  accessPresetLabel,
   cabinetTokenById,
   createUserInvite,
   deleteCabinetUser,
   listCabinetUsers,
-  normalizeRuPhone,
+  normalizeWbInvitePhone,
+  parseAccessPreset,
+  type AccessPreset,
 } from './agent-wb-api.ts';
 import { pick } from './agent-voice.ts';
 
@@ -32,7 +39,9 @@ type UsersPayload = {
   cabinetId?: string;
   cabinetName?: string;
   phone?: string;
+  phoneCountry?: string;
   position?: string;
+  accessPreset?: AccessPreset;
   userId?: number;
   userLabel?: string;
 };
@@ -134,8 +143,30 @@ async function finishPending(id: string, resultText: string) {
     .eq('id', id);
 }
 
-function extractPhone(text: string): string | null {
-  return normalizeRuPhone(text);
+function extractPhone(text: string): ReturnType<typeof normalizeWbInvitePhone> {
+  return normalizeWbInvitePhone(text);
+}
+
+function accessAsk(): string {
+  return [
+    'Какие доступы дать?',
+    '1) стандарт — как в WB (всё, кроме витрины и Jam)',
+    '2) менеджер — отзывы/поставки/цены; без финансов и баланса',
+    '3) без финансов',
+    '4) только просмотр (отзывы/доки)',
+    'Или напиши: стандарт / менеджер / без финансов / чтение',
+  ].join('\n');
+}
+
+function inviteConfirm(p: UsersPayload): string {
+  return [
+    `Приглашение в ${p.cabinetName}`,
+    `тел. ${p.phone}${p.phoneCountry ? ` · ${p.phoneCountry}` : ''}`,
+    `должность: ${p.position || 'Сотрудник'}`,
+    `доступ: ${accessPresetLabel(p.accessPreset || 'standard')}`,
+    '',
+    '«да» — сгенерирую ссылку. «отмена» — стоп.',
+  ].join('\n');
 }
 
 export async function startWbUsersDialog(opts: {
@@ -188,47 +219,67 @@ export async function startWbUsersDialog(opts: {
       ),
     ];
     if (invited.length) {
-      lines.push('', 'Приглашения:', ...invited.slice(0, 10).map((u) =>
-        `• ${u.name || 'ожидает'} · ${u.phone || '—'} · id ${u.id}`
-      ));
+      lines.push(
+        '',
+        'Приглашения:',
+        ...invited.slice(0, 10).map((u) =>
+          `• ${u.name || 'ожидает'} · ${u.phone || '—'} · id ${u.id}`
+        ),
+      );
     }
     return { handled: true, reply: lines.join('\n') };
   }
 
   if (kind === 'invite') {
     const phone = extractPhone(text);
+    const preset = parseAccessPreset(text) || undefined;
     if (!phone) {
       await savePending(opts.chatId, opts.tgUserId, resolved.match, {
         kind: 'invite',
         step: 'await_phone',
         cabinetId: resolved.match.id,
         cabinetName: resolved.match.name,
+        accessPreset: preset,
+        position: 'Сотрудник',
       });
       return {
         handled: true,
-        reply: pick([
-          `${resolved.match.name}: кинь номер телефона человека (79…)`,
-          `Ок, ${resolved.match.name}. Номер в формате 79001234567`,
-        ]),
+        reply: [
+          `${resolved.match.name}: кинь номер с кодом страны`,
+          'Примеры: 79001234567 (RU) · 996700123456 (KG) · 77001234567 (KZ) · 375291234567 (BY)',
+          'Можно с + и пробелами — уберу сама.',
+        ].join('\n'),
       };
     }
-    const payload: UsersPayload = {
+    await savePending(opts.chatId, opts.tgUserId, resolved.match, {
       kind: 'invite',
-      step: 'await_confirm',
+      step: preset ? 'await_confirm' : 'await_access',
       cabinetId: resolved.match.id,
       cabinetName: resolved.match.name,
-      phone,
+      phone: phone.phone,
+      phoneCountry: `${phone.countryName} (${phone.country})`,
       position: 'Сотрудник',
-    };
-    await savePending(opts.chatId, opts.tgUserId, resolved.match, payload, 'awaiting_confirm');
+      accessPreset: preset || 'standard',
+    }, preset ? 'awaiting_confirm' : 'awaiting_selection');
+
+    if (!preset) {
+      return {
+        handled: true,
+        reply: [
+          `Номер: ${phone.phone} · ${phone.countryName}`,
+          accessAsk(),
+        ].join('\n'),
+      };
+    }
     return {
       handled: true,
-      reply: [
-        `Приглашение в ${resolved.match.name}`,
-        `тел. ${phone}`,
-        '',
-        '«да» — сгенерирую ссылку. «отмена» — стоп.',
-      ].join('\n'),
+      reply: inviteConfirm({
+        cabinetName: resolved.match.name,
+        phone: phone.phone,
+        phoneCountry: `${phone.countryName} (${phone.country})`,
+        position: 'Сотрудник',
+        accessPreset: preset,
+      }),
     };
   }
 
@@ -276,20 +327,31 @@ export async function continueWbUsersDialog(opts: {
   if (p.step === 'await_phone') {
     const phone = extractPhone(text);
     if (!phone) {
-      return { handled: true, reply: 'Номер не разобрала. Пример: 79001234567' };
+      return {
+        handled: true,
+        reply:
+          'Номер не разобрала. Пример: 79001234567 / 996700123456 / 77001234567 (цифры, код страны).',
+      };
     }
-    p.phone = phone;
-    p.step = 'await_confirm';
-    await patchPending(pending!.id, p, 'awaiting_confirm');
+    p.phone = phone.phone;
+    p.phoneCountry = `${phone.countryName} (${phone.country})`;
+    p.step = 'await_access';
+    await patchPending(pending!.id, p);
     return {
       handled: true,
-      reply: [
-        `Приглашение в ${p.cabinetName}`,
-        `тел. ${phone}`,
-        '',
-        '«да» — сделаю ссылку.',
-      ].join('\n'),
+      reply: [`Номер: ${phone.phone} · ${phone.countryName}`, accessAsk()].join('\n'),
     };
+  }
+
+  if (p.step === 'await_access') {
+    const preset = parseAccessPreset(text) || (isConfirmText(text) ? 'standard' : null);
+    if (!preset) {
+      return { handled: true, reply: accessAsk() };
+    }
+    p.accessPreset = preset;
+    p.step = 'await_confirm';
+    await patchPending(pending!.id, p, 'awaiting_confirm');
+    return { handled: true, reply: inviteConfirm(p) };
   }
 
   if (p.step === 'await_user') {
@@ -330,7 +392,13 @@ export async function continueWbUsersDialog(opts: {
     if (!tok) return { handled: true, reply: 'Нет токена WB.' };
 
     if (p.kind === 'invite' && p.phone) {
-      const inv = await createUserInvite(tok.token, p.phone, p.position || 'Сотрудник');
+      const access = accessPresetItems(p.accessPreset || 'standard');
+      const inv = await createUserInvite(
+        tok.token,
+        p.phone,
+        p.position || 'Сотрудник',
+        access,
+      );
       if (!inv.ok || !inv.inviteUrl) {
         const msg = `Не вышло приглашение: ${inv.errorText || 'нет ссылки'}. Нужен токен владельца с категорией Users.`;
         await finishPending(pending!.id, msg);
@@ -338,10 +406,11 @@ export async function continueWbUsersDialog(opts: {
       }
       const msg = [
         pick(['Готово', 'Ссылка есть', 'Приглашение создала']),
-        `${p.cabinetName} · ${p.phone}`,
+        `${p.cabinetName} · ${inv.phone || p.phone}${inv.country ? ' · ' + inv.country : ''}`,
+        `доступ: ${accessPresetLabel(p.accessPreset || 'standard')}`,
         inv.inviteUrl,
         inv.inviteID ? `id: ${inv.inviteID}` : null,
-        'Отправь человеку — пусть перейдёт и примет.',
+        'Отправь человеку — пусть перейдёт и примет в приложении/ЛК WB.',
       ].filter(Boolean).join('\n');
       await finishPending(pending!.id, msg);
       return { handled: true, reply: msg };
