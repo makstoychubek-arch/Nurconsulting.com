@@ -1,0 +1,38 @@
+# Минутный тик Карины (напоминания о намазе).
+# ЗАМОРОЖЕН: не запускать, пока намаз-бот снова не включат.
+# Нужны Secrets в репо:
+#   GREEN_API_ID_INSTANCE, GREEN_API_TOKEN, GREEN_API_GROUP_CHAT_ID
+# Опционально: GREEN_API_URL, CITY, COUNTRY, TIMEZONE, PRAYER_METHOD
+
+name: namaz-remind
+
+on:
+  workflow_dispatch:
+
+jobs:
+  tick:
+    if: false # frozen
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: namaz-bot/package-lock.json
+      - name: Install
+        working-directory: namaz-bot
+        run: npm ci
+      - name: Tick
+        working-directory: namaz-bot
+        env:
+          GREEN_API_URL: ${{ secrets.GREEN_API_URL }}
+          GREEN_API_ID_INSTANCE: ${{ secrets.GREEN_API_ID_INSTANCE }}
+          GREEN_API_TOKEN: ${{ secrets.GREEN_API_TOKEN }}
+          GREEN_API_GROUP_CHAT_ID: ${{ secrets.GREEN_API_GROUP_CHAT_ID }}
+          CITY: Bishkek
+          COUNTRY: Kyrgyzstan
+          TIMEZONE: Asia/Bishkek
+          PRAYER_METHOD: '3'
+        run: node tick.js

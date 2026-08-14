@@ -3734,6 +3734,12 @@
                     <div class="segment-tab" onclick="filterTests('all', this)">Все</div>
                 </div>
             </div>
+            <p class="text-xs mb-3" style="color:var(--text-muted);line-height:1.45">
+                Старт здесь → отчёт и фото вариантов в Telegram. В чате А/Б: <b style="color:var(--text-secondary);font-weight:600">тесты</b>,
+                <b style="color:var(--text-secondary);font-weight:600">как там &lt;арт&gt;</b>,
+                <b style="color:var(--text-secondary);font-weight:600">отчёт &lt;арт&gt;</b>,
+                <b style="color:var(--text-secondary);font-weight:600">смени фото &lt;арт&gt;</b>.
+            </p>
 
             <!-- МАСТЕР СОЗДАНИЯ А/Б ТЕСТА -->
             <div id="new-test-form" class="glass rounded-2xl p-6 hidden">
@@ -8163,11 +8169,29 @@
         }
 
         hideNewTestForm();
-        showPremiumModal('success', 'Тест запущен!', `Фото будет меняться каждые ${interval} мин.`);
+        showPremiumModal('success', 'Тест запущен!', `Фото будет меняться каждые ${interval} мин. Отчёт уйдёт в Telegram.`);
+        try { await notifyAbTelegram('notify_started', test.id); } catch (e) { console.warn('[AB] tg notify_started', e); }
         loadABTests();
         } finally {
             abCreatingTest = false;
             if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.pointerEvents = ''; }
+        }
+    }
+
+    async function notifyAbTelegram(action, testId) {
+        if (!testId) return;
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/ab-test-rotate`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                apikey: SUPABASE_KEY,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action, test_id: testId }),
+        });
+        if (!res.ok) {
+            const t = await res.text().catch(() => '');
+            console.warn('[AB] notifyAbTelegram', action, res.status, t);
         }
     }
 
@@ -8213,18 +8237,50 @@
         renderABTests();
         startRotationTimers();
 
-        // Ссылка "подробный отчёт" из Telegram-уведомления ведёт на
-        // /ab-testing?test=<id> — открываем модалку отчёта автоматически один
-        // раз после загрузки списка (не при каждом фоновом обновлении).
+        // Ссылка "подробный отчёт" из Telegram ведёт на /ab-testing?test=<id>.
+        // Тест может быть в другом кабинете — подгружаем по id и при необходимости
+        // переключаем кабинет, иначе модалка не откроется.
         if (!window._abDeepLinkHandled) {
             window._abDeepLinkHandled = true;
             try {
                 const qTest = new URLSearchParams(location.search).get('test');
-                if (qTest && allABTests.some(t => String(t.id) === qTest)) {
-                    setTimeout(() => openABReportModal(qTest), 300);
+                if (qTest) {
+                    setTimeout(() => openABReportDeepLink(qTest), 300);
                 }
             } catch (e) {}
         }
+    }
+
+    async function openABReportDeepLink(testId) {
+        let test = allABTests.find(t => String(t.id) === String(testId));
+        if (!test) {
+            const { data: row } = await supabase.from('ab_tests').select('*').eq('id', testId).maybeSingle();
+            if (!row) {
+                showPremiumModal('warning', 'Тест не найден', `Нет А/Б теста с id ${testId}`);
+                return;
+            }
+            if (row.cabinet_id && String(row.cabinet_id) !== String(currentCabinetId)) {
+                try { selectCabinet(row.cabinet_id); } catch (e) {}
+                // selectCabinet асинхронно перезагрузит список — подождём и откроем
+                const waitOpen = async () => {
+                    for (let i = 0; i < 20; i++) {
+                        await new Promise(r => setTimeout(r, 200));
+                        if (allABTests.some(t => String(t.id) === String(testId))) {
+                            openABReportModal(testId);
+                            return;
+                        }
+                    }
+                    const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', testId).order('variant_label');
+                    allABTests.unshift({ ...row, variants: variants || [], settings: row.settings || {} });
+                    openABReportModal(testId);
+                };
+                waitOpen();
+                return;
+            }
+            const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', testId).order('variant_label');
+            allABTests.unshift({ ...row, variants: variants || [], settings: row.settings || {} });
+        }
+        openABReportModal(testId);
     }
 
     function filterTests(mode, el) {
@@ -8240,10 +8296,16 @@
         if (currentTestFilter === 'active') list = list.filter(t => t.status === 'active');
         else if (currentTestFilter === 'finished') list = list.filter(t => t.status === 'finished');
 
-        if (list.length === 0) {
+                if (list.length === 0) {
             container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
                 <div style="font-size:40px;margin-bottom:12px">📊</div>
-                ${currentTestFilter === 'active' ? 'Нет активных тестов — создайте первый А/Б тест' : 'Нет тестов'}
+                ${currentTestFilter === 'active'
+                    ? 'Нет активных тестов — создайте первый А/Б тест'
+                    : 'Нет тестов'}
+                <div style="margin-top:14px;font-size:12px;line-height:1.5;max-width:420px;margin-left:auto;margin-right:auto;opacity:.9">
+                    После старта варианты и отчёты уходят в Telegram-чат А/Б.<br>
+                    Там можно писать: «тесты», «как там 123…», «отчёт 123…», «смени фото 123…»
+                </div>
             </div>`;
             return;
         }
@@ -8474,7 +8536,8 @@
 
         clearInterval(abRotationTimers[String(testId)]);
         delete abRotationTimers[String(testId)];
-        showPremiumModal('success', 'Тест завершён', 'А/Б тест остановлен.');
+        showPremiumModal('success', 'Тест завершён', 'А/Б тест остановлен. Отчёт уходит в Telegram.');
+        try { await notifyAbTelegram('notify_finished', testId); } catch (e) { console.warn('[AB] tg notify_finished', e); }
         await loadABTests();
     }
 
