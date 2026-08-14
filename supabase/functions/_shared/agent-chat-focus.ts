@@ -162,5 +162,8 @@ export function isLikelyFollowUp(text: string): boolean {
     return true;
   }
   if (/^\d{6,12}$/.test(t.replace(/\s/g, ''))) return true;
+  if (/сводн|в\s+сводн|эти\s+данн.*(таблиц|сводн)|дай.*(таблиц|сводн)/i.test(t)) {
+    return true;
+  }
   return false;
 }

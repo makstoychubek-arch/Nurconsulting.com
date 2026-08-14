@@ -62,6 +62,15 @@ export type TeamQaResult = {
   }>;
   /** Нужны chatId/userId — роутер сам стартует FBS-диалог */
   deferFbsStock?: boolean;
+  /** Снимок для follow-up «сводная» */
+  summarySnapshot?: {
+    title: string;
+    subtitle?: string;
+    columns: string[];
+    rows: string[][];
+    agentKey: string;
+    source?: string;
+  };
 };
 
 function admin() {
@@ -409,7 +418,21 @@ export async function tryTeamSmartQa(
       return { handled: true }; // отвечает только Сауле
     }
     const result = await analyzeDirectCompetitors(t);
-    return { handled: true, agentKey: 'saule', reply: result.reply };
+    return {
+      handled: true,
+      agentKey: 'saule',
+      reply: result.reply,
+      summarySnapshot: result.summaryRows?.length
+        ? {
+          title: result.summaryTitle || 'Конкуренты',
+          subtitle: result.queryUsed,
+          columns: ['Арт', 'Товар', 'Цена', '★', 'Отзывы', 'Кто'],
+          rows: result.summaryRows,
+          agentKey: 'saule',
+          source: 'competitors',
+        }
+        : undefined,
+    };
   }
 
   // ── Фото с WB (Алина), Муху на это глушим ───────────────────────────────

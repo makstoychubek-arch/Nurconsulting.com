@@ -93,6 +93,12 @@ import {
   shorterStyleHint,
   wantsShorterStyle,
 } from "../_shared/agent-social.ts";
+import {
+  buildSummaryReply,
+  parseAgentTextToSnapshot,
+  saveDataSnapshot,
+  wantsSummaryReflow,
+} from "../_shared/agent-summary.ts";
 
 // ---------- Настройка ----------
 
@@ -821,6 +827,8 @@ async function runAgentTurn(opts: {
   // Сначала в чат, потом история — быстрее для пользователя
   await sendTelegramMessage(targetAgent, chatId, reply, replyToMessageId);
   saveMessage(chatId, targetAgent, reply).catch(() => {});
+  const snap = parseAgentTextToSnapshot(reply, targetAgent);
+  if (snap) saveDataSnapshot(chatId, snap).catch(() => {});
 
   // Фокус на ответившем (особенно если задал вопрос) — чтобы другие не перебивали
   const asksFollowUp =
@@ -1057,6 +1065,8 @@ serve(async (req) => {
             );
             saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
             saveMessage(chatId, replyAs, fast.reply!).catch(() => {});
+            const snap = parseAgentTextToSnapshot(fast.reply!, replyAs);
+            if (snap) saveDataSnapshot(chatId, snap).catch(() => {});
           })());
         }
         return ok();
@@ -1083,6 +1093,55 @@ serve(async (req) => {
           await sendTelegramMessage(resolved.speakAs, chatId, reply, message.message_id);
           saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
           saveMessage(chatId, resolved.speakAs, reply).catch(() => {});
+        })());
+      }
+      return ok();
+    }
+
+    // ── «сводная» / «дай в сводную» — таблица по последним данным ───────────
+    if (wantsSummaryReflow(text) && !isFbsDialogPending(dialog.pending)) {
+      const sticky = lockedAgentFromState(dialog);
+      const who = namedOnce[0] || sticky || "saule";
+      const resolved = resolveSpeakAndOrchestrator([who], triggeringBot);
+      if (!resolved) return ok();
+      if (triggeringBot !== resolved.orchestrator && triggeringBot !== who) {
+        return ok();
+      }
+      if (triggeringBot === resolved.orchestrator || triggeringBot === who) {
+        await runWork((async () => {
+          await sendChatAction(who === "karina" ? resolved.speakAs : who, chatId, "typing");
+          const history = await loadRecentHistory(chatId, 10);
+          const speakAs = sticky && sticky !== "karina" ? sticky : (who === "karina" ? "saule" : who);
+          const sum = await buildSummaryReply({
+            chatId,
+            preferredAgent: speakAs,
+            history,
+          });
+          const replyAs = sum.agentKey && BOT_TOKENS[sum.agentKey]
+            ? sum.agentKey
+            : resolved.speakAs;
+          if (sum.photo) {
+            await sendTelegramPhoto(
+              replyAs,
+              chatId,
+              {
+                imageBytes: sum.photo,
+                mime: "image/png",
+                filename: "svodnaya.png",
+                caption: sum.caption || sum.reply,
+              },
+              message.message_id,
+            );
+            if (sum.reply && sum.reply !== sum.caption) {
+              await sendTelegramMessage(replyAs, chatId, sum.reply);
+            }
+            await saveMessage(chatId, replyAs, sum.caption || sum.reply);
+          } else if (sum.reply) {
+            await sendTelegramMessage(replyAs, chatId, sum.reply, message.message_id);
+            await saveMessage(chatId, replyAs, sum.reply);
+          }
+          saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
+          await setChatFocus(chatId, replyAs, "summary", 12);
         })());
       }
       return ok();
@@ -1465,6 +1524,12 @@ serve(async (req) => {
               if (qa.reply) {
                 await sendChatAction(speakAs, chatId, "typing");
                 await setChatFocus(chatId, speakAs, "qa_reply", 12);
+                if (qa.summarySnapshot) {
+                  saveDataSnapshot(chatId, qa.summarySnapshot).catch(() => {});
+                } else {
+                  const parsed = parseAgentTextToSnapshot(qa.reply, speakAs);
+                  if (parsed) saveDataSnapshot(chatId, parsed).catch(() => {});
+                }
                 await sendTelegramMessage(
                   speakAs,
                   chatId,

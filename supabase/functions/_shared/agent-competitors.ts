@@ -35,6 +35,9 @@ export type CompetitorCompareResult = {
   competitors: PublicProduct[];
   queryUsed?: string;
   reply: string;
+  /** для «сводная» follow-up */
+  summaryRows?: string[][];
+  summaryTitle?: string;
 };
 
 const DEST = '-1257786';
@@ -570,11 +573,31 @@ export async function analyzeDirectCompetitors(
 
   const competitors = pickDirectCompetitors(ours, items, 5);
   const reply = formatCompetitorReply(ours, competitors, usedQuery);
+  const summaryRows = [
+    [
+      String(ours.nmId),
+      `${ours.brand ? ours.brand + ' · ' : ''}${ours.name}`.slice(0, 60),
+      ours.priceAfter ? String(Math.round(ours.priceAfter)) : '—',
+      ours.rating ? String(ours.rating) : '—',
+      ours.feedbacks ? String(ours.feedbacks) : '—',
+      'мы',
+    ],
+    ...competitors.map((c) => [
+      String(c.nmId),
+      `${c.brand ? c.brand + ' · ' : ''}${c.name}`.slice(0, 60),
+      c.priceAfter ? String(Math.round(c.priceAfter)) : '—',
+      c.rating ? String(c.rating) : '—',
+      c.feedbacks ? String(c.feedbacks) : '—',
+      'конкурент',
+    ]),
+  ];
   return {
     ok: true,
     ours,
     competitors,
     queryUsed: usedQuery,
     reply,
+    summaryTitle: `Конкуренты · ${ours.nmId}`,
+    summaryRows,
   };
 }
