@@ -57,6 +57,12 @@ Deno.test('extractNm-ish intents still', () => {
   assert(wantsCardSeo('поменяй описание карточки nm 1234567'));
   assert(wantsCardBrand('смени бренд на Nely по nm 123'));
   assert(wantsUserInvite('добавь человека в кабинет зевина 1'));
+  assert(wantsUserInvite('сгенерите ссылку для приглашение'));
+  assert(wantsUserInvite('ссылка для добавления пользователя'));
+  assert(wantsUserInvite('приглашение в кабинет'));
+  assert(wantsUserInvite('сгенери ссылку приглашения'));
+  assert(!wantsUserInvite('как продажи вчера'));
+  assert(!wantsUserInvite('ты сгенери номер дам')); // без «ссылка/приглашение» — не старт
   assert(wantsUserList('кто в кабинете база'));
   assert(wantsUserRevoke('удали доступ сотрудника'));
 });

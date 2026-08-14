@@ -135,7 +135,8 @@ export function detectTopicalAgents(text: string): string[] {
     found.push("muha");
   }
   if (
-    /(приглас|инвайт|invite)/i.test(lower) ||
+    /(приглас|приглаш|инвайт|invite)/i.test(lower) ||
+    /(сгенер|создай|дай).{0,20}(ссылк|инвайт)/i.test(lower) ||
     /(добав[ьи]|завед[иь]).{0,24}(человек|сотрудник|пользовател)/i.test(lower) ||
     /(кто\s+в\s+кабинете|список\s+(доступ|пользовател)|удал[иь].{0,12}доступ)/i.test(lower)
   ) {

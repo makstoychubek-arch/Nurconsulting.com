@@ -61,12 +61,29 @@ function ownerOk(tgUserId: number): boolean {
 
 export function wantsUserInvite(text: string): boolean {
   const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
-  return (
-    /(приглас|инвайт|invite)/i.test(t) ||
-    /(добав[ьи]|завед[иь]).{0,24}(человек|сотрудник|пользовател|менеджер|в\s+кабинет)/i
-      .test(t) ||
-    /(человек|сотрудник|пользовател).{0,20}(в\s+кабинет|добав|приглас)/i.test(t)
-  );
+  if (!t.trim()) return false;
+  // пригласить / приглашение / инвайт
+  if (/приглас|приглаш|инвайт|invite/i.test(t)) return true;
+  // «сгенери ссылку», «ссылка для добавления пользователя»
+  if (
+    /(сгенер|создай|сделай|дай|кинь).{0,24}(ссылк|инвайт)/i.test(t) &&
+    /(ссылк|приглаш|инвайт|пользовател|сотрудник|кабинет|добав)/i.test(t)
+  ) {
+    return true;
+  }
+  if (/ссылк[аиу].{0,30}(приглаш|добав|пользовател|сотрудник|кабинет)/i.test(t)) {
+    return true;
+  }
+  if (
+    /(добав[ьи]|завед[иь]|подключ[аи]).{0,24}(человек|сотрудник|пользовател|менеджер|в\s+кабинет)/i
+      .test(t)
+  ) {
+    return true;
+  }
+  if (/(человек|сотрудник|пользовател).{0,20}(в\s+кабинет|добав|приглас|приглаш)/i.test(t)) {
+    return true;
+  }
+  return false;
 }
 
 export function wantsUserList(text: string): boolean {
@@ -186,11 +203,27 @@ export async function startWbUsersDialog(opts: {
   const resolved = await resolveCabinet(text);
   if (!resolved.match) {
     const names = resolved.candidates.map((c) => c.name).join(', ');
+    // без кабинета — сохраняем диалог, иначе следующее сообщение уйдёт в LLM
+    if (kind === 'invite' || kind === 'revoke' || kind === 'list') {
+      const phone = kind === 'invite' ? extractPhone(text) : null;
+      const preset = kind === 'invite' ? (parseAccessPreset(text) || undefined) : undefined;
+      await savePending(opts.chatId, opts.tgUserId, null, {
+        kind,
+        step: 'await_cabinet',
+        phone: phone?.phone,
+        phoneCountry: phone
+          ? `${phone.countryName} (${phone.country})`
+          : undefined,
+        accessPreset: preset,
+        position: 'Сотрудник',
+      });
+    }
     return {
       handled: true,
       reply: pick([
         `В какой кабинет? ${names || 'Zevina 1 / Baza / …'}`,
-        `Кабинет: ${names || 'зевина 1, элиум…'}`,
+        `Кабинет сначала: ${names || 'зевина 1, элиум, база…'}`,
+        `Какой кабинет генерим? ${names || 'напиши название'}`,
       ]),
     };
   }
@@ -322,6 +355,140 @@ export async function continueWbUsersDialog(opts: {
       .update({ status: 'cancelled', updated_at: new Date().toISOString() })
       .eq('id', pending!.id);
     return { handled: true, reply: pick(['Ок, отмена', 'Стоп', 'Не трогаю']) };
+  }
+
+  // кабинет после «сгенери ссылку» / «пригласи»
+  if (p.step === 'await_cabinet') {
+    // иногда сразу кидают номер — запомним и снова спросим кабинет
+    const earlyPhone = extractPhone(text);
+    if (earlyPhone && !/(зевин|база|baza|элиум|elium|saai|сааи|кабинет)/i.test(text)) {
+      p.phone = earlyPhone.phone;
+      p.phoneCountry = `${earlyPhone.countryName} (${earlyPhone.country})`;
+      await patchPending(pending!.id, p);
+      const names = (await resolveCabinet('')).candidates.map((c) => c.name).join(', ');
+      return {
+        handled: true,
+        reply: [
+          `Номер: ${earlyPhone.phone} · ${earlyPhone.countryName}`,
+          `Теперь кабинет: ${names || 'зевина 1 / база / элиум…'}`,
+        ].join('\n'),
+      };
+    }
+
+    const resolved = await resolveCabinet(text);
+    if (!resolved.match) {
+      const names = resolved.candidates.map((c) => c.name).join(', ');
+      return {
+        handled: true,
+        reply: pick([
+          `Не поняла кабинет. Напиши: ${names || 'зевина 1 / база / элиум'}`,
+          `Кабинет точнее: ${names || 'название как в списке'}`,
+        ]),
+      };
+    }
+    p.cabinetId = resolved.match.id;
+    p.cabinetName = resolved.match.name;
+    await admin()
+      .from('agent_pending_actions')
+      .update({
+        cabinet_id: resolved.match.id,
+        cabinet_name: resolved.match.name,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', pending!.id);
+
+    const tok = await cabinetTokenById(resolved.match.id);
+    if (!tok) {
+      await finishPending(
+        pending!.id,
+        `${resolved.match.name}: нет токена Users`,
+      );
+      return {
+        handled: true,
+        reply: `${resolved.match.name}: нет токена. Нужен токен владельца с категорией Users.`,
+      };
+    }
+
+    if (p.kind === 'list') {
+      const users = await listCabinetUsers(tok.token, false);
+      const invited = await listCabinetUsers(tok.token, true);
+      await finishPending(pending!.id, 'list');
+      if (!users.length && !invited.length) {
+        return {
+          handled: true,
+          reply: `${resolved.match.name}: пользователей не вижу (или токен без Users).`,
+        };
+      }
+      const lines = [
+        `${resolved.match.name} · доступы`,
+        ...users.slice(0, 20).map((u, i) =>
+          `${i + 1}) ${u.name}${u.phone ? ' · ' + u.phone : ''}${u.role ? ' · ' + u.role : ''} · id ${u.id}`
+        ),
+      ];
+      if (invited.length) {
+        lines.push(
+          '',
+          'Приглашения:',
+          ...invited.slice(0, 10).map((u) =>
+            `• ${u.name || 'ожидает'} · ${u.phone || '—'} · id ${u.id}`
+          ),
+        );
+      }
+      return { handled: true, reply: lines.join('\n') };
+    }
+
+    if (p.kind === 'revoke') {
+      p.step = 'await_user';
+      await patchPending(pending!.id, p);
+      const users = await listCabinetUsers(tok.token, false);
+      if (!users.length) {
+        return {
+          handled: true,
+          reply: `${resolved.match.name}: некого удалять / список пуст.`,
+        };
+      }
+      return {
+        handled: true,
+        reply: [
+          `${resolved.match.name}: кого убрать? Номер из списка или id`,
+          ...users.slice(0, 15).map((u, i) =>
+            `${i + 1}) ${u.name}${u.phone ? ' · ' + u.phone : ''} · id ${u.id}`
+          ),
+        ].join('\n'),
+      };
+    }
+
+    // invite
+    if (p.phone) {
+      p.step = p.accessPreset ? 'await_confirm' : 'await_access';
+      await patchPending(
+        pending!.id,
+        p,
+        p.accessPreset ? 'awaiting_confirm' : 'awaiting_selection',
+      );
+      if (!p.accessPreset) {
+        return {
+          handled: true,
+          reply: [
+            `${resolved.match.name}`,
+            `Номер: ${p.phone}${p.phoneCountry ? ' · ' + p.phoneCountry : ''}`,
+            accessAsk(),
+          ].join('\n'),
+        };
+      }
+      return { handled: true, reply: inviteConfirm(p) };
+    }
+
+    p.step = 'await_phone';
+    await patchPending(pending!.id, p);
+    return {
+      handled: true,
+      reply: [
+        `${resolved.match.name}: кинь номер с кодом страны`,
+        'Примеры: 79001234567 (RU) · 996700123456 (KG) · 77001234567 (KZ)',
+        'Можно с + и пробелами.',
+      ].join('\n'),
+    };
   }
 
   if (p.step === 'await_phone') {
