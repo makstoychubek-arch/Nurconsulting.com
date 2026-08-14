@@ -37,13 +37,23 @@ export const COLLECTIVE_CHAT_RULES = `
 export function wantsNewsDiscussion(text: string): boolean {
   const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
   if (!t) return false;
-  return (
+  if (
     /новост|что\s+нового|свеж(ее|ие)|апдейт\s+wb|изменения\s+(на\s+)?(wb|вб|вайлд)|правила\s+wb|комисси|тариф|штрафн|блокировк|триггер/i
       .test(t) ||
     /(обсуд|глянь|смотрите).{0,20}(новост|статью|пост)/i.test(t) ||
     /wildberries|вайлдберр|озон|яндекс\s*маркет|мегамаркет/i.test(t) &&
       /(новост|статья|пишет|вышло|анонс)/i.test(t)
-  );
+  ) {
+    return true;
+  }
+  // скинули ссылку на статью/пост — тоже обсуждаем
+  if (
+    /https?:\/\/\S+/i.test(t) &&
+    /(wb|wildberries|вайлд|ozon|озон|маркет|retail|комисс|тариф|продавц)/i.test(t)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /** Кто подключается к обсуждению новости (динамическое участие). */

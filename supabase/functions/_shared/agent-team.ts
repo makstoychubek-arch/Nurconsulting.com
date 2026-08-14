@@ -4,6 +4,7 @@
  */
 
 import { collectivePeerStyle, wantsNewsDiscussion, newsDiscussionPlan, wantsTeamBanter } from "./agent-collective.ts";
+import { looksLikeSharedLink } from "./agent-humanize.ts";
 
 export const BOT_USERNAMES: Record<string, string> = {
   saule: "saulexxx_bot",
@@ -47,7 +48,7 @@ export function detectTopicalAgents(text: string): string[] {
   const found: string[] = [];
   const selfbuy = lower.includes("самовыкуп");
 
-  if (wantsNewsDiscussion(text)) {
+  if (wantsNewsDiscussion(text) || looksLikeSharedLink(text)) {
     return newsDiscussionPlan(text);
   }
   if (wantsTeamBanter(text)) {

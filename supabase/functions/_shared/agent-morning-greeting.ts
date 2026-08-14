@@ -14,6 +14,7 @@ import {
   peerTalkBrief,
 } from "./agent-team.ts";
 import { COLLECTIVE_CHAT_RULES, openingDiversityHint } from "./agent-collective.ts";
+import { humanizeAgentReply } from "./agent-humanize.ts";
 
 export type MorningGreetingRow = {
   id: string;
@@ -413,11 +414,12 @@ export async function generateMorningStarter(opts: {
   agent: string;
   weather: WeatherBrief;
 }): Promise<string> {
-  return await askOpenAiMini({
+  const raw = await askOpenAiMini({
     systemPrompt: morningStarterSystem(opts.agent, opts.weather.lines),
     userMessage:
       "Напиши утреннее приветствие для команды прямо сейчас. Коротко, по-человечески.",
   });
+  return humanizeAgentReply(raw);
 }
 
 async function runMorningPeerTurn(opts: {
@@ -450,7 +452,7 @@ async function runMorningPeerTurn(opts: {
   const lastHop = hop + 1 >= maxHops;
   const history = await loadRecentHistory(chatId, 10);
   const historyFmt = formatHistory(history);
-  const reply = await askOpenAiMini({
+  const raw = await askOpenAiMini({
     systemPrompt: morningReplySystem(targetAgent, plan, lastHop, historyFmt) +
       `\n\n${peerTalkBrief(fromAgent, peerMessage)}`,
     history: historyFmt,
@@ -460,6 +462,7 @@ async function runMorningPeerTurn(opts: {
       `Ты — ${AGENT_DISPLAY[targetAgent] || targetAgent}. Одна короткая реплика.`,
     ].join("\n"),
   });
+  const reply = humanizeAgentReply(raw);
 
   const sent = await sendAsAgent(targetAgent, chatId, reply);
   if (sent) {

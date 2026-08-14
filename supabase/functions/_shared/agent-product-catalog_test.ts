@@ -30,4 +30,6 @@ Deno.test('catalog scorer: rnp real names', () => {
   assert(scoreProductMatch('Платье/Рыбка/ментол', 'платье рыбка ментол') >= 8);
   assert(scoreProductMatch('кимоно_однотон_тсиний_короткий', 'кимоно темно синее') >= 8);
   assert(scoreProductMatch('бомбер корич', 'бомбер коричневый') >= 6);
+  assert(scoreProductMatch('Куртка_фуфайка_кофе', 'фуфайка кофе') >= 8);
+  assert(scoreProductMatch('оверсайз жакет черный', 'оверсайз жакет черный') >= 8);
 });

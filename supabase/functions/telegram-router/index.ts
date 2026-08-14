@@ -83,6 +83,7 @@ import {
   wantsNewsDiscussion,
   wantsTeamBanter,
 } from "../_shared/agent-collective.ts";
+import { humanizeAgentReply, looksLikeSharedLink } from "../_shared/agent-humanize.ts";
 
 // ---------- Настройка ----------
 
@@ -135,6 +136,25 @@ async function runWork(task: Promise<unknown>): Promise<void> {
     return;
   }
   await guarded;
+}
+
+async function sendChatAction(
+  botKey: string,
+  chatId: number,
+  action = "typing",
+): Promise<void> {
+  const token = BOT_TOKENS[botKey];
+  if (!token || !chatId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendChatAction`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, action }),
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch {
+    /* ignore */
+  }
 }
 
 async function sendTelegramMessage(
@@ -666,7 +686,7 @@ async function runAgentTurn(opts: {
   } catch (e) {
     console.error("[telegram-router] qa facts", e);
   }
-  if (wantsNewsDiscussion(rootTask) || wantsTeamBanter(rootTask)) {
+  if (wantsNewsDiscussion(rootTask) || wantsTeamBanter(rootTask) || looksLikeSharedLink(rootTask)) {
     try {
       const news = await recentMarketplaceNews(6);
       wbContext += `\n\n${formatNewsFacts(news)}`;
@@ -696,8 +716,11 @@ async function runAgentTurn(opts: {
     } plan=${plan.join(">")} chat=${chatId}`,
   );
 
+  // «печатает…» как живой человек перед ответом
+  await sendChatAction(targetAgent, chatId, "typing");
+
   // Свободный team plan / hop-диалог — качество рассуждения: full (gpt-4o)
-  const reply = await askOpenAI({
+  const rawReply = await askOpenAI({
     systemPrompt,
     history: historyFmt,
     wbContext,
@@ -710,6 +733,7 @@ async function runAgentTurn(opts: {
       ].join("\n")
       : rootTask,
   });
+  const reply = humanizeAgentReply(rawReply);
 
   // Сначала в чат, потом история — быстрее для пользователя
   await sendTelegramMessage(targetAgent, chatId, reply, replyToMessageId);
@@ -1382,7 +1406,7 @@ serve(async (req) => {
     let plan = buildTeamPlan(
       text,
       message.entities,
-      wantsNewsDiscussion(text) || wantsTeamBanter(text)
+      wantsNewsDiscussion(text) || wantsTeamBanter(text) || looksLikeSharedLink(text)
         ? Math.max(MAX_AGENT_HOPS, 4)
         : MAX_AGENT_HOPS,
     );
