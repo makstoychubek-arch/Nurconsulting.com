@@ -624,9 +624,21 @@ export async function runWbRoleOp(
           ? (r.data as { data: { listGoods: Array<Record<string, unknown>> } }).data
             .listGoods
           : [];
-        const lines = goods.slice(0, 5).map((g) =>
-          `nm ${g.nmID} · ${g.vendorCode} · скидка ${g.discount}%`
-        );
+        const lines = goods.slice(0, 5).map((g) => {
+          const sizes = Array.isArray(g.sizes) ? g.sizes as Array<{
+            price?: number;
+            discountedPrice?: number;
+          }> : [];
+          const size = sizes[0] || {};
+          const before = Number(size.price || g.price || 0);
+          const after = Number(size.discountedPrice || before);
+          const money = before > 0 && after > 0 && before !== after
+            ? `до ${Math.round(before).toLocaleString('ru-RU')} ₽ · после ${Math.round(after).toLocaleString('ru-RU')} ₽`
+            : after > 0
+            ? `${Math.round(after).toLocaleString('ru-RU')} ₽`
+            : `скидка ${g.discount ?? 0}%`;
+          return `nm ${g.nmID} · ${g.vendorCode} · ${money}`;
+        });
         return {
           handled: true,
           agentKey: role,

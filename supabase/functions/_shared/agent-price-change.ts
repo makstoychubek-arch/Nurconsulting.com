@@ -359,7 +359,18 @@ async function presentProduct(
   } else {
     await createPending(chatId, tgUserId, payload, g.cabinetId, g.cabinetName);
   }
-  await setChatFocus(chatId, PRICE_AGENT, 'price_change', 20);
+  await setChatFocus(chatId, PRICE_AGENT, 'price_change', 20, {
+    lastProduct: {
+      vendorCode: g.vendorCode,
+      title: g.vendorCode,
+      nmId: g.nmId,
+      cabinetId: g.cabinetId,
+      cabinetName: g.cabinetName,
+      price: g.price,
+      discountedPrice: g.discountedPrice,
+      discountPct: g.discountPct,
+    },
+  });
   return {
     handled: true,
     reply: saulePriceAsk(
@@ -456,6 +467,31 @@ export async function continuePriceChangeDialog(opts: {
   if (payload.step === 'await_amount') {
     const edit = parsePriceEdit(text);
     if (!edit) {
+      // «а до скидки?» без числа — просто показать текущие до/после
+      if (
+        /до\s*скидк|старая\s*цен|без\s*скидк|полная\s*цен|базовая\s*цен/i.test(text) &&
+        !/\d{3,7}/.test(text)
+      ) {
+        const before = Number(payload.price || 0);
+        const after = Number(payload.discountedPrice || 0);
+        const name = String(payload.vendorCode || 'товар');
+        if (before > 0 && after > 0 && before !== after) {
+          return {
+            handled: true,
+            reply: `${name} — до скидки ${formatMoney(before)} · после ${formatMoney(after)}`,
+          };
+        }
+        if (before > 0) {
+          return {
+            handled: true,
+            reply: `${name} — до скидки ${formatMoney(before)}`,
+          };
+        }
+        return {
+          handled: true,
+          reply: `${name} — цену до скидки не вижу; напиши «после 3000» или «до 5000»`,
+        };
+      }
       if (looksLikeProductQuery(text) && !/(?:^|[\s,.:;!?/\\|])(до|после)(?=$|[\s,.:;!?/\\|])/i.test(text)) {
         const cab = await resolveCabinet(text);
         const hint = extractProductHint(text) || text;

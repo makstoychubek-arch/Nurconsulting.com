@@ -26,6 +26,13 @@ import {
   wantsCompetitorAnalysis,
 } from './agent-competitors.ts';
 import { detectWbRoleOp, runWbRoleOp } from './agent-wb-role-ops.ts';
+import {
+  getChatFocus,
+  rememberLastProduct,
+  type LastProductFocus,
+} from './agent-chat-focus.ts';
+import { filterStopTokens } from './agent-ru-text.ts';
+import { wantsPriceChange } from './agent-price-change.ts';
 
 function alinaPickModel(lines: string[]): string {
   return [alinaAskProduct(), ...lines].join('\n');
@@ -102,6 +109,263 @@ function wantsStock(text: string): boolean {
   // FBS-остатки — отдельный диалог Антона (wantsFbsStock)
   if (wantsFbsStock(text)) return false;
   return /(остат|осталось|сколько\s+на\s+склад|на\s+склад)/i.test(text);
+}
+
+/** Спросить цену / до скидки (не смена цены). */
+export function wantsPriceLookup(text: string): boolean {
+  const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
+  if (!t.trim()) return false;
+  if (wantsPriceChange(t)) return false;
+  if (
+    /до\s*скидк|старая\s*цен|цен[аыу]?\s*до\s*скид|без\s*скидк|полная\s*цен|базовая\s*цен/i
+      .test(t)
+  ) {
+    return true;
+  }
+  // цен… + опечатка «уена»
+  if (/цен[аыуеойам]*|уена/i.test(t)) return true;
+  if (/скок[оа]\s*(сто|стоит)|сколько\s*стоит|какая\s*стоит/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
+export function wantsBeforeDiscount(text: string): boolean {
+  const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
+  return /до\s*скидк|старая\s*цен|цен[аыу]?\s*до\s*скид|без\s*скидк|полная\s*цен|базовая\s*цен/i
+    .test(t);
+}
+
+const PRICE_STOP_EXACT = new Set([
+  'какая',
+  'какой',
+  'какие',
+  'какую',
+  'скажи',
+  'напиши',
+  'покажи',
+  'дай',
+  'плиз',
+  'пожалуйста',
+  'сейчас',
+  'просто',
+  'только',
+  'без',
+  'продажи',
+  'продажу',
+  'спрашиваю',
+  'спросить',
+  'интересует',
+  'vsmyсли',
+  'всмысли',
+  'всмысле',
+  'а',
+  'и',
+  'или',
+  'это',
+  'там',
+  'есть',
+  'руб',
+  'рублей',
+  'р',
+]);
+
+/** Вытащить товар из фразы про цену (с опечатками вроде «уена»). */
+export function extractPriceProductQuery(text: string): string {
+  let t = String(text || '');
+  t = t
+    .replace(/саул[еэ][а-яё]*/gi, ' ')
+    .replace(/карин[аеуыой][а-яё]*/gi, ' ')
+    .replace(/до\s*скидк[аиуеой]*/gi, ' ')
+    .replace(/после\s*скидк[аиуеой]*/gi, ' ')
+    .replace(/без\s*скидк[аиуеой]*/gi, ' ')
+    .replace(/старая\s*цен[аыуеойам]*/gi, ' ')
+    .replace(/полная\s*цен[аыуеойам]*/gi, ' ')
+    .replace(/базовая\s*цен[аыуеойам]*/gi, ' ')
+    .replace(/цен[аыуеойам]*/gi, ' ')
+    .replace(/уена/gi, ' ')
+    .replace(/сколько\s*стоит/gi, ' ')
+    .replace(/скок[оа]\s*стоит?/gi, ' ')
+    .replace(/артикул[а-яё]*/gi, ' ')
+    .replace(/[?!.,:;«»"'()]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return filterStopTokens(t, {
+    exact: PRICE_STOP_EXACT,
+    minLen: 2,
+    dropNumbers: false,
+  });
+}
+
+function formatMoneyRu(n: number): string {
+  return `${Math.round(n).toLocaleString('ru-RU')} ₽`;
+}
+
+export function formatPriceLookupLine(
+  hit: {
+    vendorCode?: string | null;
+    title?: string | null;
+    price?: number | null;
+    discountedPrice?: number | null;
+  },
+  mode: 'full' | 'before' | 'after' = 'full',
+): string {
+  const name = String(hit.vendorCode || hit.title || 'товар').trim();
+  const before = hit.price != null && Number(hit.price) > 0
+    ? Number(hit.price)
+    : null;
+  const after = hit.discountedPrice != null && Number(hit.discountedPrice) > 0
+    ? Number(hit.discountedPrice)
+    : before;
+
+  if (mode === 'before') {
+    if (before != null && after != null && before !== after) {
+      return `${name} — до скидки ${formatMoneyRu(before)} (сейчас после ${formatMoneyRu(after)})`;
+    }
+    if (before != null) return `${name} — до скидки ${formatMoneyRu(before)}`;
+    if (after != null) {
+      return `${name} — цены до скидки нет, сейчас ${formatMoneyRu(after)}`;
+    }
+    return `${name} — не вижу цену до скидки в WB`;
+  }
+
+  if (mode === 'after') {
+    if (after != null) return `${name} — ${formatMoneyRu(after)}`;
+    if (before != null) return `${name} — ${formatMoneyRu(before)}`;
+    return `${name} — цену не вижу`;
+  }
+
+  if (before != null && after != null && before !== after) {
+    return `${name} — до скидки ${formatMoneyRu(before)} · после ${formatMoneyRu(after)}`;
+  }
+  if (after != null || before != null) {
+    return `${name} — ${formatMoneyRu(after ?? before!)}`;
+  }
+  return `${name} — цену не вижу`;
+}
+
+function hitToLastProduct(hit: {
+  vendorCode?: string | null;
+  title?: string | null;
+  nmId?: number | null;
+  cabinetId?: string | null;
+  cabinetName?: string | null;
+  price?: number | null;
+  discountedPrice?: number | null;
+  discountPct?: number | null;
+}): LastProductFocus {
+  return {
+    vendorCode: String(hit.vendorCode || hit.title || '').trim(),
+    title: hit.title ?? null,
+    nmId: hit.nmId == null ? null : Number(hit.nmId),
+    cabinetId: hit.cabinetId ?? null,
+    cabinetName: hit.cabinetName ?? null,
+    price: hit.price == null ? null : Number(hit.price),
+    discountedPrice: hit.discountedPrice == null
+      ? null
+      : Number(hit.discountedPrice),
+    discountPct: hit.discountPct == null ? null : Number(hit.discountPct),
+  };
+}
+
+async function answerPriceLookup(
+  text: string,
+  opts?: { chatId?: number },
+): Promise<TeamQaResult> {
+  const beforeOnly = wantsBeforeDiscount(text);
+  const mode: 'full' | 'before' | 'after' = beforeOnly ? 'before' : 'full';
+  const query = extractPriceProductQuery(text);
+  const chatId = opts?.chatId;
+
+  // Follow-up «А до скидки?» — берём последний товар из фокуса
+  if ((!query || query.length < 2) && chatId) {
+    const focus = await getChatFocus(chatId);
+    const lp = focus?.lastProduct;
+    if (lp?.vendorCode) {
+      // если в sticky нет «до», перезапросим WB по vendorCode
+      if (
+        beforeOnly &&
+        (lp.price == null || lp.price <= 0) &&
+        lp.vendorCode
+      ) {
+        const refreshed = await findCatalogProducts(lp.vendorCode, {
+          sources: ['wb_prices'],
+          cabinetId: lp.cabinetId || null,
+          max: 3,
+          minScore: 4,
+        });
+        const best = refreshed[0];
+        if (best) {
+          const product = hitToLastProduct(best);
+          await rememberLastProduct(chatId, 'saule', product);
+          return {
+            handled: true,
+            agentKey: 'saule',
+            reply: formatPriceLookupLine(best, mode),
+          };
+        }
+      }
+      await rememberLastProduct(chatId, 'saule', lp);
+      return {
+        handled: true,
+        agentKey: 'saule',
+        reply: formatPriceLookupLine(lp, mode),
+      };
+    }
+    if (beforeOnly) {
+      return {
+        handled: true,
+        agentKey: 'saule',
+        reply: pick([
+          'Какой артикул? Модель/цвет — скажу до и после скидки',
+          'Назови товар: фонарь белый / лапша… — гляну цену до скидки',
+          'Без артикула не вижу. Кинь модель + цвет',
+        ]),
+      };
+    }
+  }
+
+  if (!query || query.length < 2) {
+    return {
+      handled: true,
+      agentKey: 'saule',
+      reply: pick([
+        'Какой товар? Модель и цвет — скажу цену',
+        'Назови артикул: фонарь / лапша / жилетка…',
+      ]),
+    };
+  }
+
+  const cab = await resolveCabinet(text);
+  const hits = await findCatalogProducts(query, {
+    sources: ['wb_prices'],
+    cabinetId: cab.match?.id || null,
+    max: 5,
+    minScore: 5,
+  });
+
+  if (!hits.length) {
+    return {
+      handled: true,
+      agentKey: 'saule',
+      reply: pick([
+        `Не нашла «${query}» в ценах WB. Уточни модель/цвет или nm`,
+        `По «${query}» цены нет в каталоге — другой артикул?`,
+      ]),
+    };
+  }
+
+  const top = hits.slice(0, 3);
+  const lines = top.map((h) => formatPriceLookupLine(h, mode));
+  if (chatId && top[0]) {
+    await rememberLastProduct(chatId, 'saule', hitToLastProduct(top[0]));
+  }
+
+  return {
+    handled: true,
+    agentKey: 'saule',
+    reply: lines.join('\n'),
+  };
 }
 
 function getOpenFromSnap(offers: SheetPlanOffer[]): SheetPlanOffer[] {
@@ -404,6 +668,7 @@ async function answerStock(text: string): Promise<TeamQaResult> {
 export async function tryTeamSmartQa(
   text: string,
   triggeringBot: string,
+  opts?: { chatId?: number },
 ): Promise<TeamQaResult> {
   const t = (text || '').trim();
   if (!t || t.length > 900) return { handled: false };
@@ -501,6 +766,19 @@ export async function tryTeamSmartQa(
     }
   }
 
+  // ── Цена / до скидки (Сауле, read-only) ─────────────────────────────────
+  if (wantsPriceLookup(t)) {
+    if (
+      triggeringBot === 'saule' &&
+      (!named.length || named.includes('saule') || named.includes('karina'))
+    ) {
+      return await answerPriceLookup(t, { chatId: opts?.chatId });
+    }
+    if (!named.length || named.includes('saule') || named.includes('karina')) {
+      return { handled: true };
+    }
+  }
+
   // ── Остатки WB-складов (Антон, без FBS) ─────────────────────────────────
   if (wantsStock(t)) {
     if (triggeringBot === 'anton' && (!named.length || named.includes('anton'))) {
@@ -518,6 +796,7 @@ export async function tryTeamSmartQa(
 export async function teamQaFactsForAgent(
   agent: string,
   text: string,
+  opts?: { chatId?: number },
 ): Promise<string> {
   try {
     if (agent === 'alina') {
@@ -531,6 +810,13 @@ export async function teamQaFactsForAgent(
     if (agent === 'anton' && wantsStock(text)) {
       const qa = await answerStock(text);
       return qa.reply ? `ФАКТЫ ОСТАТКОВ:\n${qa.reply}` : '';
+    }
+    if (
+      (agent === 'saule' || agent === 'karina') &&
+      wantsPriceLookup(text)
+    ) {
+      const qa = await answerPriceLookup(text, { chatId: opts?.chatId });
+      return qa.reply ? `ФАКТЫ ЦЕН WB (до/после скидки):\n${qa.reply}` : '';
     }
   } catch {
     return '';

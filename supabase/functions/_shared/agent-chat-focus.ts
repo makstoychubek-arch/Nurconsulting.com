@@ -13,12 +13,47 @@ function admin() {
   return getAdminClient();
 }
 
+/** Последний товар с ценами — для follow-up «а до скидки?» без названия. */
+export type LastProductFocus = {
+  vendorCode: string;
+  title?: string | null;
+  nmId?: number | null;
+  cabinetId?: string | null;
+  cabinetName?: string | null;
+  price?: number | null;
+  discountedPrice?: number | null;
+  discountPct?: number | null;
+};
+
 export type ChatFocus = {
   chat_id: number;
   agent_key: string;
   reason?: string | null;
   expires_at: string;
+  lastProduct?: LastProductFocus | null;
 };
+
+type FocusPayload = {
+  reason?: string;
+  lastProduct?: LastProductFocus | null;
+};
+
+function readLastProduct(payload: unknown): LastProductFocus | null {
+  const p = (payload as FocusPayload | null)?.lastProduct;
+  if (!p || typeof p !== 'object') return null;
+  const vendorCode = String(p.vendorCode || '').trim();
+  if (!vendorCode) return null;
+  return {
+    vendorCode,
+    title: p.title ?? null,
+    nmId: p.nmId == null ? null : Number(p.nmId),
+    cabinetId: p.cabinetId ?? null,
+    cabinetName: p.cabinetName ?? null,
+    price: p.price == null ? null : Number(p.price),
+    discountedPrice: p.discountedPrice == null ? null : Number(p.discountedPrice),
+    discountPct: p.discountPct == null ? null : Number(p.discountPct),
+  };
+}
 
 export async function getChatFocus(chatId: number): Promise<ChatFocus | null> {
   const db = admin();
@@ -33,12 +68,14 @@ export async function getChatFocus(chatId: number): Promise<ChatFocus | null> {
     .limit(1)
     .maybeSingle();
   if (!data) return null;
-  const reason = (data.payload as { reason?: string } | null)?.reason || null;
+  const payload = data.payload as FocusPayload | null;
+  const reason = payload?.reason || null;
   return {
     chat_id: Number(data.chat_id),
     agent_key: String(data.agent_key),
     reason,
     expires_at: String(data.expires_at),
+    lastProduct: readLastProduct(payload),
   };
 }
 
@@ -47,6 +84,7 @@ export async function setChatFocus(
   agentKey: string,
   reason = 'dialog',
   ttlMin = DEFAULT_TTL_MIN,
+  opts?: { lastProduct?: LastProductFocus | null },
 ): Promise<void> {
   if (!agentKey || !chatId) return;
   const db = admin();
@@ -55,19 +93,28 @@ export async function setChatFocus(
 
   const { data: existing } = await db
     .from('agent_pending_actions')
-    .select('id')
+    .select('id, payload')
     .eq('chat_id', chatId)
     .eq('action_type', CHAT_FOCUS_ACTION)
     .eq('status', 'executing')
     .limit(1)
     .maybeSingle();
 
+  const prevProduct = readLastProduct(existing?.payload);
+  const lastProduct = opts && 'lastProduct' in opts
+    ? opts.lastProduct
+    : prevProduct;
+  const payload: FocusPayload = {
+    reason,
+    ...(lastProduct ? { lastProduct } : {}),
+  };
+
   if (existing?.id) {
     await db
       .from('agent_pending_actions')
       .update({
         agent_key: agentKey,
-        payload: { reason },
+        payload,
         expires_at: expires,
         updated_at: now,
       })
@@ -80,10 +127,23 @@ export async function setChatFocus(
     agent_key: agentKey,
     action_type: CHAT_FOCUS_ACTION,
     status: 'executing',
-    payload: { reason },
+    payload,
     expires_at: expires,
     created_at: now,
     updated_at: now,
+  });
+}
+
+/** Запомнить товар/цены в фокусе чата (не сбрасывая агента). */
+export async function rememberLastProduct(
+  chatId: number,
+  agentKey: string,
+  product: LastProductFocus,
+  ttlMin = 20,
+): Promise<void> {
+  if (!chatId || !product?.vendorCode) return;
+  await setChatFocus(chatId, agentKey, 'last_product', ttlMin, {
+    lastProduct: product,
   });
 }
 
@@ -151,7 +211,10 @@ export function isLikelyFollowUp(text: string): boolean {
   if (
     /^\d[\d\s]{0,8}$/.test(t.replace(/\s/g, '')) ||
     /^на\s+\d[\d\s]{0,8}\s*(₽|руб|р\.?)?$/i.test(t) ||
-    /^(до|после)(\s+скидк[аиу])?\s+\d{3,7}/i.test(t)
+    /^(до|после)(\s+скидк[аиу])?\s+\d{3,7}/i.test(t) ||
+    /^(а\s+)?до\s*скидк/i.test(t) ||
+    /^(старая|полная|базовая)\s*цен/i.test(t) ||
+    /^без\s*скидк/i.test(t)
   ) {
     return true;
   }

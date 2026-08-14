@@ -859,7 +859,7 @@ async function runAgentTurn(opts: {
               return "";
             })
           : Promise.resolve(""),
-        teamQaFactsForAgent(targetAgent, rootTask)
+        teamQaFactsForAgent(targetAgent, rootTask, { chatId })
           .then((qa) => (qa ? `\n\n${qa}` : ""))
           .catch((e) => {
             console.error("[telegram-router] qa facts", e);
@@ -1814,7 +1814,7 @@ serve(async (req) => {
 
     // ── Умные ответы в тимчате (таблица / фото WB / остатки) ───────────────
     {
-      const qa = await tryTeamSmartQa(text, triggeringBot);
+      const qa = await tryTeamSmartQa(text, triggeringBot, { chatId });
       if (qa.handled) {
         if (qa.deferFbsStock && triggeringBot === "anton") {
           await runWork((async () => {
