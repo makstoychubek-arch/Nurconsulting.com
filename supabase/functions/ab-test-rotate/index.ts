@@ -129,9 +129,9 @@ Deno.serve(async (req) => {
                 const currentVariant = variants[curIdx];
                 const nextVariant = variants[nextIdx];
 
-                const rotateOk = await saveMediaOnWb(admin, WB_TOKEN, Number(test.nm_id), nextVariant.photo_url);
+                const rotateOk = await applyVariantOnWb(admin, WB_TOKEN, test, nextVariant);
                 if (!rotateOk.ok) {
-                    results.push({ test_id: test.id, error: rotateOk.errorText || 'wb_media_save_failed' });
+                    results.push({ test_id: test.id, error: rotateOk.errorText || 'wb_rotate_failed' });
                     continue;
                 }
 
@@ -782,8 +782,8 @@ async function forceRotateOne(
     const currentVariant = variants[curIdx];
     const nextVariant = variants[nextIdx];
 
-    const rotateOk = await saveMediaOnWb(admin, WB_TOKEN, Number(test.nm_id), nextVariant.photo_url);
-    if (!rotateOk.ok) return { ok: false, error: rotateOk.errorText || 'wb_media_save_failed' };
+    const rotateOk = await applyVariantOnWb(admin, WB_TOKEN, test, nextVariant);
+    if (!rotateOk.ok) return { ok: false, error: rotateOk.errorText || 'wb_rotate_failed' };
 
     if (currentVariant) {
         await admin.from('ab_test_variants').update({
@@ -927,6 +927,46 @@ function buildVariantWindows(
         start: new Date(entry.created_at),
         end: i + 1 < log.length ? new Date(log[i + 1].created_at) : now,
     }));
+}
+
+// Цена (price://1990) или фото — единая точка ротации варианта.
+async function applyVariantOnWb(
+    admin: ReturnType<typeof createClient>,
+    wbToken: string,
+    test: Record<string, unknown>,
+    variant: { photo_url?: string; variant_label?: string },
+): Promise<{ ok: boolean; errorText?: string }> {
+    const settings = (test.settings || {}) as Record<string, unknown>;
+    const url = String(variant.photo_url || '');
+    const isPrice = settings.test_type === 'price' || url.startsWith('price://');
+    if (isPrice) {
+        let price = 0;
+        if (url.startsWith('price://')) price = Number(url.slice('price://'.length));
+        const byLabel = settings.price_by_label as Record<string, number> | undefined;
+        if (!price && byLabel && variant.variant_label) price = Number(byLabel[String(variant.variant_label)]);
+        if (!(price > 0)) return { ok: false, errorText: 'price_missing' };
+        return await uploadPriceOnWb(wbToken, Number(test.nm_id), price);
+    }
+    return await saveMediaOnWb(admin, wbToken, Number(test.nm_id), url);
+}
+
+async function uploadPriceOnWb(
+    wbToken: string,
+    nmId: number,
+    price: number,
+): Promise<{ ok: boolean; errorText?: string }> {
+    try {
+        const res = await fetch('https://discounts-prices-api.wildberries.ru/api/v2/upload/task', {
+            method: 'POST',
+            headers: { Authorization: wbToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: [{ nmID: nmId, price }] }),
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) return { ok: false, errorText: `prices ${res.status}: ${JSON.stringify(body).slice(0, 180)}` };
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, errorText: String(e) };
+    }
 }
 
 // Mirrors wb-proxy's `media_save` action so the cron job can push a photo to
