@@ -746,6 +746,10 @@ async function runAgentTurn(opts: {
     ? reply
     : `${reply}\n\n(добавь коротко своё по зоне, без пересказа)`;
 
+  // Пауза как у людей в чате (groupchat cooldown) — не барабанная очередь
+  const pauseMs = 900 + Math.floor(Math.random() * 1600);
+  await new Promise((r) => setTimeout(r, pauseMs));
+
   await runAgentTurn({
     chatId,
     targetAgent: next,

@@ -166,12 +166,16 @@ export function alinaSeesSheet(openLines: string[], mode: string): string {
     "Открыла таблицу",
     "Да, смотрю раздачи",
     "План перед глазами",
+    "Есть, таблица живая",
+    "Гляжу график — ок",
+    "Да, всё вижу",
   ]);
   const modeLine = pick([
     `Сейчас ${mode}`,
     `Режим: ${mode}`,
     `Идёт ${mode}`,
     `По таблице — ${mode}`,
+    `Формат сегодня: ${mode}`,
   ]);
   if (!openLines.length) {
     return pick([
@@ -179,9 +183,10 @@ export function alinaSeesSheet(openLines: string[], mode: string): string {
       `${head}\n${modeLine}\nПока всё занято / закрыто`,
       `${head}\n${modeLine}\nСлотов свободно нет`,
       `${head}\n${modeLine}\nНа сегодня закрыто`,
+      `${head}\n${modeLine}\nПусто по свободным — завтра`,
     ]);
   }
-  const listHead = pick(["Открыто:", "Свободно:", "Есть места:", "Что открыто:"]);
+  const listHead = pick(["Открыто:", "Свободно:", "Есть места:", "Что открыто:", "Слоты:"]);
   return [head, modeLine, listHead, ...openLines].join("\n");
 }
 
@@ -473,5 +478,18 @@ export function karinaHandoff(who: string, why: string): string {
     `Кидаю ${who}: ${why}`,
     `${who}, подхвати: ${why}`,
     `${who}, коротко по ${why}`,
+    `${who} — твоё. ${why}`,
+    `Эй ${who}, ${why}`,
+    `${who}, на тебе: ${why}`,
+  ]);
+}
+
+export function karinaVerdict(line: string): string {
+  return pick([
+    `Вердикт: ${line}`,
+    `Коротко: ${line}`,
+    `Итого: ${line}`,
+    `Так: ${line}`,
+    line,
   ]);
 }
