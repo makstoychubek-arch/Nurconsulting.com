@@ -104,6 +104,19 @@ export async function clearChatFocus(chatId: number): Promise<void> {
     .eq('status', 'executing');
 }
 
+/** Протухшие focus/pending → cancelled (чтобы не копить executing). */
+export async function sweepExpiredPendings(chatId?: number): Promise<void> {
+  const db = admin();
+  const now = new Date().toISOString();
+  let q = db
+    .from('agent_pending_actions')
+    .update({ status: 'expired', updated_at: now })
+    .lt('expires_at', now)
+    .in('status', ['awaiting_selection', 'awaiting_confirm', 'executing']);
+  if (chatId) q = q.eq('chat_id', chatId);
+  await q;
+}
+
 /**
  * Смена собеседника: фокус на нового агента + сброс чужих диалогов
  * (цена / FBS / РК), чтобы не залипать на старом pending.

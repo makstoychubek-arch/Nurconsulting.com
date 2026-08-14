@@ -43,6 +43,7 @@ import {
   getChatFocus,
   isLikelyFollowUp,
   setChatFocus,
+  sweepExpiredPendings,
   switchChatFocus,
 } from "../_shared/agent-chat-focus.ts";
 import { muhaPhotoBusy, muhaPhotoFail, muhaPhotoReady, pick } from "../_shared/agent-voice.ts";
@@ -890,6 +891,8 @@ serve(async (req) => {
     }
 
     const chatId = Number(message.chat.id);
+    // протухшие focus/диалоги — чтобы Карина не цеплялась за старый sticky
+    await sweepExpiredPendings(chatId).catch(() => {});
     const fullName = [message.from?.first_name, message.from?.last_name]
       .filter(Boolean)
       .join(" ")
@@ -1359,8 +1362,19 @@ serve(async (req) => {
     // Пока диалог с конкретным агентом — короткие реплики не уходят «дефолтной» Карине
     if (
       stickyAgent &&
+      stickyAgent !== "karina" &&
       (!namedForPlan.length || namedForPlan.includes(stickyAgent)) &&
       (isLikelyFollowUp(text) || Boolean(pendingEnd) || plan[0] === "karina")
+    ) {
+      plan = [stickyAgent];
+    }
+    // Карина не оркестрирует чужой фокус, даже если plan по теме «общий»
+    if (
+      stickyAgent &&
+      stickyAgent !== "karina" &&
+      !namedForPlan.includes("karina") &&
+      plan[0] === "karina" &&
+      (Boolean(pendingEnd) || isLikelyFollowUp(text))
     ) {
       plan = [stickyAgent];
     }
