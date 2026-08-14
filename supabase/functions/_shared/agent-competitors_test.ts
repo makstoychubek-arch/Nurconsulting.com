@@ -3,7 +3,9 @@ import {
   extractNmId,
   formatCompetitorReply,
   scoreDirectCompetitor,
+  suggestPriceAction,
   wantsCompetitorAnalysis,
+  wantsStickyProductRef,
   type PublicProduct,
 } from "./agent-competitors.ts";
 
@@ -26,8 +28,16 @@ Deno.test("wantsCompetitorAnalysis phrases", () => {
   assertEquals(wantsCompetitorAnalysis("771499220 найди прямого конкурента и сравни"), true);
   assertEquals(wantsCompetitorAnalysis("Сауле, конкуренты по жилетке"), true);
   assertEquals(wantsCompetitorAnalysis("сравни артикул 1234567 с выдачей"), true);
+  assertEquals(wantsCompetitorAnalysis("кк цена у конкурентов этого товара"), true);
+  assertEquals(wantsCompetitorAnalysis("как цена у конкурентов"), true);
   assertEquals(wantsCompetitorAnalysis("сколько продаж вчера"), false);
   assertEquals(wantsCompetitorAnalysis("артикул дай на лапшу бел"), false);
+});
+
+Deno.test("wantsStickyProductRef", () => {
+  assert(wantsStickyProductRef("кк цена у конкурентов этого товара"));
+  assert(wantsStickyProductRef("сравни по этому артикулу"));
+  assertEquals(wantsStickyProductRef("конкуренты лапша белая"), false);
 });
 
 Deno.test("extractNmId", () => {
@@ -61,7 +71,21 @@ Deno.test("scoreDirectCompetitor prefers same niche other brand", () => {
   assertEquals(scoreDirectCompetitor(ours, ours) < 0, true);
 });
 
-Deno.test("formatCompetitorReply includes verdict", () => {
+Deno.test("suggestPriceAction raise/lower/hold", () => {
+  // мы 1519, топ: 1754 / 1568 / 864 → медиана в коридоре ~1568 → hold
+  const hold = suggestPriceAction(1519, [1754, 1568, 864]);
+  assertEquals(hold.action, "hold");
+
+  const raise = suggestPriceAction(1200, [1754, 1568, 1600]);
+  assertEquals(raise.action, "raise");
+  assert(raise.target != null && raise.target > 1200);
+
+  const lower = suggestPriceAction(2200, [1754, 1568, 1600]);
+  assertEquals(lower.action, "lower");
+  assert(lower.target != null && lower.target < 2200);
+});
+
+Deno.test("formatCompetitorReply includes recommendation", () => {
   const top: PublicProduct = {
     ...ours,
     nmId: 555555555,
@@ -72,7 +96,8 @@ Deno.test("formatCompetitorReply includes verdict", () => {
     feedbacks: 400,
   };
   const text = formatCompetitorReply(ours, [top], "жилеты укороченная бежевая");
-  assert(text.includes("Сауле · конкуренты"));
-  assert(text.includes("Вердикт"));
+  assert(text.includes("Сауле · сводка"));
+  assert(text.includes("Рекомендация"));
   assert(text.includes("555555555"));
+  assert(/ПОДНЯТЬ|ОПУСТИТЬ|ДЕРЖАТЬ/.test(text));
 });

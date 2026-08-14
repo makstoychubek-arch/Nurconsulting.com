@@ -214,7 +214,9 @@ export function isLikelyFollowUp(text: string): boolean {
     /^(до|после)(\s+скидк[аиу])?\s+\d{3,7}/i.test(t) ||
     /^(а\s+)?до\s*скидк/i.test(t) ||
     /^(старая|полная|базовая)\s*цен/i.test(t) ||
-    /^без\s*скидк/i.test(t)
+    /^без\s*скидк/i.test(t) ||
+    /конкурент/i.test(t) ||
+    /^(как|кк)\s+цен/i.test(t)
   ) {
     return true;
   }

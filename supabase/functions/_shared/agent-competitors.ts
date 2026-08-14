@@ -87,7 +87,7 @@ function norm(s: string): string {
     .trim();
 }
 
-/** «конкурент / сравни артикул / найди прямого» */
+/** «конкурент / сравни / как цена у конкурентов / кк цена…» */
 export function wantsCompetitorAnalysis(text: string): boolean {
   const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
   if (!t) return false;
@@ -98,7 +98,18 @@ export function wantsCompetitorAnalysis(text: string): boolean {
   if (/анализ/.test(t) && /(конкурент|ниш|выдач)/i.test(t)) return true;
   if (/найди/.test(t) && /(конкурент|похож|аналог)/i.test(t)) return true;
   if (/(похож|аналог)[а-яё]*/.test(t) && /(арт|nm\b|\d{6,12}|сравни)/i.test(t)) return true;
+  // «смотрите также» / похожие с карточки
+  if (/смотрит[её]\s*такж|похож(ие|ий)\s*(товар|карточ)/i.test(t)) return true;
   return false;
+}
+
+/** Фраза про «этот» товар — брать sticky nm, не искать слово «товар». */
+export function wantsStickyProductRef(text: string): boolean {
+  const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
+  return /(этого|эта|этот|эту|него|неё|нее|той|тот)\s+(товар|артикул|арт|карточ|модель|блуз|позиц)/i
+    .test(t) ||
+    /(по\s+нему|по\s+ней|по\s+этому|у\s+него|у\s+неё)/i.test(t) ||
+    /конкурент.{0,40}(этого|него|неё)/i.test(t);
 }
 
 export function extractNmId(text: string): number | null {
@@ -210,6 +221,115 @@ function parseSearchProduct(raw: Record<string, unknown>): PublicProduct | null 
     feedbacks: Number(raw.feedbacks || 0),
     supplier: String(raw.supplier || '').trim(),
     source: 'search',
+  };
+}
+
+/** Карточка(и) с витрины card.wb.ru — цена/рейтинг как на сайте. */
+export async function fetchCardProducts(nmIds: number[]): Promise<PublicProduct[]> {
+  const ids = [...new Set(nmIds.map(Number).filter((n) => n >= 100000))].slice(0, 20);
+  if (!ids.length) return [];
+  const url =
+    `https://card.wb.ru/cards/v4/detail?appType=1&curr=rub&dest=${DEST}&nm=${ids.join(';')}`;
+  try {
+    const res = await fetch(url, {
+      headers: uaHeaders(),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return [];
+    const body = await res.json() as { products?: Array<Record<string, unknown>> };
+    const out: PublicProduct[] = [];
+    for (const raw of body.products || []) {
+      const p = parseSearchProduct(raw);
+      if (p) out.push({ ...p, source: 'basket' });
+    }
+    return out;
+  } catch (e) {
+    console.error('[competitors] card.detail', e);
+    return [];
+  }
+}
+
+/**
+ * Блок «Смотрите также» / визуально похожие с карточки.
+ * WB visual API: query=<nm>&resultset=catalog.
+ */
+export async function fetchSeeAlsoProducts(nmId: number): Promise<PublicProduct[]> {
+  if (!nmId || nmId < 100000) return [];
+  const urls = [
+    `https://recom.wb.ru/visual/ru/common/v5/search?appType=1&curr=rub&dest=${DEST}&spp=30&query=${nmId}&resultset=catalog`,
+    `https://recom.wb.ru/visual/ru/common/v5/search?appType=1&curr=rub&dest=${DEST}&spp=30&query=${nmId}&resultset=catalog&lang=ru`,
+  ];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        headers: uaHeaders(),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) continue;
+      const body = await res.json() as {
+        data?: { products?: Array<Record<string, unknown>> };
+        products?: Array<Record<string, unknown>>;
+      };
+      const raw = body?.data?.products || body?.products || [];
+      const items = raw.map(parseSearchProduct).filter(Boolean) as PublicProduct[];
+      if (items.length) return items;
+    } catch (e) {
+      console.error('[competitors] see-also', e);
+    }
+  }
+  return [];
+}
+
+/**
+ * Рекомендация цены по топ-конкурентам:
+ * медиана «честного» коридора (без демпинга далеко ниже нашей).
+ */
+export function suggestPriceAction(
+  ourPrice: number,
+  competitorPrices: number[],
+): {
+  action: 'raise' | 'lower' | 'hold';
+  target: number | null;
+  mid: number | null;
+  reason: string;
+} {
+  const ours = Number(ourPrice) || 0;
+  const prices = competitorPrices
+    .map(Number)
+    .filter((p) => Number.isFinite(p) && p >= 100)
+    .sort((a, b) => a - b);
+  if (!ours || prices.length === 0) {
+    return { action: 'hold', target: null, mid: null, reason: 'мало цен для сравнения' };
+  }
+
+  // коридор относительно нашей: отсекаем явный демпинг / премиум-выбросы
+  const band = prices.filter((p) => p >= ours * 0.55 && p <= ours * 1.7);
+  const use = band.length >= 2 ? band : prices;
+  const mid = use[Math.floor((use.length - 1) / 2)];
+  const round10 = (n: number) => Math.round(n / 10) * 10;
+  const diffPct = (ours - mid) / mid;
+
+  if (diffPct > 0.06) {
+    return {
+      action: 'lower',
+      target: round10(mid),
+      mid: round10(mid),
+      reason: `мы дороже медианы топ‑конкурентов (~${fmtMoney(mid)})`,
+    };
+  }
+  if (diffPct < -0.06) {
+    return {
+      action: 'raise',
+      target: round10(mid),
+      mid: round10(mid),
+      reason: `мы дешевле медианы топ‑конкурентов (~${fmtMoney(mid)})`,
+    };
+  }
+  return {
+    action: 'hold',
+    target: round10(ours),
+    mid: round10(mid),
+    reason: `цена в рынке топ‑конкурентов (медиана ~${fmtMoney(mid)})`,
   };
 }
 
@@ -390,10 +510,12 @@ export function formatCompetitorReply(
   ours: PublicProduct,
   competitors: PublicProduct[],
   queryUsed: string,
+  opts?: { sourceLabel?: string },
 ): string {
   const link = (nm: number) => `https://www.wildberries.ru/catalog/${nm}/detail.aspx`;
+  const top = competitors.slice(0, 3);
   const head = [
-    `Сауле · конкуренты`,
+    `Сауле · сводка по конкурентам`,
     `Наш: ${ours.brand ? ours.brand + ' · ' : ''}${ours.name || ours.vendorCode || ours.nmId}`,
     `арт. ${ours.nmId} · ${fmtMoney(ours.priceAfter)}${
       ours.priceBefore && ours.priceBefore > ours.priceAfter
@@ -402,22 +524,25 @@ export function formatCompetitorReply(
     }${ours.rating ? ` · ★${ours.rating}` : ''}${
       ours.feedbacks ? ` · ${ours.feedbacks} отз.` : ''
     }`,
-    queryUsed ? `поиск: «${queryUsed}»` : '',
+    `карточка: ${link(ours.nmId)}`,
+    opts?.sourceLabel
+      ? opts.sourceLabel
+      : (queryUsed ? `поиск: «${queryUsed}»` : ''),
   ].filter(Boolean);
 
-  if (!competitors.length) {
+  if (!top.length) {
     return [
       ...head,
       '',
-      'Прямых в выдаче не нашла (или WB временно режет поиск).',
-      'Кинь другой nm или уточни модель/цвет — перекопаю.',
+      'Прямых в «Смотрите также» / выдаче не нашла (WB режет витрину).',
+      'Кинь nm или уточни модель — перекопаю.',
     ].join('\n');
   }
 
-  const lines: string[] = [...head, '', `Прямые (топ-${competitors.length}):`];
-  competitors.forEach((c, i) => {
+  const lines: string[] = [...head, '', `Топ-${top.length} конкурента (как «Смотрите также»):`];
+  top.forEach((c, i) => {
     lines.push(
-      `${i + 1}) ${c.brand || '—'} · ${c.name.slice(0, 70)}`,
+      `${i + 1}) ${c.brand || '—'} · ${(c.name || '').slice(0, 70)}`,
       `   арт. ${c.nmId} · ${fmtMoney(c.priceAfter)}${
         c.rating ? ` · ★${c.rating}` : ''
       }${c.feedbacks ? ` · ${c.feedbacks} отз.` : ''}`,
@@ -425,23 +550,47 @@ export function formatCompetitorReply(
     );
   });
 
-  const top = competitors[0];
+  const advice = suggestPriceAction(
+    ours.priceAfter,
+    top.map((c) => c.priceAfter),
+  );
+  const actionRu = advice.action === 'raise'
+    ? 'ПОДНЯТЬ'
+    : advice.action === 'lower'
+    ? 'ОПУСТИТЬ'
+    : 'ДЕРЖАТЬ';
+
+  lines.push(
+    '',
+    'Сводка:',
+    `• наши: ${fmtMoney(ours.priceAfter)}`,
+    `• конкуренты: ${top.map((c) => fmtMoney(c.priceAfter)).join(' · ')}`,
+    advice.mid ? `• медиана рынка: ${fmtMoney(advice.mid)}` : '',
+    '',
+    `Рекомендация: ${actionRu}${
+      advice.target && advice.action !== 'hold'
+        ? ` → ориентир ${fmtMoney(advice.target)}`
+        : ''
+    }`,
+    `(${advice.reason})`,
+  );
+
+  const first = top[0];
   lines.push(
     '',
     'Сравнение с №1:',
-    compareLine('цена', fmtMoney(ours.priceAfter), fmtMoney(top.priceAfter)),
+    compareLine('цена', fmtMoney(ours.priceAfter), fmtMoney(first.priceAfter)),
     compareLine(
       'рейтинг',
       ours.rating ? `★${ours.rating}` : '—',
-      top.rating ? `★${top.rating}` : '—',
+      first.rating ? `★${first.rating}` : '—',
     ),
     compareLine(
       'отзывы',
       ours.feedbacks ? String(ours.feedbacks) : '—',
-      top.feedbacks ? String(top.feedbacks) : '—',
+      first.feedbacks ? String(first.feedbacks) : '—',
     ),
-    '',
-    `Вердикт: ${verdict(ours, top)}`,
+    `Вердикт vs №1: ${verdict(ours, first)}`,
   );
   return lines.join('\n');
 }
@@ -453,12 +602,20 @@ async function resolveOurs(
 ): Promise<{ ours: PublicProduct | null; queryHint: string; error?: string }> {
   let nm = nmHint;
   let queryHint = '';
+  const preferSticky = wantsStickyProductRef(text) &&
+    opts?.stickyNmId &&
+    Number(opts.stickyNmId) >= 100000;
+
+  if (preferSticky) {
+    nm = Number(opts!.stickyNmId);
+    queryHint = String(opts?.stickyQuery || '');
+  }
 
   if (!nm) {
     // товарной фразой из наших кабинетов
     const cleaned = text
       .replace(
-        /конкурент[а-яa-z]*|сравни[а-яa-z]*|найди|анализ[а-яa-z]*|прям[а-яa-z]*|артикул|арт\.?|похож[а-яa-z]*|аналог[а-яa-z]*|\bnm\b/gi,
+        /конкурент[а-яa-z]*|сравни[а-яa-z]*|найди|анализ[а-яa-z]*|прям[а-яa-z]*|артикул|арт\.?|похож[а-яa-z]*|аналог[а-яa-z]*|\bnm\b|смотрите\s*также|(как|кк|скок[оа])\s*цен[аыуе]*|цен[аыуе]*\s*у|этого|эту|этот|эта|него|неё|нее|товар[аыу]?|карточк[аиу]|сводн[а-я]*|отч[её]т/gi,
         ' ',
       )
       .replace(/\s+/g, ' ')
@@ -481,24 +638,28 @@ async function resolveOurs(
       ours: null,
       queryHint,
       error:
-        'Нужен nm или название из наших кабинетов — например «лапша белая сравни с конкурентами».',
+        'Нужен nm или название — или сначала спроси артикул товара, потом «как цена у конкурентов». Пример: «лапша белая сравни с конкурентами».',
     };
   }
 
+  // витринная карточка WB (цена как на сайте)
+  const cards = await fetchCardProducts([nm]);
+  const card = cards.find((c) => c.nmId === nm) || cards[0] || null;
   const meta = await fetchBasketMeta(nm);
+
   let ours: PublicProduct = {
     nmId: nm,
-    name: meta?.name || '',
-    brand: meta?.brand || '',
+    name: card?.name || meta?.name || '',
+    brand: card?.brand || meta?.brand || '',
     subject: meta?.subject || '',
-    subjectId: 0,
+    subjectId: card?.subjectId || 0,
     vendorCode: meta?.vendorCode || '',
-    priceAfter: 0,
-    priceBefore: 0,
-    rating: 0,
-    feedbacks: 0,
-    supplier: '',
-    source: 'basket',
+    priceAfter: card?.priceAfter || 0,
+    priceBefore: card?.priceBefore || 0,
+    rating: card?.rating || 0,
+    feedbacks: card?.feedbacks || 0,
+    supplier: card?.supplier || '',
+    source: card ? 'basket' : 'basket',
   };
   ours = await enrichFromCabinet(nm, ours);
 
@@ -597,26 +758,80 @@ export async function analyzeDirectCompetitors(
     vendorCode: ours.vendorCode,
     description: '',
   };
-  const query = buildSearchQuery(meta, resolved.queryHint || text);
-  const pool = await searchWbCatalog(query);
-  // если пусто — упростить запрос до subject + 2 слова
-  let usedQuery = query;
-  let items = pool;
-  if (!items.length && ours.subject) {
-    usedQuery = `${ours.subject} ${norm(ours.name).split(' ').slice(0, 2).join(' ')}`.trim();
-    items = await searchWbCatalog(usedQuery);
+
+  // 1) «Смотрите также» / visual similar с карточки
+  let usedQuery = '';
+  let sourceLabel = '';
+  let items = await fetchSeeAlsoProducts(ours.nmId);
+  if (items.length) {
+    sourceLabel = 'источник: блок «Смотрите также» / похожие на карточке';
+    usedQuery = `see-also:${ours.nmId}`;
   }
-  if (!items.length && ours.name) {
-    usedQuery = ours.name.slice(0, 80);
-    items = await searchWbCatalog(usedQuery);
+
+  // 2) fallback — поиск по названию карточки
+  if (!items.length) {
+    const query = buildSearchQuery(meta, resolved.queryHint || text);
+    usedQuery = query;
+    items = await searchWbCatalog(query);
+    if (!items.length && ours.subject) {
+      usedQuery = `${ours.subject} ${norm(ours.name).split(' ').slice(0, 2).join(' ')}`
+        .trim();
+      items = await searchWbCatalog(usedQuery);
+    }
+    if (!items.length && ours.name) {
+      usedQuery = ours.name.slice(0, 80);
+      items = await searchWbCatalog(usedQuery);
+    }
+    if (items.length) {
+      sourceLabel = `источник: выдача WB · «${usedQuery}»`;
+    }
   }
 
   // проставить subjectId нашему из пула если нашли себя
   const self = items.find((p) => p.nmId === ours.nmId);
   if (self?.subjectId) ours.subjectId = self.subjectId;
 
-  const competitors = pickDirectCompetitors(ours, items, 5);
-  const reply = formatCompetitorReply(ours, competitors, usedQuery);
+  // топ-3 прямых (как первые в «Смотрите также»)
+  let competitors = pickDirectCompetitors(ours, items, 3);
+
+  // если скоринг отсёк слишком жёстко — взять первые чужие бренды из пула
+  if (!competitors.length && items.length) {
+    const seen = new Set<number>([ours.nmId]);
+    competitors = [];
+    for (const c of items) {
+      if (seen.has(c.nmId)) continue;
+      if (ours.brand && c.brand && norm(ours.brand) === norm(c.brand)) continue;
+      seen.add(c.nmId);
+      competitors.push(c);
+      if (competitors.length >= 3) break;
+    }
+  }
+
+  // добрать актуальные цены топ-3 с card.wb.ru
+  if (competitors.length) {
+    const fresh = await fetchCardProducts(competitors.map((c) => c.nmId));
+    if (fresh.length) {
+      const byId = new Map(fresh.map((p) => [p.nmId, p]));
+      competitors = competitors.map((c) => {
+        const f = byId.get(c.nmId);
+        if (!f) return c;
+        return {
+          ...c,
+          name: f.name || c.name,
+          brand: f.brand || c.brand,
+          priceAfter: f.priceAfter || c.priceAfter,
+          priceBefore: f.priceBefore || c.priceBefore,
+          rating: f.rating || c.rating,
+          feedbacks: f.feedbacks || c.feedbacks,
+          source: f.priceAfter ? 'basket' : c.source,
+        };
+      });
+    }
+  }
+
+  const reply = formatCompetitorReply(ours, competitors, usedQuery, {
+    sourceLabel,
+  });
   const summaryRows = [
     [
       String(ours.nmId),
