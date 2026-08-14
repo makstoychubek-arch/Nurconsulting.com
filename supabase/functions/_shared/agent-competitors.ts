@@ -292,8 +292,11 @@ function buildSearchQuery(meta: BasketMeta, hint = ''): string {
   if (tokens.length) parts.push(tokens.join(' '));
   else if (cleaned) parts.push(cleaned);
   if (hint) {
-    const h = hint.replace(/\d{6,12}/g, ' ').replace(/конкурент\w*|сравни\w*|найди|анализ\w*|прямой\w*|артикул|арт\.?/gi, ' ');
-    const ht = norm(h).split(' ').filter((t) => t.length >= 3).slice(0, 4);
+    const h = hint.replace(/\d{6,12}/g, ' ').replace(
+      /конкурент[а-яa-z]*|сравни[а-яa-z]*|найди|анализ[а-яa-z]*|прям[а-яa-z]*|артикул|арт\.?|похож[а-яa-z]*|аналог[а-яa-z]*|\bnm\b/gi,
+      ' ',
+    );
+    const ht = norm(h).split(' ').filter((t) => t.length >= 3 && !/^\d+$/.test(t)).slice(0, 4);
     if (ht.length) parts.push(ht.join(' '));
   }
   return [...new Set(parts.join(' ').split(/\s+/))].join(' ').trim().slice(0, 120);
@@ -450,7 +453,10 @@ async function resolveOurs(
   if (!nm) {
     // товарной фразой из наших кабинетов
     const cleaned = text
-      .replace(/конкурент\w*|сравни\w*|найди|анализ\w*|прямой\w*|артикул|арт\.?|nm/gi, ' ')
+      .replace(
+        /конкурент[а-яa-z]*|сравни[а-яa-z]*|найди|анализ[а-яa-z]*|прям[а-яa-z]*|артикул|арт\.?|похож[а-яa-z]*|аналог[а-яa-z]*|\bnm\b/gi,
+        ' ',
+      )
       .replace(/\s+/g, ' ')
       .trim();
     queryHint = cleaned;
