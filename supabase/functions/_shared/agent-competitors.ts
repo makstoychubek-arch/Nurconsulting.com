@@ -449,6 +449,7 @@ export function formatCompetitorReply(
 async function resolveOurs(
   text: string,
   nmHint: number | null,
+  opts?: { stickyNmId?: number | null; stickyQuery?: string | null },
 ): Promise<{ ours: PublicProduct | null; queryHint: string; error?: string }> {
   let nm = nmHint;
   let queryHint = '';
@@ -469,11 +470,18 @@ async function resolveOurs(
     }
   }
 
+  // follow-up без названия: взять последний товар из фокуса чата
+  if (!nm && opts?.stickyNmId && Number(opts.stickyNmId) >= 100000) {
+    nm = Number(opts.stickyNmId);
+    if (!queryHint && opts.stickyQuery) queryHint = String(opts.stickyQuery);
+  }
+
   if (!nm) {
     return {
       ours: null,
       queryHint,
-      error: 'Нужен артикул (nm) или название из наших кабинетов — например «211195995 сравни с конкурентами».',
+      error:
+        'Нужен nm или название из наших кабинетов — например «лапша белая сравни с конкурентами».',
     };
   }
 
@@ -531,9 +539,28 @@ async function resolveOurs(
  */
 export async function analyzeDirectCompetitors(
   text: string,
+  opts?: { chatId?: number },
 ): Promise<CompetitorCompareResult> {
   const nmHint = extractNmId(text);
-  const resolved = await resolveOurs(text, nmHint);
+  let stickyNmId: number | null = null;
+  let stickyQuery: string | null = null;
+  if (opts?.chatId && !nmHint) {
+    try {
+      const { getChatFocus } = await import('./agent-chat-focus.ts');
+      const focus = await getChatFocus(opts.chatId);
+      const lp = focus?.lastProduct;
+      if (lp?.nmId && Number(lp.nmId) >= 100000) {
+        stickyNmId = Number(lp.nmId);
+        stickyQuery = String(lp.vendorCode || lp.title || '');
+      }
+    } catch {
+      // ignore sticky miss
+    }
+  }
+  const resolved = await resolveOurs(text, nmHint, {
+    stickyNmId,
+    stickyQuery,
+  });
   if (!resolved.ours) {
     return {
       ok: false,
@@ -541,6 +568,23 @@ export async function analyzeDirectCompetitors(
       competitors: [],
       reply: resolved.error || 'Не смогла разобрать артикул',
     };
+  }
+
+  // запомнить наш товар для follow-up
+  if (opts?.chatId && resolved.ours.nmId) {
+    try {
+      const { rememberLastProduct } = await import('./agent-chat-focus.ts');
+      await rememberLastProduct(opts.chatId, 'saule', {
+        vendorCode: resolved.ours.vendorCode || resolved.ours.name ||
+          String(resolved.ours.nmId),
+        title: resolved.ours.name,
+        nmId: resolved.ours.nmId,
+        price: resolved.ours.priceBefore || null,
+        discountedPrice: resolved.ours.priceAfter || null,
+      });
+    } catch {
+      // ignore
+    }
   }
 
   const ours = resolved.ours;

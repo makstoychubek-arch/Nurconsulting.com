@@ -136,6 +136,28 @@ export function wantsBeforeDiscount(text: string): boolean {
     .test(t);
 }
 
+/** «дай артикул / какой nm / арт на лапшу бел» — не конкуренты и не смена цены. */
+export function wantsArticleLookup(text: string): boolean {
+  const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
+  if (!t.trim()) return false;
+  if (wantsCompetitorAnalysis(t)) return false;
+  if (wantsPriceChange(t)) return false;
+  if (
+    /(дай|скинь|пришли|покажи|напиши|скажи|какой|какая|какие).{0,28}(артикул|арт\.?|\bnm\b)/i
+      .test(t)
+  ) {
+    return true;
+  }
+  if (
+    /(артикул|арт\.?|\bnm\b).{0,28}(дай|скинь|пришли|покажи|напиши|скажи|какой|какая|на\s)/i
+      .test(t)
+  ) {
+    return true;
+  }
+  if (/^(какой\s+)?(артикул|арт|nm)\b/i.test(t.trim())) return true;
+  return false;
+}
+
 const PRICE_STOP_EXACT = new Set([
   'какая',
   'какой',
@@ -195,6 +217,144 @@ export function extractPriceProductQuery(text: string): string {
     minLen: 2,
     dropNumbers: false,
   });
+}
+
+const ARTICLE_STOP_EXACT = new Set([
+  ...PRICE_STOP_EXACT,
+  'артикул',
+  'артикула',
+  'артикулу',
+  'артикулы',
+  'арт',
+  'nm',
+  'nmid',
+  'номер',
+  'нужен',
+  'нужна',
+  'нужно',
+  'наш',
+  'наша',
+  'наше',
+  'на',
+]);
+
+/** Товар из «артикул дай на лапшу бел». */
+export function extractArticleProductQuery(text: string): string {
+  let t = String(text || '');
+  t = t
+    .replace(/саул[еэ][а-яё]*/gi, ' ')
+    .replace(/карин[аеуыой][а-яё]*/gi, ' ')
+    .replace(/артикул[а-яё]*/gi, ' ')
+    .replace(/\bart\.?\b/gi, ' ')
+    .replace(/\bnm\b/gi, ' ')
+    .replace(/[?!.,:;«»"'()]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return filterStopTokens(t, {
+    exact: ARTICLE_STOP_EXACT,
+    minLen: 2,
+    dropNumbers: false,
+  });
+}
+
+export function formatArticleLookupLine(hit: {
+  vendorCode?: string | null;
+  title?: string | null;
+  nmId?: number | null;
+  cabinetName?: string | null;
+  price?: number | null;
+  discountedPrice?: number | null;
+}): string {
+  const name = String(hit.vendorCode || hit.title || 'товар').trim();
+  const nm = hit.nmId != null && Number(hit.nmId) > 0 ? Number(hit.nmId) : null;
+  const cab = hit.cabinetName ? ` · ${hit.cabinetName}` : '';
+  if (!nm) return `${name}${cab} — nm в каталоге нет`;
+  const before = hit.price != null && Number(hit.price) > 0
+    ? Number(hit.price)
+    : null;
+  const after = hit.discountedPrice != null && Number(hit.discountedPrice) > 0
+    ? Number(hit.discountedPrice)
+    : null;
+  let money = '';
+  if (before != null && after != null && before !== after) {
+    money = ` · до ${formatMoneyRu(before)} / после ${formatMoneyRu(after)}`;
+  } else if (after != null || before != null) {
+    money = ` · ${formatMoneyRu(after ?? before!)}`;
+  }
+  return `${name}: nm ${nm}${cab}${money}`;
+}
+
+async function answerArticleLookup(
+  text: string,
+  opts?: { chatId?: number },
+): Promise<TeamQaResult> {
+  const query = extractArticleProductQuery(text);
+  const chatId = opts?.chatId;
+
+  if ((!query || query.length < 2) && chatId) {
+    const focus = await getChatFocus(chatId);
+    const lp = focus?.lastProduct;
+    if (lp?.nmId && lp.vendorCode) {
+      return {
+        handled: true,
+        agentKey: 'saule',
+        reply: formatArticleLookupLine(lp),
+      };
+    }
+  }
+
+  if (!query || query.length < 2) {
+    return {
+      handled: true,
+      agentKey: 'saule',
+      reply: pick([
+        'Какой товар? Модель + цвет — скажу nm из каталога',
+        'Назови модель/цвет (лапша белая, фонарь…) — найду артикул',
+      ]),
+    };
+  }
+
+  const cab = await resolveCabinet(text);
+  const hits = await findCatalogProducts(query, {
+    cabinetId: cab.match?.id || null,
+    max: 6,
+    minScore: 5,
+  });
+
+  if (!hits.length) {
+    return {
+      handled: true,
+      agentKey: 'saule',
+      reply: pick([
+        `Не нашла «${query}» в каталоге. Уточни модель/цвет`,
+        `По «${query}» nm нет — другой фасон/цвет?`,
+      ]),
+    };
+  }
+
+  // один явный лидер или топ-кластер
+  const top = hits[0];
+  const close = hits.filter((h) => h.score >= top.score - 1).slice(0, 4);
+  if (chatId && top.nmId) {
+    await rememberLastProduct(chatId, 'saule', hitToLastProduct(top));
+  }
+
+  if (close.length === 1 || (close.length > 1 && close[0].score > close[1].score)) {
+    return {
+      handled: true,
+      agentKey: 'saule',
+      reply: formatArticleLookupLine(top),
+    };
+  }
+
+  return {
+    handled: true,
+    agentKey: 'saule',
+    reply: [
+      `Несколько похожих на «${query}»:`,
+      ...close.map((h) => `• ${formatArticleLookupLine(h)}`),
+    ].join('\n'),
+  };
 }
 
 function formatMoneyRu(n: number): string {
@@ -702,7 +862,7 @@ export async function tryTeamSmartQa(
     if (triggeringBot !== 'saule') {
       return { handled: true }; // отвечает только Сауле
     }
-    const result = await analyzeDirectCompetitors(t);
+    const result = await analyzeDirectCompetitors(t, { chatId: opts?.chatId });
     return {
       handled: true,
       agentKey: 'saule',
@@ -718,6 +878,19 @@ export async function tryTeamSmartQa(
         }
         : undefined,
     };
+  }
+
+  // ── Артикул / nm (Сауле) — из каталога, не из примеров в чате ───────────
+  if (wantsArticleLookup(t)) {
+    if (
+      triggeringBot === 'saule' &&
+      (!named.length || named.includes('saule') || named.includes('karina'))
+    ) {
+      return await answerArticleLookup(t, { chatId: opts?.chatId });
+    }
+    if (!named.length || named.includes('saule') || named.includes('karina')) {
+      return { handled: true };
+    }
   }
 
   // ── Фото с WB (Алина), Муху на это глушим ───────────────────────────────
@@ -817,6 +990,15 @@ export async function teamQaFactsForAgent(
     ) {
       const qa = await answerPriceLookup(text, { chatId: opts?.chatId });
       return qa.reply ? `ФАКТЫ ЦЕН WB (до/после скидки):\n${qa.reply}` : '';
+    }
+    if (
+      (agent === 'saule' || agent === 'karina') &&
+      wantsArticleLookup(text)
+    ) {
+      const qa = await answerArticleLookup(text, { chatId: opts?.chatId });
+      return qa.reply
+        ? `ФАКТЫ АРТИКУЛОВ (только nm из каталога, не выдумывай):\n${qa.reply}`
+        : '';
     }
   } catch {
     return '';

@@ -23,14 +23,15 @@ const ours: PublicProduct = {
 };
 
 Deno.test("wantsCompetitorAnalysis phrases", () => {
-  assertEquals(wantsCompetitorAnalysis("211195995 найди прямого конкурента и сравни"), true);
+  assertEquals(wantsCompetitorAnalysis("771499220 найди прямого конкурента и сравни"), true);
   assertEquals(wantsCompetitorAnalysis("Сауле, конкуренты по жилетке"), true);
   assertEquals(wantsCompetitorAnalysis("сравни артикул 1234567 с выдачей"), true);
   assertEquals(wantsCompetitorAnalysis("сколько продаж вчера"), false);
+  assertEquals(wantsCompetitorAnalysis("артикул дай на лапшу бел"), false);
 });
 
 Deno.test("extractNmId", () => {
-  assertEquals(extractNmId("арт 211195995 сравни"), 211195995);
+  assertEquals(extractNmId("арт 771499220 сравни"), 771499220);
   assertEquals(extractNmId("нет числа"), null);
 });
 
