@@ -24,6 +24,7 @@ import {
   findCatalogProducts,
   scoreProductMatch,
 } from './agent-product-catalog.ts';
+import { setChatFocus } from './agent-chat-focus.ts';
 import {
   CABINET_TOKEN_SELECT,
   isValidWbToken,
@@ -1016,6 +1017,7 @@ export async function startFbsStockDialog(opts: {
   const queryText = opts.text.trim();
   const productText = extractProductText(queryText);
   const wantTable = wantsFbsSizeTable(queryText);
+  await setChatFocus(opts.chatId, 'anton', 'fbs_stock', 20);
 
   // 1) Кабинет из текста / алиасов — уверенно, без «это он?»
   const resolved = await resolveCabinet(queryText);

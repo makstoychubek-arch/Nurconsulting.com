@@ -4,7 +4,15 @@
  */
 
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { aminaConfirmStart, aminaWaitingYes, pick } from "./agent-voice.ts";
+import {
+  aminaAskCabinet,
+  aminaAskProduct,
+  aminaConfirmStart,
+  aminaWaitingYes,
+  pick,
+} from "./agent-voice.ts";
+import { scoreProductMatch } from "./agent-product-catalog.ts";
+import { setChatFocus } from "./agent-chat-focus.ts";
 
 export type PendingStatus =
   | "awaiting_selection"
@@ -205,6 +213,35 @@ export function formatCampaignList(
     return `${i + 1}. [${st}] ${c.name} · id ${c.id}`;
   });
   return [`${title} (${items.length})`, ...lines].join("\n");
+}
+
+/** Вытащить товар из фразы про РК («запусти рк лапша белая база»). */
+export function extractAdsProductHint(text: string): string {
+  let t = stripCabinetAliases(text);
+  t = t
+    .replace(
+      /\b(рк|реклам\w*|кампан\w*|аукцион\w*|запуст\w*|пауз\w*|пополни\w*|список|покажи|какие|статус|активн\w*|готов\w*|сегодня|нужно|надо|давай|пожалуйста|плиз|и|на|по|в|с)\b/gi,
+      " ",
+    )
+    .replace(/[^\p{L}\p{N}\s\-]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return t;
+}
+
+export function filterCampaignsByProduct(
+  items: Array<{ id: number; name: string; status: number }>,
+  hint: string,
+): Array<{ id: number; name: string; status: number }> {
+  const q = String(hint || "").trim();
+  if (!q || q.length < 3 || !items.length) return items;
+  const scored = items
+    .map((i) => ({ i, score: scoreProductMatch(i.name, q) }))
+    .filter((x) => x.score >= 4)
+    .sort((a, b) => b.score - a.score || a.i.name.localeCompare(b.i.name, "ru"));
+  if (!scored.length) return [];
+  const best = scored[0].score;
+  return scored.filter((x) => x.score >= best - 2).map((x) => x.i);
 }
 
 /** Активный pending в чате (не протухший). */
@@ -475,14 +512,37 @@ export async function handleOwnerActionMessage(opts: {
       return {
         handled: true,
         agentKey: opts.agentKey,
-        reply: `Уточни кабинет. Доступны: ${names || "—"}\nПример: «покажи РК Baza»`,
+        reply: `${aminaAskCabinet()}\nДоступны: ${names || "—"}\nПример: «покажи РК Baza»`,
       };
     }
-    const items = await listCampaigns(resolved.match.id);
+    const productHint = extractAdsProductHint(text);
+    let items = await listCampaigns(resolved.match.id);
+    if (productHint.length >= 3) {
+      const filtered = filterCampaignsByProduct(items, productHint);
+      if (!filtered.length) {
+        return {
+          handled: true,
+          agentKey: opts.agentKey,
+          reply: [
+            `${resolved.match.name}: по «${productHint}» РК не нашла.`,
+            aminaAskProduct(),
+            "",
+            formatCampaignList(items.slice(0, 12), `Все РК · ${resolved.match.name}`),
+          ].join("\n"),
+        };
+      }
+      items = filtered;
+    }
+    await setChatFocus(opts.chatId, "amina", "ads_list", 12);
     return {
       handled: true,
       agentKey: opts.agentKey,
-      reply: formatCampaignList(items, `РК · ${resolved.match.name}`),
+      reply: formatCampaignList(
+        items,
+        productHint.length >= 3
+          ? `РК · ${resolved.match.name} · ${productHint}`
+          : `РК · ${resolved.match.name}`,
+      ),
     };
   }
 
@@ -493,12 +553,27 @@ export async function handleOwnerActionMessage(opts: {
     return {
       handled: true,
       agentKey: opts.agentKey,
-      reply: `Какой кабинет?\n${names}\nНапиши, например: «запусти РК Baza»`,
+      reply: `${aminaAskCabinet()}\n${names}\nНапиши, например: «запусти РК Baza»`,
     };
   }
 
   const wantStatus = intent.kind === "start" ? [11, 4] : [9];
-  const items = await listCampaigns(resolved.match.id, wantStatus);
+  let items = await listCampaigns(resolved.match.id, wantStatus);
+  const productHint = extractAdsProductHint(text);
+  if (productHint.length >= 3 && items.length) {
+    const filtered = filterCampaignsByProduct(items, productHint);
+    if (!filtered.length) {
+      return {
+        handled: true,
+        agentKey: opts.agentKey,
+        reply: [
+          `${resolved.match.name}: по «${productHint}» подходящих РК нет.`,
+          aminaAskProduct(),
+        ].join("\n"),
+      };
+    }
+    items = filtered;
+  }
   if (!items.length) {
     const label = intent.kind === "start" ? "на паузе/готовых" : "активных";
     return {
@@ -523,6 +598,7 @@ export async function handleOwnerActionMessage(opts: {
       payload: {
         campaignIds: items.map((i) => i.id),
         items,
+        productHint: productHint || null,
       },
     })
     .select("*")
@@ -536,15 +612,20 @@ export async function handleOwnerActionMessage(opts: {
     };
   }
 
+  await setChatFocus(opts.chatId, "amina", "ads_dialog", 20);
+
   const verb = intent.kind === "start" ? "запуска" : "паузы";
   const topupNote = /пополни/i.test(text)
     ? "\nБаланс РК пополняется в ЛК WB — я запущу выбранные, если бюджета хватит."
     : "";
+  const titleBit = productHint.length >= 3
+    ? `${resolved.match.name} · ${productHint} · РК на ${verb}`
+    : `${resolved.match.name} · РК на ${verb}`;
   return {
     handled: true,
     agentKey: opts.agentKey,
     reply: [
-      formatCampaignList(items, `${resolved.match.name} · РК на ${verb}`),
+      formatCampaignList(items, titleBit),
       "",
       "Какие запускаем? Номера, «все» — или отмена.",
       topupNote.trim(),
@@ -611,11 +692,11 @@ async function executePending(pending: PendingAction, tgUserId: number): Promise
 export function actionsCapabilityBrief(): string {
   return [
     "ДОСТУП К ДЕЙСТВИЯМ:",
-    "- Амина: список / запуск / пауза РК → выбор → «да»; «запомни каждый день»",
+    "- Амина: список / запуск / пауза РК (можно с товаром: «рк лапша белая») → выбор → «да»; «запомни каждый день»",
     "- Сауле: цена → артикул (все кабинеты) → «до/после + цена» → «сохранила»",
     "- Антон: FBS/остатки по живым названиям товаров во всех кабинетах",
     "- Алина: фото/раздачи; если нет в таблице — ищет по каталогу WB",
-    "Пока идёт диалог с одним агентом — остальные не встревают.",
+    "Пока идёт диалог с одним агентом — остальные не встревают; смена имени сбрасывает чужой pending.",
     "Кабинеты: Baza, SAAI, Zevina 1, Zevina 2, Elium.",
   ].join("\n");
 }

@@ -1,6 +1,8 @@
 import { assertEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   detectAdvertIntent,
+  extractAdsProductHint,
+  filterCampaignsByProduct,
   isCancelText,
   isConfirmText,
   normName,
@@ -40,6 +42,23 @@ Deno.test("parseSelection", () => {
   assertEquals(parseSelection("1,3,5", 5), [1, 3, 5]);
   assertEquals(parseSelection("2-4", 5), [2, 3, 4]);
   assertEquals(parseSelection("привет", 5), null);
+});
+
+Deno.test("ads product hint + campaign filter", () => {
+  assert(
+    extractAdsProductHint("запусти рк база лапша белая").toLowerCase().includes("лапша"),
+  );
+  const items = [
+    { id: 1, name: "Блузка-лапша-белый", status: 11 },
+    { id: 2, name: "Блузка_фонарь_черный", status: 11 },
+    { id: 3, name: "жл-темносиний", status: 11 },
+  ];
+  const hit = filterCampaignsByProduct(items, "лапша белая");
+  assertEquals(hit.length, 1);
+  assertEquals(hit[0].id, 1);
+  const vest = filterCampaignsByProduct(items, "жилетка темно синяя");
+  assertEquals(vest.length, 1);
+  assertEquals(vest[0].id, 3);
 });
 
 Deno.test("normName база", () => {

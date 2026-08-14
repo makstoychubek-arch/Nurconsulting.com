@@ -19,8 +19,12 @@ import { alinaSelfbuyStatsText } from './alina-selfbuy.ts';
 import { fetchWbMainPhoto } from './alina-wb-photo.ts';
 import { detectNamedAgents, detectMentionedAgents } from './agent-team.ts';
 import { wantsFbsStock } from './agent-fbs-stock.ts';
-import { alinaSeesSheet, antonWbStockLead } from './agent-voice.ts';
+import { alinaAskProduct, alinaSeesSheet, antonWbStockLead } from './agent-voice.ts';
 import { findCatalogProducts } from './agent-product-catalog.ts';
+
+function alinaPickModel(lines: string[]): string {
+  return [alinaAskProduct(), ...lines].join('\n');
+}
 
 export type TeamQaResult = {
   handled: boolean;
@@ -126,8 +130,9 @@ async function answerProductPhoto(text: string): Promise<TeamQaResult> {
       return {
         handled: true,
         agentKey: 'alina',
-        reply: 'Какую модель фото?\n' +
-          m.ambiguous.map((o) => `• ${o.product_name}`).join('\n'),
+        reply: alinaPickModel(
+          m.ambiguous.map((o) => `• ${o.product_name}`),
+        ),
       };
     }
   }
@@ -138,8 +143,9 @@ async function answerProductPhoto(text: string): Promise<TeamQaResult> {
     return {
       handled: true,
       agentKey: 'alina',
-      reply: 'Какую модель фото?\n' +
-        picked.ambiguous.map((o) => `• ${o.product_name}`).join('\n'),
+      reply: alinaPickModel(
+        picked.ambiguous.map((o) => `• ${o.product_name}`),
+      ),
     };
   }
   if (!picked.offer?.article) {
@@ -172,8 +178,9 @@ async function answerProductPhoto(text: string): Promise<TeamQaResult> {
         return {
           handled: true,
           agentKey: 'alina',
-          reply: 'Какую модель фото?\n' +
-            hits.slice(0, 6).map((h) => `• ${h.cabinetName} · ${h.vendorCode || h.title}`).join('\n'),
+          reply: alinaPickModel(
+            hits.slice(0, 6).map((h) => `• ${h.cabinetName} · ${h.vendorCode || h.title}`),
+          ),
         };
       }
     } catch { /* */ }
@@ -182,8 +189,7 @@ async function answerProductPhoto(text: string): Promise<TeamQaResult> {
       handled: true,
       agentKey: 'alina',
       reply: all.length
-        ? 'Уточни модель/цвет — скину главное фото с WB:\n' +
-          all.map((o) => `• ${o.product_name}`).join('\n')
+        ? alinaPickModel(all.map((o) => `• ${o.product_name}`))
         : 'Не нашла модель — напиши точнее или nm',
     };
   }
