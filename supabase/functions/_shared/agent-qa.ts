@@ -358,6 +358,18 @@ export async function tryTeamSmartQa(
     }
   }
 
+  // ── Смена цены (Сауле) — чужие боты молчат ─────────────────────────────
+  if (/(сниз|понизь|пониз|убав|уменьш).{0,20}цен/i.test(t) ||
+    /цен.{0,20}(сниз|понизь|пониз|убав|уменьш|меня|измени|поменя)/i.test(t) ||
+    /(менять|поменять|изменить|поменяй).{0,12}цен/i.test(t)) {
+    if (triggeringBot === 'saule' && (!named.length || named.includes('saule') || named.includes('karina'))) {
+      return { handled: false }; // роутер стартует price dialog
+    }
+    if (!named.length || named.includes('saule') || named.includes('karina')) {
+      return { handled: true };
+    }
+  }
+
   // ── Остатки WB-складов (Антон, без FBS) ─────────────────────────────────
   if (wantsStock(t)) {
     if (triggeringBot === 'anton' && (!named.length || named.includes('anton'))) {

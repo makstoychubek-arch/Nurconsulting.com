@@ -367,6 +367,10 @@ export async function handleOwnerActionMessage(opts: {
     if (pending.action_type === "fbs_stock") {
       return { handled: false };
     }
+    // Смена цены — agent-price-change
+    if (pending.action_type === "price_change") {
+      return { handled: false };
+    }
     // Отвечает тот же агент, кто вёл диалог
     if (opts.agentKey !== pending.agent_key) {
       return { handled: false };
@@ -597,11 +601,11 @@ async function executePending(pending: PendingAction, tgUserId: number): Promise
 /** Краткий каталог возможностей для промпта. */
 export function actionsCapabilityBrief(): string {
   return [
-    "ДОСТУП К ДЕЙСТВИЯМ (Амина, после «да» от человека):",
-    "- список / запуск / пауза РК",
-    "- процесс: список → выбор номеров → «да»",
-    "- «запомни каждый день» после запуска → автозапуск в это время (Бишкек)",
-    "Без «да» ничего в кабинете не меняй.",
+    "ДОСТУП К ДЕЙСТВИЯМ:",
+    "- Амина: список / запуск / пауза РК → выбор → «да»; «запомни каждый день»",
+    "- Сауле: снизить/поменять цену → модель → текущая цена → сумма снижения → сразу «Хорошо, снижаю»",
+    "- Антон: FBS-остатки (диалог с кнопками)",
+    "Пока идёт диалог с одним агентом — остальные не встревают.",
     "Кабинеты: Baza, SAAI, Zevina 1, Zevina 2, Elium.",
   ].join("\n");
 }

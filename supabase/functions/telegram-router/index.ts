@@ -34,9 +34,22 @@ import {
   type FbsStockReply,
 } from "../_shared/agent-fbs-stock.ts";
 import {
+  continuePriceChangeDialog,
+  hasActivePriceDialog,
+  startPriceChangeDialog,
+  wantsPriceChange,
+} from "../_shared/agent-price-change.ts";
+import {
+  getChatFocus,
+  isLikelyFollowUp,
+  setChatFocus,
+} from "../_shared/agent-chat-focus.ts";
+import {
   AGENT_DISPLAY,
   buildTeamPlan,
   clampHops,
+  detectNamedAgents,
+  detectMentionedAgents,
   isDoneReply,
   nextPingFromReply,
   peerTalkBrief,
@@ -679,6 +692,18 @@ async function runAgentTurn(opts: {
   await sendTelegramMessage(targetAgent, chatId, reply, replyToMessageId);
   saveMessage(chatId, targetAgent, reply).catch(() => {});
 
+  // Фокус на ответившем (особенно если задал вопрос) — чтобы другие не перебивали
+  const asksFollowUp =
+    /\?/.test(reply) ||
+    /(какой|какая|какие|какой\s+артикул|модель|уточн|напиши|скажи|на\s+сколько)/i.test(
+      reply,
+    );
+  if (asksFollowUp) {
+    await setChatFocus(chatId, targetAgent, "asked_followup", 15);
+  } else {
+    await setChatFocus(chatId, targetAgent, "last_speaker", 8);
+  }
+
   if (lastHop) return;
   if (isDoneReply(reply)) return;
 
@@ -689,6 +714,9 @@ async function runAgentTurn(opts: {
     next = plan.find((a) => !visited.has(a) && BOT_TOKENS[a]) || null;
   }
   if (!next || !BOT_TOKENS[next]) return;
+
+  // Передали коллеге — фокус на нём, чтобы реплика владельца не ушла «дефолтной» Карине
+  await setChatFocus(chatId, next, `handoff_from_${targetAgent}`, 15);
 
   // Если сами не позвали, а идём по плану — пусть следующий «подхватит» коротко
   const handoffText = pinged
@@ -917,6 +945,95 @@ serve(async (req) => {
         }
       } else if (wantsFbsStock(text) && triggeringBot !== "anton") {
         // Пока Антон ещё не создал pending — остальные webhook'и уже молчат в QA
+      }
+    }
+
+    // ── Смена цены (Сауле) — фокус, другие молчат ───────────────────────────
+    {
+      const priceActive = await hasActivePriceDialog(chatId);
+      const namedPrice = [
+        ...detectMentionedAgents(text),
+        ...detectNamedAgents(text),
+      ];
+      const switchAway =
+        priceActive &&
+        namedPrice.length === 1 &&
+        namedPrice[0] !== "saule" &&
+        !wantsPriceChange(text);
+      if ((priceActive || wantsPriceChange(text)) && !switchAway) {
+        if (triggeringBot !== "saule") return ok();
+        const priceFn = priceActive ? continuePriceChangeDialog : startPriceChangeDialog;
+        const priceRes = await priceFn({
+          chatId,
+          tgUserId: Number(message.from?.id),
+          text,
+        });
+        if (priceRes.handled) {
+          if (priceRes.reply) {
+            await runWork((async () => {
+              await sendTelegramMessage(
+                "saule",
+                chatId,
+                priceRes.reply!,
+                message.message_id,
+              );
+              saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
+              saveMessage(chatId, "saule", priceRes.reply!).catch(() => {});
+            })());
+          }
+          return ok();
+        }
+      }
+    }
+
+    // ── Фокус чата: пока говорим с одним — остальные не встревают ──────────
+    {
+      const namedNow = [
+        ...detectMentionedAgents(text),
+        ...detectNamedAgents(text),
+      ];
+      const uniqueNamed = [...new Set(namedNow)];
+      if (uniqueNamed.length === 1) {
+        await setChatFocus(chatId, uniqueNamed[0], "named", 15);
+      }
+
+      const focus = await getChatFocus(chatId);
+      const pendingAny = await getActivePending(chatId);
+      const lockedAgent = pendingAny?.agent_key || focus?.agent_key || null;
+
+      if (lockedAgent) {
+        // Явно позвали другого — переключаем фокус
+        if (uniqueNamed.length === 1 && uniqueNamed[0] !== lockedAgent) {
+          await setChatFocus(chatId, uniqueNamed[0], "switch", 15);
+        } else if (
+          !uniqueNamed.length ||
+          uniqueNamed.includes(lockedAgent)
+        ) {
+          const followUp = isLikelyFollowUp(text) || Boolean(pendingAny);
+          const resolvedLock = resolveSpeakAndOrchestrator(
+            [lockedAgent],
+            triggeringBot,
+          );
+          if (followUp || !uniqueNamed.length) {
+            if (
+              resolvedLock &&
+              triggeringBot !== resolvedLock.orchestrator &&
+              triggeringBot !== lockedAgent
+            ) {
+              return ok();
+            }
+            // только владелец фокуса отвечает — дальше plan принудительно
+            if (
+              resolvedLock &&
+              (triggeringBot === resolvedLock.orchestrator ||
+                triggeringBot === lockedAgent)
+            ) {
+              // обработаем ниже через plan=[lockedAgent], пометим через focus
+            } else if (triggeringBot !== lockedAgent) {
+              return ok();
+            }
+          }
+        }
       }
     }
 
@@ -1212,7 +1329,22 @@ serve(async (req) => {
       }
     }
 
-    const plan = buildTeamPlan(text, message.entities, MAX_AGENT_HOPS);
+    const focusEnd = await getChatFocus(chatId);
+    const pendingEnd = await getActivePending(chatId);
+    const stickyAgent = pendingEnd?.agent_key || focusEnd?.agent_key || null;
+    const namedForPlan = [
+      ...detectMentionedAgents(text),
+      ...detectNamedAgents(text),
+    ];
+    let plan = buildTeamPlan(text, message.entities, MAX_AGENT_HOPS);
+    // Пока диалог с конкретным агентом — короткие реплики не уходят «дефолтной» Карине
+    if (
+      stickyAgent &&
+      (!namedForPlan.length || namedForPlan.includes(stickyAgent)) &&
+      (isLikelyFollowUp(text) || Boolean(pendingEnd) || plan[0] === "karina")
+    ) {
+      plan = [stickyAgent];
+    }
     const resolved = resolveSpeakAndOrchestrator(plan, triggeringBot);
     if (!resolved) return ok();
 
@@ -1226,6 +1358,9 @@ serve(async (req) => {
 
     await runWork((async () => {
       await saveMessage(chatId, message.from?.first_name ?? "user", text);
+      if (resolved.speakAs) {
+        await setChatFocus(chatId, resolved.speakAs, "speaking", 12);
+      }
       await runAgentTurn({
         chatId,
         targetAgent: resolved.speakAs,

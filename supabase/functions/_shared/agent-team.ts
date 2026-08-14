@@ -55,9 +55,14 @@ export function detectTopicalAgents(text: string): string[] {
       /(фонар|вырез|блузк|бел|черн)/i.test(lower));
 
   // «выкуп» внутри «самовыкуп» / таблица раздач → Алина, не Сауле
+  const priceChange =
+    /(сниз|понизь|пониз|убав|уменьш).{0,20}цен/i.test(lower) ||
+    /цен.{0,20}(сниз|понизь|пониз|убав|уменьш|меня|измени|поменя)/i.test(lower) ||
+    /(менять|поменять|изменить|поменяй).{0,12}цен/i.test(lower);
   if (
     lower.includes("продаж") ||
     lower.includes("отмен") ||
+    priceChange ||
     /(^|[^а-яё])цен(а|ы|у|е|ой|ам)?([^а-яё]|$)/.test(lower) ||
     (!selfbuy && !sheetGiveaway && /(^|[^а-яё])выкуп/.test(lower))
   ) {
