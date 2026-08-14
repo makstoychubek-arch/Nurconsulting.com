@@ -8,6 +8,7 @@
 // Auth: service_role key only (вызывается по pg_cron, см. миграцию cron).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -34,31 +35,36 @@ Deno.serve(async (req) => {
     const started = Date.now();
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
-    const tgChatId = Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '';
+    const tgToken = getTelegramToken();
+    const tgChatId = getTelegramChatId('ads');
 
     const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ') || authHeader.replace('Bearer ', '') !== serviceKey) {
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    const authorized = Boolean(bearer) && (
+        bearer === serviceKey ||
+        isServiceRoleJwt(bearer)
+    );
+    if (!authorized) {
         return json({ error: 'Unauthorized' }, 401);
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
     const results: Array<Record<string, unknown>> = [];
 
-    // ── Тестовый режим: { "test": true } в теле запроса — просто шлёт одно
-    // проверочное сообщение в группу, минуя всю логику сравнения статусов/
-    // баланса. Нужен, чтобы проверить, что TELEGRAM_BOT_TOKEN и
-    // TELEGRAM_GROUP_CHAT_ID настроены правильно, без ожидания реального
-    // события смены статуса кампании.
+    // ── Тестовый режим: { "test": true } — проверка канала «Реклама»
     try {
         const body = await req.clone().json().catch(() => ({} as Record<string, unknown>));
         if (body && body.test) {
             if (!tgToken || !tgChatId) {
-                return json({ ok: false, error: 'TELEGRAM_BOT_TOKEN или TELEGRAM_GROUP_CHAT_ID не заданы в secrets' }, 400);
+                return json({
+                    ok: false,
+                    error: 'TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ADS не заданы в secrets',
+                    chatId: tgChatId || null,
+                }, 400);
             }
-            const text = '✅ Тестовое сообщение от NR Space: бот подключён, уведомления о статусе РК и балансе кабинета будут приходить сюда.';
+            const text = '✅ Тест NR Space · канал «Реклама»: статус РК и низкий баланс будут приходить сюда.';
             const sent = await sendTelegramMessage(tgToken, tgChatId, text);
-            return json({ ok: sent, sent, text });
+            return json({ ok: sent, sent, text, chatId: tgChatId });
         }
     } catch { /* не тестовый режим — идём дальше по обычной логике */ }
 
@@ -228,7 +234,7 @@ async function notifyOnce(
         sendOk = await sendTelegramMessage(tgToken, tgChatId, text);
     } else {
         sendOk = false;
-        console.warn('[check-campaigns-notify] TELEGRAM_BOT_TOKEN/TELEGRAM_GROUP_CHAT_ID не заданы — сообщение не отправлено:', text);
+        console.warn('[check-campaigns-notify] TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ADS не заданы — сообщение не отправлено:', text);
     }
 
     await admin.from('notification_log').insert({
@@ -326,6 +332,18 @@ function sanitizeWbToken(raw: unknown): string {
 
 function isValidWbToken(token: string): boolean {
     return token.length > 50 && /^[\x21-\x7E]+$/.test(token);
+}
+
+function isServiceRoleJwt(token: string): boolean {
+    try {
+        const parts = token.split('.');
+        if (parts.length < 2) return false;
+        const json = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(json);
+        return payload?.role === 'service_role';
+    } catch {
+        return false;
+    }
 }
 
 function json(data: unknown, status = 200) {
