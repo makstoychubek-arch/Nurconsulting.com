@@ -69,6 +69,8 @@ Deno.test('scorePriceProduct finds Elium vest abbreviations', () => {
 Deno.test('isLikelyFollowUp catches short product replies', () => {
   assert(isLikelyFollowUp('лапша белая'));
   assert(isLikelyFollowUp('фонарь черный'));
+  assert(isLikelyFollowUp('водолазка белая'));
+  assert(isLikelyFollowUp('после 3000'));
   assert(isLikelyFollowUp('4000'));
   assert(!isLikelyFollowUp('Карина, дай продажи по всем кабинетам за неделю подробно'));
 });

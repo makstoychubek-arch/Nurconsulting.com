@@ -629,6 +629,10 @@ export function detectColorWant(text: string): ColorWant {
   const t = norm(text);
   if (/чёрн|черн|black/i.test(t)) return 'black';
   if (/бел|white/i.test(t)) return 'white';
+  // прочие цвета — не фильтруем как black/white, но и не null-блокируем
+  if (/темн|син|беж|борд|граф|коричн|изумруд|хаки|розов|кремов|молочн/i.test(t)) {
+    return 'other';
+  }
   return null;
 }
 

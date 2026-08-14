@@ -43,7 +43,9 @@ import {
   getChatFocus,
   isLikelyFollowUp,
   setChatFocus,
+  switchChatFocus,
 } from "../_shared/agent-chat-focus.ts";
+import { muhaPhotoBusy } from "../_shared/agent-voice.ts";
 import {
   AGENT_DISPLAY,
   buildTeamPlan,
@@ -603,7 +605,7 @@ async function runAgentTurn(opts: {
     !/(главн\w*\s+фото|фото\s+(фонар|вырез|блузк|с\s*вб)|дай.*фото.*(фонар|вырез|блузк))/i
       .test(rootTask)
   ) {
-    await sendTelegramMessage("muha", chatId, "Генерирую фото, минуту…", replyToMessageId);
+    await sendTelegramMessage("muha", chatId, muhaPhotoBusy(), replyToMessageId);
     const photo = await generateMuhaPhoto(rootTask);
     if (!photo.ok) {
       const fail =
@@ -960,7 +962,9 @@ serve(async (req) => {
         namedPrice.length === 1 &&
         namedPrice[0] !== "saule" &&
         !wantsPriceChange(text);
-      if ((priceActive || wantsPriceChange(text)) && !switchAway) {
+      if (switchAway) {
+        await switchChatFocus(chatId, namedPrice[0], "switch_from_price", 15);
+      } else if ((priceActive || wantsPriceChange(text))) {
         if (triggeringBot !== "saule") return ok();
         const priceFn = priceActive ? continuePriceChangeDialog : startPriceChangeDialog;
         const priceRes = await priceFn({
@@ -996,8 +1000,17 @@ serve(async (req) => {
         ...detectNamedAgents(text),
       ];
       const uniqueNamed = [...new Set(namedNow)];
+      const focusEarly = await getChatFocus(chatId);
+      const pendingEarly = await getActivePending(chatId);
+      const lockedEarly = pendingEarly?.agent_key || focusEarly?.agent_key || null;
+
       if (uniqueNamed.length === 1) {
-        await setChatFocus(chatId, uniqueNamed[0], "named", 15);
+        if (lockedEarly && uniqueNamed[0] !== lockedEarly) {
+          // смена собеседника — сброс чужих диалогов (цена/FBS/РК)
+          await switchChatFocus(chatId, uniqueNamed[0], "switch", 15);
+        } else {
+          await setChatFocus(chatId, uniqueNamed[0], "named", 15);
+        }
       }
 
       const focus = await getChatFocus(chatId);
@@ -1005,9 +1018,9 @@ serve(async (req) => {
       const lockedAgent = pendingAny?.agent_key || focus?.agent_key || null;
 
       if (lockedAgent) {
-        // Явно позвали другого — переключаем фокус
+        // Явно позвали другого — уже переключили выше; здесь только follow-up lock
         if (uniqueNamed.length === 1 && uniqueNamed[0] !== lockedAgent) {
-          await setChatFocus(chatId, uniqueNamed[0], "switch", 15);
+          // no-op: switchChatFocus уже отработал
         } else if (
           !uniqueNamed.length ||
           uniqueNamed.includes(lockedAgent)

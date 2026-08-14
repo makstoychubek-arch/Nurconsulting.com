@@ -19,7 +19,12 @@ import {
   scoreProductMatch,
 } from './agent-product-catalog.ts';
 import { sanitizeWbToken } from './wb-cabinet-tokens.ts';
-import { saulePriceAsk, saulePriceSaved } from './agent-voice.ts';
+import {
+  sauleAmbiguousProducts,
+  sauleAskProduct,
+  saulePriceAsk,
+  saulePriceSaved,
+} from './agent-voice.ts';
 
 export const PRICE_CHANGE_ACTION = 'price_change';
 export const PRICE_AGENT = 'saule';
@@ -329,7 +334,7 @@ async function presentProduct(
     await setChatFocus(chatId, PRICE_AGENT, 'price_change', 20);
     return {
       handled: true,
-      reply: 'Несколько вариантов — номер:\n' + lines.join('\n'),
+      reply: sauleAmbiguousProducts(lines),
     };
   }
 
@@ -407,7 +412,7 @@ export async function startPriceChangeDialog(opts: {
     );
     return {
       handled: true,
-      reply: 'Какой артикул? Модель/цвет или nm.',
+      reply: sauleAskProduct(),
     };
   }
 
@@ -503,7 +508,10 @@ export async function continuePriceChangeDialog(opts: {
     }
 
     const label = edit.which === 'after' ? 'после' : 'до';
-    const result = `сохранила · ${label} ${formatMoney(edit.which === 'after' ? upload.after : upload.price)}`;
+    const result = saulePriceSaved(
+      label,
+      formatMoney(edit.which === 'after' ? upload.after : upload.price),
+    );
     await finishPending(pending.id, result);
     await setChatFocus(opts.chatId, PRICE_AGENT, 'price_done', 8);
     return { handled: true, reply: result };

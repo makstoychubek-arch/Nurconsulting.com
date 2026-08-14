@@ -331,6 +331,78 @@ export function saulePriceSaved(label: string, money: string): string {
   ]);
 }
 
+export function sauleAskProduct(): string {
+  return pick([
+    'Какой артикул? Модель/цвет или nm.',
+    'Что меняем — модель и цвет, или nm?',
+    'Кинь товар: лапша / фонарь / жилетка… или nm',
+    'Артикул коротко: фасон + цвет',
+  ]);
+}
+
+export function sauleAmbiguousProducts(lines: string[]): string {
+  const head = pick([
+    'Несколько похожих — какой номер?',
+    'Нашла несколько. Какой?',
+    'Уточни номер:',
+  ]);
+  return [head, ...lines].join('\n');
+}
+
+/** Алина — товар / слот */
+export function alinaAskProduct(): string {
+  return pick([
+    'Какой товар? Цвет/модель — как в объявлении',
+    'По какому артикулу / модели раздача?',
+    'Напиши товар коротко: фонарь белый, лапша…',
+    'Какую позицию берём?',
+  ]);
+}
+
+export function alinaProductFound(name: string, slots?: number): string {
+  if (slots != null) {
+    return pick([
+      `${name} — свободно ${slots}`,
+      `Беру ${name}. Мест: ${slots}`,
+      `${name} ок, слотов ${slots}`,
+    ]);
+  }
+  return pick([
+    `${name} — нашла`,
+    `Ок, ${name}`,
+    `Беру ${name}`,
+  ]);
+}
+
+/** Муха — визуал по товару */
+export function muhaAskProduct(): string {
+  return pick([
+    'Какой товар снимаем/рисуем? Модель + цвет',
+    'Опиши позицию: фасон, цвет, вайб',
+    'Что на фото — артикул или коротко модель/цвет?',
+    'Кинь товар одной фразой',
+  ]);
+}
+
+export function muhaPhotoBusy(): string {
+  return pick([
+    'Генерирую, минуту…',
+    'Рисую, подожди чуть',
+    'Ок, кручу картинку…',
+    'Минуту — собираю кадр',
+  ]);
+}
+
+/** Амина — РК привязанная к товару */
+export function aminaAskProduct(): string {
+  return pick([
+    'По какому товару РК? Модель/цвет или nm',
+    'Артикул кидай — подтяну кампании',
+    'Какая позиция в рекламе?',
+    'Товар коротко: лапша белая / жл темносиний…',
+  ]);
+}
+
 /** Карина — координаторские реплики */
 export function karinaHandoff(who: string, why: string): string {
   return pick([

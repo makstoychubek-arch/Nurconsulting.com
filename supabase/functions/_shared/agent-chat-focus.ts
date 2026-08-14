@@ -104,6 +104,29 @@ export async function clearChatFocus(chatId: number): Promise<void> {
     .eq('status', 'executing');
 }
 
+/**
+ * Смена собеседника: фокус на нового агента + сброс чужих диалогов
+ * (цена / FBS / РК), чтобы не залипать на старом pending.
+ */
+export async function switchChatFocus(
+  chatId: number,
+  agentKey: string,
+  reason = 'switch',
+  ttlMin = DEFAULT_TTL_MIN,
+): Promise<void> {
+  if (!agentKey || !chatId) return;
+  const db = admin();
+  const now = new Date().toISOString();
+  await db
+    .from('agent_pending_actions')
+    .update({ status: 'cancelled', updated_at: now })
+    .eq('chat_id', chatId)
+    .neq('agent_key', agentKey)
+    .neq('action_type', CHAT_FOCUS_ACTION)
+    .in('status', ['awaiting_selection', 'awaiting_confirm']);
+  await setChatFocus(chatId, agentKey, reason, ttlMin);
+}
+
 /** Короткая реплика-продолжение диалога (товар / число / да-нет), не новая тема. */
 export function isLikelyFollowUp(text: string): boolean {
   const t = String(text || '').trim();
@@ -118,7 +141,7 @@ export function isLikelyFollowUp(text: string): boolean {
     return true;
   }
   if (
-    /(блузк|лапш|фонар|вырез|укороч|костюм|пиджак|жилет|бомбер|кимоно|плать|черн|чёрн|бел|беж|бордо|графит|коричнев|темн)/i
+    /(блузк|лапш|водолазк|гольф|фонар|вырез|укороч|костюм|пиджак|жакет|жилет|^жл|бомбер|кимоно|плать|рубашк|кардиган|свитер|худи|юбк|комбинезон|черн|чёрн|бел|беж|бордо|графит|коричнев|темн|изумруд|хаки|пудр|молочн)/i
       .test(t)
   ) {
     return true;
