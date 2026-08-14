@@ -107,30 +107,67 @@ function norm(s: string): string {
 
 /** Скоринг vendorCode / названия под фразу владельца. */
 export function scorePriceProduct(vendorCode: string, query: string): number {
-  const v = norm(vendorCode).replace(/ /g, '');
-  const q = norm(stripCabinetAliases(query));
+  const vRaw = norm(vendorCode);
+  const v = vRaw.replace(/ /g, '');
+  const qRaw = norm(stripCabinetAliases(query));
+  const q = qRaw.replace(/ /g, '');
   if (!v || !q) return 0;
   let score = 0;
 
-  if (/лапш/.test(q) && /лапш/.test(v)) score += 6;
-  if (/фонар/.test(q) && /фонар/.test(v)) score += 6;
-  if (/вырез/.test(q) && /вырез/.test(v)) score += 6;
-  if (/блузк/.test(q) && /блуз/.test(v)) score += 2;
-  if (/укороч/.test(q) && /укороч/.test(v)) score += 6;
-  if (/костюм/.test(q) && /костюм/.test(v)) score += 3;
-  if (/пиджак|жакет/.test(q) && /(пиджак|жакет)/.test(v)) score += 4;
+  // типы товара (+ аббревиатуры вроде жл = жилетка)
+  const types: Array<[RegExp, RegExp, number]> = [
+    [/жилет/, /(?:жилет|^жл(?=[а-я\-]|$)|(^|[^а-я])жл([^а-я]|$))/, 7],
+    [/лапш/, /лапш/, 6],
+    [/фонар/, /фонар/, 6],
+    [/вырез/, /вырез/, 6],
+    [/блузк?/, /блуз/, 3],
+    [/укороч/, /укороч/, 6],
+    [/костюм/, /костюм|кост/, 4],
+    [/пиджак|жакет/, /пиджак|жакет/, 4],
+    [/бомбер/, /бомбер/, 6],
+    [/кимоно/, /кимоно/, 6],
+    [/плать/, /плать/, 5],
+    [/рубашк/, /рубашк/, 5],
+    [/куртк|фуфайк/, /куртк|фуфайк/, 5],
+  ];
+  for (const [qRe, vRe, pts] of types) {
+    if (qRe.test(qRaw) && vRe.test(vRaw)) score += pts;
+  }
 
-  if (/бел/.test(q) && /бел/.test(v)) score += 4;
-  if (/(черн|чёрн)/.test(q) && /черн/.test(v)) score += 4;
-  if (/беж/.test(q) && /беж/.test(v)) score += 4;
-  if (/коричнев|шоколад|мокко/.test(q) && /(коричнев|шоколад|мокко)/.test(v)) score += 4;
-  if (/графит|сер(ый|ая)/.test(q) && /(графит|сер)/.test(v)) score += 3;
-  if (/бордо|marsala/.test(q) && /бордо|бардо/.test(v)) score += 4;
-  if (/син(ий|яя)|электрик|темносин/.test(q) && /(син|электрик)/.test(v)) score += 3;
+  // цвета (тёмно-синий / темносиний / тсин)
+  const colors: Array<[RegExp, RegExp, number]> = [
+    [/бел/, /бел/, 4],
+    [/(черн|чёрн)/, /черн/, 4],
+    [/беж/, /беж/, 4],
+    [/коричнев|шоколад|мокко|шоко/, /коричнев|шоколад|мокко|шоко|коричн/, 4],
+    [/графит|сер(ый|ая|ое)?/, /графит|сер|граф/, 3],
+    [/бордо|marsala/, /бордо|бардо/, 4],
+    [/электрик/, /электрик/, 4],
+    [/(темно\s*син|тёмно\s*син|темносин|тсинь?|тёмносин)/, /темносин|темно\s*син|тсин|темнсин/, 5],
+    [/(^|[^а-я])син(ий|яя|ее|ю|им)?([^а-я]|$)/, /(син|тсин)/, 3],
+    [/голуб/, /голуб/, 4],
+    [/розов/, /розов/, 4],
+    [/зелен|изумруд|ментол/, /зелен|изумруд|ментол/, 4],
+    [/желт|горчиц/, /желт|горчиц/, 4],
+    [/фиолет/, /фиолет/, 4],
+    [/айвори|кремов/, /айвори|кремов/, 4],
+  ];
+  for (const [qRe, vRe, pts] of colors) {
+    if (qRe.test(qRaw) && vRe.test(vRaw)) score += pts;
+  }
+
+  // общие токены ≥3 букв (лапша, жилет… уже учтены; ловим остальное)
+  const qTokens = qRaw.split(' ').filter((t) => t.length >= 3);
+  const vTokens = new Set(vRaw.split(' ').filter((t) => t.length >= 3));
+  for (const t of qTokens) {
+    if (v.includes(t) || [...vTokens].some((vt) => vt.includes(t) || t.includes(vt))) {
+      score += 1;
+    }
+  }
 
   // прямой nm
-  const nm = q.match(/\b(\d{6,12})\b/);
-  if (nm && v.includes(nm[1])) score += 20;
+  const nm = qRaw.match(/\b(\d{6,12})\b/);
+  if (nm && (v.includes(nm[1]) || vendorCode.includes(nm[1]))) score += 20;
 
   return score;
 }
@@ -171,7 +208,8 @@ async function fetchCabinetGoods(
       const nmId = Number(g.nmID || 0);
       const vendorCode = String(g.vendorCode || '');
       const score = scorePriceProduct(vendorCode, query);
-      if (score < 5 && !/^\d{6,12}$/.test(norm(query).replace(/ /g, ''))) continue;
+      // порог 4: «жилетка синяя» → жл-темносиний должно проходить
+      if (score < 4 && !/^\d{6,12}$/.test(norm(query).replace(/ /g, ''))) continue;
       const size = (g.sizes || [])[0] || {};
       const price = Number(size.price || 0);
       const discountedPrice = Number(size.discountedPrice || price);
@@ -382,7 +420,7 @@ async function presentProduct(
 ): Promise<PriceReply> {
   if (!goods.length) {
     const reply =
-      'Не нашла такой артикул. Напиши модель/цвет — например «лапша белая», «фонарь черный», «укороченный черный» — или nm.';
+      'Не нашла такой артикул во всех кабинетах. Напиши модель/цвет точнее — «жилетка темно-синяя elium», «лапша белая», nm — или «отмена».';
     if (pendingId) {
       await updatePending(pendingId, {
         payload: { step: 'await_product', queryText },
@@ -500,7 +538,7 @@ export async function startPriceChangeDialog(opts: {
     return {
       handled: true,
       reply:
-        'Какой артикул снижаем? Напиши модель — «лапша белая», «фонарь черный», «укороченный черный» или nm.',
+        'Какой артикул снижаем? Модель/цвет из любого кабинета — «жилетка темно-синяя», «лапша белая», «фонарь черный» — или nm.',
     };
   }
 
@@ -546,9 +584,16 @@ export async function continuePriceChangeDialog(opts: {
   if (payload.step === 'await_amount') {
     const delta = parsePriceDelta(text);
     if (delta == null) {
+      // новая модель вместо числа — переключаемся
+      if (looksLikeProductQuery(text)) {
+        const cab = await resolveCabinet(text);
+        const hint = extractProductHint(text) || text;
+        const goods = await findProducts(hint, cab.match?.id || null);
+        return presentProduct(opts.chatId, opts.tgUserId, pending.id, goods, hint);
+      }
       return {
         handled: true,
-        reply: 'Нужна сумма снижения числом — например 4000 или 1300. Или «отмена».',
+        reply: 'Нужна сумма снижения числом — например 4000 или 1300. Или уточни другую модель / «отмена».',
       };
     }
     // applyDelta finishes pending; fix focus chat id
@@ -597,10 +642,23 @@ export async function continuePriceChangeDialog(opts: {
     return { handled: true, reply: result };
   }
 
-  // await_product — фраза как товар
+  // await_product — фраза как товар (ищем по всем кабинетам, если кабинет не назван)
+  const cab = await resolveCabinet(text);
   const hint = extractProductHint(text) || text;
-  const goods = await findProducts(hint, payload.cabinetId || null);
+  const prefer = cab.match?.id || null;
+  const goods = await findProducts(hint, prefer);
   return presentProduct(opts.chatId, opts.tgUserId, pending.id, goods, hint);
+}
+
+function looksLikeProductQuery(text: string): boolean {
+  const t = String(text || '').toLowerCase();
+  if (parsePriceDelta(t) != null && /^\s*(на\s+)?\d/.test(t) && t.length < 20) {
+    return false;
+  }
+  return (
+    /(жилет|лапш|фонар|вырез|укороч|костюм|пиджак|бомбер|кимоно|плать|рубашк|блузк|арт|nm\s*\d|\d{6,12}|бел|черн|беж|син|борд|шоколад|графит|элиум|база|зевин|saai)/i
+      .test(t)
+  );
 }
 
 export async function hasActivePriceDialog(chatId: number): Promise<boolean> {

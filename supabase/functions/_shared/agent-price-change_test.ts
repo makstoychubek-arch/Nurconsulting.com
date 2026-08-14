@@ -33,6 +33,16 @@ Deno.test('scorePriceProduct understands short product names', () => {
   );
 });
 
+Deno.test('scorePriceProduct finds Elium vest abbreviations', () => {
+  assert(scorePriceProduct('жл-темносиний', 'жилетка темно синяя') >= 8);
+  assert(scorePriceProduct('жл-темносиний', 'жилетка синяя') >= 8);
+  assert(scorePriceProduct('жл-черный', 'жилетка черная') >= 8);
+  assert(
+    scorePriceProduct('жл-темносиний', 'жилетка темно синяя') >
+      scorePriceProduct('жл-черный', 'жилетка темно синяя'),
+  );
+});
+
 Deno.test('isLikelyFollowUp catches short product replies', () => {
   assert(isLikelyFollowUp('лапша белая'));
   assert(isLikelyFollowUp('фонарь черный'));
