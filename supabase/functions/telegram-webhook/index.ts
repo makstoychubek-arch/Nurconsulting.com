@@ -11,7 +11,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import {
-    abTestsHelpText,
     adsHelpText,
     fetchAdsDayRows,
     fetchAllBalances,
@@ -20,6 +19,12 @@ import {
     parseAdsQuery,
     penaltiesHelpText,
 } from '../_shared/wb-ads-snapshot.ts';
+import {
+    abDialog,
+    parseAbIntent,
+    wantsAbQuery,
+    roughLeader,
+} from '../_shared/ab-test-dialogs.ts';
 import {
     fetchAllCabinetPenalties,
     formatPenaltiesReply,
@@ -225,26 +230,51 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
 
     // ── А/Б тесты ────────────────────────────────────────────────────────
     if (chatKey === 'ab_tests' && wantsAbQuery(text)) {
-        const reportMatch = text.match(/\bотч[её]т\s*(\d{5,12})\b/i);
-        if (reportMatch) {
-            await sendAbTestByNm(admin, token, chatId, Number(reportMatch[1]), message.message_id, { withPhotos: true, mode: 'report' });
+        const parsed = parseAbIntent(text);
+
+        if (parsed.intent === 'help') {
+            await sendReply(token, chatId, abDialog.help(), message.message_id);
             return;
         }
-        const rotMatch = text.match(/\bротац\w*\s*(\d{5,12})\b/i);
-        if (rotMatch) {
-            await forceRotateAbByNm(admin, token, chatId, Number(rotMatch[1]), message.message_id);
+        if (parsed.intent === 'how_start') {
+            await sendReply(token, chatId, abDialog.howStart(), message.message_id);
             return;
         }
-        const nmMatch = text.match(/\b(?:тест|арт|nm)\s*(\d{5,12})\b/i);
-        if (nmMatch) {
-            await sendAbTestByNm(admin, token, chatId, Number(nmMatch[1]), message.message_id, { withPhotos: true, mode: 'detail' });
-            return;
-        }
-        if (/\b(тест|тесты|ab|а\/б|help|помощь)\b/i.test(text)) {
+        if (parsed.intent === 'list') {
             await sendAbTestsList(admin, token, chatId, message.message_id);
             return;
         }
-        await sendReply(token, chatId, abTestsHelpText(), message.message_id);
+        if (parsed.intent === 'rotate') {
+            if (!parsed.nmId) {
+                await sendReply(token, chatId, abDialog.needNm('ротация'), message.message_id);
+                return;
+            }
+            await forceRotateAbByNm(admin, token, chatId, parsed.nmId, message.message_id);
+            return;
+        }
+        if (parsed.intent === 'report' || parsed.intent === 'winner') {
+            if (!parsed.nmId) {
+                await sendReply(token, chatId, abDialog.needNm(parsed.intent === 'winner' ? 'кто лучше' : 'отчёт'), message.message_id);
+                return;
+            }
+            await sendAbTestByNm(admin, token, chatId, parsed.nmId, message.message_id, {
+                withPhotos: true,
+                mode: parsed.intent === 'winner' ? 'winner' : 'report',
+            });
+            return;
+        }
+        if (parsed.intent === 'detail') {
+            if (!parsed.nmId) {
+                await sendReply(token, chatId, abDialog.needNm('тест'), message.message_id);
+                return;
+            }
+            await sendAbTestByNm(admin, token, chatId, parsed.nmId, message.message_id, {
+                withPhotos: true,
+                mode: 'detail',
+            });
+            return;
+        }
+        await sendReply(token, chatId, abDialog.unknown(), message.message_id);
         return;
     }
 
@@ -513,7 +543,7 @@ async function sendAbTestsList(
     const finished = (tests || []).filter((t) => t.status === 'finished').slice(0, 5);
 
     if (!active.length && !finished.length) {
-        await sendReply(token, chatId, '🧪 Активных А/Б тестов нет\n\nЗапуск — на сайте https://nurcon.kg/ab-testing\nПосле старта варианты и отчёты приходят сюда.', replyTo);
+        await sendReply(token, chatId, abDialog.listEmpty(), replyTo);
         return;
     }
 
@@ -521,7 +551,7 @@ async function sendAbTestsList(
     const cabMap = new Map((cabinets || []).map((c) => [c.id, c.name]));
     const reportBase = Deno.env.get('REPORT_BASE_URL') || 'https://nurcon.kg/ab-testing';
 
-    const lines = ['🧪 <b>А/Б тесты</b>', ''];
+    const lines = [abDialog.listHeader(), ''];
     if (active.length) {
         lines.push('<b>Активные</b>');
         for (const t of active.slice(0, 10)) {
@@ -530,12 +560,12 @@ async function sendAbTestsList(
             lines.push(
                 `<b>${escapeHtml(String(t.product_name || 'Товар'))}</b> · арт. <code>${t.nm_id}</code>`,
                 `${escapeHtml(String(cab))} · ротаций ${rot}`,
-                `отчёт: <code>отчёт ${t.nm_id}</code>`,
+                `отчёт: <code>отчёт ${t.nm_id}</code> · или «как там ${t.nm_id}»`,
                 '',
             );
         }
     } else {
-        lines.push('Активных нет', '');
+        lines.push('Активных сейчас нет', '');
     }
     if (finished.length) {
         lines.push('<b>Недавние завершённые</b>');
@@ -553,7 +583,7 @@ async function sendAbTestByNm(
     chatId: unknown,
     nmId: number,
     replyTo: unknown,
-    opts: { withPhotos?: boolean; mode?: 'detail' | 'report' } = {},
+    opts: { withPhotos?: boolean; mode?: 'detail' | 'report' | 'winner' } = {},
 ): Promise<void> {
     let { data: test } = await admin
         .from('ab_tests')
@@ -575,7 +605,7 @@ async function sendAbTestByNm(
         test = finished.data;
     }
     if (!test) {
-        await sendReply(token, chatId, `🧪 Тест по арт. ${nmId} не найден`, replyTo);
+        await sendReply(token, chatId, abDialog.notFound(nmId), replyTo);
         return;
     }
     const { data: variants } = await admin
@@ -585,12 +615,22 @@ async function sendAbTestByNm(
         .order('variant_label');
 
     const reportBase = Deno.env.get('REPORT_BASE_URL') || 'https://nurcon.kg/ab-testing';
-    const title = opts.mode === 'report' ? '📊 Отчёт А/Б' : '🧪 А/Б тест';
+    const name = String(test.product_name || 'Товар');
+    const header = opts.mode === 'report' || opts.mode === 'winner'
+        ? abDialog.reportHeader(name, nmId)
+        : abDialog.detailHeader(name, nmId);
+
     const lines = [
-        `${title}: <b>${escapeHtml(String(test.product_name || 'Товар'))}</b> · арт. ${nmId}`,
+        header,
         `Статус: ${test.status} · ротаций ${test.rotation_count || 0}/${test.max_rotations || '∞'}`,
         '',
     ];
+
+    if (opts.mode === 'winner') {
+        const lead = roughLeader(variants || []);
+        lines.push(lead ? abDialog.winnerLead(lead.label, lead.pct) : abDialog.winnerUnclear(), '');
+    }
+
     const photoUrls: string[] = [];
     for (const v of variants || []) {
         const impr = Number(v.impressions) || 0;
@@ -610,7 +650,6 @@ async function sendAbTestByNm(
         await sendReply(token, chatId, caption, replyTo);
     }
 
-    // Дублируем отчёт в канал (если команда «отчёт» и чат уже канал — не дублируем)
     if (opts.mode === 'report') {
         const abChat = getTelegramChatId('ab_tests');
         if (abChat && String(chatId) !== String(abChat)) {
@@ -636,10 +675,10 @@ async function forceRotateAbByNm(
         .limit(1)
         .maybeSingle();
     if (!test) {
-        await sendReply(token, chatId, `🧪 Активный тест по арт. ${nmId} не найден`, replyTo);
+        await sendReply(token, chatId, abDialog.rotateNeedActive(nmId), replyTo);
         return;
     }
-    await sendReply(token, chatId, '⏳ Ротация…', replyTo);
+    await sendReply(token, chatId, abDialog.rotateWait(), replyTo);
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const baseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     try {
@@ -656,14 +695,14 @@ async function forceRotateAbByNm(
             await sendReply(
                 token,
                 chatId,
-                `✅ Ротация: «${escapeHtml(String(test.product_name || nmId))}» → вариант ${escapeHtml(String(data.rotated_to || '?'))}`,
+                abDialog.rotateOk(String(test.product_name || nmId), String(data.rotated_to || '?')),
                 replyTo,
             );
         } else {
-            await sendReply(token, chatId, `❌ ${escapeHtml(String(data.error || res.status))}`, replyTo);
+            await sendReply(token, chatId, abDialog.rotateFail(String(data.error || res.status)), replyTo);
         }
     } catch (e) {
-        await sendReply(token, chatId, `❌ ${escapeHtml(String(e).slice(0, 200))}`, replyTo);
+        await sendReply(token, chatId, abDialog.rotateFail(String(e).slice(0, 200)), replyTo);
     }
 }
 
@@ -721,10 +760,6 @@ function wantsAdsQuery(text: string): boolean {
     return false;
 }
 
-function wantsAbQuery(text: string): boolean {
-    const lower = text.toLowerCase();
-    return /\b(тест|тесты|ab|а\/б|арт|nm|отч[её]т|ротац|help|помощь)\b/i.test(lower);
-}
 
 function wantsChatId(text: string, chatType: string): boolean {
     const t = text.toLowerCase().trim();

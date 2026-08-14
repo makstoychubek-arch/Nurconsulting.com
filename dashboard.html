@@ -3734,6 +3734,12 @@
                     <div class="segment-tab" onclick="filterTests('all', this)">Все</div>
                 </div>
             </div>
+            <p class="text-xs mb-3" style="color:var(--text-muted);line-height:1.45">
+                Старт здесь → отчёт и фото вариантов в Telegram. В чате А/Б: <b style="color:var(--text-secondary);font-weight:600">тесты</b>,
+                <b style="color:var(--text-secondary);font-weight:600">как там &lt;арт&gt;</b>,
+                <b style="color:var(--text-secondary);font-weight:600">отчёт &lt;арт&gt;</b>,
+                <b style="color:var(--text-secondary);font-weight:600">смени фото &lt;арт&gt;</b>.
+            </p>
 
             <!-- МАСТЕР СОЗДАНИЯ А/Б ТЕСТА -->
             <div id="new-test-form" class="glass rounded-2xl p-6 hidden">
@@ -8290,10 +8296,16 @@
         if (currentTestFilter === 'active') list = list.filter(t => t.status === 'active');
         else if (currentTestFilter === 'finished') list = list.filter(t => t.status === 'finished');
 
-        if (list.length === 0) {
+                if (list.length === 0) {
             container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
                 <div style="font-size:40px;margin-bottom:12px">📊</div>
-                ${currentTestFilter === 'active' ? 'Нет активных тестов — создайте первый А/Б тест' : 'Нет тестов'}
+                ${currentTestFilter === 'active'
+                    ? 'Нет активных тестов — создайте первый А/Б тест'
+                    : 'Нет тестов'}
+                <div style="margin-top:14px;font-size:12px;line-height:1.5;max-width:420px;margin-left:auto;margin-right:auto;opacity:.9">
+                    После старта варианты и отчёты уходят в Telegram-чат А/Б.<br>
+                    Там можно писать: «тесты», «как там 123…», «отчёт 123…», «смени фото 123…»
+                </div>
             </div>`;
             return;
         }

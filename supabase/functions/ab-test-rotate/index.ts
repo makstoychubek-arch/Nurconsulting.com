@@ -5,6 +5,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
+import { pickVariant } from '../_shared/ab-test-dialogs.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -612,12 +613,30 @@ function buildAbCaption(
     const lines: string[] = [];
     lines.push(`${test.product_name || 'Товар ' + test.nm_id} · арт. ${test.nm_id}${selectedCampaigns.length ? ' · рк ' + selectedCampaigns[0] : ''}`);
     if (mode === 'started') {
-        lines.push(`🧪 А/Б тест запущен ${when}.`);
+        lines.push(pickVariant([
+            `🧪 А/Б тест запущен ${when}.`,
+            `Поехали: тест стартовал ${when}.`,
+            `Запустила А/Б ${when}.`,
+            `Новый тест в работе с ${when}.`,
+            `Старт А/Б · ${when}.`,
+        ]));
         lines.push(`Ротация каждые ${Number(test.rotation_interval_min) || 60} мин · вариантов ${sorted.length}.`);
     } else if (mode === 'finished') {
-        lines.push(`Тест завершён ${when}.`);
+        lines.push(pickVariant([
+            `Тест завершён ${when}.`,
+            `А/Б закрыт ${when}.`,
+            `Финиш теста · ${when}.`,
+            `Тест остановлен ${when}.`,
+            `Итоги А/Б на ${when}.`,
+        ]));
     } else {
-        lines.push(`📊 Отчёт по А/Б · ${when}`);
+        lines.push(pickVariant([
+            `📊 Отчёт по А/Б · ${when}`,
+            `Сводка А/Б на ${when}`,
+            `Цифры по тесту · ${when}`,
+            `Промежуточный отчёт · ${when}`,
+            `Статус вариантов · ${when}`,
+        ]));
         lines.push(`Статус: ${test.status || '?'} · ротаций ${test.rotation_count || 0}/${test.max_rotations || '∞'}`);
     }
 
