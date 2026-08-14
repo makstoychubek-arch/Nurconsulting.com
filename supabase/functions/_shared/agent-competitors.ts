@@ -92,6 +92,7 @@ export function wantsCompetitorAnalysis(text: string): boolean {
   const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
   if (!t) return false;
   if (/конкурент/.test(t)) return true;
+  if (/топ\s*-?\s*3/.test(t) && /(выдач|похож|ниш|цен)/i.test(t)) return true;
   if (/сравни(ть|м)?/.test(t) && /(арт|nm\b|\d{6,12}|карточ|товар|выдач|ниш)/i.test(t)) {
     return true;
   }
@@ -103,13 +104,23 @@ export function wantsCompetitorAnalysis(text: string): boolean {
   return false;
 }
 
-/** Фраза про «этот» товар — брать sticky nm, не искать слово «товар». */
+/** Фраза про «этот» товар / короткий follow-up после сводки. */
 export function wantsStickyProductRef(text: string): boolean {
-  const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
-  return /(этого|эта|этот|эту|него|неё|нее|той|тот)\s+(товар|артикул|арт|карточ|модель|блуз|позиц)/i
-    .test(t) ||
+  const t = String(text || '').toLowerCase().replace(/ё/g, 'е').trim();
+  if (!t) return false;
+  if (
+    /(этого|эта|этот|эту|него|неё|нее|той|тот)\s+(товар|артикул|арт|карточ|модель|блуз|позиц)/i
+      .test(t) ||
     /(по\s+нему|по\s+ней|по\s+этому|у\s+него|у\s+неё)/i.test(t) ||
-    /конкурент.{0,40}(этого|него|неё)/i.test(t);
+    /конкурент.{0,40}(этого|него|неё)/i.test(t)
+  ) {
+    return true;
+  }
+  // короткое «а конкуренты?» / «топ 3?» / «а где они?»
+  if (t.length <= 40 && /^(а\s+)?(конкурент|топ\s*-?\s*3|где\s+(они|конкурент)|а\s+они)\b/i.test(t)) {
+    return true;
+  }
+  return false;
 }
 
 export function extractNmId(text: string): number | null {
@@ -466,7 +477,7 @@ function pickDirectCompetitors(
 ): PublicProduct[] {
   const scored = pool
     .map((c) => ({ c, score: scoreDirectCompetitor(ours, c) }))
-    .filter((x) => x.score >= 6)
+    .filter((x) => x.score >= 3)
     .sort((a, b) => b.score - a.score || b.c.feedbacks - a.c.feedbacks);
 
   const seen = new Set<number>([ours.nmId]);
@@ -476,6 +487,41 @@ function pickDirectCompetitors(
     seen.add(c.nmId);
     out.push(c);
     if (out.length >= limit) break;
+  }
+  return out;
+}
+
+/**
+ * Топ‑N как в выдаче WB: порядок поиска, чужой бренд, не мы.
+ * Это и есть «топ 3 по выдаче».
+ */
+export function pickTopFromSearch(
+  ours: PublicProduct,
+  pool: PublicProduct[],
+  limit = 3,
+): PublicProduct[] {
+  const seen = new Set<number>([Number(ours.nmId)]);
+  const out: PublicProduct[] = [];
+  const ourBrand = norm(ours.brand || '');
+
+  for (const c of pool) {
+    const id = Number(c.nmId);
+    if (!id || id < 100000 || seen.has(id)) continue;
+    if (ourBrand && norm(c.brand || '') === ourBrand) continue;
+    seen.add(id);
+    out.push(c);
+    if (out.length >= limit) break;
+  }
+
+  // если мало — добрать даже тот же бренд (другие nm), лишь бы не мы
+  if (out.length < limit) {
+    for (const c of pool) {
+      const id = Number(c.nmId);
+      if (!id || id < 100000 || seen.has(id)) continue;
+      seen.add(id);
+      out.push(c);
+      if (out.length >= limit) break;
+    }
   }
   return out;
 }
@@ -534,12 +580,12 @@ export function formatCompetitorReply(
     return [
       ...head,
       '',
-      'Прямых в «Смотрите также» / выдаче не нашла (WB режет витрину).',
-      'Кинь nm или уточни модель — перекопаю.',
+      'В выдаче чужих карточек не нашла (WB режет поиск или пусто).',
+      'Напиши «топ 3» ещё раз или уточни модель — перекопаю.',
     ].join('\n');
   }
 
-  const lines: string[] = [...head, '', `Топ-${top.length} конкурента (как «Смотрите также»):`];
+  const lines: string[] = [...head, '', `Топ-${top.length} по выдаче:`];
   top.forEach((c, i) => {
     lines.push(
       `${i + 1}) ${c.brand || '—'} · ${(c.name || '').slice(0, 70)}`,
@@ -776,22 +822,38 @@ export async function analyzeDirectCompetitors(
     usedQuery = `see-also:${ours.nmId}`;
   }
 
-  // 2) fallback — поиск по названию карточки
+  // 2) fallback — поиск по названию карточки (несколько упрощений запроса)
   if (!items.length) {
-    const query = buildSearchQuery(meta, resolved.queryHint || text);
-    usedQuery = query;
-    items = await searchWbCatalog(query);
-    if (!items.length && ours.subject) {
-      usedQuery = `${ours.subject} ${norm(ours.name).split(' ').slice(0, 2).join(' ')}`
-        .trim();
-      items = await searchWbCatalog(usedQuery);
+    const queries: string[] = [];
+    const primary = buildSearchQuery(meta, resolved.queryHint || text);
+    if (primary) queries.push(primary);
+    if (ours.name) {
+      const tokens = norm(ours.name).split(' ').filter((t) => t.length >= 4).slice(0, 5);
+      if (tokens.length >= 2) queries.push(tokens.join(' '));
+      if (tokens.length >= 3) queries.push(tokens.slice(0, 3).join(' '));
     }
-    if (!items.length && ours.name) {
-      usedQuery = ours.name.slice(0, 80);
-      items = await searchWbCatalog(usedQuery);
+    if (ours.subject) {
+      queries.push(
+        `${ours.subject} ${norm(ours.name).split(' ').filter((t) => t.length >= 4).slice(0, 2).join(' ')}`
+          .trim(),
+      );
     }
-    if (items.length) {
-      sourceLabel = `источник: выдача WB · «${usedQuery}»`;
+    if (resolved.queryHint && resolved.queryHint.length >= 3) {
+      queries.push(resolved.queryHint.slice(0, 80));
+    }
+
+    const tried = new Set<string>();
+    for (const q of queries) {
+      const key = norm(q);
+      if (!key || tried.has(key)) continue;
+      tried.add(key);
+      const pool = await searchWbCatalog(q);
+      if (pool.length) {
+        items = pool;
+        usedQuery = q;
+        sourceLabel = `источник: выдача WB · «${q}»`;
+        break;
+      }
     }
   }
 
@@ -799,18 +861,15 @@ export async function analyzeDirectCompetitors(
   const self = items.find((p) => p.nmId === ours.nmId);
   if (self?.subjectId) ours.subjectId = self.subjectId;
 
-  // топ-3 прямых (как первые в «Смотрите также»)
-  let competitors = pickDirectCompetitors(ours, items, 3);
-
-  // если скоринг отсёк слишком жёстко — взять первые чужие бренды из пула
-  if (!competitors.length && items.length) {
-    const seen = new Set<number>([ours.nmId]);
-    competitors = [];
-    for (const c of items) {
+  // топ-3: сначала порядок выдачи (как на сайте), иначе скоринг «прямых»
+  let competitors = pickTopFromSearch(ours, items, 3);
+  if (competitors.length < 3) {
+    const scored = pickDirectCompetitors(ours, items, 3);
+    const seen = new Set(competitors.map((c) => c.nmId));
+    for (const c of scored) {
       if (seen.has(c.nmId)) continue;
-      if (ours.brand && c.brand && norm(ours.brand) === norm(c.brand)) continue;
-      seen.add(c.nmId);
       competitors.push(c);
+      seen.add(c.nmId);
       if (competitors.length >= 3) break;
     }
   }
@@ -834,6 +893,22 @@ export async function analyzeDirectCompetitors(
           source: f.priceAfter ? 'basket' : c.source,
         };
       });
+    }
+  }
+
+  // ещё раз запомнить nm — follow-up «а конкуренты?»
+  if (opts?.chatId && ours.nmId) {
+    try {
+      const { rememberLastProduct } = await import('./agent-chat-focus.ts');
+      await rememberLastProduct(opts.chatId, 'saule', {
+        vendorCode: ours.vendorCode || ours.name || String(ours.nmId),
+        title: ours.name,
+        nmId: ours.nmId,
+        price: ours.priceBefore || null,
+        discountedPrice: ours.priceAfter || null,
+      });
+    } catch {
+      // ignore
     }
   }
 

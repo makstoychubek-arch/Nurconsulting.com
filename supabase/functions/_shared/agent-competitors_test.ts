@@ -2,6 +2,7 @@ import { assertEquals, assert } from "https://deno.land/std@0.224.0/assert/mod.t
 import {
   extractNmId,
   formatCompetitorReply,
+  pickTopFromSearch,
   scoreDirectCompetitor,
   suggestPriceAction,
   wantsCompetitorAnalysis,
@@ -29,7 +30,7 @@ Deno.test("wantsCompetitorAnalysis phrases", () => {
   assertEquals(wantsCompetitorAnalysis("Сауле, конкуренты по жилетке"), true);
   assertEquals(wantsCompetitorAnalysis("сравни артикул 1234567 с выдачей"), true);
   assertEquals(wantsCompetitorAnalysis("кк цена у конкурентов этого товара"), true);
-  assertEquals(wantsCompetitorAnalysis("как цена у конкурентов"), true);
+  assertEquals(wantsCompetitorAnalysis("А конкуренты?"), true);
   assertEquals(wantsCompetitorAnalysis("сколько продаж вчера"), false);
   assertEquals(wantsCompetitorAnalysis("артикул дай на лапшу бел"), false);
 });
@@ -37,6 +38,8 @@ Deno.test("wantsCompetitorAnalysis phrases", () => {
 Deno.test("wantsStickyProductRef", () => {
   assert(wantsStickyProductRef("кк цена у конкурентов этого товара"));
   assert(wantsStickyProductRef("сравни по этому артикулу"));
+  assert(wantsStickyProductRef("А конкуренты?"));
+  assert(wantsStickyProductRef("топ 3"));
   assertEquals(wantsStickyProductRef("конкуренты лапша белая"), false);
 });
 
@@ -71,8 +74,19 @@ Deno.test("scoreDirectCompetitor prefers same niche other brand", () => {
   assertEquals(scoreDirectCompetitor(ours, ours) < 0, true);
 });
 
+Deno.test("pickTopFromSearch takes first other brands in order", () => {
+  const pool: PublicProduct[] = [
+    ours,
+    { ...ours, nmId: 200000001, brand: "A", name: "жл 1", priceAfter: 3000 },
+    { ...ours, nmId: 200000002, brand: "B", name: "жл 2", priceAfter: 3100 },
+    { ...ours, nmId: 200000003, brand: "Elium", name: "наш же", priceAfter: 3200 },
+    { ...ours, nmId: 200000004, brand: "C", name: "жл 3", priceAfter: 3300 },
+  ];
+  const top = pickTopFromSearch(ours, pool, 3);
+  assertEquals(top.map((t) => t.nmId), [200000001, 200000002, 200000004]);
+});
+
 Deno.test("suggestPriceAction raise/lower/hold", () => {
-  // мы 1519, топ: 1754 / 1568 / 864 → медиана в коридоре ~1568 → hold
   const hold = suggestPriceAction(1519, [1754, 1568, 864]);
   assertEquals(hold.action, "hold");
 
@@ -98,6 +112,7 @@ Deno.test("formatCompetitorReply includes recommendation", () => {
   const text = formatCompetitorReply(ours, [top], "жилеты укороченная бежевая");
   assert(text.includes("Сауле · сводка"));
   assert(text.includes("Рекомендация"));
+  assert(text.includes("Топ-1 по выдаче"));
   assert(text.includes("555555555"));
   assert(/ПОДНЯТЬ|ОПУСТИТЬ|ДЕРЖАТЬ/.test(text));
 });

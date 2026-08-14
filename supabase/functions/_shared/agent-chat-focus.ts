@@ -41,12 +41,14 @@ type FocusPayload = {
 function readLastProduct(payload: unknown): LastProductFocus | null {
   const p = (payload as FocusPayload | null)?.lastProduct;
   if (!p || typeof p !== 'object') return null;
-  const vendorCode = String(p.vendorCode || '').trim();
-  if (!vendorCode) return null;
+  const nmId = p.nmId == null ? null : Number(p.nmId);
+  const vendorCode = String(p.vendorCode || p.title || (nmId ? String(nmId) : ''))
+    .trim();
+  if (!vendorCode && !(nmId && nmId >= 100000)) return null;
   return {
-    vendorCode,
+    vendorCode: vendorCode || String(nmId),
     title: p.title ?? null,
-    nmId: p.nmId == null ? null : Number(p.nmId),
+    nmId: nmId == null || !Number.isFinite(nmId) ? null : nmId,
     cabinetId: p.cabinetId ?? null,
     cabinetName: p.cabinetName ?? null,
     price: p.price == null ? null : Number(p.price),
@@ -141,9 +143,18 @@ export async function rememberLastProduct(
   product: LastProductFocus,
   ttlMin = 20,
 ): Promise<void> {
-  if (!chatId || !product?.vendorCode) return;
+  if (!chatId) return;
+  const nmId = product?.nmId != null ? Number(product.nmId) : null;
+  const vendorCode = String(
+    product?.vendorCode || product?.title || (nmId ? String(nmId) : ''),
+  ).trim();
+  if (!vendorCode && !(nmId && nmId >= 100000)) return;
   await setChatFocus(chatId, agentKey, 'last_product', ttlMin, {
-    lastProduct: product,
+    lastProduct: {
+      ...product,
+      vendorCode: vendorCode || String(nmId),
+      nmId,
+    },
   });
 }
 
