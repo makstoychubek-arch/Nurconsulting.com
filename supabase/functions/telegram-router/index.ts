@@ -98,6 +98,11 @@ import {
   wantsNewsDiscussion,
   wantsTeamBanter,
 } from "../_shared/agent-collective.ts";
+import {
+  buildSalesDropFactsBundle,
+  salesDropDiscussBrief,
+  wantsSalesDropDiscuss,
+} from "../_shared/agent-sales-discuss.ts";
 import { humanizeAgentReply, looksLikeSharedLink } from "../_shared/agent-humanize.ts";
 import {
   cheapNamePingFact,
@@ -692,12 +697,13 @@ async function askOpenAI(opts: {
   }
 }
 
-/** Lead: полный prompt; hop: slim. Auto-hop только news/banter. */
+/** Lead: полный prompt; hop: slim. Auto-hop только news/banter/разбор продаж. */
 function allowPlanAutoHop(rootTask: string): boolean {
   return (
     wantsNewsDiscussion(rootTask) ||
     wantsTeamBanter(rootTask) ||
-    looksLikeSharedLink(rootTask)
+    looksLikeSharedLink(rootTask) ||
+    wantsSalesDropDiscuss(rootTask)
   );
 }
 
@@ -709,7 +715,8 @@ function preferFastModel(opts: {
   if (opts.hop > 0 || opts.fromAgent) return true;
   if (allowPlanAutoHop(opts.rootTask)) return false;
   const t = opts.rootTask;
-  // короткий фактовый вопрос — mini
+  // короткий фактовый вопрос — mini (не разбор продаж)
+  if (wantsSalesDropDiscuss(t)) return false;
   if (
     t.length <= 100 &&
     /(продаж|заказ|остат|выкуп|рк|реклам|сколько|fbs|склад|цена|цен[ауы])/i.test(t)
@@ -802,6 +809,7 @@ async function runAgentTurn(opts: {
     wantsNewsDiscussion(rootTask) ||
     wantsTeamBanter(rootTask) ||
     looksLikeSharedLink(rootTask);
+  const needSalesDrop = wantsSalesDropDiscuss(rootTask);
   const needAlinaCrm =
     targetAgent === "alina" &&
     /(самовыкуп|раздач|оффер|слот|лид|кэш|кеш|бартер|crm|заявк|таблиц|выкуп)/i
@@ -811,14 +819,18 @@ async function runAgentTurn(opts: {
     (async () => {
       let wb = "";
       try {
-        wb = await buildAgentWbContext(targetAgent as AgentKey, wbCache);
+        if (needSalesDrop) {
+          wb = await buildSalesDropFactsBundle(wbCache);
+        } else {
+          wb = await buildAgentWbContext(targetAgent as AgentKey, wbCache);
+        }
       } catch (e) {
         console.error("[telegram-router] wb context", e);
         wb = "Не удалось загрузить отчёты WB. Скажи об этом коротко.";
       }
       // hop: role-aware slim facts (RCR) — меньше токенов
-      if (isHop && wb.length > 2800) {
-        wb = wb.slice(0, 2800) + "\n…(обрезано)";
+      if (isHop && wb.length > 3200) {
+        wb = wb.slice(0, 3200) + "\n…(обрезано)";
       }
       const extras = await Promise.all([
         needAlinaCrm
@@ -853,6 +865,7 @@ async function runAgentTurn(opts: {
   const systemPrompt =
     agentPromptForTurn(targetAgent, promptMode) +
     (isHop ? "" : `\n\n${actionsCapabilityBrief()}`) +
+    (needSalesDrop ? `\n\n${salesDropDiscussBrief(targetAgent)}` : "") +
     `\n\n${
       fromAgent
         ? peerTalkBrief(fromAgent, userMessage)
@@ -1162,7 +1175,7 @@ serve(async (req) => {
           if (resolved && triggeringBot === resolved.orchestrator) {
             const helpReply =
               selfSkillsReply(resolved.speakAs) +
-              "\n\nБыстрые: /pulse · /срочно · /cabinets · /sales · /ads · /остатки · /selfbuy · /ping · «что умеешь»";
+              "\n\nБыстрые: /pulse · /разбор · /срочно · /cabinets · /sales · /ads · /остатки · /selfbuy · /ping · «что умеешь»";
             await runWork((async () => {
               await sendTelegramMessage(
                 resolved.speakAs,
@@ -1874,7 +1887,10 @@ serve(async (req) => {
     const pendingEnd = dialog.pending;
     const namedForPlan = namedOnce;
     const collectiveTopic =
-      wantsNewsDiscussion(text) || wantsTeamBanter(text) || looksLikeSharedLink(text);
+      wantsNewsDiscussion(text) ||
+      wantsTeamBanter(text) ||
+      looksLikeSharedLink(text) ||
+      wantsSalesDropDiscuss(text);
     let plan = buildTeamPlan(
       text,
       message.entities,

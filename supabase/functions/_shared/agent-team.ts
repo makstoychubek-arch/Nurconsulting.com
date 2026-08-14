@@ -6,6 +6,7 @@
 import { collectivePeerStyle, wantsNewsDiscussion, newsDiscussionPlan, wantsTeamBanter } from "./agent-collective.ts";
 import { looksLikeSharedLink } from "./agent-humanize.ts";
 import { detectWbRoleOp } from "./agent-wb-role-ops.ts";
+import { salesDropDiscussPlan, wantsSalesDropDiscuss } from "./agent-sales-discuss.ts";
 
 export const BOT_USERNAMES: Record<string, string> = {
   saule: "saulexxx_bot",
@@ -51,6 +52,9 @@ export function detectTopicalAgents(text: string): string[] {
 
   if (wantsNewsDiscussion(text) || looksLikeSharedLink(text)) {
     return newsDiscussionPlan(text);
+  }
+  if (wantsSalesDropDiscuss(text)) {
+    return salesDropDiscussPlan(text);
   }
   if (wantsTeamBanter(text)) {
     return ["karina", "saule", "amina", "anton"].slice(0, 4);
@@ -249,12 +253,15 @@ export function isDoneReply(reply: string): boolean {
 export function teamBriefForPrompt(plan: string[], rootTask: string): string {
   const line = plan.map((a) => AGENT_DISPLAY[a] || a).join(", ");
   const news = wantsNewsDiscussion(rootTask);
+  const drop = wantsSalesDropDiscuss(rootTask);
   return [
     `Вопрос владельца: ${rootTask.slice(0, 500)}`,
     plan.length > 1
       ? `В теме ещё: ${line}. Перекинься только если нужен их кусок.`
       : `Твоя зона. Ответь коротко по делу.`,
-    news
+    drop
+      ? "Разбор продаж: факты → гипотезы → пинг следующего из плана. Без паники, без «алгоритма»."
+      : news
       ? "Новости: одна реплика из своей зоны, без эха. Явный пинг коллеге — только если нужен."
       : "Не устраивай цепочку ради цепочки. Закончил — стоп.",
   ].filter(Boolean).join("\n");

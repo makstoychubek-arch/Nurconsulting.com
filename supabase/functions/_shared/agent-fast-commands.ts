@@ -75,6 +75,10 @@ const CMD_ALIASES: Record<string, string> = {
   urgent: "urgent",
   горит: "urgent",
   триаж: "urgent",
+  разбор: "discuss",
+  почему: "discuss",
+  просадка: "discuss",
+  почемупродаж: "discuss",
 };
 
 const FUZZY_CMD_BANK = [
@@ -91,6 +95,7 @@ const FUZZY_CMD_BANK = [
   "stock",
   "whoami",
   "cost",
+  "discuss",
 ] as const;
 
 function mapCmd(raw: string): string {
@@ -98,7 +103,7 @@ function mapCmd(raw: string): string {
   if (CMD_ALIASES[c]) return CMD_ALIASES[c];
   const hit = fuzzyMatchCommand(c, FUZZY_CMD_BANK);
   if (hit && CMD_ALIASES[hit]) return CMD_ALIASES[hit];
-  if (hit && ["help", "ping", "sales", "ads", "fbs", "selfbuy", "cabinets", "pulse", "urgent", "stock", "whoami", "cost"].includes(hit)) {
+  if (hit && ["help", "ping", "sales", "ads", "fbs", "selfbuy", "cabinets", "pulse", "urgent", "stock", "whoami", "cost", "discuss"].includes(hit)) {
     return hit;
   }
   return c;
@@ -170,6 +175,9 @@ export function parseFastCommand(raw: string): { cmd: string; arg: string } | nu
   if (mappedHead === "cost") {
     return { cmd: "cost", arg: rest };
   }
+  if (mappedHead === "discuss" && parts.length <= 4) {
+    return { cmd: "discuss", arg: rest };
+  }
 
   // продажи [кабинет]
   let m = lower.match(/^(продажи|sales|заказы)\s*(.*)$/i);
@@ -216,6 +224,8 @@ function agentForCmd(cmd: string): string {
     case "sales":
       return "saule";
     case "cost":
+      return "saule";
+    case "discuss":
       return "saule";
     case "pulse":
     case "urgent":
@@ -330,7 +340,7 @@ function urgentBrief(): string {
 }
 
 const FAST_HINT =
-  "\n\nБыстрые: /pulse · /срочно · /cabinets · /sales · /ads · /остатки · /selfbuy · /ping · «что умеешь»";
+  "\n\nБыстрые: /pulse · /разбор · /срочно · /cabinets · /sales · /ads · /остатки · /selfbuy · /ping · «что умеешь»";
 
 export type FastCommandOpts = {
   /** ЛС: пульс/срочно отвечает этот бот. Группа: только Карина. */
@@ -421,6 +431,14 @@ export async function tryFastCommand(
       ? planningCatalogBrief(10)
       : formatCostReply(findPlanningProducts(q, { max: 6, minScore: 4 }));
     return { handled: true, agentKey: speaker, reply };
+  }
+
+  // /разбор /почему — не отвечаем тут: уходим в LLM-обсуждение Сауле→Амина→Антон
+  if (cmd === "discuss") {
+    if (triggeringBot !== "saule") {
+      return { handled: true, agentKey: "saule" };
+    }
+    return { handled: false, agentKey: "saule" };
   }
 
   // Команды специалиста — чужие webhook молчат сразу
