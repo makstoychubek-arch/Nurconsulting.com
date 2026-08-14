@@ -1,15 +1,13 @@
 /**
- * WB OpenAPI client — дневные методы по официальным YAML-спекам
- * (eslazarev/wildberries-sdk mirrors of dev.wildberries.ru/api/swagger/yaml/ru/*).
+ * WB OpenAPI client — typed day-to-day API + hosts.
  *
- * Каталог OpenAPI: ~309 операций в 14 YAML.
- * Здесь — полный READ-набор для смены + мутации, которые уже ведём через диалоги.
- * Нишевые DBW/DBS/самовывоз/WBD Digital — не включаем (другой бизнес-процесс).
+ * Полный каталог всех ~309 операций сайта: `agent-wb-openapi-registry.ts`
+ * (callWbEndpoint). Здесь — удобные typed-хелперы под роли ботов + мутации диалогов.
  *
  * Роли:
  *  saule  — content, prices, stats, analytics
  *  amina  — advert + calendar promotions
- *  anton  — marketplace FBS + supplies FBW
+ *  anton  — marketplace FBS + supplies FBW (+ DBW/DBS в registry)
  *  alina  — feedbacks/questions/returns/chat
  *  karina — common/users/finance/docs/tariffs
  *  muha   — content media/tags
@@ -90,6 +88,8 @@ export const WB_HOSTS = {
   calendar: 'https://dp-calendar-api.wildberries.ru',
   /** Медиа-РК (отдельный хост от обычного advert-api). */
   advertMedia: 'https://advert-media-api.wildberries.ru',
+  /** WB Digital (цифровые товары) — отдельный продукт. */
+  digital: 'https://devapi-digital.wildberries.ru',
 } as const;
 
 /** Sleep helper for probes (respect rate limits). */
@@ -101,7 +101,7 @@ export function sleep(ms: number): Promise<void> {
 export async function pingAllCategories(
   token: string,
 ): Promise<Array<{ host: string; ok: boolean; status: number; errorText: string }>> {
-  const hosts = Object.entries(WB_HOSTS).filter(([k]) => k !== 'calendar');
+  const hosts = Object.entries(WB_HOSTS).filter(([k]) => k !== 'calendar' && k !== 'digital');
   const out: Array<{ host: string; ok: boolean; status: number; errorText: string }> = [];
   for (const [, base] of hosts) {
     const r = await wbFetch(token, 'GET', `${base}/ping`);
