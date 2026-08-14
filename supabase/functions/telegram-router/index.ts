@@ -84,6 +84,12 @@ import {
   wantsTeamBanter,
 } from "../_shared/agent-collective.ts";
 import { humanizeAgentReply, looksLikeSharedLink } from "../_shared/agent-humanize.ts";
+import {
+  isShortSocialAck,
+  shortSocialAckReply,
+  shorterStyleHint,
+  wantsShorterStyle,
+} from "../_shared/agent-social.ts";
 
 // ---------- Настройка ----------
 
@@ -705,6 +711,7 @@ async function runAgentTurn(opts: {
       ? `\n\n${peerTalkBrief(fromAgent, userMessage)}`
       : `\n\nВладелец написал в рабочий чат. Ответь как живой сотрудник: пойми смысл → факт/цифра или одно уточнение. Коротко. Выбери один из ФОРМАТОВ ОТВЕТА (не тот же, что в последних репликах истории).`) +
     `\n\n${openingDiversityHint(historyFmt)}` +
+    (wantsShorterStyle(rootTask) ? `\n\n${shorterStyleHint()}` : "") +
     `\n\nВарьируй формулировки и структуру. Не копируй шаблоны и не начинай два раза подряд одинаково.` +
     (lastHop
       ? `\n\nПоследний ход — никого не зови, закончи коротко (формат СТОП или ИТОГ).`
@@ -1356,6 +1363,32 @@ serve(async (req) => {
       }
     }
 
+    // ── Короткое «спасибо/ок» — живой ack без LLM ───────────────────────────
+    if (isShortSocialAck(text)) {
+      const pendingAck = await getActivePending(chatId);
+      // не перехватывать «ок/да» в середине диалога цены/РК/FBS
+      if (!pendingAck) {
+        const focusAck = await getChatFocus(chatId);
+        const sticky = focusAck?.agent_key || null;
+        const namedAck = [
+          ...detectMentionedAgents(text),
+          ...detectNamedAgents(text),
+        ];
+        const who = namedAck[0] || sticky || "karina";
+        const resolved = resolveSpeakAndOrchestrator([who], triggeringBot);
+        if (resolved && triggeringBot === resolved.orchestrator) {
+          const reply = shortSocialAckReply(resolved.speakAs);
+          await runWork((async () => {
+            await sendChatAction(resolved.speakAs, chatId, "typing");
+            await sendTelegramMessage(resolved.speakAs, chatId, reply, message.message_id);
+            saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
+            saveMessage(chatId, resolved.speakAs, reply).catch(() => {});
+          })());
+        }
+        return ok();
+      }
+    }
+
     // ── Живой отклик на «Карина» / «Сауле» без задачи (без пустого «да?») ───
     if (isNameOnlyPing(text)) {
       const pingAgent = namePingAgent(text);
@@ -1363,6 +1396,7 @@ serve(async (req) => {
         const resolved = resolveSpeakAndOrchestrator([pingAgent], triggeringBot);
         if (resolved && triggeringBot === resolved.orchestrator) {
           await runWork((async () => {
+            await sendChatAction(resolved.speakAs, chatId, "typing");
             let fact = "";
             try {
               if (pingAgent === "alina") {
