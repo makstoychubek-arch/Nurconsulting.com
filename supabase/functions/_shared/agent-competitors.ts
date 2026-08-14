@@ -615,13 +615,21 @@ async function resolveOurs(
     // товарной фразой из наших кабинетов
     const cleaned = text
       .replace(
-        /конкурент[а-яa-z]*|сравни[а-яa-z]*|найди|анализ[а-яa-z]*|прям[а-яa-z]*|артикул|арт\.?|похож[а-яa-z]*|аналог[а-яa-z]*|\bnm\b|смотрите\s*также|(как|кк|скок[оа])\s*цен[аыуе]*|цен[аыуе]*\s*у|этого|эту|этот|эта|него|неё|нее|товар[аыу]?|карточк[аиу]|сводн[а-я]*|отч[её]т/gi,
+        /конкурент[а-яa-z]*|сравни[а-яa-z]*|найди|анализ[а-яa-z]*|прям[а-яa-z]*|артикул|арт\.?|похож[а-яa-z]*|аналог[а-яa-z]*|\bnm\b|смотрите\s*также|(как|кк|скок[оа])\s*цен[аыуе]*|цен[аыуе]*\s*у|этого|эту|этот|эта|него|неё|нее|товар[аыу]?|карточк[аиу]|сводн[а-я]*|отч[её]т|кстати|давай|сначала|узнаем|узнай|посмотри|глянь/gi,
         ' ',
       )
       .replace(/\s+/g, ' ')
       .trim();
     queryHint = cleaned;
-    if (cleaned.length >= 3) {
+    // без названия — сразу последний обсуждаемый артикул (автономно)
+    if (
+      cleaned.length < 3 &&
+      opts?.stickyNmId &&
+      Number(opts.stickyNmId) >= 100000
+    ) {
+      nm = Number(opts.stickyNmId);
+      if (opts.stickyQuery) queryHint = String(opts.stickyQuery);
+    } else if (cleaned.length >= 3) {
       const hits = await findCatalogProducts(cleaned, { max: 5, minScore: 5 });
       if (hits[0]) nm = hits[0].nmId;
     }

@@ -33,7 +33,7 @@ import {
   tryAlinaOfferCommand,
 } from "../_shared/alina-selfbuy.ts";
 import { generateMuhaPhoto, wantsPhoto } from "../_shared/muha-photos.ts";
-import { teamQaFactsForAgent, tryTeamSmartQa } from "../_shared/agent-qa.ts";
+import { teamQaFactsForAgent, tryTeamSmartQa, detectQaWorkingKind } from "../_shared/agent-qa.ts";
 import {
   continueFbsStockDialog,
   handleFbsStockCallback,
@@ -127,6 +127,7 @@ import {
 } from "../_shared/agent-planning-catalog.ts";
 import {
   hopPauseMs,
+  pickWorkingStatus,
   setTelegramMessageReaction,
   thinkPauseMs,
   withTypingKeepalive,
@@ -1812,8 +1813,75 @@ serve(async (req) => {
       return ok();
     }
 
-    // ── Умные ответы в тимчате (таблица / фото WB / остатки) ───────────────
+    // ── Умные ответы в тимчате (таблица / фото WB / остатки / конкуренты) ──
     {
+      const slowKind = detectQaWorkingKind(text);
+      // Сауле: конкуренты / артикул / цена — сразу короткий статус, потом отчёт
+      if (
+        slowKind &&
+        triggeringBot === "saule"
+      ) {
+        await runWork((async () => {
+          await sendChatAction("saule", chatId, "typing");
+          const status = pickWorkingStatus(slowKind);
+          await sendTelegramMessage(
+            "saule",
+            chatId,
+            status,
+            message.message_id,
+          );
+          const qa = await withTypingKeepalive(
+            () => sendChatAction("saule", chatId, "typing"),
+            () => tryTeamSmartQa(text, triggeringBot, { chatId }),
+            3600,
+          );
+          if (!qa.handled) return;
+          if (!(qa.reply || qa.photos?.length)) return;
+          const speakAs = qa.agentKey && BOT_TOKENS[qa.agentKey]
+            ? qa.agentKey
+            : "saule";
+          if (qa.photos?.length) {
+            for (const ph of qa.photos) {
+              await sendTelegramPhoto(
+                speakAs,
+                chatId,
+                {
+                  imageUrl: ph.url,
+                  imageBytes: ph.bytes,
+                  mime: ph.mime,
+                  filename: ph.filename,
+                  caption: ph.caption,
+                },
+                message.message_id,
+              );
+            }
+          }
+          if (qa.reply) {
+            const qaReply = humanizeAgentReply(qa.reply);
+            await setChatFocus(chatId, speakAs, "qa_reply", 12);
+            if (qa.summarySnapshot) {
+              saveDataSnapshot(chatId, qa.summarySnapshot).catch(() => {});
+            } else {
+              const parsed = parseAgentTextToSnapshot(qaReply, speakAs);
+              if (parsed) saveDataSnapshot(chatId, parsed).catch(() => {});
+            }
+            await sendHumanBubbles(
+              speakAs,
+              chatId,
+              qaReply,
+              undefined,
+              undefined,
+              qa.replyMarkup,
+            );
+            await saveMessage(chatId, speakAs, qaReply);
+          }
+          saveMessage(chatId, message.from?.first_name ?? "user", text).catch(
+            () => {},
+          );
+        })());
+        return ok();
+      }
+
       const qa = await tryTeamSmartQa(text, triggeringBot, { chatId });
       if (qa.handled) {
         if (qa.deferFbsStock && triggeringBot === "anton") {

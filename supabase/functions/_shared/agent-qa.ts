@@ -1007,3 +1007,15 @@ export async function teamQaFactsForAgent(
 }
 
 export { wantsWbProductPhoto, wantsAlinaSheet, wantsStock };
+
+/** Долгий QA → короткий статус «делаю/анализирую» перед ответом. */
+export function detectQaWorkingKind(
+  text: string,
+): 'analyze' | 'lookup' | 'price' | null {
+  const t = String(text || '').trim();
+  if (!t) return null;
+  if (wantsCompetitorAnalysis(t)) return 'analyze';
+  if (wantsArticleLookup(t)) return 'lookup';
+  if (wantsPriceLookup(t)) return 'price';
+  return null;
+}

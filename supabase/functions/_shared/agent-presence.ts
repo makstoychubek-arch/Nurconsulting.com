@@ -3,6 +3,8 @@
  * Паттерны: telebot typing refresh, hermes debounce feel, human reply latency.
  */
 
+import { pick } from './agent-voice.ts';
+
 /** Держит «печатает…» пока идёт долгая работа (LLM / сеть). */
 export async function withTypingKeepalive<T>(
   sendTyping: () => Promise<void>,
@@ -29,6 +31,38 @@ export function thinkPauseMs(textLen: number): number {
 /** Пауза перед hop — как люди не барабанят очередь. */
 export function hopPauseMs(): number {
   return 700 + Math.floor(Math.random() * 1400);
+}
+
+/**
+ * Минималистичные статусы «загрузка» в чате (одно короткое слово/фраза).
+ * Ровно 10 вариантов — крутим случайно.
+ */
+export const WORKING_STATUS_VARIANTS = [
+  'щас выясню',
+  'делаю',
+  'анализирую',
+  'гляну',
+  'секунду',
+  'копаю',
+  'считаю',
+  'сверяю',
+  'сейчас',
+  'в работе',
+] as const;
+
+export type WorkingStatusKind = 'analyze' | 'lookup' | 'price' | 'generic';
+
+/** Короткий статус под тип работы (все из одного пула из 10). */
+export function pickWorkingStatus(kind: WorkingStatusKind = 'generic'): string {
+  // лёгкий bias по kind, но только из тех же 10 фраз
+  const prefer: Record<WorkingStatusKind, readonly string[]> = {
+    analyze: ['анализирую', 'копаю', 'сверяю', 'считаю', 'щас выясню'],
+    lookup: ['гляну', 'щас выясню', 'секунду', 'делаю', 'сейчас'],
+    price: ['считаю', 'сверяю', 'гляну', 'щас выясню', 'делаю'],
+    generic: WORKING_STATUS_VARIANTS,
+  };
+  const pool = prefer[kind] || WORKING_STATUS_VARIANTS;
+  return pick([...pool]);
 }
 
 /**

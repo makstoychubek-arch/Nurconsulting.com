@@ -1,8 +1,10 @@
 import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import {
   hopPauseMs,
+  pickWorkingStatus,
   thinkPauseMs,
   withTypingKeepalive,
+  WORKING_STATUS_VARIANTS,
 } from './agent-presence.ts';
 
 Deno.test('thinkPauseMs scales with length', () => {
@@ -33,4 +35,18 @@ Deno.test('withTypingKeepalive clears interval', async () => {
   const after = n;
   await new Promise((r) => setTimeout(r, 80));
   assertEquals(n, after); // no more ticks after clear
+});
+
+Deno.test('WORKING_STATUS_VARIANTS has 10 minimal lines', () => {
+  assertEquals(WORKING_STATUS_VARIANTS.length, 10);
+  for (const s of WORKING_STATUS_VARIANTS) {
+    assertEquals(s.length >= 4 && s.length <= 20, true);
+  }
+});
+
+Deno.test('pickWorkingStatus returns known variant', () => {
+  for (const kind of ['analyze', 'lookup', 'price', 'generic'] as const) {
+    const s = pickWorkingStatus(kind);
+    assertEquals(WORKING_STATUS_VARIANTS.includes(s as typeof WORKING_STATUS_VARIANTS[number]), true);
+  }
 });
