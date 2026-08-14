@@ -298,6 +298,9 @@ export function sauleSalesLead(cabinet?: string): string {
       `Глянула ${cabinet}:`,
       `По ${cabinet}:`,
       `${cabinet}, коротко:`,
+      `${cabinet} →`,
+      `Цифры ${cabinet}:`,
+      `Ок, ${cabinet}:`,
     ]);
   }
   return pick([
@@ -306,6 +309,8 @@ export function sauleSalesLead(cabinet?: string): string {
     "Сводка продаж:",
     "Что по заказам:",
     "Коротко по цифрам:",
+    "По продажам:",
+    "Заказы/выкупы:",
   ]);
 }
 

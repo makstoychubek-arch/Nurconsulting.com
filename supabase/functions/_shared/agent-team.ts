@@ -3,7 +3,7 @@
  * план специалистов → ответы по делу → пинг коллеги → без циклов.
  */
 
-import { collectivePeerStyle, wantsNewsDiscussion, newsDiscussionPlan } from "./agent-collective.ts";
+import { collectivePeerStyle, wantsNewsDiscussion, newsDiscussionPlan, wantsTeamBanter } from "./agent-collective.ts";
 
 export const BOT_USERNAMES: Record<string, string> = {
   saule: "saulexxx_bot",
@@ -49,6 +49,9 @@ export function detectTopicalAgents(text: string): string[] {
 
   if (wantsNewsDiscussion(text)) {
     return newsDiscussionPlan(text);
+  }
+  if (wantsTeamBanter(text)) {
+    return ["karina", "saule", "amina", "anton"].slice(0, 4);
   }
 
   const sheetGiveaway =
