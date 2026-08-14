@@ -5,8 +5,8 @@ import { isValidWbToken, sanitizeWbToken } from "./wb-cabinet-tokens.ts";
 import {
   hasRuDayOrDdMm,
   parseRuDayToken,
-  ruBounded,
   yesterdayBishkek,
+  extractCabinetHint,
 } from "./agent-ru-text.ts";
 
 export {
@@ -184,17 +184,12 @@ export function parseSalesQuery(
     }
   }
 
-  let cabinet: string | undefined;
-  const tailCab = raw.match(
-    /\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?\s+([a-zA-Zа-яА-ЯёЁ0-9._-]{2,30})\s*$/,
-  );
-  if (tailCab) cabinet = tailCab[1];
+  let cabinet: string | undefined = extractCabinetHint(raw);
   if (!cabinet) {
-    const cabMatch = lower.match(
-      ruBounded(`(?:кабинет|cabinet)\\s+([a-zа-яё0-9._-]{2,40})`),
-    ) ||
-      lower.match(ruBounded("(baza|zevina|saai|elium|сааи|база|зевина|элиум)"));
-    if (cabMatch) cabinet = cabMatch[1];
+    const tailCab = raw.match(
+      /\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?\s+([a-zA-Zа-яА-ЯёЁ0-9._-]{2,30})\s*$/,
+    );
+    if (tailCab) cabinet = tailCab[1];
   }
 
   return { date, cabinet };

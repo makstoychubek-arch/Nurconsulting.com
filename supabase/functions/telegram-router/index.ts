@@ -27,6 +27,7 @@ import {
   isAlinaClientContext,
   isAlinaStatsQuestion,
   isBusinessOwnerMessage,
+  isTeamChat,
   logAlinaRawEvent,
   refreshAlinaFromSheet,
   tryAlinaOfferCommand,
@@ -1664,7 +1665,8 @@ serve(async (req) => {
     }
 
     // ── Команда оффера из тимчата («алина оффер открыт кэшбек 70 …») ───────
-    if (triggeringBot === "alina" && !isBusiness) {
+    // Не в ЛС клиента — иначе «оффер закрыт» от покупателя валит кампанию.
+    if (triggeringBot === "alina" && !isBusiness && isTeamChat(chatId)) {
       const offerReply = await tryAlinaOfferCommand(text);
       if (offerReply) {
         await runWork((async () => {
@@ -1676,11 +1678,11 @@ serve(async (req) => {
     }
 
     // ── Алина CRM (ЛС / клиентский чат / Telegram Business рабочий акк) ─────
-    if (
+    const alinaClient =
       (triggeringBot === "alina" || triggeringBot === "alina2") &&
-      (isBusiness || isAlinaClientContext(message.chat)) &&
-      !isAlinaStatsQuestion(text)
-    ) {
+      (isBusiness || isAlinaClientContext(message.chat));
+
+    if (alinaClient && !isAlinaStatsQuestion(text)) {
       const replyBot = triggeringBot === "alina2" && BOT_TOKENS.alina2
         ? "alina2"
         : "alina";
@@ -1786,6 +1788,15 @@ serve(async (req) => {
           await saveMessage(chatId, replyBot, reply);
         }
       })());
+      return ok();
+    }
+
+    // Клиентский чат Алины дальше в тим-QA/LLM не пускаем (в т.ч. «сколько кэшбек»)
+    if (
+      !isBusiness &&
+      (triggeringBot === "alina" || triggeringBot === "alina2") &&
+      isAlinaClientContext(message.chat)
+    ) {
       return ok();
     }
 

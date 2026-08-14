@@ -6,6 +6,8 @@ import {
   parseRuDayToken,
   ruBounded,
   yesterdayBishkek,
+  extractCabinetHint,
+  isHelpOnly,
 } from "./agent-ru-text.ts";
 
 Deno.test("ruBounded / hasRuToken: кириллица", () => {
@@ -43,4 +45,10 @@ Deno.test("parseRuDayToken / hasRuDayOrDdMm", () => {
   assert(!hasRuDayOrDdMm("просто текст"));
   assertEquals(parseRuDayToken("вчера"), yesterdayBishkek());
   assertEquals(parseRuDayToken("продажи 12.07").slice(5), "07-12");
+});
+
+Deno.test("extractCabinetHint / isHelpOnly", () => {
+  assertEquals(extractCabinetHint("реклама вчера база")?.toLowerCase(), "база");
+  assertEquals(isHelpOnly("помощь"), true);
+  assertEquals(isHelpOnly("штрафы вчера"), false);
 });

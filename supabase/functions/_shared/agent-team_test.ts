@@ -12,6 +12,12 @@ import {
   nextPingFromReply,
 } from "./agent-team.ts";
 
+Deno.test("FBW остатки → Сауле, не Антон", () => {
+  const topics = detectTopicalAgents("остатки fbw по базе");
+  assertEquals(topics.includes("saule"), true);
+  assertEquals(topics.includes("anton"), false);
+});
+
 Deno.test("самовыкуп не зовёт Сауле по подстроке выкуп", () => {
   const topics = detectTopicalAgents("сколько самовыкупов сегодня?");
   assertEquals(topics.includes("saule"), false);

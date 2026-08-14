@@ -110,10 +110,17 @@ export function detectTopicalAgents(text: string): string[] {
     lower.includes("fbs") ||
     lower.includes("склад") ||
     lower.includes("отгруз") ||
-    lower.includes("остатк") ||
-    lower.includes("остаток")
+    (/(остатк|остаток)/.test(lower) && !/fbw/i.test(lower)) ||
+    /приемк|коледин/i.test(lower)
   ) {
     found.push("anton");
+  }
+  // FBW остатки / поступления — зона Сауле (честное «API снят»), не Антон
+  if (/остатк.*fbw|fbw.*остат|поступлен.*склад|склад.*поступлен/i.test(lower)) {
+    // убрать anton если добавили из-за «остатк»
+    const idx = found.indexOf("anton");
+    if (idx >= 0) found.splice(idx, 1);
+    if (!found.includes("saule")) found.unshift("saule");
   }
   if (selfbuy || lower.includes("продвиж") || sheetGiveaway || wbCardPhoto) {
     found.push("alina");

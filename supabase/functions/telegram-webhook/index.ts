@@ -43,7 +43,7 @@ import {
     parseSalesQuery,
     salesHelpText,
 } from '../_shared/wb-sales-snapshot.ts';
-import { hasRuDayOrDdMm, hasRuToken } from '../_shared/agent-ru-text.ts';
+import { hasRuDayOrDdMm, hasRuToken, isHelpOnly } from '../_shared/agent-ru-text.ts';
 import {
     applyEditedReply,
     approveAndPublish,
@@ -180,6 +180,10 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
 
     // ── Продажи ──────────────────────────────────────────────────────────
     if (chatKey === 'sales' && wantsSalesQuery(text)) {
+        if (isChannelHelp(text)) {
+            await sendReply(token, chatId, withContact(contactAck('помощь'), channelHelpContact('sales') + '\n\n' + salesHelpText()), message.message_id);
+            return;
+        }
         const query = parseSalesQuery(text, true);
         if (!query) {
             await sendReply(token, chatId, withContact(contactAck('нужна дата/кабинет'), channelHelpContact('sales') + '\n\n' + salesHelpText()), message.message_id);
@@ -198,6 +202,10 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
 
     // ── Штрафы ───────────────────────────────────────────────────────────
     if (chatKey === 'penalties' && wantsPenaltiesQuery(text)) {
+        if (isChannelHelp(text)) {
+            await sendReply(token, chatId, withContact(contactAck('помощь'), channelHelpContact('penalties') + '\n\n' + penaltiesHelpText()), message.message_id);
+            return;
+        }
         const query = parsePenaltiesQuery(text, true);
         if (!query) {
             await sendReply(token, chatId, withContact(contactAck('уточним дату'), channelHelpContact('penalties') + '\n\n' + penaltiesHelpText()), message.message_id);
@@ -217,6 +225,10 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
 
     // ── Реклама ──────────────────────────────────────────────────────────
     if (chatKey === 'ads' && wantsAdsQuery(text)) {
+        if (isChannelHelp(text)) {
+            await sendReply(token, chatId, withContact(contactAck('помощь'), channelHelpContact('ads') + '\n\n' + adsHelpText()), message.message_id);
+            return;
+        }
         const query = parseAdsQuery(text);
         if (!query) {
             await sendReply(token, chatId, withContact(contactAck('нужен формат'), channelHelpContact('ads') + '\n\n' + adsHelpText()), message.message_id);
@@ -369,107 +381,13 @@ async function handleReviewCallback(token: string, cq: Record<string, unknown>):
     );
 
     try {
-        if (action === 'next') {
-            await dismiss('⏳ Загружаю отзывы…');
-            const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-            const baseUrl = Deno.env.get('SUPABASE_URL') ?? '';
-            let processed = 0;
-            try {
-                const res = await fetch(`${baseUrl}/functions/v1/wb-review-auto-reply`, {
-                    method: 'POST',
-                    headers: {
-                        Authorization: `Bearer ${serviceKey}`,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ force: true, limit: REVIEW_BATCH_SIZE }),
-                });
-                const data = await res.json() as { processed?: number; queued?: number };
-                processed = Number(data.processed ?? 0);
-            } catch (e) {
-                console.error('[telegram-webhook] rv:next error:', e);
-                await dismiss('❌ Ошибка загрузки');
-                return;
-            }
-            if (processed > 0) {
-                await upsertModerationPanel(admin, token, String(chatId), messageId || undefined, { force: true });
-            }
-            await dismiss(processed > 0 ? `✅ +${processed} отзывов` : 'Новых отзывов нет');
+        // Модерация на паузе — не врём «опубликовано / новых нет»
+        const STUB_MSG =
+            '⏸ Модерация отзывов временно недоступна. Автоответ/публикация на WB на паузе.';
+        if (['next', 'okall', 'ok', 'rej', 'edit'].includes(String(action))) {
+            await dismiss(STUB_MSG);
             return;
         }
-
-        if (action === 'okall') {
-            await dismiss('⏳ Публикую на WB…');
-            const result = await approveAllPending(admin, userId);
-
-            if (result.total === 0) {
-                await upsertModerationPanel(admin, token, String(chatId), messageId || undefined);
-                await dismiss('Уже все опубликованы');
-                return;
-            }
-
-            for (const id of result.publishedIds) {
-                const { data: row } = await admin
-                    .from('review_reply_log')
-                    .select('tg_message_id, model')
-                    .eq('id', id)
-                    .maybeSingle();
-                if (!row?.tg_message_id) continue;
-                await resendReviewCard(admin, token, String(chatId), id,
-                    footerPublished(String(row.model ?? ''), userName),
-                    { inline_keyboard: [] });
-                await tgSleep(300);
-            }
-
-            await upsertModerationPanel(admin, token, String(chatId), messageId || undefined);
-            const hint = result.fail ? `, ошибок: ${result.fail}` : '';
-            await dismiss(`✅ Опубликовано: ${result.ok} из ${result.total}${hint}`);
-            return;
-        }
-
-        const logId = Number(parts[2]);
-        if (!logId) {
-            await dismiss('Ошибка ID');
-            return;
-        }
-
-        if (action === 'ok') {
-            const result = await approveAndPublish(admin, logId, userId);
-            if (result.ok) {
-                const { data: logRow } = await admin.from('review_reply_log').select('model').eq('id', logId).maybeSingle();
-                await resendReviewCard(admin, token, String(chatId), logId,
-                    footerPublished(String(logRow?.model ?? ''), userName),
-                    { inline_keyboard: [] });
-                await upsertModerationPanel(admin, token, String(chatId), messageId || undefined);
-                await dismiss('✅ Отправлено на WB');
-            } else {
-                await dismiss(`❌ ${result.error || 'ошибка WB'}`);
-            }
-            return;
-        }
-
-        if (action === 'rej') {
-            const result = await rejectReview(admin, logId, userId);
-            if (result.ok) {
-                await updateReviewCaption(admin, token, chatId, messageId, logId, footerRejected(userName));
-                await upsertModerationPanel(admin, token, String(chatId), messageId || undefined);
-                await dismiss('❌ Отклонено');
-            } else {
-                await dismiss(result.error ? `❌ ${result.error}` : 'Уже обработано');
-            }
-            return;
-        }
-
-        if (action === 'edit') {
-            const result = await startEditing(admin, logId);
-            if (result.ok) {
-                await updateReviewCaption(admin, token, chatId, messageId, logId, footerEditing(), moderationKeyboard(logId));
-                await dismiss('✏️ Ответьте реплаем');
-            } else {
-                await dismiss(result.error ? `❌ ${result.error}` : 'Нельзя редактировать');
-            }
-            return;
-        }
-
         await dismiss('Неизвестная команда');
     } catch (e) {
         console.error('[telegram-webhook] review callback error:', e);
@@ -766,6 +684,10 @@ async function sendTelegramMediaGroup(
         console.warn('[telegram-webhook] sendMediaGroup error:', String(e));
         return false;
     }
+}
+
+function isChannelHelp(text: string): boolean {
+    return isHelpOnly(text);
 }
 
 function wantsSalesQuery(text: string): boolean {

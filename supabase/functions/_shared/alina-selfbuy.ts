@@ -174,9 +174,14 @@ export function isAlinaClientContext(chat: {
   type?: string;
 }): boolean {
   const id = Number(chat.id);
-  if (getTeamChatIds().has(id)) return false;
+  if (isTeamChat(id)) return false;
   if (chat.type === 'private') return true;
   return getAlinaClientChatIds().has(id);
+}
+
+/** Тимчат агентов (оффер/таблица/статы — только сюда). */
+export function isTeamChat(chatId: number): boolean {
+  return getTeamChatIds().has(Number(chatId));
 }
 
 /**

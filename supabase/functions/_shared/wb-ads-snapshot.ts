@@ -3,7 +3,12 @@
  */
 
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { parseRuDayToken, yesterdayBishkek } from './agent-ru-text.ts';
+import {
+  extractCabinetHint,
+  isHelpOnly,
+  parseRuDayToken,
+  yesterdayBishkek,
+} from './agent-ru-text.ts';
 
 export function abTestsHelpText(): string {
   return [
@@ -38,11 +43,21 @@ export type AdsQuery = { mode: 'balance' | 'day'; date?: string; cabinet?: strin
 
 export function parseAdsQuery(text: string): AdsQuery | null {
   const t = text.toLowerCase();
-  if (/баланс|balance/.test(t)) return { mode: 'balance' };
-  if (/реклам|рк|ads|ctr|расход/.test(t)) {
-    return { mode: 'day', date: parseRuDayToken(t) || yesterdayBishkek() };
+  if (isHelpOnly(text)) return null;
+  if (/баланс|balance/.test(t)) return { mode: 'balance', cabinet: extractCabinetHint(text) };
+  if (/реклам|рк|ads|ctr|расход/.test(t) || hasAdsDayIntent(t)) {
+    return {
+      mode: 'day',
+      date: parseRuDayToken(t) || yesterdayBishkek(),
+      cabinet: extractCabinetHint(text),
+    };
   }
   return null;
+}
+
+function hasAdsDayIntent(t: string): boolean {
+  // в канале ads достаточно «вчера» / даты
+  return /(вчера|позавчера|сегодня)/.test(t) || /\d{1,2}[./]\d{1,2}/.test(t);
 }
 
 export async function fetchAllBalances(

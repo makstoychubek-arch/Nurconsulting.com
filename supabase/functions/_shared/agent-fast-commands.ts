@@ -207,7 +207,8 @@ export function parseFastCommand(raw: string): { cmd: string; arg: string } | nu
     return { cmd: "fbs", arg: "" };
   }
 
-  if (/^(самовыкуп|selfbuy|выкупы клиент)/i.test(lower) || mappedHead === "selfbuy") {
+  // Только голое «самовыкуп» /selfbuy — иначе NL («самовыкуп клиент …») уходит в CRM/LLM
+  if (/^(самовыкуп|selfbuy)$/i.test(lower) || (mappedHead === "selfbuy" && !rest)) {
     return { cmd: "selfbuy", arg: "" };
   }
 

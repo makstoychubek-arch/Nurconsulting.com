@@ -89,9 +89,10 @@ export function detectWbRoleOp(text: string): string | null {
 
   // anton
   if (
-    /(склад[а-я]?\s+(fbs|продавца)|мои\s+склады|новые\s+сбороч|сборочн[а-я]*\s+заказ|новые\s+заказ[а-я]*\s+fbs|поставк[а-я]*\s+fbs|офисы\s+wb|склад[а-я]?\s+wb\s+fbw|fbw\s+склад|архивн[а-я]*\s+(заказ|сбороч)|пропуск[а-я]*\s+на\s+склад|автовозврат)/i
+    /(склад[а-яё]*\s+(fbs|продавца)|мои\s+склады|новые\s+сбороч|сборочн[а-яё]*\s+заказ|новые\s+заказ[а-яё]*\s+fbs|поставк[а-яё]*\s+fbs|офисы\s+wb|склад[а-яё]*\s+wb\s+fbw|fbw\s+склад|архивн[а-яё]*\s+(заказ|сбороч)|пропуск[а-яё]*\s+на\s+склад|автовозврат|приемк[а-яё]*|коледин)/i
       .test(t) ||
-    /(заказ[а-я]*\s+на\s+сборк|сборочн[а-я]*\s+задани)/i.test(t)
+    /(заказ[а-яё]*\s+на\s+сборк|сборочн[а-яё]*\s+задани)/i.test(t) ||
+    (/склад/i.test(t) && /wb/i.test(t) && !/fbs|продавца|мои/i.test(t))
   ) {
     return 'anton';
   }
@@ -322,17 +323,27 @@ export async function runWbRoleOp(
       }
       if (/fbw|приемк|коледин/i.test(t) || (/склад/i.test(t) && /wb/i.test(t) && !/fbs|продавца|мои/i.test(t))) {
         const r = await suppliesApi.warehouses(token);
-        const list = Array.isArray(r.data) ? r.data as Array<Record<string, unknown>> : [];
+        const raw = r.data as unknown;
+        const list = Array.isArray(raw)
+          ? raw as Array<Record<string, unknown>>
+          : Array.isArray((raw as { data?: unknown })?.data)
+          ? (raw as { data: Array<Record<string, unknown>> }).data
+          : Array.isArray((raw as { result?: unknown })?.result)
+          ? (raw as { result: Array<Record<string, unknown>> }).result
+          : [];
+        const active = list.filter((w) => w.isActive !== false);
         return {
           handled: true,
           agentKey: role,
           reply: r.ok
-            ? [
-              `${cabinetName} · склады WB (FBW)`,
-              ...list.filter((w) => w.isActive).slice(0, 12).map((w) =>
-                `• ${w.name} · id ${w.ID}`
-              ),
-            ].join('\n')
+            ? active.length
+              ? [
+                `${cabinetName} · склады WB (FBW)`,
+                ...active.slice(0, 12).map((w) =>
+                  `• ${w.name || w.Name || '?'} · id ${w.ID ?? w.id ?? '—'}`
+                ),
+              ].join('\n')
+              : `${cabinetName} · склады WB (FBW): список пуст (или другой формат ответа WB)`
             : `FBW: ${r.errorText}`,
         };
       }

@@ -14,6 +14,17 @@ Deno.test("parseAdsQuery day from вчера", () => {
   assertEquals(q!.date, yesterdayBishkek());
 });
 
+Deno.test("parseAdsQuery cabinet hint", () => {
+  const q = parseAdsQuery("реклама вчера база");
+  assert(q);
+  assertEquals(q!.cabinet?.toLowerCase(), "база");
+});
+
+Deno.test("parseAdsQuery help only → null", () => {
+  assertEquals(parseAdsQuery("помощь"), null);
+  assertEquals(parseAdsQuery("help"), null);
+});
+
 Deno.test("formatAdsReply shows CTR/DRR", () => {
   const text = formatAdsReply("2026-08-13", [
     { name: "Baza", spend: 1000, views: 200, clicks: 10, orders: 2, sumPrice: 5000 },
@@ -41,4 +52,14 @@ Deno.test("parsePenaltiesQuery + format", () => {
   const text = formatPenaltiesReply(q!.date, [{ name: "Baza", total: 1500 }], "alert");
   assert(text.includes("1500") || text.includes("1"));
   assert(text.includes("@alert"));
+});
+
+Deno.test("parsePenaltiesQuery help → null", () => {
+  assertEquals(parsePenaltiesQuery("помощь"), null);
+});
+
+Deno.test("parsePenaltiesQuery cabinet", () => {
+  const q = parsePenaltiesQuery("штрафы база");
+  assert(q);
+  assertEquals(q!.cabinet?.toLowerCase(), "база");
 });
