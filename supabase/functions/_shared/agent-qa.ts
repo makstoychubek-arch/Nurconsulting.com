@@ -25,6 +25,7 @@ import {
   analyzeDirectCompetitors,
   wantsCompetitorAnalysis,
 } from './agent-competitors.ts';
+import { detectWbRoleOp, runWbRoleOp } from './agent-wb-role-ops.ts';
 
 function alinaPickModel(lines: string[]): string {
   return [alinaAskProduct(), ...lines].join('\n');
@@ -407,6 +408,25 @@ export async function tryTeamSmartQa(
   const t = (text || '').trim();
   if (!t || t.length > 900) return { handled: false };
   const named = namedAgents(t);
+
+  // ── Ролевые операции WB OpenAPI (чтение по кабинету) ─────────────────────
+  {
+    const role = detectWbRoleOp(t);
+    if (role) {
+      if (named.length && !named.includes(role) && !(role === 'saule' && named.includes('karina'))) {
+        // именной пинг другому — не перехватываем
+      } else {
+        const op = await runWbRoleOp(t, triggeringBot);
+        if (op.handled) {
+          return {
+            handled: true,
+            agentKey: op.agentKey || role,
+            reply: op.reply,
+          };
+        }
+      }
+    }
+  }
 
   // ── Конкуренты WB (Сауле) ────────────────────────────────────────────────
   if (wantsCompetitorAnalysis(t)) {

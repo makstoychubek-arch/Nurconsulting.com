@@ -5,6 +5,7 @@
 
 import { collectivePeerStyle, wantsNewsDiscussion, newsDiscussionPlan, wantsTeamBanter } from "./agent-collective.ts";
 import { looksLikeSharedLink } from "./agent-humanize.ts";
+import { detectWbRoleOp } from "./agent-wb-role-ops.ts";
 
 export const BOT_USERNAMES: Record<string, string> = {
   saule: "saulexxx_bot",
@@ -124,6 +125,11 @@ export function detectTopicalAgents(text: string): string[] {
   ) {
     found.push("karina");
   }
+
+  // OpenAPI role ops (инфо продавца, склады, отзывы, РК баланс…)
+  const roleOp = detectWbRoleOp(text);
+  if (roleOp && !found.includes(roleOp)) found.push(roleOp);
+
   return found;
 }
 
