@@ -10,9 +10,11 @@ Deno.test("hop prompt намного короче lead", () => {
   const lead = agentPromptForTurn("saule", "lead");
   const hop = agentPromptForTurn("saule", "hop");
   assert(hop.length < lead.length);
-  assert(hop.length < lead.length * 0.55);
+  assert(hop.length < lead.length * 0.7);
   assert(!hop.includes("ФОРМАТЫ"));
-  assert(lead.includes("ФОРМАТЫ") || lead.includes("СРАЗУ ЦИФРА"));
+  assert(!lead.includes("ФОРМАТЫ"));
+  assert(!lead.includes("СРАЗУ ЦИФРА"));
+  assert(/живой человек|реальный сотрудник/i.test(lead));
 });
 
 Deno.test("AGENT_PROMPTS совместим с lead", () => {

@@ -33,6 +33,26 @@ Deno.test('humanize strips Ok/Smotryu openers', () => {
   assert(/рк|элиум/i.test(b));
 });
 
+Deno.test('humanize strips AI essay tells', () => {
+  const out = humanizeAgentReply(
+    'Давайте разберём.\nПо базе 12\nНадеюсь, это поможет!\nЕсли будут вопросы — пишите',
+    { valence: false },
+  );
+  assert(!/давайте разбер/i.test(out));
+  assert(!/надеюсь/i.test(out));
+  assert(!/если будут вопросы/i.test(out));
+  assert(/базе|12/i.test(out));
+});
+
+Deno.test('humanize strips markdown', () => {
+  const out = humanizeAgentReply('**База**\n1. заказы 12\n- выкуп ок', {
+    valence: false,
+  });
+  assert(!/\*\*/.test(out));
+  assert(!/^1\./m.test(out));
+  assert(/база/i.test(out));
+});
+
 Deno.test('humanize limits emoji to one', () => {
   const out = humanizeAgentReply('Рост 🔥 и ещё 👍 ок', { valence: false });
   const emojis = out.match(/\p{Extended_Pictographic}/gu) || [];

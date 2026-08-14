@@ -101,6 +101,11 @@ import {
   withTypingKeepalive,
 } from "../_shared/agent-presence.ts";
 import {
+  bubbleTypeDelayMs,
+  interBubbleDelayMs,
+  splitHumanBubbles,
+} from "../_shared/agent-bubbles.ts";
+import {
   buildSummaryReply,
   parseAgentTextToSnapshot,
   saveDataSnapshot,
@@ -245,6 +250,38 @@ async function sendTelegramMessage(
     console.error(`[telegram-router] sendMessage ${botKey} exception:`, e);
     return { ok: false };
   }
+}
+
+/** Несколько пузырей подряд — как человек в ТГ, не одна простыня. */
+async function sendHumanBubbles(
+  botKey: string,
+  chatId: number,
+  text: string,
+  replyToMessageId?: number,
+  businessConnectionId?: string,
+  replyMarkup?: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> },
+): Promise<{ ok: boolean; messageId?: number }> {
+  const bubbles = splitHumanBubbles(text);
+  if (!bubbles.length) return { ok: false };
+  let last: { ok: boolean; messageId?: number } = { ok: false };
+  for (let i = 0; i < bubbles.length; i++) {
+    await sendChatAction(botKey, chatId, "typing");
+    if (humanPausesEnabled()) {
+      await new Promise((r) => setTimeout(r, bubbleTypeDelayMs(bubbles[i].length)));
+    }
+    last = await sendTelegramMessage(
+      botKey,
+      chatId,
+      bubbles[i],
+      i === 0 ? replyToMessageId : undefined,
+      businessConnectionId,
+      i === bubbles.length - 1 ? replyMarkup : undefined,
+    );
+    if (i < bubbles.length - 1 && humanPausesEnabled()) {
+      await new Promise((r) => setTimeout(r, interBubbleDelayMs()));
+    }
+  }
+  return last;
 }
 
 /** Ответ Антона по FBS: сначала фото-таблица (если есть), потом текст/кнопки. */
@@ -587,7 +624,7 @@ async function askOpenAI(opts: {
   });
   const factual = new Set(["saule", "anton", "amina", "alina", "karina"]);
   const temperature = opts.temperature ??
-    (opts.agentKey && factual.has(opts.agentKey) ? 0.45 : 0.85);
+    (opts.agentKey && factual.has(opts.agentKey) ? 0.58 : 0.92);
   try {
     console.log(
       `[telegram-router] openai model=${model} kind=${opts.modelKind || "full"} temp=${temperature} agent=${opts.agentKey || "?"}`,
@@ -613,9 +650,9 @@ async function askOpenAI(opts: {
           { role: "user", content: opts.userMessage.slice(0, 2000) },
         ],
         temperature,
-        max_tokens: 360,
-        presence_penalty: temperature >= 0.7 ? 0.55 : 0.25,
-        frequency_penalty: temperature >= 0.7 ? 0.5 : 0.2,
+        max_tokens: 260,
+        presence_penalty: temperature >= 0.7 ? 0.65 : 0.35,
+        frequency_penalty: temperature >= 0.7 ? 0.55 : 0.3,
       }),
       signal: AbortSignal.timeout(25000),
     });
@@ -855,8 +892,8 @@ async function runAgentTurn(opts: {
   );
   const reply = humanizeAgentReply(rawReply);
 
-  // Сначала в чат, потом история — быстрее для пользователя
-  const sentMsg = await sendTelegramMessage(
+  // Несколько пузырей + typing по длине — как живой человек в ТГ
+  const sentMsg = await sendHumanBubbles(
     targetAgent,
     chatId,
     reply,
@@ -1581,7 +1618,7 @@ serve(async (req) => {
                   const parsed = parseAgentTextToSnapshot(qaReply, speakAs);
                   if (parsed) saveDataSnapshot(chatId, parsed).catch(() => {});
                 }
-                await sendTelegramMessage(
+                await sendHumanBubbles(
                   speakAs,
                   chatId,
                   qaReply,
