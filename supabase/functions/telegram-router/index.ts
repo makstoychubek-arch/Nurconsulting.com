@@ -725,6 +725,11 @@ async function runAgentTurn(opts: {
 
   // «печатает…» как живой человек перед ответом
   await sendChatAction(targetAgent, chatId, "typing");
+  // лёгкая пауза перед первым ответом (не hop) — будто думает
+  if (!fromAgent && hop === 0) {
+    await new Promise((r) => setTimeout(r, 350 + Math.floor(Math.random() * 700)));
+    await sendChatAction(targetAgent, chatId, "typing");
+  }
 
   // Свободный team plan / hop-диалог — качество рассуждения: full (gpt-4o)
   const rawReply = await askOpenAI({

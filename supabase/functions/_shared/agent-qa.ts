@@ -19,11 +19,29 @@ import { alinaSelfbuyStatsText } from './alina-selfbuy.ts';
 import { fetchWbMainPhoto } from './alina-wb-photo.ts';
 import { detectNamedAgents, detectMentionedAgents } from './agent-team.ts';
 import { wantsFbsStock } from './agent-fbs-stock.ts';
-import { alinaAskProduct, alinaSeesSheet, antonWbStockLead } from './agent-voice.ts';
+import { alinaAskProduct, alinaSeesSheet, antonWbStockLead, pick } from './agent-voice.ts';
 import { findCatalogProducts } from './agent-product-catalog.ts';
 
 function alinaPickModel(lines: string[]): string {
   return [alinaAskProduct(), ...lines].join('\n');
+}
+
+function alinaPhotoOk(name: string, extra?: string): string {
+  const base = pick([
+    `Главное фото «${name}»`,
+    `Вот главное с WB: «${name}»`,
+    `Скинула «${name}»`,
+    `Фото карточки «${name}»`,
+  ]);
+  return extra ? `${base} (${extra})` : base;
+}
+
+function alinaPhotoMiss(name: string): string {
+  return pick([
+    `Не вытащила фото с WB по «${name}»`,
+    `По «${name}» фото не нашла`,
+    `Пусто по фото «${name}» — другой nm/название?`,
+  ]);
 }
 
 export type TeamQaResult = {
@@ -94,7 +112,7 @@ async function answerAlinaSheet(text: string): Promise<TeamQaResult> {
     return {
       handled: true,
       agentKey: 'alina',
-      reply: `Таблицу сейчас не вижу: ${snap.error || 'ошибка чтения'} 🙌`,
+      reply: `Таблицу сейчас не вижу: ${snap.error || 'ошибка чтения'}`,
     };
   }
 
@@ -163,7 +181,7 @@ async function answerProductPhoto(text: string): Promise<TeamQaResult> {
           return {
             handled: true,
             agentKey: 'alina',
-            reply: `Главное фото «${h.vendorCode || h.title}» (${h.cabinetName})`,
+            reply: alinaPhotoOk(h.vendorCode || h.title, h.cabinetName),
             photos: [{
               url: photo.url,
               bytes: photo.bytes,
@@ -199,19 +217,23 @@ async function answerProductPhoto(text: string): Promise<TeamQaResult> {
     return {
       handled: true,
       agentKey: 'alina',
-      reply: `Не вытащила фото с WB по «${picked.offer.product_name}» 🙌`,
+      reply: alinaPhotoMiss(picked.offer.product_name || 'товар'),
     };
   }
   return {
     handled: true,
     agentKey: 'alina',
-    reply: `Главное фото «${picked.offer.product_name}» с WB 🙌`,
+    reply: alinaPhotoOk(picked.offer.product_name || 'товар'),
     photos: [{
       url: photo.url,
       bytes: photo.bytes,
       mime: photo.mime,
       filename: photo.filename,
-      caption: `Главное фото «${picked.offer.product_name}»`,
+      caption: pick([
+        `Главное фото «${picked.offer.product_name}»`,
+        `${picked.offer.product_name}`,
+        `WB · ${picked.offer.product_name}`,
+      ]),
     }],
   };
 }
