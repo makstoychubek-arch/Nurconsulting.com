@@ -41,7 +41,7 @@ export function wantsSummaryReflow(text: string): boolean {
   }
   if (/^(сводн[а-яa-z]*|таблиц[а-яa-z]*)([!.…]*)$/i.test(t)) return true;
   if (/^(в\s+)?(сводн[а-яa-z]*|таблиц[а-яa-z]*)([!.…]*)$/i.test(t)) return true;
-  if (/^(дай|сделай|покажи|скинь|выведи)\b/i.test(t) && /(сводн|таблиц)/i.test(t)) {
+  if (/^(дай|сделай|покажи|скинь|выведи)(?=$|[\s,.:;!?])/i.test(t) && /(сводн|таблиц)/i.test(t)) {
     return true;
   }
   if (/в\s+сводн/i.test(t)) return true;

@@ -270,13 +270,14 @@ async function cancelPending(pendingId: string): Promise<void> {
 
 function extractProductHint(text: string): string {
   let t = stripCabinetAliases(text);
+  // \w* не ест кириллические окончания
   t = t
-    .replace(/саул[еэ]\w*/gi, ' ')
-    .replace(/карина\w*/gi, ' ')
-    .replace(/(сниз|понизь|пониз|убав|уменьш|сброс)\w*/gi, ' ')
-    .replace(/(менять|поменять|изменить|поменяй|измени)\w*/gi, ' ')
+    .replace(/саул[еэ][а-яё]*/gi, ' ')
+    .replace(/карин[аеуыой][а-яё]*/gi, ' ')
+    .replace(/(сниз|понизь|пониз|убав|уменьш|сброс)[а-яё]*/gi, ' ')
+    .replace(/(менять|поменять|изменить|поменяй|измени)[а-яё]*/gi, ' ')
     .replace(/цен[аыуеойам]*/gi, ' ')
-    .replace(/артикул\w*/gi, ' ')
+    .replace(/артикул[а-яё]*/gi, ' ')
     .replace(/пожалуйста|надо|нужно|давай|можно/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
@@ -455,7 +456,7 @@ export async function continuePriceChangeDialog(opts: {
   if (payload.step === 'await_amount') {
     const edit = parsePriceEdit(text);
     if (!edit) {
-      if (looksLikeProductQuery(text) && !/\b(до|после)\b/i.test(text)) {
+      if (looksLikeProductQuery(text) && !/(?:^|[\s,.:;!?/\\|])(до|после)(?=$|[\s,.:;!?/\\|])/i.test(text)) {
         const cab = await resolveCabinet(text);
         const hint = extractProductHint(text) || text;
         const goods = await findProducts(hint, cab.match?.id || null);

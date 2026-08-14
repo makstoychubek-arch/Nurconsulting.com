@@ -522,7 +522,7 @@ export async function runWbRoleOp(
         };
       }
       if (/предмет|блуз/i.test(t) && !/карточк/i.test(t)) {
-        const name = t.match(/предмет\w*\s+(\S+)/i)?.[1] || 'Блузки';
+        const name = t.match(/предмет[а-яё]*\s+(\S+)/i)?.[1] || 'Блузки';
         const r = await contentApi.subjects(token, name);
         return {
           handled: true,

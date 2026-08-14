@@ -173,20 +173,22 @@ export function parseSalesQuery(
   relaxed = false,
 ): { date: string; cabinet?: string } | null {
   const raw = text.replace(/@\w+/g, " ").trim();
-  const lower = raw.toLowerCase();
+  const lower = raw.toLowerCase().replace(/ё/g, "е");
 
-  const hasSalesWord = /\b(продаж|заказ|выкуп|отч[её]т|sales)\b/i.test(lower);
-  const hasDateToken = /\b(\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?)\b/.test(raw) ||
-    /\b(вчера|позавчера|сегодня)\b/i.test(lower);
+  // без \b — кириллица
+  const hasSalesWord = /(продаж|заказ|выкуп|отч[её]?т|sales)/i.test(lower);
+  const hasDateToken =
+    /\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?/.test(raw) ||
+    /(вчера|позавчера|сегодня)/i.test(lower);
 
   if (!relaxed && !hasSalesWord && !hasDateToken) return null;
 
   let date = "";
-  if (/\bпозавчера\b/i.test(lower)) date = daysAgoBishkek(2);
-  else if (/\bвчера\b/i.test(lower)) date = yesterdayBishkek();
-  else if (/\bсегодня\b/i.test(lower)) date = todayBishkek();
+  if (/позавчера/i.test(lower)) date = daysAgoBishkek(2);
+  else if (/вчера/i.test(lower)) date = yesterdayBishkek();
+  else if (/сегодня/i.test(lower)) date = todayBishkek();
   else {
-    const m = raw.match(/\b(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\b/);
+    const m = raw.match(/(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?/);
     if (m) {
       const day = m[1].padStart(2, "0");
       const month = m[2].padStart(2, "0");
@@ -199,7 +201,7 @@ export function parseSalesQuery(
   if (!date) {
     if (
       hasSalesWord ||
-      (relaxed && /\b(baza|zevina|saai|elium|база|зевина|элиум)\b/i.test(lower))
+      (relaxed && /(baza|zevina|saai|elium|база|зевина|элиум)/i.test(lower))
     ) {
       date = yesterdayBishkek();
     } else {
@@ -209,12 +211,12 @@ export function parseSalesQuery(
 
   let cabinet: string | undefined;
   const tailCab = raw.match(
-    /\b\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?\s+([a-zA-Zа-яА-ЯёЁ0-9._-]{2,30})\s*$/,
+    /\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?\s+([a-zA-Zа-яА-ЯёЁ0-9._-]{2,30})\s*$/,
   );
   if (tailCab) cabinet = tailCab[1];
   if (!cabinet) {
-    const cabMatch = lower.match(/\b(?:кабинет|cabinet)\s+([a-zа-яё0-9._-]{2,40})/i) ||
-      lower.match(/\b(baza|zevina|saai|elium|сaaи|база|зевина|элиум)\b/i);
+    const cabMatch = lower.match(/(?:^|[\s,.:;!?/\\|])(?:кабинет|cabinet)\s+([a-zа-яё0-9._-]{2,40})(?:$|[\s,.:;!?/\\|])/i) ||
+      lower.match(/(?:^|[\s,.:;!?/\\|])(baza|zevina|saai|elium|сааи|база|зевина|элиум)(?:$|[\s,.:;!?/\\|])/i);
     if (cabMatch) cabinet = cabMatch[1];
   }
 

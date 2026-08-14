@@ -48,6 +48,13 @@ Deno.test("ads product hint + campaign filter", () => {
   assert(
     extractAdsProductHint("запусти рк база лапша белая").toLowerCase().includes("лапша"),
   );
+  assertEquals(
+    extractAdsProductHint("/ads запуск baza").toLowerCase().replace(/\s+/g, ""),
+    "",
+  );
+  assert(
+    !extractAdsProductHint("/ads запуск лапша белая").toLowerCase().includes("запуск"),
+  );
   const items = [
     { id: 1, name: "Блузка-лапша-белый", status: 11 },
     { id: 2, name: "Блузка_фонарь_черный", status: 11 },

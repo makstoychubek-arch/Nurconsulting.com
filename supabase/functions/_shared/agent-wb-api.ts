@@ -504,7 +504,7 @@ export function parseSizeRange(text: string): string[] | null {
     /(?:размер\w*|разм\.?)?\s*(?:с|от)?\s*(\d{2,3})\s*(?:по|до|-|–|—)\s*(\d{2,3})/i,
   );
   if (!m) {
-    const list = t.match(/\bразмеры?\s*((?:\d{2,3}[\s,ии]+){1,20}\d{2,3})/i);
+    const list = t.match(/(?:^|[\s,.:;!?/\\|])размеры?\s*((?:\d{2,3}[\s,ии]+){1,20}\d{2,3})/i);
     if (list) {
       const nums = list[1].match(/\d{2,3}/g) || [];
       return nums.length ? [...new Set(nums)] : null;

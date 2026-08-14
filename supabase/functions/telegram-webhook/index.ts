@@ -768,28 +768,29 @@ async function sendTelegramMediaGroup(
 }
 
 function wantsSalesQuery(text: string): boolean {
-    const lower = text.toLowerCase();
+    const lower = text.toLowerCase().replace(/ё/g, 'е');
     // Не отвечаем на пересланные авто-отчёты (caption: «отчёт за 23.07.2026»).
-    if (/\bотч[её]t\s+за\s+\d{1,2}[./]\d{1,2}/i.test(lower)) return false;
-    if (/\b(продаж|заказ|выкуп|sales|help|помощь)\b/i.test(lower)) return true;
-    if (/\b(вчера|позавчера|сегодня)\b/i.test(lower)) return true;
-    if (/\b\d{1,2}[./]\d{1,2}/.test(text)) return true;
+    if (/отч[её]?т\s+за\s+\d{1,2}[./]\d{1,2}/i.test(lower)) return false;
+    // без \b — кириллица
+    if (/(продаж|заказ|выкуп|sales|help|помощь)/i.test(lower)) return true;
+    if (/(вчера|позавчера|сегодня)/i.test(lower)) return true;
+    if (/\d{1,2}[./]\d{1,2}/.test(text)) return true;
     return false;
 }
 
 function wantsPenaltiesQuery(text: string): boolean {
-    const lower = text.toLowerCase();
-    if (/\b(штраф|удерж|penalt|help|помощь)\b/i.test(lower)) return true;
-    if (/\b(вчера|позавчера|сегодня)\b/i.test(lower)) return true;
-    if (/\b\d{1,2}[./]\d{1,2}/.test(text)) return true;
+    const lower = text.toLowerCase().replace(/ё/g, 'е');
+    if (/(штраф|удерж|penalt|help|помощь)/i.test(lower)) return true;
+    if (/(вчера|позавчера|сегодня)/i.test(lower)) return true;
+    if (/\d{1,2}[./]\d{1,2}/.test(text)) return true;
     return false;
 }
 
 function wantsAdsQuery(text: string): boolean {
-    const lower = text.toLowerCase();
-    if (/\b(реклам|рк|ads|баланс|balance|ctr|расход|help|помощь)\b/i.test(lower)) return true;
-    if (/\b(вчера|пozavчera|сегодня)\b/i.test(lower)) return true;
-    if (/\b\d{1,2}[./]\d{1,2}/.test(text)) return true;
+    const lower = text.toLowerCase().replace(/ё/g, 'е');
+    if (/(реклам|рк|ads|баланс|balance|ctr|расход|help|помощь)/i.test(lower)) return true;
+    if (/(вчера|позавчера|сегодня)/i.test(lower)) return true;
+    if (/\d{1,2}[./]\d{1,2}/.test(text)) return true;
     return false;
 }
 
@@ -798,7 +799,9 @@ function wantsChatId(text: string, chatType: string): boolean {
     const t = text.toLowerCase().trim();
     if (/^\/(id|айди|chatid)(@\w+)?$/i.test(t)) return true;
     if (chatType === 'private' && /^(айди|id|chatid|chat_id)$/i.test(t)) return true;
-    return /\b(айди|id|chatid|chat_id)\b/i.test(t);
+    // \b не работает с кириллицей — отдельно
+    if (/(?:^|[\s,.:;!?/\\|])айди(?=$|[\s,.:;!?/\\|])/i.test(t)) return true;
+    return /(?:^|[\s,.:;!?/\\|])(id|chatid|chat_id)(?=$|[\s,.:;!?/\\|])/i.test(t);
 }
 
 function isBotMentioned(

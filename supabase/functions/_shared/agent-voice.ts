@@ -513,7 +513,7 @@ export function karinaVerdict(line: string): string {
 export function maybeValencePrefix(text: string): string {
   const t = String(text || '').trim();
   if (!t || t.length < 12 || t.length > 900) return t;
-  if (/^(ага|угу|ок|йо|хм|мм|норм|неплохо)\b/i.test(t)) return t;
+  if (/^(ага|угу|ок|йо|хм|мм|норм|неплохо)(?=$|[\s,.:;!?])/i.test(t)) return t;
   if (Math.random() > 0.2) return t;
 
   const up =

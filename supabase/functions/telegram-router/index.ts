@@ -771,7 +771,7 @@ async function runAgentTurn(opts: {
     targetAgent === "muha" &&
     !fromAgent &&
     wantsPhoto(rootTask) &&
-    !/(главн\w*\s+фото|фото\s+(фонар|вырез|блузк|с\s*вб)|дай.*фото.*(фонар|вырез|блузк))/i
+    !/(главн[а-яё]*\s+фото|фото\s+(фонар|вырез|блузк|с\s*вб)|дай.*фото.*(фонар|вырез|блузк))/i
       .test(rootTask)
   ) {
     await sendTelegramMessage("muha", chatId, muhaPhotoBusy(), replyToMessageId);
@@ -1234,11 +1234,6 @@ serve(async (req) => {
 
       // handled без reply = чужой bot проглотил команду специалиста (early exit)
       if (fast.handled) return ok();
-
-      // /ads start baza → не fast-reply, но нужен агент amina (ниже pending/actions)
-      if (fast.agentKey && fast.agentKey !== triggeringBot && !isMetaCmd) {
-        // другой webhook дойдёт до своего бота
-      }
     }
 
     // ── «что умеешь» — названный бот (или sticky) перечисляет СВОЮ зону ────

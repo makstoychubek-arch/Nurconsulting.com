@@ -118,21 +118,22 @@ function parseBrandValue(text: string): string | null {
   );
   if (m) return m[1].replace(/^(поменяй|измени|смени|поставь)\s+/i, '').trim();
   if (/^бренд\s+/i.test(t)) return t.replace(/^бренд\s+/i, '').trim() || null;
-  // после «бренд на X»
-  const m2 = t.match(/\bна\s+[«"']?([^«"'\n,]{2,60})[»"']?\s*$/i);
+  // после «бренд на X» — \b перед кириллицей не работает
+  const m2 = t.match(/(?:^|[\s,.:;!?/\\|])на\s+[«"']?([^«"'\n,]{2,60})[»"']?\s*$/i);
   if (m2 && /бренд/i.test(t)) return m2[1].trim();
   return null;
 }
 
 function parseSeoPatch(text: string): { title?: string; description?: string } {
   const t = String(text || '').trim();
+  // \w* — ASCII; для кириллицы [а-яё]*
   const title =
-    t.match(/(?:назван\w*|тайтл|title)\s*[:=]?\s*[«"']?([^«"'\n]{5,200})[»"']?/i)?.[1]
+    t.match(/(?:назван[а-яё]*|тайтл|title)\s*[:=]?\s*[«"']?([^«"'\n]{5,200})[»"']?/i)?.[1]
       ?.trim();
   const description =
-    t.match(/(?:описан\w*|сео|seo|текст)\s*[:=]?\s*[«"']?([^«"'\n]{20,2000})[»"']?/i)?.[1]
+    t.match(/(?:описан[а-яё]*|сео|seo|текст)\s*[:=]?\s*[«"']?([^«"'\n]{20,2000})[»"']?/i)?.[1]
       ?.trim() ||
-    t.match(/описан\w*\s+на\s+[«"']?([^«"'\n]{20,2000})[»"']?/i)?.[1]?.trim();
+    t.match(/описан[а-яё]*\s+на\s+[«"']?([^«"'\n]{20,2000})[»"']?/i)?.[1]?.trim();
   return { title, description };
 }
 
@@ -297,7 +298,7 @@ async function resolveCardTarget(
     return { card };
   }
   const hint = stripCabinetAliases(text)
-    .replace(/(поменя[йть]|измени|смен[иь]|обнови|перепиши|напиши|бренд|сео|seo|описан\w*|назван\w*)/gi, ' ')
+    .replace(/(поменя[йть]|измени|смен[иь]|обнови|перепиши|напиши|бренд|сео|seo|описан[а-яё]*|назван[а-яё]*)/gi, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   if (hint.length >= 3) {

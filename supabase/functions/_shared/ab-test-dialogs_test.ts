@@ -19,12 +19,14 @@ Deno.test('extractNmId: labeled and bare', () => {
 Deno.test('parseAbIntent: human phrases', () => {
   assertEquals(parseAbIntent('какие тесты крутятся?').intent, 'list');
   assertEquals(parseAbIntent('тесты').intent, 'list');
+  assertEquals(parseAbIntent('активные тесты').intent, 'list');
   assertEquals(parseAbIntent('помощь').intent, 'help');
   assertEquals(parseAbIntent('что умеешь').intent, 'help');
   assertEquals(parseAbIntent('как запустить тест').intent, 'how_start');
   assertEquals(parseAbIntent('скинь отчёт 123456789').intent, 'report');
   assertEquals(parseAbIntent('скинь отчёт 123456789').nmId, 123456789);
   assertEquals(parseAbIntent('смени фото 123456789').intent, 'rotate');
+  assertEquals(parseAbIntent('следующий вариант 123456789').intent, 'rotate');
   assertEquals(parseAbIntent('кто выигрывает 123456789').intent, 'winner');
   assertEquals(parseAbIntent('как там 123456789').intent, 'detail');
   assertEquals(parseAbIntent('123456789').intent, 'detail');

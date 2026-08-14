@@ -241,7 +241,11 @@ async function ensureCampaignFresh(): Promise<Campaign | null> {
  */
 export async function tryAlinaSheetCommand(text: string): Promise<string | null> {
   const t = text.trim();
-  if (!/^(алина\s+)?(таблица|кабинет|sheet)\b/i.test(t) && !/^\/sheet\b/i.test(t)) {
+  // \b после кириллицы в JS не работает
+  if (
+    !/^(алина\s+)?(таблица|кабинет|sheet)(?=$|[\s,.:;!?/\\|])/i.test(t) &&
+    !/^\/sheet(?:@\w+)?(?=$|[\s,.:;!?/\\|])/i.test(t)
+  ) {
     return null;
   }
 
@@ -271,7 +275,7 @@ export async function tryAlinaSheetCommand(text: string): Promise<string | null>
   };
   cabinetKey = cabMap[cabinetKey] || cabinetKey;
 
-  if (/^(алина\s+)?кабинет\b/i.test(t) && !sheetId) {
+  if (/^(алина\s+)?кабинет(?=$|[\s,.:;!?/\\|])/i.test(t) && !sheetId) {
     // переключить активный кабинет
     const { data: row } = await db
       .from('alina_cabinet_sheets')
@@ -341,12 +345,18 @@ export async function tryAlinaOfferCommand(text: string): Promise<string | null>
   if (sheetCmd) return sheetCmd;
 
   const t = text.trim();
-  if (!/^(алина\s+)?оффер\b/i.test(t) && !/^\/offer\b/i.test(t)) return null;
+  // \b после кириллицы в JS не работает
+  if (
+    !/^(алина\s+)?оффер(?=$|[\s,.:;!?/\\|])/i.test(t) &&
+    !/^\/offer(?:@\w+)?(?=$|[\s,.:;!?/\\|])/i.test(t)
+  ) {
+    return null;
+  }
 
   const db = admin();
-  const lower = t.toLowerCase();
+  const lower = t.toLowerCase().replace(/ё/g, 'е');
 
-  if (/\b(закр|закрыт|стоп|off|ended)\b/i.test(lower)) {
+  if (/(?:^|[\s,.:;!?/\\|])(закрыт|закрыть|закрой|закр|стоп|off|ended)(?=$|[\s,.:;!?/\\|])/i.test(lower)) {
     await upsertCampaign(db, { is_open: false, slots_left: 0 });
     return 'Оффер закрыт. Клиентам: «на сегодня раздачи закончены».';
   }
@@ -356,11 +366,12 @@ export async function tryAlinaOfferCommand(text: string): Promise<string | null>
     updated_at: new Date().toISOString(),
   };
 
-  if (/\bбартер\b/i.test(t) && /\bкэш\b|\bкеш\b|\bcashback\b/i.test(t)) {
+  if (/(?:^|[\s,.:;!?/\\|])бартер(?=$|[\s,.:;!?/\\|])/i.test(t) &&
+    /(?:^|[\s,.:;!?/\\|])(кэш|кеш|cashback)(?=$|[\s,.:;!?/\\|])/i.test(t)) {
     patch.deal_type = 'both';
-  } else if (/\bбартер\b/i.test(t)) {
+  } else if (/(?:^|[\s,.:;!?/\\|])бартер(?=$|[\s,.:;!?/\\|])/i.test(t)) {
     patch.deal_type = 'barter';
-  } else if (/\bкэш|\bкеш|cashback|самовыкуп/i.test(t)) {
+  } else if (/(кэш|кеш|cashback|самовыкуп)/i.test(t)) {
     patch.deal_type = 'cashback';
   }
 
@@ -380,7 +391,7 @@ export async function tryAlinaOfferCommand(text: string): Promise<string | null>
   const deadline = t.match(/срок\s*[:=]\s*(.+?)(?:\s+ключ\s*[:=]|\s+товар\s*[:=]|$)/i);
   if (deadline) patch.order_deadline = deadline[1].trim();
 
-  if (/\bоткрыт|open|актуальн/i.test(lower)) patch.is_open = true;
+  if (/(открыт|open|актуальн)/i.test(lower)) patch.is_open = true;
 
   const camp = await upsertCampaign(db, patch);
   return [
@@ -749,7 +760,7 @@ export async function handleAlinaClientMessage(opts: {
 
   // ── tz_sent: ключ сразу или скрин ────────────────────────────────────────
   if (lead.status === 'tz_sent') {
-    if (wantsKey(text) || /готов|ознаком|прочитал|понял|ок\b|хорошо|давай|дальше/i.test(text)) {
+    if (wantsKey(text) || /готов|ознаком|прочитал|понял|(?:^|[\s,.:;!?/\\|])ок(?=$|[\s,.:;!?/\\|])|хорошо|давай|дальше/i.test(text)) {
       return await sendKeyFlow(db, lead, camp, text);
     }
     if (hasPhoto) {
@@ -1227,12 +1238,12 @@ function detectDealType(text: string): DealType | null {
 
 function wantsTz(text: string): boolean {
   return /^(тз|tz|инструкц|условия|ознаком)/i.test(text) ||
-    /\b(пришли|скинь|ещё раз|еще раз).{0,20}(тз|инструкц)/i.test(text);
+    /(?:^|[\s,.:;!?/\\|])(пришли|скинь|ещё раз|еще раз).{0,20}(тз|инструкц)/i.test(text);
 }
 
 function wantsKey(text: string): boolean {
-  return /^(ключ|ключев|запрос)\b/i.test(text) ||
-    /\b(дай|пришли|скинь|нужен).{0,15}ключ/i.test(text) ||
+  return /^(ключ|ключев|запрос)(?=$|[\s,.:;!?/\\|])/i.test(text) ||
+    /(?:^|[\s,.:;!?/\\|])(дай|пришли|скинь|нужен).{0,15}ключ/i.test(text) ||
     /ключево(е|й)\s+(слово|запрос)/i.test(text);
 }
 
@@ -1831,7 +1842,12 @@ export async function alinaSelfbuyStatsText(): Promise<string> {
 
 export function isAlinaStatsQuestion(text: string): boolean {
   const t = text.toLowerCase();
-  if (/^(алина\s+)?оффер\b/i.test(text) || /^\/offer\b/i.test(text)) return false;
+  if (
+    /^(алина\s+)?оффер(?=$|[\s,.:;!?/\\|])/i.test(text) ||
+    /^\/offer(?:@\w+)?(?=$|[\s,.:;!?/\\|])/i.test(text)
+  ) {
+    return false;
+  }
   const asksCount = t.includes('сколько') || t.includes('статус') || t.includes('итог');
   if (!asksCount) return false;
   return (

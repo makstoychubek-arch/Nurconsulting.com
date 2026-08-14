@@ -240,15 +240,27 @@ export function formatCampaignList(
 /** Вытащить товар из фразы про РК («запусти рк лапша белая база»). */
 export function extractAdsProductHint(text: string): string {
   let t = stripCabinetAliases(text);
-  t = t
-    .replace(
-      /\b(рк|реклам\w*|кампан\w*|аукцион\w*|запуст\w*|пауз\w*|пополни\w*|список|покажи|какие|статус|активн\w*|готов\w*|сегодня|нужно|надо|давай|пожалуйста|плиз|и|на|по|в|с)\b/gi,
-      " ",
-    )
-    .replace(/[^\p{L}\p{N}\s\-]/gu, " ")
-    .replace(/\s+/g, " ")
+  t = t.replace(/[^\p{L}\p{N}\s\-]/gu, " ").replace(/\s+/g, " ").trim();
+  // \b ломает кириллицу — режем токенами / префиксами
+  const stopExact = new Set([
+    "рк", "и", "на", "по", "в", "с", "к", "а", "у", "из", "для",
+    "список", "покажи", "какие", "статус", "сегодня", "нужно", "надо",
+    "давай", "пожалуйста", "плиз", "help", "помощь", "start", "pause",
+    "запуск", "запусти", "пауза", "ads", "ad",
+  ]);
+  const stopPrefix =
+    /^(реклам|кампан|аукцион|запуст|пауз|пополни|активн|готов)/i;
+  return t
+    .split(/\s+/)
+    .filter((w) => w.length >= 2)
+    .filter((w) => {
+      const low = w.toLowerCase().replace(/ё/g, "е");
+      if (stopExact.has(low)) return false;
+      if (stopPrefix.test(low)) return false;
+      return true;
+    })
+    .join(" ")
     .trim();
-  return t;
 }
 
 export function filterCampaignsByProduct(

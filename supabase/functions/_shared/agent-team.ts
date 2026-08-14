@@ -65,7 +65,7 @@ export function detectTopicalAgents(text: string): string[] {
     lower.includes("самовыкуп") ||
     (lower.includes("таблиц") && /(выкуп|кэш|кеш|бартер|раздач)/i.test(lower));
   const wbCardPhoto =
-    /главн\w*\s+фото|фото\s+(фонар|вырез|блузк|товар|с\s*вб)/i.test(lower) ||
+    /главн[а-яё]*\s+фото|фото\s+(фонар|вырез|блузк|товар|с\s*вб)/i.test(lower) ||
     (/(дай|скинь|пришли|покажи).{0,16}фото/i.test(lower) &&
       /(фонар|вырез|блузк|бел|черн)/i.test(lower));
 
