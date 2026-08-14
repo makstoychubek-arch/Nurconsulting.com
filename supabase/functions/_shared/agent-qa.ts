@@ -6,8 +6,8 @@
  *  - «Антон, сколько остаток кабинет база блузки белой фонаря»
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { resolveCabinet, listCabinets } from './agent-actions.ts';
+import { getAdminClient } from './supabase-admin.ts';
 import {
   fetchSheetPlan,
   listAllProductChoices,
@@ -61,10 +61,7 @@ export type TeamQaResult = {
 };
 
 function admin() {
-  return createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-  );
+  return getAdminClient();
 }
 
 function namedAgents(text: string): string[] {
@@ -340,7 +337,11 @@ async function answerStock(text: string): Promise<TeamQaResult> {
     return {
       handled: true,
       agentKey: 'anton',
-      reply: `Не понял товар в ${cabinet.name}. Пример: «жилетка темно синяя» / «фонарь белый»`,
+      reply: pick([
+        'Не понял товар в ' + cabinet.name + '. Пример: «жилетка темно синяя» / «фонарь белый»',
+        cabinet.name + ': какая модель/цвет? Например «лапша белая»',
+        'Уточни товар по ' + cabinet.name + ' — фасон + цвет',
+      ]),
     };
   }
 

@@ -3,7 +3,8 @@
  * ротация стартера → погода (open-meteo) → LLM-старт → hop-реакции коллег.
  */
 
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getAdminClient } from "./supabase-admin.ts";
 import { bishkekNowParts } from "./agent-ad-schedule.ts";
 import { AGENT_PROMPTS } from "./agent-personas.ts";
 import {
@@ -67,10 +68,7 @@ const WMO_RU: Record<number, string> = {
 };
 
 function admin(): SupabaseClient {
-  return createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-  );
+  return getAdminClient();
 }
 
 export function morningMaxHops(): number {

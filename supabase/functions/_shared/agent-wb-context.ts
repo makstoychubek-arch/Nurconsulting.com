@@ -1,7 +1,8 @@
 // Краткая сводка WB по всем кабинетам для Telegram-агентов.
 // Цель: коротко, цифры, без простыней. Кэш на один запрос цепочки.
 
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getAdminClient } from "./supabase-admin.ts";
 
 const STATS_API = "https://statistics-api.wildberries.ru";
 
@@ -99,6 +100,20 @@ async function getSharedBlock(
     if (kind === "sales") bag.salesBlock = lines;
     else if (kind === "ads") bag.adsLines = lines;
     else bag.fbsLines = lines;
+    // публикуем блок сразу — другие агенты не ждут конца всего build
+    if (!wbCacheDisabled()) {
+      const ts = Date.now();
+      globalShared = {
+        ts: globalShared?.ts && Date.now() - globalShared.ts < globalWbTtlMs()
+          ? globalShared.ts
+          : ts,
+        salesBlock: kind === "sales" ? lines : (bag.salesBlock ?? globalShared?.salesBlock),
+        adsLines: kind === "ads" ? lines : (bag.adsLines ?? globalShared?.adsLines),
+        fbsLines: kind === "fbs" ? lines : (bag.fbsLines ?? globalShared?.fbsLines),
+      };
+      // refresh ts on any block update
+      globalShared.ts = ts;
+    }
     return lines;
   } finally {
     inflightShared.delete(kind);
@@ -212,10 +227,7 @@ async function mapPool<T, R>(
 }
 
 function adminClient(): SupabaseClient {
-  return createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-  );
+  return getAdminClient();
 }
 
 async function loadSalesBlock(
@@ -314,22 +326,31 @@ export async function buildAgentWbContext(
       agent === "alina" ||
       agent === "muha" ||
       agent === "anton";
+    const needsAds = agent === "amina" || agent === "karina";
+    const needsFbs = agent === "anton" || agent === "karina" || agent === "saule";
 
-    if (needsSales) {
-      await getSharedBlock("sales", bag, () => loadSalesBlock(supabase, yDay, tDay));
-    }
+    // параллельно: sales (WB) + ads/fbs (DB) — wall time ≈ max, не sum
+    await Promise.all([
+      needsSales
+        ? getSharedBlock("sales", bag, () => loadSalesBlock(supabase, yDay, tDay))
+        : Promise.resolve(null),
+      needsAds
+        ? getSharedBlock("ads", bag, () => loadAdsBrief(supabase))
+        : Promise.resolve(null),
+      needsFbs
+        ? getSharedBlock("fbs", bag, () => loadFbsBrief(supabase, yDay, tDay))
+        : Promise.resolve(null),
+    ]);
 
     if (agent === "saule" || agent === "karina" || agent === "alina") {
       lines.push("", "=== ПРОДАЖИ / ЗАКАЗЫ ===", ...(bag.salesBlock || []));
     }
 
-    if (agent === "amina" || agent === "karina") {
-      await getSharedBlock("ads", bag, () => loadAdsBrief(supabase));
+    if (needsAds) {
       lines.push("", "=== РЕКЛАМА ===", ...(bag.adsLines || []));
     }
 
-    if (agent === "anton" || agent === "karina" || agent === "saule") {
-      await getSharedBlock("fbs", bag, () => loadFbsBrief(supabase, yDay, tDay));
+    if (needsFbs) {
       lines.push("", "=== FBS ===", ...(bag.fbsLines || []));
     }
 

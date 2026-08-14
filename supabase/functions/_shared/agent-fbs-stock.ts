@@ -8,7 +8,8 @@
  *  - «остаток фбс укороченный костюм черный» → сам кабинет (Zevina 1 / Уркунбаев)
  */
 
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getAdminClient } from './supabase-admin.ts';
 import {
   cancelOtherPending,
   getActivePending,
@@ -120,10 +121,7 @@ function isNoText(text: string): boolean {
 }
 
 function admin(): SupabaseClient {
-  return createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-  );
+  return getAdminClient();
 }
 
 export function wantsFbsStock(text: string): boolean {
@@ -320,7 +318,14 @@ async function loadCabinetToken(cabinetId: string): Promise<{
   return { name: String(data.name), token };
 }
 
+const whCache = new Map<string, { at: number; list: Wh[] }>();
+const WH_TTL_MS = 120_000;
+
 export async function fetchSellerWarehouses(token: string): Promise<Wh[]> {
+  const key = token.slice(0, 24);
+  const hit = whCache.get(key);
+  if (hit && Date.now() - hit.at < WH_TTL_MS) return hit.list;
+
   const res = await fetch('https://marketplace-api.wildberries.ru/api/v3/warehouses', {
     headers: { Authorization: token, Accept: 'application/json' },
     signal: AbortSignal.timeout(20000),
@@ -331,12 +336,14 @@ export async function fetchSellerWarehouses(token: string): Promise<Wh[]> {
   }
   const data = await res.json();
   const list = Array.isArray(data) ? data : [];
-  return list
+  const out = list
     .map((w: Record<string, unknown>) => ({
       id: Number(w.id),
       name: String(w.name || w.id),
     }))
     .filter((w: Wh) => Number.isFinite(w.id) && w.id > 0);
+  whCache.set(key, { at: Date.now(), list: out });
+  return out;
 }
 
 async function fetchCardSkus(
@@ -508,21 +515,21 @@ async function loadCabinetArticles(
   return out;
 }
 
-async function sizeRowForCard(opts: {
-  token: string;
+async function sizeRowFromStockMaps(opts: {
   article: string;
   name: string;
   sizes: Array<{ techSize: string; skus: string[] }>;
-  warehouses: Wh[];
+  stockMaps: Array<Map<string, number>>;
 }): Promise<FbsSizeTableRow | null> {
   const sizes: Record<string, number> = {};
   let total = 0;
+  const allSkus = [...new Set(opts.sizes.flatMap((s) => s.skus).filter(Boolean))];
+  if (!allSkus.length) return null;
   for (const sz of opts.sizes) {
     const label = (sz.techSize || '—').trim() || '—';
     let qty = 0;
-    for (const wh of opts.warehouses) {
-      const stocks = await fetchWarehouseStocks(opts.token, wh.id, sz.skus);
-      for (const v of stocks.values()) qty += v;
+    for (const sku of sz.skus) {
+      for (const m of opts.stockMaps) qty += m.get(sku) || 0;
     }
     if (qty > 0) sizes[label] = (sizes[label] || 0) + qty;
     total += qty;
@@ -531,6 +538,28 @@ async function sizeRowForCard(opts: {
   const article = opts.article || opts.name || '—';
   const name = opts.name || opts.article || '—';
   return { article, name, title: article, sizes, total };
+}
+
+async function sizeRowForCard(opts: {
+  token: string;
+  article: string;
+  name: string;
+  sizes: Array<{ techSize: string; skus: string[] }>;
+  warehouses: Wh[];
+  /** если уже загружены stocks по складам — без повторных WB-запросов */
+  stockMaps?: Array<Map<string, number>>;
+}): Promise<FbsSizeTableRow | null> {
+  const allSkus = [...new Set(opts.sizes.flatMap((s) => s.skus).filter(Boolean))];
+  if (!allSkus.length) return null;
+  const stockMaps = opts.stockMaps || await Promise.all(
+    opts.warehouses.map((wh) => fetchWarehouseStocks(opts.token, wh.id, allSkus)),
+  );
+  return sizeRowFromStockMaps({
+    article: opts.article,
+    name: opts.name,
+    sizes: opts.sizes,
+    stockMaps,
+  });
 }
 
 async function maybeRenderTable(
@@ -623,20 +652,52 @@ async function formatWarehouseOverview(opts: {
   }
 
   const tableRows: FbsSizeTableRow[] = [];
-  for (const art of articles) {
-    const card = await fetchCardSkus(auth.token, art.nm_id);
-    if (!card.skus.length) continue;
-    const row = await sizeRowForCard({
-      token: auth.token,
-      article: card.vendor || art.title,
-      name: card.title || art.title || card.vendor,
-      sizes: card.sizes.length
-        ? card.sizes
-        : [{ techSize: '—', skus: card.skus }],
-      warehouses: selected,
+  // Phase 1: карточки пулом 4 (Content API)
+  const artLimit = wantTable ? 28 : 14;
+  const arts = articles.slice(0, artLimit);
+  type CardPack = {
+    article: string;
+    name: string;
+    sizes: Array<{ techSize: string; skus: string[] }>;
+  };
+  const packs: CardPack[] = [];
+  let cursor = 0;
+  async function cardWorker() {
+    while (cursor < arts.length) {
+      const idx = cursor++;
+      const art = arts[idx];
+      const card = await fetchCardSkus(auth.token, art.nm_id);
+      if (!card.skus.length) continue;
+      packs.push({
+        article: card.vendor || art.title,
+        name: card.title || art.title || card.vendor,
+        sizes: card.sizes.length
+          ? card.sizes
+          : [{ techSize: '—', skus: card.skus }],
+      });
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(4, arts.length) }, () => cardWorker()));
+
+  // Phase 2: один stocks-запрос на склад по ВСЕМ SKU сводной (не article×warehouse)
+  const allSkus = [...new Set(packs.flatMap((p) => p.sizes.flatMap((s) => s.skus)).filter(Boolean))];
+  const stockMaps = allSkus.length
+    ? await Promise.all(
+      selected.map((wh) => fetchWarehouseStocks(auth.token, wh.id, allSkus)),
+    )
+    : [];
+
+  for (const p of packs) {
+    const row = await sizeRowFromStockMaps({
+      article: p.article,
+      name: p.name,
+      sizes: p.sizes,
+      stockMaps,
     });
     if (row) tableRows.push(row);
   }
+  // стабильный порядок как в articles
+  tableRows.sort((a, b) => a.article.localeCompare(b.article, 'ru'));
   tableRows.sort((a, b) => b.total - a.total);
 
   const whLabel = selected.map((w) => w.name).join(', ');
@@ -720,8 +781,23 @@ async function formatStocksForCabinet(opts: {
   const lines: string[] = [antonStocksLead(human, Boolean(opts.minimal))];
   const whLabel = selected.map((w) => w.name).join(', ');
 
-  for (const p of products.slice(0, opts.minimal ? 2 : 4)) {
+  const slice = products.slice(0, opts.minimal ? 2 : 4);
+  const packs = await Promise.all(slice.map(async (p) => {
     const card = await fetchCardSkus(auth.token, p.nm_id);
+    return { p, card };
+  }));
+  const allSkus = [
+    ...new Set(
+      packs.flatMap(({ card }) => card.skus).filter(Boolean),
+    ),
+  ];
+  const stockMaps = allSkus.length
+    ? await Promise.all(
+      selected.map((wh) => fetchWarehouseStocks(auth.token, wh.id, allSkus)),
+    )
+    : [];
+
+  for (const { p, card } of packs) {
     if (!card.skus.length) {
       lines.push(
         opts.minimal
@@ -730,14 +806,13 @@ async function formatStocksForCabinet(opts: {
       );
       continue;
     }
-    const row = await sizeRowForCard({
-      token: auth.token,
+    const row = await sizeRowFromStockMaps({
       article: card.vendor || p.title,
       name: card.title || p.title || card.vendor,
       sizes: card.sizes.length
         ? card.sizes
         : [{ techSize: '—', skus: card.skus }],
-      warehouses: selected,
+      stockMaps,
     });
     if (!row) {
       lines.push(`• ${card.vendor || p.title}: 0 шт`);

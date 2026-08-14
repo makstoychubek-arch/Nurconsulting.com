@@ -4,13 +4,20 @@
 // Один webhook (?bot=) оркестрирует цепочку: ответ → @пинг/план → следующий агент.
 
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   buildAgentWbContext,
   createWbContextCache,
   type AgentKey,
   type WbContextCache,
 } from "../_shared/agent-wb-context.ts";
+import { getAdminClient } from "../_shared/supabase-admin.ts";
+import {
+  getChatDialogState,
+  isFbsDialogPending,
+  isPriceDialogPending,
+  lockedAgentFromState,
+  uniqueNamedAgents,
+} from "../_shared/agent-dialog-state.ts";
 import {
   alinaRecentDialogs,
   alinaSelfbuyStatsText,
@@ -27,7 +34,6 @@ import { teamQaFactsForAgent, tryTeamSmartQa } from "../_shared/agent-qa.ts";
 import {
   continueFbsStockDialog,
   handleFbsStockCallback,
-  hasActiveFbsStockDialog,
   isFbsStockCallback,
   startFbsStockDialog,
   wantsFbsStock,
@@ -35,12 +41,10 @@ import {
 } from "../_shared/agent-fbs-stock.ts";
 import {
   continuePriceChangeDialog,
-  hasActivePriceDialog,
   startPriceChangeDialog,
   wantsPriceChange,
 } from "../_shared/agent-price-change.ts";
 import {
-  getChatFocus,
   isLikelyFollowUp,
   setChatFocus,
   sweepExpiredPendings,
@@ -60,7 +64,6 @@ import {
 } from "../_shared/agent-team.ts";
 import {
   actionsCapabilityBrief,
-  getActivePending,
   handleOwnerActionMessage,
   isCancelText,
   isConfirmText,
@@ -94,7 +97,6 @@ import {
 // ---------- Настройка ----------
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY")!;
 
 const BOT_TOKENS: Record<string, string> = {
@@ -109,7 +111,17 @@ const BOT_TOKENS: Record<string, string> = {
 
 const MAX_AGENT_HOPS = clampHops(Deno.env.get("AGENT_CHAT_MAX_HOPS"), 3);
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+const supabase = getAdminClient();
+
+/** AGENT_HUMAN_PAUSE=0 — без искусственных пауз (быстрее в проде/тестах). */
+function humanPausesEnabled(): boolean {
+  try {
+    const v = (Deno.env.get("AGENT_HUMAN_PAUSE") || "1").trim().toLowerCase();
+    return !(v === "0" || v === "false" || v === "off" || v === "no");
+  } catch {
+    return true;
+  }
+}
 
 // Антидубль Telegram retries в рамках одного isolate
 const recentUpdateIds = new Map<number, number>();
@@ -669,39 +681,49 @@ async function runAgentTurn(opts: {
     return;
   }
 
-  // Параллельно: история + WB (standing tasks редко нужны — лениво)
-  const historyP = loadRecentHistory(chatId);
-  let wbContext = "";
-  try {
-    wbContext = await buildAgentWbContext(targetAgent as AgentKey, wbCache);
-  } catch (e) {
-    console.error("[telegram-router] wb context", e);
-    wbContext = "Не удалось загрузить отчёты WB. Скажи об этом коротко.";
-  }
-
-  if (targetAgent === "alina") {
-    try {
-      wbContext += `\n\nCRM самовыкупы:\n${await alinaSelfbuyStatsText()}`;
-    } catch (e) {
-      console.error("[telegram-router] alina stats context", e);
-    }
-  }
-  try {
-    const qaFacts = await teamQaFactsForAgent(targetAgent, rootTask);
-    if (qaFacts) wbContext += `\n\n${qaFacts}`;
-  } catch (e) {
-    console.error("[telegram-router] qa facts", e);
-  }
-  if (wantsNewsDiscussion(rootTask) || wantsTeamBanter(rootTask) || looksLikeSharedLink(rootTask)) {
-    try {
-      const news = await recentMarketplaceNews(6);
-      wbContext += `\n\n${formatNewsFacts(news)}`;
-    } catch (e) {
-      console.error("[telegram-router] news facts", e);
-    }
-  }
-
-  const history = await historyP;
+  // Параллельно: история + WB + доп. факты (wall time ≈ max, не sum)
+  const needNews =
+    wantsNewsDiscussion(rootTask) ||
+    wantsTeamBanter(rootTask) ||
+    looksLikeSharedLink(rootTask);
+  const [history, wbParts] = await Promise.all([
+    loadRecentHistory(chatId),
+    (async () => {
+      let wb = "";
+      try {
+        wb = await buildAgentWbContext(targetAgent as AgentKey, wbCache);
+      } catch (e) {
+        console.error("[telegram-router] wb context", e);
+        wb = "Не удалось загрузить отчёты WB. Скажи об этом коротко.";
+      }
+      const extras = await Promise.all([
+        targetAgent === "alina"
+          ? alinaSelfbuyStatsText()
+            .then((s) => `\n\nCRM самовыкупы:\n${s}`)
+            .catch((e) => {
+              console.error("[telegram-router] alina stats context", e);
+              return "";
+            })
+          : Promise.resolve(""),
+        teamQaFactsForAgent(targetAgent, rootTask)
+          .then((qa) => (qa ? `\n\n${qa}` : ""))
+          .catch((e) => {
+            console.error("[telegram-router] qa facts", e);
+            return "";
+          }),
+        needNews
+          ? recentMarketplaceNews(6)
+            .then((news) => `\n\n${formatNewsFacts(news)}`)
+            .catch((e) => {
+              console.error("[telegram-router] news facts", e);
+              return "";
+            })
+          : Promise.resolve(""),
+      ]);
+      return wb + extras.join("");
+    })(),
+  ]);
+  const wbContext = wbParts;
   const historyFmt = formatHistory(history);
   const systemPrompt =
     (AGENT_PROMPTS[targetAgent] || AGENT_PROMPTS.saule) +
@@ -726,17 +748,17 @@ async function runAgentTurn(opts: {
   // «печатает…» как живой человек перед ответом
   await sendChatAction(targetAgent, chatId, "typing");
   // лёгкая пауза перед первым ответом (не hop) — будто думает
-  if (!fromAgent && hop === 0) {
+  if (humanPausesEnabled() && !fromAgent && hop === 0) {
     await new Promise((r) => setTimeout(r, 350 + Math.floor(Math.random() * 700)));
     await sendChatAction(targetAgent, chatId, "typing");
   }
 
-  // Свободный team plan / hop-диалог — качество рассуждения: full (gpt-4o)
+  // hop / ответ коллеге — fast model; первый ход от владельца — full
   const rawReply = await askOpenAI({
     systemPrompt,
     history: historyFmt,
     wbContext,
-    modelKind: "full",
+    modelKind: hop > 0 || fromAgent ? "fast" : "full",
     userMessage: fromAgent
       ? [
         `Вопрос владельца: ${rootTask}`,
@@ -783,8 +805,10 @@ async function runAgentTurn(opts: {
     : `${reply}\n\n(добавь коротко своё по зоне, без пересказа)`;
 
   // Пауза как у людей в чате (groupchat cooldown) — не барабанная очередь
-  const pauseMs = 900 + Math.floor(Math.random() * 1600);
-  await new Promise((r) => setTimeout(r, pauseMs));
+  if (humanPausesEnabled()) {
+    const pauseMs = 900 + Math.floor(Math.random() * 1600);
+    await new Promise((r) => setTimeout(r, pauseMs));
+  }
 
   await runAgentTurn({
     chatId,
@@ -950,6 +974,13 @@ serve(async (req) => {
     const chatId = Number(message.chat.id);
     // протухшие focus/диалоги — чтобы Карина не цеплялась за старый sticky
     await sweepExpiredPendings(chatId).catch(() => {});
+    // один раз на сообщение: named + focus/pending (дальше переиспользуем)
+    const namedOnce = uniqueNamedAgents(
+      text,
+      detectMentionedAgents,
+      detectNamedAgents,
+    );
+    let dialog = await getChatDialogState(chatId);
     const fullName = [message.from?.first_name, message.from?.last_name]
       .filter(Boolean)
       .join(" ")
@@ -990,7 +1021,7 @@ serve(async (req) => {
 
     // ── FBS-диалог логиста (кнопки/уточнения) — другие боты молчат ──────────
     {
-      const fbsActive = await hasActiveFbsStockDialog(chatId);
+      const fbsActive = isFbsDialogPending(dialog.pending);
       if (fbsActive) {
         if (triggeringBot !== "anton") return ok();
         const cont = await continueFbsStockDialog({
@@ -1015,18 +1046,15 @@ serve(async (req) => {
 
     // ── Смена цены (Сауле) — фокус, другие молчат ───────────────────────────
     {
-      const priceActive = await hasActivePriceDialog(chatId);
-      const namedPrice = [
-        ...detectMentionedAgents(text),
-        ...detectNamedAgents(text),
-      ];
+      const priceActive = isPriceDialogPending(dialog.pending);
       const switchAway =
         priceActive &&
-        namedPrice.length === 1 &&
-        namedPrice[0] !== "saule" &&
+        namedOnce.length === 1 &&
+        namedOnce[0] !== "saule" &&
         !wantsPriceChange(text);
       if (switchAway) {
-        await switchChatFocus(chatId, namedPrice[0], "switch_from_price", 15);
+        await switchChatFocus(chatId, namedOnce[0], "switch_from_price", 15);
+        dialog = await getChatDialogState(chatId);
       } else if ((priceActive || wantsPriceChange(text))) {
         if (triggeringBot !== "saule") return ok();
         const priceFn = priceActive ? continuePriceChangeDialog : startPriceChangeDialog;
@@ -1058,14 +1086,8 @@ serve(async (req) => {
 
     // ── Фокус чата: пока говорим с одним — остальные не встревают ──────────
     {
-      const namedNow = [
-        ...detectMentionedAgents(text),
-        ...detectNamedAgents(text),
-      ];
-      const uniqueNamed = [...new Set(namedNow)];
-      const focusEarly = await getChatFocus(chatId);
-      const pendingEarly = await getActivePending(chatId);
-      const lockedEarly = pendingEarly?.agent_key || focusEarly?.agent_key || null;
+      const uniqueNamed = namedOnce;
+      const lockedEarly = lockedAgentFromState(dialog);
 
       if (uniqueNamed.length === 1) {
         if (lockedEarly && uniqueNamed[0] !== lockedEarly) {
@@ -1074,11 +1096,11 @@ serve(async (req) => {
         } else {
           await setChatFocus(chatId, uniqueNamed[0], "named", 15);
         }
+        dialog = await getChatDialogState(chatId);
       }
 
-      const focus = await getChatFocus(chatId);
-      const pendingAny = await getActivePending(chatId);
-      const lockedAgent = pendingAny?.agent_key || focus?.agent_key || null;
+      const lockedAgent = lockedAgentFromState(dialog);
+      const pendingAny = dialog.pending;
 
       if (lockedAgent) {
         // Явно позвали другого — уже переключили выше; здесь только follow-up lock
@@ -1118,7 +1140,7 @@ serve(async (req) => {
 
     // ── Действия с подтверждением (РК и т.п.) ───────────────────────────────
     {
-      const pending = await getActivePending(chatId);
+      const pending = dialog.pending;
       if (pending?.action_type === "fbs_stock") {
         // уже обработано выше / ждём Антона
         if (triggeringBot !== "anton") return ok();
@@ -1370,16 +1392,11 @@ serve(async (req) => {
 
     // ── Короткое «спасибо/ок» — живой ack без LLM ───────────────────────────
     if (isShortSocialAck(text)) {
-      const pendingAck = await getActivePending(chatId);
+      const pendingAck = dialog.pending;
       // не перехватывать «ок/да» в середине диалога цены/РК/FBS
       if (!pendingAck) {
-        const focusAck = await getChatFocus(chatId);
-        const sticky = focusAck?.agent_key || null;
-        const namedAck = [
-          ...detectMentionedAgents(text),
-          ...detectNamedAgents(text),
-        ];
-        const who = namedAck[0] || sticky || "karina";
+        const sticky = dialog.focus?.agent_key || null;
+        const who = namedOnce[0] || sticky || "karina";
         const resolved = resolveSpeakAndOrchestrator([who], triggeringBot);
         if (resolved && triggeringBot === resolved.orchestrator) {
           const reply = shortSocialAckReply(resolved.speakAs);
@@ -1435,13 +1452,9 @@ serve(async (req) => {
       }
     }
 
-    const focusEnd = await getChatFocus(chatId);
-    const pendingEnd = await getActivePending(chatId);
-    const stickyAgent = pendingEnd?.agent_key || focusEnd?.agent_key || null;
-    const namedForPlan = [
-      ...detectMentionedAgents(text),
-      ...detectNamedAgents(text),
-    ];
+    const stickyAgent = lockedAgentFromState(dialog);
+    const pendingEnd = dialog.pending;
+    const namedForPlan = namedOnce;
     let plan = buildTeamPlan(
       text,
       message.entities,

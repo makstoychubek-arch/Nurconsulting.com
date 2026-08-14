@@ -3,7 +3,7 @@
  * Правило: НИЧЕГО не меняем без явного «подтверждаю» от человека в чате.
  */
 
-import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   aminaAskCabinet,
   aminaAskProduct,
@@ -13,6 +13,7 @@ import {
 } from "./agent-voice.ts";
 import { scoreProductMatch } from "./agent-product-catalog.ts";
 import { setChatFocus } from "./agent-chat-focus.ts";
+import { getAdminClient } from "./supabase-admin.ts";
 
 export type PendingStatus =
   | "awaiting_selection"
@@ -47,10 +48,7 @@ const STATUS_LABEL: Record<number, string> = {
 };
 
 function admin(): SupabaseClient {
-  return createClient(
-    Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-  );
+  return getAdminClient();
 }
 
 function sanitizeWbToken(raw: unknown): string {
@@ -126,16 +124,36 @@ export function stripCabinetAliases(text: string): string {
   return t.replace(/\s+/g, " ").trim();
 }
 
+type CabListCache = { at: number; list: Array<{ id: string; name: string }> };
+let cabinetsCache: CabListCache | null = null;
+let cabinetsInflight: Promise<Array<{ id: string; name: string }>> | null = null;
+const CABINETS_TTL_MS = 60_000;
+
 export async function listCabinets(): Promise<Array<{ id: string; name: string }>> {
-  const db = admin();
-  const { data } = await db
-    .from("cabinets")
-    .select("id, name, wb_token")
-    .not("wb_token", "is", null)
-    .order("name");
-  return (data || [])
-    .filter((c) => sanitizeWbToken(c.wb_token).length >= 50)
-    .map((c) => ({ id: String(c.id), name: String(c.name) }));
+  if (cabinetsCache && Date.now() - cabinetsCache.at < CABINETS_TTL_MS) {
+    return cabinetsCache.list;
+  }
+  if (cabinetsInflight) return cabinetsInflight;
+
+  cabinetsInflight = (async () => {
+    const db = admin();
+    const { data } = await db
+      .from("cabinets")
+      .select("id, name, wb_token")
+      .not("wb_token", "is", null)
+      .order("name");
+    const list = (data || [])
+      .filter((c) => sanitizeWbToken(c.wb_token).length >= 50)
+      .map((c) => ({ id: String(c.id), name: String(c.name) }));
+    cabinetsCache = { at: Date.now(), list };
+    return list;
+  })();
+
+  try {
+    return await cabinetsInflight;
+  } finally {
+    cabinetsInflight = null;
+  }
 }
 
 /** Найти кабинет по фразе. Если неоднозначно — candidates. */
@@ -249,7 +267,9 @@ export async function getActivePending(chatId: number): Promise<PendingAction | 
   const db = admin();
   const { data } = await db
     .from("agent_pending_actions")
-    .select("*")
+    .select(
+      "id, chat_id, agent_key, action_type, status, cabinet_id, cabinet_name, payload, expires_at",
+    )
     .eq("chat_id", chatId)
     .in("status", ["awaiting_selection", "awaiting_confirm"])
     .gt("expires_at", new Date().toISOString())

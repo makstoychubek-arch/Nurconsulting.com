@@ -4,16 +4,13 @@
  * чтобы не требовать отдельную DDL при деплое.
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getAdminClient } from './supabase-admin.ts';
 
 const DEFAULT_TTL_MIN = 12;
 export const CHAT_FOCUS_ACTION = 'chat_focus';
 
 function admin() {
-  return createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-  );
+  return getAdminClient();
 }
 
 export type ChatFocus = {
@@ -56,7 +53,6 @@ export async function setChatFocus(
   const expires = new Date(Date.now() + Math.max(2, ttlMin) * 60_000).toISOString();
   const now = new Date().toISOString();
 
-  // одна активная focus-строка на чат
   const { data: existing } = await db
     .from('agent_pending_actions')
     .select('id')
@@ -104,8 +100,15 @@ export async function clearChatFocus(chatId: number): Promise<void> {
     .eq('status', 'executing');
 }
 
-/** Протухшие focus/pending → cancelled (чтобы не копить executing). */
+const lastSweepByChat = new Map<number, number>();
+
+/** Протухшие focus/pending → expired (throttle 60с/чат). */
 export async function sweepExpiredPendings(chatId?: number): Promise<void> {
+  if (chatId) {
+    const prev = lastSweepByChat.get(chatId) || 0;
+    if (Date.now() - prev < 60_000) return;
+    lastSweepByChat.set(chatId, Date.now());
+  }
   const db = admin();
   const now = new Date().toISOString();
   let q = db
@@ -118,8 +121,7 @@ export async function sweepExpiredPendings(chatId?: number): Promise<void> {
 }
 
 /**
- * Смена собеседника: фокус на нового агента + сброс чужих диалогов
- * (цена / FBS / РК), чтобы не залипать на старом pending.
+ * Смена собеседника: фокус на нового агента + сброс чужих диалогов.
  */
 export async function switchChatFocus(
   chatId: number,
@@ -140,7 +142,7 @@ export async function switchChatFocus(
   await setChatFocus(chatId, agentKey, reason, ttlMin);
 }
 
-/** Короткая реплика-продолжение диалога (товар / число / да-нет), не новая тема. */
+/** Короткая реплика-продолжение диалога (товар / число / да-нет). */
 export function isLikelyFollowUp(text: string): boolean {
   const t = String(text || '').trim();
   if (!t || t.length > 80) return false;

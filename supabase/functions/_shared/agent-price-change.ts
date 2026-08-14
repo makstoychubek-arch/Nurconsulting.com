@@ -5,7 +5,7 @@
  * 2) «после 3000» / «до 5000» → «сохранила»
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getAdminClient } from './supabase-admin.ts';
 import {
   cancelOtherPending,
   getActivePending,
@@ -78,10 +78,7 @@ type PricePayload = {
 };
 
 function admin() {
-  return createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-  );
+  return getAdminClient();
 }
 
 export function wantsPriceChange(text: string): boolean {

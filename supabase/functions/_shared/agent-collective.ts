@@ -5,14 +5,11 @@
  * — короткие живые реплики, обсуждение новостей
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { pick } from './agent-voice.ts';
+import { getAdminClient } from './supabase-admin.ts';
 
 function admin() {
-  return createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-  );
+  return getAdminClient();
 }
 
 /** Правила «единой команды» в промпт. */

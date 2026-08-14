@@ -2,7 +2,8 @@
  * Ежедневный автозапуск РК (Амина): запомнить время + runner.
  */
 
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getAdminClient } from './supabase-admin.ts';
 
 export type AdScheduleRow = {
   id: string;
@@ -21,10 +22,7 @@ export type AdScheduleRow = {
 };
 
 function admin(): SupabaseClient {
-  return createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-  );
+  return getAdminClient();
 }
 
 export function wantsRememberDailyAds(text: string): boolean {

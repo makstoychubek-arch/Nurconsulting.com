@@ -1,7 +1,8 @@
 // Алина · бартер / кэшбек с рабочего аккаунта (Telegram Business).
 // Голос = менеджер аккаунта, не «бот Алина». ТЗ + ключ + скрины → таблица.
 
-import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { getAdminClient } from './supabase-admin.ts';
 import {
   MSG_APPROVED_CART,
   MSG_APPROVED_PRODUCT,
@@ -122,10 +123,7 @@ export type Campaign = {
 };
 
 function admin(): SupabaseClient {
-  return createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-  );
+  return getAdminClient();
 }
 
 function r(...parts: string[]): AlinaReply {

@@ -4,9 +4,9 @@
  * Кэш WB-списков ~90с на isolate, чтобы Сауле/Антон/QA видели одни и те же артикулы.
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { listCabinets, stripCabinetAliases } from './agent-actions.ts';
 import { sanitizeWbToken } from './wb-cabinet-tokens.ts';
+import { getAdminClient } from './supabase-admin.ts';
 
 const PRICES_API = 'https://discounts-prices-api.wildberries.ru';
 const WB_TTL_MS = (() => {
@@ -50,10 +50,7 @@ const wbCache = new Map<string, WbCabCache>();
 const wbInflight = new Map<string, Promise<WbGood[]>>();
 
 function admin() {
-  return createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-  );
+  return getAdminClient();
 }
 
 export function normProduct(s: string): string {
@@ -218,7 +215,8 @@ async function loadWbGoods(cabinetId: string, tokenRaw: string): Promise<WbGood[
         });
       }
       if (chunk.length < 100) break;
-      await new Promise((r) => setTimeout(r, 80));
+      // пауза только между страницами (не после последней)
+      await new Promise((r) => setTimeout(r, 40));
     }
     wbCache.set(cabinetId, { at: Date.now(), goods });
     return goods;
@@ -234,10 +232,10 @@ async function loadWbGoods(cabinetId: string, tokenRaw: string): Promise<WbGood[
 
 async function findFromRnp(
   query: string,
-  preferCabinetId?: string | null,
+  preferCabinetId: string | null | undefined,
+  cabinets: Array<{ id: string; name: string }>,
 ): Promise<CatalogHit[]> {
   const db = admin();
-  const cabinets = await listCabinets();
   const byId = new Map(cabinets.map((c) => [c.id, c.name]));
   let q = db.from('rnp_articles').select('cabinet_id, nm_id, name').limit(1500);
   if (preferCabinetId) q = q.eq('cabinet_id', preferCabinetId);
@@ -265,23 +263,25 @@ async function findFromRnp(
 
 async function findFromWb(
   query: string,
-  preferCabinetId?: string | null,
+  preferCabinetId: string | null | undefined,
+  cabinets: Array<{ id: string; name: string }>,
 ): Promise<CatalogHit[]> {
   const db = admin();
-  const cabinets = await listCabinets();
   const list = preferCabinetId
     ? cabinets.filter((c) => c.id === preferCabinetId)
     : cabinets;
   const out: CatalogHit[] = [];
   const nmOnly = normProduct(query).replace(/ /g, '').match(/^(\d{6,12})$/);
 
-  for (const cab of list) {
-    const { data } = await db
-      .from('cabinets')
-      .select('id, name, wb_token')
-      .eq('id', cab.id)
-      .maybeSingle();
-    if (!data?.wb_token) continue;
+  const ids = list.map((c) => c.id);
+  if (!ids.length) return out;
+  const { data: tokenRows } = await db
+    .from('cabinets')
+    .select('id, name, wb_token')
+    .in('id', ids);
+  const withToken = (tokenRows || []).filter((r) => r.wb_token);
+
+  await Promise.all(withToken.map(async (data) => {
     try {
       const goods = await loadWbGoods(String(data.id), String(data.wb_token));
       for (const g of goods) {
@@ -303,9 +303,9 @@ async function findFromWb(
         });
       }
     } catch (e) {
-      console.error('[product-catalog] wb', cab.name, e);
+      console.error('[product-catalog] wb', data.name, e);
     }
-  }
+  }));
   return out;
 }
 
@@ -326,14 +326,12 @@ export async function findCatalogProducts(
   if (q.length < 2) return [];
   const sources = opts?.sources || ['rnp', 'wb_prices'];
   const prefer = opts?.cabinetId || null;
-  const parts: CatalogHit[] = [];
+  const cabinets = await listCabinets();
 
-  if (sources.includes('rnp')) {
-    parts.push(...await findFromRnp(q, prefer));
-  }
-  if (sources.includes('wb_prices')) {
-    parts.push(...await findFromWb(q, prefer));
-  }
+  const jobs: Promise<CatalogHit[]>[] = [];
+  if (sources.includes('rnp')) jobs.push(findFromRnp(q, prefer, cabinets));
+  if (sources.includes('wb_prices')) jobs.push(findFromWb(q, prefer, cabinets));
+  const parts = (await Promise.all(jobs)).flat();
 
   // дедуп по cabinet+nm, берём лучший score / предпочитаем wb_prices (есть цены)
   const best = new Map<string, CatalogHit>();
