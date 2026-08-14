@@ -66,18 +66,20 @@ const BANNED_PHRASES = [
   /дайте\s+знать[, ]+если[^.!?\n]*[.!?]?/giu,
 ];
 
-function stripMarkdown(text: string): string {
-  return text
+function stripMarkdown(text: string, opts?: { keepLists?: boolean }): string {
+  let t = text
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/__([^_]+)__/g, '$1')
     .replace(/(?<!\w)\*([^*\n]+)\*(?!\w)/g, '$1')
     .replace(/`([^`]+)`/g, '$1')
-    .replace(/^>\s?/gm, '')
-    .replace(/^[-•]\s+/gm, '')
-    .replace(/^\d+[.)]\s+/gm, '')
-    .replace(/\s+—\s+/g, ' — ')
-    .replace(/—/g, '—');
+    .replace(/^>\s?/gm, '');
+  if (!opts?.keepLists) {
+    t = t
+      .replace(/^[-•]\s+/gm, '')
+      .replace(/^\d+[.)]\s+/gm, '');
+  }
+  return t.replace(/\s+—\s+/g, ' — ').replace(/—/g, '—');
 }
 
 function limitEmojis(text: string, max = 1): string {
@@ -88,15 +90,36 @@ function limitEmojis(text: string, max = 1): string {
   }).replace(/[ \t]{2,}/g, ' ');
 }
 
+/**
+ * Сводки/отчёты (конкуренты, таблицы) — не резать до 6 строк и не ломать списки.
+ * Иначе «Топ-3 по выдаче» отваливается после humanize.
+ */
+export function isStructuredAgentReport(text: string): boolean {
+  const t = String(text || '');
+  if (!t) return false;
+  if (/сводка\s+по\s+конкурент/i.test(t)) return true;
+  if (/топ\s*-?\s*\d+\s+по\s+выдач/i.test(t)) return true;
+  if (/рекомендация:\s*(поднять|опустить|держать)/i.test(t)) return true;
+  if (/источник:\s*(выдача\s+wb|блок\s+«?смотрите)/i.test(t)) return true;
+  if ((t.match(/арт\.\s*\d{6,}/g) || []).length >= 2) return true;
+  if (/wildberries\.ru\/catalog\/\d+/i.test(t) && /топ\s*-?\s*\d/i.test(t)) {
+    return true;
+  }
+  return false;
+}
+
 /** Убрать шаблонные зачины/строки/markdown; вернуть очищенный текст. */
 export function humanizeAgentReply(raw: string, opts?: { valence?: boolean }): string {
   let t = String(raw || '').replace(/\r/g, '').trim();
   if (!t) return t;
 
-  t = stripMarkdown(t);
+  const structured = isStructuredAgentReport(t);
+  t = stripMarkdown(t, { keepLists: structured });
 
-  for (const re of BANNED_OPENERS) {
-    t = t.replace(re, '');
+  if (!structured) {
+    for (const re of BANNED_OPENERS) {
+      t = t.replace(re, '');
+    }
   }
   for (const re of BANNED_PHRASES) {
     t = t.replace(re, '');
@@ -112,20 +135,22 @@ export function humanizeAgentReply(raw: string, opts?: { valence?: boolean }): s
   t = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   t = limitEmojis(t, 1);
 
-  // эссе в тимчате — мягко режем
-  const maxLines = 6;
-  const parts = t.split('\n');
-  if (parts.length > maxLines) {
-    t = parts.slice(0, maxLines).join('\n').trim();
+  // эссе в тимчате — мягко режем; отчёты целиком
+  if (!structured) {
+    const maxLines = 6;
+    const parts = t.split('\n');
+    if (parts.length > maxLines) {
+      t = parts.slice(0, maxLines).join('\n').trim();
+    }
   }
 
   if (!t) t = 'ага';
 
-  if (opts?.valence !== false) {
+  if (!structured && opts?.valence !== false) {
     t = maybeValencePrefix(t);
   }
 
-  return t.slice(0, 2200);
+  return t.slice(0, structured ? 3900 : 2200);
 }
 
 /** Есть ли в тексте ссылка / «посмотрите это». */

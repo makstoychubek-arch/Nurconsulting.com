@@ -116,9 +116,14 @@ export function wantsStickyProductRef(text: string): boolean {
   ) {
     return true;
   }
-  // короткое «а конкуренты?» / «топ 3?» / «а где они?»
-  if (t.length <= 40 && /^(а\s+)?(конкурент|топ\s*-?\s*3|где\s+(они|конкурент)|а\s+они)\b/i.test(t)) {
-    return true;
+  // короткое «а конкуренты?» / «топ 3?» / «где топ 3 по выдаче?»
+  // без JS \b — на кириллице \b не работает
+  if (t.length <= 48) {
+    if (/^(а\s+)?конкурент[а-яё]*\s*[.?!,]*$/i.test(t)) return true;
+    if (/^(а\s+)?топ\s*-?\s*3\s*[.?!,]*$/i.test(t)) return true;
+    if (/^(а\s+)?где\s+(они|топ|конкурент)/i.test(t)) return true;
+    if (/^(а\s+)?они\s*[.?!,]*$/i.test(t)) return true;
+    if (/топ\s*-?\s*3/.test(t) && /выдач/.test(t)) return true;
   }
   return false;
 }
@@ -661,7 +666,7 @@ async function resolveOurs(
     // товарной фразой из наших кабинетов
     const cleaned = text
       .replace(
-        /конкурент[а-яa-z]*|сравни[а-яa-z]*|найди|анализ[а-яa-z]*|прям[а-яa-z]*|артикул|арт\.?|похож[а-яa-z]*|аналог[а-яa-z]*|\bnm\b|смотрите\s*также|(как|кк|скок[оа])\s*цен[аыуе]*|цен[аыуе]*\s*у|этого|эту|этот|эта|него|неё|нее|товар[аыу]?|карточк[аиу]|сводн[а-я]*|отч[её]т|кстати|давай|сначала|узнаем|узнай|посмотри|глянь/gi,
+        /конкурент[а-яa-z]*|сравни[а-яa-z]*|найди|анализ[а-яa-z]*|прям[а-яa-z]*|артикул|арт\.?|похож[а-яa-z]*|аналог[а-яa-z]*|\bnm\b|смотрите\s*также|(как|кк|скок[оа])\s*цен[аыуе]*|цен[аыуе]*\s*у|этого|эту|этот|эта|него|неё|нее|товар[аыу]?|карточк[аиу]|сводн[а-я]*|сводк[а-я]*|отч[её]т|кстати|давай|сначала|узнаем|узнай|посмотри|глянь|топ\s*-?\s*3|выдач[а-я]*|где|они/gi,
         ' ',
       )
       .replace(/\s+/g, ' ')
@@ -813,17 +818,11 @@ export async function analyzeDirectCompetitors(
     description: '',
   };
 
-  // 1) «Смотрите также» / visual similar с карточки
+  // 1) сначала выдача WB (топ по поиску) — то, что ждут как «топ‑3 по выдаче»
   let usedQuery = '';
   let sourceLabel = '';
-  let items = await fetchSeeAlsoProducts(ours.nmId);
-  if (items.length) {
-    sourceLabel = 'источник: блок «Смотрите также» / похожие на карточке';
-    usedQuery = `see-also:${ours.nmId}`;
-  }
-
-  // 2) fallback — поиск по названию карточки (несколько упрощений запроса)
-  if (!items.length) {
+  let items: PublicProduct[] = [];
+  {
     const queries: string[] = [];
     const primary = buildSearchQuery(meta, resolved.queryHint || text);
     if (primary) queries.push(primary);
@@ -854,6 +853,15 @@ export async function analyzeDirectCompetitors(
         sourceLabel = `источник: выдача WB · «${q}»`;
         break;
       }
+    }
+  }
+
+  // 2) запасной — «Смотрите также» / похожие с карточки
+  if (!items.length) {
+    items = await fetchSeeAlsoProducts(ours.nmId);
+    if (items.length) {
+      sourceLabel = 'источник: блок «Смотрите также» / похожие на карточке';
+      usedQuery = `see-also:${ours.nmId}`;
     }
   }
 

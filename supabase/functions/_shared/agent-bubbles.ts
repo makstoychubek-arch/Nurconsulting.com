@@ -3,10 +3,17 @@
  * а не одна «простыня» от ассистента.
  */
 
+import { isStructuredAgentReport } from './agent-humanize.ts';
+
 /** Разрезать текст на 1–3 коротких сообщения. */
 export function splitHumanBubbles(text: string, maxBubbles = 3): string[] {
   const t = String(text || '').replace(/\r/g, '').trim();
   if (!t) return [];
+
+  // сводка конкурентов / топ-3 — одним сообщением (иначе хвост с топом отрезается)
+  if (isStructuredAgentReport(t) && t.length <= 3900) {
+    return [t];
+  }
 
   let parts = t.split(/\n\s*\n/).map((s) => s.trim()).filter(Boolean);
 

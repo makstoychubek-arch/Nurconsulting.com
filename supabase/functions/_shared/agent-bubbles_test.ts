@@ -22,3 +22,23 @@ Deno.test('bubble delays in range', () => {
   const g = interBubbleDelayMs();
   assert(g >= 480 && g < 2200);
 });
+
+Deno.test('splitHumanBubbles keeps competitor report whole', () => {
+  const report = [
+    'Сауле · сводка по конкурентам',
+    'Наш: BAZ.A · Блузка',
+    'арт. 1240248213 · 1600 ₽',
+    'источник: выдача WB · «блузка»',
+    '',
+    'Топ-3 по выдаче:',
+    '1) A · x',
+    '2) B · y',
+    '3) C · z',
+    '',
+    'Рекомендация: ДЕРЖАТЬ',
+  ].join('\n');
+  const parts = splitHumanBubbles(report);
+  assertEquals(parts.length, 1);
+  assert(parts[0].includes('Топ-3 по выдаче'));
+  assert(parts[0].includes('Рекомендация'));
+});

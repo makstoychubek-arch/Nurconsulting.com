@@ -4,6 +4,7 @@ import {
 } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import {
   humanizeAgentReply,
+  isStructuredAgentReport,
   looksLikeSharedLink,
 } from './agent-humanize.ts';
 
@@ -67,4 +68,30 @@ Deno.test('looksLikeSharedLink', () => {
   assert(looksLikeSharedLink('глянь https://example.com/news'));
   assert(looksLikeSharedLink('скинул ссылку на новость'));
   assert(!looksLikeSharedLink('остаток лапша белая'));
+});
+
+Deno.test('humanize keeps competitor top-3 report', () => {
+  const raw = [
+    'Сауле · сводка по конкурентам',
+    'Наш: BAZ.A · Нарядная блузка фонарь',
+    'арт. 1240248213 · 1 600 ₽ (до 5 000 ₽)',
+    'карточка: https://www.wildberries.ru/catalog/1240248213/detail.aspx',
+    'источник: выдача WB · «нарядная блузка фонарь»',
+    '',
+    'Топ-3 по выдаче:',
+    '1) Rival · Блузка офисная',
+    '   арт. 165629769 · 978 ₽',
+    '2) Other · Блузка',
+    '   арт. 211634909 · 495 ₽',
+    '3) Brand · Блузка',
+    '   арт. 345045044 · 1 500 ₽',
+    '',
+    'Рекомендация: ОПУСТИТЬ → ориентир 980 ₽',
+  ].join('\n');
+  assert(isStructuredAgentReport(raw));
+  const out = humanizeAgentReply(raw, { valence: false });
+  assert(out.includes('Топ-3 по выдаче'));
+  assert(out.includes('165629769'));
+  assert(out.includes('Рекомендация'));
+  assert(/^\d+\)/m.test(out));
 });

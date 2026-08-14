@@ -40,6 +40,7 @@ Deno.test("wantsStickyProductRef", () => {
   assert(wantsStickyProductRef("сравни по этому артикулу"));
   assert(wantsStickyProductRef("А конкуренты?"));
   assert(wantsStickyProductRef("топ 3"));
+  assert(wantsStickyProductRef("где топ 3 конкурента по выдаче?"));
   assertEquals(wantsStickyProductRef("конкуренты лапша белая"), false);
 });
 
