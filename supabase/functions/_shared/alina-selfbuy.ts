@@ -1760,50 +1760,73 @@ export async function alinaRecentDialogs(limit = 20): Promise<Record<string, unk
   };
 }
 
+let alinaStatsCache: { at: number; text: string } | null = null;
+let alinaStatsInflight: Promise<string> | null = null;
+const ALINA_STATS_TTL_MS = 30_000;
+
 export async function alinaSelfbuyStatsText(): Promise<string> {
-  const db = admin();
-  await ensureCampaignFresh();
-  const camp = await getCampaign();
-  let sheetLine = 'Sheet: не подключен (нужен ALINA_SHEET_ID)';
-  try {
-    const snap = await fetchSheetPlan();
-    if (snap.ok) {
-      sheetLine =
-        `Sheet OK (${snap.source}): офферов ${snap.offers.length}, ` +
-        `активный мест ${snap.active?.slots_left ?? 0}, строк лога ${snap.leads_rows}`;
-    } else {
-      sheetLine = `Sheet: ${snap.error || 'ошибка'}`;
-    }
-  } catch (e) {
-    sheetLine = `Sheet: ${e instanceof Error ? e.message : String(e)}`;
+  if (alinaStatsCache && Date.now() - alinaStatsCache.at < ALINA_STATS_TTL_MS) {
+    return alinaStatsCache.text;
   }
+  if (alinaStatsInflight) return alinaStatsInflight;
 
-  const { data, error } = await db
-    .from('alina_selfbuy_leads')
-    .select('status, source_account, deal_type, created_at');
-  if (error) return `Не удалось прочитать таблицу: ${error.message}`;
-  const rows = data || [];
-  const total = rows.length;
-  const done = rows.filter((r) => r.status === 'done').length;
-  const inProgress = rows.filter((r) =>
-    !['done', 'closed', 'paused'].includes(String(r.status))
-  ).length;
-  const cashback = rows.filter((r) => r.deal_type === 'cashback').length;
-  const barter = rows.filter((r) => r.deal_type === 'barter').length;
-  const today = new Date().toISOString().slice(0, 10);
-  const todayCount = rows.filter((r) => String(r.created_at).slice(0, 10) === today).length;
+  alinaStatsInflight = (async () => {
+    const db = admin();
+    await ensureCampaignFresh();
+    const camp = await getCampaign();
+    let sheetLine = 'Sheet: не подключен (нужен ALINA_SHEET_ID)';
+    try {
+      const snap = await fetchSheetPlan();
+      if (snap.ok) {
+        sheetLine =
+          `Sheet OK (${snap.source}): офферов ${snap.offers.length}, ` +
+          `активный мест ${snap.active?.slots_left ?? 0}, строк лога ${snap.leads_rows}`;
+      } else {
+        sheetLine = `Sheet: ${snap.error || 'ошибка'}`;
+      }
+    } catch (e) {
+      sheetLine = `Sheet: ${e instanceof Error ? e.message : String(e)}`;
+    }
 
-  return [
-    'Алина · бартер / кэшбек',
-    sheetLine,
-    `Оффер: ${camp?.is_open ? 'открыт' : 'закрыт'} · ${camp?.deal_type || '—'} · мест ${camp?.slots_left ?? '—'}`,
-    `Товар: ${camp?.product_name || '—'}`,
-    `Ключ: ${camp?.keyword || '—'}`,
-    `Всего заявок в CRM: ${total} (в работе ${inProgress}, готово ${done})`,
-    `кэшбек: ${cashback} · бартер: ${barter} · сегодня: ${todayCount}`,
-    'План берётся из Google «План»; места = план − занятые строки.',
-    'Вручную: алина оффер открыт … / алина оффер закрыт',
-  ].join('\n');
+    const { data, error } = await db
+      .from('alina_selfbuy_leads')
+      .select('status, source_account, deal_type, created_at');
+    if (error) {
+      const fail = `Не удалось прочитать таблицу: ${error.message}`;
+      alinaStatsCache = { at: Date.now(), text: fail };
+      return fail;
+    }
+    const rows = data || [];
+    const total = rows.length;
+    const done = rows.filter((r) => r.status === 'done').length;
+    const inProgress = rows.filter((r) =>
+      !['done', 'closed', 'paused'].includes(String(r.status))
+    ).length;
+    const cashback = rows.filter((r) => r.deal_type === 'cashback').length;
+    const barter = rows.filter((r) => r.deal_type === 'barter').length;
+    const today = new Date().toISOString().slice(0, 10);
+    const todayCount = rows.filter((r) => String(r.created_at).slice(0, 10) === today).length;
+
+    const text = [
+      'Алина · бартер / кэшбек',
+      sheetLine,
+      `Оффер: ${camp?.is_open ? 'открыт' : 'закрыт'} · ${camp?.deal_type || '—'} · мест ${camp?.slots_left ?? '—'}`,
+      `Товар: ${camp?.product_name || '—'}`,
+      `Ключ: ${camp?.keyword || '—'}`,
+      `Всего заявок в CRM: ${total} (в работе ${inProgress}, готово ${done})`,
+      `кэшбек: ${cashback} · бартер: ${barter} · сегодня: ${todayCount}`,
+      'План берётся из Google «План»; места = план − занятые строки.',
+      'Вручную: алина оффер открыт … / алина оффер закрыт',
+    ].join('\n');
+    alinaStatsCache = { at: Date.now(), text };
+    return text;
+  })();
+
+  try {
+    return await alinaStatsInflight;
+  } finally {
+    alinaStatsInflight = null;
+  }
 }
 
 export function isAlinaStatsQuestion(text: string): boolean {

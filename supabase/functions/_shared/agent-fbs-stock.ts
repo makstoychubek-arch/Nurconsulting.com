@@ -346,6 +346,17 @@ export async function fetchSellerWarehouses(token: string): Promise<Wh[]> {
   return out;
 }
 
+const cardSkuCache = new Map<string, {
+  at: number;
+  value: {
+    vendor: string;
+    title: string;
+    skus: string[];
+    sizes: Array<{ techSize: string; skus: string[] }>;
+  };
+}>();
+const CARD_SKU_TTL_MS = 90_000;
+
 async function fetchCardSkus(
   token: string,
   nmId: number,
@@ -356,6 +367,10 @@ async function fetchCardSkus(
   sizes: Array<{ techSize: string; skus: string[] }>;
 }> {
   const empty = { vendor: '', title: '', skus: [] as string[], sizes: [] as Array<{ techSize: string; skus: string[] }> };
+  const cacheKey = `${token.slice(0, 16)}:${nmId}`;
+  const hit = cardSkuCache.get(cacheKey);
+  if (hit && Date.now() - hit.at < CARD_SKU_TTL_MS) return hit.value;
+
   const res = await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list', {
     method: 'POST',
     headers: {
@@ -388,12 +403,14 @@ async function fetchCardSkus(
   const title = String(
     card.title || card.subjectName || card.name || '',
   ).trim();
-  return {
+  const value = {
     vendor: String(card.vendorCode || '').trim(),
     title,
     skus: [...new Set(skus)],
     sizes,
   };
+  cardSkuCache.set(cacheKey, { at: Date.now(), value });
+  return value;
 }
 
 async function fetchWarehouseStocks(

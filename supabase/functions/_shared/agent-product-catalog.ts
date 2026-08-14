@@ -49,6 +49,10 @@ type WbCabCache = {
 const wbCache = new Map<string, WbCabCache>();
 const wbInflight = new Map<string, Promise<WbGood[]>>();
 
+type RnpCache = { at: number; rows: Array<{ cabinet_id: string; nm_id: number; name: string }> };
+const rnpCache = new Map<string, RnpCache>();
+const RNP_TTL_MS = 60_000;
+
 function admin() {
   return getAdminClient();
 }
@@ -237,16 +241,29 @@ async function findFromRnp(
 ): Promise<CatalogHit[]> {
   const db = admin();
   const byId = new Map(cabinets.map((c) => [c.id, c.name]));
-  let q = db.from('rnp_articles').select('cabinet_id, nm_id, name').limit(1500);
-  if (preferCabinetId) q = q.eq('cabinet_id', preferCabinetId);
-  const { data } = await q;
+  const cacheKey = preferCabinetId || '__all__';
+  let rows = rnpCache.get(cacheKey);
+  if (!rows || Date.now() - rows.at >= RNP_TTL_MS) {
+    let q = db.from('rnp_articles').select('cabinet_id, nm_id, name').limit(1500);
+    if (preferCabinetId) q = q.eq('cabinet_id', preferCabinetId);
+    const { data } = await q;
+    rows = {
+      at: Date.now(),
+      rows: (data || []).map((r) => ({
+        cabinet_id: String(r.cabinet_id),
+        nm_id: Number(r.nm_id),
+        name: String(r.name || ''),
+      })),
+    };
+    rnpCache.set(cacheKey, rows);
+  }
   const out: CatalogHit[] = [];
-  for (const row of data || []) {
-    const name = String(row.name || '');
+  for (const row of rows.rows) {
+    const name = row.name;
     const score = scoreProductMatch(name, query);
     if (score < 4) continue;
-    const nmId = Number(row.nm_id);
-    const cabinetId = String(row.cabinet_id);
+    const nmId = row.nm_id;
+    const cabinetId = row.cabinet_id;
     if (!Number.isFinite(nmId) || !cabinetId) continue;
     out.push({
       cabinetId,

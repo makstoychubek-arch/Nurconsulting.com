@@ -860,8 +860,6 @@ export async function fetchSheetPlan(
   const discovered = await discoverTabs(sheetId);
   const leadsGid = (Deno.env.get('ALINA_LEADS_GID') || discovered.razdachiGid ||
     ELIUM_RAZDACHI_FALLBACK).trim();
-  const raz = await readCsv(sheetId, leadsGid);
-  const leads = raz ? parseRazdachi(raz) : [];
 
   const extraGids = (Deno.env.get('ALINA_GRAPH_GIDS') || '')
     .split(/[,\s]+/)
@@ -892,11 +890,18 @@ export async function fetchSheetPlan(
     return true;
   });
 
+  // параллельно: лог раздач + все графики
+  const [raz, ...graphCsvs] = await Promise.all([
+    readCsv(sheetId, leadsGid),
+    ...uniqTabs.map((t) => readCsv(sheetId, t.gid)),
+  ]);
+  const leads = raz ? parseRazdachi(raz) : [];
+
   const blocks: GraphBlock[] = [];
-  for (const t of uniqTabs) {
-    const rows = await readCsv(sheetId, t.gid);
+  for (let i = 0; i < uniqTabs.length; i++) {
+    const rows = graphCsvs[i];
     if (!rows?.length) continue;
-    blocks.push(...parseGraphTab(rows, t.name));
+    blocks.push(...parseGraphTab(rows, uniqTabs[i].name));
   }
 
   if (!blocks.length && !leads.length) {
