@@ -1,15 +1,43 @@
 # Аудит Telegram-ботов NR Space
 
-Дата снимка: 2026-08-13  
-Репозиторий: текущая ветка агентов / `telegram-router`  
+Дата снимка: 2026-08-14 (обновление gap-pass) · первый снимок: 2026-08-13  
+Репозиторий: ветка `cursor/bot-wow-contact-47f1` / `telegram-router`  
 Проект Supabase: `fiukyfyhotctvfdidktx`  
 
-**Важно:** это описание текущего состояния «как есть». Без предложений по оптимизации.
+**Важно:** раздел «Как есть» местами устарел. Утверждения про «отсутствующие» `wb-ads-snapshot` / `review-moderation` неверны — файлы есть (ads/penalties раньше были stub-нулями; reviews — stub). Смотри §0.
 
 В репозитории параллельно живут **две** Telegram-системы:
 
 1. **Команда агентов** — `telegram-router` (`?bot=…`) — основной предмет аудита  
 2. **Уведомления/каналы** — `telegram-webhook` (продажи, штрафы, РК, отзывы) — отдельный бот Карины
+
+---
+
+## 0. GAPS vs docs/skills — 2026-08-14
+
+### Закрыто в этом проходе
+| Gap | Было | Стало |
+|---|---|---|
+| Ads day в канале | `fetchAdsDayRows` всегда 0 | `advertising_daily_stats` |
+| Штрафы interactive | всегда total 0 | Finance API (1 стр./кабинет) |
+| `/drr` | alias `/ads` | реальный ДРР + горячие РК |
+| Skills oversell | FBW / ответы на отзывы как write | честные формулировки |
+| Review stub shapes | ломали webhook (`total`, truthy object) | формы под callers |
+| Daily sales/penalties chat | только `TELEGRAM_GROUP_CHAT_ID` | `getTelegramChatId` + fallback |
+
+### Ещё открыто
+| Gap | Почему |
+|---|---|
+| Полная модерация отзывов → WB | Нужен живой Feedbacks answer path |
+| 309 OpenAPI в чате | Registry есть; агенты на typed helpers; `wbOpenApiExtra` dead |
+| FBW stocks | Старый API снят; analytics не подключены |
+| Каналы news/blockings/warehouse/triggers/fbs | Routing есть, handlers нет |
+| `agent_standing_tasks` | Таблица есть, runtime не читает |
+| Planning = frozen JSON | Не live Excel |
+| Role-ops `shortJson` | Сырой UX |
+
+### Модули, которых не было в аудите 13.08
+`agent-self-skills`, `agent-fuzzy`, `agent-sales-discuss`, `agent-planning-catalog`, `agent-ru-text`, `agent-wb-role-ops`, `agent-wb-openapi-*`, `bot-contact`, `wb-ads-snapshot`, `wb-penalties-snapshot`, wow-команды в fast-commands.
 
 ---
 
@@ -34,7 +62,7 @@
 | `supabase/functions/_shared/agent-voice.ts` | Вариативные короткие фразы |
 | `supabase/functions/_shared/agent-actions.ts` | РК: выбор / «да» / запуск-пауза |
 | `supabase/functions/_shared/agent-ad-schedule.ts` | Ежедневный автозапуск РК |
-| `supabase/functions/_shared/agent-fast-commands.ts` | `/sales` `/ads` `/fbs` `/selfbuy` `/help` |
+| `supabase/functions/_shared/agent-fast-commands.ts` | `/sales` `/ads` `/drr` `/fbs` `/pulse` `/разбор` `/help` |
 | `supabase/functions/_shared/agent-qa.ts` | Умный QA тимчата (таблица / фото / остатки) |
 | `supabase/functions/_shared/agent-fbs-stock.ts` | Диалог Антона по FBS-остаткам |
 | `supabase/functions/_shared/agent-wb-context.ts` | Факты WB для LLM |
@@ -516,9 +544,11 @@ ALINA_BRAIN_MODEL || OPENAI_MODEL || "gpt-4o-mini"
 
 ```text
 [Каналы уведомлений]
-  telegram-webhook  (+ сломанные импорты snapshot/moderation на момент аудита)
+  telegram-webhook
+    sales / ads / penalties / ab_tests — рабочие парсеры
+    reviews — moderation STUB (кнопки честно отказывают)
 ```
 
 ---
 
-*Конец аудита. Файл только описывает текущее состояние; изменений в коде ботов при составлении отчёта не делалось.*
+*Конец аудита. §0 Gaps обновлён 2026-08-14; нижние разделы первого снимка могут частично расходиться — при конфликте верить §0.*

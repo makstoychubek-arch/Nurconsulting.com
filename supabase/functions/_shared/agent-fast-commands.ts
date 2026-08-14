@@ -25,6 +25,9 @@ import {
   formatCostReply,
   planningCatalogBrief,
 } from "./agent-planning-catalog.ts";
+import { fetchDrrBrief, formatDrrBrief } from "./wb-ads-snapshot.ts";
+import { getAdminClient } from "./supabase-admin.ts";
+import { parseRuDayToken, yesterdayBishkek } from "./agent-ru-text.ts";
 
 export type FastCommandResult = {
   handled: boolean;
@@ -49,9 +52,9 @@ const CMD_ALIASES: Record<string, string> = {
   рк: "ads",
   реклама: "ads",
   кампании: "ads",
-  drr: "ads",
-  дrr: "ads",
-  дрр: "ads",
+  drr: "drr",
+  дrr: "drr",
+  дрр: "drr",
   фбс: "fbs",
   остатки: "stock",
   stock: "stock",
@@ -87,6 +90,7 @@ const FUZZY_CMD_BANK = [
   "ping",
   "sales",
   "ads",
+  "drr",
   "fbs",
   "selfbuy",
   "cabinets",
@@ -103,7 +107,7 @@ function mapCmd(raw: string): string {
   if (CMD_ALIASES[c]) return CMD_ALIASES[c];
   const hit = fuzzyMatchCommand(c, FUZZY_CMD_BANK);
   if (hit && CMD_ALIASES[hit]) return CMD_ALIASES[hit];
-  if (hit && ["help", "ping", "sales", "ads", "fbs", "selfbuy", "cabinets", "pulse", "urgent", "stock", "whoami", "cost", "discuss"].includes(hit)) {
+  if (hit && ["help", "ping", "sales", "ads", "drr", "fbs", "selfbuy", "cabinets", "pulse", "urgent", "stock", "whoami", "cost", "discuss"].includes(hit)) {
     return hit;
   }
   return c;
@@ -185,12 +189,18 @@ export function parseFastCommand(raw: string): { cmd: string; arg: string } | nu
   if (m) return { cmd: "sales", arg: (m[2] || "").trim() };
   if (mappedHead === "sales") return { cmd: "sales", arg: rest };
 
-  // рк / реклама / ads / drr
-  m = lower.match(/^(рк|реклама|ads|кампании|drr|дрр)\s*(.*)$/i);
+  // рк / реклама / ads
+  m = lower.match(/^(рк|реклама|ads|кампании)\s*(.*)$/i);
   if (m) {
     return normalizeAdsCmd("ads", (m[2] || "").trim());
   }
   if (mappedHead === "ads") return normalizeAdsCmd("ads", rest);
+
+  // /drr · дрр — цифры ДРР, не список РК
+  m = lower.match(/^(drr|дрр)\s*(.*)$/i);
+  if (m || mappedHead === "drr") {
+    return { cmd: "drr", arg: (m?.[2] || rest || "").trim() };
+  }
 
   // Только голое «fbs»/«фбс»/«отгрузки» → дальше в FBS-диалог остатков.
   if (/^(fbs|фбс|отгрузки?)$/i.test(lower) || (mappedHead === "fbs" && !rest)) {
@@ -203,7 +213,7 @@ export function parseFastCommand(raw: string): { cmd: string; arg: string } | nu
 
   // Fuzzy single-token commands (опечатки: сволка→сводка, остаки→остатки)
   if (parts.length === 1 && mappedHead && mappedHead !== head) {
-    if (["help", "ping", "cabinets", "pulse", "urgent", "stock", "whoami", "sales", "ads", "fbs", "selfbuy"].includes(mappedHead)) {
+    if (["help", "ping", "cabinets", "pulse", "urgent", "stock", "whoami", "sales", "ads", "drr", "fbs", "selfbuy"].includes(mappedHead)) {
       return { cmd: mappedHead, arg: "" };
     }
   }
@@ -216,6 +226,7 @@ function agentForCmd(cmd: string): string {
     case "ads":
     case "ads_start":
     case "ads_pause":
+    case "drr":
       return "amina";
     case "fbs":
     case "stock":
@@ -262,6 +273,15 @@ async function salesBrief(arg: string): Promise<string> {
   }
   if (out.length === 1) return `${name}: нет блока продаж в кэше. Попробуй /sales без кабинета.`;
   return out.join("\n");
+}
+
+async function drrBrief(arg: string): Promise<string> {
+  const date = parseRuDayToken(arg) || yesterdayBishkek();
+  const data = await fetchDrrBrief(getAdminClient(), { date });
+  // formatDrrBrief uses HTML — strip tags for agent chat (plain)
+  return formatDrrBrief(data)
+    .replace(/<\/?b>/g, "")
+    .replace(/&nbsp;/g, " ");
 }
 
 async function adsBrief(arg: string): Promise<string> {
@@ -330,7 +350,7 @@ function urgentBrief(): string {
     "🚨 Срочный триаж · что проверить до обеда",
     "",
     "1. Штрафы / блокировки → канал штрафов или Карина",
-    "2. ДРР в космосе / мёртвый CTR → /ads или Амина",
+    "2. ДРР в космосе / мёртвый CTR → /drr · /ads или Амина",
     "3. Остатки на нуле / срывы FBS → /остатки или Антон",
     "4. Неотвеченные отзывы / раздачи → /selfbuy или Алина",
     "5. Цены / карточки сломались → /sales или Сауле",
@@ -462,6 +482,9 @@ export async function tryFastCommand(
     }
     if (cmd === "ads" || cmd === "рк") {
       return { handled: true, agentKey: "amina", reply: await adsBrief(arg) };
+    }
+    if (cmd === "drr") {
+      return { handled: true, agentKey: "amina", reply: await drrBrief(arg) };
     }
     if (cmd === "ads_start") {
       return { handled: false, agentKey: "amina" };

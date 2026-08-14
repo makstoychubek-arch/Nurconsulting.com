@@ -10,7 +10,8 @@ Deno.test("parse ads commands", () => {
   assertEquals(parseFastCommand("/ads saai")?.cmd, "ads");
   assertEquals(parseFastCommand("рк baza")?.cmd, "ads");
   assertEquals(parseFastCommand("/ads start baza"), { cmd: "ads_start", arg: "baza" });
-  assertEquals(parseFastCommand("/drr")?.cmd, "ads");
+  assertEquals(parseFastCommand("/drr")?.cmd, "drr");
+  assertEquals(parseFastCommand("дрр вчера")?.cmd, "drr");
 });
 
 Deno.test("expand ads start", () => {

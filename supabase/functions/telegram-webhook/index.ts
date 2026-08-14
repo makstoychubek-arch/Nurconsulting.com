@@ -448,24 +448,24 @@ async function handleReviewCallback(token: string, cq: Record<string, unknown>):
         }
 
         if (action === 'rej') {
-            const ok = await rejectReview(admin, logId, userId);
-            if (ok) {
+            const result = await rejectReview(admin, logId, userId);
+            if (result.ok) {
                 await updateReviewCaption(admin, token, chatId, messageId, logId, footerRejected(userName));
                 await upsertModerationPanel(admin, token, String(chatId), messageId || undefined);
                 await dismiss('❌ Отклонено');
             } else {
-                await dismiss('Уже обработано');
+                await dismiss(result.error ? `❌ ${result.error}` : 'Уже обработано');
             }
             return;
         }
 
         if (action === 'edit') {
-            const ok = await startEditing(admin, logId);
-            if (ok) {
+            const result = await startEditing(admin, logId);
+            if (result.ok) {
                 await updateReviewCaption(admin, token, chatId, messageId, logId, footerEditing(), moderationKeyboard(logId));
                 await dismiss('✏️ Ответьте реплаем');
             } else {
-                await dismiss('Нельзя редактировать');
+                await dismiss(result.error ? `❌ ${result.error}` : 'Нельзя редактировать');
             }
             return;
         }
