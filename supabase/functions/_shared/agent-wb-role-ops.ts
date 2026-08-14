@@ -291,7 +291,7 @@ export async function runWbRoleOp(
 
     if (role === 'anton') {
       if (/архивн/i.test(t)) {
-        const r = await marketApi.ordersArchive(token, 20, 0);
+        const r = await marketApi.ordersArchive(token);
         return {
           handled: true,
           agentKey: role,
@@ -459,12 +459,26 @@ export async function runWbRoleOp(
 
     if (role === 'saule') {
       if (/бренд/i.test(t)) {
-        const r = await contentApi.brands(token);
+        const subj = await contentApi.subjects(token, 'Блузки');
+        const rows = Array.isArray(subj.data)
+          ? subj.data as Array<{ subjectID?: number; id?: number }>
+          : Array.isArray((subj.data as { data?: unknown[] })?.data)
+          ? (subj.data as { data: Array<{ subjectID?: number; id?: number }> }).data
+          : [];
+        const subjectId = rows[0]?.subjectID || rows[0]?.id;
+        if (!subjectId) {
+          return {
+            handled: true,
+            agentKey: role,
+            reply: `${cabinetName}: не нашёл subjectId для брендов`,
+          };
+        }
+        const r = await contentApi.brands(token, Number(subjectId));
         return {
           handled: true,
           agentKey: role,
           reply: r.ok
-            ? `${cabinetName} · бренды\n${shortJson(r.data, 700)}`
+            ? `${cabinetName} · бренды (subject ${subjectId})\n${shortJson(r.data, 700)}`
             : `Бренды: ${r.errorText}`,
         };
       }
@@ -489,15 +503,11 @@ export async function runWbRoleOp(
         };
       }
       if (/остатк.*fbw|fbw.*остат|поступлен/i.test(t)) {
-        const r = /поступлен/i.test(t)
-          ? await statsApi.incomes(token, daysAgoIso(30))
-          : await statsApi.stocks(token, daysAgoIso(2));
         return {
           handled: true,
           agentKey: role,
-          reply: r.ok
-            ? `${cabinetName} · ${/поступлен/i.test(t) ? 'поступления' : 'остатки FBW'}\n${shortJson(r.data, 800)}`
-            : `Stats: ${r.errorText}`,
+          reply:
+            `${cabinetName}: старые /supplier/stocks и /incomes сняты WB. Смотри analytics stocks-report / warehouse_remains.`,
         };
       }
       if (/лимит/i.test(t)) {
@@ -533,15 +543,11 @@ export async function runWbRoleOp(
         };
       }
       if (/буфер\s+цен|история\s+загруз/i.test(t)) {
-        const r = /буфер/i.test(t)
-          ? await pricesApi.bufferTasks(token)
-          : await pricesApi.historyTasks(token);
         return {
           handled: true,
           agentKey: role,
-          reply: r.ok
-            ? `${cabinetName} · задачи цен\n${shortJson(r.data, 700)}`
-            : `Цены tasks: ${r.errorText}`,
+          reply:
+            `${cabinetName}: нужен uploadID загрузки цен. Сначала поменяй цену («да»), потом спроси статус по ID.`,
         };
       }
       if (/промо\s+календар/i.test(t)) {

@@ -88,6 +88,8 @@ export const WB_HOSTS = {
   documents: 'https://documents-api.wildberries.ru',
   chat: 'https://buyer-chat-api.wildberries.ru',
   calendar: 'https://dp-calendar-api.wildberries.ru',
+  /** Медиа-РК (отдельный хост от обычного advert-api). */
+  advertMedia: 'https://advert-media-api.wildberries.ru',
 } as const;
 
 /** Sleep helper for probes (respect rate limits). */
@@ -117,13 +119,19 @@ export async function pingAllCategories(
 // ─── Common / Karina ─────────────────────────────────────────────────────────
 export const commonApi = {
   sellerInfo: (t: string) => wbFetch(t, 'GET', `${WB_HOSTS.common}/api/v1/seller-info`),
-  rating: (t: string) => wbFetch(t, 'GET', `${WB_HOSTS.common}/api/common/v1/rating`),
+  /** Рейтинг живёт на feedbacks-api (не common!). */
+  rating: (t: string) => wbFetch(t, 'GET', `${WB_HOSTS.feedbacks}/api/common/v1/rating`),
+  /** Jam / конструктор — часто только service-токен (personal → 403). */
   subscriptions: (t: string) =>
     wbFetch(t, 'GET', `${WB_HOSTS.common}/api/common/v1/subscriptions`),
   tariffConstructor: (t: string) =>
     wbFetch(t, 'GET', `${WB_HOSTS.common}/api/common/v1/tariff-constructor/options`),
-  news: (t: string) =>
-    wbFetch(t, 'GET', `${WB_HOSTS.common}/api/communications/v2/news?limit=5`),
+  news: (t: string, fromIso = new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10)) =>
+    wbFetch(
+      t,
+      'GET',
+      `${WB_HOSTS.common}/api/communications/v2/news?from=${encodeURIComponent(fromIso)}`,
+    ),
   tariffsCommission: (t: string) =>
     wbFetch(t, 'GET', `${WB_HOSTS.common}/api/v1/tariffs/commission?locale=ru`),
   tariffsBox: (t: string) =>
@@ -222,7 +230,12 @@ export const contentApi = {
     wbFetch(t, 'GET', `${WB_HOSTS.content}/content/v2/directory/seasons?locale=ru`),
   vat: (t: string) =>
     wbFetch(t, 'GET', `${WB_HOSTS.content}/content/v2/directory/vat?locale=ru`),
-  brands: (t: string) => wbFetch(t, 'GET', `${WB_HOSTS.content}/api/content/v1/brands`),
+  brands: (t: string, subjectId: number, next = 0) =>
+    wbFetch(
+      t,
+      'GET',
+      `${WB_HOSTS.content}/api/content/v1/brands?subjectId=${subjectId}&next=${next}`,
+    ),
   barcodes: (t: string, count: number) =>
     wbFetch(t, 'POST', `${WB_HOSTS.content}/content/v2/barcodes`, { count }),
   cardsUpload: (t: string, body: unknown) =>
@@ -251,27 +264,35 @@ export const pricesApi = {
     wbFetch(t, 'GET', `${WB_HOSTS.prices}/api/v2/list/goods/filter?limit=${limit}`),
   goodsByNm: (t: string, nmList: number[]) =>
     wbFetch(t, 'POST', `${WB_HOSTS.prices}/api/v2/list/goods/filter`, { nmList }),
-  goodsSizesByNm: (t: string, nmID: number) =>
-    wbFetch(t, 'GET', `${WB_HOSTS.prices}/api/v2/list/goods/size/nm?nmID=${nmID}`),
+  goodsSizesByNm: (t: string, nmID: number, limit = 100, offset = 0) =>
+    wbFetch(
+      t,
+      'GET',
+      `${WB_HOSTS.prices}/api/v2/list/goods/size/nm?limit=${limit}&offset=${offset}&nmID=${nmID}`,
+    ),
   uploadTask: (t: string, data: unknown[]) =>
     wbFetch(t, 'POST', `${WB_HOSTS.prices}/api/v2/upload/task`, { data }),
   uploadTaskSize: (t: string, data: unknown[]) =>
     wbFetch(t, 'POST', `${WB_HOSTS.prices}/api/v2/upload/task/size`, { data }),
-  historyTasks: (t: string) =>
-    wbFetch(t, 'GET', `${WB_HOSTS.prices}/api/v2/history/tasks`),
-  bufferTasks: (t: string) =>
-    wbFetch(t, 'GET', `${WB_HOSTS.prices}/api/v2/buffer/tasks`),
+  /** Нужен uploadID конкретной загрузки цен. */
+  historyTasks: (t: string, uploadID: number) =>
+    wbFetch(t, 'GET', `${WB_HOSTS.prices}/api/v2/history/tasks?uploadID=${uploadID}`),
+  bufferTasks: (t: string, uploadID: number) =>
+    wbFetch(t, 'GET', `${WB_HOSTS.prices}/api/v2/buffer/tasks?uploadID=${uploadID}`),
   quarantine: (t: string) =>
     wbFetch(t, 'GET', `${WB_HOSTS.prices}/api/v2/quarantine/goods?limit=10&offset=0`),
 };
 
 export const calendarApi = {
-  promotions: (t: string) =>
-    wbFetch(
+  promotions: (t: string, allPromo = false) => {
+    const start = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const end = new Date(Date.now() + 30 * 864e5).toISOString().replace(/\.\d{3}Z$/, 'Z');
+    return wbFetch(
       t,
       'GET',
-      `${WB_HOSTS.calendar}/api/v1/calendar/promotions?startDateTime=${encodeURIComponent(new Date().toISOString())}&endDateTime=${encodeURIComponent(new Date(Date.now() + 30 * 864e5).toISOString())}`,
-    ),
+      `${WB_HOSTS.calendar}/api/v1/calendar/promotions?startDateTime=${encodeURIComponent(start)}&endDateTime=${encodeURIComponent(end)}&allPromo=${allPromo}&limit=20&offset=0`,
+    );
+  },
   promotionDetails: (t: string, promotionIDs: number[]) =>
     wbFetch(
       t,
@@ -294,11 +315,17 @@ export const marketApi = {
     wbFetch(t, 'GET', `${WB_HOSTS.marketplace}/api/v3/orders/new`),
   orders: (t: string, limit = 50, next = 0) =>
     wbFetch(t, 'GET', `${WB_HOSTS.marketplace}/api/v3/orders?limit=${limit}&next=${next}`),
-  ordersArchive: (t: string, limit = 50, next = 0) =>
+  ordersArchive: (
+    t: string,
+    year = new Date(Date.now() - 120 * 864e5).getUTCFullYear(),
+    month = new Date(Date.now() - 120 * 864e5).getUTCMonth() + 1,
+    limit = 100,
+    next = 0,
+  ) =>
     wbFetch(
       t,
       'GET',
-      `${WB_HOSTS.marketplace}/api/marketplace/v3/fbs/orders/archive?limit=${limit}&next=${next}`,
+      `${WB_HOSTS.marketplace}/api/marketplace/v3/fbs/orders/archive?year=${year}&month=${month}&limit=${Math.max(100, Math.min(1000, limit))}&next=${next}`,
     ),
   ordersStatus: (t: string, orders: number[]) =>
     wbFetch(t, 'POST', `${WB_HOSTS.marketplace}/api/v3/orders/status`, { orders }),
@@ -354,19 +381,6 @@ export const statsApi = {
       'GET',
       `${WB_HOSTS.statistics}/api/v1/supplier/sales?dateFrom=${encodeURIComponent(dateFrom)}&flag=0`,
     ),
-  /** FBW stocks snapshot (legacy statistics; still widely used). */
-  stocks: (t: string, dateFrom: string) =>
-    wbFetch(
-      t,
-      'GET',
-      `${WB_HOSTS.statistics}/api/v1/supplier/stocks?dateFrom=${encodeURIComponent(dateFrom)}`,
-    ),
-  incomes: (t: string, dateFrom: string) =>
-    wbFetch(
-      t,
-      'GET',
-      `${WB_HOSTS.statistics}/api/v1/supplier/incomes?dateFrom=${encodeURIComponent(dateFrom)}`,
-    ),
 };
 
 export const analyticsApi = {
@@ -400,12 +414,18 @@ export const analyticsApi = {
       'GET',
       `${WB_HOSTS.analytics}/api/v1/analytics/goods-return?dateFrom=${dateFrom}&dateTo=${dateTo}`,
     ),
-  bannedBlocked: (t: string) =>
-    wbFetch(t, 'GET', `${WB_HOSTS.analytics}/api/v1/analytics/banned-products/blocked`),
-  bannedShadowed: (t: string) =>
-    wbFetch(t, 'GET', `${WB_HOSTS.analytics}/api/v1/analytics/banned-products/shadowed`),
-  regionSale: (t: string) =>
-    wbFetch(t, 'GET', `${WB_HOSTS.analytics}/api/v1/analytics/region-sale`),
+  bannedBlocked: (t: string, sort = 'nmId', order = 'desc') =>
+    wbFetch(
+      t,
+      'GET',
+      `${WB_HOSTS.analytics}/api/v1/analytics/banned-products/blocked?sort=${sort}&order=${order}`,
+    ),
+  regionSale: (t: string, dateFrom: string, dateTo: string) =>
+    wbFetch(
+      t,
+      'GET',
+      `${WB_HOSTS.analytics}/api/v1/analytics/region-sale?dateFrom=${dateFrom}&dateTo=${dateTo}`,
+    ),
   paidStorageCreate: (t: string, dateFrom: string, dateTo: string) =>
     wbFetch(
       t,
@@ -447,8 +467,14 @@ export const advertApi = {
     wbFetch(t, 'GET', `${WB_HOSTS.advert}/adv/v1/payments?from=${from}&to=${to}`),
   fullstats: (t: string, ids: number[], beginDate: string, endDate: string) =>
     wbFetch(t, 'GET', `${WB_HOSTS.advert}/adv/v3/fullstats?ids=${ids.join(',')}&beginDate=${beginDate}&endDate=${endDate}`),
-  mediaCount: (t: string) => wbFetch(t, 'GET', `${WB_HOSTS.advert}/adv/v1/count`),
-  mediaAdverts: (t: string) => wbFetch(t, 'GET', `${WB_HOSTS.advert}/adv/v1/adverts`),
+  mediaCount: (t: string) =>
+    wbFetch(t, 'GET', `${WB_HOSTS.advertMedia}/adv/v1/count`),
+  mediaAdverts: (t: string, limit = 10, offset = 0) =>
+    wbFetch(
+      t,
+      'GET',
+      `${WB_HOSTS.advertMedia}/adv/v1/adverts?limit=${limit}&offset=${offset}`,
+    ),
 };
 
 // ─── Feedbacks / Alina ───────────────────────────────────────────────────────
@@ -533,9 +559,11 @@ export type ProbeCase = {
 
 export type ProbeCtx = {
   nmId?: number;
+  subjectId?: number;
   warehouseId?: number;
   advertId?: number;
   supplyId?: string;
+  uploadId?: number;
 };
 
 export function buildReadProbeCases(): ProbeCase[] {
@@ -577,7 +605,14 @@ export function buildReadProbeCases(): ProbeCase[] {
     { id: 'content.countries', role: 'saule', run: (t) => contentApi.countries(t) },
     { id: 'content.seasons', role: 'saule', run: (t) => contentApi.seasons(t) },
     { id: 'content.vat', role: 'saule', run: (t) => contentApi.vat(t) },
-    { id: 'content.brands', role: 'saule', run: (t) => contentApi.brands(t) },
+    {
+      id: 'content.brands',
+      role: 'saule',
+      run: (t, ctx) =>
+        ctx.subjectId
+          ? contentApi.brands(t, ctx.subjectId)
+          : Promise.resolve({ ok: false, status: 0, data: {}, errorText: 'no subjectId' }),
+    },
     { id: 'content.tags', role: 'saule', run: (t) => contentApi.tags(t) },
     { id: 'content.cardsErrorList', role: 'saule', run: (t) => contentApi.cardsErrorList(t) },
     { id: 'content.barcodes', role: 'saule', run: (t) => contentApi.barcodes(t, 1) },
@@ -590,13 +625,35 @@ export function buildReadProbeCases(): ProbeCase[] {
           ? pricesApi.goodsSizesByNm(t, ctx.nmId)
           : Promise.resolve({ ok: false, status: 0, data: {}, errorText: 'no nmId' }),
     },
-    { id: 'prices.historyTasks', role: 'saule', run: (t) => pricesApi.historyTasks(t) },
-    { id: 'prices.bufferTasks', role: 'saule', run: (t) => pricesApi.bufferTasks(t) },
+    {
+      id: 'prices.historyTasks',
+      role: 'saule',
+      run: (t, ctx) =>
+        ctx.uploadId
+          ? pricesApi.historyTasks(t, ctx.uploadId)
+          : Promise.resolve({
+            ok: true,
+            status: 204,
+            data: { skipped: 'no uploadId' },
+            errorText: '',
+          }),
+    },
+    {
+      id: 'prices.bufferTasks',
+      role: 'saule',
+      run: (t, ctx) =>
+        ctx.uploadId
+          ? pricesApi.bufferTasks(t, ctx.uploadId)
+          : Promise.resolve({
+            ok: true,
+            status: 204,
+            data: { skipped: 'no uploadId' },
+            errorText: '',
+          }),
+    },
     { id: 'prices.quarantine', role: 'saule', run: (t) => pricesApi.quarantine(t) },
     { id: 'stats.orders', role: 'saule', run: (t) => statsApi.orders(t, d2) },
     { id: 'stats.sales', role: 'saule', run: (t) => statsApi.sales(t, d2) },
-    { id: 'stats.stocks', role: 'saule', run: (t) => statsApi.stocks(t, d2) },
-    { id: 'stats.incomes', role: 'saule', run: (t) => statsApi.incomes(t, d30) },
     {
       id: 'analytics.salesFunnel',
       role: 'saule',
@@ -610,15 +667,18 @@ export function buildReadProbeCases(): ProbeCase[] {
     { id: 'analytics.antifraud', role: 'saule', run: (t) => analyticsApi.antifraud(t, d7, today) },
     { id: 'analytics.goodsReturn', role: 'saule', run: (t) => analyticsApi.goodsReturn(t, d7, today) },
     { id: 'analytics.bannedBlocked', role: 'saule', run: (t) => analyticsApi.bannedBlocked(t) },
-    { id: 'analytics.bannedShadowed', role: 'saule', run: (t) => analyticsApi.bannedShadowed(t) },
-    { id: 'analytics.regionSale', role: 'saule', run: (t) => analyticsApi.regionSale(t) },
+    {
+      id: 'analytics.regionSale',
+      role: 'saule',
+      run: (t) => analyticsApi.regionSale(t, d7, today),
+    },
 
     // anton
     { id: 'market.warehouses', role: 'anton', run: (t) => marketApi.warehouses(t) },
     { id: 'market.offices', role: 'anton', run: (t) => marketApi.offices(t) },
     { id: 'market.ordersNew', role: 'anton', run: (t) => marketApi.ordersNew(t) },
     { id: 'market.orders', role: 'anton', run: (t) => marketApi.orders(t, 20, 0) },
-    { id: 'market.ordersArchive', role: 'anton', run: (t) => marketApi.ordersArchive(t, 20, 0) },
+    { id: 'market.ordersArchive', role: 'anton', run: (t) => marketApi.ordersArchive(t) },
     { id: 'market.supplies', role: 'anton', run: (t) => marketApi.supplies(t, 10, 0) },
     { id: 'market.passes', role: 'anton', run: (t) => marketApi.passes(t) },
     { id: 'market.passesOffices', role: 'anton', run: (t) => marketApi.passesOffices(t) },

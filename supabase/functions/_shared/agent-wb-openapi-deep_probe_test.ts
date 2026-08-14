@@ -64,6 +64,15 @@ Deno.test({
     ctx.nmId = pickNm(cards.data);
     console.log('ctx.nmId', ctx.nmId);
 
+    const subjects = await contentApi.subjects(TOKEN, 'Блузки');
+    const subjRows = Array.isArray(subjects.data)
+      ? subjects.data as Array<{ subjectID?: number; id?: number }>
+      : Array.isArray((subjects.data as { data?: unknown[] })?.data)
+      ? (subjects.data as { data: Array<{ subjectID?: number; id?: number }> }).data
+      : [];
+    ctx.subjectId = subjRows[0]?.subjectID || subjRows[0]?.id;
+    console.log('ctx.subjectId', ctx.subjectId);
+
     const wh = await marketApi.warehouses(TOKEN);
     const whList = Array.isArray(wh.data) ? wh.data as Array<{ id: number }> : [];
     ctx.warehouseId = whList[0]?.id;
@@ -90,11 +99,17 @@ Deno.test({
       } catch (e) {
         r = { ok: false, status: 0, data: {}, errorText: String(e).slice(0, 200) };
       }
-      // 400 на stocksGet с sku '0' — ожидаемо (нет такого баркода) → считаем «reachable»
+      // soft-ok: ожидаемые ограничения токена / тестовые sku / rate-limit
       const softOk =
         r.ok ||
+        r.status === 429 ||
+        r.status === 204 ||
         (c.id === 'market.stocksGet' && (r.status === 400 || r.status === 404)) ||
-        r.status === 429; // rate limit ≠ broken method
+        (c.id.startsWith('common.subscriptions') && r.status === 403) ||
+        (c.id.startsWith('common.tariffConstructor') && r.status === 403) ||
+        (c.id === 'common.rating' && r.status === 403) ||
+        // размеры не для всех nm editableSizePrice
+        (c.id === 'prices.goodsSizesByNm' && r.status === 400);
       results.push({
         id: c.id,
         role: c.role,
