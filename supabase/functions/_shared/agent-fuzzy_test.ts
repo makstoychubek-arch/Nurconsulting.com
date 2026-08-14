@@ -38,3 +38,8 @@ Deno.test("fuzzyHasAnyToken / bags for free phrasing", () => {
   ]));
   assert(!fuzzyMatchBags("продажи вчера", [["ссылка"], ["кабинет"]]));
 });
+
+Deno.test("fuzzyIncludesAny does not confuse что/кто", () => {
+  assert(!fuzzyIncludesAny("что предлагаешь", ["кто ты", "что умеешь"]));
+  assert(fuzzyIncludesAny("что умеешь", ["что умеешь"]));
+});

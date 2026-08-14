@@ -92,6 +92,7 @@ function norm(s: string): string {
 export function wantsCompetitorAnalysis(text: string): boolean {
   const t = normalizeBotText(text);
   if (!t) return false;
+  if (wantsCompetitorAdviceFollowUp(t)) return true;
   // стебель + опечатки
   if (/конкурент|конкурет|конкуре|competitor|rival/i.test(t)) return true;
   if (fuzzyHasAnyToken(t, ['конкуренты', 'конкурент', 'конкуренция', 'competitors'])) {
@@ -108,7 +109,7 @@ export function wantsCompetitorAnalysis(text: string): boolean {
     return true;
   }
   // короткое «сравни» после обсуждения товара — тоже анализ
-  if (/^(а\s+)?сравни(ть)?\s*[.?!,]*$/i.test(t)) return true;
+  if (/^(а\s+)?сравни(ть)?\s*$/i.test(t)) return true;
   if (/анализ/.test(t) && /(конкурент|ниш|выдач|рынк)/i.test(t)) return true;
   if (/найди/.test(t) && /(конкурент|похож|аналог)/i.test(t)) return true;
   if (/(похож|аналог)[а-яё]*/.test(t) && /(арт|nm\b|\d{6,12}|сравни|наш|товар)/i.test(t)) {
@@ -120,10 +121,33 @@ export function wantsCompetitorAnalysis(text: string): boolean {
   return false;
 }
 
+/**
+ * Follow-up после сводки: «что предлагаешь?» / «что делать с ценой?»
+ * — вернуть рекомендацию ПОДНЯТЬ/ОПУСТИТЬ/ДЕРЖАТЬ, не список скиллов.
+ */
+export function wantsCompetitorAdviceFollowUp(text: string): boolean {
+  const t = normalizeBotText(text);
+  if (!t || t.length > 64) return false;
+  if (
+    /^(а\s+)?(ну\s+)?(и\s+)?что\s+(ты\s+)?(предлагаешь|посоветуешь|рекомендуешь|скажешь|думаешь)\s*$/i
+      .test(t)
+  ) {
+    return true;
+  }
+  if (/^(а\s+)?что\s+делать(\s+с\s+ценой)?\s*$/i.test(t)) return true;
+  if (/^(а\s+)?(твоя\s+)?рекомендац[а-я]*\s*$/i.test(t)) return true;
+  if (/^(а\s+)?совет\s*$/i.test(t)) return true;
+  if (/^(поднимать|опускать|поднять|опустить)\s+или\s+/i.test(t)) return true;
+  if (/^(и\s+)?что\s+с\s+ценой\s*$/i.test(t)) return true;
+  if (/^(а\s+)?какой\s+вердикт\s*$/i.test(t)) return true;
+  return false;
+}
+
 /** Фраза про «этот» товар / короткий follow-up после сводки. */
 export function wantsStickyProductRef(text: string): boolean {
   const t = normalizeBotText(text);
   if (!t) return false;
+  if (wantsCompetitorAdviceFollowUp(t)) return true;
   if (
     /(этого|эта|этот|эту|него|нее|той|тот)\s+(товар|артикул|арт|карточ|модель|блуз|позиц)/i
       .test(t) ||

@@ -361,7 +361,9 @@ export function isLikelyFollowUp(text: string): boolean {
     /^(старая|полная|базовая)\s*цен/i.test(t) ||
     /^без\s*скидк/i.test(t) ||
     /конкурент/i.test(t) ||
-    /^(как|кк)\s+цен/i.test(t)
+    /^(как|кк)\s+цен/i.test(t) ||
+    /предлагаешь|посоветуешь|рекомендуешь|что\s+делать|что\s+с\s+ценой|вердикт/i
+      .test(t)
   ) {
     return true;
   }

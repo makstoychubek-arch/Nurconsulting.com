@@ -52,6 +52,8 @@ export function typoBudget(len: number): number {
 export function fuzzyTokenEq(a: string, b: string): boolean {
   if (!a || !b) return false;
   if (a === b) return true;
+  // короткие слова (кто/что, да/нет) — только точное, иначе «что предлагаешь» ≈ «кто ты»
+  if (Math.min(a.length, b.length) <= 3) return false;
   if (a.includes(b) || b.includes(a)) {
     const shorter = a.length < b.length ? a : b;
     if (shorter.length >= 4) return true;
@@ -84,12 +86,12 @@ export function fuzzyIncludesAny(
     const want = normalizeBotText(p);
     if (!want) continue;
     if (n.includes(want)) return true;
-    // пословное: все значимые токены фразы есть рядом (fuzzy)
-    const tokens = want.split(" ").filter((w) => w.length >= 3);
+    const tokens = want.split(" ").filter(Boolean);
     if (tokens.length === 0) continue;
     const hay = n.split(" ");
+    // все токены фразы; короткие (≤3) — только exact
     const ok = tokens.every((tok) =>
-      hay.some((h) => fuzzyTokenEq(h, tok))
+      hay.some((h) => (tok.length <= 3 ? h === tok : fuzzyTokenEq(h, tok)))
     );
     if (ok) return true;
   }

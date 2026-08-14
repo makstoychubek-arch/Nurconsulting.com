@@ -34,6 +34,8 @@ Deno.test("wantsCompetitorAnalysis phrases", () => {
   assertEquals(wantsCompetitorAnalysis("где топ 3 по выдаче"), true);
   assertEquals(wantsCompetitorAnalysis("сравни"), true);
   assertEquals(wantsCompetitorAnalysis("топ 3"), true);
+  assertEquals(wantsCompetitorAnalysis("Что предлагаешь?"), true);
+  assertEquals(wantsCompetitorAnalysis("что делать"), true);
   assertEquals(wantsCompetitorAnalysis("сколько продаж вчера"), false);
   assertEquals(wantsCompetitorAnalysis("артикул дай на лапшу бел"), false);
 });
@@ -46,6 +48,7 @@ Deno.test("wantsStickyProductRef", () => {
   assert(wantsStickyProductRef("где топ 3 конкурента по выдаче?"));
   assert(wantsStickyProductRef("сравни"));
   assert(wantsStickyProductRef("по выдаче"));
+  assert(wantsStickyProductRef("Что предлагаешь?"));
   assertEquals(wantsStickyProductRef("конкуренты лапша белая"), false);
 });
 

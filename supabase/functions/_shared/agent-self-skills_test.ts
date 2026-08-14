@@ -16,6 +16,10 @@ Deno.test('wantsSelfSkills phrases', () => {
   assert(wantsSelfSkills('твои скилы'));
   assert(wantsSelfSkills('/чтоумеешь'));
   assert(!wantsSelfSkills('остаток лапша белая'));
+  // совет после аналитики ≠ список скиллов
+  assert(!wantsSelfSkills('Что предлагаешь?'));
+  assert(!wantsSelfSkills('что делать'));
+  assert(!wantsSelfSkills('рекомендация'));
 });
 
 Deno.test('selfSkillsNamedAgent', () => {

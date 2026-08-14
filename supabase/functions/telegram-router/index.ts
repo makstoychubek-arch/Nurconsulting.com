@@ -34,6 +34,7 @@ import {
 } from "../_shared/alina-selfbuy.ts";
 import { generateMuhaPhoto, wantsPhoto } from "../_shared/muha-photos.ts";
 import { teamQaFactsForAgent, tryTeamSmartQa, detectQaWorkingKind } from "../_shared/agent-qa.ts";
+import { wantsCompetitorAnalysis } from "../_shared/agent-competitors.ts";
 import {
   continueFbsStockDialog,
   handleFbsStockCallback,
@@ -1238,7 +1239,12 @@ serve(async (req) => {
     }
 
     // ── «что умеешь» — названный бот (или sticky) перечисляет СВОЮ зону ────
-    if (wantsSelfSkills(text) && !dialog.pending) {
+    // не перехватывать «что предлагаешь?» после аналитики конкурентов
+    if (
+      wantsSelfSkills(text) &&
+      !dialog.pending &&
+      !wantsCompetitorAnalysis(text)
+    ) {
       const sticky = dialog.focus?.agent_key || null;
       // «Алина что умеешь» / @anton → только он; в группе без имени — Карина; в ЛС — этот бот
       const who =

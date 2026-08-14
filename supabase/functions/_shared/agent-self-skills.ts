@@ -49,6 +49,13 @@ const SKILLS_ASK_PHRASES = [
 export function wantsSelfSkills(text: string): boolean {
   const t = normalizeBotText(text);
   if (!t || t.length > 140) return false;
+  // не путать с «что предлагаешь?» / советом по цене после аналитики
+  if (
+    /предлагаешь|посоветуешь|рекомендуешь|что\s+делать|что\s+с\s+ценой|вердикт/i
+      .test(t)
+  ) {
+    return false;
+  }
   if (/^(помощь|команды|help|skills|чтоумеешь|ктоя|whoami|зона)$/i.test(t)) {
     return true;
   }
