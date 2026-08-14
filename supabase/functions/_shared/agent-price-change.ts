@@ -1,9 +1,8 @@
 /**
- * Диалог Сауле: смена/снижение цены WB.
+ * Диалог Сауле: смена цены WB (минимально).
  *
- * 1) «снизь цену» / «цену менять» → какой артикул?
- * 2) «лапша белая» / «фонарь черный» / «укороченный черный» → текущая цена + «на сколько снизить?»
- * 3) «4000» / «1300» → «Хорошо, снижаю» + upload в WB Prices API
+ * 1) артикул → «до 6000 · после 3360 — до/после + цена»
+ * 2) «после 3000» / «до 5000» → «сохранила»
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -26,6 +25,11 @@ const PRICES_API = 'https://discounts-prices-api.wildberries.ru';
 export type PriceReply = {
   handled: boolean;
   reply?: string;
+};
+
+export type PriceEditTarget = {
+  which: 'before' | 'after';
+  value: number;
 };
 
 type PriceGoods = {
@@ -86,7 +90,6 @@ export function wantsPriceChange(text: string): boolean {
 
 export function parsePriceDelta(text: string): number | null {
   const t = String(text || '').trim().toLowerCase().replace(/ё/g, 'е');
-  // «на 4000», «4000», «4000 руб», «снизь на 1300»
   const m =
     t.match(/(?:^|\s)(?:на\s+)?(\d{3,7})(?:\s*(?:₽|руб\.?|р\.?))?(?:\s|$)/i) ||
     t.match(/^(\d{3,7})$/);
@@ -94,6 +97,59 @@ export function parsePriceDelta(text: string): number | null {
   const n = Number(String(m[1]).replace(/\s/g, ''));
   if (!Number.isFinite(n) || n <= 0 || n > 5_000_000) return null;
   return Math.round(n);
+}
+
+/** «после 3000» / «до скидки 5000» / «после скидки 2800». */
+export function parsePriceEdit(text: string): PriceEditTarget | null {
+  const t = String(text || '').trim().toLowerCase().replace(/ё/g, 'е');
+  const after = t.match(
+    /(?:^|\s)(после(?:\s+скидк[аиу])?)\s+(\d{3,7})(?:\s*(?:₽|руб\.?|р\.?))?(?:\s|$)/i,
+  );
+  if (after) {
+    const value = Number(after[2]);
+    if (Number.isFinite(value) && value >= 100) return { which: 'after', value: Math.round(value) };
+  }
+  const before = t.match(
+    /(?:^|\s)(до(?:\s+скидк[аиу])?)\s+(\d{3,7})(?:\s*(?:₽|руб\.?|р\.?))?(?:\s|$)/i,
+  );
+  if (before) {
+    const value = Number(before[2]);
+    if (Number.isFinite(value) && value >= 100) return { which: 'before', value: Math.round(value) };
+  }
+  // «после скидки» и число отдельно в той же фразе
+  const whichOnly = t.match(/(?:^|\s)(после|до)(?:\s+скидк[аиу])?(?:\s|$)/i);
+  const num = parsePriceDelta(t);
+  if (whichOnly && num != null && num >= 100) {
+    const w = whichOnly[1].startsWith('после') ? 'after' : 'before';
+    return { which: w, value: num };
+  }
+  return null;
+}
+
+/** Во что отправить на WB: price + discount%. */
+export function resolveUploadPrices(
+  currentPrice: number,
+  currentDiscountPct: number,
+  edit: PriceEditTarget,
+): { price: number; discountPct: number; after: number } | null {
+  if (edit.which === 'before') {
+    const price = Math.round(edit.value);
+    if (price < 100) return null;
+    const discountPct = Math.max(0, Math.min(99, Math.round(currentDiscountPct)));
+    const after = Math.round(price * (1 - discountPct / 100));
+    return { price, discountPct, after };
+  }
+  // после скидки
+  const after = Math.round(edit.value);
+  if (after < 100) return null;
+  const base = Math.round(currentPrice);
+  if (after >= base) {
+    return { price: after, discountPct: 0, after };
+  }
+  const discountPct = Math.max(1, Math.min(99, Math.round((1 - after / base) * 100)));
+  // подогнать after под выбранный %
+  const realized = Math.round(base * (1 - discountPct / 100));
+  return { price: base, discountPct, after: realized };
 }
 
 function norm(s: string): string {
@@ -341,10 +397,6 @@ function formatMoney(n: number): string {
   return `${Math.round(n).toLocaleString('ru-RU')} ₽`;
 }
 
-function productLabel(g: { vendorCode: string; nmId: number }): string {
-  return `${g.vendorCode || 'товар'} · nm ${g.nmId}`;
-}
-
 async function createPending(
   chatId: number,
   tgUserId: number,
@@ -419,8 +471,7 @@ async function presentProduct(
   queryText: string,
 ): Promise<PriceReply> {
   if (!goods.length) {
-    const reply =
-      'Не нашла такой артикул во всех кабинетах. Напиши модель/цвет точнее — «жилетка темно-синяя elium», «лапша белая», nm — или «отмена».';
+    const reply = 'Не нашла. Модель/цвет или nm — или «отмена».';
     if (pendingId) {
       await updatePending(pendingId, {
         payload: { step: 'await_product', queryText },
@@ -434,7 +485,7 @@ async function presentProduct(
 
   if (goods.length > 1 && goods[0].score === goods[1].score) {
     const lines = goods.slice(0, 6).map((g, i) =>
-      `${i + 1}. ${g.cabinetName} · ${g.vendorCode} · ${formatMoney(g.price)} (со скидкой ${formatMoney(g.discountedPrice)})`
+      `${i + 1}. ${g.cabinetName} · ${g.vendorCode} · до ${formatMoney(g.price)} · после ${formatMoney(g.discountedPrice)}`
     );
     const payload: PricePayload = {
       step: 'await_product',
@@ -460,7 +511,7 @@ async function presentProduct(
     await setChatFocus(chatId, PRICE_AGENT, 'price_change', 20);
     return {
       handled: true,
-      reply: 'Несколько вариантов — напиши номер или точнее модель:\n' + lines.join('\n'),
+      reply: 'Несколько вариантов — номер:\n' + lines.join('\n'),
     };
   }
 
@@ -491,9 +542,9 @@ async function presentProduct(
   return {
     handled: true,
     reply: [
-      `${g.cabinetName} · ${productLabel(g)}`,
-      `Сейчас: ${formatMoney(g.price)} (со скидкой ${formatMoney(g.discountedPrice)})`,
-      'На сколько снизить базовую цену? Напиши число — например 4000 или 1300.',
+      `${g.cabinetName} · ${g.vendorCode}`,
+      `до скидки ${formatMoney(g.price)} · после ${formatMoney(g.discountedPrice)}`,
+      'что меняем — до или после? и новую цену',
     ].join('\n'),
   };
 }
@@ -537,8 +588,7 @@ export async function startPriceChangeDialog(opts: {
     );
     return {
       handled: true,
-      reply:
-        'Какой артикул снижаем? Модель/цвет из любого кабинета — «жилетка темно-синяя», «лапша белая», «фонарь черный» — или nm.',
+      reply: 'Какой артикул? Модель/цвет или nm.',
     };
   }
 
@@ -566,7 +616,7 @@ export async function continuePriceChangeDialog(opts: {
 
   if (isCancelText(text)) {
     await cancelPending(pending.id);
-    return { handled: true, reply: 'Ок, отменила. Цену не трогала.' };
+    return { handled: true, reply: 'отмена' };
   }
 
   // выбор из списка кандидатов
@@ -582,10 +632,9 @@ export async function continuePriceChangeDialog(opts: {
   }
 
   if (payload.step === 'await_amount') {
-    const delta = parsePriceDelta(text);
-    if (delta == null) {
-      // новая модель вместо числа — переключаемся
-      if (looksLikeProductQuery(text)) {
+    const edit = parsePriceEdit(text);
+    if (!edit) {
+      if (looksLikeProductQuery(text) && !/\b(до|после)\b/i.test(text)) {
         const cab = await resolveCabinet(text);
         const hint = extractProductHint(text) || text;
         const goods = await findProducts(hint, cab.match?.id || null);
@@ -593,25 +642,24 @@ export async function continuePriceChangeDialog(opts: {
       }
       return {
         handled: true,
-        reply: 'Нужна сумма снижения числом — например 4000 или 1300. Или уточни другую модель / «отмена».',
+        reply: 'напиши: «после 3000» или «до 5000»',
       };
     }
-    // applyDelta finishes pending; fix focus chat id
+
     const price = Number(payload.price || 0);
     const nmId = Number(payload.nmId || 0);
     const cabinetId = String(payload.cabinetId || '');
+    const discNow = Number(payload.discountPct || 0);
     if (!price || !nmId || !cabinetId) {
       await cancelPending(pending.id);
-      return { handled: true, reply: 'Сбился контекст. Напиши снова: «снизь цену …».' };
+      return { handled: true, reply: 'сбился контекст — напиши снова артикул' };
     }
-    const newPrice = Math.round(price - delta);
-    if (newPrice < 100) {
-      return {
-        handled: true,
-        reply:
-          `С ${formatMoney(price)} снять ${formatMoney(delta)} нельзя — выйдет меньше 100 ₽. Напиши меньшую сумму.`,
-      };
+
+    const upload = resolveUploadPrices(price, discNow, edit);
+    if (!upload) {
+      return { handled: true, reply: 'цена слишком маленькая' };
     }
+
     const db = admin();
     const { data: cab } = await db
       .from('cabinets')
@@ -619,30 +667,30 @@ export async function continuePriceChangeDialog(opts: {
       .eq('id', cabinetId)
       .maybeSingle();
     if (!cab?.wb_token) {
-      return { handled: true, reply: 'Нет токена кабинета — цену не могу отправить на WB.' };
+      return { handled: true, reply: 'нет токена кабинета' };
     }
-    const disc = Number(payload.discountPct || 0);
-    const uploaded = await uploadNewPrice(String(cab.wb_token), nmId, newPrice, disc);
+
+    const uploaded = await uploadNewPrice(
+      String(cab.wb_token),
+      nmId,
+      upload.price,
+      upload.discountPct,
+    );
     if (!uploaded.ok) {
       return {
         handled: true,
-        reply: `Не принял WB: ${uploaded.error || 'ошибка'}. Попробуй ещё раз числом или «отмена».`,
+        reply: `WB не принял: ${(uploaded.error || '').slice(0, 80)}`,
       };
     }
-    const newDisc = Math.round(newPrice * (1 - disc / 100));
-    const result = [
-      'Хорошо, снижаю.',
-      `${payload.cabinetName || cab.name} · ${payload.vendorCode || nmId}`,
-      `${formatMoney(price)} → ${formatMoney(newPrice)}` +
-        (disc ? ` (со скидкой ~${formatMoney(newDisc)})` : ''),
-      uploaded.uploadId ? `Задача WB #${uploaded.uploadId}` : 'Отправила в WB.',
-    ].join('\n');
+
+    const label = edit.which === 'after' ? 'после' : 'до';
+    const result = `сохранила · ${label} ${formatMoney(edit.which === 'after' ? upload.after : upload.price)}`;
     await finishPending(pending.id, result);
     await setChatFocus(opts.chatId, PRICE_AGENT, 'price_done', 8);
     return { handled: true, reply: result };
   }
 
-  // await_product — фраза как товар (ищем по всем кабинетам, если кабинет не назван)
+  // await_product — фраза как товар
   const cab = await resolveCabinet(text);
   const hint = extractProductHint(text) || text;
   const prefer = cab.match?.id || null;
@@ -652,6 +700,7 @@ export async function continuePriceChangeDialog(opts: {
 
 function looksLikeProductQuery(text: string): boolean {
   const t = String(text || '').toLowerCase();
+  if (parsePriceEdit(t)) return false;
   if (parsePriceDelta(t) != null && /^\s*(на\s+)?\d/.test(t) && t.length < 20) {
     return false;
   }
