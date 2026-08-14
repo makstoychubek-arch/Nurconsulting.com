@@ -1,6 +1,6 @@
 /**
  * Быстрые команды без OpenAI — меньше нагрузки и быстрее ответ.
- * Поддержка: /cmd и короткие фразы.
+ * Поддержка: /cmd, короткие фразы, опечатки, wow-команды смены.
  */
 
 import {
@@ -16,6 +16,10 @@ import {
   type AgentKey,
 } from "./agent-wb-context.ts";
 import { selfSkillsReply } from "./agent-self-skills.ts";
+import {
+  fuzzyMatchCommand,
+  normalizeBotText,
+} from "./agent-fuzzy.ts";
 
 export type FastCommandResult = {
   handled: boolean;
@@ -25,6 +29,70 @@ export type FastCommandResult = {
 
 function stripBotMention(text: string): string {
   return text.replace(/@\w+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+const CMD_ALIASES: Record<string, string> = {
+  помощь: "help",
+  команды: "help",
+  skills: "help",
+  чтоумеешь: "help",
+  зона: "help",
+  ктоя: "whoami",
+  whoami: "whoami",
+  продажи: "sales",
+  заказы: "sales",
+  рк: "ads",
+  реклама: "ads",
+  кампании: "ads",
+  drr: "ads",
+  дrr: "ads",
+  дрр: "ads",
+  фбс: "fbs",
+  остатки: "stock",
+  stock: "stock",
+  склад: "stock",
+  склады: "stock",
+  самовыкуп: "selfbuy",
+  самовыкупы: "selfbuy",
+  кабинеты: "cabinets",
+  cabs: "cabinets",
+  пинг: "ping",
+  pulse: "pulse",
+  пульс: "pulse",
+  сводка: "pulse",
+  брифинг: "pulse",
+  сегодня: "pulse",
+  standup: "pulse",
+  срочно: "urgent",
+  urgent: "urgent",
+  горит: "urgent",
+  триаж: "urgent",
+};
+
+const FUZZY_CMD_BANK = [
+  ...Object.keys(CMD_ALIASES),
+  "help",
+  "ping",
+  "sales",
+  "ads",
+  "fbs",
+  "selfbuy",
+  "cabinets",
+  "pulse",
+  "urgent",
+  "stock",
+  "whoami",
+] as const;
+
+function mapCmd(raw: string): string {
+  const c = normalizeBotText(raw);
+  if (CMD_ALIASES[c]) return CMD_ALIASES[c];
+  const hit = fuzzyMatchCommand(c, FUZZY_CMD_BANK);
+  if (hit && CMD_ALIASES[hit]) return CMD_ALIASES[hit];
+  if (hit && ["help", "ping", "sales", "ads", "fbs", "selfbuy", "cabinets", "pulse", "urgent", "stock", "whoami"].includes(hit)) {
+    return hit;
+  }
+  return c;
 }
 
 /** Нормализует /sales baza → { cmd, arg } */
@@ -55,50 +123,68 @@ export function parseFastCommand(raw: string): { cmd: string; arg: string } | nu
   // /command args
   const slash = text.match(/^\/([a-zA-Zа-яА-ЯёЁ_]+)(?:@\w+)?\s*(.*)$/u);
   if (slash) {
-    const cmd = slash[1].toLowerCase();
+    const mapped = mapCmd(slash[1]);
     const arg = (slash[2] || "").trim();
-    const aliases: Record<string, string> = {
-      помощь: "help",
-      команды: "help",
-      продажи: "sales",
-      заказы: "sales",
-      рк: "ads",
-      реклама: "ads",
-      кампании: "ads",
-      фбс: "fbs",
-      самовыкуп: "selfbuy",
-      самовыкупы: "selfbuy",
-      кабинеты: "cabinets",
-      пинг: "ping",
-    };
-    const mapped = aliases[cmd] || cmd;
     return normalizeAdsCmd(mapped, arg);
   }
 
-  const lower = text.toLowerCase();
+  const lower = normalizeBotText(text);
+  const parts = lower.split(" ");
+  const head = parts[0] || "";
+  const rest = parts.slice(1).join(" ").trim();
 
-  if (/^(помощь|команды|help)$/i.test(lower)) return { cmd: "help", arg: "" };
+  // Точные короткие
+  if (/^(помощь|команды|help|skills|чтоумеешь|зона)$/i.test(lower)) {
+    return { cmd: "help", arg: "" };
+  }
   if (/^(пинг|ping|жив|статус бота)$/i.test(lower)) return { cmd: "ping", arg: "" };
-  if (/^(кабинеты|cabinets)$/i.test(lower)) return { cmd: "cabinets", arg: "" };
+  if (/^(кабинеты|cabinets|cabs)$/i.test(lower)) return { cmd: "cabinets", arg: "" };
+  if (/^(ктоя|whoami|кто ты)$/i.test(lower)) return { cmd: "whoami", arg: "" };
+
+  // Wow: pulse / urgent / stock (fuzzy head)
+  // «сегодня» → pulse только голое (иначе «сегодня заказы» уйдёт в NL)
+  const mappedHead = mapCmd(head);
+  if (
+    mappedHead === "pulse" &&
+    (head !== "сегодня" || !rest) &&
+    parts.length <= 2
+  ) {
+    return { cmd: "pulse", arg: "" };
+  }
+  if (mappedHead === "urgent" && parts.length <= 2) {
+    return { cmd: "urgent", arg: "" };
+  }
+  if (mappedHead === "stock") {
+    return { cmd: "stock", arg: rest };
+  }
+  if (mappedHead === "whoami") return { cmd: "whoami", arg: "" };
 
   // продажи [кабинет]
   let m = lower.match(/^(продажи|sales|заказы)\s*(.*)$/i);
   if (m) return { cmd: "sales", arg: (m[2] || "").trim() };
+  if (mappedHead === "sales") return { cmd: "sales", arg: rest };
 
-  // рк / реклама / ads
-  m = lower.match(/^(рк|реклама|ads|кампании)\s*(.*)$/i);
+  // рк / реклама / ads / drr
+  m = lower.match(/^(рк|реклама|ads|кампании|drr|дрр)\s*(.*)$/i);
   if (m) {
     return normalizeAdsCmd("ads", (m[2] || "").trim());
   }
+  if (mappedHead === "ads") return normalizeAdsCmd("ads", rest);
 
   // Только голое «fbs»/«фбс»/«отгрузки» → дальше в FBS-диалог остатков.
-  // «fbs остатки», «фбс база» НЕ fast-команда (иначе уходит в заказы fbs_daily).
-  if (/^(fbs|фбс|отгрузки?)$/i.test(lower)) {
+  if (/^(fbs|фбс|отгрузки?)$/i.test(lower) || (mappedHead === "fbs" && !rest)) {
     return { cmd: "fbs", arg: "" };
   }
 
-  if (/^(самовыкуп|selfbuy|выкупы клиент)/i.test(lower)) {
+  if (/^(самовыкуп|selfbuy|выкупы клиент)/i.test(lower) || mappedHead === "selfbuy") {
     return { cmd: "selfbuy", arg: "" };
+  }
+
+  // Fuzzy single-token commands (опечатки: сволка→сводка, остаки→остатки)
+  if (parts.length === 1 && mappedHead && mappedHead !== head) {
+    if (["help", "ping", "cabinets", "pulse", "urgent", "stock", "whoami", "sales", "ads", "fbs", "selfbuy"].includes(mappedHead)) {
+      return { cmd: mappedHead, arg: "" };
+    }
   }
 
   return null;
@@ -111,11 +197,18 @@ function agentForCmd(cmd: string): string {
     case "ads_pause":
       return "amina";
     case "fbs":
+    case "stock":
       return "anton";
     case "selfbuy":
       return "alina";
     case "sales":
       return "saule";
+    case "pulse":
+    case "urgent":
+      return "karina";
+    case "whoami":
+    case "help":
+      return "karina";
     default:
       return "saule";
   }
@@ -125,7 +218,6 @@ async function salesBrief(arg: string): Promise<string> {
   const { sauleSalesLead } = await import("./agent-voice.ts");
   const ctx = await buildAgentWbContext("saule" as AgentKey, createWbContextCache());
   if (!arg) {
-    // Ужимаем до первых ~25 строк
     return sauleSalesLead() + "\n" + ctx.split("\n").slice(0, 28).join("\n");
   }
   const resolved = await resolveCabinet(arg);
@@ -160,7 +252,7 @@ async function adsBrief(arg: string): Promise<string> {
         const ready = items.filter((i) => i.status === 4).length;
         parts.push(`▶ ${c.name}: актив ${active}, пауза ${pause}, готовы ${ready}`);
       }
-      parts.push("", "Детали: /ads baza");
+      parts.push("", "Детали: /ads baza · ДРР: смотри активные, режь мусор после «да»");
       return parts.join("\n");
     }
     const names = resolved.candidates.map((c) => c.name).join(", ");
@@ -173,30 +265,94 @@ async function adsBrief(arg: string): Promise<string> {
 async function fbsBrief(): Promise<string> {
   const ctx = await buildAgentWbContext("anton" as AgentKey, createWbContextCache());
   const idx = ctx.indexOf("=== FBS ===");
-  const block = idx >= 0 ? ctx.slice(idx).split("\n").slice(0, 24).join("\n") : ctx.split("\n").slice(0, 20).join("\n");
+  const block = idx >= 0
+    ? ctx.slice(idx).split("\n").slice(0, 24).join("\n")
+    : ctx.split("\n").slice(0, 20).join("\n");
   return "Антон · FBS\n" + block;
 }
+
+/** Утренний пульс — заменяет обход ассистента по чатам. */
+async function pulseBrief(): Promise<string> {
+  const [sales, ads, fbs] = await Promise.all([
+    salesBrief("").then((s) => s.split("\n").slice(0, 10).join("\n")).catch((e) =>
+      `продажи: ${e instanceof Error ? e.message : String(e)}`
+    ),
+    adsBrief("").then((s) => s.split("\n").slice(0, 9).join("\n")).catch((e) =>
+      `реклама: ${e instanceof Error ? e.message : String(e)}`
+    ),
+    fbsBrief().then((s) => s.split("\n").slice(0, 8).join("\n")).catch((e) =>
+      `fbs: ${e instanceof Error ? e.message : String(e)}`
+    ),
+  ]);
+  return [
+    "⚡ Пульс смены · вместо утреннего ассистента",
+    "",
+    "— Продажи (Сауле) —",
+    sales,
+    "",
+    "— Реклама (Амина) —",
+    ads,
+    "",
+    "— FBS (Антон) —",
+    fbs,
+    "",
+    "Дальше: /срочно · /sales · /ads · /остатки · /selfbuy · «что умеешь» у любого бота",
+  ].join("\n");
+}
+
+function urgentBrief(): string {
+  return [
+    "🚨 Срочный триаж · что проверить до обеда",
+    "",
+    "1. Штрафы / блокировки → канал штрафов или Карина",
+    "2. ДРР в космосе / мёртвый CTR → /ads или Амина",
+    "3. Остатки на нуле / срывы FBS → /остатки или Антон",
+    "4. Неотвеченные отзывы / раздачи → /selfbuy или Алина",
+    "5. Цены / карточки сломались → /sales или Сауле",
+    "",
+    "Напиши одной фразой что горит — направлю к нужному боту.",
+    "Мутации только после твоего «да».",
+  ].join("\n");
+}
+
+const FAST_HINT =
+  "\n\nБыстрые: /pulse · /срочно · /cabinets · /sales · /ads · /остатки · /selfbuy · /ping · «что умеешь»";
+
+export type FastCommandOpts = {
+  /** ЛС: пульс/срочно отвечает этот бот. Группа: только Карина. */
+  privateChat?: boolean;
+};
 
 export async function tryFastCommand(
   text: string,
   triggeringBot: string,
+  opts: FastCommandOpts = {},
 ): Promise<FastCommandResult> {
   const parsed = parseFastCommand(text);
   if (!parsed) return { handled: false };
 
   const { cmd, arg } = parsed;
   const agentKey = agentForCmd(cmd);
+  const privateChat = opts.privateChat === true;
 
-  // help/ping/cabinets — help = зона ЭТОГО бота (не общий каталог)
   if (cmd === "help" || cmd === "команды" || cmd === "помощь") {
     const who = triggeringBot || "karina";
     return {
       handled: true,
       agentKey: who,
-      reply: selfSkillsReply(who) +
-        "\n\nБыстрые: /cabinets · /sales · /ads · /fbs · /selfbuy · /ping",
+      reply: selfSkillsReply(who) + FAST_HINT,
     };
   }
+
+  if (cmd === "whoami") {
+    const who = triggeringBot || "karina";
+    return {
+      handled: true,
+      agentKey: who,
+      reply: selfSkillsReply(who),
+    };
+  }
+
   if (cmd === "ping") {
     return {
       handled: true,
@@ -204,6 +360,7 @@ export async function tryFastCommand(
       reply: `ok · ${new Date().toISOString().slice(11, 19)} UTC`,
     };
   }
+
   if (cmd === "cabinets" || cmd === "кабинеты") {
     const cabs = await listCabinets();
     return {
@@ -213,7 +370,33 @@ export async function tryFastCommand(
     };
   }
 
-  // Команды специалиста — чужие webhook молчат сразу (не гоняют весь pipeline)
+  // Пульс / срочно — в группе только Карина; в ЛС — бот, которому написали
+  if (cmd === "pulse") {
+    const speaker = privateChat ? (triggeringBot || "karina") : "karina";
+    if (triggeringBot !== speaker) {
+      return { handled: true, agentKey: speaker };
+    }
+    try {
+      const reply = await pulseBrief();
+      return { handled: true, agentKey: speaker, reply };
+    } catch (e) {
+      return {
+        handled: true,
+        agentKey: speaker,
+        reply: `Пульс не собрался: ${e instanceof Error ? e.message : String(e)}`,
+      };
+    }
+  }
+
+  if (cmd === "urgent") {
+    const speaker = privateChat ? (triggeringBot || "karina") : "karina";
+    if (triggeringBot !== speaker) {
+      return { handled: true, agentKey: speaker };
+    }
+    return { handled: true, agentKey: speaker, reply: urgentBrief() };
+  }
+
+  // Команды специалиста — чужие webhook молчат сразу
   if (triggeringBot !== agentKey) {
     return { handled: true, agentKey };
   }
@@ -226,14 +409,13 @@ export async function tryFastCommand(
       return { handled: true, agentKey: "amina", reply: await adsBrief(arg) };
     }
     if (cmd === "ads_start") {
-      // Передаём в action-слой через «запусти рк …»
       return { handled: false, agentKey: "amina" };
     }
     if (cmd === "ads_pause") {
       return { handled: false, agentKey: "amina" };
     }
-    if (cmd === "fbs") {
-      // Реальные остатки FBS (склады/размеры) — через agent-fbs-stock, не brief заказов
+    if (cmd === "fbs" || cmd === "stock") {
+      // Реальные остатки — через agent-fbs-stock
       return { handled: false, agentKey: "anton" };
     }
     if (cmd === "selfbuy" || cmd === "самовыкуп") {

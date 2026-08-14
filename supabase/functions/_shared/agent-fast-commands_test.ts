@@ -10,6 +10,7 @@ Deno.test("parse ads commands", () => {
   assertEquals(parseFastCommand("/ads saai")?.cmd, "ads");
   assertEquals(parseFastCommand("рк baza")?.cmd, "ads");
   assertEquals(parseFastCommand("/ads start baza"), { cmd: "ads_start", arg: "baza" });
+  assertEquals(parseFastCommand("/drr")?.cmd, "ads");
 });
 
 Deno.test("expand ads start", () => {
@@ -21,4 +22,21 @@ Deno.test("help ping", () => {
   assertEquals(parseFastCommand("/help")?.cmd, "help");
   assertEquals(parseFastCommand("команды")?.cmd, "help");
   assertEquals(parseFastCommand("/ping")?.cmd, "ping");
+});
+
+Deno.test("wow pulse urgent stock", () => {
+  assertEquals(parseFastCommand("/pulse")?.cmd, "pulse");
+  assertEquals(parseFastCommand("сводка")?.cmd, "pulse");
+  assertEquals(parseFastCommand("сегодня")?.cmd, "pulse");
+  assertEquals(parseFastCommand("сегодня заказы"), null); // не перехватываем NL
+  assertEquals(parseFastCommand("/срочно")?.cmd, "urgent");
+  assertEquals(parseFastCommand("urgent")?.cmd, "urgent");
+  assertEquals(parseFastCommand("/остатки")?.cmd, "stock");
+  assertEquals(parseFastCommand("остатки")?.cmd, "stock");
+  assertEquals(parseFastCommand("/whoami")?.cmd, "whoami");
+});
+
+Deno.test("fuzzy typos on wow cmds", () => {
+  assertEquals(parseFastCommand("сволка")?.cmd, "pulse");
+  assertEquals(parseFastCommand("остаки")?.cmd, "stock");
 });

@@ -1135,14 +1135,16 @@ serve(async (req) => {
     // ── Быстрые команды без OpenAI ──────────────────────────────────────────
     {
       const isMetaCmd =
-        /^\/?(help|ping|cabinets|помощь|команды|пинг|кабинеты)(@\w+)?(\s|$)/i
+        /^\/?(help|ping|cabinets|помощь|команды|пинг|кабинеты|pulse|пульс|сводка|сегодня|срочно|urgent|whoami|ктоя|skills|чтоумеешь|зона)(@\w+)?(\s|$)/i
           .test(text.trim());
-      const fast = await tryFastCommand(text, triggeringBot);
+      const fast = await tryFastCommand(text, triggeringBot, {
+        privateChat: !isGroupChat,
+      });
 
       if (fast.handled && fast.reply) {
         // /help — зона названного/@бота; в группе без имени — Карина; в ЛС — этот бот
         const isHelpCmd = isMetaCmd &&
-          /^\/?(help|команды|помощь)(@\w+)?(\s|$)/i.test(text.trim());
+          /^\/?(help|команды|помощь|skills|чтоумеешь|зона)(@\w+)?(\s|$)/i.test(text.trim());
         if (isHelpCmd) {
           const helpWho =
             selfSkillsNamedAgent(text) ||
@@ -1153,7 +1155,7 @@ serve(async (req) => {
           if (resolved && triggeringBot === resolved.orchestrator) {
             const helpReply =
               selfSkillsReply(resolved.speakAs) +
-              "\n\nБыстрые: /cabinets · /sales · /ads · /fbs · /selfbuy · /ping";
+              "\n\nБыстрые: /pulse · /срочно · /cabinets · /sales · /ads · /остатки · /selfbuy · /ping · «что умеешь»";
             await runWork((async () => {
               await sendTelegramMessage(
                 resolved.speakAs,
