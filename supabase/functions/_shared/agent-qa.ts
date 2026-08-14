@@ -7,7 +7,7 @@
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { resolveCabinet } from './agent-actions.ts';
+import { resolveCabinet, listCabinets } from './agent-actions.ts';
 import {
   fetchSheetPlan,
   listAllProductChoices,
@@ -20,6 +20,7 @@ import { fetchWbMainPhoto } from './alina-wb-photo.ts';
 import { detectNamedAgents, detectMentionedAgents } from './agent-team.ts';
 import { wantsFbsStock } from './agent-fbs-stock.ts';
 import { alinaSeesSheet, antonWbStockLead } from './agent-voice.ts';
+import { findCatalogProducts } from './agent-product-catalog.ts';
 
 export type TeamQaResult = {
   handled: boolean;
@@ -142,6 +143,40 @@ async function answerProductPhoto(text: string): Promise<TeamQaResult> {
     };
   }
   if (!picked.offer?.article) {
+    // fallback: общий каталог (все кабинеты), не только таблица раздач
+    try {
+      const hits = await findCatalogProducts(text, {
+        sources: ['wb_prices', 'rnp'],
+        minScore: 4,
+        max: 5,
+      });
+      if (hits.length === 1 || (hits.length > 1 && hits[0].score > hits[1].score)) {
+        const h = hits[0];
+        const photo = await fetchWbMainPhoto(String(h.nmId));
+        if (photo) {
+          return {
+            handled: true,
+            agentKey: 'alina',
+            reply: `Главное фото «${h.vendorCode || h.title}» (${h.cabinetName})`,
+            photos: [{
+              url: photo.url,
+              bytes: photo.bytes,
+              mime: photo.mime,
+              filename: photo.filename,
+              caption: `${h.cabinetName} · ${h.vendorCode || h.title}`,
+            }],
+          };
+        }
+      }
+      if (hits.length > 1) {
+        return {
+          handled: true,
+          agentKey: 'alina',
+          reply: 'Какую модель фото?\n' +
+            hits.slice(0, 6).map((h) => `• ${h.cabinetName} · ${h.vendorCode || h.title}`).join('\n'),
+        };
+      }
+    } catch { /* */ }
     const all = listAllProductChoices(offers);
     return {
       handled: true,
@@ -149,7 +184,7 @@ async function answerProductPhoto(text: string): Promise<TeamQaResult> {
       reply: all.length
         ? 'Уточни модель/цвет — скину главное фото с WB:\n' +
           all.map((o) => `• ${o.product_name}`).join('\n')
-        : 'Не нашла модель в таблице раздач 🙌',
+        : 'Не нашла модель — напиши точнее или nm',
     };
   }
 
@@ -175,29 +210,12 @@ async function answerProductPhoto(text: string): Promise<TeamQaResult> {
   };
 }
 
-function scoreArticleName(name: string, text: string): number {
-  const n = name.toLowerCase().replace(/ё/g, 'е');
-  const t = text.toLowerCase().replace(/ё/g, 'е');
-  let score = 0;
-  if (/фонар/.test(t) && (/фонар|лапш/.test(n))) score += 4;
-  if (/вырез/.test(t) && /вырез/.test(n)) score += 4;
-  if (/блузк|лапш/.test(t) && (/блуз|лапш|фонар|вырез/.test(n))) score += 2;
-  if (/бел/.test(t) && /бел/.test(n)) score += 3;
-  if (/черн|чёрн/.test(t) && /черн/.test(n)) score += 3;
-  if (/укороч/.test(t) && /укороч/.test(n)) score += 4;
-  if (/костюм/.test(t) && /костюм/.test(n)) score += 4;
-  if (/пиджак/.test(t) && /пиджак/.test(n)) score += 3;
-  if (/жилет/.test(t) && /жилет/.test(n)) score += 4;
-  return score;
-}
-
 async function resolveNmIdsForProduct(
-  cabinetId: string,
+  cabinetId: string | null,
   text: string,
-): Promise<Array<{ nm_id: number; title: string }>> {
-  const db = admin();
-  const found: Array<{ nm_id: number; title: string; score: number }> = [];
-  const seen = new Set<number>();
+): Promise<Array<{ nm_id: number; title: string; cabinet_id?: string }>> {
+  const found: Array<{ nm_id: number; title: string; score: number; cabinet_id?: string }> = [];
+  const seen = new Set<string>();
 
   try {
     const snap = await fetchSheetPlan(false);
@@ -213,46 +231,71 @@ async function resolveNmIdsForProduct(
     }
     for (const o of candidates) {
       const nm = Number(o.article);
-      if (!Number.isFinite(nm) || seen.has(nm)) continue;
-      seen.add(nm);
+      if (!Number.isFinite(nm)) continue;
+      const key = `${cabinetId || 'sheet'}:${nm}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       found.push({
         nm_id: nm,
         title: o.product_name || String(nm),
         score: 10,
+        cabinet_id: cabinetId || undefined,
       });
     }
   } catch { /* */ }
 
-  const { data } = await db
-    .from('rnp_articles')
-    .select('nm_id, name')
-    .eq('cabinet_id', cabinetId)
-    .limit(800);
-
-  for (const row of data || []) {
-    const score = scoreArticleName(String(row.name || ''), text);
-    if (score < 5) continue;
-    const nm = Number(row.nm_id);
-    if (!Number.isFinite(nm) || seen.has(nm)) continue;
-    seen.add(nm);
-    found.push({ nm_id: nm, title: String(row.name), score });
-  }
+  try {
+    const hits = await findCatalogProducts(text, {
+      cabinetId: cabinetId || null,
+      sources: ['rnp', 'wb_prices'],
+      minScore: 4,
+      max: 8,
+    });
+    for (const h of hits) {
+      const key = `${h.cabinetId}:${h.nmId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      found.push({
+        nm_id: h.nmId,
+        title: h.vendorCode || h.title,
+        score: h.score,
+        cabinet_id: h.cabinetId,
+      });
+    }
+  } catch { /* */ }
 
   found.sort((a, b) => b.score - a.score);
-  return found.slice(0, 6).map(({ nm_id, title }) => ({ nm_id, title }));
+  return found.slice(0, 6).map(({ nm_id, title, cabinet_id }) => ({
+    nm_id,
+    title,
+    cabinet_id,
+  }));
 }
 
 async function answerStock(text: string): Promise<TeamQaResult> {
   const resolved = await resolveCabinet(text);
   if (!resolved.match && (resolved.candidates?.length || 0) > 1) {
-    return {
-      handled: true,
-      agentKey: 'anton',
-      reply: 'По какому кабинету? ' +
-        (resolved.candidates || []).map((c) => c.name).join(', '),
-    };
+    // если товар однозначно из одного кабинета — не спрашиваем
+    const guessed = await resolveNmIdsForProduct(null, text);
+    const cabs = [...new Set(guessed.map((g) => g.cabinet_id).filter(Boolean))];
+    if (cabs.length !== 1) {
+      return {
+        handled: true,
+        agentKey: 'anton',
+        reply: 'По какому кабинету? ' +
+          (resolved.candidates || []).map((c) => c.name).join(', '),
+      };
+    }
   }
   let cabinet = resolved.match;
+  if (!cabinet) {
+    const guessed = await resolveNmIdsForProduct(null, text);
+    if (guessed[0]?.cabinet_id) {
+      const all = await listCabinets();
+      const hit = all.find((c) => c.id === guessed[0].cabinet_id);
+      if (hit) cabinet = hit;
+    }
+  }
   if (!cabinet) {
     cabinet = (await resolveCabinet('база')).match;
   }
@@ -269,8 +312,7 @@ async function answerStock(text: string): Promise<TeamQaResult> {
     return {
       handled: true,
       agentKey: 'anton',
-      reply:
-        `Кабинет ${cabinet.name}: не понял товар. Пример: «остаток база блузка фонарь белый»`,
+      reply: `Не понял товар в ${cabinet.name}. Пример: «жилетка темно синяя» / «фонарь белый»`,
     };
   }
 

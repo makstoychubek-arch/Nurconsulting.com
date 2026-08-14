@@ -21,6 +21,10 @@ import {
   stripCabinetAliases,
 } from './agent-actions.ts';
 import {
+  findCatalogProducts,
+  scoreProductMatch,
+} from './agent-product-catalog.ts';
+import {
   CABINET_TOKEN_SELECT,
   isValidWbToken,
   pickCabinetToken,
@@ -190,45 +194,7 @@ function kbFromItems(items: Array<{ name: string }>, withAll?: { label: string }
 }
 
 function scoreProductName(name: string, text: string): number {
-  const n = name.toLowerCase().replace(/ё/g, 'е');
-  const t = text.toLowerCase().replace(/ё/g, 'е');
-  let score = 0;
-  if (/укороч/.test(t) && /укороч/.test(n)) score += 4;
-  if (/костюм/.test(t) && /костюм/.test(n)) score += 4;
-  if (/пиджак/.test(t) && /пиджак/.test(n)) score += 3;
-  if (/брюч/.test(t) && /брюч/.test(n)) score += 3;
-  if (/жилет/.test(t) && /жилет/.test(n)) score += 4;
-  if (/блузк|лапш/.test(t) && (/блуз|лапш|фонар|вырез/.test(n))) score += 2;
-  if (/фонар/.test(t) && (/фонар|лапш/.test(n))) score += 4;
-  if (/вырез/.test(t) && /вырез/.test(n)) score += 4;
-
-  const colorRules: Array<[RegExp, RegExp]> = [
-    [/черн|чёрн/, /черн/],
-    [/бел/, /бел/],
-    [/бордо|бардо/, /борд|бард/],
-    [/коричнев|шоко/, /коричнев|шоко/],
-    [/сер(ый|ая|ое)?/, /сер(ый|ая|ое|ые)?|gray|grey/],
-  ];
-  let colorAsked = false;
-  let colorHit = false;
-  for (const [ask, have] of colorRules) {
-    if (!ask.test(t)) continue;
-    colorAsked = true;
-    if (have.test(n)) {
-      score += 4;
-      colorHit = true;
-    }
-  }
-  // чужой цвет при явном запросе цвета — сильно режем
-  if (colorAsked && !colorHit) score -= 4;
-  if (/спорт|sport|велюр|двойка|оверсайз/.test(n) && !/спорт|велюр|двойка|оверсайз/.test(t)) {
-    score -= 2;
-  }
-  // vendor-style tokens
-  for (const w of t.split(/[^a-zа-я0-9_]+/i).filter((x) => x.length >= 4)) {
-    if (n.includes(w)) score += 1;
-  }
-  return score;
+  return scoreProductMatch(name, text);
 }
 
 function extractProductText(text: string): string {
@@ -258,7 +224,7 @@ function hasProductQuery(text: string | undefined): boolean {
   if (
     words.length === 1 &&
     words[0].length <= 8 &&
-    !/(костюм|пиджак|блуз|фонар|вырез|жилет|брюк|укороч|лапш)/i.test(t)
+    !/(костюм|пиджак|блуз|фонар|вырез|жилет|жл|брюк|укороч|лапш|бомбер|кимоно)/i.test(t)
   ) {
     return false;
   }
@@ -268,71 +234,26 @@ function hasProductQuery(text: string | undefined): boolean {
 }
 
 async function findProducts(text: string, cabinetId?: string): Promise<ProductHit[]> {
-  const db = admin();
   const productText = extractProductText(text);
   if (!productText || productText.length < 3) return [];
 
-  const found: ProductHit[] = [];
-  const seen = new Set<string>();
+  const hits = await findCatalogProducts(productText, {
+    cabinetId: cabinetId || null,
+    sources: ['rnp', 'wb_prices'],
+    minScore: 4,
+    max: 8,
+  });
+  if (!hits.length) return [];
 
-  let q = db.from('rnp_articles').select('cabinet_id, nm_id, name').limit(1200);
-  if (cabinetId) q = q.eq('cabinet_id', cabinetId);
-  const { data } = await q;
-  const upsert = (hit: ProductHit) => {
-    const key = `${hit.cabinet_id}:${hit.nm_id}`;
-    const idx = found.findIndex((f) => `${f.cabinet_id}:${f.nm_id}` === key);
-    if (idx >= 0) {
-      if (hit.score > found[idx].score) found[idx] = hit;
-      return;
-    }
-    seen.add(key);
-    found.push(hit);
-  };
-
-  for (const row of data || []) {
-    const score = scoreProductName(String(row.name || ''), productText);
-    if (score < 6) continue;
-    const nm = Number(row.nm_id);
-    if (!Number.isFinite(nm)) continue;
-    upsert({
-      nm_id: nm,
-      title: String(row.name || nm),
-      cabinet_id: String(row.cabinet_id),
-      score,
-    });
-  }
-
-  // Доп. сигналы из FBS-заказов (vendorCode) — часто точнее, чем rnp name
-  try {
-    const { data: fbs } = await db
-      .from('fbs_daily_orders')
-      .select('cabinet, nm_id, article, product_name')
-      .limit(400);
-    const cabs = await listCabinets();
-    const byName = new Map(cabs.map((c) => [normName(c.name), c]));
-    for (const row of fbs || []) {
-      const blob = `${row.article || ''} ${row.product_name || ''}`;
-      const score = scoreProductName(blob, productText) + 1;
-      if (score < 6) continue;
-      const cab = byName.get(normName(String(row.cabinet || '')));
-      if (!cab) continue;
-      if (cabinetId && cab.id !== cabinetId) continue;
-      const nm = Number(row.nm_id);
-      if (!Number.isFinite(nm)) continue;
-      upsert({
-        nm_id: nm,
-        title: String(row.article || row.product_name || nm),
-        cabinet_id: cab.id,
-        score,
-      });
-    }
-  } catch { /* optional */ }
-
+  const found: ProductHit[] = hits.map((h) => ({
+    nm_id: h.nmId,
+    title: h.vendorCode || h.title,
+    cabinet_id: h.cabinetId,
+    score: h.score,
+  }));
   found.sort((a, b) => b.score - a.score);
-  if (!found.length) return [];
   const top = found[0].score;
-  // только лучший скор (и равные ему) — без «похожих» костюмов другого фасона
-  return found.filter((f) => f.score === top).slice(0, 3);
+  return found.filter((f) => f.score >= top - 1).slice(0, 3);
 }
 
 async function autoCabinetFromProduct(

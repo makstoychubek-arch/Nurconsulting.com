@@ -10,17 +10,23 @@ import {
   cancelOtherPending,
   getActivePending,
   isCancelText,
-  listCabinets,
   resolveCabinet,
   stripCabinetAliases,
 } from './agent-actions.ts';
 import { setChatFocus } from './agent-chat-focus.ts';
+import {
+  findCatalogProducts,
+  scoreProductMatch,
+} from './agent-product-catalog.ts';
 import { sanitizeWbToken } from './wb-cabinet-tokens.ts';
 
 export const PRICE_CHANGE_ACTION = 'price_change';
 export const PRICE_AGENT = 'saule';
 
 const PRICES_API = 'https://discounts-prices-api.wildberries.ru';
+
+/** re-export для тестов / совместимости */
+export { scoreProductMatch as scorePriceProduct };
 
 export type PriceReply = {
   handled: boolean;
@@ -152,212 +158,23 @@ export function resolveUploadPrices(
   return { price: base, discountPct, after: realized };
 }
 
-function norm(s: string): string {
-  return String(s || '')
-    .toLowerCase()
-    .replace(/ё/g, 'е')
-    .replace(/[^a-zа-я0-9]+/gi, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-/** Скоринг vendorCode / названия под фразу владельца. */
-export function scorePriceProduct(vendorCode: string, query: string): number {
-  const vRaw = norm(vendorCode);
-  const v = vRaw.replace(/ /g, '');
-  const qRaw = norm(stripCabinetAliases(query));
-  const q = qRaw.replace(/ /g, '');
-  if (!v || !q) return 0;
-  let score = 0;
-
-  // типы товара (+ аббревиатуры вроде жл = жилетка)
-  const types: Array<[RegExp, RegExp, number]> = [
-    [/жилет/, /(?:жилет|^жл(?=[а-я\-]|$)|(^|[^а-я])жл([^а-я]|$))/, 7],
-    [/лапш/, /лапш/, 6],
-    [/фонар/, /фонар/, 6],
-    [/вырез/, /вырез/, 6],
-    [/блузк?/, /блуз/, 3],
-    [/укороч/, /укороч/, 6],
-    [/костюм/, /костюм|кост/, 4],
-    [/пиджак|жакет/, /пиджак|жакет/, 4],
-    [/бомбер/, /бомбер/, 6],
-    [/кимоно/, /кимоно/, 6],
-    [/плать/, /плать/, 5],
-    [/рубашк/, /рубашк/, 5],
-    [/куртк|фуфайк/, /куртк|фуфайк/, 5],
-  ];
-  for (const [qRe, vRe, pts] of types) {
-    if (qRe.test(qRaw) && vRe.test(vRaw)) score += pts;
-  }
-
-  // цвета (тёмно-синий / темносиний / тсин)
-  const colors: Array<[RegExp, RegExp, number]> = [
-    [/бел/, /бел/, 4],
-    [/(черн|чёрн)/, /черн/, 4],
-    [/беж/, /беж/, 4],
-    [/коричнев|шоколад|мокко|шоко/, /коричнев|шоколад|мокко|шоко|коричн/, 4],
-    [/графит|сер(ый|ая|ое)?/, /графит|сер|граф/, 3],
-    [/бордо|marsala/, /бордо|бардо/, 4],
-    [/электрик/, /электрик/, 4],
-    [/(темно\s*син|тёмно\s*син|темносин|тсинь?|тёмносин)/, /темносин|темно\s*син|тсин|темнсин/, 5],
-    [/(^|[^а-я])син(ий|яя|ее|ю|им)?([^а-я]|$)/, /(син|тсин)/, 3],
-    [/голуб/, /голуб/, 4],
-    [/розов/, /розов/, 4],
-    [/зелен|изумруд|ментол/, /зелен|изумруд|ментол/, 4],
-    [/желт|горчиц/, /желт|горчиц/, 4],
-    [/фиолет/, /фиолет/, 4],
-    [/айвори|кремов/, /айвори|кремов/, 4],
-  ];
-  for (const [qRe, vRe, pts] of colors) {
-    if (qRe.test(qRaw) && vRe.test(vRaw)) score += pts;
-  }
-
-  // общие токены ≥3 букв (лапша, жилет… уже учтены; ловим остальное)
-  const qTokens = qRaw.split(' ').filter((t) => t.length >= 3);
-  const vTokens = new Set(vRaw.split(' ').filter((t) => t.length >= 3));
-  for (const t of qTokens) {
-    if (v.includes(t) || [...vTokens].some((vt) => vt.includes(t) || t.includes(vt))) {
-      score += 1;
-    }
-  }
-
-  // прямой nm
-  const nm = qRaw.match(/\b(\d{6,12})\b/);
-  if (nm && (v.includes(nm[1]) || vendorCode.includes(nm[1]))) score += 20;
-
-  return score;
-}
-
-function discountPct(price: number, discounted: number): number {
-  if (!price || price <= 0) return 0;
-  const pct = Math.round((1 - discounted / price) * 100);
-  return Math.max(0, Math.min(99, pct));
-}
-
-async function fetchCabinetGoods(
-  cabinetId: string,
-  cabinetName: string,
-  tokenRaw: string,
-  query: string,
-): Promise<PriceGoods[]> {
-  const token = sanitizeWbToken(tokenRaw);
-  if (!token) return [];
-  const out: PriceGoods[] = [];
-  for (let offset = 0; offset < 800; offset += 100) {
-    const url =
-      `${PRICES_API}/api/v2/list/goods/filter?limit=100&offset=${offset}`;
-    const res = await fetch(url, {
-      headers: { Authorization: token },
-      signal: AbortSignal.timeout(25000),
-    });
-    if (!res.ok) break;
-    const body = await res.json() as {
-      data?: { listGoods?: Array<{
-        nmID?: number;
-        vendorCode?: string;
-        sizes?: Array<{ price?: number; discountedPrice?: number }>;
-      }> };
-    };
-    const goods = body?.data?.listGoods || [];
-    if (!goods.length) break;
-    for (const g of goods) {
-      const nmId = Number(g.nmID || 0);
-      const vendorCode = String(g.vendorCode || '');
-      const score = scorePriceProduct(vendorCode, query);
-      // порог 4: «жилетка синяя» → жл-темносиний должно проходить
-      if (score < 4 && !/^\d{6,12}$/.test(norm(query).replace(/ /g, ''))) continue;
-      const size = (g.sizes || [])[0] || {};
-      const price = Number(size.price || 0);
-      const discountedPrice = Number(size.discountedPrice || price);
-      if (!nmId || !price) continue;
-      out.push({
-        cabinetId,
-        cabinetName,
-        nmId,
-        vendorCode,
-        price,
-        discountedPrice,
-        discountPct: discountPct(price, discountedPrice),
-        score,
-      });
-    }
-    if (goods.length < 100) break;
-    await new Promise((r) => setTimeout(r, 120));
-  }
-  return out;
-}
-
 async function findProducts(query: string, preferCabinetId?: string | null): Promise<PriceGoods[]> {
-  const cabinets = await listCabinets();
-  const db = admin();
-  const list = preferCabinetId
-    ? cabinets.filter((c) => c.id === preferCabinetId)
-    : cabinets;
-
-  const all: PriceGoods[] = [];
-  for (const cab of list) {
-    const { data } = await db
-      .from('cabinets')
-      .select('id, name, wb_token')
-      .eq('id', cab.id)
-      .maybeSingle();
-    if (!data?.wb_token) continue;
-    try {
-      const found = await fetchCabinetGoods(
-        String(data.id),
-        String(data.name),
-        String(data.wb_token),
-        query,
-      );
-      all.push(...found);
-    } catch (e) {
-      console.error('[price-change] fetch', cab.name, e);
-    }
-  }
-
-  // прямой nm без скоринга — добрать точечно
-  const nmOnly = norm(query).replace(/ /g, '').match(/^(\d{6,12})$/);
-  if (nmOnly && !all.length) {
-    for (const cab of list) {
-      const { data } = await db
-        .from('cabinets')
-        .select('id, name, wb_token')
-        .eq('id', cab.id)
-        .maybeSingle();
-      if (!data?.wb_token) continue;
-      const token = sanitizeWbToken(data.wb_token);
-      const res = await fetch(
-        `${PRICES_API}/api/v2/list/goods/filter?limit=100&offset=0`,
-        { headers: { Authorization: token }, signal: AbortSignal.timeout(20000) },
-      );
-      if (!res.ok) continue;
-      const body = await res.json() as {
-        data?: { listGoods?: Array<{ nmID?: number; vendorCode?: string; sizes?: Array<{ price?: number; discountedPrice?: number }> }> };
-      };
-      for (const g of body?.data?.listGoods || []) {
-        if (Number(g.nmID) !== Number(nmOnly[1])) continue;
-        const size = (g.sizes || [])[0] || {};
-        const price = Number(size.price || 0);
-        const discountedPrice = Number(size.discountedPrice || price);
-        all.push({
-          cabinetId: String(data.id),
-          cabinetName: String(data.name),
-          nmId: Number(g.nmID),
-          vendorCode: String(g.vendorCode || ''),
-          price,
-          discountedPrice,
-          discountPct: discountPct(price, discountedPrice),
-          score: 20,
-        });
-      }
-    }
-  }
-
-  all.sort((a, b) => b.score - a.score || a.vendorCode.localeCompare(b.vendorCode, 'ru'));
-  // top cluster
-  if (!all.length) return [];
-  const best = all[0].score;
-  return all.filter((g) => g.score >= best - 1).slice(0, 8);
+  const hits = await findCatalogProducts(query, {
+    cabinetId: preferCabinetId,
+    sources: ['wb_prices'],
+    minScore: 4,
+    max: 8,
+  });
+  return hits.map((h) => ({
+    cabinetId: h.cabinetId,
+    cabinetName: h.cabinetName,
+    nmId: h.nmId,
+    vendorCode: h.vendorCode || h.title,
+    price: Number(h.price || 0),
+    discountedPrice: Number(h.discountedPrice || h.price || 0),
+    discountPct: Number(h.discountPct || 0),
+    score: h.score,
+  })).filter((g) => g.price > 0);
 }
 
 async function uploadNewPrice(
