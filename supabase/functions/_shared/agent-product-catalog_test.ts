@@ -23,6 +23,11 @@ Deno.test('catalog scorer: nm direct', () => {
   assertEquals(scoreProductMatch('жл-темносиний 1171792658', '1171792658') >= 20, true);
 });
 
-Deno.test('catalog scorer: short жл query', () => {
-  assert(scoreProductMatch('жл-черный', 'жл черный') >= 8);
+Deno.test('catalog scorer: rnp real names', () => {
+  assert(scoreProductMatch('Двойка_юбка_черный полоска', 'двойка юбка черная') >= 8);
+  assert(scoreProductMatch('Спорт_костюм_велюр_хаки', 'спорт велюр хаки') >= 8);
+  assert(scoreProductMatch('укороч.пидж брюч бордо', 'укороченный пиджак бордо') >= 8);
+  assert(scoreProductMatch('Платье/Рыбка/ментол', 'платье рыбка ментол') >= 8);
+  assert(scoreProductMatch('кимоно_однотон_тсиний_короткий', 'кимоно темно синее') >= 8);
+  assert(scoreProductMatch('бомбер корич', 'бомбер коричневый') >= 6);
 });

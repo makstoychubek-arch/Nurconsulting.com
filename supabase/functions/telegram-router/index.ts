@@ -45,7 +45,7 @@ import {
   setChatFocus,
   switchChatFocus,
 } from "../_shared/agent-chat-focus.ts";
-import { muhaPhotoBusy } from "../_shared/agent-voice.ts";
+import { muhaPhotoBusy, muhaPhotoFail, muhaPhotoReady, pick } from "../_shared/agent-voice.ts";
 import {
   AGENT_DISPLAY,
   buildTeamPlan,
@@ -608,8 +608,7 @@ async function runAgentTurn(opts: {
     await sendTelegramMessage("muha", chatId, muhaPhotoBusy(), replyToMessageId);
     const photo = await generateMuhaPhoto(rootTask);
     if (!photo.ok) {
-      const fail =
-        `Не смог сгенерировать фото: ${photo.error || "unknown"}. Опиши товар подробнее.`;
+      const fail = muhaPhotoFail();
       await sendTelegramMessage("muha", chatId, fail);
       await saveMessage(chatId, "muha", fail);
       return;
@@ -620,13 +619,17 @@ async function runAgentTurn(opts: {
       {
         imageUrl: photo.imageUrl,
         imageBytes: photo.imageBytes,
-        caption: "Муха · фото для карточки",
+        caption: pick([
+          "Муха · фото для карточки",
+          "Кадр под WB",
+          "Черновик фото",
+        ]),
       },
       replyToMessageId,
     );
     const note = sent.ok
-      ? "Фото готово. Если нужно иначе — уточни свет/ракурс/фон."
-      : "Фото сгенерировал, но Telegram не принял файл. Попробуй ещё раз.";
+      ? muhaPhotoReady()
+      : "Файл Telegram не принял — кинь ещё раз.";
     await sendTelegramMessage("muha", chatId, note);
     await saveMessage(chatId, "muha", note);
     return;
