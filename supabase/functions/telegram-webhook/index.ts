@@ -26,6 +26,13 @@ import {
     roughLeader,
 } from '../_shared/ab-test-dialogs.ts';
 import {
+    abTaskLabel,
+    channelHelpContact,
+    contactAck,
+    contactSoftCheck,
+    withContact,
+} from '../_shared/bot-contact.ts';
+import {
     fetchAllCabinetPenalties,
     formatPenaltiesReply,
     parsePenaltiesQuery,
@@ -174,10 +181,11 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
     if (chatKey === 'sales' && wantsSalesQuery(text)) {
         const query = parseSalesQuery(text, true);
         if (!query) {
-            await sendReply(token, chatId, salesHelpText(), message.message_id);
+            await sendReply(token, chatId, withContact(contactAck('нужна дата/кабинет'), channelHelpContact('sales') + '\n\n' + salesHelpText()), message.message_id);
             return;
         }
-        await sendReply(token, chatId, '⏳ Считаю продажи…', message.message_id);
+        const heard = contactAck(`продажи за ${query.date}${query.cabinet ? ' · ' + query.cabinet : ''}`);
+        await sendReply(token, chatId, withContact(heard, '⏳ Считаю…'), message.message_id);
         try {
             const snapshots = await fetchAllCabinetSales(admin, query.date, query.cabinet);
             await sendReply(token, chatId, formatSalesReply(query.date, snapshots), message.message_id);
@@ -191,10 +199,11 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
     if (chatKey === 'penalties' && wantsPenaltiesQuery(text)) {
         const query = parsePenaltiesQuery(text, true);
         if (!query) {
-            await sendReply(token, chatId, penaltiesHelpText(), message.message_id);
+            await sendReply(token, chatId, withContact(contactAck('уточним дату'), channelHelpContact('penalties') + '\n\n' + penaltiesHelpText()), message.message_id);
             return;
         }
-        await sendReply(token, chatId, '⏳ Запрашиваю штрафы WB…', message.message_id);
+        const heard = contactAck(`штрафы за ${query.date}`);
+        await sendReply(token, chatId, withContact(heard, '⏳ Смотрю WB…'), message.message_id);
         try {
             const snapshots = await fetchAllCabinetPenalties(admin, query.date, query.cabinet);
             const alert = snapshots.some((s) => s.total > 0) ? PENALTIES_ALERT : undefined;
@@ -209,16 +218,16 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
     if (chatKey === 'ads' && wantsAdsQuery(text)) {
         const query = parseAdsQuery(text);
         if (!query) {
-            await sendReply(token, chatId, adsHelpText(), message.message_id);
+            await sendReply(token, chatId, withContact(contactAck('нужен формат'), channelHelpContact('ads') + '\n\n' + adsHelpText()), message.message_id);
             return;
         }
         if (query.mode === 'balance') {
-            await sendReply(token, chatId, '⏳ Баланс…', message.message_id);
+            await sendReply(token, chatId, withContact(contactAck('баланс РК'), '⏳ Смотрю…'), message.message_id);
             const balances = await fetchAllBalances(admin);
             await sendReply(token, chatId, formatBalanceReply(balances), message.message_id);
             return;
         }
-        await sendReply(token, chatId, '⏳ Статистика рекламы…', message.message_id);
+        await sendReply(token, chatId, withContact(contactAck(`реклама за ${query.date}`), '⏳ Статистика…'), message.message_id);
         try {
             const rows = await fetchAdsDayRows(admin, query.date, query.cabinet);
             await sendReply(token, chatId, formatAdsReply(query.date, rows), message.message_id);
@@ -231,50 +240,73 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
     // ── А/Б тесты ────────────────────────────────────────────────────────
     if (chatKey === 'ab_tests' && wantsAbQuery(text)) {
         const parsed = parseAbIntent(text);
+        const label = abTaskLabel(parsed.intent, parsed.nmId);
+        // Средняя уверенность — озвучиваем догадку, чтобы человек мог поправить
+        const soft = parsed.confidence > 0 && parsed.confidence < 0.75
+            ? contactSoftCheck(label)
+            : contactAck(label);
 
         if (parsed.intent === 'help') {
-            await sendReply(token, chatId, abDialog.help(), message.message_id);
+            await sendReply(
+                token,
+                chatId,
+                withContact(soft, channelHelpContact('ab_tests') + '\n\n' + abDialog.help()),
+                message.message_id,
+            );
             return;
         }
         if (parsed.intent === 'how_start') {
-            await sendReply(token, chatId, abDialog.howStart(), message.message_id);
+            await sendReply(token, chatId, withContact(soft, abDialog.howStart()), message.message_id);
             return;
         }
         if (parsed.intent === 'list') {
-            await sendAbTestsList(admin, token, chatId, message.message_id);
+            await sendAbTestsList(admin, token, chatId, message.message_id, soft);
             return;
         }
         if (parsed.intent === 'rotate') {
             if (!parsed.nmId) {
-                await sendReply(token, chatId, abDialog.needNm('ротация'), message.message_id);
+                await sendReply(token, chatId, withContact(soft, abDialog.needNm('ротация')), message.message_id);
                 return;
             }
+            await sendReply(token, chatId, soft, message.message_id);
             await forceRotateAbByNm(admin, token, chatId, parsed.nmId, message.message_id);
             return;
         }
         if (parsed.intent === 'report' || parsed.intent === 'winner') {
             if (!parsed.nmId) {
-                await sendReply(token, chatId, abDialog.needNm(parsed.intent === 'winner' ? 'кто лучше' : 'отчёт'), message.message_id);
+                await sendReply(
+                    token,
+                    chatId,
+                    withContact(soft, abDialog.needNm(parsed.intent === 'winner' ? 'кто лучше' : 'отчёт')),
+                    message.message_id,
+                );
                 return;
             }
             await sendAbTestByNm(admin, token, chatId, parsed.nmId, message.message_id, {
                 withPhotos: true,
                 mode: parsed.intent === 'winner' ? 'winner' : 'report',
+                contactLine: soft,
             });
             return;
         }
         if (parsed.intent === 'detail') {
             if (!parsed.nmId) {
-                await sendReply(token, chatId, abDialog.needNm('тест'), message.message_id);
+                await sendReply(token, chatId, withContact(soft, abDialog.needNm('тест')), message.message_id);
                 return;
             }
             await sendAbTestByNm(admin, token, chatId, parsed.nmId, message.message_id, {
                 withPhotos: true,
                 mode: 'detail',
+                contactLine: soft,
             });
             return;
         }
-        await sendReply(token, chatId, abDialog.unknown(), message.message_id);
+        await sendReply(
+            token,
+            chatId,
+            withContact(contactAck('не уверенно считала фразу'), abDialog.unknown()),
+            message.message_id,
+        );
         return;
     }
 
@@ -531,6 +563,7 @@ async function sendAbTestsList(
     token: string,
     chatId: unknown,
     replyTo: unknown,
+    contactLine?: string,
 ): Promise<void> {
     const { data: tests } = await admin
         .from('ab_tests')
@@ -543,7 +576,7 @@ async function sendAbTestsList(
     const finished = (tests || []).filter((t) => t.status === 'finished').slice(0, 5);
 
     if (!active.length && !finished.length) {
-        await sendReply(token, chatId, abDialog.listEmpty(), replyTo);
+        await sendReply(token, chatId, withContact(contactLine || '', abDialog.listEmpty()), replyTo);
         return;
     }
 
@@ -574,7 +607,7 @@ async function sendAbTestsList(
             lines.push(`  ${reportBase}?test=${t.id}`);
         }
     }
-    await sendReply(token, chatId, lines.join('\n').trimEnd(), replyTo);
+    await sendReply(token, chatId, withContact(contactLine || '', lines.join('\n').trimEnd()), replyTo);
 }
 
 async function sendAbTestByNm(
@@ -583,7 +616,7 @@ async function sendAbTestByNm(
     chatId: unknown,
     nmId: number,
     replyTo: unknown,
-    opts: { withPhotos?: boolean; mode?: 'detail' | 'report' | 'winner' } = {},
+    opts: { withPhotos?: boolean; mode?: 'detail' | 'report' | 'winner'; contactLine?: string } = {},
 ): Promise<void> {
     let { data: test } = await admin
         .from('ab_tests')
@@ -641,7 +674,7 @@ async function sendAbTestByNm(
         if (v.photo_url) photoUrls.push(String(v.photo_url));
     }
     lines.push('', `Сайт: ${reportBase}?test=${test.id}`);
-    const caption = lines.join('\n');
+    const caption = withContact(opts.contactLine || '', lines.join('\n'));
 
     if (opts.withPhotos && photoUrls.length >= 2) {
         const ok = await sendTelegramMediaGroup(token, chatId, photoUrls, caption);
