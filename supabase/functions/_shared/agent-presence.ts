@@ -46,19 +46,20 @@ export const WORKING_STATUS_VARIANTS = [
   'копаю',
   'считаю',
   'сверяю',
-  'сейчас',
+  'работаю',
   'в работе',
 ] as const;
 
-export type WorkingStatusKind = 'analyze' | 'lookup' | 'price' | 'generic';
+export type WorkingStatusKind = 'analyze' | 'lookup' | 'price' | 'create' | 'generic';
 
 /** Короткий статус под тип работы (все из одного пула из 10). */
 export function pickWorkingStatus(kind: WorkingStatusKind = 'generic'): string {
   // лёгкий bias по kind, но только из тех же 10 фраз
   const prefer: Record<WorkingStatusKind, readonly string[]> = {
     analyze: ['анализирую', 'копаю', 'сверяю', 'считаю', 'щас выясню'],
-    lookup: ['гляну', 'щас выясню', 'секунду', 'делаю', 'сейчас'],
+    lookup: ['гляну', 'щас выясню', 'секунду', 'делаю', 'работаю'],
     price: ['считаю', 'сверяю', 'гляну', 'щас выясню', 'делаю'],
+    create: ['работаю', 'делаю', 'секунду', 'в работе', 'гляну'],
     generic: WORKING_STATUS_VARIANTS,
   };
   const pool = prefer[kind] || WORKING_STATUS_VARIANTS;

@@ -45,8 +45,12 @@ Deno.test('WORKING_STATUS_VARIANTS has 10 minimal lines', () => {
 });
 
 Deno.test('pickWorkingStatus returns known variant', () => {
-  for (const kind of ['analyze', 'lookup', 'price', 'generic'] as const) {
+  for (const kind of ['analyze', 'lookup', 'price', 'create', 'generic'] as const) {
     const s = pickWorkingStatus(kind);
     assertEquals(WORKING_STATUS_VARIANTS.includes(s as typeof WORKING_STATUS_VARIANTS[number]), true);
   }
+});
+
+Deno.test('работаю is in status pool', () => {
+  assertEquals(WORKING_STATUS_VARIANTS.includes('работаю'), true);
 });

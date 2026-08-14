@@ -1472,20 +1472,47 @@ serve(async (req) => {
         };
       } else if (cardActive || wantsWbCardWork(text)) {
         if (triggeringBot !== "saule") return ok();
-        const cardFn = cardActive ? continueWbCardDialog : startWbCardDialog;
-        const cardRes = await cardFn({
-          chatId,
-          tgUserId: Number(message.from?.id),
-          text,
-        });
-        if (cardRes.handled) {
-          if (cardRes.reply) {
+        await runWork((async () => {
+          const payload = (dialog.pending?.payload || {}) as {
+            kind?: string;
+            step?: string;
+          };
+          const confirmingCreate =
+            cardActive &&
+            isConfirmText(text) &&
+            payload.kind === "create" &&
+            (payload.step === "await_confirm" ||
+              dialog.pending?.status === "awaiting_confirm");
+
+          if (confirmingCreate) {
+            await sendChatAction("saule", chatId, "typing");
+            await sendTelegramMessage(
+              "saule",
+              chatId,
+              pickWorkingStatus("create"),
+              message.message_id,
+            );
+          }
+
+          const cardFn = cardActive ? continueWbCardDialog : startWbCardDialog;
+          const cardRes = await withTypingKeepalive(
+            () => sendChatAction("saule", chatId, "typing"),
+            () =>
+              cardFn({
+                chatId,
+                tgUserId: Number(message.from?.id),
+                text,
+              }),
+            confirmingCreate ? 3600 : 4500,
+          );
+
+          if (cardRes.handled && cardRes.reply) {
             try {
               await sendTelegramMessage(
                 "saule",
                 chatId,
                 cardRes.reply,
-                message.message_id,
+                confirmingCreate ? undefined : message.message_id,
               );
               await saveMessage(chatId, message.from?.first_name ?? "user", text);
               await saveMessage(chatId, "saule", cardRes.reply);
@@ -1493,8 +1520,8 @@ serve(async (req) => {
               console.error("[telegram-router] card reply", e);
             }
           }
-          return ok();
-        }
+        })());
+        return ok();
       }
     }
 

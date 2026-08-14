@@ -54,8 +54,11 @@ Deno.test('access presets', () => {
 
 Deno.test('extractNm-ish intents still', () => {
   assert(wantsCardCreate('создай карточку блузка белая зевина 1 размеры с 40 по 54'));
+  assert(wantsCardCreate('Создать карточку блузка тест размеры с 44 по 60'));
   assert(wantsCardSeo('поменяй описание карточки nm 1234567'));
   assert(wantsCardBrand('смени бренд на Nely по nm 123'));
+  assertEquals(parseSizeRange('размеры с 44 по 60')?.[0], '44');
+  assertEquals(parseSizeRange('размеры с 44 по 60')?.at(-1), '60');
   assert(wantsUserInvite('добавь человека в кабинет зевина 1'));
   assert(wantsUserInvite('сгенерите ссылку для приглашение'));
   assert(wantsUserInvite('ссылка для добавления пользователя'));

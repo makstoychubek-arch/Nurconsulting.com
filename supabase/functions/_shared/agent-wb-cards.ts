@@ -259,14 +259,15 @@ async function finishPending(id: string, resultText: string) {
 function confirmLine(kind: CardKind, p: CardPayload): string {
   if (kind === 'create') {
     return [
-      `Создаю карточку в ${p.cabinetName}:`,
+      `Черновик карточки · ${p.cabinetName}`,
       `${p.productHint || p.title}${p.color ? `, ${p.color}` : ''}`,
       p.sizes?.length ? `размеры: ${p.sizes.join(', ')}` : 'без размеров',
       p.brand ? `бренд: ${p.brand}` : null,
       p.subjectName ? `предмет: ${p.subjectName}` : null,
       p.price ? `цена размера: ${p.price}` : 'цена: 0 (потом поставим)',
       '',
-      'Пиши «да» — отправлю в WB. «отмена» — стоп.',
+      'Только создание новой — старые карточки не трогаю.',
+      '«да» — отправлю в WB. «отмена» — стоп.',
     ].filter(Boolean).join('\n');
   }
   if (kind === 'brand') {
@@ -335,6 +336,7 @@ async function executeCreate(
   token: string,
   p: CardPayload,
 ): Promise<string> {
+  // SAFETY: только upload новой карточки. Никаких update/delete существующих.
   const subjectQuery = (p.productHint || p.title || 'блузка').slice(0, 40);
   let subjectId = p.subjectId;
   let subjectName = p.subjectName;
@@ -401,21 +403,21 @@ async function executeCreate(
 
   const up = await uploadCards(token, body);
   if (!up.ok) {
-    return `WB не приняла создание: ${up.errorText}`;
+    return `Карточку не создала — WB отклонил: ${up.errorText}`;
   }
 
-  // дать очереди чуть времени и глянуть ошибки
+  // дать очереди чуть времени и глянуть ошибки (только чтение)
   await new Promise((r) => setTimeout(r, 1500));
   const errs = await listCardErrors(token);
   const related = errs.filter((e) => e.includes(vendorCode));
 
   return [
-    pick(['Отправила в WB', 'Карточку в очередь кинула', 'Создала черновик в WB']),
+    'Карточку создала — отправила в очередь WB',
     `${p.cabinetName} · ${title}`,
     `vendor: ${vendorCode}`,
     subjectName ? `предмет: ${subjectName}` : null,
     sizes.length ? `размеры: ${sizes.join(', ')}` : null,
-    'Синк до ~30 мин — потом цены/остатки.',
+    'Появится в кабинете после синка (до ~30 мин). Старые карточки не трогала.',
     related.length ? `Ошибки очереди:\n${related.slice(0, 3).join('\n')}` : null,
   ].filter(Boolean).join('\n');
 }
@@ -464,6 +466,20 @@ export async function startWbCardDialog(opts: {
   const resolved = await resolveCabinet(text);
   if (!resolved.match) {
     const names = resolved.candidates.map((c) => c.name).join(', ');
+    const hint = kind === 'create' ? parseCreateHint(text) : null;
+    const seo = kind === 'seo' ? parseSeoPatch(text) : {};
+    const brand = kind === 'brand' ? (parseBrandValue(text) || undefined) : undefined;
+    await savePending(opts.chatId, opts.tgUserId, null, {
+      kind,
+      step: 'await_cabinet',
+      productHint: hint?.productHint,
+      color: hint?.color,
+      sizes: hint?.sizes,
+      brand: brand || hint?.brand,
+      price: hint?.price,
+      title: seo.title,
+      description: seo.description,
+    }, 'awaiting_selection');
     return {
       handled: true,
       reply: pick([
@@ -619,6 +635,97 @@ export async function continueWbCardDialog(opts: {
     return { handled: true, reply: pick(['Ок, стопнула', 'Отмена', 'Не трогаю']) };
   }
 
+  // кабинет после «создать карточку» без кабинета в первой фразе
+  if (p.step === 'await_cabinet') {
+    const resolved = await resolveCabinet(text);
+    if (!resolved.match) {
+      const names = resolved.candidates.map((c) => c.name).join(', ');
+      return {
+        handled: true,
+        reply: pick([
+          `Не поняла кабинет. Напиши: ${names || 'база / элиум / зевина 1'}`,
+          `Кабинет точнее: ${names || 'как в списке'}`,
+        ]),
+      };
+    }
+    p.cabinetId = resolved.match.id;
+    p.cabinetName = resolved.match.name;
+    await admin()
+      .from('agent_pending_actions')
+      .update({
+        cabinet_id: resolved.match.id,
+        cabinet_name: resolved.match.name,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', pending!.id);
+
+    const tok = await cabinetTokenById(resolved.match.id);
+    if (!tok) {
+      await finishPending(pending!.id, 'нет токена');
+      return { handled: true, reply: `${resolved.match.name}: нет токена WB.` };
+    }
+
+    if (kind === 'create') {
+      if (!p.sizes?.length) {
+        p.step = 'await_sizes';
+        await patchPending(pending!.id, p, 'awaiting_selection');
+        return {
+          handled: true,
+          reply: [
+            `${resolved.match.name}: ${p.productHint || 'товар'}${p.color ? ' · ' + p.color : ''}`,
+            'Какие размеры? Например «с 40 по 54»',
+          ].join('\n'),
+        };
+      }
+      const subjects = await searchSubjects(
+        tok.token,
+        (p.productHint || 'блузка').split(/\s+/)[0],
+      );
+      if (subjects[0]) {
+        p.subjectId = subjects[0].id;
+        p.subjectName = subjects[0].name;
+      }
+      p.title = `${p.productHint || ''}${p.color ? ' ' + p.color : ''}`.slice(0, 60);
+      p.step = 'await_confirm';
+      await patchPending(pending!.id, p, 'awaiting_confirm');
+      return { handled: true, reply: confirmLine('create', p) };
+    }
+
+    // seo / brand — нужен nm существующей карточки (явное изменение, не create)
+    p.step = 'await_product';
+    await patchPending(pending!.id, p, 'awaiting_selection');
+    const target = await resolveCardTarget(text, resolved.match.id, tok.token);
+    if (target.card) {
+      p.nmId = target.card.nmID;
+      p.vendorCode = target.card.vendorCode;
+      if (kind === 'brand') {
+        if (p.brand) {
+          p.step = 'await_confirm';
+          await patchPending(pending!.id, p, 'awaiting_confirm');
+          return { handled: true, reply: confirmLine('brand', p) };
+        }
+        p.step = 'await_brand';
+        await patchPending(pending!.id, p);
+        return {
+          handled: true,
+          reply: `nm ${p.nmId} · сейчас бренд «${target.card.brand || '—'}». На какой меняем?`,
+        };
+      }
+      p.step = 'await_seo_text';
+      p.title = target.card.title;
+      p.description = target.card.description;
+      await patchPending(pending!.id, p);
+      return {
+        handled: true,
+        reply: [
+          `nm ${target.card.nmID} · ${target.card.title || target.card.vendorCode}`,
+          'Кинь новое описание (или «название: …» / «описание: …»).',
+        ].join('\n'),
+      };
+    }
+    return { handled: true, reply: target.ask || 'Кинь nm карточки.' };
+  }
+
   if (p.step === 'await_sizes') {
     const sizes = parseSizeRange(text);
     if (!sizes?.length) {
@@ -711,6 +818,7 @@ export async function continueWbCardDialog(opts: {
     const result = kind === 'create'
       ? await executeCreate(tok.token, p)
       : await executeUpdate(tok.token, p);
+    // create никогда не вызывает updateCards; update — только после явного SEO/бренд + «да»
     await finishPending(pending!.id, result);
     return { handled: true, reply: result };
   }
