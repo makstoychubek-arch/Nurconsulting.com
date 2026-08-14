@@ -195,11 +195,11 @@ async function sendTelegramMessage(
   replyToMessageId?: number,
   businessConnectionId?: string,
   replyMarkup?: { inline_keyboard: Array<Array<{ text: string; callback_data: string }>> },
-): Promise<boolean> {
+): Promise<{ ok: boolean; messageId?: number }> {
   const token = BOT_TOKENS[botKey];
   if (!token) {
     console.error(`Нет токена для бота: ${botKey}`);
-    return false;
+    return { ok: false };
   }
   const payload: Record<string, unknown> = {
     chat_id: chatId,
@@ -216,7 +216,11 @@ async function sendTelegramMessage(
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(15000),
     });
-    if (res.ok) return true;
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      const messageId = Number(data?.result?.message_id) || undefined;
+      return { ok: true, messageId };
+    }
     const err = await res.text();
     console.error(`[telegram-router] sendMessage ${botKey} failed:`, err);
     if (replyToMessageId) {
@@ -230,14 +234,16 @@ async function sendTelegramMessage(
       });
       if (!retry.ok) {
         console.error(`[telegram-router] sendMessage retry failed:`, await retry.text());
-        return false;
+        return { ok: false };
       }
-      return true;
+      const data = await retry.json().catch(() => ({}));
+      const messageId = Number(data?.result?.message_id) || undefined;
+      return { ok: true, messageId };
     }
-    return false;
+    return { ok: false };
   } catch (e) {
     console.error(`[telegram-router] sendMessage ${botKey} exception:`, e);
-    return false;
+    return { ok: false };
   }
 }
 
@@ -808,6 +814,21 @@ async function runAgentTurn(opts: {
 
   // «печатает…» + пауза «думает» перед первым ответом
   await sendChatAction(targetAgent, chatId, "typing");
+  // ранний 👀 как «увидел» (research: ack reaction before full reply)
+  if (
+    !fromAgent &&
+    hop === 0 &&
+    replyToMessageId &&
+    rootTask.length >= 40 &&
+    BOT_TOKENS[targetAgent]
+  ) {
+    void setTelegramMessageReaction({
+      token: BOT_TOKENS[targetAgent],
+      chatId,
+      messageId: replyToMessageId,
+      emoji: "👀",
+    });
+  }
   if (humanPausesEnabled() && !fromAgent && hop === 0) {
     await new Promise((r) => setTimeout(r, thinkPauseMs(rootTask.length)));
     await sendChatAction(targetAgent, chatId, "typing");
@@ -835,7 +856,12 @@ async function runAgentTurn(opts: {
   const reply = humanizeAgentReply(rawReply);
 
   // Сначала в чат, потом история — быстрее для пользователя
-  await sendTelegramMessage(targetAgent, chatId, reply, replyToMessageId);
+  const sentMsg = await sendTelegramMessage(
+    targetAgent,
+    chatId,
+    reply,
+    replyToMessageId,
+  );
   saveMessage(chatId, targetAgent, reply).catch(() => {});
   const snap = parseAgentTextToSnapshot(reply, targetAgent);
   if (snap) saveDataSnapshot(chatId, snap).catch(() => {});
@@ -881,6 +907,8 @@ async function runAgentTurn(opts: {
     visited,
     wbCache,
     fromAgent: targetAgent,
+    // hop отвечает на реплику коллеги — как люди в группе
+    replyToMessageId: sentMsg.messageId || replyToMessageId,
     hop: hop + 1,
   });
 }
@@ -1477,7 +1505,7 @@ serve(async (req) => {
           if (isBusiness) {
             await logAlinaRawEvent(chatId, "business_out", {
               text: reply,
-              sent,
+              sent: sent.ok,
               business_connection_id: businessConnectionId || undefined,
               to_user: message.from?.id,
             });
