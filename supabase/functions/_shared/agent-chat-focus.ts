@@ -112,7 +112,8 @@ export function isLikelyFollowUp(text: string): boolean {
   if (/^(да|ага|угу|ок|ok|хорошо|давай)$/i.test(t)) return true;
   if (
     /^\d[\d\s]{0,8}$/.test(t.replace(/\s/g, '')) ||
-    /^на\s+\d[\d\s]{0,8}\s*(₽|руб|р\.?)?$/i.test(t)
+    /^на\s+\d[\d\s]{0,8}\s*(₽|руб|р\.?)?$/i.test(t) ||
+    /^(до|после)(\s+скидк[аиу])?\s+\d{3,7}/i.test(t)
   ) {
     return true;
   }
