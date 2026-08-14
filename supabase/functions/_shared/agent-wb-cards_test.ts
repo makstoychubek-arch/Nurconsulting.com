@@ -5,6 +5,7 @@ import {
   normalizeWbInvitePhone,
   parseAccessPreset,
   parseSizeRange,
+  sanitizeAccessItems,
 } from './agent-wb-api.ts';
 import {
   wantsCardBrand,
@@ -48,8 +49,17 @@ Deno.test('normalizeWbInvitePhone countries', () => {
 Deno.test('access presets', () => {
   assertEquals(parseAccessPreset('стандарт'), 'standard');
   assertEquals(parseAccessPreset('2'), 'manager');
+  assertEquals(parseAccessPreset('Менеджер без финансов стандарт'), 'no_finance');
+  assertEquals(parseAccessPreset('менеджер'), 'manager');
   assertEquals(accessPresetItems('standard'), undefined);
-  assert(accessPresetItems('manager')!.some((a) => a.code === 'balance' && a.disabled));
+  const mgr = accessPresetItems('manager')!;
+  assert(mgr.some((a) => a.code === 'balance' && a.disabled));
+  assert(mgr.some((a) => a.code === 'finance' && a.disabled));
+  assert(!mgr.some((a) => a.code === 'feedbacksQuestions'));
+  assertEquals(sanitizeAccessItems([
+    { code: 'feedbacksQuestions', disabled: false },
+    { code: 'finance', disabled: true },
+  ]), [{ code: 'finance', disabled: true }]);
 });
 
 Deno.test('extractNm-ish intents still', () => {

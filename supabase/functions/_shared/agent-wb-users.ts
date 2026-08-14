@@ -684,7 +684,11 @@ export async function continueWbUsersDialog(opts: {
         access,
       );
       if (!inv.ok || !inv.inviteUrl) {
-        const msg = `Не вышло приглашение: ${inv.errorText || 'нет ссылки'}. Нужен токен владельца с категорией Users.`;
+        const err = String(inv.errorText || 'нет ссылки');
+        const authHint = /401|403|forbidden|unauthorized|токен|token|category|категор/i.test(err)
+          ? ' Проверь, что токен кабинета живой и с категорией Users (владелец).'
+          : '';
+        const msg = `Не вышло приглашение: ${err}.${authHint}`;
         await finishPending(pending!.id, msg);
         return { handled: true, reply: msg };
       }

@@ -269,7 +269,8 @@ export async function createUserInvite(
     invite: { phoneNumber: norm.phone, position: position.slice(0, 150) },
   };
   // пустой access / не передан → дефолт WB (всё кроме showcase и changeJam)
-  if (access && access.length) body.access = access;
+  const cleanAccess = sanitizeAccessItems(access);
+  if (cleanAccess?.length) body.access = cleanAccess;
 
   const { ok, data, status } = await wbJson(`${USERS_API}/api/v1/invite`, token, {
     method: 'POST',
@@ -297,13 +298,15 @@ export async function createUserInvite(
 
 export type AccessItem = { code: string; disabled: boolean };
 
-/** Коды доступов WB User Management (офиц. док). */
+/**
+ * Коды доступов, которые WB invite реально принимает.
+ * `feedbacksQuestions` API отвергает как unknown — только feedbacks + questions.
+ */
 export const WB_ACCESS_CODES = [
   'balance',
   'finance',
   'supply',
   'discountPrice',
-  'feedbacksQuestions',
   'feedbacks',
   'questions',
   'pinFeedbacks',
@@ -315,41 +318,42 @@ export const WB_ACCESS_CODES = [
   'changeJam',
 ] as const;
 
+const WB_ACCESS_CODE_SET = new Set<string>(WB_ACCESS_CODES);
+
+/** Выкинуть неизвестные code — иначе invite падает с «unknown code». */
+export function sanitizeAccessItems(
+  items: AccessItem[] | undefined | null,
+): AccessItem[] | undefined {
+  if (!items?.length) return undefined;
+  const out: AccessItem[] = [];
+  const seen = new Set<string>();
+  for (const it of items) {
+    const code = String(it?.code || '').trim();
+    if (!code || !WB_ACCESS_CODE_SET.has(code) || seen.has(code)) continue;
+    seen.add(code);
+    out.push({ code, disabled: Boolean(it.disabled) });
+  }
+  return out.length ? out : undefined;
+}
+
 /**
  * Пресеты доступов для приглашения.
  * «стандарт» = не шлём access → дефолт WB (все разделы, кроме showcase и changeJam).
+ * Частичный access в WB = дефолт + наши overrides (disabled:true отключает раздел).
  */
 export type AccessPreset = 'standard' | 'manager' | 'no_finance' | 'readonly';
 
 export function accessPresetItems(preset: AccessPreset): AccessItem[] | undefined {
   if (preset === 'standard') return undefined; // WB default
-  if (preset === 'manager') {
-    return [
-      { code: 'feedbacksQuestions', disabled: false },
-      { code: 'feedbacks', disabled: false },
-      { code: 'questions', disabled: false },
-      { code: 'supply', disabled: false },
-      { code: 'discountPrice', disabled: false },
-      { code: 'suppliersDocuments', disabled: false },
-      { code: 'finance', disabled: true },
-      { code: 'balance', disabled: true },
-      { code: 'showcase', disabled: true },
-      { code: 'changeJam', disabled: true },
-      { code: 'brands', disabled: true },
-    ];
-  }
-  if (preset === 'no_finance') {
+  // менеджер / без финансов — тот же кабинетный токен, только режем finance+balance
+  if (preset === 'manager' || preset === 'no_finance') {
     return [
       { code: 'finance', disabled: true },
       { code: 'balance', disabled: true },
-      { code: 'showcase', disabled: true },
-      { code: 'changeJam', disabled: true },
     ];
   }
-  // readonly — смотреть отзывы/доки, без поставок/цен/финансов
+  // readonly — отключить опасные разделы (дефолт WB + эти disabled)
   return [
-    { code: 'feedbacksQuestions', disabled: false },
-    { code: 'suppliersDocuments', disabled: false },
     { code: 'supply', disabled: true },
     { code: 'discountPrice', disabled: true },
     { code: 'finance', disabled: true },
@@ -357,15 +361,19 @@ export function accessPresetItems(preset: AccessPreset): AccessItem[] | undefine
     { code: 'showcase', disabled: true },
     { code: 'changeJam', disabled: true },
     { code: 'brands', disabled: true },
+    { code: 'pointsForReviews', disabled: true },
   ];
 }
 
 export function parseAccessPreset(text: string): AccessPreset | null {
   const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
-  if (/^(стандарт|по\s+умолчанию|дефолт|default)$/i.test(t.trim())) return 'standard';
-  if (/менеджер|manager|обычн/i.test(t)) return 'manager';
+  if (!t.trim()) return null;
+  // «без финансов» важнее слова «менеджер/стандарт» в одной фразе
   if (/без\s+финанс|no[_\s-]?finance|не\s+финанс/i.test(t)) return 'no_finance';
   if (/только\s+смотр|read.?only|чтение|readonly/i.test(t)) return 'readonly';
+  if (/^(стандарт|по\s+умолчанию|дефолт|default)$/i.test(t.trim())) return 'standard';
+  if (/менеджер|manager|обычн/i.test(t)) return 'manager';
+  if (/стандарт|по\s+умолчанию|дефолт|default/i.test(t)) return 'standard';
   if (/^\d$/.test(t.trim())) {
     const n = Number(t.trim());
     return (['standard', 'manager', 'no_finance', 'readonly'] as AccessPreset[])[n - 1] || null;
@@ -378,11 +386,11 @@ export function accessPresetLabel(preset: AccessPreset): string {
     case 'standard':
       return 'стандарт WB (всё кроме витрины и Jam)';
     case 'manager':
-      return 'менеджер (отзывы/поставки/цены; без финансов/баланса)';
+      return 'менеджер (как стандарт, без финансов/баланса)';
     case 'no_finance':
       return 'как стандарт, но без финансов и баланса';
     case 'readonly':
-      return 'только просмотр (отзывы/доки)';
+      return 'просмотр: без поставок/цен/финансов/брендов';
   }
 }
 
