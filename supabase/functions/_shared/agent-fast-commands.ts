@@ -23,23 +23,6 @@ export type FastCommandResult = {
   reply?: string;
 };
 
-const HELP = [
-  "Быстрые команды (без ИИ, ответ сразу):",
-  "",
-  "/help — этот список",
-  "/cabinets — кабинеты",
-  "/sales [кабинет] — продажи сегодня/вчера",
-  "/ads [кабинет] — список РК",
-  "/ads start [кабинет] — подготовка запуска РК",
-  "/ads pause [кабинет] — подготовка паузы РК",
-  "/fbs — FBS кратко",
-  "/selfbuy — самовыкупы",
-  "/ping — жив ли бот",
-  "",
-  "Действия РК: список → номера → подтверждаю",
-  "Примеры: продажи baza | рк saai | запусти рк базы",
-].join("\n");
-
 function stripBotMention(text: string): string {
   return text.replace(/@\w+/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -204,9 +187,15 @@ export async function tryFastCommand(
   const { cmd, arg } = parsed;
   const agentKey = agentForCmd(cmd);
 
-  // help/ping/cabinets — любой бот, кто получил апдейт как starter; отвечаем от triggeringBot если он в плане
+  // help/ping/cabinets — help = зона ЭТОГО бота (не общий каталог)
   if (cmd === "help" || cmd === "команды" || cmd === "помощь") {
-    return { handled: true, agentKey: "saule", reply: HELP };
+    const who = triggeringBot || "karina";
+    return {
+      handled: true,
+      agentKey: who,
+      reply: selfSkillsReply(who) +
+        "\n\nБыстрые: /cabinets · /sales · /ads · /fbs · /selfbuy · /ping",
+    };
   }
   if (cmd === "ping") {
     return {

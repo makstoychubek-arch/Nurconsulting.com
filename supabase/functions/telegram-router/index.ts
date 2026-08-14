@@ -1116,6 +1116,8 @@ serve(async (req) => {
     }
 
     const chatId = Number(message.chat.id);
+    const chatType = String(message.chat?.type || "");
+    const isGroupChat = chatType === "group" || chatType === "supergroup";
     // протухшие focus/диалоги — чтобы Карина не цеплялась за старый sticky
     await sweepExpiredPendings(chatId).catch(() => {});
     // один раз на сообщение: named + focus/pending (дальше переиспользуем)
@@ -1138,6 +1140,33 @@ serve(async (req) => {
       const fast = await tryFastCommand(text, triggeringBot);
 
       if (fast.handled && fast.reply) {
+        // /help — зона названного/@бота; в группе без имени — Карина; в ЛС — этот бот
+        const isHelpCmd = isMetaCmd &&
+          /^\/?(help|команды|помощь)(@\w+)?(\s|$)/i.test(text.trim());
+        if (isHelpCmd) {
+          const helpWho =
+            selfSkillsNamedAgent(text) ||
+            namedOnce[0] ||
+            dialog.focus?.agent_key ||
+            (isGroupChat ? "karina" : (triggeringBot || "karina"));
+          const resolved = resolveSpeakAndOrchestrator([helpWho], triggeringBot);
+          if (resolved && triggeringBot === resolved.orchestrator) {
+            const helpReply =
+              selfSkillsReply(resolved.speakAs) +
+              "\n\nБыстрые: /cabinets · /sales · /ads · /fbs · /selfbuy · /ping";
+            await runWork((async () => {
+              await sendTelegramMessage(
+                resolved.speakAs,
+                chatId,
+                helpReply,
+                message.message_id,
+              );
+              saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
+              saveMessage(chatId, resolved.speakAs, helpReply).catch(() => {});
+            })());
+          }
+          return ok();
+        }
         const replyAs = isMetaCmd
           ? (pickStarter(["saule"], triggeringBot) || triggeringBot)
           : (fast.agentKey || triggeringBot);
@@ -1168,15 +1197,15 @@ serve(async (req) => {
       }
     }
 
-    // ── «что умеешь» — каждый бот перечисляет свою зону ────────────────────
+    // ── «что умеешь» — названный бот (или sticky) перечисляет СВОЮ зону ────
     if (wantsSelfSkills(text) && !dialog.pending) {
       const sticky = dialog.focus?.agent_key || null;
+      // «Алина что умеешь» / @anton → только он; в группе без имени — Карина; в ЛС — этот бот
       const who =
         selfSkillsNamedAgent(text) ||
         namedOnce[0] ||
         sticky ||
-        triggeringBot ||
-        "karina";
+        (isGroupChat ? "karina" : (triggeringBot || "karina"));
       const resolved = resolveSpeakAndOrchestrator([who], triggeringBot);
       if (resolved && triggeringBot === resolved.orchestrator) {
         const reply = selfSkillsReply(resolved.speakAs);

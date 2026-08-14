@@ -11,12 +11,14 @@ Deno.test('wantsSelfSkills phrases', () => {
   assert(wantsSelfSkills('Антон твои задачи'));
   assert(wantsSelfSkills('чем занимаешься'));
   assert(wantsSelfSkills('help'));
+  assert(wantsSelfSkills('расскажи свои задачи'));
   assert(!wantsSelfSkills('остаток лапша белая'));
 });
 
 Deno.test('selfSkillsNamedAgent', () => {
   assertEquals(selfSkillsNamedAgent('Алина что умеешь'), 'alina');
   assertEquals(selfSkillsNamedAgent('антон твои задачи'), 'anton');
+  assertEquals(selfSkillsNamedAgent('Сауле что умеешь'), 'saule');
   assertEquals(selfSkillsNamedAgent('что умеешь'), null);
 });
 
@@ -29,4 +31,5 @@ Deno.test('each agent has non-empty skills', () => {
   assert(/раздач|отзыв/i.test(selfSkillsReply('alina')));
   assert(/FBS|остат/i.test(selfSkillsReply('anton')));
   assert(/РК|реклам/i.test(selfSkillsReply('amina')));
+  assert(/Сауле|Антон/i.test(selfSkillsReply('karina')));
 });
