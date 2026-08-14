@@ -123,7 +123,8 @@ async function getSharedBlock(
 }
 
 function pretty(iso: string): string {
-  return prettyDate(iso);
+  const [y, m, d] = iso.split("-");
+  return `${d}.${m}.${y}`;
 }
 
 function fmt(n: number): string {
