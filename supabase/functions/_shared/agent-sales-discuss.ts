@@ -1,10 +1,17 @@
 /**
- * Консервативный разбор «вчера много / сегодня мало»:
- * факты → гипотезы (не утверждения) → обсуждение зон Сауле/Амина/Антон.
+ * Консервативный разбор «вчера / сегодня» — по кабинету или по конкретному артикулу:
+ * «блузка фонарь белый вчера 40 заказов а сегодня много» и т.п.
+ * факты → гипотезы → обсуждение Сауле / Амина / Антон.
  */
 
 import { normalizeBotText, fuzzyIncludesAny } from './agent-fuzzy.ts';
-import { buildAgentWbContext, createWbContextCache, type AgentKey } from './agent-wb-context.ts';
+import {
+  buildAgentWbContext,
+  createWbContextCache,
+  findArticleDayCompare,
+  type AgentKey,
+  type ArticleDayHit,
+} from './agent-wb-context.ts';
 
 export type CabDelta = {
   name: string;
@@ -16,7 +23,7 @@ export type CabDelta = {
   topYesterday: string;
 };
 
-/** Владелец просит разобрать просадку / обсудить почему продаж мало. */
+/** Владелец спрашивает про дельту дня — общую или по товару. */
 export function wantsSalesDropDiscuss(text: string): boolean {
   const t = normalizeBotText(text);
   if (!t) return false;
@@ -26,36 +33,82 @@ export function wantsSalesDropDiscuss(text: string): boolean {
   if (
     fuzzyIncludesAny(t, [
       'вчера много сегодня мало',
-      'вчера много сегодня мало',
+      'вчера мало сегодня много',
       'почему мало продаж',
       'почему продажи упали',
+      'почему продажи выросли',
       'почему просадка',
       'разберите продажи',
       'обсудите продажи',
       'что с продажами',
       'продажи просели',
+      'продажи выросли',
       'заказы упали',
+      'заказы выросли',
       'сегодня мало заказов',
+      'сегодня много заказов',
       'почему по базе',
     ])
   ) {
     return true;
   }
-  // вчера…сегодня + (мало|упал|просадк|почему)
+  // вчера…сегодня + мало/много/упал/вырос/почему
   if (
     /вчера/.test(t) &&
     /сегодня/.test(t) &&
-    /(мало|много|упал|упали|просад|почему|меньше|хуже)/.test(t)
+    /(мало|много|упал|упали|вырос|выросли|просад|почему|меньше|больше|хуже|лучше)/.test(t)
+  ) {
+    return true;
+  }
+  // «заков» = опечатка «заказов»; число заказов + день
+  if (
+    /(заказ|заков|штук|\d+\s*шт)/.test(t) &&
+    /(вчера|сегодня)/.test(t) &&
+    /(почему|а\s+сегодня|а\s+вчера|мало|много|упал|вырос)/.test(t)
+  ) {
+    return true;
+  }
+  // товар + (вчера|сегодня|почему) + заказ/просадк
+  if (
+    /(блуз|фонар|лапш|пиджак|кимоно|костюм|плать|рубаш|жилет|жл|кардиган|бомбер)/.test(t) &&
+    /(вчера|сегодня|почему)/.test(t) &&
+    /(заказ|заков|продаж|просад|мало|много|\d+)/.test(t)
   ) {
     return true;
   }
   if (
-    /(продаж|заказ)/.test(t) &&
-    /(почему|просад|упал|упали|мало\s+сегодня|вчера.{0,20}сегодня)/.test(t)
+    /(продаж|заказ|заков)/.test(t) &&
+    /(почему|просад|упал|упали|вырос|мало\s+сегодня|много\s+сегодня|вчера.{0,24}сегодня)/.test(t)
   ) {
     return true;
   }
   return false;
+}
+
+/** Вытащить товар из фразы разбора (без служебных слов и чисел). */
+export function extractDiscussProductQuery(text: string): string {
+  let t = normalizeBotText(text);
+  t = t.replace(/^\/?(разбор|почему|просадка|почемупродаж)(@\w+)?\s*/i, '');
+  // \b плохо с кириллицей — режем токенами
+  const stop = new Set([
+    'почему', 'разбери', 'разберите', 'обсудите', 'глянь', 'посмотри', 'скажи',
+    'по', 'базе', 'базы', 'база', 'итд', 'etc',
+    'вчера', 'сегодня', 'позавчера',
+    'заказ', 'заказа', 'заказы', 'заказов', 'заков', 'заказу',
+    'продажа', 'продажи', 'продаж', 'продажу',
+    'штук', 'шт', 'много', 'мало',
+    'упал', 'упала', 'упали', 'вырос', 'выросла', 'выросли',
+    'просел', 'просела', 'просели', 'меньше', 'больше',
+    'а', 'и', 'или', 'на', 'в', 'у', 'с', 'к', 'о', 'об', 'из', 'для',
+    'что', 'как', 'это', 'там', 'тут', 'еще', 'ещё', 'уже', 'очень',
+    'сильнее', 'резко', 'резкая',
+  ]);
+  const tokens = t
+    .split(/\s+/)
+    .filter((w) => w.length >= 2)
+    .filter((w) => !/^\d+([.,]\d+)?$/.test(w))
+    .filter((w) => !stop.has(w));
+  return tokens.join(' ').trim();
 }
 
 /** Кто в цепочке: факты → реклама → логистика. */
@@ -110,24 +163,29 @@ export function parseSalesDeltas(wbText: string): CabDelta[] {
   return out;
 }
 
-/** Консервативные гипотезы — не факты. */
+function dayIncompleteHypo(): string | null {
+  const hour = bishkekHour();
+  if (hour < 18) {
+    return `гипотеза: день ещё идёт (~${hour}:00 Бишкек) — полный вчера vs неполный сегодня; рано делать вердикт`;
+  }
+  if (hour < 22) {
+    return 'гипотеза: вечер ещё может догнать — сверь темп с тем же часом вчера, не только итог';
+  }
+  return null;
+}
+
+/** Консервативные гипотезы по кабинетам — не факты. */
 export function buildConservativeHypotheses(cabs: CabDelta[]): string[] {
   const hypos: string[] = [];
-  const hour = bishkekHour();
-
-  if (hour < 18) {
-    hypos.push(
-      `гипотеза: день ещё идёт (~${hour}:00 Бишкек) — полный вчера vs неполный сегодня; рано делать вердикт`,
-    );
-  } else if (hour < 22) {
-    hypos.push(
-      'гипотеза: вечер ещё может догнать — сверь темп с тем же часом вчера, не только итог',
-    );
-  }
+  const inc = dayIncompleteHypo();
+  if (inc) hypos.push(inc);
 
   const drops = cabs
     .filter((c) => c.deltaOrdersPct != null && c.deltaOrdersPct <= -25)
     .sort((a, b) => (a.deltaOrdersPct! - b.deltaOrdersPct!));
+  const spikes = cabs
+    .filter((c) => c.deltaOrdersPct != null && c.deltaOrdersPct >= 40)
+    .sort((a, b) => (b.deltaOrdersPct! - a.deltaOrdersPct!));
 
   if (drops.length) {
     const worst = drops[0]!;
@@ -139,16 +197,21 @@ export function buildConservativeHypotheses(cabs: CabDelta[]): string[] {
         `гипотеза: вчера тянули «${worst.topYesterday.slice(0, 80)}» — проверить остаток и выдачу этих арт.`,
       );
     }
+  } else if (spikes.length) {
+    const best = spikes[0]!;
+    hypos.push(
+      `гипотеза: рост по ${best.name} (${best.deltaOrdersPct > 0 ? '+' : ''}${best.deltaOrdersPct}%) — проверить РК/цену/выдачу, не только «везёт»`,
+    );
   } else if (cabs.length) {
     hypos.push(
-      'гипотеза: по базе нет жёсткой просадки (−25%+) — возможно шум дня или неполный срез',
+      'гипотеза: по базе нет жёсткой дельты (±25%+) — возможно шум дня или неполный срез',
     );
   } else {
     hypos.push('гипотеза: цифр по кабинетам нет в фактах — сначала /sales, без теорий');
   }
 
   hypos.push(
-    'гипотеза: реклама (пауза РК / ДРР / ставка) — зона Амины, только если видно в фактах РК',
+    'гипотеза: реклама (пауза/запуск РК, ставка, ДРР) — зона Амины, только если видно в фактах РК',
   );
   hypos.push(
     'гипотеза: остатки/FBS на топе — зона Антона; без остатка не утверждать out-of-stock',
@@ -157,6 +220,59 @@ export function buildConservativeHypotheses(cabs: CabDelta[]): string[] {
     'не гипотеза, правило: не списывать на «алгоритм WB» без факта из отчёта',
   );
 
+  return hypos.slice(0, 7);
+}
+
+/** Гипотезы по конкретному артикулу (рост или падение). */
+export function buildArticleHypotheses(
+  hits: ArticleDayHit[],
+  productQuery: string,
+): string[] {
+  const hypos: string[] = [];
+  const inc = dayIncompleteHypo();
+  if (inc) hypos.push(inc);
+
+  if (!hits.length) {
+    hypos.push(
+      `гипотеза: по запросу «${productQuery}» точного арт. в заказах вчера/сегодня не вижу — уточни vendor/nm или кабинет`,
+    );
+    return hypos;
+  }
+
+  const best = hits[0]!;
+  const delta = best.yQty > 0
+    ? Math.round(((best.tQty - best.yQty) / best.yQty) * 100)
+    : (best.tQty > 0 ? 100 : 0);
+
+  if (best.tQty > best.yQty && delta >= 25) {
+    hypos.push(
+      `гипотеза: «${best.article}» растёт (${best.yQty}→${best.tQty}, ${delta > 0 ? '+' : ''}${delta}%) — РК/цена/выдача; Амина глянет ставки`,
+    );
+    hypos.push(
+      'гипотеза: всплеск может быть неполным днём + утренний хвост — сверить час-к-часу',
+    );
+  } else if (best.tQty < best.yQty && delta <= -25) {
+    hypos.push(
+      `гипотеза: «${best.article}» просел (${best.yQty}→${best.tQty}, ${delta}%) — остаток/выдача/пауза РК`,
+    );
+    hypos.push(
+      'гипотеза: Антон — не ушли ли в ноль размеры; Амина — не сняли ли кампанию',
+    );
+  } else {
+    hypos.push(
+      `гипотеза: по «${best.article}» дельта умеренная (${best.yQty}→${best.tQty}) — возможно шум; не раздувать`,
+    );
+  }
+
+  if (hits.length > 1) {
+    hypos.push(
+      `гипотеза: похожих арт. несколько (${hits.length}) — не смешивать цвета/фасоны без уточнения`,
+    );
+  }
+
+  hypos.push(
+    'не гипотеза, правило: цифры владельца («40 заказов») сверяй с ФАКТАМИ; расхождение — скажи честно',
+  );
   return hypos.slice(0, 6);
 }
 
@@ -187,49 +303,100 @@ export function formatSalesDropFacts(cabs: CabDelta[], hypos: string[]): string 
   return lines.join('\n');
 }
 
+export function formatArticleDayFacts(
+  hits: ArticleDayHit[],
+  productQuery: string,
+  hypos: string[],
+): string {
+  const hour = bishkekHour();
+  const lines = [
+    '=== РАЗБОР АРТИКУЛА ВЧЕРА / СЕГОДНЯ ===',
+    `Запрос владельца (товар): «${productQuery}» · ~${hour}:00 Бишкек`,
+  ];
+  if (!hits.length) {
+    lines.push('В заказах WB за вчера/сегодня похожий артикул не нашла.');
+  } else {
+    for (const h of hits) {
+      const d = h.yQty > 0
+        ? Math.round(((h.tQty - h.yQty) / h.yQty) * 100)
+        : (h.tQty > 0 ? 100 : 0);
+      const dLabel = `${d > 0 ? '+' : ''}${d}%`;
+      lines.push(
+        `▶ ${h.cabinetName} · ${h.article}` +
+          (h.nmId ? ` · nm ${h.nmId}` : '') +
+          `: вчера ${h.yQty} шт → сегодня ${h.tQty} шт (${dLabel})`,
+      );
+    }
+  }
+  lines.push('', 'ГИПОТЕЗЫ (не факты):');
+  for (const h of hypos) lines.push(`• ${h}`);
+  lines.push(
+    '',
+    'Сауле ведёт цифры → Амина РК по этому арт. → Антон остатки. Рост и падение разбираем одинаково спокойно.',
+  );
+  return lines.join('\n');
+}
+
 /** Промпт-режим для lead/hop. */
-export function salesDropDiscussBrief(agent: string): string {
+export function salesDropDiscussBrief(agent: string, productQuery = ''): string {
+  const focus = productQuery
+    ? `Фокус товара: «${productQuery}». Сначала блок РАЗБОР АРТИКУЛА, потом кабинетный фон.`
+    : 'Может быть общий разбор или конкретный артикул — смотри блок РАЗБОР.';
   const common = [
-    'РЕЖИМ: консервативный разбор продаж вчера→сегодня.',
-    'Сначала факты из блока РАЗБОР / ПРОДАЖИ. Потом 1–2 гипотезы с пометкой «похоже» / «гипотеза».',
-    'Не драматизируй. Не «всё умерло». Не поддакивай коллеге вхолостую — своя зона или стоп.',
+    'РЕЖИМ: консервативный разбор вчера→сегодня (просадка ИЛИ рост — оба ок).',
+    focus,
+    'Сначала факты из ФАКТОВ. Потом 1–2 гипотезы с пометкой «похоже» / «гипотеза».',
+    'Не драматизируй. Не «всё умерло» / «взлетело навсегда». Не поддакивай вхолостую.',
     'Цифры только из ФАКТОВ. Нет цифры — «не вижу в фактах».',
   ];
   if (agent === 'saule') {
     return [
       ...common,
-      'Ты ведёшь: коротко дельта по кабинетам → 2 гипотезы → пинг Амины или Антона одной строкой («Амина, …»).',
+      'Ты ведёшь: дельта по арт./кабинетам → 2 гипотезы → пинг Амины или Антона («Амина, …»).',
     ].join('\n');
   }
   if (agent === 'amina') {
     return [
       ...common,
-      'Твоя зона: РК/ставки/паузы/ДРР. Могла ли реклама объяснить просадку? Если в фактах РК пусто — так и скажи, не гадай.',
+      'Твоя зона: РК/ставки/паузы/ДРР по этому товару или кабинету. Рост — не перелили ли бюджет? Падение — не на паузе ли РК?',
       'В конце можно «Антон, …» если нужен остаток.',
     ].join('\n');
   }
   if (agent === 'anton') {
     return [
       ...common,
-      'Твоя зона: остатки/FBS по топ-артикулам вчера. Есть ли риск нуля? Без цифр остатков — не утверждай out-of-stock.',
+      'Твоя зона: остатки/FBS по названному арт. Рост при нулевом остатке — странно; падение при нуле — логично. Без цифр не утверждай.',
       'Закрой тему коротко, никого не зови.',
     ].join('\n');
   }
   if (agent === 'alina') {
     return [
       ...common,
-      'Только если раздачи/отзывы могли ударить по выдаче — одна гипотеза. Иначе «по моей зоне тихо» и стоп.',
+      'Только если раздачи/отзывы могли качнуть выдачу — одна гипотеза. Иначе «по моей зоне тихо» и стоп.',
     ].join('\n');
   }
   return common.join('\n');
 }
 
-/** Собрать факты разбора (WB + гипотезы). */
+/** Собрать факты разбора (WB + опционально артикул из вопроса). */
 export async function buildSalesDropFactsBundle(
+  rootTask = '',
   cache = createWbContextCache(),
 ): Promise<string> {
+  const productQ = extractDiscussProductQuery(rootTask);
   const wb = await buildAgentWbContext('saule' as AgentKey, cache);
   const cabs = parseSalesDeltas(wb);
+
+  if (productQ.length >= 3) {
+    const hits = await findArticleDayCompare(productQ, { minScore: 4, max: 8 });
+    const artHypos = buildArticleHypotheses(hits, productQ);
+    const cabHypos = buildConservativeHypotheses(cabs).slice(0, 3);
+    const hypos = [...artHypos, ...cabHypos.filter((h) => !artHypos.includes(h))].slice(0, 8);
+    const head = formatArticleDayFacts(hits, productQ, hypos);
+    const cabTail = formatSalesDropFacts(cabs, []).split('\n').slice(0, 12).join('\n');
+    return `${head}\n\n--- фон по кабинетам ---\n${cabTail}\n\n${wb}`;
+  }
+
   const hypos = buildConservativeHypotheses(cabs);
   return `${formatSalesDropFacts(cabs, hypos)}\n\n${wb}`;
 }

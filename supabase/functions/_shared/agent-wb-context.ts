@@ -207,6 +207,102 @@ async function fetchCabinetDay(token: string, date: string): Promise<DayTotals> 
   return summarizeDay(orders, sales);
 }
 
+/** Все артикулы дня (для точечного разбора «блузка фонарь…»). */
+// deno-lint-ignore no-explicit-any
+function articlesFromOrders(orders: any[]): Map<string, { qty: number; sum: number; nmId: number | null }> {
+  const byArt = new Map<string, { qty: number; sum: number; nmId: number | null }>();
+  for (const o of orders || []) {
+    if (o?.isCancel) continue;
+    const art = String(o?.supplierArticle || o?.nmId || "?").trim();
+    if (!art || art === "?") continue;
+    const sum = Number(o?.priceWithDisc ?? o?.totalPrice ?? 0);
+    const nmRaw = Number(o?.nmId);
+    const cur = byArt.get(art) || {
+      qty: 0,
+      sum: 0,
+      nmId: Number.isFinite(nmRaw) ? nmRaw : null,
+    };
+    cur.qty += 1;
+    cur.sum += Number.isFinite(sum) ? sum : 0;
+    if (cur.nmId == null && Number.isFinite(nmRaw)) cur.nmId = nmRaw;
+    byArt.set(art, cur);
+  }
+  return byArt;
+}
+
+export type ArticleDayHit = {
+  cabinetName: string;
+  article: string;
+  nmId: number | null;
+  yQty: number;
+  tQty: number;
+  ySum: number;
+  tSum: number;
+  score: number;
+};
+
+/**
+ * Вчера/сегодня по артикулам, похожим на запрос («блузка фонарь белый»).
+ * score — из scoreProductMatch.
+ */
+export async function findArticleDayCompare(
+  productQuery: string,
+  opts?: { minScore?: number; max?: number },
+): Promise<ArticleDayHit[]> {
+  const q = String(productQuery || "").trim();
+  if (q.length < 2) return [];
+  const { scoreProductMatch } = await import("./agent-product-catalog.ts");
+  const minScore = opts?.minScore ?? 4;
+  const max = opts?.max ?? 8;
+  const supabase = adminClient();
+  const yDay = yesterdayBishkek();
+  const tDay = todayBishkek();
+  const { data: cabinets } = await supabase
+    .from("cabinets")
+    .select("id, name, wb_token")
+    .not("wb_token", "is", null)
+    .gt("wb_token", "")
+    .order("name");
+  const list = (cabinets || []).filter((c) => sanitizeWbToken(c.wb_token).length >= 50);
+  const hits: ArticleDayHit[] = [];
+
+  await mapPool(list, 3, async (cab) => {
+    const token = sanitizeWbToken(cab.wb_token);
+    try {
+      const [yOrders, tOrders] = await Promise.all([
+        wbGetArray(`${STATS_API}/api/v1/supplier/orders?dateFrom=${yDay}&flag=1`, token).catch(() => []),
+        wbGetArray(`${STATS_API}/api/v1/supplier/orders?dateFrom=${tDay}&flag=1`, token).catch(() => []),
+      ]);
+      const yMap = articlesFromOrders(yOrders);
+      const tMap = articlesFromOrders(tOrders);
+      const keys = new Set([...yMap.keys(), ...tMap.keys()]);
+      for (const art of keys) {
+        const score = scoreProductMatch(art, q);
+        if (score < minScore) continue;
+        const y = yMap.get(art);
+        const t = tMap.get(art);
+        hits.push({
+          cabinetName: String(cab.name),
+          article: art,
+          nmId: y?.nmId ?? t?.nmId ?? null,
+          yQty: y?.qty || 0,
+          tQty: t?.qty || 0,
+          ySum: y?.sum || 0,
+          tSum: t?.sum || 0,
+          score,
+        });
+      }
+    } catch (e) {
+      console.error("[agent-wb-context] article day", cab.name, e);
+    }
+    return null;
+  });
+
+  hits.sort((a, b) => b.score - a.score || (b.yQty + b.tQty) - (a.yQty + a.tQty));
+  const top = hits[0]?.score ?? 0;
+  return hits.filter((h) => h.score >= top - 2).slice(0, max);
+}
+
 /** Параллельно, но не больше `limit` одновременно. */
 async function mapPool<T, R>(
   items: T[],

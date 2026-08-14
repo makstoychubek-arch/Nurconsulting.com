@@ -1,6 +1,7 @@
 import { assert, assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import {
   buildConservativeHypotheses,
+  extractDiscussProductQuery,
   formatSalesDropFacts,
   parseSalesDeltas,
   salesDropDiscussPlan,
@@ -13,7 +14,20 @@ Deno.test('wantsSalesDropDiscuss phrases', () => {
   assert(wantsSalesDropDiscuss('почему вчера много сегодня мало'));
   assert(wantsSalesDropDiscuss('что с продажами, обсудите'));
   assert(wantsSalesDropDiscuss('продажи просели по базе'));
+  assert(wantsSalesDropDiscuss('почему по блузке фонарь белый вчера 40 заков а сегодня много'));
+  assert(wantsSalesDropDiscuss('лапша черный вчера мало сегодня выросла'));
   assert(!wantsSalesDropDiscuss('остаток лапша белая'));
+});
+
+Deno.test('extractDiscussProductQuery', () => {
+  const q = extractDiscussProductQuery(
+    'почему по блузке фонарь белый вчера 40 заков а сегодня много',
+  );
+  assert(/фонар/.test(q));
+  assert(/блуз/.test(q));
+  assert(/бел/.test(q));
+  assert(!/вчера/.test(q));
+  assert(!/40/.test(q));
 });
 
 Deno.test('salesDropDiscussPlan order', () => {

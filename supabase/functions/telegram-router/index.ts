@@ -100,6 +100,7 @@ import {
 } from "../_shared/agent-collective.ts";
 import {
   buildSalesDropFactsBundle,
+  extractDiscussProductQuery,
   salesDropDiscussBrief,
   wantsSalesDropDiscuss,
 } from "../_shared/agent-sales-discuss.ts";
@@ -820,7 +821,7 @@ async function runAgentTurn(opts: {
       let wb = "";
       try {
         if (needSalesDrop) {
-          wb = await buildSalesDropFactsBundle(wbCache);
+          wb = await buildSalesDropFactsBundle(rootTask, wbCache);
         } else {
           wb = await buildAgentWbContext(targetAgent as AgentKey, wbCache);
         }
@@ -865,7 +866,9 @@ async function runAgentTurn(opts: {
   const systemPrompt =
     agentPromptForTurn(targetAgent, promptMode) +
     (isHop ? "" : `\n\n${actionsCapabilityBrief()}`) +
-    (needSalesDrop ? `\n\n${salesDropDiscussBrief(targetAgent)}` : "") +
+    (needSalesDrop
+      ? `\n\n${salesDropDiscussBrief(targetAgent, extractDiscussProductQuery(rootTask))}`
+      : "") +
     `\n\n${
       fromAgent
         ? peerTalkBrief(fromAgent, userMessage)
