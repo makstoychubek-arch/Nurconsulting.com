@@ -104,7 +104,7 @@ function getOpenFromSnap(offers: SheetPlanOffer[]): SheetPlanOffer[] {
 }
 
 async function answerAlinaSheet(text: string): Promise<TeamQaResult> {
-  const snap = await fetchSheetPlan(true);
+  const snap = await fetchSheetPlan(false);
   if (!snap.ok) {
     return {
       handled: true,

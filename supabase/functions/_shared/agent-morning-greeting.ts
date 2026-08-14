@@ -6,7 +6,7 @@
 import { type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getAdminClient } from "./supabase-admin.ts";
 import { bishkekNowParts } from "./agent-ad-schedule.ts";
-import { AGENT_PROMPTS } from "./agent-personas.ts";
+import { agentPromptForTurn } from "./agent-personas.ts";
 import {
   AGENT_DISPLAY,
   clampHops,
@@ -14,7 +14,7 @@ import {
   nextPingFromReply,
   peerTalkBrief,
 } from "./agent-team.ts";
-import { COLLECTIVE_CHAT_RULES, openingDiversityHint } from "./agent-collective.ts";
+import { openingDiversityHint } from "./agent-collective.ts";
 import { humanizeAgentReply } from "./agent-humanize.ts";
 
 export type MorningGreetingRow = {
@@ -364,14 +364,13 @@ async function askOpenAiMini(opts: {
 }
 
 export function morningStarterSystem(agent: string, weatherLines: string[]): string {
-  const persona = AGENT_PROMPTS[agent] || AGENT_PROMPTS.karina;
+  const persona = agentPromptForTurn(agent, "lead");
   const weatherBlock = weatherLines.length
     ? `Погода сегодня:\n${weatherLines.map((l) => `• ${l}`).join("\n")}`
     : "Погоды нет — не упоминай температуру и не выдумывай её.";
   return [
     persona,
     "",
-    COLLECTIVE_CHAT_RULES,
     "Сейчас ТЫ начинаешь утреннее приветствие команды в рабочем Telegram.",
     "Напиши 1–3 коротких строки: приветствие + (если есть) погода своими словами + короткий позитивный настрой на день.",
     "Можно мягко кивнуть коллеге по имени, чтобы подхватили — но не обязательно.",
@@ -387,7 +386,7 @@ export function morningReplySystem(
   lastHop: boolean,
   historyText = "",
 ): string {
-  const persona = AGENT_PROMPTS[agent] || AGENT_PROMPTS.saule;
+  const persona = agentPromptForTurn(agent, "hop");
   const others = plan
     .filter((a) => a !== agent)
     .map((a) => AGENT_DISPLAY[a] || a)
@@ -395,7 +394,6 @@ export function morningReplySystem(
   return [
     persona,
     "",
-    COLLECTIVE_CHAT_RULES,
     "Сейчас утреннее приветствие команды. Ответь КОРОТКО (1 строка), в своём стиле,",
     "не повторяй то, что уже сказали коллеги (см. историю выше).",
     openingDiversityHint(historyText),

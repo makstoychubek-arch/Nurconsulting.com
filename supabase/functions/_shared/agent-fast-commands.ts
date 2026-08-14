@@ -223,9 +223,9 @@ export async function tryFastCommand(
     };
   }
 
-  // Команды специалиста — только его webhook (остальные молчат)
+  // Команды специалиста — чужие webhook молчат сразу (не гоняют весь pipeline)
   if (triggeringBot !== agentKey) {
-    return { handled: false, agentKey };
+    return { handled: true, agentKey };
   }
 
   try {

@@ -175,14 +175,18 @@ export const AGENT_DISPLAY: Record<string, string> = {
   karina: "Карина",
 };
 
-/** Следующий коллега: @username или живое обращение по имени. */
+/** Следующий коллега: @username или явное обращение «Антон, …» в начале строки. */
 export function nextPingFromReply(reply: string, exclude: Set<string>): string | null {
   for (const agent of detectMentionedAgents(reply)) {
     if (!exclude.has(agent)) return agent;
   }
-  // «Антон, глянь остаток» / «Сауле смотри выкупы»
+  // только адресная форма — не любое упоминание имени в прозе («как сказала Сауле»)
   for (const agent of detectNamedAgents(reply)) {
-    if (!exclude.has(agent)) return agent;
+    if (exclude.has(agent)) continue;
+    const name = AGENT_DISPLAY[agent];
+    if (!name) continue;
+    const re = new RegExp(`(^|\\n)\\s*${name}\\s*[,—\\-:]`, "i");
+    if (re.test(reply)) return agent;
   }
   return null;
 }
@@ -191,7 +195,8 @@ export function nextPingFromReply(reply: string, exclude: Set<string>): string |
 export function isDoneReply(reply: string): boolean {
   const t = reply.trim().toLowerCase();
   if (detectMentionedAgents(reply).length > 0) return false;
-  if (detectNamedAgents(reply).length > 0) return false;
+  // только адресный пинг блокирует «готово»
+  if (nextPingFromReply(reply, new Set())) return false;
   return (
     /(^|\n)\s*готово\.?\s*$/i.test(t) ||
     t === "готово" ||
@@ -206,17 +211,11 @@ export function teamBriefForPrompt(plan: string[], rootTask: string): string {
   return [
     `Вопрос владельца: ${rootTask.slice(0, 500)}`,
     plan.length > 1
-      ? `В теме ещё могут ответить: ${line}. Это рабочий чат — можно коротко перекинуться с коллегой.`
+      ? `В теме ещё: ${line}. Перекинься только если нужен их кусок.`
       : `Твоя зона. Ответь коротко по делу.`,
     news
-      ? "Тема новостей: обсудите как смена — Карина задаёт тон, остальные дают взгляд из своей зоны, без эха."
-      : "",
-    "Правила общения в команде:",
-    "- Пиши как в Telegram с коллегами: 1–4 коротких строки, без отчётов и без «коллега передал».",
-    "- Свой кусок — своими словами и цифрами из ФАКТОВ. Не копируй чужой текст.",
-    "- Можно мягко не согласиться по делу — это нормально для живой смены.",
-    "- Нужен другой специалист — обратись живо: «Антон, глянь остаток по…» или @username + суть.",
-    "- Не устраивай цепочку ради цепочки. Не нужен следующий — просто закончи.",
+      ? "Новости: одна реплика из своей зоны, без эха. Явный пинг коллеге — только если нужен."
+      : "Не устраивай цепочку ради цепочки. Закончил — стоп.",
   ].filter(Boolean).join("\n");
 }
 

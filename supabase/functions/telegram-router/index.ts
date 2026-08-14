@@ -74,7 +74,7 @@ import {
   tryFastCommand,
 } from "../_shared/agent-fast-commands.ts";
 import {
-  AGENT_PROMPTS,
+  agentPromptForTurn,
   isNameOnlyPing,
   liveNameReply,
   namePingAgent,
@@ -558,13 +558,21 @@ async function askOpenAI(opts: {
   modelOverride?: string;
   /** "fast" → AGENT_FAST_MODEL || gpt-4o-mini; по умолчанию full (gpt-4o) */
   modelKind?: "fast" | "full";
+  /** Факты → ниже temperature; banter/muha → выше */
+  temperature?: number;
+  agentKey?: string;
 }) {
   const model = resolveOpenAiModel({
     modelOverride: opts.modelOverride,
     kind: opts.modelKind,
   });
+  const factual = new Set(["saule", "anton", "amina", "alina", "karina"]);
+  const temperature = opts.temperature ??
+    (opts.agentKey && factual.has(opts.agentKey) ? 0.45 : 0.85);
   try {
-    console.log(`[telegram-router] openai model=${model} kind=${opts.modelKind || "full"}`);
+    console.log(
+      `[telegram-router] openai model=${model} kind=${opts.modelKind || "full"} temp=${temperature} agent=${opts.agentKey || "?"}`,
+    );
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -585,10 +593,10 @@ async function askOpenAI(opts: {
           },
           { role: "user", content: opts.userMessage.slice(0, 2000) },
         ],
-        temperature: 0.95,
+        temperature,
         max_tokens: 360,
-        presence_penalty: 0.7,
-        frequency_penalty: 0.65,
+        presence_penalty: temperature >= 0.7 ? 0.55 : 0.25,
+        frequency_penalty: temperature >= 0.7 ? 0.5 : 0.2,
       }),
       signal: AbortSignal.timeout(25000),
     });
@@ -602,6 +610,33 @@ async function askOpenAI(opts: {
     console.error("[telegram-router] openai exception", e);
     return "Таймаут модели. Повторите коротко.";
   }
+}
+
+/** Lead: полный prompt; hop: slim. Auto-hop только news/banter. */
+function allowPlanAutoHop(rootTask: string): boolean {
+  return (
+    wantsNewsDiscussion(rootTask) ||
+    wantsTeamBanter(rootTask) ||
+    looksLikeSharedLink(rootTask)
+  );
+}
+
+function preferFastModel(opts: {
+  hop: number;
+  fromAgent?: string | null;
+  rootTask: string;
+}): boolean {
+  if (opts.hop > 0 || opts.fromAgent) return true;
+  if (allowPlanAutoHop(opts.rootTask)) return false;
+  const t = opts.rootTask;
+  // короткий фактовый вопрос — mini
+  if (
+    t.length <= 100 &&
+    /(продаж|заказ|остат|выкуп|рк|реклам|сколько|fbs|склад|цена|цен[ауы])/i.test(t)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 async function runAgentTurn(opts: {
@@ -682,12 +717,17 @@ async function runAgentTurn(opts: {
   }
 
   // Параллельно: история + WB + доп. факты (wall time ≈ max, не sum)
+  const isHop = hop > 0 || Boolean(fromAgent);
   const needNews =
     wantsNewsDiscussion(rootTask) ||
     wantsTeamBanter(rootTask) ||
     looksLikeSharedLink(rootTask);
+  const needAlinaCrm =
+    targetAgent === "alina" &&
+    /(самовыкуп|раздач|оффер|слот|лид|кэш|кеш|бартер|crm|заявк|таблиц|выкуп)/i
+      .test(rootTask);
   const [history, wbParts] = await Promise.all([
-    loadRecentHistory(chatId),
+    loadRecentHistory(chatId, isHop ? 4 : 6),
     (async () => {
       let wb = "";
       try {
@@ -696,8 +736,12 @@ async function runAgentTurn(opts: {
         console.error("[telegram-router] wb context", e);
         wb = "Не удалось загрузить отчёты WB. Скажи об этом коротко.";
       }
+      // hop: role-aware slim facts (RCR) — меньше токенов
+      if (isHop && wb.length > 2800) {
+        wb = wb.slice(0, 2800) + "\n…(обрезано)";
+      }
       const extras = await Promise.all([
-        targetAgent === "alina"
+        needAlinaCrm
           ? alinaSelfbuyStatsText()
             .then((s) => `\n\nCRM самовыкупы:\n${s}`)
             .catch((e) => {
@@ -711,7 +755,7 @@ async function runAgentTurn(opts: {
             console.error("[telegram-router] qa facts", e);
             return "";
           }),
-        needNews
+        needNews && !isHop
           ? recentMarketplaceNews(6)
             .then((news) => `\n\n${formatNewsFacts(news)}`)
             .catch((e) => {
@@ -725,22 +769,26 @@ async function runAgentTurn(opts: {
   ]);
   const wbContext = wbParts;
   const historyFmt = formatHistory(history);
+  const promptMode = isHop ? "hop" : "lead";
   const systemPrompt =
-    (AGENT_PROMPTS[targetAgent] || AGENT_PROMPTS.saule) +
-    `\n\n${actionsCapabilityBrief()}` +
-    `\n\n${teamBriefForPrompt(plan, rootTask)}` +
+    agentPromptForTurn(targetAgent, promptMode) +
+    (isHop ? "" : `\n\n${actionsCapabilityBrief()}`) +
+    `\n\n${
+      fromAgent
+        ? peerTalkBrief(fromAgent, userMessage)
+        : teamBriefForPrompt(plan, rootTask)
+    }` +
     (fromAgent
-      ? `\n\n${peerTalkBrief(fromAgent, userMessage)}`
-      : `\n\nВладелец написал в рабочий чат. Ответь как живой сотрудник: пойми смысл → факт/цифра или одно уточнение. Коротко. Выбери один из ФОРМАТОВ ОТВЕТА (не тот же, что в последних репликах истории).`) +
-    `\n\n${openingDiversityHint(historyFmt)}` +
+      ? ""
+      : `\n\nВладелец написал в рабочий чат. Ответь коротко по делу.`) +
+    (isHop ? "" : `\n\n${openingDiversityHint(historyFmt)}`) +
     (wantsShorterStyle(rootTask) ? `\n\n${shorterStyleHint()}` : "") +
-    `\n\nВарьируй формулировки и структуру. Не копируй шаблоны и не начинай два раза подряд одинаково.` +
     (lastHop
-      ? `\n\nПоследний ход — никого не зови, закончи коротко (формат СТОП или ИТОГ).`
+      ? `\n\nПоследний ход — никого не зови, закончи коротко.`
       : "");
 
   console.log(
-    `[telegram-router] turn agent=${targetAgent} hop=${hop} from=${
+    `[telegram-router] turn agent=${targetAgent} hop=${hop} mode=${promptMode} from=${
       fromAgent || "human"
     } plan=${plan.join(">")} chat=${chatId}`,
   );
@@ -753,12 +801,13 @@ async function runAgentTurn(opts: {
     await sendChatAction(targetAgent, chatId, "typing");
   }
 
-  // hop / ответ коллеге — fast model; первый ход от владельца — full
+  const useFast = preferFastModel({ hop, fromAgent, rootTask });
   const rawReply = await askOpenAI({
     systemPrompt,
     history: historyFmt,
     wbContext,
-    modelKind: hop > 0 || fromAgent ? "fast" : "full",
+    modelKind: useFast ? "fast" : "full",
+    agentKey: targetAgent,
     userMessage: fromAgent
       ? [
         `Вопрос владельца: ${rootTask}`,
@@ -788,10 +837,10 @@ async function runAgentTurn(opts: {
   if (lastHop) return;
   if (isDoneReply(reply)) return;
 
-  // Живой пинг (@ или по имени) — приоритет; иначе следующий из плана владельца
+  // Живой пинг (@ или «Антон, …») — приоритет; auto-plan только news/banter
   let next = nextPingFromReply(reply, visited);
   const pinged = Boolean(next);
-  if (!next && plan.length >= 2) {
+  if (!next && allowPlanAutoHop(rootTask) && plan.length >= 2) {
     next = plan.find((a) => !visited.has(a) && BOT_TOKENS[a]) || null;
   }
   if (!next || !BOT_TOKENS[next]) return;
@@ -1013,10 +1062,30 @@ serve(async (req) => {
         return ok();
       }
 
+      // handled без reply = чужой bot проглотил команду специалиста (early exit)
+      if (fast.handled) return ok();
+
       // /ads start baza → не fast-reply, но нужен агент amina (ниже pending/actions)
       if (fast.agentKey && fast.agentKey !== triggeringBot && !isMetaCmd) {
         // другой webhook дойдёт до своего бота
       }
+    }
+
+    // ── Короткое «спасибо/ок» — до тяжёлого QA (без LLM) ────────────────────
+    if (isShortSocialAck(text) && !dialog.pending) {
+      const sticky = dialog.focus?.agent_key || null;
+      const who = namedOnce[0] || sticky || "karina";
+      const resolved = resolveSpeakAndOrchestrator([who], triggeringBot);
+      if (resolved && triggeringBot === resolved.orchestrator) {
+        const reply = shortSocialAckReply(resolved.speakAs);
+        await runWork((async () => {
+          await sendChatAction(resolved.speakAs, chatId, "typing");
+          await sendTelegramMessage(resolved.speakAs, chatId, reply, message.message_id);
+          saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
+          saveMessage(chatId, resolved.speakAs, reply).catch(() => {});
+        })());
+      }
+      return ok();
     }
 
     // ── FBS-диалог логиста (кнопки/уточнения) — другие боты молчат ──────────
@@ -1054,7 +1123,15 @@ serve(async (req) => {
         !wantsPriceChange(text);
       if (switchAway) {
         await switchChatFocus(chatId, namedOnce[0], "switch_from_price", 15);
-        dialog = await getChatDialogState(chatId);
+        dialog = {
+          focus: {
+            chat_id: chatId,
+            agent_key: namedOnce[0],
+            reason: "switch_from_price",
+            expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+          },
+          pending: null,
+        };
       } else if ((priceActive || wantsPriceChange(text))) {
         if (triggeringBot !== "saule") return ok();
         const priceFn = priceActive ? continuePriceChangeDialog : startPriceChangeDialog;
@@ -1093,10 +1170,27 @@ serve(async (req) => {
         if (lockedEarly && uniqueNamed[0] !== lockedEarly) {
           // смена собеседника — сброс чужих диалогов (цена/FBS/РК)
           await switchChatFocus(chatId, uniqueNamed[0], "switch", 15);
+          dialog = {
+            focus: {
+              chat_id: chatId,
+              agent_key: uniqueNamed[0],
+              reason: "switch",
+              expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+            },
+            pending: null,
+          };
         } else {
           await setChatFocus(chatId, uniqueNamed[0], "named", 15);
+          dialog = {
+            ...dialog,
+            focus: {
+              chat_id: chatId,
+              agent_key: uniqueNamed[0],
+              reason: "named",
+              expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+            },
+          };
         }
-        dialog = await getChatDialogState(chatId);
       }
 
       const lockedAgent = lockedAgentFromState(dialog);
@@ -1390,27 +1484,6 @@ serve(async (req) => {
       }
     }
 
-    // ── Короткое «спасибо/ок» — живой ack без LLM ───────────────────────────
-    if (isShortSocialAck(text)) {
-      const pendingAck = dialog.pending;
-      // не перехватывать «ок/да» в середине диалога цены/РК/FBS
-      if (!pendingAck) {
-        const sticky = dialog.focus?.agent_key || null;
-        const who = namedOnce[0] || sticky || "karina";
-        const resolved = resolveSpeakAndOrchestrator([who], triggeringBot);
-        if (resolved && triggeringBot === resolved.orchestrator) {
-          const reply = shortSocialAckReply(resolved.speakAs);
-          await runWork((async () => {
-            await sendChatAction(resolved.speakAs, chatId, "typing");
-            await sendTelegramMessage(resolved.speakAs, chatId, reply, message.message_id);
-            saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
-            saveMessage(chatId, resolved.speakAs, reply).catch(() => {});
-          })());
-        }
-        return ok();
-      }
-    }
-
     // ── Живой отклик на «Карина» / «Сауле» без задачи (без пустого «да?») ───
     if (isNameOnlyPing(text)) {
       const pingAgent = namePingAgent(text);
@@ -1419,25 +1492,8 @@ serve(async (req) => {
         if (resolved && triggeringBot === resolved.orchestrator) {
           await runWork((async () => {
             await sendChatAction(resolved.speakAs, chatId, "typing");
-            let fact = "";
-            try {
-              if (pingAgent === "alina") {
-                const s = await alinaSelfbuyStatsText();
-                fact = s.split("\n").slice(1, 3).join(" · ");
-              } else if (pingAgent === "amina") {
-                const ctx = await buildAgentWbContext("amina", createWbContextCache());
-                const line = ctx.split("\n").find((l) => l.startsWith("▶ "));
-                fact = line || "";
-              } else if (pingAgent === "saule" || pingAgent === "karina" || pingAgent === "anton") {
-                const ctx = await buildAgentWbContext(
-                  pingAgent === "karina" ? "saule" : pingAgent as AgentKey,
-                  createWbContextCache(),
-                );
-                const line = ctx.split("\n").find((l) => l.startsWith("▶ "));
-                fact = line || "";
-              }
-            } catch { /* optional fact */ }
-            const reply = liveNameReply(pingAgent, fact || undefined);
+            // без холодного WB — greeting должен быть мгновенным (research: small context)
+            const reply = liveNameReply(pingAgent);
             await sendTelegramMessage(
               resolved.speakAs,
               chatId,
@@ -1455,23 +1511,23 @@ serve(async (req) => {
     const stickyAgent = lockedAgentFromState(dialog);
     const pendingEnd = dialog.pending;
     const namedForPlan = namedOnce;
+    const collectiveTopic =
+      wantsNewsDiscussion(text) || wantsTeamBanter(text) || looksLikeSharedLink(text);
     let plan = buildTeamPlan(
       text,
       message.entities,
-      wantsNewsDiscussion(text) || wantsTeamBanter(text) || looksLikeSharedLink(text)
-        ? Math.max(MAX_AGENT_HOPS, 4)
-        : MAX_AGENT_HOPS,
+      collectiveTopic ? Math.max(MAX_AGENT_HOPS, 4) : Math.min(MAX_AGENT_HOPS, 2),
     );
-    // Пока диалог с конкретным агентом — короткие реплики не уходят «дефолтной» Карине
+    // Sticky specialist (RCR): пока фокус жив и не назвали другого — не уходим в topical/Карину
     if (
       stickyAgent &&
       stickyAgent !== "karina" &&
-      (!namedForPlan.length || namedForPlan.includes(stickyAgent)) &&
-      (isLikelyFollowUp(text) || Boolean(pendingEnd) || plan[0] === "karina")
+      !collectiveTopic &&
+      (!namedForPlan.length || namedForPlan.includes(stickyAgent))
     ) {
       plan = [stickyAgent];
     }
-    // Карина не оркестрирует чужой фокус, даже если plan по теме «общий»
+    // Карина не оркестрирует чужой фокус
     if (
       stickyAgent &&
       stickyAgent !== "karina" &&
