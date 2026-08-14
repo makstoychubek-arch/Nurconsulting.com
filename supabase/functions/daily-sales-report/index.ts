@@ -17,6 +17,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCanvas } from 'https://deno.land/x/canvas@v1.4.2/mod.ts';
+import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -32,15 +33,15 @@ Deno.serve(async (req) => {
     const started = Date.now();
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
-    const tgChatId = Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '';
+    const tgToken = getTelegramToken() || (Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '');
+    const tgChatId = getTelegramChatId('sales') || (Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '');
 
     const authHeader = req.headers.get('Authorization') ?? '';
     if (!authHeader.startsWith('Bearer ') || authHeader.replace('Bearer ', '') !== serviceKey) {
         return json({ error: 'Unauthorized' }, 401);
     }
     if (!tgToken || !tgChatId) {
-        return json({ error: 'TELEGRAM_BOT_TOKEN / TELEGRAM_GROUP_CHAT_ID не заданы' }, 400);
+        return json({ error: 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_SALES (или TELEGRAM_GROUP_CHAT_ID) не заданы' }, 400);
     }
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
