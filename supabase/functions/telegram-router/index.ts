@@ -107,6 +107,11 @@ import {
   wantsShorterStyle,
 } from "../_shared/agent-social.ts";
 import {
+  selfSkillsNamedAgent,
+  selfSkillsReply,
+  wantsSelfSkills,
+} from "../_shared/agent-self-skills.ts";
+import {
   hopPauseMs,
   setTelegramMessageReaction,
   thinkPauseMs,
@@ -1161,6 +1166,34 @@ serve(async (req) => {
       if (fast.agentKey && fast.agentKey !== triggeringBot && !isMetaCmd) {
         // другой webhook дойдёт до своего бота
       }
+    }
+
+    // ── «что умеешь» — каждый бот перечисляет свою зону ────────────────────
+    if (wantsSelfSkills(text) && !dialog.pending) {
+      const sticky = dialog.focus?.agent_key || null;
+      const who =
+        selfSkillsNamedAgent(text) ||
+        namedOnce[0] ||
+        sticky ||
+        triggeringBot ||
+        "karina";
+      const resolved = resolveSpeakAndOrchestrator([who], triggeringBot);
+      if (resolved && triggeringBot === resolved.orchestrator) {
+        const reply = selfSkillsReply(resolved.speakAs);
+        await runWork((async () => {
+          await sendChatAction(resolved.speakAs, chatId, "typing");
+          await sendTelegramMessage(
+            resolved.speakAs,
+            chatId,
+            reply,
+            message.message_id,
+          );
+          saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
+          saveMessage(chatId, resolved.speakAs, reply).catch(() => {});
+          await setChatFocus(chatId, resolved.speakAs, "self_skills", 10);
+        })());
+      }
+      return ok();
     }
 
     // ── Короткое «спасибо/ок» — до тяжёлого QA (без LLM) ────────────────────

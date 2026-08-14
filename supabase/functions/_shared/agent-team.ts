@@ -126,6 +126,16 @@ export function detectTopicalAgents(text: string): string[] {
     found.push("karina");
   }
 
+  // «Алина что умеешь» — зона того, кого спросили
+  if (/(что\s+(ты\s+)?умеешь|твои?\s+задач|чем\s+занимаешься|твоя\s+зона)/i.test(lower)) {
+    if (/саул[еэ]/.test(lower)) found.push("saule");
+    else if (/амина/.test(lower)) found.push("amina");
+    else if (/антон/.test(lower)) found.push("anton");
+    else if (/алина/.test(lower)) found.push("alina");
+    else if (/мух[ауеы]/.test(lower)) found.push("muha");
+    else if (/карина/.test(lower)) found.push("karina");
+  }
+
   // OpenAPI role ops (инфо продавца, склады, отзывы, РК баланс…)
   const roleOp = detectWbRoleOp(text);
   if (roleOp && !found.includes(roleOp)) found.push(roleOp);

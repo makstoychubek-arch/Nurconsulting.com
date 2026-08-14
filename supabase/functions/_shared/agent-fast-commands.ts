@@ -15,6 +15,7 @@ import {
   createWbContextCache,
   type AgentKey,
 } from "./agent-wb-context.ts";
+import { selfSkillsReply } from "./agent-self-skills.ts";
 
 export type FastCommandResult = {
   handled: boolean;
