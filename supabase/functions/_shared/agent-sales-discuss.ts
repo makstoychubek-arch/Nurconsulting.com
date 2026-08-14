@@ -111,12 +111,15 @@ export function extractDiscussProductQuery(text: string): string {
   return tokens.join(' ').trim();
 }
 
-/** Кто в цепочке: факты → реклама → логистика. */
+/** Кто в цепочке: факты → реклама → логистика (макс 3 под дефолтный hop-бюджет). */
 export function salesDropDiscussPlan(text = ''): string[] {
   const t = normalizeBotText(text);
   const plan = ['saule', 'amina', 'anton'];
-  if (/(раздач|самовыкуп|отзыв)/.test(t)) plan.push('alina');
-  return plan.slice(0, 4);
+  // Алину зовём только если явно про раздачи — и только вместо Антона, чтобы уложиться в 3 hop
+  if (/(раздач|самовыкуп|отзыв)/.test(t)) {
+    return ['saule', 'amina', 'alina'];
+  }
+  return plan;
 }
 
 function bishkekHour(): number {

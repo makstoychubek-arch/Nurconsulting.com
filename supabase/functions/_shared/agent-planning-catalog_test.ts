@@ -40,4 +40,6 @@ Deno.test('formatCostReply', () => {
 
 Deno.test('costQueryProductText strips', () => {
   assertEquals(costQueryProductText('себес кимоно бежевый'), 'кимоно бежевый');
+  assertEquals(costQueryProductText('стоимость товара кимоно'), 'кимоно');
+  assertEquals(costQueryProductText('какая себестоимость 334548155'), '334548155');
 });

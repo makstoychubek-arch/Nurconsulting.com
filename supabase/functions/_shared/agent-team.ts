@@ -34,13 +34,13 @@ export function detectMentionedAgents(text: string): string[] {
 export function detectNamedAgents(text: string): string[] {
   const lower = text.toLowerCase();
   const found: string[] = [];
-  if (/саул[еэ]/.test(lower)) found.push("saule");
-  if (lower.includes("амина")) found.push("amina");
-  if (lower.includes("антон")) found.push("anton");
-  if (lower.includes("алина")) found.push("alina");
+  if (/саул[еэаыу]/.test(lower)) found.push("saule");
+  if (/амин[аыуе]/.test(lower) || /амина/.test(lower)) found.push("amina");
+  if (/антон[ауеы]?/.test(lower) || lower.includes("антон")) found.push("anton");
+  if (/алин[аыуе]/.test(lower) || /алина/.test(lower)) found.push("alina");
   // \b плохо работает с кириллицей в JS — явные формы
   if (/(^|[^а-яё])мух[ауеы]([^а-яё]|$)/i.test(lower)) found.push("muha");
-  if (lower.includes("карина")) found.push("karina");
+  if (/карин[аыуе]/.test(lower) || lower.includes("карина")) found.push("karina");
   return found;
 }
 
@@ -206,17 +206,23 @@ export const AGENT_DISPLAY: Record<string, string> = {
   karina: "Карина",
 };
 
-/** Следующий коллега: @username или явное обращение «Антон, …» в начале строки. */
+/** Следующий коллега: @username или явное обращение «Антон, …» / «Амине, …». */
 export function nextPingFromReply(reply: string, exclude: Set<string>): string | null {
   for (const agent of detectMentionedAgents(reply)) {
     if (!exclude.has(agent)) return agent;
   }
-  // только адресная форма — не любое упоминание имени в прозе («как сказала Сауле»)
-  for (const agent of detectNamedAgents(reply)) {
+  const addressStem: Record<string, string> = {
+    saule: "саул[еэаыу]",
+    amina: "амин[аыуе]",
+    anton: "антон[ауеы]?",
+    alina: "алин[аыуе]",
+    muha: "мух[ауеы]",
+    karina: "карин[аыуе]",
+  };
+  // только адресная форма в начале строки — не любое упоминание в прозе
+  for (const [agent, stem] of Object.entries(addressStem)) {
     if (exclude.has(agent)) continue;
-    const name = AGENT_DISPLAY[agent];
-    if (!name) continue;
-    const re = new RegExp(`(^|\\n)\\s*${name}\\s*[,—\\-:]`, "i");
+    const re = new RegExp(`(^|\\n)\\s*${stem}\\s*[,—\\-:]`, "i");
     if (re.test(reply)) return agent;
   }
   return null;

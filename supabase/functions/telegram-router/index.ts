@@ -821,7 +821,19 @@ async function runAgentTurn(opts: {
       let wb = "";
       try {
         if (needSalesDrop) {
-          wb = await buildSalesDropFactsBundle(rootTask, wbCache);
+          const dropHead = await buildSalesDropFactsBundle(rootTask, wbCache);
+          // Амине/Антону — ещё их role-блок (РК / FBS), иначе судят без фактов
+          let roleExtra = "";
+          if (targetAgent === "amina" || targetAgent === "anton" || targetAgent === "karina") {
+            try {
+              roleExtra = await buildAgentWbContext(targetAgent as AgentKey, wbCache);
+            } catch {
+              roleExtra = "";
+            }
+          }
+          wb = roleExtra
+            ? `${dropHead}\n\n=== ЗОНА ${targetAgent.toUpperCase()} ===\n${roleExtra}`
+            : dropHead;
         } else {
           wb = await buildAgentWbContext(targetAgent as AgentKey, wbCache);
         }
@@ -956,14 +968,19 @@ async function runAgentTurn(opts: {
   }
 
   if (lastHop) return;
-  if (isDoneReply(reply)) return;
 
-  // Живой пинг (@ или «Антон, …») — приоритет; auto-plan только news/banter
+  // Живой пинг (@ или «Антон, …») — приоритет
   let next = nextPingFromReply(reply, visited);
-  if (!next && allowPlanAutoHop(rootTask) && plan.length >= 2) {
+  const autoHop = allowPlanAutoHop(rootTask) && plan.length >= 2;
+  if (!next && autoHop) {
     next = plan.find((a) => !visited.has(a) && BOT_TOKENS[a]) || null;
   }
-  if (!next || !BOT_TOKENS[next]) return;
+  // «ага/норм» рвут цепочку только вне auto-hop (news/разбор)
+  if (!next) {
+    if (isDoneReply(reply)) return;
+    return;
+  }
+  if (!BOT_TOKENS[next]) return;
 
   // Передали коллеге — фокус на нём, чтобы реплика владельца не ушла «дефолтной» Карине
   await setChatFocus(chatId, next, `handoff_from_${targetAgent}`, 15);
@@ -1166,8 +1183,10 @@ serve(async (req) => {
 
       if (fast.handled && fast.reply) {
         // /help — зона названного/@бота; в группе без имени — Карина; в ЛС — этот бот
-        const isHelpCmd = isMetaCmd &&
-          /^\/?(help|команды|помощь|skills|чтоумеешь|зона)(@\w+)?(\s|$)/i.test(text.trim());
+        const isHelpCmd =
+          /^\/?(help|команды|помощь|skills|чтоумеешь|зона)(@\w+)?(\s|$)/i.test(
+            text.trim(),
+          );
         if (isHelpCmd) {
           const helpWho =
             selfSkillsNamedAgent(text) ||
@@ -1192,21 +1211,21 @@ serve(async (req) => {
           }
           return ok();
         }
-        const replyAs = isMetaCmd
-          ? (pickStarter(["saule"], triggeringBot) || triggeringBot)
-          : (fast.agentKey || triggeringBot);
-
-        if (triggeringBot === replyAs) {
+        // /pulse /срочно /себес /ping /cabinets — speakAs = agentKey (Карина/Сауле…),
+        // оркестратор шлёт токеном speakAs (как LLM-путь), иначе в группе тишина
+        const speakWho = fast.agentKey || triggeringBot || "saule";
+        const resolved = resolveSpeakAndOrchestrator([speakWho], triggeringBot);
+        if (resolved && triggeringBot === resolved.orchestrator) {
           await runWork((async () => {
             await sendTelegramMessage(
-              replyAs,
+              resolved.speakAs,
               chatId,
               fast.reply!,
               message.message_id,
             );
             saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
-            saveMessage(chatId, replyAs, fast.reply!).catch(() => {});
-            const snap = parseAgentTextToSnapshot(fast.reply!, replyAs);
+            saveMessage(chatId, resolved.speakAs, fast.reply!).catch(() => {});
+            const snap = parseAgentTextToSnapshot(fast.reply!, resolved.speakAs);
             if (snap) saveDataSnapshot(chatId, snap).catch(() => {});
           })());
         }
@@ -1899,6 +1918,10 @@ serve(async (req) => {
       message.entities,
       collectiveTopic ? Math.max(MAX_AGENT_HOPS, 4) : Math.min(MAX_AGENT_HOPS, 2),
     );
+    // Разбор продаж: не больше hop-бюджета (иначе 4-й агент никогда не говорит)
+    if (wantsSalesDropDiscuss(text) && plan.length > MAX_AGENT_HOPS) {
+      plan = plan.slice(0, MAX_AGENT_HOPS);
+    }
     // Sticky specialist (RCR): пока фокус жив и не назвали другого — не уходим в topical/Карину
     if (
       stickyAgent &&

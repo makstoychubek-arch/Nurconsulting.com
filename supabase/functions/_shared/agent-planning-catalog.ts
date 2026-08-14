@@ -60,21 +60,18 @@ export function wantsCostQuery(text: string): boolean {
 /** Вытащить поисковую фразу без слов «себес/стоимость». */
 export function costQueryProductText(text: string): string {
   let t = normalizeBotText(text);
-  t = t.replace(
-    /^(какая|какой|какие|сколько)\s+/i,
-    '',
-  );
-  t = t.replace(
-    /\b(себестоимость|себистоимость|себес|себис|cost|unit\s*cost)\b/gi,
-    ' ',
-  );
-  t = t.replace(
-    /\b(стоимость(\s+товара)?|товара|артикул[аеу]?|nm)\b/gi,
-    ' ',
-  );
-  // без \b — кириллица иногда ломает word boundary
-  t = t.replace(/(^|\s)(себестоимость|себистоимость|себес|себис)(?=\s|$)/gi, ' ');
-  return t.replace(/\s+/g, ' ').trim();
+  const stop = new Set([
+    'какая', 'какой', 'какие', 'сколько',
+    'себестоимость', 'себистоимость', 'себес', 'себис', 'cost',
+    'стоимость', 'товара', 'товар', 'артикул', 'артикула', 'артикулу', 'nm',
+    'unit',
+  ]);
+  return t
+    .split(/\s+/)
+    .filter((w) => w.length >= 1)
+    .filter((w) => !stop.has(w))
+    .join(' ')
+    .trim();
 }
 
 export function findPlanningByNm(nmId: number): PlanningItem | null {

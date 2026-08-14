@@ -16,6 +16,10 @@ Deno.test("parse ads commands", () => {
 Deno.test("expand ads start", () => {
   assertEquals(expandAdsActionCommand("/ads start базы"), "запусти рк базы");
   assertEquals(expandAdsActionCommand("/ads pause saai"), "поставь на паузу рк saai");
+  assertEquals(expandAdsActionCommand("/ads запуск baza"), "запусти рк baza");
+  assertEquals(expandAdsActionCommand("/ads пауза saai"), "поставь на паузу рк saai");
+  assertEquals(parseFastCommand("/ads запуск baza")?.cmd, "ads_start");
+  assertEquals(parseFastCommand("/ads пауза saai")?.cmd, "ads_pause");
 });
 
 Deno.test("help ping", () => {

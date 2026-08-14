@@ -6,6 +6,7 @@ import {
   buildTeamPlan,
   clampHops,
   detectMentionedAgents,
+  detectNamedAgents,
   detectTopicalAgents,
   isDoneReply,
   nextPingFromReply,
@@ -33,6 +34,16 @@ Deno.test("пинг по @username и по имени", () => {
   assertEquals(
     nextPingFromReply("Антон, глянь остаток по фбс", new Set(["saule"])),
     "anton",
+  );
+  assertEquals(detectNamedAgents("Амине глянь рк"), ["amina"]);
+  assertEquals(detectNamedAgents("Алине скинь"), ["alina"]);
+  assertEquals(
+    nextPingFromReply("Амина, глянь ставки", new Set(["saule"])),
+    "amina",
+  );
+  assertEquals(
+    nextPingFromReply("Амине, глянь ставки", new Set(["saule"])),
+    "amina",
   );
 });
 

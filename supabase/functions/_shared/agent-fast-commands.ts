@@ -119,13 +119,14 @@ export function parseFastCommand(raw: string): { cmd: string; arg: string } | nu
       return { cmd, arg };
     }
     const rest = arg.trim();
-    if (/^(start|запуск|запусти)\b/i.test(rest)) {
+    // \b не работает с кириллицей — якорим пробелом/концом
+    if (/^(start|запуск|запусти)(?:\s|$)/i.test(rest)) {
       return {
         cmd: "ads_start",
         arg: rest.replace(/^(start|запуск|запусти)\s*/i, "").trim(),
       };
     }
-    if (/^(pause|пауза)\b/i.test(rest)) {
+    if (/^(pause|пауза)(?:\s|$)/i.test(rest)) {
       return {
         cmd: "ads_pause",
         arg: rest.replace(/^(pause|пауза)\s*/i, "").trim(),
@@ -394,30 +395,39 @@ export async function tryFastCommand(
     };
   }
 
-  // Пульс / срочно — в группе только Карина; в ЛС — бот, которому написали
-  if (cmd === "pulse") {
-    const speaker = privateChat ? (triggeringBot || "karina") : "karina";
-    if (triggeringBot !== speaker) {
-      return { handled: true, agentKey: speaker };
+  // Пульс / срочно — в группе говорит Карина, оркестрирует Сауле (как LLM-путь)
+  if (cmd === "pulse" || cmd === "urgent") {
+    if (privateChat) {
+      const speaker = triggeringBot || "karina";
+      if (cmd === "urgent") {
+        return { handled: true, agentKey: speaker, reply: urgentBrief() };
+      }
+      try {
+        return { handled: true, agentKey: speaker, reply: await pulseBrief() };
+      } catch (e) {
+        return {
+          handled: true,
+          agentKey: speaker,
+          reply: `Пульс не собрался: ${e instanceof Error ? e.message : String(e)}`,
+        };
+      }
+    }
+    // группа: чужие webhook молчат; Карина молчит (оркестратор — Сауле)
+    if (triggeringBot !== "saule") {
+      return { handled: true, agentKey: "karina" };
+    }
+    if (cmd === "urgent") {
+      return { handled: true, agentKey: "karina", reply: urgentBrief() };
     }
     try {
-      const reply = await pulseBrief();
-      return { handled: true, agentKey: speaker, reply };
+      return { handled: true, agentKey: "karina", reply: await pulseBrief() };
     } catch (e) {
       return {
         handled: true,
-        agentKey: speaker,
+        agentKey: "karina",
         reply: `Пульс не собрался: ${e instanceof Error ? e.message : String(e)}`,
       };
     }
-  }
-
-  if (cmd === "urgent") {
-    const speaker = privateChat ? (triggeringBot || "karina") : "karina";
-    if (triggeringBot !== speaker) {
-      return { handled: true, agentKey: speaker };
-    }
-    return { handled: true, agentKey: speaker, reply: urgentBrief() };
   }
 
   if (cmd === "cost") {
