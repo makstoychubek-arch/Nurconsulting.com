@@ -3,6 +3,8 @@
  * чтобы в чате звучало как живой человек.
  */
 
+import { maybeValencePrefix } from './agent-voice.ts';
+
 const BANNED_OPENERS = [
   /^(полностью\s+соглас[а-яё]+\.?)\s*/iu,
   /^(как\s+(сказал[аи]|отметил[аи])\s+\S+[.,]?\s*)/iu,
@@ -18,6 +20,13 @@ const BANNED_OPENERS = [
   /^(следует\s+отметить[,.]?\s*)/iu,
   /^(ок[,.]?\s*понял[аи]?[.!]?\s*)/iu,
   /^(спасибо\s+за\s+(информацию|уточнение)[.!]?\s*)/iu,
+  // шаблонные «ботовые» зачины из тимчата
+  /^(ок[,.]\s+)/iu,
+  /^(смотрю[,.!]?\s*)/iu,
+  /^(глянул[аи]?[,.!]?\s*)/iu,
+  /^(принято[.!]?\s+)/iu,
+  /^(конечно[,.]?\s*)/iu,
+  /^(отличный\s+вопрос[.!]?\s*)/iu,
 ];
 
 const BANNED_LINES = [
@@ -32,8 +41,17 @@ const BANNED_LINES = [
   /^обращайтесь[, ]+если/iu,
 ];
 
+/** Не больше одного эмодзи в ответе — меньше «бот-вайба». */
+function limitEmojis(text: string, max = 1): string {
+  let n = 0;
+  return text.replace(/\p{Extended_Pictographic}/gu, (m) => {
+    n += 1;
+    return n <= max ? m : '';
+  }).replace(/[ \t]{2,}/g, ' ');
+}
+
 /** Убрать шаблонные зачины/строки; вернуть очищенный текст. */
-export function humanizeAgentReply(raw: string): string {
+export function humanizeAgentReply(raw: string, opts?: { valence?: boolean }): string {
   let t = String(raw || '').replace(/\r/g, '').trim();
   if (!t) return t;
 
@@ -49,6 +67,7 @@ export function humanizeAgentReply(raw: string): string {
   });
 
   t = kept.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  t = limitEmojis(t, 1);
 
   // слишком длинные «эссе» в тимчате — обрежем мягко по строкам
   const maxLines = 8;
@@ -59,6 +78,11 @@ export function humanizeAgentReply(raw: string): string {
 
   // пусто после чистки — короткая живая заглушка
   if (!t) t = 'ага';
+
+  if (opts?.valence !== false) {
+    t = maybeValencePrefix(t);
+  }
+
   return t.slice(0, 3500);
 }
 

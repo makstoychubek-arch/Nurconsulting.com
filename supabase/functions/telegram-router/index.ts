@@ -88,11 +88,18 @@ import {
 } from "../_shared/agent-collective.ts";
 import { humanizeAgentReply, looksLikeSharedLink } from "../_shared/agent-humanize.ts";
 import {
+  cheapNamePingFact,
   isShortSocialAck,
-  shortSocialAckReply,
+  planSocialAck,
   shorterStyleHint,
   wantsShorterStyle,
 } from "../_shared/agent-social.ts";
+import {
+  hopPauseMs,
+  setTelegramMessageReaction,
+  thinkPauseMs,
+  withTypingKeepalive,
+} from "../_shared/agent-presence.ts";
 import {
   buildSummaryReply,
   parseAgentTextToSnapshot,
@@ -787,7 +794,7 @@ async function runAgentTurn(opts: {
     (fromAgent
       ? ""
       : `\n\nВладелец написал в рабочий чат. Ответь коротко по делу.`) +
-    (isHop ? "" : `\n\n${openingDiversityHint(historyFmt)}`) +
+    `\n\n${openingDiversityHint(historyFmt)}` +
     (wantsShorterStyle(rootTask) ? `\n\n${shorterStyleHint()}` : "") +
     (lastHop
       ? `\n\nПоследний ход — никого не зови, закончи коротко.`
@@ -799,29 +806,32 @@ async function runAgentTurn(opts: {
     } plan=${plan.join(">")} chat=${chatId}`,
   );
 
-  // «печатает…» как живой человек перед ответом
+  // «печатает…» + пауза «думает» перед первым ответом
   await sendChatAction(targetAgent, chatId, "typing");
-  // лёгкая пауза перед первым ответом (не hop) — будто думает
   if (humanPausesEnabled() && !fromAgent && hop === 0) {
-    await new Promise((r) => setTimeout(r, 350 + Math.floor(Math.random() * 700)));
+    await new Promise((r) => setTimeout(r, thinkPauseMs(rootTask.length)));
     await sendChatAction(targetAgent, chatId, "typing");
   }
 
   const useFast = preferFastModel({ hop, fromAgent, rootTask });
-  const rawReply = await askOpenAI({
-    systemPrompt,
-    history: historyFmt,
-    wbContext,
-    modelKind: useFast ? "fast" : "full",
-    agentKey: targetAgent,
-    userMessage: fromAgent
-      ? [
-        `Вопрос владельца: ${rootTask}`,
-        `${AGENT_DISPLAY[fromAgent] || fromAgent} в чате: ${userMessage}`,
-        `Ты — ${AGENT_DISPLAY[targetAgent] || targetAgent}. Ответь коротко по делу.`,
-      ].join("\n")
-      : rootTask,
-  });
+  const rawReply = await withTypingKeepalive(
+    () => sendChatAction(targetAgent, chatId, "typing"),
+    () =>
+      askOpenAI({
+        systemPrompt,
+        history: historyFmt,
+        wbContext,
+        modelKind: useFast ? "fast" : "full",
+        agentKey: targetAgent,
+        userMessage: fromAgent
+          ? [
+            `Вопрос владельца: ${rootTask}`,
+            `${AGENT_DISPLAY[fromAgent] || fromAgent} в чате: ${userMessage}`,
+            `Ты — ${AGENT_DISPLAY[targetAgent] || targetAgent}. Ответь коротко по делу.`,
+          ].join("\n")
+          : rootTask,
+      }),
+  );
   const reply = humanizeAgentReply(rawReply);
 
   // Сначала в чат, потом история — быстрее для пользователя
@@ -847,7 +857,6 @@ async function runAgentTurn(opts: {
 
   // Живой пинг (@ или «Антон, …») — приоритет; auto-plan только news/banter
   let next = nextPingFromReply(reply, visited);
-  const pinged = Boolean(next);
   if (!next && allowPlanAutoHop(rootTask) && plan.length >= 2) {
     next = plan.find((a) => !visited.has(a) && BOT_TOKENS[a]) || null;
   }
@@ -856,21 +865,17 @@ async function runAgentTurn(opts: {
   // Передали коллеге — фокус на нём, чтобы реплика владельца не ушла «дефолтной» Карине
   await setChatFocus(chatId, next, `handoff_from_${targetAgent}`, 15);
 
-  // Если сами не позвали, а идём по плану — пусть следующий «подхватит» коротко
-  const handoffText = pinged
-    ? reply
-    : `${reply}\n\n(добавь коротко своё по зоне, без пересказа)`;
+  // Coaching handoff — только в system (peerTalkBrief), в userMessage — живая реплика
 
   // Пауза как у людей в чате (groupchat cooldown) — не барабанная очередь
   if (humanPausesEnabled()) {
-    const pauseMs = 900 + Math.floor(Math.random() * 1600);
-    await new Promise((r) => setTimeout(r, pauseMs));
+    await new Promise((r) => setTimeout(r, hopPauseMs()));
   }
 
   await runAgentTurn({
     chatId,
     targetAgent: next,
-    userMessage: handoffText,
+    userMessage: reply,
     rootTask,
     plan,
     visited,
@@ -1087,12 +1092,29 @@ serve(async (req) => {
       const who = namedOnce[0] || sticky || "karina";
       const resolved = resolveSpeakAndOrchestrator([who], triggeringBot);
       if (resolved && triggeringBot === resolved.orchestrator) {
-        const reply = shortSocialAckReply(resolved.speakAs);
+        const ack = planSocialAck(resolved.speakAs, text);
         await runWork((async () => {
           await sendChatAction(resolved.speakAs, chatId, "typing");
-          await sendTelegramMessage(resolved.speakAs, chatId, reply, message.message_id);
+          if (humanPausesEnabled() && ack.delayMs > 0) {
+            await new Promise((r) => setTimeout(r, ack.delayMs));
+          }
+          const token = BOT_TOKENS[resolved.speakAs];
+          if (ack.reactionEmoji && token && message.message_id) {
+            await setTelegramMessageReaction({
+              token,
+              chatId,
+              messageId: message.message_id,
+              emoji: ack.reactionEmoji,
+            });
+          }
+          await sendTelegramMessage(
+            resolved.speakAs,
+            chatId,
+            ack.text,
+            message.message_id,
+          );
           saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
-          saveMessage(chatId, resolved.speakAs, reply).catch(() => {});
+          saveMessage(chatId, resolved.speakAs, ack.text).catch(() => {});
         })());
       }
       return ok();
@@ -1522,23 +1544,24 @@ serve(async (req) => {
                 }
               }
               if (qa.reply) {
+                const qaReply = humanizeAgentReply(qa.reply);
                 await sendChatAction(speakAs, chatId, "typing");
                 await setChatFocus(chatId, speakAs, "qa_reply", 12);
                 if (qa.summarySnapshot) {
                   saveDataSnapshot(chatId, qa.summarySnapshot).catch(() => {});
                 } else {
-                  const parsed = parseAgentTextToSnapshot(qa.reply, speakAs);
+                  const parsed = parseAgentTextToSnapshot(qaReply, speakAs);
                   if (parsed) saveDataSnapshot(chatId, parsed).catch(() => {});
                 }
                 await sendTelegramMessage(
                   speakAs,
                   chatId,
-                  qa.reply,
+                  qaReply,
                   qa.photos?.length ? undefined : message.message_id,
                   undefined,
                   qa.replyMarkup,
                 );
-                await saveMessage(chatId, speakAs, qa.reply);
+                await saveMessage(chatId, speakAs, qaReply);
               }
               saveMessage(chatId, message.from?.first_name ?? "user", text).catch(
                 () => {},
@@ -1559,8 +1582,8 @@ serve(async (req) => {
         if (resolved && triggeringBot === resolved.orchestrator) {
           await runWork((async () => {
             await sendChatAction(resolved.speakAs, chatId, "typing");
-            // без холодного WB — greeting должен быть мгновенным (research: small context)
-            const reply = liveNameReply(pingAgent);
+            // без холодного WB — cheap factLine для «живости» (research: small context)
+            const reply = liveNameReply(pingAgent, cheapNamePingFact(pingAgent));
             await sendTelegramMessage(
               resolved.speakAs,
               chatId,

@@ -505,3 +505,29 @@ export function karinaVerdict(line: string): string {
     line,
   ]);
 }
+
+/**
+ * Микро-реакция на тон цифр/новости — редко, как живой человек в чате.
+ * Не трогает короткие ack («ага») и уже эмоциональные зачины.
+ */
+export function maybeValencePrefix(text: string): string {
+  const t = String(text || '').trim();
+  if (!t || t.length < 12 || t.length > 900) return t;
+  if (/^(ага|угу|ок|йо|хм|мм|норм|неплохо)\b/i.test(t)) return t;
+  if (Math.random() > 0.2) return t;
+
+  const up =
+    /(\+\d|рост|вырос|выш[её]|прибав|оживл|хорошо ид|лучше вчера)/i.test(t);
+  const down =
+    /(паден|просел|ниже|−\d|упал|упала|хуже|просадк)/i.test(t);
+
+  if (up) {
+    const p = pick(['неплохо — ', 'норм — ', '']);
+    return p ? p + t : t;
+  }
+  if (down) {
+    const p = pick(['хм, ', 'мм, ', '']);
+    return p ? p + t : t;
+  }
+  return t;
+}

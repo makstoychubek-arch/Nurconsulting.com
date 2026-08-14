@@ -39,4 +39,7 @@ Deno.test("nextPingFromReply только адресная форма имени
 Deno.test("isDoneReply не блокируется прозой с именем", () => {
   assertEquals(isDoneReply("По Сауле цифры ок.\nГотово."), true);
   assertEquals(isDoneReply("Антон, глянь\nГотово."), false);
+  assertEquals(isDoneReply("По базе 12\nвсё"), true);
+  assertEquals(isDoneReply("пока так"), true);
+  assertEquals(isDoneReply("ага"), true);
 });

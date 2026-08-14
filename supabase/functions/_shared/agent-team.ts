@@ -198,12 +198,26 @@ export function isDoneReply(reply: string): boolean {
   if (detectMentionedAgents(reply).length > 0) return false;
   // только адресный пинг блокирует «готово»
   if (nextPingFromReply(reply, new Set())) return false;
-  return (
+  if (
     /(^|\n)\s*готово\.?\s*$/i.test(t) ||
     t === "готово" ||
     t.endsWith("готово.") ||
     t.endsWith("готово")
-  );
+  ) {
+    return true;
+  }
+  const lines = t.split(/\n/).map((s) => s.trim()).filter(Boolean);
+  const last = lines[lines.length - 1] || "";
+  if (/^(готово|всё|все|пока так|на этом|стоп)\.?$/i.test(last)) return true;
+  // очень короткая «живая» закрывашка без пинга
+  if (
+    t.length <= 28 &&
+    /^(норм|хорошо|ладно|ага|угу|ок|окей|ясно|понял[аи]?|принято|спс|спасибо)\.?$/i
+      .test(t)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function teamBriefForPrompt(plan: string[], rootTask: string): string {
@@ -227,9 +241,10 @@ export function peerTalkBrief(fromAgent: string, peerMessage: string): string {
   return [
     `${name} только что написала/написал в чат:`,
     `«${peerMessage.slice(0, 700)}»`,
+    "Коллега передал тебе ход: добавь коротко своё по зоне — без пересказа чужих цифр.",
     "Ответь как живой коллега в том же чате: коротко, по своей зоне.",
     style,
-    "Не начинай с «Спасибо» / «Принято» / «Коллега передал» / «Ок, понял» / «Полностью согласен». Сразу по делу.",
+    "Не начинай с «Спасибо» / «Принято» / «Коллега передал» / «Ок, понял» / «Полностью согласен» / «Смотрю» / «Глянула». Сразу по делу.",
     "Не копируй текст коллеги. Не поддакивай без своего куска. Чередуй формат ответа.",
     "Если всё ясно и тебе добавить нечего — одна короткая реплика и стоп (без пинга дальше).",
   ].join("\n");

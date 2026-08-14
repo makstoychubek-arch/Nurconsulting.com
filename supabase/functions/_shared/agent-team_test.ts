@@ -41,6 +41,8 @@ Deno.test("Готово без пинга останавливает цепоч�
   assertEquals(isDoneReply("Готово"), true);
   assertEquals(isDoneReply("Нужен @aminaakd_bot\nГотово."), false);
   assertEquals(isDoneReply("Антон, глянь остаток"), false);
+  assertEquals(isDoneReply("цифры выше\nпока так"), true);
+  assertEquals(isDoneReply("норм"), true);
 });
 
 Deno.test("clampHops защищает от NaN", () => {
