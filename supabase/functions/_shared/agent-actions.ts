@@ -61,7 +61,16 @@ export function normName(s: string): string {
 
 export const CABINET_ALIASES: Record<string, string[]> = {
   baza: ["baza", "база", "базы", "базу", "базе"],
-  saai: ["saai", "сааи", "саи"],
+  saai: [
+    "saai",
+    "сааи",
+    "саи",
+    "дуйшекеева",
+    "дуйшокеева",
+    "duishekeeva",
+    "nely",
+    "nelylook",
+  ],
   zevina: [
     "zevina",
     "зевина",

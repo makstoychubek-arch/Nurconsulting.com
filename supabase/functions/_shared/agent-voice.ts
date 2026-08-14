@@ -299,6 +299,38 @@ export function sauleSalesLead(cabinet?: string): string {
   ]);
 }
 
+/** Сауле — цена: показать до/после и спросить */
+export function saulePriceAsk(
+  cabinet: string,
+  vendor: string,
+  before: string,
+  after: string,
+): string {
+  const head = pick([
+    `${cabinet} · ${vendor}`,
+    `${vendor} (${cabinet})`,
+    `Нашла: ${cabinet} · ${vendor}`,
+  ]);
+  const mid = pick([
+    `до скидки ${before} · после ${after}`,
+    `до ${before} · после ${after}`,
+  ]);
+  const ask = pick([
+    'что меняем — до или после? и новую цену',
+    'до или после — и цену числом',
+    'пиши: «после 3000» или «до 5000»',
+  ]);
+  return [head, mid, ask].join('\n');
+}
+
+export function saulePriceSaved(label: string, money: string): string {
+  return pick([
+    `сохранила · ${label} ${money}`,
+    `готово · ${label} ${money}`,
+    `ок, сохранила · ${label} ${money}`,
+  ]);
+}
+
 /** Карина — координаторские реплики */
 export function karinaHandoff(who: string, why: string): string {
   return pick([

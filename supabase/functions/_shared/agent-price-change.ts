@@ -19,6 +19,7 @@ import {
   scoreProductMatch,
 } from './agent-product-catalog.ts';
 import { sanitizeWbToken } from './wb-cabinet-tokens.ts';
+import { saulePriceAsk, saulePriceSaved } from './agent-voice.ts';
 
 export const PRICE_CHANGE_ACTION = 'price_change';
 export const PRICE_AGENT = 'saule';
@@ -358,11 +359,12 @@ async function presentProduct(
   await setChatFocus(chatId, PRICE_AGENT, 'price_change', 20);
   return {
     handled: true,
-    reply: [
-      `${g.cabinetName} · ${g.vendorCode}`,
-      `до скидки ${formatMoney(g.price)} · после ${formatMoney(g.discountedPrice)}`,
-      'что меняем — до или после? и новую цену',
-    ].join('\n'),
+    reply: saulePriceAsk(
+      g.cabinetName,
+      g.vendorCode,
+      formatMoney(g.price),
+      formatMoney(g.discountedPrice),
+    ),
   };
 }
 

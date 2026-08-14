@@ -9,6 +9,8 @@
  * Env: ALINA_SHEET_ID (обязательно)
  */
 
+import { scoreProductMatch } from './agent-product-catalog.ts';
+
 export type SheetPlanOffer = {
   date: string | null;
   deal_type: 'cashback' | 'barter' | 'both';
@@ -609,21 +611,10 @@ export function matchOfferFromText(
   }
 
   const scored = open.map((o) => {
-    const name = norm(o.product_name || '');
-    let score = 0;
-    if (name && t.includes(name)) score += 10;
-    const tokens = name.split(/\s+/).filter((w) => w.length >= 3);
-    for (const tok of tokens) {
-      if (t.includes(tok)) score += 3;
-    }
-    // цвет
-    if (/бел/i.test(t) && /бел/i.test(name)) score += 2;
-    if (/чёрн|черн/i.test(t) && /чёрн|черн/i.test(name)) score += 2;
-    if (/фонар/i.test(t) && /фонар/i.test(name)) score += 4;
-    if (/вырез/i.test(t) && /вырез/i.test(name)) score += 4;
-    if (/блузк/i.test(t) && (/фонар|вырез|блузк/i.test(name))) score += 1;
+    const name = o.product_name || '';
+    const score = scoreProductMatch(`${name} ${o.article || ''}`, text);
     return { o, score };
-  }).filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
+  }).filter((x) => x.score >= 4).sort((a, b) => b.score - a.score);
 
   if (!scored.length) return { offer: null, ambiguous: open };
   const top = scored[0].score;
