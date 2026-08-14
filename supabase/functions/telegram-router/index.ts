@@ -970,16 +970,19 @@ serve(async (req) => {
         });
         if (priceRes.handled) {
           if (priceRes.reply) {
-            await runWork((async () => {
+            // Синхронно: иначе isolate может оборвать waitUntil до sendMessage
+            try {
               await sendTelegramMessage(
                 "saule",
                 chatId,
-                priceRes.reply!,
+                priceRes.reply,
                 message.message_id,
               );
-              saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
-              saveMessage(chatId, "saule", priceRes.reply!).catch(() => {});
-            })());
+              await saveMessage(chatId, message.from?.first_name ?? "user", text);
+              await saveMessage(chatId, "saule", priceRes.reply);
+            } catch (e) {
+              console.error("[telegram-router] price reply", e);
+            }
           }
           return ok();
         }
