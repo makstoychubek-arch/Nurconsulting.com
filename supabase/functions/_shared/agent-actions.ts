@@ -182,8 +182,12 @@ export async function resolveCabinet(text: string): Promise<{
     // «уркунбаев» → Zevina 1 (не Zevina 2), если оба матчятся
     if (key === "zevina" && hit.length > 1) {
       const prefer1 = hit.filter((c) => /1|один/.test(c.name) || /zevina1/.test(normName(c.name)));
-      // ИП Уркунбаев в команде = Zevina 1
-      if (/уркунбаев|urkunbaev|ипуркунбаев/.test(t) && prefer1.length === 1) {
+      const prefer2 = hit.filter((c) => /2|два/.test(c.name) || /zevina2/.test(normName(c.name)));
+      if (/(^|[^\d])1([^\d]|$)|один|зевина\s*1|zevina\s*1/i.test(text) && prefer1.length === 1) {
+        hit = prefer1;
+      } else if (/(^|[^\d])2([^\d]|$)|два|зевина\s*2|zevina\s*2/i.test(text) && prefer2.length === 1) {
+        hit = prefer2;
+      } else if (/уркунбаев|urkunbaev|ипуркунбаев/.test(t) && prefer1.length === 1) {
         hit = prefer1;
       }
     }
@@ -435,6 +439,10 @@ export async function handleOwnerActionMessage(opts: {
     }
     // Смена цены — agent-price-change
     if (pending.action_type === "price_change") {
+      return { handled: false };
+    }
+    // Карточки / доступы — отдельные диалоги
+    if (pending.action_type === "wb_card" || pending.action_type === "wb_users") {
       return { handled: false };
     }
     // Отвечает тот же агент, кто вёл диалог
@@ -713,7 +721,8 @@ export function actionsCapabilityBrief(): string {
   return [
     "По зоне (не перечисляй это владельцу без нужды):",
     "Амина — рк (список/старт/пауза, «запомни каждый день»).",
-    "Сауле — цена и конкуренты по артикулу; продажи.",
+    "Сауле — цена, SEO/описание/бренд карточки, создание карточки (размеры), конкуренты, продажи.",
+    "Карина — приглашение в кабинет по телефону (ссылка), список/снятие доступов.",
     "Антон — fbs/остатки. Алина — раздачи/фото карточки. Муха — генерация фото.",
     "«сводная» — таблица по последним цифрам из чата.",
     "Чужой диалог не перебивай; смена имени — другой фокус.",

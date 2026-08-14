@@ -47,3 +47,19 @@ export function isPriceDialogPending(pending: PendingAction | null): boolean {
       pending.action_type === 'price_change',
   );
 }
+
+export function isCardDialogPending(pending: PendingAction | null): boolean {
+  return Boolean(
+    pending &&
+      pending.agent_key === 'saule' &&
+      pending.action_type === 'wb_card',
+  );
+}
+
+export function isUsersDialogPending(pending: PendingAction | null): boolean {
+  return Boolean(
+    pending &&
+      pending.agent_key === 'karina' &&
+      pending.action_type === 'wb_users',
+  );
+}

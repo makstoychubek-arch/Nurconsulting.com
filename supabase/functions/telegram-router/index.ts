@@ -13,8 +13,10 @@ import {
 import { getAdminClient } from "../_shared/supabase-admin.ts";
 import {
   getChatDialogState,
+  isCardDialogPending,
   isFbsDialogPending,
   isPriceDialogPending,
+  isUsersDialogPending,
   lockedAgentFromState,
   uniqueNamedAgents,
 } from "../_shared/agent-dialog-state.ts";
@@ -44,6 +46,16 @@ import {
   startPriceChangeDialog,
   wantsPriceChange,
 } from "../_shared/agent-price-change.ts";
+import {
+  continueWbCardDialog,
+  startWbCardDialog,
+  wantsWbCardWork,
+} from "../_shared/agent-wb-cards.ts";
+import {
+  continueWbUsersDialog,
+  startWbUsersDialog,
+  wantsWbUsersWork,
+} from "../_shared/agent-wb-users.ts";
 import {
   isLikelyFollowUp,
   setChatFocus,
@@ -1300,6 +1312,100 @@ serve(async (req) => {
               await saveMessage(chatId, "saule", priceRes.reply);
             } catch (e) {
               console.error("[telegram-router] price reply", e);
+            }
+          }
+          return ok();
+        }
+      }
+    }
+
+    // ── Карточки WB (Сауле): SEO / бренд / создание ─────────────────────────
+    {
+      const cardActive = isCardDialogPending(dialog.pending);
+      const switchAway =
+        cardActive &&
+        namedOnce.length === 1 &&
+        namedOnce[0] !== "saule" &&
+        !wantsWbCardWork(text);
+      if (switchAway) {
+        await switchChatFocus(chatId, namedOnce[0], "switch_from_card", 15);
+        dialog = {
+          focus: {
+            chat_id: chatId,
+            agent_key: namedOnce[0],
+            reason: "switch_from_card",
+            expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+          },
+          pending: null,
+        };
+      } else if (cardActive || wantsWbCardWork(text)) {
+        if (triggeringBot !== "saule") return ok();
+        const cardFn = cardActive ? continueWbCardDialog : startWbCardDialog;
+        const cardRes = await cardFn({
+          chatId,
+          tgUserId: Number(message.from?.id),
+          text,
+        });
+        if (cardRes.handled) {
+          if (cardRes.reply) {
+            try {
+              await sendTelegramMessage(
+                "saule",
+                chatId,
+                cardRes.reply,
+                message.message_id,
+              );
+              await saveMessage(chatId, message.from?.first_name ?? "user", text);
+              await saveMessage(chatId, "saule", cardRes.reply);
+            } catch (e) {
+              console.error("[telegram-router] card reply", e);
+            }
+          }
+          return ok();
+        }
+      }
+    }
+
+    // ── Доступы кабинета (Карина): приглашение / список / снять ─────────────
+    {
+      const usersActive = isUsersDialogPending(dialog.pending);
+      const switchAway =
+        usersActive &&
+        namedOnce.length === 1 &&
+        namedOnce[0] !== "karina" &&
+        !wantsWbUsersWork(text);
+      if (switchAway) {
+        await switchChatFocus(chatId, namedOnce[0], "switch_from_users", 15);
+        dialog = {
+          focus: {
+            chat_id: chatId,
+            agent_key: namedOnce[0],
+            reason: "switch_from_users",
+            expires_at: new Date(Date.now() + 15 * 60_000).toISOString(),
+          },
+          pending: null,
+        };
+      } else if (usersActive || wantsWbUsersWork(text)) {
+        if (triggeringBot !== "karina") return ok();
+        const usersFn = usersActive ? continueWbUsersDialog : startWbUsersDialog;
+        const usersRes = await usersFn({
+          chatId,
+          tgUserId: Number(message.from?.id),
+          text,
+        });
+        if (usersRes.handled) {
+          if (usersRes.reply) {
+            try {
+              await sendTelegramMessage(
+                "karina",
+                chatId,
+                usersRes.reply,
+                message.message_id,
+              );
+              await saveMessage(chatId, message.from?.first_name ?? "user", text);
+              await saveMessage(chatId, "karina", usersRes.reply);
+            } catch (e) {
+              console.error("[telegram-router] users reply", e);
             }
           }
           return ok();
