@@ -1545,7 +1545,19 @@ serve(async (req) => {
           pending: null,
         };
       } else if (usersActive || wantsWbUsersWork(text)) {
-        if (triggeringBot !== "karina") return ok();
+        // Карина часто без своего webhook — оркестрирует Сауле, говорит токеном Карины.
+        // Раньше `triggeringBot !== "karina" → ok()` глотал «сгенери ссылку» в тишине.
+        const resolvedUsers = resolveSpeakAndOrchestrator(
+          ["karina"],
+          triggeringBot,
+        );
+        if (!resolvedUsers) return ok();
+        if (
+          triggeringBot !== resolvedUsers.orchestrator &&
+          triggeringBot !== "karina"
+        ) {
+          return ok();
+        }
         const usersFn = usersActive ? continueWbUsersDialog : startWbUsersDialog;
         const usersRes = await usersFn({
           chatId,
@@ -1556,11 +1568,12 @@ serve(async (req) => {
           if (usersRes.reply) {
             try {
               await sendTelegramMessage(
-                "karina",
+                resolvedUsers.speakAs,
                 chatId,
                 usersRes.reply,
                 message.message_id,
               );
+              await setChatFocus(chatId, "karina", "wb_users", 25);
               await saveMessage(chatId, message.from?.first_name ?? "user", text);
               await saveMessage(chatId, "karina", usersRes.reply);
             } catch (e) {
