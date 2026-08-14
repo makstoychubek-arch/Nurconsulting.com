@@ -12,6 +12,7 @@
  */
 
 import { findCatalogProducts, scoreProductMatch } from './agent-product-catalog.ts';
+import { fuzzyHasAnyToken, normalizeBotText } from './agent-fuzzy.ts';
 
 export type PublicProduct = {
   nmId: number;
@@ -87,43 +88,59 @@ function norm(s: string): string {
     .trim();
 }
 
-/** «конкурент / сравни / как цена у конкурентов / кк цена…» */
+/** «конкурент / сравни / как цена у конкурентов / кк цена…» — любая формулировка. */
 export function wantsCompetitorAnalysis(text: string): boolean {
-  const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
+  const t = normalizeBotText(text);
   if (!t) return false;
-  if (/конкурент/.test(t)) return true;
-  if (/топ\s*-?\s*3/.test(t) && /(выдач|похож|ниш|цен)/i.test(t)) return true;
-  if (/сравни(ть|м)?/.test(t) && /(арт|nm\b|\d{6,12}|карточ|товар|выдач|ниш)/i.test(t)) {
+  // стебель + опечатки
+  if (/конкурент|конкурет|конкуре|competitor|rival/i.test(t)) return true;
+  if (fuzzyHasAnyToken(t, ['конкуренты', 'конкурент', 'конкуренция', 'competitors'])) {
     return true;
   }
-  if (/анализ/.test(t) && /(конкурент|ниш|выдач)/i.test(t)) return true;
+  if (/топ\s*-?\s*[123]/.test(t) && /(выдач|похож|ниш|цен|товар|рынк|наш)/i.test(t)) {
+    return true;
+  }
+  if (/топ\s*-?\s*3/.test(t) && t.length <= 40) return true;
+  if (
+    /сравни(ть|м|те)?/.test(t) &&
+    /(арт|nm\b|\d{6,12}|карточ|товар|выдач|ниш|цен|наш|блуз|лапш|фонар)/i.test(t)
+  ) {
+    return true;
+  }
+  // короткое «сравни» после обсуждения товара — тоже анализ
+  if (/^(а\s+)?сравни(ть)?\s*[.?!,]*$/i.test(t)) return true;
+  if (/анализ/.test(t) && /(конкурент|ниш|выдач|рынк)/i.test(t)) return true;
   if (/найди/.test(t) && /(конкурент|похож|аналог)/i.test(t)) return true;
-  if (/(похож|аналог)[а-яё]*/.test(t) && /(арт|nm\b|\d{6,12}|сравни)/i.test(t)) return true;
-  // «смотрите также» / похожие с карточки
+  if (/(похож|аналог)[а-яё]*/.test(t) && /(арт|nm\b|\d{6,12}|сравни|наш|товар)/i.test(t)) {
+    return true;
+  }
   if (/смотрит[её]\s*такж|похож(ие|ий)\s*(товар|карточ)/i.test(t)) return true;
+  if (/по\s+выдач/.test(t) && /(топ|цен|конкурент|где)/i.test(t)) return true;
+  if (/^(а\s+)?где\s+(они|конкурент|топ)/i.test(t)) return true;
   return false;
 }
 
 /** Фраза про «этот» товар / короткий follow-up после сводки. */
 export function wantsStickyProductRef(text: string): boolean {
-  const t = String(text || '').toLowerCase().replace(/ё/g, 'е').trim();
+  const t = normalizeBotText(text);
   if (!t) return false;
   if (
-    /(этого|эта|этот|эту|него|неё|нее|той|тот)\s+(товар|артикул|арт|карточ|модель|блуз|позиц)/i
+    /(этого|эта|этот|эту|него|нее|той|тот)\s+(товар|артикул|арт|карточ|модель|блуз|позиц)/i
       .test(t) ||
-    /(по\s+нему|по\s+ней|по\s+этому|у\s+него|у\s+неё)/i.test(t) ||
-    /конкурент.{0,40}(этого|него|неё)/i.test(t)
+    /(по\s+нему|по\s+ней|по\s+этому|у\s+него|у\s+нее)/i.test(t) ||
+    /конкурент.{0,40}(этого|него|нее)/i.test(t)
   ) {
     return true;
   }
-  // короткое «а конкуренты?» / «топ 3?» / «где топ 3 по выдаче?»
-  // без JS \b — на кириллице \b не работает
-  if (t.length <= 48) {
-    if (/^(а\s+)?конкурент[а-яё]*\s*[.?!,]*$/i.test(t)) return true;
-    if (/^(а\s+)?топ\s*-?\s*3\s*[.?!,]*$/i.test(t)) return true;
+  // короткое follow-up — без JS \b
+  if (t.length <= 56) {
+    if (/^(а\s+)?конкурент[а-я]*\s*$/i.test(t)) return true;
+    if (/^(а\s+)?топ\s*-?\s*[123]\s*$/i.test(t)) return true;
     if (/^(а\s+)?где\s+(они|топ|конкурент)/i.test(t)) return true;
-    if (/^(а\s+)?они\s*[.?!,]*$/i.test(t)) return true;
-    if (/топ\s*-?\s*3/.test(t) && /выдач/.test(t)) return true;
+    if (/^(а\s+)?они\s*$/i.test(t)) return true;
+    if (/^(а\s+)?сравни(ть)?\s*$/i.test(t)) return true;
+    if (/топ\s*-?\s*[123]/.test(t) && /выдач/.test(t)) return true;
+    if (/по\s+выдач/.test(t)) return true;
   }
   return false;
 }

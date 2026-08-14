@@ -1,6 +1,8 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  fuzzyHasAnyToken,
   fuzzyIncludesAny,
+  fuzzyMatchBags,
   fuzzyMatchCommand,
   levenshtein,
   normalizeBotText,
@@ -26,4 +28,13 @@ Deno.test("fuzzyMatchCommand", () => {
 Deno.test("fuzzyIncludesAny skills slang", () => {
   assert(fuzzyIncludesAny("чо умееш", ["что умеешь", "чо умеешь"]));
   assert(fuzzyIncludesAny("твои скилы", ["скилы", "скиллы"]));
+});
+
+Deno.test("fuzzyHasAnyToken / bags for free phrasing", () => {
+  assert(fuzzyHasAnyToken("кинь инвайт плиз", ["инвайт", "ссылка"]));
+  assert(fuzzyMatchBags("нужна ссылка в кабинет", [
+    ["ссылка", "линк"],
+    ["кабинет", "приглашение"],
+  ]));
+  assert(!fuzzyMatchBags("продажи вчера", [["ссылка"], ["кабинет"]]));
 });

@@ -26,6 +26,7 @@ import {
   parseAccessPreset,
   type AccessPreset,
 } from './agent-wb-api.ts';
+import { fuzzyHasAnyToken, fuzzyMatchBags, normalizeBotText } from './agent-fuzzy.ts';
 import { pick } from './agent-voice.ts';
 
 export const USERS_ACTION = 'wb_users';
@@ -59,47 +60,146 @@ function ownerOk(tgUserId: number): boolean {
   return ids.has(tgUserId);
 }
 
+const INVITE_STEM =
+  /приглаш|приглас|инвайт|invite|invit/i;
+
+const LINK_BAG = [
+  'ссылка',
+  'ссылку',
+  'ссылки',
+  'ссылке',
+  'линк',
+  'link',
+  'url',
+  'инвайт',
+  'invite',
+] as const;
+
+const INVITE_CTX_BAG = [
+  'приглашение',
+  'приглашения',
+  'приглашении',
+  'пригласить',
+  'кабинет',
+  'пользователь',
+  'пользователя',
+  'сотрудник',
+  'сотрудника',
+  'менеджер',
+  'человек',
+  'человека',
+  'доступ',
+  'доступа',
+  'добавить',
+  'добавь',
+  'инвайт',
+] as const;
+
+const ACTION_BAG = [
+  'сгенери',
+  'сгенерируй',
+  'сгенерируйте',
+  'сгенерри',
+  'создай',
+  'создайте',
+  'сделай',
+  'сделайте',
+  'дай',
+  'дайте',
+  'кинь',
+  'скинь',
+  'пришли',
+  'выдай',
+  'нужна',
+  'нужен',
+  'нужно',
+  'надо',
+  'сформируй',
+  'сделаем',
+  'можна',
+  'можно',
+  'плиз',
+  'please',
+  'gen',
+  'generate',
+] as const;
+
+/**
+ * Приглашение / инвайт-ссылка — любая формулировка и опечатки.
+ * «сгенери ссылку», «кинь инвайт», «надо приглашение в базу»…
+ */
 export function wantsUserInvite(text: string): boolean {
-  const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
-  if (!t.trim()) return false;
-  // пригласить / приглашение / инвайт
-  if (/приглас|приглаш|инвайт|invite/i.test(t)) return true;
-  // «сгенери ссылку», «ссылка для добавления пользователя»
+  const raw = String(text || '');
+  const t = normalizeBotText(raw);
+  if (!t || t.length > 220) return false;
+
+  // явный стебель приглашения / invite
+  if (INVITE_STEM.test(t)) return true;
+
+  // ссылка/линк + контекст кабинета/доступа/добавления
   if (
-    /(сгенер|создай|сделай|дай|кинь).{0,24}(ссылк|инвайт)/i.test(t) &&
-    /(ссылк|приглаш|инвайт|пользовател|сотрудник|кабинет|добав)/i.test(t)
+    fuzzyHasAnyToken(t, LINK_BAG) &&
+    fuzzyHasAnyToken(t, INVITE_CTX_BAG)
   ) {
     return true;
   }
-  if (/ссылк[аиу].{0,30}(приглаш|добав|пользовател|сотрудник|кабинет)/i.test(t)) {
+
+  // действие + ссылка (даже без слова «приглашение»)
+  if (fuzzyMatchBags(t, [ACTION_BAG, LINK_BAG])) {
+    // отсечь «дай ссылку на товар / вб / карточку»
+    if (/(товар|карточ|артикул|nm\b|wildberries|вб\b|фото|офер)/i.test(t)) {
+      return false;
+    }
+    return true;
+  }
+
+  // добавь человека / сотрудника в кабинет
+  if (
+    fuzzyMatchBags(t, [
+      ['добавь', 'добавить', 'добавьте', 'заведи', 'завести', 'подключи', 'подключить'],
+      ['человек', 'человека', 'сотрудник', 'сотрудника', 'пользователь', 'менеджер'],
+    ])
+  ) {
     return true;
   }
   if (
-    /(добав[ьи]|завед[иь]|подключ[аи]).{0,24}(человек|сотрудник|пользовател|менеджер|в\s+кабинет)/i
+    /(человек|сотрудник|пользовател|менеджер).{0,28}(кабинет|добав|приглас|приглаш)/i
       .test(t)
   ) {
     return true;
   }
-  if (/(человек|сотрудник|пользовател).{0,20}(в\s+кабинет|добав|приглас|приглаш)/i.test(t)) {
+
+  return false;
+}
+
+export function wantsUserList(text: string): boolean {
+  const t = normalizeBotText(text);
+  if (!t) return false;
+  if (
+    /(кто\s+в\s+кабинете|список\s+(доступ|пользовател|сотрудник)|пользователи\s+кабинета|доступы\s+кабинета)/i
+      .test(t)
+  ) {
+    return true;
+  }
+  if (fuzzyMatchBags(t, [
+    ['покажи', 'список', 'какие', 'кто'],
+    ['доступ', 'доступы', 'пользователь', 'пользователи', 'сотрудник', 'сотрудники'],
+  ])) {
     return true;
   }
   return false;
 }
 
-export function wantsUserList(text: string): boolean {
-  const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
-  return (
-    /(кто\s+в\s+кабинете|список\s+(доступ|пользовател|сотрудник)|пользователи\s+кабинета|доступы\s+кабинета)/i
-      .test(t) ||
-    /(покажи|список).{0,16}(доступ|пользовател|сотрудник)/i.test(t)
-  );
-}
-
 export function wantsUserRevoke(text: string): boolean {
-  const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
+  const t = normalizeBotText(text);
+  if (!t) return false;
   return (
-    /(удал[иь]|убери|отзови|закрой).{0,20}(доступ|пользовател|сотрудник)/i.test(t) ||
-    /(забери|сними).{0,12}доступ/i.test(t)
+    /(удал[иь]|убери|отзови|закрой).{0,24}(доступ|пользовател|сотрудник)/i.test(t) ||
+    /(забери|сними).{0,16}доступ/i.test(t) ||
+    fuzzyMatchBags(t, [
+      ['удали', 'убери', 'отзови', 'закрой', 'сними', 'забери'],
+      ['доступ', 'пользователь', 'сотрудник', 'инвайт'],
+    ])
   );
 }
 

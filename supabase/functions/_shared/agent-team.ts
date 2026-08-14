@@ -7,6 +7,8 @@ import { collectivePeerStyle, wantsNewsDiscussion, newsDiscussionPlan, wantsTeam
 import { looksLikeSharedLink } from "./agent-humanize.ts";
 import { detectWbRoleOp } from "./agent-wb-role-ops.ts";
 import { salesDropDiscussPlan, wantsSalesDropDiscuss } from "./agent-sales-discuss.ts";
+import { wantsWbUsersWork } from "./agent-wb-users.ts";
+import { wantsCompetitorAnalysis } from "./agent-competitors.ts";
 
 export const BOT_USERNAMES: Record<string, string> = {
   saule: "saulexxx_bot",
@@ -85,7 +87,7 @@ export function detectTopicalAgents(text: string): string[] {
     priceChange ||
     /(^|[^а-яё])цен(а|ы|у|е|ой|ам)?([^а-яё]|$)/.test(lower) ||
     (!selfbuy && !sheetGiveaway && /(^|[^а-яё])выкуп/.test(lower)) ||
-    /конкурент|сравни.*(арт|nm|\d{6,}|карточ)|найди.*(конкурент|похож|аналог)/i.test(lower) ||
+    wantsCompetitorAnalysis(lower) ||
     /(созда[йть]|завед[иь]|нов(ая|ую)).{0,20}карточки?/i.test(lower) ||
     /(сео|seo)|(описан|назван|бренд).{0,16}(поменя|измени|смен|обнов)/i.test(lower) ||
     /(поменя|измени|смен).{0,16}(описан|назван|бренд|сео)/i.test(lower)
@@ -134,12 +136,7 @@ export function detectTopicalAgents(text: string): string[] {
   ) {
     found.push("muha");
   }
-  if (
-    /(приглас|приглаш|инвайт|invite)/i.test(lower) ||
-    /(сгенер|создай|дай).{0,20}(ссылк|инвайт)/i.test(lower) ||
-    /(добав[ьи]|завед[иь]).{0,24}(человек|сотрудник|пользовател)/i.test(lower) ||
-    /(кто\s+в\s+кабинете|список\s+(доступ|пользовател)|удал[иь].{0,12}доступ)/i.test(lower)
-  ) {
+  if (wantsWbUsersWork(lower)) {
     found.push("karina");
   }
 

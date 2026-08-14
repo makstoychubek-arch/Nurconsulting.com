@@ -95,3 +95,45 @@ export function fuzzyIncludesAny(
   }
   return false;
 }
+
+/** Токены нормализованного текста. */
+export function textTokens(text: string): string[] {
+  return normalizeBotText(text).split(/\s+/).filter(Boolean);
+}
+
+/**
+ * Есть ли в тексте хоть один токен/стебель из bag (опечатки, префиксы ≥4).
+ * Для «как угодно спроси» — инвайт/конкуренты/артикул.
+ */
+export function fuzzyHasAnyToken(
+  text: string,
+  bag: readonly string[],
+): boolean {
+  const n = normalizeBotText(text);
+  if (!n) return false;
+  const hay = textTokens(n);
+  for (const raw of bag) {
+    const want = normalizeBotText(raw);
+    if (!want) continue;
+    if (n.includes(want)) return true;
+    for (const h of hay) {
+      if (fuzzyTokenEq(h, want)) return true;
+      if (want.length >= 4 && h.startsWith(want.slice(0, Math.min(5, want.length)))) {
+        return true;
+      }
+      if (h.length >= 4 && want.startsWith(h.slice(0, Math.min(5, h.length)))) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** Каждая группа-bag должна сматчиться хотя бы одним токеном (AND групп, OR внутри). */
+export function fuzzyMatchBags(
+  text: string,
+  bags: readonly (readonly string[])[],
+): boolean {
+  if (!bags.length) return false;
+  return bags.every((bag) => fuzzyHasAnyToken(text, bag));
+}
