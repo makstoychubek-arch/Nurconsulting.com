@@ -161,7 +161,9 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
     if (!text) return;
 
     const inGroup = chatType === 'group' || chatType === 'supergroup';
-    if (inGroup && !isBotMentioned(message, text, botUsername, from)) return;
+    // В выделенных рабочих чатах (продажи / АБ / …) можно писать без @бота.
+    // В остальных группах — только по упоминанию.
+    if (inGroup && !chatKey && !isBotMentioned(message, text, botUsername, from)) return;
 
     // ── Продажи ──────────────────────────────────────────────────────────
     if (chatKey === 'sales' && wantsSalesQuery(text)) {
@@ -223,12 +225,22 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
 
     // ── А/Б тесты ────────────────────────────────────────────────────────
     if (chatKey === 'ab_tests' && wantsAbQuery(text)) {
-        const nmMatch = text.match(/\b(?:тест|арт|nm)\s*(\d{5,12})\b/i);
-        if (nmMatch) {
-            await sendAbTestByNm(admin, token, chatId, Number(nmMatch[1]), message.message_id);
+        const reportMatch = text.match(/\bотч[её]т\s*(\d{5,12})\b/i);
+        if (reportMatch) {
+            await sendAbTestByNm(admin, token, chatId, Number(reportMatch[1]), message.message_id, { withPhotos: true, mode: 'report' });
             return;
         }
-        if (/\b(тест|ab|а\/б|help|помощь)\b/i.test(text)) {
+        const rotMatch = text.match(/\bротац\w*\s*(\d{5,12})\b/i);
+        if (rotMatch) {
+            await forceRotateAbByNm(admin, token, chatId, Number(rotMatch[1]), message.message_id);
+            return;
+        }
+        const nmMatch = text.match(/\b(?:тест|арт|nm)\s*(\d{5,12})\b/i);
+        if (nmMatch) {
+            await sendAbTestByNm(admin, token, chatId, Number(nmMatch[1]), message.message_id, { withPhotos: true, mode: 'detail' });
+            return;
+        }
+        if (/\b(тест|тесты|ab|а\/б|help|помощь)\b/i.test(text)) {
             await sendAbTestsList(admin, token, chatId, message.message_id);
             return;
         }
@@ -493,28 +505,45 @@ async function sendAbTestsList(
     const { data: tests } = await admin
         .from('ab_tests')
         .select('id, nm_id, product_name, status, rotation_count, max_rotations, started_at, cabinet_id')
-        .eq('status', 'active')
-        .order('started_at', { ascending: false });
+        .in('status', ['active', 'finished'])
+        .order('started_at', { ascending: false })
+        .limit(15);
 
-    if (!tests?.length) {
-        await sendReply(token, chatId, '🧪 Активных А/Б тестов нет', replyTo);
+    const active = (tests || []).filter((t) => t.status === 'active');
+    const finished = (tests || []).filter((t) => t.status === 'finished').slice(0, 5);
+
+    if (!active.length && !finished.length) {
+        await sendReply(token, chatId, '🧪 Активных А/Б тестов нет\n\nЗапуск — на сайте https://nurcon.kg/ab-testing\nПосле старта варианты и отчёты приходят сюда.', replyTo);
         return;
     }
 
     const { data: cabinets } = await admin.from('cabinets').select('id, name');
     const cabMap = new Map((cabinets || []).map((c) => [c.id, c.name]));
+    const reportBase = Deno.env.get('REPORT_BASE_URL') || 'https://nurcon.kg/ab-testing';
 
-    const lines = ['🧪 <b>Активные А/Б тесты</b>', ''];
-    for (const t of tests.slice(0, 10)) {
-        const cab = cabMap.get(t.cabinet_id) || '?';
-        const rot = `${t.rotation_count || 0}/${t.max_rotations || '∞'}`;
-        lines.push(
-            `<b>${escapeHtml(String(t.product_name || 'Товар'))}</b> · арт. ${t.nm_id}`,
-            `${escapeHtml(cab)} · ротаций ${rot}`,
-            '',
-        );
+    const lines = ['🧪 <b>А/Б тесты</b>', ''];
+    if (active.length) {
+        lines.push('<b>Активные</b>');
+        for (const t of active.slice(0, 10)) {
+            const cab = cabMap.get(t.cabinet_id) || '?';
+            const rot = `${t.rotation_count || 0}/${t.max_rotations || '∞'}`;
+            lines.push(
+                `<b>${escapeHtml(String(t.product_name || 'Товар'))}</b> · арт. <code>${t.nm_id}</code>`,
+                `${escapeHtml(String(cab))} · ротаций ${rot}`,
+                `отчёт: <code>отчёт ${t.nm_id}</code>`,
+                '',
+            );
+        }
+    } else {
+        lines.push('Активных нет', '');
     }
-    if (tests.length > 10) lines.push(`…ещё ${tests.length - 10}`);
+    if (finished.length) {
+        lines.push('<b>Недавние завершённые</b>');
+        for (const t of finished) {
+            lines.push(`• ${escapeHtml(String(t.product_name || t.nm_id))} · арт. ${t.nm_id}`);
+            lines.push(`  ${reportBase}?test=${t.id}`);
+        }
+    }
     await sendReply(token, chatId, lines.join('\n').trimEnd(), replyTo);
 }
 
@@ -524,35 +553,146 @@ async function sendAbTestByNm(
     chatId: unknown,
     nmId: number,
     replyTo: unknown,
+    opts: { withPhotos?: boolean; mode?: 'detail' | 'report' } = {},
 ): Promise<void> {
-    const { data: test } = await admin
+    let { data: test } = await admin
         .from('ab_tests')
         .select('*')
         .eq('nm_id', nmId)
         .eq('status', 'active')
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    if (!test) {
+        const finished = await admin
+            .from('ab_tests')
+            .select('*')
+            .eq('nm_id', nmId)
+            .eq('status', 'finished')
+            .order('finished_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        test = finished.data;
+    }
+    if (!test) {
+        await sendReply(token, chatId, `🧪 Тест по арт. ${nmId} не найден`, replyTo);
+        return;
+    }
+    const { data: variants } = await admin
+        .from('ab_test_variants')
+        .select('id, variant_label, photo_url, impressions, clicks, is_currently_on_wb')
+        .eq('test_id', test.id)
+        .order('variant_label');
+
+    const reportBase = Deno.env.get('REPORT_BASE_URL') || 'https://nurcon.kg/ab-testing';
+    const title = opts.mode === 'report' ? '📊 Отчёт А/Б' : '🧪 А/Б тест';
+    const lines = [
+        `${title}: <b>${escapeHtml(String(test.product_name || 'Товар'))}</b> · арт. ${nmId}`,
+        `Статус: ${test.status} · ротаций ${test.rotation_count || 0}/${test.max_rotations || '∞'}`,
+        '',
+    ];
+    const photoUrls: string[] = [];
+    for (const v of variants || []) {
+        const impr = Number(v.impressions) || 0;
+        const clk = Number(v.clicks) || 0;
+        const ctr = impr > 0 ? (clk / impr * 100).toFixed(2) : '0.00';
+        const cur = v.is_currently_on_wb ? ' · на WB' : '';
+        lines.push(`Вариант ${v.variant_label}${cur}: ${impr} показов · CTR ${ctr}%`);
+        if (v.photo_url) photoUrls.push(String(v.photo_url));
+    }
+    lines.push('', `Сайт: ${reportBase}?test=${test.id}`);
+    const caption = lines.join('\n');
+
+    if (opts.withPhotos && photoUrls.length >= 2) {
+        const ok = await sendTelegramMediaGroup(token, chatId, photoUrls, caption);
+        if (!ok) await sendReply(token, chatId, caption, replyTo);
+    } else {
+        await sendReply(token, chatId, caption, replyTo);
+    }
+
+    // Дублируем отчёт в канал (если команда «отчёт» и чат уже канал — не дублируем)
+    if (opts.mode === 'report') {
+        const abChat = getTelegramChatId('ab_tests');
+        if (abChat && String(chatId) !== String(abChat)) {
+            if (photoUrls.length >= 2) await sendTelegramMediaGroup(token, abChat, photoUrls, caption);
+            else await sendReply(token, abChat, caption, undefined);
+        }
+    }
+}
+
+async function forceRotateAbByNm(
+    admin: ReturnType<typeof createClient>,
+    token: string,
+    chatId: unknown,
+    nmId: number,
+    replyTo: unknown,
+): Promise<void> {
+    const { data: test } = await admin
+        .from('ab_tests')
+        .select('id, product_name, status')
+        .eq('nm_id', nmId)
+        .eq('status', 'active')
+        .order('started_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
     if (!test) {
         await sendReply(token, chatId, `🧪 Активный тест по арт. ${nmId} не найден`, replyTo);
         return;
     }
-    const { data: variants } = await admin
-        .from('ab_test_variants')
-        .select('variant_label, impressions, clicks')
-        .eq('test_id', test.id)
-        .order('variant_label');
-
-    const lines = [
-        `🧪 <b>${escapeHtml(String(test.product_name || 'Товар'))}</b> · арт. ${nmId}`,
-        `Ротаций: ${test.rotation_count || 0}/${test.max_rotations || '∞'}`,
-        '',
-    ];
-    for (const v of variants || []) {
-        const impr = Number(v.impressions) || 0;
-        const clk = Number(v.clicks) || 0;
-        const ctr = impr > 0 ? (clk / impr * 100).toFixed(2) : '0';
-        lines.push(`Вариант ${v.variant_label}: ${impr} показов · CTR ${ctr}%`);
+    await sendReply(token, chatId, '⏳ Ротация…', replyTo);
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+    const baseUrl = Deno.env.get('SUPABASE_URL') ?? '';
+    try {
+        const res = await fetch(`${baseUrl}/functions/v1/ab-test-rotate`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${serviceKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action: 'force_rotate', test_id: test.id }),
+        });
+        const data = await res.json() as { ok?: boolean; rotated_to?: string; error?: string };
+        if (data.ok) {
+            await sendReply(
+                token,
+                chatId,
+                `✅ Ротация: «${escapeHtml(String(test.product_name || nmId))}» → вариант ${escapeHtml(String(data.rotated_to || '?'))}`,
+                replyTo,
+            );
+        } else {
+            await sendReply(token, chatId, `❌ ${escapeHtml(String(data.error || res.status))}`, replyTo);
+        }
+    } catch (e) {
+        await sendReply(token, chatId, `❌ ${escapeHtml(String(e).slice(0, 200))}`, replyTo);
     }
-    await sendReply(token, chatId, lines.join('\n'), replyTo);
+}
+
+async function sendTelegramMediaGroup(
+    token: string,
+    chatId: unknown,
+    photoUrls: string[],
+    caption: string,
+): Promise<boolean> {
+    try {
+        const media = photoUrls.slice(0, 10).map((url, i) => ({
+            type: 'photo',
+            media: url,
+            ...(i === 0 ? { caption: caption.slice(0, 1024), parse_mode: 'HTML' } : {}),
+        }));
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendMediaGroup`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, media }),
+        });
+        if (!res.ok) {
+            console.warn('[telegram-webhook] sendMediaGroup failed:', res.status, await res.text());
+            return false;
+        }
+        return true;
+    } catch (e) {
+        console.warn('[telegram-webhook] sendMediaGroup error:', String(e));
+        return false;
+    }
 }
 
 function wantsSalesQuery(text: string): boolean {
@@ -583,7 +723,7 @@ function wantsAdsQuery(text: string): boolean {
 
 function wantsAbQuery(text: string): boolean {
     const lower = text.toLowerCase();
-    return /\b(тест|ab|а\/б|арт|nm|help|помощь)\b/i.test(lower);
+    return /\b(тест|тесты|ab|а\/б|арт|nm|отч[её]т|ротац|help|помощь)\b/i.test(lower);
 }
 
 function wantsChatId(text: string, chatType: string): boolean {

@@ -8163,11 +8163,29 @@
         }
 
         hideNewTestForm();
-        showPremiumModal('success', 'Тест запущен!', `Фото будет меняться каждые ${interval} мин.`);
+        showPremiumModal('success', 'Тест запущен!', `Фото будет меняться каждые ${interval} мин. Отчёт уйдёт в Telegram.`);
+        try { await notifyAbTelegram('notify_started', test.id); } catch (e) { console.warn('[AB] tg notify_started', e); }
         loadABTests();
         } finally {
             abCreatingTest = false;
             if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.pointerEvents = ''; }
+        }
+    }
+
+    async function notifyAbTelegram(action, testId) {
+        if (!testId) return;
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/ab-test-rotate`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                apikey: SUPABASE_KEY,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action, test_id: testId }),
+        });
+        if (!res.ok) {
+            const t = await res.text().catch(() => '');
+            console.warn('[AB] notifyAbTelegram', action, res.status, t);
         }
     }
 
@@ -8213,18 +8231,50 @@
         renderABTests();
         startRotationTimers();
 
-        // Ссылка "подробный отчёт" из Telegram-уведомления ведёт на
-        // /ab-testing?test=<id> — открываем модалку отчёта автоматически один
-        // раз после загрузки списка (не при каждом фоновом обновлении).
+        // Ссылка "подробный отчёт" из Telegram ведёт на /ab-testing?test=<id>.
+        // Тест может быть в другом кабинете — подгружаем по id и при необходимости
+        // переключаем кабинет, иначе модалка не откроется.
         if (!window._abDeepLinkHandled) {
             window._abDeepLinkHandled = true;
             try {
                 const qTest = new URLSearchParams(location.search).get('test');
-                if (qTest && allABTests.some(t => String(t.id) === qTest)) {
-                    setTimeout(() => openABReportModal(qTest), 300);
+                if (qTest) {
+                    setTimeout(() => openABReportDeepLink(qTest), 300);
                 }
             } catch (e) {}
         }
+    }
+
+    async function openABReportDeepLink(testId) {
+        let test = allABTests.find(t => String(t.id) === String(testId));
+        if (!test) {
+            const { data: row } = await supabase.from('ab_tests').select('*').eq('id', testId).maybeSingle();
+            if (!row) {
+                showPremiumModal('warning', 'Тест не найден', `Нет А/Б теста с id ${testId}`);
+                return;
+            }
+            if (row.cabinet_id && String(row.cabinet_id) !== String(currentCabinetId)) {
+                try { selectCabinet(row.cabinet_id); } catch (e) {}
+                // selectCabinet асинхронно перезагрузит список — подождём и откроем
+                const waitOpen = async () => {
+                    for (let i = 0; i < 20; i++) {
+                        await new Promise(r => setTimeout(r, 200));
+                        if (allABTests.some(t => String(t.id) === String(testId))) {
+                            openABReportModal(testId);
+                            return;
+                        }
+                    }
+                    const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', testId).order('variant_label');
+                    allABTests.unshift({ ...row, variants: variants || [], settings: row.settings || {} });
+                    openABReportModal(testId);
+                };
+                waitOpen();
+                return;
+            }
+            const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', testId).order('variant_label');
+            allABTests.unshift({ ...row, variants: variants || [], settings: row.settings || {} });
+        }
+        openABReportModal(testId);
     }
 
     function filterTests(mode, el) {
@@ -8474,7 +8524,8 @@
 
         clearInterval(abRotationTimers[String(testId)]);
         delete abRotationTimers[String(testId)];
-        showPremiumModal('success', 'Тест завершён', 'А/Б тест остановлен.');
+        showPremiumModal('success', 'Тест завершён', 'А/Б тест остановлен. Отчёт уходит в Telegram.');
+        try { await notifyAbTelegram('notify_finished', testId); } catch (e) { console.warn('[AB] tg notify_finished', e); }
         await loadABTests();
     }
 
