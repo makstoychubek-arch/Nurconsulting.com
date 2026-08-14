@@ -31,7 +31,7 @@ export function splitHumanBubbles(text: string, maxBubbles = 3): string[] {
     parts = [...head, rest];
   }
 
-  // пузырь не длиннее ~420 символов — иначе дорежем хвост в следующий (уже схлопнуто)
+  // пузырь не длиннее ~420 символов — иначе дорежем хвост в следующий
   const out: string[] = [];
   for (const p of parts) {
     if (p.length <= 420 || out.length >= maxBubbles - 1) {
@@ -45,7 +45,13 @@ export function splitHumanBubbles(text: string, maxBubbles = 3): string[] {
     if (rem) out.push(rem);
   }
 
-  return out.slice(0, maxBubbles).filter(Boolean);
+  // никогда не отбрасываем хвост: лишнее склеиваем в последний пузырь
+  if (out.length > maxBubbles) {
+    const head = out.slice(0, maxBubbles - 1);
+    const rest = out.slice(maxBubbles - 1).join('\n').trim();
+    return [...head, rest].filter(Boolean);
+  }
+  return out.filter(Boolean);
 }
 
 /** Задержка «печатает эту строку» ~ по длине (cps + jitter). */

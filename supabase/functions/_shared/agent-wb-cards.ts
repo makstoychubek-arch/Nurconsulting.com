@@ -222,7 +222,7 @@ async function savePending(
 ) {
   const db = admin();
   await cancelOtherPending(db, chatId);
-  await db.from('agent_pending_actions').insert({
+  const { error } = await db.from('agent_pending_actions').insert({
     chat_id: chatId,
     agent_key: CARD_AGENT,
     action_type: CARD_ACTION,
@@ -233,6 +233,7 @@ async function savePending(
     payload,
     expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
   });
+  if (error) throw new Error(`card pending: ${error.message}`);
   await setChatFocus(chatId, CARD_AGENT, 'wb_card', 25);
 }
 
@@ -450,6 +451,22 @@ async function executeUpdate(
 }
 
 export async function startWbCardDialog(opts: {
+  chatId: number;
+  tgUserId: number;
+  text: string;
+}): Promise<CardReply> {
+  try {
+    return await startWbCardDialogInner(opts);
+  } catch (e) {
+    console.error('[wb-cards] start', e);
+    return {
+      handled: true,
+      reply: 'Сбой диалога карточки. Напиши ещё раз через минуту.',
+    };
+  }
+}
+
+async function startWbCardDialogInner(opts: {
   chatId: number;
   tgUserId: number;
   text: string;

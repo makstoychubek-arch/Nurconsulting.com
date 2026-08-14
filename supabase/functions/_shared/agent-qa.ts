@@ -27,8 +27,11 @@ import {
 } from './agent-competitors.ts';
 import { detectWbRoleOp, runWbRoleOp } from './agent-wb-role-ops.ts';
 import {
+  clearAwaitQa,
   getChatFocus,
+  isLikelyFollowUp,
   rememberLastProduct,
+  setAwaitQa,
   type LastProductFocus,
 } from './agent-chat-focus.ts';
 import { filterStopTokens } from './agent-ru-text.ts';
@@ -154,7 +157,10 @@ export function wantsArticleLookup(text: string): boolean {
   ) {
     return true;
   }
-  if (/^(какой\s+)?(артикул|арт|nm)\b/i.test(t.trim())) return true;
+  // без JS \b — после кириллицы граница не срабатывает
+  if (/^(какой\s+)?(артикул|арт|nm)(?=$|[\s,.:;!?/\\|«»"'])/i.test(t.trim())) {
+    return true;
+  }
   return false;
 }
 
@@ -304,6 +310,9 @@ async function answerArticleLookup(
   }
 
   if (!query || query.length < 2) {
+    if (chatId) {
+      await setAwaitQa(chatId, 'saule', { kind: 'article' });
+    }
     return {
       handled: true,
       agentKey: 'saule',
@@ -313,6 +322,8 @@ async function answerArticleLookup(
       ]),
     };
   }
+
+  if (chatId) await clearAwaitQa(chatId, 'saule');
 
   const cab = await resolveCabinet(text);
   const hits = await findCatalogProducts(query, {
@@ -473,6 +484,9 @@ async function answerPriceLookup(
       };
     }
     if (beforeOnly) {
+      if (chatId) {
+        await setAwaitQa(chatId, 'saule', { kind: 'price', mode: 'before' });
+      }
       return {
         handled: true,
         agentKey: 'saule',
@@ -486,6 +500,12 @@ async function answerPriceLookup(
   }
 
   if (!query || query.length < 2) {
+    if (chatId) {
+      await setAwaitQa(chatId, 'saule', {
+        kind: 'price',
+        mode: beforeOnly ? 'before' : 'both',
+      });
+    }
     return {
       handled: true,
       agentKey: 'saule',
@@ -495,6 +515,8 @@ async function answerPriceLookup(
       ]),
     };
   }
+
+  if (chatId) await clearAwaitQa(chatId, 'saule');
 
   const cab = await resolveCabinet(text);
   const hits = await findCatalogProducts(query, {
@@ -735,13 +757,20 @@ async function resolveNmIdsForProduct(
   }));
 }
 
-async function answerStock(text: string): Promise<TeamQaResult> {
+async function answerStock(
+  text: string,
+  opts?: { chatId?: number },
+): Promise<TeamQaResult> {
+  const chatId = opts?.chatId;
   const resolved = await resolveCabinet(text);
   if (!resolved.match && (resolved.candidates?.length || 0) > 1) {
     // если товар однозначно из одного кабинета — не спрашиваем
     const guessed = await resolveNmIdsForProduct(null, text);
     const cabs = [...new Set(guessed.map((g) => g.cabinet_id).filter(Boolean))];
     if (cabs.length !== 1) {
+      if (chatId) {
+        await setAwaitQa(chatId, 'anton', { kind: 'stock' });
+      }
       return {
         handled: true,
         agentKey: 'anton',
@@ -763,6 +792,9 @@ async function answerStock(text: string): Promise<TeamQaResult> {
     cabinet = (await resolveCabinet('база')).match;
   }
   if (!cabinet) {
+    if (chatId) {
+      await setAwaitQa(chatId, 'anton', { kind: 'stock' });
+    }
     return {
       handled: true,
       agentKey: 'anton',
@@ -772,6 +804,12 @@ async function answerStock(text: string): Promise<TeamQaResult> {
 
   const products = await resolveNmIdsForProduct(cabinet.id, text);
   if (!products.length) {
+    if (chatId) {
+      await setAwaitQa(chatId, 'anton', {
+        kind: 'stock',
+        cabinetName: cabinet.name,
+      });
+    }
     return {
       handled: true,
       agentKey: 'anton',
@@ -782,6 +820,8 @@ async function answerStock(text: string): Promise<TeamQaResult> {
       ]),
     };
   }
+
+  if (chatId) await clearAwaitQa(chatId, 'anton');
 
   const db = admin();
   const lines: string[] = [antonWbStockLead(cabinet.name)];
@@ -833,6 +873,44 @@ export async function tryTeamSmartQa(
   const t = (text || '').trim();
   if (!t || t.length > 900) return { handled: false };
   const named = namedAgents(t);
+
+  // ── Continue: «Какой товар?» → пользователь кинул модель/цвет ───────────
+  if (opts?.chatId && isLikelyFollowUp(t) && !wantsCompetitorAnalysis(t)) {
+    try {
+      const focus = await getChatFocus(opts.chatId);
+      const aq = focus?.awaitQa;
+      if (aq?.kind === 'article' &&
+        (triggeringBot === 'saule' || triggeringBot === 'karina') &&
+        (!named.length || named.includes('saule') || named.includes('karina'))
+      ) {
+        if (triggeringBot === 'saule') {
+          return await answerArticleLookup(t, { chatId: opts.chatId });
+        }
+        return { handled: true };
+      }
+      if (aq?.kind === 'price' &&
+        (triggeringBot === 'saule' || triggeringBot === 'karina') &&
+        (!named.length || named.includes('saule') || named.includes('karina'))
+      ) {
+        if (triggeringBot === 'saule') {
+          const prefix = aq.mode === 'before' ? 'до скидки ' : '';
+          return await answerPriceLookup(prefix + t, { chatId: opts.chatId });
+        }
+        return { handled: true };
+      }
+      if (aq?.kind === 'stock' &&
+        (triggeringBot === 'anton' || !named.length || named.includes('anton'))
+      ) {
+        if (triggeringBot === 'anton') {
+          const cab = aq.cabinetName ? `${aq.cabinetName} ` : '';
+          return await answerStock(`остаток ${cab}${t}`, { chatId: opts.chatId });
+        }
+        return { handled: true };
+      }
+    } catch (e) {
+      console.error('[qa] awaitQa continue', e);
+    }
+  }
 
   // ── Ролевые операции WB OpenAPI (чтение по кабинету) ─────────────────────
   {
@@ -955,7 +1033,7 @@ export async function tryTeamSmartQa(
   // ── Остатки WB-складов (Антон, без FBS) ─────────────────────────────────
   if (wantsStock(t)) {
     if (triggeringBot === 'anton' && (!named.length || named.includes('anton'))) {
-      return await answerStock(t);
+      return await answerStock(t, { chatId: opts?.chatId });
     }
     if (named.includes('anton') && triggeringBot !== 'anton') {
       return { handled: true };
@@ -981,7 +1059,7 @@ export async function teamQaFactsForAgent(
       return `ФАКТЫ РАЗДАЧИ СЕГОДНЯ (${snap.deal_mode}): ${open || 'мест нет'}`;
     }
     if (agent === 'anton' && wantsStock(text)) {
-      const qa = await answerStock(text);
+      const qa = await answerStock(text, { chatId: opts?.chatId });
       return qa.reply ? `ФАКТЫ ОСТАТКОВ:\n${qa.reply}` : '';
     }
     if (
@@ -1000,7 +1078,8 @@ export async function teamQaFactsForAgent(
         ? `ФАКТЫ АРТИКУЛОВ (только nm из каталога, не выдумывай):\n${qa.reply}`
         : '';
     }
-  } catch {
+  } catch (e) {
+    console.error('[qa] teamQaFactsForAgent', e);
     return '';
   }
   return '';

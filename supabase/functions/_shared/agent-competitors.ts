@@ -773,8 +773,8 @@ export async function analyzeDirectCompetitors(
         stickyNmId = Number(lp.nmId);
         stickyQuery = String(lp.vendorCode || lp.title || '');
       }
-    } catch {
-      // ignore sticky miss
+    } catch (e) {
+      console.error('[competitors] sticky get', e);
     }
   }
   const resolved = await resolveOurs(text, nmHint, {
@@ -802,8 +802,8 @@ export async function analyzeDirectCompetitors(
         price: resolved.ours.priceBefore || null,
         discountedPrice: resolved.ours.priceAfter || null,
       });
-    } catch {
-      // ignore
+    } catch (e) {
+      console.error('[competitors] sticky remember', e);
     }
   }
 
@@ -915,8 +915,8 @@ export async function analyzeDirectCompetitors(
         price: ours.priceBefore || null,
         discountedPrice: ours.priceAfter || null,
       });
-    } catch {
-      // ignore
+    } catch (e) {
+      console.error('[competitors] sticky remember', e);
     }
   }
 

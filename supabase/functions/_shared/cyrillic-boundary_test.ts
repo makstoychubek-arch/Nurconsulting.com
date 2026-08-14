@@ -6,6 +6,8 @@ import { wantsProductPhoto } from "./alina-wb-photo.ts";
 import { wantsSummaryReflow } from "./agent-summary.ts";
 import { detectTopicalAgents } from "./agent-team.ts";
 import { isAlinaStatsQuestion } from "./alina-selfbuy.ts";
+import { wantsArticleLookup } from "./agent-qa.ts";
+import { wantsStickyProductRef } from "./agent-competitors.ts";
 
 Deno.test("главное фото: topical + photo want", () => {
   assert(wantsProductPhoto("главное фото"));
@@ -22,4 +24,12 @@ Deno.test("summary reflow: дай сводную", () => {
 Deno.test("alina stats: оффер не считается статистикой", () => {
   assertEquals(isAlinaStatsQuestion("алина оффер закрыт"), false);
   assertEquals(isAlinaStatsQuestion("сколько самовыкупов"), true);
+});
+
+Deno.test("артикул/конкуренты: кириллица без \\b", () => {
+  assert(wantsArticleLookup("артикул"));
+  assert(wantsArticleLookup("арт?"));
+  assert(wantsArticleLookup("Артикул"));
+  assert(wantsStickyProductRef("А конкуренты?"));
+  assert(wantsStickyProductRef("где топ 3 конкурента по выдаче?"));
 });

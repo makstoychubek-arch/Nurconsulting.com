@@ -209,7 +209,10 @@ async function uploadNewPrice(
     }
     return { ok: true, uploadId: j.data?.id };
   } catch {
-    return { ok: true };
+    return {
+      ok: false,
+      error: `WB: невалидный JSON (${text.slice(0, 120) || 'пусто'})`,
+    };
   }
 }
 

@@ -135,7 +135,7 @@ export function findPlanningProducts(
 
 export function formatCostReply(items: Array<PlanningItem & { score?: number }>): string {
   if (!items.length) {
-    return 'Не нашла артикул в плане. Кинь nm_id или название как в таблице (например «кимоно бежевый» / 334548155).';
+    return 'Не нашла артикул в плане. Кинь nm_id или название как в таблице (например «кимоно бежевый»).';
   }
   if (items.length === 1) {
     const i = items[0]!;

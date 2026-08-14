@@ -42,3 +42,12 @@ Deno.test('splitHumanBubbles keeps competitor report whole', () => {
   assert(parts[0].includes('Топ-3 по выдаче'));
   assert(parts[0].includes('Рекомендация'));
 });
+
+Deno.test('splitHumanBubbles never drops tail', () => {
+  const long = Array.from({ length: 12 }, (_, i) => `блок ${i} ${'x'.repeat(80)}`).join(
+    '\n\n',
+  );
+  const parts = splitHumanBubbles(long, 3);
+  assert(parts.length <= 3);
+  assert(parts.join('\n').includes('блок 11'));
+});

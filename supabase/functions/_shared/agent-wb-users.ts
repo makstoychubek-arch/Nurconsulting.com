@@ -126,7 +126,7 @@ async function savePending(
 ) {
   const db = admin();
   await cancelOtherPending(db, chatId);
-  await db.from('agent_pending_actions').insert({
+  const { error } = await db.from('agent_pending_actions').insert({
     chat_id: chatId,
     agent_key: USERS_AGENT,
     action_type: USERS_ACTION,
@@ -137,6 +137,7 @@ async function savePending(
     payload,
     expires_at: new Date(Date.now() + 30 * 60_000).toISOString(),
   });
+  if (error) throw new Error(`users pending: ${error.message}`);
   await setChatFocus(chatId, USERS_AGENT, 'wb_users', 25);
 }
 
@@ -187,6 +188,22 @@ function inviteConfirm(p: UsersPayload): string {
 }
 
 export async function startWbUsersDialog(opts: {
+  chatId: number;
+  tgUserId: number;
+  text: string;
+}): Promise<UsersReply> {
+  try {
+    return await startWbUsersDialogInner(opts);
+  } catch (e) {
+    console.error('[wb-users] start', e);
+    return {
+      handled: true,
+      reply: 'Сбой диалога доступов. Напиши ещё раз через минуту.',
+    };
+  }
+}
+
+async function startWbUsersDialogInner(opts: {
   chatId: number;
   tgUserId: number;
   text: string;

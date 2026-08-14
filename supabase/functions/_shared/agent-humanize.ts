@@ -91,8 +91,8 @@ function limitEmojis(text: string, max = 1): string {
 }
 
 /**
- * Сводки/отчёты (конкуренты, таблицы) — не резать до 6 строк и не ломать списки.
- * Иначе «Топ-3 по выдаче» отваливается после humanize.
+ * Сводки/отчёты — не резать до 6 строк и не ломать списки.
+ * Иначе «Топ-3 по выдаче» / остатки / цены отваливаются после humanize.
  */
 export function isStructuredAgentReport(text: string): boolean {
   const t = String(text || '');
@@ -103,6 +103,20 @@ export function isStructuredAgentReport(text: string): boolean {
   if (/источник:\s*(выдача\s+wb|блок\s+«?смотрите)/i.test(t)) return true;
   if ((t.match(/арт\.\s*\d{6,}/g) || []).length >= 2) return true;
   if (/wildberries\.ru\/catalog\/\d+/i.test(t) && /топ\s*-?\s*\d/i.test(t)) {
+    return true;
+  }
+  // остатки / цены / артикулы / таблица — многострочные списки
+  if ((t.match(/^\s*[•\-\–]/gm) || []).length >= 2) return true;
+  if (/остат|на\s+склад/i.test(t) && (t.match(/\n/g) || []).length >= 2) {
+    return true;
+  }
+  if ((t.match(/\bnm\s*\d{6,}/gi) || []).length >= 2) return true;
+  if (/до\s+скидк|после\s+скидк/i.test(t) && (t.match(/\n/g) || []).length >= 1) {
+    return true;
+  }
+  if (/открыт[ыеая]*\s+слот|мест\s+остал|раздач/i.test(t) &&
+    (t.match(/\n/g) || []).length >= 2
+  ) {
     return true;
   }
   return false;
