@@ -31,6 +31,8 @@ export type CatalogHit = {
   price?: number;
   discountedPrice?: number;
   discountPct?: number;
+  /** Себестоимость из РНП / ПЛАНИРОВАНИЕ.xlsx */
+  costPrice?: number | null;
 };
 
 type WbGood = {
@@ -49,7 +51,15 @@ type WbCabCache = {
 const wbCache = new Map<string, WbCabCache>();
 const wbInflight = new Map<string, Promise<WbGood[]>>();
 
-type RnpCache = { at: number; rows: Array<{ cabinet_id: string; nm_id: number; name: string }> };
+type RnpCache = {
+  at: number;
+  rows: Array<{
+    cabinet_id: string;
+    nm_id: number;
+    name: string;
+    cost_price: number | null;
+  }>;
+};
 const rnpCache = new Map<string, RnpCache>();
 const RNP_TTL_MS = 60_000;
 
@@ -244,7 +254,7 @@ async function findFromRnp(
   const cacheKey = preferCabinetId || '__all__';
   let rows = rnpCache.get(cacheKey);
   if (!rows || Date.now() - rows.at >= RNP_TTL_MS) {
-    let q = db.from('rnp_articles').select('cabinet_id, nm_id, name').limit(1500);
+    let q = db.from('rnp_articles').select('cabinet_id, nm_id, name, cost_price').limit(1500);
     if (preferCabinetId) q = q.eq('cabinet_id', preferCabinetId);
     const { data } = await q;
     rows = {
@@ -253,6 +263,7 @@ async function findFromRnp(
         cabinet_id: String(r.cabinet_id),
         nm_id: Number(r.nm_id),
         name: String(r.name || ''),
+        cost_price: r.cost_price == null ? null : Number(r.cost_price),
       })),
     };
     rnpCache.set(cacheKey, rows);
@@ -273,6 +284,7 @@ async function findFromRnp(
       vendorCode: name,
       score,
       source: 'rnp',
+      costPrice: Number.isFinite(row.cost_price as number) ? row.cost_price : null,
     });
   }
   return out;
@@ -350,17 +362,46 @@ export async function findCatalogProducts(
   if (sources.includes('wb_prices')) jobs.push(findFromWb(q, prefer, cabinets));
   const parts = (await Promise.all(jobs)).flat();
 
+  // ПЛАНИРОВАНИЕ.xlsx — слова / себес (локальный каталог)
+  try {
+    const { findPlanningProducts } = await import('./agent-planning-catalog.ts');
+    for (const p of findPlanningProducts(q, { max: 8, minScore: 4 })) {
+      parts.push({
+        cabinetId: p.cabinet_id || prefer || '',
+        cabinetName: p.cabinet_name || p.brand || 'план',
+        nmId: p.nm_id,
+        title: p.name,
+        vendorCode: p.vendor || p.name,
+        score: p.score,
+        source: 'sheet',
+        costPrice: p.cost_price,
+      });
+    }
+  } catch (e) {
+    console.error('[product-catalog] planning', e);
+  }
+
   // дедуп по cabinet+nm, берём лучший score / предпочитаем wb_prices (есть цены)
   const best = new Map<string, CatalogHit>();
   for (const h of parts) {
-    const key = `${h.cabinetId}:${h.nmId}`;
+    const key = `${h.cabinetId || 'plan'}:${h.nmId}`;
     const prev = best.get(key);
     if (!prev) {
       best.set(key, h);
       continue;
     }
-    if (h.score > prev.score) best.set(key, h);
-    else if (h.score === prev.score && h.source === 'wb_prices') best.set(key, h);
+    // merge cost from sheet/rnp
+    const merged = { ...prev };
+    if (h.score > prev.score) {
+      Object.assign(merged, h);
+    } else if (h.score === prev.score && h.source === 'wb_prices') {
+      Object.assign(merged, h);
+    }
+    if (merged.costPrice == null && h.costPrice != null) merged.costPrice = h.costPrice;
+    if (h.costPrice != null && (merged.source === 'sheet' || prev.costPrice == null)) {
+      merged.costPrice = h.costPrice;
+    }
+    best.set(key, merged);
   }
 
   let hits = [...best.values()];

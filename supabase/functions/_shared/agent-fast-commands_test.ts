@@ -34,6 +34,8 @@ Deno.test("wow pulse urgent stock", () => {
   assertEquals(parseFastCommand("/остатки")?.cmd, "stock");
   assertEquals(parseFastCommand("остатки")?.cmd, "stock");
   assertEquals(parseFastCommand("/whoami")?.cmd, "whoami");
+  assertEquals(parseFastCommand("/себес кимоно")?.cmd, "cost");
+  assertEquals(parseFastCommand("/себес кимоно")?.arg, "кимоно");
 });
 
 Deno.test("fuzzy typos on wow cmds", () => {

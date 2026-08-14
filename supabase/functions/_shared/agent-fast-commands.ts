@@ -20,6 +20,11 @@ import {
   fuzzyMatchCommand,
   normalizeBotText,
 } from "./agent-fuzzy.ts";
+import {
+  findPlanningProducts,
+  formatCostReply,
+  planningCatalogBrief,
+} from "./agent-planning-catalog.ts";
 
 export type FastCommandResult = {
   handled: boolean;
@@ -52,6 +57,9 @@ const CMD_ALIASES: Record<string, string> = {
   stock: "stock",
   склад: "stock",
   склады: "stock",
+  себес: "cost",
+  себестоимость: "cost",
+  cost: "cost",
   самовыкуп: "selfbuy",
   самовыкупы: "selfbuy",
   кабинеты: "cabinets",
@@ -82,6 +90,7 @@ const FUZZY_CMD_BANK = [
   "urgent",
   "stock",
   "whoami",
+  "cost",
 ] as const;
 
 function mapCmd(raw: string): string {
@@ -89,7 +98,7 @@ function mapCmd(raw: string): string {
   if (CMD_ALIASES[c]) return CMD_ALIASES[c];
   const hit = fuzzyMatchCommand(c, FUZZY_CMD_BANK);
   if (hit && CMD_ALIASES[hit]) return CMD_ALIASES[hit];
-  if (hit && ["help", "ping", "sales", "ads", "fbs", "selfbuy", "cabinets", "pulse", "urgent", "stock", "whoami"].includes(hit)) {
+  if (hit && ["help", "ping", "sales", "ads", "fbs", "selfbuy", "cabinets", "pulse", "urgent", "stock", "whoami", "cost"].includes(hit)) {
     return hit;
   }
   return c;
@@ -158,6 +167,9 @@ export function parseFastCommand(raw: string): { cmd: string; arg: string } | nu
     return { cmd: "stock", arg: rest };
   }
   if (mappedHead === "whoami") return { cmd: "whoami", arg: "" };
+  if (mappedHead === "cost") {
+    return { cmd: "cost", arg: rest };
+  }
 
   // продажи [кабинет]
   let m = lower.match(/^(продажи|sales|заказы)\s*(.*)$/i);
@@ -202,6 +214,8 @@ function agentForCmd(cmd: string): string {
     case "selfbuy":
       return "alina";
     case "sales":
+      return "saule";
+    case "cost":
       return "saule";
     case "pulse":
     case "urgent":
@@ -394,6 +408,19 @@ export async function tryFastCommand(
       return { handled: true, agentKey: speaker };
     }
     return { handled: true, agentKey: speaker, reply: urgentBrief() };
+  }
+
+  if (cmd === "cost") {
+    // В группе — Сауле; в ЛС — бот, которому написали
+    const speaker = privateChat ? (triggeringBot || "saule") : "saule";
+    if (triggeringBot !== speaker) {
+      return { handled: true, agentKey: speaker };
+    }
+    const q = (arg || "").trim();
+    const reply = !q
+      ? planningCatalogBrief(10)
+      : formatCostReply(findPlanningProducts(q, { max: 6, minScore: 4 }));
+    return { handled: true, agentKey: speaker, reply };
   }
 
   // Команды специалиста — чужие webhook молчат сразу

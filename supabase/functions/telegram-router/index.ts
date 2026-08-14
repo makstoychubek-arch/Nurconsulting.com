@@ -112,6 +112,13 @@ import {
   wantsSelfSkills,
 } from "../_shared/agent-self-skills.ts";
 import {
+  costQueryProductText,
+  findPlanningProducts,
+  formatCostReply,
+  planningCatalogBrief,
+  wantsCostQuery,
+} from "../_shared/agent-planning-catalog.ts";
+import {
   hopPauseMs,
   setTelegramMessageReaction,
   thinkPauseMs,
@@ -1135,7 +1142,7 @@ serve(async (req) => {
     // ── Быстрые команды без OpenAI ──────────────────────────────────────────
     {
       const isMetaCmd =
-        /^\/?(help|ping|cabinets|помощь|команды|пинг|кабинеты|pulse|пульс|сводка|сегодня|срочно|urgent|whoami|ктоя|skills|чтоумеешь|зона)(@\w+)?(\s|$)/i
+        /^\/?(help|ping|cabinets|помощь|команды|пинг|кабинеты|pulse|пульс|сводка|сегодня|срочно|urgent|whoami|ктоя|skills|чтоумеешь|зона|себес|себестоимость|cost)(@\w+)?(\s|$)/i
           .test(text.trim());
       const fast = await tryFastCommand(text, triggeringBot, {
         privateChat: !isGroupChat,
@@ -1222,6 +1229,36 @@ serve(async (req) => {
           saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
           saveMessage(chatId, resolved.speakAs, reply).catch(() => {});
           await setChatFocus(chatId, resolved.speakAs, "self_skills", 10);
+        })());
+      }
+      return ok();
+    }
+
+    // ── Себес / стоимость артикула из ПЛАНИРОВАНИЕ.xlsx ────────────────────
+    if (wantsCostQuery(text) && !dialog.pending) {
+      const who =
+        selfSkillsNamedAgent(text) ||
+        namedOnce[0] ||
+        dialog.focus?.agent_key ||
+        (isGroupChat ? "saule" : (triggeringBot || "saule"));
+      const speakAs = ["saule", "karina"].includes(who) ? who : "saule";
+      const resolved = resolveSpeakAndOrchestrator([speakAs], triggeringBot);
+      if (resolved && triggeringBot === resolved.orchestrator) {
+        const q = costQueryProductText(text);
+        const reply = !q
+          ? planningCatalogBrief(10)
+          : formatCostReply(findPlanningProducts(q, { max: 6, minScore: 4 }));
+        await runWork((async () => {
+          await sendChatAction(resolved.speakAs, chatId, "typing");
+          await sendTelegramMessage(
+            resolved.speakAs,
+            chatId,
+            reply,
+            message.message_id,
+          );
+          saveMessage(chatId, message.from?.first_name ?? "user", text).catch(() => {});
+          saveMessage(chatId, resolved.speakAs, reply).catch(() => {});
+          await setChatFocus(chatId, resolved.speakAs, "cost_query", 10);
         })());
       }
       return ok();
