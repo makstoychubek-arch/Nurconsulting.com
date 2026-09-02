@@ -12,7 +12,7 @@
     <title>Nur Consulting — NR Space</title>
     <script src="/nr-auth.js"></script>
     <!-- Подключение Tailwind CSS и шрифтов -->
-    <link rel="stylesheet" href="/dist/tailwind.4abf20e993.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.02da4d8b96.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -126,6 +126,7 @@
             <nav class="hidden lg:flex items-center space-x-1 text-sm font-medium text-[#6E6E73]">
                 <a href="#services" class="nav-link px-3 py-3 min-h-[44px] flex items-center hover:text-[#1D1D1F] transition-colors duration-200">Услуги</a>
                 <a href="#cases" class="nav-link px-3 py-3 min-h-[44px] flex items-center hover:text-[#1D1D1F] transition-colors duration-200">Кейсы</a>
+                <a href="#rnp-case" class="nav-link px-3 py-3 min-h-[44px] flex items-center hover:text-[#1D1D1F] transition-colors duration-200">Кейс РНП</a>
                 <a href="#team" class="nav-link px-3 py-3 min-h-[44px] flex items-center hover:text-[#1D1D1F] transition-colors duration-200">Команда</a>
                 <a href="#platform" class="nav-link px-3 py-3 min-h-[44px] flex items-center hover:text-[#1D1D1F] transition-colors duration-200">Платформа</a>
                 <a href="#contacts" class="nav-link px-3 py-3 min-h-[44px] flex items-center hover:text-[#1D1D1F] transition-colors duration-200">Контакты</a>
@@ -159,6 +160,7 @@
         <nav class="flex-1 p-4 space-y-1">
             <button type="button" onclick="handleNavClick('#services')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-[#3A3D42] text-sm font-medium active:bg-black/5 min-h-[48px]">Услуги</button>
             <button type="button" onclick="handleNavClick('#cases')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-[#3A3D42] text-sm font-medium active:bg-black/5 min-h-[48px]">Кейсы</button>
+            <button type="button" onclick="handleNavClick('#rnp-case')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-[#3A3D42] text-sm font-medium active:bg-black/5 min-h-[48px]">Кейс РНП</button>
             <button type="button" onclick="handleNavClick('#team')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-[#3A3D42] text-sm font-medium active:bg-black/5 min-h-[48px]">Команда</button>
             <button type="button" onclick="handleNavClick('#platform')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-[#3A3D42] text-sm font-medium active:bg-black/5 min-h-[48px]">Платформа</button>
             <button type="button" onclick="handleNavClick('#contacts')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-[#3A3D42] text-sm font-medium active:bg-black/5 min-h-[48px]">Контакты</button>
@@ -302,6 +304,73 @@
                         <p class="text-xs text-[#1F8B3D] uppercase">Чистый рост</p>
                         <p class="text-2xl sm:text-3xl font-bold text-[#1F8B3D] mt-2">+487%</p>
                     </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider reveal max-w-7xl mx-auto"></div>
+
+    <!-- RNP CASE SECTION -->
+    <section id="rnp-case" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
+        <div class="glass-card rounded-3xl p-8 sm:p-12 border-black/5 relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-[350px] h-[350px] bg-[#34C759]/8 rounded-full blur-[100px] pointer-events-none"></div>
+            <div class="grid lg:grid-cols-12 gap-12 items-center">
+                <div class="lg:col-span-5 space-y-6">
+                    <span class="text-xs font-bold uppercase tracking-widest text-[#0071E3]">Кейс модуля РНП</span>
+                    <h2 class="text-3xl sm:text-4xl font-bold text-[#1D1D1F]">Нашли артикулы, которые сливали рекламный бюджет</h2>
+                    <p class="text-[#6E6E73] text-sm leading-relaxed">Модуль «Рука на пульсе» ежедневно сверяет продажи, ДРР и маржу по каждому артикулу. За первую неделю подключения РНП у клиента:</p>
+                    <ul class="space-y-3 text-[#3A3D42] font-light text-sm">
+                        <li class="flex items-center space-x-3"><span class="text-[#1F8B3D]">✓</span> <span>Выявили 12 артикулов с отрицательной маржой при высоком ДРР</span></li>
+                        <li class="flex items-center space-x-3"><span class="text-[#1F8B3D]">✓</span> <span>Перераспределили рекламный бюджет на прибыльные позиции</span></li>
+                        <li class="flex items-center space-x-3"><span class="text-[#1F8B3D]">✓</span> <span>Снизили ДРР на 9 п.п. без потери оборота</span></li>
+                    </ul>
+                    <a href="/login" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#0071E3] hover:text-[#0077ED] transition">Посмотреть модуль РНП →</a>
+                </div>
+                <div class="lg:col-span-7">
+                    <div class="rounded-2xl border border-black/5 bg-white overflow-hidden shadow-sm">
+                        <div class="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-black/5 bg-black/[0.015]">
+                            <span class="text-xs font-bold text-[#1D1D1F] uppercase tracking-wider">РНП · Артикулы</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-[#34C759]/10 text-[#1F8B3D] border border-[#34C759]/20">Обновлено сегодня</span>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse text-xs sm:text-sm">
+                                <thead>
+                                    <tr class="text-[#86868B] border-b border-black/5">
+                                        <th class="py-2.5 px-4 sm:px-5 font-medium">Артикул</th>
+                                        <th class="py-2.5 px-3 font-medium">Продажи</th>
+                                        <th class="py-2.5 px-3 font-medium">ДРР</th>
+                                        <th class="py-2.5 px-3 font-medium">Маржа</th>
+                                        <th class="py-2.5 px-4 sm:px-5 font-medium">Статус</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-black/5">
+                                    <tr>
+                                        <td class="py-3 px-4 sm:px-5 font-semibold text-[#1D1D1F]">248 190 372</td>
+                                        <td class="py-3 px-3 text-[#3A3D42]">412 000 ₽</td>
+                                        <td class="py-3 px-3 text-[#3A3D42]">14%</td>
+                                        <td class="py-3 px-3 font-semibold text-[#1F8B3D]">+27%</td>
+                                        <td class="py-3 px-4 sm:px-5"><span class="text-[10px] px-2 py-0.5 rounded-full bg-[#34C759]/10 text-[#1F8B3D]">Прибыльный</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 px-4 sm:px-5 font-semibold text-[#1D1D1F]">248 190 588</td>
+                                        <td class="py-3 px-3 text-[#3A3D42]">96 500 ₽</td>
+                                        <td class="py-3 px-3 text-[#D92D20]">61%</td>
+                                        <td class="py-3 px-3 font-semibold text-[#D92D20]">−18%</td>
+                                        <td class="py-3 px-4 sm:px-5"><span class="text-[10px] px-2 py-0.5 rounded-full bg-[#D92D20]/10 text-[#D92D20]">Сливает бюджет</span></td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-3 px-4 sm:px-5 font-semibold text-[#1D1D1F]">248 191 004</td>
+                                        <td class="py-3 px-3 text-[#3A3D42]">238 900 ₽</td>
+                                        <td class="py-3 px-3 text-[#3A3D42]">22%</td>
+                                        <td class="py-3 px-3 font-semibold text-[#1F8B3D]">+9%</td>
+                                        <td class="py-3 px-4 sm:px-5"><span class="text-[10px] px-2 py-0.5 rounded-full bg-[#0071E3]/10 text-[#0071E3]">Стабильно</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <p class="text-[10px] text-[#86868B] mt-2 text-center sm:text-left">Пример данных для демонстрации модуля</p>
                 </div>
             </div>
         </div>
