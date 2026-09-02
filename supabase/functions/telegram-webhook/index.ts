@@ -9,7 +9,7 @@
 // Deploy: supabase functions deploy telegram-webhook --no-verify-jwt
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
+import { getTelegramChatId, getTelegramToken, resolveIncomingChatChannel } from '../_shared/telegram-routing.ts';
 import {
     adsHelpText,
     fetchAdsDayRows,
@@ -148,7 +148,7 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
-    const chatKey = resolveChatChannel(String(chatId));
+    const chatKey = resolveIncomingChatChannel(String(chatId));
 
     // ── Модерация отзывов: реплай с новым текстом (шаг 5) ───────────────
     if (chatKey === 'reviews' && text) {
@@ -201,7 +201,12 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
     }
 
     // ── Штрафы ───────────────────────────────────────────────────────────
-    if (chatKey === 'penalties' && wantsPenaltiesQuery(text)) {
+    // Явный «штрафы/удержания» — в любом чате (не только TELEGRAM_CHAT_PENALTIES).
+    // Дата без слова «штраф» — только в канале штрафов.
+    if (
+        wantsPenaltiesQuery(text) &&
+        (chatKey === 'penalties' || isExplicitPenaltiesAsk(text))
+    ) {
         if (isChannelHelp(text)) {
             await sendReply(token, chatId, withContact(contactAck('помощь'), channelHelpContact('penalties') + '\n\n' + penaltiesHelpText()), message.message_id);
             return;
@@ -326,21 +331,6 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
     // ── Chat ID ──────────────────────────────────────────────────────────
     if (!wantsChatId(text, chatType)) return;
     await sendReply(token, chatId, formatChatIdReply(chatId, chatTitle, chatType), message.message_id);
-}
-
-function resolveChatChannel(chatId: string): string | null {
-    const map: Record<string, string> = {
-        [getTelegramChatId('sales') || '']: 'sales',
-        [getTelegramChatId('penalties') || '']: 'penalties',
-        [getTelegramChatId('ads') || '']: 'ads',
-        [getTelegramChatId('ab_tests') || '']: 'ab_tests',
-        [getTelegramChatId('news') || '']: 'news',
-        [getTelegramChatId('reviews') || '']: 'reviews',
-        [getTelegramChatId('blockings') || '']: 'blockings',
-        [getTelegramChatId('warehouse') || '']: 'warehouse',
-        [getTelegramChatId('triggers') || '']: 'triggers',
-    };
-    return map[chatId] || null;
 }
 
 async function handleReviewCallback(token: string, cq: Record<string, unknown>): Promise<void> {
@@ -700,8 +690,14 @@ function wantsSalesQuery(text: string): boolean {
 
 function wantsPenaltiesQuery(text: string): boolean {
     const lower = text.toLowerCase().replace(/ё/g, 'е');
+    // без JS \b — кириллица
     if (/(штраф|удерж|penalt|help|помощь)/i.test(lower)) return true;
     return hasRuDayOrDdMm(text);
+}
+
+/** Явно про штрафы (не просто дата в чужом канале). */
+function isExplicitPenaltiesAsk(text: string): boolean {
+    return /(штраф|удерж|penalt)/i.test(String(text || '').toLowerCase().replace(/ё/g, 'е'));
 }
 
 function wantsAdsQuery(text: string): boolean {

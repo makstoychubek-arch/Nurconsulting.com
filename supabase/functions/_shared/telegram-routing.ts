@@ -134,3 +134,26 @@ export function telegramConfigError(channel: TelegramChannel): string {
     }
     return '';
 }
+
+/**
+ * Определить канал входящего сообщения по chat_id.
+ * Только dedicated / legacy ID — НЕ общий TELEGRAM_GROUP_CHAT_ID:
+ * иначе все каналы схлопываются в один ключ объекта и «штрафы»
+ * перетираются последним (triggers/fbs) → бот молчит.
+ */
+export function resolveIncomingChatChannel(chatId: string): TelegramChannel | null {
+    const id = String(chatId || '').trim();
+    if (!id) return null;
+
+    for (const channel of ALL_CHANNELS) {
+        const direct = (Deno.env.get(CHANNEL_ENV[channel]) ?? '').trim();
+        if (direct && direct === id) return channel;
+    }
+    for (const channel of ALL_CHANNELS) {
+        const legacyKey = LEGACY_ENV[channel];
+        if (!legacyKey) continue;
+        const legacy = (Deno.env.get(legacyKey) ?? '').trim();
+        if (legacy && legacy === id) return channel;
+    }
+    return null;
+}
