@@ -24,6 +24,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/nr-auth.js"></script>
 
     <style>
         .glass-card {
@@ -281,7 +282,7 @@
     <script>
         SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
         SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
-        supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        supabase = window.NrAuth.createClient(window.supabase, SUPABASE_URL, SUPABASE_KEY);
 
         function switchTab(tab) {
             document.getElementById('form-login').classList.add('hidden');
@@ -515,6 +516,10 @@
                     _authFlowHandled = false;
                     return;
                 }
+                if (event === 'TOKEN_REFRESHED' && !session) {
+                    try { await window.NrAuth.recoverBrokenSession(supabase); } catch (_) {}
+                    return;
+                }
                 if (!session?.user) return;
                 const q = new URLSearchParams(window.location.search);
                 if (q.get('error') || q.get('logged_out') === '1') {
@@ -532,7 +537,7 @@
                 }
             });
 
-            const { data: { session } } = await supabase.auth.getSession();
+            const session = await window.NrAuth.recoverBrokenSession(supabase);
             if (justLoggedOut) {
                 clearLocalAuth();
                 if (session?.user) {

@@ -1,0 +1,74 @@
+/**
+ * Node smoke-test for nr-auth.js (jsdom-less: stub window/localStorage).
+ */
+const fs = require('fs');
+const path = require('path');
+const assert = require('assert');
+
+const store = new Map();
+const localStorage = {
+    getItem: (k) => (store.has(k) ? store.get(k) : null),
+    setItem: (k, v) => { store.set(k, String(v)); },
+    removeItem: (k) => { store.delete(k); },
+    get length() { return store.size; },
+    key: (i) => Array.from(store.keys())[i] || null,
+};
+const sessionStorage = new Map();
+const sessionStore = {
+    getItem: (k) => (sessionStorage.has(k) ? sessionStorage.get(k) : null),
+    setItem: (k, v) => { sessionStorage.set(k, String(v)); },
+    removeItem: (k) => { sessionStorage.delete(k); },
+};
+
+const windowStub = {
+    location: { search: '' },
+    localStorage: localStorage,
+    sessionStorage: sessionStore,
+};
+global.window = windowStub;
+global.localStorage = localStorage;
+global.sessionStorage = sessionStore;
+global.console = console;
+
+const src = fs.readFileSync(path.join(__dirname, 'nr-auth.js'), 'utf8');
+eval(src);
+
+const NrAuth = windowStub.NrAuth;
+assert.ok(NrAuth, 'NrAuth exported');
+
+assert.strictEqual(NrAuth.isAuthTokenError({ message: 'Invalid Refresh Token' }), true);
+assert.strictEqual(NrAuth.isAuthTokenError({ message: 'AuthSessionMissingError' }), true);
+assert.strictEqual(NrAuth.isAuthTokenError({ message: 'network timeout' }), false);
+
+assert.strictEqual(NrAuth.isWbTokenError('WB token not configured for this cabinet'), true);
+assert.strictEqual(NrAuth.isWbTokenError('invalid_token'), true);
+assert.strictEqual(NrAuth.isWbTokenError('rate limit'), false);
+
+localStorage.setItem('sb-fiukyfyhotctvfdidktx-auth-token', '{"access_token":"dead"}');
+localStorage.setItem('nr_auth_broken', '1');
+NrAuth.prepareAuthStorage();
+assert.strictEqual(localStorage.getItem('sb-fiukyfyhotctvfdidktx-auth-token'), null, 'broken auth storage cleared');
+
+async function runRecover() {
+    const fakeClient = {
+        auth: {
+            async getSession() {
+                return { data: { session: null }, error: { message: 'Invalid Refresh Token' } };
+            },
+            async signOut() { this.signedOut = true; },
+        },
+    };
+    localStorage.setItem('sb-fiukyfyhotctvfdidktx-auth-token', '{"refresh_token":"x"}');
+    const session = await NrAuth.recoverBrokenSession(fakeClient);
+    assert.strictEqual(session, null);
+    assert.strictEqual(fakeClient.auth.signedOut, true);
+    assert.strictEqual(localStorage.getItem('sb-fiukyfyhotctvfdidktx-auth-token'), null);
+    assert.strictEqual(localStorage.getItem('nr_auth_broken'), '1');
+}
+
+runRecover().then(() => {
+    console.log('nr-auth_test: ok');
+}).catch((e) => {
+    console.error(e);
+    process.exit(1);
+});

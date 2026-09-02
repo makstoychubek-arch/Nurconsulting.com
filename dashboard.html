@@ -13,6 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="/nr-auth.js"></script>
     <style>
         * {
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -3832,7 +3833,7 @@
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
-    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    var supabase = window.NrAuth.createClient(window.supabase, SUPABASE_URL, SUPABASE_KEY);
     var WB_PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
     var AUTO_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/auto-sync';
     var ADVERTISING_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/advertising-sync';
@@ -4394,8 +4395,13 @@
                 : 'Спейс ожидает активации администратором. Синхронизация с WB будет доступна после подтверждения.');
             return null;
         }
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { showPremiumModal('error', 'Не авторизован', 'Сессия истекла, перезайдите.'); return null; }
+        const session = (window.NrAuth && window.NrAuth.recoverBrokenSession)
+            ? await window.NrAuth.recoverBrokenSession(supabase)
+            : (await supabase.auth.getSession()).data?.session;
+        if (!session) {
+            if (window._nrInitDone) showPremiumModal('error', 'Не авторизован', 'Сессия истекла, перезайдите.');
+            return null;
+        }
         const PROXY_TIMEOUT_MS = 30000;
         const ac = new AbortController();
         const timer = setTimeout(() => ac.abort(), PROXY_TIMEOUT_MS);
@@ -4440,9 +4446,15 @@
             const errData = await res.json().catch(() => ({}));
             const msg = errData.error || errData.message || `HTTP ${res.status}`;
             if (!hasUserCabinets || !currentCabinetId) return null;
+            const tokenish = (window.NrAuth && window.NrAuth.isWbTokenError && window.NrAuth.isWbTokenError(msg))
+                || /token|unauthorized|invalid session/i.test(msg)
+                || res.status === 401;
+            const quiet = bgActions.has(action) || !window._nrInitDone || tokenish || res.status >= 500;
+            if (quiet) {
+                if (!tokenish) console.warn(`[callWbProxy] ${action}:`, msg);
+                return null;
+            }
             if (res.status === 403) showPremiumModal('warning', 'Доступ запрещён', msg);
-            else if (res.status >= 500) console.warn(`[callWbProxy] ${action} server error:`, msg);
-            else if (bgActions.has(action)) console.warn(`[callWbProxy] ${action}:`, msg);
             else showPremiumModal('warning', 'Ошибка запроса', msg);
             return null;
         }
@@ -9739,7 +9751,7 @@
             document.body.appendChild(banner);
         }, 15000);
 
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = await window.NrAuth.recoverBrokenSession(supabase);
         if (!session) { clearTimeout(window._nrOverlayWatchdog); window.location.replace('/login'); return; }
 
         const allowed = await enforceAccessGate(session.user);
