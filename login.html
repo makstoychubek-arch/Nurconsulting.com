@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="ru" class="scroll-smooth">
     <!-- Favicon круглый -->
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231D1D1F'/><text y='66' font-size='38' font-family='Arial Black,sans-serif' font-weight='900' fill='%23fff' x='50' text-anchor='middle'>NR</text></svg>">
-<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%231D1D1F'/><text y='340' font-size='200' font-family='Arial Black,sans-serif' font-weight='900' fill='%23fff' x='256' text-anchor='middle'>NR</text></svg>">
-<meta name="theme-color" content="#F5F5F7">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231F2933'/><text y='66' font-size='38' font-family='Arial Black,sans-serif' font-weight='900' fill='%23fff' x='50' text-anchor='middle'>NR</text></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%231F2933'/><text y='340' font-size='200' font-family='Arial Black,sans-serif' font-weight='900' fill='%23fff' x='256' text-anchor='middle'>NR</text></svg>">
+<meta name="theme-color" content="#F8F9FA">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="NR Space">
@@ -20,7 +20,7 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="/dist/tailwind.02da4d8b96.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.6bd41e7b3b.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -42,15 +42,15 @@
         }
         .input-field:focus {
             outline: none;
-            border-color: rgba(0, 113, 227, 0.5);
-            background: rgba(0, 113, 227, 0.05);
-            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.12);
+            border-color: rgba(87, 104, 207, 0.5);
+            background: rgba(87, 104, 207, 0.05);
+            box-shadow: 0 0 0 3px rgba(87, 104, 207, 0.12);
         }
-        .neon-glow { box-shadow: 0 10px 30px rgba(0, 113, 227, 0.25); }
+        .neon-glow { box-shadow: 0 10px 30px rgba(87, 104, 207, 0.25); }
         .tab-active {
-            background: rgba(0, 113, 227, 0.1);
-            border-color: rgba(0, 113, 227, 0.3);
-            color: #0071E3;
+            background: rgba(87, 104, 207, 0.1);
+            border-color: rgba(87, 104, 207, 0.3);
+            color: #5768CF;
         }
         .fade-in { opacity: 1; }
         #screen-oauth-loading {
@@ -62,21 +62,21 @@
             align-items: center;
             justify-content: center;
             padding: 24px;
-            background: #F5F5F7;
+            background: #F8F9FA;
         }
         html.oauth-pending #screen-auth { display: none !important; }
         html.oauth-pending #screen-oauth-loading { display: flex !important; }
         .oauth-logo {
             width: 88px; height: 88px;
-            background: linear-gradient(135deg, #0071E3, #0A84FF);
+            background: linear-gradient(135deg, #5768CF, #0A84FF);
             border-radius: 26px;
             display: flex; align-items: center; justify-content: center;
             margin-bottom: 28px;
-            box-shadow: 0 12px 30px rgba(0,113,227,0.25);
+            box-shadow: 0 12px 30px rgba(87, 104, 207,0.25);
         }
         .oauth-logo span { color: white; font-size: 34px; font-weight: 900; letter-spacing: -0.04em; }
         .oauth-space {
-            color: #1D1D1F;
+            color: #1F2933;
             font-size: 22px;
             font-weight: 500;
             letter-spacing: 0.12em;
@@ -85,7 +85,7 @@
         .nr-brand-mark {
             width: 44px; height: 44px;
             border-radius: 14px;
-            background: #1D1D1F;
+            background: #1F2933;
             color: #fff;
             font-size: 14px;
             font-weight: 900;
@@ -95,13 +95,13 @@
         .nr-brand-space {
             font-size: 22px;
             font-weight: 500;
-            color: #1D1D1F;
+            color: #1F2933;
             letter-spacing: 0.08em;
         }
         html.oauth-pending .oauth-home-link { display: none; }
         .oauth-home-link { z-index: 101; }
         .oauth-loading-text {
-            color: #6E6E73;
+            color: #3E434F;
             font-size: 14px;
             line-height: 1.6;
             text-align: center;
@@ -110,7 +110,7 @@
         .oauth-dots { display: flex; gap: 10px; margin-top: 28px; }
         .oauth-dots span {
             width: 8px; height: 8px; border-radius: 50%;
-            background: #0071E3;
+            background: #5768CF;
             opacity: 0.45;
         }
         .oauth-dots span:nth-child(2) { opacity: 0.7; }
@@ -130,12 +130,12 @@
         .login-card { width: 100%; }
     </style>
 </head>
-<body class="bg-[#F5F5F7] text-[#3A3D42] font-sans antialiased min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+<body class="bg-[#F8F9FA] text-[#3E434F] font-sans antialiased min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
 
-    <div class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#0071E3]/10 rounded-full blur-[130px] pointer-events-none"></div>
-    <div class="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-[#34C759]/8 rounded-full blur-[120px] pointer-events-none"></div>
+    <div class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#5768CF]/10 rounded-full blur-[130px] pointer-events-none"></div>
+    <div class="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-[#2F9E44]/8 rounded-full blur-[120px] pointer-events-none"></div>
 
-    <a href="/" class="absolute top-6 left-6 flex items-center justify-center w-10 h-10 rounded-xl bg-[#1D1D1F] text-white font-black text-xs tracking-tighter shadow-lg oauth-home-link">NR</a>
+    <a href="/" class="absolute top-6 left-6 flex items-center justify-center w-10 h-10 rounded-xl bg-[#1F2933] text-white font-black text-xs tracking-tighter shadow-lg oauth-home-link">NR</a>
 
     <!-- ЭКРАН: OAuth / проверка сессии -->
     <div id="screen-oauth-loading">
@@ -152,8 +152,8 @@
             <span class="nr-brand-space">Space</span>
         </div>
 
-        <h1 class="login-title text-xl font-semibold text-[#1D1D1F] tracking-tight text-center mb-2">Вход в NR Space</h1>
-        <p class="login-subtitle text-sm text-[#86868B] text-center mb-6">Войдите, чтобы открыть аналитику вашего магазина</p>
+        <h1 class="login-title text-xl font-semibold text-[#1F2933] tracking-tight text-center mb-2">Вход в NR Space</h1>
+        <p class="login-subtitle text-sm text-[#6B7682] text-center mb-6">Войдите, чтобы открыть аналитику вашего магазина</p>
 
         <div class="login-card glass-card rounded-3xl p-8 shadow-xl">
 
@@ -163,13 +163,13 @@
                     Вход
                 </button>
                 <button onclick="switchTab('register')" id="tab-register"
-                    class="flex-1 py-2 text-sm font-medium rounded-lg transition text-[#86868B] border border-transparent">
+                    class="flex-1 py-2 text-sm font-medium rounded-lg transition text-[#6B7682] border border-transparent">
                     Регистрация
                 </button>
             </div>
 
             <button onclick="signInWithGoogle()"
-                class="w-full flex items-center justify-center space-x-3 py-3 bg-white hover:bg-gray-50 text-[#1D1D1F] font-medium rounded-xl transition mb-5 shadow-md border border-black/8">
+                class="w-full flex items-center justify-center space-x-3 py-3 bg-white hover:bg-gray-50 text-[#1F2933] font-medium rounded-xl transition mb-5 shadow-md border border-black/8">
                 <svg class="w-5 h-5" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -181,18 +181,18 @@
 
             <div class="flex items-center space-x-3 mb-5">
                 <div class="flex-1 h-px bg-black/8"></div>
-                <span class="text-xs text-[#86868B]">или через email</span>
+                <span class="text-xs text-[#6B7682]">или через email</span>
                 <div class="flex-1 h-px bg-black/8"></div>
             </div>
 
             <!-- Форма ВХОД -->
             <div id="form-login" class="space-y-3">
                 <input type="email" id="login-email" placeholder="Email адрес"
-                    class="input-field w-full px-4 py-3 rounded-xl text-[#1D1D1F] text-sm placeholder-[#86868B]">
+                    class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
                 <div class="relative">
                     <input type="password" id="login-password" placeholder="Пароль"
-                        class="input-field w-full px-4 py-3 rounded-xl text-[#1D1D1F] text-sm placeholder-[#86868B] pr-12">
-                    <button onclick="togglePassword('login-password')" class="absolute right-3 top-3 text-[#86868B] hover:text-[#1D1D1F] transition">
+                        class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682] pr-12">
+                    <button onclick="togglePassword('login-password')" class="absolute right-3 top-3 text-[#6B7682] hover:text-[#1F2933] transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
@@ -200,13 +200,13 @@
                     </button>
                 </div>
                 <div class="text-right">
-                    <button onclick="switchTab('forgot')" class="text-xs text-[#0071E3] hover:text-[#0077ED] transition">
+                    <button onclick="switchTab('forgot')" class="text-xs text-[#5768CF] hover:text-[#4857BF] transition">
                         Забыли пароль?
                     </button>
                 </div>
                 <div id="login-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <button onclick="handleLogin()"
-                    class="w-full py-3 bg-[#0071E3] hover:bg-[#0077ED] text-white font-medium rounded-xl transition neon-glow text-sm">
+                    class="w-full py-3 bg-[#5768CF] hover:bg-[#4857BF] text-white font-medium rounded-xl transition neon-glow text-sm">
                     Продолжить
                 </button>
             </div>
@@ -214,13 +214,13 @@
             <!-- Форма РЕГИСТРАЦИЯ -->
             <div id="form-register" class="space-y-3 hidden">
                 <input type="text" id="reg-name" placeholder="Ваше имя"
-                    class="input-field w-full px-4 py-3 rounded-xl text-[#1D1D1F] text-sm placeholder-[#86868B]">
+                    class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
                 <input type="email" id="reg-email" placeholder="Email адрес"
-                    class="input-field w-full px-4 py-3 rounded-xl text-[#1D1D1F] text-sm placeholder-[#86868B]">
+                    class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
                 <div class="relative">
                     <input type="password" id="reg-password" placeholder="Пароль (минимум 8 символов)"
-                        class="input-field w-full px-4 py-3 rounded-xl text-[#1D1D1F] text-sm placeholder-[#86868B] pr-12">
-                    <button onclick="togglePassword('reg-password')" class="absolute right-3 top-3 text-[#86868B] hover:text-[#1D1D1F] transition">
+                        class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682] pr-12">
+                    <button onclick="togglePassword('reg-password')" class="absolute right-3 top-3 text-[#6B7682] hover:text-[#1F2933] transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
@@ -229,8 +229,8 @@
                 </div>
                 <div class="relative">
                     <input type="password" id="reg-password-confirm" placeholder="Подтвердите пароль"
-                        class="input-field w-full px-4 py-3 rounded-xl text-[#1D1D1F] text-sm placeholder-[#86868B] pr-12">
-                    <button onclick="togglePassword('reg-password-confirm')" class="absolute right-3 top-3 text-[#86868B] hover:text-[#1D1D1F] transition">
+                        class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682] pr-12">
+                    <button onclick="togglePassword('reg-password-confirm')" class="absolute right-3 top-3 text-[#6B7682] hover:text-[#1F2933] transition">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
@@ -242,43 +242,43 @@
                     ✅ Письмо с подтверждением отправлено на вашу почту!
                 </div>
                 <button onclick="handleRegister()"
-                    class="w-full py-3 bg-[#0071E3] hover:bg-[#0077ED] text-white font-medium rounded-xl transition neon-glow text-sm">
+                    class="w-full py-3 bg-[#5768CF] hover:bg-[#4857BF] text-white font-medium rounded-xl transition neon-glow text-sm">
                     Создать аккаунт
                 </button>
             </div>
 
             <!-- Форма ЗАБЫЛ ПАРОЛЬ -->
             <div id="form-forgot" class="space-y-3 hidden">
-                <p class="text-sm text-[#6E6E73] text-center mb-2">Введите email — пришлём ссылку для сброса пароля</p>
+                <p class="text-sm text-[#3E434F] text-center mb-2">Введите email — пришлём ссылку для сброса пароля</p>
                 <input type="email" id="forgot-email" placeholder="Ваш email адрес"
-                    class="input-field w-full px-4 py-3 rounded-xl text-[#1D1D1F] text-sm placeholder-[#86868B]">
+                    class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
                 <div id="forgot-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <div id="forgot-success" class="hidden text-xs text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
                     ✅ Письмо отправлено! Проверьте почту.
                 </div>
                 <button onclick="handleForgotPassword(event)"
-                    class="w-full py-3 bg-[#0071E3] hover:bg-[#0077ED] text-white font-medium rounded-xl transition neon-glow text-sm">
+                    class="w-full py-3 bg-[#5768CF] hover:bg-[#4857BF] text-white font-medium rounded-xl transition neon-glow text-sm">
                     Отправить ссылку
                 </button>
-                <button onclick="switchTab('login')" class="w-full py-2 text-sm text-[#6E6E73] hover:text-[#1D1D1F] transition">
+                <button onclick="switchTab('login')" class="w-full py-2 text-sm text-[#3E434F] hover:text-[#1F2933] transition">
                     ← Вернуться к входу
                 </button>
             </div>
 
         </div>
 
-        <p class="login-footer-text text-center text-xs text-[#86868B] mt-6">© Nur Consulting &amp; NR Space</p>
+        <p class="login-footer-text text-center text-xs text-[#6B7682] mt-6">© Nur Consulting &amp; NR Space</p>
     </div>
 
     <!-- ЭКРАН 2: ПРИВЕТСТВИЕ (legacy, не показывается при OAuth) -->
     <div id="screen-cabinets" class="w-full max-w-md fade-in hidden text-center">
         <div style="padding:40px 20px">
-            <div style="width:90px;height:90px;background:#1D1D1F;border-radius:26px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px">
+            <div style="width:90px;height:90px;background:#1F2933;border-radius:26px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px">
                 <span style="color:#fff;font-size:32px;font-weight:900;letter-spacing:-0.04em">NR</span>
             </div>
-            <div style="color:#86868B;font-size:14px;font-weight:500;letter-spacing:0.12em;margin-bottom:28px">Space</div>
-            <h2 style="color:#1D1D1F;font-size:20px;font-weight:600;margin-bottom:10px">Добро пожаловать, <span id="user-name" style="color:#0071E3">—</span></h2>
-            <p style="color:#6E6E73;font-size:13px;margin-bottom:36px;line-height:1.6">Вход в NR Space...</p>
+            <div style="color:#6B7682;font-size:14px;font-weight:500;letter-spacing:0.12em;margin-bottom:28px">Space</div>
+            <h2 style="color:#1F2933;font-size:20px;font-weight:600;margin-bottom:10px">Добро пожаловать, <span id="user-name" style="color:#5768CF">—</span></h2>
+            <p style="color:#3E434F;font-size:13px;margin-bottom:36px;line-height:1.6">Вход в NR Space...</p>
         </div>
     </div>
 
