@@ -10,6 +10,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCanvas } from 'https://deno.land/x/canvas@v1.4.2/mod.ts';
+import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 
 const CORS = {
@@ -39,21 +40,21 @@ Deno.serve(async (req) => {
     const tgToken = getTelegramToken() || (Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '');
     const tgChatId = getTelegramChatId('penalties') || (Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '');
 
-    const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ') || authHeader.replace('Bearer ', '') !== serviceKey) {
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
+    if (!isServiceAuthorized(req, serviceKey, Boolean(body?.force))) {
         return json({ error: 'Unauthorized' }, 401);
     }
     if (!tgToken || !tgChatId) {
         return json({ error: 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_PENALTIES (или TELEGRAM_GROUP_CHAT_ID) не заданы' }, 400);
     }
 
-    const body = await req.json().catch(() => ({} as Record<string, unknown>));
     const reportDate = typeof body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date)
         ? body.date
         : yesterdayBishkek();
     const onlyCabinets: string[] | null = Array.isArray(body?.cabinets) ? body.cabinets.map(String) : null;
 
-    const admin = createClient(supabaseUrl, serviceKey);
+    const bearer = (req.headers.get('Authorization') ?? '').replace(/^Bearer\s+/i, '').trim();
+    const admin = createClient(supabaseUrl, serviceKey || bearer);
     const results: Array<Record<string, unknown>> = [];
 
     try {
