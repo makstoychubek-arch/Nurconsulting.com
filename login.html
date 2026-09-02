@@ -20,7 +20,7 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="/dist/tailwind.6bd41e7b3b.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.abd92674d1.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
@@ -30,9 +30,7 @@
 
     <style>
         .glass-card {
-            background: rgba(255, 255, 255, 0.78);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            background: #FFFFFF;
             border: 1px solid rgba(0, 0, 0, 0.06);
         }
         .input-field {
@@ -46,7 +44,6 @@
             background: rgba(87, 104, 207, 0.05);
             box-shadow: 0 0 0 3px rgba(87, 104, 207, 0.12);
         }
-        .neon-glow { box-shadow: 0 10px 30px rgba(87, 104, 207, 0.25); }
         .tab-active {
             background: rgba(87, 104, 207, 0.1);
             border-color: rgba(87, 104, 207, 0.3);
@@ -68,11 +65,10 @@
         html.oauth-pending #screen-oauth-loading { display: flex !important; }
         .oauth-logo {
             width: 88px; height: 88px;
-            background: linear-gradient(135deg, #5768CF, #0A84FF);
+            background: #5768CF;
             border-radius: 26px;
             display: flex; align-items: center; justify-content: center;
             margin-bottom: 28px;
-            box-shadow: 0 12px 30px rgba(87, 104, 207,0.25);
         }
         .oauth-logo span { color: white; font-size: 34px; font-weight: 900; letter-spacing: -0.04em; }
         .oauth-space {
@@ -132,10 +128,7 @@
 </head>
 <body class="bg-[#F8F9FA] text-[#3E434F] font-sans antialiased min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
 
-    <div class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-[#5768CF]/10 rounded-full blur-[130px] pointer-events-none"></div>
-    <div class="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-[#2F9E44]/8 rounded-full blur-[120px] pointer-events-none"></div>
-
-    <a href="/" class="absolute top-6 left-6 flex items-center justify-center w-10 h-10 rounded-xl bg-[#1F2933] text-white font-black text-xs tracking-tighter shadow-lg oauth-home-link">NR</a>
+    <a href="/" class="absolute top-6 left-6 flex items-center justify-center w-10 h-10 rounded-xl bg-[#1F2933] text-white font-black text-xs tracking-tighter oauth-home-link">NR</a>
 
     <!-- ЭКРАН: OAuth / проверка сессии -->
     <div id="screen-oauth-loading">
@@ -155,7 +148,7 @@
         <h1 class="login-title text-xl font-semibold text-[#1F2933] tracking-tight text-center mb-2">Вход в NR Space</h1>
         <p class="login-subtitle text-sm text-[#6B7682] text-center mb-6">Войдите, чтобы открыть аналитику вашего магазина</p>
 
-        <div class="login-card glass-card rounded-3xl p-8 shadow-xl">
+        <div class="login-card glass-card rounded-2xl p-8">
 
             <div class="flex bg-black/[0.03] rounded-xl p-1 mb-6 border border-black/5">
                 <button onclick="switchTab('login')" id="tab-login"
@@ -169,7 +162,7 @@
             </div>
 
             <button onclick="signInWithGoogle()"
-                class="w-full flex items-center justify-center space-x-3 py-3 bg-white hover:bg-gray-50 text-[#1F2933] font-medium rounded-xl transition mb-5 shadow-md border border-black/8">
+                class="w-full flex items-center justify-center space-x-3 py-3 bg-white hover:bg-gray-50 text-[#1F2933] font-medium rounded-xl transition mb-5 border border-black/8">
                 <svg class="w-5 h-5" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -206,7 +199,7 @@
                 </div>
                 <div id="login-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <button onclick="handleLogin()"
-                    class="w-full py-3 bg-[#5768CF] hover:bg-[#4857BF] text-white font-medium rounded-xl transition neon-glow text-sm">
+                    class="w-full py-3 bg-[#5768CF] hover:bg-[#4857BF] text-white font-medium rounded-xl transition text-sm">
                     Продолжить
                 </button>
             </div>
@@ -242,7 +235,7 @@
                     ✅ Письмо с подтверждением отправлено на вашу почту!
                 </div>
                 <button onclick="handleRegister()"
-                    class="w-full py-3 bg-[#5768CF] hover:bg-[#4857BF] text-white font-medium rounded-xl transition neon-glow text-sm">
+                    class="w-full py-3 bg-[#5768CF] hover:bg-[#4857BF] text-white font-medium rounded-xl transition text-sm">
                     Создать аккаунт
                 </button>
             </div>
@@ -257,7 +250,7 @@
                     ✅ Письмо отправлено! Проверьте почту.
                 </div>
                 <button onclick="handleForgotPassword(event)"
-                    class="w-full py-3 bg-[#5768CF] hover:bg-[#4857BF] text-white font-medium rounded-xl transition neon-glow text-sm">
+                    class="w-full py-3 bg-[#5768CF] hover:bg-[#4857BF] text-white font-medium rounded-xl transition text-sm">
                     Отправить ссылку
                 </button>
                 <button onclick="switchTab('login')" class="w-full py-2 text-sm text-[#3E434F] hover:text-[#1F2933] transition">

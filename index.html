@@ -12,7 +12,7 @@
     <title>Nur Consulting — NR Space</title>
     <script src="/nr-auth.js"></script>
     <!-- Подключение Tailwind CSS и шрифтов -->
-    <link rel="stylesheet" href="/dist/tailwind.6bd41e7b3b.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.abd92674d1.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -43,35 +43,25 @@
         img { max-width: 100%; height: auto; }
 
         .glass-card {
-            background: rgba(255, 255, 255, 0.72);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
+            background: var(--bg-surface);
             border: 1px solid var(--border);
-            box-shadow: 0 8px 30px 0 rgba(20, 20, 30, 0.05);
-            transition: all 0.3s ease;
+            box-shadow: 0 1px 2px 0 rgba(20, 20, 30, 0.04);
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
         @media (hover: hover) and (pointer: fine) {
             .glass-card:hover {
                 border-color: var(--accent-border);
-                box-shadow: 0 8px 30px 0 rgba(87, 104, 207, 0.12);
             }
             .hover-glow:hover {
                 border-color: var(--accent-border);
-                box-shadow: 0 8px 30px 0 rgba(87, 104, 207, 0.1), inset 0 1px 0 rgba(255,255,255,0.6);
-                background: rgba(87, 104, 207,0.04);
+                background: var(--accent-soft);
             }
             .module-card:hover .module-icon { transform: scale(1.1); }
             .module-card:hover .module-title { color: var(--accent); }
             .module-card:hover .module-desc { color: var(--text-secondary); }
         }
         @media (hover: none) {
-            .hover-glow:active { background: rgba(87, 104, 207,0.06); }
-        }
-        .neon-glow { box-shadow: 0 10px 30px rgba(87, 104, 207, 0.28); }
-        .text-gradient {
-            background: linear-gradient(135deg, var(--accent) 20%, #2F9E44 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            .hover-glow:active { background: var(--accent-soft); }
         }
         .section-divider { width: 100%; height: 1px; background: var(--border); }
 
@@ -98,26 +88,11 @@
         ::-webkit-scrollbar-thumb { background: #d2d2d7; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
-        .grid-bg {
-            position: fixed; inset: 0; pointer-events: none; z-index: 0;
-            background-image:
-                linear-gradient(rgba(0,0,0,0.035) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0,0,0,0.035) 1px, transparent 1px);
-            background-size: 80px 80px;
-            mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
-            -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
-        }
-
-        .page-layer { position: relative; z-index: 10; }
-
     </style>
 </head>
 <body class="bg-[#F8F9FA] text-[#3E434F] font-sans antialiased selection:bg-[#5768CF] selection:text-white overflow-x-hidden">
 
-    <div class="grid-bg" aria-hidden="true"></div>
-
-    <div class="page-layer">
-    <header class="fixed top-0 left-0 right-0 z-50 glass-card bg-opacity-70 border-b border-black/5">
+    <header class="fixed top-0 left-0 right-0 z-50 bg-white border-b border-black/5">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 md:h-20 flex items-center justify-between">
             <a href="#" class="flex items-center gap-2 shrink-0">
                 <span class="flex items-center justify-center w-10 h-10 rounded-xl bg-[#1F2933] text-white font-black text-xs tracking-tighter shadow-md">NR</span>
@@ -135,7 +110,7 @@
                 <a href="/login" class="hidden sm:flex items-center px-4 py-2.5 min-h-[44px] text-sm font-medium text-[#3E434F] hover:text-[#1F2933] glass-card rounded-xl transition">
                     Войти
                 </a>
-                <a href="/login" class="hidden sm:flex items-center px-5 py-2.5 min-h-[44px] bg-[#5768CF] hover:bg-[#4857BF] active:bg-[#3D4B99] text-white text-sm font-semibold rounded-xl transition neon-glow">
+                <a href="/login" class="hidden sm:flex items-center px-5 py-2.5 min-h-[44px] bg-[#5768CF] hover:bg-[#4857BF] active:bg-[#3D4B99] text-white text-sm font-semibold rounded-xl transition">
                     NR Space →
                 </a>
                 <button type="button" id="burger-btn" class="lg:hidden flex flex-col justify-center items-center w-11 h-11 rounded-xl border border-black/10 active:bg-black/5 transition-colors gap-1.5" aria-label="Меню">
@@ -149,7 +124,7 @@
 
     <!-- Mobile menu overlay -->
     <div id="mobile-menu-overlay" class="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm lg:hidden hidden" onclick="closeMobileNav()"></div>
-    <div id="mobile-menu-panel" class="fixed top-0 right-0 z-50 h-full w-72 sm:w-80 bg-white border-l border-black/5 closed lg:hidden flex flex-col shadow-2xl">
+    <div id="mobile-menu-panel" class="fixed top-0 right-0 z-50 h-full w-72 sm:w-80 bg-white border-l border-black/5 closed lg:hidden flex flex-col shadow-sm">
         <div class="flex items-center justify-between p-4 border-b border-black/5">
             <div class="flex items-baseline gap-1">
                 <span class="font-black text-lg text-[#1F2933]">NR</span>
@@ -172,24 +147,20 @@
 
     <!-- HERO SECTION -->
     <section class="relative pt-32 md:pt-40 pb-16 md:pb-20 px-4 sm:px-6 max-w-7xl mx-auto min-h-screen flex flex-col justify-center">
-        <div class="absolute inset-0 overflow-hidden pointer-events-none -z-10">
-            <div class="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-[#5768CF]/12 blur-[120px]"></div>
-            <div class="absolute top-20 right-0 w-80 h-80 rounded-full bg-[#2F9E44]/10 blur-[100px]"></div>
-        </div>
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div class="lg:col-span-7 space-y-6 md:space-y-8">
                 <div class="hero-el-badge inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-[#5768CF]/8 border border-[#5768CF]/20 text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-[#5768CF]">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#5768CF] animate-pulse"></span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-[#5768CF]"></span>
                     <span>Nur Consulting × NR Space</span>
                 </div>
                 <h1 class="hero-el-1 text-[2.5rem] leading-[1.05] sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter text-[#1F2933]">
-                    Превращаем <span class="text-gradient">Wildberries</span><br>в систему роста и прибыли
+                    Превращаем <span class="text-[#5768CF]">Wildberries</span><br>в систему роста и прибыли
                 </h1>
                 <p class="hero-el-2 text-sm sm:text-base md:text-lg text-[#3E434F] max-w-xl leading-relaxed">
                     Мы не просто агентство. Мы операционная команда для масштабирования крупного бизнеса на маркетплейсах. Передайте управление экспертам и сфокусируйтесь на развитии стратегии.
                 </p>
                 <div class="hero-el-3 flex flex-wrap gap-4 pt-2">
-                    <a href="https://t.me/maraomg" target="_blank" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] bg-[#5768CF] hover:bg-[#4857BF] active:bg-[#3D4B99] text-white font-semibold rounded-xl transition neon-glow text-center w-full sm:w-auto text-sm">
+                    <a href="https://t.me/maraomg" target="_blank" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] bg-[#5768CF] hover:bg-[#4857BF] active:bg-[#3D4B99] text-white font-semibold rounded-xl transition text-center w-full sm:w-auto text-sm">
                         Получить бесплатный аудит
                     </a>
                     <a href="https://t.me/maraomg" target="_blank" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] glass-card text-[#1F2933] hover-glow font-medium rounded-xl transition text-center w-full sm:w-auto text-sm">
@@ -283,8 +254,7 @@
 
     <!-- CASE STUDY SECTION -->
     <section id="cases" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
-        <div class="glass-card rounded-3xl p-8 sm:p-12 border-[#5768CF]/15 relative overflow-hidden">
-            <div class="absolute top-0 right-0 w-[400px] h-[400px] bg-[#5768CF]/8 rounded-full blur-[100px] pointer-events-none"></div>
+        <div class="glass-card rounded-2xl p-8 sm:p-12">
             <div class="grid lg:grid-cols-12 gap-12 items-center">
                 <div class="lg:col-span-6 space-y-6">
                     <span class="text-xs font-bold uppercase tracking-widest text-[#5768CF]">Главный кейс</span>
@@ -313,8 +283,7 @@
 
     <!-- RNP CASE SECTION -->
     <section id="rnp-case" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
-        <div class="glass-card rounded-3xl p-8 sm:p-12 border-black/5 relative overflow-hidden">
-            <div class="absolute -top-10 -right-10 w-[350px] h-[350px] bg-[#2F9E44]/8 rounded-full blur-[100px] pointer-events-none"></div>
+        <div class="glass-card rounded-2xl p-8 sm:p-12">
             <div class="grid lg:grid-cols-12 gap-12 items-center">
                 <div class="lg:col-span-5 space-y-6">
                     <span class="text-xs font-bold uppercase tracking-widest text-[#5768CF]">Кейс модуля РНП</span>
@@ -388,7 +357,7 @@
         <!-- Уровень 1: ключевая команда -->
         <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-5">
             <!-- Нурболот -->
-            <div class="relative glass-card card-shimmer p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group">
+            <div class="relative glass-card p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group">
                 <div class="relative mb-4 mx-auto w-fit">
                     <div class="team-avatar-wrap lg border border-black/10" data-gender="male" data-size="80"></div>
                     <span class="absolute -top-1 -right-1 z-10 text-[9px] font-black tracking-widest px-2 py-0.5 rounded-md bg-[#5768CF] text-white uppercase">FOUNDER</span>
@@ -398,28 +367,28 @@
                 <p class="text-xs text-[#3E434F] font-light mt-3 leading-relaxed">Эксперт по развитию и масштабированию крупного бизнеса на Wildberries. Управляет внутренней архитектурой экосистемы и координирует ключевые процессы автоматизации.</p>
             </div>
             <!-- Марлен -->
-            <div class="glass-card card-shimmer p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group">
+            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group">
                 <div class="team-avatar-wrap lg border border-black/10" data-gender="male" data-size="80"></div>
                 <h4 class="text-[#1F2933] font-bold text-base sm:text-lg text-center">Марлен</h4>
                 <p class="text-[10px] sm:text-[11px] text-[#5768CF] uppercase tracking-wider font-semibold mt-0.5 text-center">Логистика</p>
                 <p class="text-xs text-[#3E434F] font-light mt-3 leading-relaxed">Оптимизирует цепочки поставок, управляет отгрузками на 7+ ключевых складов и контролирует оборачиваемость стока.</p>
             </div>
             <!-- Инсия -->
-            <div class="glass-card card-shimmer p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group">
+            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group">
                 <div class="team-avatar-wrap lg border border-black/10" data-gender="female" data-size="80"></div>
                 <h4 class="text-[#1F2933] font-bold text-base sm:text-lg text-center">Инсия</h4>
                 <p class="text-[10px] sm:text-[11px] text-[#5768CF] uppercase tracking-wider font-semibold mt-0.5 text-center">Аналитика данных</p>
                 <p class="text-xs text-[#3E434F] font-light mt-3 leading-relaxed">Строит управленческую отчетность, настраивает интеграции через API и находит скрытые точки потери маржинальности.</p>
             </div>
             <!-- Ольга -->
-            <div class="glass-card card-shimmer p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group">
+            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group">
                 <div class="team-avatar-wrap lg border border-black/10" data-gender="female" data-size="80"></div>
                 <h4 class="text-[#1F2933] font-bold text-base sm:text-lg text-center">Ольга</h4>
                 <p class="text-[10px] sm:text-[11px] text-[#5768CF] uppercase tracking-wider font-semibold mt-0.5 text-center">UI/UX Дизайнер</p>
                 <p class="text-xs text-[#3E434F] font-light mt-3 leading-relaxed">Создает премиальный визуальный стиль брендов, проектирует высококонверсионные воронки и карточки товаров.</p>
             </div>
             <!-- Дарья -->
-            <div class="glass-card card-shimmer p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group sm:col-span-2 lg:col-span-1 xl:col-span-1">
+            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group sm:col-span-2 lg:col-span-1 xl:col-span-1">
                 <div class="team-avatar-wrap lg border border-black/10" data-gender="female" data-size="80"></div>
                 <h4 class="text-[#1F2933] font-bold text-base sm:text-lg text-center">Дарья</h4>
                 <p class="text-[10px] sm:text-[11px] text-[#5768CF] uppercase tracking-wider font-semibold mt-0.5 text-center">Продвижение</p>
@@ -432,19 +401,19 @@
             <p class="text-[#6B7682] text-xs uppercase tracking-widest text-center">Операционный состав</p>
         </div>
         <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="glass-card card-shimmer p-4 rounded-2xl border border-black/5 hover-glow">
+            <div class="glass-card p-4 rounded-2xl border border-black/5 hover-glow">
                 <div class="team-avatar-wrap sm border border-black/10" data-gender="male" data-size="48"></div>
                 <h4 class="text-[#1F2933] font-semibold text-sm">Данияр Асанов</h4>
                 <p class="text-[10px] text-[#5768CF] uppercase tracking-wider font-semibold mt-0.5">Младший аналитик</p>
                 <p class="text-xs text-[#6B7682] mt-2 leading-relaxed">Сбор первичных данных для модулей РНП, базовый аудит личных кабинетов селлеров и выгрузка отчетов.</p>
             </div>
-            <div class="glass-card card-shimmer p-4 rounded-2xl border border-black/5 hover-glow">
+            <div class="glass-card p-4 rounded-2xl border border-black/5 hover-glow">
                 <div class="team-avatar-wrap sm border border-black/10" data-gender="male" data-size="48"></div>
                 <h4 class="text-[#1F2933] font-semibold text-sm">Амир Исаев</h4>
                 <p class="text-[10px] text-[#5768CF] uppercase tracking-wider font-semibold mt-0.5">Ассистент по логистике</p>
                 <p class="text-xs text-[#6B7682] mt-2 leading-relaxed">Мониторинг текущего индекса локализации, отслеживание тарифов складов и пакетная генерация штрихкодов.</p>
             </div>
-            <div class="glass-card card-shimmer p-4 rounded-2xl border border-black/5 hover-glow">
+            <div class="glass-card p-4 rounded-2xl border border-black/5 hover-glow">
                 <div class="team-avatar-wrap sm border border-black/10" data-gender="female" data-size="48"></div>
                 <h4 class="text-[#1F2933] font-semibold text-sm">Алина Волкова</h4>
                 <p class="text-[10px] text-[#5768CF] uppercase tracking-wider font-semibold mt-0.5">Младший SEO-специалист</p>
@@ -464,13 +433,13 @@
                 <p class="text-[#3E434F] text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed">Один инструмент — полный контроль бизнеса на Wildberries</p>
             </div>
             <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
-                <div class="module-card card-shimmer hover-glow"><div class="module-icon">📊</div><h3 class="module-title">Главный Дашборд & Оцифровка</h3><p class="module-desc">Полная автоматическая оцифровка бизнеса на Wildberries. Интерактивные графики выручки, чистой прибыли, маржинальности и ключевых метрик в реальном времени. Вся картина бизнеса на одном экране.</p></div>
-                <div class="module-card card-shimmer hover-glow"><div class="module-icon">🎯</div><h3 class="module-title">Модуль РНП по артикулам</h3><p class="module-desc">Глубокая аналитика по каждому артикулу. Детальные конверсии воронки, подсветка сильных сторон и моментальное выявление товаров, которые генерируют прибыль или сливают бюджет.</p></div>
-                <div class="module-card card-shimmer hover-glow"><div class="module-icon">🧪</div><h3 class="module-title">Встроенные А/Б Тесты</h3><p class="module-desc">Тестируйте главные фото, инфографику и цены прямо внутри платформы. Система замеряет кликабельность (CTR) каждого варианта и автоматически определяет победителя.</p></div>
-                <div class="module-card card-shimmer hover-glow"><div class="module-icon">🚀</div><h3 class="module-title">Управление и Контроль РК</h3><p class="module-desc">Тотальный контроль рекламных кабинетов. Анализ эффективности каждой кампании, отслеживание CPC, ДРР, реальных затрат и ROI без рутины.</p></div>
-                <div class="module-card card-shimmer hover-glow"><div class="module-icon">🔍</div><h3 class="module-title">Позиции в выдаче WB</h3><p class="module-desc">Введите артикул — система ежедневно автоматически проверяет его позиции по ключевым запросам. Узнайте первыми, когда карточка поднимается в топ или проседает.</p></div>
-                <div class="module-card card-shimmer hover-glow"><div class="module-icon">🖨️</div><h3 class="module-title">Маркировка и Генерация ШК</h3><p class="module-desc">Загружайте баркоды из Wildberries напрямую. Мгновенная генерация готовых к печати штрихкодов. Пакетное создание по размерам и экспорт в PDF под термопринтер в 1 клик.</p></div>
-                <div class="module-card card-shimmer hover-glow sm:col-span-2 lg:col-span-3"><div class="module-icon">📦</div><h3 class="module-title">Умная Логистика & Индекс Локализации</h3><p class="module-desc">Автоматический расчёт Индекса Локализации и доли заказов по регионам. Точные рекомендации: на какие склады загрузить товар, чтобы снизить стоимость логистики WB.</p></div>
+                <div class="module-card hover-glow"><div class="module-icon">📊</div><h3 class="module-title">Главный Дашборд & Оцифровка</h3><p class="module-desc">Полная автоматическая оцифровка бизнеса на Wildberries. Интерактивные графики выручки, чистой прибыли, маржинальности и ключевых метрик в реальном времени. Вся картина бизнеса на одном экране.</p></div>
+                <div class="module-card hover-glow"><div class="module-icon">🎯</div><h3 class="module-title">Модуль РНП по артикулам</h3><p class="module-desc">Глубокая аналитика по каждому артикулу. Детальные конверсии воронки, подсветка сильных сторон и моментальное выявление товаров, которые генерируют прибыль или сливают бюджет.</p></div>
+                <div class="module-card hover-glow"><div class="module-icon">🧪</div><h3 class="module-title">Встроенные А/Б Тесты</h3><p class="module-desc">Тестируйте главные фото, инфографику и цены прямо внутри платформы. Система замеряет кликабельность (CTR) каждого варианта и автоматически определяет победителя.</p></div>
+                <div class="module-card hover-glow"><div class="module-icon">🚀</div><h3 class="module-title">Управление и Контроль РК</h3><p class="module-desc">Тотальный контроль рекламных кабинетов. Анализ эффективности каждой кампании, отслеживание CPC, ДРР, реальных затрат и ROI без рутины.</p></div>
+                <div class="module-card hover-glow"><div class="module-icon">🔍</div><h3 class="module-title">Позиции в выдаче WB</h3><p class="module-desc">Введите артикул — система ежедневно автоматически проверяет его позиции по ключевым запросам. Узнайте первыми, когда карточка поднимается в топ или проседает.</p></div>
+                <div class="module-card hover-glow"><div class="module-icon">🖨️</div><h3 class="module-title">Маркировка и Генерация ШК</h3><p class="module-desc">Загружайте баркоды из Wildberries напрямую. Мгновенная генерация готовых к печати штрихкодов. Пакетное создание по размерам и экспорт в PDF под термопринтер в 1 клик.</p></div>
+                <div class="module-card hover-glow sm:col-span-2 lg:col-span-3"><div class="module-icon">📦</div><h3 class="module-title">Умная Логистика & Индекс Локализации</h3><p class="module-desc">Автоматический расчёт Индекса Локализации и доли заказов по регионам. Точные рекомендации: на какие склады загрузить товар, чтобы снизить стоимость логистики WB.</p></div>
             </div>
         </div>
     </section>
@@ -479,7 +448,7 @@
 
     <!-- PLATFORM SHOWCASE -->
     <section id="platform-showcase" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
-        <div class="glass-card rounded-3xl p-6 sm:p-8 md:p-12 border-[#5768CF]/15 relative overflow-hidden bg-white">
+        <div class="glass-card rounded-2xl p-6 sm:p-8 md:p-12">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
                 <div class="space-y-6">
                     <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#5768CF]/8 border border-[#5768CF]/25 text-[10px] sm:text-xs text-[#5768CF] uppercase tracking-widest">
@@ -497,9 +466,8 @@
                     </div>
                     <a href="/login" class="inline-flex items-center justify-center px-6 py-3.5 min-h-[48px] bg-[#5768CF] hover:bg-[#4857BF] active:bg-[#3D4B99] text-white text-sm font-semibold rounded-xl transition">Войти в NR Space →</a>
                 </div>
-                <div class="relative flex items-center justify-center py-8">
-                    <div class="w-72 h-72 bg-[#5768CF]/12 rounded-3xl blur-3xl absolute"></div>
-                    <div class="w-56 h-56 sm:w-64 sm:h-64 border border-black/10 rounded-3xl relative glass-card flex flex-col items-center justify-center transform rotate-6 shadow-2xl">
+                <div class="flex items-center justify-center py-8">
+                    <div class="w-56 h-56 sm:w-64 sm:h-64 border border-black/10 rounded-2xl bg-[#F8F9FA] flex flex-col items-center justify-center">
                         <span class="text-3xl sm:text-4xl font-black text-[#1F2933] tracking-tighter">NR</span>
                         <span class="text-sm font-medium text-[#3E434F] tracking-[0.2em] mt-1">Space</span>
                     </div>
@@ -530,7 +498,7 @@
     </footer>
 
     <!-- ФИКСИРОВАННАЯ ПАНЕЛЬ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ -->
-    <div class="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white/90 backdrop-blur-lg border-t border-black/8 p-4">
+    <div class="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white border-t border-black/8 p-4">
         <div class="grid grid-cols-4 gap-2 text-center text-[10px] font-medium tracking-wide text-[#3E434F]">
             <a href="tel:+79667520397" class="flex flex-col items-center justify-center p-2 rounded-xl bg-black/[0.03] active:bg-black/[0.06] text-[#1F2933]">
                 <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.72.73.73 0 00.9.5l3.4-1.36a1 1 0 011.02.22M21 19a2 2 0 01-2 2h-3.28a1 1 0 01-.94-.72l-.9-.5a1 1 0 01-.22-1.02l1.36-3.4a1 1 0 011.02-.22M21 19V5m0 14h-6"></path></svg>
@@ -549,8 +517,6 @@
             </a>
         </div>
     </div>
-
-    </div><!-- /.page-layer -->
 
     <script>
         // SVG-аватары команды
