@@ -4832,3 +4832,9 @@ const RNP = (() => {
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();
+
+// Билд минифицирует этот файл в IIFE (esbuild format: 'iife'), из-за чего
+// top-level `const RNP` остаётся внутри обёртки и снаружи не виден: дашборд
+// вечно ждёт `typeof RNP !== 'undefined'`, а inline-onclick'и падают с
+// ReferenceError. Явный экспорт в window переживает минификацию.
+window.RNP = RNP;
