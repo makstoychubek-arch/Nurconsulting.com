@@ -11,7 +11,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nur Consulting — NR Space</title>
     <!-- Подключение Tailwind CSS и шрифтов -->
-    <link rel="stylesheet" href="/dist/tailwind.f25af07eed.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.3def9a8af6.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -73,38 +73,14 @@
         }
         .section-divider { width: 100%; height: 1px; background: var(--border); }
 
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(24px); filter: blur(4px); }
-            to { opacity: 1; transform: translateY(0); filter: blur(0); }
-        }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .animate-hero-badge { animation: fadeIn 0.6s ease 0.05s both; }
-        .animate-hero-1 { animation: fadeInUp 0.9s cubic-bezier(0.16,1,0.3,1) 0.1s both; }
-        .animate-hero-2 { animation: fadeInUp 0.9s cubic-bezier(0.16,1,0.3,1) 0.3s both; }
-        .animate-hero-3 { animation: fadeInUp 0.9s cubic-bezier(0.16,1,0.3,1) 0.5s both; }
-        .animate-hero-4 { animation: fadeInUp 0.9s cubic-bezier(0.16,1,0.3,1) 0.7s both; }
-
-        .reveal {
-            opacity: 0; transform: translateY(32px); filter: blur(3px);
-            transition: opacity 0.8s cubic-bezier(0.16,1,0.3,1), transform 0.8s cubic-bezier(0.16,1,0.3,1), filter 0.6s ease;
-        }
-        .reveal.revealed { opacity: 1; transform: translateY(0); filter: blur(0); }
-        .reveal-stagger > * {
-            opacity: 0; transform: translateY(24px);
-            transition: opacity 0.7s cubic-bezier(0.16,1,0.3,1), transform 0.7s cubic-bezier(0.16,1,0.3,1);
-        }
-        .reveal-stagger.revealed > *:nth-child(1) { opacity:1; transform:none; transition-delay: 0.05s; }
-        .reveal-stagger.revealed > *:nth-child(2) { opacity:1; transform:none; transition-delay: 0.12s; }
-        .reveal-stagger.revealed > *:nth-child(3) { opacity:1; transform:none; transition-delay: 0.19s; }
-        .reveal-stagger.revealed > *:nth-child(4) { opacity:1; transform:none; transition-delay: 0.26s; }
-        .reveal-stagger.revealed > *:nth-child(5) { opacity:1; transform:none; transition-delay: 0.33s; }
-        .reveal-stagger.revealed > *:nth-child(6) { opacity:1; transform:none; transition-delay: 0.40s; }
-        .reveal-stagger.revealed > *:nth-child(7) { opacity:1; transform:none; transition-delay: 0.47s; }
+        .reveal, .reveal.revealed { opacity: 1; transform: none; filter: none; }
+        .reveal-stagger > *,
+        .reveal-stagger.revealed > * { opacity: 1; transform: none; filter: none; }
 
         .module-card {
             position: relative; padding: 1.5rem; border-radius: 1rem;
             border: 1px solid var(--border); background: rgba(255,255,255,0.02);
-            backdrop-filter: blur(4px); transition: all 0.5s ease;
+            backdrop-filter: blur(4px); transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
         .module-icon { font-size: 1.875rem; margin-bottom: 1rem; transition: transform 0.3s ease; }
         .module-title { color: #fff; font-weight: 600; font-size: 1rem; margin-bottom: 0.5rem; transition: color 0.3s; }
@@ -119,10 +95,6 @@
         ::-webkit-scrollbar-thumb { background: #1a1a1a; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #a855f7; }
 
-        /* === STEP 9: Visual effects === */
-        body { animation: siteReveal 0.6s ease-out both; }
-        @keyframes siteReveal { from { opacity: 0; } to { opacity: 1; } }
-
         .grid-bg {
             position: fixed; inset: 0; pointer-events: none; z-index: 0;
             background-image:
@@ -132,401 +104,9 @@
             mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
             -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 40%, transparent 100%);
         }
-        .geo-bg { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
-        .geo-sq {
-            position: absolute; border: 1px solid rgba(168, 85, 247, 0.15);
-            border-radius: 4px; animation: geoFloat linear infinite;
-        }
-        .geo-sq:nth-child(1)  { width:40px;height:40px;top:8%;left:5%;animation-duration:18s;opacity:.6; }
-        .geo-sq:nth-child(2)  { width:16px;height:16px;top:15%;left:82%;animation-duration:22s;animation-delay:-4s;opacity:.4; }
-        .geo-sq:nth-child(3)  { width:60px;height:60px;top:55%;left:90%;animation-duration:28s;animation-delay:-8s;opacity:.3;transform:rotate(15deg);animation-name:geoFloatRotated; }
-        .geo-sq:nth-child(4)  { width:24px;height:24px;top:70%;left:12%;animation-duration:20s;animation-delay:-2s;opacity:.5; }
-        .geo-sq:nth-child(5)  { width:8px;height:8px;top:35%;left:48%;animation-duration:15s;animation-delay:-6s;opacity:.7; }
-        .geo-sq:nth-child(6)  { width:32px;height:32px;top:85%;left:65%;animation-duration:25s;animation-delay:-10s;opacity:.35;transform:rotate(30deg);animation-name:geoFloatRotated2; }
-        .geo-sq:nth-child(7)  { width:12px;height:12px;top:25%;left:25%;animation-duration:19s;animation-delay:-1s;opacity:.55; }
-        .geo-sq:nth-child(8)  { width:48px;height:48px;top:45%;left:3%;animation-duration:30s;animation-delay:-14s;opacity:.2;transform:rotate(45deg);animation-name:geoFloatRotated3; }
-        .geo-sq:nth-child(9)  { width:20px;height:20px;top:92%;left:38%;animation-duration:17s;animation-delay:-7s;opacity:.45; }
-        .geo-sq:nth-child(10) { width:6px;height:6px;top:60%;left:72%;animation-duration:13s;animation-delay:-3s;opacity:.8; }
-        @keyframes geoFloat {
-            0%,100% { transform: translateY(0); }
-            25% { transform: translateY(-18px); }
-            50% { transform: translateY(-8px); }
-            75% { transform: translateY(-22px); }
-        }
-        @keyframes geoFloatRotated { 0%,100% { transform: translateY(0) rotate(15deg); } 50% { transform: translateY(-20px) rotate(20deg); } }
-        @keyframes geoFloatRotated2 { 0%,100% { transform: translateY(0) rotate(30deg); } 50% { transform: translateY(-15px) rotate(25deg); } }
-        @keyframes geoFloatRotated3 { 0%,100% { transform: translateY(0) rotate(45deg); } 50% { transform: translateY(-25px) rotate(50deg); } }
 
-        .cursor-glow {
-            position: fixed; width: 500px; height: 500px; border-radius: 50%;
-            background: radial-gradient(circle, rgba(168,85,247,0.06) 0%, transparent 70%);
-            pointer-events: none; z-index: 1; transform: translate(-50%, -50%);
-            transition: left 0.08s ease, top 0.08s ease; will-change: left, top;
-        }
-        @media (hover: none) { .cursor-glow { display: none; } }
-
-        @keyframes heroEntrance {
-            0% { opacity: 0; transform: translateY(28px); filter: blur(6px); }
-            100% { opacity: 1; transform: translateY(0); filter: blur(0); }
-        }
-        .hero-el-badge { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 0.6s both; }
-        .hero-el-1 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 1.0s both; }
-        .hero-el-2 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 1.2s both; }
-        .hero-el-3 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 1.4s both; }
-        .hero-el-4 { animation: heroEntrance 1s cubic-bezier(0.16,1,0.3,1) 1.6s both; }
-
-        @keyframes lineExpand {
-            from { transform: scaleX(0); opacity: 0; }
-            to { transform: scaleX(1); opacity: 1; }
-        }
-        .section-divider.revealed {
-            height: 1px;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
-            transform-origin: left;
-            animation: lineExpand 1.2s cubic-bezier(0.16,1,0.3,1) both;
-        }
-
-        .reveal { will-change: opacity, transform, filter; }
-        .reveal-stagger > * { filter: blur(3px); will-change: opacity, transform; }
-        .reveal-stagger.revealed > *:nth-child(n) { filter: blur(0); }
-
-        @keyframes shimmerSlide {
-            0% { transform: translateX(-100%) skewX(-15deg); }
-            100% { transform: translateX(200%) skewX(-15deg); }
-        }
-        @media (hover: hover) and (pointer: fine) {
-            .card-shimmer { position: relative; overflow: hidden; }
-            .card-shimmer::before {
-                content: ''; position: absolute; top: 0; left: 0;
-                width: 50%; height: 100%;
-                background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
-                transform: translateX(-100%) skewX(-15deg); pointer-events: none;
-            }
-            .card-shimmer:hover::before { animation: shimmerSlide 0.6s ease forwards; }
-        }
-
-        .team-avatar-wrap {
-            display: flex; align-items: center; justify-content: center;
-            margin: 0 auto 1rem; border-radius: 9999px;
-            background: rgba(255,255,255,0.02);
-            overflow: hidden;
-        }
-        .team-avatar-wrap.lg { width: 96px; height: 96px; }
-        .team-avatar-wrap.sm { width: 48px; height: 48px; margin-bottom: 0.75rem; }
         .page-layer { position: relative; z-index: 10; }
 
-        /* ============================================================
-           NR SPACE — LOGIN PAGE CINEMATIC ENTRANCE
-           ============================================================ */
-        .login-page {
-            background: transparent;
-            min-height: auto;
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            overflow: visible;
-            position: relative;
-            z-index: 2;
-        }
-
-        .neon-rays {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 100;
-        }
-
-        .ray-left {
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 55%;
-            height: 100%;
-            background: linear-gradient(
-                to right,
-                transparent 0%,
-                rgba(236, 72, 153, 0.0) 30%,
-                rgba(236, 72, 153, 0.18) 70%,
-                rgba(168, 85, 247, 0.35) 85%,
-                rgba(255, 255, 255, 0.08) 100%
-            );
-            filter: blur(8px);
-            animation: rayLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both,
-                       rayFadeOut 0.8s ease-out 1.6s both;
-            transform-origin: left center;
-        }
-
-        .ray-right {
-            position: absolute;
-            top: 0;
-            right: -100%;
-            width: 55%;
-            height: 100%;
-            background: linear-gradient(
-                to left,
-                transparent 0%,
-                rgba(236, 72, 153, 0.0) 30%,
-                rgba(236, 72, 153, 0.18) 70%,
-                rgba(168, 85, 247, 0.35) 85%,
-                rgba(255, 255, 255, 0.08) 100%
-            );
-            filter: blur(8px);
-            animation: rayRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both,
-                       rayFadeOut 0.8s ease-out 1.6s both;
-            transform-origin: right center;
-        }
-
-        .ray-top {
-            position: absolute;
-            top: -100%;
-            left: 0;
-            width: 100%;
-            height: 60%;
-            background: linear-gradient(
-                to bottom,
-                rgba(255, 255, 255, 0.06) 0%,
-                rgba(168, 85, 247, 0.25) 40%,
-                rgba(236, 72, 153, 0.12) 75%,
-                transparent 100%
-            );
-            filter: blur(12px);
-            animation: rayTop 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.0s both,
-                       rayFadeOut 0.8s ease-out 1.5s both;
-        }
-
-        .ray-top-line {
-            position: absolute;
-            top: 0;
-            left: 10%;
-            width: 80%;
-            height: 2px;
-            background: linear-gradient(
-                90deg,
-                transparent,
-                rgba(236, 72, 153, 0.6) 20%,
-                rgba(255, 255, 255, 0.9) 50%,
-                rgba(236, 72, 153, 0.6) 80%,
-                transparent
-            );
-            box-shadow:
-                0 0 8px rgba(236, 72, 153, 0.8),
-                0 0 20px rgba(236, 72, 153, 0.4),
-                0 0 40px rgba(168, 85, 247, 0.3);
-            animation: rayTopLine 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both,
-                       rayLineHold 1.0s ease-out 0.6s both,
-                       rayFadeOut 0.6s ease-out 1.6s both;
-            transform-origin: top center;
-        }
-
-        .ray-left-line {
-            position: absolute;
-            top: 5%;
-            left: 0;
-            width: 2px;
-            height: 90%;
-            background: linear-gradient(
-                to bottom,
-                transparent,
-                rgba(236, 72, 153, 0.8) 20%,
-                rgba(255, 255, 255, 0.6) 50%,
-                rgba(236, 72, 153, 0.8) 80%,
-                transparent
-            );
-            box-shadow:
-                0 0 6px rgba(236, 72, 153, 0.9),
-                0 0 16px rgba(236, 72, 153, 0.5),
-                0 0 30px rgba(168, 85, 247, 0.3);
-            animation: sideLineReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both,
-                       rayFadeOut 0.7s ease-out 1.5s both;
-            transform-origin: top center;
-        }
-
-        .ray-right-line {
-            position: absolute;
-            top: 5%;
-            right: 0;
-            width: 2px;
-            height: 90%;
-            background: linear-gradient(
-                to bottom,
-                transparent,
-                rgba(236, 72, 153, 0.8) 20%,
-                rgba(255, 255, 255, 0.6) 50%,
-                rgba(236, 72, 153, 0.8) 80%,
-                transparent
-            );
-            box-shadow:
-                0 0 6px rgba(236, 72, 153, 0.9),
-                0 0 16px rgba(236, 72, 153, 0.5),
-                0 0 30px rgba(168, 85, 247, 0.3);
-            animation: sideLineReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both,
-                       rayFadeOut 0.7s ease-out 1.5s both;
-            transform-origin: top center;
-        }
-
-        .center-glow {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 600px;
-            height: 600px;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 0;
-            background: radial-gradient(
-                circle,
-                rgba(168, 85, 247, 0.20) 0%,
-                rgba(236, 72, 153, 0.10) 35%,
-                transparent 70%
-            );
-            animation: glowPulse 0.8s ease-out 0.4s both;
-        }
-
-        @keyframes rayLeft {
-            0%   { left: -100%; opacity: 0; }
-            100% { left: -10%;  opacity: 1; }
-        }
-        @keyframes rayRight {
-            0%   { right: -100%; opacity: 0; }
-            100% { right: -10%;  opacity: 1; }
-        }
-        @keyframes rayTop {
-            0%   { top: -100%; opacity: 0; }
-            100% { top: -5%;   opacity: 1; }
-        }
-        @keyframes rayTopLine {
-            0%   { transform: scaleX(0); opacity: 0; }
-            100% { transform: scaleX(1); opacity: 1; }
-        }
-        @keyframes rayLineHold {
-            0%   { opacity: 1; }
-            100% { opacity: 0.4; }
-        }
-        @keyframes sideLineReveal {
-            0%   { transform: scaleY(0); opacity: 0; }
-            100% { transform: scaleY(1); opacity: 1; }
-        }
-        @keyframes rayFadeOut {
-            0%   { opacity: 1; }
-            100% { opacity: 0; }
-        }
-        @keyframes glowPulse {
-            0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
-            60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-            100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
-        }
-
-        .login-logo {
-            opacity: 0;
-            filter: blur(12px);
-            transform: scale(0.85);
-            animation: logoReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both;
-        }
-        @keyframes logoReveal {
-            0% { opacity: 0; filter: blur(12px); transform: scale(0.85); }
-            60% { opacity: 1; filter: blur(0px); transform: scale(1.03); }
-            100% { opacity: 1; filter: blur(0px); transform: scale(1); }
-        }
-
-        .login-title {
-            opacity: 0;
-            transform: translateY(20px);
-            filter: blur(6px);
-            animation: titleReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 1.0s both;
-        }
-        .login-subtitle {
-            opacity: 0;
-            transform: translateY(16px);
-            animation: titleReveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) 1.2s both;
-        }
-        @keyframes titleReveal {
-            0%   { opacity: 0; transform: translateY(20px); filter: blur(6px); }
-            100% { opacity: 1; transform: translateY(0);    filter: blur(0);   }
-        }
-
-        .login-card {
-            opacity: 0;
-            transform: translateY(24px) scale(0.97);
-            filter: blur(4px);
-            animation: cardReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) 1.4s both;
-            width: 100%;
-        }
-        @keyframes cardReveal {
-            0% { opacity: 0; transform: translateY(24px) scale(0.97); filter: blur(4px); }
-            100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
-        }
-
-        .login-footer-text {
-            opacity: 0;
-            animation: titleReveal 0.6s ease-out 1.8s both;
-        }
-
-        .ray-left-glow-static,
-        .ray-right-glow-static {
-            position: fixed;
-            top: 0;
-            width: 1px;
-            height: 100%;
-            opacity: 0;
-            pointer-events: none;
-            z-index: 0;
-            animation:
-                staticGlowIn 0.6s ease-out 2.0s both,
-                breathe 4s ease-in-out 2.6s infinite;
-        }
-        .ray-left-glow-static {
-            left: 0;
-            background: linear-gradient(
-                to bottom,
-                transparent 0%,
-                rgba(236, 72, 153, 0.25) 30%,
-                rgba(168, 85, 247, 0.35) 50%,
-                rgba(236, 72, 153, 0.25) 70%,
-                transparent 100%
-            );
-            box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
-        }
-        .ray-right-glow-static {
-            right: 0;
-            background: linear-gradient(
-                to bottom,
-                transparent 0%,
-                rgba(236, 72, 153, 0.25) 30%,
-                rgba(168, 85, 247, 0.35) 50%,
-                rgba(236, 72, 153, 0.25) 70%,
-                transparent 100%
-            );
-            box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
-        }
-        @keyframes staticGlowIn {
-            0%   { opacity: 0; }
-            100% { opacity: 1; }
-        }
-        @keyframes breathe {
-            0%, 100% { opacity: 0.6; }
-            50%       { opacity: 1.0; }
-        }
-
-        @media (max-width: 768px) {
-            .center-glow { width: 350px; height: 350px; }
-            .ray-left, .ray-right { width: 70%; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .neon-rays, .center-glow,
-            .ray-left-glow-static, .ray-right-glow-static { display: none; }
-            .login-logo, .login-title, .login-subtitle,
-            .login-card, .login-footer-text,
-            .hero-el-badge, .hero-el-1, .hero-el-2, .hero-el-3, .hero-el-4 {
-                opacity: 1 !important;
-                animation: none !important;
-                filter: none !important;
-                transform: none !important;
-            }
-        }
     </style>
     <!-- Supabase — наша база данных и авторизация -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -538,24 +118,7 @@
 </head>
 <body class="bg-[#030303] text-gray-200 font-sans antialiased selection:bg-purple-600 selection:text-white overflow-x-hidden">
 
-    <div class="neon-rays" aria-hidden="true">
-        <div class="ray-top"></div>
-        <div class="ray-top-line"></div>
-        <div class="ray-left"></div>
-        <div class="ray-left-line"></div>
-        <div class="ray-right"></div>
-        <div class="ray-right-line"></div>
-    </div>
-    <div class="center-glow" aria-hidden="true"></div>
-    <div class="ray-left-glow-static" aria-hidden="true"></div>
-    <div class="ray-right-glow-static" aria-hidden="true"></div>
-
     <div class="grid-bg" aria-hidden="true"></div>
-    <div class="geo-bg" aria-hidden="true">
-        <div class="geo-sq"></div><div class="geo-sq"></div><div class="geo-sq"></div><div class="geo-sq"></div><div class="geo-sq"></div>
-        <div class="geo-sq"></div><div class="geo-sq"></div><div class="geo-sq"></div><div class="geo-sq"></div><div class="geo-sq"></div>
-    </div>
-    <div id="cursor-glow" class="cursor-glow" aria-hidden="true"></div>
 
     <div class="page-layer">
     <header class="fixed top-0 left-0 right-0 z-50 glass-card bg-opacity-70 border-b border-white/5">
@@ -572,10 +135,10 @@
                 <a href="#contacts" class="nav-link px-3 py-3 min-h-[44px] flex items-center hover:text-white transition-colors duration-200">Контакты</a>
             </nav>
             <div class="flex items-center gap-2">
-                <a href="/login.html" class="hidden sm:flex items-center px-4 py-2.5 min-h-[44px] text-sm font-medium text-white/60 hover:text-white glass-card rounded-xl transition">
+                <a href="/login" class="hidden sm:flex items-center px-4 py-2.5 min-h-[44px] text-sm font-medium text-white/60 hover:text-white glass-card rounded-xl transition">
                     Войти
                 </a>
-                <a href="/login.html" class="hidden sm:flex items-center px-5 py-2.5 min-h-[44px] bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white text-sm font-semibold rounded-xl transition neon-glow">
+                <a href="/login" class="hidden sm:flex items-center px-5 py-2.5 min-h-[44px] bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white text-sm font-semibold rounded-xl transition neon-glow">
                     NR Space →
                 </a>
                 <button type="button" id="burger-btn" class="lg:hidden flex flex-col justify-center items-center w-11 h-11 rounded-xl border border-white/10 active:bg-white/5 transition-colors gap-1.5" aria-label="Меню">
@@ -605,7 +168,7 @@
             <button type="button" onclick="handleNavClick('#contacts')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-white/60 text-sm font-medium active:bg-white/5 min-h-[48px]">Контакты</button>
         </nav>
         <div class="p-4 border-t border-white/5">
-            <a href="/login.html" class="flex items-center justify-center w-full py-3.5 rounded-xl bg-purple-600 active:bg-purple-700 text-white text-sm font-semibold min-h-[48px]">Войти в NR Space →</a>
+            <a href="/login" class="flex items-center justify-center w-full py-3.5 rounded-xl bg-purple-600 active:bg-purple-700 text-white text-sm font-semibold min-h-[48px]">Войти в NR Space →</a>
         </div>
     </div>
 
@@ -867,7 +430,7 @@
                         <div class="flex items-center space-x-2"><span class="text-purple-400">✦</span> <span>Мгновенные дашборды данных</span></div>
                         <div class="flex items-center space-x-2"><span class="text-purple-400">✦</span> <span>Кастомный Telegram-бот</span></div>
                     </div>
-                    <a href="/login.html" class="inline-flex items-center justify-center px-6 py-3.5 min-h-[48px] bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white text-sm font-semibold rounded-xl transition">Войти в NR Space →</a>
+                    <a href="/login" class="inline-flex items-center justify-center px-6 py-3.5 min-h-[48px] bg-purple-600 hover:bg-purple-500 active:bg-purple-700 text-white text-sm font-semibold rounded-xl transition">Войти в NR Space →</a>
                 </div>
                 <div class="relative flex items-center justify-center py-8">
                     <div class="w-72 h-72 bg-purple-600/20 rounded-3xl blur-3xl absolute"></div>
@@ -1095,32 +658,6 @@
                 var gradId = 'avatarGrad' + (gradCounter++);
                 el.innerHTML = buildAvatarSvg(gender, size, gradId);
             });
-        })();
-
-        // Cursor glow (desktop only)
-        (function () {
-            var glow = document.getElementById('cursor-glow');
-            if (!glow || window.matchMedia('(hover: none)').matches) return;
-            var onMove = function (e) {
-                glow.style.left = e.clientX + 'px';
-                glow.style.top = e.clientY + 'px';
-            };
-            window.addEventListener('mousemove', onMove, { passive: true });
-        })();
-
-        // Scroll reveal + section dividers
-        (function () {
-            const els = document.querySelectorAll('.reveal, .reveal-stagger, .section-divider.reveal');
-            if (!els.length) return;
-            const obs = new IntersectionObserver(function (entries) {
-                entries.forEach(function (e) {
-                    if (e.isIntersecting) {
-                        e.target.classList.add('revealed');
-                        obs.unobserve(e.target);
-                    }
-                });
-            }, { threshold: 0.1, rootMargin: '0px 0px -60px 0px' });
-            els.forEach(function (el) { obs.observe(el); });
         })();
 
         // Mobile nav

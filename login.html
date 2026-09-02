@@ -20,7 +20,7 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="/dist/tailwind.f25af07eed.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.3def9a8af6.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -49,20 +49,7 @@
             border-color: rgba(109, 40, 217, 0.5);
             color: white;
         }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .fade-in { animation: fadeIn 0.4s ease forwards; }
-        @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
-        @keyframes pulse-glow {
-            0%, 100% { box-shadow: 0 0 40px rgba(109,40,217,0.4); }
-            50% { box-shadow: 0 0 80px rgba(109,40,217,0.7), 0 0 120px rgba(109,40,217,0.3); }
-        }
-        .skeleton {
-            background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.03) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
-            border-radius: 12px;
-        }
-        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .fade-in { opacity: 1; }
         #screen-oauth-loading {
             display: none;
             position: fixed;
@@ -82,7 +69,6 @@
             border-radius: 26px;
             display: flex; align-items: center; justify-content: center;
             margin-bottom: 28px;
-            animation: pulse-glow 2s ease infinite;
         }
         .oauth-logo span { color: white; font-size: 34px; font-weight: 900; letter-spacing: -0.04em; }
         .oauth-space {
@@ -119,16 +105,13 @@
         }
         .oauth-dots { display: flex; gap: 10px; margin-top: 28px; }
         .oauth-dots span {
-            width: 10px; height: 10px; border-radius: 50%;
+            width: 8px; height: 8px; border-radius: 50%;
             background: #8B5CF6;
-            animation: bounce 1s infinite;
+            opacity: 0.45;
         }
-        .oauth-dots span:nth-child(2) { animation-delay: 150ms; }
-        .oauth-dots span:nth-child(3) { animation-delay: 300ms; }
+        .oauth-dots span:nth-child(2) { opacity: 0.7; }
+        .oauth-dots span:nth-child(3) { opacity: 1; }
 
-        /* ============================================================
-           NR SPACE — LOGIN PAGE CINEMATIC ENTRANCE
-           ============================================================ */
         .login-page {
             background: transparent;
             min-height: auto;
@@ -137,327 +120,13 @@
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            overflow: visible;
             position: relative;
             z-index: 2;
         }
-
-        .neon-rays {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 100;
-        }
-
-        .ray-left {
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 55%;
-            height: 100%;
-            background: linear-gradient(
-                to right,
-                transparent 0%,
-                rgba(236, 72, 153, 0.0) 30%,
-                rgba(236, 72, 153, 0.18) 70%,
-                rgba(168, 85, 247, 0.35) 85%,
-                rgba(255, 255, 255, 0.08) 100%
-            );
-            filter: blur(8px);
-            animation: rayLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both,
-                       rayFadeOut 0.8s ease-out 1.6s both;
-            transform-origin: left center;
-        }
-
-        .ray-right {
-            position: absolute;
-            top: 0;
-            right: -100%;
-            width: 55%;
-            height: 100%;
-            background: linear-gradient(
-                to left,
-                transparent 0%,
-                rgba(236, 72, 153, 0.0) 30%,
-                rgba(236, 72, 153, 0.18) 70%,
-                rgba(168, 85, 247, 0.35) 85%,
-                rgba(255, 255, 255, 0.08) 100%
-            );
-            filter: blur(8px);
-            animation: rayRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both,
-                       rayFadeOut 0.8s ease-out 1.6s both;
-            transform-origin: right center;
-        }
-
-        .ray-top {
-            position: absolute;
-            top: -100%;
-            left: 0;
-            width: 100%;
-            height: 60%;
-            background: linear-gradient(
-                to bottom,
-                rgba(255, 255, 255, 0.06) 0%,
-                rgba(168, 85, 247, 0.25) 40%,
-                rgba(236, 72, 153, 0.12) 75%,
-                transparent 100%
-            );
-            filter: blur(12px);
-            animation: rayTop 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.0s both,
-                       rayFadeOut 0.8s ease-out 1.5s both;
-        }
-
-        .ray-top-line {
-            position: absolute;
-            top: 0;
-            left: 10%;
-            width: 80%;
-            height: 2px;
-            background: linear-gradient(
-                90deg,
-                transparent,
-                rgba(236, 72, 153, 0.6) 20%,
-                rgba(255, 255, 255, 0.9) 50%,
-                rgba(236, 72, 153, 0.6) 80%,
-                transparent
-            );
-            box-shadow:
-                0 0 8px rgba(236, 72, 153, 0.8),
-                0 0 20px rgba(236, 72, 153, 0.4),
-                0 0 40px rgba(168, 85, 247, 0.3);
-            animation: rayTopLine 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both,
-                       rayLineHold 1.0s ease-out 0.6s both,
-                       rayFadeOut 0.6s ease-out 1.6s both;
-            transform-origin: top center;
-        }
-
-        .ray-left-line {
-            position: absolute;
-            top: 5%;
-            left: 0;
-            width: 2px;
-            height: 90%;
-            background: linear-gradient(
-                to bottom,
-                transparent,
-                rgba(236, 72, 153, 0.8) 20%,
-                rgba(255, 255, 255, 0.6) 50%,
-                rgba(236, 72, 153, 0.8) 80%,
-                transparent
-            );
-            box-shadow:
-                0 0 6px rgba(236, 72, 153, 0.9),
-                0 0 16px rgba(236, 72, 153, 0.5),
-                0 0 30px rgba(168, 85, 247, 0.3);
-            animation: sideLineReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both,
-                       rayFadeOut 0.7s ease-out 1.5s both;
-            transform-origin: top center;
-        }
-
-        .ray-right-line {
-            position: absolute;
-            top: 5%;
-            right: 0;
-            width: 2px;
-            height: 90%;
-            background: linear-gradient(
-                to bottom,
-                transparent,
-                rgba(236, 72, 153, 0.8) 20%,
-                rgba(255, 255, 255, 0.6) 50%,
-                rgba(236, 72, 153, 0.8) 80%,
-                transparent
-            );
-            box-shadow:
-                0 0 6px rgba(236, 72, 153, 0.9),
-                0 0 16px rgba(236, 72, 153, 0.5),
-                0 0 30px rgba(168, 85, 247, 0.3);
-            animation: sideLineReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both,
-                       rayFadeOut 0.7s ease-out 1.5s both;
-            transform-origin: top center;
-        }
-
-        .center-glow {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 600px;
-            height: 600px;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 0;
-            background: radial-gradient(
-                circle,
-                rgba(168, 85, 247, 0.20) 0%,
-                rgba(236, 72, 153, 0.10) 35%,
-                transparent 70%
-            );
-            animation: glowPulse 0.8s ease-out 0.4s both;
-        }
-
-        @keyframes rayLeft {
-            0%   { left: -100%; opacity: 0; }
-            100% { left: -10%;  opacity: 1; }
-        }
-        @keyframes rayRight {
-            0%   { right: -100%; opacity: 0; }
-            100% { right: -10%;  opacity: 1; }
-        }
-        @keyframes rayTop {
-            0%   { top: -100%; opacity: 0; }
-            100% { top: -5%;   opacity: 1; }
-        }
-        @keyframes rayTopLine {
-            0%   { transform: scaleX(0); opacity: 0; }
-            100% { transform: scaleX(1); opacity: 1; }
-        }
-        @keyframes rayLineHold {
-            0%   { opacity: 1; }
-            100% { opacity: 0.4; }
-        }
-        @keyframes sideLineReveal {
-            0%   { transform: scaleY(0); opacity: 0; }
-            100% { transform: scaleY(1); opacity: 1; }
-        }
-        @keyframes rayFadeOut {
-            0%   { opacity: 1; }
-            100% { opacity: 0; }
-        }
-        @keyframes glowPulse {
-            0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
-            60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-            100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
-        }
-
-        .login-logo {
-            opacity: 0;
-            filter: blur(12px);
-            transform: scale(0.85);
-            animation: logoReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both;
-        }
-        @keyframes logoReveal {
-            0% { opacity: 0; filter: blur(12px); transform: scale(0.85); }
-            60% { opacity: 1; filter: blur(0px); transform: scale(1.03); }
-            100% { opacity: 1; filter: blur(0px); transform: scale(1); }
-        }
-
-        .login-title {
-            opacity: 0;
-            transform: translateY(20px);
-            filter: blur(6px);
-            animation: titleReveal 0.8s cubic-bezier(0.16, 1, 0.3, 1) 1.0s both;
-        }
-        .login-subtitle {
-            opacity: 0;
-            transform: translateY(16px);
-            animation: titleReveal 0.7s cubic-bezier(0.16, 1, 0.3, 1) 1.2s both;
-        }
-        @keyframes titleReveal {
-            0%   { opacity: 0; transform: translateY(20px); filter: blur(6px); }
-            100% { opacity: 1; transform: translateY(0);    filter: blur(0);   }
-        }
-
-        .login-card {
-            opacity: 0;
-            transform: translateY(24px) scale(0.97);
-            filter: blur(4px);
-            animation: cardReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) 1.4s both;
-            width: 100%;
-        }
-        @keyframes cardReveal {
-            0% { opacity: 0; transform: translateY(24px) scale(0.97); filter: blur(4px); }
-            100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
-        }
-
-        .login-footer-text {
-            opacity: 0;
-            animation: titleReveal 0.6s ease-out 1.8s both;
-        }
-
-        .ray-left-glow-static,
-        .ray-right-glow-static {
-            position: fixed;
-            top: 0;
-            width: 1px;
-            height: 100%;
-            opacity: 0;
-            pointer-events: none;
-            z-index: 0;
-            animation:
-                staticGlowIn 0.6s ease-out 2.0s both,
-                breathe 4s ease-in-out 2.6s infinite;
-        }
-        .ray-left-glow-static {
-            left: 0;
-            background: linear-gradient(
-                to bottom,
-                transparent 0%,
-                rgba(236, 72, 153, 0.25) 30%,
-                rgba(168, 85, 247, 0.35) 50%,
-                rgba(236, 72, 153, 0.25) 70%,
-                transparent 100%
-            );
-            box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
-        }
-        .ray-right-glow-static {
-            right: 0;
-            background: linear-gradient(
-                to bottom,
-                transparent 0%,
-                rgba(236, 72, 153, 0.25) 30%,
-                rgba(168, 85, 247, 0.35) 50%,
-                rgba(236, 72, 153, 0.25) 70%,
-                transparent 100%
-            );
-            box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
-        }
-        @keyframes staticGlowIn {
-            0%   { opacity: 0; }
-            100% { opacity: 1; }
-        }
-        @keyframes breathe {
-            0%, 100% { opacity: 0.6; }
-            50%       { opacity: 1.0; }
-        }
-
-        html.oauth-pending .neon-rays,
-        html.oauth-pending .center-glow,
-        html.oauth-pending .ray-left-glow-static,
-        html.oauth-pending .ray-right-glow-static { display: none; }
-
-        @media (max-width: 768px) {
-            .center-glow { width: 350px; height: 350px; }
-            .ray-left, .ray-right { width: 70%; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .neon-rays, .center-glow,
-            .ray-left-glow-static, .ray-right-glow-static { display: none; }
-            .login-logo, .login-title, .login-subtitle,
-            .login-card, .login-footer-text {
-                opacity: 1 !important;
-                animation: none !important;
-                filter: none !important;
-                transform: none !important;
-            }
-        }
+        .login-card { width: 100%; }
     </style>
 </head>
 <body class="bg-[#030303] text-gray-200 font-sans antialiased min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-
-    <div class="neon-rays" aria-hidden="true">
-        <div class="ray-top"></div>
-        <div class="ray-top-line"></div>
-        <div class="ray-left"></div>
-        <div class="ray-left-line"></div>
-        <div class="ray-right"></div>
-        <div class="ray-right-line"></div>
-    </div>
-
-    <div class="center-glow" aria-hidden="true"></div>
-    <div class="ray-left-glow-static" aria-hidden="true"></div>
-    <div class="ray-right-glow-static" aria-hidden="true"></div>
 
     <div class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-purple-900/10 rounded-full blur-[130px] pointer-events-none"></div>
     <div class="absolute bottom-0 right-1/4 w-[400px] h-[400px] bg-purple-900/8 rounded-full blur-[120px] pointer-events-none"></div>
@@ -600,17 +269,12 @@
     <!-- ЭКРАН 2: ПРИВЕТСТВИЕ (legacy, не показывается при OAuth) -->
     <div id="screen-cabinets" class="w-full max-w-md fade-in hidden text-center">
         <div style="padding:40px 20px">
-            <div style="width:90px;height:90px;background:#fff;border-radius:26px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;animation:pulse-glow 2s ease infinite">
+            <div style="width:90px;height:90px;background:#fff;border-radius:26px;display:flex;align-items:center;justify-content:center;margin:0 auto 20px">
                 <span style="color:#030303;font-size:32px;font-weight:900;letter-spacing:-0.04em">NR</span>
             </div>
             <div style="color:#9ca3af;font-size:14px;font-weight:500;letter-spacing:0.12em;margin-bottom:28px">Space</div>
             <h2 style="color:white;font-size:20px;font-weight:600;margin-bottom:10px">Добро пожаловать, <span id="user-name" style="color:#a78bfa">—</span></h2>
             <p style="color:#6b7280;font-size:13px;margin-bottom:36px;line-height:1.6">Вход в NR Space...</p>
-            <div style="display:flex;justify-content:center;gap:10px">
-                <div style="width:12px;height:12px;background:#7C3AED;border-radius:50%;animation:bounce 1s infinite 0ms"></div>
-                <div style="width:12px;height:12px;background:#8B5CF6;border-radius:50%;animation:bounce 1s infinite 150ms"></div>
-                <div style="width:12px;height:12px;background:#A78BFA;border-radius:50%;animation:bounce 1s infinite 300ms"></div>
-            </div>
         </div>
     </div>
 
@@ -649,10 +313,11 @@
         const OAUTH_LOADING_TEXT = 'Вход в NR Space...';
 
         async function signInWithGoogle() {
+            try { sessionStorage.removeItem('nr_logged_out'); } catch (_) {}
             showOAuthLoading(OAUTH_LOADING_TEXT);
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
-                options: { redirectTo: window.location.origin + '/login.html' }
+                options: { redirectTo: window.location.origin + '/login' }
             });
             if (error) {
                 hideOAuthLoading();
@@ -744,8 +409,19 @@
             document.getElementById('screen-auth')?.classList.remove('hidden');
         }
 
+        function clearLocalAuth() {
+            try {
+                localStorage.removeItem('nr_session_key');
+                localStorage.removeItem('selected_cabinet_id');
+                sessionStorage.removeItem('nr_entrance_seen');
+                sessionStorage.setItem('nr_logged_out', '1');
+            } catch (_) {}
+        }
+
         async function handleLogout() {
-            await supabase.auth.signOut();
+            clearLocalAuth();
+            try { await supabase.auth.signOut({ scope: 'global' }); } catch (_) {}
+            try { await supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
             _authFlowHandled = false;
             showAuthScreen();
         }
@@ -785,18 +461,12 @@
                 }
             }
 
-            // Только экран загрузки — без мигания формы логина
             showOAuthLoading(OAUTH_LOADING_TEXT);
-
             const name = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Пользователь';
-            document.getElementById('user-name').textContent = name;
-
-            // Переход в Space за ~1.2 с без мигания формы логина
-            setTimeout(() => {
-                document.body.style.transition = 'opacity 0.5s ease';
-                document.body.style.opacity = '0';
-                setTimeout(() => { window.location.href = '/space'; }, 500);
-            }, 1200);
+            const nameEl = document.getElementById('user-name');
+            if (nameEl) nameEl.textContent = name;
+            try { sessionStorage.removeItem('nr_logged_out'); } catch (_) {}
+            window.location.replace('/space');
         }
 
         function showError(id, message) {
@@ -815,10 +485,13 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const authError = urlParams.get('error');
+            const justLoggedOut = urlParams.get('logged_out') === '1' || (() => {
+                try { return sessionStorage.getItem('nr_logged_out') === '1'; } catch (_) { return false; }
+            })();
             const hash = window.location.hash || '';
             const isOAuthReturn = hash.includes('access_token') || urlParams.has('code');
 
-            if (isOAuthReturn && !authError) {
+            if (isOAuthReturn && !authError && !justLoggedOut) {
                 showOAuthLoading(OAUTH_LOADING_TEXT);
             }
 
@@ -833,26 +506,44 @@
             } else if (authError === 'access_check_failed') {
                 showAuthScreen();
                 showError('login-error', 'Не удалось проверить доступ. Попробуйте войти снова через несколько минут.');
+            } else if (justLoggedOut) {
+                showAuthScreen();
             }
 
             supabase.auth.onAuthStateChange(async (event, session) => {
-                if (!session?.user) return;
-                if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
-                    await syncSpaceProfile(session.user);
+                if (event === 'SIGNED_OUT') {
+                    _authFlowHandled = false;
+                    return;
                 }
-                if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
-                    const err = new URLSearchParams(window.location.search).get('error');
-                    if (err) {
-                        try { await supabase.auth.signOut({ scope: 'global' }); } catch (_) {}
+                if (!session?.user) return;
+                const q = new URLSearchParams(window.location.search);
+                if (q.get('error') || q.get('logged_out') === '1') {
+                    try { await supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
+                    return;
+                }
+                try {
+                    if (sessionStorage.getItem('nr_logged_out') === '1' && event !== 'SIGNED_IN') {
                         return;
                     }
+                } catch (_) {}
+                if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
                     showOAuthLoading(OAUTH_LOADING_TEXT);
                     await startAuthFlow(session.user);
                 }
             });
 
             const { data: { session } } = await supabase.auth.getSession();
-            if (authError && session?.user) {
+            if (justLoggedOut) {
+                clearLocalAuth();
+                if (session?.user) {
+                    try { await supabase.auth.signOut({ scope: 'global' }); } catch (_) {}
+                    try { await supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
+                }
+                if (urlParams.get('logged_out') === '1') {
+                    history.replaceState({}, '', '/login');
+                }
+                showAuthScreen();
+            } else if (authError && session?.user) {
                 try { await supabase.auth.signOut({ scope: 'global' }); } catch (_) {}
             } else if (session?.user) {
                 showOAuthLoading(OAUTH_LOADING_TEXT);
