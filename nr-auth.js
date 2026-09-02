@@ -2,6 +2,7 @@
  * Общая обработка сессии NR Space.
  * Битый refresh-токен в localStorage даёт AuthApiError на каждом заходе —
  * чистим его до createClient и после неудачного getSession.
+ * В проде глушим console.* для посетителей; отладка: ?debug=1 или localStorage.nr_debug=1.
  */
 (function (global) {
     var AUTH_KEY_RE = /^sb-.*-auth-token/;
@@ -20,32 +21,39 @@
         return WB_TOKEN_RE.test(msg);
     }
 
-    function textFromArgs(args) {
-        var text = '';
+    function isDebugOn() {
         try {
-            for (var i = 0; i < args.length; i++) {
-                var a = args[i];
-                if (a && a.message) text += a.message + ' ';
-                else text += String(a) + ' ';
-            }
+            var q = new URLSearchParams(global.location.search);
+            if (q.get('debug') === '1' || q.get('nr_debug') === '1') return true;
+            var storage = ls();
+            if (storage && storage.getItem('nr_debug') === '1') return true;
         } catch (_) {}
-        return text;
+        return false;
     }
 
-    function installAuthConsoleMute() {
-        if (console.__nrAuthMuted) return;
-        console.__nrAuthMuted = true;
-        var err = console.error;
-        var warn = console.warn;
-        function quiet(method) {
-            return function () {
-                var text = textFromArgs(arguments);
-                if (isAuthTokenError({ message: text }) || isWbTokenError(text)) return;
-                return method.apply(console, arguments);
-            };
+    function installPublicConsoleMute() {
+        if (console.__nrPublicMuted) return;
+        if (!global.document) return;
+        if (isDebugOn()) return;
+        console.__nrPublicMuted = true;
+        var noop = function () {};
+        ['log', 'info', 'debug', 'warn', 'error', 'table', 'dir', 'dirxml', 'trace', 'group', 'groupCollapsed', 'groupEnd'].forEach(function (name) {
+            try { console[name] = noop; } catch (_) {}
+        });
+        if (global.addEventListener && !global.__nrRejectionMuted) {
+            global.__nrRejectionMuted = true;
+            global.addEventListener('unhandledrejection', function (e) {
+                if (isDebugOn()) return;
+                var reason = e && e.reason;
+                var text = '';
+                try {
+                    text = (reason && (reason.message || reason.error_description || reason.code)) || String(reason || '');
+                } catch (_) {}
+                if (isAuthTokenError({ message: text }) || isWbTokenError(text) || /AuthApiError|GoTrueClient|supabase/i.test(text)) {
+                    e.preventDefault();
+                }
+            });
         }
-        console.error = quiet(err);
-        console.warn = quiet(warn);
     }
 
     function ls() {
@@ -119,7 +127,7 @@
     }
 
     function createClient(supabaseLib, url, key) {
-        installAuthConsoleMute();
+        installPublicConsoleMute();
         prepareAuthStorage();
         return supabaseLib.createClient(url, key, {
             auth: {
@@ -133,6 +141,8 @@
     global.NrAuth = {
         isAuthTokenError: isAuthTokenError,
         isWbTokenError: isWbTokenError,
+        isDebugOn: isDebugOn,
+        installPublicConsoleMute: installPublicConsoleMute,
         clearSupabaseAuthStorage: clearSupabaseAuthStorage,
         prepareAuthStorage: prepareAuthStorage,
         recoverBrokenSession: recoverBrokenSession,
@@ -140,4 +150,6 @@
         markAuthBroken: markAuthBroken,
         clearAuthBroken: clearAuthBroken
     };
+
+    installPublicConsoleMute();
 })(window);

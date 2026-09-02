@@ -24,6 +24,7 @@ const windowStub = {
     location: { search: '' },
     localStorage: localStorage,
     sessionStorage: sessionStore,
+    addEventListener: function () {},
 };
 global.window = windowStub;
 global.localStorage = localStorage;
@@ -67,7 +68,24 @@ async function runRecover() {
 }
 
 runRecover().then(() => {
-    console.log('nr-auth_test: ok');
+    assert.strictEqual(console.__nrPublicMuted, undefined, 'node/test must not mute console');
+
+    const origLog = console.log;
+    const origError = console.error;
+    windowStub.document = {};
+    NrAuth.installPublicConsoleMute();
+    assert.strictEqual(console.__nrPublicMuted, true);
+    assert.notStrictEqual(console.log, origLog);
+    console.log('secret should stay hidden');
+    console.error('token leak should stay hidden');
+    console.log = origLog;
+    console.error = origError;
+
+    localStorage.setItem('nr_debug', '1');
+    assert.strictEqual(NrAuth.isDebugOn(), true);
+    localStorage.removeItem('nr_debug');
+
+    origLog('nr-auth_test: ok');
 }).catch((e) => {
     console.error(e);
     process.exit(1);

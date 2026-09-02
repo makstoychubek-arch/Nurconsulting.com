@@ -5,7 +5,6 @@
 const RNP = (() => {
     'use strict';
     const RNP_BUILD = '20260723-large-cab-fix';
-    console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
     let _db = null;
