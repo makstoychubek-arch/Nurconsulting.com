@@ -45,8 +45,14 @@ assert.ok(
 
 assert.ok(html.includes("if (name === 'ab-testing') loadABTests()"), 'A/B tab must always call loadABTests');
 assert.ok(html.includes("else if (cur === 'ab-testing') loadABTests()"), 'init catch-up must reload A/B tests');
+assert.ok(html.includes("if (curTab === 'ab-testing') loadABTests()"), 'cabinet switch must reload A/B tests');
 assert.ok(html.includes('data-toast-key'), 'identical toasts must be deduped');
 assert.ok(html.includes('humanizeProxyError'), 'WB proxy errors must be translated');
 assert.ok(html.includes('_nrCabinetDeniedToast'), 'cabinet 403 must toast at most once');
+assert.ok(
+    /rail-logo-name/.test(html) && /NR Space/.test(html),
+    'sidebar logo must show NR Space on the left'
+);
+assert.ok(html.includes('ab-create-btn'), 'A/B create button uses WBRadar-style control');
 
 console.log('dashboard_html_test: ok');

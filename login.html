@@ -20,34 +20,32 @@
             }
         })();
     </script>
-    <link rel="stylesheet" href="/dist/tailwind.abd92674d1.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="/dist/tailwind.2d66577e8c.min.css">
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fiukyfyhotctvfdidktx.supabase.co" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="/nr-auth.js"></script>
 
     <style>
+        body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
         .glass-card {
             background: #FFFFFF;
-            border: 1px solid rgba(0, 0, 0, 0.06);
+            border: none;
         }
         .input-field {
-            background: rgba(0,0,0,0.03);
-            border: 1px solid rgba(0,0,0,0.08);
-            transition: all 0.2s;
+            background: #F4F4F5;
+            border: none;
+            transition: background 0.15s;
         }
         .input-field:focus {
             outline: none;
-            border-color: rgba(87, 104, 207, 0.5);
-            background: rgba(87, 104, 207, 0.05);
-            box-shadow: 0 0 0 3px rgba(87, 104, 207, 0.12);
+            background: #EDEDED;
+            box-shadow: none;
         }
         .tab-active {
-            background: rgba(87, 104, 207, 0.1);
-            border-color: rgba(87, 104, 207, 0.3);
-            color: #5768CF;
+            background: #fff;
+            border-color: transparent;
+            color: #111;
+            font-weight: 800;
         }
         .fade-in { opacity: 1; }
         #screen-oauth-loading {
@@ -64,35 +62,35 @@
         html.oauth-pending #screen-auth { display: none !important; }
         html.oauth-pending #screen-oauth-loading { display: flex !important; }
         .oauth-logo {
-            width: 88px; height: 88px;
-            background: #5768CF;
-            border-radius: 26px;
+            width: 56px; height: 56px;
+            background: #F5C400;
+            border-radius: 14px;
             display: flex; align-items: center; justify-content: center;
-            margin-bottom: 28px;
+            margin-bottom: 16px;
         }
-        .oauth-logo span { color: white; font-size: 34px; font-weight: 900; letter-spacing: -0.04em; }
+        .oauth-logo span { color: #111; font-size: 16px; font-weight: 900; letter-spacing: -0.04em; }
         .oauth-space {
-            color: #1F2933;
+            color: #111;
             font-size: 22px;
-            font-weight: 500;
-            letter-spacing: 0.12em;
+            font-weight: 800;
+            letter-spacing: -0.04em;
             margin-bottom: 20px;
         }
         .nr-brand-mark {
-            width: 44px; height: 44px;
-            border-radius: 14px;
-            background: #1F2933;
-            color: #fff;
-            font-size: 14px;
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            background: #F5C400;
+            color: #111;
+            font-size: 11px;
             font-weight: 900;
             letter-spacing: -0.05em;
             display: flex; align-items: center; justify-content: center;
         }
         .nr-brand-space {
-            font-size: 22px;
-            font-weight: 500;
-            color: #1F2933;
-            letter-spacing: 0.08em;
+            font-size: 18px;
+            font-weight: 800;
+            color: #111;
+            letter-spacing: -0.04em;
         }
         html.oauth-pending .oauth-home-link { display: none; }
         .oauth-home-link { z-index: 101; }
@@ -106,7 +104,7 @@
         .oauth-dots { display: flex; gap: 10px; margin-top: 28px; }
         .oauth-dots span {
             width: 8px; height: 8px; border-radius: 50%;
-            background: #5768CF;
+            background: #111;
             opacity: 0.45;
         }
         .oauth-dots span:nth-child(2) { opacity: 0.7; }
@@ -128,7 +126,10 @@
 </head>
 <body class="bg-[#F8F9FA] text-[#3E434F] font-sans antialiased min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
 
-    <a href="/" class="absolute top-6 left-6 flex items-center justify-center w-10 h-10 rounded-xl bg-[#1F2933] text-white font-black text-xs tracking-tighter oauth-home-link">NR</a>
+    <a href="/" class="absolute top-6 left-6 flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-[#EDEDED] oauth-home-link">
+        <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-[#F5C400] text-[#111] font-black text-[11px]">NR</span>
+        <span class="text-[16px] font-extrabold text-[#111] tracking-tight">NR Space</span>
+    </a>
 
     <!-- ЭКРАН: OAuth / проверка сессии -->
     <div id="screen-oauth-loading">
@@ -142,15 +143,15 @@
     <div id="screen-auth" class="w-full max-w-md login-page">
         <div class="login-logo flex items-center justify-center gap-2.5 mb-5">
             <div class="nr-brand-mark">NR</div>
-            <span class="nr-brand-space">Space</span>
+            <span class="nr-brand-space">NR Space</span>
         </div>
 
-        <h1 class="login-title text-xl font-semibold text-[#1F2933] tracking-tight text-center mb-2">Вход в NR Space</h1>
+        <h1 class="login-title text-2xl font-extrabold text-[#111] tracking-tight text-center mb-2">Вход в NR Space</h1>
         <p class="login-subtitle text-sm text-[#6B7682] text-center mb-6">Войдите, чтобы открыть аналитику вашего магазина</p>
 
         <div class="login-card glass-card rounded-2xl p-8">
 
-            <div class="flex bg-black/[0.03] rounded-xl p-1 mb-6 border border-black/5">
+            <div class="flex bg-[#EDEDED] rounded-xl p-1 mb-6">
                 <button onclick="switchTab('login')" id="tab-login"
                     class="flex-1 py-2 text-sm font-medium rounded-lg transition tab-active border border-transparent">
                     Вход
@@ -193,13 +194,13 @@
                     </button>
                 </div>
                 <div class="text-right">
-                    <button onclick="switchTab('forgot')" class="text-xs text-[#5768CF] hover:text-[#4857BF] transition">
+                    <button onclick="switchTab('forgot')" class="text-xs text-[#111111] hover:text-[#000000] transition">
                         Забыли пароль?
                     </button>
                 </div>
                 <div id="login-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <button onclick="handleLogin()"
-                    class="w-full py-3 bg-[#5768CF] hover:bg-[#4857BF] text-white font-medium rounded-xl transition text-sm">
+                    class="w-full py-3 bg-[#111] hover:bg-black text-white font-bold rounded-xl transition text-sm">
                     Продолжить
                 </button>
             </div>
@@ -235,7 +236,7 @@
                     ✅ Письмо с подтверждением отправлено на вашу почту!
                 </div>
                 <button onclick="handleRegister()"
-                    class="w-full py-3 bg-[#5768CF] hover:bg-[#4857BF] text-white font-medium rounded-xl transition text-sm">
+                    class="w-full py-3 bg-[#111] hover:bg-black text-white font-bold rounded-xl transition text-sm">
                     Создать аккаунт
                 </button>
             </div>
@@ -250,7 +251,7 @@
                     ✅ Письмо отправлено! Проверьте почту.
                 </div>
                 <button onclick="handleForgotPassword(event)"
-                    class="w-full py-3 bg-[#5768CF] hover:bg-[#4857BF] text-white font-medium rounded-xl transition text-sm">
+                    class="w-full py-3 bg-[#111] hover:bg-black text-white font-bold rounded-xl transition text-sm">
                     Отправить ссылку
                 </button>
                 <button onclick="switchTab('login')" class="w-full py-2 text-sm text-[#3E434F] hover:text-[#1F2933] transition">
@@ -270,7 +271,7 @@
                 <span style="color:#fff;font-size:32px;font-weight:900;letter-spacing:-0.04em">NR</span>
             </div>
             <div style="color:#6B7682;font-size:14px;font-weight:500;letter-spacing:0.12em;margin-bottom:28px">Space</div>
-            <h2 style="color:#1F2933;font-size:20px;font-weight:600;margin-bottom:10px">Добро пожаловать, <span id="user-name" style="color:#5768CF">—</span></h2>
+            <h2 style="color:#1F2933;font-size:20px;font-weight:600;margin-bottom:10px">Добро пожаловать, <span id="user-name" style="color:#111111">—</span></h2>
             <p style="color:#3E434F;font-size:13px;margin-bottom:36px;line-height:1.6">Вход в NR Space...</p>
         </div>
     </div>
