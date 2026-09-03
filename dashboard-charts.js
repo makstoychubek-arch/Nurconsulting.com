@@ -63,6 +63,9 @@
     }
 
     function destroyChart(id) {
+        const el = document.getElementById(id);
+        const wrap = el && el.parentElement;
+        if (wrap && wrap.offsetHeight) wrap.style.minHeight = wrap.offsetHeight + 'px';
         if (charts[id]) { charts[id].destroy(); delete charts[id]; }
     }
 

@@ -415,40 +415,75 @@ const RNP = (() => {
         if (window.domMorph && typeof window.domMorph.morphList === 'function') return window.domMorph;
         return {
             morphList(container, html) { if (container) container.innerHTML = html; },
-            preserveScroll(_els, fn) { return fn(); },
+            preserveScroll(_els, fn) {
+                const snap = _snapshotPageScroll();
+                const result = fn();
+                _applyPageScroll(snap);
+                return result;
+            },
         };
     }
 
-    // Captures scroll of window + `#rnp-sheet-body` + `#rnp-table-wrap` (if present),
-    // runs `fn` (which may replace/rebuild those elements' DOM), then restores the
-    // offsets on whatever elements now exist at those ids. Used to stop background/
-    // periodic refreshes of the RNP tab from resetting the user's scroll position.
-    function _preserveRnpScroll(fn) {
-        // Captured by id (not by element reference) because a full innerHTML
-        // rebuild of `#rnp-sheet-body` destroys `#rnp-table-wrap` and creates a
-        // fresh node with the same id — restoring scrollTop on the old detached
-        // node would be a no-op, so we must re-query after `fn()` runs.
-        const ids = ['rnp-sheet-body', 'rnp-table-wrap'];
-        const snap = { win: [window.scrollX, window.scrollY], ids: {} };
-        ids.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) snap.ids[id] = [el.scrollLeft, el.scrollTop];
-        });
-        const restore = () => {
-            if (snap.win[0] || snap.win[1]) window.scrollTo(snap.win[0], snap.win[1]);
-            ids.forEach(id => {
-                const pos = snap.ids[id];
-                if (!pos) return;
-                const el = document.getElementById(id);
-                if (!el) return;
-                if (el.scrollLeft !== pos[0]) el.scrollLeft = pos[0];
-                if (el.scrollTop !== pos[1]) el.scrollTop = pos[1];
+    // The page scroller is `.main-content`, not `window`. Also lock the RNP
+    // panes and re-query after `fn` because innerHTML rebuilds replace nodes.
+    const _PAGE_SCROLL_SELECTORS = [
+        '.main-content',
+        '#rnp-sheet-body',
+        '#rnp-table-wrap',
+        '.rnp-settings-articles-scroll',
+        '.rnp-table-scroll',
+        '.rnp-gallery-scroll',
+    ];
+
+    function _snapshotPageScroll() {
+        const items = [];
+        const seen = new Set();
+        _PAGE_SCROLL_SELECTORS.forEach(sel => {
+            document.querySelectorAll(sel).forEach(el => {
+                if (!el || seen.has(el)) return;
+                seen.add(el);
+                items.push({ sel, id: el.id || '', left: el.scrollLeft, top: el.scrollTop });
             });
+        });
+        return { win: [window.scrollX, window.scrollY], items };
+    }
+
+    function _applyPageScroll(snap) {
+        if (!snap) return;
+        window.scrollTo(snap.win[0], snap.win[1]);
+        snap.items.forEach(it => {
+            let el = it.id ? document.getElementById(it.id) : null;
+            if (!el && it.sel) el = document.querySelector(it.sel);
+            if (!el) return;
+            if (el.scrollLeft !== it.left) el.scrollLeft = it.left;
+            if (el.scrollTop !== it.top) el.scrollTop = it.top;
+        });
+    }
+
+    function _preserveRnpScroll(fn) {
+        if (window.domMorph && typeof window.domMorph.preserveScroll === 'function') {
+            return window.domMorph.preserveScroll([], fn);
+        }
+        const snap = _snapshotPageScroll();
+        const restore = () => _applyPageScroll(snap);
+        const schedule = () => {
+            restore();
+            if (typeof requestAnimationFrame === 'function') {
+                requestAnimationFrame(() => {
+                    restore();
+                    requestAnimationFrame(restore);
+                });
+            }
         };
-        const result = fn();
-        if (result && typeof result.then === 'function') return result.then(v => { restore(); return v; });
-        restore();
-        return result;
+        try {
+            const result = fn();
+            if (result && typeof result.then === 'function') return result.finally(schedule);
+            schedule();
+            return result;
+        } catch (err) {
+            schedule();
+            throw err;
+        }
     }
 
     function _isStaleInit(gen, cab) {
@@ -2454,10 +2489,13 @@ const RNP = (() => {
         _strategyTab = Number(idx) || 0;
         try { localStorage.setItem('rnp_strategy_tab', String(_strategyTab)); } catch (e) {}
         if (_activeNm !== SUMMARY_TAB) {
-            _renderActiveTable();
+            _preserveRnpScroll(() => _renderActiveTable());
             requestAnimationFrame(() => {
                 const el = document.querySelector(`.rnp-test-card[data-gallery-idx="${STRATEGY_TABS[_strategyTab]?.galleryIdx ?? 0}"]`);
-                el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                const scroller = el && el.closest('.rnp-marquee-wrap, .rnp-gallery-scroll, .rnp-gallery-strip');
+                if (!el || !scroller) return;
+                const left = el.offsetLeft - (scroller.clientWidth / 2) + (el.offsetWidth / 2);
+                scroller.scrollLeft = Math.max(0, left);
             });
         }
     }
@@ -3915,7 +3953,7 @@ const RNP = (() => {
             ...cats.map(c => `<option value="${esc(c)}"${c === cur ? ' selected' : ''}>${esc(c)}</option>`),
             `<option value="__new__">＋ Новая категория…</option>`,
         ].join('');
-        return `<tr>
+        return `<tr data-key="${a.nm_id}" data-nm="${a.nm_id}">
           <td>${_imgHtml(a, '', 'c246x328', 'width:32px;height:40px;border-radius:12px;object-fit:cover;display:block')}</td>
           <td style="font-weight:600;color:var(--text-primary)">${sa || '—'}${auto ? ' <span style="color:var(--green);font-weight:400;font-size:10px">авто</span>' : ' <span style="color:var(--text-muted);font-weight:400;font-size:10px">(нет данных — Обновить на дашборде)</span>'}</td>
           <td style="color:var(--text-muted)">${a.nm_id}</td>
@@ -3931,11 +3969,41 @@ const RNP = (() => {
           <td><input type="number" value="${_otherCostsUnit(a)}" min="0"
             onchange="RNP.setOtherCosts(${a.nm_id},this.value)"
             style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
-          <td><button onclick="RNP.toggleArt(${a.nm_id})" class="relative w-9 h-5 rounded-full"
+          <td><button type="button" data-toggle-nm="${a.nm_id}" onclick="RNP.toggleArt(${a.nm_id})" class="rnp-settings-toggle relative w-9 h-5 rounded-full"
             style="background:${a.is_active ? 'var(--accent)' : 'var(--border)'}">
             <span style="position:absolute;top:2px;left:${a.is_active ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
           </button></td>
         </tr>`;
+    }
+
+    function _activeArticleCount() {
+        return _articles.filter(a => a.is_active).length;
+    }
+
+    function _updateSettingsActiveCounts() {
+        const n = _activeArticleCount();
+        const total = _articles.length;
+        const nEl = document.getElementById('rnp-settings-active-n');
+        if (nEl) nEl.textContent = String(n);
+        const tEl = document.getElementById('rnp-settings-total-n');
+        if (tEl) tEl.textContent = String(total);
+        const label = document.getElementById('rnp-settings-arts-label');
+        if (label) label.textContent = `${n} / ${total} в РНП · артикул продавца из WB`;
+    }
+
+    function _patchSettingsToggleUi(nmId, isActive) {
+        const btn = document.querySelector(`#rnp-settings-articles-tbody [data-toggle-nm="${nmId}"]`);
+        if (!btn) return;
+        btn.style.background = isActive ? 'var(--accent)' : 'var(--border)';
+        const knob = btn.querySelector('span');
+        if (knob) knob.style.left = isActive ? '18px' : '2px';
+    }
+
+    function _settingsShellReady() {
+        const el = document.getElementById('tab-rnp-settings');
+        return !!(el
+            && el.querySelector('.rnp-settings-articles-scroll')
+            && document.getElementById('rnp-settings-articles-tbody'));
     }
 
     async function _fillSettingsArticlesAsync(opts = {}) {
@@ -3945,24 +4013,28 @@ const RNP = (() => {
         const cats = [...new Set(_articles.map(a => (a.category || '').trim()).filter(Boolean))]
             .sort((x, y) => x.localeCompare(y, 'ru'));
         const sorted = _articles.slice().sort(_sortBySeller);
-        const CHUNK = 80;
-        tbody.innerHTML = '';
-        for (let i = 0; i < sorted.length; i += CHUNK) {
-            const slice = sorted.slice(i, i + CHUNK);
-            tbody.insertAdjacentHTML('beforeend', slice.map(a => _settingsArticleRowHtml(a, cats, esc)).join(''));
-            if (i + CHUNK < sorted.length) {
-                await new Promise(r => requestAnimationFrame(() => r()));
-            }
-        }
-        if (opts.preserveScroll) {
+        const html = sorted.map(a => _settingsArticleRowHtml(a, cats, esc)).join('');
+        const hasKeyed = !!tbody.querySelector('tr[data-key]');
+        _preserveRnpScroll(() => {
+            if (hasKeyed) _domMorph().morphList(tbody, html, 'data-key');
+            else tbody.innerHTML = html;
+        });
+        if (opts.preserveScroll && opts.scrollTop) {
             const scrollEl = document.querySelector('#tab-rnp-settings .rnp-settings-articles-scroll');
-            if (scrollEl && opts.scrollTop) scrollEl.scrollTop = opts.scrollTop;
+            if (scrollEl) scrollEl.scrollTop = opts.scrollTop;
         }
     }
 
     function _renderSettings(opts = {}) {
         const el = document.getElementById('tab-rnp-settings');
         if (!el) return;
+        if (opts.preserveScroll && !opts.forceFull && _settingsShellReady() && _articles.length) {
+            _updateSettingsActiveCounts();
+            _fillSettingsArticlesAsync({ preserveScroll: true }).catch(e => {
+                console.warn('[RNP] settings articles:', e.message);
+            });
+            return;
+        }
         const scrollEl = el.querySelector('.rnp-settings-articles-scroll');
         const scrollTop = opts.preserveScroll && scrollEl ? scrollEl.scrollTop : 0;
         const monthOpts = (n, sel) => Array.from({ length: 12 }, (_, i) => {
@@ -3978,7 +4050,7 @@ const RNP = (() => {
               ${cabLabel ? `<span class="rnp-cab-badge">${cabLabel}</span>` : ''}
             </div>
             <div class="flex flex-wrap gap-4 mb-4 text-xs" style="color:var(--text-muted)">
-              <span>Активных: <b style="color:var(--text-primary)">${_articles.filter(a=>a.is_active).length}</b> / ${_articles.length}</span>
+              <span>Активных: <b id="rnp-settings-active-n" style="color:var(--text-primary)">${_articles.filter(a=>a.is_active).length}</b> / <span id="rnp-settings-total-n">${_articles.length}</span></span>
               <span>Курс: <b style="color:var(--text-primary)">1₽ = ${_settings.exchangeRate} сом</b></span>
               <span>$: <b style="color:var(--text-primary)">1$ = ${_settings.usdRate} сом</b></span>
               ${(() => { const n = _latestNbkr(); return n ? `<span>НБКР: <b style="color:var(--text-primary)">1₽ = ${n.rate.toFixed(4).replace('.', ',')} сом</b> (${n.date.split('-').reverse().join('.')})</span>` : ''; })()}
@@ -4028,7 +4100,7 @@ const RNP = (() => {
             <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h3 class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">
                 Артикулы
-                <span class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} / ${_articles.length} в РНП · артикул продавца из WB</span>
+                <span id="rnp-settings-arts-label" class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} / ${_articles.length} в РНП · артикул продавца из WB</span>
               </h3>
               <div class="flex gap-2 flex-wrap">
                 <button onclick="RNP.refreshArticles()" id="rnp-refresh-arts-btn" class="ui-btn ui-btn-primary text-xs" title="Добавить новые карточки из каталога WB и из заказов, ничего не удаляя">Обновить артикулы</button>
@@ -4041,7 +4113,7 @@ const RNP = (() => {
             <div class="text-center py-10" style="color:var(--text-muted)">
               <p class="text-sm">Нажмите «Из заказов» — подтянутся артикулы WB и <b>артикулы продавца</b> из заказов автоматически</p>
             </div>` : `
-            <div class="rnp-settings-articles-scroll" style="overflow-x:auto;max-height:calc(100vh - 320px);overflow-y:auto">
+            <div class="rnp-settings-articles-scroll" style="overflow-x:auto;max-height:calc(100vh - 320px);overflow-y:auto;overflow-anchor:none">
               <table class="rnp-sheet-table" style="font-size:11px">
                 <thead>
                   <tr>
@@ -4195,7 +4267,9 @@ const RNP = (() => {
         } catch (e) {}
 
         await _yieldMain();
-        el.innerHTML = `
+        const keepWorkspace = !!el.querySelector('.rnp-workspace') && _rnpMainRendered();
+        if (!keepWorkspace) {
+            el.innerHTML = `
         <div class="rnp-workspace">
           <div id="rnp-action-bar-wrap">${_buildActionBar(active)}</div>
           <div class="rnp-sheet-tabs" id="rnp-sheet-tabs">
@@ -4208,7 +4282,15 @@ const RNP = (() => {
             </div>
           </div>
         </div>`;
-        await _yieldMain();
+            await _yieldMain();
+        } else {
+            _preserveRnpScroll(() => {
+                const bar = document.getElementById('rnp-action-bar-wrap');
+                if (bar) bar.innerHTML = _buildActionBar(active);
+                const tabs = document.getElementById('rnp-sheet-tabs');
+                if (tabs) tabs.innerHTML = _renderTabsHTML(active, { lite: active.length > 40 });
+            });
+        }
 
         const renderId = ++_mainRenderGen;
         const snapReq = _loadRequestId();
@@ -4943,7 +5025,9 @@ const RNP = (() => {
                 new Promise(r => setTimeout(r, 8000)),
             ]);
         }
-        _renderSettings(opts);
+        const next = { ...(opts || {}) };
+        if (next.preserveScroll == null && _settingsShellReady()) next.preserveScroll = true;
+        _renderSettings(next);
     }
 
     let _mainInflight = null;
@@ -5114,13 +5198,18 @@ const RNP = (() => {
     async function toggleArt(nmId) {
         const art = _articles.find(a => a.nm_id == nmId);
         if (!art) return;
-        await _updateArticle(nmId, { is_active: !art.is_active });
-        _renderSettings({ preserveScroll: true });
+        const next = !art.is_active;
+        await _updateArticle(nmId, { is_active: next });
+        _patchSettingsToggleUi(nmId, next);
+        _updateSettingsActiveCounts();
     }
 
     async function enableAll(on) {
         await _setAllActive(on);
-        _renderSettings({ preserveScroll: true });
+        document.querySelectorAll('#rnp-settings-articles-tbody [data-toggle-nm]').forEach(btn => {
+            _patchSettingsToggleUi(btn.getAttribute('data-toggle-nm'), on);
+        });
+        _updateSettingsActiveCounts();
     }
 
     async function setCost(nmId, val) {

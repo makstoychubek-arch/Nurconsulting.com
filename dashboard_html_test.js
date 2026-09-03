@@ -184,9 +184,45 @@ assert.ok(
     'dashboard_summary must return stock_fbo and stock_fbs'
 );
 
+assert.ok(
+    /\.main-content\s*\{[^}]*overflow-anchor:\s*none/.test(html),
+    'main-content must disable overflow-anchor so refresh cannot jump the page'
+);
+assert.ok(
+    html.includes("'.main-content'") && html.includes('PAGE_SCROLL_SELECTORS'),
+    'domMorph.preserveScroll must lock .main-content, not only window'
+);
+assert.ok(
+    /requestAnimationFrame\(\(\) => \{\s*restore\(\);\s*requestAnimationFrame\(restore\)/.test(html),
+    'scroll restore must re-apply after layout (double rAF)'
+);
+assert.ok(
+    html.includes("openSettings({ preserveScroll: true })"),
+    'dashboard refresh / settings boot must not rebuild the settings tab from scratch'
+);
+
+const toggleFn = rnpSrc.slice(rnpSrc.indexOf('async function toggleArt'), rnpSrc.indexOf('async function enableAll'));
+assert.ok(!toggleFn.includes('_renderSettings'),
+    'excluding an article in RNP settings must not rebuild the tab');
+assert.ok(toggleFn.includes('_patchSettingsToggleUi'),
+    'toggleArt must patch the existing switch in place');
+const enableFn = rnpSrc.slice(rnpSrc.indexOf('async function enableAll'), rnpSrc.indexOf('async function setCost'));
+assert.ok(!enableFn.includes('_renderSettings'),
+    'enableAll must not rebuild the settings tab');
+assert.ok(rnpSrc.includes('data-toggle-nm=') && rnpSrc.includes('data-key="${a.nm_id}"'),
+    'settings article rows must have stable keys for in-place morph');
+assert.ok(rnpSrc.includes("'.main-content'") && rnpSrc.includes('_PAGE_SCROLL_SELECTORS'),
+    'RNP scroll lock must include .main-content');
+assert.ok(rnpSrc.includes('const keepWorkspace'),
+    'RNP refresh must keep the painted workspace instead of swapping in a spinner');
+assert.ok(!rnpSrc.includes("scrollIntoView({ behavior: 'smooth'"),
+    'strategy tabs must not scroll the page via scrollIntoView');
+
 const chartsSrc = fs.readFileSync(path.join(__dirname, 'dashboard-charts.js'), 'utf8');
 assert.ok(chartsSrc.includes('setWarehouseScheme'),
     'warehouse donut must filter FBO/FBS on switch');
+assert.ok(chartsSrc.includes('wrap.style.minHeight'),
+    'chart destroy must lock the wrap height so cards do not collapse on refresh');
 
 const proxySrc = fs.readFileSync(path.join(__dirname, 'supabase/functions/wb-proxy/index.ts'), 'utf8');
 assert.ok(proxySrc.includes('stocks-report/wb-warehouses'),
