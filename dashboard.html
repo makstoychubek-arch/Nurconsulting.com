@@ -5514,7 +5514,7 @@
             fetchAllRows('advertising_campaigns', [
                 { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
             ]),
-            fetchAllRows('autobidder_rules', [
+            fetchAllRows('autobidder_rules_legacy_mvp', [
                 { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
             ]),
         ]);
@@ -5946,7 +5946,7 @@
         if (!listEl || !currentCabinetId) return;
         const names = window._advCampaignNameCache || new Map();
         const [rules, logs] = await Promise.all([
-            fetchAllRows('autobidder_rules', [{ op: 'eq', column: 'cabinet_id', value: currentCabinetId }]),
+            fetchAllRows('autobidder_rules_legacy_mvp', [{ op: 'eq', column: 'cabinet_id', value: currentCabinetId }]),
             supabase.from('autobidder_log').select('*').eq('cabinet_id', currentCabinetId)
                 .order('created_at', { ascending: false }).limit(40)
                 .then(({ data, error }) => { if (error) { console.warn(error.message); return []; } return data || []; }),
@@ -6074,7 +6074,7 @@
             interval_minutes: interval,
             updated_at: new Date().toISOString(),
         };
-        const { error } = await supabase.from('autobidder_rules').upsert(payload, { onConflict: 'cabinet_id,campaign_id' });
+        const { error } = await supabase.from('autobidder_rules_legacy_mvp').upsert(payload, { onConflict: 'cabinet_id,campaign_id' });
         if (error) { showPremiumModal('error', 'Не сохранилось', error.message); return; }
         showPremiumModal('success', 'Автобиддер сохранён', enabled
             ? 'Правило включено. Крон проверяет ставки каждые 30 минут, но не чаще интервала правила.'
@@ -6085,7 +6085,7 @@
     window.saveAutobidderRule = saveAutobidderRule;
 
     async function toggleAutobidderEnabled(ruleId, enabled) {
-        const { error } = await supabase.from('autobidder_rules')
+        const { error } = await supabase.from('autobidder_rules_legacy_mvp')
             .update({ enabled: Boolean(enabled), updated_at: new Date().toISOString() })
             .eq('id', ruleId);
         if (error) { showPremiumModal('error', 'Не удалось переключить', error.message); return; }
