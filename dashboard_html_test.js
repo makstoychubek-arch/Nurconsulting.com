@@ -93,6 +93,9 @@ assert.ok(
     !/return snapReq !== _loadRequestId\(\)/.test(rnpSrc),
     'RNP load must not be invalidated by dashboard loadFromDB request ids'
 );
+assert.ok(rnpSrc.includes('function _monthStickLabel'), 'month title must stay visible when scrolling days');
+assert.ok(rnpSrc.includes('rnp-th-month-prev'), 'previous-month header must stick over frozen week columns');
+assert.ok(html.includes('rnp-th-month-stick'), 'month stick label CSS must exist');
 assert.ok(rnpSrc.includes('_loadPlans(dateFrom, dateTo)'), 'plans must be loaded only for the visible calendar range');
 assert.ok(/Promise\.all\(\[\s*_loadPlans\(dateFrom, dateTo\)/.test(rnpSrc), 'RNP loads plans/orders/stocks in parallel');
 
