@@ -127,6 +127,27 @@ assert.ok(rnpSrc.includes('function _mergeAdStatsFromDb'), 'RNP must merge adver
 assert.ok(rnpSrc.includes("from('advertising_daily_stats')") || rnpSrc.includes("'advertising_daily_stats'"),
     'RNP must read advertising_daily_stats, not only rnp_daily_data');
 assert.ok(rnpSrc.includes('_hydrateFunnelAfterPaint'), 'organic impressions must hydrate after first paint');
+assert.ok(rnpSrc.includes('WB 7 дней, старше из кэша'), 'funnel header must say WB only keeps 7 days');
+assert.ok(rnpSrc.includes('nmIds'), 'funnel hydrate must request all active articles, not one nm');
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
+        .includes('orders_filled_until'),
+    'auto-sync must fill the July→today order gap, not only walk backward'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
+        .includes('ORDERS_MIN_INTERVAL_MS'),
+    'auto-sync must space supplier/orders at 1 req/min per token'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/rnp-finance-sync/index.ts'), 'utf8')
+        .includes('cron_finance_first'),
+    'night finance cron must finish every cabinet before downloading storage'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903161000_orders_filled_until.sql')),
+    'orders_filled_until migration must exist'
+);
 assert.ok(rnpSrc.includes('показы РК'), 'toolbar must show live ad impressions so empty cells are not silent');
 assert.ok(rnpSrc.includes('activateCatalog: true'), 'catalog sync must turn WB cards on in every cabinet, not only new ones');
 assert.ok(

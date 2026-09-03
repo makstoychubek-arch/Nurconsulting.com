@@ -128,7 +128,7 @@ const RNP = (() => {
             { key: 'orders_sum',         label: 'Сумма Заказов',                    type: 'som', src: 'auto' },
             { key: 'sales_sum',          label: 'Сумма Продаж',                     type: 'som', src: 'auto' },
         ]},
-        { id: 'funnel', label: 'Показатели воронки Общие', color: '#f59e0b', rows: [
+        { id: 'funnel', label: 'Показатели воронки Общие · WB 7 дней, старше из кэша', color: '#f59e0b', rows: [
             { key: 'impressions',        label: 'Показы',                           type: 'int',  src: 'promo' },
             { key: 'organic_imp_pct',    label: 'Процент органики показов',         type: 'pct',  src: 'calc' },
             { key: 'plan_impressions',   label: 'План Показов',                     type: 'int',  src: 'manual', isPlan: true },
@@ -3112,24 +3112,24 @@ const RNP = (() => {
 
     async function _hydrateFunnelAfterPaint(snapCab, renderId) {
         if (!_callProxy || !_cab) return;
-        let nmId = _activeNm;
-        if (nmId === SUMMARY_TAB || nmId === GENERAL_TAB || nmId == null) {
-            nmId = _cabArticles().find(a => a.is_active)?.nm_id;
-        }
-        nmId = Number(nmId);
-        if (!nmId || nmId < 0) return;
+        const nmIds = _cabArticles().filter(a => a.is_active).map(a => Number(a.nm_id)).filter(n => n > 0);
+        if (!nmIds.length) return;
         const today = new Date().toISOString().split('T')[0];
-        const hasFunnel = Object.values(_dataCache[nmId] || {}).some(r =>
-            r && r.date <= today && (Number(r.impressions || 0) > 0 || Number(r.clicks || 0) > 0));
-        if (hasFunnel) return;
+        const weekAgo = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().split('T')[0]; })();
+        const hasRecentFunnel = nmIds.some(nmId =>
+            Object.values(_dataCache[nmId] || {}).some(r =>
+                r && r.date >= weekAgo && r.date <= today &&
+                (Number(r.impressions || 0) > 0 || Number(r.clicks || 0) > 0)));
+        if (hasRecentFunnel) return;
         try {
-            await _syncFunnelHistory(nmId);
+            await _syncFunnelHistory(nmIds);
         } catch (e) {
             console.warn('[RNP] funnel hydrate:', e.message);
             return;
         }
         if (_cab !== snapCab || renderId !== _mainRenderGen) return;
-        await _loadDailyData(nmId);
+        const focus = Number(_activeNm);
+        if (focus > 0) await _loadDailyData(focus);
         if (_cab !== snapCab || renderId !== _mainRenderGen) return;
         _cabinetColsCacheKey = '';
         _cabinetColsCacheVal = null;
@@ -3307,7 +3307,7 @@ const RNP = (() => {
         const active = _cabArticles().filter(a => a.is_active);
         const live = _visibleLiveTotals(active, _buildCalendar());
         el.textContent = `${age} · заказы ${live.orders.toLocaleString('ru')} · показы РК ${live.adImp.toLocaleString('ru')} · клики РК ${live.adClicks.toLocaleString('ru')}`;
-        el.title = `Показы (воронка): ${live.impressions.toLocaleString('ru')}. Заказы — из wb_orders за видимый период. РК — из advertising_daily_stats.`;
+        el.title = `Показы (воронка): ${live.impressions.toLocaleString('ru')} — WB отдаёт только последние 7 дней, старше храним в кэше. Заказы — из wb_orders. РК — из advertising_daily_stats.`;
     }
 
     // ─── HISTORICAL ORDERS SYNC (from wb_orders table) ───────────────────────
@@ -3450,9 +3450,12 @@ const RNP = (() => {
     }
 
     // ─── SALES FUNNEL (Analytics API v3) ─────────────────────────────────────
-    // WB limit: only the last 7 days (no historical chunks without Jam CSV)
-    async function _syncFunnelHistory(nmId, onProgress) {
+    // WB limit: only the last 7 days. Older days stay in rnp_daily_data cache.
+    async function _syncFunnelHistory(nmIdOrIds, onProgress) {
         if (!_callProxy) return;
+        const nmIds = (Array.isArray(nmIdOrIds) ? nmIdOrIds : [nmIdOrIds])
+            .map(Number).filter(n => n > 0);
+        if (!nmIds.length) return;
         const now = new Date();
         const rangeStart = new Date(now);
         rangeStart.setDate(rangeStart.getDate() - 6);
@@ -3465,7 +3468,7 @@ const RNP = (() => {
             resp = await _callProxyTimed('sales_funnel_history', {
                 dateFrom,
                 dateTo,
-                nmId,
+                nmIds,
                 aggregationLevel: 'day',
             }, _cab);
         } catch (e) {
@@ -3474,37 +3477,36 @@ const RNP = (() => {
         }
         if (!resp) return;
 
-        const byDate = {};
+        const idSet = new Set(nmIds.map(String));
+        const upserts = [];
         const items = Array.isArray(resp) ? resp : (resp?.data || []);
         for (const item of items) {
-            if (String(item.product?.nmId) !== String(nmId)) continue;
+            const nmId = Number(item.product?.nmId || item.nmId);
+            if (!idSet.has(String(nmId))) continue;
             for (const day of (item.history || [])) {
                 const date = (day.date || '').split('T')[0];
                 if (!date) continue;
                 const opens = Number(day.openCount || 0);
                 const cart  = Number(day.cartCount || 0);
-                byDate[date] = {
+                upserts.push({
+                    cabinet_id: _cab, nm_id: nmId, date,
                     impressions: opens,
                     clicks: opens,
                     ctr_pct: opens > 0 ? cart / opens * 100 : 0,
                     basket_count: cart,
                     basket_pct: Number(day.addToCartConversion || 0),
                     funnel_order_conv: Number(day.cartToOrderConversion || 0),
-                };
+                    updated_at: new Date().toISOString(),
+                });
             }
         }
 
-        if (!Object.keys(byDate).length) {
+        if (!upserts.length) {
             console.info('[RNP] funnel: no data returned');
             return;
         }
 
-        console.info(`[RNP] funnel: ${Object.keys(byDate).length} dates synced`);
-        const upserts = Object.entries(byDate).map(([date, d]) => ({
-            cabinet_id: _cab, nm_id: nmId, date,
-            ...d,
-            updated_at: new Date().toISOString(),
-        }));
+        console.info(`[RNP] funnel: ${upserts.length} nm-days synced (WB last 7 days)`);
         await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
     }
 
