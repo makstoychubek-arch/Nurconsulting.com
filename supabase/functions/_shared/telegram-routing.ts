@@ -58,6 +58,11 @@ const LEGACY_ENV: Partial<Record<TelegramChannel, string>> = {
     ab_tests: 'TELEGRAM_CHANNEL_ID',
 };
 
+/** Известные chat_id, если secret ещё не выставлен в Dashboard. */
+const HARDCODED_CHAT_IDS: Partial<Record<TelegramChannel, string>> = {
+    penalties: '-3907884000',
+};
+
 const ALL_CHANNELS: TelegramChannel[] = [
     'sales',
     'penalties',
@@ -85,6 +90,9 @@ export function getTelegramChatId(channel: TelegramChannel): string {
         if (legacy) return legacy;
     }
 
+    const hardcoded = (HARDCODED_CHAT_IDS[channel] ?? '').trim();
+    if (hardcoded) return hardcoded;
+
     return (Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '').trim();
 }
 
@@ -102,6 +110,7 @@ export function getTelegramRoutingStatus(): Record<
         const legacyKey = LEGACY_ENV[channel];
         const legacy = legacyKey ? (Deno.env.get(legacyKey) ?? '').trim() : '';
         const fallback = (Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '').trim();
+        const hardcoded = (HARDCODED_CHAT_IDS[channel] ?? '').trim();
         let source: 'dedicated' | 'legacy' | 'default' | 'missing' = 'missing';
         let chatId = '';
         if (direct) {
@@ -110,6 +119,9 @@ export function getTelegramRoutingStatus(): Record<
         } else if (legacy) {
             chatId = legacy;
             source = 'legacy';
+        } else if (hardcoded) {
+            chatId = hardcoded;
+            source = 'dedicated';
         } else if (fallback) {
             chatId = fallback;
             source = 'default';
@@ -154,6 +166,10 @@ export function resolveIncomingChatChannel(chatId: string): TelegramChannel | nu
         if (!legacyKey) continue;
         const legacy = (Deno.env.get(legacyKey) ?? '').trim();
         if (legacy && legacy === id) return channel;
+    }
+    for (const channel of ALL_CHANNELS) {
+        const hardcoded = (HARDCODED_CHAT_IDS[channel] ?? '').trim();
+        if (hardcoded && hardcoded === id) return channel;
     }
     return null;
 }

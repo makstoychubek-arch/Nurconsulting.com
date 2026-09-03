@@ -50,13 +50,21 @@ Deno.test('resolveIncomingChatChannel: shared fallback does NOT collapse channel
       TELEGRAM_CHANNEL_ID: '',
     },
     () => {
-      // Outbound still uses shared fallback…
-      assertEquals(getTelegramChatId('penalties'), '-100shared');
+      // Штрафы — отдельная группа, даже без secret.
+      assertEquals(getTelegramChatId('penalties'), '-3907884000');
       assertEquals(getTelegramChatId('triggers'), '-100shared');
       // …but inbound must NOT map shared id to last channel (triggers/fbs).
       assertEquals(resolveIncomingChatChannel('-100shared'), null);
+      assertEquals(resolveIncomingChatChannel('-3907884000'), 'penalties');
     },
   );
+});
+
+Deno.test('getTelegramChatId: env TELEGRAM_CHAT_PENALTIES overrides hardcoded group', () => {
+  withEnv({ TELEGRAM_CHAT_PENALTIES: '-100custom-penalties' }, () => {
+    assertEquals(getTelegramChatId('penalties'), '-100custom-penalties');
+    assertEquals(resolveIncomingChatChannel('-100custom-penalties'), 'penalties');
+  });
 });
 
 Deno.test('resolveIncomingChatChannel: legacy ab_tests id', () => {

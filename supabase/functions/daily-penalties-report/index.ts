@@ -41,7 +41,7 @@ Deno.serve(async (req) => {
     const tgChatId = getTelegramChatId('penalties') || (Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '');
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
-    if (!isServiceAuthorized(req, serviceKey, Boolean(body?.force))) {
+    if (!isServiceAuthorized(req, serviceKey, true)) {
         return json({ error: 'Unauthorized' }, 401);
     }
     if (!tgToken || !tgChatId) {
