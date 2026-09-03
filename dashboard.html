@@ -663,6 +663,18 @@
         }
         .adv-camp-action-btn:hover { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
         .adv-camp-action-btn:disabled { opacity: 0.6; cursor: default; }
+        .adv-camp-action-btn.is-on { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
+        .autobidder-rule {
+            background: var(--surface); border-radius: var(--radius-card); padding: 16px;
+            box-shadow: var(--card-shadow); display: flex; flex-direction: column; gap: 10px;
+        }
+        .autobidder-rule-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .autobidder-rule-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
+        .autobidder-rule-meta { font-size: 12px; color: var(--text-muted); line-height: 1.45; }
+        .autobidder-log { font-size: 12px; }
+        .autobidder-log-row { display: grid; grid-template-columns: 110px 70px 1fr 90px; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+        .autobidder-log-row:last-child { border-bottom: none; }
+        #autobidder-modal:not(.hidden) { display: flex; }
         .adv-alert { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--radius-card); font-size: 12.5px; line-height: 1.45; }
         .adv-alert-icon { flex-shrink: 0; font-size: 15px; line-height: 1; }
         .adv-alert.warn { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #b91c1c; }
@@ -3256,6 +3268,7 @@
                         <div class="segment-tab active" data-adv-view="overview" onclick="switchAdvDetailView('overview', this)">Обзор</div>
                         <div class="segment-tab" data-adv-view="campaigns" onclick="switchAdvDetailView('campaigns', this)">Кампании</div>
                         <div class="segment-tab" data-adv-view="articles" onclick="switchAdvDetailView('articles', this)">Товары</div>
+                        <div class="segment-tab" data-adv-view="autobidder" onclick="switchAdvDetailView('autobidder', this)">Автобиддер</div>
                     </div>
                 </div>
 
@@ -3267,6 +3280,15 @@
                     <div id="adv-subtab-articles" class="hidden">
                         <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Товары</h3>
                         <div id="adv-articles-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                    </div>
+                    <div id="adv-subtab-autobidder" class="hidden">
+                        <h3 class="text-sm font-semibold mb-1" style="color:var(--text-primary)">Автобиддер</h3>
+                        <p class="text-xs mb-4" style="color:var(--text-muted)">Поднимает и опускает ставку аукциона WB к целевой метрике. Бюджет не пополняет — только ставки уже запущенной кампании.</p>
+                        <div id="autobidder-rules-list" class="space-y-3 mb-6">
+                            <div class="text-sm" style="color:var(--text-muted)">Загрузка правил...</div>
+                        </div>
+                        <h4 class="text-sm font-semibold mb-2" style="color:var(--text-primary)">Журнал</h4>
+                        <div id="autobidder-log-list" class="autobidder-log" style="color:var(--text-muted)">—</div>
                     </div>
                 </div>
 
@@ -3349,6 +3371,58 @@
                         <div class="chart-canvas-wrap"><canvas id="chart-adv-efficiency"></canvas></div>
                     </div>
                 </div>
+                </div>
+            </div>
+
+            <div id="autobidder-modal" class="hidden" style="position:fixed;inset:0;z-index:99997;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px)" onclick="if(event.target===this) closeAutobidderModal()">
+                <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;max-width:520px;width:94%;max-height:90vh;overflow-y:auto">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-semibold" style="color:var(--text-primary)">Автобиддер</h3>
+                        <button type="button" onclick="closeAutobidderModal()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1">×</button>
+                    </div>
+                    <div id="autobidder-modal-campaign" class="text-sm font-semibold mb-1" style="color:var(--text-primary)">—</div>
+                    <div id="autobidder-modal-bids" class="text-xs mb-4" style="color:var(--text-muted)">Текущие ставки: загружаем…</div>
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <label class="text-xs" style="color:var(--text-muted)">Метрика
+                            <select id="abid-metric" class="ui-select mt-1">
+                                <option value="drr">ДРР, %</option>
+                                <option value="cpc">CPC, ₽</option>
+                                <option value="ctr">CTR, %</option>
+                            </select>
+                        </label>
+                        <label class="text-xs" style="color:var(--text-muted)">Цель
+                            <input id="abid-target" type="number" min="0.1" step="0.1" class="ui-input mt-1" placeholder="15">
+                        </label>
+                        <label class="text-xs" style="color:var(--text-muted)">Мин. ставка, ₽
+                            <input id="abid-min" type="number" min="1" step="0.5" class="ui-input mt-1" placeholder="5">
+                        </label>
+                        <label class="text-xs" style="color:var(--text-muted)">Макс. ставка, ₽
+                            <input id="abid-max" type="number" min="1" step="0.5" class="ui-input mt-1" placeholder="150">
+                        </label>
+                        <label class="text-xs" style="color:var(--text-muted)">Шаг, ₽
+                            <input id="abid-step" type="number" min="0.1" step="0.1" class="ui-input mt-1" placeholder="0.5">
+                        </label>
+                        <label class="text-xs" style="color:var(--text-muted)">Интервал
+                            <select id="abid-interval" class="ui-select mt-1">
+                                <option value="15">15 мин</option>
+                                <option value="30">30 мин</option>
+                                <option value="60" selected>1 час</option>
+                                <option value="120">2 часа</option>
+                                <option value="360">6 часов</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="flex items-center justify-between mb-4">
+                        <span class="text-sm" style="color:var(--text-secondary)">Включить автобиддер</span>
+                        <button type="button" id="abid-enabled" class="tg-switch" onclick="this.classList.toggle('on')" aria-pressed="false">
+                            <span></span>
+                        </button>
+                    </div>
+                    <div class="flex gap-2 flex-wrap">
+                        <button type="button" class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="saveAutobidderRule()">Сохранить</button>
+                        <button type="button" class="ui-btn ui-btn-secondary text-sm" onclick="runAutobidderNow()">Запустить сейчас</button>
+                        <button type="button" class="ui-btn ui-btn-secondary text-sm" onclick="closeAutobidderModal()">Отмена</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -4019,6 +4093,7 @@
     var WB_PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
     var AUTO_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/auto-sync';
     var ADVERTISING_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/advertising-sync';
+    var AUTOBIDDER_RUN_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/autobidder-run';
     var ADMIN_SPACE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/admin-space';
     var TELEGRAM_ADMIN_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/telegram-admin';
     const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
@@ -5400,13 +5475,16 @@
         const snapshotCabinet = currentCabinetId;
         const { from, to } = getActiveDateRange();
 
-        const [rows, campaignMetaRows] = await Promise.all([
+        const [rows, campaignMetaRows, autobidderRules] = await Promise.all([
             fetchAllRows('advertising_daily_stats', [
                 { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
                 { op: 'gte', column: 'stat_date', value: from },
                 { op: 'lte', column: 'stat_date', value: to },
             ]),
             fetchAllRows('advertising_campaigns', [
+                { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
+            ]),
+            fetchAllRows('autobidder_rules', [
                 { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
             ]),
         ]);
@@ -5435,6 +5513,8 @@
         window._advCampaignTypeCache = typeByCampaign;
         window._advCampaignPaymentTypeCache = paymentTypeByCampaign;
         window._advCampaignBidTypeCache = bidTypeByCampaign;
+        window._autobidderByCampaign = new Map((autobidderRules || []).map((r) => [String(r.campaign_id), r]));
+        if (window._advDetailView === 'autobidder') renderAutobidderTab();
 
         const byCampaign = new Map();
         const byDate = new Map();
@@ -5535,7 +5615,7 @@
                 <td>${cSpendShare != null ? cSpendShare.toFixed(2) + '%' : '—'}</td>
                 <td>${campaignStatusPillHtml(c.status)}</td>
                 <td>${campaignActionBtnHtml(c.id, c.status)}</td>
-                <td><button type="button" class="adv-camp-action-btn" onclick="toggleKeywordStats(${c.id})">🔍 Фразы</button></td>
+                <td><button type="button" class="adv-camp-action-btn" onclick="toggleKeywordStats(${c.id})">🔍 Фразы</button> <button type="button" class="adv-camp-action-btn${(window._autobidderByCampaign && window._autobidderByCampaign.get(String(c.id))?.enabled) ? ' is-on' : ''}" onclick="openAutobidderModal(${c.id})">⚡ Авто</button></td>
             </tr>
             <tr id="adv-camp-kw-row-${c.id}" class="hidden"><td colspan="12" style="padding:0"><div id="adv-camp-kw-${c.id}" class="p-4" style="background:var(--accent-soft)"></div></td></tr>`;
             }).join('') + `</tbody></table></div>`;
@@ -5556,6 +5636,8 @@
         document.getElementById('adv-campaigns-list')?.classList.toggle('hidden', view === 'overview');
         document.getElementById('adv-subtab-campaigns')?.classList.toggle('hidden', view !== 'campaigns');
         document.getElementById('adv-subtab-articles')?.classList.toggle('hidden', view !== 'articles');
+        document.getElementById('adv-subtab-autobidder')?.classList.toggle('hidden', view !== 'autobidder');
+        if (view === 'autobidder') renderAutobidderTab();
     }
     window.switchAdvDetailView = switchAdvDetailView;
 
@@ -5809,6 +5891,203 @@
         }
     }
     window.toggleCampaignStatus = toggleCampaignStatus;
+
+    const AUTOBIDDER_METRIC_LABELS = { drr: 'ДРР', cpc: 'CPC', ctr: 'CTR' };
+    function rubFromKopecks(k) { return (Number(k || 0) / 100); }
+    function kopecksFromRub(r) { return Math.round(Number(r || 0) * 100); }
+    function fmtBidRub(k) {
+        const v = rubFromKopecks(k);
+        return v ? v.toLocaleString('ru-RU', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' ₽' : '—';
+    }
+    function autobidderReasonLabel(reason) {
+        const map = {
+            drr_high: 'ДРР выше цели', drr_low: 'ДРР ниже цели', drr_ok: 'ДРР в коридоре',
+            cpc_high: 'CPC выше цели', cpc_low: 'CPC ниже цели', cpc_ok: 'CPC в коридоре',
+            ctr_high: 'CTR выше цели', ctr_low: 'CTR ниже цели', ctr_ok: 'CTR в коридоре',
+            spend_no_orders: 'слив без заказов', paused: 'кампания на паузе',
+            no_stats: 'нет статистики', no_bids: 'нет ставок', clamped: 'уперлись в мин/макс',
+        };
+        return map[reason] || reason || '';
+    }
+
+    async function renderAutobidderTab() {
+        const listEl = document.getElementById('autobidder-rules-list');
+        const logEl = document.getElementById('autobidder-log-list');
+        if (!listEl || !currentCabinetId) return;
+        const names = window._advCampaignNameCache || new Map();
+        const [rules, logs] = await Promise.all([
+            fetchAllRows('autobidder_rules', [{ op: 'eq', column: 'cabinet_id', value: currentCabinetId }]),
+            supabase.from('autobidder_log').select('*').eq('cabinet_id', currentCabinetId)
+                .order('created_at', { ascending: false }).limit(40)
+                .then(({ data, error }) => { if (error) { console.warn(error.message); return []; } return data || []; }),
+        ]);
+        window._autobidderByCampaign = new Map((rules || []).map((r) => [String(r.campaign_id), r]));
+        if (!rules.length) {
+            listEl.innerHTML = `<div class="text-sm" style="color:var(--text-muted)">Правил ещё нет. Откройте «Кампании» и нажмите «⚡ Авто» у нужной РК — задайте цель и коридор ставки.</div>`;
+        } else {
+            listEl.innerHTML = rules.map((r) => {
+                const name = names.get(String(r.campaign_id)) || `Кампания ${r.campaign_id}`;
+                const unit = r.target_metric === 'cpc' ? ' ₽' : '%';
+                const last = r.last_run_at ? new Date(r.last_run_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'ещё не запускался';
+                return `<div class="autobidder-rule" id="autobidder-rule-${r.id}">
+                    <div class="autobidder-rule-head">
+                        <div class="autobidder-rule-name">${escapeHtml(name)} <span style="color:var(--text-muted);font-family:monospace;font-size:11px">#${r.campaign_id}</span></div>
+                        <button type="button" class="tg-switch${r.enabled ? ' on' : ''}" onclick="toggleAutobidderEnabled('${r.id}', ${!r.enabled})" aria-pressed="${r.enabled ? 'true' : 'false'}"><span></span></button>
+                    </div>
+                    <div class="autobidder-rule-meta">
+                        Цель: ${AUTOBIDDER_METRIC_LABELS[r.target_metric] || r.target_metric} ${Number(r.target_value)} ${unit}
+                        · коридор ${fmtBidRub(r.min_bid_kopecks)} – ${fmtBidRub(r.max_bid_kopecks)}
+                        · шаг ${fmtBidRub(r.step_kopecks)} · каждые ${r.interval_minutes} мин<br>
+                        Последний прогон: ${escapeHtml(last)}${r.last_error ? ` · <span style="color:#ef4444">${escapeHtml(r.last_error)}</span>` : ''}
+                    </div>
+                    <div class="flex gap-2">
+                        <button type="button" class="adv-camp-action-btn" onclick="openAutobidderModal(${r.campaign_id})">Изменить</button>
+                        <button type="button" class="adv-camp-action-btn" onclick="runAutobidderNow(${r.campaign_id})">Запустить сейчас</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+        if (logEl) {
+            if (!logs.length) {
+                logEl.textContent = 'Пока нет записей — автобиддер ещё не менял ставки.';
+            } else {
+                logEl.innerHTML = logs.map((l) => {
+                    const name = names.get(String(l.campaign_id)) || `#${l.campaign_id}`;
+                    const when = new Date(l.created_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+                    const act = l.action === 'up' ? '↑' : l.action === 'down' ? '↓' : '•';
+                    const reason = autobidderReasonLabel(l.details?.reason);
+                    const bid = l.old_bid_kopecks != null
+                        ? `${fmtBidRub(l.old_bid_kopecks)} → ${fmtBidRub(l.new_bid_kopecks)}`
+                        : '—';
+                    const metric = l.metric_value != null ? `${AUTOBIDDER_METRIC_LABELS[l.metric] || l.metric} ${Number(l.metric_value).toFixed(1)}` : '';
+                    return `<div class="autobidder-log-row">
+                        <span>${escapeHtml(when)}</span>
+                        <span>${act} ${escapeHtml(l.action)}</span>
+                        <span style="color:var(--text-primary)">${escapeHtml(name)} ${escapeHtml(reason)} ${escapeHtml(metric)}</span>
+                        <span>${escapeHtml(bid)}</span>
+                    </div>`;
+                }).join('');
+            }
+        }
+    }
+    window.renderAutobidderTab = renderAutobidderTab;
+
+    function closeAutobidderModal() {
+        document.getElementById('autobidder-modal')?.classList.add('hidden');
+        window._autobidderModalCampaignId = null;
+    }
+    window.closeAutobidderModal = closeAutobidderModal;
+
+    async function openAutobidderModal(campaignId) {
+        if (!currentCabinetId || !campaignId) return;
+        window._autobidderModalCampaignId = Number(campaignId);
+        const modal = document.getElementById('autobidder-modal');
+        const nameEl = document.getElementById('autobidder-modal-campaign');
+        const bidsEl = document.getElementById('autobidder-modal-bids');
+        const names = window._advCampaignNameCache || new Map();
+        if (nameEl) nameEl.textContent = `${names.get(String(campaignId)) || 'Кампания'} #${campaignId}`;
+        const rule = (window._autobidderByCampaign && window._autobidderByCampaign.get(String(campaignId))) || null;
+        document.getElementById('abid-metric').value = rule?.target_metric || 'drr';
+        document.getElementById('abid-target').value = rule?.target_value != null ? Number(rule.target_value) : 15;
+        document.getElementById('abid-min').value = rule ? rubFromKopecks(rule.min_bid_kopecks) : 5;
+        document.getElementById('abid-max').value = rule ? rubFromKopecks(rule.max_bid_kopecks) : 150;
+        document.getElementById('abid-step').value = rule ? rubFromKopecks(rule.step_kopecks) : 0.5;
+        document.getElementById('abid-interval').value = String(rule?.interval_minutes || 60);
+        document.getElementById('abid-enabled').classList.toggle('on', Boolean(rule?.enabled));
+        if (modal) modal.classList.remove('hidden');
+        if (bidsEl) bidsEl.textContent = 'Текущие ставки: загружаем…';
+        const data = await callWbProxy('advert_get_bids', { advertId: campaignId }, currentCabinetId);
+        if (!bidsEl) return;
+        if (!data) { bidsEl.textContent = 'Не удалось прочитать ставки WB.'; return; }
+        const bids = Array.isArray(data.bids) ? data.bids : [];
+        if (!bids.length) {
+            bidsEl.textContent = 'WB не вернул текущие ставки — автобиддер возьмёт минимум при первом запуске.';
+            return;
+        }
+        const byPlace = {};
+        for (const b of bids) {
+            const key = b.placement || 'search';
+            if (!byPlace[key]) byPlace[key] = [];
+            byPlace[key].push(`${b.nm_id}: ${fmtBidRub(b.bid_kopecks)}`);
+        }
+        bidsEl.textContent = 'Текущие ставки: ' + Object.entries(byPlace)
+            .map(([p, arr]) => `${p} — ${arr.slice(0, 6).join(', ')}${arr.length > 6 ? '…' : ''}`)
+            .join('; ');
+    }
+    window.openAutobidderModal = openAutobidderModal;
+
+    async function saveAutobidderRule() {
+        const campaignId = window._autobidderModalCampaignId;
+        if (!currentCabinetId || !campaignId) return;
+        const metric = document.getElementById('abid-metric').value;
+        const target = Number(document.getElementById('abid-target').value);
+        const minK = kopecksFromRub(document.getElementById('abid-min').value);
+        const maxK = kopecksFromRub(document.getElementById('abid-max').value);
+        const stepK = kopecksFromRub(document.getElementById('abid-step').value);
+        const interval = Number(document.getElementById('abid-interval').value) || 60;
+        const enabled = document.getElementById('abid-enabled').classList.contains('on');
+        if (!target || target <= 0) { showPremiumModal('warning', 'Цель', 'Укажите целевое значение метрики.'); return; }
+        if (minK < 100 || maxK < 100 || minK >= maxK) {
+            showPremiumModal('warning', 'Коридор ставки', 'Минимум должен быть меньше максимума, оба ≥ 1 ₽.');
+            return;
+        }
+        if (stepK < 10) { showPremiumModal('warning', 'Шаг', 'Шаг ставки не меньше 0,10 ₽.'); return; }
+        const payload = {
+            cabinet_id: currentCabinetId,
+            campaign_id: campaignId,
+            enabled,
+            target_metric: metric,
+            target_value: target,
+            min_bid_kopecks: minK,
+            max_bid_kopecks: maxK,
+            step_kopecks: stepK,
+            interval_minutes: interval,
+            updated_at: new Date().toISOString(),
+        };
+        const { error } = await supabase.from('autobidder_rules').upsert(payload, { onConflict: 'cabinet_id,campaign_id' });
+        if (error) { showPremiumModal('error', 'Не сохранилось', error.message); return; }
+        showPremiumModal('success', 'Автобиддер сохранён', enabled
+            ? 'Правило включено. Крон проверяет ставки каждые 30 минут, но не чаще интервала правила.'
+            : 'Правило сохранено и выключено — включите слайдер, когда будете готовы.');
+        closeAutobidderModal();
+        await renderAutobidderTab();
+    }
+    window.saveAutobidderRule = saveAutobidderRule;
+
+    async function toggleAutobidderEnabled(ruleId, enabled) {
+        const { error } = await supabase.from('autobidder_rules')
+            .update({ enabled: Boolean(enabled), updated_at: new Date().toISOString() })
+            .eq('id', ruleId);
+        if (error) { showPremiumModal('error', 'Не удалось переключить', error.message); return; }
+        await renderAutobidderTab();
+    }
+    window.toggleAutobidderEnabled = toggleAutobidderEnabled;
+
+    async function runAutobidderNow(campaignId) {
+        const id = Number(campaignId || window._autobidderModalCampaignId || 0);
+        if (!hasUserCabinets || !currentCabinetId || !id) return;
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { showPremiumModal('error', 'Сессия', 'Войдите заново.'); return; }
+        try {
+            const res = await fetch(AUTOBIDDER_RUN_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+                body: JSON.stringify({ cabinet_id: currentCabinetId, campaign_id: id, force: true }),
+            });
+            const result = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
+            const row = (result.results || [])[0] || {};
+            const title = row.status === 'ok' ? 'Ставка обновлена' : row.status === 'hold' ? 'Ставку не меняли' : row.status === 'skipped' ? 'Пропуск' : 'Автобиддер';
+            const extra = row.old_bid_kopecks != null
+                ? `${fmtBidRub(row.old_bid_kopecks)} → ${fmtBidRub(row.new_bid_kopecks)}`
+                : autobidderReasonLabel(row.reason || row.error);
+            showPremiumModal(row.status === 'error' ? 'error' : 'success', title, extra || 'Готово.');
+            await renderAutobidderTab();
+        } catch (e) {
+            showPremiumModal('error', 'Автобиддер не запустился', e.message);
+        }
+    }
+    window.runAutobidderNow = runAutobidderNow;
 
     // Баланс рекламного кабинета WB (adv/v1/balance) — читаем живым запросом
     // при открытии дашборда кабинета (не кэшируем в БД: это единичный лёгкий

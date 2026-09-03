@@ -8,6 +8,13 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 import { isSuperAdminUser, isTeamMember } from '../_shared/cabinet-access.ts';
+import {
+    collectNmIds,
+    extractBidsFromAdvert,
+    fetchAdvertById,
+    fetchMinBids,
+    setAdvertBids,
+} from '../_shared/wb-advert-bids.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -710,6 +717,76 @@ serve(async (req) => {
                     return json({ error: `WB normquery/stats error ${wbRes.status}: ${text.slice(0, 200)}` }, wbRes.status >= 500 ? 502 : 400);
                 }
                 result = text ? JSON.parse(text) : [];
+                break;
+            }
+
+            // ── Ставки аукциона: чтение / запись / минимум ───────────────────
+            // Бюджет не трогаем — только ставки уже созданной кампании.
+            case 'advert_get_bids': {
+                const advertId = Number(params.advertId || 0);
+                if (!advertId) return json({ error: 'advertId required' }, 400);
+                const advert = await fetchAdvertById(WB_PROMO_TOKEN, advertId);
+                let bids = extractBidsFromAdvert(advert);
+                if (!bids.length && advert) {
+                    const bidType = String(advert.bid_type ?? advert.bidType ?? '').toLowerCase();
+                    const placement = bidType === 'manual' ? 'search' : 'combined';
+                    bids = await fetchMinBids(WB_PROMO_TOKEN, advertId, collectNmIds(advert, []), placement);
+                }
+                try {
+                    await admin.from('advertising_campaigns').update({
+                        current_bids: bids,
+                        updated_at: new Date().toISOString(),
+                    }).eq('cabinet_id', cabinet_id).eq('campaign_id', advertId);
+                } catch (e) {
+                    console.warn('[wb-proxy] persist current_bids failed:', String(e));
+                }
+                result = {
+                    advertId,
+                    name: advert ? String((advert as Record<string, unknown>).name
+                        || ((advert as Record<string, unknown>).settings as Record<string, unknown> | undefined)?.name
+                        || '') : '',
+                    status: advert ? Number((advert as Record<string, unknown>).status ?? 0) : null,
+                    bidType: advert ? String((advert as Record<string, unknown>).bid_type
+                        ?? (advert as Record<string, unknown>).bidType ?? '') : '',
+                    bids,
+                    advert: advert || null,
+                };
+                break;
+            }
+            case 'advert_set_bids': {
+                const advertId = Number(params.advertId || 0);
+                if (!advertId) return json({ error: 'advertId required' }, 400);
+                const rawBids = Array.isArray(params.bids) ? params.bids as Record<string, unknown>[] : [];
+                if (!rawBids.length) return json({ error: 'bids required' }, 400);
+                const nmBids = rawBids.map((b) => ({
+                    nm_id: Number(b.nm_id ?? b.nmId ?? 0),
+                    bid_kopecks: Number(b.bid_kopecks ?? b.bid ?? 0),
+                    placement: String(b.placement || 'search') as 'search' | 'recommendations' | 'combined',
+                })).filter((b) => b.nm_id && b.bid_kopecks > 0);
+                if (!nmBids.length) return json({ error: 'valid bids required' }, 400);
+                const setRes = await setAdvertBids(WB_PROMO_TOKEN, advertId, nmBids);
+                if (!setRes.ok) {
+                    return json({
+                        error: `WB bids error ${setRes.status}: ${setRes.body || 'empty'}`,
+                    }, setRes.status >= 500 ? 502 : 400);
+                }
+                try {
+                    await admin.from('advertising_campaigns').update({
+                        current_bids: nmBids,
+                        updated_at: new Date().toISOString(),
+                    }).eq('cabinet_id', cabinet_id).eq('campaign_id', advertId);
+                } catch (e) {
+                    console.warn('[wb-proxy] persist set bids failed:', String(e));
+                }
+                result = { ok: true, advertId, bids: nmBids };
+                break;
+            }
+            case 'advert_bids_min': {
+                const advertId = Number(params.advertId || 0);
+                if (!advertId) return json({ error: 'advertId required' }, 400);
+                const nmIds = Array.isArray(params.nmIds) ? (params.nmIds as unknown[]).map(Number).filter(Boolean) : [];
+                const placement = String(params.placement || 'search') as 'search' | 'recommendations' | 'combined';
+                result = { advertId, bids: await fetchMinBids(WB_PROMO_TOKEN, advertId, nmIds, placement) };
                 break;
             }
 
