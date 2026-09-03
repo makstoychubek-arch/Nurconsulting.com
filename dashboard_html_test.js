@@ -194,6 +194,19 @@ assert.ok(html.includes('function saveOzonForCabinet') && html.includes('ozon_cl
     'Ozon page must save client id and api key per cabinet');
 assert.ok(html.includes("tabs.api?.classList.remove('hidden-tab')"),
     'settings must show the cabinets tab for regular users, not only Super Admin');
+assert.ok(html.includes('function deleteCabinet') && html.includes("rpc('delete_cabinet'"),
+    'settings cabinets must have a delete button that wipes tokens and data');
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903210000_delete_cabinet.sql')),
+    'delete_cabinet RPC migration must exist'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260903210000_delete_cabinet.sql'), 'utf8')
+        .includes('wb_token = null') &&
+    fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260903210000_delete_cabinet.sql'), 'utf8')
+        .includes('ozon_api_key = null'),
+    'delete_cabinet must wipe WB and Ozon tokens before dropping the row'
+);
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903190000_telegram_bots_ozon.sql')),
     'telegram_bots / ozon_token migration must exist'
