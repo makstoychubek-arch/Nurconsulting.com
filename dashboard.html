@@ -1631,7 +1631,10 @@
         .rnp-compare-label { font-size: 8px; font-weight: 800; text-transform: uppercase; color: var(--accent); padding: 2px 8px; background: var(--accent-soft); }
         .rnp-sheet-tab .rnp-sync-dot { margin-right: 2px; }
         .rnp-tab-summary { font-weight: 700; }
-        .main-content { background: var(--bg); background-image: var(--bg-mesh); }
+        .main-content { background: var(--bg); background-image: var(--bg-mesh); overflow-anchor: none; }
+        #rnp-sheet-body,
+        #tab-rnp-settings,
+        .rnp-settings-articles-scroll { overflow-anchor: none; }
         #date-picker {
             position: fixed; top: 100px; left: 300px; z-index: 9999;
             background: var(--apple-glass);
@@ -4440,24 +4443,72 @@
             });
         }
 
-        // Captures scroll offsets of window + any number of scrollable elements,
-        // runs `fn`, then restores the offsets. Use around any operation that
-        // may replace/rebuild DOM and could otherwise reset scroll position.
-        function preserveScroll(elements, fn) {
-            const els = (elements || []).filter(Boolean);
-            const snap = { win: [window.scrollX, window.scrollY], els: els.map(el => [el.scrollLeft, el.scrollTop]) };
-            const result = fn();
-            const restore = () => {
-                if (snap.win[0] || snap.win[1]) window.scrollTo(snap.win[0], snap.win[1]);
-                els.forEach((el, i) => {
-                    const [l, t] = snap.els[i];
-                    if (el.scrollLeft !== l) el.scrollLeft = l;
-                    if (el.scrollTop !== t) el.scrollTop = t;
+        // Locks window + the real page scroller (`.main-content`) + RNP panes.
+        // Elements are re-queried after `fn` because a rebuild replaces the nodes.
+        // Restores immediately and again after layout (double rAF) so height
+        // flicker cannot leave the page scrolled to a different place.
+        const PAGE_SCROLL_SELECTORS = [
+            '.main-content',
+            '#rnp-sheet-body',
+            '#rnp-table-wrap',
+            '.rnp-settings-articles-scroll',
+            '.rnp-table-scroll',
+            '.rnp-gallery-scroll',
+        ];
+
+        function snapshotPageScroll(elements) {
+            const items = [];
+            const seen = new Set();
+            const push = (el, sel) => {
+                if (!el || seen.has(el)) return;
+                seen.add(el);
+                items.push({
+                    sel: sel || (el.id ? '#' + el.id : ''),
+                    id: el.id || '',
+                    left: el.scrollLeft,
+                    top: el.scrollTop,
                 });
             };
-            if (result && typeof result.then === 'function') return result.then(v => { restore(); return v; });
-            restore();
-            return result;
+            PAGE_SCROLL_SELECTORS.forEach(sel => {
+                document.querySelectorAll(sel).forEach(el => push(el, sel));
+            });
+            (elements || []).forEach(el => push(el, el && el.id ? '#' + el.id : ''));
+            return { win: [window.scrollX, window.scrollY], items };
+        }
+
+        function applyPageScroll(snap) {
+            if (!snap) return;
+            window.scrollTo(snap.win[0], snap.win[1]);
+            snap.items.forEach(it => {
+                let el = it.id ? document.getElementById(it.id) : null;
+                if (!el && it.sel) el = document.querySelector(it.sel);
+                if (!el) return;
+                if (el.scrollLeft !== it.left) el.scrollLeft = it.left;
+                if (el.scrollTop !== it.top) el.scrollTop = it.top;
+            });
+        }
+
+        function preserveScroll(elements, fn) {
+            const snap = snapshotPageScroll(elements);
+            const restore = () => applyPageScroll(snap);
+            const schedule = () => {
+                restore();
+                if (typeof requestAnimationFrame === 'function') {
+                    requestAnimationFrame(() => {
+                        restore();
+                        requestAnimationFrame(restore);
+                    });
+                }
+            };
+            try {
+                const result = fn();
+                if (result && typeof result.then === 'function') return result.finally(schedule);
+                schedule();
+                return result;
+            } catch (err) {
+                schedule();
+                throw err;
+            }
         }
 
         return { morphList, preserveScroll };
@@ -4958,7 +5009,7 @@
         }
         window._rnpBootRetries = 0;
         rnp.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
-        rnp.openSettings();
+        rnp.openSettings({ preserveScroll: true });
     }
 
     function scheduleRnpBoot(failMessage) {
@@ -7049,16 +7100,25 @@
         if (summaryErr) console.error('[loadFromDB] dashboard_summary RPC:', summaryErr.message);
 
         if (!summaryErr && summary) {
-            const stocks = applyStockSummary(summary);
-            document.getElementById('date-range').textContent =
-                `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
+            const applyDash = () => {
+                const stocks = applyStockSummary(summary);
+                const dateEl = document.getElementById('date-range');
+                if (dateEl) {
+                    dateEl.textContent =
+                        `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
+                }
 
-            updateDashboardFromDB(stocks.total, summary.cur, summary.prev);
+                updateDashboardFromDB(stocks.total, summary.cur, summary.prev);
 
-            if (window.NRCharts) {
-                const series = (summary.cur_daily || []).map(d => [d.date, { sum: Number(d.sum || 0), count: Number(d.count || 0), returns: Number(d.returns || 0) }]);
-                NRCharts.renderAllChartsAgg(series, stocks.chartEntries);
-            }
+                if (window.NRCharts) {
+                    const series = (summary.cur_daily || []).map(d => [d.date, { sum: Number(d.sum || 0), count: Number(d.count || 0), returns: Number(d.returns || 0) }]);
+                    NRCharts.renderAllChartsAgg(series, stocks.chartEntries);
+                }
+                return stocks;
+            };
+            const stocks = window.domMorph
+                ? window.domMorph.preserveScroll([], applyDash)
+                : applyDash();
 
             if (typeof WBFormulas !== 'undefined') {
                 const finId = requestId;
@@ -7084,11 +7144,15 @@
                             WBFormulas.calculateMetrics(prevRows, settings), stocks.total, Number(summary.prev?.orders_count || 0))
                         : null;
                     if (finCabinet === currentCabinetId) {
-                        WBFormulas.applyMetricsToDashboard(metrics, setText);
-                        applyExtendedMetricDisplay(metrics);
-                        if (prevMetrics) applyMetricTrends(metrics, prevMetrics);
-                        syncSummaryTab(metrics);
-                        renderTopMarginalProducts(metrics);
+                        const applyFin = () => {
+                            WBFormulas.applyMetricsToDashboard(metrics, setText);
+                            applyExtendedMetricDisplay(metrics);
+                            if (prevMetrics) applyMetricTrends(metrics, prevMetrics);
+                            syncSummaryTab(metrics);
+                            renderTopMarginalProducts(metrics);
+                        };
+                        if (window.domMorph) window.domMorph.preserveScroll([], applyFin);
+                        else applyFin();
                     }
                 }).catch(e => {
                     console.warn('Finance report:', e.message);
@@ -7273,7 +7337,7 @@
                 if (typeof rnpMod.resyncArticles === 'function') rnpMod.resyncArticles().catch(() => {});
                 const cur = localStorage.getItem('nr_active_tab');
                 if (cur === 'rnp') rnpMod.openMain();
-                if (cur === 'rnp-settings') rnpMod.openSettings();
+                if (cur === 'rnp-settings') rnpMod.openSettings({ preserveScroll: true });
             }
             showPremiumModal('success', 'Готово!', 'Данные успешно загружены.');
 
