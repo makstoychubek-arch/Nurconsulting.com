@@ -16,6 +16,7 @@ import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import {
     fetchWeeklyPenaltyBundle,
+    formatPenaltyCaption,
     prettyRuDate,
 } from '../_shared/wb-penalties-snapshot.ts';
 
@@ -83,11 +84,14 @@ Deno.serve(async (req) => {
                         weekOpen: Boolean(body?.weekOpen),
                         reportId: null,
                         source: 'daily' as const,
+                        prevDate: typeof body?.prevDate === 'string' ? body.prevDate : undefined,
+                        prevTotal: Number(body?.prevTotal) || 0,
+                        prevItems: body?.prevItems == null ? null : Number(body.prevItems),
                     }
                     : await fetchWeeklyPenaltyBundle(token, reportDate);
                 const rows = bundle.rows;
                 const periodKey = `${bundle.periodFrom}_${bundle.periodTo}`;
-                const eventType = `daily_penalties_${periodKey}`;
+                const eventType = `daily_penalties_${reportDate}`;
                 const { data: dupes } = await admin
                     .from('notification_log')
                     .select('id')
@@ -106,8 +110,27 @@ Deno.serve(async (req) => {
                     results.push(cabResult);
                     continue;
                 }
+                if (!rows.length && !body?.force) {
+                    cabResult.skipped = 'no_penalties';
+                    cabResult.period = periodKey;
+                    results.push(cabResult);
+                    continue;
+                }
 
-                const caption = buildCaption(cabinet.name, reportDate, rows, bundle);
+                const caption = formatPenaltyCaption({
+                    cabinetName: cabinet.name,
+                    date: reportDate,
+                    dateLabel: bundle.periodFrom === bundle.periodTo
+                        ? prettyRuDate(reportDate)
+                        : `${prettyRuDate(bundle.periodFrom)}–${prettyRuDate(bundle.periodTo)}`,
+                    rows,
+                    prevDate: bundle.prevDate,
+                    prevTotal: bundle.prevTotal,
+                    prevItems: bundle.prevItems,
+                    weekOpen: bundle.weekOpen,
+                    alertUser: ALERT_USERNAME,
+                    watchdogThreshold: Number(Deno.env.get('PENALTY_WATCHDOG_THRESHOLD') || 500),
+                });
                 cabResult.period = periodKey;
                 cabResult.week_open = bundle.weekOpen;
                 let sent = false;
@@ -176,31 +199,6 @@ Deno.serve(async (req) => {
 interface PenaltyRow {
     reason: string;
     amount: number;
-}
-
-function buildCaption(
-    cabinetName: string,
-    date: string,
-    rows: PenaltyRow[],
-    bundle: { periodFrom: string; periodTo: string; weekOpen: boolean },
-): string {
-    const period = bundle.periodFrom === bundle.periodTo
-        ? prettyRuDate(date)
-        : `${prettyRuDate(bundle.periodFrom)}–${prettyRuDate(bundle.periodTo)}`;
-    const openNote = bundle.weekOpen
-        ? `\nЕжедневный отчёт за ${prettyRuDate(date)} ещё не готов — это последний закрытый`
-        : '';
-    if (!rows.length) {
-        return `✅ <b>${escapeHtml(cabinetName)}</b> — штрафы за ${period}${openNote}\nШтрафов и удержаний нет`;
-    }
-    const total = rows.reduce((s, r) => s + r.amount, 0);
-    const fmtNum = (n: number) => Math.round(n).toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
-    return [
-        `⚠️ <b>${escapeHtml(cabinetName)}</b> — штрафы за ${period}`,
-        `💸 Удержано: <b>${fmtNum(total)} сом</b> (${rows.length} поз.)`,
-        `@${escapeHtml(ALERT_USERNAME)} — <b>нужно разобраться</b>`,
-        openNote.trim(),
-    ].filter(Boolean).join('\n');
 }
 
 // ── Картинка-таблица (стиль как daily-sales-report) ───────────────────────
@@ -390,10 +388,6 @@ function yesterdayBishkek(): string {
 function sanitizeWbToken(raw: unknown): string {
     if (typeof raw !== 'string') return '';
     return raw.replace(/^\uFEFF/, '').replace(/\s+/g, '').trim();
-}
-
-function escapeHtml(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function sleep(ms: number): Promise<void> {

@@ -205,19 +205,41 @@ async function listSalesReports(
   return reports.map((r) => ({ ...r, period: r.period ?? period }));
 }
 
-export async function fetchWeeklyPenaltyBundle(
-  token: string,
-  date: string,
-): Promise<{
+export type PenaltyBundle = {
   rows: PenaltyLine[];
   periodFrom: string;
   periodTo: string;
   reportId: string | null;
   weekOpen: boolean;
   source: 'daily' | 'weekly';
-}> {
+  prevDate: string;
+  prevTotal: number;
+  prevItems: number | null;
+};
+
+function prevDayFromList(reports: SalesReportMeta[], date: string): {
+  prevDate: string;
+  prevTotal: number;
+  prevItems: number | null;
+} {
+  const prevDate = addDaysYmd(date, -1);
+  const prev = reports.find((r) => r.dateFrom === prevDate && r.dateTo === prevDate);
+  const prevTotal = prev ? (prev.penaltySum ?? 0) : 0;
+  return {
+    prevDate,
+    prevTotal,
+    prevItems: prevTotal === 0 ? 0 : null,
+  };
+}
+
+export async function fetchWeeklyPenaltyBundle(
+  token: string,
+  date: string,
+): Promise<PenaltyBundle> {
   const dailyFrom = addDaysYmd(date, -10);
-  let reports = await listSalesReports(token, dailyFrom, date, 'daily');
+  const dailyReports = await listSalesReports(token, dailyFrom, date, 'daily');
+  const prev = prevDayFromList(dailyReports, date);
+  let reports = dailyReports;
   let picked = pickSalesReport(reports, date);
   let source: 'daily' | 'weekly' = 'daily';
 
@@ -229,20 +251,28 @@ export async function fetchWeeklyPenaltyBundle(
     source = 'weekly';
   }
 
-  if (!picked) {
-    return { rows: [], periodFrom: date, periodTo: date, reportId: null, weekOpen: true, source };
-  }
+  const empty = (extra: Partial<PenaltyBundle> = {}): PenaltyBundle => ({
+    rows: [],
+    periodFrom: date,
+    periodTo: date,
+    reportId: null,
+    weekOpen: true,
+    source,
+    ...prev,
+    ...extra,
+  });
+
+  if (!picked) return empty();
   const weekOpen = !(picked.dateFrom <= date && date <= picked.dateTo);
   const exactDay = picked.dateFrom === date && picked.dateTo === date;
   if (exactDay && !(picked.penaltySum > 0) && !(picked.deductionSum > 0)) {
-    return {
+    return empty({
       rows: [],
       periodFrom: picked.dateFrom,
       periodTo: picked.dateTo,
       reportId: picked.reportId,
       weekOpen: false,
-      source,
-    };
+    });
   }
   const detailed = await financePost(
     token,
@@ -262,6 +292,7 @@ export async function fetchWeeklyPenaltyBundle(
     reportId: picked.reportId,
     weekOpen,
     source,
+    ...prev,
   };
 }
 
@@ -316,6 +347,64 @@ function parseMoney(v: unknown): number {
   if (v == null || v === '') return 0;
   const n = Number(String(v).replace(/\s/g, '').replace(',', '.'));
   return Number.isFinite(n) ? Math.abs(n) : 0;
+}
+
+export function fmtSom(n: number): string {
+  return Math.round(n).toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
+}
+
+function somWithItems(total: number, items: number | null | undefined): string {
+  const base = `${fmtSom(total)} сом`;
+  return items == null ? base : `${base} (${items} поз.)`;
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/** Подпись как раньше: сторож + сравнение с прошлым днём. */
+export function formatPenaltyCaption(opts: {
+  cabinetName: string;
+  date: string;
+  dateLabel?: string;
+  rows: PenaltyLine[];
+  prevDate?: string;
+  prevTotal?: number;
+  prevItems?: number | null;
+  weekOpen?: boolean;
+  alertUser?: string;
+  watchdogThreshold?: number;
+}): string {
+  const period = opts.dateLabel || prettyRuDate(opts.date);
+  const openNote = opts.weekOpen
+    ? `\nЕжедневный отчёт за ${period} ещё не готов — это последний закрытый`
+    : '';
+  if (!opts.rows.length) {
+    return `✅ <b>${escapeHtml(opts.cabinetName)}</b> — штрафы за ${period}${openNote}\nШтрафов и удержаний нет`;
+  }
+  const total = opts.rows.reduce((s, r) => s + r.amount, 0);
+  const threshold = opts.watchdogThreshold ?? 500;
+  const prevDate = opts.prevDate || addDaysYmd(opts.date, -1);
+  const prevTotal = opts.prevTotal ?? 0;
+  const delta = total - prevTotal;
+  const denom = prevTotal > 0 ? prevTotal : 0.01;
+  const pct = ((total - prevTotal) / denom) * 100;
+  const signed = (n: number) => `${n > 0 ? '+' : ''}${fmtSom(n)}`;
+  const lines = [
+    `⚠️ <b>${escapeHtml(opts.cabinetName)}</b> — штрафы за ${period}`,
+    `💸 Удержано: <b>${fmtSom(total)} сом</b> (${opts.rows.length} поз.)`,
+  ];
+  if (total >= threshold) {
+    lines.push('🚨 Сторож: превышен порог удержаний');
+  }
+  lines.push(
+    `📈 К ${prettyRuDate(prevDate)}: ${somWithItems(prevTotal, opts.prevItems)} → сегодня ${somWithItems(total, opts.rows.length)} (${signed(delta)}, ${signed(pct)}%)`,
+  );
+  if (opts.alertUser) {
+    lines.push(`@${escapeHtml(opts.alertUser.replace(/^@/, ''))} — <b>нужно разобраться</b>`);
+  }
+  if (openNote.trim()) lines.push(openNote.trim());
+  return lines.join('\n');
 }
 
 export function formatPenaltiesReply(

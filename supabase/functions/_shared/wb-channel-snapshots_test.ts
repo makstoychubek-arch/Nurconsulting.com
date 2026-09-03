@@ -4,7 +4,7 @@ import {
   formatDrrBrief,
   parseAdsQuery,
 } from "./wb-ads-snapshot.ts";
-import { parsePenaltiesQuery, formatPenaltiesReply, pickSalesReport, parseSalesReportsList, aggregatePenaltyRows, PENALTY_DETAIL_FIELDS } from "./wb-penalties-snapshot.ts";
+import { parsePenaltiesQuery, formatPenaltiesReply, formatPenaltyCaption, pickSalesReport, parseSalesReportsList, aggregatePenaltyRows, PENALTY_DETAIL_FIELDS } from "./wb-penalties-snapshot.ts";
 import { yesterdayBishkek } from "./agent-ru-text.ts";
 
 Deno.test("parseAdsQuery day from вчера", () => {
@@ -101,4 +101,24 @@ Deno.test("PENALTY_DETAIL_FIELDS is a slim WB payload", () => {
   assert(PENALTY_DETAIL_FIELDS.includes("sellerOperName"));
   assert(PENALTY_DETAIL_FIELDS.includes("rrdId"));
   assertEquals(PENALTY_DETAIL_FIELDS.length, 6);
+});
+
+Deno.test("formatPenaltyCaption: сторож + сравнение с прошлым днём", () => {
+  const text = formatPenaltyCaption({
+    cabinetName: "Zevina 1",
+    date: "2026-08-10",
+    rows: [{ reason: "Отчет об утилизированном товаре", amount: 971 }],
+    prevDate: "2026-08-09",
+    prevTotal: 0,
+    prevItems: 1,
+    alertUser: "maraWuW",
+    watchdogThreshold: 500,
+  });
+  assert(text.includes("Zevina 1"));
+  assert(text.includes("10.08.2026"));
+  assert(text.includes("971"));
+  assert(text.includes("Сторож"));
+  assert(text.includes("09.08.2026"));
+  assert(text.includes("@maraWuW"));
+  assert(text.includes("нужно разобраться"));
 });
