@@ -135,4 +135,19 @@ assert.ok(
     'auto-sync must activate catalog cards already sitting inactive in rnp_articles'
 );
 
+assert.ok(!html.includes('--logo-mark: #F5C400'), 'dashboard logo mark must not be yellow');
+assert.ok(html.includes('--logo-mark: #FFFFFF'), 'dashboard logo mark must be white');
+assert.ok(
+    !fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').includes('bg-[#F5C400] text-[#111] font-black'),
+    'site header logo must not be the yellow NR tile'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').includes('bg-white text-[#111] font-black'),
+    'site header logo must be the white NR tile'
+);
+assert.ok(
+    !fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8').includes('background: #F5C400'),
+    'login logo must not use the yellow mark'
+);
+
 console.log('dashboard_html_test: ok');
