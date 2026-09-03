@@ -9,7 +9,8 @@
     let cachedWarehouseEntries = null;
 
     function chartColors() {
-        const dark = document.documentElement.getAttribute('data-theme') === 'neon';
+        const theme = document.documentElement.getAttribute('data-theme');
+        const dark = theme === 'neon' || theme === 'pink';
         return {
             text: dark ? '#A0A0B8' : '#5C5C6B',
             grid: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',

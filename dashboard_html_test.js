@@ -135,4 +135,10 @@ assert.ok(
     'auto-sync must activate catalog cards already sitting inactive in rnp_articles'
 );
 
+assert.ok(html.includes('data-theme-set="pink"'), 'theme picker must include pink neon');
+assert.ok(html.includes('[data-theme="pink"]'), 'pink neon theme tokens must exist');
+assert.ok(/\[data-theme="neon"\][\s\S]*--sel:/.test(html), 'dark theme must override --sel so cards are not leftover white');
+assert.ok(html.includes('padding-right: 16px') || html.includes('padding-right: 18px'), 'main shell must keep a right gutter');
+assert.ok(html.includes("NR_THEMES = ['ios', 'neon', 'pink']") || html.includes('NR_THEMES = [\'ios\', \'neon\', \'pink\']'), 'theme cycle includes pink');
+
 console.log('dashboard_html_test: ok');
