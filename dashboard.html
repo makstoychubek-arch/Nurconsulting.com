@@ -9682,7 +9682,10 @@
                         <div class="ui-list-row-main">${escapeHtml(c.name)}</div>
                         <div class="ui-list-row-sub" style="font-family:monospace">Токен: ${hasToken ? maskToken(c.wb_token) : 'не задан'}</div>
                     </div>
-                    <button class="ui-btn ui-btn-secondary" onclick="toggleEditToken('${c.id}')">${hasToken ? 'Изменить' : 'Добавить'}</button>
+                    <div class="flex gap-2">
+                        <button class="ui-btn ui-btn-secondary" onclick="toggleEditToken('${c.id}')">${hasToken ? 'Изменить' : 'Добавить'}</button>
+                        <button class="ui-btn ui-btn-secondary" style="color:var(--red)" onclick="deleteCabinet('${c.id}', this)">Удалить</button>
+                    </div>
                 </div>
                 <div id="edit-token-${c.id}" class="hidden" style="padding:0 4px 14px">
                     <input type="password" id="token-input-${c.id}" placeholder="Вставьте токен WB (со всеми правами)" autocomplete="off" class="ui-input" style="font-family:monospace">
@@ -9696,6 +9699,33 @@
     }
 
     function toggleEditToken(cabinetId) { document.getElementById('edit-token-' + cabinetId).classList.toggle('hidden'); }
+
+    async function deleteCabinet(cabinetId, btn) {
+        const row = (btn && btn.closest('.ui-list-row')) || null;
+        const name = row?.querySelector('.ui-list-row-main')?.textContent?.trim() || 'кабинет';
+        const ok = await showConfirmModal(
+            'Удалить кабинет?',
+            `«${name}» исчезнет везде: токены WB/Ozon, РНП, реклама, Telegram-мьюты. Восстановить нельзя.`
+        );
+        if (!ok) return;
+        if (btn) { btn.disabled = true; btn.textContent = 'Удаляем…'; }
+        const { error } = await supabase.rpc('delete_cabinet', { cid: cabinetId });
+        if (error) {
+            if (btn) { btn.disabled = false; btn.textContent = 'Удалить'; }
+            showPremiumModal('error', 'Не удалось удалить', error.message);
+            return;
+        }
+        if (currentCabinetId === cabinetId) {
+            currentCabinetId = null;
+            try { localStorage.removeItem('selected_cabinet_id'); } catch (_) {}
+        }
+        showPremiumModal('success', 'Кабинет удалён', `«${name}» больше нигде не появится — ни в списке, ни у ботов.`);
+        await loadCabinets();
+        loadCabinetsAPIList();
+        if (typeof loadOzonTokenPage === 'function') loadOzonTokenPage();
+        if (typeof loadTelegramBotsPage === 'function') loadTelegramBotsPage();
+    }
+    window.deleteCabinet = deleteCabinet;
 
     async function saveTokenForCabinet(cabinetId) {
         const token = document.getElementById('token-input-' + cabinetId).value.trim().replace(/\s+/g, '');
