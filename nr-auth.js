@@ -31,10 +31,23 @@
         return false;
     }
 
+    // Лендинг/логин глушим; в кабинете (/space, А/Б, РК…) ошибки должны быть видны.
+    function isAppShellPath() {
+        try {
+            var p = String((global.location && global.location.pathname) || '').replace(/\/$/, '');
+            if (!p) p = '/';
+            if (p === '/space' || p === '/dashboard' || /\/dashboard\.html$/i.test(p)) return true;
+            if (p === '/ab-testing' || p === '/advertising' || p === '/seo' || p === '/marking' || p === '/logistics' || p === '/rnp') return true;
+            if (p.indexOf('/rnp-app') === 0) return true;
+        } catch (_) {}
+        return false;
+    }
+
     function installPublicConsoleMute() {
         if (console.__nrPublicMuted) return;
         if (!global.document) return;
         if (isDebugOn()) return;
+        if (isAppShellPath()) return;
         console.__nrPublicMuted = true;
         var noop = function () {};
         ['log', 'info', 'debug', 'warn', 'error', 'table', 'dir', 'dirxml', 'trace', 'group', 'groupCollapsed', 'groupEnd'].forEach(function (name) {
@@ -142,6 +155,7 @@
         isAuthTokenError: isAuthTokenError,
         isWbTokenError: isWbTokenError,
         isDebugOn: isDebugOn,
+        isAppShellPath: isAppShellPath,
         installPublicConsoleMute: installPublicConsoleMute,
         clearSupabaseAuthStorage: clearSupabaseAuthStorage,
         prepareAuthStorage: prepareAuthStorage,

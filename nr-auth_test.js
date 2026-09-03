@@ -21,7 +21,7 @@ const sessionStore = {
 };
 
 const windowStub = {
-    location: { search: '' },
+    location: { search: '', pathname: '/' },
     localStorage: localStorage,
     sessionStorage: sessionStore,
     addEventListener: function () {},
@@ -73,6 +73,7 @@ runRecover().then(() => {
     const origLog = console.log;
     const origError = console.error;
     windowStub.document = {};
+    windowStub.location.pathname = '/';
     NrAuth.installPublicConsoleMute();
     assert.strictEqual(console.__nrPublicMuted, true);
     assert.notStrictEqual(console.log, origLog);
@@ -80,6 +81,19 @@ runRecover().then(() => {
     console.error('token leak should stay hidden');
     console.log = origLog;
     console.error = origError;
+    delete console.__nrPublicMuted;
+
+    windowStub.location.pathname = '/space';
+    NrAuth.installPublicConsoleMute();
+    assert.strictEqual(console.__nrPublicMuted, undefined, '/space must keep console for dashboard errors');
+    assert.strictEqual(NrAuth.isAppShellPath(), true);
+
+    windowStub.location.pathname = '/ab-testing';
+    assert.strictEqual(NrAuth.isAppShellPath(), true);
+    windowStub.location.pathname = '/rnp';
+    assert.strictEqual(NrAuth.isAppShellPath(), true);
+    windowStub.location.pathname = '/';
+    assert.strictEqual(NrAuth.isAppShellPath(), false);
 
     localStorage.setItem('nr_debug', '1');
     assert.strictEqual(NrAuth.isDebugOn(), true);

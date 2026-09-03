@@ -13,6 +13,8 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fiukyfyhotctvfdidktx.supabase.co" crossorigin>
     <script src="/nr-auth.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         * {
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -496,8 +498,11 @@
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-thumb { background: var(--accent-border); border-radius: 2px; }
         .tab-content { display: none; position: relative; overflow: hidden; }
-        .tab-content.active { display: block; }
-        .tab-content.active > * { position: relative; z-index: 1; }
+        .tab-content.active { display: block; overflow: auto; }
+        .tab-content.active > *:not(.nr-modal-overlay):not(#ab-edit-modal):not(#ab-report-modal) { position: relative; z-index: 1; }
+        #tab-rnp.tab-content.active, #tab-rnp-settings.tab-content.active { overflow: hidden; }
+        #ab-edit-modal.nr-modal-overlay, #ab-report-modal.nr-modal-overlay,
+        #ab-edit-modal, #ab-report-modal { position: fixed !important; z-index: 99998; }
         .beta-module-hero { position: relative; overflow: hidden; }
         .beta-module-hero .beta-orb {
             position: absolute; border-radius: 50%; pointer-events: none;
@@ -2508,7 +2513,7 @@
            временный style. */
         try {
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
-            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics' };
+            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp' };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -2536,7 +2541,7 @@
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
                     <span class="rail-btn-lbl">Дашборд</span>
                 </button>
-                <button type="button" class="rail-btn" data-flyout="fly-rnp">
+                <button type="button" class="rail-btn" data-tab="rnp" data-flyout="fly-rnp" title="Модуль РНП">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
                     <span class="rail-btn-lbl">РНП</span>
                 </button>
@@ -3828,12 +3833,27 @@
     </div>
     </div>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/dist/dashboard-charts.137201825f.min.js"></script>
+<script src="/dist/rnp-module.6e0000a4b7.min.js"></script>
+<script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
-    var supabase = window.NrAuth.createClient(window.supabase, SUPABASE_URL, SUPABASE_KEY);
+    var __nrSupabaseLib = window.supabase;
+    if (!window.NrAuth || !__nrSupabaseLib || typeof __nrSupabaseLib.createClient !== 'function') {
+        console.error('[NR] supabase-js / NrAuth не загрузились — дашборд не сможет стартовать');
+        document.addEventListener('DOMContentLoaded', function () {
+            if (document.getElementById('nr-boot-fail-banner')) return;
+            var banner = document.createElement('div');
+            banner.id = 'nr-boot-fail-banner';
+            banner.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:199999;background:#1a1a24;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,0.4);font-size:13px;color:#ccc';
+            banner.innerHTML = '<span>Не загрузились скрипты кабинета. Обновите страницу.</span><button type="button" onclick="location.reload()" style="padding:6px 14px;border-radius:10px;background:var(--accent,#8b5cf6);color:#fff;border:none;font-weight:600;cursor:pointer;white-space:nowrap">Повторить</button>';
+            document.body.appendChild(banner);
+        });
+    }
+    var supabase = (__nrSupabaseLib && window.NrAuth)
+        ? window.NrAuth.createClient(__nrSupabaseLib, SUPABASE_URL, SUPABASE_KEY)
+        : null;
     var WB_PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
     var AUTO_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/auto-sync';
     var ADVERTISING_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/advertising-sync';
@@ -4657,7 +4677,7 @@
     const TAB_ALIASES = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo' };
     const MODULE_PATHS = {
         'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
-        marking: '/marking', logistics: '/logistics', dashboard: '/space',
+        marking: '/marking', logistics: '/logistics', rnp: '/rnp', dashboard: '/space',
     };
     const PATH_TO_TAB = Object.fromEntries(Object.entries(MODULE_PATHS).map(([k, v]) => [v, k]));
 
@@ -4704,10 +4724,10 @@
     function syncRailGroup(tabName) {
         const g = TAB_GROUP[tabName] || 'ocr';
         document.querySelectorAll('.rail-btn').forEach(b => {
-            if (b.dataset.tab) {
-                b.classList.toggle('active', b.dataset.tab === tabName);
-            } else if (b.dataset.flyout) {
+            if (b.dataset.flyout) {
                 b.classList.toggle('active', b.dataset.flyout === 'fly-' + g);
+            } else if (b.dataset.tab) {
+                b.classList.toggle('active', b.dataset.tab === tabName);
             }
         });
     }
@@ -4853,7 +4873,7 @@
         updateHeaderNav(name);
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
-        if (name === 'ab-testing' && hasUserCabinets) loadABTests();
+        if (name === 'ab-testing') loadABTests();
         if (name === 'advertising' && hasUserCabinets) openAdvertisingTab();
         if (name === 'dds' && hasUserCabinets && window._financeDdsLoadedForCabinet !== currentCabinetId) {
             window._financeDdsLoadedForCabinet = currentCabinetId;
@@ -6645,6 +6665,9 @@
         window._planLoadedForCabinet = null;
         const planGridEl = document.getElementById('plan-grid-container');
         if (planGridEl) planGridEl.innerHTML = '<div class="p-10 text-center text-sm" style="color:var(--text-muted)">Загрузка артикулов...</div>';
+        allABTests = [];
+        const abListEl = document.getElementById('abtests-list');
+        if (abListEl) abListEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div>';
 
         showCabinetTransition(newCabinetName, async () => {
             await loadFromDB();
@@ -6655,11 +6678,14 @@
                 bootRnpTab(true);
                 bootRnpSettings(true);
             }
-            const curTab = localStorage.getItem('nr_active_tab');
+            const curTab = getCurrentActiveTab() || localStorage.getItem('nr_active_tab');
             if (curTab === 'logistics') initLogisticsSupplies();
             if (curTab === 'goods-groups') loadGoodsGroups();
             if (curTab === 'advertising') openAdvertisingTab();
             if (curTab === 'planning') loadPlanningTab();
+            if (curTab === 'ab-testing') loadABTests();
+            if (curTab === 'seo') loadSeoKeywords();
+            if (curTab === 'marking') loadMarkingComplianceReport();
         });
     }
 
@@ -7896,35 +7922,58 @@
     async function forceRotateABTest(testId) { await doClientRotation(testId); }
 
     async function loadABTests() {
-        if (!currentCabinetId) return;
-        const { data: tests } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
-        if (!tests) { allABTests = []; renderABTests(); return; }
-        allABTests = [];
-        for (const test of tests) {
-            const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', test.id).order('variant_label');
-            const dbSettings = test.settings && Object.keys(test.settings).length ? test.settings : null;
-            const localSettings = dbSettings ? null : loadABSettings(test.id);
-            if (!dbSettings && localSettings && Object.keys(localSettings).length) {
-                // Старый тест, настройки были только в localStorage — переносим
-                // в БД один раз, чтобы серверный cron тоже мог их использовать.
-                saveABSettings(test.id, localSettings);
+        const container = document.getElementById('abtests-list');
+        if (!currentCabinetId) {
+            allABTests = [];
+            if (container) {
+                container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
+                    <div style="font-size:40px;margin-bottom:12px">📊</div>
+                    Выберите кабинет, чтобы увидеть А/Б тесты
+                </div>`;
             }
-            allABTests.push({ ...test, variants: variants || [], settings: dbSettings || localSettings || {} });
+            return;
         }
-        renderABTests();
-        startRotationTimers();
-
-        // Ссылка "подробный отчёт" из Telegram-уведомления ведёт на
-        // /ab-testing?test=<id> — открываем модалку отчёта автоматически один
-        // раз после загрузки списка (не при каждом фоновом обновлении).
-        if (!window._abDeepLinkHandled) {
-            window._abDeepLinkHandled = true;
-            try {
-                const qTest = new URLSearchParams(location.search).get('test');
-                if (qTest && allABTests.some(t => String(t.id) === qTest)) {
-                    setTimeout(() => openABReportModal(qTest), 300);
+        try {
+            const { data: tests, error } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
+            if (error) throw error;
+            if (!tests) { allABTests = []; renderABTests(); return; }
+            allABTests = [];
+            for (const test of tests) {
+                const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', test.id).order('variant_label');
+                const dbSettings = test.settings && Object.keys(test.settings).length ? test.settings : null;
+                const localSettings = dbSettings ? null : loadABSettings(test.id);
+                if (!dbSettings && localSettings && Object.keys(localSettings).length) {
+                    // Старый тест, настройки были только в localStorage — переносим
+                    // в БД один раз, чтобы серверный cron тоже мог их использовать.
+                    saveABSettings(test.id, localSettings);
                 }
-            } catch (e) {}
+                allABTests.push({ ...test, variants: variants || [], settings: dbSettings || localSettings || {} });
+            }
+            renderABTests();
+            startRotationTimers();
+
+            // Ссылка "подробный отчёт" из Telegram-уведомления ведёт на
+            // /ab-testing?test=<id> — открываем модалку отчёта автоматически один
+            // раз после загрузки списка (не при каждом фоновом обновлении).
+            if (!window._abDeepLinkHandled) {
+                window._abDeepLinkHandled = true;
+                try {
+                    const qTest = new URLSearchParams(location.search).get('test');
+                    if (qTest && allABTests.some(t => String(t.id) === qTest)) {
+                        setTimeout(() => openABReportModal(qTest), 300);
+                    }
+                } catch (e) {}
+            }
+        } catch (e) {
+            console.error('[AB] loadABTests:', e);
+            allABTests = [];
+            if (container) {
+                container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
+                    <div style="font-size:40px;margin-bottom:12px">⚠️</div>
+                    Не удалось загрузить тесты. Обновите страницу.
+                    <div class="mt-2 text-xs">${String(e.message || e).replace(/</g, '&lt;')}</div>
+                </div>`;
+            }
         }
     }
 
@@ -9733,6 +9782,10 @@
     function closeSupplyDetail() { document.getElementById('supply-detail-modal').classList.add('hidden'); }
 
     document.addEventListener('DOMContentLoaded', async () => {
+        if (!supabase) {
+            window._nrInitDone = true;
+            return;
+        }
         // Watchdog: page init (session check, RNP init, etc.) no longer shows
         // any full-page splash on a plain refresh — the dashboard shell is
         // visible immediately and fills in as data arrives. But if init
@@ -9825,6 +9878,8 @@
                     else if (cur === 'advertising') openAdvertisingTab();
                     else if (cur === 'planning') loadPlanningTab();
                     else if (cur === 'seo') loadSeoKeywords();
+                    else if (cur === 'ab-testing') loadABTests();
+                    else if (cur === 'marking') loadMarkingComplianceReport();
                 }
             } catch (e) {
                 console.error('[init]', e);
@@ -9857,28 +9912,28 @@
             syncFlyoutLayout();
         }
 
-        app.querySelectorAll('.rail-btn[data-flyout]').forEach(btn => {
-            const id = btn.dataset.flyout;
-            btn.addEventListener('mouseenter', () => { if (window.innerWidth > 768) showFlyout(id); });
-            btn.addEventListener('click', () => {
-                showFlyout(id);
-                if (window.innerWidth <= 768) {
-                    document.querySelectorAll('.sidebar-flyout').forEach(f => {
-                        f.classList.toggle('mobile-active', f.id === id);
-                    });
-                }
-            });
-        });
-        // Прямые вкладки без flyout (например Контроль РК) — клик сразу открывает раздел
-        app.querySelectorAll('.rail-btn[data-tab]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                hideFlyouts();
-                showTab(btn.dataset.tab, null);
-                if (window.innerWidth <= 768) closeMobileMenu();
-            });
-            // При наведении на прямую кнопку — прячем чужие flyout'ы, чтобы не мешали
+        app.querySelectorAll('.rail-btn').forEach(btn => {
+            const tab = btn.dataset.tab;
+            const fly = btn.dataset.flyout;
             btn.addEventListener('mouseenter', () => {
-                if (window.innerWidth > 768) hideFlyouts();
+                if (window.innerWidth <= 768) return;
+                if (fly) showFlyout(fly);
+                else hideFlyouts();
+            });
+            btn.addEventListener('click', () => {
+                // РНП: сразу открываем модуль (как А/Б и РК), flyout остаётся для настроек.
+                if (tab) showTab(tab, null);
+                if (fly) {
+                    showFlyout(fly);
+                    if (window.innerWidth <= 768) {
+                        document.querySelectorAll('.sidebar-flyout').forEach(f => {
+                            f.classList.toggle('mobile-active', f.id === fly);
+                        });
+                    }
+                } else {
+                    hideFlyouts();
+                    if (window.innerWidth <= 768) closeMobileMenu();
+                }
             });
         });
         flyouts.forEach(fly => {
@@ -9921,8 +9976,5 @@
         });
     }
 </script>
-    <script src="/dist/dashboard-charts.137201825f.min.js"></script>
-    <script src="/dist/rnp-module.6e0000a4b7.min.js"></script>
-    <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 </body>
 </html>

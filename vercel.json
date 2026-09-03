@@ -11,7 +11,7 @@
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "source": "/(space|logistics|ab-testing|advertising|seo|marking)",
+      "source": "/(space|logistics|ab-testing|advertising|seo|marking|rnp)",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
@@ -22,6 +22,7 @@
   "rewrites": [
     { "source": "/login", "destination": "/login.html" },
     { "source": "/space", "destination": "/dashboard.html" },
+    { "source": "/rnp", "destination": "/dashboard.html" },
     { "source": "/ab-testing", "destination": "/dashboard.html" },
     { "source": "/advertising", "destination": "/dashboard.html" },
     { "source": "/seo", "destination": "/dashboard.html" },
