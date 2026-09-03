@@ -4,7 +4,7 @@ import {
   formatDrrBrief,
   parseAdsQuery,
 } from "./wb-ads-snapshot.ts";
-import { parsePenaltiesQuery, formatPenaltiesReply, pickSalesReport, aggregatePenaltyRows } from "./wb-penalties-snapshot.ts";
+import { parsePenaltiesQuery, formatPenaltiesReply, pickSalesReport, aggregatePenaltyRows, PENALTY_DETAIL_FIELDS } from "./wb-penalties-snapshot.ts";
 import { yesterdayBishkek } from "./agent-ru-text.ts";
 
 Deno.test("parseAdsQuery day from вчера", () => {
@@ -83,4 +83,11 @@ Deno.test("aggregatePenaltyRows: Штраф МП from bonusTypeName", () => {
   assertEquals(rows.length, 2);
   assertEquals(Math.round(rows[0].amount), 1884);
   assert(rows[0].reason.includes("Штраф МП"));
+});
+
+Deno.test("PENALTY_DETAIL_FIELDS is a slim WB payload", () => {
+  assert(PENALTY_DETAIL_FIELDS.includes("penalty"));
+  assert(PENALTY_DETAIL_FIELDS.includes("bonusTypeName"));
+  assert(PENALTY_DETAIL_FIELDS.includes("rrdId"));
+  assertEquals(PENALTY_DETAIL_FIELDS.length, 6);
 });

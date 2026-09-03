@@ -39,6 +39,16 @@ export type SalesReportMeta = {
 
 export type PenaltyLine = { reason: string; amount: number };
 
+/** Только поля для агрегации штрафов — полный detailed JSON у крупных кабинетов (Zevina 1) не влезает в edge. */
+export const PENALTY_DETAIL_FIELDS = [
+  'rrdId',
+  'penalty',
+  'deduction',
+  'docTypeName',
+  'supplierOperName',
+  'bonusTypeName',
+] as const;
+
 /** Недельный отчёт, который покрывает дату, иначе последний закрытый. */
 export function pickSalesReport(reports: SalesReportMeta[], date: string): SalesReportMeta | null {
   const covering = reports
@@ -165,7 +175,11 @@ export async function fetchWeeklyPenaltyBundle(
   const detailed = await financePost(
     token,
     `/api/finance/v1/sales-reports/detailed/${picked.reportId}`,
-    {},
+    {
+      limit: 100000,
+      rrdId: 0,
+      fields: [...PENALTY_DETAIL_FIELDS],
+    },
     90000,
   );
   const raw = Array.isArray(detailed.data) ? detailed.data as Record<string, unknown>[] : [];

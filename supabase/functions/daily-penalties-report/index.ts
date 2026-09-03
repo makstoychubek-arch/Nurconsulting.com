@@ -7,7 +7,9 @@
 // POST /api/finance/v1/sales-reports/list + detailed/{reportId}.
 // Запрос за один день даёт 204, пока неделя не закрыта.
 //
-// Тело: { "date": "YYYY-MM-DD", "force": true, "cabinets": ["Имя"] }
+// Тело: { "date", "force", "cabinets": ["Имя"],
+//         "periodFrom", "periodTo", "rows": [{reason, amount}] }
+// `rows` — готовые строки (локальный fetch WB), без detailed/{reportId} в worker.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCanvas } from 'https://deno.land/x/canvas@v1.4.2/mod.ts';
@@ -159,9 +161,9 @@ Deno.serve(async (req) => {
                 }
             }
             results.push(cabResult);
-            // Finance API: 1 req/min на продавца — пауза ПЕРЕД следующим кабинетом
+            // Finance API: 1 req/min — пауза только если сами ходили в WB
             const remaining = (cabinets || []).filter((c) => !onlyCabinets || onlyCabinets.includes(c.name));
-            if (cabinet !== remaining[remaining.length - 1]) await sleep(65000);
+            if (!Array.isArray(body?.rows) && cabinet !== remaining[remaining.length - 1]) await sleep(65000);
         }
 
         return json({ ok: true, date: reportDate, results, ms: Date.now() - started });
