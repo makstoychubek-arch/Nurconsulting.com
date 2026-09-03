@@ -1,16 +1,18 @@
 <!DOCTYPE html>
 <html lang="ru" data-theme="ios">
 <head>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%23fff'/><text y='66' font-size='38' font-family='Arial Black,sans-serif' font-weight='900' fill='%23000' x='50' text-anchor='middle'>NR</text></svg>">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%23fff'/><text y='340' font-size='200' font-family='Arial Black,sans-serif' font-weight='900' fill='%23000' x='256' text-anchor='middle'>NR</text></svg>">
-    <meta name="theme-color" content="#030303">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231D1D1F'/><text y='66' font-size='38' font-family='Arial Black,sans-serif' font-weight='900' fill='%23fff' x='50' text-anchor='middle'>NR</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%231D1D1F'/><text y='340' font-size='200' font-family='Arial Black,sans-serif' font-weight='900' fill='%23fff' x='256' text-anchor='middle'>NR</text></svg>">
+    <meta name="theme-color" content="#F5F5F7">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="apple-mobile-web-app-title" content="NR Space">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.f25af07eed.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/dist/tailwind.37f1760908.min.css">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="preconnect" href="https://fiukyfyhotctvfdidktx.supabase.co" crossorigin>
+    <script src="/nr-auth.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -19,36 +21,38 @@
             box-sizing: border-box;
         }
 
-        /* ============ APPLE DESIGN (default / ios) ============ */
+        /* ============ WBRADAR-LIKE (default / ios) ============ */
         :root, [data-theme="ios"] {
-            --bg: #F5F5F7;
+            --bg: #F4F4F5;
             --bg-mesh: none;
             --surface: #FFFFFF;
             --surface-solid: #FFFFFF;
-            --sidebar-bg: rgba(255, 255, 255, 0.78);
-            --border: rgba(0, 0, 0, 0.04);
-            --border-strong: rgba(0, 0, 0, 0.06);
-            --text-primary: #1D1D1F;
-            --text-secondary: #6E6E73;
-            --text-muted: #86868B;
-            --accent: #0071E3;
-            --accent-hover: #0077ED;
-            --accent-soft: rgba(0, 113, 227, 0.08);
-            --accent-border: rgba(0, 113, 227, 0.18);
-            --purple: #7B61FF;
-            --purple-soft: rgba(123, 97, 255, 0.08);
-            --accent-gradient: linear-gradient(180deg, #0077ED 0%, #0071E3 100%);
-            --green: #34C759;
-            --red: #FF3B30;
-            --amber: #FF9500;
-            --blue: #007AFF;
-            --card-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-            --card-shadow-lg: 0 8px 28px rgba(0, 0, 0, 0.08);
-            --use-blur: blur(20px) saturate(180%);
-            --use-glow: 0 4px 14px rgba(0, 113, 227, 0.22);
-            --radius-card: 20px;
+            --sidebar-bg: #FFFFFF;
+            --border: rgba(0, 0, 0, 0.08);
+            --border-strong: rgba(0, 0, 0, 0.12);
+            --text-primary: #111111;
+            --text-secondary: #3F3F46;
+            --text-muted: #71717A;
+            --accent: #3B82F6;
+            --accent-hover: #2563EB;
+            --accent-soft: #F0F0F0;
+            --accent-border: rgba(0, 0, 0, 0.1);
+            --purple: #111111;
+            --purple-soft: #F0F0F0;
+            --accent-gradient: #111111;
+            --green: #16A34A;
+            --red: #DC2626;
+            --amber: #F59E0B;
+            --blue: #3B82F6;
+            --card-shadow: none;
+            --card-shadow-lg: none;
+            --use-blur: none;
+            --use-glow: none;
+            --radius-card: 16px;
             --radius-control: 12px;
-            --apple-glass: rgba(255, 255, 255, 0.82);
+            --apple-glass: #FFFFFF;
+            --sel: #EDEDED;
+            --logo-mark: #F5C400;
         }
 
         /* ============ DARK MODE (optional) ============ */
@@ -85,98 +89,119 @@
             background: var(--bg);
             background-image: var(--bg-mesh);
             color: var(--text-primary);
-            font-weight: 400;
-            letter-spacing: -0.01em;
-            transition: background 0.35s ease, color 0.35s ease;
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-weight: 500;
+            letter-spacing: -0.02em;
+            transition: background 0.2s ease, color 0.2s ease;
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
         h1, h2, h3, .header-title, .flyout-title, .section-title, .chart-box-title, .kpi-hero-value {
-            font-weight: 600;
-            letter-spacing: -0.02em;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: var(--text-primary);
         }
-        /* ── Sidebar: icon rail + flyout (Sellego-style) ── */
+        /* ── Sidebar: WBRadar-style labeled rail, logo слева ── */
         .sidebar-app {
             position: fixed; left: 0; top: 0; z-index: 50;
             display: flex; flex-direction: row; height: 100vh; pointer-events: none;
         }
         .sidebar-app > * { pointer-events: auto; }
         .sidebar-rail {
-            width: 72px; min-width: 72px; height: 100vh; flex-shrink: 0;
+            width: 220px; min-width: 220px; height: 100vh; flex-shrink: 0;
             background: var(--sidebar-bg);
-            backdrop-filter: var(--use-blur);
-            -webkit-backdrop-filter: var(--use-blur);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
             border-right: none;
-            box-shadow: 1px 0 0 rgba(0,0,0,0.04);
+            box-shadow: none;
             display: flex; flex-direction: column;
-            align-items: center; padding: 14px 0 12px;
+            align-items: stretch; padding: 18px 12px 14px;
         }
-        .main-rail { margin-left: 72px; transition: margin-left 0.12s ease; }
-        body.flyout-expanded .main-rail { margin-left: 300px; }
+        .main-rail { margin-left: 220px; transition: margin-left 0.12s ease; }
+        body.flyout-expanded .main-rail { margin-left: 440px; }
         .rail-logo {
-            width: 40px; height: 40px; border: none; border-radius: 12px;
-            background: var(--text-primary); color: var(--sidebar-bg);
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; flex-shrink: 0; margin-bottom: 18px;
-            transition: transform 0.15s ease, box-shadow 0.15s ease;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            width: auto; height: auto; border: none; border-radius: 12px;
+            background: transparent; color: var(--text-primary);
+            display: flex; align-items: center; justify-content: flex-start; gap: 10px;
+            cursor: pointer; flex-shrink: 0; margin: 0 4px 18px; padding: 8px 10px;
+            transition: background 0.15s ease;
+            box-shadow: none;
         }
-        [data-theme="neon"] .rail-logo { background: #fff; color: #0D0D12; }
-        .rail-logo:hover { transform: scale(1.04); }
-        .rail-logo-text {
-            font-size: 12px; font-weight: 800; letter-spacing: -0.05em; line-height: 1;
+        [data-theme="neon"] .rail-logo { background: transparent; color: var(--text-primary); }
+        .rail-logo:hover { transform: none; background: var(--sel); }
+        .rail-logo-mark {
+            width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
+            background: var(--logo-mark, #F5C400); color: #111;
+            font-size: 11px; font-weight: 900; letter-spacing: -0.06em;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .rail-logo-text, .rail-logo-name {
+            font-size: 16px; font-weight: 800; letter-spacing: -0.04em; line-height: 1;
+            color: var(--text-primary);
         }
         .rail-nav {
-            flex: 1; display: flex; flex-direction: column; align-items: center;
-            gap: 4px; width: 100%; overflow-y: auto; padding: 0 8px;
+            flex: 1; display: flex; flex-direction: column; align-items: stretch;
+            gap: 2px; width: 100%; overflow-y: auto; padding: 0;
         }
         .rail-btn {
             width: 100%; border: none; background: transparent; cursor: pointer;
-            display: flex; flex-direction: column; align-items: center; gap: 5px;
-            padding: 8px 4px 6px; border-radius: 12px;
-            color: var(--text-muted); transition: color 0.1s ease, background 0.1s ease;
+            display: flex; flex-direction: row; align-items: center; gap: 12px;
+            padding: 10px 14px; border-radius: 999px;
+            color: var(--text-primary); transition: background 0.15s ease, color 0.15s ease;
         }
         .rail-btn-ico {
-            width: 36px; height: 36px; border-radius: var(--radius-control);
+            width: 22px; height: 22px; border-radius: 0;
             display: flex; align-items: center; justify-content: center;
-            transition: background 0.1s ease, color 0.1s ease;
+            background: transparent !important;
+            transition: none;
+            flex-shrink: 0;
         }
-        .rail-btn-ico svg { width: 18px; height: 18px; opacity: 0.75; }
+        .rail-btn-ico svg { width: 18px; height: 18px; opacity: 1; stroke-width: 2; }
         .rail-btn-lbl {
-            font-size: 9px; font-weight: 600; letter-spacing: 0.01em;
-            line-height: 1.1; max-width: 64px; text-align: center;
+            font-size: 14px; font-weight: 700; letter-spacing: -0.03em;
+            line-height: 1.2; max-width: none; text-align: left;
         }
-        .rail-btn:hover { color: var(--text-secondary); }
-        .rail-btn:hover .rail-btn-ico { background: var(--accent-soft); }
+        .rail-btn:hover { color: var(--text-primary); background: var(--sel); }
+        .rail-btn:hover .rail-btn-ico { background: transparent; }
         .rail-btn:hover .rail-btn-ico svg { opacity: 1; }
-        .rail-btn.active { color: var(--text-primary); }
+        .rail-btn.active { color: var(--text-primary); background: var(--sel); }
         .rail-btn.active .rail-btn-ico {
-            background: rgba(16,185,129,0.14); color: #059669;
+            background: transparent !important; color: var(--text-primary);
         }
         [data-theme="neon"] .rail-btn.active .rail-btn-ico {
-            background: rgba(52,211,153,0.16); color: #34D399;
+            background: transparent; color: var(--text-primary);
         }
         .rail-btn.active .rail-btn-ico svg { opacity: 1; }
         .rail-bottom {
-            display: flex; flex-direction: column; align-items: center;
-            gap: 6px; padding: 10px 8px 0; width: 100%;
-            border-top: 1px solid var(--border); margin-top: 8px;
+            display: flex; flex-direction: column; align-items: stretch;
+            gap: 8px; padding: 12px 8px 4px; width: 100%;
+            border-top: none; margin-top: 8px;
         }
+        .rail-user {
+            display: flex; align-items: center; gap: 10px;
+            padding: 8px 10px; border-radius: 14px;
+        }
+        .rail-user-name {
+            font-size: 13px; font-weight: 800; letter-spacing: -0.03em;
+            color: var(--text-primary); line-height: 1.2;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .rail-user-role { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+        .rail-bottom-icons { display: flex; align-items: center; gap: 4px; }
         .rail-icon-btn {
             width: 36px; height: 36px; border: none; border-radius: 10px;
             background: transparent; color: var(--text-muted); cursor: pointer;
             display: flex; align-items: center; justify-content: center;
-            transition: background 0.1s ease, color 0.1s ease;
+            transition: background 0.15s ease, color 0.15s ease;
         }
-        .rail-icon-btn:hover { background: var(--accent-soft); color: var(--text-primary); }
+        .rail-icon-btn:hover { background: var(--sel); color: var(--text-primary); }
         .rail-icon-btn svg { width: 17px; height: 17px; opacity: 0.8; }
         .rail-avatar {
             width: 32px; height: 32px; border-radius: 50%;
-            background: var(--accent-gradient); color: #fff;
-            font-size: 11px; font-weight: 800;
+            background: var(--sel); color: var(--text-primary);
+            font-size: 12px; font-weight: 800;
             display: flex; align-items: center; justify-content: center;
-            cursor: default; margin-top: 4px;
+            cursor: default; margin: 0; flex-shrink: 0;
         }
         .sidebar-flyout {
             position: relative; flex-shrink: 0;
@@ -218,12 +243,12 @@
             margin: 1px 0; padding: 9px 12px; border-radius: 10px;
             font-size: 13px; transform: none !important;
         }
-        .flyout-body .nav-item:hover { transform: none; background: var(--accent-soft); }
+        .flyout-body .nav-item:hover { transform: none; background: var(--sel); }
         .flyout-body .nav-item.active {
-            background: var(--accent-soft); color: var(--accent);
-            font-weight: 600; box-shadow: none; border-color: transparent;
+            background: var(--sel); color: var(--text-primary);
+            font-weight: 700; box-shadow: none; border-color: transparent;
         }
-        .flyout-body .nav-item.active .nav-ico { opacity: 1; color: var(--accent); }
+        .flyout-body .nav-item.active .nav-ico { opacity: 1; color: var(--text-primary); }
         .flyout-user {
             padding: 12px 16px; border-top: 1px solid var(--border);
             display: flex; align-items: center; gap: 10px; flex-shrink: 0;
@@ -232,36 +257,27 @@
         .flyout-user-role { font-size: 10px; color: var(--text-muted); }
         .glass, .widget-card {
             background: var(--surface);
-            backdrop-filter: var(--use-blur);
-            -webkit-backdrop-filter: var(--use-blur);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
             border: none;
             border-radius: var(--radius-card);
-            box-shadow: var(--card-shadow);
-            transition: background 0.3s ease, box-shadow 0.2s ease, transform 0.2s ease;
+            box-shadow: none;
+            transition: background 0.15s ease;
         }
-        .widget-card { padding: 24px; }
-        .widget-card:hover { box-shadow: var(--card-shadow-lg); }
+        .widget-card { padding: 20px; }
+        .widget-card:hover { box-shadow: none; background: var(--surface); }
         .metric-card {
             background: var(--surface);
             border: none;
             border-radius: var(--radius-card);
-            padding: 22px 24px;
-            transition: box-shadow 0.2s ease, transform 0.2s ease;
-            box-shadow: var(--card-shadow);
+            padding: 18px 20px;
+            transition: background 0.15s ease;
+            box-shadow: none;
             position: relative;
             overflow: hidden;
         }
-        .metric-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 2px;
-            background: var(--accent-gradient);
-            opacity: 0;
-            transition: opacity 0.2s ease;
-        }
-        .metric-card--highlight::before { opacity: 1; }
-        .metric-card--highlight { border-color: var(--accent-border); }
+        .metric-card::before { display: none; }
+        .metric-card--highlight { border-color: transparent; }
         .metric-card .text-lg, .metric-card .text-xl, .metric-card .text-2xl {
             font-variant-numeric: tabular-nums;
             letter-spacing: -0.02em;
@@ -278,18 +294,16 @@
            доходные метрики — зелёный фон+текст, расходные — красный, остальные
            нейтральные. Это семантическая раскраска по типу метрики (не по знаку
            значения), задаётся атрибутом data-tone на самой .metric-card / .kpi-hero-card. */
-        .metric-card[data-tone="good"] { background: rgba(52,199,89,0.12); }
-        .metric-card[data-tone="good"] .metric-card-value { color: var(--green); }
-        .metric-card[data-tone="good"]::before { opacity: 1; background: var(--green); }
-        .metric-card[data-tone="bad"] { background: rgba(255,59,48,0.09); }
-        .metric-card[data-tone="bad"] .metric-card-value { color: var(--red); }
-        .metric-card[data-tone="bad"]::before { opacity: 1; background: var(--red); }
+        .metric-card[data-tone="good"],
+        .metric-card[data-tone="bad"],
+        .kpi-hero-card[data-tone="good"],
+        .kpi-hero-card[data-tone="bad"] { background: var(--surface); }
+        .metric-card[data-tone="good"] .metric-card-value,
+        .metric-card[data-tone="bad"] .metric-card-value,
+        .kpi-hero-card[data-tone="good"] .kpi-hero-value,
+        .kpi-hero-card[data-tone="bad"] .kpi-hero-value { color: var(--text-primary); }
         [data-theme="neon"] .metric-card[data-tone="good"] { background: rgba(52,211,153,0.10); }
         [data-theme="neon"] .metric-card[data-tone="bad"] { background: rgba(248,113,113,0.10); }
-        .kpi-hero-card[data-tone="good"] { background: rgba(52,199,89,0.12); }
-        .kpi-hero-card[data-tone="good"] .kpi-hero-value { color: var(--green); }
-        .kpi-hero-card[data-tone="bad"] { background: rgba(255,59,48,0.09); }
-        .kpi-hero-card[data-tone="bad"] .kpi-hero-value { color: var(--red); }
         [data-theme="neon"] .kpi-hero-card[data-tone="good"] { background: rgba(52,211,153,0.10); }
         [data-theme="neon"] .kpi-hero-card[data-tone="bad"] { background: rgba(248,113,113,0.10); }
         .dashboard-top-margin-body { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; }
@@ -310,8 +324,8 @@
         .nr-modal-overlay .nr-modal-box { transform: scale(0.95); transition: transform 0.2s ease; }
         .nr-modal-overlay.nr-modal-open .nr-modal-box { transform: scale(1); }
         .kpi-hero-trend { margin-top: 4px; margin-bottom: 2px; }
-        .metric-card:hover { border-color: var(--accent-border); transform: translateY(-2px); }
-        [data-theme="neon"] .metric-card:hover { box-shadow: var(--use-glow); }
+        .metric-card:hover { background: var(--sel); transform: none; }
+        [data-theme="neon"] .metric-card:hover { box-shadow: none; }
         .menu-group { margin: 2px 0; }
         .menu-group-title { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; cursor: pointer; color: var(--text-muted); font-size: 10px; font-weight: 700; border-radius: 8px; margin: 8px 12px 2px; text-transform: uppercase; letter-spacing: 0.08em; transition: all 0.2s; }
         .menu-group-title svg { flex-shrink: 0; opacity: 0.7; }
@@ -322,23 +336,23 @@
         .menu-group-title.open .arrow { transform: rotate(180deg); }
         .menu-sub { overflow: hidden; max-height: 0; transition: max-height 0.3s ease; }
         .menu-sub.open { max-height: 300px; }
-        .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; color: var(--text-secondary); font-size: 13px; font-weight: 500; transition: all 0.25s cubic-bezier(0.4,0,0.2,1); margin: 2px 12px; border-radius: 12px; border: 1px solid transparent; }
-        .nav-item:hover { background: var(--accent-soft); color: var(--text-primary); transform: translateX(2px); }
-        .nav-item.active { background: var(--accent-gradient); color: #fff; font-weight: 600; box-shadow: var(--use-glow); border-color: transparent; }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; color: var(--text-primary); font-size: 14px; font-weight: 700; transition: background 0.15s ease; margin: 2px 8px; border-radius: 999px; border: none; }
+        .nav-item:hover { background: var(--sel); color: var(--text-primary); transform: none; }
+        .nav-item.active { background: var(--sel); color: var(--text-primary); font-weight: 800; box-shadow: none; border-color: transparent; }
         .nav-item.active .nav-ico { opacity: 1; }
         .nav-ico { width: 16px; height: 16px; flex-shrink: 0; opacity: 0.65; display: block; }
         .nav-item.active .nav-ico { opacity: 1; }
         .nav-item:hover .nav-ico { opacity: 0.9; }
         .nav-item-label { flex: 1; min-width: 0; }
         .nav-beta-badge {
-            font-size: 9px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
-            padding: 2px 6px; border-radius: 5px; flex-shrink: 0; line-height: 1.3;
-            background: rgba(139, 92, 246, 0.1); color: rgba(167, 139, 250, 0.75);
-            border: 1px solid rgba(139, 92, 246, 0.18);
+            font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+            padding: 2px 6px; border-radius: 6px; flex-shrink: 0; line-height: 1.3;
+            background: #EF4444; color: #fff;
+            border: none;
         }
         [data-theme="ios"] .nav-beta-badge {
-            background: rgba(109, 40, 217, 0.08); color: rgba(109, 40, 217, 0.65);
-            border-color: rgba(109, 40, 217, 0.15);
+            background: #EF4444; color: #fff;
+            border-color: transparent;
         }
         .flyout-body .nav-item.active .nav-beta-badge {
             background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);
@@ -346,8 +360,8 @@
         }
         .beta-module-hero {
             padding: 28px 32px; border-radius: 20px;
-            background: linear-gradient(135deg, rgba(139,92,246,0.06) 0%, rgba(15,15,23,0.4) 100%);
-            border: 1px solid rgba(139, 92, 246, 0.12);
+            background: var(--surface);
+            border: none;
         }
         .beta-module-hero h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
         .beta-module-hero p { font-size: 13px; color: var(--text-muted); line-height: 1.55; max-width: 560px; }
@@ -409,9 +423,9 @@
         .supply-qty-ok { color: var(--green); font-weight: 700; }
         .supply-qty-diff { color: var(--red); font-weight: 700; }
         .supply-qty-pending { color: var(--amber); font-weight: 600; }
-        .nav-item-standalone { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; color: white; font-size: 13px; font-weight: 600; border-radius: 12px; background: var(--accent-gradient); border: none; transition: all 0.25s ease; margin: 4px 12px; box-shadow: var(--use-glow); }
-        .nav-item-standalone:hover { transform: translateY(-1px); filter: brightness(1.08); }
-        .nav-item-standalone.active { box-shadow: 0 8px 28px rgba(123,97,255,0.45); }
+        .nav-item-standalone { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; color: var(--text-primary); font-size: 14px; font-weight: 700; border-radius: 12px; background: var(--sel); border: none; transition: background 0.15s ease; margin: 4px 8px; box-shadow: none; }
+        .nav-item-standalone:hover { transform: none; filter: none; background: #E4E4E7; }
+        .nav-item-standalone.active { box-shadow: none; background: var(--sel); }
         .cabinet-picker {
             position: relative; display: inline-flex; align-items: center;
             min-width: 0; max-width: 220px; z-index: 60;
@@ -422,17 +436,17 @@
         .cabinet-picker-btn {
             display: flex; align-items: center; gap: 8px;
             padding: 4px 12px 4px 4px; border-radius: 999px;
-            border: 1px solid rgba(255,255,255,0.08);
-            background: rgba(255,255,255,0.04);
-            backdrop-filter: blur(8px); cursor: pointer;
-            transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+            border: none;
+            background: var(--sel);
+            backdrop-filter: none; cursor: pointer;
+            transition: background 0.15s ease;
             font-family: inherit; color: inherit;
         }
         .cabinet-picker-btn:hover,
         .cabinet-picker.open .cabinet-picker-btn {
-            border-color: rgba(139, 92, 246, 0.35);
-            background: rgba(139, 92, 246, 0.1);
-            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08);
+            border-color: transparent;
+            background: #E4E4E7;
+            box-shadow: none;
         }
         .cabinet-picker-face {
             display: flex; align-items: center; gap: 8px;
@@ -442,12 +456,12 @@
             position: absolute; top: calc(100% + 8px); right: 0;
             min-width: 220px; max-width: 280px; max-height: 300px;
             overflow-y: auto;
-            background: var(--apple-glass);
-            backdrop-filter: blur(10px) saturate(180%);
-            -webkit-backdrop-filter: blur(10px) saturate(180%);
-            border: none;
+            background: #fff;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            border: 1px solid var(--border);
             border-radius: var(--radius-card);
-            box-shadow: var(--card-shadow-lg); padding: 8px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.08); padding: 8px;
             opacity: 0; visibility: hidden; transform: translateY(-6px) scale(0.97);
             transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
             z-index: 9999; pointer-events: none;
@@ -468,17 +482,17 @@
         }
         .cabinet-dropdown-item .cab-dot {
             width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
-            background: linear-gradient(145deg, rgba(139,92,246,0.45), rgba(79,70,229,0.25));
-            border: 1px solid rgba(139, 92, 246, 0.2);
+            background: var(--sel);
+            border: none;
             display: flex; align-items: center; justify-content: center;
-            font-size: 10px; font-weight: 700; color: #fff;
+            font-size: 10px; font-weight: 800; color: #111;
         }
         .cabinet-picker-dot {
             width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-            background: linear-gradient(145deg, rgba(139,92,246,0.45), rgba(79,70,229,0.25));
-            border: 1px solid rgba(139, 92, 246, 0.2);
+            background: #111;
+            border: none;
             display: flex; align-items: center; justify-content: center;
-            font-size: 11px; font-weight: 700; color: #fff; letter-spacing: -0.02em;
+            font-size: 11px; font-weight: 800; color: #fff; letter-spacing: -0.02em;
         }
         .cabinet-picker-label {
             font-size: 12px; font-weight: 600; color: var(--text-primary);
@@ -496,50 +510,11 @@
         ::-webkit-scrollbar { width: 3px; }
         ::-webkit-scrollbar-thumb { background: var(--accent-border); border-radius: 2px; }
         .tab-content { display: none; position: relative; overflow: hidden; }
-        .tab-content.active {
-            display: block;
-            animation: tabPanelIn 0.45s cubic-bezier(0.22, 1, 0.36, 1);
-        }
-        .tab-content.active::before,
-        .tab-content.active::after {
-            content: '';
-            position: absolute;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 0;
-            filter: blur(50px);
-            opacity: 0.22;
-        }
-        .tab-content.active::before {
-            width: 220px; height: 220px;
-            background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
-            top: -80px; right: -60px;
-            animation: orbDrift 9s ease-in-out infinite;
-        }
-        .tab-content.active::after {
-            width: 160px; height: 160px;
-            background: radial-gradient(circle, var(--blue) 0%, transparent 70%);
-            bottom: -50px; left: -40px;
-            animation: orbDrift 11s ease-in-out infinite reverse;
-        }
-        .tab-content.active > * { position: relative; z-index: 1; }
-        @keyframes tabPanelIn {
-            from { opacity: 0; transform: translateY(10px) scale(0.99); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @keyframes orbDrift {
-            0%, 100% { transform: translate(0, 0) scale(1); }
-            50% { transform: translate(18px, 12px) scale(1.08); }
-        }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-        .widget-card { animation: cardPop 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards; }
-        .tab-content.active .widget-card:nth-child(2) { animation-delay: 0.06s; }
-        .tab-content.active .widget-card:nth-child(3) { animation-delay: 0.12s; }
-        .tab-content.active .widget-card:nth-child(4) { animation-delay: 0.18s; }
-        @keyframes cardPop {
-            from { opacity: 0; transform: translateY(8px) scale(0.98); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
+        .tab-content.active { display: block; overflow: auto; }
+        .tab-content.active > *:not(.nr-modal-overlay):not(#ab-edit-modal):not(#ab-report-modal) { position: relative; z-index: 1; }
+        #tab-rnp.tab-content.active, #tab-rnp-settings.tab-content.active { overflow: hidden; }
+        #ab-edit-modal.nr-modal-overlay, #ab-report-modal.nr-modal-overlay,
+        #ab-edit-modal, #ab-report-modal { position: fixed !important; z-index: 99998; }
         .beta-module-hero { position: relative; overflow: hidden; }
         .beta-module-hero .beta-orb {
             position: absolute; border-radius: 50%; pointer-events: none;
@@ -548,12 +523,10 @@
         .beta-module-hero .beta-orb-1 {
             width: 90px; height: 90px; top: -20px; right: 40px;
             background: var(--accent);
-            animation: orbDrift 7s ease-in-out infinite;
         }
         .beta-module-hero .beta-orb-2 {
             width: 60px; height: 60px; bottom: -10px; left: 30%;
             background: var(--blue);
-            animation: orbDrift 5s ease-in-out infinite reverse;
         }
         .module-date-bar {
             display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
@@ -586,9 +559,9 @@
         .data-table th { padding: 10px 14px; text-align: left; font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
         .data-table td { padding: 10px 14px; font-size: 12px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
         .data-table tr:hover td { background: var(--accent-soft); }
-        .filter-chip { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 500; cursor: pointer; background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); transition: all 0.2s; white-space: nowrap; user-select: none; }
-        .filter-chip:hover { border-color: var(--accent-border); color: var(--accent); background: var(--accent-soft); }
-        .filter-chip.active { border-color: var(--accent-border); color: var(--accent); background: var(--accent-soft); }
+        .filter-chip { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; cursor: pointer; background: var(--sel); border: none; color: var(--text-primary); transition: background 0.15s; white-space: nowrap; user-select: none; }
+        .filter-chip:hover { border-color: transparent; color: var(--text-primary); background: #E4E4E7; }
+        .filter-chip.active { border-color: transparent; color: var(--text-primary); background: var(--sel); }
         .theme-pill { position: relative; width: 56px; height: 30px; border-radius: 15px; background: var(--surface); border: 1px solid var(--border); cursor: pointer; transition: all 0.3s ease; flex-shrink: 0; }
         .theme-pill-thumb { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: var(--accent-gradient); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 2px 8px rgba(232,86,142,0.35); }
         .theme-icon { position: absolute; top: 50%; transform: translateY(-50%); font-size: 11px; line-height: 1; pointer-events: none; opacity: 0.5; }
@@ -599,16 +572,16 @@
         [data-theme="neon"] .theme-icon-moon { opacity: 0.9; color: var(--accent); }
         [data-theme="ios"] .theme-icon-sun { opacity: 0.9; color: var(--amber); }
         [data-theme="ios"] .theme-icon-moon { opacity: 0.25; }
-        .section-title { font-size: 13px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
-        .section-title::before { content: ''; width: 3px; height: 14px; border-radius: 2px; background: var(--accent-gradient); }
+        .section-title { font-size: 13px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
+        .section-title::before { display: none; }
         .kpi-hero-card {
             background: var(--surface); border: none;
-            border-radius: var(--radius-card); padding: 24px;
-            box-shadow: var(--card-shadow); transition: all 0.25s ease;
+            border-radius: var(--radius-card); padding: 22px 20px;
+            box-shadow: none; transition: background 0.15s ease;
         }
-        .kpi-hero-card:hover { box-shadow: var(--card-shadow-lg); transform: translateY(-1px); }
-        .kpi-hero-label { font-size: 12px; color: var(--text-muted); font-weight: 400; margin-bottom: 8px; }
-        .kpi-hero-value { font-size: 22px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+        .kpi-hero-card:hover { box-shadow: none; transform: none; background: var(--sel); }
+        .kpi-hero-label { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; }
+        .kpi-hero-value { font-size: 22px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
         .kpi-hero-sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
         .kpi-spark-wrap { height: 48px; margin-top: 12px; }
         .chart-box { padding: 20px; min-height: 240px; }
@@ -622,7 +595,7 @@
             padding: 20px; box-shadow: var(--card-shadow); transition: all 0.2s ease;
             cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 12px;
         }
-        .advcab-card:hover { box-shadow: var(--card-shadow-lg); transform: translateY(-2px); }
+        .advcab-card:hover { box-shadow: none; transform: none; background: var(--sel); }
         .advcab-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .advcab-card-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
         .advcab-status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; }
@@ -683,18 +656,13 @@
         .metrics-details summary::-webkit-details-marker { display: none; }
         .metrics-details .metrics-inner { padding: 0 20px 20px; }
         .header-greeting { display: none; }
-        .header-title { font-size: 22px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.03em; }
+        .header-title { font-size: 22px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.04em; }
         .header-profile { display: none; }
         .placeholder-widget { padding: 48px 24px; text-align: center; position: relative; overflow: hidden; }
         .placeholder-widget-icon {
             font-size: 28px; margin: 0 auto 16px; width: 72px; height: 72px;
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
             background: var(--accent-soft); border: 1px solid var(--accent-border);
-            animation: iconRingPulse 2.4s ease-in-out infinite;
-        }
-        @keyframes iconRingPulse {
-            0%, 100% { box-shadow: 0 0 0 0 var(--accent-soft); transform: scale(1); }
-            50% { box-shadow: 0 0 0 14px transparent; transform: scale(1.04); }
         }
         #month-grid button {
             border-radius: 50% !important;
@@ -704,16 +672,15 @@
         }
         #month-grid button:hover { transform: scale(1.12); }
         #month-grid button[style*="var(--accent)"]:not([style*="accent-soft"]) {
-            animation: dayPop 0.35s cubic-bezier(0.22, 1, 0.36, 1);
             box-shadow: 0 0 0 3px var(--accent-soft);
         }
         @keyframes dayPop {
             from { transform: scale(0.85); }
             to { transform: scale(1); }
         }
-        .btn-smooth { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
-        .btn-smooth:hover { transform: translateY(-1px); }
-        .btn-smooth:active { transform: scale(0.97); }
+        .btn-smooth { transition: background 0.15s ease; }
+        .btn-smooth:hover { transform: none; }
+        .btn-smooth:active { transform: none; }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes toast-bar { from { width: 100%; } to { width: 0%; } }
         /* ── RNP Spreadsheet (Google Sheets style) ── */
@@ -1608,16 +1575,33 @@
         #date-picker {
             position: fixed; top: 100px; left: 300px; z-index: 9999;
             background: var(--apple-glass);
-            backdrop-filter: blur(10px) saturate(180%);
-            -webkit-backdrop-filter: blur(10px) saturate(180%);
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
             border: none; border-radius: var(--radius-card);
-            padding: 24px; width: 480px; box-shadow: var(--card-shadow-lg);
+            padding: 24px; width: 480px; box-shadow: 0 16px 40px rgba(0,0,0,0.08);
         }
-        .abtest-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; transition: border-color 0.2s ease; }
-        .abtest-card:hover { border-color: var(--accent-border); }
-        .abtest-variant { position: relative; width: 100px; border-radius: 10px; overflow: hidden; border: 2px solid var(--border); transition: all 0.2s ease; cursor: default; }
-        .abtest-variant.winner { border-color: var(--green); box-shadow: 0 0 0 3px rgba(52,199,89,0.15); }
-        .abtest-variant.current-active { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+        .abtest-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px; margin-bottom: 12px; transition: background 0.15s ease; }
+        .abtest-card:hover { background: var(--sel); border-color: var(--border); }
+        .abtest-card-row { display: flex; gap: 22px; align-items: flex-start; }
+        .abtest-variants { display: flex; gap: 10px; flex-shrink: 0; flex-wrap: wrap; max-width: 52%; }
+        .abtest-card-info { flex: 1; min-width: 0; padding-top: 2px; }
+        .abtest-card-title { font-size: 18px; font-weight: 800; letter-spacing: -0.03em; color: var(--text-primary); line-height: 1.25; }
+        .abtest-card-meta { font-size: 12px; color: var(--text-muted); margin-top: 6px; font-weight: 500; }
+        .abtest-conf { margin-top: 10px; font-size: 13px; font-weight: 700; color: #16A34A; letter-spacing: -0.02em; }
+        .abtest-card-status {
+            flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--text-primary);
+            background: var(--sel); border: none; border-radius: 999px; padding: 7px 12px;
+        }
+        @media (max-width: 768px) {
+            .abtest-card-row { flex-direction: column; }
+            .abtest-variants { max-width: 100%; }
+        }
+        .abtest-card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+        .abtest-card-actions .btn-outline { border: none; background: var(--sel); font-weight: 700; }
+        .abtest-lose-lbl { font-size: 10px; font-weight: 700; color: #DC2626; background: rgba(220,38,38,0.08); display: inline-block; padding: 2px 6px; border-radius: 6px; margin-top: 4px; }
+        .abtest-variant { position: relative; width: 88px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); transition: border-color 0.15s ease; cursor: default; background: #fff; }
+        .abtest-variant.winner { border-color: var(--green); box-shadow: none; }
+        .abtest-variant.current-active { border-color: var(--accent); box-shadow: none; }
         .abtest-variant img { width: 100%; height: 100px; object-fit: cover; display: block; }
         .abtest-variant-meta { padding: 7px 6px; text-align: center; }
         .abtest-ctr { font-size: 13px; font-weight: 700; color: var(--text-primary); }
@@ -1663,8 +1647,15 @@
             border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
             transition: all 0.15s; user-select: none;
         }
-        .ab-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-        .ab-pill:not(.active):hover { border-color: var(--accent-border); color: var(--accent); }
+        .ab-create-btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: transparent; color: var(--accent); border: none;
+            border-radius: 12px; padding: 8px 4px; font-size: 14px; font-weight: 700;
+            cursor: pointer; letter-spacing: -0.02em;
+        }
+        .ab-create-btn:hover { background: var(--sel); }
+        .ab-pill.active { background: var(--sel); color: var(--text-primary); border-color: transparent; }
+        .ab-pill:not(.active):hover { border-color: transparent; color: var(--text-primary); background: var(--sel); }
         .ab-campaign-list { max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; }
         .ab-campaign-row {
             display: grid; grid-template-columns: 28px 1fr auto auto; gap: 10px; align-items: center;
@@ -1738,13 +1729,12 @@
         .ab-report-verdict-stars { font-size: 15px; letter-spacing: 1px; color: #FFB020; }
         .btn-outline { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 8px; font-size: 13px; font-weight: 500; background: transparent; border: 1px solid var(--border-strong); color: var(--text-primary); cursor: pointer; transition: all 0.15s; }
         .btn-outline:hover { border-color: var(--accent-border); color: var(--accent); }
-        .segment-tabs { display: inline-flex; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
-        .segment-tab { padding: 5px 14px; font-size: 12px; border-radius: 6px; cursor: pointer; color: var(--text-secondary); }
-        .segment-tab.active { background: var(--accent-gradient); color: white; }
+        .segment-tabs { display: inline-flex; background: var(--sel); border: none; border-radius: 999px; padding: 3px; }
+        .segment-tab { padding: 6px 14px; font-size: 13px; font-weight: 700; border-radius: 999px; cursor: pointer; color: var(--text-muted); }
+        .segment-tab.active { background: #fff; color: var(--text-primary); }
         .token-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; margin-bottom: 10px; transition: all 0.25s ease; }
         .token-card:hover { border-color: var(--accent-border); }
-        @keyframes slideFadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .settings-tab-anim { animation: slideFadeIn 0.35s ease; }
+        .settings-tab-anim { }
         .settings-section-tabs { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 4px; margin-bottom: 16px; }
         .settings-section-tab { flex: 1; text-align: center; padding: 8px 12px; font-size: 12px; border-radius: 8px; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; }
         .settings-section-tab.active { background: var(--accent-gradient); color: white; }
@@ -2103,27 +2093,27 @@
             padding: 48px 36px;
             border-radius: 24px;
             background: var(--surface-solid, var(--surface));
-            border: 1px solid var(--border);
-            box-shadow: var(--card-shadow-lg, 0 8px 32px rgba(0,0,0,0.08));
+            border: none;
+            box-shadow: none;
         }
         .space-empty-icon {
-            width: 64px;
-            height: 64px;
+            width: 56px;
+            height: 56px;
             margin: 0 auto 20px;
-            border-radius: 18px;
-            background: var(--text-primary);
+            border-radius: 14px;
+            background: #F5C400;
             border: none;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
+            font-size: 16px;
             font-weight: 900;
             letter-spacing: -0.04em;
-            color: var(--sidebar-bg);
+            color: #111;
         }
         .space-empty-title {
-            font-size: 20px;
-            font-weight: 700;
+            font-size: 22px;
+            font-weight: 800;
             color: var(--text-primary);
             letter-spacing: -0.02em;
             margin-bottom: 10px;
@@ -2146,10 +2136,10 @@
             font-size: 14px;
             font-weight: 600;
             cursor: pointer;
-            box-shadow: 0 4px 14px rgba(109, 40, 217, 0.25);
+            box-shadow: none;
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
-        .space-empty-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(109, 40, 217, 0.32); }
+        .space-empty-btn:hover { transform: none; box-shadow: none; background: #222; }
         #add-cabinet-modal {
             position: fixed;
             inset: 0;
@@ -2221,11 +2211,11 @@
         button:active { transform: scale(0.97); }
 
         /* Кнопки — единый современный стиль */
-        .ui-btn { border-radius: 10px !important; font-weight: 600 !important; letter-spacing: -0.01em; }
-        .ui-btn-primary { box-shadow: 0 2px 10px rgba(232,86,142,0.28); }
-        .ui-btn-primary:hover { box-shadow: 0 4px 18px rgba(232,86,142,0.38); transform: translateY(-1px); }
-        [data-theme="neon"] .ui-btn-primary { box-shadow: 0 2px 14px rgba(240,98,146,0.35); }
-        [data-theme="neon"] .ui-btn-primary:hover { box-shadow: 0 4px 22px rgba(240,98,146,0.45); }
+        .ui-btn { border-radius: 10px !important; font-weight: 700 !important; letter-spacing: -0.02em; }
+        .ui-btn-primary { box-shadow: none; }
+        .ui-btn-primary:hover { box-shadow: none; transform: none; }
+        [data-theme="neon"] .ui-btn-primary { box-shadow: none; }
+        [data-theme="neon"] .ui-btn-primary:hover { box-shadow: none; }
         .ui-btn-secondary { border-radius: 10px !important; }
         .ui-btn-secondary:hover { transform: translateY(-1px); }
 
@@ -2234,9 +2224,10 @@
             width: 34px !important; height: 34px !important; padding: 0 !important;
             display: inline-flex !important; align-items: center; justify-content: center;
             border-radius: 10px !important; min-width: unset !important;
-            box-shadow: 0 2px 10px rgba(232,86,142,0.25) !important;
+            background: var(--sel) !important; color: #111 !important;
+            box-shadow: none !important;
         }
-        #refresh-btn:hover { transform: translateY(-1px); }
+        #refresh-btn:hover { transform: none; background: #E4E4E7 !important; }
         #refresh-btn .refresh-label { display: none; }
         #refresh-btn.is-loading svg { animation: refresh-spin 0.75s linear infinite; }
         #refresh-btn.is-loading { opacity: 0.8; cursor: wait; }
@@ -2255,31 +2246,29 @@
         }
 
         /* Карточки метрик — плавнее */
-        .metric-card { border-radius: 18px !important; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important; }
-
-        /* Боковое меню — улучшено */
-        .nav-item { border-radius: 10px !important; transition: all 0.2s ease !important; }
+        .metric-card { border-radius: 16px !important; transition: background 0.15s ease !important; }
+        .nav-item { border-radius: 999px !important; transition: background 0.15s ease !important; }
         .nav-item-standalone { border-radius: 12px !important; }
 
         /* Стеклянный хедер */
         header.glass {
             position: relative; z-index: 200; overflow: visible;
-            backdrop-filter: blur(20px) !important; -webkit-backdrop-filter: blur(20px) !important;
+            backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
         }
         header.glass > div { overflow: visible; }
         .app-header-main { padding: 16px 24px; }
-        [data-theme="neon"] header.glass { border-bottom: 1px solid rgba(240,98,146,0.12) !important; background: rgba(10,10,16,0.85) !important; }
-        [data-theme="ios"] header.glass { background: rgba(255,255,255,0.88) !important; }
+        [data-theme="neon"] header.glass { border-bottom: 1px solid rgba(255,255,255,0.08) !important; background: var(--surface) !important; }
+        [data-theme="ios"] header.glass { background: #fff !important; box-shadow: none !important; }
 
         /* A/B тест карточки */
-        .abtest-card { border-radius: 20px !important; transition: all 0.25s ease !important; }
-        .abtest-card:hover { transform: translateY(-2px); box-shadow: var(--card-shadow); }
-        .abtest-variant { border-radius: 14px !important; }
-        .abtest-variant img { border-radius: 12px !important; }
+        .abtest-card { border-radius: 16px !important; transition: background 0.15s ease !important; }
+        .abtest-card:hover { transform: none; box-shadow: none; background: var(--sel); }
+        .abtest-variant { border-radius: 12px !important; }
+        .abtest-variant img { border-radius: 10px !important; }
 
         /* Segment tabs */
-        .segment-tabs { border-radius: 12px !important; padding: 4px !important; }
-        .segment-tab { border-radius: 8px !important; transition: all 0.2s ease !important; font-weight: 500 !important; }
+        .segment-tabs { border-radius: 999px !important; padding: 3px !important; border: none !important; background: var(--sel) !important; }
+        .segment-tab { border-radius: 999px !important; transition: background 0.15s ease !important; font-weight: 700 !important; }
 
         /* Glass карточки секций */
         .glass.rounded-2xl { border-radius: 20px !important; }
@@ -2317,21 +2306,24 @@
             color: #e8e8f0 !important;
             background-color: #1a1a24 !important;
         }
-        .ui-btn { border: none !important; box-shadow: var(--card-shadow); }
-        .ui-btn-secondary { background: var(--surface) !important; box-shadow: var(--card-shadow) !important; }
+        .ui-btn { border: none !important; box-shadow: none; }
+        .ui-btn-primary { box-shadow: none !important; background: #111 !important; color: #fff !important; }
+        .ui-btn-primary:hover { transform: none; box-shadow: none !important; background: #222 !important; }
+        .ui-btn-secondary { background: var(--sel) !important; box-shadow: none !important; }
+        .ui-btn-secondary:hover { transform: none; background: #E4E4E7 !important; }
         .segment-tabs {
-            background: var(--surface) !important;
+            background: var(--sel) !important;
             border: none !important;
-            border-radius: var(--radius-control) !important;
-            box-shadow: var(--card-shadow) !important;
-            padding: 4px !important;
+            border-radius: 999px !important;
+            box-shadow: none !important;
+            padding: 3px !important;
         }
-        .segment-tab { border-radius: 10px !important; font-weight: 500 !important; }
+        .segment-tab { border-radius: 999px !important; font-weight: 700 !important; }
         .filter-chip {
             border: none !important;
-            background: var(--surface) !important;
-            box-shadow: var(--card-shadow) !important;
-            font-weight: 500;
+            background: var(--sel) !important;
+            box-shadow: none !important;
+            font-weight: 700;
         }
         .main-content { padding: 28px 32px !important; }
         .data-table th, .data-table td { padding: 12px 16px !important; font-weight: 400; }
@@ -2395,11 +2387,12 @@
         }
         #tab-rnp-settings .ui-btn,
         #tab-rnp-settings button.ui-btn { border-radius: 10px !important; }
-        #modal-box { border: none !important; background: var(--apple-glass) !important; backdrop-filter: blur(10px) saturate(180%); -webkit-backdrop-filter: blur(10px) saturate(180%); }
-        #date-picker { border: none !important; background: var(--apple-glass) !important; backdrop-filter: blur(10px) saturate(180%); -webkit-backdrop-filter: blur(10px) saturate(180%); box-shadow: var(--card-shadow-lg) !important; border-radius: var(--radius-card) !important; }
-        .abtest-card, .chart-box { border: none !important; box-shadow: var(--card-shadow) !important; }
-        header.glass { border-bottom: none !important; box-shadow: 0 1px 0 rgba(0,0,0,0.04); }
-        [data-theme="ios"] header.glass { background: rgba(255,255,255,0.72) !important; }
+        #modal-box { border: none !important; background: #fff !important; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 16px 40px rgba(0,0,0,0.12); }
+        #date-picker { border: 1px solid var(--border) !important; background: #fff !important; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 16px 40px rgba(0,0,0,0.08) !important; border-radius: var(--radius-card) !important; }
+        .abtest-card { border: 1px solid var(--border) !important; box-shadow: none !important; background: #fff !important; }
+        .chart-box { border: none !important; box-shadow: none !important; }
+        header.glass { border-bottom: none !important; box-shadow: none; }
+        [data-theme="ios"] header.glass { background: #fff !important; }
 
         /* ===== Тарифы (Apple) ===== */
         .pricing-wrap { padding: 8px 4px 4px; }
@@ -2412,9 +2405,9 @@
             padding: 24px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
             transition: transform 0.22s ease, box-shadow 0.22s ease;
         }
-        .pricing-card:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08); }
-        .pricing-card--featured { box-shadow: 0 8px 28px rgba(0, 113, 227, 0.12); }
-        .pricing-card--featured:hover { box-shadow: 0 12px 32px rgba(0, 113, 227, 0.18); }
+        .pricing-card:hover { transform: none; box-shadow: none; background: var(--sel); }
+        .pricing-card--featured { box-shadow: none; }
+        .pricing-card--featured:hover { box-shadow: none; }
         .pricing-badge {
             position: absolute; top: 16px; right: 16px;
             font-size: 10px; font-weight: 600; letter-spacing: 0.02em;
@@ -2545,309 +2538,9 @@
             .grid.xl\:grid-cols-5 { grid-template-columns: repeat(2, 1fr) !important; }
         }
 
-        /* ============================================================
-           NR SPACE — DASHBOARD CINEMATIC ENTRANCE
-           ============================================================ */
-        body {
-            background: #030303;
-        }
+        .dashboard-app-shell { position: relative; z-index: 2; }
 
-        .neon-rays {
-            position: fixed;
-            inset: 0;
-            pointer-events: none;
-            z-index: 100;
-        }
-
-        .ray-left {
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 55%;
-            height: 100%;
-            background: linear-gradient(
-                to right,
-                transparent 0%,
-                rgba(236, 72, 153, 0.0) 30%,
-                rgba(236, 72, 153, 0.18) 70%,
-                rgba(168, 85, 247, 0.35) 85%,
-                rgba(255, 255, 255, 0.08) 100%
-            );
-            filter: blur(8px);
-            animation: rayLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both,
-                       rayFadeOut 0.8s ease-out 1.6s both;
-            transform-origin: left center;
-        }
-
-        .ray-right {
-            position: absolute;
-            top: 0;
-            right: -100%;
-            width: 55%;
-            height: 100%;
-            background: linear-gradient(
-                to left,
-                transparent 0%,
-                rgba(236, 72, 153, 0.0) 30%,
-                rgba(236, 72, 153, 0.18) 70%,
-                rgba(168, 85, 247, 0.35) 85%,
-                rgba(255, 255, 255, 0.08) 100%
-            );
-            filter: blur(8px);
-            animation: rayRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.05s both,
-                       rayFadeOut 0.8s ease-out 1.6s both;
-            transform-origin: right center;
-        }
-
-        .ray-top {
-            position: absolute;
-            top: -100%;
-            left: 0;
-            width: 100%;
-            height: 60%;
-            background: linear-gradient(
-                to bottom,
-                rgba(255, 255, 255, 0.06) 0%,
-                rgba(168, 85, 247, 0.25) 40%,
-                rgba(236, 72, 153, 0.12) 75%,
-                transparent 100%
-            );
-            filter: blur(12px);
-            animation: rayTop 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.0s both,
-                       rayFadeOut 0.8s ease-out 1.5s both;
-        }
-
-        .ray-top-line {
-            position: absolute;
-            top: 0;
-            left: 10%;
-            width: 80%;
-            height: 2px;
-            background: linear-gradient(
-                90deg,
-                transparent,
-                rgba(236, 72, 153, 0.6) 20%,
-                rgba(255, 255, 255, 0.9) 50%,
-                rgba(236, 72, 153, 0.6) 80%,
-                transparent
-            );
-            box-shadow:
-                0 0 8px rgba(236, 72, 153, 0.8),
-                0 0 20px rgba(236, 72, 153, 0.4),
-                0 0 40px rgba(168, 85, 247, 0.3);
-            animation: rayTopLine 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both,
-                       rayLineHold 1.0s ease-out 0.6s both,
-                       rayFadeOut 0.6s ease-out 1.6s both;
-            transform-origin: top center;
-        }
-
-        .ray-left-line {
-            position: absolute;
-            top: 5%;
-            left: 0;
-            width: 2px;
-            height: 90%;
-            background: linear-gradient(
-                to bottom,
-                transparent,
-                rgba(236, 72, 153, 0.8) 20%,
-                rgba(255, 255, 255, 0.6) 50%,
-                rgba(236, 72, 153, 0.8) 80%,
-                transparent
-            );
-            box-shadow:
-                0 0 6px rgba(236, 72, 153, 0.9),
-                0 0 16px rgba(236, 72, 153, 0.5),
-                0 0 30px rgba(168, 85, 247, 0.3);
-            animation: sideLineReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both,
-                       rayFadeOut 0.7s ease-out 1.5s both;
-            transform-origin: top center;
-        }
-
-        .ray-right-line {
-            position: absolute;
-            top: 5%;
-            right: 0;
-            width: 2px;
-            height: 90%;
-            background: linear-gradient(
-                to bottom,
-                transparent,
-                rgba(236, 72, 153, 0.8) 20%,
-                rgba(255, 255, 255, 0.6) 50%,
-                rgba(236, 72, 153, 0.8) 80%,
-                transparent
-            );
-            box-shadow:
-                0 0 6px rgba(236, 72, 153, 0.9),
-                0 0 16px rgba(236, 72, 153, 0.5),
-                0 0 30px rgba(168, 85, 247, 0.3);
-            animation: sideLineReveal 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both,
-                       rayFadeOut 0.7s ease-out 1.5s both;
-            transform-origin: top center;
-        }
-
-        .center-glow {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 600px;
-            height: 600px;
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: 0;
-            background: radial-gradient(
-                circle,
-                rgba(168, 85, 247, 0.20) 0%,
-                rgba(236, 72, 153, 0.10) 35%,
-                transparent 70%
-            );
-            animation: glowPulse 0.8s ease-out 0.4s both;
-        }
-
-        .ray-left-glow-static,
-        .ray-right-glow-static {
-            position: fixed;
-            top: 0;
-            width: 1px;
-            height: 100%;
-            opacity: 0;
-            pointer-events: none;
-            z-index: 0;
-            animation:
-                staticGlowIn 0.6s ease-out 2.0s both,
-                breathe 4s ease-in-out 2.6s infinite;
-        }
-
-        .ray-left-glow-static {
-            left: 0;
-            background: linear-gradient(
-                to bottom,
-                transparent 0%,
-                rgba(236, 72, 153, 0.25) 30%,
-                rgba(168, 85, 247, 0.35) 50%,
-                rgba(236, 72, 153, 0.25) 70%,
-                transparent 100%
-            );
-            box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
-        }
-
-        .ray-right-glow-static {
-            right: 0;
-            background: linear-gradient(
-                to bottom,
-                transparent 0%,
-                rgba(236, 72, 153, 0.25) 30%,
-                rgba(168, 85, 247, 0.35) 50%,
-                rgba(236, 72, 153, 0.25) 70%,
-                transparent 100%
-            );
-            box-shadow: 0 0 20px rgba(236, 72, 153, 0.2);
-        }
-
-        .dashboard-app-shell {
-            opacity: 0;
-            transform: translateY(12px) scale(0.99);
-            filter: blur(4px);
-            animation: cardReveal 0.9s cubic-bezier(0.16, 1, 0.3, 1) 1.4s both;
-            position: relative;
-            z-index: 2;
-        }
-
-        @keyframes rayLeft {
-            0%   { left: -100%; opacity: 0; }
-            100% { left: -10%;  opacity: 1; }
-        }
-        @keyframes rayRight {
-            0%   { right: -100%; opacity: 0; }
-            100% { right: -10%;  opacity: 1; }
-        }
-        @keyframes rayTop {
-            0%   { top: -100%; opacity: 0; }
-            100% { top: -5%;   opacity: 1; }
-        }
-        @keyframes rayTopLine {
-            0%   { transform: scaleX(0); opacity: 0; }
-            100% { transform: scaleX(1); opacity: 1; }
-        }
-        @keyframes rayLineHold {
-            0%   { opacity: 1; }
-            100% { opacity: 0.4; }
-        }
-        @keyframes sideLineReveal {
-            0%   { transform: scaleY(0); opacity: 0; }
-            100% { transform: scaleY(1); opacity: 1; }
-        }
-        @keyframes rayFadeOut {
-            0%   { opacity: 1; }
-            100% { opacity: 0; }
-        }
-        @keyframes glowPulse {
-            0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
-            60%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
-            100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
-        }
-        @keyframes staticGlowIn {
-            0%   { opacity: 0; }
-            100% { opacity: 1; }
-        }
-        @keyframes breathe {
-            0%, 100% { opacity: 0.6; }
-            50%       { opacity: 1.0; }
-        }
-        @keyframes cardReveal {
-            0% {
-                opacity: 0;
-                transform: translateY(24px) scale(0.97);
-                filter: blur(4px);
-            }
-            100% {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-                filter: blur(0);
-            }
-        }
-
-        @media (max-width: 768px) {
-            .center-glow { width: 350px; height: 350px; }
-            .ray-left, .ray-right { width: 70%; }
-        }
-
-        @media (prefers-reduced-motion: reduce) {
-            .neon-rays, .center-glow,
-            .ray-left-glow-static, .ray-right-glow-static { display: none; }
-            .dashboard-app-shell {
-                opacity: 1 !important;
-                animation: none !important;
-                filter: none !important;
-                transform: none !important;
-            }
-        }
-
-        /* Cinematic entrance is nice on first sign-in, but replaying the full
-           ray-sweep animation on every plain page refresh (F5/Ctrl+R) inside
-           the same session is just visual noise — skip it after the first
-           load (see inline script right below, which sets this class before
-           the body paints). */
-        html.nr-entrance-seen .neon-rays, html.nr-entrance-seen .center-glow,
-        html.nr-entrance-seen .ray-left-glow-static, html.nr-entrance-seen .ray-right-glow-static { display: none; }
-        html.nr-entrance-seen .dashboard-app-shell {
-            opacity: 1 !important;
-            animation: none !important;
-            filter: none !important;
-            transform: none !important;
-        }
     </style>
-    <script>
-        try {
-            if (sessionStorage.getItem('nr_entrance_seen')) {
-                document.documentElement.classList.add('nr-entrance-seen');
-            } else {
-                sessionStorage.setItem('nr_entrance_seen', '1');
-            }
-        } catch (e) {}
-    </script>
     <script>
         /* Показать нужную вкладку СРАЗУ, ДО первой отрисовки — иначе браузер
            на долю секунды красит вкладку "Дашборд" (она active по умолчанию
@@ -2859,7 +2552,7 @@
            временный style. */
         try {
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
-            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics' };
+            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp' };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -2876,29 +2569,19 @@
     </script>
 </head>
 <body>
-    <div class="neon-rays" aria-hidden="true">
-        <div class="ray-top"></div>
-        <div class="ray-top-line"></div>
-        <div class="ray-left"></div>
-        <div class="ray-left-line"></div>
-        <div class="ray-right"></div>
-        <div class="ray-right-line"></div>
-    </div>
-    <div class="center-glow" aria-hidden="true"></div>
-    <div class="ray-left-glow-static" aria-hidden="true"></div>
-    <div class="ray-right-glow-static" aria-hidden="true"></div>
     <div id="dashboard-app-shell" class="dashboard-app-shell flex overflow-hidden h-screen w-full">
     <div class="sidebar-app" id="sidebar-app">
         <aside class="sidebar-rail">
             <button type="button" class="rail-logo" id="sidebar-home-btn" title="NR Space">
-                <span class="rail-logo-text">NR</span>
+                <span class="rail-logo-mark">NR</span>
+                <span class="rail-logo-name">NR Space</span>
             </button>
             <nav class="rail-nav">
                 <button type="button" class="rail-btn active" data-flyout="fly-ocr">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
                     <span class="rail-btn-lbl">Дашборд</span>
                 </button>
-                <button type="button" class="rail-btn" data-flyout="fly-rnp">
+                <button type="button" class="rail-btn" data-tab="rnp" data-flyout="fly-rnp" title="Модуль РНП">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
                     <span class="rail-btn-lbl">РНП</span>
                 </button>
@@ -2936,13 +2619,21 @@
                 </button>
             </nav>
             <div class="rail-bottom">
-                <button type="button" class="rail-icon-btn" onclick="toggleTheme()" title="Тема">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                </button>
-                <button type="button" class="rail-icon-btn" onclick="handleLogout()" title="Выйти">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-                </button>
-                <div class="rail-avatar" id="user-initial">—</div>
+                <div class="rail-user">
+                    <div class="rail-avatar" id="user-initial">—</div>
+                    <div class="min-w-0">
+                        <div class="rail-user-name" id="rail-user-name">NR Space</div>
+                        <div class="rail-user-role">кабинет</div>
+                    </div>
+                </div>
+                <div class="rail-bottom-icons">
+                    <button type="button" class="rail-icon-btn" onclick="toggleTheme()" title="Тема">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                    </button>
+                    <button type="button" class="rail-icon-btn" onclick="handleLogout()" title="Выйти">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
+                </div>
             </div>
         </aside>
 
@@ -3165,12 +2856,11 @@
                         <h1 id="page-title" class="header-title truncate">Дашборд</h1>
                     </div>
                     <div id="header-date-chip-wrap" class="filter-chip date-filter-chip active flex items-center space-x-1.5 hidden" onclick="toggleDatePicker(event)">
-                        <span class="date-pulse-dot" style="width:7px;height:7px;border-radius:50%;background:var(--accent);animation:dotPulse 1.4s ease-in-out infinite"></span>
-                        <span>📅</span><span id="date-range">01.01.2026 — сегодня</span><span style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>
+                        <span id="date-range">01.01.2026 — сегодня</span><span style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                    <button onclick="refreshData()" id="refresh-btn" class="btn-smooth header-refresh-btn text-white font-semibold" title="Обновить данные" style="background:var(--accent-gradient);border:none">
+                    <button onclick="refreshData()" id="refresh-btn" class="btn-smooth header-refresh-btn font-semibold" title="Обновить данные" style="border:none">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
                         <span class="refresh-label">Обновить</span>
                     </button>
@@ -3725,8 +3415,8 @@
 
         <div id="tab-ab-testing" class="tab-content space-y-4">
             <div class="flex items-center justify-between mb-2">
-                <button class="ui-btn ui-btn-primary" onclick="showNewTestForm()" style="border-radius:12px;padding:9px 18px;font-size:13px;font-weight:600;gap:8px">
-                    <span style="font-size:18px;line-height:1;margin-right:2px">+</span><span>Создать А/Б тест</span>
+                <button class="ab-create-btn" type="button" onclick="showNewTestForm()">
+                    <span aria-hidden="true">+</span> Создать новый тест
                 </button>
                 <div class="segment-tabs">
                     <div class="segment-tab active" onclick="filterTests('active', this)">Активные</div>
@@ -4190,10 +3880,27 @@
     </div>
     </div>
 
+<script src="/dist/dashboard-charts.137201825f.min.js"></script>
+<script src="/dist/rnp-module.d6ecdc6641.min.js"></script>
+<script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
-    var supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    var __nrSupabaseLib = window.supabase;
+    if (!window.NrAuth || !__nrSupabaseLib || typeof __nrSupabaseLib.createClient !== 'function') {
+        console.error('[NR] supabase-js / NrAuth не загрузились — дашборд не сможет стартовать');
+        document.addEventListener('DOMContentLoaded', function () {
+            if (document.getElementById('nr-boot-fail-banner')) return;
+            var banner = document.createElement('div');
+            banner.id = 'nr-boot-fail-banner';
+            banner.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:199999;background:#1a1a24;border:1px solid rgba(255,255,255,0.1);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,0.4);font-size:13px;color:#ccc';
+            banner.innerHTML = '<span>Не загрузились скрипты кабинета. Обновите страницу.</span><button type="button" onclick="location.reload()" style="padding:6px 14px;border-radius:10px;background:var(--accent,#8b5cf6);color:#fff;border:none;font-weight:600;cursor:pointer;white-space:nowrap">Повторить</button>';
+            document.body.appendChild(banner);
+        });
+    }
+    var supabase = (__nrSupabaseLib && window.NrAuth)
+        ? window.NrAuth.createClient(__nrSupabaseLib, SUPABASE_URL, SUPABASE_KEY)
+        : null;
     var WB_PROXY_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/wb-proxy';
     var AUTO_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/auto-sync';
     var ADVERTISING_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/advertising-sync';
@@ -4226,24 +3933,28 @@
     let cabinetsLoaded = false;
 
     function getCurrentActiveTab() {
+        try {
+            if (document.getElementById('nr-early-tab-style')) {
+                const rnp = document.getElementById('tab-rnp');
+                if (rnp && getComputedStyle(rnp).display !== 'none') return 'rnp';
+            }
+        } catch (_) {}
         const active = document.querySelector('.tab-content.active');
         if (active?.id?.startsWith('tab-')) return active.id.replace('tab-', '');
-        // Early-tab CSS can show #tab-rnp before .active classes are synced.
         try {
-            const rnp = document.getElementById('tab-rnp');
-            const dash = document.getElementById('tab-dashboard');
-            if (rnp && dash && !dash.classList.contains('active')) {
-                const vis = getComputedStyle(rnp).display;
-                if (vis && vis !== 'none') return 'rnp';
-            }
             const saved = localStorage.getItem('nr_active_tab');
             return TAB_ALIASES[saved] || saved || 'dashboard';
         } catch (_) { return 'dashboard'; }
     }
 
     function isRnpTabOpen() {
-        return getCurrentActiveTab() === 'rnp'
-            || (document.getElementById('tab-rnp')?.classList.contains('active') ?? false);
+        const tab = document.getElementById('tab-rnp');
+        if (tab?.classList.contains('active')) return true;
+        if (getCurrentActiveTab() === 'rnp') return true;
+        try {
+            if (document.getElementById('nr-early-tab-style') && tab && getComputedStyle(tab).display !== 'none') return true;
+        } catch (_) {}
+        return false;
     }
 
     function updateEmptyCabinetState() {
@@ -4735,6 +4446,14 @@
         } catch (e) {}
     }
 
+    function humanizeProxyError(msg) {
+        const raw = String(msg || '');
+        if (/cabinet not found or access denied/i.test(raw) || /кабинет не найден/i.test(raw)) {
+            return 'Нет доступа к этому кабинету. Выберите свой кабинет в списке.';
+        }
+        return raw;
+    }
+
     async function callWbProxy(action, params, cabinetId, _retry429 = 0) {
         const cabId = cabinetId || currentCabinetId;
         if (!hasUserCabinets || !cabId) return null;
@@ -4755,8 +4474,13 @@
                 : 'Спейс ожидает активации администратором. Синхронизация с WB будет доступна после подтверждения.');
             return null;
         }
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { showPremiumModal('error', 'Не авторизован', 'Сессия истекла, перезайдите.'); return null; }
+        const session = (window.NrAuth && window.NrAuth.recoverBrokenSession)
+            ? await window.NrAuth.recoverBrokenSession(supabase)
+            : (await supabase.auth.getSession()).data?.session;
+        if (!session) {
+            if (window._nrInitDone) showPremiumModal('error', 'Не авторизован', 'Сессия истекла, перезайдите.');
+            return null;
+        }
         const PROXY_TIMEOUT_MS = 30000;
         const ac = new AbortController();
         const timer = setTimeout(() => ac.abort(), PROXY_TIMEOUT_MS);
@@ -4799,11 +4523,22 @@
         }
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
-            const msg = errData.error || errData.message || `HTTP ${res.status}`;
+            const msg = humanizeProxyError(errData.error || errData.message || `HTTP ${res.status}`);
             if (!hasUserCabinets || !currentCabinetId) return null;
+            const cabinetDenied = /нет доступа к этому кабинету|cabinet not found or access denied|кабинет не найден/i.test(msg);
+            const tokenish = (window.NrAuth && window.NrAuth.isWbTokenError && window.NrAuth.isWbTokenError(msg))
+                || /token|unauthorized|invalid session/i.test(msg)
+                || res.status === 401;
+            const quiet = bgActions.has(action) || !window._nrInitDone || tokenish || res.status >= 500 || cabinetDenied;
+            if (quiet) {
+                if (!tokenish) console.warn(`[callWbProxy] ${action}:`, msg);
+                if (cabinetDenied && window._nrInitDone && !window._nrCabinetDeniedToast) {
+                    window._nrCabinetDeniedToast = true;
+                    showPremiumModal('warning', 'Кабинет недоступен', msg);
+                }
+                return null;
+            }
             if (res.status === 403) showPremiumModal('warning', 'Доступ запрещён', msg);
-            else if (res.status >= 500) console.warn(`[callWbProxy] ${action} server error:`, msg);
-            else if (bgActions.has(action)) console.warn(`[callWbProxy] ${action}:`, msg);
             else showPremiumModal('warning', 'Ошибка запроса', msg);
             return null;
         }
@@ -4969,7 +4704,10 @@
             wrap.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none';
             document.body.appendChild(wrap);
         }
+        const key = `${type}|${title}|${text}`;
+        if ([...wrap.children].some(el => el.getAttribute('data-toast-key') === key)) return;
         const t = document.createElement('div');
+        t.setAttribute('data-toast-key', key);
         const dur = type === 'error' ? 6000 : type === 'warning' ? 5000 : 3500;
         t.style.cssText = `pointer-events:all;display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:14px;
             background:var(--surface-2, #1e1e2e);border:1px solid var(--border);
@@ -5006,7 +4744,7 @@
     const TAB_ALIASES = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo' };
     const MODULE_PATHS = {
         'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
-        marking: '/marking', logistics: '/logistics', dashboard: '/space',
+        marking: '/marking', logistics: '/logistics', rnp: '/rnp', dashboard: '/space',
     };
     const PATH_TO_TAB = Object.fromEntries(Object.entries(MODULE_PATHS).map(([k, v]) => [v, k]));
 
@@ -5053,10 +4791,10 @@
     function syncRailGroup(tabName) {
         const g = TAB_GROUP[tabName] || 'ocr';
         document.querySelectorAll('.rail-btn').forEach(b => {
-            if (b.dataset.tab) {
-                b.classList.toggle('active', b.dataset.tab === tabName);
-            } else if (b.dataset.flyout) {
+            if (b.dataset.flyout) {
                 b.classList.toggle('active', b.dataset.flyout === 'fly-' + g);
+            } else if (b.dataset.tab) {
+                b.classList.toggle('active', b.dataset.tab === tabName);
             }
         });
     }
@@ -5076,8 +4814,8 @@
             backBtn.textContent = isAdvDetail ? '← Все кабинеты' : '← Назад';
         }
         if (pageTitle) {
-            pageTitle.classList.toggle('header-hidden', !isDashboard);
-            if (isDashboard) pageTitle.textContent = tabTitles.dashboard || 'Дашборд';
+            pageTitle.classList.remove('header-hidden');
+            pageTitle.textContent = tabTitles[tabName] || tabTitles.dashboard || 'Дашборд';
         }
         if (dateWrap) {
             const showDate = DATE_FILTER_TABS.has(tabName) && !showEmpty;
@@ -5098,6 +4836,32 @@
     }
     window.headerGoBack = headerGoBack;
 
+    // Бандл (esbuild iife) прячет top-level `const RNP` внутрь обёртки, поэтому
+    // полагаемся на явный window.RNP; голое имя оставляем как запасной путь для
+    // неминифицированного rnp-module.js.
+    function getRnp() {
+        if (window.RNP) return window.RNP;
+        try { return typeof RNP !== 'undefined' ? RNP : null; } catch (_) { return null; }
+    }
+    window.getRnp = getRnp;
+
+    // Пока модуль/кабинет не готовы, boot повторяется. Без потолка вкладка
+    // молча крутила спиннер вечно — теперь честно говорим, что пошло не так.
+    const RNP_BOOT_MAX_RETRIES = 60;
+
+    function rnpBootFailed(message) {
+        clearTimeout(window._rnpBootTimer);
+        window._rnpBootRetries = 0;
+        const html = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
+          <p class="mb-4">${message}</p>
+          <button type="button" class="rnp-action-btn" onclick="location.reload()">Обновить страницу</button>
+        </div>`;
+        ['tab-rnp', 'tab-rnp-settings'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && /Инициализация РНП|Загрузка РНП|Загрузка данных|Загрузка артикулов|Рисуем таблицу/.test(el.textContent || '')) el.innerHTML = html;
+        });
+    }
+
     function bootRnpTab(force) {
         const rnpEl = document.getElementById('tab-rnp');
         if (rnpEl && (rnpEl.classList.contains('active') || getCurrentActiveTab() === 'rnp')) {
@@ -5109,34 +4873,46 @@
             }
         }
         if (!isRnpTabOpen()) return;
-        if (typeof RNP === 'undefined') {
-            scheduleRnpBoot();
+        const rnp = getRnp();
+        if (!rnp) {
+            scheduleRnpBoot('Модуль РНП не загрузился. Проверьте соединение и обновите страницу.');
             return;
         }
         if (!hasUserCabinets || !currentCabinetId) {
-            scheduleRnpBoot();
+            scheduleRnpBoot('Кабинет ещё не выбран. Подключите кабинет или обновите страницу.');
             return;
         }
-        RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
-        RNP.openMain(true);
+        window._rnpBootRetries = 0;
+        rnp.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+        Promise.resolve(rnp.openMain(true)).catch(function (e) {
+            console.error('[RNP] openMain:', e);
+            scheduleRnpBoot('Не удалось открыть РНП. Обновите страницу.');
+        });
     }
 
     function bootRnpSettings(force) {
         const cur = getCurrentActiveTab();
         if (cur !== 'rnp-settings') return;
-        if (typeof RNP === 'undefined') {
-            scheduleRnpBoot();
+        const rnp = getRnp();
+        if (!rnp) {
+            scheduleRnpBoot('Модуль РНП не загрузился. Проверьте соединение и обновите страницу.');
             return;
         }
         if (!hasUserCabinets || !currentCabinetId) {
-            scheduleRnpBoot();
+            scheduleRnpBoot('Кабинет ещё не выбран. Подключите кабинет или обновите страницу.');
             return;
         }
-        RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
-        RNP.openSettings();
+        window._rnpBootRetries = 0;
+        rnp.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+        rnp.openSettings();
     }
 
-    function scheduleRnpBoot() {
+    function scheduleRnpBoot(failMessage) {
+        window._rnpBootRetries = (window._rnpBootRetries || 0) + 1;
+        if (window._rnpBootRetries > RNP_BOOT_MAX_RETRIES) {
+            rnpBootFailed(failMessage || 'Не удалось открыть РНП.');
+            return;
+        }
         clearTimeout(window._rnpBootTimer);
         window._rnpBootTimer = setTimeout(() => {
             bootRnpTab(true);
@@ -5167,7 +4943,7 @@
         updateHeaderNav(name);
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
-        if (name === 'ab-testing' && hasUserCabinets) loadABTests();
+        if (name === 'ab-testing') loadABTests();
         if (name === 'advertising' && hasUserCabinets) openAdvertisingTab();
         if (name === 'dds' && hasUserCabinets && window._financeDdsLoadedForCabinet !== currentCabinetId) {
             window._financeDdsLoadedForCabinet = currentCabinetId;
@@ -6914,6 +6690,7 @@
 
         currentCabinetId = newCabinetId;
         window.currentCabinetId = newCabinetId;
+        window._nrCabinetDeniedToast = false;
         localStorage.setItem('selected_cabinet_id', newCabinetId);
         document.dispatchEvent(new CustomEvent('cabinet-changed', { detail: { cabinetId: newCabinetId } }));
         updateCabinetPickerUI(newCabinetName);
@@ -6959,20 +6736,27 @@
         window._planLoadedForCabinet = null;
         const planGridEl = document.getElementById('plan-grid-container');
         if (planGridEl) planGridEl.innerHTML = '<div class="p-10 text-center text-sm" style="color:var(--text-muted)">Загрузка артикулов...</div>';
+        allABTests = [];
+        const abListEl = document.getElementById('abtests-list');
+        if (abListEl) abListEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div>';
 
         showCabinetTransition(newCabinetName, async () => {
             await loadFromDB();
             await loadLastSyncTime();
-            if (typeof RNP !== 'undefined') {
-                RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+            const rnpMod = getRnp();
+            if (rnpMod) {
+                rnpMod.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
                 bootRnpTab(true);
                 bootRnpSettings(true);
             }
-            const curTab = localStorage.getItem('nr_active_tab');
+            const curTab = getCurrentActiveTab() || localStorage.getItem('nr_active_tab');
             if (curTab === 'logistics') initLogisticsSupplies();
             if (curTab === 'goods-groups') loadGoodsGroups();
             if (curTab === 'advertising') openAdvertisingTab();
             if (curTab === 'planning') loadPlanningTab();
+            if (curTab === 'ab-testing') loadABTests();
+            if (curTab === 'seo') loadSeoKeywords();
+            if (curTab === 'marking') loadMarkingComplianceReport();
         });
     }
 
@@ -7436,12 +7220,13 @@
             if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
 
             await loadFromDB();
-            if (typeof RNP !== 'undefined') {
-                RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
-                if (typeof RNP.resyncArticles === 'function') RNP.resyncArticles().catch(() => {});
+            const rnpMod = getRnp();
+            if (rnpMod) {
+                rnpMod.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+                if (typeof rnpMod.resyncArticles === 'function') rnpMod.resyncArticles().catch(() => {});
                 const cur = localStorage.getItem('nr_active_tab');
-                if (cur === 'rnp') RNP.openMain();
-                if (cur === 'rnp-settings') RNP.openSettings();
+                if (cur === 'rnp') rnpMod.openMain();
+                if (cur === 'rnp-settings') rnpMod.openSettings();
             }
             showPremiumModal('success', 'Готово!', 'Данные успешно загружены.');
 
@@ -7503,15 +7288,28 @@
     }
 
     async function handleLogout() {
-        const sessionKey = localStorage.getItem(NR_SESSION_KEY_STORAGE);
+        const sessionKey = typeof NR_SESSION_KEY_STORAGE === 'string'
+            ? localStorage.getItem(NR_SESSION_KEY_STORAGE)
+            : localStorage.getItem('nr_session_key');
         if (currentUserId && sessionKey) {
-            await supabase.from('user_sessions').delete()
-                .eq('user_id', currentUserId)
-                .eq('current_session_token', sessionKey);
+            try {
+                await Promise.race([
+                    supabase.from('user_sessions').delete()
+                        .eq('user_id', currentUserId)
+                        .eq('current_session_token', sessionKey),
+                    new Promise((resolve) => setTimeout(resolve, 1500)),
+                ]);
+            } catch (_) {}
         }
-        await supabase.auth.signOut();
-        localStorage.removeItem('selected_cabinet_id');
-        window.location.href = '/login';
+        try { await supabase.auth.signOut({ scope: 'global' }); } catch (_) {}
+        try { await supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
+        try {
+            localStorage.removeItem('selected_cabinet_id');
+            localStorage.removeItem('nr_session_key');
+            sessionStorage.removeItem('nr_entrance_seen');
+            sessionStorage.setItem('nr_logged_out', '1');
+        } catch (_) {}
+        window.location.replace('/login?logged_out=1');
     }
 
     // ======= СИНХРОНИЗАЦИЯ СВОДНОГО ОТЧЁТА С ДАШБОРДОМ =======
@@ -8195,35 +7993,57 @@
     async function forceRotateABTest(testId) { await doClientRotation(testId); }
 
     async function loadABTests() {
-        if (!currentCabinetId) return;
-        const { data: tests } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
-        if (!tests) { allABTests = []; renderABTests(); return; }
-        allABTests = [];
-        for (const test of tests) {
-            const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', test.id).order('variant_label');
-            const dbSettings = test.settings && Object.keys(test.settings).length ? test.settings : null;
-            const localSettings = dbSettings ? null : loadABSettings(test.id);
-            if (!dbSettings && localSettings && Object.keys(localSettings).length) {
-                // Старый тест, настройки были только в localStorage — переносим
-                // в БД один раз, чтобы серверный cron тоже мог их использовать.
-                saveABSettings(test.id, localSettings);
+        const container = document.getElementById('abtests-list');
+        if (!currentCabinetId) {
+            allABTests = [];
+            if (container) {
+                container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
+                    <div style="font-size:40px;margin-bottom:12px">📊</div>
+                    Выберите кабинет, чтобы увидеть А/Б тесты
+                </div>`;
             }
-            allABTests.push({ ...test, variants: variants || [], settings: dbSettings || localSettings || {} });
+            return;
         }
-        renderABTests();
-        startRotationTimers();
-
-        // Ссылка "подробный отчёт" из Telegram-уведомления ведёт на
-        // /ab-testing?test=<id> — открываем модалку отчёта автоматически один
-        // раз после загрузки списка (не при каждом фоновом обновлении).
-        if (!window._abDeepLinkHandled) {
-            window._abDeepLinkHandled = true;
-            try {
-                const qTest = new URLSearchParams(location.search).get('test');
-                if (qTest && allABTests.some(t => String(t.id) === qTest)) {
-                    setTimeout(() => openABReportModal(qTest), 300);
+        try {
+            const { data: tests, error } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
+            if (error) throw error;
+            if (!tests) { allABTests = []; renderABTests(); return; }
+            allABTests = [];
+            for (const test of tests) {
+                const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', test.id).order('variant_label');
+                const dbSettings = test.settings && Object.keys(test.settings).length ? test.settings : null;
+                const localSettings = dbSettings ? null : loadABSettings(test.id);
+                if (!dbSettings && localSettings && Object.keys(localSettings).length) {
+                    // Старый тест, настройки были только в localStorage — переносим
+                    // в БД один раз, чтобы серверный cron тоже мог их использовать.
+                    saveABSettings(test.id, localSettings);
                 }
-            } catch (e) {}
+                allABTests.push({ ...test, variants: variants || [], settings: dbSettings || localSettings || {} });
+            }
+            renderABTests();
+            startRotationTimers();
+
+            // Ссылка "подробный отчёт" из Telegram-уведомления ведёт на
+            // /ab-testing?test=<id> — открываем модалку отчёта автоматически один
+            // раз после загрузки списка (не при каждом фоновом обновлении).
+            if (!window._abDeepLinkHandled) {
+                window._abDeepLinkHandled = true;
+                try {
+                    const qTest = new URLSearchParams(location.search).get('test');
+                    if (qTest && allABTests.some(t => String(t.id) === qTest)) {
+                        setTimeout(() => openABReportModal(qTest), 300);
+                    }
+                } catch (e) {}
+            }
+        } catch (e) {
+            console.error('[AB] loadABTests:', e);
+            allABTests = [];
+            if (container) {
+                container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
+                    Не удалось загрузить тесты. Обновите страницу.
+                    <div class="mt-2 text-xs">${String(e.message || e).replace(/</g, '&lt;')}</div>
+                </div>`;
+            }
         }
     }
 
@@ -8242,7 +8062,6 @@
 
         if (list.length === 0) {
             container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
-                <div style="font-size:40px;margin-bottom:12px">📊</div>
                 ${currentTestFilter === 'active' ? 'Нет активных тестов — создайте первый А/Б тест' : 'Нет тестов'}
             </div>`;
             return;
@@ -8288,23 +8107,22 @@
         const variantsHtml = withRate.map(v => {
             const isWinner = winner && v.id === winner.id && maxScore > 0;
             const isActive = v.is_currently_on_wb;
-            const barPct = maxScore > 0 ? Math.round(v.score / maxScore * 100) : 0;
             const scoreStr = metric === 'ctr' ? v.ctr.toFixed(2) + '%' : metric === 'cr' ? v.cr.toFixed(2) + '%' : v.ordersPerHour.toFixed(2);
             const prob = probsForCard.get(v.variant_label) || 0;
             const clearWin = withRate.length > 1 && v.variant_label === leaderLabelForCard && maxProbForCard >= 0.85;
             const clearLose = withRate.length > 2 && prob > 0 && prob <= 0.15;
+            const delta = maxScore > 0 && !isWinner ? (v.score - maxScore) : 0;
+            const deltaHtml = isWinner && maxScore > 0
+                ? '<div class="abtest-delta-pos">лидер</div>'
+                : (delta < 0 ? `<div class="abtest-delta-neg">${delta.toFixed(2)}</div>` : '');
             return `
             <div class="abtest-variant ${isWinner ? 'winner' : ''} ${isActive ? 'current-active' : ''}">
-                ${isWinner ? '<div class="abtest-winner-badge">🏆 ТОП</div>' : ''}
-                ${isActive ? '<div class="abtest-active-badge">▶ WB</div>' : ''}
-                ${clearWin ? '<div class="abtest-winner-badge" style="left:4px;right:auto;background:var(--green)">✅ явно выигрывает</div>' : clearLose ? '<div class="abtest-winner-badge" style="left:4px;right:auto;top:auto;bottom:4px;background:var(--red)">❌ явно проигрывает</div>' : ''}
+                ${isActive ? '<div class="abtest-active-badge">сейчас</div>' : ''}
                 <img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://placehold.co/100x100/888/fff?text=${escapeHtml(v.variant_label)}'">
                 <div class="abtest-variant-meta">
-                    <div class="text-xs font-bold mb-1" style="color:var(--text-secondary)">Вар. ${escapeHtml(v.variant_label)}</div>
                     <div class="abtest-ctr">${scoreStr}</div>
-                    <div class="abtest-orders" style="color:var(--text-muted)">${metricLabel}</div>
-                    <div class="verdict-bar-wrap mt-1"><div class="verdict-bar" style="width:${barPct}%;background:${isWinner ? 'var(--green)' : 'var(--accent)'}"></div></div>
-                    <div class="text-xs mt-1" style="color:var(--text-muted);line-height:1.4">👁 ${fmt(v.impressions)} · 🖱 ${fmt(v.clicks)} · 🛒 ${fmt(v.orders)}</div>
+                    ${deltaHtml}
+                    ${clearLose ? '<div class="abtest-lose-lbl">проигрывает</div>' : ''}
                 </div>
             </div>`;
         }).join('');
@@ -8328,28 +8146,32 @@
                 <div class="rotation-progress-wrap"><div class="rotation-progress-bar" id="progress-${test.id}" style="width:${progressPct}%"></div></div>
             </div>` : '';
 
+        const statusLabel = test.status === 'active' ? 'Активен' : test.status === 'finished' ? 'Завершён' : 'Отключен';
+        const starN = Math.max(1, Math.min(5, Math.round(maxProbForCard * 5)));
+        const confHtml = hasAdsData && maxProbForCard >= 0.55
+            ? `<div class="abtest-conf">${'★'.repeat(starN)}${'☆'.repeat(5 - starN)} ${maxProbForCard >= 0.85 ? 'уверенно лучше' : 'пока лидирует'} (${Math.round(maxProbForCard * 100)}%)</div>`
+            : '';
+
         const tid = String(test.id);
         return `
         <div class="abtest-card" id="abtest-card-${tid}" ${hasAdsData ? `style="cursor:pointer" onclick="openABReportModal('${tid}')" title="Открыть подробный отчёт"` : ''}>
-            <div class="flex items-start justify-between mb-3 gap-3">
-                <div>
-                    <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(test.product_name)}</div>
-                    <div class="text-xs mt-0.5" style="color:var(--text-muted)">Арт. ${escapeHtml(String(test.nm_id))} · ${intervalMin} мин · ${variants.length} вар.</div>
-                    <div class="mt-1 flex items-center gap-2 flex-wrap">${statusBadge}${hasAdsData
-                        ? '<span class="text-xs" style="color:var(--green)">📡 связан с рекламой</span>'
-                        : '<span class="text-xs" style="color:var(--text-muted)">📡 ждём данные РК (обновляются по крону)</span>'}
-                        ${leaderLabelForCard != null && maxProbForCard >= 0.85 ? `<span class="text-xs" style="color:var(--green)">✅ явно выигрывает вар. ${escapeHtml(String(leaderLabelForCard))}</span>` : ''}</div>
+            <div class="abtest-card-row">
+                <div class="abtest-variants">${variantsHtml}</div>
+                <div class="abtest-card-info">
+                    <div class="abtest-card-title">${escapeHtml(test.product_name)}</div>
+                    <div class="abtest-card-meta">Арт. ${escapeHtml(String(test.nm_id))} · ${intervalMin} мин · ${variants.length} вар.</div>
+                    ${confHtml}
+                    ${progressHtml}
+                    <div class="abtest-card-actions" onclick="event.stopPropagation()">
+                    ${hasAdsData ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--accent)" onclick="openABReportModal('${tid}')">Отчёт</button>` : ''}
+                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="forceRotateABTest('${tid}')">Сменить</button>` : ''}
+                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="editABTest('${tid}')">Редактировать</button>` : ''}
+                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="finishABTest('${tid}')">Завершить</button>` : ''}
+                    <button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--red)" onclick="deleteABTest('${tid}')">Удалить</button>
+                    </div>
                 </div>
-                <div class="flex gap-2 items-center flex-wrap justify-end" onclick="event.stopPropagation()">
-                    ${hasAdsData ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--accent);border-color:var(--accent-border)" onclick="openABReportModal('${tid}')">📄 Отчёт</button>` : ''}
-                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="forceRotateABTest('${tid}')">↻ Сменить</button>` : ''}
-                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="editABTest('${tid}')">✎ Редактировать</button>` : ''}
-                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--green);border-color:rgba(52,211,153,0.3)" onclick="finishABTest('${tid}')">Завершить</button>` : ''}
-                    <button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--red);border-color:rgba(248,113,113,0.3)" onclick="deleteABTest('${tid}')">🗑 Удалить</button>
-                </div>
+                <div class="abtest-card-status">${statusLabel}</div>
             </div>
-            <div class="flex gap-2 flex-wrap" onclick="event.stopPropagation()">${variantsHtml}</div>
-            ${progressHtml}
         </div>`;
     }
 
@@ -10032,6 +9854,10 @@
     function closeSupplyDetail() { document.getElementById('supply-detail-modal').classList.add('hidden'); }
 
     document.addEventListener('DOMContentLoaded', async () => {
+        if (!supabase) {
+            window._nrInitDone = true;
+            return;
+        }
         // Watchdog: page init (session check, RNP init, etc.) no longer shows
         // any full-page splash on a plain refresh — the dashboard shell is
         // visible immediately and fills in as data arrives. But if init
@@ -10050,7 +9876,7 @@
             document.body.appendChild(banner);
         }, 15000);
 
-        const { data: { session } } = await supabase.auth.getSession();
+        const session = await window.NrAuth.recoverBrokenSession(supabase);
         if (!session) { clearTimeout(window._nrOverlayWatchdog); window.location.replace('/login'); return; }
 
         const allowed = await enforceAccessGate(session.user);
@@ -10064,6 +9890,8 @@
         const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '—';
         const initial = name.charAt(0).toUpperCase();
         document.getElementById('sidebar-user').textContent = name;
+        const railName = document.getElementById('rail-user-name');
+        if (railName) railName.textContent = name;
         document.getElementById('user-initial').textContent = initial;
         const headerName = document.getElementById('header-user-name');
         if (headerName) headerName.textContent = name;
@@ -10109,8 +9937,9 @@
         setTimeout(async () => {
             try {
                 const cur = getCurrentActiveTab();
-                if (currentCabinetId && hasUserCabinets && typeof RNP !== 'undefined') {
-                    RNP.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+                const rnpMod = getRnp();
+                if (currentCabinetId && hasUserCabinets && rnpMod) {
+                    rnpMod.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
                 }
                 bootRnpTab(true);
                 bootRnpSettings(true);
@@ -10123,6 +9952,8 @@
                     else if (cur === 'advertising') openAdvertisingTab();
                     else if (cur === 'planning') loadPlanningTab();
                     else if (cur === 'seo') loadSeoKeywords();
+                    else if (cur === 'ab-testing') loadABTests();
+                    else if (cur === 'marking') loadMarkingComplianceReport();
                 }
             } catch (e) {
                 console.error('[init]', e);
@@ -10155,28 +9986,28 @@
             syncFlyoutLayout();
         }
 
-        app.querySelectorAll('.rail-btn[data-flyout]').forEach(btn => {
-            const id = btn.dataset.flyout;
-            btn.addEventListener('mouseenter', () => { if (window.innerWidth > 768) showFlyout(id); });
-            btn.addEventListener('click', () => {
-                showFlyout(id);
-                if (window.innerWidth <= 768) {
-                    document.querySelectorAll('.sidebar-flyout').forEach(f => {
-                        f.classList.toggle('mobile-active', f.id === id);
-                    });
-                }
-            });
-        });
-        // Прямые вкладки без flyout (например Контроль РК) — клик сразу открывает раздел
-        app.querySelectorAll('.rail-btn[data-tab]').forEach(btn => {
-            btn.addEventListener('click', () => {
-                hideFlyouts();
-                showTab(btn.dataset.tab, null);
-                if (window.innerWidth <= 768) closeMobileMenu();
-            });
-            // При наведении на прямую кнопку — прячем чужие flyout'ы, чтобы не мешали
+        app.querySelectorAll('.rail-btn').forEach(btn => {
+            const tab = btn.dataset.tab;
+            const fly = btn.dataset.flyout;
             btn.addEventListener('mouseenter', () => {
-                if (window.innerWidth > 768) hideFlyouts();
+                if (window.innerWidth <= 768) return;
+                if (fly) showFlyout(fly);
+                else hideFlyouts();
+            });
+            btn.addEventListener('click', () => {
+                // РНП: сразу открываем модуль (как А/Б и РК), flyout остаётся для настроек.
+                if (tab) showTab(tab, null);
+                if (fly) {
+                    showFlyout(fly);
+                    if (window.innerWidth <= 768) {
+                        document.querySelectorAll('.sidebar-flyout').forEach(f => {
+                            f.classList.toggle('mobile-active', f.id === fly);
+                        });
+                    }
+                } else {
+                    hideFlyouts();
+                    if (window.innerWidth <= 768) closeMobileMenu();
+                }
             });
         });
         flyouts.forEach(fly => {
@@ -10219,8 +10050,5 @@
         });
     }
 </script>
-    <script src="/dist/dashboard-charts.137201825f.min.js"></script>
-    <script src="/dist/rnp-module.a3a8592765.min.js"></script>
-    <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 </body>
 </html>

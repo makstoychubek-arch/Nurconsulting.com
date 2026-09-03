@@ -5,7 +5,6 @@
 const RNP = (() => {
     'use strict';
     const RNP_BUILD = '20260723-large-cab-fix';
-    console.info('[RNP] build', RNP_BUILD);
 
     // ─── STATE ────────────────────────────────────────────────────────────────
     let _db = null;
@@ -441,9 +440,13 @@ const RNP = (() => {
         return typeof window.__nrLoadRequestId === 'function' ? window.__nrLoadRequestId() : 0;
     }
 
+    // РНП читает только свои таблицы, поэтому чужой loadFromDB/refreshData на
+    // дашборде не делает эту загрузку устаревшей — иначе любой параллельный
+    // запрос дашборда убивал рендер и вкладка висела на «Загрузка данных…»
+    // или показывала «Нет данных». Устаревание — только смена кабинета.
     function _isStaleLoad(snapReq, snapCab) {
         const curCab = window.currentCabinetId || _cab;
-        return snapReq !== _loadRequestId() || snapCab !== curCab;
+        return snapCab !== curCab || snapCab !== _cab;
     }
 
     const PROXY_TIMEOUT_MS = 30000;
@@ -1093,24 +1096,27 @@ const RNP = (() => {
                 if (!silent) _nrDialog('Нет данных', 'Сначала загрузите данные кабинета на вкладке Оцифровка → Дашборд.', 'warning');
                 return false;
             }
+            // Пачками, а не по одному артикулу: на новом кабинете с сотнями
+            // nm_id последовательные upsert'ы держали РНП в спиннере минуту+.
+            const toInsert = [];
             for (const nmStr of allNmIds) {
                 const nmId = Number(nmStr);
                 if (!nmId) continue;
                 const existing = _articles.find(a => a.nm_id == nmId);
-                const md = { ...(existing?.manual_data || {}) };
-                const displayName = md.seller_article || existing?.name || `Артикул ${nmId}`;
-                if (!existing) {
-                    await _db.from('rnp_articles').upsert({
-                        cabinet_id: _cab, nm_id: nmId, name: displayName,
-                        photo_url: '', is_active: activateNew, cost_price: 0,
-                        manual_data: md,
-                    }, { onConflict: 'cabinet_id,nm_id', ignoreDuplicates: true });
-                }
+                if (existing) continue;
+                toInsert.push({
+                    cabinet_id: _cab, nm_id: nmId, name: `Артикул ${nmId}`,
+                    photo_url: '', is_active: activateNew, cost_price: 0,
+                    manual_data: {},
+                });
+            }
+            for (let i = 0; i < toInsert.length; i += 200) {
+                await _db.from('rnp_articles').upsert(toInsert.slice(i, i + 200), { onConflict: 'cabinet_id,nm_id', ignoreDuplicates: true });
             }
             const keepSet = new Set(allNmIds.map(Number));
-            const stale = _articles.filter(a => !keepSet.has(Number(a.nm_id)));
-            for (const art of stale) {
-                await _db.from('rnp_articles').delete().eq('cabinet_id', _cab).eq('nm_id', art.nm_id);
+            const staleIds = _articles.filter(a => !keepSet.has(Number(a.nm_id))).map(a => a.nm_id);
+            for (let i = 0; i < staleIds.length; i += 200) {
+                await _db.from('rnp_articles').delete().eq('cabinet_id', _cab).in('nm_id', staleIds.slice(i, i + 200));
             }
             await _loadArticles(_cab);
             _backfillSellerArticlesFromDb().catch(e => console.warn('[RNP] seller backfill:', e.message));
@@ -1158,9 +1164,11 @@ const RNP = (() => {
     }
 
     async function _setAllActive(on) {
-        for (const a of _articles) {
-            if (a.is_active !== on) await _updateArticle(a.nm_id, { is_active: on });
-        }
+        if (!_db || !_cab) return;
+        if (!_articles.some(a => a.is_active !== on)) return;
+        const { error } = await _db.from('rnp_articles').update({ is_active: on }).eq('cabinet_id', _cab);
+        if (error) { console.warn('[RNP] setAllActive:', error.message); return; }
+        _articles = _articles.map(a => ({ ...a, is_active: on }));
     }
 
     async function _bootstrapCabinetIfNeeded() {
@@ -2873,13 +2881,14 @@ const RNP = (() => {
     /** Задача 3: loads all raw plan rows for the cabinet from `rnp_plans`
      *  (populated by the "Планирование" tab and/or RNP's own day-cell edits)
      *  into _planCache, keyed by nm_id -> plan_date -> row. */
-    async function _loadPlans() {
+    async function _loadPlans(dateFrom, dateTo) {
         const snapReq = _loadRequestId();
         const snapCab = _cab;
         if (!_cab || !_db) return;
-        const rows = await _fetchAllRows('rnp_plans', [
-            { op: 'eq', column: 'cabinet_id', value: _cab },
-        ]);
+        const filters = [{ op: 'eq', column: 'cabinet_id', value: _cab }];
+        if (dateFrom) filters.push({ op: 'gte', column: 'plan_date', value: dateFrom });
+        if (dateTo) filters.push({ op: 'lte', column: 'plan_date', value: dateTo });
+        const rows = await _fetchAllRows('rnp_plans', filters);
         if (_isStaleLoad(snapReq, snapCab)) return;
         const next = {};
         (rows || []).forEach(r => {
@@ -2902,16 +2911,16 @@ const RNP = (() => {
         const dateFrom = allDates[0] || '2026-01-01';
         const dateTo = allDates[allDates.length - 1] || today;
 
-        await _loadPlans();
-        if (_isStaleLoad(snapReq, snapCab)) return false;
-
-        const dailyRows = await _fetchOrdersDaily(dateFrom, dateTo, snapCab, snapReq);
+        // Планы, заказы и остатки — независимые запросы; раньше шли по очереди
+        // и на большом кабинете не укладывались в таймаут.
+        const [, dailyRows, stocks] = await Promise.all([
+            _loadPlans(dateFrom, dateTo),
+            _fetchOrdersDaily(dateFrom, dateTo, snapCab, snapReq),
+            _fetchAllRows('wb_stocks', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+            ], 'nm_id, tech_size, quantity, in_way_to_client, in_way_from_client, warehouse_name'),
+        ]);
         if (dailyRows === null) return false;
-        if (_isStaleLoad(snapReq, snapCab)) return false;
-
-        const stocks = await _fetchAllRows('wb_stocks', [
-            { op: 'eq', column: 'cabinet_id', value: _cab },
-        ], 'nm_id, tech_size, quantity, in_way_to_client, in_way_from_client, warehouse_name');
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
         const settings = _rnpMetricSettings();
@@ -2930,14 +2939,15 @@ const RNP = (() => {
         return true;
     }
 
+    const RNP_LOAD_TIMEOUT_MS = 45000;
     async function _loadRnpDataTimed() {
         const snapReq = _loadRequestId();
         const snapCab = _cab;
         const result = await Promise.race([
             _loadRnpData(),
             new Promise((_, rej) => setTimeout(
-                () => rej(new Error('Таймаут загрузки данных РНП (30 с)')),
-                PROXY_TIMEOUT_MS,
+                () => rej(new Error('Таймаут загрузки данных РНП (45 с). Нажмите «Повторить».')),
+                RNP_LOAD_TIMEOUT_MS,
             )),
         ]);
         if (_isStaleLoad(snapReq, snapCab)) return false;
@@ -3701,11 +3711,31 @@ const RNP = (() => {
         return false;
     }
 
+    let _staleRetries = 0;
+    function _abandonStaleMain(renderId, snapReq, snapCab) {
+        if (renderId === _mainRenderGen && !_isStaleLoad(snapReq, snapCab)) {
+            _staleRetries = 0;
+            return false;
+        }
+        // Нас обогнал более новый рендер — он и дорисует, не плодим ещё один.
+        if (renderId !== _mainRenderGen) return true;
+        if (_rnpMainRendered()) return true;
+        if (_staleRetries >= 3) return true;
+        _staleRetries++;
+        setTimeout(function () {
+            if (_rnpMainRendered()) return;
+            const tab = document.getElementById('tab-rnp');
+            if (!tab || !tab.classList.contains('active')) return;
+            if (typeof window.bootRnpTab === 'function') window.bootRnpTab(true);
+        }, 150);
+        return true;
+    }
+
     function _rnpIsLoading() {
         const el = document.getElementById('tab-rnp');
         if (!el) return false;
         const text = el.textContent || '';
-        if (text.includes('Инициализация РНП') || text.includes('Загрузка РНП') || text.includes('Загрузка артикулов')) return true;
+        if (text.includes('Инициализация РНП') || text.includes('Загрузка РНП') || text.includes('Загрузка артикулов') || text.includes('Загрузка данных')) return true;
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return false;
         return !!body.querySelector('.rnp-workspace') && !_rnpMainRendered()
@@ -3807,15 +3837,14 @@ const RNP = (() => {
         let loadErr = null;
         try {
             loadOk = await _loadRnpDataTimed();
-            if (renderId !== _mainRenderGen) return;
-            if (_isStaleLoad(snapReq, snapCab)) return;
+            if (_abandonStaleMain(renderId, snapReq, snapCab)) return;
             if (loadOk === false) {
                 _setRnpSheetState('empty', 'Нет данных за выбранный период. Запустите синхронизацию на дашборде.');
                 return;
             }
             if (active.length <= 60) {
                 await _loadNotes(active.map(a => a.nm_id));
-                if (renderId !== _mainRenderGen || _isStaleLoad(snapReq, snapCab)) return;
+                if (_abandonStaleMain(renderId, snapReq, snapCab)) return;
             }
             setTimeout(() => {
                 if (_cab !== snapCab) return;
@@ -3826,8 +3855,7 @@ const RNP = (() => {
             loadErr = e;
             console.error('[RNP] load:', e);
         }
-        if (renderId !== _mainRenderGen) return;
-        if (_isStaleLoad(snapReq, snapCab)) return;
+        if (_abandonStaleMain(renderId, snapReq, snapCab)) return;
         if (loadErr) {
             _setRnpSheetState('error', loadErr.message || 'Ошибка загрузки РНП');
             return;
@@ -4473,7 +4501,15 @@ const RNP = (() => {
         if (_initInflight && _initInflightCab === cabId) return;
         _initInflightCab = cabId;
         _initInflight = initCore(supabase, cabId, proxyFn, opts)
-            .then(() => { _startBackgroundEnrichment(); })
+            .then(() => {
+                _startBackgroundEnrichment();
+                // Если вкладка уже открыта, а таблицы ещё нет (initCore шёл дольше,
+                // чем рендер ждал) — дорисовываем сами, не надеясь на ретраи снаружи.
+                const tab = document.getElementById('tab-rnp');
+                if (tab && tab.classList.contains('active') && _cab === cabId && !_rnpMainRendered()) {
+                    openMain(true).catch(e => console.warn('[RNP] openMain after init:', e.message));
+                }
+            })
             .catch(e => console.warn('[RNP] initCore:', e.message))
             .finally(() => {
                 if (_initInflightCab === cabId) {
@@ -4512,6 +4548,8 @@ const RNP = (() => {
         _renderSettings(opts);
     }
 
+    let _mainInflight = null;
+    let _mainInflightCab = null;
     async function openMain(force) {
         const el = document.getElementById('tab-rnp');
         if (!el) return;
@@ -4519,21 +4557,35 @@ const RNP = (() => {
             _setRnpTabState('error', 'Кабинет не инициализирован. Обновите страницу.');
             return;
         }
+        // Старт дашборда дёргает openMain из 3–4 мест почти одновременно; каждый
+        // вызов раньше запускал полную загрузку и обгонял предыдущий — в итоге
+        // ни один не дорисовывал таблицу. Один рендер на кабинет за раз.
+        if (_mainInflight && _mainInflightCab === _cab) return _mainInflight;
         const stuck = _rnpIsLoading();
         const mounted = document.querySelector('#tab-rnp .rnp-workspace');
         if (!force && !stuck && mounted && _rnpMainRendered() && window._rnpLoadedForCabinet === _cab) return;
-        try {
-            if (_initInflight && !_articles.length) {
-                await Promise.race([
-                    _initInflight,
-                    new Promise(r => setTimeout(r, 12000)),
-                ]);
+        const cab = _cab;
+        _mainInflightCab = cab;
+        _mainInflight = (async () => {
+            try {
+                if (_initInflight && !_articles.length) {
+                    await Promise.race([
+                        _initInflight,
+                        new Promise(r => setTimeout(r, 12000)),
+                    ]);
+                }
+                await _renderMain();
+            } catch (e) {
+                console.error('[RNP] openMain:', e);
+                _setRnpTabState('error', e.message || 'Ошибка открытия РНП');
+            } finally {
+                if (_mainInflightCab === cab) {
+                    _mainInflight = null;
+                    _mainInflightCab = null;
+                }
             }
-            await _renderMain();
-        } catch (e) {
-            console.error('[RNP] openMain:', e);
-            _setRnpTabState('error', e.message || 'Ошибка открытия РНП');
-        }
+        })();
+        return _mainInflight;
     }
 
     async function pick(nmId) {
@@ -4733,6 +4785,9 @@ const RNP = (() => {
             window._rnpLastLoadedAt = 0;
             window._rnpLoadedForCabinet = null;
             _clearRnpMainUI();
+            if (typeof window.bootRnpTab === 'function') {
+                setTimeout(() => window.bootRnpTab(true), 50);
+            }
         });
     }
 
@@ -4820,10 +4875,14 @@ const RNP = (() => {
         if (_bootAttempts >= 8) return;
         _bootAttempts++;
         const tab = document.getElementById('tab-rnp');
-        if (!tab?.classList.contains('active')) return;
-        if (tab.querySelector('.rnp-workspace') && document.querySelector('#rnp-sheet-body .rnp-summary-table, #rnp-sheet-body .rnp-table-scroll table')) return;
-        if (typeof window.bootRnpTab === 'function') window.bootRnpTab(true);
-        else if (_db && _cab) openMain(true).catch(() => {});
+        const visible = !!(tab && (tab.classList.contains('active') || document.getElementById('nr-early-tab-style')));
+        if (visible) {
+            const done = tab.querySelector('#rnp-sheet-body .rnp-summary-table, #rnp-sheet-body .rnp-table-scroll table');
+            if (!done) {
+                if (typeof window.bootRnpTab === 'function') window.bootRnpTab(true);
+                else if (_db && _cab) openMain(true).catch(() => {});
+            }
+        }
         setTimeout(_retryRnpBoot, 1500);
     }
     setTimeout(_retryRnpBoot, 800);
@@ -4832,3 +4891,9 @@ const RNP = (() => {
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();
+
+// Билд минифицирует этот файл в IIFE (esbuild format: 'iife'), из-за чего
+// top-level `const RNP` остаётся внутри обёртки и снаружи не виден: дашборд
+// вечно ждёт `typeof RNP !== 'undefined'`, а inline-onclick'и падают с
+// ReferenceError. Явный экспорт в window переживает минификацию.
+window.RNP = RNP;
