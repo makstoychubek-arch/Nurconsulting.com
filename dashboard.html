@@ -3309,9 +3309,13 @@
         </div>
         <p class="text-xs mt-4" style="color:var(--text-muted)">Данные синхронизированы с Дашбордом. Нажмите "Обновить" для актуализации.</p>
     </div></div>
-        <div id="tab-summary-biz" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Сводный по бизнесу</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Совокупные показатели по всем кабинетам. Доступно после подключения нескольких кабинетов с токенами WB.</p></div></div>
+        <div id="tab-summary-biz" class="tab-content space-y-5">
+            <div class="text-center py-8 text-sm" style="color:var(--text-muted)">Откройте вкладку — загрузим сводку по всем кабинетам</div>
+        </div>
         <div id="tab-deductions" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Прочие удержания</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Детализация удержаний из отчёта реализации: подписки, штрафы, транзитные поставки, отзывы за баллы. Доступно после подключения Finance API.</p></div></div>
-        <div id="tab-plan-fact" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">План-факт</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Инструмент постановки целей и отслеживания выполнения плана по выбранным показателям. В разработке.</p></div></div>
+        <div id="tab-plan-fact" class="tab-content space-y-5">
+            <div class="text-center py-8 text-sm" style="color:var(--text-muted)">Откройте вкладку — загрузим план-факт</div>
+        </div>
         <div id="tab-dds" class="tab-content space-y-4">
             <div class="widget-card p-5">
                 <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -3425,12 +3429,15 @@
         <div id="tab-warehouse" class="tab-content space-y-5">
             <div class="grid grid-cols-3 gap-4">
                 <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Всего на складах WB</div><div id="wh-total" class="text-2xl font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Индекс локализации</div><div class="text-2xl font-black" style="color:var(--accent)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Оборачиваемость</div><div class="text-2xl font-black" style="color:var(--blue)">— дн.</div></div>
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Индекс локализации</div><div id="wh-localization" class="text-2xl font-black" style="color:var(--accent)">—</div></div>
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Оборачиваемость</div><div id="wh-turnover" class="text-2xl font-black" style="color:var(--blue)">— дн.</div></div>
             </div>
             <div class="glass rounded-2xl overflow-hidden">
-                <div class="px-5 py-3 border-b" style="border-color:var(--border)"><h3 class="text-sm font-semibold" style="color:var(--text-primary)">По складам WB</h3></div>
-                <div id="warehouse-list" class="text-center py-10 text-sm" style="color:var(--text-muted)">Нажмите "Обновить"</div>
+                <div class="px-5 py-3 border-b flex justify-between items-center" style="border-color:var(--border)">
+                    <h3 class="text-sm font-semibold" style="color:var(--text-primary)">По складам WB · куда грузить</h3>
+                    <button type="button" class="ui-btn ui-btn-secondary text-xs" onclick="WowOps && WowOps.loadWarehouseWow()">↻ Пересчитать</button>
+                </div>
+                <div id="warehouse-list" class="text-center py-10 text-sm" style="color:var(--text-muted)">Откройте вкладку или нажмите «Пересчитать»</div>
             </div>
         </div>
 
@@ -3734,6 +3741,12 @@
                     <div class="segment-tab" onclick="filterTests('all', this)">Все</div>
                 </div>
             </div>
+            <p class="text-xs mb-3" style="color:var(--text-muted);line-height:1.45">
+                Старт здесь → отчёт и фото вариантов в Telegram. В чате А/Б: <b style="color:var(--text-secondary);font-weight:600">тесты</b>,
+                <b style="color:var(--text-secondary);font-weight:600">как там &lt;арт&gt;</b>,
+                <b style="color:var(--text-secondary);font-weight:600">отчёт &lt;арт&gt;</b>,
+                <b style="color:var(--text-secondary);font-weight:600">смени фото &lt;арт&gt;</b>.
+            </p>
 
             <!-- МАСТЕР СОЗДАНИЯ А/Б ТЕСТА -->
             <div id="new-test-form" class="glass rounded-2xl p-6 hidden">
@@ -3764,6 +3777,15 @@
                         <h4>Карточка товара</h4>
                         <div id="ab-selected-card" class="ab-selected-card"></div>
                         <div id="ab-wb-photo-gallery" class="ab-photo-gallery"></div>
+                    </div>
+
+                    <div class="ab-wizard-card">
+                        <h4>Тип теста</h4>
+                        <div class="ab-pill-toggle" id="ab-test-type-toggle">
+                            <div class="ab-pill active" data-ab-type="content_photo" onclick="setABTestType('content_photo', this)">Фото / инфографика</div>
+                            <div class="ab-pill" data-ab-type="price" onclick="setABTestType('price', this)">Цена</div>
+                        </div>
+                        <div class="ab-wizard-hint" id="ab-test-type-hint">Крутим главное фото на карточке. Для цены — ротация discount через API (вариант = цена ₽).</div>
                     </div>
 
                     <div class="ab-wizard-card">
@@ -3804,6 +3826,13 @@
                         <div id="variant-inputs"></div>
                         <button class="ui-btn ui-btn-secondary mb-2 text-sm" onclick="addVariantSlot()" id="add-variant-btn">+ Добавить вариант</button>
                         <div class="ab-wizard-hint">Минимум 2 варианта. Можно загрузить новые фото или выбрать из галереи WB выше.</div>
+                        <div id="ab-price-variants-box" class="hidden mt-3">
+                            <div class="text-xs font-semibold mb-2" style="color:var(--text-secondary)">Цены вариантов (₽)</div>
+                            <div class="grid grid-cols-2 gap-2" id="ab-price-inputs">
+                                <label class="text-xs">A <input type="number" id="ab-price-A" class="ab-product-search" min="1" placeholder="1990"></label>
+                                <label class="text-xs">B <input type="number" id="ab-price-B" class="ab-product-search" min="1" placeholder="1890"></label>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="ab-wizard-card">
@@ -5183,6 +5212,9 @@
         if (name === 'rnp') bootRnpTab(true);
         if (name === 'rnp-settings') bootRnpSettings();
         if (name === 'planning' && hasUserCabinets) loadPlanningTab();
+        if (name === 'warehouse' && hasUserCabinets && window.WowOps) WowOps.loadWarehouseWow();
+        if (name === 'summary-biz' && hasUserCabinets && window.WowOps) WowOps.loadSummaryBiz();
+        if (name === 'plan-fact' && hasUserCabinets && window.WowOps) WowOps.loadPlanFact();
         if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
         syncRailGroup(name);
         syncModuleUrl(name);
@@ -5668,7 +5700,19 @@
                 <td>${cpc > 0 ? fmt(Math.round(cpc)) + ' ₽' : '—'}</td>
             </tr>${subRowsHtml}`;
         }).join('');
-        el.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Товар / Кампания</th><th>Тип кампании</th><th>Затраты</th><th>Показы</th><th>CTR</th><th>Заказы</th><th>CPC</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+        el.innerHTML = `
+          <div id="ctr-death-panel" class="mb-3 p-3 rounded-xl text-sm" style="background:var(--surface);border:1px solid var(--border)">
+            <div class="flex flex-wrap gap-2 items-center mb-2">
+              <span class="text-xs font-semibold" style="color:var(--text-secondary)">Почему CTR?</span>
+              <input type="number" id="ctr-death-nm" class="rounded-lg px-2 py-1 text-xs" style="background:var(--bg);border:1px solid var(--border);width:140px;color:var(--text-primary)" placeholder="арт. nm" value="${list[0]?.nmId || ''}">
+              <button type="button" class="ui-btn ui-btn-secondary text-xs" onclick="WowOps&&WowOps.loadCtrDeath(Number(document.getElementById('ctr-death-nm').value))">Диагноз</button>
+            </div>
+            <div class="text-xs" style="color:var(--text-muted)">Сравним 7д vs предыдущие 7д по РНП (показы/клики/расход).</div>
+          </div>
+          <div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Товар / Кампания</th><th>Тип кампании</th><th>Затраты</th><th>Показы</th><th>CTR</th><th>Заказы</th><th>CPC</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+        if (window.WowOps && list[0]?.nmId) {
+            setTimeout(() => WowOps.loadCtrDeath(list[0].nmId), 50);
+        }
     }
 
     function toggleNmRow(nmId) {
@@ -6788,6 +6832,7 @@
     let cabinetListCache = [];
     function renderCabinetDropdown(data) {
         cabinetListCache = data || [];
+        window.cabinetListCache = cabinetListCache;
         const menu = document.getElementById('cabinet-dropdown-menu');
         const selectHeader = document.getElementById('cabinet-select-header');
         if (!menu) return;
@@ -6918,6 +6963,7 @@
         document.dispatchEvent(new CustomEvent('cabinet-changed', { detail: { cabinetId: newCabinetId } }));
         updateCabinetPickerUI(newCabinetName);
         renderCabinetDropdown(cabinetListCache);
+        window.cabinetListCache = cabinetListCache;
         document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
 
         [
@@ -7494,6 +7540,10 @@
         document.getElementById('warehouse-list').innerHTML=entries.length>0
             ?`<div class="divide-y" style="border-color:var(--border)">${entries.map(([n,q])=>`<div class="flex justify-between px-5 py-3"><span class="text-sm" style="color:var(--text-secondary)">${n}</span><span class="text-sm font-bold" style="color:var(--text-primary)">${fmt(q)} шт.</span></div>`).join('')}</div>`
             :'<div class="py-10 text-center" style="color:var(--text-muted)">Нет данных</div>';
+        // Полный пересчёт индекса локализации / оборачиваемости / рекомендаций
+        if (window.WowOps && currentCabinetId) {
+            WowOps.loadWarehouseWow().catch((e) => console.warn('[WowOps] warehouse', e));
+        }
     }
 
     function saveSettings() {
@@ -7738,6 +7788,25 @@
     let abRotationTimers = {};
     const MAX_AB_VARIANTS = 10;
     let abVariantFiles = {};
+    let abTestType = 'content_photo'; // content_photo | price
+    let abPriceBySlot = {};
+
+    function setABTestType(type, el) {
+        abTestType = type === 'price' ? 'price' : 'content_photo';
+        document.querySelectorAll('#ab-test-type-toggle .ab-pill').forEach((p) => p.classList.remove('active'));
+        if (el) el.classList.add('active');
+        else document.querySelector(`#ab-test-type-toggle .ab-pill[data-ab-type="${abTestType}"]`)?.classList.add('active');
+        const hint = document.getElementById('ab-test-type-hint');
+        if (hint) {
+            hint.textContent = abTestType === 'price'
+                ? 'Вариант = цена в ₽. Ротация меняет discount/price на WB. Фото можно не грузить.'
+                : 'Крутим главное фото на карточке. Для цены — ротация discount через API (вариант = цена ₽).';
+        }
+        const priceBox = document.getElementById('ab-price-variants-box');
+        if (priceBox) priceBox.classList.toggle('hidden', abTestType !== 'price');
+        const photoHint = document.querySelector('#variant-inputs')?.previousElementSibling;
+    }
+    window.setABTestType = setABTestType;
     let abWizardStep = 1;
     let abSelectedCard = null;
     let abProductCards = [];
@@ -8110,14 +8179,25 @@
         const name = abSelectedCard.title;
         const interval = Math.max(60, parseInt(document.getElementById('abt-interval').value, 10) || 60);
         const maxRot = parseInt(document.getElementById('abt-maxrot').value, 10) || 0;
+        const isPriceTest = abTestType === 'price';
+        const priceA = parseInt(document.getElementById('ab-price-A')?.value, 10);
+        const priceB = parseInt(document.getElementById('ab-price-B')?.value, 10);
         const fileIndices = Object.keys(abVariantFiles).map(Number).sort((a, b) => a - b).filter(i => abVariantFiles[i]);
-        if (fileIndices.length < 2) { showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите или выберите из галереи WB минимум 2 варианта.'); return; }
+        if (isPriceTest) {
+            if (!(priceA > 0 && priceB > 0) || priceA === priceB) {
+                showPremiumModal('warning', 'Нужны две разные цены', 'Укажите цены A и B в ₽.');
+                return;
+            }
+        } else if (fileIndices.length < 2) {
+            showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите или выберите из галереи WB минимум 2 варианта.');
+            return;
+        }
 
         abCreatingTest = true;
         const submitBtn = document.getElementById('ab-create-test-btn');
         if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.6'; submitBtn.style.pointerEvents = 'none'; }
 
-        showPremiumModal('info', 'Создаём тест...', 'Загружаем фото, подождите.');
+        showPremiumModal('info', 'Создаём тест...', isPriceTest ? 'Готовим ценовой А/Б…' : 'Загружаем фото, подождите.');
 
         try {
         const { data: test, error } = await supabase.from('ab_tests').insert({
@@ -8141,10 +8221,33 @@
             campaigns: [...abSelectedCampaigns],
             autoStop: document.getElementById('ab-auto-stop')?.checked,
             minImpressions: parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 100,
+            test_type: isPriceTest ? 'price' : 'content_photo',
+            price_by_label: isPriceTest ? { A: priceA, B: priceB } : undefined,
         });
 
         try {
             const variantRows = [];
+            if (isPriceTest) {
+                const prices = [priceA, priceB];
+                for (let i = 0; i < prices.length; i++) {
+                    const label = abVariantLabel(i);
+                    // photo_url хранит маркер цены — ротатор узнает test_type из settings
+                    variantRows.push({
+                        test_id: test.id,
+                        variant_label: label,
+                        photo_url: `price://${prices[i]}`,
+                        impressions: 0, clicks: 0, orders: 0, minutes_active: 0,
+                        is_currently_on_wb: i === 0,
+                    });
+                }
+                const { error: vErr } = await supabase.from('ab_test_variants').insert(variantRows);
+                if (vErr) throw new Error(vErr.message);
+                const ok = await applyAbPrice(Number(nmId), priceA);
+                if (!ok) throw new Error('WB не принял цену варианта A');
+                await supabase.from('ab_test_rotation_log').insert({
+                    test_id: test.id, variant_label: 'A', action: 'start',
+                });
+            } else {
             for (let i = 0; i < fileIndices.length; i++) {
                 const file = abVariantFiles[fileIndices[i]];
                 const label = abVariantLabel(i);
@@ -8156,6 +8259,7 @@
 
             const ok = await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, nmId, variantRows[0].variant_label);
             if (!ok) throw new Error('WB не принял первое фото. Попробуйте ещё раз.');
+            }
         } catch (e) {
             await supabase.from('ab_tests').delete().eq('id', test.id);
             showPremiumModal('error', 'Ошибка загрузки', e.message);
@@ -8163,11 +8267,46 @@
         }
 
         hideNewTestForm();
-        showPremiumModal('success', 'Тест запущен!', `Фото будет меняться каждые ${interval} мин.`);
+        showPremiumModal('success', 'Тест запущен!', isPriceTest ? `Цена будет меняться каждые ${interval} мин.` : `Фото будет меняться каждые ${interval} мин. Отчёт уйдёт в Telegram.`);
+        try { await notifyAbTelegram('notify_started', test.id); } catch (e) { console.warn('[AB] tg notify_started', e); }
         loadABTests();
         } finally {
             abCreatingTest = false;
             if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.pointerEvents = ''; }
+        }
+    }
+
+    async function applyAbPrice(nmId, price) {
+        const data = await callWbProxy('prices_upload', {
+            prices: [{ nmId: Number(nmId), price: Number(price) }],
+        });
+        if (!data) return false;
+        if (data.error && data.error !== false) {
+            console.warn('[AB] prices_upload', data);
+            // fallback soft-ok if proxy action missing — still save test
+            if (String(data.error).includes('Unknown') || data.errorText?.includes('Unknown')) {
+                showPremiumModal('warning', 'Цена сохранена в тесте', 'Прокси prices_upload ещё не подключён — ротация цены пойдёт после деплоя wb-proxy.');
+                return true;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    async function notifyAbTelegram(action, testId) {
+        if (!testId) return;
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/ab-test-rotate`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${SUPABASE_KEY}`,
+                apikey: SUPABASE_KEY,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ action, test_id: testId }),
+        });
+        if (!res.ok) {
+            const t = await res.text().catch(() => '');
+            console.warn('[AB] notifyAbTelegram', action, res.status, t);
         }
     }
 
@@ -8213,18 +8352,50 @@
         renderABTests();
         startRotationTimers();
 
-        // Ссылка "подробный отчёт" из Telegram-уведомления ведёт на
-        // /ab-testing?test=<id> — открываем модалку отчёта автоматически один
-        // раз после загрузки списка (не при каждом фоновом обновлении).
+        // Ссылка "подробный отчёт" из Telegram ведёт на /ab-testing?test=<id>.
+        // Тест может быть в другом кабинете — подгружаем по id и при необходимости
+        // переключаем кабинет, иначе модалка не откроется.
         if (!window._abDeepLinkHandled) {
             window._abDeepLinkHandled = true;
             try {
                 const qTest = new URLSearchParams(location.search).get('test');
-                if (qTest && allABTests.some(t => String(t.id) === qTest)) {
-                    setTimeout(() => openABReportModal(qTest), 300);
+                if (qTest) {
+                    setTimeout(() => openABReportDeepLink(qTest), 300);
                 }
             } catch (e) {}
         }
+    }
+
+    async function openABReportDeepLink(testId) {
+        let test = allABTests.find(t => String(t.id) === String(testId));
+        if (!test) {
+            const { data: row } = await supabase.from('ab_tests').select('*').eq('id', testId).maybeSingle();
+            if (!row) {
+                showPremiumModal('warning', 'Тест не найден', `Нет А/Б теста с id ${testId}`);
+                return;
+            }
+            if (row.cabinet_id && String(row.cabinet_id) !== String(currentCabinetId)) {
+                try { selectCabinet(row.cabinet_id); } catch (e) {}
+                // selectCabinet асинхронно перезагрузит список — подождём и откроем
+                const waitOpen = async () => {
+                    for (let i = 0; i < 20; i++) {
+                        await new Promise(r => setTimeout(r, 200));
+                        if (allABTests.some(t => String(t.id) === String(testId))) {
+                            openABReportModal(testId);
+                            return;
+                        }
+                    }
+                    const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', testId).order('variant_label');
+                    allABTests.unshift({ ...row, variants: variants || [], settings: row.settings || {} });
+                    openABReportModal(testId);
+                };
+                waitOpen();
+                return;
+            }
+            const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', testId).order('variant_label');
+            allABTests.unshift({ ...row, variants: variants || [], settings: row.settings || {} });
+        }
+        openABReportModal(testId);
     }
 
     function filterTests(mode, el) {
@@ -8240,10 +8411,16 @@
         if (currentTestFilter === 'active') list = list.filter(t => t.status === 'active');
         else if (currentTestFilter === 'finished') list = list.filter(t => t.status === 'finished');
 
-        if (list.length === 0) {
+                if (list.length === 0) {
             container.innerHTML = `<div class="text-center py-12 text-sm" style="color:var(--text-muted)">
                 <div style="font-size:40px;margin-bottom:12px">📊</div>
-                ${currentTestFilter === 'active' ? 'Нет активных тестов — создайте первый А/Б тест' : 'Нет тестов'}
+                ${currentTestFilter === 'active'
+                    ? 'Нет активных тестов — создайте первый А/Б тест'
+                    : 'Нет тестов'}
+                <div style="margin-top:14px;font-size:12px;line-height:1.5;max-width:420px;margin-left:auto;margin-right:auto;opacity:.9">
+                    После старта варианты и отчёты уходят в Telegram-чат А/Б.<br>
+                    Там можно писать: «тесты», «как там 123…», «отчёт 123…», «смени фото 123…»
+                </div>
             </div>`;
             return;
         }
@@ -8474,7 +8651,8 @@
 
         clearInterval(abRotationTimers[String(testId)]);
         delete abRotationTimers[String(testId)];
-        showPremiumModal('success', 'Тест завершён', 'А/Б тест остановлен.');
+        showPremiumModal('success', 'Тест завершён', 'А/Б тест остановлен. Отчёт уходит в Telegram.');
+        try { await notifyAbTelegram('notify_finished', testId); } catch (e) { console.warn('[AB] tg notify_finished', e); }
         await loadABTests();
     }
 
@@ -10222,5 +10400,6 @@
     <script src="/dist/dashboard-charts.137201825f.min.js"></script>
     <script src="/dist/rnp-module.a3a8592765.min.js"></script>
     <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
+    <script src="/dist/wow-ops.b1449908b0.min.js"></script>
 </body>
 </html>

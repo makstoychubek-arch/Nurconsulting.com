@@ -757,6 +757,30 @@ serve(async (req) => {
                 break;
             }
 
+            case 'prices_upload': {
+                const prices = Array.isArray(params.prices) ? params.prices : [];
+                if (!prices.length) return json({ error: 'prices[] required' }, 400);
+                const payload = {
+                    data: prices.map((p: Record<string, unknown>) => ({
+                        nmID: Number(p.nmId || p.nmID),
+                        price: Number(p.price),
+                        ...(p.discount != null ? { discount: Number(p.discount) } : {}),
+                    })).filter((p: { nmID: number; price: number }) => p.nmID && p.price > 0),
+                };
+                if (!payload.data.length) return json({ error: 'no valid price rows' }, 400);
+                const res = await fetch('https://discounts-prices-api.wildberries.ru/api/v2/upload/task', {
+                    method: 'POST',
+                    headers: { Authorization: WB_TOKEN, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+                const bodyJson = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    return json({ error: true, errorText: `prices API ${res.status}`, details: bodyJson }, res.status >= 400 ? res.status : 502);
+                }
+                result = { ok: true, error: false, ...bodyJson };
+                break;
+            }
+
             // ── SEO-Позиции — реальные данные из seller-analytics-api ────────
             // (раньше был демо-рандом в checkAllPositions(), теперь настоящий API)
             case 'seo_keyword_positions': {
