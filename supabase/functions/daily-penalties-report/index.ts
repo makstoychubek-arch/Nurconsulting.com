@@ -71,7 +71,18 @@ Deno.serve(async (req) => {
                     continue;
                 }
 
-                const bundle = await fetchWeeklyPenaltyBundle(token, reportDate);
+                const presetRows = Array.isArray(body?.rows) ? body.rows as Array<Record<string, unknown>> : null;
+                const bundle = presetRows
+                    ? {
+                        rows: presetRows
+                            .map((r) => ({ reason: String(r.reason || 'Удержание'), amount: Number(r.amount) || 0 }))
+                            .filter((r) => r.amount > 0),
+                        periodFrom: typeof body?.periodFrom === 'string' ? body.periodFrom : reportDate,
+                        periodTo: typeof body?.periodTo === 'string' ? body.periodTo : reportDate,
+                        weekOpen: Boolean(body?.weekOpen),
+                        reportId: null,
+                    }
+                    : await fetchWeeklyPenaltyBundle(token, reportDate);
                 const rows = bundle.rows;
                 const periodKey = `${bundle.periodFrom}_${bundle.periodTo}`;
                 const eventType = `daily_penalties_${periodKey}`;
