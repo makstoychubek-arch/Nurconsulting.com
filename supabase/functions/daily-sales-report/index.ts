@@ -17,6 +17,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCanvas } from 'https://deno.land/x/canvas@v1.4.2/mod.ts';
+import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -67,6 +68,12 @@ Deno.serve(async (req) => {
             if (onlyCabinets && !onlyCabinets.includes(cabinet.name)) continue;
             const cabResult: Record<string, unknown> = { cabinet: cabinet.name };
             try {
+                const gate = await shouldSendTelegram(admin, { channel: 'sales', cabinetId: cabinet.id });
+                if (!gate.ok) {
+                    cabResult.skipped = gate.reason;
+                    results.push(cabResult);
+                    continue;
+                }
                 const token = sanitizeWbToken(cabinet.wb_token);
                 if (!token || token.length < 50) {
                     cabResult.skipped = 'invalid_token';

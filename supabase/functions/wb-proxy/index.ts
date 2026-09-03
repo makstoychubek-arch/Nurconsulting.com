@@ -6,6 +6,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
+import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 import { isSuperAdminUser, isTeamMember } from '../_shared/cabinet-access.ts';
 
 const CORS = {
@@ -1047,6 +1048,8 @@ async function notifyCampaignAction(
     const tgToken = getTelegramToken();
     const tgChatId = getTelegramChatId('ads');
     if (!tgToken || !tgChatId) return;
+    const gate = await shouldSendTelegram(admin, { channel: 'ads', cabinetId: opts.cabinetId });
+    if (!gate.ok) return;
 
     const eventType = opts.action === 'pause' ? 'campaign_paused' : 'campaign_started';
     const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
