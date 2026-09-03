@@ -113,5 +113,11 @@ assert.ok(rnpSrc.includes('rnp-th-month-prev'), 'previous-month header must stic
 assert.ok(html.includes('rnp-th-month-stick'), 'month stick label CSS must exist');
 assert.ok(rnpSrc.includes('_loadPlans(dateFrom, dateTo)'), 'plans must be loaded only for the visible calendar range');
 assert.ok(/Promise\.all\(\[\s*_loadPlans\(dateFrom, dateTo\)/.test(rnpSrc), 'RNP loads plans/orders/stocks in parallel');
+assert.ok(rnpSrc.includes('function _adNmsFromDay'), 'RNP must parse nm breakdown from advertising_daily_stats');
+assert.ok(rnpSrc.includes('function _mergeAdStatsFromDb'), 'RNP must merge advertising_daily_stats on load');
+assert.ok(rnpSrc.includes("from('advertising_daily_stats')") || rnpSrc.includes("'advertising_daily_stats'"),
+    'RNP must read advertising_daily_stats, not only rnp_daily_data');
+assert.ok(rnpSrc.includes('_hydrateFunnelAfterPaint'), 'organic impressions must hydrate after first paint');
+assert.ok(rnpSrc.includes('показы РК'), 'toolbar must show live ad impressions so empty cells are not silent');
 
 console.log('dashboard_html_test: ok');
