@@ -4,6 +4,7 @@
 // Auth: service_role key only (triggered by pg_cron).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -530,6 +531,12 @@ async function notifyTestFinished(
         .eq('event_type', 'ab_test_finished')
         .limit(1);
     if (dupes && dupes.length) return;
+
+    const gate = await shouldSendTelegram(admin, {
+        channel: 'ab_tests',
+        cabinetId: test.cabinet_id as string,
+    });
+    if (!gate.ok) return;
 
     const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
     const tgChannelId = Deno.env.get('TELEGRAM_CHANNEL_ID') ?? '';

@@ -283,6 +283,23 @@
         }
         .widget-card { padding: 20px; }
         .widget-card:hover { box-shadow: none; background: var(--surface); }
+        .tg-bot-card { padding: 18px 20px; }
+        .tg-bot-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .tg-bot-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+        .tg-bot-role { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+        .tg-bot-meta { font-size: 11px; color: var(--text-secondary); margin-top: 8px; font-family: ui-monospace, monospace; }
+        .tg-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
+        .tg-status.online { background: rgba(52,199,89,0.15); color: var(--green); }
+        .tg-status.offline, .tg-status.no_token { background: var(--sel); color: var(--text-muted); }
+        .tg-status.disabled { background: rgba(251,191,36,0.15); color: #d97706; }
+        .tg-status.deleted { background: rgba(248,113,113,0.12); color: var(--red); }
+        .tg-switch { position: relative; width: 36px; height: 20px; border-radius: 999px; border: none; cursor: pointer; background: var(--border); flex-shrink: 0; }
+        .tg-switch.on { background: var(--accent); }
+        .tg-switch span { position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left 0.15s ease; }
+        .tg-switch.on span { left: 18px; }
+        .tg-mute-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+        .tg-mute-row:last-child { border-bottom: none; }
+        .tg-channel-card { margin-top: 12px; }
         .metric-card {
             background: var(--surface);
             border: none;
@@ -2798,6 +2815,14 @@
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
                     <span>Калькулятор</span>
                 </div>
+                <div class="nav-item" onclick="showTab('telegram-bots', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>
+                    <span>Телеграм боты</span>
+                </div>
+                <div class="nav-item" onclick="showTab('ozon', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
+                    <span>Ozon токен</span>
+                </div>
             </div>
         </div>
 
@@ -3646,7 +3671,7 @@
                 <div class="settings-section-tab" id="settings-tab-btn-security" onclick="showSettingsSection('security', this)">Безопасность</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-devsessions" onclick="showSettingsSection('devsessions', this)">Сессии разработчиков</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-spaces" onclick="showSettingsSection('spaces', this)">Управление Спейсами</div>
-                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">API кабинетов</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">Кабинеты</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-about" onclick="showSettingsSection('about', this)">NR Space</div>
             </div>
             <div id="settings-profile" class="settings-tab-anim hidden space-y-4">
@@ -3710,7 +3735,7 @@
             <div id="settings-api" class="settings-tab-anim hidden space-y-4">
                 <div class="widget-card p-6">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="font-semibold" style="color:var(--text-primary)">Кабинеты и API-токены</h3>
+                        <h3 class="font-semibold" style="color:var(--text-primary)">Кабинеты и токены WB</h3>
                         <button class="ui-btn ui-btn-secondary" onclick="showAddCabinetForm()"><span style="font-size:14px;line-height:1">+</span><span>Добавить кабинет</span></button>
                     </div>
                     <div id="add-cabinet-form" class="hidden mb-4 p-4 rounded-xl" style="background:var(--accent-soft);border:1px solid var(--accent-border)">
@@ -3733,6 +3758,33 @@
                         <div>WB API: <span style="color:var(--green)">Через защищённый прокси ✓</span></div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div id="tab-telegram-bots" class="tab-content space-y-5">
+            <div class="widget-card p-6">
+                <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Телеграм боты</h3>
+                <p class="text-xs mb-4" style="color:var(--text-muted)">Статус актуальных ботов. Выключите канал кабинета ползунком — в этот чат сообщения по кабинету больше не уйдут. Удаление снимает webhook в Telegram и останавливает бота.</p>
+                <div id="tg-bots-list"><div class="text-center py-8 text-sm" style="color:var(--text-muted)">Загрузка ботов...</div></div>
+            </div>
+            <div class="widget-card p-6">
+                <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Каналы по кабинетам</h3>
+                <p class="text-xs mb-4" style="color:var(--text-muted)">Ползунок выкл = этот кабинет не пишет в выбранный Telegram-канал (например, Элиум).</p>
+                <div class="flex flex-wrap gap-2 mb-4" id="tg-channel-tabs"></div>
+                <div id="tg-channel-mutes"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка каналов...</div></div>
+            </div>
+        </div>
+
+        <div id="tab-ozon" class="tab-content space-y-5">
+            <div class="widget-card p-6">
+                <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+                    <div>
+                        <h3 class="font-semibold" style="color:var(--text-primary)">Токены Ozon</h3>
+                        <p class="text-xs mt-1" style="color:var(--text-muted)">Client-Id и Api-Key из кабинета продавца Ozon. Один кабинет — одна пара.</p>
+                    </div>
+                    <button class="ui-btn ui-btn-secondary" onclick="showTab('settings'); showSettingsSection('api', document.getElementById('settings-tab-btn-api'))">Кабинеты WB</button>
+                </div>
+                <div id="ozon-token-list"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка кабинетов...</div></div>
             </div>
         </div>
 
@@ -3957,6 +4009,7 @@
     var AUTO_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/auto-sync';
     var ADVERTISING_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/advertising-sync';
     var ADMIN_SPACE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/admin-space';
+    var TELEGRAM_ADMIN_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/telegram-admin';
     const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
     const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
 
@@ -3974,7 +4027,7 @@
         return !!(row.is_super_admin || isSuperAdminEmail(row.email) || row.user_id === SUPER_ADMIN_ID);
     }
 
-    const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs']);
+    const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
     // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
@@ -4797,6 +4850,7 @@
     const MODULE_PATHS = {
         'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
         marking: '/marking', logistics: '/logistics', rnp: '/rnp', dashboard: '/space',
+        'telegram-bots': '/telegram-bots', ozon: '/ozon',
     };
     const PATH_TO_TAB = Object.fromEntries(Object.entries(MODULE_PATHS).map(([k, v]) => [v, k]));
 
@@ -4807,6 +4861,7 @@
         rnp:'Модуль РНП', 'rnp-settings':'Настройки РНП', planning:'Планирование',
         'ab-testing':'А/Б Тесты', advertising:'Контроль РК', seo:'SEO-Позиции', marking:'Маркировка & ШК', logistics:'Логистика & Поставки',
         settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики',
+        'telegram-bots':'Телеграм боты', ozon:'Ozon токен',
     };
 
     const TAB_GROUP = {
@@ -4815,6 +4870,7 @@
         advertising:'ads',
         'ab-testing':'ab-testing',
         seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
+        'telegram-bots':'beta', ozon:'beta',
         cost:'beta', 'goods-groups':'beta', warehouse:'beta',
         dds:'beta', operations:'beta', obligations:'beta', 'finance-extra':'beta',
         settings:'settings',
@@ -5013,6 +5069,8 @@
         if (name === 'rnp') bootRnpTab(true);
         if (name === 'rnp-settings') bootRnpSettings();
         if (name === 'planning' && hasUserCabinets) loadPlanningTab();
+        if (name === 'telegram-bots') loadTelegramBotsPage();
+        if (name === 'ozon') loadOzonTokenPage();
         if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
         syncRailGroup(name);
         syncModuleUrl(name);
@@ -8803,6 +8861,7 @@
             if (tabs.profile) showSettingsSection('profile', tabs.profile);
         } else {
             tabs.security?.classList.remove('hidden-tab');
+            tabs.api?.classList.remove('hidden-tab');
             ['profile', 'security', 'devsessions', 'spaces', 'api', 'about'].forEach(s => {
                 document.getElementById('settings-' + s)?.classList.add('hidden');
             });
@@ -9266,6 +9325,229 @@
         }
         loadCabinetsAPIList();
         loadCabinets();
+    }
+
+    const TG_CHANNEL_LABELS = {
+        sales: 'Продажи', penalties: 'Штрафы', ads: 'Реклама', ab_tests: 'А/Б тесты',
+        news: 'Новости WB', reviews: 'Отзывы', blockings: 'Блокировки',
+        warehouse: 'Склад', triggers: 'Триггеры', fbs: 'FBS',
+    };
+    const TG_STATUS_LABELS = {
+        online: 'онлайн', offline: 'не отвечает', no_token: 'нет токена',
+        disabled: 'выключен', deleted: 'удалён',
+    };
+    let _tgBotsState = { bots: [], cabinets: [], mutes: [], channels: {}, activeChannel: 'sales' };
+
+    async function callTelegramAdmin(payload) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Сессия истекла');
+        const res = await fetch(TELEGRAM_ADMIN_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + session.access_token,
+            },
+            body: JSON.stringify(payload),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json.error || ('HTTP ' + res.status));
+        return json;
+    }
+
+    async function loadTelegramBotsPage() {
+        const listEl = document.getElementById('tg-bots-list');
+        const muteEl = document.getElementById('tg-channel-mutes');
+        if (listEl) listEl.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)">Загрузка ботов...</div>';
+        try {
+            const { data: bots } = await supabase.from('telegram_bots').select('*').order('kind').order('title');
+            const { data: cabinets } = await supabase.from('cabinets').select('id, name').order('name');
+            const { data: mutes } = await supabase.from('telegram_channel_mutes').select('cabinet_id, channel, muted');
+            let live = { bots: bots || [], channels: {} };
+            if (isSuperAdmin) {
+                try { live = await callTelegramAdmin({ action: 'list' }); } catch (e) {
+                    console.warn('[tg-bots] admin list:', e.message);
+                }
+            }
+            _tgBotsState = {
+                bots: live.bots && live.bots.length ? live.bots : (bots || []),
+                cabinets: live.cabinets && live.cabinets.length ? live.cabinets : (cabinets || []),
+                mutes: live.mutes || mutes || [],
+                channels: live.channels || {},
+                activeChannel: _tgBotsState.activeChannel || 'sales',
+            };
+            renderTelegramBotsPage();
+        } catch (e) {
+            if (listEl) listEl.innerHTML = `<div class="text-center py-8 text-sm" style="color:var(--red)">${escapeHtml(e.message)}</div>`;
+            if (muteEl) muteEl.innerHTML = '';
+        }
+    }
+
+    function renderTelegramBotsPage() {
+        const listEl = document.getElementById('tg-bots-list');
+        const tabsEl = document.getElementById('tg-channel-tabs');
+        const muteEl = document.getElementById('tg-channel-mutes');
+        if (!listEl) return;
+        const bots = _tgBotsState.bots || [];
+        if (!bots.length) {
+            listEl.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)">Реестр ботов ещё не создан. Примените миграцию telegram_bots.</div>';
+        } else {
+            listEl.innerHTML = bots.map(bot => {
+                const status = bot.status || (bot.deleted_at ? 'deleted' : bot.is_enabled === false ? 'disabled' : 'offline');
+                const uname = bot.live_username || bot.username;
+                return `<div class="widget-card tg-bot-card mb-3">
+                    <div class="tg-bot-head">
+                        <div>
+                            <div class="tg-bot-title">${escapeHtml(bot.title)}</div>
+                            <div class="tg-bot-role">${escapeHtml(bot.notes || bot.kind || '')}</div>
+                            <div class="tg-bot-meta">${uname ? '@' + escapeHtml(uname) : 'без username'} · ${escapeHtml(bot.token_env || '—')}</div>
+                        </div>
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="tg-status ${status}">${TG_STATUS_LABELS[status] || status}</span>
+                            ${isSuperAdmin && !bot.deleted_at ? `<button class="ui-btn ui-btn-secondary text-xs" onclick="toggleTelegramBot('${bot.id}', ${bot.is_enabled === false})">${bot.is_enabled === false ? 'Включить' : 'Выключить'}</button>` : ''}
+                            ${isSuperAdmin && !bot.deleted_at ? `<button class="ui-btn text-xs" style="color:var(--red);border:1px solid rgba(248,113,113,0.3)" onclick="deleteTelegramBot('${bot.id}','${escapeHtml(bot.title)}')">Удалить</button>` : ''}
+                            ${isSuperAdmin && bot.deleted_at ? `<button class="ui-btn ui-btn-secondary text-xs" onclick="restoreTelegramBot('${bot.id}')">Вернуть</button>` : ''}
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        const channelKeys = Object.keys(TG_CHANNEL_LABELS);
+        if (tabsEl) {
+            tabsEl.innerHTML = channelKeys.map(ch => {
+                const on = _tgBotsState.activeChannel === ch;
+                return `<button type="button" class="ui-btn ${on ? 'ui-btn-primary' : 'ui-btn-secondary'} text-xs" onclick="selectTgChannel('${ch}')">${TG_CHANNEL_LABELS[ch]}</button>`;
+            }).join('');
+        }
+        const ch = _tgBotsState.activeChannel;
+        const muteSet = new Set((_tgBotsState.mutes || []).filter(m => m.channel === ch && m.muted).map(m => m.cabinet_id));
+        const cabs = _tgBotsState.cabinets || [];
+        if (muteEl) {
+            if (!cabs.length) {
+                muteEl.innerHTML = '<div class="text-sm" style="color:var(--text-muted)">Нет кабинетов</div>';
+            } else {
+                muteEl.innerHTML = cabs.map(c => {
+                    const muted = muteSet.has(c.id);
+                    return `<div class="tg-mute-row">
+                        <div>
+                            <div style="font-weight:600;color:var(--text-primary)">${escapeHtml(c.name)}</div>
+                            <div class="text-xs" style="color:var(--text-muted)">${muted ? 'канал выключен — сообщения не уходят' : 'канал включён'}</div>
+                        </div>
+                        <button type="button" class="tg-switch ${muted ? '' : 'on'}" onclick="toggleTgCabinetMute('${c.id}','${ch}',${!muted})" aria-pressed="${muted ? 'false' : 'true'}">
+                            <span></span>
+                        </button>
+                    </div>`;
+                }).join('');
+            }
+        }
+    }
+
+    function selectTgChannel(ch) {
+        _tgBotsState.activeChannel = ch;
+        renderTelegramBotsPage();
+    }
+
+    async function toggleTgCabinetMute(cabinetId, channel, muted) {
+        try {
+            if (muted) {
+                const { error } = await supabase.from('telegram_channel_mutes').upsert({
+                    cabinet_id: cabinetId, channel, muted: true, updated_at: new Date().toISOString(),
+                }, { onConflict: 'cabinet_id,channel' });
+                if (error) throw error;
+            } else {
+                const { error } = await supabase.from('telegram_channel_mutes')
+                    .delete().eq('cabinet_id', cabinetId).eq('channel', channel);
+                if (error) throw error;
+            }
+            _tgBotsState.mutes = (_tgBotsState.mutes || []).filter(m => !(m.cabinet_id === cabinetId && m.channel === channel));
+            if (muted) _tgBotsState.mutes.push({ cabinet_id: cabinetId, channel, muted: true });
+            renderTelegramBotsPage();
+        } catch (e) {
+            showPremiumModal('error', 'Не удалось сохранить', e.message);
+        }
+    }
+
+    async function toggleTelegramBot(botId, enable) {
+        try {
+            await callTelegramAdmin({ action: enable ? 'enable' : 'disable', bot_id: botId });
+            await loadTelegramBotsPage();
+        } catch (e) {
+            showPremiumModal('error', 'Ошибка', e.message);
+        }
+    }
+
+    async function deleteTelegramBot(botId, title) {
+        if (!confirm(`Удалить бота «${title}»? Он перестанет работать: webhook в Telegram снимется, рассылки остановятся.`)) return;
+        try {
+            await callTelegramAdmin({ action: 'delete', bot_id: botId });
+            showPremiumModal('success', 'Бот удалён', 'Webhook снят, код рассылок его больше не вызывает.');
+            await loadTelegramBotsPage();
+        } catch (e) {
+            showPremiumModal('error', 'Не удалось удалить', e.message);
+        }
+    }
+
+    async function restoreTelegramBot(botId) {
+        try {
+            await callTelegramAdmin({ action: 'restore', bot_id: botId });
+            await loadTelegramBotsPage();
+        } catch (e) {
+            showPremiumModal('error', 'Ошибка', e.message);
+        }
+    }
+
+    async function loadOzonTokenPage() {
+        const el = document.getElementById('ozon-token-list');
+        if (!el) return;
+        const { data, error } = await supabase.from('cabinets').select('id, name, ozon_client_id, ozon_api_key').order('name');
+        if (error) {
+            el.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--red)">${escapeHtml(error.message)}</div>`;
+            return;
+        }
+        if (!data || !data.length) {
+            el.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Сначала добавьте кабинет в Настройки → Кабинеты</div>';
+            return;
+        }
+        el.innerHTML = `<div class="ui-list">` + data.map(c => {
+            const has = !!(c.ozon_client_id && c.ozon_api_key);
+            return `<div>
+                <div class="ui-list-row">
+                    <div>
+                        <div class="ui-list-row-main">${escapeHtml(c.name)}</div>
+                        <div class="ui-list-row-sub">${has ? 'Ozon подключён · Client-Id ' + escapeHtml(String(c.ozon_client_id)) : 'токен Ozon не задан'}</div>
+                    </div>
+                    <button class="ui-btn ui-btn-secondary" onclick="toggleEditOzon('${c.id}')">${has ? 'Изменить' : 'Добавить'}</button>
+                </div>
+                <div id="edit-ozon-${c.id}" class="hidden" style="padding:0 4px 14px">
+                    <input type="text" id="ozon-client-${c.id}" placeholder="Client-Id" value="${escapeHtml(c.ozon_client_id || '')}" class="ui-input mb-2" style="font-family:monospace">
+                    <input type="password" id="ozon-key-${c.id}" placeholder="Api-Key" autocomplete="off" class="ui-input" style="font-family:monospace">
+                    <div class="flex gap-2 mt-2">
+                        <button class="ui-btn ui-btn-primary" onclick="saveOzonForCabinet('${c.id}')">Сохранить</button>
+                        <button class="ui-btn ui-btn-secondary" onclick="toggleEditOzon('${c.id}')">Отмена</button>
+                    </div>
+                </div>
+            </div>`;
+        }).join('') + `</div>`;
+    }
+
+    function toggleEditOzon(cabinetId) {
+        document.getElementById('edit-ozon-' + cabinetId)?.classList.toggle('hidden');
+    }
+
+    async function saveOzonForCabinet(cabinetId) {
+        const clientId = document.getElementById('ozon-client-' + cabinetId)?.value.trim();
+        const apiKey = document.getElementById('ozon-key-' + cabinetId)?.value.trim();
+        if (!clientId || !apiKey) {
+            showPremiumModal('warning', 'Заполните оба поля', 'Нужны Client-Id и Api-Key из кабинета Ozon.');
+            return;
+        }
+        const { error } = await supabase.from('cabinets').update({
+            ozon_client_id: clientId,
+            ozon_api_key: apiKey,
+        }).eq('id', cabinetId);
+        if (error) { showPremiumModal('error', 'Ошибка сохранения', error.message); return; }
+        showPremiumModal('success', 'Токен Ozon сохранён', 'Кабинет готов к подключению Ozon API.');
+        loadOzonTokenPage();
     }
 
     let allSuppliesRaw = [];

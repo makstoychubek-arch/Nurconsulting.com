@@ -184,6 +184,30 @@ assert.ok(
     'dashboard_summary must return stock_fbo and stock_fbs'
 );
 
+assert.ok(html.includes('id="tab-telegram-bots"') && html.includes("showTab('telegram-bots'"),
+    'dashboard must have a Telegram bots page');
+assert.ok(html.includes('id="tab-ozon"') && html.includes("showTab('ozon'"),
+    'dashboard must have a separate Ozon token page');
+assert.ok(html.includes('function loadTelegramBotsPage') && html.includes('toggleTgCabinetMute'),
+    'Telegram page must list bots and mute a cabinet channel');
+assert.ok(html.includes('function saveOzonForCabinet') && html.includes('ozon_client_id'),
+    'Ozon page must save client id and api key per cabinet');
+assert.ok(html.includes("tabs.api?.classList.remove('hidden-tab')"),
+    'settings must show the cabinets tab for regular users, not only Super Admin');
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903190000_telegram_bots_ozon.sql')),
+    'telegram_bots / ozon_token migration must exist'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/telegram-gates.ts'), 'utf8')
+        .includes('cabinet_muted'),
+    'telegram senders must skip a muted cabinet channel'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/functions/telegram-admin/index.ts')),
+    'telegram-admin edge function must exist to deleteWebhook'
+);
+
 const chartsSrc = fs.readFileSync(path.join(__dirname, 'dashboard-charts.js'), 'utf8');
 assert.ok(chartsSrc.includes('setWarehouseScheme'),
     'warehouse donut must filter FBO/FBS on switch');
