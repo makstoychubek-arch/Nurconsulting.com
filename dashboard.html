@@ -885,16 +885,20 @@
             flex-shrink: 0; background: var(--surface-solid);
             border-bottom: 1px solid var(--border);
         }
-        .rnp-head-left {
-            position: sticky; left: 0; z-index: 46;
+        .rnp-head-left,
+        .rnp-sheet-table thead tr.rnp-head-panel th.rnp-head-left {
+            position: sticky; left: 0; top: auto; z-index: 46;
             background: var(--surface-solid) !important;
             text-align: left; vertical-align: top;
             padding: 0 !important;
             border-right: 2px solid var(--border-strong);
             box-shadow: 4px 0 8px rgba(0,0,0,0.06);
+            overflow: hidden;
+            box-sizing: border-box;
         }
-        .rnp-head-left-stack { display: flex; flex-direction: column; gap: 0; }
-        .rnp-head-sizes-inline { padding: 1px 2px 2px; overflow-x: auto; }
+        .rnp-head-left-stack { display: flex; flex-direction: column; gap: 0; min-width: 0; overflow: hidden; box-sizing: border-box; }
+        .rnp-head-left-stack > * { min-width: 0; }
+        .rnp-head-sizes-inline { padding: 1px 2px 2px; overflow-x: auto; max-width: 100%; }
         .rnp-head-sizes-inline .rnp-stock-block { max-width: 100%; }
         .rnp-head-marquee {
             padding: 0 !important; vertical-align: top;
@@ -1329,22 +1333,33 @@
             position: sticky;
             background-clip: padding-box;
         }
+        /* Липкие колонки недель/ИТОГ: выше обычных ячеек дат (z 29–32), ниже
+           метрик (52), спарклайна (51) и левой панели (46). Фон обязан быть
+           непрозрачным — иначе прокрученные дни просвечивают сквозь недели. */
         .rnp-sheet-table thead .rnp-col-sticky {
             background: var(--surface-solid) !important;
+            z-index: 40 !important;
         }
         .rnp-sheet-table tbody .rnp-col-sticky {
             background: var(--surface-solid) !important;
+            z-index: 11;
         }
         .rnp-sheet-table tbody .rnp-cell-week.rnp-col-sticky {
-            background: rgba(99,102,241,0.06) !important;
+            background: var(--surface-solid) !important;
+            background-image: linear-gradient(rgba(99,102,241,0.06), rgba(99,102,241,0.06)) !important;
         }
         .rnp-sheet-table tbody .rnp-cell-total.rnp-col-sticky {
-            background: var(--accent-soft) !important;
+            background: var(--surface-solid) !important;
+            background-image: linear-gradient(var(--accent-soft), var(--accent-soft)) !important;
         }
         .rnp-sheet-table .rnp-col-sticky-total {
             border-right: 2px solid var(--accent) !important;
         }
-        .rnp-sheet-table thead .rnp-col-sticky-total { z-index: 33 !important; }
+        .rnp-sheet-table thead .rnp-col-sticky-total {
+            z-index: 41 !important;
+            background-image: linear-gradient(var(--accent-soft), var(--accent-soft)) !important;
+        }
+        .rnp-sheet-table tbody .rnp-col-sticky-total { z-index: 12; }
         .rnp-sheet-table .rnp-cell-hero { font-size: 12px !important; font-weight: 700 !important; color: var(--accent) !important; }
         .rnp-sheet-table .rnp-cell-competitor { background: rgba(245, 158, 11, 0.08) !important; }
         .rnp-sheet-table .rnp-gs-section-title { font-weight: 700; font-size: 9px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; }
@@ -3881,7 +3896,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.137201825f.min.js"></script>
-<script src="/dist/rnp-module.d6ecdc6641.min.js"></script>
+<script src="/dist/rnp-module.3fa27dcf2a.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';

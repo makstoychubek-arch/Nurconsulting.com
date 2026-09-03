@@ -22,9 +22,13 @@ const RNP = (() => {
     };
     let _settingsInDb = false;
     let _articles = [];
+    // Кабинет, для которого загружен _articles. Пока не совпадает с _cab —
+    // список считается пустым: нельзя рисовать артикулы прошлого кабинета.
+    let _articlesCab = null;
     let _mainRenderGen = 0;
     let _initInflight = null;
     let _initInflightCab = null;
+    let _initDoneCab = null;
     let _cabinetColsCacheKey = '';
     let _cabinetColsCacheVal = null;
 
@@ -381,9 +385,15 @@ const RNP = (() => {
         _financeCache = { key: '', rows: [], ts: 0 };
         _notesCache = {};
         _articles = [];
+        _articlesCab = null;
         _activeNm = null;
         _settingsInDb = false;
         _resetPhotoCaches();
+    }
+
+    /** Артикулы текущего кабинета; чужие (ещё не перезагруженные) — не отдаём. */
+    function _cabArticles() {
+        return _articlesCab === _cab ? _articles : [];
     }
 
     function _cabinetLabel() {
@@ -1075,57 +1085,92 @@ const RNP = (() => {
                 { op: 'eq', column: 'cabinet_id', value: cab },
             ]);
             if (gen !== undefined && _isStaleInit(gen, cab)) return;
+            if (cab !== _cab) return;
             _articles = (data || []).sort((a, b) => Number(a.nm_id) - Number(b.nm_id));
+            _articlesCab = cab;
         } catch(e) { console.warn('[RNP] articles load:', e.message); }
     }
 
+    /**
+     * Подтягивает артикулы кабинета из заказов.
+     *  activateNew — новые сразу включать в РНП;
+     *  prune       — удалять артикулы, которых больше нет в заказах
+     *                (только по явной кнопке «Из заказов», авто-синк не удаляет).
+     * Все записи идут в кабинет, зафиксированный на старте: если пользователь
+     * переключил кабинет посреди синка — прерываемся, ничего не пишем в чужой.
+     */
     async function _syncFromOrders(opts = {}) {
-        const { silent = false, activateNew = false } = opts;
+        const { silent = false, activateNew = false, prune = true } = opts;
         const snapReq = _loadRequestId();
-        const snapCab = _cab;
+        const cab = _cab;
+        const stale = () => cab !== _cab || cab !== (window.currentCabinetId || cab);
         try {
-            const nmIds = await _fetchCabinetNmIds(snapCab, snapReq);
-            if (nmIds === null) {
+            const nmIds = await _fetchCabinetNmIds(cab, snapReq);
+            if (nmIds === null || stale()) {
                 console.log('[RNP] устаревший запрос syncFromOrders — игнорируем');
-                return false;
+                return { ok: false, added: 0 };
             }
 
             const allNmIds = (nmIds || []).map(String).filter(Boolean);
 
             if (!allNmIds.length) {
                 if (!silent) _nrDialog('Нет данных', 'Сначала загрузите данные кабинета на вкладке Оцифровка → Дашборд.', 'warning');
-                return false;
+                return { ok: false, added: 0 };
             }
+            if (_articlesCab !== cab) {
+                await _loadArticles(cab);
+                if (stale()) return { ok: false, added: 0 };
+            }
+            const known = new Set(_cabArticles().map(a => Number(a.nm_id)));
             // Пачками, а не по одному артикулу: на новом кабинете с сотнями
             // nm_id последовательные upsert'ы держали РНП в спиннере минуту+.
             const toInsert = [];
             for (const nmStr of allNmIds) {
                 const nmId = Number(nmStr);
-                if (!nmId) continue;
-                const existing = _articles.find(a => a.nm_id == nmId);
-                if (existing) continue;
+                if (!nmId || known.has(nmId)) continue;
                 toInsert.push({
-                    cabinet_id: _cab, nm_id: nmId, name: `Артикул ${nmId}`,
+                    cabinet_id: cab, nm_id: nmId, name: `Артикул ${nmId}`,
                     photo_url: '', is_active: activateNew, cost_price: 0,
                     manual_data: {},
                 });
             }
             for (let i = 0; i < toInsert.length; i += 200) {
+                if (stale()) return { ok: false, added: 0 };
                 await _db.from('rnp_articles').upsert(toInsert.slice(i, i + 200), { onConflict: 'cabinet_id,nm_id', ignoreDuplicates: true });
             }
-            const keepSet = new Set(allNmIds.map(Number));
-            const staleIds = _articles.filter(a => !keepSet.has(Number(a.nm_id))).map(a => a.nm_id);
-            for (let i = 0; i < staleIds.length; i += 200) {
-                await _db.from('rnp_articles').delete().eq('cabinet_id', _cab).in('nm_id', staleIds.slice(i, i + 200));
+            if (prune) {
+                const keepSet = new Set(allNmIds.map(Number));
+                const staleIds = _cabArticles().filter(a => !keepSet.has(Number(a.nm_id))).map(a => a.nm_id);
+                for (let i = 0; i < staleIds.length; i += 200) {
+                    if (stale()) return { ok: false, added: toInsert.length };
+                    await _db.from('rnp_articles').delete().eq('cabinet_id', cab).in('nm_id', staleIds.slice(i, i + 200));
+                }
             }
-            await _loadArticles(_cab);
+            if (stale()) return { ok: false, added: toInsert.length };
+            await _loadArticles(cab);
+            if (toInsert.length) console.info('[RNP] новых артикулов из заказов:', toInsert.length);
             _backfillSellerArticlesFromDb().catch(e => console.warn('[RNP] seller backfill:', e.message));
-            return _articles.length > 0;
+            return { ok: _cabArticles().length > 0, added: toInsert.length };
         } catch(e) {
             console.error('[RNP] sync:', e.message);
             if (!silent) _nrDialog('Ошибка', 'Не удалось подтянуть артикулы из заказов.', 'error');
-            return false;
+            return { ok: false, added: 0 };
         }
+    }
+
+    /** Фоновая догрузка новых артикулов (появились заказы по новому nm_id):
+     *  добавляем как активные, ничего не удаляем, перерисовываем открытые вкладки. */
+    async function _syncNewArticles(cabId) {
+        if (!_db || _cab !== cabId) return 0;
+        const res = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
+        if (_cab !== cabId || !res || !res.added) return 0;
+        if (document.getElementById('tab-rnp')?.classList.contains('active')) {
+            openMain(true).catch(e => console.warn('[RNP] rerender after new articles:', e.message));
+        }
+        if (document.getElementById('tab-rnp-settings')?.classList.contains('active')) {
+            _renderSettings({ preserveScroll: true });
+        }
+        return res.added;
     }
 
     async function _syncFromContentCards(opts = {}) {
@@ -1181,7 +1226,7 @@ const RNP = (() => {
 
         if (!_articles.length) {
             console.info('[RNP] bootstrapping new cabinet', _cab);
-            const ok = await _syncFromOrders({ silent: true, activateNew: true });
+            const ok = (await _syncFromOrders({ silent: true, activateNew: true })).ok;
             if (_articles.length && !_articles.some(a => a.is_active)) {
                 await _setAllActive(true);
             }
@@ -1980,20 +2025,33 @@ const RNP = (() => {
         </table>`;
     }
 
-    function _buildLeftPanelHTML(art, stockBySize, rawData, cal) {
-        return `<div class="rnp-head-left-stack">
+    function _buildLeftPanelHTML(art, stockBySize, rawData, cal, widthPx) {
+        const st = widthPx ? ` style="width:${widthPx}px;max-width:${widthPx}px"` : '';
+        return `<div class="rnp-head-left-stack"${st}>
           ${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
           <div class="rnp-head-sizes-inline">${_buildStockSizeHTML(stockBySize, art)}</div>
         </div>`;
     }
 
+    // Ширина замороженной части в px — ровно сумма ширин колонок под ней.
+    // Шапка (фото/KPI/размеры) обязана уложиться в неё, иначе таблица
+    // растягивает frozen-колонки, и sticky-смещения (посчитанные из тех же
+    // констант) перестают совпадать с реальными позициями при скролле.
+    function _leftFrozenPx(cal) {
+        const base = FROZEN_METRIC_W + FROZEN_SPARK_W;
+        if (cal.mode === 'month') return base + FROZEN_COL_W;
+        const weeks = cal.weeks.length;
+        return base + weeks * FROZEN_COL_W + (weeks ? FROZEN_COL_W : 0);
+    }
+
     function _buildSheetHeadRows(art, stockBySize, rawData, cal) {
         const leftSpan = _leftFrozenSpan(cal);
         const nTimeline = _calTimelineSpan(cal);
+        const leftPx = _leftFrozenPx(cal);
 
         return `
             <tr class="rnp-head-panel">
-              <th colspan="${leftSpan}" class="rnp-head-left">${_buildLeftPanelHTML(art, stockBySize, rawData, cal)}</th>
+              <th colspan="${leftSpan}" class="rnp-head-left" style="width:${leftPx}px;min-width:${leftPx}px;max-width:${leftPx}px">${_buildLeftPanelHTML(art, stockBySize, rawData, cal, leftPx)}</th>
               <th colspan="${nTimeline}" class="rnp-head-marquee">${_buildMarqueeHTML(art, cal)}</th>
             </tr>`;
     }
@@ -3659,7 +3717,8 @@ const RNP = (() => {
                 <span class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} / ${_articles.length} в РНП · артикул продавца из WB</span>
               </h3>
               <div class="flex gap-2 flex-wrap">
-                <button onclick="RNP.syncArts()" id="rnp-sync-btn" class="ui-btn ui-btn-secondary text-xs">Из заказов</button>
+                <button onclick="RNP.refreshArticles()" id="rnp-refresh-arts-btn" class="ui-btn ui-btn-primary text-xs" title="Добавить новые артикулы из заказов, ничего не удаляя">Обновить артикулы</button>
+                <button onclick="RNP.syncArts()" id="rnp-sync-btn" class="ui-btn ui-btn-secondary text-xs" title="Полная пересборка списка по заказам: новые добавить, исчезнувшие убрать">Из заказов</button>
                 <button onclick="RNP.enableAll(true)" class="ui-btn ui-btn-secondary text-xs">Включить все</button>
                 <button onclick="RNP.enableAll(false)" class="ui-btn ui-btn-secondary text-xs">Выключить все</button>
               </div>
@@ -3754,7 +3813,7 @@ const RNP = (() => {
             </div>`;
         }
 
-        if (_initInflight && !_articles.length) {
+        if (_initInflight && !_cabArticles().length) {
             el.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
               <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
               Загрузка артикулов…
@@ -3764,11 +3823,18 @@ const RNP = (() => {
                 new Promise(r => setTimeout(r, 8000)),
             ]);
         }
+        // Артикулы ещё от другого кабинета (или не загружены) — дочитываем сами,
+        // а не рисуем чужие.
+        if (_articlesCab !== _cab && _db && _cab) {
+            const cab = _cab;
+            await _loadArticles(cab);
+            if (_cab !== cab) return;
+        }
 
-        const active = _articles.filter(a => a.is_active);
+        const active = _cabArticles().filter(a => a.is_active);
 
         if (!active.length) {
-            const total = _articles.length;
+            const total = _cabArticles().length;
             const hint = total === 0
                 ? 'Артикулы ещё не подтянуты. Нажмите «Из заказов» или дождитесь автозагрузки после обновления дашборда.'
                 : `В базе ${total} арт., но ни один не активен. Нажмите «Включить все» для активации товаров.`;
@@ -3876,7 +3942,7 @@ const RNP = (() => {
     async function _renderActiveTable() {
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return;
-        const active = _articles.filter(a => a.is_active);
+        const active = _cabArticles().filter(a => a.is_active);
         const cal = _buildCalendar();
 
         if (_activeNm === SUMMARY_TAB) {
@@ -4461,12 +4527,6 @@ const RNP = (() => {
         if (_isStaleInit(gen, cabId)) return;
         await _loadArticles(cabId, gen);
         if (_isStaleInit(gen, cabId)) return;
-        if (!_articles.length) {
-            await _syncFromOrders({ silent: true });
-            if (_isStaleInit(gen, cabId)) return;
-            await _loadArticles(cabId, gen);
-            if (_isStaleInit(gen, cabId)) return;
-        }
         await _bootstrapCabinetIfNeeded();
         if (_isStaleInit(gen, cabId)) return;
         setTimeout(() => {
@@ -4474,6 +4534,12 @@ const RNP = (() => {
             _hydratePhotoCacheFromStorage();
             _hydratePhotoCacheFromArticles();
         }, 0);
+        // Новые артикулы (появились заказы по новому nm_id) — догружаем в фоне
+        // после первого рендера, чтобы не задерживать открытие таблицы.
+        setTimeout(() => {
+            if (_cab !== cabId) return;
+            _syncNewArticles(cabId).catch(e => console.warn('[RNP] new articles:', e.message));
+        }, 2500);
     }
 
     function _startBackgroundEnrichment() {
@@ -4494,14 +4560,28 @@ const RNP = (() => {
 
     function ensureReady(supabase, cabId, proxyFn, opts) {
         if (supabase) _db = supabase;
+        if (cabId && cabId !== _cab) {
+            // Смена кабинета: старые артикулы/кэши убираем синхронно, до любого
+            // рендера — иначе первый openMain рисует артикулы прошлого кабинета.
+            if (_cab) _saveCabinetCache(_cab);
+            _abortPendingLoad();
+            _mainRenderGen++;
+            _clearCabinetState();
+            window._rnpLoadedForCabinet = null;
+        }
         if (cabId) _cab = cabId;
         if (typeof proxyFn === 'function') _callProxy = proxyFn;
         if (opts?.userEmail) _userEmail = opts.userEmail;
         if (!_db || !_cab) return;
         if (_initInflight && _initInflightCab === cabId) return;
+        // Кабинет уже инициализирован — повторный ensureReady (bootRnpTab дёргает
+        // его из нескольких мест) не должен заново чистить и грузить всё.
+        if (_initDoneCab === cabId && _articlesCab === cabId) return;
+        _initDoneCab = null;
         _initInflightCab = cabId;
         _initInflight = initCore(supabase, cabId, proxyFn, opts)
             .then(() => {
+                if (_cab === cabId) _initDoneCab = cabId;
                 _startBackgroundEnrichment();
                 // Если вкладка уже открыта, а таблицы ещё нет (initCore шёл дольше,
                 // чем рендер ждал) — дорисовываем сами, не надеясь на ретраи снаружи.
@@ -4599,7 +4679,7 @@ const RNP = (() => {
 
     async function syncArts() {
         const btn = document.getElementById('rnp-sync-btn');
-        if (btn) btn.textContent = '⏳ Загрузка...';
+        if (btn) btn.textContent = 'Загрузка...';
         try {
             await _syncFromOrders();
         } finally {
@@ -4608,8 +4688,34 @@ const RNP = (() => {
         _renderSettings();
     }
 
+    /** Кнопка «Обновить артикулы» в настройках: добавить новые (активными),
+     *  ничего не удалять, перерисовать настройки и таблицу. */
+    async function refreshArticles() {
+        const btn = document.getElementById('rnp-refresh-arts-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Обновляем...'; }
+        const cab = _cab;
+        let added = 0;
+        try {
+            const res = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
+            added = (res && res.added) || 0;
+            if (_cab === cab) await _loadArticles(cab);
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Обновить артикулы'; }
+        }
+        if (_cab !== cab) return;
+        _renderSettings({ preserveScroll: true });
+        if (document.getElementById('tab-rnp')?.querySelector('.rnp-workspace')) {
+            openMain(true).catch(() => {});
+        }
+        _nrDialog('Артикулы обновлены', added ? `Добавлено новых: ${added}` : 'Новых артикулов нет — список актуален.', 'success');
+    }
+
     async function resyncArticles() {
-        await _syncFromOrders({ silent: true });
+        const cab = _cab;
+        const res = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
+        if (_cab !== cab || !res || !res.added) return;
+        if (document.getElementById('tab-rnp')?.classList.contains('active')) openMain(true).catch(() => {});
+        if (document.getElementById('tab-rnp-settings')?.classList.contains('active')) _renderSettings({ preserveScroll: true });
     }
 
     async function toggleArt(nmId) {
@@ -4780,11 +4886,22 @@ const RNP = (() => {
         _cabinetListenerBound = true;
         document.addEventListener('cabinet-changed', () => {
             _initGen++;
+            _initDoneCab = null;
             _abortPendingLoad();
             _mainRenderGen++;
             window._rnpLastLoadedAt = 0;
             window._rnpLoadedForCabinet = null;
+            // Список артикулов принадлежит прошлому кабинету — с этого момента
+            // он считается пустым, пока не загрузим новый.
+            _articlesCab = null;
             _clearRnpMainUI();
+            const settingsEl = document.getElementById('tab-rnp-settings');
+            if (settingsEl && settingsEl.querySelector('.widget-card')) {
+                settingsEl.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
+                  <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
+                  Загрузка настроек…
+                </div>`;
+            }
             if (typeof window.bootRnpTab === 'function') {
                 setTimeout(() => window.bootRnpTab(true), 50);
             }
@@ -4887,7 +5004,7 @@ const RNP = (() => {
     }
     setTimeout(_retryRnpBoot, 800);
 
-    return { init, initCore, ensureReady, openSettings, openMain, pick, syncArts, resyncArticles, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, initCore, ensureReady, openSettings, openMain, pick, syncArts, refreshArticles, resyncArticles, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
              syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
 })();
