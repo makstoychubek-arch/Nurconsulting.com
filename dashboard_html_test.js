@@ -70,5 +70,12 @@ const rnpSrc = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
 assert.ok(rnpSrc.includes('function _abandonStaleMain'), 'stale RNP render must retry instead of hanging');
 assert.ok(rnpSrc.includes('nr-early-tab-style'), 'RNP retry boot must see the early-tab CSS');
 assert.ok(rnpSrc.includes('setTimeout(_retryRnpBoot, 1500)'), 'RNP boot retry loop must keep scheduling');
+assert.ok(rnpSrc.includes('_mainInflightCab === _cab'), 'openMain must dedupe concurrent renders per cabinet');
+assert.ok(
+    !/return snapReq !== _loadRequestId\(\)/.test(rnpSrc),
+    'RNP load must not be invalidated by dashboard loadFromDB request ids'
+);
+assert.ok(rnpSrc.includes('_loadPlans(dateFrom, dateTo)'), 'plans must be loaded only for the visible calendar range');
+assert.ok(/Promise\.all\(\[\s*_loadPlans\(dateFrom, dateTo\)/.test(rnpSrc), 'RNP loads plans/orders/stocks in parallel');
 
 console.log('dashboard_html_test: ok');

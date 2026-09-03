@@ -3881,7 +3881,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.137201825f.min.js"></script>
-<script src="/dist/rnp-module.ffdc76300c.min.js"></script>
+<script src="/dist/rnp-module.d6ecdc6641.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -4847,7 +4847,7 @@
 
     // Пока модуль/кабинет не готовы, boot повторяется. Без потолка вкладка
     // молча крутила спиннер вечно — теперь честно говорим, что пошло не так.
-    const RNP_BOOT_MAX_RETRIES = 25;
+    const RNP_BOOT_MAX_RETRIES = 60;
 
     function rnpBootFailed(message) {
         clearTimeout(window._rnpBootTimer);
