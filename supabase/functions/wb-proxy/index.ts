@@ -6,6 +6,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
+import { isSuperAdminUser, isTeamMember } from '../_shared/cabinet-access.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -73,12 +74,12 @@ serve(async (req) => {
         const { data: { user }, error: authErr } = await userClient.auth.getUser();
         if (authErr || !user) return json({ error: 'Invalid session' }, 401);
 
-        const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
-        const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
-        const isSuperAdmin = String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL || user.id === SUPER_ADMIN_ID;
+        const isSuperAdmin = isSuperAdminUser(user);
+        const adminCheck = createClient(supabaseUrl, supabaseService);
+        // Сотрудники из allowed_users работают с любым кабинетом, как супер-админ.
+        const allCabinets = isSuperAdmin || await isTeamMember(adminCheck, user.email);
 
         if (!isSuperAdmin) {
-            const adminCheck = createClient(supabaseUrl, supabaseService);
             const { data: space, error: spaceErr } = await adminCheck
                 .from('spaces')
                 .select('status')
@@ -106,7 +107,7 @@ serve(async (req) => {
             .from('cabinets')
             .select('wb_token, name, user_id')
             .eq('id', cabinet_id);
-        if (!isSuperAdmin) cabQuery = cabQuery.eq('user_id', user.id);
+        if (!allCabinets) cabQuery = cabQuery.eq('user_id', user.id);
         const { data: cab, error: cabErr } = await cabQuery.maybeSingle();
 
         if (cabErr || !cab) return json({ error: 'Кабинет не найден или нет доступа' }, 403);
