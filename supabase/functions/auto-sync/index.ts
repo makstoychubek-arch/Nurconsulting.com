@@ -17,17 +17,80 @@ const WB_ANALYTICS = 'https://seller-analytics-api.wildberries.ru';
 const WB_MARKET = 'https://marketplace-api.wildberries.ru';
 const DATE_FROM = '2026-01-01';
 
-// How many of the most recent days (including today) get precisely
-// re-verified against WB on every single sync cycle via the flag=1
-// "exact calendar day" query (see Pass B below). 4 = today + 3 full
-// prior days, comfortably covering WB's own ~1-day report-publish lag
-// plus a safety margin for late-arriving status changes.
-const RECENT_DAYS_LOOKBACK = 4;
+// WB Statistics `/api/v1/supplier/orders`: 1 request / minute / seller.
+// Кабинеты — разные продавцы (разные sid в JWT), поэтому пауза нужна
+// между днями одного токена, а не между кабинетами.
+const ORDERS_MIN_INTERVAL_MS = 61000;
+const lastOrderFetchAt = new Map<string, number>();
 
-// Сколько исторических дней докачивать за один прогон (Pass A, порционный
-// бэкфил). 25 дней × ~1.5с на день ≈ 40с на кабинет — укладывается в лимиты
-// Edge Function даже с несколькими кабинетами в очереди.
-const BACKFILL_DAYS_PER_RUN = 25;
+// Сегодня + вчера. Более длинный lookback на 1 req/мин съедает бюджет
+// функции и оставляет дыру между «последним бэкфилом» и «сегодня».
+const RECENT_DAYS_LOOKBACK = 2;
+
+// За прогон: 1 исторический день на кабинет (сначала дыра вперёд, потом старше).
+const BACKFILL_DAYS_PER_RUN = 1;
+
+const TIME_BUDGET_MS = 120000;
+
+type Admin = any;
+
+type CabWork = {
+    id: string;
+    name: string;
+    token: string;
+    orders_backfilled_to: string | null;
+    orders_filled_until: string | null;
+    stocksCount: number;
+    stocksFbo: number;
+    stocksFbs: number;
+    ordersCount: number;
+    financeRows: number;
+    rnpDailyRows: number;
+    funnelDays: number;
+    status: string;
+    errorMsg: string;
+    cabStart: number;
+};
+
+function retryAfterMs(res: Response): number {
+    const raw =
+        res.headers.get('x-ratelimit-retry') ||
+        res.headers.get('retry-after') ||
+        res.headers.get('Retry-After') ||
+        '';
+    const sec = Number(raw);
+    if (Number.isFinite(sec) && sec > 0) return (sec + 2) * 1000;
+    return ORDERS_MIN_INTERVAL_MS;
+}
+
+async function fetchSupplierOrdersExactDay(
+    token: string,
+    dayStr: string,
+    maxAttempts = 6,
+): Promise<Record<string, unknown>[]> {
+    const lastAt = lastOrderFetchAt.get(token) || 0;
+    const waitMs = lastAt ? Math.max(0, ORDERS_MIN_INTERVAL_MS - (Date.now() - lastAt)) : 0;
+    if (waitMs > 0) await sleep(waitMs);
+
+    const url = `${WB_STATS}/api/v1/supplier/orders?dateFrom=${dayStr}&flag=1`;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const res = await fetch(url, { headers: { Authorization: token } });
+        lastOrderFetchAt.set(token, Date.now());
+
+        if (res.status === 429) {
+            const extra = Math.min(retryAfterMs(res) + attempt * 5000, 180000);
+            await sleep(extra);
+            continue;
+        }
+        if (!res.ok) {
+            const text = (await res.text().catch(() => '')).slice(0, 200);
+            throw new Error(`orders HTTP ${res.status} ${text}`.trim());
+        }
+        const js = await res.json().catch(() => []);
+        return Array.isArray(js) ? js as Record<string, unknown>[] : [];
+    }
+    throw new Error(`WB orders 429 persisted after ${maxAttempts} attempts`);
+}
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -83,295 +146,128 @@ Deno.serve(async (req) => {
         if (!owned) return json({ error: 'Cabinet not found or access denied' }, 403);
     }
 
-    let query = admin
-        .from('cabinets')
-        .select('id, name, wb_token, orders_backfilled_to')
-        .not('wb_token', 'is', null)
-        .gt('wb_token', '');
-
-    if (targetCabinetId) query = query.eq('id', targetCabinetId);
-
-    const { data: cabinets, error: cabErr } = await query;
-
-    if (cabErr || !cabinets || cabinets.length === 0) {
-        return json({ error: 'Нет кабинетов с токенами', detail: cabErr }, 400);
+    const cabinets = await loadCabinets(admin, targetCabinetId);
+    if (!cabinets) {
+        return json({ error: 'Нет кабинетов с токенами' }, 400);
     }
 
-    const results: Array<Record<string, unknown>> = [];
-
+    const work: CabWork[] = [];
     for (const cabinet of cabinets) {
         const token = sanitizeWbToken(cabinet.wb_token);
         if (!token || token.length < 50) continue;
+        work.push({
+            id: cabinet.id,
+            name: cabinet.name,
+            token,
+            orders_backfilled_to: cabinet.orders_backfilled_to ? String(cabinet.orders_backfilled_to) : null,
+            orders_filled_until: cabinet.orders_filled_until ? String(cabinet.orders_filled_until) : null,
+            stocksCount: 0,
+            stocksFbo: 0,
+            stocksFbs: 0,
+            ordersCount: 0,
+            financeRows: 0,
+            rnpDailyRows: 0,
+            funnelDays: 0,
+            status: 'success',
+            errorMsg: '',
+            cabStart: Date.now(),
+        });
+    }
 
-        const cabStart = Date.now();
-        let stocksCount = 0;
-        let fboCount = 0;
-        let fbsCount = 0;
-        let ordersCount = 0;
-        let financeRows = 0;
-        let rnpDailyRows = 0;
-        let status = 'success';
-        let errorMsg = '';
-
+    for (const cab of work) {
+        if (mode !== 'full' && mode !== 'stocks') continue;
         try {
-            if (mode === 'full' || mode === 'stocks') {
-                try {
-                    const synced = await syncCabinetStocks(admin, cabinet.id, token);
-                    fboCount = synced.fbo;
-                    fbsCount = synced.fbs;
-                    stocksCount = synced.fbo + synced.fbs;
-                    if (synced.errors.length) {
-                        errorMsg += synced.errors.join(' ');
-                        status = 'partial';
-                    }
-                } catch (e) {
-                    errorMsg += `stocks: ${(e as Error).message}; `;
-                    status = 'partial';
-                }
-                await sleep(2000);
-            }
-
-            if (mode === 'full' || mode === 'rnp') {
-                let historicalOrdersCount = 0;
-                let recentOrdersCount = 0;
-
-                // ── Pass B: precise recent-days resync (flag=1) ────────────
-                // Runs on EVERY sync cycle regardless of Pass A. flag=1
-                // changes dateFrom's meaning to "return ONLY orders whose
-                // orderDate falls on this exact single calendar date" — a
-                // small, precise, single-day snapshot, immune to the
-                // lastChangeDate noise from Pass A. For each of the last
-                // RECENT_DAYS_LOOKBACK days we fetch that day's orders and
-                // do a targeted delete-then-insert scoped to exactly
-                // (cabinet_id, order_date = that day) — never touching other
-                // days — so today/yesterday/etc. are always exactly correct
-                // on every 4h tick, independent of whatever Pass A is doing.
-                try {
-                    for (let dayOffset = RECENT_DAYS_LOOKBACK - 1; dayOffset >= 0; dayOffset--) {
-                        const d = new Date();
-                        d.setUTCDate(d.getUTCDate() - dayOffset);
-                        const dayStr = d.toISOString().split('T')[0];
-
-                        const dayRes = await fetch(
-                            `${WB_STATS}/api/v1/supplier/orders?dateFrom=${dayStr}&flag=1`,
-                            { headers: { Authorization: token } },
-                        );
-                        if (dayRes.ok) {
-                            const dayOrders = await dayRes.json();
-                            if (Array.isArray(dayOrders)) {
-                                recentOrdersCount += dayOrders.length;
-                                // Scoped delete: only this cabinet + this exact day, never
-                                // the blanket delete-everything used in Pass A.
-                                await admin.from('wb_orders').delete()
-                                    .eq('cabinet_id', cabinet.id)
-                                    .eq('order_date', dayStr);
-                                if (dayOrders.length > 0) {
-                                    const rows = dayOrders.map((o: Record<string, unknown>) => toOrderRow(cabinet.id, o));
-                                    const withSrid = rows.filter(r => r.srid);
-                                    const withoutSrid = rows.filter(r => !r.srid);
-                                    for (let i = 0; i < withSrid.length; i += 100) {
-                                        // ВАЖНО: ошибка upsert раньше игнорировалась молча —
-                                        // именно так wb_orders месяцами оставалась пустой.
-                                        const { error: upErr } = await admin.from('wb_orders').upsert(
-                                            withSrid.slice(i, i + 100),
-                                            { onConflict: 'cabinet_id,srid' },
-                                        );
-                                        if (upErr) throw new Error(`upsert(${dayStr}): ${upErr.message}`);
-                                    }
-                                    for (let i = 0; i < withoutSrid.length; i += 100) {
-                                        const { error: insErr } = await admin.from('wb_orders').insert(withoutSrid.slice(i, i + 100));
-                                        if (insErr) throw new Error(`insert(${dayStr}): ${insErr.message}`);
-                                    }
-                                }
-                            }
-                        } else {
-                            errorMsg += `orders_recent(${dayStr}): HTTP ${dayRes.status}; `;
-                            status = 'partial';
-                            // 429 — выдерживаем паузу, иначе следующие дни тоже упадут
-                            if (dayRes.status === 429) await sleep(20000);
-                        }
-                        // WB Statistics API has strict rate limits — small pause between
-                        // the per-day requests, matching the sleep() pattern already used
-                        // elsewhere in this file.
-                        await sleep(2000);
-                    }
-                } catch (e) {
-                    errorMsg += `orders_recent: ${(e as Error).message}; `;
-                    status = 'partial';
-                }
-
-                // ── Pass A: порционный исторический бэкфил (flag=1 по дням) ─
-                // Старая версия тянула ВСЮ историю одним flag=0 запросом
-                // (десятки тысяч заказов одним JSON), предварительно удалив
-                // все wb_orders кабинета — функция падала по лимитам Edge
-                // Function (HTTP 546) до завершения вставки, и кабинет
-                // оставался с пустой таблицей («Нет данных за выбранный
-                // период»). Теперь история докачивается порциями по
-                // BACKFILL_DAYS_PER_RUN дней за прогон, с курсором
-                // cabinets.orders_backfilled_to (дата, до которой история
-                // уже есть). Каждый день — точный flag=1 снапшот + upsert,
-                // без blanket-delete. За несколько прогонов крона история
-                // догружается до DATE_FROM и дальше не трогается.
-                try {
-                    const recentEdge = new Date();
-                    recentEdge.setUTCDate(recentEdge.getUTCDate() - RECENT_DAYS_LOOKBACK);
-                    const backfilledTo = cabinet.orders_backfilled_to
-                        ? String(cabinet.orders_backfilled_to)
-                        : recentEdge.toISOString().split('T')[0];
-
-                    if (backfilledTo > DATE_FROM) {
-                        const cursor = new Date(backfilledTo + 'T00:00:00Z');
-                        let daysDone = 0;
-                        while (daysDone < BACKFILL_DAYS_PER_RUN) {
-                            cursor.setUTCDate(cursor.getUTCDate() - 1);
-                            const dayStr = cursor.toISOString().split('T')[0];
-                            if (dayStr < DATE_FROM) break;
-
-                            const dayRes = await fetch(
-                                `${WB_STATS}/api/v1/supplier/orders?dateFrom=${dayStr}&flag=1`,
-                                { headers: { Authorization: token } },
-                            );
-                            if (!dayRes.ok) {
-                                errorMsg += `orders_backfill(${dayStr}): HTTP ${dayRes.status}; `;
-                                status = 'partial';
-                                // При 429 ждём и пробуем тот же день ещё раз, иначе
-                                // курсор не двигается и кабинет остаётся пустым.
-                                if (dayRes.status === 429) {
-                                    await sleep(25000);
-                                    const retry = await fetch(
-                                        `${WB_STATS}/api/v1/supplier/orders?dateFrom=${dayStr}&flag=1`,
-                                        { headers: { Authorization: token } },
-                                    );
-                                    if (!retry.ok) break;
-                                    // подменяем dayRes-подобный поток через повторную обработку ниже
-                                    const retryOrders = await retry.json();
-                                    if (Array.isArray(retryOrders) && retryOrders.length > 0) {
-                                        historicalOrdersCount += retryOrders.length;
-                                        const rows = retryOrders.map((o: Record<string, unknown>) => toOrderRow(cabinet.id, o));
-                                        const withSrid = rows.filter(r => r.srid);
-                                        const withoutSrid = rows.filter(r => !r.srid);
-                                        for (let i = 0; i < withSrid.length; i += 500) {
-                                            const { error: upErr } = await admin.from('wb_orders').upsert(
-                                                withSrid.slice(i, i + 500),
-                                                { onConflict: 'cabinet_id,srid' },
-                                            );
-                                            if (upErr) throw new Error(`backfill upsert(${dayStr}): ${upErr.message}`);
-                                        }
-                                        if (withoutSrid.length) {
-                                            await admin.from('wb_orders').delete()
-                                                .eq('cabinet_id', cabinet.id)
-                                                .eq('order_date', dayStr)
-                                                .is('srid', null);
-                                            for (let i = 0; i < withoutSrid.length; i += 500) {
-                                                const { error: insErr } = await admin.from('wb_orders').insert(withoutSrid.slice(i, i + 500));
-                                                if (insErr) throw new Error(`backfill insert(${dayStr}): ${insErr.message}`);
-                                            }
-                                        }
-                                    }
-                                    await admin.from('cabinets')
-                                        .update({ orders_backfilled_to: dayStr })
-                                        .eq('id', cabinet.id);
-                                    daysDone++;
-                                    await sleep(2000);
-                                    continue;
-                                }
-                                break;
-                            }
-                            const dayOrders = await dayRes.json();
-                            if (Array.isArray(dayOrders) && dayOrders.length > 0) {
-                                historicalOrdersCount += dayOrders.length;
-                                const rows = dayOrders.map((o: Record<string, unknown>) => toOrderRow(cabinet.id, o));
-                                const withSrid = rows.filter(r => r.srid);
-                                const withoutSrid = rows.filter(r => !r.srid);
-                                for (let i = 0; i < withSrid.length; i += 500) {
-                                    const { error: upErr } = await admin.from('wb_orders').upsert(
-                                        withSrid.slice(i, i + 500),
-                                        { onConflict: 'cabinet_id,srid' },
-                                    );
-                                    if (upErr) throw new Error(`backfill upsert(${dayStr}): ${upErr.message}`);
-                                }
-                                if (withoutSrid.length) {
-                                    await admin.from('wb_orders').delete()
-                                        .eq('cabinet_id', cabinet.id)
-                                        .eq('order_date', dayStr)
-                                        .is('srid', null);
-                                    for (let i = 0; i < withoutSrid.length; i += 500) {
-                                        const { error: insErr } = await admin.from('wb_orders').insert(withoutSrid.slice(i, i + 500));
-                                        if (insErr) throw new Error(`backfill insert(${dayStr}): ${insErr.message}`);
-                                    }
-                                }
-                            }
-                            // Курсор двигаем после каждого успешно загруженного дня —
-                            // обрыв функции ничего не теряет, продолжим с этого места.
-                            await admin.from('cabinets')
-                                .update({ orders_backfilled_to: dayStr })
-                                .eq('id', cabinet.id);
-                            daysDone++;
-                            await sleep(2000);
-                        }
-                    }
-                } catch (e) {
-                    errorMsg += `orders_backfill: ${(e as Error).message}; `;
-                    status = 'partial';
-                }
-
-                ordersCount = historicalOrdersCount + recentOrdersCount;
-
-                try {
-                    rnpDailyRows = await syncRnpDailyFromOrders(admin, cabinet.id);
-                } catch (e) {
-                    errorMsg += `rnp_daily: ${(e as Error).message}; `;
-                    status = 'partial';
-                }
-                await sleep(2000);
-            }
-
-            try {
-                const added = await syncArticlesFromContentCards(admin, cabinet.id, token);
-                if (added) console.log('[auto-sync] new rnp_articles from WB cards:', cabinet.name, added);
-            } catch (e) {
-                errorMsg += `articles: ${(e as Error).message}; `;
-                status = status === 'error' ? 'error' : 'partial';
-            }
-
-            // Блок финансовой детализации удалён: использовавшийся метод
-            // GET /api/v5/supplier/reportDetailByPeriod отключён WB 15.07.2026
-            // (замена — POST /api/finance/v1/sales-reports/detailed, токен
-            // категории «Финансы»). Результат нигде не сохранялся (только
-            // счётчик в sync_log), а каждый прогон тратил на него время.
+            cab.stocksCount = await syncStocks(admin, cab);
         } catch (e) {
-            status = 'error';
-            errorMsg = (e as Error).message;
+            cab.errorMsg += `stocks: ${(e as Error).message}; `;
+            cab.status = 'partial';
+        }
+    }
+
+    if (mode === 'full' || mode === 'rnp') {
+        const today = isoDate(new Date());
+        const horizon = addDaysStr(today, -RECENT_DAYS_LOOKBACK);
+
+        // Pass B: сегодня у всех кабинетов (разные продавцы — лимит не общий).
+        for (const cab of work) {
+            try {
+                cab.ordersCount += await syncRecentDay(admin, cab, today);
+            } catch (e) {
+                cab.errorMsg += `orders_recent: ${(e as Error).message}; `;
+                cab.status = 'partial';
+            }
         }
 
-        const duration = Date.now() - cabStart;
+        // Pass A: по одному историческому дню. Сначала дыра вперёд
+        // (у Базы курсор ушёл в июль и август/сентябрь так и не докачались),
+        // потом старше DATE_FROM.
+        for (let i = 0; i < BACKFILL_DAYS_PER_RUN; i++) {
+            for (const cab of work) {
+                if (Date.now() - started > TIME_BUDGET_MS) {
+                    if (!cab.errorMsg.includes('orders_backfill: deferred')) {
+                        cab.errorMsg += 'orders_backfill: deferred; ';
+                        cab.status = 'partial';
+                    }
+                    continue;
+                }
+                try {
+                    cab.ordersCount += await syncOneHistoryDay(admin, cab, horizon);
+                } catch (e) {
+                    cab.errorMsg += `orders_backfill: ${(e as Error).message}; `;
+                    cab.status = 'partial';
+                }
+            }
+        }
+
+        for (const cab of work) {
+            try {
+                cab.rnpDailyRows = await syncRnpDailyFromOrders(admin, cab.id);
+            } catch (e) {
+                cab.errorMsg += `rnp_daily: ${(e as Error).message}; `;
+                cab.status = 'partial';
+            }
+            try {
+                cab.funnelDays = await syncFunnelLast7Days(admin, cab.id, cab.token);
+            } catch (e) {
+                cab.errorMsg += `funnel: ${(e as Error).message}; `;
+                cab.status = cab.status === 'error' ? 'error' : 'partial';
+            }
+        }
+    }
+
+    const results: Array<Record<string, unknown>> = [];
+    for (const cab of work) {
+        try {
+            const added = await syncArticlesFromContentCards(admin, cab.id, cab.token);
+            if (added) console.log('[auto-sync] new rnp_articles from WB cards:', cab.name, added);
+        } catch (e) {
+            cab.errorMsg += `articles: ${(e as Error).message}; `;
+            cab.status = cab.status === 'error' ? 'error' : 'partial';
+        }
+
         await admin.from('sync_log').insert({
-            cabinet_id: cabinet.id,
-            cabinet_name: cabinet.name,
-            stocks_count: stocksCount,
-            orders_count: ordersCount,
-            finance_rows: financeRows,
-            status,
-            error_msg: errorMsg || null,
-            duration_ms: duration,
+            cabinet_id: cab.id,
+            cabinet_name: cab.name,
+            stocks_count: cab.stocksCount,
+            orders_count: cab.ordersCount,
+            finance_rows: cab.financeRows,
+            status: cab.status,
+            error_msg: cab.errorMsg || null,
+            duration_ms: Date.now() - cab.cabStart,
         });
 
         results.push({
-            cabinet: cabinet.name,
-            status,
-            stocks: stocksCount,
-            stocks_fbo: fboCount,
-            stocks_fbs: fbsCount,
-            orders: ordersCount,
-            finance: financeRows,
-            rnp_daily: rnpDailyRows,
-            ms: duration,
+            cabinet: cab.name,
+            status: cab.status,
+            stocks: cab.stocksCount,
+            stocks_fbo: cab.stocksFbo,
+            stocks_fbs: cab.stocksFbs,
+            orders: cab.ordersCount,
+            finance: cab.financeRows,
+            rnp_daily: cab.rnpDailyRows,
+            funnel_days: cab.funnelDays,
+            ms: Date.now() - cab.cabStart,
         });
-
-        // Между кабинетами — длинная пауза: WB Statistics API общий лимит
-        // на продавца/IP, иначе следующий кабинет сразу ловит 429 и остаётся
-        // с пустым wb_orders («Нет данных за выбранный период»).
-        await sleep(8000);
     }
 
     return json({
@@ -383,6 +279,169 @@ Deno.serve(async (req) => {
     });
 });
 
+async function loadCabinets(admin: Admin, targetCabinetId: string | null) {
+    let query = admin
+        .from('cabinets')
+        .select('id, name, wb_token, orders_backfilled_to, orders_filled_until')
+        .not('wb_token', 'is', null)
+        .gt('wb_token', '');
+    if (targetCabinetId) query = query.eq('id', targetCabinetId);
+    let { data, error } = await query;
+    if (error && /orders_filled_until/.test(error.message || '')) {
+        let q2 = admin
+            .from('cabinets')
+            .select('id, name, wb_token, orders_backfilled_to')
+            .not('wb_token', 'is', null)
+            .gt('wb_token', '');
+        if (targetCabinetId) q2 = q2.eq('id', targetCabinetId);
+        const retry = await q2;
+        data = (retry.data || []).map((r: Record<string, unknown>) => ({ ...r, orders_filled_until: null }));
+        error = retry.error;
+    }
+    if (error || !data?.length) return null;
+    return data as Array<{
+        id: string;
+        name: string;
+        wb_token: string;
+        orders_backfilled_to: string | null;
+        orders_filled_until: string | null;
+    }>;
+}
+
+async function syncStocks(admin: Admin, cab: CabWork): Promise<number> {
+    const synced = await syncCabinetStocks(admin, cab.id, cab.token);
+    cab.stocksFbo = synced.fbo;
+    cab.stocksFbs = synced.fbs;
+    if (synced.errors.length) {
+        cab.errorMsg += synced.errors.join(' ');
+        cab.status = 'partial';
+    }
+    return synced.fbo + synced.fbs;
+}
+
+async function syncRecentDay(admin: Admin, cab: CabWork, dayStr: string): Promise<number> {
+    const dayOrders = await fetchSupplierOrdersExactDay(cab.token, dayStr);
+    await admin.from('wb_orders').delete()
+        .eq('cabinet_id', cab.id)
+        .eq('order_date', dayStr);
+    await writeOrderRows(admin, cab.id, dayStr, dayOrders);
+    return dayOrders.length;
+}
+
+async function syncOneHistoryDay(admin: Admin, cab: CabWork, horizon: string): Promise<number> {
+    const backfilledTo = cab.orders_backfilled_to || horizon;
+    const filledUntil = cab.orders_filled_until || backfilledTo;
+
+    // Дыра вперёд: курсор когда-то ушёл в прошлое и больше не трогал июль→сегодня.
+    if (filledUntil < horizon) {
+        const dayStr = addDaysStr(filledUntil, 1);
+        const dayOrders = await fetchSupplierOrdersExactDay(cab.token, dayStr);
+        await writeOrderRows(admin, cab.id, dayStr, dayOrders);
+        cab.orders_filled_until = dayStr;
+        await admin.from('cabinets').update({ orders_filled_until: dayStr }).eq('id', cab.id);
+        return dayOrders.length;
+    }
+
+    if (backfilledTo > DATE_FROM) {
+        const dayStr = addDaysStr(backfilledTo, -1);
+        if (dayStr < DATE_FROM) return 0;
+        const dayOrders = await fetchSupplierOrdersExactDay(cab.token, dayStr);
+        await writeOrderRows(admin, cab.id, dayStr, dayOrders);
+        cab.orders_backfilled_to = dayStr;
+        await admin.from('cabinets').update({ orders_backfilled_to: dayStr }).eq('id', cab.id);
+        return dayOrders.length;
+    }
+    return 0;
+}
+
+async function writeOrderRows(
+    admin: Admin,
+    cabinetId: string,
+    dayStr: string,
+    dayOrders: Record<string, unknown>[],
+) {
+    if (!dayOrders.length) return;
+    const rows = dayOrders.map((o) => toOrderRow(cabinetId, o));
+    const withSrid = rows.filter((r) => r.srid);
+    const withoutSrid = rows.filter((r) => !r.srid);
+    for (let i = 0; i < withSrid.length; i += 500) {
+        const { error: upErr } = await admin.from('wb_orders').upsert(
+            withSrid.slice(i, i + 500),
+            { onConflict: 'cabinet_id,srid' },
+        );
+        if (upErr) throw new Error(`upsert(${dayStr}): ${upErr.message}`);
+    }
+    if (withoutSrid.length) {
+        await admin.from('wb_orders').delete()
+            .eq('cabinet_id', cabinetId)
+            .eq('order_date', dayStr)
+            .is('srid', null);
+        for (let i = 0; i < withoutSrid.length; i += 500) {
+            const { error: insErr } = await admin.from('wb_orders').insert(withoutSrid.slice(i, i + 500));
+            if (insErr) throw new Error(`insert(${dayStr}): ${insErr.message}`);
+        }
+    }
+}
+
+async function syncFunnelLast7Days(admin: Admin, cabinetId: string, token: string): Promise<number> {
+    const { data: arts } = await admin.from('rnp_articles')
+        .select('nm_id')
+        .eq('cabinet_id', cabinetId)
+        .eq('is_active', true);
+    const nmIds = [...new Set((arts || []).map((a: { nm_id: number }) => Number(a.nm_id)).filter((n: number) => n > 0))];
+    if (!nmIds.length) return 0;
+
+    const today = isoDate(new Date());
+    const dateFrom = addDaysStr(today, -6);
+    const res = await fetch(`${WB_ANALYTICS}/api/analytics/v3/sales-funnel/products/history`, {
+        method: 'POST',
+        headers: { Authorization: token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            selectedPeriod: { start: dateFrom, end: today },
+            nmIds,
+            skipDeletedNm: true,
+            aggregationLevel: 'day',
+        }),
+    });
+    if (!res.ok) {
+        if (res.status === 401 || res.status === 403) return 0;
+        throw new Error(`HTTP ${res.status}`);
+    }
+    const payload = await res.json().catch(() => []);
+    const items = Array.isArray(payload) ? payload : (payload?.data || []);
+    const upserts: Record<string, unknown>[] = [];
+    for (const item of items) {
+        const nmId = Number(item?.product?.nmId || item?.nmId || 0);
+        if (!nmId) continue;
+        for (const day of (item.history || [])) {
+            const date = String(day.date || '').split('T')[0];
+            if (!date) continue;
+            const opens = Number(day.openCount || 0);
+            const cart = Number(day.cartCount || 0);
+            upserts.push({
+                cabinet_id: cabinetId,
+                nm_id: nmId,
+                date,
+                impressions: opens,
+                clicks: opens,
+                ctr_pct: opens > 0 ? cart / opens * 100 : 0,
+                basket_count: cart,
+                basket_pct: Number(day.addToCartConversion || 0),
+                funnel_order_conv: Number(day.cartToOrderConversion || 0),
+                updated_at: new Date().toISOString(),
+            });
+        }
+    }
+    for (let i = 0; i < upserts.length; i += 100) {
+        const { error } = await admin.from('rnp_daily_data').upsert(
+            upserts.slice(i, i + 100),
+            { onConflict: 'cabinet_id,nm_id,date' },
+        );
+        if (error) throw error;
+    }
+    return upserts.length;
+}
+
 function json(body: unknown, status = 200) {
     return new Response(JSON.stringify(body), {
         status,
@@ -392,6 +451,16 @@ function json(body: unknown, status = 200) {
 
 function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isoDate(d: Date) {
+    return d.toISOString().split('T')[0];
+}
+
+function addDaysStr(day: string, n: number) {
+    const d = new Date(day + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().split('T')[0];
 }
 
 type StockRow = {
@@ -652,7 +721,7 @@ async function fetchFbsFromProductsReport(token: string, cabinetId: string): Pro
     return rows;
 }
 
-async function syncArticlesFromContentCards(admin: ReturnType<typeof createClient>, cabinetId: string, token: string): Promise<number> {
+async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, token: string): Promise<number> {
     const cards: Record<string, unknown>[] = [];
     let cursorNmId = 0;
     let cursorUpdatedAt = '';
@@ -717,8 +786,6 @@ async function syncArticlesFromContentCards(admin: ReturnType<typeof createClien
             ignoreDuplicates: true,
         });
     }
-    // Карточки из каталога WB должны быть видны в РНП во всех кабинетах,
-    // не только новые: старый синк писал их выключенными.
     for (let i = 0; i < catalogIds.length; i += 200) {
         await admin.from('rnp_articles')
             .update({ is_active: true })
@@ -747,10 +814,7 @@ function toOrderRow(cabinetId: string, o: Record<string, unknown>) {
     };
 }
 
-async function syncRnpDailyFromOrders(
-    admin: ReturnType<typeof createClient>,
-    cabinetId: string,
-): Promise<number> {
+async function syncRnpDailyFromOrders(admin: Admin, cabinetId: string): Promise<number> {
     const now = new Date();
     const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
     const { data: orders, error } = await admin

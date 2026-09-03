@@ -34,6 +34,12 @@ const FINANCE_MAX_PAGES = 4;
 const STORAGE_POLL_MS = 4000;
 const STORAGE_POLL_MAX = 5;         // ~20 с ожидания внутри одного вызова
 
+// WB Statistics API для одного seller'а режет запросы (часто это проявляется
+// как 429). У вас несколько кабинетов используют общий WB-токен, поэтому
+// между кабинетами нужно «растягивать» запросы.
+const WB_STATS_MIN_INTERVAL_MS = 61000; // ~1 запрос/мин на seller'а
+const wbStatsLastReqAtByToken = new Map<string, number>();
+
 type Json = Record<string, unknown>;
 
 Deno.serve(async (req) => {
@@ -93,15 +99,41 @@ Deno.serve(async (req) => {
 
     let query = admin.from('cabinets').select('id, name, wb_token').not('wb_token', 'is', null).gt('wb_token', '');
     if (targetCabinetId) query = query.eq('id', targetCabinetId);
-    const { data: cabinets, error: cabErr } = await query;
-    if (cabErr || !cabinets?.length) return json({ error: 'Нет кабинетов с токенами', detail: cabErr?.message }, 400);
+    const { data: cabinetsRaw, error: cabErr } = await query;
+    if (cabErr || !cabinetsRaw?.length) return json({ error: 'Нет кабинетов с токенами', detail: cabErr?.message }, 400);
 
-    // Cron без cabinet_id: идём по кабинетам, но укладываемся в бюджет времени
-    // edge-функции; недоделанные догонит следующий запуск (done-периоды в кэше).
-    const TIME_BUDGET_MS = 110000;
+    const isCron = !targetCabinetId;
+    // Cron без cabinet_id: сначала финотчёт ВСЕХ кабинетов (хранение на десятки
+    // тысяч строк раньше съедало бюджет и оставляло done только у первого).
+    // Кабинеты без finance/done идут первыми. Хранение — только если финансы
+    // уже в кэше, либо это ручной вызов с cabinet_id.
+    const TIME_BUDGET_MS = 130000;
+    const { data: states } = await admin.from('rnp_sync_state')
+        .select('cabinet_id, source, status, fetched_at')
+        .eq('period_from', from)
+        .eq('period_to', to);
+    const freshDone = (row: Json | undefined) => {
+        if (!row || row.status !== 'done' || !row.fetched_at) return false;
+        return Date.now() - new Date(String(row.fetched_at)).getTime() < CACHE_TTL_MS;
+    };
+    const finDone = new Set(
+        (states || []).filter((s: Json) => s.source === 'finance' && freshDone(s)).map((s: Json) => String(s.cabinet_id)),
+    );
+    const stoDone = new Set(
+        (states || []).filter((s: Json) => s.source === 'storage' && freshDone(s)).map((s: Json) => String(s.cabinet_id)),
+    );
+    const cabinets = [...cabinetsRaw].sort((a, b) => {
+        const af = finDone.has(a.id) ? 1 : 0;
+        const bf = finDone.has(b.id) ? 1 : 0;
+        if (af !== bf) return af - bf;
+        const as = stoDone.has(a.id) ? 1 : 0;
+        const bs = stoDone.has(b.id) ? 1 : 0;
+        return as - bs;
+    });
+
     const results: Json[] = [];
     for (const cab of cabinets) {
-        if (!targetCabinetId && Date.now() - started > TIME_BUDGET_MS) {
+        if (isCron && Date.now() - started > TIME_BUDGET_MS) {
             results.push({ cabinet_id: cab.id, cabinet: cab.name, status: 'deferred' });
             continue;
         }
@@ -109,15 +141,21 @@ Deno.serve(async (req) => {
         if (!token || token.length < 50) continue;
         const res: Json = { cabinet_id: cab.id, cabinet: cab.name, from, to };
         try {
+            const financeCached = finDone.has(cab.id);
             if (mode !== 'status') {
                 res.finance = await syncFinance(admin, cab.id, token, from, to, force);
+                if ((res.finance as Json)?.rows != null && (res.finance as Json).skipped !== true) {
+                    finDone.add(cab.id);
+                }
             }
-            res.storage = await syncStorage(admin, cab.id, token, from, to, force);
+            const wantStorage = !isCron || mode === 'status' || financeCached;
+            if (wantStorage) {
+                res.storage = await syncStorage(admin, cab.id, token, from, to, force);
+            } else {
+                res.storage = { skipped: true, reason: 'cron_finance_first' };
+            }
             const storagePending = (res.storage as Json).pending === true;
             res.storage_pending = storagePending;
-            // Пересчитываем сразу: без хранения свод уже полезен (реализация,
-            // к перечислению, штрафы, доставка); хранение допишется, когда
-            // задача WB доедет.
             const { data: rc, error: rcErr } = await admin.rpc('rnp_recompute_finance', { p_cabinet: cab.id, p_from: from, p_to: to });
             if (rcErr) res.recompute_error = rcErr.message; else res.recompute = rc;
             res.status = storagePending ? 'storage_pending' : 'done';
@@ -126,11 +164,28 @@ Deno.serve(async (req) => {
             res.error = (e as Error).message;
         }
         results.push(res);
-        if (cabinets.length > 1) await sleep(1500);
     }
 
     return json({ ok: true, mode, results, ms: Date.now() - started });
 });
+
+async function wbStatsFetch(url: string, token: string, init?: RequestInit): Promise<Response> {
+    const lastAt = wbStatsLastReqAtByToken.get(token) || 0;
+    const now = Date.now();
+    const waitMs = lastAt ? Math.max(0, WB_STATS_MIN_INTERVAL_MS - (now - lastAt)) : 0;
+    if (waitMs > 0) await sleep(waitMs);
+
+    const res = await fetch(url, {
+        ...init,
+        headers: {
+            ...(init?.headers as Record<string, string> | undefined),
+            Authorization: token,
+        },
+    });
+
+    wbStatsLastReqAtByToken.set(token, Date.now());
+    return res;
+}
 
 // ─── Финансовый отчёт ────────────────────────────────────────────────────────
 async function syncFinance(admin: any, cabinetId: string, token: string, from: string, to: string, force: boolean): Promise<Json> {
@@ -146,17 +201,17 @@ async function syncFinance(admin: any, cabinetId: string, token: string, from: s
         const url = `${WB_STATS}/api/v5/supplier/reportDetailByPeriod?dateFrom=${from}&dateTo=${to}&rrdid=${rrdid}&limit=${FINANCE_PAGE}`;
         // Лимит WB — 1 запрос/мин на токен, и его делят дашборд и кроны.
         // Ждём столько, сколько просит X-RateLimit-Retry (до ~75 с), и повторяем.
-        let res = await fetch(url, { headers: { Authorization: token } });
+        let res = await wbStatsFetch(url, token);
         for (let attempt = 0; res.status === 429 && attempt < 2; attempt++) {
             const retry = Number(res.headers.get('x-ratelimit-retry') || res.headers.get('retry-after') || 60);
             if (!(retry > 0 && retry <= 75)) break;
             await sleep((retry + 2) * 1000);
-            res = await fetch(url, { headers: { Authorization: token } });
+            res = await wbStatsFetch(url, token);
         }
         if (res.status === 429) {
             const retry = Number(res.headers.get('x-ratelimit-retry') || 60);
             await setState(admin, cabinetId, 'finance', from, to, { status: 'error', error: `WB 429: лимит 1 запрос/мин, повтор через ${retry} с`, rows: total });
-            throw new Error(`WB ограничил запросы к финотчёту (1 раз в минуту). Повторите через ${retry} с.`);
+            return { skipped: true, reason: 'rate_limit', retry };
         }
         if (!res.ok) {
             const text = (await res.text().catch(() => '')).slice(0, 200);
