@@ -329,8 +329,8 @@ assert.ok(
     'shared /adv/* proxy module must exist'
 );
 assert.ok(
-    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903220000_cabinets_adv_token_vault.sql')),
-    'cabinets adv Vault columns migration must exist'
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260904020000_adv_vault_rpc.sql')),
+    'adv Vault RPC migration must exist'
 );
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/functions/_shared/wb-advert-bids.ts')),
