@@ -312,4 +312,40 @@ assert.ok(
     'shared WB bid helpers must exist'
 );
 
+assert.ok(html.includes('id="tab-agents"') && html.includes("showTab('agents'"),
+    'BETA must have an Агенты tab');
+assert.ok(html.includes('function loadAgentsPage') && html.includes('function openAgentFn'),
+    'Agents tab must open one of the ten WB tools');
+assert.ok(html.includes('Пригласительная ссылка') && html.includes('function submitAgentInvite'),
+    'first agent function must generate a WB invite link');
+assert.ok(
+    html.includes('Команда кабинета') &&
+    html.includes('Цены и скидки') &&
+    html.includes('Отзывы без ответа') &&
+    html.includes('Вопросы покупателей') &&
+    html.includes('Новые FBS-заказы') &&
+    html.includes('Стикеры заказов') &&
+    html.includes('Пропуск на склад') &&
+    html.includes('Чаты с покупателями') &&
+    html.includes('Баланс продавца'),
+    'Agents tab must list all ten wow functions'
+);
+assert.ok(
+    proxySrc.includes("case 'users_invite'") &&
+    proxySrc.includes("case 'prices_set'") &&
+    proxySrc.includes("case 'feedbacks_answer'") &&
+    proxySrc.includes("case 'orders_fbs_new'") &&
+    proxySrc.includes("case 'passes_create'") &&
+    proxySrc.includes("case 'buyer_chats'"),
+    'wb-proxy must expose invite, prices, reviews, FBS, passes and chats'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/functions/_shared/wb-agent-wow.ts')),
+    'shared agent WB helpers must exist'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8').includes('"/agents"'),
+    'Vercel must rewrite /agents to the dashboard'
+);
+
 console.log('dashboard_html_test: ok');
