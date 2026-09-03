@@ -95,7 +95,7 @@ const RNP = (() => {
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 38;
     const DAY_COL_W = 30;
-    const MONTH_COL_W = 68;
+    const MONTH_COL_W = 58;
     const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
     const CAL_MONTH_FROM = 5;
     const CAL_MONTH_TO = 11;
@@ -1944,8 +1944,11 @@ const RNP = (() => {
         const items = [
             { label: 'В деньгах', value: money.moneySomFmt },
             { label: 'В долларах', value: '$' + money.moneyUsd },
-            { label: 'Заказы', value: _fmtKpi(kpi.orders_count, 'int') },
-            { label: 'Продажи', value: _fmtKpi(kpi.sales_count, 'int') },
+            { label: 'Заказы', value: _fmtKpi(kpi.orders_count || 0, 'int') },
+            { label: 'Показы РК', value: _fmtKpi(kpi.ad_impressions || 0, 'int') },
+            { label: 'Клики РК', value: _fmtKpi(kpi.ad_clicks || 0, 'int') },
+            { label: 'Показы', value: _fmtKpi(kpi.impressions || 0, 'int') },
+            { label: 'Продажи', value: _fmtKpi(kpi.sales_count || 0, 'int') },
             { label: 'Сумма', value: money.moneySomFmt },
             { label: 'Прибыль', value: _fmtKpi(kpi.profit, 'som'), cls: profitCls },
             { label: 'Маржа', value: _fmtKpi(kpi.margin_pct, 'pct'), cls: marginCls },
@@ -2004,7 +2007,7 @@ const RNP = (() => {
             <tr class="rnp-cal-quarter-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
-              <th class="rnp-th-year-band" colspan="${cols.length}">${cal.rangeLabel}</th>
+              <th class="rnp-th-year-band" colspan="${cols.length}">${_monthStickLabel(cal.rangeLabel, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">${totalTh}${monthThs}</tr>
             <tr class="rnp-dow-head-row"><th class="rnp-th-dow rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}></th>${monthSubs}</tr>
@@ -2040,8 +2043,8 @@ const RNP = (() => {
             <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
-              <th class="rnp-th-month" colspan="${nPrev}">${cal.prevName}</th>
-              <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${cal.currName}</th>
+              <th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${FROZEN_METRIC_W + FROZEN_SPARK_W}px">${cal.prevName}</th>
+              <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">${weekThs}${totalTh}${dayThs}</tr>
             <tr class="rnp-dow-head-row">${dowWeeks}${dowTotal}${dowDays}</tr>
@@ -2071,6 +2074,13 @@ const RNP = (() => {
         if (cal.mode === 'month') return base + FROZEN_COL_W;
         const weeks = cal.weeks.length;
         return base + weeks * FROZEN_COL_W + (weeks ? FROZEN_COL_W : 0);
+    }
+
+    /** Подпись месяца/года, которая остаётся у края прокрутки справа,
+     *  а не уезжает вместе с днями под липкие недели. */
+    function _monthStickLabel(text, leftPx) {
+        const safe = String(text || '').replace(/</g, '&lt;');
+        return `<span class="rnp-th-month-stick" style="left:${leftPx}px">${safe}</span>`;
     }
 
     function _buildSheetHeadRows(art, stockBySize, rawData, cal) {
@@ -2967,6 +2977,146 @@ const RNP = (() => {
         } catch (e) { console.warn('[RNP] merge finance daily:', e.message); }
     }
 
+    // advertising-sync пишет РК в advertising_daily_stats (кампания × день),
+    // с разбивкой по nmId в data.apps[].nms[]. РНП раньше это не читал —
+    // ячейки «Показы с рк / Клики РК» оставались пустыми, пока не нажмут
+    // refresh на каждом артикуле.
+    function _adNmsFromDay(day) {
+        const out = [];
+        if (!day || typeof day !== 'object') return out;
+        if (Array.isArray(day.nm)) out.push(...day.nm);
+        if (Array.isArray(day.nms)) out.push(...day.nms);
+        (day.apps || []).forEach(app => {
+            const nms = (app && (app.nm || app.nms)) || [];
+            if (Array.isArray(nms)) out.push(...nms);
+        });
+        return out;
+    }
+
+    function _ensureCacheDay(nm, date) {
+        const id = Number(nm);
+        if (!_dataCache[id]) _dataCache[id] = {};
+        if (!_dataCache[id][date]) {
+            _dataCache[id][date] = {
+                cabinet_id: _cab, nm_id: id, date,
+                orders_count: 0, orders_sum: 0, sales_count: 0, sales_sum: 0,
+                impressions: 0, clicks: 0, basket_count: 0,
+                ad_impressions: 0, ad_clicks: 0, ad_spend: 0, ad_orders: 0, ad_basket: 0,
+                updated_at: new Date().toISOString(),
+            };
+        }
+        return _dataCache[id][date];
+    }
+
+    function _applyAdBucket(row, d) {
+        const already = Number(row.ad_impressions || 0) || Number(row.ad_clicks || 0) || Number(row.ad_spend || 0);
+        if (already) return;
+        row.ad_impressions = d.imp;
+        row.ad_clicks = d.cl;
+        row.ad_spend = d.spend;
+        row.ad_orders = d.orders;
+        row.ad_basket = d.basket;
+        row.ad_ctr = d.imp > 0 ? d.cl / d.imp * 100 : 0;
+        row.ad_cpc = d.cl > 0 ? d.spend / d.cl : 0;
+        row.ad_cro = d.cl > 0 ? d.orders / d.cl * 100 : 0;
+    }
+
+    function _fillLiveZeros(row) {
+        const keys = ['orders_count', 'orders_sum', 'sales_count', 'sales_sum',
+            'impressions', 'clicks', 'basket_count',
+            'ad_impressions', 'ad_clicks', 'ad_spend', 'ad_orders', 'ad_basket'];
+        keys.forEach(k => {
+            if (row[k] == null || row[k] === '') row[k] = 0;
+        });
+        return row;
+    }
+
+    async function _mergeAdStatsFromDb(nmIds, cal) {
+        const allDates = _calAllDates(cal);
+        if (!allDates.length || !nmIds.length || !_cab) return 0;
+        const idSet = new Set(nmIds.map(Number));
+        let rows = [];
+        try {
+            rows = await _fetchAllRows('advertising_daily_stats', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'gte', column: 'stat_date', value: allDates[0] },
+                { op: 'lte', column: 'stat_date', value: allDates[allDates.length - 1] },
+            ], 'campaign_id,stat_date,views,clicks,spend,orders,atbs,data');
+        } catch (e) {
+            console.warn('[RNP] advertising_daily_stats:', e.message);
+            return 0;
+        }
+        const byNmDate = {};
+        (rows || []).forEach(row => {
+            const date = String(row.stat_date || '').split('T')[0];
+            if (!date) return;
+            const nms = _adNmsFromDay(row.data);
+            nms.forEach(n => {
+                const nm = Number(n.nmId || n.nm_id);
+                if (!nm || !idSet.has(nm)) return;
+                const key = `${nm}:${date}`;
+                if (!byNmDate[key]) byNmDate[key] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
+                byNmDate[key].imp += Number(n.views || 0);
+                byNmDate[key].cl += Number(n.clicks || 0);
+                byNmDate[key].spend += Number(n.sum || n.spend || 0);
+                byNmDate[key].orders += Number(n.orders || 0);
+                byNmDate[key].basket += Number(n.atbs || 0);
+            });
+        });
+        Object.entries(byNmDate).forEach(([key, d]) => {
+            const [nmStr, date] = key.split(':');
+            const row = _ensureCacheDay(nmStr, date);
+            _applyAdBucket(row, d);
+            _fillLiveZeros(row);
+        });
+        if (Object.keys(byNmDate).length) {
+            console.info('[RNP] ads from advertising_daily_stats:', Object.keys(byNmDate).length, 'nm-days');
+        }
+        return Object.keys(byNmDate).length;
+    }
+
+    function _seedTodayLiveZeros(nmIds, cal) {
+        const today = new Date().toISOString().split('T')[0];
+        if (!_calAllDates(cal).includes(today)) return;
+        (nmIds || []).forEach(nm => _fillLiveZeros(_ensureCacheDay(nm, today)));
+    }
+
+    function _visibleLiveTotals(active, cal) {
+        const kpi = _cabinetPeriodSummary(active, cal) || {};
+        return {
+            orders: Number(kpi.orders_count || 0),
+            adImp: Number(kpi.ad_impressions || 0),
+            adClicks: Number(kpi.ad_clicks || 0),
+            impressions: Number(kpi.impressions || 0),
+        };
+    }
+
+    async function _hydrateFunnelAfterPaint(snapCab, renderId) {
+        if (!_callProxy || !_cab) return;
+        let nmId = _activeNm;
+        if (nmId === SUMMARY_TAB || nmId === GENERAL_TAB || nmId == null) {
+            nmId = _cabArticles().find(a => a.is_active)?.nm_id;
+        }
+        nmId = Number(nmId);
+        if (!nmId || nmId < 0) return;
+        const today = new Date().toISOString().split('T')[0];
+        const hasFunnel = Object.values(_dataCache[nmId] || {}).some(r =>
+            r && r.date <= today && (Number(r.impressions || 0) > 0 || Number(r.clicks || 0) > 0));
+        if (hasFunnel) return;
+        try {
+            await _syncFunnelHistory(nmId);
+        } catch (e) {
+            console.warn('[RNP] funnel hydrate:', e.message);
+            return;
+        }
+        if (_cab !== snapCab || renderId !== _mainRenderGen) return;
+        await _loadDailyData(nmId);
+        if (_cab !== snapCab || renderId !== _mainRenderGen) return;
+        _cabinetColsCacheKey = '';
+        _cabinetColsCacheVal = null;
+        if (document.getElementById('rnp-sheet-body')) await _renderActiveTable();
+    }
+
     // ─── Курс валют (exchange_rates) ─────────────────────────────────────────
     async function _loadExchangeRates(dateFrom, dateTo) {
         if (!_db) return;
@@ -3134,7 +3284,11 @@ const RNP = (() => {
         const ts = window._rnpLastLoadedAt;
         if (!ts) { el.textContent = ''; return; }
         const min = Math.round((Date.now() - ts) / 60000);
-        el.textContent = min < 1 ? 'данные свежие' : `обновлено ${min} мин назад`;
+        const age = min < 1 ? 'свежие' : `${min} мин назад`;
+        const active = _cabArticles().filter(a => a.is_active);
+        const live = _visibleLiveTotals(active, _buildCalendar());
+        el.textContent = `${age} · заказы ${live.orders.toLocaleString('ru')} · показы РК ${live.adImp.toLocaleString('ru')} · клики РК ${live.adClicks.toLocaleString('ru')}`;
+        el.title = `Показы (воронка): ${live.impressions.toLocaleString('ru')}. Заказы — из wb_orders за видимый период. РК — из advertising_daily_stats.`;
     }
 
     // ─── HISTORICAL ORDERS SYNC (from wb_orders table) ───────────────────────
@@ -3427,7 +3581,13 @@ const RNP = (() => {
     // ─── AGGREGATION ──────────────────────────────────────────────────────────
     function _aggWeek(map, dates) {
         const rows = dates.map(d => map[d]).filter(Boolean);
-        if (!rows.length) return null;
+        if (!rows.length) {
+            return {
+                orders_count: 0, orders_sum: 0, sales_count: 0, sales_sum: 0,
+                impressions: 0, clicks: 0, basket_count: 0,
+                ad_impressions: 0, ad_clicks: 0, ad_spend: 0, ad_orders: 0, ad_basket: 0,
+            };
+        }
         const SUM = ['orders_count','orders_sum','sales_count','sales_sum','ad_impressions','ad_clicks',
                      'ad_basket','ad_orders','ad_spend','to_transfer','profit','giveaways','in_production',
                      'impressions','clicks','basket_count',
@@ -3511,7 +3671,14 @@ const RNP = (() => {
     }
 
     function _cabinetDayDerived(active, date) {
-        const parts = active.map(a => _derive(_dataCache[a.nm_id]?.[date] || null, a)).filter(Boolean);
+        const today = new Date().toISOString().split('T')[0];
+        const parts = active.map(a => {
+            const raw = _dataCache[a.nm_id]?.[date] || (date > today ? null : {
+                date, orders_count: 0, orders_sum: 0, sales_count: 0, sales_sum: 0,
+                impressions: 0, clicks: 0, ad_impressions: 0, ad_clicks: 0, ad_spend: 0,
+            });
+            return _derive(raw, a);
+        }).filter(Boolean);
         return _mergeDerivedMetrics(parts);
     }
 
@@ -4054,6 +4221,10 @@ const RNP = (() => {
         }
         await _renderActiveTable();
         window._rnpLoadedForCabinet = _cab;
+        setTimeout(() => {
+            if (renderId !== _mainRenderGen || _cab !== snapCab) return;
+            _hydrateFunnelAfterPaint(snapCab, renderId);
+        }, 0);
         _applyResolvedPhotos();
         _preloadPhotosBackground(active).then(() => {
             if (renderId !== _mainRenderGen) return;
@@ -4344,7 +4515,7 @@ const RNP = (() => {
             <tr class="rnp-cal-quarter-row">
               <th class="rnp-th-metric" rowspan="${monthHeadRows}"></th>
               <th class="rnp-th-spark" rowspan="${monthHeadRows}"></th>
-              <th class="rnp-th-year-band" colspan="${cols.length}">${cal.rangeLabel}</th>
+              <th class="rnp-th-year-band" colspan="${cols.length}">${_monthStickLabel(cal.rangeLabel, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">
               ${totalTh}${monthThs}
@@ -4397,8 +4568,8 @@ const RNP = (() => {
             <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
-              <th class="rnp-th-month" colspan="${nPrev}">${cal.prevName}</th>
-              <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${cal.currName}</th>
+              <th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${FROZEN_METRIC_W + FROZEN_SPARK_W}px">${cal.prevName}</th>
+              <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">
               ${weekThs}${totalTh}${dayThs}
