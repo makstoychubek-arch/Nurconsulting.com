@@ -60,7 +60,7 @@ const LEGACY_ENV: Partial<Record<TelegramChannel, string>> = {
 
 /** Известные chat_id, если secret ещё не выставлен в Dashboard. */
 const HARDCODED_CHAT_IDS: Partial<Record<TelegramChannel, string>> = {
-    penalties: '-3907884000',
+    penalties: '-1003907884000',
 };
 
 const ALL_CHANNELS: TelegramChannel[] = [

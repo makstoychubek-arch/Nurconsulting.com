@@ -51,11 +51,11 @@ Deno.test('resolveIncomingChatChannel: shared fallback does NOT collapse channel
     },
     () => {
       // Штрафы — отдельная группа, даже без secret.
-      assertEquals(getTelegramChatId('penalties'), '-3907884000');
+      assertEquals(getTelegramChatId('penalties'), '-1003907884000');
       assertEquals(getTelegramChatId('triggers'), '-100shared');
       // …but inbound must NOT map shared id to last channel (triggers/fbs).
       assertEquals(resolveIncomingChatChannel('-100shared'), null);
-      assertEquals(resolveIncomingChatChannel('-3907884000'), 'penalties');
+      assertEquals(resolveIncomingChatChannel('-1003907884000'), 'penalties');
     },
   );
 });
