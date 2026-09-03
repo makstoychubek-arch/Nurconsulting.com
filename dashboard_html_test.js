@@ -70,7 +70,18 @@ const rnpSrc = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
 assert.ok(rnpSrc.includes('function _abandonStaleMain'), 'stale RNP render must retry instead of hanging');
 assert.ok(rnpSrc.includes("functions.invoke('rnp-finance-sync'"), 'RNP «Обновить из WB» must go through the rnp-finance-sync edge function');
 assert.ok(rnpSrc.includes("from('exchange_rates')"), 'RNP must read the fixed exchange rate from exchange_rates');
+assert.ok(rnpSrc.includes('function _latestNbkr'), 'RNP settings must show the official NBKR rate next to the working rate');
+assert.ok(rnpSrc.includes('лимиты WB не тратит'), 'RNP must explain that NBKR does not hit WB limits');
 assert.ok(/key: 'storage_sum',\s+label: 'Хранение \(сверено\)'/.test(rnpSrc), 'RNP shows reconciled storage row');
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903152000_rnp_nbkr_rate_cron.sql')),
+    'daily NBKR cron migration must exist'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260903152000_rnp_nbkr_rate_cron.sql'), 'utf8')
+        .includes('"mode":"rate"'),
+    'NBKR cron must call rnp-finance-sync mode=rate, not WB sync'
+);
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/functions/rnp-finance-sync/index.ts')),
     'rnp-finance-sync edge function must exist'

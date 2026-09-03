@@ -2994,6 +2994,33 @@ const RNP = (() => {
         return null;
     }
 
+    function _latestNbkr() {
+        let best = null;
+        for (const d of _rateDatesSorted) {
+            const row = _rateCache[d];
+            if (row && row.source === 'nbkr' && row.rate > 0) best = { date: d, rate: row.rate };
+        }
+        return best;
+    }
+
+    function _rateSourceLabel(date, row) {
+        if (date && _rateDatesSorted.length) {
+            let manual = null;
+            for (const d of _rateDatesSorted) {
+                if (d > date) break;
+                if (_rateCache[d].source === 'manual' && _rateCache[d].rate > 0) manual = d;
+            }
+            if (manual) return 'вручную';
+        }
+        const wb = Number(row?.wb_rate || 0);
+        if (wb > 0.5 && wb < 200) return 'отчёт WB';
+        if (_settings.exchangeRate > 0) return 'настройки';
+        const rc = date ? _rateCache[date] : null;
+        if (rc && rc.source === 'nbkr') return 'НБКР';
+        if (rc && rc.rate > 0) return rc.source;
+        return '';
+    }
+
     async function _saveManualRate(rate) {
         if (!_db || !(rate > 0)) return;
         const date = new Date().toISOString().split('T')[0];
@@ -3547,7 +3574,10 @@ const RNP = (() => {
             const sticky = _stickyDataAttrs(ci, cols);
             const colWCls = isDay ? 'rnp-day-col' : (isMonth ? 'rnp-month-col' : 'rnp-data-col');
             const str = rate > 0 ? rate.toFixed(4).replace('.', ',') : '—';
-            const hint = rate > 0 ? '' : ' title="Нет курса в отчёте WB за день"';
+            const src = isDay ? _rateSourceLabel(col.date, null) : '';
+            const hint = rate > 0
+                ? (src ? ` title="Источник: ${src}"` : '')
+                : ' title="Нет курса на эту дату — впишите в настройках или дождитесь НБКР"';
             return `<td class="${cls} ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}${hint}>${str}</td>`;
         }).join('');
         return `<tr class="rnp-rate-row">
@@ -3561,7 +3591,7 @@ const RNP = (() => {
           <td class="rnp-metric-col">Общий РНП</td>
           <td class="rnp-spark-col"></td>
           <td class="rnp-meta-cell" colspan="${cols.length}">
-            <span class="rnp-meta-status">Сводка по кабинету · ${cols.length} колонок · курс WB внизу</span>
+            <span class="rnp-meta-status">Сводка по кабинету · ${cols.length} колонок · курс ₽→сом внизу</span>
           </td>
         </tr>`;
     }
@@ -3743,6 +3773,7 @@ const RNP = (() => {
               <span>Активных: <b style="color:var(--text-primary)">${_articles.filter(a=>a.is_active).length}</b> / ${_articles.length}</span>
               <span>Курс: <b style="color:var(--text-primary)">1₽ = ${_settings.exchangeRate} сом</b></span>
               <span>$: <b style="color:var(--text-primary)">1$ = ${_settings.usdRate} сом</b></span>
+              ${(() => { const n = _latestNbkr(); return n ? `<span>НБКР: <b style="color:var(--text-primary)">1₽ = ${n.rate.toFixed(4).replace('.', ',')} сом</b> (${n.date.split('-').reverse().join('.')})</span>` : ''; })()}
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
@@ -3752,6 +3783,7 @@ const RNP = (() => {
                     class="rounded-xl px-3 py-2 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
                   <button onclick="RNP.saveRate()" class="ui-btn ui-btn-primary text-xs whitespace-nowrap">OK</button>
                 </div>
+                <p class="text-xs mt-1.5 leading-snug" style="color:var(--text-muted)">Рабочий курс кабинета. Важнее НБКР, пока не поменяете. НБКР подтягивается раз в сутки с nbkr.kg и лимиты WB не тратит.</p>
               </div>
               <div>
                 <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Курс $ → сом (для KPI)</label>

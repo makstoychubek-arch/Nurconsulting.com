@@ -294,23 +294,44 @@ function toStorageRow(cabinetId: string, r: Json) {
 }
 
 // ─── Курс RUB→KGS от НБКР ────────────────────────────────────────────────────
+// Только nbkr.kg — WB не вызываем. daily.xml иногда отвечает 5xx без UA,
+// поэтому пробуем weekly.xml. Ручной курс на ту же дату не перетираем.
 async function syncNbkrRate(admin: any): Promise<Json> {
-    const res = await fetch('https://www.nbkr.kg/XML/daily.xml');
-    if (!res.ok) throw new Error(`НБКР: HTTP ${res.status}`);
-    const xml = await res.text();
+    const xml = await fetchNbkrXml();
     const m = xml.match(/<Currency[^>]*ISOCode="RUB"[^>]*>[\s\S]*?<Nominal>([\d.,]+)<\/Nominal>[\s\S]*?<Value>([\d.,]+)<\/Value>/i);
     if (!m) throw new Error('НБКР: не нашли курс RUB в XML');
     const nominal = Number(m[1].replace(',', '.')) || 1;
     const value = Number(m[2].replace(',', '.'));
     const rate = value / nominal;
     if (!(rate > 0.3 && rate < 5)) throw new Error(`НБКР: подозрительный курс ${rate}`);
-    const date = isoDate(new Date());
-    // Ручной курс на эту дату не перетираем
+    const xmlDate = xml.match(/\bDate="(\d{2})\.(\d{2})\.(\d{4})"/);
+    const date = xmlDate ? `${xmlDate[3]}-${xmlDate[2]}-${xmlDate[1]}` : isoDate(new Date());
     const { data: existing } = await admin.from('exchange_rates').select('source').eq('pair', 'RUB_KGS').eq('date', date).maybeSingle();
     if (existing?.source === 'manual') return { date, rate: null, kept: 'manual' };
     const { error } = await admin.from('exchange_rates').upsert({ pair: 'RUB_KGS', date, rate, source: 'nbkr' }, { onConflict: 'pair,date' });
     if (error) throw new Error('exchange_rates: ' + error.message);
     return { date, rate, source: 'nbkr' };
+}
+
+async function fetchNbkrXml(): Promise<string> {
+    const urls = [
+        'https://www.nbkr.kg/XML/daily.xml',
+        'https://www.nbkr.kg/XML/weekly.xml',
+    ];
+    const headers = { 'User-Agent': 'NRSpace/1.0 (+https://nurcon.kg)' };
+    let last = '';
+    for (const url of urls) {
+        try {
+            const res = await fetch(url, { headers });
+            if (!res.ok) { last = `HTTP ${res.status}`; continue; }
+            const text = await res.text();
+            if (/ISOCode="RUB"/i.test(text)) return text;
+            last = 'нет RUB в XML';
+        } catch (e) {
+            last = (e as Error).message;
+        }
+    }
+    throw new Error(`НБКР: ${last || 'нет ответа'}`);
 }
 
 // ─── helpers ────────────────────────────────────────────────────────────────
