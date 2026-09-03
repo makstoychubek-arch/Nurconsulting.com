@@ -88,7 +88,7 @@ Deno.serve(async (req) => {
         if (!owned) return json({ error: 'Cabinet not found or access denied' }, 403);
     }
 
-    let rulesQuery = admin.from('autobidder_rules').select('*');
+    let rulesQuery = admin.from('autobidder_rules_legacy_mvp').select('*');
     if (!(force && targetCampaignId)) rulesQuery = rulesQuery.eq('enabled', true);
     if (targetCabinetId) rulesQuery = rulesQuery.eq('cabinet_id', targetCabinetId);
     if (targetCampaignId) rulesQuery = rulesQuery.eq('campaign_id', targetCampaignId);
@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
             results.push({ rule_id: rule.id, campaign_id: rule.campaign_id, ...result });
         } catch (e) {
             const msg = (e as Error).message;
-            await admin.from('autobidder_rules').update({
+            await admin.from('autobidder_rules_legacy_mvp').update({
                 last_run_at: new Date().toISOString(),
                 last_error: msg.slice(0, 400),
                 updated_at: new Date().toISOString(),
@@ -284,7 +284,7 @@ async function persistBids(admin: ReturnType<typeof createClient>, rule: Rule, b
 }
 
 async function finishRule(admin: ReturnType<typeof createClient>, rule: Rule, error: string | null, _reason: string | null) {
-    await admin.from('autobidder_rules').update({
+    await admin.from('autobidder_rules_legacy_mvp').update({
         last_run_at: new Date().toISOString(),
         last_error: error,
         updated_at: new Date().toISOString(),

@@ -288,8 +288,8 @@ assert.ok(html.includes('data-adv-view="autobidder"') && html.includes('id="adv-
     'advertising detail must have an Автобиддер tab');
 assert.ok(html.includes('id="autobidder-modal"') && html.includes('function openAutobidderModal'),
     'campaign row must open the autobidder rule modal');
-assert.ok(html.includes('function saveAutobidderRule') && html.includes("from('autobidder_rules')"),
-    'autobidder modal must persist a rule to autobidder_rules');
+assert.ok(html.includes('function saveAutobidderRule') && html.includes("from('autobidder_rules_legacy_mvp')"),
+    'autobidder modal must persist a rule to autobidder_rules_legacy_mvp');
 assert.ok(html.includes('AUTOBIDDER_RUN_URL') && html.includes('function runAutobidderNow'),
     'dashboard must call autobidder-run for a manual pass');
 assert.ok(
