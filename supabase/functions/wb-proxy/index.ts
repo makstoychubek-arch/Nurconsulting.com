@@ -15,6 +15,20 @@ import {
     fetchMinBids,
     setAdvertBids,
 } from '../_shared/wb-advert-bids.ts';
+import {
+    ADVERT_API,
+    CHAT_API,
+    FEEDBACKS_API,
+    FINANCE_API,
+    MARKET_API,
+    PRICES_API,
+    USERS_API,
+    accessPresetItems,
+    normalizeWbInvitePhone,
+    wbError,
+    wbSend,
+    type AccessPreset,
+} from '../_shared/wb-agent-wow.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -1079,6 +1093,159 @@ serve(async (req) => {
                     console.warn('[wb-proxy] tariffs_commission error:', String(e));
                     result = { report: [] };
                 }
+                break;
+            }
+
+            // ── Агенты: топ WB-ручек ─────────────────────────────────────────
+            case 'users_invite': {
+                const phone = normalizeWbInvitePhone(String(params.phone || ''));
+                if (!phone) return json({ error: 'Укажите телефон с кодом страны: 79…, 996…, 375…' }, 400);
+                const position = String(params.position || 'Сотрудник').slice(0, 150);
+                const preset = String(params.preset || 'standard') as AccessPreset;
+                const access = accessPresetItems(['standard', 'manager', 'readonly'].includes(preset) ? preset : 'standard');
+                const body: Record<string, unknown> = { invite: { phoneNumber: phone.phone, position } };
+                if (access?.length) body.access = access;
+                const res = await wbSend(`${USERS_API}/api/v1/invite`, WB_TOKEN, 'POST', body);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                const data = (res.data || {}) as Record<string, unknown>;
+                result = {
+                    ok: data.isSuccess !== false,
+                    inviteUrl: data.inviteUrl || data.invite_url || null,
+                    inviteID: data.inviteID || data.inviteId || null,
+                    expiredAt: data.expiredAt || null,
+                    phone: phone.phone,
+                    countryName: phone.countryName,
+                };
+                break;
+            }
+            case 'users_list': {
+                const inviteOnly = Boolean(params.inviteOnly);
+                const q = `limit=100&offset=0${inviteOnly ? '&isInviteOnly=true' : ''}`;
+                const res = await wbSend(`${USERS_API}/api/v1/users?${q}`, WB_TOKEN);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'users_delete': {
+                const userId = Number(params.userId || 0);
+                if (!userId) return json({ error: 'userId required' }, 400);
+                const res = await wbSend(`${USERS_API}/api/v1/user?deletedUserID=${userId}`, WB_TOKEN, 'DELETE');
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = { ok: true, userId };
+                break;
+            }
+            case 'prices_list': {
+                const limit = Math.min(200, Number(params.limit) || 50);
+                const offset = Number(params.offset) || 0;
+                const res = await wbSend(`${PRICES_API}/api/v2/list/goods/filter?limit=${limit}&offset=${offset}`, WB_TOKEN);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'prices_set': {
+                const nmID = Number(params.nmID || params.nmId || 0);
+                const price = Number(params.price || 0);
+                const discount = params.discount != null ? Number(params.discount) : undefined;
+                if (!nmID || price <= 0) return json({ error: 'nmID и цена обязательны' }, 400);
+                const item: Record<string, unknown> = { nmID, price };
+                if (discount != null && !Number.isNaN(discount)) item.discount = discount;
+                const res = await wbSend(`${PRICES_API}/api/v2/upload/task`, WB_TOKEN, 'POST', { data: { prices: [item] } });
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'feedbacks_list': {
+                const answered = params.isAnswered === true;
+                const take = Math.min(100, Number(params.take) || 30);
+                const res = await wbSend(
+                    `${FEEDBACKS_API}/api/v1/feedbacks?isAnswered=${answered}&take=${take}&skip=0&order=dateDesc`,
+                    WB_TOKEN,
+                );
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'feedbacks_answer': {
+                const id = String(params.id || '');
+                const text = String(params.text || '').trim();
+                if (!id || !text) return json({ error: 'id и текст ответа обязательны' }, 400);
+                const res = await wbSend(`${FEEDBACKS_API}/api/v1/feedbacks/answer`, WB_TOKEN, 'POST', { id, text });
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = { ok: true };
+                break;
+            }
+            case 'questions_list': {
+                const answered = params.isAnswered === true;
+                const take = Math.min(100, Number(params.take) || 30);
+                const res = await wbSend(
+                    `${FEEDBACKS_API}/api/v1/questions?isAnswered=${answered}&take=${take}&skip=0`,
+                    WB_TOKEN,
+                );
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'questions_answer': {
+                const id = String(params.id || '');
+                const text = String(params.text || '').trim();
+                if (!id || !text) return json({ error: 'id и текст ответа обязательны' }, 400);
+                const res = await wbSend(`${FEEDBACKS_API}/api/v1/questions/answer`, WB_TOKEN, 'POST', { id, text });
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = { ok: true };
+                break;
+            }
+            case 'orders_fbs_new': {
+                const res = await wbSend(`${MARKET_API}/api/v3/orders/new`, WB_TOKEN);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'passes_offices': {
+                const res = await wbSend(`${MARKET_API}/api/v3/passes/offices`, WB_TOKEN);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'passes_list': {
+                const res = await wbSend(`${MARKET_API}/api/v3/passes`, WB_TOKEN);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'passes_create': {
+                const firstName = String(params.firstName || '').trim();
+                const lastName = String(params.lastName || '').trim();
+                const officeId = Number(params.officeId || 0);
+                if (!firstName || !lastName || !officeId) {
+                    return json({ error: 'Имя, фамилия и склад обязательны' }, 400);
+                }
+                const body = {
+                    firstName,
+                    lastName,
+                    carModel: String(params.carModel || '').trim() || undefined,
+                    carNumber: String(params.carNumber || '').trim() || undefined,
+                    officeId,
+                };
+                const res = await wbSend(`${MARKET_API}/api/v3/passes`, WB_TOKEN, 'POST', body);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'buyer_chats': {
+                const res = await wbSend(`${CHAT_API}/api/v1/seller/chats`, WB_TOKEN);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'seller_balance': {
+                const [fin, adv] = await Promise.all([
+                    wbSend(`${FINANCE_API}/api/v1/account/balance`, WB_TOKEN),
+                    wbSend(`${ADVERT_API}/adv/v1/balance`, WB_TOKEN),
+                ]);
+                result = {
+                    finance: fin.ok ? fin.data : { error: wbError(fin) },
+                    advertising: adv.ok ? adv.data : { error: wbError(adv) },
+                };
                 break;
             }
 

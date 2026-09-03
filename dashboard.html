@@ -300,6 +300,19 @@
         .tg-mute-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
         .tg-mute-row:last-child { border-bottom: none; }
         .tg-channel-card { margin-top: 12px; }
+        .agents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+        .agent-fn-card {
+            text-align: left; width: 100%; background: var(--surface-solid);
+            border: 1px solid var(--border); border-radius: 16px; padding: 16px; cursor: pointer;
+            transition: border-color 0.15s ease, background 0.15s ease;
+        }
+        .agent-fn-card:hover { border-color: var(--accent-border); }
+        .agent-fn-card.active { border-color: var(--accent-border); background: var(--accent-soft); }
+        .agent-fn-num { font-size: 11px; font-weight: 800; color: var(--accent); letter-spacing: 0.04em; }
+        .agent-fn-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-top: 6px; }
+        .agent-fn-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+        .agent-fn-who { font-size: 10px; font-weight: 700; color: var(--text-secondary); margin-top: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .agent-result-url { word-break: break-all; font-family: ui-monospace, monospace; font-size: 12px; color: var(--accent); }
         .metric-card {
             background: var(--surface);
             border: none;
@@ -2645,7 +2658,7 @@
            временный style. */
         try {
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
-            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp' };
+            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents' };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -2830,6 +2843,11 @@
                 <div class="nav-item" onclick="showTab('calculator', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
                     <span>Калькулятор</span>
+                </div>
+                <div class="nav-item" onclick="showTab('agents', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>Агенты</span>
+                    <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="nav-item" onclick="showTab('telegram-bots', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>
@@ -3857,6 +3875,17 @@
                 <p class="text-xs mb-4" style="color:var(--text-muted)">Ползунок выкл = этот кабинет не пишет в выбранный Telegram-канал (например, Элиум).</p>
                 <div class="flex flex-wrap gap-2 mb-4" id="tg-channel-tabs"></div>
                 <div id="tg-channel-mutes"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка каналов...</div></div>
+            </div>
+        </div>
+
+        <div id="tab-agents" class="tab-content space-y-5">
+            <div class="widget-card p-6">
+                <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Агенты · топ-10 функций WB</h3>
+                <p class="text-xs mb-4" style="color:var(--text-muted)">То, что боты умеют через API продавца. Работает с выбранным кабинетом — токен должен иметь нужную категорию WB (Пользователи, Цены, Отзывы, Маркетплейс, Чат, Финансы).</p>
+                <div id="agents-grid" class="agents-grid"></div>
+            </div>
+            <div id="agents-panel" class="widget-card p-6">
+                <div class="text-sm" style="color:var(--text-muted)">Выберите функцию</div>
             </div>
         </div>
 
@@ -5014,7 +5043,7 @@
     const MODULE_PATHS = {
         'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
         marking: '/marking', logistics: '/logistics', rnp: '/rnp', dashboard: '/space',
-        'telegram-bots': '/telegram-bots', ozon: '/ozon',
+        'telegram-bots': '/telegram-bots', ozon: '/ozon', agents: '/agents',
     };
     const PATH_TO_TAB = Object.fromEntries(Object.entries(MODULE_PATHS).map(([k, v]) => [v, k]));
 
@@ -5025,7 +5054,7 @@
         rnp:'Модуль РНП', 'rnp-settings':'Настройки РНП', planning:'Планирование',
         'ab-testing':'А/Б Тесты', advertising:'Контроль РК', seo:'SEO-Позиции', marking:'Маркировка & ШК', logistics:'Логистика & Поставки',
         settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики',
-        'telegram-bots':'Телеграм боты', ozon:'Ozon токен',
+        'telegram-bots':'Телеграм боты', ozon:'Ozon токен', agents:'Агенты',
     };
 
     const TAB_GROUP = {
@@ -5034,7 +5063,7 @@
         advertising:'ads',
         'ab-testing':'ab-testing',
         seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
-        'telegram-bots':'beta', ozon:'beta',
+        'telegram-bots':'beta', ozon:'beta', agents:'beta',
         cost:'beta', 'goods-groups':'beta', warehouse:'beta',
         dds:'beta', operations:'beta', obligations:'beta', 'finance-extra':'beta',
         settings:'settings',
@@ -5235,6 +5264,7 @@
         if (name === 'planning' && hasUserCabinets) loadPlanningTab();
         if (name === 'telegram-bots') loadTelegramBotsPage();
         if (name === 'ozon') loadOzonTokenPage();
+        if (name === 'agents') loadAgentsPage();
         if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
         syncRailGroup(name);
         syncModuleUrl(name);
@@ -7238,6 +7268,7 @@
             if (curTab === 'ab-testing') loadABTests();
             if (curTab === 'seo') loadSeoKeywords();
             if (curTab === 'marking') loadMarkingComplianceReport();
+            if (curTab === 'agents') loadAgentsPage();
         });
     }
 
@@ -9936,6 +9967,384 @@
         if (error) { showPremiumModal('error', 'Ошибка сохранения', error.message); return; }
         showPremiumModal('success', 'Токен Ozon сохранён', 'Кабинет готов к подключению Ozon API.');
         loadOzonTokenPage();
+    }
+
+    const AGENT_FNS = [
+        { id: 'invite', n: 1, title: 'Пригласительная ссылка', desc: 'Ссылка в кабинет WB по телефону сотрудника и правам доступа.', who: 'Карина' },
+        { id: 'team', n: 2, title: 'Команда кабинета', desc: 'Кто уже в профиле продавца и ожидающие приглашения.', who: 'Карина' },
+        { id: 'prices', n: 3, title: 'Цены и скидки', desc: 'Посмотреть текущие цены и поставить новую цену/скидку.', who: 'Сауле' },
+        { id: 'reviews', n: 4, title: 'Отзывы без ответа', desc: 'Неотвеченные отзывы и ответ прямо из кабинета.', who: 'Алина' },
+        { id: 'questions', n: 5, title: 'Вопросы покупателей', desc: 'Открытые вопросы с карточек и быстрый ответ.', who: 'Алина' },
+        { id: 'fbs', n: 6, title: 'Новые FBS-заказы', desc: 'Сборочные задания, которые ещё не взяли в работу.', who: 'Антон' },
+        { id: 'stickers', n: 7, title: 'Стикеры заказов', desc: 'Печать стикеров FBS по номерам сборочных заданий.', who: 'Антон' },
+        { id: 'pass', n: 8, title: 'Пропуск на склад', desc: 'Оформить пропуск на склад WB на 48 часов.', who: 'Антон' },
+        { id: 'chats', n: 9, title: 'Чаты с покупателями', desc: 'Открытые диалоги покупатель ↔ продавец.', who: 'Алина' },
+        { id: 'balance', n: 10, title: 'Баланс продавца', desc: 'Деньги на счёте и баланс рекламного кабинета.', who: 'Сауле' },
+    ];
+
+    function loadAgentsPage() {
+        const grid = document.getElementById('agents-grid');
+        if (!grid) return;
+        const cur = window._agentFn || 'invite';
+        grid.innerHTML = AGENT_FNS.map((f) => `<button type="button" class="agent-fn-card${f.id === cur ? ' active' : ''}" data-agent-fn="${f.id}" onclick="openAgentFn('${f.id}')">
+            <div class="agent-fn-num">${f.n < 10 ? '0' : ''}${f.n}</div>
+            <div class="agent-fn-title">${escapeHtml(f.title)}</div>
+            <div class="agent-fn-desc">${escapeHtml(f.desc)}</div>
+            <div class="agent-fn-who">${escapeHtml(f.who)}</div>
+        </button>`).join('');
+        openAgentFn(cur);
+    }
+    window.loadAgentsPage = loadAgentsPage;
+
+    function openAgentFn(id) {
+        window._agentFn = id;
+        document.querySelectorAll('.agent-fn-card').forEach((el) => {
+            el.classList.toggle('active', el.getAttribute('data-agent-fn') === id);
+        });
+        const fn = AGENT_FNS.find((f) => f.id === id);
+        const panel = document.getElementById('agents-panel');
+        if (!panel || !fn) return;
+        const render = {
+            invite: renderAgentInvite,
+            team: renderAgentTeam,
+            prices: renderAgentPrices,
+            reviews: renderAgentReviews,
+            questions: renderAgentQuestions,
+            fbs: renderAgentFbs,
+            stickers: renderAgentStickers,
+            pass: renderAgentPass,
+            chats: renderAgentChats,
+            balance: renderAgentBalance,
+        }[id];
+        if (render) render(panel, fn);
+    }
+    window.openAgentFn = openAgentFn;
+
+    function agentPanelHead(fn, extra) {
+        return `<div class="mb-4">
+            <div class="text-xs font-bold mb-1" style="color:var(--accent)">${fn.n < 10 ? '0' : ''}${fn.n} · ${escapeHtml(fn.who)}</div>
+            <h3 class="font-semibold" style="color:var(--text-primary)">${escapeHtml(fn.title)}</h3>
+            <p class="text-xs mt-1" style="color:var(--text-muted)">${escapeHtml(fn.desc)}${extra || ''}</p>
+        </div>`;
+    }
+    function agentNeedCabinet(panel, fn) {
+        if (hasUserCabinets && currentCabinetId) return false;
+        panel.innerHTML = agentPanelHead(fn) + `<div class="text-sm" style="color:var(--text-muted)">Выберите кабинет с токеном WB — без него API не вызовем.</div>`;
+        return true;
+    }
+    function agentBusy(panel, fn, text) {
+        panel.innerHTML = agentPanelHead(fn) + `<div class="text-sm" style="color:var(--text-muted)">${text || 'Загрузка…'}</div>`;
+    }
+    async function copyAgentText(text) {
+        try { await navigator.clipboard.writeText(text); showPremiumModal('success', 'Скопировано', text); }
+        catch { showPremiumModal('success', 'Ссылка', text); }
+    }
+    window.copyAgentText = copyAgentText;
+
+    function renderAgentInvite(panel, fn) {
+        if (agentNeedCabinet(panel, fn)) return;
+        panel.innerHTML = agentPanelHead(fn, ' Ссылка живёт ограниченное время — отправьте сотруднику в Telegram.') + `
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+                <label class="text-xs" style="color:var(--text-muted)">Телефон
+                    <input id="agent-invite-phone" class="ui-input mt-1" placeholder="996700123456 или 7900…">
+                </label>
+                <label class="text-xs" style="color:var(--text-muted)">Должность
+                    <input id="agent-invite-pos" class="ui-input mt-1" placeholder="Менеджер" value="Сотрудник">
+                </label>
+                <label class="text-xs" style="color:var(--text-muted)">Права
+                    <select id="agent-invite-preset" class="ui-select mt-1">
+                        <option value="standard">Стандарт WB</option>
+                        <option value="manager">Менеджер (без финансов)</option>
+                        <option value="readonly">Только просмотр</option>
+                    </select>
+                </label>
+            </div>
+            <button type="button" class="ui-btn ui-btn-primary" onclick="submitAgentInvite()">Сгенерировать ссылку</button>
+            <div id="agent-invite-out" class="mt-4 text-sm" style="color:var(--text-muted)"></div>`;
+    }
+    async function submitAgentInvite() {
+        const phone = document.getElementById('agent-invite-phone')?.value.trim();
+        const position = document.getElementById('agent-invite-pos')?.value.trim() || 'Сотрудник';
+        const preset = document.getElementById('agent-invite-preset')?.value || 'standard';
+        const out = document.getElementById('agent-invite-out');
+        if (!phone) { showPremiumModal('warning', 'Телефон', 'Укажите номер сотрудника.'); return; }
+        if (out) out.textContent = 'Создаём приглашение в WB…';
+        const data = await callWbProxy('users_invite', { phone, position, preset }, currentCabinetId);
+        if (!out) return;
+        if (!data || !data.inviteUrl) {
+            out.innerHTML = `<span style="color:var(--red)">${escapeHtml(data?.error || 'WB не вернул ссылку. Проверьте, что у токена включена категория «Пользователи».')}</span>`;
+            return;
+        }
+        out.innerHTML = `<div class="mb-2">Готово для ${escapeHtml(data.countryName || '')} ${escapeHtml(data.phone || phone)}</div>
+            <div class="agent-result-url mb-3">${escapeHtml(data.inviteUrl)}</div>
+            <button type="button" class="ui-btn ui-btn-secondary text-sm" onclick="copyAgentText(${JSON.stringify(data.inviteUrl)})">Скопировать ссылку</button>`;
+    }
+    window.submitAgentInvite = submitAgentInvite;
+
+    async function renderAgentTeam(panel, fn) {
+        if (agentNeedCabinet(panel, fn)) return;
+        agentBusy(panel, fn, 'Загружаем пользователей кабинета…');
+        const [active, invited] = await Promise.all([
+            callWbProxy('users_list', { inviteOnly: false }, currentCabinetId),
+            callWbProxy('users_list', { inviteOnly: true }, currentCabinetId),
+        ]);
+        const users = Array.isArray(active?.users) ? active.users : (Array.isArray(active) ? active : []);
+        const pending = Array.isArray(invited?.users) ? invited.users : [];
+        const row = (u, pendingFlag) => {
+            const id = u.id || u.userId || '';
+            const name = [u.firstName, u.secondName || u.lastName].filter(Boolean).join(' ') || u.name || 'без имени';
+            const phone = u.phone || u.phoneNumber || u.inviteeInfo?.phoneNumber || '';
+            const role = u.position || u.role || u.inviteeInfo?.position || '';
+            return `<tr>
+                <td style="color:var(--text-primary)">${escapeHtml(name)}</td>
+                <td>${escapeHtml(String(phone))}</td>
+                <td>${escapeHtml(String(role))}${pendingFlag ? ' · ожидает' : ''}</td>
+                <td>${u.isOwner ? 'владелец' : `<button type="button" class="adv-camp-action-btn" onclick="deleteAgentUser(${Number(id)})">Удалить</button>`}</td>
+            </tr>`;
+        };
+        panel.innerHTML = agentPanelHead(fn) + `
+            <div class="overflow-x-auto"><table class="data-table text-sm">
+                <thead><tr><th>Имя</th><th>Телефон</th><th>Роль</th><th></th></tr></thead>
+                <tbody>${[...users.map((u) => row(u, false)), ...pending.map((u) => row(u, true))].join('') || '<tr><td colspan="4">Пусто или нет прав «Пользователи» у токена.</td></tr>'}</tbody>
+            </table></div>`;
+    }
+    async function deleteAgentUser(userId) {
+        if (!userId) return;
+        const data = await callWbProxy('users_delete', { userId }, currentCabinetId);
+        if (!data) return;
+        showPremiumModal('success', 'Пользователь удалён', 'Доступ к кабинету WB снят.');
+        openAgentFn('team');
+    }
+    window.deleteAgentUser = deleteAgentUser;
+
+    async function renderAgentPrices(panel, fn) {
+        if (agentNeedCabinet(panel, fn)) return;
+        agentBusy(panel, fn, 'Читаем цены…');
+        const data = await callWbProxy('prices_list', { limit: 40 }, currentCabinetId);
+        const goods = data?.data?.listGoods || data?.listGoods || [];
+        const rows = goods.slice(0, 40).map((g) => {
+            const sz = (g.sizes && g.sizes[0]) || {};
+            const price = sz.price ?? g.price ?? '';
+            const disc = sz.discount ?? g.discount ?? 0;
+            return `<tr>
+                <td style="color:var(--text-primary)">${escapeHtml(String(g.nmID || g.nmId || ''))}<div class="text-xs" style="color:var(--text-muted)">${escapeHtml(g.vendorCode || g.brand || '')}</div></td>
+                <td>${escapeHtml(String(price))} ₽ · −${escapeHtml(String(disc))}%</td>
+                <td><input id="agent-price-${g.nmID}" type="number" class="ui-input" style="width:110px" placeholder="новая цена"></td>
+                <td><input id="agent-disc-${g.nmID}" type="number" class="ui-input" style="width:80px" placeholder="скидка %" value="${escapeHtml(String(disc || ''))}"></td>
+                <td><button type="button" class="adv-camp-action-btn" onclick="submitAgentPrice(${Number(g.nmID)})">Поставить</button></td>
+            </tr>`;
+        }).join('');
+        panel.innerHTML = agentPanelHead(fn, ' Категория токена: «Цены и скидки».') + `
+            <div class="overflow-x-auto"><table class="data-table text-sm">
+                <thead><tr><th>Артикул</th><th>Сейчас</th><th>Новая цена, ₽</th><th>Скидка %</th><th></th></tr></thead>
+                <tbody>${rows || '<tr><td colspan="5">Нет товаров или нет прав на цены.</td></tr>'}</tbody>
+            </table></div>`;
+    }
+    async function submitAgentPrice(nmID) {
+        const price = Number(document.getElementById('agent-price-' + nmID)?.value || 0);
+        const discount = document.getElementById('agent-disc-' + nmID)?.value;
+        if (!price) { showPremiumModal('warning', 'Цена', 'Укажите новую цену в рублях.'); return; }
+        const data = await callWbProxy('prices_set', { nmID, price, discount: discount === '' ? undefined : Number(discount) }, currentCabinetId);
+        if (!data) return;
+        showPremiumModal('success', 'Цена отправлена', 'WB применит задачу в течение нескольких минут.');
+    }
+    window.submitAgentPrice = submitAgentPrice;
+
+    async function renderAgentReviews(panel, fn) {
+        if (agentNeedCabinet(panel, fn)) return;
+        agentBusy(panel, fn, 'Загружаем отзывы…');
+        const data = await callWbProxy('feedbacks_list', { isAnswered: false, take: 20 }, currentCabinetId);
+        const list = data?.data?.feedbacks || data?.feedbacks || [];
+        const rows = list.map((f) => {
+            const id = f.id || f.feedbackId;
+            const text = f.text || f.feedbackText || '';
+            const product = f.productDetails?.nmName || f.productName || f.nmId || '';
+            const stars = f.productValuation ?? f.valuation ?? '';
+            return `<div class="mb-4 pb-4" style="border-bottom:1px solid var(--border)">
+                <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(String(stars))}★ · ${escapeHtml(String(product))}</div>
+                <div class="text-sm mt-1" style="color:var(--text-secondary)">${escapeHtml(String(text).slice(0, 400))}</div>
+                <textarea id="agent-rev-${id}" class="ui-input mt-2" rows="2" placeholder="Ответ покупателю"></textarea>
+                <button type="button" class="adv-camp-action-btn mt-2" onclick="submitAgentReview('${escapeHtml(String(id))}')">Ответить</button>
+            </div>`;
+        }).join('');
+        panel.innerHTML = agentPanelHead(fn, ' Категория токена: «Отзывы и вопросы».') + (rows || '<div class="text-sm" style="color:var(--text-muted)">Неотвеченных отзывов нет — или нет прав на отзывы.</div>');
+    }
+    async function submitAgentReview(id) {
+        const text = document.getElementById('agent-rev-' + id)?.value.trim();
+        if (!text) { showPremiumModal('warning', 'Текст', 'Напишите ответ.'); return; }
+        const data = await callWbProxy('feedbacks_answer', { id, text }, currentCabinetId);
+        if (!data) return;
+        showPremiumModal('success', 'Ответ отправлен', 'Покупатель увидит его в отзыве.');
+        openAgentFn('reviews');
+    }
+    window.submitAgentReview = submitAgentReview;
+
+    async function renderAgentQuestions(panel, fn) {
+        if (agentNeedCabinet(panel, fn)) return;
+        agentBusy(panel, fn, 'Загружаем вопросы…');
+        const data = await callWbProxy('questions_list', { isAnswered: false, take: 20 }, currentCabinetId);
+        const list = data?.data?.questions || data?.questions || [];
+        const rows = list.map((q) => {
+            const id = q.id || q.questionId;
+            const text = q.text || q.questionText || '';
+            const product = q.productDetails?.nmName || q.productName || '';
+            return `<div class="mb-4 pb-4" style="border-bottom:1px solid var(--border)">
+                <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(String(product || 'Вопрос'))}</div>
+                <div class="text-sm mt-1" style="color:var(--text-secondary)">${escapeHtml(String(text).slice(0, 400))}</div>
+                <textarea id="agent-q-${id}" class="ui-input mt-2" rows="2" placeholder="Ответ"></textarea>
+                <button type="button" class="adv-camp-action-btn mt-2" onclick="submitAgentQuestion('${escapeHtml(String(id))}')">Ответить</button>
+            </div>`;
+        }).join('');
+        panel.innerHTML = agentPanelHead(fn) + (rows || '<div class="text-sm" style="color:var(--text-muted)">Открытых вопросов нет.</div>');
+    }
+    async function submitAgentQuestion(id) {
+        const text = document.getElementById('agent-q-' + id)?.value.trim();
+        if (!text) { showPremiumModal('warning', 'Текст', 'Напишите ответ.'); return; }
+        const data = await callWbProxy('questions_answer', { id, text }, currentCabinetId);
+        if (!data) return;
+        showPremiumModal('success', 'Ответ отправлен', 'Вопрос закрыт.');
+        openAgentFn('questions');
+    }
+    window.submitAgentQuestion = submitAgentQuestion;
+
+    async function renderAgentFbs(panel, fn) {
+        if (agentNeedCabinet(panel, fn)) return;
+        agentBusy(panel, fn, 'Ищем новые сборочные задания…');
+        const data = await callWbProxy('orders_fbs_new', {}, currentCabinetId);
+        const orders = data?.orders || data?.data?.orders || [];
+        const rows = orders.slice(0, 50).map((o) => `<tr>
+            <td style="color:var(--text-primary)">${escapeHtml(String(o.id || o.orderId || ''))}</td>
+            <td>${escapeHtml(String(o.article || o.skus?.[0] || o.nmId || ''))}</td>
+            <td>${escapeHtml(String(o.warehouseId || o.officeId || ''))}</td>
+            <td>${escapeHtml(String(o.createdAt || o.dateCreated || '').slice(0, 19).replace('T', ' '))}</td>
+        </tr>`).join('');
+        panel.innerHTML = agentPanelHead(fn) + `
+            <div class="text-xs mb-2" style="color:var(--text-muted)">Всего новых: ${orders.length}</div>
+            <div class="overflow-x-auto"><table class="data-table text-sm">
+                <thead><tr><th>Заказ</th><th>Артикул</th><th>Склад</th><th>Создан</th></tr></thead>
+                <tbody>${rows || '<tr><td colspan="4">Новых сборочных нет.</td></tr>'}</tbody>
+            </table></div>`;
+        window._agentFbsIds = orders.map((o) => o.id || o.orderId).filter(Boolean);
+    }
+
+    function renderAgentStickers(panel, fn) {
+        if (agentNeedCabinet(panel, fn)) return;
+        const preset = (window._agentFbsIds || []).slice(0, 20).join(', ');
+        panel.innerHTML = agentPanelHead(fn, ' Номера через запятую — те же id, что в новых FBS-заказах.') + `
+            <label class="text-xs" style="color:var(--text-muted)">ID заказов
+                <textarea id="agent-sticker-ids" class="ui-input mt-1" rows="3" placeholder="123456789, 123456790">${escapeHtml(preset)}</textarea>
+            </label>
+            <button type="button" class="ui-btn ui-btn-primary mt-3" onclick="submitAgentStickers()">Скачать стикеры</button>
+            <div id="agent-sticker-out" class="mt-4"></div>`;
+    }
+    async function submitAgentStickers() {
+        const raw = document.getElementById('agent-sticker-ids')?.value || '';
+        const orderIds = raw.split(/[,\s]+/).map((x) => Number(x)).filter(Boolean);
+        const out = document.getElementById('agent-sticker-out');
+        if (!orderIds.length) { showPremiumModal('warning', 'Заказы', 'Укажите хотя бы один ID.'); return; }
+        if (out) out.textContent = 'Печатаем стикеры…';
+        const data = await callWbProxy('stickers', { orderIds }, currentCabinetId);
+        if (!out) return;
+        const stickers = data?.stickers || data?.data?.stickers || [];
+        if (!stickers.length) {
+            out.innerHTML = `<span style="color:var(--red)">WB не вернул стикеры. Проверьте ID и категорию «Маркетплейс».</span>`;
+            return;
+        }
+        out.innerHTML = stickers.map((s, i) => {
+            const file = s.file || s.sticker || s.barcode;
+            const src = file && String(file).startsWith('http') ? file : (file ? `data:image/png;base64,${file}` : '');
+            return src ? `<img alt="sticker ${i + 1}" src="${src}" style="height:80px;margin:6px;background:#fff;border-radius:8px">` : '';
+        }).join('') || 'Готово, но картинки в ответе нет.';
+    }
+    window.submitAgentStickers = submitAgentStickers;
+
+    async function renderAgentPass(panel, fn) {
+        if (agentNeedCabinet(panel, fn)) return;
+        agentBusy(panel, fn, 'Склады и действующие пропуска…');
+        const [officesRes, passesRes] = await Promise.all([
+            callWbProxy('passes_offices', {}, currentCabinetId),
+            callWbProxy('passes_list', {}, currentCabinetId),
+        ]);
+        const offices = officesRes?.offices || officesRes?.data || (Array.isArray(officesRes) ? officesRes : []);
+        const passes = passesRes?.passes || passesRes?.data || (Array.isArray(passesRes) ? passesRes : []);
+        const opts = (Array.isArray(offices) ? offices : []).map((o) => {
+            const id = o.id || o.officeId;
+            const name = o.name || o.officeName || id;
+            return `<option value="${escapeHtml(String(id))}">${escapeHtml(String(name))}</option>`;
+        }).join('');
+        const list = (Array.isArray(passes) ? passes : []).slice(0, 15).map((p) =>
+            `<div class="text-sm py-1" style="color:var(--text-secondary)">${escapeHtml([p.firstName, p.lastName, p.carNumber, p.officeName || p.officeId].filter(Boolean).join(' · '))}</div>`
+        ).join('');
+        panel.innerHTML = agentPanelHead(fn, ' Пропуск действует 48 часов.') + `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <label class="text-xs" style="color:var(--text-muted)">Имя<input id="agent-pass-fn" class="ui-input mt-1"></label>
+                <label class="text-xs" style="color:var(--text-muted)">Фамилия<input id="agent-pass-ln" class="ui-input mt-1"></label>
+                <label class="text-xs" style="color:var(--text-muted)">Марка авто<input id="agent-pass-car" class="ui-input mt-1" placeholder="Toyota"></label>
+                <label class="text-xs" style="color:var(--text-muted)">Номер авто<input id="agent-pass-num" class="ui-input mt-1" placeholder="01KG123ABC"></label>
+                <label class="text-xs md:col-span-2" style="color:var(--text-muted)">Склад
+                    <select id="agent-pass-office" class="ui-select mt-1">${opts || '<option value="">нет складов</option>'}</select>
+                </label>
+            </div>
+            <button type="button" class="ui-btn ui-btn-primary" onclick="submitAgentPass()">Оформить пропуск</button>
+            <div class="mt-4"><div class="text-xs font-semibold mb-1" style="color:var(--text-muted)">Уже оформлены</div>${list || '—'}</div>`;
+    }
+    async function submitAgentPass() {
+        const firstName = document.getElementById('agent-pass-fn')?.value.trim();
+        const lastName = document.getElementById('agent-pass-ln')?.value.trim();
+        const carModel = document.getElementById('agent-pass-car')?.value.trim();
+        const carNumber = document.getElementById('agent-pass-num')?.value.trim();
+        const officeId = Number(document.getElementById('agent-pass-office')?.value || 0);
+        if (!firstName || !lastName || !officeId) {
+            showPremiumModal('warning', 'Форма', 'Имя, фамилия и склад обязательны.');
+            return;
+        }
+        const data = await callWbProxy('passes_create', { firstName, lastName, carModel, carNumber, officeId }, currentCabinetId);
+        if (!data) return;
+        showPremiumModal('success', 'Пропуск создан', 'Действует 48 часов. Покажите QR/данные на въезде.');
+        openAgentFn('pass');
+    }
+    window.submitAgentPass = submitAgentPass;
+
+    async function renderAgentChats(panel, fn) {
+        if (agentNeedCabinet(panel, fn)) return;
+        agentBusy(panel, fn, 'Открываем чаты…');
+        const data = await callWbProxy('buyer_chats', {}, currentCabinetId);
+        const chats = data?.chats || data?.data || (Array.isArray(data) ? data : []);
+        const rows = (Array.isArray(chats) ? chats : []).slice(0, 40).map((c) => `<tr>
+            <td style="color:var(--text-primary)">${escapeHtml(String(c.clientName || c.buyerName || c.chatId || 'покупатель'))}</td>
+            <td>${escapeHtml(String(c.lastMessage || c.message || c.preview || '').slice(0, 120))}</td>
+            <td>${escapeHtml(String(c.nmId || c.nmID || c.article || ''))}</td>
+        </tr>`).join('');
+        panel.innerHTML = agentPanelHead(fn, ' Категория токена: «Чат с покупателями».') + `
+            <div class="overflow-x-auto"><table class="data-table text-sm">
+                <thead><tr><th>Покупатель</th><th>Последнее</th><th>Артикул</th></tr></thead>
+                <tbody>${rows || '<tr><td colspan="3">Открытых чатов нет.</td></tr>'}</tbody>
+            </table></div>`;
+    }
+
+    async function renderAgentBalance(panel, fn) {
+        if (agentNeedCabinet(panel, fn)) return;
+        agentBusy(panel, fn, 'Считаем балансы…');
+        const data = await callWbProxy('seller_balance', {}, currentCabinetId);
+        const fin = data?.finance || {};
+        const adv = data?.advertising || {};
+        const money = (v) => v == null || v.error ? '—' : (Number(v).toLocaleString('ru-RU') + ' ₽');
+        const fBal = fin.current || fin.balance || fin.total || fin;
+        const aBal = adv.balance ?? adv.current;
+        panel.innerHTML = agentPanelHead(fn) + `
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div class="adv-kpi-tile">
+                    <div class="adv-kpi-tile-label">Счёт продавца</div>
+                    <div class="adv-kpi-tile-value">${typeof fBal === 'object' ? money(fBal.current ?? fBal.balance) : money(fBal)}</div>
+                    ${fin.error ? `<div class="text-xs mt-2" style="color:var(--red)">${escapeHtml(String(fin.error))}</div>` : ''}
+                </div>
+                <div class="adv-kpi-tile">
+                    <div class="adv-kpi-tile-label">Рекламный кабинет</div>
+                    <div class="adv-kpi-tile-value">${money(aBal)}</div>
+                    ${adv.bonus ? `<div class="text-xs mt-1" style="color:var(--text-muted)">бонус ${escapeHtml(String(adv.bonus))} ₽</div>` : ''}
+                    ${adv.error ? `<div class="text-xs mt-2" style="color:var(--red)">${escapeHtml(String(adv.error))}</div>` : ''}
+                </div>
+            </div>`;
     }
 
     let allSuppliesRaw = [];
