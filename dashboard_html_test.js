@@ -128,5 +128,11 @@ assert.ok(rnpSrc.includes("from('advertising_daily_stats')") || rnpSrc.includes(
     'RNP must read advertising_daily_stats, not only rnp_daily_data');
 assert.ok(rnpSrc.includes('_hydrateFunnelAfterPaint'), 'organic impressions must hydrate after first paint');
 assert.ok(rnpSrc.includes('показы РК'), 'toolbar must show live ad impressions so empty cells are not silent');
+assert.ok(rnpSrc.includes('activateCatalog: true'), 'catalog sync must turn WB cards on in every cabinet, not only new ones');
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
+        .includes('.update({ is_active: true })'),
+    'auto-sync must activate catalog cards already sitting inactive in rnp_articles'
+);
 
 console.log('dashboard_html_test: ok');

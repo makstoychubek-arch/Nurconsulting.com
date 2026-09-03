@@ -1171,7 +1171,9 @@ const RNP = (() => {
      *  Добавляем как активные, ничего не удаляем. */
     async function _syncNewArticles(cabId) {
         if (!_db || _cab !== cabId) return 0;
-        const fromCards = await _syncFromContentCards({ silent: true, activateNew: true, force: true });
+        const fromCards = await _syncFromContentCards({
+            silent: true, activateNew: true, activateCatalog: true, force: true,
+        });
         if (_cab !== cabId) return 0;
         const fromOrders = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
         const added = (fromCards.added || 0) + (fromOrders.added || 0);
@@ -1186,7 +1188,7 @@ const RNP = (() => {
     }
 
     async function _syncFromContentCards(opts = {}) {
-        const { silent = false, activateNew = false, force = false } = opts;
+        const { silent = false, activateNew = false, activateCatalog = false, force = false } = opts;
         if (!_callProxy || !_cab) return { ok: false, added: 0 };
         const cab = _cab;
         try {
@@ -1215,7 +1217,7 @@ const RNP = (() => {
                 toUpsert.push({
                     cabinet_id: cab, nm_id: nmId, name: displayName,
                     photo_url: existing?.photo_url || '',
-                    is_active: activateNew || !!existing?.is_active,
+                    is_active: activateCatalog || activateNew || !!existing?.is_active,
                     cost_price: existing?.cost_price || 0,
                     manual_data: md,
                 });
@@ -1253,7 +1255,9 @@ const RNP = (() => {
 
         if (!_articles.length) {
             console.info('[RNP] bootstrapping new cabinet', _cab);
-            const fromCards = await _syncFromContentCards({ silent: true, activateNew: true, force: true });
+            const fromCards = await _syncFromContentCards({
+                silent: true, activateNew: true, activateCatalog: true, force: true,
+            });
             const fromOrders = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
             const ok = !!(fromCards.ok || fromOrders.ok);
             if (_articles.length && !_articles.some(a => a.is_active)) {
@@ -1272,6 +1276,21 @@ const RNP = (() => {
             await _setAllActive(true);
             try { localStorage.setItem(initKey, '1'); } catch (e) {}
             console.info('[RNP] activated', _articles.length, 'articles for new cabinet', _cab);
+        }
+        // Кабинет уже с артикулами: всё равно сверить каталог WB —
+        // иначе новые карточки без заказов и выключенные из старого синка
+        // не видны (Zevina 1: 5 из 170).
+        try {
+            const lastKey = `rnp_catalog_sync_${_cab}`;
+            const last = Number(localStorage.getItem(lastKey) || 0);
+            if (!last || Date.now() - last > 30 * 60 * 1000) {
+                await _syncFromContentCards({
+                    silent: true, activateNew: true, activateCatalog: true, force: true,
+                });
+                try { localStorage.setItem(lastKey, String(Date.now())); } catch (e) {}
+            }
+        } catch (e) {
+            console.warn('[RNP] catalog ensure:', e.message);
         }
     }
 
@@ -4993,7 +5012,9 @@ const RNP = (() => {
         const cab = _cab;
         let added = 0;
         try {
-            const fromCards = await _syncFromContentCards({ silent: true, activateNew: true, force: true });
+            const fromCards = await _syncFromContentCards({
+                silent: true, activateNew: true, activateCatalog: true, force: true,
+            });
             const fromOrders = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
             added = (fromCards.added || 0) + (fromOrders.added || 0);
             if (_cab === cab) await _loadArticles(cab);
@@ -5078,7 +5099,9 @@ const RNP = (() => {
 
     async function resyncArticles() {
         const cab = _cab;
-        const fromCards = await _syncFromContentCards({ silent: true, activateNew: true, force: true });
+        const fromCards = await _syncFromContentCards({
+            silent: true, activateNew: true, activateCatalog: true, force: true,
+        });
         if (_cab !== cab) return;
         const fromOrders = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
         if (_cab !== cab || !((fromCards.added || 0) + (fromOrders.added || 0))) return;
