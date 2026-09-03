@@ -6,9 +6,12 @@
 // Источник: ежедневный отчёт реализации WB (period=daily),
 // иначе последний закрытый weekly. reportId daily — строка (BigInt).
 //
-// Тело: { "date", "force", "cabinets": ["Имя"],
-//         "periodFrom", "periodTo", "rows": [{reason, amount}] }
-// `rows` — готовые строки (локальный fetch WB), без detailed/{reportId} в worker.
+// Тело: { "date", "force", "test", "cabinets": ["Имя"],
+//         "periodFrom", "periodTo", "rows": [{reason, amount}],
+//         "cabinetRows": { "Baza": [{reason, amount}] },
+//         "purgeIds": [123] }
+// `test: true` — отправить и сразу удалить (не оставляем мусор в группе).
+// `rows` / `cabinetRows` — готовые строки, без detailed/{reportId} в worker.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCanvas } from 'https://deno.land/x/canvas@v1.4.2/mod.ts';
@@ -45,6 +48,19 @@ Deno.serve(async (req) => {
         return json({ error: 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_PENALTIES (или TELEGRAM_GROUP_CHAT_ID) не заданы' }, 400);
     }
 
+    const isTest = body?.test === true;
+    const purgeIds = Array.isArray(body?.purgeIds)
+        ? (body.purgeIds as unknown[]).map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0)
+        : [];
+    if (purgeIds.length) {
+        const purged: number[] = [];
+        for (const id of purgeIds) {
+            const err = await deleteTelegramMessage(tgToken, tgChatId, id);
+            if (!err) purged.push(id);
+        }
+        return json({ ok: true, purged, ms: Date.now() - started });
+    }
+
     const reportDate = typeof body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date)
         ? body.date
         : yesterdayBishkek();
@@ -73,48 +89,71 @@ Deno.serve(async (req) => {
                     continue;
                 }
 
-                const presetRows = Array.isArray(body?.rows) ? body.rows as Array<Record<string, unknown>> : null;
+                const cabRowsMap = (body?.cabinetRows && typeof body.cabinetRows === 'object')
+                    ? body.cabinetRows as Record<string, unknown>
+                    : null;
+                const cabPreset = cabRowsMap ? cabRowsMap[cabinet.name] : undefined;
+                const presetObj = cabPreset && typeof cabPreset === 'object' && !Array.isArray(cabPreset)
+                    ? cabPreset as Record<string, unknown>
+                    : null;
+                const presetRows = Array.isArray(cabPreset)
+                    ? cabPreset as Array<Record<string, unknown>>
+                    : Array.isArray(presetObj?.rows)
+                        ? presetObj.rows as Array<Record<string, unknown>>
+                        : (!cabRowsMap && Array.isArray(body?.rows))
+                            ? body.rows as Array<Record<string, unknown>>
+                            : null;
                 const bundle = presetRows
                     ? {
                         rows: presetRows
                             .map((r) => ({ reason: String(r.reason || 'Удержание'), amount: Number(r.amount) || 0 }))
                             .filter((r) => r.amount > 0),
-                        periodFrom: typeof body?.periodFrom === 'string' ? body.periodFrom : reportDate,
-                        periodTo: typeof body?.periodTo === 'string' ? body.periodTo : reportDate,
-                        weekOpen: Boolean(body?.weekOpen),
+                        periodFrom: typeof (presetObj?.periodFrom ?? body?.periodFrom) === 'string'
+                            ? String(presetObj?.periodFrom ?? body?.periodFrom)
+                            : reportDate,
+                        periodTo: typeof (presetObj?.periodTo ?? body?.periodTo) === 'string'
+                            ? String(presetObj?.periodTo ?? body?.periodTo)
+                            : reportDate,
+                        weekOpen: Boolean(presetObj?.weekOpen ?? body?.weekOpen),
                         reportId: null,
                         source: 'daily' as const,
-                        prevDate: typeof body?.prevDate === 'string' ? body.prevDate : undefined,
-                        prevTotal: Number(body?.prevTotal) || 0,
-                        prevItems: body?.prevItems == null ? null : Number(body.prevItems),
+                        prevDate: typeof (presetObj?.prevDate ?? body?.prevDate) === 'string'
+                            ? String(presetObj?.prevDate ?? body?.prevDate)
+                            : undefined,
+                        prevTotal: Number(presetObj?.prevTotal ?? body?.prevTotal) || 0,
+                        prevItems: (presetObj?.prevItems ?? body?.prevItems) == null
+                            ? null
+                            : Number(presetObj?.prevItems ?? body?.prevItems),
                     }
                     : await fetchWeeklyPenaltyBundle(token, reportDate);
                 const rows = bundle.rows;
                 const periodKey = `${bundle.periodFrom}_${bundle.periodTo}`;
                 const eventType = `daily_penalties_${reportDate}`;
-                const { data: dupes } = await admin
-                    .from('notification_log')
-                    .select('id')
-                    .eq('cabinet_id', cabinet.id)
-                    .eq('event_type', eventType)
-                    .limit(1);
-                if (dupes?.length && !body?.force) {
-                    cabResult.skipped = bundle.weekOpen ? 'week_not_closed' : 'already_sent';
-                    cabResult.period = periodKey;
-                    results.push(cabResult);
-                    continue;
-                }
-                if (bundle.weekOpen && !rows.length && !body?.force) {
-                    cabResult.skipped = 'week_not_closed';
-                    cabResult.period = periodKey;
-                    results.push(cabResult);
-                    continue;
-                }
-                if (!rows.length && !body?.force) {
-                    cabResult.skipped = 'no_penalties';
-                    cabResult.period = periodKey;
-                    results.push(cabResult);
-                    continue;
+                if (!isTest) {
+                    const { data: dupes } = await admin
+                        .from('notification_log')
+                        .select('id')
+                        .eq('cabinet_id', cabinet.id)
+                        .eq('event_type', eventType)
+                        .limit(1);
+                    if (dupes?.length && !body?.force) {
+                        cabResult.skipped = bundle.weekOpen ? 'week_not_closed' : 'already_sent';
+                        cabResult.period = periodKey;
+                        results.push(cabResult);
+                        continue;
+                    }
+                    if (bundle.weekOpen && !rows.length && !body?.force) {
+                        cabResult.skipped = 'week_not_closed';
+                        cabResult.period = periodKey;
+                        results.push(cabResult);
+                        continue;
+                    }
+                    if (!rows.length && !body?.force) {
+                        cabResult.skipped = 'no_penalties';
+                        cabResult.period = periodKey;
+                        results.push(cabResult);
+                        continue;
+                    }
                 }
 
                 const caption = formatPenaltyCaption({
@@ -134,11 +173,13 @@ Deno.serve(async (req) => {
                 cabResult.period = periodKey;
                 cabResult.week_open = bundle.weekOpen;
                 let sent = false;
+                const sentIds: number[] = [];
 
                 if (!rows.length) {
-                    const tgErr = await sendTelegramMessage(tgToken, tgChatId, caption);
-                    sent = !tgErr;
-                    if (tgErr) cabResult.telegram_error = tgErr;
+                    const tg = await sendTelegramMessage(tgToken, tgChatId, caption);
+                    sent = !tg.error;
+                    if (tg.error) cabResult.telegram_error = tg.error;
+                    if (tg.messageId) sentIds.push(tg.messageId);
                     cabResult.empty = true;
                 } else {
                     const ROWS_PER_PAGE = 35;
@@ -155,26 +196,39 @@ Deno.serve(async (req) => {
                             pages[pi],
                             { pageNum: pi + 1, pageCount: pages.length, totalsRows: pi === pages.length - 1 ? rows : null },
                         );
-                        let tgErr = await sendTelegramPhoto(tgToken, tgChatId, png, pi === 0 ? caption : '');
-                        if (tgErr) {
+                        let tg = await sendTelegramPhoto(tgToken, tgChatId, png, pi === 0 ? caption : '');
+                        if (tg.error) {
                             await sleep(2000);
-                            tgErr = await sendTelegramPhoto(tgToken, tgChatId, png, pi === 0 ? caption : '');
+                            tg = await sendTelegramPhoto(tgToken, tgChatId, png, pi === 0 ? caption : '');
                         }
-                        if (tgErr) throw new Error(tgErr);
+                        if (tg.error) throw new Error(tg.error);
+                        if (tg.messageId) sentIds.push(tg.messageId);
                     }
                     sent = true;
                     cabResult.items = rows.length;
                 }
 
-                if (sent) {
+                if (isTest && sentIds.length) {
+                    await sleep(400);
+                    const deleted: number[] = [];
+                    for (const id of sentIds) {
+                        const delErr = await deleteTelegramMessage(tgToken, tgChatId, id);
+                        if (!delErr) deleted.push(id);
+                    }
+                    cabResult.deleted = deleted;
+                    cabResult.test = true;
+                }
+
+                if (sent && !isTest) {
                     await admin.from('notification_log').insert({
                         cabinet_id: cabinet.id,
                         campaign_id: null,
                         event_type: eventType,
-                        message_text: `penalties ${periodKey}: ${rows.length} items`,
+                        message_text: `penalties ${periodKey}: ${rows.length} items ids=${sentIds.join(',')}`,
                     });
                 }
                 cabResult.sent = sent;
+                cabResult.message_ids = sentIds;
             } catch (e) {
                 const msg = String(e);
                 if (msg.includes('403') || msg.includes('401') || msg.toLowerCase().includes('finance')) {
@@ -186,7 +240,8 @@ Deno.serve(async (req) => {
             results.push(cabResult);
             // Finance API: 1 req/min — пауза только если сами ходили в WB
             const remaining = (cabinets || []).filter((c) => !onlyCabinets || onlyCabinets.includes(c.name));
-            if (!Array.isArray(body?.rows) && cabinet !== remaining[remaining.length - 1]) await sleep(65000);
+            const usedPreset = body?.cabinetRows != null || Array.isArray(body?.rows);
+            if (!usedPreset && cabinet !== remaining[remaining.length - 1]) await sleep(65000);
         }
 
         return json({ ok: true, date: reportDate, results, ms: Date.now() - started });
@@ -338,7 +393,9 @@ function fitText(ctx: any, text: string, maxW: number): string {
     return s + '…';
 }
 
-async function sendTelegramPhoto(token: string, chatId: string, png: Uint8Array, caption: string): Promise<string | null> {
+type TgSendResult = { error: string | null; messageId: number | null };
+
+async function sendTelegramPhoto(token: string, chatId: string, png: Uint8Array, caption: string): Promise<TgSendResult> {
     try {
         const form = new FormData();
         form.append('chat_id', chatId);
@@ -348,21 +405,39 @@ async function sendTelegramPhoto(token: string, chatId: string, png: Uint8Array,
         }
         form.append('photo', new Blob([png], { type: 'image/png' }), 'penalties.png');
         const res = await fetchWithTimeout(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form }, 30000);
-        if (!res.ok) return `HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`;
-        return null;
+        const data = await res.json().catch(() => ({} as Record<string, unknown>));
+        if (!res.ok) return { error: `HTTP ${res.status}: ${JSON.stringify(data).slice(0, 200)}`, messageId: null };
+        const messageId = Number((data as { result?: { message_id?: number } })?.result?.message_id);
+        return { error: null, messageId: Number.isFinite(messageId) ? messageId : null };
     } catch (e) {
-        return String(e);
+        return { error: String(e), messageId: null };
     }
 }
 
-async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<string | null> {
+async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<TgSendResult> {
     try {
         const res = await fetchWithTimeout(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
         });
-        if (!res.ok) return `HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`;
+        const data = await res.json().catch(() => ({} as Record<string, unknown>));
+        if (!res.ok) return { error: `HTTP ${res.status}: ${JSON.stringify(data).slice(0, 200)}`, messageId: null };
+        const messageId = Number((data as { result?: { message_id?: number } })?.result?.message_id);
+        return { error: null, messageId: Number.isFinite(messageId) ? messageId : null };
+    } catch (e) {
+        return { error: String(e), messageId: null };
+    }
+}
+
+async function deleteTelegramMessage(token: string, chatId: string, messageId: number): Promise<string | null> {
+    try {
+        const res = await fetchWithTimeout(`https://api.telegram.org/bot${token}/deleteMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
+        }, 15000);
+        if (!res.ok) return `HTTP ${res.status}: ${(await res.text()).slice(0, 160)}`;
         return null;
     } catch (e) {
         return String(e);

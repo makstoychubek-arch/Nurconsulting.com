@@ -380,7 +380,18 @@ export function formatPenaltyCaption(opts: {
     ? `\nЕжедневный отчёт за ${period} ещё не готов — это последний закрытый`
     : '';
   if (!opts.rows.length) {
-    return `✅ <b>${escapeHtml(opts.cabinetName)}</b> — штрафы за ${period}${openNote}\nШтрафов и удержаний нет`;
+    const prevDate = opts.prevDate || addDaysYmd(opts.date, -1);
+    const prevTotal = opts.prevTotal ?? 0;
+    const lines = [
+      `✅ <b>${escapeHtml(opts.cabinetName)}</b> — штрафы за ${period}${openNote}`,
+      'Штрафов и удержаний нет',
+    ];
+    if (opts.prevDate != null || prevTotal > 0) {
+      lines.push(
+        `📈 К ${prettyRuDate(prevDate)}: ${somWithItems(prevTotal, opts.prevItems)} → сегодня ${somWithItems(0, 0)}`,
+      );
+    }
+    return lines.filter(Boolean).join('\n');
   }
   const total = opts.rows.reduce((s, r) => s + r.amount, 0);
   const threshold = opts.watchdogThreshold ?? 500;

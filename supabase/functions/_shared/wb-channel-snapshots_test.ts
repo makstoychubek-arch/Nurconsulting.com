@@ -103,6 +103,20 @@ Deno.test("PENALTY_DETAIL_FIELDS is a slim WB payload", () => {
   assertEquals(PENALTY_DETAIL_FIELDS.length, 6);
 });
 
+Deno.test("formatPenaltyCaption empty still compares to previous day", () => {
+  const text = formatPenaltyCaption({
+    cabinetName: "Elium",
+    date: "2026-09-02",
+    rows: [],
+    prevDate: "2026-09-01",
+    prevTotal: 3401.66,
+    prevItems: 0,
+  });
+  assert(text.includes("нет"));
+  assert(text.includes("01.09.2026"));
+  assert(text.includes("3402") || text.includes("3 402"));
+});
+
 Deno.test("formatPenaltyCaption: сторож + сравнение с прошлым днём", () => {
   const text = formatPenaltyCaption({
     cabinetName: "Zevina 1",
