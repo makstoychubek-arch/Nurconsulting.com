@@ -45,7 +45,7 @@ export const PENALTY_DETAIL_FIELDS = [
   'penalty',
   'deduction',
   'docTypeName',
-  'supplierOperName',
+  'sellerOperName',
   'bonusTypeName',
 ] as const;
 
@@ -210,7 +210,7 @@ export function aggregatePenaltyRows(raw: Record<string, unknown>[]): PenaltyLin
     const penalty = parseMoney(ffield(r, 'penalty'));
     const deduction = parseMoney(ffield(r, 'deduction'));
     const docType = String(ffield(r, 'docTypeName', 'doc_type_name') || '');
-    const operName = String(ffield(r, 'supplierOperName', 'supplier_oper_name') || '');
+    const operName = String(ffield(r, 'sellerOperName', 'supplierOperName', 'supplier_oper_name', 'seller_oper_name') || '');
     const bonusName = String(ffield(r, 'bonusTypeName', 'bonus_type_name') || '');
     const blob = `${docType} ${operName} ${bonusName}`.toLowerCase();
 

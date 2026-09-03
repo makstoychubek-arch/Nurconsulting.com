@@ -88,6 +88,7 @@ Deno.test("aggregatePenaltyRows: Штраф МП from bonusTypeName", () => {
 Deno.test("PENALTY_DETAIL_FIELDS is a slim WB payload", () => {
   assert(PENALTY_DETAIL_FIELDS.includes("penalty"));
   assert(PENALTY_DETAIL_FIELDS.includes("bonusTypeName"));
+  assert(PENALTY_DETAIL_FIELDS.includes("sellerOperName"));
   assert(PENALTY_DETAIL_FIELDS.includes("rrdId"));
   assertEquals(PENALTY_DETAIL_FIELDS.length, 6);
 });
