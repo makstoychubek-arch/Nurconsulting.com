@@ -12,7 +12,7 @@
     <title>Nur Consulting — NR Space</title>
     <script src="/nr-auth.js"></script>
     <!-- Подключение Tailwind CSS и шрифтов -->
-    <link rel="stylesheet" href="/dist/tailwind.5ef6085e9c.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.37f1760908.min.css">
 
     <style>
         :root {
@@ -76,7 +76,10 @@
         .module-title { color: var(--text-primary); font-weight: 800; font-size: 1rem; margin-bottom: 0.5rem; letter-spacing: -0.03em; }
         .module-desc { color: var(--text-muted); font-size: 0.875rem; line-height: 1.55; }
 
-        .nav-link { border-radius: 12px; font-weight: 700; color: var(--text-primary) !important; }
+        .nav-link { border-radius: 999px; font-weight: 700; color: var(--text-primary) !important; }
+        .nav-link:hover { background: var(--sel); }
+        .team-avatar-wrap { display: flex; justify-content: center; margin: 0 auto 0.75rem; }
+        .team-avatar-wrap svg { border-radius: 50%; display: block; }
         .nav-link:hover { background: var(--sel); }
 
         #mobile-menu-panel { transition: transform 0.3s ease-out; }
@@ -133,12 +136,12 @@
             <button type="button" onclick="closeMobileNav()" class="w-9 h-9 flex items-center justify-center rounded-lg border border-black/10 text-[#3E434F] text-lg active:bg-black/5">×</button>
         </div>
         <nav class="flex-1 p-4 space-y-1">
-            <button type="button" onclick="handleNavClick('#services')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-[#3E434F] text-sm font-medium active:bg-black/5 min-h-[48px]">Услуги</button>
-            <button type="button" onclick="handleNavClick('#cases')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-[#3E434F] text-sm font-medium active:bg-black/5 min-h-[48px]">Кейсы</button>
-            <button type="button" onclick="handleNavClick('#rnp-case')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-[#3E434F] text-sm font-medium active:bg-black/5 min-h-[48px]">Кейс РНП</button>
-            <button type="button" onclick="handleNavClick('#team')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-[#3E434F] text-sm font-medium active:bg-black/5 min-h-[48px]">Команда</button>
-            <button type="button" onclick="handleNavClick('#platform')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-[#3E434F] text-sm font-medium active:bg-black/5 min-h-[48px]">Платформа</button>
-            <button type="button" onclick="handleNavClick('#contacts')" class="w-full flex items-center px-4 py-3.5 rounded-xl text-left text-[#3E434F] text-sm font-medium active:bg-black/5 min-h-[48px]">Контакты</button>
+            <button type="button" onclick="handleNavClick('#services')" class="w-full flex items-center px-4 py-3.5 rounded-full text-left text-[#111] text-sm font-bold hover:bg-[#EDEDED] min-h-[48px]">Услуги</button>
+            <button type="button" onclick="handleNavClick('#cases')" class="w-full flex items-center px-4 py-3.5 rounded-full text-left text-[#111] text-sm font-bold hover:bg-[#EDEDED] min-h-[48px]">Кейсы</button>
+            <button type="button" onclick="handleNavClick('#rnp-case')" class="w-full flex items-center px-4 py-3.5 rounded-full text-left text-[#111] text-sm font-bold hover:bg-[#EDEDED] min-h-[48px]">Кейс РНП</button>
+            <button type="button" onclick="handleNavClick('#team')" class="w-full flex items-center px-4 py-3.5 rounded-full text-left text-[#111] text-sm font-bold hover:bg-[#EDEDED] min-h-[48px]">Команда</button>
+            <button type="button" onclick="handleNavClick('#platform')" class="w-full flex items-center px-4 py-3.5 rounded-full text-left text-[#111] text-sm font-bold hover:bg-[#EDEDED] min-h-[48px]">Платформа</button>
+            <button type="button" onclick="handleNavClick('#contacts')" class="w-full flex items-center px-4 py-3.5 rounded-full text-left text-[#111] text-sm font-bold hover:bg-[#EDEDED] min-h-[48px]">Контакты</button>
         </nav>
         <div class="p-4 border-t border-black/5">
             <a href="/login" class="flex items-center justify-center w-full py-3.5 rounded-xl bg-[#111] text-white text-sm font-bold min-h-[48px]">Войти в NR Space</a>
@@ -171,31 +174,18 @@
             </div>
             
             <div class="hero-el-4 lg:col-span-5 relative">
-                <div class="glass-card rounded-2xl p-4 sm:p-6 border-black/10 relative overflow-hidden">
-                    <div class="flex items-center justify-between border-b border-black/5 pb-4 mb-4">
-                        <div class="flex items-center space-x-2">
-                            <span class="w-3 h-3 rounded-full bg-black/10"></span>
-                            <span class="w-3 h-3 rounded-full bg-black/10"></span>
-                            <span class="w-3 h-3 rounded-full bg-black/10"></span>
-                            <span class="text-xs text-[#6B7682] ml-2">NR Space v1.0</span>
+                <div class="rounded-2xl p-2">
+                    <p class="text-[10px] sm:text-xs text-[#71717A] uppercase tracking-wider font-bold">Выручка клиентов</p>
+                    <p class="text-3xl sm:text-4xl font-black text-[#111] mt-2 tracking-tight">120 430 000 ₽</p>
+                    <p class="text-sm text-[#16A34A] font-bold mt-2">+48.7% за 3 мес.</p>
+                    <div class="grid grid-cols-2 gap-8 mt-8">
+                        <div>
+                            <p class="text-xs text-[#71717A] font-semibold">Заказы</p>
+                            <p class="text-xl font-extrabold text-[#111] mt-1">356 780 шт</p>
                         </div>
-                        <span class="text-xs px-2 py-1 rounded bg-[#2F9E44]/10 border border-[#2F9E44]/25 text-[#2F9E44]">Live</span>
-                    </div>
-                    <div class="space-y-4">
-                        <div class="p-4 rounded-xl bg-black/[0.02] border border-black/5">
-                            <p class="text-[10px] sm:text-xs text-[#6B7682] uppercase tracking-wider">Выручка клиентов</p>
-                            <p class="text-xl sm:text-2xl font-bold text-[#111111] mt-1">120 430 000 ₽</p>
-                            <span class="text-xs text-[#2F9E44] flex items-center mt-1">▲ +48.7% за 3 мес.</span>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="p-4 rounded-xl bg-black/[0.02] border border-black/5">
-                                <p class="text-xs text-[#6B7682]">Заказы</p>
-                                <p class="text-base sm:text-lg font-semibold text-[#111111] mt-1">356 780 шт</p>
-                            </div>
-                            <div class="p-4 rounded-xl bg-black/[0.02] border border-black/5">
-                                <p class="text-xs text-[#6B7682]">Индекс локализации</p>
-                                <p class="text-base sm:text-lg font-semibold text-[#111111] mt-1">94%</p>
-                            </div>
+                        <div>
+                            <p class="text-xs text-[#71717A] font-semibold">Индекс локализации</p>
+                            <p class="text-xl font-extrabold text-[#111] mt-1">94%</p>
                         </div>
                     </div>
                 </div>
@@ -231,21 +221,21 @@
             <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-[#111111] tracking-tight">Полное управление процессами</h2>
         </div>
         
-        <div class="reveal-stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
-            <div class="glass-card p-8 rounded-2xl space-y-4">
-                <div class="w-12 h-12 rounded-xl bg-[#111111]/8 border border-[#111111]/25 flex items-center justify-center text-[#111111] font-bold">01</div>
-                <h3 class="text-xl font-semibold text-[#111111]">Управление рекламой & Performance</h3>
-                <p class="text-[#3E434F] font-light text-sm leading-relaxed">Максимизация ROI, выстраивание рекламных кампаний с жестким контролем ДРР через автоматические API-стратегии.</p>
+        <div class="reveal-stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 md:gap-12">
+            <div class="space-y-3">
+                <p class="text-xs font-extrabold text-[#111] tracking-widest">01</p>
+                <h3 class="text-xl font-extrabold text-[#111111] tracking-tight">Управление рекламой & Performance</h3>
+                <p class="text-[#71717A] text-sm leading-relaxed">Максимизация ROI, выстраивание рекламных кампаний с жестким контролем ДРР через автоматические API-стратегии.</p>
             </div>
-            <div class="glass-card p-8 rounded-2xl space-y-4">
-                <div class="w-12 h-12 rounded-xl bg-[#111111]/8 border border-[#111111]/25 flex items-center justify-center text-[#111111] font-bold">02</div>
-                <h3 class="text-xl font-semibold text-[#111111]">Глубокая аналитика данных</h3>
-                <p class="text-[#3E434F] font-light text-sm leading-relaxed">Построение сквозной управленческой отчетности,ABC/XYZ анализ ассортиментной матрицы, поиск точек кратного роста.</p>
+            <div class="space-y-3">
+                <p class="text-xs font-extrabold text-[#111] tracking-widest">02</p>
+                <h3 class="text-xl font-extrabold text-[#111111] tracking-tight">Глубокая аналитика данных</h3>
+                <p class="text-[#71717A] text-sm leading-relaxed">Построение сквозной управленческой отчетности, ABC/XYZ анализ ассортиментной матрицы, поиск точек кратного роста.</p>
             </div>
-            <div class="glass-card p-8 rounded-2xl space-y-4">
-                <div class="w-12 h-12 rounded-xl bg-[#111111]/8 border border-[#111111]/25 flex items-center justify-center text-[#111111] font-bold">03</div>
-                <h3 class="text-xl font-semibold text-[#111111]">Оптимизация логистики</h3>
-                <p class="text-[#3E434F] font-light text-sm leading-relaxed">Распределение остатков по региональным складам маркетплейса для повышения индекса локализации и снижения затрат.</p>
+            <div class="space-y-3">
+                <p class="text-xs font-extrabold text-[#111] tracking-widest">03</p>
+                <h3 class="text-xl font-extrabold text-[#111111] tracking-tight">Оптимизация логистики</h3>
+                <p class="text-[#71717A] text-sm leading-relaxed">Распределение остатков по региональным складам маркетплейса для повышения индекса локализации и снижения затрат.</p>
             </div>
         </div>
     </section>
@@ -258,21 +248,21 @@
             <div class="grid lg:grid-cols-12 gap-12 items-center">
                 <div class="lg:col-span-6 space-y-6">
                     <span class="text-xs font-bold uppercase tracking-widest text-[#111111]">Главный кейс</span>
-                    <h2 class="text-3xl sm:text-4xl font-bold text-[#111111]">Вывели клиента на 120+ млн ₽ оборота за 3 месяца</h2>
+                    <h2 class="text-3xl sm:text-4xl font-black text-[#111111] tracking-tight">Вывели клиента на 120+ млн ₽ оборота за 3 месяца</h2>
                     <ul class="space-y-3 text-[#3E434F] font-light text-sm">
                         <li class="flex items-center space-x-3"><span class="text-[#2F9E44]">✓</span> <span>Провели комплексный технический аудит кабинета</span></li>
                         <li class="flex items-center space-x-3"><span class="text-[#2F9E44]">✓</span> <span>Исправили индекс локализации и распределили сток на 7 складов</span></li>
                         <li class="flex items-center space-x-3"><span class="text-[#2F9E44]">✓</span> <span>Полностью перестроили стратегию рекламного продвижения</span></li>
                     </ul>
                 </div>
-                <div class="lg:col-span-6 grid grid-cols-2 gap-4">
-                    <div class="bg-black/[0.02] p-6 rounded-2xl border border-black/5">
-                        <p class="text-xs text-[#6B7682] uppercase">Оборот в месяц</p>
-                        <p class="text-2xl sm:text-3xl font-bold text-[#111111] mt-2">120 000 000 ₽</p>
+                <div class="lg:col-span-6 grid grid-cols-2 gap-8">
+                    <div>
+                        <p class="text-xs text-[#71717A] uppercase font-bold tracking-wider">Оборот в месяц</p>
+                        <p class="text-2xl sm:text-3xl font-black text-[#111111] mt-2 tracking-tight">120 000 000 ₽</p>
                     </div>
-                    <div class="bg-[#2F9E44]/8 p-6 rounded-2xl border border-[#2F9E44]/20">
-                        <p class="text-xs text-[#2F9E44] uppercase">Чистый рост</p>
-                        <p class="text-2xl sm:text-3xl font-bold text-[#2F9E44] mt-2">+487%</p>
+                    <div>
+                        <p class="text-xs text-[#71717A] uppercase font-bold tracking-wider">Чистый рост</p>
+                        <p class="text-2xl sm:text-3xl font-black text-[#111111] mt-2 tracking-tight">+487%</p>
                     </div>
                 </div>
             </div>
@@ -287,7 +277,7 @@
             <div class="grid lg:grid-cols-12 gap-12 items-center">
                 <div class="lg:col-span-5 space-y-6">
                     <span class="text-xs font-bold uppercase tracking-widest text-[#111111]">Кейс модуля РНП</span>
-                    <h2 class="text-3xl sm:text-4xl font-bold text-[#111111]">Нашли артикулы, которые сливали рекламный бюджет</h2>
+                    <h2 class="text-3xl sm:text-4xl font-black text-[#111111] tracking-tight">Нашли артикулы, которые сливали рекламный бюджет</h2>
                     <p class="text-[#3E434F] text-sm leading-relaxed">Модуль «Рука на пульсе» ежедневно сверяет продажи, ДРР и маржу по каждому артикулу. За первую неделю подключения РНП у клиента:</p>
                     <ul class="space-y-3 text-[#3E434F] font-light text-sm">
                         <li class="flex items-center space-x-3"><span class="text-[#2F9E44]">✓</span> <span>Выявили 12 артикулов с отрицательной маржой при высоком ДРР</span></li>
@@ -357,9 +347,9 @@
         <!-- Уровень 1: ключевая команда -->
         <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-5">
             <!-- Нурболот -->
-            <div class="relative glass-card p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group">
+            <div class="relative hover-glow p-4 sm:p-5 rounded-2xl overflow-hidden group">
                 <div class="relative mb-4 mx-auto w-fit">
-                    <div class="team-avatar-wrap lg border border-black/10" data-gender="male" data-size="80"></div>
+                    <div class="team-avatar-wrap" data-gender="male" data-size="80"></div>
                     <span class="absolute -top-1 -right-1 z-10 text-[9px] font-black tracking-widest px-2 py-0.5 rounded-md bg-[#111111] text-white uppercase">FOUNDER</span>
                 </div>
                 <h4 class="text-[#111111] font-bold text-base sm:text-lg text-center">Нурболот</h4>
@@ -367,29 +357,29 @@
                 <p class="text-xs text-[#3E434F] font-light mt-3 leading-relaxed">Эксперт по развитию и масштабированию крупного бизнеса на Wildberries. Управляет внутренней архитектурой экосистемы и координирует ключевые процессы автоматизации.</p>
             </div>
             <!-- Марлен -->
-            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group">
-                <div class="team-avatar-wrap lg border border-black/10" data-gender="male" data-size="80"></div>
+            <div class="hover-glow p-4 sm:p-5 rounded-2xl overflow-hidden group">
+                <div class="team-avatar-wrap" data-gender="male" data-size="80"></div>
                 <h4 class="text-[#111111] font-bold text-base sm:text-lg text-center">Марлен</h4>
                 <p class="text-[10px] sm:text-[11px] text-[#111111] uppercase tracking-wider font-semibold mt-0.5 text-center">Логистика</p>
                 <p class="text-xs text-[#3E434F] font-light mt-3 leading-relaxed">Оптимизирует цепочки поставок, управляет отгрузками на 7+ ключевых складов и контролирует оборачиваемость стока.</p>
             </div>
             <!-- Инсия -->
-            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group">
-                <div class="team-avatar-wrap lg border border-black/10" data-gender="female" data-size="80"></div>
+            <div class="hover-glow p-4 sm:p-5 rounded-2xl overflow-hidden group">
+                <div class="team-avatar-wrap" data-gender="female" data-size="80"></div>
                 <h4 class="text-[#111111] font-bold text-base sm:text-lg text-center">Инсия</h4>
                 <p class="text-[10px] sm:text-[11px] text-[#111111] uppercase tracking-wider font-semibold mt-0.5 text-center">Аналитика данных</p>
                 <p class="text-xs text-[#3E434F] font-light mt-3 leading-relaxed">Строит управленческую отчетность, настраивает интеграции через API и находит скрытые точки потери маржинальности.</p>
             </div>
             <!-- Ольга -->
-            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group">
-                <div class="team-avatar-wrap lg border border-black/10" data-gender="female" data-size="80"></div>
+            <div class="hover-glow p-4 sm:p-5 rounded-2xl overflow-hidden group">
+                <div class="team-avatar-wrap" data-gender="female" data-size="80"></div>
                 <h4 class="text-[#111111] font-bold text-base sm:text-lg text-center">Ольга</h4>
                 <p class="text-[10px] sm:text-[11px] text-[#111111] uppercase tracking-wider font-semibold mt-0.5 text-center">UI/UX Дизайнер</p>
                 <p class="text-xs text-[#3E434F] font-light mt-3 leading-relaxed">Создает премиальный визуальный стиль брендов, проектирует высококонверсионные воронки и карточки товаров.</p>
             </div>
             <!-- Дарья -->
-            <div class="glass-card p-4 sm:p-5 rounded-2xl border border-black/5 hover-glow overflow-hidden group sm:col-span-2 lg:col-span-1 xl:col-span-1">
-                <div class="team-avatar-wrap lg border border-black/10" data-gender="female" data-size="80"></div>
+            <div class="hover-glow p-4 sm:p-5 rounded-2xl overflow-hidden group sm:col-span-2 lg:col-span-1 xl:col-span-1">
+                <div class="team-avatar-wrap" data-gender="female" data-size="80"></div>
                 <h4 class="text-[#111111] font-bold text-base sm:text-lg text-center">Дарья</h4>
                 <p class="text-[10px] sm:text-[11px] text-[#111111] uppercase tracking-wider font-semibold mt-0.5 text-center">Продвижение</p>
                 <p class="text-xs text-[#3E434F] font-light mt-3 leading-relaxed">Управляет трафиком, выстраивает performance-маркетинг стратегии и максимизирует ROI рекламных кампаний.</p>
@@ -401,20 +391,20 @@
             <p class="text-[#6B7682] text-xs uppercase tracking-widest text-center">Операционный состав</p>
         </div>
         <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div class="glass-card p-4 rounded-2xl border border-black/5 hover-glow">
-                <div class="team-avatar-wrap sm border border-black/10" data-gender="male" data-size="48"></div>
+            <div class="hover-glow p-4 rounded-2xl">
+                <div class="team-avatar-wrap" data-gender="male" data-size="48"></div>
                 <h4 class="text-[#111111] font-semibold text-sm">Данияр Асанов</h4>
                 <p class="text-[10px] text-[#111111] uppercase tracking-wider font-semibold mt-0.5">Младший аналитик</p>
                 <p class="text-xs text-[#6B7682] mt-2 leading-relaxed">Сбор первичных данных для модулей РНП, базовый аудит личных кабинетов селлеров и выгрузка отчетов.</p>
             </div>
-            <div class="glass-card p-4 rounded-2xl border border-black/5 hover-glow">
-                <div class="team-avatar-wrap sm border border-black/10" data-gender="male" data-size="48"></div>
+            <div class="hover-glow p-4 rounded-2xl">
+                <div class="team-avatar-wrap" data-gender="male" data-size="48"></div>
                 <h4 class="text-[#111111] font-semibold text-sm">Амир Исаев</h4>
                 <p class="text-[10px] text-[#111111] uppercase tracking-wider font-semibold mt-0.5">Ассистент по логистике</p>
                 <p class="text-xs text-[#6B7682] mt-2 leading-relaxed">Мониторинг текущего индекса локализации, отслеживание тарифов складов и пакетная генерация штрихкодов.</p>
             </div>
-            <div class="glass-card p-4 rounded-2xl border border-black/5 hover-glow">
-                <div class="team-avatar-wrap sm border border-black/10" data-gender="female" data-size="48"></div>
+            <div class="hover-glow p-4 rounded-2xl">
+                <div class="team-avatar-wrap" data-gender="female" data-size="48"></div>
                 <h4 class="text-[#111111] font-semibold text-sm">Алина Волкова</h4>
                 <p class="text-[10px] text-[#111111] uppercase tracking-wider font-semibold mt-0.5">Младший SEO-специалист</p>
                 <p class="text-xs text-[#6B7682] mt-2 leading-relaxed">Ежедневный трекинг позиций артикулов в поисковой выдаче Wildberries и сбор ключевых запросов.</p>
@@ -429,7 +419,7 @@
         <div class="max-w-6xl mx-auto">
             <div class="text-center mb-12 md:mb-16">
                 <span class="text-[#111111] text-[10px] sm:text-xs font-semibold tracking-[0.2em] uppercase mb-3 block">Экосистема NR Space</span>
-                <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#111111] mb-4 tracking-tight">Все модули платформы</h2>
+                <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-[#111111] mb-4 tracking-tight">Все модули платформы</h2>
                 <p class="text-[#3E434F] text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed">Один инструмент — полный контроль бизнеса на Wildberries</p>
             </div>
             <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
@@ -448,7 +438,7 @@
 
     <!-- PLATFORM SHOWCASE -->
     <section id="platform-showcase" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
-        <div class="glass-card rounded-2xl p-6 sm:p-8 md:p-12">
+        <div class="py-2">
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
                 <div class="space-y-6">
                     <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#111111]/8 border border-[#111111]/25 text-[10px] sm:text-xs text-[#111111] uppercase tracking-widest">
@@ -467,9 +457,9 @@
                     <a href="/login" class="inline-flex items-center justify-center px-6 py-3.5 min-h-[48px] bg-[#111] hover:bg-black text-white text-sm font-bold rounded-xl transition">Войти в NR Space</a>
                 </div>
                 <div class="flex items-center justify-center py-8">
-                    <div class="w-56 h-56 sm:w-64 sm:h-64 border border-black/10 rounded-2xl bg-[#F8F9FA] flex flex-col items-center justify-center">
-                        <span class="text-3xl sm:text-4xl font-black text-[#111111] tracking-tighter">NR</span>
-                        <span class="text-sm font-medium text-[#3E434F] tracking-[0.2em] mt-1">Space</span>
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center justify-center w-14 h-14 rounded-xl bg-[#F5C400] text-[#111] font-black text-lg">NR</span>
+                        <span class="text-2xl font-black text-[#111] tracking-tight">NR Space</span>
                     </div>
                 </div>
             </div>
@@ -482,7 +472,7 @@
     <footer id="contacts" class="reveal py-16 px-4 sm:px-6 max-w-7xl mx-auto border-t border-black/5 text-[#3E434F] text-sm pb-32">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
             <div class="space-y-4">
-                <div class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-[#111111] text-white font-black text-[10px] tracking-tighter">NR</div>
+                <div class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-[#F5C400] text-[#111] font-black text-[10px] tracking-tighter">NR</div>
                 <p class="text-xs text-[#6B7682] font-light">© Nur Consulting & NR Space. Все права защищены. 2026</p>
             </div>
             <div class="space-y-2">
@@ -527,18 +517,18 @@
                     return '<circle cx="40" cy="26" r="11" fill="rgba(30,30,34,0.85)"/>' +
                         '<rect x="37" y="36" width="6" height="5" rx="2" fill="rgba(30,30,34,0.85)"/>' +
                         '<path d="M22 62 C22 50 28 44 40 44 C52 44 58 50 58 62" fill="rgba(30,30,34,0.75)"/>' +
-                        '<path d="M29 24 C29 14 51 14 51 24 C51 28 49 32 49 36 C47 34 44 33 40 33 C36 33 33 34 31 36 C31 32 29 28 29 24Z" fill="rgba(87, 104, 207,0.55)"/>';
+                        '<path d="M29 24 C29 14 51 14 51 24 C51 28 49 32 49 36 C47 34 44 33 40 33 C36 33 33 34 31 36 C31 32 29 28 29 24Z" fill="rgba(17,17,17,0.18)"/>';
                 }
                 return '<circle cx="40" cy="27" r="11" fill="rgba(30,30,34,0.85)"/>' +
                     '<rect x="37" y="37" width="6" height="4" rx="2" fill="rgba(30,30,34,0.85)"/>' +
                     '<path d="M21 63 C21 51 28 45 40 45 C52 45 59 51 59 63" fill="rgba(30,30,34,0.75)"/>' +
-                    '<path d="M37 41 L34 46 L40 49 L46 46 L43 41" fill="rgba(87, 104, 207,0.45)"/>' +
+                    '<path d="M37 41 L34 46 L40 49 L46 46 L43 41" fill="rgba(17,17,17,0.2)"/>' +
                     '<path d="M29 25 C29 15 51 15 51 25 C51 20 48 17 40 17 C32 17 29 20 29 25Z" fill="rgba(120,124,135,0.6)"/>';
             }
             function buildAvatarSvg(gender, size, gradId) {
                 return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">' +
                     '<defs><radialGradient id="' + gradId + '" cx="40%" cy="35%" r="60%">' +
-                    '<stop offset="0%" stop-color="rgba(87, 104, 207,0.16)"/>' +
+                    '<stop offset="0%" stop-color="rgba(245,196,0,0.22)"/>' +
                     '<stop offset="100%" stop-color="rgba(230,231,235,0.9)"/></radialGradient></defs>' +
                     '<circle cx="40" cy="40" r="40" fill="url(#' + gradId + ')"/>' +
                     avatarBody(gender) + '</svg>';

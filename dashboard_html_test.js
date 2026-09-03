@@ -54,6 +54,8 @@ assert.ok(
     'sidebar logo must show NR Space on the left'
 );
 assert.ok(html.includes('ab-create-btn'), 'A/B create button uses WBRadar-style control');
+assert.ok(html.includes('rail-user-name'), 'sidebar shows user name like WBRadar');
+assert.ok(html.includes('abtest-card-row'), 'A/B cards use WBRadar row layout');
 assert.ok(html.includes('nr-early-tab-style'), 'RNP early-tab CSS id must exist for boot detection');
 assert.ok(
     html.includes("if (document.getElementById('nr-early-tab-style'))"),
