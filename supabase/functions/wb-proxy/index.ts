@@ -136,10 +136,41 @@ serve(async (req) => {
                 const wbRes = await fetch(url, { headers: { Authorization: WB_TOKEN } });
                 return streamWbResponse(wbRes);
             }
-            case 'stocks': {
-                const url = `https://statistics-api.wildberries.ru/api/v1/supplier/stocks?dateFrom=${params.dateFrom || '2020-01-01'}`;
-                const wbRes = await fetch(url, { headers: { Authorization: WB_TOKEN } });
-                return streamWbResponse(wbRes);
+            case 'stocks':
+            case 'stocks_fbo': {
+                // Старый GET /api/v1/supplier/stocks отключён WB (PLUG-404).
+                // FBO: POST /api/analytics/v1/stocks-report/wb-warehouses.
+                try {
+                    const payload = await wbPost(
+                        'https://seller-analytics-api.wildberries.ru/api/analytics/v1/stocks-report/wb-warehouses',
+                        WB_TOKEN,
+                        { nmIds: params.nmIds || [], limit: Number(params.limit) || 250000, offset: Number(params.offset) || 0 },
+                    ) as { data?: { items?: Record<string, unknown>[] } };
+                    const items = payload?.data?.items || [];
+                    result = items.map((s) => ({
+                        nmId: s.nmId,
+                        chrtId: s.chrtId,
+                        barcode: String(s.chrtId ?? ''),
+                        warehouseName: s.warehouseName || '',
+                        quantity: s.quantity || 0,
+                        inWayToClient: s.inWayToClient || 0,
+                        inWayFromClient: s.inWayFromClient || 0,
+                        stockScheme: 'fbo',
+                    }));
+                } catch (e) {
+                    console.warn('[wb-proxy] stocks_fbo error:', String(e));
+                    return json({ error: `WB stocks FBO: ${String(e)}` }, (e as { status?: number })?.status || 502);
+                }
+                break;
+            }
+            case 'stocks_fbs': {
+                try {
+                    result = await fetchFbsStocksViaProxy(WB_TOKEN, params as Record<string, unknown>);
+                } catch (e) {
+                    console.warn('[wb-proxy] stocks_fbs error:', String(e));
+                    return json({ error: `WB stocks FBS: ${String(e)}` }, (e as { status?: number })?.status || 502);
+                }
+                break;
             }
             case 'finance_report': {
                 const dateFrom = String(params.dateFrom || '').split('T')[0];
@@ -1215,4 +1246,52 @@ async function wbPost(url: string, token: string, body: unknown): Promise<unknow
         throw err;
     }
     return parseWbJson(res);
+}
+
+async function fetchFbsStocksViaProxy(token: string, params: Record<string, unknown>): Promise<Record<string, unknown>[]> {
+    const whs = await wbGet('https://marketplace-api.wildberries.ru/api/v3/warehouses', token);
+    const warehouses = Array.isArray(whs) ? whs as Record<string, unknown>[] : [];
+    const chrtIds = Array.isArray(params.chrtIds) ? (params.chrtIds as number[]).map(Number).filter(Boolean) : [];
+    const skus = Array.isArray(params.skus) ? (params.skus as string[]).map(String).filter(Boolean) : [];
+
+    if (!warehouses.length) return [];
+
+    const out: Record<string, unknown>[] = [];
+    for (const wh of warehouses) {
+        const warehouseId = Number(wh.id || 0);
+        if (!warehouseId) continue;
+        const body = chrtIds.length
+            ? { chrtIds: chrtIds.slice(0, 1000) }
+            : skus.length
+                ? { skus: skus.slice(0, 1000) }
+                : { chrtIds: [] };
+        if (!(body as { chrtIds?: number[]; skus?: string[] }).chrtIds?.length && !(body as { skus?: string[] }).skus?.length) {
+            continue;
+        }
+        try {
+            const payload = await wbPost(
+                `https://marketplace-api.wildberries.ru/api/v3/stocks/${warehouseId}`,
+                token,
+                body,
+            ) as { stocks?: Record<string, unknown>[] };
+            for (const s of payload?.stocks || []) {
+                const amount = Number(s.amount || 0);
+                if (amount <= 0) continue;
+                out.push({
+                    nmId: 0,
+                    chrtId: s.chrtId,
+                    barcode: String(s.sku || s.chrtId || ''),
+                    warehouseName: String(wh.name || 'FBS'),
+                    quantity: amount,
+                    inWayToClient: 0,
+                    inWayFromClient: 0,
+                    stockScheme: 'fbs',
+                });
+            }
+        } catch (e) {
+            console.warn('[wb-proxy] FBS warehouse', warehouseId, String(e));
+        }
+        await sleep(220);
+    }
+    return out;
 }

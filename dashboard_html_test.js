@@ -156,4 +156,42 @@ assert.ok(
     'auto-sync must activate catalog cards already sitting inactive in rnp_articles'
 );
 
+assert.ok(html.includes('id="m-stock-fbo"') && html.includes('id="m-stock-fbs"'),
+    'dashboard must show FBO and FBS stock KPIs separately');
+assert.ok(html.includes('id="wh-fbo"') && html.includes('id="wh-fbs"'),
+    'warehouse tab must show FBO and FBS totals');
+assert.ok(html.includes('function switchDashStockView'),
+    'dashboard must switch warehouse list/chart between all/FBO/FBS');
+assert.ok(html.includes("mode: 'stocks'") && html.includes('AUTO_SYNC_URL'),
+    'dashboard refresh must sync stocks via auto-sync, not the dead Statistics stocks API');
+assert.ok(html.includes("'m-stock-fbo','m-stock-fbs'"),
+    'cabinet switch must reset FBO/FBS stock KPIs');
+
+const autoSyncSrc = fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8');
+assert.ok(autoSyncSrc.includes('fetchFboStockRows') && autoSyncSrc.includes('fetchFbsStockRows'),
+    'auto-sync must fetch FBO and FBS stocks separately');
+assert.ok(autoSyncSrc.includes("stock_scheme: 'fbs'") && autoSyncSrc.includes("stock_scheme: 'fbo'"),
+    'auto-sync must persist stock_scheme on wb_stocks');
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903173000_wb_stocks_fbo_fbs.sql')),
+    'FBO/FBS stock_scheme migration must exist'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260903173000_wb_stocks_fbo_fbs.sql'), 'utf8')
+        .includes("'stock_fbo'") &&
+    fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260903173000_wb_stocks_fbo_fbs.sql'), 'utf8')
+        .includes("'stock_fbs'"),
+    'dashboard_summary must return stock_fbo and stock_fbs'
+);
+
+const chartsSrc = fs.readFileSync(path.join(__dirname, 'dashboard-charts.js'), 'utf8');
+assert.ok(chartsSrc.includes('setWarehouseScheme'),
+    'warehouse donut must filter FBO/FBS on switch');
+
+const proxySrc = fs.readFileSync(path.join(__dirname, 'supabase/functions/wb-proxy/index.ts'), 'utf8');
+assert.ok(proxySrc.includes('stocks-report/wb-warehouses'),
+    'wb-proxy stocks must use the current WB warehouses endpoint');
+assert.ok(proxySrc.includes('case \'stocks_fbs\''),
+    'wb-proxy must expose FBS stocks');
+
 console.log('dashboard_html_test: ok');

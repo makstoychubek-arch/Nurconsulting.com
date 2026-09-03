@@ -14,6 +14,7 @@ const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
 const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
 const WB_STATS = 'https://statistics-api.wildberries.ru';
 const WB_ANALYTICS = 'https://seller-analytics-api.wildberries.ru';
+const WB_MARKET = 'https://marketplace-api.wildberries.ru';
 const DATE_FROM = '2026-01-01';
 
 // WB Statistics `/api/v1/supplier/orders`: 1 request / minute / seller.
@@ -40,6 +41,8 @@ type CabWork = {
     orders_backfilled_to: string | null;
     orders_filled_until: string | null;
     stocksCount: number;
+    stocksFbo: number;
+    stocksFbs: number;
     ordersCount: number;
     financeRows: number;
     rnpDailyRows: number;
@@ -159,6 +162,8 @@ Deno.serve(async (req) => {
             orders_backfilled_to: cabinet.orders_backfilled_to ? String(cabinet.orders_backfilled_to) : null,
             orders_filled_until: cabinet.orders_filled_until ? String(cabinet.orders_filled_until) : null,
             stocksCount: 0,
+            stocksFbo: 0,
+            stocksFbs: 0,
             ordersCount: 0,
             financeRows: 0,
             rnpDailyRows: 0,
@@ -255,6 +260,8 @@ Deno.serve(async (req) => {
             cabinet: cab.name,
             status: cab.status,
             stocks: cab.stocksCount,
+            stocks_fbo: cab.stocksFbo,
+            stocks_fbs: cab.stocksFbs,
             orders: cab.ordersCount,
             finance: cab.financeRows,
             rnp_daily: cab.rnpDailyRows,
@@ -302,33 +309,14 @@ async function loadCabinets(admin: Admin, targetCabinetId: string | null) {
 }
 
 async function syncStocks(admin: Admin, cab: CabWork): Promise<number> {
-    const stocksRes = await fetch(
-        `${WB_ANALYTICS}/api/analytics/v1/stocks-report/wb-warehouses`,
-        {
-            method: 'POST',
-            headers: { Authorization: cab.token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nmIds: [], limit: 250000, offset: 0 }),
-        },
-    );
-    if (!stocksRes.ok) throw new Error(`HTTP ${stocksRes.status}`);
-    const payload = await stocksRes.json();
-    const stocks = payload?.data?.items;
-    if (!Array.isArray(stocks) || !stocks.length) return 0;
-    await admin.from('wb_stocks').delete().eq('cabinet_id', cab.id);
-    const stockRows = stocks.map((s: Record<string, unknown>) => ({
-        cabinet_id: cab.id,
-        nm_id: s.nmId,
-        barcode: String(s.chrtId ?? ''),
-        tech_size: '',
-        quantity: s.quantity || 0,
-        in_way_to_client: s.inWayToClient || 0,
-        in_way_from_client: s.inWayFromClient || 0,
-        warehouse_name: s.warehouseName || '',
-    }));
-    for (let i = 0; i < stockRows.length; i += 500) {
-        await admin.from('wb_stocks').insert(stockRows.slice(i, i + 500));
+    const synced = await syncCabinetStocks(admin, cab.id, cab.token);
+    cab.stocksFbo = synced.fbo;
+    cab.stocksFbs = synced.fbs;
+    if (synced.errors.length) {
+        cab.errorMsg += synced.errors.join(' ');
+        cab.status = 'partial';
     }
-    return stocks.length;
+    return synced.fbo + synced.fbs;
 }
 
 async function syncRecentDay(admin: Admin, cab: CabWork, dayStr: string): Promise<number> {
@@ -473,6 +461,264 @@ function addDaysStr(day: string, n: number) {
     const d = new Date(day + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() + n);
     return d.toISOString().split('T')[0];
+}
+
+type StockRow = {
+    cabinet_id: string;
+    nm_id: number;
+    barcode: string;
+    tech_size: string;
+    quantity: number;
+    in_way_to_client: number;
+    in_way_from_client: number;
+    warehouse_name: string;
+    stock_scheme: 'fbo' | 'fbs';
+};
+
+type ChrtMeta = { nmId: number; barcode: string; techSize: string };
+
+async function syncCabinetStocks(
+    admin: ReturnType<typeof createClient>,
+    cabinetId: string,
+    token: string,
+): Promise<{ fbo: number; fbs: number; errors: string[] }> {
+    const errors: string[] = [];
+    let fboRows: StockRow[] = [];
+    let fbsRows: StockRow[] = [];
+    let fboOk = false;
+    let fbsOk = false;
+
+    try {
+        fboRows = await fetchFboStockRows(token, cabinetId);
+        fboOk = true;
+    } catch (e) {
+        errors.push(`fbo: ${(e as Error).message};`);
+    }
+
+    try {
+        fbsRows = await fetchFbsStockRows(token, cabinetId);
+        fbsOk = true;
+    } catch (e) {
+        errors.push(`fbs: ${(e as Error).message};`);
+    }
+
+    if (!fboOk && !fbsOk) return { fbo: 0, fbs: 0, errors };
+
+    if (fboOk && fbsOk) {
+        await admin.from('wb_stocks').delete().eq('cabinet_id', cabinetId);
+        await insertStockRows(admin, [...fboRows, ...fbsRows]);
+    } else if (fboOk) {
+        await admin.from('wb_stocks').delete().eq('cabinet_id', cabinetId).neq('stock_scheme', 'fbs');
+        await insertStockRows(admin, fboRows);
+    } else {
+        await admin.from('wb_stocks').delete().eq('cabinet_id', cabinetId).eq('stock_scheme', 'fbs');
+        await insertStockRows(admin, fbsRows);
+    }
+
+    return { fbo: fboRows.length, fbs: fbsRows.length, errors };
+}
+
+async function insertStockRows(admin: ReturnType<typeof createClient>, rows: StockRow[]) {
+    for (let i = 0; i < rows.length; i += 500) {
+        await admin.from('wb_stocks').insert(rows.slice(i, i + 500));
+    }
+}
+
+async function fetchFboStockRows(token: string, cabinetId: string): Promise<StockRow[]> {
+    const stocksRes = await fetch(`${WB_ANALYTICS}/api/analytics/v1/stocks-report/wb-warehouses`, {
+        method: 'POST',
+        headers: { Authorization: token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nmIds: [], limit: 250000, offset: 0 }),
+    });
+    if (!stocksRes.ok) throw new Error(`HTTP ${stocksRes.status}`);
+    const payload = await stocksRes.json();
+    const stocks = payload?.data?.items;
+    if (!Array.isArray(stocks)) return [];
+    return stocks.map((s: Record<string, unknown>) => ({
+        cabinet_id: cabinetId,
+        nm_id: Number(s.nmId || 0),
+        barcode: String(s.chrtId ?? ''),
+        tech_size: '',
+        quantity: Number(s.quantity || 0),
+        in_way_to_client: Number(s.inWayToClient || 0),
+        in_way_from_client: Number(s.inWayFromClient || 0),
+        warehouse_name: String(s.warehouseName || ''),
+        stock_scheme: 'fbo' as const,
+    }));
+}
+
+async function fetchFbsStockRows(token: string, cabinetId: string): Promise<StockRow[]> {
+    try {
+        const marketRows = await fetchFbsFromMarketplace(token, cabinetId);
+        if (marketRows.length) return marketRows;
+    } catch (e) {
+        console.warn('[auto-sync] FBS marketplace:', (e as Error).message);
+    }
+    return fetchFbsFromProductsReport(token, cabinetId);
+}
+
+async function fetchContentCards(token: string): Promise<Record<string, unknown>[]> {
+    const cards: Record<string, unknown>[] = [];
+    let cursorNmId = 0;
+    let cursorUpdatedAt = '';
+    for (let page = 0; page < 20; page++) {
+        const body: Record<string, unknown> = {
+            settings: {
+                sort: { ascending: false },
+                filter: { textSearch: '', withPhoto: -1 },
+                cursor: {
+                    limit: 100,
+                    ...(cursorNmId ? { nmID: cursorNmId } : {}),
+                    ...(cursorUpdatedAt ? { updatedAt: cursorUpdatedAt } : {}),
+                },
+            },
+        };
+        const res = await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list', {
+            method: 'POST',
+            headers: { Authorization: token, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            if (res.status === 401 || res.status === 403) return cards;
+            throw new Error(`content cards HTTP ${res.status}`);
+        }
+        const payload = await res.json();
+        const pageCards = payload?.cards || payload?.data?.cards || [];
+        if (Array.isArray(pageCards)) cards.push(...pageCards);
+        const cur = payload?.cursor || {};
+        const nextNm = Number(cur.nmID || cur.nmId || 0);
+        const nextAt = String(cur.updatedAt || '');
+        if (!pageCards.length || pageCards.length < 100 || !nextNm) break;
+        cursorNmId = nextNm;
+        cursorUpdatedAt = nextAt;
+        await sleep(400);
+    }
+    return cards;
+}
+
+function chrtMapFromCards(cards: Record<string, unknown>[]): Map<number, ChrtMeta> {
+    const map = new Map<number, ChrtMeta>();
+    for (const card of cards) {
+        const nmId = Number(card.nmID || card.nmId || 0);
+        if (!nmId) continue;
+        const sizes = (card.sizes || []) as Record<string, unknown>[];
+        for (const sz of sizes) {
+            const chrtId = Number(sz.chrtID || sz.chrtId || 0);
+            if (!chrtId) continue;
+            const skus = sz.skus as string[] | undefined;
+            map.set(chrtId, {
+                nmId,
+                barcode: String((skus && skus[0]) || sz.sku || chrtId),
+                techSize: String(sz.techSize || sz.wbSize || ''),
+            });
+        }
+    }
+    return map;
+}
+
+async function fetchFbsFromMarketplace(token: string, cabinetId: string): Promise<StockRow[]> {
+    const whRes = await fetch(`${WB_MARKET}/api/v3/warehouses`, {
+        headers: { Authorization: token },
+    });
+    if (!whRes.ok) throw new Error(`warehouses HTTP ${whRes.status}`);
+    const warehouses = await whRes.json();
+    if (!Array.isArray(warehouses) || !warehouses.length) return [];
+
+    const cards = await fetchContentCards(token);
+    const chrtMap = chrtMapFromCards(cards);
+    const chrtIds = [...chrtMap.keys()];
+    if (!chrtIds.length) return [];
+
+    const rows: StockRow[] = [];
+    for (const wh of warehouses) {
+        const warehouseId = Number(wh?.id || 0);
+        const warehouseName = String(wh?.name || 'FBS');
+        if (!warehouseId) continue;
+        for (let i = 0; i < chrtIds.length; i += 1000) {
+            const chunk = chrtIds.slice(i, i + 1000);
+            let res = await fetch(`${WB_MARKET}/api/v3/stocks/${warehouseId}`, {
+                method: 'POST',
+                headers: { Authorization: token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ chrtIds: chunk }),
+            });
+            if (!res.ok && res.status === 400) {
+                const skus = chunk.map((id) => chrtMap.get(id)?.barcode).filter(Boolean);
+                res = await fetch(`${WB_MARKET}/api/v3/stocks/${warehouseId}`, {
+                    method: 'POST',
+                    headers: { Authorization: token, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ skus }),
+                });
+            }
+            if (!res.ok) throw new Error(`stocks ${warehouseId} HTTP ${res.status}`);
+            const payload = await res.json();
+            const stocks = payload?.stocks || [];
+            for (const s of stocks) {
+                const amount = Number(s.amount || 0);
+                if (amount <= 0) continue;
+                const chrtId = Number(s.chrtId || s.chrtID || 0);
+                const meta = chrtMap.get(chrtId);
+                rows.push({
+                    cabinet_id: cabinetId,
+                    nm_id: meta?.nmId || 0,
+                    barcode: String(s.sku || meta?.barcode || chrtId || ''),
+                    tech_size: meta?.techSize || '',
+                    quantity: amount,
+                    in_way_to_client: 0,
+                    in_way_from_client: 0,
+                    warehouse_name: warehouseName,
+                    stock_scheme: 'fbs',
+                });
+            }
+            await sleep(220);
+        }
+    }
+    return rows;
+}
+
+async function fetchFbsFromProductsReport(token: string, cabinetId: string): Promise<StockRow[]> {
+    const today = new Date().toISOString().slice(0, 10);
+    const rows: StockRow[] = [];
+    for (let offset = 0; offset < 20000; offset += 1000) {
+        const res = await fetch(`${WB_ANALYTICS}/api/v2/stocks-report/products/products`, {
+            method: 'POST',
+            headers: { Authorization: token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                currentPeriod: { start: today, end: today },
+                stockType: 'mp',
+                skipDeletedNm: true,
+                availabilityFilters: ['deficient', 'actual', 'balanced', 'nonActual', 'nonLiquid', 'invalidData'],
+                orderBy: { field: 'stockCount', mode: 'desc' },
+                limit: 1000,
+                offset,
+            }),
+        });
+        if (!res.ok) {
+            if (offset === 0) throw new Error(`products mp HTTP ${res.status}`);
+            break;
+        }
+        const payload = await res.json();
+        const items = payload?.data?.items || payload?.data?.products || [];
+        if (!Array.isArray(items) || !items.length) break;
+        for (const item of items) {
+            const nmId = Number(item.nmID || item.nmId || 0);
+            const qty = Number(item.metrics?.stockCount ?? item.stockCount ?? 0);
+            if (!nmId || qty <= 0) continue;
+            rows.push({
+                cabinet_id: cabinetId,
+                nm_id: nmId,
+                barcode: '',
+                tech_size: '',
+                quantity: qty,
+                in_way_to_client: 0,
+                in_way_from_client: 0,
+                warehouse_name: 'FBS (склады продавца)',
+                stock_scheme: 'fbs',
+            });
+        }
+        if (items.length < 1000) break;
+        await sleep(700);
+    }
+    return rows;
 }
 
 async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, token: string): Promise<number> {
