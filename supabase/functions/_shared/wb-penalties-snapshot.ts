@@ -32,9 +32,13 @@ export function parsePenaltiesQuery(text: string, _strict = false): PenaltiesQue
 export type PenaltySnapshot = { name: string; total: number; error?: string };
 
 export type SalesReportMeta = {
-  reportId: number;
+  /** Daily reportId > Number.MAX_SAFE_INTEGER — держим строкой. */
+  reportId: string;
   dateFrom: string;
   dateTo: string;
+  period?: 'daily' | 'weekly';
+  penaltySum?: number;
+  deductionSum?: number;
 };
 
 export type PenaltyLine = { reason: string; amount: number };
@@ -49,16 +53,54 @@ export const PENALTY_DETAIL_FIELDS = [
   'bonusTypeName',
 ] as const;
 
-/** Недельный отчёт, который покрывает дату, иначе последний закрытый. */
+/** Сначала однодневный отчёт на дату, иначе покрывающий период, иначе последний закрытый. */
 export function pickSalesReport(reports: SalesReportMeta[], date: string): SalesReportMeta | null {
+  const exactDaily = reports
+    .filter((r) => r.dateFrom === date && r.dateTo === date)
+    .sort((a, b) => b.reportId.localeCompare(a.reportId));
+  if (exactDaily[0]) return exactDaily[0];
+
   const covering = reports
     .filter((r) => r.dateFrom <= date && date <= r.dateTo)
-    .sort((a, b) => b.dateTo.localeCompare(a.dateTo));
+    .sort((a, b) => {
+      const spanA = a.dateFrom.localeCompare(a.dateTo);
+      const spanB = b.dateFrom.localeCompare(b.dateTo);
+      if (spanA !== spanB) return spanB - spanA;
+      return b.dateTo.localeCompare(a.dateTo);
+    });
   if (covering[0]) return covering[0];
   const closed = reports
     .filter((r) => r.dateTo < date)
     .sort((a, b) => b.dateTo.localeCompare(a.dateTo));
   return closed[0] ?? null;
+}
+
+/** WB daily reportId не влезает в JS number — вытаскиваем цифры до JSON.parse. */
+export function parseSalesReportsList(text: string): SalesReportMeta[] {
+  if (!text.trim()) return [];
+  const rewritten = text.replace(
+    /"(reportId|report_id)"\s*:\s*(\d+)/g,
+    '"$1":"$2"',
+  );
+  const data = JSON.parse(rewritten) as unknown;
+  const rows = Array.isArray(data) ? data : [];
+  return rows
+    .map((r) => {
+      const rec = r as Record<string, unknown>;
+      const reportId = String(rec.reportId ?? rec.report_id ?? '').trim();
+      const periodRaw = String(rec.period ?? '').toLowerCase();
+      return {
+        reportId,
+        dateFrom: String(rec.dateFrom ?? rec.date_from ?? '').slice(0, 10),
+        dateTo: String(rec.dateTo ?? rec.date_to ?? '').slice(0, 10),
+        period: periodRaw === 'daily' || periodRaw === 'weekly'
+          ? periodRaw
+          : undefined,
+        penaltySum: parseMoney(rec.penaltySum ?? rec.penalty_sum),
+        deductionSum: parseMoney(rec.deductionSum ?? rec.deduction_sum),
+      } satisfies SalesReportMeta;
+    })
+    .filter((r) => r.reportId && r.dateFrom && r.dateTo);
 }
 
 export function addDaysYmd(date: string, days: number): string {
@@ -119,7 +161,12 @@ export async function fetchAllCabinetPenalties(
   );
 }
 
-async function financePost(token: string, path: string, body: Record<string, unknown>, timeoutMs = 60000): Promise<{ status: number; data: unknown }> {
+async function financePost(
+  token: string,
+  path: string,
+  body: Record<string, unknown>,
+  timeoutMs = 60000,
+): Promise<{ status: number; data: unknown; raw: string }> {
   let lastErr = '';
   for (let attempt = 0; attempt < 3; attempt++) {
     const res = await fetch(`${FINANCE_API}${path}`, {
@@ -134,11 +181,28 @@ async function financePost(token: string, path: string, body: Record<string, unk
       await new Promise((r) => setTimeout(r, 65000));
       continue;
     }
-    if (res.status === 204 || !text.trim()) return { status: res.status, data: [] };
+    if (res.status === 204 || !text.trim()) return { status: res.status, data: [], raw: '' };
     if (!res.ok) throw new Error(`WB finance ${res.status}: ${text.slice(0, 160)}`);
-    return { status: res.status, data: JSON.parse(text) };
+    return { status: res.status, data: JSON.parse(text), raw: text };
   }
   throw new Error(`WB finance 429: ${lastErr}`);
+}
+
+async function listSalesReports(
+  token: string,
+  dateFrom: string,
+  dateTo: string,
+  period: 'daily' | 'weekly',
+): Promise<SalesReportMeta[]> {
+  const listed = await financePost(token, '/api/finance/v1/sales-reports/list', {
+    dateFrom,
+    dateTo,
+    period,
+    limit: 100,
+    offset: 0,
+  });
+  const reports = parseSalesReportsList(listed.raw || JSON.stringify(listed.data ?? []));
+  return reports.map((r) => ({ ...r, period: r.period ?? period }));
 }
 
 export async function fetchWeeklyPenaltyBundle(
@@ -148,33 +212,41 @@ export async function fetchWeeklyPenaltyBundle(
   rows: PenaltyLine[];
   periodFrom: string;
   periodTo: string;
-  reportId: number | null;
+  reportId: string | null;
   weekOpen: boolean;
+  source: 'daily' | 'weekly';
 }> {
-  const listFrom = addDaysYmd(date, -28);
-  const listed = await financePost(token, '/api/finance/v1/sales-reports/list', {
-    dateFrom: listFrom,
-    dateTo: date,
-  });
-  const reports: SalesReportMeta[] = (Array.isArray(listed.data) ? listed.data : [])
-    .map((r) => {
-      const rec = r as Record<string, unknown>;
-      return {
-        reportId: Number(rec.reportId ?? rec.report_id ?? 0),
-        dateFrom: String(rec.dateFrom ?? rec.date_from ?? '').slice(0, 10),
-        dateTo: String(rec.dateTo ?? rec.date_to ?? '').slice(0, 10),
-      };
-    })
-    .filter((r) => r.reportId && r.dateFrom && r.dateTo);
+  const dailyFrom = addDaysYmd(date, -10);
+  let reports = await listSalesReports(token, dailyFrom, date, 'daily');
+  let picked = pickSalesReport(reports, date);
+  let source: 'daily' | 'weekly' = 'daily';
 
-  const picked = pickSalesReport(reports, date);
+  const exactDaily = picked && picked.dateFrom === date && picked.dateTo === date;
+  if (!exactDaily) {
+    const weeklyFrom = addDaysYmd(date, -28);
+    reports = await listSalesReports(token, weeklyFrom, date, 'weekly');
+    picked = pickSalesReport(reports, date);
+    source = 'weekly';
+  }
+
   if (!picked) {
-    return { rows: [], periodFrom: date, periodTo: date, reportId: null, weekOpen: true };
+    return { rows: [], periodFrom: date, periodTo: date, reportId: null, weekOpen: true, source };
   }
   const weekOpen = !(picked.dateFrom <= date && date <= picked.dateTo);
+  const exactDay = picked.dateFrom === date && picked.dateTo === date;
+  if (exactDay && !(picked.penaltySum > 0) && !(picked.deductionSum > 0)) {
+    return {
+      rows: [],
+      periodFrom: picked.dateFrom,
+      periodTo: picked.dateTo,
+      reportId: picked.reportId,
+      weekOpen: false,
+      source,
+    };
+  }
   const detailed = await financePost(
     token,
-    `/api/finance/v1/sales-reports/detailed/${picked.reportId}`,
+    `/api/finance/v1/sales-reports/detailed/${encodeURIComponent(picked.reportId)}`,
     {
       limit: 100000,
       rrdId: 0,
@@ -189,6 +261,7 @@ export async function fetchWeeklyPenaltyBundle(
     periodTo: picked.dateTo,
     reportId: picked.reportId,
     weekOpen,
+    source,
   };
 }
 

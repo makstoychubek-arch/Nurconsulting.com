@@ -3,9 +3,8 @@
 // (картинка-таблица: причина + сумма в сом). Запуск pg_cron 09:00 UTC
 // = 15:00 Бишкек, за предыдущий день.
 //
-// Источник: недельный отчёт реализации WB
-// POST /api/finance/v1/sales-reports/list + detailed/{reportId}.
-// Запрос за один день даёт 204, пока неделя не закрыта.
+// Источник: ежедневный отчёт реализации WB (period=daily),
+// иначе последний закрытый weekly. reportId daily — строка (BigInt).
 //
 // Тело: { "date", "force", "cabinets": ["Имя"],
 //         "periodFrom", "periodTo", "rows": [{reason, amount}] }
@@ -83,6 +82,7 @@ Deno.serve(async (req) => {
                         periodTo: typeof body?.periodTo === 'string' ? body.periodTo : reportDate,
                         weekOpen: Boolean(body?.weekOpen),
                         reportId: null,
+                        source: 'daily' as const,
                     }
                     : await fetchWeeklyPenaltyBundle(token, reportDate);
                 const rows = bundle.rows;
@@ -188,7 +188,7 @@ function buildCaption(
         ? prettyRuDate(date)
         : `${prettyRuDate(bundle.periodFrom)}–${prettyRuDate(bundle.periodTo)}`;
     const openNote = bundle.weekOpen
-        ? `\nНеделя ${prettyRuDate(date)} ещё не закрыта — это последний отчёт WB`
+        ? `\nЕжедневный отчёт за ${prettyRuDate(date)} ещё не готов — это последний закрытый`
         : '';
     if (!rows.length) {
         return `✅ <b>${escapeHtml(cabinetName)}</b> — штрафы за ${period}${openNote}\nШтрафов и удержаний нет`;

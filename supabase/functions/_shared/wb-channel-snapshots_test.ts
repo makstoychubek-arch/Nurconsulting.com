@@ -4,7 +4,7 @@ import {
   formatDrrBrief,
   parseAdsQuery,
 } from "./wb-ads-snapshot.ts";
-import { parsePenaltiesQuery, formatPenaltiesReply, pickSalesReport, aggregatePenaltyRows, PENALTY_DETAIL_FIELDS } from "./wb-penalties-snapshot.ts";
+import { parsePenaltiesQuery, formatPenaltiesReply, pickSalesReport, parseSalesReportsList, aggregatePenaltyRows, PENALTY_DETAIL_FIELDS } from "./wb-penalties-snapshot.ts";
 import { yesterdayBishkek } from "./agent-ru-text.ts";
 
 Deno.test("parseAdsQuery day from вчера", () => {
@@ -64,14 +64,24 @@ Deno.test("parsePenaltiesQuery cabinet", () => {
   assertEquals(q!.cabinet?.toLowerCase(), "база");
 });
 
-Deno.test("pickSalesReport: covering week wins, else last closed", () => {
+Deno.test("pickSalesReport: exact daily wins over weekly, else last closed", () => {
   const reports = [
-    { reportId: 1, dateFrom: "2026-08-17", dateTo: "2026-08-23" },
-    { reportId: 2, dateFrom: "2026-08-24", dateTo: "2026-08-30" },
+    { reportId: "1", dateFrom: "2026-08-17", dateTo: "2026-08-23" },
+    { reportId: "2", dateFrom: "2026-08-24", dateTo: "2026-08-30" },
+    { reportId: "25009236420260902", dateFrom: "2026-09-02", dateTo: "2026-09-02" },
   ];
-  assertEquals(pickSalesReport(reports, "2026-08-26")?.reportId, 2);
-  assertEquals(pickSalesReport(reports, "2026-09-02")?.reportId, 2);
+  assertEquals(pickSalesReport(reports, "2026-08-26")?.reportId, "2");
+  assertEquals(pickSalesReport(reports, "2026-09-02")?.reportId, "25009236420260902");
   assertEquals(pickSalesReport(reports, "2026-08-10"), null);
+});
+
+Deno.test("parseSalesReportsList keeps daily reportId as string", () => {
+  const parsed = parseSalesReportsList(
+    '[{"reportId":25009236420260902,"dateFrom":"2026-09-02","dateTo":"2026-09-02","period":"daily","penaltySum":0}]',
+  );
+  assertEquals(parsed[0]?.reportId, "25009236420260902");
+  assertEquals(parsed[0]?.dateFrom, "2026-09-02");
+  assertEquals(parsed[0]?.period, "daily");
 });
 
 Deno.test("aggregatePenaltyRows: Штраф МП from bonusTypeName", () => {
