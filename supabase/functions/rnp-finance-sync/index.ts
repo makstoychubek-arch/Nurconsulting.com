@@ -34,6 +34,12 @@ const FINANCE_MAX_PAGES = 4;
 const STORAGE_POLL_MS = 4000;
 const STORAGE_POLL_MAX = 5;         // ~20 с ожидания внутри одного вызова
 
+// WB Statistics API для одного seller'а режет запросы (часто это проявляется
+// как 429). У вас несколько кабинетов используют общий WB-токен, поэтому
+// между кабинетами нужно «растягивать» запросы.
+const WB_STATS_MIN_INTERVAL_MS = 61000; // ~1 запрос/мин на seller'а
+const wbStatsLastReqAtByToken = new Map<string, number>();
+
 type Json = Record<string, unknown>;
 
 Deno.serve(async (req) => {
@@ -135,6 +141,24 @@ Deno.serve(async (req) => {
     return json({ ok: true, mode, results, ms: Date.now() - started });
 });
 
+async function wbStatsFetch(url: string, token: string, init?: RequestInit): Promise<Response> {
+    const lastAt = wbStatsLastReqAtByToken.get(token) || 0;
+    const now = Date.now();
+    const waitMs = lastAt ? Math.max(0, WB_STATS_MIN_INTERVAL_MS - (now - lastAt)) : 0;
+    if (waitMs > 0) await sleep(waitMs);
+
+    const res = await fetch(url, {
+        ...init,
+        headers: {
+            ...(init?.headers as Record<string, string> | undefined),
+            Authorization: token,
+        },
+    });
+
+    wbStatsLastReqAtByToken.set(token, Date.now());
+    return res;
+}
+
 // ─── Финансовый отчёт ────────────────────────────────────────────────────────
 async function syncFinance(admin: any, cabinetId: string, token: string, from: string, to: string, force: boolean): Promise<Json> {
     const state = await getState(admin, cabinetId, 'finance', from, to);
@@ -149,12 +173,12 @@ async function syncFinance(admin: any, cabinetId: string, token: string, from: s
         const url = `${WB_STATS}/api/v5/supplier/reportDetailByPeriod?dateFrom=${from}&dateTo=${to}&rrdid=${rrdid}&limit=${FINANCE_PAGE}`;
         // Лимит WB — 1 запрос/мин на токен, и его делят дашборд и кроны.
         // Ждём столько, сколько просит X-RateLimit-Retry (до ~75 с), и повторяем.
-        let res = await fetch(url, { headers: { Authorization: token } });
+        let res = await wbStatsFetch(url, token);
         for (let attempt = 0; res.status === 429 && attempt < 2; attempt++) {
             const retry = Number(res.headers.get('x-ratelimit-retry') || res.headers.get('retry-after') || 60);
             if (!(retry > 0 && retry <= 75)) break;
             await sleep((retry + 2) * 1000);
-            res = await fetch(url, { headers: { Authorization: token } });
+            res = await wbStatsFetch(url, token);
         }
         if (res.status === 429) {
             const retry = Number(res.headers.get('x-ratelimit-retry') || 60);
