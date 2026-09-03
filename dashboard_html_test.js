@@ -254,4 +254,21 @@ assert.ok(proxySrc.includes('stocks-report/wb-warehouses'),
 assert.ok(proxySrc.includes('case \'stocks_fbs\''),
     'wb-proxy must expose FBS stocks');
 
+assert.ok(html.includes('id="admin-access-card"') && html.includes('id="admin-spaces-tab-blocked"'),
+    'settings security must host access requests plus allowed/blocked tabs');
+assert.ok(html.includes("switchSpacesAdminTab('allowed'") && html.includes("switchSpacesAdminTab('blocked'"),
+    'admin must split allowed and blocked spaces');
+assert.ok(html.includes('function sortPendingRequests') && html.includes('function sortBlockedSpaces'),
+    'pending login attempts must not mix with blocked users');
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/admin-space/index.ts'), 'utf8')
+        .includes("from('allowed_users').delete()"),
+    'blocking a space must remove the email from allowed_users'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8')
+        .includes('Заявка на вход отправлена администратору'),
+    'pending users must see that the admin got their login request'
+);
+
 console.log('dashboard_html_test: ok');

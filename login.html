@@ -493,7 +493,7 @@
 
             if (authError === 'access_denied') {
                 showAuthScreen();
-                showError('login-error', 'Доступ к NR Space закрыт. Дождитесь активации спейса администратором.');
+                showError('login-error', 'Заявка на вход отправлена администратору. Когда доступ разрешат — войдите снова через Google.');
             } else if (authError === 'blocked') {
                 showAuthScreen();
                 showError('login-error', 'Ваш спейс заблокирован. Обратитесь в поддержку NR Space.');
