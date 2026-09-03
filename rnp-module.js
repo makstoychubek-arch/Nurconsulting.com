@@ -41,6 +41,10 @@ const RNP = (() => {
     let _financeCache = { key: '', rows: [], ts: 0 };
     let _dataCache = {}; // nmId -> { date -> row }
     let _planCache = {}; // nmId -> { 'YYYY-MM-DD' -> rnp_plans row } — Задача 3: planning source of truth
+    // Курс ₽→сом по датам из exchange_rates (ручной / НБКР / из отчёта WB).
+    // Зафиксирован на дату, при обновлении РНП не пересчитывается.
+    let _rateCache = {}; // 'YYYY-MM-DD' -> { rate, source }
+    let _rateDatesSorted = [];
     let _stockCache = {}; // nmId -> { size -> { wh, transit } }
     const _cabinetStateCache = new Map(); // cabinet_id -> { dataCache, stockCache, financeCache }
     let _metricsCache = new Map(); // nmId -> aggregate metrics from wb_orders+wb_stocks
@@ -169,8 +173,13 @@ const RNP = (() => {
             { key: 'wb_share_pct',       label: 'Все допы ВБ + ДРР %',              type: 'pct',  src: 'calc',  hm: 'low' },
         ]},
         { id: 'result', label: 'Финансовый итог по дням', color: '#84cc16', rows: [
+            { key: 'realization',        label: 'Реализация (WB)',                  type: 'som',  src: 'auto' },
             { key: 'to_transfer',        label: 'К перечислению',                   type: 'som',  src: 'auto' },
             { key: 'to_transfer_unit',   label: 'К перечислению на ед',             type: 'som',  src: 'auto' },
+            { key: 'delivery_sum',       label: 'Доставка (WB)',                    type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'penalty_sum',        label: 'Штрафы',                           type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'storage_sum',        label: 'Хранение (сверено)',               type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'deduction_sum',      label: 'Прочие удержания',                 type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'cost_price_val',     label: 'Себестоимость',                    type: 'som',  src: 'settings' },
             { key: 'profit',             label: 'Прибыль',                          type: 'som',  src: 'calc',  bold: true, hm: 'profit' },
             { key: 'profit_per_unit',    label: 'Прибыль на 1 ед',                  type: 'som',  src: 'calc',  bold: true },
@@ -2124,6 +2133,8 @@ const RNP = (() => {
           </select>` : ''}
           <button type="button" class="rnp-action-btn" onclick="RNP.copyPlanFromPrevWeek()" title="${_planPeriod === 'month' ? 'Скопировать план с прошлого месяца' : 'Скопировать план с прошлой недели'}">↵ План</button>
           <button type="button" class="rnp-action-btn" onclick="RNP.exportExcel()">Excel</button>
+          <button type="button" class="rnp-action-btn rnp-action-btn--sync" id="rnp-sync-finance-btn" onclick="RNP.syncFinance()"
+            title="Подтянуть из WB финотчёт и платное хранение за последние 8 дней и пересчитать свод">Обновить из WB</button>
           <button type="button" class="rnp-action-btn rnp-action-btn--edit${_editMode ? ' active' : ''}" id="rnp-edit-mode-btn"
             onclick="RNP.toggleEditMode()" title="Режим выделения ячеек">${_editMode ? 'Готово' : 'Редактировать'}</button>
           <span id="rnp-freshness" class="text-xs" style="color:var(--text-muted);margin-left:auto;white-space:nowrap"></span>
@@ -2936,6 +2947,63 @@ const RNP = (() => {
         } catch (e) { console.warn('[RNP] merge finance daily:', e.message); }
     }
 
+    // ─── Курс валют (exchange_rates) ─────────────────────────────────────────
+    async function _loadExchangeRates(dateFrom, dateTo) {
+        if (!_db) return;
+        try {
+            const from = new Date(dateFrom); from.setDate(from.getDate() - 45);
+            const { data, error } = await _db.from('exchange_rates')
+                .select('date, rate, source')
+                .eq('pair', 'RUB_KGS')
+                .gte('date', from.toISOString().split('T')[0])
+                .lte('date', dateTo)
+                .order('date', { ascending: true });
+            if (error) throw error;
+            const next = {};
+            (data || []).forEach(r => { next[r.date] = { rate: Number(r.rate), source: r.source }; });
+            _rateCache = next;
+            _rateDatesSorted = Object.keys(next).sort();
+        } catch (e) { console.warn('[RNP] exchange_rates:', e.message); }
+    }
+
+    /** Курс на дату. Приоритет:
+     *  1) ручной курс из exchange_rates (последний зафиксированный ≤ даты) —
+     *     как в Excel: вписали и он действует, пока не поменяли;
+     *  2) курс дня из отчёта WB, если он там есть (wb_rate строки);
+     *  3) статичный курс кабинета из настроек;
+     *  4) справочный (НБКР) — только если больше ничего нет. */
+    function _rateFor(date, row) {
+        if (date && _rateDatesSorted.length) {
+            let manual = null;
+            for (const d of _rateDatesSorted) {
+                if (d > date) break;
+                if (_rateCache[d].source === 'manual' && _rateCache[d].rate > 0) manual = _rateCache[d].rate;
+            }
+            if (manual) return manual;
+        }
+        const wb = Number(row?.wb_rate || 0);
+        if (wb > 0.5 && wb < 200) return wb;
+        if (_settings.exchangeRate > 0) return _settings.exchangeRate;
+        const rc = date ? _rateCache[date] : null;
+        if (rc && rc.rate > 0) return rc.rate;
+        return 0;
+    }
+
+    function _rateSourceFor(date) {
+        if (date && _rateCache[date]) return _rateCache[date].source;
+        return null;
+    }
+
+    async function _saveManualRate(rate) {
+        if (!_db || !(rate > 0)) return;
+        const date = new Date().toISOString().split('T')[0];
+        const { error } = await _db.from('exchange_rates')
+            .upsert({ pair: 'RUB_KGS', date, rate, source: 'manual' }, { onConflict: 'pair,date' });
+        if (error) { console.warn('[RNP] exchange_rates save:', error.message); return; }
+        _rateCache[date] = { rate, source: 'manual' };
+        _rateDatesSorted = Object.keys(_rateCache).sort();
+    }
+
     /** Задача 3: loads all raw plan rows for the cabinet from `rnp_plans`
      *  (populated by the "Планирование" tab and/or RNP's own day-cell edits)
      *  into _planCache, keyed by nm_id -> plan_date -> row. */
@@ -2974,6 +3042,7 @@ const RNP = (() => {
         const [, dailyRows, stocks] = await Promise.all([
             _loadPlans(dateFrom, dateTo),
             _fetchOrdersDaily(dateFrom, dateTo, snapCab, snapReq),
+            _loadExchangeRates(dateFrom, dateTo),
             _fetchAllRows('wb_stocks', [
                 { op: 'eq', column: 'cabinet_id', value: _cab },
             ], 'nm_id, tech_size, quantity, in_way_to_client, in_way_from_client, warehouse_name'),
@@ -3314,7 +3383,8 @@ const RNP = (() => {
         if (!rows.length) return null;
         const SUM = ['orders_count','orders_sum','sales_count','sales_sum','ad_impressions','ad_clicks',
                      'ad_basket','ad_orders','ad_spend','to_transfer','profit','giveaways','in_production',
-                     'impressions','clicks','basket_count'];
+                     'impressions','clicks','basket_count',
+                     'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw'];
         const AVG = ['spp_pct','avg_check','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
@@ -3335,12 +3405,15 @@ const RNP = (() => {
         'orders_count','orders_sum','sales_count','sales_sum','returns_count',
         'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend',
         'to_transfer','profit','cost_price_val','giveaways','storage_sum',
+        'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
     ];
 
     function _cabinetWbRate(active, date) {
         const rates = active.map(a => Number(_dataCache[a.nm_id]?.[date]?.wb_rate || 0))
             .filter(r => r > 0.5 && r < 200);
-        return rates.length ? rates.reduce((s, r) => s + r, 0) / rates.length : 0;
+        const avgWb = rates.length ? rates.reduce((s, r) => s + r, 0) / rates.length : 0;
+        // Ручной курс на дату важнее среднего по отчёту — _rateFor это и делает
+        return _rateFor(date, { wb_rate: avgWb });
     }
 
     function _rateForCol(col, active) {
@@ -3374,7 +3447,7 @@ const RNP = (() => {
         a.ad_imp_pct = a.impressions > 0 ? a.ad_impressions / a.impressions * 100 : 0;
         a.drr_pct = a.sales_sum > 0 ? a.ad_spend / a.sales_sum * 100 : 0;
         const revenue = parts.reduce((s, d) => {
-            const er = Number(d.wb_rate) > 0 ? Number(d.wb_rate) : _settings.exchangeRate;
+            const er = _rateFor(d.date, d);
             return s + (Number(d.to_transfer) || 0) * er;
         }, 0);
         a.margin_pct = revenue > 0 ? a.profit / revenue * 100 : 0;
@@ -3500,8 +3573,8 @@ const RNP = (() => {
         const cost = (art?.cost_price || 0); // already in soms
         const logisticsUnitSom = (art?.logistics_unit || 0);   // сом, baseline from settings
         const otherCostsUnitSom = _otherCostsUnit(art); // сом, from settings
-        // Day's RUB→KGS rate from WB report (wb_rate); static settings rate is a fallback
-        const er = (Number(d.wb_rate) > 0) ? Number(d.wb_rate) : _settings.exchangeRate;
+        // Курс дня: exchange_rates (ручной/НБКР) → курс из отчёта WB → настройки
+        const er = _rateFor(d.date, d);
 
         // Overlay manual benchmarks (plans are per-column via _applyColPlans)
         const md = art?.manual_data || {};
@@ -3585,6 +3658,7 @@ const RNP = (() => {
             case 'high':   return n >= 70 ? 'rnp-green' : n >= 50 ? 'rnp-yellow' : 'rnp-red';
             case 'low':    return n <= 20 ? 'rnp-green' : n <= 35 ? 'rnp-yellow' : 'rnp-red';
             case 'profit': return n > 0 ? 'rnp-green' : n < 0 ? 'rnp-red' : '';
+            case 'cost':   return n > 0 ? 'rnp-red' : '';
             case 'margin': return n >= 20 ? 'rnp-green' : n >= 10 ? 'rnp-yellow' : 'rnp-red';
             case 'plan':
             case 'planStrong':
@@ -4710,6 +4784,74 @@ const RNP = (() => {
         _nrDialog('Артикулы обновлены', added ? `Добавлено новых: ${added}` : 'Новых артикулов нет — список актуален.', 'success');
     }
 
+    // ─── Синк финотчёта и хранения через edge-функцию rnp-finance-sync ────────
+    // Единственная точка, где РНП инициирует запросы к WB. Все данные потом
+    // читаются из БД. Хранение у WB — асинхронный отчёт, поэтому при
+    // storage_pending повторяем вызов через 10 с (не больше нескольких раз).
+    let _financeSyncInflight = false;
+    async function syncFinance(opts = {}) {
+        if (_financeSyncInflight || !_db || !_cab) return;
+        _financeSyncInflight = true;
+        const cab = _cab;
+        const btn = document.getElementById('rnp-sync-finance-btn');
+        const fresh = document.getElementById('rnp-freshness');
+        const setMsg = (t) => { if (fresh) fresh.textContent = t; };
+        if (btn) { btn.disabled = true; btn.textContent = 'Обновляем…'; }
+        try {
+            const body = { mode: 'sync', cabinet_id: cab, force: !!opts.force };
+            if (opts.from) body.from = opts.from;
+            if (opts.to) body.to = opts.to;
+            setMsg('Финотчёт WB…');
+            let { data, error } = await _db.functions.invoke('rnp-finance-sync', { body });
+            if (error) throw new Error(await _fnErrorText(error));
+            let r = data?.results?.[0];
+            if (!r) throw new Error(data?.error || 'Пустой ответ синка');
+            if (r.status === 'error') throw new Error(r.error || 'Ошибка синка');
+
+            let tries = 0;
+            while (r.storage_pending && tries < 8 && _cab === cab) {
+                tries++;
+                setMsg(`Хранение WB считается… (${tries})`);
+                await new Promise(res => setTimeout(res, 10000));
+                ({ data, error } = await _db.functions.invoke('rnp-finance-sync', {
+                    body: { mode: 'status', cabinet_id: cab, from: r.from, to: r.to },
+                }));
+                if (error) break;
+                r = data?.results?.[0] || r;
+            }
+            if (_cab !== cab) return;
+
+            await _loadRnpData();
+            if (document.getElementById('rnp-sheet-body')) await _renderActiveTable();
+            const fin = r.finance?.rows ?? 0;
+            const sto = r.storage?.rows ?? 0;
+            const coef = Number(r.recompute?.coef || 0);
+            const parts = [`финотчёт: ${fin} строк${r.finance?.cached ? ' (кэш)' : ''}`];
+            parts.push(r.storage_pending ? 'хранение: ещё считается у WB, допишется при следующем обновлении'
+                : r.storage?.skipped ? `хранение: пропущено (${r.storage.reason})`
+                : `хранение: ${sto} строк${r.storage?.cached ? ' (кэш)' : ''}`);
+            if (coef > 0 && coef !== 1) parts.push(`коэфф. сверки хранения ${coef.toFixed(4)}`);
+            _nrDialog('РНП обновлён', `${r.from} — ${r.to}. ${parts.join('; ')}.`, 'success');
+        } catch (e) {
+            console.error('[RNP] syncFinance:', e);
+            _nrDialog('Не удалось обновить из WB', String(e.message || e), 'error');
+        } finally {
+            _financeSyncInflight = false;
+            if (btn) { btn.disabled = false; btn.textContent = 'Обновить из WB'; }
+            _updateRnpFreshness();
+        }
+    }
+
+    async function _fnErrorText(error) {
+        try {
+            if (error?.context && typeof error.context.json === 'function') {
+                const j = await error.context.json();
+                if (j?.error) return j.error;
+            }
+        } catch (_) {}
+        return error?.message || 'Ошибка вызова функции';
+    }
+
     async function resyncArticles() {
         const cab = _cab;
         const res = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
@@ -4829,7 +4971,12 @@ const RNP = (() => {
 
     async function saveRate() {
         const v = parseFloat(document.getElementById('rnp-rate')?.value);
-        if (v > 0) { await _saveSettings({ exchangeRate: v }); }
+        if (!(v > 0)) return;
+        await _saveSettings({ exchangeRate: v });
+        // Фиксируем как ручной курс на сегодня — он важнее курса из отчёта/НБКР
+        await _saveManualRate(v);
+        if (document.getElementById('rnp-sheet-body')) await _renderActiveTable();
+        _nrDialog('Курс сохранён', `1 ₽ = ${v} сом зафиксирован на сегодня (источник: вручную).`, 'success');
     }
 
     async function savePeriod(v) {
@@ -5004,9 +5151,9 @@ const RNP = (() => {
     }
     setTimeout(_retryRnpBoot, 800);
 
-    return { init, initCore, ensureReady, openSettings, openMain, pick, syncArts, refreshArticles, resyncArticles, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, initCore, ensureReady, openSettings, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
-             syncFinance: _syncFinanceRange, syncAds: _syncAdStats };
+             syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
 
 // Билд минифицирует этот файл в IIFE (esbuild format: 'iife'), из-за чего

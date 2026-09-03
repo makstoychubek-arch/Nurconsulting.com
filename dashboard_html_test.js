@@ -68,6 +68,13 @@ assert.ok(
 
 const rnpSrc = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
 assert.ok(rnpSrc.includes('function _abandonStaleMain'), 'stale RNP render must retry instead of hanging');
+assert.ok(rnpSrc.includes("functions.invoke('rnp-finance-sync'"), 'RNP «Обновить из WB» must go through the rnp-finance-sync edge function');
+assert.ok(rnpSrc.includes("from('exchange_rates')"), 'RNP must read the fixed exchange rate from exchange_rates');
+assert.ok(/key: 'storage_sum',\s+label: 'Хранение \(сверено\)'/.test(rnpSrc), 'RNP shows reconciled storage row');
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/functions/rnp-finance-sync/index.ts')),
+    'rnp-finance-sync edge function must exist'
+);
 assert.ok(rnpSrc.includes('nr-early-tab-style'), 'RNP retry boot must see the early-tab CSS');
 assert.ok(rnpSrc.includes('setTimeout(_retryRnpBoot, 1500)'), 'RNP boot retry loop must keep scheduling');
 assert.ok(rnpSrc.includes('_mainInflightCab === _cab'), 'openMain must dedupe concurrent renders per cabinet');
