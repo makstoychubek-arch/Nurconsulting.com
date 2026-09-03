@@ -3,8 +3,9 @@
 // (картинка-таблица: причина + сумма в сом). Запуск pg_cron 09:00 UTC
 // = 15:00 Бишкек, за предыдущий день.
 //
-// Источник: POST /api/finance/v1/sales-reports/detailed (Finance API, токен
-// категории «Финансы»). Без Finance-прав в токене кабинет пропускается.
+// Источник: недельный отчёт реализации WB
+// POST /api/finance/v1/sales-reports/list + detailed/{reportId}.
+// Запрос за один день даёт 204, пока неделя не закрыта.
 //
 // Тело: { "date": "YYYY-MM-DD", "force": true, "cabinets": ["Имя"] }
 
@@ -12,24 +13,18 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCanvas } from 'https://deno.land/x/canvas@v1.4.2/mod.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
+import {
+    fetchWeeklyPenaltyBundle,
+    prettyRuDate,
+} from '../_shared/wb-penalties-snapshot.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const FINANCE_API = 'https://finance-api.wildberries.ru';
 // Кого тегать в TG, если есть штрафы (можно переопределить через secret)
 const ALERT_USERNAME = (Deno.env.get('TELEGRAM_ALERT_USERNAME') || 'maraWuW').replace(/^@/, '');
-
-// Реклама и прочее — не считаем «удержанием» для отчёта (как wb-formulas.js)
-const EXCLUDED_DEDUCTION_NAMES = [
-    'ВБ.Продвижение', 'WB Продвижение', 'ВБ.Медиа',
-    'Перевод на баланс заёмщика', 'Погашение задолженности',
-    'Погашение по займу', 'Продвижение через блогеров',
-    'ВБ.Бренд-зона', 'Сторно платной приёмки',
-    'НДС не облагается', 'Компенсация',
-];
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -76,7 +71,10 @@ Deno.serve(async (req) => {
                     continue;
                 }
 
-                const eventType = `daily_penalties_${reportDate}`;
+                const bundle = await fetchWeeklyPenaltyBundle(token, reportDate);
+                const rows = bundle.rows;
+                const periodKey = `${bundle.periodFrom}_${bundle.periodTo}`;
+                const eventType = `daily_penalties_${periodKey}`;
                 const { data: dupes } = await admin
                     .from('notification_log')
                     .select('id')
@@ -84,13 +82,21 @@ Deno.serve(async (req) => {
                     .eq('event_type', eventType)
                     .limit(1);
                 if (dupes?.length && !body?.force) {
-                    cabResult.skipped = 'already_sent';
+                    cabResult.skipped = bundle.weekOpen ? 'week_not_closed' : 'already_sent';
+                    cabResult.period = periodKey;
+                    results.push(cabResult);
+                    continue;
+                }
+                if (bundle.weekOpen && !rows.length && !body?.force) {
+                    cabResult.skipped = 'week_not_closed';
+                    cabResult.period = periodKey;
                     results.push(cabResult);
                     continue;
                 }
 
-                const rows = await fetchPenaltyRows(token, reportDate);
-                const caption = buildCaption(cabinet.name, reportDate, rows);
+                const caption = buildCaption(cabinet.name, reportDate, rows, bundle);
+                cabResult.period = periodKey;
+                cabResult.week_open = bundle.weekOpen;
                 let sent = false;
 
                 if (!rows.length) {
@@ -107,7 +113,10 @@ Deno.serve(async (req) => {
                     for (let pi = 0; pi < pages.length; pi++) {
                         if (pi > 0) await sleep(1200);
                         const png = await renderPenaltyImage(
-                            cabinet.name, reportDate, pages[pi],
+                            cabinet.name, bundle.periodFrom === bundle.periodTo
+                                ? reportDate
+                                : `${prettyRuDate(bundle.periodFrom)}–${prettyRuDate(bundle.periodTo)}`,
+                            pages[pi],
                             { pageNum: pi + 1, pageCount: pages.length, totalsRows: pi === pages.length - 1 ? rows : null },
                         );
                         let tgErr = await sendTelegramPhoto(tgToken, tgChatId, png, pi === 0 ? caption : '');
@@ -126,7 +135,7 @@ Deno.serve(async (req) => {
                         cabinet_id: cabinet.id,
                         campaign_id: null,
                         event_type: eventType,
-                        message_text: `penalties ${reportDate}: ${rows.length} items`,
+                        message_text: `penalties ${periodKey}: ${rows.length} items`,
                     });
                 }
                 cabResult.sent = sent;
@@ -139,8 +148,9 @@ Deno.serve(async (req) => {
                 }
             }
             results.push(cabResult);
-            // Finance API: 1 req/min на продавца — пауза между кабинетами
-            await sleep(3000);
+            // Finance API: 1 req/min на продавца — пауза ПЕРЕД следующим кабинетом
+            const remaining = (cabinets || []).filter((c) => !onlyCabinets || onlyCabinets.includes(c.name));
+            if (cabinet !== remaining[remaining.length - 1]) await sleep(65000);
         }
 
         return json({ ok: true, date: reportDate, results, ms: Date.now() - started });
@@ -155,88 +165,29 @@ interface PenaltyRow {
     amount: number;
 }
 
-// deno-lint-ignore no-explicit-any
-async function fetchPenaltyRows(token: string, date: string): Promise<PenaltyRow[]> {
-    const raw: Record<string, unknown>[] = [];
-    let rrdId = 0;
-    for (let page = 0; page < 20; page++) {
-        const res = await fetchWithTimeout(`${FINANCE_API}/api/finance/v1/sales-reports/detailed`, {
-            method: 'POST',
-            headers: { Authorization: token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dateFrom: date, dateTo: date, limit: 100000, rrdId }),
-        }, 90000);
-        if (res.status === 204) break;
-        const text = await res.text();
-        if (!res.ok) throw new Error(`WB finance ${res.status}: ${text.slice(0, 220)}`);
-        if (!text.trim()) break;
-        const chunk = JSON.parse(text);
-        if (!Array.isArray(chunk) || !chunk.length) break;
-        raw.push(...chunk);
-        const last = chunk[chunk.length - 1] as Record<string, unknown>;
-        const nextRrd = Number(last?.rrdId ?? last?.rrd_id ?? 0);
-        if (chunk.length < 100000 || !nextRrd || nextRrd === rrdId) break;
-        rrdId = nextRrd;
-        await sleep(61000);
-    }
-    return aggregatePenaltyRows(raw);
-}
-
-// deno-lint-ignore no-explicit-any
-function aggregatePenaltyRows(raw: any[]): PenaltyRow[] {
-    const byReason = new Map<string, number>();
-    for (const r of raw) {
-        const penalty = parseMoney(ffield(r, 'penalty'));
-        const deduction = parseMoney(ffield(r, 'deduction'));
-        const docType = String(ffield(r, 'docTypeName', 'doc_type_name') || '');
-        const operName = String(ffield(r, 'supplierOperName', 'supplier_oper_name') || '');
-        const bonusName = String(ffield(r, 'bonusTypeName', 'bonus_type_name') || '');
-
-        const excluded = EXCLUDED_DEDUCTION_NAMES.some((n) =>
-            operName.includes(n) || bonusName.includes(n),
-        );
-
-        let amount = 0;
-        if (penalty > 0) amount += penalty;
-        if (deduction > 0 && !excluded) amount += deduction;
-
-        const docLower = docType.toLowerCase();
-        if (amount <= 0 && !docLower.includes('штраф') && !docLower.includes('удерж')) continue;
-        if (amount <= 0) continue;
-
-        const reason = (bonusName || operName || docType || 'Удержание').trim();
-        byReason.set(reason, (byReason.get(reason) || 0) + amount);
-    }
-    return [...byReason.entries()]
-        .map(([reason, amount]) => ({ reason, amount }))
-        .sort((a, b) => b.amount - a.amount);
-}
-
-function ffield(obj: Record<string, unknown>, ...keys: string[]): unknown {
-    for (const k of keys) {
-        if (obj[k] != null && obj[k] !== '') return obj[k];
-    }
-    return null;
-}
-
-function parseMoney(v: unknown): number {
-    if (v == null || v === '') return 0;
-    const n = Number(String(v).replace(/\s/g, '').replace(',', '.'));
-    return Number.isFinite(n) ? Math.abs(n) : 0;
-}
-
-function buildCaption(cabinetName: string, date: string, rows: PenaltyRow[]): string {
-    const d = date.split('-');
-    const pretty = `${d[2]}.${d[1]}.${d[0]}`;
+function buildCaption(
+    cabinetName: string,
+    date: string,
+    rows: PenaltyRow[],
+    bundle: { periodFrom: string; periodTo: string; weekOpen: boolean },
+): string {
+    const period = bundle.periodFrom === bundle.periodTo
+        ? prettyRuDate(date)
+        : `${prettyRuDate(bundle.periodFrom)}–${prettyRuDate(bundle.periodTo)}`;
+    const openNote = bundle.weekOpen
+        ? `\nНеделя ${prettyRuDate(date)} ещё не закрыта — это последний отчёт WB`
+        : '';
     if (!rows.length) {
-        return `✅ <b>${escapeHtml(cabinetName)}</b> — штрафы за ${pretty}\nШтрафов и удержаний нет`;
+        return `✅ <b>${escapeHtml(cabinetName)}</b> — штрафы за ${period}${openNote}\nШтрафов и удержаний нет`;
     }
     const total = rows.reduce((s, r) => s + r.amount, 0);
     const fmtNum = (n: number) => Math.round(n).toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
     return [
-        `⚠️ <b>${escapeHtml(cabinetName)}</b> — штрафы за ${pretty}`,
+        `⚠️ <b>${escapeHtml(cabinetName)}</b> — штрафы за ${period}`,
         `💸 Удержано: <b>${fmtNum(total)} сом</b> (${rows.length} поз.)`,
         `@${escapeHtml(ALERT_USERNAME)} — <b>нужно разобраться</b>`,
-    ].join('\n');
+        openNote.trim(),
+    ].filter(Boolean).join('\n');
 }
 
 // ── Картинка-таблица (стиль как daily-sales-report) ───────────────────────
@@ -262,8 +213,9 @@ async function renderPenaltyImage(
 ): Promise<Uint8Array> {
     await ensureFonts();
     const fmtNum = (n: number) => Math.round(n).toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
-    const d = date.split('-');
-    const prettyDate = `${d[2]}.${d[1]}.${d[0]}`;
+    const prettyDate = /^\d{4}-\d{2}-\d{2}$/.test(date)
+        ? prettyRuDate(date)
+        : date;
     const showTotals = opts.totalsRows != null;
     const totalAmount = (opts.totalsRows || rows).reduce((s, r) => s + r.amount, 0);
 

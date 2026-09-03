@@ -31,6 +31,36 @@ export function parsePenaltiesQuery(text: string, _strict = false): PenaltiesQue
 
 export type PenaltySnapshot = { name: string; total: number; error?: string };
 
+export type SalesReportMeta = {
+  reportId: number;
+  dateFrom: string;
+  dateTo: string;
+};
+
+export type PenaltyLine = { reason: string; amount: number };
+
+/** Недельный отчёт, который покрывает дату, иначе последний закрытый. */
+export function pickSalesReport(reports: SalesReportMeta[], date: string): SalesReportMeta | null {
+  const covering = reports
+    .filter((r) => r.dateFrom <= date && date <= r.dateTo)
+    .sort((a, b) => b.dateTo.localeCompare(a.dateTo));
+  if (covering[0]) return covering[0];
+  const closed = reports
+    .filter((r) => r.dateTo < date)
+    .sort((a, b) => b.dateTo.localeCompare(a.dateTo));
+  return closed[0] ?? null;
+}
+
+export function addDaysYmd(date: string, days: number): string {
+  const ms = Date.parse(`${date}T00:00:00Z`) + days * 86400000;
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+export function prettyRuDate(date: string): string {
+  const [y, m, d] = date.split('-');
+  return `${d}.${m}.${y}`;
+}
+
 /** Сумма штрафов/удержаний за день по кабинетам (чат: до 3 страниц без минутного sleep). */
 export async function fetchAllCabinetPenalties(
   admin: SupabaseClient,
@@ -79,49 +109,96 @@ export async function fetchAllCabinetPenalties(
   );
 }
 
+async function financePost(token: string, path: string, body: Record<string, unknown>, timeoutMs = 60000): Promise<{ status: number; data: unknown }> {
+  let lastErr = '';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(`${FINANCE_API}${path}`, {
+      method: 'POST',
+      headers: { Authorization: token, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const text = await res.text();
+    if (res.status === 429) {
+      lastErr = text.slice(0, 120);
+      await new Promise((r) => setTimeout(r, 65000));
+      continue;
+    }
+    if (res.status === 204 || !text.trim()) return { status: res.status, data: [] };
+    if (!res.ok) throw new Error(`WB finance ${res.status}: ${text.slice(0, 160)}`);
+    return { status: res.status, data: JSON.parse(text) };
+  }
+  throw new Error(`WB finance 429: ${lastErr}`);
+}
+
+export async function fetchWeeklyPenaltyBundle(
+  token: string,
+  date: string,
+): Promise<{
+  rows: PenaltyLine[];
+  periodFrom: string;
+  periodTo: string;
+  reportId: number | null;
+  weekOpen: boolean;
+}> {
+  const listFrom = addDaysYmd(date, -28);
+  const listed = await financePost(token, '/api/finance/v1/sales-reports/list', {
+    dateFrom: listFrom,
+    dateTo: date,
+  });
+  const reports: SalesReportMeta[] = (Array.isArray(listed.data) ? listed.data : [])
+    .map((r) => {
+      const rec = r as Record<string, unknown>;
+      return {
+        reportId: Number(rec.reportId ?? rec.report_id ?? 0),
+        dateFrom: String(rec.dateFrom ?? rec.date_from ?? '').slice(0, 10),
+        dateTo: String(rec.dateTo ?? rec.date_to ?? '').slice(0, 10),
+      };
+    })
+    .filter((r) => r.reportId && r.dateFrom && r.dateTo);
+
+  const picked = pickSalesReport(reports, date);
+  if (!picked) {
+    return { rows: [], periodFrom: date, periodTo: date, reportId: null, weekOpen: true };
+  }
+  const weekOpen = !(picked.dateFrom <= date && date <= picked.dateTo);
+  const detailed = await financePost(
+    token,
+    `/api/finance/v1/sales-reports/detailed/${picked.reportId}`,
+    {},
+    90000,
+  );
+  const raw = Array.isArray(detailed.data) ? detailed.data as Record<string, unknown>[] : [];
+  return {
+    rows: aggregatePenaltyRows(raw),
+    periodFrom: picked.dateFrom,
+    periodTo: picked.dateTo,
+    reportId: picked.reportId,
+    weekOpen,
+  };
+}
+
 /** До 3 страниц detailed report — ближе к cron, без 61с паузы. */
 async function fetchPenaltyTotalChat(
   token: string,
   date: string,
 ): Promise<{ total: number; truncated: boolean }> {
-  let total = 0;
-  let rrdId = 0;
-  let truncated = false;
-  for (let page = 0; page < 3; page++) {
-    const res = await fetch(`${FINANCE_API}/api/finance/v1/sales-reports/detailed`, {
-      method: 'POST',
-      headers: { Authorization: token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dateFrom: date, dateTo: date, limit: 100000, rrdId }),
-      signal: AbortSignal.timeout(45000),
-    });
-    if (res.status === 204) break;
-    const text = await res.text();
-    if (!res.ok) throw new Error(`WB finance ${res.status}: ${text.slice(0, 160)}`);
-    if (!text.trim()) break;
-    const chunk = JSON.parse(text);
-    if (!Array.isArray(chunk) || !chunk.length) break;
-    total += aggregatePenaltyTotal(chunk);
-    const last = chunk[chunk.length - 1] as Record<string, unknown>;
-    const nextRrd = Number(last?.rrdId ?? last?.rrd_id ?? 0);
-    if (chunk.length < 100000 || !nextRrd || nextRrd === rrdId) break;
-    if (page === 2) {
-      truncated = true;
-      break;
-    }
-    rrdId = nextRrd;
-    await new Promise((r) => setTimeout(r, 1200));
-  }
-  return { total, truncated };
+  const bundle = await fetchWeeklyPenaltyBundle(token, date);
+  return {
+    total: bundle.rows.reduce((s, r) => s + r.amount, 0),
+    truncated: false,
+  };
 }
 
-function aggregatePenaltyTotal(raw: Record<string, unknown>[]): number {
-  let total = 0;
+export function aggregatePenaltyRows(raw: Record<string, unknown>[]): PenaltyLine[] {
+  const byReason = new Map<string, number>();
   for (const r of raw) {
     const penalty = parseMoney(ffield(r, 'penalty'));
     const deduction = parseMoney(ffield(r, 'deduction'));
     const docType = String(ffield(r, 'docTypeName', 'doc_type_name') || '');
     const operName = String(ffield(r, 'supplierOperName', 'supplier_oper_name') || '');
     const bonusName = String(ffield(r, 'bonusTypeName', 'bonus_type_name') || '');
+    const blob = `${docType} ${operName} ${bonusName}`.toLowerCase();
 
     const excluded = EXCLUDED_DEDUCTION_NAMES.some((n) =>
       operName.includes(n) || bonusName.includes(n)
@@ -130,13 +207,15 @@ function aggregatePenaltyTotal(raw: Record<string, unknown>[]): number {
     let amount = 0;
     if (penalty > 0) amount += penalty;
     if (deduction > 0 && !excluded) amount += deduction;
-
-    const docLower = docType.toLowerCase();
-    if (amount <= 0 && !docLower.includes('штраф') && !docLower.includes('удерж')) continue;
+    if (amount <= 0 && !blob.includes('штраф') && !blob.includes('удерж')) continue;
     if (amount <= 0) continue;
-    total += amount;
+
+    const reason = (bonusName || operName || docType || 'Удержание').trim();
+    byReason.set(reason, (byReason.get(reason) || 0) + amount);
   }
-  return total;
+  return [...byReason.entries()]
+    .map(([reason, amount]) => ({ reason, amount }))
+    .sort((a, b) => b.amount - a.amount);
 }
 
 function ffield(obj: Record<string, unknown>, ...keys: string[]): unknown {
