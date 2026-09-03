@@ -271,4 +271,45 @@ assert.ok(
     'pending users must see that the admin got their login request'
 );
 
+assert.ok(html.includes('data-adv-view="autobidder"') && html.includes('id="adv-subtab-autobidder"'),
+    'advertising detail must have an Автобиддер tab');
+assert.ok(html.includes('id="autobidder-modal"') && html.includes('function openAutobidderModal'),
+    'campaign row must open the autobidder rule modal');
+assert.ok(html.includes('function saveAutobidderRule') && html.includes("from('autobidder_rules')"),
+    'autobidder modal must persist a rule to autobidder_rules');
+assert.ok(html.includes('AUTOBIDDER_RUN_URL') && html.includes('function runAutobidderNow'),
+    'dashboard must call autobidder-run for a manual pass');
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903200000_autobidder.sql')),
+    'autobidder_rules migration must exist'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260903200000_autobidder.sql'), 'utf8')
+        .includes('autobidder_rules') &&
+    fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260903200000_autobidder.sql'), 'utf8')
+        .includes('autobidder_log'),
+    'migration must create rules and log tables'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903201000_autobidder_cron.sql')),
+    'autobidder cron migration must exist'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/functions/autobidder-run/index.ts')),
+    'autobidder-run edge function must exist'
+);
+const autobidderSrc = fs.readFileSync(path.join(__dirname, 'supabase/functions/autobidder-run/index.ts'), 'utf8');
+assert.ok(autobidderSrc.includes('setAdvertBids') && autobidderSrc.includes('target_metric'),
+    'autobidder-run must change WB bids against the target metric');
+assert.ok(!autobidderSrc.includes('budget') || autobidderSrc.includes('Бюджет не пополняет'),
+    'autobidder must not deposit campaign budget');
+assert.ok(
+    proxySrc.includes("case 'advert_get_bids'") && proxySrc.includes("case 'advert_set_bids'"),
+    'wb-proxy must expose get/set bid actions'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/functions/_shared/wb-advert-bids.ts')),
+    'shared WB bid helpers must exist'
+);
+
 console.log('dashboard_html_test: ok');
