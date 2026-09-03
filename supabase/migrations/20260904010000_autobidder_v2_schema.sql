@@ -1,6 +1,92 @@
 -- Автобиддер v2: схема из docs/autobidder.md §§5 и 11.1.
 -- Не применяет токены в таблицах — только adv_token_secret_id (Vault).
--- Существующие таблицы не меняет, кроме ALTER TABLE cabinets.
+-- Существующие таблицы не меняет, кроме ALTER TABLE cabinets
+-- и переименования MVP-таблицы autobidder_rules (без cluster_id).
+
+-- MVP из 20260903200000: другая схема, то же имя. Данные сохраняем.
+do $$
+declare
+  r record;
+  new_name text;
+begin
+  if to_regclass('public.autobidder_rules') is null then
+    return;
+  end if;
+
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'autobidder_rules'
+      and column_name = 'cluster_id'
+  ) then
+    return;
+  end if;
+
+  if to_regclass('public.autobidder_rules_legacy_mvp') is not null then
+    raise exception 'autobidder_rules_legacy_mvp already exists';
+  end if;
+
+  alter table public.autobidder_rules rename to autobidder_rules_legacy_mvp;
+
+  -- PK/UNIQUE: rename constraint (индекс переименуется вместе с ним).
+  for r in
+    select c.conname
+    from pg_constraint c
+    join pg_class t on t.oid = c.conrelid
+    join pg_namespace n on n.oid = t.relnamespace
+    where n.nspname = 'public'
+      and t.relname = 'autobidder_rules_legacy_mvp'
+      and c.conname like 'autobidder_rules%'
+      and c.conname not like 'autobidder_rules_legacy_mvp%'
+  loop
+    new_name := 'autobidder_rules_legacy_mvp' || substr(r.conname, length('autobidder_rules') + 1);
+    execute format(
+      'alter table public.autobidder_rules_legacy_mvp rename constraint %I to %I',
+      r.conname, new_name
+    );
+  end loop;
+
+  -- оставшиеся индексы (например autobidder_rules_cabinet_idx)
+  for r in
+    select i.relname as idx_name
+    from pg_index x
+    join pg_class i on i.oid = x.indexrelid
+    join pg_class t on t.oid = x.indrelid
+    join pg_namespace n on n.oid = t.relnamespace
+    where n.nspname = 'public'
+      and t.relname = 'autobidder_rules_legacy_mvp'
+      and i.relname like 'autobidder_rules%'
+      and i.relname not like 'autobidder_rules_legacy_mvp%'
+  loop
+    new_name := 'autobidder_rules_legacy_mvp' || substr(r.idx_name, length('autobidder_rules') + 1);
+    execute format('alter index public.%I rename to %I', r.idx_name, new_name);
+  end loop;
+
+  for r in
+    select pol.polname
+    from pg_policy pol
+    join pg_class t on t.oid = pol.polrelid
+    join pg_namespace n on n.oid = t.relnamespace
+    where n.nspname = 'public'
+      and t.relname = 'autobidder_rules_legacy_mvp'
+  loop
+    if r.polname like 'autobidder_rules_legacy_mvp%' then
+      continue;
+    elsif r.polname like 'autobidder_rules%' then
+      new_name := 'autobidder_rules_legacy_mvp' || substr(r.polname, length('autobidder_rules') + 1);
+    else
+      new_name := 'autobidder_rules_legacy_mvp_' || r.polname;
+    end if;
+    execute format(
+      'alter policy %I on public.autobidder_rules_legacy_mvp rename to %I',
+      r.polname, new_name
+    );
+  end loop;
+
+  comment on table public.autobidder_rules_legacy_mvp is
+    'MVP-правила автобиддера (бывшая autobidder_rules). Данные сохранены.';
+end $$;
 
 create extension if not exists pg_trgm with schema extensions;
 
@@ -55,10 +141,7 @@ create table if not exists public.autobidder_templates (
   config jsonb not null
 );
 
--- §5 + template_id из §11.1.
--- Имя занято MVP-таблицей из 20260903200000_autobidder.sql (другая схема).
--- Эти миграции её не переименовывают и не ALTER — CREATE IF NOT EXISTS
--- создаст v2-таблицу только если имени ещё нет.
+-- §5 + template_id из §11.1. Имя свободно после переименования MVP выше.
 create table if not exists public.autobidder_rules (
   id uuid primary key default gen_random_uuid(),
   campaign_id uuid not null references public.adv_campaigns(id) on delete cascade,
