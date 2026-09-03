@@ -94,6 +94,15 @@ assert.ok(
     'RNP load must not be invalidated by dashboard loadFromDB request ids'
 );
 assert.ok(rnpSrc.includes('_loadPlans(dateFrom, dateTo)'), 'plans must be loaded only for the visible calendar range');
+assert.ok(
+    rnpSrc.includes("content_cards") && rnpSrc.includes('force: true') && rnpSrc.includes('refreshArticles'),
+    '«Обновить артикулы» must pull WB content cards, not only orders'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
+        .includes('syncArticlesFromContentCards'),
+    'auto-sync must add new catalog cards to rnp_articles'
+);
 assert.ok(/Promise\.all\(\[\s*_loadPlans\(dateFrom, dateTo\)/.test(rnpSrc), 'RNP loads plans/orders/stocks in parallel');
 
 console.log('dashboard_html_test: ok');

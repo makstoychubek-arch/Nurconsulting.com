@@ -281,32 +281,48 @@ serve(async (req) => {
 
             // ── Content API ─────────────────────────────────────────────────
             case 'content_cards': {
-                const ccKey = proxyCacheKey('content_cards', cabinet_id, params as Record<string, unknown>);
+                const ccKey = params.force ? null : proxyCacheKey('content_cards', cabinet_id, params as Record<string, unknown>);
                 if (ccKey) {
                     const cached = readProxyCache(ccKey, PROXY_CACHE_TTL_MS.content_cards);
                     if (cached) { result = cached; break; }
                 }
                 // Note: filter.nmID (array) is NOT a real WB Content API field —
                 // it's silently ignored. Only textSearch (single value) works
-                // for looking up a specific article.
-                const body = {
-                    settings: {
-                        sort: { ascending: false },
-                        filter: {
-                            textSearch: String(params.textSearch || (params.nmIds?.[0] ?? '')),
-                            withPhoto: params.withPhoto ?? -1,
-                        },
-                        cursor: {
-                            limit: params.limit || 100,
-                            ...(params.cursorNmId ? { nmID: Number(params.cursorNmId) } : {}),
-                        }
-                    }
-                };
+                // for looking up a specific article. Empty textSearch = весь
+                // каталог; листаем cursor, иначе новые карточки без заказов
+                // не попадут в РНП.
+                const pageLimit = Math.min(Number(params.limit) || 100, 100);
+                const textSearch = String(params.textSearch || (params.nmIds?.[0] ?? ''));
+                const allCards: unknown[] = [];
+                let cursorNmId = params.cursorNmId ? Number(params.cursorNmId) : 0;
+                let cursorUpdatedAt = params.cursorUpdatedAt ? String(params.cursorUpdatedAt) : '';
                 try {
-                    result = await wbPost(
-                        'https://content-api.wildberries.ru/content/v2/get/cards/list',
-                        WB_TOKEN, body
-                    );
+                    for (let page = 0; page < 20; page++) {
+                        const body = {
+                            settings: {
+                                sort: { ascending: false },
+                                filter: { textSearch, withPhoto: params.withPhoto ?? -1 },
+                                cursor: {
+                                    limit: pageLimit,
+                                    ...(cursorNmId ? { nmID: cursorNmId } : {}),
+                                    ...(cursorUpdatedAt ? { updatedAt: cursorUpdatedAt } : {}),
+                                },
+                            },
+                        };
+                        const pageRes = await wbPost(
+                            'https://content-api.wildberries.ru/content/v2/get/cards/list',
+                            WB_TOKEN, body
+                        ) as Record<string, unknown>;
+                        const cards = (pageRes?.cards || (pageRes?.data as Record<string, unknown>)?.cards || []) as unknown[];
+                        if (Array.isArray(cards)) allCards.push(...cards);
+                        const cur = (pageRes?.cursor || {}) as Record<string, unknown>;
+                        const nextNm = Number(cur.nmID || cur.nmId || 0);
+                        const nextAt = String(cur.updatedAt || '');
+                        if (!cards.length || cards.length < pageLimit || !nextNm) break;
+                        cursorNmId = nextNm;
+                        cursorUpdatedAt = nextAt;
+                    }
+                    result = { cards: allCards };
                 } catch (e) {
                     const status = (e as { status?: number })?.status;
                     if (status === 401 || status === 403) {

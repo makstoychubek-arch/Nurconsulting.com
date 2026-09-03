@@ -351,6 +351,14 @@ Deno.serve(async (req) => {
                 await sleep(2000);
             }
 
+            try {
+                const added = await syncArticlesFromContentCards(admin, cabinet.id, token);
+                if (added) console.log('[auto-sync] new rnp_articles from WB cards:', cabinet.name, added);
+            } catch (e) {
+                errorMsg += `articles: ${(e as Error).message}; `;
+                status = status === 'error' ? 'error' : 'partial';
+            }
+
             // Блок финансовой детализации удалён: использовавшийся метод
             // GET /api/v5/supplier/reportDetailByPeriod отключён WB 15.07.2026
             // (замена — POST /api/finance/v1/sales-reports/detailed, токен
@@ -407,6 +415,71 @@ function json(body: unknown, status = 200) {
 
 function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function syncArticlesFromContentCards(admin: ReturnType<typeof createClient>, cabinetId: string, token: string): Promise<number> {
+    const cards: Record<string, unknown>[] = [];
+    let cursorNmId = 0;
+    let cursorUpdatedAt = '';
+    for (let page = 0; page < 20; page++) {
+        const body: Record<string, unknown> = {
+            settings: {
+                sort: { ascending: false },
+                filter: { textSearch: '', withPhoto: -1 },
+                cursor: {
+                    limit: 100,
+                    ...(cursorNmId ? { nmID: cursorNmId } : {}),
+                    ...(cursorUpdatedAt ? { updatedAt: cursorUpdatedAt } : {}),
+                },
+            },
+        };
+        const res = await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list', {
+            method: 'POST',
+            headers: { Authorization: token, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        if (!res.ok) {
+            if (res.status === 401 || res.status === 403) return 0;
+            throw new Error(`content cards HTTP ${res.status}`);
+        }
+        const payload = await res.json();
+        const pageCards = payload?.cards || payload?.data?.cards || [];
+        if (Array.isArray(pageCards)) cards.push(...pageCards);
+        const cur = payload?.cursor || {};
+        const nextNm = Number(cur.nmID || cur.nmId || 0);
+        const nextAt = String(cur.updatedAt || '');
+        if (!pageCards.length || pageCards.length < 100 || !nextNm) break;
+        cursorNmId = nextNm;
+        cursorUpdatedAt = nextAt;
+        await sleep(400);
+    }
+    if (!cards.length) return 0;
+
+    const { data: existing } = await admin.from('rnp_articles').select('nm_id').eq('cabinet_id', cabinetId);
+    const known = new Set((existing || []).map((r: { nm_id: number }) => Number(r.nm_id)));
+    const toInsert = [];
+    for (const card of cards) {
+        const nmId = Number(card.nmID || card.nmId);
+        if (!nmId || known.has(nmId)) continue;
+        const sa = String(card.vendorCode || card.vendor_code || card.supplierVendorCode || '').trim();
+        const name = sa || String(card.title || card.object || `Артикул ${nmId}`).trim();
+        toInsert.push({
+            cabinet_id: cabinetId,
+            nm_id: nmId,
+            name,
+            photo_url: '',
+            is_active: true,
+            cost_price: 0,
+            manual_data: sa ? { seller_article: sa } : {},
+        });
+    }
+    for (let i = 0; i < toInsert.length; i += 200) {
+        await admin.from('rnp_articles').upsert(toInsert.slice(i, i + 200), {
+            onConflict: 'cabinet_id,nm_id',
+            ignoreDuplicates: true,
+        });
+    }
+    return toInsert.length;
 }
 
 function sanitizeWbToken(raw: unknown): string {

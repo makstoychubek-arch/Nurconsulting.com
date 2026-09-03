@@ -1167,53 +1167,71 @@ const RNP = (() => {
         }
     }
 
-    /** Фоновая догрузка новых артикулов (появились заказы по новому nm_id):
-     *  добавляем как активные, ничего не удаляем, перерисовываем открытые вкладки. */
+    /** Фоновая догрузка новых артикулов из каталога WB и из заказов.
+     *  Добавляем как активные, ничего не удаляем. */
     async function _syncNewArticles(cabId) {
         if (!_db || _cab !== cabId) return 0;
-        const res = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
-        if (_cab !== cabId || !res || !res.added) return 0;
+        const fromCards = await _syncFromContentCards({ silent: true, activateNew: true, force: true });
+        if (_cab !== cabId) return 0;
+        const fromOrders = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
+        const added = (fromCards.added || 0) + (fromOrders.added || 0);
+        if (_cab !== cabId || !added) return 0;
         if (document.getElementById('tab-rnp')?.classList.contains('active')) {
             openMain(true).catch(e => console.warn('[RNP] rerender after new articles:', e.message));
         }
         if (document.getElementById('tab-rnp-settings')?.classList.contains('active')) {
             _renderSettings({ preserveScroll: true });
         }
-        return res.added;
+        return added;
     }
 
     async function _syncFromContentCards(opts = {}) {
-        const { silent = false, activateNew = false } = opts;
-        if (!_callProxy) return false;
+        const { silent = false, activateNew = false, force = false } = opts;
+        if (!_callProxy || !_cab) return { ok: false, added: 0 };
+        const cab = _cab;
         try {
-            const resp = await _callProxyTimed('content_cards', { limit: 1000, withPhoto: -1, textSearch: '' }, _cab);
+            const resp = await _callProxyTimed('content_cards', {
+                limit: 100, withPhoto: -1, textSearch: '', force,
+            }, cab);
             const cards = resp?.cards || resp?.data?.cards || [];
             if (!cards.length) {
                 if (!silent) _nrDialog('Нет карточек', 'WB не вернул карточки товаров. Проверьте токен кабинета.', 'warning');
-                return false;
+                return { ok: false, added: 0 };
             }
+            if (_articlesCab !== cab) await _loadArticles(cab);
+            const known = new Set(_cabArticles().map(a => Number(a.nm_id)));
+            const toUpsert = [];
+            let added = 0;
             for (const card of cards) {
                 const nmId = Number(card.nmID || card.nmId);
                 if (!nmId) continue;
                 const sa = _extractSellerArticle(card);
                 const displayName = sa
                     || String(card.title || card.object || card.vendorCode || `Артикул ${nmId}`).trim();
-                const existing = _articles.find(a => a.nm_id == nmId);
+                const existing = _cabArticles().find(a => Number(a.nm_id) === nmId);
                 const md = { ...(existing?.manual_data || {}) };
                 if (sa) md.seller_article = sa;
-                await _db.from('rnp_articles').upsert({
-                    cabinet_id: _cab, nm_id: nmId, name: displayName,
-                    photo_url: '', is_active: activateNew || !!existing?.is_active,
+                if (!known.has(nmId)) added++;
+                toUpsert.push({
+                    cabinet_id: cab, nm_id: nmId, name: displayName,
+                    photo_url: existing?.photo_url || '',
+                    is_active: activateNew || !!existing?.is_active,
                     cost_price: existing?.cost_price || 0,
                     manual_data: md,
-                }, { onConflict: 'cabinet_id,nm_id' });
+                });
             }
-            await _loadArticles(_cab);
-            return _articles.length > 0;
+            for (let i = 0; i < toUpsert.length; i += 200) {
+                if (_cab !== cab) return { ok: false, added: 0 };
+                await _db.from('rnp_articles').upsert(toUpsert.slice(i, i + 200), { onConflict: 'cabinet_id,nm_id' });
+            }
+            if (_cab !== cab) return { ok: false, added };
+            await _loadArticles(cab);
+            if (added) console.info('[RNP] новых артикулов из карточек WB:', added);
+            return { ok: _cabArticles().length > 0, added };
         } catch (e) {
             console.error('[RNP] content sync:', e.message);
             if (!silent) _nrDialog('Ошибка', 'Не удалось загрузить карточки из WB.', 'error');
-            return false;
+            return { ok: false, added: 0 };
         }
     }
 
@@ -1235,7 +1253,9 @@ const RNP = (() => {
 
         if (!_articles.length) {
             console.info('[RNP] bootstrapping new cabinet', _cab);
-            const ok = (await _syncFromOrders({ silent: true, activateNew: true })).ok;
+            const fromCards = await _syncFromContentCards({ silent: true, activateNew: true, force: true });
+            const fromOrders = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
+            const ok = !!(fromCards.ok || fromOrders.ok);
             if (_articles.length && !_articles.some(a => a.is_active)) {
                 await _setAllActive(true);
             }
@@ -3823,7 +3843,7 @@ const RNP = (() => {
                 <span class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} / ${_articles.length} в РНП · артикул продавца из WB</span>
               </h3>
               <div class="flex gap-2 flex-wrap">
-                <button onclick="RNP.refreshArticles()" id="rnp-refresh-arts-btn" class="ui-btn ui-btn-primary text-xs" title="Добавить новые артикулы из заказов, ничего не удаляя">Обновить артикулы</button>
+                <button onclick="RNP.refreshArticles()" id="rnp-refresh-arts-btn" class="ui-btn ui-btn-primary text-xs" title="Добавить новые карточки из каталога WB и из заказов, ничего не удаляя">Обновить артикулы</button>
                 <button onclick="RNP.syncArts()" id="rnp-sync-btn" class="ui-btn ui-btn-secondary text-xs" title="Полная пересборка списка по заказам: новые добавить, исчезнувшие убрать">Из заказов</button>
                 <button onclick="RNP.enableAll(true)" class="ui-btn ui-btn-secondary text-xs">Включить все</button>
                 <button onclick="RNP.enableAll(false)" class="ui-btn ui-btn-secondary text-xs">Выключить все</button>
@@ -4802,8 +4822,9 @@ const RNP = (() => {
         const cab = _cab;
         let added = 0;
         try {
-            const res = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
-            added = (res && res.added) || 0;
+            const fromCards = await _syncFromContentCards({ silent: true, activateNew: true, force: true });
+            const fromOrders = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
+            added = (fromCards.added || 0) + (fromOrders.added || 0);
             if (_cab === cab) await _loadArticles(cab);
         } finally {
             if (btn) { btn.disabled = false; btn.textContent = 'Обновить артикулы'; }
@@ -4886,8 +4907,10 @@ const RNP = (() => {
 
     async function resyncArticles() {
         const cab = _cab;
-        const res = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
-        if (_cab !== cab || !res || !res.added) return;
+        const fromCards = await _syncFromContentCards({ silent: true, activateNew: true, force: true });
+        if (_cab !== cab) return;
+        const fromOrders = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
+        if (_cab !== cab || !((fromCards.added || 0) + (fromOrders.added || 0))) return;
         if (document.getElementById('tab-rnp')?.classList.contains('active')) openMain(true).catch(() => {});
         if (document.getElementById('tab-rnp-settings')?.classList.contains('active')) _renderSettings({ preserveScroll: true });
     }
