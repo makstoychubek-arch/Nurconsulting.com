@@ -55,6 +55,21 @@ assert.ok(
 );
 assert.ok(html.includes('ab-create-btn'), 'A/B create button uses WBRadar-style control');
 assert.ok(html.includes('rail-user-name'), 'sidebar shows user name like WBRadar');
+assert.ok(!/<span class="rail-btn-lbl">Товары<\/span>/.test(html), 'Товары must not stay on the main rail');
+assert.ok(!/<span class="rail-btn-lbl">Финансы<\/span>/.test(html), 'Финансы must not stay on the main rail');
+assert.ok(!/<span class="rail-btn-lbl">Логистика<\/span>/.test(html), 'Логистика must not stay on the main rail');
+assert.ok(!/<span class="rail-btn-lbl">Ещё<\/span>/.test(html), 'Ещё flyout must be removed from the rail');
+assert.ok(!html.includes('id="fly-goods"') && !html.includes('id="fly-finance"') && !html.includes('id="fly-manage"'),
+    'goods/finance/manage flyouts must be folded into BETA');
+const betaFly = html.slice(html.indexOf('id="fly-beta"'), html.indexOf('id="fly-tariffs"'));
+assert.ok(betaFly.includes("showTab('cost'"), 'BETA flyout lists Товары');
+assert.ok(betaFly.includes("showTab('dds'"), 'BETA flyout lists Финансы');
+assert.ok(betaFly.includes("showTab('logistics'"), 'BETA flyout lists Логистика');
+assert.ok(betaFly.includes("showTab('calculator'"), 'BETA flyout lists Калькулятор');
+assert.ok(html.includes('id="rail-settings-btn"'), 'settings must be a small button under the profile');
+const settingsIdx = html.indexOf('id="rail-settings-btn"');
+const userIdx = html.indexOf('id="rail-user-name"');
+assert.ok(userIdx !== -1 && settingsIdx > userIdx, 'settings button must sit under the profile block');
 assert.ok(html.includes('abtest-card-row'), 'A/B cards use WBRadar row layout');
 assert.ok(html.includes('nr-early-tab-style'), 'RNP early-tab CSS id must exist for boot detection');
 assert.ok(

@@ -188,6 +188,23 @@
         }
         .rail-user-role { font-size: 11px; color: var(--text-muted); font-weight: 600; }
         .rail-bottom-icons { display: flex; align-items: center; gap: 4px; }
+        .rail-settings-btn {
+            width: 100%; border: none; background: transparent; cursor: pointer;
+            display: flex; align-items: center; gap: 8px;
+            padding: 6px 10px; border-radius: 10px;
+            color: var(--text-muted); font-size: 12px; font-weight: 700;
+            letter-spacing: -0.02em; line-height: 1.2;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .rail-settings-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+        .rail-settings-btn:hover,
+        .rail-settings-btn.active { background: var(--sel); color: var(--text-primary); }
+        .flyout-sec {
+            font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+            text-transform: uppercase; color: var(--text-muted);
+            padding: 12px 12px 4px;
+        }
+        .flyout-sec:first-child { padding-top: 2px; }
         .rail-icon-btn {
             width: 36px; height: 36px; border: none; border-radius: 10px;
             background: transparent; color: var(--text-muted); cursor: pointer;
@@ -2608,25 +2625,9 @@
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg></span>
                     <span class="rail-btn-lbl">А/Б Тесты</span>
                 </button>
-                <button type="button" class="rail-btn" data-tab="logistics" title="Логистика & Поставки">
-                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>
-                    <span class="rail-btn-lbl">Логистика</span>
-                </button>
                 <button type="button" class="rail-btn" data-flyout="fly-beta">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
                     <span class="rail-btn-lbl">BETA</span>
-                </button>
-                <button type="button" class="rail-btn" data-flyout="fly-goods">
-                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg></span>
-                    <span class="rail-btn-lbl">Товары</span>
-                </button>
-                <button type="button" class="rail-btn" data-flyout="fly-finance">
-                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg></span>
-                    <span class="rail-btn-lbl">Финансы</span>
-                </button>
-                <button type="button" class="rail-btn" data-flyout="fly-manage">
-                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg></span>
-                    <span class="rail-btn-lbl">Ещё</span>
                 </button>
                 <button type="button" class="rail-btn" data-flyout="fly-tariffs">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
@@ -2641,6 +2642,10 @@
                         <div class="rail-user-role">кабинет</div>
                     </div>
                 </div>
+                <button type="button" class="rail-settings-btn" id="rail-settings-btn" onclick="showTab('settings', this)" title="Настройки">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
+                    <span>Настройки</span>
+                </button>
                 <div class="rail-bottom-icons">
                     <button type="button" class="rail-icon-btn" onclick="toggleTheme()" title="Тема">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
@@ -2715,6 +2720,7 @@
                 <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
             </div>
             <div class="flyout-body">
+                <div class="flyout-sec">Модули</div>
                 <div class="nav-item" onclick="showTab('seo', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     <span class="nav-item-label">SEO-Позиции</span>
@@ -2725,15 +2731,7 @@
                     <span class="nav-item-label">Маркировка &amp; ШК</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
-            </div>
-        </div>
-
-        <div class="sidebar-flyout" id="fly-goods" data-group="goods">
-            <div class="flyout-header">
-                <span class="flyout-title">Товары</span>
-                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
-            </div>
-            <div class="flyout-body">
+                <div class="flyout-sec">Товары</div>
                 <div class="nav-item" onclick="showTab('cost', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                     <span>Себестоимость</span>
@@ -2746,15 +2744,7 @@
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
                     <span>Склады</span>
                 </div>
-            </div>
-        </div>
-
-        <div class="sidebar-flyout" id="fly-finance" data-group="finance">
-            <div class="flyout-header">
-                <span class="flyout-title">Финансы</span>
-                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
-            </div>
-            <div class="flyout-body">
+                <div class="flyout-sec">Финансы</div>
                 <div class="nav-item" onclick="showTab('dds', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
                     <span>ДДС</span>
@@ -2771,18 +2761,10 @@
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
                     <span>Дополнительно</span>
                 </div>
-            </div>
-        </div>
-
-        <div class="sidebar-flyout" id="fly-manage" data-group="manage">
-            <div class="flyout-header">
-                <span class="flyout-title">Управление</span>
-                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
-            </div>
-            <div class="flyout-body">
-                <div class="nav-item" id="nav-settings" onclick="showTab('settings', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
-                    <span>Настройки</span>
+                <div class="flyout-sec">Прочее</div>
+                <div class="nav-item" onclick="showTab('logistics', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    <span>Логистика</span>
                 </div>
                 <div class="nav-item" onclick="showTab('calculator', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
@@ -4776,10 +4758,11 @@
         dashboard:'ocr', summary:'ocr', 'summary-biz':'ocr', deductions:'ocr', 'plan-fact':'ocr',
         rnp:'rnp', 'rnp-settings':'rnp', planning:'rnp',
         advertising:'ads',
-        'ab-testing':'ab-testing', seo:'beta', marking:'beta', logistics:'logistics',
-        cost:'goods', 'goods-groups':'goods', warehouse:'goods',
-        dds:'finance', operations:'finance', obligations:'finance', 'finance-extra':'finance',
-        settings:'manage', calculator:'manage',
+        'ab-testing':'ab-testing',
+        seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
+        cost:'beta', 'goods-groups':'beta', warehouse:'beta',
+        dds:'beta', operations:'beta', obligations:'beta', 'finance-extra':'beta',
+        settings:'settings',
         tariffs:'tariffs',
     };
 
@@ -4812,6 +4795,7 @@
                 b.classList.toggle('active', b.dataset.tab === tabName);
             }
         });
+        document.getElementById('rail-settings-btn')?.classList.toggle('active', tabName === 'settings');
     }
 
     const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning']);
@@ -9323,11 +9307,9 @@
     }
 
     // ======= Логистика: подраздел "Продажи по складам" =======
-    // Раньше этот раздел был вложен в BETA-флайаут ("Логистика & Поставки").
-    // Теперь у него своя кнопка в левой полке (data-tab="logistics") и
-    // внутри — переключатель видов: "Поставки" (как было) и новый
-    // "Продажи по складам" (агрегат по wb_orders.data->>'warehouseName',
-    // считается в БД через RPC sales_by_warehouse, без выгрузки сырых строк).
+    // Вкладка открывается из BETA. Внутри — переключатель видов:
+    // "Поставки" и "Продажи по складам" (агрегат по
+    // wb_orders.data->>'warehouseName', RPC sales_by_warehouse).
     let _warehouseSalesLoadedForCabinet = null;
 
     function switchLogisticsView(view, el) {
