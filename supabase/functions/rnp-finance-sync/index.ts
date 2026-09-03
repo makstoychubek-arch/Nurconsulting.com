@@ -98,7 +98,10 @@ Deno.serve(async (req) => {
 
     // Cron без cabinet_id: идём по кабинетам, но укладываемся в бюджет времени
     // edge-функции; недоделанные догонит следующий запуск (done-периоды в кэше).
-    const TIME_BUDGET_MS = 110000;
+    // Cron без cabinet_id: стараемся обработать больше кабинетов за один запуск,
+    // чтобы финотчёт доходил не только до первых в списке (сейчас был кейс
+    // "только Zevina 1").
+    const TIME_BUDGET_MS = 240000;
     const results: Json[] = [];
     for (const cab of cabinets) {
         if (!targetCabinetId && Date.now() - started > TIME_BUDGET_MS) {

@@ -16,6 +16,44 @@ const WB_STATS = 'https://statistics-api.wildberries.ru';
 const WB_ANALYTICS = 'https://seller-analytics-api.wildberries.ru';
 const DATE_FROM = '2026-01-01';
 
+function retryAfterMs(res: Response): number {
+    const raw =
+        res.headers.get('x-ratelimit-retry') ||
+        res.headers.get('retry-after') ||
+        res.headers.get('Retry-After') ||
+        '';
+    const sec = Number(raw);
+    if (Number.isFinite(sec) && sec > 0) return (sec + 2) * 1000;
+    return 65000; // дефолт ~1 мин
+}
+
+async function fetchSupplierOrdersExactDay(
+    token: string,
+    dayStr: string,
+    maxAttempts = 6,
+): Promise<Record<string, unknown>[]> {
+    const url = `${WB_STATS}/api/v1/supplier/orders?dateFrom=${dayStr}&flag=1`;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const res = await fetch(url, { headers: { Authorization: token } });
+
+        if (res.status === 429) {
+            const waitMs = Math.min(retryAfterMs(res) + attempt * 5000, 180000); // cap 3 мин
+            await sleep(waitMs);
+            continue;
+        }
+
+        if (!res.ok) {
+            const text = (await res.text().catch(() => '')).slice(0, 200);
+            throw new Error(`orders HTTP ${res.status} ${text}`.trim());
+        }
+
+        const js = await res.json().catch(() => []);
+        return Array.isArray(js) ? (js as Record<string, unknown>[]) : [];
+    }
+
+    throw new Error(`WB orders 429 persisted after ${maxAttempts} attempts`);
+}
+
 // How many of the most recent days (including today) get precisely
 // re-verified against WB on every single sync cycle via the flag=1
 // "exact calendar day" query (see Pass B below). 4 = today + 3 full
@@ -24,9 +62,10 @@ const DATE_FROM = '2026-01-01';
 const RECENT_DAYS_LOOKBACK = 4;
 
 // Сколько исторических дней докачивать за один прогон (Pass A, порционный
-// бэкфил). 25 дней × ~1.5с на день ≈ 40с на кабинет — укладывается в лимиты
-// Edge Function даже с несколькими кабинетами в очереди.
-const BACKFILL_DAYS_PER_RUN = 25;
+// бэкфил). Несколько кабинетов часто используют общий WB-токен (один seller),
+// поэтому слишком агрессивный бэкфил начинает ловить 429 и оставляет кабинет
+// частично заполненным.
+const BACKFILL_DAYS_PER_RUN = 15;
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -177,43 +216,30 @@ Deno.serve(async (req) => {
                         d.setUTCDate(d.getUTCDate() - dayOffset);
                         const dayStr = d.toISOString().split('T')[0];
 
-                        const dayRes = await fetch(
-                            `${WB_STATS}/api/v1/supplier/orders?dateFrom=${dayStr}&flag=1`,
-                            { headers: { Authorization: token } },
-                        );
-                        if (dayRes.ok) {
-                            const dayOrders = await dayRes.json();
-                            if (Array.isArray(dayOrders)) {
-                                recentOrdersCount += dayOrders.length;
-                                // Scoped delete: only this cabinet + this exact day, never
-                                // the blanket delete-everything used in Pass A.
-                                await admin.from('wb_orders').delete()
-                                    .eq('cabinet_id', cabinet.id)
-                                    .eq('order_date', dayStr);
-                                if (dayOrders.length > 0) {
-                                    const rows = dayOrders.map((o: Record<string, unknown>) => toOrderRow(cabinet.id, o));
-                                    const withSrid = rows.filter(r => r.srid);
-                                    const withoutSrid = rows.filter(r => !r.srid);
-                                    for (let i = 0; i < withSrid.length; i += 100) {
-                                        // ВАЖНО: ошибка upsert раньше игнорировалась молча —
-                                        // именно так wb_orders месяцами оставалась пустой.
-                                        const { error: upErr } = await admin.from('wb_orders').upsert(
-                                            withSrid.slice(i, i + 100),
-                                            { onConflict: 'cabinet_id,srid' },
-                                        );
-                                        if (upErr) throw new Error(`upsert(${dayStr}): ${upErr.message}`);
-                                    }
-                                    for (let i = 0; i < withoutSrid.length; i += 100) {
-                                        const { error: insErr } = await admin.from('wb_orders').insert(withoutSrid.slice(i, i + 100));
-                                        if (insErr) throw new Error(`insert(${dayStr}): ${insErr.message}`);
-                                    }
-                                }
+                        const dayOrders = await fetchSupplierOrdersExactDay(token, dayStr);
+                        recentOrdersCount += dayOrders.length;
+                        // Scoped delete: only this cabinet + this exact day, never
+                        // the blanket delete-everything used in Pass A.
+                        await admin.from('wb_orders').delete()
+                            .eq('cabinet_id', cabinet.id)
+                            .eq('order_date', dayStr);
+                        if (dayOrders.length > 0) {
+                            const rows = dayOrders.map((o: Record<string, unknown>) => toOrderRow(cabinet.id, o));
+                            const withSrid = rows.filter(r => r.srid);
+                            const withoutSrid = rows.filter(r => !r.srid);
+                            for (let i = 0; i < withSrid.length; i += 100) {
+                                // ВАЖНО: ошибка upsert раньше игнорировалась молча —
+                                // именно так wb_orders месяцами оставалась пустой.
+                                const { error: upErr } = await admin.from('wb_orders').upsert(
+                                    withSrid.slice(i, i + 100),
+                                    { onConflict: 'cabinet_id,srid' },
+                                );
+                                if (upErr) throw new Error(`upsert(${dayStr}): ${upErr.message}`);
                             }
-                        } else {
-                            errorMsg += `orders_recent(${dayStr}): HTTP ${dayRes.status}; `;
-                            status = 'partial';
-                            // 429 — выдерживаем паузу, иначе следующие дни тоже упадут
-                            if (dayRes.status === 429) await sleep(20000);
+                            for (let i = 0; i < withoutSrid.length; i += 100) {
+                                const { error: insErr } = await admin.from('wb_orders').insert(withoutSrid.slice(i, i + 100));
+                                if (insErr) throw new Error(`insert(${dayStr}): ${insErr.message}`);
+                            }
                         }
                         // WB Statistics API has strict rate limits — small pause between
                         // the per-day requests, matching the sleep() pattern already used
@@ -252,62 +278,14 @@ Deno.serve(async (req) => {
                             const dayStr = cursor.toISOString().split('T')[0];
                             if (dayStr < DATE_FROM) break;
 
-                            const dayRes = await fetch(
-                                `${WB_STATS}/api/v1/supplier/orders?dateFrom=${dayStr}&flag=1`,
-                                { headers: { Authorization: token } },
-                            );
-                            if (!dayRes.ok) {
-                                errorMsg += `orders_backfill(${dayStr}): HTTP ${dayRes.status}; `;
-                                status = 'partial';
-                                // При 429 ждём и пробуем тот же день ещё раз, иначе
-                                // курсор не двигается и кабинет остаётся пустым.
-                                if (dayRes.status === 429) {
-                                    await sleep(25000);
-                                    const retry = await fetch(
-                                        `${WB_STATS}/api/v1/supplier/orders?dateFrom=${dayStr}&flag=1`,
-                                        { headers: { Authorization: token } },
-                                    );
-                                    if (!retry.ok) break;
-                                    // подменяем dayRes-подобный поток через повторную обработку ниже
-                                    const retryOrders = await retry.json();
-                                    if (Array.isArray(retryOrders) && retryOrders.length > 0) {
-                                        historicalOrdersCount += retryOrders.length;
-                                        const rows = retryOrders.map((o: Record<string, unknown>) => toOrderRow(cabinet.id, o));
-                                        const withSrid = rows.filter(r => r.srid);
-                                        const withoutSrid = rows.filter(r => !r.srid);
-                                        for (let i = 0; i < withSrid.length; i += 500) {
-                                            const { error: upErr } = await admin.from('wb_orders').upsert(
-                                                withSrid.slice(i, i + 500),
-                                                { onConflict: 'cabinet_id,srid' },
-                                            );
-                                            if (upErr) throw new Error(`backfill upsert(${dayStr}): ${upErr.message}`);
-                                        }
-                                        if (withoutSrid.length) {
-                                            await admin.from('wb_orders').delete()
-                                                .eq('cabinet_id', cabinet.id)
-                                                .eq('order_date', dayStr)
-                                                .is('srid', null);
-                                            for (let i = 0; i < withoutSrid.length; i += 500) {
-                                                const { error: insErr } = await admin.from('wb_orders').insert(withoutSrid.slice(i, i + 500));
-                                                if (insErr) throw new Error(`backfill insert(${dayStr}): ${insErr.message}`);
-                                            }
-                                        }
-                                    }
-                                    await admin.from('cabinets')
-                                        .update({ orders_backfilled_to: dayStr })
-                                        .eq('id', cabinet.id);
-                                    daysDone++;
-                                    await sleep(2000);
-                                    continue;
-                                }
-                                break;
-                            }
-                            const dayOrders = await dayRes.json();
-                            if (Array.isArray(dayOrders) && dayOrders.length > 0) {
-                                historicalOrdersCount += dayOrders.length;
+                            const dayOrders = await fetchSupplierOrdersExactDay(token, dayStr);
+                            historicalOrdersCount += dayOrders.length;
+
+                            if (dayOrders.length > 0) {
                                 const rows = dayOrders.map((o: Record<string, unknown>) => toOrderRow(cabinet.id, o));
                                 const withSrid = rows.filter(r => r.srid);
                                 const withoutSrid = rows.filter(r => !r.srid);
+
                                 for (let i = 0; i < withSrid.length; i += 500) {
                                     const { error: upErr } = await admin.from('wb_orders').upsert(
                                         withSrid.slice(i, i + 500),
@@ -315,6 +293,7 @@ Deno.serve(async (req) => {
                                     );
                                     if (upErr) throw new Error(`backfill upsert(${dayStr}): ${upErr.message}`);
                                 }
+
                                 if (withoutSrid.length) {
                                     await admin.from('wb_orders').delete()
                                         .eq('cabinet_id', cabinet.id)
@@ -394,7 +373,7 @@ Deno.serve(async (req) => {
         // Между кабинетами — длинная пауза: WB Statistics API общий лимит
         // на продавца/IP, иначе следующий кабинет сразу ловит 429 и остаётся
         // с пустым wb_orders («Нет данных за выбранный период»).
-        await sleep(8000);
+        await sleep(15000);
     }
 
     return json({
