@@ -1323,7 +1323,33 @@
             letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
         }
         .rnp-sheet-table .rnp-th-month { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; padding: 2px 4px; }
-        .rnp-sheet-table .rnp-th-month-curr { border-left: 2px solid var(--accent) !important; color: var(--accent); }
+        /* Прошлый месяц лежит над липкими неделями — сам th тоже липкий,
+           иначе при скролле вправо название уезжает и «сворачивается». */
+        .rnp-sheet-table thead .rnp-th-month-prev {
+            position: sticky;
+            z-index: 43 !important;
+            background: var(--surface-solid) !important;
+        }
+        /* Текущий месяц — широкая ячейка по дням: липкая только подпись,
+           чтобы оставалась у правого края заморозки при горизонтальном скролле. */
+        .rnp-sheet-table .rnp-th-month-curr {
+            border-left: 2px solid var(--accent) !important; color: var(--accent);
+            text-align: left !important;
+        }
+        .rnp-sheet-table .rnp-th-year-band { text-align: left !important; }
+        .rnp-th-month-stick {
+            position: sticky;
+            display: inline-block;
+            z-index: 33;
+            padding: 0 4px;
+            background: var(--surface-solid);
+            white-space: nowrap;
+        }
+        .rnp-th-month-curr .rnp-th-month-stick { color: var(--accent); }
+        .rnp-th-year-band .rnp-th-month-stick {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
         .rnp-sheet-table .rnp-th-total { background: var(--accent-soft) !important; color: var(--accent); font-weight: 800; }
         .rnp-sheet-table .rnp-th-date { font-size: 8px; font-weight: 600; padding: 1px 2px; }
         .rnp-sheet-table .rnp-th-date.today { color: var(--accent); font-weight: 800; border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); }
@@ -3898,7 +3924,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.137201825f.min.js"></script>
-<script src="/dist/rnp-module.fcc99dba52.min.js"></script>
+<script src="/dist/rnp-module.f9cc706d10.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';

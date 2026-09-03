@@ -95,7 +95,7 @@ const RNP = (() => {
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 38;
     const DAY_COL_W = 30;
-    const MONTH_COL_W = 68;
+    const MONTH_COL_W = 58;
     const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
     const CAL_MONTH_FROM = 5;
     const CAL_MONTH_TO = 11;
@@ -1984,7 +1984,7 @@ const RNP = (() => {
             <tr class="rnp-cal-quarter-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
-              <th class="rnp-th-year-band" colspan="${cols.length}">${cal.rangeLabel}</th>
+              <th class="rnp-th-year-band" colspan="${cols.length}">${_monthStickLabel(cal.rangeLabel, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">${totalTh}${monthThs}</tr>
             <tr class="rnp-dow-head-row"><th class="rnp-th-dow rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}></th>${monthSubs}</tr>
@@ -2020,8 +2020,8 @@ const RNP = (() => {
             <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
-              <th class="rnp-th-month" colspan="${nPrev}">${cal.prevName}</th>
-              <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${cal.currName}</th>
+              <th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${FROZEN_METRIC_W + FROZEN_SPARK_W}px">${cal.prevName}</th>
+              <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">${weekThs}${totalTh}${dayThs}</tr>
             <tr class="rnp-dow-head-row">${dowWeeks}${dowTotal}${dowDays}</tr>
@@ -2051,6 +2051,13 @@ const RNP = (() => {
         if (cal.mode === 'month') return base + FROZEN_COL_W;
         const weeks = cal.weeks.length;
         return base + weeks * FROZEN_COL_W + (weeks ? FROZEN_COL_W : 0);
+    }
+
+    /** Подпись месяца/года, которая остаётся у края прокрутки справа,
+     *  а не уезжает вместе с днями под липкие недели. */
+    function _monthStickLabel(text, leftPx) {
+        const safe = String(text || '').replace(/</g, '&lt;');
+        return `<span class="rnp-th-month-stick" style="left:${leftPx}px">${safe}</span>`;
     }
 
     function _buildSheetHeadRows(art, stockBySize, rawData, cal) {
@@ -4324,7 +4331,7 @@ const RNP = (() => {
             <tr class="rnp-cal-quarter-row">
               <th class="rnp-th-metric" rowspan="${monthHeadRows}"></th>
               <th class="rnp-th-spark" rowspan="${monthHeadRows}"></th>
-              <th class="rnp-th-year-band" colspan="${cols.length}">${cal.rangeLabel}</th>
+              <th class="rnp-th-year-band" colspan="${cols.length}">${_monthStickLabel(cal.rangeLabel, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">
               ${totalTh}${monthThs}
@@ -4377,8 +4384,8 @@ const RNP = (() => {
             <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
-              <th class="rnp-th-month" colspan="${nPrev}">${cal.prevName}</th>
-              <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${cal.currName}</th>
+              <th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${FROZEN_METRIC_W + FROZEN_SPARK_W}px">${cal.prevName}</th>
+              <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">
               ${weekThs}${totalTh}${dayThs}
