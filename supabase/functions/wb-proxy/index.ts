@@ -102,14 +102,14 @@ serve(async (req) => {
 
         // ── Verify cabinet ownership ──────────────────────────────────────────
         const admin = createClient(supabaseUrl, supabaseService);
-        const { data: cab, error: cabErr } = await admin
+        let cabQuery = admin
             .from('cabinets')
-            .select('wb_token, name')
-            .eq('id', cabinet_id)
-            .eq('user_id', user.id)
-            .maybeSingle();
+            .select('wb_token, name, user_id')
+            .eq('id', cabinet_id);
+        if (!isSuperAdmin) cabQuery = cabQuery.eq('user_id', user.id);
+        const { data: cab, error: cabErr } = await cabQuery.maybeSingle();
 
-        if (cabErr || !cab) return json({ error: 'Cabinet not found or access denied' }, 403);
+        if (cabErr || !cab) return json({ error: 'Кабинет не найден или нет доступа' }, 403);
 
         // IMPORTANT — DO NOT CHANGE THIS: one cabinet = one WB token, and that
         // single token already has ALL scopes (stats, content, promotion,

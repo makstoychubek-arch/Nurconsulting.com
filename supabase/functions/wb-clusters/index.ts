@@ -41,18 +41,22 @@ serve(async (req) => {
         const { data: { user }, error: authErr } = await userClient.auth.getUser();
         if (authErr || !user) return json({ error: 'Invalid session' }, 401);
 
+        const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
+        const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
+        const isSuperAdmin = String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL || user.id === SUPER_ADMIN_ID;
+
         const body = await req.json().catch(() => ({}));
         const { action, params = {}, cabinet_id } = body;
         if (!cabinet_id) return json({ error: 'cabinet_id required' }, 400);
 
         const admin = createClient(supabaseUrl, supabaseService);
-        const { data: cab, error: cabErr } = await admin
+        let cabQuery = admin
             .from('cabinets')
-            .select('wb_token, name')
-            .eq('id', cabinet_id)
-            .eq('user_id', user.id)
-            .maybeSingle();
-        if (cabErr || !cab) return json({ error: 'Cabinet not found or access denied' }, 403);
+            .select('wb_token, name, user_id')
+            .eq('id', cabinet_id);
+        if (!isSuperAdmin) cabQuery = cabQuery.eq('user_id', user.id);
+        const { data: cab, error: cabErr } = await cabQuery.maybeSingle();
+        if (cabErr || !cab) return json({ error: 'Кабинет не найден или нет доступа' }, 403);
 
         const WB_TOKEN = sanitizeWbToken(cab.wb_token);
         if (!WB_TOKEN) return json({ error: 'WB token not configured for this cabinet' }, 400);

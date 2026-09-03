@@ -3834,7 +3834,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.137201825f.min.js"></script>
-<script src="/dist/rnp-module.6e0000a4b7.min.js"></script>
+<script src="/dist/rnp-module.d540697c58.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -4395,6 +4395,14 @@
         } catch (e) {}
     }
 
+    function humanizeProxyError(msg) {
+        const raw = String(msg || '');
+        if (/cabinet not found or access denied/i.test(raw) || /кабинет не найден/i.test(raw)) {
+            return 'Нет доступа к этому кабинету. Выберите свой кабинет в списке.';
+        }
+        return raw;
+    }
+
     async function callWbProxy(action, params, cabinetId, _retry429 = 0) {
         const cabId = cabinetId || currentCabinetId;
         if (!hasUserCabinets || !cabId) return null;
@@ -4464,14 +4472,19 @@
         }
         if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
-            const msg = errData.error || errData.message || `HTTP ${res.status}`;
+            const msg = humanizeProxyError(errData.error || errData.message || `HTTP ${res.status}`);
             if (!hasUserCabinets || !currentCabinetId) return null;
+            const cabinetDenied = /нет доступа к этому кабинету|cabinet not found or access denied|кабинет не найден/i.test(msg);
             const tokenish = (window.NrAuth && window.NrAuth.isWbTokenError && window.NrAuth.isWbTokenError(msg))
                 || /token|unauthorized|invalid session/i.test(msg)
                 || res.status === 401;
-            const quiet = bgActions.has(action) || !window._nrInitDone || tokenish || res.status >= 500;
+            const quiet = bgActions.has(action) || !window._nrInitDone || tokenish || res.status >= 500 || cabinetDenied;
             if (quiet) {
                 if (!tokenish) console.warn(`[callWbProxy] ${action}:`, msg);
+                if (cabinetDenied && window._nrInitDone && !window._nrCabinetDeniedToast) {
+                    window._nrCabinetDeniedToast = true;
+                    showPremiumModal('warning', 'Кабинет недоступен', msg);
+                }
                 return null;
             }
             if (res.status === 403) showPremiumModal('warning', 'Доступ запрещён', msg);
@@ -4640,7 +4653,10 @@
             wrap.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none';
             document.body.appendChild(wrap);
         }
+        const key = `${type}|${title}|${text}`;
+        if ([...wrap.children].some(el => el.getAttribute('data-toast-key') === key)) return;
         const t = document.createElement('div');
+        t.setAttribute('data-toast-key', key);
         const dur = type === 'error' ? 6000 : type === 'warning' ? 5000 : 3500;
         t.style.cssText = `pointer-events:all;display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:14px;
             background:var(--surface-2, #1e1e2e);border:1px solid var(--border);
@@ -6620,6 +6636,7 @@
 
         currentCabinetId = newCabinetId;
         window.currentCabinetId = newCabinetId;
+        window._nrCabinetDeniedToast = false;
         localStorage.setItem('selected_cabinet_id', newCabinetId);
         document.dispatchEvent(new CustomEvent('cabinet-changed', { detail: { cabinetId: newCabinetId } }));
         updateCabinetPickerUI(newCabinetName);

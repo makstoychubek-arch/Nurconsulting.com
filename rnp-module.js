@@ -4732,6 +4732,9 @@ const RNP = (() => {
             window._rnpLastLoadedAt = 0;
             window._rnpLoadedForCabinet = null;
             _clearRnpMainUI();
+            if (typeof window.bootRnpTab === 'function') {
+                setTimeout(() => window.bootRnpTab(true), 50);
+            }
         });
     }
 
