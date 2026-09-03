@@ -11,9 +11,7 @@
 
 ## Имя `autobidder_rules`
 
-В проде уже есть MVP-таблица `autobidder_rules` (`20260903200000_autobidder.sql`: `cabinet_id` + `campaign_id bigint`). v2 из `docs/autobidder.md` хочет то же имя (`campaign_id` → `adv_campaigns`). Миграции существующую таблицу не трогают: `CREATE TABLE IF NOT EXISTS` не пересоздаст её. RLS v2 для правил ставится только если `campaign_id` уже `uuid`.
-
-Перед применением v2-схемы правил старую таблицу нужно переименовать или удалить отдельным шагом.
+Если уже есть MVP-таблица `autobidder_rules` без колонки `cluster_id`, миграция переименовывает её в `autobidder_rules_legacy_mvp` (индексы, ограничения, политики — тоже). Данные не удаляются. FK `autobidder_log.rule_id` остаётся на legacy-таблице. После этого создаётся новая `autobidder_rules` по схеме v2.
 
 ## Применение (когда будете готовы)
 
