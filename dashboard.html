@@ -9,7 +9,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="apple-mobile-web-app-title" content="NR Space">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.632629fd8b.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.a679e88f4a.min.css">
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fiukyfyhotctvfdidktx.supabase.co" crossorigin>
     <script src="/nr-auth.js"></script>
@@ -2942,10 +2942,23 @@
                     <div class="kpi-spark-wrap"><canvas id="spark-orders"></canvas></div>
                 </div>
                 <div class="kpi-hero-card">
-                    <div class="kpi-hero-label">Остатки на складах</div>
+                    <div class="kpi-hero-label">Актуальные остатки</div>
                     <div id="m-stock" class="kpi-hero-value" style="color:var(--amber)">—</div>
-                    <div class="kpi-hero-sub">WB realtime</div>
+                    <div class="kpi-hero-sub">FBO + FBS, сейчас</div>
                     <div class="kpi-spark-wrap"><canvas id="spark-stock"></canvas></div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="kpi-hero-card">
+                    <div class="kpi-hero-label">Остатки FBO</div>
+                    <div id="m-stock-fbo" class="kpi-hero-value">—</div>
+                    <div class="kpi-hero-sub">Склады Wildberries</div>
+                </div>
+                <div class="kpi-hero-card">
+                    <div class="kpi-hero-label">Остатки FBS</div>
+                    <div id="m-stock-fbs" class="kpi-hero-value">—</div>
+                    <div class="kpi-hero-sub">Склады продавца</div>
                 </div>
             </div>
 
@@ -2955,7 +2968,14 @@
                     <div class="chart-canvas-wrap"><canvas id="chart-orders-bar"></canvas></div>
                 </div>
                 <div class="widget-card chart-box">
-                    <div class="chart-box-title">Остатки по складам</div>
+                    <div class="flex items-center justify-between gap-2 mb-1 flex-wrap">
+                        <div class="chart-box-title" style="margin:0">Остатки по складам</div>
+                        <div class="segment-tabs" id="dash-stock-tabs">
+                            <div class="segment-tab active" data-stock-view="all" onclick="switchDashStockView('all', this)">Все</div>
+                            <div class="segment-tab" data-stock-view="fbo" onclick="switchDashStockView('fbo', this)">FBO</div>
+                            <div class="segment-tab" data-stock-view="fbs" onclick="switchDashStockView('fbs', this)">FBS</div>
+                        </div>
+                    </div>
                     <div class="chart-canvas-wrap"><canvas id="chart-warehouse-donut"></canvas></div>
                 </div>
             </div>
@@ -2987,7 +3007,7 @@
                 <div class="metric-card"><div class="metric-card-label">Ср. цена до скидок МП</div><div class="metric-card-value" data-metric="avg-retail-price">—</div><div class="metric-trend" data-trend-for="avg-retail-price"></div></div>
                 <div class="metric-card"><div class="metric-card-label">Капитализация по себес.</div><div class="metric-card-value" data-metric="cap-cost">—</div><div class="metric-trend" data-trend-for="cap-cost"></div></div>
                 <div class="metric-card"><div class="metric-card-label">Капитализация по розн.</div><div class="metric-card-value" data-metric="cap-retail">—</div><div class="metric-trend" data-trend-for="cap-retail"></div></div>
-                <div class="metric-card"><div class="metric-card-label">Остатки на складах</div><div class="metric-card-value" data-metric="stock-total">—</div><div class="metric-trend" data-trend-for="stock-total"></div></div>
+                <div class="metric-card"><div class="metric-card-label">Актуальные остатки</div><div class="metric-card-value" data-metric="stock-total">—</div><div class="metric-trend" data-trend-for="stock-total"></div></div>
                 <div class="metric-card"><div class="metric-card-label">GMROI</div><div class="metric-card-value" data-metric="gmroi">—</div><div class="metric-trend" data-trend-for="gmroi"></div></div>
                 <div class="metric-card"><div class="metric-card-label">Годовой GMROI</div><div class="metric-card-value" data-metric="gmroi-year">—</div><div class="metric-trend" data-trend-for="gmroi-year"></div></div>
                 <div class="metric-card"><div class="metric-card-label">Оборачиваемость по прод.</div><div class="metric-card-value" data-metric="turnover-sales">—</div><div class="metric-trend" data-trend-for="turnover-sales" data-trend-inverse></div></div>
@@ -3139,12 +3159,19 @@
 
         <div id="tab-warehouse" class="tab-content space-y-5">
             <div class="grid grid-cols-3 gap-4">
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Всего на складах WB</div><div id="wh-total" class="text-2xl font-black" style="color:var(--text-primary)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Индекс локализации</div><div class="text-2xl font-black" style="color:var(--accent)">—</div></div>
-                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Оборачиваемость</div><div class="text-2xl font-black" style="color:var(--blue)">— дн.</div></div>
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Актуальные остатки</div><div id="wh-total" class="text-2xl font-black" style="color:var(--text-primary)">—</div></div>
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Остатки FBO</div><div id="wh-fbo" class="text-2xl font-black" style="color:var(--accent)">—</div></div>
+                <div class="metric-card"><div class="text-xs mb-2" style="color:var(--text-muted)">Остатки FBS</div><div id="wh-fbs" class="text-2xl font-black" style="color:var(--blue)">—</div></div>
             </div>
             <div class="glass rounded-2xl overflow-hidden">
-                <div class="px-5 py-3 border-b" style="border-color:var(--border)"><h3 class="text-sm font-semibold" style="color:var(--text-primary)">По складам WB</h3></div>
+                <div class="px-5 py-3 border-b flex items-center justify-between gap-2 flex-wrap" style="border-color:var(--border)">
+                    <h3 class="text-sm font-semibold" style="color:var(--text-primary)">По складам</h3>
+                    <div class="segment-tabs" id="wh-stock-tabs">
+                        <div class="segment-tab active" data-stock-view="all" onclick="switchDashStockView('all', this)">Все</div>
+                        <div class="segment-tab" data-stock-view="fbo" onclick="switchDashStockView('fbo', this)">FBO</div>
+                        <div class="segment-tab" data-stock-view="fbs" onclick="switchDashStockView('fbs', this)">FBS</div>
+                    </div>
+                </div>
                 <div id="warehouse-list" class="text-center py-10 text-sm" style="color:var(--text-muted)">Нажмите "Обновить"</div>
             </div>
         </div>
@@ -3905,7 +3932,7 @@
     </div>
     </div>
 
-<script src="/dist/dashboard-charts.137201825f.min.js"></script>
+<script src="/dist/dashboard-charts.c4f77e4a2f.min.js"></script>
 <script src="/dist/rnp-module.9cca04f1ae.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script>
@@ -6728,9 +6755,10 @@
             'm-profit','m-margin','m-profit2','m-sales-sum','m-sales-count',
             'm-realization','m-commission','m-orders-sum','m-orders-count',
             'm-conversion','m-logistics','m-ads','m-storage','m-roi',
-            'm-opex','m-returns','m-stock','rnp-profit','rnp-margin',
+            'm-opex','m-returns','m-stock','m-stock-fbo','m-stock-fbs',
+            'rnp-profit','rnp-margin',
             'rnp-roi','rnp-buyout','rnp-orders','rnp-sales','rnp-returns',
-            'rnp-logistics','wh-total'
+            'rnp-logistics','wh-total','wh-fbo','wh-fbs'
         ].forEach(id => setText(id, '—'));
 
         clearAllMetricTrends();
@@ -7021,18 +7049,15 @@
         if (summaryErr) console.error('[loadFromDB] dashboard_summary RPC:', summaryErr.message);
 
         if (!summaryErr && summary) {
-            const stockTotal = Number(summary.stock_total || 0);
-            updateWarehouseFromDB(stockTotal, summary.stock_by_warehouse || []);
-            setText('m-stock', fmt(stockTotal) + ' шт.');
+            const stocks = applyStockSummary(summary);
             document.getElementById('date-range').textContent =
                 `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
 
-            updateDashboardFromDB(stockTotal, summary.cur, summary.prev);
+            updateDashboardFromDB(stocks.total, summary.cur, summary.prev);
 
             if (window.NRCharts) {
                 const series = (summary.cur_daily || []).map(d => [d.date, { sum: Number(d.sum || 0), count: Number(d.count || 0), returns: Number(d.returns || 0) }]);
-                const warehouseEntries = (summary.stock_by_warehouse || []).map(w => [w.warehouse_name, Number(w.qty || 0)]).slice(0, 6);
-                NRCharts.renderAllChartsAgg(series, warehouseEntries);
+                NRCharts.renderAllChartsAgg(series, stocks.chartEntries);
             }
 
             if (typeof WBFormulas !== 'undefined') {
@@ -7053,10 +7078,10 @@
                     if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
                     if (!rows || rows.length === 0) return;
                     const metrics = enrichMetricsWithStockExtras(
-                        WBFormulas.calculateMetrics(rows, settings), stockTotal, Number(summary.cur?.orders_count || 0));
+                        WBFormulas.calculateMetrics(rows, settings), stocks.total, Number(summary.cur?.orders_count || 0));
                     const prevMetrics = prevRows && prevRows.length > 0
                         ? enrichMetricsWithStockExtras(
-                            WBFormulas.calculateMetrics(prevRows, settings), stockTotal, Number(summary.prev?.orders_count || 0))
+                            WBFormulas.calculateMetrics(prevRows, settings), stocks.total, Number(summary.prev?.orders_count || 0))
                         : null;
                     if (finCabinet === currentCabinetId) {
                         WBFormulas.applyMetricsToDashboard(metrics, setText);
@@ -7198,30 +7223,25 @@
         try {
             const from = '2026-01-01';
 
-            const stocks = await callWbProxy('stocks', { dateFrom: from }, snapshotCabinet);
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                const syncRes = await fetch(AUTO_SYNC_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + session.access_token
+                    },
+                    body: JSON.stringify({ mode: 'stocks', cabinet_id: snapshotCabinet })
+                });
+                if (!syncRes.ok) {
+                    const errBody = await syncRes.json().catch(() => ({}));
+                    console.warn('[refreshData] stocks sync:', errBody.error || syncRes.status);
+                }
+            }
             if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
-            if (!stocks) return;
 
             const orders = await callWbProxy('orders', { dateFrom: from }, snapshotCabinet);
             if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
-            if (!orders) return;
-
-            if (Array.isArray(stocks) && stocks.length > 0) {
-                const stockRows = stocks.map(s => ({
-                    cabinet_id: snapshotCabinet,
-                    nm_id: s.nmId,
-                    barcode: s.barcode,
-                    tech_size: s.techSize || '',
-                    quantity: s.quantity || 0,
-                    in_way_to_client: s.inWayToClient || 0,
-                    in_way_from_client: s.inWayFromClient || 0,
-                    warehouse_name: s.warehouseName || ''
-                }));
-                await supabase.from('wb_stocks').delete().eq('cabinet_id', snapshotCabinet);
-                for (let i = 0; i < stockRows.length; i += 100) {
-                    await supabase.from('wb_stocks').insert(stockRows.slice(i, i + 100));
-                }
-            }
 
             if (Array.isArray(orders)) {
                 await supabase.from('wb_orders').delete().eq('cabinet_id', snapshotCabinet).gte('order_date', from);
@@ -7300,12 +7320,83 @@
         }
     }
 
-    function updateWarehouseFromDB(stockTotal, stockByWarehouse) {
-        setText('wh-total', fmt(Number(stockTotal) || 0)+' шт.');
-        const entries=(stockByWarehouse || []).map(w => [w.warehouse_name, Number(w.qty || 0)]).sort((a,b)=>b[1]-a[1]);
-        document.getElementById('warehouse-list').innerHTML=entries.length>0
-            ?`<div class="divide-y" style="border-color:var(--border)">${entries.map(([n,q])=>`<div class="flex justify-between px-5 py-3"><span class="text-sm" style="color:var(--text-secondary)">${n}</span><span class="text-sm font-bold" style="color:var(--text-primary)">${fmt(q)} шт.</span></div>`).join('')}</div>`
-            :'<div class="py-10 text-center" style="color:var(--text-muted)">Нет данных</div>';
+    let _dashStockView = 'all';
+    let _dashStockByWarehouse = [];
+    let _dashStockTotals = { total: 0, fbo: 0, fbs: 0 };
+
+    function stockSchemeOf(row) {
+        const raw = String(row?.scheme || row?.stock_scheme || 'fbo').toLowerCase();
+        return raw === 'fbs' || raw === 'mp' ? 'fbs' : 'fbo';
+    }
+
+    function filterStockWarehouses(entries, view) {
+        const list = entries || [];
+        if (!view || view === 'all') return list;
+        return list.filter(w => stockSchemeOf(w) === view);
+    }
+
+    function applyStockSummary(summary) {
+        const byWh = summary.stock_by_warehouse || [];
+        const hasScheme = byWh.some(w => w.scheme || w.stock_scheme);
+        const fboFromRows = byWh.filter(w => stockSchemeOf(w) === 'fbo').reduce((s, w) => s + Number(w.qty || 0), 0);
+        const fbsFromRows = byWh.filter(w => stockSchemeOf(w) === 'fbs').reduce((s, w) => s + Number(w.qty || 0), 0);
+        const total = Number(summary.stock_total || 0);
+        const fbo = summary.stock_fbo != null ? Number(summary.stock_fbo) : (hasScheme ? fboFromRows : total);
+        const fbs = summary.stock_fbs != null ? Number(summary.stock_fbs) : fbsFromRows;
+        _dashStockTotals = { total, fbo, fbs };
+        _dashStockByWarehouse = byWh.map(w => ({
+            warehouse_name: w.warehouse_name || 'Неизвестно',
+            qty: Number(w.qty || 0),
+            scheme: stockSchemeOf(w),
+        }));
+        setText('m-stock', fmt(total) + ' шт.');
+        setText('m-stock-fbo', fmt(fbo) + ' шт.');
+        setText('m-stock-fbs', fmt(fbs) + ' шт.');
+        const stockMetric = document.querySelector('[data-metric="stock-total"]');
+        if (stockMetric) stockMetric.textContent = fmt(total) + ' шт.';
+        updateWarehouseFromDB();
+        const filtered = filterStockWarehouses(_dashStockByWarehouse, _dashStockView);
+        const chartEntries = filtered
+            .map(w => [w.warehouse_name, w.qty, w.scheme])
+            .sort((a, b) => b[1] - a[1]);
+        return { total, fbo, fbs, chartEntries };
+    }
+
+    function switchDashStockView(view, el) {
+        _dashStockView = view === 'fbo' || view === 'fbs' ? view : 'all';
+        document.querySelectorAll('[data-stock-view]').forEach(tab => {
+            tab.classList.toggle('active', tab.getAttribute('data-stock-view') === _dashStockView);
+        });
+        if (el) el.classList.add('active');
+        updateWarehouseFromDB();
+        if (window.NRCharts && typeof NRCharts.setWarehouseScheme === 'function') {
+            const filtered = filterStockWarehouses(_dashStockByWarehouse, _dashStockView)
+                .map(w => [w.warehouse_name, w.qty, w.scheme])
+                .sort((a, b) => b[1] - a[1]);
+            NRCharts.setWarehouseScheme(_dashStockView, filtered);
+        }
+    }
+
+    function updateWarehouseFromDB() {
+        setText('wh-total', fmt(_dashStockTotals.total || 0) + ' шт.');
+        setText('wh-fbo', fmt(_dashStockTotals.fbo || 0) + ' шт.');
+        setText('wh-fbs', fmt(_dashStockTotals.fbs || 0) + ' шт.');
+        const entries = filterStockWarehouses(_dashStockByWarehouse, _dashStockView)
+            .sort((a, b) => b.qty - a.qty);
+        const list = document.getElementById('warehouse-list');
+        if (!list) return;
+        list.innerHTML = entries.length
+            ? `<div class="divide-y" style="border-color:var(--border)">${entries.map(w => {
+                const badge = w.scheme === 'fbs' ? 'FBS' : 'FBO';
+                const badgeColor = w.scheme === 'fbs' ? 'var(--blue)' : 'var(--accent)';
+                return `<div class="flex justify-between items-center px-5 py-3 gap-3">
+                    <span class="text-sm" style="color:var(--text-secondary)">${escapeHtml(w.warehouse_name)}
+                        <span class="text-[10px] font-bold ml-2" style="color:${badgeColor}">${badge}</span>
+                    </span>
+                    <span class="text-sm font-bold" style="color:var(--text-primary)">${fmt(w.qty)} шт.</span>
+                </div>`;
+            }).join('')}</div>`
+            : '<div class="py-10 text-center" style="color:var(--text-muted)">Нет данных</div>';
     }
 
     function saveSettings() {
