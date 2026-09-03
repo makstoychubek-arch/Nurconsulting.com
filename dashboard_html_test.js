@@ -54,5 +54,19 @@ assert.ok(
     'sidebar logo must show NR Space on the left'
 );
 assert.ok(html.includes('ab-create-btn'), 'A/B create button uses WBRadar-style control');
+assert.ok(html.includes('nr-early-tab-style'), 'RNP early-tab CSS id must exist for boot detection');
+assert.ok(
+    html.includes("if (document.getElementById('nr-early-tab-style'))"),
+    'getCurrentActiveTab must treat early-tab CSS as RNP open'
+);
+assert.ok(
+    html.includes('Загрузка данных|Загрузка артикулов'),
+    'RNP boot failure UI must cover nested loading strings'
+);
+
+const rnpSrc = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
+assert.ok(rnpSrc.includes('function _abandonStaleMain'), 'stale RNP render must retry instead of hanging');
+assert.ok(rnpSrc.includes('nr-early-tab-style'), 'RNP retry boot must see the early-tab CSS');
+assert.ok(rnpSrc.includes('setTimeout(_retryRnpBoot, 1500)'), 'RNP boot retry loop must keep scheduling');
 
 console.log('dashboard_html_test: ok');

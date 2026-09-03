@@ -3700,11 +3700,21 @@ const RNP = (() => {
         return false;
     }
 
+    function _abandonStaleMain(renderId, snapReq, snapCab) {
+        if (renderId === _mainRenderGen && !_isStaleLoad(snapReq, snapCab)) return false;
+        if (_rnpMainRendered()) return true;
+        setTimeout(function () {
+            if (_rnpMainRendered()) return;
+            if (typeof window.bootRnpTab === 'function') window.bootRnpTab(true);
+        }, 150);
+        return true;
+    }
+
     function _rnpIsLoading() {
         const el = document.getElementById('tab-rnp');
         if (!el) return false;
         const text = el.textContent || '';
-        if (text.includes('Инициализация РНП') || text.includes('Загрузка РНП') || text.includes('Загрузка артикулов')) return true;
+        if (text.includes('Инициализация РНП') || text.includes('Загрузка РНП') || text.includes('Загрузка артикулов') || text.includes('Загрузка данных')) return true;
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return false;
         return !!body.querySelector('.rnp-workspace') && !_rnpMainRendered()
@@ -3806,15 +3816,14 @@ const RNP = (() => {
         let loadErr = null;
         try {
             loadOk = await _loadRnpDataTimed();
-            if (renderId !== _mainRenderGen) return;
-            if (_isStaleLoad(snapReq, snapCab)) return;
+            if (_abandonStaleMain(renderId, snapReq, snapCab)) return;
             if (loadOk === false) {
                 _setRnpSheetState('empty', 'Нет данных за выбранный период. Запустите синхронизацию на дашборде.');
                 return;
             }
             if (active.length <= 60) {
                 await _loadNotes(active.map(a => a.nm_id));
-                if (renderId !== _mainRenderGen || _isStaleLoad(snapReq, snapCab)) return;
+                if (_abandonStaleMain(renderId, snapReq, snapCab)) return;
             }
             setTimeout(() => {
                 if (_cab !== snapCab) return;
@@ -3825,8 +3834,7 @@ const RNP = (() => {
             loadErr = e;
             console.error('[RNP] load:', e);
         }
-        if (renderId !== _mainRenderGen) return;
-        if (_isStaleLoad(snapReq, snapCab)) return;
+        if (_abandonStaleMain(renderId, snapReq, snapCab)) return;
         if (loadErr) {
             _setRnpSheetState('error', loadErr.message || 'Ошибка загрузки РНП');
             return;
@@ -4822,10 +4830,14 @@ const RNP = (() => {
         if (_bootAttempts >= 8) return;
         _bootAttempts++;
         const tab = document.getElementById('tab-rnp');
-        if (!tab?.classList.contains('active')) return;
-        if (tab.querySelector('.rnp-workspace') && document.querySelector('#rnp-sheet-body .rnp-summary-table, #rnp-sheet-body .rnp-table-scroll table')) return;
-        if (typeof window.bootRnpTab === 'function') window.bootRnpTab(true);
-        else if (_db && _cab) openMain(true).catch(() => {});
+        const visible = !!(tab && (tab.classList.contains('active') || document.getElementById('nr-early-tab-style')));
+        if (visible) {
+            const done = tab.querySelector('#rnp-sheet-body .rnp-summary-table, #rnp-sheet-body .rnp-table-scroll table');
+            if (!done) {
+                if (typeof window.bootRnpTab === 'function') window.bootRnpTab(true);
+                else if (_db && _cab) openMain(true).catch(() => {});
+            }
+        }
         setTimeout(_retryRnpBoot, 1500);
     }
     setTimeout(_retryRnpBoot, 800);

@@ -12,7 +12,7 @@
     <title>Nur Consulting — NR Space</title>
     <script src="/nr-auth.js"></script>
     <!-- Подключение Tailwind CSS и шрифтов -->
-    <link rel="stylesheet" href="/dist/tailwind.2d66577e8c.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.5ef6085e9c.min.css">
 
     <style>
         :root {
@@ -48,10 +48,8 @@
             transition: background 0.15s ease;
         }
         @media (hover: hover) and (pointer: fine) {
-            .glass-card:hover {
-                background: var(--sel);
-            }
-            .hover-glow:hover {
+            .hover-glow:hover,
+            .module-card:hover {
                 background: var(--sel);
             }
             .module-card:hover .module-icon { transform: none; }
@@ -204,22 +202,22 @@
             </div>
         </div>
 
-        <div class="reveal grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mt-16 md:mt-24">
-            <div class="glass-card p-6 rounded-2xl text-center md:text-left">
-                <p class="text-3xl sm:text-4xl font-bold text-[#111111]">120+ млн</p>
-                <p class="text-xs text-[#6B7682] uppercase tracking-widest mt-2">Оборот клиента за 3 месяца</p>
+        <div class="reveal grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-10 mt-16 md:mt-24">
+            <div class="text-center md:text-left">
+                <p class="text-3xl sm:text-4xl font-black text-[#111111]">120+ млн</p>
+                <p class="text-xs text-[#71717A] font-semibold uppercase tracking-widest mt-2">Оборот клиента за 3 месяца</p>
             </div>
-            <div class="glass-card p-6 rounded-2xl text-center md:text-left">
-                <p class="text-3xl sm:text-4xl font-bold text-[#111111]">5</p>
-                <p class="text-xs text-[#6B7682] uppercase tracking-widest mt-2">Экспертов в узких нишах</p>
+            <div class="text-center md:text-left">
+                <p class="text-3xl sm:text-4xl font-black text-[#111111]">5</p>
+                <p class="text-xs text-[#71717A] font-semibold uppercase tracking-widest mt-2">Экспертов в узких нишах</p>
             </div>
-            <div class="glass-card p-6 rounded-2xl text-center md:text-left">
-                <p class="text-3xl sm:text-4xl font-bold text-[#111111]">5 лет</p>
-                <p class="text-xs text-[#6B7682] uppercase tracking-widest mt-2">Опыта работы с алгоритмами WB</p>
+            <div class="text-center md:text-left">
+                <p class="text-3xl sm:text-4xl font-black text-[#111111]">5 лет</p>
+                <p class="text-xs text-[#71717A] font-semibold uppercase tracking-widest mt-2">Опыта работы с алгоритмами WB</p>
             </div>
-            <div class="glass-card p-6 rounded-2xl text-center md:text-left">
-                <p class="text-3xl sm:text-4xl font-bold text-[#111111]">20+ млн</p>
-                <p class="text-xs text-[#6B7682] uppercase tracking-widest mt-2">Минимальный порог селлеров</p>
+            <div class="text-center md:text-left">
+                <p class="text-3xl sm:text-4xl font-black text-[#111111]">20+ млн</p>
+                <p class="text-xs text-[#71717A] font-semibold uppercase tracking-widest mt-2">Минимальный порог селлеров</p>
             </div>
         </div>
     </section>
@@ -230,7 +228,7 @@
     <section id="services" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
         <div class="text-center max-w-3xl mx-auto space-y-4 mb-12 md:mb-16">
             <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-[#111111]">Что мы делаем</p>
-            <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#111111] tracking-tight">Полное управление процессами</h2>
+            <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-[#111111] tracking-tight">Полное управление процессами</h2>
         </div>
         
         <div class="reveal-stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
@@ -256,7 +254,7 @@
 
     <!-- CASE STUDY SECTION -->
     <section id="cases" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
-        <div class="glass-card rounded-2xl p-8 sm:p-12">
+        <div class="py-2">
             <div class="grid lg:grid-cols-12 gap-12 items-center">
                 <div class="lg:col-span-6 space-y-6">
                     <span class="text-xs font-bold uppercase tracking-widest text-[#111111]">Главный кейс</span>
@@ -285,7 +283,7 @@
 
     <!-- RNP CASE SECTION -->
     <section id="rnp-case" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
-        <div class="glass-card rounded-2xl p-8 sm:p-12">
+        <div class="py-2">
             <div class="grid lg:grid-cols-12 gap-12 items-center">
                 <div class="lg:col-span-5 space-y-6">
                     <span class="text-xs font-bold uppercase tracking-widest text-[#111111]">Кейс модуля РНП</span>
@@ -299,7 +297,7 @@
                     <a href="/login" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#111111] hover:text-[#000000] transition">Посмотреть модуль РНП →</a>
                 </div>
                 <div class="lg:col-span-7">
-                    <div class="rounded-2xl border border-black/5 bg-white overflow-hidden shadow-sm">
+                    <div class="rounded-2xl bg-white overflow-hidden">
                         <div class="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-black/5 bg-black/[0.015]">
                             <span class="text-xs font-bold text-[#111111] uppercase tracking-wider">РНП · Артикулы</span>
                             <span class="text-[10px] px-2 py-0.5 rounded-full bg-[#2F9E44]/10 text-[#2F9E44] border border-[#2F9E44]/20">Обновлено сегодня</span>
@@ -353,7 +351,7 @@
     <section id="team" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
         <div class="text-center max-w-3xl mx-auto space-y-4 mb-12 md:mb-16">
             <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-[#111111]">Экспертиза</p>
-            <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-[#111111] tracking-tight">Операционная команда</h2>
+            <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-[#111111] tracking-tight">Операционная команда</h2>
         </div>
 
         <!-- Уровень 1: ключевая команда -->
@@ -456,7 +454,7 @@
                     <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#111111]/8 border border-[#111111]/25 text-[10px] sm:text-xs text-[#111111] uppercase tracking-widest">
                         <span>Статус: В разработке</span>
                     </div>
-                    <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-[#111111] tracking-tight">NR Space</h2>
+                    <h2 class="text-2xl sm:text-3xl md:text-4xl font-black text-[#111111] tracking-tight">NR Space</h2>
                     <p class="text-[#3E434F] text-sm sm:text-base leading-relaxed">
                         Собственная комплексная экосистема автоматизации и сквозной бизнес-аналитики для крупных партнеров Nur Consulting. Прямая интеграция по официальному API Wildberries.
                     </p>

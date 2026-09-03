@@ -9,7 +9,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="apple-mobile-web-app-title" content="NR Space">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.2d66577e8c.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.5ef6085e9c.min.css">
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fiukyfyhotctvfdidktx.supabase.co" crossorigin>
     <script src="/nr-auth.js"></script>
@@ -146,7 +146,7 @@
         .rail-btn {
             width: 100%; border: none; background: transparent; cursor: pointer;
             display: flex; flex-direction: row; align-items: center; gap: 12px;
-            padding: 10px 12px; border-radius: 12px;
+            padding: 10px 14px; border-radius: 999px;
             color: var(--text-primary); transition: background 0.15s ease, color 0.15s ease;
         }
         .rail-btn-ico {
@@ -248,7 +248,7 @@
             background: var(--surface);
             backdrop-filter: none;
             -webkit-backdrop-filter: none;
-            border: 1px solid var(--border);
+            border: none;
             border-radius: var(--radius-card);
             box-shadow: none;
             transition: background 0.15s ease;
@@ -259,23 +259,14 @@
             background: var(--surface);
             border: none;
             border-radius: var(--radius-card);
-            padding: 22px 24px;
-            transition: box-shadow 0.2s ease, transform 0.2s ease;
-            box-shadow: var(--card-shadow);
+            padding: 18px 20px;
+            transition: background 0.15s ease;
+            box-shadow: none;
             position: relative;
             overflow: hidden;
         }
-        .metric-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 2px;
-            background: var(--accent-gradient);
-            opacity: 0;
-            transition: opacity 0.2s ease;
-        }
-        .metric-card--highlight::before { opacity: 1; }
-        .metric-card--highlight { border-color: var(--accent-border); }
+        .metric-card::before { display: none; }
+        .metric-card--highlight { border-color: transparent; }
         .metric-card .text-lg, .metric-card .text-xl, .metric-card .text-2xl {
             font-variant-numeric: tabular-nums;
             letter-spacing: -0.02em;
@@ -292,18 +283,16 @@
            доходные метрики — зелёный фон+текст, расходные — красный, остальные
            нейтральные. Это семантическая раскраска по типу метрики (не по знаку
            значения), задаётся атрибутом data-tone на самой .metric-card / .kpi-hero-card. */
-        .metric-card[data-tone="good"] { background: rgba(52,199,89,0.12); }
-        .metric-card[data-tone="good"] .metric-card-value { color: var(--green); }
-        .metric-card[data-tone="good"]::before { opacity: 1; background: var(--green); }
-        .metric-card[data-tone="bad"] { background: rgba(255,59,48,0.09); }
-        .metric-card[data-tone="bad"] .metric-card-value { color: var(--red); }
-        .metric-card[data-tone="bad"]::before { opacity: 1; background: var(--red); }
+        .metric-card[data-tone="good"],
+        .metric-card[data-tone="bad"],
+        .kpi-hero-card[data-tone="good"],
+        .kpi-hero-card[data-tone="bad"] { background: var(--surface); }
+        .metric-card[data-tone="good"] .metric-card-value,
+        .metric-card[data-tone="bad"] .metric-card-value,
+        .kpi-hero-card[data-tone="good"] .kpi-hero-value,
+        .kpi-hero-card[data-tone="bad"] .kpi-hero-value { color: var(--text-primary); }
         [data-theme="neon"] .metric-card[data-tone="good"] { background: rgba(52,211,153,0.10); }
         [data-theme="neon"] .metric-card[data-tone="bad"] { background: rgba(248,113,113,0.10); }
-        .kpi-hero-card[data-tone="good"] { background: rgba(52,199,89,0.12); }
-        .kpi-hero-card[data-tone="good"] .kpi-hero-value { color: var(--green); }
-        .kpi-hero-card[data-tone="bad"] { background: rgba(255,59,48,0.09); }
-        .kpi-hero-card[data-tone="bad"] .kpi-hero-value { color: var(--red); }
         [data-theme="neon"] .kpi-hero-card[data-tone="good"] { background: rgba(52,211,153,0.10); }
         [data-theme="neon"] .kpi-hero-card[data-tone="bad"] { background: rgba(248,113,113,0.10); }
         .dashboard-top-margin-body { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; }
@@ -324,8 +313,8 @@
         .nr-modal-overlay .nr-modal-box { transform: scale(0.95); transition: transform 0.2s ease; }
         .nr-modal-overlay.nr-modal-open .nr-modal-box { transform: scale(1); }
         .kpi-hero-trend { margin-top: 4px; margin-bottom: 2px; }
-        .metric-card:hover { border-color: var(--accent-border); transform: translateY(-2px); }
-        [data-theme="neon"] .metric-card:hover { box-shadow: var(--use-glow); }
+        .metric-card:hover { background: var(--sel); transform: none; }
+        [data-theme="neon"] .metric-card:hover { box-shadow: none; }
         .menu-group { margin: 2px 0; }
         .menu-group-title { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; cursor: pointer; color: var(--text-muted); font-size: 10px; font-weight: 700; border-radius: 8px; margin: 8px 12px 2px; text-transform: uppercase; letter-spacing: 0.08em; transition: all 0.2s; }
         .menu-group-title svg { flex-shrink: 0; opacity: 0.7; }
@@ -336,7 +325,7 @@
         .menu-group-title.open .arrow { transform: rotate(180deg); }
         .menu-sub { overflow: hidden; max-height: 0; transition: max-height 0.3s ease; }
         .menu-sub.open { max-height: 300px; }
-        .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; color: var(--text-primary); font-size: 14px; font-weight: 700; transition: background 0.15s ease; margin: 2px 8px; border-radius: 12px; border: none; }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 14px; cursor: pointer; color: var(--text-primary); font-size: 14px; font-weight: 700; transition: background 0.15s ease; margin: 2px 8px; border-radius: 999px; border: none; }
         .nav-item:hover { background: var(--sel); color: var(--text-primary); transform: none; }
         .nav-item.active { background: var(--sel); color: var(--text-primary); font-weight: 800; box-shadow: none; border-color: transparent; }
         .nav-item.active .nav-ico { opacity: 1; }
@@ -345,14 +334,14 @@
         .nav-item:hover .nav-ico { opacity: 0.9; }
         .nav-item-label { flex: 1; min-width: 0; }
         .nav-beta-badge {
-            font-size: 9px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
-            padding: 2px 6px; border-radius: 5px; flex-shrink: 0; line-height: 1.3;
-            background: rgba(139, 92, 246, 0.1); color: rgba(167, 139, 250, 0.75);
-            border: 1px solid rgba(139, 92, 246, 0.18);
+            font-size: 9px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+            padding: 2px 6px; border-radius: 6px; flex-shrink: 0; line-height: 1.3;
+            background: #EF4444; color: #fff;
+            border: none;
         }
         [data-theme="ios"] .nav-beta-badge {
-            background: rgba(109, 40, 217, 0.08); color: rgba(109, 40, 217, 0.65);
-            border-color: rgba(109, 40, 217, 0.15);
+            background: #EF4444; color: #fff;
+            border-color: transparent;
         }
         .flyout-body .nav-item.active .nav-beta-badge {
             background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.85);
@@ -360,8 +349,8 @@
         }
         .beta-module-hero {
             padding: 28px 32px; border-radius: 20px;
-            background: linear-gradient(135deg, rgba(139,92,246,0.06) 0%, rgba(15,15,23,0.4) 100%);
-            border: 1px solid rgba(139, 92, 246, 0.12);
+            background: var(--surface);
+            border: none;
         }
         .beta-module-hero h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
         .beta-module-hero p { font-size: 13px; color: var(--text-muted); line-height: 1.55; max-width: 560px; }
@@ -436,17 +425,17 @@
         .cabinet-picker-btn {
             display: flex; align-items: center; gap: 8px;
             padding: 4px 12px 4px 4px; border-radius: 999px;
-            border: 1px solid rgba(255,255,255,0.08);
-            background: rgba(255,255,255,0.04);
-            backdrop-filter: blur(8px); cursor: pointer;
-            transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+            border: none;
+            background: var(--sel);
+            backdrop-filter: none; cursor: pointer;
+            transition: background 0.15s ease;
             font-family: inherit; color: inherit;
         }
         .cabinet-picker-btn:hover,
         .cabinet-picker.open .cabinet-picker-btn {
-            border-color: rgba(139, 92, 246, 0.35);
-            background: rgba(139, 92, 246, 0.1);
-            box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.08);
+            border-color: transparent;
+            background: #E4E4E7;
+            box-shadow: none;
         }
         .cabinet-picker-face {
             display: flex; align-items: center; gap: 8px;
@@ -456,12 +445,12 @@
             position: absolute; top: calc(100% + 8px); right: 0;
             min-width: 220px; max-width: 280px; max-height: 300px;
             overflow-y: auto;
-            background: var(--apple-glass);
-            backdrop-filter: blur(10px) saturate(180%);
-            -webkit-backdrop-filter: blur(10px) saturate(180%);
-            border: none;
+            background: #fff;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            border: 1px solid var(--border);
             border-radius: var(--radius-card);
-            box-shadow: var(--card-shadow-lg); padding: 8px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.08); padding: 8px;
             opacity: 0; visibility: hidden; transform: translateY(-6px) scale(0.97);
             transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
             z-index: 9999; pointer-events: none;
@@ -482,17 +471,17 @@
         }
         .cabinet-dropdown-item .cab-dot {
             width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
-            background: linear-gradient(145deg, rgba(139,92,246,0.45), rgba(79,70,229,0.25));
-            border: 1px solid rgba(139, 92, 246, 0.2);
+            background: var(--sel);
+            border: none;
             display: flex; align-items: center; justify-content: center;
-            font-size: 10px; font-weight: 700; color: #fff;
+            font-size: 10px; font-weight: 800; color: #111;
         }
         .cabinet-picker-dot {
             width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-            background: linear-gradient(145deg, rgba(139,92,246,0.45), rgba(79,70,229,0.25));
-            border: 1px solid rgba(139, 92, 246, 0.2);
+            background: #111;
+            border: none;
             display: flex; align-items: center; justify-content: center;
-            font-size: 11px; font-weight: 700; color: #fff; letter-spacing: -0.02em;
+            font-size: 11px; font-weight: 800; color: #fff; letter-spacing: -0.02em;
         }
         .cabinet-picker-label {
             font-size: 12px; font-weight: 600; color: var(--text-primary);
@@ -572,16 +561,16 @@
         [data-theme="neon"] .theme-icon-moon { opacity: 0.9; color: var(--accent); }
         [data-theme="ios"] .theme-icon-sun { opacity: 0.9; color: var(--amber); }
         [data-theme="ios"] .theme-icon-moon { opacity: 0.25; }
-        .section-title { font-size: 13px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
-        .section-title::before { content: ''; width: 3px; height: 14px; border-radius: 2px; background: var(--accent-gradient); }
+        .section-title { font-size: 13px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
+        .section-title::before { display: none; }
         .kpi-hero-card {
             background: var(--surface); border: none;
-            border-radius: var(--radius-card); padding: 24px;
-            box-shadow: var(--card-shadow); transition: all 0.25s ease;
+            border-radius: var(--radius-card); padding: 22px 20px;
+            box-shadow: none; transition: background 0.15s ease;
         }
-        .kpi-hero-card:hover { box-shadow: var(--card-shadow-lg); transform: translateY(-1px); }
-        .kpi-hero-label { font-size: 12px; color: var(--text-muted); font-weight: 400; margin-bottom: 8px; }
-        .kpi-hero-value { font-size: 22px; font-weight: 600; color: var(--text-primary); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+        .kpi-hero-card:hover { box-shadow: none; transform: none; background: var(--sel); }
+        .kpi-hero-label { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; }
+        .kpi-hero-value { font-size: 22px; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
         .kpi-hero-sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
         .kpi-spark-wrap { height: 48px; margin-top: 12px; }
         .chart-box { padding: 20px; min-height: 240px; }
@@ -595,7 +584,7 @@
             padding: 20px; box-shadow: var(--card-shadow); transition: all 0.2s ease;
             cursor: pointer; text-align: left; display: flex; flex-direction: column; gap: 12px;
         }
-        .advcab-card:hover { box-shadow: var(--card-shadow-lg); transform: translateY(-2px); }
+        .advcab-card:hover { box-shadow: none; transform: none; background: var(--sel); }
         .advcab-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
         .advcab-card-name { font-size: 14px; font-weight: 700; color: var(--text-primary); }
         .advcab-status-pill { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; white-space: nowrap; }
@@ -656,7 +645,7 @@
         .metrics-details summary::-webkit-details-marker { display: none; }
         .metrics-details .metrics-inner { padding: 0 20px 20px; }
         .header-greeting { display: none; }
-        .header-title { font-size: 22px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.03em; }
+        .header-title { font-size: 22px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.04em; }
         .header-profile { display: none; }
         .placeholder-widget { padding: 48px 24px; text-align: center; position: relative; overflow: hidden; }
         .placeholder-widget-icon {
@@ -2207,9 +2196,10 @@
             width: 34px !important; height: 34px !important; padding: 0 !important;
             display: inline-flex !important; align-items: center; justify-content: center;
             border-radius: 10px !important; min-width: unset !important;
-            box-shadow: 0 2px 10px rgba(232,86,142,0.25) !important;
+            background: var(--sel) !important; color: #111 !important;
+            box-shadow: none !important;
         }
-        #refresh-btn:hover { transform: translateY(-1px); }
+        #refresh-btn:hover { transform: none; background: #E4E4E7 !important; }
         #refresh-btn .refresh-label { display: none; }
         #refresh-btn.is-loading svg { animation: refresh-spin 0.75s linear infinite; }
         #refresh-btn.is-loading { opacity: 0.8; cursor: wait; }
@@ -2228,10 +2218,8 @@
         }
 
         /* Карточки метрик — плавнее */
-        .metric-card { border-radius: 18px !important; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important; }
-
-        /* Боковое меню — улучшено */
-        .nav-item { border-radius: 10px !important; transition: all 0.2s ease !important; }
+        .metric-card { border-radius: 16px !important; transition: background 0.15s ease !important; }
+        .nav-item { border-radius: 999px !important; transition: background 0.15s ease !important; }
         .nav-item-standalone { border-radius: 12px !important; }
 
         /* Стеклянный хедер */
@@ -2837,7 +2825,7 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
-                    <button onclick="refreshData()" id="refresh-btn" class="btn-smooth header-refresh-btn text-white font-semibold" title="Обновить данные" style="background:var(--accent-gradient);border:none">
+                    <button onclick="refreshData()" id="refresh-btn" class="btn-smooth header-refresh-btn font-semibold" title="Обновить данные" style="border:none">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
                         <span class="refresh-label">Обновить</span>
                     </button>
@@ -3858,7 +3846,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.137201825f.min.js"></script>
-<script src="/dist/rnp-module.d540697c58.min.js"></script>
+<script src="/dist/rnp-module.ffdc76300c.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -3910,24 +3898,28 @@
     let cabinetsLoaded = false;
 
     function getCurrentActiveTab() {
+        try {
+            if (document.getElementById('nr-early-tab-style')) {
+                const rnp = document.getElementById('tab-rnp');
+                if (rnp && getComputedStyle(rnp).display !== 'none') return 'rnp';
+            }
+        } catch (_) {}
         const active = document.querySelector('.tab-content.active');
         if (active?.id?.startsWith('tab-')) return active.id.replace('tab-', '');
-        // Early-tab CSS can show #tab-rnp before .active classes are synced.
         try {
-            const rnp = document.getElementById('tab-rnp');
-            const dash = document.getElementById('tab-dashboard');
-            if (rnp && dash && !dash.classList.contains('active')) {
-                const vis = getComputedStyle(rnp).display;
-                if (vis && vis !== 'none') return 'rnp';
-            }
             const saved = localStorage.getItem('nr_active_tab');
             return TAB_ALIASES[saved] || saved || 'dashboard';
         } catch (_) { return 'dashboard'; }
     }
 
     function isRnpTabOpen() {
-        return getCurrentActiveTab() === 'rnp'
-            || (document.getElementById('tab-rnp')?.classList.contains('active') ?? false);
+        const tab = document.getElementById('tab-rnp');
+        if (tab?.classList.contains('active')) return true;
+        if (getCurrentActiveTab() === 'rnp') return true;
+        try {
+            if (document.getElementById('nr-early-tab-style') && tab && getComputedStyle(tab).display !== 'none') return true;
+        } catch (_) {}
+        return false;
     }
 
     function updateEmptyCabinetState() {
@@ -4787,8 +4779,8 @@
             backBtn.textContent = isAdvDetail ? '← Все кабинеты' : '← Назад';
         }
         if (pageTitle) {
-            pageTitle.classList.toggle('header-hidden', !isDashboard);
-            if (isDashboard) pageTitle.textContent = tabTitles.dashboard || 'Дашборд';
+            pageTitle.classList.remove('header-hidden');
+            pageTitle.textContent = tabTitles[tabName] || tabTitles.dashboard || 'Дашборд';
         }
         if (dateWrap) {
             const showDate = DATE_FILTER_TABS.has(tabName) && !showEmpty;
@@ -4831,7 +4823,7 @@
         </div>`;
         ['tab-rnp', 'tab-rnp-settings'].forEach(id => {
             const el = document.getElementById(id);
-            if (el && /Инициализация РНП|Загрузка РНП/.test(el.textContent || '')) el.innerHTML = html;
+            if (el && /Инициализация РНП|Загрузка РНП|Загрузка данных|Загрузка артикулов|Рисуем таблицу/.test(el.textContent || '')) el.innerHTML = html;
         });
     }
 
@@ -4857,7 +4849,10 @@
         }
         window._rnpBootRetries = 0;
         rnp.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
-        rnp.openMain(true);
+        Promise.resolve(rnp.openMain(true)).catch(function (e) {
+            console.error('[RNP] openMain:', e);
+            scheduleRnpBoot('Не удалось открыть РНП. Обновите страницу.');
+        });
     }
 
     function bootRnpSettings(force) {
