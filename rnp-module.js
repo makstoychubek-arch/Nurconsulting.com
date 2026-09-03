@@ -1980,20 +1980,33 @@ const RNP = (() => {
         </table>`;
     }
 
-    function _buildLeftPanelHTML(art, stockBySize, rawData, cal) {
-        return `<div class="rnp-head-left-stack">
+    function _buildLeftPanelHTML(art, stockBySize, rawData, cal, widthPx) {
+        const st = widthPx ? ` style="width:${widthPx}px;max-width:${widthPx}px"` : '';
+        return `<div class="rnp-head-left-stack"${st}>
           ${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
           <div class="rnp-head-sizes-inline">${_buildStockSizeHTML(stockBySize, art)}</div>
         </div>`;
     }
 
+    // Ширина замороженной части в px — ровно сумма ширин колонок под ней.
+    // Шапка (фото/KPI/размеры) обязана уложиться в неё, иначе таблица
+    // растягивает frozen-колонки, и sticky-смещения (посчитанные из тех же
+    // констант) перестают совпадать с реальными позициями при скролле.
+    function _leftFrozenPx(cal) {
+        const base = FROZEN_METRIC_W + FROZEN_SPARK_W;
+        if (cal.mode === 'month') return base + FROZEN_COL_W;
+        const weeks = cal.weeks.length;
+        return base + weeks * FROZEN_COL_W + (weeks ? FROZEN_COL_W : 0);
+    }
+
     function _buildSheetHeadRows(art, stockBySize, rawData, cal) {
         const leftSpan = _leftFrozenSpan(cal);
         const nTimeline = _calTimelineSpan(cal);
+        const leftPx = _leftFrozenPx(cal);
 
         return `
             <tr class="rnp-head-panel">
-              <th colspan="${leftSpan}" class="rnp-head-left">${_buildLeftPanelHTML(art, stockBySize, rawData, cal)}</th>
+              <th colspan="${leftSpan}" class="rnp-head-left" style="width:${leftPx}px;min-width:${leftPx}px;max-width:${leftPx}px">${_buildLeftPanelHTML(art, stockBySize, rawData, cal, leftPx)}</th>
               <th colspan="${nTimeline}" class="rnp-head-marquee">${_buildMarqueeHTML(art, cal)}</th>
             </tr>`;
     }
