@@ -393,6 +393,7 @@ const RNP = (() => {
         _metricsCache = new Map();
         _financeCache = { key: '', rows: [], ts: 0 };
         _notesCache = {};
+        _planCache = {};
         _articles = [];
         _articlesCab = null;
         _activeNm = null;
@@ -607,7 +608,7 @@ const RNP = (() => {
         if (error) throw new Error(error.message);
         if (_isStaleLoad(snapReq, snapCab)) return null;
         if (Array.isArray(data)) return data;
-        if (data && typeof data === 'object') return data;
+        if (Array.isArray(data?.rows)) return data.rows;
         return [];
     }
 
@@ -700,6 +701,9 @@ const RNP = (() => {
             stockCache: { ..._stockCache },
             financeCache: { key: _financeCache.key, rows: _financeCache.rows, ts: _financeCache.ts },
             metricsCache: new Map(_metricsCache),
+            articles: _articlesCab === cabId ? _articles.slice() : [],
+            planCache: _planCache,
+            notesCache: { ..._notesCache },
         });
     }
 
@@ -710,6 +714,12 @@ const RNP = (() => {
         _stockCache = { ...snap.stockCache };
         _financeCache = { key: snap.financeCache.key, rows: snap.financeCache.rows || [], ts: snap.financeCache.ts || 0 };
         _metricsCache = snap.metricsCache ? new Map(snap.metricsCache) : new Map();
+        if (Array.isArray(snap.articles) && snap.articles.length) {
+            _articles = snap.articles.slice();
+            _articlesCab = cabId;
+        }
+        if (snap.planCache && typeof snap.planCache === 'object') _planCache = snap.planCache;
+        if (snap.notesCache && typeof snap.notesCache === 'object') _notesCache = { ...snap.notesCache };
         return true;
     }
 
@@ -1373,18 +1383,25 @@ const RNP = (() => {
             try { localStorage.setItem(initKey, '1'); } catch (e) {}
             console.info('[RNP] activated', _articles.length, 'articles for new cabinet', _cab);
         }
-        // Кабинет уже с артикулами: всё равно сверить каталог WB —
-        // иначе новые карточки без заказов и выключенные из старого синка
-        // не видны (Zevina 1: 5 из 170).
+        // Каталог WB не блокирует открытие: сверка в фоне после таблицы.
+        const cab = _cab;
+        setTimeout(() => {
+            if (_cab !== cab) return;
+            _ensureCatalogInBackground(cab);
+        }, 2500);
+    }
+
+    async function _ensureCatalogInBackground(cab) {
+        if (!_cab || _cab !== cab) return;
         try {
-            const lastKey = `rnp_catalog_sync_${_cab}`;
+            const lastKey = `rnp_catalog_sync_${cab}`;
             const last = Number(localStorage.getItem(lastKey) || 0);
-            if (!last || Date.now() - last > 30 * 60 * 1000) {
-                await _syncFromContentCards({
-                    silent: true, activateNew: true, activateCatalog: true, force: true,
-                });
-                try { localStorage.setItem(lastKey, String(Date.now())); } catch (e) {}
-            }
+            if (last && Date.now() - last <= 30 * 60 * 1000) return;
+            await _syncFromContentCards({
+                silent: true, activateNew: true, activateCatalog: true, force: true,
+            });
+            if (_cab !== cab) return;
+            try { localStorage.setItem(lastKey, String(Date.now())); } catch (e) {}
         } catch (e) {
             console.warn('[RNP] catalog ensure:', e.message);
         }
@@ -1433,13 +1450,17 @@ const RNP = (() => {
     }
 
     function _calAllDates(cal) {
-        if (cal.mode === 'month') return (cal.months || []).flatMap(m => m.dates);
-        return [...cal.weeks.flatMap(w => w.dates), ...cal.days.map(d => d.date)];
+        if (!cal) return [];
+        if (cal.mode === 'month') return (cal.months || []).flatMap(m => m.dates || []);
+        return [
+            ...(cal.weeks || []).flatMap(w => w.dates || []),
+            ...(cal.days || []).map(d => d.date),
+        ];
     }
 
     function _calTimelineSpan(cal) {
         if (cal.mode === 'month') return cal.months?.length || 0;
-        return cal.days.length;
+        return (cal.days || []).length;
     }
 
     function _buildWeekCalendar(refDate) {
@@ -1599,17 +1620,17 @@ const RNP = (() => {
             });
             return [totalCol, ...monthCols];
         }
-        const weekCols = cal.weeks.map(w => {
+        const weekCols = (cal.weeks || []).map(w => {
             const colKey = w.weekStart || w.dates[0];
             const agg = _derive(_aggWeek(rawData, w.dates), art);
             return { ...w, colKey, data: _applyColPlans(agg, art, w.dates) };
         });
-        const allPrevDates = cal.weeks.flatMap(w => w.dates);
+        const allPrevDates = (cal.weeks || []).flatMap(w => w.dates || []);
         const totalCol = allPrevDates.length ? {
             type: 'total', colKey: 'prev-total', label: 'ИТОГ', dates: allPrevDates,
             data: _applyColPlans(_derive(_aggWeek(rawData, allPrevDates), art), art, allPrevDates),
         } : null;
-        const dayCols = cal.days.map(d => {
+        const dayCols = (cal.days || []).map(d => {
             const derived = _derive(rawData[d.date] || null, art);
             return { ...d, colKey: d.date, dates: [d.date], data: _applyColPlans(derived, art, [d.date]) };
         });
@@ -2135,23 +2156,25 @@ const RNP = (() => {
         </table>`;
         }
 
-        const nPrev = cal.weeks.length + (cal.weeks.length ? 1 : 0);
-        const nCurr = cal.days.length;
-        const weekThs = cal.weeks.map((w, wi) => {
+        const weeks = cal.weeks || [];
+        const days = cal.days || [];
+        const nPrev = weeks.length + (weeks.length ? 1 : 0);
+        const nCurr = days.length;
+        const weekThs = weeks.map((w, wi) => {
             const st = _stickyColAttrs(wi, cols, 11, 30);
             return `<th class="rnp-th-week rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}>${w.label || ('Нед ' + w.weekNum)}</th>`;
         }).join('');
-        const totalCi = cal.weeks.length;
+        const totalCi = weeks.length;
         const totalSt = totalCi < cols.length ? _stickyColAttrs(totalCi, cols, 11, 31) : { cls: '', style: '' };
-        const totalTh = cal.weeks.length ? `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>` : '';
-        const dayThs = cal.days.map((d, i) => `<th class="rnp-th-date rnp-day-col${d.isToday ? ' today' : ''}${d.isFuture ? ' rnp-th-future' : ''}${i === 0 ? ' rnp-cell-month-start' : ''}">${d.label}</th>`).join('');
-        const dowWeeks = cal.weeks.map((w, wi) => {
+        const totalTh = weeks.length ? `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>` : '';
+        const dayThs = days.map((d, i) => `<th class="rnp-th-date rnp-day-col${d.isToday ? ' today' : ''}${d.isFuture ? ' rnp-th-future' : ''}${i === 0 ? ' rnp-cell-month-start' : ''}">${d.label}</th>`).join('');
+        const dowWeeks = weeks.map((w, wi) => {
             const st = _stickyColAttrs(wi, cols, 11, 29);
             return `<th class="rnp-th-dow rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}></th>`;
         }).join('');
         const dowTotalSt = totalCi < cols.length ? _stickyColAttrs(totalCi, cols, 11, 29) : { cls: '', style: '' };
-        const dowTotal = cal.weeks.length ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>` : '';
-        const dowDays = cal.days.map(d => `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
+        const dowTotal = weeks.length ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>` : '';
+        const dowDays = days.map(d => `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
         return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes">
           <thead>
@@ -3356,7 +3379,7 @@ const RNP = (() => {
 
         // Планы, заказы и остатки — независимые запросы; раньше шли по очереди
         // и на большом кабинете не укладывались в таймаут.
-        const [, dailyRows, , stocksRaw] = await Promise.all([
+        const [, dailyRowsRaw, , stocksRaw] = await Promise.all([
             _loadPlans(dateFrom, dateTo),
             _fetchOrdersDaily(dateFrom, dateTo, snapCab, snapReq),
             _loadExchangeRates(dateFrom, dateTo),
@@ -3365,7 +3388,8 @@ const RNP = (() => {
             ], 'nm_id, tech_size, quantity, in_way_to_client, in_way_from_client, warehouse_name'),
         ]);
         const stocks = Array.isArray(stocksRaw) ? stocksRaw : [];
-        if (dailyRows === null) return false;
+        if (dailyRowsRaw === null) return false;
+        const dailyRows = Array.isArray(dailyRowsRaw) ? dailyRowsRaw : [];
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
         const settings = _rnpMetricSettings();
@@ -3717,7 +3741,7 @@ const RNP = (() => {
 
     // ─── AGGREGATION ──────────────────────────────────────────────────────────
     function _aggWeek(map, dates) {
-        const rows = dates.map(d => map[d]).filter(Boolean);
+        const rows = (dates || []).map(d => map[d]).filter(Boolean);
         if (!rows.length) {
             return {
                 orders_count: 0, orders_sum: 0, sales_count: 0, sales_sum: 0,
@@ -3833,8 +3857,9 @@ const RNP = (() => {
             const dates = cur.dates.filter(d => d <= cal.todayStr);
             return _cabinetAggWeek(active, dates.length ? dates : cur.dates) || {};
         }
-        const dates = cal.days.filter(d => !d.isFuture).map(d => d.date);
-        return _cabinetAggWeek(active, dates.length ? dates : cal.days.map(d => d.date)) || {};
+        const days = cal.days || [];
+        const dates = days.filter(d => !d.isFuture).map(d => d.date);
+        return _cabinetAggWeek(active, dates.length ? dates : days.map(d => d.date)) || {};
     }
 
     function _buildCabinetCols(active, cal) {
@@ -3855,18 +3880,20 @@ const RNP = (() => {
             }));
             result = [totalCol, ...monthCols];
         } else {
-        const weekCols = cal.weeks.map(w => ({
+        const weeks = cal.weeks || [];
+        const days = cal.days || [];
+        const weekCols = weeks.map(w => ({
             ...w,
             colKey: w.weekStart || w.dates[0],
             data: _cabinetAggWeek(active, w.dates),
         }));
-        const allPrevDates = cal.weeks.flatMap(w => w.dates);
+        const allPrevDates = weeks.flatMap(w => w.dates || []);
         const totalCol = allPrevDates.length ? {
             type: 'total', colKey: 'prev-total', label: 'ИТОГ',
             dates: allPrevDates,
             data: _cabinetAggWeek(active, allPrevDates),
         } : null;
-        const dayCols = cal.days.map(d => ({
+        const dayCols = days.map(d => ({
             ...d,
             colKey: d.date,
             data: _cabinetDayDerived(active, d.date),
@@ -4345,7 +4372,8 @@ const RNP = (() => {
         } catch (e) {}
 
         await _yieldMain();
-        const keepWorkspace = !!el.querySelector('.rnp-workspace') && _rnpMainRendered();
+        const keepWorkspace = !!el.querySelector('.rnp-workspace') && _rnpMainRendered()
+            && window._rnpLoadedForCabinet === _cab;
         if (!keepWorkspace) {
             el.innerHTML = `
         <div class="rnp-workspace">
@@ -4375,6 +4403,10 @@ const RNP = (() => {
         const snapCab = _cab;
         let loadOk = false;
         let loadErr = null;
+        const canPaintCache = active.some(a => _dataCache[a.nm_id] && Object.keys(_dataCache[a.nm_id]).length);
+        if (canPaintCache) {
+            try { await _renderActiveTable(); } catch (e) { console.warn('[RNP] cache paint:', e.message); }
+        }
         try {
             loadOk = await _loadRnpDataTimed();
             if (_abandonStaleMain(renderId, snapReq, snapCab)) return;
@@ -4400,7 +4432,12 @@ const RNP = (() => {
             _setRnpSheetState('error', loadErr.message || 'Ошибка загрузки РНП');
             return;
         }
-        await _renderActiveTable();
+        try {
+            await _renderActiveTable();
+        } catch (e) {
+            _setRnpSheetState('error', e.message || 'Ошибка отрисовки РНП');
+            return;
+        }
         window._rnpLoadedForCabinet = _cab;
         setTimeout(() => {
             if (renderId !== _mainRenderGen || _cab !== snapCab) return;
@@ -4714,32 +4751,34 @@ const RNP = (() => {
         </table>`;
         }
 
-        const nPrev = cal.weeks.length + (cal.weeks.length ? 1 : 0);
-        const nCurr = cal.days.length;
+        const weeks = cal.weeks || [];
+        const days = cal.days || [];
+        const nPrev = weeks.length + (weeks.length ? 1 : 0);
+        const nCurr = days.length;
         const firstDayIdx = firstTimelineIdx;
 
-        const weekThs = cal.weeks.map((w, wi) => {
+        const weekThs = weeks.map((w, wi) => {
             const st = _stickyColAttrs(wi, cols, 11, 30);
             return `<th class="rnp-th-week rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}>${w.label || ('Нед ' + w.weekNum)}</th>`;
         }).join('');
-        const totalCi = cal.weeks.length;
+        const totalCi = weeks.length;
         const totalSt = totalCi < cols.length ? _stickyColAttrs(totalCi, cols, 11, 31) : { cls: '', style: '' };
-        const totalTh = cal.weeks.length
+        const totalTh = weeks.length
             ? `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>`
             : '';
-        const dayThs = cal.days.map((d, i) => {
-            const ci = totalCi + (cal.weeks.length ? 1 : 0) + i;
+        const dayThs = days.map((d, i) => {
+            const ci = totalCi + (weeks.length ? 1 : 0) + i;
             return `<th class="rnp-th-date rnp-day-col${d.isToday ? ' today' : ''}${d.isFuture ? ' rnp-th-future' : ''}${i === 0 ? ' rnp-cell-month-start' : ''}">${d.label}</th>`;
         }).join('');
-        const dowWeeks = cal.weeks.map((w, wi) => {
+        const dowWeeks = weeks.map((w, wi) => {
             const st = _stickyColAttrs(wi, cols, 11, 29);
             return `<th class="rnp-th-dow rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}></th>`;
         }).join('');
         const dowTotalSt = totalCi < cols.length ? _stickyColAttrs(totalCi, cols, 11, 29) : { cls: '', style: '' };
-        const dowTotal = cal.weeks.length
+        const dowTotal = weeks.length
             ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>`
             : '';
-        const dowDays = cal.days.map(d =>
+        const dowDays = days.map(d =>
             `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
         return `
@@ -5045,6 +5084,7 @@ const RNP = (() => {
             _abortPendingLoad();
             _mainRenderGen++;
             _clearCabinetState();
+            _restoreCabinetCache(cabId);
             window._rnpLoadedForCabinet = null;
         }
         if (cabId) _cab = cabId;
@@ -5154,7 +5194,12 @@ const RNP = (() => {
         else _activeNm = Number(nmId);
         if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm === _compareNm) _compareNm = null;
         try { sessionStorage.setItem('rnp_active_nm', String(_activeNm)); } catch (e) {}
-        await _renderActiveTable();
+        try {
+            await _renderActiveTable();
+        } catch (e) {
+            console.error('[RNP] pick:', e);
+            _setRnpSheetState('error', e.message || 'Ошибка отрисовки РНП');
+        }
     }
 
     async function syncArts() {
@@ -5456,19 +5501,15 @@ const RNP = (() => {
             _mainRenderGen++;
             window._rnpLastLoadedAt = 0;
             window._rnpLoadedForCabinet = null;
-            // Список артикулов принадлежит прошлому кабинету — с этого момента
-            // он считается пустым, пока не загрузим новый.
-            _articlesCab = null;
-            _clearRnpMainUI();
+            // Дашборд сам зовёт ensureReady + openMain сразу, без ожидания
+            // loadFromDB. Здесь только сбрасываем поколение, чтобы старый
+            // рендер не дорисовал чужой кабинет.
             const settingsEl = document.getElementById('tab-rnp-settings');
             if (settingsEl && settingsEl.querySelector('.widget-card')) {
                 settingsEl.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
                   <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
                   Загрузка настроек…
                 </div>`;
-            }
-            if (typeof window.bootRnpTab === 'function') {
-                setTimeout(() => window.bootRnpTab(true), 50);
             }
         });
     }
