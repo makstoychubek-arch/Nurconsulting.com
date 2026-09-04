@@ -52,7 +52,9 @@
             --radius-control: 12px;
             --apple-glass: #FFFFFF;
             --sel: #EDEDED;
-            --logo-mark: #F5C400;
+            --logo-mark: #FFFFFF;
+            --logo-ink: #111111;
+            --logo-mark-border: rgba(0, 0, 0, 0.12);
         }
 
         /* ============ DARK MODE (optional) ============ */
@@ -83,6 +85,9 @@
             --use-blur: blur(20px) saturate(180%);
             --use-glow: 0 4px 18px rgba(10, 132, 255, 0.28);
             --apple-glass: rgba(44, 44, 46, 0.82);
+            --logo-mark: #FFFFFF;
+            --logo-ink: #111111;
+            --logo-mark-border: rgba(255, 255, 255, 0.2);
         }
 
         body {
@@ -131,7 +136,8 @@
         .rail-logo:hover { transform: none; background: var(--sel); }
         .rail-logo-mark {
             width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
-            background: var(--logo-mark, #F5C400); color: #111;
+            background: var(--logo-mark, #FFFFFF); color: var(--logo-ink, #111);
+            border: 1px solid var(--logo-mark-border, rgba(0,0,0,0.12));
             font-size: 11px; font-weight: 900; letter-spacing: -0.06em;
             display: flex; align-items: center; justify-content: center;
         }
@@ -2207,15 +2213,15 @@
             height: 56px;
             margin: 0 auto 20px;
             border-radius: 14px;
-            background: #F5C400;
-            border: none;
+            background: var(--logo-mark, #FFFFFF);
+            border: 1px solid var(--logo-mark-border, rgba(0,0,0,0.12));
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 16px;
             font-weight: 900;
             letter-spacing: -0.04em;
-            color: #111;
+            color: var(--logo-ink, #111);
         }
         .space-empty-title {
             font-size: 22px;
