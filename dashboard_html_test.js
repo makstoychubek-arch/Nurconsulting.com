@@ -33,9 +33,25 @@ const formulasTag = body.search(/<script src="\/(?:dist\/)?wb-formulas(?:\.[0-9a
 assert.ok(formulasTag !== -1 && formulasTag < createClient, 'wb-formulas must load before the inline app script');
 
 assert.ok(
-    /class="rail-btn"[^>]*data-tab="rnp"/.test(html) || /data-tab="rnp"[^>]*data-flyout="fly-rnp"/.test(html),
-    'RNP rail button must have data-tab="rnp" so one click opens the module'
+    /class="rail-btn active"[^>]*data-tab="dashboard"/.test(html) || /data-tab="dashboard"[^>]*title="Дашборд"/.test(html),
+    'Dashboard rail button must open the live dashboard tab'
 );
+assert.ok(
+    !/class="rail-btn"[^>]*data-tab="rnp"/.test(html) && !/data-tab="rnp"[^>]*data-flyout="fly-rnp"/.test(html),
+    'RNP must not sit on the main rail'
+);
+assert.ok(!/<span class="rail-btn-lbl">РНП<\/span>/.test(html), 'РНП must not stay on the main rail');
+assert.ok(!/<span class="rail-btn-lbl">РК<\/span>/.test(html), 'РК must not stay on the main rail');
+assert.ok(!/<span class="rail-btn-lbl">А\/Б Тесты<\/span>/.test(html), 'А/Б Тесты must not stay on the main rail');
+assert.ok(!/<span class="rail-btn-lbl">Тарифы<\/span>/.test(html), 'Тарифы must not stay on the main rail');
+assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
+    'ocr/rnp/tariffs flyouts must be folded into BETA');
+assert.ok(html.includes('const LIVE_TABS = new Set([\'dashboard\', \'settings\'])'),
+    'only dashboard and settings are live tabs');
+assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
+    'non-live modules must open the BETA stub instead of broken UIs');
+assert.ok(html.includes('Сейчас работает только Дашборд'),
+    'BETA stub must say only the dashboard works');
 
 const afterApp = html.slice(html.lastIndexOf('initSidebarFlyouts();'));
 assert.ok(
@@ -61,20 +77,31 @@ assert.ok(!/<span class="rail-btn-lbl">Логистика<\/span>/.test(html), '
 assert.ok(!/<span class="rail-btn-lbl">Ещё<\/span>/.test(html), 'Ещё flyout must be removed from the rail');
 assert.ok(!html.includes('id="fly-goods"') && !html.includes('id="fly-finance"') && !html.includes('id="fly-manage"'),
     'goods/finance/manage flyouts must be folded into BETA');
-const betaFly = html.slice(html.indexOf('id="fly-beta"'), html.indexOf('id="fly-tariffs"'));
+const betaFlyEnd = html.indexOf('id="date-picker"');
+const betaFly = html.slice(html.indexOf('id="fly-beta"'), betaFlyEnd === -1 ? html.indexOf('<main') : betaFlyEnd);
+assert.ok(betaFly.includes("showTab('rnp'"), 'BETA flyout lists РНП');
+assert.ok(betaFly.includes("showTab('advertising'"), 'BETA flyout lists Контроль РК');
+assert.ok(betaFly.includes("showTab('ab-testing'"), 'BETA flyout lists А/Б Тесты');
+assert.ok(betaFly.includes("showTab('tariffs'"), 'BETA flyout lists Тарифы');
 assert.ok(betaFly.includes("showTab('cost'"), 'BETA flyout lists Товары');
 assert.ok(betaFly.includes("showTab('dds'"), 'BETA flyout lists Финансы');
 assert.ok(betaFly.includes("showTab('logistics'"), 'BETA flyout lists Логистика');
 assert.ok(betaFly.includes("showTab('calculator'"), 'BETA flyout lists Калькулятор');
+assert.ok(betaFly.includes('id="sidebar-user"'), 'BETA flyout keeps the user footer');
 assert.ok(html.includes('id="rail-settings-btn"'), 'settings must be a small button under the profile');
 const settingsIdx = html.indexOf('id="rail-settings-btn"');
 const userIdx = html.indexOf('id="rail-user-name"');
 assert.ok(userIdx !== -1 && settingsIdx > userIdx, 'settings button must sit under the profile block');
 assert.ok(html.includes('abtest-card-row'), 'A/B cards use WBRadar row layout');
-assert.ok(html.includes('nr-early-tab-style'), 'RNP early-tab CSS id must exist for boot detection');
+assert.ok(html.includes('nr-early-tab-style'), 'early-tab CSS id must exist for settings boot');
 assert.ok(
-    html.includes("if (document.getElementById('nr-early-tab-style'))"),
-    'getCurrentActiveTab must treat early-tab CSS as RNP open'
+    html.includes("if (__nrTab === 'settings')") && html.includes('#tab-settings{display:block'),
+    'early-tab CSS must not hide dashboard for BETA modules'
+);
+assert.ok(
+    html.includes("if (savedTab === 'settings') showTab('settings', null)") &&
+    html.includes("else showTab('dashboard', null)"),
+    'init must open dashboard, not a saved BETA tab'
 );
 assert.ok(
     html.includes('Загрузка данных|Загрузка артикулов'),
