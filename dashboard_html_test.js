@@ -149,17 +149,20 @@ assert.ok(
     'orders_filled_until migration must exist'
 );
 assert.ok(rnpSrc.includes('показы РК'), 'toolbar must show live ad impressions so empty cells are not silent');
-assert.ok(rnpSrc.includes('activateCatalog: true'), 'catalog sync must turn WB cards on in every cabinet, not only new ones');
+assert.ok(rnpSrc.includes('existing ? !!existing.is_active : (activateCatalog || activateNew)'),
+    'catalog sync must not turn back on articles the seller already hid');
 assert.ok(
-    fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
+    !fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
         .includes('.update({ is_active: true })'),
-    'auto-sync must activate catalog cards already sitting inactive in rnp_articles'
+    'auto-sync must not reactivate hidden rnp_articles from the WB catalog'
 );
 
 assert.ok(rnpSrc.includes('await _mergeAdStatsFromDb(nmIds, cal)'),
     'RNP main load must merge advertising_daily_stats, not only define the helper');
-assert.ok(/const \[, dailyRows, , stocks\] = await Promise\.all/.test(rnpSrc),
+assert.ok(/const \[, dailyRows, , stocksRaw\] = await Promise\.all/.test(rnpSrc),
     'RNP must take wb_stocks from Promise.all slot 4, not exchange rates');
+assert.ok(rnpSrc.includes('Array.isArray(stocksRaw)'),
+    'RNP must not crash if stocks come back undefined');
 assert.ok(rnpSrc.includes('const missing = nmIds.filter'),
     'funnel hydrate must sync articles still missing impressions, not skip the whole cabinet');
 assert.ok(rnpSrc.includes('_seedTodayLiveZeros(nmIds, cal)'),

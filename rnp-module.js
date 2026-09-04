@@ -1252,7 +1252,7 @@ const RNP = (() => {
                 toUpsert.push({
                     cabinet_id: cab, nm_id: nmId, name: displayName,
                     photo_url: existing?.photo_url || '',
-                    is_active: activateCatalog || activateNew || !!existing?.is_active,
+                    is_active: existing ? !!existing.is_active : (activateCatalog || activateNew),
                     cost_price: existing?.cost_price || 0,
                     manual_data: md,
                 });
@@ -3295,7 +3295,7 @@ const RNP = (() => {
 
         // Планы, заказы и остатки — независимые запросы; раньше шли по очереди
         // и на большом кабинете не укладывались в таймаут.
-        const [, dailyRows, , stocks] = await Promise.all([
+        const [, dailyRows, , stocksRaw] = await Promise.all([
             _loadPlans(dateFrom, dateTo),
             _fetchOrdersDaily(dateFrom, dateTo, snapCab, snapReq),
             _loadExchangeRates(dateFrom, dateTo),
@@ -3303,6 +3303,7 @@ const RNP = (() => {
                 { op: 'eq', column: 'cabinet_id', value: _cab },
             ], 'nm_id, tech_size, quantity, in_way_to_client, in_way_from_client, warehouse_name'),
         ]);
+        const stocks = Array.isArray(stocksRaw) ? stocksRaw : [];
         if (dailyRows === null) return false;
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
