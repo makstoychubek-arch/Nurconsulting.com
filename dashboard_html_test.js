@@ -151,10 +151,29 @@ assert.ok(
 assert.ok(rnpSrc.includes('показы РК'), 'toolbar must show live ad impressions so empty cells are not silent');
 assert.ok(rnpSrc.includes('existing ? !!existing.is_active : (activateCatalog || activateNew)'),
     'catalog sync must not turn back on articles the seller already hid');
+assert.ok(rnpSrc.includes('function _foreignNmIds'),
+    'RNP must detect nm_id that already belong to another cabinet');
+assert.ok(rnpSrc.includes('function _dropLeakedArticles'),
+    'RNP must drop leaked articles that are not in this cabinet WB catalog');
+assert.ok(rnpSrc.includes('function _activeArts'),
+    'tabs and bars must use current-cabinet active articles only');
+assert.ok(rnpSrc.includes('rnp_foreign_nm_ids'),
+    'RNP must ask Postgres which nm_id already live on another cabinet');
+assert.ok(rnpSrc.includes('elsewhere.has(nmId)'),
+    'orders sync must not copy another cabinet nm_id into this one');
 assert.ok(
     !fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
         .includes('.update({ is_active: true })'),
     'auto-sync must not reactivate hidden rnp_articles from the WB catalog'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
+        .includes('async function dropLeakedArticles'),
+    'auto-sync must remove nm_id that belong to another cabinet and are not in this catalog'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260904020000_rnp_foreign_nm_ids.sql')),
+    'rnp_foreign_nm_ids RPC migration must exist'
 );
 
 assert.ok(rnpSrc.includes('await _mergeAdStatsFromDb(nmIds, cal)'),

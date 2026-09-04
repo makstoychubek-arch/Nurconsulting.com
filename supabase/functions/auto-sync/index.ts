@@ -725,6 +725,7 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
     const cards: Record<string, unknown>[] = [];
     let cursorNmId = 0;
     let cursorUpdatedAt = '';
+    let catalogComplete = false;
     for (let page = 0; page < 20; page++) {
         const body: Record<string, unknown> = {
             settings: {
@@ -752,7 +753,10 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
         const cur = payload?.cursor || {};
         const nextNm = Number(cur.nmID || cur.nmId || 0);
         const nextAt = String(cur.updatedAt || '');
-        if (!pageCards.length || pageCards.length < 100 || !nextNm) break;
+        if (!pageCards.length || pageCards.length < 100 || !nextNm) {
+            catalogComplete = true;
+            break;
+        }
         cursorNmId = nextNm;
         cursorUpdatedAt = nextAt;
         await sleep(400);
@@ -761,10 +765,12 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
 
     const { data: existing } = await admin.from('rnp_articles').select('nm_id,is_active').eq('cabinet_id', cabinetId);
     const known = new Set((existing || []).map((r: { nm_id: number }) => Number(r.nm_id)));
+    const catalogIds: number[] = [];
     const toInsert = [];
     for (const card of cards) {
         const nmId = Number(card.nmID || card.nmId);
         if (!nmId) continue;
+        catalogIds.push(nmId);
         if (known.has(nmId)) continue;
         const sa = String(card.vendorCode || card.vendor_code || card.supplierVendorCode || '').trim();
         const name = sa || String(card.title || card.object || `Артикул ${nmId}`).trim();
@@ -784,7 +790,32 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
             ignoreDuplicates: true,
         });
     }
+    if (catalogComplete) await dropLeakedArticles(admin, cabinetId, catalogIds);
     return toInsert.length;
+}
+
+async function dropLeakedArticles(admin: Admin, cabinetId: string, catalogIds: number[]): Promise<number> {
+    const catalog = new Set(catalogIds.map(Number).filter((n) => n > 0));
+    const { data: local } = await admin.from('rnp_articles').select('nm_id').eq('cabinet_id', cabinetId);
+    const extra = (local || [])
+        .map((r: { nm_id: number }) => Number(r.nm_id))
+        .filter((n: number) => n > 0 && !catalog.has(n));
+    if (!extra.length) return 0;
+    const { data: others } = await admin.from('rnp_articles')
+        .select('nm_id')
+        .neq('cabinet_id', cabinetId)
+        .in('nm_id', extra);
+    const leaked = [...new Set((others || []).map((r: { nm_id: number }) => Number(r.nm_id)).filter((n: number) => n > 0))];
+    if (!leaked.length) return 0;
+    for (let i = 0; i < leaked.length; i += 200) {
+        const batch = leaked.slice(i, i + 200);
+        await admin.from('rnp_daily_data').delete().eq('cabinet_id', cabinetId).in('nm_id', batch);
+        await admin.from('rnp_date_notes').delete().eq('cabinet_id', cabinetId).in('nm_id', batch);
+        await admin.from('rnp_plans').delete().eq('cabinet_id', cabinetId).in('nm_id', batch);
+        await admin.from('rnp_articles').delete().eq('cabinet_id', cabinetId).in('nm_id', batch);
+    }
+    console.log('[auto-sync] dropped leaked rnp_articles', cabinetId, leaked.join(','));
+    return leaked.length;
 }
 
 function sanitizeWbToken(raw: unknown): string {

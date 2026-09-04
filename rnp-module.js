@@ -404,6 +404,60 @@ const RNP = (() => {
     function _cabArticles() {
         return _articlesCab === _cab ? _articles : [];
     }
+    function _activeArts() {
+        return _cabArticles().filter(a => a.is_active);
+    }
+
+    /** nm_id, которые уже принадлежат другому кабинету (кимоно Zevina ≠ Elium). */
+    async function _foreignNmIds(cab, nmIds) {
+        const ids = [...new Set((nmIds || []).map(Number).filter(n => n > 0))];
+        if (!ids.length || !_db) return new Set();
+        try {
+            const { data, error } = await _db.rpc('rnp_foreign_nm_ids', {
+                p_cabinet_id: String(cab),
+                p_nm_ids: ids,
+            });
+            if (error) throw error;
+            return new Set((Array.isArray(data) ? data : []).map(Number));
+        } catch (e) {
+            console.warn('[RNP] foreign nm ids:', e.message);
+            try {
+                const owned = new Set();
+                for (let i = 0; i < ids.length; i += 200) {
+                    const { data } = await _db.from('rnp_articles')
+                        .select('nm_id')
+                        .neq('cabinet_id', cab)
+                        .in('nm_id', ids.slice(i, i + 200));
+                    (data || []).forEach(r => owned.add(Number(r.nm_id)));
+                }
+                return owned;
+            } catch (e2) {
+                return new Set();
+            }
+        }
+    }
+
+    async function _dropLeakedArticles(cab, catalogIds) {
+        const local = _cabArticles();
+        if (!local.length || !_db) return 0;
+        const catalog = new Set((catalogIds || []).map(Number));
+        const extra = local.filter(a => !catalog.has(Number(a.nm_id)));
+        if (!extra.length) return 0;
+        const foreign = await _foreignNmIds(cab, extra.map(a => a.nm_id));
+        const leaked = extra.filter(a => foreign.has(Number(a.nm_id))).map(a => Number(a.nm_id));
+        if (!leaked.length) return 0;
+        for (let i = 0; i < leaked.length; i += 200) {
+            const batch = leaked.slice(i, i + 200);
+            await _db.from('rnp_daily_data').delete().eq('cabinet_id', cab).in('nm_id', batch);
+            await _db.from('rnp_date_notes').delete().eq('cabinet_id', cab).in('nm_id', batch);
+            await _db.from('rnp_plans').delete().eq('cabinet_id', cab).in('nm_id', batch);
+            await _db.from('rnp_articles').delete().eq('cabinet_id', cab).in('nm_id', batch);
+        }
+        const drop = new Set(leaked);
+        _articles = _articles.filter(a => !drop.has(Number(a.nm_id)));
+        console.info('[RNP] убраны чужие артикулы:', leaked.join(', '));
+        return leaked.length;
+    }
 
     function _cabinetLabel() {
         return document.getElementById('cabinet-picker-label')?.textContent?.trim() || '';
@@ -1058,7 +1112,7 @@ const RNP = (() => {
         return entries;
     }
     function _isCatCollapsed(cat) {
-        const activeCount = (_articles || []).filter(a => a.is_active).length;
+        const activeCount = _activeArts().length;
         if (activeCount > 40) {
             try {
                 const map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}');
@@ -1166,12 +1220,13 @@ const RNP = (() => {
                 if (stale()) return { ok: false, added: 0 };
             }
             const known = new Set(_cabArticles().map(a => Number(a.nm_id)));
+            const elsewhere = await _foreignNmIds(cab, allNmIds.map(Number));
             // Пачками, а не по одному артикулу: на новом кабинете с сотнями
             // nm_id последовательные upsert'ы держали РНП в спиннере минуту+.
             const toInsert = [];
             for (const nmStr of allNmIds) {
                 const nmId = Number(nmStr);
-                if (!nmId || known.has(nmId)) continue;
+                if (!nmId || known.has(nmId) || elsewhere.has(nmId)) continue;
                 toInsert.push({
                     cabinet_id: cab, nm_id: nmId, name: `Артикул ${nmId}`,
                     photo_url: '', is_active: activateNew, cost_price: 0,
@@ -1237,11 +1292,13 @@ const RNP = (() => {
             }
             if (_articlesCab !== cab) await _loadArticles(cab);
             const known = new Set(_cabArticles().map(a => Number(a.nm_id)));
+            const catalogIds = [];
             const toUpsert = [];
             let added = 0;
             for (const card of cards) {
                 const nmId = Number(card.nmID || card.nmId);
                 if (!nmId) continue;
+                catalogIds.push(nmId);
                 const sa = _extractSellerArticle(card);
                 const displayName = sa
                     || String(card.title || card.object || card.vendorCode || `Артикул ${nmId}`).trim();
@@ -1263,6 +1320,10 @@ const RNP = (() => {
             }
             if (_cab !== cab) return { ok: false, added };
             await _loadArticles(cab);
+            if (_cab !== cab) return { ok: false, added };
+            const catalogComplete = cards.length < 100 || cards.length % 100 !== 0;
+            const dropped = catalogComplete ? await _dropLeakedArticles(cab, catalogIds) : 0;
+            if (dropped && _cab === cab) await _loadArticles(cab);
             if (added) console.info('[RNP] новых артикулов из карточек WB:', added);
             return { ok: _cabArticles().length > 0, added };
         } catch (e) {
@@ -2344,14 +2405,14 @@ const RNP = (() => {
     function _refreshTabsBar() {
         const wrap = document.getElementById('rnp-sheet-tabs');
         if (!wrap) return;
-        const active = _articles.filter(a => a.is_active);
+        const active = _activeArts();
         wrap.innerHTML = _renderTabsHTML(active, { lite: active.length > 40 });
     }
 
     function _refreshActionBar() {
         const wrap = document.getElementById('rnp-action-bar-wrap');
         if (!wrap) return;
-        wrap.innerHTML = _buildActionBar(_articles.filter(a => a.is_active));
+        wrap.innerHTML = _buildActionBar(_activeArts());
     }
 
     function _csvCell(v) {
@@ -2373,7 +2434,7 @@ const RNP = (() => {
         const sep = ';';
         const BOM = '\uFEFF';
         if (_activeNm === SUMMARY_TAB) {
-            const active = _articles.filter(a => a.is_active);
+            const active = _activeArts();
             const header = ['Статус', 'Артикул продавца', 'Артикул WB', 'Заказы', 'План%', 'Прибыль', 'Маржа%', 'ДРР%', 'Остаток', 'Алерты'];
             const lines = [header.map(_csvCell).join(sep)];
             active.forEach(a => {
@@ -2512,7 +2573,7 @@ const RNP = (() => {
         _planPeriod = next;
         try { localStorage.setItem('rnp_plan_period', _planPeriod); } catch (e) {}
         _dataCache = {};
-        const active = _articles.filter(a => a.is_active);
+        const active = _activeArts();
         await _loadAllDailyData(active.map(a => a.nm_id));
         _refreshActionBar();
         await _renderActiveTable();
@@ -3285,7 +3346,7 @@ const RNP = (() => {
         const snapCab = _cab;
         if (!_cab || !_db) return false;
 
-        const active = _articles.filter(a => a.is_active);
+        const active = _activeArts();
         const nmIds = active.map(a => a.nm_id);
         const cal = _buildCalendar();
         const allDates = _calAllDates(cal);
@@ -3994,7 +4055,7 @@ const RNP = (() => {
     }
 
     function _activeArticleCount() {
-        return _articles.filter(a => a.is_active).length;
+        return _activeArts().length;
     }
 
     function _updateSettingsActiveCounts() {
@@ -4067,7 +4128,7 @@ const RNP = (() => {
               ${cabLabel ? `<span class="rnp-cab-badge">${cabLabel}</span>` : ''}
             </div>
             <div class="flex flex-wrap gap-4 mb-4 text-xs" style="color:var(--text-muted)">
-              <span>Активных: <b id="rnp-settings-active-n" style="color:var(--text-primary)">${_articles.filter(a=>a.is_active).length}</b> / <span id="rnp-settings-total-n">${_articles.length}</span></span>
+              <span>Активных: <b id="rnp-settings-active-n" style="color:var(--text-primary)">${_activeArts().length}</b> / <span id="rnp-settings-total-n">${_cabArticles().length}</span></span>
               <span>Курс: <b style="color:var(--text-primary)">1₽ = ${_settings.exchangeRate} сом</b></span>
               <span>$: <b style="color:var(--text-primary)">1$ = ${_settings.usdRate} сом</b></span>
               ${(() => { const n = _latestNbkr(); return n ? `<span>НБКР: <b style="color:var(--text-primary)">1₽ = ${n.rate.toFixed(4).replace('.', ',')} сом</b> (${n.date.split('-').reverse().join('.')})</span>` : ''; })()}
@@ -4117,7 +4178,7 @@ const RNP = (() => {
             <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h3 class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">
                 Артикулы
-                <span id="rnp-settings-arts-label" class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} / ${_articles.length} в РНП · артикул продавца из WB</span>
+                <span id="rnp-settings-arts-label" class="text-xs font-normal" style="color:var(--text-muted)">${_activeArts().length} / ${_cabArticles().length} в РНП · артикул продавца из WB</span>
               </h3>
               <div class="flex gap-2 flex-wrap">
                 <button onclick="RNP.refreshArticles()" id="rnp-refresh-arts-btn" class="ui-btn ui-btn-primary text-xs" title="Добавить новые карточки из каталога WB и из заказов, ничего не удаляя">Обновить артикулы</button>
@@ -4350,7 +4411,7 @@ const RNP = (() => {
             if (renderId !== _mainRenderGen) return;
             _applyResolvedPhotos();
             const tabs = document.getElementById('rnp-sheet-tabs');
-            if (tabs) tabs.innerHTML = _renderTabsHTML(_articles.filter(a => a.is_active));
+            if (tabs) tabs.innerHTML = _renderTabsHTML(_activeArts());
             _updateTabHighlight();
         });
         _updateEditModeBtn();
@@ -4488,7 +4549,7 @@ const RNP = (() => {
             _refreshMarqueeBaseHtml(body);
             _syncMarqueeFill(body);
         }).catch(() => {});
-        _preloadPhotos(_articles.filter(a => a.is_active)).then(() => {
+        _preloadPhotos(_activeArts()).then(() => {
             _applyResolvedPhotos(body);
             _refreshMarqueeBaseHtml(body);
             _syncMarqueeFill(body);
@@ -4968,7 +5029,7 @@ const RNP = (() => {
         }, 8000);
         setTimeout(() => {
             if (_cab !== (window.currentCabinetId || _cab)) return;
-            _preloadPhotosBackground(_articles.filter(a => a.is_active)).catch(e => {
+            _preloadPhotosBackground(_activeArts()).catch(e => {
                 console.warn('[RNP] photo preload:', e.message);
                 _wbEnrichmentDegraded = true;
             });
@@ -5364,7 +5425,7 @@ const RNP = (() => {
 
     async function refreshAll() {
         const btn = document.getElementById('refresh-btn');
-        const active = _articles.filter(a => a.is_active);
+        const active = _activeArts();
         if (!active.length) return;
         if (btn) btn.disabled = true;
 
@@ -5487,7 +5548,7 @@ const RNP = (() => {
         _wbEnrichmentDegraded = true;
         const bar = document.getElementById('rnp-action-bar-wrap');
         if (bar && document.getElementById('tab-rnp')?.classList.contains('active')) {
-            bar.innerHTML = _buildActionBar(_articles.filter(a => a.is_active));
+            bar.innerHTML = _buildActionBar(_activeArts());
         }
     });
     // Retry boot if tab still stuck on initialization (e.g. loadCabinets delayed).
