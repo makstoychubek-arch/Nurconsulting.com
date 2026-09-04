@@ -761,12 +761,10 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
 
     const { data: existing } = await admin.from('rnp_articles').select('nm_id,is_active').eq('cabinet_id', cabinetId);
     const known = new Set((existing || []).map((r: { nm_id: number }) => Number(r.nm_id)));
-    const catalogIds: number[] = [];
     const toInsert = [];
     for (const card of cards) {
         const nmId = Number(card.nmID || card.nmId);
         if (!nmId) continue;
-        catalogIds.push(nmId);
         if (known.has(nmId)) continue;
         const sa = String(card.vendorCode || card.vendor_code || card.supplierVendorCode || '').trim();
         const name = sa || String(card.title || card.object || `Артикул ${nmId}`).trim();
@@ -785,12 +783,6 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
             onConflict: 'cabinet_id,nm_id',
             ignoreDuplicates: true,
         });
-    }
-    for (let i = 0; i < catalogIds.length; i += 200) {
-        await admin.from('rnp_articles')
-            .update({ is_active: true })
-            .eq('cabinet_id', cabinetId)
-            .in('nm_id', catalogIds.slice(i, i + 200));
     }
     return toInsert.length;
 }
