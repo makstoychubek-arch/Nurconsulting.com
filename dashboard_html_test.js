@@ -156,6 +156,15 @@ assert.ok(
     'auto-sync must activate catalog cards already sitting inactive in rnp_articles'
 );
 
+assert.ok(rnpSrc.includes('await _mergeAdStatsFromDb(nmIds, cal)'),
+    'RNP main load must merge advertising_daily_stats, not only define the helper');
+assert.ok(/const \[, dailyRows, , stocks\] = await Promise\.all/.test(rnpSrc),
+    'RNP must take wb_stocks from Promise.all slot 4, not exchange rates');
+assert.ok(rnpSrc.includes('const missing = nmIds.filter'),
+    'funnel hydrate must sync articles still missing impressions, not skip the whole cabinet');
+assert.ok(rnpSrc.includes('_seedTodayLiveZeros(nmIds, cal)'),
+    'RNP must seed live zeros so today is not a blank sheet');
+
 assert.ok(html.includes('id="m-stock-fbo"') && html.includes('id="m-stock-fbs"'),
     'dashboard must show FBO and FBS stock KPIs separately');
 assert.ok(html.includes('id="wh-fbo"') && html.includes('id="wh-fbs"'),
@@ -288,8 +297,8 @@ assert.ok(html.includes('data-adv-view="autobidder"') && html.includes('id="adv-
     'advertising detail must have an Автобиддер tab');
 assert.ok(html.includes('id="autobidder-modal"') && html.includes('function openAutobidderModal'),
     'campaign row must open the autobidder rule modal');
-assert.ok(html.includes('function saveAutobidderRule') && html.includes("from('autobidder_rules')"),
-    'autobidder modal must persist a rule to autobidder_rules');
+assert.ok(html.includes('function saveAutobidderRule') && html.includes("from('autobidder_rules_legacy_mvp')"),
+    'autobidder modal must persist a rule to autobidder_rules_legacy_mvp');
 assert.ok(html.includes('AUTOBIDDER_RUN_URL') && html.includes('function runAutobidderNow'),
     'dashboard must call autobidder-run for a manual pass');
 assert.ok(
@@ -359,6 +368,21 @@ assert.ok(
 assert.ok(
     fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8').includes('"/agents"'),
     'Vercel must rewrite /agents to the dashboard'
+);
+
+assert.ok(!html.includes('--logo-mark: #F5C400'), 'dashboard logo mark must not be yellow');
+assert.ok(html.includes('--logo-mark: #FFFFFF'), 'dashboard logo mark must be white');
+assert.ok(
+    !fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').includes('bg-[#F5C400] text-[#111] font-black'),
+    'site header logo must not be the yellow NR tile'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').includes('bg-white text-[#111] font-black'),
+    'site header logo must be the white NR tile'
+);
+assert.ok(
+    !fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8').includes('background: #F5C400'),
+    'login logo must not use the yellow mark'
 );
 
 console.log('dashboard_html_test: ok');

@@ -52,7 +52,9 @@
             --radius-control: 12px;
             --apple-glass: #FFFFFF;
             --sel: #EDEDED;
-            --logo-mark: #F5C400;
+            --logo-mark: #FFFFFF;
+            --logo-ink: #111111;
+            --logo-mark-border: rgba(0, 0, 0, 0.12);
         }
 
         /* ============ DARK MODE (optional) ============ */
@@ -83,6 +85,9 @@
             --use-blur: blur(20px) saturate(180%);
             --use-glow: 0 4px 18px rgba(10, 132, 255, 0.28);
             --apple-glass: rgba(44, 44, 46, 0.82);
+            --logo-mark: #FFFFFF;
+            --logo-ink: #111111;
+            --logo-mark-border: rgba(255, 255, 255, 0.2);
         }
 
         body {
@@ -131,7 +136,8 @@
         .rail-logo:hover { transform: none; background: var(--sel); }
         .rail-logo-mark {
             width: 28px; height: 28px; border-radius: 8px; flex-shrink: 0;
-            background: var(--logo-mark, #F5C400); color: #111;
+            background: var(--logo-mark, #FFFFFF); color: var(--logo-ink, #111);
+            border: 1px solid var(--logo-mark-border, rgba(0,0,0,0.12));
             font-size: 11px; font-weight: 900; letter-spacing: -0.06em;
             display: flex; align-items: center; justify-content: center;
         }
@@ -2207,15 +2213,15 @@
             height: 56px;
             margin: 0 auto 20px;
             border-radius: 14px;
-            background: #F5C400;
-            border: none;
+            background: var(--logo-mark, #FFFFFF);
+            border: 1px solid var(--logo-mark-border, rgba(0,0,0,0.12));
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 16px;
             font-weight: 900;
             letter-spacing: -0.04em;
-            color: #111;
+            color: var(--logo-ink, #111);
         }
         .space-empty-title {
             font-size: 22px;
@@ -5514,7 +5520,7 @@
             fetchAllRows('advertising_campaigns', [
                 { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
             ]),
-            fetchAllRows('autobidder_rules', [
+            fetchAllRows('autobidder_rules_legacy_mvp', [
                 { op: 'eq', column: 'cabinet_id', value: snapshotCabinet },
             ]),
         ]);
@@ -5946,7 +5952,7 @@
         if (!listEl || !currentCabinetId) return;
         const names = window._advCampaignNameCache || new Map();
         const [rules, logs] = await Promise.all([
-            fetchAllRows('autobidder_rules', [{ op: 'eq', column: 'cabinet_id', value: currentCabinetId }]),
+            fetchAllRows('autobidder_rules_legacy_mvp', [{ op: 'eq', column: 'cabinet_id', value: currentCabinetId }]),
             supabase.from('autobidder_log').select('*').eq('cabinet_id', currentCabinetId)
                 .order('created_at', { ascending: false }).limit(40)
                 .then(({ data, error }) => { if (error) { console.warn(error.message); return []; } return data || []; }),
@@ -6074,7 +6080,7 @@
             interval_minutes: interval,
             updated_at: new Date().toISOString(),
         };
-        const { error } = await supabase.from('autobidder_rules').upsert(payload, { onConflict: 'cabinet_id,campaign_id' });
+        const { error } = await supabase.from('autobidder_rules_legacy_mvp').upsert(payload, { onConflict: 'cabinet_id,campaign_id' });
         if (error) { showPremiumModal('error', 'Не сохранилось', error.message); return; }
         showPremiumModal('success', 'Автобиддер сохранён', enabled
             ? 'Правило включено. Крон проверяет ставки каждые 30 минут, но не чаще интервала правила.'
@@ -6085,7 +6091,7 @@
     window.saveAutobidderRule = saveAutobidderRule;
 
     async function toggleAutobidderEnabled(ruleId, enabled) {
-        const { error } = await supabase.from('autobidder_rules')
+        const { error } = await supabase.from('autobidder_rules_legacy_mvp')
             .update({ enabled: Boolean(enabled), updated_at: new Date().toISOString() })
             .eq('id', ruleId);
         if (error) { showPremiumModal('error', 'Не удалось переключить', error.message); return; }

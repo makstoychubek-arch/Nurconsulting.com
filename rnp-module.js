@@ -3154,16 +3154,18 @@ const RNP = (() => {
         if (!nmIds.length) return;
         const today = new Date().toISOString().split('T')[0];
         const weekAgo = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().split('T')[0]; })();
-        const hasRecentFunnel = nmIds.some(nmId =>
-            Object.values(_dataCache[nmId] || {}).some(r =>
+        const missing = nmIds.filter(nmId =>
+            !Object.values(_dataCache[nmId] || {}).some(r =>
                 r && r.date >= weekAgo && r.date <= today &&
                 (Number(r.impressions || 0) > 0 || Number(r.clicks || 0) > 0)));
-        if (hasRecentFunnel) return;
-        try {
-            await _syncFunnelHistory(nmIds);
-        } catch (e) {
-            console.warn('[RNP] funnel hydrate:', e.message);
-            return;
+        if (missing.length) {
+            try {
+                await _syncFunnelHistory(missing);
+            } catch (e) {
+                console.warn('[RNP] funnel hydrate:', e.message);
+            }
+            if (_cab !== snapCab || renderId !== _mainRenderGen) return;
+            await _mergeFinanceDailyFromDb(missing, _buildCalendar());
         }
         if (_cab !== snapCab || renderId !== _mainRenderGen) return;
         const focus = Number(_activeNm);
@@ -3293,7 +3295,7 @@ const RNP = (() => {
 
         // Планы, заказы и остатки — независимые запросы; раньше шли по очереди
         // и на большом кабинете не укладывались в таймаут.
-        const [, dailyRows, stocks] = await Promise.all([
+        const [, dailyRows, , stocks] = await Promise.all([
             _loadPlans(dateFrom, dateTo),
             _fetchOrdersDaily(dateFrom, dateTo, snapCab, snapReq),
             _loadExchangeRates(dateFrom, dateTo),
@@ -3310,6 +3312,9 @@ const RNP = (() => {
         _populateDataCacheFromDaily(dailyRows, nmIds, cal, settings);
         _applyStocksToCache(stocks, nmIds);
         await _mergeFinanceDailyFromDb(nmIds, cal);
+        if (_isStaleLoad(snapReq, snapCab)) return false;
+        await _mergeAdStatsFromDb(nmIds, cal);
+        _seedTodayLiveZeros(nmIds, cal);
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
         window._rnpLastLoadedAt = Date.now();
@@ -3546,6 +3551,17 @@ const RNP = (() => {
 
         console.info(`[RNP] funnel: ${upserts.length} nm-days synced (WB last 7 days)`);
         await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
+        upserts.forEach(u => {
+            const row = _ensureCacheDay(u.nm_id, u.date);
+            if (!(Number(row.impressions || 0) > 0)) {
+                row.impressions = u.impressions;
+                row.clicks = u.clicks;
+                row.ctr_pct = u.ctr_pct;
+                row.basket_count = u.basket_count;
+                row.basket_pct = u.basket_pct;
+                row.funnel_order_conv = u.funnel_order_conv;
+            }
+        });
     }
 
     // ─── PROMOTION / AD SYNC (WB API v2/v3) ─────────────────────────────────
