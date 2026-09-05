@@ -176,22 +176,33 @@ assert.ok(html.includes('function switchDashStockView'),
     'dashboard must switch warehouse list/chart between all/FBO/FBS');
 assert.ok(html.includes('nr_dash_stock_view') && html.includes('id="dash-wh-legend"'),
     'FBS shop names and qty must persist across cabinets');
+
+const autoSyncSrc = fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8');
 assert.ok(
-    fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
-        .includes('isServiceAuthorized'),
+    autoSyncSrc.includes('isServiceAuthorized'),
     'auto-sync must accept the cron service_role JWT so FBS shops sync for every cabinet'
 );
 assert.ok(
-    fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
-        .includes('fetchFbsFromMarketplace(admin, token, cabinetId)'),
-    'FBS marketplace sync must reuse existing chrt ids for large cabinets, not only Elium'
+    autoSyncSrc.includes('fetchFbsStockRows(admin, token, cabinetId)'),
+    'FBS sync must pass the supabase admin client — a free `admin` ref throws and falls back to the generic blob'
+);
+assert.ok(
+    autoSyncSrc.includes('if (result.warehousesFound) return result.rows'),
+    'named FBS shops must be kept even when one warehouse returns 0 qty — do not overwrite with products-report'
+);
+assert.ok(
+    autoSyncSrc.includes('warehousesFound: true') && autoSyncSrc.includes('{ skus: chunk }'),
+    'FBS marketplace sync must query /api/v3/stocks with barcodes (skus) for every seller warehouse'
+);
+assert.ok(
+    !/fetchFbsStockRows\(token, cabinetId\)/.test(autoSyncSrc),
+    'fetchFbsStockRows must not be called without admin'
 );
 assert.ok(html.includes("mode: 'stocks'") && html.includes('AUTO_SYNC_URL'),
     'dashboard refresh must sync stocks via auto-sync, not the dead Statistics stocks API');
 assert.ok(html.includes("'m-stock-fbo','m-stock-fbs'"),
     'cabinet switch must reset FBO/FBS stock KPIs');
 
-const autoSyncSrc = fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8');
 assert.ok(autoSyncSrc.includes('fetchFboStockRows') && autoSyncSrc.includes('fetchFbsStockRows'),
     'auto-sync must fetch FBO and FBS stocks separately');
 assert.ok(autoSyncSrc.includes("stock_scheme: 'fbs'") && autoSyncSrc.includes("stock_scheme: 'fbo'"),

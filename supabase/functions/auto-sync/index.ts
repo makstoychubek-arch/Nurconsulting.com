@@ -478,6 +478,11 @@ type StockRow = {
 
 type ChrtMeta = { nmId: number; barcode: string; techSize: string };
 
+type FbsMarketResult = {
+    warehousesFound: boolean;
+    rows: StockRow[];
+};
+
 async function syncCabinetStocks(
     admin: ReturnType<typeof createClient>,
     cabinetId: string,
@@ -497,7 +502,7 @@ async function syncCabinetStocks(
     }
 
     try {
-        fbsRows = await fetchFbsStockRows(token, cabinetId);
+        fbsRows = await fetchFbsStockRows(admin, token, cabinetId);
         fbsOk = true;
     } catch (e) {
         errors.push(`fbs: ${(e as Error).message};`);
@@ -548,10 +553,17 @@ async function fetchFboStockRows(token: string, cabinetId: string): Promise<Stoc
     }));
 }
 
-async function fetchFbsStockRows(token: string, cabinetId: string): Promise<StockRow[]> {
+async function fetchFbsStockRows(
+    admin: Admin,
+    token: string,
+    cabinetId: string,
+): Promise<StockRow[]> {
     try {
-        const marketRows = await fetchFbsFromMarketplace(admin, token, cabinetId);
-        if (marketRows.length) return marketRows;
+        const result = await fetchFbsFromMarketplace(admin, token, cabinetId);
+        // Если у кабинета есть склады продавца — пишем их имена.
+        // Пустой ответ склада ≠ «нет FBS»: иначе products-report затирает
+        // WIN WIN / АМАН ФФ общим «FBS (склады продавца)».
+        if (result.warehousesFound) return result.rows;
     } catch (e) {
         console.warn('[auto-sync] FBS marketplace:', (e as Error).message);
     }
@@ -597,40 +609,98 @@ async function fetchContentCards(token: string): Promise<Record<string, unknown>
     return cards;
 }
 
-function chrtMapFromCards(cards: Record<string, unknown>[]): Map<number, ChrtMeta> {
-    const map = new Map<number, ChrtMeta>();
+function skuMapsFromCards(cards: Record<string, unknown>[]): {
+    byChrt: Map<number, ChrtMeta>;
+    bySku: Map<string, ChrtMeta>;
+} {
+    const byChrt = new Map<number, ChrtMeta>();
+    const bySku = new Map<string, ChrtMeta>();
     for (const card of cards) {
         const nmId = Number(card.nmID || card.nmId || 0);
         if (!nmId) continue;
         const sizes = (card.sizes || []) as Record<string, unknown>[];
         for (const sz of sizes) {
             const chrtId = Number(sz.chrtID || sz.chrtId || 0);
-            if (!chrtId) continue;
-            const skus = sz.skus as string[] | undefined;
-            map.set(chrtId, {
-                nmId,
-                barcode: String((skus && skus[0]) || sz.sku || chrtId),
-                techSize: String(sz.techSize || sz.wbSize || ''),
-            });
+            const rawSkus = (sz.skus as string[] | undefined) || [];
+            const techSize = String(sz.techSize || sz.wbSize || '');
+            const fallbackSku = String(rawSkus[0] || sz.sku || (chrtId || ''));
+            const meta: ChrtMeta = { nmId, barcode: fallbackSku, techSize };
+            if (chrtId) byChrt.set(chrtId, meta);
+            for (const sku of rawSkus) {
+                const key = String(sku || '').trim();
+                if (key) bySku.set(key, { nmId, barcode: key, techSize });
+            }
+            if (!rawSkus.length && sz.sku) bySku.set(String(sz.sku), meta);
         }
     }
-    return map;
+    return { byChrt, bySku };
+}
+
+async function fetchWarehouseStocks(
+    token: string,
+    warehouseId: number,
+    skus: string[],
+    chrtIds: number[],
+): Promise<Record<string, unknown>[]> {
+    const query = async (body: Record<string, unknown>) => {
+        const res = await fetch(`${WB_MARKET}/api/v3/stocks/${warehouseId}`, {
+            method: 'POST',
+            headers: { Authorization: token, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        return res;
+    };
+
+    const pull = async (kind: 'skus' | 'chrtIds', values: Array<string | number>) => {
+        const acc: Record<string, unknown>[] = [];
+        for (let i = 0; i < values.length; i += 1000) {
+            const chunk = values.slice(i, i + 1000);
+            const res = await query(kind === 'skus' ? { skus: chunk } : { chrtIds: chunk });
+            if (!res.ok) return { ok: false as const, status: res.status, stocks: acc };
+            const payload = await res.json();
+            const stocks = payload?.stocks || [];
+            if (Array.isArray(stocks)) acc.push(...stocks);
+            await sleep(220);
+        }
+        return { ok: true as const, status: 200, stocks: acc };
+    };
+
+    if (skus.length) {
+        const first = await pull('skus', skus);
+        if (first.ok) return first.stocks;
+        if ((first.status === 400 || first.status === 422) && chrtIds.length) {
+            const retry = await pull('chrtIds', chrtIds);
+            if (retry.ok) return retry.stocks;
+            console.warn('[auto-sync] FBS stocks', warehouseId, retry.status);
+            return retry.stocks;
+        }
+        console.warn('[auto-sync] FBS stocks', warehouseId, first.status);
+        return first.stocks;
+    }
+    if (chrtIds.length) {
+        const onlyChrt = await pull('chrtIds', chrtIds);
+        if (!onlyChrt.ok) console.warn('[auto-sync] FBS stocks', warehouseId, onlyChrt.status);
+        return onlyChrt.stocks;
+    }
+    return [];
 }
 
 async function fetchFbsFromMarketplace(
-    admin: ReturnType<typeof createClient>,
+    admin: Admin,
     token: string,
     cabinetId: string,
-): Promise<StockRow[]> {
+): Promise<FbsMarketResult> {
     const whRes = await fetch(`${WB_MARKET}/api/v3/warehouses`, {
         headers: { Authorization: token },
     });
     if (!whRes.ok) throw new Error(`warehouses HTTP ${whRes.status}`);
     const warehouses = await whRes.json();
-    if (!Array.isArray(warehouses) || !warehouses.length) return [];
+    if (!Array.isArray(warehouses) || !warehouses.length) {
+        return { warehousesFound: false, rows: [] };
+    }
 
     const cards = await fetchContentCards(token);
-    const chrtMap = chrtMapFromCards(cards);
+    const { byChrt, bySku } = skuMapsFromCards(cards);
     try {
         const { data: existing } = await admin
             .from('wb_stocks')
@@ -638,20 +708,28 @@ async function fetchFbsFromMarketplace(
             .eq('cabinet_id', cabinetId)
             .limit(20000);
         for (const row of existing || []) {
-            const chrtId = Number(row.barcode);
-            if (!Number.isFinite(chrtId) || chrtId <= 0 || chrtMap.has(chrtId)) continue;
-            chrtMap.set(chrtId, {
+            const barcode = String(row.barcode || '').trim();
+            if (!barcode) continue;
+            const meta: ChrtMeta = {
                 nmId: Number(row.nm_id || 0),
-                barcode: String(row.barcode || chrtId),
+                barcode,
                 techSize: String(row.tech_size || ''),
-            });
+            };
+            if (barcode.length >= 8 && !bySku.has(barcode)) bySku.set(barcode, meta);
+            const chrtId = Number(barcode);
+            if (Number.isFinite(chrtId) && chrtId > 0 && !byChrt.has(chrtId)) {
+                byChrt.set(chrtId, meta);
+            }
         }
     } catch (e) {
-        console.warn('[auto-sync] FBS chrt from stocks:', (e as Error).message);
+        console.warn('[auto-sync] FBS sku from stocks:', (e as Error).message);
     }
 
-    const chrtIds = [...chrtMap.keys()];
-    if (!chrtIds.length) return [];
+    const skus = [...bySku.keys()];
+    const chrtIds = [...byChrt.keys()];
+    if (!skus.length && !chrtIds.length) {
+        return { warehousesFound: true, rows: [] };
+    }
 
     const rows: StockRow[] = [];
     for (const wh of warehouses) {
@@ -659,51 +737,30 @@ async function fetchFbsFromMarketplace(
         const warehouseName = String(wh?.name || 'FBS').trim() || 'FBS';
         if (!warehouseId) continue;
         try {
-            for (let i = 0; i < chrtIds.length; i += 1000) {
-                const chunk = chrtIds.slice(i, i + 1000);
-                let res = await fetch(`${WB_MARKET}/api/v3/stocks/${warehouseId}`, {
-                    method: 'POST',
-                    headers: { Authorization: token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ chrtIds: chunk }),
+            const stocks = await fetchWarehouseStocks(token, warehouseId, skus, chrtIds);
+            for (const s of stocks) {
+                const amount = Number(s.amount || 0);
+                if (amount <= 0) continue;
+                const sku = String(s.sku || '').trim();
+                const chrtId = Number(s.chrtId || s.chrtID || 0);
+                const meta = (sku && bySku.get(sku)) || byChrt.get(chrtId);
+                rows.push({
+                    cabinet_id: cabinetId,
+                    nm_id: meta?.nmId || 0,
+                    barcode: sku || meta?.barcode || String(chrtId || ''),
+                    tech_size: meta?.techSize || '',
+                    quantity: amount,
+                    in_way_to_client: 0,
+                    in_way_from_client: 0,
+                    warehouse_name: warehouseName,
+                    stock_scheme: 'fbs',
                 });
-                if (!res.ok && (res.status === 400 || res.status === 422)) {
-                    const skus = chunk.map((id) => chrtMap.get(id)?.barcode).filter(Boolean);
-                    res = await fetch(`${WB_MARKET}/api/v3/stocks/${warehouseId}`, {
-                        method: 'POST',
-                        headers: { Authorization: token, 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ skus }),
-                    });
-                }
-                if (!res.ok) {
-                    console.warn('[auto-sync] FBS stocks', warehouseName, res.status);
-                    break;
-                }
-                const payload = await res.json();
-                const stocks = payload?.stocks || [];
-                for (const s of stocks) {
-                    const amount = Number(s.amount || 0);
-                    if (amount <= 0) continue;
-                    const chrtId = Number(s.chrtId || s.chrtID || 0);
-                    const meta = chrtMap.get(chrtId);
-                    rows.push({
-                        cabinet_id: cabinetId,
-                        nm_id: meta?.nmId || 0,
-                        barcode: String(s.sku || meta?.barcode || chrtId || ''),
-                        tech_size: meta?.techSize || '',
-                        quantity: amount,
-                        in_way_to_client: 0,
-                        in_way_from_client: 0,
-                        warehouse_name: warehouseName,
-                        stock_scheme: 'fbs',
-                    });
-                }
-                await sleep(220);
             }
         } catch (e) {
             console.warn('[auto-sync] FBS warehouse', warehouseName, (e as Error).message);
         }
     }
-    return rows;
+    return { warehousesFound: true, rows };
 }
 
 async function fetchFbsFromProductsReport(token: string, cabinetId: string): Promise<StockRow[]> {
