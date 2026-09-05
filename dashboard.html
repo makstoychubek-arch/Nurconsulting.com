@@ -164,7 +164,7 @@
         }
         .rail-btn-ico svg { width: 18px; height: 18px; opacity: 1; stroke-width: 2; }
         .rail-btn-lbl {
-            font-size: 14px; font-weight: 700; letter-spacing: -0.03em;
+            font-size: 13px; font-weight: 800; letter-spacing: -0.03em;
             line-height: 1.2; max-width: none; text-align: left;
         }
         .rail-btn:hover { color: var(--text-primary); background: var(--sel); }
@@ -180,30 +180,13 @@
         .rail-btn.active .rail-btn-ico svg { opacity: 1; }
         .rail-bottom {
             display: flex; flex-direction: column; align-items: stretch;
-            gap: 6px; padding: 6px 4px 2px; width: 100%;
-            border-top: none; margin-top: 6px;
+            gap: 4px; padding: 4px 2px 0; width: 100%;
+            border-top: none; margin-top: 4px;
         }
         .rail-user {
             display: flex; align-items: center; gap: 8px;
-            padding: 4px 8px; border-radius: 16px;
+            padding: 2px 8px 4px; border-radius: 16px;
         }
-        .rail-cabs {
-            display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
-            padding: 0 8px 2px;
-        }
-        .rail-cabs[hidden] { display: none !important; }
-        .rail-cab {
-            width: 28px; height: 28px; border: none; border-radius: 9px;
-            background: var(--sel); color: var(--text-primary);
-            font-size: 11px; font-weight: 800; letter-spacing: -0.04em;
-            display: inline-flex; align-items: center; justify-content: center;
-            cursor: pointer; flex-shrink: 0; padding: 0;
-            transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
-        }
-        .rail-cab:hover { background: #E4E4E7; }
-        .rail-cab.is-on { background: var(--text-primary); color: var(--surface-solid); }
-        [data-theme="neon"] .rail-cab:hover { background: rgba(255,255,255,0.12); }
-        [data-theme="neon"] .rail-cab.is-on { background: #F5F5F7; color: #1C1C1E; }
         .rail-user-name {
             font-size: 13px; font-weight: 800; letter-spacing: -0.03em;
             color: var(--text-primary); line-height: 1.2;
@@ -668,12 +651,13 @@
         .adv-back-btn:hover { text-decoration: underline; }
         .adv-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .header-back-btn {
-            display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
-            font-size: 13px; font-weight: 600; color: var(--accent);
-            background: none; border: none; cursor: pointer; padding: 4px 0;
-            white-space: nowrap;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 32px; height: 32px; padding: 0; flex-shrink: 0;
+            border: none; background: none; cursor: pointer;
+            color: var(--text-primary); border-radius: 10px;
         }
-        .header-back-btn:hover { text-decoration: underline; }
+        .header-back-btn svg { width: 18px; height: 18px; }
+        .header-back-btn:hover { background: var(--sel); color: var(--text-primary); text-decoration: none; }
         .header-back-btn.hidden { display: none !important; }
         #page-title.header-hidden { display: none !important; }
         #header-date-chip-wrap { flex-shrink: 0; }
@@ -2942,7 +2926,6 @@
                         <div class="rail-user-role">кабинет</div>
                     </div>
                 </div>
-                <div class="rail-cabs" id="rail-cabs" hidden></div>
                 <div class="rail-bottom-icons">
                     <button type="button" class="rail-settings-btn" id="rail-settings-btn" onclick="showTab('settings', this)" title="Настройки">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
@@ -3146,7 +3129,9 @@
                     <button type="button" class="mobile-menu-btn btn-smooth" onclick="toggleMobileMenu()" id="mobile-menu-btn" aria-label="Меню">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                     </button>
-                    <button type="button" id="header-back-btn" class="header-back-btn hidden" onclick="headerGoBack()" title="Назад">← Назад</button>
+                    <button type="button" id="header-back-btn" class="header-back-btn hidden" onclick="headerGoBack()" title="Назад" aria-label="Назад">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                    </button>
                     <div class="min-w-0">
                         <h1 id="page-title" class="header-title truncate">Дашборд</h1>
                     </div>
@@ -5367,7 +5352,9 @@
 
         if (backBtn) {
             backBtn.classList.toggle('hidden', isDashboard);
-            backBtn.textContent = isAdvDetail ? '← Все кабинеты' : '← Назад';
+            const backLabel = isAdvDetail ? 'Все кабинеты' : 'Назад';
+            backBtn.title = backLabel;
+            backBtn.setAttribute('aria-label', backLabel);
         }
         if (pageTitle) {
             pageTitle.classList.remove('header-hidden');
@@ -7352,27 +7339,6 @@
         return raw;
     }
 
-    function cabinetMark(name) {
-        const n = cabinetDisplayName(name).replace(/^(ИП|ОсОО|ООО)\s*/i, '').replace(/[«»"']/g, '').trim();
-        return (n.charAt(0) || 'К').toUpperCase();
-    }
-
-    function renderRailCabs(data) {
-        const el = document.getElementById('rail-cabs');
-        if (!el) return;
-        if (!data?.length) {
-            el.hidden = true;
-            el.innerHTML = '';
-            return;
-        }
-        el.hidden = false;
-        el.innerHTML = data.map(c => {
-            const title = escapeHtml(cabinetDisplayName(c.name));
-            const on = c.id === currentCabinetId ? ' is-on' : '';
-            return `<button type="button" class="rail-cab${on}" title="${title}" onclick="selectCabinet('${escapeHtml(String(c.id))}')">${escapeHtml(cabinetMark(c.name))}</button>`;
-        }).join('');
-    }
-
     function updateCabinetPickerUI(name) {
         const label = document.getElementById('cabinet-picker-label');
         const n = cabinetDisplayName(name);
@@ -7384,7 +7350,6 @@
     let cabinetListCache = [];
     function renderCabinetDropdown(data) {
         cabinetListCache = data || [];
-        renderRailCabs(cabinetListCache);
         const menu = document.getElementById('cabinet-dropdown-menu');
         const selectHeader = document.getElementById('cabinet-select-header');
         if (!menu) return;
