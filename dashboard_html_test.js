@@ -151,15 +151,46 @@ assert.ok(
 assert.ok(rnpSrc.includes('показы РК'), 'toolbar must show live ad impressions so empty cells are not silent');
 assert.ok(rnpSrc.includes('existing ? !!existing.is_active : (activateCatalog || activateNew)'),
     'catalog sync must not turn back on articles the seller already hid');
+assert.ok(rnpSrc.includes('function _foreignNmIds'),
+    'RNP must detect nm_id that already belong to another cabinet');
+assert.ok(rnpSrc.includes('function _dropLeakedArticles'),
+    'RNP must drop leaked articles that are not in this cabinet WB catalog');
+assert.ok(rnpSrc.includes('function _activeArts'),
+    'tabs and bars must use current-cabinet active articles only');
+assert.ok(rnpSrc.includes('rnp_foreign_nm_ids'),
+    'RNP must ask Postgres which nm_id already live on another cabinet');
+assert.ok(rnpSrc.includes('elsewhere.has(nmId)'),
+    'orders sync must not copy another cabinet nm_id into this one');
+assert.ok(rnpSrc.includes('function _ensureCatalogInBackground'),
+    'WB catalog sync must not block cabinet switch');
+assert.ok(rnpSrc.includes('articles: _articlesCab === cabId'),
+    'cabinet cache must keep articles so switch paints immediately');
+assert.ok(rnpSrc.includes('Array.isArray(dailyRowsRaw)'),
+    'RNP must not crash when orders RPC is not an array');
+assert.ok(rnpSrc.includes('_rnpLoadedForCabinet === _cab'),
+    'RNP must not keep previous cabinet workspace after switch');
+assert.ok(html.includes('РНП сразу из БД'),
+    'cabinet switch must boot RNP before waiting for dashboard loadFromDB');
+assert.ok(!rnpSrc.includes("if (data && typeof data === 'object') return data;"),
+    'orders daily must not treat a JSON object as an array');
 assert.ok(
     !fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
         .includes('.update({ is_active: true })'),
     'auto-sync must not reactivate hidden rnp_articles from the WB catalog'
 );
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
+        .includes('async function dropLeakedArticles'),
+    'auto-sync must remove nm_id that belong to another cabinet and are not in this catalog'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260904020000_rnp_foreign_nm_ids.sql')),
+    'rnp_foreign_nm_ids RPC migration must exist'
+);
 
 assert.ok(rnpSrc.includes('await _mergeAdStatsFromDb(nmIds, cal)'),
     'RNP main load must merge advertising_daily_stats, not only define the helper');
-assert.ok(/const \[, dailyRows, , stocksRaw\] = await Promise\.all/.test(rnpSrc),
+assert.ok(/const \[, dailyRowsRaw, , stocksRaw\] = await Promise\.all/.test(rnpSrc),
     'RNP must take wb_stocks from Promise.all slot 4, not exchange rates');
 assert.ok(rnpSrc.includes('Array.isArray(stocksRaw)'),
     'RNP must not crash if stocks come back undefined');

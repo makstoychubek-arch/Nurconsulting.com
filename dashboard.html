@@ -7257,15 +7257,17 @@
         const abListEl = document.getElementById('abtests-list');
         if (abListEl) abListEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div>';
 
+        // РНП сразу из БД, не ждём dashboard_summary и финотчёт WB.
+        const rnpMod = getRnp();
+        if (rnpMod) {
+            rnpMod.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+            bootRnpTab(true);
+            bootRnpSettings(true);
+        }
+
         showCabinetTransition(newCabinetName, async () => {
             await loadFromDB();
             await loadLastSyncTime();
-            const rnpMod = getRnp();
-            if (rnpMod) {
-                rnpMod.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
-                bootRnpTab(true);
-                bootRnpSettings(true);
-            }
             const curTab = getCurrentActiveTab() || localStorage.getItem('nr_active_tab');
             if (curTab === 'logistics') initLogisticsSupplies();
             if (curTab === 'goods-groups') loadGoodsGroups();

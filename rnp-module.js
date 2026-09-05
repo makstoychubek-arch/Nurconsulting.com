@@ -393,6 +393,7 @@ const RNP = (() => {
         _metricsCache = new Map();
         _financeCache = { key: '', rows: [], ts: 0 };
         _notesCache = {};
+        _planCache = {};
         _articles = [];
         _articlesCab = null;
         _activeNm = null;
@@ -403,6 +404,60 @@ const RNP = (() => {
     /** Артикулы текущего кабинета; чужие (ещё не перезагруженные) — не отдаём. */
     function _cabArticles() {
         return _articlesCab === _cab ? _articles : [];
+    }
+    function _activeArts() {
+        return _cabArticles().filter(a => a.is_active);
+    }
+
+    /** nm_id, которые уже принадлежат другому кабинету (кимоно Zevina ≠ Elium). */
+    async function _foreignNmIds(cab, nmIds) {
+        const ids = [...new Set((nmIds || []).map(Number).filter(n => n > 0))];
+        if (!ids.length || !_db) return new Set();
+        try {
+            const { data, error } = await _db.rpc('rnp_foreign_nm_ids', {
+                p_cabinet_id: String(cab),
+                p_nm_ids: ids,
+            });
+            if (error) throw error;
+            return new Set((Array.isArray(data) ? data : []).map(Number));
+        } catch (e) {
+            console.warn('[RNP] foreign nm ids:', e.message);
+            try {
+                const owned = new Set();
+                for (let i = 0; i < ids.length; i += 200) {
+                    const { data } = await _db.from('rnp_articles')
+                        .select('nm_id')
+                        .neq('cabinet_id', cab)
+                        .in('nm_id', ids.slice(i, i + 200));
+                    (data || []).forEach(r => owned.add(Number(r.nm_id)));
+                }
+                return owned;
+            } catch (e2) {
+                return new Set();
+            }
+        }
+    }
+
+    async function _dropLeakedArticles(cab, catalogIds) {
+        const local = _cabArticles();
+        if (!local.length || !_db) return 0;
+        const catalog = new Set((catalogIds || []).map(Number));
+        const extra = local.filter(a => !catalog.has(Number(a.nm_id)));
+        if (!extra.length) return 0;
+        const foreign = await _foreignNmIds(cab, extra.map(a => a.nm_id));
+        const leaked = extra.filter(a => foreign.has(Number(a.nm_id))).map(a => Number(a.nm_id));
+        if (!leaked.length) return 0;
+        for (let i = 0; i < leaked.length; i += 200) {
+            const batch = leaked.slice(i, i + 200);
+            await _db.from('rnp_daily_data').delete().eq('cabinet_id', cab).in('nm_id', batch);
+            await _db.from('rnp_date_notes').delete().eq('cabinet_id', cab).in('nm_id', batch);
+            await _db.from('rnp_plans').delete().eq('cabinet_id', cab).in('nm_id', batch);
+            await _db.from('rnp_articles').delete().eq('cabinet_id', cab).in('nm_id', batch);
+        }
+        const drop = new Set(leaked);
+        _articles = _articles.filter(a => !drop.has(Number(a.nm_id)));
+        console.info('[RNP] убраны чужие артикулы:', leaked.join(', '));
+        return leaked.length;
     }
 
     function _cabinetLabel() {
@@ -553,7 +608,7 @@ const RNP = (() => {
         if (error) throw new Error(error.message);
         if (_isStaleLoad(snapReq, snapCab)) return null;
         if (Array.isArray(data)) return data;
-        if (data && typeof data === 'object') return data;
+        if (Array.isArray(data?.rows)) return data.rows;
         return [];
     }
 
@@ -646,6 +701,9 @@ const RNP = (() => {
             stockCache: { ..._stockCache },
             financeCache: { key: _financeCache.key, rows: _financeCache.rows, ts: _financeCache.ts },
             metricsCache: new Map(_metricsCache),
+            articles: _articlesCab === cabId ? _articles.slice() : [],
+            planCache: _planCache,
+            notesCache: { ..._notesCache },
         });
     }
 
@@ -656,6 +714,12 @@ const RNP = (() => {
         _stockCache = { ...snap.stockCache };
         _financeCache = { key: snap.financeCache.key, rows: snap.financeCache.rows || [], ts: snap.financeCache.ts || 0 };
         _metricsCache = snap.metricsCache ? new Map(snap.metricsCache) : new Map();
+        if (Array.isArray(snap.articles) && snap.articles.length) {
+            _articles = snap.articles.slice();
+            _articlesCab = cabId;
+        }
+        if (snap.planCache && typeof snap.planCache === 'object') _planCache = snap.planCache;
+        if (snap.notesCache && typeof snap.notesCache === 'object') _notesCache = { ...snap.notesCache };
         return true;
     }
 
@@ -1058,7 +1122,7 @@ const RNP = (() => {
         return entries;
     }
     function _isCatCollapsed(cat) {
-        const activeCount = (_articles || []).filter(a => a.is_active).length;
+        const activeCount = _activeArts().length;
         if (activeCount > 40) {
             try {
                 const map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}');
@@ -1166,12 +1230,13 @@ const RNP = (() => {
                 if (stale()) return { ok: false, added: 0 };
             }
             const known = new Set(_cabArticles().map(a => Number(a.nm_id)));
+            const elsewhere = await _foreignNmIds(cab, allNmIds.map(Number));
             // Пачками, а не по одному артикулу: на новом кабинете с сотнями
             // nm_id последовательные upsert'ы держали РНП в спиннере минуту+.
             const toInsert = [];
             for (const nmStr of allNmIds) {
                 const nmId = Number(nmStr);
-                if (!nmId || known.has(nmId)) continue;
+                if (!nmId || known.has(nmId) || elsewhere.has(nmId)) continue;
                 toInsert.push({
                     cabinet_id: cab, nm_id: nmId, name: `Артикул ${nmId}`,
                     photo_url: '', is_active: activateNew, cost_price: 0,
@@ -1237,11 +1302,13 @@ const RNP = (() => {
             }
             if (_articlesCab !== cab) await _loadArticles(cab);
             const known = new Set(_cabArticles().map(a => Number(a.nm_id)));
+            const catalogIds = [];
             const toUpsert = [];
             let added = 0;
             for (const card of cards) {
                 const nmId = Number(card.nmID || card.nmId);
                 if (!nmId) continue;
+                catalogIds.push(nmId);
                 const sa = _extractSellerArticle(card);
                 const displayName = sa
                     || String(card.title || card.object || card.vendorCode || `Артикул ${nmId}`).trim();
@@ -1263,6 +1330,10 @@ const RNP = (() => {
             }
             if (_cab !== cab) return { ok: false, added };
             await _loadArticles(cab);
+            if (_cab !== cab) return { ok: false, added };
+            const catalogComplete = cards.length < 100 || cards.length % 100 !== 0;
+            const dropped = catalogComplete ? await _dropLeakedArticles(cab, catalogIds) : 0;
+            if (dropped && _cab === cab) await _loadArticles(cab);
             if (added) console.info('[RNP] новых артикулов из карточек WB:', added);
             return { ok: _cabArticles().length > 0, added };
         } catch (e) {
@@ -1312,18 +1383,25 @@ const RNP = (() => {
             try { localStorage.setItem(initKey, '1'); } catch (e) {}
             console.info('[RNP] activated', _articles.length, 'articles for new cabinet', _cab);
         }
-        // Кабинет уже с артикулами: всё равно сверить каталог WB —
-        // иначе новые карточки без заказов и выключенные из старого синка
-        // не видны (Zevina 1: 5 из 170).
+        // Каталог WB не блокирует открытие: сверка в фоне после таблицы.
+        const cab = _cab;
+        setTimeout(() => {
+            if (_cab !== cab) return;
+            _ensureCatalogInBackground(cab);
+        }, 2500);
+    }
+
+    async function _ensureCatalogInBackground(cab) {
+        if (!_cab || _cab !== cab) return;
         try {
-            const lastKey = `rnp_catalog_sync_${_cab}`;
+            const lastKey = `rnp_catalog_sync_${cab}`;
             const last = Number(localStorage.getItem(lastKey) || 0);
-            if (!last || Date.now() - last > 30 * 60 * 1000) {
-                await _syncFromContentCards({
-                    silent: true, activateNew: true, activateCatalog: true, force: true,
-                });
-                try { localStorage.setItem(lastKey, String(Date.now())); } catch (e) {}
-            }
+            if (last && Date.now() - last <= 30 * 60 * 1000) return;
+            await _syncFromContentCards({
+                silent: true, activateNew: true, activateCatalog: true, force: true,
+            });
+            if (_cab !== cab) return;
+            try { localStorage.setItem(lastKey, String(Date.now())); } catch (e) {}
         } catch (e) {
             console.warn('[RNP] catalog ensure:', e.message);
         }
@@ -1372,13 +1450,17 @@ const RNP = (() => {
     }
 
     function _calAllDates(cal) {
-        if (cal.mode === 'month') return (cal.months || []).flatMap(m => m.dates);
-        return [...cal.weeks.flatMap(w => w.dates), ...cal.days.map(d => d.date)];
+        if (!cal) return [];
+        if (cal.mode === 'month') return (cal.months || []).flatMap(m => m.dates || []);
+        return [
+            ...(cal.weeks || []).flatMap(w => w.dates || []),
+            ...(cal.days || []).map(d => d.date),
+        ];
     }
 
     function _calTimelineSpan(cal) {
         if (cal.mode === 'month') return cal.months?.length || 0;
-        return cal.days.length;
+        return (cal.days || []).length;
     }
 
     function _buildWeekCalendar(refDate) {
@@ -1538,17 +1620,17 @@ const RNP = (() => {
             });
             return [totalCol, ...monthCols];
         }
-        const weekCols = cal.weeks.map(w => {
+        const weekCols = (cal.weeks || []).map(w => {
             const colKey = w.weekStart || w.dates[0];
             const agg = _derive(_aggWeek(rawData, w.dates), art);
             return { ...w, colKey, data: _applyColPlans(agg, art, w.dates) };
         });
-        const allPrevDates = cal.weeks.flatMap(w => w.dates);
+        const allPrevDates = (cal.weeks || []).flatMap(w => w.dates || []);
         const totalCol = allPrevDates.length ? {
             type: 'total', colKey: 'prev-total', label: 'ИТОГ', dates: allPrevDates,
             data: _applyColPlans(_derive(_aggWeek(rawData, allPrevDates), art), art, allPrevDates),
         } : null;
-        const dayCols = cal.days.map(d => {
+        const dayCols = (cal.days || []).map(d => {
             const derived = _derive(rawData[d.date] || null, art);
             return { ...d, colKey: d.date, dates: [d.date], data: _applyColPlans(derived, art, [d.date]) };
         });
@@ -2074,23 +2156,25 @@ const RNP = (() => {
         </table>`;
         }
 
-        const nPrev = cal.weeks.length + (cal.weeks.length ? 1 : 0);
-        const nCurr = cal.days.length;
-        const weekThs = cal.weeks.map((w, wi) => {
+        const weeks = cal.weeks || [];
+        const days = cal.days || [];
+        const nPrev = weeks.length + (weeks.length ? 1 : 0);
+        const nCurr = days.length;
+        const weekThs = weeks.map((w, wi) => {
             const st = _stickyColAttrs(wi, cols, 11, 30);
             return `<th class="rnp-th-week rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}>${w.label || ('Нед ' + w.weekNum)}</th>`;
         }).join('');
-        const totalCi = cal.weeks.length;
+        const totalCi = weeks.length;
         const totalSt = totalCi < cols.length ? _stickyColAttrs(totalCi, cols, 11, 31) : { cls: '', style: '' };
-        const totalTh = cal.weeks.length ? `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>` : '';
-        const dayThs = cal.days.map((d, i) => `<th class="rnp-th-date rnp-day-col${d.isToday ? ' today' : ''}${d.isFuture ? ' rnp-th-future' : ''}${i === 0 ? ' rnp-cell-month-start' : ''}">${d.label}</th>`).join('');
-        const dowWeeks = cal.weeks.map((w, wi) => {
+        const totalTh = weeks.length ? `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>` : '';
+        const dayThs = days.map((d, i) => `<th class="rnp-th-date rnp-day-col${d.isToday ? ' today' : ''}${d.isFuture ? ' rnp-th-future' : ''}${i === 0 ? ' rnp-cell-month-start' : ''}">${d.label}</th>`).join('');
+        const dowWeeks = weeks.map((w, wi) => {
             const st = _stickyColAttrs(wi, cols, 11, 29);
             return `<th class="rnp-th-dow rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}></th>`;
         }).join('');
         const dowTotalSt = totalCi < cols.length ? _stickyColAttrs(totalCi, cols, 11, 29) : { cls: '', style: '' };
-        const dowTotal = cal.weeks.length ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>` : '';
-        const dowDays = cal.days.map(d => `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
+        const dowTotal = weeks.length ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>` : '';
+        const dowDays = days.map(d => `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
         return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes">
           <thead>
@@ -2344,14 +2428,14 @@ const RNP = (() => {
     function _refreshTabsBar() {
         const wrap = document.getElementById('rnp-sheet-tabs');
         if (!wrap) return;
-        const active = _articles.filter(a => a.is_active);
+        const active = _activeArts();
         wrap.innerHTML = _renderTabsHTML(active, { lite: active.length > 40 });
     }
 
     function _refreshActionBar() {
         const wrap = document.getElementById('rnp-action-bar-wrap');
         if (!wrap) return;
-        wrap.innerHTML = _buildActionBar(_articles.filter(a => a.is_active));
+        wrap.innerHTML = _buildActionBar(_activeArts());
     }
 
     function _csvCell(v) {
@@ -2373,7 +2457,7 @@ const RNP = (() => {
         const sep = ';';
         const BOM = '\uFEFF';
         if (_activeNm === SUMMARY_TAB) {
-            const active = _articles.filter(a => a.is_active);
+            const active = _activeArts();
             const header = ['Статус', 'Артикул продавца', 'Артикул WB', 'Заказы', 'План%', 'Прибыль', 'Маржа%', 'ДРР%', 'Остаток', 'Алерты'];
             const lines = [header.map(_csvCell).join(sep)];
             active.forEach(a => {
@@ -2512,7 +2596,7 @@ const RNP = (() => {
         _planPeriod = next;
         try { localStorage.setItem('rnp_plan_period', _planPeriod); } catch (e) {}
         _dataCache = {};
-        const active = _articles.filter(a => a.is_active);
+        const active = _activeArts();
         await _loadAllDailyData(active.map(a => a.nm_id));
         _refreshActionBar();
         await _renderActiveTable();
@@ -3285,7 +3369,7 @@ const RNP = (() => {
         const snapCab = _cab;
         if (!_cab || !_db) return false;
 
-        const active = _articles.filter(a => a.is_active);
+        const active = _activeArts();
         const nmIds = active.map(a => a.nm_id);
         const cal = _buildCalendar();
         const allDates = _calAllDates(cal);
@@ -3295,7 +3379,7 @@ const RNP = (() => {
 
         // Планы, заказы и остатки — независимые запросы; раньше шли по очереди
         // и на большом кабинете не укладывались в таймаут.
-        const [, dailyRows, , stocksRaw] = await Promise.all([
+        const [, dailyRowsRaw, , stocksRaw] = await Promise.all([
             _loadPlans(dateFrom, dateTo),
             _fetchOrdersDaily(dateFrom, dateTo, snapCab, snapReq),
             _loadExchangeRates(dateFrom, dateTo),
@@ -3304,7 +3388,8 @@ const RNP = (() => {
             ], 'nm_id, tech_size, quantity, in_way_to_client, in_way_from_client, warehouse_name'),
         ]);
         const stocks = Array.isArray(stocksRaw) ? stocksRaw : [];
-        if (dailyRows === null) return false;
+        if (dailyRowsRaw === null) return false;
+        const dailyRows = Array.isArray(dailyRowsRaw) ? dailyRowsRaw : [];
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
         const settings = _rnpMetricSettings();
@@ -3656,7 +3741,7 @@ const RNP = (() => {
 
     // ─── AGGREGATION ──────────────────────────────────────────────────────────
     function _aggWeek(map, dates) {
-        const rows = dates.map(d => map[d]).filter(Boolean);
+        const rows = (dates || []).map(d => map[d]).filter(Boolean);
         if (!rows.length) {
             return {
                 orders_count: 0, orders_sum: 0, sales_count: 0, sales_sum: 0,
@@ -3772,8 +3857,9 @@ const RNP = (() => {
             const dates = cur.dates.filter(d => d <= cal.todayStr);
             return _cabinetAggWeek(active, dates.length ? dates : cur.dates) || {};
         }
-        const dates = cal.days.filter(d => !d.isFuture).map(d => d.date);
-        return _cabinetAggWeek(active, dates.length ? dates : cal.days.map(d => d.date)) || {};
+        const days = cal.days || [];
+        const dates = days.filter(d => !d.isFuture).map(d => d.date);
+        return _cabinetAggWeek(active, dates.length ? dates : days.map(d => d.date)) || {};
     }
 
     function _buildCabinetCols(active, cal) {
@@ -3794,18 +3880,20 @@ const RNP = (() => {
             }));
             result = [totalCol, ...monthCols];
         } else {
-        const weekCols = cal.weeks.map(w => ({
+        const weeks = cal.weeks || [];
+        const days = cal.days || [];
+        const weekCols = weeks.map(w => ({
             ...w,
             colKey: w.weekStart || w.dates[0],
             data: _cabinetAggWeek(active, w.dates),
         }));
-        const allPrevDates = cal.weeks.flatMap(w => w.dates);
+        const allPrevDates = weeks.flatMap(w => w.dates || []);
         const totalCol = allPrevDates.length ? {
             type: 'total', colKey: 'prev-total', label: 'ИТОГ',
             dates: allPrevDates,
             data: _cabinetAggWeek(active, allPrevDates),
         } : null;
-        const dayCols = cal.days.map(d => ({
+        const dayCols = days.map(d => ({
             ...d,
             colKey: d.date,
             data: _cabinetDayDerived(active, d.date),
@@ -3994,7 +4082,7 @@ const RNP = (() => {
     }
 
     function _activeArticleCount() {
-        return _articles.filter(a => a.is_active).length;
+        return _activeArts().length;
     }
 
     function _updateSettingsActiveCounts() {
@@ -4067,7 +4155,7 @@ const RNP = (() => {
               ${cabLabel ? `<span class="rnp-cab-badge">${cabLabel}</span>` : ''}
             </div>
             <div class="flex flex-wrap gap-4 mb-4 text-xs" style="color:var(--text-muted)">
-              <span>Активных: <b id="rnp-settings-active-n" style="color:var(--text-primary)">${_articles.filter(a=>a.is_active).length}</b> / <span id="rnp-settings-total-n">${_articles.length}</span></span>
+              <span>Активных: <b id="rnp-settings-active-n" style="color:var(--text-primary)">${_activeArts().length}</b> / <span id="rnp-settings-total-n">${_cabArticles().length}</span></span>
               <span>Курс: <b style="color:var(--text-primary)">1₽ = ${_settings.exchangeRate} сом</b></span>
               <span>$: <b style="color:var(--text-primary)">1$ = ${_settings.usdRate} сом</b></span>
               ${(() => { const n = _latestNbkr(); return n ? `<span>НБКР: <b style="color:var(--text-primary)">1₽ = ${n.rate.toFixed(4).replace('.', ',')} сом</b> (${n.date.split('-').reverse().join('.')})</span>` : ''; })()}
@@ -4117,7 +4205,7 @@ const RNP = (() => {
             <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
               <h3 class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">
                 Артикулы
-                <span id="rnp-settings-arts-label" class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} / ${_articles.length} в РНП · артикул продавца из WB</span>
+                <span id="rnp-settings-arts-label" class="text-xs font-normal" style="color:var(--text-muted)">${_activeArts().length} / ${_cabArticles().length} в РНП · артикул продавца из WB</span>
               </h3>
               <div class="flex gap-2 flex-wrap">
                 <button onclick="RNP.refreshArticles()" id="rnp-refresh-arts-btn" class="ui-btn ui-btn-primary text-xs" title="Добавить новые карточки из каталога WB и из заказов, ничего не удаляя">Обновить артикулы</button>
@@ -4284,7 +4372,8 @@ const RNP = (() => {
         } catch (e) {}
 
         await _yieldMain();
-        const keepWorkspace = !!el.querySelector('.rnp-workspace') && _rnpMainRendered();
+        const keepWorkspace = !!el.querySelector('.rnp-workspace') && _rnpMainRendered()
+            && window._rnpLoadedForCabinet === _cab;
         if (!keepWorkspace) {
             el.innerHTML = `
         <div class="rnp-workspace">
@@ -4314,6 +4403,10 @@ const RNP = (() => {
         const snapCab = _cab;
         let loadOk = false;
         let loadErr = null;
+        const canPaintCache = active.some(a => _dataCache[a.nm_id] && Object.keys(_dataCache[a.nm_id]).length);
+        if (canPaintCache) {
+            try { await _renderActiveTable(); } catch (e) { console.warn('[RNP] cache paint:', e.message); }
+        }
         try {
             loadOk = await _loadRnpDataTimed();
             if (_abandonStaleMain(renderId, snapReq, snapCab)) return;
@@ -4339,7 +4432,12 @@ const RNP = (() => {
             _setRnpSheetState('error', loadErr.message || 'Ошибка загрузки РНП');
             return;
         }
-        await _renderActiveTable();
+        try {
+            await _renderActiveTable();
+        } catch (e) {
+            _setRnpSheetState('error', e.message || 'Ошибка отрисовки РНП');
+            return;
+        }
         window._rnpLoadedForCabinet = _cab;
         setTimeout(() => {
             if (renderId !== _mainRenderGen || _cab !== snapCab) return;
@@ -4350,7 +4448,7 @@ const RNP = (() => {
             if (renderId !== _mainRenderGen) return;
             _applyResolvedPhotos();
             const tabs = document.getElementById('rnp-sheet-tabs');
-            if (tabs) tabs.innerHTML = _renderTabsHTML(_articles.filter(a => a.is_active));
+            if (tabs) tabs.innerHTML = _renderTabsHTML(_activeArts());
             _updateTabHighlight();
         });
         _updateEditModeBtn();
@@ -4488,7 +4586,7 @@ const RNP = (() => {
             _refreshMarqueeBaseHtml(body);
             _syncMarqueeFill(body);
         }).catch(() => {});
-        _preloadPhotos(_articles.filter(a => a.is_active)).then(() => {
+        _preloadPhotos(_activeArts()).then(() => {
             _applyResolvedPhotos(body);
             _refreshMarqueeBaseHtml(body);
             _syncMarqueeFill(body);
@@ -4653,32 +4751,34 @@ const RNP = (() => {
         </table>`;
         }
 
-        const nPrev = cal.weeks.length + (cal.weeks.length ? 1 : 0);
-        const nCurr = cal.days.length;
+        const weeks = cal.weeks || [];
+        const days = cal.days || [];
+        const nPrev = weeks.length + (weeks.length ? 1 : 0);
+        const nCurr = days.length;
         const firstDayIdx = firstTimelineIdx;
 
-        const weekThs = cal.weeks.map((w, wi) => {
+        const weekThs = weeks.map((w, wi) => {
             const st = _stickyColAttrs(wi, cols, 11, 30);
             return `<th class="rnp-th-week rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}>${w.label || ('Нед ' + w.weekNum)}</th>`;
         }).join('');
-        const totalCi = cal.weeks.length;
+        const totalCi = weeks.length;
         const totalSt = totalCi < cols.length ? _stickyColAttrs(totalCi, cols, 11, 31) : { cls: '', style: '' };
-        const totalTh = cal.weeks.length
+        const totalTh = weeks.length
             ? `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>`
             : '';
-        const dayThs = cal.days.map((d, i) => {
-            const ci = totalCi + (cal.weeks.length ? 1 : 0) + i;
+        const dayThs = days.map((d, i) => {
+            const ci = totalCi + (weeks.length ? 1 : 0) + i;
             return `<th class="rnp-th-date rnp-day-col${d.isToday ? ' today' : ''}${d.isFuture ? ' rnp-th-future' : ''}${i === 0 ? ' rnp-cell-month-start' : ''}">${d.label}</th>`;
         }).join('');
-        const dowWeeks = cal.weeks.map((w, wi) => {
+        const dowWeeks = weeks.map((w, wi) => {
             const st = _stickyColAttrs(wi, cols, 11, 29);
             return `<th class="rnp-th-dow rnp-data-col${st.cls}"${st.style ? ` style="${st.style}"` : ''}></th>`;
         }).join('');
         const dowTotalSt = totalCi < cols.length ? _stickyColAttrs(totalCi, cols, 11, 29) : { cls: '', style: '' };
-        const dowTotal = cal.weeks.length
+        const dowTotal = weeks.length
             ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>`
             : '';
-        const dowDays = cal.days.map(d =>
+        const dowDays = days.map(d =>
             `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
         return `
@@ -4968,7 +5068,7 @@ const RNP = (() => {
         }, 8000);
         setTimeout(() => {
             if (_cab !== (window.currentCabinetId || _cab)) return;
-            _preloadPhotosBackground(_articles.filter(a => a.is_active)).catch(e => {
+            _preloadPhotosBackground(_activeArts()).catch(e => {
                 console.warn('[RNP] photo preload:', e.message);
                 _wbEnrichmentDegraded = true;
             });
@@ -4984,6 +5084,7 @@ const RNP = (() => {
             _abortPendingLoad();
             _mainRenderGen++;
             _clearCabinetState();
+            _restoreCabinetCache(cabId);
             window._rnpLoadedForCabinet = null;
         }
         if (cabId) _cab = cabId;
@@ -5093,7 +5194,12 @@ const RNP = (() => {
         else _activeNm = Number(nmId);
         if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm === _compareNm) _compareNm = null;
         try { sessionStorage.setItem('rnp_active_nm', String(_activeNm)); } catch (e) {}
-        await _renderActiveTable();
+        try {
+            await _renderActiveTable();
+        } catch (e) {
+            console.error('[RNP] pick:', e);
+            _setRnpSheetState('error', e.message || 'Ошибка отрисовки РНП');
+        }
     }
 
     async function syncArts() {
@@ -5364,7 +5470,7 @@ const RNP = (() => {
 
     async function refreshAll() {
         const btn = document.getElementById('refresh-btn');
-        const active = _articles.filter(a => a.is_active);
+        const active = _activeArts();
         if (!active.length) return;
         if (btn) btn.disabled = true;
 
@@ -5395,19 +5501,15 @@ const RNP = (() => {
             _mainRenderGen++;
             window._rnpLastLoadedAt = 0;
             window._rnpLoadedForCabinet = null;
-            // Список артикулов принадлежит прошлому кабинету — с этого момента
-            // он считается пустым, пока не загрузим новый.
-            _articlesCab = null;
-            _clearRnpMainUI();
+            // Дашборд сам зовёт ensureReady + openMain сразу, без ожидания
+            // loadFromDB. Здесь только сбрасываем поколение, чтобы старый
+            // рендер не дорисовал чужой кабинет.
             const settingsEl = document.getElementById('tab-rnp-settings');
             if (settingsEl && settingsEl.querySelector('.widget-card')) {
                 settingsEl.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
                   <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
                   Загрузка настроек…
                 </div>`;
-            }
-            if (typeof window.bootRnpTab === 'function') {
-                setTimeout(() => window.bootRnpTab(true), 50);
             }
         });
     }
@@ -5487,7 +5589,7 @@ const RNP = (() => {
         _wbEnrichmentDegraded = true;
         const bar = document.getElementById('rnp-action-bar-wrap');
         if (bar && document.getElementById('tab-rnp')?.classList.contains('active')) {
-            bar.innerHTML = _buildActionBar(_articles.filter(a => a.is_active));
+            bar.innerHTML = _buildActionBar(_activeArts());
         }
     });
     // Retry boot if tab still stuck on initialization (e.g. loadCabinets delayed).
