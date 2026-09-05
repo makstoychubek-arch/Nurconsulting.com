@@ -207,6 +207,21 @@ assert.ok(!rnpSrc.includes('function _isCatCollapsed(cat) {\n        return fals
 assert.ok(!rnpSrc.includes('lite ? true'), 'lite mode must not force-collapse every article group');
 assert.ok(rnpSrc.includes('const DAY_COL_W = 54'), 'day cells must fit sums like 137 020');
 assert.ok(rnpSrc.includes('const FROZEN_COL_W = 54'), 'week/ИТОГ cells must match the wider day grid');
+assert.ok(rnpSrc.includes('function _ruClothingToLetter(n)'), 'RNP must map RU clothing sizes onto the XXS–5XL grid');
+{
+    const start = rnpSrc.indexOf('function _ruClothingToLetter');
+    const end = rnpSrc.indexOf('function _nrDialog');
+    assert.ok(start > 0 && end > start, 'size helpers must sit next to _normSize');
+    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _ruClothingToLetter, _normSize };`)();
+    assert.strictEqual(fns._normSize('40'), 'S');
+    assert.strictEqual(fns._normSize('S (40-42)'), 'S');
+    assert.strictEqual(fns._normSize('44'), 'M');
+    assert.strictEqual(fns._normSize('M (44-46)'), 'M');
+    assert.strictEqual(fns._normSize('42-44'), 'S');
+    assert.strictEqual(fns._normSize('54-56'), 'XL');
+    assert.strictEqual(fns._normSize('XXL'), 'XXL');
+    assert.strictEqual(fns._normSize(''), '—');
+}
 assert.ok(html.includes('--rnp-day-w: 54px'), 'CSS day column width must match JS');
 assert.ok(rnpSrc.includes('nmIds'), 'funnel hydrate must request all active articles, not one nm');
 assert.ok(

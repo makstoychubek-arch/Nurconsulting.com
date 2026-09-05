@@ -194,10 +194,29 @@ const RNP = (() => {
         ]},
     ];
 
+    function _ruClothingToLetter(n) {
+        const v = Number(n);
+        if (!Number.isFinite(v) || v <= 0) return '—';
+        if (v <= 38) return 'XS';
+        if (v <= 42) return 'S';
+        if (v <= 46) return 'M';
+        if (v <= 50) return 'L';
+        if (v <= 54) return 'XL';
+        if (v <= 58) return 'XXL';
+        if (v <= 62) return '2XL';
+        if (v <= 66) return '3XL';
+        if (v <= 70) return '4XL';
+        return '5XL';
+    }
+
     function _normSize(raw) {
-        const s = (raw || '').trim().toUpperCase();
-        if (!s || s === '—') return '—';
-        if (s === 'ONE SIZE' || s === 'OS' || s === 'UNIVERSAL') return 'ONE';
+        const s = String(raw || '').trim().toUpperCase().replace(/,/g, '.');
+        if (!s || s === '—' || s === '-' || s === '0') return '—';
+        if (/^(ONE\s*SIZE|OS|UNIVERSAL|БЕЗРАЗМЕРН)/.test(s)) return 'ONE';
+        const named = s.match(/^(5XL|4XL|3XL|2XL|XXXL|XXL|XXS|XS|XL|S|M|L)\b/);
+        if (named) return named[1] === 'XXXL' ? '3XL' : named[1];
+        const nums = s.match(/(\d{2})/g);
+        if (nums && nums.length) return _ruClothingToLetter(nums[0]);
         return s;
     }
 

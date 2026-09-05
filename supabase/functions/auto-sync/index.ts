@@ -561,12 +561,13 @@ async function fetchFboStockRows(
     const stocks = payload?.data?.items;
     if (!Array.isArray(stocks)) return [];
     return stocks.map((s: Record<string, unknown>) => {
-        const chrtId = Number(s.chrtId || s.chrtID || 0);
-        const meta = (chrtId && maps?.byChrt.get(chrtId)) || maps?.bySku.get(String(s.barcode || s.sku || ''));
+        const sku = String(s.barcode || s.sku || '').trim();
+        const chrtId = Number(s.chrtId || s.chrtID || 0) || (/^\d{6,}$/.test(sku) ? Number(sku) : 0);
+        const meta = (chrtId && maps?.byChrt.get(chrtId)) || (sku && maps?.bySku.get(sku)) || undefined;
         return {
             cabinet_id: cabinetId,
             nm_id: Number(s.nmId || meta?.nmId || 0),
-            barcode: meta?.barcode || String(s.barcode || s.sku || chrtId || ''),
+            barcode: meta?.barcode || sku || String(chrtId || ''),
             tech_size: String(s.techSize || s.wbSize || s.sizeName || meta?.techSize || ''),
             quantity: Number(s.quantity || 0),
             in_way_to_client: Number(s.inWayToClient || 0),
