@@ -550,7 +550,13 @@
         .tab-content { display: none; position: relative; overflow: hidden; }
         .tab-content.active { display: block; overflow: auto; }
         .tab-content.active > *:not(.nr-modal-overlay):not(#ab-edit-modal):not(#ab-report-modal) { position: relative; z-index: 1; }
-        #tab-rnp.tab-content.active, #tab-rnp-settings.tab-content.active { overflow: hidden; }
+        #tab-rnp.tab-content.active, #tab-rnp-settings.tab-content.active {
+            overflow: hidden;
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
         #ab-edit-modal.nr-modal-overlay, #ab-report-modal.nr-modal-overlay,
         #ab-edit-modal, #ab-report-modal { position: fixed !important; z-index: 99998; }
         .beta-module-hero { position: relative; overflow: hidden; }
@@ -737,12 +743,21 @@
         /* ── RNP Spreadsheet (Google Sheets style) ── */
         .rnp-workspace {
             display: flex; flex-direction: column; gap: 0;
-            height: calc(100vh - 118px); max-height: calc(100vh - 118px);
+            flex: 1; min-height: 0; height: auto; max-height: none;
             overflow: hidden;
             background: var(--surface-solid);
             border-radius: var(--radius-card);
+            border: 1px solid rgba(17, 17, 17, 0.10);
         }
-        .main-content.rnp-compact { padding: 8px 12px; }
+        [data-theme="neon"] .rnp-workspace {
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+        .main-content.rnp-compact {
+            padding: 4px 6px !important;
+            overflow: hidden !important;
+            display: flex;
+            flex-direction: column;
+        }
         .main-content.logistics-compact { padding: 8px 12px; overflow: visible; }
         #tab-logistics.tab-content.active {
             display: flex; flex-direction: column;
@@ -2660,6 +2675,13 @@
             border-radius: var(--radius-card) !important;
             background: var(--surface-solid) !important;
             box-shadow: none !important;
+            border: 1px solid rgba(17, 17, 17, 0.10) !important;
+        }
+        [data-theme="neon"] .rnp-workspace {
+            border-color: rgba(255, 255, 255, 0.12) !important;
+        }
+        .main-content.rnp-compact {
+            padding: 4px 6px !important;
         }
         .rnp-action-bar, .logistics-toolbar, .rnp-sheet-body, .rnp-sheet-tabs {
             border: none !important;
@@ -2870,6 +2892,7 @@
             .cabinet-picker-btn { padding: 6px 10px !important; }
             #refresh-btn { width: 40px; height: 40px; padding: 0 !important; justify-content: center; }
             .main-content { padding: 16px 12px !important; }
+            .main-content.rnp-compact { padding: 4px 6px !important; }
             #date-picker { left: 10px !important; width: calc(100vw - 20px) !important; }
             .grid.xl\:grid-cols-5 { grid-template-columns: repeat(2, 1fr) !important; }
         }

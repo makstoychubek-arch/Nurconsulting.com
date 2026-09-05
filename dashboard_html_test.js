@@ -136,6 +136,15 @@ assert.ok(
     /rnp-sheet-table th, \.rnp-sheet-table td \{\s*border: none/.test(html),
     'RNP sheet is one rounded card without cell dividers'
 );
+assert.ok(
+    /main-content\.rnp-compact[\s\S]{0,120}padding:\s*4px 6px !important/.test(html),
+    'RNP must beat the 28px Apple page padding so the card fills the pane'
+);
+assert.ok(
+    html.includes('border: 1px solid rgba(17, 17, 17, 0.10)') &&
+    !html.includes('height: calc(100vh - 118px)'),
+    'RNP card is a thin almost-invisible rounded line, not a short box in a gray gutter'
+);
 assert.ok(html.includes('abtest-card-row'), 'A/B cards use WBRadar row layout');
 assert.ok(html.includes('nr-early-tab-style'), 'early-tab CSS id must exist for settings boot');
 assert.ok(
