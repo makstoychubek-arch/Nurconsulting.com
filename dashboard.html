@@ -5283,6 +5283,9 @@
             mainRefresh.onclick = refreshData;
         }
         updateHeaderNav(name);
+        if (name === 'dashboard' || name === 'settings') {
+            window.closeSidebarMenus?.(true);
+        }
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
         if (name === 'ab-testing') loadABTests();
@@ -11248,10 +11251,21 @@
             flyouts.forEach(f => f.classList.toggle('visible', f.id === id));
             syncFlyoutLayout();
         }
-        function hideFlyouts() {
-            flyouts.forEach(f => f.classList.toggle('visible', f.classList.contains('pinned')));
+        function hideFlyouts(force) {
+            flyouts.forEach(f => {
+                if (force) {
+                    f.classList.remove('pinned', 'visible', 'mobile-active');
+                    f.querySelector('.flyout-pin')?.classList.remove('pinned');
+                } else {
+                    f.classList.toggle('visible', f.classList.contains('pinned'));
+                }
+            });
+            if (force) {
+                try { localStorage.removeItem('nr_flyout_pinned'); } catch (_) {}
+            }
             syncFlyoutLayout();
         }
+        window.closeSidebarMenus = hideFlyouts;
 
         app.querySelectorAll('.rail-btn').forEach(btn => {
             const tab = btn.dataset.tab;
@@ -11259,7 +11273,7 @@
             btn.addEventListener('mouseenter', () => {
                 if (window.innerWidth <= 768) return;
                 if (fly) showFlyout(fly);
-                else hideFlyouts();
+                else hideFlyouts(true);
             });
             btn.addEventListener('click', () => {
                 if (tab) showTab(tab, null);
@@ -11271,7 +11285,7 @@
                         });
                     }
                 } else {
-                    hideFlyouts();
+                    hideFlyouts(true);
                     if (window.innerWidth <= 768) closeMobileMenu();
                 }
             });
@@ -11299,19 +11313,18 @@
         });
         app.addEventListener('mouseleave', () => { hideTimer = setTimeout(hideFlyouts, 80); });
 
-        const pinnedId = localStorage.getItem('nr_flyout_pinned');
-        if (pinnedId) {
-            const f = document.getElementById(pinnedId);
-            if (f) {
-                f.classList.add('pinned', 'visible');
-                f.querySelector('.flyout-pin')?.classList.add('pinned');
-            }
-        }
+        // Старый pin «Оцифровка» / BETA не должен открывать вторую колонку
+        // рядом с дашбордом при загрузке.
+        try {
+            const pinnedId = localStorage.getItem('nr_flyout_pinned');
+            if (pinnedId && pinnedId !== 'fly-beta') localStorage.removeItem('nr_flyout_pinned');
+        } catch (_) {}
+        hideFlyouts(true);
         syncFlyoutLayout();
 
         document.getElementById('sidebar-home-btn')?.addEventListener('click', () => {
             showTab('dashboard');
-            hideFlyouts();
+            hideFlyouts(true);
         });
     }
 </script>

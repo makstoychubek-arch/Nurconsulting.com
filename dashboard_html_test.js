@@ -37,6 +37,12 @@ assert.ok(
     'Dashboard rail button must open the live dashboard tab'
 );
 assert.ok(
+    !/data-tab="dashboard"[^>]*data-flyout/.test(html) && !html.includes('data-flyout="fly-ocr"'),
+    'Dashboard must not open a second Оцифровка column'
+);
+assert.ok(html.includes('hideFlyouts(true)') && html.includes('window.closeSidebarMenus'),
+    'opening Dashboard must force-close any leftover pinned flyout');
+assert.ok(
     !/class="rail-btn"[^>]*data-tab="rnp"/.test(html) && !/data-tab="rnp"[^>]*data-flyout="fly-rnp"/.test(html),
     'RNP must not sit on the main rail'
 );
@@ -79,6 +85,13 @@ assert.ok(!html.includes('id="fly-goods"') && !html.includes('id="fly-finance"')
     'goods/finance/manage flyouts must be folded into BETA');
 const betaFlyEnd = html.indexOf('id="date-picker"');
 const betaFly = html.slice(html.indexOf('id="fly-beta"'), betaFlyEnd === -1 ? html.indexOf('<main') : betaFlyEnd);
+assert.ok(
+    betaFly.includes("showTab('summary'") &&
+    betaFly.includes("showTab('summary-biz'") &&
+    betaFly.includes("showTab('deductions'") &&
+    betaFly.includes("showTab('plan-fact'"),
+    'Оцифровка items move into BETA, not a dashboard submenu'
+);
 assert.ok(betaFly.includes("showTab('rnp'"), 'BETA flyout lists РНП');
 assert.ok(betaFly.includes("showTab('advertising'"), 'BETA flyout lists Контроль РК');
 assert.ok(betaFly.includes("showTab('ab-testing'"), 'BETA flyout lists А/Б Тесты');
