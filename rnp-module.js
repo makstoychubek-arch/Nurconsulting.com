@@ -1212,7 +1212,7 @@ const RNP = (() => {
         if (document.getElementById('tab-rnp')?.classList.contains('active')) {
             openMain(true).catch(e => console.warn('[RNP] rerender after new articles:', e.message));
         }
-        if (document.getElementById('tab-rnp-settings')?.classList.contains('active')) {
+        if (document.getElementById('rnp-settings-overlay')?.classList.contains('is-open')) {
             _renderSettings({ preserveScroll: true });
         }
         return added;
@@ -2281,6 +2281,12 @@ const RNP = (() => {
           <button type="button" class="rnp-action-btn rnp-action-btn--edit${_editMode ? ' active' : ''}" id="rnp-edit-mode-btn"
             onclick="RNP.toggleEditMode()" title="Режим выделения ячеек">${_editMode ? 'Готово' : 'Редактировать'}</button>
           <span id="rnp-freshness" class="text-xs" style="color:var(--text-muted);margin-left:auto;white-space:nowrap"></span>
+          <button type="button" class="rnp-settings-gear" onclick="RNP.openSettings()" title="Настройки РНП" aria-label="Настройки РНП">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+          </button>
         </div>`;
     }
 
@@ -4073,8 +4079,13 @@ const RNP = (() => {
         if (knob) knob.style.left = isActive ? '18px' : '2px';
     }
 
+    function _settingsHost() {
+        return document.getElementById('rnp-settings-modal-body')
+            || document.getElementById('tab-rnp-settings');
+    }
+
     function _settingsShellReady() {
-        const el = document.getElementById('tab-rnp-settings');
+        const el = _settingsHost();
         return !!(el
             && el.querySelector('.rnp-settings-articles-scroll')
             && document.getElementById('rnp-settings-articles-tbody'));
@@ -4094,13 +4105,13 @@ const RNP = (() => {
             else tbody.innerHTML = html;
         });
         if (opts.preserveScroll && opts.scrollTop) {
-            const scrollEl = document.querySelector('#tab-rnp-settings .rnp-settings-articles-scroll');
+            const scrollEl = (_settingsHost() || document).querySelector('.rnp-settings-articles-scroll');
             if (scrollEl) scrollEl.scrollTop = opts.scrollTop;
         }
     }
 
     function _renderSettings(opts = {}) {
-        const el = document.getElementById('tab-rnp-settings');
+        const el = _settingsHost();
         if (!el) return;
         if (opts.preserveScroll && !opts.forceFull && _settingsShellReady() && _articles.length) {
             _updateSettingsActiveCounts();
@@ -4120,7 +4131,7 @@ const RNP = (() => {
         <div class="space-y-5">
           <div class="widget-card p-5">
             <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
-              <h3 class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">Основные настройки</h3>
+              <h3 id="rnp-settings-title" class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">Основные настройки</h3>
               ${cabLabel ? `<span class="rnp-cab-badge">${cabLabel}</span>` : ''}
             </div>
             <div class="flex flex-wrap gap-4 mb-4 text-xs" style="color:var(--text-muted)">
@@ -4307,7 +4318,7 @@ const RNP = (() => {
                   style="background:var(--surface);border:1px solid var(--border);color:var(--text-secondary)">Из заказов</button>
                 <button onclick="RNP.enableAll(true).then(() => RNP.openMain())" class="px-5 py-2.5 rounded-xl text-sm font-bold"
                   style="background:var(--accent-gradient);color:#fff">Включить все</button>
-                <button onclick="showTab('rnp-settings',null)" class="px-5 py-2.5 rounded-xl text-sm font-bold"
+                <button onclick="RNP.openSettings()" class="px-5 py-2.5 rounded-xl text-sm font-bold"
                   style="background:var(--accent-soft);border:1px solid var(--accent-border);color:var(--accent)">Настройки РНП</button>
               </div>
             </div>`;
@@ -5108,11 +5119,24 @@ const RNP = (() => {
         }
     }
 
+    function _onSettingsKeydown(e) {
+        if (e.key === 'Escape') closeSettings();
+    }
+
+    function closeSettings() {
+        const overlay = document.getElementById('rnp-settings-overlay');
+        if (overlay) overlay.classList.remove('is-open');
+        document.removeEventListener('keydown', _onSettingsKeydown);
+    }
+
     async function openSettings(opts) {
-        const el = document.getElementById('tab-rnp-settings');
+        const overlay = document.getElementById('rnp-settings-overlay');
+        const el = _settingsHost();
         if (!el) return;
+        if (overlay) overlay.classList.add('is-open');
+        document.addEventListener('keydown', _onSettingsKeydown);
         if (!_db || !_cab) {
-            el.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
+            el.innerHTML = `<div class="p-10 text-center" style="color:var(--text-muted)">
               <p class="mb-4">Кабинет не инициализирован.</p>
               <button type="button" class="rnp-action-btn" onclick="RNP.openSettings()">Повторить</button>
             </div>`;
@@ -5291,7 +5315,7 @@ const RNP = (() => {
         const fromOrders = await _syncFromOrders({ silent: true, activateNew: true, prune: false });
         if (_cab !== cab || !((fromCards.added || 0) + (fromOrders.added || 0))) return;
         if (document.getElementById('tab-rnp')?.classList.contains('active')) openMain(true).catch(() => {});
-        if (document.getElementById('tab-rnp-settings')?.classList.contains('active')) _renderSettings({ preserveScroll: true });
+        if (document.getElementById('rnp-settings-overlay')?.classList.contains('is-open')) _renderSettings({ preserveScroll: true });
     }
 
     function _refreshRnpAfterArticleToggle() {
@@ -5491,9 +5515,9 @@ const RNP = (() => {
             // он считается пустым, пока не загрузим новый.
             _articlesCab = null;
             _clearRnpMainUI();
-            const settingsEl = document.getElementById('tab-rnp-settings');
+            const settingsEl = _settingsHost();
             if (settingsEl && settingsEl.querySelector('.widget-card')) {
-                settingsEl.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
+                settingsEl.innerHTML = `<div class="p-10 text-center" style="color:var(--text-muted)">
                   <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
                   Загрузка настроек…
                 </div>`;
@@ -5600,7 +5624,7 @@ const RNP = (() => {
     }
     setTimeout(_retryRnpBoot, 800);
 
-    return { init, initCore, ensureReady, openSettings, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, initCore, ensureReady, openSettings, closeSettings, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();

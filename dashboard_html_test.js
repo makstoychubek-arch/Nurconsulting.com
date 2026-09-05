@@ -344,6 +344,11 @@ assert.ok(
     html.includes("openSettings({ preserveScroll: true })"),
     'dashboard refresh / settings boot must not rebuild the settings tab from scratch'
 );
+assert.ok(rnpSrc.includes('class="rnp-settings-gear"'), 'RNP toolbar has a small gear for settings');
+assert.ok(html.includes('id="rnp-settings-overlay"'), 'RNP settings open as an overlay, not a second page');
+assert.ok(html.includes("if (name === 'rnp-settings')"), 'old rnp-settings tab route opens the modal');
+assert.ok(rnpSrc.includes('function closeSettings()'), 'settings modal can close without leaving RNP');
+assert.ok(rnpSrc.includes("getElementById('rnp-settings-modal-body')"), 'settings HTML renders into the modal body');
 
 const toggleFn = rnpSrc.slice(rnpSrc.indexOf('async function toggleArt'), rnpSrc.indexOf('async function enableAll'));
 assert.ok(!toggleFn.includes('_renderSettings'),
