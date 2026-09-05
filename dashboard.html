@@ -963,7 +963,7 @@
             overflow: hidden;
             box-sizing: border-box;
         }
-        .rnp-head-left-stack { display: flex; flex-direction: column; gap: 0; min-width: 0; overflow: hidden; box-sizing: border-box; }
+        .rnp-head-left-stack { display: flex; flex-direction: column; gap: 0; min-width: 0; max-width: 100%; overflow: hidden; box-sizing: border-box; }
         .rnp-head-left-stack > * { min-width: 0; }
         .rnp-head-sizes-inline { padding: 1px 2px 2px; overflow-x: auto; max-width: 100%; }
         .rnp-head-sizes-inline .rnp-stock-block { max-width: 100%; }
@@ -1246,6 +1246,7 @@
         }
         .rnp-sheet-table {
             border-collapse: separate; border-spacing: 0;
+            table-layout: fixed;
             font-size: 7px; width: max-content; min-width: 100%;
             --rnp-row1: 22px; --rnp-row2: 20px; --rnp-row3: 16px; --rnp-row4: 18px;
             --rnp-head-h: calc(var(--rnp-row1) + var(--rnp-row2) + var(--rnp-row3) + var(--rnp-row4));
@@ -1394,6 +1395,7 @@
             min-width: var(--rnp-spark-w); max-width: var(--rnp-spark-w); width: var(--rnp-spark-w);
             padding: 0 1px; background: var(--surface-solid) !important;
             border-right: 1px solid var(--border);
+            overflow: hidden;
         }
         .rnp-sheet-table .rnp-section-hdr .rnp-section-stick {
             position: sticky; z-index: 15;
@@ -1550,7 +1552,7 @@
         .rnp-stock-table tr.rnp-row-prod td:not(.rnp-stock-label):not(.rnp-size-zero) { background: var(--surface); color: var(--text-muted); }
         .rnp-sheet-table .rnp-metric-col { min-width: var(--rnp-metric-w); max-width: var(--rnp-metric-w); width: var(--rnp-metric-w); }
         .rnp-sheet-table .rnp-th-metric { min-width: var(--rnp-metric-w); width: var(--rnp-metric-w); }
-        .rnp-spark { display: block; margin: 0 auto; width: 36px; height: 14px; }
+        .rnp-spark { display: block; margin: 0 auto; width: 36px; height: 14px; max-width: 100%; overflow: hidden; }
         .rnp-spark-empty { color: var(--text-muted); font-size: 8px; }
         .rnp-sheet-tab img { width: 20px; height: 26px; border-radius: 2px; object-fit: cover; }
         .rnp-sheet-table .rnp-th-future { color: var(--text-muted); }

@@ -89,12 +89,16 @@ const RNP = (() => {
     let _metricRowSeq = 0;
     let _galleryCollapsed = true;
     let _marqueeRo = null;
+    let _marqueeRoRaf = 0;
+    let _marqueeSyncing = false;
     let _planPeriod = 'week';
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 54;
     const DAY_COL_W = 54;
+    const MARQUEE_CARD_MAX_H = 112;
+    const MARQUEE_REPS_MAX = 6;
     const MONTH_COL_W = 72;
     const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
     const CAL_MONTH_FROM = 5;
@@ -1965,17 +1969,14 @@ const RNP = (() => {
         if (el.style.left !== next) el.style.left = next;
     }
 
-    /** После раскладки шапка может растянуть frozen-колонки — пересчитываем
-     *  sticky `left` по реальным offsetWidth, иначе недели/ИТОГ уезжают
-     *  под метки, а фотолента «заходит» за карточку. */
+    /** Липкие недели/ИТОГ только по константам. Нельзя писать offsetWidth/Height
+     *  шапки обратно в CSS — KPI и фотолента тогда растут сами по себе. */
     function _syncFrozenPane(root) {
         const scope = root || document;
         scope.querySelectorAll('.rnp-sheet-table').forEach(table => {
             const scroll = table.closest('.rnp-table-scroll');
-            const metric = table.querySelector('tbody td.rnp-metric-col') || table.querySelector('thead th.rnp-th-metric');
-            const spark = table.querySelector('tbody td.rnp-spark-col') || table.querySelector('thead th.rnp-th-spark');
-            const metricW = metric?.offsetWidth || FROZEN_METRIC_W;
-            const sparkW = spark?.offsetWidth || FROZEN_SPARK_W;
+            const metricW = FROZEN_METRIC_W;
+            const sparkW = FROZEN_SPARK_W;
             _setCssVar(table, '--rnp-metric-w', metricW + 'px');
             _setCssVar(table, '--rnp-spark-w', sparkW + 'px');
 
@@ -1989,13 +1990,12 @@ const RNP = (() => {
                 [...ref.children].forEach(cell => {
                     if (!cell.classList.contains('rnp-col-sticky')) return;
                     lefts.push(acc);
-                    acc += cell.offsetWidth;
+                    acc += FROZEN_COL_W;
                 });
             }
-            const leftTh = table.querySelector('.rnp-head-left');
-            const frozen = Math.max(acc, leftTh?.offsetWidth || 0, metricW + sparkW);
-            _setCssVar(table, '--rnp-frozen-left', `${Math.round(frozen)}px`);
-            if (scroll) _setCssVar(scroll, '--rnp-frozen-left', `${Math.round(frozen)}px`);
+            const frozen = acc;
+            _setCssVar(table, '--rnp-frozen-left', `${frozen}px`);
+            if (scroll) _setCssVar(scroll, '--rnp-frozen-left', `${frozen}px`);
 
             table.querySelectorAll('tr').forEach(tr => {
                 const stickies = [...tr.children].filter(c => c.classList.contains('rnp-col-sticky'));
@@ -2008,11 +2008,6 @@ const RNP = (() => {
             if (prev) _setInlineLeft(prev, metricW + sparkW);
             table.querySelectorAll('.rnp-th-month-stick').forEach(el => _setInlineLeft(el, frozen));
 
-            const pin = table.querySelector('.rnp-head-marquee-pin');
-            if (pin && leftTh) {
-                const h = leftTh.offsetHeight;
-                if (h > 0 && pin.style.height !== `${h}px`) pin.style.height = `${h}px`;
-            }
             if (scroll) {
                 const visible = Math.max(160, scroll.clientWidth - frozen);
                 _setCssVar(table, '--rnp-marquee-visible', `${Math.round(visible)}px`);
@@ -4580,17 +4575,29 @@ const RNP = (() => {
             _marqueeRo.disconnect();
             _marqueeRo = null;
         }
+        if (_marqueeRoRaf) {
+            cancelAnimationFrame(_marqueeRoRaf);
+            _marqueeRoRaf = 0;
+        }
         if (typeof ResizeObserver === 'undefined') return;
         const scope = root || document;
         const scroll = scope.querySelector('.rnp-table-scroll') || document.getElementById('rnp-table-wrap');
-        const left = scope.querySelector('.rnp-head-left');
-        const targets = [scroll, left].filter(Boolean);
-        if (!targets.length) return;
+        if (!scroll) return;
         _marqueeRo = new ResizeObserver(() => {
-            _syncFrozenPane(scope);
-            _syncMarqueeFill(scope);
+            if (_marqueeSyncing) return;
+            if (_marqueeRoRaf) return;
+            _marqueeRoRaf = requestAnimationFrame(() => {
+                _marqueeRoRaf = 0;
+                _marqueeSyncing = true;
+                try {
+                    _syncFrozenPane(scope);
+                    _syncMarqueeFill(scope);
+                } finally {
+                    _marqueeSyncing = false;
+                }
+            });
         });
-        targets.forEach(el => _marqueeRo.observe(el));
+        _marqueeRo.observe(scroll);
     }
 
     function _syncMarqueeFill(root) {
@@ -4607,27 +4614,26 @@ const RNP = (() => {
             }
 
             const isBottomGallery = wrap.classList.contains('rnp-general-gallery-marquee');
-            const h = isBottomGallery ? 0 : (left?.offsetHeight || 0);
+            const stack = left?.querySelector('.rnp-head-left-stack');
+            const rawH = isBottomGallery ? 0 : (stack?.clientHeight || 0);
+            const h = rawH > 0 ? Math.min(rawH, MARQUEE_CARD_MAX_H) : 0;
             const gap = 3;
             const aspect = 516 / 688;
             let cardW = isBottomGallery ? 72 : 56;
+            let cardH = 0;
             if (h > 0) {
-                cardW = Math.max(40, Math.round(h * aspect));
-                track.style.height = '100%';
+                cardW = Math.max(44, Math.min(84, Math.round(h * aspect)));
+                cardH = Math.round(cardW / aspect);
             }
 
             const baseCount = parseInt(track.dataset.baseCount, 10) || track.children.length;
             const oneSetHtml = track.dataset.baseHtml || '';
             const setW = baseCount * (cardW + gap) - gap;
-            const nMonthCols = scope.querySelectorAll('.rnp-th-month-col').length;
-            const nDayCols = scope.querySelectorAll('.rnp-th-date.rnp-day-col').length;
-            const colUnit = nMonthCols ? MONTH_COL_W : DAY_COL_W;
-            const nCols = nMonthCols || nDayCols;
             const pin = wrap.closest('.rnp-head-marquee-pin');
             const viewW = isBottomGallery
                 ? (wrap.clientWidth || 0)
-                : (wrap.clientWidth || pin?.clientWidth || 0) || nCols * colUnit || 0;
-            const totalReps = Math.max(3, Math.ceil(viewW / Math.max(setW, 1)));
+                : (wrap.clientWidth || pin?.clientWidth || 0);
+            const totalReps = Math.min(MARQUEE_REPS_MAX, Math.max(3, Math.ceil((viewW || 1) / Math.max(setW, 1))));
 
             if (track.children.length !== baseCount * totalReps && oneSetHtml) {
                 track.innerHTML = oneSetHtml.repeat(totalReps);
@@ -4637,11 +4643,11 @@ const RNP = (() => {
             track.querySelectorAll('.rnp-test-card, .rnp-gallery-item').forEach(card => {
                 card.style.flex = `0 0 ${cardW}px`;
                 card.style.width = `${cardW}px`;
-                if (!isBottomGallery) card.style.height = '100%';
+                if (cardH > 0) card.style.height = `${cardH}px`;
             });
 
             track.style.setProperty('--rnp-marquee-reps', String(totalReps));
-            const loopW = track.scrollWidth / totalReps;
+            const loopW = setW;
             if (loopW > 0) {
                 const sec = Math.max(22, Math.min(48, loopW / 20));
                 track.style.animationDuration = sec + 's';
@@ -4797,7 +4803,7 @@ const RNP = (() => {
 
         const rows = _sectionRows(sec).map(m => {
             const sparkVals = daySeries.map(c => (c.data && c.data[m.key]) || 0);
-            const spark = m.isPlan ? '' : _sparkline(sparkVals, 48, 16);
+            const spark = m.isPlan ? '' : _sparkline(sparkVals, 36, 14);
 
             const cells = cols.map((col, ci) => {
                 const d = col.data;
