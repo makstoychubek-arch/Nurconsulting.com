@@ -1395,14 +1395,14 @@
             font-size: 7px; width: max-content; min-width: 100%;
             --rnp-row1: 22px; --rnp-row2: 20px; --rnp-row3: 16px; --rnp-row4: 18px;
             --rnp-head-h: calc(var(--rnp-row1) + var(--rnp-row2) + var(--rnp-row3) + var(--rnp-row4));
-            --rnp-metric-w: 132px; --rnp-spark-w: 40px; --rnp-day-w: 54px;
+            --rnp-metric-w: 132px; --rnp-spark-w: 40px; --rnp-day-w: 40px;
         }
         .rnp-sheet-table .rnp-day-col {
             width: var(--rnp-day-w); min-width: var(--rnp-day-w); max-width: var(--rnp-day-w);
             box-sizing: border-box;
         }
         .rnp-sheet-table--months {
-            --rnp-month-w: 72px;
+            --rnp-month-w: 42px;
             --rnp-rowq1: 20px;
             --rnp-rowq2: 16px;
         }
@@ -1455,15 +1455,23 @@
             --rnp-head-h: calc(var(--rnp-row1) + var(--rnp-row2) + var(--rnp-row3));
         }
         .rnp-sheet-table th, .rnp-sheet-table td {
-            border: none; padding: 1px 2px; text-align: center;
+            border: none; padding: 1px 1px; text-align: center;
             line-height: 1.2; vertical-align: middle;
             background-clip: padding-box;
             box-sizing: border-box;
             white-space: nowrap;
             overflow: hidden;
+            text-overflow: clip;
             font-variant-numeric: tabular-nums;
-            letter-spacing: -0.02em;
+            letter-spacing: -0.03em;
         }
+        .rnp-num {
+            display: block; max-width: 100%;
+            overflow: hidden; text-overflow: clip; white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+            line-height: 1.15;
+        }
+        .rnp-num--m { font-size: 5.5px; letter-spacing: -0.04em; }
         .rnp-sheet-table tbody tr {
             min-height: 18px;
         }
@@ -1617,7 +1625,8 @@
             background-image: linear-gradient(var(--accent-soft), var(--accent-soft)) !important;
         }
         .rnp-sheet-table tbody .rnp-col-sticky-total { z-index: 12; }
-        .rnp-sheet-table .rnp-cell-hero { font-size: 8px !important; font-weight: 700 !important; color: var(--accent) !important; }
+        .rnp-sheet-table .rnp-cell-hero { font-weight: 700 !important; color: var(--accent) !important; }
+        .rnp-sheet-table .rnp-cell-hero .rnp-num--m { font-size: 5.5px !important; }
         .rnp-sheet-table .rnp-cell-competitor { background: rgba(245, 158, 11, 0.08) !important; }
         .rnp-sheet-table .rnp-gs-section-title { font-weight: 700; font-size: 9px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; }
         .rnp-sheet-table .rnp-section-fill { background: var(--surface-solid) !important; }
@@ -1648,14 +1657,14 @@
             padding: 1px 2px; vertical-align: middle;
         }
         .rnp-sheet-table .rnp-th-day .rnp-dow { font-size: 7px; font-weight: 400; color: var(--text-muted); display: block; line-height: 1; margin-top: 1px; }
-        .rnp-sheet-table .rnp-th-week { font-size: 7px; min-width: 54px; max-width: 58px; color: var(--text-muted); }
+        .rnp-sheet-table .rnp-th-week { font-size: 7px; min-width: var(--rnp-day-w); max-width: var(--rnp-day-w); color: var(--text-muted); }
         .rnp-sheet-table .rnp-th-week.rnp-data-col,
         .rnp-sheet-table .rnp-th-dow.rnp-data-col,
         .rnp-sheet-table .rnp-col-sticky.rnp-data-col {
-            min-width: 54px; max-width: 54px; width: 54px;
+            min-width: var(--rnp-day-w); max-width: var(--rnp-day-w); width: var(--rnp-day-w);
         }
         .rnp-sheet-table .rnp-th-day.today { color: var(--accent); font-weight: 800; border: none; background: var(--accent-soft); }
-        .rnp-sheet-table .rnp-data-col { min-width: 54px; max-width: 54px; width: 54px; font-size: 7px; padding: 1px 1px; }
+        .rnp-sheet-table .rnp-data-col { min-width: var(--rnp-day-w); max-width: var(--rnp-day-w); width: var(--rnp-day-w); font-size: 7px; padding: 1px 0; }
         .rnp-sheet-table .rnp-section-hdr td { cursor: pointer; }
         .rnp-sheet-table .rnp-cell-week { background: rgba(99,102,241,0.05); }
         .rnp-sheet-table .rnp-cell-today { border: none !important; background: var(--accent-soft) !important; }
@@ -1706,10 +1715,11 @@
             background: var(--surface-solid) !important;
         }
         .rnp-plan-input {
-            width: 100%; height: 100%; min-height: 16px;
-            padding: 0 1px; margin: 0; text-align: center; font-size: 9px;
+            width: 100%; height: 100%; min-height: 16px; max-width: 100%;
+            padding: 0; margin: 0; text-align: center; font-size: 8px;
             border: none; border-radius: 0; background: transparent;
             color: inherit; font-family: inherit;
+            overflow: hidden; text-overflow: clip;
             -moz-appearance: textfield; appearance: textfield;
         }
         .rnp-plan-input::-webkit-outer-spin-button,
@@ -2702,8 +2712,10 @@
             width: 100% !important;
             height: 100% !important;
             min-height: 16px !important;
-            font-size: 9px !important;
+            font-size: 8px !important;
             text-align: center !important;
+            overflow: hidden !important;
+            max-width: 100% !important;
         }
         .rnp-workspace .rnp-action-btn {
             display: inline-flex !important;
@@ -4342,7 +4354,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.acb087a612.min.js"></script>
-<script src="/dist/rnp-module.00b990ea79.min.js"></script>
+<script src="/dist/rnp-module.ccdbf2a913.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';

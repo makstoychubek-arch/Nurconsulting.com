@@ -218,8 +218,10 @@ assert.ok(rnpSrc.includes("localStorage.getItem('rnp_collapsed_cats')"), 'collap
 assert.ok(rnpSrc.includes('${collapsed ? \'\' : `<div class="rnp-cat-tabs">${tabsHtml}</div>`}'), 'collapsed groups hide their article tabs');
 assert.ok(!rnpSrc.includes('function _isCatCollapsed(cat) {\n        return false;'), 'category groups must be able to collapse');
 assert.ok(!rnpSrc.includes('lite ? true'), 'lite mode must not force-collapse every article group');
-assert.ok(rnpSrc.includes('const DAY_COL_W = 54'), 'day cells must fit sums like 137 020');
-assert.ok(rnpSrc.includes('const FROZEN_COL_W = 54'), 'week/ИТОГ cells must match the wider day grid');
+assert.ok(rnpSrc.includes('const DAY_COL_W = 40'), 'day cells are narrow but still fit 100 000');
+assert.ok(rnpSrc.includes('const FROZEN_COL_W = 40'), 'week/ИТОГ cells must match the day grid');
+assert.ok(rnpSrc.includes('function _fitNum') && rnpSrc.includes('rnp-num--m'),
+    'million-scale numbers shrink inside the cell');
 assert.ok(!rnpSrc.includes('function _ruClothingToLetter'), 'do not guess RU/EU numbers onto XXS–5XL');
 {
     const start = rnpSrc.indexOf('function _normSize');
@@ -252,7 +254,18 @@ assert.ok(
     assert.deepStrictEqual(['44', '36', '40'].sort(sortFns._sortSizes), ['36', '40', '44']);
     assert.deepStrictEqual(['XL', 'S', 'M'].sort(sortFns._sortSizes), ['S', 'M', 'XL']);
 }
-assert.ok(html.includes('--rnp-day-w: 54px'), 'CSS day column width must match JS');
+assert.ok(html.includes('--rnp-day-w: 40px'), 'CSS day column width must match JS');
+assert.ok(html.includes('.rnp-num--m'), 'CSS shrinks million values so they stay inside the cell');
+{
+    const start = rnpSrc.indexOf('function _fmt(val, type)');
+    const end = rnpSrc.indexOf('function _cellColor');
+    assert.ok(start > 0 && end > start, 'number fit helpers sit next to _fmt');
+    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _fmt, _numFitClass, _fitNum };`)();
+    assert.strictEqual(fns._fmt(100000, 'som'), '100\u00a0000');
+    assert.ok(!fns._numFitClass(fns._fmt(100000, 'som')).includes('rnp-num--m'));
+    assert.ok(fns._numFitClass(fns._fmt(1000000, 'som')).includes('rnp-num--m'));
+    assert.ok(fns._fitNum(fns._fmt(1000000, 'som')).includes('rnp-num--m'));
+}
 assert.ok(rnpSrc.includes('nmIds'), 'funnel hydrate must request all active articles, not one nm');
 assert.ok(
     fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
