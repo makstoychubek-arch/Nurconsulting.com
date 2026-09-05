@@ -97,8 +97,10 @@ const RNP = (() => {
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 54;
     const DAY_COL_W = 54;
-    const MARQUEE_CARD_MAX_H = 112;
+    const MARQUEE_CARD_MAX_H = 240;
+    const MARQUEE_CARD_MIN_H = 132;
     const MARQUEE_REPS_MAX = 6;
+    const PHOTO_ASPECT_W = 3 / 4;
     const MONTH_COL_W = 72;
     const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
     const CAL_MONTH_FROM = 5;
@@ -1939,7 +1941,7 @@ const RNP = (() => {
         const photoIdx = gi + 2;
         const label = (period.label || '').replace(/"/g, '&quot;');
         const img = _imgHtml(art, 'rnp-test-img', 'c516x688', '', photoIdx, true);
-        return `<div class="rnp-test-card" data-gallery-idx="${gi}" data-photo-idx="${photoIdx}" title="${label}">
+        return `<div class="rnp-test-card" data-gallery-idx="${gi}" data-photo-idx="${photoIdx}" title="${label || 'Открыть фото'}" onclick="RNP.openPhoto(this)">
           <div class="rnp-test-photo">${img}</div>
         </div>`;
     }
@@ -2627,7 +2629,7 @@ const RNP = (() => {
                     onblur="RNP.savePhotoComment(${nmId}, ${i}, this.value)">`
                 : `<span class="rnp-gallery-num">#${i + 1}</span>`;
             return `<div class="rnp-gallery-item${cls}${active}" data-photo-idx="${i}">
-              <div class="rnp-gallery-photo">${img}</div>
+              <div class="rnp-gallery-photo" title="Открыть фото" onclick="RNP.openPhoto(this)">${img}</div>
               ${commentField}
             </div>`;
           }).join('')}
@@ -4627,15 +4629,9 @@ const RNP = (() => {
             const isBottomGallery = wrap.classList.contains('rnp-general-gallery-marquee');
             const stack = left?.querySelector('.rnp-head-left-stack');
             const rawH = isBottomGallery ? 0 : (stack?.clientHeight || 0);
-            const h = rawH > 0 ? Math.min(rawH, MARQUEE_CARD_MAX_H) : 0;
             const gap = 3;
-            const aspect = 516 / 688;
-            let cardW = isBottomGallery ? 72 : 56;
-            let cardH = 0;
-            if (h > 0) {
-                cardW = Math.max(44, Math.min(84, Math.round(h * aspect)));
-                cardH = Math.round(cardW / aspect);
-            }
+            let cardH = isBottomGallery ? 96 : Math.min(MARQUEE_CARD_MAX_H, Math.max(MARQUEE_CARD_MIN_H, rawH || 168));
+            let cardW = Math.round(cardH * PHOTO_ASPECT_W);
 
             const baseCount = parseInt(track.dataset.baseCount, 10) || track.children.length;
             const oneSetHtml = track.dataset.baseHtml || '';
@@ -4654,7 +4650,10 @@ const RNP = (() => {
             track.querySelectorAll('.rnp-test-card, .rnp-gallery-item').forEach(card => {
                 card.style.flex = `0 0 ${cardW}px`;
                 card.style.width = `${cardW}px`;
-                if (cardH > 0) card.style.height = `${cardH}px`;
+                card.style.height = `${cardH}px`;
+                card.style.maxWidth = `${cardW}px`;
+                card.style.maxHeight = `${cardH}px`;
+                card.style.aspectRatio = '3 / 4';
             });
 
             track.style.setProperty('--rnp-marquee-reps', String(totalReps));
@@ -5119,14 +5118,82 @@ const RNP = (() => {
         }
     }
 
+    let _overlayKeyBound = false;
+
+    function _photoLightboxOpen() {
+        return !!document.getElementById('rnp-photo-lightbox')?.classList.contains('is-open');
+    }
+
+    function _settingsOverlayOpen() {
+        return !!document.getElementById('rnp-settings-overlay')?.classList.contains('is-open');
+    }
+
+    function _bindOverlayKeydown() {
+        if (_overlayKeyBound) return;
+        document.addEventListener('keydown', _onOverlayKeydown);
+        _overlayKeyBound = true;
+    }
+
+    function _unbindOverlayKeydown() {
+        if (_photoLightboxOpen() || _settingsOverlayOpen()) return;
+        document.removeEventListener('keydown', _onOverlayKeydown);
+        _overlayKeyBound = false;
+    }
+
+    function _onOverlayKeydown(e) {
+        if (e.key !== 'Escape') return;
+        if (_photoLightboxOpen()) {
+            closePhoto();
+            return;
+        }
+        if (_settingsOverlayOpen()) closeSettings();
+    }
+
+    function _largePhotoSrc(src) {
+        const u = String(src || '');
+        if (!u || u.startsWith('data:')) return u;
+        return u.replace(/\/images\/(?:tm|c246x328|c516x688)\//, '/images/big/');
+    }
+
+    function openPhoto(el) {
+        const node = el && el.nodeType === 1 ? el : null;
+        const img = node?.tagName === 'IMG' ? node : node?.querySelector?.('img');
+        const src = img?.currentSrc || img?.src;
+        if (!src || src.startsWith('data:')) return;
+        const overlay = document.getElementById('rnp-photo-lightbox');
+        const big = document.getElementById('rnp-photo-lightbox-img');
+        if (!overlay || !big) return;
+        const large = _largePhotoSrc(src);
+        let usedFallback = false;
+        big.onerror = () => {
+            if (usedFallback || large === src) return;
+            usedFallback = true;
+            big.src = src;
+        };
+        big.src = large;
+        overlay.classList.add('is-open');
+        _bindOverlayKeydown();
+    }
+
+    function closePhoto() {
+        const overlay = document.getElementById('rnp-photo-lightbox');
+        const big = document.getElementById('rnp-photo-lightbox-img');
+        if (overlay) overlay.classList.remove('is-open');
+        if (big) {
+            big.onerror = null;
+            big.removeAttribute('src');
+        }
+        _unbindOverlayKeydown();
+    }
+
     function _onSettingsKeydown(e) {
-        if (e.key === 'Escape') closeSettings();
+        _onOverlayKeydown(e);
     }
 
     function closeSettings() {
         const overlay = document.getElementById('rnp-settings-overlay');
         if (overlay) overlay.classList.remove('is-open');
-        document.removeEventListener('keydown', _onSettingsKeydown);
+        _unbindOverlayKeydown();
     }
 
     async function openSettings(opts) {
@@ -5134,7 +5201,7 @@ const RNP = (() => {
         const el = _settingsHost();
         if (!el) return;
         if (overlay) overlay.classList.add('is-open');
-        document.addEventListener('keydown', _onSettingsKeydown);
+        _bindOverlayKeydown();
         if (!_db || !_cab) {
             el.innerHTML = `<div class="p-10 text-center" style="color:var(--text-muted)">
               <p class="mb-4">Кабинет не инициализирован.</p>
@@ -5624,7 +5691,7 @@ const RNP = (() => {
     }
     setTimeout(_retryRnpBoot, 800);
 
-    return { init, initCore, ensureReady, openSettings, closeSettings, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, initCore, ensureReady, openSettings, closeSettings, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
