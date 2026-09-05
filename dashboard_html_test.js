@@ -154,7 +154,7 @@ assert.ok(
 }
 assert.ok(
     html.includes('padding-top: calc(28px + env(safe-area-inset-top, 0px)) !important;') &&
-    html.includes('padding-bottom: calc(44px + env(safe-area-inset-bottom, 0px)) !important;'),
+    html.includes('padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)) !important;'),
     'page content reserves the compact pinned bars plus iPhone safe areas'
 );
 assert.ok(
