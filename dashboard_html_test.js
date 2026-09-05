@@ -213,7 +213,9 @@ assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903161000_orders_filled_until.sql')),
     'orders_filled_until migration must exist'
 );
-assert.ok(rnpSrc.includes('показы РК'), 'toolbar must show live ad impressions so empty cells are not silent');
+assert.ok(!rnpSrc.includes('показы РК'), 'toolbar must not show cryptic RK live totals');
+assert.ok(!rnpSrc.includes('клики РК'), 'toolbar must not show cryptic RK click totals');
+assert.ok(!rnpSrc.includes('мин назад'), 'toolbar must not show «N мин назад» freshness chatter');
 assert.ok(rnpSrc.includes('existing ? !!existing.is_active : (activateCatalog || activateNew)'),
     'catalog sync must not turn back on articles the seller already hid');
 assert.ok(

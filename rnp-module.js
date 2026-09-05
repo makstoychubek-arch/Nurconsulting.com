@@ -3200,16 +3200,6 @@ const RNP = (() => {
         (nmIds || []).forEach(nm => _fillLiveZeros(_ensureCacheDay(nm, today)));
     }
 
-    function _visibleLiveTotals(active, cal) {
-        const kpi = _cabinetPeriodSummary(active, cal) || {};
-        return {
-            orders: Number(kpi.orders_count || 0),
-            adImp: Number(kpi.ad_impressions || 0),
-            adClicks: Number(kpi.ad_clicks || 0),
-            impressions: Number(kpi.impressions || 0),
-        };
-    }
-
     async function _hydrateFunnelAfterPaint(snapCab, renderId) {
         if (!_callProxy || !_cab) return;
         const nmIds = _cabArticles().filter(a => a.is_active).map(a => Number(a.nm_id)).filter(n => n > 0);
@@ -3406,14 +3396,10 @@ const RNP = (() => {
     function _updateRnpFreshness() {
         const el = document.getElementById('rnp-freshness');
         if (!el) return;
-        const ts = window._rnpLastLoadedAt;
-        if (!ts) { el.textContent = ''; return; }
-        const min = Math.round((Date.now() - ts) / 60000);
-        const age = min < 1 ? 'свежие' : `${min} мин назад`;
-        const active = _cabArticles().filter(a => a.is_active);
-        const live = _visibleLiveTotals(active, _buildCalendar());
-        el.textContent = `${age} · заказы ${live.orders.toLocaleString('ru')} · показы РК ${live.adImp.toLocaleString('ru')} · клики РК ${live.adClicks.toLocaleString('ru')}`;
-        el.title = `Показы (воронка): ${live.impressions.toLocaleString('ru')} — WB отдаёт только последние 7 дней, старше храним в кэше. Заказы — из wb_orders. РК — из advertising_daily_stats.`;
+        // Keep syncFinance progress («Финотчёт WB…»); hide idle tech stats.
+        if (_financeSyncInflight) return;
+        el.textContent = '';
+        el.removeAttribute('title');
     }
 
     // ─── HISTORICAL ORDERS SYNC (from wb_orders table) ───────────────────────
