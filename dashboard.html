@@ -2854,6 +2854,7 @@
 
         /* === МОБИЛЬНАЯ ВЕРСИЯ === */
         .mobile-menu-btn { display: none; }
+        .bottom-nav, .bottom-beta-sheet, .bottom-beta-overlay { display: none; }
 
         @media (max-width: 1024px) {
             .rnp-table-scroll {
@@ -2900,12 +2901,136 @@
                 border-right-color: var(--border);
                 box-shadow: none;
             }
-            .mobile-menu-btn {
+            .mobile-menu-btn { display: none !important; }
+            .sidebar-app {
+                pointer-events: none !important;
+                transform: translateX(-100%) !important;
+            }
+            .bottom-nav {
+                display: flex;
+                position: fixed;
+                left: 0;
+                right: 0;
+                bottom: calc(env(safe-area-inset-bottom, 0px) + var(--nr-vv-gap, 0px));
+                z-index: 1000;
+                align-items: flex-end;
+                justify-content: space-around;
+                gap: 2px;
+                height: auto;
+                min-height: 56px;
+                padding: 6px 4px 10px;
+                background: var(--surface-solid);
+                border-top: 1px solid var(--border);
+                box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.06);
+            }
+            [data-theme="neon"] .bottom-nav {
+                box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.35);
+            }
+            .bottom-nav-btn {
+                flex: 1;
+                min-width: 0;
+                min-height: 48px;
+                border: none;
+                background: none;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 3px;
+                color: var(--text-muted);
+                font-family: var(--font-ui);
+                cursor: pointer;
+                padding: 4px 2px;
+                -webkit-tap-highlight-color: transparent;
+            }
+            .bottom-nav-btn .bn-ico {
+                width: 28px; height: 28px;
                 display: flex; align-items: center; justify-content: center;
-                width: 40px; height: 40px; border-radius: 12px;
-                background: var(--accent-soft); border: 1px solid var(--accent-border);
-                cursor: pointer; color: var(--accent); font-size: 20px;
+            }
+            .bottom-nav-btn .bn-ico svg { width: 22px; height: 22px; }
+            .bottom-nav-btn .bn-lbl {
+                font-size: 10px; font-weight: 600; letter-spacing: -0.02em;
+                line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+            }
+            .bottom-nav-btn.active { color: var(--text-primary); }
+            .bottom-nav-btn.active .bn-lbl { font-weight: 800; }
+            .bottom-nav-btn--home .bn-ico {
+                width: 44px; height: 44px; border-radius: 14px;
+                background: var(--accent-soft); color: var(--accent);
+            }
+            .bottom-nav-btn--home .bn-ico svg { width: 24px; height: 24px; }
+            .bottom-nav-btn--home.active .bn-ico {
+                background: var(--accent); color: #fff;
+            }
+            .bottom-nav-btn--home .bn-lbl { font-weight: 800; color: var(--text-primary); }
+            .bn-ico-moon { display: none; }
+            [data-theme="neon"] .bn-ico-sun { display: none; }
+            [data-theme="neon"] .bn-ico-moon { display: flex; }
+            .main-rail {
+                padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px) + var(--nr-vv-gap, 0px)) !important;
+            }
+            .bottom-beta-overlay {
+                display: block;
+                position: fixed; inset: 0; z-index: 1001;
+                background: rgba(0, 0, 0, 0.4);
+                backdrop-filter: blur(4px);
+                -webkit-backdrop-filter: blur(4px);
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transition: opacity 0.32s ease, visibility 0.32s ease;
+            }
+            .bottom-beta-overlay.active {
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+            }
+            .bottom-beta-sheet {
+                display: flex;
+                flex-direction: column;
+                position: fixed;
+                left: 0; right: 0;
+                bottom: var(--nr-vv-gap, 0px);
+                z-index: 1002;
+                max-height: min(78vh, 640px);
+                background: var(--surface-solid);
+                border-radius: 20px 20px 0 0;
+                transform: translateY(110%);
+                transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+                padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+                box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18);
+                pointer-events: none;
+                will-change: transform;
+            }
+            .bottom-beta-sheet.is-open {
+                transform: translateY(0);
+                pointer-events: auto;
+            }
+            .bottom-beta-body .flyout-sec { padding: 12px 10px 4px; }
+            .bottom-beta-body .nav-item { margin: 2px 4px; }
+            .bottom-beta-handle {
+                width: 36px; height: 4px; border-radius: 999px;
+                background: var(--border-strong); margin: 8px auto 4px;
                 flex-shrink: 0;
+            }
+            .bottom-beta-head {
+                font-family: var(--font-display);
+                font-size: 16px; font-weight: 700;
+                padding: 6px 16px 10px; color: var(--text-primary);
+            }
+            .bottom-beta-body {
+                overflow-y: auto; -webkit-overflow-scrolling: touch;
+                padding: 0 8px 8px; min-height: 0;
+            }
+            .bottom-beta-foot {
+                display: flex; gap: 8px; padding: 8px 16px 4px;
+                border-top: 1px solid var(--border); flex-shrink: 0;
+            }
+            .bottom-beta-foot button {
+                flex: 1; min-height: 40px; border: none; border-radius: 12px;
+                background: var(--sel); color: var(--text-primary);
+                font-size: 13px; font-weight: 700; cursor: pointer;
+                font-family: var(--font-ui);
             }
             .main-rail { margin-left: 0 !important; width: 100%; }
             body.flyout-expanded .main-rail { margin-left: 0 !important; }
@@ -4490,6 +4615,40 @@
         </div>
     </main>
 
+    <nav class="bottom-nav" id="nr-bottom-nav" aria-label="Нижняя навигация">
+        <button type="button" class="bottom-nav-btn" id="bn-theme" onclick="toggleTheme()" title="Тема" aria-label="Переключить тему">
+            <span class="bn-ico bn-ico-sun" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
+            <span class="bn-ico bn-ico-moon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+            <span class="bn-lbl">Тема</span>
+        </button>
+        <button type="button" class="bottom-nav-btn" id="bn-rnp" data-tab="rnp" onclick="showTab('rnp')" title="РНП">
+            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
+            <span class="bn-lbl">РНП</span>
+        </button>
+        <button type="button" class="bottom-nav-btn bottom-nav-btn--home" id="bn-dash" data-tab="dashboard" onclick="showTab('dashboard')" title="Дашборд">
+            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
+            <span class="bn-lbl">Дашборд</span>
+        </button>
+        <button type="button" class="bottom-nav-btn" id="bn-rk" data-tab="advertising" onclick="showTab('advertising')" title="РК">
+            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
+            <span class="bn-lbl">РК</span>
+        </button>
+        <button type="button" class="bottom-nav-btn" id="bn-beta" onclick="toggleBetaSheet()" title="BETA" aria-label="Модули BETA">
+            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
+            <span class="bn-lbl">BETA</span>
+        </button>
+    </nav>
+    <div class="bottom-beta-overlay" id="nr-beta-overlay" onclick="closeBetaSheet()"></div>
+    <div class="bottom-beta-sheet" id="nr-beta-sheet" role="dialog" aria-label="Модули BETA" aria-hidden="true">
+        <div class="bottom-beta-handle" aria-hidden="true"></div>
+        <div class="bottom-beta-head">Модули BETA</div>
+        <div class="bottom-beta-body" id="nr-beta-sheet-body"></div>
+        <div class="bottom-beta-foot">
+            <button type="button" onclick="closeBetaSheet(); showTab('settings')">Настройки</button>
+            <button type="button" onclick="handleLogout()">Выйти</button>
+        </div>
+    </div>
+
     <!-- Cabinet Switch Overlay — hidden by default so a plain page refresh
          (F5/Ctrl+R) never shows this splash; the dashboard's own per-widget
          placeholders act as the loading state instead, and content fills in
@@ -5364,6 +5523,15 @@
         document.documentElement.setAttribute('data-theme', theme);
         localStorage.setItem('nr_theme', theme);
         if (window.NRCharts) NRCharts.refreshChartTheme();
+        const themeBtn = document.getElementById('bn-theme');
+        if (themeBtn) {
+            const dark = theme === 'neon';
+            themeBtn.setAttribute('aria-pressed', dark ? 'true' : 'false');
+            themeBtn.setAttribute('aria-label', dark ? 'Включить светлую тему' : 'Включить тёмную тему');
+            themeBtn.title = dark ? 'Светлая тема' : 'Тёмная тема';
+        }
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', theme === 'neon' ? '#1C1C1E' : '#F5F5F7');
     }
     function toggleTheme() {
         const cur = document.documentElement.getAttribute('data-theme');
@@ -5550,6 +5718,36 @@
             }
         });
         document.getElementById('rail-settings-btn')?.classList.toggle('active', tabName === 'settings');
+        syncBottomNav(tabName);
+    }
+
+    function syncBottomNav(tabName) {
+        const map = { rnp: 'bn-rnp', 'rnp-settings': 'bn-rnp', dashboard: 'bn-dash', advertising: 'bn-rk' };
+        document.querySelectorAll('#nr-bottom-nav .bottom-nav-btn[data-tab], #bn-beta').forEach(b => b.classList.remove('active'));
+        if (LIVE_TABS.has(tabName) && map[tabName]) {
+            document.getElementById(map[tabName])?.classList.add('active');
+        } else if (tabName && tabName !== 'settings') {
+            document.getElementById('bn-beta')?.classList.add('active');
+        }
+        const sheetOpen = document.getElementById('nr-beta-sheet')?.classList.contains('is-open');
+        if (sheetOpen) document.getElementById('bn-beta')?.classList.add('active');
+    }
+
+    function syncBottomNavViewport() {
+        const vv = window.visualViewport;
+        let gap = 0;
+        if (vv) gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+        document.documentElement.style.setProperty('--nr-vv-gap', gap + 'px');
+    }
+    function initBottomNavViewport() {
+        syncBottomNavViewport();
+        const vv = window.visualViewport;
+        if (vv) {
+            vv.addEventListener('resize', syncBottomNavViewport);
+            vv.addEventListener('scroll', syncBottomNavViewport);
+        }
+        window.addEventListener('resize', syncBottomNavViewport);
+        window.addEventListener('orientationchange', syncBottomNavViewport);
     }
 
     const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning']);
@@ -5696,10 +5894,13 @@
         }
         updateHeaderNav(name, true);
         document.querySelector('.main-content')?.classList.remove('rnp-compact', 'logistics-compact');
+        if (window.innerWidth <= 768) {
+            closeMobileMenu();
+            closeBetaSheet();
+        }
         syncRailGroup(name);
         syncModuleUrl('dashboard');
         try { localStorage.setItem('nr_active_tab', 'dashboard'); } catch (e) {}
-        if (window.innerWidth <= 768) openMobileFlyoutForTab(name);
         updateEmptyCabinetState();
     }
 
@@ -5746,10 +5947,13 @@
         if (name === 'ozon') loadOzonTokenPage();
         if (name === 'agents') loadAgentsPage();
         if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
+        if (window.innerWidth <= 768) {
+            closeMobileMenu();
+            closeBetaSheet();
+        }
         syncRailGroup(name);
         syncModuleUrl(name);
         try { localStorage.setItem('nr_active_tab', name); } catch(e) {}
-        if (window.innerWidth <= 768) openMobileFlyoutForTab(name);
         updateEmptyCabinetState();
     }
 
@@ -7645,19 +7849,15 @@
     // Мобильное меню
     function openMobileFlyoutForTab(tabName) {
         if (window.innerWidth > 768) return;
-        const g = LIVE_TABS.has(tabName) ? null : (TAB_GROUP[tabName] || 'beta');
-        // Вкладки с прямой кнопкой в rail (без flyout) — просто закрываем панели
-        const flyId = g ? 'fly-' + g : null;
-        const hasFlyout = !!document.getElementById(flyId);
-        document.querySelectorAll('.sidebar-flyout').forEach(f => {
-            const on = hasFlyout && f.id === flyId;
-            f.classList.toggle('mobile-active', on);
-            if (on) f.classList.add('visible');
-            else if (!f.classList.contains('pinned')) f.classList.remove('visible');
-        });
+        // На телефоне навигация в нижней панели — боковой flyout не открываем.
+        closeMobileMenu();
     }
 
     function toggleMobileMenu() {
+        if (window.innerWidth <= 768) {
+            toggleBetaSheet();
+            return;
+        }
         const sidebar = document.getElementById('sidebar-app');
         const overlay = document.getElementById('mobile-overlay');
         if (!sidebar) return;
@@ -7672,12 +7872,60 @@
         overlay?.classList.remove('active');
         document.querySelectorAll('.sidebar-flyout').forEach(f => f.classList.remove('mobile-active'));
     }
+
+    function ensureBetaSheet() {
+        const body = document.getElementById('nr-beta-sheet-body');
+        const src = document.querySelector('#fly-beta .flyout-body');
+        if (!body || !src || body.dataset.ready === '1') return;
+        body.innerHTML = src.innerHTML;
+        body.dataset.ready = '1';
+    }
+    function openBetaSheet() {
+        if (window.innerWidth > 768) return;
+        ensureBetaSheet();
+        const sheet = document.getElementById('nr-beta-sheet');
+        const overlay = document.getElementById('nr-beta-overlay');
+        if (!sheet) return;
+        overlay?.classList.add('active');
+        requestAnimationFrame(() => {
+            sheet.classList.add('is-open');
+            sheet.setAttribute('aria-hidden', 'false');
+        });
+        document.getElementById('bn-beta')?.classList.add('active');
+    }
+    function closeBetaSheet() {
+        const sheet = document.getElementById('nr-beta-sheet');
+        const overlay = document.getElementById('nr-beta-overlay');
+        if (!sheet) return;
+        const wasOpen = sheet.classList.contains('is-open');
+        sheet.classList.remove('is-open');
+        sheet.setAttribute('aria-hidden', 'true');
+        overlay?.classList.remove('active');
+        if (wasOpen) syncBottomNav(getCurrentActiveTab());
+    }
+    function toggleBetaSheet() {
+        const sheet = document.getElementById('nr-beta-sheet');
+        if (sheet?.classList.contains('is-open')) closeBetaSheet();
+        else openBetaSheet();
+    }
+    window.openBetaSheet = openBetaSheet;
+    window.closeBetaSheet = closeBetaSheet;
+    window.toggleBetaSheet = toggleBetaSheet;
+
     // Закрываем меню при выборе пункта на мобиле
     document.addEventListener('click', function(e) {
-        if (e.target.closest('.nav-item') || e.target.closest('.nav-item-standalone')) {
-            if (window.innerWidth <= 768) closeMobileMenu();
+        if (e.target.closest('#nr-beta-sheet .nav-item') || e.target.closest('.nav-item') || e.target.closest('.nav-item-standalone')) {
+            if (window.innerWidth <= 768) {
+                closeMobileMenu();
+                closeBetaSheet();
+            }
         }
     });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeBetaSheet();
+    });
+    initBottomNavViewport();
+    ensureBetaSheet();
     function onCabinetChange() {
         const s = document.getElementById('cabinet-select-header');
         const newCabinetId = s.value;
@@ -11815,6 +12063,9 @@
         }, 800);
 
         initSidebarFlyouts();
+        ensureBetaSheet();
+        syncBottomNav(getCurrentActiveTab());
+        initBottomNavViewport();
     });
 
     function initSidebarFlyouts() {

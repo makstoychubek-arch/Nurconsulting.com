@@ -105,6 +105,34 @@ assert.ok(betaFly.includes("showTab('dds'"), 'BETA flyout lists Финансы')
 assert.ok(betaFly.includes("showTab('logistics'"), 'BETA flyout lists Логистика');
 assert.ok(betaFly.includes("showTab('calculator'"), 'BETA flyout lists Калькулятор');
 assert.ok(betaFly.includes('id="sidebar-user"'), 'BETA flyout keeps the user footer');
+assert.ok(html.includes('id="nr-bottom-nav"'), 'mobile bottom nav must exist');
+{
+    const bn = html.slice(html.indexOf('id="nr-bottom-nav"'), html.indexOf('id="nr-beta-overlay"'));
+    assert.ok(
+        bn.indexOf('id="bn-theme"') < bn.indexOf('id="bn-rnp"') &&
+        bn.indexOf('id="bn-rnp"') < bn.indexOf('id="bn-dash"') &&
+        bn.indexOf('id="bn-dash"') < bn.indexOf('id="bn-rk"') &&
+        bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-beta"'),
+        'bottom nav order: theme, РНП, Дашборд, РК, BETA'
+    );
+}
+assert.ok(html.includes('bottom-nav-btn--home') && html.includes('id="bn-dash"'),
+    'dashboard is the accent center item on the bottom nav');
+assert.ok(
+    html.includes('function toggleBetaSheet') &&
+    html.includes('function openBetaSheet') &&
+    html.includes('function closeBetaSheet') &&
+    html.includes('function ensureBetaSheet'),
+    'BETA opens as a bottom sheet cloned from fly-beta'
+);
+assert.ok(
+    html.includes('env(safe-area-inset-bottom') &&
+    html.includes('--nr-vv-gap') &&
+    html.includes('visualViewport'),
+    'bottom nav sits above iPhone safe area and Safari chrome'
+);
+assert.ok(html.includes('.mobile-menu-btn { display: none !important; }'),
+    'hamburger stays hidden on mobile once the bottom nav is the entry');
 assert.ok(html.includes('id="rail-settings-btn"'), 'settings must be a small button under the profile');
 const settingsIdx = html.indexOf('id="rail-settings-btn"');
 const userIdx = html.indexOf('id="rail-user-name"');
