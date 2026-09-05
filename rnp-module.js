@@ -2278,11 +2278,9 @@ const RNP = (() => {
           </select>` : ''}
           <button type="button" class="rnp-action-btn" onclick="RNP.copyPlanFromPrevWeek()" title="${_planPeriod === 'month' ? 'Скопировать план с прошлого месяца' : 'Скопировать план с прошлой недели'}">↵ План</button>
           <button type="button" class="rnp-action-btn" onclick="RNP.exportExcel()">Excel</button>
-          <button type="button" class="rnp-action-btn rnp-action-btn--sync" id="rnp-sync-finance-btn" onclick="RNP.syncFinance()"
-            title="Подтянуть из WB финотчёт и платное хранение за последние 8 дней и пересчитать свод">Обновить из WB</button>
           <button type="button" class="rnp-action-btn rnp-action-btn--edit${_editMode ? ' active' : ''}" id="rnp-edit-mode-btn"
             onclick="RNP.toggleEditMode()" title="Режим выделения ячеек">${_editMode ? 'Готово' : 'Редактировать'}</button>
-          <span id="rnp-freshness" class="text-xs" style="color:var(--text-muted);margin-left:auto;white-space:nowrap"></span>
+          <span id="rnp-freshness" hidden></span>
           <button type="button" class="rnp-settings-gear" onclick="RNP.openSettings()" title="Настройки РНП" aria-label="Настройки РНП">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <circle cx="12" cy="12" r="3"></circle>
@@ -2308,7 +2306,7 @@ const RNP = (() => {
         const orders = kpi.orders_count || m?.ordersCount || 0;
         return `<tr class="rnp-summary-row" data-key="row-${a.nm_id}" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}">
           <td>${_syncDot(st.level)}</td>
-          <td>${_imgHtml(a, '', 'c246x328', 'width:28px;height:36px;border-radius:12px;object-fit:cover')}</td>
+          <td>${_imgHtml(a, '', 'c246x328', 'width:28px;height:36px;border-radius:4px;object-fit:contain')}</td>
           <td class="rnp-summary-name">${_sellerArticle(a)}</td>
           <td style="color:var(--text-muted)">${a.nm_id}</td>
           <td>${Math.round(orders)}</td>
@@ -2683,7 +2681,7 @@ const RNP = (() => {
 
         return `<div class="rnp-kpi-block${_strategyTab === 4 ? ' rnp-kpi-block--sizes-focus' : ''}">
           <div class="rnp-kpi-top">
-            <div class="rnp-gs-photo">${_imgHtml(art, 'rnp-gs-photo-img', 'c516x688')}</div>
+            <div class="rnp-gs-photo" title="Открыть фото" onclick="RNP.openPhoto(this)">${_imgHtml(art, 'rnp-gs-photo-img', 'c516x688')}</div>
             <div class="rnp-gs-name" title="${seller}">${_syncDot(syncSt.level)} ${seller}</div>
             <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
             <div class="rnp-gs-cost">
@@ -3387,7 +3385,7 @@ const RNP = (() => {
         window._rnpLastLoadedAt = Date.now();
         _cabinetColsCacheKey = '';
         _cabinetColsCacheVal = null;
-        _updateRnpFreshness();
+        _updateRnpFreshness({ notify: true });
         console.info('[RNP] loaded', dailyRows.length, 'daily rows,', stocks.length, 'stocks,', _metricsCache.size, 'articles');
         return true;
     }
@@ -3407,17 +3405,18 @@ const RNP = (() => {
         return result;
     }
 
-    function _updateRnpFreshness() {
+    function _updateRnpFreshness(opts) {
         const el = document.getElementById('rnp-freshness');
-        if (!el) return;
-        const ts = window._rnpLastLoadedAt;
-        if (!ts) { el.textContent = ''; return; }
-        const min = Math.round((Date.now() - ts) / 60000);
-        const age = min < 1 ? 'свежие' : `${min} мин назад`;
+        if (el) el.textContent = '';
+        if (!opts?.notify || !window._rnpLastLoadedAt) return;
         const active = _cabArticles().filter(a => a.is_active);
         const live = _visibleLiveTotals(active, _buildCalendar());
-        el.textContent = `${age} · заказы ${live.orders.toLocaleString('ru')} · показы РК ${live.adImp.toLocaleString('ru')} · клики РК ${live.adClicks.toLocaleString('ru')}`;
-        el.title = `Показы (воронка): ${live.impressions.toLocaleString('ru')} — WB отдаёт только последние 7 дней, старше храним в кэше. Заказы — из wb_orders. РК — из advertising_daily_stats.`;
+        const cab = document.getElementById('cabinet-picker-label')?.textContent?.trim() || '';
+        window.NrNotify?.push({
+            title: 'РНП обновлён',
+            detail: `${cab ? cab + ' · ' : ''}заказы ${live.orders.toLocaleString('ru')} · показы РК ${live.adImp.toLocaleString('ru')} · клики РК ${live.adClicks.toLocaleString('ru')}`,
+            key: `rnp-load-${_cab || 'x'}`,
+        });
     }
 
     // ─── HISTORICAL ORDERS SYNC (from wb_orders table) ───────────────────────
@@ -4629,15 +4628,17 @@ const RNP = (() => {
 
             const isBottomGallery = wrap.classList.contains('rnp-general-gallery-marquee');
             const stack = left?.querySelector('.rnp-head-left-stack');
-            const rawH = isBottomGallery ? 0 : (stack?.clientHeight || 0);
+            const pin = wrap.closest('.rnp-head-marquee-pin');
+            const stackH = isBottomGallery ? 0 : (stack?.clientHeight || 0);
+            if (pin && stackH > 0) pin.style.height = `${stackH}px`;
+            const availH = isBottomGallery ? 96 : (pin?.clientHeight || wrap.clientHeight || stackH || 168);
             const gap = 3;
-            let cardH = isBottomGallery ? 96 : Math.min(MARQUEE_CARD_MAX_H, Math.max(MARQUEE_CARD_MIN_H, rawH || 168));
+            let cardH = Math.min(MARQUEE_CARD_MAX_H, Math.max(88, availH));
             let cardW = Math.round(cardH * PHOTO_ASPECT_W);
 
             const baseCount = parseInt(track.dataset.baseCount, 10) || track.children.length;
             const oneSetHtml = track.dataset.baseHtml || '';
             const setW = baseCount * (cardW + gap) - gap;
-            const pin = wrap.closest('.rnp-head-marquee-pin');
             const viewW = isBottomGallery
                 ? (wrap.clientWidth || 0)
                 : (wrap.clientWidth || pin?.clientWidth || 0);
@@ -5353,14 +5354,17 @@ const RNP = (() => {
                 : r.storage?.skipped ? `хранение: пропущено (${r.storage.reason})`
                 : `хранение: ${sto} строк${r.storage?.cached ? ' (кэш)' : ''}`);
             if (coef > 0 && coef !== 1) parts.push(`коэфф. сверки хранения ${coef.toFixed(4)}`);
-            _nrDialog('РНП обновлён', `${r.from} — ${r.to}. ${parts.join('; ')}.`, 'success');
+            window.NrNotify?.push({
+                title: 'WB синхронизирован',
+                detail: `${r.from} — ${r.to}. ${parts.join('; ')}`,
+                key: `rnp-fin-${cab}`,
+            });
         } catch (e) {
             console.error('[RNP] syncFinance:', e);
             _nrDialog('Не удалось обновить из WB', String(e.message || e), 'error');
         } finally {
             _financeSyncInflight = false;
             if (btn) { btn.disabled = false; btn.textContent = 'Обновить из WB'; }
-            _updateRnpFreshness();
         }
     }
 
@@ -5641,7 +5645,6 @@ const RNP = (() => {
             if (stale) document.dispatchEvent(new CustomEvent('rnp-reload-requested'));
         });
 
-        setInterval(_updateRnpFreshness, 60000);
     }
 
     let _plansListenerBound = false;
