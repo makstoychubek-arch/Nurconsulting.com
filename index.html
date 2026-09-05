@@ -13,9 +13,14 @@
     <script src="/nr-auth.js"></script>
     <!-- Подключение Tailwind CSS и шрифтов -->
     <link rel="stylesheet" href="/dist/tailwind.3f7cebf979.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
+            --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            --font-display: "Poppins", "Inter", system-ui, sans-serif;
             --bg-base: #FAFAFA;
             --bg-surface: #FFFFFF;
             --text-primary: #111111;
@@ -38,7 +43,8 @@
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
-        body { overflow-x: hidden; background-color: var(--bg-base); font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+        body { overflow-x: hidden; background-color: var(--bg-base); font-family: var(--font-ui); }
+        h1, h2, h3, .module-title { font-family: var(--font-display); font-weight: 700; }
         img { max-width: 100%; height: auto; }
 
         .glass-card {
@@ -72,7 +78,7 @@
             transition: background 0.15s ease;
         }
         .module-card:hover { background: var(--sel); }
-        .module-icon { font-size: 1.5rem; margin-bottom: 0.75rem; }
+        .module-icon { font-size: 1.5rem; margin-bottom: 0.75rem; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
         .module-title { color: var(--text-primary); font-weight: 800; font-size: 1rem; margin-bottom: 0.5rem; letter-spacing: -0.03em; }
         .module-desc { color: var(--text-muted); font-size: 0.875rem; line-height: 1.55; }
 

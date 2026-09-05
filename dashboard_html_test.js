@@ -131,6 +131,33 @@ assert.ok(!/rail-settings-btn[\s\S]{0,400}<span>Настройки<\/span>/.test
     'settings in the rail is an icon, not a second tall text row');
 assert.ok(html.includes('--radius-card: 22px'), 'Apple-style cards use a 22px corner radius');
 assert.ok(
+    html.includes('family=Inter:wght@400;500;600') && html.includes('family=Poppins:wght@600;700'),
+    'Inter and Poppins must load from Google Fonts'
+);
+assert.ok(
+    html.includes('--font-ui: "Inter"') && html.includes('--font-display: "Poppins"'),
+    'both themes expose --font-ui and --font-display'
+);
+assert.ok(
+    html.includes('font-family: var(--font-ui)') &&
+    !html.includes('font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text"'),
+    'UI text uses the theme Inter stack, not SF Pro'
+);
+assert.ok(
+    html.includes('font-family: var(--font-display)') &&
+    html.includes('.kpi-hero-value, .kpi-value, .card-title'),
+    'headings and KPI values use Poppins via --font-display'
+);
+assert.ok(
+    /table, \.data-table, \.label, \.value-small[\s\S]{0,180}font-variant-numeric:\s*tabular-nums/.test(html),
+    'tables keep Inter tabular figures so sums and percents stay aligned'
+);
+assert.ok(
+    html.includes('.rnp-sync-dot, .ui-status-dot') &&
+    html.includes('"Apple Color Emoji", "Segoe UI Emoji"'),
+    'status dots and emoji indicators keep the system/emoji stack'
+);
+assert.ok(
     html.includes('.rnp-workspace {') &&
     html.includes('border-radius: var(--radius-card)') &&
     /rnp-sheet-table th, \.rnp-sheet-table td \{\s*border: none/.test(html),

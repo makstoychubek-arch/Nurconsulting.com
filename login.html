@@ -21,12 +21,20 @@
         })();
     </script>
     <link rel="stylesheet" href="/dist/tailwind.3f7cebf979.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fiukyfyhotctvfdidktx.supabase.co" crossorigin>
     <script src="/nr-auth.js"></script>
 
     <style>
-        body { font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+        :root {
+            --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            --font-display: "Poppins", "Inter", system-ui, sans-serif;
+        }
+        body { font-family: var(--font-ui); }
+        h1, h2, h3, .nr-brand-space, .oauth-space { font-family: var(--font-display); font-weight: 700; }
         .glass-card {
             background: #FFFFFF;
             border: none;
