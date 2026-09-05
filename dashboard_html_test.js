@@ -128,7 +128,11 @@ assert.ok(
 
 const rnpSrc = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
 assert.ok(rnpSrc.includes('function _abandonStaleMain'), 'stale RNP render must retry instead of hanging');
-assert.ok(rnpSrc.includes("functions.invoke('rnp-finance-sync'"), 'RNP «Обновить из WB» must go through the rnp-finance-sync edge function');
+assert.ok(rnpSrc.includes("functions.invoke('rnp-finance-sync'"), 'WB finance sync still goes through the rnp-finance-sync edge function');
+assert.ok(!rnpSrc.includes('rnp-action-btn--sync'), 'manual «Обновить из WB» stays off the RNP toolbar');
+assert.ok(html.includes('id="nr-notify"') && html.includes('id="nr-notify-dot"'), 'header has a notification bell with a red-dot badge');
+assert.ok(html.includes('const NrNotify'), 'notification history lives in the header bell');
+assert.ok(/\.rnp-gs-photo img\s*\{[^}]*object-fit:\s*contain/.test(html), 'left article photo shows the full frame');
 assert.ok(rnpSrc.includes("from('exchange_rates')"), 'RNP must read the fixed exchange rate from exchange_rates');
 assert.ok(rnpSrc.includes('function _latestNbkr'), 'RNP settings must show the official NBKR rate next to the working rate');
 assert.ok(rnpSrc.includes('лимиты WB не тратит'), 'RNP must explain that NBKR does not hit WB limits');
@@ -159,7 +163,8 @@ assert.ok(html.includes('rnp-th-month-stick'), 'month stick label CSS must exist
 assert.ok(html.includes('rnp-head-marquee-pin'), 'photo marquee must pin at the frozen edge while days scroll');
 assert.ok(rnpSrc.includes('rnp-head-marquee-pin'), 'marquee HTML wraps photos in the sticky pin');
 assert.ok(rnpSrc.includes('function _syncFrozenPane'), 'week/ИТОГ sticky left is applied after layout');
-assert.ok(!rnpSrc.includes('pin.style.height'), 'marquee pin height must not follow leftTh — that loop grows photos');
+assert.ok(!/pin\.style\.height\s*=\s*.*leftTh/.test(rnpSrc), 'marquee pin must not follow leftTh — that loop grows photos');
+assert.ok(rnpSrc.includes('pin.style.height = `${stackH}px`'), 'photo pin matches the KPI+sizes stack so cards are not clipped');
 assert.ok(!rnpSrc.includes('leftTh?.offsetWidth'), 'frozen width must not follow the KPI colspan');
 assert.ok(rnpSrc.includes('acc += FROZEN_COL_W'), 'sticky week offsets stay on design widths, not measured growth');
 assert.ok(rnpSrc.includes('MARQUEE_CARD_MAX_H'), 'photo cards must cap height so they do not grow on each resize');
