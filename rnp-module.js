@@ -93,9 +93,9 @@ const RNP = (() => {
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
-    const FROZEN_COL_W = 38;
-    const DAY_COL_W = 30;
-    const MONTH_COL_W = 58;
+    const FROZEN_COL_W = 44;
+    const DAY_COL_W = 36;
+    const MONTH_COL_W = 64;
     const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
     const CAL_MONTH_FROM = 5;
     const CAL_MONTH_TO = 11;
@@ -128,7 +128,7 @@ const RNP = (() => {
             { key: 'orders_sum',         label: 'Сумма Заказов',                    type: 'som', src: 'auto' },
             { key: 'sales_sum',          label: 'Сумма Продаж',                     type: 'som', src: 'auto' },
         ]},
-        { id: 'funnel', label: 'Показатели воронки Общие · WB 7 дней, старше из кэша', color: '#f59e0b', rows: [
+        { id: 'funnel', label: 'Показатели воронки', color: '#f59e0b', rows: [
             { key: 'impressions',        label: 'Показы',                           type: 'int',  src: 'promo' },
             { key: 'organic_imp_pct',    label: 'Процент органики показов',         type: 'pct',  src: 'calc' },
             { key: 'plan_impressions',   label: 'План Показов',                     type: 'int',  src: 'manual', isPlan: true },
@@ -1058,21 +1058,13 @@ const RNP = (() => {
         return entries;
     }
     function _isCatCollapsed(cat) {
-        const activeCount = (_articles || []).filter(a => a.is_active).length;
-        if (activeCount > 40) {
-            try {
-                const map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}');
-                if (map[cat] === false) return false;
-                return true;
-            } catch (e) { return true; }
-        }
         try { return (JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'))[cat] === true; }
         catch (e) { return false; }
     }
     function toggleCategory(cat) {
         let map = {};
         try { map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'); } catch (e) {}
-        map[cat] = !map[cat];
+        map[cat] = !_isCatCollapsed(cat);
         try { localStorage.setItem('rnp_collapsed_cats', JSON.stringify(map)); } catch (e) {}
         _refreshTabsBar();
         if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB) _renderActiveTable();
@@ -2294,7 +2286,6 @@ const RNP = (() => {
           <button type="button" class="rnp-action-btn rnp-action-btn--edit${_editMode ? ' active' : ''}" id="rnp-edit-mode-btn"
             onclick="RNP.toggleEditMode()" title="Режим выделения ячеек">${_editMode ? 'Готово' : 'Редактировать'}</button>
           <span id="rnp-freshness" class="text-xs" style="color:var(--text-muted);margin-left:auto;white-space:nowrap"></span>
-          ${_wbEnrichmentDegraded ? `<span class="text-xs" style="color:var(--amber);margin-left:8px" title="Лимит WB API — фото/воронка/реклама могут быть неполными">⚠ enrichment ограничен</span>` : ''}
         </div>`;
     }
 
@@ -2378,7 +2369,7 @@ const RNP = (() => {
         const genActive = _activeNm === GENERAL_TAB;
         const groups = _groupByCategory(active);
         const groupsHtml = groups.map(([cat, list]) => {
-            const collapsed = lite ? true : _isCatCollapsed(cat);
+            const collapsed = _isCatCollapsed(cat);
             const hasActive = list.some(a => a.nm_id == _activeNm);
             const catEsc = cat.replace(/'/g, "\\'");
             const tabsHtml = collapsed ? '' : list.map(a => {
@@ -4878,10 +4869,10 @@ const RNP = (() => {
                 // project preference against UI interruptions.
                 const isLiveToday = isDay && isToday && m.key === 'orders_count';
                 const liveCls = isLiveToday ? ' rnp-cell-live' : '';
-                const liveBadge = isLiveToday
-                    ? '<sup class="rnp-live-badge" title="Данные за сегодня — предварительные и могут измениться в течение дня (обновляются из статистики WB в реальном времени, а не из финального отчёта).">•live</sup>'
+                const liveTitle = isLiveToday
+                    ? ' title="Сегодня — предварительные данные, ещё обновляются"'
                     : '';
-                return `<td class="${cls}${liveCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${dataAttr}>${str ?? ''}${liveBadge}</td>`;
+                return `<td class="${cls}${liveCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${str ?? ''}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',
@@ -5298,6 +5289,13 @@ const RNP = (() => {
         if (document.getElementById('tab-rnp-settings')?.classList.contains('active')) _renderSettings({ preserveScroll: true });
     }
 
+    function _refreshRnpAfterArticleToggle() {
+        _refreshTabsBar();
+        if (document.getElementById('tab-rnp')?.classList.contains('active')) {
+            _renderActiveTable().catch(() => {});
+        }
+    }
+
     async function toggleArt(nmId) {
         const art = _articles.find(a => a.nm_id == nmId);
         if (!art) return;
@@ -5305,6 +5303,8 @@ const RNP = (() => {
         await _updateArticle(nmId, { is_active: next });
         _patchSettingsToggleUi(nmId, next);
         _updateSettingsActiveCounts();
+        if (!next && Number(_activeNm) === Number(nmId)) _activeNm = GENERAL_TAB;
+        _refreshRnpAfterArticleToggle();
     }
 
     async function enableAll(on) {
@@ -5313,6 +5313,7 @@ const RNP = (() => {
             _patchSettingsToggleUi(btn.getAttribute('data-toggle-nm'), on);
         });
         _updateSettingsActiveCounts();
+        _refreshRnpAfterArticleToggle();
     }
 
     async function setCost(nmId, val) {

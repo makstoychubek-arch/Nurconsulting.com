@@ -20,6 +20,11 @@ assert.ok(fn.includes('order_date: dayStr'), 'stores WB flag=1 day, not ISO time
 assert.ok(fn.includes('srid-check'), 'does not move an srid onto another day');
 assert.ok(fn.includes('rnp_daily_data'), 'writes article metrics');
 assert.ok(fn.includes('sales-funnel/products/history'), 'refreshes funnel for all articles');
+assert.ok(fn.includes("mode: 'stocks'") && fn.includes('syncStocksViaAutoSync'),
+    'morning fill must refresh size-level stocks for the same cabinet group');
+assert.ok(fn.includes('остатки по размерам'), 'Karina reports stocks in the done message');
+assert.ok(auto.includes('techSize || s.wbSize || s.sizeName || meta?.techSize'),
+    'FBO stocks must get tech_size from the WB card so the RNP size grid is filled');
 assert.ok(fn.includes('i += 20') && fn.includes('fetchFunnelChunk'), 'funnel is chunked by WB 20-nmId limit');
 assert.ok(fn.includes('datesIn') && fn.includes('wantFunnel'), 'catch-up can pass dates and skip funnel');
 assert.ok(fn.includes('Я Карина, начинаю заполнять РНП'), 'start message is Karina');

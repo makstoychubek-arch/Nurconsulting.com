@@ -976,7 +976,7 @@
            карточки не уезжают под KPI и не «заходят» за левую панель. */
         .rnp-head-marquee-pin {
             position: sticky;
-            left: var(--rnp-frozen-left, 438px);
+            left: var(--rnp-frozen-left, 480px);
             width: var(--rnp-marquee-visible, 40vw);
             max-width: 100%;
             height: 100%;
@@ -1246,17 +1246,17 @@
         }
         .rnp-sheet-table {
             border-collapse: separate; border-spacing: 0;
-            font-size: 9px; width: max-content; min-width: 100%;
+            font-size: 8px; width: max-content; min-width: 100%;
             --rnp-row1: 22px; --rnp-row2: 20px; --rnp-row3: 16px; --rnp-row4: 18px;
             --rnp-head-h: calc(var(--rnp-row1) + var(--rnp-row2) + var(--rnp-row3) + var(--rnp-row4));
-            --rnp-metric-w: 132px; --rnp-spark-w: 40px; --rnp-day-w: 30px;
+            --rnp-metric-w: 132px; --rnp-spark-w: 40px; --rnp-day-w: 36px;
         }
         .rnp-sheet-table .rnp-day-col {
             width: var(--rnp-day-w); min-width: var(--rnp-day-w); max-width: var(--rnp-day-w);
             box-sizing: border-box;
         }
         .rnp-sheet-table--months {
-            --rnp-month-w: 58px;
+            --rnp-month-w: 64px;
             --rnp-rowq1: 20px;
             --rnp-rowq2: 16px;
         }
@@ -1467,7 +1467,7 @@
             background-image: linear-gradient(var(--accent-soft), var(--accent-soft)) !important;
         }
         .rnp-sheet-table tbody .rnp-col-sticky-total { z-index: 12; }
-        .rnp-sheet-table .rnp-cell-hero { font-size: 12px !important; font-weight: 700 !important; color: var(--accent) !important; }
+        .rnp-sheet-table .rnp-cell-hero { font-size: 10px !important; font-weight: 700 !important; color: var(--accent) !important; }
         .rnp-sheet-table .rnp-cell-competitor { background: rgba(245, 158, 11, 0.08) !important; }
         .rnp-sheet-table .rnp-gs-section-title { font-weight: 700; font-size: 9px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; }
         .rnp-sheet-table .rnp-section-fill { background: var(--surface-solid) !important; }
@@ -1498,20 +1498,20 @@
             padding: 1px 2px; vertical-align: middle;
         }
         .rnp-sheet-table .rnp-th-day .rnp-dow { font-size: 7px; font-weight: 400; color: var(--text-muted); display: block; line-height: 1; margin-top: 1px; }
-        .rnp-sheet-table .rnp-th-week { font-size: 7px; min-width: 38px; max-width: 44px; color: var(--text-muted); }
+        .rnp-sheet-table .rnp-th-week { font-size: 7px; min-width: 44px; max-width: 48px; color: var(--text-muted); }
         .rnp-sheet-table .rnp-th-week.rnp-data-col,
         .rnp-sheet-table .rnp-th-dow.rnp-data-col,
         .rnp-sheet-table .rnp-col-sticky.rnp-data-col {
-            min-width: 38px; max-width: 38px; width: 38px;
+            min-width: 44px; max-width: 44px; width: 44px;
         }
         .rnp-sheet-table .rnp-th-day.today { color: var(--accent); font-weight: 800; border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); }
-        .rnp-sheet-table .rnp-data-col { min-width: 38px; max-width: 38px; width: 38px; font-size: 9px; padding: 1px 2px; }
+        .rnp-sheet-table .rnp-data-col { min-width: 44px; max-width: 44px; width: 44px; font-size: 8px; padding: 1px 2px; }
         .rnp-sheet-table .rnp-section-hdr td { cursor: pointer; }
         .rnp-sheet-table .rnp-cell-week { background: rgba(99,102,241,0.05); }
         .rnp-sheet-table .rnp-cell-today { border-left: 2px solid var(--accent) !important; border-right: 2px solid var(--accent) !important; }
         /* Preliminary/live indicator for today's orders_count cell (see rnp-module.js _renderSection) */
         .rnp-sheet-table .rnp-cell-live { border-bottom: 1px dashed var(--accent) !important; position: relative; }
-        .rnp-live-badge { font-size: 6px; color: var(--accent); font-weight: 700; margin-left: 1px; cursor: help; opacity: 0.85; vertical-align: super; }
+        .rnp-live-badge { display: none; }
         .rnp-sheet-table .rnp-cell-month-start { border-left: 2px solid var(--accent) !important; }
         .rnp-sheet-table tbody tr:not(.rnp-row-plan):hover .rnp-metric-col,
         .rnp-sheet-table tbody tr:not(.rnp-row-plan):hover .rnp-spark-col {
