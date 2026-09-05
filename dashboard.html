@@ -2671,10 +2671,10 @@
                 __nrTab = __nrQ || null;
             }
             if (!__nrTab) __nrTab = localStorage.getItem('nr_active_tab');
-            if (__nrTab && __nrTab !== 'dashboard') {
+            if (__nrTab === 'settings') {
                 var __nrStyle = document.createElement('style');
                 __nrStyle.id = 'nr-early-tab-style';
-                __nrStyle.textContent = '#tab-dashboard.active{display:none !important}#tab-' + __nrTab + '{display:block !important}';
+                __nrStyle.textContent = '#tab-dashboard.active{display:none !important}#tab-settings{display:block !important}';
                 document.head.appendChild(__nrStyle);
             }
         } catch (e) {}
@@ -2689,29 +2689,13 @@
                 <span class="rail-logo-name">NR Space</span>
             </button>
             <nav class="rail-nav">
-                <button type="button" class="rail-btn active" data-flyout="fly-ocr">
+                <button type="button" class="rail-btn active" data-tab="dashboard" title="Дашборд">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
                     <span class="rail-btn-lbl">Дашборд</span>
-                </button>
-                <button type="button" class="rail-btn" data-tab="rnp" data-flyout="fly-rnp" title="Модуль РНП">
-                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
-                    <span class="rail-btn-lbl">РНП</span>
-                </button>
-                <button type="button" class="rail-btn" data-tab="advertising" title="Контроль РК">
-                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
-                    <span class="rail-btn-lbl">РК</span>
-                </button>
-                <button type="button" class="rail-btn" data-tab="ab-testing" title="А/Б Тесты">
-                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4m0 0h18"/></svg></span>
-                    <span class="rail-btn-lbl">А/Б Тесты</span>
                 </button>
                 <button type="button" class="rail-btn" data-flyout="fly-beta">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
                     <span class="rail-btn-lbl">BETA</span>
-                </button>
-                <button type="button" class="rail-btn" data-flyout="fly-tariffs">
-                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
-                    <span class="rail-btn-lbl">Тарифы</span>
                 </button>
             </nav>
             <div class="rail-bottom">
@@ -2737,69 +2721,60 @@
             </div>
         </aside>
 
-        <div class="sidebar-flyout" id="fly-ocr" data-group="ocr">
-            <div class="flyout-header">
-                <span class="flyout-title">Оцифровка</span>
-                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
-            </div>
-            <div class="flyout-body">
-                <div class="nav-item active" onclick="showTab('dashboard', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
-                    <span>Дашборд</span>
-                </div>
-                <div class="nav-item" onclick="showTab('summary', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                    <span>Сводный отчёт</span>
-                </div>
-                <div class="nav-item" onclick="showTab('summary-biz', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-                    <span>Сводный по бизнесу</span>
-                </div>
-                <div class="nav-item" onclick="showTab('deductions', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    <span>Прочие удержания</span>
-                </div>
-                <div class="nav-item" onclick="showTab('plan-fact', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-                    <span>План-факт</span>
-                </div>
-            </div>
-            <div class="flyout-user">
-                <div class="header-avatar" id="flyout-user-initial">—</div>
-                <div class="min-w-0">
-                    <div id="sidebar-user" class="flyout-user-name">...</div>
-                    <div class="flyout-user-role">Сотрудник</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="sidebar-flyout" id="fly-rnp" data-group="rnp">
-            <div class="flyout-header">
-                <span class="flyout-title">РНП</span>
-                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
-            </div>
-            <div class="flyout-body">
-                <div class="nav-item" onclick="showTab('rnp', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-                    <span>Модуль РНП</span>
-                </div>
-                <div class="nav-item" onclick="showTab('rnp-settings', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
-                    <span>Настройки РНП</span>
-                </div>
-                <div class="nav-item" onclick="showTab('planning', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg>
-                    <span>Планирование</span>
-                </div>
-            </div>
-        </div>
-
         <div class="sidebar-flyout" id="fly-beta" data-group="beta">
             <div class="flyout-header">
                 <span class="flyout-title">Модули BETA</span>
                 <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
             </div>
             <div class="flyout-body">
+                <div class="flyout-sec">Оцифровка</div>
+                <div class="nav-item" onclick="showTab('summary', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    <span class="nav-item-label">Сводный отчёт</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="nav-item" onclick="showTab('summary-biz', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                    <span class="nav-item-label">Сводный по бизнесу</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="nav-item" onclick="showTab('deductions', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span class="nav-item-label">Прочие удержания</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="nav-item" onclick="showTab('plan-fact', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <span class="nav-item-label">План-факт</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="flyout-sec">РНП</div>
+                <div class="nav-item" onclick="showTab('rnp', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+                    <span class="nav-item-label">Модуль РНП</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="nav-item" onclick="showTab('rnp-settings', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
+                    <span class="nav-item-label">Настройки РНП</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="nav-item" onclick="showTab('planning', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg>
+                    <span class="nav-item-label">Планирование</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="flyout-sec">Реклама</div>
+                <div class="nav-item" onclick="showTab('advertising', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/></svg>
+                    <span class="nav-item-label">Контроль РК</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+                <div class="nav-item" onclick="showTab('ab-testing', this)">
+                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4"/></svg>
+                    <span class="nav-item-label">А/Б Тесты</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
                 <div class="flyout-sec">Модули</div>
                 <div class="nav-item" onclick="showTab('seo', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -2814,67 +2789,77 @@
                 <div class="flyout-sec">Товары</div>
                 <div class="nav-item" onclick="showTab('cost', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                    <span>Себестоимость</span>
+                    <span class="nav-item-label">Себестоимость</span>
+                    <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="nav-item" onclick="showTab('goods-groups', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-                    <span>Группы товаров</span>
+                    <span class="nav-item-label">Группы товаров</span>
+                    <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="nav-item" onclick="showTab('warehouse', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-                    <span>Склады</span>
+                    <span class="nav-item-label">Склады</span>
+                    <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="flyout-sec">Финансы</div>
                 <div class="nav-item" onclick="showTab('dds', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
-                    <span>ДДС</span>
+                    <span class="nav-item-label">ДДС</span>
+                    <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="nav-item" onclick="showTab('operations', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                    <span>Операции</span>
+                    <span class="nav-item-label">Операции</span>
+                    <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="nav-item" onclick="showTab('obligations', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-                    <span>Обязательства</span>
+                    <span class="nav-item-label">Обязательства</span>
+                    <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="nav-item" onclick="showTab('finance-extra', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-                    <span>Дополнительно</span>
+                    <span class="nav-item-label">Дополнительно</span>
+                    <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="flyout-sec">Прочее</div>
                 <div class="nav-item" onclick="showTab('logistics', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-                    <span>Логистика</span>
+                    <span class="nav-item-label">Логистика</span>
+                    <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="nav-item" onclick="showTab('calculator', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="8" y1="10" x2="16" y2="10"/><line x1="8" y1="14" x2="12" y2="14"/></svg>
-                    <span>Калькулятор</span>
+                    <span class="nav-item-label">Калькулятор</span>
+                    <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="nav-item" onclick="showTab('agents', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                    <span>Агенты</span>
+                    <span class="nav-item-label">Агенты</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="nav-item" onclick="showTab('telegram-bots', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>
-                    <span>Телеграм боты</span>
+                    <span class="nav-item-label">Телеграм боты</span>
+                    <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="nav-item" onclick="showTab('ozon', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg>
-                    <span>Ozon токен</span>
+                    <span class="nav-item-label">Ozon токен</span>
+                    <span class="nav-beta-badge">BETA</span>
                 </div>
-            </div>
-        </div>
-
-        <div class="sidebar-flyout" id="fly-tariffs" data-group="tariffs">
-            <div class="flyout-header">
-                <span class="flyout-title">Тарифы</span>
-                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
-            </div>
-            <div class="flyout-body">
                 <div class="nav-item" onclick="showTab('tariffs', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-                    <span>Тарифный план</span>
+                    <span class="nav-item-label">Тарифный план</span>
+                    <span class="nav-beta-badge">BETA</span>
+                </div>
+            </div>
+            <div class="flyout-user">
+                <div class="rail-avatar" id="flyout-user-initial">—</div>
+                <div class="min-w-0">
+                    <div id="sidebar-user" class="flyout-user-name">...</div>
+                    <div class="flyout-user-role">Сотрудник</div>
                 </div>
             </div>
         </div>
@@ -3089,6 +3074,17 @@
                         <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <div id="tab-beta-stub" class="tab-content space-y-6">
+            <div class="beta-module-hero">
+                <div class="beta-orb beta-orb-1"></div>
+                <div class="beta-orb beta-orb-2"></div>
+                <div class="beta-pill">BETA</div>
+                <h2 id="beta-stub-title">Модуль в BETA</h2>
+                <p id="beta-stub-text">Сейчас работает только Дашборд. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
+                <button type="button" class="space-empty-btn" style="margin-top:18px" onclick="showTab('dashboard')">К дашборду</button>
             </div>
         </div>
 
@@ -4149,6 +4145,7 @@
     }
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon']);
+    const LIVE_TABS = new Set(['dashboard', 'settings']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
     // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
@@ -4158,18 +4155,25 @@
     // подключены кабинеты — это и есть тот самый мигающий баг.
     let cabinetsLoaded = false;
 
+    function isBetaStubOpen() {
+        return !!document.getElementById('tab-beta-stub')?.classList.contains('active');
+    }
+
     function getCurrentActiveTab() {
+        if (isBetaStubOpen()) return window._betaStubTab || 'dashboard';
         try {
             if (document.getElementById('nr-early-tab-style')) {
-                const rnp = document.getElementById('tab-rnp');
-                if (rnp && getComputedStyle(rnp).display !== 'none') return 'rnp';
+                const settings = document.getElementById('tab-settings');
+                if (settings && getComputedStyle(settings).display !== 'none') return 'settings';
             }
         } catch (_) {}
         const active = document.querySelector('.tab-content.active');
+        if (active?.id === 'tab-beta-stub') return window._betaStubTab || 'dashboard';
         if (active?.id?.startsWith('tab-')) return active.id.replace('tab-', '');
         try {
             const saved = localStorage.getItem('nr_active_tab');
-            return TAB_ALIASES[saved] || saved || 'dashboard';
+            const tab = TAB_ALIASES[saved] || saved || 'dashboard';
+            return LIVE_TABS.has(tab) ? tab : 'dashboard';
         } catch (_) { return 'dashboard'; }
     }
 
@@ -4189,7 +4193,7 @@
         if (!emptyEl || !mainContent) return;
 
         const tab = getCurrentActiveTab();
-        const showEmpty = cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tab);
+        const showEmpty = cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tab) && !isBetaStubOpen();
 
         emptyEl.classList.toggle('hidden', !showEmpty);
         mainContent.classList.toggle('empty-cabinet-mode', showEmpty);
@@ -5064,16 +5068,16 @@
     };
 
     const TAB_GROUP = {
-        dashboard:'ocr', summary:'ocr', 'summary-biz':'ocr', deductions:'ocr', 'plan-fact':'ocr',
-        rnp:'rnp', 'rnp-settings':'rnp', planning:'rnp',
-        advertising:'ads',
-        'ab-testing':'ab-testing',
+        dashboard:'dashboard',
+        settings:'settings',
+        summary:'beta', 'summary-biz':'beta', deductions:'beta', 'plan-fact':'beta',
+        rnp:'beta', 'rnp-settings':'beta', planning:'beta',
+        advertising:'beta', 'ab-testing':'beta',
         seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
         'telegram-bots':'beta', ozon:'beta', agents:'beta',
         cost:'beta', 'goods-groups':'beta', warehouse:'beta',
         dds:'beta', operations:'beta', obligations:'beta', 'finance-extra':'beta',
-        settings:'settings',
-        tariffs:'tariffs',
+        tariffs:'beta',
     };
 
     function resolveTabFromUrl() {
@@ -5097,12 +5101,12 @@
     }
 
     function syncRailGroup(tabName) {
-        const g = TAB_GROUP[tabName] || 'ocr';
+        const live = LIVE_TABS.has(tabName);
         document.querySelectorAll('.rail-btn').forEach(b => {
-            if (b.dataset.flyout) {
-                b.classList.toggle('active', b.dataset.flyout === 'fly-' + g);
+            if (b.dataset.flyout === 'fly-beta') {
+                b.classList.toggle('active', !live);
             } else if (b.dataset.tab) {
-                b.classList.toggle('active', b.dataset.tab === tabName);
+                b.classList.toggle('active', live && b.dataset.tab === tabName);
             }
         });
         document.getElementById('rail-settings-btn')?.classList.toggle('active', tabName === 'settings');
@@ -5110,12 +5114,12 @@
 
     const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning']);
 
-    function updateHeaderNav(tabName) {
+    function updateHeaderNav(tabName, isStub) {
         const backBtn = document.getElementById('header-back-btn');
         const pageTitle = document.getElementById('page-title');
         const dateWrap = document.getElementById('header-date-chip-wrap');
-        const isDashboard = tabName === 'dashboard';
-        const isAdvDetail = tabName === 'advertising' && window._advView === 'detail';
+        const isDashboard = tabName === 'dashboard' && !isStub;
+        const isAdvDetail = !isStub && tabName === 'advertising' && window._advView === 'detail';
         const showEmpty = cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tabName);
 
         if (backBtn) {
@@ -5127,20 +5131,14 @@
             pageTitle.textContent = tabTitles[tabName] || tabTitles.dashboard || 'Дашборд';
         }
         if (dateWrap) {
-            const showDate = DATE_FILTER_TABS.has(tabName) && !showEmpty;
+            const showDate = !isStub && DATE_FILTER_TABS.has(tabName) && !showEmpty;
             dateWrap.classList.toggle('hidden', !showDate);
             dateWrap.style.display = showDate ? 'flex' : 'none';
         }
     }
 
     function headerGoBack() {
-        const tab = getCurrentActiveTab();
-        if (tab === 'advertising' && window._advView === 'detail') {
-            backToAdvertisingCards();
-            return;
-        }
-        const dash = document.querySelector('#fly-ocr .nav-item');
-        showTab('dashboard', dash);
+        showTab('dashboard');
         if (window.innerWidth <= 768) closeMobileMenu();
     }
     window.headerGoBack = headerGoBack;
@@ -5232,11 +5230,8 @@
     window.bootRnpTab = bootRnpTab;
     window.bootRnpSettings = bootRnpSettings;
 
-    function showTab(name, el) {
-        name = TAB_ALIASES[name] || name;
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    function highlightNavForTab(name, el) {
         document.querySelectorAll('.nav-item, .nav-item-standalone').forEach(n => n.classList.remove('active'));
-        document.getElementById('tab-' + name)?.classList.add('active');
         if (el) el.classList.add('active');
         else {
             document.querySelectorAll('.nav-item, .nav-item-standalone').forEach(n => {
@@ -5244,12 +5239,53 @@
                 if (onclick.includes(`'${name}'`) || onclick.includes(`"${name}"`)) n.classList.add('active');
             });
         }
+    }
+
+    function openBetaStub(name, el) {
+        window._betaStubTab = name;
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-beta-stub')?.classList.add('active');
+        highlightNavForTab(name, el);
+        const titleEl = document.getElementById('beta-stub-title');
+        if (titleEl) titleEl.textContent = tabTitles[name] || 'Модуль в BETA';
+        const textEl = document.getElementById('beta-stub-text');
+        if (textEl) {
+            textEl.textContent = 'Сейчас работает только Дашборд. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
+        }
+        const mainRefresh = document.getElementById('refresh-btn');
+        if (mainRefresh) {
+            mainRefresh.style.display = 'none';
+            mainRefresh.onclick = refreshData;
+        }
+        updateHeaderNav(name, true);
+        document.querySelector('.main-content')?.classList.remove('rnp-compact', 'logistics-compact');
+        syncRailGroup(name);
+        syncModuleUrl('dashboard');
+        try { localStorage.setItem('nr_active_tab', 'dashboard'); } catch (e) {}
+        if (window.innerWidth <= 768) openMobileFlyoutForTab(name);
+        updateEmptyCabinetState();
+    }
+
+    function showTab(name, el) {
+        name = TAB_ALIASES[name] || name;
+        if (!LIVE_TABS.has(name)) {
+            openBetaStub(name, el);
+            return;
+        }
+        window._betaStubTab = null;
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.nav-item, .nav-item-standalone').forEach(n => n.classList.remove('active'));
+        document.getElementById('tab-' + name)?.classList.add('active');
+        highlightNavForTab(name, el);
         const mainRefresh = document.getElementById('refresh-btn');
         if (mainRefresh) {
             mainRefresh.style.display = name === 'dashboard' ? '' : 'none';
             mainRefresh.onclick = refreshData;
         }
         updateHeaderNav(name);
+        if (name === 'dashboard' || name === 'settings') {
+            window.closeSidebarMenus?.(true);
+        }
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
         if (name === 'ab-testing') loadABTests();
@@ -7164,9 +7200,9 @@
     // Мобильное меню
     function openMobileFlyoutForTab(tabName) {
         if (window.innerWidth > 768) return;
-        const g = TAB_GROUP[tabName] || 'ocr';
+        const g = LIVE_TABS.has(tabName) ? null : (TAB_GROUP[tabName] || 'beta');
         // Вкладки с прямой кнопкой в rail (без flyout) — просто закрываем панели
-        const flyId = 'fly-' + g;
+        const flyId = g ? 'fly-' + g : null;
         const hasFlyout = !!document.getElementById(flyId);
         document.querySelectorAll('.sidebar-flyout').forEach(f => {
             const on = hasFlyout && f.id === flyId;
@@ -7261,12 +7297,13 @@
             await loadFromDB();
             await loadLastSyncTime();
             const rnpMod = getRnp();
-            if (rnpMod) {
+            if (rnpMod && !isBetaStubOpen()) {
                 rnpMod.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
                 bootRnpTab(true);
                 bootRnpSettings(true);
             }
             const curTab = getCurrentActiveTab() || localStorage.getItem('nr_active_tab');
+            if (isBetaStubOpen() || !LIVE_TABS.has(curTab)) return;
             if (curTab === 'logistics') initLogisticsSupplies();
             if (curTab === 'goods-groups') loadGoodsGroups();
             if (curTab === 'advertising') openAdvertisingTab();
@@ -11120,7 +11157,8 @@
 
         const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '—';
         const initial = name.charAt(0).toUpperCase();
-        document.getElementById('sidebar-user').textContent = name;
+        const sidebarUser = document.getElementById('sidebar-user');
+        if (sidebarUser) sidebarUser.textContent = name;
         const railName = document.getElementById('rail-user-name');
         if (railName) railName.textContent = name;
         document.getElementById('user-initial').textContent = initial;
@@ -11145,9 +11183,8 @@
         try {
             savedTab = resolveTabFromUrl() || localStorage.getItem('nr_active_tab');
             if (savedTab) savedTab = TAB_ALIASES[savedTab] || savedTab;
-            if (savedTab && savedTab !== 'dashboard') {
-                showTab(savedTab, null);
-            }
+            if (savedTab === 'settings') showTab('settings', null);
+            else showTab('dashboard', null);
         } catch (e) {
             console.error('[init] tab restore:', e);
         } finally {
@@ -11169,15 +11206,17 @@
             try {
                 const cur = getCurrentActiveTab();
                 const rnpMod = getRnp();
-                if (currentCabinetId && hasUserCabinets && rnpMod) {
+                if (currentCabinetId && hasUserCabinets && rnpMod && !isBetaStubOpen()) {
                     rnpMod.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
                 }
-                bootRnpTab(true);
-                bootRnpSettings(true);
+                if (!isBetaStubOpen()) {
+                    bootRnpTab(true);
+                    bootRnpSettings(true);
+                }
                 // Прочие вкладки, чьи on-tab-open загрузчики были no-op'нуты выше
                 // (hasUserCabinets был false в момент первого showTab) — дозапускаем
                 // теперь, когда кабинеты и данные уже готовы.
-                if (hasUserCabinets) {
+                if (hasUserCabinets && !isBetaStubOpen() && LIVE_TABS.has(cur)) {
                     if (cur === 'logistics') initLogisticsSupplies();
                     else if (cur === 'goods-groups') loadGoodsGroups();
                     else if (cur === 'advertising') openAdvertisingTab();
@@ -11212,10 +11251,21 @@
             flyouts.forEach(f => f.classList.toggle('visible', f.id === id));
             syncFlyoutLayout();
         }
-        function hideFlyouts() {
-            flyouts.forEach(f => f.classList.toggle('visible', f.classList.contains('pinned')));
+        function hideFlyouts(force) {
+            flyouts.forEach(f => {
+                if (force) {
+                    f.classList.remove('pinned', 'visible', 'mobile-active');
+                    f.querySelector('.flyout-pin')?.classList.remove('pinned');
+                } else {
+                    f.classList.toggle('visible', f.classList.contains('pinned'));
+                }
+            });
+            if (force) {
+                try { localStorage.removeItem('nr_flyout_pinned'); } catch (_) {}
+            }
             syncFlyoutLayout();
         }
+        window.closeSidebarMenus = hideFlyouts;
 
         app.querySelectorAll('.rail-btn').forEach(btn => {
             const tab = btn.dataset.tab;
@@ -11223,10 +11273,9 @@
             btn.addEventListener('mouseenter', () => {
                 if (window.innerWidth <= 768) return;
                 if (fly) showFlyout(fly);
-                else hideFlyouts();
+                else hideFlyouts(true);
             });
             btn.addEventListener('click', () => {
-                // РНП: сразу открываем модуль (как А/Б и РК), flyout остаётся для настроек.
                 if (tab) showTab(tab, null);
                 if (fly) {
                     showFlyout(fly);
@@ -11236,7 +11285,7 @@
                         });
                     }
                 } else {
-                    hideFlyouts();
+                    hideFlyouts(true);
                     if (window.innerWidth <= 768) closeMobileMenu();
                 }
             });
@@ -11264,20 +11313,18 @@
         });
         app.addEventListener('mouseleave', () => { hideTimer = setTimeout(hideFlyouts, 80); });
 
-        const pinnedId = localStorage.getItem('nr_flyout_pinned');
-        if (pinnedId) {
-            const f = document.getElementById(pinnedId);
-            if (f) {
-                f.classList.add('pinned', 'visible');
-                f.querySelector('.flyout-pin')?.classList.add('pinned');
-            }
-        }
+        // Старый pin «Оцифровка» / BETA не должен открывать вторую колонку
+        // рядом с дашбордом при загрузке.
+        try {
+            const pinnedId = localStorage.getItem('nr_flyout_pinned');
+            if (pinnedId && pinnedId !== 'fly-beta') localStorage.removeItem('nr_flyout_pinned');
+        } catch (_) {}
+        hideFlyouts(true);
         syncFlyoutLayout();
 
         document.getElementById('sidebar-home-btn')?.addEventListener('click', () => {
-            const dash = document.querySelector('#fly-ocr .nav-item');
-            showTab('dashboard', dash);
-            showFlyout('fly-ocr');
+            showTab('dashboard');
+            hideFlyouts(true);
         });
     }
 </script>
