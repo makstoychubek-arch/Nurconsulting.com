@@ -220,20 +220,37 @@ assert.ok(!rnpSrc.includes('function _isCatCollapsed(cat) {\n        return fals
 assert.ok(!rnpSrc.includes('lite ? true'), 'lite mode must not force-collapse every article group');
 assert.ok(rnpSrc.includes('const DAY_COL_W = 54'), 'day cells must fit sums like 137 020');
 assert.ok(rnpSrc.includes('const FROZEN_COL_W = 54'), 'week/ИТОГ cells must match the wider day grid');
-assert.ok(rnpSrc.includes('function _ruClothingToLetter(n)'), 'RNP must map RU clothing sizes onto the XXS–5XL grid');
+assert.ok(!rnpSrc.includes('function _ruClothingToLetter'), 'do not guess RU/EU numbers onto XXS–5XL');
 {
-    const start = rnpSrc.indexOf('function _ruClothingToLetter');
+    const start = rnpSrc.indexOf('function _normSize');
     const end = rnpSrc.indexOf('function _nrDialog');
-    assert.ok(start > 0 && end > start, 'size helpers must sit next to _normSize');
-    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _ruClothingToLetter, _normSize };`)();
-    assert.strictEqual(fns._normSize('40'), 'S');
+    assert.ok(start > 0 && end > start, 'size helper must sit next to _normSize');
+    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _normSize };`)();
+    assert.strictEqual(fns._normSize('36'), '36');
+    assert.strictEqual(fns._normSize('40'), '40');
     assert.strictEqual(fns._normSize('S (40-42)'), 'S');
-    assert.strictEqual(fns._normSize('44'), 'M');
+    assert.strictEqual(fns._normSize('44'), '44');
     assert.strictEqual(fns._normSize('M (44-46)'), 'M');
-    assert.strictEqual(fns._normSize('42-44'), 'S');
-    assert.strictEqual(fns._normSize('54-56'), 'XL');
+    assert.strictEqual(fns._normSize('42-44'), '42-44');
+    assert.strictEqual(fns._normSize('54-56'), '54-56');
     assert.strictEqual(fns._normSize('XXL'), 'XXL');
     assert.strictEqual(fns._normSize(''), '—');
+}
+assert.ok(
+    rnpSrc.includes('keys.length ? keys.sort(_sortSizes) : ALL_SIZES.slice()'),
+    'size grid must show WB tech_size columns, not a fixed XXS–5XL template'
+);
+{
+    const sortStart = rnpSrc.indexOf('function _sortSizes');
+    const sortEnd = rnpSrc.indexOf('async function _loadAllStocks');
+    assert.ok(sortStart > 0 && sortEnd > sortStart, 'numeric sizes must sort as numbers');
+    const sortFns = new Function(`
+        const SIZE_ORDER = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL','4XL','5XL'];
+        ${rnpSrc.slice(sortStart, sortEnd)}
+        return { _sortSizes };
+    `)();
+    assert.deepStrictEqual(['44', '36', '40'].sort(sortFns._sortSizes), ['36', '40', '44']);
+    assert.deepStrictEqual(['XL', 'S', 'M'].sort(sortFns._sortSizes), ['S', 'M', 'XL']);
 }
 assert.ok(html.includes('--rnp-day-w: 54px'), 'CSS day column width must match JS');
 assert.ok(rnpSrc.includes('nmIds'), 'funnel hydrate must request all active articles, not one nm');
