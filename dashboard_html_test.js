@@ -195,9 +195,11 @@ assert.ok(rnpSrc.includes("label: 'Показатели воронки'"), 'funn
 assert.ok(!rnpSrc.includes('WB 7 дней, старше из кэша'), 'technical funnel footnote must stay off the sheet');
 assert.ok(!rnpSrc.includes('•live'), 'live badge text must not sit on the grid');
 assert.ok(!rnpSrc.includes('enrichment ограничен'), 'English enrichment warning must stay hidden');
-assert.ok(rnpSrc.includes('<div class="rnp-cat-tabs">${tabsHtml}</div>'), 'every category in the RNP tab bar must show its article tabs');
+assert.ok(rnpSrc.includes("map[cat] = !_isCatCollapsed(cat)"), 'clicking a category group hides or shows its articles');
+assert.ok(rnpSrc.includes("localStorage.getItem('rnp_collapsed_cats')"), 'collapsed category groups persist');
+assert.ok(rnpSrc.includes('${collapsed ? \'\' : `<div class="rnp-cat-tabs">${tabsHtml}</div>`}'), 'collapsed groups hide their article tabs');
+assert.ok(!rnpSrc.includes('function _isCatCollapsed(cat) {\n        return false;'), 'category groups must be able to collapse');
 assert.ok(!rnpSrc.includes('lite ? true'), 'lite mode must not force-collapse every article group');
-assert.ok(rnpSrc.includes('function _isCatCollapsed(cat) {\n        return false;'), 'article groups stay open so variants are clickable in RNP');
 assert.ok(rnpSrc.includes('const DAY_COL_W = 54'), 'day cells must fit sums like 137 020');
 assert.ok(rnpSrc.includes('const FROZEN_COL_W = 54'), 'week/ИТОГ cells must match the wider day grid');
 assert.ok(html.includes('--rnp-day-w: 54px'), 'CSS day column width must match JS');
