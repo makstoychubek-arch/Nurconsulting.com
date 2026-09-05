@@ -117,6 +117,7 @@ assert.ok(html.includes('id="nr-bottom-nav"'), 'mobile bottom nav must exist');
     );
     assert.ok(!bn.includes('id="bn-theme"') && !bn.includes('toggleTheme()'),
         'theme toggle is not on the bottom nav');
+    assert.ok(bn.includes('M19.4 15a1.65'), 'bottom-nav settings uses a cog icon');
 }
 assert.ok(html.includes('bottom-nav-btn--home') && html.includes('id="bn-dash"'),
     'dashboard is the accent center item on the bottom nav');
@@ -159,6 +160,8 @@ assert.ok(
     const railIcons = html.slice(html.indexOf('class="rail-bottom-icons"'), html.indexOf('id="fly-beta"'));
     assert.ok(railIcons.includes('id="rail-settings-btn"') && !railIcons.includes('toggleTheme()'),
         'left rail keeps the settings gear and drops the theme switch');
+    assert.ok(railIcons.includes('M19.4 15a1.65') && !railIcons.includes('M19.07 4.93l-1.41'),
+        'rail settings icon is a cog, not the sun-ray mark');
 }
 assert.ok(
     html.includes("settings: 'bn-settings'") &&
