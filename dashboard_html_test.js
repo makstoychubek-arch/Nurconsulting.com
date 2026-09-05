@@ -133,6 +133,11 @@ assert.ok(
 );
 assert.ok(html.includes('.mobile-menu-btn { display: none !important; }'),
     'hamburger stays hidden on mobile once the bottom nav is the entry');
+assert.ok(
+    html.includes('.bottom-nav-btn .bn-ico-moon { display: none; }') &&
+    html.includes('[data-theme="neon"] .bottom-nav-btn .bn-ico-sun { display: none; }'),
+    'theme icon must beat .bn-ico { display:flex } so sun and moon do not stack'
+);
 assert.ok(html.includes('id="rail-settings-btn"'), 'settings must be a small button under the profile');
 const settingsIdx = html.indexOf('id="rail-settings-btn"');
 const userIdx = html.indexOf('id="rail-user-name"');
