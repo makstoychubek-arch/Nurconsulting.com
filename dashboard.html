@@ -2908,13 +2908,16 @@
                 pointer-events: none !important;
                 transform: translateX(-100%) !important;
             }
+            html, body {
+                overscroll-behavior-y: none;
+            }
             .bottom-nav {
                 display: flex;
                 position: fixed;
                 left: 0;
                 right: 0;
-                bottom: calc(env(safe-area-inset-bottom, 0px) + var(--nr-vv-gap, 0px));
-                z-index: 1000;
+                bottom: env(safe-area-inset-bottom, 0);
+                z-index: 9999;
                 align-items: flex-end;
                 justify-content: space-around;
                 gap: 2px;
@@ -2924,6 +2927,10 @@
                 background: var(--surface-solid);
                 border-top: 1px solid var(--border);
                 box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.06);
+                transform: translateZ(0);
+                will-change: transform;
+                -webkit-backface-visibility: hidden;
+                backface-visibility: hidden;
             }
             [data-theme="neon"] .bottom-nav {
                 box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.35);
@@ -2969,11 +2976,14 @@
             [data-theme="neon"] .bottom-nav-btn .bn-ico-sun { display: none; }
             [data-theme="neon"] .bottom-nav-btn .bn-ico-moon { display: flex; }
             .main-rail {
-                padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px) + var(--nr-vv-gap, 0px)) !important;
+                padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+            }
+            .main-content {
+                overscroll-behavior-y: contain;
             }
             .bottom-beta-overlay {
                 display: block;
-                position: fixed; inset: 0; z-index: 1001;
+                position: fixed; inset: 0; z-index: 10000;
                 background: rgba(0, 0, 0, 0.4);
                 backdrop-filter: blur(4px);
                 -webkit-backdrop-filter: blur(4px);
@@ -2992,8 +3002,8 @@
                 flex-direction: column;
                 position: fixed;
                 left: 0; right: 0;
-                bottom: var(--nr-vv-gap, 0px);
-                z-index: 1002;
+                bottom: 0;
+                z-index: 10001;
                 max-height: min(78vh, 640px);
                 background: var(--surface-solid);
                 border-radius: 20px 20px 0 0;
@@ -4693,6 +4703,7 @@
         </div>
         </div>
     </main>
+    </div>
 
     <nav class="bottom-nav" id="nr-bottom-nav" aria-label="Нижняя навигация">
         <button type="button" class="bottom-nav-btn" id="bn-theme" onclick="toggleTheme()" title="Тема" aria-label="Переключить тему">
@@ -4773,7 +4784,6 @@
             </div>
             <button type="button" id="modal-btn" onclick="closePremiumModal()">Понятно</button>
         </div>
-    </div>
     </div>
 
 <script src="/dist/dashboard-charts.acb087a612.min.js"></script>
@@ -5810,23 +5820,6 @@
         }
         const sheetOpen = document.getElementById('nr-beta-sheet')?.classList.contains('is-open');
         if (sheetOpen) document.getElementById('bn-beta')?.classList.add('active');
-    }
-
-    function syncBottomNavViewport() {
-        const vv = window.visualViewport;
-        let gap = 0;
-        if (vv) gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
-        document.documentElement.style.setProperty('--nr-vv-gap', gap + 'px');
-    }
-    function initBottomNavViewport() {
-        syncBottomNavViewport();
-        const vv = window.visualViewport;
-        if (vv) {
-            vv.addEventListener('resize', syncBottomNavViewport);
-            vv.addEventListener('scroll', syncBottomNavViewport);
-        }
-        window.addEventListener('resize', syncBottomNavViewport);
-        window.addEventListener('orientationchange', syncBottomNavViewport);
     }
 
     const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning']);
@@ -8026,7 +8019,6 @@
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') closeBetaSheet();
     });
-    initBottomNavViewport();
     ensureBetaSheet();
     function onCabinetChange() {
         const s = document.getElementById('cabinet-select-header');
@@ -12163,7 +12155,6 @@
         initSidebarFlyouts();
         ensureBetaSheet();
         syncBottomNav(getCurrentActiveTab());
-        initBottomNavViewport();
     });
 
     function initSidebarFlyouts() {

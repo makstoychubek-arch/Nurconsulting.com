@@ -126,10 +126,24 @@ assert.ok(
     'BETA opens as a bottom sheet cloned from fly-beta'
 );
 assert.ok(
-    html.includes('env(safe-area-inset-bottom') &&
-    html.includes('--nr-vv-gap') &&
-    html.includes('visualViewport'),
-    'bottom nav sits above iPhone safe area and Safari chrome'
+    html.includes('bottom: env(safe-area-inset-bottom, 0)') &&
+    html.includes('z-index: 9999') &&
+    html.includes('transform: translateZ(0)') &&
+    html.includes('will-change: transform'),
+    'bottom nav is hard-fixed and does not follow visualViewport rubber-band'
+);
+assert.ok(
+    !html.includes('function syncBottomNavViewport') &&
+    !html.includes('function initBottomNavViewport'),
+    'Safari visualViewport must not move the pinned bottom nav'
+);
+assert.ok(
+    html.includes('</main>\n    </div>\n\n    <nav class="bottom-nav"'),
+    'bottom nav is a body sibling, not inside the overflow-hidden app shell'
+);
+assert.ok(
+    html.includes('.main-rail {\n                padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;'),
+    'page content reserves the pinned bar height plus iPhone home indicator'
 );
 assert.ok(html.includes('.mobile-menu-btn { display: none !important; }'),
     'hamburger stays hidden on mobile once the bottom nav is the entry');
