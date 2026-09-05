@@ -53,13 +53,13 @@
             if (!map[key]) map[key] = [w, 0, scheme];
             map[key][1] += Number(s.quantity || 0);
         });
-        return Object.values(map).sort((a, b) => b[1] - a[1]).slice(0, 6);
+        return Object.values(map).sort((a, b) => b[1] - a[1]);
     }
 
     function filterWarehouseEntries(entries, scheme) {
-        const list = entries || [];
-        if (!scheme || scheme === 'all') return list.slice(0, 8);
-        return list.filter(e => (e[2] || 'fbo') === scheme).slice(0, 8);
+        const list = (entries || []).filter(e => Number(e[1] || 0) > 0);
+        if (!scheme || scheme === 'all') return list.slice(0, 12);
+        return list.filter(e => (e[2] || 'fbo') === scheme);
     }
 
     function destroyChart(id) {
@@ -179,7 +179,7 @@
         charts['chart-warehouse-donut'] = new Chart(el, {
             type: 'doughnut',
             data: {
-                labels: warehouses.map(([n]) => n.length > 18 ? n.slice(0, 16) + '…' : n),
+                labels: warehouses.map(([n]) => n.length > 28 ? n.slice(0, 26) + '…' : n),
                 datasets: [{ data: warehouses.map(([, q]) => q), backgroundColor: c.fills, borderWidth: 0 }]
             },
             options: {

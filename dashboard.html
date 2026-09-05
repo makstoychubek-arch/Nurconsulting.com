@@ -2300,6 +2300,10 @@
         .picker-quick-btn { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:11px; color:var(--text-secondary); cursor:pointer; text-align:center; transition:all 0.15s; }
         .picker-quick-btn:hover { background:var(--accent-soft); color:var(--accent); border-color:var(--accent-border); }
         .picker-date-input { width:100%; font-size:11px; padding:6px 8px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text-primary); }
+        .dash-wh-legend { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow: auto; }
+        .dash-wh-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 12px; }
+        .dash-wh-name { color: var(--text-secondary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dash-wh-qty { color: var(--text-primary); font-weight: 700; flex-shrink: 0; }
 
         /* ====== ПЛАВНОСТЬ И АНИМАЦИИ ====== */
         html { scroll-behavior: smooth; }
@@ -3042,6 +3046,7 @@
                         </div>
                     </div>
                     <div class="chart-canvas-wrap"><canvas id="chart-warehouse-donut"></canvas></div>
+                    <div id="dash-wh-legend" class="dash-wh-legend"></div>
                 </div>
             </div>
 
@@ -7525,6 +7530,13 @@
                 if (window.NRCharts) {
                     const series = (summary.cur_daily || []).map(d => [d.date, { sum: Number(d.sum || 0), count: Number(d.count || 0), returns: Number(d.returns || 0) }]);
                     NRCharts.renderAllChartsAgg(series, stocks.chartEntries);
+                    if (typeof NRCharts.setWarehouseScheme === 'function') {
+                        const filtered = filterStockWarehouses(_dashStockByWarehouse, _dashStockView)
+                            .filter(w => Number(w.qty || 0) > 0)
+                            .map(w => [w.warehouse_name, w.qty, w.scheme])
+                            .sort((a, b) => b[1] - a[1]);
+                        NRCharts.setWarehouseScheme(_dashStockView, filtered);
+                    }
                 }
                 return stocks;
             };
@@ -7796,7 +7808,12 @@
         }
     }
 
-    let _dashStockView = 'all';
+    let _dashStockView = (function () {
+        try {
+            const saved = localStorage.getItem('nr_dash_stock_view');
+            return saved === 'fbo' || saved === 'fbs' ? saved : 'all';
+        } catch (_) { return 'all'; }
+    })();
     let _dashStockByWarehouse = [];
     let _dashStockTotals = { total: 0, fbo: 0, fbs: 0 };
 
@@ -7831,15 +7848,19 @@
         const stockMetric = document.querySelector('[data-metric="stock-total"]');
         if (stockMetric) stockMetric.textContent = fmt(total) + ' шт.';
         updateWarehouseFromDB();
-        const filtered = filterStockWarehouses(_dashStockByWarehouse, _dashStockView);
-        const chartEntries = filtered
+        const chartEntries = _dashStockByWarehouse
+            .filter(w => Number(w.qty || 0) > 0)
             .map(w => [w.warehouse_name, w.qty, w.scheme])
             .sort((a, b) => b[1] - a[1]);
+        document.querySelectorAll('[data-stock-view]').forEach(tab => {
+            tab.classList.toggle('active', tab.getAttribute('data-stock-view') === _dashStockView);
+        });
         return { total, fbo, fbs, chartEntries };
     }
 
     function switchDashStockView(view, el) {
         _dashStockView = view === 'fbo' || view === 'fbs' ? view : 'all';
+        try { localStorage.setItem('nr_dash_stock_view', _dashStockView); } catch (_) {}
         document.querySelectorAll('[data-stock-view]').forEach(tab => {
             tab.classList.toggle('active', tab.getAttribute('data-stock-view') === _dashStockView);
         });
@@ -7847,10 +7868,30 @@
         updateWarehouseFromDB();
         if (window.NRCharts && typeof NRCharts.setWarehouseScheme === 'function') {
             const filtered = filterStockWarehouses(_dashStockByWarehouse, _dashStockView)
+                .filter(w => Number(w.qty || 0) > 0)
                 .map(w => [w.warehouse_name, w.qty, w.scheme])
                 .sort((a, b) => b[1] - a[1]);
             NRCharts.setWarehouseScheme(_dashStockView, filtered);
         }
+    }
+
+    function renderDashWhLegend(entries) {
+        const legend = document.getElementById('dash-wh-legend');
+        if (!legend) return;
+        if (!entries.length) {
+            legend.innerHTML = '<div class="dash-wh-row" style="color:var(--text-muted)">Нет остатков в этой схеме</div>';
+            return;
+        }
+        legend.innerHTML = entries.map(w => {
+            const badge = w.scheme === 'fbs' ? 'FBS' : 'FBO';
+            const badgeColor = w.scheme === 'fbs' ? 'var(--blue)' : 'var(--accent)';
+            return `<div class="dash-wh-row">
+                <span class="dash-wh-name">${escapeHtml(w.warehouse_name)}
+                    <span class="text-[10px] font-bold ml-2" style="color:${badgeColor}">${badge}</span>
+                </span>
+                <span class="dash-wh-qty">${fmt(w.qty)} шт.</span>
+            </div>`;
+        }).join('');
     }
 
     function updateWarehouseFromDB() {
@@ -7858,7 +7899,9 @@
         setText('wh-fbo', fmt(_dashStockTotals.fbo || 0) + ' шт.');
         setText('wh-fbs', fmt(_dashStockTotals.fbs || 0) + ' шт.');
         const entries = filterStockWarehouses(_dashStockByWarehouse, _dashStockView)
+            .filter(w => Number(w.qty || 0) > 0)
             .sort((a, b) => b.qty - a.qty);
+        renderDashWhLegend(entries);
         const list = document.getElementById('warehouse-list');
         if (!list) return;
         list.innerHTML = entries.length

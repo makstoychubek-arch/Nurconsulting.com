@@ -174,6 +174,18 @@ assert.ok(html.includes('id="wh-fbo"') && html.includes('id="wh-fbs"'),
     'warehouse tab must show FBO and FBS totals');
 assert.ok(html.includes('function switchDashStockView'),
     'dashboard must switch warehouse list/chart between all/FBO/FBS');
+assert.ok(html.includes('nr_dash_stock_view') && html.includes('id="dash-wh-legend"'),
+    'FBS shop names and qty must persist across cabinets');
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
+        .includes('isServiceAuthorized'),
+    'auto-sync must accept the cron service_role JWT so FBS shops sync for every cabinet'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
+        .includes('fetchFbsFromMarketplace(admin, token, cabinetId)'),
+    'FBS marketplace sync must reuse existing chrt ids for large cabinets, not only Elium'
+);
 assert.ok(html.includes("mode: 'stocks'") && html.includes('AUTO_SYNC_URL'),
     'dashboard refresh must sync stocks via auto-sync, not the dead Statistics stocks API');
 assert.ok(html.includes("'m-stock-fbo','m-stock-fbs'"),

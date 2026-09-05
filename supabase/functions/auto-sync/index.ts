@@ -4,6 +4,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTeamMember } from '../_shared/cabinet-access.ts';
+import { isServiceAuthorized } from '../_shared/service-auth.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -107,7 +108,7 @@ Deno.serve(async (req) => {
     const bearer = authHeader.replace('Bearer ', '');
 
     const admin = createClient(supabaseUrl, serviceKey);
-    let isServiceRole = bearer === serviceKey;
+    let isServiceRole = isServiceAuthorized(req, serviceKey);
     let userId: string | null = null;
     let isSuperAdmin = false;
 
@@ -549,7 +550,7 @@ async function fetchFboStockRows(token: string, cabinetId: string): Promise<Stoc
 
 async function fetchFbsStockRows(token: string, cabinetId: string): Promise<StockRow[]> {
     try {
-        const marketRows = await fetchFbsFromMarketplace(token, cabinetId);
+        const marketRows = await fetchFbsFromMarketplace(admin, token, cabinetId);
         if (marketRows.length) return marketRows;
     } catch (e) {
         console.warn('[auto-sync] FBS marketplace:', (e as Error).message);
@@ -561,7 +562,7 @@ async function fetchContentCards(token: string): Promise<Record<string, unknown>
     const cards: Record<string, unknown>[] = [];
     let cursorNmId = 0;
     let cursorUpdatedAt = '';
-    for (let page = 0; page < 20; page++) {
+    for (let page = 0; page < 40; page++) {
         const body: Record<string, unknown> = {
             settings: {
                 sort: { ascending: false },
@@ -616,7 +617,11 @@ function chrtMapFromCards(cards: Record<string, unknown>[]): Map<number, ChrtMet
     return map;
 }
 
-async function fetchFbsFromMarketplace(token: string, cabinetId: string): Promise<StockRow[]> {
+async function fetchFbsFromMarketplace(
+    admin: ReturnType<typeof createClient>,
+    token: string,
+    cabinetId: string,
+): Promise<StockRow[]> {
     const whRes = await fetch(`${WB_MARKET}/api/v3/warehouses`, {
         headers: { Authorization: token },
     });
@@ -626,50 +631,76 @@ async function fetchFbsFromMarketplace(token: string, cabinetId: string): Promis
 
     const cards = await fetchContentCards(token);
     const chrtMap = chrtMapFromCards(cards);
+    try {
+        const { data: existing } = await admin
+            .from('wb_stocks')
+            .select('barcode, nm_id, tech_size')
+            .eq('cabinet_id', cabinetId)
+            .limit(20000);
+        for (const row of existing || []) {
+            const chrtId = Number(row.barcode);
+            if (!Number.isFinite(chrtId) || chrtId <= 0 || chrtMap.has(chrtId)) continue;
+            chrtMap.set(chrtId, {
+                nmId: Number(row.nm_id || 0),
+                barcode: String(row.barcode || chrtId),
+                techSize: String(row.tech_size || ''),
+            });
+        }
+    } catch (e) {
+        console.warn('[auto-sync] FBS chrt from stocks:', (e as Error).message);
+    }
+
     const chrtIds = [...chrtMap.keys()];
     if (!chrtIds.length) return [];
 
     const rows: StockRow[] = [];
     for (const wh of warehouses) {
         const warehouseId = Number(wh?.id || 0);
-        const warehouseName = String(wh?.name || 'FBS');
+        const warehouseName = String(wh?.name || 'FBS').trim() || 'FBS';
         if (!warehouseId) continue;
-        for (let i = 0; i < chrtIds.length; i += 1000) {
-            const chunk = chrtIds.slice(i, i + 1000);
-            let res = await fetch(`${WB_MARKET}/api/v3/stocks/${warehouseId}`, {
-                method: 'POST',
-                headers: { Authorization: token, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ chrtIds: chunk }),
-            });
-            if (!res.ok && res.status === 400) {
-                const skus = chunk.map((id) => chrtMap.get(id)?.barcode).filter(Boolean);
-                res = await fetch(`${WB_MARKET}/api/v3/stocks/${warehouseId}`, {
+        try {
+            for (let i = 0; i < chrtIds.length; i += 1000) {
+                const chunk = chrtIds.slice(i, i + 1000);
+                let res = await fetch(`${WB_MARKET}/api/v3/stocks/${warehouseId}`, {
                     method: 'POST',
                     headers: { Authorization: token, 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ skus }),
+                    body: JSON.stringify({ chrtIds: chunk }),
                 });
+                if (!res.ok && (res.status === 400 || res.status === 422)) {
+                    const skus = chunk.map((id) => chrtMap.get(id)?.barcode).filter(Boolean);
+                    res = await fetch(`${WB_MARKET}/api/v3/stocks/${warehouseId}`, {
+                        method: 'POST',
+                        headers: { Authorization: token, 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ skus }),
+                    });
+                }
+                if (!res.ok) {
+                    console.warn('[auto-sync] FBS stocks', warehouseName, res.status);
+                    break;
+                }
+                const payload = await res.json();
+                const stocks = payload?.stocks || [];
+                for (const s of stocks) {
+                    const amount = Number(s.amount || 0);
+                    if (amount <= 0) continue;
+                    const chrtId = Number(s.chrtId || s.chrtID || 0);
+                    const meta = chrtMap.get(chrtId);
+                    rows.push({
+                        cabinet_id: cabinetId,
+                        nm_id: meta?.nmId || 0,
+                        barcode: String(s.sku || meta?.barcode || chrtId || ''),
+                        tech_size: meta?.techSize || '',
+                        quantity: amount,
+                        in_way_to_client: 0,
+                        in_way_from_client: 0,
+                        warehouse_name: warehouseName,
+                        stock_scheme: 'fbs',
+                    });
+                }
+                await sleep(220);
             }
-            if (!res.ok) throw new Error(`stocks ${warehouseId} HTTP ${res.status}`);
-            const payload = await res.json();
-            const stocks = payload?.stocks || [];
-            for (const s of stocks) {
-                const amount = Number(s.amount || 0);
-                if (amount <= 0) continue;
-                const chrtId = Number(s.chrtId || s.chrtID || 0);
-                const meta = chrtMap.get(chrtId);
-                rows.push({
-                    cabinet_id: cabinetId,
-                    nm_id: meta?.nmId || 0,
-                    barcode: String(s.sku || meta?.barcode || chrtId || ''),
-                    tech_size: meta?.techSize || '',
-                    quantity: amount,
-                    in_way_to_client: 0,
-                    in_way_from_client: 0,
-                    warehouse_name: warehouseName,
-                    stock_scheme: 'fbs',
-                });
-            }
-            await sleep(220);
+        } catch (e) {
+            console.warn('[auto-sync] FBS warehouse', warehouseName, (e as Error).message);
         }
     }
     return rows;
