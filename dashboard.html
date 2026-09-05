@@ -1016,6 +1016,15 @@
             flex-shrink: 0; background: transparent;
             border-bottom: none;
         }
+        .rnp-head-left--lifted {
+            height: 0 !important;
+            max-height: 0 !important;
+            padding: 0 !important;
+            overflow: hidden;
+            font-size: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
         .rnp-head-left,
         .rnp-sheet-table thead tr.rnp-head-panel th.rnp-head-left {
             position: sticky; left: 0; top: auto; z-index: 46;
@@ -1409,6 +1418,10 @@
             width: 100%; position: relative;
             overflow-anchor: none;
             -webkit-overflow-scrolling: touch;
+            touch-action: pan-x pan-y;
+        }
+        .rnp-sheet-table--swipe {
+            table-layout: fixed;
         }
         .rnp-sheet-table {
             border-collapse: separate; border-spacing: 0;
@@ -2842,6 +2855,27 @@
         /* === МОБИЛЬНАЯ ВЕРСИЯ === */
         .mobile-menu-btn { display: none; }
 
+        @media (max-width: 1024px) {
+            .rnp-table-scroll {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .rnp-sheet-table--swipe .rnp-data-col,
+            .rnp-sheet-table--swipe .rnp-day-col {
+                min-width: var(--rnp-day-w) !important;
+                width: var(--rnp-day-w) !important;
+                max-width: var(--rnp-day-w) !important;
+            }
+            .rnp-action-bar {
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            .rnp-action-bar select,
+            .rnp-action-btn,
+            .rnp-settings-gear { flex-shrink: 0; }
+        }
+
         @media (max-width: 768px) {
             .sidebar-app {
                 position: fixed;
@@ -2921,7 +2955,12 @@
             #date-picker { left: 10px !important; width: calc(100vw - 20px) !important; }
             .grid.xl\:grid-cols-5 { grid-template-columns: repeat(2, 1fr) !important; }
 
-            .rnp-action-bar { padding: 8px 10px !important; gap: 8px; }
+            .rnp-action-bar {
+                padding: 8px 10px !important;
+                gap: 8px;
+                flex-wrap: wrap;
+                overflow-x: visible;
+            }
             .rnp-action-bar select, .rnp-action-btn {
                 font-size: 12px !important;
                 min-height: 36px;

@@ -313,9 +313,32 @@ assert.ok(
 );
 assert.ok(html.includes('.cabinet-picker-label { max-width: 96px'), 'cabinet name must not crowd the iPhone header');
 assert.ok(rnpSrc.includes('function _isPhone()'), 'RNP must detect a phone viewport');
+assert.ok(rnpSrc.includes('function _isNarrow()'), 'iPad uses the same swipe sheet as iPhone');
 assert.ok(rnpSrc.includes('const PHONE_METRIC_W = 108'), 'phone metric column is narrower than desktop');
 assert.ok(rnpSrc.includes('rnp-article-panel--phone'), 'article KPI lifts above the sheet on a phone');
-assert.ok(rnpSrc.includes('if (_isPhone()) return null;'), 'weeks/ИТОГ must scroll on a phone, not stay sticky');
+assert.ok(rnpSrc.includes('if (_isNarrow()) return null;'), 'weeks/ИТОГ swipe on phone and iPad, they are not removed');
+assert.ok(rnpSrc.includes('function _colgroupHTML'), 'colgroup pins week/day widths so Safari cannot squash Нед 1–5');
+assert.ok(rnpSrc.includes('function _sheetMinWidthPx'), 'sheet width is the sum of metric + spark + every week/day column');
+assert.ok(rnpSrc.includes('rnp-sheet-table--swipe'), 'narrow sheets opt into horizontal swipe');
+assert.ok(
+    !/function _buildSheetHeadRows[\s\S]{0,200}if \(_isPhone\(\)\) return '';/.test(rnpSrc),
+    'phone must not drop the sheet head — marquee and weeks stay in the table'
+);
+assert.ok(
+    rnpSrc.includes('return totalCol ? [...weekCols, totalCol, ...dayCols] : [...weekCols, ...dayCols];'),
+    'week columns are always built, never filtered out on a phone'
+);
+assert.ok(
+    !/function _buildCols\([\s\S]*?function _sortSizes/.test(rnpSrc) ||
+    !rnpSrc.slice(rnpSrc.indexOf('function _buildCols'), rnpSrc.indexOf('function _sortSizes')).includes('_isPhone'),
+    '_buildCols must not drop weeks on a phone viewport'
+);
+assert.ok(
+    html.includes('.rnp-sheet-table--swipe .rnp-data-col') &&
+    html.includes('overflow-x: auto') &&
+    html.includes('-webkit-overflow-scrolling: touch'),
+    'week table swipes horizontally; first column stays sticky via existing metric col'
+);
 {
     const wStart = rnpSrc.indexOf('const FROZEN_METRIC_W');
     const wEnd = rnpSrc.indexOf('const MARQUEE_CARD_MAX_H');
@@ -323,17 +346,22 @@ assert.ok(rnpSrc.includes('if (_isPhone()) return null;'), 'weeks/ИТОГ must 
     const leftEnd = rnpSrc.indexOf('function _monthStickLabel');
     const frozenStart = rnpSrc.indexOf('function _frozenLeft');
     const frozenEnd = rnpSrc.indexOf('function _stickyColAttrs');
-    assert.ok(wStart > 0 && wEnd > wStart && leftStart > 0 && frozenStart > leftEnd);
+    const spanStart = rnpSrc.indexOf('function _leftFrozenSpan');
+    const spanEnd = rnpSrc.indexOf('function _timelinePeriods');
+    assert.ok(wStart > 0 && wEnd > wStart && leftStart > 0 && frozenStart > leftEnd && spanStart > 0);
     const make = (phone) => new Function(`
-        const window = { matchMedia: () => ({ matches: ${phone ? 'true' : 'false'} }) };
+        const window = { matchMedia: (q) => ({ matches: String(q).includes('768') || String(q).includes('1024') ? ${phone ? 'true' : 'false'} : false }) };
+        const MONTH_COL_W = 42;
         ${rnpSrc.slice(wStart, wEnd)}
+        ${rnpSrc.slice(spanStart, spanEnd)}
         ${rnpSrc.slice(leftStart, leftEnd)}
         ${rnpSrc.slice(frozenStart, frozenEnd)}
-        return { _isPhone, _metricW, _sparkW, _dayColW, _leftFrozenPx, _frozenLeft };
+        return { _isPhone, _isNarrow, _metricW, _sparkW, _dayColW, _leftFrozenPx, _frozenLeft, _sheetMinWidthPx, _sheetDataColCount, _colgroupHTML };
     `)();
     const phone = make(true);
     const desk = make(false);
     assert.strictEqual(phone._isPhone(), true);
+    assert.strictEqual(phone._isNarrow(), true);
     assert.strictEqual(phone._metricW(), 108);
     assert.strictEqual(phone._sparkW(), 32);
     assert.strictEqual(phone._dayColW(), 44);
@@ -341,6 +369,11 @@ assert.ok(rnpSrc.includes('if (_isPhone()) return null;'), 'weeks/ИТОГ must 
     assert.strictEqual(desk._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 372);
     assert.strictEqual(phone._frozenLeft(0, [{ type: 'week' }]), null);
     assert.strictEqual(desk._frozenLeft(0, [{ type: 'week' }]), 172);
+    const cal = { mode: 'week', weeks: [1, 2, 3, 4, 5], days: new Array(30) };
+    assert.strictEqual(phone._sheetDataColCount(cal), 36);
+    assert.strictEqual(phone._sheetMinWidthPx(cal), 108 + 32 + 36 * 44);
+    assert.ok(phone._colgroupHTML(cal).includes('<colgroup>'));
+    assert.strictEqual((phone._colgroupHTML(cal).match(/<col /g) || []).length, 38);
 }
 assert.ok(html.includes('.rnp-num--m'), 'CSS shrinks million values so they stay inside the cell');
 {

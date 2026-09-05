@@ -106,6 +106,10 @@ const RNP = (() => {
         try { return window.matchMedia('(max-width: 768px)').matches; }
         catch (e) { return false; }
     }
+    function _isNarrow() {
+        try { return window.matchMedia('(max-width: 1024px)').matches; }
+        catch (e) { return false; }
+    }
     function _metricW() { return _isPhone() ? PHONE_METRIC_W : FROZEN_METRIC_W; }
     function _sparkW() { return _isPhone() ? PHONE_SPARK_W : FROZEN_SPARK_W; }
     function _frozenWeekW() { return _isPhone() ? PHONE_COL_W : FROZEN_COL_W; }
@@ -2044,8 +2048,41 @@ const RNP = (() => {
     }
 
     function _leftFrozenSpan(cal) {
+        if (_isNarrow()) return 2;
         if (cal.mode === 'month') return 3;
         return 2 + cal.weeks.length + (cal.weeks.length ? 1 : 0);
+    }
+
+    function _sheetDataColCount(cal) {
+        if (cal.mode === 'month') return 1 + (cal.months?.length || 0);
+        const weeks = cal.weeks?.length || 0;
+        return weeks + (weeks ? 1 : 0) + (cal.days?.length || 0);
+    }
+
+    function _sheetMinWidthPx(cal) {
+        const unit = cal.mode === 'month' ? MONTH_COL_W : _dayColW();
+        return _metricW() + _sparkW() + _sheetDataColCount(cal) * unit;
+    }
+
+    function _headMarqueeSpan(cal) {
+        if (cal.mode === 'month') {
+            const months = cal.months?.length || 0;
+            return _isNarrow() ? months + 1 : months;
+        }
+        const data = _sheetDataColCount(cal);
+        return _isNarrow() ? data : (cal.days?.length || 0);
+    }
+
+    function _colgroupHTML(cal) {
+        const unit = cal.mode === 'month' ? MONTH_COL_W : _dayColW();
+        const n = _sheetDataColCount(cal);
+        let html = `<colgroup><col style="width:${_metricW()}px"><col style="width:${_sparkW()}px">`;
+        for (let i = 0; i < n; i++) html += `<col style="width:${unit}px">`;
+        return `${html}</colgroup>`;
+    }
+
+    function _sheetTableClass(extra) {
+        return `rnp-sheet-table${extra || ''}${_isNarrow() ? ' rnp-sheet-table--swipe' : ''}`;
     }
 
     function _timelinePeriods(art, cal) {
@@ -2135,7 +2172,8 @@ const RNP = (() => {
     }
 
     function _sheetVarsStyle(cal) {
-        return `--rnp-frozen-left:${_leftFrozenPx(cal)}px;--rnp-metric-w:${_metricW()}px;--rnp-spark-w:${_sparkW()}px;--rnp-day-w:${_dayColW()}px;--rnp-month-w:${MONTH_COL_W}px`;
+        const minW = _sheetMinWidthPx(cal);
+        return `width:${minW}px;min-width:${minW}px;--rnp-frozen-left:${_leftFrozenPx(cal)}px;--rnp-metric-w:${_metricW()}px;--rnp-spark-w:${_sparkW()}px;--rnp-day-w:${_dayColW()}px;--rnp-month-w:${MONTH_COL_W}px`;
     }
 
     function _setCssVar(el, name, value) {
@@ -2152,7 +2190,7 @@ const RNP = (() => {
      *  шапки обратно в CSS — KPI и фотолента тогда растут сами по себе. */
     function _syncFrozenPane(root) {
         const scope = root || document;
-        const phone = _isPhone();
+        const phone = _isNarrow();
         scope.querySelectorAll('.rnp-sheet-table').forEach(table => {
             const scroll = table.closest('.rnp-table-scroll');
             const metricW = _metricW();
@@ -2311,7 +2349,8 @@ const RNP = (() => {
             const totalSt = _stickyColAttrs(0, cols, 11, 31);
             const totalTh = `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>`;
             const monthSubs = cal.months.map(m => `<th class="rnp-th-dow rnp-month-col${m.isCurrent ? ' is-current' : ''}">${m.dayCount} дн</th>`).join('');
-            return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes" style="${_sheetVarsStyle(cal)}">
+            return `<table class="${_sheetTableClass(` rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes`)}" style="${_sheetVarsStyle(cal)}">
+          ${_colgroupHTML(cal)}
           <thead>
             <tr class="rnp-cal-quarter-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
@@ -2347,7 +2386,8 @@ const RNP = (() => {
         const dowTotal = cal.weeks.length ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>` : '';
         const dowDays = cal.days.map(d => `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
-        return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes" style="${_sheetVarsStyle(cal)}">
+        return `<table class="${_sheetTableClass(` rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes`)}" style="${_sheetVarsStyle(cal)}">
+          ${_colgroupHTML(cal)}
           <thead>
             <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
@@ -2380,7 +2420,7 @@ const RNP = (() => {
     // констант) перестают совпадать с реальными позициями при скролле.
     function _leftFrozenPx(cal) {
         const base = _metricW() + _sparkW();
-        if (_isPhone()) return base;
+        if (_isNarrow()) return base;
         if (cal.mode === 'month') return base + FROZEN_COL_W;
         const weeks = cal.weeks.length;
         return base + weeks * FROZEN_COL_W + (weeks ? FROZEN_COL_W : 0);
@@ -2394,20 +2434,22 @@ const RNP = (() => {
     }
 
     function _buildSheetHeadRows(art, stockBySize, rawData, cal) {
-        if (_isPhone()) return '';
         const leftSpan = _leftFrozenSpan(cal);
-        const nTimeline = _calTimelineSpan(cal);
+        const nTimeline = _headMarqueeSpan(cal);
         const leftPx = _leftFrozenPx(cal);
+        const lifted = _isNarrow();
+        const leftInner = lifted ? '' : _buildLeftPanelHTML(art, stockBySize, rawData, cal, leftPx);
+        const leftCls = lifted ? ' rnp-head-left--lifted' : '';
 
         return `
             <tr class="rnp-head-panel">
-              <th colspan="${leftSpan}" class="rnp-head-left" style="width:${leftPx}px;min-width:${leftPx}px;max-width:${leftPx}px">${_buildLeftPanelHTML(art, stockBySize, rawData, cal, leftPx)}</th>
+              <th colspan="${leftSpan}" class="rnp-head-left${leftCls}" style="width:${leftPx}px;min-width:${leftPx}px;max-width:${leftPx}px">${leftInner}</th>
               <th colspan="${nTimeline}" class="rnp-head-marquee">${_buildMarqueeHTML(art, cal)}</th>
             </tr>`;
     }
 
     function _frozenLeft(ci, cols) {
-        if (_isPhone()) return null;
+        if (_isNarrow()) return null;
         const col = cols[ci];
         if (!col) return null;
         const base = _metricW() + _sparkW();
@@ -4733,15 +4775,16 @@ const RNP = (() => {
         const stockBySize = _stockCache[art.nm_id] || {};
 
         let topHTML = '';
-        if (_isPhone()) {
-            topHTML = `<div class="rnp-article-panel rnp-article-panel--phone">${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>`;
+        if (_isNarrow()) {
+            const panelCls = _isPhone() ? ' rnp-article-panel--phone' : ' rnp-article-panel--narrow';
+            topHTML = `<div class="rnp-article-panel${panelCls}">${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>`;
         }
         if (_compareNm && _compareNm !== art.nm_id) {
             const art2 = _articles.find(a => a.nm_id == _compareNm);
             if (art2) {
                 const raw2 = _dataCache[art2.nm_id] || {};
                 const stock2 = _stockCache[art2.nm_id] || {};
-                const phoneCls = _isPhone() ? ' rnp-article-panel--phone' : '';
+                const phoneCls = _isPhone() ? ' rnp-article-panel--phone' : (_isNarrow() ? ' rnp-article-panel--narrow' : '');
                 topHTML = `<div class="rnp-article-panel rnp-compare-split${phoneCls}">
                   <div><div class="rnp-compare-label">A — ${_sellerArticle(art).substring(0, 24)}</div>${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>
                   <div><div class="rnp-compare-label">B — ${_sellerArticle(art2).substring(0, 24)}</div>${_buildKpiPanelHTML(art2, stock2, raw2, cal)}</div>
@@ -4936,7 +4979,8 @@ const RNP = (() => {
             ).join('');
 
             return `
-        <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}" style="${_sheetVarsStyle(cal)}">
+        <table class="${_sheetTableClass(`${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}`)}" style="${_sheetVarsStyle(cal)}">
+          ${_colgroupHTML(cal)}
           <thead>
             ${sheetHead}
             <tr class="rnp-cal-quarter-row">
@@ -4989,7 +5033,8 @@ const RNP = (() => {
             `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
         return `
-        <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}" style="${_sheetVarsStyle(cal)}">
+        <table class="${_sheetTableClass(`${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}`)}" style="${_sheetVarsStyle(cal)}">
+          ${_colgroupHTML(cal)}
           <thead>
             ${sheetHead}
             <tr class="rnp-cal-month-row">
@@ -5909,11 +5954,11 @@ const RNP = (() => {
     }
     setTimeout(_retryRnpBoot, 800);
 
-    let _phoneLayout = _isPhone();
+    let _sheetLayoutKey = `${_isPhone()}|${_isNarrow()}`;
     window.addEventListener('resize', () => {
-        const now = _isPhone();
-        if (now === _phoneLayout) return;
-        _phoneLayout = now;
+        const now = `${_isPhone()}|${_isNarrow()}`;
+        if (now === _sheetLayoutKey) return;
+        _sheetLayoutKey = now;
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
