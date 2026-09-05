@@ -60,6 +60,10 @@
             --logo-mark-border: rgba(0, 0, 0, 0.12);
             --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             --font-display: "Poppins", "Inter", system-ui, sans-serif;
+            --bg-primary: #F4F4F5;
+            --bg-secondary: #EDEDED;
+            --bg-card: #FFFFFF;
+            --border-color: rgba(0, 0, 0, 0.08);
         }
 
         /* ============ DARK MODE (optional) ============ */
@@ -96,6 +100,10 @@
             --logo-mark-border: rgba(255, 255, 255, 0.2);
             --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
             --font-display: "Poppins", "Inter", system-ui, sans-serif;
+            --bg-primary: #1C1C1E;
+            --bg-secondary: #2C2C2E;
+            --bg-card: #2C2C2E;
+            --border-color: #3A3A3C;
         }
 
         body {
@@ -145,7 +153,7 @@
             display: flex; flex-direction: column;
             align-items: stretch; padding: 18px 12px 14px;
         }
-        .main-rail { margin-left: 220px; transition: margin-left 0.12s ease; }
+        .main-rail { margin-left: 220px; padding-top: 56px; transition: margin-left 0.12s ease, padding-top 0.12s ease; }
         body.flyout-expanded .main-rail { margin-left: 440px; }
         .rail-logo {
             width: auto; height: auto; border: none; border-radius: 12px;
@@ -319,7 +327,7 @@
         .tg-status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px; }
         .tg-status.online { background: rgba(52,199,89,0.15); color: var(--green); }
         .tg-status.offline, .tg-status.no_token { background: var(--sel); color: var(--text-muted); }
-        .tg-status.disabled { background: rgba(251,191,36,0.15); color: #d97706; }
+        .tg-status.disabled { background: rgba(251,191,36,0.15); color: var(--amber); }
         .tg-status.deleted { background: rgba(248,113,113,0.12); color: var(--red); }
         .tg-switch { position: relative; width: 36px; height: 20px; border-radius: 999px; border: none; cursor: pointer; background: var(--border); flex-shrink: 0; }
         .tg-switch.on { background: var(--accent); }
@@ -1953,7 +1961,7 @@
         .abtest-card-info { flex: 1; min-width: 0; padding-top: 2px; }
         .abtest-card-title { font-size: 18px; font-weight: 700; letter-spacing: -0.03em; color: var(--text-primary); line-height: 1.25; }
         .abtest-card-meta { font-size: 12px; color: var(--text-muted); margin-top: 6px; font-weight: 500; }
-        .abtest-conf { margin-top: 10px; font-size: 13px; font-weight: 700; color: #16A34A; letter-spacing: -0.02em; }
+        .abtest-conf { margin-top: 10px; font-size: 13px; font-weight: 700; color: var(--green); letter-spacing: -0.02em; }
         .abtest-card-status {
             flex-shrink: 0; font-size: 12px; font-weight: 700; color: var(--text-primary);
             background: var(--sel); border: none; border-radius: 999px; padding: 7px 12px;
@@ -1964,7 +1972,7 @@
         }
         .abtest-card-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
         .abtest-card-actions .btn-outline { border: none; background: var(--sel); font-weight: 700; }
-        .abtest-lose-lbl { font-size: 10px; font-weight: 700; color: #DC2626; background: rgba(220,38,38,0.08); display: inline-block; padding: 2px 6px; border-radius: 6px; margin-top: 4px; }
+        .abtest-lose-lbl { font-size: 10px; font-weight: 700; color: var(--red); background: rgba(220,38,38,0.08); display: inline-block; padding: 2px 6px; border-radius: 6px; margin-top: 4px; }
         .abtest-variant { position: relative; width: 88px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); transition: border-color 0.15s ease; cursor: default; background: var(--surface); }
         .abtest-variant.winner { border-color: var(--green); box-shadow: none; }
         .abtest-variant.current-active { border-color: var(--accent); box-shadow: none; }
@@ -2155,7 +2163,7 @@
             font-size: 11px;
             font-weight: 600;
             background: rgba(52, 211, 153, 0.14);
-            color: #059669;
+            color: var(--green);
             letter-spacing: -0.01em;
         }
         .security-badge-current::before {
@@ -2240,6 +2248,7 @@
         }
         .admin-spaces-table tr:last-child td { border-bottom: none; }
         .admin-spaces-table tr:hover td { background: rgba(0, 0, 0, 0.02); }
+        [data-theme="neon"] .admin-spaces-table tr:hover td { background: rgba(255, 255, 255, 0.03); }
         .space-status-badge {
             display: inline-flex;
             align-items: center;
@@ -2249,16 +2258,16 @@
             font-weight: 600;
             letter-spacing: -0.01em;
         }
-        .space-status-pending { background: rgba(148, 163, 184, 0.15); color: #64748b; }
-        .space-status-active { background: rgba(52, 211, 153, 0.14); color: #059669; }
-        .space-status-blocked { background: rgba(248, 113, 113, 0.12); color: #dc2626; }
+        .space-status-pending { background: rgba(148, 163, 184, 0.15); color: var(--text-secondary); }
+        .space-status-active { background: rgba(52, 211, 153, 0.14); color: var(--green); }
+        .space-status-blocked { background: rgba(248, 113, 113, 0.12); color: var(--red); }
         .admin-space-actions { display: flex; gap: 8px; flex-wrap: wrap; }
         .admin-btn-activate {
             padding: 6px 12px;
             border-radius: 10px;
             border: none;
             background: rgba(52, 211, 153, 0.14);
-            color: #059669;
+            color: var(--green);
             font-size: 11px;
             font-weight: 600;
             cursor: pointer;
@@ -2270,7 +2279,7 @@
             border-radius: 10px;
             border: none;
             background: rgba(248, 113, 113, 0.1);
-            color: #dc2626;
+            color: var(--red);
             font-size: 11px;
             font-weight: 600;
             cursor: pointer;
@@ -2398,7 +2407,7 @@
             border-radius: 10px;
             border: none;
             background: rgba(52, 211, 153, 0.14);
-            color: #059669;
+            color: var(--green);
             font-size: 11px;
             font-weight: 600;
             cursor: pointer;
@@ -2415,11 +2424,11 @@
             font-size: 11px;
             font-weight: 600;
             background: rgba(59, 130, 246, 0.1);
-            color: #2563eb;
+            color: var(--blue);
         }
         .oauth-intensity-high {
             background: rgba(249, 115, 22, 0.12);
-            color: #ea580c;
+            color: var(--amber);
         }
         .admin-row-blocked td {
             opacity: 0.6;
@@ -2659,15 +2668,26 @@
         .nav-item { border-radius: 999px !important; transition: background 0.15s ease !important; }
         .nav-item-standalone { border-radius: 12px !important; }
 
-        /* Стеклянный хедер */
-        header.glass {
-            position: relative; z-index: 200; overflow: visible;
+        /* Стеклянный хедер — вне overflow-hidden shell, как нижняя панель */
+        header.glass.app-header {
+            position: fixed;
+            top: 0;
+            left: 220px;
+            right: 0;
+            z-index: 9998;
+            overflow: visible;
+            background: var(--surface-solid);
             backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+            transform: translateZ(0);
+            will-change: transform;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
         }
+        body.flyout-expanded header.glass.app-header { left: 440px; }
         header.glass > div { overflow: visible; }
-        .app-header-main { padding: 16px 24px; }
-        [data-theme="neon"] header.glass { border-bottom: 1px solid rgba(255,255,255,0.08) !important; background: var(--surface) !important; }
-        [data-theme="ios"] header.glass { background: #fff !important; box-shadow: none !important; }
+        .app-header-main { padding: 12px 24px; min-height: 56px; box-sizing: border-box; }
+        [data-theme="neon"] header.glass { border-bottom: 1px solid rgba(255,255,255,0.08) !important; background: var(--surface-solid) !important; }
+        [data-theme="ios"] header.glass { background: var(--surface-solid) !important; box-shadow: none !important; }
 
         /* A/B тест карточки */
         .abtest-card { border-radius: 16px !important; transition: background 0.15s ease !important; }
@@ -2836,7 +2856,7 @@
         .abtest-card { border: 1px solid var(--border) !important; box-shadow: none !important; background: var(--surface) !important; }
         .chart-box { border: none !important; box-shadow: none !important; }
         header.glass { border-bottom: none !important; box-shadow: none; }
-        [data-theme="ios"] header.glass { background: #fff !important; }
+        [data-theme="ios"] header.glass { background: var(--surface) !important; }
 
         /* ===== Тарифы (Apple) ===== */
         .pricing-wrap { padding: 8px 4px 4px; }
@@ -2969,10 +2989,10 @@
                 z-index: 9999;
                 align-items: flex-end;
                 justify-content: space-around;
-                gap: 2px;
+                gap: 0;
                 height: auto;
-                min-height: 56px;
-                padding: 6px 4px 10px;
+                min-height: 0;
+                padding: 2px 2px 4px;
                 background: var(--surface-solid);
                 border-top: 1px solid var(--border);
                 box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.06);
@@ -2987,42 +3007,43 @@
             .bottom-nav-btn {
                 flex: 1;
                 min-width: 0;
-                min-height: 48px;
+                min-height: 0;
                 border: none;
                 background: none;
                 display: flex;
                 flex-direction: column;
                 align-items: center;
                 justify-content: center;
-                gap: 3px;
+                gap: 1px;
                 color: var(--text-muted);
                 font-family: var(--font-ui);
                 cursor: pointer;
-                padding: 4px 2px;
+                padding: 2px 2px;
                 -webkit-tap-highlight-color: transparent;
             }
             .bottom-nav-btn .bn-ico {
-                width: 28px; height: 28px;
+                width: 18px; height: 18px;
                 display: flex; align-items: center; justify-content: center;
             }
-            .bottom-nav-btn .bn-ico svg { width: 22px; height: 22px; }
+            .bottom-nav-btn .bn-ico svg { width: 16px; height: 16px; }
             .bottom-nav-btn .bn-lbl {
-                font-size: 10px; font-weight: 600; letter-spacing: -0.02em;
+                font-size: 9px; font-weight: 600; letter-spacing: -0.02em;
                 line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
             }
             .bottom-nav-btn.active { color: var(--text-primary); }
             .bottom-nav-btn.active .bn-lbl { font-weight: 800; }
             .bottom-nav-btn--home .bn-ico {
-                width: 44px; height: 44px; border-radius: 14px;
+                width: 26px; height: 26px; border-radius: 8px;
                 background: var(--accent-soft); color: var(--accent);
             }
-            .bottom-nav-btn--home .bn-ico svg { width: 24px; height: 24px; }
+            .bottom-nav-btn--home .bn-ico svg { width: 16px; height: 16px; }
             .bottom-nav-btn--home.active .bn-ico {
                 background: var(--accent); color: #fff;
             }
             .bottom-nav-btn--home .bn-lbl { font-weight: 800; color: var(--text-primary); }
             .main-rail {
-                padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;
+                padding-top: calc(28px + env(safe-area-inset-top, 0px)) !important;
+                padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)) !important;
             }
             .main-content {
                 overscroll-behavior-y: contain;
@@ -3101,20 +3122,23 @@
                 -webkit-backdrop-filter: blur(4px);
             }
             .mobile-overlay.active { display: block; }
-            header.glass {
-                padding: 0 !important;
+            header.glass.app-header {
+                left: 0;
+                right: 0;
+                top: 0;
+                padding: env(safe-area-inset-top, 0) 0 0 !important;
                 flex-shrink: 0;
             }
+            body.flyout-expanded header.glass.app-header { left: 0; }
             .app-header-main {
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
-                gap: 8px;
-                height: 56px;
-                min-height: 56px;
-                max-height: 56px;
-                padding: 0 12px;
-                padding-top: env(safe-area-inset-top, 0);
+                gap: 6px;
+                height: 28px;
+                min-height: 28px;
+                max-height: 28px;
+                padding: 0 10px;
             }
             .header-greeting { display: none !important; }
             .header-title { font-size: 18px !important; line-height: 1.2 !important; font-weight: 600 !important; }
@@ -3126,13 +3150,18 @@
                 overflow: visible;
                 max-width: none;
             }
-            .date-filter-chip { padding: 5px 8px; font-size: 12px; }
+            .date-filter-chip { padding: 2px 6px; font-size: 11px; }
             .cabinet-picker-label { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .cabinet-picker-btn { padding: 6px 8px !important; }
-            .app-header-main { gap: 6px !important; }
-            .app-header-main > .flex { gap: 6px !important; }
+            .cabinet-picker-btn { padding: 2px 6px !important; }
+            .app-header-main { gap: 4px !important; }
+            .app-header-main > .flex { gap: 4px !important; }
+            .header-back-btn { width: 24px; height: 24px; }
+            .header-back-btn svg { width: 14px; height: 14px; }
+            .nr-notify-btn { width: 24px; height: 24px; border-radius: 8px; }
+            .nr-notify-btn svg { width: 13px; height: 13px; }
+            .header-title { font-size: 14px !important; line-height: 1.15 !important; }
             .header-back-btn:not(.hidden) + .min-w-0 { display: none !important; }
-            #refresh-btn { width: 40px; height: 40px; padding: 0 !important; justify-content: center; }
+            #refresh-btn { width: 24px; height: 24px; padding: 0 !important; justify-content: center; }
             .main-content { padding: 16px 12px !important; }
             .main-content.rnp-compact { padding: 4px 6px !important; }
             #date-picker { left: 10px !important; width: calc(100vw - 20px) !important; }
@@ -3601,54 +3630,6 @@
 
     <main class="main-rail flex-1 flex flex-col h-full overflow-hidden">
         <div class="mobile-overlay" id="mobile-overlay" onclick="closeMobileMenu()"></div>
-
-        <header class="glass border-b shrink-0 rounded-none app-header" style="border-color:var(--border);border-radius:0">
-            <div class="app-header-main flex items-center justify-between gap-4">
-                <div class="flex items-center gap-3 min-w-0 flex-1">
-                    <button type="button" class="mobile-menu-btn btn-smooth" onclick="toggleMobileMenu()" id="mobile-menu-btn" aria-label="Меню">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-                    </button>
-                    <button type="button" id="header-back-btn" class="header-back-btn hidden" onclick="headerGoBack()" title="Назад" aria-label="Назад">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
-                    </button>
-                    <div class="min-w-0 header-page-title">
-                        <h1 id="page-title" class="header-title truncate">Дашборд</h1>
-                    </div>
-                    <div id="header-date-chip-wrap" class="filter-chip date-filter-chip active flex items-center hidden" onclick="toggleDatePicker(event)">
-                        <span id="date-range">1 янв – 8 сен</span>
-                        <svg class="date-chip-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2 shrink-0">
-                    <div class="nr-notify" id="nr-notify">
-                        <button type="button" class="nr-notify-btn" id="nr-notify-btn" onclick="NrNotify.toggle(event)" title="Уведомления" aria-label="Уведомления">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7"/>
-                                <path d="M13.73 21a2 2 0 01-3.46 0"/>
-                            </svg>
-                            <span class="nr-notify-dot" id="nr-notify-dot"></span>
-                        </button>
-                        <div class="nr-notify-panel" id="nr-notify-panel" role="dialog" aria-label="История уведомлений">
-                            <div class="nr-notify-head">Уведомления</div>
-                            <div id="nr-notify-list"></div>
-                        </div>
-                    </div>
-                    <div class="cabinet-picker" id="cabinet-picker-wrap">
-                        <button type="button" class="cabinet-picker-btn" id="cabinet-picker-btn" onclick="toggleCabinetDropdown(event)">
-                            <span class="cabinet-picker-face">
-                                <span class="cabinet-picker-label" id="cabinet-picker-label">Кабинет</span>
-                                <svg class="cabinet-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-                            </span>
-                        </button>
-                        <div id="cabinet-dropdown-menu" class="cabinet-dropdown-menu"></div>
-                        <select id="cabinet-select-header" class="cabinet-picker-native" aria-hidden="true" tabindex="-1" onchange="onCabinetChange()">
-                            <option value="">Кабинет...</option>
-                        </select>
-                    </div>
-                    <span id="cabinet-name-header" class="hidden" aria-hidden="true"></span>
-                </div>
-            </div>
-        </header>
 
         <div class="flex-1 overflow-y-auto p-6 main-content">
         <div id="space-empty-state" class="space-empty-state hidden">
@@ -4745,6 +4726,54 @@
         </div>
     </main>
     </div>
+
+        <header class="glass border-b shrink-0 rounded-none app-header" style="border-color:var(--border);border-radius:0">
+            <div class="app-header-main flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3 min-w-0 flex-1">
+                    <button type="button" class="mobile-menu-btn btn-smooth" onclick="toggleMobileMenu()" id="mobile-menu-btn" aria-label="Меню">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+                    </button>
+                    <button type="button" id="header-back-btn" class="header-back-btn hidden" onclick="headerGoBack()" title="Назад" aria-label="Назад">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+                    </button>
+                    <div class="min-w-0 header-page-title">
+                        <h1 id="page-title" class="header-title truncate">Дашборд</h1>
+                    </div>
+                    <div id="header-date-chip-wrap" class="filter-chip date-filter-chip active flex items-center hidden" onclick="toggleDatePicker(event)">
+                        <span id="date-range">1 янв – 8 сен</span>
+                        <svg class="date-chip-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <div class="nr-notify" id="nr-notify">
+                        <button type="button" class="nr-notify-btn" id="nr-notify-btn" onclick="NrNotify.toggle(event)" title="Уведомления" aria-label="Уведомления">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7"/>
+                                <path d="M13.73 21a2 2 0 01-3.46 0"/>
+                            </svg>
+                            <span class="nr-notify-dot" id="nr-notify-dot"></span>
+                        </button>
+                        <div class="nr-notify-panel" id="nr-notify-panel" role="dialog" aria-label="История уведомлений">
+                            <div class="nr-notify-head">Уведомления</div>
+                            <div id="nr-notify-list"></div>
+                        </div>
+                    </div>
+                    <div class="cabinet-picker" id="cabinet-picker-wrap">
+                        <button type="button" class="cabinet-picker-btn" id="cabinet-picker-btn" onclick="toggleCabinetDropdown(event)">
+                            <span class="cabinet-picker-face">
+                                <span class="cabinet-picker-label" id="cabinet-picker-label">Кабинет</span>
+                                <svg class="cabinet-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
+                            </span>
+                        </button>
+                        <div id="cabinet-dropdown-menu" class="cabinet-dropdown-menu"></div>
+                        <select id="cabinet-select-header" class="cabinet-picker-native" aria-hidden="true" tabindex="-1" onchange="onCabinetChange()">
+                            <option value="">Кабинет...</option>
+                        </select>
+                    </div>
+                    <span id="cabinet-name-header" class="hidden" aria-hidden="true"></span>
+                </div>
+            </div>
+        </header>
 
     <nav class="bottom-nav" id="nr-bottom-nav" aria-label="Нижняя навигация">
         <button type="button" class="bottom-nav-btn" id="bn-settings" data-tab="settings" onclick="showTab('settings')" title="Настройки" aria-label="Настройки сайта">
