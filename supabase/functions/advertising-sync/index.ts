@@ -14,6 +14,7 @@
 // cannot be called by a service-role cron job.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { isTeamMember } from '../_shared/cabinet-access.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -53,7 +54,8 @@ Deno.serve(async (req) => {
         userId = user.id;
         isSuperAdmin =
             String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL ||
-            user.id === SUPER_ADMIN_ID;
+            user.id === SUPER_ADMIN_ID ||
+            await isTeamMember(admin, user.email);
     }
 
     let targetCabinetId: string | null = null;

@@ -8,6 +8,7 @@
 // Auth: service_role key only (вызывается по pg_cron, см. миграцию cron).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 
 const CORS = {
@@ -80,6 +81,12 @@ Deno.serve(async (req) => {
             const cabResult: Record<string, unknown> = { cabinet: cabinet.name, events: [] as string[] };
             const events = cabResult.events as string[];
             try {
+                const gate = await shouldSendTelegram(admin, { channel: 'ads', cabinetId: cabinet.id });
+                if (!gate.ok) {
+                    cabResult.skipped = gate.reason;
+                    results.push(cabResult);
+                    continue;
+                }
                 const token = sanitizeWbToken(cabinet.wb_token);
                 if (!token || !isValidWbToken(token)) {
                     cabResult.skipped = 'invalid_token';

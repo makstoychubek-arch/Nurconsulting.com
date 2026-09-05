@@ -6,6 +6,29 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
+import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
+import { isSuperAdminUser, isTeamMember } from '../_shared/cabinet-access.ts';
+import {
+    collectNmIds,
+    extractBidsFromAdvert,
+    fetchAdvertById,
+    fetchMinBids,
+    setAdvertBids,
+} from '../_shared/wb-advert-bids.ts';
+import {
+    ADVERT_API,
+    CHAT_API,
+    FEEDBACKS_API,
+    FINANCE_API,
+    MARKET_API,
+    PRICES_API,
+    USERS_API,
+    accessPresetItems,
+    normalizeWbInvitePhone,
+    wbError,
+    wbSend,
+    type AccessPreset,
+} from '../_shared/wb-agent-wow.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -73,12 +96,12 @@ serve(async (req) => {
         const { data: { user }, error: authErr } = await userClient.auth.getUser();
         if (authErr || !user) return json({ error: 'Invalid session' }, 401);
 
-        const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
-        const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
-        const isSuperAdmin = String(user.email || '').toLowerCase() === SUPER_ADMIN_EMAIL || user.id === SUPER_ADMIN_ID;
+        const isSuperAdmin = isSuperAdminUser(user);
+        const adminCheck = createClient(supabaseUrl, supabaseService);
+        // Сотрудники из allowed_users работают с любым кабинетом, как супер-админ.
+        const allCabinets = isSuperAdmin || await isTeamMember(adminCheck, user.email);
 
         if (!isSuperAdmin) {
-            const adminCheck = createClient(supabaseUrl, supabaseService);
             const { data: space, error: spaceErr } = await adminCheck
                 .from('spaces')
                 .select('status')
@@ -102,14 +125,14 @@ serve(async (req) => {
 
         // ── Verify cabinet ownership ──────────────────────────────────────────
         const admin = createClient(supabaseUrl, supabaseService);
-        const { data: cab, error: cabErr } = await admin
+        let cabQuery = admin
             .from('cabinets')
-            .select('wb_token, name')
-            .eq('id', cabinet_id)
-            .eq('user_id', user.id)
-            .maybeSingle();
+            .select('wb_token, name, user_id')
+            .eq('id', cabinet_id);
+        if (!allCabinets) cabQuery = cabQuery.eq('user_id', user.id);
+        const { data: cab, error: cabErr } = await cabQuery.maybeSingle();
 
-        if (cabErr || !cab) return json({ error: 'Cabinet not found or access denied' }, 403);
+        if (cabErr || !cab) return json({ error: 'Кабинет не найден или нет доступа' }, 403);
 
         // IMPORTANT — DO NOT CHANGE THIS: one cabinet = one WB token, and that
         // single token already has ALL scopes (stats, content, promotion,
@@ -135,10 +158,41 @@ serve(async (req) => {
                 const wbRes = await fetch(url, { headers: { Authorization: WB_TOKEN } });
                 return streamWbResponse(wbRes);
             }
-            case 'stocks': {
-                const url = `https://statistics-api.wildberries.ru/api/v1/supplier/stocks?dateFrom=${params.dateFrom || '2020-01-01'}`;
-                const wbRes = await fetch(url, { headers: { Authorization: WB_TOKEN } });
-                return streamWbResponse(wbRes);
+            case 'stocks':
+            case 'stocks_fbo': {
+                // Старый GET /api/v1/supplier/stocks отключён WB (PLUG-404).
+                // FBO: POST /api/analytics/v1/stocks-report/wb-warehouses.
+                try {
+                    const payload = await wbPost(
+                        'https://seller-analytics-api.wildberries.ru/api/analytics/v1/stocks-report/wb-warehouses',
+                        WB_TOKEN,
+                        { nmIds: params.nmIds || [], limit: Number(params.limit) || 250000, offset: Number(params.offset) || 0 },
+                    ) as { data?: { items?: Record<string, unknown>[] } };
+                    const items = payload?.data?.items || [];
+                    result = items.map((s) => ({
+                        nmId: s.nmId,
+                        chrtId: s.chrtId,
+                        barcode: String(s.chrtId ?? ''),
+                        warehouseName: s.warehouseName || '',
+                        quantity: s.quantity || 0,
+                        inWayToClient: s.inWayToClient || 0,
+                        inWayFromClient: s.inWayFromClient || 0,
+                        stockScheme: 'fbo',
+                    }));
+                } catch (e) {
+                    console.warn('[wb-proxy] stocks_fbo error:', String(e));
+                    return json({ error: `WB stocks FBO: ${String(e)}` }, (e as { status?: number })?.status || 502);
+                }
+                break;
+            }
+            case 'stocks_fbs': {
+                try {
+                    result = await fetchFbsStocksViaProxy(WB_TOKEN, params as Record<string, unknown>);
+                } catch (e) {
+                    console.warn('[wb-proxy] stocks_fbs error:', String(e));
+                    return json({ error: `WB stocks FBS: ${String(e)}` }, (e as { status?: number })?.status || 502);
+                }
+                break;
             }
             case 'finance_report': {
                 const dateFrom = String(params.dateFrom || '').split('T')[0];
@@ -280,32 +334,48 @@ serve(async (req) => {
 
             // ── Content API ─────────────────────────────────────────────────
             case 'content_cards': {
-                const ccKey = proxyCacheKey('content_cards', cabinet_id, params as Record<string, unknown>);
+                const ccKey = params.force ? null : proxyCacheKey('content_cards', cabinet_id, params as Record<string, unknown>);
                 if (ccKey) {
                     const cached = readProxyCache(ccKey, PROXY_CACHE_TTL_MS.content_cards);
                     if (cached) { result = cached; break; }
                 }
                 // Note: filter.nmID (array) is NOT a real WB Content API field —
                 // it's silently ignored. Only textSearch (single value) works
-                // for looking up a specific article.
-                const body = {
-                    settings: {
-                        sort: { ascending: false },
-                        filter: {
-                            textSearch: String(params.textSearch || (params.nmIds?.[0] ?? '')),
-                            withPhoto: params.withPhoto ?? -1,
-                        },
-                        cursor: {
-                            limit: params.limit || 100,
-                            ...(params.cursorNmId ? { nmID: Number(params.cursorNmId) } : {}),
-                        }
-                    }
-                };
+                // for looking up a specific article. Empty textSearch = весь
+                // каталог; листаем cursor, иначе новые карточки без заказов
+                // не попадут в РНП.
+                const pageLimit = Math.min(Number(params.limit) || 100, 100);
+                const textSearch = String(params.textSearch || (params.nmIds?.[0] ?? ''));
+                const allCards: unknown[] = [];
+                let cursorNmId = params.cursorNmId ? Number(params.cursorNmId) : 0;
+                let cursorUpdatedAt = params.cursorUpdatedAt ? String(params.cursorUpdatedAt) : '';
                 try {
-                    result = await wbPost(
-                        'https://content-api.wildberries.ru/content/v2/get/cards/list',
-                        WB_TOKEN, body
-                    );
+                    for (let page = 0; page < 20; page++) {
+                        const body = {
+                            settings: {
+                                sort: { ascending: false },
+                                filter: { textSearch, withPhoto: params.withPhoto ?? -1 },
+                                cursor: {
+                                    limit: pageLimit,
+                                    ...(cursorNmId ? { nmID: cursorNmId } : {}),
+                                    ...(cursorUpdatedAt ? { updatedAt: cursorUpdatedAt } : {}),
+                                },
+                            },
+                        };
+                        const pageRes = await wbPost(
+                            'https://content-api.wildberries.ru/content/v2/get/cards/list',
+                            WB_TOKEN, body
+                        ) as Record<string, unknown>;
+                        const cards = (pageRes?.cards || (pageRes?.data as Record<string, unknown>)?.cards || []) as unknown[];
+                        if (Array.isArray(cards)) allCards.push(...cards);
+                        const cur = (pageRes?.cursor || {}) as Record<string, unknown>;
+                        const nextNm = Number(cur.nmID || cur.nmId || 0);
+                        const nextAt = String(cur.updatedAt || '');
+                        if (!cards.length || cards.length < pageLimit || !nextNm) break;
+                        cursorNmId = nextNm;
+                        cursorUpdatedAt = nextAt;
+                    }
+                    result = { cards: allCards };
                 } catch (e) {
                     const status = (e as { status?: number })?.status;
                     if (status === 401 || status === 403) {
@@ -664,6 +734,76 @@ serve(async (req) => {
                 break;
             }
 
+            // ── Ставки аукциона: чтение / запись / минимум ───────────────────
+            // Бюджет не трогаем — только ставки уже созданной кампании.
+            case 'advert_get_bids': {
+                const advertId = Number(params.advertId || 0);
+                if (!advertId) return json({ error: 'advertId required' }, 400);
+                const advert = await fetchAdvertById(WB_PROMO_TOKEN, advertId);
+                let bids = extractBidsFromAdvert(advert);
+                if (!bids.length && advert) {
+                    const bidType = String(advert.bid_type ?? advert.bidType ?? '').toLowerCase();
+                    const placement = bidType === 'manual' ? 'search' : 'combined';
+                    bids = await fetchMinBids(WB_PROMO_TOKEN, advertId, collectNmIds(advert, []), placement);
+                }
+                try {
+                    await admin.from('advertising_campaigns').update({
+                        current_bids: bids,
+                        updated_at: new Date().toISOString(),
+                    }).eq('cabinet_id', cabinet_id).eq('campaign_id', advertId);
+                } catch (e) {
+                    console.warn('[wb-proxy] persist current_bids failed:', String(e));
+                }
+                result = {
+                    advertId,
+                    name: advert ? String((advert as Record<string, unknown>).name
+                        || ((advert as Record<string, unknown>).settings as Record<string, unknown> | undefined)?.name
+                        || '') : '',
+                    status: advert ? Number((advert as Record<string, unknown>).status ?? 0) : null,
+                    bidType: advert ? String((advert as Record<string, unknown>).bid_type
+                        ?? (advert as Record<string, unknown>).bidType ?? '') : '',
+                    bids,
+                    advert: advert || null,
+                };
+                break;
+            }
+            case 'advert_set_bids': {
+                const advertId = Number(params.advertId || 0);
+                if (!advertId) return json({ error: 'advertId required' }, 400);
+                const rawBids = Array.isArray(params.bids) ? params.bids as Record<string, unknown>[] : [];
+                if (!rawBids.length) return json({ error: 'bids required' }, 400);
+                const nmBids = rawBids.map((b) => ({
+                    nm_id: Number(b.nm_id ?? b.nmId ?? 0),
+                    bid_kopecks: Number(b.bid_kopecks ?? b.bid ?? 0),
+                    placement: String(b.placement || 'search') as 'search' | 'recommendations' | 'combined',
+                })).filter((b) => b.nm_id && b.bid_kopecks > 0);
+                if (!nmBids.length) return json({ error: 'valid bids required' }, 400);
+                const setRes = await setAdvertBids(WB_PROMO_TOKEN, advertId, nmBids);
+                if (!setRes.ok) {
+                    return json({
+                        error: `WB bids error ${setRes.status}: ${setRes.body || 'empty'}`,
+                    }, setRes.status >= 500 ? 502 : 400);
+                }
+                try {
+                    await admin.from('advertising_campaigns').update({
+                        current_bids: nmBids,
+                        updated_at: new Date().toISOString(),
+                    }).eq('cabinet_id', cabinet_id).eq('campaign_id', advertId);
+                } catch (e) {
+                    console.warn('[wb-proxy] persist set bids failed:', String(e));
+                }
+                result = { ok: true, advertId, bids: nmBids };
+                break;
+            }
+            case 'advert_bids_min': {
+                const advertId = Number(params.advertId || 0);
+                if (!advertId) return json({ error: 'advertId required' }, 400);
+                const nmIds = Array.isArray(params.nmIds) ? (params.nmIds as unknown[]).map(Number).filter(Boolean) : [];
+                const placement = String(params.placement || 'search') as 'search' | 'recommendations' | 'combined';
+                result = { advertId, bids: await fetchMinBids(WB_PROMO_TOKEN, advertId, nmIds, placement) };
+                break;
+            }
+
             // ── Analytics API — Sales Funnel ────────────────────────────────
             case 'sales_funnel_history': {
                 const today = new Date();
@@ -956,6 +1096,159 @@ serve(async (req) => {
                 break;
             }
 
+            // ── Агенты: топ WB-ручек ─────────────────────────────────────────
+            case 'users_invite': {
+                const phone = normalizeWbInvitePhone(String(params.phone || ''));
+                if (!phone) return json({ error: 'Укажите телефон с кодом страны: 79…, 996…, 375…' }, 400);
+                const position = String(params.position || 'Сотрудник').slice(0, 150);
+                const preset = String(params.preset || 'standard') as AccessPreset;
+                const access = accessPresetItems(['standard', 'manager', 'readonly'].includes(preset) ? preset : 'standard');
+                const body: Record<string, unknown> = { invite: { phoneNumber: phone.phone, position } };
+                if (access?.length) body.access = access;
+                const res = await wbSend(`${USERS_API}/api/v1/invite`, WB_TOKEN, 'POST', body);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                const data = (res.data || {}) as Record<string, unknown>;
+                result = {
+                    ok: data.isSuccess !== false,
+                    inviteUrl: data.inviteUrl || data.invite_url || null,
+                    inviteID: data.inviteID || data.inviteId || null,
+                    expiredAt: data.expiredAt || null,
+                    phone: phone.phone,
+                    countryName: phone.countryName,
+                };
+                break;
+            }
+            case 'users_list': {
+                const inviteOnly = Boolean(params.inviteOnly);
+                const q = `limit=100&offset=0${inviteOnly ? '&isInviteOnly=true' : ''}`;
+                const res = await wbSend(`${USERS_API}/api/v1/users?${q}`, WB_TOKEN);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'users_delete': {
+                const userId = Number(params.userId || 0);
+                if (!userId) return json({ error: 'userId required' }, 400);
+                const res = await wbSend(`${USERS_API}/api/v1/user?deletedUserID=${userId}`, WB_TOKEN, 'DELETE');
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = { ok: true, userId };
+                break;
+            }
+            case 'prices_list': {
+                const limit = Math.min(200, Number(params.limit) || 50);
+                const offset = Number(params.offset) || 0;
+                const res = await wbSend(`${PRICES_API}/api/v2/list/goods/filter?limit=${limit}&offset=${offset}`, WB_TOKEN);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'prices_set': {
+                const nmID = Number(params.nmID || params.nmId || 0);
+                const price = Number(params.price || 0);
+                const discount = params.discount != null ? Number(params.discount) : undefined;
+                if (!nmID || price <= 0) return json({ error: 'nmID и цена обязательны' }, 400);
+                const item: Record<string, unknown> = { nmID, price };
+                if (discount != null && !Number.isNaN(discount)) item.discount = discount;
+                const res = await wbSend(`${PRICES_API}/api/v2/upload/task`, WB_TOKEN, 'POST', { data: { prices: [item] } });
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'feedbacks_list': {
+                const answered = params.isAnswered === true;
+                const take = Math.min(100, Number(params.take) || 30);
+                const res = await wbSend(
+                    `${FEEDBACKS_API}/api/v1/feedbacks?isAnswered=${answered}&take=${take}&skip=0&order=dateDesc`,
+                    WB_TOKEN,
+                );
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'feedbacks_answer': {
+                const id = String(params.id || '');
+                const text = String(params.text || '').trim();
+                if (!id || !text) return json({ error: 'id и текст ответа обязательны' }, 400);
+                const res = await wbSend(`${FEEDBACKS_API}/api/v1/feedbacks/answer`, WB_TOKEN, 'POST', { id, text });
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = { ok: true };
+                break;
+            }
+            case 'questions_list': {
+                const answered = params.isAnswered === true;
+                const take = Math.min(100, Number(params.take) || 30);
+                const res = await wbSend(
+                    `${FEEDBACKS_API}/api/v1/questions?isAnswered=${answered}&take=${take}&skip=0`,
+                    WB_TOKEN,
+                );
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'questions_answer': {
+                const id = String(params.id || '');
+                const text = String(params.text || '').trim();
+                if (!id || !text) return json({ error: 'id и текст ответа обязательны' }, 400);
+                const res = await wbSend(`${FEEDBACKS_API}/api/v1/questions/answer`, WB_TOKEN, 'POST', { id, text });
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = { ok: true };
+                break;
+            }
+            case 'orders_fbs_new': {
+                const res = await wbSend(`${MARKET_API}/api/v3/orders/new`, WB_TOKEN);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'passes_offices': {
+                const res = await wbSend(`${MARKET_API}/api/v3/passes/offices`, WB_TOKEN);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'passes_list': {
+                const res = await wbSend(`${MARKET_API}/api/v3/passes`, WB_TOKEN);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'passes_create': {
+                const firstName = String(params.firstName || '').trim();
+                const lastName = String(params.lastName || '').trim();
+                const officeId = Number(params.officeId || 0);
+                if (!firstName || !lastName || !officeId) {
+                    return json({ error: 'Имя, фамилия и склад обязательны' }, 400);
+                }
+                const body = {
+                    firstName,
+                    lastName,
+                    carModel: String(params.carModel || '').trim() || undefined,
+                    carNumber: String(params.carNumber || '').trim() || undefined,
+                    officeId,
+                };
+                const res = await wbSend(`${MARKET_API}/api/v3/passes`, WB_TOKEN, 'POST', body);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'buyer_chats': {
+                const res = await wbSend(`${CHAT_API}/api/v1/seller/chats`, WB_TOKEN);
+                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                result = res.data;
+                break;
+            }
+            case 'seller_balance': {
+                const [fin, adv] = await Promise.all([
+                    wbSend(`${FINANCE_API}/api/v1/account/balance`, WB_TOKEN),
+                    wbSend(`${ADVERT_API}/adv/v1/balance`, WB_TOKEN),
+                ]);
+                result = {
+                    finance: fin.ok ? fin.data : { error: wbError(fin) },
+                    advertising: adv.ok ? adv.data : { error: wbError(adv) },
+                };
+                break;
+            }
+
             default:
                 return json({ error: `Unknown action: ${action}` }, 400);
         }
@@ -999,6 +1292,8 @@ async function notifyCampaignAction(
     const tgToken = getTelegramToken();
     const tgChatId = getTelegramChatId('ads');
     if (!tgToken || !tgChatId) return;
+    const gate = await shouldSendTelegram(admin, { channel: 'ads', cabinetId: opts.cabinetId });
+    if (!gate.ok) return;
 
     const eventType = opts.action === 'pause' ? 'campaign_paused' : 'campaign_started';
     const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -1198,4 +1493,52 @@ async function wbPost(url: string, token: string, body: unknown): Promise<unknow
         throw err;
     }
     return parseWbJson(res);
+}
+
+async function fetchFbsStocksViaProxy(token: string, params: Record<string, unknown>): Promise<Record<string, unknown>[]> {
+    const whs = await wbGet('https://marketplace-api.wildberries.ru/api/v3/warehouses', token);
+    const warehouses = Array.isArray(whs) ? whs as Record<string, unknown>[] : [];
+    const chrtIds = Array.isArray(params.chrtIds) ? (params.chrtIds as number[]).map(Number).filter(Boolean) : [];
+    const skus = Array.isArray(params.skus) ? (params.skus as string[]).map(String).filter(Boolean) : [];
+
+    if (!warehouses.length) return [];
+
+    const out: Record<string, unknown>[] = [];
+    for (const wh of warehouses) {
+        const warehouseId = Number(wh.id || 0);
+        if (!warehouseId) continue;
+        const body = chrtIds.length
+            ? { chrtIds: chrtIds.slice(0, 1000) }
+            : skus.length
+                ? { skus: skus.slice(0, 1000) }
+                : { chrtIds: [] };
+        if (!(body as { chrtIds?: number[]; skus?: string[] }).chrtIds?.length && !(body as { skus?: string[] }).skus?.length) {
+            continue;
+        }
+        try {
+            const payload = await wbPost(
+                `https://marketplace-api.wildberries.ru/api/v3/stocks/${warehouseId}`,
+                token,
+                body,
+            ) as { stocks?: Record<string, unknown>[] };
+            for (const s of payload?.stocks || []) {
+                const amount = Number(s.amount || 0);
+                if (amount <= 0) continue;
+                out.push({
+                    nmId: 0,
+                    chrtId: s.chrtId,
+                    barcode: String(s.sku || s.chrtId || ''),
+                    warehouseName: String(wh.name || 'FBS'),
+                    quantity: amount,
+                    inWayToClient: 0,
+                    inWayFromClient: 0,
+                    stockScheme: 'fbs',
+                });
+            }
+        } catch (e) {
+            console.warn('[wb-proxy] FBS warehouse', warehouseId, String(e));
+        }
+        await sleep(220);
+    }
+    return out;
 }

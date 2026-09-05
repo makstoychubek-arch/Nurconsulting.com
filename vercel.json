@@ -7,26 +7,30 @@
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "source": "/(.*)\\.js",
+      "source": "/nr-auth.js",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
-      "source": "/(space|logistics|ab-testing|advertising|seo|marking)",
+      "source": "/(space|logistics|ab-testing|advertising|seo|marking|rnp|telegram-bots|ozon|agents)",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
     },
     {
       "source": "/dist/(.*)",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=3600, must-revalidate" }]
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     }
   ],
   "rewrites": [
     { "source": "/login", "destination": "/login.html" },
     { "source": "/space", "destination": "/dashboard.html" },
+    { "source": "/rnp", "destination": "/dashboard.html" },
     { "source": "/ab-testing", "destination": "/dashboard.html" },
     { "source": "/advertising", "destination": "/dashboard.html" },
     { "source": "/seo", "destination": "/dashboard.html" },
     { "source": "/marking", "destination": "/dashboard.html" },
     { "source": "/logistics", "destination": "/dashboard.html" },
+    { "source": "/telegram-bots", "destination": "/dashboard.html" },
+    { "source": "/ozon", "destination": "/dashboard.html" },
+    { "source": "/agents", "destination": "/dashboard.html" },
     { "source": "/rnp-app", "destination": "/rnp-app/index.html" },
     { "source": "/rnp-app/:path*", "destination": "/rnp-app/:path*" },
     { "source": "/marking-app/:path*", "destination": "/marking-app/:path*" },

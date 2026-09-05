@@ -48,12 +48,24 @@
         const map = {};
         (stocks || []).forEach(s => {
             const w = s.warehouse_name || 'Неизвестно';
-            map[w] = (map[w] || 0) + Number(s.quantity || 0);
+            const scheme = String(s.stock_scheme || s.scheme || 'fbo').toLowerCase() === 'fbs' ? 'fbs' : 'fbo';
+            const key = w + '\0' + scheme;
+            if (!map[key]) map[key] = [w, 0, scheme];
+            map[key][1] += Number(s.quantity || 0);
         });
-        return Object.entries(map).sort((a, b) => b[1] - a[1]).slice(0, 6);
+        return Object.values(map).sort((a, b) => b[1] - a[1]);
+    }
+
+    function filterWarehouseEntries(entries, scheme) {
+        const list = (entries || []).filter(e => Number(e[1] || 0) > 0);
+        if (!scheme || scheme === 'all') return list.slice(0, 12);
+        return list.filter(e => (e[2] || 'fbo') === scheme);
     }
 
     function destroyChart(id) {
+        const el = document.getElementById(id);
+        const wrap = el && el.parentElement;
+        if (wrap && wrap.offsetHeight) wrap.style.minHeight = wrap.offsetHeight + 'px';
         if (charts[id]) { charts[id].destroy(); delete charts[id]; }
     }
 
@@ -167,7 +179,7 @@
         charts['chart-warehouse-donut'] = new Chart(el, {
             type: 'doughnut',
             data: {
-                labels: warehouses.map(([n]) => n.length > 18 ? n.slice(0, 16) + '…' : n),
+                labels: warehouses.map(([n]) => n.length > 28 ? n.slice(0, 26) + '…' : n),
                 datasets: [{ data: warehouses.map(([, q]) => q), backgroundColor: c.fills, borderWidth: 0 }]
             },
             options: {
@@ -207,17 +219,28 @@
     // count,returns}],...]) и warehouseEntries в формате aggregateWarehouses
     // ([[name,qty],...]). Раньше ради этих же графиков тянули постранично
     // тысячи сырых строк — теперь клиенту приходит уже готовая агрегация.
+    let cachedWarehouseScheme = 'all';
+
     function renderAllChartsAgg(series, warehouseEntries) {
         cachedOrders = [];
         cachedStocks = [];
         cachedSeries = series || [];
         cachedWarehouseEntries = warehouseEntries || [];
-        renderChartsCore(cachedSeries, cachedWarehouseEntries);
+        renderChartsCore(cachedSeries, filterWarehouseEntries(cachedWarehouseEntries, cachedWarehouseScheme));
+    }
+
+    function setWarehouseScheme(scheme, entries) {
+        cachedWarehouseScheme = scheme === 'fbo' || scheme === 'fbs' ? scheme : 'all';
+        if (entries) cachedWarehouseEntries = entries;
+        if (cachedSeries || cachedWarehouseEntries) {
+            renderChartsCore(cachedSeries || [], filterWarehouseEntries(cachedWarehouseEntries, cachedWarehouseScheme));
+        }
     }
 
     function refreshChartTheme() {
-        if (cachedSeries || cachedWarehouseEntries) renderChartsCore(cachedSeries || [], cachedWarehouseEntries || []);
-        else if (cachedOrders.length || cachedStocks.length) renderAllCharts(cachedOrders, cachedStocks);
+        if (cachedSeries || cachedWarehouseEntries) {
+            renderChartsCore(cachedSeries || [], filterWarehouseEntries(cachedWarehouseEntries || [], cachedWarehouseScheme));
+        } else if (cachedOrders.length || cachedStocks.length) renderAllCharts(cachedOrders, cachedStocks);
         if (cachedAdvSeries) renderAdvertisingCharts(cachedAdvSeries);
     }
 
@@ -314,5 +337,5 @@
         });
     }
 
-    window.NRCharts = { renderAllCharts, renderAllChartsAgg, refreshChartTheme, renderAdvertisingCharts, renderTopMarginDonut };
+    window.NRCharts = { renderAllCharts, renderAllChartsAgg, setWarehouseScheme, refreshChartTheme, renderAdvertisingCharts, renderTopMarginDonut };
 })();

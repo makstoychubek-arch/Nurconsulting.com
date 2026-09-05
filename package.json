@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "description": "Build-time asset pipeline for the static site (dashboard.html/index.html/login.html): compiles Tailwind CSS instead of the cdn.tailwindcss.com runtime compiler, and minifies the vanilla dashboard scripts with content-hashed filenames instead of manual ?v= cache-busting.",
   "scripts": {
-    "build": "node scripts/build-assets.js"
+    "build": "node scripts/build-assets.js",
+    "test": "node nr-auth_test.js && node dashboard_html_test.js && node daily_penalties_test.js && node rnp_morning_fill_test.js"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",

@@ -91,6 +91,10 @@ serve(async (req) => {
             if (updErr) return json({ error: updErr.message }, 500);
 
             await admin.from('user_sessions').delete().eq('user_id', targetUserId);
+            if (space.email) {
+                const { error: allowDelErr } = await admin.from('allowed_users').delete().eq('email', space.email);
+                if (allowDelErr) console.warn('[admin-space] allowed_users delete:', allowDelErr.message);
+            }
 
             const { error: signOutErr } = await admin.auth.admin.signOut(targetUserId, 'global');
             if (signOutErr) {
