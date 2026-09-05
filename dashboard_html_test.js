@@ -346,6 +346,12 @@ assert.ok(
 );
 assert.ok(rnpSrc.includes('class="rnp-settings-gear"'), 'RNP toolbar has a small gear for settings');
 assert.ok(html.includes('id="rnp-settings-overlay"'), 'RNP settings open as an overlay, not a second page');
+assert.ok(
+    html.includes('input[type="number"]::-webkit-inner-spin-button')
+        && html.includes('input[type="number"]::-webkit-outer-spin-button')
+        && /input\[type="number"\]\s*\{[^}]*appearance:\s*textfield/.test(html),
+    'number inputs must hide the browser spinner arrows everywhere'
+);
 assert.ok(html.includes("if (name === 'rnp-settings')"), 'old rnp-settings tab route opens the modal');
 assert.ok(rnpSrc.includes('function closeSettings()'), 'settings modal can close without leaving RNP');
 assert.ok(rnpSrc.includes("getElementById('rnp-settings-modal-body')"), 'settings HTML renders into the modal body');
