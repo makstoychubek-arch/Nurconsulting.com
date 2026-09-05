@@ -109,10 +109,24 @@ assert.ok(html.includes('id="rail-settings-btn"'), 'settings must be a small but
 const settingsIdx = html.indexOf('id="rail-settings-btn"');
 const userIdx = html.indexOf('id="rail-user-name"');
 assert.ok(userIdx !== -1 && settingsIdx > userIdx, 'settings button must sit under the profile block');
-assert.ok(html.includes('id="rail-cabs"') && html.includes('function renderRailCabs'),
-    'sidebar footer must show other cabinets as small logos under the current user');
-assert.ok(html.includes('function cabinetMark'),
-    'rail cabinet logos use the legal-name initial, not B/E/Z');
+assert.ok(!html.includes('id="rail-cabs"') && !html.includes('function renderRailCabs'),
+    'sidebar must not duplicate the header cabinet picker as letter avatars');
+{
+    const backAt = html.indexOf('id="header-back-btn"');
+    const backHtml = backAt >= 0 ? html.slice(backAt, backAt + 420) : '';
+    assert.ok(backAt > 0 && backHtml.includes('<svg') && !backHtml.includes('Назад</'),
+        'header back control is a chevron only, without the word Назад');
+}
+assert.ok(
+    !html.includes("backBtn.textContent = isAdvDetail") &&
+    html.includes("backBtn.setAttribute('aria-label', backLabel)"),
+    'header back must keep the SVG and only update the accessible label'
+);
+assert.ok(
+    html.includes('.rail-btn-lbl {\n            font-size: 13px; font-weight: 800') &&
+    html.includes('.rail-user-name {\n            font-size: 13px; font-weight: 800'),
+    'section labels and the user name share one 13px/800 size'
+);
 assert.ok(!/rail-settings-btn[\s\S]{0,400}<span>Настройки<\/span>/.test(html),
     'settings in the rail is an icon, not a second tall text row');
 assert.ok(html.includes('--radius-card: 22px'), 'Apple-style cards use a 22px corner radius');
@@ -121,6 +135,15 @@ assert.ok(
     html.includes('border-radius: var(--radius-card)') &&
     /rnp-sheet-table th, \.rnp-sheet-table td \{\s*border: none/.test(html),
     'RNP sheet is one rounded card without cell dividers'
+);
+assert.ok(
+    /main-content\.rnp-compact[\s\S]{0,120}padding:\s*4px 6px !important/.test(html),
+    'RNP must beat the 28px Apple page padding so the card fills the pane'
+);
+assert.ok(
+    html.includes('border: 1px solid rgba(17, 17, 17, 0.10)') &&
+    !html.includes('height: calc(100vh - 118px)'),
+    'RNP card is a thin almost-invisible rounded line, not a short box in a gray gutter'
 );
 assert.ok(html.includes('abtest-card-row'), 'A/B cards use WBRadar row layout');
 assert.ok(html.includes('nr-early-tab-style'), 'early-tab CSS id must exist for settings boot');
@@ -425,13 +448,13 @@ assert.ok(html.includes('ИП Уркунбаев К.А.') && html.includes('Ос
 assert.ok(!html.includes('id="cabinet-picker-initial"'), 'letter avatar next to the cabinet name is gone');
 assert.ok(!html.includes('cab-dot'), 'dropdown no longer draws B/E/Z circles');
 const cabFns = new Function(
-    html.slice(html.indexOf('function cabinetDisplayName'), html.indexOf('function renderRailCabs'))
-    + '; return { cabinetDisplayName, cabinetMark };'
+    html.slice(html.indexOf('function cabinetDisplayName'), html.indexOf('function updateCabinetPickerUI'))
+    + '; return { cabinetDisplayName };'
 )();
-assert.strictEqual(cabFns.cabinetMark('Baza'), 'Б');
-assert.strictEqual(cabFns.cabinetMark('Elium'), 'А');
-assert.strictEqual(cabFns.cabinetMark('Zevina 1'), 'У');
-assert.strictEqual(cabFns.cabinetMark('Zevina 2'), 'А');
+assert.strictEqual(cabFns.cabinetDisplayName('Baza'), 'ИП Бейшеев А.Д.');
+assert.strictEqual(cabFns.cabinetDisplayName('Elium'), 'ИП Айзада');
+assert.strictEqual(cabFns.cabinetDisplayName('Zevina 1'), 'ИП Уркунбаев К.А.');
+assert.strictEqual(cabFns.cabinetDisplayName('Zevina 2'), 'ОсОО «Айлин Стиль»');
 assert.ok(
     html.includes('input[type="number"]::-webkit-inner-spin-button')
         && html.includes('input[type="number"]::-webkit-outer-spin-button')
