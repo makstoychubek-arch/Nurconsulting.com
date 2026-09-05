@@ -29,6 +29,14 @@ import {
     wbSend,
     type AccessPreset,
 } from '../_shared/wb-agent-wow.ts';
+import {
+    executeAdvRequest,
+    isAdvHelperName,
+    isAdvNamespaceRequest,
+    parseDryRun,
+    parseReqPerMin,
+    readAdvTokenFromVault,
+} from '../_shared/wb-adv-proxy.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -133,6 +141,62 @@ serve(async (req) => {
         const { data: cab, error: cabErr } = await cabQuery.maybeSingle();
 
         if (cabErr || !cab) return json({ error: 'Кабинет не найден или нет доступа' }, 403);
+
+        // ── /adv/* advertising namespace (docs/autobidder.md §2, §11.3) ─────
+        // Старые action-ветки ниже не меняем. Токен — из Vault, не из wb_token.
+        const reqUrl = new URL(req.url);
+        const proxySubpath = reqUrl.pathname.replace(/^.*?\/wb-proxy/, '');
+        const advPath = (body as Record<string, unknown>).path
+            ?? (body as Record<string, unknown>).relative_path
+            ?? (params as Record<string, unknown>).path;
+        if (isAdvNamespaceRequest({
+            subpath: proxySubpath,
+            action,
+            path: advPath,
+            namespace: (body as Record<string, unknown>).namespace,
+        })) {
+            const { data: advCab, error: advCabErr } = await admin
+                .from('cabinets')
+                .select('adv_token_secret_id, adv_token_valid')
+                .eq('id', cabinet_id)
+                .maybeSingle();
+            if (advCabErr || !advCab) {
+                return json({ error: 'Кабинет не найден или нет колонок adv_token_*', code: 'ADV_CABINET' }, 400);
+            }
+            const advToken = await readAdvTokenFromVault(admin, advCab.adv_token_secret_id);
+            if (!advToken) {
+                return json({
+                    error: 'Рекламный токен не настроен (Vault adv_token_secret_id)',
+                    code: 'ADV_TOKEN_MISSING',
+                    cabinet_id,
+                }, 400);
+            }
+            const advBody = (body as Record<string, unknown>).body
+                ?? (isAdvHelperName(action) ? params : undefined);
+            const advResult = await executeAdvRequest({
+                cabinetId: String(cabinet_id),
+                token: advToken,
+                tokenKey: String(advCab.adv_token_secret_id),
+                dryRun: parseDryRun(Deno.env.get('DRY_RUN')),
+                reqPerMin: parseReqPerMin(Deno.env.get('WB_ADV_REQ_PER_MIN')),
+                fetchFn: fetch,
+                onAuthFailure: async () => {
+                    await admin.from('cabinets').update({
+                        adv_token_valid: false,
+                        adv_token_checked_at: new Date().toISOString(),
+                    }).eq('id', cabinet_id);
+                },
+            }, {
+                action,
+                path: advPath,
+                method: (body as Record<string, unknown>).method ?? req.method,
+                subpath: proxySubpath,
+                body: advBody,
+                query: Object.fromEntries(reqUrl.searchParams),
+                params,
+            });
+            return json(advResult.data, advResult.status);
+        }
 
         // IMPORTANT — DO NOT CHANGE THIS: one cabinet = one WB token, and that
         // single token already has ALL scopes (stats, content, promotion,

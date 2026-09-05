@@ -333,6 +333,18 @@ assert.ok(
     'wb-proxy must expose get/set bid actions'
 );
 assert.ok(
+    proxySrc.includes("from '../_shared/wb-adv-proxy.ts'") && proxySrc.includes('isAdvNamespaceRequest'),
+    'wb-proxy must add /adv/* namespace without replacing old advert_* actions'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/functions/_shared/wb-adv-proxy.ts')),
+    'shared /adv/* proxy module must exist'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260904020000_adv_vault_rpc.sql')),
+    'adv Vault RPC migration must exist'
+);
+assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/functions/_shared/wb-advert-bids.ts')),
     'shared WB bid helpers must exist'
 );
