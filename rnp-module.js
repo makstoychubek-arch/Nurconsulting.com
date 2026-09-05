@@ -1743,10 +1743,10 @@ const RNP = (() => {
             ? `<circle cx="${cx}" cy="${cy}" r="37" fill="none" stroke="var(--border)" stroke-width="16"/>`
             : '';
         const fboSlice = fboPath
-            ? `<path class="rnp-stock-donut-slice rnp-stock-donut-slice-fbo" d="${fboPath}" fill="var(--rnp-fbo)" onclick="RNP.setStockSchemeView('fbo')" title="FBO · склады WB"></path>`
+            ? `<path class="rnp-stock-donut-slice rnp-stock-donut-slice-fbo" d="${fboPath}" fill="var(--rnp-fbo)" onclick="RNP.setStockSchemeView('fbo')" title="FBO · склад WB РФ"></path>`
             : '';
         const fbsSlice = fbsPath
-            ? `<path class="rnp-stock-donut-slice rnp-stock-donut-slice-fbs" d="${fbsPath}" fill="var(--rnp-fbs)" onclick="RNP.setStockSchemeView('fbs')" title="FBS · склады продавца"></path>`
+            ? `<path class="rnp-stock-donut-slice rnp-stock-donut-slice-fbs" d="${fbsPath}" fill="var(--rnp-fbs)" onclick="RNP.setStockSchemeView('fbs')" title="FBS · склад продавца"></path>`
             : '';
         const reset = view === 'all' ? '' : `<button type="button" class="rnp-stock-donut-reset" onclick="RNP.setStockSchemeView('all')">Все склады</button>`;
         const on = (s) => view === s ? ' is-on' : '';
@@ -1758,14 +1758,14 @@ const RNP = (() => {
             <div class="rnp-stock-donut-center"><b>${shown}</b><span>шт</span></div>
           </div>
           <div class="rnp-stock-donut-legend">
-            <button type="button" class="rnp-stock-donut-leg is-fbo${on('fbo')}" onclick="RNP.setStockSchemeView('fbo')" title="Склады Wildberries">
+            <button type="button" class="rnp-stock-donut-leg is-fbo${on('fbo')}" onclick="RNP.setStockSchemeView('fbo')" title="Склад WB РФ из отчёта">
               <i></i>
               <span class="rnp-stock-donut-leg-name">FBO</span>
               <span class="rnp-stock-donut-leg-pct">${pct.fbo}%</span>
-              <span class="rnp-stock-donut-leg-sub">склады WB</span>
+              <span class="rnp-stock-donut-leg-sub">склад WB РФ</span>
               <span class="rnp-stock-donut-leg-qty">${fbo} шт</span>
             </button>
-            <button type="button" class="rnp-stock-donut-leg is-fbs${on('fbs')}" onclick="RNP.setStockSchemeView('fbs')" title="Склады продавца">
+            <button type="button" class="rnp-stock-donut-leg is-fbs${on('fbs')}" onclick="RNP.setStockSchemeView('fbs')" title="Склад продавца">
               <i></i>
               <span class="rnp-stock-donut-leg-name">FBS</span>
               <span class="rnp-stock-donut-leg-pct">${pct.fbs}%</span>
@@ -1874,13 +1874,16 @@ const RNP = (() => {
         };
         const prodCells = sizes.map(() => `<td class="rnp-size-zero">0</td>`).join('');
         const prodRow = `<tr class="rnp-row-prod"><td class="rnp-stock-label">В пошиве</td>${prodCells}<td class="${_sizeCellCls(inProd)}" style="font-weight:800">${inProd}</td></tr>`;
-        const cap = _stockSchemeView === 'fbo'
-            ? '<div class="rnp-stock-scheme-cap is-fbo">Остатки · FBO · склады WB</div>'
-            : _stockSchemeView === 'fbs'
-                ? '<div class="rnp-stock-scheme-cap is-fbs">Остатки · FBS · склады продавца</div>'
+        const view = _stockSchemeView;
+        const cap = view === 'fbo'
+            ? '<div class="rnp-stock-scheme-cap is-fbo">Остатки · FBO · склад WB РФ</div>'
+            : view === 'fbs'
+                ? '<div class="rnp-stock-scheme-cap is-fbs">Остатки · FBS · склад продавца</div>'
                 : '';
+        const whLabel = view === 'fbo' ? 'На WB' : view === 'fbs' ? 'На FBS' : 'На складе';
+        const blockCls = view === 'fbo' || view === 'fbs' ? ` rnp-stock-block--${view}` : '';
 
-        return `<div class="rnp-stock-block">
+        return `<div class="rnp-stock-block${blockCls}">
           ${cap}
           <table class="rnp-stock-table">
             <thead><tr>
@@ -1889,7 +1892,7 @@ const RNP = (() => {
               <th>Σ</th>
             </tr></thead>
             <tbody>
-              ${row('На складе', 'rnp-row-wh', x => x.wh)}
+              ${row(whLabel, 'rnp-row-wh', x => x.wh)}
               ${row('В пути', 'rnp-row-tr', x => x.transit)}
               ${row('Общий', 'rnp-row-sum', x => x.wh + x.transit)}
               ${prodRow}
