@@ -141,15 +141,46 @@ assert.ok(
     'Safari visualViewport must not move the pinned bottom nav'
 );
 assert.ok(
-    html.includes('</main>\n    </div>\n\n    <nav class="bottom-nav"'),
-    'bottom nav is a body sibling, not inside the overflow-hidden app shell'
+    html.includes('</main>\n    </div>\n\n        <header') &&
+    html.includes('</header>\n\n    <nav class="bottom-nav"'),
+    'header and bottom nav are body siblings, not inside the overflow-hidden app shell'
+);
+{
+    const shellStart = html.indexOf('id="dashboard-app-shell"');
+    const headerAt = html.indexOf('<header class="glass');
+    assert.ok(shellStart > 0 && headerAt > shellStart, 'header markup follows the app shell');
+    const shell = html.slice(shellStart, headerAt);
+    assert.ok(!shell.includes('app-header-main'), 'header must not live inside the overflow-hidden shell');
+}
+assert.ok(
+    html.includes('padding-top: calc(28px + env(safe-area-inset-top, 0px)) !important;') &&
+    html.includes('padding-bottom: calc(44px + env(safe-area-inset-bottom, 0px)) !important;'),
+    'page content reserves the compact pinned bars plus iPhone safe areas'
 );
 assert.ok(
-    html.includes('.main-rail {\n                padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;'),
-    'page content reserves the pinned bar height plus iPhone home indicator'
+    html.includes('header.glass.app-header {\n            position: fixed;') &&
+    html.includes('z-index: 9998') &&
+    html.includes('transform: translateZ(0)'),
+    'header is hard-fixed like the bottom nav'
+);
+assert.ok(
+    /\[data-theme="neon"\] \{[\s\S]*?--bg-card:\s*#2C2C2E/.test(html) &&
+    html.includes('--bg-primary:') &&
+    html.includes('--bg-secondary:'),
+    'both themes expose --bg-primary / --bg-card aliases from the TZ'
+);
+assert.ok(
+    html.includes('[data-theme="ios"] header.glass { background: var(--surface'),
+    'ios header uses the theme surface, not hardcoded white'
 );
 assert.ok(html.includes('.mobile-menu-btn { display: none !important; }'),
     'hamburger stays hidden on mobile once the bottom nav is the entry');
+assert.ok(
+    html.includes('.bottom-nav-btn .bn-ico {\n                width: 18px; height: 18px;') &&
+    html.includes('.app-header-main {\n                display: flex;') &&
+    html.includes('height: 28px;'),
+    'phone header and bottom nav are compact (~half the previous chrome)'
+);
 assert.ok(
     html.includes('class="beta-theme-row"') &&
     html.includes('flyout-sec">Оформление') &&
