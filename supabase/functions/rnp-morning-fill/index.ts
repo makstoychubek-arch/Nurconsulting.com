@@ -1,6 +1,7 @@
 // Supabase Edge Function: rnp-morning-fill
 // Утром по Бишкеку заливает вчера+сегодня в wb_orders → rnp_daily_data
-// по группе кабинетов и пишет в тим от имени Карины.
+// и обновляет остатки wb_stocks по размерам (FBO+FBS) по группе кабинетов.
+// Пишет в тим от имени Карины.
 //
 // Cron:
 //   00:00 UTC = 06:00 Бишкек — Zevina
@@ -104,6 +105,16 @@ Deno.serve(async (req) => {
         const token = sanitizeWbToken(cab.wb_token);
         try {
             row.rnp_daily = await rebuildRnpDaily(admin, cab.id, days);
+            try {
+                const stocks = await syncStocksViaAutoSync(supabaseUrl, serviceKey, cab.id);
+                row.stocks_fbo = stocks.fbo;
+                row.stocks_fbs = stocks.fbs;
+                row.stocks_error = stocks.error || null;
+            } catch (e) {
+                row.stocks_fbo = 0;
+                row.stocks_fbs = 0;
+                row.stocks_error = (e as Error).message;
+            }
             if (wantFunnel) {
                 try {
                     row.funnel_days = await syncFunnelLast7Days(admin, cab.id, token);
@@ -162,10 +173,41 @@ function doneText(title: string, fillDate: string, today: string, results: Recor
         const orders = (r.orders || {}) as Record<string, number>;
         const y = Number(orders[fillDate] || 0);
         const t = Number(orders[today] || 0);
-        lines.push(`• ${r.cabinet}: вчера ${y} заказов, сегодня ${t}, артикулов ${r.articles || 0}`);
+        const stockN = Number(r.stocks_fbo || 0) + Number(r.stocks_fbs || 0);
+        const stockBit = r.stocks_error
+            ? `остатки: ${r.stocks_error}`
+            : `остатки по размерам ${stockN}`;
+        lines.push(`• ${r.cabinet}: вчера ${y} заказов, сегодня ${t}, артикулов ${r.articles || 0}, ${stockBit}`);
     }
     lines.push('', 'Можно открывать РНП — колонка за вчера заполнена.');
     return lines.join('\n');
+}
+
+async function syncStocksViaAutoSync(
+    supabaseUrl: string,
+    serviceKey: string,
+    cabinetId: string,
+): Promise<{ fbo: number; fbs: number; error?: string }> {
+    const res = await fetch(`${supabaseUrl}/functions/v1/auto-sync`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${serviceKey}`,
+            apikey: serviceKey,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mode: 'stocks', cabinet_id: cabinetId }),
+    });
+    const body = await res.json().catch(() => ({} as Record<string, unknown>));
+    if (!res.ok) return { fbo: 0, fbs: 0, error: String(body?.error || `HTTP ${res.status}`) };
+    const r = (body?.results as Record<string, unknown>[] | undefined)?.[0];
+    const err = r?.status === 'partial' || r?.status === 'error'
+        ? String(r?.error || r?.error_msg || '').trim()
+        : '';
+    return {
+        fbo: Number(r?.stocks_fbo || 0),
+        fbs: Number(r?.stocks_fbs || 0),
+        error: err || undefined,
+    };
 }
 
 async function sendKarina(text: string): Promise<Record<string, unknown>> {

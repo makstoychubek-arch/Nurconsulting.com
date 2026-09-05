@@ -93,9 +93,9 @@ const RNP = (() => {
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
-    const FROZEN_COL_W = 38;
-    const DAY_COL_W = 30;
-    const MONTH_COL_W = 58;
+    const FROZEN_COL_W = 44;
+    const DAY_COL_W = 36;
+    const MONTH_COL_W = 64;
     const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
     const CAL_MONTH_FROM = 5;
     const CAL_MONTH_TO = 11;
@@ -128,7 +128,7 @@ const RNP = (() => {
             { key: 'orders_sum',         label: 'Сумма Заказов',                    type: 'som', src: 'auto' },
             { key: 'sales_sum',          label: 'Сумма Продаж',                     type: 'som', src: 'auto' },
         ]},
-        { id: 'funnel', label: 'Показатели воронки Общие · WB 7 дней, старше из кэша', color: '#f59e0b', rows: [
+        { id: 'funnel', label: 'Показатели воронки', color: '#f59e0b', rows: [
             { key: 'impressions',        label: 'Показы',                           type: 'int',  src: 'promo' },
             { key: 'organic_imp_pct',    label: 'Процент органики показов',         type: 'pct',  src: 'calc' },
             { key: 'plan_impressions',   label: 'План Показов',                     type: 'int',  src: 'manual', isPlan: true },
@@ -1058,21 +1058,13 @@ const RNP = (() => {
         return entries;
     }
     function _isCatCollapsed(cat) {
-        const activeCount = (_articles || []).filter(a => a.is_active).length;
-        if (activeCount > 40) {
-            try {
-                const map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}');
-                if (map[cat] === false) return false;
-                return true;
-            } catch (e) { return true; }
-        }
         try { return (JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'))[cat] === true; }
         catch (e) { return false; }
     }
     function toggleCategory(cat) {
         let map = {};
         try { map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'); } catch (e) {}
-        map[cat] = !map[cat];
+        map[cat] = !_isCatCollapsed(cat);
         try { localStorage.setItem('rnp_collapsed_cats', JSON.stringify(map)); } catch (e) {}
         _refreshTabsBar();
         if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB) _renderActiveTable();
@@ -1950,11 +1942,83 @@ const RNP = (() => {
 
     function _buildMarqueeHTML(art, cal) {
         const periods = _timelinePeriods(art, cal);
-        if (!periods.length) return '<div class="rnp-marquee-empty">—</div>';
+        if (!periods.length) {
+            return '<div class="rnp-head-marquee-pin"><div class="rnp-marquee-empty">—</div></div>';
+        }
         const cards = periods.map(p => _buildTestCardHTML(art, p)).join('');
-        return `<div class="rnp-marquee-wrap">
+        return `<div class="rnp-head-marquee-pin"><div class="rnp-marquee-wrap">
           <div class="rnp-marquee-track">${cards}</div>
-        </div>`;
+        </div></div>`;
+    }
+
+    function _sheetVarsStyle(cal) {
+        return `--rnp-frozen-left:${_leftFrozenPx(cal)}px;--rnp-metric-w:${FROZEN_METRIC_W}px;--rnp-spark-w:${FROZEN_SPARK_W}px`;
+    }
+
+    function _setCssVar(el, name, value) {
+        if (!el) return;
+        if (el.style.getPropertyValue(name) !== value) el.style.setProperty(name, value);
+    }
+
+    function _setInlineLeft(el, px) {
+        const next = `${Math.round(px)}px`;
+        if (el.style.left !== next) el.style.left = next;
+    }
+
+    /** После раскладки шапка может растянуть frozen-колонки — пересчитываем
+     *  sticky `left` по реальным offsetWidth, иначе недели/ИТОГ уезжают
+     *  под метки, а фотолента «заходит» за карточку. */
+    function _syncFrozenPane(root) {
+        const scope = root || document;
+        scope.querySelectorAll('.rnp-sheet-table').forEach(table => {
+            const scroll = table.closest('.rnp-table-scroll');
+            const metric = table.querySelector('tbody td.rnp-metric-col') || table.querySelector('thead th.rnp-th-metric');
+            const spark = table.querySelector('tbody td.rnp-spark-col') || table.querySelector('thead th.rnp-th-spark');
+            const metricW = metric?.offsetWidth || FROZEN_METRIC_W;
+            const sparkW = spark?.offsetWidth || FROZEN_SPARK_W;
+            _setCssVar(table, '--rnp-metric-w', metricW + 'px');
+            _setCssVar(table, '--rnp-spark-w', sparkW + 'px');
+
+            const ref = [...table.querySelectorAll('tbody tr')].find(tr =>
+                tr.querySelector(':scope > .rnp-col-sticky') &&
+                (tr.querySelector(':scope > .rnp-metric-col') || tr.querySelector(':scope > .rnp-spark-col'))
+            );
+            const lefts = [];
+            let acc = metricW + sparkW;
+            if (ref) {
+                [...ref.children].forEach(cell => {
+                    if (!cell.classList.contains('rnp-col-sticky')) return;
+                    lefts.push(acc);
+                    acc += cell.offsetWidth;
+                });
+            }
+            const leftTh = table.querySelector('.rnp-head-left');
+            const frozen = Math.max(acc, leftTh?.offsetWidth || 0, metricW + sparkW);
+            _setCssVar(table, '--rnp-frozen-left', `${Math.round(frozen)}px`);
+            if (scroll) _setCssVar(scroll, '--rnp-frozen-left', `${Math.round(frozen)}px`);
+
+            table.querySelectorAll('tr').forEach(tr => {
+                const stickies = [...tr.children].filter(c => c.classList.contains('rnp-col-sticky'));
+                stickies.forEach((cell, i) => {
+                    if (lefts[i] != null) _setInlineLeft(cell, lefts[i]);
+                });
+            });
+
+            const prev = table.querySelector('.rnp-th-month-prev');
+            if (prev) _setInlineLeft(prev, metricW + sparkW);
+            table.querySelectorAll('.rnp-th-month-stick').forEach(el => _setInlineLeft(el, frozen));
+
+            const pin = table.querySelector('.rnp-head-marquee-pin');
+            if (pin && leftTh) {
+                const h = leftTh.offsetHeight;
+                if (h > 0 && pin.style.height !== `${h}px`) pin.style.height = `${h}px`;
+            }
+            if (scroll) {
+                const visible = Math.max(160, scroll.clientWidth - frozen);
+                _setCssVar(table, '--rnp-marquee-visible', `${Math.round(visible)}px`);
+                _setCssVar(scroll, '--rnp-marquee-visible', `${Math.round(visible)}px`);
+            }
+        });
     }
 
     function _articleMoneyRub(kpi) {
@@ -2056,7 +2120,7 @@ const RNP = (() => {
             const totalSt = _stickyColAttrs(0, cols, 11, 31);
             const totalTh = `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>`;
             const monthSubs = cal.months.map(m => `<th class="rnp-th-dow rnp-month-col${m.isCurrent ? ' is-current' : ''}">${m.dayCount} дн</th>`).join('');
-            return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes">
+            return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes" style="${_sheetVarsStyle(cal)}">
           <thead>
             <tr class="rnp-cal-quarter-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
@@ -2092,7 +2156,7 @@ const RNP = (() => {
         const dowTotal = cal.weeks.length ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>` : '';
         const dowDays = cal.days.map(d => `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
-        return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes">
+        return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes" style="${_sheetVarsStyle(cal)}">
           <thead>
             <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
@@ -2222,7 +2286,6 @@ const RNP = (() => {
           <button type="button" class="rnp-action-btn rnp-action-btn--edit${_editMode ? ' active' : ''}" id="rnp-edit-mode-btn"
             onclick="RNP.toggleEditMode()" title="Режим выделения ячеек">${_editMode ? 'Готово' : 'Редактировать'}</button>
           <span id="rnp-freshness" class="text-xs" style="color:var(--text-muted);margin-left:auto;white-space:nowrap"></span>
-          ${_wbEnrichmentDegraded ? `<span class="text-xs" style="color:var(--amber);margin-left:8px" title="Лимит WB API — фото/воронка/реклама могут быть неполными">⚠ enrichment ограничен</span>` : ''}
         </div>`;
     }
 
@@ -2306,7 +2369,7 @@ const RNP = (() => {
         const genActive = _activeNm === GENERAL_TAB;
         const groups = _groupByCategory(active);
         const groupsHtml = groups.map(([cat, list]) => {
-            const collapsed = lite ? true : _isCatCollapsed(cat);
+            const collapsed = _isCatCollapsed(cat);
             const hasActive = list.some(a => a.nm_id == _activeNm);
             const catEsc = cat.replace(/'/g, "\\'");
             const tabsHtml = collapsed ? '' : list.map(a => {
@@ -4431,6 +4494,10 @@ const RNP = (() => {
             if (bar) bar.innerHTML = _buildActionBar(active);
             _applyResolvedPhotos(body);
             _afterTableRender();
+            requestAnimationFrame(() => {
+                _syncFrozenPane(body);
+                _bindMarqueeResize(body);
+            });
             _preloadPhotosBackground(active).then(() => _applyResolvedPhotos(body));
             return;
         }
@@ -4479,8 +4546,12 @@ const RNP = (() => {
         _afterTableRender();
         _refreshMarqueeBaseHtml(body);
         requestAnimationFrame(() => {
+            _syncFrozenPane(body);
             _syncMarqueeFill(body);
-            requestAnimationFrame(() => _syncMarqueeFill(body));
+            requestAnimationFrame(() => {
+                _syncFrozenPane(body);
+                _syncMarqueeFill(body);
+            });
             _bindMarqueeResize(body);
         });
         _preloadGalleryPhotos(art.nm_id).then(() => {
@@ -4512,19 +4583,21 @@ const RNP = (() => {
         }
         if (typeof ResizeObserver === 'undefined') return;
         const scope = root || document;
+        const scroll = scope.querySelector('.rnp-table-scroll') || document.getElementById('rnp-table-wrap');
         const left = scope.querySelector('.rnp-head-left');
-        const wrap = scope.querySelector('.rnp-marquee-wrap');
-        const marqueeTh = scope.querySelector('.rnp-head-marquee');
-        if (!left || !wrap) return;
-        _marqueeRo = new ResizeObserver(() => _syncMarqueeFill(scope));
-        _marqueeRo.observe(left);
-        if (marqueeTh) _marqueeRo.observe(marqueeTh);
+        const targets = [scroll, left].filter(Boolean);
+        if (!targets.length) return;
+        _marqueeRo = new ResizeObserver(() => {
+            _syncFrozenPane(scope);
+            _syncMarqueeFill(scope);
+        });
+        targets.forEach(el => _marqueeRo.observe(el));
     }
 
     function _syncMarqueeFill(root) {
         const scope = root || document;
+        _syncFrozenPane(scope);
         const left = scope.querySelector('.rnp-head-left');
-        const marqueeTh = scope.querySelector('.rnp-head-marquee');
         scope.querySelectorAll('.rnp-marquee-wrap').forEach(wrap => {
             const track = wrap.querySelector('.rnp-marquee-track');
             if (!track || !track.children.length) return;
@@ -4551,7 +4624,10 @@ const RNP = (() => {
             const nDayCols = scope.querySelectorAll('.rnp-th-date.rnp-day-col').length;
             const colUnit = nMonthCols ? MONTH_COL_W : DAY_COL_W;
             const nCols = nMonthCols || nDayCols;
-            const viewW = wrap.clientWidth || marqueeTh?.clientWidth || (isBottomGallery ? wrap.clientWidth : nCols * colUnit) || 0;
+            const pin = wrap.closest('.rnp-head-marquee-pin');
+            const viewW = isBottomGallery
+                ? (wrap.clientWidth || 0)
+                : (wrap.clientWidth || pin?.clientWidth || 0) || nCols * colUnit || 0;
             const totalReps = Math.max(3, Math.ceil(viewW / Math.max(setW, 1)));
 
             if (track.children.length !== baseCount * totalReps && oneSetHtml) {
@@ -4629,7 +4705,7 @@ const RNP = (() => {
             ).join('');
 
             return `
-        <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}">
+        <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}" style="${_sheetVarsStyle(cal)}">
           <thead>
             ${sheetHead}
             <tr class="rnp-cal-quarter-row">
@@ -4682,7 +4758,7 @@ const RNP = (() => {
             `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
         return `
-        <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}">
+        <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}" style="${_sheetVarsStyle(cal)}">
           <thead>
             ${sheetHead}
             <tr class="rnp-cal-month-row">
@@ -4793,10 +4869,10 @@ const RNP = (() => {
                 // project preference against UI interruptions.
                 const isLiveToday = isDay && isToday && m.key === 'orders_count';
                 const liveCls = isLiveToday ? ' rnp-cell-live' : '';
-                const liveBadge = isLiveToday
-                    ? '<sup class="rnp-live-badge" title="Данные за сегодня — предварительные и могут измениться в течение дня (обновляются из статистики WB в реальном времени, а не из финального отчёта).">•live</sup>'
+                const liveTitle = isLiveToday
+                    ? ' title="Сегодня — предварительные данные, ещё обновляются"'
                     : '';
-                return `<td class="${cls}${liveCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${dataAttr}>${str ?? ''}${liveBadge}</td>`;
+                return `<td class="${cls}${liveCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${str ?? ''}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',
@@ -4909,6 +4985,7 @@ const RNP = (() => {
     function _afterTableRender() {
         _applyEditMode();
         _updateEditModeBtn();
+        _syncFrozenPane(document.getElementById('rnp-root') || document);
     }
 
     function _updateEditModeBtn() {
@@ -5212,6 +5289,13 @@ const RNP = (() => {
         if (document.getElementById('tab-rnp-settings')?.classList.contains('active')) _renderSettings({ preserveScroll: true });
     }
 
+    function _refreshRnpAfterArticleToggle() {
+        _refreshTabsBar();
+        if (document.getElementById('tab-rnp')?.classList.contains('active')) {
+            _renderActiveTable().catch(() => {});
+        }
+    }
+
     async function toggleArt(nmId) {
         const art = _articles.find(a => a.nm_id == nmId);
         if (!art) return;
@@ -5219,6 +5303,8 @@ const RNP = (() => {
         await _updateArticle(nmId, { is_active: next });
         _patchSettingsToggleUi(nmId, next);
         _updateSettingsActiveCounts();
+        if (!next && Number(_activeNm) === Number(nmId)) _activeNm = GENERAL_TAB;
+        _refreshRnpAfterArticleToggle();
     }
 
     async function enableAll(on) {
@@ -5227,6 +5313,7 @@ const RNP = (() => {
             _patchSettingsToggleUi(btn.getAttribute('data-toggle-nm'), on);
         });
         _updateSettingsActiveCounts();
+        _refreshRnpAfterArticleToggle();
     }
 
     async function setCost(nmId, val) {

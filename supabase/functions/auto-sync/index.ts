@@ -503,8 +503,15 @@ async function syncCabinetStocks(
     let fboOk = false;
     let fbsOk = false;
 
+    let sizeMaps = { byChrt: new Map<number, ChrtMeta>(), bySku: new Map<string, ChrtMeta>() };
     try {
-        fboRows = await fetchFboStockRows(token, cabinetId);
+        sizeMaps = skuMapsFromCards(await fetchContentCards(token));
+    } catch (e) {
+        errors.push(`cards: ${(e as Error).message};`);
+    }
+
+    try {
+        fboRows = await fetchFboStockRows(token, cabinetId, sizeMaps);
         fboOk = true;
     } catch (e) {
         errors.push(`fbo: ${(e as Error).message};`);
@@ -539,7 +546,11 @@ async function insertStockRows(admin: ReturnType<typeof createClient>, rows: Sto
     }
 }
 
-async function fetchFboStockRows(token: string, cabinetId: string): Promise<StockRow[]> {
+async function fetchFboStockRows(
+    token: string,
+    cabinetId: string,
+    maps?: { byChrt: Map<number, ChrtMeta>; bySku: Map<string, ChrtMeta> },
+): Promise<StockRow[]> {
     const stocksRes = await fetch(`${WB_ANALYTICS}/api/analytics/v1/stocks-report/wb-warehouses`, {
         method: 'POST',
         headers: { Authorization: token, 'Content-Type': 'application/json' },
@@ -549,17 +560,21 @@ async function fetchFboStockRows(token: string, cabinetId: string): Promise<Stoc
     const payload = await stocksRes.json();
     const stocks = payload?.data?.items;
     if (!Array.isArray(stocks)) return [];
-    return stocks.map((s: Record<string, unknown>) => ({
-        cabinet_id: cabinetId,
-        nm_id: Number(s.nmId || 0),
-        barcode: String(s.chrtId ?? ''),
-        tech_size: '',
-        quantity: Number(s.quantity || 0),
-        in_way_to_client: Number(s.inWayToClient || 0),
-        in_way_from_client: Number(s.inWayFromClient || 0),
-        warehouse_name: String(s.warehouseName || ''),
-        stock_scheme: 'fbo' as const,
-    }));
+    return stocks.map((s: Record<string, unknown>) => {
+        const chrtId = Number(s.chrtId || s.chrtID || 0);
+        const meta = (chrtId && maps?.byChrt.get(chrtId)) || maps?.bySku.get(String(s.barcode || s.sku || ''));
+        return {
+            cabinet_id: cabinetId,
+            nm_id: Number(s.nmId || meta?.nmId || 0),
+            barcode: meta?.barcode || String(s.barcode || s.sku || chrtId || ''),
+            tech_size: String(s.techSize || s.wbSize || s.sizeName || meta?.techSize || ''),
+            quantity: Number(s.quantity || 0),
+            in_way_to_client: Number(s.inWayToClient || 0),
+            in_way_from_client: Number(s.inWayFromClient || 0),
+            warehouse_name: String(s.warehouseName || ''),
+            stock_scheme: 'fbo' as const,
+        };
+    });
 }
 
 async function fetchFbsStockRows(

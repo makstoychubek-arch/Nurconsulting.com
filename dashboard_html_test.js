@@ -156,6 +156,10 @@ assert.ok(
 assert.ok(rnpSrc.includes('function _monthStickLabel'), 'month title must stay visible when scrolling days');
 assert.ok(rnpSrc.includes('rnp-th-month-prev'), 'previous-month header must stick over frozen week columns');
 assert.ok(html.includes('rnp-th-month-stick'), 'month stick label CSS must exist');
+assert.ok(html.includes('rnp-head-marquee-pin'), 'photo marquee must pin at the frozen edge while days scroll');
+assert.ok(rnpSrc.includes('rnp-head-marquee-pin'), 'marquee HTML wraps photos in the sticky pin');
+assert.ok(rnpSrc.includes('function _syncFrozenPane'), 'week/ИТОГ sticky left must be measured after layout');
+assert.ok(!/contain:\s*layout style paint/.test(html), 'paint containment on the marquee clips the sticky photo pin');
 assert.ok(rnpSrc.includes('_loadPlans(dateFrom, dateTo)'), 'plans must be loaded only for the visible calendar range');
 assert.ok(
     rnpSrc.includes("content_cards") && rnpSrc.includes('force: true') && rnpSrc.includes('refreshArticles'),
@@ -172,7 +176,15 @@ assert.ok(rnpSrc.includes('function _mergeAdStatsFromDb'), 'RNP must merge adver
 assert.ok(rnpSrc.includes("from('advertising_daily_stats')") || rnpSrc.includes("'advertising_daily_stats'"),
     'RNP must read advertising_daily_stats, not only rnp_daily_data');
 assert.ok(rnpSrc.includes('_hydrateFunnelAfterPaint'), 'organic impressions must hydrate after first paint');
-assert.ok(rnpSrc.includes('WB 7 дней, старше из кэша'), 'funnel header must say WB only keeps 7 days');
+assert.ok(rnpSrc.includes("label: 'Показатели воронки'"), 'funnel section title stays short for sellers');
+assert.ok(!rnpSrc.includes('WB 7 дней, старше из кэша'), 'technical funnel footnote must stay off the sheet');
+assert.ok(!rnpSrc.includes('•live'), 'live badge text must not sit on the grid');
+assert.ok(!rnpSrc.includes('enrichment ограничен'), 'English enrichment warning must stay hidden');
+assert.ok(rnpSrc.includes('const collapsed = _isCatCollapsed(cat)'), 'RNP article groups must expand from the tab bar, not only from Сводная');
+assert.ok(!rnpSrc.includes('lite ? true'), 'lite mode must not force-collapse every article group');
+assert.ok(rnpSrc.includes('const DAY_COL_W = 36'), 'day cells must be wide enough for the numbers');
+assert.ok(rnpSrc.includes('const FROZEN_COL_W = 44'), 'week/ИТОГ cells must match the wider day grid');
+assert.ok(html.includes('--rnp-day-w: 36px'), 'CSS day column width must match JS');
 assert.ok(rnpSrc.includes('nmIds'), 'funnel hydrate must request all active articles, not one nm');
 assert.ok(
     fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
