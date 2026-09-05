@@ -165,6 +165,14 @@ assert.ok(rnpSrc.includes('acc += FROZEN_COL_W'), 'sticky week offsets stay on d
 assert.ok(rnpSrc.includes('MARQUEE_CARD_MAX_H'), 'photo cards must cap height so they do not grow on each resize');
 assert.ok(rnpSrc.includes('MARQUEE_REPS_MAX'), 'marquee must not clone photos without a cap');
 assert.ok(rnpSrc.includes('_marqueeRo.observe(scroll)'), 'resize observer watches the scroller only, not the left header');
+assert.ok(rnpSrc.includes('PHOTO_ASPECT_W'), 'header photos stay 3:4 instead of skinny stamps');
+assert.ok(rnpSrc.includes('function openPhoto'), 'clicking a photo opens it full-size');
+assert.ok(rnpSrc.includes('function closePhoto'), 'full-size photo can close');
+assert.ok(rnpSrc.includes('onclick="RNP.openPhoto(this)"'), 'photo cards open the lightbox');
+assert.ok(html.includes('id="rnp-photo-lightbox"'), 'full-size photo uses a lightbox overlay');
+assert.ok(/\.rnp-test-photo img\s*\{[^}]*object-fit:\s*contain/.test(html), 'marquee photos show the full frame, not a side crop');
+assert.ok(/\.rnp-test-card\s*\{[^}]*aspect-ratio:\s*3\s*\/\s*4/.test(html), 'marquee cards keep the WB 3:4 frame');
+assert.ok(!/\.rnp-test-card\s*\{[^}]*height:\s*100%/.test(html), 'cards must not stretch to the KPI+sizes row');
 assert.ok(html.includes('table-layout: fixed'), 'fixed table layout stops the size grid from stretching frozen columns');
 assert.ok(!/contain:\s*layout style paint/.test(html), 'paint containment on the marquee clips the sticky photo pin');
 assert.ok(rnpSrc.includes('_loadPlans(dateFrom, dateTo)'), 'plans must be loaded only for the visible calendar range');
