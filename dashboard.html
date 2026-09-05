@@ -3197,6 +3197,83 @@
                 -webkit-overflow-scrolling: touch;
                 overscroll-behavior-x: contain;
             }
+
+            body.is-dash-phone .header-page-title { display: none !important; }
+            body.is-dash-phone #header-date-chip-wrap {
+                max-width: none;
+                flex: 1 1 auto;
+                min-width: 0;
+                justify-content: space-between;
+            }
+            body.is-dash-phone #header-date-chip-wrap #date-range {
+                max-width: none;
+            }
+            .main-content:has(#tab-dashboard.active) {
+                padding: 10px 8px 12px !important;
+            }
+            #tab-dashboard.space-y-6 > :not([hidden]) ~ :not([hidden]) {
+                margin-top: 10px;
+            }
+            #tab-dashboard .dash-kpi-hero,
+            #tab-dashboard .dash-kpi-stock {
+                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                gap: 8px !important;
+            }
+            #tab-dashboard .dash-charts { gap: 8px !important; }
+            #tab-dashboard .kpi-hero-card {
+                padding: 12px 12px 10px;
+                border-radius: 16px;
+                min-width: 0;
+            }
+            #tab-dashboard .kpi-hero-label {
+                font-size: 10px;
+                margin-bottom: 4px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+            #tab-dashboard .kpi-hero-value { font-size: 17px; }
+            #tab-dashboard .kpi-hero-sub { font-size: 10px; margin-top: 2px; }
+            #tab-dashboard .kpi-spark-wrap { height: 28px; margin-top: 8px; }
+            #tab-dashboard .kpi-hero-trend { margin-top: 2px; font-size: 10px; }
+            #tab-dashboard .chart-box { padding: 12px; min-height: 0; }
+            #tab-dashboard .chart-box-title { font-size: 13px; }
+            #tab-dashboard .chart-canvas-wrap { height: 168px; }
+            #tab-dashboard .segment-tab { padding: 5px 10px; font-size: 11px; }
+            #tab-dashboard .dashboard-metrics-grid { gap: 8px; }
+            #tab-dashboard .metric-card { padding: 10px 10px 8px; border-radius: 14px !important; }
+            #tab-dashboard .metric-card-label { font-size: 10px; margin-bottom: 4px; }
+            #tab-dashboard .metric-card-value { font-size: 14px; }
+            #tab-dashboard .metric-trend { font-size: 10px; margin-top: 4px; min-height: 14px; }
+            #tab-dashboard #dashboard-top-margin-card { padding: 12px !important; }
+            #tab-dashboard .dashboard-top-margin-body {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+            #tab-dashboard .dashboard-top-margin-chart {
+                width: 140px; height: 140px; margin: 0 auto;
+            }
+            #tab-dashboard .dashboard-top-margin-legend { min-width: 0; }
+            #date-picker {
+                left: 8px !important;
+                right: 8px !important;
+                width: auto !important;
+                max-width: calc(100vw - 16px);
+                max-height: calc(100dvh - 72px - env(safe-area-inset-bottom, 0px) - var(--nr-vv-gap, 0px) - 72px);
+                overflow-y: auto;
+                -webkit-overflow-scrolling: touch;
+                padding: 14px !important;
+            }
+            #date-picker .date-picker-cols { flex-direction: column !important; gap: 12px !important; }
+            #date-picker .date-picker-quick { width: 100% !important; }
+            .space-empty-state {
+                padding: 20px 16px 96px;
+                align-items: flex-start;
+            }
+            .space-empty-card { padding: 28px 20px; }
+            .space-empty-title { font-size: 18px; }
+            .space-empty-sub { margin-bottom: 20px; }
         }
 
         .dashboard-app-shell { position: relative; z-index: 2; }
@@ -3406,7 +3483,7 @@
     </div>
 
     <div id="date-picker" class="hidden" onclick="event.stopPropagation()">
-        <div style="display:flex;gap:16px">
+        <div class="date-picker-cols" style="display:flex;gap:16px">
             <div style="flex:1;min-width:0">
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
                     <button onclick="changeYear(-1)" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);padding:4px 8px;font-size:20px;line-height:1">‹</button>
@@ -3432,7 +3509,7 @@
                     <div id="month-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px"></div>
                 </div>
             </div>
-            <div style="width:170px;flex-shrink:0;display:flex;flex-direction:column;gap:6px">
+            <div class="date-picker-quick" style="width:170px;flex-shrink:0;display:flex;flex-direction:column;gap:6px">
                 <div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px">Быстрый выбор</div>
                 <button onclick="setQuickPicker(0,'today')" class="picker-quick-btn">Сегодня</button>
                 <button onclick="setQuickPicker(7)" class="picker-quick-btn">Последняя неделя</button>
@@ -3469,7 +3546,7 @@
                     <button type="button" id="header-back-btn" class="header-back-btn hidden" onclick="headerGoBack()" title="Назад" aria-label="Назад">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
                     </button>
-                    <div class="min-w-0">
+                    <div class="min-w-0 header-page-title">
                         <h1 id="page-title" class="header-title truncate">Дашборд</h1>
                     </div>
                     <div id="header-date-chip-wrap" class="filter-chip date-filter-chip active flex items-center space-x-1.5 hidden" onclick="toggleDatePicker(event)">
@@ -3519,7 +3596,7 @@
             </div>
         </div>
         <div id="tab-dashboard" class="tab-content active space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 dash-kpi-hero">
                 <div class="kpi-hero-card" data-tone="good">
                     <div class="kpi-hero-label">Чистая прибыль</div>
                     <div id="m-profit" class="kpi-hero-value">—</div>
@@ -3549,7 +3626,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 dash-kpi-stock">
                 <div class="kpi-hero-card">
                     <div class="kpi-hero-label">Остатки FBO</div>
                     <div id="m-stock-fbo" class="kpi-hero-value">—</div>
@@ -3562,7 +3639,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 dash-charts">
                 <div class="widget-card chart-box xl:col-span-2">
                     <div class="chart-box-title">Динамика заказов</div>
                     <div class="chart-canvas-wrap"><canvas id="chart-orders-bar"></canvas></div>
@@ -5775,6 +5852,7 @@
             dateWrap.classList.toggle('hidden', !showDate);
             dateWrap.style.display = showDate ? 'flex' : 'none';
         }
+        document.body.classList.toggle('is-dash-phone', isDashboard && !isStub && !showEmpty);
     }
 
     function headerGoBack() {
@@ -7650,8 +7728,15 @@
         const p = document.getElementById('date-picker');
         p.classList.toggle('hidden');
         if (!p.classList.contains('hidden')) {
-            p.style.top = '100px';
-            p.style.left = '300px';
+            if (window.innerWidth <= 768) {
+                const header = document.querySelector('.app-header-main');
+                const top = header ? Math.round(header.getBoundingClientRect().bottom + 8) : 64;
+                p.style.top = top + 'px';
+                p.style.left = '8px';
+            } else {
+                p.style.top = '100px';
+                p.style.left = '300px';
+            }
             syncPickerFromActive();
             renderYearGrid(); renderMonthGrid();
         }

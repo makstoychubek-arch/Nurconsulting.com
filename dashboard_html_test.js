@@ -138,6 +138,28 @@ assert.ok(
     html.includes('[data-theme="neon"] .bottom-nav-btn .bn-ico-sun { display: none; }'),
     'theme icon must beat .bn-ico { display:flex } so sun and moon do not stack'
 );
+assert.ok(
+    html.includes('dash-kpi-hero') &&
+    html.includes('dash-kpi-stock') &&
+    html.includes('dash-charts'),
+    'dashboard hero, FBO/FBS and charts have phone layout hooks'
+);
+assert.ok(
+    html.includes('body.is-dash-phone .header-page-title') &&
+    html.includes("document.body.classList.toggle('is-dash-phone'"),
+    'iPhone dashboard hides the redundant title so the date range is readable'
+);
+assert.ok(
+    html.includes('#tab-dashboard .dash-kpi-hero') &&
+    html.includes('grid-template-columns: repeat(2, minmax(0, 1fr))'),
+    'iPhone dashboard KPIs sit in a 2×2 grid, not a single column stack'
+);
+assert.ok(
+    html.includes('#date-picker .date-picker-cols') &&
+    html.includes('class="date-picker-quick"') &&
+    html.includes("window.innerWidth <= 768"),
+    'date picker stacks and anchors under the header on the phone'
+);
 assert.ok(html.includes('id="rail-settings-btn"'), 'settings must be a small button under the profile');
 const settingsIdx = html.indexOf('id="rail-settings-btn"');
 const userIdx = html.indexOf('id="rail-user-name"');
