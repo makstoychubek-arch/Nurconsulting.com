@@ -529,4 +529,86 @@ assert.ok(
     'login logo must not use the yellow mark'
 );
 
+assert.ok(
+    rnpSrc.includes('warehouse_name, stock_scheme'),
+    'RNP stock load must select stock_scheme so the FBO/FBS donut is not all-FBO'
+);
+assert.ok(rnpSrc.includes('_applyStocksToCache(data, nmIds)'),
+    'single-article stock reload must reuse FBO/FBS cache builder');
+assert.ok(
+    rnpSrc.includes('_stockSchemeView') &&
+    rnpSrc.includes('function setStockSchemeView') &&
+    rnpSrc.includes("RNP.setStockSchemeView('fbo')") &&
+    rnpSrc.includes("RNP.setStockSchemeView('fbs')"),
+    'RNP donut slices must filter the size grid by FBO or FBS'
+);
+assert.ok(
+    rnpSrc.includes('склады WB') &&
+    rnpSrc.includes('склады продавца') &&
+    rnpSrc.includes('class="rnp-stock-donut"'),
+    'RNP must show FBO/FBS percent donut under the size stock table'
+);
+assert.ok(
+    rnpSrc.includes('rnp-stock-scheme-wrap') &&
+    rnpSrc.includes('_stockSchemeInnerHTML'),
+    'size table and donut must refresh together when a slice is selected'
+);
+assert.ok(
+    html.includes('.rnp-stock-donut') &&
+    html.includes('--rnp-fbo: #7B61FF') &&
+    html.includes('--rnp-fbs: #3B82F6'),
+    'RNP FBO/FBS donut colors must be distinct from each other'
+);
+
+function grabFn(src, name) {
+    const start = src.indexOf(`function ${name}(`);
+    assert.ok(start >= 0, `missing ${name}`);
+    let depth = 0, started = false, i = start;
+    for (; i < src.length; i++) {
+        if (src[i] === '{') { depth++; started = true; }
+        else if (src[i] === '}') {
+            depth--;
+            if (started && depth === 0) { i++; break; }
+        }
+    }
+    return src.slice(start, i);
+}
+
+const schemeHelpers = [
+    grabFn(rnpSrc, '_emptySizeBucket'),
+    grabFn(rnpSrc, '_stockSchemeOf'),
+    grabFn(rnpSrc, '_accumSize'),
+    grabFn(rnpSrc, '_mergeSizeBucket'),
+    grabFn(rnpSrc, '_schemeWhTotals'),
+    grabFn(rnpSrc, '_schemePercents'),
+    grabFn(rnpSrc, '_polarXY'),
+    grabFn(rnpSrc, '_donutSlicePath'),
+].join('\n');
+const scheme = new Function(`${schemeHelpers}
+    return {
+        _emptySizeBucket, _stockSchemeOf, _accumSize, _schemeWhTotals,
+        _schemePercents, _donutSlicePath,
+    };`)();
+
+assert.strictEqual(scheme._stockSchemeOf({ stock_scheme: 'fbs' }), 'fbs');
+assert.strictEqual(scheme._stockSchemeOf({ scheme: 'mp' }), 'fbs');
+assert.strictEqual(scheme._stockSchemeOf({ stock_scheme: 'fbo' }), 'fbo');
+assert.strictEqual(scheme._stockSchemeOf({}), 'fbo');
+
+const bucket = scheme._emptySizeBucket();
+scheme._accumSize(bucket, { quantity: 10, stock_scheme: 'fbo', tech_size: 'M' });
+scheme._accumSize(bucket, { quantity: 6, stock_scheme: 'fbs', in_way_to_client: 2 });
+assert.strictEqual(bucket.wh, 16);
+assert.strictEqual(bucket.transit, 2);
+assert.strictEqual(bucket.fbo.wh, 10);
+assert.strictEqual(bucket.fbs.wh, 6);
+assert.strictEqual(bucket.fbs.transit, 2);
+
+const split = scheme._schemeWhTotals({ M: bucket, L: { wh: 4 } });
+assert.deepStrictEqual(split, { fbo: 10, fbs: 6, total: 16 });
+assert.deepStrictEqual(scheme._schemePercents(111, 66), { fbo: 63, fbs: 37 });
+assert.deepStrictEqual(scheme._schemePercents(0, 0), { fbo: 0, fbs: 0 });
+assert.ok(scheme._donutSlicePath(0, 63, 46, 28, 50, 50).includes('A 46 46'));
+assert.ok(scheme._donutSlicePath(0, 100, 46, 28, 50, 50).includes('A 28 28'));
+
 console.log('dashboard_html_test: ok');

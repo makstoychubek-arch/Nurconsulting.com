@@ -45,7 +45,8 @@ const RNP = (() => {
     // Зафиксирован на дату, при обновлении РНП не пересчитывается.
     let _rateCache = {}; // 'YYYY-MM-DD' -> { rate, source }
     let _rateDatesSorted = [];
-    let _stockCache = {}; // nmId -> { size -> { wh, transit } }
+    let _stockCache = {}; // nmId -> { size -> { wh, transit, fbo, fbs } }
+    let _stockSchemeView = 'all'; // 'all' | 'fbo' | 'fbs' — фильтр круга и таблицы размеров
     const _cabinetStateCache = new Map(); // cabinet_id -> { dataCache, stockCache, financeCache }
     let _metricsCache = new Map(); // nmId -> aggregate metrics from wb_orders+wb_stocks
 
@@ -415,6 +416,7 @@ const RNP = (() => {
     function _clearCabinetState() {
         _dataCache = {};
         _stockCache = {};
+        _stockSchemeView = 'all';
         _metricsCache = new Map();
         _financeCache = { key: '', rows: [], ts: 0 };
         _notesCache = {};
@@ -1585,25 +1587,12 @@ const RNP = (() => {
         if (!nmIds.length) return;
         const snapReq = _loadRequestId();
         const snapCab = _cab;
-        const idSet = new Set(nmIds.map(Number));
         try {
             const data = await _fetchAllRows('wb_stocks', [
                 { op: 'eq', column: 'cabinet_id', value: _cab },
             ]);
             if (_isStaleLoad(snapReq, snapCab)) return;
-            nmIds.forEach(id => { _stockCache[id] = {}; });
-            (data || []).forEach(s => {
-                const nm = s.nm_id;
-                if (!idSet.has(Number(nm))) return;
-                if (!_stockCache[nm]) _stockCache[nm] = {};
-                const size = _normSize(s.tech_size || s.techSize || s.size || '');
-                if (size === '—') return;
-                if (!_stockCache[nm][size]) _stockCache[nm][size] = { wh: 0, transit: 0 };
-                _stockCache[nm][size].wh += Number(s.quantity || 0);
-                _stockCache[nm][size].transit +=
-                    Number(s.in_way_to_client || s.inWayToClient || 0) +
-                    Number(s.in_way_from_client || s.inWayFromClient || 0);
-            });
+            _applyStocksToCache(data, nmIds);
         } catch (e) { console.warn('[RNP] load stocks:', e.message); }
     }
 
@@ -1644,6 +1633,165 @@ const RNP = (() => {
         let wh = 0, tr = 0;
         Object.values(bySize).forEach(x => { wh += x.wh; tr += x.transit; });
         return { wh, tr, total: wh + tr };
+    }
+
+    function _emptySizeBucket() {
+        return { wh: 0, transit: 0, fbo: { wh: 0, transit: 0 }, fbs: { wh: 0, transit: 0 } };
+    }
+
+    function _stockSchemeOf(row) {
+        const raw = String(row?.stock_scheme || row?.scheme || '').toLowerCase();
+        return raw === 'fbs' || raw === 'mp' ? 'fbs' : 'fbo';
+    }
+
+    function _accumSize(bucket, s) {
+        const wh = Number(s.quantity || s.quantity_full || s.quantityFull || 0) || 0;
+        const transit = (Number(s.in_way_to_client || s.inWayToClient || 0) || 0)
+            + (Number(s.in_way_from_client || s.inWayFromClient || 0) || 0);
+        const scheme = _stockSchemeOf(s);
+        bucket.wh += wh;
+        bucket.transit += transit;
+        bucket[scheme].wh += wh;
+        bucket[scheme].transit += transit;
+    }
+
+    function _mergeSizeBucket(into, v) {
+        if (!into) into = _emptySizeBucket();
+        into.wh += Number(v?.wh) || 0;
+        into.transit += Number(v?.transit) || 0;
+        into.fbo.wh += Number(v?.fbo?.wh) || 0;
+        into.fbo.transit += Number(v?.fbo?.transit) || 0;
+        into.fbs.wh += Number(v?.fbs?.wh) || 0;
+        into.fbs.transit += Number(v?.fbs?.transit) || 0;
+        return into;
+    }
+
+    function _viewSizeQty(x) {
+        if (!x) return { wh: 0, transit: 0 };
+        if (_stockSchemeView === 'fbo') {
+            if (x.fbo) return { wh: Number(x.fbo.wh) || 0, transit: Number(x.fbo.transit) || 0 };
+            return { wh: Number(x.wh) || 0, transit: Number(x.transit) || 0 };
+        }
+        if (_stockSchemeView === 'fbs') {
+            if (x.fbs) return { wh: Number(x.fbs.wh) || 0, transit: Number(x.fbs.transit) || 0 };
+            return { wh: 0, transit: 0 };
+        }
+        return { wh: Number(x.wh) || 0, transit: Number(x.transit) || 0 };
+    }
+
+    function _schemeWhTotals(bySize) {
+        let fbo = 0, fbs = 0, fallback = 0, hasSplit = false;
+        Object.values(bySize || {}).forEach(x => {
+            if (x && (x.fbo || x.fbs)) {
+                hasSplit = true;
+                fbo += Number(x.fbo?.wh) || 0;
+                fbs += Number(x.fbs?.wh) || 0;
+            } else {
+                fallback += Number(x?.wh) || 0;
+            }
+        });
+        if (!hasSplit) fbo += fallback;
+        return { fbo, fbs, total: fbo + fbs };
+    }
+
+    function _schemePercents(fbo, fbs) {
+        const t = fbo + fbs;
+        if (t <= 0) return { fbo: 0, fbs: 0 };
+        if (fbs <= 0) return { fbo: 100, fbs: 0 };
+        if (fbo <= 0) return { fbo: 0, fbs: 100 };
+        let pf = Math.round(fbo / t * 100);
+        if (pf === 0) pf = 1;
+        if (pf === 100) pf = 99;
+        return { fbo: pf, fbs: 100 - pf };
+    }
+
+    function _polarXY(cx, cy, r, deg) {
+        const a = (deg - 90) * Math.PI / 180;
+        return { x: +(cx + r * Math.cos(a)).toFixed(3), y: +(cy + r * Math.sin(a)).toFixed(3) };
+    }
+
+    function _donutSlicePath(startPct, endPct, rOut, rIn, cx, cy) {
+        const span = endPct - startPct;
+        if (span <= 0.05) return '';
+        if (span >= 99.95) {
+            return `M ${cx} ${cy - rOut} A ${rOut} ${rOut} 0 1 1 ${cx} ${cy + rOut} A ${rOut} ${rOut} 0 1 1 ${cx} ${cy - rOut} M ${cx} ${cy - rIn} A ${rIn} ${rIn} 0 1 0 ${cx} ${cy + rIn} A ${rIn} ${rIn} 0 1 0 ${cx} ${cy - rIn} Z`;
+        }
+        const start = startPct * 3.6;
+        const end = endPct * 3.6;
+        const large = span > 50 ? 1 : 0;
+        const p1 = _polarXY(cx, cy, rOut, start);
+        const p2 = _polarXY(cx, cy, rOut, end);
+        const p3 = _polarXY(cx, cy, rIn, end);
+        const p4 = _polarXY(cx, cy, rIn, start);
+        return `M ${p1.x} ${p1.y} A ${rOut} ${rOut} 0 ${large} 1 ${p2.x} ${p2.y} L ${p3.x} ${p3.y} A ${rIn} ${rIn} 0 ${large} 0 ${p4.x} ${p4.y} Z`;
+    }
+
+    function _stockSchemeInnerHTML(art, stockBySize) {
+        return `<div class="rnp-head-sizes-inline">${_buildStockSizeHTML(stockBySize, art)}</div>
+          ${_buildStockDonutHTML(stockBySize)}`;
+    }
+
+    function _buildStockDonutHTML(bySize) {
+        const { fbo, fbs, total } = _schemeWhTotals(bySize);
+        const pct = _schemePercents(fbo, fbs);
+        const view = _stockSchemeView;
+        const shown = view === 'fbo' ? fbo : view === 'fbs' ? fbs : total;
+        const rOut = 46, rIn = 28, cx = 50, cy = 50;
+        const fboPath = _donutSlicePath(0, pct.fbo, rOut, rIn, cx, cy);
+        const fbsPath = _donutSlicePath(pct.fbo, 100, rOut, rIn, cx, cy);
+        const emptyRing = total <= 0
+            ? `<circle cx="${cx}" cy="${cy}" r="37" fill="none" stroke="var(--border)" stroke-width="16"/>`
+            : '';
+        const fboSlice = fboPath
+            ? `<path class="rnp-stock-donut-slice rnp-stock-donut-slice-fbo" d="${fboPath}" fill="var(--rnp-fbo)" onclick="RNP.setStockSchemeView('fbo')" title="FBO · склады WB"></path>`
+            : '';
+        const fbsSlice = fbsPath
+            ? `<path class="rnp-stock-donut-slice rnp-stock-donut-slice-fbs" d="${fbsPath}" fill="var(--rnp-fbs)" onclick="RNP.setStockSchemeView('fbs')" title="FBS · склады продавца"></path>`
+            : '';
+        const reset = view === 'all' ? '' : `<button type="button" class="rnp-stock-donut-reset" onclick="RNP.setStockSchemeView('all')">Все склады</button>`;
+        const on = (s) => view === s ? ' is-on' : '';
+        return `<div class="rnp-stock-donut" data-view="${view}">
+          <div class="rnp-stock-donut-chart">
+            <svg viewBox="0 0 100 100" aria-label="Остатки FBO и FBS">${emptyRing}${fboSlice}${fbsSlice}
+              <circle class="rnp-stock-donut-hole" cx="${cx}" cy="${cy}" r="${rIn - 1}" fill="var(--surface-solid)" onclick="RNP.setStockSchemeView('all')"></circle>
+            </svg>
+            <div class="rnp-stock-donut-center"><b>${shown}</b><span>шт</span></div>
+          </div>
+          <div class="rnp-stock-donut-legend">
+            <button type="button" class="rnp-stock-donut-leg is-fbo${on('fbo')}" onclick="RNP.setStockSchemeView('fbo')" title="Склады Wildberries">
+              <i></i>
+              <span class="rnp-stock-donut-leg-name">FBO</span>
+              <span class="rnp-stock-donut-leg-pct">${pct.fbo}%</span>
+              <span class="rnp-stock-donut-leg-sub">склады WB</span>
+              <span class="rnp-stock-donut-leg-qty">${fbo} шт</span>
+            </button>
+            <button type="button" class="rnp-stock-donut-leg is-fbs${on('fbs')}" onclick="RNP.setStockSchemeView('fbs')" title="Склады продавца">
+              <i></i>
+              <span class="rnp-stock-donut-leg-name">FBS</span>
+              <span class="rnp-stock-donut-leg-pct">${pct.fbs}%</span>
+              <span class="rnp-stock-donut-leg-sub">склады продавца</span>
+              <span class="rnp-stock-donut-leg-qty">${fbs} шт</span>
+            </button>
+            ${reset}
+          </div>
+        </div>`;
+    }
+
+    function _refreshStockSchemeUI() {
+        document.querySelectorAll('.rnp-stock-scheme-wrap').forEach(el => {
+            const nm = Number(el.getAttribute('data-nm'));
+            const art = _articles.find(a => Number(a.nm_id) === nm) || { nm_id: nm, manual_data: {} };
+            const stock = _stockCache[nm] || {};
+            el.innerHTML = _stockSchemeInnerHTML(art, stock);
+        });
+        const body = document.getElementById('rnp-sheet-body');
+        requestAnimationFrame(() => _syncMarqueeFill(body || document));
+    }
+
+    function setStockSchemeView(view) {
+        const next = (view === 'fbo' || view === 'fbs') ? view : 'all';
+        _stockSchemeView = (next !== 'all' && _stockSchemeView === next) ? 'all' : next;
+        _refreshStockSchemeUI();
     }
 
     function _periodSummary(art, rawData, cal) {
@@ -1692,7 +1840,7 @@ const RNP = (() => {
         if (bySize[sz]) return bySize[sz];
         if (bySize[n]) return bySize[n];
         const key = Object.keys(bySize).find(k => _normSize(k) === n);
-        return key ? bySize[key] : { wh: 0, transit: 0 };
+        return key ? bySize[key] : _emptySizeBucket();
     }
 
     function _sizeCellCls(total) {
@@ -1701,12 +1849,10 @@ const RNP = (() => {
 
     function _buildStockSizeHTML(bySize, art) {
         const merged = {};
-        Object.entries(bySize).forEach(([k, v]) => {
+        Object.entries(bySize || {}).forEach(([k, v]) => {
             const nk = _normSize(k);
             if (nk === '—') return;
-            if (!merged[nk]) merged[nk] = { wh: 0, transit: 0 };
-            merged[nk].wh += v.wh;
-            merged[nk].transit += v.transit;
+            merged[nk] = _mergeSizeBucket(merged[nk], v);
         });
         const extra = Object.keys(merged).filter(s => !ALL_SIZES.includes(s) && s !== 'ONE');
         const sizes = [...ALL_SIZES, ...extra.sort(_sortSizes)];
@@ -1717,19 +1863,25 @@ const RNP = (() => {
             return `<td class="${_sizeCellCls(n)}">${n > 0 ? n : 0}</td>`;
         };
         const hdrCell = (sz) => {
-            const x = _getSize(merged, sz);
+            const x = _viewSizeQty(_getSize(merged, sz));
             const t = x.wh + x.transit;
             return `<th class="${_sizeCellCls(t)}">${sz}</th>`;
         };
         const row = (label, rowCls, fn) => {
-            const cells = sizes.map(sz => cell(sz, fn(_getSize(merged, sz))));
-            const total = sizes.reduce((s, sz) => s + fn(_getSize(merged, sz)), 0);
+            const cells = sizes.map(sz => cell(sz, fn(_viewSizeQty(_getSize(merged, sz)))));
+            const total = sizes.reduce((s, sz) => s + fn(_viewSizeQty(_getSize(merged, sz))), 0);
             return `<tr class="${rowCls}"><td class="rnp-stock-label">${label}</td>${cells.join('')}<td class="${_sizeCellCls(total)}" style="font-weight:800">${total}</td></tr>`;
         };
         const prodCells = sizes.map(() => `<td class="rnp-size-zero">0</td>`).join('');
         const prodRow = `<tr class="rnp-row-prod"><td class="rnp-stock-label">В пошиве</td>${prodCells}<td class="${_sizeCellCls(inProd)}" style="font-weight:800">${inProd}</td></tr>`;
+        const cap = _stockSchemeView === 'fbo'
+            ? '<div class="rnp-stock-scheme-cap is-fbo">Остатки · FBO · склады WB</div>'
+            : _stockSchemeView === 'fbs'
+                ? '<div class="rnp-stock-scheme-cap is-fbs">Остатки · FBS · склады продавца</div>'
+                : '';
 
         return `<div class="rnp-stock-block">
+          ${cap}
           <table class="rnp-stock-table">
             <thead><tr>
               <th class="rnp-stock-label"></th>
@@ -2195,7 +2347,7 @@ const RNP = (() => {
         const st = widthPx ? ` style="width:${widthPx}px;max-width:${widthPx}px"` : '';
         return `<div class="rnp-head-left-stack"${st}>
           ${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
-          <div class="rnp-head-sizes-inline">${_buildStockSizeHTML(stockBySize, art)}</div>
+          <div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>
         </div>`;
     }
 
@@ -2735,7 +2887,7 @@ const RNP = (() => {
 
     function _buildKpiPanelHTML(art, stockBySize, rawData, cal) {
         return `${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
-          <div class="rnp-kpi-sizes-row${_strategyTab === 4 ? ' rnp-kpi-sizes-row--focus' : ''}">${_buildStockSizeHTML(stockBySize, art)}</div>`;
+          <div class="rnp-kpi-sizes-row${_strategyTab === 4 ? ' rnp-kpi-sizes-row--focus' : ''}"><div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div></div>`;
     }
 
     function _buildTopPanelHTML(art, stockBySize, rawData, cal) {
@@ -3081,11 +3233,8 @@ const RNP = (() => {
             if (!_stockCache[nm]) _stockCache[nm] = {};
             const size = _normSize(s.tech_size || s.techSize || s.size || '');
             if (size === '—') return;
-            if (!_stockCache[nm][size]) _stockCache[nm][size] = { wh: 0, transit: 0 };
-            _stockCache[nm][size].wh += Number(s.quantity || 0);
-            _stockCache[nm][size].transit +=
-                Number(s.in_way_to_client || s.inWayToClient || 0) +
-                Number(s.in_way_from_client || s.inWayFromClient || 0);
+            if (!_stockCache[nm][size]) _stockCache[nm][size] = _emptySizeBucket();
+            _accumSize(_stockCache[nm][size], s);
         });
     }
 
@@ -3384,7 +3533,7 @@ const RNP = (() => {
             _loadExchangeRates(dateFrom, dateTo),
             _fetchAllRows('wb_stocks', [
                 { op: 'eq', column: 'cabinet_id', value: _cab },
-            ], 'nm_id, tech_size, quantity, in_way_to_client, in_way_from_client, warehouse_name'),
+            ], 'nm_id, tech_size, quantity, in_way_to_client, in_way_from_client, warehouse_name, stock_scheme'),
         ]);
         const stocks = Array.isArray(stocksRaw) ? stocksRaw : [];
         if (dailyRows === null) return false;
@@ -5715,7 +5864,7 @@ const RNP = (() => {
     setTimeout(_retryRnpBoot, 800);
 
     return { init, initCore, ensureReady, openSettings, closeSettings, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
-             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode,
+             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
 
