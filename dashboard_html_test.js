@@ -197,6 +197,22 @@ assert.ok(
     'loadFromDB must not overwrite the chip with 01.01.2026 — 08.09.2026'
 );
 assert.ok(html.includes('class="date-chip-chevron"'), 'date chip uses a small chevron, not a fat ▼');
+assert.ok(
+    /\[data-theme="neon"\] \{[\s\S]*?--sel:\s*#3A3A3C/.test(html),
+    'dark theme must define --sel so KPI chips are not leftover #EDEDED'
+);
+assert.ok(
+    html.includes('#modal-box { border: none !important; background: var(--surface-solid) !important;') &&
+    html.includes('#date-picker { border: 1px solid var(--border) !important; background: var(--surface-solid) !important;') &&
+    html.includes('.abtest-card { border: 1px solid var(--border) !important; box-shadow: none !important; background: var(--surface) !important;'),
+    'modals, date picker and A/B cards follow the theme surface, not hardcoded white'
+);
+assert.ok(
+    html.includes('.cabinet-dropdown-menu') &&
+    html.includes('background: var(--surface-solid);') &&
+    html.includes('.segment-tab.active { background: var(--surface-solid);'),
+    'cabinet menu and segment tabs use theme surfaces'
+);
 assert.ok(html.includes('id="rail-settings-btn"'), 'settings must be a small button under the profile');
 const settingsIdx = html.indexOf('id="rail-settings-btn"');
 const userIdx = html.indexOf('id="rail-user-name"');
