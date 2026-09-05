@@ -2460,6 +2460,20 @@
             padding: 10px 14px !important;
             font-weight: 400;
         }
+        input[type="number"] {
+            -moz-appearance: textfield;
+            -webkit-appearance: textfield;
+            appearance: textfield;
+        }
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none !important;
+            appearance: none !important;
+            display: none !important;
+            margin: 0;
+            width: 0;
+            height: 0;
+        }
         [data-theme="neon"] input, [data-theme="neon"] select, [data-theme="neon"] textarea,
         [data-theme="neon"] .ui-input, [data-theme="neon"] .ui-select {
             background: rgba(255, 255, 255, 0.06) !important;
