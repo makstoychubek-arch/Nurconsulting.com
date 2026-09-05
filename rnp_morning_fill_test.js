@@ -25,6 +25,10 @@ assert.ok(fn.includes("mode: 'stocks'") && fn.includes('syncStocksViaAutoSync'),
 assert.ok(fn.includes('остатки по размерам'), 'Karina reports stocks in the done message');
 assert.ok(auto.includes('techSize || s.wbSize || s.sizeName || meta?.techSize'),
     'FBO stocks must get tech_size from the WB card so the RNP size grid is filled');
+assert.ok(auto.includes('/^\\d{6,}$/.test(sku)'),
+    'FBO must treat a numeric barcode as chrtId when WB omits chrtId');
+assert.ok(fn.includes('ordersFailed'),
+    'morning fill must still refresh size stocks if orders fail');
 assert.ok(fn.includes('i += 20') && fn.includes('fetchFunnelChunk'), 'funnel is chunked by WB 20-nmId limit');
 assert.ok(fn.includes('datesIn') && fn.includes('wantFunnel'), 'catch-up can pass dates and skip funnel');
 assert.ok(fn.includes('Я Карина, начинаю заполнять РНП'), 'start message is Karina');

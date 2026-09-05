@@ -101,10 +101,12 @@ Deno.serve(async (req) => {
 
     await Promise.all(targets.map(async (cab, i) => {
         const row = results[i];
-        if (row.status === 'error') return;
         const token = sanitizeWbToken(cab.wb_token);
+        const ordersFailed = row.status === 'error';
         try {
-            row.rnp_daily = await rebuildRnpDaily(admin, cab.id, days);
+            if (!ordersFailed) {
+                row.rnp_daily = await rebuildRnpDaily(admin, cab.id, days);
+            }
             try {
                 const stocks = await syncStocksViaAutoSync(supabaseUrl, serviceKey, cab.id);
                 row.stocks_fbo = stocks.fbo;
@@ -115,18 +117,20 @@ Deno.serve(async (req) => {
                 row.stocks_fbs = 0;
                 row.stocks_error = (e as Error).message;
             }
-            if (wantFunnel) {
+            if (wantFunnel && !ordersFailed) {
                 try {
                     row.funnel_days = await syncFunnelLast7Days(admin, cab.id, token);
                 } catch (e) {
                     row.funnel_error = (e as Error).message;
                     row.funnel_days = 0;
                 }
-            } else {
+            } else if (!wantFunnel) {
                 row.funnel_days = 0;
             }
-            row.articles = await countActiveArticles(admin, cab.id);
-            row.status = 'done';
+            if (!ordersFailed) {
+                row.articles = await countActiveArticles(admin, cab.id);
+                row.status = 'done';
+            }
         } catch (e) {
             row.status = 'error';
             row.error = (e as Error).message;
