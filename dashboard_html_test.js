@@ -202,7 +202,7 @@ assert.ok(rnpSrc.includes('function _syncFrozenPane'), 'week/ИТОГ sticky lef
 assert.ok(!/pin\.style\.height\s*=\s*.*leftTh/.test(rnpSrc), 'marquee pin must not follow leftTh — that loop grows photos');
 assert.ok(rnpSrc.includes('pin.style.height = `${stackH}px`'), 'photo pin matches the KPI+sizes stack so cards are not clipped');
 assert.ok(!rnpSrc.includes('leftTh?.offsetWidth'), 'frozen width must not follow the KPI colspan');
-assert.ok(rnpSrc.includes('acc += FROZEN_COL_W'), 'sticky week offsets stay on design widths, not measured growth');
+assert.ok(rnpSrc.includes('acc += _frozenWeekW()'), 'sticky week offsets stay on design widths, not measured growth');
 assert.ok(rnpSrc.includes('MARQUEE_CARD_MAX_H'), 'photo cards must cap height so they do not grow on each resize');
 assert.ok(rnpSrc.includes('MARQUEE_REPS_MAX'), 'marquee must not clone photos without a cap');
 assert.ok(rnpSrc.includes('_marqueeRo.observe(scroll)'), 'resize observer watches the scroller only, not the left header');
