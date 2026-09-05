@@ -96,13 +96,13 @@ const RNP = (() => {
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
-    const FROZEN_COL_W = 54;
-    const DAY_COL_W = 54;
+    const FROZEN_COL_W = 40;
+    const DAY_COL_W = 40;
     const MARQUEE_CARD_MAX_H = 240;
     const MARQUEE_CARD_MIN_H = 132;
     const MARQUEE_REPS_MAX = 6;
     const PHOTO_ASPECT_W = 3 / 4;
-    const MONTH_COL_W = 72;
+    const MONTH_COL_W = 42;
     const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
     const CAL_MONTH_FROM = 5;
     const CAL_MONTH_TO = 11;
@@ -2132,7 +2132,7 @@ const RNP = (() => {
     }
 
     function _sheetVarsStyle(cal) {
-        return `--rnp-frozen-left:${_leftFrozenPx(cal)}px;--rnp-metric-w:${FROZEN_METRIC_W}px;--rnp-spark-w:${FROZEN_SPARK_W}px`;
+        return `--rnp-frozen-left:${_leftFrozenPx(cal)}px;--rnp-metric-w:${FROZEN_METRIC_W}px;--rnp-spark-w:${FROZEN_SPARK_W}px;--rnp-day-w:${DAY_COL_W}px;--rnp-month-w:${MONTH_COL_W}px`;
     }
 
     function _setCssVar(el, name, value) {
@@ -4179,6 +4179,22 @@ const RNP = (() => {
         return n;
     }
 
+    function _numFitClass(str) {
+        const s = String(str ?? '');
+        if (!s || s === '—') return 'rnp-num';
+        const digits = s.replace(/\D/g, '').length;
+        const n = Math.abs(parseFloat(s.replace(/\s/g, '').replace(',', '.')));
+        if (digits >= 7 || n >= 1e6) return 'rnp-num rnp-num--m';
+        return 'rnp-num';
+    }
+
+    function _fitNum(str) {
+        if (str == null || str === '') return '';
+        const s = String(str);
+        if (s === '—') return s;
+        return `<span class="${_numFitClass(s)}">${s}</span>`;
+    }
+
     function _cellColor(val, hm) {
         if (!hm || val === null || val === undefined) return '';
         const n = parseFloat(val);
@@ -5031,7 +5047,7 @@ const RNP = (() => {
                     }
                     const aggVal = _planVal(art, m.key, col.dates || []);
                     const aggStr = aggVal !== '' && aggVal != null ? _fmt(aggVal, m.type) : '—';
-                    return `<td class="${cls} rnp-cell-plan ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>${aggStr}</td>`;
+                    return `<td class="${cls} rnp-cell-plan ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>${_fitNum(aggStr)}</td>`;
                 }
 
                 const val = d ? d[m.key] : null;
@@ -5042,7 +5058,7 @@ const RNP = (() => {
                 else if (cc === 'rnp-yellow') style += (style ? ';' : '') + 'background:rgba(245,158,11,0.15);color:var(--amber)';
                 else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:rgba(239,68,68,0.15);color:var(--red)';
                 else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
-                if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-size:10px;font-weight:700';
+                if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-weight:700';
                 const rowNum = _metricRowSeq++;
                 const numVal = (val != null && val !== '' && !isNaN(parseFloat(val))) ? parseFloat(val) : null;
                 const dataAttr = numVal != null
@@ -5060,7 +5076,7 @@ const RNP = (() => {
                 const liveTitle = isLiveToday
                     ? ' title="Сегодня — предварительные данные, ещё обновляются"'
                     : '';
-                return `<td class="${cls}${liveCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${str ?? ''}</td>`;
+                return `<td class="${cls}${liveCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${_fitNum(str ?? '')}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',
