@@ -2697,6 +2697,14 @@
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
                     <span class="rail-btn-lbl">Дашборд</span>
                 </button>
+                <button type="button" class="rail-btn" data-tab="rnp" title="Модуль РНП">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
+                    <span class="rail-btn-lbl">РНП</span>
+                </button>
+                <button type="button" class="rail-btn" data-tab="advertising" title="Контроль РК">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
+                    <span class="rail-btn-lbl">РК</span>
+                </button>
                 <button type="button" class="rail-btn" data-flyout="fly-beta">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
                     <span class="rail-btn-lbl">BETA</span>
@@ -2752,28 +2760,12 @@
                     <span class="nav-item-label">План-факт</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
-                <div class="flyout-sec">РНП</div>
-                <div class="nav-item" onclick="showTab('rnp', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
-                    <span class="nav-item-label">Модуль РНП</span>
-                    <span class="nav-beta-badge">BETA</span>
-                </div>
-                <div class="nav-item" onclick="showTab('rnp-settings', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2M4.93 19.07l1.41-1.41M19.07 19.07l-1.41-1.41"/></svg>
-                    <span class="nav-item-label">Настройки РНП</span>
-                    <span class="nav-beta-badge">BETA</span>
-                </div>
                 <div class="nav-item" onclick="showTab('planning', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg>
                     <span class="nav-item-label">Планирование</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="flyout-sec">Реклама</div>
-                <div class="nav-item" onclick="showTab('advertising', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/></svg>
-                    <span class="nav-item-label">Контроль РК</span>
-                    <span class="nav-beta-badge">BETA</span>
-                </div>
                 <div class="nav-item" onclick="showTab('ab-testing', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4"/></svg>
                     <span class="nav-item-label">А/Б Тесты</span>
@@ -3088,7 +3080,7 @@
                 <div class="beta-orb beta-orb-2"></div>
                 <div class="beta-pill">BETA</div>
                 <h2 id="beta-stub-title">Модуль в BETA</h2>
-                <p id="beta-stub-text">Сейчас работает только Дашборд. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
+                <p id="beta-stub-text">Сейчас работают Дашборд, РНП и Контроль РК. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
                 <button type="button" class="space-empty-btn" style="margin-top:18px" onclick="showTab('dashboard')">К дашборду</button>
             </div>
         </div>
@@ -4150,7 +4142,7 @@
     }
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon']);
-    const LIVE_TABS = new Set(['dashboard', 'settings']);
+    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
     // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
@@ -5076,8 +5068,8 @@
         dashboard:'dashboard',
         settings:'settings',
         summary:'beta', 'summary-biz':'beta', deductions:'beta', 'plan-fact':'beta',
-        rnp:'beta', 'rnp-settings':'beta', planning:'beta',
-        advertising:'beta', 'ab-testing':'beta',
+        rnp:'rnp', 'rnp-settings':'rnp', planning:'beta',
+        advertising:'ads', 'ab-testing':'beta',
         seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
         'telegram-bots':'beta', ozon:'beta', agents:'beta',
         cost:'beta', 'goods-groups':'beta', warehouse:'beta',
@@ -5111,7 +5103,9 @@
             if (b.dataset.flyout === 'fly-beta') {
                 b.classList.toggle('active', !live);
             } else if (b.dataset.tab) {
-                b.classList.toggle('active', live && b.dataset.tab === tabName);
+                const match = live && (b.dataset.tab === tabName
+                    || (b.dataset.tab === 'rnp' && tabName === 'rnp-settings'));
+                b.classList.toggle('active', !!match);
             }
         });
         document.getElementById('rail-settings-btn')?.classList.toggle('active', tabName === 'settings');
@@ -5255,7 +5249,7 @@
         if (titleEl) titleEl.textContent = tabTitles[name] || 'Модуль в BETA';
         const textEl = document.getElementById('beta-stub-text');
         if (textEl) {
-            textEl.textContent = 'Сейчас работает только Дашборд. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
+            textEl.textContent = 'Сейчас работают Дашборд, РНП и Контроль РК. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
         }
         const mainRefresh = document.getElementById('refresh-btn');
         if (mainRefresh) {
@@ -5288,7 +5282,7 @@
             mainRefresh.onclick = refreshData;
         }
         updateHeaderNav(name);
-        if (name === 'dashboard' || name === 'settings') {
+        if (name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising') {
             window.closeSidebarMenus?.(true);
         }
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
@@ -11227,6 +11221,7 @@
             savedTab = resolveTabFromUrl() || localStorage.getItem('nr_active_tab');
             if (savedTab) savedTab = TAB_ALIASES[savedTab] || savedTab;
             if (savedTab === 'settings') showTab('settings', null);
+            else if (savedTab && LIVE_TABS.has(savedTab)) showTab(savedTab, null);
             else showTab('dashboard', null);
         } catch (e) {
             console.error('[init] tab restore:', e);

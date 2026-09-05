@@ -43,21 +43,25 @@ assert.ok(
 assert.ok(html.includes('hideFlyouts(true)') && html.includes('window.closeSidebarMenus'),
     'opening Dashboard must force-close any leftover pinned flyout');
 assert.ok(
-    !/class="rail-btn"[^>]*data-tab="rnp"/.test(html) && !/data-tab="rnp"[^>]*data-flyout="fly-rnp"/.test(html),
-    'RNP must not sit on the main rail'
+    /class="rail-btn"[^>]*data-tab="rnp"/.test(html) && /<span class="rail-btn-lbl">РНП<\/span>/.test(html),
+    'РНП must sit on the main rail as a live tab'
 );
-assert.ok(!/<span class="rail-btn-lbl">РНП<\/span>/.test(html), 'РНП must not stay on the main rail');
-assert.ok(!/<span class="rail-btn-lbl">РК<\/span>/.test(html), 'РК must not stay on the main rail');
+assert.ok(
+    /class="rail-btn"[^>]*data-tab="advertising"/.test(html) && /<span class="rail-btn-lbl">РК<\/span>/.test(html),
+    'РК must sit on the main rail as a live tab'
+);
+assert.ok(!/data-tab="rnp"[^>]*data-flyout/.test(html),
+    'РНП rail button opens the module, not a second column');
 assert.ok(!/<span class="rail-btn-lbl">А\/Б Тесты<\/span>/.test(html), 'А/Б Тесты must not stay on the main rail');
 assert.ok(!/<span class="rail-btn-lbl">Тарифы<\/span>/.test(html), 'Тарифы must not stay on the main rail');
 assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
-    'ocr/rnp/tariffs flyouts must be folded into BETA');
-assert.ok(html.includes('const LIVE_TABS = new Set([\'dashboard\', \'settings\'])'),
-    'only dashboard and settings are live tabs');
+    'ocr/rnp/tariffs flyouts must stay folded into BETA');
+assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising'])"),
+    'dashboard, settings, RNP and advertising are live tabs');
 assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
     'non-live modules must open the BETA stub instead of broken UIs');
-assert.ok(html.includes('Сейчас работает только Дашборд'),
-    'BETA stub must say only the dashboard works');
+assert.ok(html.includes('Сейчас работают Дашборд, РНП и Контроль РК'),
+    'BETA stub must list the live modules');
 
 const afterApp = html.slice(html.lastIndexOf('initSidebarFlyouts();'));
 assert.ok(
@@ -92,8 +96,8 @@ assert.ok(
     betaFly.includes("showTab('plan-fact'"),
     'Оцифровка items move into BETA, not a dashboard submenu'
 );
-assert.ok(betaFly.includes("showTab('rnp'"), 'BETA flyout lists РНП');
-assert.ok(betaFly.includes("showTab('advertising'"), 'BETA flyout lists Контроль РК');
+assert.ok(!betaFly.includes("showTab('rnp'"), 'РНП is not duplicated inside BETA');
+assert.ok(!betaFly.includes("showTab('advertising'"), 'Контроль РК is not duplicated inside BETA');
 assert.ok(betaFly.includes("showTab('ab-testing'"), 'BETA flyout lists А/Б Тесты');
 assert.ok(betaFly.includes("showTab('tariffs'"), 'BETA flyout lists Тарифы');
 assert.ok(betaFly.includes("showTab('cost'"), 'BETA flyout lists Товары');
@@ -113,8 +117,9 @@ assert.ok(
 );
 assert.ok(
     html.includes("if (savedTab === 'settings') showTab('settings', null)") &&
+    html.includes('LIVE_TABS.has(savedTab)') &&
     html.includes("else showTab('dashboard', null)"),
-    'init must open dashboard, not a saved BETA tab'
+    'init restores live RNP/RK tabs and otherwise opens dashboard'
 );
 assert.ok(
     html.includes('Загрузка данных|Загрузка артикулов'),
