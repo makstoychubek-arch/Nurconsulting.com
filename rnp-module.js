@@ -195,29 +195,13 @@ const RNP = (() => {
         ]},
     ];
 
-    function _ruClothingToLetter(n) {
-        const v = Number(n);
-        if (!Number.isFinite(v) || v <= 0) return '—';
-        if (v <= 38) return 'XS';
-        if (v <= 42) return 'S';
-        if (v <= 46) return 'M';
-        if (v <= 50) return 'L';
-        if (v <= 54) return 'XL';
-        if (v <= 58) return 'XXL';
-        if (v <= 62) return '2XL';
-        if (v <= 66) return '3XL';
-        if (v <= 70) return '4XL';
-        return '5XL';
-    }
-
+    /** Как на карточке WB: буквы канонизируем, цифры (36, 40) не переводим в XXS–5XL. */
     function _normSize(raw) {
         const s = String(raw || '').trim().toUpperCase().replace(/,/g, '.');
         if (!s || s === '—' || s === '-' || s === '0') return '—';
         if (/^(ONE\s*SIZE|OS|UNIVERSAL|БЕЗРАЗМЕРН)/.test(s)) return 'ONE';
         const named = s.match(/^(5XL|4XL|3XL|2XL|XXXL|XXL|XXS|XS|XL|S|M|L)\b/);
         if (named) return named[1] === 'XXXL' ? '3XL' : named[1];
-        const nums = s.match(/(\d{2})/g);
-        if (nums && nums.length) return _ruClothingToLetter(nums[0]);
         return s;
     }
 
@@ -1575,12 +1559,19 @@ const RNP = (() => {
     }
 
     function _sortSizes(a, b) {
-        const ia = SIZE_ORDER.indexOf(a.toUpperCase());
-        const ib = SIZE_ORDER.indexOf(b.toUpperCase());
+        const A = String(a || '');
+        const B = String(b || '');
+        const ia = SIZE_ORDER.indexOf(A.toUpperCase());
+        const ib = SIZE_ORDER.indexOf(B.toUpperCase());
         if (ia >= 0 && ib >= 0) return ia - ib;
         if (ia >= 0) return -1;
         if (ib >= 0) return 1;
-        return a.localeCompare(b, 'ru');
+        const na = parseInt(A, 10);
+        const nb = parseInt(B, 10);
+        const aNum = /^\d/.test(A) && Number.isFinite(na);
+        const bNum = /^\d/.test(B) && Number.isFinite(nb);
+        if (aNum && bNum && na !== nb) return na - nb;
+        return A.localeCompare(B, 'ru', { numeric: true });
     }
 
     async function _loadAllStocks(nmIds) {
@@ -1854,8 +1845,8 @@ const RNP = (() => {
             if (nk === '—') return;
             merged[nk] = _mergeSizeBucket(merged[nk], v);
         });
-        const extra = Object.keys(merged).filter(s => !ALL_SIZES.includes(s) && s !== 'ONE');
-        const sizes = [...ALL_SIZES, ...extra.sort(_sortSizes)];
+        const keys = Object.keys(merged);
+        const sizes = keys.length ? keys.sort(_sortSizes) : ALL_SIZES.slice();
         const inProd = Number(art?.manual_data?.in_production) || 0;
 
         const cell = (sz, v) => {

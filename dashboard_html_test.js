@@ -109,6 +109,19 @@ assert.ok(html.includes('id="rail-settings-btn"'), 'settings must be a small but
 const settingsIdx = html.indexOf('id="rail-settings-btn"');
 const userIdx = html.indexOf('id="rail-user-name"');
 assert.ok(userIdx !== -1 && settingsIdx > userIdx, 'settings button must sit under the profile block');
+assert.ok(html.includes('id="rail-cabs"') && html.includes('function renderRailCabs'),
+    'sidebar footer must show other cabinets as small logos under the current user');
+assert.ok(html.includes('function cabinetMark'),
+    'rail cabinet logos use the legal-name initial, not B/E/Z');
+assert.ok(!/rail-settings-btn[\s\S]{0,400}<span>Настройки<\/span>/.test(html),
+    'settings in the rail is an icon, not a second tall text row');
+assert.ok(html.includes('--radius-card: 22px'), 'Apple-style cards use a 22px corner radius');
+assert.ok(
+    html.includes('.rnp-workspace {') &&
+    html.includes('border-radius: var(--radius-card)') &&
+    /rnp-sheet-table th, \.rnp-sheet-table td \{\s*border: none/.test(html),
+    'RNP sheet is one rounded card without cell dividers'
+);
 assert.ok(html.includes('abtest-card-row'), 'A/B cards use WBRadar row layout');
 assert.ok(html.includes('nr-early-tab-style'), 'early-tab CSS id must exist for settings boot');
 assert.ok(
@@ -209,20 +222,37 @@ assert.ok(rnpSrc.includes('const DAY_COL_W = 40'), 'day cells are narrow but sti
 assert.ok(rnpSrc.includes('const FROZEN_COL_W = 40'), 'week/ИТОГ cells must match the day grid');
 assert.ok(rnpSrc.includes('function _fitNum') && rnpSrc.includes('rnp-num--m'),
     'million-scale numbers shrink inside the cell');
-assert.ok(rnpSrc.includes('function _ruClothingToLetter(n)'), 'RNP must map RU clothing sizes onto the XXS–5XL grid');
+assert.ok(!rnpSrc.includes('function _ruClothingToLetter'), 'do not guess RU/EU numbers onto XXS–5XL');
 {
-    const start = rnpSrc.indexOf('function _ruClothingToLetter');
+    const start = rnpSrc.indexOf('function _normSize');
     const end = rnpSrc.indexOf('function _nrDialog');
-    assert.ok(start > 0 && end > start, 'size helpers must sit next to _normSize');
-    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _ruClothingToLetter, _normSize };`)();
-    assert.strictEqual(fns._normSize('40'), 'S');
+    assert.ok(start > 0 && end > start, 'size helper must sit next to _normSize');
+    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _normSize };`)();
+    assert.strictEqual(fns._normSize('36'), '36');
+    assert.strictEqual(fns._normSize('40'), '40');
     assert.strictEqual(fns._normSize('S (40-42)'), 'S');
-    assert.strictEqual(fns._normSize('44'), 'M');
+    assert.strictEqual(fns._normSize('44'), '44');
     assert.strictEqual(fns._normSize('M (44-46)'), 'M');
-    assert.strictEqual(fns._normSize('42-44'), 'S');
-    assert.strictEqual(fns._normSize('54-56'), 'XL');
+    assert.strictEqual(fns._normSize('42-44'), '42-44');
+    assert.strictEqual(fns._normSize('54-56'), '54-56');
     assert.strictEqual(fns._normSize('XXL'), 'XXL');
     assert.strictEqual(fns._normSize(''), '—');
+}
+assert.ok(
+    rnpSrc.includes('keys.length ? keys.sort(_sortSizes) : ALL_SIZES.slice()'),
+    'size grid must show WB tech_size columns, not a fixed XXS–5XL template'
+);
+{
+    const sortStart = rnpSrc.indexOf('function _sortSizes');
+    const sortEnd = rnpSrc.indexOf('async function _loadAllStocks');
+    assert.ok(sortStart > 0 && sortEnd > sortStart, 'numeric sizes must sort as numbers');
+    const sortFns = new Function(`
+        const SIZE_ORDER = ['XXS','XS','S','M','L','XL','XXL','2XL','3XL','4XL','5XL'];
+        ${rnpSrc.slice(sortStart, sortEnd)}
+        return { _sortSizes };
+    `)();
+    assert.deepStrictEqual(['44', '36', '40'].sort(sortFns._sortSizes), ['36', '40', '44']);
+    assert.deepStrictEqual(['XL', 'S', 'M'].sort(sortFns._sortSizes), ['S', 'M', 'XL']);
 }
 assert.ok(html.includes('--rnp-day-w: 40px'), 'CSS day column width must match JS');
 assert.ok(html.includes('.rnp-num--m'), 'CSS shrinks million values so they stay inside the cell');
@@ -394,6 +424,14 @@ assert.ok(html.includes('ИП Бейшеев А.Д.') && html.includes('ИП А�
 assert.ok(html.includes('ИП Уркунбаев К.А.') && html.includes('ОсОО «Айлин Стиль»'), 'Zevina 1/2 show the legal names from WB');
 assert.ok(!html.includes('id="cabinet-picker-initial"'), 'letter avatar next to the cabinet name is gone');
 assert.ok(!html.includes('cab-dot'), 'dropdown no longer draws B/E/Z circles');
+const cabFns = new Function(
+    html.slice(html.indexOf('function cabinetDisplayName'), html.indexOf('function renderRailCabs'))
+    + '; return { cabinetDisplayName, cabinetMark };'
+)();
+assert.strictEqual(cabFns.cabinetMark('Baza'), 'Б');
+assert.strictEqual(cabFns.cabinetMark('Elium'), 'А');
+assert.strictEqual(cabFns.cabinetMark('Zevina 1'), 'У');
+assert.strictEqual(cabFns.cabinetMark('Zevina 2'), 'А');
 assert.ok(
     html.includes('input[type="number"]::-webkit-inner-spin-button')
         && html.includes('input[type="number"]::-webkit-outer-spin-button')
