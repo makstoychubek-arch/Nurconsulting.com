@@ -36,6 +36,8 @@ assert.deepStrictEqual([i512.w, i512.h], [512, 512]);
 assert.deepStrictEqual([iMask.w, iMask.h], [512, 512]);
 assert.deepStrictEqual([iTouch.w, iTouch.h], [180, 180]);
 assert.deepStrictEqual([pngSize('icons/shortcut-rnp.png').w, pngSize('icons/shortcut-rnp.png').h], [96, 96]);
+assert.deepStrictEqual([pngSize('icons/telegram-nr-avatar.png').w, pngSize('icons/telegram-nr-avatar.png').h], [640, 640]);
+assert.deepStrictEqual([pngSize('icons/favicon.png').w, pngSize('icons/favicon.png').h], [32, 32]);
 assert.deepStrictEqual([pngSize('icons/shortcut-dashboard.png').w, pngSize('icons/shortcut-dashboard.png').h], [96, 96]);
 assert.deepStrictEqual([pngSize('splash/splash-1170x2532.png').w, pngSize('splash/splash-1170x2532.png').h], [1170, 2532]);
 
@@ -43,6 +45,10 @@ assert.ok(html.includes('rel="manifest" href="/manifest.json"'));
 assert.ok(html.includes('apple-mobile-web-app-status-bar-style" content="black-translucent"'));
 assert.ok(html.includes('rel="apple-touch-startup-image" href="/splash/splash-1170x2532.png"'));
 assert.ok(html.includes('href="/icons/apple-touch-icon.png"'));
+assert.ok(html.includes('href="/favicon.ico"') && html.includes('/icons/favicon.png'),
+    'dashboard tab icon must match the PWA NR mark');
+assert.ok(fs.existsSync(path.join(__dirname, 'icons/logo-nr.svg')));
+assert.ok(sw.includes("nr-space-pwa-v2") && sw.includes("/icons/logo-nr.svg"));
 assert.ok(html.includes('overscroll-behavior: none') && html.includes('touch-action: manipulation'));
 assert.ok(html.includes('-webkit-user-select: none') && html.includes('input, textarea, select'));
 assert.ok(html.includes('.main-content.page-transition') && html.includes('transition: opacity 0.2s ease-in-out'));
@@ -54,7 +60,7 @@ assert.ok(sw.includes("req.mode === 'navigate'"), 'SW must only fall back on nav
 assert.ok(!/event\.respondWith\(\s*fetch\(event\.request\)\.catch\(\(\) => caches\.match\('\/offline\.html'\)\)\s*\)/.test(sw.replace(/\s+/g, '')) || sw.includes("req.mode === 'navigate'"));
 
 assert.ok(offline.includes('Нет соединения, попробуйте позже'));
-assert.ok(offline.includes('NR Space') && offline.includes('class="logo"'));
+assert.ok(offline.includes('NR Space') && offline.includes('logo-nr') && offline.includes('/icons/logo-nr.svg'));
 
 assert.ok(vercel.includes('"/dashboard"') && vercel.includes('"/sw.js"'),
     'Vercel must rewrite /dashboard and disable SW caching');

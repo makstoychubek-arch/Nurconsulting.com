@@ -912,12 +912,37 @@ assert.ok(
     'site header logo must not be the yellow NR tile'
 );
 assert.ok(
-    fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').includes('bg-white text-[#111] font-black'),
-    'site header logo must be the white NR tile'
+    fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').includes('src="/icons/logo-nr.svg"') &&
+    fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').includes('class="logo-nr"'),
+    'site header logo must use the shared bold NR mark'
+);
+assert.ok(
+    !fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').includes("fill='%231F2933'"),
+    'site favicon must not keep the old dark NR tile'
 );
 assert.ok(
     !fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8').includes('background: #F5C400'),
     'login logo must not use the yellow mark'
+);
+assert.ok(
+    html.includes('src="/icons/logo-nr.svg"') &&
+    html.includes('logo-nr') &&
+    fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8').includes('src="/icons/logo-nr.svg"') &&
+    fs.readFileSync(path.join(__dirname, 'offline.html'), 'utf8').includes('src="/icons/logo-nr.svg"'),
+    'dashboard, login and offline must share the same NR logo file'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'icons/logo-nr.svg')) &&
+    fs.readFileSync(path.join(__dirname, 'icons/logo-nr.svg'), 'utf8').includes('fill="#ffffff"') &&
+    fs.readFileSync(path.join(__dirname, 'icons/logo-nr.svg'), 'utf8').includes('fill="#000000"') &&
+    !fs.readFileSync(path.join(__dirname, 'icons/logo-nr.svg'), 'utf8').includes('stroke='),
+    'master NR mark is extra-bold black letters on white, no border'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'favicon.ico')) &&
+    fs.existsSync(path.join(__dirname, 'icons/favicon.png')) &&
+    fs.existsSync(path.join(__dirname, 'icons/telegram-nr-avatar.png')),
+    'favicon and Telegram avatar must be exported from the same NR mark'
 );
 
 assert.ok(
