@@ -17,6 +17,7 @@ assert.ok(fn.includes("group: 'zevina'|'baza'|'elium'") || fn.includes('GROUPS')
 assert.ok(fn.includes('yesterdayBishkek'), 'fill date is yesterday in Bishkek');
 assert.ok(fn.includes('supplier/orders'), 'pulls WB orders for the day');
 assert.ok(fn.includes('order_date: dayStr'), 'stores WB flag=1 day, not ISO timestamp');
+assert.ok(fn.includes('srid-check'), 'does not move an srid onto another day');
 assert.ok(fn.includes('rnp_daily_data'), 'writes article metrics');
 assert.ok(fn.includes('sales-funnel/products/history'), 'refreshes funnel for all articles');
 assert.ok(fn.includes('i += 20') && fn.includes('fetchFunnelChunk'), 'funnel is chunked by WB 20-nmId limit');

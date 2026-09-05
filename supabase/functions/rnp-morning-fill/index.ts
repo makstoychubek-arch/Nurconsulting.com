@@ -231,8 +231,27 @@ async function writeOrderRows(
     }));
     const withSrid = rows.filter((r) => r.srid);
     const withoutSrid = rows.filter((r) => !r.srid);
-    for (let i = 0; i < withSrid.length; i += 500) {
-        const { error } = await admin.from('wb_orders').upsert(withSrid.slice(i, i + 500), {
+    // Не перетягивать srid с другого дня: unique (cabinet_id, srid),
+    // иначе догон 1–3 сентября стирает уже залитые 4–5.
+    const srids = withSrid.map((r) => r.srid).filter(Boolean);
+    let keep = withSrid;
+    if (srids.length) {
+        const owned = new Set<string>();
+        for (let i = 0; i < srids.length; i += 500) {
+            const { data, error } = await admin.from('wb_orders')
+                .select('srid, order_date')
+                .eq('cabinet_id', cabinetId)
+                .in('srid', srids.slice(i, i + 500));
+            if (error) throw new Error(`srid-check(${dayStr}): ${error.message}`);
+            for (const row of data || []) {
+                const od = String(row.order_date || '').split('T')[0];
+                if (od && od !== dayStr && row.srid) owned.add(String(row.srid));
+            }
+        }
+        if (owned.size) keep = withSrid.filter((r) => !owned.has(String(r.srid)));
+    }
+    for (let i = 0; i < keep.length; i += 500) {
+        const { error } = await admin.from('wb_orders').upsert(keep.slice(i, i + 500), {
             onConflict: 'cabinet_id,srid',
         });
         if (error) throw new Error(`upsert(${dayStr}): ${error.message}`);
