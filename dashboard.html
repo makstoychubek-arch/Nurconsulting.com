@@ -994,6 +994,22 @@
         }
         .rnp-stock-scheme-cap.is-fbo { color: var(--rnp-fbo, #7B61FF); }
         .rnp-stock-scheme-cap.is-fbs { color: var(--rnp-fbs, #3B82F6); }
+        .rnp-stock-block--fbo,
+        .rnp-stock-block--fbs { border-radius: 6px; padding: 1px 0 2px; }
+        .rnp-stock-block--fbo {
+            outline: 1px solid rgba(123, 97, 255, 0.4);
+            background: rgba(123, 97, 255, 0.06);
+        }
+        .rnp-stock-block--fbs {
+            outline: 1px solid rgba(59, 130, 246, 0.4);
+            background: rgba(59, 130, 246, 0.06);
+        }
+        .rnp-stock-block--fbo .rnp-row-wh td:not(.rnp-stock-label):not(.rnp-size-zero) {
+            background: rgba(123, 97, 255, 0.16); color: #7B61FF;
+        }
+        .rnp-stock-block--fbs .rnp-row-wh td:not(.rnp-stock-label):not(.rnp-size-zero) {
+            background: rgba(59, 130, 246, 0.16); color: #3B82F6;
+        }
         .rnp-stock-donut {
             --rnp-fbo: #7B61FF;
             --rnp-fbs: #3B82F6;
