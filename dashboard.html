@@ -987,6 +987,60 @@
         .rnp-head-left-stack > * { min-width: 0; }
         .rnp-head-sizes-inline { padding: 1px 2px 2px; overflow-x: auto; max-width: 100%; }
         .rnp-head-sizes-inline .rnp-stock-block { max-width: 100%; }
+        .rnp-stock-scheme-wrap { min-width: 0; max-width: 100%; }
+        .rnp-stock-scheme-cap {
+            font-size: 8px; font-weight: 700; letter-spacing: 0.02em;
+            padding: 1px 4px 2px; color: var(--text-muted);
+        }
+        .rnp-stock-scheme-cap.is-fbo { color: var(--rnp-fbo, #7B61FF); }
+        .rnp-stock-scheme-cap.is-fbs { color: var(--rnp-fbs, #3B82F6); }
+        .rnp-stock-donut {
+            --rnp-fbo: #7B61FF;
+            --rnp-fbs: #3B82F6;
+            display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+            padding: 2px 6px 6px; max-width: 100%; box-sizing: border-box;
+        }
+        .rnp-stock-donut-chart {
+            position: relative; width: 88px; height: 88px; flex: 0 0 88px;
+        }
+        .rnp-stock-donut-chart svg { width: 100%; height: 100%; display: block; }
+        .rnp-stock-donut-slice { cursor: pointer; transition: opacity 0.15s ease; }
+        .rnp-stock-donut[data-view="fbo"] .rnp-stock-donut-slice-fbs,
+        .rnp-stock-donut[data-view="fbs"] .rnp-stock-donut-slice-fbo { opacity: 0.28; }
+        .rnp-stock-donut-hole { cursor: pointer; }
+        .rnp-stock-donut-center {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            pointer-events: none; line-height: 1.05;
+        }
+        .rnp-stock-donut-center b { font-size: 13px; font-weight: 800; color: var(--text-primary); }
+        .rnp-stock-donut-center span { font-size: 8px; color: var(--text-muted); font-weight: 600; }
+        .rnp-stock-donut-legend { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1; }
+        .rnp-stock-donut-leg {
+            display: grid;
+            grid-template-columns: 8px minmax(0, 1fr) auto;
+            grid-template-rows: auto auto;
+            column-gap: 6px; align-items: center;
+            text-align: left; border: 1px solid transparent;
+            background: transparent; border-radius: 6px;
+            padding: 2px 4px; cursor: pointer; color: inherit; font: inherit;
+        }
+        .rnp-stock-donut-leg i {
+            grid-row: 1 / span 2; width: 8px; height: 8px; border-radius: 50%;
+        }
+        .rnp-stock-donut-leg.is-fbo i { background: var(--rnp-fbo); }
+        .rnp-stock-donut-leg.is-fbs i { background: var(--rnp-fbs); }
+        .rnp-stock-donut-leg-name { font-size: 10px; font-weight: 800; color: var(--text-primary); }
+        .rnp-stock-donut-leg-pct { font-size: 11px; font-weight: 800; color: var(--text-primary); }
+        .rnp-stock-donut-leg-sub { grid-column: 2; font-size: 8px; color: var(--text-muted); }
+        .rnp-stock-donut-leg-qty { grid-column: 3; font-size: 8px; color: var(--text-muted); }
+        .rnp-stock-donut-leg.is-on { background: var(--accent-soft); border-color: var(--border); }
+        .rnp-stock-donut-reset {
+            align-self: flex-start; margin-top: 1px; padding: 1px 6px;
+            border: 1px solid var(--border); border-radius: 999px;
+            background: var(--surface); color: var(--text-secondary);
+            font-size: 8px; font-weight: 700; cursor: pointer;
+        }
         .rnp-head-marquee {
             padding: 0 !important; vertical-align: top;
             background: var(--surface-solid) !important;
