@@ -5,7 +5,7 @@
     <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%231D1D1F'/><text y='340' font-size='200' font-family='Arial Black,sans-serif' font-weight='900' fill='%23fff' x='256' text-anchor='middle'>NR</text></svg>">
     <meta name="theme-color" content="#F5F5F7">
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="apple-mobile-web-app-title" content="NR Space">
     <title>NR Space</title>
@@ -2888,13 +2888,129 @@
                 white-space: nowrap;
                 max-width: 140px;
             }
-            .cabinet-picker-label { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-            .cabinet-picker-btn { padding: 6px 10px !important; }
+            .cabinet-picker-label { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .cabinet-picker-btn { padding: 6px 8px !important; }
+            .app-header-main { gap: 6px !important; }
+            .app-header-main > .flex { gap: 6px !important; }
+            .header-back-btn:not(.hidden) + .min-w-0 { display: none !important; }
             #refresh-btn { width: 40px; height: 40px; padding: 0 !important; justify-content: center; }
             .main-content { padding: 16px 12px !important; }
             .main-content.rnp-compact { padding: 4px 6px !important; }
             #date-picker { left: 10px !important; width: calc(100vw - 20px) !important; }
             .grid.xl\:grid-cols-5 { grid-template-columns: repeat(2, 1fr) !important; }
+
+            .rnp-action-bar { padding: 8px 10px !important; gap: 8px; }
+            .rnp-action-bar select, .rnp-action-btn {
+                font-size: 12px !important;
+                min-height: 36px;
+                padding: 8px 12px !important;
+            }
+            .rnp-action-btn--edit { margin-left: 0; }
+            .rnp-settings-gear { width: 36px; height: 36px; }
+            .rnp-settings-gear svg { width: 18px; height: 18px; }
+            .rnp-sheet-tabs { padding: 0 8px 8px; gap: 6px; }
+            .rnp-sheet-tab { min-height: 36px; font-size: 12px; padding: 8px 12px; }
+            .rnp-sheet-tab .rnp-tab-img { width: 28px; height: 36px; }
+            .rnp-cat-header { min-height: 36px; font-size: 12px; padding: 8px 10px; }
+
+            .rnp-article-panel--phone {
+                padding: 6px 8px 8px;
+                overflow: hidden;
+            }
+            .rnp-article-panel--phone.rnp-compare-split {
+                grid-template-columns: 1fr;
+            }
+            .rnp-article-panel--phone .rnp-kpi-top,
+            .rnp-article-panel--phone .rnp-kpi-top--compact {
+                grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
+                grid-template-rows: auto auto auto auto auto;
+                grid-template-areas:
+                    "photo name  name"
+                    "photo nmid  cost"
+                    "photo mlbl  mval"
+                    "photo ulbl  uval"
+                    "kpis  kpis  kpis";
+            }
+            .rnp-article-panel--phone .rnp-gs-kpis {
+                grid-area: kpis;
+                grid-row: auto;
+                margin: 6px 0 0;
+                padding: 8px 6px;
+            }
+            .rnp-article-panel--phone .rnp-kpi-grid--gs {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 8px 10px;
+            }
+            .rnp-article-panel--phone .rnp-kpi {
+                font-size: 10px;
+                line-height: 1.25;
+            }
+            .rnp-article-panel--phone .rnp-kpi b {
+                font-size: 13px;
+                margin-top: 2px;
+            }
+            .rnp-article-panel--phone .rnp-gs-name {
+                font-size: 12px;
+                white-space: normal;
+                overflow: hidden;
+                display: -webkit-box;
+                -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
+            }
+            .rnp-article-panel--phone .rnp-gs-nmid b,
+            .rnp-article-panel--phone .rnp-gs-money-val,
+            .rnp-article-panel--phone .rnp-gs-usd-val,
+            .rnp-article-panel--phone .rnp-gs-cost-input { font-size: 12px; }
+            .rnp-article-panel--phone .rnp-gs-lbl,
+            .rnp-article-panel--phone .rnp-gs-money-lbl,
+            .rnp-article-panel--phone .rnp-gs-usd-lbl { font-size: 10px; }
+            .rnp-article-panel--phone .rnp-gs-photo,
+            .rnp-article-panel--phone .rnp-gs-photo img { min-height: 72px; }
+            .rnp-article-panel--phone .rnp-stock-scheme-wrap {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .rnp-article-panel--phone .rnp-head-sizes-inline { overflow-x: auto; }
+            .rnp-article-panel--phone .rnp-stock-donut-chart {
+                width: 72px; height: 72px; flex: 0 0 72px;
+            }
+            .rnp-article-panel--phone .rnp-stock-donut-leg-name,
+            .rnp-article-panel--phone .rnp-stock-donut-leg-pct { font-size: 12px; }
+            .rnp-article-panel--phone .rnp-stock-donut-leg-sub,
+            .rnp-article-panel--phone .rnp-stock-donut-leg-qty { font-size: 10px; }
+
+            .rnp-general-topbar { flex-wrap: wrap; min-height: 0; }
+            .rnp-general-bar-metrics,
+            .rnp-general-bar-photos { flex: 1 1 100%; max-width: 100%; }
+            .rnp-cabinet-kpi-pill,
+            .rnp-general-metric-pill { font-size: 10px; padding: 4px 6px; }
+            .rnp-cabinet-kpi-pill span,
+            .rnp-general-metric-pill span { font-size: 10px; }
+            .rnp-cabinet-kpi-pill b,
+            .rnp-general-metric-pill b { font-size: 12px; }
+
+            .rnp-sheet-table {
+                --rnp-metric-w: 108px;
+                --rnp-spark-w: 32px;
+                --rnp-day-w: 44px;
+                font-size: 9px;
+            }
+            .rnp-sheet-table tbody .rnp-metric-col,
+            .rnp-sheet-table .rnp-th-metric {
+                font-size: 11px;
+                font-weight: 700;
+                padding: 3px 6px;
+            }
+            .rnp-sheet-table tbody tr.rnp-row-hero .rnp-metric-col {
+                font-size: 12px;
+                font-weight: 800;
+            }
+            .rnp-sheet-table .rnp-num--m { font-size: 8px; }
+            .rnp-table-scroll {
+                -webkit-overflow-scrolling: touch;
+                overscroll-behavior-x: contain;
+            }
         }
 
         .dashboard-app-shell { position: relative; z-index: 2; }

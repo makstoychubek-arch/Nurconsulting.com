@@ -98,6 +98,18 @@ const RNP = (() => {
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 40;
     const DAY_COL_W = 40;
+    const PHONE_METRIC_W = 108;
+    const PHONE_SPARK_W = 32;
+    const PHONE_COL_W = 44;
+
+    function _isPhone() {
+        try { return window.matchMedia('(max-width: 768px)').matches; }
+        catch (e) { return false; }
+    }
+    function _metricW() { return _isPhone() ? PHONE_METRIC_W : FROZEN_METRIC_W; }
+    function _sparkW() { return _isPhone() ? PHONE_SPARK_W : FROZEN_SPARK_W; }
+    function _frozenWeekW() { return _isPhone() ? PHONE_COL_W : FROZEN_COL_W; }
+    function _dayColW() { return _isPhone() ? PHONE_COL_W : DAY_COL_W; }
     const MARQUEE_CARD_MAX_H = 240;
     const MARQUEE_CARD_MIN_H = 132;
     const MARQUEE_REPS_MAX = 6;
@@ -2123,7 +2135,7 @@ const RNP = (() => {
     }
 
     function _sheetVarsStyle(cal) {
-        return `--rnp-frozen-left:${_leftFrozenPx(cal)}px;--rnp-metric-w:${FROZEN_METRIC_W}px;--rnp-spark-w:${FROZEN_SPARK_W}px;--rnp-day-w:${DAY_COL_W}px;--rnp-month-w:${MONTH_COL_W}px`;
+        return `--rnp-frozen-left:${_leftFrozenPx(cal)}px;--rnp-metric-w:${_metricW()}px;--rnp-spark-w:${_sparkW()}px;--rnp-day-w:${_dayColW()}px;--rnp-month-w:${MONTH_COL_W}px`;
     }
 
     function _setCssVar(el, name, value) {
@@ -2140,12 +2152,29 @@ const RNP = (() => {
      *  шапки обратно в CSS — KPI и фотолента тогда растут сами по себе. */
     function _syncFrozenPane(root) {
         const scope = root || document;
+        const phone = _isPhone();
         scope.querySelectorAll('.rnp-sheet-table').forEach(table => {
             const scroll = table.closest('.rnp-table-scroll');
-            const metricW = FROZEN_METRIC_W;
-            const sparkW = FROZEN_SPARK_W;
+            const metricW = _metricW();
+            const sparkW = _sparkW();
             _setCssVar(table, '--rnp-metric-w', metricW + 'px');
             _setCssVar(table, '--rnp-spark-w', sparkW + 'px');
+            _setCssVar(table, '--rnp-day-w', _dayColW() + 'px');
+
+            if (phone) {
+                const frozen = metricW + sparkW;
+                _setCssVar(table, '--rnp-frozen-left', `${frozen}px`);
+                if (scroll) _setCssVar(scroll, '--rnp-frozen-left', `${frozen}px`);
+                const prev = table.querySelector('.rnp-th-month-prev');
+                if (prev) _setInlineLeft(prev, metricW + sparkW);
+                table.querySelectorAll('.rnp-th-month-stick').forEach(el => _setInlineLeft(el, frozen));
+                if (scroll) {
+                    const visible = Math.max(160, scroll.clientWidth - frozen);
+                    _setCssVar(table, '--rnp-marquee-visible', `${Math.round(visible)}px`);
+                    _setCssVar(scroll, '--rnp-marquee-visible', `${Math.round(visible)}px`);
+                }
+                return;
+            }
 
             const ref = [...table.querySelectorAll('tbody tr')].find(tr =>
                 tr.querySelector(':scope > .rnp-col-sticky') &&
@@ -2157,7 +2186,7 @@ const RNP = (() => {
                 [...ref.children].forEach(cell => {
                     if (!cell.classList.contains('rnp-col-sticky')) return;
                     lefts.push(acc);
-                    acc += FROZEN_COL_W;
+                    acc += _frozenWeekW();
                 });
             }
             const frozen = acc;
@@ -2323,7 +2352,7 @@ const RNP = (() => {
             <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
-              <th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${FROZEN_METRIC_W + FROZEN_SPARK_W}px">${cal.prevName}</th>
+              <th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${_metricW() + _sparkW()}px">${cal.prevName}</th>
               <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">${weekThs}${totalTh}${dayThs}</tr>
@@ -2350,7 +2379,8 @@ const RNP = (() => {
     // растягивает frozen-колонки, и sticky-смещения (посчитанные из тех же
     // констант) перестают совпадать с реальными позициями при скролле.
     function _leftFrozenPx(cal) {
-        const base = FROZEN_METRIC_W + FROZEN_SPARK_W;
+        const base = _metricW() + _sparkW();
+        if (_isPhone()) return base;
         if (cal.mode === 'month') return base + FROZEN_COL_W;
         const weeks = cal.weeks.length;
         return base + weeks * FROZEN_COL_W + (weeks ? FROZEN_COL_W : 0);
@@ -2364,6 +2394,7 @@ const RNP = (() => {
     }
 
     function _buildSheetHeadRows(art, stockBySize, rawData, cal) {
+        if (_isPhone()) return '';
         const leftSpan = _leftFrozenSpan(cal);
         const nTimeline = _calTimelineSpan(cal);
         const leftPx = _leftFrozenPx(cal);
@@ -2376,17 +2407,18 @@ const RNP = (() => {
     }
 
     function _frozenLeft(ci, cols) {
+        if (_isPhone()) return null;
         const col = cols[ci];
         if (!col) return null;
-        const base = FROZEN_METRIC_W + FROZEN_SPARK_W;
+        const base = _metricW() + _sparkW();
         if (col.type === 'week') {
             const wi = cols.slice(0, ci).filter(c => c.type === 'week').length;
-            return base + wi * FROZEN_COL_W;
+            return base + wi * _frozenWeekW();
         }
         if (col.type === 'total') {
             const weekCount = cols.filter(c => c.type === 'week').length;
             if (!weekCount && cols[0]?.type === 'total') return base;
-            return base + weekCount * FROZEN_COL_W;
+            return base + weekCount * _frozenWeekW();
         }
         return null;
     }
@@ -4701,12 +4733,16 @@ const RNP = (() => {
         const stockBySize = _stockCache[art.nm_id] || {};
 
         let topHTML = '';
+        if (_isPhone()) {
+            topHTML = `<div class="rnp-article-panel rnp-article-panel--phone">${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>`;
+        }
         if (_compareNm && _compareNm !== art.nm_id) {
             const art2 = _articles.find(a => a.nm_id == _compareNm);
             if (art2) {
                 const raw2 = _dataCache[art2.nm_id] || {};
                 const stock2 = _stockCache[art2.nm_id] || {};
-                topHTML = `<div class="rnp-article-panel rnp-compare-split">
+                const phoneCls = _isPhone() ? ' rnp-article-panel--phone' : '';
+                topHTML = `<div class="rnp-article-panel rnp-compare-split${phoneCls}">
                   <div><div class="rnp-compare-label">A — ${_sellerArticle(art).substring(0, 24)}</div>${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>
                   <div><div class="rnp-compare-label">B — ${_sellerArticle(art2).substring(0, 24)}</div>${_buildKpiPanelHTML(art2, stock2, raw2, cal)}</div>
                 </div>`;
@@ -4959,7 +4995,7 @@ const RNP = (() => {
             <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
-              <th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${FROZEN_METRIC_W + FROZEN_SPARK_W}px">${cal.prevName}</th>
+              <th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${_metricW() + _sparkW()}px">${cal.prevName}</th>
               <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">
@@ -5872,6 +5908,14 @@ const RNP = (() => {
         setTimeout(_retryRnpBoot, 1500);
     }
     setTimeout(_retryRnpBoot, 800);
+
+    let _phoneLayout = _isPhone();
+    window.addEventListener('resize', () => {
+        const now = _isPhone();
+        if (now === _phoneLayout) return;
+        _phoneLayout = now;
+        if (_db && _cab) _renderActiveTable().catch(() => {});
+    });
 
     return { init, initCore, ensureReady, openSettings, closeSettings, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode, setStockSchemeView,

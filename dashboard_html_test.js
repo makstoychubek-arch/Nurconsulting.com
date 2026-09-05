@@ -278,6 +278,43 @@ assert.ok(
     assert.deepStrictEqual(['XL', 'S', 'M'].sort(sortFns._sortSizes), ['S', 'M', 'XL']);
 }
 assert.ok(html.includes('--rnp-day-w: 40px'), 'CSS day column width must match JS');
+assert.ok(html.includes('viewport-fit=cover'), 'iPhone Safari must respect the safe area');
+assert.ok(html.includes('.rnp-article-panel--phone'), 'phone KPI panel has a stacked layout');
+assert.ok(
+    html.includes('.header-back-btn:not(.hidden) + .min-w-0 { display: none !important; }'),
+    'iPhone header hides the truncated title when the back chevron is visible'
+);
+assert.ok(html.includes('.cabinet-picker-label { max-width: 96px'), 'cabinet name must not crowd the iPhone header');
+assert.ok(rnpSrc.includes('function _isPhone()'), 'RNP must detect a phone viewport');
+assert.ok(rnpSrc.includes('const PHONE_METRIC_W = 108'), 'phone metric column is narrower than desktop');
+assert.ok(rnpSrc.includes('rnp-article-panel--phone'), 'article KPI lifts above the sheet on a phone');
+assert.ok(rnpSrc.includes('if (_isPhone()) return null;'), 'weeks/ИТОГ must scroll on a phone, not stay sticky');
+{
+    const wStart = rnpSrc.indexOf('const FROZEN_METRIC_W');
+    const wEnd = rnpSrc.indexOf('const MARQUEE_CARD_MAX_H');
+    const leftStart = rnpSrc.indexOf('function _leftFrozenPx');
+    const leftEnd = rnpSrc.indexOf('function _monthStickLabel');
+    const frozenStart = rnpSrc.indexOf('function _frozenLeft');
+    const frozenEnd = rnpSrc.indexOf('function _stickyColAttrs');
+    assert.ok(wStart > 0 && wEnd > wStart && leftStart > 0 && frozenStart > leftEnd);
+    const make = (phone) => new Function(`
+        const window = { matchMedia: () => ({ matches: ${phone ? 'true' : 'false'} }) };
+        ${rnpSrc.slice(wStart, wEnd)}
+        ${rnpSrc.slice(leftStart, leftEnd)}
+        ${rnpSrc.slice(frozenStart, frozenEnd)}
+        return { _isPhone, _metricW, _sparkW, _dayColW, _leftFrozenPx, _frozenLeft };
+    `)();
+    const phone = make(true);
+    const desk = make(false);
+    assert.strictEqual(phone._isPhone(), true);
+    assert.strictEqual(phone._metricW(), 108);
+    assert.strictEqual(phone._sparkW(), 32);
+    assert.strictEqual(phone._dayColW(), 44);
+    assert.strictEqual(phone._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 140);
+    assert.strictEqual(desk._leftFrozenPx({ mode: 'week', weeks: [1, 2, 3, 4] }), 372);
+    assert.strictEqual(phone._frozenLeft(0, [{ type: 'week' }]), null);
+    assert.strictEqual(desk._frozenLeft(0, [{ type: 'week' }]), 172);
+}
 assert.ok(html.includes('.rnp-num--m'), 'CSS shrinks million values so they stay inside the cell');
 {
     const start = rnpSrc.indexOf('function _fmt(val, type)');
