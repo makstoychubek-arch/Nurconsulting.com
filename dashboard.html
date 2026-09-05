@@ -1405,6 +1405,12 @@
             background: var(--sel);
             display: flex; align-items: center;
         }
+        .rnp-collapse { width: 100%; min-width: 0; }
+        .rnp-collapse-head {
+            display: none;
+        }
+        .rnp-collapse-body { display: block; }
+        .rnp-collapse-inner { min-width: 0; }
         .rnp-kpi-sizes-row {
             padding: 2px 4px 4px;
             overflow-x: auto;
@@ -3243,7 +3249,51 @@
                 grid-area: kpis;
                 grid-row: auto;
                 margin: 6px 0 0;
-                padding: 8px 6px;
+                padding: 0;
+                background: transparent;
+                display: block;
+            }
+            .rnp-article-panel--phone .rnp-kpi-sizes-row { padding: 4px 0 0; }
+            .rnp-article-panel--phone .rnp-collapse-head {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                width: 100%;
+                min-height: 32px;
+                padding: 6px 10px;
+                border: none;
+                border-radius: 10px;
+                background: var(--sel);
+                color: var(--text-primary);
+                font-family: var(--font-ui);
+                font-size: 12px;
+                font-weight: 700;
+                letter-spacing: -0.02em;
+                cursor: pointer;
+                -webkit-tap-highlight-color: transparent;
+            }
+            .rnp-article-panel--phone .rnp-collapse-chevron {
+                width: 14px; height: 14px; flex-shrink: 0;
+                color: var(--text-muted);
+                transition: transform 0.2s ease-in-out;
+            }
+            .rnp-article-panel--phone .rnp-collapse.is-open .rnp-collapse-chevron {
+                transform: rotate(180deg);
+            }
+            .rnp-article-panel--phone .rnp-collapse-body {
+                display: grid;
+                grid-template-rows: 0fr;
+                transition: grid-template-rows 0.2s ease-in-out;
+            }
+            .rnp-article-panel--phone .rnp-collapse-inner { overflow: hidden; }
+            .rnp-article-panel--phone .rnp-collapse.is-open .rnp-collapse-body {
+                grid-template-rows: 1fr;
+            }
+            .rnp-article-panel--phone .rnp-collapse.is-open .rnp-kpi-grid--gs {
+                padding-top: 8px;
+            }
+            .rnp-article-panel--phone .rnp-collapse.is-open .rnp-stock-scheme-wrap {
+                padding-top: 8px;
             }
             .rnp-article-panel--phone .rnp-kpi-grid--gs {
                 grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4887,7 +4937,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.acb087a612.min.js"></script>
-<script src="/dist/rnp-module.646a771bfe.min.js"></script>
+<script src="/dist/rnp-module.d3e552a59c.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';

@@ -479,6 +479,41 @@ assert.ok(rnpSrc.includes('const PHONE_METRIC_W = 108'), 'phone metric column is
 assert.ok(rnpSrc.includes('rnp-article-panel--phone'), 'article KPI lifts above the sheet on a phone');
 assert.ok(rnpSrc.includes('function togglePrevWeeks') && rnpSrc.includes('rnp-action-bar--phone'),
     'phone RNP bar is period + chevron; weeks of last month stay behind the arrow');
+assert.ok(
+    rnpSrc.includes('function togglePhoneBlock') &&
+    rnpSrc.includes("title, open, inner") &&
+    rnpSrc.includes("_phoneCollapseHtml('kpi', 'Показатели'") &&
+    rnpSrc.includes("_phoneCollapseHtml('stock', 'Остатки'"),
+    'phone card collapses Показатели and Остатки independently'
+);
+assert.ok(
+    html.includes('.rnp-collapse-head') &&
+    html.includes('.rnp-article-panel--phone .rnp-collapse-body') &&
+    html.includes('grid-template-rows: 0fr'),
+    'phone collapse CSS hides values until the header is tapped'
+);
+assert.ok(rnpSrc.includes('_phoneKpiOpen = false; _phoneStockOpen = false'),
+    'opening another article starts with both blocks collapsed');
+{
+    const start = rnpSrc.indexOf('function _phoneCollapseHtml');
+    const end = rnpSrc.indexOf('function _buildKpiTopHTML');
+    assert.ok(start > 0 && end > start, 'phone collapse helper sits next to the KPI card');
+    const phone = new Function(`
+        function _isPhone() { return true; }
+        ${rnpSrc.slice(start, end)}
+        return { _phoneCollapseHtml };
+    `)();
+    const desk = new Function(`
+        function _isPhone() { return false; }
+        ${rnpSrc.slice(start, end)}
+        return { _phoneCollapseHtml };
+    `)();
+    const open = phone._phoneCollapseHtml('kpi', 'Показатели', false, '<div class="rnp-kpi">x</div>');
+    assert.ok(open.includes('data-block="kpi"') && open.includes('Показатели') && open.includes('rnp-kpi'));
+    assert.ok(!open.includes('is-open'));
+    assert.ok(phone._phoneCollapseHtml('stock', 'Остатки', true, 'BODY').includes('is-open'));
+    assert.strictEqual(desk._phoneCollapseHtml('kpi', 'Показатели', false, '<b>keep</b>'), '<b>keep</b>');
+}
 assert.ok(rnpSrc.includes('rnp-settings-phone-tools') && rnpSrc.includes('_weeksCollapsed'),
     'Excel/План/секции move into RNP settings on the phone');
 assert.ok(rnpSrc.includes('function _bindArticleSwipe') && rnpSrc.includes('rnp-sheet-body--swap'),
