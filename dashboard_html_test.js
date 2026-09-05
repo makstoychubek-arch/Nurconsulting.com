@@ -109,6 +109,19 @@ assert.ok(html.includes('id="rail-settings-btn"'), 'settings must be a small but
 const settingsIdx = html.indexOf('id="rail-settings-btn"');
 const userIdx = html.indexOf('id="rail-user-name"');
 assert.ok(userIdx !== -1 && settingsIdx > userIdx, 'settings button must sit under the profile block');
+assert.ok(html.includes('id="rail-cabs"') && html.includes('function renderRailCabs'),
+    'sidebar footer must show other cabinets as small logos under the current user');
+assert.ok(html.includes('function cabinetMark'),
+    'rail cabinet logos use the legal-name initial, not B/E/Z');
+assert.ok(!/rail-settings-btn[\s\S]{0,400}<span>Настройки<\/span>/.test(html),
+    'settings in the rail is an icon, not a second tall text row');
+assert.ok(html.includes('--radius-card: 22px'), 'Apple-style cards use a 22px corner radius');
+assert.ok(
+    html.includes('.rnp-workspace {') &&
+    html.includes('border-radius: var(--radius-card)') &&
+    /rnp-sheet-table th, \.rnp-sheet-table td \{\s*border: none/.test(html),
+    'RNP sheet is one rounded card without cell dividers'
+);
 assert.ok(html.includes('abtest-card-row'), 'A/B cards use WBRadar row layout');
 assert.ok(html.includes('nr-early-tab-style'), 'early-tab CSS id must exist for settings boot');
 assert.ok(
@@ -381,6 +394,14 @@ assert.ok(html.includes('ИП Бейшеев А.Д.') && html.includes('ИП А�
 assert.ok(html.includes('ИП Уркунбаев К.А.') && html.includes('ОсОО «Айлин Стиль»'), 'Zevina 1/2 show the legal names from WB');
 assert.ok(!html.includes('id="cabinet-picker-initial"'), 'letter avatar next to the cabinet name is gone');
 assert.ok(!html.includes('cab-dot'), 'dropdown no longer draws B/E/Z circles');
+const cabFns = new Function(
+    html.slice(html.indexOf('function cabinetDisplayName'), html.indexOf('function renderRailCabs'))
+    + '; return { cabinetDisplayName, cabinetMark };'
+)();
+assert.strictEqual(cabFns.cabinetMark('Baza'), 'Б');
+assert.strictEqual(cabFns.cabinetMark('Elium'), 'А');
+assert.strictEqual(cabFns.cabinetMark('Zevina 1'), 'У');
+assert.strictEqual(cabFns.cabinetMark('Zevina 2'), 'А');
 assert.ok(
     html.includes('input[type="number"]::-webkit-inner-spin-button')
         && html.includes('input[type="number"]::-webkit-outer-spin-button')
