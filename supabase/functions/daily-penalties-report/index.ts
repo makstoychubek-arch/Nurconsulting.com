@@ -1,34 +1,31 @@
 // Supabase Edge Function: daily-penalties-report
-// Ежедневный отчёт в Telegram: штрафы и удержания по каждому кабинету
-// (картинка-таблица: причина + сумма в сом). Запуск pg_cron 09:00 UTC
-// = 15:00 Бишкек, за предыдущий день.
+// Ежедневный отчёт в Telegram-группу «Штрафы».
+// Cron: 01:10 UTC (07:10 Бишкек). Auth: service_role key ИЛИ JWT этого проекта
+// (ключ в cron и секрет функции расходятся — байт-в-байт сверка ломала канал).
 //
-// Источник: POST /api/finance/v1/sales-reports/detailed (Finance API, токен
-// категории «Финансы»). Без Finance-прав в токене кабинет пропускается.
+// WB: sales-reports/list (daily) → detailed/{reportId} со slim fields,
+// иначе последний закрытый weekly. Поле операции — sellerOperName.
 //
-// Тело: { "date": "YYYY-MM-DD", "force": true, "cabinets": ["Имя"] }
+// Тело: { "date", "force", "test", "health", "cabinets": ["Имя"] }
+// test: true — отправить и сразу удалить (не оставляем мусор).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createCanvas } from 'https://deno.land/x/canvas@v1.4.2/mod.ts';
+import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
+import {
+    fetchWeeklyPenaltyBundle,
+    formatPenaltyCaption,
+    prettyRuDate,
+} from '../_shared/wb-penalties-snapshot.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const FINANCE_API = 'https://finance-api.wildberries.ru';
-// Кого тегать в TG, если есть штрафы (можно переопределить через secret)
 const ALERT_USERNAME = (Deno.env.get('TELEGRAM_ALERT_USERNAME') || 'maraWuW').replace(/^@/, '');
-
-// Реклама и прочее — не считаем «удержанием» для отчёта (как wb-formulas.js)
-const EXCLUDED_DEDUCTION_NAMES = [
-    'ВБ.Продвижение', 'WB Продвижение', 'ВБ.Медиа',
-    'Перевод на баланс заёмщика', 'Погашение задолженности',
-    'Погашение по займу', 'Продвижение через блогеров',
-    'ВБ.Бренд-зона', 'Сторно платной приёмки',
-    'НДС не облагается', 'Компенсация',
-];
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -36,18 +33,29 @@ Deno.serve(async (req) => {
     const started = Date.now();
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
-    const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
-    const tgChatId = Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '';
+    const tgToken = getTelegramToken() || (Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '');
+    const tgChatId = getTelegramChatId('penalties');
 
-    const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ') || authHeader.replace('Bearer ', '') !== serviceKey) {
+    if (!isServiceAuthorized(req, serviceKey)) {
         return json({ error: 'Unauthorized' }, 401);
-    }
-    if (!tgToken || !tgChatId) {
-        return json({ error: 'TELEGRAM_BOT_TOKEN / TELEGRAM_GROUP_CHAT_ID не заданы' }, 400);
     }
 
     const body = await req.json().catch(() => ({} as Record<string, unknown>));
+    if (body?.health === true) {
+        return json({
+            ok: true,
+            health: true,
+            chat: tgChatId ? `…${tgChatId.slice(-6)}` : '',
+            token: Boolean(tgToken),
+        });
+    }
+    if (!tgToken || !tgChatId) {
+        return json({
+            error: 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_PENALTIES не заданы',
+        }, 400);
+    }
+
+    const isTest = body?.test === true;
     const reportDate = typeof body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date)
         ? body.date
         : yesterdayBishkek();
@@ -64,8 +72,9 @@ Deno.serve(async (req) => {
             .gt('wb_token', '');
         if (cabErr) throw new Error(`cabinets: ${cabErr.message}`);
 
-        for (const cabinet of cabinets || []) {
-            if (onlyCabinets && !onlyCabinets.includes(cabinet.name)) continue;
+        const targets = (cabinets || []).filter((c) => !onlyCabinets || onlyCabinets.includes(c.name));
+        for (let i = 0; i < targets.length; i++) {
+            const cabinet = targets[i];
             const cabResult: Record<string, unknown> = { cabinet: cabinet.name };
             try {
                 const gate = await shouldSendTelegram(admin, { channel: 'penalties', cabinetId: cabinet.id });
@@ -82,73 +91,120 @@ Deno.serve(async (req) => {
                 }
 
                 const eventType = `daily_penalties_${reportDate}`;
-                const { data: dupes } = await admin
-                    .from('notification_log')
-                    .select('id')
-                    .eq('cabinet_id', cabinet.id)
-                    .eq('event_type', eventType)
-                    .limit(1);
-                if (dupes?.length && !body?.force) {
-                    cabResult.skipped = 'already_sent';
-                    results.push(cabResult);
-                    continue;
+                if (!isTest) {
+                    const { data: dupes } = await admin
+                        .from('notification_log')
+                        .select('id')
+                        .eq('cabinet_id', cabinet.id)
+                        .eq('event_type', eventType)
+                        .limit(1);
+                    if (dupes?.length && !body?.force) {
+                        cabResult.skipped = 'already_sent';
+                        results.push(cabResult);
+                        continue;
+                    }
                 }
 
-                const rows = await fetchPenaltyRows(token, reportDate);
-                const caption = buildCaption(cabinet.name, reportDate, rows);
+                const bundle = await fetchWeeklyPenaltyBundle(token, reportDate);
+                const rows = bundle.rows;
+                const periodKey = `${bundle.periodFrom}_${bundle.periodTo}`;
+                const caption = formatPenaltyCaption({
+                    cabinetName: cabinet.name,
+                    date: reportDate,
+                    dateLabel: bundle.periodFrom === bundle.periodTo
+                        ? prettyRuDate(reportDate)
+                        : `${prettyRuDate(bundle.periodFrom)}–${prettyRuDate(bundle.periodTo)}`,
+                    rows,
+                    prevDate: bundle.prevDate,
+                    prevTotal: bundle.prevTotal,
+                    prevItems: bundle.prevItems,
+                    weekOpen: bundle.weekOpen,
+                    alertUser: ALERT_USERNAME,
+                    watchdogThreshold: Number(Deno.env.get('PENALTY_WATCHDOG_THRESHOLD') || 500),
+                });
+                cabResult.period = periodKey;
+                cabResult.week_open = bundle.weekOpen;
+                cabResult.source = bundle.source;
+
                 let sent = false;
+                const sentIds: number[] = [];
 
                 if (!rows.length) {
-                    const tgErr = await sendTelegramMessage(tgToken, tgChatId, caption);
-                    sent = !tgErr;
-                    if (tgErr) cabResult.telegram_error = tgErr;
+                    const tg = await sendTelegramMessage(tgToken, tgChatId, caption);
+                    sent = !tg.error;
+                    if (tg.error) cabResult.telegram_error = tg.error;
+                    if (tg.messageId) sentIds.push(tg.messageId);
                     cabResult.empty = true;
                 } else {
                     const ROWS_PER_PAGE = 35;
                     const pages: PenaltyRow[][] = [];
-                    for (let i = 0; i < rows.length; i += ROWS_PER_PAGE) {
-                        pages.push(rows.slice(i, i + ROWS_PER_PAGE));
+                    for (let p = 0; p < rows.length; p += ROWS_PER_PAGE) {
+                        pages.push(rows.slice(p, p + ROWS_PER_PAGE));
                     }
+                    const dateLabel = bundle.periodFrom === bundle.periodTo
+                        ? reportDate
+                        : `${prettyRuDate(bundle.periodFrom)}–${prettyRuDate(bundle.periodTo)}`;
                     for (let pi = 0; pi < pages.length; pi++) {
                         if (pi > 0) await sleep(1200);
                         const png = await renderPenaltyImage(
-                            cabinet.name, reportDate, pages[pi],
+                            cabinet.name,
+                            dateLabel,
+                            pages[pi],
                             { pageNum: pi + 1, pageCount: pages.length, totalsRows: pi === pages.length - 1 ? rows : null },
                         );
-                        let tgErr = await sendTelegramPhoto(tgToken, tgChatId, png, pi === 0 ? caption : '');
-                        if (tgErr) {
+                        let tg = await sendTelegramPhoto(tgToken, tgChatId, png, pi === 0 ? caption : '');
+                        if (tg.error) {
                             await sleep(2000);
-                            tgErr = await sendTelegramPhoto(tgToken, tgChatId, png, pi === 0 ? caption : '');
+                            tg = await sendTelegramPhoto(tgToken, tgChatId, png, pi === 0 ? caption : '');
                         }
-                        if (tgErr) throw new Error(tgErr);
+                        if (tg.error) throw new Error(tg.error);
+                        if (tg.messageId) sentIds.push(tg.messageId);
                     }
                     sent = true;
                     cabResult.items = rows.length;
                 }
 
-                if (sent) {
+                if (isTest && sentIds.length) {
+                    await sleep(400);
+                    const deleted: number[] = [];
+                    for (const id of sentIds) {
+                        const delErr = await deleteTelegramMessage(tgToken, tgChatId, id);
+                        if (!delErr) deleted.push(id);
+                    }
+                    cabResult.deleted = deleted;
+                    cabResult.test = true;
+                }
+
+                if (sent && !isTest) {
                     await admin.from('notification_log').insert({
                         cabinet_id: cabinet.id,
                         campaign_id: null,
                         event_type: eventType,
-                        message_text: `penalties ${reportDate}: ${rows.length} items`,
+                        message_text: `penalties ${periodKey}: ${rows.length} items ids=${sentIds.join(',')}`,
                     });
                 }
                 cabResult.sent = sent;
+                cabResult.message_ids = sentIds;
             } catch (e) {
                 const msg = String(e);
                 if (msg.includes('403') || msg.includes('401') || msg.toLowerCase().includes('finance')) {
                     cabResult.skipped = 'no_finance_token';
+                    cabResult.error = msg.slice(0, 180);
                 } else {
-                    cabResult.error = msg;
+                    cabResult.error = msg.slice(0, 240);
                 }
             }
             results.push(cabResult);
-            // Finance API: 1 req/min на продавца — пауза между кабинетами
-            await sleep(3000);
+            if (i < targets.length - 1) await sleep(4000);
         }
 
-        return json({ ok: true, date: reportDate, results, ms: Date.now() - started });
+        return json({
+            ok: true,
+            date: reportDate,
+            chat: `…${tgChatId.slice(-6)}`,
+            results,
+            ms: Date.now() - started,
+        });
     } catch (err) {
         console.error('[daily-penalties-report] fatal:', err);
         return json({ error: String(err) }, 500);
@@ -159,92 +215,6 @@ interface PenaltyRow {
     reason: string;
     amount: number;
 }
-
-// deno-lint-ignore no-explicit-any
-async function fetchPenaltyRows(token: string, date: string): Promise<PenaltyRow[]> {
-    const raw: Record<string, unknown>[] = [];
-    let rrdId = 0;
-    for (let page = 0; page < 20; page++) {
-        const res = await fetchWithTimeout(`${FINANCE_API}/api/finance/v1/sales-reports/detailed`, {
-            method: 'POST',
-            headers: { Authorization: token, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ dateFrom: date, dateTo: date, limit: 100000, rrdId }),
-        }, 90000);
-        if (res.status === 204) break;
-        const text = await res.text();
-        if (!res.ok) throw new Error(`WB finance ${res.status}: ${text.slice(0, 220)}`);
-        if (!text.trim()) break;
-        const chunk = JSON.parse(text);
-        if (!Array.isArray(chunk) || !chunk.length) break;
-        raw.push(...chunk);
-        const last = chunk[chunk.length - 1] as Record<string, unknown>;
-        const nextRrd = Number(last?.rrdId ?? last?.rrd_id ?? 0);
-        if (chunk.length < 100000 || !nextRrd || nextRrd === rrdId) break;
-        rrdId = nextRrd;
-        await sleep(61000);
-    }
-    return aggregatePenaltyRows(raw);
-}
-
-// deno-lint-ignore no-explicit-any
-function aggregatePenaltyRows(raw: any[]): PenaltyRow[] {
-    const byReason = new Map<string, number>();
-    for (const r of raw) {
-        const penalty = parseMoney(ffield(r, 'penalty'));
-        const deduction = parseMoney(ffield(r, 'deduction'));
-        const docType = String(ffield(r, 'docTypeName', 'doc_type_name') || '');
-        const operName = String(ffield(r, 'supplierOperName', 'supplier_oper_name') || '');
-        const bonusName = String(ffield(r, 'bonusTypeName', 'bonus_type_name') || '');
-
-        const excluded = EXCLUDED_DEDUCTION_NAMES.some((n) =>
-            operName.includes(n) || bonusName.includes(n),
-        );
-
-        let amount = 0;
-        if (penalty > 0) amount += penalty;
-        if (deduction > 0 && !excluded) amount += deduction;
-
-        const docLower = docType.toLowerCase();
-        if (amount <= 0 && !docLower.includes('штраф') && !docLower.includes('удерж')) continue;
-        if (amount <= 0) continue;
-
-        const reason = (bonusName || operName || docType || 'Удержание').trim();
-        byReason.set(reason, (byReason.get(reason) || 0) + amount);
-    }
-    return [...byReason.entries()]
-        .map(([reason, amount]) => ({ reason, amount }))
-        .sort((a, b) => b.amount - a.amount);
-}
-
-function ffield(obj: Record<string, unknown>, ...keys: string[]): unknown {
-    for (const k of keys) {
-        if (obj[k] != null && obj[k] !== '') return obj[k];
-    }
-    return null;
-}
-
-function parseMoney(v: unknown): number {
-    if (v == null || v === '') return 0;
-    const n = Number(String(v).replace(/\s/g, '').replace(',', '.'));
-    return Number.isFinite(n) ? Math.abs(n) : 0;
-}
-
-function buildCaption(cabinetName: string, date: string, rows: PenaltyRow[]): string {
-    const d = date.split('-');
-    const pretty = `${d[2]}.${d[1]}.${d[0]}`;
-    if (!rows.length) {
-        return `✅ <b>${escapeHtml(cabinetName)}</b> — штрафы за ${pretty}\nШтрафов и удержаний нет`;
-    }
-    const total = rows.reduce((s, r) => s + r.amount, 0);
-    const fmtNum = (n: number) => Math.round(n).toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
-    return [
-        `⚠️ <b>${escapeHtml(cabinetName)}</b> — штрафы за ${pretty}`,
-        `💸 Удержано: <b>${fmtNum(total)} сом</b> (${rows.length} поз.)`,
-        `@${escapeHtml(ALERT_USERNAME)} — <b>нужно разобраться</b>`,
-    ].join('\n');
-}
-
-// ── Картинка-таблица (стиль как daily-sales-report) ───────────────────────
 
 let fontRegular: Uint8Array | null = null;
 let fontBold: Uint8Array | null = null;
@@ -267,8 +237,7 @@ async function renderPenaltyImage(
 ): Promise<Uint8Array> {
     await ensureFonts();
     const fmtNum = (n: number) => Math.round(n).toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
-    const d = date.split('-');
-    const prettyDate = `${d[2]}.${d[1]}.${d[0]}`;
+    const prettyDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? prettyRuDate(date) : date;
     const showTotals = opts.totalsRows != null;
     const totalAmount = (opts.totalsRows || rows).reduce((s, r) => s + r.amount, 0);
 
@@ -380,7 +349,9 @@ function fitText(ctx: any, text: string, maxW: number): string {
     return s + '…';
 }
 
-async function sendTelegramPhoto(token: string, chatId: string, png: Uint8Array, caption: string): Promise<string | null> {
+type TgSendResult = { error: string | null; messageId: number | null };
+
+async function sendTelegramPhoto(token: string, chatId: string, png: Uint8Array, caption: string): Promise<TgSendResult> {
     try {
         const form = new FormData();
         form.append('chat_id', chatId);
@@ -390,21 +361,39 @@ async function sendTelegramPhoto(token: string, chatId: string, png: Uint8Array,
         }
         form.append('photo', new Blob([png], { type: 'image/png' }), 'penalties.png');
         const res = await fetchWithTimeout(`https://api.telegram.org/bot${token}/sendPhoto`, { method: 'POST', body: form }, 30000);
-        if (!res.ok) return `HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`;
-        return null;
+        const data = await res.json().catch(() => ({} as Record<string, unknown>));
+        if (!res.ok) return { error: `HTTP ${res.status}: ${JSON.stringify(data).slice(0, 200)}`, messageId: null };
+        const messageId = Number((data as { result?: { message_id?: number } })?.result?.message_id);
+        return { error: null, messageId: Number.isFinite(messageId) ? messageId : null };
     } catch (e) {
-        return String(e);
+        return { error: String(e), messageId: null };
     }
 }
 
-async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<string | null> {
+async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<TgSendResult> {
     try {
         const res = await fetchWithTimeout(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
         });
-        if (!res.ok) return `HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`;
+        const data = await res.json().catch(() => ({} as Record<string, unknown>));
+        if (!res.ok) return { error: `HTTP ${res.status}: ${JSON.stringify(data).slice(0, 200)}`, messageId: null };
+        const messageId = Number((data as { result?: { message_id?: number } })?.result?.message_id);
+        return { error: null, messageId: Number.isFinite(messageId) ? messageId : null };
+    } catch (e) {
+        return { error: String(e), messageId: null };
+    }
+}
+
+async function deleteTelegramMessage(token: string, chatId: string, messageId: number): Promise<string | null> {
+    try {
+        const res = await fetchWithTimeout(`https://api.telegram.org/bot${token}/deleteMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
+        }, 15000);
+        if (!res.ok) return `HTTP ${res.status}: ${(await res.text()).slice(0, 160)}`;
         return null;
     } catch (e) {
         return String(e);
@@ -430,10 +419,6 @@ function yesterdayBishkek(): string {
 function sanitizeWbToken(raw: unknown): string {
     if (typeof raw !== 'string') return '';
     return raw.replace(/^\uFEFF/, '').replace(/\s+/g, '').trim();
-}
-
-function escapeHtml(s: string): string {
-    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 function sleep(ms: number): Promise<void> {
