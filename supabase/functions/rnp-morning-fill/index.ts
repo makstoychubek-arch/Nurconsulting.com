@@ -47,9 +47,13 @@ Deno.serve(async (req) => {
 
     const fillDate = normDate(body.date) || yesterdayBishkek();
     const today = bishkekYmd();
+    const datesIn = Array.isArray(body.dates)
+        ? [...new Set((body.dates as unknown[]).map(normDate).filter(Boolean) as string[])].sort()
+        : [];
     const alsoToday = body.today === false ? [] : (fillDate === today ? [] : [today]);
-    const days = [fillDate, ...alsoToday];
+    const days = datesIn.length ? datesIn : [fillDate, ...alsoToday];
     const notify = body.notify !== false;
+    const wantFunnel = body.funnel !== false;
 
     const admin = createClient(supabaseUrl, serviceKey);
     const { data: cabinets, error: cabErr } = await admin
@@ -100,10 +104,14 @@ Deno.serve(async (req) => {
         const token = sanitizeWbToken(cab.wb_token);
         try {
             row.rnp_daily = await rebuildRnpDaily(admin, cab.id, days);
-            try {
-                row.funnel_days = await syncFunnelLast7Days(admin, cab.id, token);
-            } catch (e) {
-                row.funnel_error = (e as Error).message;
+            if (wantFunnel) {
+                try {
+                    row.funnel_days = await syncFunnelLast7Days(admin, cab.id, token);
+                } catch (e) {
+                    row.funnel_error = (e as Error).message;
+                    row.funnel_days = 0;
+                }
+            } else {
                 row.funnel_days = 0;
             }
             row.articles = await countActiveArticles(admin, cab.id);
@@ -296,43 +304,35 @@ async function syncFunnelLast7Days(admin: Admin, cabinetId: string, token: strin
     if (!nmIds.length) return 0;
     const today = bishkekYmd();
     const dateFrom = addDaysStr(today, -6);
-    const res = await fetch(`${WB_ANALYTICS}/api/analytics/v3/sales-funnel/products/history`, {
-        method: 'POST',
-        headers: { Authorization: token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            selectedPeriod: { start: dateFrom, end: today },
-            nmIds,
-            skipDeletedNm: true,
-            aggregationLevel: 'day',
-        }),
-    });
-    if (!res.ok) {
-        if (res.status === 401 || res.status === 403) return 0;
-        throw new Error(`funnel HTTP ${res.status}`);
-    }
-    const payload = await res.json().catch(() => []);
-    const items = Array.isArray(payload) ? payload : (payload?.data || []);
     const upserts: Record<string, unknown>[] = [];
-    for (const item of items) {
-        const nmId = Number(item?.product?.nmId || item?.nmId || 0);
-        if (!nmId) continue;
-        for (const day of (item.history || [])) {
-            const date = String(day.date || '').split('T')[0];
-            if (!date) continue;
-            const opens = Number(day.openCount || 0);
-            const cart = Number(day.cartCount || 0);
-            upserts.push({
-                cabinet_id: cabinetId,
-                nm_id: nmId,
-                date,
-                impressions: opens,
-                clicks: opens,
-                ctr_pct: opens > 0 ? cart / opens * 100 : 0,
-                basket_count: cart,
-                basket_pct: Number(day.addToCartConversion || 0),
-                funnel_order_conv: Number(day.cartToOrderConversion || 0),
-                updated_at: new Date().toISOString(),
-            });
+    // history: максимум 20 nmId, 3 запроса/мин (интервал 20 с).
+    for (let i = 0; i < nmIds.length; i += 20) {
+        if (i > 0) await sleep(21000);
+        const chunk = nmIds.slice(i, i + 20);
+        const items = await fetchFunnelChunk(token, dateFrom, today, chunk);
+        for (const item of items) {
+            const product = item.product as Record<string, unknown> | undefined;
+            const nmId = Number(product?.nmId || item.nmId || 0);
+            if (!nmId) continue;
+            const history = (item.history || []) as Record<string, unknown>[];
+            for (const day of history) {
+                const date = String(day.date || '').split('T')[0];
+                if (!date) continue;
+                const opens = Number(day.openCount || 0);
+                const cart = Number(day.cartCount || 0);
+                upserts.push({
+                    cabinet_id: cabinetId,
+                    nm_id: nmId,
+                    date,
+                    impressions: opens,
+                    clicks: opens,
+                    ctr_pct: opens > 0 ? cart / opens * 100 : 0,
+                    basket_count: cart,
+                    basket_pct: Number(day.addToCartConversion || 0),
+                    funnel_order_conv: Number(day.cartToOrderConversion || 0),
+                    updated_at: new Date().toISOString(),
+                });
+            }
         }
     }
     for (let i = 0; i < upserts.length; i += 100) {
@@ -343,6 +343,36 @@ async function syncFunnelLast7Days(admin: Admin, cabinetId: string, token: strin
         if (error) throw error;
     }
     return upserts.length;
+}
+
+async function fetchFunnelChunk(
+    token: string,
+    dateFrom: string,
+    dateTo: string,
+    nmIds: number[],
+    maxAttempts = 4,
+): Promise<Record<string, unknown>[]> {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const res = await fetch(`${WB_ANALYTICS}/api/analytics/v3/sales-funnel/products/history`, {
+            method: 'POST',
+            headers: { Authorization: token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                selectedPeriod: { start: dateFrom, end: dateTo },
+                nmIds,
+                skipDeletedNm: true,
+                aggregationLevel: 'day',
+            }),
+        });
+        if (res.status === 429) {
+            await sleep(Math.min(25000 + attempt * 5000, 60000));
+            continue;
+        }
+        if (res.status === 401 || res.status === 403) return [];
+        if (!res.ok) throw new Error(`funnel HTTP ${res.status}`);
+        const payload = await res.json().catch(() => []);
+        return Array.isArray(payload) ? payload : (payload?.data || []);
+    }
+    throw new Error('funnel 429 после нескольких попыток');
 }
 
 async function countActiveArticles(admin: Admin, cabinetId: string): Promise<number> {

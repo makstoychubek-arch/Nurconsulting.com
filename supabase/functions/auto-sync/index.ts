@@ -398,43 +398,48 @@ async function syncFunnelLast7Days(admin: Admin, cabinetId: string, token: strin
 
     const today = isoDate(new Date());
     const dateFrom = addDaysStr(today, -6);
-    const res = await fetch(`${WB_ANALYTICS}/api/analytics/v3/sales-funnel/products/history`, {
-        method: 'POST',
-        headers: { Authorization: token, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            selectedPeriod: { start: dateFrom, end: today },
-            nmIds,
-            skipDeletedNm: true,
-            aggregationLevel: 'day',
-        }),
-    });
-    if (!res.ok) {
-        if (res.status === 401 || res.status === 403) return 0;
-        throw new Error(`HTTP ${res.status}`);
-    }
-    const payload = await res.json().catch(() => []);
-    const items = Array.isArray(payload) ? payload : (payload?.data || []);
     const upserts: Record<string, unknown>[] = [];
-    for (const item of items) {
-        const nmId = Number(item?.product?.nmId || item?.nmId || 0);
-        if (!nmId) continue;
-        for (const day of (item.history || [])) {
-            const date = String(day.date || '').split('T')[0];
-            if (!date) continue;
-            const opens = Number(day.openCount || 0);
-            const cart = Number(day.cartCount || 0);
-            upserts.push({
-                cabinet_id: cabinetId,
-                nm_id: nmId,
-                date,
-                impressions: opens,
-                clicks: opens,
-                ctr_pct: opens > 0 ? cart / opens * 100 : 0,
-                basket_count: cart,
-                basket_pct: Number(day.addToCartConversion || 0),
-                funnel_order_conv: Number(day.cartToOrderConversion || 0),
-                updated_at: new Date().toISOString(),
-            });
+    // history принимает максимум 20 nmId (иначе 400 на Зевине).
+    for (let i = 0; i < nmIds.length; i += 20) {
+        if (i > 0) await sleep(21000);
+        const chunk = nmIds.slice(i, i + 20);
+        const res = await fetch(`${WB_ANALYTICS}/api/analytics/v3/sales-funnel/products/history`, {
+            method: 'POST',
+            headers: { Authorization: token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                selectedPeriod: { start: dateFrom, end: today },
+                nmIds: chunk,
+                skipDeletedNm: true,
+                aggregationLevel: 'day',
+            }),
+        });
+        if (!res.ok) {
+            if (res.status === 401 || res.status === 403) break;
+            throw new Error(`HTTP ${res.status}`);
+        }
+        const payload = await res.json().catch(() => []);
+        const items = Array.isArray(payload) ? payload : (payload?.data || []);
+        for (const item of items) {
+            const nmId = Number(item?.product?.nmId || item?.nmId || 0);
+            if (!nmId) continue;
+            for (const day of (item.history || [])) {
+                const date = String(day.date || '').split('T')[0];
+                if (!date) continue;
+                const opens = Number(day.openCount || 0);
+                const cart = Number(day.cartCount || 0);
+                upserts.push({
+                    cabinet_id: cabinetId,
+                    nm_id: nmId,
+                    date,
+                    impressions: opens,
+                    clicks: opens,
+                    ctr_pct: opens > 0 ? cart / opens * 100 : 0,
+                    basket_count: cart,
+                    basket_pct: Number(day.addToCartConversion || 0),
+                    funnel_order_conv: Number(day.cartToOrderConversion || 0),
+                    updated_at: new Date().toISOString(),
+                });
+            }
         }
     }
     for (let i = 0; i < upserts.length; i += 100) {

@@ -19,6 +19,8 @@ assert.ok(fn.includes('supplier/orders'), 'pulls WB orders for the day');
 assert.ok(fn.includes('order_date: dayStr'), 'stores WB flag=1 day, not ISO timestamp');
 assert.ok(fn.includes('rnp_daily_data'), 'writes article metrics');
 assert.ok(fn.includes('sales-funnel/products/history'), 'refreshes funnel for all articles');
+assert.ok(fn.includes('i += 20') && fn.includes('fetchFunnelChunk'), 'funnel is chunked by WB 20-nmId limit');
+assert.ok(fn.includes('datesIn') && fn.includes('wantFunnel'), 'catch-up can pass dates and skip funnel');
 assert.ok(fn.includes('Я Карина, начинаю заполнять РНП'), 'start message is Karina');
 assert.ok(fn.includes("getTelegramChatId('team')"), 'posts to the team group');
 assert.ok(fn.includes('KARINA_BOT_TOKEN'), 'prefers Karina bot token');
