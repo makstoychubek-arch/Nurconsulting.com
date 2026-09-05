@@ -94,6 +94,8 @@ const RNP = (() => {
     let _marqueeSyncing = false;
     let _planPeriod = 'week';
     let _weeksCollapsed = true;
+    let _phoneKpiOpen = false;
+    let _phoneStockOpen = false;
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
@@ -2415,7 +2417,7 @@ const RNP = (() => {
         const st = widthPx ? ` style="width:${widthPx}px;max-width:${widthPx}px"` : '';
         return `<div class="rnp-head-left-stack"${st}>
           ${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
-          <div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>
+          ${_phoneCollapseHtml('stock', 'Остатки', _phoneStockOpen, `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`)}
         </div>`;
     }
 
@@ -2961,6 +2963,28 @@ const RNP = (() => {
         if (_activeNm !== SUMMARY_TAB) _renderActiveTable();
     }
 
+    function _phoneCollapseHtml(id, title, open, inner) {
+        if (!_isPhone()) return inner;
+        return `<div class="rnp-collapse${open ? ' is-open' : ''}" data-block="${id}">
+          <button type="button" class="rnp-collapse-head" onclick="RNP.togglePhoneBlock('${id}')" aria-expanded="${open ? 'true' : 'false'}">
+            <span>${title}</span>
+            <svg class="rnp-collapse-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="rnp-collapse-body"><div class="rnp-collapse-inner">${inner}</div></div>
+        </div>`;
+    }
+
+    function togglePhoneBlock(id) {
+        if (id === 'kpi') _phoneKpiOpen = !_phoneKpiOpen;
+        else if (id === 'stock') _phoneStockOpen = !_phoneStockOpen;
+        else return;
+        const open = id === 'kpi' ? _phoneKpiOpen : _phoneStockOpen;
+        document.querySelectorAll(`.rnp-collapse[data-block="${id}"]`).forEach((el) => {
+            el.classList.toggle('is-open', open);
+            el.querySelector('.rnp-collapse-head')?.setAttribute('aria-expanded', open ? 'true' : 'false');
+        });
+    }
+
     function _buildKpiTopHTML(art, stockBySize, rawData, cal) {
         const kpi = _periodSummary(art, rawData, cal);
         // Period-average RUB→KGS rate from WB reports; static settings rate as fallback
@@ -2991,7 +3015,7 @@ const RNP = (() => {
             <div class="rnp-gs-money-val">${moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
             <div class="rnp-gs-usd-lbl">В долларах</div>
             <div class="rnp-gs-usd-val">$${moneyUsd}</div>
-            <div class="rnp-gs-kpis">
+            <div class="rnp-gs-kpis">${_phoneCollapseHtml('kpi', 'Показатели', _phoneKpiOpen, `
               <div class="rnp-kpi-grid rnp-kpi-grid--gs">
                 <div class="rnp-kpi"><span>Рентабельность</span><b class="${roiCls}">${_fmtKpi(kpi.roi_pct, 'pct')}</b></div>
                 <div class="rnp-kpi"><span>К перечислению</span><b>${toTransferSom.toLocaleString('ru')}</b></div>
@@ -3005,7 +3029,7 @@ const RNP = (() => {
                 <div class="rnp-kpi"><span>Выкуп %</span><b>${_fmtKpi(kpi.buyout_pct, 'pct')}</b></div>
                 <div class="rnp-kpi"><span>CRO %</span><b>${_fmtKpi(kpi.cro_pct, 'pct')}</b></div>
                 <div class="rnp-kpi"><span>Пр. Себес</span><b>${costTotal.toLocaleString('ru')}</b></div>
-              </div>
+              </div>`)}
             </div>
           </div>
         </div>`;
@@ -3013,7 +3037,7 @@ const RNP = (() => {
 
     function _buildKpiPanelHTML(art, stockBySize, rawData, cal) {
         return `${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
-          <div class="rnp-kpi-sizes-row${_strategyTab === 4 ? ' rnp-kpi-sizes-row--focus' : ''}"><div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div></div>`;
+          <div class="rnp-kpi-sizes-row${_strategyTab === 4 ? ' rnp-kpi-sizes-row--focus' : ''}">${_phoneCollapseHtml('stock', 'Остатки', _phoneStockOpen, `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`)}</div>`;
     }
 
     function _buildTopPanelHTML(art, stockBySize, rawData, cal) {
@@ -5614,6 +5638,7 @@ const RNP = (() => {
         else _activeNm = Number(nmId);
         if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm === _compareNm) _compareNm = null;
         try { sessionStorage.setItem('rnp_active_nm', String(_activeNm)); } catch (e) {}
+        if (_isPhone()) { _phoneKpiOpen = false; _phoneStockOpen = false; }
         const body = document.getElementById('rnp-sheet-body');
         if (body && _isPhone()) {
             if (body.classList.contains('rnp-sheet-body--swap')) return;
@@ -6059,7 +6084,7 @@ const RNP = (() => {
     });
 
     return { init, initCore, ensureReady, openSettings, closeSettings, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
-             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, setStockSchemeView,
+             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
 
