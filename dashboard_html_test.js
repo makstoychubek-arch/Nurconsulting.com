@@ -158,7 +158,14 @@ assert.ok(rnpSrc.includes('rnp-th-month-prev'), 'previous-month header must stic
 assert.ok(html.includes('rnp-th-month-stick'), 'month stick label CSS must exist');
 assert.ok(html.includes('rnp-head-marquee-pin'), 'photo marquee must pin at the frozen edge while days scroll');
 assert.ok(rnpSrc.includes('rnp-head-marquee-pin'), 'marquee HTML wraps photos in the sticky pin');
-assert.ok(rnpSrc.includes('function _syncFrozenPane'), 'week/ИТОГ sticky left must be measured after layout');
+assert.ok(rnpSrc.includes('function _syncFrozenPane'), 'week/ИТОГ sticky left is applied after layout');
+assert.ok(!rnpSrc.includes('pin.style.height'), 'marquee pin height must not follow leftTh — that loop grows photos');
+assert.ok(!rnpSrc.includes('leftTh?.offsetWidth'), 'frozen width must not follow the KPI colspan');
+assert.ok(rnpSrc.includes('acc += FROZEN_COL_W'), 'sticky week offsets stay on design widths, not measured growth');
+assert.ok(rnpSrc.includes('MARQUEE_CARD_MAX_H'), 'photo cards must cap height so they do not grow on each resize');
+assert.ok(rnpSrc.includes('MARQUEE_REPS_MAX'), 'marquee must not clone photos without a cap');
+assert.ok(rnpSrc.includes('_marqueeRo.observe(scroll)'), 'resize observer watches the scroller only, not the left header');
+assert.ok(html.includes('table-layout: fixed'), 'fixed table layout stops the size grid from stretching frozen columns');
 assert.ok(!/contain:\s*layout style paint/.test(html), 'paint containment on the marquee clips the sticky photo pin');
 assert.ok(rnpSrc.includes('_loadPlans(dateFrom, dateTo)'), 'plans must be loaded only for the visible calendar range');
 assert.ok(
