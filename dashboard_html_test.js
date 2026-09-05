@@ -154,9 +154,14 @@ assert.ok(
 );
 assert.ok(
     html.includes('dash-kpi-hero') &&
-    html.includes('dash-kpi-stock') &&
     html.includes('dash-charts'),
-    'dashboard hero, FBO/FBS and charts have phone layout hooks'
+    'dashboard hero and charts have phone layout hooks'
+);
+assert.ok(
+    !html.includes('dash-kpi-stock') &&
+    !html.includes('id="m-stock-fbo"') &&
+    !html.includes('id="m-stock-fbs"'),
+    'FBO/FBS stock hero cards stay off the dashboard — they live in the warehouse chart'
 );
 assert.ok(
     html.includes('body.is-dash-phone .header-page-title') &&
@@ -520,8 +525,8 @@ assert.ok(rnpSrc.includes('const missing = nmIds.filter'),
 assert.ok(rnpSrc.includes('_seedTodayLiveZeros(nmIds, cal)'),
     'RNP must seed live zeros so today is not a blank sheet');
 
-assert.ok(html.includes('id="m-stock-fbo"') && html.includes('id="m-stock-fbs"'),
-    'dashboard must show FBO and FBS stock KPIs separately');
+assert.ok(html.includes('id="dash-stock-tabs"') && html.includes('data-stock-view="fbo"'),
+    'FBO/FBS split stays on the warehouse chart, not as extra hero cards');
 assert.ok(html.includes('id="wh-fbo"') && html.includes('id="wh-fbs"'),
     'warehouse tab must show FBO and FBS totals');
 assert.ok(html.includes('function switchDashStockView'),

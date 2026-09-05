@@ -3225,8 +3225,7 @@
             #tab-dashboard.space-y-6 > :not([hidden]) ~ :not([hidden]) {
                 margin-top: 10px;
             }
-            #tab-dashboard .dash-kpi-hero,
-            #tab-dashboard .dash-kpi-stock {
+            #tab-dashboard .dash-kpi-hero {
                 grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
                 gap: 8px !important;
             }
@@ -3635,19 +3634,6 @@
                     <div id="m-stock" class="kpi-hero-value" style="color:var(--amber)">—</div>
                     <div class="kpi-hero-sub">FBO + FBS, сейчас</div>
                     <div class="kpi-spark-wrap"><canvas id="spark-stock"></canvas></div>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 dash-kpi-stock">
-                <div class="kpi-hero-card">
-                    <div class="kpi-hero-label">Остатки FBO</div>
-                    <div id="m-stock-fbo" class="kpi-hero-value">—</div>
-                    <div class="kpi-hero-sub">Склады Wildberries</div>
-                </div>
-                <div class="kpi-hero-card">
-                    <div class="kpi-hero-label">Остатки FBS</div>
-                    <div id="m-stock-fbs" class="kpi-hero-value">—</div>
-                    <div class="kpi-hero-sub">Склады продавца</div>
                 </div>
             </div>
 
