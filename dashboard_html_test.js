@@ -543,10 +543,17 @@ assert.ok(
     'RNP donut slices must filter the size grid by FBO or FBS'
 );
 assert.ok(
-    rnpSrc.includes('склады WB') &&
-    rnpSrc.includes('склады продавца') &&
+    rnpSrc.includes('склад WB РФ') &&
+    rnpSrc.includes('склад продавца') &&
+    rnpSrc.includes("На WB") &&
+    rnpSrc.includes("На FBS") &&
     rnpSrc.includes('class="rnp-stock-donut"'),
-    'RNP must show FBO/FBS percent donut under the size stock table'
+    'RNP donut must filter the size grid: FBO = WB RF report, FBS = seller warehouse'
+);
+assert.ok(
+    html.includes('.rnp-stock-block--fbo') &&
+    html.includes('.rnp-stock-block--fbs'),
+    'selected donut slice must highlight the size stock table'
 );
 assert.ok(
     rnpSrc.includes('rnp-stock-scheme-wrap') &&
@@ -610,5 +617,11 @@ assert.deepStrictEqual(scheme._schemePercents(111, 66), { fbo: 63, fbs: 37 });
 assert.deepStrictEqual(scheme._schemePercents(0, 0), { fbo: 0, fbs: 0 });
 assert.ok(scheme._donutSlicePath(0, 63, 46, 28, 50, 50).includes('A 46 46'));
 assert.ok(scheme._donutSlicePath(0, 100, 46, 28, 50, 50).includes('A 28 28'));
+
+const viewQty = (mode) => new Function('_stockSchemeView', `${grabFn(rnpSrc, '_viewSizeQty')}; return _viewSizeQty;`)(mode);
+const sized = { wh: 16, transit: 2, fbo: { wh: 10, transit: 0 }, fbs: { wh: 6, transit: 2 } };
+assert.deepStrictEqual(viewQty('all')(sized), { wh: 16, transit: 2 });
+assert.deepStrictEqual(viewQty('fbo')(sized), { wh: 10, transit: 0 });
+assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
 
 console.log('dashboard_html_test: ok');
