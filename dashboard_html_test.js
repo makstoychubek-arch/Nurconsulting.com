@@ -160,6 +160,24 @@ assert.ok(
     html.includes("window.innerWidth <= 768"),
     'date picker stacks and anchors under the header on the phone'
 );
+{
+    const start = html.indexOf('const RU_MON_SHORT');
+    const end = html.indexOf('function updateDateRangeLabel');
+    assert.ok(start > 0 && end > start, 'compact date helpers must exist');
+    const api = new Function(`${html.slice(start, end)}; return { fmtCompactDate, fmtCompactRange };`)();
+    const from = new Date(2026, 0, 1);
+    const to = new Date(2026, 8, 8);
+    assert.strictEqual(api.fmtCompactRange(from, to), '1 янв – 8 сен');
+    const same = new Date(2026, 8, 8);
+    const sameLabel = api.fmtCompactRange(same, same);
+    assert.ok(sameLabel === '8 сен' || sameLabel === '8 сен 26', 'same-day chip stays short');
+    assert.strictEqual(api.fmtCompactRange(new Date(2025, 11, 1), new Date(2026, 1, 3)), '1 дек 25 – 3 фев 26');
+}
+assert.ok(
+    !html.includes("from.split('-').reverse().join('.')}` — ${to.split('-').reverse()"),
+    'loadFromDB must not overwrite the chip with 01.01.2026 — 08.09.2026'
+);
+assert.ok(html.includes('class="date-chip-chevron"'), 'date chip uses a small chevron, not a fat ▼');
 assert.ok(html.includes('id="rail-settings-btn"'), 'settings must be a small button under the profile');
 const settingsIdx = html.indexOf('id="rail-settings-btn"');
 const userIdx = html.indexOf('id="rail-user-name"');

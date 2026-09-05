@@ -626,6 +626,8 @@
         .data-table td { padding: 10px 14px; font-size: 12px; border-bottom: 1px solid var(--border); color: var(--text-primary); }
         .data-table tr:hover td { background: var(--accent-soft); }
         .filter-chip { display: inline-flex; align-items: center; padding: 6px 14px; border-radius: 999px; font-size: 12px; font-weight: 700; cursor: pointer; background: var(--sel); border: none; color: var(--text-primary); transition: background 0.15s; white-space: nowrap; user-select: none; }
+        .date-filter-chip { padding: 5px 10px; gap: 4px; letter-spacing: -0.02em; }
+        .date-chip-chevron { width: 10px; height: 10px; flex-shrink: 0; color: var(--text-muted); }
         .filter-chip:hover { border-color: transparent; color: var(--text-primary); background: #E4E4E7; }
         .filter-chip.active { border-color: transparent; color: var(--text-primary); background: var(--sel); }
         .theme-pill { position: relative; width: 56px; height: 30px; border-radius: 15px; background: var(--surface); border: 1px solid var(--border); cursor: pointer; transition: all 0.3s ease; flex-shrink: 0; }
@@ -3064,11 +3066,10 @@
                 overflow: hidden;
             }
             #header-date-chip-wrap #date-range {
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
-                max-width: 140px;
+                overflow: visible;
+                max-width: none;
             }
+            .date-filter-chip { padding: 5px 8px; font-size: 12px; }
             .cabinet-picker-label { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .cabinet-picker-btn { padding: 6px 8px !important; }
             .app-header-main { gap: 6px !important; }
@@ -3201,9 +3202,8 @@
             body.is-dash-phone .header-page-title { display: none !important; }
             body.is-dash-phone #header-date-chip-wrap {
                 max-width: none;
-                flex: 1 1 auto;
+                flex: 0 1 auto;
                 min-width: 0;
-                justify-content: space-between;
             }
             body.is-dash-phone #header-date-chip-wrap #date-range {
                 max-width: none;
@@ -3550,8 +3550,9 @@
                     <div class="min-w-0 header-page-title">
                         <h1 id="page-title" class="header-title truncate">Дашборд</h1>
                     </div>
-                    <div id="header-date-chip-wrap" class="filter-chip date-filter-chip active flex items-center space-x-1.5 hidden" onclick="toggleDatePicker(event)">
-                        <span id="date-range">01.01.2026 — сегодня</span><span style="color:var(--text-muted);font-size:10px;margin-left:4px">▼</span>
+                    <div id="header-date-chip-wrap" class="filter-chip date-filter-chip active flex items-center hidden" onclick="toggleDatePicker(event)">
+                        <span id="date-range">1 янв – 8 сен</span>
+                        <svg class="date-chip-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
                     </div>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
@@ -7670,12 +7671,27 @@
         return { from: activeDateFrom, to: activeDateTo };
     }
 
+    const RU_MON_SHORT = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+    function fmtCompactDate(d, withYear) {
+        const day = d.getDate();
+        const mon = RU_MON_SHORT[d.getMonth()];
+        return withYear ? `${day} ${mon} ${String(d.getFullYear()).slice(-2)}` : `${day} ${mon}`;
+    }
+    function fmtCompactRange(fromD, toD) {
+        const sameDay = fromD.getFullYear() === toD.getFullYear()
+            && fromD.getMonth() === toD.getMonth()
+            && fromD.getDate() === toD.getDate();
+        const sameYear = fromD.getFullYear() === toD.getFullYear();
+        const curYear = new Date().getFullYear();
+        if (sameDay) return fmtCompactDate(fromD, fromD.getFullYear() !== curYear);
+        if (sameYear) return `${fmtCompactDate(fromD)} – ${fmtCompactDate(toD)}`;
+        return `${fmtCompactDate(fromD, true)} – ${fmtCompactDate(toD, true)}`;
+    }
+
     function updateDateRangeLabel() {
         const fromD = new Date(activeDateFrom + 'T12:00:00');
         const toD = new Date(activeDateTo + 'T12:00:00');
-        const text = activeDateFrom === activeDateTo
-            ? fmtRuDate(fromD)
-            : fmtRuDate(fromD) + ' — ' + fmtRuDate(toD);
+        const text = fmtCompactRange(fromD, toD);
         const main = document.getElementById('date-range');
         if (main) main.textContent = text;
         document.querySelectorAll('.module-date-label').forEach(el => { el.textContent = text; });
@@ -8330,11 +8346,7 @@
         if (!summaryErr && summary) {
             const applyDash = () => {
                 const stocks = applyStockSummary(summary);
-                const dateEl = document.getElementById('date-range');
-                if (dateEl) {
-                    dateEl.textContent =
-                        `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
-                }
+                updateDateRangeLabel();
 
                 updateDashboardFromDB(stocks.total, summary.cur, summary.prev);
 
