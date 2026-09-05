@@ -26,7 +26,8 @@ export type TelegramChannel =
   | 'blockings'
   | 'warehouse'
   | 'triggers'
-  | 'fbs';
+  | 'fbs'
+  | 'team';
 
 export const TELEGRAM_CHANNEL_LABELS: Record<TelegramChannel, string> = {
     sales: 'Продажи',
@@ -39,6 +40,7 @@ export const TELEGRAM_CHANNEL_LABELS: Record<TelegramChannel, string> = {
     warehouse: 'Склад',
     triggers: 'Триггеры',
     fbs: 'FBS',
+    team: 'Тим',
 };
 
 const CHANNEL_ENV: Record<TelegramChannel, string> = {
@@ -52,6 +54,7 @@ const CHANNEL_ENV: Record<TelegramChannel, string> = {
     warehouse: 'TELEGRAM_CHAT_WAREHOUSE',
     triggers: 'TELEGRAM_CHAT_TRIGGERS',
     fbs: 'TELEGRAM_CHAT_FBS',
+    team: 'TEAM_TELEGRAM_CHAT_ID',
 };
 
 const LEGACY_ENV: Partial<Record<TelegramChannel, string>> = {
@@ -61,6 +64,7 @@ const LEGACY_ENV: Partial<Record<TelegramChannel, string>> = {
 /** Известные chat_id, если secret ещё не выставлен в Dashboard. */
 const HARDCODED_CHAT_IDS: Partial<Record<TelegramChannel, string>> = {
     penalties: '-1003907884000',
+    team: '-1004460164885',
 };
 
 const ALL_CHANNELS: TelegramChannel[] = [
@@ -74,6 +78,7 @@ const ALL_CHANNELS: TelegramChannel[] = [
     'warehouse',
     'triggers',
     'fbs',
+    'team',
 ];
 
 export function getTelegramToken(): string {

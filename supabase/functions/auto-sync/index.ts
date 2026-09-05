@@ -189,13 +189,17 @@ Deno.serve(async (req) => {
         const today = isoDate(new Date());
         const horizon = addDaysStr(today, -RECENT_DAYS_LOOKBACK);
 
-        // Pass B: сегодня у всех кабинетов (разные продавцы — лимит не общий).
-        for (const cab of work) {
-            try {
-                cab.ordersCount += await syncRecentDay(admin, cab, today);
-            } catch (e) {
-                cab.errorMsg += `orders_recent: ${(e as Error).message}; `;
-                cab.status = 'partial';
+        // Pass B: вчера + сегодня. Иначе утром в РНП пустая колонка за вчера
+        // (4.09), а курсор backfill сидит в июле и туда не успевает.
+        const yesterday = addDaysStr(today, -1);
+        for (const dayStr of [yesterday, today]) {
+            for (const cab of work) {
+                try {
+                    cab.ordersCount += await syncRecentDay(admin, cab, dayStr);
+                } catch (e) {
+                    cab.errorMsg += `orders_${dayStr}: ${(e as Error).message}; `;
+                    cab.status = 'partial';
+                }
             }
         }
 

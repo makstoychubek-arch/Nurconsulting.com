@@ -19,6 +19,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { hasAllCabinetsAccess } from '../_shared/cabinet-access.ts';
+import { isServiceAuthorized } from '../_shared/service-auth.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -54,8 +55,7 @@ Deno.serve(async (req) => {
     if (!authHeader.startsWith('Bearer ')) return json({ error: 'Unauthorized' }, 401);
     const bearer = authHeader.replace('Bearer ', '');
     const admin = createClient(supabaseUrl, serviceKey);
-    // Подпись JWT проверяет gateway (verify_jwt), поэтому роли из payload можно верить.
-    const isServiceRole = bearer === serviceKey || jwtRole(bearer) === 'service_role';
+    const isServiceRole = isServiceAuthorized(req, serviceKey);
 
     let user: { id: string; email?: string | null } | null = null;
     if (!isServiceRole) {
@@ -410,14 +410,6 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 function sanitizeWbToken(raw: unknown): string {
     if (typeof raw !== 'string') return '';
     return raw.replace(/^\uFEFF/, '').replace(/\s+/g, '').trim();
-}
-function jwtRole(token: string): string {
-    try {
-        const part = token.split('.')[1];
-        if (!part) return '';
-        const payload = JSON.parse(atob(part.replace(/-/g, '+').replace(/_/g, '/')));
-        return String(payload?.role || '');
-    } catch { return ''; }
 }
 function isoDate(d: Date) { return d.toISOString().split('T')[0]; }
 function addDays(d: Date, n: number) { const x = new Date(d); x.setUTCDate(x.getUTCDate() + n); return x; }
