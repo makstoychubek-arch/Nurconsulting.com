@@ -976,7 +976,7 @@
            карточки не уезжают под KPI и не «заходят» за левую панель. */
         .rnp-head-marquee-pin {
             position: sticky;
-            left: var(--rnp-frozen-left, 480px);
+            left: var(--rnp-frozen-left, 550px);
             width: var(--rnp-marquee-visible, 40vw);
             max-width: 100%;
             height: 100%;
@@ -1246,17 +1246,17 @@
         }
         .rnp-sheet-table {
             border-collapse: separate; border-spacing: 0;
-            font-size: 8px; width: max-content; min-width: 100%;
+            font-size: 7px; width: max-content; min-width: 100%;
             --rnp-row1: 22px; --rnp-row2: 20px; --rnp-row3: 16px; --rnp-row4: 18px;
             --rnp-head-h: calc(var(--rnp-row1) + var(--rnp-row2) + var(--rnp-row3) + var(--rnp-row4));
-            --rnp-metric-w: 132px; --rnp-spark-w: 40px; --rnp-day-w: 36px;
+            --rnp-metric-w: 132px; --rnp-spark-w: 40px; --rnp-day-w: 54px;
         }
         .rnp-sheet-table .rnp-day-col {
             width: var(--rnp-day-w); min-width: var(--rnp-day-w); max-width: var(--rnp-day-w);
             box-sizing: border-box;
         }
         .rnp-sheet-table--months {
-            --rnp-month-w: 64px;
+            --rnp-month-w: 72px;
             --rnp-rowq1: 20px;
             --rnp-rowq2: 16px;
         }
@@ -1310,10 +1310,14 @@
             --rnp-head-h: calc(var(--rnp-row1) + var(--rnp-row2) + var(--rnp-row3));
         }
         .rnp-sheet-table th, .rnp-sheet-table td {
-            border: 1px solid var(--border); padding: 1px 3px; text-align: center;
+            border: 1px solid var(--border); padding: 1px 2px; text-align: center;
             line-height: 1.2; vertical-align: middle;
             background-clip: padding-box;
             box-sizing: border-box;
+            white-space: nowrap;
+            overflow: hidden;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.02em;
         }
         .rnp-sheet-table tbody tr {
             min-height: 18px;
@@ -1467,7 +1471,7 @@
             background-image: linear-gradient(var(--accent-soft), var(--accent-soft)) !important;
         }
         .rnp-sheet-table tbody .rnp-col-sticky-total { z-index: 12; }
-        .rnp-sheet-table .rnp-cell-hero { font-size: 10px !important; font-weight: 700 !important; color: var(--accent) !important; }
+        .rnp-sheet-table .rnp-cell-hero { font-size: 8px !important; font-weight: 700 !important; color: var(--accent) !important; }
         .rnp-sheet-table .rnp-cell-competitor { background: rgba(245, 158, 11, 0.08) !important; }
         .rnp-sheet-table .rnp-gs-section-title { font-weight: 700; font-size: 9px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; }
         .rnp-sheet-table .rnp-section-fill { background: var(--surface-solid) !important; }
@@ -1498,14 +1502,14 @@
             padding: 1px 2px; vertical-align: middle;
         }
         .rnp-sheet-table .rnp-th-day .rnp-dow { font-size: 7px; font-weight: 400; color: var(--text-muted); display: block; line-height: 1; margin-top: 1px; }
-        .rnp-sheet-table .rnp-th-week { font-size: 7px; min-width: 44px; max-width: 48px; color: var(--text-muted); }
+        .rnp-sheet-table .rnp-th-week { font-size: 7px; min-width: 54px; max-width: 58px; color: var(--text-muted); }
         .rnp-sheet-table .rnp-th-week.rnp-data-col,
         .rnp-sheet-table .rnp-th-dow.rnp-data-col,
         .rnp-sheet-table .rnp-col-sticky.rnp-data-col {
-            min-width: 44px; max-width: 44px; width: 44px;
+            min-width: 54px; max-width: 54px; width: 54px;
         }
         .rnp-sheet-table .rnp-th-day.today { color: var(--accent); font-weight: 800; border-left: 2px solid var(--accent); border-right: 2px solid var(--accent); }
-        .rnp-sheet-table .rnp-data-col { min-width: 44px; max-width: 44px; width: 44px; font-size: 8px; padding: 1px 2px; }
+        .rnp-sheet-table .rnp-data-col { min-width: 54px; max-width: 54px; width: 54px; font-size: 7px; padding: 1px 1px; }
         .rnp-sheet-table .rnp-section-hdr td { cursor: pointer; }
         .rnp-sheet-table .rnp-cell-week { background: rgba(99,102,241,0.05); }
         .rnp-sheet-table .rnp-cell-today { border-left: 2px solid var(--accent) !important; border-right: 2px solid var(--accent) !important; }
