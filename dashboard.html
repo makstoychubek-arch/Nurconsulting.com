@@ -3234,16 +3234,56 @@
             .rnp-article-panel--phone.rnp-compare-split {
                 grid-template-columns: 1fr;
             }
+            .rnp-phone-hero,
+            .product-card-mobile-layout {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                margin: 0 0 10px;
+            }
+            .rnp-phone-hero-banner {
+                display: block;
+                width: 100%;
+                height: 148px;
+                padding: 0;
+                border: 1px solid var(--border);
+                border-radius: 16px;
+                overflow: hidden;
+                background: var(--surface);
+                cursor: zoom-in;
+            }
+            .rnp-phone-hero-banner img,
+            .rnp-phone-hero-img {
+                width: 100%;
+                height: 100%;
+                object-fit: contain;
+                object-position: center;
+                display: block;
+            }
+            .rnp-phone-hero-donut { min-width: 0; }
+            .rnp-phone-hero-donut .rnp-stock-donut {
+                padding: 0;
+                align-items: center;
+            }
+            .rnp-phone-hero-donut .rnp-stock-donut-chart {
+                width: 104px;
+                height: 104px;
+                flex: 0 0 104px;
+            }
+            .rnp-phone-hero-donut .rnp-stock-donut-center b { font-size: 16px; }
+            .rnp-phone-hero-donut .rnp-stock-donut-center span { font-size: 10px; }
+            .rnp-article-panel--phone .rnp-gs-photo { display: none; }
             .rnp-article-panel--phone .rnp-kpi-top,
-            .rnp-article-panel--phone .rnp-kpi-top--compact {
-                grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr);
+            .rnp-article-panel--phone .rnp-kpi-top--compact,
+            .rnp-article-panel--phone .rnp-kpi-top--nophoto {
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
                 grid-template-rows: auto auto auto auto auto;
                 grid-template-areas:
-                    "photo name  name"
-                    "photo nmid  cost"
-                    "photo mlbl  mval"
-                    "photo ulbl  uval"
-                    "kpis  kpis  kpis";
+                    "name  name"
+                    "nmid  cost"
+                    "mlbl  mval"
+                    "ulbl  uval"
+                    "kpis  kpis";
             }
             .rnp-article-panel--phone .rnp-gs-kpis {
                 grid-area: kpis;
@@ -3308,6 +3348,7 @@
                 margin-top: 2px;
             }
             .rnp-article-panel--phone .rnp-gs-name {
+                grid-column: 1 / -1;
                 font-size: 12px;
                 white-space: normal;
                 overflow: hidden;
@@ -3322,17 +3363,12 @@
             .rnp-article-panel--phone .rnp-gs-lbl,
             .rnp-article-panel--phone .rnp-gs-money-lbl,
             .rnp-article-panel--phone .rnp-gs-usd-lbl { font-size: 10px; }
-            .rnp-article-panel--phone .rnp-gs-photo,
-            .rnp-article-panel--phone .rnp-gs-photo img { min-height: 72px; }
             .rnp-article-panel--phone .rnp-stock-scheme-wrap {
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
             }
             .rnp-article-panel--phone .rnp-head-sizes-inline { overflow-x: auto; }
-            .rnp-article-panel--phone .rnp-stock-donut-chart {
-                width: 72px; height: 72px; flex: 0 0 72px;
-            }
             .rnp-article-panel--phone .rnp-stock-donut-leg-name,
             .rnp-article-panel--phone .rnp-stock-donut-leg-pct { font-size: 12px; }
             .rnp-article-panel--phone .rnp-stock-donut-leg-sub,
@@ -4937,7 +4973,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.acb087a612.min.js"></script>
-<script src="/dist/rnp-module.d3e552a59c.min.js"></script>
+<script src="/dist/rnp-module.0bb4f0437e.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';

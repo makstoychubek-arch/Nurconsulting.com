@@ -514,6 +514,24 @@ assert.ok(rnpSrc.includes('_phoneKpiOpen = false; _phoneStockOpen = false'),
     assert.ok(phone._phoneCollapseHtml('stock', 'Остатки', true, 'BODY').includes('is-open'));
     assert.strictEqual(desk._phoneCollapseHtml('kpi', 'Показатели', false, '<b>keep</b>'), '<b>keep</b>');
 }
+assert.ok(
+    rnpSrc.includes('function _buildPhoneHeroHTML') &&
+    rnpSrc.includes('rnp-phone-hero product-card-mobile-layout') &&
+    rnpSrc.includes('rnp-phone-hero-banner') &&
+    rnpSrc.includes('rnp-phone-hero-donut') &&
+    rnpSrc.includes('rnp-kpi-top--nophoto') &&
+    rnpSrc.includes("const hero = _isPhone() ? _buildPhoneHeroHTML"),
+    'phone card puts a full-width photo banner and stock donut above the article text'
+);
+assert.ok(
+    html.includes('.rnp-phone-hero') &&
+    html.includes('.product-card-mobile-layout') &&
+    html.includes('.rnp-phone-hero-banner') &&
+    html.includes('.rnp-kpi-top--nophoto') &&
+    html.includes('"name  name"') &&
+    html.includes('.rnp-article-panel--phone .rnp-gs-photo { display: none; }'),
+    'phone CSS: full-width banner + text without the leftover square photo'
+);
 assert.ok(rnpSrc.includes('rnp-settings-phone-tools') && rnpSrc.includes('_weeksCollapsed'),
     'Excel/План/секции move into RNP settings on the phone');
 assert.ok(rnpSrc.includes('function _bindArticleSwipe') && rnpSrc.includes('rnp-sheet-body--swap'),
@@ -996,5 +1014,94 @@ const sized = { wh: 16, transit: 2, fbo: { wh: 10, transit: 0 }, fbs: { wh: 6, t
 assert.deepStrictEqual(viewQty('all')(sized), { wh: 16, transit: 2 });
 assert.deepStrictEqual(viewQty('fbo')(sized), { wh: 10, transit: 0 });
 assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
+
+{
+    const schemePhone = new Function(`
+        function _isPhone() { return true; }
+        function _buildStockSizeHTML() { return 'SIZES'; }
+        function _buildStockDonutHTML() { return '<div class="rnp-stock-donut"></div>'; }
+        ${grabFn(rnpSrc, '_stockSchemeInnerHTML')}
+        return _stockSchemeInnerHTML({}, {});
+    `)();
+    const schemeDesk = new Function(`
+        function _isPhone() { return false; }
+        function _buildStockSizeHTML() { return 'SIZES'; }
+        function _buildStockDonutHTML() { return '<div class="rnp-stock-donut"></div>'; }
+        ${grabFn(rnpSrc, '_stockSchemeInnerHTML')}
+        return _stockSchemeInnerHTML({}, {});
+    `)();
+    assert.ok(schemePhone.includes('SIZES') && !schemePhone.includes('rnp-stock-donut'),
+        'phone Остатки block keeps the size table and does not duplicate the donut');
+    assert.ok(schemeDesk.includes('SIZES') && schemeDesk.includes('rnp-stock-donut'),
+        'desktop stock scheme still shows the size table and donut together');
+
+    const hero = new Function(`
+        function _imgHtml() { return '<img class="rnp-phone-hero-img">'; }
+        function _buildStockDonutHTML() { return '<div class="rnp-stock-donut"><b>12</b><span>шт</span></div>'; }
+        ${grabFn(rnpSrc, '_buildPhoneHeroHTML')}
+        return _buildPhoneHeroHTML({ nm_id: 111 }, {});
+    `)();
+    assert.ok(hero.includes('rnp-phone-hero') && hero.includes('product-card-mobile-layout'));
+    assert.ok(hero.includes('rnp-phone-hero-banner') && hero.includes('rnp-phone-hero-img'));
+    assert.ok(hero.includes('rnp-phone-hero-donut') && hero.includes('data-nm="111"') && hero.includes('rnp-stock-donut'));
+
+    function kpiTop(isPhone) {
+        return new Function(`
+            const _strategyTab = 0;
+            const _phoneKpiOpen = false;
+            const _settings = { exchangeRate: 1, usdRate: 87.5 };
+            function _isPhone() { return ${isPhone}; }
+            function _periodSummary() {
+                return { to_transfer: 0, sales_count: 0, roi_pct: 0, margin_pct: 0, profit: 0,
+                    plan_orders_pct: 0, drr_pct: 0, ctr_pct: 0, impressions: 0,
+                    logistics_per_unit: 0, buyout_pct: 0, cro_pct: 0, wb_rate: 0 };
+            }
+            function _articleMoneySom() { return 0; }
+            function _sellerArticle() { return 'Блузка'; }
+            function _syncStatus() { return { level: 'ok' }; }
+            function _syncDot() { return ''; }
+            function _fmtKpi() { return '0'; }
+            function _imgHtml() { return '<img class="rnp-gs-photo-img">'; }
+            function _phoneCollapseHtml(id, title, open, inner) { return inner; }
+            ${grabFn(rnpSrc, '_buildKpiTopHTML')}
+            return _buildKpiTopHTML({ nm_id: 222, cost_price: 10 }, {}, {}, {});
+        `)();
+    }
+    const phoneTop = kpiTop(true);
+    const deskTop = kpiTop(false);
+    assert.ok(!phoneTop.includes('rnp-gs-photo') && phoneTop.includes('rnp-kpi-top--nophoto') && phoneTop.includes('артикул WB'),
+        'phone article text uses the full width and drops the leftover square photo');
+    assert.ok(deskTop.includes('rnp-gs-photo') && !deskTop.includes('rnp-kpi-top--nophoto'),
+        'desktop KPI card still shows the article photo');
+
+    function viewApi(isPhone) {
+        return new Function(`
+            let _stockSchemeView = 'all';
+            function _isPhone() { return ${isPhone}; }
+            function _refreshStockSchemeUI() {}
+            ${grabFn(rnpSrc, 'setStockSchemeView')}
+            return { set: setStockSchemeView, get: () => _stockSchemeView };
+        `)();
+    }
+    const phoneView = viewApi(true);
+    phoneView.set('fbo');
+    assert.strictEqual(phoneView.get(), 'fbo');
+    phoneView.set('fbo');
+    assert.strictEqual(phoneView.get(), 'fbo', 'phone tap on the same FBO slice keeps FBO in the center');
+    phoneView.set('fbs');
+    assert.strictEqual(phoneView.get(), 'fbs');
+    phoneView.set('all');
+    assert.strictEqual(phoneView.get(), 'all', 'phone tap on the donut hole resets to FBO+FBS');
+    const deskView = viewApi(false);
+    deskView.set('fbo');
+    deskView.set('fbo');
+    assert.strictEqual(deskView.get(), 'all', 'desktop donut still toggles a slice off');
+}
+
+assert.ok(
+    rnpSrc.includes('.rnp-phone-hero-donut') &&
+    rnpSrc.includes('_buildStockDonutHTML(stock)'),
+    'tapping a donut slice must refresh the phone hero donut as well as the size table'
+);
 
 console.log('dashboard_html_test: ok');
