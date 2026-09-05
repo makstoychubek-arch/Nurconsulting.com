@@ -7,7 +7,8 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>NR Space — нет соединения</title>
-    <link rel="icon" href="/icons/icon-192.png">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" href="/icons/favicon.png" sizes="32x32">
     <style>
         :root {
             --bg: #1C1C1E;
@@ -48,10 +49,12 @@
         }
         .logo {
             width: 64px; height: 64px; margin: 0 auto 20px;
-            background: #fff; color: #111;
-            border-radius: 16px; border: 1px solid rgba(0,0,0,0.12);
-            display: flex; align-items: center; justify-content: center;
-            font-weight: 900; font-size: 20px; letter-spacing: -0.06em;
+            background: #ffffff; color: #000000;
+            border-radius: 16px; border: none;
+            display: block;
+            font-family: 'Arial Black', 'Montserrat', sans-serif;
+            font-weight: 900; letter-spacing: -0.03em;
+            object-fit: cover;
         }
         h1 { margin: 0 0 8px; font-size: 22px; letter-spacing: -0.03em; }
         p { margin: 0 0 24px; font-size: 15px; color: var(--muted); line-height: 1.45; }
@@ -64,7 +67,7 @@
 </head>
 <body>
     <div class="card">
-        <div class="logo" aria-hidden="true">NR</div>
+        <img class="logo logo-nr" src="/icons/logo-nr.svg" alt="NR" width="64" height="64">
         <h1>NR Space</h1>
         <p>Нет соединения, попробуйте позже</p>
         <button type="button" onclick="location.reload()">Повторить</button>

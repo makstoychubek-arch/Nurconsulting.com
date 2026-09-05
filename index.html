@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="ru" class="scroll-smooth">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231F2933'/><text y='66' font-size='38' font-family='Arial Black,sans-serif' font-weight='900' fill='%23fff' x='50' text-anchor='middle'>NR</text></svg>">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%231F2933'/><text y='340' font-size='200' font-family='Arial Black,sans-serif' font-weight='900' fill='%23fff' x='256' text-anchor='middle'>NR</text></svg>">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" href="/icons/favicon.png" sizes="32x32">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <meta name="theme-color" content="#F8F9FA">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -97,6 +98,23 @@
         ::-webkit-scrollbar-thumb { background: #d2d2d7; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
+        .logo-nr {
+            font-family: 'Arial Black', 'Montserrat', sans-serif;
+            font-weight: 900;
+            letter-spacing: -0.03em;
+            color: #000000;
+            background: #ffffff;
+            display: block;
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 8px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .logo-nr--lg { width: 56px; height: 56px; border-radius: 14px; }
+        .logo-nr--sm { width: 28px; height: 28px; border-radius: 7px; }
+
     </style>
 </head>
 <body class="bg-[#FAFAFA] text-[#3F3F46] antialiased selection:bg-[#EDEDED] selection:text-[#111] overflow-x-hidden">
@@ -104,7 +122,7 @@
     <header class="fixed top-0 left-0 right-0 z-50 bg-white">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 md:h-18 flex items-center justify-between">
             <a href="#" class="flex items-center gap-2.5 shrink-0 rounded-xl px-1 py-1 hover:bg-[#EDEDED] transition-colors">
-                <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-white text-[#111] font-black text-[11px] tracking-tighter border border-black/10">NR</span>
+                <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="32" height="32">
                 <span class="text-[16px] font-extrabold text-[#111] tracking-tight">NR Space</span>
             </a>
             <nav class="hidden lg:flex items-center space-x-0.5 text-sm font-bold text-[#111]">
@@ -136,7 +154,7 @@
     <div id="mobile-menu-panel" class="fixed top-0 right-0 z-50 h-full w-72 sm:w-80 bg-white border-l border-black/5 closed lg:hidden flex flex-col shadow-sm">
         <div class="flex items-center justify-between p-4 border-b border-black/5">
             <div class="flex items-center gap-2">
-                <span class="flex items-center justify-center w-8 h-8 rounded-lg bg-white text-[#111] font-black text-[11px] border border-black/10">NR</span>
+                <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="32" height="32">
                 <span class="font-extrabold text-lg text-[#111]">NR Space</span>
             </div>
             <button type="button" onclick="closeMobileNav()" class="w-9 h-9 flex items-center justify-center rounded-lg border border-black/10 text-[#3E434F] text-lg active:bg-black/5">×</button>
@@ -464,7 +482,7 @@
                 </div>
                 <div class="flex items-center justify-center py-8">
                     <div class="flex items-center gap-3">
-                        <span class="flex items-center justify-center w-14 h-14 rounded-xl bg-white text-[#111] font-black text-lg border border-black/10">NR</span>
+                        <img class="logo-nr logo-nr--lg" src="/icons/logo-nr.svg" alt="NR" width="56" height="56">
                         <span class="text-2xl font-black text-[#111] tracking-tight">NR Space</span>
                     </div>
                 </div>
@@ -478,7 +496,7 @@
     <footer id="contacts" class="reveal py-16 px-4 sm:px-6 max-w-7xl mx-auto border-t border-black/5 text-[#3E434F] text-sm pb-32">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
             <div class="space-y-4">
-                <div class="inline-flex items-center justify-center w-9 h-9 rounded-lg bg-white text-[#111] font-black text-[10px] tracking-tighter border border-black/10">NR</div>
+                <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="32" height="32">
                 <p class="text-xs text-[#6B7682] font-light">© Nur Consulting & NR Space. Все права защищены. 2026</p>
             </div>
             <div class="space-y-2">
