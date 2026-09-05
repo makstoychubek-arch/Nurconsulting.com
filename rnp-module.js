@@ -1741,7 +1741,9 @@ const RNP = (() => {
     }
 
     function _stockSchemeInnerHTML(art, stockBySize) {
-        return `<div class="rnp-head-sizes-inline">${_buildStockSizeHTML(stockBySize, art)}</div>
+        const sizes = `<div class="rnp-head-sizes-inline">${_buildStockSizeHTML(stockBySize, art)}</div>`;
+        if (_isPhone()) return sizes;
+        return `${sizes}
           ${_buildStockDonutHTML(stockBySize)}`;
     }
 
@@ -1798,13 +1800,22 @@ const RNP = (() => {
             const stock = _stockCache[nm] || {};
             el.innerHTML = _stockSchemeInnerHTML(art, stock);
         });
+        document.querySelectorAll('.rnp-phone-hero-donut').forEach(el => {
+            const nm = Number(el.getAttribute('data-nm'));
+            const stock = _stockCache[nm] || {};
+            el.innerHTML = _buildStockDonutHTML(stock);
+        });
         const body = document.getElementById('rnp-sheet-body');
         requestAnimationFrame(() => _syncMarqueeFill(body || document));
     }
 
     function setStockSchemeView(view) {
         const next = (view === 'fbo' || view === 'fbs') ? view : 'all';
-        _stockSchemeView = (next !== 'all' && _stockSchemeView === next) ? 'all' : next;
+        if (_isPhone()) {
+            _stockSchemeView = next;
+        } else {
+            _stockSchemeView = (next !== 'all' && _stockSchemeView === next) ? 'all' : next;
+        }
         _refreshStockSchemeUI();
     }
 
@@ -2999,10 +3010,13 @@ const RNP = (() => {
         const moneySom = _articleMoneySom(kpi, er);
         const moneyUsd = moneySom > 0 ? (moneySom / (_settings.usdRate || 87.5)).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 }) : '0';
         const seller = _sellerArticle(art).replace(/"/g, '&quot;');
+        const photoHtml = _isPhone()
+            ? ''
+            : `<div class="rnp-gs-photo" title="Открыть фото" onclick="RNP.openPhoto(this)">${_imgHtml(art, 'rnp-gs-photo-img', 'c516x688')}</div>`;
 
         return `<div class="rnp-kpi-block${_strategyTab === 4 ? ' rnp-kpi-block--sizes-focus' : ''}">
-          <div class="rnp-kpi-top">
-            <div class="rnp-gs-photo" title="Открыть фото" onclick="RNP.openPhoto(this)">${_imgHtml(art, 'rnp-gs-photo-img', 'c516x688')}</div>
+          <div class="rnp-kpi-top${_isPhone() ? ' rnp-kpi-top--nophoto' : ''}">
+            ${photoHtml}
             <div class="rnp-gs-name" title="${seller}">${_syncDot(syncSt.level)} ${seller}</div>
             <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
             <div class="rnp-gs-cost">
@@ -3035,8 +3049,18 @@ const RNP = (() => {
         </div>`;
     }
 
+    function _buildPhoneHeroHTML(art, stockBySize) {
+        return `<div class="rnp-phone-hero product-card-mobile-layout">
+          <button type="button" class="rnp-phone-hero-banner" title="Открыть фото" onclick="RNP.openPhoto(this)" aria-label="Фото товара">
+            ${_imgHtml(art, 'rnp-phone-hero-img', 'c516x688')}
+          </button>
+          <div class="rnp-phone-hero-donut" data-nm="${art.nm_id}">${_buildStockDonutHTML(stockBySize)}</div>
+        </div>`;
+    }
+
     function _buildKpiPanelHTML(art, stockBySize, rawData, cal) {
-        return `${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
+        const hero = _isPhone() ? _buildPhoneHeroHTML(art, stockBySize) : '';
+        return `${hero}${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
           <div class="rnp-kpi-sizes-row${_strategyTab === 4 ? ' rnp-kpi-sizes-row--focus' : ''}">${_phoneCollapseHtml('stock', 'Остатки', _phoneStockOpen, `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`)}</div>`;
     }
 
