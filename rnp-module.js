@@ -93,6 +93,7 @@ const RNP = (() => {
     let _marqueeRoRaf = 0;
     let _marqueeSyncing = false;
     let _planPeriod = 'week';
+    let _weeksCollapsed = true;
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
@@ -1386,8 +1387,12 @@ const RNP = (() => {
     }
 
     function _buildCalendar() {
-        if (_planPeriod === 'month') return _buildMonthCalendar(new Date());
-        return _buildWeekCalendar(_refDate());
+        const useMonth = _planPeriod === 'month' && !_isPhone();
+        const cal = useMonth ? _buildMonthCalendar(new Date()) : _buildWeekCalendar(_refDate());
+        if (cal.mode === 'week' && _isPhone() && _weeksCollapsed) {
+            return { ...cal, weeks: [], weeksAvailable: cal.weeks.length };
+        }
+        return { ...cal, weeksAvailable: (cal.weeks || []).length };
     }
 
     function _calAllDates(cal) {
@@ -2501,8 +2506,57 @@ const RNP = (() => {
         }).join('');
     }
 
+    function _periodChipLabel() {
+        const d = _refDate() || new Date();
+        const month = d.toLocaleString('ru', { month: 'long', year: 'numeric' });
+        return `${_refMonthKey ? '' : 'Текущий · '}${month}`;
+    }
+
+    function _settingsGearSvg() {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>`;
+    }
+
+    function _buildPhoneActionBar() {
+        const open = !_weeksCollapsed;
+        return `<div class="rnp-action-bar rnp-action-bar--phone">
+          <div class="rnp-period-chip">
+            <span class="rnp-period-chip-text">${_periodChipLabel()}</span>
+            <button type="button" class="rnp-period-chevron-btn${open ? ' is-open' : ''}" onclick="RNP.togglePrevWeeks()" title="Недели прошлого месяца" aria-expanded="${open ? 'true' : 'false'}" aria-label="Показать недели прошлого месяца">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+            </button>
+          </div>
+          <button type="button" class="rnp-settings-gear" onclick="RNP.openSettings()" title="Настройки РНП" aria-label="Настройки РНП">
+            ${_settingsGearSvg()}
+          </button>
+        </div>`;
+    }
+
+    function _settingsPhoneToolsHtml() {
+        return `<div class="widget-card p-5 rnp-settings-phone-tools">
+            <h3 class="font-semibold mb-3" style="color:var(--text-primary)">Таблица</h3>
+            <div class="rnp-settings-phone-tools-grid">
+              <select onchange="RNP.setView(this.value)" title="Секции таблицы">
+                <option value="all"${_sectionView === 'all' ? ' selected' : ''}>Все секции</option>
+                <option value="sales_finance"${_sectionView === 'sales_finance' ? ' selected' : ''}>Заказы + Финансы</option>
+                <option value="compact"${_sectionView === 'compact' ? ' selected' : ''}>Компакт</option>
+              </select>
+              <select title="Период планирования" onchange="RNP.setPlanPeriod(this.value)">
+                <option value="week"${_planPeriod === 'week' ? ' selected' : ''}>План → неделя</option>
+                <option value="month"${_planPeriod === 'month' ? ' selected' : ''}>План → месяц</option>
+              </select>
+              <select title="Месяц" onchange="RNP.setRefMonth(this.value)">${_monthOptionsHtml()}</select>
+              <button type="button" onclick="RNP.copyPlanFromPrevWeek()">↵ План</button>
+              <button type="button" onclick="RNP.exportExcel()">Excel</button>
+              <button type="button" onclick="RNP.toggleEditMode()">${_editMode ? 'Готово' : 'Редактировать'}</button>
+            </div>
+          </div>`;
+    }
+
     function _buildActionBar(active) {
-        return `<div class="rnp-action-bar">
+        return `${_buildPhoneActionBar()}<div class="rnp-action-bar rnp-action-bar--desktop">
           <select onchange="RNP.setView(this.value)" title="Секции таблицы">
             <option value="all"${_sectionView === 'all' ? ' selected' : ''}>Все секции</option>
             <option value="sales_finance"${_sectionView === 'sales_finance' ? ' selected' : ''}>Заказы + Финансы</option>
@@ -2521,10 +2575,7 @@ const RNP = (() => {
             onclick="RNP.toggleEditMode()" title="Режим выделения ячеек">${_editMode ? 'Готово' : 'Редактировать'}</button>
           <span id="rnp-freshness" hidden></span>
           <button type="button" class="rnp-settings-gear" onclick="RNP.openSettings()" title="Настройки РНП" aria-label="Настройки РНП">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <circle cx="12" cy="12" r="3"></circle>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-            </svg>
+            ${_settingsGearSvg()}
           </button>
         </div>`;
     }
@@ -2819,6 +2870,13 @@ const RNP = (() => {
         await _loadAllDailyData(active.map(a => a.nm_id));
         _refreshActionBar();
         await _renderActiveTable();
+    }
+
+    async function togglePrevWeeks() {
+        _weeksCollapsed = !_weeksCollapsed;
+        try { localStorage.setItem('rnp_weeks_collapsed', _weeksCollapsed ? '1' : '0'); } catch (e) {}
+        _refreshActionBar();
+        if (_activeNm !== SUMMARY_TAB) await _renderActiveTable();
     }
 
     function setCompare(nmId) {
@@ -4383,6 +4441,7 @@ const RNP = (() => {
         const cabLabel = _cabinetLabel();
         el.innerHTML = `
         <div class="space-y-5">
+          ${_settingsPhoneToolsHtml()}
           <div class="widget-card p-5">
             <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
               <h3 id="rnp-settings-title" class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">Основные настройки</h3>
@@ -4600,6 +4659,10 @@ const RNP = (() => {
             _planPeriod = pp === 'month' ? 'month' : (pp === 'week' ? 'week' : (_settings.defaultPlanPeriod || 'week'));
         } catch (e) { _planPeriod = _settings.defaultPlanPeriod || 'week'; }
         try { _refMonthKey = localStorage.getItem('rnp_ref_month') || null; } catch (e) { _refMonthKey = null; }
+        try {
+            const wc = localStorage.getItem('rnp_weeks_collapsed');
+            _weeksCollapsed = wc === null ? true : wc === '1';
+        } catch (e) { _weeksCollapsed = true; }
         try {
             const gc = localStorage.getItem('rnp_gallery_collapsed');
             _galleryCollapsed = gc === null ? false : gc === '1';
@@ -4828,6 +4891,7 @@ const RNP = (() => {
             _refreshMarqueeBaseHtml(body);
             _syncMarqueeFill(body);
         }).catch(() => {});
+        _bindArticleSwipe(body);
     }
 
     function _refreshMarqueeBaseHtml(scope) {
@@ -5521,13 +5585,45 @@ const RNP = (() => {
         return _mainInflight;
     }
 
+    function _bindArticleSwipe(root) {
+        const panel = (root || document).querySelector('.rnp-article-panel--phone');
+        if (!panel || panel.dataset.swipeBound === '1') return;
+        panel.dataset.swipeBound = '1';
+        let x0 = 0, y0 = 0, t0 = 0;
+        panel.addEventListener('touchstart', (e) => {
+            const t = e.changedTouches[0];
+            x0 = t.clientX; y0 = t.clientY; t0 = Date.now();
+        }, { passive: true });
+        panel.addEventListener('touchend', (e) => {
+            const t = e.changedTouches[0];
+            const dx = t.clientX - x0;
+            const dy = t.clientY - y0;
+            if (Date.now() - t0 > 700) return;
+            if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
+            const ids = _cabArticles().filter(a => a.is_active).map(a => a.nm_id);
+            const i = ids.indexOf(_activeNm);
+            if (i < 0) return;
+            const next = dx < 0 ? ids[i + 1] : ids[i - 1];
+            if (next != null) pick(next);
+        }, { passive: true });
+    }
+
     async function pick(nmId) {
         if (nmId === GENERAL_TAB || nmId === 'general') _activeNm = GENERAL_TAB;
         else if (nmId === SUMMARY_TAB || nmId === 'summary') _activeNm = SUMMARY_TAB;
         else _activeNm = Number(nmId);
         if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm === _compareNm) _compareNm = null;
         try { sessionStorage.setItem('rnp_active_nm', String(_activeNm)); } catch (e) {}
+        const body = document.getElementById('rnp-sheet-body');
+        if (body && _isPhone()) {
+            if (body.classList.contains('rnp-sheet-body--swap')) return;
+            body.classList.add('rnp-sheet-body--swap');
+            await new Promise(r => setTimeout(r, 140));
+        }
         await _renderActiveTable();
+        if (body && _isPhone()) {
+            requestAnimationFrame(() => body.classList.remove('rnp-sheet-body--swap'));
+        }
     }
 
     async function syncArts() {
@@ -5963,7 +6059,7 @@ const RNP = (() => {
     });
 
     return { init, initCore, ensureReady, openSettings, closeSettings, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
-             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, toggleGalleryPanel, toggleEditMode, setStockSchemeView,
+             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
 

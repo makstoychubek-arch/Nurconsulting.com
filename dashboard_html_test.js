@@ -109,12 +109,14 @@ assert.ok(html.includes('id="nr-bottom-nav"'), 'mobile bottom nav must exist');
 {
     const bn = html.slice(html.indexOf('id="nr-bottom-nav"'), html.indexOf('id="nr-beta-overlay"'));
     assert.ok(
-        bn.indexOf('id="bn-theme"') < bn.indexOf('id="bn-rnp"') &&
+        bn.indexOf('id="bn-settings"') < bn.indexOf('id="bn-rnp"') &&
         bn.indexOf('id="bn-rnp"') < bn.indexOf('id="bn-dash"') &&
         bn.indexOf('id="bn-dash"') < bn.indexOf('id="bn-rk"') &&
         bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-beta"'),
-        'bottom nav order: theme, РНП, Дашборд, РК, BETA'
+        'bottom nav order: settings, РНП, Дашборд, РК, BETA'
     );
+    assert.ok(!bn.includes('id="bn-theme"') && !bn.includes('toggleTheme()'),
+        'theme toggle is not on the bottom nav');
 }
 assert.ok(html.includes('bottom-nav-btn--home') && html.includes('id="bn-dash"'),
     'dashboard is the accent center item on the bottom nav');
@@ -148,9 +150,26 @@ assert.ok(
 assert.ok(html.includes('.mobile-menu-btn { display: none !important; }'),
     'hamburger stays hidden on mobile once the bottom nav is the entry');
 assert.ok(
-    html.includes('.bottom-nav-btn .bn-ico-moon { display: none; }') &&
-    html.includes('[data-theme="neon"] .bottom-nav-btn .bn-ico-sun { display: none; }'),
-    'theme icon must beat .bn-ico { display:flex } so sun and moon do not stack'
+    html.includes('class="beta-theme-row"') &&
+    html.includes('flyout-sec">Оформление') &&
+    html.includes('[data-theme="neon"] .beta-theme-ico-sun { display: none; }'),
+    'theme toggle lives in BETA, with one visible sun/moon icon'
+);
+{
+    const railIcons = html.slice(html.indexOf('class="rail-bottom-icons"'), html.indexOf('id="fly-beta"'));
+    assert.ok(railIcons.includes('id="rail-settings-btn"') && !railIcons.includes('toggleTheme()'),
+        'left rail keeps the settings gear and drops the theme switch');
+}
+assert.ok(
+    html.includes("settings: 'bn-settings'") &&
+    html.includes('querySelectorAll(\'.beta-theme-label\')'),
+    'settings highlights the bottom-nav gear; theme labels update in BETA'
+);
+assert.ok(
+    html.includes('.rnp-action-bar--phone') &&
+    html.includes('.rnp-period-chip') &&
+    html.includes('.rnp-action-bar--desktop { display: none !important; }'),
+    'phone RNP bar is period + chevron + gear; desktop tools hide on mobile'
 );
 assert.ok(
     html.includes('dash-kpi-hero') &&
@@ -424,6 +443,12 @@ assert.ok(rnpSrc.includes('function _isPhone()'), 'RNP must detect a phone viewp
 assert.ok(rnpSrc.includes('function _isNarrow()'), 'iPad uses the same swipe sheet as iPhone');
 assert.ok(rnpSrc.includes('const PHONE_METRIC_W = 108'), 'phone metric column is narrower than desktop');
 assert.ok(rnpSrc.includes('rnp-article-panel--phone'), 'article KPI lifts above the sheet on a phone');
+assert.ok(rnpSrc.includes('function togglePrevWeeks') && rnpSrc.includes('rnp-action-bar--phone'),
+    'phone RNP bar is period + chevron; weeks of last month stay behind the arrow');
+assert.ok(rnpSrc.includes('rnp-settings-phone-tools') && rnpSrc.includes('_weeksCollapsed'),
+    'Excel/План/секции move into RNP settings on the phone');
+assert.ok(rnpSrc.includes('function _bindArticleSwipe') && rnpSrc.includes('rnp-sheet-body--swap'),
+    'article cards swipe and fade like a desktop pick');
 assert.ok(rnpSrc.includes('if (_isNarrow()) return null;'), 'weeks/ИТОГ swipe on phone and iPad, they are not removed');
 assert.ok(rnpSrc.includes('function _colgroupHTML'), 'colgroup pins week/day widths so Safari cannot squash Нед 1–5');
 assert.ok(rnpSrc.includes('function _sheetMinWidthPx'), 'sheet width is the sum of metric + spark + every week/day column');
