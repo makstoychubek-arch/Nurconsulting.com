@@ -1062,14 +1062,14 @@ const RNP = (() => {
         return entries;
     }
     function _isCatCollapsed(cat) {
-        return false;
+        try { return (JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'))[cat] === true; }
+        catch (e) { return false; }
     }
     function toggleCategory(cat) {
-        try {
-            const map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}');
-            map[cat] = false;
-            localStorage.setItem('rnp_collapsed_cats', JSON.stringify(map));
-        } catch (e) {}
+        let map = {};
+        try { map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'); } catch (e) {}
+        map[cat] = !_isCatCollapsed(cat);
+        try { localStorage.setItem('rnp_collapsed_cats', JSON.stringify(map)); } catch (e) {}
         _refreshTabsBar();
         if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB) _renderActiveTable();
     }
@@ -2370,9 +2370,10 @@ const RNP = (() => {
         const genActive = _activeNm === GENERAL_TAB;
         const groups = _groupByCategory(active);
         const groupsHtml = groups.map(([cat, list]) => {
+            const collapsed = _isCatCollapsed(cat);
             const hasActive = list.some(a => a.nm_id == _activeNm);
             const catEsc = cat.replace(/'/g, "\\'");
-            const tabsHtml = list.map(a => {
+            const tabsHtml = collapsed ? '' : list.map(a => {
                 const noImg = lite || list.length > 25;
                 const st = noImg ? { level: 'green' } : _syncStatus(a.nm_id);
                 const label = _sellerArticle(a);
@@ -2382,13 +2383,13 @@ const RNP = (() => {
                   <span class="rnp-tab-label">${label.replace(/</g, '&lt;')}</span>
                 </div>`;
             }).join('');
-            return `<div class="rnp-cat-group">
-              <div class="rnp-cat-header${hasActive ? ' has-active' : ''}" onclick="RNP.toggleCategory('${catEsc}')" title="${cat.replace(/"/g, '&quot;')}">
-                <span class="rnp-cat-arrow">▾</span>
+            return `<div class="rnp-cat-group${collapsed ? ' collapsed' : ''}">
+              <div class="rnp-cat-header${hasActive ? ' has-active' : ''}" onclick="RNP.toggleCategory('${catEsc}')" title="Свернуть/развернуть группу">
+                <span class="rnp-cat-arrow">${collapsed ? '▸' : '▾'}</span>
                 <span class="rnp-cat-name">${cat.replace(/</g, '&lt;')}</span>
                 <span class="rnp-cat-count">${list.length}</span>
               </div>
-              <div class="rnp-cat-tabs">${tabsHtml}</div>
+              ${collapsed ? '' : `<div class="rnp-cat-tabs">${tabsHtml}</div>`}
             </div>`;
         }).join('');
         return `<div class="rnp-sheet-tab rnp-tab-general${genActive ? ' active' : ''}" onclick="RNP.pick('general')">
@@ -5495,7 +5496,7 @@ const RNP = (() => {
         const key = `${nmId}:${sectionId}`;
         if (_collapsedSections.has(key)) _collapsedSections.delete(key);
         else _collapsedSections.add(key);
-        if (_activeNm == nmId) await _renderActiveTable();
+        await _renderActiveTable();
     }
 
     let _cabinetListenerBound = false;
