@@ -376,6 +376,11 @@ assert.ok(
 );
 assert.ok(rnpSrc.includes('class="rnp-settings-gear"'), 'RNP toolbar has a small gear for settings');
 assert.ok(html.includes('id="rnp-settings-overlay"'), 'RNP settings open as an overlay, not a second page');
+assert.ok(html.includes('function cabinetDisplayName'), 'cabinet picker shows legal IP names, not Baza/Elium letters');
+assert.ok(html.includes('ИП Бейшеев А.Д.') && html.includes('ИП Айзада'), 'Baza and Elium show the IP names from WB');
+assert.ok(html.includes('ИП Уркунбаев К.А.') && html.includes('ОсОО «Айлин Стиль»'), 'Zevina 1/2 show the legal names from WB');
+assert.ok(!html.includes('id="cabinet-picker-initial"'), 'letter avatar next to the cabinet name is gone');
+assert.ok(!html.includes('cab-dot'), 'dropdown no longer draws B/E/Z circles');
 assert.ok(
     html.includes('input[type="number"]::-webkit-inner-spin-button')
         && html.includes('input[type="number"]::-webkit-outer-spin-button')

@@ -481,14 +481,14 @@
         .nav-item-standalone.active { box-shadow: none; background: var(--sel); }
         .cabinet-picker {
             position: relative; display: inline-flex; align-items: center;
-            min-width: 0; max-width: 220px; z-index: 60;
+            min-width: 0; max-width: 280px; z-index: 60;
             overflow: visible;
         }
         .cabinet-picker.open { z-index: 9999; }
         .cabinet-picker-native { display: none !important; }
         .cabinet-picker-btn {
             display: flex; align-items: center; gap: 8px;
-            padding: 4px 12px 4px 4px; border-radius: 999px;
+            padding: 6px 12px; border-radius: 999px;
             border: none;
             background: var(--sel);
             backdrop-filter: none; cursor: pointer;
@@ -507,7 +507,7 @@
         }
         .cabinet-dropdown-menu {
             position: absolute; top: calc(100% + 8px); right: 0;
-            min-width: 220px; max-width: 280px; max-height: 300px;
+            min-width: 260px; max-width: 340px; max-height: 300px;
             overflow-y: auto;
             background: #fff;
             backdrop-filter: none;
@@ -533,24 +533,10 @@
         .cabinet-dropdown-item.active {
             background: var(--accent-soft); color: var(--accent); font-weight: 600;
         }
-        .cabinet-dropdown-item .cab-dot {
-            width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
-            background: var(--sel);
-            border: none;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 10px; font-weight: 800; color: #111;
-        }
-        .cabinet-picker-dot {
-            width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-            background: #111;
-            border: none;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 11px; font-weight: 800; color: #fff; letter-spacing: -0.02em;
-        }
         .cabinet-picker-label {
             font-size: 12px; font-weight: 600; color: var(--text-primary);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            max-width: 110px; line-height: 1.2;
+            max-width: 200px; line-height: 1.2;
         }
         .cabinet-picker-chevron {
             width: 14px; height: 14px; flex-shrink: 0; opacity: 0.45;
@@ -2784,7 +2770,7 @@
                 white-space: nowrap;
                 max-width: 140px;
             }
-            .cabinet-picker-label { max-width: 72px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .cabinet-picker-label { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .cabinet-picker-btn { padding: 6px 10px !important; }
             #refresh-btn { width: 40px; height: 40px; padding: 0 !important; justify-content: center; }
             .main-content { padding: 16px 12px !important; }
@@ -3085,7 +3071,6 @@
                     <div class="cabinet-picker" id="cabinet-picker-wrap">
                         <button type="button" class="cabinet-picker-btn" id="cabinet-picker-btn" onclick="toggleCabinetDropdown(event)">
                             <span class="cabinet-picker-face">
-                                <span class="cabinet-picker-dot" id="cabinet-picker-initial">—</span>
                                 <span class="cabinet-picker-label" id="cabinet-picker-label">Кабинет</span>
                                 <svg class="cabinet-picker-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="6 9 12 15 18 9"/></svg>
                             </span>
@@ -5623,9 +5608,9 @@
         const grid = document.getElementById('adv-cards-grid');
         if (!grid) return;
         grid.innerHTML = cards.map(c => `
-            <button type="button" class="advcab-card" onclick="openAdvertisingCabinetDetail('${escapeHtml(String(c.id))}','${escapeHtml(c.name).replace(/'/g, "\\'")}')">
+            <button type="button" class="advcab-card" onclick="openAdvertisingCabinetDetail('${escapeHtml(String(c.id))}','${escapeHtml(cabinetDisplayName(c.name)).replace(/'/g, "\\'")}')">
                 <div class="advcab-card-head">
-                    <span class="advcab-card-name">${escapeHtml(c.name)}</span>
+                    <span class="advcab-card-name">${escapeHtml(cabinetDisplayName(c.name))}</span>
                     ${advStatusPillHtml(c.activeCampaigns, c.pausedCampaigns, c.hasSpendNoResult)}
                 </div>
                 <div class="text-xs" style="color:var(--text-muted)">Активных РК: ${c.activeCampaigns}${c.pausedCampaigns ? ` · на паузе: ${c.pausedCampaigns}` : ''}</div>
@@ -6741,7 +6726,7 @@
             if (filterEl) {
                 const prev = filterEl.value;
                 filterEl.innerHTML = cabinets.map(c =>
-                    `<option value="${escapeHtml(String(c.id))}">${escapeHtml(c.name)}</option>`
+                    `<option value="${escapeHtml(String(c.id))}">${escapeHtml(cabinetDisplayName(c.name))}</option>`
                 ).join('');
                 const defaultId = (prev && cabIds.includes(prev)) ? prev : (currentCabinetId && cabIds.includes(currentCabinetId) ? currentCabinetId : cabIds[0]);
                 filterEl.value = defaultId;
@@ -7257,12 +7242,20 @@
         onDateRangeApplied();
     }
 
+    function cabinetDisplayName(name) {
+        const raw = String(name || '').trim();
+        if (!raw) return 'Кабинет';
+        if (/zevina\s*2|зевин[аa]?\s*2/i.test(raw)) return 'ОсОО «Айлин Стиль»';
+        if (/zevina|зевин|ailin|уркунбаев/i.test(raw)) return 'ИП Уркунбаев К.А.';
+        if (/elium|элиум|айзада/i.test(raw)) return 'ИП Айзада';
+        if (/^baza$|^baz\.a$/i.test(raw)) return 'ИП Бейшеев А.Д.';
+        return raw;
+    }
+
     function updateCabinetPickerUI(name) {
         const label = document.getElementById('cabinet-picker-label');
-        const dot = document.getElementById('cabinet-picker-initial');
-        const n = name || 'Кабинет';
+        const n = cabinetDisplayName(name);
         if (label) label.textContent = n;
-        if (dot) dot.textContent = n.charAt(0).toUpperCase();
         const hidden = document.getElementById('cabinet-name-header');
         if (hidden) hidden.textContent = n;
     }
@@ -7281,12 +7274,11 @@
         }
         menu.innerHTML = data.map(c => `
             <div class="cabinet-dropdown-item${c.id === currentCabinetId ? ' active' : ''}" onclick="selectCabinet('${escapeHtml(String(c.id))}')">
-                <span class="cab-dot">${escapeHtml(c.name.charAt(0).toUpperCase())}</span>
-                <span>${escapeHtml(c.name)}</span>
+                <span>${escapeHtml(cabinetDisplayName(c.name))}</span>
             </div>`).join('');
         if (selectHeader) {
             selectHeader.innerHTML = data.map(c =>
-                `<option value="${escapeHtml(String(c.id))}"${c.id === currentCabinetId ? ' selected' : ''}>${escapeHtml(c.name)}</option>`
+                `<option value="${escapeHtml(String(c.id))}"${c.id === currentCabinetId ? ' selected' : ''}>${escapeHtml(cabinetDisplayName(c.name))}</option>`
             ).join('');
         }
     }
@@ -10012,7 +10004,7 @@
             <div>
                 <div class="ui-list-row">
                     <div>
-                        <div class="ui-list-row-main">${escapeHtml(c.name)}</div>
+                        <div class="ui-list-row-main">${escapeHtml(cabinetDisplayName(c.name))}</div>
                         <div class="ui-list-row-sub" style="font-family:monospace">Токен: ${hasToken ? maskToken(c.wb_token) : 'не задан'}</div>
                     </div>
                     <div class="flex gap-2">
@@ -10212,7 +10204,7 @@
                     const muted = muteSet.has(c.id);
                     return `<div class="tg-mute-row">
                         <div>
-                            <div style="font-weight:600;color:var(--text-primary)">${escapeHtml(c.name)}</div>
+                            <div style="font-weight:600;color:var(--text-primary)">${escapeHtml(cabinetDisplayName(c.name))}</div>
                             <div class="text-xs" style="color:var(--text-muted)">${muted ? 'канал выключен — сообщения не уходят' : 'канал включён'}</div>
                         </div>
                         <button type="button" class="tg-switch ${muted ? '' : 'on'}" onclick="toggleTgCabinetMute('${c.id}','${ch}',${!muted})" aria-pressed="${muted ? 'false' : 'true'}">
@@ -10295,7 +10287,7 @@
             return `<div>
                 <div class="ui-list-row">
                     <div>
-                        <div class="ui-list-row-main">${escapeHtml(c.name)}</div>
+                        <div class="ui-list-row-main">${escapeHtml(cabinetDisplayName(c.name))}</div>
                         <div class="ui-list-row-sub">${has ? 'Ozon подключён · Client-Id ' + escapeHtml(String(c.ozon_client_id)) : 'токен Ozon не задан'}</div>
                     </div>
                     <button class="ui-btn ui-btn-secondary" onclick="toggleEditOzon('${c.id}')">${has ? 'Изменить' : 'Добавить'}</button>
