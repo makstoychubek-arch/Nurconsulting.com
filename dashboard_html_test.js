@@ -142,7 +142,7 @@ assert.ok(
     'bottom nav is a body sibling, not inside the overflow-hidden app shell'
 );
 assert.ok(
-    html.includes('.main-rail {\n                padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;'),
+    html.includes('.main-rail {\n                padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px)) !important;'),
     'page content reserves the pinned bar height plus iPhone home indicator'
 );
 assert.ok(html.includes('.mobile-menu-btn { display: none !important; }'),
