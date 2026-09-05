@@ -1,0 +1,47 @@
+{
+  "name": "NR Space",
+  "short_name": "NR Space",
+  "description": "Кабинет продавца Wildberries",
+  "start_url": "/space",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1C1C1E",
+  "theme_color": "#1C1C1E",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "РНП",
+      "short_name": "РНП",
+      "url": "/rnp",
+      "icons": [{ "src": "/icons/shortcut-rnp.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Дашборд",
+      "short_name": "Дашборд",
+      "url": "/dashboard",
+      "icons": [{ "src": "/icons/shortcut-dashboard.png", "sizes": "96x96", "type": "image/png" }]
+    }
+  ]
+}

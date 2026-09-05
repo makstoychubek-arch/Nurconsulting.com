@@ -1,13 +1,27 @@
 <!DOCTYPE html>
 <html lang="ru" data-theme="ios">
 <head>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%231D1D1F'/><text y='66' font-size='38' font-family='Arial Black,sans-serif' font-weight='900' fill='%23fff' x='50' text-anchor='middle'>NR</text></svg>">
-    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='112' fill='%231D1D1F'/><text y='340' font-size='200' font-family='Arial Black,sans-serif' font-weight='900' fill='%23fff' x='256' text-anchor='middle'>NR</text></svg>">
-    <meta name="theme-color" content="#F5F5F7">
+    <link rel="icon" href="/icons/icon-192.png">
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#1C1C1E">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="NR Space">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-startup-image" href="/splash/splash-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)">
+    <link rel="apple-touch-startup-image" href="/splash/splash-1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)">
+    <link rel="apple-touch-startup-image" href="/splash/splash-1206x2622.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3)">
+    <link rel="apple-touch-startup-image" href="/splash/splash-1284x2778.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)">
+    <link rel="apple-touch-startup-image" href="/splash/splash-1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)">
+    <link rel="apple-touch-startup-image" href="/splash/splash-1320x2868.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3)">
+    <link rel="apple-touch-startup-image" href="/splash/splash-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
+    <link rel="apple-touch-startup-image" href="/splash/splash-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2)">
+    <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
+    <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
     <link rel="stylesheet" href="/dist/tailwind.3f7cebf979.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -106,6 +120,16 @@
             --border-color: #3A3A3C;
         }
 
+        html, body {
+            overscroll-behavior: none;
+            touch-action: manipulation;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        input, textarea, select, [contenteditable="true"] {
+            -webkit-user-select: text;
+            user-select: text;
+        }
         body {
             background: var(--bg);
             background-image: var(--bg-mesh);
@@ -116,6 +140,13 @@
             font-family: var(--font-ui);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+        }
+        .main-content {
+            transition: opacity 0.2s ease-in-out;
+        }
+        .main-content.page-transition {
+            opacity: 0;
+            transition: none;
         }
         h1, h2, h3, .header-title, .flyout-title, .section-title, .chart-box-title,
         .kpi-hero-value, .kpi-value, .card-title {
@@ -5696,6 +5727,11 @@
         const saved = localStorage.getItem('nr_theme') || 'ios';
         applyTheme(saved);
     })();
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
+        });
+    }
 
     // ── Toast notifications (replaces modal alerts) ──────────────────────────
     function showNrDialog(type, title, text) {
@@ -5843,7 +5879,7 @@
 
     function resolveTabFromUrl() {
         const path = location.pathname.replace(/\/$/, '') || '/space';
-        if (path === '/space' || path === '/') return null;
+        if (path === '/space' || path === '/' || path === '/dashboard') return null;
         if (PATH_TO_TAB[path]) return PATH_TO_TAB[path];
         const q = new URLSearchParams(location.search).get('tab');
         if (q) return TAB_ALIASES[q] || q;
@@ -6057,6 +6093,14 @@
             return;
         }
         window._betaStubTab = null;
+        const pane = document.querySelector('.main-content');
+        const prevTab = document.querySelector('.tab-content.active');
+        if (pane && prevTab && prevTab.id !== 'tab-' + name) {
+            pane.classList.add('page-transition');
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => pane.classList.remove('page-transition'));
+            });
+        }
         document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.nav-item, .nav-item-standalone').forEach(n => n.classList.remove('active'));
         document.getElementById('tab-' + name)?.classList.add('active');
