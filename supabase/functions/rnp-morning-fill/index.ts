@@ -64,34 +64,55 @@ Deno.serve(async (req) => {
 
     const tg = notify ? await sendKarina(startText(group.title, fillDate, targets.map((c) => c.name))) : { ok: true, skipped: true };
 
-    const results: Record<string, unknown>[] = [];
-    for (const cab of targets) {
-        const token = sanitizeWbToken(cab.wb_token);
-        const row: Record<string, unknown> = { cabinet: cab.name, id: cab.id, days: {} };
-        if (!token || token.length < 50) {
-            row.status = 'error';
-            row.error = 'нет WB-токена';
-            results.push(row);
-            continue;
-        }
-        try {
-            const byDay: Record<string, number> = {};
-            for (const day of days) {
+    const results: Record<string, unknown>[] = targets.map((cab) => ({
+        cabinet: cab.name,
+        id: cab.id,
+        orders: {} as Record<string, number>,
+        status: 'pending',
+    }));
+
+    // День снаружи, кабинеты параллельно: у Зевины разные токены, ждать 61с
+    // дважды подряд не нужно — иначе edge function не укладывается в лимит.
+    for (const day of days) {
+        await Promise.all(targets.map(async (cab, i) => {
+            const row = results[i];
+            if (row.status === 'error') return;
+            const token = sanitizeWbToken(cab.wb_token);
+            if (!token || token.length < 50) {
+                row.status = 'error';
+                row.error = 'нет WB-токена';
+                return;
+            }
+            try {
                 const orders = await fetchSupplierOrdersExactDay(token, day);
                 await writeOrderRows(admin, cab.id, day, orders);
-                byDay[day] = orders.filter((o) => !o.isReturn).length;
+                (row.orders as Record<string, number>)[day] = orders.filter((o) => !o.isReturn).length;
+            } catch (e) {
+                row.status = 'error';
+                row.error = `${day}: ${(e as Error).message}`;
             }
-            row.orders = byDay;
+        }));
+    }
+
+    await Promise.all(targets.map(async (cab, i) => {
+        const row = results[i];
+        if (row.status === 'error') return;
+        const token = sanitizeWbToken(cab.wb_token);
+        try {
             row.rnp_daily = await rebuildRnpDaily(admin, cab.id, days);
-            row.funnel_days = await syncFunnelLast7Days(admin, cab.id, token);
+            try {
+                row.funnel_days = await syncFunnelLast7Days(admin, cab.id, token);
+            } catch (e) {
+                row.funnel_error = (e as Error).message;
+                row.funnel_days = 0;
+            }
             row.articles = await countActiveArticles(admin, cab.id);
             row.status = 'done';
         } catch (e) {
             row.status = 'error';
             row.error = (e as Error).message;
         }
-        results.push(row);
-    }
+    }));
 
     const done = notify
         ? await sendKarina(doneText(group.title, fillDate, today, results))
@@ -190,7 +211,9 @@ async function writeOrderRows(
     if (!dayOrders.length) return;
     const rows = dayOrders.map((o) => ({
         cabinet_id: cabinetId,
-        order_date: String(o.date || dayStr).split('T')[0] || dayStr,
+        // flag=1 отдаёт заказы за календарный день WB — пишем ту дату, которую
+        // просили, а не ISO-дату из timestamp (иначе 4.09 уезжает на 3.09).
+        order_date: dayStr,
         nm_id: o.nmId,
         barcode: o.barcode,
         srid: o.srid || null,
