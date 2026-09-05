@@ -17,11 +17,20 @@
     {
       "source": "/dist/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
+    },
+    {
+      "source": "/sw.js",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }]
+    },
+    {
+      "source": "/manifest.json",
+      "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
     }
   ],
   "rewrites": [
     { "source": "/login", "destination": "/login.html" },
     { "source": "/space", "destination": "/dashboard.html" },
+    { "source": "/dashboard", "destination": "/dashboard.html" },
     { "source": "/rnp", "destination": "/dashboard.html" },
     { "source": "/ab-testing", "destination": "/dashboard.html" },
     { "source": "/advertising", "destination": "/dashboard.html" },
