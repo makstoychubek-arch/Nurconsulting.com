@@ -1950,11 +1950,83 @@ const RNP = (() => {
 
     function _buildMarqueeHTML(art, cal) {
         const periods = _timelinePeriods(art, cal);
-        if (!periods.length) return '<div class="rnp-marquee-empty">—</div>';
+        if (!periods.length) {
+            return '<div class="rnp-head-marquee-pin"><div class="rnp-marquee-empty">—</div></div>';
+        }
         const cards = periods.map(p => _buildTestCardHTML(art, p)).join('');
-        return `<div class="rnp-marquee-wrap">
+        return `<div class="rnp-head-marquee-pin"><div class="rnp-marquee-wrap">
           <div class="rnp-marquee-track">${cards}</div>
-        </div>`;
+        </div></div>`;
+    }
+
+    function _sheetVarsStyle(cal) {
+        return `--rnp-frozen-left:${_leftFrozenPx(cal)}px;--rnp-metric-w:${FROZEN_METRIC_W}px;--rnp-spark-w:${FROZEN_SPARK_W}px`;
+    }
+
+    function _setCssVar(el, name, value) {
+        if (!el) return;
+        if (el.style.getPropertyValue(name) !== value) el.style.setProperty(name, value);
+    }
+
+    function _setInlineLeft(el, px) {
+        const next = `${Math.round(px)}px`;
+        if (el.style.left !== next) el.style.left = next;
+    }
+
+    /** После раскладки шапка может растянуть frozen-колонки — пересчитываем
+     *  sticky `left` по реальным offsetWidth, иначе недели/ИТОГ уезжают
+     *  под метки, а фотолента «заходит» за карточку. */
+    function _syncFrozenPane(root) {
+        const scope = root || document;
+        scope.querySelectorAll('.rnp-sheet-table').forEach(table => {
+            const scroll = table.closest('.rnp-table-scroll');
+            const metric = table.querySelector('tbody td.rnp-metric-col') || table.querySelector('thead th.rnp-th-metric');
+            const spark = table.querySelector('tbody td.rnp-spark-col') || table.querySelector('thead th.rnp-th-spark');
+            const metricW = metric?.offsetWidth || FROZEN_METRIC_W;
+            const sparkW = spark?.offsetWidth || FROZEN_SPARK_W;
+            _setCssVar(table, '--rnp-metric-w', metricW + 'px');
+            _setCssVar(table, '--rnp-spark-w', sparkW + 'px');
+
+            const ref = [...table.querySelectorAll('tbody tr')].find(tr =>
+                tr.querySelector(':scope > .rnp-col-sticky') &&
+                (tr.querySelector(':scope > .rnp-metric-col') || tr.querySelector(':scope > .rnp-spark-col'))
+            );
+            const lefts = [];
+            let acc = metricW + sparkW;
+            if (ref) {
+                [...ref.children].forEach(cell => {
+                    if (!cell.classList.contains('rnp-col-sticky')) return;
+                    lefts.push(acc);
+                    acc += cell.offsetWidth;
+                });
+            }
+            const leftTh = table.querySelector('.rnp-head-left');
+            const frozen = Math.max(acc, leftTh?.offsetWidth || 0, metricW + sparkW);
+            _setCssVar(table, '--rnp-frozen-left', `${Math.round(frozen)}px`);
+            if (scroll) _setCssVar(scroll, '--rnp-frozen-left', `${Math.round(frozen)}px`);
+
+            table.querySelectorAll('tr').forEach(tr => {
+                const stickies = [...tr.children].filter(c => c.classList.contains('rnp-col-sticky'));
+                stickies.forEach((cell, i) => {
+                    if (lefts[i] != null) _setInlineLeft(cell, lefts[i]);
+                });
+            });
+
+            const prev = table.querySelector('.rnp-th-month-prev');
+            if (prev) _setInlineLeft(prev, metricW + sparkW);
+            table.querySelectorAll('.rnp-th-month-stick').forEach(el => _setInlineLeft(el, frozen));
+
+            const pin = table.querySelector('.rnp-head-marquee-pin');
+            if (pin && leftTh) {
+                const h = leftTh.offsetHeight;
+                if (h > 0 && pin.style.height !== `${h}px`) pin.style.height = `${h}px`;
+            }
+            if (scroll) {
+                const visible = Math.max(160, scroll.clientWidth - frozen);
+                _setCssVar(table, '--rnp-marquee-visible', `${Math.round(visible)}px`);
+                _setCssVar(scroll, '--rnp-marquee-visible', `${Math.round(visible)}px`);
+            }
+        });
     }
 
     function _articleMoneyRub(kpi) {
@@ -2056,7 +2128,7 @@ const RNP = (() => {
             const totalSt = _stickyColAttrs(0, cols, 11, 31);
             const totalTh = `<th class="rnp-th-week rnp-th-total rnp-data-col${totalSt.cls}"${totalSt.style ? ` style="${totalSt.style}"` : ''}>ИТОГ</th>`;
             const monthSubs = cal.months.map(m => `<th class="rnp-th-dow rnp-month-col${m.isCurrent ? ' is-current' : ''}">${m.dayCount} дн</th>`).join('');
-            return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes">
+            return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes" style="${_sheetVarsStyle(cal)}">
           <thead>
             <tr class="rnp-cal-quarter-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
@@ -2092,7 +2164,7 @@ const RNP = (() => {
         const dowTotal = cal.weeks.length ? `<th class="rnp-th-dow rnp-data-col${dowTotalSt.cls}"${dowTotalSt.style ? ` style="${dowTotalSt.style}"` : ''}></th>` : '';
         const dowDays = cal.days.map(d => `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
-        return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes">
+        return `<table class="rnp-sheet-table rnp-sheet-table--cabinet${galleryCls} rnp-sheet-table--no-notes" style="${_sheetVarsStyle(cal)}">
           <thead>
             <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
@@ -4431,6 +4503,10 @@ const RNP = (() => {
             if (bar) bar.innerHTML = _buildActionBar(active);
             _applyResolvedPhotos(body);
             _afterTableRender();
+            requestAnimationFrame(() => {
+                _syncFrozenPane(body);
+                _bindMarqueeResize(body);
+            });
             _preloadPhotosBackground(active).then(() => _applyResolvedPhotos(body));
             return;
         }
@@ -4479,8 +4555,12 @@ const RNP = (() => {
         _afterTableRender();
         _refreshMarqueeBaseHtml(body);
         requestAnimationFrame(() => {
+            _syncFrozenPane(body);
             _syncMarqueeFill(body);
-            requestAnimationFrame(() => _syncMarqueeFill(body));
+            requestAnimationFrame(() => {
+                _syncFrozenPane(body);
+                _syncMarqueeFill(body);
+            });
             _bindMarqueeResize(body);
         });
         _preloadGalleryPhotos(art.nm_id).then(() => {
@@ -4512,19 +4592,21 @@ const RNP = (() => {
         }
         if (typeof ResizeObserver === 'undefined') return;
         const scope = root || document;
+        const scroll = scope.querySelector('.rnp-table-scroll') || document.getElementById('rnp-table-wrap');
         const left = scope.querySelector('.rnp-head-left');
-        const wrap = scope.querySelector('.rnp-marquee-wrap');
-        const marqueeTh = scope.querySelector('.rnp-head-marquee');
-        if (!left || !wrap) return;
-        _marqueeRo = new ResizeObserver(() => _syncMarqueeFill(scope));
-        _marqueeRo.observe(left);
-        if (marqueeTh) _marqueeRo.observe(marqueeTh);
+        const targets = [scroll, left].filter(Boolean);
+        if (!targets.length) return;
+        _marqueeRo = new ResizeObserver(() => {
+            _syncFrozenPane(scope);
+            _syncMarqueeFill(scope);
+        });
+        targets.forEach(el => _marqueeRo.observe(el));
     }
 
     function _syncMarqueeFill(root) {
         const scope = root || document;
+        _syncFrozenPane(scope);
         const left = scope.querySelector('.rnp-head-left');
-        const marqueeTh = scope.querySelector('.rnp-head-marquee');
         scope.querySelectorAll('.rnp-marquee-wrap').forEach(wrap => {
             const track = wrap.querySelector('.rnp-marquee-track');
             if (!track || !track.children.length) return;
@@ -4551,7 +4633,10 @@ const RNP = (() => {
             const nDayCols = scope.querySelectorAll('.rnp-th-date.rnp-day-col').length;
             const colUnit = nMonthCols ? MONTH_COL_W : DAY_COL_W;
             const nCols = nMonthCols || nDayCols;
-            const viewW = wrap.clientWidth || marqueeTh?.clientWidth || (isBottomGallery ? wrap.clientWidth : nCols * colUnit) || 0;
+            const pin = wrap.closest('.rnp-head-marquee-pin');
+            const viewW = isBottomGallery
+                ? (wrap.clientWidth || 0)
+                : (wrap.clientWidth || pin?.clientWidth || 0) || nCols * colUnit || 0;
             const totalReps = Math.max(3, Math.ceil(viewW / Math.max(setW, 1)));
 
             if (track.children.length !== baseCount * totalReps && oneSetHtml) {
@@ -4629,7 +4714,7 @@ const RNP = (() => {
             ).join('');
 
             return `
-        <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}">
+        <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}" style="${_sheetVarsStyle(cal)}">
           <thead>
             ${sheetHead}
             <tr class="rnp-cal-quarter-row">
@@ -4682,7 +4767,7 @@ const RNP = (() => {
             `<th class="rnp-th-dow rnp-day-col">${d.dow || ''}</th>`).join('');
 
         return `
-        <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}">
+        <table class="rnp-sheet-table${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}" style="${_sheetVarsStyle(cal)}">
           <thead>
             ${sheetHead}
             <tr class="rnp-cal-month-row">
@@ -4909,6 +4994,7 @@ const RNP = (() => {
     function _afterTableRender() {
         _applyEditMode();
         _updateEditModeBtn();
+        _syncFrozenPane(document.getElementById('rnp-root') || document);
     }
 
     function _updateEditModeBtn() {

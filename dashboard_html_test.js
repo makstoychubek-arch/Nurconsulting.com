@@ -156,6 +156,10 @@ assert.ok(
 assert.ok(rnpSrc.includes('function _monthStickLabel'), 'month title must stay visible when scrolling days');
 assert.ok(rnpSrc.includes('rnp-th-month-prev'), 'previous-month header must stick over frozen week columns');
 assert.ok(html.includes('rnp-th-month-stick'), 'month stick label CSS must exist');
+assert.ok(html.includes('rnp-head-marquee-pin'), 'photo marquee must pin at the frozen edge while days scroll');
+assert.ok(rnpSrc.includes('rnp-head-marquee-pin'), 'marquee HTML wraps photos in the sticky pin');
+assert.ok(rnpSrc.includes('function _syncFrozenPane'), 'week/ИТОГ sticky left must be measured after layout');
+assert.ok(!/contain:\s*layout style paint/.test(html), 'paint containment on the marquee clips the sticky photo pin');
 assert.ok(rnpSrc.includes('_loadPlans(dateFrom, dateTo)'), 'plans must be loaded only for the visible calendar range');
 assert.ok(
     rnpSrc.includes("content_cards") && rnpSrc.includes('force: true') && rnpSrc.includes('refreshArticles'),
