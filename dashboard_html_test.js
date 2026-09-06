@@ -517,20 +517,18 @@ assert.ok(rnpSrc.includes('_phoneKpiOpen = false; _phoneStockOpen = false'),
 assert.ok(
     rnpSrc.includes('function _buildPhoneHeroHTML') &&
     rnpSrc.includes('rnp-phone-hero product-card-mobile-layout') &&
-    rnpSrc.includes('rnp-phone-hero-banner') &&
+    rnpSrc.includes('rnp-phone-hero-slides') &&
     rnpSrc.includes('rnp-phone-hero-donut') &&
-    rnpSrc.includes('rnp-kpi-top--nophoto') &&
-    rnpSrc.includes("const hero = _isPhone() ? _buildPhoneHeroHTML"),
-    'phone card puts a full-width photo banner and stock donut above the article text'
+    rnpSrc.includes('if (_isPhone()) return _buildPhoneHeroHTML'),
+    'phone card is only the photo slideshow and the stock donut'
 );
 assert.ok(
     html.includes('.rnp-phone-hero') &&
     html.includes('.product-card-mobile-layout') &&
-    html.includes('.rnp-phone-hero-banner') &&
-    html.includes('.rnp-kpi-top--nophoto') &&
-    html.includes('"name  name"') &&
-    html.includes('.rnp-article-panel--phone .rnp-gs-photo { display: none; }'),
-    'phone CSS: full-width banner + text without the leftover square photo'
+    html.includes('.rnp-phone-hero-slides') &&
+    html.includes('.rnp-article-panel--phone .rnp-kpi-top') &&
+    html.includes('.rnp-table-scroll .rnp-head-panel { display: none; }'),
+    'phone CSS keeps slideshow + donut and hides the article/KPI block'
 );
 assert.ok(rnpSrc.includes('rnp-settings-phone-tools') && rnpSrc.includes('_weeksCollapsed'),
     'Excel/План/секции move into RNP settings on the phone');
@@ -1063,12 +1061,32 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
     const hero = new Function(`
         function _imgHtml() { return '<img class="rnp-phone-hero-img">'; }
         function _buildStockDonutHTML() { return '<div class="rnp-stock-donut"><b>12</b><span>шт</span></div>'; }
+        function _buildMarqueeHTML() { return '<div class="rnp-marquee-wrap"><div class="rnp-test-card">slide</div></div>'; }
         ${grabFn(rnpSrc, '_buildPhoneHeroHTML')}
-        return _buildPhoneHeroHTML({ nm_id: 111 }, {});
+        return {
+            withCal: _buildPhoneHeroHTML({ nm_id: 111 }, {}, {}),
+            noCal: _buildPhoneHeroHTML({ nm_id: 111 }, {}),
+        };
     `)();
-    assert.ok(hero.includes('rnp-phone-hero') && hero.includes('product-card-mobile-layout'));
-    assert.ok(hero.includes('rnp-phone-hero-banner') && hero.includes('rnp-phone-hero-img'));
-    assert.ok(hero.includes('rnp-phone-hero-donut') && hero.includes('data-nm="111"') && hero.includes('rnp-stock-donut'));
+    assert.ok(hero.withCal.includes('rnp-phone-hero') && hero.withCal.includes('product-card-mobile-layout'));
+    assert.ok(hero.withCal.includes('rnp-phone-hero-slides') && hero.withCal.includes('rnp-test-card'));
+    assert.ok(hero.withCal.includes('rnp-phone-hero-donut') && hero.withCal.includes('data-nm="111"') && hero.withCal.includes('rnp-stock-donut'));
+    assert.ok(!hero.withCal.includes('артикул WB') && !hero.withCal.includes('Показатели') && !hero.withCal.includes('себест'));
+    assert.ok(hero.noCal.includes('rnp-phone-hero-banner'));
+
+    const phonePanel = new Function(`
+        function _isPhone() { return true; }
+        function _buildPhoneHeroHTML() { return '<div class="rnp-phone-hero"></div>'; }
+        function _buildKpiTopHTML() { return '<div class="rnp-kpi-top">артикул WB</div>'; }
+        function _phoneCollapseHtml(id, title, open, inner) { return inner; }
+        function _stockSchemeInnerHTML() { return 'SIZES'; }
+        const _strategyTab = 0;
+        const _phoneStockOpen = false;
+        ${grabFn(rnpSrc, '_buildKpiPanelHTML')}
+        return _buildKpiPanelHTML({ nm_id: 1 }, {}, {}, {});
+    `)();
+    assert.strictEqual(phonePanel, '<div class="rnp-phone-hero"></div>',
+        'phone product card must not keep the name/article/KPI block');
 
     function kpiTop(isPhone) {
         return new Function(`
@@ -1092,10 +1110,7 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
             return _buildKpiTopHTML({ nm_id: 222, cost_price: 10 }, {}, {}, {});
         `)();
     }
-    const phoneTop = kpiTop(true);
     const deskTop = kpiTop(false);
-    assert.ok(!phoneTop.includes('rnp-gs-photo') && phoneTop.includes('rnp-kpi-top--nophoto') && phoneTop.includes('артикул WB'),
-        'phone article text uses the full width and drops the leftover square photo');
     assert.ok(deskTop.includes('rnp-gs-photo') && !deskTop.includes('rnp-kpi-top--nophoto'),
         'desktop KPI card still shows the article photo');
 

@@ -3247,14 +3247,34 @@
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
-                margin: 0 0 10px;
+                margin: 0 0 8px;
+            }
+            .rnp-phone-hero-slides {
+                position: relative;
+                height: 176px;
+                overflow: hidden;
+                border-radius: 16px;
+                background: var(--surface);
+            }
+            .rnp-phone-hero-slides .rnp-head-marquee-pin {
+                position: relative;
+                left: 0;
+                width: 100%;
+                max-width: 100%;
+                height: 176px;
+                min-height: 176px;
+                background: transparent;
+            }
+            .rnp-phone-hero-slides .rnp-marquee-wrap {
+                position: absolute;
+                inset: 0;
             }
             .rnp-phone-hero-banner {
                 display: block;
                 width: 100%;
-                height: 148px;
+                height: 176px;
                 padding: 0;
-                border: 1px solid var(--border);
+                border: none;
                 border-radius: 16px;
                 overflow: hidden;
                 background: var(--surface);
@@ -3268,6 +3288,9 @@
                 object-position: center;
                 display: block;
             }
+            .rnp-article-panel--phone .rnp-kpi-top,
+            .rnp-article-panel--phone .rnp-kpi-sizes-row { display: none; }
+            .rnp-table-scroll .rnp-head-panel { display: none; }
             .rnp-phone-hero-donut { min-width: 0; }
             .rnp-phone-hero-donut .rnp-stock-donut {
                 padding: 0;
@@ -4981,7 +5004,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.acb087a612.min.js"></script>
-<script src="/dist/rnp-module.0bb4f0437e.min.js"></script>
+<script src="/dist/rnp-module.5c54ea3aa1.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
