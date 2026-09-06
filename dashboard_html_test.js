@@ -492,8 +492,12 @@ assert.ok(
     html.includes('grid-template-rows: 0fr'),
     'phone collapse CSS hides values until the header is tapped'
 );
-assert.ok(rnpSrc.includes('_phoneKpiOpen = false; _phoneStockOpen = false'),
-    'opening another article starts with both blocks collapsed');
+assert.ok(rnpSrc.includes('let _phoneStockOpen = true'),
+    'phone stock donut starts open and can be collapsed');
+assert.ok(
+    !rnpSrc.includes('_phoneKpiOpen = false; _phoneStockOpen = false'),
+    'switching articles must not force-hide the stock donut'
+);
 {
     const start = rnpSrc.indexOf('function _phoneCollapseHtml');
     const end = rnpSrc.indexOf('function _buildKpiTopHTML');
@@ -520,14 +524,20 @@ assert.ok(
     rnpSrc.includes('rnp-phone-hero-slides') &&
     rnpSrc.includes('rnp-phone-hero-donut') &&
     rnpSrc.includes('if (_isPhone()) return _buildPhoneHeroHTML'),
-    'phone card is only the photo slideshow and the stock donut'
+    'phone card is the photo slideshow plus a collapsible stock donut'
+);
+assert.ok(
+    rnpSrc.includes("_phoneCollapseHtml('stock', 'Остатки', _phoneStockOpen") &&
+    rnpSrc.includes('rnp-phone-hero-donut'),
+    'phone Остатки header hides the FBO/FBS donut'
 );
 assert.ok(
     html.includes('.rnp-phone-hero') &&
     html.includes('.product-card-mobile-layout') &&
     html.includes('.rnp-phone-hero-slides') &&
     html.includes('.rnp-article-panel--phone .rnp-kpi-top') &&
-    html.includes('.rnp-table-scroll .rnp-head-panel { display: none; }'),
+    html.includes('.rnp-table-scroll .rnp-head-panel { display: none; }') &&
+    html.includes('.rnp-collapse.is-open .rnp-phone-hero-donut'),
     'phone CSS keeps slideshow + donut and hides the article/KPI block'
 );
 assert.ok(rnpSrc.includes('rnp-settings-phone-tools') && rnpSrc.includes('_weeksCollapsed'),
@@ -1059,6 +1069,11 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
         'desktop stock scheme still shows the size table and donut together');
 
     const hero = new Function(`
+        function _isPhone() { return true; }
+        const _phoneStockOpen = true;
+        function _phoneCollapseHtml(id, title, open, inner) {
+            return '<div class="rnp-collapse' + (open ? ' is-open' : '') + '" data-block="' + id + '">' + title + inner + '</div>';
+        }
         function _imgHtml() { return '<img class="rnp-phone-hero-img">'; }
         function _buildStockDonutHTML() { return '<div class="rnp-stock-donut"><b>12</b><span>шт</span></div>'; }
         function _buildMarqueeHTML() { return '<div class="rnp-marquee-wrap"><div class="rnp-test-card">slide</div></div>'; }
@@ -1071,6 +1086,7 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
     assert.ok(hero.withCal.includes('rnp-phone-hero') && hero.withCal.includes('product-card-mobile-layout'));
     assert.ok(hero.withCal.includes('rnp-phone-hero-slides') && hero.withCal.includes('rnp-test-card'));
     assert.ok(hero.withCal.includes('rnp-phone-hero-donut') && hero.withCal.includes('data-nm="111"') && hero.withCal.includes('rnp-stock-donut'));
+    assert.ok(hero.withCal.includes('Остатки') && hero.withCal.includes('data-block="stock"') && hero.withCal.includes('is-open'));
     assert.ok(!hero.withCal.includes('артикул WB') && !hero.withCal.includes('Показатели') && !hero.withCal.includes('себест'));
     assert.ok(hero.noCal.includes('rnp-phone-hero-banner'));
 
