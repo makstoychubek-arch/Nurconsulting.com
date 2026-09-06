@@ -95,7 +95,7 @@ const RNP = (() => {
     let _planPeriod = 'week';
     let _weeksCollapsed = true;
     let _phoneKpiOpen = false;
-    let _phoneStockOpen = false;
+    let _phoneStockOpen = true;
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
@@ -3057,7 +3057,7 @@ const RNP = (() => {
           </button>`;
         return `<div class="rnp-phone-hero product-card-mobile-layout">
           <div class="rnp-phone-hero-slides">${slides}</div>
-          <div class="rnp-phone-hero-donut" data-nm="${art.nm_id}">${_buildStockDonutHTML(stockBySize)}</div>
+          ${_phoneCollapseHtml('stock', 'Остатки', _phoneStockOpen, `<div class="rnp-phone-hero-donut" data-nm="${art.nm_id}">${_buildStockDonutHTML(stockBySize)}</div>`)}
         </div>`;
     }
 
@@ -5665,7 +5665,7 @@ const RNP = (() => {
         else _activeNm = Number(nmId);
         if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm === _compareNm) _compareNm = null;
         try { sessionStorage.setItem('rnp_active_nm', String(_activeNm)); } catch (e) {}
-        if (_isPhone()) { _phoneKpiOpen = false; _phoneStockOpen = false; }
+        if (_isPhone()) _phoneKpiOpen = false;
         const body = document.getElementById('rnp-sheet-body');
         if (body && _isPhone()) {
             if (body.classList.contains('rnp-sheet-body--swap')) return;
