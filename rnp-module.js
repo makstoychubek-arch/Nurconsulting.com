@@ -3049,18 +3049,21 @@ const RNP = (() => {
         </div>`;
     }
 
-    function _buildPhoneHeroHTML(art, stockBySize) {
-        return `<div class="rnp-phone-hero product-card-mobile-layout">
-          <button type="button" class="rnp-phone-hero-banner" title="Открыть фото" onclick="RNP.openPhoto(this)" aria-label="Фото товара">
+    function _buildPhoneHeroHTML(art, stockBySize, cal) {
+        const slides = cal
+            ? _buildMarqueeHTML(art, cal)
+            : `<button type="button" class="rnp-phone-hero-banner" title="Открыть фото" onclick="RNP.openPhoto(this)" aria-label="Фото товара">
             ${_imgHtml(art, 'rnp-phone-hero-img', 'c516x688')}
-          </button>
+          </button>`;
+        return `<div class="rnp-phone-hero product-card-mobile-layout">
+          <div class="rnp-phone-hero-slides">${slides}</div>
           <div class="rnp-phone-hero-donut" data-nm="${art.nm_id}">${_buildStockDonutHTML(stockBySize)}</div>
         </div>`;
     }
 
     function _buildKpiPanelHTML(art, stockBySize, rawData, cal) {
-        const hero = _isPhone() ? _buildPhoneHeroHTML(art, stockBySize) : '';
-        return `${hero}${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
+        if (_isPhone()) return _buildPhoneHeroHTML(art, stockBySize, cal);
+        return `${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
           <div class="rnp-kpi-sizes-row${_strategyTab === 4 ? ' rnp-kpi-sizes-row--focus' : ''}">${_phoneCollapseHtml('stock', 'Остатки', _phoneStockOpen, `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`)}</div>`;
     }
 
