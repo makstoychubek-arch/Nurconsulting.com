@@ -897,12 +897,20 @@ assert.ok(
 );
 assert.ok(
     proxySrc.includes("case 'users_invite'") &&
+    proxySrc.includes("case 'users_access'") &&
+    proxySrc.includes('changeExistingUserAccess') &&
     proxySrc.includes("case 'prices_set'") &&
     proxySrc.includes("case 'feedbacks_answer'") &&
     proxySrc.includes("case 'orders_fbs_new'") &&
     proxySrc.includes("case 'passes_create'") &&
     proxySrc.includes("case 'buyer_chats'"),
-    'wb-proxy must expose invite, prices, reviews, FBS, passes and chats'
+    'wb-proxy must expose invite, access change, prices, reviews, FBS, passes and chats'
+);
+assert.ok(
+    html.includes('value="finance"') &&
+    html.includes('function changeAgentUserAccess') &&
+    html.includes("callWbProxy('users_access'"),
+    'Agents tab must change access for an already added user, including finances'
 );
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/functions/_shared/wb-agent-wow.ts')),

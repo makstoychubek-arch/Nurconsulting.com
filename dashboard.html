@@ -11274,6 +11274,7 @@
                 <label class="text-xs" style="color:var(--text-muted)">Права
                     <select id="agent-invite-preset" class="ui-select mt-1">
                         <option value="standard">Стандарт WB</option>
+                        <option value="finance">Финансы и баланс</option>
                         <option value="manager">Менеджер (без финансов)</option>
                         <option value="readonly">Только просмотр</option>
                     </select>
@@ -11291,11 +11292,17 @@
         if (out) out.textContent = 'Создаём приглашение в WB…';
         const data = await callWbProxy('users_invite', { phone, position, preset }, currentCabinetId);
         if (!out) return;
+        if (data?.updated) {
+            out.innerHTML = `<div class="mb-2">Пользователь уже в кабинете — сменила права для ${escapeHtml(data.countryName || '')} ${escapeHtml(data.phone || phone)}</div>
+                <div>Доступ: ${escapeHtml(data.label || preset)}</div>`;
+            return;
+        }
         if (!data || !data.inviteUrl) {
             out.innerHTML = `<span style="color:var(--red)">${escapeHtml(data?.error || 'WB не вернул ссылку. Проверьте, что у токена включена категория «Пользователи».')}</span>`;
             return;
         }
         out.innerHTML = `<div class="mb-2">Готово для ${escapeHtml(data.countryName || '')} ${escapeHtml(data.phone || phone)}</div>
+            <div class="text-xs mb-2">Доступ: ${escapeHtml(data.label || preset)}</div>
             <div class="agent-result-url mb-3">${escapeHtml(data.inviteUrl)}</div>
             <button type="button" class="ui-btn ui-btn-secondary text-sm" onclick="copyAgentText(${JSON.stringify(data.inviteUrl)})">Скопировать ссылку</button>`;
     }
@@ -11315,11 +11322,25 @@
             const name = [u.firstName, u.secondName || u.lastName].filter(Boolean).join(' ') || u.name || 'без имени';
             const phone = u.phone || u.phoneNumber || u.inviteeInfo?.phoneNumber || '';
             const role = u.position || u.role || u.inviteeInfo?.position || '';
+            const access = Array.isArray(u.access) ? u.access : [];
+            const financeOff = access.some((a) => a && a.code === 'finance' && a.disabled);
+            const financeOn = access.some((a) => a && a.code === 'finance' && !a.disabled);
+            const financeMark = pendingFlag ? 'ожидает' : financeOn ? 'финансы есть' : financeOff ? 'без финансов' : '';
+            const canChange = !u.isOwner && !pendingFlag && Number(id);
             return `<tr>
                 <td style="color:var(--text-primary)">${escapeHtml(name)}</td>
                 <td>${escapeHtml(String(phone))}</td>
-                <td>${escapeHtml(String(role))}${pendingFlag ? ' · ожидает' : ''}</td>
-                <td>${u.isOwner ? 'владелец' : `<button type="button" class="adv-camp-action-btn" onclick="deleteAgentUser(${Number(id)})">Удалить</button>`}</td>
+                <td>${escapeHtml(String(role))}${financeMark ? ' · ' + financeMark : ''}${pendingFlag ? ' · ожидает' : ''}</td>
+                <td>${u.isOwner ? 'владелец' : canChange ? `<div class="flex flex-wrap gap-2 items-center">
+                    <select id="agent-access-${Number(id)}" class="ui-select" style="min-width:140px">
+                        <option value="finance">Финансы</option>
+                        <option value="standard">Стандарт</option>
+                        <option value="manager">Без финансов</option>
+                        <option value="readonly">Просмотр</option>
+                    </select>
+                    <button type="button" class="adv-camp-action-btn" onclick="changeAgentUserAccess(${Number(id)})">Сменить</button>
+                    <button type="button" class="adv-camp-action-btn" onclick="deleteAgentUser(${Number(id)})">Удалить</button>
+                </div>` : `<button type="button" class="adv-camp-action-btn" onclick="deleteAgentUser(${Number(id)})">Удалить</button>`}</td>
             </tr>`;
         };
         panel.innerHTML = agentPanelHead(fn) + `
@@ -11336,6 +11357,20 @@
         openAgentFn('team');
     }
     window.deleteAgentUser = deleteAgentUser;
+
+    async function changeAgentUserAccess(userId) {
+        if (!userId) return;
+        const preset = document.getElementById('agent-access-' + userId)?.value || 'finance';
+        const data = await callWbProxy('users_access', { userId, preset }, currentCabinetId);
+        if (!data) return;
+        if (data.error) {
+            showPremiumModal('error', 'Не сменила доступ', data.error);
+            return;
+        }
+        showPremiumModal('success', 'Доступ обновлён', data.label || preset);
+        openAgentFn('team');
+    }
+    window.changeAgentUserAccess = changeAgentUserAccess;
 
     async function renderAgentPrices(panel, fn) {
         if (agentNeedCabinet(panel, fn)) return;

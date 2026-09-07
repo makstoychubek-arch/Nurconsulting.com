@@ -23,8 +23,16 @@ import {
     MARKET_API,
     PRICES_API,
     USERS_API,
+    accessItemsForExistingUser,
     accessPresetItems,
+    accessPresetLabel,
+    findWbUserByPhone,
+    isAccessPreset,
+    isAlreadyAddedInviteError,
     normalizeWbInvitePhone,
+    parseAccessPreset,
+    updateWbUserAccess,
+    userIdOf,
     wbError,
     wbSend,
     type AccessPreset,
@@ -72,6 +80,42 @@ function writeProxyCache(key: string, data: unknown) {
         }
         if (oldestKey) PROXY_RESPONSE_CACHE.delete(oldestKey);
     }
+}
+
+function resolveAccessPreset(raw: unknown): AccessPreset {
+    const fromParam = String(raw || '').trim();
+    if (isAccessPreset(fromParam)) return fromParam;
+    return parseAccessPreset(fromParam) || 'standard';
+}
+
+async function changeExistingUserAccess(
+    token: string,
+    phone: string,
+    preset: AccessPreset,
+): Promise<{ ok: true; userId: number; phone: string; preset: AccessPreset; label: string } | { ok: false; error: string; status: number }> {
+    const found = await findWbUserByPhone(token, phone);
+    if (found.error) return { ok: false, error: found.error, status: 400 };
+    if (!found.user) {
+        return { ok: false, error: 'Пользователь с этим номером в кабинете не найден.', status: 404 };
+    }
+    const userId = userIdOf(found.user);
+    if (!userId) {
+        return {
+            ok: false,
+            error: 'Приглашение ещё не принято — права сменятся после входа в кабинет WB.',
+            status: 409,
+        };
+    }
+    const access = accessItemsForExistingUser(preset);
+    const upd = await updateWbUserAccess(token, userId, access);
+    if (!upd.ok) return { ok: false, error: wbError(upd), status: upd.status >= 500 ? 502 : 400 };
+    return {
+        ok: true,
+        userId,
+        phone,
+        preset,
+        label: accessPresetLabel(preset),
+    };
 }
 
 serve(async (req) => {
@@ -1101,21 +1145,58 @@ serve(async (req) => {
                 const phone = normalizeWbInvitePhone(String(params.phone || ''));
                 if (!phone) return json({ error: 'Укажите телефон с кодом страны: 79…, 996…, 375…' }, 400);
                 const position = String(params.position || 'Сотрудник').slice(0, 150);
-                const preset = String(params.preset || 'standard') as AccessPreset;
-                const access = accessPresetItems(['standard', 'manager', 'readonly'].includes(preset) ? preset : 'standard');
+                const preset = resolveAccessPreset(params.preset);
+                const access = accessPresetItems(preset);
                 const body: Record<string, unknown> = { invite: { phoneNumber: phone.phone, position } };
                 if (access?.length) body.access = access;
                 const res = await wbSend(`${USERS_API}/api/v1/invite`, WB_TOKEN, 'POST', body);
-                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                if (!res.ok) {
+                    const err = wbError(res);
+                    if (isAlreadyAddedInviteError(err)) {
+                        const changed = await changeExistingUserAccess(WB_TOKEN, phone.phone, preset);
+                        if (!changed.ok) return json({ error: changed.error }, changed.status);
+                        result = {
+                            ok: true,
+                            updated: true,
+                            userId: changed.userId,
+                            phone: phone.phone,
+                            countryName: phone.countryName,
+                            preset,
+                            label: changed.label,
+                        };
+                        break;
+                    }
+                    return json({ error: err }, res.status >= 500 ? 502 : 400);
+                }
                 const data = (res.data || {}) as Record<string, unknown>;
                 result = {
                     ok: data.isSuccess !== false,
+                    updated: false,
                     inviteUrl: data.inviteUrl || data.invite_url || null,
                     inviteID: data.inviteID || data.inviteId || null,
                     expiredAt: data.expiredAt || null,
                     phone: phone.phone,
                     countryName: phone.countryName,
+                    preset,
+                    label: accessPresetLabel(preset),
                 };
+                break;
+            }
+            case 'users_access': {
+                const preset = resolveAccessPreset(params.preset || params.access);
+                const userId = Number(params.userId || 0);
+                if (userId) {
+                    const access = accessItemsForExistingUser(preset);
+                    const upd = await updateWbUserAccess(WB_TOKEN, userId, access);
+                    if (!upd.ok) return json({ error: wbError(upd) }, upd.status >= 500 ? 502 : 400);
+                    result = { ok: true, updated: true, userId, preset, label: accessPresetLabel(preset) };
+                    break;
+                }
+                const phone = normalizeWbInvitePhone(String(params.phone || ''));
+                if (!phone) return json({ error: 'Укажите userId или телефон' }, 400);
+                const changed = await changeExistingUserAccess(WB_TOKEN, phone.phone, preset);
+                if (!changed.ok) return json({ error: changed.error }, changed.status);
+                result = { ...changed, updated: true, countryName: phone.countryName };
                 break;
             }
             case 'users_list': {
