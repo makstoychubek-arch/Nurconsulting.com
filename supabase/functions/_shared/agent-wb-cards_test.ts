@@ -13,6 +13,7 @@ import {
   wantsCardSeo,
 } from './agent-wb-cards.ts';
 import {
+  wantsUserAccessChange,
   wantsUserInvite,
   wantsUserList,
   wantsUserRevoke,
@@ -51,7 +52,13 @@ Deno.test('access presets', () => {
   assertEquals(parseAccessPreset('2'), 'manager');
   assertEquals(parseAccessPreset('Менеджер без финансов стандарт'), 'no_finance');
   assertEquals(parseAccessPreset('менеджер'), 'manager');
+  assertEquals(parseAccessPreset('дай доступ к финансам'), 'finance');
+  assertEquals(parseAccessPreset('измени статус на финансы'), 'finance');
+  assertEquals(parseAccessPreset('5'), 'finance');
   assertEquals(accessPresetItems('standard'), undefined);
+  const fin = accessPresetItems('finance')!;
+  assert(fin.some((a) => a.code === 'finance' && !a.disabled));
+  assert(fin.some((a) => a.code === 'balance' && !a.disabled));
   const mgr = accessPresetItems('manager')!;
   assert(mgr.some((a) => a.code === 'balance' && a.disabled));
   assert(mgr.some((a) => a.code === 'finance' && a.disabled));
@@ -89,4 +96,8 @@ Deno.test('extractNm-ish intents still', () => {
   assert(wantsUserList('кто в кабинете база'));
   assert(wantsUserList('покажи доступы'));
   assert(wantsUserRevoke('удали доступ сотрудника'));
+  assert(wantsUserAccessChange('Измени статус на стандарт 996501486648'));
+  assert(wantsUserAccessChange('дай доступ к финансам 996501486648'));
+  assert(wantsUserAccessChange('смени доступ на финансы'));
+  assert(!wantsUserAccessChange('как продажи вчера'));
 });

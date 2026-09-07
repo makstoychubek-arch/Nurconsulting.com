@@ -1,6 +1,6 @@
 /**
  * Диалог Карины: приглашения и доступы в кабинет WB (User Management API).
- * POST /api/v1/invite · GET /api/v1/users · DELETE /api/v1/user
+ * POST /api/v1/invite · GET /api/v1/users · PUT /api/v1/users/access · DELETE /api/v1/user
  *
  * Телефон: цифры с кодом страны без «+» (RU 79…, KG 996…, KZ 7…, BY 375…).
  * Доступы: пресеты standard / manager / no_finance / readonly.
@@ -16,14 +16,19 @@ import {
 } from './agent-actions.ts';
 import { setChatFocus } from './agent-chat-focus.ts';
 import {
+  accessItemsForExistingUser,
   accessPresetItems,
   accessPresetLabel,
   cabinetTokenById,
   createUserInvite,
   deleteCabinetUser,
+  findCabinetUserByPhone,
+  isAlreadyAddedInviteError,
+  listCabinetsWithTokens,
   listCabinetUsers,
   normalizeWbInvitePhone,
   parseAccessPreset,
+  updateUserAccess,
   type AccessPreset,
 } from './agent-wb-api.ts';
 import { fuzzyHasAnyToken, fuzzyMatchBags, normalizeBotText } from './agent-fuzzy.ts';
@@ -35,7 +40,7 @@ export const USERS_AGENT = 'karina';
 export type UsersReply = { handled: boolean; reply?: string };
 
 type UsersPayload = {
-  kind?: 'invite' | 'list' | 'revoke';
+  kind?: 'invite' | 'list' | 'revoke' | 'access';
   step?: string;
   cabinetId?: string;
   cabinetName?: string;
@@ -45,6 +50,7 @@ type UsersPayload = {
   accessPreset?: AccessPreset;
   userId?: number;
   userLabel?: string;
+  targets?: Array<{ cabinetId: string; cabinetName: string; userId: number }>;
 };
 
 function admin() {
@@ -203,8 +209,30 @@ export function wantsUserRevoke(text: string): boolean {
   );
 }
 
+/** Сменить права уже добавленному, не слать новый invite. */
+export function wantsUserAccessChange(text: string): boolean {
+  const t = normalizeBotText(text);
+  if (!t) return false;
+  if (/(измени|смени|поменяй|поменять|сменить|изменить|поправ).{0,28}(статус|доступ|права)/i.test(t)) {
+    return true;
+  }
+  if (/(доступ|права|статус).{0,24}(финанс|стандарт|менеджер|чтение|просмотр)/i.test(t)) {
+    return true;
+  }
+  if (/(дай|дайте|открой|откройте|включи|включите|выдай).{0,24}доступ.{0,20}финанс/i.test(t)) {
+    return true;
+  }
+  if (/доступ к финанс/i.test(t)) return true;
+  return false;
+}
+
 export function wantsWbUsersWork(text: string): boolean {
-  return wantsUserInvite(text) || wantsUserList(text) || wantsUserRevoke(text);
+  return (
+    wantsUserAccessChange(text) ||
+    wantsUserInvite(text) ||
+    wantsUserList(text) ||
+    wantsUserRevoke(text)
+  );
 }
 
 export function isUsersDialogPending(
@@ -272,7 +300,8 @@ function accessAsk(): string {
     '2) менеджер — отзывы/поставки/цены; без финансов и баланса',
     '3) без финансов',
     '4) только просмотр (отзывы/доки)',
-    'Или напиши: стандарт / менеджер / без финансов / чтение',
+    '5) финансы — открыть финансы и баланс',
+    'Или напиши: стандарт / менеджер / без финансов / чтение / финансы',
   ].join('\n');
 }
 
@@ -283,8 +312,67 @@ function inviteConfirm(p: UsersPayload): string {
     `должность: ${p.position || 'Сотрудник'}`,
     `доступ: ${accessPresetLabel(p.accessPreset || 'standard')}`,
     '',
-    '«да» — сгенерирую ссылку. «отмена» — стоп.',
+    '«да» — сгенерирую ссылку. Если человек уже в кабинете — сразу сменю права.',
+    '«отмена» — стоп.',
   ].join('\n');
+}
+
+function accessConfirm(p: UsersPayload): string {
+  const where = (p.targets || [])
+    .map((t) => t.cabinetName)
+    .filter(Boolean)
+    .join(', ') || p.cabinetName || 'кабинет';
+  return [
+    `Меняю доступ, не приглашаю заново.`,
+    `тел. ${p.phone}${p.phoneCountry ? ` · ${p.phoneCountry}` : ''}`,
+    `кабинеты: ${where}`,
+    `доступ: ${accessPresetLabel(p.accessPreset || 'finance')}`,
+    '',
+    '«да» — меняю. «отмена» — стоп.',
+  ].join('\n');
+}
+
+async function applyAccessTargets(
+  targets: Array<{ cabinetId: string; cabinetName: string; userId: number }>,
+  preset: AccessPreset,
+): Promise<string> {
+  const access = accessItemsForExistingUser(preset);
+  const lines: string[] = [];
+  for (const target of targets) {
+    const tok = await cabinetTokenById(target.cabinetId);
+    if (!tok) {
+      lines.push(`${target.cabinetName}: нет токена Users`);
+      continue;
+    }
+    const upd = await updateUserAccess(tok.token, target.userId, access);
+    lines.push(
+      upd.ok
+        ? `${target.cabinetName}: ок · ${accessPresetLabel(preset)}`
+        : `${target.cabinetName}: ${upd.errorText}`,
+    );
+  }
+  return lines.join('\n');
+}
+
+async function locatePhoneTargets(phone: string, cabinetId?: string): Promise<{
+  targets: Array<{ cabinetId: string; cabinetName: string; userId: number }>;
+  pending: string[];
+}> {
+  const cabinets = cabinetId
+    ? (await listCabinetsWithTokens()).filter((c) => c.id === cabinetId)
+    : await listCabinetsWithTokens();
+  const targets: Array<{ cabinetId: string; cabinetName: string; userId: number }> = [];
+  const pending: string[] = [];
+  for (const cab of cabinets) {
+    const found = await findCabinetUserByPhone(cab.token, phone);
+    if (!found) continue;
+    if (found.pending || !found.id) {
+      pending.push(cab.name);
+      continue;
+    }
+    targets.push({ cabinetId: cab.id, cabinetName: cab.name, userId: found.id });
+  }
+  return { targets, pending };
 }
 
 export async function startWbUsersDialog(opts: {
@@ -311,13 +399,72 @@ async function startWbUsersDialogInner(opts: {
   const text = opts.text.trim();
   if (!wantsWbUsersWork(text)) return { handled: false };
 
-  const kind: UsersPayload['kind'] = wantsUserInvite(text)
-    ? 'invite'
-    : wantsUserRevoke(text)
+  const kind: UsersPayload['kind'] = wantsUserRevoke(text)
     ? 'revoke'
+    : wantsUserAccessChange(text)
+    ? 'access'
+    : wantsUserInvite(text)
+    ? 'invite'
     : 'list';
 
   const resolved = await resolveCabinet(text);
+  if (!resolved.match && kind === 'access') {
+    const phone = extractPhone(text);
+    const preset = parseAccessPreset(text) || undefined;
+    if (phone) {
+      const located = await locatePhoneTargets(phone.phone);
+      if (located.targets.length) {
+        const payload: UsersPayload = {
+          kind: 'access',
+          step: preset ? 'await_confirm' : 'await_access',
+          phone: phone.phone,
+          phoneCountry: `${phone.countryName} (${phone.country})`,
+          accessPreset: preset || 'finance',
+          targets: located.targets,
+        };
+        await savePending(
+          opts.chatId,
+          opts.tgUserId,
+          null,
+          payload,
+          preset ? 'awaiting_confirm' : 'awaiting_selection',
+        );
+        if (!preset) {
+          return {
+            handled: true,
+            reply: [
+              `Нашла номер в: ${located.targets.map((t) => t.cabinetName).join(', ')}`,
+              located.pending.length ? `Ещё ждёт приглашение: ${located.pending.join(', ')}` : '',
+              accessAsk(),
+            ].filter(Boolean).join('\n'),
+          };
+        }
+        return { handled: true, reply: accessConfirm(payload) };
+      }
+      if (located.pending.length) {
+        return {
+          handled: true,
+          reply: `${phone.phone} ещё не принял приглашение (${located.pending.join(', ')}). Права сменятся после входа в кабинет WB.`,
+        };
+      }
+    }
+    const names = resolved.candidates.map((c) => c.name).join(', ');
+    await savePending(opts.chatId, opts.tgUserId, null, {
+      kind: 'access',
+      step: phone ? 'await_cabinet' : 'await_phone',
+      phone: phone?.phone,
+      phoneCountry: phone ? `${phone.countryName} (${phone.country})` : undefined,
+      accessPreset: preset,
+      position: 'Сотрудник',
+    });
+    return {
+      handled: true,
+      reply: phone
+        ? `Номер ${phone.phone} в кабинетах не нашла. Уточни кабинет: ${names || 'зевина 1 / база / элиум'}`
+        : `Кинь номер и какой доступ. Кабинет если знаешь: ${names || 'зевина 1 / база / элиум'}`,
+    };
+  }
+
   if (!resolved.match) {
     const names = resolved.candidates.map((c) => c.name).join(', ');
     // без кабинета — сохраняем диалог, иначе следующее сообщение уйдёт в LLM
@@ -431,6 +578,54 @@ async function startWbUsersDialogInner(opts: {
         accessPreset: preset,
       }),
     };
+  }
+
+  if (kind === 'access') {
+    const phone = extractPhone(text);
+    const preset = parseAccessPreset(text) || undefined;
+    if (!phone) {
+      await savePending(opts.chatId, opts.tgUserId, resolved.match, {
+        kind: 'access',
+        step: 'await_phone',
+        cabinetId: resolved.match.id,
+        cabinetName: resolved.match.name,
+        accessPreset: preset,
+      });
+      return {
+        handled: true,
+        reply: `${resolved.match.name}: кинь номер, кому сменить доступ.`,
+      };
+    }
+    const located = await locatePhoneTargets(phone.phone, resolved.match.id);
+    if (!located.targets.length) {
+      return {
+        handled: true,
+        reply: located.pending.length
+          ? `${resolved.match.name}: ${phone.phone} ещё не принял приглашение. Права сменятся после входа.`
+          : `${resolved.match.name}: номер ${phone.phone} в кабинете не нашла.`,
+      };
+    }
+    const payload: UsersPayload = {
+      kind: 'access',
+      step: preset ? 'await_confirm' : 'await_access',
+      cabinetId: resolved.match.id,
+      cabinetName: resolved.match.name,
+      phone: phone.phone,
+      phoneCountry: `${phone.countryName} (${phone.country})`,
+      accessPreset: preset || 'finance',
+      targets: located.targets,
+    };
+    await savePending(
+      opts.chatId,
+      opts.tgUserId,
+      resolved.match,
+      payload,
+      preset ? 'awaiting_confirm' : 'awaiting_selection',
+    );
+    if (!preset) {
+      return { handled: true, reply: [`Номер: ${phone.phone}`, accessAsk()].join('\n') };
+    }
+    return { handled: true, reply: accessConfirm(payload) };
   }
 
   // revoke
@@ -575,6 +770,32 @@ export async function continueWbUsersDialog(opts: {
       };
     }
 
+    if (p.kind === 'access' && p.phone) {
+      const located = await locatePhoneTargets(p.phone, resolved.match.id);
+      if (!located.targets.length) {
+        return {
+          handled: true,
+          reply: located.pending.length
+            ? `${resolved.match.name}: приглашение ещё не принято.`
+            : `${resolved.match.name}: номер ${p.phone} не нашла.`,
+        };
+      }
+      p.targets = located.targets;
+      p.step = p.accessPreset ? 'await_confirm' : 'await_access';
+      await patchPending(
+        pending!.id,
+        p,
+        p.accessPreset ? 'awaiting_confirm' : 'awaiting_selection',
+      );
+      if (!p.accessPreset) {
+        return {
+          handled: true,
+          reply: [`${resolved.match.name}`, `Номер: ${p.phone}`, accessAsk()].join('\n'),
+        };
+      }
+      return { handled: true, reply: accessConfirm(p) };
+    }
+
     // invite
     if (p.phone) {
       p.step = p.accessPreset ? 'await_confirm' : 'await_access';
@@ -619,6 +840,18 @@ export async function continueWbUsersDialog(opts: {
     }
     p.phone = phone.phone;
     p.phoneCountry = `${phone.countryName} (${phone.country})`;
+    if (p.kind === 'access') {
+      const located = await locatePhoneTargets(p.phone, p.cabinetId);
+      if (!located.targets.length) {
+        return {
+          handled: true,
+          reply: located.pending.length
+            ? 'Приглашение ещё не принято — права сменятся после входа в кабинет.'
+            : 'Номер в кабинетах не нашла. Уточни кабинет или проверь цифры.',
+        };
+      }
+      p.targets = located.targets;
+    }
     p.step = 'await_access';
     await patchPending(pending!.id, p);
     return {
@@ -628,14 +861,16 @@ export async function continueWbUsersDialog(opts: {
   }
 
   if (p.step === 'await_access') {
-    const preset = parseAccessPreset(text) || (isConfirmText(text) ? 'standard' : null);
+    const preset = parseAccessPreset(text) || (isConfirmText(text)
+      ? (p.kind === 'access' ? 'finance' : 'standard')
+      : null);
     if (!preset) {
       return { handled: true, reply: accessAsk() };
     }
     p.accessPreset = preset;
     p.step = 'await_confirm';
     await patchPending(pending!.id, p, 'awaiting_confirm');
-    return { handled: true, reply: inviteConfirm(p) };
+    return { handled: true, reply: p.kind === 'access' ? accessConfirm(p) : inviteConfirm(p) };
   }
 
   if (p.step === 'await_user') {
@@ -666,11 +901,38 @@ export async function continueWbUsersDialog(opts: {
 
   if (p.step === 'await_confirm' || pending!.status === 'awaiting_confirm') {
     if (!isConfirmText(text)) {
+      const maybePreset = parseAccessPreset(text);
+      if (p.kind === 'access' && maybePreset) {
+        p.accessPreset = maybePreset;
+        await patchPending(pending!.id, p, 'awaiting_confirm');
+        return { handled: true, reply: accessConfirm(p) };
+      }
       return { handled: true, reply: 'Нужно «да» или «отмена».' };
     }
     if (!ownerOk(opts.tgUserId)) {
       return { handled: true, reply: 'Подтверждать может только владелец.' };
     }
+
+    if (p.kind === 'access') {
+      if (!p.targets?.length && p.phone) {
+        const located = await locatePhoneTargets(p.phone, p.cabinetId);
+        p.targets = located.targets;
+      }
+      if (!p.targets?.length) {
+        const msg = 'Не нашла пользователя в кабинетах — сменить права не могу.';
+        await finishPending(pending!.id, msg);
+        return { handled: true, reply: msg };
+      }
+      const details = await applyAccessTargets(p.targets, p.accessPreset || 'finance');
+      const msg = [
+        pick(['Готово', 'Права обновила', 'Сменила доступ']),
+        `тел. ${p.phone || '—'}`,
+        details,
+      ].join('\n');
+      await finishPending(pending!.id, msg);
+      return { handled: true, reply: msg };
+    }
+
     if (!p.cabinetId) return { handled: true, reply: 'Нет кабинета.' };
     const tok = await cabinetTokenById(p.cabinetId);
     if (!tok) return { handled: true, reply: 'Нет токена WB.' };
@@ -685,6 +947,23 @@ export async function continueWbUsersDialog(opts: {
       );
       if (!inv.ok || !inv.inviteUrl) {
         const err = String(inv.errorText || 'нет ссылки');
+        if (isAlreadyAddedInviteError(err)) {
+          const located = await locatePhoneTargets(p.phone, p.cabinetId);
+          if (located.targets.length) {
+            const details = await applyAccessTargets(located.targets, p.accessPreset || 'standard');
+            const msg = [
+              'Пользователь уже в кабинете — сменила права, новую ссылку не делаю.',
+              details,
+            ].join('\n');
+            await finishPending(pending!.id, msg);
+            return { handled: true, reply: msg };
+          }
+          const msg = located.pending.length
+            ? 'Уже приглашён, но ещё не принял. Права сменятся после входа в кабинет.'
+            : `Уже в кабинете, но id не нашла. ${err}`;
+          await finishPending(pending!.id, msg);
+          return { handled: true, reply: msg };
+        }
         const authHint = /401|403|forbidden|unauthorized|токен|token|category|категор/i.test(err)
           ? ' Проверь, что токен кабинета живой и с категорией Users (владелец).'
           : '';

@@ -340,11 +340,18 @@ export function sanitizeAccessItems(
  * Пресеты доступов для приглашения.
  * «стандарт» = не шлём access → дефолт WB (все разделы, кроме showcase и changeJam).
  * Частичный access в WB = дефолт + наши overrides (disabled:true отключает раздел).
+ * «финансы» = открыть finance+balance у уже добавленного пользователя.
  */
-export type AccessPreset = 'standard' | 'manager' | 'no_finance' | 'readonly';
+export type AccessPreset = 'standard' | 'manager' | 'no_finance' | 'readonly' | 'finance';
 
 export function accessPresetItems(preset: AccessPreset): AccessItem[] | undefined {
   if (preset === 'standard') return undefined; // WB default
+  if (preset === 'finance') {
+    return [
+      { code: 'finance', disabled: false },
+      { code: 'balance', disabled: false },
+    ];
+  }
   // менеджер / без финансов — тот же кабинетный токен, только режем finance+balance
   if (preset === 'manager' || preset === 'no_finance') {
     return [
@@ -365,18 +372,30 @@ export function accessPresetItems(preset: AccessPreset): AccessItem[] | undefine
   ];
 }
 
+/** PUT /api/v1/users/access меняет только переданные code. */
+export function accessItemsForExistingUser(preset: AccessPreset): AccessItem[] {
+  if (preset === 'standard' || preset === 'finance') {
+    return [
+      { code: 'finance', disabled: false },
+      { code: 'balance', disabled: false },
+    ];
+  }
+  return accessPresetItems(preset) || [];
+}
+
 export function parseAccessPreset(text: string): AccessPreset | null {
   const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
   if (!t.trim()) return null;
-  // «без финансов» важнее слова «менеджер/стандарт» в одной фразе
+  // «без финансов» важнее слова «менеджер/стандарт/финансы» в одной фразе
   if (/без\s+финанс|no[_\s-]?finance|не\s+финанс/i.test(t)) return 'no_finance';
+  if (/финанс|finance/i.test(t)) return 'finance';
   if (/только\s+смотр|read.?only|чтение|readonly/i.test(t)) return 'readonly';
   if (/^(стандарт|по\s+умолчанию|дефолт|default)$/i.test(t.trim())) return 'standard';
   if (/менеджер|manager|обычн/i.test(t)) return 'manager';
   if (/стандарт|по\s+умолчанию|дефолт|default/i.test(t)) return 'standard';
   if (/^\d$/.test(t.trim())) {
     const n = Number(t.trim());
-    return (['standard', 'manager', 'no_finance', 'readonly'] as AccessPreset[])[n - 1] || null;
+    return (['standard', 'manager', 'no_finance', 'readonly', 'finance'] as AccessPreset[])[n - 1] || null;
   }
   return null;
 }
@@ -391,7 +410,30 @@ export function accessPresetLabel(preset: AccessPreset): string {
       return 'как стандарт, но без финансов и баланса';
     case 'readonly':
       return 'просмотр: без поставок/цен/финансов/брендов';
+    case 'finance':
+      return 'финансы и баланс открыты';
   }
+}
+
+export function isAlreadyAddedInviteError(err: string): boolean {
+  return /already added|already exists|already exist|уже добавлен|уже есть|user already/i.test(err);
+}
+
+export function digitsPhone(raw: string): string {
+  return String(raw || '').replace(/\D/g, '');
+}
+
+export function findUserByPhone(
+  users: Array<{ id: number; phone: string; name?: string }>,
+  phone: string,
+): { id: number; phone: string; name?: string } | null {
+  const want = digitsPhone(phone);
+  if (!want) return null;
+  for (const user of users) {
+    const have = digitsPhone(user.phone);
+    if (have && (have === want || have.endsWith(want) || want.endsWith(have))) return user;
+  }
+  return null;
 }
 
 export type PhoneNorm = {
@@ -466,11 +508,24 @@ export function normalizeRuPhone(raw: string): string | null {
   return n?.phone || null;
 }
 
+export async function listCabinetsWithTokens(): Promise<Array<{ id: string; name: string; token: string }>> {
+  const db = getAdminClient();
+  const { data } = await db.from('cabinets').select('id, name, wb_token').order('name');
+  const out: Array<{ id: string; name: string; token: string }> = [];
+  for (const row of data || []) {
+    const rec = row as { id?: string; name?: string; wb_token?: string };
+    const token = sanitizeWbToken(rec.wb_token);
+    if (!token || !rec.id || !rec.name) continue;
+    out.push({ id: String(rec.id), name: String(rec.name), token });
+  }
+  return out;
+}
+
 export async function listCabinetUsers(
   token: string,
   inviteOnly = false,
-): Promise<Array<{ id: number; name: string; phone: string; role?: string }>> {
-  const q = `limit=50&offset=0${inviteOnly ? '&isInviteOnly=true' : ''}`;
+): Promise<Array<{ id: number; name: string; phone: string; role?: string; pending?: boolean }>> {
+  const q = `limit=100&offset=0${inviteOnly ? '&isInviteOnly=true' : ''}`;
   const { ok, data } = await wbJson(`${USERS_API}/api/v1/users?${q}`, token, {
     method: 'GET',
   });
@@ -478,15 +533,34 @@ export async function listCabinetUsers(
   const users = Array.isArray(data.users) ? data.users : [];
   return users.map((u) => {
     const row = u as Record<string, unknown>;
+    const invitee = row.inviteeInfo && typeof row.inviteeInfo === 'object'
+      ? row.inviteeInfo as Record<string, unknown>
+      : {};
     const first = String(row.firstName || '');
     const second = String(row.secondName || row.lastName || '');
     return {
       id: Number(row.id || row.userId || 0),
       name: `${first} ${second}`.trim() || 'без имени',
-      phone: String(row.phone || row.phoneNumber || ''),
+      phone: String(row.phone || row.phoneNumber || invitee.phoneNumber || ''),
       role: row.position ? String(row.position) : undefined,
+      pending: Boolean(row.isInvitee || inviteOnly),
     };
-  }).filter((u) => u.id > 0);
+  }).filter((u) => u.phone || u.id > 0);
+}
+
+export async function findCabinetUserByPhone(
+  token: string,
+  phone: string,
+): Promise<{ id: number; name: string; phone: string; pending: boolean } | null> {
+  const active = await listCabinetUsers(token, false);
+  const foundActive = findUserByPhone(active, phone);
+  if (foundActive && foundActive.id > 0) {
+    return { ...foundActive, pending: false };
+  }
+  const invited = await listCabinetUsers(token, true);
+  const foundInvited = findUserByPhone(invited, phone);
+  if (foundInvited) return { ...foundInvited, pending: true };
+  return null;
 }
 
 export async function deleteCabinetUser(
@@ -502,6 +576,25 @@ export async function deleteCabinetUser(
   return {
     ok: false,
     errorText: String(data.errorText || data.message || `HTTP ${status}`).slice(0, 300),
+  };
+}
+
+export async function updateUserAccess(
+  token: string,
+  userId: number,
+  access: AccessItem[],
+): Promise<{ ok: boolean; errorText?: string }> {
+  if (!userId || !access.length) {
+    return { ok: false, errorText: 'Нужны userId и права доступа' };
+  }
+  const { ok, data, status } = await wbJson(`${USERS_API}/api/v1/users/access`, token, {
+    method: 'PUT',
+    body: JSON.stringify({ usersAccesses: [{ userId, access }] }),
+  });
+  if (ok) return { ok: true };
+  return {
+    ok: false,
+    errorText: String(data.errorText || data.detail || data.message || `HTTP ${status}`).slice(0, 300),
   };
 }
 
