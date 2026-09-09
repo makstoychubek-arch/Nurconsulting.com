@@ -43,6 +43,7 @@ assert.equal(firstNmId({ settings: { name: 'без артикула' } }), null)
 assert.equal(campaignTypeFromWb(flat[0]), 'manual_bid');
 assert.equal(campaignTypeFromWb(flat[2]), 'auto_bid');
 assert.equal(shouldSyncClusters(flat[0]), true);
+assert.equal(shouldSyncClusters({ status: 11 }), false);
 assert.equal(shouldSyncClusters(flat[2]), false);
 
 console.log('adv-advert-parse_test: ok');

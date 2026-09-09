@@ -90,8 +90,8 @@ export function campaignStatus(a: Record<string, unknown>): string {
     return 'active';
 }
 
-/** Кластеры имеет смысл тянуть у живых/на паузе, не у сотен завершённых. */
+/** Кластеры только у живых (status 9). Пауза/архив — сотни вызовов и OOM edge. */
 export function shouldSyncClusters(a: Record<string, unknown>): boolean {
     const s = Number(a.status ?? campaignStatus(a));
-    return s === 9 || s === 11;
+    return s === 9;
 }

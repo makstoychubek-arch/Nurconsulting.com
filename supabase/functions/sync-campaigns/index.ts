@@ -94,10 +94,10 @@ async function syncOneCabinet(
     }
 
     const adverts = flattenAdverts(advertsRes.data);
-    let campaigns = 0;
-    let withNm = 0;
-    let clusters = 0;
+    const rows: Record<string, unknown>[] = [];
+    const liveWbIds: number[] = [];
     let skippedNoId = 0;
+    const syncedAt = new Date().toISOString();
 
     for (const advert of adverts) {
         const wbId = Number(advert.advertId ?? advert.id ?? advert.advert_id ?? 0);
@@ -106,30 +106,47 @@ async function syncOneCabinet(
             continue;
         }
         const nmId = firstNmId(advert);
-
-        const row = {
+        rows.push({
             cabinet_id: cab.id,
             wb_campaign_id: wbId,
             nm_id: nmId,
             campaign_type: campaignTypeFromWb(advert),
             name: advertName(advert),
             status: campaignStatus(advert),
-            synced_at: new Date().toISOString(),
-        };
+            synced_at: syncedAt,
+        });
+        if (shouldSyncClusters(advert)) liveWbIds.push(wbId);
+    }
+
+    let campaigns = 0;
+    for (let i = 0; i < rows.length; i += 100) {
+        const chunk = rows.slice(i, i + 100);
         const { data: saved, error: upErr } = await admin
             .from('adv_campaigns')
-            .upsert(row, { onConflict: 'cabinet_id,wb_campaign_id' })
-            .select('id')
-            .maybeSingle();
-        if (upErr || !saved?.id) {
-            console.error('[sync-campaigns] upsert campaign', cab.name, wbId, upErr?.message);
+            .upsert(chunk, { onConflict: 'cabinet_id,wb_campaign_id' })
+            .select('id, wb_campaign_id');
+        if (upErr) {
+            console.error('[sync-campaigns] upsert chunk', cab.name, upErr.message);
             continue;
         }
-        campaigns += 1;
-        if (nmId) withNm += 1;
+        campaigns += (saved || []).length;
+    }
 
-        if (!shouldSyncClusters(advert)) continue;
+    const withNm = rows.filter((r) => r.nm_id != null).length;
+    const { data: idRows } = await admin
+        .from('adv_campaigns')
+        .select('id, wb_campaign_id')
+        .eq('cabinet_id', cab.id)
+        .in('wb_campaign_id', liveWbIds.length ? liveWbIds : [0]);
+    const idByWb = new Map<number, string>();
+    for (const r of idRows || []) {
+        idByWb.set(Number((r as { wb_campaign_id: number }).wb_campaign_id), String((r as { id: string }).id));
+    }
 
+    let clusters = 0;
+    for (const wbId of liveWbIds) {
+        const savedId = idByWb.get(wbId);
+        if (!savedId) continue;
         const listRes = await listClusters(ctx, { items: [{ id: wbId }] });
         if (listRes.status >= 400) {
             console.error('[sync-campaigns] listClusters', cab.name, wbId, errorText(listRes.data));
@@ -138,32 +155,24 @@ async function syncOneCabinet(
         const keys = collectClusterKeys(listRes.data);
         if (keys.length) {
             const clusterRows = keys.map((cluster_key) => ({
-                campaign_id: saved.id,
+                campaign_id: savedId,
                 cluster_key,
                 is_active: true,
             }));
             const { error: clErr } = await admin
                 .from('adv_clusters')
                 .upsert(clusterRows, { onConflict: 'campaign_id,cluster_key' });
-            if (clErr) {
-                console.error('[sync-campaigns] upsert clusters', cab.name, wbId, clErr.message);
-            } else {
-                clusters += keys.length;
-            }
+            if (clErr) console.error('[sync-campaigns] upsert clusters', cab.name, wbId, clErr.message);
+            else clusters += keys.length;
         }
-
         const { data: existing } = await admin
             .from('adv_clusters')
             .select('id, cluster_key')
-            .eq('campaign_id', saved.id);
+            .eq('campaign_id', savedId);
         const seen = new Set(keys);
         const gone = (existing || []).filter((c) => !seen.has(c.cluster_key)).map((c) => c.id);
         if (gone.length) {
-            const { error: deactErr } = await admin
-                .from('adv_clusters')
-                .update({ is_active: false })
-                .in('id', gone);
-            if (deactErr) console.error('[sync-campaigns] deactivate', cab.name, wbId, deactErr.message);
+            await admin.from('adv_clusters').update({ is_active: false }).in('id', gone);
         }
     }
 
@@ -172,9 +181,10 @@ async function syncOneCabinet(
         seen: adverts.length,
         campaigns,
         with_nm: withNm,
-        without_nm: campaigns - withNm,
+        without_nm: rows.length - withNm,
         clusters,
         skipped_no_id: skippedNoId,
+        live: liveWbIds.length,
     };
 }
 
