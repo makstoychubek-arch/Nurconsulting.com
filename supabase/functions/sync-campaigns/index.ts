@@ -1,9 +1,17 @@
 // sync_campaigns — каждые 30 мин.
-// getAdverts → adv_campaigns; listClusters → adv_clusters (пропавшие is_active=false).
-// Кабинеты параллельно (Promise.allSettled). Хелперы: wb-adv-proxy.ts.
+// getAdverts v2: nm_id из nm_settings[]. Кабинеты с adv_enabled=true.
+// listClusters — только status 9/11, тело { items: [{ id }] }.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import {
+    advertName,
+    campaignStatus,
+    campaignTypeFromWb,
+    firstNmId,
+    flattenAdverts,
+    shouldSyncClusters,
+} from '../_shared/adv-advert-parse.ts';
 import {
     getAdverts,
     listClusters,
@@ -34,13 +42,15 @@ Deno.serve(async (req) => {
         ? Object.fromEntries(new URL(req.url).searchParams)
         : await req.json().catch(() => ({} as Record<string, unknown>));
     const onlyCabinet = body.cabinet_id ? String(body.cabinet_id) : '';
+    const force = body.force === true || body.force === 'true';
 
     const admin = createClient(supabaseUrl, serviceKey);
     let q = admin
         .from('cabinets')
-        .select('id, name, adv_token_secret_id, adv_token_valid')
+        .select('id, name, adv_token_secret_id, adv_token_valid, adv_enabled')
         .eq('adv_token_valid', true)
         .not('adv_token_secret_id', 'is', null);
+    if (!force) q = q.eq('adv_enabled', true);
     if (onlyCabinet) q = q.eq('id', onlyCabinet);
     const { data: cabinets, error: cabErr } = await q;
     if (cabErr) return json({ error: cabErr.message }, 500);
@@ -84,35 +94,60 @@ async function syncOneCabinet(
     }
 
     const adverts = flattenAdverts(advertsRes.data);
-    let campaigns = 0;
-    let clusters = 0;
+    const rows: Record<string, unknown>[] = [];
+    const liveWbIds: number[] = [];
+    let skippedNoId = 0;
+    const syncedAt = new Date().toISOString();
 
     for (const advert of adverts) {
         const wbId = Number(advert.advertId ?? advert.id ?? advert.advert_id ?? 0);
+        if (!wbId) {
+            skippedNoId += 1;
+            continue;
+        }
         const nmId = firstNmId(advert);
-        if (!wbId || !nmId) continue;
-
-        const row = {
+        rows.push({
             cabinet_id: cab.id,
             wb_campaign_id: wbId,
             nm_id: nmId,
             campaign_type: campaignTypeFromWb(advert),
             name: advertName(advert),
             status: campaignStatus(advert),
-            synced_at: new Date().toISOString(),
-        };
+            synced_at: syncedAt,
+        });
+        if (shouldSyncClusters(advert)) liveWbIds.push(wbId);
+    }
+
+    let campaigns = 0;
+    for (let i = 0; i < rows.length; i += 100) {
+        const chunk = rows.slice(i, i + 100);
         const { data: saved, error: upErr } = await admin
             .from('adv_campaigns')
-            .upsert(row, { onConflict: 'cabinet_id,wb_campaign_id' })
-            .select('id')
-            .maybeSingle();
-        if (upErr || !saved?.id) {
-            console.error('[sync-campaigns] upsert campaign', cab.name, wbId, upErr?.message);
+            .upsert(chunk, { onConflict: 'cabinet_id,wb_campaign_id' })
+            .select('id, wb_campaign_id');
+        if (upErr) {
+            console.error('[sync-campaigns] upsert chunk', cab.name, upErr.message);
             continue;
         }
-        campaigns += 1;
+        campaigns += (saved || []).length;
+    }
 
-        const listRes = await listClusters(ctx, { advertId: wbId, advert_id: wbId });
+    const withNm = rows.filter((r) => r.nm_id != null).length;
+    const { data: idRows } = await admin
+        .from('adv_campaigns')
+        .select('id, wb_campaign_id')
+        .eq('cabinet_id', cab.id)
+        .in('wb_campaign_id', liveWbIds.length ? liveWbIds : [0]);
+    const idByWb = new Map<number, string>();
+    for (const r of idRows || []) {
+        idByWb.set(Number((r as { wb_campaign_id: number }).wb_campaign_id), String((r as { id: string }).id));
+    }
+
+    let clusters = 0;
+    for (const wbId of liveWbIds) {
+        const savedId = idByWb.get(wbId);
+        if (!savedId) continue;
+        const listRes = await listClusters(ctx, { items: [{ id: wbId }] });
         if (listRes.status >= 400) {
             console.error('[sync-campaigns] listClusters', cab.name, wbId, errorText(listRes.data));
             continue;
@@ -120,36 +155,37 @@ async function syncOneCabinet(
         const keys = collectClusterKeys(listRes.data);
         if (keys.length) {
             const clusterRows = keys.map((cluster_key) => ({
-                campaign_id: saved.id,
+                campaign_id: savedId,
                 cluster_key,
                 is_active: true,
             }));
             const { error: clErr } = await admin
                 .from('adv_clusters')
                 .upsert(clusterRows, { onConflict: 'campaign_id,cluster_key' });
-            if (clErr) {
-                console.error('[sync-campaigns] upsert clusters', cab.name, wbId, clErr.message);
-            } else {
-                clusters += keys.length;
-            }
+            if (clErr) console.error('[sync-campaigns] upsert clusters', cab.name, wbId, clErr.message);
+            else clusters += keys.length;
         }
-
         const { data: existing } = await admin
             .from('adv_clusters')
             .select('id, cluster_key')
-            .eq('campaign_id', saved.id);
+            .eq('campaign_id', savedId);
         const seen = new Set(keys);
         const gone = (existing || []).filter((c) => !seen.has(c.cluster_key)).map((c) => c.id);
         if (gone.length) {
-            const { error: deactErr } = await admin
-                .from('adv_clusters')
-                .update({ is_active: false })
-                .in('id', gone);
-            if (deactErr) console.error('[sync-campaigns] deactivate', cab.name, wbId, deactErr.message);
+            await admin.from('adv_clusters').update({ is_active: false }).in('id', gone);
         }
     }
 
-    return { ok: true, campaigns, clusters };
+    return {
+        ok: true,
+        seen: adverts.length,
+        campaigns,
+        with_nm: withNm,
+        without_nm: rows.length - withNm,
+        clusters,
+        skipped_no_id: skippedNoId,
+        live: liveWbIds.length,
+    };
 }
 
 function makeCtx(admin: Admin, cabinetId: string, token: string, tokenKey: string): AdvCallContext {
@@ -167,62 +203,6 @@ function makeCtx(admin: Admin, cabinetId: string, token: string, tokenKey: strin
             }).eq('id', cabinetId);
         },
     };
-}
-
-function flattenAdverts(data: unknown): Record<string, unknown>[] {
-    const out: Record<string, unknown>[] = [];
-    const walk = (items: unknown[]) => {
-        for (const item of items) {
-            if (!item || typeof item !== 'object') continue;
-            const o = item as Record<string, unknown>;
-            const id = Number(o.advertId ?? o.id ?? o.advert_id ?? 0);
-            if (id) out.push(o);
-            for (const key of ['advert_list', 'adverts', 'list', 'items']) {
-                if (Array.isArray(o[key])) walk(o[key] as unknown[]);
-            }
-        }
-    };
-    if (Array.isArray(data)) walk(data);
-    else if (data && typeof data === 'object') {
-        const o = data as Record<string, unknown>;
-        for (const key of ['adverts', 'advert_list', 'items', 'list']) {
-            if (Array.isArray(o[key])) walk(o[key] as unknown[]);
-        }
-    }
-    return out;
-}
-
-function firstNmId(a: Record<string, unknown>): number {
-    const settings = a.settings && typeof a.settings === 'object'
-        ? a.settings as Record<string, unknown>
-        : {};
-    const nms = a.nms ?? settings.nms ?? a.nmIds ?? settings.nmIds;
-    if (Array.isArray(nms) && nms.length) return Number(nms[0]) || 0;
-    return Number(a.nmId ?? a.nm_id ?? settings.nmId ?? settings.nm_id ?? 0);
-}
-
-function advertName(a: Record<string, unknown>): string {
-    const settings = a.settings && typeof a.settings === 'object'
-        ? a.settings as Record<string, unknown>
-        : {};
-    return String(a.name ?? a.campaignName ?? settings.name ?? '').trim();
-}
-
-function campaignTypeFromWb(a: Record<string, unknown>): 'manual_bid' | 'auto_bid' {
-    const bid = String(a.bid_type ?? a.bidType ?? '').toLowerCase();
-    if (/auto|unified|единая/.test(bid)) return 'auto_bid';
-    if (/manual|ручн/.test(bid)) return 'manual_bid';
-    const type = Number(a.type ?? a.advert_type ?? 0);
-    if (type === 8) return 'auto_bid';
-    return 'manual_bid';
-}
-
-function campaignStatus(a: Record<string, unknown>): string {
-    const s = a.status;
-    if (s === 9 || s === '9' || s === 'active') return 'active';
-    if (s === 11 || s === '11' || s === 'paused') return 'paused';
-    if (s != null && s !== '') return String(s);
-    return 'active';
 }
 
 function collectClusterKeys(data: unknown): string[] {
