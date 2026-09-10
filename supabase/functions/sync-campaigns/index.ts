@@ -58,17 +58,16 @@ Deno.serve(async (req) => {
     const { data: cabinets, error: cabErr } = await q;
     if (cabErr) return json({ error: cabErr.message }, 500);
 
-    const settled = await Promise.allSettled(
-        (cabinets || []).map((cab) => syncOneCabinet(admin, cab)),
-    );
-
-    const results = settled.map((row, i) => {
-        const cab = cabinets![i];
-        if (row.status === 'fulfilled') return { cabinet_id: cab.id, name: cab.name, ...row.value };
-        const err = row.reason instanceof Error ? row.reason.message : String(row.reason);
-        console.error('[sync-campaigns]', cab.name, err);
-        return { cabinet_id: cab.id, name: cab.name, ok: false, error: err };
-    });
+    const results: Record<string, unknown>[] = [];
+    for (const cab of cabinets || []) {
+        try {
+            results.push({ cabinet_id: cab.id, name: cab.name, ...await syncOneCabinet(admin, cab) });
+        } catch (e) {
+            const err = e instanceof Error ? e.message : String(e);
+            console.error('[sync-campaigns]', cab.name, err);
+            results.push({ cabinet_id: cab.id, name: cab.name, ok: false, error: err });
+        }
+    }
 
     return json({
         ok: true,
@@ -162,14 +161,11 @@ async function syncOneCabinet(
 
     const activeByCamp = new Map<string, Set<string>>();
     const excludedByCamp = new Map<string, Set<string>>();
+    const touched = new Set<string>();
     const ensure = (m: Map<string, Set<string>>, id: string) => {
         if (!m.has(id)) m.set(id, new Set());
         return m.get(id)!;
     };
-    for (const p of pairs) {
-        ensure(activeByCamp, p.campaignId);
-        ensure(excludedByCamp, p.campaignId);
-    }
 
     let listOk = 0;
     let listFail = 0;
@@ -182,6 +178,7 @@ async function syncOneCabinet(
             continue;
         }
         listOk += 1;
+        for (const p of chunk) touched.add(p.campaignId);
         for (const item of parseListClustersResponse(listRes.data)) {
             const campaignId = idByWb.get(item.advertId);
             if (!campaignId) continue;
@@ -194,11 +191,10 @@ async function syncOneCabinet(
         }
     }
 
-    let clusters = 0;
-    let clustersExcluded = 0;
-    for (const [campaignId, active] of activeByCamp) {
+    const upserts: Array<{ campaign_id: string; cluster_key: string; is_active: boolean }> = [];
+    for (const campaignId of touched) {
+        const active = activeByCamp.get(campaignId) || new Set<string>();
         const excluded = excludedByCamp.get(campaignId) || new Set<string>();
-        const upserts: Array<{ campaign_id: string; cluster_key: string; is_active: boolean }> = [];
         for (const cluster_key of active) {
             upserts.push({ campaign_id: campaignId, cluster_key, is_active: true });
         }
@@ -206,27 +202,41 @@ async function syncOneCabinet(
             if (active.has(cluster_key)) continue;
             upserts.push({ campaign_id: campaignId, cluster_key, is_active: false });
         }
-        for (let i = 0; i < upserts.length; i += 200) {
-            const slice = upserts.slice(i, i + 200);
-            const { error: clErr } = await admin
-                .from('adv_clusters')
-                .upsert(slice, { onConflict: 'campaign_id,cluster_key' });
-            if (clErr) console.error('[sync-campaigns] upsert clusters', cab.name, clErr.message);
-            else {
-                clusters += slice.filter((r) => r.is_active).length;
-                clustersExcluded += slice.filter((r) => !r.is_active).length;
-            }
+    }
+
+    let clusters = 0;
+    let clustersExcluded = 0;
+    for (let i = 0; i < upserts.length; i += 200) {
+        const slice = upserts.slice(i, i + 200);
+        const { error: clErr } = await admin
+            .from('adv_clusters')
+            .upsert(slice, { onConflict: 'campaign_id,cluster_key' });
+        if (clErr) {
+            console.error('[sync-campaigns] upsert clusters', cab.name, clErr.message);
+            continue;
+        }
+        clusters += slice.filter((r) => r.is_active).length;
+        clustersExcluded += slice.filter((r) => !r.is_active).length;
+    }
+
+    const touchedIds = [...touched];
+    if (touchedIds.length) {
+        const seenByCamp = new Map<string, Set<string>>();
+        for (const campaignId of touchedIds) {
+            seenByCamp.set(campaignId, new Set([
+                ...(activeByCamp.get(campaignId) || []),
+                ...(excludedByCamp.get(campaignId) || []),
+            ]));
         }
         const { data: existing } = await admin
             .from('adv_clusters')
-            .select('id, cluster_key')
-            .eq('campaign_id', campaignId);
-        const seen = new Set([...active, ...excluded]);
-        const gone = (existing || []).filter((c) => !seen.has(c.cluster_key)).map((c) => c.id);
-        if (gone.length) {
-            for (let i = 0; i < gone.length; i += 200) {
-                await admin.from('adv_clusters').update({ is_active: false }).in('id', gone.slice(i, i + 200));
-            }
+            .select('id, campaign_id, cluster_key')
+            .in('campaign_id', touchedIds);
+        const gone = (existing || [])
+            .filter((c) => !(seenByCamp.get(String(c.campaign_id)) || new Set()).has(c.cluster_key))
+            .map((c) => c.id);
+        for (let i = 0; i < gone.length; i += 200) {
+            await admin.from('adv_clusters').update({ is_active: false }).in('id', gone.slice(i, i + 200));
         }
     }
 
