@@ -58,9 +58,32 @@ export function isCapExhausted(spend: number, cap: number | null | undefined): b
     return Number(spend) >= Number(cap);
 }
 
-export function ceilRub(value: number): number {
+/** Округление вверх до целой единицы валюты кабинета (не «рубль»). */
+export function ceilBid(value: number): number {
     if (!Number.isFinite(value)) return 0;
     return Math.ceil(value - 1e-9);
+}
+
+/** Fallback, если GET /api/advert/v1/config недоступен: 1 единица валюты = 100 минорных. */
+export const DEFAULT_CPM_STEP_MINOR = 100;
+
+function normalizeCpmStep(cpmStep: number): number {
+    if (!Number.isFinite(cpmStep) || cpmStep <= 0) return DEFAULT_CPM_STEP_MINOR;
+    return Math.floor(cpmStep);
+}
+
+/** Сверка минорных единиц с cpmStep WB: вверх до ближайшего допустимого шага. */
+export function alignMinorToCpmStep(minor: number, cpmStep: number): number {
+    const step = normalizeCpmStep(cpmStep);
+    if (!Number.isFinite(minor) || minor <= 0) return 0;
+    const n = Math.ceil(minor - 1e-9);
+    if (n % step === 0) return n;
+    return Math.ceil(n / step) * step;
+}
+
+/** Ставка в единицах валюты кабинета → на сетке cpmStep (минор * шаг / 100). */
+export function alignMajorToCpmStep(major: number, cpmStep: number): number {
+    return alignMinorToCpmStep(major * 100, cpmStep) / 100;
 }
 
 export function tokenInvalidResult(myBid: number): DecideResult {
@@ -111,7 +134,7 @@ export function decideBid(input: DecideInput): DecideResult {
         candidate = myBid;
     }
 
-    let newBid = ceilRub(candidate);
+    let newBid = ceilBid(candidate);
     if (newBid < floor) newBid = floor;
     if (hasMax && newBid > (maxBid as number)) newBid = maxBid as number;
     if (!hasMax && newBid > myBid) newBid = myBid;
