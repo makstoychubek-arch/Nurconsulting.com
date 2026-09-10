@@ -1006,13 +1006,23 @@
         .rnp-action-btn--edit { margin-left: auto; }
         .rnp-action-btn--sync { background: #111 !important; color: #fff !important; font-weight: 700; }
         .rnp-action-btn--sync:disabled { opacity: 0.6; cursor: wait; }
+        .rnp-tool-icons {
+            display: inline-flex; align-items: center; gap: 2px;
+            margin-left: auto; flex-shrink: 0;
+        }
+        .rnp-tool-icon,
         .rnp-settings-gear {
             display: inline-flex; align-items: center; justify-content: center;
-            width: 22px; height: 22px; padding: 0; margin-left: 2px; flex-shrink: 0;
+            width: 22px; height: 22px; padding: 0; margin: 0; flex-shrink: 0;
             border: none; border-radius: 999px; background: transparent;
             color: var(--text-muted); cursor: pointer;
         }
+        .rnp-settings-gear { margin-left: 0; }
+        .rnp-tool-icon:hover,
+        .rnp-tool-icon.is-on,
+        .rnp-tool-icon.active,
         .rnp-settings-gear:hover { color: var(--accent); background: var(--accent-soft); }
+        .rnp-tool-icon svg,
         .rnp-settings-gear svg { width: 13px; height: 13px; display: block; }
         .rnp-settings-overlay {
             display: none; position: fixed; inset: 0; z-index: 80;
@@ -1194,8 +1204,9 @@
             outline: 1px solid var(--accent-border);
             outline-offset: -1px;
         }
-        #rnp-edit-mode-btn.active {
-            background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent);
+        .rnp-edit-mode-btn.is-on,
+        .rnp-edit-mode-btn.active {
+            background: var(--accent-soft); color: var(--accent);
         }
         .rnp-rate-row td { background: rgba(132, 204, 22, 0.08); font-weight: 600; font-size: 10px; color: var(--text-secondary); }
         .rnp-rate-row .rnp-metric-col { color: #84cc16; }
@@ -3091,6 +3102,8 @@
             }
             .rnp-action-bar select,
             .rnp-action-btn,
+            .rnp-tool-icons,
+            .rnp-tool-icon,
             .rnp-settings-gear { flex-shrink: 0; }
         }
 
@@ -3324,7 +3337,9 @@
                 gap: 8px;
                 min-height: 36px;
             }
+            .rnp-action-bar--phone .rnp-tool-icon,
             .rnp-action-bar--phone .rnp-settings-gear { width: 32px; height: 32px; margin-left: 0; }
+            .rnp-action-bar--phone .rnp-tool-icon svg,
             .rnp-action-bar--phone .rnp-settings-gear svg { width: 18px; height: 18px; }
             .rnp-settings-phone-tools { display: block; }
             .rnp-sheet-body {
@@ -5199,7 +5214,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.3fc8b04339.min.js"></script>
+<script src="/dist/rnp-module.ce4eb00682.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script src="/dist/ads-command-center.233e066fd2.min.js"></script>
 <script src="/dist/goods-catalog.19f6e5844c.min.js"></script>
