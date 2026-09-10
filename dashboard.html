@@ -854,14 +854,36 @@
         }
         #tab-goods-groups { gap: 8px; }
         .gg-toolbar {
-            display: flex; align-items: center; gap: 6px;
+            display: flex; align-items: center; gap: 4px;
             margin: 0 0 2px;
         }
-        .gg-search {
-            flex: 1; min-width: 0; max-width: 280px; height: 28px;
-            padding: 0 10px !important; font-size: 12px !important;
-            border-radius: 8px !important;
+        .gg-views { display: inline-flex; align-items: center; gap: 2px; margin-right: 4px; }
+        .gg-now-tools { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+        .gg-now-tools.is-off { display: none; }
+        .gg-view-btn {
+            font-size: 11px; font-weight: 600; height: 22px; padding: 0 8px;
+            border: none; border-radius: 8px; background: transparent;
+            color: var(--text-muted); cursor: pointer; font-family: inherit;
         }
+        .gg-view-btn.is-on { color: var(--accent); background: var(--accent-soft); }
+        .gg-daily { padding: 28px 8px 16px; max-width: 420px; }
+        .gg-daily-title { font-size: 14px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
+        .gg-daily-note { font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+        .gg-search-wrap { display: inline-flex; align-items: center; gap: 4px; }
+        .gg-search-btn.rnp-settings-gear { margin-left: 0; }
+        .gg-search {
+            width: 0 !important; min-width: 0 !important; height: 22px; padding: 0 !important;
+            border: none !important; opacity: 0; pointer-events: none;
+            font-size: 12px !important; border-radius: 8px !important;
+        }
+        .gg-search-wrap.is-open .gg-search,
+        .gg-search-wrap.has-query .gg-search {
+            width: 180px !important; padding: 0 8px !important; opacity: 1; pointer-events: auto;
+            border: 1px solid var(--border) !important;
+            background: var(--surface); color: var(--text-primary);
+        }
+        .gg-search-wrap.is-open .gg-search-btn,
+        .gg-search-wrap.has-query .gg-search-btn { color: var(--accent); background: var(--accent-soft); }
         .gg-excel-btn {
             font-size: 10px; padding: 4px 8px; height: 22px; line-height: 1;
             border-radius: 8px; border: 1px solid var(--border);
@@ -871,10 +893,13 @@
         .gg-excel-btn:hover { border-color: var(--accent-border); color: var(--accent); }
         .gg-fresh { font-size: 10px; color: var(--text-muted); margin-left: auto; }
         .gg-table-scroll { overflow: auto; -webkit-overflow-scrolling: touch; max-height: calc(100vh - 168px); }
-        .gg-table-scroll .data-table {
-            width: max-content;
-            min-width: 0;
-            table-layout: auto;
+        #gg-table.data-table,
+        #tab-goods-groups #gg-table {
+            display: inline-table !important;
+            width: auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            table-layout: auto !important;
         }
         #tab-goods-groups .data-table th,
         #tab-goods-groups .data-table td { padding: 4px 8px !important; font-size: 11px; }
@@ -930,7 +955,8 @@
         @media (max-width: 768px) {
             .gg-col-nm { display: none; }
             .gg-table-scroll { max-height: none; }
-            .gg-search { max-width: none; }
+            .gg-search-wrap.is-open .gg-search,
+            .gg-search-wrap.has-query .gg-search { width: 150px !important; }
         }
         .adv-help-dot { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: var(--border); color: var(--text-muted); font-size: 9px; font-weight: 700; cursor: help; }
         .dashboard-metrics-grid {
@@ -4174,9 +4200,23 @@
 
         <div id="tab-goods-groups" class="tab-content">
             <div class="gg-toolbar">
-                <input type="search" id="gg-search" placeholder="Поиск"
-                    oninput="renderGoodsGroupsTable()"
-                    class="ui-input gg-search">
+                <div class="gg-views" role="tablist" aria-label="Разделы Товаров">
+                    <button type="button" class="gg-view-btn is-on" id="gg-view-now-btn" role="tab" aria-selected="true" onclick="setGoodsView('now')">Сейчас</button>
+                    <button type="button" class="gg-view-btn" id="gg-view-daily-btn" role="tab" aria-selected="false" onclick="setGoodsView('daily')">Остатки по дням</button>
+                </div>
+                <div class="gg-now-tools" id="gg-now-tools">
+                <div class="gg-search-wrap" id="gg-search-wrap">
+                    <button type="button" class="rnp-settings-gear gg-search-btn" id="gg-search-btn" onclick="toggleGoodsSearch()" title="Поиск" aria-label="Поиск">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="11" cy="11" r="7"></circle>
+                            <path d="m20 20-3.5-3.5"></path>
+                        </svg>
+                    </button>
+                    <input type="search" id="gg-search" placeholder="Поиск"
+                        oninput="onGoodsSearchInput()"
+                        onblur="onGoodsSearchBlur()"
+                        class="ui-input gg-search">
+                </div>
                 <button type="button" class="gg-excel-btn" id="gg-excel-btn" onclick="exportGoodsExcel()" title="Выгрузить в Excel">Excel</button>
                 <button type="button" class="rnp-settings-gear" id="gg-settings-btn" onclick="openGoodsSettings()" title="Какие показывать" aria-label="Настройки таблицы">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -4185,8 +4225,9 @@
                     </svg>
                 </button>
                 <span id="gg-freshness" class="gg-fresh"></span>
+                </div>
             </div>
-            <div class="gg-table-scroll">
+            <div class="gg-table-scroll" id="gg-view-now">
                 <table class="data-table" id="gg-table">
                     <thead id="gg-table-head"></thead>
                     <tbody id="gg-table-body">
@@ -4194,6 +4235,10 @@
                     </tbody>
                     <tfoot id="gg-table-foot"></tfoot>
                 </table>
+            </div>
+            <div class="gg-daily" id="gg-view-daily" hidden>
+                <div class="gg-daily-title">Остатки по дням</div>
+                <p class="gg-daily-note">Раздел готов. Напишите, какие колонки и как разложить — соберу таблицу.</p>
             </div>
         </div>
 
@@ -7820,6 +7865,57 @@
         return { cabinetId: goodsGroupsCabinetId, cabinetName: goodsGroupsCabinetName };
     }
 
+    let ggView = 'now';
+
+    function setGoodsView(view) {
+        ggView = view === 'daily' ? 'daily' : 'now';
+        const nowEl = document.getElementById('gg-view-now');
+        const dailyEl = document.getElementById('gg-view-daily');
+        const tools = document.getElementById('gg-now-tools');
+        const nowBtn = document.getElementById('gg-view-now-btn');
+        const dailyBtn = document.getElementById('gg-view-daily-btn');
+        if (nowEl) nowEl.hidden = ggView !== 'now';
+        if (dailyEl) dailyEl.hidden = ggView !== 'daily';
+        tools?.classList.toggle('is-off', ggView !== 'now');
+        nowBtn?.classList.toggle('is-on', ggView === 'now');
+        dailyBtn?.classList.toggle('is-on', ggView === 'daily');
+        nowBtn?.setAttribute('aria-selected', ggView === 'now' ? 'true' : 'false');
+        dailyBtn?.setAttribute('aria-selected', ggView === 'daily' ? 'true' : 'false');
+        try { sessionStorage.setItem('gg_view', ggView); } catch (e) {}
+    }
+
+    function syncGoodsSearchUi() {
+        const wrap = document.getElementById('gg-search-wrap');
+        const input = document.getElementById('gg-search');
+        if (!wrap || !input) return;
+        const q = String(input.value || '').trim();
+        wrap.classList.toggle('has-query', !!q);
+        if (q) wrap.classList.add('is-open');
+    }
+
+    function toggleGoodsSearch() {
+        const wrap = document.getElementById('gg-search-wrap');
+        const input = document.getElementById('gg-search');
+        if (!wrap || !input) return;
+        const keep = !!String(input.value || '').trim();
+        const open = keep || !wrap.classList.contains('is-open');
+        wrap.classList.toggle('is-open', open);
+        wrap.classList.toggle('has-query', keep);
+        if (open) setTimeout(() => input.focus(), 0);
+    }
+
+    function onGoodsSearchInput() {
+        syncGoodsSearchUi();
+        renderGoodsGroupsTable();
+    }
+
+    function onGoodsSearchBlur() {
+        const wrap = document.getElementById('gg-search-wrap');
+        const input = document.getElementById('gg-search');
+        if (!wrap || !input) return;
+        if (!String(input.value || '').trim()) wrap.classList.remove('is-open', 'has-query');
+    }
+
     function ggVisibleGroups() {
         const catalog = window.GoodsCatalog;
         const q = document.getElementById('gg-search')?.value || '';
@@ -7982,6 +8078,10 @@
     window.toggleGoodsCol = toggleGoodsCol;
     window.toggleGoodsSection = toggleGoodsSection;
     window.exportGoodsExcel = exportGoodsExcel;
+    window.toggleGoodsSearch = toggleGoodsSearch;
+    window.onGoodsSearchInput = onGoodsSearchInput;
+    window.onGoodsSearchBlur = onGoodsSearchBlur;
+    window.setGoodsView = setGoodsView;
 
     function ggFindRow(nmId, cabId) {
         const id = Number(nmId);
@@ -8141,6 +8241,7 @@
     }
 
     async function loadGoodsGroups(opts) {
+        try { setGoodsView(sessionStorage.getItem('gg_view') || 'now'); } catch (e) { setGoodsView('now'); }
         const tbody = document.getElementById('gg-table-body');
         if (!tbody) return;
         await ggFlushSaves();
