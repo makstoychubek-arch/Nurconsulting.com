@@ -789,7 +789,8 @@ assert.ok(
     html.includes("openSettings({ preserveScroll: true })"),
     'dashboard refresh / settings boot must not rebuild the settings tab from scratch'
 );
-assert.ok(rnpSrc.includes('class="rnp-settings-gear"'), 'RNP toolbar has a small gear for settings');
+assert.ok(rnpSrc.includes('class="rnp-settings-gear"') && rnpSrc.includes('onclick="RNP.openSettings()"'),
+    'RNP toolbar has a small gear for settings');
 assert.ok(rnpSrc.includes('function _excelSvg') && rnpSrc.includes('function _editSvg') && rnpSrc.includes('function _planSvg'),
     'RNP toolbar Plan / Excel / Edit are SVG icons');
 assert.ok(rnpSrc.includes('rnp-tool-icon') && rnpSrc.includes('function _iconToolsHtml'),
