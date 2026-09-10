@@ -508,7 +508,7 @@ assert.ok(rnpSrc.includes('function _isNarrow()'), 'iPad uses the same swipe she
 assert.ok(rnpSrc.includes('const PHONE_METRIC_W = 108'), 'phone metric column is narrower than desktop');
 assert.ok(rnpSrc.includes('rnp-article-panel--phone'), 'article KPI lifts above the sheet on a phone');
 assert.ok(rnpSrc.includes('function togglePrevWeeks') && rnpSrc.includes('rnp-action-bar--phone'),
-    'phone RNP bar is period + chevron; weeks of last month stay behind the arrow');
+    'phone RNP bar still exists; last-month weeks are opt-in via compare');
 assert.ok(
     rnpSrc.includes('function togglePhoneBlock') &&
     rnpSrc.includes("title, open, inner") &&
@@ -795,7 +795,47 @@ assert.ok(
     html.includes("openSettings({ preserveScroll: true })"),
     'dashboard refresh / settings boot must not rebuild the settings tab from scratch'
 );
-assert.ok(rnpSrc.includes('class="rnp-settings-gear"'), 'RNP toolbar has a small gear for settings');
+assert.ok(rnpSrc.includes('class="rnp-settings-gear"') && rnpSrc.includes('onclick="RNP.openSettings()"'),
+    'RNP toolbar has a small gear for settings');
+assert.ok(rnpSrc.includes('function _excelSvg') && rnpSrc.includes('function _editSvg') && rnpSrc.includes('function _planSvg'),
+    'RNP toolbar Plan / Excel / Edit are SVG icons');
+assert.ok(rnpSrc.includes('rnp-tool-icon') && rnpSrc.includes('function _iconToolsHtml'),
+    'Plan / Excel / Edit / settings sit in one icon row');
+assert.ok(!rnpSrc.includes('>Excel</button>') && !rnpSrc.includes('↵ План') && !rnpSrc.includes('>Редактировать</button>'),
+    'RNP toolbar no longer uses text pills for Plan / Excel / Edit');
+assert.ok(html.includes('.rnp-tool-icon') && html.includes('.rnp-tool-icons'),
+    'icon buttons share the same 22px circle as the settings gear');
+assert.ok(
+    rnpSrc.includes('function setCompareMonth') &&
+    rnpSrc.includes('rnp-compare-month-btn') &&
+    rnpSrc.includes('function _compareSvg') &&
+    rnpSrc.includes('rnp_compare_month'),
+    'RNP compare icon picks a month instead of always showing the previous one'
+);
+assert.ok(
+    rnpSrc.includes("useCmp ? _weeksForMonth") &&
+    !rnpSrc.includes('_isPhone() && _weeksCollapsed'),
+    'previous-month weeks stay off until a compare month is chosen, on desktop and phone'
+);
+assert.ok(html.includes('.rnp-compare-month-menu') && html.includes('.rnp-compare-month-suggest'),
+    'compare menu offers the previous month and other months');
+{
+    const dateStart = rnpSrc.indexOf('function _dateStr(y, m, d)');
+    const dateEnd = rnpSrc.indexOf('function _localDateStr');
+    const weekStart = rnpSrc.indexOf('function _weekLabel');
+    const weekEnd = rnpSrc.indexOf('function _buildCols');
+    const weeksStart = rnpSrc.indexOf('function _weeksForMonth');
+    const weeksEnd = rnpSrc.indexOf('function _buildWeekCalendar');
+    const fns = new Function(`
+        ${rnpSrc.slice(dateStart, dateEnd)}
+        ${rnpSrc.slice(weekStart, weekEnd)}
+        ${rnpSrc.slice(weeksStart, weeksEnd)}
+        return { _weeksForMonth };
+    `)();
+    const aug = fns._weeksForMonth(2026, 7);
+    assert.ok(aug.length >= 5 && aug[0].dates[0] === '2026-08-01' && aug[0].dates.includes('2026-08-02'),
+        'August compare weeks start on 2026-08-01');
+}
 assert.ok(html.includes('id="rnp-settings-overlay"'), 'RNP settings open as an overlay, not a second page');
 assert.ok(html.includes('function cabinetDisplayName'), 'cabinet picker shows legal IP names, not Baza/Elium letters');
 assert.ok(html.includes('ИП Бейшеев А.Д.') && html.includes('ИП Айзада'), 'Baza and Elium show the IP names from WB');

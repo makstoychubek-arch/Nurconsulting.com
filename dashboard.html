@@ -1021,6 +1021,44 @@
         .rnp-period-chevron-btn svg { width: 16px; height: 16px; transition: transform 0.2s ease; display: block; }
         .rnp-period-chevron-btn.is-open svg { transform: rotate(180deg); }
         .rnp-period-chevron-btn:hover { color: var(--accent); background: var(--accent-soft); }
+        .rnp-compare-month-wrap { position: relative; display: inline-flex; }
+        .rnp-compare-month-menu {
+            display: none;
+            position: fixed;
+            z-index: 90;
+            min-width: 220px;
+            max-height: min(70vh, 420px);
+            overflow: auto;
+            padding: 6px;
+            border-radius: 12px;
+            background: var(--surface-solid);
+            border: 1px solid var(--border);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+        }
+        .rnp-compare-month-menu.is-open { display: flex; flex-direction: column; gap: 2px; }
+        .rnp-compare-month-item {
+            text-align: left;
+            font-size: 12px;
+            line-height: 1.3;
+            padding: 8px 10px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .rnp-compare-month-item:hover,
+        .rnp-compare-month-item.is-on { background: var(--accent-soft); color: var(--accent); }
+        .rnp-compare-month-suggest { font-weight: 700; }
+        .rnp-compare-month-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            padding: 8px 10px 4px;
+        }
         .rnp-settings-phone-tools { display: none; }
         .rnp-settings-phone-tools-grid {
             display: flex; flex-wrap: wrap; gap: 8px;
@@ -1042,13 +1080,23 @@
         .rnp-action-btn--edit { margin-left: auto; }
         .rnp-action-btn--sync { background: #111 !important; color: #fff !important; font-weight: 700; }
         .rnp-action-btn--sync:disabled { opacity: 0.6; cursor: wait; }
+        .rnp-tool-icons {
+            display: inline-flex; align-items: center; gap: 2px;
+            margin-left: auto; flex-shrink: 0;
+        }
+        .rnp-tool-icon,
         .rnp-settings-gear {
             display: inline-flex; align-items: center; justify-content: center;
-            width: 22px; height: 22px; padding: 0; margin-left: 2px; flex-shrink: 0;
+            width: 22px; height: 22px; padding: 0; margin: 0; flex-shrink: 0;
             border: none; border-radius: 999px; background: transparent;
             color: var(--text-muted); cursor: pointer;
         }
+        .rnp-settings-gear { margin-left: 0; }
+        .rnp-tool-icon:hover,
+        .rnp-tool-icon.is-on,
+        .rnp-tool-icon.active,
         .rnp-settings-gear:hover { color: var(--accent); background: var(--accent-soft); }
+        .rnp-tool-icon svg,
         .rnp-settings-gear svg { width: 13px; height: 13px; display: block; }
         .rnp-settings-overlay {
             display: none; position: fixed; inset: 0; z-index: 80;
@@ -1230,8 +1278,9 @@
             outline: 1px solid var(--accent-border);
             outline-offset: -1px;
         }
-        #rnp-edit-mode-btn.active {
-            background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent);
+        .rnp-edit-mode-btn.is-on,
+        .rnp-edit-mode-btn.active {
+            background: var(--accent-soft); color: var(--accent);
         }
         .rnp-rate-row td { background: rgba(132, 204, 22, 0.08); font-weight: 600; font-size: 10px; color: var(--text-secondary); }
         .rnp-rate-row .rnp-metric-col { color: #84cc16; }
@@ -3127,6 +3176,8 @@
             }
             .rnp-action-bar select,
             .rnp-action-btn,
+            .rnp-tool-icons,
+            .rnp-tool-icon,
             .rnp-settings-gear { flex-shrink: 0; }
         }
 
@@ -3360,7 +3411,9 @@
                 gap: 8px;
                 min-height: 36px;
             }
+            .rnp-action-bar--phone .rnp-tool-icon,
             .rnp-action-bar--phone .rnp-settings-gear { width: 32px; height: 32px; margin-left: 0; }
+            .rnp-action-bar--phone .rnp-tool-icon svg,
             .rnp-action-bar--phone .rnp-settings-gear svg { width: 18px; height: 18px; }
             .rnp-settings-phone-tools { display: block; }
             .rnp-sheet-body {
@@ -5227,7 +5280,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.3fc8b04339.min.js"></script>
+<script src="/dist/rnp-module.66fd31b3b5.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script src="/dist/ads-command-center.233e066fd2.min.js"></script>
 <script src="/dist/goods-catalog.7f84884c63.min.js"></script>
