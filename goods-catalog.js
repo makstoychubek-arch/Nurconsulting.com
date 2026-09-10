@@ -284,6 +284,22 @@
     }
 
     const FIRST_SNAPSHOT_YMD = '2026-09-10';
+    const SNAPSHOT_HOUR_BISHKEK = 11;
+
+    function bishkekHour(date) {
+        const src = date instanceof Date ? date : (date ? new Date(date) : new Date());
+        return Number(new Intl.DateTimeFormat('en-GB', {
+            timeZone: 'Asia/Bishkek',
+            hour: '2-digit',
+            hourCycle: 'h23',
+        }).format(src));
+    }
+
+    function canWriteDailySnapshot(date) {
+        const src = date instanceof Date ? date : (date ? new Date(date) : new Date());
+        if (bishkekYmd(src) < FIRST_SNAPSHOT_YMD) return false;
+        return bishkekHour(src) >= SNAPSHOT_HOUR_BISHKEK;
+    }
 
     function monthDayKeys(year, month) {
         const y = Number(year);
@@ -401,7 +417,9 @@
         readManualQty,
         warehouseQty,
         bishkekYmd,
+        bishkekHour,
         bishkekParts,
+        canWriteDailySnapshot,
         monthDayKeys,
         dailyDayKeys,
         monthTitleRu,
@@ -412,6 +430,7 @@
         sparkValues,
         sparklineSvg,
         FIRST_SNAPSHOT_YMD,
+        SNAPSHOT_HOUR_BISHKEK,
         MONTHS_RU,
     };
     root.GoodsCatalog = GoodsCatalog;

@@ -150,8 +150,15 @@ assert.ok(dailyMig.includes("date '2026-09-10'") && dailyMig.includes('d < v_sta
     'snapshot refuses days before 10 Sep 2026 and future Bishkek dates');
 assert.ok(dailyMig.includes('p_nm_ids') && dailyMig.includes('unnest'),
     'snapshot can pin catalog nm_ids so empty warehouse SKUs still get a write-once 0');
-assert.ok(html.includes('p_nm_ids') && html.includes('FIRST_SNAPSHOT_YMD'),
-    'daily view snapshots visible articles from 10 Sep and never backfills earlier days');
+assert.ok(html.includes('p_nm_ids') && html.includes('canWriteDailySnapshot'),
+    'daily view may snapshot visible articles only after 11:00 Bishkek');
+assert.ok(html.includes('canWriteDailySnapshot'),
+    'the goods screen does not lock today before 11:00 Bishkek — morning RNP writes 11.09 first');
+const dailyCron = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260910153000_goods_daily_stocks_11_cron.sql'), 'utf8');
+assert.ok(dailyCron.includes('goods-daily-stocks-11-bishkek') && dailyCron.includes("'0 5 * * *'"),
+    '11:00 Bishkek cron catches cabinets the morning fill missed');
+assert.ok(dailyCron.includes('snapshot_goods_daily_stocks(null, null, null)'),
+    '11:00 cron snapshots every cabinet');
 assert.ok(dailyMig.includes('delete from public.goods_daily_stocks'),
     'delete_cabinet must also drop daily stock cache');
 assert.ok(html.includes("rnp-reload-requested") && html.includes("loadGoodsGroups({ silent: true })"),

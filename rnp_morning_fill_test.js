@@ -24,6 +24,8 @@ assert.ok(fn.includes("mode: 'stocks'") && fn.includes('syncStocksViaAutoSync'),
     'morning fill must refresh size-level stocks for the same cabinet group');
 assert.ok(fn.includes("rpc('snapshot_goods_daily_stocks'") && fn.includes('p_date: today'),
     'morning fill writes a write-once FBO+FBS daily stock snapshot after stocks sync');
+assert.ok(fn.includes('goods-daily-stocks-11-bishkek') && fn.includes('11:00'),
+    'morning fill documents the 11:00 Bishkek catch-up snapshot');
 assert.ok(fn.includes('остатки по размерам'), 'Karina reports stocks in the done message');
 assert.ok(auto.includes('techSize || s.wbSize || s.sizeName || meta?.techSize'),
     'FBO stocks must get tech_size from the WB card so the RNP size grid is filled');

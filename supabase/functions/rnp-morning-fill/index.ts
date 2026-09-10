@@ -8,6 +8,8 @@
 //   01:15 UTC = 07:15 Бишкек — Baza (сдвиг с 07:00, чтобы не столкнуться
 //              с daily-sales-report того же токена)
 //   02:00 UTC = 08:00 Бишкек — Elium
+// После остатков пишет сегодняшний goods_daily_stocks (write-once).
+// В 11:00 Бишкек cron goods-daily-stocks-11-bishkek дописывает, если утро не успело.
 //
 // Body: { group: 'zevina'|'baza'|'elium', date?, notify?, today? }
 
