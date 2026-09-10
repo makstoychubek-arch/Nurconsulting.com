@@ -74,8 +74,12 @@ assert.ok(html.includes('Сейчас работают Дашборд, РНП, �
     'BETA stub must list the live modules');
 assert.ok(html.includes('id="gg-fbo"') && html.includes('id="gg-transit"') && html.includes('goods-catalog'),
     'Товары tab shows FBO/FBS/in-transit columns and loads the Zevina catalog');
-assert.ok(html.includes("stock_scheme, in_way_to_client"),
-    'Товары stocks must come from wb_stocks FBO/FBS + transit, not a hardcoded sheet');
+assert.ok(html.includes("'nm_id, quantity, stock_scheme'"),
+    'Товары FBO/FBS come from wb_stocks without WB in-way columns');
+assert.ok(!/r\.transit \+= Number\(s\.in_way/.test(html),
+    'Товары must not take «в пути» from Wildberries in_way_*');
+assert.ok(html.includes("goods_transit") && html.includes("goods_plan") && html.includes('gg-edit-input'),
+    'В пути and В плане are editable and stored on rnp_articles.manual_data');
 
 const afterApp = html.slice(html.lastIndexOf('initSidebarFlyouts();'));
 assert.ok(

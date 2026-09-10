@@ -11,39 +11,75 @@ assert.equal(C.isZevina1Cabinet('Elium'), false);
 assert.equal(C.ZEVINA1_SECTIONS.length, 17);
 assert.equal(C.ZEVINA1_SECTIONS[0].name, 'Свитера');
 assert.equal(C.ZEVINA1_SECTIONS[0].items[0].nmId, 1218782505);
+assert.equal(C.ZEVINA1_SECTIONS[0].items[0].transit, 3500);
 assert.equal(C.ZEVINA1_SECTIONS[1].name, 'Костюм укороч');
 assert.equal(C.ZEVINA1_SECTIONS[9].name, 'Костюм велюр');
 assert.equal(C.ZEVINA1_SECTIONS[16].name, 'Платье Риджак');
 assert.equal(C.ZEVINA1_SECTIONS.reduce((n, s) => n + s.items.length, 0), 126);
+assert.equal(C.ZEVINA1_SECTIONS.some((s) => s.items.some((i) => i.name === 'ИТОГО')), false);
+
+const sheetTransit = C.ZEVINA1_SECTIONS.reduce((n, s) => n + s.items.reduce((a, i) => a + i.transit, 0), 0);
+const sheetPlan = C.ZEVINA1_SECTIONS.reduce((n, s) => n + s.items.reduce((a, i) => a + i.plan, 0), 0);
+assert.equal(sheetTransit, 15712);
+assert.equal(sheetPlan, 14900);
+
+assert.equal(C.hasManualQty(0), true);
+assert.equal(C.hasManualQty(''), false);
+assert.equal(C.hasManualQty(undefined), false);
+assert.equal(C.resolveSheetQty(undefined, 3500, true), 3500);
+assert.equal(C.resolveSheetQty(12, 3500, true), 12);
+assert.equal(C.resolveSheetQty(0, 3500, true), 0);
+assert.equal(C.resolveSheetQty(undefined, 3500, false), 0);
+assert.equal(C.parseQty('1 200'), 1200);
+assert.equal(C.parseQty(''), 0);
+assert.equal(C.readManualQty({ goods_transit: 40 }, 'goods_transit'), 40);
+assert.equal(C.readManualQty({}, 'goods_transit'), undefined);
 
 const live = [
-    { nmId: 1218782505, fbo: 10, fbs: 20, transit: 3, plan: 0, sellerArticle: 'old' },
-    { nmId: 999, fbo: 1, fbs: 0, transit: 0, plan: 0, sellerArticle: 'лишний' },
+    { nmId: 1218782505, fbo: 10, fbs: 20, transit: 3, plan: 99, sellerArticle: 'old' },
+    { nmId: 999, fbo: 1, fbs: 0, transit: 8, plan: 7, sellerArticle: 'лишний' },
 ];
 const groups = C.groupGoods(live, 'Zevina 1');
 assert.equal(groups[0].name, 'Свитера');
 assert.equal(groups[0].items[0].sellerArticle, 'Свитер-айвори');
 assert.equal(groups[0].items[0].fbo, 10);
 assert.equal(groups[0].items[0].fbs, 20);
-assert.equal(groups[0].items[0].transit, 3);
+assert.equal(groups[0].items[0].transit, 3500, 'WB in-way must not replace sheet transit');
+assert.equal(groups[0].items[0].plan, 0, 'WB/RNP plan must not replace sheet plan');
 assert.equal(groups[groups.length - 1].name, 'Прочие');
 assert.equal(groups[groups.length - 1].items[0].nmId, 999);
+assert.equal(groups[groups.length - 1].items[0].transit, 0, 'extra SKUs have empty transit unless edited');
+assert.equal(groups[groups.length - 1].items[0].plan, 0);
 
 const ivory = groups[0].items[0];
-assert.equal(C.stockOf(ivory).total, 33);
+assert.equal(C.stockOf(ivory).total, 10 + 20 + 3500);
 
-const suit = C.ZEVINA1_SECTIONS[1].items[0];
+const edited = C.groupGoods([
+    { nmId: 1218782505, fbo: 10, fbs: 20, transit: 40, plan: 5, transitManual: true, planManual: true },
+], 'ИП Уркунбаев');
+assert.equal(edited[0].items[0].transit, 40);
+assert.equal(edited[0].items[0].plan, 5);
+
 const suitLive = C.groupByCatalog([], C.ZEVINA1_SECTIONS)[1].items[0];
 assert.equal(suitLive.nmId, 296564448);
+assert.equal(suitLive.transit, 761);
 assert.equal(suitLive.plan, 3000);
-assert.equal(C.stockOf(suitLive).total, 3000);
+assert.equal(C.stockOf(suitLive).total, 3761);
 
 const other = C.groupGoods([
-    { nmId: 1, category: 'Блузки', sellerArticle: 'b', fbo: 2, fbs: 0, transit: 0, plan: 0 },
-    { nmId: 2, category: '', sellerArticle: 'a', fbo: 1, fbs: 1, transit: 0, plan: 0 },
+    { nmId: 1, category: 'Блузки', sellerArticle: 'b', fbo: 2, fbs: 0, transit: 90, plan: 80 },
+    { nmId: 2, category: '', sellerArticle: 'a', fbo: 1, fbs: 1, transit: 4, plan: 3 },
 ], 'Elium');
 assert.equal(other[0].name, 'Блузки');
+assert.equal(other[0].items[0].transit, 0, 'other cabinets leave transit empty');
+assert.equal(other[0].items[0].plan, 0, 'other cabinets leave plan empty');
 assert.equal(other[1].name, 'Без раздела');
+
+const otherEdited = C.groupGoods([
+    { nmId: 1, category: 'Блузки', sellerArticle: 'b', fbo: 2, fbs: 0, transit: 15, plan: 9, transitManual: true, planManual: true },
+], 'Elium');
+assert.equal(otherEdited[0].items[0].transit, 15);
+assert.equal(otherEdited[0].items[0].plan, 9);
 
 const filtered = C.filterGroups(groups, '1218782505');
 assert.equal(filtered.length, 1);

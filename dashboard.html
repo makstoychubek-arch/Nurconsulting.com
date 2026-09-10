@@ -865,6 +865,24 @@
         .gg-nm { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--text-muted); }
         .gg-art { color: var(--text-primary); font-weight: 600; }
         .gg-zero { color: var(--text-muted); font-weight: 500; }
+        .gg-edit { padding: 2px 4px !important; }
+        .gg-edit-input {
+            width: 100%; min-width: 56px; min-height: 28px;
+            padding: 4px 8px !important; margin: 0;
+            text-align: right; font-variant-numeric: tabular-nums;
+            font-size: 12px; font-weight: 600; color: inherit;
+            border: none !important; border-radius: 6px !important;
+            background: transparent !important; box-shadow: none !important;
+            -moz-appearance: textfield; appearance: textfield;
+        }
+        .gg-edit-input:hover { background: rgba(128,128,128,0.08) !important; }
+        .gg-edit-input:focus {
+            outline: none;
+            background: var(--accent-soft, rgba(59,130,246,0.12)) !important;
+            box-shadow: inset 0 0 0 1px var(--border-strong) !important;
+            color: var(--text-primary);
+        }
+        .gg-edit-input.gg-edit-dirty { background: rgba(245,158,11,0.14) !important; }
         @media (max-width: 768px) {
             .gg-title { font-size: 20px; }
             .gg-col-nm { display: none; }
@@ -4060,7 +4078,7 @@
         <div id="tab-goods-groups" class="tab-content space-y-5">
             <div class="gg-hero">
                 <h2 class="gg-title">Товары</h2>
-                <p class="gg-sub">Реальные остатки WB · разделы в том же порядке, что в таблице</p>
+                <p class="gg-sub">ФБО/ФБС с WB. В пути — поставка Бишкек→Россия, не WB. План и путь по Уркунбаеву из таблицы, можно править</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
                 <select id="gg-cabinet-filter" onchange="onGoodsGroupsCabinetChange()"
@@ -5186,7 +5204,7 @@
 <script src="/dist/rnp-module.3fc8b04339.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script src="/dist/ads-command-center.1f0ae4c2b4.min.js"></script>
-<script src="/dist/goods-catalog.a7ed491b40.min.js"></script>
+<script src="/dist/goods-catalog.19f6e5844c.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -7656,6 +7674,9 @@
 
     let goodsGroupsRows = [];
     let goodsGroupsCabinetName = '';
+    let goodsGroupsCabinetId = '';
+    const ggSaveQueue = new Map();
+    let ggSaveTimer = null;
 
     function extractSellerArticleFromOrder(order) {
         const d = order?.data || order || {};
@@ -7672,18 +7693,28 @@
         return `<td class="gg-num${v ? '' : ' gg-zero'}">${fmt(v)}</td>`;
     }
 
-    function renderGoodsGroupsTable() {
-        const tbody = document.getElementById('gg-table-body');
-        if (!tbody) return;
-        const scrollEl = tbody.closest('.gg-table-scroll');
-        const scrollTop = scrollEl?.scrollTop || 0;
-        const q = document.getElementById('gg-search')?.value || '';
+    function ggQtyInput(r, field, value) {
+        const shown = Number(value) ? String(value) : '';
+        const cab = escapeHtml(String(r.cabinetId || goodsGroupsCabinetId || ''));
+        return `<td class="gg-num gg-edit"><input class="gg-edit-input${value ? '' : ' gg-zero'}" type="text" inputmode="numeric" data-nm="${escapeHtml(String(r.nmId))}" data-cab="${cab}" data-field="${field}" value="${escapeHtml(shown)}" onfocus="ggEditFocus(this)" oninput="ggEditInput(this)" onchange="ggEditCommit(this)" onkeydown="ggEditKey(event, this)"></td>`;
+    }
+
+    function ggCatalogMeta() {
+        return { cabinetId: goodsGroupsCabinetId, cabinetName: goodsGroupsCabinetName };
+    }
+
+    function ggVisibleGroups() {
         const catalog = window.GoodsCatalog;
+        const q = document.getElementById('gg-search')?.value || '';
         const cabName = goodsGroupsCabinetName || goodsGroupsRows[0]?.cabinetName || '';
-        let groups = catalog
-            ? catalog.filterGroups(catalog.groupGoods(goodsGroupsRows, cabName), q)
-            : [{ name: '', items: goodsGroupsRows }];
-        const items = groups.flatMap((g) => g.items);
+        if (!catalog) return [{ name: '', items: goodsGroupsRows }];
+        return catalog.filterGroups(catalog.groupGoods(goodsGroupsRows, cabName, ggCatalogMeta()), q);
+    }
+
+    function ggRefreshKpis() {
+        const catalog = window.GoodsCatalog;
+        const groups = ggVisibleGroups();
+        const items = catalog ? catalog.flattenGroups(groups) : groups.flatMap((g) => g.items || []);
         const tot = catalog ? catalog.sumItems(items) : items.reduce((a, r) => {
             a.fbo += Number(r.fbo || 0);
             a.fbs += Number(r.fbs || 0);
@@ -7697,6 +7728,16 @@
         setText('gg-transit', fmt(tot.transit));
         setText('gg-plan', fmt(tot.plan));
         setText('gg-stock-total', fmt(tot.total));
+        return { groups, items, tot };
+    }
+
+    function renderGoodsGroupsTable() {
+        const tbody = document.getElementById('gg-table-body');
+        if (!tbody) return;
+        const scrollEl = tbody.closest('.gg-table-scroll');
+        const scrollTop = scrollEl?.scrollTop || 0;
+        const catalog = window.GoodsCatalog;
+        const { groups, items, tot } = ggRefreshKpis();
 
         if (!items.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Нет данных по фильтру</td></tr>';
@@ -7716,8 +7757,8 @@
                 html.push(`<tr>
                     <td class="gg-art">${escapeHtml(r.sellerArticle || '—')}</td>
                     <td class="gg-col-nm gg-nm">${escapeHtml(String(r.nmId))}</td>
-                    ${ggQtyCell(s.fbo)}${ggQtyCell(s.fbs)}${ggQtyCell(s.transit)}${ggQtyCell(s.plan)}
-                    <td class="gg-num" style="font-weight:700">${fmt(s.total)}</td>
+                    ${ggQtyCell(s.fbo)}${ggQtyCell(s.fbs)}${ggQtyInput(r, 'transit', s.transit)}${ggQtyInput(r, 'plan', s.plan)}
+                    <td class="gg-num gg-total" style="font-weight:700">${fmt(s.total)}</td>
                 </tr>`);
             });
         });
@@ -7725,10 +7766,113 @@
         if (scrollEl && scrollTop > 0) scrollEl.scrollTop = scrollTop;
     }
 
+    function ggFindRow(nmId, cabId) {
+        const id = Number(nmId);
+        const cab = String(cabId || goodsGroupsCabinetId || '');
+        return goodsGroupsRows.find((r) => Number(r.nmId) === id && (!cab || !r.cabinetId || String(r.cabinetId) === cab))
+            || goodsGroupsRows.find((r) => Number(r.nmId) === id);
+    }
+
+    function ggEditFocus(el) {
+        try { el.select(); } catch (e) {}
+    }
+
+    function ggApplyEdit(el) {
+        const catalog = window.GoodsCatalog;
+        const val = catalog ? catalog.parseQty(el.value) : Math.max(0, Math.round(Number(String(el.value).replace(/\s/g, '')) || 0));
+        const row = ggFindRow(el.dataset.nm, el.dataset.cab);
+        if (row) {
+            const field = el.dataset.field;
+            row[field] = val;
+            if (field === 'transit') row.transitManual = true;
+            if (field === 'plan') row.planManual = true;
+            const totalTd = el.closest('tr')?.querySelector('.gg-total');
+            if (totalTd) totalTd.textContent = fmt(catalog ? catalog.stockOf(row).total : val);
+            el.classList.toggle('gg-zero', !val);
+            el.classList.add('gg-edit-dirty');
+        }
+        ggRefreshKpis();
+        return val;
+    }
+
+    function ggQueueSave(cabId, nmId, field, val) {
+        const key = `${cabId || goodsGroupsCabinetId}|${nmId}`;
+        const prev = ggSaveQueue.get(key) || { cabinetId: cabId || goodsGroupsCabinetId, nmId: Number(nmId) };
+        if (field === 'transit') prev.goods_transit = val;
+        if (field === 'plan') prev.goods_plan = val;
+        ggSaveQueue.set(key, prev);
+        if (ggSaveTimer) clearTimeout(ggSaveTimer);
+        ggSaveTimer = setTimeout(() => { ggFlushSaves(); }, 600);
+    }
+
+    async function ggPersistManual(item) {
+        const cab = item.cabinetId || goodsGroupsCabinetId;
+        const nmId = Number(item.nmId);
+        if (!cab || !nmId) throw new Error('нет кабинета или артикула');
+        const { data: existing, error: readErr } = await supabase.from('rnp_articles')
+            .select('manual_data')
+            .eq('cabinet_id', cab)
+            .eq('nm_id', nmId)
+            .maybeSingle();
+        if (readErr) throw readErr;
+        const md = { ...(existing?.manual_data || {}) };
+        if (item.goods_transit !== undefined) md.goods_transit = item.goods_transit;
+        if (item.goods_plan !== undefined) md.goods_plan = item.goods_plan;
+        if (existing) {
+            const { error } = await supabase.from('rnp_articles').update({ manual_data: md }).eq('cabinet_id', cab).eq('nm_id', nmId);
+            if (error) throw error;
+            return;
+        }
+        const row = ggFindRow(nmId, cab);
+        const { error } = await supabase.from('rnp_articles').upsert({
+            cabinet_id: cab,
+            nm_id: nmId,
+            name: row?.sellerArticle || '',
+            is_active: false,
+            manual_data: md,
+        }, { onConflict: 'cabinet_id,nm_id' });
+        if (error) throw error;
+    }
+
+    async function ggFlushSaves() {
+        if (ggSaveTimer) { clearTimeout(ggSaveTimer); ggSaveTimer = null; }
+        const pending = [...ggSaveQueue.values()];
+        ggSaveQueue.clear();
+        if (!pending.length) return;
+        const fresh = document.getElementById('gg-freshness');
+        try {
+            for (const item of pending) await ggPersistManual(item);
+            document.querySelectorAll('.gg-edit-dirty').forEach((el) => el.classList.remove('gg-edit-dirty'));
+            if (fresh) fresh.textContent = 'сохранено';
+        } catch (e) {
+            console.error('[goods] save', e);
+            if (fresh) fresh.textContent = 'ошибка сохранения';
+            showPremiumModal('error', 'Не сохранилось', e.message || 'В пути / в плане');
+        }
+    }
+
+    function ggEditInput(el) {
+        const val = ggApplyEdit(el);
+        ggQueueSave(el.dataset.cab, el.dataset.nm, el.dataset.field, val);
+    }
+
+    function ggEditCommit(el) {
+        ggApplyEdit(el);
+        ggFlushSaves();
+    }
+
+    function ggEditKey(ev, el) {
+        if (ev.key === 'Enter') {
+            ev.preventDefault();
+            el.blur();
+        }
+    }
+
     async function loadGoodsGroupsCabinet(cab) {
+        const catalog = window.GoodsCatalog;
         const [stocks, arts] = await Promise.all([
             fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: cab.id }],
-                'nm_id, quantity, stock_scheme, in_way_to_client, in_way_from_client'),
+                'nm_id, quantity, stock_scheme'),
             fetchAllRows('rnp_articles', [{ op: 'eq', column: 'cabinet_id', value: cab.id }],
                 'nm_id, name, category, manual_data'),
         ]);
@@ -7745,6 +7889,8 @@
                     fbs: 0,
                     transit: 0,
                     plan: 0,
+                    transitManual: false,
+                    planManual: false,
                 };
             }
             return byNm[nmId];
@@ -7755,7 +7901,6 @@
             const r = rowOf(id);
             const scheme = String(s.stock_scheme || 'fbo').toLowerCase() === 'fbs' ? 'fbs' : 'fbo';
             r[scheme] += Number(s.quantity || 0);
-            r.transit += Number(s.in_way_to_client || 0) + Number(s.in_way_from_client || 0);
         });
         (arts || []).forEach((a) => {
             const id = Number(a.nm_id);
@@ -7763,8 +7908,17 @@
             const r = rowOf(id);
             r.sellerArticle = String(a.manual_data?.seller_article || a.manual_data?.sa_name || a.name || '').trim();
             r.category = (a.category || '').trim();
-            const prod = Number(a.manual_data?.in_production);
-            if (Number.isFinite(prod) && prod > 0) r.plan = prod;
+            const md = a.manual_data || {};
+            const gt = catalog ? catalog.readManualQty(md, 'goods_transit') : md.goods_transit;
+            const gp = catalog ? catalog.readManualQty(md, 'goods_plan') : md.goods_plan;
+            if (catalog ? catalog.hasManualQty(gt) : (gt !== undefined && gt !== null && gt !== '')) {
+                r.transit = Number(gt) || 0;
+                r.transitManual = true;
+            }
+            if (catalog ? catalog.hasManualQty(gp) : (gp !== undefined && gp !== null && gp !== '')) {
+                r.plan = Number(gp) || 0;
+                r.planManual = true;
+            }
         });
         return Object.values(byNm);
     }
@@ -7773,6 +7927,7 @@
         const tbody = document.getElementById('gg-table-body');
         const btn = document.getElementById('gg-load-btn');
         if (!tbody) return;
+        await ggFlushSaves();
         if (btn) { btn.disabled = true; btn.textContent = 'Обновление…'; }
         tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Загрузка остатков…</td></tr>';
 
@@ -7805,12 +7960,24 @@
             });
 
             const chunks = await Promise.all(targetCabs.map(cab => loadGoodsGroupsCabinet(cab)));
-            goodsGroupsRows = chunks.flat();
+            const catalog = window.GoodsCatalog;
             goodsGroupsCabinetName = targetCabs[0]?.name || '';
+            goodsGroupsCabinetId = targetCabs[0]?.id || '';
+            goodsGroupsRows = chunks.flat();
+            if (catalog) {
+                goodsGroupsRows = catalog.flattenGroups(
+                    catalog.groupGoods(goodsGroupsRows, goodsGroupsCabinetName, ggCatalogMeta())
+                );
+            }
 
             renderGoodsGroupsTable();
             const fresh = document.getElementById('gg-freshness');
-            if (fresh) fresh.textContent = 'остатки из WB · ' + targetCabs.map(c => cabinetDisplayName(c.name)).join(', ');
+            if (fresh) {
+                const who = targetCabs.map(c => cabinetDisplayName(c.name)).join(', ');
+                fresh.textContent = catalog?.isZevina1Cabinet(goodsGroupsCabinetName)
+                    ? 'ФБО/ФБС с WB · в пути и план из таблицы · ' + who
+                    : 'ФБО/ФБС с WB · в пути и план пустые, можно вписать · ' + who;
+            }
         } catch (e) {
             console.error('[goods-groups]', e);
             tbody.innerHTML = `<tr><td colspan="7" class="text-center py-10" style="color:var(--red)">${escapeHtml(e.message)}</td></tr>`;

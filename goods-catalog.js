@@ -1,10 +1,12 @@
 /**
  * Каталог «Товары» для ИП Уркунбаев / Zevina 1.
- * Порядок разделов и артикулов — как в таблице остатков.
- * Цифры ФБО/ФБС/в пути берутся из wb_stocks, не из файла.
+ * Порядок разделов — как в таблице остатков.
+ * ФБО/ФБС — живые wb_stocks.
+ * В пути и в плане для Уркунбаева — из таблицы (поставка Бишкек→Россия), не из WB.
+ * Правки пользователя (manual_data.goods_transit / goods_plan) перекрывают таблицу.
  */
 (function (root) {
-    const ZEVINA1_SECTIONS = [{"name":"Свитера","items":[{"name":"Свитер-айвори","nmId":1218782505,"plan":0},{"name":"Свитер-бордо","nmId":1218802103,"plan":0},{"name":"Свитер-шоко","nmId":1218796940,"plan":0},{"name":"Свитер-серый","nmId":1218799336,"plan":0}]},{"name":"Костюм укороч","items":[{"name":"укороч_костюм_брючный_коричневый","nmId":296564448,"plan":3000},{"name":"укороч_костюм_брючный_черный","nmId":247350276,"plan":3000},{"name":"укороч_костюм_брючный_красный","nmId":262697143,"plan":1500},{"name":"укороч_костюм_брючный_серый","nmId":247350377,"plan":1000},{"name":"укороч_костюм_брючный_бардо","nmId":262714507,"plan":1000},{"name":"укороч_костюм_брючный_электрик","nmId":296564447,"plan":0},{"name":"укороч_костюм_брючный_бежевый","nmId":262760469,"plan":0},{"name":"укороч_костюм_брючный_темносиний","nmId":892565628,"plan":1000},{"name":"укороч_костюм_брючный_белый","nmId":435735287,"plan":0}]},{"name":"Костюм оверсайз","items":[{"name":"костюм_оверсайз_красный","nmId":391116477,"plan":0},{"name":"костюм_оверсайз_бордовый","nmId":296556346,"plan":0},{"name":"костюм_оверсайз_бежевый","nmId":296556350,"plan":0},{"name":"костюм_оверсайз_шоколад","nmId":296556347,"plan":1500},{"name":"костюм_оверсайз_черный","nmId":295201148,"plan":1500},{"name":"костюм_оверсайз_электрик","nmId":296556348,"plan":0},{"name":"костюм_оверсайз_серый","nmId":391116472,"plan":700},{"name":"костюм_оверсайз_темносин","nmId":399607068,"plan":700},{"name":"костюм_оверсайз_белый","nmId":435743074,"plan":0}]},{"name":"Пиджак оверсайз","items":[{"name":"пиджак серый","nmId":247347214,"plan":0},{"name":"пиджак_Беж_неоаал","nmId":429715568,"plan":0},{"name":"пиджак_шоко2","nmId":287679331,"plan":0},{"name":"пиджак_электрик2","nmId":287679857,"plan":0},{"name":"пиджак_NEW_красный","nmId":409845462,"plan":0},{"name":"пиджак черный","nmId":247347924,"plan":0},{"name":"пиджак_бургунди2","nmId":287679332,"plan":0},{"name":"пиджак_NEW_темносин","nmId":409845463,"plan":0},{"name":"пиджак_белый2","nmId":287679856,"plan":0}]},{"name":"Рич","items":[{"name":"Спорт_костюм_sport_rich_серый","nmId":539401905,"plan":0},{"name":"Спорт_костюм_sport_rich_шоко","nmId":539908484,"plan":0},{"name":"Спорт_костюм_sport_rich_айвори","nmId":539908473,"plan":0},{"name":"Спорт_костюм_sport_rich_синий","nmId":539908479,"plan":0},{"name":"Спорт_костюм_sport_rich_бордо","nmId":539908481,"plan":0},{"name":"Спорт_костюм_sport_rich_новый_бежевый","nmId":603633471,"plan":0},{"name":"Спорт_костюм_sport_rich_черный","nmId":539908477,"plan":0}]},{"name":"Костюм велюр","items":[{"name":"двойка_костюм_велюр_черный","nmId":705387379,"plan":0},{"name":"двойка_костюм_велюр_темно-синий","nmId":705387385,"plan":0},{"name":"двойка_костюм_велюр_розовый","nmId":705387381,"plan":0},{"name":"двойка_костюм_велюр_серый","nmId":705387382,"plan":0},{"name":"двойка_костюм_велюр_изумруд","nmId":705387380,"plan":0},{"name":"двойка_костюм_велюр_хакки","nmId":705387383,"plan":0},{"name":"двойка_костюм_велюр_капучино","nmId":705381484,"plan":0},{"name":"двойка_костюм_велюр_ коралловый","nmId":705387384,"plan":0},{"name":"двойка_костюм_велюр_марсала","nmId":705387388,"plan":0},{"name":"двойка_костюм_велюр_красный","nmId":705387387,"plan":0},{"name":"двойка_костюм_велюр_молочный","nmId":705387386,"plan":0}]},{"name":"Костюм велюр спорт","items":[{"name":"Спорт_костюм_велюр_черный","nmId":597838497,"plan":0},{"name":"Спорт_костюм_велюр_капучино","nmId":604201351,"plan":0},{"name":"Спорт_костюм_велюр_розовый","nmId":604201359,"plan":0},{"name":"Спорт_костюм_велюр_сирень","nmId":604201358,"plan":0},{"name":"Спорт_костюм_велюр_серый","nmId":604201350,"plan":0},{"name":"Спорт_костюм_велюр_изумруд","nmId":604201361,"plan":0},{"name":"Спорт_костюм_велюр_КОРАЛ","nmId":664192264,"plan":0},{"name":"Спорт_костюм_велюр_хаки","nmId":604201352,"plan":0},{"name":"Спорт_костюм_велюр_бордовый","nmId":604201353,"plan":0},{"name":"Спорт_костюм_велюр_темносин","nmId":604201356,"plan":0}]},{"name":"Пиджак Овальные","items":[{"name":"Пиджак овал серый1","nmId":247348946,"plan":0},{"name":"Пиджак овал серый 2","nmId":391102728,"plan":0},{"name":"Пиджак овал красный","nmId":499378334,"plan":0},{"name":"Пиджак овал черный","nmId":247348479,"plan":0},{"name":"Пиджак овал бардовый","nmId":280128269,"plan":0},{"name":"Пиджак овал синий","nmId":391102730,"plan":0},{"name":"Пиджак овал шоколад","nmId":280129304,"plan":0},{"name":"Пиджак овал серый 3","nmId":499380531,"plan":0},{"name":"Пиджак овал бежевый","nmId":391102732,"plan":0},{"name":"Пиджак овал ментол","nmId":391102729,"plan":0}]},{"name":"Укороченный пиджак","items":[{"name":"пиджак_КОРОТ_шоко","nmId":307425700,"plan":0},{"name":"пиджак_КОРОТ_изумруд","nmId":307425705,"plan":0},{"name":"пиджак_КОРОТ_черный","nmId":307425697,"plan":0},{"name":"пиджак_КОРОТ_электрик","nmId":307425699,"plan":0},{"name":"пиджак_КОРОТ_голубой","nmId":307425707,"plan":0},{"name":"пиджак_КОРОТ_серый","nmId":307425704,"plan":0},{"name":"пиджак_КОРОТ_бордо","nmId":307425701,"plan":0},{"name":"пиджак_КОРОТ_темносин","nmId":307425706,"plan":0},{"name":"пиджак_КОРОТ_бежевый","nmId":307425698,"plan":0},{"name":"пиджак_КОРОТ_белый","nmId":435746744,"plan":0}]},{"name":"Костюм велюр","items":[{"name":"костюм_велюр серый","nmId":633661202,"plan":0},{"name":"костюм_велюр изумруд","nmId":633661207,"plan":0},{"name":"костюм_велюр черный","nmId":633639148,"plan":0},{"name":"костюм_велюр розовый","nmId":766251143,"plan":0},{"name":"костюм_велюр синий","nmId":766251142,"plan":0},{"name":"костюм_велюр капучинно","nmId":633661203,"plan":0},{"name":"костюм_велюр сиреневый","nmId":633661205,"plan":0},{"name":"костюм_велюр корал","nmId":633661208,"plan":0}]},{"name":"Костюмы OLDMONEY","items":[{"name":"костНОВ_жакет_светло-серый","nmId":495053631,"plan":0},{"name":"костНОВ_жакет_бежевый","nmId":495053632,"plan":0},{"name":"костНОВ_жакет_бордо","nmId":495053634,"plan":0},{"name":"костНОВ_жакет_черный","nmId":495053627,"plan":0},{"name":"костНОВ_жакет_темно-синий","nmId":495053638,"plan":0},{"name":"костНОВ_жакет_темно-серый","nmId":495053633,"plan":0},{"name":"костНОВ_жакет_красный","nmId":495053630,"plan":0},{"name":"костНОВ_жакет_шоко","nmId":495053629,"plan":0}]},{"name":"Костюм Originals","items":[{"name":"Спорт_костюм_originals 1987_черный","nmId":539916083,"plan":0},{"name":"Спорт_костюм_originals 1987_бордо","nmId":539916085,"plan":0},{"name":"Спорт_костюм_originals 1987_айвори","nmId":539916078,"plan":0},{"name":"Спорт_костюм_originals 1987_новый_бежевый","nmId":611441510,"plan":0},{"name":"Спорт_костюм_originals 1987_синий","nmId":539916080,"plan":0},{"name":"Спорт_костюм_originals 1987_серый","nmId":539401904,"plan":0}]},{"name":"Бомбер","items":[{"name":"бомбер черный","nmId":262651910,"plan":0},{"name":"бомбер бежевый","nmId":249656298,"plan":0},{"name":"бомбер корич","nmId":249650166,"plan":0},{"name":"бомбер бордо","nmId":262659615,"plan":0},{"name":"бомбер графит","nmId":605813197,"plan":0},{"name":"бомбер серый","nmId":249656107,"plan":0}]},{"name":"Двойка юбка","items":[{"name":"Двойка_юбка_синий полоска","nmId":629645154,"plan":0},{"name":"Двойка_юбка_черный полоска","nmId":629645155,"plan":0},{"name":"Двойка_юбка_шоколад полоска","nmId":629645153,"plan":0},{"name":"Двойка_юбка_коричневый елечка","nmId":629645151,"plan":0},{"name":"Двойка_юбка_серый полоска","nmId":629645152,"plan":0},{"name":"Двойка_юбка_серый елечка","nmId":629645150,"plan":0}]},{"name":"Куртка фуфайка","items":[{"name":"Куртка_фуфайка_белый","nmId":547613172,"plan":0},{"name":"Куртка_фуфайка_кофе","nmId":547613173,"plan":0}]},{"name":"Полупальто","items":[{"name":"полупальто_горч","nmId":271001367,"plan":0},{"name":"полупальто_темнобеж","nmId":271001364,"plan":0},{"name":"полупальто_светлобеж","nmId":271001369,"plan":0},{"name":"полупальто_темносин","nmId":271001368,"plan":0}]},{"name":"Платье Риджак","items":[{"name":"Платье_Пиджак_красный","nmId":495055922,"plan":0},{"name":"Платье_Пиджак_черный","nmId":495055925,"plan":0},{"name":"Платье_Пиджак_СветлоСер","nmId":495055921,"plan":0},{"name":"Платье_Пиджак_бордо","nmId":495055924,"plan":0},{"name":"Платье_Пиджак_мятный","nmId":629846440,"plan":0},{"name":"Платье_Пиджак_ТемноСин","nmId":495055919,"plan":0},{"name":"Платье_Пиджак_шоко","nmId":495055918,"plan":0}]}];
+    const ZEVINA1_SECTIONS = [{"name":"Свитера","items":[{"name":"Свитер-айвори","nmId":1218782505,"transit":3500,"plan":0},{"name":"Свитер-бордо","nmId":1218802103,"transit":1000,"plan":0},{"name":"Свитер-шоко","nmId":1218796940,"transit":1700,"plan":0},{"name":"Свитер-серый","nmId":1218799336,"transit":800,"plan":0}]},{"name":"Костюм укороч","items":[{"name":"укороч_костюм_брючный_коричневый","nmId":296564448,"transit":761,"plan":3000},{"name":"укороч_костюм_брючный_черный","nmId":247350276,"transit":1704,"plan":3000},{"name":"укороч_костюм_брючный_красный","nmId":262697143,"transit":203,"plan":1500},{"name":"укороч_костюм_брючный_серый","nmId":247350377,"transit":790,"plan":1000},{"name":"укороч_костюм_брючный_бардо","nmId":262714507,"transit":579,"plan":1000},{"name":"укороч_костюм_брючный_электрик","nmId":296564447,"transit":341,"plan":0},{"name":"укороч_костюм_брючный_бежевый","nmId":262760469,"transit":438,"plan":0},{"name":"укороч_костюм_брючный_темносиний","nmId":892565628,"transit":412,"plan":1000},{"name":"укороч_костюм_брючный_белый","nmId":435735287,"transit":34,"plan":0}]},{"name":"Костюм оверсайз","items":[{"name":"костюм_оверсайз_красный","nmId":391116477,"transit":391,"plan":0},{"name":"костюм_оверсайз_бордовый","nmId":296556346,"transit":24,"plan":0},{"name":"костюм_оверсайз_бежевый","nmId":296556350,"transit":55,"plan":0},{"name":"костюм_оверсайз_шоколад","nmId":296556347,"transit":677,"plan":1500},{"name":"костюм_оверсайз_черный","nmId":295201148,"transit":1095,"plan":1500},{"name":"костюм_оверсайз_электрик","nmId":296556348,"transit":5,"plan":0},{"name":"костюм_оверсайз_серый","nmId":391116472,"transit":349,"plan":700},{"name":"костюм_оверсайз_темносин","nmId":399607068,"transit":389,"plan":700},{"name":"костюм_оверсайз_белый","nmId":435743074,"transit":32,"plan":0}]},{"name":"Пиджак оверсайз","items":[{"name":"пиджак серый","nmId":247347214,"transit":26,"plan":0},{"name":"пиджак_Беж_неоаал","nmId":429715568,"transit":70,"plan":0},{"name":"пиджак_шоко2","nmId":287679331,"transit":32,"plan":0},{"name":"пиджак_электрик2","nmId":287679857,"transit":47,"plan":0},{"name":"пиджак_NEW_красный","nmId":409845462,"transit":22,"plan":0},{"name":"пиджак черный","nmId":247347924,"transit":34,"plan":0},{"name":"пиджак_бургунди2","nmId":287679332,"transit":38,"plan":0},{"name":"пиджак_NEW_темносин","nmId":409845463,"transit":114,"plan":0},{"name":"пиджак_белый2","nmId":287679856,"transit":50,"plan":0}]},{"name":"Рич","items":[{"name":"Спорт_костюм_sport_rich_серый","nmId":539401905,"transit":0,"plan":0},{"name":"Спорт_костюм_sport_rich_шоко","nmId":539908484,"transit":0,"plan":0},{"name":"Спорт_костюм_sport_rich_айвори","nmId":539908473,"transit":0,"plan":0},{"name":"Спорт_костюм_sport_rich_синий","nmId":539908479,"transit":0,"plan":0},{"name":"Спорт_костюм_sport_rich_бордо","nmId":539908481,"transit":0,"plan":0},{"name":"Спорт_костюм_sport_rich_новый_бежевый","nmId":603633471,"transit":0,"plan":0},{"name":"Спорт_костюм_sport_rich_черный","nmId":539908477,"transit":0,"plan":0}]},{"name":"Костюм велюр","items":[{"name":"двойка_костюм_велюр_черный","nmId":705387379,"transit":0,"plan":0},{"name":"двойка_костюм_велюр_темно-синий","nmId":705387385,"transit":0,"plan":0},{"name":"двойка_костюм_велюр_розовый","nmId":705387381,"transit":0,"plan":0},{"name":"двойка_костюм_велюр_серый","nmId":705387382,"transit":0,"plan":0},{"name":"двойка_костюм_велюр_изумруд","nmId":705387380,"transit":0,"plan":0},{"name":"двойка_костюм_велюр_хакки","nmId":705387383,"transit":0,"plan":0},{"name":"двойка_костюм_велюр_капучино","nmId":705381484,"transit":0,"plan":0},{"name":"двойка_костюм_велюр_ коралловый","nmId":705387384,"transit":0,"plan":0},{"name":"двойка_костюм_велюр_марсала","nmId":705387388,"transit":0,"plan":0},{"name":"двойка_костюм_велюр_красный","nmId":705387387,"transit":0,"plan":0},{"name":"двойка_костюм_велюр_молочный","nmId":705387386,"transit":0,"plan":0}]},{"name":"Костюм велюр спорт","items":[{"name":"Спорт_костюм_велюр_черный","nmId":597838497,"transit":0,"plan":0},{"name":"Спорт_костюм_велюр_капучино","nmId":604201351,"transit":0,"plan":0},{"name":"Спорт_костюм_велюр_розовый","nmId":604201359,"transit":0,"plan":0},{"name":"Спорт_костюм_велюр_сирень","nmId":604201358,"transit":0,"plan":0},{"name":"Спорт_костюм_велюр_серый","nmId":604201350,"transit":0,"plan":0},{"name":"Спорт_костюм_велюр_изумруд","nmId":604201361,"transit":0,"plan":0},{"name":"Спорт_костюм_велюр_КОРАЛ","nmId":664192264,"transit":0,"plan":0},{"name":"Спорт_костюм_велюр_хаки","nmId":604201352,"transit":0,"plan":0},{"name":"Спорт_костюм_велюр_бордовый","nmId":604201353,"transit":0,"plan":0},{"name":"Спорт_костюм_велюр_темносин","nmId":604201356,"transit":0,"plan":0}]},{"name":"Пиджак Овальные","items":[{"name":"Пиджак овал серый1","nmId":247348946,"transit":0,"plan":0},{"name":"Пиджак овал серый 2","nmId":391102728,"transit":0,"plan":0},{"name":"Пиджак овал красный","nmId":499378334,"transit":0,"plan":0},{"name":"Пиджак овал черный","nmId":247348479,"transit":0,"plan":0},{"name":"Пиджак овал бардовый","nmId":280128269,"transit":0,"plan":0},{"name":"Пиджак овал синий","nmId":391102730,"transit":0,"plan":0},{"name":"Пиджак овал шоколад","nmId":280129304,"transit":0,"plan":0},{"name":"Пиджак овал серый 3","nmId":499380531,"transit":0,"plan":0},{"name":"Пиджак овал бежевый","nmId":391102732,"transit":0,"plan":0},{"name":"Пиджак овал ментол","nmId":391102729,"transit":0,"plan":0}]},{"name":"Укороченный пиджак","items":[{"name":"пиджак_КОРОТ_шоко","nmId":307425700,"transit":0,"plan":0},{"name":"пиджак_КОРОТ_изумруд","nmId":307425705,"transit":0,"plan":0},{"name":"пиджак_КОРОТ_черный","nmId":307425697,"transit":0,"plan":0},{"name":"пиджак_КОРОТ_электрик","nmId":307425699,"transit":0,"plan":0},{"name":"пиджак_КОРОТ_голубой","nmId":307425707,"transit":0,"plan":0},{"name":"пиджак_КОРОТ_серый","nmId":307425704,"transit":0,"plan":0},{"name":"пиджак_КОРОТ_бордо","nmId":307425701,"transit":0,"plan":0},{"name":"пиджак_КОРОТ_темносин","nmId":307425706,"transit":0,"plan":0},{"name":"пиджак_КОРОТ_бежевый","nmId":307425698,"transit":0,"plan":0},{"name":"пиджак_КОРОТ_белый","nmId":435746744,"transit":0,"plan":0}]},{"name":"Костюм велюр","items":[{"name":"костюм_велюр серый","nmId":633661202,"transit":0,"plan":0},{"name":"костюм_велюр изумруд","nmId":633661207,"transit":0,"plan":0},{"name":"костюм_велюр черный","nmId":633639148,"transit":0,"plan":0},{"name":"костюм_велюр розовый","nmId":766251143,"transit":0,"plan":0},{"name":"костюм_велюр синий","nmId":766251142,"transit":0,"plan":0},{"name":"костюм_велюр капучинно","nmId":633661203,"transit":0,"plan":0},{"name":"костюм_велюр сиреневый","nmId":633661205,"transit":0,"plan":0},{"name":"костюм_велюр корал","nmId":633661208,"transit":0,"plan":0}]},{"name":"Костюмы OLDMONEY","items":[{"name":"костНОВ_жакет_светло-серый","nmId":495053631,"transit":0,"plan":0},{"name":"костНОВ_жакет_бежевый","nmId":495053632,"transit":0,"plan":0},{"name":"костНОВ_жакет_бордо","nmId":495053634,"transit":0,"plan":0},{"name":"костНОВ_жакет_черный","nmId":495053627,"transit":0,"plan":0},{"name":"костНОВ_жакет_темно-синий","nmId":495053638,"transit":0,"plan":0},{"name":"костНОВ_жакет_темно-серый","nmId":495053633,"transit":0,"plan":0},{"name":"костНОВ_жакет_красный","nmId":495053630,"transit":0,"plan":0},{"name":"костНОВ_жакет_шоко","nmId":495053629,"transit":0,"plan":0}]},{"name":"Костюм Originals","items":[{"name":"Спорт_костюм_originals 1987_черный","nmId":539916083,"transit":0,"plan":0},{"name":"Спорт_костюм_originals 1987_бордо","nmId":539916085,"transit":0,"plan":0},{"name":"Спорт_костюм_originals 1987_айвори","nmId":539916078,"transit":0,"plan":0},{"name":"Спорт_костюм_originals 1987_новый_бежевый","nmId":611441510,"transit":0,"plan":0},{"name":"Спорт_костюм_originals 1987_синий","nmId":539916080,"transit":0,"plan":0},{"name":"Спорт_костюм_originals 1987_серый","nmId":539401904,"transit":0,"plan":0}]},{"name":"Бомбер","items":[{"name":"бомбер черный","nmId":262651910,"transit":0,"plan":0},{"name":"бомбер бежевый","nmId":249656298,"transit":0,"plan":0},{"name":"бомбер корич","nmId":249650166,"transit":0,"plan":0},{"name":"бомбер бордо","nmId":262659615,"transit":0,"plan":0},{"name":"бомбер графит","nmId":605813197,"transit":0,"plan":0},{"name":"бомбер серый","nmId":249656107,"transit":0,"plan":0}]},{"name":"Двойка юбка","items":[{"name":"Двойка_юбка_синий полоска","nmId":629645154,"transit":0,"plan":0},{"name":"Двойка_юбка_черный полоска","nmId":629645155,"transit":0,"plan":0},{"name":"Двойка_юбка_шоколад полоска","nmId":629645153,"transit":0,"plan":0},{"name":"Двойка_юбка_коричневый елечка","nmId":629645151,"transit":0,"plan":0},{"name":"Двойка_юбка_серый полоска","nmId":629645152,"transit":0,"plan":0},{"name":"Двойка_юбка_серый елечка","nmId":629645150,"transit":0,"plan":0}]},{"name":"Куртка фуфайка","items":[{"name":"Куртка_фуфайка_белый","nmId":547613172,"transit":0,"plan":0},{"name":"Куртка_фуфайка_кофе","nmId":547613173,"transit":0,"plan":0}]},{"name":"Полупальто","items":[{"name":"полупальто_горч","nmId":271001367,"transit":0,"plan":0},{"name":"полупальто_темнобеж","nmId":271001364,"transit":0,"plan":0},{"name":"полупальто_светлобеж","nmId":271001369,"transit":0,"plan":0},{"name":"полупальто_темносин","nmId":271001368,"transit":0,"plan":0}]},{"name":"Платье Риджак","items":[{"name":"Платье_Пиджак_красный","nmId":495055922,"transit":0,"plan":0},{"name":"Платье_Пиджак_черный","nmId":495055925,"transit":0,"plan":0},{"name":"Платье_Пиджак_СветлоСер","nmId":495055921,"transit":0,"plan":0},{"name":"Платье_Пиджак_бордо","nmId":495055924,"transit":0,"plan":0},{"name":"Платье_Пиджак_мятный","nmId":629846440,"transit":0,"plan":0},{"name":"Платье_Пиджак_ТемноСин","nmId":495055919,"transit":0,"plan":0},{"name":"Платье_Пиджак_шоко","nmId":495055918,"transit":0,"plan":0}]}];
 
     function isZevina1Cabinet(name) {
         const raw = String(name || '');
@@ -16,6 +18,22 @@
     function num(v) {
         const n = Number(v);
         return Number.isFinite(n) ? n : 0;
+    }
+
+    function hasManualQty(v) {
+        return v !== undefined && v !== null && v !== '';
+    }
+
+    function resolveSheetQty(manualVal, catalogVal, useCatalog) {
+        if (hasManualQty(manualVal)) return num(manualVal);
+        return useCatalog ? num(catalogVal) : 0;
+    }
+
+    function parseQty(raw) {
+        const t = String(raw ?? '').replace(/\s/g, '').replace(',', '.');
+        if (!t) return 0;
+        const n = Number(t);
+        return Number.isFinite(n) ? Math.max(0, Math.round(n)) : 0;
     }
 
     function stockOf(row) {
@@ -30,34 +48,56 @@
         };
     }
 
-    function emptyLive(nmId, name, plan) {
+    function emptyLive(nmId, name, item, meta) {
         return {
             nmId: Number(nmId),
             sellerArticle: name || '',
             category: '',
             fbo: 0,
             fbs: 0,
-            transit: 0,
-            plan: num(plan),
-            cabinetId: '',
-            cabinetName: '',
+            transit: num(item && item.transit),
+            plan: num(item && item.plan),
+            cabinetId: (meta && meta.cabinetId) || '',
+            cabinetName: (meta && meta.cabinetName) || '',
         };
     }
 
-    function groupByCatalog(liveRows, sections) {
+    function stampCabinet(row, meta) {
+        if (!row.cabinetId && meta && meta.cabinetId) row.cabinetId = meta.cabinetId;
+        if (!row.cabinetName && meta && meta.cabinetName) row.cabinetName = meta.cabinetName;
+        return row;
+    }
+
+    function groupByCatalog(liveRows, sections, meta) {
         const byNm = new Map();
         (liveRows || []).forEach((r) => {
             const id = Number(r.nmId);
             if (!id) return;
             const prev = byNm.get(id);
             if (!prev) {
-                byNm.set(id, { ...r, nmId: id, fbo: num(r.fbo), fbs: num(r.fbs), transit: num(r.transit), plan: num(r.plan) });
+                byNm.set(id, {
+                    ...r,
+                    nmId: id,
+                    fbo: num(r.fbo),
+                    fbs: num(r.fbs),
+                    transit: num(r.transit),
+                    plan: num(r.plan),
+                    transitManual: !!r.transitManual,
+                    planManual: !!r.planManual,
+                });
                 return;
             }
             prev.fbo += num(r.fbo);
             prev.fbs += num(r.fbs);
-            prev.transit += num(r.transit);
             if (!prev.sellerArticle && r.sellerArticle) prev.sellerArticle = r.sellerArticle;
+            if (r.transitManual) {
+                prev.transit = num(r.transit);
+                prev.transitManual = true;
+            }
+            if (r.planManual) {
+                prev.plan = num(r.plan);
+                prev.planManual = true;
+            }
         });
         const used = new Set();
         const groups = [];
@@ -65,26 +105,41 @@
             const items = (sec.items || []).map((it) => {
                 used.add(it.nmId);
                 const live = byNm.get(it.nmId);
-                const row = live ? { ...live } : emptyLive(it.nmId, it.name, it.plan);
+                const row = live ? { ...live } : emptyLive(it.nmId, it.name, it, meta);
                 row.sellerArticle = it.name || row.sellerArticle;
                 row.category = sec.name;
-                if (!num(row.plan) && num(it.plan)) row.plan = num(it.plan);
-                return row;
+                row.transit = resolveSheetQty(live && live.transitManual ? live.transit : undefined, it.transit, true);
+                row.plan = resolveSheetQty(live && live.planManual ? live.plan : undefined, it.plan, true);
+                if (live && live.transitManual) row.transitManual = true;
+                if (live && live.planManual) row.planManual = true;
+                return stampCabinet(row, meta);
             });
             groups.push({ key: idx + ':' + sec.name, name: sec.name, items });
         });
         const extra = [...byNm.values()].filter((r) => !used.has(Number(r.nmId)));
+        extra.forEach((r) => {
+            r.transit = resolveSheetQty(r.transitManual ? r.transit : undefined, 0, false);
+            r.plan = resolveSheetQty(r.planManual ? r.plan : undefined, 0, false);
+            stampCabinet(r, meta);
+        });
         extra.sort((a, b) => String(a.sellerArticle || '').localeCompare(String(b.sellerArticle || ''), 'ru') || a.nmId - b.nmId);
         if (extra.length) groups.push({ key: 'other', name: 'Прочие', items: extra });
         return groups;
     }
 
-    function groupByCategory(liveRows) {
+    function groupByCategory(liveRows, meta) {
         const map = new Map();
         (liveRows || []).forEach((r) => {
             const cat = String(r.category || '').trim() || 'Без раздела';
             if (!map.has(cat)) map.set(cat, []);
-            map.get(cat).push({ ...r, fbo: num(r.fbo), fbs: num(r.fbs), transit: num(r.transit), plan: num(r.plan) });
+            const row = {
+                ...r,
+                fbo: num(r.fbo),
+                fbs: num(r.fbs),
+                transit: resolveSheetQty(r.transitManual ? r.transit : undefined, 0, false),
+                plan: resolveSheetQty(r.planManual ? r.plan : undefined, 0, false),
+            };
+            map.get(cat).push(stampCabinet(row, meta));
         });
         const names = [...map.keys()].sort((a, b) => {
             if (a === 'Без раздела') return 1;
@@ -99,9 +154,14 @@
         });
     }
 
-    function groupGoods(liveRows, cabinetName) {
-        if (isZevina1Cabinet(cabinetName)) return groupByCatalog(liveRows, ZEVINA1_SECTIONS);
-        return groupByCategory(liveRows);
+    function groupGoods(liveRows, cabinetName, meta) {
+        const info = { cabinetName: cabinetName || (meta && meta.cabinetName) || '', ...(meta || {}) };
+        if (isZevina1Cabinet(info.cabinetName || cabinetName)) return groupByCatalog(liveRows, ZEVINA1_SECTIONS, info);
+        return groupByCategory(liveRows, info);
+    }
+
+    function flattenGroups(groups) {
+        return (groups || []).flatMap((g) => g.items || []);
     }
 
     function sumItems(items) {
@@ -129,15 +189,27 @@
         })).filter((g) => g.items.length);
     }
 
+    function readManualQty(md, key) {
+        if (!md || typeof md !== 'object') return undefined;
+        if (!Object.prototype.hasOwnProperty.call(md, key)) return undefined;
+        return md[key];
+    }
+
     const GoodsCatalog = {
         ZEVINA1_SECTIONS,
         isZevina1Cabinet,
+        num,
+        hasManualQty,
+        resolveSheetQty,
+        parseQty,
         stockOf,
         groupByCatalog,
         groupByCategory,
         groupGoods,
+        flattenGroups,
         sumItems,
         filterGroups,
+        readManualQty,
     };
     root.GoodsCatalog = GoodsCatalog;
     if (typeof module !== 'undefined' && module.exports) module.exports = GoodsCatalog;
