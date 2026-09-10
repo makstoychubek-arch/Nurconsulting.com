@@ -4875,8 +4875,46 @@ const RNP = (() => {
     function _rnpMainRendered() {
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return false;
-        if (body.querySelector('.rnp-table-scroll, .rnp-summary-table')) return true;
+        if (body.querySelector('.rnp-table-scroll, .rnp-summary-table, .rnp-head-wide, .rnp-article-panel')) return true;
         return false;
+    }
+
+    function _rnpShellKey(cab) {
+        return 'rnp_shell_' + (cab || '');
+    }
+
+    function _saveRnpShell() {
+        const el = document.getElementById('tab-rnp');
+        const ws = el?.querySelector('.rnp-workspace');
+        if (!ws || !_cab || !_rnpMainRendered()) return;
+        try {
+            const html = ws.outerHTML;
+            if (!html || html.length > 1600000) return;
+            sessionStorage.setItem(_rnpShellKey(_cab), html);
+            sessionStorage.setItem('rnp_shell_cab', _cab);
+        } catch (e) {}
+    }
+
+    function _restoreRnpShell(el, cab) {
+        if (!el) return false;
+        if (el.querySelector('.rnp-workspace') && _rnpMainRendered()) return true;
+        try {
+            const savedCab = sessionStorage.getItem('rnp_shell_cab');
+            if (cab && savedCab && savedCab !== cab) return false;
+            const html = sessionStorage.getItem(_rnpShellKey(cab || savedCab || ''));
+            if (!html || html.indexOf('rnp-workspace') < 0) return false;
+            el.innerHTML = html;
+            return !!el.querySelector('.rnp-workspace');
+        } catch (e) { return false; }
+    }
+
+    function _workspaceChromeHtml(active) {
+        const list = active || [];
+        return `<div class="rnp-workspace">
+          <div id="rnp-action-bar-wrap">${list.length ? _buildActionBar(list) : '<div class="rnp-action-bar"></div>'}</div>
+          <div class="rnp-sheet-tabs" id="rnp-sheet-tabs">${list.length ? _renderTabsHTML(list, { lite: list.length > 40 }) : ''}</div>
+          <div class="rnp-sheet-body" id="rnp-sheet-body"></div>
+        </div>`;
     }
 
     let _staleRetries = 0;
@@ -4915,18 +4953,9 @@ const RNP = (() => {
         const el = document.getElementById('tab-rnp');
         if (!el) return;
 
-        if (!el.querySelector('.rnp-workspace')) {
-            el.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
-              <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
-              Загрузка РНП…
-            </div>`;
-        }
+        if (!el.querySelector('.rnp-workspace')) _restoreRnpShell(el, _cab);
 
         if (_initInflight && !_cabArticles().length) {
-            el.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
-              <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
-              Загрузка артикулов…
-            </div>`;
             await Promise.race([
                 _initInflight,
                 new Promise(r => setTimeout(r, 8000)),
@@ -4995,21 +5024,9 @@ const RNP = (() => {
         } catch (e) {}
 
         await _yieldMain();
-        const keepWorkspace = !!el.querySelector('.rnp-workspace') && _rnpMainRendered();
+        const keepWorkspace = !!el.querySelector('.rnp-workspace');
         if (!keepWorkspace) {
-            el.innerHTML = `
-        <div class="rnp-workspace">
-          <div id="rnp-action-bar-wrap">${_buildActionBar(active)}</div>
-          <div class="rnp-sheet-tabs" id="rnp-sheet-tabs">
-            ${_renderTabsHTML(active, { lite: active.length > 40 })}
-          </div>
-          <div class="rnp-sheet-body" id="rnp-sheet-body">
-            <div class="p-10 text-center" style="color:var(--text-muted)">
-              <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
-              Загрузка данных…
-            </div>
-          </div>
-        </div>`;
+            el.innerHTML = _workspaceChromeHtml(active);
             await _yieldMain();
         } else {
             _preserveRnpScroll(() => {
@@ -5065,6 +5082,7 @@ const RNP = (() => {
             _updateTabHighlight();
         });
         _updateEditModeBtn();
+        _saveRnpShell();
     }
 
     async function _renderActiveTable() {
@@ -5118,6 +5136,7 @@ const RNP = (() => {
             _updateTabHighlight();
             const bar = document.getElementById('rnp-action-bar-wrap');
             if (bar) bar.innerHTML = _buildActionBar(active);
+            _saveRnpShell();
             return;
         }
 
@@ -5125,18 +5144,19 @@ const RNP = (() => {
             _hydratePhotoCacheFromStorage();
             _hydratePhotoCacheFromArticles();
             _metricRowSeq = 0;
-            body.innerHTML = `
+            const existingWrap = body.querySelector('#rnp-table-wrap');
+            if (existingWrap && existingWrap.querySelector('.rnp-sheet-table')) {
+                const top = body.querySelector('.rnp-general-topbar');
+                if (top) top.outerHTML = _buildGeneralTopBar(active, cal);
+                existingWrap.innerHTML = _buildGeneralTableHTML(active, cal);
+            } else {
+                body.innerHTML = `
           ${_buildGeneralTopBar(active, cal)}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
-            <div class="p-10 text-center" style="color:var(--text-muted)">
-              <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
-              Рисуем таблицу…
-            </div>
+            ${_buildGeneralTableHTML(active, cal)}
           </div>
           ${_selectionBarHTML()}`;
-            await _yieldMain();
-            const wrap = document.getElementById('rnp-table-wrap');
-            if (wrap) wrap.innerHTML = _buildGeneralTableHTML(active, cal);
+            }
             await _yieldMain();
             _updateTabHighlight();
             const bar = document.getElementById('rnp-action-bar-wrap');
@@ -5148,6 +5168,7 @@ const RNP = (() => {
                 _bindMarqueeResize(body);
             });
             _preloadPhotosBackground(active).then(() => _applyResolvedPhotos(body));
+            _saveRnpShell();
             return;
         }
 
@@ -5218,8 +5239,10 @@ const RNP = (() => {
             _applyResolvedPhotos(body);
             _refreshMarqueeBaseHtml(body);
             _syncMarqueeFill(body);
+            _saveRnpShell();
         }).catch(() => {});
         _bindArticleSwipe(body);
+        _saveRnpShell();
     }
 
     function _refreshMarqueeBaseHtml(scope) {

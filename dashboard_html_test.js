@@ -1035,6 +1035,16 @@ assert.ok(rnpSrc.includes("'.main-content'") && rnpSrc.includes('_PAGE_SCROLL_SE
     'RNP scroll lock must include .main-content');
 assert.ok(rnpSrc.includes('const keepWorkspace'),
     'RNP refresh must keep the painted workspace instead of swapping in a spinner');
+assert.ok(rnpSrc.includes('function _saveRnpShell') && rnpSrc.includes('function _restoreRnpShell'),
+    'RNP snapshot of the last workspace must survive F5');
+assert.ok(html.includes("sessionStorage.getItem('rnp_shell_") && html.includes("sessionStorage.getItem('rnp_shell_cab')"),
+    'tab-rnp restores the last sheet before any spinner');
+assert.ok(!rnpSrc.includes('Рисуем таблицу'),
+    'general sheet must not swap in a drawing spinner');
+assert.ok(
+    !/if \(_initInflight && !_cabArticles\(\)\.length\) \{\s*el\.innerHTML/.test(rnpSrc),
+    'waiting for articles must not replace the RNP workspace with a loading card'
+);
 assert.ok(!rnpSrc.includes("scrollIntoView({ behavior: 'smooth'"),
     'strategy tabs must not scroll the page via scrollIntoView');
 

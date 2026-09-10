@@ -1087,7 +1087,7 @@
         /* ── RNP Spreadsheet (Google Sheets style) ── */
         .rnp-workspace {
             display: flex; flex-direction: column; gap: 0;
-            flex: 1; min-height: 0; height: auto; max-height: none;
+            flex: 1; min-height: calc(100vh - 120px); height: auto; max-height: none;
             overflow: hidden;
             background: var(--surface-solid);
             border-radius: var(--radius-card);
@@ -1424,7 +1424,7 @@
         .rnp-sheet-body {
             flex: 1; background: transparent; border: none;
             border-radius: 0;
-            display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+            display: flex; flex-direction: column; min-height: 56vh; overflow: hidden;
         }
         .rnp-sheet-body--swap {
             opacity: 0;
@@ -4896,11 +4896,24 @@
         </div>
 
         <div id="tab-rnp" class="tab-content">
-            <div class="p-10 text-center" style="color:var(--text-muted)">
-                <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
-                Инициализация РНП...
+            <div class="rnp-workspace">
+                <div id="rnp-action-bar-wrap"><div class="rnp-action-bar"></div></div>
+                <div class="rnp-sheet-tabs" id="rnp-sheet-tabs"></div>
+                <div class="rnp-sheet-body" id="rnp-sheet-body"></div>
             </div>
         </div>
+        <script>
+            (function () {
+                try {
+                    var el = document.getElementById('tab-rnp');
+                    if (!el) return;
+                    var cab = sessionStorage.getItem('rnp_shell_cab');
+                    if (!cab) return;
+                    var html = sessionStorage.getItem('rnp_shell_' + cab);
+                    if (html && html.indexOf('rnp-workspace') !== -1) el.innerHTML = html;
+                } catch (e) {}
+            })();
+        </script>
 
         <div id="tab-ab-testing" class="tab-content space-y-4">
             <div class="flex items-center justify-between mb-2">
@@ -6625,11 +6638,12 @@
 
     function bootRnpTab(force) {
         const rnpEl = document.getElementById('tab-rnp');
-        if (rnpEl && (rnpEl.classList.contains('active') || getCurrentActiveTab() === 'rnp')) {
-            if (rnpEl.textContent.includes('Инициализация РНП')) {
-                rnpEl.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
-                  <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
-                  Загрузка РНП…
+            if (rnpEl && (rnpEl.classList.contains('active') || getCurrentActiveTab() === 'rnp')) {
+            if (!rnpEl.querySelector('.rnp-workspace') && rnpEl.textContent.includes('Инициализация РНП')) {
+                rnpEl.innerHTML = `<div class="rnp-workspace">
+                  <div id="rnp-action-bar-wrap"><div class="rnp-action-bar"></div></div>
+                  <div class="rnp-sheet-tabs" id="rnp-sheet-tabs"></div>
+                  <div class="rnp-sheet-body" id="rnp-sheet-body"></div>
                 </div>`;
             }
         }
