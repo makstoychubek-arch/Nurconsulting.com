@@ -50,6 +50,16 @@ assert.ok(
     /class="rail-btn"[^>]*data-tab="advertising"/.test(html) && /<span class="rail-btn-lbl">РК<\/span>/.test(html),
     'РК must sit on the main rail as a live tab'
 );
+{
+    const rail = html.slice(html.indexOf('class="rail-nav"'), html.indexOf('class="rail-bottom"'));
+    assert.ok(
+        /class="rail-btn"[^>]*data-tab="goods-groups"/.test(rail) && /<span class="rail-btn-lbl">Товары<\/span>/.test(rail),
+        'Товары must sit on the main rail as a live tab'
+    );
+    assert.ok(rail.indexOf('data-tab="advertising"') < rail.indexOf('data-tab="goods-groups"') &&
+        rail.indexOf('data-tab="goods-groups"') < rail.indexOf('data-flyout="fly-beta"'),
+        'Товары sits on the rail below РК and above BETA');
+}
 assert.ok(!/data-tab="rnp"[^>]*data-flyout/.test(html),
     'РНП rail button opens the module, not a second column');
 assert.ok(!/<span class="rail-btn-lbl">А\/Б Тесты<\/span>/.test(html), 'А/Б Тесты must not stay on the main rail');
@@ -85,7 +95,7 @@ assert.ok(
 );
 assert.ok(html.includes('ab-create-btn'), 'A/B create button uses WBRadar-style control');
 assert.ok(html.includes('rail-user-name'), 'sidebar shows user name like WBRadar');
-assert.ok(!/<span class="rail-btn-lbl">Товары<\/span>/.test(html), 'Товары must not stay on the main rail');
+assert.ok(/<span class="rail-btn-lbl">Товары<\/span>/.test(html), 'Товары sits on the main rail below РК');
 assert.ok(!/<span class="rail-btn-lbl">Финансы<\/span>/.test(html), 'Финансы must not stay on the main rail');
 assert.ok(!/<span class="rail-btn-lbl">Логистика<\/span>/.test(html), 'Логистика must not stay on the main rail');
 assert.ok(!/<span class="rail-btn-lbl">Ещё<\/span>/.test(html), 'Ещё flyout must be removed from the rail');
@@ -102,6 +112,7 @@ assert.ok(
 );
 assert.ok(!betaFly.includes("showTab('rnp'"), 'РНП is not duplicated inside BETA');
 assert.ok(!betaFly.includes("showTab('advertising'"), 'Контроль РК is not duplicated inside BETA');
+assert.ok(!betaFly.includes("showTab('goods-groups'"), 'Товары is not duplicated inside BETA');
 assert.ok(betaFly.includes("showTab('ab-testing'"), 'BETA flyout lists А/Б Тесты');
 assert.ok(betaFly.includes("showTab('tariffs'"), 'BETA flyout lists Тарифы');
 assert.ok(betaFly.includes("showTab('cost'"), 'BETA flyout lists Товары');
@@ -116,8 +127,9 @@ assert.ok(html.includes('id="nr-bottom-nav"'), 'mobile bottom nav must exist');
         bn.indexOf('id="bn-settings"') < bn.indexOf('id="bn-rnp"') &&
         bn.indexOf('id="bn-rnp"') < bn.indexOf('id="bn-dash"') &&
         bn.indexOf('id="bn-dash"') < bn.indexOf('id="bn-rk"') &&
-        bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-beta"'),
-        'bottom nav order: settings, РНП, Дашборд, РК, BETA'
+        bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-goods"') &&
+        bn.indexOf('id="bn-goods"') < bn.indexOf('id="bn-beta"'),
+        'bottom nav order: settings, РНП, Дашборд, РК, Товары, BETA'
     );
     assert.ok(!bn.includes('id="bn-theme"') && !bn.includes('toggleTheme()'),
         'theme toggle is not on the bottom nav');
