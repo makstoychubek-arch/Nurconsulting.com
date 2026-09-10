@@ -78,6 +78,15 @@ assert.ok(!html.includes('gg-hero') && !html.includes('class="gg-title"') && !ht
     'Товары has no duplicate heading, explanation or refresh button');
 assert.ok(html.includes('id="gg-excel-btn"') && html.includes('exportGoodsExcel') && html.includes('id="gg-settings-overlay"'),
     'Товары has a small Excel button and RNP-style settings overlay');
+assert.ok(
+    /\.gg-table-scroll \.data-table\s*\{[^}]*width:\s*max-content/.test(html) &&
+    !/\.gg-table-scroll \.data-table\s*\{[^}]*table-layout:\s*fixed/.test(html),
+    'Товары table hugs columns so the article name is not a giant empty gap before WB'
+);
+assert.ok(/\.gg-art\s*\{[^}]*white-space:\s*nowrap/.test(html),
+    'article names stay on one line next to the numbers');
+assert.ok(html.includes('class="gg-art" title='),
+    'long article names keep a hover title when the cell ellipsizes');
 assert.ok(html.includes("rnp-reload-requested") && html.includes("loadGoodsGroups({ silent: true })"),
     'Товары silently refreshes when RNP reloads stocks');
 assert.ok(!html.includes('id="gg-cabinet-filter"') && !html.includes('onGoodsGroupsCabinetChange'),
