@@ -80,10 +80,21 @@ assert.ok(html.includes('id="gg-excel-btn"') && html.includes('exportGoodsExcel'
     'Товары has a small Excel button and RNP-style settings overlay');
 assert.ok(html.includes('id="gg-excel-btn"') && html.includes('M3 9h18M3 15h18M9 3v18M15 3v18'),
     'Товары Excel is the same grid icon as RNP');
-assert.ok(!html.includes('.gg-toolbar.is-daily #gg-excel-btn'),
+assert.ok(!html.includes('.gg-toolbar.is-daily #gg-excel-btn') && !html.includes('gg-now-tools.is-off'),
     'Сейчас and Остатки по дням keep the same tool icons so they do not jump');
 assert.ok(html.includes('gg-now-tools rnp-tool-icons') && /\.gg-toolbar\s*\{[^}]*width:\s*100%/.test(html),
     'Товары toolbar spans the row so icons sit top-right like RNP');
+assert.ok(
+    html.includes('#gg-now-tools.gg-now-tools') &&
+    html.includes('flex: 0 0 70px') &&
+    html.includes('#gg-excel-btn { display: inline-flex !important; }') &&
+    html.includes('overflow-x: hidden') &&
+    /#tab-goods-groups\.tab-content\.active\s*\{[^}]*min-width:\s*0/.test(html) &&
+    /\.gg-table-scroll\s*\{[^}]*max-width:\s*100%/.test(html) &&
+    /\.gg-search\s*\{[^}]*position:\s*absolute/.test(html) &&
+    !html.includes("classList.toggle('is-daily'"),
+    'goods tool icons stay pinned on the right when the daily table is wider than the viewport'
+);
 assert.ok(html.includes('th.gg-col-nm') && html.includes('text-align: center !important') && html.includes('max-width: 110px'),
     'WB column is centered and cannot swallow leftover viewport width');
 assert.ok(html.includes('goods-compact') && html.includes("name === 'goods-groups'") && html.includes('padding: 14px 20px 16px'),

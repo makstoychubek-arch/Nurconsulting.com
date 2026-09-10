@@ -867,20 +867,34 @@
         .main-content.goods-compact {
             padding: 14px 20px 16px !important;
             overflow: auto !important;
+            min-width: 0;
         }
         #tab-goods-groups.tab-content.active {
-            display: flex; flex-direction: column; width: 100%; gap: 0;
+            display: flex; flex-direction: column; width: 100%; max-width: 100%;
+            min-width: 0; gap: 0; overflow-x: hidden; overflow-y: auto;
         }
-        #tab-goods-groups { gap: 0; }
+        #tab-goods-groups { gap: 0; min-width: 0; max-width: 100%; }
         .gg-toolbar {
             display: flex; align-items: center; gap: 8px;
-            width: 100%;
+            width: 100%; max-width: 100%;
             margin: 0 0 10px;
             min-height: 28px;
+            flex-wrap: nowrap;
+            flex-shrink: 0;
         }
-        .gg-views { display: inline-flex; align-items: center; gap: 4px; margin: 0; padding: 0; }
-        .gg-now-tools { display: inline-flex; align-items: center; gap: 4px; min-width: 0; margin-left: auto; }
-        .gg-now-tools.is-off { display: none; }
+        .gg-views { display: inline-flex; align-items: center; gap: 4px; margin: 0; padding: 0; flex-shrink: 0; }
+        #gg-now-tools.gg-now-tools {
+            display: inline-flex !important;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 2px;
+            margin-left: auto;
+            flex: 0 0 70px;
+            width: 70px;
+            min-width: 70px;
+            position: relative;
+        }
+        #gg-excel-btn { display: inline-flex !important; }
         .gg-view-btn {
             font-size: 12px; font-weight: 600; height: 28px; padding: 0 12px;
             border: none; border-radius: 8px; background: transparent;
@@ -888,7 +902,7 @@
             line-height: 28px;
         }
         .gg-view-btn.is-on { color: var(--accent); background: var(--accent-soft); }
-        .gg-daily { padding: 0; max-width: none; }
+        .gg-daily { padding: 0; min-width: 0; max-width: 100%; }
         .gg-daily-note { font-size: 12px; color: var(--text-muted); padding: 16px 8px; }
         #gg-daily-table.data-table,
         #tab-goods-groups #gg-daily-table {
@@ -919,12 +933,19 @@
         .gg-spark-wrap svg { width: 100%; height: 36px; display: block; }
         .gg-day { width: 36px; min-width: 36px; padding: 4px 5px !important; }
         .gg-day.is-today { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
-        .gg-search-wrap { display: inline-flex; align-items: center; gap: 4px; }
+        .gg-search-wrap {
+            position: relative;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 22px; height: 22px; flex: 0 0 22px;
+        }
         .gg-search-btn.rnp-settings-gear { margin-left: 0; }
         .gg-search {
+            position: absolute; right: calc(100% + 6px); top: 50%;
+            transform: translateY(-50%);
             width: 0 !important; min-width: 0 !important; height: 22px; padding: 0 !important;
             border: none !important; opacity: 0; pointer-events: none;
             font-size: 12px !important; border-radius: 8px !important;
+            z-index: 4;
         }
         .gg-search-wrap.is-open .gg-search,
         .gg-search-wrap.has-query .gg-search {
@@ -934,8 +955,16 @@
         }
         .gg-search-wrap.is-open .gg-search-btn,
         .gg-search-wrap.has-query .gg-search-btn { color: var(--accent); background: var(--accent-soft); }
-        .gg-fresh { font-size: 10px; color: var(--text-muted); }
-        .gg-table-scroll { overflow: auto; -webkit-overflow-scrolling: touch; max-height: calc(100vh - 168px); }
+        .gg-fresh {
+            position: absolute; right: 0; top: calc(100% + 2px);
+            font-size: 10px; color: var(--text-muted); white-space: nowrap;
+            pointer-events: none;
+        }
+        .gg-table-scroll {
+            overflow: auto; -webkit-overflow-scrolling: touch;
+            max-height: calc(100vh - 168px);
+            min-width: 0; max-width: 100%;
+        }
         #gg-table.data-table,
         #tab-goods-groups #gg-table {
             display: inline-table !important;
@@ -7759,7 +7788,6 @@
         const dailyBtn = document.getElementById('gg-view-daily-btn');
         if (nowEl) nowEl.hidden = ggView !== 'now';
         if (dailyEl) dailyEl.hidden = ggView !== 'daily';
-        document.querySelector('#tab-goods-groups .gg-toolbar')?.classList.toggle('is-daily', ggView === 'daily');
         nowBtn?.classList.toggle('is-on', ggView === 'now');
         dailyBtn?.classList.toggle('is-on', ggView === 'daily');
         nowBtn?.setAttribute('aria-selected', ggView === 'now' ? 'true' : 'false');
