@@ -48,7 +48,7 @@ assert.ok(html.includes('href="/icons/apple-touch-icon.png"'));
 assert.ok(html.includes('href="/favicon.ico"') && html.includes('/icons/favicon.png'),
     'dashboard tab icon must match the PWA NR mark');
 assert.ok(fs.existsSync(path.join(__dirname, 'icons/logo-nr.svg')));
-assert.ok(sw.includes("nr-space-pwa-v2") && sw.includes("/icons/logo-nr.svg"));
+assert.ok(sw.includes("nr-space-pwa-v3") && sw.includes("/icons/logo-nr.svg"));
 assert.ok(html.includes('overscroll-behavior: none') && html.includes('touch-action: manipulation'));
 assert.ok(html.includes('-webkit-user-select: none') && html.includes('input, textarea, select'));
 assert.ok(html.includes('.main-content.page-transition') && html.includes('transition: opacity 0.2s ease-in-out'));

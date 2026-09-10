@@ -819,8 +819,38 @@
         .ads-hq-hour input { display: none; }
         .ads-hq-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .ads-hq-journal-chart { height: 180px; position: relative; }
+        .ads-hq-hero { margin: 0 0 2px; }
+        .ads-hq-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: var(--text-primary); line-height: 1.15; }
+        .ads-hq-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+        .ads-hq-phone { display: none; }
+        .ads-hq-phone-card {
+            background: var(--surface); border-radius: var(--radius-card); padding: 14px;
+            box-shadow: var(--card-shadow); display: flex; flex-direction: column; gap: 10px;
+        }
+        .ads-hq-phone-head {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            background: none; border: none; padding: 0; cursor: pointer; width: 100%;
+            color: var(--text-primary); font: inherit; text-align: left; font-weight: 700;
+        }
+        .ads-hq-phone-metrics {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+        }
+        .ads-hq-phone-metrics span {
+            background: var(--bg); border-radius: 10px; padding: 8px 10px;
+            font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+        }
+        .ads-hq-phone-metrics b { display: block; color: var(--text-primary); font-size: 14px; margin-top: 2px; }
+        .ads-hq-phone-camps { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+        .ads-hq-phone-camp {
+            background: var(--bg); border-radius: 12px; padding: 10px;
+            display: flex; flex-direction: column; gap: 6px;
+        }
+        .ads-hq-phone-empty { font-size: 12px; color: var(--text-muted); padding: 4px 0; }
         @media (max-width: 768px) {
             .ads-hq-form-grid { grid-template-columns: 1fr; }
+            .ads-hq-phone { display: flex; flex-direction: column; gap: 10px; }
+            .ads-hq-table-wrap { display: none; }
+            .ads-hq-title { font-size: 20px; }
         }
         .adv-help-dot { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: var(--border); color: var(--text-muted); font-size: 9px; font-weight: 700; cursor: help; }
         .dashboard-metrics-grid {
@@ -4127,6 +4157,10 @@
             </div>
 
             <div id="adv-view-ads" class="space-y-5">
+                <div class="ads-hq-hero">
+                    <h2 class="ads-hq-title">Командный центр</h2>
+                    <p class="ads-hq-sub">Все кабинеты в одном окне — расход, ДРР, кто вне диапазона</p>
+                </div>
                 <div id="ads-hq-kpis" class="grid grid-cols-2 md:grid-cols-5 gap-3"></div>
                 <div class="widget-card">
                     <div class="ads-hq-bulk">
@@ -4136,7 +4170,8 @@
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-tpl">Применить форму</button>
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-reload">Обновить</button>
                     </div>
-                    <div class="overflow-x-auto">
+                    <div id="ads-hq-phone" class="ads-hq-phone"></div>
+                    <div class="overflow-x-auto ads-hq-table-wrap">
                         <table class="data-table ads-hq-table">
                             <thead>
                                 <tr>
@@ -5140,7 +5175,7 @@
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.3fc8b04339.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
-<script src="/dist/ads-command-center.da5a9f410a.min.js"></script>
+<script src="/dist/ads-command-center.1f0ae4c2b4.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -6183,23 +6218,25 @@
         const pageTitle = document.getElementById('page-title');
         const dateWrap = document.getElementById('header-date-chip-wrap');
         const isDashboard = tabName === 'dashboard' && !isStub;
-        const isAdvDetail = !isStub && tabName === 'advertising' && (window._advView === 'detail' || window._advView === 'ads');
+        const isAdsHq = !isStub && tabName === 'advertising' && window._advView === 'ads';
+        const isAdvCards = !isStub && tabName === 'advertising' && window._advView === 'cards';
+        const isAdvDetail = !isStub && tabName === 'advertising' && window._advView === 'detail';
         const showEmpty = cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tabName);
 
         if (backBtn) {
-            backBtn.classList.toggle('hidden', isDashboard);
-            const backLabel = isAdvDetail ? 'Все кабинеты' : 'Назад';
+            backBtn.classList.toggle('hidden', isDashboard || isAdsHq);
+            const backLabel = isAdvDetail ? 'Все кабинеты' : (isAdvCards ? 'Командный центр' : 'Назад');
             backBtn.title = backLabel;
             backBtn.setAttribute('aria-label', backLabel);
         }
         if (pageTitle) {
             pageTitle.classList.remove('header-hidden');
-            pageTitle.textContent = (!isStub && tabName === 'advertising' && window._advView === 'ads')
-                ? 'Реклама'
-                : (tabTitles[tabName] || tabTitles.dashboard || 'Дашборд');
+            if (isAdsHq) pageTitle.textContent = 'Командный центр';
+            else if (isAdvCards) pageTitle.textContent = 'Кабинеты';
+            else pageTitle.textContent = tabTitles[tabName] || tabTitles.dashboard || 'Дашборд';
         }
         if (dateWrap) {
-            const showDate = !isStub && DATE_FILTER_TABS.has(tabName) && !showEmpty;
+            const showDate = !isStub && DATE_FILTER_TABS.has(tabName) && !showEmpty && !isAdsHq;
             dateWrap.classList.toggle('hidden', !showDate);
             dateWrap.style.display = showDate ? 'flex' : 'none';
         }
@@ -6208,9 +6245,13 @@
 
     function headerGoBack() {
         const tab = document.querySelector('.tab-content.active')?.id;
-        if (tab === 'tab-advertising' && (window._advView === 'detail' || window._advView === 'ads')) {
+        if (tab === 'tab-advertising' && window._advView === 'detail') {
             showAdvertisingCardsView();
             loadAdvertisingCardsOverview();
+            return;
+        }
+        if (tab === 'tab-advertising' && window._advView === 'cards') {
+            showAdvertisingAdsView();
             return;
         }
         showTab('dashboard');
@@ -6402,8 +6443,8 @@
 
     window._advLastLoadedAt = window._advLastLoadedAt || 0;
     window._advLoadedForCabinet = window._advLoadedForCabinet || null;
-    // 'cards' — главная страница рекламных кабинетов (все кабинеты пользователя),
-    // 'detail' — аналитика одного кабинета. Тab по умолчанию открывается в 'cards'.
+    // 'ads' — Командный центр (главный экран РК), 'cards' — старые карточки,
+    // 'detail' — аналитика одного кабинета.
     window._advView = window._advView || 'ads';
     window._advOpenDetailAfterSwitch = false;
 
@@ -6619,7 +6660,9 @@
         syncAdvModuleTabs('ads');
         updateHeaderNav('advertising');
         ensureAdsHq();
-        window.AdsHQ?.open({ cabinetId: opts && opts.cabinetId || '' });
+        const boot = () => window.AdsHQ && window.AdsHQ.open({ cabinetId: opts && opts.cabinetId || '' });
+        if (window.AdsHQ) boot();
+        else setTimeout(boot, 80);
     }
     function showAdvertisingDetailView() {
         window._advView = 'detail';
@@ -7320,9 +7363,8 @@
     }
     setInterval(updateAdvertisingFreshness, 60000);
 
-    // Открытие вкладки — по умолчанию показываем карточки всех кабинетов;
-    // если карточку кликнули и кабинет переключился, откроем сразу детальный
-    // дашборд (флаг _advOpenDetailAfterSwitch, выставляется в openAdvertisingCabinetDetail).
+    // Открытие вкладки — Командный центр. Старые карточки только по сегменту
+    // «Кабинеты». Клик по карточке → деталка (_advOpenDetailAfterSwitch).
     function openAdvertisingTab() {
         if (window._advOpenDetailAfterSwitch) {
             window._advOpenDetailAfterSwitch = false;

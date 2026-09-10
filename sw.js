@@ -1,5 +1,5 @@
 /* NR Space — network-first shell, offline fallback for navigations only. */
-const CACHE = 'nr-space-pwa-v2';
+const CACHE = 'nr-space-pwa-v3';
 const PRECACHE = [
     '/offline.html',
     '/manifest.json',

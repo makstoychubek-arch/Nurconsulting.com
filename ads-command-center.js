@@ -420,6 +420,88 @@
         tb.innerHTML = html.join('');
     }
 
+    function renderPhone() {
+        const el = document.getElementById('ads-hq-phone');
+        if (!el || !state.model) return;
+        let rows = state.model.rows;
+        if (state.filterCabinetId) rows = rows.filter((r) => r.id === state.filterCabinetId);
+        if (!rows.length) {
+            el.innerHTML = '<div class="ads-hq-phone-empty text-center py-8">Нет кабинетов или ещё нет данных синка.</div>';
+            return;
+        }
+        const html = [];
+        for (const cab of rows) {
+            const cabOpen = state.open.cabinets.has(cab.id);
+            const cap = cab.cap != null && Number.isFinite(Number(cab.cap)) ? formatMoney(cab.cap) : '—';
+            html.push('<article class="ads-hq-phone-card">');
+            html.push(
+                '<button type="button" class="ads-hq-phone-head" data-expand="cab" data-id="' + esc(cab.id) + '">' +
+                '<span>' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) + '</span>' +
+                chevron(cabOpen) + '</button>'
+            );
+            html.push(
+                '<div class="ads-hq-phone-metrics">' +
+                '<span>Активных РК<b>' + cab.activeCampaigns + '</b></span>' +
+                '<span>Сегодня / лимит<b>' + formatMoney(cab.spendToday) + ' / ' + cap + '</b></span>' +
+                '<span>ДРР 7д<b>' + formatDrrLabel(cab.drr7) + '</b></span>' +
+                '<span>Вне диапазона<b' + (cab.outRange ? ' style="color:var(--red)"' : '') + '>' + cab.outRange + '</b></span>' +
+                '</div>'
+            );
+            html.push(
+                '<div class="ads-hq-bulk" style="margin:0">' +
+                '<button type="button" class="adv-camp-action-btn" data-act="pause-cab" data-cabinet="' + esc(cab.id) + '">Пауза</button>' +
+                '<button type="button" class="adv-camp-action-btn" data-act="start-cab" data-cabinet="' + esc(cab.id) + '">Старт</button>' +
+                '</div>'
+            );
+            if (cabOpen) {
+                html.push('<div class="ads-hq-phone-camps">');
+                if (!cab.campaigns.length) {
+                    html.push('<div class="ads-hq-phone-empty">Нет кампаний в advertising_campaigns / adv_campaigns</div>');
+                }
+                for (const camp of cab.campaigns) {
+                    const ck = cab.id + ':' + camp.wbId;
+                    const campOpen = state.open.campaigns.has(ck);
+                    html.push('<div class="ads-hq-phone-camp">');
+                    html.push(
+                        '<button type="button" class="ads-hq-expand" data-expand="camp" data-id="' + esc(ck) + '">' +
+                        chevron(campOpen) + esc(camp.name) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></button>'
+                    );
+                    html.push('<div>' + statusPill(camp.status) + ' · ДРР ' + formatDrrLabel(formatDrr(camp.spend7, camp.revenue7)) + '</div>');
+                    html.push(
+                        '<button type="button" class="adv-camp-action-btn" data-act="' + (camp.live ? 'pause' : 'start') +
+                        '" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '">' +
+                        (camp.live ? 'Пауза' : 'Старт') + '</button>'
+                    );
+                    if (campOpen) {
+                        if (!camp.clusters.length) {
+                            html.push('<div class="ads-hq-phone-empty">Кластеры появятся после sync_campaigns</div>');
+                        }
+                        for (const cl of camp.clusters) {
+                            const on = state.selected && state.selected.clusterId === cl.id;
+                            html.push(
+                                '<button type="button" class="ads-hq-link" data-pick="cluster" data-cabinet="' +
+                                esc(cab.id) + '" data-camp="' + esc(camp.uuid || '') + '" data-wb="' + esc(camp.wbId) +
+                                '" data-cluster="' + esc(cl.id) + '"' + (on ? ' style="font-weight:700"' : '') + '>' +
+                                esc(cl.key) + ' · ' + (cl.pos != null ? ('поз. ' + cl.pos) : '—') + ' · ' +
+                                (cl.range === 'worse' ? 'хуже' : cl.range === 'in' ? 'в диапазоне' : '—') +
+                                '</button>'
+                            );
+                        }
+                    }
+                    html.push('</div>');
+                }
+                html.push('</div>');
+            }
+            html.push('</article>');
+        }
+        el.innerHTML = html.join('');
+    }
+
+    function paintTree() {
+        renderTable();
+        renderPhone();
+    }
+
     function fillFormFromRule(rule) {
         const f = defaultRuleForm();
         if (rule) {
@@ -580,7 +662,7 @@
     async function pickRow(cabinetId, campaignUuid, clusterId, wbId) {
         state.selected = findSelection(cabinetId, campaignUuid, clusterId, wbId);
         fillFormFromRule(state.selected && state.selected.rule);
-        renderTable();
+        paintTree();
         await loadHistory(state.selected && state.selected.rule && state.selected.rule.id);
     }
 
@@ -708,7 +790,7 @@
                 const set = kind === 'cab' ? state.open.cabinets : state.open.campaigns;
                 if (set.has(id)) set.delete(id);
                 else set.add(id);
-                renderTable();
+                paintTree();
                 return;
             }
             const pick = e.target.closest('[data-pick="cluster"]');
@@ -795,7 +877,7 @@
                 }
             }
             renderKpis(state.model.totals);
-            renderTable();
+            paintTree();
             paintForm();
             renderJournal();
             if (note) note.textContent = 'сегодня ' + today + ' · ДРР за 7 дней';
@@ -829,6 +911,7 @@
         open,
         load,
         renderTable,
+        renderPhone,
         paintForm,
         ymd,
         addDays,

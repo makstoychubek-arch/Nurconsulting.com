@@ -842,6 +842,16 @@ assert.ok(html.includes('data-adv-module="ads"') && html.includes('id="adv-view-
     'РК must expose a new Реклама command-center view beside cabinet cards');
 assert.ok(/data-adv-module="ads"[^>]*class="[^"]*active/.test(html) || /class="segment-tab active"[^>]*data-adv-module="ads"/.test(html),
     'Реклама is the default view on the advertising tab so the new UI is visible on open');
+assert.ok(html.includes('Командный центр') && html.includes('id="ads-hq-phone"') && html.includes('ads-hq-table-wrap'),
+    'command center has a visible title and a phone card list besides the desktop table');
+assert.ok(html.includes('const isAdsHq') && html.includes("window._advView === 'cards'"),
+    'RK header treats command center as the root view, not a drill-in');
+assert.ok(
+    html.includes("tab === 'tab-advertising' && window._advView === 'detail'") &&
+    html.includes("tab === 'tab-advertising' && window._advView === 'cards'") &&
+    !html.includes("window._advView === 'detail' || window._advView === 'ads'"),
+    'header back from command center must not open the old cabinet cards'
+);
 assert.ok(html.includes('data-adv-view="ads"') && html.includes('ads-command-center'),
     'Реклама tab sits next to legacy Автобиддер and loads ads-command-center.js');
 assert.ok(html.includes('id="ads-hq-journal-chart"') && html.includes('id="ads-hq-save"'),
