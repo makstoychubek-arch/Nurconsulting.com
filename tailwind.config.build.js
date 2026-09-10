@@ -14,6 +14,7 @@ module.exports = {
     './dashboard-charts.js',
     './rnp-module.js',
     './wb-formulas.js',
+    './ads-command-center.js',
   ],
   darkMode: 'class',
   theme: {

@@ -838,6 +838,14 @@ assert.ok(
 
 assert.ok(html.includes('data-adv-view="autobidder"') && html.includes('id="adv-subtab-autobidder"'),
     'advertising detail must have an Автобиддер tab');
+assert.ok(html.includes('data-adv-module="ads"') && html.includes('id="adv-view-ads"') && html.includes('id="ads-hq-tbody"'),
+    'РК must expose a new Реклама command-center view beside cabinet cards');
+assert.ok(html.includes('data-adv-view="ads"') && html.includes('ads-command-center'),
+    'Реклама tab sits next to legacy Автобиддер and loads ads-command-center.js');
+assert.ok(html.includes('id="ads-hq-journal-chart"') && html.includes('id="ads-hq-save"'),
+    'command center must include rule form and journal chart');
+assert.ok(html.includes('id="adv-subtab-autobidder"') && html.includes("from('autobidder_rules_legacy_mvp')"),
+    'legacy Автобиддер tab stays wired to autobidder_rules_legacy_mvp');
 assert.ok(html.includes('id="autobidder-modal"') && html.includes('function openAutobidderModal'),
     'campaign row must open the autobidder rule modal');
 assert.ok(html.includes('function saveAutobidderRule') && html.includes("from('autobidder_rules_legacy_mvp')"),

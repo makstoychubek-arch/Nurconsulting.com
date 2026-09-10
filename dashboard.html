@@ -24,7 +24,7 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
     <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.3f7cebf979.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.9195bef63c.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -787,6 +787,41 @@
         .adv-kpi-tile { background: var(--surface); border-radius: var(--radius-card); padding: 16px; box-shadow: var(--card-shadow); }
         .adv-kpi-tile-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
         .adv-kpi-tile-value { font-size: 18px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .adv-module-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+        .ads-hq-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
+        .ads-hq-dot.ok { background: var(--green); }
+        .ads-hq-dot.bad { background: var(--red); }
+        .ads-hq-dot.none { background: var(--border-strong); }
+        .ads-hq-expand, .ads-hq-link {
+            display: inline-flex; align-items: center; gap: 8px;
+            background: none; border: none; padding: 0; cursor: pointer;
+            color: var(--text-primary); font: inherit; text-align: left;
+        }
+        .ads-hq-link:hover, .ads-hq-expand:hover { color: var(--accent); }
+        .ads-hq-chev {
+            width: 6px; height: 6px; border-right: 1.5px solid var(--text-muted);
+            border-bottom: 1.5px solid var(--text-muted); transform: rotate(-45deg);
+            display: inline-block; flex-shrink: 0;
+        }
+        .ads-hq-chev.open { transform: rotate(45deg); }
+        .ads-hq-mono { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+        .ads-hq-table td, .ads-hq-table th { white-space: nowrap; }
+        .ads-hq-cab td { font-weight: 600; }
+        .ads-hq-camp td { background: var(--bg); }
+        .ads-hq-cl.is-on td { background: var(--accent-soft); }
+        .ads-hq-bulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        .ads-hq-hours { display: flex; flex-wrap: wrap; gap: 6px; }
+        .ads-hq-hour {
+            font-size: 11px; color: var(--text-muted); border: 1px solid var(--border);
+            border-radius: 8px; padding: 4px 6px; cursor: pointer; user-select: none;
+        }
+        .ads-hq-hour.on { color: var(--text-primary); background: var(--sel); border-color: transparent; }
+        .ads-hq-hour input { display: none; }
+        .ads-hq-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .ads-hq-journal-chart { height: 180px; position: relative; }
+        @media (max-width: 768px) {
+            .ads-hq-form-grid { grid-template-columns: 1fr; }
+        }
         .adv-help-dot { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: var(--border); color: var(--text-muted); font-size: 9px; font-weight: 700; cursor: help; }
         .dashboard-metrics-grid {
             display: grid;
@@ -4071,6 +4106,13 @@
         </div>
 
         <div id="tab-advertising" class="tab-content space-y-5">
+            <div id="adv-module-tabs" class="adv-module-bar">
+                <div class="segment-tabs">
+                    <div class="segment-tab active" data-adv-module="cards" onclick="switchAdvModule('cards', this)">Кабинеты</div>
+                    <div class="segment-tab" data-adv-module="ads" onclick="switchAdvModule('ads', this)">Реклама</div>
+                </div>
+                <span id="ads-hq-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+            </div>
             <!-- Главная страница рекламных кабинетов: карточки по всем кабинетам пользователя -->
             <div id="adv-view-cards">
                 <div class="adv-toolbar" style="justify-content:flex-end">
@@ -4081,6 +4123,96 @@
                 </div>
                 <div id="adv-cards-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     <div class="text-center py-10" style="color:var(--text-muted);grid-column:1/-1">Загрузка кабинетов…</div>
+                </div>
+            </div>
+
+            <div id="adv-view-ads" class="hidden space-y-5">
+                <div id="ads-hq-kpis" class="grid grid-cols-2 md:grid-cols-5 gap-3"></div>
+                <div class="widget-card">
+                    <div class="ads-hq-bulk">
+                        <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-pause">Пауза</button>
+                        <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-start">Запуск</button>
+                        <input id="ads-hq-tpl-name" class="ui-input" placeholder="Имя шаблона" style="max-width:180px">
+                        <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-tpl">Применить форму</button>
+                        <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-reload">Обновить</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="data-table ads-hq-table">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Кабинет</th>
+                                    <th>Токен</th>
+                                    <th>Кампаний акт.</th>
+                                    <th>Расход сегодня / лимит</th>
+                                    <th>ДРР 7д</th>
+                                    <th>В диапазоне</th>
+                                    <th>Вне</th>
+                                    <th>Лимит</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="ads-hq-tbody">
+                                <tr><td colspan="10" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить данные</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div class="widget-card">
+                        <h3 class="text-sm font-semibold mb-1">Правило</h3>
+                        <p id="ads-hq-rule-hint" class="text-xs mb-4" style="color:var(--text-muted)">Выберите кластер в таблице</p>
+                        <div class="ads-hq-form-grid mb-3">
+                            <label class="text-xs" style="color:var(--text-muted)">Стратегия
+                                <select id="ads-hq-strategy" class="ui-select mt-1">
+                                    <option value="min_sufficient">min_sufficient</option>
+                                    <option value="max_visibility">max_visibility</option>
+                                    <option value="fixed_position">fixed_position</option>
+                                    <option value="target_drr">target_drr</option>
+                                </select>
+                            </label>
+                            <label class="text-xs" style="color:var(--text-muted)">Потолок
+                                <select id="ads-hq-cap-mode" class="ui-select mt-1">
+                                    <option value="max_bid">max_bid</option>
+                                    <option value="target_drr">целевой ДРР</option>
+                                </select>
+                            </label>
+                            <label class="text-xs" style="color:var(--text-muted)">Позиция с
+                                <input id="ads-hq-pos-from" type="number" min="1" class="ui-input mt-1" value="5">
+                            </label>
+                            <label class="text-xs" style="color:var(--text-muted)">Позиция по
+                                <input id="ads-hq-pos-to" type="number" min="1" class="ui-input mt-1" value="10">
+                            </label>
+                            <label id="ads-hq-max-wrap" class="text-xs" style="color:var(--text-muted)">max_bid
+                                <input id="ads-hq-max-bid" type="number" min="0" step="1" class="ui-input mt-1">
+                            </label>
+                            <label id="ads-hq-drr-wrap" class="text-xs hidden" style="color:var(--text-muted)">ДРР, %
+                                <input id="ads-hq-drr" type="number" min="0" step="0.1" class="ui-input mt-1">
+                            </label>
+                            <label class="text-xs" style="color:var(--text-muted)">Пол ставки
+                                <input id="ads-hq-floor" type="number" min="0" class="ui-input mt-1" value="50">
+                            </label>
+                            <label class="text-xs" style="color:var(--text-muted)">Шаг, %
+                                <input id="ads-hq-step" type="number" min="1" class="ui-input mt-1" value="7">
+                            </label>
+                            <label class="text-xs" style="color:var(--text-muted)">Гистерезис, %
+                                <input id="ads-hq-hyst" type="number" min="0" class="ui-input mt-1" value="3">
+                            </label>
+                            <label class="text-xs" style="color:var(--text-muted)">Порог органики
+                                <input id="ads-hq-organic" type="number" min="1" class="ui-input mt-1" value="5">
+                            </label>
+                        </div>
+                        <div class="text-xs mb-2" style="color:var(--text-muted)">Часы (буст пиков — в следующем шаге)</div>
+                        <div id="ads-hq-hours" class="ads-hq-hours mb-4"></div>
+                        <button type="button" class="ui-btn ui-btn-primary" id="ads-hq-save">Сохранить правило</button>
+                    </div>
+                    <div class="widget-card">
+                        <h3 class="text-sm font-semibold mb-1">Журнал</h3>
+                        <p class="text-xs mb-3" style="color:var(--text-muted)">Ставка и позиция по bid_history выбранного правила</p>
+                        <div class="ads-hq-journal-chart mb-3"><canvas id="ads-hq-journal-chart"></canvas></div>
+                        <div id="ads-hq-journal-empty" class="text-xs" style="color:var(--text-muted)">Пока пусто — тик v2 ещё не писал историю.</div>
+                        <div id="ads-hq-journal-table" class="autobidder-log"></div>
+                    </div>
                 </div>
             </div>
 
@@ -4099,6 +4231,7 @@
                         <div class="segment-tab active" data-adv-view="overview" onclick="switchAdvDetailView('overview', this)">Обзор</div>
                         <div class="segment-tab" data-adv-view="campaigns" onclick="switchAdvDetailView('campaigns', this)">Кампании</div>
                         <div class="segment-tab" data-adv-view="articles" onclick="switchAdvDetailView('articles', this)">Товары</div>
+                        <div class="segment-tab" data-adv-view="ads" onclick="switchAdvDetailView('ads', this)">Реклама</div>
                         <div class="segment-tab" data-adv-view="autobidder" onclick="switchAdvDetailView('autobidder', this)">Автобиддер</div>
                     </div>
                 </div>
@@ -5004,9 +5137,10 @@
         </div>
     </div>
 
-<script src="/dist/dashboard-charts.acb087a612.min.js"></script>
+<script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.3fc8b04339.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
+<script src="/dist/ads-command-center.da5a9f410a.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -6049,7 +6183,7 @@
         const pageTitle = document.getElementById('page-title');
         const dateWrap = document.getElementById('header-date-chip-wrap');
         const isDashboard = tabName === 'dashboard' && !isStub;
-        const isAdvDetail = !isStub && tabName === 'advertising' && window._advView === 'detail';
+        const isAdvDetail = !isStub && tabName === 'advertising' && (window._advView === 'detail' || window._advView === 'ads');
         const showEmpty = cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tabName);
 
         if (backBtn) {
@@ -6060,7 +6194,9 @@
         }
         if (pageTitle) {
             pageTitle.classList.remove('header-hidden');
-            pageTitle.textContent = tabTitles[tabName] || tabTitles.dashboard || 'Дашборд';
+            pageTitle.textContent = (!isStub && tabName === 'advertising' && window._advView === 'ads')
+                ? 'Реклама'
+                : (tabTitles[tabName] || tabTitles.dashboard || 'Дашборд');
         }
         if (dateWrap) {
             const showDate = !isStub && DATE_FILTER_TABS.has(tabName) && !showEmpty;
@@ -6071,6 +6207,12 @@
     }
 
     function headerGoBack() {
+        const tab = document.querySelector('.tab-content.active')?.id;
+        if (tab === 'tab-advertising' && (window._advView === 'detail' || window._advView === 'ads')) {
+            showAdvertisingCardsView();
+            loadAdvertisingCardsOverview();
+            return;
+        }
         showTab('dashboard');
         if (window.innerWidth <= 768) closeMobileMenu();
     }
@@ -6433,16 +6575,58 @@
         `).join('');
     }
 
+    function syncAdvModuleTabs(view) {
+        document.querySelectorAll('#adv-module-tabs .segment-tab').forEach((t) => {
+            t.classList.toggle('active', t.getAttribute('data-adv-module') === view);
+        });
+        document.getElementById('adv-module-tabs')?.classList.toggle('hidden', view === 'detail');
+        const fresh = document.getElementById('ads-hq-freshness');
+        if (fresh && view !== 'ads') fresh.textContent = '';
+    }
+    function ensureAdsHq() {
+        if (!window.AdsHQ || typeof window.AdsHQ.init !== 'function') return;
+        window.AdsHQ.init({
+            supabase,
+            fetchAllRows,
+            callWbProxy,
+            escapeHtml,
+            cabinetDisplayName,
+            showPremiumModal,
+        });
+    }
+    function switchAdvModule(view, el) {
+        if (view === 'ads') showAdvertisingAdsView();
+        else showAdvertisingCardsView();
+        if (el) {
+            document.querySelectorAll('#adv-module-tabs .segment-tab').forEach((t) => t.classList.remove('active'));
+            el.classList.add('active');
+        }
+    }
+    window.switchAdvModule = switchAdvModule;
     function showAdvertisingCardsView() {
         window._advView = 'cards';
         document.getElementById('adv-view-cards')?.classList.remove('hidden');
         document.getElementById('adv-view-detail')?.classList.add('hidden');
+        document.getElementById('adv-view-ads')?.classList.add('hidden');
+        syncAdvModuleTabs('cards');
         updateHeaderNav('advertising');
+    }
+    function showAdvertisingAdsView(opts) {
+        window._advView = 'ads';
+        document.getElementById('adv-view-cards')?.classList.add('hidden');
+        document.getElementById('adv-view-detail')?.classList.add('hidden');
+        document.getElementById('adv-view-ads')?.classList.remove('hidden');
+        syncAdvModuleTabs('ads');
+        updateHeaderNav('advertising');
+        ensureAdsHq();
+        window.AdsHQ?.open({ cabinetId: opts && opts.cabinetId || '' });
     }
     function showAdvertisingDetailView() {
         window._advView = 'detail';
         document.getElementById('adv-view-cards')?.classList.add('hidden');
+        document.getElementById('adv-view-ads')?.classList.add('hidden');
         document.getElementById('adv-view-detail')?.classList.remove('hidden');
+        syncAdvModuleTabs('detail');
         updateHeaderNav('advertising');
     }
 
@@ -6653,6 +6837,10 @@
         document.getElementById('adv-subtab-articles')?.classList.toggle('hidden', view !== 'articles');
         document.getElementById('adv-subtab-autobidder')?.classList.toggle('hidden', view !== 'autobidder');
         if (view === 'autobidder') renderAutobidderTab();
+        if (view === 'ads') {
+            showAdvertisingAdsView({ cabinetId: currentCabinetId || '' });
+            return;
+        }
     }
     window.switchAdvDetailView = switchAdvDetailView;
 
@@ -7141,6 +7329,10 @@
             showAdvertisingDetailView();
             loadAdvertisingFromDB();
             loadAdvertisingBalance(currentCabinetId);
+            return;
+        }
+        if (window._advView === 'ads') {
+            showAdvertisingAdsView();
             return;
         }
         showAdvertisingCardsView();
