@@ -904,6 +904,8 @@
         .gg-view-btn.is-on { color: var(--accent); background: var(--accent-soft); }
         .gg-daily { padding: 0; min-width: 0; max-width: 100%; }
         .gg-daily-note { font-size: 12px; color: var(--text-muted); padding: 16px 8px; }
+        #gg-cost-table.data-table,
+        #tab-goods-groups #gg-cost-table,
         #gg-daily-table.data-table,
         #tab-goods-groups #gg-daily-table {
             display: inline-table !important;
@@ -3962,11 +3964,6 @@
                     <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="flyout-sec">Товары</div>
-                <div class="nav-item" onclick="showTab('cost', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                    <span class="nav-item-label">Себестоимость</span>
-                    <span class="nav-beta-badge">BETA</span>
-                </div>
                 <div class="nav-item" onclick="showTab('warehouse', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
                     <span class="nav-item-label">Склады</span>
@@ -4288,8 +4285,9 @@
         <div id="tab-goods-groups" class="tab-content">
             <div class="gg-toolbar">
                 <div class="gg-views" role="tablist" aria-label="Разделы Товаров">
-                    <button type="button" class="gg-view-btn is-on" id="gg-view-now-btn" role="tab" aria-selected="true" onclick="setGoodsView('now')">Сейчас</button>
+                    <button type="button" class="gg-view-btn is-on" id="gg-view-now-btn" role="tab" aria-selected="true" onclick="setGoodsView('now')">Остатки</button>
                     <button type="button" class="gg-view-btn" id="gg-view-daily-btn" role="tab" aria-selected="false" onclick="setGoodsView('daily')">Остатки по дням</button>
+                    <button type="button" class="gg-view-btn" id="gg-view-cost-btn" role="tab" aria-selected="false" onclick="setGoodsView('cost')">Себестоимость</button>
                 </div>
                 <div class="gg-now-tools rnp-tool-icons" id="gg-now-tools">
                 <div class="gg-search-wrap" id="gg-search-wrap">
@@ -4338,6 +4336,15 @@
                         <tfoot id="gg-daily-foot"></tfoot>
                     </table>
                 </div>
+            </div>
+            <div class="gg-table-scroll" id="gg-view-cost" hidden>
+                <table class="data-table" id="gg-cost-table">
+                    <thead id="gg-cost-head"></thead>
+                    <tbody id="gg-cost-body">
+                        <tr><td colspan="3" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить себестоимость</td></tr>
+                    </tbody>
+                    <tfoot id="gg-cost-foot"></tfoot>
+                </table>
             </div>
         </div>
 
@@ -6631,6 +6638,11 @@
 
     function showTab(name, el) {
         name = TAB_ALIASES[name] || name;
+        if (name === 'cost') {
+            try { sessionStorage.setItem('gg_view', 'cost'); } catch (e) {}
+            showTab('goods-groups', el);
+            return;
+        }
         if (name === 'rnp-settings') {
             if (!document.getElementById('tab-rnp')?.classList.contains('active')) {
                 showTab('rnp', el);
@@ -7781,24 +7793,31 @@
     }
 
     function setGoodsView(view, opts) {
-        ggView = view === 'daily' ? 'daily' : 'now';
+        ggView = view === 'daily' || view === 'cost' ? view : 'now';
         const nowEl = document.getElementById('gg-view-now');
         const dailyEl = document.getElementById('gg-view-daily');
+        const costEl = document.getElementById('gg-view-cost');
         const nowBtn = document.getElementById('gg-view-now-btn');
         const dailyBtn = document.getElementById('gg-view-daily-btn');
+        const costBtn = document.getElementById('gg-view-cost-btn');
         if (nowEl) nowEl.hidden = ggView !== 'now';
         if (dailyEl) dailyEl.hidden = ggView !== 'daily';
+        if (costEl) costEl.hidden = ggView !== 'cost';
         nowBtn?.classList.toggle('is-on', ggView === 'now');
         dailyBtn?.classList.toggle('is-on', ggView === 'daily');
+        costBtn?.classList.toggle('is-on', ggView === 'cost');
         nowBtn?.setAttribute('aria-selected', ggView === 'now' ? 'true' : 'false');
         dailyBtn?.setAttribute('aria-selected', ggView === 'daily' ? 'true' : 'false');
+        costBtn?.setAttribute('aria-selected', ggView === 'cost' ? 'true' : 'false');
         try { sessionStorage.setItem('gg_view', ggView); } catch (e) {}
         if (!(opts && opts.skipLoad) && ggView === 'daily' && goodsGroupsCabinetId) ensureDailyStocks();
+        if (ggView === 'cost') renderGoodsCostTable();
     }
 
     function ggPaint() {
         renderGoodsGroupsTable();
         if (ggView === 'daily') renderGoodsDailyTable();
+        if (ggView === 'cost') renderGoodsCostTable();
     }
 
     function renderGoodsDailyTable() {
@@ -8056,6 +8075,48 @@
         if (scrollEl && scrollTop > 0) scrollEl.scrollTop = scrollTop;
     }
 
+    function renderGoodsCostTable() {
+        const tbody = document.getElementById('gg-cost-body');
+        const thead = document.getElementById('gg-cost-head');
+        const tfoot = document.getElementById('gg-cost-foot');
+        if (!tbody) return;
+        const catalog = window.GoodsCatalog;
+        const groups = ggVisibleGroups();
+        const items = catalog ? catalog.flattenGroups(groups) : groups.flatMap((g) => g.items || []);
+        const cols = [
+            { id: 'art', label: 'Артикул' },
+            { id: 'nm', label: 'WB' },
+            { id: 'cost', label: 'Себестоимость' },
+        ];
+        if (thead) {
+            thead.innerHTML = `<tr>${cols.map((c) => `<th class="${ggColClass(c.id)}">${escapeHtml(c.label)}</th>`).join('')}</tr>`;
+        }
+        if (!items.length) {
+            tbody.innerHTML = `<tr><td colspan="3" class="text-center py-10" style="color:var(--text-muted)">Нет данных по фильтру</td></tr>`;
+            if (tfoot) tfoot.innerHTML = '';
+            return;
+        }
+        let costTot = 0;
+        const html = [];
+        groups.forEach((g) => {
+            html.push(`<tr class="gg-sec-row"><td colspan="3">${escapeHtml(g.name)} · ${g.items.length}</td></tr>`);
+            g.items.forEach((r) => {
+                const cost = Number(r.cost || 0) || 0;
+                costTot += cost;
+                html.push(
+                    `<tr><td class="gg-art" title="${escapeHtml(r.sellerArticle || '—')}">${escapeHtml(r.sellerArticle || '—')}</td>` +
+                    `<td class="gg-col-nm gg-nm">${escapeHtml(String(r.nmId || ''))}</td>` +
+                    ggQtyInput(r, 'cost', cost) +
+                    `</tr>`
+                );
+            });
+        });
+        tbody.innerHTML = html.join('');
+        if (tfoot) {
+            tfoot.innerHTML = `<tr class="gg-foot"><td class="gg-art">Итого</td><td class="gg-col-nm"></td><td class="gg-num${costTot ? '' : ' gg-zero'}" id="gg-cost-total">${fmt(costTot)}</td></tr>`;
+        }
+    }
+
     function ggToggleHtml(on) {
         return `<button type="button" class="rnp-settings-toggle relative w-9 h-5 rounded-full" style="background:${on ? 'var(--accent)' : 'var(--border)'}">
             <span style="position:absolute;top:2px;left:${on ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
@@ -8070,7 +8131,7 @@
         const allGroups = catalog
             ? catalog.groupGoods(goodsGroupsRows, cabName, ggCatalogMeta())
             : [{ key: '', name: '', items: goodsGroupsRows }];
-        const colRows = (catalog ? catalog.GOODS_COLS : ggCols()).filter((c) => !c.locked).map((c) => {
+        const colRows = ggView === 'cost' ? '' : (catalog ? catalog.GOODS_COLS : ggCols()).filter((c) => !c.locked).map((c) => {
             const on = !ggUi.hiddenCols[c.id];
             return `<div class="gg-set-row"><span>${escapeHtml(c.label)}</span><span onclick="toggleGoodsCol('${c.id}')">${ggToggleHtml(on)}</span></div>`;
         }).join('');
@@ -8078,7 +8139,8 @@
             const on = !ggUi.hiddenSections[g.key];
             return `<div class="gg-set-row"><span>${escapeHtml(g.name)}</span><span data-gg-sec="${escapeHtml(g.key)}" onclick="toggleGoodsSection(this.dataset.ggSec)">${ggToggleHtml(on)}</span></div>`;
         }).join('');
-        body.innerHTML = `<div class="gg-set-h">Колонки</div>${colRows}<div class="gg-set-h">Разделы</div>${secRows || '<div class="text-xs" style="color:var(--text-muted)">Сначала откройте таблицу</div>'}`;
+        body.innerHTML = (colRows ? `<div class="gg-set-h">Колонки</div>${colRows}` : '') +
+            `<div class="gg-set-h">Разделы</div>${secRows || '<div class="text-xs" style="color:var(--text-muted)">Сначала откройте таблицу</div>'}`;
     }
 
     function openGoodsSettings() {
@@ -8105,16 +8167,33 @@
     function exportGoodsExcel() {
         const catalog = window.GoodsCatalog;
         const groups = ggVisibleGroups();
-        const csv = catalog
-            ? catalog.exportExcelCsv(groups, { hiddenCols: ggUi.hiddenCols })
-            : '';
+        let csv = '';
+        let kind = 'Товары';
+        if (ggView === 'cost') {
+            kind = 'Себестоимость';
+            const sep = ';';
+            const lines = [['Артикул', 'WB', 'Себестоимость'].map((c) => catalog ? catalog.csvCell(c) : c).join(sep)];
+            let tot = 0;
+            groups.forEach((g) => {
+                lines.push([g.name, '', ''].map((c) => catalog ? catalog.csvCell(c) : c).join(sep));
+                (g.items || []).forEach((r) => {
+                    const cost = Number(r.cost || 0) || 0;
+                    tot += cost;
+                    lines.push([r.sellerArticle || '', r.nmId || '', cost].map((c) => catalog ? catalog.csvCell(c) : c).join(sep));
+                });
+            });
+            lines.push(['ВСЕГО', '', tot].map((c) => catalog ? catalog.csvCell(c) : c).join(sep));
+            csv = '\uFEFF' + lines.join('\n');
+        } else {
+            csv = catalog ? catalog.exportExcelCsv(groups, { hiddenCols: ggUi.hiddenCols }) : '';
+        }
         if (!csv) return;
         const who = String(cabinetDisplayName(goodsGroupsCabinetName) || 'товары').replace(/[^\wа-яё]+/gi, '_');
         const day = new Date().toISOString().slice(0, 10);
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `Товары_${who}_${day}.csv`;
+        a.download = `${kind}_${who}_${day}.csv`;
         a.click();
         URL.revokeObjectURL(a.href);
     }
@@ -8148,6 +8227,14 @@
             row[field] = val;
             if (field === 'transit') row.transitManual = true;
             if (field === 'plan') row.planManual = true;
+            if (field === 'cost') {
+                const totEl = document.getElementById('gg-cost-total');
+                if (totEl) {
+                    const sum = (ggVisibleGroups().flatMap((g) => g.items || [])).reduce((n, r) => n + (Number(r.cost || 0) || 0), 0);
+                    totEl.textContent = fmt(sum);
+                    totEl.classList.toggle('gg-zero', !sum);
+                }
+            }
             const totalTd = el.closest('tr')?.querySelector('.gg-total');
             if (totalTd) totalTd.textContent = fmt(catalog ? catalog.stockOf(row).total : val);
             el.classList.toggle('gg-zero', !val);
@@ -8162,6 +8249,7 @@
         const prev = ggSaveQueue.get(key) || { cabinetId: cabId || goodsGroupsCabinetId, nmId: Number(nmId) };
         if (field === 'transit') prev.goods_transit = val;
         if (field === 'plan') prev.goods_plan = val;
+        if (field === 'cost') prev.cost_price = val;
         ggSaveQueue.set(key, prev);
         if (ggSaveTimer) clearTimeout(ggSaveTimer);
         ggSaveTimer = setTimeout(() => { ggFlushSaves(); }, 600);
@@ -8180,8 +8268,12 @@
         const md = { ...(existing?.manual_data || {}) };
         if (item.goods_transit !== undefined) md.goods_transit = item.goods_transit;
         if (item.goods_plan !== undefined) md.goods_plan = item.goods_plan;
+        const patch = {};
+        if (item.goods_transit !== undefined || item.goods_plan !== undefined) patch.manual_data = md;
+        if (item.cost_price !== undefined) patch.cost_price = Number(item.cost_price) || 0;
         if (existing) {
-            const { error } = await supabase.from('rnp_articles').update({ manual_data: md }).eq('cabinet_id', cab).eq('nm_id', nmId);
+            if (!Object.keys(patch).length) return;
+            const { error } = await supabase.from('rnp_articles').update(patch).eq('cabinet_id', cab).eq('nm_id', nmId);
             if (error) throw error;
             return;
         }
@@ -8192,6 +8284,7 @@
             name: row?.sellerArticle || '',
             is_active: false,
             manual_data: md,
+            cost_price: item.cost_price !== undefined ? (Number(item.cost_price) || 0) : 0,
         }, { onConflict: 'cabinet_id,nm_id' });
         if (error) throw error;
     }
@@ -8209,7 +8302,7 @@
         } catch (e) {
             console.error('[goods] save', e);
             if (fresh) fresh.textContent = 'ошибка сохранения';
-            showPremiumModal('error', 'Не сохранилось', e.message || 'В пути / в плане');
+            showPremiumModal('error', 'Не сохранилось', e.message || 'Себестоимость / в пути / в плане');
         }
     }
 
@@ -8236,7 +8329,7 @@
             fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: cab.id }],
                 'nm_id, quantity, stock_scheme'),
             fetchAllRows('rnp_articles', [{ op: 'eq', column: 'cabinet_id', value: cab.id }],
-                'nm_id, name, category, manual_data'),
+                'nm_id, name, category, manual_data, cost_price'),
         ]);
         const byNm = {};
         const rowOf = (nmId) => {
@@ -8251,6 +8344,7 @@
                     fbs: 0,
                     transit: 0,
                     plan: 0,
+                    cost: 0,
                     transitManual: false,
                     planManual: false,
                 };
@@ -8270,6 +8364,7 @@
             const r = rowOf(id);
             r.sellerArticle = String(a.manual_data?.seller_article || a.manual_data?.sa_name || a.name || '').trim();
             r.category = (a.category || '').trim();
+            r.cost = Number(a.cost_price || 0) || 0;
             const md = a.manual_data || {};
             const gt = catalog ? catalog.readManualQty(md, 'goods_transit') : md.goods_transit;
             const gp = catalog ? catalog.readManualQty(md, 'goods_plan') : md.goods_plan;

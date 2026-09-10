@@ -81,7 +81,7 @@ assert.ok(html.includes('id="gg-excel-btn"') && html.includes('exportGoodsExcel'
 assert.ok(html.includes('id="gg-excel-btn"') && html.includes('M3 9h18M3 15h18M9 3v18M15 3v18'),
     'Товары Excel is the same grid icon as RNP');
 assert.ok(!html.includes('.gg-toolbar.is-daily #gg-excel-btn') && !html.includes('gg-now-tools.is-off'),
-    'Сейчас and Остатки по дням keep the same tool icons so they do not jump');
+    'Остатки and Остатки по дням keep the same tool icons so they do not jump');
 assert.ok(html.includes('gg-now-tools rnp-tool-icons') && /\.gg-toolbar\s*\{[^}]*width:\s*100%/.test(html),
     'Товары toolbar spans the row so icons sit top-right like RNP');
 assert.ok(
@@ -119,6 +119,16 @@ assert.ok(/\.gg-art\s*\{[^}]*white-space:\s*nowrap/.test(html),
     'article names stay on one line next to the numbers');
 assert.ok(html.includes('class="gg-art" title='),
     'long article names keep a hover title when the cell ellipsizes');
+assert.ok(html.includes("setGoodsView('now')\">Остатки</button>") && !html.includes("setGoodsView('now')\">Сейчас</button>"),
+    'the live stocks tab is called Остатки');
+assert.ok(
+    html.includes('id="gg-view-cost"') &&
+    html.includes("setGoodsView('cost')") &&
+    html.includes('function renderGoodsCostTable') &&
+    html.includes('cost_price') &&
+    html.includes("name === 'cost'"),
+    'Себестоимость is a Товары tab and writes rnp_articles.cost_price'
+);
 assert.ok(
     html.includes('id="gg-view-daily"') &&
     html.includes("setGoodsView('daily')") &&
@@ -212,7 +222,7 @@ assert.ok(!betaFly.includes("showTab('advertising'"), 'Контроль РК is 
 assert.ok(!betaFly.includes("showTab('goods-groups'"), 'Товары is not duplicated inside BETA');
 assert.ok(betaFly.includes("showTab('ab-testing'"), 'BETA flyout lists А/Б Тесты');
 assert.ok(betaFly.includes("showTab('tariffs'"), 'BETA flyout lists Тарифы');
-assert.ok(betaFly.includes("showTab('cost'"), 'BETA flyout lists Товары');
+assert.ok(!betaFly.includes("showTab('cost'"), 'Себестоимость left BETA and lives in Товары');
 assert.ok(betaFly.includes("showTab('dds'"), 'BETA flyout lists Финансы');
 assert.ok(betaFly.includes("showTab('logistics'"), 'BETA flyout lists Логистика');
 assert.ok(betaFly.includes("showTab('calculator'"), 'BETA flyout lists Калькулятор');
