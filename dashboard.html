@@ -1430,6 +1430,44 @@
             background: var(--surface); color: var(--text-secondary);
             font-size: 8px; font-weight: 700; cursor: pointer;
         }
+        .rnp-head-marquee-stack {
+            display: flex; flex-direction: row; align-items: stretch;
+            min-height: 72px;
+        }
+        .rnp-head-stocks-wide {
+            position: sticky; left: var(--rnp-frozen-left, 172px);
+            z-index: 44;
+            flex: 0 0 auto;
+            padding: 6px 10px 8px;
+            background: var(--surface-solid);
+            width: max-content;
+            max-width: min(560px, calc(100vw - var(--rnp-frozen-left, 172px) - 200px));
+            box-sizing: border-box;
+        }
+        .rnp-head-stocks-wide .rnp-stock-scheme-wrap {
+            display: flex; align-items: flex-start; gap: 16px;
+            min-width: 0; max-width: none;
+        }
+        .rnp-head-stocks-wide .rnp-head-sizes-inline {
+            max-width: none; overflow: visible; padding: 0;
+        }
+        .rnp-head-stocks-wide .rnp-stock-block { max-width: none; }
+        .rnp-head-stocks-wide .rnp-stock-table {
+            width: auto; min-width: max-content; font-size: 11px;
+        }
+        .rnp-head-stocks-wide .rnp-stock-table th,
+        .rnp-head-stocks-wide .rnp-stock-table td {
+            min-width: 32px; padding: 3px 7px; font-size: 11px; line-height: 1.3;
+        }
+        .rnp-head-stocks-wide .rnp-stock-table .rnp-stock-label {
+            min-width: 78px; max-width: none; font-size: 11px; padding: 3px 8px;
+        }
+        .rnp-head-stocks-wide .rnp-stock-donut {
+            flex-wrap: nowrap; max-width: none; padding: 0 4px;
+        }
+        .rnp-head-marquee-stack .rnp-head-marquee-pin {
+            flex: 1 1 auto; min-width: 0;
+        }
         .rnp-head-marquee {
             padding: 0 !important; vertical-align: top;
             background: var(--surface-solid) !important;
@@ -5333,7 +5371,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.66fd31b3b5.min.js"></script>
+<script src="/dist/rnp-module.695ab754f5.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script src="/dist/ads-command-center.233e066fd2.min.js"></script>
 <script src="/dist/goods-catalog.7f84884c63.min.js"></script>

@@ -435,6 +435,10 @@ assert.ok(rnpSrc.includes('function _monthStickLabel'), 'month title must stay v
 assert.ok(rnpSrc.includes('rnp-th-month-prev'), 'previous-month header must stick over frozen week columns');
 assert.ok(html.includes('rnp-th-month-stick'), 'month stick label CSS must exist');
 assert.ok(html.includes('rnp-head-marquee-pin'), 'photo marquee must pin at the frozen edge while days scroll');
+assert.ok(rnpSrc.includes('function _stocksNeedWide') && rnpSrc.includes('rnp-head-stocks-wide'),
+    'without August weeks, size grid sits in the wide photo row, not the 172px frozen pane');
+assert.ok(html.includes('.rnp-head-stocks-wide') && html.includes('min-width: 32px'),
+    'wide stock cells stay readable after the previous-month block is gone');
 assert.ok(rnpSrc.includes('rnp-head-marquee-pin'), 'marquee HTML wraps photos in the sticky pin');
 assert.ok(rnpSrc.includes('function _syncFrozenPane'), 'week/ИТОГ sticky left is applied after layout');
 assert.ok(!/pin\.style\.height\s*=\s*.*leftTh/.test(rnpSrc), 'marquee pin must not follow leftTh — that loop grows photos');
