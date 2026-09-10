@@ -92,6 +92,12 @@ assert.ok(/\.gg-art\s*\{[^}]*white-space:\s*nowrap/.test(html),
     'article names stay on one line next to the numbers');
 assert.ok(html.includes('class="gg-art" title='),
     'long article names keep a hover title when the cell ellipsizes');
+assert.ok(
+    html.includes('id="gg-view-daily"') &&
+    html.includes("setGoodsView('daily')") &&
+    html.includes('Остатки по дням'),
+    'Товары has a daily-stocks section; layout waits for the user'
+);
 assert.ok(html.includes("rnp-reload-requested") && html.includes("loadGoodsGroups({ silent: true })"),
     'Товары silently refreshes when RNP reloads stocks');
 assert.ok(!html.includes('id="gg-cabinet-filter"') && !html.includes('onGoodsGroupsCabinetChange'),
