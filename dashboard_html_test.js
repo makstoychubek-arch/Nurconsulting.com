@@ -74,6 +74,12 @@ assert.ok(html.includes('Сейчас работают Дашборд, РНП, �
     'BETA stub must list the live modules');
 assert.ok(html.includes('id="gg-fbo"') && html.includes('id="gg-transit"') && html.includes('goods-catalog'),
     'Товары tab shows FBO/FBS/in-transit columns and loads the Zevina catalog');
+assert.ok(!html.includes('gg-hero') && !html.includes('class="gg-title"') && !html.includes('id="gg-load-btn"'),
+    'Товары has no duplicate heading, explanation or refresh button');
+assert.ok(html.includes('id="gg-excel-btn"') && html.includes('exportGoodsExcel') && html.includes('id="gg-settings-overlay"'),
+    'Товары has a small Excel button and RNP-style settings overlay');
+assert.ok(html.includes("rnp-reload-requested") && html.includes("loadGoodsGroups({ silent: true })"),
+    'Товары silently refreshes when RNP reloads stocks');
 assert.ok(!html.includes('id="gg-cabinet-filter"') && !html.includes('onGoodsGroupsCabinetChange'),
     'Товары has no extra cabinet select — header cabinet only');
 assert.ok(html.includes('cabinets.find(c => c.id === currentCabinetId)'),

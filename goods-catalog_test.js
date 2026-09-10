@@ -86,4 +86,16 @@ assert.equal(filtered.length, 1);
 assert.equal(filtered[0].items.length, 1);
 assert.equal(filtered[0].items[0].nmId, 1218782505);
 
+const hidden = C.hideGroups(groups, { [groups[0].key]: true });
+assert.ok(hidden.length && hidden[0].name !== 'Свитера');
+assert.equal(hidden[0].name, groups[1].name);
+assert.equal(C.visibleCols({ nm: true, fbo: true }).map((c) => c.id).join(','), 'art,fbs,transit,plan,total');
+
+const csv = C.exportExcelCsv(filtered, { hiddenCols: { nm: true } });
+assert.match(csv, /^\uFEFF/);
+assert.match(csv, /Артикул;ФБО;ФБС;В пути;В плане;Итого/);
+assert.match(csv, /Свитер-айвори/);
+assert.match(csv, /ВСЕГО/);
+assert.equal(csv.includes('1218782505'), false);
+
 console.log('goods-catalog_test: ok');

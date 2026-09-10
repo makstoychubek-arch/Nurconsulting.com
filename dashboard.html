@@ -24,7 +24,7 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
     <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.1a12d2e2ed.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.f619ab05d0.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -852,26 +852,51 @@
             .ads-hq-table-wrap { display: none; }
             .ads-hq-title { font-size: 20px; }
         }
-        .gg-hero { margin: 0 0 2px; }
-        .gg-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: var(--text-primary); }
-        .gg-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
-        .gg-table-scroll { overflow: auto; -webkit-overflow-scrolling: touch; max-height: calc(100vh - 280px); }
-        .gg-table-scroll .data-table { min-width: 620px; }
+        #tab-goods-groups { gap: 8px; }
+        .gg-toolbar {
+            display: flex; align-items: center; gap: 6px;
+            margin: 0 0 2px;
+        }
+        .gg-search {
+            flex: 1; min-width: 0; max-width: 280px; height: 28px;
+            padding: 0 10px !important; font-size: 12px !important;
+            border-radius: 8px !important;
+        }
+        .gg-excel-btn {
+            font-size: 10px; padding: 4px 8px; height: 22px; line-height: 1;
+            border-radius: 8px; border: 1px solid var(--border);
+            background: var(--surface); color: var(--text-secondary);
+            cursor: pointer; font-family: inherit; font-weight: 600;
+        }
+        .gg-excel-btn:hover { border-color: var(--accent-border); color: var(--accent); }
+        .gg-fresh { font-size: 10px; color: var(--text-muted); margin-left: auto; }
+        .gg-table-scroll { overflow: auto; -webkit-overflow-scrolling: touch; max-height: calc(100vh - 168px); }
+        .gg-table-scroll .data-table { min-width: 560px; table-layout: fixed; }
+        #tab-goods-groups .data-table th,
+        #tab-goods-groups .data-table td { padding: 4px 8px !important; font-size: 11px; }
+        #tab-goods-groups .data-table th {
+            text-align: right; font-size: 10px; letter-spacing: 0.02em;
+        }
+        #tab-goods-groups .data-table th.gg-art,
+        #tab-goods-groups .data-table td.gg-art { text-align: left; }
         .gg-sec-row td {
             background: var(--sel); font-weight: 700; color: var(--text-primary);
-            padding-top: 10px; padding-bottom: 10px;
+            padding-top: 6px !important; padding-bottom: 6px !important;
+            text-align: left !important;
         }
-        .gg-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-        .gg-nm { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--text-muted); }
+        .gg-foot td { font-weight: 700; border-top: 1px solid var(--border-strong, var(--border)); }
+        .gg-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; width: 72px; }
+        .gg-col-nm { width: 88px; }
+        .gg-nm { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; color: var(--text-muted); }
         .gg-art { color: var(--text-primary); font-weight: 600; }
         .gg-zero { color: var(--text-muted); font-weight: 500; }
         .gg-edit { padding: 2px 4px !important; }
         .gg-edit-input {
-            width: 100%; min-width: 56px; min-height: 28px;
-            padding: 4px 8px !important; margin: 0;
+            width: 100%; min-width: 48px; min-height: 22px;
+            padding: 2px 4px !important; margin: 0;
             text-align: right; font-variant-numeric: tabular-nums;
-            font-size: 12px; font-weight: 600; color: inherit;
-            border: none !important; border-radius: 6px !important;
+            font-size: 11px; font-weight: 600; color: inherit;
+            border: none !important; border-radius: 4px !important;
             background: transparent !important; box-shadow: none !important;
             -moz-appearance: textfield; appearance: textfield;
         }
@@ -883,10 +908,21 @@
             color: var(--text-primary);
         }
         .gg-edit-input.gg-edit-dirty { background: rgba(245,158,11,0.14) !important; }
+        .gg-settings-dialog {
+            width: min(420px, 94vw); max-height: calc(100vh - 80px); overflow: auto;
+            padding: 16px 16px 12px;
+        }
+        .gg-set-row {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--border);
+            font-size: 13px; color: var(--text-primary);
+        }
+        .gg-set-row:last-child { border-bottom: none; }
+        .gg-set-h { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 14px 0 4px; }
         @media (max-width: 768px) {
-            .gg-title { font-size: 20px; }
             .gg-col-nm { display: none; }
             .gg-table-scroll { max-height: none; }
+            .gg-search { max-width: none; }
         }
         .adv-help-dot { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: var(--border); color: var(--text-muted); font-size: 9px; font-weight: 700; cursor: help; }
         .dashboard-metrics-grid {
@@ -4075,44 +4111,36 @@
             </div>
         </div>
 
-        <div id="tab-goods-groups" class="tab-content space-y-5">
-            <div class="gg-hero">
-                <h2 class="gg-title">Товары</h2>
-                <p class="gg-sub">ФБО/ФБС с WB. В пути — поставка Бишкек→Россия, не WB. План и путь по Уркунбаеву из таблицы, можно править</p>
-            </div>
-            <div class="flex flex-wrap items-center gap-2">
-                <input type="search" id="gg-search" placeholder="Поиск: свитер, артикул…"
+        <div id="tab-goods-groups" class="tab-content">
+            <div class="gg-toolbar">
+                <input type="search" id="gg-search" placeholder="Поиск"
                     oninput="renderGoodsGroupsTable()"
-                    class="ui-input flex-1 min-w-[160px]">
-                <button type="button" onclick="loadGoodsGroups()" id="gg-load-btn" class="ui-btn ui-btn-secondary">Обновить</button>
-                <span id="gg-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+                    class="ui-input gg-search">
+                <button type="button" class="gg-excel-btn" id="gg-excel-btn" onclick="exportGoodsExcel()" title="Выгрузить в Excel">Excel</button>
+                <button type="button" class="rnp-settings-gear" id="gg-settings-btn" onclick="openGoodsSettings()" title="Какие показывать" aria-label="Настройки таблицы">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                    </svg>
+                </button>
+                <span id="gg-freshness" class="gg-fresh"></span>
             </div>
-            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
-                <div class="adv-kpi-tile"><div class="adv-kpi-tile-label">ФБО</div><div id="gg-fbo" class="adv-kpi-tile-value">—</div></div>
-                <div class="adv-kpi-tile"><div class="adv-kpi-tile-label">ФБС</div><div id="gg-fbs" class="adv-kpi-tile-value">—</div></div>
-                <div class="adv-kpi-tile"><div class="adv-kpi-tile-label">В пути</div><div id="gg-transit" class="adv-kpi-tile-value">—</div></div>
-                <div class="adv-kpi-tile"><div class="adv-kpi-tile-label">В плане</div><div id="gg-plan" class="adv-kpi-tile-value">—</div></div>
-                <div class="adv-kpi-tile"><div class="adv-kpi-tile-label">Итого</div><div id="gg-stock-total" class="adv-kpi-tile-value">—</div></div>
+            <div class="gg-table-scroll">
+                <table class="data-table" id="gg-table">
+                    <thead id="gg-table-head"></thead>
+                    <tbody id="gg-table-body">
+                        <tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить остатки</td></tr>
+                    </tbody>
+                    <tfoot id="gg-table-foot"></tfoot>
+                </table>
             </div>
-            <div class="widget-card">
-                <div class="gg-table-scroll">
-                    <table class="data-table" style="font-size:12px">
-                        <thead>
-                            <tr>
-                                <th>Артикул</th>
-                                <th class="gg-col-nm">WB</th>
-                                <th class="gg-num">ФБО</th>
-                                <th class="gg-num">ФБС</th>
-                                <th class="gg-num">В пути</th>
-                                <th class="gg-num">В плане</th>
-                                <th class="gg-num">Итого</th>
-                            </tr>
-                        </thead>
-                        <tbody id="gg-table-body">
-                            <tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить остатки</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+        </div>
+
+        <div id="gg-settings-overlay" class="rnp-settings-overlay" onclick="if(event.target===this) closeGoodsSettings()">
+            <div class="rnp-settings-dialog gg-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="gg-settings-title">
+                <button type="button" class="rnp-settings-close" onclick="closeGoodsSettings()" aria-label="Закрыть">×</button>
+                <h3 id="gg-settings-title" class="font-semibold" style="color:var(--text-primary)">Таблица</h3>
+                <div id="gg-settings-body"></div>
             </div>
         </div>
 
@@ -5202,7 +5230,7 @@
 <script src="/dist/rnp-module.3fc8b04339.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script src="/dist/ads-command-center.233e066fd2.min.js"></script>
-<script src="/dist/goods-catalog.19f6e5844c.min.js"></script>
+<script src="/dist/goods-catalog.7f84884c63.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -7669,6 +7697,42 @@
     let goodsGroupsCabinetId = '';
     const ggSaveQueue = new Map();
     let ggSaveTimer = null;
+    let ggUi = { hiddenCols: {}, hiddenSections: {} };
+
+    function ggUiKey() {
+        return 'nr_goods_ui_' + (goodsGroupsCabinetId || currentCabinetId || 'default');
+    }
+    function ggLoadUi() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(ggUiKey()) || '{}');
+            ggUi = {
+                hiddenCols: raw.hiddenCols && typeof raw.hiddenCols === 'object' ? raw.hiddenCols : {},
+                hiddenSections: raw.hiddenSections && typeof raw.hiddenSections === 'object' ? raw.hiddenSections : {},
+            };
+        } catch (e) {
+            ggUi = { hiddenCols: {}, hiddenSections: {} };
+        }
+    }
+    function ggSaveUi() {
+        try { localStorage.setItem(ggUiKey(), JSON.stringify(ggUi)); } catch (e) {}
+    }
+    function ggCols() {
+        const catalog = window.GoodsCatalog;
+        return catalog ? catalog.visibleCols(ggUi.hiddenCols) : [
+            { id: 'art', label: 'Артикул' }, { id: 'nm', label: 'WB' },
+            { id: 'fbo', label: 'ФБО' }, { id: 'fbs', label: 'ФБС' },
+            { id: 'transit', label: 'В пути' }, { id: 'plan', label: 'В плане' },
+            { id: 'total', label: 'Итого' },
+        ];
+    }
+    function ggColSpan() {
+        return Math.max(1, ggCols().length);
+    }
+    function ggColClass(id) {
+        if (id === 'art') return 'gg-art';
+        if (id === 'nm') return 'gg-col-nm gg-nm';
+        return 'gg-num';
+    }
 
     function extractSellerArticleFromOrder(order) {
         const d = order?.data || order || {};
@@ -7700,7 +7764,32 @@
         const q = document.getElementById('gg-search')?.value || '';
         const cabName = goodsGroupsCabinetName || goodsGroupsRows[0]?.cabinetName || '';
         if (!catalog) return [{ name: '', items: goodsGroupsRows }];
-        return catalog.filterGroups(catalog.groupGoods(goodsGroupsRows, cabName, ggCatalogMeta()), q);
+        const grouped = catalog.filterGroups(catalog.groupGoods(goodsGroupsRows, cabName, ggCatalogMeta()), q);
+        return catalog.hideGroups(grouped, ggUi.hiddenSections);
+    }
+
+    function ggCellHtml(r, s, colId) {
+        if (colId === 'art') return `<td class="gg-art">${escapeHtml(r.sellerArticle || '—')}</td>`;
+        if (colId === 'nm') return `<td class="gg-col-nm gg-nm">${escapeHtml(String(r.nmId || ''))}</td>`;
+        if (colId === 'fbo') return ggQtyCell(s.fbo);
+        if (colId === 'fbs') return ggQtyCell(s.fbs);
+        if (colId === 'transit') return ggQtyInput(r, 'transit', s.transit);
+        if (colId === 'plan') return ggQtyInput(r, 'plan', s.plan);
+        if (colId === 'total') return `<td class="gg-num gg-total" style="font-weight:700">${fmt(s.total)}</td>`;
+        return '<td></td>';
+    }
+
+    function ggFootCell(colId, tot) {
+        if (colId === 'art') return `<td class="gg-art">Итого</td>`;
+        if (colId === 'nm') return `<td class="gg-col-nm"></td>`;
+        const val = tot[colId] ?? 0;
+        const cls = `gg-num${val ? '' : ' gg-zero'}`;
+        if (colId === 'fbo') return `<td class="${cls}" id="gg-fbo">${fmt(val)}</td>`;
+        if (colId === 'fbs') return `<td class="${cls}" id="gg-fbs">${fmt(val)}</td>`;
+        if (colId === 'transit') return `<td class="${cls}" id="gg-transit">${fmt(val)}</td>`;
+        if (colId === 'plan') return `<td class="${cls}" id="gg-plan">${fmt(val)}</td>`;
+        if (colId === 'total') return `<td class="${cls}" id="gg-stock-total">${fmt(val)}</td>`;
+        return `<td class="${cls}">${fmt(val)}</td>`;
     }
 
     function ggRefreshKpis() {
@@ -7715,48 +7804,120 @@
             a.total += Number(r.fbo || 0) + Number(r.fbs || 0) + Number(r.transit || 0) + Number(r.plan || 0);
             return a;
         }, { fbo: 0, fbs: 0, transit: 0, plan: 0, total: 0 });
-        setText('gg-fbo', fmt(tot.fbo));
-        setText('gg-fbs', fmt(tot.fbs));
-        setText('gg-transit', fmt(tot.transit));
-        setText('gg-plan', fmt(tot.plan));
-        setText('gg-stock-total', fmt(tot.total));
+        ['gg-fbo', 'gg-fbs', 'gg-transit', 'gg-plan', 'gg-stock-total'].forEach((id) => {
+            const map = { 'gg-fbo': tot.fbo, 'gg-fbs': tot.fbs, 'gg-transit': tot.transit, 'gg-plan': tot.plan, 'gg-stock-total': tot.total };
+            const el = document.getElementById(id);
+            if (el) el.textContent = fmt(map[id]);
+        });
         return { groups, items, tot };
     }
 
     function renderGoodsGroupsTable() {
         const tbody = document.getElementById('gg-table-body');
+        const thead = document.getElementById('gg-table-head');
+        const tfoot = document.getElementById('gg-table-foot');
         if (!tbody) return;
         const scrollEl = tbody.closest('.gg-table-scroll');
         const scrollTop = scrollEl?.scrollTop || 0;
         const catalog = window.GoodsCatalog;
+        const cols = ggCols();
         const { groups, items, tot } = ggRefreshKpis();
 
+        if (thead) {
+            thead.innerHTML = `<tr>${cols.map((c) => `<th class="${ggColClass(c.id)}">${escapeHtml(c.label)}</th>`).join('')}</tr>`;
+        }
+
         if (!items.length) {
-            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Нет данных по фильтру</td></tr>';
+            tbody.innerHTML = `<tr><td colspan="${ggColSpan()}" class="text-center py-10" style="color:var(--text-muted)">Нет данных по фильтру</td></tr>`;
+            if (tfoot) tfoot.innerHTML = '';
             return;
         }
 
         const html = [];
         groups.forEach((g) => {
             const sub = catalog ? catalog.sumItems(g.items) : tot;
-            html.push(`<tr class="gg-sec-row"><td colspan="7">${escapeHtml(g.name)} · ${g.items.length} арт. · ${fmt(sub.total)}</td></tr>`);
+            html.push(`<tr class="gg-sec-row"><td colspan="${ggColSpan()}">${escapeHtml(g.name)} · ${g.items.length} · ${fmt(sub.total)}</td></tr>`);
             g.items.forEach((r) => {
                 const s = catalog ? catalog.stockOf(r) : {
                     fbo: Number(r.fbo || 0), fbs: Number(r.fbs || 0),
                     transit: Number(r.transit || 0), plan: Number(r.plan || 0),
                     total: Number(r.fbo || 0) + Number(r.fbs || 0) + Number(r.transit || 0) + Number(r.plan || 0),
                 };
-                html.push(`<tr>
-                    <td class="gg-art">${escapeHtml(r.sellerArticle || '—')}</td>
-                    <td class="gg-col-nm gg-nm">${escapeHtml(String(r.nmId))}</td>
-                    ${ggQtyCell(s.fbo)}${ggQtyCell(s.fbs)}${ggQtyInput(r, 'transit', s.transit)}${ggQtyInput(r, 'plan', s.plan)}
-                    <td class="gg-num gg-total" style="font-weight:700">${fmt(s.total)}</td>
-                </tr>`);
+                html.push(`<tr>${cols.map((c) => ggCellHtml(r, s, c.id)).join('')}</tr>`);
             });
         });
         tbody.innerHTML = html.join('');
+        if (tfoot) tfoot.innerHTML = `<tr class="gg-foot">${cols.map((c) => ggFootCell(c.id, tot)).join('')}</tr>`;
         if (scrollEl && scrollTop > 0) scrollEl.scrollTop = scrollTop;
     }
+
+    function ggToggleHtml(on) {
+        return `<button type="button" class="rnp-settings-toggle relative w-9 h-5 rounded-full" style="background:${on ? 'var(--accent)' : 'var(--border)'}">
+            <span style="position:absolute;top:2px;left:${on ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
+        </button>`;
+    }
+
+    function renderGoodsSettings() {
+        const body = document.getElementById('gg-settings-body');
+        if (!body) return;
+        const catalog = window.GoodsCatalog;
+        const cabName = goodsGroupsCabinetName || '';
+        const allGroups = catalog
+            ? catalog.groupGoods(goodsGroupsRows, cabName, ggCatalogMeta())
+            : [{ key: '', name: '', items: goodsGroupsRows }];
+        const colRows = (catalog ? catalog.GOODS_COLS : ggCols()).filter((c) => !c.locked).map((c) => {
+            const on = !ggUi.hiddenCols[c.id];
+            return `<div class="gg-set-row"><span>${escapeHtml(c.label)}</span><span onclick="toggleGoodsCol('${c.id}')">${ggToggleHtml(on)}</span></div>`;
+        }).join('');
+        const secRows = allGroups.map((g) => {
+            const on = !ggUi.hiddenSections[g.key];
+            return `<div class="gg-set-row"><span>${escapeHtml(g.name)}</span><span data-gg-sec="${escapeHtml(g.key)}" onclick="toggleGoodsSection(this.dataset.ggSec)">${ggToggleHtml(on)}</span></div>`;
+        }).join('');
+        body.innerHTML = `<div class="gg-set-h">Колонки</div>${colRows}<div class="gg-set-h">Разделы</div>${secRows || '<div class="text-xs" style="color:var(--text-muted)">Сначала откройте таблицу</div>'}`;
+    }
+
+    function openGoodsSettings() {
+        renderGoodsSettings();
+        document.getElementById('gg-settings-overlay')?.classList.add('is-open');
+    }
+    function closeGoodsSettings() {
+        document.getElementById('gg-settings-overlay')?.classList.remove('is-open');
+    }
+    function toggleGoodsCol(id) {
+        ggUi.hiddenCols[id] = !ggUi.hiddenCols[id];
+        if (!ggUi.hiddenCols[id]) delete ggUi.hiddenCols[id];
+        ggSaveUi();
+        renderGoodsGroupsTable();
+        renderGoodsSettings();
+    }
+    function toggleGoodsSection(key) {
+        ggUi.hiddenSections[key] = !ggUi.hiddenSections[key];
+        if (!ggUi.hiddenSections[key]) delete ggUi.hiddenSections[key];
+        ggSaveUi();
+        renderGoodsGroupsTable();
+        renderGoodsSettings();
+    }
+    function exportGoodsExcel() {
+        const catalog = window.GoodsCatalog;
+        const groups = ggVisibleGroups();
+        const csv = catalog
+            ? catalog.exportExcelCsv(groups, { hiddenCols: ggUi.hiddenCols })
+            : '';
+        if (!csv) return;
+        const who = String(cabinetDisplayName(goodsGroupsCabinetName) || 'товары').replace(/[^\wа-яё]+/gi, '_');
+        const day = new Date().toISOString().slice(0, 10);
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Товары_${who}_${day}.csv`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+    window.openGoodsSettings = openGoodsSettings;
+    window.closeGoodsSettings = closeGoodsSettings;
+    window.toggleGoodsCol = toggleGoodsCol;
+    window.toggleGoodsSection = toggleGoodsSection;
+    window.exportGoodsExcel = exportGoodsExcel;
 
     function ggFindRow(nmId, cabId) {
         const id = Number(nmId);
@@ -7915,13 +8076,14 @@
         return Object.values(byNm);
     }
 
-    async function loadGoodsGroups() {
+    async function loadGoodsGroups(opts) {
         const tbody = document.getElementById('gg-table-body');
-        const btn = document.getElementById('gg-load-btn');
         if (!tbody) return;
         await ggFlushSaves();
-        if (btn) { btn.disabled = true; btn.textContent = 'Обновление…'; }
-        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Загрузка остатков…</td></tr>';
+        const silent = !!(opts && opts.silent) && goodsGroupsRows.length;
+        if (!silent) {
+            tbody.innerHTML = `<tr><td colspan="${ggColSpan()}" class="text-center py-10" style="color:var(--text-muted)">Загрузка…</td></tr>`;
+        }
 
         try {
             let cabinets = cabinetListCache;
@@ -7930,12 +8092,12 @@
                 cabinets = data || [];
             }
             if (!currentCabinetId) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Выберите кабинет сверху</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="${ggColSpan()}" class="text-center py-10" style="color:var(--text-muted)">Выберите кабинет сверху</td></tr>`;
                 return;
             }
             const cab = cabinets.find(c => c.id === currentCabinetId);
             if (!cab) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Нет кабинета</td></tr>';
+                tbody.innerHTML = `<tr><td colspan="${ggColSpan()}" class="text-center py-10" style="color:var(--text-muted)">Нет кабинета</td></tr>`;
                 return;
             }
 
@@ -7943,6 +8105,7 @@
             const catalog = window.GoodsCatalog;
             goodsGroupsCabinetName = cab.name || '';
             goodsGroupsCabinetId = cab.id || '';
+            ggLoadUi();
             goodsGroupsRows = rows;
             if (catalog) {
                 goodsGroupsRows = catalog.flattenGroups(
@@ -7952,18 +8115,22 @@
 
             renderGoodsGroupsTable();
             const fresh = document.getElementById('gg-freshness');
-            if (fresh) {
-                const who = cabinetDisplayName(cab.name);
-                fresh.textContent = catalog?.isZevina1Cabinet(goodsGroupsCabinetName)
-                    ? 'ФБО/ФБС с WB · в пути и план из таблицы · ' + who
-                    : 'ФБО/ФБС с WB · в пути и план пустые, можно вписать · ' + who;
-            }
+            if (fresh && fresh.textContent === 'ошибка сохранения') fresh.textContent = '';
         } catch (e) {
             console.error('[goods-groups]', e);
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-10" style="color:var(--red)">${escapeHtml(e.message)}</td></tr>`;
-        } finally {
-            if (btn) { btn.disabled = false; btn.textContent = 'Обновить'; }
+            tbody.innerHTML = `<tr><td colspan="${ggColSpan()}" class="text-center py-10" style="color:var(--red)">${escapeHtml(e.message)}</td></tr>`;
         }
+    }
+
+    if (!window._ggRnpReloadBound) {
+        window._ggRnpReloadBound = true;
+        document.addEventListener('rnp-reload-requested', () => {
+            const tab = document.getElementById('tab-goods-groups');
+            if (tab && tab.classList.contains('active')) loadGoodsGroups({ silent: true });
+        });
+        document.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Escape') closeGoodsSettings();
+        });
     }
 
     function seoStorageKey() { return `nr_seo_${currentCabinetId || 'default'}`; }
