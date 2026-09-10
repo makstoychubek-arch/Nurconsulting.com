@@ -258,6 +258,123 @@
         return md[key];
     }
 
+    function warehouseQty(row) {
+        return num(row && row.fbo) + num(row && row.fbs);
+    }
+
+    const MONTHS_RU = [
+        'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
+        'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',
+    ];
+
+    function bishkekYmd(date) {
+        const src = date instanceof Date ? date : (date ? new Date(date) : new Date());
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Bishkek',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }).format(src);
+    }
+
+    function bishkekParts(date) {
+        const ymd = bishkekYmd(date);
+        const parts = ymd.split('-');
+        return { ymd, y: Number(parts[0]), m: Number(parts[1]), d: Number(parts[2]) };
+    }
+
+    function monthDayKeys(year, month) {
+        const y = Number(year);
+        const m = Number(month);
+        const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+        const days = [];
+        for (let day = 1; day <= last; day++) {
+            days.push(y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0'));
+        }
+        return days;
+    }
+
+    function monthTitleRu(year, month) {
+        return (MONTHS_RU[Number(month) - 1] || '') + ' ' + Number(year);
+    }
+
+    function dayLabel(ymd) {
+        const p = String(ymd || '').slice(0, 10).split('-');
+        if (p.length < 3) return '';
+        return p[2] + '.' + p[1];
+    }
+
+    function dailyKey(nmId, date) {
+        return Number(nmId) + '|' + String(date || '').slice(0, 10);
+    }
+
+    function indexDailyStocks(rows) {
+        const map = Object.create(null);
+        (rows || []).forEach((r) => {
+            const nm = Number(r && (r.nm_id != null ? r.nm_id : r.nmId));
+            const date = String((r && r.date) || '').slice(0, 10);
+            if (!nm || !date) return;
+            map[dailyKey(nm, date)] = {
+                qty: num(r.qty),
+                fbo: num(r.fbo),
+                fbs: num(r.fbs),
+            };
+        });
+        return map;
+    }
+
+    function dailyQty(index, nmId, date) {
+        const row = index && index[dailyKey(nmId, date)];
+        return row ? row.qty : null;
+    }
+
+    function sparkValues(index, nmIds, dates) {
+        const ids = (nmIds || []).map(Number).filter(Boolean);
+        return (dates || []).map((date) => {
+            let any = false;
+            let sum = 0;
+            ids.forEach((id) => {
+                const v = dailyQty(index, id, date);
+                if (v != null) {
+                    any = true;
+                    sum += v;
+                }
+            });
+            return any ? sum : null;
+        });
+    }
+
+    const FIRST_SNAPSHOT_YMD = '2026-09-10';
+
+    function sparklineSvg(values, w, h) {
+        const width = Number(w) || 180;
+        const height = Number(h) || 36;
+        const pts = [];
+        (values || []).forEach((v, i) => {
+            if (v == null || v === '') return;
+            const n = Number(v);
+            if (!Number.isFinite(n)) return;
+            pts.push({ i, n });
+        });
+        if (!pts.length) return '';
+        const nums = pts.map((p) => p.n);
+        const max = Math.max.apply(null, nums);
+        const min = Math.min.apply(null, nums);
+        const range = max - min || 1;
+        const n = Math.max((values || []).length, 1);
+        const xOf = (i) => (i / Math.max(n - 1, 1)) * (width - 4) + 2;
+        const yOf = (val) => height - 3 - ((val - min) / range) * (height - 8);
+        if (pts.length === 1) {
+            const x = xOf(pts[0].i).toFixed(1);
+            const y = yOf(pts[0].n).toFixed(1);
+            return `<svg class="gg-spark" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><circle cx="${x}" cy="${y}" r="3" fill="#16a34a"/></svg>`;
+        }
+        const line = pts.map((p) => xOf(p.i).toFixed(1) + ',' + yOf(p.n).toFixed(1)).join(' ');
+        const baseY = (height - 2).toFixed(1);
+        const area = `${xOf(pts[0].i).toFixed(1)},${baseY} ${line} ${xOf(pts[pts.length - 1].i).toFixed(1)},${baseY}`;
+        return `<svg class="gg-spark" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><polygon fill="rgba(22,163,74,.18)" points="${area}"/><polyline fill="none" stroke="#16a34a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${line}"/></svg>`;
+    }
+
     const GoodsCatalog = {
         ZEVINA1_SECTIONS,
         isZevina1Cabinet,
@@ -278,6 +395,19 @@
         exportExcelCsv,
         GOODS_COLS,
         readManualQty,
+        warehouseQty,
+        bishkekYmd,
+        bishkekParts,
+        monthDayKeys,
+        monthTitleRu,
+        dayLabel,
+        dailyKey,
+        indexDailyStocks,
+        dailyQty,
+        sparkValues,
+        sparklineSvg,
+        FIRST_SNAPSHOT_YMD,
+        MONTHS_RU,
     };
     root.GoodsCatalog = GoodsCatalog;
     if (typeof module !== 'undefined' && module.exports) module.exports = GoodsCatalog;

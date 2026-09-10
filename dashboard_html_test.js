@@ -78,6 +78,18 @@ assert.ok(!html.includes('gg-hero') && !html.includes('class="gg-title"') && !ht
     'Товары has no duplicate heading, explanation or refresh button');
 assert.ok(html.includes('id="gg-excel-btn"') && html.includes('exportGoodsExcel') && html.includes('id="gg-settings-overlay"'),
     'Товары has a small Excel button and RNP-style settings overlay');
+assert.ok(html.includes('id="gg-excel-btn"') && html.includes('M3 9h18M3 15h18M9 3v18M15 3v18'),
+    'Товары Excel is the same grid icon as RNP');
+assert.ok(html.includes('gg-now-tools rnp-tool-icons') && /\.gg-toolbar\s*\{[^}]*width:\s*100%/.test(html),
+    'Товары toolbar spans the row so icons sit top-right like RNP');
+assert.ok(html.includes('th.gg-col-nm') && html.includes('text-align: center !important') && html.includes('max-width: 110px'),
+    'WB column is centered and cannot swallow leftover viewport width');
+assert.ok(html.includes('goods-compact') && html.includes("name === 'goods-groups'") && html.includes('padding: 0 12px 10px'),
+    'Товары and Ads sit tight under the page title so tab labels rise');
+assert.ok(html.includes('id="ads-hq-reload"') && html.includes('id="adv-sync-all-btn"') && html.includes('id="adv-sync-btn"') && html.includes('rnp-tool-icon'),
+    'Ads refresh buttons are the same round icons, top-right');
+assert.ok(!/adv-sync-all-btn[\s\S]{0,200}btn\.textContent =/.test(html) && !/adv-sync-btn[\s\S]{0,400}btn\.textContent =/.test(html),
+    'Ads icon buttons keep their SVG while syncing');
 assert.ok(
     html.includes('id="gg-search-btn"') && html.includes('function toggleGoodsSearch') && html.includes('cx="11" cy="11" r="7"'),
     'Товары search is a loupe icon, not a wide empty field'
@@ -85,7 +97,7 @@ assert.ok(
 assert.ok(
     html.includes('#gg-table') &&
     html.includes('display: inline-table !important') &&
-    html.includes('width: auto !important'),
+    html.includes('width: max-content !important'),
     'Товары table is inline-table so leftover viewport width cannot open a gap before WB'
 );
 assert.ok(/\.gg-art\s*\{[^}]*white-space:\s*nowrap/.test(html),
@@ -95,9 +107,37 @@ assert.ok(html.includes('class="gg-art" title='),
 assert.ok(
     html.includes('id="gg-view-daily"') &&
     html.includes("setGoodsView('daily')") &&
-    html.includes('Остатки по дням'),
-    'Товары has a daily-stocks section; layout waits for the user'
+    html.includes('id="gg-daily-table"') &&
+    html.includes('snapshot_goods_daily_stocks') &&
+    html.includes('goods_daily_stocks') &&
+    html.includes('function renderGoodsDailyTable') &&
+    html.includes('function ensureDailyStocks') &&
+    html.includes('gg-spark-wrap'),
+    'Товары daily view snapshots FBO+FBS once per day and renders a write-once month table'
 );
+assert.ok(!html.includes('Раздел готов. Напишите'),
+    'daily stocks stub copy must be gone');
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260910140000_goods_daily_stocks.sql')),
+    'goods_daily_stocks migration must exist'
+);
+const dailyMig = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260910140000_goods_daily_stocks.sql'), 'utf8');
+assert.ok(dailyMig.includes('on conflict (cabinet_id, nm_id, date) do nothing'),
+    'daily snapshot must never overwrite a stored day');
+assert.ok(dailyMig.includes('goods_daily_stocks_no_update') && dailyMig.includes('write-once'),
+    'daily cache rows cannot be updated');
+assert.ok(!/s\.in_way/.test(dailyMig) && dailyMig.includes('sum(s.quantity)'),
+    'daily snapshot sums warehouse quantity only, never WB in-way');
+assert.ok(dailyMig.includes("timezone('Asia/Bishkek', now())"),
+    'snapshot date defaults to the Bishkek calendar day');
+assert.ok(dailyMig.includes("date '2026-09-10'") && dailyMig.includes('d < v_start or d > v_today'),
+    'snapshot refuses days before 10 Sep 2026 and future Bishkek dates');
+assert.ok(dailyMig.includes('p_nm_ids') && dailyMig.includes('unnest'),
+    'snapshot can pin catalog nm_ids so empty warehouse SKUs still get a write-once 0');
+assert.ok(html.includes('p_nm_ids') && html.includes('FIRST_SNAPSHOT_YMD'),
+    'daily view snapshots visible articles from 10 Sep and never backfills earlier days');
+assert.ok(dailyMig.includes('delete from public.goods_daily_stocks'),
+    'delete_cabinet must also drop daily stock cache');
 assert.ok(html.includes("rnp-reload-requested") && html.includes("loadGoodsGroups({ silent: true })"),
     'Товары silently refreshes when RNP reloads stocks');
 assert.ok(!html.includes('id="gg-cabinet-filter"') && !html.includes('onGoodsGroupsCabinetChange'),
@@ -401,6 +441,10 @@ assert.ok(
 );
 
 const rnpSrc = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
+assert.ok(rnpSrc.includes('function _stocksNeedWide') && rnpSrc.includes('rnp-head-stocks-wide'),
+    'without August weeks, size grid sits in the wide photo row, not the 172px frozen pane');
+assert.ok(html.includes('.rnp-head-stocks-wide') && html.includes('min-width: 32px'),
+    'wide stock cells stay readable after the previous-month block is gone');
 assert.ok(rnpSrc.includes('function _abandonStaleMain'), 'stale RNP render must retry instead of hanging');
 assert.ok(rnpSrc.includes("functions.invoke('rnp-finance-sync'"), 'WB finance sync still goes through the rnp-finance-sync edge function');
 assert.ok(!rnpSrc.includes('rnp-action-btn--sync'), 'manual «Обновить из WB» stays off the RNP toolbar');

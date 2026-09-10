@@ -24,7 +24,7 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
     <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.f619ab05d0.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.9e3a81cac0.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -819,7 +819,22 @@
         .ads-hq-hour input { display: none; }
         .ads-hq-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .ads-hq-journal-chart { height: 180px; position: relative; }
-        .ads-hq-hero { margin: 0 0 2px; }
+        .ads-hq-hero {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; margin: 0 0 8px;
+            min-height: 22px;
+        }
+        .ads-hq-hero .rnp-tool-icons { margin-left: auto; }
+        .adv-toolbar {
+            justify-content: flex-end;
+            width: 100%;
+            min-height: 22px;
+            margin: 0 0 8px;
+        }
+        .main-content.goods-compact #tab-advertising.space-y-5 > * + * { margin-top: 10px; }
+        #adv-view-cards.hidden + #adv-view-ads { margin-top: 0 !important; }
+        #adv-module-tabs .segment-tabs.hidden { display: none !important; }
+        #adv-module-tabs:not(.hidden) { min-height: 0; margin: 0; }
         .ads-hq-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: var(--text-primary); line-height: 1.15; }
         .ads-hq-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
         .ads-hq-phone { display: none; }
@@ -852,23 +867,61 @@
             .ads-hq-table-wrap { display: none; }
             .ads-hq-title { font-size: 20px; }
         }
-        #tab-goods-groups { gap: 8px; }
+        .main-content.goods-compact {
+            padding: 0 12px 10px !important;
+            overflow: auto !important;
+        }
+        #tab-goods-groups.tab-content.active {
+            display: flex; flex-direction: column; width: 100%; gap: 0;
+        }
+        #tab-goods-groups { gap: 0; }
         .gg-toolbar {
             display: flex; align-items: center; gap: 4px;
-            margin: 0 0 2px;
+            width: 100%;
+            margin: 0;
+            min-height: 22px;
         }
-        .gg-views { display: inline-flex; align-items: center; gap: 2px; margin-right: 4px; }
-        .gg-now-tools { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+        .gg-views { display: inline-flex; align-items: center; gap: 2px; margin: 0; padding: 0; }
+        .gg-now-tools { display: inline-flex; align-items: center; gap: 2px; min-width: 0; margin-left: auto; }
         .gg-now-tools.is-off { display: none; }
         .gg-view-btn {
-            font-size: 11px; font-weight: 600; height: 22px; padding: 0 8px;
+            font-size: 11px; font-weight: 600; height: 20px; padding: 0 8px;
             border: none; border-radius: 8px; background: transparent;
             color: var(--text-muted); cursor: pointer; font-family: inherit;
+            line-height: 20px;
         }
         .gg-view-btn.is-on { color: var(--accent); background: var(--accent-soft); }
-        .gg-daily { padding: 28px 8px 16px; max-width: 420px; }
-        .gg-daily-title { font-size: 14px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
-        .gg-daily-note { font-size: 12px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+        .gg-daily { padding: 0; max-width: none; }
+        .gg-daily-note { font-size: 12px; color: var(--text-muted); padding: 16px 8px; }
+        #gg-daily-table.data-table,
+        #tab-goods-groups #gg-daily-table {
+            display: inline-table !important;
+            width: max-content !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            table-layout: auto !important;
+        }
+        #gg-daily-table .gg-sec-row td {
+            background: color-mix(in srgb, var(--green) 14%, transparent);
+        }
+        .gg-daily-month th {
+            text-align: left !important;
+            font-size: 13px !important;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: -0.02em;
+            padding: 8px 8px 2px !important;
+        }
+        .gg-daily-spark th {
+            padding: 2px 4px 6px !important;
+            background: transparent !important;
+            border-bottom: none !important;
+            font-weight: 400;
+        }
+        .gg-spark-wrap { height: 36px; min-width: 80px; }
+        .gg-spark-wrap svg { width: 100%; height: 36px; display: block; }
+        .gg-day { width: 36px; min-width: 36px; padding: 4px 5px !important; }
+        .gg-day.is-today { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
         .gg-search-wrap { display: inline-flex; align-items: center; gap: 4px; }
         .gg-search-btn.rnp-settings-gear { margin-left: 0; }
         .gg-search {
@@ -884,19 +937,12 @@
         }
         .gg-search-wrap.is-open .gg-search-btn,
         .gg-search-wrap.has-query .gg-search-btn { color: var(--accent); background: var(--accent-soft); }
-        .gg-excel-btn {
-            font-size: 10px; padding: 4px 8px; height: 22px; line-height: 1;
-            border-radius: 8px; border: 1px solid var(--border);
-            background: var(--surface); color: var(--text-secondary);
-            cursor: pointer; font-family: inherit; font-weight: 600;
-        }
-        .gg-excel-btn:hover { border-color: var(--accent-border); color: var(--accent); }
-        .gg-fresh { font-size: 10px; color: var(--text-muted); margin-left: auto; }
+        .gg-fresh { font-size: 10px; color: var(--text-muted); }
         .gg-table-scroll { overflow: auto; -webkit-overflow-scrolling: touch; max-height: calc(100vh - 168px); }
         #gg-table.data-table,
         #tab-goods-groups #gg-table {
             display: inline-table !important;
-            width: auto !important;
+            width: max-content !important;
             min-width: 0 !important;
             max-width: none !important;
             table-layout: auto !important;
@@ -908,6 +954,8 @@
         }
         #tab-goods-groups .data-table th.gg-art,
         #tab-goods-groups .data-table td.gg-art { text-align: left; }
+        #tab-goods-groups .data-table th.gg-col-nm,
+        #tab-goods-groups .data-table td.gg-col-nm { text-align: center !important; }
         .gg-sec-row td {
             background: var(--sel); font-weight: 700; color: var(--text-primary);
             padding-top: 6px !important; padding-bottom: 6px !important;
@@ -915,7 +963,10 @@
         }
         .gg-foot td { font-weight: 700; border-top: 1px solid var(--border-strong, var(--border)); }
         .gg-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; width: 72px; }
-        .gg-col-nm { width: 88px; }
+        .gg-col-nm {
+            width: 1%; min-width: 96px; max-width: 110px;
+            white-space: nowrap;
+        }
         .gg-nm { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; color: var(--text-muted); }
         .gg-art {
             color: var(--text-primary); font-weight: 600;
@@ -1021,6 +1072,10 @@
             flex-direction: column;
         }
         .main-content.logistics-compact { padding: 8px 12px; overflow: visible; }
+        .main-content.goods-compact {
+            padding: 0 12px 10px !important;
+            overflow: auto !important;
+        }
         #tab-logistics.tab-content.active {
             display: flex; flex-direction: column;
             height: calc(100vh - 132px); max-height: calc(100vh - 132px);
@@ -1126,6 +1181,8 @@
             color: var(--text-muted); cursor: pointer;
         }
         .rnp-settings-gear { margin-left: 0; }
+        .rnp-tool-icon:disabled,
+        .rnp-settings-gear:disabled { opacity: 0.45; cursor: wait; }
         .rnp-tool-icon:hover,
         .rnp-tool-icon.is-on,
         .rnp-tool-icon.active,
@@ -1335,6 +1392,44 @@
         .rnp-article-panel {
             flex-shrink: 0; background: transparent;
             border-bottom: none;
+        }
+        .rnp-head-marquee-stack {
+            display: flex; flex-direction: row; align-items: stretch;
+            min-height: 72px;
+        }
+        .rnp-head-stocks-wide {
+            position: sticky; left: var(--rnp-frozen-left, 172px);
+            z-index: 44;
+            flex: 0 0 auto;
+            padding: 6px 10px 8px;
+            background: var(--surface-solid);
+            width: max-content;
+            max-width: min(560px, calc(100vw - var(--rnp-frozen-left, 172px) - 200px));
+            box-sizing: border-box;
+        }
+        .rnp-head-stocks-wide .rnp-stock-scheme-wrap {
+            display: flex; align-items: flex-start; gap: 16px;
+            min-width: 0; max-width: none;
+        }
+        .rnp-head-stocks-wide .rnp-head-sizes-inline {
+            max-width: none; overflow: visible; padding: 0;
+        }
+        .rnp-head-stocks-wide .rnp-stock-block { max-width: none; }
+        .rnp-head-stocks-wide .rnp-stock-table {
+            width: auto; min-width: max-content; font-size: 11px;
+        }
+        .rnp-head-stocks-wide .rnp-stock-table th,
+        .rnp-head-stocks-wide .rnp-stock-table td {
+            min-width: 32px; padding: 3px 7px; font-size: 11px; line-height: 1.3;
+        }
+        .rnp-head-stocks-wide .rnp-stock-table .rnp-stock-label {
+            min-width: 78px; max-width: none; font-size: 11px; padding: 3px 8px;
+        }
+        .rnp-head-stocks-wide .rnp-stock-donut {
+            flex-wrap: nowrap; max-width: none; padding: 0 4px;
+        }
+        .rnp-head-marquee-stack .rnp-head-marquee-pin {
+            flex: 1 1 auto; min-width: 0;
         }
         .rnp-head-left--lifted {
             height: 0 !important;
@@ -3054,6 +3149,9 @@
         .main-content.rnp-compact {
             padding: 4px 6px !important;
         }
+        .main-content.goods-compact {
+            padding: 0 12px 10px !important;
+        }
         .rnp-action-bar, .logistics-toolbar, .rnp-sheet-body, .rnp-sheet-tabs {
             border: none !important;
             box-shadow: none !important;
@@ -3431,6 +3529,7 @@
             #refresh-btn { width: 24px; height: 24px; padding: 0 !important; justify-content: center; }
             .main-content { padding: 16px 12px !important; }
             .main-content.rnp-compact { padding: 4px 6px !important; }
+            .main-content.goods-compact { padding: 0 10px 10px !important; }
             #date-picker { left: 10px !important; width: calc(100vw - 20px) !important; }
             .grid.xl\:grid-cols-5 { grid-template-columns: repeat(2, 1fr) !important; }
 
@@ -4204,7 +4303,7 @@
                     <button type="button" class="gg-view-btn is-on" id="gg-view-now-btn" role="tab" aria-selected="true" onclick="setGoodsView('now')">Сейчас</button>
                     <button type="button" class="gg-view-btn" id="gg-view-daily-btn" role="tab" aria-selected="false" onclick="setGoodsView('daily')">Остатки по дням</button>
                 </div>
-                <div class="gg-now-tools" id="gg-now-tools">
+                <div class="gg-now-tools rnp-tool-icons" id="gg-now-tools">
                 <div class="gg-search-wrap" id="gg-search-wrap">
                     <button type="button" class="rnp-settings-gear gg-search-btn" id="gg-search-btn" onclick="toggleGoodsSearch()" title="Поиск" aria-label="Поиск">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -4217,7 +4316,12 @@
                         onblur="onGoodsSearchBlur()"
                         class="ui-input gg-search">
                 </div>
-                <button type="button" class="gg-excel-btn" id="gg-excel-btn" onclick="exportGoodsExcel()" title="Выгрузить в Excel">Excel</button>
+                <button type="button" class="rnp-tool-icon" id="gg-excel-btn" onclick="exportGoodsExcel()" title="Скачать Excel" aria-label="Скачать Excel">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                        <path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path>
+                    </svg>
+                </button>
                 <button type="button" class="rnp-settings-gear" id="gg-settings-btn" onclick="openGoodsSettings()" title="Какие показывать" aria-label="Настройки таблицы">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="12" cy="12" r="3"></circle>
@@ -4237,8 +4341,15 @@
                 </table>
             </div>
             <div class="gg-daily" id="gg-view-daily" hidden>
-                <div class="gg-daily-title">Остатки по дням</div>
-                <p class="gg-daily-note">Раздел готов. Напишите, какие колонки и как разложить — соберу таблицу.</p>
+                <div class="gg-table-scroll" id="gg-daily-scroll">
+                    <table class="data-table" id="gg-daily-table">
+                        <thead id="gg-daily-head"></thead>
+                        <tbody id="gg-daily-body">
+                            <tr><td class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить остатки</td></tr>
+                        </tbody>
+                        <tfoot id="gg-daily-foot"></tfoot>
+                    </table>
+                </div>
             </div>
         </div>
 
@@ -4301,10 +4412,15 @@
             </div>
             <!-- Главная страница рекламных кабинетов: карточки по всем кабинетам пользователя -->
             <div id="adv-view-cards" class="hidden">
-                <div class="adv-toolbar" style="justify-content:flex-end">
-                    <div class="flex items-center gap-3" style="flex-wrap:wrap">
-                        <span id="adv-cards-freshness" class="text-xs" style="color:var(--text-muted)"></span>
-                        <button onclick="syncAllAdvertisingNow()" id="adv-sync-all-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить все</button>
+                <div class="adv-toolbar">
+                    <span id="adv-cards-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+                    <div class="rnp-tool-icons">
+                        <button type="button" class="rnp-tool-icon" onclick="syncAllAdvertisingNow()" id="adv-sync-all-btn" title="Обновить все" aria-label="Обновить все">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M21 12a9 9 0 1 1-2.2-5.8"></path>
+                                <path d="M21 3v6h-6"></path>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 <div id="adv-cards-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -4314,8 +4430,18 @@
 
             <div id="adv-view-ads" class="space-y-5">
                 <div class="ads-hq-hero">
-                    <h2 class="ads-hq-title">Командный центр</h2>
-                    <p class="ads-hq-sub">Кабинет как в шапке — расход, ДРР, кампании этого кабинета</p>
+                    <div>
+                        <h2 class="ads-hq-title">Командный центр</h2>
+                        <p class="ads-hq-sub">Кабинет как в шапке — расход, ДРР, кампании этого кабинета</p>
+                    </div>
+                    <div class="rnp-tool-icons">
+                        <button type="button" class="rnp-tool-icon" id="ads-hq-reload" title="Обновить" aria-label="Обновить">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M21 12a9 9 0 1 1-2.2-5.8"></path>
+                                <path d="M21 3v6h-6"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div id="ads-hq-kpis" class="grid grid-cols-2 md:grid-cols-5 gap-3"></div>
                 <div class="widget-card">
@@ -4324,7 +4450,6 @@
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-start">Запуск</button>
                         <input id="ads-hq-tpl-name" class="ui-input" placeholder="Имя шаблона" style="max-width:180px">
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-tpl">Применить форму</button>
-                        <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-reload">Обновить</button>
                     </div>
                     <div id="ads-hq-phone" class="ads-hq-phone"></div>
                     <div class="overflow-x-auto ads-hq-table-wrap">
@@ -4409,11 +4534,16 @@
 
             <!-- Детальный дашборд конкретного рекламного кабинета -->
             <div id="adv-view-detail" class="hidden space-y-5">
-                <div class="adv-toolbar" style="justify-content:flex-end">
-                    <div class="flex items-center gap-3" style="flex-wrap:wrap">
-                        <span id="adv-balance-badge" class="text-xs hidden" style="color:var(--text-muted)"></span>
-                        <span id="adv-freshness" class="text-xs" style="color:var(--text-muted)"></span>
-                        <button onclick="syncAdvertisingNow()" id="adv-sync-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить</button>
+                <div class="adv-toolbar">
+                    <span id="adv-balance-badge" class="text-xs hidden" style="color:var(--text-muted)"></span>
+                    <span id="adv-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+                    <div class="rnp-tool-icons">
+                        <button type="button" class="rnp-tool-icon" onclick="syncAdvertisingNow()" id="adv-sync-btn" title="Обновить" aria-label="Обновить">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M21 12a9 9 0 1 1-2.2-5.8"></path>
+                                <path d="M21 3v6h-6"></path>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 <div class="flex items-center justify-between" style="flex-wrap:wrap;gap:10px">
@@ -5333,10 +5463,10 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.66fd31b3b5.min.js"></script>
+<script src="/dist/rnp-module.695ab754f5.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script src="/dist/ads-command-center.233e066fd2.min.js"></script>
-<script src="/dist/goods-catalog.7f84884c63.min.js"></script>
+<script src="/dist/goods-catalog.b39fb4d5d2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -6530,7 +6660,7 @@
             textEl.textContent = 'Сейчас работают Дашборд, РНП, Контроль РК и Товары. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
         }
         updateHeaderNav(name, true);
-        document.querySelector('.main-content')?.classList.remove('rnp-compact', 'logistics-compact');
+        document.querySelector('.main-content')?.classList.remove('rnp-compact', 'logistics-compact', 'goods-compact');
         if (window.innerWidth <= 768) {
             closeMobileMenu();
             closeBetaSheet();
@@ -6573,6 +6703,7 @@
         }
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
+        document.querySelector('.main-content')?.classList.toggle('goods-compact', name === 'goods-groups' || name === 'advertising');
         if (name === 'ab-testing') loadABTests();
         if (name === 'advertising' && hasUserCabinets) openAdvertisingTab();
         if (name === 'dds' && hasUserCabinets && window._financeDdsLoadedForCabinet !== currentCabinetId) {
@@ -6728,7 +6859,7 @@
     async function syncAllAdvertisingNow() {
         const btn = document.getElementById('adv-sync-all-btn');
         const freshEl = document.getElementById('adv-cards-freshness');
-        if (btn) { btn.textContent = '⏳ Обновление...'; btn.disabled = true; }
+        if (btn) btn.disabled = true;
         if (freshEl) freshEl.textContent = 'обновляем...';
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -6747,7 +6878,7 @@
             if (freshEl) freshEl.textContent = '';
             showPremiumModal('error', 'Ошибка синхронизации рекламы', e.message);
         } finally {
-            if (btn) { btn.textContent = '↻ Обновить все'; btn.disabled = false; }
+            if (btn) btn.disabled = false;
         }
     }
     window.syncAllAdvertisingNow = syncAllAdvertisingNow;
@@ -7546,7 +7677,7 @@
         const btn = document.getElementById('adv-sync-btn');
         const freshEl = document.getElementById('adv-freshness');
         const snapshotCabinet = currentCabinetId;
-        if (btn) { btn.textContent = '⏳ Обновление...'; btn.disabled = true; }
+        if (btn) btn.disabled = true;
         if (freshEl) freshEl.textContent = 'обновляем...';
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -7568,7 +7699,7 @@
             if (freshEl) freshEl.textContent = '';
             showPremiumModal('error', 'Ошибка синхронизации рекламы', e.message);
         } finally {
-            if (btn) { btn.textContent = '↻ Обновить'; btn.disabled = false; }
+            if (btn) btn.disabled = false;
         }
     }
     window.syncAdvertisingNow = syncAdvertisingNow;
@@ -7867,21 +7998,156 @@
 
     let ggView = 'now';
 
-    function setGoodsView(view) {
+    let ggDaily = { snapKey: '', monthKey: '', rows: [] };
+    let ggDailyInflight = null;
+
+    function ggDailyReset() {
+        ggDaily = { snapKey: '', monthKey: '', rows: [] };
+    }
+
+    function setGoodsView(view, opts) {
         ggView = view === 'daily' ? 'daily' : 'now';
         const nowEl = document.getElementById('gg-view-now');
         const dailyEl = document.getElementById('gg-view-daily');
-        const tools = document.getElementById('gg-now-tools');
         const nowBtn = document.getElementById('gg-view-now-btn');
         const dailyBtn = document.getElementById('gg-view-daily-btn');
         if (nowEl) nowEl.hidden = ggView !== 'now';
         if (dailyEl) dailyEl.hidden = ggView !== 'daily';
-        tools?.classList.toggle('is-off', ggView !== 'now');
+        document.querySelector('#tab-goods-groups .gg-toolbar')?.classList.toggle('is-daily', ggView === 'daily');
         nowBtn?.classList.toggle('is-on', ggView === 'now');
         dailyBtn?.classList.toggle('is-on', ggView === 'daily');
         nowBtn?.setAttribute('aria-selected', ggView === 'now' ? 'true' : 'false');
         dailyBtn?.setAttribute('aria-selected', ggView === 'daily' ? 'true' : 'false');
         try { sessionStorage.setItem('gg_view', ggView); } catch (e) {}
+        if (!(opts && opts.skipLoad) && ggView === 'daily' && goodsGroupsCabinetId) ensureDailyStocks();
+    }
+
+    function ggPaint() {
+        renderGoodsGroupsTable();
+        if (ggView === 'daily') renderGoodsDailyTable();
+    }
+
+    function renderGoodsDailyTable() {
+        const catalog = window.GoodsCatalog;
+        const head = document.getElementById('gg-daily-head');
+        const body = document.getElementById('gg-daily-body');
+        const foot = document.getElementById('gg-daily-foot');
+        if (!head || !body || !catalog) return;
+        const parts = catalog.bishkekParts();
+        const days = catalog.monthDayKeys(parts.y, parts.m);
+        const idx = catalog.indexDailyStocks(ggDaily.rows);
+        const groups = ggVisibleGroups();
+        const items = catalog.flattenGroups(groups);
+        const colCount = 3 + days.length;
+        const spark = catalog.sparklineSvg(
+            catalog.sparkValues(idx, items.map((r) => r.nmId), days),
+            Math.max(180, days.length * 28),
+            36
+        );
+        const dayHeads = days.map((d) => {
+            const on = d === parts.ymd;
+            return `<th class="gg-num gg-day${on ? ' is-today' : ''}">${escapeHtml(catalog.dayLabel(d))}</th>`;
+        }).join('');
+        head.innerHTML =
+            `<tr class="gg-daily-month"><th colspan="${colCount}">${escapeHtml(catalog.monthTitleRu(parts.y, parts.m))}</th></tr>` +
+            `<tr class="gg-daily-spark"><th colspan="3"></th><th colspan="${days.length}"><div class="gg-spark-wrap">${spark || ''}</div></th></tr>` +
+            `<tr><th class="gg-art">Артикул</th><th class="gg-col-nm">WB</th><th class="gg-num">Кол</th>${dayHeads}</tr>`;
+        if (!items.length) {
+            body.innerHTML = `<tr><td colspan="${colCount}" class="text-center py-10" style="color:var(--text-muted)">Нет данных по фильтру</td></tr>`;
+            if (foot) foot.innerHTML = '';
+            return;
+        }
+        const dayTotals = days.map(() => ({ sum: 0, any: false }));
+        let kolTot = 0;
+        const html = [];
+        groups.forEach((g) => {
+            html.push(`<tr class="gg-sec-row"><td colspan="${colCount}">${escapeHtml(g.name)}</td></tr>`);
+            g.items.forEach((r) => {
+                const kol = catalog.warehouseQty(r);
+                kolTot += kol;
+                const dayTds = days.map((d, i) => {
+                    const v = catalog.dailyQty(idx, r.nmId, d);
+                    if (v != null) {
+                        dayTotals[i].sum += v;
+                        dayTotals[i].any = true;
+                    }
+                    const on = d === parts.ymd;
+                    const shown = v == null ? '' : fmt(v);
+                    const z = v == null || !v ? ' gg-zero' : '';
+                    return `<td class="gg-num gg-day${on ? ' is-today' : ''}${z}">${shown}</td>`;
+                }).join('');
+                const name = escapeHtml(r.sellerArticle || '—');
+                html.push(
+                    `<tr><td class="gg-art" title="${name}">${name}</td>` +
+                    `<td class="gg-col-nm gg-nm">${escapeHtml(String(r.nmId || ''))}</td>` +
+                    `<td class="gg-num${kol ? '' : ' gg-zero'}">${fmt(kol)}</td>${dayTds}</tr>`
+                );
+            });
+        });
+        body.innerHTML = html.join('');
+        if (foot) {
+            const dayFoot = days.map((d, i) => {
+                const t = dayTotals[i];
+                const on = d === parts.ymd;
+                const shown = t.any ? fmt(t.sum) : '';
+                return `<td class="gg-num gg-day${on ? ' is-today' : ''}${t.any && t.sum ? '' : ' gg-zero'}">${shown}</td>`;
+            }).join('');
+            foot.innerHTML =
+                `<tr class="gg-foot"><td class="gg-art">Итого</td><td class="gg-col-nm"></td>` +
+                `<td class="gg-num${kolTot ? '' : ' gg-zero'}">${fmt(kolTot)}</td>${dayFoot}</tr>`;
+        }
+    }
+
+    async function ensureDailyStocks() {
+        if (ggView !== 'daily') return;
+        if (ggDailyInflight) return ggDailyInflight;
+        const catalog = window.GoodsCatalog;
+        const cabId = goodsGroupsCabinetId || currentCabinetId;
+        const body = document.getElementById('gg-daily-body');
+        if (!catalog || !cabId) {
+            if (body) body.innerHTML = `<tr><td class="text-center py-10" style="color:var(--text-muted)">Выберите кабинет сверху</td></tr>`;
+            return;
+        }
+        ggDailyInflight = (async () => {
+            const parts = catalog.bishkekParts();
+            const days = catalog.monthDayKeys(parts.y, parts.m);
+            const snapKey = cabId + '|' + parts.ymd;
+            const monthKey = cabId + '|' + days[0];
+            if (!ggDaily.rows.length && body) {
+                body.innerHTML = `<tr><td colspan="${3 + days.length}" class="text-center py-10" style="color:var(--text-muted)">Загрузка…</td></tr>`;
+            }
+            try {
+                if (ggDaily.snapKey !== snapKey) {
+                    if (parts.ymd >= (catalog.FIRST_SNAPSHOT_YMD || '2026-09-10')) {
+                        const nms = (goodsGroupsRows || []).map((r) => Number(r.nmId)).filter(Boolean);
+                        const { error } = await supabase.rpc('snapshot_goods_daily_stocks', {
+                            p_date: parts.ymd,
+                            p_cabinet_id: cabId,
+                            p_nm_ids: nms.length ? nms : null,
+                        });
+                        if (error) throw error;
+                    }
+                    ggDaily.snapKey = snapKey;
+                    ggDaily.monthKey = '';
+                }
+                if (ggDaily.monthKey !== monthKey) {
+                    const rows = await fetchAllRows('goods_daily_stocks', [
+                        { op: 'eq', column: 'cabinet_id', value: cabId },
+                        { op: 'gte', column: 'date', value: days[0] },
+                        { op: 'lte', column: 'date', value: days[days.length - 1] },
+                    ], 'nm_id, date, qty, fbo, fbs');
+                    ggDaily.rows = rows || [];
+                    ggDaily.monthKey = monthKey;
+                }
+                renderGoodsDailyTable();
+            } catch (e) {
+                console.error('[goods-daily]', e);
+                if (body) {
+                    body.innerHTML = `<tr><td class="text-center py-10" style="color:var(--red)">${escapeHtml(e.message || String(e))}</td></tr>`;
+                }
+            }
+        })().finally(() => { ggDailyInflight = null; });
+        return ggDailyInflight;
     }
 
     function syncGoodsSearchUi() {
@@ -7906,7 +8172,7 @@
 
     function onGoodsSearchInput() {
         syncGoodsSearchUi();
-        renderGoodsGroupsTable();
+        ggPaint();
     }
 
     function onGoodsSearchBlur() {
@@ -8047,14 +8313,14 @@
         ggUi.hiddenCols[id] = !ggUi.hiddenCols[id];
         if (!ggUi.hiddenCols[id]) delete ggUi.hiddenCols[id];
         ggSaveUi();
-        renderGoodsGroupsTable();
+        ggPaint();
         renderGoodsSettings();
     }
     function toggleGoodsSection(key) {
         ggUi.hiddenSections[key] = !ggUi.hiddenSections[key];
         if (!ggUi.hiddenSections[key]) delete ggUi.hiddenSections[key];
         ggSaveUi();
-        renderGoodsGroupsTable();
+        ggPaint();
         renderGoodsSettings();
     }
     function exportGoodsExcel() {
@@ -8241,7 +8507,7 @@
     }
 
     async function loadGoodsGroups(opts) {
-        try { setGoodsView(sessionStorage.getItem('gg_view') || 'now'); } catch (e) { setGoodsView('now'); }
+        try { setGoodsView(sessionStorage.getItem('gg_view') || 'now', { skipLoad: true }); } catch (e) { setGoodsView('now', { skipLoad: true }); }
         const tbody = document.getElementById('gg-table-body');
         if (!tbody) return;
         await ggFlushSaves();
@@ -8268,6 +8534,7 @@
 
             const rows = await loadGoodsGroupsCabinet(cab);
             const catalog = window.GoodsCatalog;
+            if (goodsGroupsCabinetId && goodsGroupsCabinetId !== cab.id) ggDailyReset();
             goodsGroupsCabinetName = cab.name || '';
             goodsGroupsCabinetId = cab.id || '';
             ggLoadUi();
@@ -8279,6 +8546,7 @@
             }
 
             renderGoodsGroupsTable();
+            if (ggView === 'daily') await ensureDailyStocks();
             const fresh = document.getElementById('gg-freshness');
             if (fresh && fresh.textContent === 'ошибка сохранения') fresh.textContent = '';
         } catch (e) {

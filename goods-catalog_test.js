@@ -91,6 +91,36 @@ assert.ok(hidden.length && hidden[0].name !== 'Свитера');
 assert.equal(hidden[0].name, groups[1].name);
 assert.equal(C.visibleCols({ nm: true, fbo: true }).map((c) => c.id).join(','), 'art,fbs,transit,plan,total');
 
+assert.equal(C.warehouseQty({ fbo: 10, fbs: 6, transit: 3500, plan: 9 }), 16);
+assert.equal(C.warehouseQty({ fbo: 0, fbs: 0, transit: 100 }), 0);
+assert.equal(C.monthTitleRu(2026, 9), 'Сентябрь 2026');
+assert.equal(C.dayLabel('2026-09-10'), '10.09');
+const sept = C.monthDayKeys(2026, 9);
+assert.equal(sept.length, 30);
+assert.equal(sept[0], '2026-09-01');
+assert.equal(sept[9], '2026-09-10');
+assert.equal(C.monthDayKeys(2026, 2).length, 28);
+
+const dailyIdx = C.indexDailyStocks([
+    { nm_id: 1218782505, date: '2026-09-10', qty: 1426, fbo: 1400, fbs: 26 },
+    { nmId: 296564448, date: '2026-09-10T00:00:00.000Z', qty: 960 },
+]);
+assert.equal(C.dailyQty(dailyIdx, 1218782505, '2026-09-10'), 1426);
+assert.equal(C.dailyQty(dailyIdx, 1218782505, '2026-09-09'), null);
+assert.equal(C.dailyQty(dailyIdx, 296564448, '2026-09-10'), 960);
+
+const spark = C.sparkValues(dailyIdx, [1218782505, 296564448], sept);
+assert.equal(spark[8], null, 'empty days stay empty, not zero');
+assert.equal(spark[9], 1426 + 960);
+assert.ok(spark.slice(0, 9).every((v) => v == null));
+assert.equal(C.FIRST_SNAPSHOT_YMD, '2026-09-10');
+assert.equal(C.sparklineSvg(spark, 280, 36).includes('circle'), true);
+assert.equal(C.sparklineSvg([null, null], 80, 36), '');
+assert.ok(C.sparklineSvg([10, null, 8], 80, 36).includes('polyline'));
+assert.ok(C.sparklineSvg([10, null, 8], 80, 36).includes('polygon'));
+assert.ok(C.sparklineSvg([10, 8], 80, 36).includes('#16a34a'));
+assert.equal(C.sparkValues(dailyIdx, [1], ['2026-09-01'])[0], null);
+
 const csv = C.exportExcelCsv(filtered, { hiddenCols: { nm: true } });
 assert.match(csv, /^\uFEFF/);
 assert.match(csv, /Артикул;ФБО;ФБС;В пути;В плане;Итого/);
