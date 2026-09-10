@@ -2532,6 +2532,48 @@ const RNP = (() => {
             </svg>`;
     }
 
+    function _planSvg() {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+            <path d="M16 2v4M8 2v4M3 10h18"></path>
+            <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path>
+        </svg>`;
+    }
+
+    function _excelSvg() {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+            <path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path>
+        </svg>`;
+    }
+
+    function _editSvg() {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"></path>
+            <path d="M15.5 3.5a2.12 2.12 0 0 1 3 3L10 15l-4 1 1-4Z"></path>
+            <path d="M8 7h4"></path>
+        </svg>`;
+    }
+
+    function _toolIconBtn(extraClass, title, svg, onclick) {
+        const cls = extraClass ? ` ${extraClass}` : '';
+        return `<button type="button" class="rnp-tool-icon${cls}" title="${title}" aria-label="${title}" onclick="${onclick}">${svg}</button>`;
+    }
+
+    function _iconToolsHtml() {
+        const planTitle = _planPeriod === 'month'
+            ? 'Скопировать план с прошлого месяца'
+            : 'Скопировать план с прошлой недели';
+        const editOn = _editMode ? ' is-on active' : '';
+        const editTitle = _editMode ? 'Готово' : 'Редактировать';
+        return `<div class="rnp-tool-icons">
+            ${_toolIconBtn('rnp-copy-plan-btn', planTitle, _planSvg(), 'RNP.copyPlanFromPrevWeek()')}
+            ${_toolIconBtn('rnp-export-excel-btn', 'Скачать Excel', _excelSvg(), 'RNP.exportExcel()')}
+            ${_toolIconBtn(`rnp-edit-mode-btn${editOn}`, editTitle, _editSvg(), 'RNP.toggleEditMode()')}
+            <button type="button" class="rnp-settings-gear" title="Настройки РНП" aria-label="Настройки РНП" onclick="RNP.openSettings()">${_settingsGearSvg()}</button>
+        </div>`;
+    }
+
     function _buildPhoneActionBar() {
         const open = !_weeksCollapsed;
         return `<div class="rnp-action-bar rnp-action-bar--phone">
@@ -2541,9 +2583,7 @@ const RNP = (() => {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
             </button>
           </div>
-          <button type="button" class="rnp-settings-gear" onclick="RNP.openSettings()" title="Настройки РНП" aria-label="Настройки РНП">
-            ${_settingsGearSvg()}
-          </button>
+          ${_iconToolsHtml()}
         </div>`;
     }
 
@@ -2561,9 +2601,6 @@ const RNP = (() => {
                 <option value="month"${_planPeriod === 'month' ? ' selected' : ''}>План → месяц</option>
               </select>
               <select title="Месяц" onchange="RNP.setRefMonth(this.value)">${_monthOptionsHtml()}</select>
-              <button type="button" onclick="RNP.copyPlanFromPrevWeek()">↵ План</button>
-              <button type="button" onclick="RNP.exportExcel()">Excel</button>
-              <button type="button" onclick="RNP.toggleEditMode()">${_editMode ? 'Готово' : 'Редактировать'}</button>
             </div>
           </div>`;
     }
@@ -2582,14 +2619,8 @@ const RNP = (() => {
           ${_planPeriod === 'week' ? `<select title="Месяц: недели прошлого + дни выбранного" onchange="RNP.setRefMonth(this.value)">
             ${_monthOptionsHtml()}
           </select>` : ''}
-          <button type="button" class="rnp-action-btn" onclick="RNP.copyPlanFromPrevWeek()" title="${_planPeriod === 'month' ? 'Скопировать план с прошлого месяца' : 'Скопировать план с прошлой недели'}">↵ План</button>
-          <button type="button" class="rnp-action-btn" onclick="RNP.exportExcel()">Excel</button>
-          <button type="button" class="rnp-action-btn rnp-action-btn--edit${_editMode ? ' active' : ''}" id="rnp-edit-mode-btn"
-            onclick="RNP.toggleEditMode()" title="Режим выделения ячеек">${_editMode ? 'Готово' : 'Редактировать'}</button>
           <span id="rnp-freshness" hidden></span>
-          <button type="button" class="rnp-settings-gear" onclick="RNP.openSettings()" title="Настройки РНП" aria-label="Настройки РНП">
-            ${_settingsGearSvg()}
-          </button>
+          ${_iconToolsHtml()}
         </div>`;
     }
 
@@ -5341,8 +5372,10 @@ const RNP = (() => {
     }
 
     function _applyEditMode() {
-        const btn = document.getElementById('rnp-edit-mode-btn');
-        if (btn) btn.classList.toggle('active', _editMode);
+        document.querySelectorAll('.rnp-edit-mode-btn').forEach((btn) => {
+            btn.classList.toggle('is-on', _editMode);
+            btn.classList.toggle('active', _editMode);
+        });
         document.querySelectorAll('.rnp-sheet-table').forEach(t => {
             t.classList.toggle('rnp-sheet-table--edit-mode', _editMode);
         });
@@ -5380,10 +5413,13 @@ const RNP = (() => {
     }
 
     function _updateEditModeBtn() {
-        const btn = document.getElementById('rnp-edit-mode-btn');
-        if (!btn) return;
-        btn.classList.toggle('active', _editMode);
-        btn.textContent = _editMode ? 'Готово' : 'Редактировать';
+        document.querySelectorAll('.rnp-edit-mode-btn').forEach((btn) => {
+            btn.classList.toggle('is-on', _editMode);
+            btn.classList.toggle('active', _editMode);
+            btn.title = _editMode ? 'Готово' : 'Редактировать';
+            btn.setAttribute('aria-label', btn.title);
+            btn.innerHTML = _editSvg();
+        });
     }
 
     function toggleEditMode() {

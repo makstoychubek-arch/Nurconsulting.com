@@ -795,7 +795,16 @@ assert.ok(
     html.includes("openSettings({ preserveScroll: true })"),
     'dashboard refresh / settings boot must not rebuild the settings tab from scratch'
 );
-assert.ok(rnpSrc.includes('class="rnp-settings-gear"'), 'RNP toolbar has a small gear for settings');
+assert.ok(rnpSrc.includes('class="rnp-settings-gear"') && rnpSrc.includes('onclick="RNP.openSettings()"'),
+    'RNP toolbar has a small gear for settings');
+assert.ok(rnpSrc.includes('function _excelSvg') && rnpSrc.includes('function _editSvg') && rnpSrc.includes('function _planSvg'),
+    'RNP toolbar Plan / Excel / Edit are SVG icons');
+assert.ok(rnpSrc.includes('rnp-tool-icon') && rnpSrc.includes('function _iconToolsHtml'),
+    'Plan / Excel / Edit / settings sit in one icon row');
+assert.ok(!rnpSrc.includes('>Excel</button>') && !rnpSrc.includes('↵ План') && !rnpSrc.includes('>Редактировать</button>'),
+    'RNP toolbar no longer uses text pills for Plan / Excel / Edit');
+assert.ok(html.includes('.rnp-tool-icon') && html.includes('.rnp-tool-icons'),
+    'icon buttons share the same 22px circle as the settings gear');
 assert.ok(html.includes('id="rnp-settings-overlay"'), 'RNP settings open as an overlay, not a second page');
 assert.ok(html.includes('function cabinetDisplayName'), 'cabinet picker shows legal IP names, not Baza/Elium letters');
 assert.ok(html.includes('ИП Бейшеев А.Д.') && html.includes('ИП Айзада'), 'Baza and Elium show the IP names from WB');
