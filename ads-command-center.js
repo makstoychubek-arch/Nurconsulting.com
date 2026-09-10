@@ -56,6 +56,49 @@
         return s === 9 || String(status) === 'active' || String(status) === '9';
     }
 
+    const TYPE_LABELS = {
+        4: 'Каталог / полка',
+        5: 'Карточка',
+        6: 'Поиск',
+        7: 'Рекомендации',
+        8: 'Авто',
+        9: 'Поиск + каталог',
+        manual_bid: 'Поиск + полка',
+        auto_bid: 'Авто',
+    };
+
+    function campaignTypeLabel(type) {
+        if (type == null || type === '') return '—';
+        const n = Number(type);
+        if (Number.isFinite(n) && TYPE_LABELS[n]) return TYPE_LABELS[n];
+        const key = String(type);
+        if (TYPE_LABELS[key]) return TYPE_LABELS[key];
+        return key;
+    }
+
+    function normalizeCampaignStatus(status) {
+        if (status === 'active' || status === 9 || status === '9') return 9;
+        if (status === 'paused' || status === 11 || status === '11') return 11;
+        if (status === 4 || status === '4' || status === 'ready') return 4;
+        if (status === 7 || status === '7' || status === 'done') return 7;
+        return status;
+    }
+
+    function campaignStatusLabel(status) {
+        const s = normalizeCampaignStatus(status);
+        if (s === 9) return 'Идёт';
+        if (s === 11) return 'Пауза';
+        if (s === 4) return 'Готова';
+        if (s === 7) return 'Завершена';
+        return status == null || status === '' ? '—' : String(status);
+    }
+
+    function filterCampaigns(campaigns, mode) {
+        const list = campaigns || [];
+        if (mode === 'all') return list;
+        return list.filter((c) => c.live);
+    }
+
     function ruleRangeStatus(rule, pos) {
         if (!rule || pos == null || !Number.isFinite(Number(pos))) return 'unknown';
         const from = Number(rule.target_pos_from);
@@ -82,13 +125,14 @@
         const rev7 = new Map();
         function addStat(cabinetId, campaignKey, date, spend, revenue) {
             const day = String(date || '').slice(0, 10);
+            const ck = cabinetId + ':' + campaignKey;
             if (day === today) {
                 spendToday.set(cabinetId, (spendToday.get(cabinetId) || 0) + spend);
+                spendToday.set(ck, (spendToday.get(ck) || 0) + spend);
             }
             if (day >= from7 && day <= today) {
                 spend7.set(cabinetId, (spend7.get(cabinetId) || 0) + spend);
                 rev7.set(cabinetId, (rev7.get(cabinetId) || 0) + revenue);
-                const ck = cabinetId + ':' + campaignKey;
                 spend7.set(ck, (spend7.get(ck) || 0) + spend);
                 rev7.set(ck, (rev7.get(ck) || 0) + revenue);
             }
@@ -145,7 +189,7 @@
                     cabinet_id: c.cabinet_id,
                     campaign_id: c.wb_campaign_id,
                     campaign_name: c.name,
-                    status: c.status === 'active' ? 9 : c.status,
+                    status: normalizeCampaignStatus(c.status),
                     type: c.campaign_type,
                     _v2: c,
                 });
@@ -192,15 +236,25 @@
                         if (st === 'unknown') outRange += 0;
                     }
                 }
+                const status = normalizeCampaignStatus(raw.status);
+                const spendKeyWb = cab.id + ':' + String(wbId);
+                const spendKeyUuid = campUuid ? cab.id + ':' + String(campUuid) : '';
+                const pickSpend = (map) => {
+                    if (map.has(spendKeyWb)) return map.get(spendKeyWb);
+                    if (spendKeyUuid && map.has(spendKeyUuid)) return map.get(spendKeyUuid);
+                    return 0;
+                };
                 return {
                     wbId,
                     uuid: campUuid || null,
                     name: raw.campaign_name || (v2 && v2.name) || ('РК ' + wbId),
-                    status: raw.status,
+                    status,
                     type: raw.type || (v2 && v2.campaign_type) || '',
-                    live: campaignLive(raw.status),
-                    spend7: spend7.get(cab.id + ':' + String(wbId)) || spend7.get(cab.id + ':' + String(campUuid || '')) || 0,
-                    revenue7: rev7.get(cab.id + ':' + String(wbId)) || 0,
+                    typeLabel: campaignTypeLabel(raw.type || (v2 && v2.campaign_type) || ''),
+                    live: campaignLive(status),
+                    spendToday: pickSpend(spendToday),
+                    spend7: pickSpend(spend7),
+                    revenue7: pickSpend(rev7),
                     clusters: mappedClusters,
                     rules: campRules,
                 };
@@ -278,6 +332,8 @@
         history: [],
         loading: false,
         filterCabinetId: '',
+        campFilter: 'active',
+        didAutoSync: false,
     };
 
     function dep() {
@@ -300,12 +356,12 @@
     }
 
     function statusPill(status) {
-        const s = Number(status);
-        if (s === 9 || status === 'active') return '<span class="advcab-status-pill ok">Активна</span>';
-        if (s === 11) return '<span class="advcab-status-pill warn">На паузе</span>';
+        const s = normalizeCampaignStatus(status);
+        if (s === 9) return '<span class="advcab-status-pill ok">Идёт</span>';
+        if (s === 11) return '<span class="advcab-status-pill warn">Пауза</span>';
         if (s === 4) return '<span class="advcab-status-pill none">Готова</span>';
         if (s === 7) return '<span class="advcab-status-pill none">Завершена</span>';
-        return '<span class="advcab-status-pill none">' + esc(status || '—') + '</span>';
+        return '<span class="advcab-status-pill none">' + esc(campaignStatusLabel(status)) + '</span>';
     }
 
     function rangeLabel(range) {
@@ -331,10 +387,32 @@
             state.open = { cabinets: new Set(id ? [id] : []), campaigns: new Set() };
             state.selected = null;
             state.history = [];
+            state.didAutoSync = false;
         }
         state.filterCabinetId = id;
         if (id) state.open.cabinets.add(id);
         return state.filterCabinetId;
+    }
+
+    function setCampFilter(mode) {
+        state.campFilter = mode === 'all' ? 'all' : 'active';
+        paintFilters();
+        paintTree();
+        return state.campFilter;
+    }
+
+    function cabinetRows() {
+        if (!state.model) return [];
+        let rows = state.model.rows;
+        if (state.filterCabinetId) rows = rows.filter((r) => r.id === state.filterCabinetId);
+        return rows;
+    }
+
+    function paintFilters() {
+        if (typeof document === 'undefined' || !document.querySelectorAll) return;
+        document.querySelectorAll('[data-camp-filter]').forEach((el) => {
+            el.classList.toggle('on', el.dataset.campFilter === state.campFilter);
+        });
     }
 
     function renderKpis(totals) {
@@ -342,13 +420,9 @@
         if (!el) return;
         const one = state.filterCabinetId && state.model && state.model.rows[0];
         const tiles = [
-            one
-                ? ['Кабинет', cabName(one.name) + (one.token === 'bad' ? ' · нет токена' : '')]
-                : ['Кабинеты', String(totals.cabinets) + (totals.tokenBad ? ' · ' + totals.tokenBad + ' без токена' : '')],
-            ['Активных РК', String(totals.active)],
-            ['Расход сегодня', formatMoney(totals.spendToday)],
-            ['ДРР 7д', formatDrrLabel(totals.drr7)],
-            ['Сэкономлено 7д', totals.saved7 ? formatMoney(totals.saved7) : '—'],
+            ['Активные полки', String(one ? one.activeCampaigns : totals.active)],
+            ['Расход сегодня', formatMoney(one ? one.spendToday : totals.spendToday)],
+            ['ДРР 7д', formatDrrLabel(one ? one.drr7 : totals.drr7)],
         ];
         el.innerHTML = tiles.map(([label, value]) =>
             '<div class="adv-kpi-tile"><div class="adv-kpi-tile-label">' + esc(label) +
@@ -360,154 +434,169 @@
         return '<span class="ads-hq-chev' + (open ? ' open' : '') + '" aria-hidden="true"></span>';
     }
 
+    function emptyShelvesHtml(pausedCount, totalCount) {
+        const syncBtn = '<button type="button" class="ui-btn ui-btn-primary" data-act="sync-wb">Подтянуть из WB</button>';
+        if (!totalCount) {
+            return 'В кабинете ещё нет полок. Нажмите «Подтянуть из WB» — подтянем активные кампании.<div class="ads-hq-empty-actions">' + syncBtn + '</div>';
+        }
+        if (state.campFilter !== 'all' && pausedCount) {
+            return 'Нет активных полок. На паузе: ' + pausedCount + '. Откройте «Все» или подтяните свежие из WB.<div class="ads-hq-empty-actions">' +
+                '<button type="button" class="ui-btn ui-btn-secondary" data-camp-filter="all">Показать все</button> ' + syncBtn + '</div>';
+        }
+        return 'Нет активных полок в этом кабинете.<div class="ads-hq-empty-actions">' + syncBtn + '</div>';
+    }
+
+    function renderCampRow(cab, camp, pad) {
+        const ck = cab.id + ':' + camp.wbId;
+        const campOpen = state.open.campaigns.has(ck);
+        const html = [];
+        html.push(
+            '<tr class="ads-hq-camp ads-hq-camp-top" data-ck="' + esc(ck) + '">' +
+            '<td><input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '"></td>' +
+            '<td' + (pad ? ' style="padding-left:28px"' : '') + '><button type="button" class="ads-hq-expand" data-expand="camp" data-id="' + esc(ck) + '">' +
+            chevron(campOpen) + esc(camp.name) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></button></td>' +
+            '<td>' + esc(camp.typeLabel || campaignTypeLabel(camp.type)) + '</td>' +
+            '<td>' + statusPill(camp.status) + '</td>' +
+            '<td>' + formatMoney(camp.spendToday) + '</td>' +
+            '<td>' + formatMoney(camp.spend7) + '</td>' +
+            '<td>' + formatDrrLabel(formatDrr(camp.spend7, camp.revenue7)) + '</td>' +
+            '<td><button type="button" class="adv-camp-action-btn" data-act="' + (camp.live ? 'pause' : 'start') + '" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '">' +
+            (camp.live ? 'Пауза' : 'Старт') + '</button></td>' +
+            '</tr>'
+        );
+        if (!campOpen) return html.join('');
+        if (!camp.clusters.length) {
+            html.push('<tr class="ads-hq-empty"><td></td><td colspan="7" style="color:var(--text-muted);padding-left:44px">Кластеры появятся после синка кампании</td></tr>');
+            return html.join('');
+        }
+        for (const cl of camp.clusters) {
+            html.push(
+                '<tr class="ads-hq-cl' + (state.selected && state.selected.clusterId === cl.id ? ' is-on' : '') + '">' +
+                '<td><input type="checkbox" class="ads-hq-check" data-kind="cluster" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '" data-cluster="' + esc(cl.id) + '"></td>' +
+                '<td style="padding-left:44px"><button type="button" class="ads-hq-link" data-pick="cluster" data-cabinet="' + esc(cab.id) + '" data-camp="' + esc(camp.uuid || '') + '" data-wb="' + esc(camp.wbId) + '" data-cluster="' + esc(cl.id) + '">' +
+                esc(cl.key) + '</button></td>' +
+                '<td colspan="2">' + (cl.active ? 'активен' : 'выкл') + '</td>' +
+                '<td>' + (cl.pos != null ? ('поз. ' + cl.pos) : '—') + '</td>' +
+                '<td colspan="2">' + rangeLabel(cl.range) + '</td>' +
+                '<td></td>' +
+                '</tr>'
+            );
+        }
+        return html.join('');
+    }
+
     function renderTable() {
         const tb = document.getElementById('ads-hq-tbody');
         if (!tb || !state.model) return;
-        let rows = state.model.rows;
-        if (state.filterCabinetId) rows = rows.filter((r) => r.id === state.filterCabinetId);
+        const rows = cabinetRows();
         if (!rows.length) {
-            tb.innerHTML = '<tr><td colspan="10" class="text-center py-10" style="color:var(--text-muted)">Нет кабинетов или ещё нет данных синка. Карточки РК при этом остаются как были.</td></tr>';
+            tb.innerHTML = '<tr><td colspan="8" class="text-center py-10 ads-hq-empty-cell">' +
+                emptyShelvesHtml(0, 0) + '</td></tr>';
             return;
         }
+        const hideCab = !!state.filterCabinetId;
         const html = [];
+        let shown = 0;
+        let paused = 0;
+        let total = 0;
         for (const cab of rows) {
-            const cabOpen = state.open.cabinets.has(cab.id);
-            const cap = cab.cap != null && Number.isFinite(Number(cab.cap)) ? formatMoney(cab.cap) : '—';
-            html.push(
-                '<tr class="ads-hq-cab" data-cab="' + esc(cab.id) + '">' +
-                '<td><input type="checkbox" class="ads-hq-check" data-kind="cabinet" data-cabinet="' + esc(cab.id) + '"></td>' +
-                '<td><button type="button" class="ads-hq-expand" data-expand="cab" data-id="' + esc(cab.id) + '">' +
-                chevron(cabOpen) + esc(cabName(cab.name)) + '</button></td>' +
-                '<td>' + tokenHtml(cab.token) + '</td>' +
-                '<td>' + cab.activeCampaigns + '</td>' +
-                '<td>' + formatMoney(cab.spendToday) + ' / ' + cap + '</td>' +
-                '<td>' + formatDrrLabel(cab.drr7) + '</td>' +
-                '<td>' + cab.inRange + '</td>' +
-                '<td>' + (cab.outRange ? '<span style="color:var(--red)">' + cab.outRange + '</span>' : '0') + '</td>' +
-                '<td>' + cab.maxHit + '</td>' +
-                '<td><button type="button" class="adv-camp-action-btn" data-act="pause-cab" data-cabinet="' + esc(cab.id) + '">Пауза</button> ' +
-                '<button type="button" class="adv-camp-action-btn" data-act="start-cab" data-cabinet="' + esc(cab.id) + '">Старт</button></td>' +
-                '</tr>'
-            );
-            if (!cabOpen) continue;
-            if (!cab.campaigns.length) {
-                html.push('<tr class="ads-hq-empty"><td></td><td colspan="9" style="color:var(--text-muted)">Нет кампаний в advertising_campaigns / adv_campaigns</td></tr>');
-                continue;
-            }
-            for (const camp of cab.campaigns) {
-                const ck = cab.id + ':' + camp.wbId;
-                const campOpen = state.open.campaigns.has(ck);
+            const visible = filterCampaigns(cab.campaigns, state.campFilter);
+            paused += (cab.campaigns || []).filter((c) => !c.live).length;
+            total += (cab.campaigns || []).length;
+            shown += visible.length;
+            if (!hideCab) {
                 html.push(
-                    '<tr class="ads-hq-camp" data-ck="' + esc(ck) + '">' +
-                    '<td><input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '"></td>' +
-                    '<td style="padding-left:28px"><button type="button" class="ads-hq-expand" data-expand="camp" data-id="' + esc(ck) + '">' +
-                    chevron(campOpen) + esc(camp.name) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></button></td>' +
-                    '<td colspan="2">' + statusPill(camp.status) + '</td>' +
-                    '<td>' + formatMoney(camp.spend7) + '</td>' +
-                    '<td>' + formatDrrLabel(formatDrr(camp.spend7, camp.revenue7)) + '</td>' +
-                    '<td colspan="2">' + camp.clusters.length + ' класт.</td>' +
-                    '<td></td>' +
-                    '<td><button type="button" class="adv-camp-action-btn" data-act="' + (camp.live ? 'pause' : 'start') + '" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '">' +
-                    (camp.live ? 'Пауза' : 'Старт') + '</button></td>' +
+                    '<tr class="ads-hq-cab" data-cab="' + esc(cab.id) + '">' +
+                    '<td><input type="checkbox" class="ads-hq-check" data-kind="cabinet" data-cabinet="' + esc(cab.id) + '"></td>' +
+                    '<td>' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) + '</td>' +
+                    '<td colspan="2">' + cab.activeCampaigns + ' акт.</td>' +
+                    '<td>' + formatMoney(cab.spendToday) + '</td>' +
+                    '<td>' + formatMoney(cab.spend7) + '</td>' +
+                    '<td>' + formatDrrLabel(cab.drr7) + '</td>' +
+                    '<td><button type="button" class="adv-camp-action-btn" data-act="pause-cab" data-cabinet="' + esc(cab.id) + '">Пауза</button> ' +
+                    '<button type="button" class="adv-camp-action-btn" data-act="start-cab" data-cabinet="' + esc(cab.id) + '">Старт</button></td>' +
                     '</tr>'
                 );
-                if (!campOpen) continue;
-                if (!camp.clusters.length) {
-                    html.push('<tr class="ads-hq-empty"><td></td><td colspan="9" style="color:var(--text-muted);padding-left:44px">Кластеры появятся после sync_campaigns (adv_clusters)</td></tr>');
-                    continue;
-                }
-                for (const cl of camp.clusters) {
-                    html.push(
-                        '<tr class="ads-hq-cl' + (state.selected && state.selected.clusterId === cl.id ? ' is-on' : '') + '">' +
-                        '<td><input type="checkbox" class="ads-hq-check" data-kind="cluster" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '" data-cluster="' + esc(cl.id) + '"></td>' +
-                        '<td style="padding-left:44px"><button type="button" class="ads-hq-link" data-pick="cluster" data-cabinet="' + esc(cab.id) + '" data-camp="' + esc(camp.uuid || '') + '" data-wb="' + esc(camp.wbId) + '" data-cluster="' + esc(cl.id) + '">' +
-                        esc(cl.key) + '</button></td>' +
-                        '<td colspan="2">' + (cl.active ? 'активен' : 'выкл') + '</td>' +
-                        '<td>' + esc(cl.tier) + '</td>' +
-                        '<td>' + (cl.pos != null ? ('поз. ' + cl.pos) : '—') + '</td>' +
-                        '<td colspan="3">' + rangeLabel(cl.range) + '</td>' +
-                        '<td></td>' +
-                        '</tr>'
-                    );
-                }
             }
+            for (const camp of visible) html.push(renderCampRow(cab, camp, !hideCab));
+        }
+        if (!shown) {
+            tb.innerHTML = '<tr><td colspan="8" class="text-center py-10 ads-hq-empty-cell">' +
+                emptyShelvesHtml(paused, total) + '</td></tr>';
+            return;
         }
         tb.innerHTML = html.join('');
+    }
+
+    function renderPhoneCamp(cab, camp) {
+        const ck = cab.id + ':' + camp.wbId;
+        const campOpen = state.open.campaigns.has(ck);
+        const html = [];
+        html.push('<article class="ads-hq-phone-card ads-hq-phone-shelf">');
+        html.push(
+            '<button type="button" class="ads-hq-phone-head" data-expand="camp" data-id="' + esc(ck) + '">' +
+            '<span>' + esc(camp.name) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></span>' +
+            chevron(campOpen) + '</button>'
+        );
+        html.push('<div class="ads-hq-phone-type">' + esc(camp.typeLabel || campaignTypeLabel(camp.type)) + ' · ' + statusPill(camp.status) + '</div>');
+        html.push(
+            '<div class="ads-hq-phone-metrics">' +
+            '<span>Сегодня<b>' + formatMoney(camp.spendToday) + '</b></span>' +
+            '<span>7 дней<b>' + formatMoney(camp.spend7) + '</b></span>' +
+            '<span>ДРР 7д<b>' + formatDrrLabel(formatDrr(camp.spend7, camp.revenue7)) + '</b></span>' +
+            '<span>Кластеры<b>' + camp.clusters.length + '</b></span>' +
+            '</div>'
+        );
+        html.push(
+            '<button type="button" class="adv-camp-action-btn" data-act="' + (camp.live ? 'pause' : 'start') +
+            '" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '">' +
+            (camp.live ? 'Пауза' : 'Старт') + '</button>'
+        );
+        if (campOpen) {
+            if (!camp.clusters.length) {
+                html.push('<div class="ads-hq-phone-empty">Кластеры появятся после синка кампании</div>');
+            }
+            for (const cl of camp.clusters) {
+                const on = state.selected && state.selected.clusterId === cl.id;
+                html.push(
+                    '<button type="button" class="ads-hq-link" data-pick="cluster" data-cabinet="' +
+                    esc(cab.id) + '" data-camp="' + esc(camp.uuid || '') + '" data-wb="' + esc(camp.wbId) +
+                    '" data-cluster="' + esc(cl.id) + '"' + (on ? ' style="font-weight:700"' : '') + '>' +
+                    esc(cl.key) + ' · ' + (cl.pos != null ? ('поз. ' + cl.pos) : '—') + ' · ' +
+                    (cl.range === 'worse' ? 'хуже' : cl.range === 'in' ? 'в диапазоне' : '—') +
+                    '</button>'
+                );
+            }
+        }
+        html.push('</article>');
+        return html.join('');
     }
 
     function renderPhone() {
         const el = document.getElementById('ads-hq-phone');
         if (!el || !state.model) return;
-        let rows = state.model.rows;
-        if (state.filterCabinetId) rows = rows.filter((r) => r.id === state.filterCabinetId);
+        const rows = cabinetRows();
         if (!rows.length) {
-            el.innerHTML = '<div class="ads-hq-phone-empty text-center py-8">Нет кабинетов или ещё нет данных синка.</div>';
+            el.innerHTML = '<div class="ads-hq-phone-empty text-center py-8">' + emptyShelvesHtml(0, 0) + '</div>';
             return;
         }
         const html = [];
+        let shown = 0;
+        let paused = 0;
+        let total = 0;
         for (const cab of rows) {
-            const cabOpen = state.open.cabinets.has(cab.id);
-            const cap = cab.cap != null && Number.isFinite(Number(cab.cap)) ? formatMoney(cab.cap) : '—';
-            html.push('<article class="ads-hq-phone-card">');
-            html.push(
-                '<button type="button" class="ads-hq-phone-head" data-expand="cab" data-id="' + esc(cab.id) + '">' +
-                '<span>' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) + '</span>' +
-                chevron(cabOpen) + '</button>'
-            );
-            html.push(
-                '<div class="ads-hq-phone-metrics">' +
-                '<span>Активных РК<b>' + cab.activeCampaigns + '</b></span>' +
-                '<span>Сегодня / лимит<b>' + formatMoney(cab.spendToday) + ' / ' + cap + '</b></span>' +
-                '<span>ДРР 7д<b>' + formatDrrLabel(cab.drr7) + '</b></span>' +
-                '<span>Вне диапазона<b' + (cab.outRange ? ' style="color:var(--red)"' : '') + '>' + cab.outRange + '</b></span>' +
-                '</div>'
-            );
-            html.push(
-                '<div class="ads-hq-bulk" style="margin:0">' +
-                '<button type="button" class="adv-camp-action-btn" data-act="pause-cab" data-cabinet="' + esc(cab.id) + '">Пауза</button>' +
-                '<button type="button" class="adv-camp-action-btn" data-act="start-cab" data-cabinet="' + esc(cab.id) + '">Старт</button>' +
-                '</div>'
-            );
-            if (cabOpen) {
-                html.push('<div class="ads-hq-phone-camps">');
-                if (!cab.campaigns.length) {
-                    html.push('<div class="ads-hq-phone-empty">Нет кампаний в advertising_campaigns / adv_campaigns</div>');
-                }
-                for (const camp of cab.campaigns) {
-                    const ck = cab.id + ':' + camp.wbId;
-                    const campOpen = state.open.campaigns.has(ck);
-                    html.push('<div class="ads-hq-phone-camp">');
-                    html.push(
-                        '<button type="button" class="ads-hq-expand" data-expand="camp" data-id="' + esc(ck) + '">' +
-                        chevron(campOpen) + esc(camp.name) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></button>'
-                    );
-                    html.push('<div>' + statusPill(camp.status) + ' · ДРР ' + formatDrrLabel(formatDrr(camp.spend7, camp.revenue7)) + '</div>');
-                    html.push(
-                        '<button type="button" class="adv-camp-action-btn" data-act="' + (camp.live ? 'pause' : 'start') +
-                        '" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '">' +
-                        (camp.live ? 'Пауза' : 'Старт') + '</button>'
-                    );
-                    if (campOpen) {
-                        if (!camp.clusters.length) {
-                            html.push('<div class="ads-hq-phone-empty">Кластеры появятся после sync_campaigns</div>');
-                        }
-                        for (const cl of camp.clusters) {
-                            const on = state.selected && state.selected.clusterId === cl.id;
-                            html.push(
-                                '<button type="button" class="ads-hq-link" data-pick="cluster" data-cabinet="' +
-                                esc(cab.id) + '" data-camp="' + esc(camp.uuid || '') + '" data-wb="' + esc(camp.wbId) +
-                                '" data-cluster="' + esc(cl.id) + '"' + (on ? ' style="font-weight:700"' : '') + '>' +
-                                esc(cl.key) + ' · ' + (cl.pos != null ? ('поз. ' + cl.pos) : '—') + ' · ' +
-                                (cl.range === 'worse' ? 'хуже' : cl.range === 'in' ? 'в диапазоне' : '—') +
-                                '</button>'
-                            );
-                        }
-                    }
-                    html.push('</div>');
-                }
-                html.push('</div>');
+            const visible = filterCampaigns(cab.campaigns, state.campFilter);
+            paused += (cab.campaigns || []).filter((c) => !c.live).length;
+            total += (cab.campaigns || []).length;
+            shown += visible.length;
+            if (!state.filterCabinetId) {
+                html.push('<div class="ads-hq-phone-cab-name">' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) + '</div>');
             }
-            html.push('</article>');
+            for (const camp of visible) html.push(renderPhoneCamp(cab, camp));
+        }
+        if (!shown) {
+            el.innerHTML = '<div class="ads-hq-phone-empty text-center py-8">' + emptyShelvesHtml(paused, total) + '</div>';
+            return;
         }
         el.innerHTML = html.join('');
     }
@@ -564,9 +653,9 @@
         }
         const hint = document.getElementById('ads-hq-rule-hint');
         if (hint) {
-            if (!state.selected) hint.textContent = 'Выберите кластер или кампанию в таблице — форма привяжется к правилу v2.';
-            else if (!state.selected.campaignUuid) hint.textContent = 'У этой РК ещё нет строки в adv_campaigns. Сохранение правила — после sync_campaigns.';
-            else hint.textContent = (state.selected.clusterKey ? state.selected.clusterKey + ' · ' : '') + 'РК #' + state.selected.wbId;
+            if (!state.selected) hint.textContent = 'Откройте полку и нажмите кластер — тогда сохранится правило ставки.';
+            else if (!state.selected.campaignUuid) hint.textContent = 'Эту полку ещё не подтянули в новую таблицу. Сначала «Подтянуть из WB».';
+            else hint.textContent = (state.selected.clusterKey ? state.selected.clusterKey + ' · ' : '') + 'полка #' + state.selected.wbId;
         }
         const drrWrap = document.getElementById('ads-hq-drr-wrap');
         const maxWrap = document.getElementById('ads-hq-max-wrap');
@@ -798,6 +887,11 @@
         if (!root || root.dataset.bound === '1') return;
         root.dataset.bound = '1';
         root.addEventListener('click', (e) => {
+            const chip = e.target.closest('[data-camp-filter]');
+            if (chip) {
+                setCampFilter(chip.dataset.campFilter);
+                return;
+            }
             const expand = e.target.closest('[data-expand]');
             if (expand) {
                 const kind = expand.dataset.expand;
@@ -815,6 +909,10 @@
             }
             const act = e.target.closest('[data-act]');
             if (act) {
+                if (act.dataset.act === 'sync-wb') {
+                    reloadFromWb();
+                    return;
+                }
                 const verb = act.dataset.act === 'start' || act.dataset.act === 'start-cab' ? 'start' : 'pause';
                 if (act.dataset.act.endsWith('-cab')) {
                     runBulk(verb, [{ kind: 'cabinet', cabinetId: act.dataset.cabinet }]);
@@ -836,7 +934,7 @@
                 lab.classList.toggle('on', lab.querySelector('input')?.checked);
             });
         });
-        document.getElementById('ads-hq-reload')?.addEventListener('click', () => load());
+        document.getElementById('ads-hq-reload')?.addEventListener('click', () => reloadFromWb());
     }
 
     async function safeRows(table, filters, columns) {
@@ -850,52 +948,93 @@
         }
     }
 
+    async function fetchAndRender() {
+        const note = document.getElementById('ads-hq-freshness');
+        if (note && !note.textContent) note.textContent = 'обновляем…';
+        const now = new Date();
+        const today = ymd(now);
+        const from7 = ymd(addDays(now, -6));
+        const cabs = await safeRows('cabinets', [], 'id, name, wb_token, adv_token_valid, adv_token_secret_id, adv_daily_budget_cap');
+        const cabinets = (cabs || []).filter((c) => !state.filterCabinetId || c.id === state.filterCabinetId);
+        const ids = cabinets.map((c) => c.id);
+        const [legacyCampaigns, legacyStats, v2Campaigns] = ids.length ? await Promise.all([
+            safeRows('advertising_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
+            safeRows('advertising_daily_stats', [
+                { op: 'in', column: 'cabinet_id', value: ids },
+                { op: 'gte', column: 'stat_date', value: from7 },
+                { op: 'lte', column: 'stat_date', value: today },
+            ]),
+            safeRows('adv_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
+        ]) : [[], [], []];
+        const v2Ids = (v2Campaigns || []).map((c) => c.id);
+        const [clusters, rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
+            safeRows('adv_clusters', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
+            safeRows('autobidder_rules', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
+            safeRows('serp_position_snapshots', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
+            safeRows('adv_daily_stats', [
+                { op: 'in', column: 'campaign_id', value: v2Ids },
+                { op: 'gte', column: 'date', value: from7 },
+            ]),
+        ]) : [[], [], [], []];
+        state.model = buildHqModel({
+            today, from7, cabinets, legacyCampaigns, legacyStats, v2Campaigns, clusters, rules, snapshots, v2Stats,
+        });
+        if (state.filterCabinetId) state.open.cabinets.add(state.filterCabinetId);
+        renderKpis(state.model.totals);
+        paintFilters();
+        paintTree();
+        paintForm();
+        renderJournal();
+        if (note) note.textContent = 'сегодня ' + today + ' · ДРР за 7 дней';
+        return state.model;
+    }
+
+    function modelHasCampaigns(model) {
+        return !!(model && model.rows.some((r) => (r.campaigns || []).length));
+    }
+
     async function load() {
         if (state.loading) return;
         state.loading = true;
         const note = document.getElementById('ads-hq-freshness');
         if (note) note.textContent = 'обновляем…';
         try {
-            const now = new Date();
-            const today = ymd(now);
-            const from7 = ymd(addDays(now, -6));
-            const cabs = await safeRows('cabinets', [], 'id, name, wb_token, adv_token_valid, adv_token_secret_id, adv_daily_budget_cap');
-            const cabinets = (cabs || []).filter((c) => !state.filterCabinetId || c.id === state.filterCabinetId);
-            const ids = cabinets.map((c) => c.id);
-            const [legacyCampaigns, legacyStats, v2Campaigns] = ids.length ? await Promise.all([
-                safeRows('advertising_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
-                safeRows('advertising_daily_stats', [
-                    { op: 'in', column: 'cabinet_id', value: ids },
-                    { op: 'gte', column: 'stat_date', value: from7 },
-                    { op: 'lte', column: 'stat_date', value: today },
-                ]),
-                safeRows('adv_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
-            ]) : [[], [], []];
-            const v2Ids = (v2Campaigns || []).map((c) => c.id);
-            const [clusters, rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
-                safeRows('adv_clusters', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
-                safeRows('autobidder_rules', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
-                safeRows('serp_position_snapshots', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
-                safeRows('adv_daily_stats', [
-                    { op: 'in', column: 'campaign_id', value: v2Ids },
-                    { op: 'gte', column: 'date', value: from7 },
-                ]),
-            ]) : [[], [], [], []];
-            state.model = buildHqModel({
-                today, from7, cabinets, legacyCampaigns, legacyStats, v2Campaigns, clusters, rules, snapshots, v2Stats,
-            });
-            if (!state.open.cabinets.size && state.model.rows[0]) {
-                state.open.cabinets.add(state.model.rows[0].id);
-                const firstCamp = state.model.rows[0].campaigns[0];
-                if (firstCamp && firstCamp.clusters.length) {
-                    state.open.campaigns.add(state.model.rows[0].id + ':' + firstCamp.wbId);
+            const model = await fetchAndRender();
+            if (!modelHasCampaigns(model) && !state.didAutoSync && dep().syncFromWb) {
+                state.didAutoSync = true;
+                if (note) note.textContent = 'подтягиваем полки из WB…';
+                let syncErr = null;
+                try {
+                    await dep().syncFromWb();
+                } catch (e) {
+                    syncErr = e;
+                }
+                await fetchAndRender();
+                if (syncErr && note) note.textContent = 'синк не вышел: ' + (syncErr.message || syncErr);
+            }
+        } finally {
+            state.loading = false;
+        }
+    }
+
+    async function reloadFromWb() {
+        if (state.loading) return;
+        state.loading = true;
+        const note = document.getElementById('ads-hq-freshness');
+        if (note) note.textContent = 'подтягиваем из WB…';
+        try {
+            let syncErr = null;
+            if (dep().syncFromWb) {
+                try {
+                    await dep().syncFromWb();
+                    state.didAutoSync = true;
+                } catch (e) {
+                    syncErr = e;
+                    if (dep().showPremiumModal) dep().showPremiumModal('error', 'Не удалось подтянуть полки', e && e.message ? e.message : String(e));
                 }
             }
-            renderKpis(state.model.totals);
-            paintTree();
-            paintForm();
-            renderJournal();
-            if (note) note.textContent = 'сегодня ' + today + ' · ДРР за 7 дней';
+            await fetchAndRender();
+            if (syncErr && note) note.textContent = 'синк не вышел: ' + (syncErr.message || syncErr);
         } finally {
             state.loading = false;
         }
@@ -915,6 +1054,9 @@
 
     const AdsHQ = {
         buildHqModel,
+        campaignTypeLabel,
+        campaignStatusLabel,
+        filterCampaigns,
         formatMoney,
         formatDrr,
         formatDrrLabel,
@@ -924,8 +1066,11 @@
         init,
         open,
         setCabinet,
+        setCampFilter,
         getFilterCabinetId: () => state.filterCabinetId,
+        getCampFilter: () => state.campFilter,
         load,
+        reload: reloadFromWb,
         renderTable,
         renderPhone,
         paintForm,

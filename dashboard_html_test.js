@@ -1107,10 +1107,14 @@ assert.ok(
 
 assert.ok(html.includes('data-adv-view="autobidder"') && html.includes('id="adv-subtab-autobidder"'),
     'advertising detail must have an Автобиддер tab');
-assert.ok(html.includes('id="adv-view-ads"') && html.includes('id="ads-hq-tbody"') && html.includes('Командный центр'),
-    'РК opens on the command center, not cabinet cards');
-assert.ok(html.includes('Командный центр') && html.includes('id="ads-hq-phone"') && html.includes('ads-hq-table-wrap'),
-    'command center has a visible title and a phone card list besides the desktop table');
+assert.ok(html.includes('id="adv-view-ads"') && html.includes('id="ads-hq-tbody"') && html.includes('Активные полки'),
+    'РК opens on the shelves list, not cabinet cards');
+assert.ok(html.includes('ads-hq-title') && html.includes('id="ads-hq-phone"') && html.includes('ads-hq-table-wrap') && html.includes('>Полка<'),
+    'ads HQ shows shelves title, phone cards and a campaign table');
+assert.ok(html.includes('data-camp-filter="active"') && html.includes('data-camp-filter="all"') && html.includes('ads-hq-advanced'),
+    'ads HQ defaults to active shelves and hides autobidder in details');
+assert.ok(html.includes('syncFromWb') && html.includes('syncAdvertisingNow({ silent: true })'),
+    'ads HQ refresh pulls campaigns from WB, then rereads the DB');
 assert.ok(html.includes('const isAdsHq') && html.includes("window._advView !== 'detail'"),
     'RK header treats command center as the root view, not a drill-in');
 assert.ok(

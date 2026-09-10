@@ -813,6 +813,26 @@
         .ads-hq-camp td { background: var(--bg); }
         .ads-hq-cl.is-on td { background: var(--accent-soft); }
         .ads-hq-bulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        .ads-hq-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-right: auto; }
+        .ads-hq-chip {
+            border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
+            border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; line-height: 1.2;
+        }
+        .ads-hq-chip.on { color: var(--text-primary); background: var(--sel); border-color: transparent; font-weight: 600; }
+        .ads-hq-empty-cell { white-space: normal !important; line-height: 1.45; }
+        .ads-hq-empty-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+        .ads-hq-phone-type { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+        .ads-hq-phone-cab-name { font-size: 12px; font-weight: 600; color: var(--text-muted); padding: 0 2px; }
+        .ads-hq-advanced {
+            background: var(--surface); border-radius: var(--radius-card); padding: 14px 16px;
+            box-shadow: var(--card-shadow);
+        }
+        .ads-hq-advanced > summary {
+            cursor: pointer; font-weight: 600; font-size: 14px; color: var(--text-secondary);
+            list-style: none;
+        }
+        .ads-hq-advanced > summary::-webkit-details-marker { display: none; }
+        .ads-hq-advanced[open] > summary { margin-bottom: 14px; color: var(--text-primary); }
         .ads-hq-hours { display: flex; flex-wrap: wrap; gap: 6px; }
         .ads-hq-hour {
             font-size: 11px; color: var(--text-muted); border: 1px solid var(--border);
@@ -4484,8 +4504,8 @@
             <div id="adv-view-ads" class="space-y-5">
                 <div class="ads-hq-hero">
                     <div>
-                        <h2 class="ads-hq-title">Командный центр</h2>
-                        <p class="ads-hq-sub">Кабинет как в шапке — расход, ДРР, кампании этого кабинета</p>
+                        <h2 class="ads-hq-title">Реклама</h2>
+                        <p class="ads-hq-sub">Активные полки кабинета из шапки — тип, статус, расход</p>
                         <span id="ads-hq-freshness" class="text-xs" style="color:var(--text-muted)"></span>
                     </div>
                     <div class="rnp-tool-icons">
@@ -4497,13 +4517,15 @@
                         </button>
                     </div>
                 </div>
-                <div id="ads-hq-kpis" class="grid grid-cols-2 md:grid-cols-5 gap-3"></div>
+                <div id="ads-hq-kpis" class="grid grid-cols-3 gap-3"></div>
                 <div class="widget-card">
                     <div class="ads-hq-bulk">
+                        <div class="ads-hq-filters">
+                            <button type="button" class="ads-hq-chip on" data-camp-filter="active">Активные</button>
+                            <button type="button" class="ads-hq-chip" data-camp-filter="all">Все</button>
+                        </div>
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-pause">Пауза</button>
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-start">Запуск</button>
-                        <input id="ads-hq-tpl-name" class="ui-input" placeholder="Имя шаблона" style="max-width:180px">
-                        <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-tpl">Применить форму</button>
                     </div>
                     <div id="ads-hq-phone" class="ads-hq-phone"></div>
                     <div class="overflow-x-auto ads-hq-table-wrap">
@@ -4511,39 +4533,39 @@
                             <thead>
                                 <tr>
                                     <th></th>
-                                    <th>Кабинет</th>
-                                    <th>Токен</th>
-                                    <th>Кампаний акт.</th>
-                                    <th>Расход сегодня / лимит</th>
-                                    <th>ДРР 7д</th>
-                                    <th>В диапазоне</th>
-                                    <th>Вне</th>
-                                    <th>Лимит</th>
+                                    <th>Полка</th>
+                                    <th>Тип</th>
+                                    <th>Статус</th>
+                                    <th>Сегодня</th>
+                                    <th>7 дней</th>
+                                    <th>ДРР</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody id="ads-hq-tbody">
-                                <tr><td colspan="10" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить данные</td></tr>
+                                <tr><td colspan="8" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить полки</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <details class="ads-hq-advanced">
+                    <summary>Автобиддер и журнал ставок</summary>
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div class="widget-card">
-                        <h3 class="text-sm font-semibold mb-1">Правило</h3>
-                        <p id="ads-hq-rule-hint" class="text-xs mb-4" style="color:var(--text-muted)">Выберите кластер в таблице</p>
+                        <h3 class="text-sm font-semibold mb-1">Правило ставки</h3>
+                        <p id="ads-hq-rule-hint" class="text-xs mb-4" style="color:var(--text-muted)">Откройте полку и нажмите кластер</p>
                         <div class="ads-hq-form-grid mb-3">
                             <label class="text-xs" style="color:var(--text-muted)">Стратегия
                                 <select id="ads-hq-strategy" class="ui-select mt-1">
-                                    <option value="min_sufficient">min_sufficient</option>
-                                    <option value="max_visibility">max_visibility</option>
-                                    <option value="fixed_position">fixed_position</option>
-                                    <option value="target_drr">target_drr</option>
+                                    <option value="min_sufficient">Минимальная достаточная</option>
+                                    <option value="max_visibility">Максимум видимости</option>
+                                    <option value="fixed_position">Фикс. позиция</option>
+                                    <option value="target_drr">Целевой ДРР</option>
                                 </select>
                             </label>
                             <label class="text-xs" style="color:var(--text-muted)">Потолок
                                 <select id="ads-hq-cap-mode" class="ui-select mt-1">
-                                    <option value="max_bid">max_bid</option>
+                                    <option value="max_bid">Потолок ставки</option>
                                     <option value="target_drr">целевой ДРР</option>
                                 </select>
                             </label>
@@ -4553,7 +4575,7 @@
                             <label class="text-xs" style="color:var(--text-muted)">Позиция по
                                 <input id="ads-hq-pos-to" type="number" min="1" class="ui-input mt-1" value="10">
                             </label>
-                            <label id="ads-hq-max-wrap" class="text-xs" style="color:var(--text-muted)">max_bid
+                            <label id="ads-hq-max-wrap" class="text-xs" style="color:var(--text-muted)">Макс. ставка
                                 <input id="ads-hq-max-bid" type="number" min="0" step="1" class="ui-input mt-1">
                             </label>
                             <label id="ads-hq-drr-wrap" class="text-xs hidden" style="color:var(--text-muted)">ДРР, %
@@ -4572,18 +4594,23 @@
                                 <input id="ads-hq-organic" type="number" min="1" class="ui-input mt-1" value="5">
                             </label>
                         </div>
-                        <div class="text-xs mb-2" style="color:var(--text-muted)">Часы (буст пиков — в следующем шаге)</div>
+                        <div class="text-xs mb-2" style="color:var(--text-muted)">Часы работы автобиддера</div>
                         <div id="ads-hq-hours" class="ads-hq-hours mb-4"></div>
-                        <button type="button" class="ui-btn ui-btn-primary" id="ads-hq-save">Сохранить правило</button>
+                        <div class="ads-hq-bulk">
+                            <input id="ads-hq-tpl-name" class="ui-input" placeholder="Имя шаблона" style="max-width:180px">
+                            <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-tpl">Применить форму</button>
+                            <button type="button" class="ui-btn ui-btn-primary" id="ads-hq-save">Сохранить правило</button>
+                        </div>
                     </div>
                     <div class="widget-card">
-                        <h3 class="text-sm font-semibold mb-1">Журнал</h3>
-                        <p class="text-xs mb-3" style="color:var(--text-muted)">Ставка и позиция по bid_history выбранного правила</p>
+                        <h3 class="text-sm font-semibold mb-1">Журнал ставок</h3>
+                        <p class="text-xs mb-3" style="color:var(--text-muted)">История ставки и позиции выбранного правила</p>
                         <div class="ads-hq-journal-chart mb-3"><canvas id="ads-hq-journal-chart"></canvas></div>
-                        <div id="ads-hq-journal-empty" class="text-xs" style="color:var(--text-muted)">Пока пусто — тик v2 ещё не писал историю.</div>
+                        <div id="ads-hq-journal-empty" class="text-xs" style="color:var(--text-muted)">Журнал пуст, пока автобиддер не менял ставки.</div>
                         <div id="ads-hq-journal-table" class="autobidder-log"></div>
                     </div>
-                </div>
+                    </div>
+                </details>
             </div>
 
             <!-- Детальный дашборд конкретного рекламного кабинета -->
@@ -6625,13 +6652,13 @@
 
         if (backBtn) {
             backBtn.classList.toggle('hidden', isDashboard || isAdsHq);
-            const backLabel = isAdvDetail ? 'Командный центр' : 'Назад';
+            const backLabel = isAdvDetail ? 'Реклама' : 'Назад';
             backBtn.title = backLabel;
             backBtn.setAttribute('aria-label', backLabel);
         }
         if (pageTitle) {
             pageTitle.classList.remove('header-hidden');
-            if (isAdsHq) pageTitle.textContent = 'Командный центр';
+            if (isAdsHq) pageTitle.textContent = 'Реклама';
             else pageTitle.textContent = tabTitles[tabName] || tabTitles.dashboard || 'Дашборд';
         }
         if (dateWrap) {
@@ -6871,6 +6898,11 @@
             escapeHtml,
             cabinetDisplayName,
             showPremiumModal,
+            syncFromWb: async () => {
+                if (typeof window.syncAdvertisingNow === 'function') {
+                    await window.syncAdvertisingNow({ silent: true });
+                }
+            },
         });
     }
     function showAdvertisingAdsView(opts) {
@@ -7590,10 +7622,14 @@
     // advertising-sync (тот же вызов конвенции, что manualSync/auto-sync),
     // затем перечитывает из БД. Без полноэкранных оверлеев/анимаций —
     // только текстовый индикатор рядом с кнопкой.
-    async function syncAdvertisingNow() {
-        if (!hasUserCabinets || !currentCabinetId) return;
-        const btn = document.getElementById('adv-sync-btn');
-        const freshEl = document.getElementById('adv-freshness');
+    async function syncAdvertisingNow(opts) {
+        const silent = !!(opts && opts.silent);
+        if (!hasUserCabinets || !currentCabinetId) {
+            if (silent) throw new Error('Нет кабинета в шапке');
+            return;
+        }
+        const btn = silent ? null : document.getElementById('adv-sync-btn');
+        const freshEl = silent ? null : document.getElementById('adv-freshness');
         const snapshotCabinet = currentCabinetId;
         if (btn) btn.disabled = true;
         if (freshEl) freshEl.textContent = 'обновляем...';
@@ -7615,7 +7651,8 @@
             loadAdvertisingBalance(snapshotCabinet);
         } catch (e) {
             if (freshEl) freshEl.textContent = '';
-            showPremiumModal('error', 'Ошибка синхронизации рекламы', e.message);
+            if (!silent) showPremiumModal('error', 'Ошибка синхронизации рекламы', e.message);
+            else throw e;
         } finally {
             if (btn) btn.disabled = false;
         }
