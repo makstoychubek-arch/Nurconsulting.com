@@ -185,15 +185,16 @@
             display: flex; flex-direction: column;
             align-items: stretch; padding: 18px 12px 14px;
         }
-        .main-rail { margin-left: 220px; padding-top: 56px; transition: margin-left 0.12s ease, padding-top 0.12s ease; }
+        .main-rail { margin-left: 220px; padding-top: 76px; transition: margin-left 0.12s ease, padding-top 0.12s ease; }
         body.flyout-expanded .main-rail { margin-left: 440px; }
         .rail-logo {
-            width: auto; height: auto; border: none; border-radius: 12px;
+            width: auto; height: auto; border: none; border-radius: 14px;
             background: transparent; color: var(--text-primary);
             display: flex; align-items: center; justify-content: flex-start; gap: 10px;
             cursor: pointer; flex-shrink: 0; margin: 0 4px 18px; padding: 8px 10px;
             transition: background 0.15s ease;
             box-shadow: none;
+            text-decoration: none;
         }
         [data-theme="neon"] .rail-logo { background: transparent; color: var(--text-primary); }
         .rail-logo:hover { transform: none; background: var(--sel); }
@@ -207,14 +208,15 @@
             width: 32px;
             height: 32px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             object-fit: cover;
             flex-shrink: 0;
+            overflow: hidden;
         }
-        .logo-nr--sm { width: 28px; height: 28px; border-radius: 7px; }
-        .logo-nr--lg { width: 56px; height: 56px; border-radius: 14px; }
+        .logo-nr--sm { width: 28px; height: 28px; border-radius: 9px; }
+        .logo-nr--lg { width: 56px; height: 56px; border-radius: 16px; }
         .rail-logo-mark {
-            width: 28px; height: 28px; border-radius: 7px; flex-shrink: 0;
+            width: 28px; height: 28px; border-radius: 9px; flex-shrink: 0;
             background: #ffffff; border: none; padding: 0; overflow: hidden;
         }
         .rail-logo-text, .rail-logo-name {
@@ -2302,8 +2304,8 @@
         #rnp-sheet-body,
         #tab-rnp-settings,
         .rnp-settings-articles-scroll { overflow-anchor: none; }
-        #date-picker {
-            position: fixed; top: 100px; left: 300px; z-index: 9999;
+            #date-picker {
+            position: fixed; top: 84px; left: 300px; z-index: 9999;
             background: var(--apple-glass);
             backdrop-filter: none;
             -webkit-backdrop-filter: none;
@@ -3021,23 +3023,26 @@
         /* Стеклянный хедер — вне overflow-hidden shell, как нижняя панель */
         header.glass.app-header {
             position: fixed;
-            top: 0;
-            left: 220px;
-            right: 0;
+            top: 10px;
+            left: 232px;
+            right: 12px;
             z-index: 9998;
             overflow: visible;
             background: var(--surface-solid);
+            border: none !important;
+            border-radius: 18px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
             backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
             transform: translateZ(0);
             will-change: transform;
             -webkit-backface-visibility: hidden;
             backface-visibility: hidden;
         }
-        body.flyout-expanded header.glass.app-header { left: 440px; }
+        body.flyout-expanded header.glass.app-header { left: 452px; }
         header.glass > div { overflow: visible; }
         .app-header-main { padding: 12px 24px; min-height: 56px; box-sizing: border-box; }
-        [data-theme="neon"] header.glass { border-bottom: 1px solid rgba(255,255,255,0.08) !important; background: var(--surface-solid) !important; }
-        [data-theme="ios"] header.glass { background: var(--surface-solid) !important; box-shadow: none !important; }
+        [data-theme="neon"] header.glass { border: none !important; background: var(--surface-solid) !important; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
+        [data-theme="ios"] header.glass { background: var(--surface-solid) !important; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); }
 
         /* A/B тест карточки */
         .abtest-card { border-radius: 16px !important; transition: background 0.15s ease !important; }
@@ -3397,7 +3402,7 @@
             }
             .bottom-nav-btn--home .bn-lbl { font-weight: 800; color: var(--text-primary); }
             .main-rail {
-                padding-top: calc(28px + env(safe-area-inset-top, 0px)) !important;
+                padding-top: calc(48px + env(safe-area-inset-top, 0px)) !important;
                 padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)) !important;
             }
             .main-content {
@@ -3478,13 +3483,14 @@
             }
             .mobile-overlay.active { display: block; }
             header.glass.app-header {
-                left: 0;
-                right: 0;
-                top: 0;
-                padding: env(safe-area-inset-top, 0) 0 0 !important;
+                left: 10px;
+                right: 10px;
+                top: calc(6px + env(safe-area-inset-top, 0px));
+                padding: 0 !important;
                 flex-shrink: 0;
+                border-radius: 16px;
             }
-            body.flyout-expanded header.glass.app-header { left: 0; }
+            body.flyout-expanded header.glass.app-header { left: 10px; right: 10px; }
             .app-header-main {
                 display: flex;
                 align-items: center;
@@ -3862,10 +3868,10 @@
     <div id="dashboard-app-shell" class="dashboard-app-shell flex overflow-hidden h-screen w-full">
     <div class="sidebar-app" id="sidebar-app">
         <aside class="sidebar-rail">
-            <button type="button" class="rail-logo" id="sidebar-home-btn" title="NR Space">
+            <a href="/" class="rail-logo" id="sidebar-home-btn" title="На главный сайт">
                 <img class="rail-logo-mark logo-nr logo-nr--sm" src="/icons/logo-nr.svg" alt="NR" width="28" height="28">
                 <span class="rail-logo-name">Space</span>
-            </button>
+            </a>
             <nav class="rail-nav">
                 <button type="button" class="rail-btn active" data-tab="dashboard" title="Дашборд">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
@@ -5301,7 +5307,7 @@
     </main>
     </div>
 
-        <header class="glass border-b shrink-0 rounded-none app-header" style="border-color:var(--border);border-radius:0">
+        <header class="glass shrink-0 app-header">
             <div class="app-header-main flex items-center justify-between gap-4">
                 <div class="flex items-center gap-3 min-w-0 flex-1">
                     <button type="button" class="mobile-menu-btn btn-smooth" onclick="toggleMobileMenu()" id="mobile-menu-btn" aria-label="Меню">
@@ -13388,10 +13394,6 @@
         hideFlyouts(true);
         syncFlyoutLayout();
 
-        document.getElementById('sidebar-home-btn')?.addEventListener('click', () => {
-            showTab('dashboard');
-            hideFlyouts(true);
-        });
     }
 </script>
 </body>

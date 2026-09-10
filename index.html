@@ -7,9 +7,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="NR Space">
-<head>
+    <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Nur Consulting — NR Space</title>
     <script src="/nr-auth.js"></script>
     <!-- Подключение Tailwind CSS и шрифтов -->
@@ -108,20 +108,115 @@
             width: 32px;
             height: 32px;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             object-fit: cover;
             flex-shrink: 0;
+            overflow: hidden;
         }
-        .logo-nr--lg { width: 56px; height: 56px; border-radius: 14px; }
-        .logo-nr--sm { width: 28px; height: 28px; border-radius: 7px; }
+        .logo-nr--lg { width: 56px; height: 56px; border-radius: 16px; }
+        .logo-nr--sm { width: 28px; height: 28px; border-radius: 9px; }
+
+        .site-header {
+            top: 10px;
+            left: 12px;
+            right: 12px;
+            width: auto;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.88);
+            -webkit-backdrop-filter: saturate(180%) blur(20px);
+            backdrop-filter: saturate(180%) blur(20px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+        }
+        .site-header-inner {
+            padding-left: max(16px, env(safe-area-inset-left, 0px));
+            padding-right: max(16px, env(safe-area-inset-right, 0px));
+        }
+        .hero-tg-short, .hero-audit-short { display: none; }
+        .site-mobile-dock {
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            padding-left: max(12px, env(safe-area-inset-left, 0px));
+            padding-right: max(12px, env(safe-area-inset-right, 0px));
+        }
+
+        @media (max-width: 767px) {
+            .site-header {
+                top: calc(6px + env(safe-area-inset-top, 0px));
+                left: 10px;
+                right: 10px;
+                border-radius: 18px;
+            }
+            .site-header-inner {
+                height: 52px;
+                padding-left: 10px;
+                padding-right: 8px;
+            }
+            .site-login-chip {
+                display: inline-flex !important;
+                min-height: 36px;
+                padding: 6px 12px;
+                font-size: 13px;
+            }
+            .hero-welcome {
+                min-height: 0 !important;
+                justify-content: flex-start !important;
+                padding-top: calc(74px + env(safe-area-inset-top, 0px)) !important;
+                padding-bottom: 20px !important;
+            }
+            .hero-welcome > .grid {
+                gap: 1.25rem;
+            }
+            .hero-copy { gap: 0.85rem !important; }
+            .hero-el-badge {
+                font-size: 9px;
+                letter-spacing: 0.1em;
+                max-width: 100%;
+            }
+            .hero-el-1 {
+                font-size: 1.7rem !important;
+                line-height: 1.12 !important;
+            }
+            .hero-el-2 {
+                font-size: 0.8125rem !important;
+                line-height: 1.45 !important;
+            }
+            .hero-el-3 {
+                flex-wrap: nowrap;
+                gap: 8px;
+            }
+            .hero-el-3 a {
+                width: auto !important;
+                flex: 1 1 0;
+                min-height: 44px;
+                padding: 10px 10px;
+                font-size: 12px;
+            }
+            .hero-tg-long, .hero-audit-long { display: none; }
+            .hero-tg-short, .hero-audit-short { display: inline; }
+            .hero-el-3 a { white-space: nowrap; }
+            .hero-el-4 .hero-metric-card { padding: 0; }
+            .hero-el-4 .hero-metric-card > p:nth-of-type(2) { font-size: 1.5rem; }
+            .hero-el-4 .grid { gap: 0.75rem; margin-top: 0.85rem; }
+            .hero-stats {
+                gap: 0.75rem !important;
+                margin-top: 1.25rem !important;
+            }
+            .hero-stats p:first-child { font-size: 1.35rem !important; }
+            .hero-stats p:last-child { font-size: 10px; letter-spacing: 0.08em; margin-top: 4px; }
+            footer#contacts { padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px)); }
+        }
+
+        @media (max-width: 390px) {
+            .hero-el-1 { font-size: 1.5rem !important; }
+            .hero-el-badge span:last-child { letter-spacing: 0.06em; }
+        }
 
     </style>
 </head>
 <body class="bg-[#FAFAFA] text-[#3F3F46] antialiased selection:bg-[#EDEDED] selection:text-[#111] overflow-x-hidden">
 
-    <header class="fixed top-0 left-0 right-0 z-50 bg-white">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 md:h-18 flex items-center justify-between">
-            <a href="#" class="flex items-center gap-2.5 shrink-0 rounded-xl px-1 py-1 hover:bg-[#EDEDED] transition-colors">
+    <header class="site-header fixed z-50">
+        <div class="site-header-inner max-w-7xl mx-auto px-4 sm:px-6 h-16 md:h-18 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2.5 shrink-0 rounded-xl px-1 py-1 hover:bg-[#EDEDED] transition-colors">
                 <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="32" height="32">
                 <span class="text-[16px] font-extrabold text-[#111] tracking-tight">Space</span>
             </a>
@@ -134,7 +229,7 @@
                 <a href="#contacts" class="nav-link px-3 py-2.5 min-h-[40px] flex items-center">Контакты</a>
             </nav>
             <div class="flex items-center gap-2">
-                <a href="/login" class="hidden sm:flex items-center px-4 py-2 min-h-[40px] text-sm font-bold text-[#111] hover:bg-[#EDEDED] rounded-xl transition">
+                <a href="/login" class="site-login-chip hidden sm:flex items-center px-4 py-2 min-h-[40px] text-sm font-bold text-[#111] hover:bg-[#EDEDED] rounded-xl transition">
                     Войти
                 </a>
                 <a href="/login" class="hidden sm:flex items-center px-5 py-2 min-h-[40px] bg-[#111] hover:bg-black text-white text-sm font-bold rounded-xl transition">
@@ -173,9 +268,9 @@
     </div>
 
     <!-- HERO SECTION -->
-    <section class="relative pt-32 md:pt-40 pb-16 md:pb-20 px-4 sm:px-6 max-w-7xl mx-auto min-h-screen flex flex-col justify-center">
+    <section class="hero-welcome relative pt-32 md:pt-40 pb-16 md:pb-20 px-4 sm:px-6 max-w-7xl mx-auto min-h-screen flex flex-col justify-center">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            <div class="lg:col-span-7 space-y-6 md:space-y-8">
+            <div class="hero-copy lg:col-span-7 space-y-6 md:space-y-8">
                 <div class="hero-el-badge inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-[#EDEDED] text-[10px] sm:text-xs font-bold uppercase tracking-[0.16em] text-[#111]">
                     <span class="w-1.5 h-1.5 rounded-full bg-[#F5C400]"></span>
                     <span>Nur Consulting × NR Space</span>
@@ -188,17 +283,19 @@
                 </p>
                 <div class="hero-el-3 flex flex-wrap gap-3 pt-2">
                     <a href="https://t.me/maraomg" target="_blank" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] bg-[#111] hover:bg-black text-white font-bold rounded-xl transition text-center w-full sm:w-auto text-sm">
-                        Получить бесплатный аудит
+                        <span class="hero-audit-long">Получить бесплатный аудит</span>
+                        <span class="hero-audit-short">Бесплатный аудит</span>
                     </a>
                     <a href="https://t.me/maraomg" target="_blank" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] hover:bg-[#EDEDED] text-[#111] font-bold rounded-xl transition text-center w-full sm:w-auto text-sm">
                         <svg class="w-5 h-5 text-[#111]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
-                        <span>Написать в Telegram</span>
+                        <span class="hero-tg-long">Написать в Telegram</span>
+                        <span class="hero-tg-short">Telegram</span>
                     </a>
                 </div>
             </div>
             
             <div class="hero-el-4 lg:col-span-5 relative">
-                <div class="rounded-2xl p-2">
+                <div class="hero-metric-card rounded-2xl p-2">
                     <p class="text-[10px] sm:text-xs text-[#71717A] uppercase tracking-wider font-bold">Выручка клиентов</p>
                     <p class="text-3xl sm:text-4xl font-black text-[#111] mt-2 tracking-tight">120 430 000 ₽</p>
                     <p class="text-sm text-[#16A34A] font-bold mt-2">+48.7% за 3 мес.</p>
@@ -216,7 +313,7 @@
             </div>
         </div>
 
-        <div class="reveal grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-10 mt-16 md:mt-24">
+        <div class="hero-stats reveal grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-10 mt-16 md:mt-24">
             <div class="text-center md:text-left">
                 <p class="text-3xl sm:text-4xl font-black text-[#111111]">120+ млн</p>
                 <p class="text-xs text-[#71717A] font-semibold uppercase tracking-widest mt-2">Оборот клиента за 3 месяца</p>
@@ -512,7 +609,7 @@
     </footer>
 
     <!-- ФИКСИРОВАННАЯ ПАНЕЛЬ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ -->
-    <div class="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white border-t border-black/8 p-4">
+    <div class="site-mobile-dock fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white border-t border-black/8 p-4">
         <div class="grid grid-cols-4 gap-2 text-center text-[10px] font-medium tracking-wide text-[#3E434F]">
             <a href="tel:+79667520397" class="flex flex-col items-center justify-center p-2 rounded-xl bg-black/[0.03] active:bg-black/[0.06] text-[#111111]">
                 <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.72.73.73 0 00.9.5l3.4-1.36a1 1 0 011.02.22M21 19a2 2 0 01-2 2h-3.28a1 1 0 01-.94-.72l-.9-.5a1 1 0 01-.22-1.02l1.36-3.4a1 1 0 011.02-.22M21 19V5m0 14h-6"></path></svg>

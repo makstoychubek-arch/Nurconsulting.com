@@ -203,6 +203,18 @@ assert.ok(
     /<span class="rail-logo-name">Space<\/span>/.test(html) && !html.includes('<span class="rail-logo-name">NR Space</span>'),
     'sidebar wordmark is Space — NR is already inside the logo mark'
 );
+assert.ok(
+    html.includes('<a href="/" class="rail-logo" id="sidebar-home-btn"') &&
+    !html.includes("showTab('dashboard');\n            hideFlyouts(true);"),
+    'sidebar logo opens the main welcome site'
+);
+assert.ok(
+    html.includes('border-radius: 18px;') &&
+    html.includes('left: 232px;') &&
+    !html.includes('rounded-none app-header') &&
+    !html.includes('border-radius:0'),
+    'cabinet header is a floating Apple-rounded bar'
+);
 assert.ok(html.includes('ab-create-btn'), 'A/B create button uses WBRadar-style control');
 assert.ok(html.includes('rail-user-name'), 'sidebar shows user name like WBRadar');
 assert.ok(/<span class="rail-btn-lbl">Товары<\/span>/.test(html), 'Товары sits on the main rail below РК');
@@ -279,9 +291,9 @@ assert.ok(
     assert.ok(!shell.includes('app-header-main'), 'header must not live inside the overflow-hidden shell');
 }
 assert.ok(
-    html.includes('padding-top: calc(28px + env(safe-area-inset-top, 0px)) !important;') &&
+    html.includes('padding-top: calc(48px + env(safe-area-inset-top, 0px)) !important;') &&
     html.includes('padding-bottom: calc(52px + env(safe-area-inset-bottom, 0px)) !important;'),
-    'page content reserves the compact pinned bars plus iPhone safe areas'
+    'page content reserves the compact rounded header plus iPhone safe areas'
 );
 assert.ok(
     html.includes('header.glass.app-header {\n            position: fixed;') &&
@@ -1166,9 +1178,21 @@ assert.ok(
     fs.existsSync(path.join(__dirname, 'icons/logo-nr.svg')) &&
     fs.readFileSync(path.join(__dirname, 'icons/logo-nr.svg'), 'utf8').includes('fill="#ffffff"') &&
     fs.readFileSync(path.join(__dirname, 'icons/logo-nr.svg'), 'utf8').includes('fill="#000000"') &&
+    fs.readFileSync(path.join(__dirname, 'icons/logo-nr.svg'), 'utf8').includes('rx="120"') &&
     !fs.readFileSync(path.join(__dirname, 'icons/logo-nr.svg'), 'utf8').includes('stroke='),
-    'master NR mark is extra-bold black letters on white, no border'
+    'master NR mark is extra-bold black letters on a rounded white tile, no border'
 );
+{
+    const site = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+    assert.ok(
+        site.includes('class="site-header') &&
+        site.includes('hero-welcome') &&
+        site.includes('site-login-chip') &&
+        site.includes('viewport-fit=cover') &&
+        site.includes('@media (max-width: 767px)'),
+        'landing header is rounded and the iPhone hero stays compact'
+    );
+}
 assert.ok(
     fs.existsSync(path.join(__dirname, 'favicon.ico')) &&
     fs.existsSync(path.join(__dirname, 'icons/favicon.png')) &&
