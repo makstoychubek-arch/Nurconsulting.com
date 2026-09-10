@@ -26,15 +26,20 @@ assert.ok(router.includes('verify') || cfg.includes('verify_jwt = false'), 'rout
 assert.ok(cfg.includes('[functions.telegram-router]') && cfg.includes('verify_jwt = false'),
     'config.toml disables JWT for Telegram webhook');
 assert.ok(router.includes('X-Telegram-Bot-Api-Secret-Token'), 'router checks webhook secret');
-assert.ok(router.includes('questions/answer'), 'router posts the WB answer');
+assert.ok(router.includes('answerWbQuestion'), 'router answers via official PATCH /questions');
+assert.ok(!router.includes('questions/answer'), 'old POST /questions/answer path is gone');
 assert.ok(router.includes('buildWbRestockAnswer'), 'router uses the hello+when template');
 assert.ok(router.includes('unknown_chat'), 'router ignores chats that are not reviews');
+assert.ok(router.includes("'готово'") || router.includes('"готово"'), 'success reply is short');
+assert.ok(router.includes('не смогла'), 'failure reply is short, no WB URL');
 
 assert.ok(admin.includes("action === 'set_webhook'"), 'admin can point notify bot at the router');
 assert.ok(admin.includes('telegram-router?bot='), 'webhook path is telegram-router');
 
 assert.ok(shared.includes('Здравствуйте, этот товар будет в наличии'), 'WB template is fixed');
-assert.ok(shared.includes('#nrq'), 'card carries question id');
+assert.ok(shared.includes("state: 'wbRu'"), 'question answer uses official PATCH body');
+assert.ok(shared.includes('поступление'), 'card is a short restock line');
+assert.ok(!/Ответьте реплаем/.test(shared), 'card must not explain how to reply');
 
 assert.ok(mig.includes('wb_restock_questions'), 'migration creates queue table');
 assert.ok(mig.includes('wb_restock_poll') && mig.includes("'*/10 * * * *'"), 'cron every 10 minutes');

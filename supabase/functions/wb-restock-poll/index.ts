@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
         ? Object.fromEntries(new URL(req.url).searchParams)
         : await req.json().catch(() => ({} as Record<string, unknown>));
 
-    const tgToken = getTelegramToken();
+    const tgToken = (Deno.env.get('KARINA_BOT_TOKEN') ?? '').trim() || getTelegramToken();
     const reviewsChat = (Deno.env.get('TELEGRAM_CHAT_REVIEWS') ?? '').trim();
     if (body.health === true || body.health === 'true') {
         return json({

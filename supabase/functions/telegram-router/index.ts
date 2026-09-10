@@ -4,8 +4,9 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getTelegramToken } from '../_shared/telegram-routing.ts';
-import { FEEDBACKS_API, wbError, wbSend } from '../_shared/wb-agent-wow.ts';
+import { wbError } from '../_shared/wb-agent-wow.ts';
 import {
+    answerWbQuestion,
     buildWbRestockAnswer,
     decideRestockInbound,
     isAllowedRestockChat,
@@ -82,7 +83,7 @@ Deno.serve(async (req) => {
     if (decision.action === 'ignore') return json({ ok: true, ignored: true });
 
     if (decision.action === 'hint') {
-        await sendTelegram(replyToken, decision.chatId, 'Напишите реплаем одно: завтра / через неделю / через 2 недели', decision.replyToId);
+        await sendTelegram(replyToken, decision.chatId, 'завтра / через неделю / через 2 недели', decision.replyToId);
         return json({ ok: true, hint: true });
     }
 
@@ -93,15 +94,12 @@ Deno.serve(async (req) => {
         .maybeSingle();
     const wbToken = sanitizeWbToken(cabinet?.wb_token);
     if (!wbToken) {
-        await sendTelegram(replyToken, decision.chatId, 'Нет токена WB у кабинета — ответить на вопрос не могу.', decision.replyToId);
+        await sendTelegram(replyToken, decision.chatId, 'нет токена', decision.replyToId);
         return json({ ok: false, error: 'no_wb_token' });
     }
 
     const answer = buildWbRestockAnswer(decision.when);
-    const posted = await wbSend(`${FEEDBACKS_API}/api/v1/questions/answer`, wbToken, 'POST', {
-        id: decision.questionId,
-        text: answer,
-    });
+    const posted = await answerWbQuestion(wbToken, decision.questionId, answer);
     if (!posted.ok) {
         const err = wbError(posted);
         await admin.from('wb_restock_questions').update({
@@ -110,7 +108,7 @@ Deno.serve(async (req) => {
             wb_answer: answer,
             updated_at: new Date().toISOString(),
         }).eq('cabinet_id', decision.cabinetId).eq('question_id', decision.questionId);
-        await sendTelegram(replyToken, decision.chatId, `Не смог ответить на WB: ${err}`, decision.replyToId);
+        await sendTelegram(replyToken, decision.chatId, 'не смогла', decision.replyToId);
         return json({ ok: false, error: err });
     }
 
@@ -123,7 +121,7 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
     }).eq('cabinet_id', decision.cabinetId).eq('question_id', decision.questionId);
 
-    await sendTelegram(replyToken, decision.chatId, `Готово. На WB ушёл ответ:\n${answer}`, decision.replyToId);
+    await sendTelegram(replyToken, decision.chatId, 'готово', decision.replyToId);
     return json({ ok: true, answered: true, via: decision.via, question_id: decision.questionId });
 });
 

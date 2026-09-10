@@ -1,5 +1,7 @@
 /** Вопросы WB «когда поступит?» → короткий реплай в Telegram → ответ покупателю. */
 
+import { FEEDBACKS_API, wbSend } from './wb-agent-wow.ts';
+
 export const RESTOCK_CARD_MARK = '#nrq';
 
 const RESTOCK_RE =
@@ -147,16 +149,28 @@ export function formatRestockTelegramCard(opts: {
 }): string {
     const q = opts.question;
     const who = opts.mention ? `${opts.mention} ` : '';
-    const art = [q.article, q.nmId ? String(q.nmId) : ''].filter(Boolean).join(' · ');
-    const lines = [
-        `${who}❓ Вопрос о поступлении`,
-        `Кабинет: ${cabinetLegalName(opts.cabinetName)}`,
-    ];
-    if (q.product) lines.push(`Товар: ${q.product}`);
-    if (art) lines.push(`Артикул: ${art}`);
-    lines.push('', `«${q.text.slice(0, 500)}»`, '', 'Ответьте реплаем: завтра / через неделю / через 2 недели');
-    lines.push(`${RESTOCK_CARD_MARK} q=${q.id} c=${opts.cabinetId}`);
+    const name = String(q.article || q.product || '').trim() || (q.nmId ? String(q.nmId) : 'товар');
+    const ask = String(q.text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+    const lines = [`${who}поступление`, name];
+    if (ask) lines.push(`«${ask}»`);
     return lines.join('\n');
+}
+
+export function wbQuestionAnswerPayload(id: string, text: string) {
+    return {
+        id: String(id || '').trim(),
+        answer: { text: String(text || '').trim() },
+        state: 'wbRu',
+    };
+}
+
+export async function answerWbQuestion(token: string, id: string, text: string) {
+    return wbSend(
+        `${FEEDBACKS_API}/api/v1/questions`,
+        token,
+        'PATCH',
+        wbQuestionAnswerPayload(id, text),
+    );
 }
 
 export function parseRestockCardMeta(text: string): RestockCardMeta | null {
@@ -269,19 +283,23 @@ export function decideRestockInbound(input: {
         };
     }
 
+    const byTg = input.replyToMessageId
+        ? input.pending.find((r) => Number(r.telegram_message_id) === Number(input.replyToMessageId))
+        : null;
+    if (byTg) {
+        if (!when) return { action: 'hint', chatId, replyToId };
+        return {
+            action: 'answer',
+            questionId: byTg.question_id,
+            cabinetId: byTg.cabinet_id,
+            when,
+            chatId,
+            replyToId,
+            via: 'tg_message',
+        };
+    }
+
     if (input.replyToMessageId && when) {
-        const byTg = input.pending.find((r) => Number(r.telegram_message_id) === Number(input.replyToMessageId));
-        if (byTg) {
-            return {
-                action: 'answer',
-                questionId: byTg.question_id,
-                cabinetId: byTg.cabinet_id,
-                when,
-                chatId,
-                replyToId,
-                via: 'tg_message',
-            };
-        }
         const matched = matchPendingByText(input.replyToText, input.pending);
         const row = input.pending.find((r) => r.question_id === matched);
         if (row) {
