@@ -2509,7 +2509,7 @@ const RNP = (() => {
         const leftSpan = _leftFrozenSpan(cal);
         const nTimeline = _headMarqueeSpan(cal);
         const leftPx = _leftFrozenPx(cal);
-        const lifted = _isNarrow();
+        const lifted = _isNarrow() || (cal.mode === 'week' && !(cal.weeks && cal.weeks.length));
         const leftInner = lifted ? '' : _buildLeftPanelHTML(art, stockBySize, rawData, cal, leftPx);
         const leftCls = lifted ? ' rnp-head-left--lifted' : '';
 
@@ -5069,8 +5069,10 @@ const RNP = (() => {
         const stockBySize = _stockCache[art.nm_id] || {};
 
         let topHTML = '';
-        if (_isNarrow()) {
-            const panelCls = _isPhone() ? ' rnp-article-panel--phone' : ' rnp-article-panel--narrow';
+        const stocksNeedRoom = !_isNarrow() && cal.mode === 'week' && !(cal.weeks && cal.weeks.length);
+        if (_isNarrow() || stocksNeedRoom) {
+            const panelCls = _isPhone() ? ' rnp-article-panel--phone'
+                : (_isNarrow() ? ' rnp-article-panel--narrow' : ' rnp-article-panel--desk-stocks');
             topHTML = `<div class="rnp-article-panel${panelCls}">${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>`;
         }
         if (_compareNm && _compareNm !== art.nm_id) {

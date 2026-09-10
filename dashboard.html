@@ -819,7 +819,12 @@
         .ads-hq-hour input { display: none; }
         .ads-hq-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .ads-hq-journal-chart { height: 180px; position: relative; }
-        .ads-hq-hero { margin: 0 0 2px; }
+        .ads-hq-hero {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 12px; margin: -6px 0 2px;
+        }
+        .ads-hq-hero .rnp-tool-icons { margin-left: auto; }
+        .adv-toolbar { justify-content: flex-end; margin: -6px 0 0; }
         .ads-hq-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: var(--text-primary); line-height: 1.15; }
         .ads-hq-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
         .ads-hq-phone { display: none; }
@@ -854,13 +859,12 @@
         }
         #tab-goods-groups { gap: 8px; }
         .gg-toolbar {
-            display: flex; align-items: center; gap: 4px;
-            margin: 0 0 2px;
+            display: flex; align-items: flex-start; gap: 4px;
+            margin: -6px 0 0;
         }
-        .gg-views { display: inline-flex; align-items: center; gap: 2px; margin-right: 4px; }
-        .gg-now-tools { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+        .gg-views { display: inline-flex; align-items: center; gap: 2px; margin: 0; padding-top: 0; }
+        .gg-now-tools { display: inline-flex; align-items: center; gap: 2px; min-width: 0; margin-left: auto; }
         .gg-now-tools.is-off { display: none; }
-        .gg-toolbar.is-daily #gg-excel-btn { display: none; }
         .gg-view-btn {
             font-size: 11px; font-weight: 600; height: 22px; padding: 0 8px;
             border: none; border-radius: 8px; background: transparent;
@@ -913,14 +917,7 @@
         }
         .gg-search-wrap.is-open .gg-search-btn,
         .gg-search-wrap.has-query .gg-search-btn { color: var(--accent); background: var(--accent-soft); }
-        .gg-excel-btn {
-            font-size: 10px; padding: 4px 8px; height: 22px; line-height: 1;
-            border-radius: 8px; border: 1px solid var(--border);
-            background: var(--surface); color: var(--text-secondary);
-            cursor: pointer; font-family: inherit; font-weight: 600;
-        }
-        .gg-excel-btn:hover { border-color: var(--accent-border); color: var(--accent); }
-        .gg-fresh { font-size: 10px; color: var(--text-muted); margin-left: auto; }
+        .gg-fresh { font-size: 10px; color: var(--text-muted); }
         .gg-table-scroll { overflow: auto; -webkit-overflow-scrolling: touch; max-height: calc(100vh - 168px); }
         #gg-table.data-table,
         #tab-goods-groups #gg-table {
@@ -937,6 +934,8 @@
         }
         #tab-goods-groups .data-table th.gg-art,
         #tab-goods-groups .data-table td.gg-art { text-align: left; }
+        #tab-goods-groups .data-table th.gg-col-nm,
+        #tab-goods-groups .data-table td.gg-col-nm { text-align: center !important; }
         .gg-sec-row td {
             background: var(--sel); font-weight: 700; color: var(--text-primary);
             padding-top: 6px !important; padding-bottom: 6px !important;
@@ -1364,6 +1363,19 @@
         .rnp-article-panel {
             flex-shrink: 0; background: transparent;
             border-bottom: none;
+        }
+        .rnp-article-panel--desk-stocks {
+            padding: 0 4px 6px;
+        }
+        .rnp-article-panel--desk-stocks .rnp-stock-scheme-wrap {
+            display: flex; align-items: flex-start; gap: 12px;
+            min-width: 0; max-width: none;
+        }
+        .rnp-article-panel--desk-stocks .rnp-head-sizes-inline {
+            max-width: none; overflow-x: auto;
+        }
+        .rnp-article-panel--desk-stocks .rnp-stock-table {
+            width: auto; min-width: max-content;
         }
         .rnp-head-left--lifted {
             height: 0 !important;
@@ -4233,7 +4245,7 @@
                     <button type="button" class="gg-view-btn is-on" id="gg-view-now-btn" role="tab" aria-selected="true" onclick="setGoodsView('now')">Сейчас</button>
                     <button type="button" class="gg-view-btn" id="gg-view-daily-btn" role="tab" aria-selected="false" onclick="setGoodsView('daily')">Остатки по дням</button>
                 </div>
-                <div class="gg-now-tools" id="gg-now-tools">
+                <div class="gg-now-tools rnp-tool-icons" id="gg-now-tools">
                 <div class="gg-search-wrap" id="gg-search-wrap">
                     <button type="button" class="rnp-settings-gear gg-search-btn" id="gg-search-btn" onclick="toggleGoodsSearch()" title="Поиск" aria-label="Поиск">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -4246,7 +4258,12 @@
                         onblur="onGoodsSearchBlur()"
                         class="ui-input gg-search">
                 </div>
-                <button type="button" class="gg-excel-btn" id="gg-excel-btn" onclick="exportGoodsExcel()" title="Выгрузить в Excel">Excel</button>
+                <button type="button" class="rnp-tool-icon" id="gg-excel-btn" onclick="exportGoodsExcel()" title="Скачать Excel" aria-label="Скачать Excel">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                        <path d="M3 9h18M3 15h18M9 3v18M15 3v18"></path>
+                    </svg>
+                </button>
                 <button type="button" class="rnp-settings-gear" id="gg-settings-btn" onclick="openGoodsSettings()" title="Какие показывать" aria-label="Настройки таблицы">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <circle cx="12" cy="12" r="3"></circle>
@@ -4350,8 +4367,18 @@
 
             <div id="adv-view-ads" class="space-y-5">
                 <div class="ads-hq-hero">
-                    <h2 class="ads-hq-title">Командный центр</h2>
-                    <p class="ads-hq-sub">Кабинет как в шапке — расход, ДРР, кампании этого кабинета</p>
+                    <div>
+                        <h2 class="ads-hq-title">Командный центр</h2>
+                        <p class="ads-hq-sub">Кабинет как в шапке — расход, ДРР, кампании этого кабинета</p>
+                    </div>
+                    <div class="rnp-tool-icons">
+                        <button type="button" class="rnp-tool-icon" id="ads-hq-reload" title="Обновить" aria-label="Обновить">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M21 12a9 9 0 1 1-2.2-5.8"></path>
+                                <path d="M21 3v6h-6"></path>
+                            </svg>
+                        </button>
+                    </div>
                 </div>
                 <div id="ads-hq-kpis" class="grid grid-cols-2 md:grid-cols-5 gap-3"></div>
                 <div class="widget-card">
@@ -4360,7 +4387,6 @@
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-start">Запуск</button>
                         <input id="ads-hq-tpl-name" class="ui-input" placeholder="Имя шаблона" style="max-width:180px">
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-tpl">Применить форму</button>
-                        <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-reload">Обновить</button>
                     </div>
                     <div id="ads-hq-phone" class="ads-hq-phone"></div>
                     <div class="overflow-x-auto ads-hq-table-wrap">
@@ -5369,7 +5395,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.66fd31b3b5.min.js"></script>
+<script src="/dist/rnp-module.164ca52024.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script src="/dist/ads-command-center.233e066fd2.min.js"></script>
 <script src="/dist/goods-catalog.b39fb4d5d2.min.js"></script>

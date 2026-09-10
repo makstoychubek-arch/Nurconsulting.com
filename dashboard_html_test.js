@@ -78,6 +78,14 @@ assert.ok(!html.includes('gg-hero') && !html.includes('class="gg-title"') && !ht
     'Товары has no duplicate heading, explanation or refresh button');
 assert.ok(html.includes('id="gg-excel-btn"') && html.includes('exportGoodsExcel') && html.includes('id="gg-settings-overlay"'),
     'Товары has a small Excel button and RNP-style settings overlay');
+assert.ok(html.includes('id="gg-excel-btn"') && html.includes('M3 9h18M3 15h18M9 3v18M15 3v18'),
+    'Товары Excel is the same grid icon as RNP');
+assert.ok(html.includes('gg-now-tools rnp-tool-icons') && html.includes('margin-left: auto'),
+    'Товары tools sit top-right like RNP');
+assert.ok(html.includes('th.gg-col-nm') && html.includes('text-align: center !important'),
+    'WB column header and values are centered');
+assert.ok(html.includes('ads-hq-hero') && html.includes('id="ads-hq-reload"') && html.includes('rnp-tool-icon'),
+    'Ads reload sits top-right as the same round icon as RNP');
 assert.ok(
     html.includes('id="gg-search-btn"') && html.includes('function toggleGoodsSearch') && html.includes('cx="11" cy="11" r="7"'),
     'Товары search is a loupe icon, not a wide empty field'
@@ -429,6 +437,8 @@ assert.ok(
 );
 
 const rnpSrc = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
+assert.ok(rnpSrc.includes('stocksNeedRoom') && html.includes('rnp-article-panel--desk-stocks'),
+    'without August weeks, RNP stocks leave the squeezed frozen pane');
 assert.ok(rnpSrc.includes('function _abandonStaleMain'), 'stale RNP render must retry instead of hanging');
 assert.ok(rnpSrc.includes("functions.invoke('rnp-finance-sync'"), 'WB finance sync still goes through the rnp-finance-sync edge function');
 assert.ok(!rnpSrc.includes('rnp-action-btn--sync'), 'manual «Обновить из WB» stays off the RNP toolbar');
