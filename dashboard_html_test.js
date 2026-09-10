@@ -840,6 +840,8 @@ assert.ok(html.includes('data-adv-view="autobidder"') && html.includes('id="adv-
     'advertising detail must have an Автобиддер tab');
 assert.ok(html.includes('data-adv-module="ads"') && html.includes('id="adv-view-ads"') && html.includes('id="ads-hq-tbody"'),
     'РК must expose a new Реклама command-center view beside cabinet cards');
+assert.ok(/data-adv-module="ads"[^>]*class="[^"]*active/.test(html) || /class="segment-tab active"[^>]*data-adv-module="ads"/.test(html),
+    'Реклама is the default view on the advertising tab so the new UI is visible on open');
 assert.ok(html.includes('data-adv-view="ads"') && html.includes('ads-command-center'),
     'Реклама tab sits next to legacy Автобиддер and loads ads-command-center.js');
 assert.ok(html.includes('id="ads-hq-journal-chart"') && html.includes('id="ads-hq-save"'),

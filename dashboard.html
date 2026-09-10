@@ -4108,13 +4108,13 @@
         <div id="tab-advertising" class="tab-content space-y-5">
             <div id="adv-module-tabs" class="adv-module-bar">
                 <div class="segment-tabs">
-                    <div class="segment-tab active" data-adv-module="cards" onclick="switchAdvModule('cards', this)">Кабинеты</div>
-                    <div class="segment-tab" data-adv-module="ads" onclick="switchAdvModule('ads', this)">Реклама</div>
+                    <div class="segment-tab" data-adv-module="cards" onclick="switchAdvModule('cards', this)">Кабинеты</div>
+                    <div class="segment-tab active" data-adv-module="ads" onclick="switchAdvModule('ads', this)">Реклама</div>
                 </div>
                 <span id="ads-hq-freshness" class="text-xs" style="color:var(--text-muted)"></span>
             </div>
             <!-- Главная страница рекламных кабинетов: карточки по всем кабинетам пользователя -->
-            <div id="adv-view-cards">
+            <div id="adv-view-cards" class="hidden">
                 <div class="adv-toolbar" style="justify-content:flex-end">
                     <div class="flex items-center gap-3" style="flex-wrap:wrap">
                         <span id="adv-cards-freshness" class="text-xs" style="color:var(--text-muted)"></span>
@@ -4126,7 +4126,7 @@
                 </div>
             </div>
 
-            <div id="adv-view-ads" class="hidden space-y-5">
+            <div id="adv-view-ads" class="space-y-5">
                 <div id="ads-hq-kpis" class="grid grid-cols-2 md:grid-cols-5 gap-3"></div>
                 <div class="widget-card">
                     <div class="ads-hq-bulk">
@@ -6404,7 +6404,7 @@
     window._advLoadedForCabinet = window._advLoadedForCabinet || null;
     // 'cards' — главная страница рекламных кабинетов (все кабинеты пользователя),
     // 'detail' — аналитика одного кабинета. Тab по умолчанию открывается в 'cards'.
-    window._advView = window._advView || 'cards';
+    window._advView = window._advView || 'ads';
     window._advOpenDetailAfterSwitch = false;
 
     // Эффективность (ROAS), %: выручка по заказам с рекламы / расход × 100.
@@ -7331,12 +7331,12 @@
             loadAdvertisingBalance(currentCabinetId);
             return;
         }
-        if (window._advView === 'ads') {
-            showAdvertisingAdsView();
+        if (window._advView === 'cards') {
+            showAdvertisingCardsView();
+            loadAdvertisingCardsOverview();
             return;
         }
-        showAdvertisingCardsView();
-        loadAdvertisingCardsOverview();
+        showAdvertisingAdsView();
     }
 
     // Кнопка «Обновить»: запускает живую синхронизацию с WB через
