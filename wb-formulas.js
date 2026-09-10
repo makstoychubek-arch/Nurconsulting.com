@@ -52,8 +52,9 @@ const EXCLUDED_DEDUCTION_NAMES = [
  */
 function calculateMetrics(rows, settings = {}) {
     const taxRate = settings.taxRate || 6;     // УСН "Доходы", %
-    const opexMonthly = settings.opex || 0;    // Операционные расходы в месяц, ₽
+    const opexMonthly = settings.opex || 0;    // Операционные расходы в месяц, сом
     const costOfGoods = settings.costOfGoods || {}; // себестоимость по nmId
+    const adsSum = Math.round(Number(settings.adsSum || 0)); // расход РК за период (advertising_daily_stats)
 
     // Определяем период для пересчёта опер.расходов в дни
     const dates = rows.map(r => r.sale_dt || r.rr_dt).filter(Boolean).sort();
@@ -178,7 +179,8 @@ function calculateMetrics(rows, settings = {}) {
         - acceptanceSum
         - penaltySum
         + compensationSum
-        - taxSum;
+        - taxSum
+        - adsSum;
 
     // Чистая прибыль с себестоимостью и опер.расходами
     const profitFull = profitBeforeCost - costOfSalesSum - opexForPeriod;
@@ -198,10 +200,11 @@ function calculateMetrics(rows, settings = {}) {
     const avgLogisticsPerUnit = salesCount > 0 ? Math.round(logisticsSum / salesCount) : 0;
     const avgProfitPerUnit = salesCount > 0 ? Math.round(profitFull / salesCount) : 0;
 
-    // ДРР (пока нет данных рекламы — будет добавлено при подключении Promotion API)
-    const adsSum = 0; // TODO: подключить /adv/v2/fullstats
-    const drr = realizationSum > 0 && adsSum > 0
-        ? Math.round((adsSum / realizationSum) * 1000) / 10
+    // ДРР как в РНП: расход РК / продажи после СПП. Продвижение из отчёта
+    // реализации сюда не берём — оно в EXCLUDED_DEDUCTION_NAMES, чтобы не
+    // посчитать дважды вместе с advertising_daily_stats.
+    const drr = salesSum > 0 && adsSum > 0
+        ? Math.round((adsSum / salesSum) * 1000) / 10
         : null;
 
     return {
@@ -224,8 +227,8 @@ function calculateMetrics(rows, settings = {}) {
         deductionSum: Math.round(deductionSum),
         sppSum: Math.round(sppSum),
 
-        // Реклама (заглушка до подключения Promotion API)
-        adsSum: Math.round(adsSum),
+        // Реклама из advertising_daily_stats за выбранный период
+        adsSum,
         drr,
 
         // Себестоимость и опер.расходы
@@ -330,11 +333,16 @@ async function loadFinanceReport(callWbProxy, dateFrom, dateTo) {
 }
 
 /**
- * Форматирование числа в рублях для UI
+ * Деньги кабинетов — сомы (KGS), не рубли.
  */
-function fmtRub(n) {
+function fmtMoney(n) {
     if (n === null || n === undefined) return '—';
-    return Number(n).toLocaleString('ru-RU') + ' ₽';
+    return Number(n).toLocaleString('ru-RU') + ' сом';
+}
+function fmtRub(n) { return fmtMoney(n); }
+function fmtAds(m) {
+    if (!m || !m.adsSum) return '—';
+    return fmtMoney(m.adsSum) + (m.drr != null ? ' · ' + m.drr + '%' : '');
 }
 
 /**
@@ -373,7 +381,7 @@ function applyMetricsToDashboard(m, setText) {
     setText('m-conversion', m.buyoutRate ? m.buyoutRate + '%' : '—');
     setText('m-logistics', fmtRub(m.logisticsSum));
     setText('m-storage', fmtRub(m.storageSum));
-    setText('m-ads', m.adsSum ? fmtRub(m.adsSum) : '—');
+    setText('m-ads', fmtAds(m));
     setText('m-roi', m.roi !== null ? m.roi + '%' : '—');
     setText('m-opex', fmtRub(m.opexForPeriod));
     setText('m-returns', fmtRub(m.returnsSum));
@@ -438,10 +446,14 @@ function applyMetricsToDashboard(m, setText) {
 }
 
 // Экспортируем функции для использования в dashboard.html
-window.WBFormulas = {
+const WBFormulas = {
     calculateMetrics,
     loadFinanceReport,
     applyMetricsToDashboard,
+    fmtMoney,
     fmtRub,
+    fmtAds,
     fmtPct,
 };
+if (typeof window !== 'undefined') window.WBFormulas = WBFormulas;
+if (typeof module !== 'undefined' && module.exports) module.exports = WBFormulas;

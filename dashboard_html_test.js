@@ -355,6 +355,19 @@ assert.ok(
     'FBO/FBS stock hero cards stay off the dashboard — they live in the warehouse chart'
 );
 assert.ok(
+    html.includes('function loadAdsSpendForDash') &&
+    html.includes("fetchAllRows('advertising_daily_stats'") &&
+    html.includes('adsSum: Number(adsCur') &&
+    html.includes('function fmtDashAds'),
+    'dashboard Реклама / ДРР reads advertising_daily_stats for the selected dates'
+);
+assert.ok(
+    html.includes("fmt(n) + ' сом'") &&
+    html.includes("toLocaleString('ru-RU') + ' сом'") &&
+    !html.includes("fmt(ordersSum)+' ₽'"),
+    'dashboard money is som, not rubles'
+);
+assert.ok(
     html.includes('body.is-dash-phone .header-page-title') &&
     html.includes("document.body.classList.toggle('is-dash-phone'"),
     'iPhone dashboard hides the redundant title so the date range is readable'

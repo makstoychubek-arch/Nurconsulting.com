@@ -4362,7 +4362,7 @@
                 <h3 class="font-semibold mb-5" style="color:var(--text-primary)">Параметры расчёта прибыли</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div><label class="text-xs block mb-2" style="color:var(--text-secondary)">Налоговая ставка (%)</label><input type="number" id="tax-rate" placeholder="6" value="6" class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)"></div>
-                    <div><label class="text-xs block mb-2" style="color:var(--text-secondary)">Операционные расходы в месяц (₽)</label><input type="number" id="opex" placeholder="150000" class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)"></div>
+                    <div><label class="text-xs block mb-2" style="color:var(--text-secondary)">Операционные расходы в месяц (сом)</label><input type="number" id="opex" placeholder="150000" class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)"></div>
                 </div>
                 <button onclick="saveSettings()" class="mt-4 px-6 py-2.5 text-white text-sm font-semibold rounded-xl transition" style="background:var(--accent)">Сохранить</button>
             </div>
@@ -9523,7 +9523,7 @@
             ordersSum, ordersCount, salesSum, salesCount,
             profitFull: profit, profitBeforeCost: profit,
             realizationSum: salesSum, totalWbFee: commission,
-            logisticsSum: logistics, storageSum: storage, adsSum: 0,
+            logisticsSum: logistics, storageSum: storage, adsSum: Number(agg?.ads_sum || 0),
             returnsSum: returnsCount, buyoutRate, roi,
             opexForPeriod: 0, acceptanceSum: 0, deductionSum: 0,
             costOfSalesSum: 0, taxSum: 0, taxBase: salesSum,
@@ -9567,14 +9567,14 @@
 
     function applyExtendedMetricDisplay(m) {
         if (!m) return;
-        const rub = n => n == null ? '—' : Number(n).toLocaleString('ru-RU') + ' ₽';
+        const som = n => n == null ? '—' : Number(n).toLocaleString('ru-RU') + ' сом';
         const el = key => document.querySelector(`[data-metric="${key}"]`);
         const avgEl = el('avg-retail-price');
-        if (avgEl) avgEl.textContent = m.avgRetailPrice > 0 ? rub(m.avgRetailPrice) : '—';
+        if (avgEl) avgEl.textContent = m.avgRetailPrice > 0 ? som(m.avgRetailPrice) : '—';
         const capCostEl = el('cap-cost');
-        if (capCostEl) capCostEl.textContent = m.capCost > 0 ? rub(m.capCost) : '—';
+        if (capCostEl) capCostEl.textContent = m.capCost > 0 ? som(m.capCost) : '—';
         const capRetailEl = el('cap-retail');
-        if (capRetailEl) capRetailEl.textContent = m.capRetail > 0 ? rub(m.capRetail) : '—';
+        if (capRetailEl) capRetailEl.textContent = m.capRetail > 0 ? som(m.capRetail) : '—';
         const stockEl = el('stock-total');
         if (stockEl) stockEl.textContent = m.stockTotal != null ? Number(m.stockTotal).toLocaleString('ru-RU') + ' шт.' : '—';
         const gmroiEl = el('gmroi');
@@ -9585,6 +9585,23 @@
         if (turnSalesEl) turnSalesEl.textContent = m.turnoverSales != null ? m.turnoverSales + ' дн.' : '—';
         const turnOrdersEl = el('turnover-orders');
         if (turnOrdersEl) turnOrdersEl.textContent = m.turnoverOrders != null ? m.turnoverOrders + ' дн.' : '—';
+    }
+
+    async function loadAdsSpendForDash(cabinetId, from, to) {
+        if (!cabinetId || !from || !to || typeof fetchAllRows !== 'function') return { spend: 0 };
+        try {
+            const rows = await fetchAllRows('advertising_daily_stats', [
+                { op: 'eq', column: 'cabinet_id', value: cabinetId },
+                { op: 'gte', column: 'stat_date', value: from },
+                { op: 'lte', column: 'stat_date', value: to },
+            ], 'spend,stat_date');
+            let spend = 0;
+            for (const r of rows || []) spend += Number(r.spend || 0);
+            return { spend };
+        } catch (e) {
+            console.warn('[loadFromDB] advertising_daily_stats', e && e.message);
+            return { spend: 0 };
+        }
     }
 
     async function loadFromDB(dateFrom, dateTo) {
@@ -9604,6 +9621,8 @@
         // Теперь вся агрегация (суммы/количества/разбивка по складам) считается
         // одним SQL-запросом на стороне базы через RPC dashboard_summary —
         // клиенту приходит один компактный jsonb вместо тысяч сырых строк.
+        const adsCurP = loadAdsSpendForDash(snapshotCabinet, from, to);
+        const adsPrevP = loadAdsSpendForDash(snapshotCabinet, prev.from, prev.to);
         const { data: summary, error: summaryErr } = await supabase.rpc('dashboard_summary', {
             p_cabinet_id: snapshotCabinet,
             p_from: from,
@@ -9611,6 +9630,9 @@
             p_prev_from: prev.from,
             p_prev_to: prev.to,
         });
+        const [adsCur, adsPrev] = await Promise.all([adsCurP, adsPrevP]);
+        if (summary && summary.cur) summary.cur.ads_sum = adsCur.spend;
+        if (summary && summary.prev) summary.prev.ads_sum = adsPrev.spend;
 
         if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) {
             console.log(`[loadFromDB] Устаревший запрос кабинета ${snapshotCabinet} — игнорируем`);
@@ -9648,7 +9670,13 @@
                 const finCabinet = snapshotCabinet;
                 const settings = {
                     taxRate: Number(localStorage.getItem('tax_rate') || 6),
-                    opex: Number(localStorage.getItem('opex') || 0)
+                    opex: Number(localStorage.getItem('opex') || 0),
+                    adsSum: Number(adsCur && adsCur.spend || 0),
+                };
+                const prevSettings = {
+                    taxRate: settings.taxRate,
+                    opex: settings.opex,
+                    adsSum: Number(adsPrev && adsPrev.spend || 0),
                 };
 
                 Promise.race([
@@ -9664,7 +9692,7 @@
                         WBFormulas.calculateMetrics(rows, settings), stocks.total, Number(summary.cur?.orders_count || 0));
                     const prevMetrics = prevRows && prevRows.length > 0
                         ? enrichMetricsWithStockExtras(
-                            WBFormulas.calculateMetrics(prevRows, settings), stocks.total, Number(summary.prev?.orders_count || 0))
+                            WBFormulas.calculateMetrics(prevRows, prevSettings), stocks.total, Number(summary.prev?.orders_count || 0))
                         : null;
                     if (finCabinet === currentCabinetId) {
                         const applyFin = () => {
@@ -9974,29 +10002,41 @@
         }
     }
 
+    function fmtDashMoney(n) {
+        return fmt(n) + ' сом';
+    }
+    function fmtDashAds(spend, sales) {
+        const ads = Math.round(Number(spend || 0));
+        if (ads <= 0) return '—';
+        const base = Number(sales || 0);
+        const drr = base > 0 ? Math.round((ads / base) * 1000) / 10 : null;
+        return fmtDashMoney(ads) + (drr != null ? ' · ' + drr + '%' : '');
+    }
     function updateDashboardFromDB(totalStock, cur, prev) {
         const ordersSum = Number(cur?.orders_sum || 0);
         const ordersCount = Number(cur?.orders_count || 0);
         const returns = Number(cur?.returns_count || 0);
+        const adsSpend = Math.round(Number(cur?.ads_sum || 0));
         const salesSum=Math.round(ordersSum*0.65), salesCount=Math.round(ordersCount*0.65);
         const commission=Math.round(salesSum*0.15), logistics=Math.round(salesSum*0.05), storage=Math.round(salesSum*0.01);
-        const profit=salesSum-commission-logistics-storage;
+        const profit=salesSum-commission-logistics-storage-adsSpend;
         const margin=salesSum>0?Math.round((profit/salesSum)*100):0;
         const roi=salesSum>0?Math.round((profit/(salesSum*0.5))*100):0;
-        setText('m-orders-sum', fmt(ordersSum)+' ₽'); setText('m-orders-count', ordersCount+' шт.');
-        setText('m-sales-sum', fmt(salesSum)+' ₽'); setText('m-sales-count', salesCount+' шт.');
+        setText('m-orders-sum', fmtDashMoney(ordersSum)); setText('m-orders-count', ordersCount+' шт.');
+        setText('m-sales-sum', fmtDashMoney(salesSum)); setText('m-sales-count', salesCount+' шт.');
         setText('m-stock', fmt(totalStock)+' шт.'); setText('m-conversion', ordersCount>0?'65%':'—');
-        setText('m-logistics', fmt(logistics)+' ₽'); setText('m-storage', fmt(storage)+' ₽');
-        setText('m-commission', fmt(commission)+' ₽'); setText('m-realization', fmt(salesSum)+' ₽');
+        setText('m-logistics', fmtDashMoney(logistics)); setText('m-storage', fmtDashMoney(storage));
+        setText('m-commission', fmtDashMoney(commission)); setText('m-realization', fmtDashMoney(salesSum));
         setText('m-returns', returns+' шт.'); setText('m-roi', roi+'%');
-        setText('m-profit', fmt(profit)+' ₽'); setText('m-margin', margin+'%');
-        setText('m-profit2', fmt(profit)+' ₽');
-        setText('rnp-profit', fmt(profit)+' ₽'); setText('rnp-margin', margin+'%'); setText('rnp-roi', roi+'%');
+        setText('m-profit', fmtDashMoney(profit)); setText('m-margin', margin+'%');
+        setText('m-profit2', fmtDashMoney(profit));
+        setText('m-ads', fmtDashAds(adsSpend, salesSum));
+        setText('rnp-profit', fmtDashMoney(profit)); setText('rnp-margin', margin+'%'); setText('rnp-roi', roi+'%');
         setText('rnp-buyout', ordersCount>0?'65%':'—');
         setText('rnp-orders', ordersCount+' шт.');
         setText('rnp-sales', Math.round(ordersCount*0.65)+' шт.');
         setText('rnp-returns', returns+' шт.');
-        setText('rnp-logistics', fmt(logistics)+' ₽');
+        setText('rnp-logistics', fmtDashMoney(logistics));
         if (prev) {
             const currM = enrichMetricsWithStockExtras(computeQuickOrderMetrics(cur), totalStock, ordersCount);
             const prevM = enrichMetricsWithStockExtras(computeQuickOrderMetrics(prev), totalStock, Number(prev?.orders_count || 0));
