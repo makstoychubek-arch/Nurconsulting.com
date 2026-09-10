@@ -1,9 +1,20 @@
 // sync_campaigns — каждые 30 мин.
-// getAdverts → adv_campaigns; listClusters → adv_clusters (пропавшие is_active=false).
-// Кабинеты параллельно (Promise.allSettled). Хелперы: wb-adv-proxy.ts.
+// getAdverts v2: nm_id из nm_settings[]. Кабинеты с adv_enabled=true.
+// listClusters — официальное тело { items: [{ advertId, nmId }] }, пачками по 100.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import {
+    advertName,
+    allNmIds,
+    campaignStatus,
+    campaignTypeFromWb,
+    firstNmId,
+    flattenAdverts,
+    listClustersBody,
+    parseListClustersResponse,
+    shouldSyncClusters,
+} from '../_shared/adv-advert-parse.ts';
 import {
     getAdverts,
     listClusters,
@@ -34,28 +45,29 @@ Deno.serve(async (req) => {
         ? Object.fromEntries(new URL(req.url).searchParams)
         : await req.json().catch(() => ({} as Record<string, unknown>));
     const onlyCabinet = body.cabinet_id ? String(body.cabinet_id) : '';
+    const force = body.force === true || body.force === 'true';
 
     const admin = createClient(supabaseUrl, serviceKey);
     let q = admin
         .from('cabinets')
-        .select('id, name, adv_token_secret_id, adv_token_valid')
+        .select('id, name, adv_token_secret_id, adv_token_valid, adv_enabled')
         .eq('adv_token_valid', true)
         .not('adv_token_secret_id', 'is', null);
+    if (!force) q = q.eq('adv_enabled', true);
     if (onlyCabinet) q = q.eq('id', onlyCabinet);
     const { data: cabinets, error: cabErr } = await q;
     if (cabErr) return json({ error: cabErr.message }, 500);
 
-    const settled = await Promise.allSettled(
-        (cabinets || []).map((cab) => syncOneCabinet(admin, cab)),
-    );
-
-    const results = settled.map((row, i) => {
-        const cab = cabinets![i];
-        if (row.status === 'fulfilled') return { cabinet_id: cab.id, name: cab.name, ...row.value };
-        const err = row.reason instanceof Error ? row.reason.message : String(row.reason);
-        console.error('[sync-campaigns]', cab.name, err);
-        return { cabinet_id: cab.id, name: cab.name, ok: false, error: err };
-    });
+    const results: Record<string, unknown>[] = [];
+    for (const cab of cabinets || []) {
+        try {
+            results.push({ cabinet_id: cab.id, name: cab.name, ...await syncOneCabinet(admin, cab) });
+        } catch (e) {
+            const err = e instanceof Error ? e.message : String(e);
+            console.error('[sync-campaigns]', cab.name, err);
+            results.push({ cabinet_id: cab.id, name: cab.name, ok: false, error: err });
+        }
+    }
 
     return json({
         ok: true,
@@ -84,72 +96,163 @@ async function syncOneCabinet(
     }
 
     const adverts = flattenAdverts(advertsRes.data);
-    let campaigns = 0;
-    let clusters = 0;
+    const rows: Record<string, unknown>[] = [];
+    const clusterWbIds: number[] = [];
+    const nmsByWb = new Map<number, number[]>();
+    let skippedNoId = 0;
+    const syncedAt = new Date().toISOString();
 
     for (const advert of adverts) {
         const wbId = Number(advert.advertId ?? advert.id ?? advert.advert_id ?? 0);
+        if (!wbId) {
+            skippedNoId += 1;
+            continue;
+        }
         const nmId = firstNmId(advert);
-        if (!wbId || !nmId) continue;
-
-        const row = {
+        const nms = allNmIds(advert);
+        rows.push({
             cabinet_id: cab.id,
             wb_campaign_id: wbId,
             nm_id: nmId,
             campaign_type: campaignTypeFromWb(advert),
             name: advertName(advert),
             status: campaignStatus(advert),
-            synced_at: new Date().toISOString(),
-        };
-        const { data: saved, error: upErr } = await admin
-            .from('adv_campaigns')
-            .upsert(row, { onConflict: 'cabinet_id,wb_campaign_id' })
-            .select('id')
-            .maybeSingle();
-        if (upErr || !saved?.id) {
-            console.error('[sync-campaigns] upsert campaign', cab.name, wbId, upErr?.message);
-            continue;
-        }
-        campaigns += 1;
-
-        const listRes = await listClusters(ctx, { advertId: wbId, advert_id: wbId });
-        if (listRes.status >= 400) {
-            console.error('[sync-campaigns] listClusters', cab.name, wbId, errorText(listRes.data));
-            continue;
-        }
-        const keys = collectClusterKeys(listRes.data);
-        if (keys.length) {
-            const clusterRows = keys.map((cluster_key) => ({
-                campaign_id: saved.id,
-                cluster_key,
-                is_active: true,
-            }));
-            const { error: clErr } = await admin
-                .from('adv_clusters')
-                .upsert(clusterRows, { onConflict: 'campaign_id,cluster_key' });
-            if (clErr) {
-                console.error('[sync-campaigns] upsert clusters', cab.name, wbId, clErr.message);
-            } else {
-                clusters += keys.length;
-            }
-        }
-
-        const { data: existing } = await admin
-            .from('adv_clusters')
-            .select('id, cluster_key')
-            .eq('campaign_id', saved.id);
-        const seen = new Set(keys);
-        const gone = (existing || []).filter((c) => !seen.has(c.cluster_key)).map((c) => c.id);
-        if (gone.length) {
-            const { error: deactErr } = await admin
-                .from('adv_clusters')
-                .update({ is_active: false })
-                .in('id', gone);
-            if (deactErr) console.error('[sync-campaigns] deactivate', cab.name, wbId, deactErr.message);
+            synced_at: syncedAt,
+        });
+        if (shouldSyncClusters(advert)) {
+            clusterWbIds.push(wbId);
+            nmsByWb.set(wbId, nms);
         }
     }
 
-    return { ok: true, campaigns, clusters };
+    let campaigns = 0;
+    for (let i = 0; i < rows.length; i += 100) {
+        const chunk = rows.slice(i, i + 100);
+        const { data: saved, error: upErr } = await admin
+            .from('adv_campaigns')
+            .upsert(chunk, { onConflict: 'cabinet_id,wb_campaign_id' })
+            .select('id, wb_campaign_id');
+        if (upErr) {
+            console.error('[sync-campaigns] upsert chunk', cab.name, upErr.message);
+            continue;
+        }
+        campaigns += (saved || []).length;
+    }
+
+    const withNm = rows.filter((r) => r.nm_id != null).length;
+    const { data: idRows } = await admin
+        .from('adv_campaigns')
+        .select('id, wb_campaign_id')
+        .eq('cabinet_id', cab.id)
+        .in('wb_campaign_id', clusterWbIds.length ? clusterWbIds : [0]);
+    const idByWb = new Map<number, string>();
+    for (const r of idRows || []) {
+        idByWb.set(Number((r as { wb_campaign_id: number }).wb_campaign_id), String((r as { id: string }).id));
+    }
+
+    const pairs: Array<{ advertId: number; nmId: number; campaignId: string }> = [];
+    for (const wbId of clusterWbIds) {
+        const campaignId = idByWb.get(wbId);
+        if (!campaignId) continue;
+        for (const nmId of nmsByWb.get(wbId) || []) {
+            pairs.push({ advertId: wbId, nmId, campaignId });
+        }
+    }
+
+    const activeByCamp = new Map<string, Set<string>>();
+    const excludedByCamp = new Map<string, Set<string>>();
+    const touched = new Set<string>();
+    const ensure = (m: Map<string, Set<string>>, id: string) => {
+        if (!m.has(id)) m.set(id, new Set());
+        return m.get(id)!;
+    };
+
+    let listOk = 0;
+    let listFail = 0;
+    for (let i = 0; i < pairs.length; i += 100) {
+        const chunk = pairs.slice(i, i + 100);
+        const listRes = await listClusters(ctx, listClustersBody(chunk));
+        if (listRes.status >= 400) {
+            listFail += 1;
+            console.error('[sync-campaigns] listClusters', cab.name, errorText(listRes.data));
+            continue;
+        }
+        listOk += 1;
+        for (const p of chunk) touched.add(p.campaignId);
+        for (const item of parseListClustersResponse(listRes.data)) {
+            const campaignId = idByWb.get(item.advertId);
+            if (!campaignId) continue;
+            const active = ensure(activeByCamp, campaignId);
+            const excluded = ensure(excludedByCamp, campaignId);
+            for (const key of item.active) active.add(key);
+            for (const key of item.excluded) {
+                if (!active.has(key)) excluded.add(key);
+            }
+        }
+    }
+
+    const upserts: Array<{ campaign_id: string; cluster_key: string; is_active: boolean }> = [];
+    for (const campaignId of touched) {
+        const active = activeByCamp.get(campaignId) || new Set<string>();
+        const excluded = excludedByCamp.get(campaignId) || new Set<string>();
+        for (const cluster_key of active) {
+            upserts.push({ campaign_id: campaignId, cluster_key, is_active: true });
+        }
+        for (const cluster_key of excluded) {
+            if (active.has(cluster_key)) continue;
+            upserts.push({ campaign_id: campaignId, cluster_key, is_active: false });
+        }
+    }
+
+    let clusters = 0;
+    let clustersExcluded = 0;
+    for (let i = 0; i < upserts.length; i += 200) {
+        const slice = upserts.slice(i, i + 200);
+        const { error: clErr } = await admin
+            .from('adv_clusters')
+            .upsert(slice, { onConflict: 'campaign_id,cluster_key' });
+        if (clErr) {
+            console.error('[sync-campaigns] upsert clusters', cab.name, clErr.message);
+            continue;
+        }
+        clusters += slice.filter((r) => r.is_active).length;
+        clustersExcluded += slice.filter((r) => !r.is_active).length;
+    }
+
+    const touchedIds = [...touched];
+    if (touchedIds.length) {
+        const seenByCamp = new Map<string, Set<string>>();
+        for (const campaignId of touchedIds) {
+            seenByCamp.set(campaignId, new Set([
+                ...(activeByCamp.get(campaignId) || []),
+                ...(excludedByCamp.get(campaignId) || []),
+            ]));
+        }
+        const { data: existing } = await admin
+            .from('adv_clusters')
+            .select('id, campaign_id, cluster_key')
+            .in('campaign_id', touchedIds);
+        const gone = (existing || [])
+            .filter((c) => !(seenByCamp.get(String(c.campaign_id)) || new Set()).has(c.cluster_key))
+            .map((c) => c.id);
+        for (let i = 0; i < gone.length; i += 200) {
+            await admin.from('adv_clusters').update({ is_active: false }).in('id', gone.slice(i, i + 200));
+        }
+    }
+
+    return {
+        ok: true,
+        seen: adverts.length,
+        campaigns,
+        with_nm: withNm,
+        without_nm: rows.length - withNm,
+        clusters,
+        clusters_excluded: clustersExcluded,
+        skipped_no_id: skippedNoId,
+        list_pairs: pairs.length,
+        list_batches_ok: listOk,
+        list_batches_fail: listFail,
+    };
 }
 
 function makeCtx(admin: Admin, cabinetId: string, token: string, tokenKey: string): AdvCallContext {
@@ -167,82 +270,6 @@ function makeCtx(admin: Admin, cabinetId: string, token: string, tokenKey: strin
             }).eq('id', cabinetId);
         },
     };
-}
-
-function flattenAdverts(data: unknown): Record<string, unknown>[] {
-    const out: Record<string, unknown>[] = [];
-    const walk = (items: unknown[]) => {
-        for (const item of items) {
-            if (!item || typeof item !== 'object') continue;
-            const o = item as Record<string, unknown>;
-            const id = Number(o.advertId ?? o.id ?? o.advert_id ?? 0);
-            if (id) out.push(o);
-            for (const key of ['advert_list', 'adverts', 'list', 'items']) {
-                if (Array.isArray(o[key])) walk(o[key] as unknown[]);
-            }
-        }
-    };
-    if (Array.isArray(data)) walk(data);
-    else if (data && typeof data === 'object') {
-        const o = data as Record<string, unknown>;
-        for (const key of ['adverts', 'advert_list', 'items', 'list']) {
-            if (Array.isArray(o[key])) walk(o[key] as unknown[]);
-        }
-    }
-    return out;
-}
-
-function firstNmId(a: Record<string, unknown>): number {
-    const settings = a.settings && typeof a.settings === 'object'
-        ? a.settings as Record<string, unknown>
-        : {};
-    const nms = a.nms ?? settings.nms ?? a.nmIds ?? settings.nmIds;
-    if (Array.isArray(nms) && nms.length) return Number(nms[0]) || 0;
-    return Number(a.nmId ?? a.nm_id ?? settings.nmId ?? settings.nm_id ?? 0);
-}
-
-function advertName(a: Record<string, unknown>): string {
-    const settings = a.settings && typeof a.settings === 'object'
-        ? a.settings as Record<string, unknown>
-        : {};
-    return String(a.name ?? a.campaignName ?? settings.name ?? '').trim();
-}
-
-function campaignTypeFromWb(a: Record<string, unknown>): 'manual_bid' | 'auto_bid' {
-    const bid = String(a.bid_type ?? a.bidType ?? '').toLowerCase();
-    if (/auto|unified|единая/.test(bid)) return 'auto_bid';
-    if (/manual|ручн/.test(bid)) return 'manual_bid';
-    const type = Number(a.type ?? a.advert_type ?? 0);
-    if (type === 8) return 'auto_bid';
-    return 'manual_bid';
-}
-
-function campaignStatus(a: Record<string, unknown>): string {
-    const s = a.status;
-    if (s === 9 || s === '9' || s === 'active') return 'active';
-    if (s === 11 || s === '11' || s === 'paused') return 'paused';
-    if (s != null && s !== '') return String(s);
-    return 'active';
-}
-
-function collectClusterKeys(data: unknown): string[] {
-    const keys = new Set<string>();
-    const walk = (node: unknown) => {
-        if (!node) return;
-        if (Array.isArray(node)) {
-            for (const item of node) walk(item);
-            return;
-        }
-        if (typeof node !== 'object') return;
-        const o = node as Record<string, unknown>;
-        const phrase = String(o.normquery ?? o.normQuery ?? o.phrase ?? o.text ?? o.query ?? o.keyword ?? '').trim();
-        if (phrase) keys.add(phrase);
-        for (const v of Object.values(o)) {
-            if (v && typeof v === 'object') walk(v);
-        }
-    };
-    walk(data);
-    return [...keys];
 }
 
 function errorText(data: unknown): string {

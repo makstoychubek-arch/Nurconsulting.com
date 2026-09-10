@@ -12,6 +12,7 @@ import {
     spendEstimateBetweenSyncs,
     tokenInvalidResult,
 } from '../_shared/autobidder-tick-decide.ts';
+import { getBidsBody } from '../_shared/adv-advert-parse.ts';
 import {
     getBids,
     parseDryRun,
@@ -85,6 +86,7 @@ Deno.serve(async (req) => {
         .from('cabinets')
         .select('id, name, adv_token_secret_id, adv_daily_budget_cap, adv_group_id')
         .eq('adv_token_valid', true)
+        .eq('adv_enabled', true)
         .not('adv_token_secret_id', 'is', null);
     if (onlyCabinet) q = q.eq('id', onlyCabinet);
     const { data: cabinets, error: cabErr } = await q;
@@ -238,9 +240,14 @@ async function tickCabinet(
 
     for (const [campaignId, campRules] of byCamp) {
         const camp = campRules[0].campaign;
-        const bidsRes = await getBids(adv, {
-            items: [{ advert_id: Number(camp.wb_campaign_id), nm_id: Number(camp.nm_id) }],
-        });
+        if (!Number(camp.nm_id)) {
+            console.warn('[autobidder-tick] skip campaign without nm_id', camp.wb_campaign_id);
+            continue;
+        }
+        const bidsRes = await getBids(adv, getBidsBody([{
+            advertId: Number(camp.wb_campaign_id),
+            nmId: Number(camp.nm_id),
+        }]));
         if (bidsRes.status === 401 || bidsRes.status === 403) {
             console.error('[autobidder-tick] token invalid', cab.name);
             return {

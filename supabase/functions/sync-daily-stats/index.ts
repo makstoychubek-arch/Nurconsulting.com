@@ -48,12 +48,13 @@ Deno.serve(async (req) => {
     const onlyCabinet = body.cabinet_id ? String(body.cabinet_id).trim() : '';
 
     const admin = createClient(supabaseUrl, serviceKey);
-    let q = admin
-        .from('cabinets')
-        .select('id, name, adv_token_secret_id')
-        .eq('adv_token_valid', true)
-        .not('adv_token_secret_id', 'is', null);
-    if (onlyCabinet) q = q.eq('id', onlyCabinet);
+  let q = admin
+    .from('cabinets')
+    .select('id, name, adv_token_secret_id')
+    .eq('adv_token_valid', true)
+    .eq('adv_enabled', true)
+    .not('adv_token_secret_id', 'is', null);
+  if (onlyCabinet) q = q.eq('id', onlyCabinet);
     const { data: cabinets, error: cabErr } = await q;
     if (cabErr) return json({ error: cabErr.message }, 500);
 
