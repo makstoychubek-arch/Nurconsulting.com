@@ -4930,15 +4930,36 @@
                     }
                     if (html && html.indexOf('rnp-workspace') !== -1) {
                         el.innerHTML = html;
-                        return;
+                    } else {
+                        var raw = read('rnp_chrome');
+                        if (raw) {
+                            var p = JSON.parse(raw);
+                            var bar = el.querySelector('#rnp-action-bar-wrap');
+                            var tabs = el.querySelector('#rnp-sheet-tabs');
+                            if (bar && p.bar) bar.innerHTML = p.bar;
+                            if (tabs && p.tabs) tabs.innerHTML = p.tabs;
+                        }
                     }
-                    var raw = read('rnp_chrome');
-                    if (!raw) return;
-                    var p = JSON.parse(raw);
-                    var bar = el.querySelector('#rnp-action-bar-wrap');
-                    var tabs = el.querySelector('#rnp-sheet-tabs');
-                    if (bar && p.bar) bar.innerHTML = p.bar;
-                    if (tabs && p.tabs) tabs.innerHTML = p.tabs;
+                    if (el.querySelector('.rnp-sheet-table, .rnp-summary-table, .rnp-head-wide')) return;
+                    var open = indexedDB.open('nr-rnp-lock', 1);
+                    open.onupgradeneeded = function (ev) {
+                        var db = ev.target.result;
+                        if (!db.objectStoreNames.contains('shell')) db.createObjectStore('shell');
+                    };
+                    open.onsuccess = function () {
+                        try {
+                            var db = open.result;
+                            if (!db.objectStoreNames.contains('shell')) return;
+                            var tx = db.transaction('shell', 'readonly');
+                            var req = tx.objectStore('shell').get(cab || 'last');
+                            req.onsuccess = function () {
+                                var html2 = req.result;
+                                if (!html2 || String(html2).indexOf('rnp-workspace') === -1) return;
+                                if (el.querySelector('.rnp-sheet-table, .rnp-summary-table, .rnp-head-wide')) return;
+                                el.innerHTML = html2;
+                            };
+                        } catch (e3) {}
+                    };
                 } catch (e) {}
             })();
         </script>

@@ -4891,6 +4891,194 @@ const RNP = (() => {
         return false;
     }
 
+    function _sheetLockKey(cal) {
+        return [
+            _activeNm == null ? '' : String(_activeNm),
+            cal && cal.mode || '',
+            cal && cal.days ? cal.days.length : 0,
+            cal && cal.weeks ? cal.weeks.length : 0,
+            cal && cal.months ? cal.months.length : 0,
+            _viewMonthKey(),
+            _compareMonthKey || '',
+            _sectionView || 'all',
+            _notesVisible ? '1' : '0',
+            _compareNm || '',
+        ].join('|');
+    }
+
+    function _patchSubtree(dst, src) {
+        if (!dst || !src) return;
+        if (src.dataset && src.dataset.rnpValue != null && dst.dataset) {
+            dst.dataset.rnpValue = src.dataset.rnpValue;
+        }
+        if (dst.tagName === 'IMG') {
+            const next = src.getAttribute('src') || '';
+            if (next && !dst.getAttribute('src')) dst.setAttribute('src', next);
+            return;
+        }
+        if (dst.tagName === 'INPUT' || dst.tagName === 'SELECT' || dst.tagName === 'TEXTAREA') {
+            if (document.activeElement === dst) return;
+            const v = src.value != null ? src.value : src.getAttribute('value');
+            if (v != null && dst.value !== String(v)) dst.value = v;
+            return;
+        }
+        if (dst.classList && dst.classList.contains('rnp-spark-col')) {
+            if (dst.innerHTML !== src.innerHTML) dst.innerHTML = src.innerHTML;
+            return;
+        }
+        if (dst.tagName === 'polyline' || dst.tagName === 'path' || dst.tagName === 'circle') {
+            ['points', 'd', 'cx', 'cy', 'r', 'fill', 'stroke', 'stroke-width'].forEach(attr => {
+                const v = src.getAttribute(attr);
+                if (v != null) dst.setAttribute(attr, v);
+                else if (dst.hasAttribute(attr)) dst.removeAttribute(attr);
+            });
+            return;
+        }
+        if (dst.className !== src.className) dst.className = src.className;
+        const ss = src.getAttribute('style') || '';
+        const ds = dst.getAttribute('style') || '';
+        if (ss !== ds) {
+            if (ss) dst.setAttribute('style', ss);
+            else dst.removeAttribute('style');
+        }
+        if (dst.children.length && dst.children.length === src.children.length) {
+            for (let i = 0; i < dst.children.length; i++) _patchSubtree(dst.children[i], src.children[i]);
+            return;
+        }
+        if (!dst.children.length && !src.children.length) {
+            if (dst.textContent !== src.textContent) dst.textContent = src.textContent;
+            return;
+        }
+        if (dst.innerHTML !== src.innerHTML) dst.innerHTML = src.innerHTML;
+    }
+
+    function _patchLockedSheet(body, nextHtml) {
+        if (!body || !nextHtml) return false;
+        const tmp = document.createElement('div');
+        tmp.innerHTML = nextHtml;
+        const liveTable = body.querySelector('.rnp-sheet-table, .rnp-summary-table');
+        const nextTable = tmp.querySelector('.rnp-sheet-table, .rnp-summary-table');
+        if (!liveTable || !nextTable) return false;
+        const liveTbody = liveTable.tBodies[0];
+        const nextTbody = nextTable.tBodies[0];
+        if (!liveTbody || !nextTbody) return false;
+        if (liveTbody.rows.length !== nextTbody.rows.length) return false;
+        if (liveTbody.rows[0] && nextTbody.rows[0]
+            && liveTbody.rows[0].cells.length !== nextTbody.rows[0].cells.length) return false;
+        for (let i = 0; i < liveTbody.rows.length; i++) _patchSubtree(liveTbody.rows[i], nextTbody.rows[i]);
+        const liveHead = liveTable.tHead;
+        const nextHead = nextTable.tHead;
+        if (liveHead && nextHead && liveHead.rows.length === nextHead.rows.length) {
+            for (let i = 0; i < liveHead.rows.length; i++) {
+                if (liveHead.rows[i].classList.contains('rnp-head-panel')) continue;
+                _patchSubtree(liveHead.rows[i], nextHead.rows[i]);
+            }
+        }
+        ['.rnp-head-wide-info', '.rnp-kpi-block', '.rnp-kpi-sizes-row', '.rnp-general-bar-metrics'].forEach(sel => {
+            const a = body.querySelector(sel);
+            const b = tmp.querySelector(sel);
+            if (a && b) _patchSubtree(a, b);
+        });
+        return true;
+    }
+
+    function _domSheetHint(body) {
+        if (body.querySelector('.rnp-summary-table')) return 'summary';
+        if (body.querySelector('.rnp-sheet-table--cabinet')) return 'general';
+        const nmid = body.querySelector('.rnp-gs-nmid b');
+        if (nmid) return String(nmid.textContent || '').trim();
+        const wrap = body.querySelector('.rnp-stock-scheme-wrap[data-nm]');
+        if (wrap) return String(wrap.getAttribute('data-nm') || '');
+        return '';
+    }
+
+    function _sameLockedSheet(body, lock) {
+        const prev = body.getAttribute('data-rnp-lock') || '';
+        if (prev) return prev === lock;
+        const hint = _domSheetHint(body);
+        if (!hint) return true;
+        if (hint === 'summary') return String(_activeNm) === 'summary';
+        if (hint === 'general') return String(_activeNm) === 'general';
+        return hint === String(_activeNm);
+    }
+
+    function _paintSheetBody(body, nextHtml, cal) {
+        const lock = _sheetLockKey(cal);
+        const hasTable = !!body.querySelector('.rnp-sheet-table, .rnp-summary-table');
+        if (hasTable && _sameLockedSheet(body, lock) && _patchLockedSheet(body, nextHtml)) {
+            body.setAttribute('data-rnp-lock', lock);
+            return 'patch';
+        }
+        _preserveRnpScroll(() => { body.innerHTML = nextHtml; });
+        body.setAttribute('data-rnp-lock', lock);
+        return 'replace';
+    }
+
+    function _fillRnpChrome(active, opts) {
+        const force = !!(opts && opts.force);
+        const bar = document.getElementById('rnp-action-bar-wrap');
+        const tabs = document.getElementById('rnp-sheet-tabs');
+        const chromeReady = !!(bar && bar.querySelector('select') && tabs && tabs.querySelector('.rnp-sheet-tab'));
+        if (chromeReady && !force) {
+            _updateTabHighlight();
+            return false;
+        }
+        if (bar) bar.innerHTML = _buildActionBar(active);
+        if (tabs) tabs.innerHTML = _renderTabsHTML(active, { lite: active.length > 40 });
+        return true;
+    }
+
+    function _rnpIdbOpen() {
+        return new Promise((resolve, reject) => {
+            const open = indexedDB.open('nr-rnp-lock', 1);
+            open.onerror = () => reject(open.error);
+            open.onupgradeneeded = ev => {
+                const db = ev.target.result;
+                if (!db.objectStoreNames.contains('shell')) db.createObjectStore('shell');
+            };
+            open.onsuccess = () => resolve(open.result);
+        });
+    }
+
+    function _rnpIdbPut(cab, html) {
+        if (!cab || !html) return;
+        _rnpIdbOpen().then(db => {
+            const tx = db.transaction('shell', 'readwrite');
+            tx.objectStore('shell').put(html, cab);
+            tx.objectStore('shell').put(html, 'last');
+        }).catch(() => {});
+    }
+
+    function _restoreRnpIdb(el, cab) {
+        if (!el || _rnpMainRendered()) return Promise.resolve(false);
+        return new Promise(resolve => {
+            let done = false;
+            const finish = ok => { if (!done) { done = true; resolve(!!ok); } };
+            setTimeout(() => finish(false), 180);
+            _rnpIdbOpen().then(db => {
+                if (!db.objectStoreNames.contains('shell')) return finish(false);
+                const tx = db.transaction('shell', 'readonly');
+                const req = tx.objectStore('shell').get(cab || 'last');
+                req.onerror = () => finish(false);
+                req.onsuccess = () => {
+                    const html = req.result;
+                    if (html && String(html).indexOf('rnp-workspace') >= 0 && !_rnpMainRendered()) {
+                        el.innerHTML = html;
+                        finish(true);
+                    } else finish(!!_rnpMainRendered());
+                };
+            }).catch(() => finish(false));
+        });
+    }
+
+    function _bindRnpLockUnload() {
+        if (window.__rnpLockUnload) return;
+        window.__rnpLockUnload = true;
+        const save = () => { try { _saveRnpChrome(); _saveRnpShell(); } catch (e) {} };
+        window.addEventListener('pagehide', save);
+        window.addEventListener('beforeunload', save);
+    }
+
     function _rnpShellKey(cab) {
         return 'rnp_shell_' + (cab || '');
     }
@@ -4943,24 +5131,28 @@ const RNP = (() => {
         });
         _storeRnpKey('rnp_chrome', payload);
         if (_cab) _storeRnpKey('rnp_shell_cab', _cab);
+        _bindRnpLockUnload();
     }
 
     function _saveRnpShell() {
         const el = document.getElementById('tab-rnp');
         const ws = el?.querySelector('.rnp-workspace');
         if (!ws || !_cab) return;
+        _bindRnpLockUnload();
         _saveRnpChrome();
         if (!_rnpMainRendered()) return;
-        let html = _compactRnpWorkspace(ws);
+        const html = _compactRnpWorkspace(ws);
         if (!html) return;
-        if (html.length > 900000) {
+        _rnpIdbPut(_cab, html);
+        let lsHtml = html;
+        if (lsHtml.length > 900000) {
             const clone = ws.cloneNode(true);
             const body = clone.querySelector('#rnp-sheet-body, .rnp-sheet-body');
             if (body) body.innerHTML = body.innerHTML.slice(0, 400000);
-            html = clone.outerHTML;
+            lsHtml = clone.outerHTML;
         }
-        if (html.length > 1200000) return;
-        _storeRnpKey(_rnpShellKey(_cab), html);
+        if (lsHtml.length > 1200000) return;
+        _storeRnpKey(_rnpShellKey(_cab), lsHtml);
         _storeRnpKey('rnp_shell_cab', _cab);
     }
 
@@ -5050,6 +5242,7 @@ const RNP = (() => {
         if (!el) return;
 
         if (!el.querySelector('.rnp-workspace') || !_rnpMainRendered()) _restoreRnpShell(el, _cab);
+        if (!_rnpMainRendered()) await _restoreRnpIdb(el, _cab);
 
         if (_initInflight && !_cabArticles().length) {
             await Promise.race([
@@ -5129,12 +5322,7 @@ const RNP = (() => {
             el.innerHTML = _workspaceChromeHtml(active);
             await _yieldMain();
         } else {
-            _preserveRnpScroll(() => {
-                const bar = document.getElementById('rnp-action-bar-wrap');
-                if (bar) bar.innerHTML = _buildActionBar(active);
-                const tabs = document.getElementById('rnp-sheet-tabs');
-                if (tabs) tabs.innerHTML = _renderTabsHTML(active, { lite: active.length > 40 });
-            });
+            _fillRnpChrome(active);
         }
         _saveRnpChrome();
 
@@ -5178,8 +5366,6 @@ const RNP = (() => {
         _preloadPhotosBackground(active).then(() => {
             if (renderId !== _mainRenderGen) return;
             _applyResolvedPhotos();
-            const tabs = document.getElementById('rnp-sheet-tabs');
-            if (tabs) tabs.innerHTML = _renderTabsHTML(_rnpVisibleArticles());
             _updateTabHighlight();
         });
         _updateEditModeBtn();
@@ -5231,12 +5417,11 @@ const RNP = (() => {
                     if (i + CHUNK < rowParts.length) await _yieldMain();
                 }
             } else {
-                body.innerHTML = _buildSummaryHTML(active, cal);
+                _paintSheetBody(body, _buildSummaryHTML(active, cal), cal);
             }
+            body.setAttribute('data-rnp-lock', _sheetLockKey(cal));
             _applyResolvedPhotos(body);
             _updateTabHighlight();
-            const bar = document.getElementById('rnp-action-bar-wrap');
-            if (bar) bar.innerHTML = _buildActionBar(active);
             _saveRnpShell();
             return;
         }
@@ -5245,28 +5430,20 @@ const RNP = (() => {
             _hydratePhotoCacheFromStorage();
             _hydratePhotoCacheFromArticles();
             _metricRowSeq = 0;
-            const existingWrap = body.querySelector('#rnp-table-wrap');
-            if (existingWrap && existingWrap.querySelector('.rnp-sheet-table')) {
-                const top = body.querySelector('.rnp-general-topbar');
-                if (top) top.outerHTML = _buildGeneralTopBar(active, cal);
-                existingWrap.innerHTML = _buildGeneralTableHTML(active, cal);
-            } else {
-                body.innerHTML = `
+            const nextInner = `
           ${_buildGeneralTopBar(active, cal)}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
             ${_buildGeneralTableHTML(active, cal)}
           </div>
           ${_selectionBarHTML()}`;
-            }
-            await _yieldMain();
+            const painted = _paintSheetBody(body, nextInner, cal);
+            if (painted === 'replace') await _yieldMain();
             _updateTabHighlight();
-            const bar = document.getElementById('rnp-action-bar-wrap');
-            if (bar) bar.innerHTML = _buildActionBar(active);
             _applyResolvedPhotos(body);
             _afterTableRender();
             requestAnimationFrame(() => {
                 _syncFrozenPane(body);
-                _bindMarqueeResize(body);
+                if (painted === 'replace') _bindMarqueeResize(body);
             });
             _preloadPhotosBackground(active).then(() => _applyResolvedPhotos(body));
             _saveRnpShell();
@@ -5304,43 +5481,50 @@ const RNP = (() => {
         }
 
         _metricRowSeq = 0;
-        _preserveRnpScroll(() => {
-            body.innerHTML = `
+        const nextInner = `
           ${topHTML}
           <div class="rnp-table-scroll" id="rnp-table-wrap">
             ${_buildTableHTML(art, stockBySize, rawData, cal)}
           </div>
           ${_selectionBarHTML()}`;
-        });
+        const painted = _paintSheetBody(body, nextInner, cal);
 
         _updateTabHighlight();
-        const bar = document.getElementById('rnp-action-bar-wrap');
-        if (bar) bar.innerHTML = _buildActionBar(active);
-
         _applyResolvedPhotos(body);
         _afterTableRender();
-        _refreshMarqueeBaseHtml(body);
-        requestAnimationFrame(() => {
-            _syncFrozenPane(body);
-            _syncMarqueeFill(body);
+        if (painted === 'replace') {
+            _refreshMarqueeBaseHtml(body);
+            requestAnimationFrame(() => {
+                _syncFrozenPane(body);
+                _syncMarqueeFill(body);
+                requestAnimationFrame(() => {
+                    _syncFrozenPane(body);
+                    _syncMarqueeFill(body);
+                });
+                _bindMarqueeResize(body);
+            });
+            _bindArticleSwipe(body);
+        } else {
             requestAnimationFrame(() => {
                 _syncFrozenPane(body);
                 _syncMarqueeFill(body);
             });
-            _bindMarqueeResize(body);
-        });
+        }
         _preloadGalleryPhotos(art.nm_id).then(() => {
             _applyResolvedPhotos(body);
-            _refreshMarqueeBaseHtml(body);
-            _syncMarqueeFill(body);
+            if (painted === 'replace') {
+                _refreshMarqueeBaseHtml(body);
+                _syncMarqueeFill(body);
+            }
         }).catch(() => {});
         _preloadPhotos(_articles.filter(a => a.is_active)).then(() => {
             _applyResolvedPhotos(body);
-            _refreshMarqueeBaseHtml(body);
-            _syncMarqueeFill(body);
+            if (painted === 'replace') {
+                _refreshMarqueeBaseHtml(body);
+                _syncMarqueeFill(body);
+            }
             _saveRnpShell();
         }).catch(() => {});
-        _bindArticleSwipe(body);
         _saveRnpShell();
     }
 

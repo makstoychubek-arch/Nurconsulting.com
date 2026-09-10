@@ -1049,6 +1049,14 @@ assert.ok(html.includes('localStorage.getItem(k)') && html.includes('rnp_chrome'
     'RNP restore also reads localStorage and the compact chrome snapshot');
 assert.ok(rnpSrc.includes('function _saveRnpChrome') && rnpSrc.includes('function _compactRnpWorkspace'),
     'RNP snapshot is compacted so it fits storage and comes back on F5');
+assert.ok(rnpSrc.includes('function _patchLockedSheet') && rnpSrc.includes('function _paintSheetBody') && rnpSrc.includes('function _sheetLockKey'),
+    'same RNP sheet must patch values in place instead of swapping blocks');
+assert.ok(rnpSrc.includes('function _fillRnpChrome') && rnpSrc.includes('nr-rnp-lock') && rnpSrc.includes('function _rnpIdbPut'),
+    'F5 chrome stays put and the full sheet is also stored in IndexedDB');
+assert.ok(!rnpSrc.includes("if (tabs) tabs.innerHTML = _renderTabsHTML(_rnpVisibleArticles());"),
+    'photo preload must not rebuild the article tabs');
+assert.ok(html.includes("indexedDB.open('nr-rnp-lock'"),
+    'tab-rnp restores the IndexedDB sheet before the module boots');
 assert.ok(!/if \(!_cachedPhotoUrl\(art, 1\)\) await _ensurePhoto/.test(rnpSrc),
     'article sheet must not wait for photos before painting the table');
 assert.ok(!rnpSrc.includes('Рисуем таблицу'),
