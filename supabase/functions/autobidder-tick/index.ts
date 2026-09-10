@@ -12,6 +12,7 @@ import {
     spendEstimateBetweenSyncs,
     tokenInvalidResult,
 } from '../_shared/autobidder-tick-decide.ts';
+import { getBidsBody } from '../_shared/adv-advert-parse.ts';
 import {
     getBids,
     parseDryRun,
@@ -243,9 +244,10 @@ async function tickCabinet(
             console.warn('[autobidder-tick] skip campaign without nm_id', camp.wb_campaign_id);
             continue;
         }
-        const bidsRes = await getBids(adv, {
-            items: [{ advert_id: Number(camp.wb_campaign_id), nm_id: Number(camp.nm_id) }],
-        });
+        const bidsRes = await getBids(adv, getBidsBody([{
+            advertId: Number(camp.wb_campaign_id),
+            nmId: Number(camp.nm_id),
+        }]));
         if (bidsRes.status === 401 || bidsRes.status === 403) {
             console.error('[autobidder-tick] token invalid', cab.name);
             return {

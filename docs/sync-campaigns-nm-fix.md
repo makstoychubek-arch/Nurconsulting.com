@@ -8,7 +8,7 @@
 
 Старый код брал только `nms` / `nmId` и молча делал `continue`. Проверено на Zevina 1: 475 кампаний в ответе, 449 с `nm_settings`.
 
-Дополнительно: `listClusters` ждёт `{ items: [{ id }] }`. Старое тело `{ advertId }` давало 400.
+Дополнительно: тогда думали, что `listClusters` ждёт `{ items: [{ id }] }`. Это даёт HTTP 200 и **пустой `items`**. Официальное тело — `{ items: [{ advertId, nmId }] }`, см. `docs/autobidder-sync-clusters-fix.md`.
 
 ## Что сделали с `nm_id` (не отдельный detail-запрос)
 

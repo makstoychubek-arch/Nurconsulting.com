@@ -1,15 +1,18 @@
 // sync_campaigns — каждые 30 мин.
 // getAdverts v2: nm_id из nm_settings[]. Кабинеты с adv_enabled=true.
-// listClusters — только status 9/11, тело { items: [{ id }] }.
+// listClusters — официальное тело { items: [{ advertId, nmId }] }, пачками по 100.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import {
     advertName,
+    allNmIds,
     campaignStatus,
     campaignTypeFromWb,
     firstNmId,
     flattenAdverts,
+    listClustersBody,
+    parseListClustersResponse,
     shouldSyncClusters,
 } from '../_shared/adv-advert-parse.ts';
 import {
@@ -95,7 +98,8 @@ async function syncOneCabinet(
 
     const adverts = flattenAdverts(advertsRes.data);
     const rows: Record<string, unknown>[] = [];
-    const liveWbIds: number[] = [];
+    const clusterWbIds: number[] = [];
+    const nmsByWb = new Map<number, number[]>();
     let skippedNoId = 0;
     const syncedAt = new Date().toISOString();
 
@@ -106,6 +110,7 @@ async function syncOneCabinet(
             continue;
         }
         const nmId = firstNmId(advert);
+        const nms = allNmIds(advert);
         rows.push({
             cabinet_id: cab.id,
             wb_campaign_id: wbId,
@@ -115,7 +120,10 @@ async function syncOneCabinet(
             status: campaignStatus(advert),
             synced_at: syncedAt,
         });
-        if (shouldSyncClusters(advert)) liveWbIds.push(wbId);
+        if (shouldSyncClusters(advert)) {
+            clusterWbIds.push(wbId);
+            nmsByWb.set(wbId, nms);
+        }
     }
 
     let campaigns = 0;
@@ -137,42 +145,88 @@ async function syncOneCabinet(
         .from('adv_campaigns')
         .select('id, wb_campaign_id')
         .eq('cabinet_id', cab.id)
-        .in('wb_campaign_id', liveWbIds.length ? liveWbIds : [0]);
+        .in('wb_campaign_id', clusterWbIds.length ? clusterWbIds : [0]);
     const idByWb = new Map<number, string>();
     for (const r of idRows || []) {
         idByWb.set(Number((r as { wb_campaign_id: number }).wb_campaign_id), String((r as { id: string }).id));
     }
 
-    let clusters = 0;
-    for (const wbId of liveWbIds) {
-        const savedId = idByWb.get(wbId);
-        if (!savedId) continue;
-        const listRes = await listClusters(ctx, { items: [{ id: wbId }] });
+    const pairs: Array<{ advertId: number; nmId: number; campaignId: string }> = [];
+    for (const wbId of clusterWbIds) {
+        const campaignId = idByWb.get(wbId);
+        if (!campaignId) continue;
+        for (const nmId of nmsByWb.get(wbId) || []) {
+            pairs.push({ advertId: wbId, nmId, campaignId });
+        }
+    }
+
+    const activeByCamp = new Map<string, Set<string>>();
+    const excludedByCamp = new Map<string, Set<string>>();
+    const ensure = (m: Map<string, Set<string>>, id: string) => {
+        if (!m.has(id)) m.set(id, new Set());
+        return m.get(id)!;
+    };
+    for (const p of pairs) {
+        ensure(activeByCamp, p.campaignId);
+        ensure(excludedByCamp, p.campaignId);
+    }
+
+    let listOk = 0;
+    let listFail = 0;
+    for (let i = 0; i < pairs.length; i += 100) {
+        const chunk = pairs.slice(i, i + 100);
+        const listRes = await listClusters(ctx, listClustersBody(chunk));
         if (listRes.status >= 400) {
-            console.error('[sync-campaigns] listClusters', cab.name, wbId, errorText(listRes.data));
+            listFail += 1;
+            console.error('[sync-campaigns] listClusters', cab.name, errorText(listRes.data));
             continue;
         }
-        const keys = collectClusterKeys(listRes.data);
-        if (keys.length) {
-            const clusterRows = keys.map((cluster_key) => ({
-                campaign_id: savedId,
-                cluster_key,
-                is_active: true,
-            }));
+        listOk += 1;
+        for (const item of parseListClustersResponse(listRes.data)) {
+            const campaignId = idByWb.get(item.advertId);
+            if (!campaignId) continue;
+            const active = ensure(activeByCamp, campaignId);
+            const excluded = ensure(excludedByCamp, campaignId);
+            for (const key of item.active) active.add(key);
+            for (const key of item.excluded) {
+                if (!active.has(key)) excluded.add(key);
+            }
+        }
+    }
+
+    let clusters = 0;
+    let clustersExcluded = 0;
+    for (const [campaignId, active] of activeByCamp) {
+        const excluded = excludedByCamp.get(campaignId) || new Set<string>();
+        const upserts: Array<{ campaign_id: string; cluster_key: string; is_active: boolean }> = [];
+        for (const cluster_key of active) {
+            upserts.push({ campaign_id: campaignId, cluster_key, is_active: true });
+        }
+        for (const cluster_key of excluded) {
+            if (active.has(cluster_key)) continue;
+            upserts.push({ campaign_id: campaignId, cluster_key, is_active: false });
+        }
+        for (let i = 0; i < upserts.length; i += 200) {
+            const slice = upserts.slice(i, i + 200);
             const { error: clErr } = await admin
                 .from('adv_clusters')
-                .upsert(clusterRows, { onConflict: 'campaign_id,cluster_key' });
-            if (clErr) console.error('[sync-campaigns] upsert clusters', cab.name, wbId, clErr.message);
-            else clusters += keys.length;
+                .upsert(slice, { onConflict: 'campaign_id,cluster_key' });
+            if (clErr) console.error('[sync-campaigns] upsert clusters', cab.name, clErr.message);
+            else {
+                clusters += slice.filter((r) => r.is_active).length;
+                clustersExcluded += slice.filter((r) => !r.is_active).length;
+            }
         }
         const { data: existing } = await admin
             .from('adv_clusters')
             .select('id, cluster_key')
-            .eq('campaign_id', savedId);
-        const seen = new Set(keys);
+            .eq('campaign_id', campaignId);
+        const seen = new Set([...active, ...excluded]);
         const gone = (existing || []).filter((c) => !seen.has(c.cluster_key)).map((c) => c.id);
         if (gone.length) {
-            await admin.from('adv_clusters').update({ is_active: false }).in('id', gone);
+            for (let i = 0; i < gone.length; i += 200) {
+                await admin.from('adv_clusters').update({ is_active: false }).in('id', gone.slice(i, i + 200));
+            }
         }
     }
 
@@ -183,8 +237,11 @@ async function syncOneCabinet(
         with_nm: withNm,
         without_nm: rows.length - withNm,
         clusters,
+        clusters_excluded: clustersExcluded,
         skipped_no_id: skippedNoId,
-        live: liveWbIds.length,
+        list_pairs: pairs.length,
+        list_batches_ok: listOk,
+        list_batches_fail: listFail,
     };
 }
 
@@ -203,26 +260,6 @@ function makeCtx(admin: Admin, cabinetId: string, token: string, tokenKey: strin
             }).eq('id', cabinetId);
         },
     };
-}
-
-function collectClusterKeys(data: unknown): string[] {
-    const keys = new Set<string>();
-    const walk = (node: unknown) => {
-        if (!node) return;
-        if (Array.isArray(node)) {
-            for (const item of node) walk(item);
-            return;
-        }
-        if (typeof node !== 'object') return;
-        const o = node as Record<string, unknown>;
-        const phrase = String(o.normquery ?? o.normQuery ?? o.phrase ?? o.text ?? o.query ?? o.keyword ?? '').trim();
-        if (phrase) keys.add(phrase);
-        for (const v of Object.values(o)) {
-            if (v && typeof v === 'object') walk(v);
-        }
-    };
-    walk(data);
-    return [...keys];
 }
 
 function errorText(data: unknown): string {
