@@ -4,7 +4,7 @@
 
 **Факт (10.09.2026):** WB Advertising API отдаёт ставки в валюте кабинета. Zevina 1 — `currency: "KGS"`, ставка кластера `пиджак для женщин` = **420** (сомы, не рубли). Примечание внесено в `docs/autobidder.md` §1 и в комментарии колонок (`20260910060000_adv_bid_currency_comments.sql`).
 
-Baza / Elium: валюту кабинета ещё не снимали с `get-bids`. Не считать их RUB по умолчанию.
+Baza и Elium тоже **KGS** (живой `get-bids`, `docs/autobidder-cabinet-currency.md`). Не считать их RUB.
 
 ---
 
