@@ -189,6 +189,69 @@
         })).filter((g) => g.items.length);
     }
 
+    const GOODS_COLS = [
+        { id: 'art', label: 'Артикул', locked: true },
+        { id: 'nm', label: 'WB' },
+        { id: 'fbo', label: 'ФБО' },
+        { id: 'fbs', label: 'ФБС' },
+        { id: 'transit', label: 'В пути' },
+        { id: 'plan', label: 'В плане' },
+        { id: 'total', label: 'Итого' },
+    ];
+
+    function visibleCols(hiddenCols) {
+        const hide = hiddenCols && typeof hiddenCols === 'object' ? hiddenCols : {};
+        return GOODS_COLS.filter((c) => c.locked || !hide[c.id]);
+    }
+
+    function hideGroups(groups, hiddenSections) {
+        const hide = hiddenSections && typeof hiddenSections === 'object' ? hiddenSections : {};
+        return (groups || []).filter((g) => !hide[g.key] && !hide[g.name]);
+    }
+
+    function csvCell(v) {
+        const s = String(v ?? '');
+        if (/[;"\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+        return s;
+    }
+
+    function cellExportValue(row, colId) {
+        if (colId === 'art') return row.sellerArticle || '';
+        if (colId === 'nm') return row.nmId || '';
+        const s = stockOf(row);
+        if (colId === 'fbo') return s.fbo;
+        if (colId === 'fbs') return s.fbs;
+        if (colId === 'transit') return s.transit;
+        if (colId === 'plan') return s.plan;
+        if (colId === 'total') return s.total;
+        return '';
+    }
+
+    function exportExcelCsv(groups, opts) {
+        const cols = visibleCols(opts && opts.hiddenCols);
+        const sep = ';';
+        const lines = [cols.map((c) => csvCell(c.label)).join(sep)];
+        (groups || []).forEach((g) => {
+            lines.push(cols.map((c, i) => csvCell(i === 0 ? g.name : '')).join(sep));
+            (g.items || []).forEach((row) => {
+                lines.push(cols.map((c) => csvCell(cellExportValue(row, c.id))).join(sep));
+            });
+            const tot = sumItems(g.items);
+            lines.push(cols.map((c) => {
+                if (c.id === 'art') return csvCell('Итого');
+                if (c.id === 'nm') return '';
+                return csvCell(tot[c.id] ?? '');
+            }).join(sep));
+        });
+        const grand = sumItems(flattenGroups(groups));
+        lines.push(cols.map((c) => {
+            if (c.id === 'art') return csvCell('ВСЕГО');
+            if (c.id === 'nm') return '';
+            return csvCell(grand[c.id] ?? '');
+        }).join(sep));
+        return '\uFEFF' + lines.join('\n');
+    }
+
     function readManualQty(md, key) {
         if (!md || typeof md !== 'object') return undefined;
         if (!Object.prototype.hasOwnProperty.call(md, key)) return undefined;
@@ -209,6 +272,11 @@
         flattenGroups,
         sumItems,
         filterGroups,
+        hideGroups,
+        visibleCols,
+        csvCell,
+        exportExcelCsv,
+        GOODS_COLS,
         readManualQty,
     };
     root.GoodsCatalog = GoodsCatalog;
