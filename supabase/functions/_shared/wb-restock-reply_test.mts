@@ -12,6 +12,7 @@ import {
     isRestockQuestion,
     isWhenOnlyReply,
     matchPendingByText,
+    normalizeWhenPhrase,
     ownerMention,
     parseRestockCardMeta,
     parseNewFeedbacksQuestions,
@@ -26,7 +27,8 @@ assert.equal(isRestockQuestion('Какой состав ткани?'), false, 'c
 assert.equal(extractRestockWhen('завтра'), 'завтра');
 assert.equal(extractRestockWhen('через неделю'), 'через неделю');
 assert.equal(extractRestockWhen('через 2 недели'), 'через 2 недели');
-assert.equal(extractRestockWhen('Через две недели пожалуйста'), 'Через две недели');
+assert.equal(extractRestockWhen('Через две недели пожалуйста'), 'через две недели');
+assert.equal(normalizeWhenPhrase('Через неделю'), 'через неделю');
 assert.equal(extractRestockWhen('послезавтра'), 'послезавтра');
 assert.equal(extractRestockWhen('не знаю'), null);
 
@@ -41,6 +43,10 @@ assert.equal(
 assert.equal(
     buildWbRestockAnswer('завтра.'),
     'Здравствуйте, этот товар будет в наличии завтра.',
+);
+assert.equal(
+    buildWbRestockAnswer('Через неделю'),
+    'Здравствуйте, этот товар будет в наличии через неделю.',
 );
 
 assert.equal(cabinetLegalName('Zevina 1'), 'ИП Уркунбаев К.А.');

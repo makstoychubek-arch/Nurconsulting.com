@@ -41,6 +41,8 @@ assert.ok(!router.includes('готово') && !router.includes('не смогл�
     'must not write status text after a restock reply');
 assert.ok(poll.includes('resend_question_id'), 'poll can duplicate one pending card');
 assert.ok(poll.includes('apply_question_id'), 'poll can apply an already given restock date');
+assert.ok(poll.includes('setMessageReaction'), 'poll can put a heart on the Telegram reply');
+assert.ok(shared.includes('toLocaleLowerCase'), 'WB when-phrase is lowercased');
 assert.ok(poll.includes('answerWbQuestion'), 'poll apply uses official PATCH');
 
 assert.ok(admin.includes("action === 'set_webhook'"), 'admin can point notify bot at the router');

@@ -67,7 +67,7 @@ export function extractRestockWhen(raw: string): string | null {
     if (!t) return null;
     for (const re of WHEN_RES) {
         const m = t.match(re);
-        if (m) return m[0].replace(/\s+/g, ' ').trim();
+        if (m) return normalizeWhenPhrase(m[0]);
     }
     return null;
 }
@@ -84,9 +84,14 @@ export function isWhenOnlyReply(raw: string): boolean {
     return rest.length <= 16;
 }
 
+export function normalizeWhenPhrase(raw: string): string {
+    const phrase = normalizeReply(raw).replace(/[.]+$/, '');
+    if (!phrase) return '';
+    return phrase.charAt(0).toLocaleLowerCase('ru-RU') + phrase.slice(1);
+}
+
 export function buildWbRestockAnswer(when: string): string {
-    const phrase = normalizeReply(when).replace(/[.]+$/, '');
-    return `Здравствуйте, этот товар будет в наличии ${phrase}.`;
+    return `Здравствуйте, этот товар будет в наличии ${normalizeWhenPhrase(when)}.`;
 }
 
 export function cabinetLegalName(name: string): string {

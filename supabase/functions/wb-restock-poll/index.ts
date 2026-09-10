@@ -10,6 +10,7 @@ import {
     answerWbQuestion,
     buildWbRestockAnswer,
     formatRestockTelegramCard,
+    normalizeWhenPhrase,
     ownerMention,
     parseNewFeedbacksQuestions,
     pickRestockQuestions,
@@ -54,7 +55,15 @@ Deno.serve(async (req) => {
     }
     const applyId = String(body.apply_question_id || '').trim();
     if (applyId) {
-        return json(await applyPendingAnswer(admin, applyId, String(body.when || '').trim(), dryRun));
+        return json(await applyPendingAnswer(
+            admin,
+            applyId,
+            String(body.when || '').trim(),
+            tgToken,
+            reviewsChat,
+            Number(body.react_message_id || 0) || 0,
+            dryRun,
+        ));
     }
     const { data: cabinets, error: cabErr } = await admin
         .from('cabinets')
@@ -163,17 +172,20 @@ async function applyPendingAnswer(
     admin: ReturnType<typeof createClient>,
     questionId: string,
     whenOverride: string,
+    tgToken: string,
+    reviewsChat: string,
+    reactMessageId: number,
     dryRun: boolean,
 ): Promise<Record<string, unknown>> {
     const { data, error } = await admin
         .from('wb_restock_questions')
-        .select('question_id, cabinet_id, when_text, status')
+        .select('question_id, cabinet_id, when_text, status, telegram_chat_id, telegram_message_id, answered_at')
         .eq('question_id', questionId)
-        .eq('status', 'pending')
+        .in('status', ['pending', 'answered'])
         .maybeSingle();
     if (error) return { ok: false, error: error.message };
     if (!data) return { ok: false, error: 'not_pending' };
-    const when = String(whenOverride || data.when_text || '').trim();
+    const when = normalizeWhenPhrase(String(whenOverride || data.when_text || ''));
     if (!when) return { ok: false, error: 'no_when' };
     const { data: cab } = await admin.from('cabinets').select('id, wb_token').eq('id', data.cabinet_id).maybeSingle();
     const wbToken = sanitizeWbToken(cab?.wb_token);
@@ -196,10 +208,16 @@ async function applyPendingAnswer(
         when_text: when,
         wb_answer: answer,
         error_text: null,
-        answered_at: new Date().toISOString(),
+        answered_at: data.answered_at || new Date().toISOString(),
         updated_at: new Date().toISOString(),
     }).eq('cabinet_id', data.cabinet_id).eq('question_id', questionId);
-    return { ok: true, applied: true, question_id: questionId };
+    const chatId = String(data.telegram_chat_id || reviewsChat || '').trim();
+    const userMsg = reactMessageId || (Number(data.telegram_message_id) ? Number(data.telegram_message_id) + 1 : 0);
+    let reacted = false;
+    if (tgToken && chatId && userMsg) {
+        reacted = await reactTelegram(tgToken, chatId, userMsg, '❤');
+    }
+    return { ok: true, applied: true, question_id: questionId, reacted, react_message_id: userMsg || null };
 }
 
 async function resendPendingCard(
@@ -269,6 +287,23 @@ async function sendTelegramCard(
         return { error: null, messageId: Number.isFinite(messageId) ? messageId : null };
     } catch (e) {
         return { error: String(e), messageId: null };
+    }
+}
+
+async function reactTelegram(token: string, chatId: string, messageId: number, emoji: string): Promise<boolean> {
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                message_id: messageId,
+                reaction: [{ type: 'emoji', emoji }],
+            }),
+        });
+        return res.ok;
+    } catch {
+        return false;
     }
 }
 
