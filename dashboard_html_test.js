@@ -531,27 +531,41 @@ assert.ok(html.includes('rnp-th-month-stick'), 'month stick label CSS must exist
 assert.ok(html.includes('rnp-head-marquee-pin'), 'photo marquee must pin at the frozen edge while days scroll');
 assert.ok(rnpSrc.includes('rnp-head-marquee-pin'), 'marquee HTML wraps photos in the sticky pin');
 assert.ok(rnpSrc.includes('function _syncFrozenPane'), 'week/ИТОГ sticky left is applied after layout');
-assert.ok(rnpSrc.includes('const HEAD_MIN_W = 420') && rnpSrc.includes('const frozen = _leftFrozenPx(cal)'),
-    'without August weeks the photo pin stays at HEAD_MIN_W, not 172px');
+assert.ok(rnpSrc.includes('function _needsWideHead') && rnpSrc.includes('function _buildWideHeadHTML'),
+    'without August weeks KPI and photos sit above the table, not in a 172px frozen cell');
+assert.ok(rnpSrc.includes("if (_needsWideHead(cal)) return '';"),
+    'sheet head stays empty on desktop when there are no compare weeks');
+assert.ok(html.includes('.rnp-head-wide') && html.includes('minmax(460px, 520px)'),
+    'wide RNP head keeps a 460px info column so photos cannot cover numbers');
+assert.ok(html.includes('.rnp-head-wide-info') && html.includes('.rnp-head-wide-photos'),
+    'wide head splits KPI/stocks and the photo strip');
+assert.ok(/\.rnp-settings-overlay\s*\{[^}]*z-index:\s*10050/.test(html),
+    'settings overlay sits above the floating header');
+assert.ok(rnpSrc.includes("document.body.appendChild(overlay)"),
+    'settings overlay moves to body so the header cannot cover it');
+assert.ok(rnpSrc.includes('hiddenGroups') && rnpSrc.includes('function toggleGroupVisible'),
+    'RNP settings can hide a whole group instead of toggling articles one by one');
 {
-    const extraStart = rnpSrc.indexOf('function _headExtraDayCols');
-    const extraEnd = rnpSrc.indexOf('function _sheetDataColCount');
+    const spanStart = rnpSrc.indexOf('function _needsWideHead');
+    const spanEnd = rnpSrc.indexOf('function _sheetDataColCount');
     const pxStart = rnpSrc.indexOf('function _leftFrozenPx');
     const pxEnd = rnpSrc.indexOf('function _monthStickLabel');
     const fns = new Function(`
-        const FROZEN_METRIC_W = 132, FROZEN_SPARK_W = 40, FROZEN_COL_W = 40, DAY_COL_W = 40, HEAD_MIN_W = 420;
+        const FROZEN_METRIC_W = 132, FROZEN_SPARK_W = 40, FROZEN_COL_W = 40, DAY_COL_W = 40;
         function _isNarrow() { return false; }
         function _metricW() { return 132; }
         function _sparkW() { return 40; }
         function _dayColW() { return 40; }
-        ${rnpSrc.slice(extraStart, extraEnd)}
+        ${rnpSrc.slice(spanStart, spanEnd)}
         ${rnpSrc.slice(pxStart, pxEnd)}
-        return { _leftFrozenPx, _leftFrozenSpan, _headExtraDayCols };
+        return { _leftFrozenPx, _leftFrozenSpan, _needsWideHead };
     `)();
     const noWeeks = { mode: 'week', weeks: [], days: new Array(30).fill({}) };
-    assert.ok(fns._leftFrozenPx(noWeeks) >= 420, 'no-compare left pane fits photo + KPIs');
-    assert.ok(fns._leftFrozenSpan(noWeeks) > 2, 'no-compare head takes extra day columns so photos do not cover numbers');
+    assert.strictEqual(fns._needsWideHead(noWeeks), true);
+    assert.strictEqual(fns._leftFrozenPx(noWeeks), 172, 'table frozen edge stays metric+spark when photos are above');
+    assert.strictEqual(fns._leftFrozenSpan(noWeeks), 2);
     const withWeeks = { mode: 'week', weeks: [1, 2, 3, 4, 5], days: new Array(30).fill({}) };
+    assert.strictEqual(fns._needsWideHead(withWeeks), false);
     assert.strictEqual(fns._leftFrozenPx(withWeeks), 412);
 }
 assert.ok(!/pin\.style\.height\s*=\s*.*leftTh/.test(rnpSrc), 'marquee pin must not follow leftTh — that loop grows photos');
@@ -974,6 +988,16 @@ assert.ok(html.includes('.rnp-compare-month-menu') && html.includes('.rnp-compar
         'August compare weeks start on 2026-08-01');
 }
 assert.ok(html.includes('id="rnp-settings-overlay"'), 'RNP settings open as an overlay, not a second page');
+assert.ok(rnpSrc.includes('Группы в РНП') && rnpSrc.includes('function _settingsGroupsHtml'),
+    'settings has a group visibility card');
+{
+    const start = rnpSrc.indexOf('function _normalizeOptions');
+    const end = rnpSrc.indexOf('function _settingsOptions');
+    assert.ok(start > 0 && end > start);
+    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _normalizeOptions };`)();
+    assert.deepStrictEqual(fns._normalizeOptions({ hiddenGroups: ['Бомбер', 'Бомбер', ''] }).hiddenGroups, ['Бомбер']);
+    assert.deepStrictEqual(fns._normalizeOptions({}).hiddenGroups, []);
+}
 assert.ok(html.includes('function cabinetDisplayName'), 'cabinet picker shows legal IP names, not Baza/Elium letters');
 assert.ok(html.includes('ИП Бейшеев А.Д.') && html.includes('ИП Айзада'), 'Baza and Elium show the IP names from WB');
 assert.ok(html.includes('ИП Уркунбаев К.А.') && html.includes('ОсОО «Айлин Стиль»'), 'Zevina 1/2 show the legal names from WB');

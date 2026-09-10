@@ -19,6 +19,7 @@ const RNP = (() => {
         monthTo: 12,
         showGiveaways: true,
         showCompetitor: true,
+        hiddenGroups: [],
     };
     let _settingsInDb = false;
     let _articles = [];
@@ -103,7 +104,6 @@ const RNP = (() => {
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 40;
     const DAY_COL_W = 40;
-    const HEAD_MIN_W = 420;
     const PHONE_METRIC_W = 108;
     const PHONE_SPARK_W = 32;
     const PHONE_COL_W = 44;
@@ -952,6 +952,9 @@ const RNP = (() => {
             monthTo: Math.min(12, Math.max(1, parseInt(o.monthTo, 10) || 12)),
             showGiveaways: o.showGiveaways !== false,
             showCompetitor: o.showCompetitor !== false,
+            hiddenGroups: Array.isArray(o.hiddenGroups)
+                ? [...new Set(o.hiddenGroups.map(s => String(s || '').trim()).filter(Boolean))]
+                : [],
         };
     }
 
@@ -963,7 +966,30 @@ const RNP = (() => {
             monthTo: _settings.monthTo,
             showGiveaways: _settings.showGiveaways,
             showCompetitor: _settings.showCompetitor,
+            hiddenGroups: _hiddenGroupList(),
         };
+    }
+
+    function _hiddenGroupList() {
+        return Array.isArray(_settings.hiddenGroups) ? _settings.hiddenGroups.filter(Boolean) : [];
+    }
+
+    function _isGroupHidden(cat) {
+        return _hiddenGroupList().includes(cat);
+    }
+
+    function _rnpVisibleArticles(list) {
+        const src = list || _cabArticles();
+        return src.filter(a => a.is_active && !_isGroupHidden(_articleCategory(a)));
+    }
+
+    function _ensureActiveVisible() {
+        if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB || _activeNm == null) return;
+        const art = _cabArticles().find(a => a.nm_id == _activeNm);
+        if (!art || !art.is_active || _isGroupHidden(_articleCategory(art))) {
+            _activeNm = GENERAL_TAB;
+            try { sessionStorage.setItem('rnp_active_nm', String(_activeNm)); } catch (e) {}
+        }
     }
 
     function _sellerArticle(art) {
@@ -2120,19 +2146,15 @@ const RNP = (() => {
         _notesCache[nmId][date] = { text: t, history: hist };
     }
 
-    function _headExtraDayCols(cal) {
-        if (_isNarrow() || !cal || cal.mode === 'month' || (cal.weeks && cal.weeks.length)) return 0;
-        const need = Math.max(0, HEAD_MIN_W - (_metricW() + _sparkW()));
-        const days = cal.days?.length || 0;
-        const unit = _dayColW() || DAY_COL_W;
-        return Math.min(days, Math.ceil(need / unit));
+    function _needsWideHead(cal) {
+        return !!(cal && cal.mode === 'week' && !(cal.weeks && cal.weeks.length) && !_isNarrow());
     }
 
     function _leftFrozenSpan(cal) {
         if (_isNarrow()) return 2;
         if (cal.mode === 'month') return 3;
         if (cal.weeks.length) return 2 + cal.weeks.length + 1;
-        return 2 + _headExtraDayCols(cal);
+        return 2;
     }
 
     function _sheetDataColCount(cal) {
@@ -2153,7 +2175,7 @@ const RNP = (() => {
         }
         const data = _sheetDataColCount(cal);
         if (_isNarrow()) return data;
-        return Math.max(0, (cal.days?.length || 0) - _headExtraDayCols(cal));
+        return cal.days?.length || 0;
     }
 
     function _colgroupHTML(cal) {
@@ -2508,7 +2530,7 @@ const RNP = (() => {
         if (cal.mode === 'month') return base + FROZEN_COL_W;
         const weeks = cal.weeks.length;
         if (weeks) return base + weeks * FROZEN_COL_W + FROZEN_COL_W;
-        return base + _headExtraDayCols(cal) * _dayColW();
+        return base;
     }
 
     /** Подпись месяца/года, которая остаётся у края прокрутки справа,
@@ -2518,7 +2540,17 @@ const RNP = (() => {
         return `<span class="rnp-th-month-stick" style="left:${leftPx}px">${safe}</span>`;
     }
 
+    function _buildWideHeadHTML(art, stockBySize, rawData, cal) {
+        return `<div class="rnp-article-panel rnp-article-panel--wide">
+          <div class="rnp-head-wide">
+            <div class="rnp-head-wide-info">${_buildLeftPanelHTML(art, stockBySize, rawData, cal)}</div>
+            <div class="rnp-head-wide-photos">${_buildMarqueeHTML(art, cal)}</div>
+          </div>
+        </div>`;
+    }
+
     function _buildSheetHeadRows(art, stockBySize, rawData, cal) {
+        if (_needsWideHead(cal)) return '';
         const leftSpan = _leftFrozenSpan(cal);
         const nTimeline = _headMarqueeSpan(cal);
         const leftPx = _leftFrozenPx(cal);
@@ -2840,14 +2872,14 @@ const RNP = (() => {
     function _refreshTabsBar() {
         const wrap = document.getElementById('rnp-sheet-tabs');
         if (!wrap) return;
-        const active = _articles.filter(a => a.is_active);
+        const active = _rnpVisibleArticles();
         wrap.innerHTML = _renderTabsHTML(active, { lite: active.length > 40 });
     }
 
     function _refreshActionBar() {
         const wrap = document.getElementById('rnp-action-bar-wrap');
         if (!wrap) return;
-        wrap.innerHTML = _buildActionBar(_articles.filter(a => a.is_active));
+        wrap.innerHTML = _buildActionBar(_rnpVisibleArticles());
     }
 
     function _csvCell(v) {
@@ -2869,7 +2901,7 @@ const RNP = (() => {
         const sep = ';';
         const BOM = '\uFEFF';
         if (_activeNm === SUMMARY_TAB) {
-            const active = _articles.filter(a => a.is_active);
+            const active = _rnpVisibleArticles();
             const header = ['Статус', 'Артикул продавца', 'Артикул WB', 'Заказы', 'План%', 'Прибыль', 'Маржа%', 'ДРР%', 'Остаток', 'Алерты'];
             const lines = [header.map(_csvCell).join(sep)];
             active.forEach(a => {
@@ -3946,7 +3978,7 @@ const RNP = (() => {
         const el = document.getElementById('rnp-freshness');
         if (el) el.textContent = '';
         if (!opts?.notify || !window._rnpLastLoadedAt) return;
-        const active = _cabArticles().filter(a => a.is_active);
+        const active = _rnpVisibleArticles();
         const live = _visibleLiveTotals(active, _buildCalendar());
         const cab = document.getElementById('cabinet-picker-label')?.textContent?.trim() || '';
         window.NrNotify?.push({
@@ -4665,6 +4697,54 @@ const RNP = (() => {
         }
     }
 
+    function _settingsGroupsHtml() {
+        const groups = _groupByCategory(_articles);
+        if (!groups.length) return '';
+        const rows = groups.map(([cat, list]) => {
+            const on = !_isGroupHidden(cat);
+            const esc = String(cat).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            const key = encodeURIComponent(cat);
+            return `<div class="rnp-group-vis">
+              <span class="rnp-group-vis-name">${esc}</span>
+              <span class="rnp-group-vis-n">${list.length} арт.</span>
+              <button type="button" class="rnp-settings-toggle relative w-9 h-5 rounded-full" data-group-key="${key}"
+                title="${on ? 'Скрыть группу из РНП' : 'Показать группу в РНП'}"
+                style="background:${on ? 'var(--accent)' : 'var(--border)'}"
+                onclick="RNP.toggleGroupVisible(decodeURIComponent('${key}'))">
+                <span style="position:absolute;top:2px;left:${on ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
+              </button>
+            </div>`;
+        }).join('');
+        return `<div class="widget-card p-5">
+          <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Группы в РНП</h3>
+          <p class="text-xs mb-3 leading-snug" style="color:var(--text-muted)">Выключите группу — она пропадёт из вкладок и таблиц. Не нужно скрывать артикулы по одному. В списке ниже они останутся.</p>
+          <div class="rnp-group-vis-list">${rows}</div>
+        </div>`;
+    }
+
+    function _patchGroupVisUi() {
+        document.querySelectorAll('[data-group-key]').forEach(btn => {
+            let cat = '';
+            try { cat = decodeURIComponent(btn.getAttribute('data-group-key') || ''); } catch (e) { cat = btn.getAttribute('data-group-key') || ''; }
+            const on = !_isGroupHidden(cat);
+            btn.style.background = on ? 'var(--accent)' : 'var(--border)';
+            btn.title = on ? 'Скрыть группу из РНП' : 'Показать группу в РНП';
+            const knob = btn.querySelector('span');
+            if (knob) knob.style.left = on ? '18px' : '2px';
+        });
+    }
+
+    async function toggleGroupVisible(cat) {
+        const name = String(cat || '').trim() || UNCATEGORIZED;
+        const hidden = new Set(_hiddenGroupList());
+        if (hidden.has(name)) hidden.delete(name);
+        else hidden.add(name);
+        await _saveSettings({ options: { ..._settingsOptions(), hiddenGroups: [...hidden] } });
+        _ensureActiveVisible();
+        _patchGroupVisUi();
+        _refreshRnpAfterArticleToggle();
+    }
+
     function _renderSettings(opts = {}) {
         const el = _settingsHost();
         if (!el) return;
@@ -4736,6 +4816,8 @@ const RNP = (() => {
             </div>
             <button onclick="RNP.saveRnpOptions()" class="rnp-save-btn mt-4" type="button">Сохранить параметры</button>
           </div>
+
+          ${_settingsGroupsHtml()}
 
           <div class="widget-card p-5">
             <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
@@ -4979,7 +5061,7 @@ const RNP = (() => {
             if (renderId !== _mainRenderGen) return;
             _applyResolvedPhotos();
             const tabs = document.getElementById('rnp-sheet-tabs');
-            if (tabs) tabs.innerHTML = _renderTabsHTML(_articles.filter(a => a.is_active));
+            if (tabs) tabs.innerHTML = _renderTabsHTML(_rnpVisibleArticles());
             _updateTabHighlight();
         });
         _updateEditModeBtn();
@@ -4988,7 +5070,8 @@ const RNP = (() => {
     async function _renderActiveTable() {
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return;
-        const active = _cabArticles().filter(a => a.is_active);
+        _ensureActiveVisible();
+        const active = _rnpVisibleArticles();
         const cal = _buildCalendar();
 
         if (_activeNm === SUMMARY_TAB) {
@@ -5082,10 +5165,6 @@ const RNP = (() => {
         const stockBySize = _stockCache[art.nm_id] || {};
 
         let topHTML = '';
-        if (_isNarrow()) {
-            const panelCls = _isPhone() ? ' rnp-article-panel--phone' : ' rnp-article-panel--narrow';
-            topHTML = `<div class="rnp-article-panel${panelCls}">${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>`;
-        }
         if (_compareNm && _compareNm !== art.nm_id) {
             const art2 = _articles.find(a => a.nm_id == _compareNm);
             if (art2) {
@@ -5097,6 +5176,11 @@ const RNP = (() => {
                   <div><div class="rnp-compare-label">B — ${_sellerArticle(art2).substring(0, 24)}</div>${_buildKpiPanelHTML(art2, stock2, raw2, cal)}</div>
                 </div>`;
             }
+        } else if (_needsWideHead(cal)) {
+            topHTML = _buildWideHeadHTML(art, stockBySize, rawData, cal);
+        } else if (_isNarrow()) {
+            const panelCls = _isPhone() ? ' rnp-article-panel--phone' : ' rnp-article-panel--narrow';
+            topHTML = `<div class="rnp-article-panel${panelCls}">${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>`;
         }
 
         _metricRowSeq = 0;
@@ -5160,7 +5244,8 @@ const RNP = (() => {
         if (typeof ResizeObserver === 'undefined') return;
         const scope = root || document;
         const scroll = scope.querySelector('.rnp-table-scroll') || document.getElementById('rnp-table-wrap');
-        if (!scroll) return;
+        const wide = scope.querySelector('.rnp-head-wide');
+        if (!scroll && !wide) return;
         _marqueeRo = new ResizeObserver(() => {
             if (_marqueeSyncing) return;
             if (_marqueeRoRaf) return;
@@ -5175,13 +5260,13 @@ const RNP = (() => {
                 }
             });
         });
-        _marqueeRo.observe(scroll);
+        if (scroll) _marqueeRo.observe(scroll);
+        if (wide) _marqueeRo.observe(wide);
     }
 
     function _syncMarqueeFill(root) {
         const scope = root || document;
         _syncFrozenPane(scope);
-        const left = scope.querySelector('.rnp-head-left');
         scope.querySelectorAll('.rnp-marquee-wrap').forEach(wrap => {
             const track = wrap.querySelector('.rnp-marquee-track');
             if (!track || !track.children.length) return;
@@ -5192,7 +5277,11 @@ const RNP = (() => {
             }
 
             const isBottomGallery = wrap.classList.contains('rnp-general-gallery-marquee');
-            const stack = left?.querySelector('.rnp-head-left-stack');
+            const wide = wrap.closest('.rnp-head-wide');
+            const left = wrap.closest('.rnp-head-left') || scope.querySelector('.rnp-head-left');
+            const stack = wide
+                ? wide.querySelector('.rnp-head-wide-info')
+                : left?.querySelector('.rnp-head-left-stack');
             const pin = wrap.closest('.rnp-head-marquee-pin');
             const stackH = isBottomGallery ? 0 : (stack?.clientHeight || 0);
             if (pin && stackH > 0) pin.style.height = `${stackH}px`;
@@ -5767,6 +5856,7 @@ const RNP = (() => {
     function closeSettings() {
         const overlay = document.getElementById('rnp-settings-overlay');
         if (overlay) overlay.classList.remove('is-open');
+        document.body.classList.remove('rnp-settings-open');
         _unbindOverlayKeydown();
     }
 
@@ -5774,7 +5864,11 @@ const RNP = (() => {
         const overlay = document.getElementById('rnp-settings-overlay');
         const el = _settingsHost();
         if (!el) return;
-        if (overlay) overlay.classList.add('is-open');
+        if (overlay) {
+            if (overlay.parentElement !== document.body) document.body.appendChild(overlay);
+            overlay.classList.add('is-open');
+        }
+        document.body.classList.add('rnp-settings-open');
         _bindOverlayKeydown();
         if (!_db || !_cab) {
             el.innerHTML = `<div class="p-10 text-center" style="color:var(--text-muted)">
@@ -5849,7 +5943,7 @@ const RNP = (() => {
             const dy = t.clientY - y0;
             if (Date.now() - t0 > 700) return;
             if (Math.abs(dx) < 56 || Math.abs(dx) < Math.abs(dy) * 1.2) return;
-            const ids = _cabArticles().filter(a => a.is_active).map(a => a.nm_id);
+            const ids = _rnpVisibleArticles().map(a => a.nm_id);
             const i = ids.indexOf(_activeNm);
             if (i < 0) return;
             const next = dx < 0 ? ids[i + 1] : ids[i - 1];
@@ -6110,6 +6204,7 @@ const RNP = (() => {
             monthTo: parseInt(document.getElementById('rnp-month-to')?.value, 10) || 12,
             showGiveaways: true,
             showCompetitor: true,
+            hiddenGroups: _hiddenGroupList(),
         };
         await _saveSettings({ options: opts });
         if (!localStorage.getItem('rnp_plan_period')) {
@@ -6279,7 +6374,7 @@ const RNP = (() => {
         _wbEnrichmentDegraded = true;
         const bar = document.getElementById('rnp-action-bar-wrap');
         if (bar && document.getElementById('tab-rnp')?.classList.contains('active')) {
-            bar.innerHTML = _buildActionBar(_articles.filter(a => a.is_active));
+            bar.innerHTML = _buildActionBar(_rnpVisibleArticles());
         }
     });
     // Retry boot if tab still stuck on initialization (e.g. loadCabinets delayed).
@@ -6308,7 +6403,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, openSettings, closeSettings, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, initCore, ensureReady, openSettings, closeSettings, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
