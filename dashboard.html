@@ -871,7 +871,11 @@
         .gg-excel-btn:hover { border-color: var(--accent-border); color: var(--accent); }
         .gg-fresh { font-size: 10px; color: var(--text-muted); margin-left: auto; }
         .gg-table-scroll { overflow: auto; -webkit-overflow-scrolling: touch; max-height: calc(100vh - 168px); }
-        .gg-table-scroll .data-table { min-width: 560px; table-layout: fixed; }
+        .gg-table-scroll .data-table {
+            width: max-content;
+            min-width: 0;
+            table-layout: auto;
+        }
         #tab-goods-groups .data-table th,
         #tab-goods-groups .data-table td { padding: 4px 8px !important; font-size: 11px; }
         #tab-goods-groups .data-table th {
@@ -888,7 +892,11 @@
         .gg-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; width: 72px; }
         .gg-col-nm { width: 88px; }
         .gg-nm { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; color: var(--text-muted); }
-        .gg-art { color: var(--text-primary); font-weight: 600; }
+        .gg-art {
+            color: var(--text-primary); font-weight: 600;
+            width: max-content; max-width: 320px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
         .gg-zero { color: var(--text-muted); font-weight: 500; }
         .gg-edit { padding: 2px 4px !important; }
         .gg-edit-input {
@@ -7822,7 +7830,10 @@
     }
 
     function ggCellHtml(r, s, colId) {
-        if (colId === 'art') return `<td class="gg-art">${escapeHtml(r.sellerArticle || '—')}</td>`;
+        if (colId === 'art') {
+            const name = escapeHtml(r.sellerArticle || '—');
+            return `<td class="gg-art" title="${name}">${name}</td>`;
+        }
         if (colId === 'nm') return `<td class="gg-col-nm gg-nm">${escapeHtml(String(r.nmId || ''))}</td>`;
         if (colId === 'fbo') return ggQtyCell(s.fbo);
         if (colId === 'fbs') return ggQtyCell(s.fbs);
