@@ -80,12 +80,16 @@ assert.ok(html.includes('id="gg-excel-btn"') && html.includes('exportGoodsExcel'
     'Товары has a small Excel button and RNP-style settings overlay');
 assert.ok(html.includes('id="gg-excel-btn"') && html.includes('M3 9h18M3 15h18M9 3v18M15 3v18'),
     'Товары Excel is the same grid icon as RNP');
-assert.ok(html.includes('gg-now-tools rnp-tool-icons') && html.includes('margin-left: auto'),
-    'Товары tools sit top-right like RNP');
-assert.ok(html.includes('th.gg-col-nm') && html.includes('text-align: center !important'),
-    'WB column header and values are centered');
-assert.ok(html.includes('ads-hq-hero') && html.includes('id="ads-hq-reload"') && html.includes('rnp-tool-icon'),
-    'Ads reload sits top-right as the same round icon as RNP');
+assert.ok(html.includes('gg-now-tools rnp-tool-icons') && /\.gg-toolbar\s*\{[^}]*width:\s*100%/.test(html),
+    'Товары toolbar spans the row so icons sit top-right like RNP');
+assert.ok(html.includes('th.gg-col-nm') && html.includes('text-align: center !important') && html.includes('max-width: 110px'),
+    'WB column is centered and cannot swallow leftover viewport width');
+assert.ok(html.includes('goods-compact') && html.includes("name === 'goods-groups'") && html.includes('padding: 0 12px 10px'),
+    'Товары and Ads sit tight under the page title so tab labels rise');
+assert.ok(html.includes('id="ads-hq-reload"') && html.includes('id="adv-sync-all-btn"') && html.includes('id="adv-sync-btn"') && html.includes('rnp-tool-icon'),
+    'Ads refresh buttons are the same round icons, top-right');
+assert.ok(!/adv-sync-all-btn[\s\S]{0,200}btn\.textContent =/.test(html) && !/adv-sync-btn[\s\S]{0,400}btn\.textContent =/.test(html),
+    'Ads icon buttons keep their SVG while syncing');
 assert.ok(
     html.includes('id="gg-search-btn"') && html.includes('function toggleGoodsSearch') && html.includes('cx="11" cy="11" r="7"'),
     'Товары search is a loupe icon, not a wide empty field'
@@ -93,7 +97,7 @@ assert.ok(
 assert.ok(
     html.includes('#gg-table') &&
     html.includes('display: inline-table !important') &&
-    html.includes('width: auto !important'),
+    html.includes('width: max-content !important'),
     'Товары table is inline-table so leftover viewport width cannot open a gap before WB'
 );
 assert.ok(/\.gg-art\s*\{[^}]*white-space:\s*nowrap/.test(html),

@@ -820,11 +820,21 @@
         .ads-hq-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .ads-hq-journal-chart { height: 180px; position: relative; }
         .ads-hq-hero {
-            display: flex; align-items: flex-start; justify-content: space-between;
-            gap: 12px; margin: -6px 0 2px;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 12px; margin: 0 0 8px;
+            min-height: 22px;
         }
         .ads-hq-hero .rnp-tool-icons { margin-left: auto; }
-        .adv-toolbar { justify-content: flex-end; margin: -6px 0 0; }
+        .adv-toolbar {
+            justify-content: flex-end;
+            width: 100%;
+            min-height: 22px;
+            margin: 0 0 8px;
+        }
+        .main-content.goods-compact #tab-advertising.space-y-5 > * + * { margin-top: 10px; }
+        #adv-view-cards.hidden + #adv-view-ads { margin-top: 0 !important; }
+        #adv-module-tabs .segment-tabs.hidden { display: none !important; }
+        #adv-module-tabs:not(.hidden) { min-height: 0; margin: 0; }
         .ads-hq-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: var(--text-primary); line-height: 1.15; }
         .ads-hq-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
         .ads-hq-phone { display: none; }
@@ -857,18 +867,28 @@
             .ads-hq-table-wrap { display: none; }
             .ads-hq-title { font-size: 20px; }
         }
-        #tab-goods-groups { gap: 8px; }
-        .gg-toolbar {
-            display: flex; align-items: flex-start; gap: 4px;
-            margin: -6px 0 0;
+        .main-content.goods-compact {
+            padding: 0 12px 10px !important;
+            overflow: auto !important;
         }
-        .gg-views { display: inline-flex; align-items: center; gap: 2px; margin: 0; padding-top: 0; }
+        #tab-goods-groups.tab-content.active {
+            display: flex; flex-direction: column; width: 100%; gap: 0;
+        }
+        #tab-goods-groups { gap: 0; }
+        .gg-toolbar {
+            display: flex; align-items: center; gap: 4px;
+            width: 100%;
+            margin: 0;
+            min-height: 22px;
+        }
+        .gg-views { display: inline-flex; align-items: center; gap: 2px; margin: 0; padding: 0; }
         .gg-now-tools { display: inline-flex; align-items: center; gap: 2px; min-width: 0; margin-left: auto; }
         .gg-now-tools.is-off { display: none; }
         .gg-view-btn {
-            font-size: 11px; font-weight: 600; height: 22px; padding: 0 8px;
+            font-size: 11px; font-weight: 600; height: 20px; padding: 0 8px;
             border: none; border-radius: 8px; background: transparent;
             color: var(--text-muted); cursor: pointer; font-family: inherit;
+            line-height: 20px;
         }
         .gg-view-btn.is-on { color: var(--accent); background: var(--accent-soft); }
         .gg-daily { padding: 0; max-width: none; }
@@ -876,7 +896,7 @@
         #gg-daily-table.data-table,
         #tab-goods-groups #gg-daily-table {
             display: inline-table !important;
-            width: auto !important;
+            width: max-content !important;
             min-width: 0 !important;
             max-width: none !important;
             table-layout: auto !important;
@@ -922,7 +942,7 @@
         #gg-table.data-table,
         #tab-goods-groups #gg-table {
             display: inline-table !important;
-            width: auto !important;
+            width: max-content !important;
             min-width: 0 !important;
             max-width: none !important;
             table-layout: auto !important;
@@ -943,7 +963,10 @@
         }
         .gg-foot td { font-weight: 700; border-top: 1px solid var(--border-strong, var(--border)); }
         .gg-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; width: 72px; }
-        .gg-col-nm { width: 88px; }
+        .gg-col-nm {
+            width: 1%; min-width: 96px; max-width: 110px;
+            white-space: nowrap;
+        }
         .gg-nm { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; color: var(--text-muted); }
         .gg-art {
             color: var(--text-primary); font-weight: 600;
@@ -1049,6 +1072,10 @@
             flex-direction: column;
         }
         .main-content.logistics-compact { padding: 8px 12px; overflow: visible; }
+        .main-content.goods-compact {
+            padding: 0 12px 10px !important;
+            overflow: auto !important;
+        }
         #tab-logistics.tab-content.active {
             display: flex; flex-direction: column;
             height: calc(100vh - 132px); max-height: calc(100vh - 132px);
@@ -1154,6 +1181,8 @@
             color: var(--text-muted); cursor: pointer;
         }
         .rnp-settings-gear { margin-left: 0; }
+        .rnp-tool-icon:disabled,
+        .rnp-settings-gear:disabled { opacity: 0.45; cursor: wait; }
         .rnp-tool-icon:hover,
         .rnp-tool-icon.is-on,
         .rnp-tool-icon.active,
@@ -3120,6 +3149,9 @@
         .main-content.rnp-compact {
             padding: 4px 6px !important;
         }
+        .main-content.goods-compact {
+            padding: 0 12px 10px !important;
+        }
         .rnp-action-bar, .logistics-toolbar, .rnp-sheet-body, .rnp-sheet-tabs {
             border: none !important;
             box-shadow: none !important;
@@ -3497,6 +3529,7 @@
             #refresh-btn { width: 24px; height: 24px; padding: 0 !important; justify-content: center; }
             .main-content { padding: 16px 12px !important; }
             .main-content.rnp-compact { padding: 4px 6px !important; }
+            .main-content.goods-compact { padding: 0 10px 10px !important; }
             #date-picker { left: 10px !important; width: calc(100vw - 20px) !important; }
             .grid.xl\:grid-cols-5 { grid-template-columns: repeat(2, 1fr) !important; }
 
@@ -4379,10 +4412,15 @@
             </div>
             <!-- Главная страница рекламных кабинетов: карточки по всем кабинетам пользователя -->
             <div id="adv-view-cards" class="hidden">
-                <div class="adv-toolbar" style="justify-content:flex-end">
-                    <div class="flex items-center gap-3" style="flex-wrap:wrap">
-                        <span id="adv-cards-freshness" class="text-xs" style="color:var(--text-muted)"></span>
-                        <button onclick="syncAllAdvertisingNow()" id="adv-sync-all-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить все</button>
+                <div class="adv-toolbar">
+                    <span id="adv-cards-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+                    <div class="rnp-tool-icons">
+                        <button type="button" class="rnp-tool-icon" onclick="syncAllAdvertisingNow()" id="adv-sync-all-btn" title="Обновить все" aria-label="Обновить все">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M21 12a9 9 0 1 1-2.2-5.8"></path>
+                                <path d="M21 3v6h-6"></path>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 <div id="adv-cards-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -4496,11 +4534,16 @@
 
             <!-- Детальный дашборд конкретного рекламного кабинета -->
             <div id="adv-view-detail" class="hidden space-y-5">
-                <div class="adv-toolbar" style="justify-content:flex-end">
-                    <div class="flex items-center gap-3" style="flex-wrap:wrap">
-                        <span id="adv-balance-badge" class="text-xs hidden" style="color:var(--text-muted)"></span>
-                        <span id="adv-freshness" class="text-xs" style="color:var(--text-muted)"></span>
-                        <button onclick="syncAdvertisingNow()" id="adv-sync-btn" class="ui-btn ui-btn-secondary text-sm">↻ Обновить</button>
+                <div class="adv-toolbar">
+                    <span id="adv-balance-badge" class="text-xs hidden" style="color:var(--text-muted)"></span>
+                    <span id="adv-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+                    <div class="rnp-tool-icons">
+                        <button type="button" class="rnp-tool-icon" onclick="syncAdvertisingNow()" id="adv-sync-btn" title="Обновить" aria-label="Обновить">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M21 12a9 9 0 1 1-2.2-5.8"></path>
+                                <path d="M21 3v6h-6"></path>
+                            </svg>
+                        </button>
                     </div>
                 </div>
                 <div class="flex items-center justify-between" style="flex-wrap:wrap;gap:10px">
@@ -6617,7 +6660,7 @@
             textEl.textContent = 'Сейчас работают Дашборд, РНП, Контроль РК и Товары. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
         }
         updateHeaderNav(name, true);
-        document.querySelector('.main-content')?.classList.remove('rnp-compact', 'logistics-compact');
+        document.querySelector('.main-content')?.classList.remove('rnp-compact', 'logistics-compact', 'goods-compact');
         if (window.innerWidth <= 768) {
             closeMobileMenu();
             closeBetaSheet();
@@ -6660,6 +6703,7 @@
         }
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
+        document.querySelector('.main-content')?.classList.toggle('goods-compact', name === 'goods-groups' || name === 'advertising');
         if (name === 'ab-testing') loadABTests();
         if (name === 'advertising' && hasUserCabinets) openAdvertisingTab();
         if (name === 'dds' && hasUserCabinets && window._financeDdsLoadedForCabinet !== currentCabinetId) {
@@ -6815,7 +6859,7 @@
     async function syncAllAdvertisingNow() {
         const btn = document.getElementById('adv-sync-all-btn');
         const freshEl = document.getElementById('adv-cards-freshness');
-        if (btn) { btn.textContent = '⏳ Обновление...'; btn.disabled = true; }
+        if (btn) btn.disabled = true;
         if (freshEl) freshEl.textContent = 'обновляем...';
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -6834,7 +6878,7 @@
             if (freshEl) freshEl.textContent = '';
             showPremiumModal('error', 'Ошибка синхронизации рекламы', e.message);
         } finally {
-            if (btn) { btn.textContent = '↻ Обновить все'; btn.disabled = false; }
+            if (btn) btn.disabled = false;
         }
     }
     window.syncAllAdvertisingNow = syncAllAdvertisingNow;
@@ -7633,7 +7677,7 @@
         const btn = document.getElementById('adv-sync-btn');
         const freshEl = document.getElementById('adv-freshness');
         const snapshotCabinet = currentCabinetId;
-        if (btn) { btn.textContent = '⏳ Обновление...'; btn.disabled = true; }
+        if (btn) btn.disabled = true;
         if (freshEl) freshEl.textContent = 'обновляем...';
         try {
             const { data: { session } } = await supabase.auth.getSession();
@@ -7655,7 +7699,7 @@
             if (freshEl) freshEl.textContent = '';
             showPremiumModal('error', 'Ошибка синхронизации рекламы', e.message);
         } finally {
-            if (btn) { btn.textContent = '↻ Обновить'; btn.disabled = false; }
+            if (btn) btn.disabled = false;
         }
     }
     window.syncAdvertisingNow = syncAdvertisingNow;
