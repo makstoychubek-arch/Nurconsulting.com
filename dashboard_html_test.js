@@ -98,8 +98,8 @@ assert.ok(html.includes('data-toast-key'), 'identical toasts must be deduped');
 assert.ok(html.includes('humanizeProxyError'), 'WB proxy errors must be translated');
 assert.ok(html.includes('_nrCabinetDeniedToast'), 'cabinet 403 must toast at most once');
 assert.ok(
-    /rail-logo-name/.test(html) && /NR Space/.test(html),
-    'sidebar logo must show NR Space on the left'
+    /<span class="rail-logo-name">Space<\/span>/.test(html) && !html.includes('<span class="rail-logo-name">NR Space</span>'),
+    'sidebar wordmark is Space — NR is already inside the logo mark'
 );
 assert.ok(html.includes('ab-create-btn'), 'A/B create button uses WBRadar-style control');
 assert.ok(html.includes('rail-user-name'), 'sidebar shows user name like WBRadar');
@@ -997,6 +997,11 @@ assert.ok(
     fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').includes('src="/icons/logo-nr.svg"') &&
     fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').includes('class="logo-nr"'),
     'site header logo must use the shared bold NR mark'
+);
+assert.ok(
+    !fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').includes('tracking-tight">NR Space</span>') &&
+    !fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8').includes('tracking-tight">NR Space</span>'),
+    'wordmark after the NR mark must be Space, not a second NR'
 );
 assert.ok(
     !fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8').includes("fill='%231F2933'"),
