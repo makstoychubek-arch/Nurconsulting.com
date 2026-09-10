@@ -51,7 +51,8 @@ assert.ok(fs.existsSync(path.join(__dirname, 'icons/logo-nr.svg')));
 assert.ok(sw.includes("nr-space-pwa-v3") && sw.includes("/icons/logo-nr.svg"));
 assert.ok(html.includes('overscroll-behavior: none') && html.includes('touch-action: manipulation'));
 assert.ok(html.includes('-webkit-user-select: none') && html.includes('input, textarea, select'));
-assert.ok(html.includes('.main-content.page-transition') && html.includes('transition: opacity 0.2s ease-in-out'));
+assert.ok(!html.includes('.main-content.page-transition') && html.includes('.main-content {\n            transition: none;'),
+    'refresh must not fade the page to opacity 0');
 assert.ok(html.includes("navigator.serviceWorker.register('/sw.js'"));
 assert.ok(html.includes("path === '/dashboard'"));
 

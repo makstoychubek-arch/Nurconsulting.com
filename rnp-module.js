@@ -103,6 +103,7 @@ const RNP = (() => {
     const FROZEN_SPARK_W = 40;
     const FROZEN_COL_W = 40;
     const DAY_COL_W = 40;
+    const HEAD_MIN_W = 420;
     const PHONE_METRIC_W = 108;
     const PHONE_SPARK_W = 32;
     const PHONE_COL_W = 44;
@@ -2119,10 +2120,19 @@ const RNP = (() => {
         _notesCache[nmId][date] = { text: t, history: hist };
     }
 
+    function _headExtraDayCols(cal) {
+        if (_isNarrow() || !cal || cal.mode === 'month' || (cal.weeks && cal.weeks.length)) return 0;
+        const need = Math.max(0, HEAD_MIN_W - (_metricW() + _sparkW()));
+        const days = cal.days?.length || 0;
+        const unit = _dayColW() || DAY_COL_W;
+        return Math.min(days, Math.ceil(need / unit));
+    }
+
     function _leftFrozenSpan(cal) {
         if (_isNarrow()) return 2;
         if (cal.mode === 'month') return 3;
-        return 2 + cal.weeks.length + (cal.weeks.length ? 1 : 0);
+        if (cal.weeks.length) return 2 + cal.weeks.length + 1;
+        return 2 + _headExtraDayCols(cal);
     }
 
     function _sheetDataColCount(cal) {
@@ -2142,7 +2152,8 @@ const RNP = (() => {
             return _isNarrow() ? months + 1 : months;
         }
         const data = _sheetDataColCount(cal);
-        return _isNarrow() ? data : (cal.days?.length || 0);
+        if (_isNarrow()) return data;
+        return Math.max(0, (cal.days?.length || 0) - _headExtraDayCols(cal));
     }
 
     function _colgroupHTML(cal) {
@@ -2299,7 +2310,8 @@ const RNP = (() => {
                     acc += _frozenWeekW();
                 });
             }
-            const frozen = acc;
+            const cal = _buildCalendar();
+            const frozen = _leftFrozenPx(cal);
             _setCssVar(table, '--rnp-frozen-left', `${frozen}px`);
             if (scroll) _setCssVar(scroll, '--rnp-frozen-left', `${frozen}px`);
 
@@ -2495,7 +2507,8 @@ const RNP = (() => {
         if (_isNarrow()) return base;
         if (cal.mode === 'month') return base + FROZEN_COL_W;
         const weeks = cal.weeks.length;
-        return base + weeks * FROZEN_COL_W + (weeks ? FROZEN_COL_W : 0);
+        if (weeks) return base + weeks * FROZEN_COL_W + FROZEN_COL_W;
+        return base + _headExtraDayCols(cal) * _dayColW();
     }
 
     /** Подпись месяца/года, которая остаётся у края прокрутки справа,

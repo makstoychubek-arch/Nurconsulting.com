@@ -473,9 +473,15 @@ assert.ok(
 );
 assert.ok(html.includes('abtest-card-row'), 'A/B cards use WBRadar row layout');
 assert.ok(html.includes('nr-early-tab-style'), 'early-tab CSS id must exist for settings boot');
+assert.ok(html.includes('window.__nrEarlyTab') && html.includes('#tab-dashboard.active{display:none !important}#tab-'),
+    'F5 must pin the current tab before first paint, not only settings');
+assert.ok(!html.includes('.main-content.page-transition'),
+    'tab switch must not hide the page with an opacity flash');
+assert.ok(html.includes('hasPaintedRows'),
+    'Товары must keep painted rows on refresh instead of swapping in Загрузка');
 assert.ok(
-    html.includes("if (__nrTab === 'settings')") && html.includes('#tab-settings{display:block'),
-    'early-tab CSS must not hide dashboard for BETA modules'
+    html.includes('__nrLive') && html.includes('window.__nrEarlyTab = __nrPane'),
+    'early-tab pins every live module before first paint'
 );
 assert.ok(
     html.includes("if (savedTab === 'settings') showTab('settings', null)") &&
@@ -525,6 +531,29 @@ assert.ok(html.includes('rnp-th-month-stick'), 'month stick label CSS must exist
 assert.ok(html.includes('rnp-head-marquee-pin'), 'photo marquee must pin at the frozen edge while days scroll');
 assert.ok(rnpSrc.includes('rnp-head-marquee-pin'), 'marquee HTML wraps photos in the sticky pin');
 assert.ok(rnpSrc.includes('function _syncFrozenPane'), 'week/ИТОГ sticky left is applied after layout');
+assert.ok(rnpSrc.includes('const HEAD_MIN_W = 420') && rnpSrc.includes('const frozen = _leftFrozenPx(cal)'),
+    'without August weeks the photo pin stays at HEAD_MIN_W, not 172px');
+{
+    const extraStart = rnpSrc.indexOf('function _headExtraDayCols');
+    const extraEnd = rnpSrc.indexOf('function _sheetDataColCount');
+    const pxStart = rnpSrc.indexOf('function _leftFrozenPx');
+    const pxEnd = rnpSrc.indexOf('function _monthStickLabel');
+    const fns = new Function(`
+        const FROZEN_METRIC_W = 132, FROZEN_SPARK_W = 40, FROZEN_COL_W = 40, DAY_COL_W = 40, HEAD_MIN_W = 420;
+        function _isNarrow() { return false; }
+        function _metricW() { return 132; }
+        function _sparkW() { return 40; }
+        function _dayColW() { return 40; }
+        ${rnpSrc.slice(extraStart, extraEnd)}
+        ${rnpSrc.slice(pxStart, pxEnd)}
+        return { _leftFrozenPx, _leftFrozenSpan, _headExtraDayCols };
+    `)();
+    const noWeeks = { mode: 'week', weeks: [], days: new Array(30).fill({}) };
+    assert.ok(fns._leftFrozenPx(noWeeks) >= 420, 'no-compare left pane fits photo + KPIs');
+    assert.ok(fns._leftFrozenSpan(noWeeks) > 2, 'no-compare head takes extra day columns so photos do not cover numbers');
+    const withWeeks = { mode: 'week', weeks: [1, 2, 3, 4, 5], days: new Array(30).fill({}) };
+    assert.strictEqual(fns._leftFrozenPx(withWeeks), 412);
+}
 assert.ok(!/pin\.style\.height\s*=\s*.*leftTh/.test(rnpSrc), 'marquee pin must not follow leftTh — that loop grows photos');
 assert.ok(rnpSrc.includes('pin.style.height = `${stackH}px`'), 'photo pin matches the KPI+sizes stack so cards are not clipped');
 assert.ok(!rnpSrc.includes('leftTh?.offsetWidth'), 'frozen width must not follow the KPI colspan');
