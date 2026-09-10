@@ -74,6 +74,10 @@ assert.ok(html.includes('Сейчас работают Дашборд, РНП, �
     'BETA stub must list the live modules');
 assert.ok(html.includes('id="gg-fbo"') && html.includes('id="gg-transit"') && html.includes('goods-catalog'),
     'Товары tab shows FBO/FBS/in-transit columns and loads the Zevina catalog');
+assert.ok(!html.includes('id="gg-cabinet-filter"') && !html.includes('onGoodsGroupsCabinetChange'),
+    'Товары has no extra cabinet select — header cabinet only');
+assert.ok(html.includes('cabinets.find(c => c.id === currentCabinetId)'),
+    'Товары stocks load for the header currentCabinetId');
 assert.ok(html.includes("'nm_id, quantity, stock_scheme'"),
     'Товары FBO/FBS come from wb_stocks without WB in-way columns');
 assert.ok(!/r\.transit \+= Number\(s\.in_way/.test(html),
@@ -868,10 +872,12 @@ assert.ok(html.includes('const isAdsHq') && html.includes("window._advView === '
     'RK header treats command center as the root view, not a drill-in');
 assert.ok(
     html.includes("tab === 'tab-advertising' && window._advView === 'detail'") &&
-    html.includes("tab === 'tab-advertising' && window._advView === 'cards'") &&
+    html.includes("showAdvertisingAdsView({ cabinetId: currentCabinetId") &&
     !html.includes("window._advView === 'detail' || window._advView === 'ads'"),
-    'header back from command center must not open the old cabinet cards'
+    'header back from detail returns to command center of the header cabinet'
 );
+assert.ok(html.includes('AdsHQ.open({ cabinetId:') && html.includes('currentCabinetId'),
+    'command center opens for the header cabinet, not all cabinets');
 assert.ok(html.includes('data-adv-view="ads"') && html.includes('ads-command-center'),
     'Реклама tab sits next to legacy Автобиддер and loads ads-command-center.js');
 assert.ok(html.includes('id="ads-hq-journal-chart"') && html.includes('id="ads-hq-save"'),

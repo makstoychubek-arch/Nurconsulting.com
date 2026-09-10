@@ -24,7 +24,7 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
     <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.c966b12230.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.1a12d2e2ed.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -4081,8 +4081,6 @@
                 <p class="gg-sub">ФБО/ФБС с WB. В пути — поставка Бишкек→Россия, не WB. План и путь по Уркунбаеву из таблицы, можно править</p>
             </div>
             <div class="flex flex-wrap items-center gap-2">
-                <select id="gg-cabinet-filter" onchange="onGoodsGroupsCabinetChange()"
-                    class="ui-select min-w-[180px]"></select>
                 <input type="search" id="gg-search" placeholder="Поиск: свитер, артикул…"
                     oninput="renderGoodsGroupsTable()"
                     class="ui-input flex-1 min-w-[160px]">
@@ -4161,7 +4159,7 @@
 
         <div id="tab-advertising" class="tab-content space-y-5">
             <div id="adv-module-tabs" class="adv-module-bar">
-                <div class="segment-tabs">
+                <div class="segment-tabs hidden">
                     <div class="segment-tab" data-adv-module="cards" onclick="switchAdvModule('cards', this)">Кабинеты</div>
                     <div class="segment-tab active" data-adv-module="ads" onclick="switchAdvModule('ads', this)">Реклама</div>
                 </div>
@@ -4183,7 +4181,7 @@
             <div id="adv-view-ads" class="space-y-5">
                 <div class="ads-hq-hero">
                     <h2 class="ads-hq-title">Командный центр</h2>
-                    <p class="ads-hq-sub">Все кабинеты в одном окне — расход, ДРР, кто вне диапазона</p>
+                    <p class="ads-hq-sub">Кабинет как в шапке — расход, ДРР, кампании этого кабинета</p>
                 </div>
                 <div id="ads-hq-kpis" class="grid grid-cols-2 md:grid-cols-5 gap-3"></div>
                 <div class="widget-card">
@@ -5203,7 +5201,7 @@
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.3fc8b04339.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
-<script src="/dist/ads-command-center.1f0ae4c2b4.min.js"></script>
+<script src="/dist/ads-command-center.233e066fd2.min.js"></script>
 <script src="/dist/goods-catalog.19f6e5844c.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -6276,8 +6274,7 @@
     function headerGoBack() {
         const tab = document.querySelector('.tab-content.active')?.id;
         if (tab === 'tab-advertising' && window._advView === 'detail') {
-            showAdvertisingCardsView();
-            loadAdvertisingCardsOverview();
+            showAdvertisingAdsView({ cabinetId: currentCabinetId || '' });
             return;
         }
         if (tab === 'tab-advertising' && window._advView === 'cards') {
@@ -6690,7 +6687,7 @@
         syncAdvModuleTabs('ads');
         updateHeaderNav('advertising');
         ensureAdsHq();
-        const boot = () => window.AdsHQ && window.AdsHQ.open({ cabinetId: opts && opts.cabinetId || '' });
+        const boot = () => window.AdsHQ && window.AdsHQ.open({ cabinetId: (opts && opts.cabinetId) || currentCabinetId || '' });
         if (window.AdsHQ) boot();
         else setTimeout(boot, 80);
     }
@@ -7403,12 +7400,7 @@
             loadAdvertisingBalance(currentCabinetId);
             return;
         }
-        if (window._advView === 'cards') {
-            showAdvertisingCardsView();
-            loadAdvertisingCardsOverview();
-            return;
-        }
-        showAdvertisingAdsView();
+        showAdvertisingAdsView({ cabinetId: currentCabinetId || '' });
     }
 
     // Кнопка «Обновить»: запускает живую синхронизацию с WB через
@@ -7937,33 +7929,21 @@
                 const { data } = await supabase.from('cabinets').select('id, name').order('name');
                 cabinets = data || [];
             }
-            if (!cabinets.length) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Нет кабинетов</td></tr>';
+            if (!currentCabinetId) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Выберите кабинет сверху</td></tr>';
+                return;
+            }
+            const cab = cabinets.find(c => c.id === currentCabinetId);
+            if (!cab) {
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Нет кабинета</td></tr>';
                 return;
             }
 
-            const cabIds = cabinets.map(c => c.id);
-
-            const filterEl = document.getElementById('gg-cabinet-filter');
-            if (filterEl) {
-                const prev = filterEl.value;
-                filterEl.innerHTML = cabinets.map(c =>
-                    `<option value="${escapeHtml(String(c.id))}">${escapeHtml(cabinetDisplayName(c.name))}</option>`
-                ).join('');
-                const defaultId = (prev && cabIds.includes(prev)) ? prev : (currentCabinetId && cabIds.includes(currentCabinetId) ? currentCabinetId : cabIds[0]);
-                filterEl.value = defaultId;
-            }
-
-            const targetCabs = cabinets.filter(c => {
-                const sel = document.getElementById('gg-cabinet-filter')?.value;
-                return !sel || c.id === sel;
-            });
-
-            const chunks = await Promise.all(targetCabs.map(cab => loadGoodsGroupsCabinet(cab)));
+            const rows = await loadGoodsGroupsCabinet(cab);
             const catalog = window.GoodsCatalog;
-            goodsGroupsCabinetName = targetCabs[0]?.name || '';
-            goodsGroupsCabinetId = targetCabs[0]?.id || '';
-            goodsGroupsRows = chunks.flat();
+            goodsGroupsCabinetName = cab.name || '';
+            goodsGroupsCabinetId = cab.id || '';
+            goodsGroupsRows = rows;
             if (catalog) {
                 goodsGroupsRows = catalog.flattenGroups(
                     catalog.groupGoods(goodsGroupsRows, goodsGroupsCabinetName, ggCatalogMeta())
@@ -7973,7 +7953,7 @@
             renderGoodsGroupsTable();
             const fresh = document.getElementById('gg-freshness');
             if (fresh) {
-                const who = targetCabs.map(c => cabinetDisplayName(c.name)).join(', ');
+                const who = cabinetDisplayName(cab.name);
                 fresh.textContent = catalog?.isZevina1Cabinet(goodsGroupsCabinetName)
                     ? 'ФБО/ФБС с WB · в пути и план из таблицы · ' + who
                     : 'ФБО/ФБС с WB · в пути и план пустые, можно вписать · ' + who;
@@ -7984,10 +7964,6 @@
         } finally {
             if (btn) { btn.disabled = false; btn.textContent = 'Обновить'; }
         }
-    }
-
-    function onGoodsGroupsCabinetChange() {
-        loadGoodsGroups();
     }
 
     function seoStorageKey() { return `nr_seo_${currentCabinetId || 'default'}`; }

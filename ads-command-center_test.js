@@ -48,4 +48,9 @@ assert.equal(model.rows[0].campaigns[0].clusters[0].key, 'пиджак для ж
 assert.equal(model.totals.active, 1);
 assert.equal(model.totals.tokenBad, 1);
 
+assert.equal(AdsHQ.setCabinet('cab-a'), 'cab-a');
+assert.equal(AdsHQ.getFilterCabinetId(), 'cab-a');
+assert.equal(AdsHQ.setCabinet(''), '');
+assert.equal(AdsHQ.getFilterCabinetId(), '');
+
 console.log('ads-command-center_test: ok');

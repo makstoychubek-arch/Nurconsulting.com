@@ -325,11 +325,26 @@
         }));
     }
 
+    function setCabinet(cabinetId) {
+        const id = cabinetId ? String(cabinetId) : '';
+        if (id !== state.filterCabinetId) {
+            state.open = { cabinets: new Set(id ? [id] : []), campaigns: new Set() };
+            state.selected = null;
+            state.history = [];
+        }
+        state.filterCabinetId = id;
+        if (id) state.open.cabinets.add(id);
+        return state.filterCabinetId;
+    }
+
     function renderKpis(totals) {
         const el = document.getElementById('ads-hq-kpis');
         if (!el) return;
+        const one = state.filterCabinetId && state.model && state.model.rows[0];
         const tiles = [
-            ['Кабинеты', String(totals.cabinets) + (totals.tokenBad ? ' · ' + totals.tokenBad + ' без токена' : '')],
+            one
+                ? ['Кабинет', cabName(one.name) + (one.token === 'bad' ? ' · нет токена' : '')]
+                : ['Кабинеты', String(totals.cabinets) + (totals.tokenBad ? ' · ' + totals.tokenBad + ' без токена' : '')],
             ['Активных РК', String(totals.active)],
             ['Расход сегодня', formatMoney(totals.spendToday)],
             ['ДРР 7д', formatDrrLabel(totals.drr7)],
@@ -893,8 +908,7 @@
     }
 
     function open(opts) {
-        state.filterCabinetId = '';
-        if (opts && opts.cabinetId) state.open.cabinets.add(opts.cabinetId);
+        setCabinet(opts && opts.cabinetId);
         bindOnce();
         load();
     }
@@ -909,6 +923,8 @@
         defaultRuleForm,
         init,
         open,
+        setCabinet,
+        getFilterCabinetId: () => state.filterCabinetId,
         load,
         renderTable,
         renderPhone,
