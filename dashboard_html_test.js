@@ -437,8 +437,10 @@ assert.ok(
 );
 
 const rnpSrc = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
-assert.ok(rnpSrc.includes('stocksNeedRoom') && html.includes('rnp-article-panel--desk-stocks'),
-    'without August weeks, RNP stocks leave the squeezed frozen pane');
+assert.ok(rnpSrc.includes('function _stocksNeedWide') && rnpSrc.includes('rnp-head-stocks-wide'),
+    'without August weeks, size grid sits in the wide photo row, not the 172px frozen pane');
+assert.ok(html.includes('.rnp-head-stocks-wide') && html.includes('min-width: 32px'),
+    'wide stock cells stay readable after the previous-month block is gone');
 assert.ok(rnpSrc.includes('function _abandonStaleMain'), 'stale RNP render must retry instead of hanging');
 assert.ok(rnpSrc.includes("functions.invoke('rnp-finance-sync'"), 'WB finance sync still goes through the rnp-finance-sync edge function');
 assert.ok(!rnpSrc.includes('rnp-action-btn--sync'), 'manual «Обновить из WB» stays off the RNP toolbar');

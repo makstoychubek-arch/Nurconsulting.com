@@ -2478,11 +2478,22 @@ const RNP = (() => {
         </table>`;
     }
 
+    function _stocksNeedWide(cal) {
+        return !_isNarrow() && !!(cal && cal.mode === 'week' && !(cal.weeks && cal.weeks.length));
+    }
+
+    function _stockSchemeBlock(art, stockBySize) {
+        return `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`;
+    }
+
     function _buildLeftPanelHTML(art, stockBySize, rawData, cal, widthPx) {
         const st = widthPx ? ` style="width:${widthPx}px;max-width:${widthPx}px"` : '';
+        const stocks = _stocksNeedWide(cal)
+            ? ''
+            : _phoneCollapseHtml('stock', 'Остатки', _phoneStockOpen, _stockSchemeBlock(art, stockBySize));
         return `<div class="rnp-head-left-stack"${st}>
           ${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
-          ${_phoneCollapseHtml('stock', 'Остатки', _phoneStockOpen, `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`)}
+          ${stocks}
         </div>`;
     }
 
@@ -2509,14 +2520,20 @@ const RNP = (() => {
         const leftSpan = _leftFrozenSpan(cal);
         const nTimeline = _headMarqueeSpan(cal);
         const leftPx = _leftFrozenPx(cal);
-        const lifted = _isNarrow() || (cal.mode === 'week' && !(cal.weeks && cal.weeks.length));
+        const lifted = _isNarrow();
         const leftInner = lifted ? '' : _buildLeftPanelHTML(art, stockBySize, rawData, cal, leftPx);
         const leftCls = lifted ? ' rnp-head-left--lifted' : '';
+        const wideStocks = _stocksNeedWide(cal)
+            ? `<div class="rnp-head-stocks-wide">${_stockSchemeBlock(art, stockBySize)}</div>`
+            : '';
+        const marqueeInner = wideStocks
+            ? `<div class="rnp-head-marquee-stack">${wideStocks}${_buildMarqueeHTML(art, cal)}</div>`
+            : _buildMarqueeHTML(art, cal);
 
         return `
             <tr class="rnp-head-panel">
               <th colspan="${leftSpan}" class="rnp-head-left${leftCls}" style="width:${leftPx}px;min-width:${leftPx}px;max-width:${leftPx}px">${leftInner}</th>
-              <th colspan="${nTimeline}" class="rnp-head-marquee">${_buildMarqueeHTML(art, cal)}</th>
+              <th colspan="${nTimeline}" class="rnp-head-marquee${wideStocks ? ' rnp-head-marquee--with-stocks' : ''}">${marqueeInner}</th>
             </tr>`;
     }
 
@@ -5069,10 +5086,8 @@ const RNP = (() => {
         const stockBySize = _stockCache[art.nm_id] || {};
 
         let topHTML = '';
-        const stocksNeedRoom = !_isNarrow() && cal.mode === 'week' && !(cal.weeks && cal.weeks.length);
-        if (_isNarrow() || stocksNeedRoom) {
-            const panelCls = _isPhone() ? ' rnp-article-panel--phone'
-                : (_isNarrow() ? ' rnp-article-panel--narrow' : ' rnp-article-panel--desk-stocks');
+        if (_isNarrow()) {
+            const panelCls = _isPhone() ? ' rnp-article-panel--phone' : ' rnp-article-panel--narrow';
             topHTML = `<div class="rnp-article-panel${panelCls}">${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>`;
         }
         if (_compareNm && _compareNm !== art.nm_id) {
@@ -5185,6 +5200,10 @@ const RNP = (() => {
             const pin = wrap.closest('.rnp-head-marquee-pin');
             const stackH = isBottomGallery ? 0 : (stack?.clientHeight || 0);
             if (pin && stackH > 0) pin.style.height = `${stackH}px`;
+            const wideStocks = !isBottomGallery && scope.querySelector('.rnp-head-stocks-wide');
+            if (pin && wideStocks) {
+                pin.style.height = `${Math.max(stackH, wideStocks.offsetHeight || 0, 200)}px`;
+            }
             const availH = isBottomGallery ? 96 : (pin?.clientHeight || wrap.clientHeight || stackH || 168);
             const gap = 3;
             let cardH = Math.min(MARQUEE_CARD_MAX_H, Math.max(88, availH));
