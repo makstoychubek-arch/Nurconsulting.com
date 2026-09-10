@@ -21,24 +21,33 @@
 
 ---
 
-## 2. Официальные эндпоинты WB Advertising API (проверены по OpenAPI-спецификации WB, SDK `eslazarev/wildberries-sdk`)
+## 2. Официальные эндпоинты WB Advertising API
 
-Базовый хост: `https://advert-api.wildberries.ru` (заголовок `Authorization: <token с правами "Продвижение">`)
+**Источник истины по путям, полям и лимитам** — полный дамп официальной спеки:
 
-| Назначение | Метод |
-|---|---|
-| Список/инфо по кампаниям | `GET /api/advert/v2/adverts` |
-| Список активных/неактивных кластеров кампании | `POST /adv/v0/normquery/list` |
-| Текущие ставки по кластерам | `POST /adv/v0/normquery/get-bids` |
-| **Установить ставки по кластерам** | `POST /adv/v0/normquery/bids` (v0) или `POST /api/advert/v1/normquery/bids` (v1, в валюте аккаунта) |
-| Удалить ставки кластеров | `DELETE /adv/v0/normquery/bids` |
-| Статистика по кластерам (агрегат) | `POST /adv/v0/normquery/stats` |
-| Статистика по кластерам по дням | `POST /adv/v1/normquery/stats` |
-| Минус-фразы: получить / установить | `POST /adv/v0/normquery/get-minus`, `POST /adv/v0/normquery/set-minus` |
-| Полная статистика кампаний (показы/клики/CPC/заказы) | `GET /adv/v3/fullstats` |
-| Пауза / запуск | `POST /adv/v0/pause`, `POST /adv/v0/start` |
+- в репо: [`docs/wb-openapi-promotion.md`](wb-openapi-promotion.md) (и сырой YAML `docs/wb-openapi-promotion.yaml`)
+- сайт WB: https://dev.wildberries.ru/docs/openapi/promotion
 
-⚠️ Для Cursor: перед реализацией открыть актуальную OpenAPI-спеку WB раздела "Продвижение" (`dev.wildberries.ru`) и сгенерировать типы — версии v0/v1 сосуществуют, v1 предпочтительнее для новых интеграций. Rate limits указаны в спеке — в прокси нужен throttle.
+Не выдумывать эндпоинты. Если чего-то нет в этом дампе — сначала обновить дамп со спеки, потом код.
+
+Базовый хост кампаний: `https://advert-api.wildberries.ru` (заголовок `Authorization: <token с правами «Продвижение»>`). Медиа — `advert-media-api`, календарь акций — `dp-calendar-api`.
+
+Что реально дергает наш прокси (`wb-adv-proxy.ts`):
+
+| Назначение | Метод | Заметка |
+|---|---|---|
+| Валюта и шаг ставки кабинета | `GET /api/advert/v1/config` | `currency`, `cpmStep` / `cpcStep` в минорных единицах. Лимит **1 запрос / мин** на кабинет. Не ходить в get-bids ради валюты. |
+| Список/инфо по кампаниям | `GET /api/advert/v2/adverts` | |
+| Список кластеров | `POST /adv/v0/normquery/list` | тело `{ items: [{ advertId, nmId }] }` |
+| Текущие ставки | `POST /adv/v0/normquery/get-bids` | тело `{ items: [{ advert_id, nm_id }] }` |
+| **Поставить ставки** | `POST /api/advert/v1/normquery/bids` | **только v1.** `bidMinorUnits` = 0,01 валюты кабинета (у нас KGS). `POST /adv/v0/normquery/bids` в спеке — «ставки в рублях», для Baza/Elium/Zevina 1 не использовать. |
+| Удалить ставки | `DELETE /adv/v0/normquery/bids` | |
+| Статистика кластеров | `POST /adv/v0/normquery/stats`, `POST /adv/v1/normquery/stats` | |
+| Минус-фразы | `POST /adv/v0/normquery/get-minus`, `POST /adv/v0/normquery/set-minus` | |
+| fullstats | `GET /adv/v3/fullstats` | |
+| Пауза / запуск | `GET /adv/v0/pause`, `GET /adv/v0/start` | в спеке GET, не POST |
+
+`setBids` в коде уже v1. Переключать с v0 нечего. Подробности: `docs/autobidder-setbids-v1.md`.
 
 ---
 

@@ -7,7 +7,9 @@ import {
     ADV_HELPERS,
     ADVERT_API_HOST,
     executeAdvRequest,
+    getAdvConfig,
     getBids,
+    parseAdvConfig,
     parseDryRun,
     setBids,
     type AdvCallContext,
@@ -159,6 +161,31 @@ async function testGenericSetBidsPathDryRun() {
     assert.deepEqual(result.data, { dry_run: true, payload: SET_BIDS_PAYLOAD });
 }
 
+async function testGetAdvConfig() {
+    const calls: string[] = [];
+    const wb = { currency: 'KGS', currencyCode: 417, cpmStep: 100, cpcStep: 50, minTopUp: 10000 };
+    const result = await getAdvConfig(baseCtx({
+        fetchFn: async (url) => {
+            calls.push(String(url));
+            return jsonResponse(200, wb);
+        },
+    }));
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0], `${ADVERT_API_HOST}${ADV_HELPERS.getConfig.path}`);
+    assert.equal(ADV_HELPERS.getConfig.method, 'GET');
+    assert.equal(ADV_HELPERS.setBids.path, '/api/advert/v1/normquery/bids');
+    assert.notEqual(ADV_HELPERS.setBids.path, '/adv/v0/normquery/bids');
+    assert.deepEqual(result.data, wb);
+    assert.deepEqual(parseAdvConfig(wb), {
+        currency: 'KGS',
+        currencyCode: 417,
+        cpmStep: 100,
+        cpcStep: 50,
+        minTopUp: 10000,
+    });
+    assert.equal(parseAdvConfig({}), null);
+}
+
 assert.equal(parseDryRun(undefined), true);
 assert.equal(parseDryRun(''), true);
 assert.equal(parseDryRun('false'), false);
@@ -168,4 +195,5 @@ await testSetBidsDryRun();
 await testSetBidsLive();
 await testUnauthorized();
 await testGenericSetBidsPathDryRun();
+await testGetAdvConfig();
 console.log('wb-adv-proxy_test: ok');

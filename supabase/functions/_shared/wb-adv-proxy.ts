@@ -9,7 +9,9 @@ export const ADVERT_API_HOST = 'https://advert-api.wildberries.ru';
 // per-endpoint (fullstats = 3/min, setBids = 2/s). Глобальный потолок на токен.
 export const DEFAULT_ADV_REQ_PER_MIN = 300;
 
-export const ADV_SPEC_URL = 'https://dev.wildberries.ru/openapi/promotion';
+export const ADV_SPEC_URL = 'https://dev.wildberries.ru/docs/openapi/promotion';
+/** Полный дамп спеки в репо — источник истины по путям (docs/autobidder.md §2). */
+export const ADV_SPEC_DUMP = 'docs/wb-openapi-promotion.md';
 
 const MAX_ATTEMPTS = 3;
 const RETRY_BASE_MS = 400;
@@ -20,8 +22,9 @@ export const ADV_HELPERS = {
     getAdverts: { method: 'GET', path: '/api/advert/v2/adverts' },
     listClusters: { method: 'POST', path: '/adv/v0/normquery/list' },
     getBids: { method: 'POST', path: '/adv/v0/normquery/get-bids' },
-    // v1 предпочтительнее для новых интеграций (docs/autobidder.md §2).
+    // v1: ставка в валюте кабинета (bidMinorUnits). v0 в спеке — «в рублях», не использовать.
     setBids: { method: 'POST', path: '/api/advert/v1/normquery/bids' },
+    getConfig: { method: 'GET', path: '/api/advert/v1/config' },
     getClusterStats: { method: 'POST', path: '/adv/v0/normquery/stats' },
     getClusterStatsDaily: { method: 'POST', path: '/adv/v1/normquery/stats' },
     getMinus: { method: 'POST', path: '/adv/v0/normquery/get-minus' },
@@ -62,6 +65,28 @@ export type WbGetBidsResponse = {
         norm_query: string;
     }>;
 };
+
+// GET /api/advert/v1/config — валюта кабинета и шаг ставки (не get-bids).
+export type WbAdvConfig = {
+    currency: string;
+    currencyCode: number;
+    cpmStep: number;
+    cpcStep: number;
+    minTopUp: number;
+};
+
+export function parseAdvConfig(data: unknown): WbAdvConfig | null {
+    if (!data || typeof data !== 'object') return null;
+    const o = data as Record<string, unknown>;
+    const currency = String(o.currency ?? '').trim();
+    const currencyCode = Number(o.currencyCode ?? o.currency_code);
+    const cpmStep = Number(o.cpmStep ?? o.cpm_step);
+    const cpcStep = Number(o.cpcStep ?? o.cpc_step);
+    const minTopUp = Number(o.minTopUp ?? o.min_top_up);
+    if (!currency || !Number.isFinite(currencyCode)) return null;
+    if (!Number.isFinite(cpmStep) || !Number.isFinite(cpcStep) || !Number.isFinite(minTopUp)) return null;
+    return { currency, currencyCode, cpmStep, cpcStep, minTopUp };
+}
 
 // Поля setBids v1 — из примера OpenAPI POST /api/advert/v1/normquery/bids.
 export type WbSetBidsV1Response = {
@@ -395,6 +420,10 @@ export function getBids(ctx: AdvCallContext, body?: unknown): Promise<AdvProxyRe
 
 export function setBids(ctx: AdvCallContext, body?: unknown): Promise<AdvProxyResult> {
     return executeAdvRequest(ctx, { action: 'setBids', body });
+}
+
+export function getAdvConfig(ctx: AdvCallContext): Promise<AdvProxyResult> {
+    return executeAdvRequest(ctx, { action: 'getConfig' });
 }
 
 export function getClusterStats(ctx: AdvCallContext, body?: unknown): Promise<AdvProxyResult> {
