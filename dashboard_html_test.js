@@ -86,10 +86,12 @@ assert.ok(html.includes('th.gg-col-nm') && html.includes('text-align: center !im
     'WB column is centered and cannot swallow leftover viewport width');
 assert.ok(html.includes('goods-compact') && html.includes("name === 'goods-groups'") && html.includes('padding: 0 12px 10px'),
     'Товары and Ads sit tight under the page title so tab labels rise');
-assert.ok(html.includes('id="ads-hq-reload"') && html.includes('id="adv-sync-all-btn"') && html.includes('id="adv-sync-btn"') && html.includes('rnp-tool-icon'),
+assert.ok(html.includes('id="ads-hq-reload"') && html.includes('id="adv-sync-btn"') && html.includes('rnp-tool-icon'),
     'Ads refresh buttons are the same round icons, top-right');
-assert.ok(!/adv-sync-all-btn[\s\S]{0,200}btn\.textContent =/.test(html) && !/adv-sync-btn[\s\S]{0,400}btn\.textContent =/.test(html),
+assert.ok(!/adv-sync-btn[\s\S]{0,400}btn\.textContent =/.test(html),
     'Ads icon buttons keep their SVG while syncing');
+assert.ok(!html.includes('data-adv-module="cards"') && !html.includes('id="adv-view-cards"') && !html.includes('showAdvertisingCardsView'),
+    'RK no longer has a Кабинеты cards tab');
 assert.ok(
     html.includes('id="gg-search-btn"') && html.includes('function toggleGoodsSearch') && html.includes('cx="11" cy="11" r="7"'),
     'Товары search is a loupe icon, not a wide empty field'
@@ -940,13 +942,11 @@ assert.ok(
 
 assert.ok(html.includes('data-adv-view="autobidder"') && html.includes('id="adv-subtab-autobidder"'),
     'advertising detail must have an Автобиддер tab');
-assert.ok(html.includes('data-adv-module="ads"') && html.includes('id="adv-view-ads"') && html.includes('id="ads-hq-tbody"'),
-    'РК must expose a new Реклама command-center view beside cabinet cards');
-assert.ok(/data-adv-module="ads"[^>]*class="[^"]*active/.test(html) || /class="segment-tab active"[^>]*data-adv-module="ads"/.test(html),
-    'Реклама is the default view on the advertising tab so the new UI is visible on open');
+assert.ok(html.includes('id="adv-view-ads"') && html.includes('id="ads-hq-tbody"') && html.includes('Командный центр'),
+    'РК opens on the command center, not cabinet cards');
 assert.ok(html.includes('Командный центр') && html.includes('id="ads-hq-phone"') && html.includes('ads-hq-table-wrap'),
     'command center has a visible title and a phone card list besides the desktop table');
-assert.ok(html.includes('const isAdsHq') && html.includes("window._advView === 'cards'"),
+assert.ok(html.includes('const isAdsHq') && html.includes("window._advView !== 'detail'"),
     'RK header treats command center as the root view, not a drill-in');
 assert.ok(
     html.includes("tab === 'tab-advertising' && window._advView === 'detail'") &&
