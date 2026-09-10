@@ -1043,8 +1043,14 @@ assert.ok(rnpSrc.includes('const keepWorkspace'),
     'RNP refresh must keep the painted workspace instead of swapping in a spinner');
 assert.ok(rnpSrc.includes('function _saveRnpShell') && rnpSrc.includes('function _restoreRnpShell'),
     'RNP snapshot of the last workspace must survive F5');
-assert.ok(html.includes("sessionStorage.getItem('rnp_shell_") && html.includes("sessionStorage.getItem('rnp_shell_cab')"),
+assert.ok(html.includes("rnp_shell_cab") && html.includes("rnp_shell_") && html.includes('function read(k)'),
     'tab-rnp restores the last sheet before any spinner');
+assert.ok(html.includes('localStorage.getItem(k)') && html.includes('rnp_chrome'),
+    'RNP restore also reads localStorage and the compact chrome snapshot');
+assert.ok(rnpSrc.includes('function _saveRnpChrome') && rnpSrc.includes('function _compactRnpWorkspace'),
+    'RNP snapshot is compacted so it fits storage and comes back on F5');
+assert.ok(!/if \(!_cachedPhotoUrl\(art, 1\)\) await _ensurePhoto/.test(rnpSrc),
+    'article sheet must not wait for photos before painting the table');
 assert.ok(!rnpSrc.includes('Рисуем таблицу'),
     'general sheet must not swap in a drawing spinner');
 assert.ok(

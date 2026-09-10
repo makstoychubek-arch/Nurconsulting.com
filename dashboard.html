@@ -4909,13 +4909,36 @@
         </div>
         <script>
             (function () {
+                function read(k) {
+                    try { return sessionStorage.getItem(k) || localStorage.getItem(k) || ''; } catch (e) { return ''; }
+                }
                 try {
                     var el = document.getElementById('tab-rnp');
                     if (!el) return;
-                    var cab = sessionStorage.getItem('rnp_shell_cab');
-                    if (!cab) return;
-                    var html = sessionStorage.getItem('rnp_shell_' + cab);
-                    if (html && html.indexOf('rnp-workspace') !== -1) el.innerHTML = html;
+                    var cab = read('rnp_shell_cab');
+                    var html = cab ? read('rnp_shell_' + cab) : '';
+                    if (!html) {
+                        try {
+                            for (var i = 0; i < sessionStorage.length; i++) {
+                                var k = sessionStorage.key(i);
+                                if (k && k.indexOf('rnp_shell_') === 0 && k !== 'rnp_shell_cab') {
+                                    html = read(k);
+                                    if (html) break;
+                                }
+                            }
+                        } catch (e2) {}
+                    }
+                    if (html && html.indexOf('rnp-workspace') !== -1) {
+                        el.innerHTML = html;
+                        return;
+                    }
+                    var raw = read('rnp_chrome');
+                    if (!raw) return;
+                    var p = JSON.parse(raw);
+                    var bar = el.querySelector('#rnp-action-bar-wrap');
+                    var tabs = el.querySelector('#rnp-sheet-tabs');
+                    if (bar && p.bar) bar.innerHTML = p.bar;
+                    if (tabs && p.tabs) tabs.innerHTML = p.tabs;
                 } catch (e) {}
             })();
         </script>

@@ -601,13 +601,8 @@ const RNP = (() => {
     function _setRnpSheetState(kind, detail) {
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return;
-        if (kind === 'loading') {
-            body.innerHTML = `<div class="p-10 text-center" style="color:var(--text-muted)">
-              <div style="width:24px;height:24px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 12px"></div>
-              Загрузка...
-            </div>`;
-            return;
-        }
+        if ((kind === 'loading' || kind === 'empty' || kind === 'error') && _rnpMainRendered()) return;
+        if (kind === 'loading') return;
         if (kind === 'error') {
             const msg = detail || 'Не удалось загрузить данные РНП.';
             body.innerHTML = `<div class="p-10 text-center" style="color:var(--text-muted)">
@@ -627,6 +622,7 @@ const RNP = (() => {
     function _setRnpTabState(kind, detail) {
         const el = document.getElementById('tab-rnp');
         if (!el) return;
+        if (kind === 'error' && _rnpMainRendered()) return;
         if (kind === 'error') {
             const msg = detail || 'Ошибка инициализации РНП.';
             el.innerHTML = `<div class="glass rounded-2xl p-14 text-center" style="color:var(--text-muted)">
@@ -4899,29 +4895,113 @@ const RNP = (() => {
         return 'rnp_shell_' + (cab || '');
     }
 
+    function _storeRnpKey(key, val) {
+        if (!key || val == null) return false;
+        let ok = false;
+        try { sessionStorage.setItem(key, val); ok = true; } catch (e) {
+            try { sessionStorage.removeItem(key); sessionStorage.setItem(key, val); ok = true; } catch (e2) {}
+        }
+        try { localStorage.setItem(key, val); ok = true; } catch (e) {
+            try {
+                Object.keys(localStorage)
+                    .filter(k => k.indexOf('rnp_shell_') === 0 && k !== key)
+                    .forEach(k => { try { localStorage.removeItem(k); } catch (e2) {} });
+                localStorage.setItem(key, val);
+                ok = true;
+            } catch (e2) {}
+        }
+        return ok;
+    }
+
+    function _readRnpKey(key) {
+        if (!key) return '';
+        try { return sessionStorage.getItem(key) || localStorage.getItem(key) || ''; } catch (e) { return ''; }
+    }
+
+    function _compactRnpWorkspace(ws) {
+        const clone = ws.cloneNode(true);
+        clone.querySelectorAll('.rnp-marquee-track').forEach(track => {
+            const n = parseInt(track.dataset.baseCount || '6', 10) || 6;
+            while (track.children.length > n) track.lastElementChild.remove();
+        });
+        clone.querySelectorAll('img').forEach(img => {
+            img.removeAttribute('srcset');
+            img.removeAttribute('sizes');
+        });
+        return clone.outerHTML;
+    }
+
+    function _saveRnpChrome() {
+        const bar = document.getElementById('rnp-action-bar-wrap');
+        const tabs = document.getElementById('rnp-sheet-tabs');
+        if (!bar && !tabs) return;
+        const payload = JSON.stringify({
+            cab: _cab || _readRnpKey('rnp_shell_cab'),
+            nm: _activeNm,
+            bar: bar ? bar.innerHTML : '',
+            tabs: tabs ? tabs.innerHTML : '',
+        });
+        _storeRnpKey('rnp_chrome', payload);
+        if (_cab) _storeRnpKey('rnp_shell_cab', _cab);
+    }
+
     function _saveRnpShell() {
         const el = document.getElementById('tab-rnp');
         const ws = el?.querySelector('.rnp-workspace');
-        if (!ws || !_cab || !_rnpMainRendered()) return;
+        if (!ws || !_cab) return;
+        _saveRnpChrome();
+        if (!_rnpMainRendered()) return;
+        let html = _compactRnpWorkspace(ws);
+        if (!html) return;
+        if (html.length > 900000) {
+            const clone = ws.cloneNode(true);
+            const body = clone.querySelector('#rnp-sheet-body, .rnp-sheet-body');
+            if (body) body.innerHTML = body.innerHTML.slice(0, 400000);
+            html = clone.outerHTML;
+        }
+        if (html.length > 1200000) return;
+        _storeRnpKey(_rnpShellKey(_cab), html);
+        _storeRnpKey('rnp_shell_cab', _cab);
+    }
+
+    function _applyRnpChrome(el) {
+        let raw = _readRnpKey('rnp_chrome');
+        if (!raw) return false;
         try {
-            const html = ws.outerHTML;
-            if (!html || html.length > 1600000) return;
-            sessionStorage.setItem(_rnpShellKey(_cab), html);
-            sessionStorage.setItem('rnp_shell_cab', _cab);
-        } catch (e) {}
+            const p = JSON.parse(raw);
+            if (!p || (p.cab && _cab && p.cab !== _cab)) return false;
+            const bar = (el || document).querySelector('#rnp-action-bar-wrap');
+            const tabs = (el || document).querySelector('#rnp-sheet-tabs');
+            if (bar && p.bar) bar.innerHTML = p.bar;
+            if (tabs && p.tabs) tabs.innerHTML = p.tabs;
+            return !!(p.bar || p.tabs);
+        } catch (e) { return false; }
     }
 
     function _restoreRnpShell(el, cab) {
         if (!el) return false;
         if (el.querySelector('.rnp-workspace') && _rnpMainRendered()) return true;
-        try {
-            const savedCab = sessionStorage.getItem('rnp_shell_cab');
-            if (cab && savedCab && savedCab !== cab) return false;
-            const html = sessionStorage.getItem(_rnpShellKey(cab || savedCab || ''));
-            if (!html || html.indexOf('rnp-workspace') < 0) return false;
+        const savedCab = _readRnpKey('rnp_shell_cab');
+        const keyCab = cab || savedCab || '';
+        let html = _readRnpKey(_rnpShellKey(keyCab));
+        if (!html) {
+            try {
+                const keys = [];
+                for (let i = 0; i < sessionStorage.length; i++) {
+                    const k = sessionStorage.key(i);
+                    if (k && k.indexOf('rnp_shell_') === 0 && k !== 'rnp_shell_cab') keys.push(k);
+                }
+                html = keys.map(k => _readRnpKey(k)).find(v => v && v.indexOf('rnp-workspace') >= 0) || '';
+            } catch (e) {}
+        }
+        if (html && html.indexOf('rnp-workspace') >= 0) {
             el.innerHTML = html;
             return !!el.querySelector('.rnp-workspace');
-        } catch (e) { return false; }
+        }
+        if (!el.querySelector('.rnp-workspace')) {
+            el.innerHTML = _workspaceChromeHtml([]);
+        }
+        return _applyRnpChrome(el);
     }
 
     function _workspaceChromeHtml(active) {
@@ -4969,12 +5049,12 @@ const RNP = (() => {
         const el = document.getElementById('tab-rnp');
         if (!el) return;
 
-        if (!el.querySelector('.rnp-workspace')) _restoreRnpShell(el, _cab);
+        if (!el.querySelector('.rnp-workspace') || !_rnpMainRendered()) _restoreRnpShell(el, _cab);
 
         if (_initInflight && !_cabArticles().length) {
             await Promise.race([
                 _initInflight,
-                new Promise(r => setTimeout(r, 8000)),
+                new Promise(r => setTimeout(r, 20000)),
             ]);
         }
         // Артикулы ещё от другого кабинета (или не загружены) — дочитываем сами,
@@ -4985,15 +5065,18 @@ const RNP = (() => {
             if (_cab !== cab) return;
         }
 
-        const active = _cabArticles().filter(a => a.is_active);
+        const active = _rnpVisibleArticles();
 
         if (!active.length) {
+            if (el.querySelector('.rnp-workspace')) return;
             const total = _cabArticles().length;
             const hint = total === 0
                 ? 'Артикулы ещё не подтянуты. Нажмите «Из заказов» или дождитесь автозагрузки после обновления дашборда.'
                 : `В базе ${total} арт., но ни один не активен. Нажмите «Включить все» для активации товаров.`;
-            el.innerHTML = `
-            <div class="glass rounded-2xl p-14 text-center">
+            const body = document.getElementById('rnp-sheet-body');
+            if (body) {
+                body.innerHTML = `
+            <div class="p-10 text-center">
               <h3 class="text-lg font-bold mb-2" style="color:var(--text-primary)">Нет активных артикулов</h3>
               <p class="text-sm mb-5" style="color:var(--text-muted)">${hint}</p>
               <div class="flex flex-wrap gap-2 justify-center">
@@ -5005,6 +5088,7 @@ const RNP = (() => {
                   style="background:var(--accent-soft);border:1px solid var(--accent-border);color:var(--accent)">Настройки РНП</button>
               </div>
             </div>`;
+            }
             return;
         }
 
@@ -5052,6 +5136,7 @@ const RNP = (() => {
                 if (tabs) tabs.innerHTML = _renderTabsHTML(active, { lite: active.length > 40 });
             });
         }
+        _saveRnpChrome();
 
         const renderId = ++_mainRenderGen;
         const snapReq = _loadRequestId();
@@ -5191,11 +5276,9 @@ const RNP = (() => {
         const art = _articles.find(a => a.nm_id == _activeNm);
         if (!art) return;
 
-        if (!_cachedPhotoUrl(art, 1)) await _ensurePhoto(art);
-        if (!_galleryPhotosCache[art.nm_id]?.length) await _preloadGalleryPhotos(art.nm_id);
         if (_compareNm) {
             const art2 = _articles.find(a => a.nm_id == _compareNm);
-            if (art2) await _ensurePhoto(art2);
+            if (art2 && !_cachedPhotoUrl(art2, 1)) _ensurePhoto(art2).catch(() => {});
         }
 
         const rawData = _dataCache[art.nm_id] || {};
