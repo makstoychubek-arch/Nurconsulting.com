@@ -45,6 +45,10 @@ Deno.serve(async (req) => {
 
     const dryRun = body.dry_run === true || body.dry_run === 'true';
     const admin = createClient(supabaseUrl, serviceKey);
+    const resendId = String(body.resend_question_id || '').trim();
+    if (resendId) {
+        return json(await resendPendingCard(admin, resendId, tgToken, reviewsChat, dryRun));
+    }
     const { data: cabinets, error: cabErr } = await admin
         .from('cabinets')
         .select('id, name, wb_token')
@@ -135,6 +139,44 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, dry_run: dryRun, results });
 });
+
+async function resendPendingCard(
+    admin: ReturnType<typeof createClient>,
+    questionId: string,
+    tgToken: string,
+    reviewsChat: string,
+    dryRun: boolean,
+): Promise<Record<string, unknown>> {
+    const { data, error } = await admin
+        .from('wb_restock_questions')
+        .select('question_id, cabinet_id, nm_id, article, product, question_text, status')
+        .eq('question_id', questionId)
+        .eq('status', 'pending')
+        .maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data) return { ok: false, error: 'not_pending' };
+    const { data: cab } = await admin.from('cabinets').select('id, name').eq('id', data.cabinet_id).maybeSingle();
+    const question: RestockQuestion = {
+        id: String(data.question_id),
+        text: String(data.question_text || ''),
+        nmId: Number(data.nm_id || 0) || 0,
+        article: String(data.article || ''),
+        product: String(data.product || ''),
+        createdDate: '',
+    };
+    if (dryRun || !tgToken || !reviewsChat) {
+        return { ok: true, resent: false, skipped: dryRun ? 'dry_run' : 'no_reviews_chat', question_id: questionId };
+    }
+    const sent = await sendTelegramCard(tgToken, reviewsChat, String(cab?.name || ''), String(data.cabinet_id), question);
+    if (sent.error) return { ok: false, error: sent.error, question_id: questionId };
+    await admin.from('wb_restock_questions').update({
+        telegram_chat_id: reviewsChat,
+        telegram_message_id: sent.messageId,
+        error_text: null,
+        updated_at: new Date().toISOString(),
+    }).eq('cabinet_id', data.cabinet_id).eq('question_id', questionId);
+    return { ok: true, resent: true, question_id: questionId, message_id: sent.messageId };
+}
 
 async function sendTelegramCard(
     token: string,

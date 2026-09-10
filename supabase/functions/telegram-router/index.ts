@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
     const wbToken = sanitizeWbToken(cabinet?.wb_token);
     if (!wbToken) {
-        await sendTelegram(replyToken, decision.chatId, 'нет токена', decision.replyToId);
+        await reactTelegram(replyToken, decision.chatId, decision.replyToId, '👎');
         return json({ ok: false, error: 'no_wb_token' });
     }
 
@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
             wb_answer: answer,
             updated_at: new Date().toISOString(),
         }).eq('cabinet_id', decision.cabinetId).eq('question_id', decision.questionId);
-        await sendTelegram(replyToken, decision.chatId, 'не смогла', decision.replyToId);
+        await reactTelegram(replyToken, decision.chatId, decision.replyToId, '👎');
         return json({ ok: false, error: err });
     }
 
@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
     }).eq('cabinet_id', decision.cabinetId).eq('question_id', decision.questionId);
 
-    await sendTelegram(replyToken, decision.chatId, 'готово', decision.replyToId);
+    await reactTelegram(replyToken, decision.chatId, decision.replyToId, '❤');
     return json({ ok: true, answered: true, via: decision.via, question_id: decision.questionId });
 });
 
@@ -142,6 +142,23 @@ async function sendTelegram(token: string, chatId: string, text: string, replyTo
                 text,
                 reply_to_message_id: replyTo || undefined,
                 disable_web_page_preview: true,
+            }),
+        });
+    } catch {
+        // webhook must still 200
+    }
+}
+
+async function reactTelegram(token: string, chatId: string, messageId?: number, emoji = '❤'): Promise<void> {
+    if (!token || !chatId || !messageId) return;
+    try {
+        await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                message_id: messageId,
+                reaction: [{ type: 'emoji', emoji }],
             }),
         });
     } catch {

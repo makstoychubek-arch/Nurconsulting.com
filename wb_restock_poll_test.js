@@ -30,8 +30,11 @@ assert.ok(router.includes('answerWbQuestion'), 'router answers via official PATC
 assert.ok(!router.includes('questions/answer'), 'old POST /questions/answer path is gone');
 assert.ok(router.includes('buildWbRestockAnswer'), 'router uses the hello+when template');
 assert.ok(router.includes('unknown_chat'), 'router ignores chats that are not reviews');
-assert.ok(router.includes("'готово'") || router.includes('"готово"'), 'success reply is short');
-assert.ok(router.includes('не смогла'), 'failure reply is short, no WB URL');
+assert.ok(router.includes('setMessageReaction') && router.includes("'❤'"),
+    'success is a heart on the reply, no text');
+assert.ok(!router.includes('готово') && !router.includes('не смогла'),
+    'must not write status text after a restock reply');
+assert.ok(poll.includes('resend_question_id'), 'poll can duplicate one pending card');
 
 assert.ok(admin.includes("action === 'set_webhook'"), 'admin can point notify bot at the router');
 assert.ok(admin.includes('telegram-router?bot='), 'webhook path is telegram-router');
