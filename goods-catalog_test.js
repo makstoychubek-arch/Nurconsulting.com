@@ -113,9 +113,12 @@ const spark = C.sparkValues(dailyIdx, [1218782505, 296564448], sept);
 assert.equal(spark[8], null, 'empty days stay empty, not zero');
 assert.equal(spark[9], 1426 + 960);
 assert.ok(spark.slice(0, 9).every((v) => v == null));
-assert.equal(C.sparklineSvg(spark, 280, 20).includes('circle'), true);
-assert.equal(C.sparklineSvg([null, null], 80, 20), '');
-assert.ok(C.sparklineSvg([10, null, 8], 80, 20).includes('polyline'));
+assert.equal(C.FIRST_SNAPSHOT_YMD, '2026-09-10');
+assert.equal(C.sparklineSvg(spark, 280, 36).includes('circle'), true);
+assert.equal(C.sparklineSvg([null, null], 80, 36), '');
+assert.ok(C.sparklineSvg([10, null, 8], 80, 36).includes('polyline'));
+assert.ok(C.sparklineSvg([10, null, 8], 80, 36).includes('polygon'));
+assert.ok(C.sparklineSvg([10, 8], 80, 36).includes('#16a34a'));
 assert.equal(C.sparkValues(dailyIdx, [1], ['2026-09-01'])[0], null);
 
 const csv = C.exportExcelCsv(filtered, { hiddenCols: { nm: true } });

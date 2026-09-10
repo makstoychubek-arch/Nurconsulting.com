@@ -46,9 +46,12 @@ create trigger goods_daily_stocks_no_update
     before update on public.goods_daily_stocks
     for each row execute function public.goods_daily_stocks_no_update();
 
+drop function if exists public.snapshot_goods_daily_stocks(date, uuid);
+
 create or replace function public.snapshot_goods_daily_stocks(
     p_date date default null,
-    p_cabinet_id uuid default null
+    p_cabinet_id uuid default null,
+    p_nm_ids bigint[] default null
 )
 returns jsonb
 language plpgsql
@@ -59,8 +62,15 @@ declare
     d date;
     n int;
     v_all boolean;
+    v_today date := (timezone('Asia/Bishkek', now()))::date;
+    v_start date := date '2026-09-10';
 begin
-    d := coalesce(p_date, (timezone('Asia/Bishkek', now()))::date);
+    d := coalesce(p_date, v_today);
+    -- Первый снимок — 10 сентября 2026. Дни 1–9 не заполняем «сегодняшним» остатком.
+    if d < v_start or d > v_today then
+        return jsonb_build_object('date', d, 'inserted', 0, 'skipped', true);
+    end if;
+
     -- JWT пользователя: только свои кабинеты.
     -- service_role / SQL-консоль (uid пустой): все кабинеты.
     v_all := auth.uid() is null;
@@ -101,6 +111,11 @@ begin
         join cabs x on x.id::text = a.cabinet_id
         where a.nm_id is not null
           and a.cabinet_id ~ '^[0-9a-fA-F-]{36}$'
+        union
+        select x.id, u.nm_id
+        from cabs x
+        cross join unnest(coalesce(p_nm_ids, '{}'::bigint[])) as u(nm_id)
+        where u.nm_id is not null
     )
     insert into public.goods_daily_stocks (cabinet_id, nm_id, date, qty, fbo, fbs)
     select
@@ -119,12 +134,12 @@ begin
 end;
 $$;
 
-revoke all on function public.snapshot_goods_daily_stocks(date, uuid) from public;
-grant execute on function public.snapshot_goods_daily_stocks(date, uuid) to authenticated;
-grant execute on function public.snapshot_goods_daily_stocks(date, uuid) to service_role;
+revoke all on function public.snapshot_goods_daily_stocks(date, uuid, bigint[]) from public;
+grant execute on function public.snapshot_goods_daily_stocks(date, uuid, bigint[]) to authenticated;
+grant execute on function public.snapshot_goods_daily_stocks(date, uuid, bigint[]) to service_role;
 
-comment on function public.snapshot_goods_daily_stocks(date, uuid) is
-    'Пишет FBO+FBS на дату. Повторный вызов ту же дату не меняет (ON CONFLICT DO NOTHING).';
+comment on function public.snapshot_goods_daily_stocks(date, uuid, bigint[]) is
+    'Пишет FBO+FBS на дату с 10.09.2026. Повторный вызов ту же дату не меняет (ON CONFLICT DO NOTHING).';
 
 create or replace function public.delete_cabinet(cid uuid)
 returns void

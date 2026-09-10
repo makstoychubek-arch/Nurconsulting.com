@@ -894,8 +894,8 @@
             border-bottom: none !important;
             font-weight: 400;
         }
-        .gg-spark-wrap { height: 20px; min-width: 80px; }
-        .gg-spark-wrap svg { width: 100%; height: 20px; display: block; }
+        .gg-spark-wrap { height: 36px; min-width: 80px; }
+        .gg-spark-wrap svg { width: 100%; height: 36px; display: block; }
         .gg-day { width: 36px; min-width: 36px; padding: 4px 5px !important; }
         .gg-day.is-today { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
         .gg-search-wrap { display: inline-flex; align-items: center; gap: 4px; }
@@ -5372,7 +5372,7 @@
 <script src="/dist/rnp-module.66fd31b3b5.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script src="/dist/ads-command-center.233e066fd2.min.js"></script>
-<script src="/dist/goods-catalog.9e2d410aeb.min.js"></script>
+<script src="/dist/goods-catalog.b39fb4d5d2.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -7946,8 +7946,8 @@
         const colCount = 3 + days.length;
         const spark = catalog.sparklineSvg(
             catalog.sparkValues(idx, items.map((r) => r.nmId), days),
-            Math.max(120, days.length * 28),
-            20
+            Math.max(180, days.length * 28),
+            36
         );
         const dayHeads = days.map((d) => {
             const on = d === parts.ymd;
@@ -8023,11 +8023,15 @@
             }
             try {
                 if (ggDaily.snapKey !== snapKey) {
-                    const { error } = await supabase.rpc('snapshot_goods_daily_stocks', {
-                        p_date: parts.ymd,
-                        p_cabinet_id: cabId,
-                    });
-                    if (error) throw error;
+                    if (parts.ymd >= (catalog.FIRST_SNAPSHOT_YMD || '2026-09-10')) {
+                        const nms = (goodsGroupsRows || []).map((r) => Number(r.nmId)).filter(Boolean);
+                        const { error } = await supabase.rpc('snapshot_goods_daily_stocks', {
+                            p_date: parts.ymd,
+                            p_cabinet_id: cabId,
+                            p_nm_ids: nms.length ? nms : null,
+                        });
+                        if (error) throw error;
+                    }
                     ggDaily.snapKey = snapKey;
                     ggDaily.monthKey = '';
                 }
