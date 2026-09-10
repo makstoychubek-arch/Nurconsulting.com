@@ -4699,12 +4699,12 @@ const RNP = (() => {
 
     function _settingsGroupsHtml() {
         const groups = _groupByCategory(_articles);
-        if (!groups.length) return '';
-        const rows = groups.map(([cat, list]) => {
-            const on = !_isGroupHidden(cat);
-            const esc = String(cat).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-            const key = encodeURIComponent(cat);
-            return `<div class="rnp-group-vis">
+        const rows = groups.length
+            ? groups.map(([cat, list]) => {
+                const on = !_isGroupHidden(cat);
+                const esc = String(cat).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                const key = encodeURIComponent(cat);
+                return `<div class="rnp-group-vis">
               <span class="rnp-group-vis-name">${esc}</span>
               <span class="rnp-group-vis-n">${list.length} арт.</span>
               <button type="button" class="rnp-settings-toggle relative w-9 h-5 rounded-full" data-group-key="${key}"
@@ -4714,12 +4714,27 @@ const RNP = (() => {
                 <span style="position:absolute;top:2px;left:${on ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
               </button>
             </div>`;
-        }).join('');
-        return `<div class="widget-card p-5">
+            }).join('')
+            : `<p class="text-xs" style="color:var(--text-muted)">Категорий пока нет — задайте группу в таблице артикулов ниже.</p>`;
+        return `<div class="widget-card p-5 rnp-settings-groups">
           <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Группы в РНП</h3>
           <p class="text-xs mb-3 leading-snug" style="color:var(--text-muted)">Выключите группу — она пропадёт из вкладок и таблиц. Не нужно скрывать артикулы по одному. В списке ниже они останутся.</p>
           <div class="rnp-group-vis-list">${rows}</div>
         </div>`;
+    }
+
+    function _syncSettingsGroups() {
+        const host = _settingsHost();
+        if (!host) return;
+        const html = _settingsGroupsHtml();
+        const cur = host.querySelector('.rnp-settings-groups');
+        if (cur) {
+            cur.outerHTML = html;
+            return;
+        }
+        const arts = [...host.querySelectorAll('.widget-card')].find(c => c.querySelector('#rnp-settings-arts-label'));
+        if (arts) arts.insertAdjacentHTML('beforebegin', html);
+        else host.insertAdjacentHTML('beforeend', html);
     }
 
     function _patchGroupVisUi() {
@@ -4750,6 +4765,7 @@ const RNP = (() => {
         if (!el) return;
         if (opts.preserveScroll && !opts.forceFull && _settingsShellReady() && _articles.length) {
             _updateSettingsActiveCounts();
+            _syncSettingsGroups();
             _fillSettingsArticlesAsync({ preserveScroll: true }).catch(e => {
                 console.warn('[RNP] settings articles:', e.message);
             });
@@ -5907,7 +5923,8 @@ const RNP = (() => {
             ]);
         }
         const next = { ...(opts || {}) };
-        if (next.preserveScroll == null && _settingsShellReady()) next.preserveScroll = true;
+        if (next.preserveScroll == null && _settingsShellReady()
+            && document.querySelector('.rnp-settings-groups')) next.preserveScroll = true;
         _renderSettings(next);
     }
 

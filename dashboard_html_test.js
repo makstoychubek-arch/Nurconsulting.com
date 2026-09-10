@@ -541,10 +541,16 @@ assert.ok(html.includes('.rnp-head-wide-info') && html.includes('.rnp-head-wide-
     'wide head splits KPI/stocks and the photo strip');
 assert.ok(/\.rnp-settings-overlay\s*\{[^}]*z-index:\s*10050/.test(html),
     'settings overlay sits above the floating header');
+assert.ok(html.includes('body.rnp-settings-open .rnp-workspace') && html.includes('visibility: hidden'),
+    'open settings hide the RNP sheet so photos cannot show through');
+assert.ok(!/color-mix\(in srgb, var\(--surface-solid\) 94%/.test(html),
+    'settings dialog is opaque and does not show the RNP table through it');
 assert.ok(rnpSrc.includes("document.body.appendChild(overlay)"),
     'settings overlay moves to body so the header cannot cover it');
 assert.ok(rnpSrc.includes('hiddenGroups') && rnpSrc.includes('function toggleGroupVisible'),
     'RNP settings can hide a whole group instead of toggling articles one by one');
+assert.ok(rnpSrc.includes('function _syncSettingsGroups') && rnpSrc.includes('rnp-settings-groups'),
+    'group toggles stay in the modal even when the article list is patched in place');
 {
     const spanStart = rnpSrc.indexOf('function _needsWideHead');
     const spanEnd = rnpSrc.indexOf('function _sheetDataColCount');
