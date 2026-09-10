@@ -14,6 +14,7 @@ import {
     matchPendingByText,
     ownerMention,
     parseRestockCardMeta,
+    parseNewFeedbacksQuestions,
     pickRestockQuestions,
     unwrapTelegramMessage,
 } from './wb-restock-reply.ts';
@@ -47,6 +48,17 @@ assert.equal(cabinetLegalName('Zevina 2'), 'ОсОО «Айлин Стиль»')
 assert.equal(cabinetLegalName('Elium'), 'ИП Айзада');
 assert.equal(cabinetLegalName('Baza'), 'ИП Бейшеев А.Д.');
 assert.equal(ownerMention('maraWuW'), '@maraWuW');
+
+assert.deepEqual(parseNewFeedbacksQuestions({
+    data: { hasNewQuestions: true, hasNewFeedbacks: false },
+    error: false,
+    errorText: '',
+    additionalErrors: null,
+}), { hasNewQuestions: true, hasNewFeedbacks: false });
+assert.deepEqual(parseNewFeedbacksQuestions({ hasNewQuestions: false }), {
+    hasNewQuestions: false,
+    hasNewFeedbacks: false,
+});
 
 const payload = {
     data: {

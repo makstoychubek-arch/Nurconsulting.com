@@ -99,6 +99,21 @@ export function cabinetLegalName(name: string): string {
     return raw;
 }
 
+/** Официальный GET /api/v1/new-feedbacks-questions — только флаги, не список. */
+export type NewFeedbacksQuestions = {
+    hasNewQuestions: boolean;
+    hasNewFeedbacks: boolean;
+};
+
+export function parseNewFeedbacksQuestions(payload: unknown): NewFeedbacksQuestions {
+    const rec = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+    const inner = rec.data && typeof rec.data === 'object' ? rec.data as Record<string, unknown> : rec;
+    return {
+        hasNewQuestions: inner.hasNewQuestions === true,
+        hasNewFeedbacks: inner.hasNewFeedbacks === true,
+    };
+}
+
 export function collectQuestions(payload: unknown): RestockQuestion[] {
     const rec = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
     const inner = rec.data && typeof rec.data === 'object' ? rec.data as Record<string, unknown> : rec;

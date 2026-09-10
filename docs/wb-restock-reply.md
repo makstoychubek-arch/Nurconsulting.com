@@ -26,4 +26,17 @@
 - Не отвечает на вопросы не про поступление.
 - Не берёт «в пути» с WB.
 
-Реплаи Карины обрабатывает **telegram-webhook** (не telegram-router). Ответ на WB — `PATCH https://feedbacks-api.wildberries.ru/api/v1/questions` с телом `{ id, answer: { text }, state: "wbRu" }`. Старый `POST /api/v1/questions/answer` WB не принимает.
+Реплаи Карины обрабатывает **telegram-webhook** (не telegram-router).
+
+Официальная цепочка [Questions](https://dev.wildberries.ru/docs/openapi/customer-communication#tag/questions), токен категории «Вопросы и отзывы»:
+
+| Шаг | Метод OpenAPI | HTTP |
+|---|---|---|
+| Есть ли непросмотренные | `getV1NewFeedbacksQuestions` | `GET /api/v1/new-feedbacks-questions` → `{ hasNewQuestions, hasNewFeedbacks }` |
+| Список неотвеченных | `getV1Questions` | `GET /api/v1/questions?isAnswered=false&take=&skip=&order=` |
+| Один вопрос | `getV1Question` | `GET /api/v1/question?id=` |
+| Ответ / правка / просмотр / отклонение | `patchV1Questions` | `PATCH /api/v1/questions` |
+
+Пинг непросмотренных **не возвращает сами вопросы** — только флаги. Карточку в Telegram строим из списка неотвеченных: непросмотренные ≠ неотвеченные.
+
+Ответ: `{ id, answer: { text }, state: "wbRu" }`. Старый `POST /api/v1/questions/answer` WB не принимает. Отзывы — отдельный `POST /api/v1/feedbacks/answer`, их не мешаем.

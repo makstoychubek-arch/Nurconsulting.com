@@ -20,6 +20,9 @@ assert.ok(poll.includes('isServiceAuthorized'), 'poll accepts cron JWT');
 assert.ok(poll.includes("channel: 'reviews'"), 'poll uses reviews gate');
 assert.ok(poll.includes('TELEGRAM_CHAT_REVIEWS'), 'poll does not fall back to team chat');
 assert.ok(!poll.includes('TEAM_TELEGRAM_CHAT_ID'), 'poll must not hardcode team chat');
+assert.ok(poll.includes('/api/v1/new-feedbacks-questions'),
+    'poll starts with official getV1NewFeedbacksQuestions ping');
+assert.ok(poll.includes('parseNewFeedbacksQuestions'), 'poll parses hasNewQuestions flags');
 assert.ok(poll.includes('questions?isAnswered=false'), 'poll lists unanswered WB questions');
 assert.ok(poll.includes('wb_restock_questions'), 'poll stores pending cards');
 assert.ok(poll.includes('formatRestockTelegramCard'), 'poll sends restock card');

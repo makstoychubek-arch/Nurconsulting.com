@@ -9,6 +9,7 @@ import { FEEDBACKS_API, wbError, wbSend } from '../_shared/wb-agent-wow.ts';
 import {
     formatRestockTelegramCard,
     ownerMention,
+    parseNewFeedbacksQuestions,
     pickRestockQuestions,
     type RestockQuestion,
 } from '../_shared/wb-restock-reply.ts';
@@ -72,6 +73,18 @@ Deno.serve(async (req) => {
             continue;
         }
 
+        // getV1NewFeedbacksQuestions — пинг непросмотренных. Список вопросов он не отдаёт.
+        const ping = await wbSend(`${FEEDBACKS_API}/api/v1/new-feedbacks-questions`, token);
+        if (!ping.ok) {
+            row.ping_error = wbError(ping);
+        } else {
+            const flags = parseNewFeedbacksQuestions(ping.data);
+            row.has_new_questions = flags.hasNewQuestions;
+            row.has_new_feedbacks = flags.hasNewFeedbacks;
+        }
+        await sleep(350);
+
+        // Непросмотренные ≠ неотвеченные: список берём всегда (getV1Questions).
         const listed = await wbSend(
             `${FEEDBACKS_API}/api/v1/questions?isAnswered=false&take=50&skip=0&order=dateDesc`,
             token,
