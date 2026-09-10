@@ -80,6 +80,8 @@ assert.ok(html.includes('id="gg-excel-btn"') && html.includes('exportGoodsExcel'
     'Товары has a small Excel button and RNP-style settings overlay');
 assert.ok(html.includes('id="gg-excel-btn"') && html.includes('M3 9h18M3 15h18M9 3v18M15 3v18'),
     'Товары Excel is the same grid icon as RNP');
+assert.ok(!html.includes('.gg-toolbar.is-daily #gg-excel-btn'),
+    'Сейчас and Остатки по дням keep the same tool icons so they do not jump');
 assert.ok(html.includes('gg-now-tools rnp-tool-icons') && /\.gg-toolbar\s*\{[^}]*width:\s*100%/.test(html),
     'Товары toolbar spans the row so icons sit top-right like RNP');
 assert.ok(html.includes('th.gg-col-nm') && html.includes('text-align: center !important') && html.includes('max-width: 110px'),
