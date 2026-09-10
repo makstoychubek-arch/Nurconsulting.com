@@ -117,6 +117,16 @@ Deno.serve(async (req) => {
                 row.stocks_fbs = 0;
                 row.stocks_error = (e as Error).message;
             }
+            try {
+                const { data: snap, error: snapErr } = await admin.rpc('snapshot_goods_daily_stocks', {
+                    p_date: today,
+                    p_cabinet_id: cab.id,
+                });
+                row.daily_stock_snap = snap ?? null;
+                if (snapErr) row.daily_stock_error = snapErr.message;
+            } catch (e) {
+                row.daily_stock_error = (e as Error).message;
+            }
             if (wantFunnel && !ordersFailed) {
                 try {
                     row.funnel_days = await syncFunnelLast7Days(admin, cab.id, token);

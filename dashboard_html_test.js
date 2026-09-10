@@ -109,9 +109,31 @@ assert.ok(html.includes('class="gg-art" title='),
 assert.ok(
     html.includes('id="gg-view-daily"') &&
     html.includes("setGoodsView('daily')") &&
-    html.includes('Остатки по дням'),
-    'Товары has a daily-stocks section; layout waits for the user'
+    html.includes('id="gg-daily-table"') &&
+    html.includes('snapshot_goods_daily_stocks') &&
+    html.includes('goods_daily_stocks') &&
+    html.includes('function renderGoodsDailyTable') &&
+    html.includes('function ensureDailyStocks') &&
+    html.includes('gg-spark-wrap'),
+    'Товары daily view snapshots FBO+FBS once per day and renders a write-once month table'
 );
+assert.ok(!html.includes('Раздел готов. Напишите'),
+    'daily stocks stub copy must be gone');
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260910140000_goods_daily_stocks.sql')),
+    'goods_daily_stocks migration must exist'
+);
+const dailyMig = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260910140000_goods_daily_stocks.sql'), 'utf8');
+assert.ok(dailyMig.includes('on conflict (cabinet_id, nm_id, date) do nothing'),
+    'daily snapshot must never overwrite a stored day');
+assert.ok(dailyMig.includes('goods_daily_stocks_no_update') && dailyMig.includes('write-once'),
+    'daily cache rows cannot be updated');
+assert.ok(!/s\.in_way/.test(dailyMig) && dailyMig.includes('sum(s.quantity)'),
+    'daily snapshot sums warehouse quantity only, never WB in-way');
+assert.ok(dailyMig.includes("timezone('Asia/Bishkek', now())"),
+    'snapshot date defaults to the Bishkek calendar day');
+assert.ok(dailyMig.includes('delete from public.goods_daily_stocks'),
+    'delete_cabinet must also drop daily stock cache');
 assert.ok(html.includes("rnp-reload-requested") && html.includes("loadGoodsGroups({ silent: true })"),
     'Товары silently refreshes when RNP reloads stocks');
 assert.ok(!html.includes('id="gg-cabinet-filter"') && !html.includes('onGoodsGroupsCabinetChange'),
