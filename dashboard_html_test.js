@@ -1047,6 +1047,14 @@ assert.ok(html.includes("rnp_shell_cab") && html.includes("rnp_shell_") && html.
     'tab-rnp restores the last sheet before any spinner');
 assert.ok(html.includes('localStorage.getItem(k)') && html.includes('rnp_chrome'),
     'RNP restore also reads localStorage and the compact chrome snapshot');
+assert.ok(html.includes("selected_cabinet_id") && html.includes("p.cab === cab") && !html.includes('get(cab || \'last\')'),
+    'early RNP restore must use the selected cabinet, not the last other cabinet');
+assert.ok(!rnpSrc.includes("k !== 'rnp_shell_cab') keys.push(k)") && rnpSrc.includes('function _rnpDomCab') && rnpSrc.includes('data-rnp-cab'),
+    'RNP must not fall back to another cabinet snapshot');
+assert.ok(rnpSrc.includes('function _readSavedActiveNm') && rnpSrc.includes('rnp_active_nm_'),
+    'active article is remembered per cabinet');
+assert.ok(html.includes('const rnpNow = getRnp()') && html.includes('rnpNow.ensureReady'),
+    'cabinet switch must start RNP before dashboard loadFromDB');
 assert.ok(rnpSrc.includes('function _saveRnpChrome') && rnpSrc.includes('function _compactRnpWorkspace'),
     'RNP snapshot is compacted so it fits storage and comes back on F5');
 assert.ok(rnpSrc.includes('function _patchLockedSheet') && rnpSrc.includes('function _paintSheetBody') && rnpSrc.includes('function _sheetLockKey'),

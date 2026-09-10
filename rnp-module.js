@@ -26,6 +26,7 @@ const RNP = (() => {
     // Кабинет, для которого загружен _articles. Пока не совпадает с _cab —
     // список считается пустым: нельзя рисовать артикулы прошлого кабинета.
     let _articlesCab = null;
+    let _paintedCab = null;
     let _mainRenderGen = 0;
     let _initInflight = null;
     let _initInflightCab = null;
@@ -428,6 +429,7 @@ const RNP = (() => {
         _notesCache = {};
         _articles = [];
         _articlesCab = null;
+        _paintedCab = null;
         _activeNm = null;
         _settingsInDb = false;
         _resetPhotoCaches();
@@ -984,7 +986,7 @@ const RNP = (() => {
         const art = _cabArticles().find(a => a.nm_id == _activeNm);
         if (!art || !art.is_active || _isGroupHidden(_articleCategory(art))) {
             _activeNm = GENERAL_TAB;
-            try { sessionStorage.setItem('rnp_active_nm', String(_activeNm)); } catch (e) {}
+            _writeSavedActiveNm();
         }
     }
 
@@ -4884,11 +4886,51 @@ const RNP = (() => {
     }
 
     // ─── RENDER MAIN TAB (Google Sheets layout) ─────────────────────────────
+    function _rnpDomCab(root) {
+        const scope = root || document.getElementById('tab-rnp');
+        if (!scope) return '';
+        const marked = scope.querySelector ? scope.querySelector('[data-rnp-cab]') : null;
+        if (marked) return marked.getAttribute('data-rnp-cab') || '';
+        if (scope.getAttribute) return scope.getAttribute('data-rnp-cab') || '';
+        return '';
+    }
+
     function _rnpMainRendered() {
+        if (_cab && _paintedCab && _paintedCab !== _cab) return false;
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return false;
+        const domCab = body.getAttribute('data-rnp-cab') || _rnpDomCab();
+        if (_cab && domCab && domCab !== _cab) return false;
         if (body.querySelector('.rnp-table-scroll, .rnp-summary-table, .rnp-head-wide, .rnp-article-panel')) return true;
         return false;
+    }
+
+    function _markPaintedCab(scope) {
+        _paintedCab = _cab || null;
+        const body = (scope && scope.querySelector)
+            ? (scope.id === 'rnp-sheet-body' ? scope : scope.querySelector('#rnp-sheet-body, .rnp-sheet-body'))
+            : document.getElementById('rnp-sheet-body');
+        if (body && _cab) body.setAttribute('data-rnp-cab', _cab);
+        const ws = document.querySelector('#tab-rnp .rnp-workspace');
+        if (ws && _cab) ws.setAttribute('data-rnp-cab', _cab);
+    }
+
+    function _activeNmKey(cab) {
+        return 'rnp_active_nm_' + (cab || _cab || '');
+    }
+
+    function _readSavedActiveNm(cab) {
+        try {
+            return sessionStorage.getItem(_activeNmKey(cab)) || '';
+        } catch (e) { return ''; }
+    }
+
+    function _writeSavedActiveNm() {
+        try {
+            const val = String(_activeNm);
+            if (_cab) sessionStorage.setItem(_activeNmKey(_cab), val);
+            sessionStorage.setItem('rnp_active_nm', val);
+        } catch (e) {}
     }
 
     function _sheetLockKey(cal) {
@@ -5005,12 +5047,16 @@ const RNP = (() => {
     function _paintSheetBody(body, nextHtml, cal) {
         const lock = _sheetLockKey(cal);
         const hasTable = !!body.querySelector('.rnp-sheet-table, .rnp-summary-table');
-        if (hasTable && _sameLockedSheet(body, lock) && _patchLockedSheet(body, nextHtml)) {
+        const domCab = body.getAttribute('data-rnp-cab') || '';
+        const ownSheet = !domCab || !_cab || domCab === _cab;
+        if (hasTable && ownSheet && _sameLockedSheet(body, lock) && _patchLockedSheet(body, nextHtml)) {
             body.setAttribute('data-rnp-lock', lock);
+            _markPaintedCab(body);
             return 'patch';
         }
         _preserveRnpScroll(() => { body.innerHTML = nextHtml; });
         body.setAttribute('data-rnp-lock', lock);
+        _markPaintedCab(body);
         return 'replace';
     }
 
@@ -5018,8 +5064,9 @@ const RNP = (() => {
         const force = !!(opts && opts.force);
         const bar = document.getElementById('rnp-action-bar-wrap');
         const tabs = document.getElementById('rnp-sheet-tabs');
+        const domCab = _rnpDomCab();
         const chromeReady = !!(bar && bar.querySelector('select') && tabs && tabs.querySelector('.rnp-sheet-tab'));
-        if (chromeReady && !force) {
+        if (chromeReady && !force && (!domCab || !_cab || domCab === _cab)) {
             _updateTabHighlight();
             return false;
         }
@@ -5050,7 +5097,7 @@ const RNP = (() => {
     }
 
     function _restoreRnpIdb(el, cab) {
-        if (!el || _rnpMainRendered()) return Promise.resolve(false);
+        if (!el || _rnpMainRendered() || !cab) return Promise.resolve(false);
         return new Promise(resolve => {
             let done = false;
             const finish = ok => { if (!done) { done = true; resolve(!!ok); } };
@@ -5058,7 +5105,7 @@ const RNP = (() => {
             _rnpIdbOpen().then(db => {
                 if (!db.objectStoreNames.contains('shell')) return finish(false);
                 const tx = db.transaction('shell', 'readonly');
-                const req = tx.objectStore('shell').get(cab || 'last');
+                const req = tx.objectStore('shell').get(cab);
                 req.onerror = () => finish(false);
                 req.onsuccess = () => {
                     const html = req.result;
@@ -5141,6 +5188,7 @@ const RNP = (() => {
         _bindRnpLockUnload();
         _saveRnpChrome();
         if (!_rnpMainRendered()) return;
+        _markPaintedCab(ws);
         const html = _compactRnpWorkspace(ws);
         if (!html) return;
         _rnpIdbPut(_cab, html);
@@ -5172,25 +5220,16 @@ const RNP = (() => {
 
     function _restoreRnpShell(el, cab) {
         if (!el) return false;
-        if (el.querySelector('.rnp-workspace') && _rnpMainRendered()) return true;
-        const savedCab = _readRnpKey('rnp_shell_cab');
-        const keyCab = cab || savedCab || '';
-        let html = _readRnpKey(_rnpShellKey(keyCab));
-        if (!html) {
-            try {
-                const keys = [];
-                for (let i = 0; i < sessionStorage.length; i++) {
-                    const k = sessionStorage.key(i);
-                    if (k && k.indexOf('rnp_shell_') === 0 && k !== 'rnp_shell_cab') keys.push(k);
-                }
-                html = keys.map(k => _readRnpKey(k)).find(v => v && v.indexOf('rnp-workspace') >= 0) || '';
-            } catch (e) {}
-        }
+        const want = cab || _cab || '';
+        const domCab = _rnpDomCab(el);
+        if (el.querySelector('.rnp-workspace') && _rnpMainRendered()
+            && (!want || !domCab || domCab === want)) return true;
+        const html = want ? _readRnpKey(_rnpShellKey(want)) : '';
         if (html && html.indexOf('rnp-workspace') >= 0) {
             el.innerHTML = html;
             return !!el.querySelector('.rnp-workspace');
         }
-        if (!el.querySelector('.rnp-workspace')) {
+        if (!el.querySelector('.rnp-workspace') || (domCab && want && domCab !== want)) {
             el.innerHTML = _workspaceChromeHtml([]);
         }
         return _applyRnpChrome(el);
@@ -5240,9 +5279,12 @@ const RNP = (() => {
         await Promise.resolve();
         const el = document.getElementById('tab-rnp');
         if (!el) return;
+        const wantCab = _cab;
+        if (!wantCab || wantCab !== (window.currentCabinetId || wantCab)) return;
 
-        if (!el.querySelector('.rnp-workspace') || !_rnpMainRendered()) _restoreRnpShell(el, _cab);
-        if (!_rnpMainRendered()) await _restoreRnpIdb(el, _cab);
+        if (!el.querySelector('.rnp-workspace') || !_rnpMainRendered()) _restoreRnpShell(el, wantCab);
+        if (!_rnpMainRendered()) await _restoreRnpIdb(el, wantCab);
+        if (_cab !== wantCab || wantCab !== (window.currentCabinetId || wantCab)) return;
 
         if (_initInflight && !_cabArticles().length) {
             await Promise.race([
@@ -5250,6 +5292,7 @@ const RNP = (() => {
                 new Promise(r => setTimeout(r, 20000)),
             ]);
         }
+        if (_cab !== wantCab || wantCab !== (window.currentCabinetId || wantCab)) return;
         // Артикулы ещё от другого кабинета (или не загружены) — дочитываем сами,
         // а не рисуем чужие.
         if (_articlesCab !== _cab && _db && _cab) {
@@ -5261,7 +5304,8 @@ const RNP = (() => {
         const active = _rnpVisibleArticles();
 
         if (!active.length) {
-            if (el.querySelector('.rnp-workspace')) return;
+            const domCab = _rnpDomCab(el);
+            if (el.querySelector('.rnp-workspace') && _rnpMainRendered() && (!domCab || domCab === _cab)) return;
             const total = _cabArticles().length;
             const hint = total === 0
                 ? 'Артикулы ещё не подтянуты. Нажмите «Из заказов» или дождитесь автозагрузки после обновления дашборда.'
@@ -5287,7 +5331,7 @@ const RNP = (() => {
 
         if (!_activeNm || (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && !active.find(a => a.nm_id == _activeNm))) {
             try {
-                const saved = sessionStorage.getItem('rnp_active_nm');
+                const saved = _readSavedActiveNm(wantCab) || sessionStorage.getItem('rnp_active_nm');
                 if (saved === GENERAL_TAB || saved === 'general') _activeNm = GENERAL_TAB;
                 else if (saved === SUMMARY_TAB || saved === 'summary') _activeNm = SUMMARY_TAB;
                 else if (active.find(a => a.nm_id == saved)) _activeNm = Number(saved);
@@ -5420,6 +5464,7 @@ const RNP = (() => {
                 _paintSheetBody(body, _buildSummaryHTML(active, cal), cal);
             }
             body.setAttribute('data-rnp-lock', _sheetLockKey(cal));
+            _markPaintedCab(body);
             _applyResolvedPhotos(body);
             _updateTabHighlight();
             _saveRnpShell();
@@ -6064,7 +6109,8 @@ const RNP = (() => {
                 // Если вкладка уже открыта, а таблицы ещё нет (initCore шёл дольше,
                 // чем рендер ждал) — дорисовываем сами, не надеясь на ретраи снаружи.
                 const tab = document.getElementById('tab-rnp');
-                if (tab && tab.classList.contains('active') && _cab === cabId && !_rnpMainRendered()) {
+                if (tab && (tab.classList.contains('active') || document.getElementById('nr-early-tab-style'))
+                    && _cab === cabId && !_rnpMainRendered()) {
                     openMain(true).catch(e => console.warn('[RNP] openMain after init:', e.message));
                 }
             })
@@ -6263,7 +6309,7 @@ const RNP = (() => {
         else if (nmId === SUMMARY_TAB || nmId === 'summary') _activeNm = SUMMARY_TAB;
         else _activeNm = Number(nmId);
         if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm === _compareNm) _compareNm = null;
-        try { sessionStorage.setItem('rnp_active_nm', String(_activeNm)); } catch (e) {}
+        _writeSavedActiveNm();
         if (_isPhone()) _phoneKpiOpen = false;
         const body = document.getElementById('rnp-sheet-body');
         if (body && _isPhone()) {
@@ -6583,7 +6629,8 @@ const RNP = (() => {
     function _bindCabinetListener() {
         if (_cabinetListenerBound) return;
         _cabinetListenerBound = true;
-        document.addEventListener('cabinet-changed', () => {
+        document.addEventListener('cabinet-changed', (e) => {
+            const nextCab = (e && e.detail && e.detail.cabinetId) || window.currentCabinetId || null;
             _initGen++;
             _initDoneCab = null;
             _abortPendingLoad();
@@ -6593,7 +6640,15 @@ const RNP = (() => {
             // Список артикулов принадлежит прошлому кабинету — с этого момента
             // он считается пустым, пока не загрузим новый.
             _articlesCab = null;
-            _clearRnpMainUI();
+            _paintedCab = null;
+            _activeNm = null;
+            if (nextCab) _cab = nextCab;
+            const el = document.getElementById('tab-rnp');
+            if (el) {
+                const own = nextCab ? _readRnpKey(_rnpShellKey(nextCab)) : '';
+                if (own && own.indexOf('rnp-workspace') >= 0) el.innerHTML = own;
+                else el.innerHTML = _workspaceChromeHtml([]);
+            }
             const settingsEl = _settingsHost();
             if (settingsEl && settingsEl.querySelector('.widget-card')) {
                 settingsEl.innerHTML = `<div class="p-10 text-center" style="color:var(--text-muted)">
@@ -6601,9 +6656,7 @@ const RNP = (() => {
                   Загрузка настроек…
                 </div>`;
             }
-            if (typeof window.bootRnpTab === 'function') {
-                setTimeout(() => window.bootRnpTab(true), 50);
-            }
+            if (typeof window.bootRnpTab === 'function') window.bootRnpTab(true);
         });
     }
 
@@ -6692,7 +6745,7 @@ const RNP = (() => {
         const tab = document.getElementById('tab-rnp');
         const visible = !!(tab && (tab.classList.contains('active') || document.getElementById('nr-early-tab-style')));
         if (visible) {
-            const done = tab.querySelector('#rnp-sheet-body .rnp-summary-table, #rnp-sheet-body .rnp-table-scroll table');
+            const done = _rnpMainRendered();
             if (!done) {
                 if (typeof window.bootRnpTab === 'function') window.bootRnpTab(true);
                 else if (_db && _cab) openMain(true).catch(() => {});

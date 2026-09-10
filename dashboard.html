@@ -4915,32 +4915,26 @@
                 try {
                     var el = document.getElementById('tab-rnp');
                     if (!el) return;
-                    var cab = read('rnp_shell_cab');
+                    var selected = '';
+                    try { selected = localStorage.getItem('selected_cabinet_id') || ''; } catch (e4) {}
+                    var cab = selected || read('rnp_shell_cab');
                     var html = cab ? read('rnp_shell_' + cab) : '';
-                    if (!html) {
-                        try {
-                            for (var i = 0; i < sessionStorage.length; i++) {
-                                var k = sessionStorage.key(i);
-                                if (k && k.indexOf('rnp_shell_') === 0 && k !== 'rnp_shell_cab') {
-                                    html = read(k);
-                                    if (html) break;
-                                }
-                            }
-                        } catch (e2) {}
-                    }
                     if (html && html.indexOf('rnp-workspace') !== -1) {
                         el.innerHTML = html;
                     } else {
                         var raw = read('rnp_chrome');
                         if (raw) {
                             var p = JSON.parse(raw);
-                            var bar = el.querySelector('#rnp-action-bar-wrap');
-                            var tabs = el.querySelector('#rnp-sheet-tabs');
-                            if (bar && p.bar) bar.innerHTML = p.bar;
-                            if (tabs && p.tabs) tabs.innerHTML = p.tabs;
+                            if (!p.cab || !cab || p.cab === cab) {
+                                var bar = el.querySelector('#rnp-action-bar-wrap');
+                                var tabs = el.querySelector('#rnp-sheet-tabs');
+                                if (bar && p.bar) bar.innerHTML = p.bar;
+                                if (tabs && p.tabs) tabs.innerHTML = p.tabs;
+                            }
                         }
                     }
                     if (el.querySelector('.rnp-sheet-table, .rnp-summary-table, .rnp-head-wide')) return;
+                    if (!cab) return;
                     var open = indexedDB.open('nr-rnp-lock', 1);
                     open.onupgradeneeded = function (ev) {
                         var db = ev.target.result;
@@ -4951,7 +4945,7 @@
                             var db = open.result;
                             if (!db.objectStoreNames.contains('shell')) return;
                             var tx = db.transaction('shell', 'readonly');
-                            var req = tx.objectStore('shell').get(cab || 'last');
+                            var req = tx.objectStore('shell').get(cab);
                             req.onsuccess = function () {
                                 var html2 = req.result;
                                 if (!html2 || String(html2).indexOf('rnp-workspace') === -1) return;
@@ -9326,6 +9320,12 @@
         allABTests = [];
         const abListEl = document.getElementById('abtests-list');
         if (abListEl) abListEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div>';
+
+        const rnpNow = getRnp();
+        if (rnpNow && !isBetaStubOpen()) {
+            rnpNow.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+            bootRnpTab(true);
+        }
 
         showCabinetTransition(newCabinetName, async () => {
             await loadFromDB();
