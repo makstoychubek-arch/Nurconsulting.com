@@ -10,6 +10,8 @@ const poll = fs.readFileSync(path.join(root, 'supabase/functions/wb-restock-poll
 const router = fs.readFileSync(path.join(root, 'supabase/functions/telegram-router/index.ts'), 'utf8');
 const admin = fs.readFileSync(path.join(root, 'supabase/functions/telegram-admin/index.ts'), 'utf8');
 const shared = fs.readFileSync(path.join(root, 'supabase/functions/_shared/wb-restock-reply.ts'), 'utf8');
+const apply = fs.readFileSync(path.join(root, 'supabase/functions/_shared/wb-restock-apply.ts'), 'utf8');
+const webhook = fs.readFileSync(path.join(root, 'supabase/functions/telegram-webhook/index.ts'), 'utf8');
 const mig = fs.readFileSync(path.join(root, 'supabase/migrations/20260910120000_wb_restock_questions.sql'), 'utf8');
 const cfg = fs.readFileSync(path.join(root, 'supabase/config.toml'), 'utf8');
 const docs = fs.readFileSync(path.join(root, 'docs/wb-restock-reply.md'), 'utf8');
@@ -47,6 +49,14 @@ assert.ok(!/Ответьте реплаем/.test(shared), 'card must not explai
 assert.ok(mig.includes('wb_restock_questions'), 'migration creates queue table');
 assert.ok(mig.includes('wb_restock_poll') && mig.includes("'*/10 * * * *'"), 'cron every 10 minutes');
 assert.ok(mig.includes('telegram-router?bot=notify'), 'notify webhook path stored');
+
+assert.ok(apply.includes('answerWbQuestion'), 'Karina webhook answers via PATCH /questions');
+assert.ok(!apply.includes('questions/answer'), 'live webhook must not use POST /questions/answer');
+assert.ok(!apply.includes('Не смог ответить на WB'), 'must not paste WB OpenAPI links into the chat');
+assert.ok(webhook.includes('applyRestockTelegramReply') && webhook.includes('reactMessage'),
+    'telegram-webhook is the live Karina path and reacts with a heart');
+assert.ok(cfg.includes('[functions.telegram-webhook]') && cfg.includes('verify_jwt = false'),
+    'telegram-webhook accepts Telegram without user JWT');
 
 assert.ok(docs.includes('через неделю'), 'user-facing doc explains the reply');
 assert.ok(docs.includes('TELEGRAM_CHAT_REVIEWS'), 'doc names the reviews chat');

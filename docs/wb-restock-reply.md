@@ -26,4 +26,4 @@
 - Не отвечает на вопросы не про поступление.
 - Не берёт «в пути» с WB.
 
-Ответ на WB идёт официальным `PATCH /api/v1/questions` (`answer.text` + `state: wbRu`). Старый `POST /api/v1/questions/answer` WB не принимает.
+Реплаи Карины обрабатывает **telegram-webhook** (не telegram-router). Ответ на WB — `PATCH https://feedbacks-api.wildberries.ru/api/v1/questions` с телом `{ id, answer: { text }, state: "wbRu" }`. Старый `POST /api/v1/questions/answer` WB не принимает.
