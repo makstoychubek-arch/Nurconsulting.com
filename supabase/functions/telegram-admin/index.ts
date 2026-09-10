@@ -147,6 +147,26 @@ serve(async (req) => {
             return json({ ok: true, bot_id: botId, telegram: webhook, purged: true });
         }
 
+        if (action === 'set_webhook') {
+            if (!tok) return json({ error: 'no token' }, 400);
+            const path = bot.webhook_path || `telegram-router?bot=${botId}`;
+            const hookUrl = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/${path}`;
+            const secret = (Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '').trim();
+            const set = await tgApi(tok, 'setWebhook', {
+                url: hookUrl,
+                secret_token: secret || undefined,
+                allowed_updates: ['message'],
+                drop_pending_updates: false,
+            });
+            if (set.ok && !bot.webhook_path) {
+                await admin.from('telegram_bots').update({
+                    webhook_path: path,
+                    updated_at: new Date().toISOString(),
+                }).eq('id', botId);
+            }
+            return json({ ok: set.ok, url: hookUrl, telegram: set.data });
+        }
+
         if (action === 'restore') {
             const { error } = await admin.from('telegram_bots').update({
                 is_enabled: true,
