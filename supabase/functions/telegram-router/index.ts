@@ -1,6 +1,6 @@
-// Входящие Telegram webhook. JWT выключен — Telegram его не шлёт.
-// Сейчас: реплай на карточку поступления → ответ на вопрос WB.
-// Неизвестные чаты игнорируем. Тим-чат не используем, если это не TELEGRAM_CHAT_REVIEWS.
+// Заготовка restock-роутера. НА ПРОДЕ notify-бот сидит на telegram-webhook —
+// этот файл нельзя деплоить поверх живого telegram-router агентов (v119).
+// Реплаи «завтра / через неделю» обрабатывает telegram-webhook + wb-restock-apply.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getTelegramToken } from '../_shared/telegram-routing.ts';

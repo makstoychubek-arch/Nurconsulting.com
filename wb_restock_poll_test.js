@@ -42,5 +42,8 @@ assert.ok(mig.includes('telegram-router?bot=notify'), 'notify webhook path store
 
 assert.ok(docs.includes('через неделю'), 'user-facing doc explains the reply');
 assert.ok(docs.includes('TELEGRAM_CHAT_REVIEWS'), 'doc names the reviews chat');
+assert.ok(docs.includes('telegram-webhook'), 'replies go through the live notify webhook');
+assert.ok(fs.existsSync(path.join(root, 'supabase/functions/_shared/wb-restock-apply.ts')),
+    'shared apply helper posts the WB answer');
 
 console.log('wb_restock_poll_test: ok');
