@@ -93,7 +93,9 @@ const RNP = (() => {
     let _marqueeRoRaf = 0;
     let _marqueeSyncing = false;
     let _planPeriod = 'week';
-    let _weeksCollapsed = true;
+    let _compareMonthKey = null;
+    let _compareMonthMenuOpen = false;
+    let _compareMonthMenuBound = false;
     let _phoneKpiOpen = false;
     let _phoneStockOpen = true;
 
@@ -1366,24 +1368,72 @@ const RNP = (() => {
         return new Date(y, m - 1, 1);
     }
 
+    function _monthKey(d) {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function _viewMonthKey() {
+        return _monthKey(_refDate() || new Date());
+    }
+
+    function _parseMonthKey(key) {
+        if (!key) return null;
+        const [y, m] = String(key).split('-').map(Number);
+        if (!y || !m) return null;
+        return new Date(y, m - 1, 1);
+    }
+
+    function _capMonth(s) {
+        const t = String(s || '');
+        return t ? t.charAt(0).toUpperCase() + t.slice(1) : t;
+    }
+
+    function _monthWith(m0) {
+        return ['январём', 'февралём', 'мартом', 'апрелем', 'маем', 'июнем',
+            'июлем', 'августом', 'сентябрём', 'октябрём', 'ноябрём', 'декабрём'][m0] || '';
+    }
+
     function _monthOptionsHtml() {
         const real = new Date();
         const opts = [];
         for (let i = 0; i < 12; i++) {
             const d = new Date(real.getFullYear(), real.getMonth() - i, 1);
-            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-            const label = d.toLocaleString('ru', { month: 'long', year: 'numeric' });
+            const key = _monthKey(d);
+            const label = _capMonth(d.toLocaleString('ru', { month: 'long', year: 'numeric' }));
             const selected = (i === 0 && !_refMonthKey) || _refMonthKey === key;
             opts.push(`<option value="${key}"${selected ? ' selected' : ''}>${i === 0 ? 'Текущий · ' : ''}${label}</option>`);
         }
         return opts.join('');
     }
 
+    function _compareMonthChoices() {
+        const view = _refDate() || new Date();
+        const months = [];
+        for (let i = 1; i <= 12; i++) {
+            const d = new Date(view.getFullYear(), view.getMonth() - i, 1);
+            months.push({
+                key: _monthKey(d),
+                label: _capMonth(d.toLocaleString('ru', { month: 'long', year: 'numeric' })),
+                with: _monthWith(d.getMonth()),
+                isPrev: i === 1,
+            });
+        }
+        return months;
+    }
+
+    function _weeksCollapsed() {
+        return !_compareMonthKey;
+    }
+
     async function setRefMonth(val) {
         const real = new Date();
-        const liveKey = `${real.getFullYear()}-${String(real.getMonth() + 1).padStart(2, '0')}`;
+        const liveKey = _monthKey(real);
         _refMonthKey = (!val || val === liveKey) ? null : val;
         try { localStorage.setItem('rnp_ref_month', _refMonthKey || ''); } catch (e) {}
+        if (_compareMonthKey && _compareMonthKey >= _viewMonthKey()) {
+            _compareMonthKey = null;
+            try { localStorage.setItem('rnp_compare_month', ''); } catch (e) {}
+        }
         await _loadRnpData();
         await _renderActiveTable();
     }
@@ -1391,9 +1441,6 @@ const RNP = (() => {
     function _buildCalendar() {
         const useMonth = _planPeriod === 'month' && !_isPhone();
         const cal = useMonth ? _buildMonthCalendar(new Date()) : _buildWeekCalendar(_refDate());
-        if (cal.mode === 'week' && _isPhone() && _weeksCollapsed) {
-            return { ...cal, weeks: [], weeksAvailable: cal.weeks.length };
-        }
         return { ...cal, weeksAvailable: (cal.weeks || []).length };
     }
 
@@ -1407,21 +1454,12 @@ const RNP = (() => {
         return cal.days.length;
     }
 
-    function _buildWeekCalendar(refDate) {
-        const realNow = new Date();
-        const today = refDate || realNow;
-        const Y = today.getFullYear();
-        const M = today.getMonth();
-
-        const prevY = M === 0 ? Y - 1 : Y;
-        const prevM = M === 0 ? 11 : M - 1;
-        const prevDays = new Date(Y, M, 0).getDate();
-        const prevName = new Date(prevY, prevM, 1).toLocaleString('ru', { month: 'long', year: 'numeric' });
-
+    function _weeksForMonth(y, m0) {
+        const daysIn = new Date(y, m0 + 1, 0).getDate();
         const weeks = [];
         let wk = null;
-        for (let d = 1; d <= prevDays; d++) {
-            const dt = new Date(prevY, prevM, d);
+        for (let d = 1; d <= daysIn; d++) {
+            const dt = new Date(y, m0, d);
             const iso = dt.getDay() === 0 ? 7 : dt.getDay();
             if (iso === 1 || d === 1) {
                 if (wk?.dates.length) {
@@ -1430,9 +1468,9 @@ const RNP = (() => {
                     wk.weekNum = weeks.length + 1;
                     weeks.push(wk);
                 }
-                wk = { type: 'week', label: '', dates: [], weekStart: _dateStr(prevY, prevM + 1, d) };
+                wk = { type: 'week', label: '', dates: [], weekStart: _dateStr(y, m0 + 1, d) };
             }
-            wk.dates.push(_dateStr(prevY, prevM + 1, d));
+            wk.dates.push(_dateStr(y, m0 + 1, d));
         }
         if (wk?.dates.length) {
             wk.label = _weekLabel(wk.dates, weeks.length + 1);
@@ -1440,8 +1478,24 @@ const RNP = (() => {
             wk.weekNum = weeks.length + 1;
             weeks.push(wk);
         }
+        return weeks;
+    }
 
-        const currName = today.toLocaleString('ru', { month: 'long', year: 'numeric' });
+    function _buildWeekCalendar(refDate) {
+        const realNow = new Date();
+        const today = refDate || realNow;
+        const Y = today.getFullYear();
+        const M = today.getMonth();
+        const viewKey = _monthKey(today);
+        const cmp = _parseMonthKey(_compareMonthKey);
+        const cmpKey = cmp ? _monthKey(cmp) : '';
+        const useCmp = !!(cmp && cmpKey && cmpKey !== viewKey);
+        const weeks = useCmp ? _weeksForMonth(cmp.getFullYear(), cmp.getMonth()) : [];
+        const prevName = useCmp
+            ? _capMonth(cmp.toLocaleString('ru', { month: 'long', year: 'numeric' }))
+            : '';
+
+        const currName = _capMonth(today.toLocaleString('ru', { month: 'long', year: 'numeric' }));
         const currDaysInMonth = new Date(Y, M + 1, 0).getDate();
         const realMid = new Date(realNow.getFullYear(), realNow.getMonth(), realNow.getDate());
         const realTodayStr = _dateStr(realNow.getFullYear(), realNow.getMonth() + 1, realNow.getDate());
@@ -2410,7 +2464,7 @@ const RNP = (() => {
             <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
-              <th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${_metricW() + _sparkW()}px">${cal.prevName}</th>
+              ${nPrev ? `<th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${_metricW() + _sparkW()}px">${cal.prevName}</th>` : ''}
               <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">${weekThs}${totalTh}${dayThs}</tr>
@@ -2521,7 +2575,7 @@ const RNP = (() => {
 
     function _periodChipLabel() {
         const d = _refDate() || new Date();
-        const month = d.toLocaleString('ru', { month: 'long', year: 'numeric' });
+        const month = _capMonth(d.toLocaleString('ru', { month: 'long', year: 'numeric' }));
         return `${_refMonthKey ? '' : 'Текущий · '}${month}`;
     }
 
@@ -2555,9 +2609,43 @@ const RNP = (() => {
         </svg>`;
     }
 
+    function _compareSvg() {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+            <path d="M12 3v18"></path>
+        </svg>`;
+    }
+
     function _toolIconBtn(extraClass, title, svg, onclick) {
         const cls = extraClass ? ` ${extraClass}` : '';
         return `<button type="button" class="rnp-tool-icon${cls}" title="${title}" aria-label="${title}" onclick="${onclick}">${svg}</button>`;
+    }
+
+    function _compareMonthMenuHtml() {
+        if (_planPeriod === 'month' && !_isPhone()) return '';
+        const choices = _compareMonthChoices();
+        const prev = choices[0];
+        const rest = choices.slice(1);
+        const on = _compareMonthKey ? ' is-on' : '';
+        const menuOpen = _compareMonthMenuOpen ? ' is-open' : '';
+        const picked = choices.find(m => m.key === _compareMonthKey);
+        const title = picked
+            ? `Сравнение: ${picked.label}`
+            : (prev ? `Сравнить с ${prev.with}` : 'Сравнить с другим месяцем');
+        const noneOn = !_compareMonthKey ? ' is-on' : '';
+        const prevOn = prev && _compareMonthKey === prev.key ? ' is-on' : '';
+        const others = rest.map(m => {
+            const sel = _compareMonthKey === m.key ? ' is-on' : '';
+            return `<button type="button" class="rnp-compare-month-item${sel}" role="option" aria-selected="${sel ? 'true' : 'false'}" onclick="RNP.setCompareMonth('${m.key}')">${m.label}</button>`;
+        }).join('');
+        return `<div class="rnp-compare-month-wrap">
+            <button type="button" class="rnp-tool-icon rnp-compare-month-btn${on}${menuOpen}" title="${title}" aria-label="${title}" aria-haspopup="listbox" aria-expanded="${_compareMonthMenuOpen ? 'true' : 'false'}" onclick="RNP.toggleCompareMonthMenu(event)">${_compareSvg()}</button>
+            <div class="rnp-compare-month-menu${menuOpen}" role="listbox">
+              <button type="button" class="rnp-compare-month-item${noneOn}" role="option" aria-selected="${!_compareMonthKey ? 'true' : 'false'}" onclick="RNP.setCompareMonth('')">Только этот месяц</button>
+              ${prev ? `<button type="button" class="rnp-compare-month-item rnp-compare-month-suggest${prevOn}" role="option" aria-selected="${prevOn ? 'true' : 'false'}" onclick="RNP.setCompareMonth('${prev.key}')">Сравнить с ${prev.with}</button>` : ''}
+              ${rest.length ? `<div class="rnp-compare-month-label">Другие месяцы</div>${others}` : ''}
+            </div>
+          </div>`;
     }
 
     function _iconToolsHtml() {
@@ -2567,6 +2655,7 @@ const RNP = (() => {
         const editOn = _editMode ? ' is-on active' : '';
         const editTitle = _editMode ? 'Готово' : 'Редактировать';
         return `<div class="rnp-tool-icons">
+            ${_compareMonthMenuHtml()}
             ${_toolIconBtn('rnp-copy-plan-btn', planTitle, _planSvg(), 'RNP.copyPlanFromPrevWeek()')}
             ${_toolIconBtn('rnp-export-excel-btn', 'Скачать Excel', _excelSvg(), 'RNP.exportExcel()')}
             ${_toolIconBtn(`rnp-edit-mode-btn${editOn}`, editTitle, _editSvg(), 'RNP.toggleEditMode()')}
@@ -2575,13 +2664,9 @@ const RNP = (() => {
     }
 
     function _buildPhoneActionBar() {
-        const open = !_weeksCollapsed;
         return `<div class="rnp-action-bar rnp-action-bar--phone">
           <div class="rnp-period-chip">
             <span class="rnp-period-chip-text">${_periodChipLabel()}</span>
-            <button type="button" class="rnp-period-chevron-btn${open ? ' is-open' : ''}" onclick="RNP.togglePrevWeeks()" title="Недели прошлого месяца" aria-expanded="${open ? 'true' : 'false'}" aria-label="Показать недели прошлого месяца">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-            </button>
           </div>
           ${_iconToolsHtml()}
         </div>`;
@@ -2616,7 +2701,7 @@ const RNP = (() => {
             <option value="week"${_planPeriod === 'week' ? ' selected' : ''}>План → неделя</option>
             <option value="month"${_planPeriod === 'month' ? ' selected' : ''}>План → месяц</option>
           </select>
-          ${_planPeriod === 'week' ? `<select title="Месяц: недели прошлого + дни выбранного" onchange="RNP.setRefMonth(this.value)">
+          ${_planPeriod === 'week' ? `<select title="Какой месяц показать по дням" onchange="RNP.setRefMonth(this.value)">
             ${_monthOptionsHtml()}
           </select>` : ''}
           <span id="rnp-freshness" hidden></span>
@@ -2916,11 +3001,74 @@ const RNP = (() => {
         await _renderActiveTable();
     }
 
-    async function togglePrevWeeks() {
-        _weeksCollapsed = !_weeksCollapsed;
-        try { localStorage.setItem('rnp_weeks_collapsed', _weeksCollapsed ? '1' : '0'); } catch (e) {}
+    function _visibleCompareMonthBtn() {
+        return [...document.querySelectorAll('.rnp-compare-month-btn')].find(b => b.getClientRects().length);
+    }
+
+    function _placeCompareMonthMenus() {
+        document.querySelectorAll('.rnp-compare-month-btn').forEach(el => {
+            el.classList.toggle('is-open', _compareMonthMenuOpen);
+            el.setAttribute('aria-expanded', _compareMonthMenuOpen ? 'true' : 'false');
+        });
+        document.querySelectorAll('.rnp-compare-month-menu').forEach(el => el.classList.remove('is-open'));
+        const btn = _visibleCompareMonthBtn();
+        if (!btn || !_compareMonthMenuOpen) return;
+        const menu = btn.parentElement?.querySelector('.rnp-compare-month-menu');
+        if (!menu) return;
+        const r = btn.getBoundingClientRect();
+        menu.classList.add('is-open');
+        menu.style.position = 'fixed';
+        menu.style.top = `${Math.round(r.bottom + 6)}px`;
+        menu.style.right = `${Math.round(Math.max(8, window.innerWidth - r.right))}px`;
+        menu.style.left = 'auto';
+    }
+
+    function _bindCompareMonthMenu() {
+        if (_compareMonthMenuBound) return;
+        _compareMonthMenuBound = true;
+        document.addEventListener('click', (e) => {
+            if (!_compareMonthMenuOpen) return;
+            if (e.target.closest?.('.rnp-compare-month-wrap')) return;
+            _compareMonthMenuOpen = false;
+            _placeCompareMonthMenus();
+        });
+        window.addEventListener('resize', () => {
+            if (!_compareMonthMenuOpen) return;
+            _compareMonthMenuOpen = false;
+            _placeCompareMonthMenus();
+        });
+        document.addEventListener('scroll', () => {
+            if (!_compareMonthMenuOpen) return;
+            _compareMonthMenuOpen = false;
+            _placeCompareMonthMenus();
+        }, true);
+    }
+
+    function toggleCompareMonthMenu(ev) {
+        ev?.stopPropagation?.();
+        ev?.preventDefault?.();
+        _compareMonthMenuOpen = !_compareMonthMenuOpen;
+        _bindCompareMonthMenu();
+        _placeCompareMonthMenus();
+    }
+
+    async function setCompareMonth(val) {
+        const key = String(val || '').trim();
+        const view = _viewMonthKey();
+        _compareMonthKey = (!key || key === view) ? null : key;
+        _compareMonthMenuOpen = false;
+        try { localStorage.setItem('rnp_compare_month', _compareMonthKey || ''); } catch (e) {}
         _refreshActionBar();
-        if (_activeNm !== SUMMARY_TAB) await _renderActiveTable();
+        if (_db && _cab) await _loadRnpData();
+        await _renderActiveTable();
+    }
+
+    async function togglePrevWeeks() {
+        if (_compareMonthKey) await setCompareMonth('');
+        else {
+            const prev = _compareMonthChoices()[0];
+            await setCompareMonth(prev ? prev.key : '');
+        }
     }
 
     function setCompare(nmId) {
@@ -4742,9 +4890,10 @@ const RNP = (() => {
         } catch (e) { _planPeriod = _settings.defaultPlanPeriod || 'week'; }
         try { _refMonthKey = localStorage.getItem('rnp_ref_month') || null; } catch (e) { _refMonthKey = null; }
         try {
-            const wc = localStorage.getItem('rnp_weeks_collapsed');
-            _weeksCollapsed = wc === null ? true : wc === '1';
-        } catch (e) { _weeksCollapsed = true; }
+            const cm = localStorage.getItem('rnp_compare_month') || '';
+            _compareMonthKey = cm && cm < _viewMonthKey() ? cm : null;
+        } catch (e) { _compareMonthKey = null; }
+        _compareMonthMenuOpen = false;
         try {
             const gc = localStorage.getItem('rnp_gallery_collapsed');
             _galleryCollapsed = gc === null ? false : gc === '1';
@@ -5186,7 +5335,7 @@ const RNP = (() => {
             <tr class="rnp-cal-month-row">
               <th class="rnp-th-metric" rowspan="${headRows}"></th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
-              <th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${_metricW() + _sparkW()}px">${cal.prevName}</th>
+              ${nPrev ? `<th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${_metricW() + _sparkW()}px">${cal.prevName}</th>` : ''}
               <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
             </tr>
             <tr class="rnp-cal-date-row">
@@ -6147,7 +6296,7 @@ const RNP = (() => {
     });
 
     return { init, initCore, ensureReady, openSettings, closeSettings, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
-             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
+             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
 

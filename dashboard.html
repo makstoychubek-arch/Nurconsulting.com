@@ -985,6 +985,44 @@
         .rnp-period-chevron-btn svg { width: 16px; height: 16px; transition: transform 0.2s ease; display: block; }
         .rnp-period-chevron-btn.is-open svg { transform: rotate(180deg); }
         .rnp-period-chevron-btn:hover { color: var(--accent); background: var(--accent-soft); }
+        .rnp-compare-month-wrap { position: relative; display: inline-flex; }
+        .rnp-compare-month-menu {
+            display: none;
+            position: fixed;
+            z-index: 90;
+            min-width: 220px;
+            max-height: min(70vh, 420px);
+            overflow: auto;
+            padding: 6px;
+            border-radius: 12px;
+            background: var(--surface-solid);
+            border: 1px solid var(--border);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+        }
+        .rnp-compare-month-menu.is-open { display: flex; flex-direction: column; gap: 2px; }
+        .rnp-compare-month-item {
+            text-align: left;
+            font-size: 12px;
+            line-height: 1.3;
+            padding: 8px 10px;
+            border: none;
+            border-radius: 8px;
+            background: transparent;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .rnp-compare-month-item:hover,
+        .rnp-compare-month-item.is-on { background: var(--accent-soft); color: var(--accent); }
+        .rnp-compare-month-suggest { font-weight: 700; }
+        .rnp-compare-month-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-muted);
+            padding: 8px 10px 4px;
+        }
         .rnp-settings-phone-tools { display: none; }
         .rnp-settings-phone-tools-grid {
             display: flex; flex-wrap: wrap; gap: 8px;
@@ -5214,7 +5252,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.75988554ad.min.js"></script>
+<script src="/dist/rnp-module.66fd31b3b5.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script src="/dist/ads-command-center.233e066fd2.min.js"></script>
 <script src="/dist/goods-catalog.19f6e5844c.min.js"></script>
