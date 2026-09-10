@@ -8,8 +8,8 @@
 //   01:15 UTC = 07:15 Бишкек — Baza (сдвиг с 07:00, чтобы не столкнуться
 //              с daily-sales-report того же токена)
 //   02:00 UTC = 08:00 Бишкек — Elium
-// После остатков пишет сегодняшний goods_daily_stocks (write-once).
-// В 11:00 Бишкек cron goods-daily-stocks-11-bishkek дописывает, если утро не успело.
+// Остатки по дням не пишет: колонка дня фиксируется в 03:00 Бишкек (00:00 МСК)
+// функцией goods-daily-eod — после закрытия продаж за вчера.
 //
 // Body: { group: 'zevina'|'baza'|'elium', date?, notify?, today? }
 
@@ -118,16 +118,6 @@ Deno.serve(async (req) => {
                 row.stocks_fbo = 0;
                 row.stocks_fbs = 0;
                 row.stocks_error = (e as Error).message;
-            }
-            try {
-                const { data: snap, error: snapErr } = await admin.rpc('snapshot_goods_daily_stocks', {
-                    p_date: today,
-                    p_cabinet_id: cab.id,
-                });
-                row.daily_stock_snap = snap ?? null;
-                if (snapErr) row.daily_stock_error = snapErr.message;
-            } catch (e) {
-                row.daily_stock_error = (e as Error).message;
             }
             if (wantFunnel && !ordersFailed) {
                 try {

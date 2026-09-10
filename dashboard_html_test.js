@@ -155,20 +155,23 @@ assert.ok(dailyMig.includes('goods_daily_stocks_no_update') && dailyMig.includes
 assert.ok(!/s\.in_way/.test(dailyMig) && dailyMig.includes('sum(s.quantity)'),
     'daily snapshot sums warehouse quantity only, never WB in-way');
 assert.ok(dailyMig.includes("timezone('Asia/Bishkek', now())"),
-    'snapshot date defaults to the Bishkek calendar day');
+    'first snapshot migration used the Bishkek calendar day');
 assert.ok(dailyMig.includes("date '2026-09-10'") && dailyMig.includes('d < v_start or d > v_today'),
-    'snapshot refuses days before 10 Sep 2026 and future Bishkek dates');
+    'first snapshot migration refused days before 10 Sep 2026');
 assert.ok(dailyMig.includes('p_nm_ids') && dailyMig.includes('unnest'),
     'snapshot can pin catalog nm_ids so empty warehouse SKUs still get a write-once 0');
-assert.ok(html.includes('p_nm_ids') && html.includes('canWriteDailySnapshot'),
-    'daily view may snapshot visible articles only after 11:00 Bishkek');
-assert.ok(html.includes('canWriteDailySnapshot'),
-    'the goods screen does not lock today before 11:00 Bishkek — morning RNP writes 11.09 first');
-const dailyCron = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260910153000_goods_daily_stocks_11_cron.sql'), 'utf8');
-assert.ok(dailyCron.includes('goods-daily-stocks-11-bishkek') && dailyCron.includes("'0 5 * * *'"),
-    '11:00 Bishkek cron catches cabinets the morning fill missed');
-assert.ok(dailyCron.includes('snapshot_goods_daily_stocks(null, null, null)'),
-    '11:00 cron snapshots every cabinet');
+assert.ok(html.includes('p_nm_ids') && html.includes('lastClosedSalesYmd') && html.includes('canWriteDailySnapshot'),
+    'daily view may only snapshot the MSK day that already closed');
+const eodMig = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260910180000_goods_daily_stocks_eod_msk.sql'), 'utf8');
+assert.ok(eodMig.includes("timezone('Europe/Moscow', now())") && eodMig.includes('::date - 1'),
+    'snapshot date is the last closed Moscow sales day');
+assert.ok(eodMig.includes('goods-daily-stocks-03-bishkek') && eodMig.includes("'0 21 * * *'"),
+    '03:00 Bishkek / 00:00 MSK cron writes the closed day');
+assert.ok(eodMig.includes('goods-daily-eod') && eodMig.includes("delete from public.goods_daily_stocks where date = date '2026-09-10'"),
+    'premature 10.09 rows are cleared so 03:00 can write the real close');
+const eodFn = fs.readFileSync(path.join(__dirname, 'supabase/functions/goods-daily-eod/index.ts'), 'utf8');
+assert.ok(eodFn.includes("mode: 'stocks'") && eodFn.includes("rpc('snapshot_goods_daily_stocks'"),
+    '03:00 job refreshes wb_stocks then snapshots the closed day');
 assert.ok(dailyMig.includes('delete from public.goods_daily_stocks'),
     'delete_cabinet must also drop daily stock cache');
 assert.ok(html.includes("rnp-reload-requested") && html.includes("loadGoodsGroups({ silent: true })"),

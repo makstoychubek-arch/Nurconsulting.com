@@ -284,7 +284,28 @@
     }
 
     const FIRST_SNAPSHOT_YMD = '2026-09-10';
-    const SNAPSHOT_HOUR_BISHKEK = 11;
+    const SNAPSHOT_HOUR_BISHKEK = 3;
+
+    function tzYmd(timeZone, date) {
+        const src = date instanceof Date ? date : (date ? new Date(date) : new Date());
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }).format(src);
+    }
+
+    function addDaysYmd(ymd, n) {
+        const d = new Date(String(ymd || '').slice(0, 10) + 'T00:00:00Z');
+        if (Number.isNaN(d.getTime())) return '';
+        d.setUTCDate(d.getUTCDate() + n);
+        return d.toISOString().slice(0, 10);
+    }
+
+    function lastClosedSalesYmd(date) {
+        return addDaysYmd(tzYmd('Europe/Moscow', date), -1);
+    }
 
     function bishkekHour(date) {
         const src = date instanceof Date ? date : (date ? new Date(date) : new Date());
@@ -296,9 +317,7 @@
     }
 
     function canWriteDailySnapshot(date) {
-        const src = date instanceof Date ? date : (date ? new Date(date) : new Date());
-        if (bishkekYmd(src) < FIRST_SNAPSHOT_YMD) return false;
-        return bishkekHour(src) >= SNAPSHOT_HOUR_BISHKEK;
+        return lastClosedSalesYmd(date) >= FIRST_SNAPSHOT_YMD;
     }
 
     function monthDayKeys(year, month) {
@@ -419,6 +438,7 @@
         bishkekYmd,
         bishkekHour,
         bishkekParts,
+        lastClosedSalesYmd,
         canWriteDailySnapshot,
         monthDayKeys,
         dailyDayKeys,

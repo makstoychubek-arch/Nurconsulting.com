@@ -5437,7 +5437,7 @@
 <script src="/dist/rnp-module.66fd31b3b5.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script src="/dist/ads-command-center.233e066fd2.min.js"></script>
-<script src="/dist/goods-catalog.862a2dc098.min.js"></script>
+<script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -7904,7 +7904,8 @@
         ggDailyInflight = (async () => {
             const parts = catalog.bishkekParts();
             const days = catalog.dailyDayKeys(parts.y, parts.m);
-            const snapKey = cabId + '|' + parts.ymd;
+            const closed = catalog.lastClosedSalesYmd ? catalog.lastClosedSalesYmd() : '';
+            const snapKey = cabId + '|eod|' + closed;
             const monthKey = cabId + '|' + (days[0] || 'none');
             if (!days.length) {
                 ggDaily.rows = [];
@@ -7916,10 +7917,10 @@
             }
             try {
                 if (ggDaily.snapKey !== snapKey) {
-                    if (catalog.canWriteDailySnapshot && catalog.canWriteDailySnapshot()) {
+                    if (closed && catalog.canWriteDailySnapshot && catalog.canWriteDailySnapshot()) {
                         const nms = (goodsGroupsRows || []).map((r) => Number(r.nmId)).filter(Boolean);
                         const { error } = await supabase.rpc('snapshot_goods_daily_stocks', {
-                            p_date: parts.ymd,
+                            p_date: closed,
                             p_cabinet_id: cabId,
                             p_nm_ids: nms.length ? nms : null,
                         });
