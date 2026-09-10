@@ -344,9 +344,11 @@
         });
     }
 
+    const FIRST_SNAPSHOT_YMD = '2026-09-10';
+
     function sparklineSvg(values, w, h) {
-        const width = Number(w) || 120;
-        const height = Number(h) || 20;
+        const width = Number(w) || 180;
+        const height = Number(h) || 36;
         const pts = [];
         (values || []).forEach((v, i) => {
             if (v == null || v === '') return;
@@ -360,15 +362,17 @@
         const min = Math.min.apply(null, nums);
         const range = max - min || 1;
         const n = Math.max((values || []).length, 1);
-        const xOf = (i) => (i / Math.max(n - 1, 1)) * (width - 2) + 1;
-        const yOf = (val) => height - 2 - ((val - min) / range) * (height - 4);
+        const xOf = (i) => (i / Math.max(n - 1, 1)) * (width - 4) + 2;
+        const yOf = (val) => height - 3 - ((val - min) / range) * (height - 8);
         if (pts.length === 1) {
             const x = xOf(pts[0].i).toFixed(1);
             const y = yOf(pts[0].n).toFixed(1);
-            return `<svg class="gg-spark" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><circle cx="${x}" cy="${y}" r="2.2" fill="var(--green)"/></svg>`;
+            return `<svg class="gg-spark" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><circle cx="${x}" cy="${y}" r="3" fill="#16a34a"/></svg>`;
         }
         const line = pts.map((p) => xOf(p.i).toFixed(1) + ',' + yOf(p.n).toFixed(1)).join(' ');
-        return `<svg class="gg-spark" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><polyline fill="none" stroke="var(--green)" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" points="${line}"/></svg>`;
+        const baseY = (height - 2).toFixed(1);
+        const area = `${xOf(pts[0].i).toFixed(1)},${baseY} ${line} ${xOf(pts[pts.length - 1].i).toFixed(1)},${baseY}`;
+        return `<svg class="gg-spark" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" preserveAspectRatio="none"><polygon fill="rgba(22,163,74,.18)" points="${area}"/><polyline fill="none" stroke="#16a34a" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" points="${line}"/></svg>`;
     }
 
     const GoodsCatalog = {
@@ -402,6 +406,7 @@
         dailyQty,
         sparkValues,
         sparklineSvg,
+        FIRST_SNAPSHOT_YMD,
         MONTHS_RU,
     };
     root.GoodsCatalog = GoodsCatalog;

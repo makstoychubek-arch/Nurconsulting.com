@@ -132,6 +132,12 @@ assert.ok(!/s\.in_way/.test(dailyMig) && dailyMig.includes('sum(s.quantity)'),
     'daily snapshot sums warehouse quantity only, never WB in-way');
 assert.ok(dailyMig.includes("timezone('Asia/Bishkek', now())"),
     'snapshot date defaults to the Bishkek calendar day');
+assert.ok(dailyMig.includes("date '2026-09-10'") && dailyMig.includes('d < v_start or d > v_today'),
+    'snapshot refuses days before 10 Sep 2026 and future Bishkek dates');
+assert.ok(dailyMig.includes('p_nm_ids') && dailyMig.includes('unnest'),
+    'snapshot can pin catalog nm_ids so empty warehouse SKUs still get a write-once 0');
+assert.ok(html.includes('p_nm_ids') && html.includes('FIRST_SNAPSHOT_YMD'),
+    'daily view snapshots visible articles from 10 Sep and never backfills earlier days');
 assert.ok(dailyMig.includes('delete from public.goods_daily_stocks'),
     'delete_cabinet must also drop daily stock cache');
 assert.ok(html.includes("rnp-reload-requested") && html.includes("loadGoodsGroups({ silent: true })"),
