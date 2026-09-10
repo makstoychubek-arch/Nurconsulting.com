@@ -149,11 +149,12 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
+    const restockToken = (Deno.env.get('KARINA_BOT_TOKEN') ?? '').trim() || token;
     const restock = await applyRestockTelegramReply(admin, { message }, {
         ownerUsername: (Deno.env.get('TELEGRAM_ALERT_USERNAME') || 'maraWuW').replace(/^@/, ''),
         reviewsChatId: (Deno.env.get('TELEGRAM_CHAT_REVIEWS') ?? '').trim(),
-        send: (text, replyToId) => sendReply(token, chatId, escapeHtml(text), replyToId),
-        react: (emoji, messageId) => reactMessage(token, chatId, messageId, emoji),
+        send: (text, replyToId) => sendReply(restockToken, chatId, escapeHtml(text), replyToId),
+        react: (emoji, messageId) => reactMessage(restockToken, chatId, messageId, emoji),
     });
     if (restock.handled) return;
 

@@ -7,6 +7,8 @@ import { getTelegramToken } from '../_shared/telegram-routing.ts';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 import { FEEDBACKS_API, wbError, wbSend } from '../_shared/wb-agent-wow.ts';
 import {
+    answerWbQuestion,
+    buildWbRestockAnswer,
     formatRestockTelegramCard,
     ownerMention,
     parseNewFeedbacksQuestions,
@@ -49,6 +51,10 @@ Deno.serve(async (req) => {
     const resendId = String(body.resend_question_id || '').trim();
     if (resendId) {
         return json(await resendPendingCard(admin, resendId, tgToken, reviewsChat, dryRun));
+    }
+    const applyId = String(body.apply_question_id || '').trim();
+    if (applyId) {
+        return json(await applyPendingAnswer(admin, applyId, String(body.when || '').trim(), dryRun));
     }
     const { data: cabinets, error: cabErr } = await admin
         .from('cabinets')
@@ -152,6 +158,49 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, dry_run: dryRun, results });
 });
+
+async function applyPendingAnswer(
+    admin: ReturnType<typeof createClient>,
+    questionId: string,
+    whenOverride: string,
+    dryRun: boolean,
+): Promise<Record<string, unknown>> {
+    const { data, error } = await admin
+        .from('wb_restock_questions')
+        .select('question_id, cabinet_id, when_text, status')
+        .eq('question_id', questionId)
+        .eq('status', 'pending')
+        .maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data) return { ok: false, error: 'not_pending' };
+    const when = String(whenOverride || data.when_text || '').trim();
+    if (!when) return { ok: false, error: 'no_when' };
+    const { data: cab } = await admin.from('cabinets').select('id, wb_token').eq('id', data.cabinet_id).maybeSingle();
+    const wbToken = sanitizeWbToken(cab?.wb_token);
+    if (!wbToken) return { ok: false, error: 'no_wb_token' };
+    const answer = buildWbRestockAnswer(when);
+    if (dryRun) return { ok: true, applied: false, dry_run: true, question_id: questionId, answer };
+    const posted = await answerWbQuestion(wbToken, questionId, answer);
+    if (!posted.ok) {
+        const err = wbError(posted);
+        await admin.from('wb_restock_questions').update({
+            error_text: err,
+            when_text: when,
+            wb_answer: answer,
+            updated_at: new Date().toISOString(),
+        }).eq('cabinet_id', data.cabinet_id).eq('question_id', questionId);
+        return { ok: false, error: err, status: posted.status, question_id: questionId };
+    }
+    await admin.from('wb_restock_questions').update({
+        status: 'answered',
+        when_text: when,
+        wb_answer: answer,
+        error_text: null,
+        answered_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+    }).eq('cabinet_id', data.cabinet_id).eq('question_id', questionId);
+    return { ok: true, applied: true, question_id: questionId };
+}
 
 async function resendPendingCard(
     admin: ReturnType<typeof createClient>,

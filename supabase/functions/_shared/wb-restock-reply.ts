@@ -180,12 +180,14 @@ export function wbQuestionAnswerPayload(id: string, text: string) {
 }
 
 export async function answerWbQuestion(token: string, id: string, text: string) {
-    return wbSend(
-        `${FEEDBACKS_API}/api/v1/questions`,
-        token,
-        'PATCH',
-        wbQuestionAnswerPayload(id, text),
-    );
+    const url = `${FEEDBACKS_API}/api/v1/questions`;
+    const payload = wbQuestionAnswerPayload(id, text);
+    const first = await wbSend(url, token, 'PATCH', payload);
+    if (first.ok) return first;
+    const raw = String(token || '').replace(/^Bearer\s+/i, '').trim();
+    if (!raw) return first;
+    const retry = await wbSend(url, `Bearer ${raw}`, 'PATCH', payload);
+    return retry.ok || retry.status !== first.status ? retry : first;
 }
 
 export function parseRestockCardMeta(text: string): RestockCardMeta | null {

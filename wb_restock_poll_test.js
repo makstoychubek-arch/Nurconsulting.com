@@ -40,6 +40,8 @@ assert.ok(router.includes('setMessageReaction') && router.includes("'❤'"),
 assert.ok(!router.includes('готово') && !router.includes('не смогла'),
     'must not write status text after a restock reply');
 assert.ok(poll.includes('resend_question_id'), 'poll can duplicate one pending card');
+assert.ok(poll.includes('apply_question_id'), 'poll can apply an already given restock date');
+assert.ok(poll.includes('answerWbQuestion'), 'poll apply uses official PATCH');
 
 assert.ok(admin.includes("action === 'set_webhook'"), 'admin can point notify bot at the router');
 assert.ok(admin.includes('telegram-router?bot='), 'webhook path is telegram-router');
@@ -58,6 +60,7 @@ assert.ok(!apply.includes('questions/answer'), 'live webhook must not use POST /
 assert.ok(!apply.includes('Не смог ответить на WB'), 'must not paste WB OpenAPI links into the chat');
 assert.ok(webhook.includes('applyRestockTelegramReply') && webhook.includes('reactMessage'),
     'telegram-webhook is the live Karina path and reacts with a heart');
+assert.ok(webhook.includes('KARINA_BOT_TOKEN'), 'restock replies are sent as Karina');
 assert.ok(cfg.includes('[functions.telegram-webhook]') && cfg.includes('verify_jwt = false'),
     'telegram-webhook accepts Telegram without user JWT');
 
