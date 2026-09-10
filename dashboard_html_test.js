@@ -114,6 +114,7 @@ assert.ok(
     html.includes('goods_daily_stocks') &&
     html.includes('function renderGoodsDailyTable') &&
     html.includes('function ensureDailyStocks') &&
+    html.includes('dailyDayKeys') &&
     html.includes('gg-spark-wrap'),
     'Товары daily view snapshots FBO+FBS once per day and renders a write-once month table'
 );

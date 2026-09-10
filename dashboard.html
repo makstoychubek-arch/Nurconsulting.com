@@ -5402,7 +5402,7 @@
 <script src="/dist/rnp-module.66fd31b3b5.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script src="/dist/ads-command-center.233e066fd2.min.js"></script>
-<script src="/dist/goods-catalog.b39fb4d5d2.min.js"></script>
+<script src="/dist/goods-catalog.ef0c89c988.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -7781,7 +7781,7 @@
         const foot = document.getElementById('gg-daily-foot');
         if (!head || !body || !catalog) return;
         const parts = catalog.bishkekParts();
-        const days = catalog.monthDayKeys(parts.y, parts.m);
+        const days = catalog.dailyDayKeys(parts.y, parts.m);
         const idx = catalog.indexDailyStocks(ggDaily.rows);
         const groups = ggVisibleGroups();
         const items = catalog.flattenGroups(groups);
@@ -7857,9 +7857,14 @@
         }
         ggDailyInflight = (async () => {
             const parts = catalog.bishkekParts();
-            const days = catalog.monthDayKeys(parts.y, parts.m);
+            const days = catalog.dailyDayKeys(parts.y, parts.m);
             const snapKey = cabId + '|' + parts.ymd;
-            const monthKey = cabId + '|' + days[0];
+            const monthKey = cabId + '|' + (days[0] || 'none');
+            if (!days.length) {
+                ggDaily.rows = [];
+                renderGoodsDailyTable();
+                return;
+            }
             if (!ggDaily.rows.length && body) {
                 body.innerHTML = `<tr><td colspan="${3 + days.length}" class="text-center py-10" style="color:var(--text-muted)">Загрузка…</td></tr>`;
             }

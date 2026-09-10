@@ -283,6 +283,8 @@
         return { ymd, y: Number(parts[0]), m: Number(parts[1]), d: Number(parts[2]) };
     }
 
+    const FIRST_SNAPSHOT_YMD = '2026-09-10';
+
     function monthDayKeys(year, month) {
         const y = Number(year);
         const m = Number(month);
@@ -292,6 +294,10 @@
             days.push(y + '-' + String(m).padStart(2, '0') + '-' + String(day).padStart(2, '0'));
         }
         return days;
+    }
+
+    function dailyDayKeys(year, month) {
+        return monthDayKeys(year, month).filter((d) => d >= FIRST_SNAPSHOT_YMD);
     }
 
     function monthTitleRu(year, month) {
@@ -343,8 +349,6 @@
             return any ? sum : null;
         });
     }
-
-    const FIRST_SNAPSHOT_YMD = '2026-09-10';
 
     function sparklineSvg(values, w, h) {
         const width = Number(w) || 180;
@@ -399,6 +403,7 @@
         bishkekYmd,
         bishkekParts,
         monthDayKeys,
+        dailyDayKeys,
         monthTitleRu,
         dayLabel,
         dailyKey,
