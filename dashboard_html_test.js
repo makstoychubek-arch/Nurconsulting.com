@@ -56,12 +56,16 @@ assert.ok(!/<span class="rail-btn-lbl">А\/Б Тесты<\/span>/.test(html), '�
 assert.ok(!/<span class="rail-btn-lbl">Тарифы<\/span>/.test(html), 'Тарифы must not stay on the main rail');
 assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
     'ocr/rnp/tariffs flyouts must stay folded into BETA');
-assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising'])"),
-    'dashboard, settings, RNP and advertising are live tabs');
+assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'goods-groups'])"),
+    'dashboard, settings, RNP, advertising and Товары are live tabs');
 assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
     'non-live modules must open the BETA stub instead of broken UIs');
-assert.ok(html.includes('Сейчас работают Дашборд, РНП и Контроль РК'),
+assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК и Товары'),
     'BETA stub must list the live modules');
+assert.ok(html.includes('id="gg-fbo"') && html.includes('id="gg-transit"') && html.includes('goods-catalog'),
+    'Товары tab shows FBO/FBS/in-transit columns and loads the Zevina catalog');
+assert.ok(html.includes("stock_scheme, in_way_to_client"),
+    'Товары stocks must come from wb_stocks FBO/FBS + transit, not a hardcoded sheet');
 
 const afterApp = html.slice(html.lastIndexOf('initSidebarFlyouts();'));
 assert.ok(

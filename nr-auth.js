@@ -37,7 +37,7 @@
             var p = String((global.location && global.location.pathname) || '').replace(/\/$/, '');
             if (!p) p = '/';
             if (p === '/space' || p === '/dashboard' || /\/dashboard\.html$/i.test(p)) return true;
-            if (p === '/ab-testing' || p === '/advertising' || p === '/seo' || p === '/marking' || p === '/logistics' || p === '/rnp') return true;
+            if (p === '/ab-testing' || p === '/advertising' || p === '/seo' || p === '/marking' || p === '/logistics' || p === '/rnp' || p === '/goods') return true;
             if (p.indexOf('/rnp-app') === 0) return true;
         } catch (_) {}
         return false;

@@ -24,7 +24,7 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
     <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.9195bef63c.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.c966b12230.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -851,6 +851,24 @@
             .ads-hq-phone { display: flex; flex-direction: column; gap: 10px; }
             .ads-hq-table-wrap { display: none; }
             .ads-hq-title { font-size: 20px; }
+        }
+        .gg-hero { margin: 0 0 2px; }
+        .gg-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: var(--text-primary); }
+        .gg-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+        .gg-table-scroll { overflow: auto; -webkit-overflow-scrolling: touch; max-height: calc(100vh - 280px); }
+        .gg-table-scroll .data-table { min-width: 620px; }
+        .gg-sec-row td {
+            background: var(--sel); font-weight: 700; color: var(--text-primary);
+            padding-top: 10px; padding-bottom: 10px;
+        }
+        .gg-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .gg-nm { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--text-muted); }
+        .gg-art { color: var(--text-primary); font-weight: 600; }
+        .gg-zero { color: var(--text-muted); font-weight: 500; }
+        @media (max-width: 768px) {
+            .gg-title { font-size: 20px; }
+            .gg-col-nm { display: none; }
+            .gg-table-scroll { max-height: none; }
         }
         .adv-help-dot { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px; border-radius: 50%; background: var(--border); color: var(--text-muted); font-size: 9px; font-weight: 700; cursor: help; }
         .dashboard-metrics-grid {
@@ -3594,7 +3612,7 @@
            временный style. */
         try {
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
-            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents' };
+            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/goods': 'goods-groups' };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -3719,8 +3737,7 @@
                 </div>
                 <div class="nav-item" onclick="showTab('goods-groups', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-                    <span class="nav-item-label">Группы товаров</span>
-                    <span class="nav-beta-badge">BETA</span>
+                    <span class="nav-item-label">Товары</span>
                 </div>
                 <div class="nav-item" onclick="showTab('warehouse', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
@@ -3959,7 +3976,7 @@
                 <div class="beta-orb beta-orb-2"></div>
                 <div class="beta-pill">BETA</div>
                 <h2 id="beta-stub-title">Модуль в BETA</h2>
-                <p id="beta-stub-text">Сейчас работают Дашборд, РНП и Контроль РК. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
+                <p id="beta-stub-text">Сейчас работают Дашборд, РНП, Контроль РК и Товары. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
                 <button type="button" class="space-empty-btn" style="margin-top:18px" onclick="showTab('dashboard')">К дашборду</button>
             </div>
         </div>
@@ -4041,53 +4058,42 @@
         </div>
 
         <div id="tab-goods-groups" class="tab-content space-y-5">
-            <div class="widget-card p-5">
-                <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                    <div>
-                        <h3 class="font-semibold" style="color:var(--text-primary)">Группы товаров</h3>
-                        <p class="text-xs mt-1" style="color:var(--text-muted)">Все артикулы по кабинетам: WB, продавца и остаток на складах</p>
-                    </div>
-                    <button type="button" onclick="loadGoodsGroups()" id="gg-load-btn"
-                        class="px-4 py-2 rounded-xl text-xs font-semibold text-white"
-                        style="background:var(--accent-gradient);border:none">Загрузить все артикулы</button>
-                </div>
-                <div class="flex flex-wrap gap-2 mb-4">
-                    <select id="gg-cabinet-filter" onchange="onGoodsGroupsCabinetChange()"
-                        class="rounded-xl px-3 py-2 text-sm min-w-[160px]"
-                        style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                    </select>
-                    <input type="search" id="gg-search" placeholder="Поиск: артикул, название, категория…"
-                        oninput="renderGoodsGroupsTable()"
-                        class="flex-1 min-w-[200px] rounded-xl px-3 py-2 text-sm"
-                        style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                    <div class="metric-card p-4">
-                        <div class="text-xs mb-1" style="color:var(--text-muted)">Кабинетов</div>
-                        <div id="gg-cabinets-count" class="text-xl font-black" style="color:var(--text-primary)">—</div>
-                    </div>
-                    <div class="metric-card p-4">
-                        <div class="text-xs mb-1" style="color:var(--text-muted)">Артикулов</div>
-                        <div id="gg-articles-count" class="text-xl font-black" style="color:var(--text-primary)">—</div>
-                    </div>
-                    <div class="metric-card p-4">
-                        <div class="text-xs mb-1" style="color:var(--text-muted)">Остаток всего</div>
-                        <div id="gg-stock-total" class="text-xl font-black" style="color:var(--accent)">—</div>
-                    </div>
-                </div>
-                <div class="gg-table-scroll" style="overflow:auto;max-height:calc(100vh - 340px)">
+            <div class="gg-hero">
+                <h2 class="gg-title">Товары</h2>
+                <p class="gg-sub">Реальные остатки WB · разделы в том же порядке, что в таблице</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <select id="gg-cabinet-filter" onchange="onGoodsGroupsCabinetChange()"
+                    class="ui-select min-w-[180px]"></select>
+                <input type="search" id="gg-search" placeholder="Поиск: свитер, артикул…"
+                    oninput="renderGoodsGroupsTable()"
+                    class="ui-input flex-1 min-w-[160px]">
+                <button type="button" onclick="loadGoodsGroups()" id="gg-load-btn" class="ui-btn ui-btn-secondary">Обновить</button>
+                <span id="gg-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                <div class="adv-kpi-tile"><div class="adv-kpi-tile-label">ФБО</div><div id="gg-fbo" class="adv-kpi-tile-value">—</div></div>
+                <div class="adv-kpi-tile"><div class="adv-kpi-tile-label">ФБС</div><div id="gg-fbs" class="adv-kpi-tile-value">—</div></div>
+                <div class="adv-kpi-tile"><div class="adv-kpi-tile-label">В пути</div><div id="gg-transit" class="adv-kpi-tile-value">—</div></div>
+                <div class="adv-kpi-tile"><div class="adv-kpi-tile-label">В плане</div><div id="gg-plan" class="adv-kpi-tile-value">—</div></div>
+                <div class="adv-kpi-tile"><div class="adv-kpi-tile-label">Итого</div><div id="gg-stock-total" class="adv-kpi-tile-value">—</div></div>
+            </div>
+            <div class="widget-card">
+                <div class="gg-table-scroll">
                     <table class="data-table" style="font-size:12px">
                         <thead>
                             <tr>
-                                <th>Кабинет</th>
-                                <th>Артикул WB</th>
-                                <th>Артикул продавца</th>
-                                <th>Категория</th>
-                                <th style="text-align:right">Остаток</th>
+                                <th>Артикул</th>
+                                <th class="gg-col-nm">WB</th>
+                                <th class="gg-num">ФБО</th>
+                                <th class="gg-num">ФБС</th>
+                                <th class="gg-num">В пути</th>
+                                <th class="gg-num">В плане</th>
+                                <th class="gg-num">Итого</th>
                             </tr>
                         </thead>
                         <tbody id="gg-table-body">
-                            <tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нажмите «Загрузить все артикулы»</td></tr>
+                            <tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить остатки</td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -5176,6 +5182,7 @@
 <script src="/dist/rnp-module.3fc8b04339.min.js"></script>
 <script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
 <script src="/dist/ads-command-center.1f0ae4c2b4.min.js"></script>
+<script src="/dist/goods-catalog.a7ed491b40.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -5218,7 +5225,7 @@
     }
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon']);
-    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising']);
+    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'goods-groups']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
     // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
@@ -6133,18 +6140,19 @@
         console.info('[tariffs] plan selected:', planId);
     }
 
-    const TAB_ALIASES = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo' };
+    const TAB_ALIASES = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
     const MODULE_PATHS = {
         'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
         marking: '/marking', logistics: '/logistics', rnp: '/rnp', dashboard: '/space',
         'telegram-bots': '/telegram-bots', ozon: '/ozon', agents: '/agents',
+        'goods-groups': '/goods',
     };
     const PATH_TO_TAB = Object.fromEntries(Object.entries(MODULE_PATHS).map(([k, v]) => [v, k]));
 
     const tabTitles = {
         dashboard:'Дашборд', summary:'Сводный отчёт', 'summary-biz':'Сводный по бизнесу', deductions:'Прочие удержания', 'plan-fact':'План-факт',
         dds:'ДДС', operations:'Операции', obligations:'Обязательства', 'finance-extra':'Дополнительно',
-        cost:'Себестоимость', 'goods-groups':'Группы товаров', warehouse:'Склады',
+        cost:'Себестоимость', 'goods-groups':'Товары', warehouse:'Склады',
         rnp:'Модуль РНП', 'rnp-settings':'Настройки РНП', planning:'Планирование',
         'ab-testing':'А/Б Тесты', advertising:'Контроль РК', seo:'SEO-Позиции', marking:'Маркировка & ШК', logistics:'Логистика & Поставки',
         settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики',
@@ -6159,7 +6167,7 @@
         advertising:'ads', 'ab-testing':'beta',
         seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
         'telegram-bots':'beta', ozon:'beta', agents:'beta',
-        cost:'beta', 'goods-groups':'beta', warehouse:'beta',
+        cost:'beta', 'goods-groups':'goods', warehouse:'beta',
         dds:'beta', operations:'beta', obligations:'beta', 'finance-extra':'beta',
         tariffs:'beta',
     };
@@ -6366,7 +6374,7 @@
         if (titleEl) titleEl.textContent = tabTitles[name] || 'Модуль в BETA';
         const textEl = document.getElementById('beta-stub-text');
         if (textEl) {
-            textEl.textContent = 'Сейчас работают Дашборд, РНП и Контроль РК. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
+            textEl.textContent = 'Сейчас работают Дашборд, РНП, Контроль РК и Товары. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
         }
         updateHeaderNav(name, true);
         document.querySelector('.main-content')?.classList.remove('rnp-compact', 'logistics-compact');
@@ -7643,6 +7651,7 @@
     window._planCellPaste = _planCellPaste;
 
     let goodsGroupsRows = [];
+    let goodsGroupsCabinetName = '';
 
     function extractSellerArticleFromOrder(order) {
         const d = order?.data || order || {};
@@ -7654,98 +7663,114 @@
         return '';
     }
 
+    function ggQtyCell(n) {
+        const v = Number(n) || 0;
+        return `<td class="gg-num${v ? '' : ' gg-zero'}">${fmt(v)}</td>`;
+    }
+
     function renderGoodsGroupsTable() {
         const tbody = document.getElementById('gg-table-body');
         if (!tbody) return;
         const scrollEl = tbody.closest('.gg-table-scroll');
         const scrollTop = scrollEl?.scrollTop || 0;
+        const q = document.getElementById('gg-search')?.value || '';
+        const catalog = window.GoodsCatalog;
+        const cabName = goodsGroupsCabinetName || goodsGroupsRows[0]?.cabinetName || '';
+        let groups = catalog
+            ? catalog.filterGroups(catalog.groupGoods(goodsGroupsRows, cabName), q)
+            : [{ name: '', items: goodsGroupsRows }];
+        const items = groups.flatMap((g) => g.items);
+        const tot = catalog ? catalog.sumItems(items) : items.reduce((a, r) => {
+            a.fbo += Number(r.fbo || 0);
+            a.fbs += Number(r.fbs || 0);
+            a.transit += Number(r.transit || 0);
+            a.plan += Number(r.plan || 0);
+            a.total += Number(r.fbo || 0) + Number(r.fbs || 0) + Number(r.transit || 0) + Number(r.plan || 0);
+            return a;
+        }, { fbo: 0, fbs: 0, transit: 0, plan: 0, total: 0 });
+        setText('gg-fbo', fmt(tot.fbo));
+        setText('gg-fbs', fmt(tot.fbs));
+        setText('gg-transit', fmt(tot.transit));
+        setText('gg-plan', fmt(tot.plan));
+        setText('gg-stock-total', fmt(tot.total));
 
-        const q = (document.getElementById('gg-search')?.value || '').trim().toLowerCase();
-
-        let rows = goodsGroupsRows;
-        if (q) {
-            rows = rows.filter(r =>
-                String(r.nmId).includes(q) ||
-                (r.sellerArticle || '').toLowerCase().includes(q) ||
-                (r.category || '').toLowerCase().includes(q) ||
-                (r.cabinetName || '').toLowerCase().includes(q)
-            );
-        }
-
-        const cabSet = new Set(rows.map(r => r.cabinetId));
-        const stockSum = rows.reduce((s, r) => s + Number(r.stock || 0), 0);
-        setText('gg-cabinets-count', String(cabSet.size));
-        setText('gg-articles-count', String(rows.length));
-        setText('gg-stock-total', fmt(stockSum) + ' шт.');
-
-        if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет данных по фильтру</td></tr>';
+        if (!items.length) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Нет данных по фильтру</td></tr>';
             return;
         }
 
-        tbody.innerHTML = rows.map(r => `<tr>
-            <td style="font-weight:600;color:var(--text-primary)">${escapeHtml(r.cabinetName)}</td>
-            <td style="font-family:monospace;color:var(--accent);font-weight:600">${escapeHtml(String(r.nmId))}</td>
-            <td style="color:var(--text-primary)">${escapeHtml(r.sellerArticle || '—')}</td>
-            <td style="color:var(--text-muted)">${escapeHtml(r.category || '—')}</td>
-            <td style="text-align:right;font-weight:700;color:var(--text-primary)">${fmt(Number(r.stock || 0))}</td>
-        </tr>`).join('');
-
+        const html = [];
+        groups.forEach((g) => {
+            const sub = catalog ? catalog.sumItems(g.items) : tot;
+            html.push(`<tr class="gg-sec-row"><td colspan="7">${escapeHtml(g.name)} · ${g.items.length} арт. · ${fmt(sub.total)}</td></tr>`);
+            g.items.forEach((r) => {
+                const s = catalog ? catalog.stockOf(r) : {
+                    fbo: Number(r.fbo || 0), fbs: Number(r.fbs || 0),
+                    transit: Number(r.transit || 0), plan: Number(r.plan || 0),
+                    total: Number(r.fbo || 0) + Number(r.fbs || 0) + Number(r.transit || 0) + Number(r.plan || 0),
+                };
+                html.push(`<tr>
+                    <td class="gg-art">${escapeHtml(r.sellerArticle || '—')}</td>
+                    <td class="gg-col-nm gg-nm">${escapeHtml(String(r.nmId))}</td>
+                    ${ggQtyCell(s.fbo)}${ggQtyCell(s.fbs)}${ggQtyCell(s.transit)}${ggQtyCell(s.plan)}
+                    <td class="gg-num" style="font-weight:700">${fmt(s.total)}</td>
+                </tr>`);
+            });
+        });
+        tbody.innerHTML = html.join('');
         if (scrollEl && scrollTop > 0) scrollEl.scrollTop = scrollTop;
     }
 
     async function loadGoodsGroupsCabinet(cab) {
-        const [stocks, orders, arts] = await Promise.all([
-            fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: cab.id }], 'nm_id, quantity'),
-            fetchAllRows('wb_orders', [
-                { op: 'eq', column: 'cabinet_id', value: cab.id },
-                { op: 'gte', column: 'order_date', value: '2026-01-01' },
-            ], 'nm_id, data'),
-            fetchAllRows('rnp_articles', [{ op: 'eq', column: 'cabinet_id', value: cab.id }], 'nm_id, name, category, manual_data'),
+        const [stocks, arts] = await Promise.all([
+            fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: cab.id }],
+                'nm_id, quantity, stock_scheme, in_way_to_client, in_way_from_client'),
+            fetchAllRows('rnp_articles', [{ op: 'eq', column: 'cabinet_id', value: cab.id }],
+                'nm_id, name, category, manual_data'),
         ]);
-
-        const nmSet = new Set();
-        const stockMap = {};
-        (stocks || []).forEach(s => {
-            if (!s.nm_id) return;
-            nmSet.add(Number(s.nm_id));
-            stockMap[s.nm_id] = (stockMap[s.nm_id] || 0) + Number(s.quantity || 0);
+        const byNm = {};
+        const rowOf = (nmId) => {
+            if (!byNm[nmId]) {
+                byNm[nmId] = {
+                    cabinetId: cab.id,
+                    cabinetName: cab.name,
+                    nmId,
+                    sellerArticle: '',
+                    category: '',
+                    fbo: 0,
+                    fbs: 0,
+                    transit: 0,
+                    plan: 0,
+                };
+            }
+            return byNm[nmId];
+        };
+        (stocks || []).forEach((s) => {
+            const id = Number(s.nm_id);
+            if (!id) return;
+            const r = rowOf(id);
+            const scheme = String(s.stock_scheme || 'fbo').toLowerCase() === 'fbs' ? 'fbs' : 'fbo';
+            r[scheme] += Number(s.quantity || 0);
+            r.transit += Number(s.in_way_to_client || 0) + Number(s.in_way_from_client || 0);
         });
-        (orders || []).forEach(o => {
-            if (o.nm_id) nmSet.add(Number(o.nm_id));
+        (arts || []).forEach((a) => {
+            const id = Number(a.nm_id);
+            if (!id) return;
+            const r = rowOf(id);
+            r.sellerArticle = String(a.manual_data?.seller_article || a.manual_data?.sa_name || a.name || '').trim();
+            r.category = (a.category || '').trim();
+            const prod = Number(a.manual_data?.in_production);
+            if (Number.isFinite(prod) && prod > 0) r.plan = prod;
         });
-
-        const artMap = {};
-        (arts || []).forEach(a => {
-            if (nmSet.has(Number(a.nm_id))) artMap[a.nm_id] = a;
-        });
-
-        const saMap = {};
-        (orders || []).forEach(o => {
-            if (saMap[o.nm_id]) return;
-            const sa = extractSellerArticleFromOrder(o);
-            if (sa) saMap[o.nm_id] = sa;
-        });
-
-        return [...nmSet].map(nmId => {
-            const art = artMap[nmId];
-            return {
-                cabinetId: cab.id,
-                cabinetName: cab.name,
-                nmId,
-                sellerArticle: String(art?.manual_data?.seller_article || art?.manual_data?.sa_name || saMap[nmId] || art?.name || '').trim(),
-                category: (art?.category || '').trim(),
-                stock: stockMap[nmId] || 0,
-            };
-        });
+        return Object.values(byNm);
     }
 
     async function loadGoodsGroups() {
         const tbody = document.getElementById('gg-table-body');
         const btn = document.getElementById('gg-load-btn');
         if (!tbody) return;
-        if (btn) { btn.disabled = true; btn.textContent = 'Загрузка…'; }
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Загрузка артикулов…</td></tr>';
+        if (btn) { btn.disabled = true; btn.textContent = 'Обновление…'; }
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Загрузка остатков…</td></tr>';
 
         try {
             let cabinets = cabinetListCache;
@@ -7754,7 +7779,7 @@
                 cabinets = data || [];
             }
             if (!cabinets.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Нет кабинетов</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Нет кабинетов</td></tr>';
                 return;
             }
 
@@ -7776,17 +7801,17 @@
             });
 
             const chunks = await Promise.all(targetCabs.map(cab => loadGoodsGroupsCabinet(cab)));
-            goodsGroupsRows = chunks.flat().sort((a, b) =>
-                (a.sellerArticle || '').localeCompare(b.sellerArticle || '', 'ru') ||
-                Number(a.nmId) - Number(b.nmId)
-            );
+            goodsGroupsRows = chunks.flat();
+            goodsGroupsCabinetName = targetCabs[0]?.name || '';
 
             renderGoodsGroupsTable();
+            const fresh = document.getElementById('gg-freshness');
+            if (fresh) fresh.textContent = 'остатки из WB · ' + targetCabs.map(c => cabinetDisplayName(c.name)).join(', ');
         } catch (e) {
             console.error('[goods-groups]', e);
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10" style="color:var(--red)">${escapeHtml(e.message)}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center py-10" style="color:var(--red)">${escapeHtml(e.message)}</td></tr>`;
         } finally {
-            if (btn) { btn.disabled = false; btn.textContent = 'Загрузить все артикулы'; }
+            if (btn) { btn.disabled = false; btn.textContent = 'Обновить'; }
         }
     }
 
