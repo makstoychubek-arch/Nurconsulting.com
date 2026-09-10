@@ -84,8 +84,8 @@ assert.ok(html.includes('gg-now-tools rnp-tool-icons') && /\.gg-toolbar\s*\{[^}]
     'Товары toolbar spans the row so icons sit top-right like RNP');
 assert.ok(html.includes('th.gg-col-nm') && html.includes('text-align: center !important') && html.includes('max-width: 110px'),
     'WB column is centered and cannot swallow leftover viewport width');
-assert.ok(html.includes('goods-compact') && html.includes("name === 'goods-groups'") && html.includes('padding: 0 12px 10px'),
-    'Товары and Ads sit tight under the page title so tab labels rise');
+assert.ok(html.includes('goods-compact') && html.includes("name === 'goods-groups'") && html.includes('padding: 14px 20px 16px'),
+    'Товары tabs sit below the title with room to breathe');
 assert.ok(html.includes('id="ads-hq-reload"') && html.includes('id="adv-sync-btn"') && html.includes('rnp-tool-icon'),
     'Ads refresh buttons are the same round icons, top-right');
 assert.ok(!/adv-sync-btn[\s\S]{0,400}btn\.textContent =/.test(html),
