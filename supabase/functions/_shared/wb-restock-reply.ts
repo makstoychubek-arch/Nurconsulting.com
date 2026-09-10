@@ -1,0 +1,333 @@
+/** Вопросы WB «когда поступит?» → короткий реплай в Telegram → ответ покупателю. */
+
+export const RESTOCK_CARD_MARK = '#nrq';
+
+const RESTOCK_RE =
+    /поступл|в наличии|когда будет|когда появи|ожидается|ожидаете|будет ли|нет размера|restock|поставк|приедет|привезут|когда ждать|ждём|ждем\b/i;
+
+const WHEN_RES: RegExp[] = [
+    /через\s+\d+\s*(?:день|дня|дней|неделю|недели|недель|месяц|месяца|месяцев)/i,
+    /через\s+(?:пару|несколько)\s+(?:дней|недель)/i,
+    /через\s+(?:неделю|две\s+недели|три\s+недели|месяц)/i,
+    /на\s+следующей\s+неделе/i,
+    /послезавтра/i,
+    /завтра/i,
+    /\b\d+\s*(?:день|дня|дней|неделю|недели|недель)\b/i,
+];
+
+export type RestockQuestion = {
+    id: string;
+    text: string;
+    nmId: number;
+    article: string;
+    product: string;
+    createdDate: string;
+};
+
+export type RestockCardMeta = {
+    questionId: string;
+    cabinetId: string;
+};
+
+export type PendingRestockRow = {
+    question_id: string;
+    cabinet_id: string;
+    nm_id?: number | null;
+    article?: string | null;
+    product?: string | null;
+    question_text?: string | null;
+    telegram_message_id?: number | null;
+};
+
+export type RestockInboundDecision =
+    | { action: 'ignore' }
+    | { action: 'hint'; chatId: string; replyToId: number }
+    | {
+        action: 'answer';
+        questionId: string;
+        cabinetId: string;
+        when: string;
+        chatId: string;
+        replyToId: number;
+        via: 'card_meta' | 'tg_message' | 'pending_match' | 'single_pending';
+    };
+
+export function normalizeReply(raw: string): string {
+    return String(raw || '').replace(/\s+/g, ' ').trim();
+}
+
+export function isRestockQuestion(text: string): boolean {
+    return RESTOCK_RE.test(String(text || ''));
+}
+
+export function extractRestockWhen(raw: string): string | null {
+    const t = normalizeReply(raw);
+    if (!t) return null;
+    for (const re of WHEN_RES) {
+        const m = t.match(re);
+        if (m) return m[0].replace(/\s+/g, ' ').trim();
+    }
+    return null;
+}
+
+export function isWhenOnlyReply(raw: string): boolean {
+    const when = extractRestockWhen(raw);
+    if (!when) return false;
+    const rest = normalizeReply(raw)
+        .toLowerCase()
+        .replace(/ё/g, 'е')
+        .replace(when.toLowerCase().replace(/ё/g, 'е'), '')
+        .replace(/пожалуйста|плиз|please|ок+|да+|хорошо|ладно|[.!?,@]/gi, '')
+        .trim();
+    return rest.length <= 16;
+}
+
+export function buildWbRestockAnswer(when: string): string {
+    const phrase = normalizeReply(when).replace(/[.]+$/, '');
+    return `Здравствуйте, этот товар будет в наличии ${phrase}.`;
+}
+
+export function cabinetLegalName(name: string): string {
+    const raw = String(name || '').trim();
+    if (!raw) return 'Кабинет';
+    if (/zevina\s*2|зевин[аa]?\s*2/i.test(raw)) return 'ОсОО «Айлин Стиль»';
+    if (/zevina|зевин|ailin|уркунбаев/i.test(raw)) return 'ИП Уркунбаев К.А.';
+    if (/elium|элиум|айзада/i.test(raw)) return 'ИП Айзада';
+    if (/^baza$|^baz\.a$|бейшеев/i.test(raw)) return 'ИП Бейшеев А.Д.';
+    return raw;
+}
+
+export function collectQuestions(payload: unknown): RestockQuestion[] {
+    const rec = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+    const inner = rec.data && typeof rec.data === 'object' ? rec.data as Record<string, unknown> : rec;
+    const list = Array.isArray(inner.questions)
+        ? inner.questions
+        : Array.isArray(rec.questions)
+            ? rec.questions
+            : [];
+    const out: RestockQuestion[] = [];
+    for (const row of list) {
+        if (!row || typeof row !== 'object') continue;
+        const q = row as Record<string, unknown>;
+        const pd = q.productDetails && typeof q.productDetails === 'object'
+            ? q.productDetails as Record<string, unknown>
+            : (q.product && typeof q.product === 'object' ? q.product as Record<string, unknown> : {});
+        const id = String(q.id || q.questionId || '').trim();
+        if (!id) continue;
+        out.push({
+            id,
+            text: String(q.text || q.questionText || '').trim(),
+            nmId: Number(pd.nmId || pd.nmID || q.nmId || 0) || 0,
+            article: String(pd.supplierArticle || pd.vendorCode || pd.sa_name || '').trim(),
+            product: String(pd.nmName || pd.productName || q.productName || '').trim(),
+            createdDate: String(q.createdDate || q.createdAt || '').trim(),
+        });
+    }
+    return out;
+}
+
+export function pickRestockQuestions(payload: unknown, maxAgeDays = 45): RestockQuestion[] {
+    return collectQuestions(payload).filter((q) => (
+        isRestockQuestion(q.text) && isFreshQuestion(q.createdDate, maxAgeDays)
+    ));
+}
+
+export function isFreshQuestion(createdDate: string, maxAgeDays = 45): boolean {
+    if (!createdDate) return true;
+    const ms = Date.parse(createdDate);
+    if (!Number.isFinite(ms)) return true;
+    return (Date.now() - ms) <= maxAgeDays * 86400000;
+}
+
+export function formatRestockTelegramCard(opts: {
+    cabinetName: string;
+    cabinetId: string;
+    question: RestockQuestion;
+    mention?: string;
+}): string {
+    const q = opts.question;
+    const who = opts.mention ? `${opts.mention} ` : '';
+    const art = [q.article, q.nmId ? String(q.nmId) : ''].filter(Boolean).join(' · ');
+    const lines = [
+        `${who}❓ Вопрос о поступлении`,
+        `Кабинет: ${cabinetLegalName(opts.cabinetName)}`,
+    ];
+    if (q.product) lines.push(`Товар: ${q.product}`);
+    if (art) lines.push(`Артикул: ${art}`);
+    lines.push('', `«${q.text.slice(0, 500)}»`, '', 'Ответьте реплаем: завтра / через неделю / через 2 недели');
+    lines.push(`${RESTOCK_CARD_MARK} q=${q.id} c=${opts.cabinetId}`);
+    return lines.join('\n');
+}
+
+export function parseRestockCardMeta(text: string): RestockCardMeta | null {
+    const t = String(text || '');
+    const m = t.match(/#nrq\s+q=([^\s]+)\s+c=([0-9a-f-]{8,})/i);
+    if (!m) return null;
+    return { questionId: m[1], cabinetId: m[2] };
+}
+
+export function matchPendingByText(
+    haystack: string,
+    rows: Array<{ question_id: string; nm_id?: number | null; article?: string | null; product?: string | null; question_text?: string | null }>,
+): string | null {
+    const h = String(haystack || '').toLowerCase();
+    if (!h || !rows.length) return null;
+    let best: { id: string; score: number } | null = null;
+    for (const row of rows) {
+        let score = 0;
+        if (row.nm_id && h.includes(String(row.nm_id))) score += 5;
+        const art = String(row.article || '').toLowerCase();
+        if (art && h.includes(art)) score += 4;
+        const product = String(row.product || '').toLowerCase();
+        for (const w of product.split(/[^a-zа-я0-9]+/i).filter((x) => x.length >= 5)) {
+            if (h.includes(w)) score += 1;
+        }
+        const qtext = String(row.question_text || '').toLowerCase();
+        for (const w of qtext.split(/[^a-zа-я0-9]+/i).filter((x) => x.length >= 6)) {
+            if (h.includes(w)) score += 1;
+        }
+        if (score > 0 && (!best || score > best.score)) best = { id: row.question_id, score };
+    }
+    return best && best.score >= 2 ? best.id : null;
+}
+
+export function ownerMention(username: string): string {
+    const u = String(username || '').replace(/^@/, '').trim();
+    return u ? `@${u}` : '';
+}
+
+export function isAllowedRestockChat(
+    chatId: string,
+    reviewsChatId: string,
+    pendingChatIds: string[] = [],
+): boolean {
+    const id = String(chatId || '').trim();
+    if (!id) return false;
+    const reviews = String(reviewsChatId || '').trim();
+    if (reviews && id === reviews) return true;
+    return pendingChatIds.some((c) => String(c || '').trim() === id);
+}
+
+export function unwrapTelegramMessage(update: unknown): {
+    chatId: string;
+    messageId: number;
+    text: string;
+    fromUsername: string;
+    replyToText: string;
+    replyToMessageId: number | null;
+    isBot: boolean;
+} | null {
+    const rec = update && typeof update === 'object' ? update as Record<string, unknown> : {};
+    const msg = (rec.message || rec.edited_message) && typeof (rec.message || rec.edited_message) === 'object'
+        ? (rec.message || rec.edited_message) as Record<string, unknown>
+        : null;
+    if (!msg) return null;
+    const chat = msg.chat && typeof msg.chat === 'object' ? msg.chat as Record<string, unknown> : {};
+    const from = msg.from && typeof msg.from === 'object' ? msg.from as Record<string, unknown> : {};
+    const reply = msg.reply_to_message && typeof msg.reply_to_message === 'object'
+        ? msg.reply_to_message as Record<string, unknown>
+        : {};
+    const chatId = String(chat.id ?? '').trim();
+    const messageId = Number(msg.message_id || 0);
+    if (!chatId || !messageId) return null;
+    return {
+        chatId,
+        messageId,
+        text: String(msg.text || msg.caption || ''),
+        fromUsername: String(from.username || ''),
+        replyToText: String(reply.text || reply.caption || ''),
+        replyToMessageId: Number(reply.message_id || 0) || null,
+        isBot: from.is_bot === true,
+    };
+}
+
+export function decideRestockInbound(input: {
+    chatId: string;
+    messageId: number;
+    text: string;
+    fromUsername: string;
+    ownerUsername: string;
+    replyToText: string;
+    replyToMessageId: number | null;
+    pending: PendingRestockRow[];
+}): RestockInboundDecision {
+    const chatId = String(input.chatId || '');
+    const replyToId = input.messageId;
+    const when = extractRestockWhen(input.text);
+    const meta = parseRestockCardMeta(input.replyToText);
+
+    if (meta) {
+        if (!when) return { action: 'hint', chatId, replyToId };
+        return {
+            action: 'answer',
+            questionId: meta.questionId,
+            cabinetId: meta.cabinetId,
+            when,
+            chatId,
+            replyToId,
+            via: 'card_meta',
+        };
+    }
+
+    if (input.replyToMessageId && when) {
+        const byTg = input.pending.find((r) => Number(r.telegram_message_id) === Number(input.replyToMessageId));
+        if (byTg) {
+            return {
+                action: 'answer',
+                questionId: byTg.question_id,
+                cabinetId: byTg.cabinet_id,
+                when,
+                chatId,
+                replyToId,
+                via: 'tg_message',
+            };
+        }
+        const matched = matchPendingByText(input.replyToText, input.pending);
+        const row = input.pending.find((r) => r.question_id === matched);
+        if (row) {
+            return {
+                action: 'answer',
+                questionId: row.question_id,
+                cabinetId: row.cabinet_id,
+                when,
+                chatId,
+                replyToId,
+                via: 'pending_match',
+            };
+        }
+    }
+
+    const owner = String(input.ownerUsername || '').replace(/^@/, '').toLowerCase();
+    const from = String(input.fromUsername || '').replace(/^@/, '').toLowerCase();
+    const fromOwner = Boolean(owner && from && owner === from);
+
+    if (fromOwner && isWhenOnlyReply(input.text) && when) {
+        if (input.pending.length === 1) {
+            const row = input.pending[0];
+            return {
+                action: 'answer',
+                questionId: row.question_id,
+                cabinetId: row.cabinet_id,
+                when,
+                chatId,
+                replyToId,
+                via: 'single_pending',
+            };
+        }
+        const matched = matchPendingByText(input.replyToText || input.text, input.pending);
+        const row = input.pending.find((r) => r.question_id === matched);
+        if (row) {
+            return {
+                action: 'answer',
+                questionId: row.question_id,
+                cabinetId: row.cabinet_id,
+                when,
+                chatId,
+                replyToId,
+                via: 'pending_match',
+            };
+        }
+    }
+
+    return { action: 'ignore' };
+}

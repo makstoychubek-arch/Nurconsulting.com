@@ -962,6 +962,10 @@ assert.ok(
     'Agents tab must list all ten wow functions'
 );
 assert.ok(
+    html.includes('Или ответьте в Telegram реплаем: завтра / через неделю / через 2 недели'),
+    'questions panel must hint the Telegram restock reply'
+);
+assert.ok(
     proxySrc.includes("case 'users_invite'") &&
     proxySrc.includes("case 'users_access'") &&
     proxySrc.includes('changeExistingUserAccess') &&

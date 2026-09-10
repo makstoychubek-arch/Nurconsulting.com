@@ -1,0 +1,3 @@
+# Telegram webhook не шлёт user JWT — роутер принимает секрет бота сам.
+[functions.telegram-router]
+verify_jwt = false

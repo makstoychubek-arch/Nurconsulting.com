@@ -11852,11 +11852,11 @@
             return `<div class="mb-4 pb-4" style="border-bottom:1px solid var(--border)">
                 <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(String(product || 'Вопрос'))}</div>
                 <div class="text-sm mt-1" style="color:var(--text-secondary)">${escapeHtml(String(text).slice(0, 400))}</div>
-                <textarea id="agent-q-${id}" class="ui-input mt-2" rows="2" placeholder="Ответ"></textarea>
+                <textarea id="agent-q-${id}" class="ui-input mt-2" rows="2" placeholder="Ответ покупателю или в Telegram: завтра / через неделю"></textarea>
                 <button type="button" class="adv-camp-action-btn mt-2" onclick="submitAgentQuestion('${escapeHtml(String(id))}')">Ответить</button>
             </div>`;
         }).join('');
-        panel.innerHTML = agentPanelHead(fn) + (rows || '<div class="text-sm" style="color:var(--text-muted)">Открытых вопросов нет.</div>');
+        panel.innerHTML = agentPanelHead(fn, ' Или ответьте в Telegram реплаем: завтра / через неделю / через 2 недели — бот сам напишет покупателю на WB.') + (rows || '<div class="text-sm" style="color:var(--text-muted)">Открытых вопросов нет.</div>');
     }
     async function submitAgentQuestion(id) {
         const text = document.getElementById('agent-q-' + id)?.value.trim();
