@@ -20,16 +20,15 @@
 Хелпер шлёт `action: 'setBids'` → этот path. Тест `testSetBidsLive` проверяет URL  
 `https://advert-api.wildberries.ru/api/advert/v1/normquery/bids`.
 
-Тик (только если снять DRY_RUN) кладёт тело v1:
+Тик (только если снять DRY_RUN) кладёт тело v1 — **без** поля `bid`, `bidMinorUnits` уже на сетке `cpmStep`:
 
-```291:298:supabase/functions/autobidder-tick/index.ts
+```321:327:supabase/functions/autobidder-tick/index.ts
                     const setRes = await setBids(adv, {
                         bids: [{
                             advertId: Number(camp.wb_campaign_id),
                             nmId: Number(camp.nm_id),
                             normQuery: cl.cluster_key,
-                            bid: decided.newBid,
-                            bidMinorUnits: decided.newBid * 100,
+                            bidMinorUnits,
                         }],
                     });
 ```
@@ -59,11 +58,11 @@
 
 **Не менять path.** Он уже `/api/advert/v1/normquery/bids`.
 
-Имеет смысл подчистить позже, не блокер:
+Три подчистки сделаны в `docs/autobidder-setbids-align.md` (ветка `cursor/setbids-align-47f1`):
 
-1. Тик шлёт лишнее поле `bid` вместе с `bidMinorUnits`. В схеме v1 его нет — WB скорее проигнорирует. Оставить только `bidMinorUnits`.
-2. Шаг: `newBid * 100` без сверки с `cpmStep` из config. У UZS в примере спеки `cpmStep: 100000` (1000 сум). У KGS шаг, скорее всего, 100 (= 1 сом), но это надо снять **одним** `GET /api/advert/v1/config`, не get-bids. Лимит config: **1 запрос / минуту** на кабинет — кэшировать, не звать каждый тик вслепую, если тиков много.
-3. `ceilRub` по имени врёт: округляет единицу валюты кабинета. Список: `docs/autobidder-currency-ruble-sites.md` (ветка sync-clusters, если ещё не в main).
+1. Лишнее поле `bid` убрано. В теле только `bidMinorUnits`.
+2. `newBid * 100` сверяется с `cpmStep` из `loadAdvConfig` (кэш на кабинет, TTL 60 с).
+3. `ceilRub` переименован в `ceilBid`.
 
 ---
 
@@ -83,7 +82,7 @@ const cfg = parseAdvConfig(res.data);
 
 Пример из спеки (UZS): `{ currency: "UZS", currencyCode: 860, cpmStep: 100000, cpcStep: 500, minTopUp: 10000 }`.
 
-Это замена перебору кампаний через get-bids, когда нужна только валюта/шаг. В `sync-campaigns` / тик пока не вшивал — один вызов на кабинет, кэш на время жизни процесса или строка в `cabinets`.
+Тик зовёт `loadAdvConfig` один раз на кабинет (если есть правила). Кэш 60 с, лимит WB 1 req/min.
 
 ---
 

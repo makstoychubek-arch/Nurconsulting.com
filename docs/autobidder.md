@@ -36,18 +36,18 @@
 
 | Назначение | Метод | Заметка |
 |---|---|---|
-| Валюта и шаг ставки кабинета | `GET /api/advert/v1/config` | `currency`, `cpmStep` / `cpcStep` в минорных единицах. Лимит **1 запрос / мин** на кабинет. Не ходить в get-bids ради валюты. |
+| Валюта и шаг ставки кабинета | `GET /api/advert/v1/config` | `currency`, `cpmStep` / `cpcStep` в минорных единицах. Лимит **1 запрос / мин** на кабинет. Кэш `loadAdvConfig` на кабинет, TTL 60 с. Не ходить в get-bids ради валюты. |
 | Список/инфо по кампаниям | `GET /api/advert/v2/adverts` | |
 | Список кластеров | `POST /adv/v0/normquery/list` | тело `{ items: [{ advertId, nmId }] }` |
 | Текущие ставки | `POST /adv/v0/normquery/get-bids` | тело `{ items: [{ advert_id, nm_id }] }` |
-| **Поставить ставки** | `POST /api/advert/v1/normquery/bids` | **только v1.** `bidMinorUnits` = 0,01 валюты кабинета (у нас KGS). `POST /adv/v0/normquery/bids` в спеке — «ставки в рублях», для Baza/Elium/Zevina 1 не использовать. |
+| **Поставить ставки** | `POST /api/advert/v1/normquery/bids` | **только v1.** Поля: `advertId`, `nmId`, `normQuery`, `bidMinorUnits` (без `bid`). `bidMinorUnits` кратен `cpmStep`. v0 «в рублях» не использовать. |
 | Удалить ставки | `DELETE /adv/v0/normquery/bids` | |
 | Статистика кластеров | `POST /adv/v0/normquery/stats`, `POST /adv/v1/normquery/stats` | |
 | Минус-фразы | `POST /adv/v0/normquery/get-minus`, `POST /adv/v0/normquery/set-minus` | |
 | fullstats | `GET /adv/v3/fullstats` | |
 | Пауза / запуск | `GET /adv/v0/pause`, `GET /adv/v0/start` | в спеке GET, не POST |
 
-`setBids` в коде уже v1. Переключать с v0 нечего. Подробности: `docs/autobidder-setbids-v1.md`.
+`setBids` в коде уже v1. Переключать с v0 нечего. Подробности: `docs/autobidder-setbids-v1.md`, правки тела/шага: `docs/autobidder-setbids-align.md`.
 
 Аудит всех 39 методов спеки vs код: `docs/autobidder-endpoints-audit.md`. Командный центр — первый экран вкладки **РК** (сегмент Реклама). Старый Автобиддер не тронут. Как открыть на телефоне: `docs/ads-hq-live.md`.
 

@@ -4,8 +4,12 @@
  */
 import assert from 'node:assert/strict';
 import {
+    alignMajorToCpmStep,
+    alignMinorToCpmStep,
     CANON,
+    ceilBid,
     decideBid,
+    DEFAULT_CPM_STEP_MINOR,
     fetchAuction,
     getAdPosition,
     isCapExhausted,
@@ -119,5 +123,20 @@ if (settled[1].status === 'fulfilled') {
     eq('#9 B pos_worse', settled[1].value, 107, 'pos_worse', true);
 }
 assert.deepEqual(tokenInvalidResult(100), { newBid: 100, reason: 'token_invalid', apply: false });
+
+assert.equal(ceilBid(155.15), 156);
+assert.equal(ceilBid(107), 107);
+assert.equal(ceilBid(Number.NaN), 0);
+
+assert.equal(alignMinorToCpmStep(42000, 100), 42000, 'KGS step 100: already on grid');
+assert.equal(alignMinorToCpmStep(42000, 100000), 100000, 'UZS step 100000: ceil to next step');
+assert.equal(alignMinorToCpmStep(10700, 200), 10800, 'odd major ×100 ceils to step');
+assert.equal(alignMinorToCpmStep(0, 100), 0);
+assert.equal(alignMinorToCpmStep(10700, 0), 10700, 'invalid step → default 100');
+assert.equal(alignMinorToCpmStep(10700, Number.NaN), 10700);
+assert.equal(DEFAULT_CPM_STEP_MINOR, 100);
+assert.equal(alignMajorToCpmStep(420, 100), 420);
+assert.equal(alignMajorToCpmStep(420, 100000), 1000);
+assert.equal(alignMajorToCpmStep(107, 200), 108);
 
 console.log('autobidder-tick-decide_test: ok');
