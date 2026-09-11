@@ -54,6 +54,11 @@ Deno.serve(async (req) => {
     if (resendId) {
         return json(await resendPendingCard(admin, resendId, tgToken, reviewsChat, dryRun));
     }
+    const heartId = Number(body.heart_message_id || 0) || 0;
+    if (heartId && reviewsChat && tgToken) {
+        const ok = await reactTelegram(tgToken, reviewsChat, heartId, '❤');
+        return json({ ok, heart: true, message_id: heartId });
+    }
     const applyId = String(body.apply_question_id || '').trim();
     if (applyId) {
         return json(await applyPendingAnswer(
