@@ -1878,6 +1878,54 @@
         }
         .rnp-collapse-body { display: block; }
         .rnp-collapse-inner { min-width: 0; }
+        .rnp-article-panel--wide .rnp-collapse[data-block="stock"] > .rnp-collapse-head,
+        .rnp-kpi-sizes-row .rnp-collapse[data-block="stock"] > .rnp-collapse-head,
+        .rnp-head-wide .rnp-collapse[data-block="stock"] > .rnp-collapse-head {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin: 2px 0 4px;
+            padding: 3px 8px;
+            border: none;
+            border-radius: 8px;
+            background: var(--sel);
+            color: var(--text-secondary);
+            font: inherit;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            cursor: pointer;
+        }
+        .rnp-article-panel--wide .rnp-collapse-chevron,
+        .rnp-kpi-sizes-row .rnp-collapse-chevron,
+        .rnp-head-wide .rnp-collapse-chevron {
+            width: 12px; height: 12px; flex-shrink: 0;
+            color: var(--text-muted);
+            transition: transform 0.18s ease;
+        }
+        .rnp-article-panel--wide .rnp-collapse.is-open .rnp-collapse-chevron,
+        .rnp-kpi-sizes-row .rnp-collapse.is-open .rnp-collapse-chevron,
+        .rnp-head-wide .rnp-collapse.is-open .rnp-collapse-chevron {
+            transform: rotate(180deg);
+        }
+        .rnp-article-panel--wide .rnp-collapse[data-block="stock"] > .rnp-collapse-body,
+        .rnp-kpi-sizes-row .rnp-collapse[data-block="stock"] > .rnp-collapse-body,
+        .rnp-head-wide .rnp-collapse[data-block="stock"] > .rnp-collapse-body {
+            display: grid;
+            grid-template-rows: 0fr;
+            transition: grid-template-rows 0.18s ease;
+        }
+        .rnp-article-panel--wide .rnp-collapse[data-block="stock"] .rnp-collapse-inner,
+        .rnp-kpi-sizes-row .rnp-collapse[data-block="stock"] .rnp-collapse-inner,
+        .rnp-head-wide .rnp-collapse[data-block="stock"] .rnp-collapse-inner {
+            overflow: hidden;
+            min-height: 0;
+        }
+        .rnp-article-panel--wide .rnp-collapse[data-block="stock"].is-open > .rnp-collapse-body,
+        .rnp-kpi-sizes-row .rnp-collapse[data-block="stock"].is-open > .rnp-collapse-body,
+        .rnp-head-wide .rnp-collapse[data-block="stock"].is-open > .rnp-collapse-body {
+            grid-template-rows: 1fr;
+        }
         .rnp-kpi-sizes-row {
             padding: 2px 4px 4px;
             overflow-x: auto;

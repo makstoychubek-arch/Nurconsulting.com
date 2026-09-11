@@ -99,7 +99,9 @@ const RNP = (() => {
     let _compareMonthMenuOpen = false;
     let _compareMonthMenuBound = false;
     let _phoneKpiOpen = false;
-    let _phoneStockOpen = true;
+    let _phoneStockOpen = (() => {
+        try { return localStorage.getItem('rnp_stock_open') !== '0'; } catch (e) { return true; }
+    })();
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
@@ -3198,7 +3200,7 @@ const RNP = (() => {
     }
 
     function _phoneCollapseHtml(id, title, open, inner) {
-        if (!_isPhone()) return inner;
+        if (!_isPhone() && id !== 'stock') return inner;
         return `<div class="rnp-collapse${open ? ' is-open' : ''}" data-block="${id}">
           <button type="button" class="rnp-collapse-head" onclick="RNP.togglePhoneBlock('${id}')" aria-expanded="${open ? 'true' : 'false'}">
             <span>${title}</span>
@@ -3213,10 +3215,20 @@ const RNP = (() => {
         else if (id === 'stock') _phoneStockOpen = !_phoneStockOpen;
         else return;
         const open = id === 'kpi' ? _phoneKpiOpen : _phoneStockOpen;
+        if (id === 'stock') {
+            try { localStorage.setItem('rnp_stock_open', open ? '1' : '0'); } catch (e) {}
+        }
         document.querySelectorAll(`.rnp-collapse[data-block="${id}"]`).forEach((el) => {
             el.classList.toggle('is-open', open);
             el.querySelector('.rnp-collapse-head')?.setAttribute('aria-expanded', open ? 'true' : 'false');
         });
+        if (id === 'stock') {
+            const body = document.getElementById('rnp-sheet-body');
+            requestAnimationFrame(() => {
+                _syncMarqueeFill(body || document);
+                _syncHeadPin(body);
+            });
+        }
     }
 
     function _buildKpiTopHTML(art, stockBySize, rawData, cal) {
@@ -3257,6 +3269,9 @@ const RNP = (() => {
                 <div class="rnp-kpi"><span>Рентабельность</span><b class="${roiCls}">${_fmtKpi(kpi.roi_pct, 'pct')}</b></div>
                 <div class="rnp-kpi"><span>К перечислению</span><b>${toTransferSom.toLocaleString('ru')}</b></div>
                 <div class="rnp-kpi"><span>ДРР %</span><b>${_fmtKpi(kpi.drr_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>Показы РК</span><b>${_fmtKpi(kpi.ad_impressions, 'int')}</b></div>
+                <div class="rnp-kpi"><span>Клики РК</span><b>${_fmtKpi(kpi.ad_clicks, 'int')}</b></div>
+                <div class="rnp-kpi"><span>Расход РК</span><b>${_fmtKpi(kpi.ad_spend, 'som')}</b></div>
                 <div class="rnp-kpi"><span>Маржа %</span><b class="${marginCls}">${_fmtKpi(kpi.margin_pct, 'pct')}</b></div>
                 <div class="rnp-kpi"><span>Прибыль</span><b class="${profitCls}">${_fmtKpi(kpi.profit, 'som')}</b></div>
                 <div class="rnp-kpi"><span>План заказ %</span><b class="${planCls}">${_fmtKpi(kpi.plan_orders_pct, 'pct')}</b></div>
@@ -3638,6 +3653,11 @@ const RNP = (() => {
                 if (!idSet.has(Number(r.nm_id))) return;
                 if (!_dataCache[r.nm_id]) _dataCache[r.nm_id] = {};
                 const client = _dataCache[r.nm_id][r.date] || {};
+                const keep = (key) => {
+                    const c = Number(client[key] || 0);
+                    const s = Number(r[key] || 0);
+                    return c > s ? c : s;
+                };
                 _dataCache[r.nm_id][r.date] = {
                     ...r,
                     orders_count: client.orders_count || r.orders_count || 0,
@@ -3646,6 +3666,14 @@ const RNP = (() => {
                     stock_warehouse: client.stock_warehouse ?? r.stock_warehouse,
                     stock_transit: client.stock_transit ?? r.stock_transit,
                     stock_total: client.stock_total ?? r.stock_total,
+                    ad_impressions: keep('ad_impressions'),
+                    ad_clicks: keep('ad_clicks'),
+                    ad_spend: keep('ad_spend'),
+                    ad_orders: keep('ad_orders'),
+                    ad_basket: keep('ad_basket'),
+                    ad_ctr: keep('ad_ctr'),
+                    ad_cpc: keep('ad_cpc'),
+                    ad_cro: keep('ad_cro'),
                 };
             });
         } catch (e) { console.warn('[RNP] merge finance daily:', e.message); }
@@ -3655,14 +3683,23 @@ const RNP = (() => {
     // с разбивкой по nmId в data.apps[].nms[]. РНП раньше это не читал —
     // ячейки «Показы с рк / Клики РК» оставались пустыми, пока не нажмут
     // refresh на каждом артикуле.
+    function _adNmId(n) {
+        return Number(n?.nmId ?? n?.nmID ?? n?.nm_id ?? n?.id ?? 0) || 0;
+    }
+
+    function _adList(v) {
+        if (Array.isArray(v)) return v;
+        if (v && typeof v === 'object') return [v];
+        return [];
+    }
+
     function _adNmsFromDay(day) {
         const out = [];
         if (!day || typeof day !== 'object') return out;
-        if (Array.isArray(day.nm)) out.push(...day.nm);
-        if (Array.isArray(day.nms)) out.push(...day.nms);
+        out.push(..._adList(day.nm), ..._adList(day.nms), ..._adList(day.nmIds));
         (day.apps || []).forEach(app => {
-            const nms = (app && (app.nm || app.nms)) || [];
-            if (Array.isArray(nms)) out.push(...nms);
+            if (!app) return;
+            out.push(..._adList(app.nm), ..._adList(app.nms), ..._adList(app.nmIds));
         });
         return out;
     }
@@ -3683,8 +3720,7 @@ const RNP = (() => {
     }
 
     function _applyAdBucket(row, d) {
-        const already = Number(row.ad_impressions || 0) || Number(row.ad_clicks || 0) || Number(row.ad_spend || 0);
-        if (already) return;
+        if (!(d.imp || d.cl || d.spend || d.orders || d.basket)) return;
         row.ad_impressions = d.imp;
         row.ad_clicks = d.cl;
         row.ad_spend = d.spend;
@@ -3726,15 +3762,15 @@ const RNP = (() => {
             if (!date) return;
             const nms = _adNmsFromDay(row.data);
             nms.forEach(n => {
-                const nm = Number(n.nmId || n.nm_id);
+                const nm = _adNmId(n);
                 if (!nm || !idSet.has(nm)) return;
                 const key = `${nm}:${date}`;
                 if (!byNmDate[key]) byNmDate[key] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
-                byNmDate[key].imp += Number(n.views || 0);
-                byNmDate[key].cl += Number(n.clicks || 0);
+                byNmDate[key].imp += Number(n.views || n.view || 0);
+                byNmDate[key].cl += Number(n.clicks || n.click || 0);
                 byNmDate[key].spend += Number(n.sum || n.spend || 0);
                 byNmDate[key].orders += Number(n.orders || 0);
-                byNmDate[key].basket += Number(n.atbs || 0);
+                byNmDate[key].basket += Number(n.atbs || n.atbsCount || 0);
             });
         });
         Object.entries(byNmDate).forEach(([key, d]) => {
@@ -3783,6 +3819,8 @@ const RNP = (() => {
             }
             if (_cab !== snapCab || renderId !== _mainRenderGen) return;
             await _mergeFinanceDailyFromDb(missing, _buildCalendar());
+            if (_cab !== snapCab || renderId !== _mainRenderGen) return;
+            await _mergeAdStatsFromDb(missing, _buildCalendar());
         }
         if (_cab !== snapCab || renderId !== _mainRenderGen) return;
         const focus = Number(_activeNm);
@@ -4215,18 +4253,11 @@ const RNP = (() => {
 
                     let imp = 0, cl = 0, spend = 0, orders = 0, basket = 0;
 
-                    // Collect all nm-level entries from any nesting
-                    const allNms = [];
-                    if (Array.isArray(day.nm))   allNms.push(...day.nm);
-                    if (Array.isArray(day.nms))  allNms.push(...day.nms);
-                    (day.apps || []).forEach(app => {
-                        const nms = app.nm || app.nms || [];
-                        if (Array.isArray(nms)) allNms.push(...nms);
-                    });
+                    const allNms = _adNmsFromDay(day);
 
                     if (allNms.length) {
                         // Per-article data available — find our nmId
-                        const row = allNms.find(n => String(n.nmId || n.nm_id) === String(nmId));
+                        const row = allNms.find(n => String(_adNmId(n)) === String(nmId));
                         if (!row) return;
                         imp    = Number(row.views  || 0);
                         cl     = Number(row.clicks || 0);

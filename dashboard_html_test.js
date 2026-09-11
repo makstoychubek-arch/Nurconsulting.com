@@ -579,6 +579,11 @@ assert.ok(
     'wide photos stick at the top and shrink after the sheet is scrolled'
 );
 assert.ok(
+    html.includes('.rnp-article-panel--wide .rnp-collapse[data-block="stock"] > .rnp-collapse-head') &&
+    html.includes('grid-template-rows: 0fr'),
+    'desktop Остатки header can hide the size grid so photos shrink'
+);
+assert.ok(
     html.includes("localStorage.getItem('nr_theme')") &&
     html.includes('var __nrTheme') &&
     html.includes('html {\n            background: var(--bg);') &&
@@ -736,8 +741,8 @@ assert.ok(
     html.includes('grid-template-rows: 0fr'),
     'phone collapse CSS hides values until the header is tapped'
 );
-assert.ok(rnpSrc.includes('let _phoneStockOpen = true'),
-    'phone stock donut starts open and can be collapsed');
+assert.ok(rnpSrc.includes('_phoneStockOpen') && rnpSrc.includes("rnp_stock_open"),
+    'stock open state is remembered so Остатки can stay hidden');
 assert.ok(
     !rnpSrc.includes('_phoneKpiOpen = false; _phoneStockOpen = false'),
     'switching articles must not force-hide the stock donut'
@@ -761,6 +766,9 @@ assert.ok(
     assert.ok(!open.includes('is-open'));
     assert.ok(phone._phoneCollapseHtml('stock', 'Остатки', true, 'BODY').includes('is-open'));
     assert.strictEqual(desk._phoneCollapseHtml('kpi', 'Показатели', false, '<b>keep</b>'), '<b>keep</b>');
+    const deskStock = desk._phoneCollapseHtml('stock', 'Остатки', true, 'BODY');
+    assert.ok(deskStock.includes('data-block="stock"') && deskStock.includes('is-open') && deskStock.includes('BODY'),
+        'desktop can collapse Остатки so the photo strip shrinks with it');
 }
 assert.ok(
     rnpSrc.includes('function _buildPhoneHeroHTML') &&
@@ -901,6 +909,23 @@ assert.ok(
 
 assert.ok(rnpSrc.includes('await _mergeAdStatsFromDb(nmIds, cal)'),
     'RNP main load must merge advertising_daily_stats, not only define the helper');
+assert.ok(
+    rnpSrc.includes('function _adNmId') &&
+    rnpSrc.includes('n?.nmId ?? n?.nmID ?? n?.nm_id') &&
+    rnpSrc.includes("ad_impressions: keep('ad_impressions')") &&
+    rnpSrc.includes('await _mergeAdStatsFromDb(missing, _buildCalendar())'),
+    'RK stats survive finance merge and accept WB nmID in fullstats'
+);
+{
+    const start = rnpSrc.indexOf('function _adNmId');
+    const end = rnpSrc.indexOf('function _ensureCacheDay');
+    assert.ok(start > 0 && end > start);
+    const fns = new Function(`${rnpSrc.slice(start, end)}\nreturn { _adNmId, _adNmsFromDay };`)();
+    assert.strictEqual(fns._adNmId({ nmID: 247347214 }), 247347214);
+    assert.strictEqual(fns._adNmId({ nmId: 1 }), 1);
+    const nms = fns._adNmsFromDay({ apps: [{ nms: [{ nmID: 9, views: 3 }] }] });
+    assert.strictEqual(fns._adNmId(nms[0]), 9);
+}
 assert.ok(/const \[, dailyRows, , stocksRaw\] = await Promise\.all/.test(rnpSrc),
     'RNP must take wb_stocks from Promise.all slot 4, not exchange rates');
 assert.ok(rnpSrc.includes('Array.isArray(stocksRaw)'),
@@ -1533,6 +1558,8 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
     const deskTop = kpiTop(false);
     assert.ok(deskTop.includes('rnp-gs-photo') && !deskTop.includes('rnp-kpi-top--nophoto'),
         'desktop KPI card still shows the article photo');
+    assert.ok(deskTop.includes('Показы РК') && deskTop.includes('Клики РК') && deskTop.includes('Расход РК'),
+        'article KPI shows RK stats without scrolling to the ads section');
 
     function viewApi(isPhone) {
         return new Function(`
