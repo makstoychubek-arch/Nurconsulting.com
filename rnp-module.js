@@ -123,6 +123,7 @@ const RNP = (() => {
     function _dayColW() { return _isPhone() ? PHONE_COL_W : DAY_COL_W; }
     const MARQUEE_CARD_MAX_H = 240;
     const MARQUEE_CARD_MIN_H = 132;
+    const MARQUEE_PINNED_H = 72;
     const MARQUEE_REPS_MAX = 6;
     const PHOTO_ASPECT_W = 3 / 4;
     const MONTH_COL_W = 42;
@@ -5489,6 +5490,7 @@ const RNP = (() => {
             requestAnimationFrame(() => {
                 _syncFrozenPane(body);
                 if (painted === 'replace') _bindMarqueeResize(body);
+                else _bindHeadPin(body);
             });
             _preloadPhotosBackground(active).then(() => _applyResolvedPhotos(body));
             _saveRnpShell();
@@ -5553,6 +5555,7 @@ const RNP = (() => {
             requestAnimationFrame(() => {
                 _syncFrozenPane(body);
                 _syncMarqueeFill(body);
+                _bindHeadPin(body);
             });
         }
         _preloadGalleryPhotos(art.nm_id).then(() => {
@@ -5606,6 +5609,7 @@ const RNP = (() => {
                 try {
                     _syncFrozenPane(scope);
                     _syncMarqueeFill(scope);
+                    _syncHeadPin(scope);
                 } finally {
                     _marqueeSyncing = false;
                 }
@@ -5613,6 +5617,55 @@ const RNP = (() => {
         });
         if (scroll) _marqueeRo.observe(scroll);
         if (wide) _marqueeRo.observe(wide);
+        _bindHeadPin(scope);
+    }
+
+    function _headPinPanel(scope) {
+        const root = scope || document;
+        return root.querySelector(':scope > .rnp-article-panel')
+            || root.querySelector('.rnp-article-panel--wide, .rnp-article-panel--phone, .rnp-article-panel--narrow, .rnp-article-panel');
+    }
+
+    function _syncHeadPin(root) {
+        const body = (root && root.id === 'rnp-sheet-body')
+            ? root
+            : ((root && root.querySelector) ? root.querySelector('#rnp-sheet-body') : null)
+                || document.getElementById('rnp-sheet-body');
+        if (!body) return;
+        const panel = _headPinPanel(body);
+        if (!panel) {
+            _setCssVar(body, '--rnp-pin-h', '0px');
+            _setCssVar(body, '--rnp-scroll-w', `${body.clientWidth}px`);
+            return;
+        }
+        _setCssVar(body, '--rnp-scroll-w', `${body.clientWidth}px`);
+        const pinned = body.scrollTop > 12;
+        const changed = panel.classList.contains('is-pinned') !== pinned;
+        if (changed) panel.classList.toggle('is-pinned', pinned);
+        const applyH = () => {
+            _setCssVar(body, '--rnp-pin-h', `${Math.round(panel.getBoundingClientRect().height)}px`);
+        };
+        if (changed) {
+            requestAnimationFrame(() => {
+                _syncMarqueeFill(body);
+                applyH();
+            });
+        } else {
+            applyH();
+        }
+    }
+
+    function _bindHeadPin(root) {
+        const body = (root && root.id === 'rnp-sheet-body')
+            ? root
+            : ((root && root.querySelector) ? root.querySelector('#rnp-sheet-body') : null)
+                || document.getElementById('rnp-sheet-body');
+        if (!body) return;
+        if (!body._rnpPinBound) {
+            body._rnpPinBound = true;
+            body.addEventListener('scroll', () => _syncHeadPin(body), { passive: true });
+        }
+        _syncHeadPin(body);
     }
 
     function _syncMarqueeFill(root) {
@@ -5634,11 +5687,17 @@ const RNP = (() => {
                 ? wide.querySelector('.rnp-head-wide-info')
                 : left?.querySelector('.rnp-head-left-stack');
             const pin = wrap.closest('.rnp-head-marquee-pin');
+            const pinned = !!(wrap.closest('.is-pinned'));
             const stackH = isBottomGallery ? 0 : (stack?.clientHeight || 0);
-            if (pin && stackH > 0) pin.style.height = `${stackH}px`;
-            const availH = isBottomGallery ? 96 : (pin?.clientHeight || wrap.clientHeight || stackH || 168);
+            if (pin && !isBottomGallery) {
+                if (pinned) pin.style.height = `${MARQUEE_PINNED_H}px`;
+                else if (stackH > 0) pin.style.height = `${stackH}px`;
+            }
+            const availH = isBottomGallery
+                ? 96
+                : (pinned ? MARQUEE_PINNED_H : (pin?.clientHeight || wrap.clientHeight || stackH || 168));
             const gap = 3;
-            let cardH = Math.min(MARQUEE_CARD_MAX_H, Math.max(88, availH));
+            let cardH = Math.min(MARQUEE_CARD_MAX_H, Math.max(pinned ? 64 : 88, availH));
             let cardW = Math.round(cardH * PHOTO_ASPECT_W);
 
             const baseCount = parseInt(track.dataset.baseCount, 10) || track.children.length;
