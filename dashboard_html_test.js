@@ -1078,6 +1078,24 @@ assert.ok(!rnpSrc.includes("if (tabs) tabs.innerHTML = _renderTabsHTML(_rnpVisib
     'photo preload must not rebuild the article tabs');
 assert.ok(html.includes("indexedDB.open('nr-rnp-lock'"),
     'tab-rnp restores the IndexedDB sheet before the module boots');
+assert.ok(html.includes("nr_dash_paint") && html.includes('DASH_CACHE_TTL_MS = 3 * 60 * 60 * 1000'),
+    'dashboard paints last KPI numbers immediately and keeps a 3-hour cache');
+assert.ok(html.includes('function applyDashPayload') && html.includes('function readDashCache') && html.includes('function fetchDashFromNetwork'),
+    'dashboard loadFromDB applies cache first and only hits the network when stale or forced');
+assert.ok(html.includes('loadFromDB(dateFrom, dateTo, opts)') && html.includes('{ force: true }'),
+    'manual sync and the 3-hour timer force a dashboard refresh');
+assert.ok(html.includes('rnp.openMain(!!force)') && html.includes('bootRnpTab(false)'),
+    'opening RNP after F5 must not force a full reload');
+assert.ok(html.includes("indexedDB.open('nr-rnp-lock', 2)") && html.includes("createObjectStore('data')"),
+    'early RNP restore opens IndexedDB v2 with a data store');
+assert.ok(rnpSrc.includes('function _saveRnpPersist') && rnpSrc.includes('function _restorePersist') && rnpSrc.includes('function _hasUsableRnpData'),
+    'RNP persists articles and daily data so F5 does not wait for Supabase');
+assert.ok(rnpSrc.includes('function _refreshRnpInBackground') && rnpSrc.includes('RNP_DATA_TTL_MS = 3 * 60 * 60 * 1000'),
+    'RNP refreshes in the background every 3 hours instead of blocking openMain');
+assert.ok(rnpSrc.includes('if (hasData || hasSheet)') && rnpSrc.includes('_loadRnpDataTimed()'),
+    'RNP paints from local data or the locked sheet and only awaits network on a cold start');
+assert.ok(rnpSrc.includes("createObjectStore('data')") && rnpSrc.includes('indexedDB.open(\'nr-rnp-lock\', RNP_IDB_VER)'),
+    'RNP IndexedDB stores persist payloads next to the HTML shell');
 assert.ok(!/if \(!_cachedPhotoUrl\(art, 1\)\) await _ensurePhoto/.test(rnpSrc),
     'article sheet must not wait for photos before painting the table');
 assert.ok(!rnpSrc.includes('Рисуем таблицу'),

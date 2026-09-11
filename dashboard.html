@@ -4297,6 +4297,51 @@
                 </div>
             </div>
         </div>
+        <script>
+            (function () {
+                function applyPaint(p) {
+                    if (!p) return;
+                    if (p.texts) {
+                        Object.keys(p.texts).forEach(function (id) {
+                            var el = document.getElementById(id);
+                            if (el && p.texts[id] != null) el.textContent = p.texts[id];
+                        });
+                    }
+                    if (p.dataMetrics) {
+                        Object.keys(p.dataMetrics).forEach(function (key) {
+                            var el = document.querySelector('[data-metric="' + key + '"]');
+                            if (el && p.dataMetrics[key] != null) el.textContent = p.dataMetrics[key];
+                        });
+                    }
+                    if (p.dateLabel) {
+                        var dr = document.getElementById('date-range');
+                        if (dr) dr.textContent = p.dateLabel;
+                    }
+                    if (p.legendHtml) {
+                        var lg = document.getElementById('dashboard-top-margin-legend');
+                        if (lg) lg.innerHTML = p.legendHtml;
+                    }
+                    if (p.whLegendHtml) {
+                        var wh = document.getElementById('dash-wh-legend');
+                        if (wh) wh.innerHTML = p.whLegendHtml;
+                    }
+                }
+                try {
+                    var cab = '';
+                    try { cab = localStorage.getItem('selected_cabinet_id') || ''; } catch (e2) {}
+                    var raw = '';
+                    try { raw = (cab && (localStorage.getItem('nr_dash_paint_' + cab) || sessionStorage.getItem('nr_dash_paint_' + cab))) || ''; } catch (e3) {}
+                    if (!raw) {
+                        try { raw = localStorage.getItem('nr_dash_paint') || sessionStorage.getItem('nr_dash_paint') || ''; } catch (e4) {}
+                    }
+                    if (!raw) return;
+                    var p = JSON.parse(raw);
+                    if (!p || !p.ts) return;
+                    if (p.cab && cab && p.cab !== cab) return;
+                    applyPaint(p);
+                } catch (e) {}
+            })();
+        </script>
 
         <div id="tab-beta-stub" class="tab-content space-y-6">
             <div class="beta-module-hero">
@@ -4962,10 +5007,11 @@
                     }
                     if (el.querySelector('.rnp-sheet-table, .rnp-summary-table, .rnp-head-wide')) return;
                     if (!cab) return;
-                    var open = indexedDB.open('nr-rnp-lock', 1);
+                    var open = indexedDB.open('nr-rnp-lock', 2);
                     open.onupgradeneeded = function (ev) {
                         var db = ev.target.result;
                         if (!db.objectStoreNames.contains('shell')) db.createObjectStore('shell');
+                        if (!db.objectStoreNames.contains('data')) db.createObjectStore('data');
                     };
                     open.onsuccess = function () {
                         try {
@@ -6729,7 +6775,7 @@
         }
         window._rnpBootRetries = 0;
         rnp.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
-        Promise.resolve(rnp.openMain(true)).catch(function (e) {
+        Promise.resolve(rnp.openMain(!!force)).catch(function (e) {
             console.error('[RNP] openMain:', e);
             scheduleRnpBoot('Не удалось открыть РНП. Обновите страницу.');
         });
@@ -6760,7 +6806,7 @@
         }
         clearTimeout(window._rnpBootTimer);
         window._rnpBootTimer = setTimeout(() => {
-            bootRnpTab(true);
+            bootRnpTab(false);
             bootRnpSettings(true);
         }, 400);
     }
@@ -6845,7 +6891,7 @@
             initMarkingModule();
             if (hasUserCabinets && window._markingReportLoadedForCabinet !== currentCabinetId) loadMarkingComplianceReport();
         }
-        if (name === 'rnp') bootRnpTab(true);
+        if (name === 'rnp') bootRnpTab(false);
         if (name === 'planning' && hasUserCabinets) loadPlanningTab();
         if (name === 'telegram-bots') loadTelegramBotsPage();
         if (name === 'ozon') loadOzonTokenPage();
@@ -9215,7 +9261,8 @@
         await loadFromDB();
         updateEmptyCabinetState();
         await loadLastSyncTime();
-        bootRnpTab(true);
+        hideOverlay();
+        bootRnpTab(false);
         bootRnpSettings(true);
     }
 
@@ -9314,15 +9361,24 @@
         renderCabinetDropdown(cabinetListCache);
         document.getElementById('cabinet-picker-wrap')?.classList.remove('open');
 
-        [
-            'm-profit','m-margin','m-profit2','m-sales-sum','m-sales-count',
-            'm-realization','m-commission','m-orders-sum','m-orders-count',
-            'm-conversion','m-logistics','m-ads','m-storage','m-roi',
-            'm-opex','m-returns','m-stock','m-stock-fbo','m-stock-fbs',
-            'rnp-profit','rnp-margin',
-            'rnp-roi','rnp-buyout','rnp-orders','rnp-sales','rnp-returns',
-            'rnp-logistics','wh-total','wh-fbo','wh-fbs'
-        ].forEach(id => setText(id, '—'));
+        const nextRange = getActiveDateRange();
+        const nextDash = readDashCache(newCabinetId, nextRange.from, nextRange.to);
+        const nextPaint = readDashPaint(newCabinetId);
+        if (nextDash) {
+            applyDashPayload(nextDash);
+        } else if (nextPaint && nextPaint.from === nextRange.from && nextPaint.to === nextRange.to) {
+            applyDashPaint(nextPaint);
+        } else {
+            [
+                'm-profit','m-margin','m-profit2','m-sales-sum','m-sales-count',
+                'm-realization','m-commission','m-orders-sum','m-orders-count',
+                'm-conversion','m-logistics','m-ads','m-storage','m-roi',
+                'm-opex','m-returns','m-stock','m-stock-fbo','m-stock-fbs',
+                'rnp-profit','rnp-margin',
+                'rnp-roi','rnp-buyout','rnp-orders','rnp-sales','rnp-returns',
+                'rnp-logistics','wh-total','wh-fbo','wh-fbs'
+            ].forEach(id => setText(id, '—'));
+        }
 
         clearAllMetricTrends();
 
@@ -9604,17 +9660,156 @@
         }
     }
 
-    async function loadFromDB(dateFrom, dateTo) {
-        if (!currentCabinetId) return;
+    const DASH_CACHE_TTL_MS = 3 * 60 * 60 * 1000;
+    const DASH_PAINT_KEY = 'nr_dash_paint';
 
-        const requestId = ++_loadRequestId;
-        const snapshotCabinet = currentCabinetId;
+    function dashCacheKey(cab, from, to) {
+        return `nr_dash_v1_${cab}_${from}_${to}`;
+    }
+    function dashPaintKey(cab) {
+        return cab ? `${DASH_PAINT_KEY}_${cab}` : DASH_PAINT_KEY;
+    }
+    function readJsonStore(key) {
+        try {
+            const raw = sessionStorage.getItem(key) || localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) { return null; }
+    }
+    function writeJsonStore(key, obj) {
+        let raw = '';
+        try { raw = JSON.stringify(obj); } catch (e) { return; }
+        try { sessionStorage.setItem(key, raw); } catch (e) {}
+        try { localStorage.setItem(key, raw); } catch (e) {
+            try {
+                Object.keys(localStorage)
+                    .filter(k => k.indexOf('nr_dash_v1_') === 0 && k !== key)
+                    .forEach(k => { try { localStorage.removeItem(k); } catch (e2) {} });
+                localStorage.setItem(key, raw);
+            } catch (e2) {}
+        }
+    }
+    function slimDashMetrics(m) {
+        if (!m) return null;
+        const { byNmId, ...rest } = m;
+        if (!byNmId || typeof byNmId !== 'object') return rest;
+        const top = Object.values(byNmId)
+            .filter(a => (a.forPay || 0) > 0)
+            .sort((a, b) => (b.forPay || 0) - (a.forPay || 0))
+            .slice(0, 8);
+        const slim = {};
+        top.forEach(a => { slim[a.nmId] = a; });
+        return { ...rest, byNmId: slim };
+    }
+    function captureDashPaint() {
+        const ids = [
+            'm-profit','m-margin','m-profit2','m-sales-sum','m-sales-count',
+            'm-realization','m-commission','m-orders-sum','m-orders-count',
+            'm-conversion','m-logistics','m-ads','m-storage','m-roi',
+            'm-opex','m-returns','m-stock','m-stock-fbo','m-stock-fbs',
+            'wh-total','wh-fbo','wh-fbs',
+            'sum-profit','sum-margin','sum-sales','sum-roi',
+            'sum-orders','sum-buyout','sum-logistics','sum-returns',
+            'date-range',
+        ];
+        const texts = {};
+        ids.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) texts[id] = el.textContent;
+        });
+        const dataMetrics = {};
+        document.querySelectorAll('[data-metric]').forEach(el => {
+            const k = el.getAttribute('data-metric');
+            if (k) dataMetrics[k] = el.textContent;
+        });
+        const range = getActiveDateRange();
+        const paint = {
+            cab: currentCabinetId,
+            from: range.from,
+            to: range.to,
+            ts: Date.now(),
+            texts,
+            dataMetrics,
+            dateLabel: texts['date-range'] || '',
+            legendHtml: document.getElementById('dashboard-top-margin-legend')?.innerHTML || '',
+            whLegendHtml: document.getElementById('dash-wh-legend')?.innerHTML || '',
+        };
+        writeJsonStore(DASH_PAINT_KEY, paint);
+        if (currentCabinetId) writeJsonStore(dashPaintKey(currentCabinetId), paint);
+        return paint;
+    }
+    function applyDashPaint(p) {
+        if (!p) return false;
+        if (p.texts) {
+            Object.keys(p.texts).forEach(id => {
+                const el = document.getElementById(id);
+                if (el && p.texts[id] != null) el.textContent = p.texts[id];
+            });
+        }
+        if (p.dataMetrics) {
+            Object.keys(p.dataMetrics).forEach(key => {
+                const el = document.querySelector(`[data-metric="${key}"]`);
+                if (el && p.dataMetrics[key] != null) el.textContent = p.dataMetrics[key];
+            });
+        }
+        if (p.legendHtml) {
+            const lg = document.getElementById('dashboard-top-margin-legend');
+            if (lg) lg.innerHTML = p.legendHtml;
+        }
+        if (p.whLegendHtml) {
+            const wh = document.getElementById('dash-wh-legend');
+            if (wh) wh.innerHTML = p.whLegendHtml;
+        }
+        return true;
+    }
+    function readDashPaint(cab) {
+        return (cab && readJsonStore(dashPaintKey(cab))) || readJsonStore(DASH_PAINT_KEY);
+    }
+    function saveDashCache(payload) {
+        if (!payload || !payload.cab) return;
+        writeJsonStore(dashCacheKey(payload.cab, payload.from, payload.to), payload);
+        captureDashPaint();
+    }
+    function readDashCache(cab, from, to) {
+        if (!cab || !from || !to) return null;
+        const p = readJsonStore(dashCacheKey(cab, from, to));
+        if (!p || p.cab !== cab || p.from !== from || p.to !== to) return null;
+        return p;
+    }
+    function applyDashPayload(payload) {
+        if (!payload || !payload.summary) return null;
+        const summary = payload.summary;
+        const applyDash = () => {
+            const stocks = applyStockSummary(summary);
+            updateDateRangeLabel();
+            updateDashboardFromDB(stocks.total, summary.cur, summary.prev);
+            if (window.NRCharts) {
+                const series = (summary.cur_daily || []).map(d => [d.date, {
+                    sum: Number(d.sum || 0),
+                    count: Number(d.count || 0),
+                    returns: Number(d.returns || 0),
+                }]);
+                NRCharts.renderAllChartsAgg(series, stocks.chartEntries);
+                if (typeof NRCharts.setWarehouseScheme === 'function') {
+                    const filtered = filterStockWarehouses(_dashStockByWarehouse, _dashStockView)
+                        .filter(w => Number(w.qty || 0) > 0)
+                        .map(w => [w.warehouse_name, w.qty, w.scheme])
+                        .sort((a, b) => b[1] - a[1]);
+                    NRCharts.setWarehouseScheme(_dashStockView, filtered);
+                }
+            }
+            if (payload.metrics && typeof WBFormulas !== 'undefined') {
+                WBFormulas.applyMetricsToDashboard(payload.metrics, setText);
+                applyExtendedMetricDisplay(payload.metrics);
+                if (payload.prevMetrics) applyMetricTrends(payload.metrics, payload.prevMetrics);
+                syncSummaryTab(payload.metrics);
+                renderTopMarginalProducts(payload.metrics);
+            }
+            return stocks;
+        };
+        return window.domMorph ? window.domMorph.preserveScroll([], applyDash) : applyDash();
+    }
 
-        const range = dateFrom && dateTo ? { from: dateFrom, to: dateTo } : getActiveDateRange();
-        const from = range.from;
-        const to = range.to;
-        const prev = prevPeriodRange(from, to);
-
+    async function fetchDashFromNetwork(snapshotCabinet, from, to, prev, requestId) {
         // Раньше здесь было 3 постраничных запроса (fetchAllRows по 1000 строк
         // за раз — для wb_stocks у активных кабинетов это легко 15-20+ HTTP-
         // запросов) ради того, чтобы на клиенте просуммировать несколько чисел.
@@ -9642,28 +9837,16 @@
         if (summaryErr) console.error('[loadFromDB] dashboard_summary RPC:', summaryErr.message);
 
         if (!summaryErr && summary) {
-            const applyDash = () => {
-                const stocks = applyStockSummary(summary);
-                updateDateRangeLabel();
-
-                updateDashboardFromDB(stocks.total, summary.cur, summary.prev);
-
-                if (window.NRCharts) {
-                    const series = (summary.cur_daily || []).map(d => [d.date, { sum: Number(d.sum || 0), count: Number(d.count || 0), returns: Number(d.returns || 0) }]);
-                    NRCharts.renderAllChartsAgg(series, stocks.chartEntries);
-                    if (typeof NRCharts.setWarehouseScheme === 'function') {
-                        const filtered = filterStockWarehouses(_dashStockByWarehouse, _dashStockView)
-                            .filter(w => Number(w.qty || 0) > 0)
-                            .map(w => [w.warehouse_name, w.qty, w.scheme])
-                            .sort((a, b) => b[1] - a[1]);
-                        NRCharts.setWarehouseScheme(_dashStockView, filtered);
-                    }
-                }
-                return stocks;
-            };
-            const stocks = window.domMorph
-                ? window.domMorph.preserveScroll([], applyDash)
-                : applyDash();
+            const stocks = applyDashPayload({ summary, adsCur, adsPrev });
+            saveDashCache({
+                ts: Date.now(),
+                cab: snapshotCabinet,
+                from,
+                to,
+                summary,
+                adsCur,
+                adsPrev,
+            });
 
             if (typeof WBFormulas !== 'undefined') {
                 const finId = requestId;
@@ -9704,6 +9887,17 @@
                         };
                         if (window.domMorph) window.domMorph.preserveScroll([], applyFin);
                         else applyFin();
+                        saveDashCache({
+                            ts: Date.now(),
+                            cab: finCabinet,
+                            from,
+                            to,
+                            summary,
+                            adsCur,
+                            adsPrev,
+                            metrics: slimDashMetrics(metrics),
+                            prevMetrics: slimDashMetrics(prevMetrics),
+                        });
                     }
                 }).catch(e => {
                     console.warn('Finance report:', e.message);
@@ -9714,6 +9908,44 @@
                 });
             }
         }
+    }
+
+    async function loadFromDB(dateFrom, dateTo, opts) {
+        if (!currentCabinetId) return;
+        const force = !!(opts && opts.force);
+        const requestId = ++_loadRequestId;
+        const snapshotCabinet = currentCabinetId;
+        const range = dateFrom && dateTo ? { from: dateFrom, to: dateTo } : getActiveDateRange();
+        const from = range.from;
+        const to = range.to;
+        const prev = prevPeriodRange(from, to);
+
+        const cached = readDashCache(snapshotCabinet, from, to);
+        if (cached) {
+            applyDashPayload(cached);
+            if (!force && Date.now() - cached.ts < DASH_CACHE_TTL_MS) return;
+            fetchDashFromNetwork(snapshotCabinet, from, to, prev, requestId);
+            return;
+        }
+        const paint = readDashPaint(snapshotCabinet);
+        if (paint && paint.from === from && paint.to === to) applyDashPaint(paint);
+
+        await fetchDashFromNetwork(snapshotCabinet, from, to, prev, requestId);
+    }
+
+    if (!window._nrDashRefreshTimer) {
+        window._nrDashRefreshTimer = setInterval(() => {
+            if (!currentCabinetId || !hasUserCabinets) return;
+            loadFromDB(null, null, { force: true });
+        }, DASH_CACHE_TTL_MS);
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden || !currentCabinetId || !hasUserCabinets) return;
+            const range = getActiveDateRange();
+            const cached = readDashCache(currentCabinetId, range.from, range.to);
+            if (!cached || Date.now() - cached.ts >= DASH_CACHE_TTL_MS) {
+                loadFromDB(null, null, { force: true });
+            }
+        });
     }
 
     // "Топ 5 маржинальных товаров" на главном дашборде — конкретно для
@@ -9809,7 +10041,7 @@
             });
             const result = await res.json();
             if (!res.ok) throw new Error(result.error || `HTTP ${res.status}`);
-            await loadFromDB();
+            await loadFromDB(null, null, { force: true });
             await loadLastSyncTime();
             showPremiumModal('success', 'Синхронизация завершена',
                 `Загружено: ${result.results?.[0]?.stocks || 0} остатков, ${result.results?.[0]?.orders || 0} заказов`);
@@ -9974,7 +10206,7 @@
 
             if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
 
-            await loadFromDB();
+            await loadFromDB(null, null, { force: true });
             const rnpMod = getRnp();
             if (rnpMod) {
                 rnpMod.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
@@ -13489,7 +13721,7 @@
                     rnpMod.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
                 }
                 if (!isBetaStubOpen()) {
-                    bootRnpTab(true);
+                    bootRnpTab(false);
                     bootRnpSettings(true);
                 }
                 // Прочие вкладки, чьи on-tab-open загрузчики были no-op'нуты выше
