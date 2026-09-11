@@ -6,13 +6,16 @@ import {
     decideRestockInbound,
     extractRestockWhen,
     formatRestockTelegramCard,
+    wbQuestionAnswerPayload,
     isAllowedRestockChat,
     isFreshQuestion,
     isRestockQuestion,
     isWhenOnlyReply,
     matchPendingByText,
+    normalizeWhenPhrase,
     ownerMention,
     parseRestockCardMeta,
+    parseNewFeedbacksQuestions,
     pickRestockQuestions,
     unwrapTelegramMessage,
 } from './wb-restock-reply.ts';
@@ -24,7 +27,8 @@ assert.equal(isRestockQuestion('Какой состав ткани?'), false, 'c
 assert.equal(extractRestockWhen('завтра'), 'завтра');
 assert.equal(extractRestockWhen('через неделю'), 'через неделю');
 assert.equal(extractRestockWhen('через 2 недели'), 'через 2 недели');
-assert.equal(extractRestockWhen('Через две недели пожалуйста'), 'Через две недели');
+assert.equal(extractRestockWhen('Через две недели пожалуйста'), 'через две недели');
+assert.equal(normalizeWhenPhrase('Через неделю'), 'через неделю');
 assert.equal(extractRestockWhen('послезавтра'), 'послезавтра');
 assert.equal(extractRestockWhen('не знаю'), null);
 
@@ -40,12 +44,27 @@ assert.equal(
     buildWbRestockAnswer('завтра.'),
     'Здравствуйте, этот товар будет в наличии завтра.',
 );
+assert.equal(
+    buildWbRestockAnswer('Через неделю'),
+    'Здравствуйте, этот товар будет в наличии через неделю.',
+);
 
 assert.equal(cabinetLegalName('Zevina 1'), 'ИП Уркунбаев К.А.');
 assert.equal(cabinetLegalName('Zevina 2'), 'ОсОО «Айлин Стиль»');
 assert.equal(cabinetLegalName('Elium'), 'ИП Айзада');
 assert.equal(cabinetLegalName('Baza'), 'ИП Бейшеев А.Д.');
 assert.equal(ownerMention('maraWuW'), '@maraWuW');
+
+assert.deepEqual(parseNewFeedbacksQuestions({
+    data: { hasNewQuestions: true, hasNewFeedbacks: false },
+    error: false,
+    errorText: '',
+    additionalErrors: null,
+}), { hasNewQuestions: true, hasNewFeedbacks: false });
+assert.deepEqual(parseNewFeedbacksQuestions({ hasNewQuestions: false }), {
+    hasNewQuestions: false,
+    hasNewFeedbacks: false,
+});
 
 const payload = {
     data: {
@@ -84,12 +103,21 @@ const card = formatRestockTelegramCard({
     mention: '@maraWuW',
 });
 assert.match(card, /@maraWuW/);
-assert.match(card, /ИП Уркунбаев/);
-assert.match(card, /#nrq q=q-kostum-1 c=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/);
-assert.match(card, /Ответьте реплаем/);
+assert.match(card, /поступление/);
+assert.match(card, /kostkom_oversize_temnosiniy/);
+assert.equal(card.includes('#nrq'), false);
+assert.equal(card.includes('Кабинет:'), false);
+assert.equal(card.includes('Ответьте реплаем'), false);
+assert.ok(card.split('\n').length <= 4);
 
-const meta = parseRestockCardMeta(card);
-assert.deepEqual(meta, {
+assert.deepEqual(wbQuestionAnswerPayload('q-1', 'Здравствуйте, этот товар будет в наличии завтра.'), {
+    id: 'q-1',
+    answer: { text: 'Здравствуйте, этот товар будет в наличии завтра.' },
+    state: 'wbRu',
+});
+
+assert.equal(parseRestockCardMeta(card), null);
+assert.deepEqual(parseRestockCardMeta('#nrq q=q-kostum-1 c=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'), {
     questionId: 'q-kostum-1',
     cabinetId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
 });
@@ -108,6 +136,19 @@ const pending = [{
 assert.equal(matchPendingByText('когда костюм 399607068', pending), 'q-kostum-1');
 assert.equal(matchPendingByText('привет', pending), null);
 
+const fromOldCard = decideRestockInbound({
+    chatId: '-1001',
+    messageId: 100,
+    text: 'через неделю',
+    fromUsername: 'maraWuW',
+    ownerUsername: 'maraWuW',
+    replyToText: '#nrq q=q-kostum-1 c=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+    replyToMessageId: 87,
+    pending,
+});
+assert.equal(fromOldCard.action, 'answer');
+if (fromOldCard.action === 'answer') assert.equal(fromOldCard.via, 'card_meta');
+
 const fromCard = decideRestockInbound({
     chatId: '-1001',
     messageId: 101,
@@ -121,7 +162,7 @@ const fromCard = decideRestockInbound({
 assert.equal(fromCard.action, 'answer');
 if (fromCard.action === 'answer') {
     assert.equal(fromCard.when, 'через неделю');
-    assert.equal(fromCard.via, 'card_meta');
+    assert.equal(fromCard.via, 'tg_message');
     assert.equal(fromCard.questionId, 'q-kostum-1');
 }
 
@@ -200,7 +241,7 @@ const unwrapped = unwrapTelegramMessage({
 assert.ok(unwrapped);
 assert.equal(unwrapped?.fromUsername, 'maraWuW');
 assert.equal(unwrapped?.replyToMessageId, 8);
-assert.match(unwrapped?.replyToText || '', /#nrq/);
+assert.match(unwrapped?.replyToText || '', /поступление/);
 
 assert.equal(isAllowedRestockChat('-100rev', '-100rev', []), true);
 assert.equal(isAllowedRestockChat('-100team', '-100rev', []), false);

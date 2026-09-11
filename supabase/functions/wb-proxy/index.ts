@@ -54,6 +54,7 @@ import {
     parseReqPerMin,
     readAdvTokenFromVault,
 } from '../_shared/wb-adv-proxy.ts';
+import { answerWbQuestion } from '../_shared/wb-restock-reply.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -1317,7 +1318,7 @@ serve(async (req) => {
                 const id = String(params.id || '');
                 const text = String(params.text || '').trim();
                 if (!id || !text) return json({ error: 'id и текст ответа обязательны' }, 400);
-                const res = await wbSend(`${FEEDBACKS_API}/api/v1/questions/answer`, WB_TOKEN, 'POST', { id, text });
+                const res = await answerWbQuestion(WB_TOKEN, id, text);
                 if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
                 result = { ok: true };
                 break;
