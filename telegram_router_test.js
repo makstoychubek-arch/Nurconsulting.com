@@ -13,9 +13,8 @@ assert.ok(router.includes('decideRestockInbound'), 'router uses shared inbound d
 assert.ok(router.includes('unwrapTelegramMessage'), 'router reads Telegram update');
 assert.ok(router.includes('завтра / через неделю / через 2 недели'),
     'hint when reply has no when-phrase');
-assert.ok(router.includes('setMessageReaction') && router.includes("'❤'"),
-    'success is a heart reaction, not a chat message');
-assert.ok(!router.includes('готово'), 'must not write готово/отправлено after a reply');
+assert.ok(router.includes('restockStatusText'), 'success is the words Ушло на WB');
+assert.ok(!router.includes("'❤'"), 'must not confirm a send with only a heart');
 assert.ok(!router.includes('Готово. На WB ушёл ответ'), 'must not dump the WB letter into the chat');
 assert.ok(!router.includes('Не смог ответить на WB'), 'must not paste WB error URLs');
 assert.ok(router.includes('status: \'pending\'' ) || router.includes(".eq('status', 'pending')"),

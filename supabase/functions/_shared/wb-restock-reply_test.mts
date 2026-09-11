@@ -8,6 +8,7 @@ import {
     formatRestockTelegramCard,
     shortQuestionQuote,
     resolveRestockAnswer,
+    restockStatusText,
     wbQuestionAnswerPayload,
     isAllowedRestockChat,
     isFreshQuestion,
@@ -260,7 +261,10 @@ const ignoreStranger = decideRestockInbound({
     replyToMessageId: null,
     pending,
 });
-assert.equal(ignoreStranger.action, 'ignore');
+assert.equal(ignoreStranger.action, 'answer');
+if (ignoreStranger.action === 'answer') assert.equal(ignoreStranger.via, 'single_pending');
+assert.equal(restockStatusText(true, 'через неделю'), 'Ушло на WB: через неделю.');
+assert.equal(restockStatusText(false), 'Не ушло на WB.');
 
 const unwrapped = unwrapTelegramMessage({
     message: {

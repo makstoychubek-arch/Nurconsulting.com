@@ -101,6 +101,12 @@ export function buildWbRestockAnswer(when: string): string {
     return `Здравствуйте, этот товар будет в наличии ${normalizeWhenPhrase(when)}.`;
 }
 
+export function restockStatusText(ok: boolean, when = ''): string {
+    if (!ok) return 'Не ушло на WB.';
+    const w = normalizeWhenPhrase(when);
+    return w ? `Ушло на WB: ${w}.` : 'Ушло на WB.';
+}
+
 /** Срок → шаблон; свой текст реплая на карточку уходит на WB как есть. */
 export function resolveRestockAnswer(raw: string): { when: string; wbText: string } | null {
     const text = normalizeReply(raw);
@@ -392,20 +398,21 @@ export function decideRestockInbound(input: {
     const from = String(input.fromUsername || '').replace(/^@/, '').toLowerCase();
     const fromOwner = Boolean(owner && from && owner === from);
 
+    if (resolved && isWhenOnlyReply(input.text) && input.pending.length === 1) {
+        const row = input.pending[0];
+        return {
+            action: 'answer',
+            questionId: row.question_id,
+            cabinetId: row.cabinet_id,
+            when: resolved.when,
+            wbText: resolved.wbText,
+            chatId,
+            replyToId,
+            via: 'single_pending',
+        };
+    }
+
     if (fromOwner && isWhenOnlyReply(input.text) && resolved) {
-        if (input.pending.length === 1) {
-            const row = input.pending[0];
-            return {
-                action: 'answer',
-                questionId: row.question_id,
-                cabinetId: row.cabinet_id,
-                when: resolved.when,
-                wbText: resolved.wbText,
-                chatId,
-                replyToId,
-                via: 'single_pending',
-            };
-        }
         const matched = matchPendingByText(input.replyToText || input.text, input.pending);
         const row = input.pending.find((r) => r.question_id === matched);
         if (row) {

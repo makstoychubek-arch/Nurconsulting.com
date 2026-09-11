@@ -36,15 +36,13 @@ assert.ok(router.includes('answerWbQuestion'), 'router answers via official PATC
 assert.ok(!router.includes('questions/answer'), 'old POST /questions/answer path is gone');
 assert.ok(router.includes('buildWbRestockAnswer'), 'router uses the hello+when template');
 assert.ok(router.includes('unknown_chat'), 'router ignores chats that are not reviews');
-assert.ok(router.includes('setMessageReaction') && router.includes("'❤'"),
-    'success is a heart on the reply, no text');
-assert.ok(!router.includes('готово') && !router.includes('не смогла'),
-    'must not write status text after a restock reply');
+assert.ok(router.includes('restockStatusText'), 'router writes Ушло на WB / Не ушло на WB');
+assert.ok(!router.includes("'❤'"), 'must not confirm a send with only a heart');
 assert.ok(poll.includes('resend_question_id'), 'poll can duplicate one pending card');
 assert.ok(poll.includes('editMessageText'), 'resend shortens the existing Telegram card in place');
 assert.ok(poll.includes('apply_question_id'), 'poll can apply an already given restock date');
 assert.ok(poll.includes('body.answer') || poll.includes("body.answer"), 'poll apply can reuse a custom answer already written');
-assert.ok(poll.includes('setMessageReaction'), 'poll can put a heart on the Telegram reply');
+assert.ok(poll.includes('restockStatusText'), 'poll apply writes Ушло на WB in the chat');
 assert.ok(shared.includes('toLocaleLowerCase'), 'WB when-phrase is lowercased');
 assert.ok(poll.includes('answerWbQuestion'), 'poll apply uses official PATCH');
 
@@ -67,8 +65,9 @@ assert.ok(mig.includes('telegram-router?bot=notify'), 'notify webhook path store
 assert.ok(apply.includes('answerWbQuestion'), 'Karina webhook answers via PATCH /questions');
 assert.ok(!apply.includes('questions/answer'), 'live webhook must not use POST /questions/answer');
 assert.ok(!apply.includes('Не смог ответить на WB'), 'must not paste WB OpenAPI links into the chat');
-assert.ok(webhook.includes('applyRestockTelegramReply') && webhook.includes('reactMessage'),
-    'telegram-webhook is the live Karina path and reacts with a heart');
+assert.ok(webhook.includes('applyRestockTelegramReply'),
+    'telegram-webhook is the live Karina path');
+assert.ok(apply.includes('restockStatusText'), 'Karina writes Ушло на WB after a send');
 assert.ok(webhook.includes('KARINA_BOT_TOKEN'), 'restock replies are sent as Karina');
 assert.ok(cfg.includes('[functions.telegram-webhook]') && cfg.includes('verify_jwt = false'),
     'telegram-webhook accepts Telegram without user JWT');
