@@ -552,6 +552,38 @@ assert.ok(html.includes('.rnp-head-wide') && html.includes('minmax(460px, 520px)
     'wide RNP head keeps a 460px info column so photos cannot cover numbers');
 assert.ok(html.includes('.rnp-head-wide-info') && html.includes('.rnp-head-wide-photos'),
     'wide head splits KPI/stocks and the photo strip');
+assert.ok(
+    /rnp-sheet-body \{[\s\S]*?overflow-y:\s*auto/.test(html) &&
+    html.includes('min-height: 0; height: 100%') &&
+    !html.includes('min-height: calc(100vh - 120px)'),
+    'RNP sheet scrolls vertically inside a bounded workspace, not a clipped 100vh box'
+);
+assert.ok(
+    html.includes('.rnp-article-panel--wide.is-pinned') &&
+    html.includes('position: sticky') &&
+    html.includes('--rnp-pin-h') &&
+    html.includes('--rnp-scroll-w') &&
+    html.includes('min-height: 72px'),
+    'wide photos stick at the top and shrink after the sheet is scrolled'
+);
+assert.ok(
+    html.includes("localStorage.getItem('nr_theme')") &&
+    html.includes('var __nrTheme') &&
+    html.includes('html {\n            background: var(--bg);') &&
+    html.includes('color-scheme: dark'),
+    'dark theme is applied before first paint so RNP does not flash white'
+);
+assert.ok(
+    html.indexOf('var __nrTheme') < html.indexOf(':root, [data-theme="ios"]'),
+    'nr_theme is restored before CSS variables, not after the RNP shell HTML'
+);
+assert.ok(
+    rnpSrc.includes('function _bindHeadPin') &&
+    rnpSrc.includes('function _syncHeadPin') &&
+    rnpSrc.includes('MARQUEE_PINNED_H') &&
+    rnpSrc.includes("classList.toggle('is-pinned'"),
+    'RNP shrinks the photo marquee when the sheet scroller is pinned'
+);
 assert.ok(/\.rnp-settings-overlay\s*\{[^}]*z-index:\s*10050/.test(html),
     'settings overlay sits above the floating header');
 assert.ok(html.includes('body.rnp-settings-open .rnp-workspace') && html.includes('visibility: hidden'),
