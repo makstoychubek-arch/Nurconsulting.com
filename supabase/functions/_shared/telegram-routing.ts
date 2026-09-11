@@ -1,180 +1,100 @@
-// Маршрутизация Telegram-уведомлений по разным группам/чатам.
-//
-// Secrets (Supabase → Edge Functions → Secrets):
-//   TELEGRAM_BOT_TOKEN          — один бот на все группы
-//   TELEGRAM_GROUP_CHAT_ID      — запасной chat_id, если канал не задан
-//   TELEGRAM_CHAT_SALES         — ежедневные отчёты по продажам
-//   TELEGRAM_CHAT_PENALTIES     — штрафы и удержания
-//   TELEGRAM_CHAT_ADS           — реклама: пауза/старт, баланс РК
-//   TELEGRAM_CHAT_AB_TESTS      — завершение А/Б тестов
-//   TELEGRAM_CHAT_NEWS          — новости портала продавца WB
-//   TELEGRAM_CHAT_REVIEWS       — автоответы на отзывы WB
-//   TELEGRAM_CHAT_BLOCKINGS     — блокировки карточек (NR / Блокировки)
-//   TELEGRAM_CHAT_WAREHOUSE     — склад: хранение, возвраты (NR / Склад)
-//   TELEGRAM_CHAT_TRIGGERS      — триггеры / алерты
-//   TELEGRAM_CHAT_FBS           — FBS отчёты
-//
-// Обратная совместимость: TELEGRAM_CHANNEL_ID → ab_tests, если TELEGRAM_CHAT_AB_TESTS пуст.
+/** Telegram routing (v2) — incoming + outgoing.
+ *
+ * Каналы:
+ *   ads        — реклама / РК (не в общем чате)
+ *   penalties  — штрафы WB
+ *   fbs        — FBS-заказы (все кабинеты, один чат)
+ *   team       — общий командный чат (сводки, приветствия)
+ *   triggers   — триггеры / алерты, новости WB / Ozon
+ *   default    — fallback
+ *
+ * Env (рекомендуется, иначе — захардкоженные чаты):
+ *   TELEGRAM_CHAT_ADS
+ *   TELEGRAM_CHAT_PENALTIES
+ *   TELEGRAM_CHAT_FBS
+ *   TELEGRAM_CHAT_TEAM
+ *   TELEGRAM_CHAT_TRIGGERS
+ *   TELEGRAM_CHAT_DEFAULT
+ *   TELEGRAM_BOT_TOKEN / TELEGRAM_BOT_TOKEN_ADS / TELEGRAM_BOT_TOKEN_PENALTIES
+ */
 
-export type TelegramChannel =
-  | 'sales'
-  | 'penalties'
-  | 'ads'
-  | 'ab_tests'
-  | 'news'
-  | 'reviews'
-  | 'blockings'
-  | 'warehouse'
-  | 'triggers'
-  | 'fbs'
-  | 'team';
+export type TelegramChannel = "ads" | "penalties" | "fbs" | "team" | "triggers" | "default";
 
-export const TELEGRAM_CHANNEL_LABELS: Record<TelegramChannel, string> = {
-    sales: 'Продажи',
-    penalties: 'Штрафы',
-    ads: 'Реклама',
-    ab_tests: 'А/Б тесты',
-    news: 'Новости WB',
-    reviews: 'Отзывы',
-    blockings: 'Блокировки',
-    warehouse: 'Склад',
-    triggers: 'Триггеры',
-    fbs: 'FBS',
-    team: 'Тим',
+const HARDCODED_CHAT_IDS: Record<TelegramChannel, string> = {
+  ads: "-1003621864099",
+  penalties: "-1003907884000",
+  fbs: "-1003648461675",
+  team: "-1004460164885",
+  triggers: "-1003683512450",
+  default: "-1003621864099",
 };
 
-const CHANNEL_ENV: Record<TelegramChannel, string> = {
-    sales: 'TELEGRAM_CHAT_SALES',
-    penalties: 'TELEGRAM_CHAT_PENALTIES',
-    ads: 'TELEGRAM_CHAT_ADS',
-    ab_tests: 'TELEGRAM_CHAT_AB_TESTS',
-    news: 'TELEGRAM_CHAT_NEWS',
-    reviews: 'TELEGRAM_CHAT_REVIEWS',
-    blockings: 'TELEGRAM_CHAT_BLOCKINGS',
-    warehouse: 'TELEGRAM_CHAT_WAREHOUSE',
-    triggers: 'TELEGRAM_CHAT_TRIGGERS',
-    fbs: 'TELEGRAM_CHAT_FBS',
-    team: 'TEAM_TELEGRAM_CHAT_ID',
-};
-
-const LEGACY_ENV: Partial<Record<TelegramChannel, string>> = {
-    ab_tests: 'TELEGRAM_CHANNEL_ID',
-};
-
-/** Известные chat_id, если secret ещё не выставлен в Dashboard. */
-const HARDCODED_CHAT_IDS: Partial<Record<TelegramChannel, string>> = {
-    penalties: '-1003907884000',
-    team: '-1004460164885',
-};
-
-const ALL_CHANNELS: TelegramChannel[] = [
-    'sales',
-    'penalties',
-    'ads',
-    'ab_tests',
-    'news',
-    'reviews',
-    'blockings',
-    'warehouse',
-    'triggers',
-    'fbs',
-    'team',
-];
-
-export function getTelegramToken(): string {
-    return (Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '').trim();
+function envChat(name: string, fallback: string): string {
+  const v = Deno.env.get(name)?.trim();
+  return v && v.length > 0 ? v : fallback;
 }
 
 export function getTelegramChatId(channel: TelegramChannel): string {
-    const direct = (Deno.env.get(CHANNEL_ENV[channel]) ?? '').trim();
-    if (direct) return direct;
-
-    const legacyKey = LEGACY_ENV[channel];
-    if (legacyKey) {
-        const legacy = (Deno.env.get(legacyKey) ?? '').trim();
-        if (legacy) return legacy;
-    }
-
-    const hardcoded = (HARDCODED_CHAT_IDS[channel] ?? '').trim();
-    if (hardcoded) return hardcoded;
-
-    return (Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '').trim();
+  switch (channel) {
+    case "ads":
+      return envChat("TELEGRAM_CHAT_ADS", HARDCODED_CHAT_IDS.ads);
+    case "penalties":
+      return envChat("TELEGRAM_CHAT_PENALTIES", HARDCODED_CHAT_IDS.penalties);
+    case "fbs":
+      return envChat("TELEGRAM_CHAT_FBS", HARDCODED_CHAT_IDS.fbs);
+    case "team":
+      return envChat("TELEGRAM_CHAT_TEAM", HARDCODED_CHAT_IDS.team);
+    case "triggers":
+      return envChat("TELEGRAM_CHAT_TRIGGERS", HARDCODED_CHAT_IDS.triggers);
+    default:
+      return envChat("TELEGRAM_CHAT_DEFAULT", HARDCODED_CHAT_IDS.default);
+  }
 }
 
-export function isTelegramConfigured(channel: TelegramChannel): boolean {
-    return Boolean(getTelegramToken() && getTelegramChatId(channel));
+/** Resolve incoming Telegram chat_id → channel. */
+export function resolveIncomingChatChannel(chatId: number | string): TelegramChannel {
+  const id = String(chatId);
+  if (id === getTelegramChatId("ads")) return "ads";
+  if (id === getTelegramChatId("penalties")) return "penalties";
+  if (id === getTelegramChatId("fbs")) return "fbs";
+  if (id === getTelegramChatId("team")) return "team";
+  if (id === getTelegramChatId("triggers")) return "triggers";
+  return "default";
 }
 
-export function getTelegramRoutingStatus(): Record<
-    TelegramChannel,
-    { label: string; envKey: string; chatId: string; configured: boolean; source: 'dedicated' | 'legacy' | 'default' | 'missing' }
-> {
-    const out = {} as ReturnType<typeof getTelegramRoutingStatus>;
-    for (const channel of ALL_CHANNELS) {
-        const direct = (Deno.env.get(CHANNEL_ENV[channel]) ?? '').trim();
-        const legacyKey = LEGACY_ENV[channel];
-        const legacy = legacyKey ? (Deno.env.get(legacyKey) ?? '').trim() : '';
-        const fallback = (Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '').trim();
-        const hardcoded = (HARDCODED_CHAT_IDS[channel] ?? '').trim();
-        let source: 'dedicated' | 'legacy' | 'default' | 'missing' = 'missing';
-        let chatId = '';
-        if (direct) {
-            chatId = direct;
-            source = 'dedicated';
-        } else if (legacy) {
-            chatId = legacy;
-            source = 'legacy';
-        } else if (hardcoded) {
-            chatId = hardcoded;
-            source = 'dedicated';
-        } else if (fallback) {
-            chatId = fallback;
-            source = 'default';
-        }
-        out[channel] = {
-            label: TELEGRAM_CHANNEL_LABELS[channel],
-            envKey: CHANNEL_ENV[channel],
-            chatId,
-            configured: Boolean(getTelegramToken() && chatId),
-            source,
-        };
-    }
-    return out;
+export function getTelegramToken(channel: TelegramChannel): string | undefined {
+  const specific =
+    channel === "ads"
+      ? Deno.env.get("TELEGRAM_BOT_TOKEN_ADS")
+      : channel === "penalties"
+        ? Deno.env.get("TELEGRAM_BOT_TOKEN_PENALTIES")
+        : undefined;
+  return specific?.trim() || Deno.env.get("TELEGRAM_BOT_TOKEN")?.trim();
 }
 
-export function telegramConfigError(channel: TelegramChannel): string {
-    const token = getTelegramToken();
-    const chatId = getTelegramChatId(channel);
-    if (!token) return 'TELEGRAM_BOT_TOKEN не задан';
-    if (!chatId) {
-        return `${CHANNEL_ENV[channel]} (или TELEGRAM_GROUP_CHAT_ID) не задан для канала «${TELEGRAM_CHANNEL_LABELS[channel]}»`;
-    }
-    return '';
-}
+export async function sendTelegramToChannel(
+  channel: TelegramChannel,
+  text: string,
+  extra?: Record<string, unknown>,
+): Promise<{ ok: boolean; skipped?: boolean; error?: string }> {
+  const token = getTelegramToken(channel);
+  const chatId = getTelegramChatId(channel);
+  if (!token) return { ok: false, skipped: true, error: "TELEGRAM_BOT_TOKEN not set" };
+  if (!chatId) return { ok: false, skipped: true, error: `chat_id for ${channel} not set` };
 
-/**
- * Определить канал входящего сообщения по chat_id.
- * Только dedicated / legacy ID — НЕ общий TELEGRAM_GROUP_CHAT_ID:
- * иначе все каналы схлопываются в один ключ объекта и «штрафы»
- * перетираются последним (triggers/fbs) → бот молчит.
- */
-export function resolveIncomingChatChannel(chatId: string): TelegramChannel | null {
-    const id = String(chatId || '').trim();
-    if (!id) return null;
-
-    for (const channel of ALL_CHANNELS) {
-        const direct = (Deno.env.get(CHANNEL_ENV[channel]) ?? '').trim();
-        if (direct && direct === id) return channel;
-    }
-    for (const channel of ALL_CHANNELS) {
-        const legacyKey = LEGACY_ENV[channel];
-        if (!legacyKey) continue;
-        const legacy = (Deno.env.get(legacyKey) ?? '').trim();
-        if (legacy && legacy === id) return channel;
-    }
-    for (const channel of ALL_CHANNELS) {
-        const hardcoded = (HARDCODED_CHAT_IDS[channel] ?? '').trim();
-        if (hardcoded && hardcoded === id) return channel;
-    }
-    return null;
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+      ...extra,
+    }),
+  });
+  if (!res.ok) {
+    return { ok: false, error: await res.text() };
+  }
+  return { ok: true };
 }
