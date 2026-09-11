@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
     if (decision.action === 'ignore') return json({ ok: true, ignored: true });
 
     if (decision.action === 'hint') {
-        await sendTelegram(replyToken, decision.chatId, 'завтра / через неделю / через 2 недели', decision.replyToId);
+        await reactTelegram(replyToken, decision.chatId, decision.replyToId, '👎');
         return json({ ok: true, hint: true });
     }
 

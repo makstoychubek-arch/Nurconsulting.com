@@ -54,10 +54,24 @@ Deno.serve(async (req) => {
     if (resendId) {
         return json(await resendPendingCard(admin, resendId, tgToken, reviewsChat, dryRun));
     }
+    const deleteId = Number(body.delete_message_id || 0) || 0;
+    if (deleteId && reviewsChat && tgToken) {
+        const del = await deleteTelegram(tgToken, reviewsChat, deleteId);
+        return json({ ok: del.ok, deleted: true, message_id: deleteId, error: del.error });
+    }
     const heartId = Number(body.heart_message_id || 0) || 0;
     if (heartId && reviewsChat && tgToken) {
-        const ok = await reactTelegram(tgToken, reviewsChat, heartId, '❤');
-        return json({ ok, heart: true, message_id: heartId });
+        const emoji = String(body.emoji || '❤');
+        const reacted = await reactTelegram(tgToken, reviewsChat, heartId, emoji);
+        return json({
+            ok: reacted.ok,
+            heart: true,
+            message_id: heartId,
+            error: reacted.error,
+        });
+    }
+    if (body.tg_diag === true || body.tg_diag === 'true') {
+        return json(await telegramDiag(tgToken, reviewsChat));
     }
     const applyId = String(body.apply_question_id || '').trim();
     if (applyId) {
@@ -224,7 +238,7 @@ async function applyPendingAnswer(
     const userMsg = reactMessageId || (Number(data.telegram_message_id) ? Number(data.telegram_message_id) + 1 : 0);
     let reacted = false;
     if (tgToken && chatId && userMsg) {
-        reacted = await reactTelegram(tgToken, chatId, userMsg, '❤');
+        reacted = (await reactTelegram(tgToken, chatId, userMsg, '❤')).ok;
     }
     return { ok: true, applied: true, question_id: questionId, reacted, react_message_id: userMsg || null };
 }
@@ -337,7 +351,12 @@ async function sendTelegramCard(
     }
 }
 
-async function reactTelegram(token: string, chatId: string, messageId: number, emoji: string): Promise<boolean> {
+async function reactTelegram(
+    token: string,
+    chatId: string,
+    messageId: number,
+    emoji: string,
+): Promise<{ ok: boolean; error?: string }> {
     try {
         const res = await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
             method: 'POST',
@@ -348,10 +367,52 @@ async function reactTelegram(token: string, chatId: string, messageId: number, e
                 reaction: [{ type: 'emoji', emoji }],
             }),
         });
-        return res.ok;
-    } catch {
-        return false;
+        const body = await res.text();
+        if (res.ok) return { ok: true };
+        return { ok: false, error: body.slice(0, 300) };
+    } catch (e) {
+        return { ok: false, error: String(e) };
     }
+}
+
+async function deleteTelegram(
+    token: string,
+    chatId: string,
+    messageId: number,
+): Promise<{ ok: boolean; error?: string }> {
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/deleteMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, message_id: messageId }),
+        });
+        const body = await res.text();
+        if (res.ok) return { ok: true };
+        return { ok: false, error: body.slice(0, 300) };
+    } catch (e) {
+        return { ok: false, error: String(e) };
+    }
+}
+
+async function telegramDiag(token: string, chatId: string): Promise<Record<string, unknown>> {
+    const meRes = await fetch(`https://api.telegram.org/bot${token}/getMe`);
+    const me = await meRes.json().catch(() => ({}));
+    const botId = Number(me?.result?.id || 0);
+    let member: unknown = null;
+    if (botId && chatId) {
+        const memRes = await fetch(`https://api.telegram.org/bot${token}/getChatMember`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, user_id: botId }),
+        });
+        member = await memRes.json().catch(() => null);
+    }
+    return {
+        ok: true,
+        bot: me?.result ? { id: me.result.id, username: me.result.username } : me,
+        chat_id: chatId,
+        member,
+    };
 }
 
 function sanitizeWbToken(raw: unknown): string {

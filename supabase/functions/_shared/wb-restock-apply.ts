@@ -26,7 +26,7 @@ export async function applyRestockTelegramReply(
     opts: {
         ownerUsername: string;
         reviewsChatId: string;
-        send: (text: string, replyToId: number) => Promise<void>;
+        send?: (text: string, replyToId: number) => Promise<void>;
         react?: (emoji: string, messageId: number) => Promise<void>;
     },
 ): Promise<RestockApplyResult> {
@@ -64,7 +64,7 @@ export async function applyRestockTelegramReply(
                 updated_at: new Date().toISOString(),
             }).eq('cabinet_id', decision.cabinetId).eq('question_id', decision.questionId);
         }
-        await opts.send('завтра / через неделю / через 2 недели', decision.replyToId);
+        if (opts.react) await opts.react('👎', decision.replyToId);
         return { handled: true, kind: 'hint' };
     }
 

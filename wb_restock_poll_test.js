@@ -46,6 +46,9 @@ assert.ok(poll.includes('apply_question_id'), 'poll can apply an already given r
 assert.ok(poll.includes('body.answer') || poll.includes("body.answer"), 'poll apply can reuse a custom answer already written');
 assert.ok(poll.includes('setMessageReaction'), 'poll can put a heart on the Telegram reply');
 assert.ok(poll.includes('heart_message_id'), 'poll can put a heart on an existing reply');
+assert.ok(poll.includes('delete_message_id'), 'poll can delete a leftover Karina status message');
+assert.ok(!apply.includes('завтра / через неделю / через 2 недели') || apply.includes("'👎'"),
+    'unclear restock reply is a thumbs-down, not a chat message');
 assert.ok(shared.includes('toLocaleLowerCase'), 'WB when-phrase is lowercased');
 assert.ok(poll.includes('answerWbQuestion'), 'poll apply uses official PATCH');
 

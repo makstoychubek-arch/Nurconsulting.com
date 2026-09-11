@@ -11,8 +11,7 @@ const html = fs.readFileSync(path.join(root, 'dashboard.html'), 'utf8');
 
 assert.ok(router.includes('decideRestockInbound'), 'router uses shared inbound decision');
 assert.ok(router.includes('unwrapTelegramMessage'), 'router reads Telegram update');
-assert.ok(router.includes('завтра / через неделю / через 2 недели'),
-    'hint when reply has no when-phrase');
+assert.ok(router.includes("'👎'"), 'unclear reply gets a thumbs-down, not a chat message');
 assert.ok(router.includes('setMessageReaction') && router.includes("'❤'"),
     'success is a heart reaction, not a chat message');
 assert.ok(!router.includes('Ушло на WB'), 'must not write status text after a reply');
