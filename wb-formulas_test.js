@@ -32,4 +32,17 @@ assert.match(painted['m-ads'], /10%/);
 assert.match(painted['m-profit'], /сом/);
 assert.doesNotMatch(painted['m-profit'], /₽/);
 
+const camelSale = {
+    docTypeName: 'Продажа',
+    retailPriceWithDisc: '10000',
+    retailPrice: '12000',
+    forPay: '8000',
+    quantity: 1,
+    saleDt: '2026-09-10',
+};
+const camel = WB.calculateMetrics([camelSale], { taxRate: 6, opex: 0, adsSum: 0 });
+assert.equal(camel.salesSum, 10000);
+assert.equal(camel.toTransferSum, 8000);
+assert.equal(camel.realizationSum, 12000);
+
 console.log('wb-formulas_test: ok');

@@ -9,6 +9,15 @@ import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 import { isSuperAdminUser, isTeamMember } from '../_shared/cabinet-access.ts';
 import {
+    FINANCE_DASHBOARD_FIELDS,
+    FINANCE_RAW_FIELDS,
+    addLegacyRowToAgg,
+    fetchSalesReportsDetailedPage,
+    financeAggToRows,
+    toLegacyFinanceRow,
+    type FinanceAgg,
+} from '../_shared/wb-finance-report.ts';
+import {
     collectNmIds,
     extractBidsFromAdvert,
     fetchAdvertById,
@@ -305,78 +314,52 @@ serve(async (req) => {
             case 'finance_report': {
                 const dateFrom = String(params.dateFrom || '').split('T')[0];
                 const dateTo   = String(params.dateTo   || '').split('T')[0];
-                const limit    = Math.min(Number(params.limit) || 10000, 10000);
+                const limit    = Math.min(Number(params.limit) || 10000, 100000);
                 const maxPages = params.aggregate ? 8 : 6;
                 const filterNmId = params.nmId != null ? String(params.nmId) : null;
+                const period = String(params.period || 'daily') === 'weekly' ? 'weekly' : 'daily';
+                let rrdId: string | number = (params.rrdid ?? params.rrdId ?? 0) as string | number;
 
-                // RNP mode: aggregate on server to avoid 546 (out of memory)
-                if (params.aggregate) {
-                    type Agg = { sc: number; ss: number; tt: number; log: number; sto: number; rc: number; locAmt: number; rubAmt: number };
-                    const byKey = new Map<string, Agg>();
-                    let rrdid = Number(params.rrdid || 0);
-
-                    for (let attempt = 0; attempt < maxPages; attempt++) {
-                        const url = `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=${dateFrom}&dateTo=${dateTo}&rrdid=${rrdid}&limit=${limit}`;
-                        const page = await wbGet(url, WB_TOKEN) as Record<string, unknown>[];
-                        if (!Array.isArray(page) || !page.length) break;
-
-                        for (const row of page) {
-                            const nm = String(row.nm_id ?? '');
-                            if (filterNmId && nm !== filterNmId) continue;
-                            const date = String(row.sale_dt ?? '').split('T')[0];
-                            if (!date) continue;
-                            const key = `${nm}|${date}`;
-                            if (!byKey.has(key)) byKey.set(key, { sc: 0, ss: 0, tt: 0, log: 0, sto: 0, rc: 0, locAmt: 0, rubAmt: 0 });
-                            const d = byKey.get(key)!;
-                            const type = String(row.doc_type_name ?? '').toLowerCase();
-                            const qty  = Number(row.quantity || 0);
-                            if (type === 'продажа') {
-                                d.sc += qty;
-                                d.ss += Number(row.retail_price_withdisc_rub || 0) * qty;
-                                d.tt += Number(row.ppvz_for_pay || 0);
-                            } else if (type === 'возврат') {
-                                d.rc += qty;
-                                d.tt += Number(row.ppvz_for_pay || 0);
-                            }
-                            d.log += Number(row.delivery_rub || 0);
-                            d.sto += Number(row.storage_fee  || 0);
-
-                            // RUB→local rate source: rows for non-RUB sellers carry both
-                            // retail_amount (report currency, e.g. KGS) and
-                            // retail_price_withdisc_rub (RUB, per unit).
-                            const curr = String(row.currency_name ?? '').toUpperCase();
-                            if (curr && curr !== 'RUB' && curr !== 'РУБ') {
-                                const rub = Number(row.retail_price_withdisc_rub || 0) * qty;
-                                const loc = Number(row.retail_amount || 0);
-                                if (rub > 0 && loc > 0) { d.rubAmt += rub; d.locAmt += loc; }
-                            }
-                        }
-
-                        if (page.length < limit) break;
-                        rrdid = Number(page[page.length - 1].rrd_id || 0);
-                    }
-
-                    result = Array.from(byKey.entries()).map(([key, d]) => {
-                        const [nm_id, date] = key.split('|');
-                        const { locAmt, rubAmt, ...sums } = d;
-                        // rate: local currency per 1 RUB for this nm/date (0 = unknown)
-                        const rate = rubAmt > 0 && locAmt > 0 ? locAmt / rubAmt : 0;
-                        return { nm_id: Number(nm_id), date, ...sums, rate };
+                const nextPage = async () => {
+                    const page = await fetchSalesReportsDetailedPage({
+                        token: WB_TOKEN,
+                        dateFrom,
+                        dateTo,
+                        rrdId,
+                        limit,
+                        period,
+                        fields: params.aggregate ? FINANCE_RAW_FIELDS : FINANCE_DASHBOARD_FIELDS,
                     });
+                    if (page.status === 429) {
+                        const err = new Error(`WB API 429: finance detailed retry ${page.retryAfter || 60}s`) as Error & { status?: number };
+                        err.status = 429;
+                        throw err;
+                    }
+                    return page;
+                };
+
+                if (params.aggregate) {
+                    const byKey = new Map<string, FinanceAgg>();
+                    for (let attempt = 0; attempt < maxPages; attempt++) {
+                        const page = await nextPage();
+                        if (!page.rows.length) break;
+                        for (const row of page.rows) {
+                            addLegacyRowToAgg(byKey, toLegacyFinanceRow(row), filterNmId);
+                        }
+                        if (page.rows.length < limit || !page.nextRrdId || String(page.nextRrdId) === String(rrdId)) break;
+                        rrdId = page.nextRrdId;
+                    }
+                    result = financeAggToRows(byKey);
                     break;
                 }
 
-                // Dashboard mode: raw rows with smaller pages
-                const rows: unknown[] = [];
-                let rrdid = Number(params.rrdid || 0);
+                const rows: Record<string, unknown>[] = [];
                 for (let attempt = 0; attempt < maxPages; attempt++) {
-                    const url = `https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=${dateFrom}&dateTo=${dateTo}&rrdid=${rrdid}&limit=${limit}`;
-                    const page = await wbGet(url, WB_TOKEN) as unknown[];
-                    if (!Array.isArray(page) || !page.length) break;
-                    rows.push(...page);
-                    if (page.length < limit) break;
-                    const last = page[page.length - 1] as Record<string, unknown>;
-                    rrdid = Number(last.rrd_id || 0);
+                    const page = await nextPage();
+                    if (!page.rows.length) break;
+                    for (const row of page.rows) rows.push(toLegacyFinanceRow(row));
+                    if (page.rows.length < limit || !page.nextRrdId || String(page.nextRrdId) === String(rrdId)) break;
+                    rrdId = page.nextRrdId;
                 }
                 result = rows;
                 break;

@@ -47,6 +47,11 @@ assert.ok(auto.includes('yesterday') && auto.includes('addDaysStr(today, -1)'),
     'auto-sync Pass B must fetch yesterday, not only today');
 
 assert.ok(fin.includes('isServiceAuthorized'), 'night finance cron must not 401 on key drift');
+assert.ok(fin.includes('/api/finance/v1/sales-reports/detailed'), 'night finance uses the official Finance API successor');
+assert.ok(fin.includes("period: 'daily'"), 'finance sync asks WB for daily rows, not the weekly default');
+assert.ok(!fin.includes('statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod'),
+    'deprecated statistics-api reportDetailByPeriod URL must stay out of rnp-finance-sync');
+assert.ok(!fin.includes('sales-reports/list'), 'KG cabinets must not use list + reportId for RNP finance');
 
 assert.ok(mig.includes('rnp-morning-zevina-06-bishkek') && mig.includes("'0 0 * * *'"),
     'Zevina cron at 06:00 Bishkek');

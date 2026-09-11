@@ -3436,7 +3436,6 @@ const RNP = (() => {
 
     function _buildRnpMetricsFromDaily(dailyRows, allStocks, settings, articles) {
         const cfg = settings || _rnpMetricSettings();
-        const buyout = cfg.buyoutRate ?? 0.65;
         const days = cfg.periodDays || 30;
         const byNm = new Map();
 
@@ -3466,8 +3465,6 @@ const RNP = (() => {
         }
 
         for (const a of byNm.values()) {
-            a.salesCount = Math.round(a.ordersCount * buyout);
-            a.salesSum = Math.round(a.ordersSum * buyout);
             a.avgPrice = a.ordersCount > 0 ? Math.round(a.ordersSum / a.ordersCount) : 0;
             const perDay = a.ordersCount / days;
             a.turnoverDays = perDay > 0 ? Math.round(a.stock / perDay) : null;
@@ -3477,7 +3474,6 @@ const RNP = (() => {
 
     function _buildRnpMetrics(allOrders, allStocks, settings) {
         const cfg = settings || _rnpMetricSettings();
-        const buyout = cfg.buyoutRate ?? 0.65;
         const days = cfg.periodDays || 30;
         const byNm = new Map();
 
@@ -3505,8 +3501,6 @@ const RNP = (() => {
         }
 
         for (const a of byNm.values()) {
-            a.salesCount = Math.round(a.ordersCount * buyout);
-            a.salesSum = Math.round(a.ordersSum * buyout);
             a.avgPrice = a.ordersCount > 0 ? Math.round(a.ordersSum / a.ordersCount) : 0;
             const perDay = a.ordersCount / days;
             a.turnoverDays = perDay > 0 ? Math.round(a.stock / perDay) : null;
@@ -3515,8 +3509,6 @@ const RNP = (() => {
     }
 
     function _populateDataCacheFromDaily(dailyRows, nmIds, cal, settings) {
-        const cfg = settings || _rnpMetricSettings();
-        const buyout = cfg.buyoutRate ?? 0.65;
         const dateSet = new Set(_calAllDates(cal));
         const idSet = new Set((nmIds || []).map(Number));
         const today = new Date().toISOString().split('T')[0];
@@ -3530,8 +3522,6 @@ const RNP = (() => {
             if (!date || !dateSet.has(date)) continue;
             const count = Number(row.orders_count || 0);
             const sum = Number(row.orders_sum || 0);
-            const salesCount = Math.round(count * buyout);
-            const salesSum = Math.round(sum * buyout);
             _dataCache[nm][date] = {
                 cabinet_id: _cab,
                 nm_id: nm,
@@ -3539,12 +3529,12 @@ const RNP = (() => {
                 orders_count: count,
                 orders_sum: sum,
                 returns_count: Number(row.returns_count || 0),
-                sales_count: salesCount,
-                sales_sum: salesSum,
+                sales_count: 0,
+                sales_sum: 0,
                 avg_check: count > 0 ? sum / count : 0,
                 spp_pct: Number(row.spp_pct || 0),
-                buyout_pct: buyout * 100,
-                to_transfer: salesSum > 0 ? Math.round(salesSum * 0.72) : 0,
+                buyout_pct: 0,
+                to_transfer: 0,
                 updated_at: new Date().toISOString(),
             };
         }
@@ -3566,8 +3556,6 @@ const RNP = (() => {
     }
 
     function _populateDataCacheFromOrders(orders, nmIds, cal, settings) {
-        const cfg = settings || _rnpMetricSettings();
-        const buyout = cfg.buyoutRate ?? 0.65;
         const dateSet = new Set(_calAllDates(cal));
         const idSet = new Set((nmIds || []).map(Number));
         const today = new Date().toISOString().split('T')[0];
@@ -3589,8 +3577,6 @@ const RNP = (() => {
 
         Object.entries(buckets).forEach(([key, b]) => {
             const [nmStr, date] = key.split(':');
-            const salesCount = Math.round(b.count * buyout);
-            const salesSum = Math.round(b.sum * buyout);
             _dataCache[nmStr][date] = {
                 cabinet_id: _cab,
                 nm_id: Number(nmStr),
@@ -3598,11 +3584,11 @@ const RNP = (() => {
                 orders_count: b.count,
                 orders_sum: b.sum,
                 returns_count: b.returns,
-                sales_count: salesCount,
-                sales_sum: salesSum,
+                sales_count: 0,
+                sales_sum: 0,
                 avg_check: b.count > 0 ? b.sum / b.count : 0,
-                buyout_pct: buyout * 100,
-                to_transfer: salesSum > 0 ? Math.round(salesSum * 0.72) : 0,
+                buyout_pct: 0,
+                to_transfer: 0,
                 updated_at: new Date().toISOString(),
             };
         });
@@ -3656,8 +3642,7 @@ const RNP = (() => {
                     ...r,
                     orders_count: client.orders_count || r.orders_count || 0,
                     orders_sum: client.orders_sum || r.orders_sum || 0,
-                    sales_count: client.sales_count || r.sales_count || 0,
-                    sales_sum: client.sales_sum || r.sales_sum || 0,
+                    // Продажи / реализация / к перечислению — только финотчёт.
                     stock_warehouse: client.stock_warehouse ?? r.stock_warehouse,
                     stock_transit: client.stock_transit ?? r.stock_transit,
                     stock_total: client.stock_total ?? r.stock_total,
@@ -4032,7 +4017,7 @@ const RNP = (() => {
     }
 
     // ─── FINANCE REPORT SYNC ─────────────────────────────────────────────────
-    // WB reportDetailByPeriod limit: 1 request/minute per seller.
+    // wb-proxy finance_report → POST sales-reports/detailed, period daily.
     // Fetch ONCE per cabinet (no nmId filter), filter client-side per article.
     async function _fetchFinanceAgg(nmId) {
         const now = new Date();

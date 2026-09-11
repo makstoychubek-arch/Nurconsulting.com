@@ -510,6 +510,18 @@ assert.ok(
 const rnpSrc = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
 assert.ok(rnpSrc.includes('function _abandonStaleMain'), 'stale RNP render must retry instead of hanging');
 assert.ok(rnpSrc.includes("functions.invoke('rnp-finance-sync'"), 'WB finance sync still goes through the rnp-finance-sync edge function');
+assert.ok(
+    !rnpSrc.includes('sales_count: client.sales_count || r.sales_count'),
+    'RNP must not keep buyout estimates over finance-report sales'
+);
+assert.ok(
+    rnpSrc.includes('// Продажи / реализация / к перечислению — только финотчёт.'),
+    'RNP merge comment must say sales come from the finance report'
+);
+assert.ok(
+    !/Math\.round\(count \* buyout\)/.test(rnpSrc) && !/Math\.round\(b\.count \* buyout\)/.test(rnpSrc),
+    'RNP sheet must not invent sales as orders × buyout'
+);
 assert.ok(!rnpSrc.includes('rnp-action-btn--sync'), 'manual «Обновить из WB» stays off the RNP toolbar');
 assert.ok(html.includes('id="nr-notify"') && html.includes('id="nr-notify-dot"'), 'header has a notification bell with a red-dot badge');
 assert.ok(html.includes('const NrNotify'), 'notification history lives in the header bell');
@@ -869,6 +881,11 @@ assert.ok(
         .includes('cron_finance_first'),
     'night finance cron must finish every cabinet before downloading storage'
 );
+const wbProxySrc = fs.readFileSync(path.join(__dirname, 'supabase/functions/wb-proxy/index.ts'), 'utf8');
+assert.ok(wbProxySrc.includes('fetchSalesReportsDetailedPage'),
+    'wb-proxy finance_report must use the Finance API detailed-by-period helper');
+assert.ok(!wbProxySrc.includes('statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod'),
+    'wb-proxy must not call deprecated reportDetailByPeriod');
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903161000_orders_filled_until.sql')),
     'orders_filled_until migration must exist'

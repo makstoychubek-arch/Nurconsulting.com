@@ -4,6 +4,10 @@
 // WB API дёргается здесь — по кнопке «Обновить» (JWT пользователя) или по
 // cron (service role).
 //
+// Финотчёт: POST finance-api /api/finance/v1/sales-reports/detailed
+// с period: daily. Не list и не detailed/{reportId} — у KG-кабинетов
+// эти методы могут быть закрыты. Не GET reportDetailByPeriod.
+//
 // Body:
 //   { mode: 'sync',  cabinet_id?, from?, to?, force? }  — финотчёт + хранение + пересчёт
 //   { mode: 'status', cabinet_id, from, to }            — дотянуть незавершённую задачу хранения
@@ -20,13 +24,17 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { hasAllCabinetsAccess } from '../_shared/cabinet-access.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import {
+    FINANCE_RAW_FIELDS,
+    fetchSalesReportsDetailedPage,
+    toRawFinanceRow,
+} from '../_shared/wb-finance-report.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const WB_STATS = 'https://statistics-api.wildberries.ru';
 const WB_ANALYTICS = 'https://seller-analytics-api.wildberries.ru';
 const DEFAULT_WINDOW_DAYS = 8;      // paid_storage: не больше 8 дней на задачу
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
@@ -35,11 +43,10 @@ const FINANCE_MAX_PAGES = 4;
 const STORAGE_POLL_MS = 4000;
 const STORAGE_POLL_MAX = 5;         // ~20 с ожидания внутри одного вызова
 
-// WB Statistics API для одного seller'а режет запросы (часто это проявляется
-// как 429). У вас несколько кабинетов используют общий WB-токен, поэтому
-// между кабинетами нужно «растягивать» запросы.
-const WB_STATS_MIN_INTERVAL_MS = 61000; // ~1 запрос/мин на seller'а
-const wbStatsLastReqAtByToken = new Map<string, number>();
+// Finance API — 1 запрос/мин на токен. Несколько кабинетов делят токен,
+// поэтому растягиваем и страницы, и кабинеты.
+const WB_FINANCE_MIN_INTERVAL_MS = 61000;
+const wbFinanceLastReqAtByToken = new Map<string, number>();
 
 type Json = Record<string, unknown>;
 
@@ -169,22 +176,25 @@ Deno.serve(async (req) => {
     return json({ ok: true, mode, results, ms: Date.now() - started });
 });
 
-async function wbStatsFetch(url: string, token: string, init?: RequestInit): Promise<Response> {
-    const lastAt = wbStatsLastReqAtByToken.get(token) || 0;
-    const now = Date.now();
-    const waitMs = lastAt ? Math.max(0, WB_STATS_MIN_INTERVAL_MS - (now - lastAt)) : 0;
+async function waitFinanceSlot(token: string): Promise<void> {
+    const lastAt = wbFinanceLastReqAtByToken.get(token) || 0;
+    const waitMs = lastAt ? Math.max(0, WB_FINANCE_MIN_INTERVAL_MS - (Date.now() - lastAt)) : 0;
     if (waitMs > 0) await sleep(waitMs);
+}
 
-    const res = await fetch(url, {
-        ...init,
-        headers: {
-            ...(init?.headers as Record<string, string> | undefined),
-            Authorization: token,
-        },
+async function fetchFinancePage(token: string, from: string, to: string, rrdId: string | number) {
+    await waitFinanceSlot(token);
+    const page = await fetchSalesReportsDetailedPage({
+        token,
+        dateFrom: from,
+        dateTo: to,
+        rrdId,
+        limit: FINANCE_PAGE,
+        period: 'daily',
+        fields: FINANCE_RAW_FIELDS,
     });
-
-    wbStatsLastReqAtByToken.set(token, Date.now());
-    return res;
+    wbFinanceLastReqAtByToken.set(token, Date.now());
+    return page;
 }
 
 // ─── Финансовый отчёт ────────────────────────────────────────────────────────
@@ -195,73 +205,34 @@ async function syncFinance(admin: any, cabinetId: string, token: string, from: s
     }
     await setState(admin, cabinetId, 'finance', from, to, { status: 'pending', error: null });
 
-    let rrdid = 0;
+    let rrdId: string | number = 0;
     let total = 0;
     for (let page = 0; page < FINANCE_MAX_PAGES; page++) {
-        const url = `${WB_STATS}/api/v5/supplier/reportDetailByPeriod?dateFrom=${from}&dateTo=${to}&rrdid=${rrdid}&limit=${FINANCE_PAGE}`;
-        // Лимит WB — 1 запрос/мин на токен, и его делят дашборд и кроны.
-        // Ждём столько, сколько просит X-RateLimit-Retry (до ~75 с), и повторяем.
-        let res = await wbStatsFetch(url, token);
+        let res = await fetchFinancePage(token, from, to, rrdId);
         for (let attempt = 0; res.status === 429 && attempt < 2; attempt++) {
-            const retry = Number(res.headers.get('x-ratelimit-retry') || res.headers.get('retry-after') || 60);
+            const retry = Number(res.retryAfter || 60);
             if (!(retry > 0 && retry <= 75)) break;
             await sleep((retry + 2) * 1000);
-            res = await wbStatsFetch(url, token);
+            res = await fetchFinancePage(token, from, to, rrdId);
         }
         if (res.status === 429) {
-            const retry = Number(res.headers.get('x-ratelimit-retry') || 60);
+            const retry = Number(res.retryAfter || 60);
             await setState(admin, cabinetId, 'finance', from, to, { status: 'error', error: `WB 429: лимит 1 запрос/мин, повтор через ${retry} с`, rows: total });
             return { skipped: true, reason: 'rate_limit', retry };
         }
-        if (!res.ok) {
-            const text = (await res.text().catch(() => '')).slice(0, 200);
-            await setState(admin, cabinetId, 'finance', from, to, { status: 'error', error: `HTTP ${res.status} ${text}`, rows: total });
-            throw new Error(`Финотчёт WB: HTTP ${res.status} ${text}`);
-        }
-        const text = await res.text();
-        const rows = text ? JSON.parse(text) : [];
-        if (!Array.isArray(rows) || !rows.length) break;
+        if (!res.rows.length) break;
 
-        const mapped = rows.map((r: Json) => toFinanceRow(cabinetId, r)).filter(r => r.rrd_id > 0);
+        const mapped = res.rows.map((r) => toRawFinanceRow(cabinetId, r)).filter((r) => r.rrd_id);
         for (let i = 0; i < mapped.length; i += 1000) {
             const { error } = await admin.from('raw_finance_report').upsert(mapped.slice(i, i + 1000), { onConflict: 'cabinet_id,rrd_id' });
             if (error) throw new Error('raw_finance_report: ' + error.message);
         }
         total += mapped.length;
-        if (rows.length < FINANCE_PAGE) break;
-        rrdid = Number((rows[rows.length - 1] as Json).rrd_id || 0);
-        if (!rrdid) break;
+        if (res.rows.length < FINANCE_PAGE || !res.nextRrdId || String(res.nextRrdId) === String(rrdId)) break;
+        rrdId = res.nextRrdId;
     }
     await setState(admin, cabinetId, 'finance', from, to, { status: 'done', rows: total, error: null, fetched_at: new Date().toISOString() });
-    return { rows: total };
-}
-
-function toFinanceRow(cabinetId: string, r: Json) {
-    const n = (v: unknown) => { const x = Number(v); return Number.isFinite(x) ? x : 0; };
-    const d = (v: unknown) => { const s = String(v || '').split('T')[0]; return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null; };
-    const saleDt = d(r.sale_dt) || d(r.rr_dt) || d(r.order_dt);
-    return {
-        cabinet_id: cabinetId,
-        rrd_id: n(r.rrd_id),
-        realizationreport_id: n(r.realizationreport_id) || null,
-        rr_dt: d(r.rr_dt),
-        sale_dt: saleDt,
-        nm_id: n(r.nm_id) || null,
-        sa_name: r.sa_name ? String(r.sa_name).slice(0, 200) : null,
-        doc_type_name: r.doc_type_name ? String(r.doc_type_name) : null,
-        supplier_oper_name: r.supplier_oper_name ? String(r.supplier_oper_name).slice(0, 200) : null,
-        quantity: n(r.quantity),
-        retail_amount: n(r.retail_amount),
-        retail_price_withdisc_rub: n(r.retail_price_withdisc_rub),
-        ppvz_for_pay: n(r.ppvz_for_pay),
-        delivery_rub: n(r.delivery_rub),
-        penalty: n(r.penalty),
-        storage_fee: n(r.storage_fee),
-        deduction: n(r.deduction),
-        acceptance: n(r.acceptance),
-        currency_name: r.currency_name ? String(r.currency_name) : null,
-        fetched_at: new Date().toISOString(),
-    };
+    return { rows: total, source: 'sales-reports/detailed', period: 'daily' };
 }
 
 // ─── Платное хранение (async-отчёт) ──────────────────────────────────────────

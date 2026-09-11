@@ -1,9 +1,10 @@
 /**
  * wb-formulas.js — Расчётный движок NR Space
- * Источник данных: GET /api/v5/supplier/reportDetailByPeriod (Finance API WB)
+ * Источник: POST finance-api /api/finance/v1/sales-reports/detailed (period daily).
+ * wb-proxy нормализует строки в старый snake_case; здесь принимаем оба имени.
  * Методология: TrueStats-совместимые формулы
  *
- * Структура строки отчёта (doc_type_name определяет тип):
+ * Структура строки отчёта (doc_type_name / docTypeName определяет тип):
  *   "Продажа"     — продажа товара покупателю
  *   "Возврат"     — возврат от покупателя
  *   "Хранение"    — плата за хранение на складе WB
@@ -12,29 +13,37 @@
  *   "Компенсация" — компенсация от WB
  *   "Удержание"   — прочие удержания
  *
- * Ключевые поля ответа:
- *   doc_type_name         — тип строки (Продажа / Возврат / Хранение / etc)
- *   retail_price          — розничная цена до скидок (Реализация)
- *   retail_price_withdisc_rub — цена продажи после СПП (Продажи)
- *   ppvz_for_pay          — сумма "к перечислению" продавцу
- *   delivery_rub          — стоимость логистики по этой строке
- *   storage_fee           — хранение по этой строке
- *   penalty               — штраф по этой строке
- *   additional_payment    — компенсация/доплата по этой строке
- *   deduction             — прочие удержания
- *   acceptance            — платная приёмка
- *   acquiring_fee         — эквайринг (стоимость платёжной услуги)
- *   nm_id                 — артикул WB
- *   sa_name               — артикул продавца
- *   quantity              — количество
- *   commission_percent    — номинальный процент комиссии категории
- *   ppvz_spp_prc          — процент СПП (скидка постоянного покупателя)
+ * Ключевые поля (snake = legacy, camel = finance-api v1):
+ *   doc_type_name / docTypeName
+ *   retail_price / retailPrice
+ *   retail_price_withdisc_rub / retailPriceWithDisc
+ *   ppvz_for_pay / forPay
+ *   delivery_rub / deliveryService
+ *   storage_fee / paidStorage
+ *   penalty, deduction
+ *   additional_payment / additionalPayment
+ *   acceptance / paidAcceptance
+ *   acquiring_fee / acquiringFee
+ *   nm_id / nmId
+ *   sa_name / vendorCode
  */
 
 // ============================================================
 // КОНСТАНТЫ — ПРОЧИЕ УДЕРЖАНИЯ (исключаем из основного расчёта)
 // Это типы операций, которые НЕ входят в "прочие удержания" аналитики
 // ============================================================
+function finField(row, ...names) {
+    for (const n of names) {
+        if (row && row[n] != null && row[n] !== '') return row[n];
+    }
+    return undefined;
+}
+function finMoney(v) {
+    if (v == null || v === '') return 0;
+    const n = Number(String(v).replace(/\s/g, '').replace(',', '.'));
+    return Number.isFinite(n) ? n : 0;
+}
+
 const EXCLUDED_DEDUCTION_NAMES = [
     'ВБ.Продвижение', 'WB Продвижение', 'ВБ.Медиа',
     'Перевод на баланс заёмщика', 'Погашение задолженности',
@@ -45,7 +54,7 @@ const EXCLUDED_DEDUCTION_NAMES = [
 
 /**
  * Главная функция расчёта всех метрик дашборда
- * @param {Array} rows — массив строк из reportDetailByPeriod
+ * @param {Array} rows — строки финотчёта (snake_case или camelCase)
  * @param {Object} settings — { taxRate: 6, opex: 0, costOfGoods: {} }
  *   costOfGoods: { [nmId]: costPerUnit } — себестоимость по артикулу
  * @returns {Object} — все метрики для отображения в дашборде
@@ -57,7 +66,7 @@ function calculateMetrics(rows, settings = {}) {
     const adsSum = Math.round(Number(settings.adsSum || 0)); // расход РК за период (advertising_daily_stats)
 
     // Определяем период для пересчёта опер.расходов в дни
-    const dates = rows.map(r => r.sale_dt || r.rr_dt).filter(Boolean).sort();
+    const dates = rows.map(r => finField(r, 'sale_dt', 'saleDt', 'rr_dt', 'rrDate')).filter(Boolean).sort();
     const periodDays = dates.length >= 2
         ? Math.max(1, Math.round((new Date(dates[dates.length-1]) - new Date(dates[0])) / 86400000) + 1)
         : 30;
@@ -84,23 +93,22 @@ function calculateMetrics(rows, settings = {}) {
     const byNmId = {};
 
     rows.forEach(row => {
-        const type = (row.doc_type_name || '').toLowerCase();
+        const type = String(finField(row, 'doc_type_name', 'docTypeName') || '').toLowerCase();
         const isSale = type === 'продажа';
         const isReturn = type === 'возврат';
 
-        // Основные финансовые строки
-        const priceWithDisc = Number(row.retail_price_withdisc_rub || 0);
-        const retailPrice = Number(row.retail_price || 0);
-        const forPay = Number(row.ppvz_for_pay || 0);
-        const delivery = Number(row.delivery_rub || 0);
-        const storage = Number(row.storage_fee || 0);
-        const penalty = Number(row.penalty || 0);
-        const addPayment = Number(row.additional_payment || 0);
-        const deduction = Number(row.deduction || 0);
-        const acceptance = Number(row.acceptance || 0);
-        const acquiring = Number(row.acquiring_fee || 0);
-        const qty = Number(row.quantity || 0);
-        const nmId = String(row.nm_id || '');
+        const priceWithDisc = finMoney(finField(row, 'retail_price_withdisc_rub', 'retailPriceWithDisc'));
+        const retailPrice = finMoney(finField(row, 'retail_price', 'retailPrice'));
+        const forPay = finMoney(finField(row, 'ppvz_for_pay', 'forPay', 'ppvzForPay'));
+        const delivery = finMoney(finField(row, 'delivery_rub', 'deliveryService'));
+        const storage = finMoney(finField(row, 'storage_fee', 'paidStorage'));
+        const penalty = finMoney(finField(row, 'penalty'));
+        const addPayment = finMoney(finField(row, 'additional_payment', 'additionalPayment'));
+        const deduction = finMoney(finField(row, 'deduction'));
+        const acceptance = finMoney(finField(row, 'acceptance', 'paidAcceptance'));
+        const acquiring = finMoney(finField(row, 'acquiring_fee', 'acquiringFee'));
+        const qty = Number(finField(row, 'quantity') || 0);
+        const nmId = String(finField(row, 'nm_id', 'nmId') || '');
 
         if (isSale) {
             salesSum += priceWithDisc * qty;
@@ -136,8 +144,8 @@ function calculateMetrics(rows, settings = {}) {
         acquiringSum += acquiring;
 
         // Прочие удержания — только не исключённые
-        const operName = row.supplier_oper_name || '';
-        const bonusName = row.bonus_type_name || '';
+        const operName = String(finField(row, 'supplier_oper_name', 'sellerOperName', 'supplierOperName') || '');
+        const bonusName = String(finField(row, 'bonus_type_name', 'bonusTypeName') || '');
         const shouldExclude = EXCLUDED_DEDUCTION_NAMES.some(n =>
             operName.includes(n) || bonusName.includes(n)
         );
@@ -269,10 +277,10 @@ function calculateMetrics(rows, settings = {}) {
  */
 function initArticle(row) {
     return {
-        nmId: String(row.nm_id || ''),
-        saName: row.sa_name || '',
-        subjectName: row.subject_name || '',
-        brandName: row.brand_name || '',
+        nmId: String(finField(row, 'nm_id', 'nmId') || ''),
+        saName: finField(row, 'sa_name', 'vendorCode') || '',
+        subjectName: finField(row, 'subject_name', 'subjectName') || '',
+        brandName: finField(row, 'brand_name', 'brandName') || '',
         salesSum: 0,
         salesCount: 0,
         realizationSum: 0,
@@ -288,7 +296,7 @@ function initArticle(row) {
  * @returns {Array} — все строки отчёта
  */
 async function loadFinanceReport(callWbProxy, dateFrom, dateTo) {
-    // WB limit: reportDetailByPeriod — 1 запрос/минуту на продавца.
+    // WB finance detailed — 1 запрос/минуту на продавца.
     // Кэшируем в sessionStorage на 30 минут, при 429 не ретраим.
     const cacheKey = `wbf_fin_${dateFrom}_${dateTo}`;
     try {
