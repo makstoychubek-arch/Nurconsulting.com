@@ -108,7 +108,7 @@ const empty = await fetchSalesReportsDetailedPage({
     token: 't',
     dateFrom: '2026-09-01',
     dateTo: '2026-09-10',
-    fetchFn: async () => new Response('', { status: 204 }),
+    fetchFn: async () => new Response(null, { status: 204 }),
 });
 assert.equal(empty.status, 204);
 assert.equal(empty.rows.length, 0);
