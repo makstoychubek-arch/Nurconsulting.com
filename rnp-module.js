@@ -4,7 +4,9 @@
  */
 const RNP = (() => {
     'use strict';
-    const RNP_BUILD = '20260723-large-cab-fix';
+    const RNP_BUILD = '20260911-dash-rnp-cache';
+    const RNP_DATA_TTL_MS = 3 * 60 * 60 * 1000;
+    const RNP_IDB_VER = 2;
 
     // ─── STATE ────────────────────────────────────────────────────────────────
     let _db = null;
@@ -426,6 +428,9 @@ const RNP = (() => {
         _stockSchemeView = 'all';
         _metricsCache = new Map();
         _financeCache = { key: '', rows: [], ts: 0 };
+        _planCache = {};
+        _rateCache = {};
+        _rateDatesSorted = [];
         _notesCache = {};
         _articles = [];
         _articlesCab = null;
@@ -675,8 +680,15 @@ const RNP = (() => {
         _cabinetStateCache.set(cabId, {
             dataCache: { ..._dataCache },
             stockCache: { ..._stockCache },
+            planCache: { ..._planCache },
+            rateCache: { ..._rateCache },
+            rateDatesSorted: _rateDatesSorted.slice(),
             financeCache: { key: _financeCache.key, rows: _financeCache.rows, ts: _financeCache.ts },
             metricsCache: new Map(_metricsCache),
+            articles: _articles.slice(),
+            articlesCab: _articlesCab,
+            settings: { ..._settings },
+            lastLoadedAt: window._rnpLastLoadedAt || 0,
         });
     }
 
@@ -685,9 +697,30 @@ const RNP = (() => {
         if (!snap) return false;
         _dataCache = { ...snap.dataCache };
         _stockCache = { ...snap.stockCache };
-        _financeCache = { key: snap.financeCache.key, rows: snap.financeCache.rows || [], ts: snap.financeCache.ts || 0 };
+        _planCache = { ...(snap.planCache || {}) };
+        _rateCache = { ...(snap.rateCache || {}) };
+        _rateDatesSorted = Array.isArray(snap.rateDatesSorted)
+            ? snap.rateDatesSorted.slice()
+            : Object.keys(_rateCache).sort();
+        _financeCache = { key: snap.financeCache?.key || '', rows: snap.financeCache?.rows || [], ts: snap.financeCache?.ts || 0 };
         _metricsCache = snap.metricsCache ? new Map(snap.metricsCache) : new Map();
+        if (Array.isArray(snap.articles) && snap.articles.length) {
+            _articles = snap.articles.slice();
+            _articlesCab = snap.articlesCab || cabId;
+        }
+        if (snap.settings) _settings = { ..._settings, ...snap.settings };
+        if (snap.lastLoadedAt) window._rnpLastLoadedAt = snap.lastLoadedAt;
         return true;
+    }
+
+    function _hasUsableRnpData() {
+        if (_articlesCab !== _cab || !_articles.length) return false;
+        return Object.keys(_dataCache).length > 0 || Object.keys(_stockCache).length > 0;
+    }
+
+    function _rnpDataStale() {
+        const ts = Number(window._rnpLastLoadedAt || 0);
+        return !ts || (Date.now() - ts >= RNP_DATA_TTL_MS);
     }
 
     function _clearRnpMainUI() {
@@ -3911,7 +3944,7 @@ const RNP = (() => {
         _planCache = next;
     }
 
-    async function _loadRnpData() {
+    async function _loadRnpData(opts) {
         const snapReq = _loadRequestId();
         const snapCab = _cab;
         if (!_cab || !_db) return false;
@@ -3950,9 +3983,11 @@ const RNP = (() => {
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
         window._rnpLastLoadedAt = Date.now();
+        try { localStorage.setItem('rnp_loaded_at_' + _cab, String(window._rnpLastLoadedAt)); } catch (e) {}
         _cabinetColsCacheKey = '';
         _cabinetColsCacheVal = null;
-        _updateRnpFreshness({ notify: true });
+        _updateRnpFreshness({ notify: opts && opts.notify === false ? false : true });
+        _saveRnpPersist();
         console.info('[RNP] loaded', dailyRows.length, 'daily rows,', stocks.length, 'stocks,', _metricsCache.size, 'articles');
         return true;
     }
@@ -5077,11 +5112,12 @@ const RNP = (() => {
 
     function _rnpIdbOpen() {
         return new Promise((resolve, reject) => {
-            const open = indexedDB.open('nr-rnp-lock', 1);
+            const open = indexedDB.open('nr-rnp-lock', RNP_IDB_VER);
             open.onerror = () => reject(open.error);
             open.onupgradeneeded = ev => {
                 const db = ev.target.result;
                 if (!db.objectStoreNames.contains('shell')) db.createObjectStore('shell');
+                if (!db.objectStoreNames.contains('data')) db.createObjectStore('data');
             };
             open.onsuccess = () => resolve(open.result);
         });
@@ -5094,6 +5130,107 @@ const RNP = (() => {
             tx.objectStore('shell').put(html, cab);
             tx.objectStore('shell').put(html, 'last');
         }).catch(() => {});
+    }
+
+    function _rnpIdbGet(store, key, timeoutMs) {
+        return new Promise(resolve => {
+            let done = false;
+            const finish = val => { if (!done) { done = true; resolve(val); } };
+            setTimeout(() => finish(undefined), timeoutMs || 180);
+            _rnpIdbOpen().then(db => {
+                if (!db.objectStoreNames.contains(store)) return finish(undefined);
+                const tx = db.transaction(store, 'readonly');
+                const req = tx.objectStore(store).get(key);
+                req.onerror = () => finish(undefined);
+                req.onsuccess = () => finish(req.result);
+            }).catch(() => finish(undefined));
+        });
+    }
+
+    function _serializeRnpPersist() {
+        return {
+            v: 1,
+            ts: Date.now(),
+            cab: _cab,
+            articles: _articles,
+            articlesCab: _articlesCab,
+            dataCache: _dataCache,
+            stockCache: _stockCache,
+            planCache: _planCache,
+            rateCache: _rateCache,
+            rateDatesSorted: _rateDatesSorted,
+            metrics: Array.from(_metricsCache.entries()),
+            settings: { ..._settings },
+            lastLoadedAt: window._rnpLastLoadedAt || Date.now(),
+            activeNm: _activeNm,
+        };
+    }
+
+    function _applyRnpPersist(p) {
+        if (!p || (p.cab && _cab && p.cab !== _cab)) return false;
+        if (Array.isArray(p.articles) && p.articles.length) {
+            _articles = p.articles;
+            _articlesCab = p.articlesCab || p.cab || _cab;
+        }
+        if (p.dataCache && typeof p.dataCache === 'object') _dataCache = p.dataCache;
+        if (p.stockCache && typeof p.stockCache === 'object') _stockCache = p.stockCache;
+        if (p.planCache && typeof p.planCache === 'object') _planCache = p.planCache;
+        if (p.rateCache && typeof p.rateCache === 'object') {
+            _rateCache = p.rateCache;
+            _rateDatesSorted = Array.isArray(p.rateDatesSorted)
+                ? p.rateDatesSorted.slice()
+                : Object.keys(_rateCache).sort();
+        }
+        if (Array.isArray(p.metrics)) _metricsCache = new Map(p.metrics);
+        if (p.settings && typeof p.settings === 'object') _settings = { ..._settings, ...p.settings };
+        if (p.lastLoadedAt) {
+            window._rnpLastLoadedAt = p.lastLoadedAt;
+            try { localStorage.setItem('rnp_loaded_at_' + _cab, String(p.lastLoadedAt)); } catch (e) {}
+        }
+        return _hasUsableRnpData() || (_articlesCab === _cab && _articles.length > 0);
+    }
+
+    let _persistRestoredCab = null;
+    function _saveRnpPersist() {
+        if (!_cab) return;
+        if (!_hasUsableRnpData() && !(_articlesCab === _cab && _articles.length)) return;
+        _saveCabinetCache(_cab);
+        _rnpIdbOpen().then(db => {
+            if (!db.objectStoreNames.contains('data')) return;
+            const tx = db.transaction('data', 'readwrite');
+            tx.objectStore('data').put(_serializeRnpPersist(), _cab);
+        }).catch(() => {});
+    }
+
+    async function _restorePersist(cab) {
+        if (!cab) return false;
+        if (_persistRestoredCab === cab && (_hasUsableRnpData() || _articlesCab === cab)) return true;
+        const row = await _rnpIdbGet('data', cab, 200);
+        if (!row) return false;
+        const ok = _applyRnpPersist(row);
+        if (ok) _persistRestoredCab = cab;
+        return ok;
+    }
+
+    let _bgRefreshInflight = null;
+    function _refreshRnpInBackground() {
+        if (!_cab || !_db) return _bgRefreshInflight;
+        if (_bgRefreshInflight) return _bgRefreshInflight;
+        const cab = _cab;
+        _bgRefreshInflight = (async () => {
+            try {
+                const ok = await _loadRnpData({ notify: false });
+                if (!ok || _cab !== cab) return;
+                if (document.getElementById('rnp-sheet-body') && _rnpMainRendered()) {
+                    await _renderActiveTable();
+                }
+            } catch (e) {
+                console.warn('[RNP] bg refresh:', e && e.message);
+            } finally {
+                _bgRefreshInflight = null;
+            }
+        })();
+        return _bgRefreshInflight;
     }
 
     function _restoreRnpIdb(el, cab) {
@@ -5121,7 +5258,7 @@ const RNP = (() => {
     function _bindRnpLockUnload() {
         if (window.__rnpLockUnload) return;
         window.__rnpLockUnload = true;
-        const save = () => { try { _saveRnpChrome(); _saveRnpShell(); } catch (e) {} };
+        const save = () => { try { _saveRnpChrome(); _saveRnpShell(); _saveRnpPersist(); } catch (e) {} };
         window.addEventListener('pagehide', save);
         window.addEventListener('beforeunload', save);
     }
@@ -5286,7 +5423,15 @@ const RNP = (() => {
         if (!_rnpMainRendered()) await _restoreRnpIdb(el, wantCab);
         if (_cab !== wantCab || wantCab !== (window.currentCabinetId || wantCab)) return;
 
-        if (_initInflight && !_cabArticles().length) {
+        if (!_hasUsableRnpData()) {
+            await Promise.race([
+                _restorePersist(wantCab),
+                new Promise(r => setTimeout(r, 120)),
+            ]);
+        }
+        if (_cab !== wantCab || wantCab !== (window.currentCabinetId || wantCab)) return;
+
+        if (_initInflight && !_cabArticles().length && !_rnpMainRendered() && !_hasUsableRnpData()) {
             await Promise.race([
                 _initInflight,
                 new Promise(r => setTimeout(r, 20000)),
@@ -5294,8 +5439,8 @@ const RNP = (() => {
         }
         if (_cab !== wantCab || wantCab !== (window.currentCabinetId || wantCab)) return;
         // Артикулы ещё от другого кабинета (или не загружены) — дочитываем сами,
-        // а не рисуем чужие.
-        if (_articlesCab !== _cab && _db && _cab) {
+        // а не рисуем чужие. Если лист уже на экране или persist есть — не ждём сеть.
+        if (_articlesCab !== _cab && _db && _cab && !_hasUsableRnpData() && !_rnpMainRendered()) {
             const cab = _cab;
             await _loadArticles(cab);
             if (_cab !== cab) return;
@@ -5369,6 +5514,28 @@ const RNP = (() => {
             _fillRnpChrome(active);
         }
         _saveRnpChrome();
+
+        const hasSheet = _rnpMainRendered();
+        const hasData = _hasUsableRnpData();
+        if (hasData || hasSheet) {
+            window._rnpLoadedForCabinet = _cab;
+            if (!window._rnpLastLoadedAt) {
+                try { window._rnpLastLoadedAt = Number(localStorage.getItem('rnp_loaded_at_' + _cab) || 0); } catch (e) {}
+            }
+            if (hasData && !hasSheet) {
+                await _renderActiveTable();
+            }
+            _applyResolvedPhotos();
+            _updateEditModeBtn();
+            _saveRnpShell();
+            setTimeout(() => {
+                if (_cab !== wantCab) return;
+                _hydratePhotoCacheFromStorage();
+                _hydratePhotoCacheFromArticles();
+            }, 0);
+            if (!hasData || _rnpDataStale()) _refreshRnpInBackground();
+            return;
+        }
 
         const renderId = ++_mainRenderGen;
         const snapReq = _loadRequestId();
@@ -6043,15 +6210,28 @@ const RNP = (() => {
         if (opts?.userEmail) _userEmail = opts.userEmail;
         _clearCabinetState();
         _restoreCabinetCache(cabId);
+        const restored = await _restorePersist(cabId);
+        if (_isStaleInit(gen, cabId)) return;
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
         try { _editMode = sessionStorage.getItem('rnp_edit_mode') === '1'; } catch (e) {}
         _bindSelectionHandlers();
-        await _loadSettings(cabId, gen);
-        if (_isStaleInit(gen, cabId)) return;
-        await _loadArticles(cabId, gen);
-        if (_isStaleInit(gen, cabId)) return;
-        await _bootstrapCabinetIfNeeded();
-        if (_isStaleInit(gen, cabId)) return;
+        if (restored && _articlesCab === cabId && _articles.length) {
+            _loadSettings(cabId, gen).catch(e => console.warn('[RNP] settings:', e.message));
+            setTimeout(() => {
+                if (_cab !== cabId || _isStaleInit(gen, cabId)) return;
+                _loadArticles(cabId, gen).then(() => {
+                    if (_cab === cabId) _saveRnpPersist();
+                }).catch(e => console.warn('[RNP] articles bg:', e.message));
+                _bootstrapCabinetIfNeeded().catch(e => console.warn('[RNP] bootstrap:', e.message));
+            }, 800);
+        } else {
+            await _loadSettings(cabId, gen);
+            if (_isStaleInit(gen, cabId)) return;
+            await _loadArticles(cabId, gen);
+            if (_isStaleInit(gen, cabId)) return;
+            await _bootstrapCabinetIfNeeded();
+            if (_isStaleInit(gen, cabId)) return;
+        }
         setTimeout(() => {
             if (_cab !== cabId) return;
             _hydratePhotoCacheFromStorage();
@@ -6111,7 +6291,7 @@ const RNP = (() => {
                 const tab = document.getElementById('tab-rnp');
                 if (tab && (tab.classList.contains('active') || document.getElementById('nr-early-tab-style'))
                     && _cab === cabId && !_rnpMainRendered()) {
-                    openMain(true).catch(e => console.warn('[RNP] openMain after init:', e.message));
+                    openMain(false).catch(e => console.warn('[RNP] openMain after init:', e.message));
                 }
             })
             .catch(e => console.warn('[RNP] initCore:', e.message))
@@ -6254,9 +6434,20 @@ const RNP = (() => {
         // вызов раньше запускал полную загрузку и обгонял предыдущий — в итоге
         // ни один не дорисовывал таблицу. Один рендер на кабинет за раз.
         if (_mainInflight && _mainInflightCab === _cab) return _mainInflight;
+        if (!_hasUsableRnpData()) {
+            await Promise.race([
+                _restorePersist(_cab),
+                new Promise(r => setTimeout(r, 80)),
+            ]);
+        }
         const stuck = _rnpIsLoading();
         const mounted = document.querySelector('#tab-rnp .rnp-workspace');
-        if (!force && !stuck && mounted && _rnpMainRendered() && window._rnpLoadedForCabinet === _cab) return;
+        if (!force && !stuck && mounted && _rnpMainRendered()
+            && (window._rnpLoadedForCabinet === _cab || _hasUsableRnpData())) {
+            window._rnpLoadedForCabinet = _cab;
+            if (_rnpDataStale()) _refreshRnpInBackground();
+            return;
+        }
         const cab = _cab;
         _mainInflightCab = cab;
         _mainInflight = (async () => {
@@ -6642,7 +6833,13 @@ const RNP = (() => {
             _articlesCab = null;
             _paintedCab = null;
             _activeNm = null;
-            if (nextCab) _cab = nextCab;
+            if (nextCab) {
+                _cab = nextCab;
+                if (_restoreCabinetCache(nextCab)) {
+                    _persistRestoredCab = nextCab;
+                    if (window._rnpLastLoadedAt) window._rnpLoadedForCabinet = nextCab;
+                }
+            }
             const el = document.getElementById('tab-rnp');
             if (el) {
                 const own = nextCab ? _readRnpKey(_rnpShellKey(nextCab)) : '';
@@ -6665,29 +6862,7 @@ const RNP = (() => {
         _autoRefreshBound = true;
 
         document.addEventListener('rnp-reload-requested', async () => {
-            const snapReq = _loadRequestId();
-            const snapCab = _cab;
-            let ok = false;
-            try {
-                ok = await _loadRnpData();
-            } catch (e) {
-                console.error('[RNP] reload:', e);
-                if (!_isStaleLoad(snapReq, snapCab) && document.getElementById('rnp-sheet-body')) {
-                    _setRnpSheetState('error', e.message);
-                }
-                return;
-            }
-            if (_isStaleLoad(snapReq, snapCab)) return;
-            if (!document.getElementById('tab-rnp')?.classList.contains('active')) return;
-            if (!ok) {
-                _setRnpSheetState('empty');
-                return;
-            }
-            if (document.getElementById('rnp-sheet-body')) {
-                await _renderActiveTable();
-            } else {
-                await openMain();
-            }
+            await _refreshRnpInBackground();
         });
 
         setInterval(() => {
@@ -6695,14 +6870,13 @@ const RNP = (() => {
             if (rnpTab?.classList.contains('active') && !document.hidden) {
                 document.dispatchEvent(new CustomEvent('rnp-reload-requested'));
             }
-        }, 30 * 60 * 1000);
+        }, RNP_DATA_TTL_MS);
 
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) return;
             const rnpTab = document.getElementById('tab-rnp');
             if (!rnpTab?.classList.contains('active')) return;
-            const stale = Date.now() - (window._rnpLastLoadedAt || 0) > 10 * 60 * 1000;
-            if (stale) document.dispatchEvent(new CustomEvent('rnp-reload-requested'));
+            if (_rnpDataStale()) document.dispatchEvent(new CustomEvent('rnp-reload-requested'));
         });
 
     }
