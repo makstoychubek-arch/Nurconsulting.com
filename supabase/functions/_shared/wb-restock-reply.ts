@@ -98,13 +98,7 @@ export function normalizeWhenPhrase(raw: string): string {
 }
 
 export function buildWbRestockAnswer(when: string): string {
-    return `Здравствуйте, этот товар будет в наличии ${normalizeWhenPhrase(when)}.`;
-}
-
-export function restockStatusText(ok: boolean, when = ''): string {
-    if (!ok) return 'Не ушло на WB.';
-    const w = normalizeWhenPhrase(when);
-    return w ? `Ушло на WB: ${w}.` : 'Ушло на WB.';
+    return `Здравствуйте! Этот товар будет в наличии ${normalizeWhenPhrase(when)}.`;
 }
 
 /** Срок → шаблон; свой текст реплая на карточку уходит на WB как есть. */

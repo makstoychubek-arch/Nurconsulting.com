@@ -15,7 +15,6 @@ import {
     parseNewFeedbacksQuestions,
     pickRestockQuestions,
     resolveRestockAnswer,
-    restockStatusText,
     type RestockQuestion,
 } from '../_shared/wb-restock-reply.ts';
 
@@ -206,11 +205,6 @@ async function applyPendingAnswer(
             wb_answer: answer,
             updated_at: new Date().toISOString(),
         }).eq('cabinet_id', data.cabinet_id).eq('question_id', questionId);
-        const chatId = String(data.telegram_chat_id || reviewsChat || '').trim();
-        const userMsg = reactMessageId || Number(data.telegram_message_id) || 0;
-        if (tgToken && chatId && userMsg) {
-            await sendTelegramText(tgToken, chatId, restockStatusText(false), userMsg);
-        }
         return { ok: false, error: err, status: posted.status, question_id: questionId };
     }
     await admin.from('wb_restock_questions').update({
@@ -222,12 +216,12 @@ async function applyPendingAnswer(
         updated_at: new Date().toISOString(),
     }).eq('cabinet_id', data.cabinet_id).eq('question_id', questionId);
     const chatId = String(data.telegram_chat_id || reviewsChat || '').trim();
-    const userMsg = reactMessageId || Number(data.telegram_message_id) || 0;
-    let confirmed = false;
+    const userMsg = reactMessageId || (Number(data.telegram_message_id) ? Number(data.telegram_message_id) + 1 : 0);
+    let reacted = false;
     if (tgToken && chatId && userMsg) {
-        confirmed = await sendTelegramText(tgToken, chatId, restockStatusText(true, when), userMsg);
+        reacted = await reactTelegram(tgToken, chatId, userMsg, '❤');
     }
-    return { ok: true, applied: true, question_id: questionId, confirmed, react_message_id: userMsg || null };
+    return { ok: true, applied: true, question_id: questionId, reacted, react_message_id: userMsg || null };
 }
 
 async function resendPendingCard(
@@ -338,21 +332,15 @@ async function sendTelegramCard(
     }
 }
 
-async function sendTelegramText(
-    token: string,
-    chatId: string,
-    text: string,
-    replyTo: number,
-): Promise<boolean> {
+async function reactTelegram(token: string, chatId: string, messageId: number, emoji: string): Promise<boolean> {
     try {
-        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        const res = await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 chat_id: chatId,
-                text,
-                reply_to_message_id: replyTo || undefined,
-                disable_web_page_preview: true,
+                message_id: messageId,
+                reaction: [{ type: 'emoji', emoji }],
             }),
         });
         return res.ok;

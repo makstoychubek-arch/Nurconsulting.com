@@ -8,7 +8,6 @@ import {
     formatRestockTelegramCard,
     shortQuestionQuote,
     resolveRestockAnswer,
-    restockStatusText,
     wbQuestionAnswerPayload,
     isAllowedRestockChat,
     isFreshQuestion,
@@ -41,20 +40,20 @@ assert.equal(isWhenOnlyReply('через неделю, если поставка
 
 assert.equal(
     buildWbRestockAnswer('через неделю'),
-    'Здравствуйте, этот товар будет в наличии через неделю.',
+    'Здравствуйте! Этот товар будет в наличии через неделю.',
 );
 assert.equal(
     buildWbRestockAnswer('завтра.'),
-    'Здравствуйте, этот товар будет в наличии завтра.',
+    'Здравствуйте! Этот товар будет в наличии завтра.',
 );
 assert.equal(
     buildWbRestockAnswer('Через неделю'),
-    'Здравствуйте, этот товар будет в наличии через неделю.',
+    'Здравствуйте! Этот товар будет в наличии через неделю.',
 );
 assert.equal(resolveRestockAnswer('хз'), null);
 assert.equal(
     resolveRestockAnswer('через неделю')?.wbText,
-    'Здравствуйте, этот товар будет в наличии через неделю.',
+    'Здравствуйте! Этот товар будет в наличии через неделю.',
 );
 assert.equal(
     resolveRestockAnswer('Да, костюм будет на складе в пятницу, размер 42')?.wbText,
@@ -123,9 +122,9 @@ assert.equal(card.includes('Ответьте реплаем'), false);
 assert.ok(card.split('\n').length <= 3);
 assert.equal(shortQuestionQuote('Здравствуйте \nКогда появится серый костюм 42?'), 'Когда появится серый костюм 42?');
 
-assert.deepEqual(wbQuestionAnswerPayload('q-1', 'Здравствуйте, этот товар будет в наличии завтра.'), {
+assert.deepEqual(wbQuestionAnswerPayload('q-1', 'Здравствуйте! Этот товар будет в наличии завтра.'), {
     id: 'q-1',
-    answer: { text: 'Здравствуйте, этот товар будет в наличии завтра.' },
+    answer: { text: 'Здравствуйте! Этот товар будет в наличии завтра.' },
     state: 'wbRu',
 });
 
@@ -263,8 +262,6 @@ const ignoreStranger = decideRestockInbound({
 });
 assert.equal(ignoreStranger.action, 'answer');
 if (ignoreStranger.action === 'answer') assert.equal(ignoreStranger.via, 'single_pending');
-assert.equal(restockStatusText(true, 'через неделю'), 'Ушло на WB: через неделю.');
-assert.equal(restockStatusText(false), 'Не ушло на WB.');
 
 const unwrapped = unwrapTelegramMessage({
     message: {

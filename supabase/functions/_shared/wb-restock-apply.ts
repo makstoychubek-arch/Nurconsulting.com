@@ -6,7 +6,6 @@ import {
     buildWbRestockAnswer,
     decideRestockInbound,
     isAllowedRestockChat,
-    restockStatusText,
     unwrapTelegramMessage,
     type PendingRestockRow,
 } from './wb-restock-reply.ts';
@@ -76,7 +75,7 @@ export async function applyRestockTelegramReply(
         .maybeSingle();
     const wbToken = sanitizeWbToken(cabinet?.wb_token);
     if (!wbToken) {
-        await opts.send(restockStatusText(false), decision.replyToId);
+        if (opts.react) await opts.react('👎', decision.replyToId);
         return { handled: true, kind: 'error', detail: 'no_wb_token' };
     }
 
@@ -90,7 +89,7 @@ export async function applyRestockTelegramReply(
             wb_answer: answer,
             updated_at: new Date().toISOString(),
         }).eq('cabinet_id', decision.cabinetId).eq('question_id', decision.questionId);
-        await opts.send(restockStatusText(false), decision.replyToId);
+        if (opts.react) await opts.react('👎', decision.replyToId);
         return { handled: true, kind: 'error', detail: err };
     }
 
@@ -103,6 +102,6 @@ export async function applyRestockTelegramReply(
         updated_at: new Date().toISOString(),
     }).eq('cabinet_id', decision.cabinetId).eq('question_id', decision.questionId);
 
-    await opts.send(restockStatusText(true, decision.when), decision.replyToId);
+    if (opts.react) await opts.react('❤', decision.replyToId);
     return { handled: true, kind: 'answered', detail: decision.via };
 }
