@@ -9,6 +9,7 @@ import { FEEDBACKS_API, wbError, wbSend } from '../_shared/wb-agent-wow.ts';
 import {
     formatRestockTelegramCard,
     ownerMention,
+    pickRestockFeedbacks,
     pickRestockQuestions,
     type RestockQuestion,
 } from '../_shared/wb-restock-reply.ts';
@@ -129,6 +130,38 @@ Deno.serve(async (req) => {
             }).eq('cabinet_id', cabinet.id).eq('question_id', question.id);
             row.notified = Number(row.notified || 0) + 1;
         }
+
+        await sleep(350);
+        const listedFb = await wbSend(
+            `${FEEDBACKS_API}/api/v1/feedbacks?isAnswered=false&take=50&skip=0&order=dateDesc`,
+            token,
+        );
+        if (listedFb.ok) {
+            const feedbacks = pickRestockFeedbacks(listedFb.data);
+            row.feedbacks = feedbacks.length;
+            for (const fb of feedbacks) {
+                const existing = await admin
+                    .from('wb_restock_questions')
+                    .select('id, status')
+                    .eq('cabinet_id', cabinet.id)
+                    .eq('question_id', fb.id)
+                    .maybeSingle();
+                if (existing.data?.status === 'answered') continue;
+                if (existing.data) continue;
+                await admin.from('wb_restock_questions').insert({
+                    cabinet_id: cabinet.id,
+                    question_id: fb.id,
+                    nm_id: fb.nmId || null,
+                    article: fb.article || null,
+                    product: fb.product || null,
+                    question_text: fb.text,
+                    status: 'pending',
+                });
+            }
+        } else {
+            row.feedback_error = wbError(listedFb);
+        }
+
         results.push(row);
         await sleep(350);
     }

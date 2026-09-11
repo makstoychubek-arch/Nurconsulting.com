@@ -10,6 +10,8 @@ import {
     isFreshQuestion,
     isRestockQuestion,
     isWhenOnlyReply,
+    looksLikeRestockCard,
+    looksLikeReviewCard,
     matchPendingByText,
     ownerMention,
     parseRestockCardMeta,
@@ -20,6 +22,7 @@ import {
 const qText = 'Добрый день! Ожидается ли в ближайшее время поступление костюма темно-синего цвета 42 размера?';
 assert.equal(isRestockQuestion(qText), true, 'screenshot question is restock');
 assert.equal(isRestockQuestion('Какой состав ткани?'), false, 'composition is not restock');
+assert.equal(isRestockQuestion('Здравствуйте! Когда вернётся серый костюм 42?'), true, 'review restock question');
 
 assert.equal(extractRestockWhen('завтра'), 'завтра');
 assert.equal(extractRestockWhen('через неделю'), 'через неделю');
@@ -37,8 +40,8 @@ assert.equal(
     'Здравствуйте, этот товар будет в наличии через неделю.',
 );
 assert.equal(
-    buildWbRestockAnswer('завтра.'),
-    'Здравствуйте, этот товар будет в наличии завтра.',
+    buildWbRestockAnswer('Через неделю'),
+    'Здравствуйте, этот товар будет в наличии через неделю.',
 );
 
 assert.equal(cabinetLegalName('Zevina 1'), 'ИП Уркунбаев К.А.');
@@ -206,5 +209,27 @@ assert.equal(isAllowedRestockChat('-100rev', '-100rev', []), true);
 assert.equal(isAllowedRestockChat('-100team', '-100rev', []), false);
 assert.equal(isAllowedRestockChat('-100old', '-100rev', ['-100old']), true);
 assert.equal(isAllowedRestockChat('', '-100rev', []), false);
+
+const reviewCard = `Отказ · отзыв 11:09 · 13:05
+@maraWuW поступление
+uzqon_stilniy_seriy
+Здравствуйте! Когда вернётся серый костюм 42?`;
+assert.equal(looksLikeReviewCard(reviewCard), true, 'автоотвечик review card');
+assert.equal(looksLikeRestockCard(reviewCard), true, 'restock review card');
+
+const fromReview = decideRestockInbound({
+    chatId: '-100rev',
+    messageId: 200,
+    text: 'Через неделю',
+    fromUsername: 'maraWuW',
+    ownerUsername: 'maraWuW',
+    replyToText: reviewCard,
+    replyToMessageId: 199,
+    pending: [],
+});
+assert.equal(fromReview.action, 'lookup');
+if (fromReview.action === 'lookup') {
+    assert.equal(fromReview.when.toLowerCase(), 'через неделю');
+}
 
 console.log('wb-restock-reply_test: ok');
