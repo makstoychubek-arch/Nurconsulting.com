@@ -41,6 +41,7 @@ assert.ok(router.includes('setMessageReaction') && router.includes("'❤'"),
 assert.ok(!router.includes('готово') && !router.includes('не смогла'),
     'must not write status text after a restock reply');
 assert.ok(poll.includes('resend_question_id'), 'poll can duplicate one pending card');
+assert.ok(poll.includes('editMessageText'), 'resend shortens the existing Telegram card in place');
 assert.ok(poll.includes('apply_question_id'), 'poll can apply an already given restock date');
 assert.ok(poll.includes('body.answer') || poll.includes("body.answer"), 'poll apply can reuse a custom answer already written');
 assert.ok(poll.includes('setMessageReaction'), 'poll can put a heart on the Telegram reply');
@@ -53,7 +54,10 @@ assert.ok(admin.includes('telegram-router?bot='), 'webhook path is telegram-rout
 assert.ok(shared.includes('Здравствуйте, этот товар будет в наличии'), 'WB template is fixed');
 assert.ok(shared.includes("state: 'wbRu'"), 'question answer uses official PATCH body');
 assert.ok(shared.includes('поступление'), 'card is a short restock line');
-assert.ok(shared.includes('#nrq'), 'card keeps question id so a reply can be sent');
+assert.ok(shared.includes('parseRestockCardMeta') && shared.includes('#nrq'),
+    'old #nrq cards still parse; new cards stay short without the tag');
+assert.ok(!/RESTOCK_CARD_MARK \$\{/.test(shared) && !shared.includes('lines.push(`${RESTOCK_CARD_MARK}'),
+    'new restock card does not print #nrq');
 assert.ok(!/Ответьте реплаем/.test(shared), 'card must not explain how to reply');
 
 assert.ok(mig.includes('wb_restock_questions'), 'migration creates queue table');

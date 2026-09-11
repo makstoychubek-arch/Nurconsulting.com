@@ -233,7 +233,7 @@ async function resendPendingCard(
 ): Promise<Record<string, unknown>> {
     const { data, error } = await admin
         .from('wb_restock_questions')
-        .select('question_id, cabinet_id, nm_id, article, product, question_text, status')
+        .select('question_id, cabinet_id, nm_id, article, product, question_text, status, telegram_chat_id, telegram_message_id')
         .eq('question_id', questionId)
         .eq('status', 'pending')
         .maybeSingle();
@@ -251,6 +251,20 @@ async function resendPendingCard(
     if (dryRun || !tgToken || !reviewsChat) {
         return { ok: true, resent: false, skipped: dryRun ? 'dry_run' : 'no_reviews_chat', question_id: questionId };
     }
+    const text = formatRestockTelegramCard({
+        cabinetName: String(cab?.name || ''),
+        cabinetId: String(data.cabinet_id),
+        question,
+        mention: ownerMention(OWNER),
+    });
+    const chatId = String(data.telegram_chat_id || reviewsChat || '').trim();
+    const prevId = Number(data.telegram_message_id) || 0;
+    if (prevId && chatId) {
+        const edited = await editTelegramCard(tgToken, chatId, prevId, text);
+        if (!edited.error) {
+            return { ok: true, edited: true, question_id: questionId, message_id: prevId };
+        }
+    }
     const sent = await sendTelegramCard(tgToken, reviewsChat, String(cab?.name || ''), String(data.cabinet_id), question);
     if (sent.error) return { ok: false, error: sent.error, question_id: questionId };
     await admin.from('wb_restock_questions').update({
@@ -260,6 +274,30 @@ async function resendPendingCard(
         updated_at: new Date().toISOString(),
     }).eq('cabinet_id', data.cabinet_id).eq('question_id', questionId);
     return { ok: true, resent: true, question_id: questionId, message_id: sent.messageId };
+}
+
+async function editTelegramCard(
+    token: string,
+    chatId: string,
+    messageId: number,
+    text: string,
+): Promise<{ error: string | null }> {
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/editMessageText`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                message_id: messageId,
+                text,
+                disable_web_page_preview: true,
+            }),
+        });
+        if (!res.ok) return { error: `HTTP ${res.status}` };
+        return { error: null };
+    } catch (e) {
+        return { error: String(e) };
+    }
 }
 
 async function sendTelegramCard(

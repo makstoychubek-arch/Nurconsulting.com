@@ -6,6 +6,7 @@ import {
     decideRestockInbound,
     extractRestockWhen,
     formatRestockTelegramCard,
+    shortQuestionQuote,
     resolveRestockAnswer,
     wbQuestionAnswerPayload,
     isAllowedRestockChat,
@@ -115,10 +116,11 @@ const card = formatRestockTelegramCard({
 assert.match(card, /@maraWuW/);
 assert.match(card, /поступление/);
 assert.match(card, /kostkom_oversize_temnosiniy/);
-assert.match(card, /#nrq q=q-kostum-1 c=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/);
+assert.equal(card.includes('#nrq'), false);
 assert.equal(card.includes('Кабинет:'), false);
 assert.equal(card.includes('Ответьте реплаем'), false);
-assert.ok(card.split('\n').length <= 4);
+assert.ok(card.split('\n').length <= 3);
+assert.equal(shortQuestionQuote('Здравствуйте \nКогда появится серый костюм 42?'), 'Когда появится серый костюм 42?');
 
 assert.deepEqual(wbQuestionAnswerPayload('q-1', 'Здравствуйте, этот товар будет в наличии завтра.'), {
     id: 'q-1',
@@ -126,10 +128,7 @@ assert.deepEqual(wbQuestionAnswerPayload('q-1', 'Здравствуйте, эт�
     state: 'wbRu',
 });
 
-assert.deepEqual(parseRestockCardMeta(card), {
-    questionId: 'q-kostum-1',
-    cabinetId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
-});
+assert.equal(parseRestockCardMeta(card), null);
 assert.deepEqual(parseRestockCardMeta('#nrq q=q-kostum-1 c=aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'), {
     questionId: 'q-kostum-1',
     cabinetId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
@@ -175,7 +174,7 @@ const fromCard = decideRestockInbound({
 assert.equal(fromCard.action, 'answer');
 if (fromCard.action === 'answer') {
     assert.equal(fromCard.when, 'через неделю');
-    assert.equal(fromCard.via, 'card_meta');
+    assert.equal(fromCard.via, 'tg_message');
     assert.match(fromCard.wbText, /через неделю/);
     assert.equal(fromCard.questionId, 'q-kostum-1');
 }
@@ -209,7 +208,7 @@ const custom = decideRestockInbound({
 assert.equal(custom.action, 'answer');
 if (custom.action === 'answer') {
     assert.equal(custom.wbText, 'Да, костюм будет на складе в пятницу, размер 42');
-    assert.equal(custom.via, 'card_meta');
+    assert.equal(custom.via, 'tg_message');
 }
 
 const byTg = decideRestockInbound({

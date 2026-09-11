@@ -179,6 +179,15 @@ export function isFreshQuestion(createdDate: string, maxAgeDays = 45): boolean {
     return (Date.now() - ms) <= maxAgeDays * 86400000;
 }
 
+export function shortQuestionQuote(text: string): string {
+    return String(text || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/^(здравствуйте|добрый день|добрый вечер|доброе утро)[!.\s,]*/i, '')
+        .trim()
+        .slice(0, 140);
+}
+
 export function formatRestockTelegramCard(opts: {
     cabinetName: string;
     cabinetId: string;
@@ -188,10 +197,9 @@ export function formatRestockTelegramCard(opts: {
     const q = opts.question;
     const who = opts.mention ? `${opts.mention} ` : '';
     const name = String(q.article || q.product || '').trim() || (q.nmId ? String(q.nmId) : 'товар');
-    const ask = String(q.text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+    const ask = shortQuestionQuote(q.text);
     const lines = [`${who}поступление`, name];
     if (ask) lines.push(`«${ask}»`);
-    lines.push(`${RESTOCK_CARD_MARK} q=${q.id} c=${opts.cabinetId}`);
     return lines.join('\n');
 }
 
