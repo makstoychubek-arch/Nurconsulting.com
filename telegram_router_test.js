@@ -11,9 +11,13 @@ const html = fs.readFileSync(path.join(root, 'dashboard.html'), 'utf8');
 
 assert.ok(router.includes('decideRestockInbound'), 'router uses shared inbound decision');
 assert.ok(router.includes('unwrapTelegramMessage'), 'router reads Telegram update');
-assert.ok(router.includes("Напишите реплаем одно: завтра / через неделю / через 2 недели"),
+assert.ok(router.includes('завтра / через неделю / через 2 недели'),
     'hint when reply has no when-phrase');
-assert.ok(router.includes('Готово. На WB ушёл ответ'), 'confirms in Telegram after WB');
+assert.ok(router.includes('setMessageReaction') && router.includes("'❤'"),
+    'success is a heart reaction, not a chat message');
+assert.ok(!router.includes('готово'), 'must not write готово/отправлено after a reply');
+assert.ok(!router.includes('Готово. На WB ушёл ответ'), 'must not dump the WB letter into the chat');
+assert.ok(!router.includes('Не смог ответить на WB'), 'must not paste WB error URLs');
 assert.ok(router.includes('status: \'pending\'' ) || router.includes(".eq('status', 'pending')"),
     'only pending questions are answered');
 assert.ok(!router.includes('-1004460164885'), 'router must not hardcode the team chat');

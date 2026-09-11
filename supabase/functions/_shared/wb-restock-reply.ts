@@ -1,5 +1,7 @@
 /** Вопросы WB «когда поступит?» → короткий реплай в Telegram → ответ покупателю. */
 
+import { FEEDBACKS_API, wbSend } from './wb-agent-wow.ts';
+
 export const RESTOCK_CARD_MARK = '#nrq';
 
 const RESTOCK_RE =
@@ -41,12 +43,19 @@ export type PendingRestockRow = {
 
 export type RestockInboundDecision =
     | { action: 'ignore' }
-    | { action: 'hint'; chatId: string; replyToId: number }
+    | {
+        action: 'hint';
+        chatId: string;
+        replyToId: number;
+        questionId?: string;
+        cabinetId?: string;
+    }
     | {
         action: 'answer';
         questionId: string;
         cabinetId: string;
         when: string;
+        wbText: string;
         chatId: string;
         replyToId: number;
         via: 'card_meta' | 'tg_message' | 'pending_match' | 'single_pending';
@@ -65,7 +74,7 @@ export function extractRestockWhen(raw: string): string | null {
     if (!t) return null;
     for (const re of WHEN_RES) {
         const m = t.match(re);
-        if (m) return m[0].replace(/\s+/g, ' ').trim();
+        if (m) return normalizeWhenPhrase(m[0]);
     }
     return null;
 }
@@ -82,9 +91,25 @@ export function isWhenOnlyReply(raw: string): boolean {
     return rest.length <= 16;
 }
 
+export function normalizeWhenPhrase(raw: string): string {
+    const phrase = normalizeReply(raw).replace(/[.]+$/, '');
+    if (!phrase) return '';
+    return phrase.charAt(0).toLocaleLowerCase('ru-RU') + phrase.slice(1);
+}
+
 export function buildWbRestockAnswer(when: string): string {
-    const phrase = normalizeReply(when).replace(/[.]+$/, '');
-    return `Здравствуйте, этот товар будет в наличии ${phrase}.`;
+    return `Здравствуйте, этот товар будет в наличии ${normalizeWhenPhrase(when)}.`;
+}
+
+/** Срок → шаблон; свой текст реплая на карточку уходит на WB как есть. */
+export function resolveRestockAnswer(raw: string): { when: string; wbText: string } | null {
+    const text = normalizeReply(raw);
+    if (!text) return null;
+    const when = extractRestockWhen(text);
+    if (when) return { when, wbText: buildWbRestockAnswer(when) };
+    const words = text.split(/\s+/).filter(Boolean);
+    if (text.length < 8 && words.length < 3) return null;
+    return { when: text.slice(0, 120), wbText: text };
 }
 
 export function cabinetLegalName(name: string): string {
@@ -95,6 +120,21 @@ export function cabinetLegalName(name: string): string {
     if (/elium|элиум|айзада/i.test(raw)) return 'ИП Айзада';
     if (/^baza$|^baz\.a$|бейшеев/i.test(raw)) return 'ИП Бейшеев А.Д.';
     return raw;
+}
+
+/** Официальный GET /api/v1/new-feedbacks-questions — только флаги, не список. */
+export type NewFeedbacksQuestions = {
+    hasNewQuestions: boolean;
+    hasNewFeedbacks: boolean;
+};
+
+export function parseNewFeedbacksQuestions(payload: unknown): NewFeedbacksQuestions {
+    const rec = payload && typeof payload === 'object' ? payload as Record<string, unknown> : {};
+    const inner = rec.data && typeof rec.data === 'object' ? rec.data as Record<string, unknown> : rec;
+    return {
+        hasNewQuestions: inner.hasNewQuestions === true,
+        hasNewFeedbacks: inner.hasNewFeedbacks === true,
+    };
 }
 
 export function collectQuestions(payload: unknown): RestockQuestion[] {
@@ -147,16 +187,31 @@ export function formatRestockTelegramCard(opts: {
 }): string {
     const q = opts.question;
     const who = opts.mention ? `${opts.mention} ` : '';
-    const art = [q.article, q.nmId ? String(q.nmId) : ''].filter(Boolean).join(' · ');
-    const lines = [
-        `${who}❓ Вопрос о поступлении`,
-        `Кабинет: ${cabinetLegalName(opts.cabinetName)}`,
-    ];
-    if (q.product) lines.push(`Товар: ${q.product}`);
-    if (art) lines.push(`Артикул: ${art}`);
-    lines.push('', `«${q.text.slice(0, 500)}»`, '', 'Ответьте реплаем: завтра / через неделю / через 2 недели');
+    const name = String(q.article || q.product || '').trim() || (q.nmId ? String(q.nmId) : 'товар');
+    const ask = String(q.text || '').replace(/\s+/g, ' ').trim().slice(0, 160);
+    const lines = [`${who}поступление`, name];
+    if (ask) lines.push(`«${ask}»`);
     lines.push(`${RESTOCK_CARD_MARK} q=${q.id} c=${opts.cabinetId}`);
     return lines.join('\n');
+}
+
+export function wbQuestionAnswerPayload(id: string, text: string) {
+    return {
+        id: String(id || '').trim(),
+        answer: { text: String(text || '').trim() },
+        state: 'wbRu',
+    };
+}
+
+export async function answerWbQuestion(token: string, id: string, text: string) {
+    const url = `${FEEDBACKS_API}/api/v1/questions`;
+    const payload = wbQuestionAnswerPayload(id, text);
+    const first = await wbSend(url, token, 'PATCH', payload);
+    if (first.ok) return first;
+    const raw = String(token || '').replace(/^Bearer\s+/i, '').trim();
+    if (!raw) return first;
+    const retry = await wbSend(url, `Bearer ${raw}`, 'PATCH', payload);
+    return retry.ok || retry.status !== first.status ? retry : first;
 }
 
 export function parseRestockCardMeta(text: string): RestockCardMeta | null {
@@ -203,9 +258,14 @@ export function isAllowedRestockChat(
 ): boolean {
     const id = String(chatId || '').trim();
     if (!id) return false;
+    const norm = (v: string) => String(v || '').trim().replace(/^-/, '');
+    const nid = norm(id);
     const reviews = String(reviewsChatId || '').trim();
-    if (reviews && id === reviews) return true;
-    return pendingChatIds.some((c) => String(c || '').trim() === id);
+    if (reviews && (id === reviews || nid === norm(reviews))) return true;
+    return pendingChatIds.some((c) => {
+        const raw = String(c || '').trim();
+        return raw && (raw === id || norm(raw) === nid);
+    });
 }
 
 export function unwrapTelegramMessage(update: unknown): {
@@ -253,35 +313,57 @@ export function decideRestockInbound(input: {
 }): RestockInboundDecision {
     const chatId = String(input.chatId || '');
     const replyToId = input.messageId;
-    const when = extractRestockWhen(input.text);
+    const resolved = resolveRestockAnswer(input.text);
     const meta = parseRestockCardMeta(input.replyToText);
 
     if (meta) {
-        if (!when) return { action: 'hint', chatId, replyToId };
+        if (!resolved) {
+            return {
+                action: 'hint',
+                chatId,
+                replyToId,
+                questionId: meta.questionId,
+                cabinetId: meta.cabinetId,
+            };
+        }
         return {
             action: 'answer',
             questionId: meta.questionId,
             cabinetId: meta.cabinetId,
-            when,
+            when: resolved.when,
+            wbText: resolved.wbText,
             chatId,
             replyToId,
             via: 'card_meta',
         };
     }
 
-    if (input.replyToMessageId && when) {
-        const byTg = input.pending.find((r) => Number(r.telegram_message_id) === Number(input.replyToMessageId));
-        if (byTg) {
+    const byTg = input.replyToMessageId
+        ? input.pending.find((r) => Number(r.telegram_message_id) === Number(input.replyToMessageId))
+        : null;
+    if (byTg) {
+        if (!resolved) {
             return {
-                action: 'answer',
-                questionId: byTg.question_id,
-                cabinetId: byTg.cabinet_id,
-                when,
+                action: 'hint',
                 chatId,
                 replyToId,
-                via: 'tg_message',
+                questionId: byTg.question_id,
+                cabinetId: byTg.cabinet_id,
             };
         }
+        return {
+            action: 'answer',
+            questionId: byTg.question_id,
+            cabinetId: byTg.cabinet_id,
+            when: resolved.when,
+            wbText: resolved.wbText,
+            chatId,
+            replyToId,
+            via: 'tg_message',
+        };
+    }
+
+    if (input.replyToMessageId && resolved) {
         const matched = matchPendingByText(input.replyToText, input.pending);
         const row = input.pending.find((r) => r.question_id === matched);
         if (row) {
@@ -289,7 +371,8 @@ export function decideRestockInbound(input: {
                 action: 'answer',
                 questionId: row.question_id,
                 cabinetId: row.cabinet_id,
-                when,
+                when: resolved.when,
+                wbText: resolved.wbText,
                 chatId,
                 replyToId,
                 via: 'pending_match',
@@ -301,14 +384,15 @@ export function decideRestockInbound(input: {
     const from = String(input.fromUsername || '').replace(/^@/, '').toLowerCase();
     const fromOwner = Boolean(owner && from && owner === from);
 
-    if (fromOwner && isWhenOnlyReply(input.text) && when) {
+    if (fromOwner && isWhenOnlyReply(input.text) && resolved) {
         if (input.pending.length === 1) {
             const row = input.pending[0];
             return {
                 action: 'answer',
                 questionId: row.question_id,
                 cabinetId: row.cabinet_id,
-                when,
+                when: resolved.when,
+                wbText: resolved.wbText,
                 chatId,
                 replyToId,
                 via: 'single_pending',
@@ -321,7 +405,8 @@ export function decideRestockInbound(input: {
                 action: 'answer',
                 questionId: row.question_id,
                 cabinetId: row.cabinet_id,
-                when,
+                when: resolved.when,
+                wbText: resolved.wbText,
                 chatId,
                 replyToId,
                 via: 'pending_match',

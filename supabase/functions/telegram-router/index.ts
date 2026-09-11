@@ -4,8 +4,9 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { getTelegramToken } from '../_shared/telegram-routing.ts';
-import { FEEDBACKS_API, wbError, wbSend } from '../_shared/wb-agent-wow.ts';
+import { wbError } from '../_shared/wb-agent-wow.ts';
 import {
+    answerWbQuestion,
     buildWbRestockAnswer,
     decideRestockInbound,
     isAllowedRestockChat,
@@ -82,7 +83,7 @@ Deno.serve(async (req) => {
     if (decision.action === 'ignore') return json({ ok: true, ignored: true });
 
     if (decision.action === 'hint') {
-        await sendTelegram(replyToken, decision.chatId, 'Напишите реплаем одно: завтра / через неделю / через 2 недели', decision.replyToId);
+        await sendTelegram(replyToken, decision.chatId, 'завтра / через неделю / через 2 недели', decision.replyToId);
         return json({ ok: true, hint: true });
     }
 
@@ -93,15 +94,12 @@ Deno.serve(async (req) => {
         .maybeSingle();
     const wbToken = sanitizeWbToken(cabinet?.wb_token);
     if (!wbToken) {
-        await sendTelegram(replyToken, decision.chatId, 'Нет токена WB у кабинета — ответить на вопрос не могу.', decision.replyToId);
+        await reactTelegram(replyToken, decision.chatId, decision.replyToId, '👎');
         return json({ ok: false, error: 'no_wb_token' });
     }
 
-    const answer = buildWbRestockAnswer(decision.when);
-    const posted = await wbSend(`${FEEDBACKS_API}/api/v1/questions/answer`, wbToken, 'POST', {
-        id: decision.questionId,
-        text: answer,
-    });
+    const answer = decision.wbText || buildWbRestockAnswer(decision.when);
+    const posted = await answerWbQuestion(wbToken, decision.questionId, answer);
     if (!posted.ok) {
         const err = wbError(posted);
         await admin.from('wb_restock_questions').update({
@@ -110,7 +108,7 @@ Deno.serve(async (req) => {
             wb_answer: answer,
             updated_at: new Date().toISOString(),
         }).eq('cabinet_id', decision.cabinetId).eq('question_id', decision.questionId);
-        await sendTelegram(replyToken, decision.chatId, `Не смог ответить на WB: ${err}`, decision.replyToId);
+        await reactTelegram(replyToken, decision.chatId, decision.replyToId, '👎');
         return json({ ok: false, error: err });
     }
 
@@ -123,7 +121,7 @@ Deno.serve(async (req) => {
         updated_at: new Date().toISOString(),
     }).eq('cabinet_id', decision.cabinetId).eq('question_id', decision.questionId);
 
-    await sendTelegram(replyToken, decision.chatId, `Готово. На WB ушёл ответ:\n${answer}`, decision.replyToId);
+    await reactTelegram(replyToken, decision.chatId, decision.replyToId, '❤');
     return json({ ok: true, answered: true, via: decision.via, question_id: decision.questionId });
 });
 
@@ -144,6 +142,23 @@ async function sendTelegram(token: string, chatId: string, text: string, replyTo
                 text,
                 reply_to_message_id: replyTo || undefined,
                 disable_web_page_preview: true,
+            }),
+        });
+    } catch {
+        // webhook must still 200
+    }
+}
+
+async function reactTelegram(token: string, chatId: string, messageId?: number, emoji = '❤'): Promise<void> {
+    if (!token || !chatId || !messageId) return;
+    try {
+        await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                message_id: messageId,
+                reaction: [{ type: 'emoji', emoji }],
             }),
         });
     } catch {

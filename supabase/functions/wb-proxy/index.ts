@@ -17,6 +17,7 @@ import {
     toLegacyFinanceRow,
     type FinanceAgg,
 } from '../_shared/wb-finance-report.ts';
+import { answerWbQuestion } from '../_shared/wb-restock-reply.ts';
 import {
     collectNmIds,
     extractBidsFromAdvert,
@@ -1317,8 +1318,29 @@ serve(async (req) => {
                 const id = String(params.id || '');
                 const text = String(params.text || '').trim();
                 if (!id || !text) return json({ error: 'id и текст ответа обязательны' }, 400);
-                const res = await wbSend(`${FEEDBACKS_API}/api/v1/questions/answer`, WB_TOKEN, 'POST', { id, text });
-                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
+                const now = new Date().toISOString();
+                await admin.from('wb_restock_questions').update({
+                    wb_answer: text,
+                    when_text: text.slice(0, 120),
+                    error_text: null,
+                    updated_at: now,
+                }).eq('cabinet_id', cabinet_id).eq('question_id', id);
+                const res = await answerWbQuestion(WB_TOKEN, id, text);
+                if (!res.ok) {
+                    const err = wbError(res);
+                    await admin.from('wb_restock_questions').update({
+                        error_text: err,
+                        updated_at: new Date().toISOString(),
+                    }).eq('cabinet_id', cabinet_id).eq('question_id', id);
+                    return json({ error: err }, res.status >= 500 ? 502 : 400);
+                }
+                await admin.from('wb_restock_questions').update({
+                    status: 'answered',
+                    wb_answer: text,
+                    error_text: null,
+                    answered_at: now,
+                    updated_at: now,
+                }).eq('cabinet_id', cabinet_id).eq('question_id', id);
                 result = { ok: true };
                 break;
             }
