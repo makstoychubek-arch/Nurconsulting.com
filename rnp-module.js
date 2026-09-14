@@ -100,8 +100,9 @@ const RNP = (() => {
     let _compareMonthMenuBound = false;
     let _phoneKpiOpen = false;
     let _phoneStockOpen = (() => {
-        try { return localStorage.getItem('rnp_stock_open') !== '0'; } catch (e) { return true; }
+        try { return localStorage.getItem('rnp_stock_open') === '1'; } catch (e) { return false; }
     })();
+    let _stockPopBound = false;
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
@@ -123,8 +124,8 @@ const RNP = (() => {
     function _sparkW() { return _isPhone() ? PHONE_SPARK_W : FROZEN_SPARK_W; }
     function _frozenWeekW() { return _isPhone() ? PHONE_COL_W : FROZEN_COL_W; }
     function _dayColW() { return _isPhone() ? PHONE_COL_W : DAY_COL_W; }
-    const MARQUEE_CARD_MAX_H = 240;
-    const MARQUEE_CARD_MIN_H = 132;
+    const MARQUEE_CARD_MAX_H = 110;
+    const MARQUEE_CARD_MIN_H = 96;
     const MARQUEE_PINNED_H = 72;
     const MARQUEE_REPS_MAX = 6;
     const PHOTO_ASPECT_W = 3 / 4;
@@ -2513,11 +2514,16 @@ const RNP = (() => {
         </table>`;
     }
 
+    function _stockCollapseTitle(stockBySize) {
+        const n = _schemeWhTotals(stockBySize).total;
+        return `Остатки · ${n}`;
+    }
+
     function _buildLeftPanelHTML(art, stockBySize, rawData, cal, widthPx) {
         const st = widthPx ? ` style="width:${widthPx}px;max-width:${widthPx}px"` : '';
         return `<div class="rnp-head-left-stack"${st}>
           ${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
-          ${_phoneCollapseHtml('stock', 'Остатки', _phoneStockOpen, `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`)}
+          ${_phoneCollapseHtml('stock', _stockCollapseTitle(stockBySize), _phoneStockOpen, `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`)}
         </div>`;
     }
 
@@ -3201,13 +3207,58 @@ const RNP = (() => {
 
     function _phoneCollapseHtml(id, title, open, inner) {
         if (!_isPhone() && id !== 'stock') return inner;
+        const hide = id === 'stock'
+            ? `<div class="rnp-stock-pop-bar"><span>Остатки</span><button type="button" class="rnp-stock-pop-hide" onclick="event.stopPropagation(); RNP.togglePhoneBlock('stock')">Скрыть</button></div>`
+            : '';
         return `<div class="rnp-collapse${open ? ' is-open' : ''}" data-block="${id}">
           <button type="button" class="rnp-collapse-head" onclick="RNP.togglePhoneBlock('${id}')" aria-expanded="${open ? 'true' : 'false'}">
             <span>${title}</span>
             <svg class="rnp-collapse-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </button>
-          <div class="rnp-collapse-body"><div class="rnp-collapse-inner">${inner}</div></div>
+          <div class="rnp-collapse-body"><div class="rnp-collapse-inner">${hide}${inner}</div></div>
         </div>`;
+    }
+
+    function _placeStockPop() {
+        document.querySelectorAll('.rnp-collapse[data-block="stock"]').forEach(el => {
+            const body = el.querySelector(':scope > .rnp-collapse-body');
+            const head = el.querySelector(':scope > .rnp-collapse-head');
+            if (!body || !head) return;
+            if (!el.classList.contains('is-open')) {
+                body.style.top = '';
+                body.style.left = '';
+                body.style.width = '';
+                body.style.maxHeight = '';
+                return;
+            }
+            const r = head.getBoundingClientRect();
+            const pad = 8;
+            const width = Math.min(720, Math.max(Math.round(r.width), window.innerWidth - pad * 2));
+            let left = r.left;
+            if (left + width > window.innerWidth - pad) left = Math.max(pad, window.innerWidth - pad - width);
+            if (left < pad) left = pad;
+            const top = Math.min(r.bottom + 4, window.innerHeight - 96);
+            body.style.top = `${Math.round(top)}px`;
+            body.style.left = `${Math.round(left)}px`;
+            body.style.width = `${Math.round(width)}px`;
+            body.style.maxHeight = `${Math.max(120, Math.round(window.innerHeight - top - pad))}px`;
+        });
+    }
+
+    function _bindStockPop() {
+        if (_stockPopBound) return;
+        _stockPopBound = true;
+        const place = () => { if (_phoneStockOpen) _placeStockPop(); };
+        window.addEventListener('resize', place);
+        window.addEventListener('scroll', place, true);
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && _phoneStockOpen) togglePhoneBlock('stock');
+        });
+        document.addEventListener('pointerdown', (e) => {
+            if (!_phoneStockOpen) return;
+            if (e.target.closest('.rnp-collapse[data-block="stock"]')) return;
+            togglePhoneBlock('stock');
+        });
     }
 
     function togglePhoneBlock(id) {
@@ -3217,17 +3268,14 @@ const RNP = (() => {
         const open = id === 'kpi' ? _phoneKpiOpen : _phoneStockOpen;
         if (id === 'stock') {
             try { localStorage.setItem('rnp_stock_open', open ? '1' : '0'); } catch (e) {}
+            _bindStockPop();
         }
         document.querySelectorAll(`.rnp-collapse[data-block="${id}"]`).forEach((el) => {
             el.classList.toggle('is-open', open);
             el.querySelector('.rnp-collapse-head')?.setAttribute('aria-expanded', open ? 'true' : 'false');
         });
         if (id === 'stock') {
-            const body = document.getElementById('rnp-sheet-body');
-            requestAnimationFrame(() => {
-                _syncMarqueeFill(body || document);
-                _syncHeadPin(body);
-            });
+            requestAnimationFrame(() => _placeStockPop());
         }
     }
 
@@ -3295,14 +3343,14 @@ const RNP = (() => {
           </button>`;
         return `<div class="rnp-phone-hero product-card-mobile-layout">
           <div class="rnp-phone-hero-slides">${slides}</div>
-          ${_phoneCollapseHtml('stock', 'Остатки', _phoneStockOpen, `<div class="rnp-phone-hero-donut" data-nm="${art.nm_id}">${_buildStockDonutHTML(stockBySize)}</div>`)}
+          ${_phoneCollapseHtml('stock', _stockCollapseTitle(stockBySize), _phoneStockOpen, `<div class="rnp-phone-hero-donut" data-nm="${art.nm_id}">${_buildStockDonutHTML(stockBySize)}</div>`)}
         </div>`;
     }
 
     function _buildKpiPanelHTML(art, stockBySize, rawData, cal) {
         if (_isPhone()) return _buildPhoneHeroHTML(art, stockBySize, cal);
         return `${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
-          <div class="rnp-kpi-sizes-row${_strategyTab === 4 ? ' rnp-kpi-sizes-row--focus' : ''}">${_phoneCollapseHtml('stock', 'Остатки', _phoneStockOpen, `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`)}</div>`;
+          <div class="rnp-kpi-sizes-row${_strategyTab === 4 ? ' rnp-kpi-sizes-row--focus' : ''}">${_phoneCollapseHtml('stock', _stockCollapseTitle(stockBySize), _phoneStockOpen, `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`)}</div>`;
     }
 
     function _buildTopPanelHTML(art, stockBySize, rawData, cal) {
@@ -5697,23 +5745,15 @@ const RNP = (() => {
             }
 
             const isBottomGallery = wrap.classList.contains('rnp-general-gallery-marquee');
-            const wide = wrap.closest('.rnp-head-wide');
-            const left = wrap.closest('.rnp-head-left') || scope.querySelector('.rnp-head-left');
-            const stack = wide
-                ? wide.querySelector('.rnp-head-wide-info')
-                : left?.querySelector('.rnp-head-left-stack');
             const pin = wrap.closest('.rnp-head-marquee-pin');
             const pinned = !!(wrap.closest('.is-pinned'));
-            const stackH = isBottomGallery ? 0 : (stack?.clientHeight || 0);
             if (pin && !isBottomGallery) {
-                if (pinned) pin.style.height = `${MARQUEE_PINNED_H}px`;
-                else if (stackH > 0) pin.style.height = `${stackH}px`;
+                pin.style.height = `${pinned ? MARQUEE_PINNED_H : MARQUEE_CARD_MAX_H}px`;
             }
-            const availH = isBottomGallery
-                ? 96
-                : (pinned ? MARQUEE_PINNED_H : (pin?.clientHeight || wrap.clientHeight || stackH || 168));
             const gap = 3;
-            let cardH = Math.min(MARQUEE_CARD_MAX_H, Math.max(pinned ? 64 : 88, availH));
+            let cardH = isBottomGallery
+                ? 96
+                : (pinned ? MARQUEE_PINNED_H : MARQUEE_CARD_MAX_H);
             let cardW = Math.round(cardH * PHOTO_ASPECT_W);
 
             const baseCount = parseInt(track.dataset.baseCount, 10) || track.children.length;
@@ -6087,6 +6127,10 @@ const RNP = (() => {
         _applyEditMode();
         _updateEditModeBtn();
         _syncFrozenPane(document.getElementById('rnp-root') || document);
+        if (_phoneStockOpen) {
+            _bindStockPop();
+            requestAnimationFrame(() => _placeStockPop());
+        }
     }
 
     function _updateEditModeBtn() {

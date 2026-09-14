@@ -1534,9 +1534,9 @@
         .rnp-head-wide {
             display: grid;
             grid-template-columns: minmax(460px, 520px) minmax(240px, 1fr);
-            gap: 10px 16px;
+            gap: 6px 12px;
             align-items: start;
-            padding: 8px 12px 6px;
+            padding: 6px 12px 4px;
             min-width: 0;
             box-sizing: border-box;
         }
@@ -1553,20 +1553,23 @@
             min-width: 0;
             position: relative;
             overflow: hidden;
-            align-self: stretch;
-            min-height: 168px;
+            align-self: start;
+            min-height: 110px;
+            height: 110px;
+            max-height: 110px;
         }
         .rnp-head-wide .rnp-head-marquee-pin {
             position: relative;
             left: auto !important;
             width: 100%;
             max-width: 100%;
-            height: 100%;
-            min-height: 168px;
+            height: 110px;
+            min-height: 110px;
+            max-height: 110px;
             z-index: 1;
         }
         .rnp-head-wide .rnp-kpi-top:not(.rnp-kpi-top--compact) {
-            grid-template-columns: 48px minmax(72px, 1fr) minmax(52px, 64px) minmax(160px, 1.3fr);
+            grid-template-columns: 40px minmax(72px, 1fr) minmax(52px, 64px) minmax(160px, 1.3fr);
         }
         .rnp-head-left--lifted {
             height: 0 !important;
@@ -1705,7 +1708,7 @@
         }
         .rnp-test-card {
             flex: 0 0 auto;
-            width: 126px; height: 168px;
+            width: 82px; height: 110px;
             aspect-ratio: 3 / 4;
             display: block; border-radius: 6px; overflow: hidden;
             border: 1px solid var(--border);
@@ -1773,8 +1776,8 @@
         .rnp-head-left .rnp-kpi-block { border: none; margin: 0; }
         .rnp-head-left .rnp-kpi-top:not(.rnp-kpi-top--compact) {
             width: 100%;
-            grid-template-columns: 48px minmax(40px, 1fr) minmax(40px, 52px) minmax(88px, 1.1fr);
-            grid-template-rows: repeat(4, minmax(14px, auto));
+            grid-template-columns: 40px minmax(40px, 1fr) minmax(36px, 48px) minmax(88px, 1.1fr);
+            grid-template-rows: repeat(4, minmax(12px, auto));
             grid-template-areas:
                 "photo name  name  kpis"
                 "photo nmid  cost  kpis"
@@ -1788,8 +1791,8 @@
         }
         .rnp-kpi-top {
             display: grid;
-            grid-template-columns: 48px minmax(72px, 1fr) minmax(52px, 64px) minmax(160px, 1.3fr);
-            grid-template-rows: repeat(4, minmax(14px, auto));
+            grid-template-columns: 40px minmax(72px, 1fr) minmax(52px, 64px) minmax(160px, 1.3fr);
+            grid-template-rows: repeat(4, minmax(12px, auto));
             grid-template-areas:
                 "photo name  name  kpis"
                 "photo nmid  cost  kpis"
@@ -1804,13 +1807,13 @@
             background: var(--surface);
             display: flex; align-items: center; justify-content: center;
             overflow: hidden;
-            min-height: 56px;
-            border-radius: 12px;
-            margin: 2px;
+            min-height: 40px;
+            border-radius: 8px;
+            margin: 1px;
             cursor: zoom-in;
         }
         .rnp-gs-photo img {
-            width: 100%; height: 100%; min-height: 56px;
+            width: 100%; height: 100%; min-height: 40px;
             object-fit: contain; object-position: center; display: block;
         }
         .rnp-gs-name {
@@ -1878,13 +1881,17 @@
         }
         .rnp-collapse-body { display: block; }
         .rnp-collapse-inner { min-width: 0; }
-        .rnp-article-panel--wide .rnp-collapse[data-block="stock"] > .rnp-collapse-head,
-        .rnp-kpi-sizes-row .rnp-collapse[data-block="stock"] > .rnp-collapse-head,
-        .rnp-head-wide .rnp-collapse[data-block="stock"] > .rnp-collapse-head {
+        .rnp-collapse[data-block="stock"] {
+            position: relative;
+            z-index: 56;
+            width: auto;
+            max-width: 100%;
+        }
+        .rnp-collapse[data-block="stock"] > .rnp-collapse-head {
             display: inline-flex;
             align-items: center;
             gap: 6px;
-            margin: 2px 0 4px;
+            margin: 2px 0 0;
             padding: 3px 8px;
             border: none;
             border-radius: 8px;
@@ -1896,36 +1903,53 @@
             letter-spacing: -0.02em;
             cursor: pointer;
         }
-        .rnp-article-panel--wide .rnp-collapse-chevron,
-        .rnp-kpi-sizes-row .rnp-collapse-chevron,
-        .rnp-head-wide .rnp-collapse-chevron {
+        .rnp-collapse[data-block="stock"] > .rnp-collapse-head:hover {
+            color: var(--accent);
+            background: var(--accent-soft);
+        }
+        .rnp-collapse[data-block="stock"] .rnp-collapse-chevron {
             width: 12px; height: 12px; flex-shrink: 0;
             color: var(--text-muted);
             transition: transform 0.18s ease;
         }
-        .rnp-article-panel--wide .rnp-collapse.is-open .rnp-collapse-chevron,
-        .rnp-kpi-sizes-row .rnp-collapse.is-open .rnp-collapse-chevron,
-        .rnp-head-wide .rnp-collapse.is-open .rnp-collapse-chevron {
+        .rnp-collapse[data-block="stock"].is-open .rnp-collapse-chevron {
             transform: rotate(180deg);
         }
-        .rnp-article-panel--wide .rnp-collapse[data-block="stock"] > .rnp-collapse-body,
-        .rnp-kpi-sizes-row .rnp-collapse[data-block="stock"] > .rnp-collapse-body,
-        .rnp-head-wide .rnp-collapse[data-block="stock"] > .rnp-collapse-body {
-            display: grid;
-            grid-template-rows: 0fr;
-            transition: grid-template-rows 0.18s ease;
+        .rnp-collapse[data-block="stock"] > .rnp-collapse-body {
+            display: none;
         }
-        .rnp-article-panel--wide .rnp-collapse[data-block="stock"] .rnp-collapse-inner,
-        .rnp-kpi-sizes-row .rnp-collapse[data-block="stock"] .rnp-collapse-inner,
-        .rnp-head-wide .rnp-collapse[data-block="stock"] .rnp-collapse-inner {
-            overflow: hidden;
-            min-height: 0;
+        .rnp-collapse[data-block="stock"].is-open > .rnp-collapse-body {
+            display: block;
+            position: fixed;
+            z-index: 80;
+            box-sizing: border-box;
+            overflow: auto;
+            padding: 8px 10px 10px;
+            background: var(--surface-solid);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22);
         }
-        .rnp-article-panel--wide .rnp-collapse[data-block="stock"].is-open > .rnp-collapse-body,
-        .rnp-kpi-sizes-row .rnp-collapse[data-block="stock"].is-open > .rnp-collapse-body,
-        .rnp-head-wide .rnp-collapse[data-block="stock"].is-open > .rnp-collapse-body {
-            grid-template-rows: 1fr;
+        .rnp-stock-pop-bar {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 10px; margin-bottom: 8px;
         }
+        .rnp-stock-pop-bar span {
+            font-size: 11px; font-weight: 800; color: var(--text-primary);
+        }
+        .rnp-stock-pop-hide {
+            flex-shrink: 0;
+            padding: 4px 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--sel);
+            color: var(--text-primary);
+            font: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .rnp-stock-pop-hide:hover { border-color: var(--accent-border); color: var(--accent); }
         .rnp-kpi-sizes-row {
             padding: 2px 4px 4px;
             overflow-x: auto;
@@ -3750,8 +3774,8 @@
             .rnp-cat-header { min-height: 36px; font-size: 12px; padding: 8px 10px; }
 
             .rnp-article-panel--phone {
-                padding: 6px 8px 8px;
-                overflow: hidden;
+                padding: 4px 8px 6px;
+                overflow: visible;
             }
             .rnp-article-panel--phone.is-pinned .rnp-phone-hero-slides,
             .rnp-article-panel--phone.is-pinned .rnp-phone-hero-slides .rnp-head-marquee-pin,
@@ -3775,7 +3799,7 @@
             }
             .rnp-phone-hero-slides {
                 position: relative;
-                height: 176px;
+                height: 110px;
                 overflow: hidden;
                 border-radius: 16px;
                 background: var(--surface);
@@ -3785,8 +3809,8 @@
                 left: 0;
                 width: 100%;
                 max-width: 100%;
-                height: 176px;
-                min-height: 176px;
+                height: 110px;
+                min-height: 110px;
                 background: transparent;
             }
             .rnp-phone-hero-slides .rnp-marquee-wrap {
@@ -3796,7 +3820,7 @@
             .rnp-phone-hero-banner {
                 display: block;
                 width: 100%;
-                height: 176px;
+                height: 110px;
                 padding: 0;
                 border: none;
                 border-radius: 16px;
@@ -3883,6 +3907,28 @@
             .rnp-article-panel--phone .rnp-collapse-inner { overflow: hidden; }
             .rnp-article-panel--phone .rnp-collapse.is-open .rnp-collapse-body {
                 grid-template-rows: 1fr;
+            }
+            .rnp-article-panel--phone .rnp-collapse[data-block="stock"] > .rnp-collapse-body {
+                display: none;
+                grid-template-rows: none;
+                transition: none;
+            }
+            .rnp-article-panel--phone .rnp-collapse[data-block="stock"].is-open > .rnp-collapse-body {
+                display: block;
+                position: fixed;
+                grid-template-rows: none;
+                left: 8px;
+                right: 8px;
+                width: auto;
+                max-width: none;
+            }
+            .rnp-article-panel--phone .rnp-stock-pop-bar {
+                margin-bottom: 10px;
+            }
+            .rnp-article-panel--phone .rnp-stock-pop-hide {
+                min-height: 32px;
+                padding: 6px 12px;
+                font-size: 12px;
             }
             .rnp-article-panel--phone .rnp-collapse.is-open .rnp-kpi-grid--gs {
                 padding-top: 8px;
@@ -5722,9 +5768,9 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.6ee119e9d0.min.js"></script>
-<script src="/dist/wb-formulas.0ad2106fd2.min.js"></script>
-<script src="/dist/ads-command-center.233e066fd2.min.js"></script>
+<script src="/dist/rnp-module.b4e8357b0d.min.js"></script>
+<script src="/dist/wb-formulas.fc1e69ed87.min.js"></script>
+<script src="/dist/ads-command-center.caf134ecd4.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
