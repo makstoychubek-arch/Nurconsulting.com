@@ -1535,7 +1535,7 @@
             display: grid;
             grid-template-columns: minmax(460px, 520px) minmax(240px, 1fr);
             gap: 6px 12px;
-            align-items: start;
+            align-items: stretch;
             padding: 6px 12px 4px;
             min-width: 0;
             box-sizing: border-box;
@@ -1543,10 +1543,15 @@
         .rnp-head-wide-info {
             min-width: 0;
             max-width: 520px;
-            overflow: visible;
+            overflow: hidden;
+            height: 110px;
         }
-        .rnp-head-wide-info .rnp-head-left-stack {
-            overflow: visible;
+        .rnp-head-wide-info .rnp-head-left-stack,
+        .rnp-head-wide-info .rnp-kpi-block,
+        .rnp-head-wide-info .rnp-kpi-top {
+            height: 100%;
+            max-height: 110px;
+            overflow: hidden;
             max-width: none;
         }
         .rnp-head-wide-photos {
@@ -1584,15 +1589,23 @@
         .rnp-sheet-table thead tr.rnp-head-panel th.rnp-head-left {
             position: sticky; left: 0; top: auto; z-index: 46;
             background: var(--surface-solid) !important;
-            text-align: left; vertical-align: top;
+            text-align: left; vertical-align: stretch;
             padding: 0 !important;
             border-right: none;
             box-shadow: none;
             overflow: hidden;
             box-sizing: border-box;
+            height: 110px;
+            max-height: 110px;
         }
-        .rnp-head-left-stack { display: flex; flex-direction: column; gap: 0; min-width: 0; max-width: 100%; overflow: hidden; box-sizing: border-box; }
+        .rnp-head-left-stack { display: flex; flex-direction: column; gap: 0; min-width: 0; max-width: 100%; height: 100%; overflow: hidden; box-sizing: border-box; }
         .rnp-head-left-stack > * { min-width: 0; }
+        .rnp-head-left .rnp-kpi-block,
+        .rnp-head-left .rnp-kpi-top,
+        .rnp-head-wide .rnp-kpi-block {
+            height: 100%;
+            min-height: 0;
+        }
         .rnp-head-sizes-inline { padding: 1px 2px 2px; overflow-x: auto; max-width: 100%; }
         .rnp-head-sizes-inline .rnp-stock-block { max-width: 100%; }
         .rnp-stock-scheme-wrap { min-width: 0; max-width: 100%; }
@@ -1776,8 +1789,9 @@
         .rnp-head-left .rnp-kpi-block { border: none; margin: 0; }
         .rnp-head-left .rnp-kpi-top:not(.rnp-kpi-top--compact) {
             width: 100%;
+            height: 100%;
             grid-template-columns: 40px minmax(40px, 1fr) minmax(36px, 48px) minmax(88px, 1.1fr);
-            grid-template-rows: repeat(4, minmax(12px, auto));
+            grid-template-rows: repeat(4, minmax(12px, 1fr));
             grid-template-areas:
                 "photo name  name  kpis"
                 "photo nmid  cost  kpis"
@@ -1792,7 +1806,7 @@
         .rnp-kpi-top {
             display: grid;
             grid-template-columns: 40px minmax(72px, 1fr) minmax(52px, 64px) minmax(160px, 1.3fr);
-            grid-template-rows: repeat(4, minmax(12px, auto));
+            grid-template-rows: repeat(4, minmax(12px, 1fr));
             grid-template-areas:
                 "photo name  name  kpis"
                 "photo nmid  cost  kpis"
@@ -1869,11 +1883,22 @@
             grid-area: kpis;
             grid-row: 1 / 5;
             border: none;
-            border-radius: 12px;
+            border-radius: 10px;
             margin: 1px 2px 1px 0;
-            padding: 2px 4px;
+            padding: 3px 5px;
             background: var(--sel);
-            display: flex; align-items: center;
+            display: flex; align-items: stretch;
+            min-height: 0;
+        }
+        .rnp-gs-kpis .rnp-collapse,
+        .rnp-gs-kpis .rnp-collapse-body,
+        .rnp-gs-kpis .rnp-collapse-inner {
+            height: 100%;
+            min-height: 0;
+        }
+        .rnp-gs-kpis .rnp-kpi-grid--gs {
+            height: 100%;
+            align-content: space-between;
         }
         .rnp-collapse { width: 100%; min-width: 0; }
         .rnp-collapse-head {
@@ -5768,7 +5793,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.b4e8357b0d.min.js"></script>
+<script src="/dist/rnp-module.cd9e6ea0ed.min.js"></script>
 <script src="/dist/wb-formulas.fc1e69ed87.min.js"></script>
 <script src="/dist/ads-command-center.caf134ecd4.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>

@@ -579,10 +579,13 @@ assert.ok(
     'wide photos stick at the top and shrink after the sheet is scrolled'
 );
 assert.ok(
-    html.includes('.rnp-collapse[data-block="stock"] > .rnp-collapse-head') &&
-    html.includes('.rnp-stock-pop-hide') &&
-    html.includes('position: fixed'),
-    'desktop Остатки open as an overlay and do not stretch the photo strip'
+    !grabFn(rnpSrc, '_buildLeftPanelHTML').includes('_phoneCollapseHtml') &&
+    grabFn(rnpSrc, '_buildLeftPanelHTML').includes('_buildKpiTopHTML'),
+    'desktop info card is only the profitability block — no Остатки hide button'
+);
+assert.ok(
+    /function _buildKpiPanelHTML[\s\S]*?if \(_isPhone\(\)\) return _buildPhoneHeroHTML[\s\S]*?return _buildKpiTopHTML/.test(rnpSrc),
+    'desktop product card keeps KPIs in the info box without a stock collapse row'
 );
 assert.ok(
     html.includes("localStorage.getItem('nr_theme')") &&
@@ -770,9 +773,9 @@ assert.ok(
     assert.strictEqual(desk._phoneCollapseHtml('kpi', 'Показатели', false, '<b>keep</b>'), '<b>keep</b>');
     const deskStock = desk._phoneCollapseHtml('stock', 'Остатки', true, 'BODY');
     assert.ok(deskStock.includes('data-block="stock"') && deskStock.includes('is-open') && deskStock.includes('BODY'),
-        'desktop Остатки stay behind a trigger so the photo strip stays short');
-    assert.ok(deskStock.includes('rnp-stock-pop-hide') && deskStock.includes('Скрыть'),
-        'stock pop has an explicit hide button');
+        'phone Остатки helper still wraps the donut');
+    assert.ok(!deskStock.includes('Скрыть') && !deskStock.includes('rnp-stock-pop-hide'),
+        'stock pop has no hide button — tap Остатки again to close');
 }
 assert.ok(
     rnpSrc.includes('function _buildPhoneHeroHTML') &&
@@ -785,8 +788,8 @@ assert.ok(
 assert.ok(
     rnpSrc.includes("_phoneCollapseHtml('stock', _stockCollapseTitle(stockBySize), _phoneStockOpen") &&
     rnpSrc.includes('rnp-phone-hero-donut') &&
-    rnpSrc.includes('rnp-stock-pop-hide'),
-    'phone Остатки header opens an overlay donut with a hide button'
+    !rnpSrc.includes('rnp-stock-pop-hide'),
+    'phone Остатки header opens the donut overlay; no hide button in the info card'
 );
 assert.ok(
     html.includes('.rnp-phone-hero') &&
@@ -796,7 +799,6 @@ assert.ok(
     html.includes('.rnp-article-panel--phone .rnp-kpi-top') &&
     html.includes('.rnp-table-scroll .rnp-head-panel { display: none; }') &&
     html.includes('.rnp-collapse.is-open .rnp-phone-hero-donut') &&
-    html.includes('.rnp-stock-pop-hide') &&
     html.includes('.rnp-collapse[data-block="stock"].is-open > .rnp-collapse-body') &&
     html.includes('position: fixed'),
     'phone CSS keeps slideshow + overlay stocks and hides the article/KPI block'

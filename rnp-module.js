@@ -2523,7 +2523,6 @@ const RNP = (() => {
         const st = widthPx ? ` style="width:${widthPx}px;max-width:${widthPx}px"` : '';
         return `<div class="rnp-head-left-stack"${st}>
           ${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
-          ${_phoneCollapseHtml('stock', _stockCollapseTitle(stockBySize), _phoneStockOpen, `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`)}
         </div>`;
     }
 
@@ -3207,15 +3206,12 @@ const RNP = (() => {
 
     function _phoneCollapseHtml(id, title, open, inner) {
         if (!_isPhone() && id !== 'stock') return inner;
-        const hide = id === 'stock'
-            ? `<div class="rnp-stock-pop-bar"><span>Остатки</span><button type="button" class="rnp-stock-pop-hide" onclick="event.stopPropagation(); RNP.togglePhoneBlock('stock')">Скрыть</button></div>`
-            : '';
         return `<div class="rnp-collapse${open ? ' is-open' : ''}" data-block="${id}">
           <button type="button" class="rnp-collapse-head" onclick="RNP.togglePhoneBlock('${id}')" aria-expanded="${open ? 'true' : 'false'}">
             <span>${title}</span>
             <svg class="rnp-collapse-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
           </button>
-          <div class="rnp-collapse-body"><div class="rnp-collapse-inner">${hide}${inner}</div></div>
+          <div class="rnp-collapse-body"><div class="rnp-collapse-inner">${inner}</div></div>
         </div>`;
     }
 
@@ -3349,8 +3345,7 @@ const RNP = (() => {
 
     function _buildKpiPanelHTML(art, stockBySize, rawData, cal) {
         if (_isPhone()) return _buildPhoneHeroHTML(art, stockBySize, cal);
-        return `${_buildKpiTopHTML(art, stockBySize, rawData, cal)}
-          <div class="rnp-kpi-sizes-row${_strategyTab === 4 ? ' rnp-kpi-sizes-row--focus' : ''}">${_phoneCollapseHtml('stock', _stockCollapseTitle(stockBySize), _phoneStockOpen, `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`)}</div>`;
+        return _buildKpiTopHTML(art, stockBySize, rawData, cal);
     }
 
     function _buildTopPanelHTML(art, stockBySize, rawData, cal) {
