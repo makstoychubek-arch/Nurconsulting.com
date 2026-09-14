@@ -563,10 +563,14 @@ assert.ok(rnpSrc.includes('function _needsWideHead') && rnpSrc.includes('functio
     'without August weeks KPI and photos sit above the table, not in a 172px frozen cell');
 assert.ok(rnpSrc.includes("if (_needsWideHead(cal)) return '';"),
     'sheet head stays empty on desktop when there are no compare weeks');
-assert.ok(html.includes('.rnp-head-wide') && html.includes('140px minmax(0, 1fr) 200px'),
-    'wide RNP head keeps a slim info column so остатки get the middle');
-assert.ok(html.includes('.rnp-head-wide-info') && html.includes('width: 140px'),
-    'first info block is capped at 140px');
+assert.ok(html.includes('.rnp-head-wide') && html.includes('152px max-content minmax(0, 1fr)'),
+    'wide RNP head packs info and compact stocks, leftover goes to the photo gallery');
+assert.ok(html.includes('.rnp-head-wide-info') && html.includes('width: 152px'),
+    'first info block is capped so the gallery can grow');
+assert.ok(html.includes('.rnp-head-wide-stocks .rnp-stock-table') && html.includes('width: max-content'),
+    'stock size table must not stretch and leave a gap after На складе');
+assert.ok(html.includes('.rnp-head-wide-info .rnp-gs-photo') && html.includes('object-fit: cover'),
+    'main article photo sits in a 3/4 frame instead of a stretched stamp');
 assert.ok(html.includes('.rnp-head-wide-info') && html.includes('.rnp-head-wide-photos') && html.includes('.rnp-head-wide-stocks'),
     'wide head is a fixed row: товар, остатки, фото');
 assert.ok(

@@ -1613,9 +1613,12 @@
             height: 72px;
             max-height: 72px;
         }
-        .rnp-article-panel--wide.is-pinned .rnp-gs-photo,
-        .rnp-article-panel--wide.is-pinned .rnp-gs-photo img {
-            min-height: 48px;
+        .rnp-article-panel--wide.is-pinned .rnp-head-wide-info .rnp-gs-photo,
+        .rnp-article-panel--wide.is-pinned .rnp-head-wide-info .rnp-gs-photo img {
+            width: 44px;
+            height: 58px;
+            min-height: 0;
+            max-height: 58px;
         }
         .rnp-article-panel--phone,
         .rnp-article-panel--narrow {
@@ -1661,8 +1664,8 @@
         }
         .rnp-head-wide {
             display: grid;
-            grid-template-columns: 140px minmax(0, 1fr) 200px;
-            gap: 4px 8px;
+            grid-template-columns: 152px max-content minmax(0, 1fr);
+            gap: 4px 10px;
             align-items: stretch;
             padding: 4px 10px 4px;
             min-width: 0;
@@ -1672,19 +1675,21 @@
             overflow: hidden;
         }
         .rnp-head-wide-info {
-            width: 140px;
-            max-width: 140px;
+            width: 152px;
+            max-width: 152px;
             min-width: 0;
             overflow: hidden;
             height: 100%;
         }
         .rnp-head-wide-info .rnp-layout-info {
-            grid-template-columns: 36px minmax(0, 1fr);
-            gap: 2px 6px;
+            grid-template-columns: 58px minmax(0, 1fr);
+            gap: 0 8px;
+            align-items: center;
         }
         .rnp-head-wide-info .rnp-layout-info-meta {
             grid-template-columns: minmax(0, 1fr);
             gap: 0;
+            align-content: center;
         }
         .rnp-head-wide-info .rnp-gs-name {
             font-size: 8px;
@@ -1699,8 +1704,24 @@
             padding: 0;
             font-size: 8px;
         }
-        .rnp-head-wide-info .rnp-gs-photo,
-        .rnp-head-wide-info .rnp-gs-photo img { min-height: 0; }
+        .rnp-head-wide-info .rnp-gs-photo {
+            width: 58px;
+            height: 78px;
+            min-width: 58px;
+            min-height: 0;
+            max-height: 78px;
+            align-self: center;
+            border-radius: 8px;
+            margin: 0;
+        }
+        .rnp-head-wide-info .rnp-gs-photo img {
+            width: 58px;
+            height: 78px;
+            min-height: 0;
+            max-height: 78px;
+            object-fit: cover;
+            object-position: center top;
+        }
         .rnp-head-wide-info .rnp-layout-info,
         .rnp-head-wide-info .rnp-head-left-stack,
         .rnp-head-wide-info .rnp-kpi-block,
@@ -1711,6 +1732,8 @@
             max-width: none;
         }
         .rnp-head-wide-stocks {
+            width: max-content;
+            max-width: none;
             min-width: 0;
             overflow: hidden;
             height: 100%;
@@ -1718,15 +1741,22 @@
         .rnp-head-wide-stocks .rnp-stock-scheme-wrap {
             display: flex;
             flex-wrap: nowrap;
-            align-items: stretch;
-            gap: 8px 12px;
+            align-items: center;
+            gap: 6px 8px;
             height: 100%;
+            width: max-content;
             min-width: 0;
         }
         .rnp-head-wide-stocks .rnp-head-sizes-inline {
-            flex: 1 1 180px;
+            flex: 0 0 auto;
+            width: max-content;
             min-width: 0;
-            overflow: auto;
+            overflow: hidden;
+        }
+        .rnp-head-wide-stocks .rnp-stock-block,
+        .rnp-head-wide-stocks .rnp-stock-table {
+            width: max-content;
+            max-width: none;
         }
         .rnp-head-wide-stocks .rnp-stock-donut {
             flex: 0 0 auto;
