@@ -579,9 +579,13 @@ assert.ok(
     'wide photos stick at the top and shrink after the sheet is scrolled'
 );
 assert.ok(
-    html.includes('.rnp-article-panel--wide .rnp-collapse[data-block="stock"] > .rnp-collapse-head') &&
-    html.includes('grid-template-rows: 0fr'),
-    'desktop Остатки header can hide the size grid so photos shrink'
+    !grabFn(rnpSrc, '_buildLeftPanelHTML').includes('_phoneCollapseHtml') &&
+    grabFn(rnpSrc, '_buildLeftPanelHTML').includes('_buildKpiTopHTML'),
+    'desktop info card is only the profitability block — no Остатки hide button'
+);
+assert.ok(
+    /function _buildKpiPanelHTML[\s\S]*?if \(_isPhone\(\)\) return _buildPhoneHeroHTML[\s\S]*?return _buildKpiTopHTML/.test(rnpSrc),
+    'desktop product card keeps KPIs in the info box without a stock collapse row'
 );
 assert.ok(
     html.includes("localStorage.getItem('nr_theme')") &&
@@ -637,7 +641,8 @@ assert.ok(rnpSrc.includes('function _syncSettingsGroups') && rnpSrc.includes('rn
     assert.strictEqual(fns._leftFrozenPx(withWeeks), 412);
 }
 assert.ok(!/pin\.style\.height\s*=\s*.*leftTh/.test(rnpSrc), 'marquee pin must not follow leftTh — that loop grows photos');
-assert.ok(rnpSrc.includes('pin.style.height = `${stackH}px`'), 'photo pin matches the KPI+sizes stack so cards are not clipped');
+assert.ok(rnpSrc.includes('pin.style.height = `${pinned ? MARQUEE_PINNED_H : MARQUEE_CARD_MAX_H}px`'), 'photo pin stays short; stocks overlay does not stretch the collage');
+assert.ok(rnpSrc.includes('const MARQUEE_CARD_MAX_H = 110'), 'collage cards are ~110px so the sheet gets more room');
 assert.ok(!rnpSrc.includes('leftTh?.offsetWidth'), 'frozen width must not follow the KPI colspan');
 assert.ok(rnpSrc.includes('acc += _frozenWeekW()'), 'sticky week offsets stay on design widths, not measured growth');
 assert.ok(rnpSrc.includes('MARQUEE_CARD_MAX_H'), 'photo cards must cap height so they do not grow on each resize');
@@ -732,7 +737,7 @@ assert.ok(
     rnpSrc.includes('function togglePhoneBlock') &&
     rnpSrc.includes("title, open, inner") &&
     rnpSrc.includes("_phoneCollapseHtml('kpi', 'Показатели'") &&
-    rnpSrc.includes("_phoneCollapseHtml('stock', 'Остатки'"),
+    rnpSrc.includes("_phoneCollapseHtml('stock', _stockCollapseTitle"),
     'phone card collapses Показатели and Остатки independently'
 );
 assert.ok(
@@ -768,7 +773,9 @@ assert.ok(
     assert.strictEqual(desk._phoneCollapseHtml('kpi', 'Показатели', false, '<b>keep</b>'), '<b>keep</b>');
     const deskStock = desk._phoneCollapseHtml('stock', 'Остатки', true, 'BODY');
     assert.ok(deskStock.includes('data-block="stock"') && deskStock.includes('is-open') && deskStock.includes('BODY'),
-        'desktop can collapse Остатки so the photo strip shrinks with it');
+        'phone Остатки helper still wraps the donut');
+    assert.ok(!deskStock.includes('Скрыть') && !deskStock.includes('rnp-stock-pop-hide'),
+        'stock pop has no hide button — tap Остатки again to close');
 }
 assert.ok(
     rnpSrc.includes('function _buildPhoneHeroHTML') &&
@@ -779,18 +786,22 @@ assert.ok(
     'phone card is the photo slideshow plus a collapsible stock donut'
 );
 assert.ok(
-    rnpSrc.includes("_phoneCollapseHtml('stock', 'Остатки', _phoneStockOpen") &&
-    rnpSrc.includes('rnp-phone-hero-donut'),
-    'phone Остатки header hides the FBO/FBS donut'
+    rnpSrc.includes("_phoneCollapseHtml('stock', _stockCollapseTitle(stockBySize), _phoneStockOpen") &&
+    rnpSrc.includes('rnp-phone-hero-donut') &&
+    !rnpSrc.includes('rnp-stock-pop-hide'),
+    'phone Остатки header opens the donut overlay; no hide button in the info card'
 );
 assert.ok(
     html.includes('.rnp-phone-hero') &&
     html.includes('.product-card-mobile-layout') &&
-    html.includes('.rnp-phone-hero-slides') &&
+    html.includes('.rnp-phone-hero-slides {') &&
+    html.includes('height: 110px') &&
     html.includes('.rnp-article-panel--phone .rnp-kpi-top') &&
     html.includes('.rnp-table-scroll .rnp-head-panel { display: none; }') &&
-    html.includes('.rnp-collapse.is-open .rnp-phone-hero-donut'),
-    'phone CSS keeps slideshow + donut and hides the article/KPI block'
+    html.includes('.rnp-collapse.is-open .rnp-phone-hero-donut') &&
+    html.includes('.rnp-collapse[data-block="stock"].is-open > .rnp-collapse-body') &&
+    html.includes('position: fixed'),
+    'phone CSS keeps slideshow + overlay stocks and hides the article/KPI block'
 );
 assert.ok(rnpSrc.includes('rnp-settings-phone-tools') && rnpSrc.includes('_weeksCollapsed'),
     'Excel/План/секции move into RNP settings on the phone');
@@ -1500,6 +1511,7 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
     const hero = new Function(`
         function _isPhone() { return true; }
         const _phoneStockOpen = true;
+        function _stockCollapseTitle() { return 'Остатки'; }
         function _phoneCollapseHtml(id, title, open, inner) {
             return '<div class="rnp-collapse' + (open ? ' is-open' : '') + '" data-block="' + id + '">' + title + inner + '</div>';
         }
