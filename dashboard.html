@@ -34,7 +34,7 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
     <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.bd53c38425.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.0974a589a9.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -1591,10 +1591,7 @@
         .rnp-article-panel--wide.is-pinned .rnp-head-wide {
             padding: 4px 12px;
             gap: 8px 12px;
-            align-items: center;
-        }
-        .rnp-article-panel--wide.is-pinned .rnp-stock-scheme-wrap {
-            display: none;
+            align-items: stretch;
         }
         .rnp-article-panel--wide.is-pinned .rnp-head-wide-photos,
         .rnp-article-panel--wide.is-pinned .rnp-head-wide .rnp-head-marquee-pin {
@@ -1619,107 +1616,6 @@
         .rnp-article-panel--narrow.is-pinned {
             box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
         }
-        .rnp-layout { min-width: 0; }
-        .rnp-layout-toolbar {
-            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-            padding: 4px 12px 2px; font-size: 10px; font-weight: 700;
-            color: var(--text-muted);
-        }
-        .rnp-layout-toolbar[hidden] { display: none !important; }
-        .rnp-layout-add, .rnp-layout-reset {
-            padding: 3px 8px; border: 1px solid var(--border); border-radius: 8px;
-            background: var(--sel); color: var(--text-primary); font: inherit;
-            font-size: 10px; font-weight: 700; cursor: pointer;
-        }
-        .rnp-layout-canvas {
-            position: relative;
-            width: 100%;
-            min-height: 0;
-            overflow: hidden;
-            box-sizing: border-box;
-        }
-        .rnp-layout-block {
-            position: absolute;
-            box-sizing: border-box;
-            overflow: hidden;
-            border: 1px solid transparent;
-            border-radius: 10px;
-            background: var(--surface-solid);
-        }
-        .rnp-layout--edit .rnp-layout-block {
-            border-color: var(--border);
-            cursor: move;
-            box-shadow: 0 0 0 1px var(--border);
-        }
-        .rnp-layout--edit .rnp-layout-block.is-drag {
-            z-index: 6;
-            border-color: var(--accent-border);
-            box-shadow: 0 0 0 2px var(--accent-soft);
-        }
-        .rnp-layout-block-inner {
-            width: 100%; height: 100%; overflow: auto;
-            box-sizing: border-box; padding: 4px 6px;
-        }
-        .rnp-layout-block[data-block="photos"] .rnp-layout-block-inner { padding: 0; overflow: hidden; }
-        .rnp-layout-block[data-block="photos"] .rnp-head-marquee-pin,
-        .rnp-layout-block[data-block="photos"] .rnp-head-wide-photos,
-        .rnp-layout-block[data-block="photos"] .rnp-marquee-wrap {
-            position: relative; left: auto !important; width: 100%; max-width: 100%;
-            height: 100%; min-height: 0; max-height: 100%;
-        }
-        .rnp-layout-block[data-block="stocks"] .rnp-stock-scheme-wrap {
-            display: flex; flex-wrap: wrap; align-items: flex-start;
-            gap: 6px 14px; height: 100%; min-width: 0;
-        }
-        .rnp-layout-block[data-block="stocks"] .rnp-head-sizes-inline {
-            flex: 1 1 260px; min-width: 0; max-width: 100%;
-        }
-        .rnp-layout-block[data-block="stocks"] .rnp-stock-donut {
-            flex: 0 1 220px; padding: 0;
-        }
-        .rnp-layout-resize {
-            display: none; position: absolute; right: 2px; bottom: 2px;
-            width: 14px; height: 14px; cursor: nwse-resize;
-            background:
-                linear-gradient(135deg, transparent 50%, var(--accent) 50%) bottom right / 10px 10px no-repeat;
-        }
-        .rnp-layout-hide {
-            display: none; position: absolute; top: 2px; right: 2px; z-index: 3;
-            width: 18px; height: 18px; padding: 0; border: none;
-            border-radius: 6px; background: var(--sel); color: var(--text-muted);
-            font: inherit; font-size: 13px; font-weight: 800; line-height: 1; cursor: pointer;
-        }
-        .rnp-layout-hide:hover { color: var(--accent); background: var(--accent-soft); }
-        .rnp-layout--edit .rnp-layout-resize,
-        .rnp-layout--edit .rnp-layout-hide { display: block; pointer-events: auto; }
-        .rnp-layout--edit .rnp-layout-block-inner { pointer-events: none; }
-        .rnp-layout--edit .rnp-layout-block::before {
-            content: attr(data-label);
-            position: absolute;
-            left: 8px;
-            top: 4px;
-            z-index: 2;
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            color: var(--text-muted);
-            pointer-events: none;
-        }
-        .rnp-layout--edit .rnp-marquee-track { animation-play-state: paused; }
-        .rnp-layout-restore {
-            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-            padding: 4px 12px 2px;
-        }
-        .rnp-layout--edit .rnp-layout-restore,
-        .rnp-article-panel.is-pinned .rnp-layout-restore { display: none !important; }
-        .rnp-layout--dragging { user-select: none; }
-        .rnp-article-panel--wide.is-pinned .rnp-layout-block[data-block="stocks"] {
-            display: none !important;
-        }
-        .rnp-article-panel--wide.is-pinned .rnp-layout-canvas {
-            height: var(--rnp-layout-pin-h, 120px) !important;
-            min-height: 72px;
-        }
         .rnp-layout-info {
             display: grid;
             grid-template-columns: 44px minmax(0, 1fr);
@@ -1729,7 +1625,7 @@
         .rnp-layout-info .rnp-gs-photo {
             grid-area: auto;
             grid-column: 1;
-            grid-row: 1;
+            grid-row: 1 / -1;
             min-height: 0; height: auto; max-height: none;
             margin: 0; align-self: stretch;
         }
@@ -1749,51 +1645,72 @@
         .rnp-layout-info-meta .rnp-gs-name {
             grid-column: 1 / -1;
         }
-        .rnp-layout-kpis { height: 100%; }
-        .rnp-layout-kpis .rnp-kpi-grid--gs {
-            height: 100%; align-content: space-between;
-        }
-        .rnp-article-panel.is-pinned .rnp-layout-toolbar { display: none !important; }
         .rnp-head-wide {
             display: grid;
-            grid-template-columns: minmax(460px, 520px) minmax(240px, 1fr);
+            grid-template-columns: minmax(200px, 260px) minmax(320px, 1.15fr) minmax(220px, 1fr);
             gap: 6px 12px;
             align-items: stretch;
             padding: 6px 12px 4px;
             min-width: 0;
             box-sizing: border-box;
+            height: 118px;
         }
         .rnp-head-wide-info {
             min-width: 0;
-            max-width: 520px;
             overflow: hidden;
-            height: 110px;
+            height: 100%;
         }
+        .rnp-head-wide-info .rnp-layout-info,
         .rnp-head-wide-info .rnp-head-left-stack,
         .rnp-head-wide-info .rnp-kpi-block,
         .rnp-head-wide-info .rnp-kpi-top {
             height: 100%;
-            max-height: 110px;
+            max-height: 100%;
             overflow: hidden;
             max-width: none;
+        }
+        .rnp-head-wide-stocks {
+            min-width: 0;
+            overflow: hidden;
+            height: 100%;
+        }
+        .rnp-head-wide-stocks .rnp-stock-scheme-wrap {
+            display: flex;
+            flex-wrap: nowrap;
+            align-items: stretch;
+            gap: 8px 12px;
+            height: 100%;
+            min-width: 0;
+        }
+        .rnp-head-wide-stocks .rnp-head-sizes-inline {
+            flex: 1 1 180px;
+            min-width: 0;
+            overflow: auto;
+        }
+        .rnp-head-wide-stocks .rnp-stock-donut {
+            flex: 0 0 auto;
+            padding: 0;
+            align-self: center;
+        }
+        .rnp-head-wide-stocks .rnp-stock-donut-chart {
+            width: 72px; height: 72px; flex: 0 0 72px;
         }
         .rnp-head-wide-photos {
             min-width: 0;
             position: relative;
             overflow: hidden;
-            align-self: start;
-            min-height: 110px;
-            height: 110px;
-            max-height: 110px;
+            height: 100%;
+            min-height: 0;
+            max-height: 100%;
         }
         .rnp-head-wide .rnp-head-marquee-pin {
             position: relative;
             left: auto !important;
             width: 100%;
             max-width: 100%;
-            height: 110px;
-            min-height: 110px;
-            max-height: 110px;
+            height: 100%;
+            min-height: 0;
+            max-height: 100%;
             z-index: 1;
         }
         .rnp-head-wide .rnp-kpi-top:not(.rnp-kpi-top--compact) {
@@ -6032,7 +5949,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.5dc69acd1d.min.js"></script>
+<script src="/dist/rnp-module.9c64349390.min.js"></script>
 <script src="/dist/wb-formulas.fc1e69ed87.min.js"></script>
 <script src="/dist/ads-command-center.caf134ecd4.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>

@@ -560,10 +560,10 @@ assert.ok(rnpSrc.includes('function _needsWideHead') && rnpSrc.includes('functio
     'without August weeks KPI and photos sit above the table, not in a 172px frozen cell');
 assert.ok(rnpSrc.includes("if (_needsWideHead(cal)) return '';"),
     'sheet head stays empty on desktop when there are no compare weeks');
-assert.ok(html.includes('.rnp-head-wide') && html.includes('minmax(460px, 520px)'),
-    'wide RNP head keeps a 460px info column so photos cannot cover numbers');
-assert.ok(html.includes('.rnp-head-wide-info') && html.includes('.rnp-head-wide-photos'),
-    'wide head splits KPI/stocks and the photo strip');
+assert.ok(html.includes('.rnp-head-wide') && html.includes('minmax(200px, 260px)'),
+    'wide RNP head keeps a fixed info column so photos cannot cover numbers');
+assert.ok(html.includes('.rnp-head-wide-info') && html.includes('.rnp-head-wide-photos') && html.includes('.rnp-head-wide-stocks'),
+    'wide head is a fixed row: товар, остатки, фото');
 assert.ok(
     /rnp-sheet-body \{[\s\S]*?overflow-y:\s*auto/.test(html) &&
     html.includes('min-height: 0; height: 100%') &&
@@ -579,67 +579,21 @@ assert.ok(
     'wide photos stick at the top and shrink after the sheet is scrolled'
 );
 assert.ok(
-    rnpSrc.includes('function _defaultLayout') &&
-    rnpSrc.includes('function _clampLayoutBlock') &&
-    rnpSrc.includes('function resetLayout') &&
-    rnpSrc.includes('function toggleLayoutBlock') &&
-    rnpSrc.includes('rnp-layout-block') &&
-    rnpSrc.includes('rnp-layout-resize') &&
-    rnpSrc.includes('rnp-layout-hide') &&
-    rnpSrc.includes("LAYOUT_KEY = 'rnp_block_layout_v3'") &&
-    !rnpSrc.includes('rnp_block_layout_v3_') &&
-    !/LAYOUT_KEY = `[^`]*\$\{_cab\}/.test(rnpSrc),
-    'RNP edit mode can drag, resize and hide header blocks; one layout for every cabinet'
+    !rnpSrc.includes('function _defaultLayout') &&
+    !rnpSrc.includes('function resetLayout') &&
+    !rnpSrc.includes('rnp-layout-resize') &&
+    !rnpSrc.includes('rnp-layout-canvas') &&
+    rnpSrc.includes('rnp-head-wide--stocks') &&
+    rnpSrc.includes('_stockSchemeInnerHTML') &&
+    !rnpSrc.includes('_buildKpisBlockHTML'),
+    'desktop RNP head is a fixed row: info, stocks, photos — no drag editor'
 );
 assert.ok(
-    html.includes('.rnp-layout-canvas') &&
-    html.includes('.rnp-layout--edit .rnp-layout-resize') &&
-    html.includes('cursor: nwse-resize') &&
-    html.includes('grid-area: auto') &&
-    html.includes('--rnp-layout-pin-h') &&
-    html.includes('.rnp-layout--edit .rnp-layout-block-inner') &&
-    html.includes('pointer-events: none') &&
-    html.includes('.rnp-layout-restore'),
-    'layout editor CSS shows resize handles only in edit mode and resets named grid areas'
+    rnpSrc.includes('rnp-head-wide-stocks') &&
+    html.includes('.rnp-head-wide-stocks') &&
+    !html.includes('.rnp-article-panel--wide.is-pinned .rnp-stock-scheme-wrap {\n            display: none'),
+    'остатки stay in the middle slot and do not hide when the head pins'
 );
-{
-    const helpers = [
-        grabFn(rnpSrc, '_layoutBlockTitle'),
-        grabFn(rnpSrc, '_defaultLayout'),
-        grabFn(rnpSrc, '_clampLayoutBlock'),
-        grabFn(rnpSrc, '_layoutCanvasH'),
-        grabFn(rnpSrc, '_layoutTopRowH'),
-        grabFn(rnpSrc, '_visibleBlockBottom'),
-        grabFn(rnpSrc, '_ensureStocksPlacement'),
-        grabFn(rnpSrc, '_normalizeLayout'),
-    ].join('\n');
-    const lay = new Function(`${helpers}; return { _defaultLayout, _clampLayoutBlock, _layoutCanvasH, _layoutTopRowH, _ensureStocksPlacement, _normalizeLayout };`)();
-    const d = lay._defaultLayout();
-    assert.strictEqual(d.v, 3);
-    assert.ok(d.blocks.info && d.blocks.kpis && d.blocks.photos);
-    assert.strictEqual(d.blocks.stocks.hidden, false, 'остатки видны по умолчанию');
-    assert.ok(d.h >= d.blocks.stocks.y + d.blocks.stocks.h, 'canvas fits the stock row');
-    const clamped = lay._clampLayoutBlock({ x: -10, y: -4, w: 3, h: 10 }, d.blocks.info);
-    assert.ok(clamped.x >= 0 && clamped.w >= 12 && clamped.h >= 56);
-    const grown = lay._normalizeLayout({
-        blocks: { photos: { x: 0, y: 0, w: 50, h: 240, hidden: false } },
-    });
-    assert.ok(grown.h >= 240, 'canvas grows when a block is resized taller');
-    assert.strictEqual(grown.blocks.stocks.hidden, false, 'missing stocks block stays visible');
-    const fresh = lay._normalizeLayout(null);
-    assert.strictEqual(fresh.v, 3);
-    assert.strictEqual(fresh.blocks.stocks.hidden, false);
-    assert.ok(fresh.h >= 220, 'default canvas includes the stock strip');
-    const overlap = { blocks: {
-        info: { x: 0, y: 0, w: 28, h: 120, hidden: false },
-        kpis: { x: 28, y: 0, w: 34, h: 120, hidden: false },
-        photos: { x: 62, y: 0, w: 38, h: 120, hidden: false },
-        stocks: { x: 0, y: 0, w: 40, h: 80, hidden: false },
-    } };
-    const fixed = lay._normalizeLayout(overlap);
-    assert.ok(fixed.blocks.stocks.y >= 120, 'stocks do not sit on top of the first row');
-    assert.ok(lay._layoutTopRowH(d) <= 120);
-}
 assert.ok(
     !grabFn(rnpSrc, '_buildInfoBlockHTML').includes('rnp-gs-cost-input') &&
     !grabFn(rnpSrc, '_buildInfoBlockHTML').includes('RNP.setCost') &&
@@ -649,11 +603,9 @@ assert.ok(
     'себест. is edited only in RNP settings, not in the article header'
 );
 assert.ok(
-    rnpSrc.includes('data-block="${id}"') &&
-    rnpSrc.includes('rnp-layout-restore') &&
-    rnpSrc.includes("['stocks', _layoutBlockTitle('stocks')") &&
-    grabFn(rnpSrc, 'openPhoto').includes('_editMode'),
-    'stocks stay in the layout DOM, photos do not steal the drag in edit mode'
+    rnpSrc.includes('_buildWideHeadHTML(art, stockBySize, rawData, cal)') &&
+    !rnpSrc.includes('function _buildLayoutHTML'),
+    'article head uses the fixed wide template, not a freeform canvas'
 );
 assert.ok(
     !grabFn(rnpSrc, '_buildLeftPanelHTML').includes('_phoneCollapseHtml') &&
@@ -718,7 +670,7 @@ assert.ok(rnpSrc.includes('function _syncSettingsGroups') && rnpSrc.includes('rn
     assert.strictEqual(fns._leftFrozenPx(withWeeks), 412);
 }
 assert.ok(!/pin\.style\.height\s*=\s*.*leftTh/.test(rnpSrc), 'marquee pin must not follow leftTh — that loop grows photos');
-assert.ok(rnpSrc.includes('photoBlock') && rnpSrc.includes('layoutH'), 'photo cards follow the resized photos block');
+assert.ok(rnpSrc.includes('photoCol') && rnpSrc.includes('layoutH'), 'photo cards follow the fixed photos column');
 assert.ok(rnpSrc.includes('const MARQUEE_CARD_MAX_H = 110'), 'collage cards are ~110px so the sheet gets more room');
 assert.ok(!rnpSrc.includes('leftTh?.offsetWidth'), 'frozen width must not follow the KPI colspan');
 assert.ok(rnpSrc.includes('acc += _frozenWeekW()'), 'sticky week offsets stay on design widths, not measured growth');

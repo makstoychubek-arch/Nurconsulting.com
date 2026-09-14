@@ -103,10 +103,6 @@ const RNP = (() => {
         try { return localStorage.getItem('rnp_stock_open') === '1'; } catch (e) { return false; }
     })();
     let _stockPopBound = false;
-    let _layout = null;
-    let _layoutBound = false;
-    let _layoutDrag = null;
-    const LAYOUT_KEY = 'rnp_block_layout_v3';
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
@@ -2523,231 +2519,6 @@ const RNP = (() => {
         return `Остатки · ${n}`;
     }
 
-    function _layoutBlockTitle(id) {
-        if (id === 'info') return 'Товар';
-        if (id === 'kpis') return 'Рентабельность';
-        if (id === 'photos') return 'Фото';
-        if (id === 'stocks') return 'Остатки';
-        return id;
-    }
-
-    function _defaultLayout() {
-        return {
-            v: 3,
-            h: 224,
-            blocks: {
-                info: { x: 0, y: 0, w: 28, h: 120, hidden: false },
-                kpis: { x: 28.5, y: 0, w: 33, h: 120, hidden: false },
-                photos: { x: 62, y: 0, w: 38, h: 120, hidden: false },
-                stocks: { x: 0, y: 124, w: 100, h: 100, hidden: false },
-            },
-        };
-    }
-
-    function _clampLayoutBlock(b, fb) {
-        const base = fb || { x: 0, y: 0, w: 24, h: 118, hidden: false };
-        const out = {
-            x: Number(b?.x),
-            y: Number(b?.y),
-            w: Number(b?.w),
-            h: Number(b?.h),
-            hidden: !!(b && b.hidden),
-        };
-        if (!Number.isFinite(out.x)) out.x = base.x;
-        if (!Number.isFinite(out.y)) out.y = base.y;
-        if (!Number.isFinite(out.w)) out.w = base.w;
-        if (!Number.isFinite(out.h)) out.h = base.h;
-        out.w = Math.max(12, Math.min(100, Math.round(out.w * 10) / 10));
-        out.h = Math.max(56, Math.min(480, Math.round(out.h)));
-        out.x = Math.max(0, Math.min(100 - out.w, Math.round(out.x * 10) / 10));
-        out.y = Math.max(0, Math.min(800, Math.round(out.y)));
-        return out;
-    }
-
-    function _layoutCanvasH(L) {
-        let h = 110;
-        Object.values(L?.blocks || {}).forEach(b => {
-            if (!b || b.hidden) return;
-            h = Math.max(h, (Number(b.y) || 0) + (Number(b.h) || 0));
-        });
-        return Math.max(110, Math.min(720, Math.round(h)));
-    }
-
-    function _layoutTopRowH(L) {
-        let h = 72;
-        Object.entries(L?.blocks || {}).forEach(([id, b]) => {
-            if (!b || b.hidden || id === 'stocks') return;
-            if ((Number(b.y) || 0) > 8) return;
-            h = Math.max(h, Number(b.h) || 0);
-        });
-        return Math.max(72, Math.min(240, Math.round(h)));
-    }
-
-    function _visibleBlockBottom(L, exceptId) {
-        let h = 0;
-        Object.entries(L?.blocks || {}).forEach(([id, b]) => {
-            if (!b || b.hidden || id === exceptId) return;
-            h = Math.max(h, (Number(b.y) || 0) + (Number(b.h) || 0));
-        });
-        return h;
-    }
-
-    function _ensureStocksPlacement(L) {
-        const s = L?.blocks?.stocks;
-        if (!s || s.hidden) return;
-        const bottom = _visibleBlockBottom(L, 'stocks');
-        if (s.y < bottom - 4 && s.y < 40) {
-            s.x = 0;
-            s.y = bottom + 4;
-            s.w = Math.max(s.w, 60);
-            s.h = Math.max(s.h, 100);
-        }
-    }
-
-    function _normalizeLayout(raw) {
-        const d = _defaultLayout();
-        const src = raw && typeof raw === 'object' ? raw : {};
-        const blocks = {};
-        Object.keys(d.blocks).forEach(id => {
-            blocks[id] = src.blocks && src.blocks[id]
-                ? _clampLayoutBlock(src.blocks[id], d.blocks[id])
-                : { ...d.blocks[id] };
-        });
-        const next = { v: 3, blocks };
-        _ensureStocksPlacement(next);
-        next.h = _layoutCanvasH(next);
-        return next;
-    }
-
-    function _loadLayout() {
-        try {
-            return _normalizeLayout(JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'));
-        } catch (e) {
-            return _defaultLayout();
-        }
-    }
-
-    function _getLayout() {
-        if (!_layout) _layout = _loadLayout();
-        _layout.h = _layoutCanvasH(_layout);
-        return _layout;
-    }
-
-    function _saveLayout() {
-        if (!_layout) return;
-        _layout.h = _layoutCanvasH(_layout);
-        try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(_layout)); } catch (e) {}
-    }
-
-    function _blockStyle(b) {
-        if (!b || b.hidden) return 'display:none';
-        return `left:${b.x}%;top:${b.y}px;width:${b.w}%;height:${b.h}px`;
-    }
-
-    function _applyLayoutStyles(root) {
-        const L = _getLayout();
-        const scope = root || document;
-        const canvas = scope.querySelector('.rnp-layout-canvas');
-        const panel = scope.querySelector('.rnp-layout-panel') || scope.querySelector('.rnp-article-panel--wide');
-        if (canvas) canvas.style.height = `${L.h}px`;
-        if (panel) panel.style.setProperty('--rnp-layout-pin-h', `${_layoutTopRowH(L)}px`);
-        scope.querySelectorAll('.rnp-layout-block').forEach(el => {
-            const b = L.blocks[el.getAttribute('data-block')];
-            el.setAttribute('style', _blockStyle(b));
-        });
-    }
-
-    function resetLayout() {
-        _layout = _defaultLayout();
-        _saveLayout();
-        if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB) _renderActiveTable();
-    }
-
-    function toggleLayoutBlock(id) {
-        const L = _getLayout();
-        if (!L.blocks[id]) return;
-        const visible = Object.values(L.blocks).filter(b => b && !b.hidden).length;
-        if (!L.blocks[id].hidden && visible <= 1) return;
-        L.blocks[id].hidden = !L.blocks[id].hidden;
-        if (!L.blocks[id].hidden && id === 'stocks') _ensureStocksPlacement(L);
-        _layout = L;
-        _saveLayout();
-        if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB) _renderActiveTable();
-    }
-
-    function _bindLayoutEditor() {
-        if (_layoutBound) return;
-        _layoutBound = true;
-        document.addEventListener('pointerdown', _onLayoutPointerDown);
-        document.addEventListener('pointermove', _onLayoutPointerMove);
-        document.addEventListener('pointerup', _onLayoutPointerUp);
-        document.addEventListener('pointercancel', _onLayoutPointerUp);
-    }
-
-    function _onLayoutPointerDown(e) {
-        if (!_editMode || _isPhone()) return;
-        const resize = e.target.closest('.rnp-layout-resize');
-        const block = e.target.closest('.rnp-layout-block');
-        if (!block || !block.closest('.rnp-layout')) return;
-        if (!resize && e.target.closest('.rnp-layout-hide')) return;
-        if (!resize && e.target.closest('input,select,textarea')) return;
-        const id = block.getAttribute('data-block');
-        const L = _getLayout();
-        const b = L.blocks[id];
-        if (!b || b.hidden) return;
-        const canvas = block.closest('.rnp-layout-canvas');
-        if (!canvas) return;
-        const cr = canvas.getBoundingClientRect();
-        if (cr.width < 40) return;
-        e.preventDefault();
-        try { block.setPointerCapture(e.pointerId); } catch (err) {}
-        _layoutDrag = {
-            id,
-            resize: !!resize,
-            x0: e.clientX,
-            y0: e.clientY,
-            start: { ...b },
-            canvasW: cr.width,
-            moved: false,
-        };
-        block.classList.add('is-drag');
-        document.querySelector('.rnp-layout')?.classList.add('rnp-layout--dragging');
-    }
-
-    function _onLayoutPointerMove(e) {
-        if (!_layoutDrag) return;
-        const L = _getLayout();
-        const b = L.blocks[_layoutDrag.id];
-        if (!b) return;
-        const dxPct = (e.clientX - _layoutDrag.x0) / _layoutDrag.canvasW * 100;
-        const dy = e.clientY - _layoutDrag.y0;
-        if (Math.abs(e.clientX - _layoutDrag.x0) > 3 || Math.abs(dy) > 3) _layoutDrag.moved = true;
-        if (_layoutDrag.resize) {
-            b.w = _layoutDrag.start.w + dxPct;
-            b.h = _layoutDrag.start.h + dy;
-        } else {
-            b.x = _layoutDrag.start.x + dxPct;
-            b.y = _layoutDrag.start.y + dy;
-        }
-        L.blocks[_layoutDrag.id] = _clampLayoutBlock(b, _layoutDrag.start);
-        L.h = _layoutCanvasH(L);
-        _layout = L;
-        _applyLayoutStyles(document.getElementById('rnp-sheet-body') || document);
-        const body = document.getElementById('rnp-sheet-body');
-        if (_layoutDrag.id === 'photos') _syncMarqueeFill(body || document);
-    }
-
-    function _onLayoutPointerUp(e) {
-        if (!_layoutDrag) return;
-        const drag = _layoutDrag;
-        _layoutDrag = null;
-        document.querySelectorAll('.rnp-layout-block.is-drag').forEach(el => el.classList.remove('is-drag'));
-        document.querySelector('.rnp-layout')?.classList.remove('rnp-layout--dragging');
-        if (drag.moved) _saveLayout();
-        const body = document.getElementById('rnp-sheet-body');
-        requestAnimationFrame(() => _syncMarqueeFill(body || document));
-    }
-
     function _buildLeftPanelHTML(art, stockBySize, rawData, cal, widthPx) {
         const st = widthPx ? ` style="width:${widthPx}px;max-width:${widthPx}px"` : '';
         return `<div class="rnp-head-left-stack"${st}>
@@ -2776,42 +2547,13 @@ const RNP = (() => {
     }
 
     function _buildWideHeadHTML(art, stockBySize, rawData, cal) {
-        return _buildLayoutHTML(art, stockBySize, rawData, cal);
-    }
-
-    function _buildLayoutHTML(art, stockBySize, rawData, cal) {
-        const L = _getLayout();
-        const edit = _editMode && !_isPhone();
-        const blocks = [
-            ['info', _layoutBlockTitle('info'), _buildInfoBlockHTML(art, rawData, cal)],
-            ['kpis', _layoutBlockTitle('kpis'), _buildKpisBlockHTML(art, rawData, cal)],
-            ['photos', _layoutBlockTitle('photos'), _buildMarqueeHTML(art, cal)],
-            ['stocks', _layoutBlockTitle('stocks'), `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`],
-        ];
-        const items = blocks.map(([id, label, inner]) => {
-            const b = L.blocks[id] || _defaultLayout().blocks[id];
-            return `<div class="rnp-layout-block" data-block="${id}" data-label="${label}" style="${_blockStyle(b)}">
-              <div class="rnp-layout-block-inner">${inner}</div>
-              <button type="button" class="rnp-layout-hide" onclick="RNP.toggleLayoutBlock('${id}')" title="Скрыть">×</button>
-              <span class="rnp-layout-resize" title="Размер"></span>
-            </div>`;
-        }).join('');
-        const hiddenIds = Object.keys(L.blocks).filter(id => L.blocks[id] && L.blocks[id].hidden);
-        const showBtns = hiddenIds
-            .map(id => `<button type="button" class="rnp-layout-add" onclick="RNP.toggleLayoutBlock('${id}')">Показать ${_layoutBlockTitle(id)}</button>`)
-            .join('');
-        const restore = hiddenIds.length
-            ? `<div class="rnp-layout-restore">${showBtns}</div>`
-            : '';
-        return `<div class="rnp-article-panel rnp-article-panel--wide rnp-layout-panel" style="--rnp-layout-pin-h:${_layoutTopRowH(L)}px">
-          <div class="rnp-layout${edit ? ' rnp-layout--edit' : ''}">
-            <div class="rnp-layout-toolbar"${edit ? '' : ' hidden'}>
-              <span>Перетащите блок · угол — размер · крестик — скрыть. Макет общий для всех кабинетов</span>
-              ${showBtns}
-              <button type="button" class="rnp-layout-reset" onclick="RNP.resetLayout()">Сбросить</button>
+        return `<div class="rnp-article-panel rnp-article-panel--wide">
+          <div class="rnp-head-wide rnp-head-wide--stocks">
+            <div class="rnp-head-wide-info">${_buildInfoBlockHTML(art, rawData, cal)}</div>
+            <div class="rnp-head-wide-stocks">
+              <div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>
             </div>
-            ${restore}
-            <div class="rnp-layout-canvas" style="height:${L.h}px">${items}</div>
+            <div class="rnp-head-wide-photos">${_buildMarqueeHTML(art, cal)}</div>
           </div>
         </div>`;
     }
@@ -3589,10 +3331,6 @@ const RNP = (() => {
               <div class="rnp-gs-usd-val">$${v.moneyUsd}</div>
             </div>
           </div>`;
-    }
-
-    function _buildKpisBlockHTML(art, rawData, cal) {
-        return `<div class="rnp-layout-kpis">${_kpiGridHTML(_collectKpiView(art, rawData, cal))}</div>`;
     }
 
     function _buildKpiTopHTML(art, stockBySize, rawData, cal) {
@@ -5863,7 +5601,7 @@ const RNP = (() => {
         } else if (_isPhone()) {
             topHTML = `<div class="rnp-article-panel rnp-article-panel--phone">${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>`;
         } else {
-            topHTML = _buildLayoutHTML(art, stockBySize, rawData, cal);
+            topHTML = _buildWideHeadHTML(art, stockBySize, rawData, cal);
         }
 
         _metricRowSeq = 0;
@@ -5937,7 +5675,7 @@ const RNP = (() => {
         if (typeof ResizeObserver === 'undefined') return;
         const scope = root || document;
         const scroll = scope.querySelector('.rnp-table-scroll') || document.getElementById('rnp-table-wrap');
-        const wide = scope.querySelector('.rnp-head-wide, .rnp-layout-canvas');
+        const wide = scope.querySelector('.rnp-head-wide');
         if (!scroll && !wide) return;
         _marqueeRo = new ResizeObserver(() => {
             if (_marqueeSyncing) return;
@@ -6021,9 +5759,9 @@ const RNP = (() => {
 
             const isBottomGallery = wrap.classList.contains('rnp-general-gallery-marquee');
             const pin = wrap.closest('.rnp-head-marquee-pin');
-            const photoBlock = wrap.closest('.rnp-layout-block[data-block="photos"]');
+            const photoCol = wrap.closest('.rnp-head-wide-photos');
             const pinned = !!(wrap.closest('.is-pinned'));
-            const layoutH = photoBlock ? Math.round(photoBlock.clientHeight || 0) : 0;
+            const layoutH = photoCol ? Math.round(photoCol.clientHeight || 0) : 0;
             const targetH = pinned
                 ? MARQUEE_PINNED_H
                 : (layoutH > 0 ? layoutH : MARQUEE_CARD_MAX_H);
@@ -6376,12 +6114,6 @@ const RNP = (() => {
         document.querySelectorAll('.rnp-sheet-table').forEach(t => {
             t.classList.toggle('rnp-sheet-table--edit-mode', _editMode);
         });
-        document.querySelectorAll('.rnp-layout').forEach((el) => {
-            el.classList.toggle('rnp-layout--edit', _editMode && !_isPhone());
-        });
-        document.querySelectorAll('.rnp-layout-toolbar').forEach((el) => {
-            el.hidden = !(_editMode && !_isPhone());
-        });
         if (!_editMode) _clearSelection();
         else _updateSelectionSum();
     }
@@ -6413,8 +6145,6 @@ const RNP = (() => {
         _applyEditMode();
         _updateEditModeBtn();
         _syncFrozenPane(document.getElementById('rnp-root') || document);
-        _bindLayoutEditor();
-        _applyLayoutStyles(document.getElementById('rnp-sheet-body') || document);
         if (_phoneStockOpen) {
             _bindStockPop();
             requestAnimationFrame(() => _placeStockPop());
@@ -6578,7 +6308,6 @@ const RNP = (() => {
     }
 
     function openPhoto(el) {
-        if (_editMode && !_isPhone()) return;
         const node = el && el.nodeType === 1 ? el : null;
         const img = node?.tagName === 'IMG' ? node : node?.querySelector?.('img');
         const src = img?.currentSrc || img?.src;
@@ -7172,7 +6901,7 @@ const RNP = (() => {
     });
 
     return { init, initCore, ensureReady, openSettings, closeSettings, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
-             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView, resetLayout, toggleLayoutBlock,
+             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
 
