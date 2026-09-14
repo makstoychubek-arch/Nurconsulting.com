@@ -66,11 +66,11 @@ assert.ok(!/<span class="rail-btn-lbl">А\/Б Тесты<\/span>/.test(html), '�
 assert.ok(!/<span class="rail-btn-lbl">Тарифы<\/span>/.test(html), 'Тарифы must not stay on the main rail');
 assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
     'ocr/rnp/tariffs flyouts must stay folded into BETA');
-assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'goods-groups'])"),
-    'dashboard, settings, RNP, advertising and Товары are live tabs');
+assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'goods-groups', 'agents'])"),
+    'dashboard, settings, RNP, advertising, Товары and Агенты are live tabs');
 assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
     'non-live modules must open the BETA stub instead of broken UIs');
-assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК и Товары'),
+assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК, Товары и Агенты'),
     'BETA stub must list the live modules');
 assert.ok(html.includes('id="gg-fbo"') && html.includes('id="gg-transit"') && html.includes('goods-catalog'),
     'Товары tab shows FBO/FBS/in-transit columns and loads the Zevina catalog');
@@ -1391,6 +1391,26 @@ assert.ok(
 assert.ok(
     fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8').includes('"/agents"'),
     'Vercel must rewrite /agents to the dashboard'
+);
+assert.ok(
+    html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'goods-groups', 'agents'])") &&
+    html.includes('data-tab="agents"') &&
+    html.includes('id="agents-hub-side"') &&
+    html.includes('function renderAgentHub') &&
+    html.includes('function submitTelegramBotHub') &&
+    html.includes('function saveAgentBrain') &&
+    html.includes('>Ватсап<') &&
+    html.includes('>Телеграм<') &&
+    html.includes('>Мозг<') &&
+    html.includes('ChatGPT') &&
+    html.includes('function deleteWhatsAppAgent'),
+    'Агенты live in the left rail: WhatsApp, Telegram bots, channel status, ChatGPT brain'
+);
+assert.ok(
+    html.includes("'telegram-bots': 'agents'") &&
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/telegram-admin/index.ts'), 'utf8').includes("action === 'create'") &&
+    fs.existsSync(path.join(__dirname, 'supabase/migrations/20260914120000_agent_hub.sql')),
+    'can add a Telegram bot and store the brain / WhatsApp rows'
 );
 
 assert.ok(!html.includes('--logo-mark: #F5C400'), 'dashboard logo mark must not be yellow');

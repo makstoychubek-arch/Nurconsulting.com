@@ -28,13 +28,31 @@ const TOKEN_ENV_FALLBACK: Record<string, string[]> = {
     notify: ['TELEGRAM_BOT_TOKEN'],
 };
 
-function tokenForBot(tokenEnv: string | null, botId: string): string {
+function envTokenForBot(tokenEnv: string | null, botId: string): string {
     const keys = TOKEN_ENV_FALLBACK[botId] || (tokenEnv ? [tokenEnv] : []);
     for (const key of keys) {
         const val = (Deno.env.get(key) ?? '').trim();
         if (val) return val;
     }
     return '';
+}
+
+async function tokenForBot(
+    admin: ReturnType<typeof createClient>,
+    tokenEnv: string | null,
+    botId: string,
+): Promise<string> {
+    try {
+        const { data } = await admin.from('telegram_bot_secrets').select('token').eq('bot_id', botId).maybeSingle();
+        const secret = String(data?.token || '').trim();
+        if (secret) return secret;
+    } catch (_) { /* table may not exist yet */ }
+    return envTokenForBot(tokenEnv, botId);
+}
+
+function slugBotId(title: string, username: string): string {
+    const raw = (username || title || 'bot').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24);
+    return raw || (`bot${Date.now().toString(36)}`);
 }
 
 async function tgApi(token: string, method: string, body?: Record<string, unknown>) {
@@ -76,7 +94,7 @@ serve(async (req) => {
             const { data: cabinets } = await admin.from('cabinets').select('id, name').order('name');
 
             const live = await Promise.all((bots || []).map(async (bot) => {
-                const tok = tokenForBot(bot.token_env, bot.id);
+                const tok = await tokenForBot(admin, bot.token_env, bot.id);
                 let me: Record<string, unknown> | null = null;
                 let webhook: Record<string, unknown> | null = null;
                 if (tok && !bot.deleted_at) {
@@ -113,12 +131,59 @@ serve(async (req) => {
             });
         }
 
+        if (action === 'create') {
+            const title = String(body.title || '').trim();
+            const token = String(body.token || '').trim();
+            const username = String(body.username || '').trim().replace(/^@/, '');
+            const kind = ['notify', 'agent', 'utility'].includes(String(body.kind || ''))
+                ? String(body.kind)
+                : 'agent';
+            const notes = String(body.notes || '').trim();
+            if (!title || !token) return json({ error: 'нужны название и токен бота' }, 400);
+            const meRes = await tgApi(token, 'getMe');
+            if (!meRes.ok) return json({ error: 'Telegram не принял токен' }, 400);
+            const liveUser = String(meRes.data?.result?.username || username || '').trim();
+            let botId = slugBotId(title, liveUser);
+            const { data: exists } = await admin.from('telegram_bots').select('id').eq('id', botId).maybeSingle();
+            if (exists) botId = `${botId}${Date.now().toString(36).slice(-4)}`;
+            const webhookPath = kind === 'notify' ? null : `telegram-router?bot=${botId}`;
+            const { error: insErr } = await admin.from('telegram_bots').insert({
+                id: botId,
+                kind,
+                title,
+                username: liveUser || null,
+                token_env: 'CUSTOM_BOT_TOKEN',
+                webhook_path: webhookPath,
+                is_enabled: true,
+                notes: notes || 'Добавлен из кабинета',
+                updated_at: new Date().toISOString(),
+            });
+            if (insErr) return json({ error: insErr.message }, 500);
+            const { error: secErr } = await admin.from('telegram_bot_secrets').upsert({
+                bot_id: botId,
+                token,
+                updated_at: new Date().toISOString(),
+            });
+            if (secErr) return json({ error: 'бот создан, но токен не сохранился: ' + secErr.message }, 500);
+            if (webhookPath) {
+                const hookUrl = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/${webhookPath}`;
+                const secret = (Deno.env.get('TELEGRAM_WEBHOOK_SECRET') ?? '').trim();
+                await tgApi(token, 'setWebhook', {
+                    url: hookUrl,
+                    secret_token: secret || undefined,
+                    allowed_updates: ['message'],
+                    drop_pending_updates: false,
+                });
+            }
+            return json({ ok: true, bot_id: botId, username: liveUser });
+        }
+
         const botId = String(body.bot_id || '');
         if (!botId) return json({ error: 'bot_id required' }, 400);
 
         const { data: bot } = await admin.from('telegram_bots').select('*').eq('id', botId).maybeSingle();
         if (!bot) return json({ error: 'bot not found' }, 404);
-        const tok = tokenForBot(bot.token_env, bot.id);
+        const tok = await tokenForBot(admin, bot.token_env, bot.id);
 
         if (action === 'disable' || action === 'enable') {
             const enabled = action === 'enable';

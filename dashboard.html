@@ -400,17 +400,86 @@
         .tg-mute-row:last-child { border-bottom: none; }
         .tg-channel-card { margin-top: 12px; }
         .agents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+        .agents-grid--short { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
         .agent-fn-card {
             text-align: left; width: 100%; background: var(--surface-solid);
             border: 1px solid var(--border); border-radius: 16px; padding: 16px; cursor: pointer;
             transition: border-color 0.15s ease, background 0.15s ease;
         }
+        .agents-grid--short .agent-fn-card { border-radius: 12px; padding: 8px 10px; }
         .agent-fn-card:hover { border-color: var(--accent-border); }
         .agent-fn-card.active { border-color: var(--accent-border); background: var(--accent-soft); }
         .agent-fn-num { font-size: 11px; font-weight: 800; color: var(--accent); letter-spacing: 0.04em; }
+        .agents-grid--short .agent-fn-num { font-size: 9px; }
         .agent-fn-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-top: 6px; }
+        .agents-grid--short .agent-fn-title { font-size: 12px; margin-top: 2px; }
         .agent-fn-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
+        .agents-grid--short .agent-fn-desc { display: none; }
         .agent-fn-who { font-size: 10px; font-weight: 700; color: var(--text-secondary); margin-top: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
+        .agents-grid--short .agent-fn-who { margin-top: 4px; }
+        .agents-hub { display: flex; align-items: stretch; gap: 12px; min-height: 0; }
+        .agents-hub-side {
+            width: 248px; min-width: 248px; display: flex; flex-direction: column; gap: 8px;
+        }
+        .agents-hub-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
+        .ah-group {
+            background: var(--surface-solid); border: 1px solid var(--border);
+            border-radius: 14px; padding: 8px 10px 8px;
+        }
+        .ah-head {
+            display: flex; align-items: center; justify-content: space-between; gap: 6px;
+            margin-bottom: 6px;
+        }
+        .ah-title { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+        .ah-add {
+            width: 22px; height: 22px; border: none; border-radius: 7px; padding: 0;
+            background: var(--sel); color: var(--text-primary); font: inherit; font-size: 14px;
+            font-weight: 800; line-height: 1; cursor: pointer;
+        }
+        .ah-add:hover { background: var(--accent-soft); color: var(--accent); }
+        .ah-row {
+            display: flex; align-items: center; gap: 6px; padding: 4px 0;
+            border-top: 1px solid var(--border);
+        }
+        .ah-row:first-of-type { border-top: none; }
+        .ah-name { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; color: var(--text-primary);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ah-sub { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+        .ah-del {
+            width: 20px; height: 20px; border: none; border-radius: 6px; padding: 0;
+            background: transparent; color: var(--text-muted); font: inherit; font-size: 13px;
+            font-weight: 800; cursor: pointer; line-height: 1;
+        }
+        .ah-del:hover { color: var(--red); background: rgba(248,113,113,0.12); }
+        .ah-empty { font-size: 11px; color: var(--text-muted); padding: 2px 0 4px; }
+        .ah-brain {
+            display: flex; align-items: center; gap: 8px;
+        }
+        .ah-brain-meta { flex: 1; min-width: 0; }
+        .ah-brain-prov { font-size: 13px; font-weight: 800; color: var(--text-primary); }
+        .ah-edit {
+            width: 22px; height: 22px; border: none; border-radius: 7px; padding: 0;
+            background: var(--sel); color: var(--text-muted); cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .ah-edit:hover { color: var(--accent); background: var(--accent-soft); }
+        .ah-edit svg { width: 12px; height: 12px; }
+        .ah-form { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; }
+        .ah-form input, .ah-form select {
+            width: 100%; border: 1px solid var(--border); border-radius: 8px;
+            background: var(--surface); color: var(--text-primary);
+            font: inherit; font-size: 12px; padding: 6px 8px;
+        }
+        .ah-form-actions { display: flex; gap: 6px; }
+        .ah-form-actions button { flex: 1; font-size: 11px; font-weight: 700; padding: 5px 8px; border-radius: 8px; cursor: pointer; }
+        .ah-channels { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 2px; }
+        .ah-ch { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 999px; background: var(--sel); color: var(--text-muted); }
+        .ah-ch.ok { background: rgba(52,199,89,0.15); color: var(--green); }
+        .ah-ch.off { background: rgba(248,113,113,0.12); color: var(--red); }
+        @media (max-width: 900px) {
+            .agents-hub { flex-direction: column; }
+            .agents-hub-side { width: 100%; min-width: 0; }
+        }
         .agent-result-url { word-break: break-all; font-family: ui-monospace, monospace; font-size: 12px; color: var(--accent); }
         .metric-card {
             background: var(--surface);
@@ -4239,9 +4308,9 @@
            временный style. */
         try {
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
-            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/goods': 'goods-groups' };
+            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
-            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'goods-groups': 1 };
+            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'goods-groups': 1, agents: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -4299,6 +4368,10 @@
                 <button type="button" class="rail-btn" data-tab="goods-groups" title="Товары">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
                     <span class="rail-btn-lbl">Товары</span>
+                </button>
+                <button type="button" class="rail-btn" data-tab="agents" title="Агенты">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+                    <span class="rail-btn-lbl">Агенты</span>
                 </button>
                 <button type="button" class="rail-btn" data-flyout="fly-beta">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
@@ -4446,6 +4519,14 @@
                     <div class="flyout-user-role">Сотрудник</div>
                 </div>
             </div>
+        </div>
+
+        <div class="sidebar-flyout" id="fly-agents" data-group="agents">
+            <div class="flyout-header">
+                <span class="flyout-title">Агенты</span>
+                <button type="button" class="flyout-pin" title="Закрепить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3.76z"/></svg></button>
+            </div>
+            <div class="flyout-body" id="fly-agents-body"></div>
         </div>
     </div>
 
@@ -5604,13 +5685,18 @@
         </div>
 
         <div id="tab-agents" class="tab-content space-y-5">
-            <div class="widget-card p-6">
-                <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Агенты · топ-10 функций WB</h3>
-                <p class="text-xs mb-4" style="color:var(--text-muted)">То, что боты умеют через API продавца. Работает с выбранным кабинетом — токен должен иметь нужную категорию WB (Пользователи, Цены, Отзывы, Маркетплейс, Чат, Финансы).</p>
-                <div id="agents-grid" class="agents-grid"></div>
-            </div>
-            <div id="agents-panel" class="widget-card p-6">
-                <div class="text-sm" style="color:var(--text-muted)">Выберите функцию</div>
+            <div class="agents-hub">
+                <aside class="agents-hub-side" id="agents-hub-side"></aside>
+                <div class="agents-hub-main">
+                    <div class="widget-card p-4">
+                        <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Функции WB</h3>
+                        <p class="text-xs mb-3" style="color:var(--text-muted)">Коротко: то, что боты умеют через API выбранного кабинета.</p>
+                        <div id="agents-grid" class="agents-grid agents-grid--short"></div>
+                    </div>
+                    <div id="agents-panel" class="widget-card p-4">
+                        <div class="text-sm" style="color:var(--text-muted)">Выберите функцию</div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -5954,8 +6040,8 @@
         return !!(row.is_super_admin || isSuperAdminEmail(row.email) || row.user_id === SUPER_ADMIN_ID);
     }
 
-    const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon']);
-    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'goods-groups']);
+    const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon', 'agents']);
+    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'goods-groups', 'agents']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
     // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
@@ -6874,7 +6960,7 @@
         console.info('[tariffs] plan selected:', planId);
     }
 
-    const TAB_ALIASES = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
+    const TAB_ALIASES = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups', 'telegram-bots': 'agents' };
     const MODULE_PATHS = {
         'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
         marking: '/marking', logistics: '/logistics', rnp: '/rnp', dashboard: '/space',
@@ -6900,7 +6986,7 @@
         rnp:'rnp', 'rnp-settings':'rnp', planning:'beta',
         advertising:'ads', 'ab-testing':'beta',
         seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
-        'telegram-bots':'beta', ozon:'beta', agents:'beta',
+        'telegram-bots':'agents', ozon:'beta', agents:'agents',
         cost:'beta', 'goods-groups':'goods', warehouse:'beta',
         dds:'beta', operations:'beta', obligations:'beta', 'finance-extra':'beta',
         tariffs:'beta',
@@ -7102,7 +7188,7 @@
         if (titleEl) titleEl.textContent = tabTitles[name] || 'Модуль в BETA';
         const textEl = document.getElementById('beta-stub-text');
         if (textEl) {
-            textEl.textContent = 'Сейчас работают Дашборд, РНП, Контроль РК и Товары. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
+            textEl.textContent = 'Сейчас работают Дашборд, РНП, Контроль РК, Товары и Агенты. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
         }
         updateHeaderNav(name, true);
         document.querySelector('.main-content')?.classList.remove('rnp-compact', 'logistics-compact', 'goods-compact');
@@ -7140,7 +7226,7 @@
         document.getElementById('tab-' + name)?.classList.add('active');
         highlightNavForTab(name, el);
         updateHeaderNav(name);
-        if (name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'goods-groups') {
+        if (name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'goods-groups' || name === 'agents') {
             window.closeSidebarMenus?.(true);
         }
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
@@ -12489,6 +12575,7 @@
                 }).join('');
             }
         }
+        renderAgentHub();
     }
 
     function selectTgChannel(ch) {
@@ -12599,6 +12686,233 @@
         loadOzonTokenPage();
     }
 
+    const GPT_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1', 'o4-mini'];
+    let _agentHub = { wa: [], waSource: 'local', brain: { provider: 'chatgpt', model: 'gpt-4o-mini' }, form: null };
+
+    function _ahEsc(s) { return escapeHtml(String(s || '')); }
+    function _ahJs(s) { return String(s || '').replace(/['"\\]/g, ''); }
+
+    function renderAgentHub() {
+        const html = _agentHubHTML();
+        const side = document.getElementById('agents-hub-side');
+        const fly = document.getElementById('fly-agents-body');
+        if (side) side.innerHTML = html;
+        if (fly) fly.innerHTML = html;
+    }
+
+    function _agentHubHTML() {
+        const wa = _agentHub.wa || [];
+        const bots = (_tgBotsState.bots || []).filter(b => !b.deleted_at);
+        const brain = _agentHub.brain || { provider: 'chatgpt', model: 'gpt-4o-mini' };
+        const waRows = wa.length
+            ? wa.map(w => `<div class="ah-row">
+                <span class="tg-status ${w.is_enabled === false ? 'disabled' : 'online'}">${w.is_enabled === false ? 'выкл' : 'ок'}</span>
+                <span class="ah-name" title="${_ahEsc(w.phone || '')}">${_ahEsc(w.title)}${w.phone ? ` <span class="ah-sub">${_ahEsc(w.phone)}</span>` : ''}</span>
+                <button type="button" class="ah-del" title="Удалить" onclick="deleteWhatsAppAgent('${_ahJs(w.id)}','${_ahJs(w.title)}')">×</button>
+              </div>`).join('')
+            : '<div class="ah-empty">нет номеров</div>';
+        const tgRows = bots.length
+            ? bots.map(b => {
+                const status = b.status || (b.is_enabled === false ? 'disabled' : 'offline');
+                const uname = b.live_username || b.username;
+                return `<div class="ah-row">
+                  <span class="tg-status ${status}">${TG_STATUS_LABELS[status] || status}</span>
+                  <span class="ah-name" title="${uname ? '@' + uname : ''}">${_ahEsc(b.title)}</span>
+                  <button type="button" class="ah-del" title="Удалить бота" onclick="deleteTelegramBot('${_ahJs(b.id)}','${_ahJs(b.title)}')">×</button>
+                </div>`;
+            }).join('')
+            : '<div class="ah-empty">нет действующих ботов</div>';
+        const chans = _tgChannelPills();
+        const waForm = _agentHub.form === 'wa' ? `<div class="ah-form">
+            <input class="ah-wa-title" placeholder="Имя" maxlength="40">
+            <input class="ah-wa-phone" placeholder="WhatsApp +996…">
+            <div class="ah-form-actions">
+              <button type="button" class="ui-btn ui-btn-primary" onclick="submitWhatsAppAgent(this)">Сохранить</button>
+              <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
+            </div>
+          </div>` : '';
+        const tgForm = _agentHub.form === 'tg' ? `<div class="ah-form">
+            <input class="ah-tg-title" placeholder="Название бота">
+            <input class="ah-tg-user" placeholder="@username">
+            <input class="ah-tg-token" type="password" placeholder="Токен от BotFather" autocomplete="off">
+            <div class="ah-form-actions">
+              <button type="button" class="ui-btn ui-btn-primary" onclick="submitTelegramBotHub(this)">Добавить</button>
+              <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
+            </div>
+          </div>` : '';
+        const brainForm = _agentHub.form === 'brain' ? `<div class="ah-form">
+            <select class="ah-brain-model">${GPT_MODELS.map(m => `<option value="${m}"${m === brain.model ? ' selected' : ''}>${m}</option>`).join('')}</select>
+            <div class="ah-form-actions">
+              <button type="button" class="ui-btn ui-btn-primary" onclick="saveAgentBrain(this)">Сохранить</button>
+              <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
+            </div>
+          </div>` : '';
+        return `
+          <div class="ah-group">
+            <div class="ah-head">
+              <span class="ah-title">Ватсап</span>
+              <button type="button" class="ah-add" title="Добавить" onclick="openAgentHubForm('wa')">+</button>
+            </div>
+            ${waRows}${waForm}
+          </div>
+          <div class="ah-group">
+            <div class="ah-head">
+              <span class="ah-title">Телеграм</span>
+              <button type="button" class="ah-add" title="Добавить бота" onclick="openAgentHubForm('tg')">+</button>
+            </div>
+            ${tgRows}${tgForm}
+            <div class="ah-title" style="margin-top:8px">Каналы</div>
+            <div class="ah-channels">${chans}</div>
+          </div>
+          <div class="ah-group">
+            <div class="ah-head">
+              <span class="ah-title">Мозг</span>
+              <button type="button" class="ah-edit" title="Редактировать" onclick="openAgentHubForm('brain')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+              </button>
+            </div>
+            <div class="ah-brain">
+              <div class="ah-brain-meta">
+                <div class="ah-brain-prov">ChatGPT</div>
+                <div class="ah-sub">${_ahEsc(brain.model || 'gpt-4o-mini')}</div>
+              </div>
+            </div>
+            ${brainForm}
+          </div>`;
+    }
+
+    function _tgChannelPills() {
+        const channels = _tgBotsState.channels || {};
+        const keys = Object.keys(TG_CHANNEL_LABELS);
+        const muteSet = new Set((_tgBotsState.mutes || [])
+            .filter(m => m.muted && (!currentCabinetId || m.cabinet_id === currentCabinetId))
+            .map(m => m.channel));
+        return keys.map(ch => {
+            const info = channels[ch];
+            const ok = info ? !!info.configured : !muteSet.has(ch);
+            const muted = muteSet.has(ch);
+            const cls = muted ? 'off' : ok ? 'ok' : '';
+            const st = muted ? 'выкл' : ok ? 'ок' : 'нет';
+            return `<span class="ah-ch ${cls}" title="${st}">${TG_CHANNEL_LABELS[ch]}</span>`;
+        }).join('');
+    }
+
+    function openAgentHubForm(kind) {
+        _agentHub.form = kind;
+        renderAgentHub();
+    }
+    function closeAgentHubForm() {
+        _agentHub.form = null;
+        renderAgentHub();
+    }
+
+    async function loadWhatsAppAgents() {
+        try {
+            const { data, error } = await supabase.from('whatsapp_agents').select('*').order('created_at');
+            if (error) throw error;
+            _agentHub.wa = data || [];
+            _agentHub.waSource = 'db';
+        } catch (e) {
+            try { _agentHub.wa = JSON.parse(localStorage.getItem('nr_wa_agents') || '[]'); }
+            catch (_) { _agentHub.wa = []; }
+            _agentHub.waSource = 'local';
+        }
+    }
+
+    async function loadAgentBrain() {
+        try {
+            const { data, error } = await supabase.from('agent_brain').select('provider, model').eq('id', 'default').maybeSingle();
+            if (error) throw error;
+            if (data) _agentHub.brain = { provider: data.provider || 'chatgpt', model: data.model || 'gpt-4o-mini' };
+            else throw new Error('empty');
+        } catch (e) {
+            try {
+                const raw = JSON.parse(localStorage.getItem('nr_agent_brain') || 'null');
+                if (raw && raw.model) _agentHub.brain = { provider: raw.provider || 'chatgpt', model: raw.model };
+            } catch (_) {}
+        }
+    }
+
+    async function loadAgentHub() {
+        await Promise.all([loadTelegramBotsPage(), loadWhatsAppAgents(), loadAgentBrain()]);
+        renderAgentHub();
+    }
+
+    async function submitWhatsAppAgent(btn) {
+        const box = btn.closest('.ah-form');
+        const title = box?.querySelector('.ah-wa-title')?.value.trim();
+        const phone = box?.querySelector('.ah-wa-phone')?.value.trim();
+        if (!title) { showPremiumModal('warning', 'Имя', 'Напишите, как назвать номер.'); return; }
+        try {
+            if (_agentHub.waSource === 'db') {
+                const { error } = await supabase.from('whatsapp_agents').insert({ title, phone: phone || null, is_enabled: true });
+                if (error) throw error;
+            } else {
+                _agentHub.wa.push({ id: 'local-' + Date.now(), title, phone, is_enabled: true });
+                localStorage.setItem('nr_wa_agents', JSON.stringify(_agentHub.wa));
+            }
+            _agentHub.form = null;
+            await loadWhatsAppAgents();
+            renderAgentHub();
+        } catch (e) {
+            showPremiumModal('error', 'Не удалось добавить', e.message);
+        }
+    }
+
+    async function deleteWhatsAppAgent(id, title) {
+        if (!confirm(`Удалить ватсап «${title}»?`)) return;
+        try {
+            if (_agentHub.waSource === 'db' && !String(id).startsWith('local-')) {
+                const { error } = await supabase.from('whatsapp_agents').delete().eq('id', id);
+                if (error) throw error;
+            } else {
+                _agentHub.wa = (_agentHub.wa || []).filter(w => String(w.id) !== String(id));
+                localStorage.setItem('nr_wa_agents', JSON.stringify(_agentHub.wa));
+            }
+            await loadWhatsAppAgents();
+            renderAgentHub();
+        } catch (e) {
+            showPremiumModal('error', 'Не удалось удалить', e.message);
+        }
+    }
+
+    async function submitTelegramBotHub(btn) {
+        const box = btn.closest('.ah-form');
+        const title = box?.querySelector('.ah-tg-title')?.value.trim();
+        const username = box?.querySelector('.ah-tg-user')?.value.trim();
+        const token = box?.querySelector('.ah-tg-token')?.value.trim();
+        if (!title || !token) { showPremiumModal('warning', 'Бот', 'Нужны название и токен от BotFather.'); return; }
+        try {
+            await callTelegramAdmin({ action: 'create', title, username, token, kind: 'agent' });
+            _agentHub.form = null;
+            showPremiumModal('success', 'Бот добавлен', title);
+            await loadTelegramBotsPage();
+        } catch (e) {
+            showPremiumModal('error', 'Не удалось добавить бота', e.message);
+        }
+    }
+
+    async function saveAgentBrain(btn) {
+        const model = btn.closest('.ah-form')?.querySelector('.ah-brain-model')?.value || 'gpt-4o-mini';
+        const row = { id: 'default', provider: 'chatgpt', model, updated_at: new Date().toISOString() };
+        try {
+            const { error } = await supabase.from('agent_brain').upsert(row);
+            if (error) throw error;
+        } catch (e) {
+            localStorage.setItem('nr_agent_brain', JSON.stringify({ provider: 'chatgpt', model }));
+        }
+        _agentHub.brain = { provider: 'chatgpt', model };
+        _agentHub.form = null;
+        renderAgentHub();
+    }
+
+    window.openAgentHubForm = openAgentHubForm;
+    window.closeAgentHubForm = closeAgentHubForm;
+    window.submitWhatsAppAgent = submitWhatsAppAgent;
+    window.deleteWhatsAppAgent = deleteWhatsAppAgent;
+    window.submitTelegramBotHub = submitTelegramBotHub;
+    window.saveAgentBrain = saveAgentBrain;
+
     const AGENT_FNS = [
         { id: 'invite', n: 1, title: 'Пригласительная ссылка', desc: 'Ссылка в кабинет WB по телефону сотрудника и правам доступа.', who: 'Карина' },
         { id: 'team', n: 2, title: 'Команда кабинета', desc: 'Кто уже в профиле продавца и ожидающие приглашения.', who: 'Карина' },
@@ -12623,6 +12937,7 @@
             <div class="agent-fn-who">${escapeHtml(f.who)}</div>
         </button>`).join('');
         openAgentFn(cur);
+        loadAgentHub();
     }
     window.loadAgentsPage = loadAgentsPage;
 
@@ -13845,6 +14160,7 @@
             clearTimeout(hideTimer);
             flyouts.forEach(f => f.classList.toggle('visible', f.id === id));
             syncFlyoutLayout();
+            if (id === 'fly-agents' && typeof loadAgentHub === 'function') loadAgentHub();
         }
         function hideFlyouts(force) {
             flyouts.forEach(f => {
@@ -13912,7 +14228,7 @@
         // рядом с дашбордом при загрузке.
         try {
             const pinnedId = localStorage.getItem('nr_flyout_pinned');
-            if (pinnedId && pinnedId !== 'fly-beta') localStorage.removeItem('nr_flyout_pinned');
+            if (pinnedId && pinnedId !== 'fly-beta' && pinnedId !== 'fly-agents') localStorage.removeItem('nr_flyout_pinned');
         } catch (_) {}
         hideFlyouts(true);
         syncFlyoutLayout();
