@@ -1836,22 +1836,15 @@ const RNP = (() => {
         const view = _stockSchemeView;
         const shown = view === 'fbo' ? fbo : view === 'fbs' ? fbs : total;
         const rOut = 46, rIn = 28, cx = 50, cy = 50;
-        const fboPath = _donutSlicePath(0, pct.fbo, rOut, rIn, cx, cy);
-        const fbsPath = _donutSlicePath(pct.fbo, 100, rOut, rIn, cx, cy);
-        const emptyRing = total <= 0
-            ? `<circle cx="${cx}" cy="${cy}" r="37" fill="none" stroke="var(--border)" stroke-width="16"/>`
-            : '';
-        const fboSlice = fboPath
-            ? `<path class="rnp-stock-donut-slice rnp-stock-donut-slice-fbo" d="${fboPath}" fill="var(--rnp-fbo)" onclick="RNP.setStockSchemeView('fbo')" title="FBO · склад WB РФ"></path>`
-            : '';
-        const fbsSlice = fbsPath
-            ? `<path class="rnp-stock-donut-slice rnp-stock-donut-slice-fbs" d="${fbsPath}" fill="var(--rnp-fbs)" onclick="RNP.setStockSchemeView('fbs')" title="FBS · склад продавца"></path>`
-            : '';
-        const reset = view === 'all' ? '' : `<button type="button" class="rnp-stock-donut-reset" onclick="RNP.setStockSchemeView('all')">Все склады</button>`;
+        const fboPath = _donutSlicePath(0, pct.fbo, rOut, rIn, cx, cy) || 'M0 0';
+        const fbsPath = _donutSlicePath(pct.fbo, 100, rOut, rIn, cx, cy) || 'M0 0';
         const on = (s) => view === s ? ' is-on' : '';
         return `<div class="rnp-stock-donut" data-view="${view}">
           <div class="rnp-stock-donut-chart">
-            <svg viewBox="0 0 100 100" aria-label="Остатки FBO и FBS">${emptyRing}${fboSlice}${fbsSlice}
+            <svg viewBox="0 0 100 100" aria-label="Остатки FBO и FBS">
+              <circle class="rnp-stock-donut-empty" cx="${cx}" cy="${cy}" r="37" fill="none" stroke="var(--border)" stroke-width="16" opacity="${total <= 0 ? '1' : '0'}"></circle>
+              <path class="rnp-stock-donut-slice rnp-stock-donut-slice-fbo" d="${fboPath}" fill="var(--rnp-fbo)" onclick="RNP.setStockSchemeView('fbo')" title="FBO · склад WB РФ" opacity="${pct.fbo > 0 ? '1' : '0'}"></path>
+              <path class="rnp-stock-donut-slice rnp-stock-donut-slice-fbs" d="${fbsPath}" fill="var(--rnp-fbs)" onclick="RNP.setStockSchemeView('fbs')" title="FBS · склад продавца" opacity="${pct.fbs > 0 ? '1' : '0'}"></path>
               <circle class="rnp-stock-donut-hole" cx="${cx}" cy="${cy}" r="${rIn - 1}" fill="var(--surface-solid)" onclick="RNP.setStockSchemeView('all')"></circle>
             </svg>
             <div class="rnp-stock-donut-center"><b>${shown}</b><span>шт</span></div>
@@ -1871,9 +1864,28 @@ const RNP = (() => {
               <span class="rnp-stock-donut-leg-sub">склады продавца</span>
               <span class="rnp-stock-donut-leg-qty">${fbs} шт</span>
             </button>
-            ${reset}
+            <button type="button" class="rnp-stock-donut-reset${view === 'all' ? ' is-off' : ''}" onclick="RNP.setStockSchemeView('all')">Все склады</button>
           </div>
         </div>`;
+    }
+
+    function _patchElHtml(el, html) {
+        if (!el || html == null) return;
+        if (window.domMorph && typeof window.domMorph.setInner === 'function') {
+            window.domMorph.setInner(el, html);
+            return;
+        }
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        if (el.children.length && el.children.length === tmp.children.length) {
+            for (let i = 0; i < el.children.length; i++) _patchSubtree(el.children[i], tmp.children[i]);
+            return;
+        }
+        if (!el.children.length && !tmp.children.length) {
+            if (el.textContent !== tmp.textContent) el.textContent = tmp.textContent;
+            return;
+        }
+        el.innerHTML = html;
     }
 
     function _refreshStockSchemeUI() {
@@ -1881,15 +1893,13 @@ const RNP = (() => {
             const nm = Number(el.getAttribute('data-nm'));
             const art = _articles.find(a => Number(a.nm_id) === nm) || { nm_id: nm, manual_data: {} };
             const stock = _stockCache[nm] || {};
-            el.innerHTML = _stockSchemeInnerHTML(art, stock);
+            _patchElHtml(el, _stockSchemeInnerHTML(art, stock));
         });
         document.querySelectorAll('.rnp-phone-hero-donut').forEach(el => {
             const nm = Number(el.getAttribute('data-nm'));
             const stock = _stockCache[nm] || {};
-            el.innerHTML = _buildStockDonutHTML(stock);
+            _patchElHtml(el, _buildStockDonutHTML(stock));
         });
-        const body = document.getElementById('rnp-sheet-body');
-        requestAnimationFrame(() => _syncMarqueeFill(body || document));
     }
 
     function setStockSchemeView(view) {
@@ -1968,7 +1978,7 @@ const RNP = (() => {
 
         const cell = (sz, v) => {
             const n = Number(v) || 0;
-            return `<td class="${_sizeCellCls(n)}">${n > 0 ? n : 0}</td>`;
+            return `<td class="${_sizeCellCls(n)}" data-rnp-size="${sz}">${n > 0 ? n : 0}</td>`;
         };
         const hdrCell = (sz) => {
             const x = _viewSizeQty(_getSize(merged, sz));
@@ -1978,10 +1988,10 @@ const RNP = (() => {
         const row = (label, rowCls, fn) => {
             const cells = sizes.map(sz => cell(sz, fn(_viewSizeQty(_getSize(merged, sz)))));
             const total = sizes.reduce((s, sz) => s + fn(_viewSizeQty(_getSize(merged, sz))), 0);
-            return `<tr class="${rowCls}"><td class="rnp-stock-label">${label}</td>${cells.join('')}<td class="${_sizeCellCls(total)}" style="font-weight:800">${total}</td></tr>`;
+            return `<tr class="${rowCls}"><td class="rnp-stock-label">${label}</td>${cells.join('')}<td class="${_sizeCellCls(total)} rnp-stock-total">${total}</td></tr>`;
         };
         const prodCells = sizes.map(() => `<td class="rnp-size-zero">0</td>`).join('');
-        const prodRow = `<tr class="rnp-row-prod"><td class="rnp-stock-label">В пошиве</td>${prodCells}<td class="${_sizeCellCls(inProd)}" style="font-weight:800">${inProd}</td></tr>`;
+        const prodRow = `<tr class="rnp-row-prod"><td class="rnp-stock-label">В пошиве</td>${prodCells}<td class="${_sizeCellCls(inProd)} rnp-stock-total">${inProd}</td></tr>`;
         const view = _stockSchemeView;
         const cap = view === 'fbo'
             ? '<div class="rnp-stock-scheme-cap is-fbo">Остатки · FBO · склад WB РФ</div>'
@@ -5041,8 +5051,15 @@ const RNP = (() => {
 
     function _patchSubtree(dst, src) {
         if (!dst || !src) return;
+        if (window.domMorph && typeof window.domMorph.patchNode === 'function') {
+            window.domMorph.patchNode(dst, src);
+            return;
+        }
         if (src.dataset && src.dataset.rnpValue != null && dst.dataset) {
             dst.dataset.rnpValue = src.dataset.rnpValue;
+        }
+        if (dst.matches && dst.matches('.rnp-marquee-wrap, .rnp-head-wide-photos, .rnp-phone-hero-slides, .rnp-head-marquee, .rnp-test-card, .rnp-gallery-item')) {
+            return;
         }
         if (dst.tagName === 'IMG') {
             const next = src.getAttribute('src') || '';
@@ -5060,20 +5077,23 @@ const RNP = (() => {
             return;
         }
         if (dst.tagName === 'polyline' || dst.tagName === 'path' || dst.tagName === 'circle') {
-            ['points', 'd', 'cx', 'cy', 'r', 'fill', 'stroke', 'stroke-width'].forEach(attr => {
+            ['points', 'd', 'cx', 'cy', 'r', 'fill', 'stroke', 'stroke-width', 'opacity'].forEach(attr => {
                 const v = src.getAttribute(attr);
                 if (v != null) dst.setAttribute(attr, v);
                 else if (dst.hasAttribute(attr)) dst.removeAttribute(attr);
             });
             return;
         }
-        if (dst.className !== src.className) dst.className = src.className;
-        const ss = src.getAttribute('style') || '';
-        const ds = dst.getAttribute('style') || '';
-        if (ss !== ds) {
-            if (ss) dst.setAttribute('style', ss);
-            else dst.removeAttribute('style');
+        const keep = [];
+        if (dst.classList) {
+            if (dst.classList.contains('is-pinned')) keep.push('is-pinned');
+            if (dst.classList.contains('rnp-cell-selected')) keep.push('rnp-cell-selected');
         }
+        let nextClass = src.getAttribute('class') || '';
+        keep.forEach(c => {
+            if ((' ' + nextClass + ' ').indexOf(' ' + c + ' ') < 0) nextClass = (nextClass ? nextClass + ' ' : '') + c;
+        });
+        if ((dst.getAttribute('class') || '') !== nextClass) dst.setAttribute('class', nextClass);
         if (dst.children.length && dst.children.length === src.children.length) {
             for (let i = 0; i < dst.children.length; i++) _patchSubtree(dst.children[i], src.children[i]);
             return;
@@ -5082,6 +5102,7 @@ const RNP = (() => {
             if (dst.textContent !== src.textContent) dst.textContent = src.textContent;
             return;
         }
+        if (dst.querySelector && dst.querySelector('canvas, input, textarea, select, .rnp-marquee-wrap')) return;
         if (dst.innerHTML !== src.innerHTML) dst.innerHTML = src.innerHTML;
     }
 
@@ -5103,11 +5124,28 @@ const RNP = (() => {
         const nextHead = nextTable.tHead;
         if (liveHead && nextHead && liveHead.rows.length === nextHead.rows.length) {
             for (let i = 0; i < liveHead.rows.length; i++) {
-                if (liveHead.rows[i].classList.contains('rnp-head-panel')) continue;
-                _patchSubtree(liveHead.rows[i], nextHead.rows[i]);
+                const liveRow = liveHead.rows[i];
+                const nextRow = nextHead.rows[i];
+                if (liveRow.classList.contains('rnp-head-panel')) {
+                    const liveLeft = liveRow.querySelector('.rnp-head-left');
+                    const nextLeft = nextRow.querySelector('.rnp-head-left');
+                    if (liveLeft && nextLeft) _patchSubtree(liveLeft, nextLeft);
+                    continue;
+                }
+                _patchSubtree(liveRow, nextRow);
             }
         }
-        ['.rnp-head-wide-info', '.rnp-kpi-block', '.rnp-kpi-sizes-row', '.rnp-general-bar-metrics'].forEach(sel => {
+        [
+            '.rnp-head-wide-info',
+            '.rnp-head-wide-stocks',
+            '.rnp-stock-scheme-wrap',
+            '.rnp-kpi-block',
+            '.rnp-kpi-sizes-row',
+            '.rnp-kpi-grid',
+            '.rnp-layout-info',
+            '.rnp-phone-hero-donut',
+            '.rnp-general-bar-metrics',
+        ].forEach(sel => {
             const a = body.querySelector(sel);
             const b = tmp.querySelector(sel);
             if (a && b) _patchSubtree(a, b);
@@ -5642,8 +5680,6 @@ const RNP = (() => {
             _bindArticleSwipe(body);
         } else {
             requestAnimationFrame(() => {
-                _syncFrozenPane(body);
-                _syncMarqueeFill(body);
                 _bindHeadPin(body);
             });
         }
@@ -5780,8 +5816,10 @@ const RNP = (() => {
             const capH = pinned ? MARQUEE_PINNED_H : MARQUEE_CARD_MAX_H;
             const targetH = Math.max(56, Math.min(capH, layoutH > 0 ? layoutH : capH));
             if (pin && !isBottomGallery) {
-                pin.style.height = `${targetH}px`;
-                pin.style.maxHeight = `${capH}px`;
+                const nextH = `${targetH}px`;
+                const nextMax = `${capH}px`;
+                if (pin.style.height !== nextH) pin.style.height = nextH;
+                if (pin.style.maxHeight !== nextMax) pin.style.maxHeight = nextMax;
             }
             const gap = 3;
             let cardH = isBottomGallery
@@ -5803,11 +5841,14 @@ const RNP = (() => {
             }
 
             track.querySelectorAll('.rnp-test-card, .rnp-gallery-item').forEach(card => {
+                const w = `${cardW}px`;
+                const h = `${cardH}px`;
+                if (card.style.width === w && card.style.height === h) return;
                 card.style.flex = `0 0 ${cardW}px`;
-                card.style.width = `${cardW}px`;
-                card.style.height = `${cardH}px`;
-                card.style.maxWidth = `${cardW}px`;
-                card.style.maxHeight = `${cardH}px`;
+                card.style.width = w;
+                card.style.height = h;
+                card.style.maxWidth = w;
+                card.style.maxHeight = h;
                 card.style.aspectRatio = '3 / 4';
             });
 

@@ -424,6 +424,13 @@
             ['Расход сегодня', formatMoney(one ? one.spendToday : totals.spendToday)],
             ['ДРР 7д', formatDrrLabel(one ? one.drr7 : totals.drr7)],
         ];
+        const vals = el.querySelectorAll ? el.querySelectorAll('.adv-kpi-tile-value') : [];
+        if (vals && vals.length === tiles.length) {
+            tiles.forEach(([, value], i) => {
+                if (vals[i] && vals[i].textContent !== value) vals[i].textContent = value;
+            });
+            return;
+        }
         el.innerHTML = tiles.map(([label, value]) =>
             '<div class="adv-kpi-tile"><div class="adv-kpi-tile-label">' + esc(label) +
             '</div><div class="adv-kpi-tile-value">' + esc(value) + '</div></div>'
@@ -451,7 +458,7 @@
         const campOpen = state.open.campaigns.has(ck);
         const html = [];
         html.push(
-            '<tr class="ads-hq-camp ads-hq-camp-top" data-ck="' + esc(ck) + '">' +
+            '<tr class="ads-hq-camp ads-hq-camp-top" data-key="camp:' + esc(ck) + '" data-ck="' + esc(ck) + '">' +
             '<td><input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '"></td>' +
             '<td' + (pad ? ' style="padding-left:28px"' : '') + '><button type="button" class="ads-hq-expand" data-expand="camp" data-id="' + esc(ck) + '">' +
             chevron(campOpen) + esc(camp.name) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></button></td>' +
@@ -466,12 +473,12 @@
         );
         if (!campOpen) return html.join('');
         if (!camp.clusters.length) {
-            html.push('<tr class="ads-hq-empty"><td></td><td colspan="7" style="color:var(--text-muted);padding-left:44px">Кластеры появятся после синка кампании</td></tr>');
+            html.push('<tr class="ads-hq-empty" data-key="empty:' + esc(ck) + '"><td></td><td colspan="7" style="color:var(--text-muted);padding-left:44px">Кластеры появятся после синка кампании</td></tr>');
             return html.join('');
         }
         for (const cl of camp.clusters) {
             html.push(
-                '<tr class="ads-hq-cl' + (state.selected && state.selected.clusterId === cl.id ? ' is-on' : '') + '">' +
+                '<tr class="ads-hq-cl' + (state.selected && state.selected.clusterId === cl.id ? ' is-on' : '') + '" data-key="cl:' + esc(ck) + ':' + esc(cl.id) + '">' +
                 '<td><input type="checkbox" class="ads-hq-check" data-kind="cluster" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '" data-cluster="' + esc(cl.id) + '"></td>' +
                 '<td style="padding-left:44px"><button type="button" class="ads-hq-link" data-pick="cluster" data-cabinet="' + esc(cab.id) + '" data-camp="' + esc(camp.uuid || '') + '" data-wb="' + esc(camp.wbId) + '" data-cluster="' + esc(cl.id) + '">' +
                 esc(cl.key) + '</button></td>' +
@@ -506,7 +513,7 @@
             shown += visible.length;
             if (!hideCab) {
                 html.push(
-                    '<tr class="ads-hq-cab" data-cab="' + esc(cab.id) + '">' +
+                    '<tr class="ads-hq-cab" data-key="cab:' + esc(cab.id) + '" data-cab="' + esc(cab.id) + '">' +
                     '<td><input type="checkbox" class="ads-hq-check" data-kind="cabinet" data-cabinet="' + esc(cab.id) + '"></td>' +
                     '<td>' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) + '</td>' +
                     '<td colspan="2">' + cab.activeCampaigns + ' акт.</td>' +
@@ -525,14 +532,18 @@
                 emptyShelvesHtml(paused, total) + '</td></tr>';
             return;
         }
-        tb.innerHTML = html.join('');
+        if (typeof window !== 'undefined' && window.domMorph && tb.querySelector && tb.querySelector('tr[data-key]')) {
+            window.domMorph.morphList(tb, html.join(''), 'data-key');
+        } else {
+            tb.innerHTML = html.join('');
+        }
     }
 
     function renderPhoneCamp(cab, camp) {
         const ck = cab.id + ':' + camp.wbId;
         const campOpen = state.open.campaigns.has(ck);
         const html = [];
-        html.push('<article class="ads-hq-phone-card ads-hq-phone-shelf">');
+        html.push('<article class="ads-hq-phone-card ads-hq-phone-shelf" data-key="' + esc(ck) + '">');
         html.push(
             '<button type="button" class="ads-hq-phone-head" data-expand="camp" data-id="' + esc(ck) + '">' +
             '<span>' + esc(camp.name) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></span>' +
@@ -590,7 +601,7 @@
             total += (cab.campaigns || []).length;
             shown += visible.length;
             if (!state.filterCabinetId) {
-                html.push('<div class="ads-hq-phone-cab-name">' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) + '</div>');
+                html.push('<div class="ads-hq-phone-cab-name" data-key="cab:' + esc(cab.id) + '">' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) + '</div>');
             }
             for (const camp of visible) html.push(renderPhoneCamp(cab, camp));
         }
@@ -598,7 +609,11 @@
             el.innerHTML = '<div class="ads-hq-phone-empty text-center py-8">' + emptyShelvesHtml(paused, total) + '</div>';
             return;
         }
-        el.innerHTML = html.join('');
+        if (typeof window !== 'undefined' && window.domMorph && el.querySelector && el.querySelector('[data-key]')) {
+            window.domMorph.morphList(el, html.join(''), 'data-key');
+        } else {
+            el.innerHTML = html.join('');
+        }
     }
 
     function paintTree() {

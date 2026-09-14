@@ -34,7 +34,7 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
     <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.0974a589a9.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.ae667d6034.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -160,9 +160,19 @@
         .main-content {
             transition: none;
         }
-        .kpi-hero-card { min-height: 118px; }
-        .chart-box { min-height: 220px; }
-        .metric-card { min-height: 88px; }
+        .kpi-hero-card { min-height: 118px; contain: layout style; }
+        .chart-box { min-height: 220px; contain: layout style; }
+        .metric-card { min-height: 88px; contain: layout style; }
+        .adv-kpi-tile { min-height: 72px; contain: layout style; }
+        .rnp-stock-scheme-wrap, .rnp-phone-hero-donut,
+        .rnp-head-wide-info, .rnp-head-wide-stocks, .rnp-head-wide-photos {
+            contain: layout style;
+        }
+        .kpi-hero-value, .metric-card-value, .adv-kpi-tile-value,
+        .rnp-gs-money-val, .rnp-gs-usd-val, .rnp-kpi b, .rnp-stock-donut-center b {
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+        }
         .tab-content { contain: layout; }
         #tab-rnp.tab-content, #tab-rnp-settings.tab-content { contain: none; }
         h1, h2, h3, .header-title, .flyout-title, .section-title, .chart-box-title,
@@ -1843,12 +1853,18 @@
         .rnp-stock-donut-leg-pct { font-size: 11px; font-weight: 800; color: var(--text-primary); }
         .rnp-stock-donut-leg-sub { grid-column: 2; font-size: 8px; color: var(--text-muted); }
         .rnp-stock-donut-leg-qty { grid-column: 3; font-size: 8px; color: var(--text-muted); }
+        .rnp-stock-table .rnp-stock-total { font-weight: 800; }
         .rnp-stock-donut-leg.is-on { background: var(--accent-soft); border-color: var(--border); }
         .rnp-stock-donut-reset {
             align-self: flex-start; margin-top: 1px; padding: 1px 6px;
             border: 1px solid var(--border); border-radius: 999px;
             background: var(--surface); color: var(--text-secondary);
             font-size: 8px; font-weight: 700; cursor: pointer;
+            min-height: 16px;
+        }
+        .rnp-stock-donut-reset.is-off {
+            visibility: hidden;
+            pointer-events: none;
         }
         .rnp-head-marquee {
             padding: 0 !important; vertical-align: top;
@@ -6012,9 +6028,9 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.fa5c9e1218.min.js"></script>
+<script src="/dist/rnp-module.122f11c539.min.js"></script>
 <script src="/dist/wb-formulas.fc1e69ed87.min.js"></script>
-<script src="/dist/ads-command-center.caf134ecd4.min.js"></script>
+<script src="/dist/ads-command-center.a751de01a4.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -6505,22 +6521,143 @@
     // per-row DOM state (open <details>, focus, animations, etc.) that would
     // otherwise be lost on a full innerHTML replace.
     window.domMorph = (function () {
+        const LAYOUT_STYLE = {
+            width: 1, height: 1, 'min-width': 1, 'min-height': 1, 'max-width': 1, 'max-height': 1,
+            left: 1, right: 1, top: 1, bottom: 1, flex: 1, 'flex-basis': 1, 'flex-grow': 1, 'flex-shrink': 1,
+            transform: 1, animation: 1, 'animation-duration': 1, 'aspect-ratio': 1,
+        };
+        const KEEP_CLASS = ['is-pinned', 'rnp-cell-selected'];
+        const KEEP_ATTR = ['data-base-count', 'data-base-html', 'data-swipe-bound'];
+        const SKIP_CHILD_SEL = '.rnp-marquee-wrap,.rnp-head-wide-photos,.rnp-phone-hero-slides,.rnp-head-marquee,.rnp-head-marquee-pin,.chart-canvas-wrap,.rnp-test-card,.rnp-gallery-item';
+
+        function isLayoutStyle(name) {
+            return !!LAYOUT_STYLE[name] || !!LAYOUT_STYLE[String(name || '').toLowerCase()];
+        }
+
+        function morphClass(oldEl, newEl) {
+            const extra = KEEP_CLASS.filter(c => oldEl.classList && oldEl.classList.contains(c));
+            let next = newEl.getAttribute('class') || '';
+            extra.forEach(c => {
+                if ((' ' + next + ' ').indexOf(' ' + c + ' ') < 0) next = (next ? next + ' ' : '') + c;
+            });
+            const cur = oldEl.getAttribute('class') || '';
+            if (cur !== next) oldEl.setAttribute('class', next);
+        }
+
+        function morphStyleKeepLayout(oldEl, newEl) {
+            if (!oldEl.style || !newEl.style) return;
+            const oldNames = [];
+            for (let i = 0; i < oldEl.style.length; i++) oldNames.push(oldEl.style[i]);
+            const newNames = [];
+            for (let i = 0; i < newEl.style.length; i++) newNames.push(newEl.style[i]);
+            oldNames.forEach(name => {
+                if (isLayoutStyle(name)) return;
+                if (!newEl.style.getPropertyValue(name)) oldEl.style.removeProperty(name);
+            });
+            newNames.forEach(name => {
+                if (isLayoutStyle(name)) return;
+                const v = newEl.style.getPropertyValue(name);
+                if (oldEl.style.getPropertyValue(name) !== v) {
+                    oldEl.style.setProperty(name, v, newEl.style.getPropertyPriority(name));
+                }
+            });
+        }
+
         function morphAttrs(oldEl, newEl) {
             const oldAttrs = oldEl.attributes;
             for (let i = oldAttrs.length - 1; i >= 0; i--) {
                 const name = oldAttrs[i].name;
+                if (name === 'class' || name === 'style') continue;
+                if (KEEP_ATTR.indexOf(name) >= 0) continue;
                 if (!newEl.hasAttribute(name)) oldEl.removeAttribute(name);
             }
             const newAttrs = newEl.attributes;
             for (let i = 0; i < newAttrs.length; i++) {
                 const { name, value } = newAttrs[i];
+                if (name === 'class' || name === 'style') continue;
                 if (oldEl.getAttribute(name) !== value) oldEl.setAttribute(name, value);
             }
+            morphClass(oldEl, newEl);
+            morphStyleKeepLayout(oldEl, newEl);
+        }
+
+        function skipChildren(el) {
+            if (!el || !el.matches) return false;
+            if (el.tagName === 'CANVAS' || el.tagName === 'VIDEO' || el.tagName === 'IFRAME') return true;
+            return el.matches(SKIP_CHILD_SEL);
+        }
+
+        function patchNode(oldEl, newEl) {
+            if (!oldEl || !newEl || oldEl.nodeType !== 1 || newEl.nodeType !== 1) return;
+            if (oldEl.tagName !== newEl.tagName) {
+                oldEl.replaceWith(newEl.cloneNode(true));
+                return;
+            }
+            if (oldEl.tagName === 'IMG') {
+                morphAttrs(oldEl, newEl);
+                const next = newEl.getAttribute('src') || '';
+                const cur = oldEl.getAttribute('src') || '';
+                if (next && !cur) oldEl.setAttribute('src', next);
+                return;
+            }
+            if (oldEl.tagName === 'INPUT' || oldEl.tagName === 'SELECT' || oldEl.tagName === 'TEXTAREA') {
+                morphAttrs(oldEl, newEl);
+                if (document.activeElement === oldEl) return;
+                const v = newEl.value != null ? newEl.value : newEl.getAttribute('value');
+                if (v != null && oldEl.value !== String(v)) oldEl.value = v;
+                return;
+            }
+            if (oldEl.tagName === 'polyline' || oldEl.tagName === 'path' || oldEl.tagName === 'circle') {
+                ['points', 'd', 'cx', 'cy', 'r', 'fill', 'stroke', 'stroke-width', 'opacity'].forEach(attr => {
+                    const v = newEl.getAttribute(attr);
+                    if (v != null) { if (oldEl.getAttribute(attr) !== v) oldEl.setAttribute(attr, v); }
+                    else if (oldEl.hasAttribute(attr)) oldEl.removeAttribute(attr);
+                });
+                morphClass(oldEl, newEl);
+                return;
+            }
+            morphAttrs(oldEl, newEl);
+            if (skipChildren(oldEl)) return;
+            if (oldEl.classList && oldEl.classList.contains('rnp-spark-col')) {
+                if (oldEl.innerHTML !== newEl.innerHTML) oldEl.innerHTML = newEl.innerHTML;
+                return;
+            }
+            const oc = oldEl.children;
+            const nc = newEl.children;
+            if (oc.length && oc.length === nc.length) {
+                for (let i = 0; i < oc.length; i++) patchNode(oc[i], nc[i]);
+                return;
+            }
+            if (!oc.length && !nc.length) {
+                if (oldEl.textContent !== newEl.textContent) oldEl.textContent = newEl.textContent;
+                return;
+            }
+            if (oldEl.querySelector && oldEl.querySelector('canvas, input, textarea, select, .rnp-marquee-wrap, .rnp-test-card')) return;
+            if (oldEl.innerHTML !== newEl.innerHTML) oldEl.innerHTML = newEl.innerHTML;
         }
 
         function morphNode(oldEl, newEl) {
-            morphAttrs(oldEl, newEl);
-            if (oldEl.innerHTML !== newEl.innerHTML) oldEl.innerHTML = newEl.innerHTML;
+            patchNode(oldEl, newEl);
+        }
+
+        function setInner(el, html) {
+            if (!el) return false;
+            const tmp = document.createElement(el.tagName === 'TBODY' || el.tagName === 'TABLE' ? 'tbody' : 'div');
+            tmp.innerHTML = html;
+            if (el.children.length === tmp.children.length && el.children.length) {
+                for (let i = 0; i < el.children.length; i++) patchNode(el.children[i], tmp.children[i]);
+                return true;
+            }
+            if (!el.children.length && !tmp.children.length) {
+                if (el.textContent !== tmp.textContent) el.textContent = tmp.textContent;
+                return true;
+            }
+            if (tmp.children.length === 1 && tmp.firstElementChild.tagName === el.tagName) {
+                patchNode(el, tmp.firstElementChild);
+                return true;
+            }
+            el.innerHTML = html;
+            return false;
         }
 
         // container: element whose direct children are the keyed items (e.g. a <tbody>)
@@ -6633,7 +6770,7 @@
             }
         }
 
-        return { morphList, preserveScroll };
+        return { morphList, preserveScroll, patchNode, setInner };
     })();
 
     const WB_PROXY_CACHE_TTL = {
@@ -8438,8 +8575,8 @@
         const dayTotals = days.map(() => ({ sum: 0, any: false }));
         let kolTot = 0;
         const html = [];
-        groups.forEach((g) => {
-            html.push(`<tr class="gg-sec-row"><td colspan="${colCount}">${escapeHtml(g.name)}</td></tr>`);
+        groups.forEach((g, gi) => {
+            html.push(`<tr class="gg-sec-row" data-key="sec:${gi}:${escapeHtml(g.name)}"><td colspan="${colCount}">${escapeHtml(g.name)}</td></tr>`);
             g.items.forEach((r) => {
                 const kol = catalog.warehouseQty(r);
                 kolTot += kol;
@@ -8456,13 +8593,14 @@
                 }).join('');
                 const name = escapeHtml(r.sellerArticle || '—');
                 html.push(
-                    `<tr><td class="gg-art" title="${name}">${name}</td>` +
+                    `<tr data-key="nm:${escapeHtml(String(r.nmId || ''))}"><td class="gg-art" title="${name}">${name}</td>` +
                     `<td class="gg-col-nm gg-nm">${escapeHtml(String(r.nmId || ''))}</td>` +
                     `<td class="gg-num${kol ? '' : ' gg-zero'}">${fmt(kol)}</td>${dayTds}</tr>`
                 );
             });
         });
-        body.innerHTML = html.join('');
+        if (window.domMorph && body.querySelector('tr[data-key]')) window.domMorph.morphList(body, html.join(''), 'data-key');
+        else body.innerHTML = html.join('');
         if (foot) {
             const dayFoot = days.map((d, i) => {
                 const t = dayTotals[i];
@@ -8644,19 +8782,20 @@
         }
 
         const html = [];
-        groups.forEach((g) => {
+        groups.forEach((g, gi) => {
             const sub = catalog ? catalog.sumItems(g.items) : tot;
-            html.push(`<tr class="gg-sec-row"><td colspan="${ggColSpan()}">${escapeHtml(g.name)} · ${g.items.length} · ${fmt(sub.total)}</td></tr>`);
+            html.push(`<tr class="gg-sec-row" data-key="sec:${gi}:${escapeHtml(g.name)}"><td colspan="${ggColSpan()}">${escapeHtml(g.name)} · ${g.items.length} · ${fmt(sub.total)}</td></tr>`);
             g.items.forEach((r) => {
                 const s = catalog ? catalog.stockOf(r) : {
                     fbo: Number(r.fbo || 0), fbs: Number(r.fbs || 0),
                     transit: Number(r.transit || 0), plan: Number(r.plan || 0),
                     total: Number(r.fbo || 0) + Number(r.fbs || 0) + Number(r.transit || 0) + Number(r.plan || 0),
                 };
-                html.push(`<tr>${cols.map((c) => ggCellHtml(r, s, c.id)).join('')}</tr>`);
+                html.push(`<tr data-key="nm:${escapeHtml(String(r.nmId || ''))}">${cols.map((c) => ggCellHtml(r, s, c.id)).join('')}</tr>`);
             });
         });
-        tbody.innerHTML = html.join('');
+        if (window.domMorph && tbody.querySelector('tr[data-key]')) window.domMorph.morphList(tbody, html.join(''), 'data-key');
+        else tbody.innerHTML = html.join('');
         if (tfoot) tfoot.innerHTML = `<tr class="gg-foot">${cols.map((c) => ggFootCell(c.id, tot)).join('')}</tr>`;
         if (scrollEl && scrollTop > 0) scrollEl.scrollTop = scrollTop;
     }
@@ -8684,20 +8823,21 @@
         }
         let costTot = 0;
         const html = [];
-        groups.forEach((g) => {
-            html.push(`<tr class="gg-sec-row"><td colspan="3">${escapeHtml(g.name)} · ${g.items.length}</td></tr>`);
+        groups.forEach((g, gi) => {
+            html.push(`<tr class="gg-sec-row" data-key="sec:${gi}:${escapeHtml(g.name)}"><td colspan="3">${escapeHtml(g.name)} · ${g.items.length}</td></tr>`);
             g.items.forEach((r) => {
                 const cost = Number(r.cost || 0) || 0;
                 costTot += cost;
                 html.push(
-                    `<tr><td class="gg-art" title="${escapeHtml(r.sellerArticle || '—')}">${escapeHtml(r.sellerArticle || '—')}</td>` +
+                    `<tr data-key="nm:${escapeHtml(String(r.nmId || ''))}"><td class="gg-art" title="${escapeHtml(r.sellerArticle || '—')}">${escapeHtml(r.sellerArticle || '—')}</td>` +
                     `<td class="gg-col-nm gg-nm">${escapeHtml(String(r.nmId || ''))}</td>` +
                     ggQtyInput(r, 'cost', cost) +
                     `</tr>`
                 );
             });
         });
-        tbody.innerHTML = html.join('');
+        if (window.domMorph && tbody.querySelector('tr[data-key]')) window.domMorph.morphList(tbody, html.join(''), 'data-key');
+        else tbody.innerHTML = html.join('');
         if (tfoot) {
             tfoot.innerHTML = `<tr class="gg-foot"><td class="gg-art">Итого</td><td class="gg-col-nm"></td><td class="gg-num${costTot ? '' : ' gg-zero'}" id="gg-cost-total">${fmt(costTot)}</td></tr>`;
         }
@@ -10163,18 +10303,23 @@
             .sort((x, y) => y.estProfit - x.estProfit);
         const top5 = ranked.slice(0, 5);
         const restShare = ranked.slice(5).reduce((s, a) => s + a.share, 0);
-        const chartItems = top5.map(a => ({ name: a.name, value: Math.abs(a.estProfit) || 0.0001, pct: a.share * 100 }));
+        const chartItems = top5.map(a => ({ name: a.name, nmId: a.nmId, value: Math.abs(a.estProfit) || 0.0001, pct: a.share * 100 }));
         if (restShare > 0) chartItems.push({ name: 'Остальные товары', value: Math.abs(profitFull) * restShare || 0.0001, pct: restShare * 100 });
 
         if (window.NRCharts) NRCharts.renderTopMarginDonut(chartItems);
 
         const dotColors = ['#7B61FF', '#3B82F6', '#EC4899', '#34D399', '#FBBF24', '#60A5FA'];
-        legendEl.innerHTML = chartItems.map((it, i) => `
-            <div class="dashboard-top-margin-row">
+        const legendHtml = chartItems.map((it, i) => `
+            <div class="dashboard-top-margin-row" data-key="${escapeHtml(String(it.nmId || it.name))}">
                 <span class="dashboard-top-margin-dot" style="background:${dotColors[i % dotColors.length]}"></span>
                 <span class="dashboard-top-margin-name" title="${escapeHtml(it.name)}">${escapeHtml(it.name)}</span>
                 <span class="dashboard-top-margin-pct">${it.pct.toFixed(2)}%</span>
             </div>`).join('');
+        if (window.domMorph && legendEl.querySelector('.dashboard-top-margin-row')) {
+            window.domMorph.morphList(legendEl, legendHtml, 'data-key');
+        } else {
+            legendEl.innerHTML = legendHtml;
+        }
     }
 
     async function loadLastSyncTime() {
@@ -10533,19 +10678,22 @@
         const legend = document.getElementById('dash-wh-legend');
         if (!legend) return;
         if (!entries.length) {
-            legend.innerHTML = '<div class="dash-wh-row" style="color:var(--text-muted)">Нет остатков в этой схеме</div>';
+            if (window.domMorph) window.domMorph.setInner(legend, '<div class="dash-wh-row" data-key="empty" style="color:var(--text-muted)">Нет остатков в этой схеме</div>');
+            else legend.innerHTML = '<div class="dash-wh-row" style="color:var(--text-muted)">Нет остатков в этой схеме</div>';
             return;
         }
-        legend.innerHTML = entries.map(w => {
+        const html = entries.map(w => {
             const badge = w.scheme === 'fbs' ? 'FBS' : 'FBO';
             const badgeColor = w.scheme === 'fbs' ? 'var(--blue)' : 'var(--accent)';
-            return `<div class="dash-wh-row">
+            return `<div class="dash-wh-row" data-key="${escapeHtml(w.warehouse_name)}">
                 <span class="dash-wh-name">${escapeHtml(w.warehouse_name)}
                     <span class="text-[10px] font-bold ml-2" style="color:${badgeColor}">${badge}</span>
                 </span>
                 <span class="dash-wh-qty">${fmt(w.qty)} шт.</span>
             </div>`;
         }).join('');
+        if (window.domMorph && legend.querySelector('.dash-wh-row')) window.domMorph.morphList(legend, html, 'data-key');
+        else legend.innerHTML = html;
     }
 
     function updateWarehouseFromDB() {
@@ -10558,18 +10706,26 @@
         renderDashWhLegend(entries);
         const list = document.getElementById('warehouse-list');
         if (!list) return;
-        list.innerHTML = entries.length
-            ? `<div class="divide-y" style="border-color:var(--border)">${entries.map(w => {
-                const badge = w.scheme === 'fbs' ? 'FBS' : 'FBO';
-                const badgeColor = w.scheme === 'fbs' ? 'var(--blue)' : 'var(--accent)';
-                return `<div class="flex justify-between items-center px-5 py-3 gap-3">
+        if (!entries.length) {
+            list.innerHTML = '<div class="py-10 text-center" style="color:var(--text-muted)">Нет данных</div>';
+            return;
+        }
+        const rowsHtml = entries.map(w => {
+            const badge = w.scheme === 'fbs' ? 'FBS' : 'FBO';
+            const badgeColor = w.scheme === 'fbs' ? 'var(--blue)' : 'var(--accent)';
+            return `<div class="flex justify-between items-center px-5 py-3 gap-3" data-key="${escapeHtml(w.warehouse_name)}">
                     <span class="text-sm" style="color:var(--text-secondary)">${escapeHtml(w.warehouse_name)}
                         <span class="text-[10px] font-bold ml-2" style="color:${badgeColor}">${badge}</span>
                     </span>
                     <span class="text-sm font-bold" style="color:var(--text-primary)">${fmt(w.qty)} шт.</span>
                 </div>`;
-            }).join('')}</div>`
-            : '<div class="py-10 text-center" style="color:var(--text-muted)">Нет данных</div>';
+        }).join('');
+        let wrap = list.querySelector(':scope > .divide-y');
+        if (wrap && window.domMorph) {
+            window.domMorph.morphList(wrap, rowsHtml, 'data-key');
+        } else {
+            list.innerHTML = `<div class="divide-y" style="border-color:var(--border)">${rowsHtml}</div>`;
+        }
     }
 
     function saveSettings() {

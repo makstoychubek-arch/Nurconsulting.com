@@ -1188,6 +1188,21 @@ assert.ok(rnpSrc.includes('function _saveRnpChrome') && rnpSrc.includes('functio
     'RNP snapshot is compacted so it fits storage and comes back on F5');
 assert.ok(rnpSrc.includes('function _patchLockedSheet') && rnpSrc.includes('function _paintSheetBody') && rnpSrc.includes('function _sheetLockKey'),
     'same RNP sheet must patch values in place instead of swapping blocks');
+assert.ok(rnpSrc.includes('function _patchElHtml') && !rnpSrc.includes('el.innerHTML = _stockSchemeInnerHTML'),
+    'stock/donut refresh must patch numbers without rebuilding the block');
+assert.ok(rnpSrc.includes("'.rnp-head-wide-stocks'") && rnpSrc.includes("'.rnp-stock-scheme-wrap'"),
+    'locked sheet patch must update stocks without replacing the photo block');
+assert.ok(html.includes('function setInner') && html.includes('function patchNode') && html.includes('SKIP_CHILD_SEL'),
+    'domMorph patches text and classes instead of wiping innerHTML of cards');
+assert.ok(html.includes('contain: layout style'),
+    'KPI and stock blocks keep their box while values change');
+{
+    const adsHqSrc = fs.readFileSync(path.join(__dirname, 'ads-command-center.js'), 'utf8');
+    assert.ok(adsHqSrc.includes("querySelectorAll('.adv-kpi-tile-value')"),
+        'ads KPI tiles must update the number in place');
+    assert.ok(adsHqSrc.includes("morphList(tb, html.join(''), 'data-key')"),
+        'ads HQ table must morph keyed rows instead of replacing tbody');
+}
 assert.ok(rnpSrc.includes('function _fillRnpChrome') && rnpSrc.includes('nr-rnp-lock') && rnpSrc.includes('function _rnpIdbPut'),
     'F5 chrome stays put and the full sheet is also stored in IndexedDB');
 assert.ok(!rnpSrc.includes("if (tabs) tabs.innerHTML = _renderTabsHTML(_rnpVisibleArticles());"),
