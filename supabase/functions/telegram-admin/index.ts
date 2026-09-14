@@ -2,7 +2,14 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { TELEGRAM_CHANNEL_LABELS, getTelegramRoutingStatus, getTelegramToken } from '../_shared/telegram-routing.ts';
+import {
+    TELEGRAM_CHANNEL_LABELS,
+    getTelegramChannelCards,
+    getTelegramChatId,
+    getTelegramRoutingStatus,
+    getTelegramToken,
+    type TelegramChannel,
+} from '../_shared/telegram-routing.ts';
 
 const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
 const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
@@ -82,11 +89,45 @@ serve(async (req) => {
         });
         const { data: { user }, error: authErr } = await userClient.auth.getUser();
         if (authErr || !user) return json({ error: 'Invalid session' }, 401);
-        if (!isSuperAdmin(user)) return json({ error: 'Super Admin access required' }, 403);
 
         const admin = createClient(supabaseUrl, supabaseService);
         const body = await req.json().catch(() => ({} as Record<string, unknown>));
         const action = String(body.action || 'list');
+
+        if (action === 'channels') {
+            return json({
+                channels: getTelegramChannelCards(),
+                channel_labels: TELEGRAM_CHANNEL_LABELS,
+                notify_configured: Boolean(getTelegramToken()),
+            });
+        }
+
+        if (action === 'send_channel') {
+            const channel = String(body.channel || '').trim() as TelegramChannel;
+            const text = String(body.text || '').trim();
+            if (!text) return json({ error: 'нужен текст сообщения' }, 400);
+            if (!TELEGRAM_CHANNEL_LABELS[channel]) return json({ error: 'неизвестный канал' }, 400);
+            const tok = getTelegramToken();
+            const chatId = getTelegramChatId(channel);
+            if (!tok || !chatId) return json({ error: `канал «${TELEGRAM_CHANNEL_LABELS[channel]}» не подключён` }, 400);
+            let cabName = '';
+            const cabinetId = String(body.cabinet_id || '').trim();
+            if (cabinetId) {
+                const { data: cab } = await admin.from('cabinets').select('name').eq('id', cabinetId).maybeSingle();
+                cabName = String(cab?.name || '').trim();
+            }
+            const label = TELEGRAM_CHANNEL_LABELS[channel];
+            const payload = [cabName ? `NR Space · ${label} · ${cabName}` : `NR Space · ${label}`, '', text].join('\n');
+            const sent = await tgApi(tok, 'sendMessage', {
+                chat_id: chatId,
+                text: payload,
+                disable_web_page_preview: true,
+            });
+            if (!sent.ok) return json({ error: sent.data?.description || 'Telegram не принял сообщение' }, 400);
+            return json({ ok: true, channel, message_id: sent.data?.result?.message_id || null });
+        }
+
+        if (!isSuperAdmin(user)) return json({ error: 'Super Admin access required' }, 403);
 
         if (action === 'list') {
             const { data: bots } = await admin.from('telegram_bots').select('*').order('kind').order('title');

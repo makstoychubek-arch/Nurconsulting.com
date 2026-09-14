@@ -1419,18 +1419,27 @@ assert.ok(
     html.includes('function renderAgentHub') &&
     html.includes('function submitTelegramBotHub') &&
     html.includes('function saveAgentBrain') &&
-    html.includes('>Ватсап<') &&
-    html.includes('>Телеграм<') &&
+    html.includes('function sendAgentTgMessage') &&
+    html.includes('function selectAgentTgChannel') &&
+    html.includes('ah-logo-wa') &&
+    html.includes('ah-logo-tg') &&
+    html.includes('TG_CHANNEL_PURPOSE') &&
+    html.includes('Отправить в Telegram') &&
+    html.includes('Ватсап') &&
+    html.includes('Телеграм') &&
     html.includes('>Мозг<') &&
     html.includes('ChatGPT') &&
     html.includes('function deleteWhatsAppAgent'),
-    'Агенты live in the left rail: WhatsApp, Telegram bots, channel status, ChatGPT brain'
+    'Агенты live in the left rail: WhatsApp, Telegram channels, send-to-chat, ChatGPT brain'
 );
 assert.ok(
     html.includes("'telegram-bots': 'agents'") &&
     fs.readFileSync(path.join(__dirname, 'supabase/functions/telegram-admin/index.ts'), 'utf8').includes("action === 'create'") &&
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/telegram-admin/index.ts'), 'utf8').includes("action === 'send_channel'") &&
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/telegram-admin/index.ts'), 'utf8').includes("action === 'channels'") &&
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/telegram-routing.ts'), 'utf8').includes('TELEGRAM_CHANNEL_PURPOSE') &&
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260914120000_agent_hub.sql')),
-    'can add a Telegram bot and store the brain / WhatsApp rows'
+    'can add a Telegram bot, list channel status, and send a site message into the TG chat'
 );
 
 assert.ok(!html.includes('--logo-mark: #F5C400'), 'dashboard logo mark must not be yellow');

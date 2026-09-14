@@ -43,6 +43,20 @@ export const TELEGRAM_CHANNEL_LABELS: Record<TelegramChannel, string> = {
     team: 'Тим',
 };
 
+export const TELEGRAM_CHANNEL_PURPOSE: Record<TelegramChannel, string> = {
+    sales: 'Ежедневные отчёты по продажам',
+    penalties: 'Штрафы и удержания WB',
+    ads: 'Реклама: пауза, старт и баланс РК',
+    ab_tests: 'Завершение А/Б тестов карточек',
+    news: 'Новости кабинета продавца WB',
+    reviews: 'Отзывы и автоответы',
+    blockings: 'Блокировки карточек',
+    warehouse: 'Склад: хранение и возвраты',
+    triggers: 'Триггеры и алерты',
+    fbs: 'Отчёты FBS',
+    team: 'Общий чат команды',
+};
+
 const CHANNEL_ENV: Record<TelegramChannel, string> = {
     sales: 'TELEGRAM_CHAT_SALES',
     penalties: 'TELEGRAM_CHAT_PENALTIES',
@@ -103,6 +117,24 @@ export function getTelegramChatId(channel: TelegramChannel): string {
 
 export function isTelegramConfigured(channel: TelegramChannel): boolean {
     return Boolean(getTelegramToken() && getTelegramChatId(channel));
+}
+
+/** Статус каналов без chat_id — для кабинета Агенты. */
+export function getTelegramChannelCards(): Record<
+    TelegramChannel,
+    { label: string; purpose: string; configured: boolean; source: 'dedicated' | 'legacy' | 'default' | 'missing' }
+> {
+    const status = getTelegramRoutingStatus();
+    const out = {} as ReturnType<typeof getTelegramChannelCards>;
+    for (const channel of ALL_CHANNELS) {
+        out[channel] = {
+            label: status[channel].label,
+            purpose: TELEGRAM_CHANNEL_PURPOSE[channel],
+            configured: status[channel].configured,
+            source: status[channel].source,
+        };
+    }
+    return out;
 }
 
 export function getTelegramRoutingStatus(): Record<

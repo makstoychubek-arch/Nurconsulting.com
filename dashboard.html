@@ -419,7 +419,7 @@
         .agents-grid--short .agent-fn-who { margin-top: 4px; }
         .agents-hub { display: flex; align-items: stretch; gap: 12px; min-height: 0; }
         .agents-hub-side {
-            width: 248px; min-width: 248px; display: flex; flex-direction: column; gap: 8px;
+            width: 280px; min-width: 280px; display: flex; flex-direction: column; gap: 8px;
         }
         .agents-hub-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 10px; }
         .ah-group {
@@ -430,7 +430,9 @@
             display: flex; align-items: center; justify-content: space-between; gap: 6px;
             margin-bottom: 6px;
         }
-        .ah-title { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); }
+        .ah-title { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-muted); display: inline-flex; align-items: center; gap: 6px; }
+        .ah-logo { width: 18px; height: 18px; flex: 0 0 18px; display: block; }
+        .ah-logo-wa, .ah-logo-tg { border-radius: 5px; }
         .ah-add {
             width: 22px; height: 22px; border: none; border-radius: 7px; padding: 0;
             background: var(--sel); color: var(--text-primary); font: inherit; font-size: 14px;
@@ -472,10 +474,27 @@
         }
         .ah-form-actions { display: flex; gap: 6px; }
         .ah-form-actions button { flex: 1; font-size: 11px; font-weight: 700; padding: 5px 8px; border-radius: 8px; cursor: pointer; }
-        .ah-channels { display: flex; flex-wrap: wrap; gap: 4px; padding-top: 2px; }
+        .ah-channels { display: flex; flex-direction: column; gap: 4px; padding-top: 2px; }
         .ah-ch { font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 999px; background: var(--sel); color: var(--text-muted); }
         .ah-ch.ok { background: rgba(52,199,89,0.15); color: var(--green); }
         .ah-ch.off { background: rgba(248,113,113,0.12); color: var(--red); }
+        .ah-ch-card {
+            width: 100%; text-align: left; border: 1px solid var(--border); border-radius: 10px;
+            background: var(--surface); padding: 6px 8px; cursor: pointer;
+            display: flex; flex-direction: column; gap: 2px;
+        }
+        .ah-ch-card:hover { border-color: var(--accent-border); }
+        .ah-ch-card.is-on { border-color: var(--accent-border); background: var(--accent-soft); }
+        .ah-ch-top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+        .ah-ch-name { font-size: 12px; font-weight: 800; color: var(--text-primary); }
+        .ah-ch-why { font-size: 10px; line-height: 1.3; color: var(--text-muted); }
+        .ah-send { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; }
+        .ah-send-text {
+            width: 100%; min-height: 72px; resize: vertical; border: 1px solid var(--border);
+            border-radius: 8px; background: var(--surface); color: var(--text-primary);
+            font: inherit; font-size: 12px; padding: 7px 8px;
+        }
+        .ah-send-btn { font-size: 11px; font-weight: 700; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
         @media (max-width: 900px) {
             .agents-hub { flex-direction: column; }
             .agents-hub-side { width: 100%; min-width: 0; }
@@ -12483,7 +12502,20 @@
     const TG_CHANNEL_LABELS = {
         sales: 'Продажи', penalties: 'Штрафы', ads: 'Реклама', ab_tests: 'А/Б тесты',
         news: 'Новости WB', reviews: 'Отзывы', blockings: 'Блокировки',
-        warehouse: 'Склад', triggers: 'Триггеры', fbs: 'FBS',
+        warehouse: 'Склад', triggers: 'Триггеры', fbs: 'FBS', team: 'Тим',
+    };
+    const TG_CHANNEL_PURPOSE = {
+        sales: 'Ежедневные отчёты по продажам',
+        penalties: 'Штрафы и удержания WB',
+        ads: 'Реклама: пауза, старт и баланс РК',
+        ab_tests: 'Завершение А/Б тестов карточек',
+        news: 'Новости кабинета продавца WB',
+        reviews: 'Отзывы и автоответы',
+        blockings: 'Блокировки карточек',
+        warehouse: 'Склад: хранение и возвраты',
+        triggers: 'Триггеры и алерты',
+        fbs: 'Отчёты FBS',
+        team: 'Общий чат команды',
     };
     const TG_STATUS_LABELS = {
         online: 'онлайн', offline: 'не отвечает', no_token: 'нет токена',
@@ -12515,10 +12547,18 @@
             const { data: bots } = await supabase.from('telegram_bots').select('*').order('kind').order('title');
             const { data: cabinets } = await supabase.from('cabinets').select('id, name').order('name');
             const { data: mutes } = await supabase.from('telegram_channel_mutes').select('cabinet_id, channel, muted');
-            let live = { bots: bots || [], channels: {} };
+            let live = { bots: bots || [], channels: {}, cabinets: cabinets || [], mutes: mutes || [] };
             if (isSuperAdmin) {
                 try { live = await callTelegramAdmin({ action: 'list' }); } catch (e) {
                     console.warn('[tg-bots] admin list:', e.message);
+                }
+            }
+            if (!live.channels || !Object.keys(live.channels).length) {
+                try {
+                    const pub = await callTelegramAdmin({ action: 'channels' });
+                    live.channels = pub.channels || {};
+                } catch (e) {
+                    console.warn('[tg-bots] channels:', e.message);
                 }
             }
             _tgBotsState = {
@@ -12705,10 +12745,16 @@
     }
 
     const GPT_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1', 'o4-mini'];
-    let _agentHub = { wa: [], waSource: 'local', brain: { provider: 'chatgpt', model: 'gpt-4o-mini' }, form: null };
+    let _agentHub = { wa: [], waSource: 'local', brain: { provider: 'chatgpt', model: 'gpt-4o-mini' }, form: null, channel: 'sales' };
 
     function _ahEsc(s) { return escapeHtml(String(s || '')); }
     function _ahJs(s) { return String(s || '').replace(/['"\\]/g, ''); }
+    function _ahLogoWa() {
+        return '<svg class="ah-logo ah-logo-wa" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#25D366"/><path fill="#fff" d="M16.8 14.35c-.26.72-1.5 1.34-2.07 1.43-.54.08-1.22.11-1.98-.12-.46-.14-1.05-.34-1.81-.65-3.19-1.38-5.26-4.6-5.42-4.81-.16-.21-1.28-1.7-1.28-3.25 0-1.54.81-2.31 1.11-2.62.29-.31.64-.39.86-.39.21 0 .42 0 .6.01.2.01.46-.07.71.54.26.62.88 2.15.96 2.3.08.16.13.34.02.54-.1.21-.16.34-.31.52-.16.18-.32.41-.46.55-.15.16-.31.32-.13.62.18.31.78 1.29 1.67 2.09 1.15 1.03 2.12 1.36 2.42 1.51.31.15.49.13.67-.08.18-.21.78-.9.98-1.21.21-.31.41-.26.71-.15.29.1 1.86.88 2.18 1.04.31.16.52.23.6.36.08.13.08.78-.18 1.5z"/></svg>';
+    }
+    function _ahLogoTg() {
+        return '<svg class="ah-logo ah-logo-tg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#2AABEE"/><path fill="#fff" d="M17.65 7.15 5.95 11.7c-.83.33-.82.8-.15 1l3.13.98 7.28-4.59c.34-.21.65-.1.4.13l-5.88 5.31-.23 3.4c.34 0 .49-.15.67-.33l1.58-1.53 3.28 2.42c.6.33 1.03.16 1.18-.56l2.04-9.61c.21-.93-.35-1.34-.96-1.07z"/></svg>';
+    }
 
     function renderAgentHub() {
         const html = _agentHubHTML();
@@ -12720,8 +12766,9 @@
 
     function _agentHubHTML() {
         const wa = _agentHub.wa || [];
-        const bots = (_tgBotsState.bots || []).filter(b => !b.deleted_at);
         const brain = _agentHub.brain || { provider: 'chatgpt', model: 'gpt-4o-mini' };
+        const selected = _agentHub.channel || 'sales';
+        const selLabel = TG_CHANNEL_LABELS[selected] || selected;
         const waRows = wa.length
             ? wa.map(w => `<div class="ah-row">
                 <span class="tg-status ${w.is_enabled === false ? 'disabled' : 'online'}">${w.is_enabled === false ? 'выкл' : 'ок'}</span>
@@ -12729,32 +12776,12 @@
                 <button type="button" class="ah-del" title="Удалить" onclick="deleteWhatsAppAgent('${_ahJs(w.id)}','${_ahJs(w.title)}')">×</button>
               </div>`).join('')
             : '<div class="ah-empty">нет номеров</div>';
-        const tgRows = bots.length
-            ? bots.map(b => {
-                const status = b.status || (b.is_enabled === false ? 'disabled' : 'offline');
-                const uname = b.live_username || b.username;
-                return `<div class="ah-row">
-                  <span class="tg-status ${status}">${TG_STATUS_LABELS[status] || status}</span>
-                  <span class="ah-name" title="${uname ? '@' + uname : ''}">${_ahEsc(b.title)}</span>
-                  <button type="button" class="ah-del" title="Удалить бота" onclick="deleteTelegramBot('${_ahJs(b.id)}','${_ahJs(b.title)}')">×</button>
-                </div>`;
-            }).join('')
-            : '<div class="ah-empty">нет действующих ботов</div>';
-        const chans = _tgChannelPills();
+        const chans = _tgChannelCardsHTML();
         const waForm = _agentHub.form === 'wa' ? `<div class="ah-form">
             <input class="ah-wa-title" placeholder="Имя" maxlength="40">
             <input class="ah-wa-phone" placeholder="WhatsApp +996…">
             <div class="ah-form-actions">
               <button type="button" class="ui-btn ui-btn-primary" onclick="submitWhatsAppAgent(this)">Сохранить</button>
-              <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
-            </div>
-          </div>` : '';
-        const tgForm = _agentHub.form === 'tg' ? `<div class="ah-form">
-            <input class="ah-tg-title" placeholder="Название бота">
-            <input class="ah-tg-user" placeholder="@username">
-            <input class="ah-tg-token" type="password" placeholder="Токен от BotFather" autocomplete="off">
-            <div class="ah-form-actions">
-              <button type="button" class="ui-btn ui-btn-primary" onclick="submitTelegramBotHub(this)">Добавить</button>
               <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
             </div>
           </div>` : '';
@@ -12768,19 +12795,20 @@
         return `
           <div class="ah-group">
             <div class="ah-head">
-              <span class="ah-title">Ватсап</span>
+              <span class="ah-title">${_ahLogoWa()} Ватсап</span>
               <button type="button" class="ah-add" title="Добавить" onclick="openAgentHubForm('wa')">+</button>
             </div>
             ${waRows}${waForm}
           </div>
           <div class="ah-group">
             <div class="ah-head">
-              <span class="ah-title">Телеграм</span>
-              <button type="button" class="ah-add" title="Добавить бота" onclick="openAgentHubForm('tg')">+</button>
+              <span class="ah-title">${_ahLogoTg()} Телеграм</span>
             </div>
-            ${tgRows}${tgForm}
-            <div class="ah-title" style="margin-top:8px">Каналы</div>
             <div class="ah-channels">${chans}</div>
+            <div class="ah-send">
+              <textarea class="ah-send-text" maxlength="3500" placeholder="Текст в «${_ahEsc(selLabel)}» — уйдёт в этот чат Telegram"></textarea>
+              <button type="button" class="ui-btn ui-btn-primary ah-send-btn" onclick="sendAgentTgMessage(this)">Отправить в Telegram</button>
+            </div>
           </div>
           <div class="ah-group">
             <div class="ah-head">
@@ -12799,20 +12827,64 @@
           </div>`;
     }
 
-    function _tgChannelPills() {
+    function _tgChannelCardsHTML() {
         const channels = _tgBotsState.channels || {};
         const keys = Object.keys(TG_CHANNEL_LABELS);
+        const selected = _agentHub.channel || 'sales';
         const muteSet = new Set((_tgBotsState.mutes || [])
             .filter(m => m.muted && (!currentCabinetId || m.cabinet_id === currentCabinetId))
             .map(m => m.channel));
         return keys.map(ch => {
-            const info = channels[ch];
-            const ok = info ? !!info.configured : !muteSet.has(ch);
+            const info = channels[ch] || {};
             const muted = muteSet.has(ch);
-            const cls = muted ? 'off' : ok ? 'ok' : '';
-            const st = muted ? 'выкл' : ok ? 'ок' : 'нет';
-            return `<span class="ah-ch ${cls}" title="${st}">${TG_CHANNEL_LABELS[ch]}</span>`;
+            let status = 'нет данных';
+            let stCls = 'offline';
+            if (muted) { status = 'выключен'; stCls = 'disabled'; }
+            else if (info.configured === true) { status = 'работает'; stCls = 'online'; }
+            else if (info.configured === false) { status = 'нет чата'; stCls = 'no_token'; }
+            const purpose = info.purpose || TG_CHANNEL_PURPOSE[ch] || '';
+            const on = selected === ch ? ' is-on' : '';
+            return `<button type="button" class="ah-ch-card${on}" onclick="selectAgentTgChannel('${ch}')">
+              <div class="ah-ch-top">
+                <span class="ah-ch-name">${TG_CHANNEL_LABELS[ch]}</span>
+                <span class="tg-status ${stCls}">${status}</span>
+              </div>
+              <div class="ah-ch-why">${_ahEsc(purpose)}</div>
+            </button>`;
         }).join('');
+    }
+
+    function selectAgentTgChannel(ch) {
+        if (!TG_CHANNEL_LABELS[ch]) return;
+        _agentHub.channel = ch;
+        _tgBotsState.activeChannel = ch;
+        renderAgentHub();
+    }
+
+    async function sendAgentTgMessage(btn) {
+        const ch = _agentHub.channel || 'sales';
+        const box = btn.closest('.ah-group') || btn.closest('.agents-hub-side') || document;
+        const text = box.querySelector('.ah-send-text')?.value.trim();
+        if (!text) {
+            showPremiumModal('warning', 'Текст', 'Выберите канал и напишите сообщение.');
+            return;
+        }
+        btn.disabled = true;
+        try {
+            await callTelegramAdmin({
+                action: 'send_channel',
+                channel: ch,
+                text,
+                cabinet_id: currentCabinetId || null,
+            });
+            const field = box.querySelector('.ah-send-text');
+            if (field) field.value = '';
+            showPremiumModal('success', 'Отправлено в Telegram', TG_CHANNEL_LABELS[ch] || ch);
+        } catch (e) {
+            showPremiumModal('error', 'Не ушло в Telegram', e.message);
+        } finally {
+            btn.disabled = false;
+        }
     }
 
     function openAgentHubForm(kind) {
@@ -12929,6 +13001,8 @@
     window.submitWhatsAppAgent = submitWhatsAppAgent;
     window.deleteWhatsAppAgent = deleteWhatsAppAgent;
     window.submitTelegramBotHub = submitTelegramBotHub;
+    window.selectAgentTgChannel = selectAgentTgChannel;
+    window.sendAgentTgMessage = sendAgentTgMessage;
     window.saveAgentBrain = saveAgentBrain;
 
     const AGENT_FNS = [
