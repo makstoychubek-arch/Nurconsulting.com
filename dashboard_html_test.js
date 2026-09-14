@@ -586,8 +586,8 @@ assert.ok(
     rnpSrc.includes('rnp-layout-block') &&
     rnpSrc.includes('rnp-layout-resize') &&
     rnpSrc.includes('rnp-layout-hide') &&
-    rnpSrc.includes("LAYOUT_KEY = 'rnp_block_layout_v2'") &&
-    !rnpSrc.includes('rnp_block_layout_v2_') &&
+    rnpSrc.includes("LAYOUT_KEY = 'rnp_block_layout_v3'") &&
+    !rnpSrc.includes('rnp_block_layout_v3_') &&
     !/LAYOUT_KEY = `[^`]*\$\{_cab\}/.test(rnpSrc),
     'RNP edit mode can drag, resize and hide header blocks; one layout for every cabinet'
 );
@@ -596,7 +596,10 @@ assert.ok(
     html.includes('.rnp-layout--edit .rnp-layout-resize') &&
     html.includes('cursor: nwse-resize') &&
     html.includes('grid-area: auto') &&
-    html.includes('--rnp-layout-pin-h'),
+    html.includes('--rnp-layout-pin-h') &&
+    html.includes('.rnp-layout--edit .rnp-layout-block-inner') &&
+    html.includes('pointer-events: none') &&
+    html.includes('.rnp-layout-restore'),
     'layout editor CSS shows resize handles only in edit mode and resets named grid areas'
 );
 {
@@ -612,6 +615,7 @@ assert.ok(
     ].join('\n');
     const lay = new Function(`${helpers}; return { _defaultLayout, _clampLayoutBlock, _layoutCanvasH, _layoutTopRowH, _ensureStocksPlacement, _normalizeLayout };`)();
     const d = lay._defaultLayout();
+    assert.strictEqual(d.v, 3);
     assert.ok(d.blocks.info && d.blocks.kpis && d.blocks.photos);
     assert.strictEqual(d.blocks.stocks.hidden, false, 'остатки видны по умолчанию');
     assert.ok(d.h >= d.blocks.stocks.y + d.blocks.stocks.h, 'canvas fits the stock row');
@@ -623,6 +627,7 @@ assert.ok(
     assert.ok(grown.h >= 240, 'canvas grows when a block is resized taller');
     assert.strictEqual(grown.blocks.stocks.hidden, false, 'missing stocks block stays visible');
     const fresh = lay._normalizeLayout(null);
+    assert.strictEqual(fresh.v, 3);
     assert.strictEqual(fresh.blocks.stocks.hidden, false);
     assert.ok(fresh.h >= 220, 'default canvas includes the stock strip');
     const overlap = { blocks: {
@@ -635,6 +640,21 @@ assert.ok(
     assert.ok(fixed.blocks.stocks.y >= 120, 'stocks do not sit on top of the first row');
     assert.ok(lay._layoutTopRowH(d) <= 120);
 }
+assert.ok(
+    !grabFn(rnpSrc, '_buildInfoBlockHTML').includes('rnp-gs-cost-input') &&
+    !grabFn(rnpSrc, '_buildInfoBlockHTML').includes('RNP.setCost') &&
+    !grabFn(rnpSrc, '_buildKpiTopHTML').includes('rnp-gs-cost-input') &&
+    !grabFn(rnpSrc, '_buildKpiTopHTML').includes('RNP.setCost') &&
+    grabFn(rnpSrc, '_settingsArticleRowHtml').includes('RNP.setCost'),
+    'себест. is edited only in RNP settings, not in the article header'
+);
+assert.ok(
+    rnpSrc.includes('data-block="${id}"') &&
+    rnpSrc.includes('rnp-layout-restore') &&
+    rnpSrc.includes("['stocks', _layoutBlockTitle('stocks')") &&
+    grabFn(rnpSrc, 'openPhoto').includes('_editMode'),
+    'stocks stay in the layout DOM, photos do not steal the drag in edit mode'
+);
 assert.ok(
     !grabFn(rnpSrc, '_buildLeftPanelHTML').includes('_phoneCollapseHtml') &&
     grabFn(rnpSrc, '_buildLeftPanelHTML').includes('_buildKpiTopHTML'),
@@ -1649,6 +1669,8 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
     const deskTop = kpiTop(false);
     assert.ok(deskTop.includes('rnp-gs-photo') && !deskTop.includes('rnp-kpi-top--nophoto'),
         'desktop KPI card still shows the article photo');
+    assert.ok(!deskTop.includes('себест') && !deskTop.includes('rnp-gs-cost-input'),
+        'desktop KPI card does not show the cost input');
     assert.ok(deskTop.includes('Показы РК') && deskTop.includes('Клики РК') && deskTop.includes('Расход РК'),
         'article KPI shows RK stats without scrolling to the ads section');
 

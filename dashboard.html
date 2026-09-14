@@ -1498,10 +1498,10 @@
         .rnp-kpi-top--compact {
             grid-template-columns: minmax(56px, 0.7fr) minmax(48px, 0.6fr) minmax(72px, 0.8fr) minmax(140px, 1.5fr);
             grid-template-areas:
-                "nmid  cost  mlbl  kpis"
-                "nmid  cost  mval  kpis"
-                "nmid  cost  ulbl  kpis"
-                "nmid  cost  uval  kpis";
+                "nmid  nmid  mlbl  kpis"
+                "nmid  nmid  mval  kpis"
+                "nmid  nmid  ulbl  kpis"
+                "nmid  nmid  uval  kpis";
             grid-template-rows: repeat(4, minmax(13px, auto));
         }
         .rnp-kpi-top--compact .rnp-gs-kpis { grid-row: 1 / 5; }
@@ -1643,7 +1643,8 @@
         }
         .rnp-layout-block[data-block="photos"] .rnp-layout-block-inner { padding: 0; overflow: hidden; }
         .rnp-layout-block[data-block="photos"] .rnp-head-marquee-pin,
-        .rnp-layout-block[data-block="photos"] .rnp-head-wide-photos {
+        .rnp-layout-block[data-block="photos"] .rnp-head-wide-photos,
+        .rnp-layout-block[data-block="photos"] .rnp-marquee-wrap {
             position: relative; left: auto !important; width: 100%; max-width: 100%;
             height: 100%; min-height: 0; max-height: 100%;
         }
@@ -1671,8 +1672,27 @@
         }
         .rnp-layout-hide:hover { color: var(--accent); background: var(--accent-soft); }
         .rnp-layout--edit .rnp-layout-resize,
-        .rnp-layout--edit .rnp-layout-hide { display: block; }
+        .rnp-layout--edit .rnp-layout-hide { display: block; pointer-events: auto; }
+        .rnp-layout--edit .rnp-layout-block-inner { pointer-events: none; }
+        .rnp-layout--edit .rnp-layout-block::before {
+            content: attr(data-label);
+            position: absolute;
+            left: 8px;
+            top: 4px;
+            z-index: 2;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: var(--text-muted);
+            pointer-events: none;
+        }
         .rnp-layout--edit .rnp-marquee-track { animation-play-state: paused; }
+        .rnp-layout-restore {
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+            padding: 4px 12px 2px;
+        }
+        .rnp-layout--edit .rnp-layout-restore,
+        .rnp-article-panel.is-pinned .rnp-layout-restore { display: none !important; }
         .rnp-layout--dragging { user-select: none; }
         .rnp-article-panel--wide.is-pinned .rnp-layout-block[data-block="stocks"] {
             display: none !important;
@@ -1701,7 +1721,6 @@
         }
         .rnp-layout-info-meta > .rnp-gs-name,
         .rnp-layout-info-meta > .rnp-gs-nmid,
-        .rnp-layout-info-meta > .rnp-gs-cost,
         .rnp-layout-info-meta > .rnp-gs-money-lbl,
         .rnp-layout-info-meta > .rnp-gs-usd-lbl,
         .rnp-layout-info-meta > .rnp-gs-money-val,
@@ -1979,7 +1998,7 @@
             grid-template-rows: repeat(4, minmax(12px, 1fr));
             grid-template-areas:
                 "photo name  name  kpis"
-                "photo nmid  cost  kpis"
+                "photo nmid  nmid  kpis"
                 "photo mlbl  mval  kpis"
                 "photo ulbl  uval  kpis";
         }
@@ -1994,7 +2013,7 @@
             grid-template-rows: repeat(4, minmax(12px, 1fr));
             grid-template-areas:
                 "photo name  name  kpis"
-                "photo nmid  cost  kpis"
+                "photo nmid  nmid  kpis"
                 "photo mlbl  mval  kpis"
                 "photo ulbl  uval  kpis";
             align-items: stretch;
@@ -4069,7 +4088,7 @@
                 grid-template-rows: auto auto auto auto auto;
                 grid-template-areas:
                     "name  name"
-                    "nmid  cost"
+                    "nmid  nmid"
                     "mlbl  mval"
                     "ulbl  uval"
                     "kpis  kpis";
@@ -4170,8 +4189,7 @@
             }
             .rnp-article-panel--phone .rnp-gs-nmid b,
             .rnp-article-panel--phone .rnp-gs-money-val,
-            .rnp-article-panel--phone .rnp-gs-usd-val,
-            .rnp-article-panel--phone .rnp-gs-cost-input { font-size: 12px; }
+            .rnp-article-panel--phone .rnp-gs-usd-val { font-size: 12px; }
             .rnp-article-panel--phone .rnp-gs-lbl,
             .rnp-article-panel--phone .rnp-gs-money-lbl,
             .rnp-article-panel--phone .rnp-gs-usd-lbl { font-size: 10px; }

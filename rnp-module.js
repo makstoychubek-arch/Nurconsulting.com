@@ -106,7 +106,7 @@ const RNP = (() => {
     let _layout = null;
     let _layoutBound = false;
     let _layoutDrag = null;
-    const LAYOUT_KEY = 'rnp_block_layout_v2';
+    const LAYOUT_KEY = 'rnp_block_layout_v3';
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
@@ -2533,7 +2533,7 @@ const RNP = (() => {
 
     function _defaultLayout() {
         return {
-            v: 2,
+            v: 3,
             h: 224,
             blocks: {
                 info: { x: 0, y: 0, w: 28, h: 120, hidden: false },
@@ -2613,7 +2613,7 @@ const RNP = (() => {
                 ? _clampLayoutBlock(src.blocks[id], d.blocks[id])
                 : { ...d.blocks[id] };
         });
-        const next = { v: 2, blocks };
+        const next = { v: 3, blocks };
         _ensureStocksPlacement(next);
         next.h = _layoutCanvasH(next);
         return next;
@@ -2689,7 +2689,8 @@ const RNP = (() => {
         const resize = e.target.closest('.rnp-layout-resize');
         const block = e.target.closest('.rnp-layout-block');
         if (!block || !block.closest('.rnp-layout')) return;
-        if (!resize && e.target.closest('input,select,textarea,button,a,.rnp-gs-cost-input')) return;
+        if (!resize && e.target.closest('.rnp-layout-hide')) return;
+        if (!resize && e.target.closest('input,select,textarea')) return;
         const id = block.getAttribute('data-block');
         const L = _getLayout();
         const b = L.blocks[id];
@@ -2788,18 +2789,20 @@ const RNP = (() => {
             ['stocks', _layoutBlockTitle('stocks'), `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`],
         ];
         const items = blocks.map(([id, label, inner]) => {
-            const b = L.blocks[id];
-            if (!b || b.hidden) return '';
+            const b = L.blocks[id] || _defaultLayout().blocks[id];
             return `<div class="rnp-layout-block" data-block="${id}" data-label="${label}" style="${_blockStyle(b)}">
               <div class="rnp-layout-block-inner">${inner}</div>
               <button type="button" class="rnp-layout-hide" onclick="RNP.toggleLayoutBlock('${id}')" title="Скрыть">×</button>
               <span class="rnp-layout-resize" title="Размер"></span>
             </div>`;
         }).join('');
-        const showBtns = Object.keys(L.blocks)
-            .filter(id => L.blocks[id] && L.blocks[id].hidden)
+        const hiddenIds = Object.keys(L.blocks).filter(id => L.blocks[id] && L.blocks[id].hidden);
+        const showBtns = hiddenIds
             .map(id => `<button type="button" class="rnp-layout-add" onclick="RNP.toggleLayoutBlock('${id}')">Показать ${_layoutBlockTitle(id)}</button>`)
             .join('');
+        const restore = hiddenIds.length
+            ? `<div class="rnp-layout-restore">${showBtns}</div>`
+            : '';
         return `<div class="rnp-article-panel rnp-article-panel--wide rnp-layout-panel" style="--rnp-layout-pin-h:${_layoutTopRowH(L)}px">
           <div class="rnp-layout${edit ? ' rnp-layout--edit' : ''}">
             <div class="rnp-layout-toolbar"${edit ? '' : ' hidden'}>
@@ -2807,6 +2810,7 @@ const RNP = (() => {
               ${showBtns}
               <button type="button" class="rnp-layout-reset" onclick="RNP.resetLayout()">Сбросить</button>
             </div>
+            ${restore}
             <div class="rnp-layout-canvas" style="height:${L.h}px">${items}</div>
           </div>
         </div>`;
@@ -3579,12 +3583,6 @@ const RNP = (() => {
             <div class="rnp-layout-info-meta">
               <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}</div>
               <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
-              <div class="rnp-gs-cost">
-                <span class="rnp-gs-lbl">себест.</span>
-                <input type="number" class="rnp-gs-cost-input" value="${art.cost_price || 0}" min="0" step="1"
-                  title="Себестоимость за ед. (сом)"
-                  onchange="RNP.setCost(${art.nm_id}, this.value)">
-              </div>
               <div class="rnp-gs-money-lbl">В деньгах</div>
               <div class="rnp-gs-money-val">${v.moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
               <div class="rnp-gs-usd-lbl">В долларах</div>
@@ -3604,12 +3602,6 @@ const RNP = (() => {
             ${v.photoHtml}
             <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}</div>
             <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
-            <div class="rnp-gs-cost">
-              <span class="rnp-gs-lbl">себест.</span>
-              <input type="number" class="rnp-gs-cost-input" value="${art.cost_price || 0}" min="0" step="1"
-                title="Себестоимость за ед. (сом)"
-                onchange="RNP.setCost(${art.nm_id}, this.value)">
-            </div>
             <div class="rnp-gs-money-lbl">В деньгах</div>
             <div class="rnp-gs-money-val">${v.moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
             <div class="rnp-gs-usd-lbl">В долларах</div>
@@ -6586,6 +6578,7 @@ const RNP = (() => {
     }
 
     function openPhoto(el) {
+        if (_editMode && !_isPhone()) return;
         const node = el && el.nodeType === 1 ? el : null;
         const img = node?.tagName === 'IMG' ? node : node?.querySelector?.('img');
         const src = img?.currentSrc || img?.src;
