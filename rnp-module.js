@@ -103,6 +103,10 @@ const RNP = (() => {
         try { return localStorage.getItem('rnp_stock_open') === '1'; } catch (e) { return false; }
     })();
     let _stockPopBound = false;
+    let _layout = null;
+    let _layoutBound = false;
+    let _layoutDrag = null;
+    const LAYOUT_KEY = 'rnp_block_layout_v1';
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
@@ -2519,6 +2523,191 @@ const RNP = (() => {
         return `Остатки · ${n}`;
     }
 
+    function _defaultLayout() {
+        return {
+            v: 1,
+            h: 118,
+            blocks: {
+                info: { x: 0, y: 0, w: 24, h: 118, hidden: false },
+                kpis: { x: 24.5, y: 0, w: 37, h: 118, hidden: false },
+                photos: { x: 62, y: 0, w: 38, h: 118, hidden: false },
+                stocks: { x: 0, y: 126, w: 48, h: 160, hidden: true },
+            },
+        };
+    }
+
+    function _clampLayoutBlock(b, fb) {
+        const base = fb || { x: 0, y: 0, w: 24, h: 118, hidden: false };
+        const out = {
+            x: Number(b?.x),
+            y: Number(b?.y),
+            w: Number(b?.w),
+            h: Number(b?.h),
+            hidden: !!(b && b.hidden),
+        };
+        if (!Number.isFinite(out.x)) out.x = base.x;
+        if (!Number.isFinite(out.y)) out.y = base.y;
+        if (!Number.isFinite(out.w)) out.w = base.w;
+        if (!Number.isFinite(out.h)) out.h = base.h;
+        out.w = Math.max(12, Math.min(100, Math.round(out.w * 10) / 10));
+        out.h = Math.max(56, Math.min(480, Math.round(out.h)));
+        out.x = Math.max(0, Math.min(100 - out.w, Math.round(out.x * 10) / 10));
+        out.y = Math.max(0, Math.min(800, Math.round(out.y)));
+        return out;
+    }
+
+    function _layoutCanvasH(L) {
+        let h = 110;
+        Object.values(L?.blocks || {}).forEach(b => {
+            if (!b || b.hidden) return;
+            h = Math.max(h, (Number(b.y) || 0) + (Number(b.h) || 0));
+        });
+        return Math.max(110, Math.min(720, Math.round(h)));
+    }
+
+    function _normalizeLayout(raw) {
+        const d = _defaultLayout();
+        const src = raw && typeof raw === 'object' ? raw : {};
+        const blocks = {};
+        Object.keys(d.blocks).forEach(id => {
+            blocks[id] = src.blocks && src.blocks[id]
+                ? _clampLayoutBlock(src.blocks[id], d.blocks[id])
+                : { ...d.blocks[id] };
+        });
+        const next = { v: 1, blocks };
+        next.h = _layoutCanvasH(next);
+        return next;
+    }
+
+    function _loadLayout() {
+        try {
+            return _normalizeLayout(JSON.parse(localStorage.getItem(LAYOUT_KEY) || 'null'));
+        } catch (e) {
+            return _defaultLayout();
+        }
+    }
+
+    function _getLayout() {
+        if (!_layout) _layout = _loadLayout();
+        _layout.h = _layoutCanvasH(_layout);
+        return _layout;
+    }
+
+    function _saveLayout() {
+        if (!_layout) return;
+        _layout.h = _layoutCanvasH(_layout);
+        try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(_layout)); } catch (e) {}
+    }
+
+    function _blockStyle(b) {
+        if (!b || b.hidden) return 'display:none';
+        return `left:${b.x}%;top:${b.y}px;width:${b.w}%;height:${b.h}px`;
+    }
+
+    function _applyLayoutStyles(root) {
+        const L = _getLayout();
+        const scope = root || document;
+        const canvas = scope.querySelector('.rnp-layout-canvas');
+        if (canvas) canvas.style.height = `${L.h}px`;
+        scope.querySelectorAll('.rnp-layout-block').forEach(el => {
+            const b = L.blocks[el.getAttribute('data-block')];
+            el.setAttribute('style', _blockStyle(b));
+        });
+    }
+
+    function resetLayout() {
+        _layout = _defaultLayout();
+        _saveLayout();
+        if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB) _renderActiveTable();
+    }
+
+    function toggleLayoutBlock(id) {
+        const L = _getLayout();
+        if (!L.blocks[id]) return;
+        L.blocks[id].hidden = !L.blocks[id].hidden;
+        if (!L.blocks[id].hidden && id === 'stocks') {
+            L.blocks.stocks.x = 0;
+            L.blocks.stocks.y = Math.max(L.h, 118) + 8;
+            L.blocks.stocks.w = 48;
+            L.blocks.stocks.h = 160;
+        }
+        _layout = L;
+        _saveLayout();
+        if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB) _renderActiveTable();
+    }
+
+    function _bindLayoutEditor() {
+        if (_layoutBound) return;
+        _layoutBound = true;
+        document.addEventListener('pointerdown', _onLayoutPointerDown);
+        document.addEventListener('pointermove', _onLayoutPointerMove);
+        document.addEventListener('pointerup', _onLayoutPointerUp);
+        document.addEventListener('pointercancel', _onLayoutPointerUp);
+    }
+
+    function _onLayoutPointerDown(e) {
+        if (!_editMode || _isPhone()) return;
+        const resize = e.target.closest('.rnp-layout-resize');
+        const block = e.target.closest('.rnp-layout-block');
+        if (!block || !block.closest('.rnp-layout')) return;
+        if (!resize && e.target.closest('input,select,textarea,button,a,.rnp-gs-cost-input')) return;
+        const id = block.getAttribute('data-block');
+        const L = _getLayout();
+        const b = L.blocks[id];
+        if (!b || b.hidden) return;
+        const canvas = block.closest('.rnp-layout-canvas');
+        if (!canvas) return;
+        const cr = canvas.getBoundingClientRect();
+        if (cr.width < 40) return;
+        e.preventDefault();
+        try { block.setPointerCapture(e.pointerId); } catch (err) {}
+        _layoutDrag = {
+            id,
+            resize: !!resize,
+            x0: e.clientX,
+            y0: e.clientY,
+            start: { ...b },
+            canvasW: cr.width,
+            moved: false,
+        };
+        block.classList.add('is-drag');
+        document.querySelector('.rnp-layout')?.classList.add('rnp-layout--dragging');
+    }
+
+    function _onLayoutPointerMove(e) {
+        if (!_layoutDrag) return;
+        const L = _getLayout();
+        const b = L.blocks[_layoutDrag.id];
+        if (!b) return;
+        const dxPct = (e.clientX - _layoutDrag.x0) / _layoutDrag.canvasW * 100;
+        const dy = e.clientY - _layoutDrag.y0;
+        if (Math.abs(e.clientX - _layoutDrag.x0) > 3 || Math.abs(dy) > 3) _layoutDrag.moved = true;
+        if (_layoutDrag.resize) {
+            b.w = _layoutDrag.start.w + dxPct;
+            b.h = _layoutDrag.start.h + dy;
+        } else {
+            b.x = _layoutDrag.start.x + dxPct;
+            b.y = _layoutDrag.start.y + dy;
+        }
+        L.blocks[_layoutDrag.id] = _clampLayoutBlock(b, _layoutDrag.start);
+        L.h = _layoutCanvasH(L);
+        _layout = L;
+        _applyLayoutStyles(document.getElementById('rnp-sheet-body') || document);
+        const body = document.getElementById('rnp-sheet-body');
+        if (_layoutDrag.id === 'photos') _syncMarqueeFill(body || document);
+    }
+
+    function _onLayoutPointerUp(e) {
+        if (!_layoutDrag) return;
+        const drag = _layoutDrag;
+        _layoutDrag = null;
+        document.querySelectorAll('.rnp-layout-block.is-drag').forEach(el => el.classList.remove('is-drag'));
+        document.querySelector('.rnp-layout')?.classList.remove('rnp-layout--dragging');
+        if (drag.moved) _saveLayout();
+        const body = document.getElementById('rnp-sheet-body');
+        requestAnimationFrame(() => _syncMarqueeFill(body || document));
+    }
+
     function _buildLeftPanelHTML(art, stockBySize, rawData, cal, widthPx) {
         const st = widthPx ? ` style="width:${widthPx}px;max-width:${widthPx}px"` : '';
         return `<div class="rnp-head-left-stack"${st}>
@@ -2547,15 +2736,41 @@ const RNP = (() => {
     }
 
     function _buildWideHeadHTML(art, stockBySize, rawData, cal) {
-        return `<div class="rnp-article-panel rnp-article-panel--wide">
-          <div class="rnp-head-wide">
-            <div class="rnp-head-wide-info">${_buildLeftPanelHTML(art, stockBySize, rawData, cal)}</div>
-            <div class="rnp-head-wide-photos">${_buildMarqueeHTML(art, cal)}</div>
+        return _buildLayoutHTML(art, stockBySize, rawData, cal);
+    }
+
+    function _buildLayoutHTML(art, stockBySize, rawData, cal) {
+        const L = _getLayout();
+        const edit = _editMode && !_isPhone();
+        const stocksHidden = !!(L.blocks.stocks && L.blocks.stocks.hidden);
+        const blocks = [
+            ['info', 'Товар', _buildInfoBlockHTML(art, rawData, cal)],
+            ['kpis', 'Рентабельность', _buildKpisBlockHTML(art, rawData, cal)],
+            ['photos', 'Фото', _buildMarqueeHTML(art, cal)],
+            ['stocks', 'Остатки', `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`],
+        ];
+        const items = blocks.map(([id, label, inner]) => {
+            const b = L.blocks[id];
+            if (!b || b.hidden) return '';
+            return `<div class="rnp-layout-block" data-block="${id}" data-label="${label}" style="${_blockStyle(b)}">
+              <div class="rnp-layout-block-inner">${inner}</div>
+              <span class="rnp-layout-resize" title="Размер"></span>
+            </div>`;
+        }).join('');
+        return `<div class="rnp-article-panel rnp-article-panel--wide rnp-layout-panel">
+          <div class="rnp-layout${edit ? ' rnp-layout--edit' : ''}">
+            <div class="rnp-layout-toolbar"${edit ? '' : ' hidden'}>
+              <span>Перетащите блок · угол — размер</span>
+              <button type="button" class="rnp-layout-add" onclick="RNP.toggleLayoutBlock('stocks')">${stocksHidden ? 'Показать остатки' : 'Скрыть остатки'}</button>
+              <button type="button" class="rnp-layout-reset" onclick="RNP.resetLayout()">Сбросить</button>
+            </div>
+            <div class="rnp-layout-canvas" style="height:${L.h}px">${items}</div>
           </div>
         </div>`;
     }
 
     function _buildSheetHeadRows(art, stockBySize, rawData, cal) {
+        if (!_isPhone()) return '';
         if (_needsWideHead(cal)) return '';
         const leftSpan = _leftFrozenSpan(cal);
         const nTimeline = _headMarqueeSpan(cal);
@@ -3275,9 +3490,8 @@ const RNP = (() => {
         }
     }
 
-    function _buildKpiTopHTML(art, stockBySize, rawData, cal) {
+    function _collectKpiView(art, rawData, cal) {
         const kpi = _periodSummary(art, rawData, cal);
-        // Period-average RUB→KGS rate from WB reports; static settings rate as fallback
         const er = (Number(kpi.wb_rate) > 0) ? Number(kpi.wb_rate) : _settings.exchangeRate;
         const toTransferSom = Math.round((kpi.to_transfer || 0) * er);
         const costTotal = Math.round((kpi.sales_count || 0) * (art.cost_price || 0));
@@ -3292,11 +3506,60 @@ const RNP = (() => {
         const photoHtml = _isPhone()
             ? ''
             : `<div class="rnp-gs-photo" title="Открыть фото" onclick="RNP.openPhoto(this)">${_imgHtml(art, 'rnp-gs-photo-img', 'c516x688')}</div>`;
+        return { kpi, toTransferSom, costTotal, roiCls, marginCls, profitCls, planCls, syncSt, moneySom, moneyUsd, seller, photoHtml };
+    }
 
+    function _kpiGridHTML(v) {
+        return `<div class="rnp-kpi-grid rnp-kpi-grid--gs">
+                <div class="rnp-kpi"><span>Рентабельность</span><b class="${v.roiCls}">${_fmtKpi(v.kpi.roi_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>К перечислению</span><b>${v.toTransferSom.toLocaleString('ru')}</b></div>
+                <div class="rnp-kpi"><span>ДРР %</span><b>${_fmtKpi(v.kpi.drr_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>Показы РК</span><b>${_fmtKpi(v.kpi.ad_impressions, 'int')}</b></div>
+                <div class="rnp-kpi"><span>Клики РК</span><b>${_fmtKpi(v.kpi.ad_clicks, 'int')}</b></div>
+                <div class="rnp-kpi"><span>Расход РК</span><b>${_fmtKpi(v.kpi.ad_spend, 'som')}</b></div>
+                <div class="rnp-kpi"><span>Маржа %</span><b class="${v.marginCls}">${_fmtKpi(v.kpi.margin_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>Прибыль</span><b class="${v.profitCls}">${_fmtKpi(v.kpi.profit, 'som')}</b></div>
+                <div class="rnp-kpi"><span>План заказ %</span><b class="${v.planCls}">${_fmtKpi(v.kpi.plan_orders_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>CTR %</span><b>${_fmtKpi(v.kpi.ctr_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>Показов</span><b>${_fmtKpi(v.kpi.impressions, 'int')}</b></div>
+                <div class="rnp-kpi"><span>Логистика ед</span><b>${_fmtKpi(v.kpi.logistics_per_unit, 'som')}</b></div>
+                <div class="rnp-kpi"><span>Выкуп %</span><b>${_fmtKpi(v.kpi.buyout_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>CRO %</span><b>${_fmtKpi(v.kpi.cro_pct, 'pct')}</b></div>
+                <div class="rnp-kpi"><span>Пр. Себес</span><b>${v.costTotal.toLocaleString('ru')}</b></div>
+              </div>`;
+    }
+
+    function _buildInfoBlockHTML(art, rawData, cal) {
+        const v = _collectKpiView(art, rawData, cal);
+        return `<div class="rnp-layout-info">
+            ${v.photoHtml}
+            <div class="rnp-layout-info-meta">
+              <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}</div>
+              <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
+              <div class="rnp-gs-cost">
+                <span class="rnp-gs-lbl">себест.</span>
+                <input type="number" class="rnp-gs-cost-input" value="${art.cost_price || 0}" min="0" step="1"
+                  title="Себестоимость за ед. (сом)"
+                  onchange="RNP.setCost(${art.nm_id}, this.value)">
+              </div>
+              <div class="rnp-gs-money-lbl">В деньгах</div>
+              <div class="rnp-gs-money-val">${v.moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
+              <div class="rnp-gs-usd-lbl">В долларах</div>
+              <div class="rnp-gs-usd-val">$${v.moneyUsd}</div>
+            </div>
+          </div>`;
+    }
+
+    function _buildKpisBlockHTML(art, rawData, cal) {
+        return `<div class="rnp-layout-kpis">${_kpiGridHTML(_collectKpiView(art, rawData, cal))}</div>`;
+    }
+
+    function _buildKpiTopHTML(art, stockBySize, rawData, cal) {
+        const v = _collectKpiView(art, rawData, cal);
         return `<div class="rnp-kpi-block${_strategyTab === 4 ? ' rnp-kpi-block--sizes-focus' : ''}">
           <div class="rnp-kpi-top${_isPhone() ? ' rnp-kpi-top--nophoto' : ''}">
-            ${photoHtml}
-            <div class="rnp-gs-name" title="${seller}">${_syncDot(syncSt.level)} ${seller}</div>
+            ${v.photoHtml}
+            <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}</div>
             <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
             <div class="rnp-gs-cost">
               <span class="rnp-gs-lbl">себест.</span>
@@ -3305,27 +3568,10 @@ const RNP = (() => {
                 onchange="RNP.setCost(${art.nm_id}, this.value)">
             </div>
             <div class="rnp-gs-money-lbl">В деньгах</div>
-            <div class="rnp-gs-money-val">${moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
+            <div class="rnp-gs-money-val">${v.moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
             <div class="rnp-gs-usd-lbl">В долларах</div>
-            <div class="rnp-gs-usd-val">$${moneyUsd}</div>
-            <div class="rnp-gs-kpis">${_phoneCollapseHtml('kpi', 'Показатели', _phoneKpiOpen, `
-              <div class="rnp-kpi-grid rnp-kpi-grid--gs">
-                <div class="rnp-kpi"><span>Рентабельность</span><b class="${roiCls}">${_fmtKpi(kpi.roi_pct, 'pct')}</b></div>
-                <div class="rnp-kpi"><span>К перечислению</span><b>${toTransferSom.toLocaleString('ru')}</b></div>
-                <div class="rnp-kpi"><span>ДРР %</span><b>${_fmtKpi(kpi.drr_pct, 'pct')}</b></div>
-                <div class="rnp-kpi"><span>Показы РК</span><b>${_fmtKpi(kpi.ad_impressions, 'int')}</b></div>
-                <div class="rnp-kpi"><span>Клики РК</span><b>${_fmtKpi(kpi.ad_clicks, 'int')}</b></div>
-                <div class="rnp-kpi"><span>Расход РК</span><b>${_fmtKpi(kpi.ad_spend, 'som')}</b></div>
-                <div class="rnp-kpi"><span>Маржа %</span><b class="${marginCls}">${_fmtKpi(kpi.margin_pct, 'pct')}</b></div>
-                <div class="rnp-kpi"><span>Прибыль</span><b class="${profitCls}">${_fmtKpi(kpi.profit, 'som')}</b></div>
-                <div class="rnp-kpi"><span>План заказ %</span><b class="${planCls}">${_fmtKpi(kpi.plan_orders_pct, 'pct')}</b></div>
-                <div class="rnp-kpi"><span>CTR %</span><b>${_fmtKpi(kpi.ctr_pct, 'pct')}</b></div>
-                <div class="rnp-kpi"><span>Показов</span><b>${_fmtKpi(kpi.impressions, 'int')}</b></div>
-                <div class="rnp-kpi"><span>Логистика ед</span><b>${_fmtKpi(kpi.logistics_per_unit, 'som')}</b></div>
-                <div class="rnp-kpi"><span>Выкуп %</span><b>${_fmtKpi(kpi.buyout_pct, 'pct')}</b></div>
-                <div class="rnp-kpi"><span>CRO %</span><b>${_fmtKpi(kpi.cro_pct, 'pct')}</b></div>
-                <div class="rnp-kpi"><span>Пр. Себес</span><b>${costTotal.toLocaleString('ru')}</b></div>
-              </div>`)}
+            <div class="rnp-gs-usd-val">$${v.moneyUsd}</div>
+            <div class="rnp-gs-kpis">${_phoneCollapseHtml('kpi', 'Показатели', _phoneKpiOpen, _kpiGridHTML(v))}
             </div>
           </div>
         </div>`;
@@ -5579,11 +5825,10 @@ const RNP = (() => {
                   <div><div class="rnp-compare-label">B — ${_sellerArticle(art2).substring(0, 24)}</div>${_buildKpiPanelHTML(art2, stock2, raw2, cal)}</div>
                 </div>`;
             }
-        } else if (_needsWideHead(cal)) {
-            topHTML = _buildWideHeadHTML(art, stockBySize, rawData, cal);
-        } else if (_isNarrow()) {
-            const panelCls = _isPhone() ? ' rnp-article-panel--phone' : ' rnp-article-panel--narrow';
-            topHTML = `<div class="rnp-article-panel${panelCls}">${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>`;
+        } else if (_isPhone()) {
+            topHTML = `<div class="rnp-article-panel rnp-article-panel--phone">${_buildKpiPanelHTML(art, stockBySize, rawData, cal)}</div>`;
+        } else {
+            topHTML = _buildLayoutHTML(art, stockBySize, rawData, cal);
         }
 
         _metricRowSeq = 0;
@@ -5657,7 +5902,7 @@ const RNP = (() => {
         if (typeof ResizeObserver === 'undefined') return;
         const scope = root || document;
         const scroll = scope.querySelector('.rnp-table-scroll') || document.getElementById('rnp-table-wrap');
-        const wide = scope.querySelector('.rnp-head-wide');
+        const wide = scope.querySelector('.rnp-head-wide, .rnp-layout-canvas');
         if (!scroll && !wide) return;
         _marqueeRo = new ResizeObserver(() => {
             if (_marqueeSyncing) return;
@@ -5741,14 +5986,19 @@ const RNP = (() => {
 
             const isBottomGallery = wrap.classList.contains('rnp-general-gallery-marquee');
             const pin = wrap.closest('.rnp-head-marquee-pin');
+            const photoBlock = wrap.closest('.rnp-layout-block[data-block="photos"]');
             const pinned = !!(wrap.closest('.is-pinned'));
+            const layoutH = photoBlock ? Math.round(photoBlock.clientHeight || 0) : 0;
+            const targetH = pinned
+                ? MARQUEE_PINNED_H
+                : (layoutH > 0 ? layoutH : MARQUEE_CARD_MAX_H);
             if (pin && !isBottomGallery) {
-                pin.style.height = `${pinned ? MARQUEE_PINNED_H : MARQUEE_CARD_MAX_H}px`;
+                pin.style.height = `${targetH}px`;
             }
             const gap = 3;
             let cardH = isBottomGallery
                 ? 96
-                : (pinned ? MARQUEE_PINNED_H : MARQUEE_CARD_MAX_H);
+                : Math.max(56, Math.min(360, targetH));
             let cardW = Math.round(cardH * PHOTO_ASPECT_W);
 
             const baseCount = parseInt(track.dataset.baseCount, 10) || track.children.length;
@@ -6091,6 +6341,12 @@ const RNP = (() => {
         document.querySelectorAll('.rnp-sheet-table').forEach(t => {
             t.classList.toggle('rnp-sheet-table--edit-mode', _editMode);
         });
+        document.querySelectorAll('.rnp-layout').forEach((el) => {
+            el.classList.toggle('rnp-layout--edit', _editMode && !_isPhone());
+        });
+        document.querySelectorAll('.rnp-layout-toolbar').forEach((el) => {
+            el.hidden = !(_editMode && !_isPhone());
+        });
         if (!_editMode) _clearSelection();
         else _updateSelectionSum();
     }
@@ -6122,6 +6378,8 @@ const RNP = (() => {
         _applyEditMode();
         _updateEditModeBtn();
         _syncFrozenPane(document.getElementById('rnp-root') || document);
+        _bindLayoutEditor();
+        _applyLayoutStyles(document.getElementById('rnp-sheet-body') || document);
         if (_phoneStockOpen) {
             _bindStockPop();
             requestAnimationFrame(() => _placeStockPop());
@@ -6878,7 +7136,7 @@ const RNP = (() => {
     });
 
     return { init, initCore, ensureReady, openSettings, closeSettings, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
-             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
+             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView, resetLayout, toggleLayoutBlock,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
 

@@ -579,6 +579,40 @@ assert.ok(
     'wide photos stick at the top and shrink after the sheet is scrolled'
 );
 assert.ok(
+    rnpSrc.includes('function _defaultLayout') &&
+    rnpSrc.includes('function _clampLayoutBlock') &&
+    rnpSrc.includes('function resetLayout') &&
+    rnpSrc.includes('function toggleLayoutBlock') &&
+    rnpSrc.includes('rnp-layout-block') &&
+    rnpSrc.includes('rnp-layout-resize') &&
+    rnpSrc.includes("LAYOUT_KEY = 'rnp_block_layout_v1'"),
+    'RNP edit mode can drag and resize header blocks'
+);
+assert.ok(
+    html.includes('.rnp-layout-canvas') &&
+    html.includes('.rnp-layout--edit .rnp-layout-resize') &&
+    html.includes('cursor: nwse-resize'),
+    'layout editor CSS shows resize handles only in edit mode'
+);
+{
+    const helpers = [
+        grabFn(rnpSrc, '_defaultLayout'),
+        grabFn(rnpSrc, '_clampLayoutBlock'),
+        grabFn(rnpSrc, '_layoutCanvasH'),
+        grabFn(rnpSrc, '_normalizeLayout'),
+    ].join('\n');
+    const lay = new Function(`${helpers}; return { _defaultLayout, _clampLayoutBlock, _layoutCanvasH, _normalizeLayout };`)();
+    const d = lay._defaultLayout();
+    assert.ok(d.blocks.info && d.blocks.kpis && d.blocks.photos && d.blocks.stocks.hidden);
+    const clamped = lay._clampLayoutBlock({ x: -10, y: -4, w: 3, h: 10 }, d.blocks.info);
+    assert.ok(clamped.x >= 0 && clamped.w >= 12 && clamped.h >= 56);
+    const grown = lay._normalizeLayout({
+        blocks: { photos: { x: 0, y: 0, w: 50, h: 240, hidden: false } },
+    });
+    assert.ok(grown.h >= 240, 'canvas grows when a block is resized taller');
+    assert.strictEqual(grown.blocks.stocks.hidden, true);
+}
+assert.ok(
     !grabFn(rnpSrc, '_buildLeftPanelHTML').includes('_phoneCollapseHtml') &&
     grabFn(rnpSrc, '_buildLeftPanelHTML').includes('_buildKpiTopHTML'),
     'desktop info card is only the profitability block — no Остатки hide button'
@@ -641,7 +675,7 @@ assert.ok(rnpSrc.includes('function _syncSettingsGroups') && rnpSrc.includes('rn
     assert.strictEqual(fns._leftFrozenPx(withWeeks), 412);
 }
 assert.ok(!/pin\.style\.height\s*=\s*.*leftTh/.test(rnpSrc), 'marquee pin must not follow leftTh — that loop grows photos');
-assert.ok(rnpSrc.includes('pin.style.height = `${pinned ? MARQUEE_PINNED_H : MARQUEE_CARD_MAX_H}px`'), 'photo pin stays short; stocks overlay does not stretch the collage');
+assert.ok(rnpSrc.includes('photoBlock') && rnpSrc.includes('layoutH'), 'photo cards follow the resized photos block');
 assert.ok(rnpSrc.includes('const MARQUEE_CARD_MAX_H = 110'), 'collage cards are ~110px so the sheet gets more room');
 assert.ok(!rnpSrc.includes('leftTh?.offsetWidth'), 'frozen width must not follow the KPI colspan');
 assert.ok(rnpSrc.includes('acc += _frozenWeekW()'), 'sticky week offsets stay on design widths, not measured growth');
@@ -1563,6 +1597,8 @@ assert.deepStrictEqual(viewQty('fbs')(sized), { wh: 6, transit: 2 });
             function _fmtKpi() { return '0'; }
             function _imgHtml() { return '<img class="rnp-gs-photo-img">'; }
             function _phoneCollapseHtml(id, title, open, inner) { return inner; }
+            ${grabFn(rnpSrc, '_collectKpiView')}
+            ${grabFn(rnpSrc, '_kpiGridHTML')}
             ${grabFn(rnpSrc, '_buildKpiTopHTML')}
             return _buildKpiTopHTML({ nm_id: 222, cost_price: 10 }, {}, {}, {});
         `)();
