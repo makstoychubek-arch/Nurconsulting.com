@@ -563,8 +563,10 @@ assert.ok(rnpSrc.includes('function _needsWideHead') && rnpSrc.includes('functio
     'without August weeks KPI and photos sit above the table, not in a 172px frozen cell');
 assert.ok(rnpSrc.includes("if (_needsWideHead(cal)) return '';"),
     'sheet head stays empty on desktop when there are no compare weeks');
-assert.ok(html.includes('.rnp-head-wide') && html.includes('minmax(200px, 260px)'),
-    'wide RNP head keeps a fixed info column so photos cannot cover numbers');
+assert.ok(html.includes('.rnp-head-wide') && html.includes('140px minmax(0, 1fr) 200px'),
+    'wide RNP head keeps a slim info column so остатки get the middle');
+assert.ok(html.includes('.rnp-head-wide-info') && html.includes('width: 140px'),
+    'first info block is capped at 140px');
 assert.ok(html.includes('.rnp-head-wide-info') && html.includes('.rnp-head-wide-photos') && html.includes('.rnp-head-wide-stocks'),
     'wide head is a fixed row: товар, остатки, фото');
 assert.ok(
