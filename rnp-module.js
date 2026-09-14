@@ -4687,6 +4687,31 @@ const RNP = (() => {
         return '';
     }
 
+    /** How the actual (ЗАКАЗЫ / Продажи) sits vs the matching day/week plan.
+     *  Empty when there is no plan — future days and blank plan cells stay plain. */
+    function _planHitKind(actual, plan) {
+        const p = Number(plan);
+        if (!Number.isFinite(p) || p <= 0) return '';
+        const a = Number(actual);
+        const pct = ((Number.isFinite(a) ? a : 0) / p) * 100;
+        if (pct >= 100) return 'hit';
+        if (pct >= 80) return 'mid';
+        return 'miss';
+    }
+
+    function _planHitFill(kind) {
+        if (kind === 'hit')  return 'background:rgba(16,185,129,0.28);color:var(--green);font-weight:700';
+        if (kind === 'mid')  return 'background:rgba(245,158,11,0.28);color:var(--amber);font-weight:700';
+        if (kind === 'miss') return 'background:rgba(239,68,68,0.22);color:var(--red);font-weight:700';
+        return '';
+    }
+
+    function _planHitInner(str, kind) {
+        const num = _fitNum(str ?? '');
+        if (!kind) return num;
+        return `<span class="rnp-cell-stack">${num}<span class="rnp-plan-mark rnp-plan-mark--${kind}"></span></span>`;
+    }
+
     // ─── RENDER SETTINGS ──────────────────────────────────────────────────────
     function _settingsArticleRowHtml(a, cats, esc) {
         const sa = _sellerArticle(a).replace(/</g, '&lt;');
@@ -5992,7 +6017,8 @@ const RNP = (() => {
                     if (isDay) {
                         const pv = _planVal(art, m.key, [col.colKey]);
                         const valAttr = pv !== '' && pv != null ? ` value="${pv}"` : '';
-                        return `<td class="${cls} rnp-cell-plan ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>
+                        const setCls = pv !== '' && pv != null && Number(pv) !== 0 ? ' rnp-cell-plan--set' : '';
+                        return `<td class="${cls} rnp-cell-plan${setCls} ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>
                           <input type="text" inputmode="decimal"${valAttr}
                             class="rnp-plan-input" placeholder=""
                             onchange="RNP.savePlan(${art.nm_id},'${m.key}','${col.colKey}',this.value)">
@@ -6000,7 +6026,8 @@ const RNP = (() => {
                     }
                     const aggVal = _planVal(art, m.key, col.dates || []);
                     const aggStr = aggVal !== '' && aggVal != null ? _fmt(aggVal, m.type) : '—';
-                    return `<td class="${cls} rnp-cell-plan ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>${_fitNum(aggStr)}</td>`;
+                    const setCls = aggVal !== '' && aggVal != null && Number(aggVal) !== 0 ? ' rnp-cell-plan--set' : '';
+                    return `<td class="${cls} rnp-cell-plan${setCls} ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>${_fitNum(aggStr)}</td>`;
                 }
 
                 const val = d ? d[m.key] : null;
@@ -6012,6 +6039,15 @@ const RNP = (() => {
                 else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:rgba(239,68,68,0.15);color:var(--red)';
                 else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
                 if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-weight:700';
+                // ЗАКАЗЫ / Продажи: fill + a bar under the figure, like Excel —
+                // green when the matching plan is hit, amber near it, red below.
+                let hitKind = '';
+                if (!isFuture && d && (m.key === 'orders_count' || m.key === 'sales_count')) {
+                    const planKey = m.key === 'orders_count' ? 'plan_orders' : 'plan_sales';
+                    hitKind = _planHitKind(val, d[planKey]);
+                    const fill = _planHitFill(hitKind);
+                    if (fill) style += (style ? ';' : '') + fill;
+                }
                 const rowNum = _metricRowSeq++;
                 const numVal = (val != null && val !== '' && !isNaN(parseFloat(val))) ? parseFloat(val) : null;
                 const dataAttr = numVal != null
@@ -6026,10 +6062,11 @@ const RNP = (() => {
                 // project preference against UI interruptions.
                 const isLiveToday = isDay && isToday && m.key === 'orders_count';
                 const liveCls = isLiveToday ? ' rnp-cell-live' : '';
+                const hitCls = hitKind ? ` rnp-cell-plan-hit rnp-cell-plan-hit--${hitKind}` : '';
                 const liveTitle = isLiveToday
                     ? ' title="Сегодня — предварительные данные, ещё обновляются"'
                     : '';
-                return `<td class="${cls}${liveCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${_fitNum(str ?? '')}</td>`;
+                return `<td class="${cls}${liveCls}${hitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${_planHitInner(str ?? '', hitKind)}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',

@@ -1665,4 +1665,35 @@ assert.ok(
     'tapping a donut slice must refresh the phone hero donut as well as the size table'
 );
 
+{
+    const start = rnpSrc.indexOf('function _planHitKind');
+    const end = rnpSrc.indexOf('function _settingsArticleRowHtml');
+    assert.ok(start > 0 && end > start, '_planHitKind sits next to cell color helpers');
+    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _planHitKind, _planHitFill };`)();
+    assert.strictEqual(fns._planHitKind(28, 28), 'hit');
+    assert.strictEqual(fns._planHitKind(80, 80), 'hit');
+    assert.strictEqual(fns._planHitKind(22.4, 28), 'mid');
+    assert.strictEqual(fns._planHitKind(7, 28), 'miss');
+    assert.strictEqual(fns._planHitKind(0, 28), 'miss');
+    assert.strictEqual(fns._planHitKind(10, 0), '');
+    assert.strictEqual(fns._planHitKind(10, null), '');
+    assert.strictEqual(fns._planHitKind(10, undefined), '');
+    assert.ok(fns._planHitFill('hit').includes('185,129'));
+    assert.ok(fns._planHitFill('mid').includes('245,158,11'));
+    assert.ok(fns._planHitFill('miss').includes('239,68,68'));
+    assert.strictEqual(fns._planHitFill(''), '');
+    assert.ok(html.includes('.rnp-plan-mark--hit') && html.includes('.rnp-plan-mark--miss'),
+        'dashboard CSS has colored plan-hit bars');
+    assert.ok(html.includes('rnp-cell-plan--set'),
+        'filled plan cells (План заказ) get the Excel-yellow highlight');
+    assert.ok(rnpSrc.includes('rnp-plan-mark rnp-plan-mark--'),
+        'ЗАКАЗЫ cells render a colored bar under the figure');
+    assert.ok(rnpSrc.includes("m.key === 'orders_count' || m.key === 'sales_count'"),
+        'plan-hit color applies to ЗАКАЗЫ and Продажи, not to План продаж leftover');
+    assert.ok(rnpSrc.includes('_planHitInner(str ?? \'\', hitKind)'),
+        'day/week/total cells wrap the number with the plan-hit mark');
+    assert.ok(rnpSrc.includes('rnp-cell-plan--set'),
+        'non-zero plan inputs get the yellow set class');
+}
+
 console.log('dashboard_html_test: ok');
