@@ -56,21 +56,23 @@ assert.ok(
         /class="rail-btn"[^>]*data-tab="goods-groups"/.test(rail) && /<span class="rail-btn-lbl">Товары<\/span>/.test(rail),
         'Товары must sit on the main rail as a live tab'
     );
-    assert.ok(rail.indexOf('data-tab="advertising"') < rail.indexOf('data-tab="goods-groups"') &&
+    assert.ok(rail.indexOf('data-tab="advertising"') < rail.indexOf('data-tab="ab-testing"') &&
+        rail.indexOf('data-tab="ab-testing"') < rail.indexOf('data-tab="goods-groups"') &&
         rail.indexOf('data-tab="goods-groups"') < rail.indexOf('data-flyout="fly-beta"'),
-        'Товары sits on the rail below РК and above BETA');
+        'А/Б sits on the rail between РК and Товары');
 }
 assert.ok(!/data-tab="rnp"[^>]*data-flyout/.test(html),
     'РНП rail button opens the module, not a second column');
-assert.ok(!/<span class="rail-btn-lbl">А\/Б Тесты<\/span>/.test(html), 'А/Б Тесты must not stay on the main rail');
+assert.ok(/<span class="rail-btn-lbl">А\/Б<\/span>/.test(html) && /data-tab="ab-testing"/.test(html),
+    'А/Б Тесты sit on the main rail as a live tab');
 assert.ok(!/<span class="rail-btn-lbl">Тарифы<\/span>/.test(html), 'Тарифы must not stay on the main rail');
 assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
     'ocr/rnp/tariffs flyouts must stay folded into BETA');
-assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'goods-groups', 'agents'])"),
-    'dashboard, settings, RNP, advertising, Товары and Агенты are live tabs');
+assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'agents'])"),
+    'dashboard, settings, RNP, advertising, A/B, Товары and Агенты are live tabs');
 assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
     'non-live modules must open the BETA stub instead of broken UIs');
-assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК, Товары и Агенты'),
+assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары и Агенты'),
     'BETA stub must list the live modules');
 assert.ok(html.includes('id="gg-fbo"') && html.includes('id="gg-transit"') && html.includes('goods-catalog'),
     'Товары tab shows FBO/FBS/in-transit columns and loads the Zevina catalog');
@@ -235,7 +237,7 @@ assert.ok(
 assert.ok(!betaFly.includes("showTab('rnp'"), 'РНП is not duplicated inside BETA');
 assert.ok(!betaFly.includes("showTab('advertising'"), 'Контроль РК is not duplicated inside BETA');
 assert.ok(!betaFly.includes("showTab('goods-groups'"), 'Товары is not duplicated inside BETA');
-assert.ok(betaFly.includes("showTab('ab-testing'"), 'BETA flyout lists А/Б Тесты');
+assert.ok(!betaFly.includes("showTab('ab-testing'"), 'А/Б Тесты left BETA and live on the rail');
 assert.ok(betaFly.includes("showTab('tariffs'"), 'BETA flyout lists Тарифы');
 assert.ok(!betaFly.includes("showTab('cost'"), 'Себестоимость left BETA and lives in Товары');
 assert.ok(betaFly.includes("showTab('dds'"), 'BETA flyout lists Финансы');
@@ -249,9 +251,10 @@ assert.ok(html.includes('id="nr-bottom-nav"'), 'mobile bottom nav must exist');
         bn.indexOf('id="bn-settings"') < bn.indexOf('id="bn-rnp"') &&
         bn.indexOf('id="bn-rnp"') < bn.indexOf('id="bn-dash"') &&
         bn.indexOf('id="bn-dash"') < bn.indexOf('id="bn-rk"') &&
-        bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-goods"') &&
+        bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-ab"') &&
+        bn.indexOf('id="bn-ab"') < bn.indexOf('id="bn-goods"') &&
         bn.indexOf('id="bn-goods"') < bn.indexOf('id="bn-beta"'),
-        'bottom nav order: settings, РНП, Дашборд, РК, Товары, BETA'
+        'bottom nav order: settings, РНП, Дашборд, РК, А/Б, Товары, BETA'
     );
     assert.ok(!bn.includes('id="bn-theme"') && !bn.includes('toggleTheme()'),
         'theme toggle is not on the bottom nav');
@@ -1362,7 +1365,7 @@ assert.ok(
     'Vercel must rewrite /agents to the dashboard'
 );
 assert.ok(
-    html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'goods-groups', 'agents'])") &&
+    html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'agents'])") &&
     html.includes('data-tab="agents"') &&
     html.includes('id="agents-hub-side"') &&
     html.includes('function renderAgentHub') &&

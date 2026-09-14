@@ -4300,7 +4300,7 @@
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
             var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
-            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'goods-groups': 1, agents: 1 };
+            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, agents: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -4320,7 +4320,7 @@
                     __nrCss += '.rnp-workspace,#rnp-sheet-body,.rnp-article-panel--wide{background:var(--surface-solid)}';
                     __nrCss += '.main-content{padding:4px 6px}';
                 }
-                if (__nrPane === 'goods-groups' || __nrPane === 'advertising') {
+                if (__nrPane === 'goods-groups' || __nrPane === 'advertising' || __nrPane === 'ab-testing') {
                     __nrCss += '.main-content{padding:14px 20px 16px}';
                 }
                 __nrCss += '.rail-btn.active{background:transparent !important}';
@@ -4354,6 +4354,10 @@
                 <button type="button" class="rail-btn" data-tab="advertising" title="Контроль РК">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
                     <span class="rail-btn-lbl">РК</span>
+                </button>
+                <button type="button" class="rail-btn" data-tab="ab-testing" title="А/Б Тесты">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4"/></svg></span>
+                    <span class="rail-btn-lbl">А/Б</span>
                 </button>
                 <button type="button" class="rail-btn" data-tab="goods-groups" title="Товары">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
@@ -4424,12 +4428,6 @@
                 <div class="nav-item" onclick="showTab('planning', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg>
                     <span class="nav-item-label">Планирование</span>
-                    <span class="nav-beta-badge">BETA</span>
-                </div>
-                <div class="flyout-sec">Реклама</div>
-                <div class="nav-item" onclick="showTab('ab-testing', this)">
-                    <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4"/></svg>
-                    <span class="nav-item-label">А/Б Тесты</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="flyout-sec">Модули</div>
@@ -4689,7 +4687,7 @@
                 <div class="beta-orb beta-orb-2"></div>
                 <div class="beta-pill">BETA</div>
                 <h2 id="beta-stub-title">Модуль в BETA</h2>
-                <p id="beta-stub-text">Сейчас работают Дашборд, РНП, Контроль РК и Товары. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
+                <p id="beta-stub-text">Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары и Агенты. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
                 <button type="button" class="space-empty-btn" style="margin-top:18px" onclick="showTab('dashboard')">К дашборду</button>
             </div>
         </div>
@@ -5917,6 +5915,10 @@
             <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
             <span class="bn-lbl">РК</span>
         </button>
+        <button type="button" class="bottom-nav-btn" id="bn-ab" data-tab="ab-testing" onclick="showTab('ab-testing')" title="А/Б Тесты">
+            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4"/></svg></span>
+            <span class="bn-lbl">А/Б</span>
+        </button>
         <button type="button" class="bottom-nav-btn" id="bn-goods" data-tab="goods-groups" onclick="showTab('goods-groups')" title="Товары">
             <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
             <span class="bn-lbl">Товары</span>
@@ -6031,7 +6033,7 @@
     }
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon', 'agents']);
-    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'goods-groups', 'agents']);
+    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'agents']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
     // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
@@ -6974,7 +6976,7 @@
         settings:'settings',
         summary:'beta', 'summary-biz':'beta', deductions:'beta', 'plan-fact':'beta',
         rnp:'rnp', 'rnp-settings':'rnp', planning:'beta',
-        advertising:'ads', 'ab-testing':'beta',
+        advertising:'ads', 'ab-testing':'ads',
         seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
         'telegram-bots':'agents', ozon:'beta', agents:'agents',
         cost:'beta', 'goods-groups':'goods', warehouse:'beta',
@@ -7018,7 +7020,7 @@
     }
 
     function syncBottomNav(tabName) {
-        const map = { rnp: 'bn-rnp', 'rnp-settings': 'bn-rnp', dashboard: 'bn-dash', advertising: 'bn-rk', 'goods-groups': 'bn-goods', settings: 'bn-settings' };
+        const map = { rnp: 'bn-rnp', 'rnp-settings': 'bn-rnp', dashboard: 'bn-dash', advertising: 'bn-rk', 'ab-testing': 'bn-ab', 'goods-groups': 'bn-goods', settings: 'bn-settings' };
         document.querySelectorAll('#nr-bottom-nav .bottom-nav-btn[data-tab], #bn-beta').forEach(b => b.classList.remove('active'));
         if (LIVE_TABS.has(tabName) && map[tabName]) {
             document.getElementById(map[tabName])?.classList.add('active');
@@ -7178,7 +7180,7 @@
         if (titleEl) titleEl.textContent = tabTitles[name] || 'Модуль в BETA';
         const textEl = document.getElementById('beta-stub-text');
         if (textEl) {
-            textEl.textContent = 'Сейчас работают Дашборд, РНП, Контроль РК, Товары и Агенты. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
+            textEl.textContent = 'Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары и Агенты. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
         }
         updateHeaderNav(name, true);
         document.querySelector('.main-content')?.classList.remove('rnp-compact', 'logistics-compact', 'goods-compact');
@@ -7216,12 +7218,12 @@
         document.getElementById('tab-' + name)?.classList.add('active');
         highlightNavForTab(name, el);
         updateHeaderNav(name);
-        if (name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'goods-groups' || name === 'agents') {
+        if (name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'ab-testing' || name === 'goods-groups' || name === 'agents') {
             window.closeSidebarMenus?.(true);
         }
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
-        document.querySelector('.main-content')?.classList.toggle('goods-compact', name === 'goods-groups' || name === 'advertising');
+        document.querySelector('.main-content')?.classList.toggle('goods-compact', name === 'goods-groups' || name === 'advertising' || name === 'ab-testing');
         if (name === 'ab-testing') loadABTests();
         if (name === 'advertising' && hasUserCabinets) openAdvertisingTab();
         if (name === 'dds' && hasUserCabinets && window._financeDdsLoadedForCabinet !== currentCabinetId) {
