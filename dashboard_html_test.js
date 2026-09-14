@@ -801,10 +801,7 @@ assert.ok(
     assert.ok(phone._phoneCollapseHtml('stock', 'Остатки', true, 'BODY').includes('is-open'));
     assert.strictEqual(desk._phoneCollapseHtml('kpi', 'Показатели', false, '<b>keep</b>'), '<b>keep</b>');
     const deskStock = desk._phoneCollapseHtml('stock', 'Остатки', true, 'BODY');
-    assert.ok(deskStock.includes('data-block="stock"') && deskStock.includes('is-open') && deskStock.includes('BODY'),
-        'phone Остатки helper still wraps the donut');
-    assert.ok(!deskStock.includes('Скрыть') && !deskStock.includes('rnp-stock-pop-hide'),
-        'stock pop has no hide button — tap Остатки again to close');
+    assert.strictEqual(deskStock, 'BODY', 'desktop must not wrap Остатки in a popover overlay');
 }
 assert.ok(
     rnpSrc.includes('function _buildPhoneHeroHTML') &&
@@ -1669,7 +1666,7 @@ assert.ok(
     const start = rnpSrc.indexOf('function _planHitKind');
     const end = rnpSrc.indexOf('function _settingsArticleRowHtml');
     assert.ok(start > 0 && end > start, '_planHitKind sits next to cell color helpers');
-    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _planHitKind, _planHitFill };`)();
+    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _planHitKind };`)();
     assert.strictEqual(fns._planHitKind(28, 28), 'hit');
     assert.strictEqual(fns._planHitKind(80, 80), 'hit');
     assert.strictEqual(fns._planHitKind(22.4, 28), 'mid');
@@ -1678,22 +1675,22 @@ assert.ok(
     assert.strictEqual(fns._planHitKind(10, 0), '');
     assert.strictEqual(fns._planHitKind(10, null), '');
     assert.strictEqual(fns._planHitKind(10, undefined), '');
-    assert.ok(fns._planHitFill('hit').includes('185,129'));
-    assert.ok(fns._planHitFill('mid').includes('245,158,11'));
-    assert.ok(fns._planHitFill('miss').includes('239,68,68'));
-    assert.strictEqual(fns._planHitFill(''), '');
-    assert.ok(html.includes('.rnp-plan-mark--hit') && html.includes('.rnp-plan-mark--miss'),
-        'dashboard CSS has colored plan-hit bars');
+    assert.ok(html.includes('box-shadow: inset 0 -3px 0 var(--green)') && html.includes('rnp-cell-plan-hit--miss'),
+        'dashboard CSS paints a bar under ЗАКАЗЫ without extra DOM');
     assert.ok(html.includes('rnp-cell-plan--set'),
         'filled plan cells (План заказ) get the Excel-yellow highlight');
-    assert.ok(rnpSrc.includes('rnp-plan-mark rnp-plan-mark--'),
-        'ЗАКАЗЫ cells render a colored bar under the figure');
+    assert.ok(html.includes('overflow: hidden') && html.includes('.rnp-article-panel--wide'),
+        'wide RNP head clips so photos cannot cover the sheet');
     assert.ok(rnpSrc.includes("m.key === 'orders_count' || m.key === 'sales_count'"),
         'plan-hit color applies to ЗАКАЗЫ and Продажи, not to План продаж leftover');
-    assert.ok(rnpSrc.includes('_planHitInner(str ?? \'\', hitKind)'),
-        'day/week/total cells wrap the number with the plan-hit mark');
+    assert.ok(rnpSrc.includes('rnp-cell-plan-hit rnp-cell-plan-hit--'),
+        'day/week/total ЗАКАЗЫ cells get a plan-hit class, not a flex stack');
+    assert.ok(!rnpSrc.includes('rnp-cell-stack') && !rnpSrc.includes('_planHitInner'),
+        'plan-hit must not inject flex stacks into table cells');
     assert.ok(rnpSrc.includes('rnp-cell-plan--set'),
         'non-zero plan inputs get the yellow set class');
+    assert.ok(rnpSrc.includes('if (!_isPhone()) return inner;'),
+        'desktop Остатки stay in the header, not a floating overlay');
 }
 
 console.log('dashboard_html_test: ok');

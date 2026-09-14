@@ -3209,7 +3209,7 @@ const RNP = (() => {
     }
 
     function _phoneCollapseHtml(id, title, open, inner) {
-        if (!_isPhone() && id !== 'stock') return inner;
+        if (!_isPhone()) return inner;
         return `<div class="rnp-collapse${open ? ' is-open' : ''}" data-block="${id}">
           <button type="button" class="rnp-collapse-head" onclick="RNP.togglePhoneBlock('${id}')" aria-expanded="${open ? 'true' : 'false'}">
             <span>${title}</span>
@@ -4699,19 +4699,6 @@ const RNP = (() => {
         return 'miss';
     }
 
-    function _planHitFill(kind) {
-        if (kind === 'hit')  return 'background:rgba(16,185,129,0.28);color:var(--green);font-weight:700';
-        if (kind === 'mid')  return 'background:rgba(245,158,11,0.28);color:var(--amber);font-weight:700';
-        if (kind === 'miss') return 'background:rgba(239,68,68,0.22);color:var(--red);font-weight:700';
-        return '';
-    }
-
-    function _planHitInner(str, kind) {
-        const num = _fitNum(str ?? '');
-        if (!kind) return num;
-        return `<span class="rnp-cell-stack">${num}<span class="rnp-plan-mark rnp-plan-mark--${kind}"></span></span>`;
-    }
-
     // ─── RENDER SETTINGS ──────────────────────────────────────────────────────
     function _settingsArticleRowHtml(a, cats, esc) {
         const sa = _sellerArticle(a).replace(/</g, '&lt;');
@@ -5737,15 +5724,18 @@ const RNP = (() => {
         const panel = _headPinPanel(body);
         if (!panel) {
             _setCssVar(body, '--rnp-pin-h', '0px');
-            _setCssVar(body, '--rnp-scroll-w', `${body.clientWidth}px`);
+            const w0 = body.clientWidth;
+            if (w0 > 0) _setCssVar(body, '--rnp-scroll-w', `${w0}px`);
             return;
         }
-        _setCssVar(body, '--rnp-scroll-w', `${body.clientWidth}px`);
+        const scrollW = body.clientWidth;
+        if (scrollW > 0) _setCssVar(body, '--rnp-scroll-w', `${scrollW}px`);
         const pinned = body.scrollTop > 12;
         const changed = panel.classList.contains('is-pinned') !== pinned;
         if (changed) panel.classList.toggle('is-pinned', pinned);
         const applyH = () => {
-            _setCssVar(body, '--rnp-pin-h', `${Math.round(panel.getBoundingClientRect().height)}px`);
+            const h = Math.round(panel.getBoundingClientRect().height);
+            if (h > 0) _setCssVar(body, '--rnp-pin-h', `${h}px`);
         };
         if (changed) {
             requestAnimationFrame(() => {
@@ -5787,16 +5777,16 @@ const RNP = (() => {
             const photoCol = wrap.closest('.rnp-head-wide-photos');
             const pinned = !!(wrap.closest('.is-pinned'));
             const layoutH = photoCol ? Math.round(photoCol.clientHeight || 0) : 0;
-            const targetH = pinned
-                ? MARQUEE_PINNED_H
-                : (layoutH > 0 ? layoutH : MARQUEE_CARD_MAX_H);
+            const capH = pinned ? MARQUEE_PINNED_H : MARQUEE_CARD_MAX_H;
+            const targetH = Math.max(56, Math.min(capH, layoutH > 0 ? layoutH : capH));
             if (pin && !isBottomGallery) {
                 pin.style.height = `${targetH}px`;
+                pin.style.maxHeight = `${capH}px`;
             }
             const gap = 3;
             let cardH = isBottomGallery
                 ? 96
-                : Math.max(56, Math.min(360, targetH));
+                : targetH;
             let cardW = Math.round(cardH * PHOTO_ASPECT_W);
 
             const baseCount = parseInt(track.dataset.baseCount, 10) || track.children.length;
@@ -6039,14 +6029,12 @@ const RNP = (() => {
                 else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:rgba(239,68,68,0.15);color:var(--red)';
                 else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
                 if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-weight:700';
-                // ЗАКАЗЫ / Продажи: fill + a bar under the figure, like Excel —
-                // green when the matching plan is hit, amber near it, red below.
+                // ЗАКАЗЫ / Продажи: a bar under the figure (CSS box-shadow), like Excel.
+                // No extra DOM/flex inside the td — that blew up the sheet layout.
                 let hitKind = '';
                 if (!isFuture && d && (m.key === 'orders_count' || m.key === 'sales_count')) {
                     const planKey = m.key === 'orders_count' ? 'plan_orders' : 'plan_sales';
                     hitKind = _planHitKind(val, d[planKey]);
-                    const fill = _planHitFill(hitKind);
-                    if (fill) style += (style ? ';' : '') + fill;
                 }
                 const rowNum = _metricRowSeq++;
                 const numVal = (val != null && val !== '' && !isNaN(parseFloat(val))) ? parseFloat(val) : null;
@@ -6066,7 +6054,7 @@ const RNP = (() => {
                 const liveTitle = isLiveToday
                     ? ' title="Сегодня — предварительные данные, ещё обновляются"'
                     : '';
-                return `<td class="${cls}${liveCls}${hitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${_planHitInner(str ?? '', hitKind)}</td>`;
+                return `<td class="${cls}${liveCls}${hitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${_fitNum(str ?? '')}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',
