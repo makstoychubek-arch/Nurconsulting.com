@@ -127,7 +127,7 @@ const RNP = (() => {
     const MARQUEE_CARD_MAX_H = 110;
     const MARQUEE_CARD_MIN_H = 96;
     const MARQUEE_PINNED_H = 72;
-    const MARQUEE_REPS_MAX = 6;
+    const MARQUEE_REPS_MAX = 12;
     const PHOTO_ASPECT_W = 3 / 4;
     const MONTH_COL_W = 42;
     const MONTH_SHORT = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
@@ -2269,7 +2269,7 @@ const RNP = (() => {
 
     function _buildTestCardHTML(art, period) {
         const gi = period.galleryIdx ?? 0;
-        const photoIdx = gi + 2;
+        const photoIdx = period.photoIdx ?? (gi + 2);
         const label = (period.label || '').replace(/"/g, '&quot;');
         const img = _imgHtml(art, 'rnp-test-img', 'c516x688', '', photoIdx, true);
         return `<div class="rnp-test-card" data-gallery-idx="${gi}" data-photo-idx="${photoIdx}" title="${label || 'Открыть фото'}" onclick="RNP.openPhoto(this)">
@@ -2277,12 +2277,19 @@ const RNP = (() => {
         </div>`;
     }
 
-    function _buildMarqueeHTML(art, cal) {
-        const periods = _timelinePeriods(art, cal);
-        if (!periods.length) {
-            return '<div class="rnp-head-marquee-pin"><div class="rnp-marquee-empty">—</div></div>';
+    function _buildMarqueeHTML(art, cal, opts) {
+        let cards = '';
+        if (opts && opts.allPhotos) {
+            cards = Array.from({ length: GALLERY_PHOTO_COUNT }, (_, i) =>
+                _buildTestCardHTML(art, { galleryIdx: i, photoIdx: i + 1, label: '' })
+            ).join('');
+        } else {
+            const periods = _timelinePeriods(art, cal);
+            if (!periods.length) {
+                return '<div class="rnp-head-marquee-pin"><div class="rnp-marquee-empty">—</div></div>';
+            }
+            cards = periods.map(p => _buildTestCardHTML(art, p)).join('');
         }
-        const cards = periods.map(p => _buildTestCardHTML(art, p)).join('');
         return `<div class="rnp-head-marquee-pin"><div class="rnp-marquee-wrap">
           <div class="rnp-marquee-track">${cards}</div>
         </div></div>`;
@@ -2563,7 +2570,7 @@ const RNP = (() => {
             <div class="rnp-head-wide-stocks">
               <div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>
             </div>
-            <div class="rnp-head-wide-photos">${_buildMarqueeHTML(art, cal)}</div>
+            <div class="rnp-head-wide-photos">${_buildMarqueeHTML(art, cal, { allPhotos: true })}</div>
           </div>
         </div>`;
     }
@@ -5680,6 +5687,8 @@ const RNP = (() => {
             _bindArticleSwipe(body);
         } else {
             requestAnimationFrame(() => {
+                _syncMarqueeFill(body);
+                _bindMarqueeResize(body);
                 _bindHeadPin(body);
             });
         }
@@ -5815,6 +5824,10 @@ const RNP = (() => {
             const layoutH = photoCol ? Math.round(photoCol.clientHeight || 0) : 0;
             const capH = pinned ? MARQUEE_PINNED_H : MARQUEE_CARD_MAX_H;
             const targetH = Math.max(56, Math.min(capH, layoutH > 0 ? layoutH : capH));
+            if (pin && !isBottomGallery && photoCol) {
+                if (pin.style.width !== '100%') pin.style.width = '100%';
+                if (pin.style.maxWidth !== 'none') pin.style.maxWidth = 'none';
+            }
             if (pin && !isBottomGallery) {
                 const nextH = `${targetH}px`;
                 const nextMax = `${capH}px`;
@@ -5832,11 +5845,13 @@ const RNP = (() => {
             const setW = baseCount * (cardW + gap) - gap;
             const viewW = isBottomGallery
                 ? (wrap.clientWidth || 0)
-                : (wrap.clientWidth || pin?.clientWidth || 0);
-            const totalReps = Math.min(MARQUEE_REPS_MAX, Math.max(3, Math.ceil((viewW || 1) / Math.max(setW, 1))));
+                : (wrap.clientWidth || pin?.clientWidth || photoCol?.clientWidth || 0);
+            if (viewW <= 0) return;
+            const totalReps = Math.min(MARQUEE_REPS_MAX, Math.max(3, Math.ceil((viewW + setW) / Math.max(setW, 1))));
 
-            if (track.children.length !== baseCount * totalReps && oneSetHtml) {
-                track.innerHTML = oneSetHtml.repeat(totalReps);
+            if (oneSetHtml && track.children.length < baseCount * totalReps) {
+                const missingSets = Math.ceil((baseCount * totalReps - track.children.length) / baseCount);
+                track.insertAdjacentHTML('beforeend', oneSetHtml.repeat(missingSets));
                 _applyResolvedPhotos(scope);
             }
 

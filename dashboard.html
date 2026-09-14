@@ -1590,8 +1590,8 @@
             top: 0;
             left: 0;
             z-index: 55;
-            width: var(--rnp-scroll-w, 100%);
-            max-width: var(--rnp-scroll-w, 100%);
+            width: 100%;
+            max-width: 100%;
             background: var(--surface-solid);
             border-bottom: 1px solid var(--border);
             overflow: hidden;
@@ -1602,7 +1602,7 @@
             max-height: 80px;
         }
         .rnp-article-panel--wide.is-pinned .rnp-head-wide {
-            padding: 4px 12px;
+            padding: 4px 0 4px 12px;
             gap: 8px 12px;
             align-items: stretch;
             height: 80px;
@@ -1667,8 +1667,9 @@
             grid-template-columns: 152px max-content minmax(0, 1fr);
             gap: 4px 10px;
             align-items: stretch;
-            padding: 4px 10px 4px;
+            padding: 4px 0 4px 10px;
             min-width: 0;
+            width: 100%;
             box-sizing: border-box;
             height: 118px;
             max-height: 118px;
@@ -1768,6 +1769,7 @@
         }
         .rnp-head-wide-photos {
             min-width: 0;
+            width: 100%;
             position: relative;
             overflow: hidden;
             height: 100%;
@@ -1777,13 +1779,17 @@
         .rnp-head-wide .rnp-head-marquee-pin {
             position: relative !important;
             left: auto !important;
-            width: 100%;
-            max-width: 100%;
+            width: 100% !important;
+            max-width: none !important;
             height: 100%;
             min-height: 0;
             max-height: 100%;
             z-index: 1;
             overflow: hidden;
+        }
+        .rnp-head-wide .rnp-marquee-wrap {
+            mask-image: none;
+            -webkit-mask-image: none;
         }
         .rnp-head-wide .rnp-kpi-top:not(.rnp-kpi-top--compact) {
             grid-template-columns: 40px minmax(72px, 1fr) minmax(52px, 64px) minmax(160px, 1.3fr);
@@ -6058,7 +6064,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.122f11c539.min.js"></script>
+<script src="/dist/rnp-module.35acedbafa.min.js"></script>
 <script src="/dist/wb-formulas.fc1e69ed87.min.js"></script>
 <script src="/dist/ads-command-center.a751de01a4.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>

@@ -571,6 +571,10 @@ assert.ok(html.includes('.rnp-head-wide-stocks .rnp-stock-table') && html.includ
     'stock size table must not stretch and leave a gap after На складе');
 assert.ok(html.includes('.rnp-head-wide-info .rnp-gs-photo') && html.includes('object-fit: cover'),
     'main article photo sits in a 3/4 frame instead of a stretched stamp');
+assert.ok(html.includes('padding: 4px 0 4px 10px') && html.includes('.rnp-head-wide .rnp-marquee-wrap') && html.includes('mask-image: none'),
+    'wide photo gallery must reach the right edge without a fade hole');
+assert.ok(rnpSrc.includes('allPhotos: true') && rnpSrc.includes('insertAdjacentHTML') && rnpSrc.includes('GALLERY_PHOTO_COUNT'),
+    'wide gallery fills with all product photos and extra copies, without wiping the track');
 assert.ok(html.includes('.rnp-head-wide-info') && html.includes('.rnp-head-wide-photos') && html.includes('.rnp-head-wide-stocks'),
     'wide head is a fixed row: товар, остатки, фото');
 assert.ok(
