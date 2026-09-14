@@ -1546,7 +1546,8 @@
         .rnp-layout-canvas {
             position: relative;
             width: 100%;
-            min-height: 110px;
+            min-height: 0;
+            overflow: hidden;
             box-sizing: border-box;
         }
         .rnp-layout-block {
@@ -1572,9 +1573,20 @@
             box-sizing: border-box; padding: 4px 6px;
         }
         .rnp-layout-block[data-block="photos"] .rnp-layout-block-inner { padding: 0; overflow: hidden; }
-        .rnp-layout-block[data-block="photos"] .rnp-head-marquee-pin {
+        .rnp-layout-block[data-block="photos"] .rnp-head-marquee-pin,
+        .rnp-layout-block[data-block="photos"] .rnp-head-wide-photos {
             position: relative; left: auto !important; width: 100%; max-width: 100%;
-            height: 100%; min-height: 0;
+            height: 100%; min-height: 0; max-height: 100%;
+        }
+        .rnp-layout-block[data-block="stocks"] .rnp-stock-scheme-wrap {
+            display: flex; flex-wrap: wrap; align-items: flex-start;
+            gap: 6px 14px; height: 100%; min-width: 0;
+        }
+        .rnp-layout-block[data-block="stocks"] .rnp-head-sizes-inline {
+            flex: 1 1 260px; min-width: 0; max-width: 100%;
+        }
+        .rnp-layout-block[data-block="stocks"] .rnp-stock-donut {
+            flex: 0 1 220px; padding: 0;
         }
         .rnp-layout-resize {
             display: none; position: absolute; right: 2px; bottom: 2px;
@@ -1582,20 +1594,54 @@
             background:
                 linear-gradient(135deg, transparent 50%, var(--accent) 50%) bottom right / 10px 10px no-repeat;
         }
-        .rnp-layout--edit .rnp-layout-resize { display: block; }
+        .rnp-layout-hide {
+            display: none; position: absolute; top: 2px; right: 2px; z-index: 3;
+            width: 18px; height: 18px; padding: 0; border: none;
+            border-radius: 6px; background: var(--sel); color: var(--text-muted);
+            font: inherit; font-size: 13px; font-weight: 800; line-height: 1; cursor: pointer;
+        }
+        .rnp-layout-hide:hover { color: var(--accent); background: var(--accent-soft); }
+        .rnp-layout--edit .rnp-layout-resize,
+        .rnp-layout--edit .rnp-layout-hide { display: block; }
         .rnp-layout--edit .rnp-marquee-track { animation-play-state: paused; }
         .rnp-layout--dragging { user-select: none; }
+        .rnp-article-panel--wide.is-pinned .rnp-layout-block[data-block="stocks"] {
+            display: none !important;
+        }
+        .rnp-article-panel--wide.is-pinned .rnp-layout-canvas {
+            height: var(--rnp-layout-pin-h, 120px) !important;
+            min-height: 72px;
+        }
         .rnp-layout-info {
             display: grid;
-            grid-template-columns: 40px minmax(0, 1fr);
-            gap: 4px 8px; height: 100%; align-items: start;
+            grid-template-columns: 44px minmax(0, 1fr);
+            gap: 4px 8px; height: 100%; align-items: stretch;
         }
-        .rnp-layout-info .rnp-gs-photo { min-height: 40px; height: 100%; max-height: 100%; }
+        .rnp-layout-info > .rnp-gs-photo,
+        .rnp-layout-info .rnp-gs-photo {
+            grid-area: auto;
+            grid-column: 1;
+            grid-row: 1;
+            min-height: 0; height: auto; max-height: none;
+            margin: 0; align-self: stretch;
+        }
         .rnp-layout-info-meta {
+            grid-column: 2;
             display: grid; grid-template-columns: minmax(0, 1fr) auto;
             gap: 2px 8px; min-width: 0; align-content: start;
         }
-        .rnp-layout-info-meta .rnp-gs-name { grid-column: 1 / -1; }
+        .rnp-layout-info-meta > .rnp-gs-name,
+        .rnp-layout-info-meta > .rnp-gs-nmid,
+        .rnp-layout-info-meta > .rnp-gs-cost,
+        .rnp-layout-info-meta > .rnp-gs-money-lbl,
+        .rnp-layout-info-meta > .rnp-gs-usd-lbl,
+        .rnp-layout-info-meta > .rnp-gs-money-val,
+        .rnp-layout-info-meta > .rnp-gs-usd-val {
+            grid-area: auto;
+        }
+        .rnp-layout-info-meta .rnp-gs-name {
+            grid-column: 1 / -1;
+        }
         .rnp-layout-kpis { height: 100%; }
         .rnp-layout-kpis .rnp-kpi-grid--gs {
             height: 100%; align-content: space-between;
@@ -5863,7 +5909,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.2ac3f61eeb.min.js"></script>
+<script src="/dist/rnp-module.fa8c5c0a96.min.js"></script>
 <script src="/dist/wb-formulas.fc1e69ed87.min.js"></script>
 <script src="/dist/ads-command-center.caf134ecd4.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>

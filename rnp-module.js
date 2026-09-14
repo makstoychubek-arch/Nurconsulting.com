@@ -106,7 +106,7 @@ const RNP = (() => {
     let _layout = null;
     let _layoutBound = false;
     let _layoutDrag = null;
-    const LAYOUT_KEY = 'rnp_block_layout_v1';
+    const LAYOUT_KEY = 'rnp_block_layout_v2';
 
     const FROZEN_METRIC_W = 132;
     const FROZEN_SPARK_W = 40;
@@ -2523,15 +2523,23 @@ const RNP = (() => {
         return `Остатки · ${n}`;
     }
 
+    function _layoutBlockTitle(id) {
+        if (id === 'info') return 'Товар';
+        if (id === 'kpis') return 'Рентабельность';
+        if (id === 'photos') return 'Фото';
+        if (id === 'stocks') return 'Остатки';
+        return id;
+    }
+
     function _defaultLayout() {
         return {
-            v: 1,
-            h: 118,
+            v: 2,
+            h: 224,
             blocks: {
-                info: { x: 0, y: 0, w: 24, h: 118, hidden: false },
-                kpis: { x: 24.5, y: 0, w: 37, h: 118, hidden: false },
-                photos: { x: 62, y: 0, w: 38, h: 118, hidden: false },
-                stocks: { x: 0, y: 126, w: 48, h: 160, hidden: true },
+                info: { x: 0, y: 0, w: 28, h: 120, hidden: false },
+                kpis: { x: 28.5, y: 0, w: 33, h: 120, hidden: false },
+                photos: { x: 62, y: 0, w: 38, h: 120, hidden: false },
+                stocks: { x: 0, y: 124, w: 100, h: 100, hidden: false },
             },
         };
     }
@@ -2565,6 +2573,37 @@ const RNP = (() => {
         return Math.max(110, Math.min(720, Math.round(h)));
     }
 
+    function _layoutTopRowH(L) {
+        let h = 72;
+        Object.entries(L?.blocks || {}).forEach(([id, b]) => {
+            if (!b || b.hidden || id === 'stocks') return;
+            if ((Number(b.y) || 0) > 8) return;
+            h = Math.max(h, Number(b.h) || 0);
+        });
+        return Math.max(72, Math.min(240, Math.round(h)));
+    }
+
+    function _visibleBlockBottom(L, exceptId) {
+        let h = 0;
+        Object.entries(L?.blocks || {}).forEach(([id, b]) => {
+            if (!b || b.hidden || id === exceptId) return;
+            h = Math.max(h, (Number(b.y) || 0) + (Number(b.h) || 0));
+        });
+        return h;
+    }
+
+    function _ensureStocksPlacement(L) {
+        const s = L?.blocks?.stocks;
+        if (!s || s.hidden) return;
+        const bottom = _visibleBlockBottom(L, 'stocks');
+        if (s.y < bottom - 4 && s.y < 40) {
+            s.x = 0;
+            s.y = bottom + 4;
+            s.w = Math.max(s.w, 60);
+            s.h = Math.max(s.h, 100);
+        }
+    }
+
     function _normalizeLayout(raw) {
         const d = _defaultLayout();
         const src = raw && typeof raw === 'object' ? raw : {};
@@ -2574,7 +2613,8 @@ const RNP = (() => {
                 ? _clampLayoutBlock(src.blocks[id], d.blocks[id])
                 : { ...d.blocks[id] };
         });
-        const next = { v: 1, blocks };
+        const next = { v: 2, blocks };
+        _ensureStocksPlacement(next);
         next.h = _layoutCanvasH(next);
         return next;
     }
@@ -2608,7 +2648,9 @@ const RNP = (() => {
         const L = _getLayout();
         const scope = root || document;
         const canvas = scope.querySelector('.rnp-layout-canvas');
+        const panel = scope.querySelector('.rnp-layout-panel') || scope.querySelector('.rnp-article-panel--wide');
         if (canvas) canvas.style.height = `${L.h}px`;
+        if (panel) panel.style.setProperty('--rnp-layout-pin-h', `${_layoutTopRowH(L)}px`);
         scope.querySelectorAll('.rnp-layout-block').forEach(el => {
             const b = L.blocks[el.getAttribute('data-block')];
             el.setAttribute('style', _blockStyle(b));
@@ -2624,13 +2666,10 @@ const RNP = (() => {
     function toggleLayoutBlock(id) {
         const L = _getLayout();
         if (!L.blocks[id]) return;
+        const visible = Object.values(L.blocks).filter(b => b && !b.hidden).length;
+        if (!L.blocks[id].hidden && visible <= 1) return;
         L.blocks[id].hidden = !L.blocks[id].hidden;
-        if (!L.blocks[id].hidden && id === 'stocks') {
-            L.blocks.stocks.x = 0;
-            L.blocks.stocks.y = Math.max(L.h, 118) + 8;
-            L.blocks.stocks.w = 48;
-            L.blocks.stocks.h = 160;
-        }
+        if (!L.blocks[id].hidden && id === 'stocks') _ensureStocksPlacement(L);
         _layout = L;
         _saveLayout();
         if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB) _renderActiveTable();
@@ -2742,26 +2781,30 @@ const RNP = (() => {
     function _buildLayoutHTML(art, stockBySize, rawData, cal) {
         const L = _getLayout();
         const edit = _editMode && !_isPhone();
-        const stocksHidden = !!(L.blocks.stocks && L.blocks.stocks.hidden);
         const blocks = [
-            ['info', 'Товар', _buildInfoBlockHTML(art, rawData, cal)],
-            ['kpis', 'Рентабельность', _buildKpisBlockHTML(art, rawData, cal)],
-            ['photos', 'Фото', _buildMarqueeHTML(art, cal)],
-            ['stocks', 'Остатки', `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`],
+            ['info', _layoutBlockTitle('info'), _buildInfoBlockHTML(art, rawData, cal)],
+            ['kpis', _layoutBlockTitle('kpis'), _buildKpisBlockHTML(art, rawData, cal)],
+            ['photos', _layoutBlockTitle('photos'), _buildMarqueeHTML(art, cal)],
+            ['stocks', _layoutBlockTitle('stocks'), `<div class="rnp-stock-scheme-wrap" data-nm="${art.nm_id}">${_stockSchemeInnerHTML(art, stockBySize)}</div>`],
         ];
         const items = blocks.map(([id, label, inner]) => {
             const b = L.blocks[id];
             if (!b || b.hidden) return '';
             return `<div class="rnp-layout-block" data-block="${id}" data-label="${label}" style="${_blockStyle(b)}">
               <div class="rnp-layout-block-inner">${inner}</div>
+              <button type="button" class="rnp-layout-hide" onclick="RNP.toggleLayoutBlock('${id}')" title="Скрыть">×</button>
               <span class="rnp-layout-resize" title="Размер"></span>
             </div>`;
         }).join('');
-        return `<div class="rnp-article-panel rnp-article-panel--wide rnp-layout-panel">
+        const showBtns = Object.keys(L.blocks)
+            .filter(id => L.blocks[id] && L.blocks[id].hidden)
+            .map(id => `<button type="button" class="rnp-layout-add" onclick="RNP.toggleLayoutBlock('${id}')">Показать ${_layoutBlockTitle(id)}</button>`)
+            .join('');
+        return `<div class="rnp-article-panel rnp-article-panel--wide rnp-layout-panel" style="--rnp-layout-pin-h:${_layoutTopRowH(L)}px">
           <div class="rnp-layout${edit ? ' rnp-layout--edit' : ''}">
             <div class="rnp-layout-toolbar"${edit ? '' : ' hidden'}>
-              <span>Перетащите блок · угол — размер</span>
-              <button type="button" class="rnp-layout-add" onclick="RNP.toggleLayoutBlock('stocks')">${stocksHidden ? 'Показать остатки' : 'Скрыть остатки'}</button>
+              <span>Перетащите блок · угол — размер · крестик — скрыть. Макет общий для всех кабинетов</span>
+              ${showBtns}
               <button type="button" class="rnp-layout-reset" onclick="RNP.resetLayout()">Сбросить</button>
             </div>
             <div class="rnp-layout-canvas" style="height:${L.h}px">${items}</div>
