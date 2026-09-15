@@ -13417,7 +13417,9 @@
         const chain = AGENT_CHAINS.find((c) => c.id === id);
         if (!chain) return;
         _agentHub.chain = id;
-        if (chain.via && chain.via[0]) _agentHub.note = chain.via[0];
+        if (chain.via && chain.via.length && !chain.via.includes(_agentHub.note)) {
+            _agentHub.note = chain.via[0];
+        }
         renderAgentHub();
     }
 
