@@ -952,12 +952,14 @@ async function sleep(ms: number): Promise<void> {
 }
 
 async function handleVerifyMainPhoto(admin: Admin, body: Record<string, unknown>): Promise<Response> {
-    const mutate = body.mutate !== false;
+    // mutate только по явному флагу — иначе случайный вызов сменит обложку на WB.
+    const mutate = body.mutate === true;
+    const nmOverride = Number(body.nm_id || 0);
     let test: Record<string, unknown> | null = null;
     if (body.test_id) {
         const { data } = await admin.from('ab_tests').select('*').eq('id', body.test_id).maybeSingle();
         test = data;
-    } else {
+    } else if (!nmOverride) {
         const { data } = await admin
             .from('ab_tests')
             .select('*')
@@ -967,10 +969,27 @@ async function handleVerifyMainPhoto(admin: Admin, body: Record<string, unknown>
             .maybeSingle();
         test = data;
     }
-    if (!test) {
-        return json({ ok: false, error: 'no_active_test', photo_slot: WB_MAIN_PHOTO_SLOT });
+    const nmId = nmOverride || Number(test?.nm_id || 0);
+    if (!nmId) {
+        return json({ ok: false, error: 'no_nm_id', photo_slot: WB_MAIN_PHOTO_SLOT });
     }
-    const nmId = Number(test.nm_id);
+    if (!test) {
+        const basketOnly = await probeWbBasketHost(nmId);
+        const s1 = basketOnly ? await hashWbPhotoSlot(basketOnly, nmId, WB_MAIN_PHOTO_SLOT) : null;
+        const s2 = basketOnly ? await hashWbPhotoSlot(basketOnly, nmId, 2) : null;
+        return json({
+            ok: Boolean(s1),
+            mutated: false,
+            photo_slot: WB_MAIN_PHOTO_SLOT,
+            nm_id: nmId,
+            basket: basketOnly,
+            slot1: s1,
+            slot2: s2,
+            slot1_is_main: true,
+            slot1_differs_from_slot2: Boolean(s1 && s2 && s1.sha !== s2.sha),
+            note: 'нет активного теста — только чтение CDN, слот 1 это обложка',
+        });
+    }
     const { data: cab } = await admin.from('cabinets').select('wb_token').eq('id', test.cabinet_id).maybeSingle();
     const token = sanitizeWbToken(cab?.wb_token);
     const basket = await probeWbBasketHost(nmId);
