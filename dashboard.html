@@ -754,7 +754,7 @@
         ::-webkit-scrollbar-thumb { background: var(--accent-border); border-radius: 2px; }
         .tab-content { display: none; position: relative; overflow: hidden; }
         .tab-content.active { display: block; overflow: auto; }
-        .tab-content.active > *:not(.nr-modal-overlay):not(#ab-edit-modal):not(#ab-report-modal) { position: relative; z-index: 1; }
+        .tab-content.active > * { position: relative; z-index: 1; }
         #tab-rnp.tab-content.active, #tab-rnp-settings.tab-content.active {
             overflow: hidden;
             flex: 1;
@@ -762,9 +762,6 @@
             display: flex;
             flex-direction: column;
         }
-        #ab-edit-modal.nr-modal-overlay, #ab-report-modal.nr-modal-overlay,
-        #new-test-form.nr-modal-overlay,
-        #ab-edit-modal, #ab-report-modal, #new-test-form { position: fixed !important; z-index: 99998; }
         .beta-module-hero { position: relative; overflow: hidden; }
         .beta-module-hero .beta-orb {
             position: absolute; border-radius: 50%; pointer-events: none;
@@ -2768,7 +2765,6 @@
         }
         #modal-btn:hover { opacity: 0.92; transform: translateY(-1px); }
         #supply-detail-modal:not(.hidden) { display: flex; }
-        #ab-edit-modal:not(.hidden) { display: flex; }
         .rnp-summary-table { font-size: 10px; width: 100%; border-collapse: collapse; }
         .rnp-summary-table th, .rnp-summary-table td { border: none; padding: 6px 8px; text-align: center; }
         .rnp-summary-table th { background: var(--surface); font-weight: 700; font-size: 9px; color: var(--text-muted); position: sticky; top: 0; }
@@ -2891,23 +2887,58 @@
         .ab-campaign-row:last-child { border-bottom: none; }
         .ab-campaign-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .ab-campaign-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--text-muted); }
-        .ab-new-dialog {
-            background: var(--surface-solid); border: 1px solid var(--border-strong); border-radius: 20px;
-            padding: 0; max-width: 720px; width: 94%; max-height: min(88vh, 860px);
-            display: flex; flex-direction: column; overflow: hidden;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+        .ab-new-dialog.rnp-settings-dialog {
+            width: min(480px, 100%);
+            max-height: min(62vh, 520px);
+            padding: 6px 14px 10px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
-        .ab-new-head {
-            display: flex; align-items: center; justify-content: space-between; gap: 12px;
-            padding: 18px 22px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+        .ab-new-dialog .ab-new-head {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            padding: 0 28px 8px 0; border-bottom: 1px solid var(--border); flex-shrink: 0;
         }
-        .ab-new-head h3 { font-size: 17px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.03em; }
-        .ab-new-body { padding: 16px 22px 8px; overflow-y: auto; flex: 1; min-height: 0; }
-        .ab-new-foot {
+        .ab-new-dialog .ab-new-head h3 { font-size: 15px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.03em; margin: 0; }
+        .ab-new-dialog .ab-new-body { padding: 6px 0 0; overflow-y: auto; flex: 1; min-height: 0; }
+        .ab-new-dialog .ab-new-foot {
             display: flex; justify-content: flex-end; gap: 8px;
-            padding: 14px 22px 18px; border-top: 1px solid var(--border); flex-shrink: 0;
+            padding: 8px 0 0; border-top: 1px solid var(--border); flex-shrink: 0; margin-top: 6px;
         }
-        .ab-new-dialog .ab-wizard-card { margin-bottom: 10px; padding: 16px 16px 14px; }
+        .ab-new-dialog .ab-wizard-card {
+            margin: 0; padding: 7px 0; background: transparent; border: none; border-radius: 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .ab-new-dialog .ab-wizard-card:last-child { border-bottom: none; padding-bottom: 0; }
+        .ab-new-dialog .ab-wizard-card h4 { font-size: 11px; margin-bottom: 5px; }
+        .ab-new-dialog .ab-wizard-hint { font-size: 10px; margin-top: 4px; }
+        .ab-new-dialog .ab-combo-list { max-height: 148px; }
+        .ab-new-dialog .ab-campaign-list { max-height: 96px; }
+        .ab-new-dialog .ab-product-search { padding: 6px 10px; font-size: 12px; border-radius: 10px; }
+        .ab-new-dialog .ab-photo-gallery { max-height: 64px; overflow-y: auto; margin-top: 6px; }
+        .ab-new-dialog .ab-pill { padding: 4px 10px; font-size: 11px; }
+        .ab-new-dialog .ab-stop-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .ab-new-dialog .ab-check {
+            display: flex; align-items: center; gap: 6px; margin-top: 6px;
+            font-size: 12px; color: var(--text-primary); cursor: pointer;
+        }
+        .ab-new-dialog .ab-selected-card { padding: 8px; gap: 8px; margin-top: 6px; }
+        .ab-new-dialog .ab-selected-card img { width: 36px; height: 48px; }
+        .ab-new-dialog .ab-variant-row { grid-template-columns: 72px 1fr; gap: 8px; margin-bottom: 8px; }
+        .ab-new-dialog .ab-variant-preview { width: 72px; height: 90px; }
+        .ab-new-dialog .drop-zone { padding: 10px 8px; }
+        .ab-report-dialog.rnp-settings-dialog {
+            width: min(720px, 100%);
+            max-height: min(72vh, 620px);
+            padding: 8px 16px 14px;
+            overflow: auto;
+        }
+        .ab-edit-dialog.rnp-settings-dialog {
+            width: min(480px, 100%);
+            max-height: min(62vh, 480px);
+            padding: 8px 16px 14px;
+            overflow: auto;
+        }
         .ab-combo-list { max-height: 220px; overflow-y: auto; margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; }
         .ab-campaign-status {
             font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
@@ -5481,141 +5512,6 @@
                 </div>
             </div>
 
-            <!-- МАСТЕР СОЗДАНИЯ А/Б ТЕСТА — компактная модалка, не на всю страницу -->
-            <div id="new-test-form" class="hidden nr-modal-overlay" onclick="if(event.target===this) hideNewTestForm()" style="position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(8px)">
-                <div class="nr-modal-box ab-new-dialog" role="dialog" aria-modal="true" aria-labelledby="ab-wizard-title">
-                    <div class="ab-new-head">
-                        <h3 id="ab-wizard-title">Новый А/Б тест</h3>
-                        <button type="button" onclick="hideNewTestForm()" style="background:none;border:1px solid var(--border);color:var(--text-muted);width:32px;height:32px;border-radius:10px;font-size:18px;cursor:pointer;line-height:1">×</button>
-                    </div>
-                    <div class="ab-new-body">
-                        <div class="ab-wizard-card">
-                            <h4>Карточка товара</h4>
-                            <input type="text" id="ab-product-search" class="ab-product-search" placeholder="Выберите карточку — название или артикул" oninput="debounceABProductSearch()" autocomplete="off">
-                            <div id="ab-product-list" class="ab-combo-list">
-                                <div class="text-center py-8 text-sm" style="color:var(--text-muted)">Загрузка карточек из WB...</div>
-                            </div>
-                            <div id="ab-selected-card" class="ab-selected-card hidden" style="margin-top:10px"></div>
-                            <div id="ab-wb-photo-gallery" class="ab-photo-gallery"></div>
-                        </div>
-
-                        <div id="ab-wizard-rest" class="hidden">
-                    <div class="ab-wizard-card">
-                        <h4>Источники статистики</h4>
-                        <div class="ab-pill-toggle">
-                            <div class="ab-pill active" id="ab-src-ads" onclick="toggleABSource('ads', this)">Реклама</div>
-                            <div class="ab-pill active" id="ab-src-funnel" onclick="toggleABSource('funnel', this)">Воронка продаж</div>
-                        </div>
-                        <div class="ab-wizard-hint">Реклама: нужна рекламная кампания. Воронка: органика + реклама.</div>
-                    </div>
-
-                    <div class="ab-wizard-card">
-                        <h4>Что считаем победой</h4>
-                        <select id="ab-metric" class="ab-product-search" style="margin-bottom:8px">
-                            <option value="ctr">CTR (клики / показы)</option>
-                            <option value="orders">Заказы</option>
-                            <option value="cr">CR (заказы / клики)</option>
-                        </select>
-                        <div class="ab-wizard-hint">Победа — выше выбранный показатель по рекламной статистике.</div>
-                        <div class="mt-3 text-xs font-semibold mb-2" style="color:var(--text-secondary)">Платформы:</div>
-                        <div class="ab-pill-toggle" id="ab-platforms">
-                            <div class="ab-pill active" data-plat="all" onclick="toggleABPlatform('all', this)">Все</div>
-                            <div class="ab-pill" data-plat="web" onclick="toggleABPlatform('web', this)">Сайт</div>
-                            <div class="ab-pill" data-plat="android" onclick="toggleABPlatform('android', this)">Android</div>
-                            <div class="ab-pill" data-plat="ios" onclick="toggleABPlatform('ios', this)">iOS</div>
-                        </div>
-                    </div>
-
-                    <div class="ab-wizard-card">
-                        <h4>Выберите РК, в которой идут показы</h4>
-                        <input type="text" id="ab-campaign-search" class="ab-product-search" placeholder="Поиск по названию или id — например «тест стр»" oninput="filterABCampaigns()" autocomplete="off" style="margin-bottom:8px">
-                        <div id="ab-campaign-list" class="ab-campaign-list">
-                            <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка кампаний...</div>
-                        </div>
-                    </div>
-
-                    <div class="ab-wizard-card">
-                        <h4>Варианты фото</h4>
-                        <div id="variant-inputs"></div>
-                        <button class="ui-btn ui-btn-secondary mb-2 text-sm" onclick="addVariantSlot()" id="add-variant-btn">+ Добавить вариант</button>
-                        <div class="ab-wizard-hint">Минимум 2 варианта. Клик по фото галереи WB выше — или загрузите файл 700×900.</div>
-                    </div>
-
-                    <div class="ab-wizard-card">
-                        <h4>Настройки ротации</h4>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div>
-                                <div class="text-xs mb-1" style="color:var(--text-secondary)">Менять главное фото каждые (мин)</div>
-                                <input type="number" id="abt-interval" value="30" min="15" max="1440" step="5" class="ab-product-search">
-                            </div>
-                            <div>
-                                <div class="text-xs mb-1" style="color:var(--text-secondary)">Отключать после ротаций (0 = без лимита)</div>
-                                <input type="number" id="abt-maxrot" value="0" min="0" class="ab-product-search">
-                            </div>
-                        </div>
-                        <div class="ab-wizard-hint">От 15 мин. Чем больше интервал — тем точнее данные по каждому фото.</div>
-                    </div>
-
-                    <div class="ab-wizard-card">
-                        <h4>Автоматическая остановка</h4>
-                        <label class="flex items-center gap-2 cursor-pointer mb-3">
-                            <input type="checkbox" id="ab-stop-on-winner" checked style="accent-color:var(--accent)">
-                            <span class="text-sm" style="color:var(--text-primary)">Остановить, когда найден победитель с CTR от N% и выше</span>
-                        </label>
-                        <div class="flex items-center gap-2 mb-3">
-                            <div class="text-xs" style="color:var(--text-muted)">Цель CTR, %:</div>
-                            <input type="number" id="ab-min-ctr" value="5" min="1" max="30" step="0.5" class="ab-product-search" style="max-width:90px">
-                        </div>
-                        <label class="flex items-center gap-2 cursor-pointer mb-3">
-                            <input type="checkbox" id="ab-auto-stop" checked style="accent-color:var(--accent)">
-                            <span class="text-sm" style="color:var(--text-primary)">Или когда у каждого фото наберётся минимум показов — РК на паузу</span>
-                        </label>
-                        <div class="text-xs mb-2" style="color:var(--text-muted)">Минимум показов на каждое фото (поровну):</div>
-                        <input type="number" id="ab-min-impressions" value="2000" min="100" step="100" class="ab-product-search" style="max-width:140px">
-                        <div class="ab-wizard-hint">Цель — фото с CTR от 5% и выше. Тест сам остановится, как только один вариант уверенно лучше и набрал этот CTR. 2000 показов — потолок, если победитель так и не ясен.</div>
-                    </div>
-                        </div>
-                    </div>
-                    <div class="ab-new-foot">
-                        <button class="ui-btn ui-btn-secondary text-sm" onclick="hideNewTestForm()">Отмена</button>
-                        <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()" id="ab-create-test-btn">Создать тест</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Редактирование вариантов -->
-            <div id="ab-edit-modal" class="hidden" style="position:fixed;inset:0;z-index:99997;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px)">
-                <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;max-width:640px;width:94%;max-height:85vh;overflow-y:auto">
-                    <div class="flex items-center justify-between mb-4">
-                        <h3 class="font-semibold" style="color:var(--text-primary)">Редактировать варианты</h3>
-                        <button onclick="closeABEditModal()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">×</button>
-                    </div>
-                    <div id="ab-edit-existing" class="flex gap-2 flex-wrap mb-4"></div>
-                    <div id="ab-edit-new-variants" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4"></div>
-                    <button class="ui-btn ui-btn-secondary text-sm mb-4" onclick="addEditVariantSlot()">+ Добавить вариант</button>
-                    <div class="flex gap-2">
-                        <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="saveABEditVariants()">Сохранить</button>
-                        <button class="ui-btn ui-btn-secondary" onclick="closeABEditModal()">Отмена</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Детальный отчёт по А/Б тесту: модалка поверх страницы (не отдельный
-                 URL) — затемнённая подложка, плавное fade/scale появление,
-                 закрытие крестиком или кликом по подложке вне окна. -->
-            <div id="ab-report-modal" class="hidden nr-modal-overlay" onclick="if(event.target===this) closeABReportModal()" style="position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px)">
-                <div class="nr-modal-box" style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;max-width:1080px;width:96%;max-height:90vh;overflow-y:auto">
-                    <div class="flex items-center justify-between mb-1">
-                        <h3 class="font-semibold text-base" style="color:var(--text-primary)" id="ab-report-title">Отчёт по А/Б тесту</h3>
-                        <button onclick="closeABReportModal()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1">×</button>
-                    </div>
-                    <div class="text-xs mb-3" style="color:var(--text-muted)" id="ab-report-sub"></div>
-                    <div class="flex items-center gap-2 mb-3" id="ab-report-source-toggle"></div>
-                    <div id="ab-report-verdict" class="mb-4"></div>
-                    <div id="ab-report-variants" class="ab-report-grid"></div>
-                </div>
-            </div>
-
             <div id="abtests-list" class="space-y-3"><div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div></div>
         </div>
 
@@ -5630,6 +5526,122 @@
             <div class="rnp-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="rnp-settings-title">
                 <button type="button" class="rnp-settings-close" onclick="RNP.closeSettings()" aria-label="Закрыть">×</button>
                 <div id="rnp-settings-modal-body"></div>
+            </div>
+        </div>
+
+        <div id="new-test-form" class="rnp-settings-overlay" onclick="if(event.target===this) hideNewTestForm()">
+            <div class="rnp-settings-dialog ab-new-dialog" role="dialog" aria-modal="true" aria-labelledby="ab-wizard-title">
+                <button type="button" class="rnp-settings-close" onclick="hideNewTestForm()" aria-label="Закрыть">×</button>
+                <div class="ab-new-head"><h3 id="ab-wizard-title">Новый А/Б тест</h3></div>
+                <div class="ab-new-body">
+                    <div class="ab-wizard-card">
+                        <h4>Карточка товара</h4>
+                        <div id="ab-wizard-pick">
+                            <input type="text" id="ab-product-search" class="ab-product-search" placeholder="Название или артикул" oninput="debounceABProductSearch()" autocomplete="off">
+                            <div id="ab-product-list" class="ab-combo-list">
+                                <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка карточек из WB...</div>
+                            </div>
+                        </div>
+                        <div id="ab-selected-card" class="ab-selected-card hidden"></div>
+                        <div id="ab-wb-photo-gallery" class="ab-photo-gallery"></div>
+                    </div>
+
+                    <div id="ab-wizard-rest" class="hidden">
+                        <div class="ab-wizard-card">
+                            <h4>Источники и победа</h4>
+                            <div class="ab-pill-toggle">
+                                <div class="ab-pill active" id="ab-src-ads" onclick="toggleABSource('ads', this)">Реклама</div>
+                                <div class="ab-pill active" id="ab-src-funnel" onclick="toggleABSource('funnel', this)">Воронка</div>
+                            </div>
+                            <select id="ab-metric" class="ab-product-search" style="margin:6px 0">
+                                <option value="ctr">CTR (клики / показы)</option>
+                                <option value="orders">Заказы</option>
+                                <option value="cr">CR (заказы / клики)</option>
+                            </select>
+                            <div class="ab-pill-toggle" id="ab-platforms">
+                                <div class="ab-pill active" data-plat="all" onclick="toggleABPlatform('all', this)">Все</div>
+                                <div class="ab-pill" data-plat="web" onclick="toggleABPlatform('web', this)">Сайт</div>
+                                <div class="ab-pill" data-plat="android" onclick="toggleABPlatform('android', this)">Android</div>
+                                <div class="ab-pill" data-plat="ios" onclick="toggleABPlatform('ios', this)">iOS</div>
+                            </div>
+                        </div>
+
+                        <div class="ab-wizard-card">
+                            <h4>РК, в которой идут показы</h4>
+                            <input type="text" id="ab-campaign-search" class="ab-product-search" placeholder="Поиск по названию или id" oninput="filterABCampaigns()" autocomplete="off" style="margin-bottom:6px">
+                            <div id="ab-campaign-list" class="ab-campaign-list">
+                                <div class="text-center py-4 text-sm" style="color:var(--text-muted)">Загрузка кампаний...</div>
+                            </div>
+                        </div>
+
+                        <div class="ab-wizard-card">
+                            <h4>Варианты фото</h4>
+                            <div id="variant-inputs"></div>
+                            <button class="ui-btn ui-btn-secondary text-sm" onclick="addVariantSlot()" id="add-variant-btn">+ Добавить вариант</button>
+                            <div class="ab-wizard-hint">Минимум 2. Клик по фото WB или файл 700×900.</div>
+                        </div>
+
+                        <div class="ab-wizard-card">
+                            <h4>Ротация и автостоп</h4>
+                            <div class="ab-stop-grid">
+                                <div>
+                                    <div class="text-xs mb-1" style="color:var(--text-muted)">Интервал, мин</div>
+                                    <input type="number" id="abt-interval" value="30" min="15" max="1440" step="5" class="ab-product-search">
+                                </div>
+                                <div>
+                                    <div class="text-xs mb-1" style="color:var(--text-muted)">Цель CTR, %</div>
+                                    <input type="number" id="ab-min-ctr" value="5" min="1" max="30" step="0.5" class="ab-product-search">
+                                </div>
+                                <div>
+                                    <div class="text-xs mb-1" style="color:var(--text-muted)">Макс. ротаций</div>
+                                    <input type="number" id="abt-maxrot" value="0" min="0" class="ab-product-search">
+                                </div>
+                                <div>
+                                    <div class="text-xs mb-1" style="color:var(--text-muted)">Показы на фото</div>
+                                    <input type="number" id="ab-min-impressions" value="2000" min="100" step="100" class="ab-product-search">
+                                </div>
+                            </div>
+                            <label class="ab-check">
+                                <input type="checkbox" id="ab-stop-on-winner" checked style="accent-color:var(--accent)">
+                                Стоп при победителе с CTR от цели
+                            </label>
+                            <label class="ab-check">
+                                <input type="checkbox" id="ab-auto-stop" checked style="accent-color:var(--accent)">
+                                Или когда наберётся минимум показов — РК на паузу
+                            </label>
+                            <div class="ab-wizard-hint">Сам остановится при CTR от 5% или 2000 показах на фото.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="ab-new-foot">
+                    <button class="ui-btn ui-btn-secondary text-sm" onclick="hideNewTestForm()">Отмена</button>
+                    <button class="px-5 py-2 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()" id="ab-create-test-btn">Создать тест</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="ab-edit-modal" class="rnp-settings-overlay" onclick="if(event.target===this) closeABEditModal()">
+            <div class="rnp-settings-dialog ab-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="ab-edit-title">
+                <button type="button" class="rnp-settings-close" onclick="closeABEditModal()" aria-label="Закрыть">×</button>
+                <h3 id="ab-edit-title" class="font-semibold" style="color:var(--text-primary);margin:0 28px 10px 0">Редактировать варианты</h3>
+                <div id="ab-edit-existing" class="flex gap-2 flex-wrap mb-3"></div>
+                <div id="ab-edit-new-variants" class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3"></div>
+                <button class="ui-btn ui-btn-secondary text-sm mb-3" onclick="addEditVariantSlot()">+ Добавить вариант</button>
+                <div class="flex gap-2 justify-end">
+                    <button class="ui-btn ui-btn-secondary" onclick="closeABEditModal()">Отмена</button>
+                    <button class="px-5 py-2 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="saveABEditVariants()">Сохранить</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="ab-report-modal" class="rnp-settings-overlay" onclick="if(event.target===this) closeABReportModal()">
+            <div class="rnp-settings-dialog ab-report-dialog" role="dialog" aria-modal="true" aria-labelledby="ab-report-title">
+                <button type="button" class="rnp-settings-close" onclick="closeABReportModal()" aria-label="Закрыть">×</button>
+                <h3 class="font-semibold text-base" style="color:var(--text-primary);margin:0 28px 4px 0" id="ab-report-title">Отчёт по А/Б тесту</h3>
+                <div class="text-xs mb-2" style="color:var(--text-muted)" id="ab-report-sub"></div>
+                <div class="flex items-center gap-2 mb-2" id="ab-report-source-toggle"></div>
+                <div id="ab-report-verdict" class="mb-3"></div>
+                <div id="ab-report-variants" class="ab-report-grid"></div>
             </div>
         </div>
 
@@ -11103,6 +11115,15 @@
     let abCampaignQuery = '';
     let abArticleCampaignIds = new Set();
 
+    function openAbSheet(el) {
+        if (!el) return;
+        if (el.parentElement !== document.body) document.body.appendChild(el);
+        el.classList.add('is-open');
+    }
+    function closeAbSheet(el) {
+        if (el) el.classList.remove('is-open');
+    }
+
     function showNewTestForm() {
         abWizardStep = 1;
         abSelectedCard = null;
@@ -11115,8 +11136,10 @@
         abWizardPlatforms = new Set(['all']);
         const form = document.getElementById('new-test-form');
         const rest = document.getElementById('ab-wizard-rest');
+        const pick = document.getElementById('ab-wizard-pick');
         const sel = document.getElementById('ab-selected-card');
         if (rest) rest.classList.add('hidden');
+        if (pick) pick.classList.remove('hidden');
         if (sel) { sel.classList.add('hidden'); sel.innerHTML = ''; }
         document.getElementById('ab-wb-photo-gallery').innerHTML = '';
         document.getElementById('variant-inputs').innerHTML = '';
@@ -11124,32 +11147,24 @@
         if (search) search.value = '';
         const campSearch = document.getElementById('ab-campaign-search');
         if (campSearch) campSearch.value = '';
-        if (form) {
-            form.classList.remove('hidden');
-            form.style.display = 'flex';
-            requestAnimationFrame(() => requestAnimationFrame(() => form.classList.add('nr-modal-open')));
-        }
+        openAbSheet(form);
         loadABProductCards('');
     }
 
     function hideNewTestForm() {
-        const form = document.getElementById('new-test-form');
-        if (form) {
-            form.classList.remove('nr-modal-open');
-            setTimeout(() => {
-                form.classList.add('hidden');
-                form.style.display = 'none';
-            }, 200);
-        }
+        closeAbSheet(document.getElementById('new-test-form'));
         abSelectedCard = null;
         abVariantFiles = {};
-        document.getElementById('variant-inputs').innerHTML = '';
+        const inputs = document.getElementById('variant-inputs');
+        if (inputs) inputs.innerHTML = '';
     }
 
     function abWizardGoStep(step) {
         abWizardStep = step;
         const rest = document.getElementById('ab-wizard-rest');
+        const pick = document.getElementById('ab-wizard-pick');
         if (rest) rest.classList.toggle('hidden', step !== 2);
+        if (pick) pick.classList.toggle('hidden', step === 2);
         if (step === 2) {
             renderABSelectedCard();
             loadABCampaigns();
@@ -12208,22 +12223,12 @@
             </div>`;
         }).join('');
 
-        const modalEl = document.getElementById('ab-report-modal');
-        modalEl.classList.remove('hidden');
-        modalEl.style.display = 'flex';
-        // Двойной rAF, чтобы браузер успел применить display:flex/opacity:0
-        // до включения transition-класса — иначе fade/scale не проиграется.
-        requestAnimationFrame(() => requestAnimationFrame(() => modalEl.classList.add('nr-modal-open')));
+        openAbSheet(document.getElementById('ab-report-modal'));
     }
     window.openABReportModal = openABReportModal;
 
     function closeABReportModal() {
-        const el = document.getElementById('ab-report-modal');
-        el.classList.remove('nr-modal-open');
-        setTimeout(() => {
-            el.classList.add('hidden');
-            el.style.display = 'none';
-        }, 200);
+        closeAbSheet(document.getElementById('ab-report-modal'));
     }
     window.closeABReportModal = closeABReportModal;
 
@@ -12273,11 +12278,11 @@
                 <div class="text-xs text-center py-1" style="color:var(--text-muted)">Вар. ${escapeHtml(v.variant_label)}</div>
             </div>`).join('');
         newBox.innerHTML = '';
-        document.getElementById('ab-edit-modal').classList.remove('hidden');
+        openAbSheet(document.getElementById('ab-edit-modal'));
     }
 
     function closeABEditModal() {
-        document.getElementById('ab-edit-modal').classList.add('hidden');
+        closeAbSheet(document.getElementById('ab-edit-modal'));
         abEditingTestId = null;
         abEditNewFiles = {};
     }
