@@ -23,6 +23,7 @@ import {
     probeWbBasketHost,
     WB_MAIN_PHOTO_SLOT,
 } from '../_shared/wb-main-photo.ts';
+import { decideAbAutoStop } from '../_shared/ab-test-auto-stop.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -300,14 +301,13 @@ Deno.serve(async (req) => {
                         }
                     }
 
-                    const autoStop = (test.settings as Record<string, unknown> | null)?.autoStop !== false;
-                    const minImpressions = Number((test.settings as Record<string, unknown> | null)?.minImpressions) || 2000;
-                    if (!finishReason && autoStop) {
+                    if (!finishReason) {
                         const fresh = await admin.from('ab_test_variants').select('*').eq('test_id', test.id);
-                        const freshVariants = fresh.data || [];
-                        const eachReady = freshVariants.length >= 2
-                            && freshVariants.every((v) => (Number(v.impressions) || 0) >= minImpressions);
-                        if (eachReady) finishReason = 'impressions_cap';
+                        const hit = decideAbAutoStop(
+                            (test.settings as Record<string, unknown> | null) || {},
+                            fresh.data || [],
+                        );
+                        if (hit) finishReason = hit.reason;
                     }
 
                     if (finishReason) {

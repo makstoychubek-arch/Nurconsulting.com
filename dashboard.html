@@ -5559,12 +5559,20 @@
                     <div class="ab-wizard-card">
                         <h4>Автоматическая остановка</h4>
                         <label class="flex items-center gap-2 cursor-pointer mb-3">
+                            <input type="checkbox" id="ab-stop-on-winner" checked style="accent-color:var(--accent)">
+                            <span class="text-sm" style="color:var(--text-primary)">Остановить, когда найден победитель с CTR от N% и выше</span>
+                        </label>
+                        <div class="flex items-center gap-2 mb-3">
+                            <div class="text-xs" style="color:var(--text-muted)">Цель CTR, %:</div>
+                            <input type="number" id="ab-min-ctr" value="5" min="1" max="30" step="0.5" class="ab-product-search" style="max-width:90px">
+                        </div>
+                        <label class="flex items-center gap-2 cursor-pointer mb-3">
                             <input type="checkbox" id="ab-auto-stop" checked style="accent-color:var(--accent)">
-                            <span class="text-sm" style="color:var(--text-primary)">Остановить тест и поставить РК на паузу, когда у каждого фото наберётся минимум показов</span>
+                            <span class="text-sm" style="color:var(--text-primary)">Или когда у каждого фото наберётся минимум показов — РК на паузу</span>
                         </label>
                         <div class="text-xs mb-2" style="color:var(--text-muted)">Минимум показов на каждое фото (поровну):</div>
                         <input type="number" id="ab-min-impressions" value="2000" min="100" step="100" class="ab-product-search" style="max-width:140px">
-                        <div class="ab-wizard-hint">По умолчанию 2000 на вариант. Лучшее фото останется на WB, выбранные РК встанут на стоп — без лишнего расхода.</div>
+                        <div class="ab-wizard-hint">Цель — фото с CTR от 5% и выше. Тест сам остановится, как только один вариант уверенно лучше и набрал этот CTR. 2000 показов — потолок, если победитель так и не ясен.</div>
                     </div>
                         </div>
                     </div>
@@ -11544,6 +11552,8 @@
                 })
             ),
             autoStop: document.getElementById('ab-auto-stop')?.checked !== false,
+            stopOnWinner: document.getElementById('ab-stop-on-winner')?.checked !== false,
+            minCtr: Number(document.getElementById('ab-min-ctr')?.value) || 5,
             stopCampaigns: true,
             minImpressions: parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 2000,
         });
@@ -11748,12 +11758,14 @@
             </div>`;
         }).join('');
 
+        const minImpCap = Number(test.settings?.minImpressions) || 2000;
+        const minCtrGoal = Number(test.settings?.minCtr) > 0 ? Number(test.settings.minCtr) : 5;
         const finishReasonLabel = test.finish_reason === 'campaign_stopped'
             ? ' · РК остановлена'
             : test.finish_reason === 'winner_determined'
-            ? ' · определён победитель'
+            ? ` · победитель, CTR от ${minCtrGoal}%`
             : test.finish_reason === 'impressions_cap'
-            ? ' · по 2000 показов, РК на паузе'
+            ? ` · по ${minImpCap} показов, РК на паузе`
             : test.finish_reason === 'manual'
             ? ''
             : '';
@@ -11793,6 +11805,7 @@
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="forceRotateABTest('${tid}')">Сменить</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="editABTest('${tid}')">Редактировать</button>` : ''}
                     ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px" onclick="finishABTest('${tid}')">Завершить</button>` : ''}
+                    ${test.status === 'active' ? `<button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--accent)" onclick="armABWinnerStop('${tid}')">${test.settings?.stopOnWinner === true ? `Ждём CTR ≥ ${minCtrGoal}%` : `Стоп от ${minCtrGoal}% CTR`}</button>` : ''}
                     <button class="btn-outline" style="font-size:11px;padding:5px 10px;color:var(--red)" onclick="deleteABTest('${tid}')">Удалить</button>
                     </div>
                 </div>
@@ -11909,10 +11922,14 @@
         return paused;
     }
 
-    async function finishABTest(testId) {        const test = allABTests.find(t => String(t.id) === String(testId));
+    async function finishABTest(testId, reason) {
+        const test = allABTests.find(t => String(t.id) === String(testId));
         if (!test) return;
-        const ok = await showConfirmModal('Завершить тест?', 'Ротация фото остановится. Выбранные РК встанут на паузу, чтобы не жечь бюджет.');
-        if (!ok) return;
+        const finishReason = reason || 'manual';
+        if (finishReason === 'manual') {
+            const ok = await showConfirmModal('Завершить тест?', 'Ротация фото остановится. Выбранные РК встанут на паузу, чтобы не жечь бюджет.');
+            if (!ok) return;
+        }
 
         const current = (test.variants || [])[test.current_variant_index || 0];
         if (current) {
@@ -11925,10 +11942,33 @@
             }).eq('id', current.id);
         }
 
+        const variants = test.variants || [];
+        let stopLabel = current?.variant_label || 'stop';
+        if (finishReason === 'winner_determined' && variants.length) {
+            const ranked = [...variants].sort((a, b) => {
+                const ctrA = (Number(a.impressions) || 0) > 0 ? (Number(a.clicks) || 0) / Number(a.impressions) : 0;
+                const ctrB = (Number(b.impressions) || 0) > 0 ? (Number(b.clicks) || 0) / Number(b.impressions) : 0;
+                return ctrB - ctrA;
+            });
+            const winner = ranked[0];
+            if (winner?.photo_url) {
+                await rotateTestPhoto(
+                    testId,
+                    variants.findIndex((v) => String(v.id) === String(winner.id)),
+                    winner.photo_url,
+                    test.nm_id,
+                    winner.variant_label,
+                );
+                await supabase.from('ab_test_variants').update({ is_currently_on_wb: false }).eq('test_id', testId);
+                await supabase.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', winner.id);
+                stopLabel = winner.variant_label;
+            }
+        }
+
         const { error } = await supabase.from('ab_tests').update({
             status: 'finished',
             finished_at: new Date().toISOString(),
-            finish_reason: 'manual',
+            finish_reason: finishReason,
         }).eq('id', testId);
 
         if (error) {
@@ -11940,7 +11980,7 @@
 
         await supabase.from('ab_test_rotation_log').insert({
             test_id: testId,
-            variant_label: current?.variant_label || 'stop',
+            variant_label: stopLabel,
             action: 'stop',
         });
 
@@ -12018,6 +12058,33 @@
         wins.forEach((count, label) => probs.set(label, count / samples));
         return probs;
     }
+
+    async function armABWinnerStop(testId) {
+        const test = allABTests.find(t => String(t.id) === String(testId));
+        if (!test || test.status !== 'active') return;
+        const minCtr = Number(test.settings?.minCtr) > 0 ? Number(test.settings.minCtr) : 5;
+        const settings = { ...(test.settings || {}), stopOnWinner: true, minCtr };
+        saveABSettings(testId, settings);
+        test.settings = settings;
+        const variants = test.variants || [];
+        if (variants.length >= 2) {
+            const probs = computeProbabilityBestByCtr(variants);
+            let leaderLabel = '', maxProb = 0;
+            probs.forEach((p, label) => { if (p > maxProb) { maxProb = p; leaderLabel = label; } });
+            const leader = variants.find(v => String(v.variant_label) === String(leaderLabel));
+            const imp = Number(leader?.impressions) || 0;
+            const clk = Number(leader?.clicks) || 0;
+            const ctr = imp > 0 ? (clk / imp) * 100 : 0;
+            if (maxProb >= 0.85 && ctr >= minCtr && imp >= 400) {
+                await finishABTest(testId, 'winner_determined');
+                return;
+            }
+        }
+        showPremiumModal('success', 'Автостоп включён', `Тест сам остановится, когда победитель наберёт CTR от ${minCtr}% и выше. Лучшее фото останется на WB, РК встанет на паузу.`);
+        await loadABTests();
+    }
+    window.armABWinnerStop = armABWinnerStop;
+    window.finishABTest = finishABTest;
 
     async function openABReportModal(testId, sourceOverride) {
         const test = allABTests.find(t => String(t.id) === String(testId));

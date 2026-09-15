@@ -66,6 +66,7 @@ export function fmtPct(n: number, digits = 2): string {
 
 export function reasonLabel(reason: string): string {
     if (reason === 'impressions_cap') return 'набраны показы поровну, РК на паузе';
+    if (reason === 'winner_determined') return 'найден победитель по CTR, РК на паузе';
     if (reason === 'campaign_stopped') return 'РК остановилась';
     if (reason === 'max_rotations') return 'лимит ротаций';
     return 'тест завершён';

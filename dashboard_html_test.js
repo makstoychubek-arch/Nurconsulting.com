@@ -224,12 +224,19 @@ assert.ok(html.includes('id="ab-campaign-search"') && html.includes('ab-campaign
     'A/B campaign picker shows name + id and can search «тест стр»');
 assert.ok(html.includes('id="ab-min-impressions"') && html.includes('value="2000"'),
     'A/B auto-stop defaults to 2000 impressions per photo');
+assert.ok(html.includes('id="ab-min-ctr"') && html.includes('value="5"') && html.includes('id="ab-stop-on-winner"'),
+    'A/B can auto-stop when a winner hits CTR from 5% and up');
+assert.ok(html.includes('function armABWinnerStop') && html.includes('Стоп от'),
+    'active A/B card has a button to stop once the CTR goal is determined');
 assert.ok(html.includes('function pauseABTestCampaigns') && html.includes("callWbProxy('advert_pause'"),
     'finishing an A/B test pauses the linked ad campaigns');
 {
     const abRot = fs.readFileSync(path.join(__dirname, 'supabase/functions/ab-test-rotate/index.ts'), 'utf8');
-    assert.ok(abRot.includes("finishReason = 'impressions_cap'") && abRot.includes('function pauseAbCampaigns'),
-        'cron stops the test when every variant hits min impressions and pauses RK');
+    const abStop = fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/ab-test-auto-stop.ts'), 'utf8');
+    assert.ok(abRot.includes('decideAbAutoStop') && abRot.includes('function pauseAbCampaigns'),
+        'cron uses shared auto-stop and pauses RK');
+    assert.ok(abStop.includes('winner_determined') && abStop.includes('AB_DEFAULT_MIN_CTR = 5'),
+        'A/B stops when a winner hits CTR from 5% and up');
     assert.ok(abRot.includes('getTelegramChatId(\'ab_tests\')') || abRot.includes('getTelegramChatId("ab_tests")'),
         'A/B result is sent to the A/B Telegram channel');
     assert.ok(abRot.includes('renderAbReportPng') && abRot.includes('sendTelegramPhoto'),

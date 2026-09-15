@@ -12,6 +12,7 @@ import { mainPhotoChanged, wbBasketPhotoUrl } from './wb-main-photo.ts';
 
 assert.equal(WB_MAIN_PHOTO_SLOT, 1);
 assert.equal(reasonLabel('impressions_cap'), 'набраны показы поровну, РК на паузе');
+assert.ok(reasonLabel('winner_determined').includes('победитель'));
 assert.equal(verdictFromProb(0.91).text.startsWith('уверенно лучше'), true);
 assert.equal(verdictFromProb(0.5).stars, '★★☆');
 
