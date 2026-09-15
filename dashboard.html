@@ -409,24 +409,6 @@
         .tg-mute-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
         .tg-mute-row:last-child { border-bottom: none; }
         .tg-channel-card { margin-top: 12px; }
-        .agents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
-        .agents-grid--short { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
-        .agent-fn-card {
-            text-align: left; width: 100%; background: var(--surface-solid);
-            border: 1px solid var(--border); border-radius: 16px; padding: 16px; cursor: pointer;
-            transition: border-color 0.15s ease, background 0.15s ease;
-        }
-        .agents-grid--short .agent-fn-card { border-radius: 12px; padding: 8px 10px; }
-        .agent-fn-card:hover { border-color: var(--accent-border); }
-        .agent-fn-card.active { border-color: var(--accent-border); background: var(--accent-soft); }
-        .agent-fn-num { font-size: 11px; font-weight: 800; color: var(--accent); letter-spacing: 0.04em; }
-        .agents-grid--short .agent-fn-num { font-size: 9px; }
-        .agent-fn-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-top: 6px; }
-        .agents-grid--short .agent-fn-title { font-size: 12px; margin-top: 2px; }
-        .agent-fn-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; }
-        .agents-grid--short .agent-fn-desc { display: none; }
-        .agent-fn-who { font-size: 10px; font-weight: 700; color: var(--text-secondary); margin-top: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
-        .agents-grid--short .agent-fn-who { margin-top: 4px; }
         .agents-hub { display: flex; align-items: stretch; gap: 12px; min-height: 0; }
         .agents-hub-side {
             width: 280px; min-width: 280px; display: flex; flex-direction: column; gap: 8px;
@@ -505,11 +487,73 @@
             font: inherit; font-size: 12px; padding: 7px 8px;
         }
         .ah-send-btn { font-size: 11px; font-weight: 700; padding: 6px 8px; border-radius: 8px; cursor: pointer; }
+        .ah-main-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
+        .ah-main-lead { font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.4; }
+        .ah-caps { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+        .ah-cap {
+            font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 999px;
+            background: var(--sel); color: var(--text-secondary);
+        }
+        .ah-notes { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+        .ah-note {
+            text-align: left; border: 1px solid var(--border); border-radius: 10px;
+            background: var(--surface); padding: 7px 9px; cursor: pointer; min-width: 108px;
+        }
+        .ah-note:hover { border-color: var(--accent-border); }
+        .ah-note.is-on { border-color: var(--accent-border); background: var(--accent-soft); }
+        .ah-note-title { font-size: 12px; font-weight: 800; color: var(--text-primary); }
+        .ah-note-role { font-size: 10px; color: var(--text-muted); margin-top: 2px; line-height: 1.3; }
+        .ah-wiki {
+            border: none; background: transparent; color: var(--accent); font: inherit;
+            font-weight: 700; cursor: pointer; padding: 0;
+        }
+        .ah-wiki:hover { text-decoration: underline; }
+        .ah-md { font-size: 13px; line-height: 1.55; color: var(--text-secondary); margin-top: 8px; }
+        .ah-md p { margin: 0 0 8px; }
+        .ah-backlinks { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; }
+        .ah-path { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 8px 0 4px; }
+        .ah-path-node {
+            border: 1px solid var(--border); border-radius: 999px; padding: 3px 8px;
+            background: var(--surface-solid, var(--surface)); font-size: 11px; font-weight: 700;
+            color: var(--text-primary); cursor: pointer;
+        }
+        .ah-path-node.is-on { border-color: var(--accent-border); background: var(--accent-soft); }
+        .ah-path-edge { font-size: 10px; font-weight: 700; color: var(--text-muted); max-width: 120px; text-align: center; line-height: 1.2; }
+        .ah-chain-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+        .ah-chain {
+            width: 100%; text-align: left; border: 1px solid var(--border); border-radius: 12px;
+            background: var(--surface); padding: 10px 12px;
+        }
+        .ah-chain.is-on { border-color: var(--accent-border); background: var(--accent-soft); }
+        .ah-chain-title {
+            display: block; width: 100%; text-align: left; border: none; background: transparent;
+            padding: 0; cursor: pointer; font-size: 13px; font-weight: 800; color: var(--text-primary);
+        }
+        .ah-chain-via { font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+        .ah-hops { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .ah-hop {
+            width: 100%; text-align: left; border: 1px solid var(--border); border-radius: 10px;
+            background: var(--surface-solid, var(--surface)); padding: 8px 10px; cursor: pointer;
+        }
+        .ah-hop.is-on { border-color: var(--accent-border); }
+        .ah-hop-top {
+            display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+            border: none; background: transparent; padding: 0; cursor: pointer;
+        }
+        .ah-hop-n {
+            width: 18px; height: 18px; border-radius: 50%; background: var(--accent);
+            color: #fff; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center;
+            justify-content: center; flex-shrink: 0;
+        }
+        .ah-hop-flow { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+        .ah-hop-pass { font-size: 11px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+        .ah-hop-does { font-size: 12px; color: var(--text-secondary); margin-top: 3px; line-height: 1.4; }
+        .ah-links { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+        .ah-link-row { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
         @media (max-width: 900px) {
             .agents-hub { flex-direction: column; }
             .agents-hub-side { width: 100%; min-width: 0; }
         }
-        .agent-result-url { word-break: break-all; font-family: ui-monospace, monospace; font-size: 12px; color: var(--accent); }
         .metric-card {
             background: var(--surface);
             border: none;
@@ -5808,16 +5852,7 @@
         <div id="tab-agents" class="tab-content space-y-5">
             <div class="agents-hub">
                 <aside class="agents-hub-side" id="agents-hub-side"></aside>
-                <div class="agents-hub-main">
-                    <div class="widget-card p-4">
-                        <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Функции WB</h3>
-                        <p class="text-xs mb-3" style="color:var(--text-muted)">Коротко: то, что боты умеют через API выбранного кабинета.</p>
-                        <div id="agents-grid" class="agents-grid agents-grid--short"></div>
-                    </div>
-                    <div id="agents-panel" class="widget-card p-4">
-                        <div class="text-sm" style="color:var(--text-muted)">Выберите функцию</div>
-                    </div>
-                </div>
+                <div class="agents-hub-main" id="agents-hub-main"></div>
             </div>
         </div>
 
@@ -12955,7 +12990,34 @@
         online: 'онлайн', offline: 'не отвечает', no_token: 'нет токена',
         disabled: 'выключен', deleted: 'удалён',
     };
-    let _tgBotsState = { bots: [], cabinets: [], mutes: [], channels: {}, activeChannel: 'sales' };
+    const TG_BOTS_CACHE_KEY = 'nr_tg_bots_state';
+    function readTgBotsCache() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(TG_BOTS_CACHE_KEY) || 'null');
+            if (raw && Array.isArray(raw.bots)) {
+                return {
+                    bots: raw.bots,
+                    cabinets: raw.cabinets || [],
+                    mutes: raw.mutes || [],
+                    channels: raw.channels || {},
+                    activeChannel: raw.activeChannel || 'sales',
+                };
+            }
+        } catch (_) {}
+        return { bots: [], cabinets: [], mutes: [], channels: {}, activeChannel: 'sales' };
+    }
+    function persistTgBotsState() {
+        try {
+            localStorage.setItem(TG_BOTS_CACHE_KEY, JSON.stringify({
+                bots: _tgBotsState.bots || [],
+                cabinets: _tgBotsState.cabinets || [],
+                mutes: _tgBotsState.mutes || [],
+                channels: _tgBotsState.channels || {},
+                activeChannel: _tgBotsState.activeChannel || 'sales',
+            }));
+        } catch (_) {}
+    }
+    let _tgBotsState = readTgBotsCache();
 
     async function callTelegramAdmin(payload) {
         const { data: { session } } = await supabase.auth.getSession();
@@ -12973,70 +13035,108 @@
         return json;
     }
 
-    async function loadTelegramBotsPage() {
+    async function loadTelegramBotsPage(opts) {
+        const silent = !!(opts && opts.silent);
         const listEl = document.getElementById('tg-bots-list');
         const muteEl = document.getElementById('tg-channel-mutes');
-        if (listEl) listEl.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)">Загрузка ботов...</div>';
+        const hasCached = (_tgBotsState.bots || []).length > 0;
+        if (!silent && listEl && !hasCached) {
+            listEl.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)">Загрузка ботов...</div>';
+        }
         try {
-            const { data: bots } = await supabase.from('telegram_bots').select('*').order('kind').order('title');
-            const { data: cabinets } = await supabase.from('cabinets').select('id, name').order('name');
-            const { data: mutes } = await supabase.from('telegram_channel_mutes').select('cabinet_id, channel, muted');
-            let live = { bots: bots || [], channels: {}, cabinets: cabinets || [], mutes: mutes || [] };
-            if (isSuperAdmin) {
-                try { live = await callTelegramAdmin({ action: 'list' }); } catch (e) {
-                    console.warn('[tg-bots] admin list:', e.message);
-                }
-            }
-            if (!live.channels || !Object.keys(live.channels).length) {
+            const [{ data: bots }, { data: cabinets }, { data: mutes }] = await Promise.all([
+                supabase.from('telegram_bots').select('*').order('kind').order('title'),
+                supabase.from('cabinets').select('id, name').order('name'),
+                supabase.from('telegram_channel_mutes').select('cabinet_id, channel, muted'),
+            ]);
+            _tgBotsState = {
+                bots: Array.isArray(bots) ? bots : (_tgBotsState.bots || []),
+                cabinets: Array.isArray(cabinets) ? cabinets : (_tgBotsState.cabinets || []),
+                mutes: Array.isArray(mutes) ? mutes : (_tgBotsState.mutes || []),
+                channels: _tgBotsState.channels || {},
+                activeChannel: _tgBotsState.activeChannel || 'sales',
+            };
+            persistTgBotsState();
+            renderTelegramBotsPage();
+
+            const extra = [];
+            extra.push((async () => {
                 try {
                     const pub = await callTelegramAdmin({ action: 'channels' });
-                    live.channels = pub.channels || {};
+                    if (pub && pub.channels) _tgBotsState.channels = pub.channels;
+                    persistTgBotsState();
+                    renderTelegramBotsPage();
                 } catch (e) {
                     console.warn('[tg-bots] channels:', e.message);
                 }
+            })());
+            if (isSuperAdmin) {
+                extra.push((async () => {
+                    try {
+                        const live = await callTelegramAdmin({ action: 'list' });
+                        if (live.bots && live.bots.length) _tgBotsState.bots = live.bots;
+                        if (live.cabinets && live.cabinets.length) _tgBotsState.cabinets = live.cabinets;
+                        if (live.mutes) _tgBotsState.mutes = live.mutes;
+                        if (live.channels && Object.keys(live.channels).length) _tgBotsState.channels = live.channels;
+                        persistTgBotsState();
+                        renderTelegramBotsPage();
+                    } catch (e) {
+                        console.warn('[tg-bots] admin list:', e.message);
+                    }
+                })());
             }
-            _tgBotsState = {
-                bots: live.bots && live.bots.length ? live.bots : (bots || []),
-                cabinets: live.cabinets && live.cabinets.length ? live.cabinets : (cabinets || []),
-                mutes: live.mutes || mutes || [],
-                channels: live.channels || {},
-                activeChannel: _tgBotsState.activeChannel || 'sales',
-            };
-            renderTelegramBotsPage();
+            await Promise.all(extra);
         } catch (e) {
+            if (hasCached) {
+                renderTelegramBotsPage();
+                return;
+            }
             if (listEl) listEl.innerHTML = `<div class="text-center py-8 text-sm" style="color:var(--red)">${escapeHtml(e.message)}</div>`;
             if (muteEl) muteEl.innerHTML = '';
         }
+    }
+
+    function _tgBotStatus(bot) {
+        return bot.status || (bot.deleted_at ? 'deleted' : bot.is_enabled === false ? 'disabled' : 'offline');
+    }
+
+    function _tgBotCardsHTML() {
+        const bots = _tgBotsState.bots || [];
+        if (!bots.length) {
+            return '<div class="text-sm" style="color:var(--text-muted)">Боты появятся сразу после первой загрузки — их можно добавить плюсом слева.</div>';
+        }
+        return bots.map(bot => {
+            const status = _tgBotStatus(bot);
+            const uname = bot.live_username || bot.username;
+            const id = _ahJs(bot.id);
+            const title = _ahJs(bot.title);
+            return `<div class="widget-card tg-bot-card mb-3">
+                <div class="tg-bot-head">
+                    <div>
+                        <div class="tg-bot-title">${escapeHtml(bot.title)}</div>
+                        <div class="tg-bot-role">${escapeHtml(bot.notes || bot.kind || '')}</div>
+                        <div class="tg-bot-meta">${uname ? '@' + escapeHtml(uname) : 'без username'} · ${escapeHtml(bot.token_env || '—')}</div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <span class="tg-status ${status}">${TG_STATUS_LABELS[status] || status}</span>
+                        ${!bot.deleted_at ? `<button type="button" class="ui-btn ui-btn-secondary text-xs" onclick="toggleTelegramBot('${id}', ${bot.is_enabled === false})">${bot.is_enabled === false ? 'Включить' : 'Выключить'}</button>` : ''}
+                        ${!bot.deleted_at ? `<button type="button" class="ui-btn text-xs" style="color:var(--red);border:1px solid rgba(248,113,113,0.3)" onclick="deleteTelegramBot('${id}','${title}')">Удалить</button>` : ''}
+                        ${bot.deleted_at ? `<button type="button" class="ui-btn ui-btn-secondary text-xs" onclick="restoreTelegramBot('${id}')">Вернуть</button>` : ''}
+                    </div>
+                </div>
+            </div>`;
+        }).join('');
     }
 
     function renderTelegramBotsPage() {
         const listEl = document.getElementById('tg-bots-list');
         const tabsEl = document.getElementById('tg-channel-tabs');
         const muteEl = document.getElementById('tg-channel-mutes');
-        if (!listEl) return;
-        const bots = _tgBotsState.bots || [];
-        if (!bots.length) {
-            listEl.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)">Реестр ботов ещё не создан. Примените миграцию telegram_bots.</div>';
-        } else {
-            listEl.innerHTML = bots.map(bot => {
-                const status = bot.status || (bot.deleted_at ? 'deleted' : bot.is_enabled === false ? 'disabled' : 'offline');
-                const uname = bot.live_username || bot.username;
-                return `<div class="widget-card tg-bot-card mb-3">
-                    <div class="tg-bot-head">
-                        <div>
-                            <div class="tg-bot-title">${escapeHtml(bot.title)}</div>
-                            <div class="tg-bot-role">${escapeHtml(bot.notes || bot.kind || '')}</div>
-                            <div class="tg-bot-meta">${uname ? '@' + escapeHtml(uname) : 'без username'} · ${escapeHtml(bot.token_env || '—')}</div>
-                        </div>
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="tg-status ${status}">${TG_STATUS_LABELS[status] || status}</span>
-                            ${isSuperAdmin && !bot.deleted_at ? `<button class="ui-btn ui-btn-secondary text-xs" onclick="toggleTelegramBot('${bot.id}', ${bot.is_enabled === false})">${bot.is_enabled === false ? 'Включить' : 'Выключить'}</button>` : ''}
-                            ${isSuperAdmin && !bot.deleted_at ? `<button class="ui-btn text-xs" style="color:var(--red);border:1px solid rgba(248,113,113,0.3)" onclick="deleteTelegramBot('${bot.id}','${escapeHtml(bot.title)}')">Удалить</button>` : ''}
-                            ${isSuperAdmin && bot.deleted_at ? `<button class="ui-btn ui-btn-secondary text-xs" onclick="restoreTelegramBot('${bot.id}')">Вернуть</button>` : ''}
-                        </div>
-                    </div>
-                </div>`;
-            }).join('');
+        if (listEl) {
+            const bots = _tgBotsState.bots || [];
+            listEl.innerHTML = bots.length
+                ? _tgBotCardsHTML()
+                : '<div class="text-center py-8 text-sm" style="color:var(--text-muted)">Реестр ботов ещё не создан. Примените миграцию telegram_bots.</div>';
         }
 
         const channelKeys = Object.keys(TG_CHANNEL_LABELS);
@@ -13098,7 +13198,12 @@
     async function toggleTelegramBot(botId, enable) {
         try {
             await callTelegramAdmin({ action: enable ? 'enable' : 'disable', bot_id: botId });
-            await loadTelegramBotsPage();
+            _tgBotsState.bots = (_tgBotsState.bots || []).map((b) => String(b.id) === String(botId)
+                ? { ...b, is_enabled: enable, status: enable ? (b.has_token === false ? 'no_token' : 'online') : 'disabled', deleted_at: enable ? null : b.deleted_at }
+                : b);
+            persistTgBotsState();
+            renderTelegramBotsPage();
+            loadTelegramBotsPage({ silent: true });
         } catch (e) {
             showPremiumModal('error', 'Ошибка', e.message);
         }
@@ -13108,8 +13213,13 @@
         if (!confirm(`Удалить бота «${title}»? Он перестанет работать: webhook в Telegram снимется, рассылки остановятся.`)) return;
         try {
             await callTelegramAdmin({ action: 'delete', bot_id: botId });
+            _tgBotsState.bots = (_tgBotsState.bots || []).map((b) => String(b.id) === String(botId)
+                ? { ...b, is_enabled: false, deleted_at: new Date().toISOString(), status: 'deleted' }
+                : b);
+            persistTgBotsState();
+            renderTelegramBotsPage();
             showPremiumModal('success', 'Бот удалён', 'Webhook снят, код рассылок его больше не вызывает.');
-            await loadTelegramBotsPage();
+            loadTelegramBotsPage({ silent: true });
         } catch (e) {
             showPremiumModal('error', 'Не удалось удалить', e.message);
         }
@@ -13118,7 +13228,12 @@
     async function restoreTelegramBot(botId) {
         try {
             await callTelegramAdmin({ action: 'restore', bot_id: botId });
-            await loadTelegramBotsPage();
+            _tgBotsState.bots = (_tgBotsState.bots || []).map((b) => String(b.id) === String(botId)
+                ? { ...b, is_enabled: true, deleted_at: null, status: 'online' }
+                : b);
+            persistTgBotsState();
+            renderTelegramBotsPage();
+            loadTelegramBotsPage({ silent: true });
         } catch (e) {
             showPremiumModal('error', 'Ошибка', e.message);
         }
@@ -13178,10 +13293,293 @@
         loadOzonTokenPage();
     }
 
-    const GPT_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1', 'o4-mini'];
-    let _agentHub = { wa: [], waSource: 'local', brain: { provider: 'chatgpt', model: 'gpt-4o-mini' }, form: null, channel: 'sales' };
+    const AGENT_NOTES = [
+        { id: 'human', title: 'Человек', bot: null, role: 'Вы в чате или на сайте',
+            body: ['Пишете боту в Telegram, жмёте отправку с сайта или реплаите карточке поступления.', 'Дальше [[Карина]] смотрит, чья это роль, и передаёт по цепочке.'] },
+        { id: 'karina', title: 'Карина', bot: 'karina', role: 'Координатор команды',
+            body: ['Не отвечает на цены, склад и отзывы сама. Читает запрос и передаёт:', '[[Сауле]] — цены, [[Амина]] — реклама, [[Антон]] — FBS/склад, [[Алина]] — отзывы и вопросы, [[Муха]] — креатив.', 'Если нужен доступ в кабинет WB — это тоже [[Карина]].'] },
+        { id: 'saule', title: 'Сауле', bot: 'saule', role: 'Продажи и цены',
+            body: ['Принимает передачу «цены и скидки» от [[Карина]].', 'Зовёт [[ChatGPT]], затем пишет в WB. Ответ человеку отдаёт сама [[Сауле]].'] },
+        { id: 'amina', title: 'Амина', bot: 'amina', role: 'Реклама и ставки',
+            body: ['Принимает «рекламу» от [[Карина]].', 'Ставки и РК, формулировка через [[ChatGPT]].'] },
+        { id: 'anton', title: 'Антон', bot: 'anton', role: 'FBS и склады',
+            body: ['Принимает FBS, стикеры и пропуск от [[Карина]].', 'Склад и сборочные — только [[Антон]], координатор дальше не ведёт.'] },
+        { id: 'alina', title: 'Алина', bot: 'alina', role: 'Раздачи, отзывы, вопросы',
+            body: ['Принимает отзывы и вопросы от [[Карина]] или карточку поступления от [[NR уведомления]].', 'Реплай «завтра / через неделю / через 2 недели» читает telegram-router и отвечает на WB.'] },
+        { id: 'muha', title: 'Муха', bot: 'muha', role: 'Креативы и фото',
+            body: ['Принимает креатив от [[Карина]]. Цены и склад не трогает.'] },
+        { id: 'notify', title: 'NR уведомления', bot: 'notify', role: 'Рассылки в каналы',
+            body: ['Пишет в каналы кабинета: продажи, штрафы, отзывы, FBS.', 'Карточку поступления кладёт в чат отзывов — оттуда цепочка идёт в [[Алина]].'] },
+        { id: 'brain', title: 'ChatGPT', bot: null, role: 'Мозг формулировок',
+            body: ['Не пишет в WB сам. [[Сауле]], [[Алина]] и [[Амина]] передают сюда текст, забирают формулировку и идут дальше.'] },
+        { id: 'wb', title: 'Wildberries', bot: null, role: 'Кабинет продавца',
+            body: ['Сюда уходит финальный шаг: цена, ответ на вопрос, заказ, приглашение.', 'Покупатель пишет сюда — цепочка поступления начинается с [[Wildberries]].'] },
+    ];
+    const AGENT_LINKS = [
+        { from: 'human', to: 'karina', label: 'любой запрос' },
+        { from: 'karina', to: 'saule', label: 'цены и скидки' },
+        { from: 'karina', to: 'amina', label: 'реклама' },
+        { from: 'karina', to: 'anton', label: 'FBS / склад' },
+        { from: 'karina', to: 'alina', label: 'отзывы / вопросы' },
+        { from: 'karina', to: 'muha', label: 'креатив' },
+        { from: 'karina', to: 'wb', label: 'приглашение в кабинет' },
+        { from: 'saule', to: 'brain', label: 'сформулировать ответ' },
+        { from: 'brain', to: 'saule', label: 'готовый текст' },
+        { from: 'alina', to: 'brain', label: 'сформулировать ответ' },
+        { from: 'brain', to: 'alina', label: 'готовый текст' },
+        { from: 'amina', to: 'brain', label: 'сформулировать ответ' },
+        { from: 'brain', to: 'amina', label: 'готовый текст' },
+        { from: 'saule', to: 'wb', label: 'поставить цену' },
+        { from: 'alina', to: 'wb', label: 'ответ на вопрос WB' },
+        { from: 'anton', to: 'wb', label: 'FBS / пропуск' },
+        { from: 'notify', to: 'alina', label: 'карточка поступления' },
+        { from: 'wb', to: 'notify', label: 'новый вопрос покупателя' },
+        { from: 'human', to: 'notify', label: 'текст с сайта' },
+        { from: 'notify', to: 'human', label: 'сообщение в канал' },
+    ];
+    const AGENT_CHAINS = [
+        {
+            id: 'restock',
+            title: 'Поступление на WB',
+            via: ['wb', 'notify', 'human', 'alina'],
+            hops: [
+                { from: 'wb', to: 'notify', pass: 'вопрос покупателя «когда товар»', does: '[[Wildberries]] отдаёт неотвеченный вопрос.' },
+                { from: 'notify', to: 'human', pass: 'карточка в чат отзывов', does: '[[NR уведомления]] кладёт карточку команде в Telegram.' },
+                { from: 'human', to: 'alina', pass: 'реплай: завтра / через неделю / через 2 недели', does: '[[Алина]] / telegram-router читает реплай, чужие чаты молчат.' },
+                { from: 'alina', to: 'wb', pass: 'готовый ответ на вопрос', does: 'На WB уходит текст, в чате только реакция ❤ — бот не дублирует письмо.' },
+            ],
+        },
+        {
+            id: 'site-tg',
+            title: 'Сайт → канал Telegram',
+            via: ['human', 'notify'],
+            hops: [
+                { from: 'human', to: 'notify', pass: 'текст и выбранный канал', does: 'В хабе жмёте «Отправить в Telegram» — это send_channel.' },
+                { from: 'notify', to: 'human', pass: 'сообщение в чат канала', does: '[[NR уведомления]] пишет в Продажи / Штрафы / Отзывы и т.д.' },
+            ],
+        },
+        {
+            id: 'invite',
+            title: 'Доступ в кабинет: Карина → WB',
+            via: ['human', 'karina', 'wb'],
+            hops: [
+                { from: 'human', to: 'karina', pass: 'телефон сотрудника и права', does: 'Просят ссылку в кабинет — это роль [[Карина]], не склада.' },
+                { from: 'karina', to: 'wb', pass: 'users_invite / смена доступа', does: '[[Карина]] зовёт WB «Пользователи».' },
+                { from: 'wb', to: 'karina', pass: 'пригласительная ссылка', does: 'WB отдаёт ссылку или пишет, что человек уже в кабинете.' },
+                { from: 'karina', to: 'human', pass: 'ссылка в чат', does: '[[Карина]] отдаёт ссылку человеку.' },
+            ],
+        },
+        {
+            id: 'prices',
+            title: 'Цены: Карина → Сауле → ChatGPT → WB',
+            via: ['human', 'karina', 'saule', 'brain', 'wb'],
+            hops: [
+                { from: 'human', to: 'karina', pass: 'какая цена / какая скидка', does: '[[Карина]] видит, что это не склад и не отзыв.' },
+                { from: 'karina', to: 'saule', pass: 'цены и скидки', does: 'Координатор передаёт роль [[Сауле]].' },
+                { from: 'saule', to: 'brain', pass: 'сформулировать ответ', does: '[[Сауле]] зовёт [[ChatGPT]].' },
+                { from: 'brain', to: 'saule', pass: 'готовый текст', does: 'Мозг не ходит в WB — отдаёт формулировку обратно [[Сауле]].' },
+                { from: 'saule', to: 'wb', pass: 'prices_set', does: '[[Сауле]] ставит цену/скидку в кабинете WB.' },
+                { from: 'saule', to: 'human', pass: 'готово, задача ушла', does: 'Человек получает ответ уже от [[Сауле]], не от координатора.' },
+            ],
+        },
+        {
+            id: 'fbs',
+            title: 'FBS: Карина → Антон → WB',
+            via: ['human', 'karina', 'anton', 'wb'],
+            hops: [
+                { from: 'human', to: 'karina', pass: 'новый заказ / стикер / пропуск', does: '[[Карина]] не собирает поставку сама.' },
+                { from: 'karina', to: 'anton', pass: 'FBS / склад', does: 'Цепочка уходит в [[Антон]].' },
+                { from: 'anton', to: 'wb', pass: 'orders_fbs / stickers / passes', does: '[[Антон]] работает с маркетплейсом WB.' },
+                { from: 'anton', to: 'human', pass: 'заказ, стикер или пропуск', does: 'Ответ человеку отдаёт [[Антон]].' },
+            ],
+        },
+        {
+            id: 'reviews',
+            title: 'Отзывы: Карина → Алина → ChatGPT → WB',
+            via: ['human', 'karina', 'alina', 'brain', 'wb'],
+            hops: [
+                { from: 'human', to: 'karina', pass: 'ответь на отзыв / вопрос', does: '[[Карина]] передаёт CRM, не цены.' },
+                { from: 'karina', to: 'alina', pass: 'отзывы / вопросы', does: 'Роль забирает [[Алина]].' },
+                { from: 'alina', to: 'brain', pass: 'сформулировать ответ покупателю', does: '[[Алина]] зовёт [[ChatGPT]].' },
+                { from: 'brain', to: 'alina', pass: 'текст ответа', does: 'Мозг возвращает формулировку [[Алина]].' },
+                { from: 'alina', to: 'wb', pass: 'feedbacks_answer / questions_answer', does: '[[Алина]] закрывает отзыв или вопрос на WB. Либо см. цепочку поступления — реплаем в Telegram.' },
+            ],
+        },
+        {
+            id: 'ads',
+            title: 'Реклама: Карина → Амина → ChatGPT',
+            via: ['human', 'karina', 'amina', 'brain'],
+            hops: [
+                { from: 'human', to: 'karina', pass: 'ставка / РК', does: '[[Карина]] не крутит рекламу сама.' },
+                { from: 'karina', to: 'amina', pass: 'реклама', does: 'Цепочка уходит в [[Амина]].' },
+                { from: 'amina', to: 'brain', pass: 'сформулировать', does: '[[Амина]] зовёт [[ChatGPT]].' },
+                { from: 'brain', to: 'amina', pass: 'готовый текст', does: '[[Амина]] забирает формулировку и ведёт ставки.' },
+            ],
+        },
+        {
+            id: 'creative',
+            title: 'Креатив: Карина → Муха',
+            via: ['human', 'karina', 'muha'],
+            hops: [
+                { from: 'human', to: 'karina', pass: 'фото / креатив карточки', does: '[[Карина]] не рисует макеты.' },
+                { from: 'karina', to: 'muha', pass: 'креатив', does: 'Цепочка уходит в [[Муха]].' },
+                { from: 'muha', to: 'human', pass: 'готовые фото', does: '[[Муха]] отдаёт креатив, без цен и склада.' },
+            ],
+        },
+    ];
+    function readWaAgentsCache() {
+        try { return JSON.parse(localStorage.getItem('nr_wa_agents') || '[]'); }
+        catch (_) { return []; }
+    }
+    function readBrainCache() {
+        try {
+            const raw = JSON.parse(localStorage.getItem('nr_agent_brain') || 'null');
+            if (raw && raw.model) return { provider: raw.provider || 'chatgpt', model: raw.model };
+        } catch (_) {}
+        return { provider: 'chatgpt', model: 'gpt-4o-mini' };
+    }
+    let _agentHub = {
+        wa: readWaAgentsCache(),
+        waSource: 'local',
+        brain: readBrainCache(),
+        form: null,
+        channel: (_tgBotsState && _tgBotsState.activeChannel) || 'sales',
+        note: 'karina',
+        chain: 'restock',
+        hop: 0,
+    };
 
     function _ahEsc(s) { return escapeHtml(String(s || '')); }
+    function _ahWiki(text) {
+        return String(text || '').split(/(\[\[[^\]]+\]\])/g).map((part) => {
+            const m = part.match(/^\[\[([^\]]+)\]\]$/);
+            if (!m) return _ahEsc(part);
+            const note = AGENT_NOTES.find((n) => n.title === m[1]);
+            const id = note ? note.id : '';
+            return `<button type="button" class="ah-wiki" ${id ? `onclick="selectAgentNote('${id}')"` : ''}>[[${_ahEsc(m[1])}]]</button>`;
+        }).join('');
+    }
+
+    function _agentNoteById(id) {
+        return AGENT_NOTES.find((n) => n.id === id) || AGENT_NOTES[0];
+    }
+
+    function _chainTouches(chain, noteId) {
+        if (!chain) return false;
+        if ((chain.via || []).includes(noteId)) return true;
+        return (chain.hops || []).some((h) => h.from === noteId || h.to === noteId);
+    }
+
+    function selectAgentNote(id) {
+        if (!AGENT_NOTES.some((n) => n.id === id)) return;
+        _agentHub.note = id;
+        const cur = AGENT_CHAINS.find((c) => c.id === _agentHub.chain);
+        if (!_chainTouches(cur, id)) {
+            const first = AGENT_CHAINS.find((c) => _chainTouches(c, id));
+            if (first) { _agentHub.chain = first.id; _agentHub.hop = 0; }
+        }
+        renderAgentHub();
+    }
+
+    function selectAgentChain(id) {
+        const chain = AGENT_CHAINS.find((c) => c.id === id);
+        if (!chain) return;
+        _agentHub.chain = id;
+        _agentHub.hop = 0;
+        if (chain.via && chain.via.length && !chain.via.includes(_agentHub.note)) {
+            _agentHub.note = chain.via[0];
+        }
+        renderAgentHub();
+    }
+
+    function selectAgentHop(i) {
+        const chain = AGENT_CHAINS.find((c) => c.id === _agentHub.chain);
+        const hops = (chain && chain.hops) || [];
+        const n = Number(i);
+        if (!hops[n]) return;
+        _agentHub.hop = n;
+        if (hops[n].to) _agentHub.note = hops[n].to;
+        renderAgentHub();
+    }
+
+    function _agentsGraphHTML() {
+        const noteId = _agentHub.note || 'karina';
+        const chainId = _agentHub.chain || 'restock';
+        const hopI = Number(_agentHub.hop) || 0;
+        const note = _agentNoteById(noteId);
+        const bots = _tgBotsState.bots || [];
+        const notes = AGENT_NOTES.map((n) => {
+            const bot = n.bot ? bots.find((b) => String(b.id) === n.bot) : null;
+            const status = bot ? _tgBotStatus(bot) : (n.id === 'brain' ? 'online' : '');
+            const on = noteId === n.id ? ' is-on' : '';
+            const badge = n.bot
+                ? `<span class="tg-status ${status}">${TG_STATUS_LABELS[status] || status}</span>`
+                : (n.id === 'brain' ? `<span class="tg-status online">${_ahEsc((_agentHub.brain || {}).model || 'gpt')}</span>` : '');
+            return `<button type="button" class="ah-note${on}" onclick="selectAgentNote('${n.id}')">
+                <div class="ah-note-title">[[${_ahEsc(n.title)}]]</div>
+                <div class="ah-note-role">${_ahEsc(n.role)}</div>
+                ${badge ? `<div class="mt-1">${badge}</div>` : ''}
+            </button>`;
+        }).join('');
+        const out = AGENT_LINKS.filter((l) => l.from === noteId);
+        const inn = AGENT_LINKS.filter((l) => l.to === noteId);
+        const outHtml = out.length
+            ? out.map((l) => `<div class="ah-link-row">→ ${_ahWiki('[[' + _agentNoteById(l.to).title + ']]')} · ${_ahEsc(l.label)}</div>`).join('')
+            : '<div class="ah-empty">исходящих передач нет</div>';
+        const inHtml = inn.length
+            ? inn.map((l) => `<div class="ah-link-row">← ${_ahWiki('[[' + _agentNoteById(l.from).title + ']]')} · ${_ahEsc(l.label)}</div>`).join('')
+            : '<div class="ah-empty">входящих передач нет</div>';
+        const body = (note.body || []).map((p) => `<p>${_ahWiki(p)}</p>`).join('');
+        const related = AGENT_CHAINS.filter((c) => _chainTouches(c, noteId));
+        const rest = AGENT_CHAINS.filter((c) => !_chainTouches(c, noteId));
+        const list = related.concat(rest).map((c) => {
+            const on = chainId === c.id ? ' is-on' : '';
+            const hops = c.hops || [];
+            const via = hops.map((h) => '[[' + _agentNoteById(h.from).title + ']]').concat(
+                hops.length ? ['[[' + _agentNoteById(hops[hops.length - 1].to).title + ']]'] : []
+            );
+            const uniqVia = [];
+            via.forEach((w) => { if (uniqVia[uniqVia.length - 1] !== w) uniqVia.push(w); });
+            const path = hops.map((h, i) => {
+                const fromOn = hopI === i && chainId === c.id ? ' is-on' : '';
+                const toOn = hopI === i && chainId === c.id ? ' is-on' : '';
+                return `${i === 0 ? `<button type="button" class="ah-path-node${fromOn}" onclick="selectAgentNote('${h.from}')">${_ahEsc(_agentNoteById(h.from).title)}</button>` : ''}
+                    <span class="ah-path-edge">→ ${_ahEsc(h.pass)} →</span>
+                    <button type="button" class="ah-path-node${toOn}" onclick="event.stopPropagation(); selectAgentHop(${i})">${_ahEsc(_agentNoteById(h.to).title)}</button>`;
+            }).join('');
+            const hopCards = chainId === c.id
+                ? `<div class="ah-hops">${hops.map((h, i) => `<div class="ah-hop${hopI === i ? ' is-on' : ''}">
+                        <button type="button" class="ah-hop-top" onclick="selectAgentHop(${i})">
+                            <span class="ah-hop-n">${i + 1}</span>
+                            <div class="ah-hop-flow">${_ahEsc(_agentNoteById(h.from).title)} → ${_ahEsc(_agentNoteById(h.to).title)}</div>
+                        </button>
+                        <div class="ah-hop-pass">передача: ${_ahEsc(h.pass)}</div>
+                        <div class="ah-hop-does">${_ahWiki(h.does)}</div>
+                    </div>`).join('')}</div>`
+                : '';
+            return `<div class="ah-chain${on}">
+                <button type="button" class="ah-chain-title" onclick="selectAgentChain('${c.id}')">${_ahEsc(c.title)}</button>
+                <div class="ah-chain-via">${_ahWiki(uniqVia.join(' → '))}</div>
+                ${chainId === c.id ? `<div class="ah-path">${path}</div>${hopCards}` : ''}
+            </div>`;
+        }).join('');
+        return `
+            <div class="widget-card p-4">
+                <div class="ah-main-title">Связки агентов</div>
+                <p class="ah-main-lead">Как в Obsidian: заметка с [[ссылками]], граф передач и каждая цепочка по шагам — кто кому что отдаёт.</p>
+                <div class="ah-notes">${notes}</div>
+                <div class="mt-3">
+                    <div class="ah-note-title">${_ahWiki('[[' + note.title + ']]')}</div>
+                    <div class="ah-note-role">${_ahEsc(note.role)}</div>
+                    <div class="ah-md">${body}</div>
+                    <div class="ah-backlinks">
+                        <div class="ah-links"><div class="ah-sub">Исходящие</div>${outHtml}</div>
+                        <div class="ah-links"><div class="ah-sub">Входящие · backlinks</div>${inHtml}</div>
+                    </div>
+                </div>
+                <div class="ah-chain-list">${list}</div>
+            </div>`;
+    }
     function _ahJs(s) { return String(s || '').replace(/['"\\]/g, ''); }
     function _ahLogoWa() {
         return '<svg class="ah-logo ah-logo-wa" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#25D366"/><path fill="#fff" d="M16.8 14.35c-.26.72-1.5 1.34-2.07 1.43-.54.08-1.22.11-1.98-.12-.46-.14-1.05-.34-1.81-.65-3.19-1.38-5.26-4.6-5.42-4.81-.16-.21-1.28-1.7-1.28-3.25 0-1.54.81-2.31 1.11-2.62.29-.31.64-.39.86-.39.21 0 .42 0 .6.01.2.01.46-.07.71.54.26.62.88 2.15.96 2.3.08.16.13.34.02.54-.1.21-.16.34-.31.52-.16.18-.32.41-.46.55-.15.16-.31.32-.13.62.18.31.78 1.29 1.67 2.09 1.15 1.03 2.12 1.36 2.42 1.51.31.15.49.13.67-.08.18-.21.78-.9.98-1.21.21-.31.41-.26.71-.15.29.1 1.86.88 2.18 1.04.31.16.52.23.6.36.08.13.08.78-.18 1.5z"/></svg>';
@@ -13190,12 +13588,163 @@
         return '<svg class="ah-logo ah-logo-tg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#2AABEE"/><path fill="#fff" d="M17.65 7.15 5.95 11.7c-.83.33-.82.8-.15 1l3.13.98 7.28-4.59c.34-.21.65-.1.4.13l-5.88 5.31-.23 3.4c.34 0 .49-.15.67-.33l1.58-1.53 3.28 2.42c.6.33 1.03.16 1.18-.56l2.04-9.61c.21-.93-.35-1.34-.96-1.07z"/></svg>';
     }
 
+    function hydrateAgentHubCache() {
+        if (!(_tgBotsState.bots || []).length) {
+            const cached = readTgBotsCache();
+            if ((cached.bots || []).length) _tgBotsState = { ..._tgBotsState, ...cached };
+        }
+        if (!(_agentHub.wa || []).length) _agentHub.wa = readWaAgentsCache();
+        const brain = readBrainCache();
+        if (brain && brain.model) _agentHub.brain = brain;
+        if (!_agentHub.channel) _agentHub.channel = _tgBotsState.activeChannel || 'sales';
+    }
+
     function renderAgentHub() {
+        const prevText = document.querySelector('#agents-hub-side .ah-send-text, #fly-agents-body .ah-send-text')?.value || '';
         const html = _agentHubHTML();
         const side = document.getElementById('agents-hub-side');
         const fly = document.getElementById('fly-agents-body');
         if (side) side.innerHTML = html;
         if (fly) fly.innerHTML = html;
+        if (prevText) {
+            document.querySelectorAll('#agents-hub-side .ah-send-text, #fly-agents-body .ah-send-text').forEach((el) => { el.value = prevText; });
+        }
+        renderAgentsMain();
+    }
+
+    function _tgHubBotRowsHTML() {
+        const bots = (_tgBotsState.bots || []).filter((b) => !b.deleted_at);
+        if (!bots.length) return '<div class="ah-empty">нет ботов</div>';
+        return bots.map((b) => {
+            const status = _tgBotStatus(b);
+            return `<div class="ah-row">
+                <span class="tg-status ${status}">${TG_STATUS_LABELS[status] || status}</span>
+                <span class="ah-name" title="${_ahEsc(b.username ? '@' + b.username : b.title)}">${_ahEsc(b.title)}${b.username ? ` <span class="ah-sub">@${_ahEsc(b.username)}</span>` : ''}</span>
+                <button type="button" class="ah-del" title="Удалить" onclick="deleteTelegramBot('${_ahJs(b.id)}','${_ahJs(b.title)}')">×</button>
+              </div>`;
+        }).join('');
+    }
+
+    function _agentHubHTML() {
+        const wa = _agentHub.wa || [];
+        const brain = _agentHub.brain || { provider: 'chatgpt', model: 'gpt-4o-mini' };
+        const selected = _agentHub.channel || 'sales';
+        const selLabel = TG_CHANNEL_LABELS[selected] || selected;
+        const waRows = wa.length
+            ? wa.map(w => `<div class="ah-row">
+                <span class="tg-status ${w.is_enabled === false ? 'disabled' : 'online'}">${w.is_enabled === false ? 'выкл' : 'ок'}</span>
+                <span class="ah-name" title="${_ahEsc(w.phone || '')}">${_ahEsc(w.title)}${w.phone ? ` <span class="ah-sub">${_ahEsc(w.phone)}</span>` : ''}</span>
+                <button type="button" class="ah-del" title="Удалить" onclick="deleteWhatsAppAgent('${_ahJs(w.id)}','${_ahJs(w.title)}')">×</button>
+              </div>`).join('')
+            : '<div class="ah-empty">нет номеров</div>';
+        const chans = _tgChannelCardsHTML();
+        const waForm = _agentHub.form === 'wa' ? `<div class="ah-form">
+            <input class="ah-wa-title" placeholder="Имя" maxlength="40">
+            <input class="ah-wa-phone" placeholder="WhatsApp +996…">
+            <div class="ah-form-actions">
+              <button type="button" class="ui-btn ui-btn-primary" onclick="submitWhatsAppAgent(this)">Сохранить</button>
+              <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
+            </div>
+          </div>` : '';
+        const tgForm = _agentHub.form === 'tg' ? `<div class="ah-form">
+            <input class="ah-tg-title" placeholder="Название бота" maxlength="40">
+            <input class="ah-tg-user" placeholder="@username">
+            <input class="ah-tg-token" placeholder="Токен BotFather" autocomplete="off">
+            <div class="ah-form-actions">
+              <button type="button" class="ui-btn ui-btn-primary" onclick="submitTelegramBotHub(this)">Сохранить</button>
+              <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
+            </div>
+          </div>` : '';
+        const brainForm = _agentHub.form === 'brain' ? `<div class="ah-form">
+            <select class="ah-brain-model">${GPT_MODELS.map(m => `<option value="${m}"${m === brain.model ? ' selected' : ''}>${m}</option>`).join('')}</select>
+            <div class="ah-form-actions">
+              <button type="button" class="ui-btn ui-btn-primary" onclick="saveAgentBrain(this)">Сохранить</button>
+              <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
+            </div>
+          </div>` : '';
+        return `
+          <div class="ah-group">
+            <div class="ah-head">
+              <span class="ah-title">${_ahLogoWa()} Ватсап</span>
+              <button type="button" class="ah-add" title="Добавить" onclick="openAgentHubForm('wa')">+</button>
+            </div>
+            ${waRows}${waForm}
+          </div>
+          <div class="ah-group">
+            <div class="ah-head">
+              <span class="ah-title">${_ahLogoTg()} Телеграм</span>
+              <button type="button" class="ah-add" title="Добавить бота" onclick="openAgentHubForm('tg')">+</button>
+            </div>
+            ${_tgHubBotRowsHTML()}${tgForm}
+            <div class="ah-channels">${chans}</div>
+            <div class="ah-send">
+              <textarea class="ah-send-text" maxlength="3500" placeholder="Текст в «${_ahEsc(selLabel)}» — уйдёт в этот чат Telegram"></textarea>
+              <button type="button" class="ui-btn ui-btn-primary ah-send-btn" onclick="sendAgentTgMessage(this)">Отправить в Telegram</button>
+            </div>
+          </div>
+          <div class="ah-group">
+            <div class="ah-head">
+              <span class="ah-title">Мозг</span>
+              <button type="button" class="ah-edit" title="Редактировать" onclick="openAgentHubForm('brain')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+              </button>
+            </div>
+            <div class="ah-brain">
+              <div class="ah-brain-meta">
+                <div class="ah-brain-prov">ChatGPT</div>
+                <div class="ah-sub">${_ahEsc(brain.model || 'gpt-4o-mini')}</div>
+              </div>
+            </div>
+            ${brainForm}
+          </div>`;
+    }
+
+    function renderAgentsMain() {
+        const main = document.getElementById('agents-hub-main');
+        if (!main) return;
+        const ch = _tgBotsState.activeChannel || _agentHub.channel || 'sales';
+        const muteSet = new Set((_tgBotsState.mutes || []).filter((m) => m.channel === ch && m.muted).map((m) => m.cabinet_id));
+        const cabs = _tgBotsState.cabinets || [];
+        const muteRows = !cabs.length
+            ? '<div class="text-sm" style="color:var(--text-muted)">Нет кабинетов</div>'
+            : cabs.map((c) => {
+                const muted = muteSet.has(c.id);
+                return `<div class="tg-mute-row">
+                    <div>
+                        <div style="font-weight:600;color:var(--text-primary)">${escapeHtml(cabinetDisplayName(c.name))}</div>
+                        <div class="text-xs" style="color:var(--text-muted)">${muted ? 'канал выключен — сообщения не уходят' : 'канал включён'}</div>
+                    </div>
+                    <button type="button" class="tg-switch ${muted ? '' : 'on'}" onclick="toggleTgCabinetMute('${c.id}','${ch}',${!muted})" aria-pressed="${muted ? 'false' : 'true'}">
+                        <span></span>
+                    </button>
+                </div>`;
+            }).join('');
+        main.innerHTML = _agentsGraphHTML() + `
+            <div class="widget-card p-4">
+                <div class="ah-head" style="margin-bottom:8px">
+                    <div>
+                        <div class="ah-main-title">Боты Telegram</div>
+                        <p class="ah-main-lead">Включить, выключить или удалить. Удаление снимает webhook. Или ответьте в Telegram реплаем: завтра / через неделю / через 2 недели.</p>
+                    </div>
+                    <button type="button" class="ah-add" title="Добавить бота" onclick="openAgentHubForm('tg')">+</button>
+                </div>
+                <div class="ah-caps">
+                    <span class="ah-cap">написать в канал</span>
+                    <span class="ah-cap">выключить канал кабинета</span>
+                    <span class="ah-cap">добавить / удалить бота</span>
+                    <span class="ah-cap">ChatGPT</span>
+                </div>
+                <div class="mt-3">${_tgBotCardsHTML()}</div>
+            </div>
+            <div class="widget-card p-4">
+                <div class="ah-main-title">Канал «${escapeHtml(TG_CHANNEL_LABELS[ch] || ch)}»</div>
+                <p class="ah-main-lead">Ползунок выкл — этот кабинет не пишет в выбранный чат.</p>
+                <div class="flex flex-wrap gap-2 my-3">${Object.keys(TG_CHANNEL_LABELS).map((key) => {
+                    const on = ch === key;
+                    return `<button type="button" class="ui-btn ${on ? 'ui-btn-primary' : 'ui-btn-secondary'} text-xs" onclick="selectAgentTgChannel('${key}')">${TG_CHANNEL_LABELS[key]}</button>`;
+                }).join('')}</div>
+                ${muteRows}
+            </div>`;
     }
 
     function _agentHubHTML() {
@@ -13271,7 +13820,7 @@
         return keys.map(ch => {
             const info = channels[ch] || {};
             const muted = muteSet.has(ch);
-            let status = 'нет данных';
+            let status = 'канал';
             let stCls = 'offline';
             if (muted) { status = 'выключен'; stCls = 'disabled'; }
             else if (info.configured === true) { status = 'работает'; stCls = 'online'; }
@@ -13336,6 +13885,7 @@
             if (error) throw error;
             _agentHub.wa = data || [];
             _agentHub.waSource = 'db';
+            try { localStorage.setItem('nr_wa_agents', JSON.stringify(_agentHub.wa)); } catch (_) {}
         } catch (e) {
             try { _agentHub.wa = JSON.parse(localStorage.getItem('nr_wa_agents') || '[]'); }
             catch (_) { _agentHub.wa = []; }
@@ -13349,6 +13899,7 @@
             if (error) throw error;
             if (data) _agentHub.brain = { provider: data.provider || 'chatgpt', model: data.model || 'gpt-4o-mini' };
             else throw new Error('empty');
+            try { localStorage.setItem('nr_agent_brain', JSON.stringify(_agentHub.brain)); } catch (_) {}
         } catch (e) {
             try {
                 const raw = JSON.parse(localStorage.getItem('nr_agent_brain') || 'null');
@@ -13357,9 +13908,20 @@
         }
     }
 
+    let _agentHubLoad = null;
     async function loadAgentHub() {
-        await Promise.all([loadTelegramBotsPage(), loadWhatsAppAgents(), loadAgentBrain()]);
+        hydrateAgentHubCache();
         renderAgentHub();
+        if (_agentHubLoad) return _agentHubLoad;
+        _agentHubLoad = (async () => {
+            try {
+                await Promise.all([loadTelegramBotsPage({ silent: true }), loadWhatsAppAgents(), loadAgentBrain()]);
+                renderAgentHub();
+            } finally {
+                _agentHubLoad = null;
+            }
+        })();
+        return _agentHubLoad;
     }
 
     async function submitWhatsAppAgent(btn) {
@@ -13438,420 +14000,19 @@
     window.selectAgentTgChannel = selectAgentTgChannel;
     window.sendAgentTgMessage = sendAgentTgMessage;
     window.saveAgentBrain = saveAgentBrain;
-
-    const AGENT_FNS = [
-        { id: 'invite', n: 1, title: 'Пригласительная ссылка', desc: 'Ссылка в кабинет WB по телефону сотрудника и правам доступа.', who: 'Карина' },
-        { id: 'team', n: 2, title: 'Команда кабинета', desc: 'Кто уже в профиле продавца и ожидающие приглашения.', who: 'Карина' },
-        { id: 'prices', n: 3, title: 'Цены и скидки', desc: 'Посмотреть текущие цены и поставить новую цену/скидку.', who: 'Сауле' },
-        { id: 'reviews', n: 4, title: 'Отзывы без ответа', desc: 'Неотвеченные отзывы и ответ прямо из кабинета.', who: 'Алина' },
-        { id: 'questions', n: 5, title: 'Вопросы покупателей', desc: 'Открытые вопросы с карточек и быстрый ответ.', who: 'Алина' },
-        { id: 'fbs', n: 6, title: 'Новые FBS-заказы', desc: 'Сборочные задания, которые ещё не взяли в работу.', who: 'Антон' },
-        { id: 'stickers', n: 7, title: 'Стикеры заказов', desc: 'Печать стикеров FBS по номерам сборочных заданий.', who: 'Антон' },
-        { id: 'pass', n: 8, title: 'Пропуск на склад', desc: 'Оформить пропуск на склад WB на 48 часов.', who: 'Антон' },
-        { id: 'chats', n: 9, title: 'Чаты с покупателями', desc: 'Открытые диалоги покупатель ↔ продавец.', who: 'Алина' },
-        { id: 'balance', n: 10, title: 'Баланс продавца', desc: 'Деньги на счёте и баланс рекламного кабинета.', who: 'Сауле' },
-    ];
+    window.selectAgentNote = selectAgentNote;
+    window.selectAgentChain = selectAgentChain;
+    window.selectAgentHop = selectAgentHop;
+    window.deleteTelegramBot = deleteTelegramBot;
+    window.toggleTelegramBot = toggleTelegramBot;
+    window.restoreTelegramBot = restoreTelegramBot;
 
     function loadAgentsPage() {
-        const grid = document.getElementById('agents-grid');
-        if (!grid) return;
-        const cur = window._agentFn || 'invite';
-        grid.innerHTML = AGENT_FNS.map((f) => `<button type="button" class="agent-fn-card${f.id === cur ? ' active' : ''}" data-agent-fn="${f.id}" onclick="openAgentFn('${f.id}')">
-            <div class="agent-fn-num">${f.n < 10 ? '0' : ''}${f.n}</div>
-            <div class="agent-fn-title">${escapeHtml(f.title)}</div>
-            <div class="agent-fn-desc">${escapeHtml(f.desc)}</div>
-            <div class="agent-fn-who">${escapeHtml(f.who)}</div>
-        </button>`).join('');
-        openAgentFn(cur);
+        hydrateAgentHubCache();
+        renderAgentHub();
         loadAgentHub();
     }
     window.loadAgentsPage = loadAgentsPage;
-
-    function openAgentFn(id) {
-        window._agentFn = id;
-        document.querySelectorAll('.agent-fn-card').forEach((el) => {
-            el.classList.toggle('active', el.getAttribute('data-agent-fn') === id);
-        });
-        const fn = AGENT_FNS.find((f) => f.id === id);
-        const panel = document.getElementById('agents-panel');
-        if (!panel || !fn) return;
-        const render = {
-            invite: renderAgentInvite,
-            team: renderAgentTeam,
-            prices: renderAgentPrices,
-            reviews: renderAgentReviews,
-            questions: renderAgentQuestions,
-            fbs: renderAgentFbs,
-            stickers: renderAgentStickers,
-            pass: renderAgentPass,
-            chats: renderAgentChats,
-            balance: renderAgentBalance,
-        }[id];
-        if (render) render(panel, fn);
-    }
-    window.openAgentFn = openAgentFn;
-
-    function agentPanelHead(fn, extra) {
-        return `<div class="mb-4">
-            <div class="text-xs font-bold mb-1" style="color:var(--accent)">${fn.n < 10 ? '0' : ''}${fn.n} · ${escapeHtml(fn.who)}</div>
-            <h3 class="font-semibold" style="color:var(--text-primary)">${escapeHtml(fn.title)}</h3>
-            <p class="text-xs mt-1" style="color:var(--text-muted)">${escapeHtml(fn.desc)}${extra || ''}</p>
-        </div>`;
-    }
-    function agentNeedCabinet(panel, fn) {
-        if (hasUserCabinets && currentCabinetId) return false;
-        panel.innerHTML = agentPanelHead(fn) + `<div class="text-sm" style="color:var(--text-muted)">Выберите кабинет с токеном WB — без него API не вызовем.</div>`;
-        return true;
-    }
-    function agentBusy(panel, fn, text) {
-        panel.innerHTML = agentPanelHead(fn) + `<div class="text-sm" style="color:var(--text-muted)">${text || 'Загрузка…'}</div>`;
-    }
-    async function copyAgentText(text) {
-        try { await navigator.clipboard.writeText(text); showPremiumModal('success', 'Скопировано', text); }
-        catch { showPremiumModal('success', 'Ссылка', text); }
-    }
-    window.copyAgentText = copyAgentText;
-
-    function renderAgentInvite(panel, fn) {
-        if (agentNeedCabinet(panel, fn)) return;
-        panel.innerHTML = agentPanelHead(fn, ' Ссылка живёт ограниченное время — отправьте сотруднику в Telegram.') + `
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-                <label class="text-xs" style="color:var(--text-muted)">Телефон
-                    <input id="agent-invite-phone" class="ui-input mt-1" placeholder="996700123456 или 7900…">
-                </label>
-                <label class="text-xs" style="color:var(--text-muted)">Должность
-                    <input id="agent-invite-pos" class="ui-input mt-1" placeholder="Менеджер" value="Сотрудник">
-                </label>
-                <label class="text-xs" style="color:var(--text-muted)">Права
-                    <select id="agent-invite-preset" class="ui-select mt-1">
-                        <option value="standard">Стандарт WB</option>
-                        <option value="finance">Финансы и баланс</option>
-                        <option value="manager">Менеджер (без финансов)</option>
-                        <option value="readonly">Только просмотр</option>
-                    </select>
-                </label>
-            </div>
-            <button type="button" class="ui-btn ui-btn-primary" onclick="submitAgentInvite()">Сгенерировать ссылку</button>
-            <div id="agent-invite-out" class="mt-4 text-sm" style="color:var(--text-muted)"></div>`;
-    }
-    async function submitAgentInvite() {
-        const phone = document.getElementById('agent-invite-phone')?.value.trim();
-        const position = document.getElementById('agent-invite-pos')?.value.trim() || 'Сотрудник';
-        const preset = document.getElementById('agent-invite-preset')?.value || 'standard';
-        const out = document.getElementById('agent-invite-out');
-        if (!phone) { showPremiumModal('warning', 'Телефон', 'Укажите номер сотрудника.'); return; }
-        if (out) out.textContent = 'Создаём приглашение в WB…';
-        const data = await callWbProxy('users_invite', { phone, position, preset }, currentCabinetId);
-        if (!out) return;
-        if (data?.updated) {
-            out.innerHTML = `<div class="mb-2">Пользователь уже в кабинете — сменила права для ${escapeHtml(data.countryName || '')} ${escapeHtml(data.phone || phone)}</div>
-                <div>Доступ: ${escapeHtml(data.label || preset)}</div>`;
-            return;
-        }
-        if (!data || !data.inviteUrl) {
-            out.innerHTML = `<span style="color:var(--red)">${escapeHtml(data?.error || 'WB не вернул ссылку. Проверьте, что у токена включена категория «Пользователи».')}</span>`;
-            return;
-        }
-        out.innerHTML = `<div class="mb-2">Готово для ${escapeHtml(data.countryName || '')} ${escapeHtml(data.phone || phone)}</div>
-            <div class="text-xs mb-2">Доступ: ${escapeHtml(data.label || preset)}</div>
-            <div class="agent-result-url mb-3">${escapeHtml(data.inviteUrl)}</div>
-            <button type="button" class="ui-btn ui-btn-secondary text-sm" onclick="copyAgentText(${JSON.stringify(data.inviteUrl)})">Скопировать ссылку</button>`;
-    }
-    window.submitAgentInvite = submitAgentInvite;
-
-    async function renderAgentTeam(panel, fn) {
-        if (agentNeedCabinet(panel, fn)) return;
-        agentBusy(panel, fn, 'Загружаем пользователей кабинета…');
-        const [active, invited] = await Promise.all([
-            callWbProxy('users_list', { inviteOnly: false }, currentCabinetId),
-            callWbProxy('users_list', { inviteOnly: true }, currentCabinetId),
-        ]);
-        const users = Array.isArray(active?.users) ? active.users : (Array.isArray(active) ? active : []);
-        const pending = Array.isArray(invited?.users) ? invited.users : [];
-        const row = (u, pendingFlag) => {
-            const id = u.id || u.userId || '';
-            const name = [u.firstName, u.secondName || u.lastName].filter(Boolean).join(' ') || u.name || 'без имени';
-            const phone = u.phone || u.phoneNumber || u.inviteeInfo?.phoneNumber || '';
-            const role = u.position || u.role || u.inviteeInfo?.position || '';
-            const access = Array.isArray(u.access) ? u.access : [];
-            const financeOff = access.some((a) => a && a.code === 'finance' && a.disabled);
-            const financeOn = access.some((a) => a && a.code === 'finance' && !a.disabled);
-            const financeMark = pendingFlag ? 'ожидает' : financeOn ? 'финансы есть' : financeOff ? 'без финансов' : '';
-            const canChange = !u.isOwner && !pendingFlag && Number(id);
-            return `<tr>
-                <td style="color:var(--text-primary)">${escapeHtml(name)}</td>
-                <td>${escapeHtml(String(phone))}</td>
-                <td>${escapeHtml(String(role))}${financeMark ? ' · ' + financeMark : ''}${pendingFlag ? ' · ожидает' : ''}</td>
-                <td>${u.isOwner ? 'владелец' : canChange ? `<div class="flex flex-wrap gap-2 items-center">
-                    <select id="agent-access-${Number(id)}" class="ui-select" style="min-width:140px">
-                        <option value="finance">Финансы</option>
-                        <option value="standard">Стандарт</option>
-                        <option value="manager">Без финансов</option>
-                        <option value="readonly">Просмотр</option>
-                    </select>
-                    <button type="button" class="adv-camp-action-btn" onclick="changeAgentUserAccess(${Number(id)})">Сменить</button>
-                    <button type="button" class="adv-camp-action-btn" onclick="deleteAgentUser(${Number(id)})">Удалить</button>
-                </div>` : `<button type="button" class="adv-camp-action-btn" onclick="deleteAgentUser(${Number(id)})">Удалить</button>`}</td>
-            </tr>`;
-        };
-        panel.innerHTML = agentPanelHead(fn) + `
-            <div class="overflow-x-auto"><table class="data-table text-sm">
-                <thead><tr><th>Имя</th><th>Телефон</th><th>Роль</th><th></th></tr></thead>
-                <tbody>${[...users.map((u) => row(u, false)), ...pending.map((u) => row(u, true))].join('') || '<tr><td colspan="4">Пусто или нет прав «Пользователи» у токена.</td></tr>'}</tbody>
-            </table></div>`;
-    }
-    async function deleteAgentUser(userId) {
-        if (!userId) return;
-        const data = await callWbProxy('users_delete', { userId }, currentCabinetId);
-        if (!data) return;
-        showPremiumModal('success', 'Пользователь удалён', 'Доступ к кабинету WB снят.');
-        openAgentFn('team');
-    }
-    window.deleteAgentUser = deleteAgentUser;
-
-    async function changeAgentUserAccess(userId) {
-        if (!userId) return;
-        const preset = document.getElementById('agent-access-' + userId)?.value || 'finance';
-        const data = await callWbProxy('users_access', { userId, preset }, currentCabinetId);
-        if (!data) return;
-        if (data.error) {
-            showPremiumModal('error', 'Не сменила доступ', data.error);
-            return;
-        }
-        showPremiumModal('success', 'Доступ обновлён', data.label || preset);
-        openAgentFn('team');
-    }
-    window.changeAgentUserAccess = changeAgentUserAccess;
-
-    async function renderAgentPrices(panel, fn) {
-        if (agentNeedCabinet(panel, fn)) return;
-        agentBusy(panel, fn, 'Читаем цены…');
-        const data = await callWbProxy('prices_list', { limit: 40 }, currentCabinetId);
-        const goods = data?.data?.listGoods || data?.listGoods || [];
-        const rows = goods.slice(0, 40).map((g) => {
-            const sz = (g.sizes && g.sizes[0]) || {};
-            const price = sz.price ?? g.price ?? '';
-            const disc = sz.discount ?? g.discount ?? 0;
-            return `<tr>
-                <td style="color:var(--text-primary)">${escapeHtml(String(g.nmID || g.nmId || ''))}<div class="text-xs" style="color:var(--text-muted)">${escapeHtml(g.vendorCode || g.brand || '')}</div></td>
-                <td>${escapeHtml(String(price))} ₽ · −${escapeHtml(String(disc))}%</td>
-                <td><input id="agent-price-${g.nmID}" type="number" class="ui-input" style="width:110px" placeholder="новая цена"></td>
-                <td><input id="agent-disc-${g.nmID}" type="number" class="ui-input" style="width:80px" placeholder="скидка %" value="${escapeHtml(String(disc || ''))}"></td>
-                <td><button type="button" class="adv-camp-action-btn" onclick="submitAgentPrice(${Number(g.nmID)})">Поставить</button></td>
-            </tr>`;
-        }).join('');
-        panel.innerHTML = agentPanelHead(fn, ' Категория токена: «Цены и скидки».') + `
-            <div class="overflow-x-auto"><table class="data-table text-sm">
-                <thead><tr><th>Артикул</th><th>Сейчас</th><th>Новая цена, ₽</th><th>Скидка %</th><th></th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="5">Нет товаров или нет прав на цены.</td></tr>'}</tbody>
-            </table></div>`;
-    }
-    async function submitAgentPrice(nmID) {
-        const price = Number(document.getElementById('agent-price-' + nmID)?.value || 0);
-        const discount = document.getElementById('agent-disc-' + nmID)?.value;
-        if (!price) { showPremiumModal('warning', 'Цена', 'Укажите новую цену в рублях.'); return; }
-        const data = await callWbProxy('prices_set', { nmID, price, discount: discount === '' ? undefined : Number(discount) }, currentCabinetId);
-        if (!data) return;
-        showPremiumModal('success', 'Цена отправлена', 'WB применит задачу в течение нескольких минут.');
-    }
-    window.submitAgentPrice = submitAgentPrice;
-
-    async function renderAgentReviews(panel, fn) {
-        if (agentNeedCabinet(panel, fn)) return;
-        agentBusy(panel, fn, 'Загружаем отзывы…');
-        const data = await callWbProxy('feedbacks_list', { isAnswered: false, take: 20 }, currentCabinetId);
-        const list = data?.data?.feedbacks || data?.feedbacks || [];
-        const rows = list.map((f) => {
-            const id = f.id || f.feedbackId;
-            const text = f.text || f.feedbackText || '';
-            const product = f.productDetails?.nmName || f.productName || f.nmId || '';
-            const stars = f.productValuation ?? f.valuation ?? '';
-            return `<div class="mb-4 pb-4" style="border-bottom:1px solid var(--border)">
-                <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(String(stars))}★ · ${escapeHtml(String(product))}</div>
-                <div class="text-sm mt-1" style="color:var(--text-secondary)">${escapeHtml(String(text).slice(0, 400))}</div>
-                <textarea id="agent-rev-${id}" class="ui-input mt-2" rows="2" placeholder="Ответ покупателю"></textarea>
-                <button type="button" class="adv-camp-action-btn mt-2" onclick="submitAgentReview('${escapeHtml(String(id))}')">Ответить</button>
-            </div>`;
-        }).join('');
-        panel.innerHTML = agentPanelHead(fn, ' Категория токена: «Отзывы и вопросы».') + (rows || '<div class="text-sm" style="color:var(--text-muted)">Неотвеченных отзывов нет — или нет прав на отзывы.</div>');
-    }
-    async function submitAgentReview(id) {
-        const text = document.getElementById('agent-rev-' + id)?.value.trim();
-        if (!text) { showPremiumModal('warning', 'Текст', 'Напишите ответ.'); return; }
-        const data = await callWbProxy('feedbacks_answer', { id, text }, currentCabinetId);
-        if (!data) return;
-        showPremiumModal('success', 'Ответ отправлен', 'Покупатель увидит его в отзыве.');
-        openAgentFn('reviews');
-    }
-    window.submitAgentReview = submitAgentReview;
-
-    async function renderAgentQuestions(panel, fn) {
-        if (agentNeedCabinet(panel, fn)) return;
-        agentBusy(panel, fn, 'Загружаем вопросы…');
-        const data = await callWbProxy('questions_list', { isAnswered: false, take: 20 }, currentCabinetId);
-        const list = data?.data?.questions || data?.questions || [];
-        const rows = list.map((q) => {
-            const id = q.id || q.questionId;
-            const text = q.text || q.questionText || '';
-            const product = q.productDetails?.nmName || q.productName || '';
-            return `<div class="mb-4 pb-4" style="border-bottom:1px solid var(--border)">
-                <div class="text-sm font-semibold" style="color:var(--text-primary)">${escapeHtml(String(product || 'Вопрос'))}</div>
-                <div class="text-sm mt-1" style="color:var(--text-secondary)">${escapeHtml(String(text).slice(0, 400))}</div>
-                <textarea id="agent-q-${id}" class="ui-input mt-2" rows="2" placeholder="Ответ покупателю или в Telegram: завтра / через неделю"></textarea>
-                <button type="button" class="adv-camp-action-btn mt-2" onclick="submitAgentQuestion('${escapeHtml(String(id))}')">Ответить</button>
-            </div>`;
-        }).join('');
-        panel.innerHTML = agentPanelHead(fn, ' Или ответьте в Telegram реплаем: завтра / через неделю / через 2 недели — бот сам напишет покупателю на WB.') + (rows || '<div class="text-sm" style="color:var(--text-muted)">Открытых вопросов нет.</div>');
-    }
-    async function submitAgentQuestion(id) {
-        const text = document.getElementById('agent-q-' + id)?.value.trim();
-        if (!text) { showPremiumModal('warning', 'Текст', 'Напишите ответ.'); return; }
-        const data = await callWbProxy('questions_answer', { id, text }, currentCabinetId);
-        if (!data) return;
-        showPremiumModal('success', 'Ответ отправлен', 'Вопрос закрыт.');
-        openAgentFn('questions');
-    }
-    window.submitAgentQuestion = submitAgentQuestion;
-
-    async function renderAgentFbs(panel, fn) {
-        if (agentNeedCabinet(panel, fn)) return;
-        agentBusy(panel, fn, 'Ищем новые сборочные задания…');
-        const data = await callWbProxy('orders_fbs_new', {}, currentCabinetId);
-        const orders = data?.orders || data?.data?.orders || [];
-        const rows = orders.slice(0, 50).map((o) => `<tr>
-            <td style="color:var(--text-primary)">${escapeHtml(String(o.id || o.orderId || ''))}</td>
-            <td>${escapeHtml(String(o.article || o.skus?.[0] || o.nmId || ''))}</td>
-            <td>${escapeHtml(String(o.warehouseId || o.officeId || ''))}</td>
-            <td>${escapeHtml(String(o.createdAt || o.dateCreated || '').slice(0, 19).replace('T', ' '))}</td>
-        </tr>`).join('');
-        panel.innerHTML = agentPanelHead(fn) + `
-            <div class="text-xs mb-2" style="color:var(--text-muted)">Всего новых: ${orders.length}</div>
-            <div class="overflow-x-auto"><table class="data-table text-sm">
-                <thead><tr><th>Заказ</th><th>Артикул</th><th>Склад</th><th>Создан</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="4">Новых сборочных нет.</td></tr>'}</tbody>
-            </table></div>`;
-        window._agentFbsIds = orders.map((o) => o.id || o.orderId).filter(Boolean);
-    }
-
-    function renderAgentStickers(panel, fn) {
-        if (agentNeedCabinet(panel, fn)) return;
-        const preset = (window._agentFbsIds || []).slice(0, 20).join(', ');
-        panel.innerHTML = agentPanelHead(fn, ' Номера через запятую — те же id, что в новых FBS-заказах.') + `
-            <label class="text-xs" style="color:var(--text-muted)">ID заказов
-                <textarea id="agent-sticker-ids" class="ui-input mt-1" rows="3" placeholder="123456789, 123456790">${escapeHtml(preset)}</textarea>
-            </label>
-            <button type="button" class="ui-btn ui-btn-primary mt-3" onclick="submitAgentStickers()">Скачать стикеры</button>
-            <div id="agent-sticker-out" class="mt-4"></div>`;
-    }
-    async function submitAgentStickers() {
-        const raw = document.getElementById('agent-sticker-ids')?.value || '';
-        const orderIds = raw.split(/[,\s]+/).map((x) => Number(x)).filter(Boolean);
-        const out = document.getElementById('agent-sticker-out');
-        if (!orderIds.length) { showPremiumModal('warning', 'Заказы', 'Укажите хотя бы один ID.'); return; }
-        if (out) out.textContent = 'Печатаем стикеры…';
-        const data = await callWbProxy('stickers', { orderIds }, currentCabinetId);
-        if (!out) return;
-        const stickers = data?.stickers || data?.data?.stickers || [];
-        if (!stickers.length) {
-            out.innerHTML = `<span style="color:var(--red)">WB не вернул стикеры. Проверьте ID и категорию «Маркетплейс».</span>`;
-            return;
-        }
-        out.innerHTML = stickers.map((s, i) => {
-            const file = s.file || s.sticker || s.barcode;
-            const src = file && String(file).startsWith('http') ? file : (file ? `data:image/png;base64,${file}` : '');
-            return src ? `<img alt="sticker ${i + 1}" src="${src}" style="height:80px;margin:6px;background:#fff;border-radius:8px">` : '';
-        }).join('') || 'Готово, но картинки в ответе нет.';
-    }
-    window.submitAgentStickers = submitAgentStickers;
-
-    async function renderAgentPass(panel, fn) {
-        if (agentNeedCabinet(panel, fn)) return;
-        agentBusy(panel, fn, 'Склады и действующие пропуска…');
-        const [officesRes, passesRes] = await Promise.all([
-            callWbProxy('passes_offices', {}, currentCabinetId),
-            callWbProxy('passes_list', {}, currentCabinetId),
-        ]);
-        const offices = officesRes?.offices || officesRes?.data || (Array.isArray(officesRes) ? officesRes : []);
-        const passes = passesRes?.passes || passesRes?.data || (Array.isArray(passesRes) ? passesRes : []);
-        const opts = (Array.isArray(offices) ? offices : []).map((o) => {
-            const id = o.id || o.officeId;
-            const name = o.name || o.officeName || id;
-            return `<option value="${escapeHtml(String(id))}">${escapeHtml(String(name))}</option>`;
-        }).join('');
-        const list = (Array.isArray(passes) ? passes : []).slice(0, 15).map((p) =>
-            `<div class="text-sm py-1" style="color:var(--text-secondary)">${escapeHtml([p.firstName, p.lastName, p.carNumber, p.officeName || p.officeId].filter(Boolean).join(' · '))}</div>`
-        ).join('');
-        panel.innerHTML = agentPanelHead(fn, ' Пропуск действует 48 часов.') + `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                <label class="text-xs" style="color:var(--text-muted)">Имя<input id="agent-pass-fn" class="ui-input mt-1"></label>
-                <label class="text-xs" style="color:var(--text-muted)">Фамилия<input id="agent-pass-ln" class="ui-input mt-1"></label>
-                <label class="text-xs" style="color:var(--text-muted)">Марка авто<input id="agent-pass-car" class="ui-input mt-1" placeholder="Toyota"></label>
-                <label class="text-xs" style="color:var(--text-muted)">Номер авто<input id="agent-pass-num" class="ui-input mt-1" placeholder="01KG123ABC"></label>
-                <label class="text-xs md:col-span-2" style="color:var(--text-muted)">Склад
-                    <select id="agent-pass-office" class="ui-select mt-1">${opts || '<option value="">нет складов</option>'}</select>
-                </label>
-            </div>
-            <button type="button" class="ui-btn ui-btn-primary" onclick="submitAgentPass()">Оформить пропуск</button>
-            <div class="mt-4"><div class="text-xs font-semibold mb-1" style="color:var(--text-muted)">Уже оформлены</div>${list || '—'}</div>`;
-    }
-    async function submitAgentPass() {
-        const firstName = document.getElementById('agent-pass-fn')?.value.trim();
-        const lastName = document.getElementById('agent-pass-ln')?.value.trim();
-        const carModel = document.getElementById('agent-pass-car')?.value.trim();
-        const carNumber = document.getElementById('agent-pass-num')?.value.trim();
-        const officeId = Number(document.getElementById('agent-pass-office')?.value || 0);
-        if (!firstName || !lastName || !officeId) {
-            showPremiumModal('warning', 'Форма', 'Имя, фамилия и склад обязательны.');
-            return;
-        }
-        const data = await callWbProxy('passes_create', { firstName, lastName, carModel, carNumber, officeId }, currentCabinetId);
-        if (!data) return;
-        showPremiumModal('success', 'Пропуск создан', 'Действует 48 часов. Покажите QR/данные на въезде.');
-        openAgentFn('pass');
-    }
-    window.submitAgentPass = submitAgentPass;
-
-    async function renderAgentChats(panel, fn) {
-        if (agentNeedCabinet(panel, fn)) return;
-        agentBusy(panel, fn, 'Открываем чаты…');
-        const data = await callWbProxy('buyer_chats', {}, currentCabinetId);
-        const chats = data?.chats || data?.data || (Array.isArray(data) ? data : []);
-        const rows = (Array.isArray(chats) ? chats : []).slice(0, 40).map((c) => `<tr>
-            <td style="color:var(--text-primary)">${escapeHtml(String(c.clientName || c.buyerName || c.chatId || 'покупатель'))}</td>
-            <td>${escapeHtml(String(c.lastMessage || c.message || c.preview || '').slice(0, 120))}</td>
-            <td>${escapeHtml(String(c.nmId || c.nmID || c.article || ''))}</td>
-        </tr>`).join('');
-        panel.innerHTML = agentPanelHead(fn, ' Категория токена: «Чат с покупателями».') + `
-            <div class="overflow-x-auto"><table class="data-table text-sm">
-                <thead><tr><th>Покупатель</th><th>Последнее</th><th>Артикул</th></tr></thead>
-                <tbody>${rows || '<tr><td colspan="3">Открытых чатов нет.</td></tr>'}</tbody>
-            </table></div>`;
-    }
-
-    async function renderAgentBalance(panel, fn) {
-        if (agentNeedCabinet(panel, fn)) return;
-        agentBusy(panel, fn, 'Считаем балансы…');
-        const data = await callWbProxy('seller_balance', {}, currentCabinetId);
-        const fin = data?.finance || {};
-        const adv = data?.advertising || {};
-        const money = (v) => v == null || v.error ? '—' : (Number(v).toLocaleString('ru-RU') + ' ₽');
-        const fBal = fin.current || fin.balance || fin.total || fin;
-        const aBal = adv.balance ?? adv.current;
-        panel.innerHTML = agentPanelHead(fn) + `
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div class="adv-kpi-tile">
-                    <div class="adv-kpi-tile-label">Счёт продавца</div>
-                    <div class="adv-kpi-tile-value">${typeof fBal === 'object' ? money(fBal.current ?? fBal.balance) : money(fBal)}</div>
-                    ${fin.error ? `<div class="text-xs mt-2" style="color:var(--red)">${escapeHtml(String(fin.error))}</div>` : ''}
-                </div>
-                <div class="adv-kpi-tile">
-                    <div class="adv-kpi-tile-label">Рекламный кабинет</div>
-                    <div class="adv-kpi-tile-value">${money(aBal)}</div>
-                    ${adv.bonus ? `<div class="text-xs mt-1" style="color:var(--text-muted)">бонус ${escapeHtml(String(adv.bonus))} ₽</div>` : ''}
-                    ${adv.error ? `<div class="text-xs mt-2" style="color:var(--red)">${escapeHtml(String(adv.error))}</div>` : ''}
-                </div>
-            </div>`;
-    }
 
     let allSuppliesRaw = [];
     let allSupplies = [];
@@ -14603,6 +14764,7 @@
         registerUserSession().catch(e => console.warn('[security] init:', e));
         applySettingsTabsForRole();
         updateSpaceStatusUI();
+        if (typeof loadAgentHub === 'function') loadAgentHub();
 
         // Восстанавливаем сохранённую вкладку СРАЗУ, ДО любых await (loadCabinets
         // может идти 5-8с на большом кабинете) — иначе пользователь всё это время
@@ -14687,7 +14849,11 @@
             clearTimeout(hideTimer);
             flyouts.forEach(f => f.classList.toggle('visible', f.id === id));
             syncFlyoutLayout();
-            if (id === 'fly-agents' && typeof loadAgentHub === 'function') loadAgentHub();
+            if (id === 'fly-agents' && typeof loadAgentHub === 'function') {
+                hydrateAgentHubCache();
+                renderAgentHub();
+                loadAgentHub();
+            }
         }
         function hideFlyouts(force) {
             flyouts.forEach(f => {
