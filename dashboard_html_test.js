@@ -218,8 +218,14 @@ assert.ok(
     'cabinet header is a floating Apple-rounded bar'
 );
 assert.ok(html.includes('ab-create-btn'), 'A/B create button uses WBRadar-style control');
-assert.ok(html.includes('id="new-test-form"') && html.includes('ab-new-dialog') && html.includes('nr-modal-overlay'),
-    'A/B create form is a compact modal, not a full-page card');
+assert.ok(/id="new-test-form"[^>]*rnp-settings-overlay/.test(html) && html.includes('rnp-settings-dialog ab-new-dialog'),
+    'A/B create form is a short RNP-style settings overlay');
+assert.ok(html.includes('max-height: min(62vh, 520px)') && !html.includes('max-height: min(88vh, 860px)'),
+    'A/B create dialog is a short sheet, not almost full-screen');
+assert.ok(html.indexOf('id="new-test-form"') > html.indexOf('id="tab-rnp-settings"'),
+    'A/B create overlay lives outside the A/B tab, like RNP settings');
+assert.ok(/id="ab-report-modal"[^>]*rnp-settings-overlay/.test(html) && /id="ab-edit-modal"[^>]*rnp-settings-overlay/.test(html),
+    'A/B report and edit use the same overlay as RNP settings');
 assert.ok(html.includes('id="ab-campaign-search"') && html.includes('ab-campaign-name') && html.includes('ab-campaign-id'),
     'A/B campaign picker shows name + id and can search «тест стр»');
 assert.ok(html.includes('id="ab-min-impressions"') && html.includes('value="2000"'),
