@@ -1505,7 +1505,14 @@ assert.ok(
     html.includes('Телеграм') &&
     html.includes('>Мозг<') &&
     html.includes('ChatGPT') &&
-    html.includes('function deleteWhatsAppAgent'),
+    html.includes('function deleteWhatsAppAgent') &&
+    html.includes('const AGENT_NOTES') &&
+    html.includes('const AGENT_CHAINS') &&
+    html.includes('function selectAgentNote') &&
+    html.includes('function selectAgentChain') &&
+    html.includes('class="ah-wiki"') &&
+    html.includes('Связки агентов') &&
+    html.includes('Поступление на WB'),
     'Агенты live in the left rail: WhatsApp, Telegram bots with delete, send-to-chat, ChatGPT brain'
 );
 assert.ok(
