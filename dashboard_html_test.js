@@ -491,6 +491,20 @@ assert.ok(html.includes('abtest-card-row'), 'A/B cards use WBRadar row layout');
 assert.ok(html.includes('nr-early-tab-style'), 'early-tab CSS id must exist for settings boot');
 assert.ok(html.includes('window.__nrEarlyTab') && html.includes('#tab-dashboard.active{display:none !important}#tab-'),
     'F5 must pin the current tab before first paint, not only settings');
+assert.ok(
+    html.includes("document.documentElement.setAttribute('data-nr-early'") &&
+    html.includes('html[data-nr-early] #header-date-chip-wrap') &&
+    html.includes("titles[tab]) t.textContent = titles[tab]") &&
+    html.includes("rnp: 'Модуль РНП'"),
+    'F5 in RNP must paint Модуль РНП in the header before auth, not flash Дашборд'
+);
+assert.ok(
+    html.includes("document.documentElement.removeAttribute('data-nr-early')") &&
+    html.includes('rnp.openMain(!!force && !painted)'),
+    'restored RNP sheet must not force-rebuild on every bootRnpTab'
+);
+assert.ok(html.includes("skipSrc && (name === 'src' || name === 'srcset')") && html.includes('const liveSrc = oldEl.getAttribute(\'src\')'),
+    'domMorph must keep painted img src instead of copying placeholders');
 assert.ok(!html.includes('.main-content.page-transition'),
     'tab switch must not hide the page with an opacity flash');
 assert.ok(html.includes('hasPaintedRows'),
@@ -1225,6 +1239,10 @@ assert.ok(rnpSrc.includes('function _saveRnpChrome') && rnpSrc.includes('functio
     'RNP snapshot is compacted so it fits storage and comes back on F5');
 assert.ok(rnpSrc.includes('function _patchLockedSheet') && rnpSrc.includes('function _paintSheetBody') && rnpSrc.includes('function _sheetLockKey'),
     'same RNP sheet must patch values in place instead of swapping blocks');
+assert.ok(rnpSrc.includes('function _swapSheetKeepPhotos') && rnpSrc.includes('function _hydratePhotoCacheFromDom'),
+    'RNP refresh must keep painted photos and rehydrate them from the restored sheet');
+assert.ok(rnpSrc.includes('function _hydratePhotoCacheFromDom') && rnpSrc.includes('_hydratePhotoCacheFromStorage();'),
+    'photo cache must hydrate from storage and the restored sheet before paint');
 assert.ok(rnpSrc.includes('function _patchElHtml') && !rnpSrc.includes('el.innerHTML = _stockSchemeInnerHTML'),
     'stock/donut refresh must patch numbers without rebuilding the block');
 assert.ok(rnpSrc.includes("'.rnp-head-wide-stocks'") && rnpSrc.includes("'.rnp-stock-scheme-wrap'"),

@@ -4389,6 +4389,7 @@
             if (__nrTab === 'cost') __nrTab = 'goods-groups';
             var __nrPane = !__nrTab ? null : (__nrLive[__nrTab] ? __nrTab : 'beta-stub');
             if (__nrPane && __nrPane !== 'dashboard') {
+                document.documentElement.setAttribute('data-nr-early', __nrPane);
                 var __nrStyle = document.createElement('style');
                 __nrStyle.id = 'nr-early-tab-style';
                 var __nrCss = '#tab-dashboard.active{display:none !important}#tab-' + __nrPane + '{display:block !important}';
@@ -4404,6 +4405,8 @@
                 if (__nrLive[__nrTab] && __nrTab !== 'dashboard' && __nrTab !== 'settings') {
                     __nrCss += '.rail-btn[data-tab="' + __nrTab + '"]{background:var(--sel) !important}';
                 }
+                __nrCss += 'html[data-nr-early] #header-date-chip-wrap{display:none !important}';
+                __nrCss += 'html[data-nr-early] #header-back-btn.hidden{display:inline-flex !important}';
                 __nrStyle.textContent = __nrCss;
                 document.head.appendChild(__nrStyle);
                 window.__nrEarlyTab = __nrPane;
@@ -5943,6 +5946,28 @@
                         <span id="date-range">1 янв – 8 сен</span>
                         <svg class="date-chip-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
                     </div>
+                    <script>
+                        /* Early-tab CSS hides the dashboard pane, but the h1 is still
+                           «Дашборд» until auth/showTab. Paint the real title now so F5
+                           in РНП does not flash the dashboard chip for a second. */
+                        (function () {
+                            var tab = window.__nrEarlyTab;
+                            if (!tab || tab === 'dashboard') return;
+                            var titles = {
+                                rnp: 'Модуль РНП',
+                                'rnp-settings': 'Настройки РНП',
+                                advertising: 'Контроль РК',
+                                'ab-testing': 'А/Б Тесты',
+                                'goods-groups': 'Товары',
+                                agents: 'Агенты',
+                                settings: 'Настройки'
+                            };
+                            var t = document.getElementById('page-title');
+                            if (t && titles[tab]) t.textContent = titles[tab];
+                            var main = document.querySelector('.main-content');
+                            if (main && (tab === 'rnp' || tab === 'rnp-settings')) main.classList.add('rnp-compact');
+                        })();
+                    </script>
                 </div>
                 <div class="flex items-center gap-2 shrink-0">
                     <div class="nr-notify" id="nr-notify">
@@ -6600,10 +6625,12 @@
         }
 
         function morphAttrs(oldEl, newEl) {
+            const skipSrc = oldEl.tagName === 'IMG';
             const oldAttrs = oldEl.attributes;
             for (let i = oldAttrs.length - 1; i >= 0; i--) {
                 const name = oldAttrs[i].name;
                 if (name === 'class' || name === 'style') continue;
+                if (skipSrc && (name === 'src' || name === 'srcset')) continue;
                 if (KEEP_ATTR.indexOf(name) >= 0) continue;
                 if (!newEl.hasAttribute(name)) oldEl.removeAttribute(name);
             }
@@ -6611,6 +6638,7 @@
             for (let i = 0; i < newAttrs.length; i++) {
                 const { name, value } = newAttrs[i];
                 if (name === 'class' || name === 'style') continue;
+                if (skipSrc && (name === 'src' || name === 'srcset')) continue;
                 if (oldEl.getAttribute(name) !== value) oldEl.setAttribute(name, value);
             }
             morphClass(oldEl, newEl);
@@ -6630,10 +6658,14 @@
                 return;
             }
             if (oldEl.tagName === 'IMG') {
+                const liveSrc = oldEl.getAttribute('src') || '';
                 morphAttrs(oldEl, newEl);
-                const next = newEl.getAttribute('src') || '';
-                const cur = oldEl.getAttribute('src') || '';
-                if (next && !cur) oldEl.setAttribute('src', next);
+                if (liveSrc && !/^data:image\/svg/i.test(liveSrc)) {
+                    if ((oldEl.getAttribute('src') || '') !== liveSrc) oldEl.setAttribute('src', liveSrc);
+                } else {
+                    const next = newEl.getAttribute('src') || '';
+                    if (next && !liveSrc) oldEl.setAttribute('src', next);
+                }
                 return;
             }
             if (oldEl.tagName === 'INPUT' || oldEl.tagName === 'SELECT' || oldEl.tagName === 'TEXTAREA') {
@@ -7319,7 +7351,8 @@
         }
         window._rnpBootRetries = 0;
         rnp.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
-        Promise.resolve(rnp.openMain(true)).catch(function (e) {
+        const painted = !!(rnpEl && rnpEl.querySelector('.rnp-sheet-table, .rnp-summary-table, .rnp-head-wide, .rnp-article-panel'));
+        Promise.resolve(rnp.openMain(!!force && !painted)).catch(function (e) {
             console.error('[RNP] openMain:', e);
             scheduleRnpBoot('Не удалось открыть РНП. Обновите страницу.');
         });
@@ -7416,6 +7449,7 @@
         document.getElementById('tab-' + name)?.classList.add('active');
         highlightNavForTab(name, el);
         updateHeaderNav(name);
+        document.documentElement.removeAttribute('data-nr-early');
         if (name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'ab-testing' || name === 'goods-groups' || name === 'agents') {
             window.closeSidebarMenus?.(true);
         }
@@ -14364,6 +14398,7 @@
             // (см. <head>) больше не нужен, убираем, чтобы не блокировать
             // будущие переключения вкладок жёстким display:block.
             document.getElementById('nr-early-tab-style')?.remove();
+            document.documentElement.removeAttribute('data-nr-early');
         }
 
         try {

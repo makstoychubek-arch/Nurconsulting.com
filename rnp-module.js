@@ -302,6 +302,29 @@ const RNP = (() => {
         });
     }
 
+    function _hydratePhotoCacheFromDom() {
+        const root = document.getElementById('tab-rnp');
+        if (!root) return;
+        _loadVerifiedPhotoUrlsLazy();
+        root.querySelectorAll('img').forEach(img => {
+            const src = img.getAttribute('src') || '';
+            if (!src || src.startsWith('data:')) return;
+            const fromAttr = Number(img.getAttribute('data-nmid') || 0);
+            const fromUrl = Number((src.match(/\/(\d+)\/images\//) || [])[1] || 0);
+            const nmId = fromAttr || fromUrl;
+            if (!nmId) return;
+            const idx = parseInt(img.getAttribute('data-photo') || '1', 10) || 1;
+            const norm = _normalizePhotoUrl(src) || src;
+            if (idx === 1) {
+                if (!_photoResolveCache[nmId]) _photoResolveCache[nmId] = norm;
+                if (!_verifiedPhotoUrls[nmId]) _verifiedPhotoUrls[nmId] = norm;
+            } else {
+                if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
+                if (!_photoIndexCache[nmId][idx]) _photoIndexCache[nmId][idx] = norm;
+            }
+        });
+    }
+
     function _photosCacheReady(articles) {
         const list = articles || (_articles || []).filter(a => a.is_active);
         if (!list.length) return false;
@@ -818,7 +841,11 @@ const RNP = (() => {
                 ? _normalizePhotoUrl(_photoResolveCache[id])
                 : (_normalizePhotoUrl(_photoIndexCache[id]?.[idx])
                     || _normalizePhotoUrl(_galleryPhotosCache[id]?.[idx - 2]));
-            if (url && img.src !== url) img.src = url;
+            if (!url) return;
+            const cur = img.getAttribute('src') || '';
+            if (cur === url || _normalizePhotoUrl(cur) === url) return;
+            if (cur && !cur.startsWith('data:') && img.complete && img.naturalWidth > 0) return;
+            img.src = url;
         });
     }
 
@@ -878,9 +905,9 @@ const RNP = (() => {
         const sty = extraStyle ? ` style="${extraStyle}"` : '';
         const loading = eager ? 'eager' : 'lazy';
         const errAttr = (!cached && idx === 1)
-            ? ` data-nmid="${nmId}" data-photo="${idx}" onerror="RNP.imgFallback(this)"`
+            ? ` onerror="RNP.imgFallback(this)"`
             : '';
-        return `<img${cls}${sty} src="${src}" referrerpolicy="no-referrer" loading="${loading}" alt=""${errAttr}>`;
+        return `<img${cls}${sty} src="${src}" referrerpolicy="no-referrer" loading="${loading}" alt="" data-nmid="${nmId}" data-photo="${idx}"${errAttr}>`;
     }
 
     function imgFallback(img) {
@@ -5144,8 +5171,10 @@ const RNP = (() => {
             return;
         }
         if (dst.tagName === 'IMG') {
+            const live = dst.getAttribute('src') || '';
+            if (live && !/^data:image\/svg/i.test(live)) return;
             const next = src.getAttribute('src') || '';
-            if (next && !dst.getAttribute('src')) dst.setAttribute('src', next);
+            if (next && !live) dst.setAttribute('src', next);
             return;
         }
         if (dst.tagName === 'INPUT' || dst.tagName === 'SELECT' || dst.tagName === 'TEXTAREA') {
@@ -5255,12 +5284,41 @@ const RNP = (() => {
         return hint === String(_activeNm);
     }
 
+    function _swapSheetKeepPhotos(body, nextHtml) {
+        if (!body || !nextHtml) return false;
+        const keepSels = ['.rnp-head-wide-photos', '.rnp-head-marquee', '.rnp-phone-hero-slides', '.rnp-marquee-wrap'];
+        if (!keepSels.some(sel => body.querySelector(sel))) return false;
+        const tmp = document.createElement('div');
+        tmp.innerHTML = nextHtml;
+        let moved = 0;
+        keepSels.forEach(sel => {
+            const live = body.querySelector(sel);
+            const next = tmp.querySelector(sel);
+            if (live && next && live !== next) {
+                next.replaceWith(live);
+                moved++;
+            }
+        });
+        if (!moved) return false;
+        _preserveRnpScroll(() => {
+            while (body.firstChild) body.removeChild(body.firstChild);
+            while (tmp.firstChild) body.appendChild(tmp.firstChild);
+        });
+        return true;
+    }
+
     function _paintSheetBody(body, nextHtml, cal) {
         const lock = _sheetLockKey(cal);
         const hasTable = !!body.querySelector('.rnp-sheet-table, .rnp-summary-table');
+        const hasPhotos = !!body.querySelector('.rnp-head-wide-photos, .rnp-head-marquee, .rnp-marquee-wrap, .rnp-phone-hero-slides, img[data-nmid]');
         const domCab = body.getAttribute('data-rnp-cab') || '';
         const ownSheet = !domCab || !_cab || domCab === _cab;
-        if (hasTable && ownSheet && _sameLockedSheet(body, lock) && _patchLockedSheet(body, nextHtml)) {
+        if (hasTable && ownSheet && _patchLockedSheet(body, nextHtml)) {
+            body.setAttribute('data-rnp-lock', lock);
+            _markPaintedCab(body);
+            return 'patch';
+        }
+        if (ownSheet && hasPhotos && _swapSheetKeepPhotos(body, nextHtml)) {
             body.setAttribute('data-rnp-lock', lock);
             _markPaintedCab(body);
             return 'patch';
@@ -5597,11 +5655,8 @@ const RNP = (() => {
                 await _loadNotes(active.map(a => a.nm_id));
                 if (_abandonStaleMain(renderId, snapReq, snapCab)) return;
             }
-            setTimeout(() => {
-                if (_cab !== snapCab) return;
-                _hydratePhotoCacheFromStorage();
-                _hydratePhotoCacheFromArticles();
-            }, 0);
+            _hydratePhotoCacheFromStorage();
+            _hydratePhotoCacheFromArticles();
         } catch (e) {
             loadErr = e;
             console.error('[RNP] load:', e);
@@ -5630,6 +5685,9 @@ const RNP = (() => {
     async function _renderActiveTable() {
         const body = document.getElementById('rnp-sheet-body');
         if (!body) return;
+        _hydratePhotoCacheFromStorage();
+        _hydratePhotoCacheFromArticles();
+        _hydratePhotoCacheFromDom();
         _ensureActiveVisible();
         const active = _rnpVisibleArticles();
         const cal = _buildCalendar();
@@ -6336,6 +6394,8 @@ const RNP = (() => {
         if (opts?.userEmail) _userEmail = opts.userEmail;
         _clearCabinetState();
         _restoreCabinetCache(cabId);
+        _hydratePhotoCacheFromStorage();
+        _hydratePhotoCacheFromDom();
         try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
         try { _editMode = sessionStorage.getItem('rnp_edit_mode') === '1'; } catch (e) {}
         _bindSelectionHandlers();
@@ -6343,13 +6403,12 @@ const RNP = (() => {
         if (_isStaleInit(gen, cabId)) return;
         await _loadArticles(cabId, gen);
         if (_isStaleInit(gen, cabId)) return;
+        _hydratePhotoCacheFromArticles();
+        _hydratePhotoCacheFromDom();
         await _bootstrapCabinetIfNeeded();
         if (_isStaleInit(gen, cabId)) return;
-        setTimeout(() => {
-            if (_cab !== cabId) return;
-            _hydratePhotoCacheFromStorage();
-            _hydratePhotoCacheFromArticles();
-        }, 0);
+        _hydratePhotoCacheFromStorage();
+        _hydratePhotoCacheFromArticles();
         // Новые артикулы (появились заказы по новому nm_id) — догружаем в фоне
         // после первого рендера, чтобы не задерживать открытие таблицы.
         setTimeout(() => {
