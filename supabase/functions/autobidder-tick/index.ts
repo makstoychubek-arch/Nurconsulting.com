@@ -6,7 +6,9 @@
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import {
+    alignMinorToCpmStep,
     decideBid,
+    DEFAULT_CPM_STEP_MINOR,
     getAdPosition,
     isCapExhausted,
     spendEstimateBetweenSyncs,
@@ -14,6 +16,7 @@ import {
 } from '../_shared/autobidder-tick-decide.ts';
 import {
     getBids,
+    loadAdvConfig,
     parseDryRun,
     parseReqPerMin,
     readAdvTokenFromVault,
@@ -228,6 +231,27 @@ async function tickCabinet(
     }
 
     const adv = makeCtx(admin, cab.id, token, cab.adv_token_secret_id, ctxIn.dryRun, ctxIn.reqPerMin);
+    let cpmStep = DEFAULT_CPM_STEP_MINOR;
+    let configCurrency: string | null = null;
+    if (ctxIn.rules.length) {
+        const loaded = await loadAdvConfig(adv);
+        if (loaded.status === 401 || loaded.status === 403) {
+            console.error('[autobidder-tick] token invalid', cab.name);
+            return {
+                ok: false,
+                error: 'token_invalid',
+                reason: 'token_invalid',
+                decisions: [tokenInvalidResult(0)],
+            };
+        }
+        if (loaded.config && loaded.config.cpmStep > 0) {
+            cpmStep = loaded.config.cpmStep;
+            configCurrency = loaded.config.currency;
+        } else {
+            console.warn('[autobidder-tick] getConfig fallback cpmStep=100', cab.name, loaded.status);
+        }
+    }
+
     const decisions: Record<string, unknown>[] = [];
     const byCamp = new Map<string, RuleRow[]>();
     for (const rule of ctxIn.rules) {
@@ -286,15 +310,20 @@ async function tickCabinet(
                 });
                 if (snapErr) console.error('[autobidder-tick] snapshot', snapErr.message);
 
+                const bidMinorUnits = decided.apply
+                    ? alignMinorToCpmStep(decided.newBid * 100, cpmStep)
+                    : Math.round(decided.newBid * 100);
+                const sendBid = bidMinorUnits / 100;
+                const willApply = decided.apply && sendBid !== myBid;
+
                 let applied = false;
-                if (decided.apply && !ctxIn.dryRun) {
+                if (willApply && !ctxIn.dryRun) {
                     const setRes = await setBids(adv, {
                         bids: [{
                             advertId: Number(camp.wb_campaign_id),
                             nmId: Number(camp.nm_id),
                             normQuery: cl.cluster_key,
-                            bid: decided.newBid,
-                            bidMinorUnits: decided.newBid * 100,
+                            bidMinorUnits,
                         }],
                     });
                     applied = setRes.status < 400;
@@ -309,7 +338,7 @@ async function tickCabinet(
                 const { error: histErr } = await admin.from('bid_history').insert({
                     rule_id: rule.id,
                     old_bid: myBid,
-                    new_bid: decided.newBid,
+                    new_bid: sendBid,
                     observed_pos: myPos,
                     organic_pos: null,
                     source: 'feedback',
@@ -323,16 +352,23 @@ async function tickCabinet(
                     cluster_key: cl.cluster_key,
                     my_bid: myBid,
                     my_pos: myPos,
-                    new_bid: decided.newBid,
+                    new_bid: sendBid,
                     reason: decided.reason,
-                    apply: decided.apply,
+                    apply: willApply,
                     applied,
+                    bid_minor_units: bidMinorUnits,
                 });
             }
         }
     }
 
-    return { ok: true, decisions: decisions.length, items: decisions };
+    return {
+        ok: true,
+        decisions: decisions.length,
+        items: decisions,
+        cpm_step: cpmStep,
+        currency: configCurrency,
+    };
 }
 
 function resolveClusters(rule: RuleRow, clusters: ClusterRow[], campaignId: string): ClusterRow[] {

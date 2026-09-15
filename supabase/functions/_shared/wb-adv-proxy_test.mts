@@ -9,8 +9,10 @@ import {
     executeAdvRequest,
     getAdvConfig,
     getBids,
+    loadAdvConfig,
     parseAdvConfig,
     parseDryRun,
+    resetAdvConfigCache,
     setBids,
     type AdvCallContext,
 } from './wb-adv-proxy.ts';
@@ -186,6 +188,36 @@ async function testGetAdvConfig() {
     assert.equal(parseAdvConfig({}), null);
 }
 
+async function testLoadAdvConfigCache() {
+    resetAdvConfigCache();
+    const wb = { currency: 'KGS', currencyCode: 417, cpmStep: 100, cpcStep: 50, minTopUp: 10000 };
+    const calls: string[] = [];
+    const ctx = baseCtx({
+        fetchFn: async (url) => {
+            calls.push(String(url));
+            return jsonResponse(200, wb);
+        },
+    });
+
+    const first = await loadAdvConfig(ctx, { now: 1_000, ttlMs: 60_000 });
+    const second = await loadAdvConfig(ctx, { now: 30_000, ttlMs: 60_000 });
+    const otherCab = await loadAdvConfig(baseCtx({
+        cabinetId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+        fetchFn: async (url) => {
+            calls.push(String(url));
+            return jsonResponse(200, { ...wb, currency: 'UZS', currencyCode: 860, cpmStep: 100000 });
+        },
+    }), { now: 30_000, ttlMs: 60_000 });
+    const afterTtl = await loadAdvConfig(ctx, { now: 61_001, ttlMs: 60_000 });
+
+    assert.equal(calls.length, 3, 'cache per cabinet, TTL 60s');
+    assert.deepEqual(first.config, parseAdvConfig(wb));
+    assert.equal(second.config?.cpmStep, 100);
+    assert.equal(otherCab.config?.cpmStep, 100000);
+    assert.equal(afterTtl.config?.currency, 'KGS');
+    resetAdvConfigCache();
+}
+
 assert.equal(parseDryRun(undefined), true);
 assert.equal(parseDryRun(''), true);
 assert.equal(parseDryRun('false'), false);
@@ -196,4 +228,5 @@ await testSetBidsLive();
 await testUnauthorized();
 await testGenericSetBidsPathDryRun();
 await testGetAdvConfig();
+await testLoadAdvConfigCache();
 console.log('wb-adv-proxy_test: ok');
