@@ -19,7 +19,8 @@ assert.ok(fn.includes('supplier/orders'), 'pulls WB orders for the day');
 assert.ok(fn.includes('order_date: dayStr'), 'stores WB flag=1 day, not ISO timestamp');
 assert.ok(fn.includes('srid-check'), 'does not move an srid onto another day');
 assert.ok(fn.includes('rnp_daily_data'), 'writes article metrics');
-assert.ok(fn.includes('sales-funnel/products/history'), 'refreshes funnel for all articles');
+assert.ok(fn.includes('funnelDayMetricFields'), 'funnel writes WB orderCount into orders_count');
+assert.ok(fn.includes('orders: WB вернул не массив'), 'empty/non-array WB payload must not wipe the day');
 assert.ok(fn.includes("mode: 'stocks'") && fn.includes('syncStocksViaAutoSync'),
     'morning fill must refresh size-level stocks for the same cabinet group');
 assert.ok(!fn.includes("rpc('snapshot_goods_daily_stocks'"),
@@ -45,6 +46,14 @@ assert.ok(routing.includes('TEAM_TELEGRAM_CHAT_ID'), 'team secret');
 
 assert.ok(auto.includes('yesterday') && auto.includes('addDaysStr(today, -1)'),
     'auto-sync Pass B must fetch yesterday, not only today');
+assert.ok(auto.includes('order_date: dayStr'),
+    'auto-sync stores WB flag=1 day, not the UTC timestamp');
+assert.ok(auto.includes('moscowYmd'),
+    'auto-sync Pass B uses Moscow calendar like the WB funnel');
+assert.ok(auto.includes('funnelDayMetricFields'),
+    'auto-sync funnel must copy WB Заказы (orderCount) into orders_count');
+assert.ok(auto.includes('allowMoveSrid: true'),
+    'Pass B may move an srid onto the WB flag=1 day to fix UTC holes');
 
 assert.ok(fin.includes('isServiceAuthorized'), 'night finance cron must not 401 on key drift');
 assert.ok(fin.includes('/api/finance/v1/sales-reports/detailed'), 'night finance uses the official Finance API successor');

@@ -899,9 +899,8 @@ serve(async (req) => {
             // ── Analytics API — Sales Funnel ────────────────────────────────
             case 'sales_funnel_history': {
                 const today = new Date();
-                const minStart = new Date(today);
-                minStart.setDate(minStart.getDate() - 6);
-                const fmt = (d: Date) => d.toISOString().split('T')[0];
+                const fmt = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Europe/Moscow' });
+                const minStart = fmt(new Date(today.getTime() - 6 * 86400000));
                 let dateFrom = String(params.dateFrom || '').split('T')[0];
                 let dateTo   = String(params.dateTo   || '').split('T')[0];
                 const nmIds = params.nmIds ||
@@ -909,8 +908,8 @@ serve(async (req) => {
                 if (!dateFrom || !dateTo || !nmIds.length) {
                     return json({ error: 'dateFrom, dateTo and nmId required' }, 400);
                 }
-                // WB: history only for the last 7 days
-                if (dateFrom < fmt(minStart)) dateFrom = fmt(minStart);
+                // WB: history only for the last 7 days (календарь воронки — Москва)
+                if (dateFrom < minStart) dateFrom = minStart;
                 if (dateTo > fmt(today)) dateTo = fmt(today);
                 if (dateFrom > dateTo) {
                     return json({ error: 'date range outside WB 7-day history limit' }, 400);

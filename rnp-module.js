@@ -1603,6 +1603,30 @@ const RNP = (() => {
         return _dateStr(d.getFullYear(), d.getMonth() + 1, d.getDate());
     }
 
+    /** Календарный день воронки WB (Москва), не UTC ISO. */
+    function _wbTodayStr(d) {
+        return new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Europe/Moscow',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }).format(d instanceof Date ? d : new Date());
+    }
+
+    function _wbAddDays(ymd, n) {
+        const d = new Date(String(ymd) + 'T12:00:00Z');
+        d.setUTCDate(d.getUTCDate() + n);
+        return d.toISOString().split('T')[0];
+    }
+
+    function _funnelDayOrders(day) {
+        if (!day || typeof day !== 'object') return null;
+        const raw = day.orderCount ?? day.ordersCount ?? day.orders ?? day.order_count;
+        if (raw == null || raw === '') return null;
+        const n = Number(raw);
+        return Number.isFinite(n) && n >= 0 ? n : null;
+    }
+
     function _sleep(ms) {
         return new Promise(r => setTimeout(r, ms));
     }
@@ -3435,11 +3459,11 @@ const RNP = (() => {
     }
 
     async function _syncToday(nmId) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = _wbTodayStr();
         try {
-            const { data: ex } = await _db.from('rnp_daily_data').select('updated_at')
+            const { data: ex } = await _db.from('rnp_daily_data').select('updated_at, orders_count')
                 .eq('cabinet_id', _cab).eq('nm_id', nmId).eq('date', today).maybeSingle();
-            if (ex?.updated_at) {
+            if (ex?.updated_at && Number(ex.orders_count || 0) > 0) {
                 const hrs = (Date.now() - new Date(ex.updated_at)) / 3600000;
                 if (hrs < 2) return;
             }
@@ -3739,8 +3763,8 @@ const RNP = (() => {
                 };
                 _dataCache[r.nm_id][r.date] = {
                     ...r,
-                    orders_count: client.orders_count || r.orders_count || 0,
-                    orders_sum: client.orders_sum || r.orders_sum || 0,
+                    orders_count: keep('orders_count'),
+                    orders_sum: keep('orders_sum'),
                     // Продажи / реализация / к перечислению — только финотчёт.
                     stock_warehouse: client.stock_warehouse ?? r.stock_warehouse,
                     stock_transit: client.stock_transit ?? r.stock_transit,
@@ -3884,12 +3908,21 @@ const RNP = (() => {
         if (!_callProxy || !_cab) return;
         const nmIds = _cabArticles().filter(a => a.is_active).map(a => Number(a.nm_id)).filter(n => n > 0);
         if (!nmIds.length) return;
-        const today = new Date().toISOString().split('T')[0];
-        const weekAgo = (() => { const d = new Date(); d.setDate(d.getDate() - 6); return d.toISOString().split('T')[0]; })();
-        const missing = nmIds.filter(nmId =>
-            !Object.values(_dataCache[nmId] || {}).some(r =>
-                r && r.date >= weekAgo && r.date <= today &&
-                (Number(r.impressions || 0) > 0 || Number(r.clicks || 0) > 0)));
+        const today = _wbTodayStr();
+        const weekAgo = _wbAddDays(today, -6);
+        const missing = nmIds.filter(nmId => {
+            const rows = Object.values(_dataCache[nmId] || {});
+            const inWindow = rows.filter(r => r && r.date >= weekAgo && r.date <= today);
+            const hasFunnel = inWindow.some(r =>
+                Number(r.impressions || 0) > 0 || Number(r.clicks || 0) > 0);
+            const olderHasOrders = inWindow.some(r =>
+                r.date < _wbAddDays(today, -1) && Number(r.orders_count || 0) > 0);
+            const recentHole = [today, _wbAddDays(today, -1)].some(d => {
+                const r = _dataCache[nmId]?.[d];
+                return olderHasOrders && (!r || Number(r.orders_count || 0) === 0);
+            });
+            return !hasFunnel || recentHole;
+        });
         if (missing.length) {
             try {
                 await _syncFunnelHistory(missing);
@@ -4236,10 +4269,8 @@ const RNP = (() => {
             .map(Number).filter(n => n > 0);
         if (!nmIds.length) return;
         const now = new Date();
-        const rangeStart = new Date(now);
-        rangeStart.setDate(rangeStart.getDate() - 6);
-        const dateFrom = _localDateStr(rangeStart);
-        const dateTo = _localDateStr(now);
+        const dateTo = _wbTodayStr(now);
+        const dateFrom = _wbAddDays(dateTo, -6);
         if (onProgress) onProgress(1, 1);
 
         let resp;
@@ -4267,7 +4298,8 @@ const RNP = (() => {
                 if (!date) continue;
                 const opens = Number(day.openCount || 0);
                 const cart  = Number(day.cartCount || 0);
-                upserts.push({
+                const funnelOrders = _funnelDayOrders(day);
+                const rec = {
                     cabinet_id: _cab, nm_id: nmId, date,
                     impressions: opens,
                     clicks: opens,
@@ -4276,7 +4308,9 @@ const RNP = (() => {
                     basket_pct: Number(day.addToCartConversion || 0),
                     funnel_order_conv: Number(day.cartToOrderConversion || 0),
                     updated_at: new Date().toISOString(),
-                });
+                };
+                if (funnelOrders != null) rec.orders_count = funnelOrders;
+                upserts.push(rec);
             }
         }
 
@@ -4289,14 +4323,13 @@ const RNP = (() => {
         await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
         upserts.forEach(u => {
             const row = _ensureCacheDay(u.nm_id, u.date);
-            if (!(Number(row.impressions || 0) > 0)) {
-                row.impressions = u.impressions;
-                row.clicks = u.clicks;
-                row.ctr_pct = u.ctr_pct;
-                row.basket_count = u.basket_count;
-                row.basket_pct = u.basket_pct;
-                row.funnel_order_conv = u.funnel_order_conv;
-            }
+            row.impressions = u.impressions;
+            row.clicks = u.clicks;
+            row.ctr_pct = u.ctr_pct;
+            row.basket_count = u.basket_count;
+            row.basket_pct = u.basket_pct;
+            row.funnel_order_conv = u.funnel_order_conv;
+            if (u.orders_count != null) row.orders_count = u.orders_count;
         });
     }
 

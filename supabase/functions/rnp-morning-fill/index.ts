@@ -16,6 +16,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
+import { funnelDayMetricFields } from '../_shared/wb-funnel-day.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -251,8 +252,11 @@ async function fetchSupplierOrdersExactDay(token: string, dayStr: string, maxAtt
             const text = (await res.text().catch(() => '')).slice(0, 200);
             throw new Error(`orders HTTP ${res.status} ${text}`.trim());
         }
-        const js = await res.json().catch(() => []);
-        return Array.isArray(js) ? js as Record<string, unknown>[] : [];
+        const js = await res.json().catch(() => null);
+        if (!Array.isArray(js)) {
+            throw new Error('orders: WB вернул не массив — день не трогаем');
+        }
+        return js as Record<string, unknown>[];
     }
     throw new Error(`WB orders 429 после ${maxAttempts} попыток`);
 }
@@ -263,8 +267,8 @@ async function writeOrderRows(
     dayStr: string,
     dayOrders: Record<string, unknown>[],
 ) {
-    await admin.from('wb_orders').delete().eq('cabinet_id', cabinetId).eq('order_date', dayStr);
     if (!dayOrders.length) return;
+    await admin.from('wb_orders').delete().eq('cabinet_id', cabinetId).eq('order_date', dayStr);
     const rows = dayOrders.map((o) => ({
         cabinet_id: cabinetId,
         // flag=1 отдаёт заказы за календарный день WB — пишем ту дату, которую
@@ -385,19 +389,11 @@ async function syncFunnelLast7Days(admin: Admin, cabinetId: string, token: strin
             for (const day of history) {
                 const date = String(day.date || '').split('T')[0];
                 if (!date) continue;
-                const opens = Number(day.openCount || 0);
-                const cart = Number(day.cartCount || 0);
                 upserts.push({
                     cabinet_id: cabinetId,
                     nm_id: nmId,
                     date,
-                    impressions: opens,
-                    clicks: opens,
-                    ctr_pct: opens > 0 ? cart / opens * 100 : 0,
-                    basket_count: cart,
-                    basket_pct: Number(day.addToCartConversion || 0),
-                    funnel_order_conv: Number(day.cartToOrderConversion || 0),
-                    updated_at: new Date().toISOString(),
+                    ...funnelDayMetricFields(day),
                 });
             }
         }

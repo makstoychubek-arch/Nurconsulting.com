@@ -5,6 +5,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTeamMember } from '../_shared/cabinet-access.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { funnelDayMetricFields } from '../_shared/wb-funnel-day.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -87,8 +88,11 @@ async function fetchSupplierOrdersExactDay(
             const text = (await res.text().catch(() => '')).slice(0, 200);
             throw new Error(`orders HTTP ${res.status} ${text}`.trim());
         }
-        const js = await res.json().catch(() => []);
-        return Array.isArray(js) ? js as Record<string, unknown>[] : [];
+        const js = await res.json().catch(() => null);
+        if (!Array.isArray(js)) {
+            throw new Error('orders: WB вернул не массив — день не трогаем');
+        }
+        return js as Record<string, unknown>[];
     }
     throw new Error(`WB orders 429 persisted after ${maxAttempts} attempts`);
 }
@@ -186,11 +190,11 @@ Deno.serve(async (req) => {
     }
 
     if (mode === 'full' || mode === 'rnp') {
-        const today = isoDate(new Date());
+        const today = moscowYmd();
         const horizon = addDaysStr(today, -RECENT_DAYS_LOOKBACK);
 
-        // Pass B: вчера + сегодня. Иначе утром в РНП пустая колонка за вчера
-        // (4.09), а курсор backfill сидит в июле и туда не успевает.
+        // Pass B: вчера + сегодня по календарю WB (Москва). Иначе утром в РНП
+        // пустая колонка за вчера, а курсор backfill сидит в июле.
         const yesterday = addDaysStr(today, -1);
         for (const dayStr of [yesterday, today]) {
             for (const cab of work) {
@@ -326,10 +330,7 @@ async function syncStocks(admin: Admin, cab: CabWork): Promise<number> {
 
 async function syncRecentDay(admin: Admin, cab: CabWork, dayStr: string): Promise<number> {
     const dayOrders = await fetchSupplierOrdersExactDay(cab.token, dayStr);
-    await admin.from('wb_orders').delete()
-        .eq('cabinet_id', cab.id)
-        .eq('order_date', dayStr);
-    await writeOrderRows(admin, cab.id, dayStr, dayOrders);
+    await writeOrderRows(admin, cab.id, dayStr, dayOrders, { allowMoveSrid: true });
     return dayOrders.length;
 }
 
@@ -364,23 +365,45 @@ async function writeOrderRows(
     cabinetId: string,
     dayStr: string,
     dayOrders: Record<string, unknown>[],
+    opts: { allowMoveSrid?: boolean } = {},
 ) {
+    // Пустой ответ не стирает уже залитый день (глюк/не-массив раньше давал []).
     if (!dayOrders.length) return;
-    const rows = dayOrders.map((o) => toOrderRow(cabinetId, o));
+    await admin.from('wb_orders').delete()
+        .eq('cabinet_id', cabinetId)
+        .eq('order_date', dayStr);
+    const rows = dayOrders.map((o) => toOrderRow(cabinetId, dayStr, o));
     const withSrid = rows.filter((r) => r.srid);
     const withoutSrid = rows.filter((r) => !r.srid);
-    for (let i = 0; i < withSrid.length; i += 500) {
+    // Backfill не перетягивает srid с уже залитого дня. Pass B (вчера/сегодня)
+    // наоборот двигает — иначе UTC-дата навсегда оставляет дыру.
+    let keep = withSrid;
+    if (!opts.allowMoveSrid) {
+        const srids = withSrid.map((r) => r.srid).filter(Boolean);
+        if (srids.length) {
+            const owned = new Set<string>();
+            for (let i = 0; i < srids.length; i += 500) {
+                const { data, error } = await admin.from('wb_orders')
+                    .select('srid, order_date')
+                    .eq('cabinet_id', cabinetId)
+                    .in('srid', srids.slice(i, i + 500));
+                if (error) throw new Error(`srid-check(${dayStr}): ${error.message}`);
+                for (const row of data || []) {
+                    const od = String(row.order_date || '').split('T')[0];
+                    if (od && od !== dayStr && row.srid) owned.add(String(row.srid));
+                }
+            }
+            if (owned.size) keep = withSrid.filter((r) => !owned.has(String(r.srid)));
+        }
+    }
+    for (let i = 0; i < keep.length; i += 500) {
         const { error: upErr } = await admin.from('wb_orders').upsert(
-            withSrid.slice(i, i + 500),
+            keep.slice(i, i + 500),
             { onConflict: 'cabinet_id,srid' },
         );
         if (upErr) throw new Error(`upsert(${dayStr}): ${upErr.message}`);
     }
     if (withoutSrid.length) {
-        await admin.from('wb_orders').delete()
-            .eq('cabinet_id', cabinetId)
-            .eq('order_date', dayStr)
-            .is('srid', null);
         for (let i = 0; i < withoutSrid.length; i += 500) {
             const { error: insErr } = await admin.from('wb_orders').insert(withoutSrid.slice(i, i + 500));
             if (insErr) throw new Error(`insert(${dayStr}): ${insErr.message}`);
@@ -396,7 +419,7 @@ async function syncFunnelLast7Days(admin: Admin, cabinetId: string, token: strin
     const nmIds = [...new Set((arts || []).map((a: { nm_id: number }) => Number(a.nm_id)).filter((n: number) => n > 0))];
     if (!nmIds.length) return 0;
 
-    const today = isoDate(new Date());
+    const today = moscowYmd();
     const dateFrom = addDaysStr(today, -6);
     const upserts: Record<string, unknown>[] = [];
     // history принимает максимум 20 nmId (иначе 400 на Зевине).
@@ -425,19 +448,11 @@ async function syncFunnelLast7Days(admin: Admin, cabinetId: string, token: strin
             for (const day of (item.history || [])) {
                 const date = String(day.date || '').split('T')[0];
                 if (!date) continue;
-                const opens = Number(day.openCount || 0);
-                const cart = Number(day.cartCount || 0);
                 upserts.push({
                     cabinet_id: cabinetId,
                     nm_id: nmId,
                     date,
-                    impressions: opens,
-                    clicks: opens,
-                    ctr_pct: opens > 0 ? cart / opens * 100 : 0,
-                    basket_count: cart,
-                    basket_pct: Number(day.addToCartConversion || 0),
-                    funnel_order_conv: Number(day.cartToOrderConversion || 0),
-                    updated_at: new Date().toISOString(),
+                    ...funnelDayMetricFields(day),
                 });
             }
         }
@@ -463,8 +478,13 @@ function sleep(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function isoDate(d: Date) {
-    return d.toISOString().split('T')[0];
+function moscowYmd(d = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Moscow',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(d);
 }
 
 function addDaysStr(day: string, n: number) {
@@ -905,11 +925,11 @@ function sanitizeWbToken(raw: unknown): string {
     return raw.replace(/^\uFEFF/, '').replace(/\s+/g, '').trim();
 }
 
-function toOrderRow(cabinetId: string, o: Record<string, unknown>) {
+function toOrderRow(cabinetId: string, dayStr: string, o: Record<string, unknown>) {
     return {
         cabinet_id: cabinetId,
-        order_date: String(o.date || '').split('T')[0] ||
-            new Date().toISOString().split('T')[0],
+        // flag=1 — календарный день WB. ISO timestamp иначе уезжает на вчера.
+        order_date: dayStr,
         nm_id: o.nmId,
         barcode: o.barcode,
         srid: o.srid || null,

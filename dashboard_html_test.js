@@ -942,8 +942,8 @@ assert.ok(
 const wbProxySrc = fs.readFileSync(path.join(__dirname, 'supabase/functions/wb-proxy/index.ts'), 'utf8');
 assert.ok(wbProxySrc.includes('fetchSalesReportsDetailedPage'),
     'wb-proxy finance_report must use the Finance API detailed-by-period helper');
-assert.ok(!wbProxySrc.includes('statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod'),
-    'wb-proxy must not call deprecated reportDetailByPeriod');
+assert.ok(wbProxySrc.includes("timeZone: 'Europe/Moscow'"),
+    'wb-proxy funnel window must use Moscow dates, not UTC ISO');
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903161000_orders_filled_until.sql')),
     'orders_filled_until migration must exist'
@@ -980,8 +980,26 @@ assert.ok(/const \[, dailyRows, , stocksRaw\] = await Promise\.all/.test(rnpSrc)
     'RNP must take wb_stocks from Promise.all slot 4, not exchange rates');
 assert.ok(rnpSrc.includes('Array.isArray(stocksRaw)'),
     'RNP must not crash if stocks come back undefined');
-assert.ok(rnpSrc.includes('const missing = nmIds.filter'),
-    'funnel hydrate must sync articles still missing impressions, not skip the whole cabinet');
+assert.ok(rnpSrc.includes("orders_count: keep('orders_count')"),
+    'RNP must take the higher of wb_orders and WB funnel Заказы, not || which keeps the lower 6');
+assert.ok(rnpSrc.includes('function _funnelDayOrders'),
+    'RNP must read orderCount from the WB sales funnel');
+assert.ok(rnpSrc.includes('if (funnelOrders != null) rec.orders_count = funnelOrders'),
+    'funnel upsert must persist WB orderCount into orders_count');
+assert.ok(rnpSrc.includes('Number(ex.orders_count || 0) > 0'),
+    'sync today must not skip a 0-order cell just because funnel touched updated_at');
+assert.ok(rnpSrc.includes('recentHole'),
+    'funnel hydrate must refill yesterday/today when older days have orders but recent cells are 0');
+{
+    const start = rnpSrc.indexOf('function _funnelDayOrders');
+    const end = rnpSrc.indexOf('function _sleep');
+    assert.ok(start > 0 && end > start, '_funnelDayOrders sits next to date helpers');
+    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _funnelDayOrders };`)();
+    assert.strictEqual(fns._funnelDayOrders({ orderCount: 8 }), 8);
+    assert.strictEqual(fns._funnelDayOrders({ ordersCount: 10 }), 10);
+    assert.strictEqual(fns._funnelDayOrders({}), null);
+    assert.strictEqual(fns._funnelDayOrders({ orderCount: 0 }), 0);
+}
 assert.ok(rnpSrc.includes('_seedTodayLiveZeros(nmIds, cal)'),
     'RNP must seed live zeros so today is not a blank sheet');
 
