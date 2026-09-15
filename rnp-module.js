@@ -279,15 +279,15 @@ const RNP = (() => {
             Object.entries(snap.main || {}).forEach(([id, url]) => {
                 const nmId = Number(id);
                 const norm = _normalizePhotoUrl(url);
-                if (!norm || !nmId) return;
+                if (!norm || !nmId || !_photoUrlFitsNm(norm, nmId)) return;
                 _photoResolveCache[nmId] = norm;
                 const ver = _normalizePhotoUrl(snap.verified?.[id]);
-                if (ver) _verifiedPhotoUrls[nmId] = ver;
+                if (ver && _photoUrlFitsNm(ver, nmId)) _verifiedPhotoUrls[nmId] = ver;
             });
             Object.entries(snap.gallery || {}).forEach(([id, urls]) => {
                 const nmId = Number(id);
                 if (!nmId || !Array.isArray(urls)) return;
-                const extras = urls.map(_normalizePhotoUrl).filter(Boolean);
+                const extras = urls.map(_normalizePhotoUrl).filter(u => u && _photoUrlFitsNm(u, nmId));
                 if (!extras.length) return;
                 _galleryPhotosCache[nmId] = extras;
                 if (!_photoIndexCache[nmId]) _photoIndexCache[nmId] = {};
@@ -298,7 +298,7 @@ const RNP = (() => {
         Object.entries(_verifiedPhotoUrls).forEach(([id, url]) => {
             const nmId = Number(id);
             const norm = _normalizePhotoUrl(url);
-            if (norm && nmId && !_photoResolveCache[nmId]) _photoResolveCache[nmId] = norm;
+            if (norm && nmId && _photoUrlFitsNm(norm, nmId) && !_photoResolveCache[nmId]) _photoResolveCache[nmId] = norm;
         });
     }
 
@@ -310,9 +310,10 @@ const RNP = (() => {
             const src = img.getAttribute('src') || '';
             if (!src || src.startsWith('data:')) return;
             const fromAttr = Number(img.getAttribute('data-nmid') || 0);
-            const fromUrl = Number((src.match(/\/(\d+)\/images\//) || [])[1] || 0);
+            const fromUrl = _nmIdFromPhotoUrl(src);
+            if (fromAttr && fromUrl && fromAttr !== fromUrl) return;
             const nmId = fromAttr || fromUrl;
-            if (!nmId) return;
+            if (!nmId || !_photoUrlFitsNm(src, nmId)) return;
             const idx = parseInt(img.getAttribute('data-photo') || '1', 10) || 1;
             const norm = _normalizePhotoUrl(src) || src;
             if (idx === 1) {
@@ -373,6 +374,16 @@ const RNP = (() => {
         return u;
     }
 
+    function _nmIdFromPhotoUrl(url) {
+        const m = String(url || '').match(/\/(\d{6,})\/images\//);
+        return m ? Number(m[1]) : 0;
+    }
+    function _photoUrlFitsNm(url, nmId) {
+        const inUrl = _nmIdFromPhotoUrl(url);
+        if (!inUrl || !nmId) return true;
+        return inUrl === Number(nmId);
+    }
+
     function _isWbasketGuessUrl(url) {
         return /basket-\d+\.wbbasket\.ru/i.test(String(url || ''));
     }
@@ -402,6 +413,7 @@ const RNP = (() => {
         _loadVerifiedPhotoUrlsLazy();
         const u = _normalizePhotoUrl(url);
         if (!u || u.includes('placeholder')) return null;
+        if (!_photoUrlFitsNm(u, nmId)) return null;
         if (_isWbasketGuessUrl(u) && _verifiedPhotoUrls[nmId] !== u) return null;
         return u;
     }
@@ -416,9 +428,10 @@ const RNP = (() => {
                 || _wbPhotoUrl(nmId, 'c246x328')
                 || null;
         }
-        return _normalizePhotoUrl(_photoIndexCache[nmId]?.[idx])
+        const extra = _normalizePhotoUrl(_photoIndexCache[nmId]?.[idx])
             || _normalizePhotoUrl(_galleryPhotosCache[nmId]?.[idx - 2])
             || null;
+        return extra && _photoUrlFitsNm(extra, nmId) ? extra : null;
     }
 
     function _wbPhotoUrl(nmId, size = 'c246x328') {
@@ -841,9 +854,18 @@ const RNP = (() => {
                 ? _normalizePhotoUrl(_photoResolveCache[id])
                 : (_normalizePhotoUrl(_photoIndexCache[id]?.[idx])
                     || _normalizePhotoUrl(_galleryPhotosCache[id]?.[idx - 2]));
+            if (url && !_photoUrlFitsNm(url, id)) {
+                if (idx === 1) delete _photoResolveCache[id];
+                url = null;
+            }
             if (!url) return;
             const cur = img.getAttribute('src') || '';
             if (cur === url || _normalizePhotoUrl(cur) === url) return;
+            const curNm = _nmIdFromPhotoUrl(cur);
+            if (curNm && curNm !== id) {
+                img.src = url;
+                return;
+            }
             if (cur && !cur.startsWith('data:') && img.complete && img.naturalWidth > 0) return;
             img.src = url;
         });
@@ -1150,6 +1172,18 @@ const RNP = (() => {
         catch (e) { return false; }
     }
     function toggleCategory(cat) {
+        const list = _rnpVisibleArticles().filter(a => _articleCategory(a) === cat);
+        const inGroup = list.some(a => a.nm_id == _activeNm);
+        const wasCollapsed = _isCatCollapsed(cat);
+        if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && list.length && !inGroup) {
+            let map = {};
+            try { map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'); } catch (e) {}
+            map[cat] = false;
+            try { localStorage.setItem('rnp_collapsed_cats', JSON.stringify(map)); } catch (e) {}
+            _refreshTabsBar();
+            pick(list[0].nm_id);
+            return;
+        }
         let map = {};
         try { map = JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'); } catch (e) {}
         map[cat] = !_isCatCollapsed(cat);
@@ -5278,10 +5312,18 @@ const RNP = (() => {
         const prev = body.getAttribute('data-rnp-lock') || '';
         if (prev) return prev === lock;
         const hint = _domSheetHint(body);
-        if (!hint) return true;
+        if (!hint) return false;
         if (hint === 'summary') return String(_activeNm) === 'summary';
         if (hint === 'general') return String(_activeNm) === 'general';
         return hint === String(_activeNm);
+    }
+
+    function _sameArticleSheet(body) {
+        if (!body) return false;
+        const cur = _activeNm == null ? '' : String(_activeNm);
+        const prev = (body.getAttribute('data-rnp-lock') || '').split('|')[0];
+        if (prev) return prev === cur;
+        return _sameLockedSheet(body, _sheetLockKey(_buildCalendar()));
     }
 
     function _swapSheetKeepPhotos(body, nextHtml) {
@@ -5313,12 +5355,13 @@ const RNP = (() => {
         const hasPhotos = !!body.querySelector('.rnp-head-wide-photos, .rnp-head-marquee, .rnp-marquee-wrap, .rnp-phone-hero-slides, img[data-nmid]');
         const domCab = body.getAttribute('data-rnp-cab') || '';
         const ownSheet = !domCab || !_cab || domCab === _cab;
-        if (hasTable && ownSheet && _patchLockedSheet(body, nextHtml)) {
+        const sameArticle = ownSheet && _sameArticleSheet(body);
+        if (sameArticle && hasTable && _patchLockedSheet(body, nextHtml)) {
             body.setAttribute('data-rnp-lock', lock);
             _markPaintedCab(body);
             return 'patch';
         }
-        if (ownSheet && hasPhotos && _swapSheetKeepPhotos(body, nextHtml)) {
+        if (sameArticle && hasPhotos && _swapSheetKeepPhotos(body, nextHtml)) {
             body.setAttribute('data-rnp-lock', lock);
             _markPaintedCab(body);
             return 'patch';

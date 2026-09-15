@@ -763,6 +763,8 @@ assert.ok(!rnpSrc.includes('WB 7 дней, старше из кэша'), 'techni
 assert.ok(!rnpSrc.includes('•live'), 'live badge text must not sit on the grid');
 assert.ok(!rnpSrc.includes('enrichment ограничен'), 'English enrichment warning must stay hidden');
 assert.ok(rnpSrc.includes("map[cat] = !_isCatCollapsed(cat)"), 'clicking a category group hides or shows its articles');
+assert.ok(rnpSrc.includes('pick(list[0].nm_id)') && rnpSrc.includes('!inGroup'),
+    'clicking another RNP category opens that group\'s first article');
 assert.ok(rnpSrc.includes("localStorage.getItem('rnp_collapsed_cats')"), 'collapsed category groups persist');
 assert.ok(rnpSrc.includes('${collapsed ? \'\' : `<div class="rnp-cat-tabs">${tabsHtml}</div>`}'), 'collapsed groups hide their article tabs');
 assert.ok(!rnpSrc.includes('function _isCatCollapsed(cat) {\n        return false;'), 'category groups must be able to collapse');
@@ -1275,6 +1277,10 @@ assert.ok(rnpSrc.includes('function _patchElHtml') && !rnpSrc.includes('el.inner
     'stock/donut refresh must patch numbers without rebuilding the block');
 assert.ok(rnpSrc.includes("'.rnp-head-wide-stocks'") && rnpSrc.includes("'.rnp-stock-scheme-wrap'"),
     'locked sheet patch must update stocks without replacing the photo block');
+assert.ok(rnpSrc.includes('function _sameArticleSheet') && rnpSrc.includes('sameArticle && hasTable') && rnpSrc.includes('sameArticle && hasPhotos'),
+    'switching RNP article must replace photos and funnel instead of patching another product');
+assert.ok(rnpSrc.includes('function _photoUrlFitsNm') && rnpSrc.includes('fromAttr !== fromUrl'),
+    'photo cache must not attach another article\'s WB image to this nm_id');
 assert.ok(html.includes('function setInner') && html.includes('function patchNode') && html.includes('SKIP_CHILD_SEL'),
     'domMorph patches text and classes instead of wiping innerHTML of cards');
 assert.ok(html.includes('contain: layout style'),
