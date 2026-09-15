@@ -1510,9 +1510,14 @@ assert.ok(
     html.includes('const AGENT_CHAINS') &&
     html.includes('function selectAgentNote') &&
     html.includes('function selectAgentChain') &&
+    html.includes('function selectAgentHop') &&
     html.includes('class="ah-wiki"') &&
+    html.includes('class="ah-hop') &&
     html.includes('Связки агентов') &&
-    html.includes('Поступление на WB'),
+    html.includes('Поступление на WB') &&
+    html.includes('передача:') &&
+    html.includes("title: 'Человек'") &&
+    html.includes("title: 'Wildberries'"),
     'Агенты live in the left rail: WhatsApp, Telegram bots with delete, send-to-chat, ChatGPT brain'
 );
 assert.ok(

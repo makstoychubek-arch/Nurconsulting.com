@@ -508,30 +508,46 @@
             font-weight: 700; cursor: pointer; padding: 0;
         }
         .ah-wiki:hover { text-decoration: underline; }
+        .ah-md { font-size: 13px; line-height: 1.55; color: var(--text-secondary); margin-top: 8px; }
+        .ah-md p { margin: 0 0 8px; }
+        .ah-backlinks { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; }
+        .ah-path { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 8px 0 4px; }
+        .ah-path-node {
+            border: 1px solid var(--border); border-radius: 999px; padding: 3px 8px;
+            background: var(--surface-solid, var(--surface)); font-size: 11px; font-weight: 700;
+            color: var(--text-primary); cursor: pointer;
+        }
+        .ah-path-node.is-on { border-color: var(--accent-border); background: var(--accent-soft); }
+        .ah-path-edge { font-size: 10px; font-weight: 700; color: var(--text-muted); max-width: 120px; text-align: center; line-height: 1.2; }
         .ah-chain-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
         .ah-chain {
-            width: 100%; text-align: left; border: 1px solid var(--border); border-radius: 10px;
-            background: var(--surface); padding: 8px 10px; cursor: pointer;
+            width: 100%; text-align: left; border: 1px solid var(--border); border-radius: 12px;
+            background: var(--surface); padding: 10px 12px;
         }
         .ah-chain.is-on { border-color: var(--accent-border); background: var(--accent-soft); }
         .ah-chain-title {
             display: block; width: 100%; text-align: left; border: none; background: transparent;
-            padding: 0; cursor: pointer; font-size: 12px; font-weight: 800; color: var(--text-primary);
+            padding: 0; cursor: pointer; font-size: 13px; font-weight: 800; color: var(--text-primary);
         }
-        .ah-chain-via { font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-        .ah-steps { margin-top: 8px; display: flex; flex-direction: column; }
-        .ah-step {
-            display: grid; grid-template-columns: 18px 1fr; gap: 8px; align-items: start;
-            padding: 6px 0 6px 2px; border-left: 2px solid var(--accent-border); margin-left: 7px;
-            padding-left: 10px;
+        .ah-chain-via { font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.4; }
+        .ah-hops { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .ah-hop {
+            width: 100%; text-align: left; border: 1px solid var(--border); border-radius: 10px;
+            background: var(--surface-solid, var(--surface)); padding: 8px 10px; cursor: pointer;
         }
-        .ah-step:first-child { padding-top: 0; }
-        .ah-step-n {
-            width: 16px; height: 16px; border-radius: 50%; background: var(--accent);
-            color: #fff; font-size: 9px; font-weight: 800; display: flex; align-items: center;
-            justify-content: center; margin-left: -19px;
+        .ah-hop.is-on { border-color: var(--accent-border); }
+        .ah-hop-top {
+            display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+            border: none; background: transparent; padding: 0; cursor: pointer;
         }
-        .ah-step-text { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
+        .ah-hop-n {
+            width: 18px; height: 18px; border-radius: 50%; background: var(--accent);
+            color: #fff; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center;
+            justify-content: center; flex-shrink: 0;
+        }
+        .ah-hop-flow { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+        .ah-hop-pass { font-size: 11px; font-weight: 700; color: var(--accent); margin-top: 4px; }
+        .ah-hop-does { font-size: 12px; color: var(--text-secondary); margin-top: 3px; line-height: 1.4; }
         .ah-links { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
         .ah-link-row { font-size: 12px; color: var(--text-secondary); line-height: 1.4; }
         @media (max-width: 900px) {
@@ -13278,94 +13294,136 @@
     }
 
     const AGENT_NOTES = [
-        { id: 'karina', title: 'Карина', bot: 'karina', role: 'Координатор команды' },
-        { id: 'saule', title: 'Сауле', bot: 'saule', role: 'Продажи и цены' },
-        { id: 'amina', title: 'Амина', bot: 'amina', role: 'Реклама и ставки' },
-        { id: 'anton', title: 'Антон', bot: 'anton', role: 'FBS и склады' },
-        { id: 'alina', title: 'Алина', bot: 'alina', role: 'Раздачи, отзывы, вопросы' },
-        { id: 'muha', title: 'Муха', bot: 'muha', role: 'Креативы и фото' },
-        { id: 'notify', title: 'NR уведомления', bot: 'notify', role: 'Рассылки в каналы' },
-        { id: 'brain', title: 'ChatGPT', bot: null, role: 'Мозг формулировок' },
+        { id: 'human', title: 'Человек', bot: null, role: 'Вы в чате или на сайте',
+            body: ['Пишете боту в Telegram, жмёте отправку с сайта или реплаите карточке поступления.', 'Дальше [[Карина]] смотрит, чья это роль, и передаёт по цепочке.'] },
+        { id: 'karina', title: 'Карина', bot: 'karina', role: 'Координатор команды',
+            body: ['Не отвечает на цены, склад и отзывы сама. Читает запрос и передаёт:', '[[Сауле]] — цены, [[Амина]] — реклама, [[Антон]] — FBS/склад, [[Алина]] — отзывы и вопросы, [[Муха]] — креатив.', 'Если нужен доступ в кабинет WB — это тоже [[Карина]].'] },
+        { id: 'saule', title: 'Сауле', bot: 'saule', role: 'Продажи и цены',
+            body: ['Принимает передачу «цены и скидки» от [[Карина]].', 'Зовёт [[ChatGPT]], затем пишет в WB. Ответ человеку отдаёт сама [[Сауле]].'] },
+        { id: 'amina', title: 'Амина', bot: 'amina', role: 'Реклама и ставки',
+            body: ['Принимает «рекламу» от [[Карина]].', 'Ставки и РК, формулировка через [[ChatGPT]].'] },
+        { id: 'anton', title: 'Антон', bot: 'anton', role: 'FBS и склады',
+            body: ['Принимает FBS, стикеры и пропуск от [[Карина]].', 'Склад и сборочные — только [[Антон]], координатор дальше не ведёт.'] },
+        { id: 'alina', title: 'Алина', bot: 'alina', role: 'Раздачи, отзывы, вопросы',
+            body: ['Принимает отзывы и вопросы от [[Карина]] или карточку поступления от [[NR уведомления]].', 'Реплай «завтра / через неделю / через 2 недели» читает telegram-router и отвечает на WB.'] },
+        { id: 'muha', title: 'Муха', bot: 'muha', role: 'Креативы и фото',
+            body: ['Принимает креатив от [[Карина]]. Цены и склад не трогает.'] },
+        { id: 'notify', title: 'NR уведомления', bot: 'notify', role: 'Рассылки в каналы',
+            body: ['Пишет в каналы кабинета: продажи, штрафы, отзывы, FBS.', 'Карточку поступления кладёт в чат отзывов — оттуда цепочка идёт в [[Алина]].'] },
+        { id: 'brain', title: 'ChatGPT', bot: null, role: 'Мозг формулировок',
+            body: ['Не пишет в WB сам. [[Сауле]], [[Алина]] и [[Амина]] передают сюда текст, забирают формулировку и идут дальше.'] },
+        { id: 'wb', title: 'Wildberries', bot: null, role: 'Кабинет продавца',
+            body: ['Сюда уходит финальный шаг: цена, ответ на вопрос, заказ, приглашение.', 'Покупатель пишет сюда — цепочка поступления начинается с [[Wildberries]].'] },
     ];
     const AGENT_LINKS = [
+        { from: 'human', to: 'karina', label: 'любой запрос' },
         { from: 'karina', to: 'saule', label: 'цены и скидки' },
         { from: 'karina', to: 'amina', label: 'реклама' },
         { from: 'karina', to: 'anton', label: 'FBS / склад' },
         { from: 'karina', to: 'alina', label: 'отзывы / вопросы' },
         { from: 'karina', to: 'muha', label: 'креатив' },
+        { from: 'karina', to: 'wb', label: 'приглашение в кабинет' },
         { from: 'saule', to: 'brain', label: 'сформулировать ответ' },
+        { from: 'brain', to: 'saule', label: 'готовый текст' },
         { from: 'alina', to: 'brain', label: 'сформулировать ответ' },
+        { from: 'brain', to: 'alina', label: 'готовый текст' },
         { from: 'amina', to: 'brain', label: 'сформулировать ответ' },
+        { from: 'brain', to: 'amina', label: 'готовый текст' },
+        { from: 'saule', to: 'wb', label: 'поставить цену' },
+        { from: 'alina', to: 'wb', label: 'ответ на вопрос WB' },
+        { from: 'anton', to: 'wb', label: 'FBS / пропуск' },
         { from: 'notify', to: 'alina', label: 'карточка поступления' },
+        { from: 'wb', to: 'notify', label: 'новый вопрос покупателя' },
+        { from: 'human', to: 'notify', label: 'текст с сайта' },
+        { from: 'notify', to: 'human', label: 'сообщение в канал' },
     ];
     const AGENT_CHAINS = [
         {
             id: 'restock',
             title: 'Поступление на WB',
-            via: ['notify', 'alina'],
-            steps: [
-                'WB: покупатель спрашивает, когда товар.',
-                '[[NR уведомления]] кладёт карточку в чат отзывов.',
-                'Реплай в Telegram: завтра / через неделю / через 2 недели.',
-                '[[Алина]] / telegram-router читает реплай и пишет ответ на WB.',
-                'В чате остаётся реакция ❤ — отдельным текстом бот не дублирует.',
+            via: ['wb', 'notify', 'human', 'alina'],
+            hops: [
+                { from: 'wb', to: 'notify', pass: 'вопрос покупателя «когда товар»', does: '[[Wildberries]] отдаёт неотвеченный вопрос.' },
+                { from: 'notify', to: 'human', pass: 'карточка в чат отзывов', does: '[[NR уведомления]] кладёт карточку команде в Telegram.' },
+                { from: 'human', to: 'alina', pass: 'реплай: завтра / через неделю / через 2 недели', does: '[[Алина]] / telegram-router читает реплай, чужие чаты молчат.' },
+                { from: 'alina', to: 'wb', pass: 'готовый ответ на вопрос', does: 'На WB уходит текст, в чате только реакция ❤ — бот не дублирует письмо.' },
             ],
         },
         {
             id: 'site-tg',
-            title: 'Сообщение с сайта в канал',
-            via: ['notify', 'brain'],
-            steps: [
-                'В хабе выбираете канал (Продажи, Штрафы, Отзывы…).',
-                'Текст уходит через telegram-admin send_channel.',
-                '[[NR уведомления]] пишет в этот чат Telegram.',
+            title: 'Сайт → канал Telegram',
+            via: ['human', 'notify'],
+            hops: [
+                { from: 'human', to: 'notify', pass: 'текст и выбранный канал', does: 'В хабе жмёте «Отправить в Telegram» — это send_channel.' },
+                { from: 'notify', to: 'human', pass: 'сообщение в чат канала', does: '[[NR уведомления]] пишет в Продажи / Штрафы / Отзывы и т.д.' },
+            ],
+        },
+        {
+            id: 'invite',
+            title: 'Доступ в кабинет: Карина → WB',
+            via: ['human', 'karina', 'wb'],
+            hops: [
+                { from: 'human', to: 'karina', pass: 'телефон сотрудника и права', does: 'Просят ссылку в кабинет — это роль [[Карина]], не склада.' },
+                { from: 'karina', to: 'wb', pass: 'users_invite / смена доступа', does: '[[Карина]] зовёт WB «Пользователи».' },
+                { from: 'wb', to: 'karina', pass: 'пригласительная ссылка', does: 'WB отдаёт ссылку или пишет, что человек уже в кабинете.' },
+                { from: 'karina', to: 'human', pass: 'ссылка в чат', does: '[[Карина]] отдаёт ссылку человеку.' },
             ],
         },
         {
             id: 'prices',
-            title: 'Цены: Карина → Сауле',
-            via: ['karina', 'saule', 'brain'],
-            steps: [
-                'Спрашивают про цену или скидку у [[Карина]] либо сразу у [[Сауле]].',
-                '[[Карина]] передаёт роль «цены» в [[Сауле]].',
-                '[[Сауле]] опирается на [[ChatGPT]], затем на категорию WB «Цены и скидки».',
+            title: 'Цены: Карина → Сауле → ChatGPT → WB',
+            via: ['human', 'karina', 'saule', 'brain', 'wb'],
+            hops: [
+                { from: 'human', to: 'karina', pass: 'какая цена / какая скидка', does: '[[Карина]] видит, что это не склад и не отзыв.' },
+                { from: 'karina', to: 'saule', pass: 'цены и скидки', does: 'Координатор передаёт роль [[Сауле]].' },
+                { from: 'saule', to: 'brain', pass: 'сформулировать ответ', does: '[[Сауле]] зовёт [[ChatGPT]].' },
+                { from: 'brain', to: 'saule', pass: 'готовый текст', does: 'Мозг не ходит в WB — отдаёт формулировку обратно [[Сауле]].' },
+                { from: 'saule', to: 'wb', pass: 'prices_set', does: '[[Сауле]] ставит цену/скидку в кабинете WB.' },
+                { from: 'saule', to: 'human', pass: 'готово, задача ушла', does: 'Человек получает ответ уже от [[Сауле]], не от координатора.' },
             ],
         },
         {
             id: 'fbs',
-            title: 'FBS: Карина → Антон',
-            via: ['karina', 'anton'],
-            steps: [
-                'Новый заказ, стикер или пропуск — задача [[Антон]].',
-                '[[Карина]] не делает склад сама: передаёт цепочку в [[Антон]].',
+            title: 'FBS: Карина → Антон → WB',
+            via: ['human', 'karina', 'anton', 'wb'],
+            hops: [
+                { from: 'human', to: 'karina', pass: 'новый заказ / стикер / пропуск', does: '[[Карина]] не собирает поставку сама.' },
+                { from: 'karina', to: 'anton', pass: 'FBS / склад', does: 'Цепочка уходит в [[Антон]].' },
+                { from: 'anton', to: 'wb', pass: 'orders_fbs / stickers / passes', does: '[[Антон]] работает с маркетплейсом WB.' },
+                { from: 'anton', to: 'human', pass: 'заказ, стикер или пропуск', does: 'Ответ человеку отдаёт [[Антон]].' },
             ],
         },
         {
             id: 'reviews',
-            title: 'Отзывы: Карина → Алина',
-            via: ['karina', 'alina', 'brain'],
-            steps: [
-                'Неотвеченный отзыв или вопрос покупателя — роль [[Алина]].',
-                '[[Карина]] передаёт цепочку в [[Алина]] + [[ChatGPT]].',
-                'Ответ либо с сайта-бота, либо реплаем в Telegram (см. поступление).',
+            title: 'Отзывы: Карина → Алина → ChatGPT → WB',
+            via: ['human', 'karina', 'alina', 'brain', 'wb'],
+            hops: [
+                { from: 'human', to: 'karina', pass: 'ответь на отзыв / вопрос', does: '[[Карина]] передаёт CRM, не цены.' },
+                { from: 'karina', to: 'alina', pass: 'отзывы / вопросы', does: 'Роль забирает [[Алина]].' },
+                { from: 'alina', to: 'brain', pass: 'сформулировать ответ покупателю', does: '[[Алина]] зовёт [[ChatGPT]].' },
+                { from: 'brain', to: 'alina', pass: 'текст ответа', does: 'Мозг возвращает формулировку [[Алина]].' },
+                { from: 'alina', to: 'wb', pass: 'feedbacks_answer / questions_answer', does: '[[Алина]] закрывает отзыв или вопрос на WB. Либо см. цепочку поступления — реплаем в Telegram.' },
             ],
         },
         {
             id: 'ads',
-            title: 'Реклама: Карина → Амина',
-            via: ['karina', 'amina', 'brain'],
-            steps: [
-                'Ставки и РК — роль [[Амина]].',
-                '[[Карина]] передаёт «рекламу» в [[Амина]], формулировка через [[ChatGPT]].',
+            title: 'Реклама: Карина → Амина → ChatGPT',
+            via: ['human', 'karina', 'amina', 'brain'],
+            hops: [
+                { from: 'human', to: 'karina', pass: 'ставка / РК', does: '[[Карина]] не крутит рекламу сама.' },
+                { from: 'karina', to: 'amina', pass: 'реклама', does: 'Цепочка уходит в [[Амина]].' },
+                { from: 'amina', to: 'brain', pass: 'сформулировать', does: '[[Амина]] зовёт [[ChatGPT]].' },
+                { from: 'brain', to: 'amina', pass: 'готовый текст', does: '[[Амина]] забирает формулировку и ведёт ставки.' },
             ],
         },
         {
             id: 'creative',
             title: 'Креатив: Карина → Муха',
-            via: ['karina', 'muha'],
-            steps: [
-                'Фото и креативы карточки — роль [[Муха]].',
-                '[[Карина]] передаёт задачу в [[Муха]], без склада и цен.',
+            via: ['human', 'karina', 'muha'],
+            hops: [
+                { from: 'human', to: 'karina', pass: 'фото / креатив карточки', does: '[[Карина]] не рисует макеты.' },
+                { from: 'karina', to: 'muha', pass: 'креатив', does: 'Цепочка уходит в [[Муха]].' },
+                { from: 'muha', to: 'human', pass: 'готовые фото', does: '[[Муха]] отдаёт креатив, без цен и склада.' },
             ],
         },
     ];
@@ -13388,6 +13446,7 @@
         channel: (_tgBotsState && _tgBotsState.activeChannel) || 'sales',
         note: 'karina',
         chain: 'restock',
+        hop: 0,
     };
 
     function _ahEsc(s) { return escapeHtml(String(s || '')); }
@@ -13405,11 +13464,20 @@
         return AGENT_NOTES.find((n) => n.id === id) || AGENT_NOTES[0];
     }
 
+    function _chainTouches(chain, noteId) {
+        if (!chain) return false;
+        if ((chain.via || []).includes(noteId)) return true;
+        return (chain.hops || []).some((h) => h.from === noteId || h.to === noteId);
+    }
+
     function selectAgentNote(id) {
         if (!AGENT_NOTES.some((n) => n.id === id)) return;
         _agentHub.note = id;
-        const first = AGENT_CHAINS.find((c) => (c.via || []).includes(id));
-        if (first) _agentHub.chain = first.id;
+        const cur = AGENT_CHAINS.find((c) => c.id === _agentHub.chain);
+        if (!_chainTouches(cur, id)) {
+            const first = AGENT_CHAINS.find((c) => _chainTouches(c, id));
+            if (first) { _agentHub.chain = first.id; _agentHub.hop = 0; }
+        }
         renderAgentHub();
     }
 
@@ -13417,25 +13485,40 @@
         const chain = AGENT_CHAINS.find((c) => c.id === id);
         if (!chain) return;
         _agentHub.chain = id;
+        _agentHub.hop = 0;
         if (chain.via && chain.via.length && !chain.via.includes(_agentHub.note)) {
             _agentHub.note = chain.via[0];
         }
         renderAgentHub();
     }
 
+    function selectAgentHop(i) {
+        const chain = AGENT_CHAINS.find((c) => c.id === _agentHub.chain);
+        const hops = (chain && chain.hops) || [];
+        const n = Number(i);
+        if (!hops[n]) return;
+        _agentHub.hop = n;
+        if (hops[n].to) _agentHub.note = hops[n].to;
+        renderAgentHub();
+    }
+
     function _agentsGraphHTML() {
         const noteId = _agentHub.note || 'karina';
         const chainId = _agentHub.chain || 'restock';
+        const hopI = Number(_agentHub.hop) || 0;
         const note = _agentNoteById(noteId);
         const bots = _tgBotsState.bots || [];
         const notes = AGENT_NOTES.map((n) => {
             const bot = n.bot ? bots.find((b) => String(b.id) === n.bot) : null;
-            const status = bot ? _tgBotStatus(bot) : (n.id === 'brain' ? 'online' : 'offline');
+            const status = bot ? _tgBotStatus(bot) : (n.id === 'brain' ? 'online' : '');
             const on = noteId === n.id ? ' is-on' : '';
+            const badge = n.bot
+                ? `<span class="tg-status ${status}">${TG_STATUS_LABELS[status] || status}</span>`
+                : (n.id === 'brain' ? `<span class="tg-status online">${_ahEsc((_agentHub.brain || {}).model || 'gpt')}</span>` : '');
             return `<button type="button" class="ah-note${on}" onclick="selectAgentNote('${n.id}')">
                 <div class="ah-note-title">[[${_ahEsc(n.title)}]]</div>
                 <div class="ah-note-role">${_ahEsc(n.role)}</div>
-                <div class="mt-1"><span class="tg-status ${status}">${n.bot ? (TG_STATUS_LABELS[status] || status) : (n.id === 'brain' ? (_ahEsc((_agentHub.brain || {}).model) || 'gpt') : '')}</span></div>
+                ${badge ? `<div class="mt-1">${badge}</div>` : ''}
             </button>`;
         }).join('');
         const out = AGENT_LINKS.filter((l) => l.from === noteId);
@@ -13446,30 +13529,53 @@
         const inHtml = inn.length
             ? inn.map((l) => `<div class="ah-link-row">← ${_ahWiki('[[' + _agentNoteById(l.from).title + ']]')} · ${_ahEsc(l.label)}</div>`).join('')
             : '<div class="ah-empty">входящих передач нет</div>';
-        const related = AGENT_CHAINS.filter((c) => (c.via || []).includes(noteId));
-        const rest = AGENT_CHAINS.filter((c) => !(c.via || []).includes(noteId));
+        const body = (note.body || []).map((p) => `<p>${_ahWiki(p)}</p>`).join('');
+        const related = AGENT_CHAINS.filter((c) => _chainTouches(c, noteId));
+        const rest = AGENT_CHAINS.filter((c) => !_chainTouches(c, noteId));
         const list = related.concat(rest).map((c) => {
             const on = chainId === c.id ? ' is-on' : '';
-            const via = (c.via || []).map((id) => '[[' + _agentNoteById(id).title + ']]').join(' → ');
-            const body = chainId === c.id
-                ? `<div class="ah-steps">${(c.steps || []).map((s, i) => `<div class="ah-step"><span class="ah-step-n">${i + 1}</span><div class="ah-step-text">${_ahWiki(s)}</div></div>`).join('')}</div>`
+            const hops = c.hops || [];
+            const via = hops.map((h) => '[[' + _agentNoteById(h.from).title + ']]').concat(
+                hops.length ? ['[[' + _agentNoteById(hops[hops.length - 1].to).title + ']]'] : []
+            );
+            const uniqVia = [];
+            via.forEach((w) => { if (uniqVia[uniqVia.length - 1] !== w) uniqVia.push(w); });
+            const path = hops.map((h, i) => {
+                const fromOn = hopI === i && chainId === c.id ? ' is-on' : '';
+                const toOn = hopI === i && chainId === c.id ? ' is-on' : '';
+                return `${i === 0 ? `<button type="button" class="ah-path-node${fromOn}" onclick="selectAgentNote('${h.from}')">${_ahEsc(_agentNoteById(h.from).title)}</button>` : ''}
+                    <span class="ah-path-edge">→ ${_ahEsc(h.pass)} →</span>
+                    <button type="button" class="ah-path-node${toOn}" onclick="event.stopPropagation(); selectAgentHop(${i})">${_ahEsc(_agentNoteById(h.to).title)}</button>`;
+            }).join('');
+            const hopCards = chainId === c.id
+                ? `<div class="ah-hops">${hops.map((h, i) => `<div class="ah-hop${hopI === i ? ' is-on' : ''}">
+                        <button type="button" class="ah-hop-top" onclick="selectAgentHop(${i})">
+                            <span class="ah-hop-n">${i + 1}</span>
+                            <div class="ah-hop-flow">${_ahEsc(_agentNoteById(h.from).title)} → ${_ahEsc(_agentNoteById(h.to).title)}</div>
+                        </button>
+                        <div class="ah-hop-pass">передача: ${_ahEsc(h.pass)}</div>
+                        <div class="ah-hop-does">${_ahWiki(h.does)}</div>
+                    </div>`).join('')}</div>`
                 : '';
             return `<div class="ah-chain${on}">
                 <button type="button" class="ah-chain-title" onclick="selectAgentChain('${c.id}')">${_ahEsc(c.title)}</button>
-                <div class="ah-chain-via">${_ahWiki(via)}</div>
-                ${body}
+                <div class="ah-chain-via">${_ahWiki(uniqVia.join(' → '))}</div>
+                ${chainId === c.id ? `<div class="ah-path">${path}</div>${hopCards}` : ''}
             </div>`;
         }).join('');
         return `
             <div class="widget-card p-4">
                 <div class="ah-main-title">Связки агентов</div>
-                <p class="ah-main-lead">Как в Obsidian: заметка агента, входящие/исходящие [[ссылки]] и цепочка передачи ответа по шагам.</p>
+                <p class="ah-main-lead">Как в Obsidian: заметка с [[ссылками]], граф передач и каждая цепочка по шагам — кто кому что отдаёт.</p>
                 <div class="ah-notes">${notes}</div>
                 <div class="mt-3">
                     <div class="ah-note-title">${_ahWiki('[[' + note.title + ']]')}</div>
                     <div class="ah-note-role">${_ahEsc(note.role)}</div>
-                    <div class="ah-links"><div class="ah-sub">Исходящие</div>${outHtml}</div>
-                    <div class="ah-links"><div class="ah-sub">Входящие</div>${inHtml}</div>
+                    <div class="ah-md">${body}</div>
+                    <div class="ah-backlinks">
+                        <div class="ah-links"><div class="ah-sub">Исходящие</div>${outHtml}</div>
+                        <div class="ah-links"><div class="ah-sub">Входящие · backlinks</div>${inHtml}</div>
+                    </div>
                 </div>
                 <div class="ah-chain-list">${list}</div>
             </div>`;
@@ -13896,6 +14002,7 @@
     window.saveAgentBrain = saveAgentBrain;
     window.selectAgentNote = selectAgentNote;
     window.selectAgentChain = selectAgentChain;
+    window.selectAgentHop = selectAgentHop;
     window.deleteTelegramBot = deleteTelegramBot;
     window.toggleTelegramBot = toggleTelegramBot;
     window.restoreTelegramBot = restoreTelegramBot;
