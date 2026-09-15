@@ -18,6 +18,7 @@ import {
     type FinanceAgg,
 } from '../_shared/wb-finance-report.ts';
 import { answerWbQuestion } from '../_shared/wb-restock-reply.ts';
+import { WB_MAIN_PHOTO_SLOT } from '../_shared/ab-test-report-card.ts';
 import {
     collectNmIds,
     extractBidsFromAdvert,
@@ -981,7 +982,7 @@ serve(async (req) => {
                     headers: {
                         Authorization: WB_CONTENT_TOKEN,
                         'X-Nm-Id': String(nmId),
-                        'X-Photo-Number': '1',
+                        'X-Photo-Number': String(WB_MAIN_PHOTO_SLOT),
                     },
                     body: form,
                 });
@@ -991,7 +992,7 @@ serve(async (req) => {
                     const msg = errText || `WB API ${fileRes.status}`;
                     return json({ error: true, errorText: msg, details: fileJson }, fileRes.ok ? 200 : (fileRes.status >= 400 ? fileRes.status : 502));
                 }
-                result = { ok: true, error: false, errorText: '', nmId, photoSlot: 1, ...fileJson };
+                result = { ok: true, error: false, errorText: '', nmId, photoSlot: WB_MAIN_PHOTO_SLOT, ...fileJson };
                 break;
             }
 

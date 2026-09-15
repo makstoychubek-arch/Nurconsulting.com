@@ -7,6 +7,22 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 import { pickCabinetToken } from '../_shared/wb-cabinet-tokens.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
+import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import {
+    buildAbReportCard,
+    demoAbReportCard,
+    formatAbReportCaption,
+    probabilityBestByCtr,
+    type AbReportVariantIn,
+} from '../_shared/ab-test-report-card.ts';
+import { renderAbReportPng } from '../_shared/ab-test-report-png.ts';
+import {
+    extractMainPhotoUrl,
+    hashWbPhotoSlot,
+    mainPhotoChanged,
+    probeWbBasketHost,
+    WB_MAIN_PHOTO_SLOT,
+} from '../_shared/wb-main-photo.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -20,15 +36,21 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
-    const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ') || authHeader.replace('Bearer ', '') !== serviceKey) {
+    if (!isServiceAuthorized(req, serviceKey)) {
         return json({ error: 'Unauthorized' }, 401);
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
-    const results: Array<Record<string, unknown>> = [];
+    const body = await req.json().catch(() => ({} as Record<string, unknown>));
+    const action = String(body.action || '');
 
     try {
+        if (action === 'demo_snapshot') return await handleDemoSnapshot();
+        if (action === 'preview_notify') return await handlePreviewNotify(admin, body);
+        if (action === 'verify_main_photo') return await handleVerifyMainPhoto(admin, body);
+        if (action === 'force_rotate') return await handleForceRotate(admin, body);
+
+        const results: Array<Record<string, unknown>> = [];
         const { data: tests, error: testsErr } = await admin
             .from('ab_tests')
             .select('*')
@@ -38,77 +60,7 @@ Deno.serve(async (req) => {
 
         for (const test of tests || []) {
             try {
-                const intervalMin = Number(test.rotation_interval_min) || 60;
-                const dueSince = test.last_rotated_at || test.started_at;
-                const elapsedMs = dueSince ? Date.now() - new Date(dueSince).getTime() : Infinity;
-                if (elapsedMs < intervalMin * 60 * 1000) {
-                    results.push({ test_id: test.id, skipped: 'not_due' });
-                    continue;
-                }
-
-                const { data: variants, error: vErr } = await admin
-                    .from('ab_test_variants')
-                    .select('*')
-                    .eq('test_id', test.id)
-                    .order('variant_label');
-                if (vErr) throw new Error(vErr.message);
-                if (!variants || variants.length < 2) {
-                    results.push({ test_id: test.id, skipped: 'not_enough_variants' });
-                    continue;
-                }
-
-                const { data: cab, error: cabErr } = await admin
-                    .from('cabinets')
-                    .select('wb_token')
-                    .eq('id', test.cabinet_id)
-                    .maybeSingle();
-                if (cabErr || !cab?.wb_token) {
-                    results.push({ test_id: test.id, error: 'cabinet_or_token_missing' });
-                    continue;
-                }
-                const WB_TOKEN = sanitizeWbToken(cab.wb_token);
-                if (!isValidWbToken(WB_TOKEN)) {
-                    results.push({ test_id: test.id, error: 'invalid_wb_token' });
-                    continue;
-                }
-
-                const curIdx = Number(test.current_variant_index) || 0;
-                const nextIdx = (curIdx + 1) % variants.length;
-                const currentVariant = variants[curIdx];
-                const nextVariant = variants[nextIdx];
-
-                const rotateOk = await saveMediaOnWb(admin, WB_TOKEN, Number(test.nm_id), nextVariant.photo_url);
-                if (!rotateOk.ok) {
-                    results.push({ test_id: test.id, error: rotateOk.errorText || 'wb_media_save_failed' });
-                    continue;
-                }
-
-                if (currentVariant) {
-                    await admin.from('ab_test_variants').update({
-                        minutes_active: (currentVariant.minutes_active || 0) + intervalMin,
-                        is_currently_on_wb: false,
-                    }).eq('id', currentVariant.id);
-                }
-                await admin.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', nextVariant.id);
-
-                const newRotCount = (Number(test.rotation_count) || 0) + 1;
-                const shouldFinish = Boolean(test.max_rotations) && newRotCount >= Number(test.max_rotations);
-                await admin.from('ab_tests').update({
-                    current_variant_index: nextIdx,
-                    rotation_count: newRotCount,
-                    last_rotated_at: new Date().toISOString(),
-                    status: shouldFinish ? 'finished' : 'active',
-                    finished_at: shouldFinish ? new Date().toISOString() : null,
-                }).eq('id', test.id);
-
-                await admin.from('ab_test_rotation_log').insert({
-                    test_id: test.id,
-                    variant_label: nextVariant.variant_label,
-                    action: 'rotate',
-                });
-                if (shouldFinish) await pauseAbCampaigns(admin, test);
-
-                results.push({ test_id: test.id, rotated_to: nextVariant.variant_label, finished: shouldFinish });
+                results.push(await rotateActiveTest(admin, test));
             } catch (e) {
                 console.error('[ab-test-rotate] test', test.id, e);
                 results.push({ test_id: test.id, error: String(e) });
@@ -533,55 +485,94 @@ function extractFunnelDays(data: Record<string, unknown>): Array<Record<string, 
     return [];
 }
 
-// Уведомление в Telegram-канал о завершении теста: альбом из фото всех
-// вариантов (sendMediaGroup) с подписью на первом фото — название товара,
-// артикул, РК, время завершения и по каждому варианту CTR/дельта/вероятность
-// победы (та же Beta-биномиальная модель, что и в вердикте на сайте, чтобы
-// цифры не расходились). Защита от повторной отправки — notification_log по
-// test_id (тест завершается один раз в жизни, поэтому проверяем факт, а не
-// временное окно).
+// Уведомление в Telegram-канал А/Б: PNG-снимок отчёта как на сайте
+// (фото вариантов, CTR, дельта, вердикт), плюс короткая подпись со ссылкой.
+// Если canvas не собрался — запасной альбом из фото вариантов.
+// Демо/проверка канала: skipDedupe, event_type ab_test_finished_preview.
 async function notifyTestFinished(
     admin: ReturnType<typeof createClient>,
     test: Record<string, unknown>,
-    variants: Array<{ id: string; variant_label: string; photo_url?: string; impressions?: number; clicks?: number; is_currently_on_wb?: boolean }>,
-): Promise<void> {
-    const { data: dupes } = await admin
-        .from('notification_log')
-        .select('id')
-        .eq('test_id', test.id as string)
-        .eq('event_type', 'ab_test_finished')
-        .limit(1);
-    if (dupes && dupes.length) return;
+    variants: AbReportVariantIn[],
+    opts: { preview?: boolean; skipDedupe?: boolean } = {},
+): Promise<{ sent: boolean; via: string; error?: string }> {
+    const eventType = opts.preview ? 'ab_test_finished_preview' : 'ab_test_finished';
+    if (!opts.skipDedupe && !opts.preview) {
+        const { data: dupes } = await admin
+            .from('notification_log')
+            .select('id')
+            .eq('test_id', test.id as string)
+            .eq('event_type', 'ab_test_finished')
+            .limit(1);
+        if (dupes && dupes.length) return { sent: false, via: 'deduped' };
+    }
 
-    const gate = await shouldSendTelegram(admin, {
-        channel: 'ab_tests',
-        cabinetId: test.cabinet_id as string,
-    });
-    if (!gate.ok) return;
+    if (!opts.preview) {
+        const gate = await shouldSendTelegram(admin, {
+            channel: 'ab_tests',
+            cabinetId: (test.cabinet_id as string) || null,
+        });
+        if (!gate.ok) return { sent: false, via: 'gated', error: gate.reason };
+    }
 
     const tgToken = getTelegramToken();
     const tgChannelId = getTelegramChatId('ab_tests');
+    if (!tgToken || !tgChannelId) {
+        return { sent: false, via: 'no_telegram', error: 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_AB_TESTS не заданы' };
+    }
+
+    const model = await buildNotifyModel(admin, test, variants, opts.preview === true);
+    const caption = formatAbReportCaption(model);
+
+    let via = 'text';
+    try {
+        const png = await renderAbReportPng(model);
+        const photoErr = await sendTelegramPhoto(tgToken, tgChannelId, png, caption);
+        if (!photoErr) via = 'snapshot';
+        else {
+            console.warn('[ab-test-rotate] sendPhoto failed:', photoErr);
+            const photoUrls = model.variants.map((v) => v.photoUrl).filter(Boolean);
+            if (photoUrls.length >= 2) {
+                const ok = await sendTelegramMediaGroup(tgToken, tgChannelId, photoUrls, caption);
+                via = ok ? 'album' : 'text';
+                if (!ok) await sendTelegramMessage(tgToken, tgChannelId, caption);
+            } else {
+                await sendTelegramMessage(tgToken, tgChannelId, caption);
+            }
+        }
+    } catch (e) {
+        console.warn('[ab-test-rotate] snapshot render failed:', String(e));
+        const photoUrls = model.variants.map((v) => v.photoUrl).filter(Boolean);
+        if (photoUrls.length >= 2) {
+            const ok = await sendTelegramMediaGroup(tgToken, tgChannelId, photoUrls, caption);
+            via = ok ? 'album' : 'text';
+            if (!ok) await sendTelegramMessage(tgToken, tgChannelId, caption);
+        } else {
+            await sendTelegramMessage(tgToken, tgChannelId, caption);
+        }
+    }
+
+    await admin.from('notification_log').insert({
+        cabinet_id: (test.cabinet_id as string) || null,
+        test_id: (test.id as string) || null,
+        event_type: eventType,
+        message_text: caption,
+    });
+    return { sent: true, via };
+}
+
+async function buildNotifyModel(
+    admin: ReturnType<typeof createClient>,
+    test: Record<string, unknown>,
+    variants: AbReportVariantIn[],
+    preview: boolean,
+) {
     const REPORT_BASE_URL = Deno.env.get('REPORT_BASE_URL') || 'https://nurcon.kg/ab-testing';
-
-    const sorted = variants.slice().sort((a, b) => String(a.variant_label).localeCompare(String(b.variant_label), 'ru', { numeric: true }));
-    const probs = probabilityBestByCtr(sorted);
-    const maxProb = Math.max(...Array.from(probs.values()), 0);
-    const leaderLabel = Array.from(probs.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
-
-    // "Текущее" фото на карточке сейчас — та же логика, что при автозавершении
-    // (is_currently_on_wb ещё не сброшен на момент вызова, либо смотрим по
-    // current_variant_index как запасной вариант).
-    const currentVariant = sorted.find((v) => v.is_currently_on_wb) || sorted[Number(test.current_variant_index) || 0] || sorted[0];
-    const baselineCtr = currentVariant
-        ? (Number(currentVariant.impressions) > 0 ? (Number(currentVariant.clicks) / Number(currentVariant.impressions) * 100) : 0)
-        : 0;
-
     const selectedCampaigns: number[] = Array.isArray((test.settings as Record<string, unknown> | null)?.campaigns)
         ? ((test.settings as Record<string, unknown>).campaigns as unknown[]).map(Number).filter((n) => !isNaN(n))
         : [];
     const savedNames = ((test.settings as Record<string, unknown> | null)?.campaignNames || {}) as Record<string, string>;
     let campLabel = '';
-    if (selectedCampaigns.length) {
+    if (selectedCampaigns.length && test.cabinet_id) {
         const { data: campRows } = await admin
             .from('advertising_campaigns')
             .select('campaign_id, campaign_name')
@@ -593,58 +584,23 @@ async function notifyTestFinished(
             return name ? `${name} (${id})` : `рк ${id}`;
         }).join(', ');
     }
-    const finishedAt = new Date();
-    const finishedAtStr = finishedAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
-    const reason = String((test as Record<string, unknown>).finish_reason || '');
-    const reasonText = reason === 'impressions_cap'
-        ? 'набраны показы поровну, РК на паузе'
-        : reason === 'campaign_stopped'
-        ? 'РК остановилась'
-        : 'тест завершён';
-
-    const lines: string[] = [];
-    lines.push(`${test.product_name || 'Товар ' + test.nm_id} · арт. ${test.nm_id}${campLabel ? ' · ' + campLabel : ''}`);
-    lines.push(`Тест завершён ${finishedAtStr} — ${reasonText}.`);
-
-    for (const v of sorted) {
-        const impressions = Number(v.impressions) || 0;
-        const clicks = Number(v.clicks) || 0;
-        const orders = Number((v as { orders?: number }).orders) || 0;
-        const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
-        const prob = probs.get(v.variant_label) || 0;
-        const isCurrent = currentVariant && v.id === currentVariant.id;
-        const isLeader = v.variant_label === leaderLabel && maxProb >= 0.5;
-        const isClearLoser = !isLeader && sorted.length > 2 && prob > 0 && prob <= 0.15;
-        const delta = isCurrent ? null : ctr - baselineCtr;
-
-        let line = `Вариант ${v.variant_label}${isCurrent ? ' (сейчас на ВБ)' : ''}: CTR ${ctr.toFixed(2)}% · ${impressions} показов · ${clicks} клик.`;
-        if (orders) line += ` · ${orders} зак.`;
-        if (delta != null) line += ` (${delta >= 0 ? '+' : ''}${delta.toFixed(2)})`;
-        if (isLeader) line += ` — победитель ${Math.round(prob * 100)}%`;
-        else if (isClearLoser) line += ` — явно проигрывает`;
-        lines.push(line);
-    }
-
-    lines.push(`Подробный отчёт: ${REPORT_BASE_URL}?test=${test.id}`);
-    const caption = lines.join('\n');
-
-    const photoUrls = sorted.map((v) => v.photo_url).filter((u): u is string => Boolean(u));
-
-    if (tgToken && tgChannelId && photoUrls.length >= 2) {
-        await sendTelegramMediaGroup(tgToken, tgChannelId, photoUrls, caption);
-    } else if (tgToken && tgChannelId) {
-        // Меньше 2 фото — sendMediaGroup у Telegram требует минимум 2,
-        // отправляем просто текстом, чтобы уведомление всё равно дошло.
-        await sendTelegramMessage(tgToken, tgChannelId, caption);
-    } else {
-        console.warn('[ab-test-rotate] TELEGRAM_BOT_TOKEN/TELEGRAM_CHANNEL_ID не заданы — уведомление о завершении теста не отправлено:', caption);
-    }
-
-    await admin.from('notification_log').insert({
-        cabinet_id: test.cabinet_id as string,
-        test_id: test.id as string,
-        event_type: 'ab_test_finished',
-        message_text: caption,
+    const finishedAtStr = new Date().toLocaleString('ru-RU', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow',
+    });
+    const live = variants.find((v) => v.is_currently_on_wb)
+        || variants[Number(test.current_variant_index) || 0]
+        || variants[0];
+    return buildAbReportCard({
+        title: String(test.product_name || `Товар ${test.nm_id}`),
+        nmId: test.nm_id as string | number,
+        campaignLabel: campLabel,
+        finishedAtStr,
+        reason: String(test.finish_reason || ''),
+        reportUrl: test.id ? `${REPORT_BASE_URL}?test=${test.id}` : REPORT_BASE_URL,
+        preview,
+        variants,
+        currentVariantId: live?.id,
+        probs: probabilityBestByCtr(variants),
     });
 }
 
@@ -655,7 +611,7 @@ async function sendTelegramMediaGroup(token: string, chatId: string, photoUrls: 
         const media = photoUrls.slice(0, 10).map((url, i) => ({
             type: 'photo',
             media: url,
-            ...(i === 0 ? { caption } : {}),
+            ...(i === 0 ? { caption: caption.slice(0, 1024), parse_mode: 'HTML' } : {}),
         }));
         const res = await fetch(`https://api.telegram.org/bot${token}/sendMediaGroup`, {
             method: 'POST',
@@ -678,7 +634,7 @@ async function sendTelegramMessage(token: string, chatId: string, text: string):
         const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text }),
+            body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' }),
         });
         if (!res.ok) {
             console.warn('[ab-test-rotate] telegram sendMessage failed:', res.status, await res.text());
@@ -691,63 +647,26 @@ async function sendTelegramMessage(token: string, chatId: string, text: string):
     }
 }
 
-// Оценка вероятности "победы" каждого варианта по CTR методом Монте-Карло
-// на Beta-биномиальной модели (Beta(clicks+1, views-clicks+1)) — тот же
-// подход используется на фронте для итогового отчёта, чтобы цифры совпадали.
-function probabilityBestByCtr(
-    variants: Array<{ variant_label: string; impressions?: number; clicks?: number }>,
-    samples = 5000,
-): Map<string, number> {
-    const wins = new Map<string, number>();
-    for (const v of variants) wins.set(v.variant_label, 0);
-    for (let i = 0; i < samples; i++) {
-        let bestLabel: string | null = null;
-        let bestVal = -1;
-        for (const v of variants) {
-            const clicks = Math.max(0, Number(v.clicks) || 0);
-            const views = Math.max(clicks, Number(v.impressions) || 0);
-            const val = sampleBeta(clicks + 1, views - clicks + 1);
-            if (val > bestVal) { bestVal = val; bestLabel = v.variant_label; }
+async function sendTelegramPhoto(token: string, chatId: string, png: Uint8Array, caption: string): Promise<string | null> {
+    try {
+        const form = new FormData();
+        form.append('chat_id', chatId);
+        form.append('caption', caption);
+        form.append('parse_mode', 'HTML');
+        form.append('photo', new Blob([png], { type: 'image/png' }), 'ab-report.png');
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST',
+            body: form,
+        });
+        if (!res.ok) {
+            const errText = await res.text();
+            console.warn('[ab-test-rotate] telegram sendPhoto failed:', res.status, errText);
+            return `HTTP ${res.status}: ${errText.slice(0, 200)}`;
         }
-        if (bestLabel) wins.set(bestLabel, (wins.get(bestLabel) || 0) + 1);
+        return null;
+    } catch (e) {
+        return String(e);
     }
-    const probs = new Map<string, number>();
-    for (const [label, count] of wins) probs.set(label, count / samples);
-    return probs;
-}
-
-function sampleGamma(shape: number): number {
-    // Marsaglia & Tsang method, достаточно для shape >= 1; для shape < 1
-    // используем boost trick через Gamma(shape+1) * U^(1/shape).
-    if (shape < 1) {
-        const u = Math.random();
-        return sampleGamma(shape + 1) * Math.pow(u, 1 / shape);
-    }
-    const d = shape - 1 / 3;
-    const c = 1 / Math.sqrt(9 * d);
-    for (;;) {
-        let x: number, v: number;
-        do {
-            x = gaussian();
-            v = 1 + c * x;
-        } while (v <= 0);
-        v = v * v * v;
-        const u = Math.random();
-        if (Math.log(u) < 0.5 * x * x + d - d * v + d * Math.log(v)) return d * v;
-    }
-}
-
-function gaussian(): number {
-    let u = 0, v = 0;
-    while (u === 0) u = Math.random();
-    while (v === 0) v = Math.random();
-    return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
-}
-
-function sampleBeta(alpha: number, beta: number): number {
-    const x = sampleGamma(Math.max(alpha, 0.01));
-    const y = sampleGamma(Math.max(beta, 0.01));
-    return x / (x + y);
 }
 
 // Строит непрерывные временные окна показа каждого варианта фото на основе
@@ -809,7 +728,7 @@ async function saveMediaOnWb(
         headers: {
             Authorization: wbToken,
             'X-Nm-Id': String(nmId),
-            'X-Photo-Number': '1',
+            'X-Photo-Number': String(WB_MAIN_PHOTO_SLOT),
         },
         body: form,
     });
@@ -873,4 +792,243 @@ async function pauseAbCampaigns(
             console.warn('[ab-test-rotate] pause RK', id, e);
         }
     }
+}
+
+type Admin = ReturnType<typeof createClient>;
+
+async function rotateActiveTest(
+    admin: Admin,
+    test: Record<string, unknown>,
+    opts: { ignoreDue?: boolean } = {},
+): Promise<Record<string, unknown>> {
+    const intervalMin = Number(test.rotation_interval_min) || 60;
+    const dueSince = test.last_rotated_at || test.started_at;
+    const elapsedMs = dueSince ? Date.now() - new Date(String(dueSince)).getTime() : Infinity;
+    if (!opts.ignoreDue && elapsedMs < intervalMin * 60 * 1000) {
+        return { test_id: test.id, skipped: 'not_due' };
+    }
+
+    const { data: variants, error: vErr } = await admin
+        .from('ab_test_variants')
+        .select('*')
+        .eq('test_id', test.id)
+        .order('variant_label');
+    if (vErr) throw new Error(vErr.message);
+    if (!variants || variants.length < 2) {
+        return { test_id: test.id, skipped: 'not_enough_variants' };
+    }
+
+    const { data: cab, error: cabErr } = await admin
+        .from('cabinets')
+        .select('wb_token')
+        .eq('id', test.cabinet_id)
+        .maybeSingle();
+    if (cabErr || !cab?.wb_token) {
+        return { test_id: test.id, error: 'cabinet_or_token_missing' };
+    }
+    const WB_TOKEN = sanitizeWbToken(cab.wb_token);
+    if (!isValidWbToken(WB_TOKEN)) {
+        return { test_id: test.id, error: 'invalid_wb_token' };
+    }
+
+    const curIdx = Number(test.current_variant_index) || 0;
+    const nextIdx = (curIdx + 1) % variants.length;
+    const currentVariant = variants[curIdx];
+    const nextVariant = variants[nextIdx];
+
+    const rotateOk = await saveMediaOnWb(admin, WB_TOKEN, Number(test.nm_id), nextVariant.photo_url);
+    if (!rotateOk.ok) {
+        return { test_id: test.id, error: rotateOk.errorText || 'wb_media_save_failed' };
+    }
+
+    if (currentVariant) {
+        await admin.from('ab_test_variants').update({
+            minutes_active: (currentVariant.minutes_active || 0) + intervalMin,
+            is_currently_on_wb: false,
+        }).eq('id', currentVariant.id);
+    }
+    await admin.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', nextVariant.id);
+
+    const newRotCount = (Number(test.rotation_count) || 0) + 1;
+    const shouldFinish = Boolean(test.max_rotations) && newRotCount >= Number(test.max_rotations);
+    await admin.from('ab_tests').update({
+        current_variant_index: nextIdx,
+        rotation_count: newRotCount,
+        last_rotated_at: new Date().toISOString(),
+        status: shouldFinish ? 'finished' : 'active',
+        finished_at: shouldFinish ? new Date().toISOString() : null,
+    }).eq('id', test.id);
+
+    await admin.from('ab_test_rotation_log').insert({
+        test_id: test.id,
+        variant_label: nextVariant.variant_label,
+        action: 'rotate',
+    });
+    if (shouldFinish) await pauseAbCampaigns(admin, test);
+
+    return {
+        ok: true,
+        test_id: test.id,
+        rotated_to: nextVariant.variant_label,
+        finished: shouldFinish,
+        photo_slot: WB_MAIN_PHOTO_SLOT,
+        nm_id: test.nm_id,
+    };
+}
+
+async function handleDemoSnapshot(): Promise<Response> {
+    const tgToken = getTelegramToken();
+    const tgChannelId = getTelegramChatId('ab_tests');
+    if (!tgToken || !tgChannelId) {
+        return json({ error: 'TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_AB_TESTS не заданы' }, 400);
+    }
+    const model = demoAbReportCard();
+    const png = await renderAbReportPng(model);
+    const caption = formatAbReportCaption(model);
+    const err = await sendTelegramPhoto(tgToken, tgChannelId, png, caption);
+    if (err) return json({ ok: false, error: err }, 502);
+    return json({ ok: true, via: 'snapshot', preview: true, variants: model.variants.length });
+}
+
+async function handlePreviewNotify(admin: Admin, body: Record<string, unknown>): Promise<Response> {
+    let test: Record<string, unknown> | null = null;
+    if (body.test_id) {
+        const { data } = await admin.from('ab_tests').select('*').eq('id', body.test_id).maybeSingle();
+        test = data;
+    } else {
+        const { data } = await admin
+            .from('ab_tests')
+            .select('*')
+            .eq('status', 'finished')
+            .order('finished_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        test = data;
+    }
+    if (!test) {
+        return handleDemoSnapshot();
+    }
+    const { data: variants } = await admin.from('ab_test_variants').select('*').eq('test_id', test.id);
+    const result = await notifyTestFinished(admin, { ...test, finish_reason: test.finish_reason || 'impressions_cap' }, variants || [], {
+        preview: true,
+        skipDedupe: true,
+    });
+    return json({ ok: result.sent, ...result, test_id: test.id, nm_id: test.nm_id, product: test.product_name });
+}
+
+async function handleForceRotate(admin: Admin, body: Record<string, unknown>): Promise<Response> {
+    const testId = String(body.test_id || '');
+    if (!testId) return json({ error: 'test_id required' }, 400);
+    const { data: test } = await admin.from('ab_tests').select('*').eq('id', testId).maybeSingle();
+    if (!test || test.status !== 'active') return json({ error: 'not_active' }, 400);
+    const result = await rotateActiveTest(admin, test, { ignoreDue: true });
+    if (result.error) return json({ ok: false, ...result }, 200);
+    return json({ ok: true, ...result });
+}
+
+async function fetchWbCard(token: string, nmId: number): Promise<Record<string, unknown> | null> {
+    try {
+        const res = await fetch('https://content-api.wildberries.ru/content/v2/get/cards/list', {
+            method: 'POST',
+            headers: { Authorization: token, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                settings: {
+                    filter: { textSearch: String(nmId), withPhoto: -1 },
+                    cursor: { limit: 10 },
+                },
+            }),
+        });
+        if (!res.ok) return null;
+        const data = await res.json() as { cards?: Record<string, unknown>[] };
+        const cards = data?.cards || [];
+        return cards.find((c) => Number(c.nmID ?? c.nmId ?? 0) === nmId) || cards[0] || null;
+    } catch {
+        return null;
+    }
+}
+
+async function sleep(ms: number): Promise<void> {
+    await new Promise((r) => setTimeout(r, ms));
+}
+
+async function handleVerifyMainPhoto(admin: Admin, body: Record<string, unknown>): Promise<Response> {
+    const mutate = body.mutate !== false;
+    let test: Record<string, unknown> | null = null;
+    if (body.test_id) {
+        const { data } = await admin.from('ab_tests').select('*').eq('id', body.test_id).maybeSingle();
+        test = data;
+    } else {
+        const { data } = await admin
+            .from('ab_tests')
+            .select('*')
+            .eq('status', 'active')
+            .order('started_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        test = data;
+    }
+    if (!test) {
+        return json({ ok: false, error: 'no_active_test', photo_slot: WB_MAIN_PHOTO_SLOT });
+    }
+    const nmId = Number(test.nm_id);
+    const { data: cab } = await admin.from('cabinets').select('wb_token').eq('id', test.cabinet_id).maybeSingle();
+    const token = sanitizeWbToken(cab?.wb_token);
+    const basket = await probeWbBasketHost(nmId);
+    const before1 = basket ? await hashWbPhotoSlot(basket, nmId, WB_MAIN_PHOTO_SLOT) : null;
+    const before2 = basket ? await hashWbPhotoSlot(basket, nmId, 2) : null;
+    const cardBefore = isValidWbToken(token) ? await fetchWbCard(token, nmId) : null;
+    const apiPhotoBefore = extractMainPhotoUrl(cardBefore);
+
+    if (!mutate || test.status !== 'active') {
+        return json({
+            ok: Boolean(before1),
+            mutated: false,
+            photo_slot: WB_MAIN_PHOTO_SLOT,
+            nm_id: nmId,
+            product: test.product_name,
+            basket,
+            slot1: before1,
+            slot2: before2,
+            content_api_main: apiPhotoBefore,
+            note: test.status !== 'active'
+                ? 'тест не активен — фото на WB не трогали'
+                : 'mutate=false, только чтение',
+        });
+    }
+
+    const rotated = await rotateActiveTest(admin, test, { ignoreDue: true });
+    if (rotated.error || rotated.skipped) {
+        return json({ ok: false, rotate: rotated, slot1_before: before1, slot2_before: before2, basket });
+    }
+
+    let after1 = before1;
+    let after2 = before2;
+    for (let i = 0; i < 4; i++) {
+        await sleep(2500);
+        after1 = basket ? await hashWbPhotoSlot(basket, nmId, WB_MAIN_PHOTO_SLOT) : null;
+        after2 = basket ? await hashWbPhotoSlot(basket, nmId, 2) : null;
+        const cmpTry = mainPhotoChanged(before1, after1, before2, after2);
+        if (cmpTry.slot1Changed) break;
+    }
+    const cmp = mainPhotoChanged(before1, after1, before2, after2);
+    const cardAfter = isValidWbToken(token) ? await fetchWbCard(token, nmId) : null;
+
+    return json({
+        ok: cmp.ok,
+        mutated: true,
+        photo_slot: WB_MAIN_PHOTO_SLOT,
+        nm_id: nmId,
+        product: test.product_name,
+        rotated_to: rotated.rotated_to,
+        basket,
+        slot1_changed: cmp.slot1Changed,
+        slot2_stable: cmp.slot2Stable,
+        slot1_before: before1,
+        slot1_after: after1,
+        slot2_before: before2,
+        slot2_after: after2,
+        content_api_main_before: apiPhotoBefore,
+        content_api_main_after: extractMainPhotoUrl(cardAfter),
+        wb_api: 'content/v3/media/file X-Photo-Number=1',
+    });
 }

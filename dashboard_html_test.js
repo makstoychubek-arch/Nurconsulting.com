@@ -232,6 +232,12 @@ assert.ok(html.includes('function pauseABTestCampaigns') && html.includes("callW
         'cron stops the test when every variant hits min impressions and pauses RK');
     assert.ok(abRot.includes('getTelegramChatId(\'ab_tests\')') || abRot.includes('getTelegramChatId("ab_tests")'),
         'A/B result is sent to the A/B Telegram channel');
+    assert.ok(abRot.includes('renderAbReportPng') && abRot.includes('sendTelegramPhoto'),
+        'A/B finish sends a PNG snapshot card, not only a text album');
+    assert.ok(abRot.includes("action === 'demo_snapshot'") && abRot.includes("action === 'verify_main_photo'"),
+        'cron can send a test snapshot and verify WB main photo slot 1');
+    assert.ok(abRot.includes('WB_MAIN_PHOTO_SLOT') && abRot.includes('X-Photo-Number'),
+        'rotation writes WB photo number 1 (main/cover)');
 }
 assert.ok(html.includes('rail-user-name'), 'sidebar shows user name like WBRadar');
 assert.ok(/<span class="rail-btn-lbl">Товары<\/span>/.test(html), 'Товары sits on the main rail below РК');
