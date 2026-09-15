@@ -644,7 +644,14 @@ serve(async (req) => {
                             // а не на верхнем уровне (в отличие от документации/SDK) —
                             // проверяем оба варианта на случай, если WB поменяет форму.
                             const settings = (a.settings as Record<string, unknown>) || {};
-                            const rawName = String(a.name ?? a.campaignName ?? settings.name ?? '').trim();
+                            const rawName = String(
+                                a.name
+                                ?? a.campaignName
+                                ?? settings.name
+                                ?? settings.campaignName
+                                ?? settings.campaign_name
+                                ?? '',
+                            ).trim();
                             const paymentType = (a.payment_type ?? settings.payment_type ?? null) as string | null;
                             campaigns.push({
                                 id,

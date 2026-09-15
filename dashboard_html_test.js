@@ -218,6 +218,21 @@ assert.ok(
     'cabinet header is a floating Apple-rounded bar'
 );
 assert.ok(html.includes('ab-create-btn'), 'A/B create button uses WBRadar-style control');
+assert.ok(html.includes('id="new-test-form"') && html.includes('ab-new-dialog') && html.includes('nr-modal-overlay'),
+    'A/B create form is a compact modal, not a full-page card');
+assert.ok(html.includes('id="ab-campaign-search"') && html.includes('ab-campaign-name') && html.includes('ab-campaign-id'),
+    'A/B campaign picker shows name + id and can search «тест стр»');
+assert.ok(html.includes('id="ab-min-impressions"') && html.includes('value="2000"'),
+    'A/B auto-stop defaults to 2000 impressions per photo');
+assert.ok(html.includes('function pauseABTestCampaigns') && html.includes("callWbProxy('advert_pause'"),
+    'finishing an A/B test pauses the linked ad campaigns');
+{
+    const abRot = fs.readFileSync(path.join(__dirname, 'supabase/functions/ab-test-rotate/index.ts'), 'utf8');
+    assert.ok(abRot.includes("finishReason = 'impressions_cap'") && abRot.includes('function pauseAbCampaigns'),
+        'cron stops the test when every variant hits min impressions and pauses RK');
+    assert.ok(abRot.includes('getTelegramChatId(\'ab_tests\')') || abRot.includes('getTelegramChatId("ab_tests")'),
+        'A/B result is sent to the A/B Telegram channel');
+}
 assert.ok(html.includes('rail-user-name'), 'sidebar shows user name like WBRadar');
 assert.ok(/<span class="rail-btn-lbl">Товары<\/span>/.test(html), 'Товары sits on the main rail below РК');
 assert.ok(!/<span class="rail-btn-lbl">Финансы<\/span>/.test(html), 'Финансы must not stay on the main rail');

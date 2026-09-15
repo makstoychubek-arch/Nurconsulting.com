@@ -763,7 +763,8 @@
             flex-direction: column;
         }
         #ab-edit-modal.nr-modal-overlay, #ab-report-modal.nr-modal-overlay,
-        #ab-edit-modal, #ab-report-modal { position: fixed !important; z-index: 99998; }
+        #new-test-form.nr-modal-overlay,
+        #ab-edit-modal, #ab-report-modal, #new-test-form { position: fixed !important; z-index: 99998; }
         .beta-module-hero { position: relative; overflow: hidden; }
         .beta-module-hero .beta-orb {
             position: absolute; border-radius: 50%; pointer-events: none;
@@ -2875,19 +2876,39 @@
         }
         .ab-create-btn {
             display: inline-flex; align-items: center; gap: 8px;
-            background: transparent; color: var(--accent); border: none;
-            border-radius: 12px; padding: 8px 4px; font-size: 14px; font-weight: 700;
+            background: transparent; color: var(--accent); border: 1px solid var(--accent-border);
+            border-radius: 12px; padding: 8px 14px; font-size: 13px; font-weight: 700;
             cursor: pointer; letter-spacing: -0.02em;
         }
-        .ab-create-btn:hover { background: var(--sel); }
+        .ab-create-btn:hover { background: var(--accent-soft); }
         .ab-pill.active { background: var(--sel); color: var(--text-primary); border-color: transparent; }
         .ab-pill:not(.active):hover { border-color: transparent; color: var(--text-primary); background: var(--sel); }
-        .ab-campaign-list { max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; }
+        .ab-campaign-list { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; }
         .ab-campaign-row {
-            display: grid; grid-template-columns: 28px 1fr auto auto; gap: 10px; align-items: center;
+            display: grid; grid-template-columns: 28px minmax(0, 1.6fr) minmax(88px, 0.7fr) auto; gap: 10px; align-items: center;
             padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 12px;
         }
         .ab-campaign-row:last-child { border-bottom: none; }
+        .ab-campaign-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ab-campaign-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--text-muted); }
+        .ab-new-dialog {
+            background: var(--surface-solid); border: 1px solid var(--border-strong); border-radius: 20px;
+            padding: 0; max-width: 720px; width: 94%; max-height: min(88vh, 860px);
+            display: flex; flex-direction: column; overflow: hidden;
+            box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+        }
+        .ab-new-head {
+            display: flex; align-items: center; justify-content: space-between; gap: 12px;
+            padding: 18px 22px 14px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+        }
+        .ab-new-head h3 { font-size: 17px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.03em; }
+        .ab-new-body { padding: 16px 22px 8px; overflow-y: auto; flex: 1; min-height: 0; }
+        .ab-new-foot {
+            display: flex; justify-content: flex-end; gap: 8px;
+            padding: 14px 22px 18px; border-top: 1px solid var(--border); flex-shrink: 0;
+        }
+        .ab-new-dialog .ab-wizard-card { margin-bottom: 10px; padding: 16px 16px 14px; }
+        .ab-combo-list { max-height: 220px; overflow-y: auto; margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; }
         .ab-campaign-status {
             font-size: 10px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap;
         }
@@ -5460,44 +5481,32 @@
                 </div>
             </div>
 
-            <!-- МАСТЕР СОЗДАНИЯ А/Б ТЕСТА -->
-            <div id="new-test-form" class="glass rounded-2xl p-6 hidden">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="font-semibold" style="color:var(--text-primary)" id="ab-wizard-title">Новый А/Б тест</h3>
-                    <button class="ui-btn ui-btn-secondary text-xs" onclick="hideNewTestForm()">✕ Закрыть</button>
-                </div>
-                <div class="ab-wizard-steps">
-                    <div class="ab-wizard-step-dot active" id="ab-step-dot-1">1</div>
-                    <div style="flex:1;height:2px;background:var(--border);align-self:center;border-radius:1px"></div>
-                    <div class="ab-wizard-step-dot" id="ab-step-dot-2">2</div>
-                </div>
-
-                <!-- Шаг 1: выбор артикула -->
-                <div id="ab-wizard-step-1">
-                    <div class="ab-wizard-card">
-                        <h4>Карточка товара</h4>
-                        <input type="text" id="ab-product-search" class="ab-product-search" placeholder="Поиск по названию или артикулу..." oninput="debounceABProductSearch()">
-                        <div id="ab-product-list" class="ab-product-list">
-                            <div class="text-center py-8 text-sm" style="color:var(--text-muted)">Загрузка карточек из WB...</div>
+            <!-- МАСТЕР СОЗДАНИЯ А/Б ТЕСТА — компактная модалка, не на всю страницу -->
+            <div id="new-test-form" class="hidden nr-modal-overlay" onclick="if(event.target===this) hideNewTestForm()" style="position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(8px)">
+                <div class="nr-modal-box ab-new-dialog" role="dialog" aria-modal="true" aria-labelledby="ab-wizard-title">
+                    <div class="ab-new-head">
+                        <h3 id="ab-wizard-title">Новый А/Б тест</h3>
+                        <button type="button" onclick="hideNewTestForm()" style="background:none;border:1px solid var(--border);color:var(--text-muted);width:32px;height:32px;border-radius:10px;font-size:18px;cursor:pointer;line-height:1">×</button>
+                    </div>
+                    <div class="ab-new-body">
+                        <div class="ab-wizard-card">
+                            <h4>Карточка товара</h4>
+                            <input type="text" id="ab-product-search" class="ab-product-search" placeholder="Выберите карточку — название или артикул" oninput="debounceABProductSearch()" autocomplete="off">
+                            <div id="ab-product-list" class="ab-combo-list">
+                                <div class="text-center py-8 text-sm" style="color:var(--text-muted)">Загрузка карточек из WB...</div>
+                            </div>
+                            <div id="ab-selected-card" class="ab-selected-card hidden" style="margin-top:10px"></div>
+                            <div id="ab-wb-photo-gallery" class="ab-photo-gallery"></div>
                         </div>
-                    </div>
-                </div>
 
-                <!-- Шаг 2: настройки -->
-                <div id="ab-wizard-step-2" class="hidden">
-                    <div class="ab-wizard-card">
-                        <h4>Карточка товара</h4>
-                        <div id="ab-selected-card" class="ab-selected-card"></div>
-                        <div id="ab-wb-photo-gallery" class="ab-photo-gallery"></div>
-                    </div>
-
+                        <div id="ab-wizard-rest" class="hidden">
                     <div class="ab-wizard-card">
                         <h4>Источники статистики</h4>
                         <div class="ab-pill-toggle">
                             <div class="ab-pill active" id="ab-src-ads" onclick="toggleABSource('ads', this)">Реклама</div>
                             <div class="ab-pill active" id="ab-src-funnel" onclick="toggleABSource('funnel', this)">Воронка продаж</div>
                         </div>
-                        <div class="ab-wizard-hint">Реклама — нужна РК. Воронка — органика + реклама, обновляется раз в час.</div>
+                        <div class="ab-wizard-hint">Реклама: нужна рекламная кампания. Воронка: органика + реклама.</div>
                     </div>
 
                     <div class="ab-wizard-card">
@@ -5519,6 +5528,7 @@
 
                     <div class="ab-wizard-card">
                         <h4>Выберите РК, в которой идут показы</h4>
+                        <input type="text" id="ab-campaign-search" class="ab-product-search" placeholder="Поиск по названию или id — например «тест стр»" oninput="filterABCampaigns()" autocomplete="off" style="margin-bottom:8px">
                         <div id="ab-campaign-list" class="ab-campaign-list">
                             <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка кампаний...</div>
                         </div>
@@ -5528,7 +5538,7 @@
                         <h4>Варианты фото</h4>
                         <div id="variant-inputs"></div>
                         <button class="ui-btn ui-btn-secondary mb-2 text-sm" onclick="addVariantSlot()" id="add-variant-btn">+ Добавить вариант</button>
-                        <div class="ab-wizard-hint">Минимум 2 варианта. Можно загрузить новые фото или выбрать из галереи WB выше.</div>
+                        <div class="ab-wizard-hint">Минимум 2 варианта. Клик по фото галереи WB выше — или загрузите файл 700×900.</div>
                     </div>
 
                     <div class="ab-wizard-card">
@@ -5536,28 +5546,30 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div>
                                 <div class="text-xs mb-1" style="color:var(--text-secondary)">Менять главное фото каждые (мин)</div>
-                                <input type="number" id="abt-interval" value="60" min="60" max="1440" step="60" class="ab-product-search">
+                                <input type="number" id="abt-interval" value="30" min="15" max="1440" step="5" class="ab-product-search">
                             </div>
                             <div>
                                 <div class="text-xs mb-1" style="color:var(--text-secondary)">Отключать после ротаций (0 = без лимита)</div>
                                 <input type="number" id="abt-maxrot" value="0" min="0" class="ab-product-search">
                             </div>
                         </div>
-                        <div class="ab-wizard-hint">Минимум 60 мин — воронка WB обновляется раз в час.</div>
+                        <div class="ab-wizard-hint">От 15 мин. Чем больше интервал — тем точнее данные по каждому фото.</div>
                     </div>
 
                     <div class="ab-wizard-card">
                         <h4>Автоматическая остановка</h4>
                         <label class="flex items-center gap-2 cursor-pointer mb-3">
                             <input type="checkbox" id="ab-auto-stop" checked style="accent-color:var(--accent)">
-                            <span class="text-sm" style="color:var(--text-primary)">Остановить тест, когда определится победитель</span>
+                            <span class="text-sm" style="color:var(--text-primary)">Остановить тест и поставить РК на паузу, когда у каждого фото наберётся минимум показов</span>
                         </label>
-                        <div class="text-xs mb-2" style="color:var(--text-muted)">Минимум показов на каждое фото:</div>
-                        <input type="number" id="ab-min-impressions" value="100" min="50" class="ab-product-search" style="max-width:140px">
+                        <div class="text-xs mb-2" style="color:var(--text-muted)">Минимум показов на каждое фото (поровну):</div>
+                        <input type="number" id="ab-min-impressions" value="2000" min="100" step="100" class="ab-product-search" style="max-width:140px">
+                        <div class="ab-wizard-hint">По умолчанию 2000 на вариант. Лучшее фото останется на WB, выбранные РК встанут на стоп — без лишнего расхода.</div>
                     </div>
-
-                    <div class="flex gap-2 flex-wrap">
-                        <button class="ui-btn ui-btn-secondary text-sm" onclick="abWizardGoStep(1)">← Назад</button>
+                        </div>
+                    </div>
+                    <div class="ab-new-foot">
+                        <button class="ui-btn ui-btn-secondary text-sm" onclick="hideNewTestForm()">Отмена</button>
                         <button class="px-5 py-2.5 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()" id="ab-create-test-btn">Создать тест</button>
                     </div>
                 </div>
@@ -11079,27 +11091,48 @@
         try { return JSON.parse(localStorage.getItem(abSettingsKey(testId)) || '{}'); } catch (e) { return {}; }
     }
 
+    let abCampaignCatalog = [];
+    let abCampaignQuery = '';
+    let abArticleCampaignIds = new Set();
+
     function showNewTestForm() {
         abWizardStep = 1;
         abSelectedCard = null;
         abVariantFiles = {};
         abCreatingTest = false;
         abSelectedCampaigns = new Set();
+        abCampaignCatalog = [];
+        abCampaignQuery = '';
         abWizardSources = { ads: true, funnel: true };
         abWizardPlatforms = new Set(['all']);
-        document.getElementById('new-test-form').classList.remove('hidden');
-        document.getElementById('ab-wizard-step-1').classList.remove('hidden');
-        document.getElementById('ab-wizard-step-2').classList.add('hidden');
-        document.getElementById('ab-step-dot-1').className = 'ab-wizard-step-dot active';
-        document.getElementById('ab-step-dot-2').className = 'ab-wizard-step-dot';
-        document.getElementById('ab-product-search').value = '';
+        const form = document.getElementById('new-test-form');
+        const rest = document.getElementById('ab-wizard-rest');
+        const sel = document.getElementById('ab-selected-card');
+        if (rest) rest.classList.add('hidden');
+        if (sel) { sel.classList.add('hidden'); sel.innerHTML = ''; }
+        document.getElementById('ab-wb-photo-gallery').innerHTML = '';
         document.getElementById('variant-inputs').innerHTML = '';
+        const search = document.getElementById('ab-product-search');
+        if (search) search.value = '';
+        const campSearch = document.getElementById('ab-campaign-search');
+        if (campSearch) campSearch.value = '';
+        if (form) {
+            form.classList.remove('hidden');
+            form.style.display = 'flex';
+            requestAnimationFrame(() => requestAnimationFrame(() => form.classList.add('nr-modal-open')));
+        }
         loadABProductCards('');
-        document.getElementById('new-test-form').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function hideNewTestForm() {
-        document.getElementById('new-test-form').classList.add('hidden');
+        const form = document.getElementById('new-test-form');
+        if (form) {
+            form.classList.remove('nr-modal-open');
+            setTimeout(() => {
+                form.classList.add('hidden');
+                form.style.display = 'none';
+            }, 200);
+        }
         abSelectedCard = null;
         abVariantFiles = {};
         document.getElementById('variant-inputs').innerHTML = '';
@@ -11107,10 +11140,8 @@
 
     function abWizardGoStep(step) {
         abWizardStep = step;
-        document.getElementById('ab-wizard-step-1').classList.toggle('hidden', step !== 1);
-        document.getElementById('ab-wizard-step-2').classList.toggle('hidden', step !== 2);
-        document.getElementById('ab-step-dot-1').className = 'ab-wizard-step-dot' + (step === 1 ? ' active' : ' done');
-        document.getElementById('ab-step-dot-2').className = 'ab-wizard-step-dot' + (step === 2 ? ' active' : '');
+        const rest = document.getElementById('ab-wizard-rest');
+        if (rest) rest.classList.toggle('hidden', step !== 2);
         if (step === 2) {
             renderABSelectedCard();
             loadABCampaigns();
@@ -11169,6 +11200,7 @@
         const el = document.getElementById('ab-selected-card');
         const gal = document.getElementById('ab-wb-photo-gallery');
         if (!el || !abSelectedCard) return;
+        el.classList.remove('hidden');
         el.innerHTML = `
             <img src="${escapeHtml(abSelectedCard.thumb)}" onerror="this.style.opacity=0.3" alt="">
             <div>
@@ -11226,17 +11258,39 @@
         el.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div>';
         const data = await callWbProxy('advert_campaigns', {});
         const campaigns = data?.campaigns || [];
-        if (!campaigns.length) {
-            el.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Кампании не найдены. Тест можно создать без привязки к РК.</div>';
-            return;
+        const nameById = new Map();
+        if (currentCabinetId) {
+            try {
+                const { data: rows } = await supabase
+                    .from('advertising_campaigns')
+                    .select('campaign_id, campaign_name, status')
+                    .eq('cabinet_id', currentCabinetId);
+                (rows || []).forEach(r => {
+                    const id = Number(r.campaign_id);
+                    const name = String(r.campaign_name || '').trim();
+                    if (id && name) nameById.set(id, name);
+                });
+            } catch (e) { console.warn('[AB] campaign names:', e); }
         }
-
-        // Определяем, в каких РК этот артикул сейчас реально крутится (по
-        // свежим данным advertising_daily_stats за последние 7 дней) — чтобы
-        // не заставлять искать нужную кампанию среди всех вручную, а сразу
-        // показать/выделить и предвыбрать именно её.
+        const merged = campaigns.map(c => {
+            const id = Number(c.id);
+            const fromApi = String(c.name || '').trim();
+            const fromDb = nameById.get(id) || '';
+            const generic = !fromApi || /^кампания\s+\d+$/i.test(fromApi);
+            return {
+                ...c,
+                id,
+                name: (!generic && fromApi) ? fromApi : (fromDb || fromApi || `Кампания ${id}`),
+            };
+        });
+        nameById.forEach((name, id) => {
+            if (!merged.some(c => Number(c.id) === id)) {
+                merged.push({ id, name, status: 11, statusLabel: 'Остановлен' });
+            }
+        });
+        abCampaignCatalog = merged;
+        abArticleCampaignIds = new Set();
         const nmId = abSelectedCard?.nmID ? Number(abSelectedCard.nmID) : null;
-        const activeCampaignIds = new Set();
         if (nmId && currentCabinetId) {
             try {
                 const since = new Date(); since.setDate(since.getDate() - 7);
@@ -11250,37 +11304,62 @@
                     for (const app of apps) {
                         const nms = Array.isArray(app?.nms) ? app.nms : [];
                         if (nms.some(nm => Number(nm.nmId ?? nm.nm_id) === nmId)) {
-                            activeCampaignIds.add(Number(r.campaign_id));
+                            abArticleCampaignIds.add(Number(r.campaign_id));
                             break;
                         }
                     }
                 });
-                // Предвыбираем найденные РК автоматически, если пользователь
-                // ещё ничего не отмечал вручную.
-                if (activeCampaignIds.size && abSelectedCampaigns.size === 0) {
-                    activeCampaignIds.forEach(id => abSelectedCampaigns.add(id));
+                if (abArticleCampaignIds.size && abSelectedCampaigns.size === 0) {
+                    abArticleCampaignIds.forEach(id => abSelectedCampaigns.add(id));
                 }
             } catch (e) { console.warn('[AB] active campaign detect failed:', e); }
         }
+        renderABCampaignList();
+    }
 
+    function filterABCampaigns() {
+        abCampaignQuery = (document.getElementById('ab-campaign-search')?.value || '').trim().toLowerCase();
+        renderABCampaignList();
+    }
+    window.filterABCampaigns = filterABCampaigns;
+
+    function abCampaignMatches(c, q) {
+        if (!q) return true;
+        return String(c.name || '').toLowerCase().includes(q) || String(c.id).includes(q);
+    }
+
+    function renderABCampaignList() {
+        const el = document.getElementById('ab-campaign-list');
+        if (!el) return;
+        const q = abCampaignQuery;
+        const campaigns = (abCampaignCatalog || []).filter(c => abCampaignMatches(c, q));
+        paintABCampaignRows(el, campaigns, abArticleCampaignIds, q);
+    }
+
+    function paintABCampaignRows(el, campaigns, activeCampaignIds, q) {
+        if (!campaigns.length) {
+            el.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--text-muted)">${
+                q ? 'Нет РК по этому названию или id.' : 'Кампании не найдены. Тест можно создать без привязки к РК, но тогда автостоп рекламы не сработает.'
+            }</div>`;
+            return;
+        }
         const sorted = campaigns.slice().sort((a, b) => {
             const aActive = activeCampaignIds.has(a.id) ? 1 : 0;
             const bActive = activeCampaignIds.has(b.id) ? 1 : 0;
-            return bActive - aActive;
+            if (bActive !== aActive) return bActive - aActive;
+            return String(a.name || '').localeCompare(String(b.name || ''), 'ru');
         });
-
         el.innerHTML = (activeCampaignIds.size
-            ? `<div class="text-xs mb-2" style="color:var(--accent)">▶ Этот артикул уже крутится в ${activeCampaignIds.size} кампании(ях) — они выделены и отмечены выше остальных.</div>`
-            : nmId ? `<div class="text-xs mb-2" style="color:var(--text-muted)">Этот артикул сейчас не найден в активных РК за последние 7 дней — выберите кампанию вручную.</div>` : '')
+            ? `<div class="text-xs mb-2" style="padding:8px 12px;color:var(--accent)">Этот артикул уже крутится в ${activeCampaignIds.size} кампании(ях) — они сверху и отмечены.</div>`
+            : '')
             + sorted.map(c => {
             const run = c.status === 9;
             const isActiveForArticle = activeCampaignIds.has(c.id);
-            return `<label class="ab-campaign-row" style="cursor:pointer${isActiveForArticle ? ';background:var(--accent-soft);border-radius:8px' : ''}">
+            return `<label class="ab-campaign-row" style="cursor:pointer${isActiveForArticle ? ';background:var(--accent-soft)' : ''}">
                 <input type="checkbox" ${abSelectedCampaigns.has(c.id) ? 'checked' : ''} onchange="toggleABCampaign(${c.id}, this.checked)" style="accent-color:var(--accent)">
-                <span style="color:var(--text-primary);font-weight:500">${escapeHtml(c.name)}</span>
-                <span style="color:var(--text-muted);font-family:monospace;font-size:11px">${c.id}</span>
-                ${isActiveForArticle ? '<span class="ab-campaign-status run" style="background:rgba(168,85,247,0.15);color:var(--accent)">▶ этот артикул</span>' : ''}
-                <span class="ab-campaign-status ${run ? 'run' : 'stop'}">${escapeHtml(c.statusLabel)}</span>
+                <span class="ab-campaign-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+                <span class="ab-campaign-id">${c.id}</span>
+                <span class="ab-campaign-status ${run ? 'run' : 'stop'}">${escapeHtml(c.statusLabel || (run ? 'Работает' : 'Остановлен'))}</span>
             </label>`;
         }).join('');
     }
@@ -11423,7 +11502,11 @@
         if (!abSelectedCard) { showPremiumModal('warning', 'Выберите товар', 'Сначала выберите карточку на шаге 1.'); abWizardGoStep(1); return; }
         const nmId = String(abSelectedCard.nmID);
         const name = abSelectedCard.title;
-        const interval = Math.max(60, parseInt(document.getElementById('abt-interval').value, 10) || 60);
+        if (abWizardSources.ads && abSelectedCampaigns.size === 0) {
+            showPremiumModal('warning', 'Выберите РК', 'Чтобы тест крутился на рекламе и РК остановилась на 2000 показов — отметьте кампанию. Ищите по названию, например «тест стр».');
+            return;
+        }
+        const interval = Math.max(15, parseInt(document.getElementById('abt-interval').value, 10) || 30);
         const maxRot = parseInt(document.getElementById('abt-maxrot').value, 10) || 0;
         const fileIndices = Object.keys(abVariantFiles).map(Number).sort((a, b) => a - b).filter(i => abVariantFiles[i]);
         if (fileIndices.length < 2) { showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите или выберите из галереи WB минимум 2 варианта.'); return; }
@@ -11454,8 +11537,15 @@
             sources: abWizardSources,
             platforms: [...abWizardPlatforms],
             campaigns: [...abSelectedCampaigns],
-            autoStop: document.getElementById('ab-auto-stop')?.checked,
-            minImpressions: parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 100,
+            campaignNames: Object.fromEntries(
+                [...abSelectedCampaigns].map(id => {
+                    const c = (abCampaignCatalog || []).find(x => Number(x.id) === Number(id));
+                    return [String(id), c?.name || `РК ${id}`];
+                })
+            ),
+            autoStop: document.getElementById('ab-auto-stop')?.checked !== false,
+            stopCampaigns: true,
+            minImpressions: parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 2000,
         });
 
         try {
@@ -11610,7 +11700,19 @@
         const probsForCard = hasAdsData ? computeProbabilityBestByCtr(withRate) : new Map();
         const maxProbForCard = Math.max(...Array.from(probsForCard.values()), 0);
         const leaderLabelForCard = Array.from(probsForCard.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
-        const intervalMin = test.rotation_interval_min || 60;
+        const intervalMin = test.rotation_interval_min || 30;
+        const campaignBits = [];
+        const campIds = test.settings?.campaigns || [];
+        const campNames = test.settings?.campaignNames || {};
+        campIds.slice(0, 2).forEach(id => {
+            const name = campNames[String(id)] || campNames[id];
+            campaignBits.push(name ? `${name} · ${id}` : `рк ${id}`);
+        });
+        if (campIds.length > 2) campaignBits.push(`+${campIds.length - 2}`);
+        const ran = test.started_at
+            ? `Работал: ${new Date(test.started_at).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`
+            + (test.finished_at ? ` — ${new Date(test.finished_at).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit' })}` : '')
+            : '';
         const nextRotateMs = test.last_rotated_at
             ? Math.max(0, intervalMin * 60 * 1000 - (Date.now() - new Date(test.last_rotated_at).getTime()))
             : 0;
@@ -11628,10 +11730,12 @@
             const prob = probsForCard.get(v.variant_label) || 0;
             const clearWin = withRate.length > 1 && v.variant_label === leaderLabelForCard && maxProbForCard >= 0.85;
             const clearLose = withRate.length > 2 && prob > 0 && prob <= 0.15;
-            const delta = maxScore > 0 && !isWinner ? (v.score - maxScore) : 0;
-            const deltaHtml = isWinner && maxScore > 0
-                ? '<div class="abtest-delta-pos">лидер</div>'
-                : (delta < 0 ? `<div class="abtest-delta-neg">${delta.toFixed(2)}</div>` : '');
+            const baselineScore = withRate[0]?.score || 0;
+            const isBaseline = withRate[0] && v.id === withRate[0].id;
+            const delta = !isBaseline ? (v.score - baselineScore) : 0;
+            const deltaHtml = !isBaseline && hasAdsData
+                ? `<div class="${delta >= 0 ? 'abtest-delta-pos' : 'abtest-delta-neg'}">${delta >= 0 ? '+' : ''}${delta.toFixed(2)}</div>`
+                : '';
             return `
             <div class="abtest-variant ${isWinner ? 'winner' : ''} ${isActive ? 'current-active' : ''}">
                 ${isActive ? '<div class="abtest-active-badge">сейчас</div>' : ''}
@@ -11645,9 +11749,13 @@
         }).join('');
 
         const finishReasonLabel = test.finish_reason === 'campaign_stopped'
-            ? ' · РК остановлена/бюджет закончился'
+            ? ' · РК остановлена'
             : test.finish_reason === 'winner_determined'
             ? ' · определён победитель'
+            : test.finish_reason === 'impressions_cap'
+            ? ' · по 2000 показов, РК на паузе'
+            : test.finish_reason === 'manual'
+            ? ''
             : '';
         const statusBadge = test.status === 'active'
             ? '<span class="badge-green">● Активен</span>'
@@ -11676,7 +11784,8 @@
                 <div class="abtest-variants">${variantsHtml}</div>
                 <div class="abtest-card-info">
                     <div class="abtest-card-title">${escapeHtml(test.product_name)}</div>
-                    <div class="abtest-card-meta">Арт. ${escapeHtml(String(test.nm_id))} · ${intervalMin} мин · ${variants.length} вар.</div>
+                    <div class="abtest-card-meta">Арт. ${escapeHtml(String(test.nm_id))}${campaignBits.length ? ' · ' + escapeHtml(campaignBits.join(' · ')) : ''} · ${intervalMin} мин · ${variants.length} вар.</div>
+                    ${ran ? `<div class="abtest-card-meta">${escapeHtml(ran)}</div>` : ''}
                     ${confHtml}
                     ${progressHtml}
                     <div class="abtest-card-actions" onclick="event.stopPropagation()">
@@ -11775,13 +11884,34 @@
         if (shouldFinish) {
             clearInterval(abRotationTimers[String(testId)]);
             delete abRotationTimers[String(testId)];
+            await pauseABTestCampaigns({ ...test, settings: cached?.settings || test.settings });
         }
         await loadABTests();
     }
 
+    async function pauseABTestCampaigns(test) {
+        const ids = (test?.settings?.campaigns || []).map(Number).filter(Boolean);
+        if (!ids.length || !currentCabinetId) return [];
+        const paused = [];
+        for (const advertId of ids) {
+            try {
+                const result = await callWbProxy('advert_pause', { advertId }, currentCabinetId);
+                if (result) {
+                    paused.push(advertId);
+                    await supabase.from('advertising_campaigns')
+                        .update({ status: 11, updated_at: new Date().toISOString() })
+                        .eq('cabinet_id', currentCabinetId).eq('campaign_id', advertId);
+                }
+            } catch (e) {
+                console.warn('[AB] pause RK', advertId, e);
+            }
+        }
+        return paused;
+    }
+
     async function finishABTest(testId) {        const test = allABTests.find(t => String(t.id) === String(testId));
         if (!test) return;
-        const ok = await showConfirmModal('Завершить тест?', 'Ротация фото остановится. Текущее фото останется на WB.');
+        const ok = await showConfirmModal('Завершить тест?', 'Ротация фото остановится. Выбранные РК встанут на паузу, чтобы не жечь бюджет.');
         if (!ok) return;
 
         const current = (test.variants || [])[test.current_variant_index || 0];
@@ -11797,13 +11927,16 @@
 
         const { error } = await supabase.from('ab_tests').update({
             status: 'finished',
-            finished_at: new Date().toISOString()
+            finished_at: new Date().toISOString(),
+            finish_reason: 'manual',
         }).eq('id', testId);
 
         if (error) {
             showPremiumModal('error', 'Не удалось завершить', error.message);
             return;
         }
+
+        const paused = await pauseABTestCampaigns(test);
 
         await supabase.from('ab_test_rotation_log').insert({
             test_id: testId,
@@ -11813,7 +11946,9 @@
 
         clearInterval(abRotationTimers[String(testId)]);
         delete abRotationTimers[String(testId)];
-        showPremiumModal('success', 'Тест завершён', 'А/Б тест остановлен.');
+        showPremiumModal('success', 'Тест завершён', paused.length
+            ? `Ротация остановлена, на паузе ${paused.length} РК.`
+            : 'А/Б тест остановлен.');
         await loadABTests();
     }
 

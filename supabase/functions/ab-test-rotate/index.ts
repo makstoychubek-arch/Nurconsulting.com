@@ -5,6 +5,8 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
+import { pickCabinetToken } from '../_shared/wb-cabinet-tokens.ts';
+import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -104,6 +106,7 @@ Deno.serve(async (req) => {
                     variant_label: nextVariant.variant_label,
                     action: 'rotate',
                 });
+                if (shouldFinish) await pauseAbCampaigns(admin, test);
 
                 results.push({ test_id: test.id, rotated_to: nextVariant.variant_label, finished: shouldFinish });
             } catch (e) {
@@ -345,17 +348,14 @@ Deno.serve(async (req) => {
                         }
                     }
 
-                    const autoStop = Boolean((test.settings as Record<string, unknown> | null)?.autoStop);
-                    const minImpressions = Number((test.settings as Record<string, unknown> | null)?.minImpressions) || 100;
+                    const autoStop = (test.settings as Record<string, unknown> | null)?.autoStop !== false;
+                    const minImpressions = Number((test.settings as Record<string, unknown> | null)?.minImpressions) || 2000;
                     if (!finishReason && autoStop) {
                         const fresh = await admin.from('ab_test_variants').select('*').eq('test_id', test.id);
                         const freshVariants = fresh.data || [];
-                        const totalImpr = freshVariants.reduce((s, v) => s + (Number(v.impressions) || 0), 0);
-                        if (totalImpr >= minImpressions && freshVariants.length >= 2) {
-                            const probs = probabilityBestByCtr(freshVariants);
-                            const maxProb = Math.max(...probs.values());
-                            if (maxProb >= 0.9) finishReason = 'winner_determined';
-                        }
+                        const eachReady = freshVariants.length >= 2
+                            && freshVariants.every((v) => (Number(v.impressions) || 0) >= minImpressions);
+                        if (eachReady) finishReason = 'impressions_cap';
                     }
 
                     if (finishReason) {
@@ -366,6 +366,26 @@ Deno.serve(async (req) => {
                                 is_currently_on_wb: false,
                             }).eq('id', current.id);
                         }
+                        const { data: latestVars } = await admin.from('ab_test_variants').select('*').eq('test_id', test.id);
+                        const ranked = [...(latestVars || variants)].sort((a, b) => {
+                            const ctrA = (Number(a.impressions) || 0) > 0 ? (Number(a.clicks) || 0) / Number(a.impressions) : 0;
+                            const ctrB = (Number(b.impressions) || 0) > 0 ? (Number(b.clicks) || 0) / Number(b.impressions) : 0;
+                            return ctrB - ctrA;
+                        });
+                        const winner = ranked[0];
+                        if (winner?.photo_url) {
+                            const { data: cabRow } = await admin.from('cabinets')
+                                .select('wb_token, wb_token_promotion, wb_token_analytics')
+                                .eq('id', test.cabinet_id)
+                                .maybeSingle();
+                            const contentToken = sanitizeWbToken(cabRow?.wb_token);
+                            if (isValidWbToken(contentToken)) {
+                                await saveMediaOnWb(admin, contentToken, Number(test.nm_id), winner.photo_url);
+                            }
+                            await admin.from('ab_test_variants').update({ is_currently_on_wb: false }).eq('test_id', test.id);
+                            await admin.from('ab_test_variants').update({ is_currently_on_wb: true }).eq('id', winner.id);
+                        }
+                        await pauseAbCampaigns(admin, test);
                         await admin.from('ab_tests').update({
                             status: 'finished',
                             finished_at: new Date().toISOString(),
@@ -373,10 +393,10 @@ Deno.serve(async (req) => {
                         }).eq('id', test.id);
                         await admin.from('ab_test_rotation_log').insert({
                             test_id: test.id,
-                            variant_label: current?.variant_label || 'stop',
+                            variant_label: winner?.variant_label || current?.variant_label || 'stop',
                             action: 'stop',
                         });
-                        statsResults.push({ test_id: test.id, autoFinished: finishReason });
+                        statsResults.push({ test_id: test.id, autoFinished: finishReason, pausedCampaigns: true });
                     }
                 }
 
@@ -386,9 +406,10 @@ Deno.serve(async (req) => {
                 // дашборда (status='finished' уже стоит) — notifyTestFinished
                 // сам проверяет notification_log и шлёт сообщение только один
                 // раз за всю жизнь теста (не по временному окну, а навсегда).
-                const freshStatus = (await admin.from('ab_tests').select('status').eq('id', test.id).maybeSingle()).data?.status;
-                if (freshStatus === 'finished') {
-                    await notifyTestFinished(admin, test, variants);
+                const { data: freshTest } = await admin.from('ab_tests').select('*').eq('id', test.id).maybeSingle();
+                if (freshTest?.status === 'finished') {
+                    const { data: notifyVars } = await admin.from('ab_test_variants').select('*').eq('test_id', test.id);
+                    await notifyTestFinished(admin, freshTest, notifyVars || variants);
                 }
             } catch (e) {
                 console.error('[ab-test-rotate] stats', test.id, e);
@@ -538,8 +559,8 @@ async function notifyTestFinished(
     });
     if (!gate.ok) return;
 
-    const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
-    const tgChannelId = Deno.env.get('TELEGRAM_CHANNEL_ID') ?? '';
+    const tgToken = getTelegramToken();
+    const tgChannelId = getTelegramChatId('ab_tests');
     const REPORT_BASE_URL = Deno.env.get('REPORT_BASE_URL') || 'https://nurcon.kg/ab-testing';
 
     const sorted = variants.slice().sort((a, b) => String(a.variant_label).localeCompare(String(b.variant_label), 'ru', { numeric: true }));
@@ -558,16 +579,37 @@ async function notifyTestFinished(
     const selectedCampaigns: number[] = Array.isArray((test.settings as Record<string, unknown> | null)?.campaigns)
         ? ((test.settings as Record<string, unknown>).campaigns as unknown[]).map(Number).filter((n) => !isNaN(n))
         : [];
+    const savedNames = ((test.settings as Record<string, unknown> | null)?.campaignNames || {}) as Record<string, string>;
+    let campLabel = '';
+    if (selectedCampaigns.length) {
+        const { data: campRows } = await admin
+            .from('advertising_campaigns')
+            .select('campaign_id, campaign_name')
+            .eq('cabinet_id', test.cabinet_id as string)
+            .in('campaign_id', selectedCampaigns);
+        const nameById = new Map((campRows || []).map((r) => [Number(r.campaign_id), String(r.campaign_name || '').trim()]));
+        campLabel = selectedCampaigns.map((id) => {
+            const name = savedNames[String(id)] || nameById.get(id) || '';
+            return name ? `${name} (${id})` : `рк ${id}`;
+        }).join(', ');
+    }
     const finishedAt = new Date();
     const finishedAtStr = finishedAt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow' });
+    const reason = String((test as Record<string, unknown>).finish_reason || '');
+    const reasonText = reason === 'impressions_cap'
+        ? 'набраны показы поровну, РК на паузе'
+        : reason === 'campaign_stopped'
+        ? 'РК остановилась'
+        : 'тест завершён';
 
     const lines: string[] = [];
-    lines.push(`${test.product_name || 'Товар ' + test.nm_id} · арт. ${test.nm_id}${selectedCampaigns.length ? ' · рк ' + selectedCampaigns[0] : ''}`);
-    lines.push(`Тест завершён ${finishedAtStr}.`);
+    lines.push(`${test.product_name || 'Товар ' + test.nm_id} · арт. ${test.nm_id}${campLabel ? ' · ' + campLabel : ''}`);
+    lines.push(`Тест завершён ${finishedAtStr} — ${reasonText}.`);
 
     for (const v of sorted) {
         const impressions = Number(v.impressions) || 0;
         const clicks = Number(v.clicks) || 0;
+        const orders = Number((v as { orders?: number }).orders) || 0;
         const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
         const prob = probs.get(v.variant_label) || 0;
         const isCurrent = currentVariant && v.id === currentVariant.id;
@@ -575,11 +617,11 @@ async function notifyTestFinished(
         const isClearLoser = !isLeader && sorted.length > 2 && prob > 0 && prob <= 0.15;
         const delta = isCurrent ? null : ctr - baselineCtr;
 
-        let line = `Вариант ${v.variant_label}${isCurrent ? ' (текущий на ВБ)' : ''}: CTR ${ctr.toFixed(2)}%`;
+        let line = `Вариант ${v.variant_label}${isCurrent ? ' (сейчас на ВБ)' : ''}: CTR ${ctr.toFixed(2)}% · ${impressions} показов · ${clicks} клик.`;
+        if (orders) line += ` · ${orders} зак.`;
         if (delta != null) line += ` (${delta >= 0 ? '+' : ''}${delta.toFixed(2)})`;
-        if (isLeader) line += `, вероятность лучшего — ${Math.round(prob * 100)}% — победитель`;
-        else if (isClearLoser) line += `, явно проигрывает`;
-        else line += `, ${Math.round(prob * 100)}%`;
+        if (isLeader) line += ` — победитель ${Math.round(prob * 100)}%`;
+        else if (isClearLoser) line += ` — явно проигрывает`;
         lines.push(line);
     }
 
@@ -793,4 +835,42 @@ function json(data: unknown, status = 200) {
         status,
         headers: { ...CORS, 'Content-Type': 'application/json' },
     });
+}
+
+async function pauseAbCampaigns(
+    admin: ReturnType<typeof createClient>,
+    test: Record<string, unknown>,
+): Promise<void> {
+    const ids = Array.isArray((test.settings as Record<string, unknown> | null)?.campaigns)
+        ? ((test.settings as Record<string, unknown>).campaigns as unknown[]).map(Number).filter((n) => n > 0)
+        : [];
+    if (!ids.length) return;
+    const { data: cab } = await admin
+        .from('cabinets')
+        .select('wb_token, wb_token_promotion')
+        .eq('id', test.cabinet_id as string)
+        .maybeSingle();
+    const token = pickCabinetToken(cab || {}, 'promotion');
+    if (!isValidWbToken(token)) {
+        console.warn('[ab-test-rotate] pause: no promotion token');
+        return;
+    }
+    for (const id of ids) {
+        try {
+            const res = await fetch(`https://advert-api.wildberries.ru/adv/v0/pause?id=${id}`, {
+                method: 'GET',
+                headers: { Authorization: token },
+            });
+            if (!res.ok) {
+                console.warn('[ab-test-rotate] pause RK', id, res.status, (await res.text()).slice(0, 180));
+                continue;
+            }
+            await admin.from('advertising_campaigns').update({
+                status: 11,
+                updated_at: new Date().toISOString(),
+            }).eq('cabinet_id', test.cabinet_id as string).eq('campaign_id', id);
+        } catch (e) {
+            console.warn('[ab-test-rotate] pause RK', id, e);
+        }
+    }
 }
