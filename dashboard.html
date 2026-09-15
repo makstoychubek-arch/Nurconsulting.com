@@ -3956,7 +3956,7 @@
             }
             .bottom-nav-btn .bn-ico svg { width: 16px; height: 16px; }
             .bottom-nav-btn .bn-lbl {
-                font-size: 9px; font-weight: 600; letter-spacing: -0.02em;
+                font-size: 10px; font-weight: 600; letter-spacing: -0.02em;
                 line-height: 1.1; max-width: 100%; overflow: hidden; text-overflow: ellipsis;
             }
             .bottom-nav-btn.active { color: var(--text-primary); }
@@ -6054,9 +6054,9 @@
         </header>
 
     <nav class="bottom-nav" id="nr-bottom-nav" aria-label="Нижняя навигация">
-        <button type="button" class="bottom-nav-btn" id="bn-settings" data-tab="settings" onclick="showTab('settings')" title="Настройки" aria-label="Настройки сайта">
-            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
-            <span class="bn-lbl">Настр.</span>
+        <button type="button" class="bottom-nav-btn" id="bn-agents" data-tab="agents" onclick="showTab('agents')" title="Агенты">
+            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+            <span class="bn-lbl">Агенты</span>
         </button>
         <button type="button" class="bottom-nav-btn" id="bn-rnp" data-tab="rnp" onclick="showTab('rnp')" title="РНП">
             <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
@@ -6066,27 +6066,19 @@
             <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
             <span class="bn-lbl">Дашборд</span>
         </button>
-        <button type="button" class="bottom-nav-btn" id="bn-rk" data-tab="advertising" onclick="showTab('advertising')" title="РК">
-            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
-            <span class="bn-lbl">РК</span>
-        </button>
-        <button type="button" class="bottom-nav-btn" id="bn-ab" data-tab="ab-testing" onclick="showTab('ab-testing')" title="А/Б Тесты">
-            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4"/></svg></span>
-            <span class="bn-lbl">А/Б</span>
-        </button>
-        <button type="button" class="bottom-nav-btn" id="bn-goods" data-tab="goods-groups" onclick="showTab('goods-groups')" title="Товары">
+        <button type="button" class="bottom-nav-btn" id="bn-goods" data-tab="goods-groups" onclick="showTab('goods-groups')" title="Остатки">
             <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
-            <span class="bn-lbl">Товары</span>
+            <span class="bn-lbl">Остатки</span>
         </button>
-        <button type="button" class="bottom-nav-btn" id="bn-beta" onclick="toggleBetaSheet()" title="BETA" aria-label="Модули BETA">
-            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
-            <span class="bn-lbl">BETA</span>
+        <button type="button" class="bottom-nav-btn" id="bn-beta" onclick="toggleBetaSheet()" title="Меню" aria-label="Меню">
+            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg></span>
+            <span class="bn-lbl">Меню</span>
         </button>
     </nav>
     <div class="bottom-beta-overlay" id="nr-beta-overlay" onclick="closeBetaSheet()"></div>
-    <div class="bottom-beta-sheet" id="nr-beta-sheet" role="dialog" aria-label="Модули BETA" aria-hidden="true">
+    <div class="bottom-beta-sheet" id="nr-beta-sheet" role="dialog" aria-label="Меню" aria-hidden="true">
         <div class="bottom-beta-handle" aria-hidden="true"></div>
-        <div class="bottom-beta-head">Модули BETA</div>
+        <div class="bottom-beta-head">Меню</div>
         <div class="bottom-beta-body" id="nr-beta-sheet-body"></div>
         <div class="bottom-beta-foot">
             <button type="button" onclick="closeBetaSheet(); showTab('settings')">Настройки</button>
@@ -7303,11 +7295,11 @@
     }
 
     function syncBottomNav(tabName) {
-        const map = { rnp: 'bn-rnp', 'rnp-settings': 'bn-rnp', dashboard: 'bn-dash', advertising: 'bn-rk', 'ab-testing': 'bn-ab', 'goods-groups': 'bn-goods', settings: 'bn-settings' };
+        const map = { rnp: 'bn-rnp', 'rnp-settings': 'bn-rnp', dashboard: 'bn-dash', 'goods-groups': 'bn-goods', agents: 'bn-agents' };
         document.querySelectorAll('#nr-bottom-nav .bottom-nav-btn[data-tab], #bn-beta').forEach(b => b.classList.remove('active'));
-        if (LIVE_TABS.has(tabName) && map[tabName]) {
+        if (map[tabName]) {
             document.getElementById(map[tabName])?.classList.add('active');
-        } else if (tabName && tabName !== 'settings') {
+        } else if (tabName) {
             document.getElementById('bn-beta')?.classList.add('active');
         }
         const sheetOpen = document.getElementById('nr-beta-sheet')?.classList.contains('is-open');
@@ -9930,7 +9922,20 @@
         const body = document.getElementById('nr-beta-sheet-body');
         const src = document.querySelector('#fly-beta .flyout-body');
         if (!body || !src || body.dataset.ready === '1') return;
-        body.innerHTML = src.innerHTML;
+        const live = `<div class="flyout-sec">Кабинет</div>
+            <div class="nav-item" onclick="showTab('advertising', this)">
+                <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg>
+                <span class="nav-item-label">РК</span>
+            </div>
+            <div class="nav-item" onclick="showTab('ab-testing', this)">
+                <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4"/></svg>
+                <span class="nav-item-label">А/Б Тесты</span>
+            </div>
+            <div class="nav-item" onclick="showTab('settings', this)">
+                <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                <span class="nav-item-label">Настройки</span>
+            </div>`;
+        body.innerHTML = live + src.innerHTML;
         body.dataset.ready = '1';
     }
     function openBetaSheet() {
