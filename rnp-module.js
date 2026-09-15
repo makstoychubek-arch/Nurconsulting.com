@@ -1526,8 +1526,9 @@ const RNP = (() => {
 
         const currName = _capMonth(today.toLocaleString('ru', { month: 'long', year: 'numeric' }));
         const currDaysInMonth = new Date(Y, M + 1, 0).getDate();
-        const realMid = new Date(realNow.getFullYear(), realNow.getMonth(), realNow.getDate());
-        const realTodayStr = _dateStr(realNow.getFullYear(), realNow.getMonth() + 1, realNow.getDate());
+        const realTodayStr = _wbTodayStr(realNow);
+        const [ry, rm, rd] = realTodayStr.split('-').map(Number);
+        const realMid = new Date(ry, rm - 1, rd);
         const days = [];
         for (let d = 1; d <= currDaysInMonth; d++) {
             const date = _dateStr(Y, M + 1, d);
@@ -1619,12 +1620,49 @@ const RNP = (() => {
         return d.toISOString().split('T')[0];
     }
 
+    function _funnelPickNum(obj, keys) {
+        if (!obj || typeof obj !== 'object') return null;
+        for (const key of keys) {
+            const v = obj[key];
+            if (v == null || v === '') continue;
+            if (typeof v === 'object' && !Array.isArray(v)) {
+                const nested = _funnelPickNum(v, ['count', 'qty', 'quantity', 'value', 'orderCount', 'ordersCount']);
+                if (nested != null) return nested;
+                continue;
+            }
+            const n = Number(v);
+            if (Number.isFinite(n) && n >= 0) return n;
+        }
+        return null;
+    }
+
+    /** WB «Заказы» = Корзина × Заказы%. На куртке 157 × 18% = 28, не 17 из wb_orders. */
+    function _funnelImpliedOrders(row) {
+        if (!row || typeof row !== 'object') return null;
+        const cart = Number(row.basket_count ?? row.cartCount ?? row.addToCartCount ?? 0);
+        const conv = Number(row.funnel_order_conv ?? row.cartToOrderConversion ?? 0);
+        if (!(cart > 0 && conv > 0)) return null;
+        return Math.round(cart * conv / 100);
+    }
+
     function _funnelDayOrders(day) {
         if (!day || typeof day !== 'object') return null;
-        const raw = day.orderCount ?? day.ordersCount ?? day.orders ?? day.order_count;
-        if (raw == null || raw === '') return null;
-        const n = Number(raw);
-        return Number.isFinite(n) && n >= 0 ? n : null;
+        const fromField = _funnelPickNum(day, [
+            'orderCount', 'ordersCount', 'orders', 'order_count', 'ordered', 'orderCnt',
+        ]);
+        const implied = _funnelImpliedOrders(day);
+        if (fromField != null && implied != null) return Math.max(fromField, implied);
+        return fromField ?? implied;
+    }
+
+    function _withFunnelOrders(row) {
+        if (!row) return row;
+        // Только день: на сумме недели Корзина×средняя Заказы% завышает итог.
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(row.date || ''))) return row;
+        const implied = _funnelImpliedOrders(row);
+        const cur = Number(row.orders_count || 0);
+        if (implied != null && implied > cur) return { ...row, orders_count: implied };
+        return row;
     }
 
     function _sleep(ms) {
@@ -3889,7 +3927,7 @@ const RNP = (() => {
     }
 
     function _seedTodayLiveZeros(nmIds, cal) {
-        const today = new Date().toISOString().split('T')[0];
+        const today = cal?.todayStr || _wbTodayStr();
         if (!_calAllDates(cal).includes(today)) return;
         (nmIds || []).forEach(nm => _fillLiveZeros(_ensureCacheDay(nm, today)));
     }
@@ -3921,7 +3959,11 @@ const RNP = (() => {
                 const r = _dataCache[nmId]?.[d];
                 return olderHasOrders && (!r || Number(r.orders_count || 0) === 0);
             });
-            return !hasFunnel || recentHole;
+            const funnelLag = inWindow.some(r => {
+                const implied = _funnelImpliedOrders(r);
+                return implied != null && implied > Number(r.orders_count || 0);
+            });
+            return !hasFunnel || recentHole || funnelLag;
         });
         if (missing.length) {
             try {
@@ -4417,7 +4459,7 @@ const RNP = (() => {
 
     // ─── AGGREGATION ──────────────────────────────────────────────────────────
     function _aggWeek(map, dates) {
-        const rows = dates.map(d => map[d]).filter(Boolean);
+        const rows = dates.map(d => _withFunnelOrders(map[d])).filter(Boolean);
         if (!rows.length) {
             return {
                 orders_count: 0, orders_sum: 0, sales_count: 0, sales_sum: 0,
@@ -4623,7 +4665,7 @@ const RNP = (() => {
     // ─── DERIVED METRICS ──────────────────────────────────────────────────────
     function _derive(r, art) {
         if (!r) return null;
-        const d = { ...r };
+        const d = _withFunnelOrders({ ...r });
         const cost = (art?.cost_price || 0); // already in soms
         const logisticsUnitSom = (art?.logistics_unit || 0);   // сом, baseline from settings
         const otherCostsUnitSom = _otherCostsUnit(art); // сом, from settings

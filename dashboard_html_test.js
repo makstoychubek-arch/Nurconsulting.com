@@ -990,15 +990,26 @@ assert.ok(rnpSrc.includes('Number(ex.orders_count || 0) > 0'),
     'sync today must not skip a 0-order cell just because funnel touched updated_at');
 assert.ok(rnpSrc.includes('recentHole'),
     'funnel hydrate must refill yesterday/today when older days have orders but recent cells are 0');
+assert.ok(rnpSrc.includes('function _funnelImpliedOrders'),
+    'RNP must recover WB Заказы from Корзина × Заказы% when orderCount is missing');
+assert.ok(rnpSrc.includes('_withFunnelOrders'),
+    'week totals must sum funnel-corrected daily orders, not raw wb_orders');
+assert.ok(rnpSrc.includes('funnelLag'),
+    'funnel hydrate must rerun when Корзина × Заказы% is higher than ЗАКАЗЫ');
 {
-    const start = rnpSrc.indexOf('function _funnelDayOrders');
+    const start = rnpSrc.indexOf('function _funnelPickNum');
     const end = rnpSrc.indexOf('function _sleep');
-    assert.ok(start > 0 && end > start, '_funnelDayOrders sits next to date helpers');
-    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _funnelDayOrders };`)();
+    assert.ok(start > 0 && end > start, 'funnel order helpers sit next to date helpers');
+    const fns = new Function(`${rnpSrc.slice(start, end)}; return { _funnelDayOrders, _funnelImpliedOrders, _withFunnelOrders };`)();
     assert.strictEqual(fns._funnelDayOrders({ orderCount: 8 }), 8);
     assert.strictEqual(fns._funnelDayOrders({ ordersCount: 10 }), 10);
     assert.strictEqual(fns._funnelDayOrders({}), null);
     assert.strictEqual(fns._funnelDayOrders({ orderCount: 0 }), 0);
+    assert.strictEqual(fns._funnelImpliedOrders({ basket_count: 157, funnel_order_conv: 18 }), 28);
+    assert.strictEqual(fns._funnelImpliedOrders({ cartCount: 83, cartToOrderConversion: 12 }), 10);
+    assert.strictEqual(fns._funnelDayOrders({ cartCount: 157, cartToOrderConversion: 18 }), 28);
+    assert.strictEqual(fns._withFunnelOrders({ orders_count: 17, basket_count: 157, funnel_order_conv: 18 }).orders_count, 17);
+    assert.strictEqual(fns._withFunnelOrders({ date: '2026-09-13', orders_count: 17, basket_count: 157, funnel_order_conv: 18 }).orders_count, 28);
 }
 assert.ok(rnpSrc.includes('_seedTodayLiveZeros(nmIds, cal)'),
     'RNP must seed live zeros so today is not a blank sheet');
