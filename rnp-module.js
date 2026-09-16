@@ -1697,7 +1697,7 @@ const RNP = (() => {
         return null;
     }
 
-    /** WB «Заказы» = Корзина × Заказы%. На куртке 157 × 18% = 28, не 17 из wb_orders. */
+    /** WB «Заказы» на карточке = Корзина × Заказы%. Не max со statistics-api. */
     function _funnelImpliedOrders(row) {
         if (!row || typeof row !== 'object') return null;
         const cart = Number(row.basket_count ?? row.cartCount ?? row.addToCartCount ?? 0);
@@ -1720,9 +1720,10 @@ const RNP = (() => {
         if (!row) return row;
         // Только день: на сумме недели Корзина×средняя Заказы% завышает итог.
         if (!/^\d{4}-\d{2}-\d{2}$/.test(String(row.date || ''))) return row;
-        const implied = _funnelImpliedOrders(row);
-        const cur = Number(row.orders_count || 0);
-        if (implied != null && implied > cur) return { ...row, orders_count: implied };
+        // Как в карточке WB: Корзина × Заказы%. Не max со statistics-api —
+        // там 66 при 47 на графике «Динамика продаж».
+        const funnel = _funnelDayOrders(row);
+        if (funnel != null) return { ...row, orders_count: funnel };
         return row;
     }
 
@@ -3860,9 +3861,15 @@ const RNP = (() => {
                     const s = Number(r[key] || 0);
                     return c > s ? c : s;
                 };
+                const funnelOrders = _funnelDayOrders({
+                    basket_count: Number(client.basket_count || r.basket_count || 0),
+                    funnel_order_conv: Number(client.funnel_order_conv || r.funnel_order_conv || 0),
+                    cartCount: Number(client.cartCount || r.cartCount || 0),
+                    cartToOrderConversion: Number(client.cartToOrderConversion || r.cartToOrderConversion || 0),
+                });
                 _dataCache[r.nm_id][r.date] = {
                     ...r,
-                    orders_count: keep('orders_count'),
+                    orders_count: funnelOrders != null ? funnelOrders : keep('orders_count'),
                     orders_sum: keep('orders_sum'),
                     // Продажи / реализация / к перечислению — только финотчёт.
                     stock_warehouse: client.stock_warehouse ?? r.stock_warehouse,
@@ -4022,7 +4029,7 @@ const RNP = (() => {
             });
             const funnelLag = inWindow.some(r => {
                 const implied = _funnelImpliedOrders(r);
-                return implied != null && implied > Number(r.orders_count || 0);
+                return implied != null && implied !== Number(r.orders_count || 0);
             });
             return !hasFunnel || recentHole || funnelLag;
         });
