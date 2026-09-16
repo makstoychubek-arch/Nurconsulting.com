@@ -30,10 +30,15 @@ const lastOrderFetchAt = new Map<string, number>();
 // функции и оставляет дыру между «последним бэкфилом» и «сегодня».
 const RECENT_DAYS_LOOKBACK = 2;
 
-// За прогон: 1 исторический день на кабинет (сначала дыра вперёд, потом старше).
-const BACKFILL_DAYS_PER_RUN = 1;
+// За прогон: сколько исторических дней на кабинет (сначала дыра вперёд, потом
+// старше). Цикл всё равно упирается в бюджет времени, поэтому запас безопасен:
+// при 1 дне за прогон дыра в два месяца затягивалась бы полторы недели.
+const BACKFILL_DAYS_PER_RUN = 8;
 
 const TIME_BUDGET_MS = 120000;
+
+// Сколько srid влезает в один GET-фильтр PostgREST, чтобы URL остался коротким.
+const SRID_QUERY_CHUNK = 80;
 
 type Admin = any;
 
@@ -211,14 +216,17 @@ Deno.serve(async (req) => {
         }
     }
 
-    if (mode === 'full' || mode === 'rnp') {
+    // mode = history — только догон истории: весь бюджет времени уходит на
+    // прошлые дни, свежие два дня не трогаем. Нужно, чтобы залатать дыру,
+    // которую оставила старая кнопка «Обновить», не ожидая недели по 4-часовому cron.
+    if (mode === 'full' || mode === 'rnp' || mode === 'history') {
         const today = moscowYmd();
         const horizon = addDaysStr(today, -RECENT_DAYS_LOOKBACK);
 
         // Pass B: вчера + сегодня по календарю WB (Москва). Иначе утром в РНП
         // пустая колонка за вчера, а курсор backfill сидит в июле.
         const yesterday = addDaysStr(today, -1);
-        for (const dayStr of [yesterday, today]) {
+        for (const dayStr of mode === 'history' ? [] : [yesterday, today]) {
             for (const cab of work) {
                 try {
                     cab.ordersCount += await syncRecentDay(admin, cab, dayStr);
@@ -257,6 +265,7 @@ Deno.serve(async (req) => {
                 cab.errorMsg += `rnp_daily: ${(e as Error).message}; `;
                 cab.status = 'partial';
             }
+            if (mode === 'history') continue;
             try {
                 cab.funnelDays = await syncFunnelLast7Days(admin, cab.id, cab.token);
             } catch (e) {
@@ -404,11 +413,14 @@ async function writeOrderRows(
         const srids = withSrid.map((r) => r.srid).filter(Boolean);
         if (srids.length) {
             const owned = new Set<string>();
-            for (let i = 0; i < srids.length; i += 500) {
+            // srid — строка на ~50 символов, и 500 штук в ?srid=in.(...) давали
+            // URL на 43 КБ: запрос обрывался («error sending request»), и у
+            // кабинета с 250 заказами в день история не догонялась вообще.
+            for (let i = 0; i < srids.length; i += SRID_QUERY_CHUNK) {
                 const { data, error } = await admin.from('wb_orders')
                     .select('srid, order_date')
                     .eq('cabinet_id', cabinetId)
-                    .in('srid', srids.slice(i, i + 500));
+                    .in('srid', srids.slice(i, i + SRID_QUERY_CHUNK));
                 if (error) throw new Error(`srid-check(${dayStr}): ${error.message}`);
                 for (const row of data || []) {
                     const od = String(row.order_date || '').split('T')[0];

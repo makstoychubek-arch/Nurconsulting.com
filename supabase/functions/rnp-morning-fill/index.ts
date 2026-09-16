@@ -38,6 +38,9 @@ const WB_ANALYTICS = 'https://seller-analytics-api.wildberries.ru';
 const ORDERS_MIN_INTERVAL_MS = 61000;
 const lastOrderFetchAt = new Map<string, number>();
 
+// Сколько srid влезает в один GET-фильтр PostgREST, чтобы URL остался коротким.
+const SRID_QUERY_CHUNK = 80;
+
 const GROUPS: Record<string, { title: string; match: (name: string) => boolean }> = {
     zevina: { title: 'Zevina', match: (n) => /zevina|зевин|уркунбаев|ailin|айлин/i.test(n) },
     baza: { title: 'Baza', match: (n) => /^baza$/i.test(n.trim()) || /бейшеев/i.test(n) },
@@ -337,11 +340,12 @@ async function writeOrderRows(
     let keep = withSrid;
     if (srids.length) {
         const owned = new Set<string>();
-        for (let i = 0; i < srids.length; i += 500) {
+        // 500 srid в ?srid=in.(...) — это URL на 43 КБ, запрос обрывается.
+        for (let i = 0; i < srids.length; i += SRID_QUERY_CHUNK) {
             const { data, error } = await admin.from('wb_orders')
                 .select('srid, order_date')
                 .eq('cabinet_id', cabinetId)
-                .in('srid', srids.slice(i, i + 500));
+                .in('srid', srids.slice(i, i + SRID_QUERY_CHUNK));
             if (error) throw new Error(`srid-check(${dayStr}): ${error.message}`);
             for (const row of data || []) {
                 const od = String(row.order_date || '').split('T')[0];
