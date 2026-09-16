@@ -7434,6 +7434,10 @@
                 || res.status === 401;
             const quiet = bgActions.has(action) || !window._nrInitDone || tokenish || res.status >= 500 || cabinetDenied;
             if (quiet) {
+                // Отозванный или просроченный токен — единственная причина, по
+                // которой клиенту есть что сделать самому. Помечаем, чтобы
+                // дашборд написал «обновите токен», а не «отчёт не получен».
+                if (tokenish) window._nrWbTokenBad = true;
                 if (!tokenish) console.warn(`[callWbProxy] ${action}:`, msg);
                 if (cabinetDenied && window._nrInitDone && !window._nrCabinetDeniedToast) {
                     window._nrCabinetDeniedToast = true;
@@ -11380,7 +11384,9 @@
                     if (!rows || rows.length === 0) {
                         // Пустой отчёт — это не повод оставлять на экране оценку.
                         setFinanceMetricsPlaceholder('—');
-                        showFinanceNote('Финансовый отчёт Wildberries за выбранный период не получен — прибыль, маржа, комиссия и выкуп не рассчитаны. Отчёт приходит с задержкой в несколько дней, за свежие дни его ещё нет.');
+                        showFinanceNote(window._nrWbTokenBad
+                            ? 'Wildberries не принял API-токен этого кабинета — прибыль, маржа и комиссия не рассчитаны. Создайте новый токен в кабинете WB (Настройки → Доступ к API) и замените его в настройках кабинета.'
+                            : 'Финансовый отчёт Wildberries за выбранный период не получен — прибыль, маржа, комиссия и выкуп не рассчитаны. Отчёт приходит с задержкой в несколько дней, за свежие дни его ещё нет.');
                         return;
                     }
                     showFinanceNote(financeCoverageNote(from, to, fin));

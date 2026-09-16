@@ -268,7 +268,12 @@ export async function fetchSalesReportsDetailedPage(opts: FetchDetailedOpts): Pr
         return { status: res.status, rows: [], nextRrdId: '' };
     }
     if (!res.ok) {
-        throw new Error(`Финотчёт WB: HTTP ${res.status} ${text.slice(0, 200)}`);
+        // Статус нужен вызывающему: без него wb-proxy отдавал наверх 500 даже
+        // на отозванный токен, и клиент видел «ошибку сервера» вместо просьбы
+        // обновить токен.
+        const err = new Error(`Финотчёт WB: HTTP ${res.status} ${text.slice(0, 200)}`) as Error & { status?: number };
+        err.status = res.status;
+        throw err;
     }
     const rows = parseDetailedBody(text);
     const last = rows.length ? rows[rows.length - 1] : null;
