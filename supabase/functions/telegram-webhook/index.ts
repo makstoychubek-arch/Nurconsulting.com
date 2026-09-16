@@ -63,6 +63,7 @@ import {
     upsertReviewCardFromLog,
 } from '../_shared/review-moderation.ts';
 import { applyRestockTelegramReply } from '../_shared/wb-restock-apply.ts';
+import { isTeamChatId, replyTeamChat } from '../_shared/team-chat-invite.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -159,6 +160,14 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
     if (restock.handled) return;
 
     const chatKey = resolveIncomingChatChannel(String(chatId));
+
+    if (chatKey === 'team' || isTeamChatId(String(chatId), getTelegramChatId('team'))) {
+        const karina = (Deno.env.get('KARINA_BOT_TOKEN') ?? '').trim() || token;
+        const { data: cabinets } = await admin.from('cabinets').select('id, name, wb_token');
+        const team = await replyTeamChat({ text, cabinets: cabinets || [] });
+        if (team.text) await sendReply(karina, chatId, escapeHtml(team.text), message.message_id);
+        return;
+    }
 
     // ── Модерация отзывов: реплай с новым текстом (шаг 5) ───────────────
     if (chatKey === 'reviews' && text) {

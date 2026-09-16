@@ -7,6 +7,7 @@ const assert = require('assert');
 
 const root = __dirname;
 const router = fs.readFileSync(path.join(root, 'supabase/functions/telegram-router/index.ts'), 'utf8');
+const webhook = fs.readFileSync(path.join(root, 'supabase/functions/telegram-webhook/index.ts'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'dashboard.html'), 'utf8');
 
 assert.ok(router.includes('decideRestockInbound'), 'router uses shared inbound decision');
@@ -20,6 +21,10 @@ assert.ok(!router.includes('Не смог ответить на WB'), 'must not 
 assert.ok(router.includes('status: \'pending\'' ) || router.includes(".eq('status', 'pending')"),
     'only pending questions are answered');
 assert.ok(!router.includes('-1004460164885'), 'router must not hardcode the team chat');
+assert.ok(router.includes('replyTeamChat') && router.includes("getTelegramChatId('team')"),
+    'Karina answers invite / ping in the team chat instead of unknown_chat');
+assert.ok(webhook.includes('replyTeamChat') && webhook.includes("chatKey === 'team'"),
+    'notify webhook is a backup for team invite / ping');
 
 assert.ok(html.includes('Или ответьте в Telegram реплаем: завтра / через неделю / через 2 недели'),
     'agents questions panel hints the Telegram reply');
