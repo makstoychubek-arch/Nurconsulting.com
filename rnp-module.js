@@ -3561,12 +3561,13 @@ const RNP = (() => {
     async function _syncToday(nmId) {
         const today = _wbTodayStr();
         try {
-            const { data: ex } = await _db.from('rnp_daily_data').select('updated_at, orders_count')
+            const { data: ex } = await _db.from('rnp_daily_data').select('updated_at, orders_count, basket_count, funnel_order_conv')
                 .eq('cabinet_id', _cab).eq('nm_id', nmId).eq('date', today).maybeSingle();
             if (ex?.updated_at && Number(ex.orders_count || 0) > 0) {
                 const hrs = (Date.now() - new Date(ex.updated_at)) / 3600000;
                 if (hrs < 2) return;
             }
+            const funnelKeep = _funnelImpliedOrders(ex);
             // Aggregated row from SQL — no raw wb_orders on the client.
             const snapReq = _loadRequestId();
             const snapCab = _cab;
@@ -3583,7 +3584,7 @@ const RNP = (() => {
             const stockWh = (stocks || []).reduce((s, st) => s + (st.quantity || st.quantity_full || st.quantityFull || 0), 0);
             const stockTr = (stocks || []).reduce((s, st) => s + (st.in_way_to_client || st.inWayToClient || 0), 0) +
                             (stocks || []).reduce((s, st) => s + (st.in_way_from_client || st.inWayFromClient || 0), 0);
-            const count = Number(agg.orders_count || 0);
+            const count = funnelKeep != null ? funnelKeep : Number(agg.orders_count || 0);
             const sum = Number(agg.orders_sum || 0);
 
             const row = {
