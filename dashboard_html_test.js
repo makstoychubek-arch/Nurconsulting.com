@@ -2118,6 +2118,19 @@ assert.ok(
         'дырка в кеше не должна выглядеть как падение продаж');
 }
 
+// Только что подключённый кабинет показывал «0 сом» вместо «данные ещё едут».
+{
+    const start = html.indexOf('function updateDashboardFromDB');
+    const body = html.slice(start, start + 2500);
+    assert.ok(/const noDataYet = ordersCount === 0 && returns === 0 && Number\(totalStock\) === 0/.test(body),
+        'пустой кабинет надо отличать от кабинета без продаж');
+    assert.ok(/noDataYet \? '—' : fmtDashMoney\(ordersSum\)/.test(body), 'вместо нуля — прочерк');
+    assert.ok(body.includes('Первая синхронизация после подключения токена'),
+        'клиенту надо объяснить, почему пусто');
+    assert.ok(html.includes('id="dash-data-note"') && html.includes('function showDataNote'),
+        'плашка про сбор данных живёт отдельно от плашки про финотчёт');
+}
+
 // Остатки лежат только на сегодня — тренд по ним сравнивал число с самим собой.
 {
     const start = html.indexOf('function updateDashboardFromDB');

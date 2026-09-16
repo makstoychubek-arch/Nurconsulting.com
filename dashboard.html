@@ -5023,6 +5023,7 @@
             </div>
         </div>
         <div id="tab-dashboard" class="tab-content active space-y-6">
+            <div id="dash-data-note" class="dash-finance-note"></div>
             <div id="dash-finance-note" class="dash-finance-note"></div>
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 dash-kpi-hero">
                 <div class="kpi-hero-card" data-tone="good">
@@ -11745,6 +11746,13 @@
         el.classList.toggle('show', !!text);
     }
 
+    function showDataNote(text) {
+        const el = document.getElementById('dash-data-note');
+        if (!el) return;
+        el.textContent = text || '';
+        el.classList.toggle('show', !!text);
+    }
+
     const DAY_MS = 86400000;
     function dashDayLabel(ymd) {
         const d = new Date(ymd + 'T00:00:00');
@@ -11865,14 +11873,22 @@
         const returns = Number(cur?.returns_count || 0);
         const adsSpend = Math.round(Number(cur?.ads_sum || 0));
 
+        // Кабинет только подключили: заказов нет, остатков нет, отчёта нет.
+        // «0 сом» тут читается как «продаж не было», хотя данные просто ещё
+        // не приехали — честнее прочерк и объяснение.
+        const noDataYet = ordersCount === 0 && returns === 0 && Number(totalStock) === 0;
+        showDataNote(noDataYet
+            ? 'Данных по этому кабинету пока нет: заказы, остатки и отчёт Wildberries ещё не загрузились. Первая синхронизация после подключения токена занимает несколько минут.'
+            : '');
+
         // Факты из базы: заказы, возвраты, остатки, расход на рекламу.
-        setText('m-orders-sum', fmtDashMoney(ordersSum));
-        setText('m-orders-count', ordersCount + ' шт.');
-        setText('m-stock', fmt(totalStock) + ' шт.');
-        setText('m-returns', returns + ' шт.');
-        setText('m-ads', fmtDashAds(adsSpend, 0));
-        setText('rnp-orders', ordersCount + ' шт.');
-        setText('rnp-returns', returns + ' шт.');
+        setText('m-orders-sum', noDataYet ? '—' : fmtDashMoney(ordersSum));
+        setText('m-orders-count', noDataYet ? '—' : ordersCount + ' шт.');
+        setText('m-stock', noDataYet ? '—' : fmt(totalStock) + ' шт.');
+        setText('m-returns', noDataYet ? '—' : returns + ' шт.');
+        setText('m-ads', noDataYet && !adsSpend ? '—' : fmtDashAds(adsSpend, 0));
+        setText('rnp-orders', noDataYet ? '—' : ordersCount + ' шт.');
+        setText('rnp-returns', noDataYet ? '—' : returns + ' шт.');
 
         setFinanceMetricsPlaceholder('…');
         showFinanceNote('');
