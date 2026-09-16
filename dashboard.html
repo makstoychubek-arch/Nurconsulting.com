@@ -914,6 +914,7 @@
             padding: 8px 0 6px; flex-wrap: wrap; flex-shrink: 0;
         }
         .cl-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+        .cl-reach-hint { font-size: 10.5px; color: var(--text-muted); font-weight: 600; }
         .cl-chip {
             border: none; background: transparent; color: var(--text-secondary);
             font-size: 10px; font-weight: 500; padding: 5px 11px; border-radius: 999px; cursor: pointer;
@@ -992,6 +993,21 @@
         .cl-pos { font-weight: 700; color: var(--text-primary); }
         .cl-pos-top { color: var(--green); }
         .cl-pos-deep { color: var(--text-muted); font-weight: 400; }
+        /* Коридор ставок WB: три уровня охвата, текущий подсвечен. Клик по
+           уровню ставит эту ставку — так не надо считать цифры руками. */
+        .cl-reach { display: inline-flex; gap: 2px; align-items: center; }
+        .cl-reach-lv {
+            border: 1px solid var(--border); background: transparent; color: var(--text-muted);
+            font-size: 9.5px; font-weight: 600; padding: 3px 5px; border-radius: 6px; cursor: pointer;
+            font-variant-numeric: tabular-nums; min-width: 30px;
+        }
+        .cl-reach-lv:hover:not(:disabled) { border-color: var(--accent-border); color: var(--accent); background: var(--accent-soft); }
+        .cl-reach-lv:disabled { cursor: default; opacity: 0.45; }
+        .cl-reach-lv.is-cur { border-color: var(--accent-border); background: var(--accent-soft); color: var(--accent); font-weight: 700; }
+        .cl-flag { font-size: 9.5px; font-weight: 700; padding: 2px 6px; border-radius: 999px; white-space: nowrap; }
+        .cl-flag-over { background: rgba(251,146,60,0.16); color: var(--orange, #fb923c); }
+        .cl-flag-under { background: rgba(248,113,113,0.15); color: var(--red, #f87171); }
+        .cl-flag-dead { background: var(--sel); color: var(--text-muted); }
         .cl-foot {
             display: flex; align-items: center; justify-content: space-between; gap: 8px;
             padding-top: 8px; font-size: 10.5px; color: var(--text-muted); flex-shrink: 0; flex-wrap: wrap;
@@ -5697,6 +5713,12 @@
                     <div class="cl-chips" id="cl-chips"></div>
                     <input type="search" id="cl-search" class="cl-search" placeholder="Поиск по кластеру" autocomplete="off">
                 </div>
+                <div class="cl-toolbar" id="cl-reach-bar" hidden>
+                    <span class="cl-reach-hint">Все видимые по коридору WB:</span>
+                    <button type="button" class="cl-mini" data-cl-all="min" onclick="setAllClusterReach('min')">Эконом</button>
+                    <button type="button" class="cl-mini" data-cl-all="medium" onclick="setAllClusterReach('medium')">Средний</button>
+                    <button type="button" class="cl-mini" data-cl-all="max" onclick="setAllClusterReach('max')">Максимум</button>
+                </div>
                 <div class="cl-kpis" id="cl-kpis"></div>
                 <div class="cl-note" id="cl-note"></div>
                 <div class="cl-body" id="cl-body">
@@ -8103,10 +8125,16 @@
         if (q) rows = rows.filter(r => r.normQuery.toLowerCase().includes(q));
         const key = _clusterState.sort;
         const dir = _clusterState.dir;
+        // reach — строка, поэтому сортируем по порядку уровней: сначала недобор,
+        // потом коридор, в конце переплата.
+        const REACH_ORDER = { below_min: 0, min: 1, medium: 2, max: 3, above_max: 4 };
         rows = rows.slice().sort((a, b) => {
             if (key === 'normQuery') return a.normQuery.localeCompare(b.normQuery, 'ru') * dir;
-            const av = a[key] == null ? -1 : Number(a[key]);
-            const bv = b[key] == null ? -1 : Number(b[key]);
+            const pick = (r) => key === 'reach'
+                ? (r.reach == null ? -1 : REACH_ORDER[r.reach] ?? -1)
+                : (r[key] == null ? -1 : Number(r[key]));
+            const av = pick(a);
+            const bv = pick(b);
             if (av === bv) return a.normQuery.localeCompare(b.normQuery, 'ru');
             return (av - bv) * dir;
         });
@@ -8213,11 +8241,64 @@
         return `<span class="${cls}">${p}</span>`;
     }
 
+    // Частота 0 — это не «нет данных», а «никто так не ищет». Разница важная:
+    // на таком кластере ставка бессмысленна, и это надо видеть, а не угадывать.
+    function clusterFreqCell(r) {
+        if (r.frequency == null) return '<span style="color:var(--text-muted)">—</span>';
+        if (r.frequency === 0) {
+            return `<span class="cl-flag cl-flag-dead" title="За период по этому запросу не было показов — его не ищут">не ищут</span>`;
+        }
+        return fmt(r.frequency);
+    }
+
+    const CLUSTER_REACH_LEVELS = [
+        { key: 'min', field: 'bidMin', label: 'Эконом' },
+        { key: 'medium', field: 'bidMedium', label: 'Средний' },
+        { key: 'max', field: 'bidMax', label: 'Максимум' },
+    ];
+
+    /** Ставка уровня с откатом на соседний — WB не всегда отдаёт все три. */
+    function clusterBidForReach(r, level) {
+        const order = level === 'min'
+            ? ['bidMin', 'bidMedium', 'bidMax']
+            : level === 'max' ? ['bidMax', 'bidMedium', 'bidMin'] : ['bidMedium', 'bidMin', 'bidMax'];
+        for (const f of order) {
+            const v = r[f];
+            if (v != null && v > 0) return Math.round(v);
+        }
+        return null;
+    }
+
+    // Коридор: три кнопки со ставками WB, текущая подсвечена. Клик ставит ставку.
+    function clusterReachCell(r, editable) {
+        if (r.bidMin == null && r.bidMedium == null && r.bidMax == null) {
+            return '<span style="color:var(--text-muted)">—</span>';
+        }
+        const key = clusterRowKey(r);
+        const btns = CLUSTER_REACH_LEVELS.map(lv => {
+            const val = r[lv.field];
+            if (val == null || val <= 0) return '';
+            const cur = r.reach === lv.key;
+            const title = `${lv.label}: WB даёт этот охват при ставке ${fmt(Math.round(val))}`;
+            return `<button type="button" class="cl-reach-lv${cur ? ' is-cur' : ''}" title="${escapeHtml(title)}"
+                ${editable ? `onclick="setClusterReach('${escapeHtml(key)}','${lv.key}')"` : 'disabled'}
+            >${fmt(Math.round(val))}</button>`;
+        }).join('');
+        let flag = '';
+        if (r.reach === 'above_max') {
+            flag = `<span class="cl-flag cl-flag-over" title="Ставка выше максимального охвата — выше уже не поднимемся, разница уходит впустую">переплата</span>`;
+        } else if (r.reach === 'below_min') {
+            flag = `<span class="cl-flag cl-flag-under" title="Ставка ниже минимума WB — охвата по этому кластеру почти нет">мало</span>`;
+        }
+        return `<span class="cl-reach">${btns}${flag}</span>`;
+    }
+
     // Ширины фиксируем, чтобы колонки не прыгали при перерисовке строк и чтобы
     // браузер не пересчитывал раскладку всей таблицы на каждый рендер.
         const CLUSTER_COLS = [
         { key: 'normQuery', label: 'Кластер', w: 208 },
         { key: 'bid', label: 'Ставка CPM', w: 100 },
+        { key: 'reach', label: 'Коридор WB', w: 148 },
         { key: 'frequency', label: 'Частота', w: 78 },
         { key: 'searchPosition', label: 'Позиция', w: 68 },
         { key: 'avgPos', label: 'Рекл. поз.', w: 72 },
@@ -8273,6 +8354,18 @@
             notes.push('Шаг ставки в кабинете — ' + fmt(step) + cur + ', WB округлит сам.');
         }
         if (!_clusterState.posLoaded) notes.push('Частота и позиция в поиске — по кнопке «Позиции» (WB даёт 30 фраз за запрос).');
+        const base = data.baseBids || null;
+        const hasCorridor = (data.rows || []).some(r => r.bidMin != null || r.bidMedium != null || r.bidMax != null);
+        if (hasCorridor) {
+            notes.push('Коридор WB — три ставки, при которых WB даёт минимальный, средний и максимальный охват по кластеру. Клик по цифре ставит её.');
+            if (base && (base.competitive || base.leaders)) {
+                notes.push('По кампании WB считает конкурентной ставкой '
+                    + (base.competitive != null ? fmt(Math.round(base.competitive)) + cur : '—')
+                    + ', ставкой лидеров ' + (base.leaders != null ? fmt(Math.round(base.leaders)) + cur : '—') + '.');
+            }
+        }
+        const reachBar = document.getElementById('cl-reach-bar');
+        if (reachBar) reachBar.hidden = !(hasCorridor && data.editable);
         if ((data.errors || []).length) notes.push(data.errors.join(' · '));
         const noteEl = document.getElementById('cl-note');
         if (noteEl) noteEl.textContent = notes.join(' ');
@@ -8343,7 +8436,8 @@
         return `<tr>
             <td class="cl-q" title="${escapeHtml(r.normQuery)}">${escapeHtml(r.normQuery)}<div class="cl-nm">${r.nmId}</div></td>
             <td>${bidCell}</td>
-            <td>${r.frequency != null ? fmt(r.frequency) : '<span style="color:var(--text-muted)">—</span>'}</td>
+            <td>${clusterReachCell(r, data.editable)}</td>
+            <td>${clusterFreqCell(r)}</td>
             <td>${clusterPosCell(r)}</td>
             <td>${r.avgPos != null ? Number(r.avgPos).toFixed(1) : '—'}</td>
             <td>${fmt(r.views)}</td>
@@ -8396,6 +8490,91 @@
         }
     }
     window.saveClusterBid = saveClusterBid;
+
+    /** Отправить ставку в WB и обновить строку. Возвращает false при отказе WB. */
+    async function pushClusterBid(row, bid) {
+        const res = await callWbProxy('adv_cluster_bid', {
+            advertId: Number(_clusterState.advertId), nmId: row.nmId, normQuery: row.normQuery, bid,
+        }, _clusterState.cabinetId);
+        if (!res || res.error) return String((res && res.error) || 'WB не принял ставку');
+        row.bid = bid;
+        row.bidMinorUnits = res.bidMinorUnits || Math.round(bid * 100);
+        row.reach = clusterReachForBid(row, bid);
+        return null;
+    }
+
+    /** Та же логика, что reachForBid на бэкенде — чтобы метка обновлялась сразу. */
+    function clusterReachForBid(r, bid) {
+        if (!(bid > 0)) return null;
+        const min = r.bidMin, med = r.bidMedium, max = r.bidMax;
+        if (min != null && bid < min) return 'below_min';
+        if (max != null && bid > max) return 'above_max';
+        if (med != null && bid >= med) return (max != null && bid >= max) ? 'max' : 'medium';
+        if (min != null && bid >= min) return 'min';
+        return null;
+    }
+
+    async function setClusterReach(key, level) {
+        const row = clusterRowByKey(key);
+        if (!row || _clusterState.busy) return;
+        const bid = clusterBidForReach(row, level);
+        if (!(bid > 0)) return;
+        _clusterState.busy = true;
+        const err = await pushClusterBid(row, bid);
+        _clusterState.busy = false;
+        if (err) {
+            showPremiumModal('error', 'WB не принял ставку', err);
+            return;
+        }
+        renderClusterBoard();
+    }
+    window.setClusterReach = setClusterReach;
+
+    // Пачкой по всем видимым кластерам: WB принимает ставки по одной, поэтому
+    // идём последовательно и показываем итог, а не молчим при частичном отказе.
+    async function setAllClusterReach(level) {
+        const data = _clusterBoards.get(_clusterState.advertId);
+        if (!data || _clusterState.busy) return;
+        if (!data.editable) {
+            showPremiumModal('warning', 'Ставки', 'У этой кампании WB не даёт менять ставку по кластерам.');
+            return;
+        }
+        const targets = clusterVisibleRows()
+            .slice(0, _clusterState.limit)
+            .map(r => ({ row: r, bid: clusterBidForReach(r, level) }))
+            .filter(t => t.bid > 0 && t.bid !== Math.round(t.row.bid || 0));
+        if (!targets.length) {
+            showPremiumModal('info', 'Ставки', 'Видимые кластеры уже на этом уровне охвата.');
+            return;
+        }
+        const label = (CLUSTER_REACH_LEVELS.find(l => l.key === level) || {}).label || level;
+        const ok = await showConfirmModal(
+            'Ставки по коридору WB',
+            `Поставить уровень «${label}» на ${targets.length} видимых кластеров? Ставки WB по каждому кластеру разные.`,
+        );
+        if (!ok) return;
+        _clusterState.busy = true;
+        const btns = document.querySelectorAll('[data-cl-all]');
+        btns.forEach(b => { b.disabled = true; });
+        let done = 0;
+        const errors = [];
+        for (const t of targets) {
+            const err = await pushClusterBid(t.row, t.bid);
+            if (err) errors.push(t.row.normQuery + ': ' + err);
+            else done++;
+        }
+        _clusterState.busy = false;
+        btns.forEach(b => { b.disabled = false; });
+        data.counts = { ...(data.counts || {}), managed: (data.rows || []).filter(r => r.bid > 0).length };
+        renderClusterBoard();
+        if (errors.length) {
+            showPremiumModal('warning', 'Готово с отказами',
+                `Поставлено ${done} из ${targets.length}. WB отказал: ${errors.slice(0, 3).join('; ')}`);
+        } else {
+            showPremiumModal('success', 'Ставки обновлены', `Уровень «${label}» поставлен на ${done} кластеров.`);
+        }
+    }
+    window.setAllClusterReach = setAllClusterReach;
 
     async function toggleClusterMinus(key, exclude) {
         const data = _clusterBoards.get(_clusterState.advertId);

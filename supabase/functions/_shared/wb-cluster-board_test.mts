@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {
+    bidForReach,
     bidToMinorUnits,
     buildClusterBoard,
     buildClusterItemsBody,
@@ -13,14 +14,17 @@ import {
     clusterBoardTotals,
     countClusterFilters,
     filterClusters,
+    mergeClusterCorridors,
     mergeClusterPositions,
     minusCandidates,
     nmIdsFromAdvert,
+    parseBidRecommendations,
     parseClusterBids,
     parseClusterList,
     parseClusterStats,
     parseMinusList,
     parsePositionsReport,
+    reachForBid,
     uniqueNmIds,
 } from './wb-cluster-board.ts';
 
@@ -224,5 +228,70 @@ assert.deepEqual(nmIdsFromAdvert(null), []);
 
 assert.deepEqual(uniqueNmIds([5, '5', 0, null, 7]), [5, 7]);
 assert.equal(uniqueNmIds(Array.from({ length: 150 }, (_, i) => i + 1)).length, 100);
+
+// --- коридор ставок WB: реальный ответ GET /api/advert/v0/bids/recommendations
+const recRaw = {
+    advertId: 39829721,
+    nmId: 1218782505,
+    base: {
+        competitiveBid: { bidKopecks: 34000 },
+        leadersBid: { bidKopecks: 36000 },
+        top2: { bidKopecks: 0 },
+    },
+    normQueries: [
+        {
+            normQuery: 'свитеры женский',
+            reachMax: { bidKopecks: 75000, bidKopecksMin: 75000 },
+            reachMedium: { bidKopecks: 54500 },
+            reachMin: { bidKopecks: 35500 },
+        },
+        // WB иногда отдаёт не все уровни — берём то, что есть.
+        { normQuery: 'свитер', reachMin: { bidKopecks: 34000 } },
+        { normQuery: '', reachMin: { bidKopecks: 100 } },
+    ],
+};
+const rec = parseBidRecommendations(recRaw);
+assert.equal(rec?.advertId, 39829721);
+assert.equal(rec?.competitive, 340);
+assert.equal(rec?.leaders, 360);
+// top2 = 0 у WB значит «нет данных», а не ставку 0.
+assert.equal(rec?.top2, null);
+// Пустой normQuery не должен попасть в коридоры.
+assert.equal(rec?.corridors.length, 2);
+const sw = rec?.corridors.find((c) => c.normQuery === 'свитеры женский');
+assert.deepEqual([sw?.min, sw?.medium, sw?.max], [355, 545, 750]);
+assert.equal(parseBidRecommendations(null), null);
+
+// Где наша ставка относительно коридора.
+const corridor = { normQuery: 'свитеры женский', min: 355, medium: 545, max: 750 };
+assert.equal(reachForBid(300, corridor), 'below_min');
+assert.equal(reachForBid(355, corridor), 'min');
+assert.equal(reachForBid(400, corridor), 'min');
+assert.equal(reachForBid(545, corridor), 'medium');
+assert.equal(reachForBid(750, corridor), 'max');
+assert.equal(reachForBid(900, corridor), 'above_max');
+assert.equal(reachForBid(null, corridor), null);
+assert.equal(reachForBid(400, null), null);
+
+assert.equal(bidForReach(corridor, 'min'), 355);
+assert.equal(bidForReach(corridor, 'medium'), 545);
+assert.equal(bidForReach(corridor, 'max'), 750);
+// Откат, если WB не дал нужный уровень.
+assert.equal(bidForReach({ normQuery: 'x', min: 200, medium: null, max: null }, 'max'), 200);
+assert.equal(bidForReach(null, 'medium'), null);
+
+const withCorridor = mergeClusterCorridors(
+    [
+        { nmId: 1218782505, normQuery: 'Свитеры Женский', bid: 900 } as never,
+        { nmId: 1218782505, normQuery: 'кофта женская', bid: 375 } as never,
+    ],
+    [rec as NonNullable<typeof rec>],
+);
+// Сравнение без учёта регистра, как и у позиций.
+assert.equal(withCorridor[0].bidMax, 750);
+assert.equal(withCorridor[0].reach, 'above_max');
+// Кластера нет в рекомендациях — полей коридора не появляется, а не нули.
+assert.equal(withCorridor[1].bidMax, undefined);
+assert.equal(withCorridor[1].reach, undefined);
 
 console.log('wb-cluster-board_test: ok');

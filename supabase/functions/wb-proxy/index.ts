@@ -70,6 +70,8 @@ import {
     chunkQueries,
     clusterBoardTotals,
     countClusterFilters,
+    mergeClusterCorridors,
+    parseBidRecommendations,
     parseClusterBids,
     parseClusterList,
     parseClusterStats,
@@ -77,6 +79,7 @@ import {
     parsePositionsReport,
     nmIdsFromAdvert,
     uniqueNmIds,
+    type BidRecommendations,
     type ClusterPosition,
 } from '../_shared/wb-cluster-board.ts';
 
@@ -952,7 +955,7 @@ serve(async (req) => {
                     ? (advert.payment_type ?? (advert.settings as Record<string, unknown> | undefined)?.payment_type)
                     : null;
 
-                const [listRaw, statsRaw, bidsRaw, minusRaw] = await Promise.all([
+                const [listRaw, statsRaw, bidsRaw, minusRaw, ...recRaw] = await Promise.all([
                     wbPostSafe(`${ADVERT_API}/adv/v0/normquery/list`, WB_PROMO_TOKEN,
                         buildClusterListBody(advertId, nmIds), 'normquery/list'),
                     wbPostSafe(`${ADVERT_API}/adv/v0/normquery/stats`, WB_PROMO_TOKEN,
@@ -961,15 +964,27 @@ serve(async (req) => {
                         buildClusterItemsBody(advertId, nmIds), 'normquery/get-bids'),
                     wbPostSafe(`${ADVERT_API}/adv/v0/normquery/get-minus`, WB_PROMO_TOKEN,
                         buildClusterItemsBody(advertId, nmIds), 'normquery/get-minus'),
+                    // Коридор ставок — один GET на артикул, поэтому берём тут же.
+                    ...nmIds.slice(0, 10).map((nmId) =>
+                        wbGetSafe(
+                            `${ADVERT_API}/api/advert/v0/bids/recommendations?advertId=${advertId}&nmId=${nmId}`,
+                            WB_PROMO_TOKEN,
+                            'bids/recommendations',
+                        )),
                 ]);
 
-                const rows = buildClusterBoard({
+                const recs = recRaw
+                    .map((r) => parseBidRecommendations(r.data))
+                    .filter((r): r is BidRecommendations => r != null);
+
+                let rows = buildClusterBoard({
                     nmIds,
                     list: parseClusterList(listRaw.data),
                     stats: parseClusterStats(statsRaw.data),
                     bids: parseClusterBids(bidsRaw.data),
                     minus: parseMinusList(minusRaw.data),
                 });
+                rows = mergeClusterCorridors(rows, recs);
                 const config = await fetchAdvConfigCached(WB_PROMO_TOKEN, cabinet_id);
 
                 result = {
@@ -983,7 +998,16 @@ serve(async (req) => {
                     paymentType: paymentType != null ? String(paymentType) : null,
                     currency: config?.currency || rows.find((r) => r.currency)?.currency || '',
                     cpmStep: config?.cpmStep ?? null,
-                    errors: [listRaw, statsRaw, bidsRaw, minusRaw]
+                    // Базовые ставки кампании берём из первого артикула — они не
+                    // зависят от nmId, WB отдаёт их одинаковыми.
+                    baseBids: recs.length
+                        ? {
+                            competitive: recs[0].competitive,
+                            leaders: recs[0].leaders,
+                            top2: recs[0].top2,
+                        }
+                        : null,
+                    errors: [listRaw, statsRaw, bidsRaw, minusRaw, ...recRaw]
                         .filter((r) => r.error).map((r) => r.error as string),
                 };
                 break;
@@ -1855,6 +1879,26 @@ async function wbGet(url: string, token: string): Promise<unknown> {
  * где normquery не поддержан. Экран должен показать остальные колонки, поэтому
  * ошибку не бросаем, а возвращаем текстом.
  */
+/** То же, что wbPostSafe, но для GET-ручек вроде bids/recommendations. */
+async function wbGetSafe(
+    url: string,
+    token: string,
+    label: string,
+): Promise<{ data: unknown; error: string | null }> {
+    try {
+        const res = await fetch(url, { headers: { Authorization: token } });
+        const text = await res.text();
+        if (!res.ok) {
+            console.warn(`[wb-proxy] ${label} ${res.status}: ${text.slice(0, 200)}`);
+            return { data: null, error: `${label}: WB ${res.status}` };
+        }
+        return { data: text ? JSON.parse(text) : null, error: null };
+    } catch (e) {
+        console.warn(`[wb-proxy] ${label} error:`, String(e));
+        return { data: null, error: `${label}: ${String(e).slice(0, 120)}` };
+    }
+}
+
 async function wbPostSafe(
     url: string,
     token: string,
