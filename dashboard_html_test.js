@@ -1905,4 +1905,62 @@ assert.ok(
         'desktop Остатки stay in the header, not a floating overlay');
 }
 
+// Дашборд не имеет права рисовать оценочные финансы вместо отчёта WB.
+{
+    assert.ok(!/salesSum\s*=\s*Math\.round\(ordersSum\s*\*\s*0\.65\)/.test(html)
+        && !html.includes('ordersCount>0?\'65%\':\'—\''),
+        'dashboard must not derive sales/buyout from orders × 0.65');
+    assert.ok(!html.includes('function computeQuickOrderMetrics') && !html.includes('function syncRNPTab'),
+        'estimate-only metric helpers must be gone, not just unused');
+    assert.ok(html.includes("supabase.rpc('dashboard_finance_rows'"),
+        'finance rows come from the nightly cache, not a WB call per dashboard load');
+    assert.ok(html.includes('id="dash-finance-note"') && html.includes('function financeCoverageNote'),
+        'dashboard explains which days the finance report actually covers');
+
+    const start = html.indexOf('function financeCoverageNote');
+    const end = html.indexOf('function updateDashboardFromDB');
+    assert.ok(start > 0 && end > start, 'financeCoverageNote must precede updateDashboardFromDB');
+    const src = html.slice(html.indexOf('const DAY_MS = 86400000;'), end);
+    const api = new Function(`${src}; return { financeCoverageNote };`)();
+
+    assert.strictEqual(
+        api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-01', to: '2026-09-15' }),
+        '', 'полное покрытие — без плашки');
+    const tail = api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-01', to: '2026-09-11' });
+    assert.match(tail, /последние 4 дн/, 'недостающий хвост периода назван прямо');
+    assert.match(tail, /11 сентября/);
+    const head = api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-05', to: '2026-09-15' });
+    assert.match(head, /начало периода/);
+    assert.strictEqual(api.financeCoverageNote('2026-09-01', '2026-09-15', {}), '');
+}
+
+// SETOF резался PostgREST на 1000 строк — у большого кабинета это была
+// прибыль по восьмой части отчёта.
+{
+    const mig = fs.readFileSync(
+        path.join(__dirname, 'supabase/migrations/20260916250000_finance_rows_grouped_jsonb.sql'), 'utf8');
+    assert.ok(/create or replace function public\.dashboard_finance_rows[\s\S]*?returns jsonb/.test(mig),
+        'dashboard_finance_rows must return one jsonb, not SETOF');
+    assert.ok(mig.includes('group by'), 'rows must be pre-grouped so the payload stays small');
+}
+
+// Ночной синк должен просить у WB те поля, без которых дашборд считает нули.
+{
+    const src = fs.readFileSync(path.join(__dirname, 'supabase/functions/rnp-finance-sync/index.ts'), 'utf8');
+    assert.ok(src.includes('fields: FINANCE_DASHBOARD_FIELDS'),
+        'finance sync must ask WB for retailPrice/acquiringFee/bonusTypeName too');
+}
+
+// pg_cron носит прежний JWT service_role — сверка байт-в-байт даёт 401 и канал молчит.
+for (const slug of ['advertising-sync', 'autobidder-run', 'check-campaigns-notify', 'daily-sales-report']) {
+    const src = fs.readFileSync(path.join(__dirname, `supabase/functions/${slug}/index.ts`), 'utf8');
+    assert.ok(src.includes('isServiceAuthorized'), `${slug} must accept both service_role keys`);
+    assert.ok(!/bearer === serviceKey/.test(src), `${slug} must not compare the service key byte-for-byte`);
+}
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/advertising-sync/index.ts'), 'utf8')
+        .includes('LIVE_CAMPAIGN_STATUSES'),
+    'advertising-sync must skip finished campaigns so every cabinet fits the time budget'
+);
+
 console.log('dashboard_html_test: ok');

@@ -11282,14 +11282,25 @@
                     adsSum: Number(adsCur && adsCur.spend || 0),
                 };
 
-                loadFinanceRows(snapshotCabinet, from, to).then((rows) => {
+                loadFinanceRows(snapshotCabinet, from, to).then(async (fin) => {
                     if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
+                    const rows = fin.rows;
+                    // Расход РК берём ровно за те дни, что покрыл отчёт, иначе
+                    // ДРР и прибыль складывают неделю рекламы с четырьмя днями
+                    // продаж. На карточке «Реклама» при этом остаётся факт за
+                    // весь выбранный период.
+                    if (rows && rows.length && (fin.from !== from || fin.to !== to)) {
+                        const adsWindow = await loadAdsSpendForDash(snapshotCabinet, fin.from, fin.to);
+                        if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
+                        settings.adsSum = Math.round(Number(adsWindow.spend || 0));
+                    }
                     if (!rows || rows.length === 0) {
                         // Пустой отчёт — это не повод оставлять на экране оценку.
                         setFinanceMetricsPlaceholder('—');
-                        showFinanceNote('Финансовый отчёт Wildberries за выбранный период не получен — прибыль, маржа, комиссия и выкуп не рассчитаны. WB формирует отчёт раз в неделю, по понедельникам за прошедшую неделю; свежие дни в него ещё не попали.');
+                        showFinanceNote('Финансовый отчёт Wildberries за выбранный период не получен — прибыль, маржа, комиссия и выкуп не рассчитаны. Отчёт приходит с задержкой в несколько дней, за свежие дни его ещё нет.');
                         return;
                     }
+                    showFinanceNote(financeCoverageNote(from, to, fin));
                     const metrics = enrichMetricsWithStockExtras(
                         WBFormulas.calculateMetrics(rows, settings), stocks.total, Number(summary.cur?.orders_count || 0));
                     if (finCabinet === currentCabinetId) {
@@ -11643,12 +11654,26 @@
         el.classList.toggle('show', !!text);
     }
 
+    const DAY_MS = 86400000;
+    function dashDayLabel(ymd) {
+        const d = new Date(ymd + 'T00:00:00');
+        return isNaN(d) ? ymd : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+    }
+
     /**
      * Строки финотчёта за период. Берём из базы, куда их ночью складывает
      * rnp-finance-sync: у прямого метода WB лимит один запрос в минуту на
      * продавца, поэтому запрос из браузера при каждой загрузке дашборда
      * регулярно получал 429 и прибыль с маржой просто не появлялись.
-     * Живой запрос к WB остаётся страховкой, если кеш ещё не догнал период.
+     * Живой запрос к WB остаётся страховкой, если кеша по кабинету ещё нет.
+     *
+     * RPC отдаёт один jsonb со сгруппированными строками: как SETOF её резал
+     * PostgREST на тысяче строк, и у большого кабинета прибыль считалась по
+     * восьмой части отчёта.
+     *
+     * Отчёт WB отстаёт на несколько дней, и кеш накапливается окнами, поэтому
+     * возвращаем ещё и реально покрытые даты: показать неполный период как
+     * полный — это тот же обман, что и считать продажи от заказов.
      */
     async function loadFinanceRows(cabinetId, from, to) {
         try {
@@ -11657,21 +11682,41 @@
                 p_from: from,
                 p_to: to,
             });
-            if (!error && Array.isArray(data) && data.length) return data;
             if (error) console.warn('[loadFinanceRows] из базы:', error.message);
+            else if (Array.isArray(data) && data.length) {
+                const days = data.map(r => String(r.sale_dt || r.rr_dt || '').slice(0, 10)).filter(Boolean).sort();
+                return { rows: data, source: 'db', from: days[0] || from, to: days[days.length - 1] || to };
+            }
         } catch (e) {
             console.warn('[loadFinanceRows] из базы:', e?.message || e);
         }
 
         try {
-            return await Promise.race([
+            const rows = await Promise.race([
                 WBFormulas.loadFinanceReport(callWbProxy, from, to),
                 new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000)),
             ]);
+            return { rows: rows || [], source: 'wb', from, to };
         } catch (e) {
             console.warn('[loadFinanceRows] из WB:', e?.message || e);
-            return [];
+            return { rows: [], source: 'wb', from, to };
         }
+    }
+
+    /** Чего не хватает в отчёте относительно выбранного периода. */
+    function financeCoverageNote(from, to, covered) {
+        if (!covered.from || !covered.to) return '';
+        const tailMissing = Math.round((new Date(to) - new Date(covered.to)) / DAY_MS);
+        const headMissing = Math.round((new Date(covered.from) - new Date(from)) / DAY_MS);
+        const parts = [];
+        if (tailMissing > 0) {
+            parts.push(`последние ${tailMissing} дн. (после ${dashDayLabel(covered.to)}) Wildberries ещё не отчитался`);
+        }
+        if (headMissing > 0) {
+            parts.push(`начало периода (до ${dashDayLabel(covered.from)}) в отчёт не попало`);
+        }
+        if (!parts.length) return '';
+        return `Прибыль, маржа и комиссия посчитаны по отчёту Wildberries за ${dashDayLabel(covered.from)} — ${dashDayLabel(covered.to)}: ${parts.join(', ')}. Заказы и остатки при этом за весь период.`;
     }
 
     function updateDashboardFromDB(totalStock, cur, prev) {
