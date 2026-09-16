@@ -1,6 +1,9 @@
 // Единое правило доступа к кабинету для edge-функций:
-// владелец ИЛИ супер-админ ИЛИ сотрудник из allowed_users.
+// владелец ИЛИ супер-админ ИЛИ сотрудник из team_staff.
 // Зеркалит SQL-функцию public.can_access_cabinet().
+//
+// team_staff — это именно команда. Активированный клиент туда не попадает,
+// иначе он получил бы доступ к кабинетам всех остальных клиентов.
 // deno-lint-ignore-file no-explicit-any
 
 export const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
@@ -14,7 +17,7 @@ export function isSuperAdminUser(user: { email?: string | null; id?: string } | 
 export async function isTeamMember(admin: any, email: string | null | undefined): Promise<boolean> {
     const e = String(email || '').trim().toLowerCase();
     if (!e) return false;
-    const { data, error } = await admin.from('allowed_users').select('email');
+    const { data, error } = await admin.from('team_staff').select('email');
     if (error || !Array.isArray(data)) return false;
     return data.some((r: any) => String(r.email || '').trim().toLowerCase() === e);
 }

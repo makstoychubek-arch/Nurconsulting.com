@@ -1342,10 +1342,14 @@ assert.ok(html.includes("switchSpacesAdminTab('allowed'") && html.includes("swit
     'admin must split allowed and blocked spaces');
 assert.ok(html.includes('function sortPendingRequests') && html.includes('function sortBlockedSpaces'),
     'pending login attempts must not mix with blocked users');
+const adminSpaceSrc = fs.readFileSync(path.join(__dirname, 'supabase/functions/admin-space/index.ts'), 'utf8');
 assert.ok(
-    fs.readFileSync(path.join(__dirname, 'supabase/functions/admin-space/index.ts'), 'utf8')
-        .includes("from('allowed_users').delete()"),
-    'blocking a space must remove the email from allowed_users'
+    adminSpaceSrc.includes("from('team_staff').delete()"),
+    'blocking a space must revoke staff rights'
+);
+assert.ok(
+    !/insert\(\{\s*email: space\.email/.test(adminSpaceSrc),
+    'activating a client must not grant access to other cabinets'
 );
 assert.ok(
     fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8')
