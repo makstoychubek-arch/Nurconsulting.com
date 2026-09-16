@@ -11157,11 +11157,22 @@
         const extra = el.classList.contains('kpi-hero-trend') ? ' kpi-hero-trend' : '';
         if (curr == null || prev == null || typeof curr !== 'number' || typeof prev !== 'number' || isNaN(curr) || isNaN(prev)) {
             el.textContent = '';
+            el.title = '';
             el.className = 'metric-trend' + extra;
             return;
         }
+        // Прошлый период на нуле — процента роста не существует. Раньше здесь
+        // рисовалось «↑ 100%», из-за чего у нового кабинета весь дашборд
+        // выглядел как рекордный рост, хотя сравнивать было не с чем.
+        if (prev === 0) {
+            el.textContent = curr === 0 ? '' : '—';
+            el.title = curr === 0 ? '' : 'За прошлый период данных нет — сравнивать не с чем';
+            el.className = 'metric-trend flat' + extra;
+            return;
+        }
+        el.title = '';
         const diff = curr - prev;
-        const pct = prev === 0 ? (curr > 0 ? 100 : curr < 0 ? -100 : 0) : (diff / Math.abs(prev)) * 100;
+        const pct = (diff / Math.abs(prev)) * 100;
         const flat = Math.abs(pct) < 0.4;
         const up = pct > 0;
         const inv = inverse || el.hasAttribute('data-trend-inverse');
@@ -11179,6 +11190,7 @@
         document.querySelectorAll('.metric-trend').forEach(el => {
             const extra = el.classList.contains('kpi-hero-trend') ? ' kpi-hero-trend' : '';
             el.textContent = '';
+            el.title = '';
             el.className = 'metric-trend' + extra;
         });
     }
@@ -11818,14 +11830,18 @@
         showFinanceNote('');
 
         if (prev) {
+            // Остатки в базе лежат только на сегодня — истории по складам нет,
+            // поэтому тренд по остаткам не строим (раньше на карточку попадало
+            // «без изменений», хотя сравнивались одни и те же цифры).
             const real = (agg) => ({
                 ordersSum: Number(agg?.orders_sum || 0),
                 ordersCount: Number(agg?.orders_count || 0),
                 returnsSum: Number(agg?.returns_count || 0),
                 adsSum: Math.round(Number(agg?.ads_sum || 0)),
-                stockTotal: Number(totalStock) || 0,
             });
             applyMetricTrends(real(cur), real(prev));
+        } else {
+            clearAllMetricTrends();
         }
     }
 

@@ -2043,4 +2043,53 @@ assert.ok(
     'advertising-sync must skip finished campaigns so every cabinet fits the time budget'
 );
 
+// Пустой прошлый период рисовал «↑ 100%» — у нового кабинета весь дашборд
+// выглядел как рекордный рост, хотя сравнивать было не с чем.
+{
+    const start = html.indexOf('function setMetricTrend');
+    const end = html.indexOf('function clearAllMetricTrends');
+    assert.ok(start > 0 && end > start, 'setMetricTrend must be in dashboard.html');
+    const src = html.slice(start, end);
+    assert.ok(!/curr > 0 \? 100/.test(src), 'рост с нуля нельзя выдавать за 100%');
+
+    const setMetricTrend = new Function(`${src}; return setMetricTrend;`)();
+    const fakeEl = () => ({
+        textContent: 'старое',
+        title: 'старое',
+        className: 'metric-trend up',
+        classList: { contains: () => false },
+        hasAttribute: () => false,
+    });
+
+    const fromZero = fakeEl();
+    setMetricTrend(fromZero, 120000, 0);
+    assert.strictEqual(fromZero.textContent, '—', 'нет базы сравнения — прочерк, а не процент');
+    assert.match(fromZero.title, /данных нет/, 'подсказка объясняет прочерк');
+    assert.strictEqual(fromZero.className, 'metric-trend flat');
+
+    const bothZero = fakeEl();
+    setMetricTrend(bothZero, 0, 0);
+    assert.strictEqual(bothZero.textContent, '', 'ноль к нулю — пусто');
+
+    const grew = fakeEl();
+    setMetricTrend(grew, 150, 100);
+    assert.strictEqual(grew.textContent, '↑ 50.0%');
+    assert.strictEqual(grew.title, '', 'подсказка от прошлого рендера не должна залипать');
+
+    const noData = fakeEl();
+    setMetricTrend(noData, 150, null);
+    assert.strictEqual(noData.textContent, '');
+    assert.strictEqual(noData.title, '');
+}
+
+// Остатки лежат только на сегодня — тренд по ним сравнивал число с самим собой.
+{
+    const start = html.indexOf('function updateDashboardFromDB');
+    const body = html.slice(start, start + 2500);
+    assert.ok(!/stockTotal: Number\(totalStock\)/.test(body),
+        'не сравнивать остатки с теми же остатками');
+    assert.ok(/else \{\s*clearAllMetricTrends\(\);/.test(body),
+        'без прошлого периода тренды прошлого кабинета надо гасить');
+}
+
 console.log('dashboard_html_test: ok');
