@@ -2128,4 +2128,26 @@ assert.ok(
         'без прошлого периода тренды прошлого кабинета надо гасить');
 }
 
+// Страница грузит не исходники, а собранные /dist/<имя>.<хэш>.min.js. Правку в
+// rnp-module.js однажды закоммитили без пересборки, и локально проверялся
+// старый код: на проде Vercel собирает сам, а тут — то, что лежит в репозитории.
+{
+    const crypto = require('node:crypto');
+    const esbuild = require('esbuild');
+    const stale = [];
+    for (const name of ['dashboard-charts.js', 'rnp-module.js', 'wb-formulas.js',
+        'ads-command-center.js', 'goods-catalog.js']) {
+        const built = esbuild.buildSync({
+            entryPoints: [path.join(__dirname, name)],
+            bundle: false, minify: true, format: 'iife', target: ['es2018'],
+            write: false, logLevel: 'silent',
+        }).outputFiles[0].contents;
+        const hash = crypto.createHash('sha256').update(built).digest('hex').slice(0, 10);
+        const expected = `${name.replace(/\.js$/, '')}.${hash}.min.js`;
+        if (!html.includes(`/dist/${expected}`)) stale.push(name);
+        else if (!fs.existsSync(path.join(__dirname, 'dist', expected))) stale.push(name + ' (нет файла)');
+    }
+    assert.deepStrictEqual(stale, [], 'dist отстал от исходников — запустите npm run build');
+}
+
 console.log('dashboard_html_test: ok');
