@@ -1,4 +1,4 @@
-/** Вопросы WB «когда поступит?» → короткий реплай в Telegram → ответ покупателю. */
+/** Вопросы WB → короткий реплай в Telegram → полный ответ покупателю. */
 
 import { FEEDBACKS_API, wbSend } from './wb-agent-wow.ts';
 
@@ -110,15 +110,105 @@ export function buildWbRestockAnswer(when: string): string {
     return `Здравствуйте! Этот товар будет в наличии ${normalizeWhenPhrase(when)}.`;
 }
 
-/** Срок → шаблон; свой текст реплая на карточку уходит на WB как есть. */
-export function resolveRestockAnswer(raw: string): { when: string; wbText: string } | null {
+export type QuestionTopic = 'restock' | 'lining' | 'height' | 'model' | 'size' | 'color' | 'compose' | 'general';
+
+export function isUselessStaffReply(raw: string): boolean {
+    const t = normalizeReply(raw).toLowerCase().replace(/ё/g, 'е');
+    return !t || /^(хз|нз|не знаю|\?+|-+|\.+)$/i.test(t);
+}
+
+export function inferQuestionTopic(text: string): QuestionTopic {
+    const t = String(text || '').toLowerCase().replace(/ё/g, 'е');
+    if (isRestockQuestion(t)) return 'restock';
+    if (/подклад/.test(t)) return 'lining';
+    if (/рост/.test(t)) return 'height';
+    if (/параметр|обхват|на фото/.test(t)) return 'model';
+    if (/размер/.test(t)) return 'size';
+    if (/состав|ткан/.test(t)) return 'compose';
+    if (/цвет/.test(t)) return 'color';
+    return 'general';
+}
+
+function inferPolarity(reply: string): 'yes' | 'no' | null {
+    const t = normalizeReply(reply).toLowerCase().replace(/ё/g, 'е');
+    if (t.split(/\s+/).filter(Boolean).length > 2) return null;
+    if (/^(да+|yes|есть|ага|угу|конечно)(?:\s|$)/i.test(t) || t === '+') return 'yes';
+    if (/^(нет|нету|no)(?:\s|$)/i.test(t) || t === '-') return 'no';
+    return null;
+}
+
+function extractHeightCm(reply: string): string | null {
+    const m = normalizeReply(reply).match(/\b(1[4-9]\d|200)\b/);
+    return m ? m[1] : null;
+}
+
+export function greetBuyerAnswer(body: string): string {
+    const t = normalizeReply(body).replace(/^[,\s]+/, '');
+    if (!t) return 'Здравствуйте!';
+    if (/^здравствуйте/i.test(t)) return ensureSentence(t);
+    const cap = t.charAt(0).toLocaleUpperCase('ru-RU') + t.slice(1);
+    return ensureSentence(`Здравствуйте! ${cap}`);
+}
+
+function ensureSentence(raw: string): string {
+    const t = normalizeReply(raw);
+    if (!t) return t;
+    if (/[.!?…]$/.test(t)) return t;
+    return `${t}.`;
+}
+
+function expandFact(topic: QuestionTopic, reply: string): string {
+    const polarity = inferPolarity(reply);
+    if (topic === 'lining') {
+        if (polarity === 'yes') return 'Да, подклад есть';
+        if (polarity === 'no') return 'Нет, подклада нет';
+        return reply;
+    }
+    if (topic === 'height') {
+        const cm = extractHeightCm(reply);
+        if (cm && normalizeReply(reply).split(/\s+/).length <= 4) {
+            return `Костюм рассчитан на рост ${cm}`;
+        }
+        return reply;
+    }
+    if (topic === 'model') {
+        if (normalizeReply(reply).length >= 12) return reply;
+        return `Параметры модели на фото: ${reply}`;
+    }
+    if (topic === 'restock') {
+        if (polarity === 'yes') return 'Да, этот товар будет в наличии';
+        if (polarity === 'no') return 'К сожалению, точной даты поступления пока нет';
+        return reply;
+    }
+    if (topic === 'size') {
+        if (polarity === 'yes') return 'Да, такой размер есть';
+        if (polarity === 'no') return 'Такого размера сейчас нет';
+        return reply;
+    }
+    return reply;
+}
+
+/** Короткий реплай менеджера → письмо покупателю. Без вопроса — только срок или уже длинный текст. */
+export function resolveStaffAnswer(
+    raw: string,
+    questionText = '',
+): { when: string; wbText: string } | null {
     const text = normalizeReply(raw);
-    if (!text) return null;
+    if (!text || isUselessStaffReply(text)) return null;
     const when = extractRestockWhen(text);
     if (when) return { when, wbText: buildWbRestockAnswer(when) };
+    const asked = String(questionText || '').trim();
+    if (asked) {
+        return { when: text.slice(0, 120), wbText: greetBuyerAnswer(expandFact(inferQuestionTopic(asked), text)) };
+    }
     const words = text.split(/\s+/).filter(Boolean);
     if (text.length < 8 && words.length < 3) return null;
-    return { when: text.slice(0, 120), wbText: text };
+    return { when: text.slice(0, 120), wbText: greetBuyerAnswer(text) };
+}
+
+/** Срок → шаблон; иначе короткий реплай дополняем до письма покупателю. */
+export function resolveRestockAnswer(raw: string, questionText = ''): { when: string; wbText: string } | null {
+    return resolveStaffAnswer(raw, questionText);
 }
 
 export function cabinetLegalName(name: string): string {
@@ -181,6 +271,17 @@ export function pickRestockQuestions(payload: unknown, maxAgeDays = 45): Restock
     ));
 }
 
+/** Все свежие неотвеченные вопросы — в Telegram, не только про поступление. */
+export function pickOpenQuestions(payload: unknown, maxAgeDays = 45): RestockQuestion[] {
+    return collectQuestions(payload).filter((q) => (
+        Boolean(q.text) && isFreshQuestion(q.createdDate, maxAgeDays)
+    ));
+}
+
+export function questionCardKind(text: string): 'поступление' | 'вопрос' {
+    return isRestockQuestion(text) ? 'поступление' : 'вопрос';
+}
+
 export function isFreshQuestion(createdDate: string, maxAgeDays = 45): boolean {
     if (!createdDate) return true;
     const ms = Date.parse(createdDate);
@@ -207,7 +308,7 @@ export function formatRestockTelegramCard(opts: {
     const who = opts.mention ? `${opts.mention} ` : '';
     const name = String(q.article || q.product || '').trim() || (q.nmId ? String(q.nmId) : 'товар');
     const ask = shortQuestionQuote(q.text);
-    const lines = [`${who}поступление`, name];
+    const lines = [`${who}${questionCardKind(q.text)}`, name];
     if (ask) lines.push(`«${ask}»`);
     return lines.join('\n');
 }
@@ -238,21 +339,23 @@ export function parseRestockCardMeta(text: string): RestockCardMeta | null {
     return { questionId: m[1], cabinetId: m[2] };
 }
 
-/** Карточка Карины: «@maraWuW поступление / артикул / вопрос». Без #nrq. */
+const CARD_KIND_RE = /поступление|вопрос/i;
+
+/** Карточка Карины: «@maraWuW поступление|вопрос / артикул / цитата». Без #nrq. */
 export function isRestockCardText(text: string): boolean {
     const t = String(text || '').trim();
     if (!t) return false;
     if (parseRestockCardMeta(t)) return true;
     // \b не работает с кириллицей — после «поступление» обычный пробел/перевод строки.
-    return /(?:^|\n)\s*@?\S*[^\S\n]*поступление(?:\s|$)/i.test(t);
+    return /(?:^|\n)\s*@?\S*[^\S\n]*(?:поступление|вопрос)(?:\s|$)/i.test(t);
 }
 
 export function restockCardArticleLine(text: string): string {
     const lines = String(text || '').split(/\n/).map((l) => l.trim()).filter(Boolean);
-    const start = lines.findIndex((l) => /поступление/i.test(l));
+    const start = lines.findIndex((l) => CARD_KIND_RE.test(l));
     if (start < 0) return '';
     const next = lines[start + 1] || '';
-    if (!next || /^[«"]/.test(next) || /поступление/i.test(next)) return '';
+    if (!next || /^[«"]/.test(next) || CARD_KIND_RE.test(next)) return '';
     return next;
 }
 
@@ -398,6 +501,39 @@ export function unwrapTelegramMessage(update: unknown): {
     };
 }
 
+function finishInbound(
+    input: {
+        chatId: string;
+        messageId: number;
+        text: string;
+    },
+    row: Pick<PendingRestockRow, 'question_id' | 'cabinet_id' | 'question_text'>,
+    via: 'card_meta' | 'tg_message' | 'pending_match' | 'single_pending',
+): RestockInboundDecision {
+    const chatId = String(input.chatId || '');
+    const replyToId = input.messageId;
+    const resolved = resolveStaffAnswer(input.text, String(row.question_text || ''));
+    if (!resolved) {
+        return {
+            action: 'hint',
+            chatId,
+            replyToId,
+            questionId: row.question_id,
+            cabinetId: row.cabinet_id,
+        };
+    }
+    return {
+        action: 'answer',
+        questionId: row.question_id,
+        cabinetId: row.cabinet_id,
+        when: resolved.when,
+        wbText: resolved.wbText,
+        chatId,
+        replyToId,
+        via,
+    };
+}
+
 export function decideRestockInbound(input: {
     chatId: string;
     messageId: number;
@@ -410,111 +546,46 @@ export function decideRestockInbound(input: {
 }): RestockInboundDecision {
     const chatId = String(input.chatId || '');
     const replyToId = input.messageId;
-    const resolved = resolveRestockAnswer(input.text);
     const meta = parseRestockCardMeta(input.replyToText);
 
     if (meta) {
-        if (!resolved) {
-            return {
-                action: 'hint',
-                chatId,
-                replyToId,
-                questionId: meta.questionId,
-                cabinetId: meta.cabinetId,
-            };
-        }
-        return {
-            action: 'answer',
-            questionId: meta.questionId,
-            cabinetId: meta.cabinetId,
-            when: resolved.when,
-            wbText: resolved.wbText,
-            chatId,
-            replyToId,
-            via: 'card_meta',
+        const row = input.pending.find((r) => r.question_id === meta.questionId) || {
+            question_id: meta.questionId,
+            cabinet_id: meta.cabinetId,
+            question_text: '',
         };
+        return finishInbound(input, row, 'card_meta');
     }
 
     const byTg = input.replyToMessageId
         ? input.pending.find((r) => Number(r.telegram_message_id) === Number(input.replyToMessageId))
         : null;
-    if (byTg) {
-        if (!resolved) {
-            return {
-                action: 'hint',
-                chatId,
-                replyToId,
-                questionId: byTg.question_id,
-                cabinetId: byTg.cabinet_id,
-            };
-        }
-        return {
-            action: 'answer',
-            questionId: byTg.question_id,
-            cabinetId: byTg.cabinet_id,
-            when: resolved.when,
-            wbText: resolved.wbText,
-            chatId,
-            replyToId,
-            via: 'tg_message',
-        };
-    }
+    if (byTg) return finishInbound(input, byTg, 'tg_message');
 
-    if (input.replyToMessageId && resolved) {
+    if (input.replyToMessageId) {
         const matched = matchPendingByText(input.replyToText, input.pending);
         const row = input.pending.find((r) => r.question_id === matched);
-        if (row) {
-            return {
-                action: 'answer',
-                questionId: row.question_id,
-                cabinetId: row.cabinet_id,
-                when: resolved.when,
-                wbText: resolved.wbText,
-                chatId,
-                replyToId,
-                via: 'pending_match',
-            };
-        }
+        if (row) return finishInbound(input, row, 'pending_match');
     }
 
+    const resolved = resolveStaffAnswer(input.text, '');
     const owner = String(input.ownerUsername || '').replace(/^@/, '').toLowerCase();
     const from = String(input.fromUsername || '').replace(/^@/, '').toLowerCase();
     const fromOwner = Boolean(owner && from && owner === from);
 
     if (resolved && isWhenOnlyReply(input.text) && input.pending.length === 1) {
-        const row = input.pending[0];
-        return {
-            action: 'answer',
-            questionId: row.question_id,
-            cabinetId: row.cabinet_id,
-            when: resolved.when,
-            wbText: resolved.wbText,
-            chatId,
-            replyToId,
-            via: 'single_pending',
-        };
+        return finishInbound(input, input.pending[0], 'single_pending');
     }
 
     if (fromOwner && isWhenOnlyReply(input.text) && resolved) {
         const matched = matchPendingByText(input.replyToText || input.text, input.pending);
         const row = input.pending.find((r) => r.question_id === matched);
-        if (row) {
-            return {
-                action: 'answer',
-                questionId: row.question_id,
-                cabinetId: row.cabinet_id,
-                when: resolved.when,
-                wbText: resolved.wbText,
-                chatId,
-                replyToId,
-                via: 'pending_match',
-            };
-        }
+        if (row) return finishInbound(input, row, 'pending_match');
     }
 
     const repliedToCard = Boolean(input.replyToMessageId && isRestockCardText(input.replyToText));
     if (repliedToCard) {
-        if (!resolved) {
+        if (!resolveStaffAnswer(input.text, input.replyToText)) {
             return { action: 'hint', chatId, replyToId };
         }
         return { action: 'unmatched', chatId, replyToId };

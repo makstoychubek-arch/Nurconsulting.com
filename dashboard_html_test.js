@@ -1452,8 +1452,8 @@ assert.ok(
     'Agents tab must list all ten wow functions'
 );
 assert.ok(
-    html.includes('Или ответьте в Telegram реплаем: завтра / через неделю / через 2 недели'),
-    'questions panel must hint the Telegram restock reply'
+    html.includes('Или ответьте в Telegram коротко: завтра / да / 170'),
+    'questions panel must hint the Telegram short reply'
 );
 assert.ok(
     proxySrc.includes("case 'users_invite'") &&

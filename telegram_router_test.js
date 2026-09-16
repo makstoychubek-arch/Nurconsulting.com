@@ -25,9 +25,9 @@ assert.ok(apply.includes(".eq('status', 'pending')"),
 assert.ok(apply.includes('already_answered'), 'already-sent cards can still receive a heart');
 assert.ok(!router.includes('-1004460164885'), 'router must not hardcode the team chat');
 
-assert.ok(html.includes('Или ответьте в Telegram реплаем: завтра / через неделю / через 2 недели'),
+assert.ok(html.includes('Или ответьте в Telegram коротко: завтра / да / 170'),
     'agents questions panel hints the Telegram reply');
-assert.ok(html.includes('placeholder="Ответ покупателю или в Telegram: завтра / через неделю"'),
+assert.ok(html.includes('placeholder="Ответ покупателю или в Telegram: завтра / да / 170"'),
     'question textarea mentions Telegram');
 
 console.log('telegram_router_test: ok');

@@ -27,6 +27,7 @@ assert.ok(poll.includes('parseNewFeedbacksQuestions'), 'poll parses hasNewQuesti
 assert.ok(poll.includes('questions?isAnswered=false'), 'poll lists unanswered WB questions');
 assert.ok(poll.includes('wb_restock_questions'), 'poll stores pending cards');
 assert.ok(poll.includes('formatRestockTelegramCard'), 'poll sends restock card');
+assert.ok(poll.includes('pickOpenQuestions'), 'poll posts every open WB question, not only restock');
 
 assert.ok(router.includes('verify') || cfg.includes('verify_jwt = false'), 'router is callable without user JWT');
 assert.ok(cfg.includes('[functions.telegram-router]') && cfg.includes('verify_jwt = false'),
@@ -94,5 +95,7 @@ assert.ok(docs.includes('через неделю'), 'user-facing doc explains th
 assert.ok(docs.includes('TELEGRAM_CHAT_REVIEWS'), 'doc names the reviews chat');
 assert.ok(docs.includes('telegram-router'), 'doc names Karina webhook path');
 assert.ok(shared.includes('isRestockCardText'), 'short restock cards match without #nrq');
+assert.ok(shared.includes('resolveStaffAnswer') && shared.includes('greetBuyerAnswer'),
+    'short staff replies are expanded into a buyer letter');
 
 console.log('wb_restock_poll_test: ok');
