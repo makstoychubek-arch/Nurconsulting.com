@@ -28,8 +28,14 @@ assert.ok(fn.includes('funnel_only'),
     'later morning pass can refresh funnel without orders or Telegram');
 assert.ok(fn.includes("notify = funnelOnly || groupAll ? false"),
     'funnel_only / group=all must not spam the team chat');
-assert.ok(fn.includes("if (wantFunnel)"),
-    'morning fill must still refresh the WB funnel if orders fail');
+assert.ok(fn.includes("wantFunnel = funnelOnly || body.funnel === true"),
+    '06/07/08 skip funnel so Karina can say готово before the edge timeout');
+assert.ok(fn.includes('finally'),
+    'Karina must send готово even if orders/funnel throw after начинаю');
+assert.ok(fn.includes('уркунбаев') && fn.includes('айлин') && fn.includes('бейшеев') && fn.includes('айзада'),
+    'morning groups match legal IP names, not only Baza/Elium/Zevina latin');
+assert.ok(fn.includes('auto-sync-4h'),
+    'Zevina schedule documents the 00:00 UTC collision with auto-sync');
 assert.ok(fn.includes("group: 'zevina'|'baza'|'elium'|'all'"),
     'catch-up can pass group=all for a silent funnel refresh');
 assert.ok(fn.includes('orders: WB вернул не массив'), 'empty/non-array WB payload must not wipe the day');
@@ -98,5 +104,16 @@ assert.ok(funnelMig.includes('rnp-morning-funnel-elium-09-bishkek') && funnelMig
     'Elium funnel refresh at 09:30 Bishkek');
 assert.ok(funnelMig.includes('"funnel_only":true') && funnelMig.includes('"notify":false'),
     '09:00 funnel pass must not post to Telegram');
+
+const zevinaShift = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260916140000_rnp_morning_zevina_off_autosync.sql'),
+    'utf8',
+);
+assert.ok(zevinaShift.includes('rnp-morning-zevina-0620-bishkek') && zevinaShift.includes("'20 0 * * *'"),
+    'Zevina morning fill at 06:20 Bishkek, after auto-sync-4h');
+assert.ok(zevinaShift.includes('rnp-morning-zevina-06-bishkek'),
+    'old 06:00 Zevina cron is unscheduled');
+assert.ok(zevinaShift.includes('"funnel":false'),
+    '06:20 Zevina does not wait on the WB funnel before Telegram');
 
 console.log('rnp_morning_fill_test: ok');

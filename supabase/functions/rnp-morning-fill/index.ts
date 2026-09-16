@@ -4,13 +4,17 @@
 // Пишет в тим от имени Карины.
 //
 // Cron:
-//   00:00 UTC = 06:00 Бишкек — Zevina
+//   00:20 UTC = 06:20 Бишкек — Zevina (не 06:00: в 00:00 UTC уже
+//              auto-sync-4h и sync_daily_stats, Зевина ловит 429 и
+//              не успевает написать «готово»)
 //   01:15 UTC = 07:15 Бишкек — Baza (сдвиг с 07:00, чтобы не столкнуться
 //              с daily-sales-report того же токена)
 //   02:00 UTC = 08:00 Бишкек — Elium
 //   03:00 / 03:15 / 03:30 UTC = 09:00–09:30 Бишкек — funnel_only, без Telegram.
 //     К 06:00 МСК вчерашняя воронка карточки уже стабильна; иначе в РНП
 //     остаётся count из statistics-api (66 вместо 47 на графике WB).
+// 06/07/08 не ждут воронку: у Зевины ~170 арт. × 21с/чанк убивает
+// edge function до сообщения «готово» — в тиме «начинаю» и тишина.
 // Остатки по дням не пишет: колонка дня фиксируется в 03:00 Бишкек (00:00 МСК)
 // функцией goods-daily-eod — после закрытия продаж за вчера.
 //
@@ -34,9 +38,9 @@ const ORDERS_MIN_INTERVAL_MS = 61000;
 const lastOrderFetchAt = new Map<string, number>();
 
 const GROUPS: Record<string, { title: string; match: (name: string) => boolean }> = {
-    zevina: { title: 'Zevina', match: (n) => /zevina|зевин/i.test(n) },
-    baza: { title: 'Baza', match: (n) => /^baza$/i.test(n.trim()) },
-    elium: { title: 'Elium', match: (n) => /elium|элиум/i.test(n) },
+    zevina: { title: 'Zevina', match: (n) => /zevina|зевин|уркунбаев|ailin|айлин/i.test(n) },
+    baza: { title: 'Baza', match: (n) => /^baza$/i.test(n.trim()) || /бейшеев/i.test(n) },
+    elium: { title: 'Elium', match: (n) => /elium|элиум|айзада/i.test(n) },
 };
 
 type Admin = ReturnType<typeof createClient>;
@@ -65,7 +69,9 @@ Deno.serve(async (req) => {
     const alsoToday = body.today === false ? [] : (fillDate === today ? [] : [today]);
     const days = datesIn.length ? datesIn : [fillDate, ...alsoToday];
     const notify = funnelOnly || groupAll ? false : body.notify !== false;
-    const wantFunnel = funnelOnly || body.funnel !== false;
+    // Воронка по умолчанию выкл: 06/07/08 должны успеть написать «готово».
+    // Явный funnel:true или funnel_only (09:00) — отдельный прогон.
+    const wantFunnel = funnelOnly || body.funnel === true;
 
     const admin = createClient(supabaseUrl, serviceKey);
     const { data: cabinets, error: cabErr } = await admin
@@ -83,7 +89,11 @@ Deno.serve(async (req) => {
     if (!targets.length) return json({ error: `Нет кабинетов для группы ${groupKey}` }, 400);
 
     const groupTitle = groupAll ? 'все кабинеты' : (group?.title || groupKey);
-    const tg = notify ? await sendKarina(startText(groupTitle, fillDate, targets.map((c) => c.name))) : { ok: true, skipped: true };
+    const tg: { start: Record<string, unknown>; done: Record<string, unknown> } = {
+        start: { ok: true, skipped: true },
+        done: { ok: true, skipped: true },
+    };
+    if (notify) tg.start = await sendKarina(startText(groupTitle, fillDate, targets.map((c) => c.name)));
 
     const results: Record<string, unknown>[] = targets.map((cab) => ({
         cabinet: cab.name,
@@ -92,83 +102,90 @@ Deno.serve(async (req) => {
         status: 'pending',
     }));
 
-    // День снаружи, кабинеты параллельно: у Зевины разные токены, ждать 61с
-    // дважды подряд не нужно — иначе edge function не укладывается в лимит.
-    // funnel_only — только воронка карточки, без заказов и Telegram.
-    if (!funnelOnly) {
-        for (const day of days) {
-            await Promise.all(targets.map(async (cab, i) => {
-                const row = results[i];
-                if (row.status === 'error') return;
-                const token = sanitizeWbToken(cab.wb_token);
-                if (!token || token.length < 50) {
-                    row.status = 'error';
-                    row.error = 'нет WB-токена';
-                    return;
-                }
-                try {
-                    const orders = await fetchSupplierOrdersExactDay(token, day);
-                    await writeOrderRows(admin, cab.id, day, orders);
-                    (row.orders as Record<string, number>)[day] = orders.filter((o) => !o.isReturn).length;
-                } catch (e) {
-                    row.status = 'error';
-                    row.error = `${day}: ${(e as Error).message}`;
-                }
-            }));
+    try {
+        // День снаружи, кабинеты параллельно: у Зевины разные токены, ждать 61с
+        // дважды подряд не нужно — иначе edge function не укладывается в лимит.
+        // funnel_only — только воронка карточки, без заказов и Telegram.
+        if (!funnelOnly) {
+            for (const day of days) {
+                await Promise.all(targets.map(async (cab, i) => {
+                    const row = results[i];
+                    if (row.status === 'error') return;
+                    const token = sanitizeWbToken(cab.wb_token);
+                    if (!token || token.length < 50) {
+                        row.status = 'error';
+                        row.error = 'нет WB-токена';
+                        return;
+                    }
+                    try {
+                        const orders = await fetchSupplierOrdersExactDay(token, day);
+                        await writeOrderRows(admin, cab.id, day, orders);
+                        (row.orders as Record<string, number>)[day] = orders.filter((o) => !o.isReturn).length;
+                    } catch (e) {
+                        row.status = 'error';
+                        row.error = `${day}: ${(e as Error).message}`;
+                    }
+                }));
+            }
         }
-    }
 
-    await Promise.all(targets.map(async (cab, i) => {
-        const row = results[i];
-        const token = sanitizeWbToken(cab.wb_token);
-        const ordersFailed = row.status === 'error';
-        if (!token || token.length < 50) {
-            row.status = 'error';
-            row.error = 'нет WB-токена';
-            return;
-        }
-        try {
-            if (!funnelOnly && !ordersFailed) {
-                row.rnp_daily = await rebuildRnpDaily(admin, cab.id, days);
+        await Promise.all(targets.map(async (cab, i) => {
+            const row = results[i];
+            const token = sanitizeWbToken(cab.wb_token);
+            const ordersFailed = row.status === 'error';
+            if (!token || token.length < 50) {
+                row.status = 'error';
+                row.error = 'нет WB-токена';
+                return;
             }
-            if (!funnelOnly) {
-                try {
-                    const stocks = await syncStocksViaAutoSync(supabaseUrl, serviceKey, cab.id);
-                    row.stocks_fbo = stocks.fbo;
-                    row.stocks_fbs = stocks.fbs;
-                    row.stocks_error = stocks.error || null;
-                } catch (e) {
-                    row.stocks_fbo = 0;
-                    row.stocks_fbs = 0;
-                    row.stocks_error = (e as Error).message;
+            try {
+                if (!funnelOnly && !ordersFailed) {
+                    row.rnp_daily = await rebuildRnpDaily(admin, cab.id, days);
                 }
-            }
-            if (wantFunnel) {
-                try {
-                    row.funnel_days = await syncFunnelLast7Days(admin, cab.id, token);
-                } catch (e) {
-                    row.funnel_error = (e as Error).message;
+                if (!funnelOnly) {
+                    try {
+                        const stocks = await syncStocksViaAutoSync(supabaseUrl, serviceKey, cab.id);
+                        row.stocks_fbo = stocks.fbo;
+                        row.stocks_fbs = stocks.fbs;
+                        row.stocks_error = stocks.error || null;
+                    } catch (e) {
+                        row.stocks_fbo = 0;
+                        row.stocks_fbs = 0;
+                        row.stocks_error = (e as Error).message;
+                    }
+                }
+                if (wantFunnel) {
+                    try {
+                        row.funnel_days = await syncFunnelLast7Days(admin, cab.id, token);
+                    } catch (e) {
+                        row.funnel_error = (e as Error).message;
+                        row.funnel_days = 0;
+                    }
+                } else {
                     row.funnel_days = 0;
                 }
-            } else {
-                row.funnel_days = 0;
-            }
-            if (funnelOnly && row.funnel_error) {
+                if (funnelOnly && row.funnel_error) {
+                    row.status = 'error';
+                    row.error = row.funnel_error;
+                } else if (funnelOnly || !ordersFailed) {
+                    row.articles = await countActiveArticles(admin, cab.id);
+                    row.status = 'done';
+                }
+            } catch (e) {
                 row.status = 'error';
-                row.error = row.funnel_error;
-            } else if (funnelOnly || !ordersFailed) {
-                row.articles = await countActiveArticles(admin, cab.id);
-                row.status = 'done';
+                row.error = (e as Error).message;
             }
-        } catch (e) {
-            row.status = 'error';
-            row.error = (e as Error).message;
+        }));
+    } finally {
+        // Даже если заказы/воронка упали — не оставлять тим с «начинаю» без «готово».
+        if (notify) {
+            try {
+                tg.done = await sendKarina(doneText(groupTitle, fillDate, today, results));
+            } catch (e) {
+                tg.done = { ok: false, error: (e as Error).message };
+            }
         }
-    }));
-
-    const done = notify
-        ? await sendKarina(doneText(groupTitle, fillDate, today, results))
-        : { ok: true, skipped: true };
+    }
 
     return json({
         ok: results.every((r) => r.status === 'done'),
@@ -177,7 +194,7 @@ Deno.serve(async (req) => {
         fill_date: fillDate,
         today,
         results,
-        telegram: { start: tg, done },
+        telegram: tg,
         ms: Date.now() - started,
     });
 });
