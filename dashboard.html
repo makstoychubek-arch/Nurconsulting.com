@@ -3600,6 +3600,84 @@
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
         .space-empty-btn:hover { transform: none; box-shadow: none; background: #222; }
+        .space-empty-btn[disabled] { opacity: 0.6; cursor: default; }
+        /* Онбординг: поле токена и инструкция прямо на экране приветствия,
+           чтобы новому клиенту не приходилось искать, куда вставить API. */
+        .onb-card { max-width: 560px; text-align: left; padding: 36px 32px; }
+        .onb-card .space-empty-icon, .onb-card .space-empty-title { margin-left: 0; margin-right: 0; }
+        .onb-card .space-empty-title, .onb-card .space-empty-sub { text-align: left; }
+        .onb-card .space-empty-sub { margin-bottom: 20px; }
+        .onb-steps {
+            margin: 0 0 22px;
+            padding: 16px 18px;
+            border-radius: 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            counter-reset: onb;
+        }
+        .onb-steps li {
+            list-style: none;
+            position: relative;
+            padding-left: 30px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+        .onb-steps li + li { margin-top: 10px; }
+        .onb-steps li::before {
+            counter-increment: onb;
+            content: counter(onb);
+            position: absolute;
+            left: 0;
+            top: 1px;
+            width: 20px;
+            height: 20px;
+            border-radius: 7px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .onb-steps a { color: var(--accent); text-decoration: none; font-weight: 600; }
+        .onb-steps a:hover { text-decoration: underline; }
+        .onb-steps code {
+            background: var(--surface-solid, var(--bg));
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1px 6px;
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+        .onb-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .onb-input {
+            width: 100%;
+            border-radius: 12px;
+            padding: 11px 14px;
+            font-size: 13px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            margin-bottom: 14px;
+        }
+        .onb-input:focus { outline: none; border-color: var(--accent); }
+        #onb-token { font-family: monospace; }
+        .onb-msg { font-size: 13px; line-height: 1.5; margin-bottom: 14px; display: none; }
+        .onb-msg.show { display: block; }
+        .onb-msg[data-tone="error"] { color: var(--red, #ef4444); }
+        .onb-msg[data-tone="info"] { color: var(--text-muted); }
+        .onb-msg[data-tone="ok"] { color: var(--green, #22c55e); }
+        @media (max-width: 640px) {
+            .onb-card { padding: 26px 20px; }
+        }
         #add-cabinet-modal {
             position: fixed;
             inset: 0;
@@ -4893,13 +4971,21 @@
 
         <div class="flex-1 overflow-y-auto p-6 main-content">
         <div id="space-empty-state" class="space-empty-state hidden">
-            <div class="space-empty-card">
+            <div class="space-empty-card onb-card">
                 <img class="space-empty-icon logo-nr logo-nr--lg" src="/icons/logo-nr.svg" alt="NR" width="56" height="56">
-                <div class="space-empty-title">Добро пожаловать в NR Space</div>
-                <p class="space-empty-sub">Подключите магазин Wildberries по API, чтобы начать работу.</p>
-                <button type="button" class="space-empty-btn" onclick="openAddCabinetModal()">
-                    <span style="font-size:18px;line-height:1">+</span> Добавить кабинет
-                </button>
+                <div class="space-empty-title" id="onb-title">Добро пожаловать в NR Space</div>
+                <p class="space-empty-sub">Остался один шаг: подключите свой магазин Wildberries по API-токену. Мы проверим токен и сразу начнём собирать данные.</p>
+                <ol class="onb-steps">
+                    <li>Откройте <a href="https://seller.wildberries.ru/supplier-settings/access-to-api" target="_blank" rel="noopener">Настройки → Доступ к API</a> в кабинете WB.</li>
+                    <li>Нажмите «Создать новый токен» и отметьте категории <code>Статистика</code>, <code>Контент</code>, <code>Аналитика</code>, <code>Продвижение</code>, <code>Цены и скидки</code>.</li>
+                    <li>Скопируйте токен целиком и вставьте его сюда. Токен хранится только на сервере и виден лишь вам.</li>
+                </ol>
+                <label class="onb-label" for="onb-name">Название магазина</label>
+                <input type="text" id="onb-name" class="onb-input" placeholder="Например, Мой магазин" autocomplete="off">
+                <label class="onb-label" for="onb-token">API-токен Wildberries</label>
+                <input type="password" id="onb-token" class="onb-input" placeholder="eyJhbGciOiJFUzI1NiIsImtpZCI6..." autocomplete="off" spellcheck="false">
+                <div class="onb-msg" id="onb-msg" data-tone="info"></div>
+                <button type="button" class="space-empty-btn" id="onb-submit" onclick="submitOnboarding()">Подключить магазин</button>
             </div>
         </div>
         <div id="tab-dashboard" class="tab-content active space-y-6">
@@ -5884,7 +5970,7 @@
 
         <div id="tab-settings" class="tab-content">
             <div id="space-pending-banner" class="space-pending-banner hidden">
-                Ваш спейс ожидает активации администратором. Пока синхронизация с Wildberries и Edge-функции отключены.
+                Магазин ещё не подключён. Вставьте API-токен Wildberries на главном экране — после проверки токена все разделы откроются.
             </div>
             <div class="settings-section-tabs" id="settings-section-tabs">
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-profile" onclick="showSettingsSection('profile', this)">Профиль</div>
@@ -6394,6 +6480,9 @@
     // страницы, и они на секунду видят "приветствие новичка", хотя у них уже
     // подключены кабинеты — это и есть тот самый мигающий баг.
     let cabinetsLoaded = false;
+    // Клиент ещё не подключил магазин: показываем только экран онбординга и
+    // не дёргаем загрузчики данных, которым нечего грузить.
+    let onboardingMode = false;
 
     function isBetaStubOpen() {
         return !!document.getElementById('tab-beta-stub')?.classList.contains('active');
@@ -6437,11 +6526,75 @@
         if (!emptyEl || !mainContent) return;
 
         const tab = getCurrentActiveTab();
-        const showEmpty = cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tab) && !isBetaStubOpen();
+        // В режиме онбординга экран приветствия закрывает все вкладки: пока
+        // магазин не подключён, за ними нет ни одной цифры.
+        const showEmpty = onboardingMode
+            || (cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tab) && !isBetaStubOpen());
 
         emptyEl.classList.toggle('hidden', !showEmpty);
         mainContent.classList.toggle('empty-cabinet-mode', showEmpty);
         updateHeaderNav(tab);
+    }
+
+    function onboardingMessage(text, tone) {
+        const el = document.getElementById('onb-msg');
+        if (!el) return;
+        el.textContent = text || '';
+        el.dataset.tone = tone || 'info';
+        el.classList.toggle('show', !!text);
+    }
+
+    /**
+     * Подключение первого магазина. Токен проверяет сервер (onboard-cabinet):
+     * до подключения кабинета спейс ещё не активен, и wb-proxy проверить токен
+     * не может, а неверный токен раньше просто оставлял клиента с пустым сайтом.
+     */
+    async function submitOnboarding() {
+        const btn = document.getElementById('onb-submit');
+        const token = document.getElementById('onb-token')?.value || '';
+        const name = document.getElementById('onb-name')?.value.trim() || '';
+
+        if (!token.trim()) {
+            onboardingMessage('Вставьте API-токен из кабинета Wildberries.', 'error');
+            document.getElementById('onb-token')?.focus();
+            return;
+        }
+
+        if (btn) { btn.disabled = true; btn.textContent = 'Проверяем токен…'; }
+        onboardingMessage('Проверяем токен в Wildberries, это займёт несколько секунд.', 'info');
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) { onboardingMessage('Сессия истекла. Войдите заново.', 'error'); return; }
+
+            const res = await fetch(SUPABASE_URL + '/functions/v1/onboard-cabinet', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: 'Bearer ' + session.access_token,
+                },
+                body: JSON.stringify({ token: token.trim(), name }),
+            });
+            const out = await res.json().catch(() => ({}));
+
+            if (!res.ok || !out.ok) {
+                onboardingMessage(out.error || 'Не удалось подключить магазин. Попробуйте ещё раз.', 'error');
+                return;
+            }
+
+            onboardingMessage('Магазин подключён. Загружаем данные…', 'ok');
+            const tokenEl = document.getElementById('onb-token');
+            if (tokenEl) tokenEl.value = '';
+            try { localStorage.setItem('selected_cabinet_id', out.cabinet_id); } catch (_) {}
+
+            // Первая синхронизация идёт минутами, поэтому просто перезагружаем
+            // страницу: дальше клиент видит обычный дашборд со своими данными.
+            setTimeout(() => window.location.reload(), 900);
+        } catch (e) {
+            onboardingMessage('Сеть недоступна: ' + (e?.message || e), 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Подключить магазин'; }
+        }
     }
 
     function openAddCabinetModal() {
@@ -6520,9 +6673,16 @@
 
         if (space?.status === 'active') return true;
 
-        const code = space?.status === 'blocked' ? 'blocked' : 'access_denied';
-        await denyDashboardAccess(code);
-        return false;
+        if (space?.status === 'blocked') {
+            await denyDashboardAccess('blocked');
+            return false;
+        }
+
+        // Новый клиент (status=pending) раньше вылетал на /login?error=access_denied
+        // и не мог даже вставить свой токен. Пускаем его на экран онбординга:
+        // данных без кабинета всё равно нет, а подключить магазин он может сам.
+        onboardingMode = true;
+        return true;
     }
 
     function extractGoogleProfile(user) {
@@ -15448,7 +15608,7 @@
         isSuperAdmin = isSuperAdminUser(session.user);
         currentUserEmail = session.user.email || '';
         currentUserId = session.user.id || '';
-        currentSpaceStatus = 'active';
+        currentSpaceStatus = onboardingMode ? 'pending' : 'active';
 
         const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '—';
         const initial = name.charAt(0).toUpperCase();
