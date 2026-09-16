@@ -9,6 +9,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
+import { isServiceAuthorized } from '../_shared/service-auth.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -38,8 +39,7 @@ Deno.serve(async (req) => {
     const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
     const tgChatId = Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '';
 
-    const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ') || authHeader.replace('Bearer ', '') !== serviceKey) {
+    if (!isServiceAuthorized(req, serviceKey)) {
         return json({ error: 'Unauthorized' }, 401);
     }
 
