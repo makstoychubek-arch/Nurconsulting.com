@@ -2082,6 +2082,42 @@ assert.ok(
     assert.strictEqual(noData.title, '');
 }
 
+// Тренды приезжают в два прохода (база, потом отчёт) — второй не должен
+// стирать первый.
+{
+    const src = html.slice(
+        html.indexOf('const METRIC_TREND_DEFS'),
+        html.indexOf('function enrichMetricsWithStockExtras'));
+    const touched = [];
+    const applyMetricTrends = new Function('document', 'setMetricTrend',
+        `${src}; return applyMetricTrends;`)(
+        { querySelector: (sel) => ({ sel }) },
+        (el, c, p) => touched.push([typeof el === 'string' ? el : el.sel, c, p]));
+
+    applyMetricTrends({ ordersSum: 10 }, { ordersSum: 5 });
+    assert.deepStrictEqual(touched, [['trend-m-orders-sum', 10, 5]],
+        'проход из базы не трогает карточки финотчёта');
+
+    touched.length = 0;
+    applyMetricTrends({ profitFull: 7, realizationSum: null }, { profitFull: 4, realizationSum: 9 });
+    assert.deepStrictEqual(touched, [['trend-m-profit', 7, 4], ['trend-m-realization', null, 9]],
+        'проход по отчёту не трогает карточки из базы');
+}
+
+// Прошлый период для трендов по отчёту — окно той же длины, что реально закрыто.
+{
+    const start = html.indexOf('async function loadFinanceTrendBase');
+    const end = html.indexOf('function dashPluralDays');
+    assert.ok(start > 0 && end > start, 'loadFinanceTrendBase must exist');
+    const src = html.slice(start, end);
+    assert.ok(src.includes('prevPeriodRange(covered.from, covered.to)'),
+        'сравнивать закрытые дни с окном той же длины, а не с полным месяцем');
+    assert.ok(src.includes('loadFinanceRowsFromCache'), 'база тренда — только кеш');
+    assert.ok(!src.includes('loadFinanceReport'), 'второй живой запрос в WB упрётся в лимит минуты');
+    assert.ok(src.includes('dashboard_finance_coverage') && src.includes('cachedFrom > range.from'),
+        'дырка в кеше не должна выглядеть как падение продаж');
+}
+
 // Остатки лежат только на сегодня — тренд по ним сравнивал число с самим собой.
 {
     const start = html.indexOf('function updateDashboardFromDB');

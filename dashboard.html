@@ -11237,6 +11237,10 @@
         METRIC_TREND_DEFS.forEach(def => {
             const c = curr[def.prop];
             const p = prev[def.prop];
+            // Показатели из базы и из финотчёта приезжают в два прохода: чего в
+            // этом наборе нет — не трогаем, иначе второй проход стирает тренды
+            // первого.
+            if (c === undefined && p === undefined) return;
             if (def.el) setMetricTrend(def.el, c, p, def.inverse);
             else if (def.dataFor) {
                 const el = document.querySelector(`[data-trend-for="${def.dataFor}"]`);
@@ -11413,6 +11417,13 @@
                         };
                         if (window.domMorph) window.domMorph.preserveScroll([], applyFin);
                         else applyFin();
+                    }
+
+                    // Тренды по отчёту — отдельным проходом: числа на карточках
+                    // не должны ждать ещё один запрос в базу.
+                    const base = await loadFinanceTrendBase(snapshotCabinet, fin, settings);
+                    if (base && finId === _loadRequestId && finCabinet === currentCabinetId) {
+                        applyMetricTrends(metrics, base);
                     }
                 }).catch(e => {
                     console.warn('Finance report:', e.message);
@@ -11755,7 +11766,7 @@
      * возвращаем ещё и реально покрытые даты: показать неполный период как
      * полный — это тот же обман, что и считать продажи от заказов.
      */
-    async function loadFinanceRows(cabinetId, from, to) {
+    async function loadFinanceRowsFromCache(cabinetId, from, to) {
         try {
             const { data, error } = await supabase.rpc('dashboard_finance_rows', {
                 p_cabinet_id: cabinetId,
@@ -11770,6 +11781,12 @@
         } catch (e) {
             console.warn('[loadFinanceRows] из базы:', e?.message || e);
         }
+        return null;
+    }
+
+    async function loadFinanceRows(cabinetId, from, to) {
+        const cached = await loadFinanceRowsFromCache(cabinetId, from, to);
+        if (cached) return cached;
 
         try {
             const rows = await Promise.race([
@@ -11780,6 +11797,37 @@
         } catch (e) {
             console.warn('[loadFinanceRows] из WB:', e?.message || e);
             return { rows: [], source: 'wb', from, to };
+        }
+    }
+
+    /**
+     * Метрики прошлого периода для трендов на карточках прибыли, маржи и
+     * комиссии. Сравниваем не «выбранный период с выбранным», а окно ровно той
+     * длины, что реально покрыл отчёт: иначе 15 закрытых дней сентября
+     * сравнивались бы с полным августом и любой месяц выглядел бы провальным.
+     * Берём только кеш — второй живой запрос в WB упирается в лимит на минуту.
+     */
+    async function loadFinanceTrendBase(cabinetId, covered, settings) {
+        if (!covered?.from || !covered?.to || typeof WBFormulas === 'undefined') return null;
+        const range = prevPeriodRange(covered.from, covered.to);
+        try {
+            const [cache, cov] = await Promise.all([
+                loadFinanceRowsFromCache(cabinetId, range.from, range.to),
+                supabase.rpc('dashboard_finance_coverage', { p_cabinet_id: cabinetId }),
+            ]);
+            if (!cache?.rows?.length) return null;
+            // Кеш начинается позже прошлого окна — недостающие дни дали бы
+            // «падение» продаж там, где просто нет данных.
+            const cachedFrom = cov?.data?.from ? String(cov.data.from).slice(0, 10) : null;
+            if (!cachedFrom || cachedFrom > range.from) return null;
+            const ads = await loadAdsSpendForDash(cabinetId, range.from, range.to);
+            return WBFormulas.calculateMetrics(cache.rows, {
+                ...settings,
+                adsSum: Math.round(Number(ads.spend || 0)),
+            });
+        } catch (e) {
+            console.warn('[loadFinanceTrendBase]', e?.message || e);
+            return null;
         }
     }
 
