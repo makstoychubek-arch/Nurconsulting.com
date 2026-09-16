@@ -1,7 +1,9 @@
 // autobidder_tick — */5 мин. Способ B, стратегия min_sufficient.
 // Кабинеты параллельно, правила внутри кабинета последовательно.
 // DRY_RUN=true по умолчанию: setBids не уходит в WB.
-// get_ad_position — заглушка (шаг 7). Telegram-алерты — шаг 11.7.
+// Позиция — из официального отчёта поисковых запросов WB (см.
+// _shared/autobidder-positions.ts), границы ставки — из коридора WB.
+// Telegram-алерты — шаг 11.7.
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
@@ -13,6 +15,23 @@ import {
     tokenInvalidResult,
 } from '../_shared/autobidder-tick-decide.ts';
 import {
+    boundsFromCorridor,
+    clustersNeedingPositions,
+    isDeadCluster,
+    positionSignal,
+    reportPeriod,
+    type CorridorBounds,
+    type PositionCacheRow,
+    type PositionSignal,
+} from '../_shared/autobidder-positions.ts';
+import {
+    buildPositionsBody,
+    chunkQueries,
+    parseBidRecommendations,
+    parsePositionsReport,
+    type ClusterPosition,
+} from '../_shared/wb-cluster-board.ts';
+import {
     getBids,
     parseDryRun,
     parseReqPerMin,
@@ -21,6 +40,9 @@ import {
     type AdvCallContext,
 } from '../_shared/wb-adv-proxy.ts';
 
+const ANALYTICS_API = 'https://seller-analytics-api.wildberries.ru';
+const ADVERT_API = 'https://advert-api.wildberries.ru';
+
 const CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -28,6 +50,125 @@ const CORS = {
 };
 
 type Admin = SupabaseClient;
+
+/**
+ * Позиции по кластерам кампании: сначала кеш, затем добираем недостающее из
+ * отчёта WB. Отчёт лимитирован (30 фраз за запрос, 3 запроса в минуту), поэтому
+ * ходим только за тем, чего нет или что просрочено.
+ */
+async function loadPositions(
+    admin: Admin,
+    token: string,
+    campaignId: string,
+    nmId: number,
+    clusterKeys: string[],
+    today: string,
+): Promise<Map<string, PositionSignal>> {
+    const out = new Map<string, PositionSignal>();
+    const cache = new Map<string, PositionCacheRow>();
+
+    const { data: cached, error: cacheErr } = await admin
+        .from('adv_position_cache')
+        .select('cluster_key, position, position_date, frequency, orders_in_period, fetched_at')
+        .eq('campaign_id', campaignId);
+    if (cacheErr) console.error('[autobidder-tick] position cache read', cacheErr.message);
+    for (const row of cached || []) {
+        const key = String(row.cluster_key || '').toLowerCase();
+        if (!key) continue;
+        cache.set(key, {
+            clusterKey: String(row.cluster_key),
+            position: row.position == null ? null : Number(row.position),
+            date: row.position_date ? String(row.position_date) : null,
+            frequency: Number(row.frequency) || 0,
+            fetchedAt: String(row.fetched_at),
+        });
+        out.set(key, {
+            position: row.position == null ? null : Number(row.position),
+            date: row.position_date ? String(row.position_date) : null,
+            frequency: Number(row.frequency) || 0,
+            ordersInPeriod: Number(row.orders_in_period) || 0,
+            stale: false,
+        });
+    }
+
+    const need = clustersNeedingPositions(clusterKeys, cache, Date.now());
+    if (!need.length) return out;
+
+    const { start, end } = reportPeriod(today);
+    const fresh: Array<Record<string, unknown>> = [];
+    for (const chunk of chunkQueries(need)) {
+        let report: ClusterPosition[] = [];
+        try {
+            const res = await fetch(`${ANALYTICS_API}/api/v2/search-report/product/orders`, {
+                method: 'POST',
+                headers: { Authorization: token, 'Content-Type': 'application/json' },
+                body: JSON.stringify(buildPositionsBody(nmId, chunk, start, end)),
+            });
+            if (!res.ok) {
+                console.warn('[autobidder-tick] positions report', res.status);
+                // 429 значит лимит: дальше в этом тике не идём, работаем на кеше.
+                if (res.status === 429) break;
+                continue;
+            }
+            report = parsePositionsReport(await res.json());
+        } catch (e) {
+            console.warn('[autobidder-tick] positions report error', String(e));
+            continue;
+        }
+        const byQuery = new Map(report.map((r) => [r.query.toLowerCase(), r]));
+        for (const key of chunk) {
+            const low = key.toLowerCase();
+            const signal = positionSignal(byQuery.get(low) ?? null, today);
+            out.set(low, signal);
+            fresh.push({
+                campaign_id: campaignId,
+                cluster_key: key,
+                position: signal.position,
+                position_date: signal.date,
+                frequency: signal.frequency,
+                orders_in_period: signal.ordersInPeriod,
+                fetched_at: new Date().toISOString(),
+            });
+        }
+    }
+    if (fresh.length) {
+        const { error } = await admin
+            .from('adv_position_cache')
+            .upsert(fresh, { onConflict: 'campaign_id,cluster_key' });
+        if (error) console.error('[autobidder-tick] position cache write', error.message);
+    }
+    return out;
+}
+
+/**
+ * Коридор ставок WB по кластерам — один GET на артикул. Нужен как границы: без
+ * него потолок ставки берётся только из правила, а если его не задали, биддер
+ * пошёл бы вверх без ограничения.
+ */
+async function loadCorridor(
+    token: string,
+    advertId: number,
+    nmId: number,
+): Promise<Map<string, CorridorBounds>> {
+    const out = new Map<string, CorridorBounds>();
+    try {
+        const res = await fetch(
+            `${ADVERT_API}/api/advert/v0/bids/recommendations?advertId=${advertId}&nmId=${nmId}`,
+            { headers: { Authorization: token } },
+        );
+        if (!res.ok) {
+            console.warn('[autobidder-tick] bids/recommendations', res.status);
+            return out;
+        }
+        const rec = parseBidRecommendations(await res.json());
+        for (const c of rec?.corridors || []) {
+            out.set(c.normQuery.toLowerCase(), { min: c.min, max: c.max });
+        }
+    } catch (e) {
+        console.warn('[autobidder-tick] bids/recommendations error', String(e));
+    }
+    return out;
+}
 
 type CabinetRow = {
     id: string;
@@ -256,14 +397,47 @@ async function tickCabinet(
         }
         const bidMap = collectBids(bidsRes.data);
 
+        // Позиции и коридор — один раз на кампанию, а не на каждое правило.
+        const allClusters = campRules.flatMap((r) => resolveClusters(r, ctxIn.clusters, campaignId))
+            .map((c) => c.cluster_key);
+        const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Moscow' });
+        const [posMap, corridor] = await Promise.all([
+            loadPositions(admin, token, campaignId, Number(camp.nm_id), allClusters, today),
+            loadCorridor(token, Number(camp.wb_campaign_id), Number(camp.nm_id)),
+        ]);
+
         for (const rule of campRules) {
             const targets = resolveClusters(rule, ctxIn.clusters, campaignId);
             for (const cl of targets) {
                 const myBid = bidMap.get(normKey(cl.cluster_key)) ?? 0;
-                const myPos = getAdPosition(
-                    Number(camp.nm_id),
-                    cl.cluster_key,
-                    ctxIn.positions.has(cl.cluster_key) ? ctxIn.positions.get(cl.cluster_key) : undefined,
+                const low = cl.cluster_key.toLowerCase();
+                const signal = posMap.get(low)
+                    ?? { position: null, date: null, frequency: 0, ordersInPeriod: 0, stale: false };
+                // Ручной прогон может передать позицию в теле — она главнее.
+                const override = ctxIn.positions.has(cl.cluster_key)
+                    ? ctxIn.positions.get(cl.cluster_key)
+                    : undefined;
+                const myPos = override !== undefined
+                    ? getAdPosition(Number(camp.nm_id), cl.cluster_key, override)
+                    : signal.position;
+
+                // Кластер, который никто не ищет, ставкой не разогнать: показов
+                // по нему не будет ни за какие деньги.
+                if (override === undefined && isDeadCluster(signal)) {
+                    decisions.push({
+                        cabinet: cab.name,
+                        campaign: camp.wb_campaign_id,
+                        cluster: cl.cluster_key,
+                        reason: 'no_demand',
+                        applied: false,
+                    });
+                    continue;
+                }
+
+                const bounds = boundsFromCorridor(
+                    rule.min_bid_floor,
+                    rule.max_bid,
+                    corridor.get(low) ?? null,
                 );
                 const decided = decideBid({
                     myPos,
@@ -272,8 +446,8 @@ async function tickCabinet(
                     targetPosTo: rule.target_pos_to,
                     stepPct: rule.step_pct,
                     hysteresis: rule.hysteresis,
-                    minBidFloor: rule.min_bid_floor,
-                    maxBid: rule.max_bid,
+                    minBidFloor: bounds.minBidFloor,
+                    maxBid: bounds.maxBid,
                     budgetCabinetExhausted: ctxIn.cabinetExhausted,
                     budgetGroupExhausted: ctxIn.groupExhausted,
                 });
@@ -312,7 +486,7 @@ async function tickCabinet(
                     new_bid: decided.newBid,
                     observed_pos: myPos,
                     organic_pos: null,
-                    source: 'feedback',
+                    source: override !== undefined ? 'manual' : 'report',
                     reason: decided.reason,
                     applied,
                 });
@@ -323,6 +497,12 @@ async function tickCabinet(
                     cluster_key: cl.cluster_key,
                     my_bid: myBid,
                     my_pos: myPos,
+                    // Видно, за какой день позиция и не устарела ли она.
+                    pos_date: signal.date,
+                    pos_stale: signal.stale,
+                    frequency: signal.frequency,
+                    floor: bounds.minBidFloor,
+                    ceiling: bounds.maxBid,
                     new_bid: decided.newBid,
                     reason: decided.reason,
                     apply: decided.apply,

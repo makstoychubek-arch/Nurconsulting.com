@@ -1420,8 +1420,23 @@ assert.ok(html.includes('table-layout: fixed') && html.includes('<colgroup>'),
     'fixed column widths keep the table from relayouting on every render');
 assert.ok(html.includes('data-cl-filter=') && html.includes('data-cl-sort='),
     'chips and header sorting go through delegated clicks');
+// Коридор ставок WB: три уровня охвата кликом, без ручного счёта цифр.
+assert.ok(html.includes('function clusterReachCell') && html.includes('Коридор WB'),
+    'cluster board must show the WB bid corridor per cluster');
+assert.ok(html.includes('function setClusterReach') && html.includes('function setAllClusterReach'),
+    'one click must set a reach level for one cluster and for all visible ones');
+assert.ok(html.includes("data-cl-all=\"min\"") && html.includes("data-cl-all=\"medium\"")
+    && html.includes("data-cl-all=\"max\""),
+    'bulk Эконом / Средний / Максимум buttons must exist');
+assert.ok(html.includes('cl-flag-over') && html.includes('cl-flag-under'),
+    'overpay and underbid must be flagged, not left for the user to compute');
+// Частота 0 значит «не ищут», а не «нет данных» — иначе экран врёт.
+assert.ok(html.includes('function clusterFreqCell') && html.includes('не ищут'),
+    'zero search frequency must read as "не ищут", not as a missing value');
 {
     const proxy = fs.readFileSync(path.join(__dirname, 'supabase/functions/wb-proxy/index.ts'), 'utf8');
+    assert.ok(proxy.includes('/api/advert/v0/bids/recommendations') && proxy.includes('mergeClusterCorridors'),
+        'bid corridor comes from the official recommendations endpoint');
     assert.ok(proxy.includes("case 'adv_cluster_board'") && proxy.includes("case 'adv_cluster_bid'")
         && proxy.includes("case 'adv_cluster_minus'") && proxy.includes("case 'adv_cluster_positions'"),
         'wb-proxy must serve the cluster board, bid, minus and positions actions');

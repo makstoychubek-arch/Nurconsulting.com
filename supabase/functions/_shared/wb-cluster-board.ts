@@ -9,6 +9,7 @@
  *   POST /adv/v0/normquery/get-minus → items[{ advert_id, nm_id }]
  *   POST /adv/v0/normquery/set-minus → { advert_id, nm_id, norm_queries }
  *   POST /api/advert/v1/normquery/bids → bids[{ advertId, nmId, normQuery, bidMinorUnits }]
+ *   GET  /api/advert/v0/bids/recommendations?advertId=&nmId= → коридор ставок
  *
  * Ставку ставим только через v1: bidMinorUnits — 0,01 валюты кабинета (у нас KGS),
  * шаг берём из GET /api/advert/v1/config.
@@ -44,6 +45,11 @@ export type ClusterBoardRow = {
     frequency?: number | null;
     searchPosition?: number | null;
     searchOrders?: number | null;
+    /** Коридор ставок WB: три уровня охвата по этому кластеру. */
+    bidMin?: number | null;
+    bidMedium?: number | null;
+    bidMax?: number | null;
+    reach?: ClusterReach | null;
 };
 
 export type ClusterStatRow = {
@@ -376,8 +382,8 @@ export function buildClusterBoard(input: {
         if (b.currency) row.currency = b.currency;
     }
 
-    for (const [nmId, queries] of input.minus || new Map()) {
-        const set = new Set(queries.map((q) => q.toLowerCase()));
+    for (const [nmId, queries] of input.minus || new Map<number, string[]>()) {
+        const set = new Set(queries.map((q: string) => q.toLowerCase()));
         for (const row of rows.values()) {
             if (row.nmId === nmId && set.has(row.normQuery.toLowerCase())) row.minus = true;
         }
@@ -522,6 +528,122 @@ export function mergeClusterPositions(
             frequency: hit.frequency,
             searchPosition: hit.avgPosition,
             searchOrders: hit.orders,
+        };
+    });
+}
+
+// ---------------------------------------------------------------------------
+// Коридор ставок WB
+// GET /api/advert/v0/bids/recommendations?advertId=&nmId= — по каждому кластеру
+// три уровня охвата (reachMin / reachMedium / reachMax) плюс базовые ставки
+// кампании. Один запрос на артикул, поэтому тянем вместе с бордом.
+
+export type ClusterReach = 'below_min' | 'min' | 'medium' | 'max' | 'above_max';
+
+export type ClusterCorridor = {
+    normQuery: string;
+    /** Ставки в валюте кабинета, не в минорных единицах. */
+    min: number | null;
+    medium: number | null;
+    max: number | null;
+};
+
+export type BidRecommendations = {
+    advertId: number;
+    nmId: number;
+    /** Базовые ставки кампании: конкурентная, лидеров, топ-2. */
+    competitive: number | null;
+    leaders: number | null;
+    top2: number | null;
+    corridors: ClusterCorridor[];
+};
+
+/** bidKopecks — минорные единицы валюты кабинета, приводим к целым единицам. */
+function minorToMajor(value: unknown): number | null {
+    const n = numOrNull(value);
+    if (n == null || n <= 0) return null;
+    return n / 100;
+}
+
+function reachLevel(node: unknown): number | null {
+    const rec = asRecord(node);
+    if (!rec) return null;
+    return minorToMajor(rec.bidKopecks);
+}
+
+export function parseBidRecommendations(data: unknown): BidRecommendations | null {
+    const root = asRecord(data);
+    if (!root) return null;
+    const base = asRecord(root.base);
+    const corridors: ClusterCorridor[] = [];
+    for (const item of arrayFrom(root, 'normQueries')) {
+        const rec = asRecord(item);
+        if (!rec) continue;
+        const normQuery = String(rec.normQuery ?? '').trim();
+        if (!normQuery) continue;
+        corridors.push({
+            normQuery,
+            min: reachLevel(rec.reachMin),
+            medium: reachLevel(rec.reachMedium),
+            max: reachLevel(rec.reachMax),
+        });
+    }
+    return {
+        advertId: Math.trunc(num(root.advertId)),
+        nmId: Math.trunc(num(root.nmId)),
+        competitive: reachLevel(base?.competitiveBid),
+        leaders: reachLevel(base?.leadersBid),
+        top2: reachLevel(base?.top2),
+        corridors,
+    };
+}
+
+/**
+ * Где наша ставка относительно коридора WB. Ниже min — охвата почти нет,
+ * выше max — платим за то, что уже не даёт роста охвата.
+ */
+export function reachForBid(bid: number | null, c: ClusterCorridor | null): ClusterReach | null {
+    if (bid == null || bid <= 0 || !c) return null;
+    const { min, medium, max } = c;
+    if (min != null && bid < min) return 'below_min';
+    if (max != null && bid > max) return 'above_max';
+    if (medium != null && bid >= medium) return max != null && bid >= max ? 'max' : 'medium';
+    if (min != null && bid >= min) return 'min';
+    return null;
+}
+
+/** Ставка для выбранного уровня охвата с откатом на соседний, если WB его не дал. */
+export function bidForReach(
+    c: ClusterCorridor | null,
+    level: 'min' | 'medium' | 'max',
+): number | null {
+    if (!c) return null;
+    if (level === 'min') return c.min ?? c.medium ?? c.max ?? null;
+    if (level === 'max') return c.max ?? c.medium ?? c.min ?? null;
+    return c.medium ?? c.min ?? c.max ?? null;
+}
+
+/** Коридор приходит вместе с бордом — дописываем в строки как позиции. */
+export function mergeClusterCorridors(
+    rows: ClusterBoardRow[],
+    recs: BidRecommendations[],
+): ClusterBoardRow[] {
+    const byKey = new Map<string, ClusterCorridor>();
+    for (const rec of recs) {
+        for (const c of rec.corridors) {
+            byKey.set(rec.nmId + '|' + c.normQuery.toLowerCase(), c);
+        }
+    }
+    if (!byKey.size) return rows;
+    return rows.map((row) => {
+        const hit = byKey.get(row.nmId + '|' + row.normQuery.toLowerCase());
+        if (!hit) return row;
+        return {
+            ...row,
+            bidMin: hit.min,
+            bidMedium: hit.medium,
+            bidMax: hit.max,
+            reach: reachForBid(row.bid, hit),
         };
     });
 }
