@@ -1034,8 +1034,8 @@ assert.ok(/const \[, dailyRows, , stocksRaw\] = await Promise\.all/.test(rnpSrc)
     'RNP must take wb_stocks from Promise.all slot 4, not exchange rates');
 assert.ok(rnpSrc.includes('Array.isArray(stocksRaw)'),
     'RNP must not crash if stocks come back undefined');
-assert.ok(rnpSrc.includes("orders_count: keep('orders_count')"),
-    'RNP must take the higher of wb_orders and WB funnel Заказы, not || which keeps the lower 6');
+assert.ok(rnpSrc.includes('funnelOrders != null ? funnelOrders : keep'),
+    'RNP must keep WB card funnel Заказы, not max() with statistics-api');
 assert.ok(rnpSrc.includes('function _funnelDayOrders'),
     'RNP must read orderCount from the WB sales funnel');
 assert.ok(rnpSrc.includes('if (funnelOrders != null) rec.orders_count = funnelOrders'),
@@ -1049,7 +1049,7 @@ assert.ok(rnpSrc.includes('function _funnelImpliedOrders'),
 assert.ok(rnpSrc.includes('_withFunnelOrders'),
     'week totals must sum funnel-corrected daily orders, not raw wb_orders');
 assert.ok(rnpSrc.includes('funnelLag'),
-    'funnel hydrate must rerun when Корзина × Заказы% is higher than ЗАКАЗЫ');
+    'funnel hydrate must rerun when Корзина × Заказы% differs from ЗАКАЗЫ');
 {
     const start = rnpSrc.indexOf('function _funnelPickNum');
     const end = rnpSrc.indexOf('function _sleep');
@@ -1064,6 +1064,7 @@ assert.ok(rnpSrc.includes('funnelLag'),
     assert.strictEqual(fns._funnelDayOrders({ cartCount: 157, cartToOrderConversion: 18 }), 28);
     assert.strictEqual(fns._withFunnelOrders({ orders_count: 17, basket_count: 157, funnel_order_conv: 18 }).orders_count, 17);
     assert.strictEqual(fns._withFunnelOrders({ date: '2026-09-13', orders_count: 17, basket_count: 157, funnel_order_conv: 18 }).orders_count, 28);
+    assert.strictEqual(fns._withFunnelOrders({ date: '2026-09-14', orders_count: 66, basket_count: 294, funnel_order_conv: 16 }).orders_count, 47);
 }
 assert.ok(rnpSrc.includes('_seedTodayLiveZeros(nmIds, cal)'),
     'RNP must seed live zeros so today is not a blank sheet');
