@@ -6,17 +6,21 @@ import {
     buildClusterListBody,
     buildClusterStatsBody,
     buildMinusBody,
+    buildPositionsBody,
     buildSetBidsBody,
     canSetClusterBids,
+    chunkQueries,
     clusterBoardTotals,
     countClusterFilters,
     filterClusters,
+    mergeClusterPositions,
     minusCandidates,
     nmIdsFromAdvert,
     parseClusterBids,
     parseClusterList,
     parseClusterStats,
     parseMinusList,
+    parsePositionsReport,
     uniqueNmIds,
 } from './wb-cluster-board.ts';
 
@@ -157,6 +161,55 @@ assert.equal(canSetClusterBids('manual', 'cpm'), true);
 assert.equal(canSetClusterBids('auto', 'cpm'), false);
 assert.equal(canSetClusterBids('manual', 'cpc'), false);
 assert.equal(canSetClusterBids(null, null), true);
+
+// Позиции и частота по каждому ключу: POST /api/v2/search-report/product/orders.
+assert.deepEqual(buildPositionsBody(1218782505, ['свитер', 'кофта'], '2026-09-10', '2026-09-16'), {
+    period: { start: '2026-09-10', end: '2026-09-16' },
+    nmId: 1218782505,
+    searchTexts: ['свитер', 'кофта'],
+});
+// WB берёт максимум 30 фраз за запрос — режем и убираем дубли.
+assert.equal(buildPositionsBody(1, Array.from({ length: 50 }, (_, i) => 'q' + i), 'a', 'b').searchTexts.length, 30);
+assert.deepEqual(chunkQueries(['a', 'A', ' b ', '', 'c'], 2), [['a', 'b'], ['c']]);
+assert.equal(chunkQueries(Array.from({ length: 65 }, (_, i) => 'q' + i)).length, 3);
+
+const posReport = parsePositionsReport({
+    data: {
+        total: [{ dt: '2026-09-10', avgPosition: 22, orders: 1 }],
+        items: [
+            {
+                text: 'свитер на одно плечо',
+                frequency: 2727,
+                dateItems: [
+                    { dt: '2026-09-15', avgPosition: 4, orders: 1 },
+                    { dt: '2026-09-16', avgPosition: 8, orders: 1 },
+                ],
+            },
+            { text: 'джемперы', frequency: 0, dateItems: [] },
+        ],
+    },
+});
+assert.equal(posReport.length, 2);
+assert.equal(posReport[0].frequency, 2727);
+assert.equal(posReport[0].avgPosition, 6);
+assert.equal(posReport[0].orders, 2);
+assert.equal(posReport[1].avgPosition, null);
+
+const withPos = mergeClusterPositions(
+    buildClusterBoard({
+        nmIds: [1218782505],
+        list: parseClusterList({
+            items: [{ advertId: 1, nmId: 1218782505, normQueries: { active: ['свитер на одно плечо', 'кофты'] } }],
+        }),
+    }),
+    posReport,
+);
+const hit = withPos.find((r) => r.normQuery === 'свитер на одно плечо');
+assert.equal(hit?.frequency, 2727);
+assert.equal(hit?.searchPosition, 6);
+assert.equal(hit?.searchOrders, 2);
+// Кластер, по которому отчёта нет, остаётся без позиции, а не с нулём.
+assert.equal(withPos.find((r) => r.normQuery === 'кофты')?.searchPosition, undefined);
 
 // Реальная форма GET /api/advert/v2/adverts: артикулы лежат в nm_settings.
 assert.deepEqual(nmIdsFromAdvert({

@@ -64,22 +64,28 @@ import {
     buildClusterListBody,
     buildClusterStatsBody,
     buildMinusBody,
+    buildPositionsBody,
     buildSetBidsBody,
     canSetClusterBids,
+    chunkQueries,
     clusterBoardTotals,
     countClusterFilters,
     parseClusterBids,
     parseClusterList,
     parseClusterStats,
     parseMinusList,
+    parsePositionsReport,
     nmIdsFromAdvert,
     uniqueNmIds,
+    type ClusterPosition,
 } from '../_shared/wb-cluster-board.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+const ANALYTICS_API = 'https://seller-analytics-api.wildberries.ru';
 
 /** In-memory cache for heavy Content API actions (same seller token = shared WB rate limit). */
 const PROXY_RESPONSE_CACHE = new Map<string, { ts: number; data: unknown }>();
@@ -982,6 +988,61 @@ serve(async (req) => {
                 };
                 break;
             }
+            case 'adv_cluster_positions': {
+                const nmId = Number(params.nmId || 0);
+                if (!nmId) return json({ error: 'nmId required' }, 400);
+                const rawQueries = Array.isArray(params.queries)
+                    ? (params.queries as unknown[]).map((q) => String(q || '').trim()).filter(Boolean)
+                    : [];
+                if (!rawQueries.length) return json({ error: 'queries required' }, 400);
+
+                // Отчёт живёт максимум 7 дней и обновляется раз в час.
+                const msk = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'Europe/Moscow' });
+                const today = new Date();
+                let dateTo = String(params.dateTo || '').split('T')[0] || msk(today);
+                let dateFrom = String(params.dateFrom || '').split('T')[0]
+                    || msk(new Date(today.getTime() - 6 * 86400000));
+                if (dateTo > msk(today)) dateTo = msk(today);
+                const minFrom = msk(new Date(new Date(dateTo).getTime() - 6 * 86400000));
+                if (dateFrom < minFrom) dateFrom = minFrom;
+
+                const fresh: string[] = [];
+                const cached: ClusterPosition[] = [];
+                for (const q of chunkQueries(rawQueries).flat()) {
+                    const hit = readPositionCache(cabinet_id, nmId, dateFrom, dateTo, q);
+                    if (hit) cached.push(hit);
+                    else fresh.push(q);
+                }
+
+                const positions: ClusterPosition[] = [...cached];
+                const errors: string[] = [];
+                // 3 запроса в минуту на кабинет — больше двух порций за раз не берём.
+                const chunks = chunkQueries(fresh).slice(0, 2);
+                for (const chunk of chunks) {
+                    const res = await wbPostSafe(
+                        `${ANALYTICS_API}/api/v2/search-report/product/orders`,
+                        WB_TOKEN,
+                        buildPositionsBody(nmId, chunk, dateFrom, dateTo),
+                        'search-report/orders',
+                    );
+                    if (res.error) { errors.push(res.error); continue; }
+                    const parsed = parsePositionsReport(res.data);
+                    for (const p of parsed) {
+                        writePositionCache(cabinet_id, nmId, dateFrom, dateTo, p);
+                        positions.push(p);
+                    }
+                }
+                const done = new Set(positions.map((p) => p.query.toLowerCase()));
+                result = {
+                    nmId,
+                    dateFrom,
+                    dateTo,
+                    positions,
+                    pending: fresh.filter((q) => !done.has(q.toLowerCase())),
+                    errors,
+                };
+                break;
+            }
             case 'adv_cluster_bid': {
                 const advertId = Number(params.advertId || 0);
                 const nmId = Number(params.nmId || 0);
@@ -1816,6 +1877,30 @@ async function wbPostSafe(
         console.warn(`[wb-proxy] ${label} error:`, String(e));
         return { data: null, error: `${label}: ${String(e).slice(0, 120)}` };
     }
+}
+
+// Отчёт позиций — 3 запроса в минуту на кабинет. Кэшируем каждую фразу
+// отдельно, чтобы повторный запрос другого набора не ходил в WB заново.
+const POSITION_CACHE = new Map<string, { ts: number; value: ClusterPosition }>();
+const POSITION_TTL_MS = 30 * 60 * 1000;
+
+function positionCacheKey(cabinetId: string, nmId: number, from: string, to: string, query: string): string {
+    return `${cabinetId}|${nmId}|${from}|${to}|${query.toLowerCase()}`;
+}
+
+function readPositionCache(
+    cabinetId: string, nmId: number, from: string, to: string, query: string,
+): ClusterPosition | null {
+    const hit = POSITION_CACHE.get(positionCacheKey(cabinetId, nmId, from, to, query));
+    if (!hit || Date.now() - hit.ts > POSITION_TTL_MS) return null;
+    return hit.value;
+}
+
+function writePositionCache(
+    cabinetId: string, nmId: number, from: string, to: string, value: ClusterPosition,
+): void {
+    if (POSITION_CACHE.size > 4000) POSITION_CACHE.clear();
+    POSITION_CACHE.set(positionCacheKey(cabinetId, nmId, from, to, value.query), { ts: Date.now(), value });
 }
 
 // GET /api/advert/v1/config — 1 запрос в минуту на кабинет, поэтому кэшируем.
