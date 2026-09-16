@@ -1042,6 +1042,10 @@ assert.ok(rnpSrc.includes('if (funnelOrders != null) rec.orders_count = funnelOr
     'funnel upsert must persist WB orderCount into orders_count');
 assert.ok(rnpSrc.includes('Number(ex.orders_count || 0) > 0'),
     'sync today must not skip a 0-order cell just because funnel touched updated_at');
+assert.ok(rnpSrc.includes('const funnelKeep = _funnelImpliedOrders(ex)'),
+    'sync today must keep WB card funnel ЗАКАЗЫ, not overwrite with wb_orders');
+assert.ok(rnpSrc.includes('funnelKeep != null ? funnelKeep : Number(agg.orders_count || 0)'),
+    'sync today writes Корзина × Заказы% when the funnel row already exists');
 assert.ok(rnpSrc.includes('recentHole'),
     'funnel hydrate must refill yesterday/today when older days have orders but recent cells are 0');
 assert.ok(rnpSrc.includes('function _funnelImpliedOrders'),

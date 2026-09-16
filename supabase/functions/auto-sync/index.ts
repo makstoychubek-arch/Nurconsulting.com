@@ -5,7 +5,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTeamMember } from '../_shared/cabinet-access.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
-import { funnelDayMetricFields } from '../_shared/wb-funnel-day.ts';
+import { applyKeepFunnelOrders, funnelDayMetricFields, wbFunnelWindow } from '../_shared/wb-funnel-day.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -986,6 +986,8 @@ async function syncRnpDailyFromOrders(admin: Admin, cabinetId: string): Promise<
         };
     });
 
+    await preserveFunnelOrders(admin, cabinetId, upserts);
+
     let written = 0;
     for (let i = 0; i < upserts.length; i += 100) {
         const chunk = upserts.slice(i, i + 100);
@@ -997,4 +999,29 @@ async function syncRnpDailyFromOrders(admin: Admin, cabinetId: string): Promise<
         written += chunk.length;
     }
     return written;
+}
+
+async function preserveFunnelOrders(
+    admin: Admin,
+    cabinetId: string,
+    upserts: Array<{ nm_id: number; date: string; orders_count: number }>,
+) {
+    if (!upserts.length) return;
+    const { from, to } = wbFunnelWindow();
+    const existing: Record<string, unknown>[] = [];
+    let offset = 0;
+    for (;;) {
+        const { data, error } = await admin.from('rnp_daily_data')
+            .select('nm_id, date, basket_count, funnel_order_conv')
+            .eq('cabinet_id', cabinetId)
+            .gte('date', from)
+            .lte('date', to)
+            .range(offset, offset + 999);
+        if (error) return;
+        const chunk = (data || []) as Record<string, unknown>[];
+        existing.push(...chunk);
+        if (chunk.length < 1000) break;
+        offset += 1000;
+    }
+    applyKeepFunnelOrders(existing, upserts, to);
 }

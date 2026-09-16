@@ -5,7 +5,73 @@
  * WB часто не кладёт orderCount отдельным полем, но всегда отдаёт
  * cartCount + cartToOrderConversion — те же «Корзина» и «Заказы%» в РНП.
  * 157 корзин × 18% = 28, как на графике WB.
+ *
+ * Последние 7 календарных дней карточки — Москва. Пересборка из wb_orders
+ * не должна затирать эти штуки, иначе утром в РНП снова 66 вместо 47.
  */
+
+export function moscowYmd(d = new Date()): string {
+    return new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Europe/Moscow',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+    }).format(d);
+}
+
+export function addDaysYmd(day: string, n: number): string {
+    const d = new Date(`${day}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().split('T')[0];
+}
+
+export function wbFunnelWindow(today = moscowYmd()): { from: string; to: string } {
+    return { from: addDaysYmd(today, -6), to: today };
+}
+
+export function isWbFunnelWindowDate(date: string, today = moscowYmd()): boolean {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+    const { from, to } = wbFunnelWindow(today);
+    return date >= from && date <= to;
+}
+
+export function keepFunnelOrdersCount(
+    existing: Record<string, unknown> | null | undefined,
+    statsCount: number,
+    date: string,
+    today = moscowYmd(),
+): number {
+    const stats = Number(statsCount);
+    const fallback = Number.isFinite(stats) && stats >= 0 ? stats : 0;
+    if (!isWbFunnelWindowDate(date, today)) return fallback;
+    const implied = funnelImpliedOrders(existing);
+    if (implied != null) return implied;
+    return fallback;
+}
+
+export function applyKeepFunnelOrders<T extends { nm_id: number; date: string; orders_count: number }>(
+    existing: Array<Record<string, unknown> | null | undefined>,
+    upserts: T[],
+    today = moscowYmd(),
+): T[] {
+    const map = new Map<string, Record<string, unknown>>();
+    for (const row of existing) {
+        if (!row || typeof row !== 'object') continue;
+        const date = String(row.date || '').split('T')[0];
+        const nmId = Number(row.nm_id);
+        if (!date || !nmId) continue;
+        map.set(`${nmId}|${date}`, row);
+    }
+    for (const row of upserts) {
+        row.orders_count = keepFunnelOrdersCount(
+            map.get(`${row.nm_id}|${row.date}`),
+            Number(row.orders_count),
+            row.date,
+            today,
+        );
+    }
+    return upserts;
+}
 
 function numPick(obj: Record<string, unknown>, keys: string[]): number | null {
     for (const key of keys) {
