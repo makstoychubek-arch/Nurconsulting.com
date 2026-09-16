@@ -426,6 +426,56 @@ export function getAdvConfig(ctx: AdvCallContext): Promise<AdvProxyResult> {
     return executeAdvRequest(ctx, { action: 'getConfig' });
 }
 
+/** Лимит WB: 1 запрос / мин на кабинет. Кэш не короче интервала. */
+export const ADV_CONFIG_CACHE_TTL_MS = 60_000;
+
+type AdvConfigCacheEntry = {
+    expiresAt: number;
+    config: WbAdvConfig | null;
+    status: number;
+};
+
+const advConfigCache = new Map<string, AdvConfigCacheEntry>();
+const advConfigInflight = new Map<string, Promise<{ config: WbAdvConfig | null; status: number }>>();
+
+export function resetAdvConfigCache(): void {
+    advConfigCache.clear();
+    advConfigInflight.clear();
+}
+
+export async function loadAdvConfig(
+    ctx: AdvCallContext,
+    opts?: { now?: number; ttlMs?: number },
+): Promise<{ config: WbAdvConfig | null; status: number }> {
+    const now = opts?.now ?? (ctx.nowFn ? ctx.nowFn() : Date.now());
+    const ttl = opts?.ttlMs ?? ADV_CONFIG_CACHE_TTL_MS;
+    const key = ctx.cabinetId || ctx.tokenKey;
+    const cached = advConfigCache.get(key);
+    if (cached && now < cached.expiresAt) {
+        return { config: cached.config, status: cached.status };
+    }
+    const pending = advConfigInflight.get(key);
+    if (pending) return pending;
+
+    const job = (async () => {
+        const res = await getAdvConfig(ctx);
+        const config = res.status < 400 ? parseAdvConfig(res.data) : null;
+        advConfigCache.set(key, {
+            expiresAt: now + ttl,
+            config,
+            status: res.status,
+        });
+        return { config, status: res.status };
+    })();
+
+    advConfigInflight.set(key, job);
+    try {
+        return await job;
+    } finally {
+        advConfigInflight.delete(key);
+    }
+}
+
 export function getClusterStats(ctx: AdvCallContext, body?: unknown): Promise<AdvProxyResult> {
     return executeAdvRequest(ctx, { action: 'getClusterStats', body });
 }
