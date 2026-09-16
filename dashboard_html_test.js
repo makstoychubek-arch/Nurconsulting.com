@@ -1921,17 +1921,25 @@ assert.ok(
     const end = html.indexOf('function updateDashboardFromDB');
     assert.ok(start > 0 && end > start, 'financeCoverageNote must precede updateDashboardFromDB');
     const src = html.slice(html.indexOf('const DAY_MS = 86400000;'), end);
-    const api = new Function(`${src}; return { financeCoverageNote };`)();
+    const api = new Function(`${src}; return { financeCoverageNote, dashPluralDays };`)();
 
     assert.strictEqual(
         api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-01', to: '2026-09-15' }),
         '', 'полное покрытие — без плашки');
     const tail = api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-01', to: '2026-09-11' });
-    assert.match(tail, /последние 4 дн/, 'недостающий хвост периода назван прямо');
+    assert.match(tail, /последние 4 дня/, 'недостающий хвост периода назван прямо');
     assert.match(tail, /11 сентября/);
+    const oneDay = api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-01', to: '2026-09-14' });
+    assert.match(oneDay, /за последний день/, 'один день не «за последние 1 день»');
+    assert.match(
+        api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-02', to: '2026-09-15' }),
+        /первый день периода в отчёт не попал/);
     const head = api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-05', to: '2026-09-15' });
-    assert.match(head, /начало периода/);
+    assert.match(head, /первые 4 дня периода/);
     assert.strictEqual(api.financeCoverageNote('2026-09-01', '2026-09-15', {}), '');
+    assert.strictEqual(api.dashPluralDays(11), '11 дней');
+    assert.strictEqual(api.dashPluralDays(21), '21 день');
+    assert.strictEqual(api.dashPluralDays(3), '3 дня');
 }
 
 // SETOF резался PostgREST на 1000 строк — у большого кабинета это была

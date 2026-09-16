@@ -53,6 +53,22 @@ async function pingCategory(host: string, key: string, label: string, token: str
     }
 }
 
+/** Заказы, остатки, реклама и финотчёт по свежему кабинету — без ожидания. */
+async function kickOffFirstSync(url: string, serviceKey: string, cabinetId: string): Promise<void> {
+    const call = (fn: string, body: Record<string, unknown>) =>
+        fetch(`${url}/functions/v1/${fn}`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cabinet_id: cabinetId, ...body }),
+        }).catch((e) => console.error(`[onboard-cabinet] ${fn}:`, e));
+
+    await Promise.allSettled([
+        call('auto-sync', { mode: 'full' }),
+        call('advertising-sync', {}),
+        call('rnp-finance-sync', { mode: 'sync' }),
+    ]);
+}
+
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -152,10 +168,19 @@ serve(async (req) => {
                 .eq('user_id', user.id);
         }
 
+        // Первая выгрузка сразу, не дожидаясь ночного cron: иначе клиент
+        // подключил магазин и весь первый день смотрит на пустой дашборд.
+        const firstSync = kickOffFirstSync(supabaseUrl, supabaseService, cabinetId);
+        const waitUntil = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } })
+            .EdgeRuntime?.waitUntil;
+        if (waitUntil) waitUntil(firstSync);
+        else await firstSync;
+
         return json({
             ok: true,
             cabinet_id: cabinetId,
             missing_optional: summary.missingOptional,
+            sync_started: true,
         });
     } catch (e) {
         console.error('[onboard-cabinet]', e);

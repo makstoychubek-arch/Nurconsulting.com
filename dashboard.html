@@ -5006,7 +5006,7 @@
                 <div class="kpi-hero-card" data-tone="good">
                     <div class="kpi-hero-label">Чистая прибыль</div>
                     <div id="m-profit" class="kpi-hero-value">—</div>
-                    <div id="m-margin" class="kpi-hero-sub">— %</div>
+                    <div id="m-margin" class="kpi-hero-sub">—</div>
                     <div id="trend-m-profit" class="metric-trend kpi-hero-trend"></div>
                     <div class="kpi-spark-wrap"><canvas id="spark-profit"></canvas></div>
                 </div>
@@ -6439,7 +6439,7 @@
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.484c1931e0.min.js"></script>
-<script src="/dist/wb-formulas.fc1e69ed87.min.js"></script>
+<script src="/dist/wb-formulas.f6413561d0.min.js"></script>
 <script src="/dist/ads-command-center.342a2a55d8.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script>
@@ -11703,6 +11703,14 @@
         }
     }
 
+    function dashPluralDays(n) {
+        const mod100 = n % 100, mod10 = n % 10;
+        if (mod100 >= 11 && mod100 <= 14) return `${n} дней`;
+        if (mod10 === 1) return `${n} день`;
+        if (mod10 >= 2 && mod10 <= 4) return `${n} дня`;
+        return `${n} дней`;
+    }
+
     /** Чего не хватает в отчёте относительно выбранного периода. */
     function financeCoverageNote(from, to, covered) {
         if (!covered.from || !covered.to) return '';
@@ -11710,13 +11718,17 @@
         const headMissing = Math.round((new Date(covered.from) - new Date(from)) / DAY_MS);
         const parts = [];
         if (tailMissing > 0) {
-            parts.push(`последние ${tailMissing} дн. (после ${dashDayLabel(covered.to)}) Wildberries ещё не отчитался`);
+            parts.push(tailMissing === 1
+                ? 'за последний день Wildberries ещё не отчитался'
+                : `за последние ${dashPluralDays(tailMissing)} Wildberries ещё не отчитался`);
         }
         if (headMissing > 0) {
-            parts.push(`начало периода (до ${dashDayLabel(covered.from)}) в отчёт не попало`);
+            parts.push(headMissing === 1
+                ? 'первый день периода в отчёт не попал'
+                : `первые ${dashPluralDays(headMissing)} периода в отчёт не попали`);
         }
         if (!parts.length) return '';
-        return `Прибыль, маржа и комиссия посчитаны по отчёту Wildberries за ${dashDayLabel(covered.from)} — ${dashDayLabel(covered.to)}: ${parts.join(', ')}. Заказы и остатки при этом за весь период.`;
+        return `Прибыль, маржа и комиссия — по отчёту Wildberries за ${dashDayLabel(covered.from)} — ${dashDayLabel(covered.to)}: ${parts.join(', ')}. Заказы, возвраты и остатки при этом за весь выбранный период.`;
     }
 
     function updateDashboardFromDB(totalStock, cur, prev) {

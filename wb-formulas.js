@@ -89,8 +89,11 @@ function calculateMetrics(rows, settings = {}) {
     let ordersSum = 0;         // Заказы (оценочно через отчёт)
     let costOfSalesSum = 0;    // Себестоимость продаж
     // retail_price приходит только если его запросили в fields у finance-api.
-    // Без него реализация и СПП не считаются — показываем прочерк, а не ноль.
-    let hasRetailPrice = false;
+    // Считаем продажи с ним и без него: если он есть не у всех строк,
+    // реализация получится меньше продаж, а маржа — вдвое завышенной.
+    // Такую реализацию показываем прочерком, а не половиной правды.
+    let salesWithRetailPrice = 0;
+    let salesWithoutRetailPrice = 0;
 
     // По артикулам — для таблицы товаров
     const byNmId = {};
@@ -116,7 +119,8 @@ function calculateMetrics(rows, settings = {}) {
         if (isSale) {
             salesSum += priceWithDisc * qty;
             salesCount += qty;
-            if (retailPrice > 0) hasRetailPrice = true;
+            if (retailPrice > 0) salesWithRetailPrice += qty;
+            else salesWithoutRetailPrice += qty;
             realizationSum += retailPrice * qty;
             toTransferSum += forPay;
 
@@ -167,6 +171,10 @@ function calculateMetrics(rows, settings = {}) {
 
     // База продаж за вычетом возвратов — от неё считаются комиссия и налог.
     const netSalesSum = salesSum - returnsSum;
+
+    // Реализация имеет смысл только когда цена до скидок известна по всем
+    // продажам периода. Иначе это сумма части дней, выданная за весь период.
+    const hasRetailPrice = salesWithRetailPrice > 0 && salesWithoutRetailPrice === 0;
 
     // Комиссия WB. Прямого поля нет, но ppvz_for_pay = база − комиссия −
     // эквайринг (проверено на строках отчёта: 1556.85 × 0.755 − 54.01 =

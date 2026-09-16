@@ -87,4 +87,16 @@ assert.ok(noPrice.margin > 0, 'маржа считается от продаж, 
 assert.equal(noAcq.hasRetailPrice, true);
 assert.equal(noAcq.sppSum, 2000);
 
+// Половина дней с retail_price давала реализацию меньше продаж и вдвое
+// завышенную маржу — так на живых данных выходило 55.3% вместо 28.4%.
+const halfPrice = WB.calculateMetrics(
+    [sale, { ...sale, retail_price: 0, sale_dt: '2026-09-12' }], { taxRate: 6, adsSum: 0 });
+assert.equal(halfPrice.hasRetailPrice, false, 'частичный retail_price не считается за полный');
+assert.equal(halfPrice.realizationSum, null);
+assert.equal(halfPrice.sppSum, null);
+assert.ok(halfPrice.margin < 100 && halfPrice.margin > 0);
+assert.ok(
+    Math.abs(halfPrice.margin - Math.round((halfPrice.profitFull / halfPrice.salesSum) * 1000) / 10) < 0.05,
+    'маржа берётся от продаж, а не от половины реализации');
+
 console.log('wb-formulas_test: ok');
