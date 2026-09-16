@@ -6,6 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTeamMember } from '../_shared/cabinet-access.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { orderPriceWithDisc } from '../_shared/wb-order-price.ts';
+import { extractMainPhotoUrl } from '../_shared/wb-main-photo.ts';
 import { applyKeepFunnelOrders, funnelDayMetricFields, wbFunnelWindow } from '../_shared/wb-funnel-day.ts';
 
 const CORS = {
@@ -931,20 +932,34 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
     }
     if (!cards.length) return 0;
 
-    const { data: existing } = await admin.from('rnp_articles').select('nm_id,is_active').eq('cabinet_id', cabinetId);
+    const { data: existing } = await admin.from('rnp_articles')
+        .select('nm_id,is_active,photo_url').eq('cabinet_id', cabinetId);
     const known = new Set((existing || []).map((r: { nm_id: number }) => Number(r.nm_id)));
+    const needPhoto = new Set(
+        (existing || [])
+            .filter((r: { photo_url: string | null }) => !String(r.photo_url || '').trim())
+            .map((r: { nm_id: number }) => Number(r.nm_id)),
+    );
     const toInsert = [];
+    // Ссылку на фото берём из карточки WB. Собирать её из nm_id нельзя:
+    // basket-хост нумеруется таблицей, которая у WB меняется, и для новых
+    // артикулов формула давала несуществующий хост — в РНП пустая картинка.
+    const photoUpdates: Array<{ nmId: number; url: string }> = [];
     for (const card of cards) {
         const nmId = Number(card.nmID || card.nmId);
         if (!nmId) continue;
-        if (known.has(nmId)) continue;
+        const photo = extractMainPhotoUrl(card as Record<string, unknown>);
+        if (known.has(nmId)) {
+            if (photo && needPhoto.has(nmId)) photoUpdates.push({ nmId, url: photo });
+            continue;
+        }
         const sa = String(card.vendorCode || card.vendor_code || card.supplierVendorCode || '').trim();
         const name = sa || String(card.title || card.object || `Артикул ${nmId}`).trim();
         toInsert.push({
             cabinet_id: cabinetId,
             nm_id: nmId,
             name,
-            photo_url: '',
+            photo_url: photo,
             is_active: true,
             cost_price: 0,
             manual_data: sa ? { seller_article: sa } : {},
@@ -956,6 +971,11 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
             ignoreDuplicates: true,
         });
     }
+    for (const upd of photoUpdates.slice(0, 400)) {
+        await admin.from('rnp_articles').update({ photo_url: upd.url })
+            .eq('cabinet_id', cabinetId).eq('nm_id', upd.nmId);
+    }
+    if (photoUpdates.length) console.log('[auto-sync] photo_url заполнен:', photoUpdates.length);
     return toInsert.length;
 }
 

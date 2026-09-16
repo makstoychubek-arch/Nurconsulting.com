@@ -6,7 +6,9 @@
 
 import { WB_MAIN_PHOTO_SLOT } from './ab-test-report-card.ts';
 
-const MAX_BASKET = 26;
+// Хосты WB давно ушли за 26: артикулы 2026 года лежат на basket-48 и дальше,
+// и с прежним потолком проба не находила фото у всех новых карточек.
+const MAX_BASKET = 60;
 const BASKET_PROBE_BATCH = 12;
 
 export { WB_MAIN_PHOTO_SLOT };
