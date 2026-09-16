@@ -3601,6 +3601,18 @@
         }
         .space-empty-btn:hover { transform: none; box-shadow: none; background: #222; }
         .space-empty-btn[disabled] { opacity: 0.6; cursor: default; }
+        /* Честная плашка вместо оценочных цифр, когда финотчёт WB недоступен. */
+        .dash-finance-note {
+            display: none;
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+        .dash-finance-note.show { display: block; }
         /* Онбординг: поле токена и инструкция прямо на экране приветствия,
            чтобы новому клиенту не приходилось искать, куда вставить API. */
         .onb-card { max-width: 560px; text-align: left; padding: 36px 32px; }
@@ -4989,6 +5001,7 @@
             </div>
         </div>
         <div id="tab-dashboard" class="tab-content active space-y-6">
+            <div id="dash-finance-note" class="dash-finance-note"></div>
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 dash-kpi-hero">
                 <div class="kpi-hero-card" data-tone="good">
                     <div class="kpi-hero-label">Чистая прибыль</div>
@@ -11133,38 +11146,6 @@
         });
     }
 
-    function computeQuickOrderMetrics(agg) {
-        const ordersSum = Number(agg?.orders_sum || 0);
-        const ordersCount = Number(agg?.orders_count || 0);
-        const returnsCount = Number(agg?.returns_count || 0);
-        const salesSum = Math.round(ordersSum * 0.65);
-        const salesCount = Math.round(ordersCount * 0.65);
-        const commission = Math.round(salesSum * 0.15);
-        const logistics = Math.round(salesSum * 0.05);
-        const storage = Math.round(salesSum * 0.01);
-        const profit = salesSum - commission - logistics - storage;
-        const margin = salesSum > 0 ? Math.round((profit / salesSum) * 1000) / 10 : 0;
-        const roi = salesSum > 0 ? Math.round((profit / (salesSum * 0.5)) * 100) : null;
-        const buyoutRate = ordersCount > 0 ? 65 : 0;
-        return {
-            ordersSum, ordersCount, salesSum, salesCount,
-            profitFull: profit, profitBeforeCost: profit,
-            realizationSum: salesSum, totalWbFee: commission,
-            logisticsSum: logistics, storageSum: storage, adsSum: Number(agg?.ads_sum || 0),
-            returnsSum: returnsCount, buyoutRate, roi,
-            opexForPeriod: 0, acceptanceSum: 0, deductionSum: 0,
-            costOfSalesSum: 0, taxSum: 0, taxBase: salesSum,
-            commissionSum: commission, avgSalePrice: salesCount > 0 ? Math.round(salesSum / salesCount) : 0,
-            avgLogisticsPerUnit: salesCount > 0 ? Math.round(logistics / salesCount) : 0,
-            avgProfitPerUnit: salesCount > 0 ? Math.round(profit / salesCount) : 0,
-            penaltySum: 0, compensationSum: 0, margin,
-            acquiringSum: 0, sppSum: 0,
-            avgRetailPrice: salesCount > 0 ? Math.round(salesSum / salesCount) : 0,
-            capCost: 0, capRetail: 0, stockTotal: 0,
-            gmroi: null, gmroiYear: null, turnoverSales: null, turnoverOrders: null,
-        };
-    }
-
     function enrichMetricsWithStockExtras(metrics, stockTotal, ordersCount) {
         if (!metrics) return metrics;
         stockTotal = Number(stockTotal) || 0;
@@ -11300,32 +11281,21 @@
                     opex: Number(localStorage.getItem('opex') || 0),
                     adsSum: Number(adsCur && adsCur.spend || 0),
                 };
-                const prevSettings = {
-                    taxRate: settings.taxRate,
-                    opex: settings.opex,
-                    adsSum: Number(adsPrev && adsPrev.spend || 0),
-                };
 
-                Promise.race([
-                    Promise.all([
-                        WBFormulas.loadFinanceReport(callWbProxy, from, to),
-                        WBFormulas.loadFinanceReport(callWbProxy, prev.from, prev.to),
-                    ]),
-                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
-                ]).then(([rows, prevRows]) => {
+                loadFinanceRows(snapshotCabinet, from, to).then((rows) => {
                     if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
-                    if (!rows || rows.length === 0) return;
+                    if (!rows || rows.length === 0) {
+                        // Пустой отчёт — это не повод оставлять на экране оценку.
+                        setFinanceMetricsPlaceholder('—');
+                        showFinanceNote('Финансовый отчёт Wildberries за выбранный период не получен — прибыль, маржа, комиссия и выкуп не рассчитаны. WB формирует отчёт раз в неделю, по понедельникам за прошедшую неделю; свежие дни в него ещё не попали.');
+                        return;
+                    }
                     const metrics = enrichMetricsWithStockExtras(
                         WBFormulas.calculateMetrics(rows, settings), stocks.total, Number(summary.cur?.orders_count || 0));
-                    const prevMetrics = prevRows && prevRows.length > 0
-                        ? enrichMetricsWithStockExtras(
-                            WBFormulas.calculateMetrics(prevRows, prevSettings), stocks.total, Number(summary.prev?.orders_count || 0))
-                        : null;
                     if (finCabinet === currentCabinetId) {
                         const applyFin = () => {
                             WBFormulas.applyMetricsToDashboard(metrics, setText);
                             applyExtendedMetricDisplay(metrics);
-                            if (prevMetrics) applyMetricTrends(metrics, prevMetrics);
                             syncSummaryTab(metrics);
                             renderTopMarginalProducts(metrics);
                         };
@@ -11334,6 +11304,12 @@
                     }
                 }).catch(e => {
                     console.warn('Finance report:', e.message);
+                    if (finCabinet === currentCabinetId) {
+                        setFinanceMetricsPlaceholder('—');
+                        showFinanceNote(e.message === 'timeout'
+                            ? 'Wildberries не ответил на запрос финансового отчёта — прибыль и маржа не рассчитаны. Нажмите «Обновить», чтобы попробовать снова.'
+                            : 'Не удалось получить финансовый отчёт Wildberries — прибыль и маржа не рассчитаны.');
+                    }
                     const legendEl = document.getElementById('dashboard-top-margin-legend');
                     if (legendEl && finCabinet === currentCabinetId) {
                         legendEl.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Не удалось загрузить данные</div>`;
@@ -11644,36 +11620,87 @@
         const drr = base > 0 ? Math.round((ads / base) * 1000) / 10 : null;
         return fmtDashMoney(ads) + (drr != null ? ' · ' + drr + '%' : '');
     }
+    // Показатели, которые считаются только по финансовому отчёту WB: выкуп,
+    // комиссия, логистика, хранение, прибыль, маржа, ROI. Раньше на их месте
+    // рисовались придуманные коэффициенты (продажи = заказы × 0.65, комиссия
+    // 15%, логистика 5%, хранение 1%), и если отчёт WB не успевал прийти за
+    // 15 секунд, эти числа так и оставались на экране как настоящие.
+    const FINANCE_METRIC_IDS = [
+        'm-sales-sum', 'm-sales-count', 'm-realization', 'm-commission',
+        'm-logistics', 'm-storage', 'm-profit', 'm-margin', 'm-profit2',
+        'm-roi', 'm-conversion', 'm-opex',
+        'rnp-profit', 'rnp-margin', 'rnp-roi', 'rnp-buyout', 'rnp-sales', 'rnp-logistics',
+    ];
+
+    function setFinanceMetricsPlaceholder(text) {
+        FINANCE_METRIC_IDS.forEach(id => setText(id, text));
+    }
+
+    function showFinanceNote(text) {
+        const el = document.getElementById('dash-finance-note');
+        if (!el) return;
+        el.textContent = text || '';
+        el.classList.toggle('show', !!text);
+    }
+
+    /**
+     * Строки финотчёта за период. Берём из базы, куда их ночью складывает
+     * rnp-finance-sync: у прямого метода WB лимит один запрос в минуту на
+     * продавца, поэтому запрос из браузера при каждой загрузке дашборда
+     * регулярно получал 429 и прибыль с маржой просто не появлялись.
+     * Живой запрос к WB остаётся страховкой, если кеш ещё не догнал период.
+     */
+    async function loadFinanceRows(cabinetId, from, to) {
+        try {
+            const { data, error } = await supabase.rpc('dashboard_finance_rows', {
+                p_cabinet_id: cabinetId,
+                p_from: from,
+                p_to: to,
+            });
+            if (!error && Array.isArray(data) && data.length) return data;
+            if (error) console.warn('[loadFinanceRows] из базы:', error.message);
+        } catch (e) {
+            console.warn('[loadFinanceRows] из базы:', e?.message || e);
+        }
+
+        try {
+            return await Promise.race([
+                WBFormulas.loadFinanceReport(callWbProxy, from, to),
+                new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000)),
+            ]);
+        } catch (e) {
+            console.warn('[loadFinanceRows] из WB:', e?.message || e);
+            return [];
+        }
+    }
+
     function updateDashboardFromDB(totalStock, cur, prev) {
         const ordersSum = Number(cur?.orders_sum || 0);
         const ordersCount = Number(cur?.orders_count || 0);
         const returns = Number(cur?.returns_count || 0);
         const adsSpend = Math.round(Number(cur?.ads_sum || 0));
-        const salesSum=Math.round(ordersSum*0.65), salesCount=Math.round(ordersCount*0.65);
-        const commission=Math.round(salesSum*0.15), logistics=Math.round(salesSum*0.05), storage=Math.round(salesSum*0.01);
-        const profit=salesSum-commission-logistics-storage-adsSpend;
-        const margin=salesSum>0?Math.round((profit/salesSum)*100):0;
-        const roi=salesSum>0?Math.round((profit/(salesSum*0.5))*100):0;
-        setText('m-orders-sum', fmtDashMoney(ordersSum)); setText('m-orders-count', ordersCount+' шт.');
-        setText('m-sales-sum', fmtDashMoney(salesSum)); setText('m-sales-count', salesCount+' шт.');
-        setText('m-stock', fmt(totalStock)+' шт.'); setText('m-conversion', ordersCount>0?'65%':'—');
-        setText('m-logistics', fmtDashMoney(logistics)); setText('m-storage', fmtDashMoney(storage));
-        setText('m-commission', fmtDashMoney(commission)); setText('m-realization', fmtDashMoney(salesSum));
-        setText('m-returns', returns+' шт.'); setText('m-roi', roi+'%');
-        setText('m-profit', fmtDashMoney(profit)); setText('m-margin', margin+'%');
-        setText('m-profit2', fmtDashMoney(profit));
-        setText('m-ads', fmtDashAds(adsSpend, salesSum));
-        setText('rnp-profit', fmtDashMoney(profit)); setText('rnp-margin', margin+'%'); setText('rnp-roi', roi+'%');
-        setText('rnp-buyout', ordersCount>0?'65%':'—');
-        setText('rnp-orders', ordersCount+' шт.');
-        setText('rnp-sales', Math.round(ordersCount*0.65)+' шт.');
-        setText('rnp-returns', returns+' шт.');
-        setText('rnp-logistics', fmtDashMoney(logistics));
+
+        // Факты из базы: заказы, возвраты, остатки, расход на рекламу.
+        setText('m-orders-sum', fmtDashMoney(ordersSum));
+        setText('m-orders-count', ordersCount + ' шт.');
+        setText('m-stock', fmt(totalStock) + ' шт.');
+        setText('m-returns', returns + ' шт.');
+        setText('m-ads', fmtDashAds(adsSpend, 0));
+        setText('rnp-orders', ordersCount + ' шт.');
+        setText('rnp-returns', returns + ' шт.');
+
+        setFinanceMetricsPlaceholder('…');
+        showFinanceNote('');
+
         if (prev) {
-            const currM = enrichMetricsWithStockExtras(computeQuickOrderMetrics(cur), totalStock, ordersCount);
-            const prevM = enrichMetricsWithStockExtras(computeQuickOrderMetrics(prev), totalStock, Number(prev?.orders_count || 0));
-            applyExtendedMetricDisplay(currM);
-            applyMetricTrends(currM, prevM);
+            const real = (agg) => ({
+                ordersSum: Number(agg?.orders_sum || 0),
+                ordersCount: Number(agg?.orders_count || 0),
+                returnsSum: Number(agg?.returns_count || 0),
+                adsSum: Math.round(Number(agg?.ads_sum || 0)),
+                stockTotal: Number(totalStock) || 0,
+            });
+            applyMetricTrends(real(cur), real(prev));
         }
     }
 
@@ -11849,34 +11876,6 @@
                 }
             }
         });
-    }
-
-    // РНП синхронизация
-    function syncRNPTab(stocks, orders) {
-        if (!stocks || !orders) return;
-        let totalStock=0, ordersSum=0, ordersCount=0, returns=0, salesSum=0;
-        stocks.forEach(s => totalStock += Number(s.quantity||0));
-        orders.forEach(o => {
-            if(o.is_return){returns++;return;}
-            ordersCount++;
-            ordersSum += Number(o.price||0);
-        });
-        salesSum = Math.round(ordersSum * 0.65);
-        const logistics = Math.round(salesSum * 0.05);
-        const commission = Math.round(salesSum * 0.15);
-        const profit = salesSum - commission - logistics - Math.round(salesSum*0.01);
-        const margin = salesSum > 0 ? Math.round((profit/salesSum)*100) : 0;
-        const roi = salesSum > 0 ? Math.round((profit/(salesSum*0.5))*100) : 0;
-        const buyout = ordersCount > 0 ? Math.round((salesSum/ordersSum)*100) : 0;
-
-        setText('rnp-profit', profit.toLocaleString('ru-RU') + ' ₽');
-        setText('rnp-margin', margin + '%');
-        setText('rnp-roi', roi + '%');
-        setText('rnp-buyout', buyout + '%');
-        setText('rnp-orders', ordersCount + ' шт.');
-        setText('rnp-sales', Math.round(ordersCount*0.65) + ' шт.');
-        setText('rnp-returns', returns + ' шт.');
-        setText('rnp-logistics', logistics.toLocaleString('ru-RU') + ' ₽');
     }
 
     // ======= КАЛЬКУЛЯТОР ЮНИТ-ЭКОНОМИКИ =======

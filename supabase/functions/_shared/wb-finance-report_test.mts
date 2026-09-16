@@ -52,6 +52,31 @@ assert.equal(raw.delivery_rub, 80);
 assert.equal(raw.currency_name, 'KGS');
 assert.equal(raw.sa_name, 'ART-1');
 
+// Поля, которые дашборд считает по кешу: раньше они не сохранялись, и
+// реализация, эквайринг и компенсации выходили нулями.
+{
+    const full = toRawFinanceRow('cab-1', parseDetailedBody(
+        '[{"rrdId":5,"nmId":7,"docTypeName":"Продажа","saleDt":"2026-09-11",'
+        + '"retailPrice":"1500,50","additionalPayment":"25","acquiringFee":"33,3",'
+        + '"bonusTypeName":"Компенсация брака","subjectName":"Свитеры","brandName":"NR",'
+        + '"quantity":1}]',
+    )[0]);
+    assert.equal(full.retail_price, 1500.5);
+    assert.equal(full.additional_payment, 25);
+    assert.equal(full.acquiring_fee, 33.3);
+    assert.equal(full.bonus_type_name, 'Компенсация брака');
+    assert.equal(full.subject_name, 'Свитеры');
+    assert.equal(full.brand_name, 'NR');
+}
+
+// Пустые строковые поля не должны превращаться в пустые строки в базе.
+{
+    const empty = toRawFinanceRow('cab-1', { rrdId: 6, bonusTypeName: '  ', subjectName: null });
+    assert.equal(empty.bonus_type_name, null);
+    assert.equal(empty.subject_name, null);
+    assert.equal(empty.retail_price, 0);
+}
+
 const legacySnake = toLegacyFinanceRow({
     rrd_id: 11,
     nm_id: 2,
