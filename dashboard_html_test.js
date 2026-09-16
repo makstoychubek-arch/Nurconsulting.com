@@ -1444,6 +1444,21 @@ assert.ok(html.includes('function loadAgentsPage') && html.includes('function op
     'Agents tab must open one of the ten WB tools');
 assert.ok(html.includes('Пригласительная ссылка') && html.includes('function submitAgentInvite'),
     'first agent function must generate a WB invite link');
+assert.ok(html.includes('id="agent-invite-copy-btn"') && html.includes('id="agent-invite-url"'),
+    'generated invite must show a selectable URL field and a copy button');
+assert.ok(html.includes('function copyTextToClipboard') && html.includes("execCommand('copy')"),
+    'copy button must work on iPhone when navigator.clipboard is blocked');
+assert.ok(html.includes('function pickAgentInviteUrl') && html.includes('nr_last_wb_invite'),
+    'invite URL is recovered from nested WB fields and kept until copy');
+{
+    const start = html.indexOf('function pickAgentInviteUrl');
+    const end = html.indexOf('function copyTextToClipboard');
+    assert.ok(start > 0 && end > start, 'invite URL helper sits next to clipboard copy');
+    const fns = new Function(`${html.slice(start, end)}; return { pickAgentInviteUrl };`)();
+    assert.strictEqual(fns.pickAgentInviteUrl({ inviteUrl: 'https://seller.wildberries.ru/invite/abc' }), 'https://seller.wildberries.ru/invite/abc');
+    assert.strictEqual(fns.pickAgentInviteUrl({ invite: { url: 'https://wb.ru/i/1' } }), 'https://wb.ru/i/1');
+    assert.strictEqual(fns.pickAgentInviteUrl({ data: { invite_url: 'https://wb.ru/i/2' } }), 'https://wb.ru/i/2');
+}
 assert.ok(
     html.includes('Команда кабинета') &&
     html.includes('Цены и скидки') &&
