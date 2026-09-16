@@ -282,6 +282,13 @@
             background: transparent; color: var(--text-primary);
         }
         .rail-btn.active .rail-btn-ico svg { opacity: 1; }
+        /* Внутренние разделы (боты команды, ватсап, мозг агентов) клиенту не
+           нужны и не читаются его правами. Скрыто по умолчанию: data-staff="1"
+           ставится либо из кеша прошлой сессии в <head>, либо после ответа
+           is_staff(), поэтому клиент кнопку не видит даже на миг. Правило через
+           :not() работает и для копии списка в мобильном шите — она клонирует
+           разметку как есть. */
+        html:not([data-staff="1"]) [data-staff-only] { display: none !important; }
         .rail-bottom {
             display: flex; flex-direction: column; align-items: stretch;
             gap: 4px; padding: 4px 2px 0; width: 100%;
@@ -4722,6 +4729,14 @@
             if (__nrTab) __nrTab = __nrAliases[__nrTab] || __nrTab;
             if (__nrTab === 'rnp-settings') __nrTab = 'rnp';
             if (__nrTab === 'cost') __nrTab = 'goods-groups';
+            /* Внутренние вкладки открываем сразу только сотруднику команды —
+               флаг из прошлой сессии. Клиента на /agents не пускаем ни на кадр,
+               точный ответ даёт is_staff() ниже. */
+            if (localStorage.getItem('nr_is_staff') === '1') {
+                document.documentElement.setAttribute('data-staff', '1');
+            } else if (__nrTab === 'agents') {
+                __nrTab = null;
+            }
             var __nrPane = !__nrTab ? null : (__nrLive[__nrTab] ? __nrTab : 'beta-stub');
             if (__nrPane && __nrPane !== 'dashboard') {
                 document.documentElement.setAttribute('data-nr-early', __nrPane);
@@ -4778,7 +4793,7 @@
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
                     <span class="rail-btn-lbl">Товары</span>
                 </button>
-                <button type="button" class="rail-btn" data-tab="agents" title="Агенты">
+                <button type="button" class="rail-btn" data-tab="agents" title="Агенты" data-staff-only="1">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                     <span class="rail-btn-lbl">Агенты</span>
                 </button>
@@ -4894,12 +4909,12 @@
                     <span class="nav-item-label">Калькулятор</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
-                <div class="nav-item" onclick="showTab('agents', this)">
+                <div class="nav-item" onclick="showTab('agents', this)" data-staff-only="1">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <span class="nav-item-label">Агенты</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
-                <div class="nav-item" onclick="showTab('telegram-bots', this)">
+                <div class="nav-item" onclick="showTab('telegram-bots', this)" data-staff-only="1">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>
                     <span class="nav-item-label">Телеграм боты</span>
                     <span class="nav-beta-badge">BETA</span>
@@ -6491,6 +6506,7 @@
     }
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon', 'agents']);
+    const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots']);
     const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'agents']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
@@ -6998,6 +7014,33 @@
 
     let isSuperAdmin = false;
     let currentSpaceStatus = 'active';
+    // Сотрудник команды (team_staff в базе). Внутренние разделы — телеграм-боты,
+    // ватсап, мозг агентов — общие для всей команды, а не про кабинет клиента,
+    // поэтому клиенту их не показываем: и права в базе их не пустят, и вкладка
+    // отвечала бы одними ошибками.
+    // Стартуем с флага прошлой сессии, чтобы сотруднику не мигала навигация;
+    // ответ is_staff() ниже — окончательный, а данные всё равно закрыты RLS.
+    let isStaff = (() => {
+        try { return localStorage.getItem('nr_is_staff') === '1'; } catch (_) { return false; }
+    })();
+
+    async function resolveStaffRole() {
+        if (isSuperAdmin) isStaff = true;
+        else {
+            try {
+                const { data, error } = await supabase.rpc('is_staff');
+                if (error) throw error;
+                isStaff = data === true;
+            } catch (e) {
+                console.warn('[role] is_staff:', e.message || e);
+                isStaff = false;
+            }
+        }
+        try { localStorage.setItem('nr_is_staff', isStaff ? '1' : '0'); } catch (_) {}
+        if (isStaff) document.documentElement.setAttribute('data-staff', '1');
+        else document.documentElement.removeAttribute('data-staff');
+        if (!isStaff && STAFF_ONLY_TABS.has(getCurrentActiveTab())) showTab('dashboard');
+    }
 
     function escapeHtml(str) {
         return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -7857,6 +7900,11 @@
 
     function showTab(name, el) {
         name = TAB_ALIASES[name] || name;
+        // Прямой заход на /agents клиенту тоже закрыт: не сотрудника уводим на дашборд.
+        if (STAFF_ONLY_TABS.has(name) && !isStaff) {
+            showTab('dashboard');
+            return;
+        }
         if (name === 'cost') {
             try { sessionStorage.setItem('gg_view', 'cost'); } catch (e) {}
             showTab('goods-groups', el);
@@ -14464,7 +14512,7 @@
 
     function loadAgentsPage() {
         const grid = document.getElementById('agents-grid');
-        if (!grid) return;
+        if (!grid || !isStaff) return;
         const cur = window._agentFn || 'invite';
         grid.innerHTML = AGENT_FNS.map((f) => `<button type="button" class="agent-fn-card${f.id === cur ? ' active' : ''}" data-agent-fn="${f.id}" onclick="openAgentFn('${f.id}')">
             <div class="agent-fn-num">${f.n < 10 ? '0' : ''}${f.n}</div>
@@ -15688,6 +15736,8 @@
         registerUserSession().catch(e => console.warn('[security] init:', e));
         applySettingsTabsForRole();
         updateSpaceStatusUI();
+        // Без await: восстановление вкладки ниже не должно ждать сеть.
+        resolveStaffRole().catch(e => console.warn('[role] init:', e));
 
         // Восстанавливаем сохранённую вкладку СРАЗУ, ДО любых await (loadCabinets
         // может идти 5-8с на большом кабинете) — иначе пользователь всё это время

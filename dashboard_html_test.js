@@ -1603,6 +1603,47 @@ assert.ok(
     'can add a Telegram bot, list channel status, and send a site message into the TG chat'
 );
 
+// Хаб агентов — внутренняя страница команды. У клиента она давала 404 в консоль
+// (таблиц не было) и показывала реестр наших ботов, поэтому вкладка скрыта и
+// закрыта в базе: whatsapp_agents / agent_brain / telegram_bots — только is_staff().
+{
+    const staffMigration = fs.readFileSync(
+        path.join(__dirname, 'supabase/migrations/20260916260000_agent_hub_staff_only.sql'), 'utf8');
+    assert.ok(
+        staffMigration.includes('create or replace function public.is_staff()') &&
+        staffMigration.includes('grant execute on function public.is_staff() to authenticated'),
+        'is_staff() must exist so the UI can ask once whether to show internal tabs'
+    );
+    assert.ok(
+        staffMigration.includes('create policy whatsapp_agents_staff') &&
+        staffMigration.includes('create policy agent_brain_staff') &&
+        staffMigration.includes('drop policy if exists whatsapp_agents_select') &&
+        staffMigration.includes('drop policy if exists agent_brain_select'),
+        'agent hub tables must be staff-only instead of any-authenticated'
+    );
+    assert.ok(
+        /create policy telegram_bots_select on public\.telegram_bots for select\s*\n\s*using \(public\.is_staff\(\)\)/.test(staffMigration) &&
+        staffMigration.includes('revoke all on public.telegram_bot_secrets from authenticated'),
+        'the bot registry and bot tokens must not be readable by clients'
+    );
+    assert.ok(
+        html.includes("const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots'])") &&
+        html.includes("if (STAFF_ONLY_TABS.has(name) && !isStaff)") &&
+        html.includes("supabase.rpc('is_staff')") &&
+        html.includes('html:not([data-staff="1"]) [data-staff-only] { display: none !important; }') &&
+        html.includes('data-tab="agents" title="Агенты" data-staff-only="1"') &&
+        html.includes(`onclick="showTab('agents', this)" data-staff-only="1"`) &&
+        html.includes(`onclick="showTab('telegram-bots', this)" data-staff-only="1"`) &&
+        html.includes("if (!grid || !isStaff) return;"),
+        'client must not see the internal Агенты tab: hidden in nav and blocked in showTab'
+    );
+    assert.ok(
+        html.includes("if (localStorage.getItem('nr_is_staff') === '1')") &&
+        html.includes("} else if (__nrTab === 'agents') {"),
+        'direct /agents hit must fall back to the dashboard before first paint for a client'
+    );
+}
+
 assert.ok(!html.includes('--logo-mark: #F5C400'), 'dashboard logo mark must not be yellow');
 assert.ok(html.includes('--logo-mark: #FFFFFF'), 'dashboard logo mark must be white');
 assert.ok(
