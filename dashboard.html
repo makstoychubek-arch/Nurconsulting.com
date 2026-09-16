@@ -11631,8 +11631,13 @@
         }
 
         try {
-            const from = '2026-01-01';
-
+            // Раньше кнопка сама тянула заказы из WB (dateFrom=2026-01-01),
+            // УДАЛЯЛА в базе всё от этой даты и записывала ответ на его место.
+            // WB на этот запрос отдаёт не период, а заказы по lastChangeDate —
+            // то есть последние изменившиеся, — поэтому каждое нажатие стирало
+            // месяцы истории: у Базы в базе оставалось только с 1 сентября,
+            // хотя курсор докачки стоял на 10 июля. Синхронизацию делает
+            // сервер: он ходит по календарным дням WB и историю не трогает.
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
                 const syncRes = await fetch(AUTO_SYNC_URL, {
@@ -11641,42 +11646,13 @@
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ' + session.access_token
                     },
-                    body: JSON.stringify({ mode: 'stocks', cabinet_id: snapshotCabinet })
+                    body: JSON.stringify({ mode: 'refresh', cabinet_id: snapshotCabinet })
                 });
                 if (!syncRes.ok) {
                     const errBody = await syncRes.json().catch(() => ({}));
-                    console.warn('[refreshData] stocks sync:', errBody.error || syncRes.status);
+                    console.warn('[refreshData] sync:', errBody.error || syncRes.status);
                 }
             }
-            if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
-
-            const orders = await callWbProxy('orders', { dateFrom: from }, snapshotCabinet);
-            if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
-
-            if (Array.isArray(orders)) {
-                await supabase.from('wb_orders').delete().eq('cabinet_id', snapshotCabinet).gte('order_date', from);
-                if (orders.length > 0) {
-                const orderRows = orders.map(o => ({
-                    cabinet_id: snapshotCabinet,
-                    order_date: o.date?.split('T')[0] || new Date().toISOString().split('T')[0],
-                    nm_id: o.nmId,
-                    barcode: o.barcode,
-                    // priceWithDisc — цена со скидкой продавца, та же база, что
-                    // «Продажи» в финотчёте. Поля priceWithDiscount у WB нет,
-                    // и заказы писались по totalPrice — до скидки.
-                    price: Number(o.priceWithDisc) > 0 ? Number(o.priceWithDisc) : Number(o.totalPrice || 0),
-                    is_return: o.isReturn || false,
-                    data: o
-                }));
-                for (let i = 0; i < orderRows.length; i += 100) {
-                    await supabase.from('wb_orders').upsert(
-                        orderRows.slice(i, i + 100),
-                        { onConflict: 'cabinet_id,order_date,nm_id,barcode', ignoreDuplicates: true }
-                    );
-                }
-                }
-            }
-
             if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
 
             await loadFromDB();

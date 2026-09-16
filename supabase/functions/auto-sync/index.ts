@@ -181,12 +181,33 @@ Deno.serve(async (req) => {
     }
 
     for (const cab of work) {
-        if (mode !== 'full' && mode !== 'stocks') continue;
+        if (mode !== 'full' && mode !== 'stocks' && mode !== 'refresh') continue;
         try {
             cab.stocksCount = await syncStocks(admin, cab);
         } catch (e) {
             cab.errorMsg += `stocks: ${(e as Error).message}; `;
             cab.status = 'partial';
+        }
+    }
+
+    // mode = refresh — кнопка «Обновить» на дашборде: остатки и текущий день.
+    // Больше одного запроса заказов она себе позволить не может (WB держит
+    // лимит 1 запрос в минуту), а история и так догоняется по cron.
+    if (mode === 'refresh') {
+        const today = moscowYmd();
+        for (const cab of work) {
+            try {
+                cab.ordersCount += await syncRecentDay(admin, cab, today);
+            } catch (e) {
+                cab.errorMsg += `orders_${today}: ${(e as Error).message}; `;
+                cab.status = 'partial';
+            }
+            try {
+                cab.rnpDailyRows = await syncRnpDailyFromOrders(admin, cab.id);
+            } catch (e) {
+                cab.errorMsg += `rnp_daily: ${(e as Error).message}; `;
+                cab.status = 'partial';
+            }
         }
     }
 

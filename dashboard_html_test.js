@@ -1103,8 +1103,39 @@ assert.ok(
     !/fetchFbsStockRows\(token, cabinetId\)/.test(autoSyncSrc),
     'fetchFbsStockRows must not be called without admin'
 );
-assert.ok(html.includes("mode: 'stocks'") && html.includes('AUTO_SYNC_URL'),
-    'dashboard refresh must sync stocks via auto-sync, not the dead Statistics stocks API');
+assert.ok(html.includes("mode: 'refresh'") && html.includes('AUTO_SYNC_URL'),
+    'dashboard refresh must sync via auto-sync, not the dead Statistics stocks API');
+// Кнопка «Обновить» удаляла wb_orders от 2026-01-01 и писала вместо истории то,
+// что WB отдал на dateFrom (а он отдаёт последние изменившиеся заказы, не период).
+assert.ok(
+    !/from\('wb_orders'\)\s*\.delete\(\)/.test(html) && !html.includes("await supabase.from('wb_orders').delete()"),
+    'dashboard must never delete order history from the browser'
+);
+assert.ok(
+    !html.includes("callWbProxy('orders', { dateFrom: from }"),
+    'orders must be synced day by day on the server, not pulled from WB by the page'
+);
+assert.ok(
+    autoSyncSrc.includes("if (mode === 'refresh')") &&
+    autoSyncSrc.includes("mode !== 'full' && mode !== 'stocks' && mode !== 'refresh'"),
+    'auto-sync must support the refresh mode used by the dashboard button'
+);
+// Цена заказа: у WB нет поля priceWithDiscount, из-за него суммы падали на
+// totalPrice (до скидки) и заказы на дашборде были завышены в 1.5-3 раза.
+const readsFakePriceField = (src) => /(?:\.|\[['"])priceWithDiscount/.test(src);
+assert.ok(
+    !readsFakePriceField(html) &&
+    !readsFakePriceField(autoSyncSrc) &&
+    !readsFakePriceField(fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8')) &&
+    !readsFakePriceField(fs.readFileSync(path.join(__dirname, 'supabase/functions/rnp-morning-fill/index.ts'), 'utf8')),
+    'nothing may read the non-existent WB field priceWithDiscount'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/wb-order-price.ts'), 'utf8')
+        .includes('export function orderPriceWithDisc') &&
+    autoSyncSrc.includes('orderPriceWithDisc(o)'),
+    'order price must come from the shared priceWithDisc helper'
+);
 assert.ok(html.includes("'m-stock-fbo','m-stock-fbs'"),
     'cabinet switch must reset FBO/FBS stock KPIs');
 
