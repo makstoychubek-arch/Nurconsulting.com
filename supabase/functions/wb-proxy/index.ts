@@ -52,10 +52,29 @@ import {
     executeAdvRequest,
     isAdvHelperName,
     isAdvNamespaceRequest,
+    parseAdvConfig,
     parseDryRun,
     parseReqPerMin,
     readAdvTokenFromVault,
+    type WbAdvConfig,
 } from '../_shared/wb-adv-proxy.ts';
+import {
+    buildClusterBoard,
+    buildClusterItemsBody,
+    buildClusterListBody,
+    buildClusterStatsBody,
+    buildMinusBody,
+    buildSetBidsBody,
+    canSetClusterBids,
+    clusterBoardTotals,
+    countClusterFilters,
+    parseClusterBids,
+    parseClusterList,
+    parseClusterStats,
+    parseMinusList,
+    nmIdsFromAdvert,
+    uniqueNmIds,
+} from '../_shared/wb-cluster-board.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -904,6 +923,139 @@ serve(async (req) => {
                 break;
             }
 
+            // ── Поисковые кластеры кампании: таблица, ставка CPM, минус-фразы ─
+            // Одна кампания = один запрос на каждую ручку normquery. Список
+            // артикулов берём из самой кампании, если фронт его не передал.
+            case 'adv_cluster_board': {
+                const advertId = Number(params.advertId || 0);
+                if (!advertId) return json({ error: 'advertId required' }, 400);
+                const dateFrom = String(params.dateFrom || '').split('T')[0];
+                const dateTo = String(params.dateTo || '').split('T')[0];
+                if (!dateFrom || !dateTo) return json({ error: 'dateFrom, dateTo required' }, 400);
+
+                let nmIds = uniqueNmIds(params.nmIds);
+                const advert = await fetchAdvertById(WB_PROMO_TOKEN, advertId);
+                if (!nmIds.length) nmIds = nmIdsFromAdvert(advert);
+                if (!nmIds.length) nmIds = uniqueNmIds(collectNmIds(advert, []));
+                if (!nmIds.length) {
+                    return json({ error: 'В кампании нет артикулов — WB не отдаёт кластеры без nmId.' }, 400);
+                }
+
+                const bidType = advert ? (advert.bid_type ?? advert.bidType) : null;
+                const paymentType = advert
+                    ? (advert.payment_type ?? (advert.settings as Record<string, unknown> | undefined)?.payment_type)
+                    : null;
+
+                const [listRaw, statsRaw, bidsRaw, minusRaw] = await Promise.all([
+                    wbPostSafe(`${ADVERT_API}/adv/v0/normquery/list`, WB_PROMO_TOKEN,
+                        buildClusterListBody(advertId, nmIds), 'normquery/list'),
+                    wbPostSafe(`${ADVERT_API}/adv/v0/normquery/stats`, WB_PROMO_TOKEN,
+                        buildClusterStatsBody(advertId, nmIds, dateFrom, dateTo), 'normquery/stats'),
+                    wbPostSafe(`${ADVERT_API}/adv/v0/normquery/get-bids`, WB_PROMO_TOKEN,
+                        buildClusterItemsBody(advertId, nmIds), 'normquery/get-bids'),
+                    wbPostSafe(`${ADVERT_API}/adv/v0/normquery/get-minus`, WB_PROMO_TOKEN,
+                        buildClusterItemsBody(advertId, nmIds), 'normquery/get-minus'),
+                ]);
+
+                const rows = buildClusterBoard({
+                    nmIds,
+                    list: parseClusterList(listRaw.data),
+                    stats: parseClusterStats(statsRaw.data),
+                    bids: parseClusterBids(bidsRaw.data),
+                    minus: parseMinusList(minusRaw.data),
+                });
+                const config = await fetchAdvConfigCached(WB_PROMO_TOKEN, cabinet_id);
+
+                result = {
+                    advertId,
+                    nmIds,
+                    rows,
+                    counts: countClusterFilters(rows),
+                    totals: clusterBoardTotals(rows),
+                    editable: canSetClusterBids(bidType, paymentType),
+                    bidType: bidType != null ? String(bidType) : null,
+                    paymentType: paymentType != null ? String(paymentType) : null,
+                    currency: config?.currency || rows.find((r) => r.currency)?.currency || '',
+                    cpmStep: config?.cpmStep ?? null,
+                    errors: [listRaw, statsRaw, bidsRaw, minusRaw]
+                        .filter((r) => r.error).map((r) => r.error as string),
+                };
+                break;
+            }
+            case 'adv_cluster_bid': {
+                const advertId = Number(params.advertId || 0);
+                const nmId = Number(params.nmId || 0);
+                const normQuery = String(params.normQuery || '').trim();
+                const bid = Number(params.bid || 0);
+                if (!advertId || !nmId || !normQuery) {
+                    return json({ error: 'advertId, nmId, normQuery required' }, 400);
+                }
+                if (!(bid > 0)) return json({ error: 'Ставка должна быть больше нуля' }, 400);
+
+                const config = await fetchAdvConfigCached(WB_PROMO_TOKEN, cabinet_id);
+                const body = buildSetBidsBody([{ advertId, nmId, normQuery, bid }], config?.cpmStep ?? 0);
+                if (!body.bids.length) return json({ error: 'Пустая ставка после округления по шагу WB' }, 400);
+
+                const res = await fetch(`${ADVERT_API}/api/advert/v1/normquery/bids`, {
+                    method: 'POST',
+                    headers: { Authorization: WB_PROMO_TOKEN, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                const text = await res.text();
+                if (!res.ok) {
+                    return json({
+                        error: `WB не принял ставку (${res.status}): ${text.slice(0, 200)}`,
+                    }, res.status >= 500 ? 502 : 400);
+                }
+                const data = text ? JSON.parse(text) : {};
+                const failed = Array.isArray(data?.failed) ? data.failed : [];
+                if (failed.length) {
+                    const reason = String(failed[0]?.reason || 'WB отклонил ставку');
+                    return json({ error: reason, failed }, 400);
+                }
+                result = {
+                    ok: true,
+                    advertId,
+                    nmId,
+                    normQuery,
+                    bid,
+                    bidMinorUnits: body.bids[0].bidMinorUnits,
+                    currency: config?.currency || '',
+                };
+                break;
+            }
+            case 'adv_cluster_minus': {
+                const advertId = Number(params.advertId || 0);
+                const nmId = Number(params.nmId || 0);
+                if (!advertId || !nmId) return json({ error: 'advertId, nmId required' }, 400);
+                const add = Array.isArray(params.add) ? (params.add as unknown[]).map((x) => String(x || '')) : [];
+                const remove = Array.isArray(params.remove)
+                    ? (params.remove as unknown[]).map((x) => String(x || '').trim().toLowerCase()).filter(Boolean)
+                    : [];
+                if (!add.length && !remove.length) return json({ error: 'add или remove обязательны' }, 400);
+
+                // set-minus перезаписывает весь список, поэтому сначала читаем текущий.
+                const current = await wbPostSafe(`${ADVERT_API}/adv/v0/normquery/get-minus`, WB_PROMO_TOKEN,
+                    buildClusterItemsBody(advertId, [nmId]), 'normquery/get-minus');
+                const existing = parseMinusList(current.data).get(nmId) || [];
+                const kept = existing.filter((q) => !remove.includes(q.trim().toLowerCase()));
+                const body = buildMinusBody(advertId, nmId, [...kept, ...add]);
+
+                const res = await fetch(`${ADVERT_API}/adv/v0/normquery/set-minus`, {
+                    method: 'POST',
+                    headers: { Authorization: WB_PROMO_TOKEN, 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                if (!res.ok) {
+                    const text = await res.text().catch(() => res.statusText);
+                    return json({
+                        error: `WB не принял минус-фразы (${res.status}): ${text.slice(0, 200)}`,
+                    }, res.status >= 500 ? 502 : 400);
+                }
+                result = { ok: true, advertId, nmId, minus: body.norm_queries };
+                break;
+            }
+
             // ── Analytics API — Sales Funnel ────────────────────────────────
             case 'sales_funnel_history': {
                 const today = new Date();
@@ -1635,6 +1787,58 @@ async function wbGet(url: string, token: string): Promise<unknown> {
         throw err;
     }
     return parseWbJson(res);
+}
+
+/**
+ * Кластерные ручки WB часто отвечают 400/404 на молодых кампаниях и на типах,
+ * где normquery не поддержан. Экран должен показать остальные колонки, поэтому
+ * ошибку не бросаем, а возвращаем текстом.
+ */
+async function wbPostSafe(
+    url: string,
+    token: string,
+    body: unknown,
+    label: string,
+): Promise<{ data: unknown; error: string | null }> {
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { Authorization: token, 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        });
+        const text = await res.text();
+        if (!res.ok) {
+            console.warn(`[wb-proxy] ${label} ${res.status}: ${text.slice(0, 200)}`);
+            return { data: null, error: `${label}: WB ${res.status}` };
+        }
+        return { data: text ? JSON.parse(text) : null, error: null };
+    } catch (e) {
+        console.warn(`[wb-proxy] ${label} error:`, String(e));
+        return { data: null, error: `${label}: ${String(e).slice(0, 120)}` };
+    }
+}
+
+// GET /api/advert/v1/config — 1 запрос в минуту на кабинет, поэтому кэшируем.
+const ADV_CONFIG_CACHE = new Map<string, { ts: number; config: WbAdvConfig | null }>();
+const ADV_CONFIG_TTL_MS = 30 * 60 * 1000;
+
+async function fetchAdvConfigCached(token: string, cabinetId: string): Promise<WbAdvConfig | null> {
+    const hit = ADV_CONFIG_CACHE.get(cabinetId);
+    if (hit && Date.now() - hit.ts < ADV_CONFIG_TTL_MS) return hit.config;
+    let config: WbAdvConfig | null = null;
+    try {
+        const res = await fetch(`${ADVERT_API}/api/advert/v1/config`, { headers: { Authorization: token } });
+        if (res.ok) {
+            const text = await res.text();
+            config = parseAdvConfig(text ? JSON.parse(text) : null);
+        } else {
+            console.warn('[wb-proxy] adv config', res.status);
+        }
+    } catch (e) {
+        console.warn('[wb-proxy] adv config error:', String(e));
+    }
+    ADV_CONFIG_CACHE.set(cabinetId, { ts: Date.now(), config });
+    return config;
 }
 
 async function wbPost(url: string, token: string, body: unknown): Promise<unknown> {

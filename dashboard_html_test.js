@@ -1385,6 +1385,28 @@ assert.ok(html.includes('function saveAutobidderRule') && html.includes("from('a
     'autobidder modal must persist a rule to autobidder_rules_legacy_mvp');
 assert.ok(html.includes('AUTOBIDDER_RUN_URL') && html.includes('function runAutobidderNow'),
     'dashboard must call autobidder-run for a manual pass');
+assert.ok(html.includes("callWbProxy('adv_cluster_board'") && html.includes('function renderClusterBoard'),
+    'campaign row must open the per-campaign cluster board');
+assert.ok(html.includes("callWbProxy('adv_cluster_bid'") && html.includes('function saveClusterBid'),
+    'each cluster must accept its own CPM bid');
+assert.ok(html.includes("callWbProxy('adv_cluster_minus'") && html.includes('function toggleClusterMinus'),
+    'cluster board must exclude / restore a cluster via minus phrases');
+assert.ok(html.includes('cl-bid-${advertId}-${idx}') && html.includes('class="cl-bid-input"'),
+    'cluster bid must be an editable input, not read-only text');
+assert.ok(html.includes('cl-chip') && html.includes("Исключения"),
+    'cluster board needs the Все / Со ставкой / Активные / Исключения filters');
+{
+    const proxy = fs.readFileSync(path.join(__dirname, 'supabase/functions/wb-proxy/index.ts'), 'utf8');
+    assert.ok(proxy.includes("case 'adv_cluster_board'") && proxy.includes("case 'adv_cluster_bid'")
+        && proxy.includes("case 'adv_cluster_minus'"),
+        'wb-proxy must serve the cluster board, bid and minus actions');
+    assert.ok(proxy.includes('/api/advert/v1/normquery/bids'),
+        'cluster bids go through v1 (bidMinorUnits in cabinet currency)');
+    assert.ok(!proxy.includes('/adv/v0/normquery/bids'),
+        'v0 bids path is in rubles — must not be used');
+    assert.ok(proxy.includes('fetchAdvConfigCached'),
+        'bid step comes from GET /api/advert/v1/config and is cached per cabinet');
+}
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903200000_autobidder.sql')),
     'autobidder_rules migration must exist'

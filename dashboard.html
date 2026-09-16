@@ -891,6 +891,35 @@
         .adv-camp-action-btn:hover { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
         .adv-camp-action-btn:disabled { opacity: 0.6; cursor: default; }
         .adv-camp-action-btn.is-on { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
+        .cl-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        .cl-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+        .cl-chip {
+            border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-muted);
+            font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .cl-chip b { color: var(--text-primary); font-weight: 700; }
+        .cl-chip.on { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
+        .cl-chip.on b { color: var(--accent); }
+        .cl-note { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+        .cl-table { font-size: 11px; }
+        .cl-table td, .cl-table th { white-space: nowrap; }
+        .cl-nm { font-size: 10px; color: var(--text-muted); font-family: ui-monospace, monospace; }
+        .cl-bid-wrap { display: inline-flex; gap: 4px; align-items: center; }
+        .cl-bid-input {
+            width: 74px; padding: 4px 6px; font-size: 11px; border-radius: 7px;
+            border: 1px solid var(--border-strong); background: var(--bg); color: var(--text-primary);
+        }
+        .cl-bid-save {
+            border: 1px solid var(--accent-border); background: var(--accent-soft); color: var(--accent);
+            font-size: 10px; font-weight: 700; padding: 4px 7px; border-radius: 7px; cursor: pointer;
+        }
+        .cl-badge {
+            font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
+            border: 1px solid var(--border-strong); color: var(--text-muted);
+        }
+        .cl-badge-on { border-color: var(--accent-border); background: var(--accent-soft); color: var(--accent); }
+        .cl-badge-off { border-color: var(--border-strong); background: var(--surface); color: var(--text-muted); }
         .autobidder-rule {
             background: var(--surface); border-radius: var(--radius-card); padding: 16px;
             box-shadow: var(--card-shadow); display: flex; flex-direction: column; gap: 10px;
@@ -6960,7 +6989,7 @@
         const bgActions = new Set([
             'sales_funnel_history', 'advert_stats', 'advert_list', 'product_photos',
             'content_cards', 'media_save', 'fbw_supplies', 'fbw_supply_detail',
-            'stocks', 'orders', 'advert_keyword_stats', 'advert_balance', 'finance_report',
+            'stocks', 'orders', 'advert_keyword_stats', 'adv_cluster_board', 'advert_balance', 'finance_report',
         ]);
         if (!isSuperAdmin && currentSpaceStatus !== 'active') {
             showPremiumModal('warning', 'Спейс не активен', currentSpaceStatus === 'blocked'
@@ -7788,7 +7817,7 @@
                 <td>${cSpendShare != null ? cSpendShare.toFixed(2) + '%' : '—'}</td>
                 <td>${campaignStatusPillHtml(c.status)}</td>
                 <td>${campaignActionBtnHtml(c.id, c.status)}</td>
-                <td><button type="button" class="adv-camp-action-btn" onclick="toggleKeywordStats(${c.id})">🔍 Фразы</button> <button type="button" class="adv-camp-action-btn${(window._autobidderByCampaign && window._autobidderByCampaign.get(String(c.id))?.enabled) ? ' is-on' : ''}" onclick="openAutobidderModal(${c.id})">⚡ Авто</button></td>
+                <td><button type="button" class="adv-camp-action-btn" onclick="toggleKeywordStats(${c.id})">🔍 Кластеры</button> <button type="button" class="adv-camp-action-btn${(window._autobidderByCampaign && window._autobidderByCampaign.get(String(c.id))?.enabled) ? ' is-on' : ''}" onclick="openAutobidderModal(${c.id})">⚡ Авто</button></td>
             </tr>
             <tr id="adv-camp-kw-row-${c.id}" class="hidden"><td colspan="12" style="padding:0"><div id="adv-camp-kw-${c.id}" class="p-4" style="background:var(--accent-soft)"></div></td></tr>`;
             }).join('') + `</tbody></table></div>`;
@@ -7916,52 +7945,184 @@
     }
     window.toggleNmRow = toggleNmRow;
 
-    // Поисковые фразы (кластеры) по кампании — живой запрос по клику
-    // (не кэшируем: это drill-down данные, нужны редко и точечно, не на
-    // каждое открытие вкладки).
-    const _kwLoadedCampaigns = new Set();
+    // Поисковые кластеры кампании: своя ставка CPM у каждого кластера, минус-фразы,
+    // статистика за выбранный период. Живой запрос по клику — данные точечные.
+    const _clusterBoards = new Map();   // advertId -> ответ adv_cluster_board
+    const _clusterFilter = new Map();   // advertId -> текущий фильтр
+
+    const CLUSTER_FILTERS = [
+        { key: 'all', label: 'Все' },
+        { key: 'managed', label: 'Со ставкой' },
+        { key: 'active', label: 'Активные' },
+        { key: 'excluded', label: 'Исключения' },
+        { key: 'archived', label: 'Архив' },
+    ];
+
+    function filterClusterRows(rows, filter) {
+        if (filter === 'managed') return rows.filter(r => r.bid > 0);
+        if (filter === 'active') return rows.filter(r => r.state === 'active' && !r.minus);
+        if (filter === 'excluded') return rows.filter(r => r.state === 'excluded' || r.minus);
+        if (filter === 'archived') return rows.filter(r => r.state === 'archived');
+        return rows;
+    }
+
     async function toggleKeywordStats(advertId) {
         const row = document.getElementById('adv-camp-kw-row-' + advertId);
         const box = document.getElementById('adv-camp-kw-' + advertId);
         if (!row || !box) return;
         const willShow = row.classList.contains('hidden');
         row.classList.toggle('hidden', !willShow);
-        if (!willShow || _kwLoadedCampaigns.has(advertId)) return;
-        box.innerHTML = `<div class="text-xs" style="color:var(--text-muted)">Загрузка поисковых фраз...</div>`;
-        const { from, to } = getActiveDateRange();
-        const data = await callWbProxy('advert_keyword_stats', { advertId, dateFrom: from, dateTo: to }, currentCabinetId);
-        _kwLoadedCampaigns.add(advertId);
-        renderKeywordStatsBox(box, data);
+        if (!willShow) return;
+        if (_clusterBoards.has(advertId)) { renderClusterBoard(advertId); return; }
+        await loadClusterBoard(advertId);
     }
     window.toggleKeywordStats = toggleKeywordStats;
 
-    // WB не документирует строго формат normquery/stats — терпимо разбираем
-    // разные варианты названий полей (word/phrase/query, views/shows, orders/ordersCount).
-    function renderKeywordStatsBox(box, data) {
-        if (!box) return;
-        let list = [];
-        if (Array.isArray(data)) list = data;
-        else if (Array.isArray(data?.items)) list = data.items;
-        else if (Array.isArray(data?.[0]?.stat)) list = data.flatMap(d => d.stat || []);
-        const rows = list.map(r => ({
-            word: r.word || r.phrase || r.query || r.normQuery || r.keyword || '—',
-            views: Number(r.views ?? r.shows ?? r.count ?? 0),
-            clicks: Number(r.clicks ?? 0),
-            orders: Number(r.orders ?? r.ordersCount ?? 0),
-        })).filter(r => r.views > 0 || r.clicks > 0 || r.orders > 0)
-          .sort((a, b) => b.clicks - a.clicks)
-          .slice(0, 25);
-
-        if (!rows.length) {
-            box.innerHTML = `<div class="text-xs" style="color:var(--text-muted)">WB не вернул статистику по фразам для этой кампании за выбранный период (метод normquery/stats — если кампания молодая или тип не CPM/ручная ставка, данных может не быть).</div>`;
+    async function loadClusterBoard(advertId) {
+        const box = document.getElementById('adv-camp-kw-' + advertId);
+        if (box) box.innerHTML = `<div class="text-xs" style="color:var(--text-muted)">Загрузка кластеров…</div>`;
+        const { from, to } = getActiveDateRange();
+        const data = await callWbProxy('adv_cluster_board', { advertId, dateFrom: from, dateTo: to }, currentCabinetId);
+        if (!data || data.error) {
+            if (box) {
+                box.innerHTML = `<div class="text-xs" style="color:var(--text-muted)">${escapeHtml(String((data && data.error) || 'WB не отдал кластеры этой кампании.'))}</div>`;
+            }
             return;
         }
-        box.innerHTML = `<div class="text-xs font-semibold mb-2" style="color:var(--text-primary)">Поисковые фразы (топ по кликам)</div>
-            <div class="overflow-x-auto"><table class="data-table" style="font-size:11px">
-                <thead><tr><th>Фраза</th><th>Показы</th><th>Клики</th><th>Заказы</th></tr></thead>
-                <tbody>${rows.map(r => `<tr><td style="color:var(--text-primary)">${escapeHtml(String(r.word))}</td><td>${fmt(r.views)}</td><td>${fmt(r.clicks)}</td><td>${fmt(r.orders)}</td></tr>`).join('')}</tbody>
-            </table></div>`;
+        _clusterBoards.set(advertId, data);
+        renderClusterBoard(advertId);
     }
+    window.reloadClusterBoard = (advertId) => loadClusterBoard(Number(advertId));
+
+    function setClusterFilter(advertId, filter) {
+        _clusterFilter.set(Number(advertId), filter);
+        renderClusterBoard(Number(advertId));
+    }
+    window.setClusterFilter = setClusterFilter;
+
+    function clusterStateBadge(r) {
+        if (r.minus) return `<span class="cl-badge cl-badge-off">В минусах</span>`;
+        if (r.state === 'excluded') return `<span class="cl-badge cl-badge-off">Исключён</span>`;
+        if (r.state === 'archived') return `<span class="cl-badge">Архив</span>`;
+        return `<span class="cl-badge cl-badge-on">Активен</span>`;
+    }
+
+    function renderClusterBoard(advertId) {
+        const box = document.getElementById('adv-camp-kw-' + advertId);
+        const data = _clusterBoards.get(advertId);
+        if (!box || !data) return;
+
+        const filter = _clusterFilter.get(advertId) || 'all';
+        const rows = filterClusterRows(data.rows || [], filter);
+        const counts = data.counts || {};
+        const cur = data.currency ? ' ' + escapeHtml(data.currency) : '';
+        const step = data.cpmStep ? (data.cpmStep / 100) : null;
+
+        const chips = CLUSTER_FILTERS.map(f => `<button type="button" class="cl-chip${f.key === filter ? ' on' : ''}" onclick="setClusterFilter(${advertId}, '${f.key}')">${f.label}<b>${fmt(counts[f.key] || 0)}</b></button>`).join('');
+
+        const note = !data.editable
+            ? `<div class="cl-note">Ставку по кластеру WB принимает только у кампаний с ручной ставкой и оплатой за показы. Здесь${data.bidType ? ' тип «' + escapeHtml(data.bidType) + '»' : ''}${data.paymentType ? ', оплата «' + escapeHtml(data.paymentType) + '»' : ''} — цифры показываем, ставку менять нельзя.</div>`
+            : step ? `<div class="cl-note">Шаг ставки в этом кабинете — ${fmt(step)}${cur}. WB округлит до шага сам.</div>` : '';
+
+        const errs = (data.errors || []).length
+            ? `<div class="cl-note">${escapeHtml((data.errors || []).join(' · '))}</div>` : '';
+
+        const body = !rows.length
+            ? `<div class="text-xs" style="color:var(--text-muted)">Нет кластеров в этом фильтре. WB показывает кластеры, по которым было не меньше 100 показов.</div>`
+            : `<div class="overflow-x-auto"><table class="data-table cl-table">
+                <thead><tr>
+                    <th>Кластер</th><th>Ставка CPM</th><th>Ср. позиция</th><th>Показы</th>
+                    <th>Клики</th><th>CTR</th><th>CPC</th><th>Корзины</th><th>Заказы</th>
+                    <th>Расход</th><th>Статус</th><th></th>
+                </tr></thead>
+                <tbody>${rows.map((r, i) => renderClusterRow(advertId, r, i, data)).join('')}</tbody>
+            </table></div>`;
+
+        box.innerHTML = `
+            <div class="cl-head">
+                <div class="cl-chips">${chips}</div>
+                <button type="button" class="adv-camp-action-btn" onclick="reloadClusterBoard(${advertId})">Обновить</button>
+            </div>
+            ${note}${errs}${body}`;
+    }
+
+    function renderClusterRow(advertId, r, idx, data) {
+        const cur = data.currency ? ' ' + escapeHtml(data.currency) : '';
+        const inputId = `cl-bid-${advertId}-${idx}`;
+        const bidCell = data.editable
+            ? `<div class="cl-bid-wrap">
+                    <input id="${inputId}" class="cl-bid-input" type="number" min="0" step="1" value="${r.bid > 0 ? Math.round(r.bid) : ''}" placeholder="—">
+                    <button type="button" class="cl-bid-save" onclick="saveClusterBid(${advertId}, ${idx})">OK</button>
+               </div>`
+            : (r.bid > 0 ? fmt(Math.round(r.bid)) + cur : '—');
+        const off = r.minus || r.state === 'excluded';
+        const actionBtn = off
+            ? `<button type="button" class="adv-camp-action-btn" onclick="toggleClusterMinus(${advertId}, ${idx}, false)">Вернуть</button>`
+            : `<button type="button" class="adv-camp-action-btn" onclick="toggleClusterMinus(${advertId}, ${idx}, true)">Исключить</button>`;
+
+        return `<tr data-cl-idx="${idx}">
+            <td style="color:var(--text-primary)">${escapeHtml(r.normQuery)}<div class="cl-nm">${r.nmId}</div></td>
+            <td>${bidCell}</td>
+            <td>${r.avgPos != null ? Number(r.avgPos).toFixed(1) : '—'}</td>
+            <td>${fmt(r.views)}</td>
+            <td>${fmt(r.clicks)}</td>
+            <td>${r.ctr != null ? Number(r.ctr).toFixed(2) + '%' : '—'}</td>
+            <td>${r.cpc != null ? fmt(Math.round(r.cpc)) + cur : '—'}</td>
+            <td>${fmt(r.atbs)}</td>
+            <td>${fmt(r.orders)}</td>
+            <td>${fmt(Math.round(r.spend))}${cur}</td>
+            <td>${clusterStateBadge(r)}</td>
+            <td>${actionBtn}</td>
+        </tr>`;
+    }
+
+    async function saveClusterBid(advertId, idx) {
+        const data = _clusterBoards.get(Number(advertId));
+        const row = data && data.rows && data.rows[idx];
+        if (!row) return;
+        const input = document.getElementById(`cl-bid-${advertId}-${idx}`);
+        const bid = Number(input && input.value);
+        if (!(bid > 0)) {
+            showPremiumModal('warning', 'Ставка', 'Введите ставку больше нуля.');
+            return;
+        }
+        const res = await callWbProxy('adv_cluster_bid', {
+            advertId: Number(advertId), nmId: row.nmId, normQuery: row.normQuery, bid,
+        }, currentCabinetId);
+        if (!res || res.error) {
+            showPremiumModal('error', 'WB не принял ставку', String((res && res.error) || 'Попробуйте позже.'));
+            return;
+        }
+        row.bid = bid;
+        row.bidMinorUnits = res.bidMinorUnits || Math.round(bid * 100);
+        data.counts = { ...data.counts, managed: (data.rows || []).filter(r => r.bid > 0).length };
+        renderClusterBoard(Number(advertId));
+    }
+    window.saveClusterBid = saveClusterBid;
+
+    async function toggleClusterMinus(advertId, idx, exclude) {
+        const data = _clusterBoards.get(Number(advertId));
+        const row = data && data.rows && data.rows[idx];
+        if (!row) return;
+        const payload = { advertId: Number(advertId), nmId: row.nmId };
+        if (exclude) payload.add = [row.normQuery];
+        else payload.remove = [row.normQuery];
+        const res = await callWbProxy('adv_cluster_minus', payload, currentCabinetId);
+        if (!res || res.error) {
+            showPremiumModal('error', 'Минус-фразы', String((res && res.error) || 'WB не принял изменение.'));
+            return;
+        }
+        row.minus = !!exclude;
+        if (!exclude && row.state === 'excluded') row.state = 'active';
+        const rows = data.rows || [];
+        data.counts = {
+            ...data.counts,
+            active: rows.filter(r => r.state === 'active' && !r.minus).length,
+            excluded: rows.filter(r => r.state === 'excluded' || r.minus).length,
+        };
+        renderClusterBoard(Number(advertId));
+    }
+    window.toggleClusterMinus = toggleClusterMinus;
 
     // Умные уведомления по текущему периоду/кабинету: слив бюджета без
     // заказов, низкая общая эффективность, забытые на паузе кампании,
