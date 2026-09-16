@@ -83,5 +83,7 @@ assert.ok(!proxy.includes('questions/answer'), 'live wb-proxy must not POST /que
 
 assert.ok(docs.includes('через неделю'), 'user-facing doc explains the reply');
 assert.ok(docs.includes('TELEGRAM_CHAT_REVIEWS'), 'doc names the reviews chat');
+assert.ok(docs.includes('пригласительная') && webhook.includes('replyTeamChat'),
+    'team chat invite is documented and handled on the live webhook');
 
 console.log('wb_restock_poll_test: ok');
