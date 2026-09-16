@@ -1391,21 +1391,53 @@ assert.ok(html.includes("callWbProxy('adv_cluster_bid'") && html.includes('funct
     'each cluster must accept its own CPM bid');
 assert.ok(html.includes("callWbProxy('adv_cluster_minus'") && html.includes('function toggleClusterMinus'),
     'cluster board must exclude / restore a cluster via minus phrases');
-assert.ok(html.includes('cl-bid-${advertId}-${idx}') && html.includes('class="cl-bid-input"'),
+assert.ok(html.includes("callWbProxy('adv_cluster_positions'") && html.includes('function loadClusterPositions'),
+    'cluster board must load search position and frequency per key');
+assert.ok(html.includes('data-cl-bid=') && html.includes('class="cl-bid-input"'),
     'cluster bid must be an editable input, not read-only text');
-assert.ok(html.includes('cl-chip') && html.includes("Исключения"),
-    'cluster board needs the Все / Со ставкой / Активные / Исключения filters');
+assert.ok(html.includes('cl-chip') && html.includes('Исключения'),
+    'cluster board needs the Все / Активные / Со ставкой / Исключения filters');
+// Кластеры живут в модалке того же вида, что настройки РНП, и выплывают.
+assert.ok(html.includes('id="cluster-overlay"') && html.includes('class="rnp-settings-dialog cl-dialog"'),
+    'cluster keys must open in the shared site modal, not an inline table row');
+assert.ok(html.includes('function openClusterModal') && html.includes('function closeClusterModal'),
+    'cluster modal needs explicit open/close');
+assert.ok(html.includes('@keyframes nr-dialog-in')
+    && html.includes('.rnp-settings-overlay.is-open > .rnp-settings-dialog'),
+    'site modals must animate in instead of appearing instantly');
+assert.ok(html.includes('prefers-reduced-motion'),
+    'modal animation must respect reduced motion');
+assert.ok(!html.includes('adv-camp-kw-row-'),
+    'old inline phrase row must be gone so the modal is the only cluster view');
+// Никакого перерисовывания на каждый символ и рендера всех строк сразу.
+assert.ok(html.includes('_clusterSearchTimer') && html.includes('CLUSTER_PAGE'),
+    'cluster search must be debounced and rows rendered in pages');
+assert.ok(html.includes('function showMoreClusters') && html.includes('function sortClusterBy'),
+    'cluster table needs paging and column sorting');
+assert.ok(html.includes('function renderClusterShell') && html.includes('function renderClusterRows'),
+    'filter/sort/search must repaint only tbody, not the whole panel');
+assert.ok(html.includes('table-layout: fixed') && html.includes('<colgroup>'),
+    'fixed column widths keep the table from relayouting on every render');
+assert.ok(html.includes('data-cl-filter=') && html.includes('data-cl-sort='),
+    'chips and header sorting go through delegated clicks');
 {
     const proxy = fs.readFileSync(path.join(__dirname, 'supabase/functions/wb-proxy/index.ts'), 'utf8');
     assert.ok(proxy.includes("case 'adv_cluster_board'") && proxy.includes("case 'adv_cluster_bid'")
-        && proxy.includes("case 'adv_cluster_minus'"),
-        'wb-proxy must serve the cluster board, bid and minus actions');
+        && proxy.includes("case 'adv_cluster_minus'") && proxy.includes("case 'adv_cluster_positions'"),
+        'wb-proxy must serve the cluster board, bid, minus and positions actions');
     assert.ok(proxy.includes('/api/advert/v1/normquery/bids'),
         'cluster bids go through v1 (bidMinorUnits in cabinet currency)');
     assert.ok(!proxy.includes('/adv/v0/normquery/bids'),
         'v0 bids path is in rubles — must not be used');
     assert.ok(proxy.includes('fetchAdvConfigCached'),
         'bid step comes from GET /api/advert/v1/config and is cached per cabinet');
+    assert.ok(proxy.includes('/api/v2/search-report/product/orders') && proxy.includes('readPositionCache'),
+        'positions come from the official report and are cached (3 req/min per cabinet)');
+}
+{
+    const hq = fs.readFileSync(path.join(__dirname, 'ads-command-center.js'), 'utf8');
+    assert.ok(hq.includes('data-keys=') && hq.includes('openClusterModal'),
+        'active shelves list must open cluster keys for the shelf');
 }
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903200000_autobidder.sql')),

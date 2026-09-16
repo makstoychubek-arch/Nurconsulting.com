@@ -40,6 +40,10 @@ export type ClusterBoardRow = {
     cpc: number | null;
     cpm: number | null;
     avgPos: number | null;
+    /** Из отчёта поисковых запросов WB, приходит отдельным вызовом. */
+    frequency?: number | null;
+    searchPosition?: number | null;
+    searchOrders?: number | null;
 };
 
 export type ClusterStatRow = {
@@ -428,6 +432,98 @@ export function minusCandidates(rows: ClusterBoardRow[], minViews = 500): Cluste
     return rows
         .filter((r) => r.state === 'active' && !r.minus && r.orders === 0 && r.views >= minViews)
         .sort((a, b) => b.spend - a.spend || b.views - a.views);
+}
+
+// ── Позиции в поиске по каждому кластеру ────────────────────────────────────
+// POST /api/v2/search-report/product/orders (seller-analytics-api): по nmId и
+// списку фраз отдаёт частоту запроса, среднюю позицию по дням и заказы.
+// Лимиты жёсткие: 30 фраз за запрос (100 на Jam Advanced/Premium), 3 запроса
+// в минуту на кабинет и период не больше 7 дней — поэтому просим порциями и
+// только то, чего нет в кэше.
+
+export const POSITION_QUERIES_LIMIT = 30;
+
+export type ClusterPosition = {
+    query: string;
+    frequency: number;
+    avgPosition: number | null;
+    orders: number;
+    days: Array<{ date: string; avgPosition: number | null; orders: number }>;
+};
+
+export function buildPositionsBody(nmId: number, queries: string[], from: string, to: string) {
+    return {
+        period: { start: from, end: to },
+        nmId: Math.trunc(num(nmId)),
+        searchTexts: queries.slice(0, POSITION_QUERIES_LIMIT),
+    };
+}
+
+export function chunkQueries(queries: string[], size = POSITION_QUERIES_LIMIT): string[][] {
+    const seen = new Set<string>();
+    const flat: string[] = [];
+    for (const q of queries) {
+        const key = String(q ?? '').trim();
+        if (!key) continue;
+        const low = key.toLowerCase();
+        if (seen.has(low)) continue;
+        seen.add(low);
+        flat.push(key);
+    }
+    const out: string[][] = [];
+    for (let i = 0; i < flat.length; i += size) out.push(flat.slice(i, i + size));
+    return out;
+}
+
+export function parsePositionsReport(data: unknown): ClusterPosition[] {
+    const root = asRecord(data);
+    const payload = asRecord(root?.data) || root;
+    const items = arrayFrom(payload, 'items');
+    const out: ClusterPosition[] = [];
+    for (const item of items) {
+        const rec = asRecord(item);
+        if (!rec) continue;
+        const query = String(rec.text ?? rec.searchText ?? '').trim();
+        if (!query) continue;
+        const days: ClusterPosition['days'] = [];
+        for (const d of arrayFrom(rec.dateItems, 'dateItems')) {
+            const dr = asRecord(d);
+            if (!dr) continue;
+            days.push({
+                date: String(dr.dt ?? dr.date ?? '').split('T')[0],
+                avgPosition: numOrNull(dr.avgPosition),
+                orders: num(dr.orders),
+            });
+        }
+        const withPos = days.map((d) => d.avgPosition).filter((p): p is number => p != null && p > 0);
+        out.push({
+            query,
+            frequency: num(rec.frequency),
+            avgPosition: withPos.length ? withPos.reduce((a, b) => a + b, 0) / withPos.length : null,
+            orders: days.reduce((s, d) => s + d.orders, 0),
+            days,
+        });
+    }
+    return out;
+}
+
+/** Позиции приходят отдельно и позже ставок — дописываем в готовые строки. */
+export function mergeClusterPositions(
+    rows: ClusterBoardRow[],
+    positions: ClusterPosition[],
+): ClusterBoardRow[] {
+    const byQuery = new Map<string, ClusterPosition>();
+    for (const p of positions) byQuery.set(p.query.toLowerCase(), p);
+    return rows.map((row) => {
+        const hit = byQuery.get(row.normQuery.toLowerCase());
+        if (!hit) return row;
+        return {
+            ...row,
+            frequency: hit.frequency,
+            searchPosition: hit.avgPosition,
+            searchOrders: hit.orders,
+        };
+    });
 }
 
 /** setBids v1 работает только у ручной ставки с оплатой за показы. */

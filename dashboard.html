@@ -34,7 +34,7 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
     <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.84e8433c93.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.f991aca821.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -891,35 +891,132 @@
         .adv-camp-action-btn:hover { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
         .adv-camp-action-btn:disabled { opacity: 0.6; cursor: default; }
         .adv-camp-action-btn.is-on { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
-        .cl-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-        .cl-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-        .cl-chip {
-            border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-muted);
-            font-size: 11px; font-weight: 600; padding: 5px 10px; border-radius: 999px; cursor: pointer;
-            display: inline-flex; align-items: center; gap: 6px;
+        /* Ключевые кластеры кампании — модалка в стиле настроек РНП */
+        .cl-dialog.rnp-settings-dialog {
+            width: min(1240px, 100%); max-height: min(86vh, 780px);
+            padding: 10px 16px 12px; display: flex; flex-direction: column; overflow: hidden;
         }
-        .cl-chip b { color: var(--text-primary); font-weight: 700; }
-        .cl-chip.on { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
+        /* Диалог — flex-контейнер, поэтому float у крестика не работает. */
+        .cl-dialog > .rnp-settings-close {
+            position: absolute; top: 8px; right: 10px; float: none; margin: 0;
+        }
+        .cl-head {
+            display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
+            padding: 0 30px 8px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap;
+        }
+        .cl-head-text { min-width: 0; }
+        .cl-head h3 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.03em; color: var(--text-primary); }
+        .cl-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+        .cl-head-btns { display: flex; gap: 6px; flex-shrink: 0; }
+        .cl-btn { padding: 4px 10px !important; font-size: 11px !important; }
+        .cl-toolbar {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 8px 0 6px; flex-wrap: wrap; flex-shrink: 0;
+        }
+        .cl-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+        .cl-chip {
+            border: none; background: transparent; color: var(--text-secondary);
+            font-size: 10px; font-weight: 500; padding: 5px 11px; border-radius: 999px; cursor: pointer;
+            display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; user-select: none;
+            transition: background 0.15s;
+        }
+        .cl-chip:hover { background: var(--sel); color: var(--text-primary); }
+        .cl-chip b { color: var(--text-muted); font-weight: 700; }
+        .cl-chip.on { background: var(--sel); color: var(--text-primary); font-weight: 700; }
         .cl-chip.on b { color: var(--accent); }
-        .cl-note { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
-        .cl-table { font-size: 11px; }
-        .cl-table td, .cl-table th { white-space: nowrap; }
-        .cl-nm { font-size: 10px; color: var(--text-muted); font-family: ui-monospace, monospace; }
+        .cl-search {
+            width: 190px; max-width: 100%; padding: 5px 10px; font-size: 11px; border-radius: 999px;
+            border: 1px solid var(--border); background: var(--surface); color: var(--text-primary);
+        }
+        .cl-search:focus { outline: none; border-color: var(--accent-border); }
+        .cl-kpis { display: flex; gap: 6px; flex-wrap: wrap; padding-bottom: 6px; flex-shrink: 0; }
+        .cl-kpi {
+            background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+            padding: 5px 10px; min-width: 82px;
+        }
+        .cl-kpi span { display: block; font-size: 9px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+        .cl-kpi b { font-size: 12px; font-weight: 700; color: var(--text-primary); letter-spacing: -0.02em; }
+        .cl-note { font-size: 10.5px; color: var(--text-muted); padding-bottom: 6px; flex-shrink: 0; }
+        .cl-note:empty { display: none; }
+        .cl-body {
+            flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--border); border-radius: 12px;
+            contain: layout paint;
+        }
+        .cl-empty { padding: 28px 14px; text-align: center; font-size: 12px; color: var(--text-muted); }
+        .cl-table { width: 100%; min-width: 1166px; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+        /* Фраза остаётся на месте, когда крутишь цифры по горизонтали. */
+        .cl-table th:first-child, .cl-table td:first-child {
+            position: sticky; left: 0; z-index: 1; background: var(--surface-solid);
+        }
+        .cl-table th:first-child { z-index: 3; }
+        .cl-table tbody tr:hover td:first-child { background: var(--sel); }
+        .cl-table th {
+            position: sticky; top: 0; z-index: 2; background: var(--surface-solid);
+            padding: 7px 10px; text-align: left; font-size: 9.5px; font-weight: 600; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border);
+            white-space: nowrap; cursor: pointer; user-select: none;
+        }
+        .cl-table th.cl-sorted { color: var(--accent); }
+        .cl-table td {
+            padding: 6px 10px; border-bottom: 1px solid var(--border); color: var(--text-secondary);
+            white-space: nowrap; font-variant-numeric: tabular-nums;
+        }
+        .cl-table tbody tr:hover td { background: var(--sel); }
+        .cl-table tbody tr:last-child td { border-bottom: none; }
+        .cl-q { color: var(--text-primary); font-weight: 600; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+        .cl-nm { font-size: 9.5px; color: var(--text-muted); font-family: ui-monospace, monospace; font-weight: 400; }
         .cl-bid-wrap { display: inline-flex; gap: 4px; align-items: center; }
         .cl-bid-input {
-            width: 74px; padding: 4px 6px; font-size: 11px; border-radius: 7px;
-            border: 1px solid var(--border-strong); background: var(--bg); color: var(--text-primary);
+            width: 64px; padding: 3px 6px; font-size: 11px; border-radius: 7px; text-align: right;
+            border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-primary);
+            font-variant-numeric: tabular-nums;
         }
+        .cl-bid-input:focus { outline: none; border-color: var(--accent-border); }
         .cl-bid-save {
             border: 1px solid var(--accent-border); background: var(--accent-soft); color: var(--accent);
-            font-size: 10px; font-weight: 700; padding: 4px 7px; border-radius: 7px; cursor: pointer;
+            font-size: 9.5px; font-weight: 700; padding: 3px 7px; border-radius: 7px; cursor: pointer;
         }
+        .cl-bid-save.is-busy { opacity: 0.5; pointer-events: none; }
+        .cl-bid-save.is-ok { background: rgba(52,211,153,0.16); border-color: rgba(52,211,153,0.4); color: var(--green); }
+        .cl-mini {
+            border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-muted);
+            font-size: 9.5px; font-weight: 600; padding: 3px 8px; border-radius: 7px; cursor: pointer; white-space: nowrap;
+        }
+        .cl-mini:hover { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
         .cl-badge {
-            font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 999px;
-            border: 1px solid var(--border-strong); color: var(--text-muted);
+            font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+            background: var(--sel); color: var(--text-muted); white-space: nowrap;
         }
-        .cl-badge-on { border-color: var(--accent-border); background: var(--accent-soft); color: var(--accent); }
-        .cl-badge-off { border-color: var(--border-strong); background: var(--surface); color: var(--text-muted); }
+        .cl-badge-on { background: rgba(52,211,153,0.15); color: var(--green); }
+        .cl-badge-off { background: var(--sel); color: var(--text-muted); }
+        .cl-pos { font-weight: 700; color: var(--text-primary); }
+        .cl-pos-top { color: var(--green); }
+        .cl-pos-deep { color: var(--text-muted); font-weight: 400; }
+        .cl-foot {
+            display: flex; align-items: center; justify-content: space-between; gap: 8px;
+            padding-top: 8px; font-size: 10.5px; color: var(--text-muted); flex-shrink: 0; flex-wrap: wrap;
+        }
+        @media (max-width: 720px) {
+            .cl-dialog.rnp-settings-dialog { padding: 8px 10px 10px; max-height: 92vh; }
+            .cl-search { width: 100%; }
+            .cl-kpi { min-width: 68px; padding: 4px 8px; }
+            .cl-table { min-width: 940px; }
+            .cl-table th, .cl-table td { padding: 6px 7px; }
+        }
+        /* Модалки сайта выплывают, а не появляются рывком */
+        @keyframes nr-dialog-in {
+            from { opacity: 0; transform: translateY(14px) scale(0.985); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes nr-overlay-in { from { opacity: 0; } to { opacity: 1; } }
+        .rnp-settings-overlay.is-open { animation: nr-overlay-in 0.16s ease-out both; }
+        .rnp-settings-overlay.is-open > .rnp-settings-dialog {
+            animation: nr-dialog-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .rnp-settings-overlay.is-open,
+            .rnp-settings-overlay.is-open > .rnp-settings-dialog { animation: none; }
+        }
         .autobidder-rule {
             background: var(--surface); border-radius: var(--radius-card); padding: 16px;
             box-shadow: var(--card-shadow); display: flex; flex-direction: column; gap: 10px;
@@ -5583,6 +5680,32 @@
             </div>
         </div>
 
+        <div id="cluster-overlay" class="rnp-settings-overlay" onclick="if(event.target===this) closeClusterModal()">
+            <div class="rnp-settings-dialog cl-dialog" role="dialog" aria-modal="true" aria-labelledby="cl-title">
+                <button type="button" class="rnp-settings-close" onclick="closeClusterModal()" aria-label="Закрыть">×</button>
+                <div class="cl-head">
+                    <div class="cl-head-text">
+                        <h3 id="cl-title">Ключевые кластеры</h3>
+                        <div id="cl-sub" class="cl-sub">—</div>
+                    </div>
+                    <div class="cl-head-btns">
+                        <button type="button" class="ui-btn ui-btn-secondary cl-btn" id="cl-positions-btn" onclick="loadClusterPositions()">Позиции</button>
+                        <button type="button" class="ui-btn ui-btn-secondary cl-btn" onclick="reloadClusterBoard()">Обновить</button>
+                    </div>
+                </div>
+                <div class="cl-toolbar">
+                    <div class="cl-chips" id="cl-chips"></div>
+                    <input type="search" id="cl-search" class="cl-search" placeholder="Поиск по кластеру" autocomplete="off">
+                </div>
+                <div class="cl-kpis" id="cl-kpis"></div>
+                <div class="cl-note" id="cl-note"></div>
+                <div class="cl-body" id="cl-body">
+                    <div class="cl-empty">Загрузка кластеров…</div>
+                </div>
+                <div class="cl-foot" id="cl-foot"></div>
+            </div>
+        </div>
+
         <div id="rnp-settings-overlay" class="rnp-settings-overlay" onclick="if(event.target===this) RNP.closeSettings()">
             <div class="rnp-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="rnp-settings-title">
                 <button type="button" class="rnp-settings-close" onclick="RNP.closeSettings()" aria-label="Закрыть">×</button>
@@ -6184,7 +6307,7 @@
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.484c1931e0.min.js"></script>
 <script src="/dist/wb-formulas.fc1e69ed87.min.js"></script>
-<script src="/dist/ads-command-center.a751de01a4.min.js"></script>
+<script src="/dist/ads-command-center.342a2a55d8.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -7801,6 +7924,7 @@
             tableEl.innerHTML = `<div class="text-center py-6" style="color:var(--text-muted)">Нет данных за выбранный период. Нажмите «Обновить», чтобы загрузить статистику из WB.</div>`;
             return;
         }
+        window._advCampaignsById = new Map(campaigns.map(c => [String(c.id), c]));
         tableEl.innerHTML = `<div class="overflow-x-auto"><table class="data-table"><thead><tr><th>Кампания</th><th>Тип кампании</th><th>Остаток бюджета</th><th>Дневной лимит</th><th>Затраты</th><th>Показы</th><th>CTR</th><th>Заказы</th><th>Доля затрат</th><th>Статус</th><th></th><th></th></tr></thead><tbody>` +
             campaigns.slice(0, 50).map(c => {
                 const cCtr = c.views > 0 ? (c.clicks / c.views * 100) : 0;
@@ -7818,8 +7942,7 @@
                 <td>${campaignStatusPillHtml(c.status)}</td>
                 <td>${campaignActionBtnHtml(c.id, c.status)}</td>
                 <td><button type="button" class="adv-camp-action-btn" onclick="toggleKeywordStats(${c.id})">🔍 Кластеры</button> <button type="button" class="adv-camp-action-btn${(window._autobidderByCampaign && window._autobidderByCampaign.get(String(c.id))?.enabled) ? ' is-on' : ''}" onclick="openAutobidderModal(${c.id})">⚡ Авто</button></td>
-            </tr>
-            <tr id="adv-camp-kw-row-${c.id}" class="hidden"><td colspan="12" style="padding:0"><div id="adv-camp-kw-${c.id}" class="p-4" style="background:var(--accent-soft)"></div></td></tr>`;
+            </tr>`;
             }).join('') + `</tbody></table></div>`;
     }
 
@@ -7945,20 +8068,26 @@
     }
     window.toggleNmRow = toggleNmRow;
 
-    // Поисковые кластеры кампании: своя ставка CPM у каждого кластера, минус-фразы,
-    // статистика за выбранный период. Живой запрос по клику — данные точечные.
-    const _clusterBoards = new Map();   // advertId -> ответ adv_cluster_board
-    const _clusterFilter = new Map();   // advertId -> текущий фильтр
-
+    // ── Ключевые кластеры кампании ─────────────────────────────────────────
+    // Ставка CPM по каждому кластеру, частота и позиция в поиске, минус-фразы.
+    // Всё в одной модалке: список рисуем порциями и сортируем на клиенте, в WB
+    // ходим только по кнопке — иначе на 180 кластерах интерфейс встаёт.
     const CLUSTER_FILTERS = [
         { key: 'all', label: 'Все' },
-        { key: 'managed', label: 'Со ставкой' },
         { key: 'active', label: 'Активные' },
+        { key: 'managed', label: 'Со ставкой' },
         { key: 'excluded', label: 'Исключения' },
         { key: 'archived', label: 'Архив' },
     ];
+    const CLUSTER_PAGE = 60;
+    const _clusterBoards = new Map();   // advertId -> ответ adv_cluster_board
+    const _clusterState = {
+        advertId: null, cabinetId: null, filter: 'active', search: '', sort: 'spend', dir: -1,
+        limit: CLUSTER_PAGE, busy: false, posLoaded: 0, sortTouched: false,
+    };
+    let _clusterSearchTimer = null;
 
-    function filterClusterRows(rows, filter) {
+    function clusterFilterRows(rows, filter) {
         if (filter === 'managed') return rows.filter(r => r.bid > 0);
         if (filter === 'active') return rows.filter(r => r.state === 'active' && !r.minus);
         if (filter === 'excluded') return rows.filter(r => r.state === 'excluded' || r.minus);
@@ -7966,39 +8095,109 @@
         return rows;
     }
 
-    async function toggleKeywordStats(advertId) {
-        const row = document.getElementById('adv-camp-kw-row-' + advertId);
-        const box = document.getElementById('adv-camp-kw-' + advertId);
-        if (!row || !box) return;
-        const willShow = row.classList.contains('hidden');
-        row.classList.toggle('hidden', !willShow);
-        if (!willShow) return;
-        if (_clusterBoards.has(advertId)) { renderClusterBoard(advertId); return; }
-        await loadClusterBoard(advertId);
+    function clusterVisibleRows() {
+        const data = _clusterBoards.get(_clusterState.advertId);
+        if (!data) return [];
+        let rows = clusterFilterRows(data.rows || [], _clusterState.filter);
+        const q = _clusterState.search.trim().toLowerCase();
+        if (q) rows = rows.filter(r => r.normQuery.toLowerCase().includes(q));
+        const key = _clusterState.sort;
+        const dir = _clusterState.dir;
+        rows = rows.slice().sort((a, b) => {
+            if (key === 'normQuery') return a.normQuery.localeCompare(b.normQuery, 'ru') * dir;
+            const av = a[key] == null ? -1 : Number(a[key]);
+            const bv = b[key] == null ? -1 : Number(b[key]);
+            if (av === bv) return a.normQuery.localeCompare(b.normQuery, 'ru');
+            return (av - bv) * dir;
+        });
+        return rows;
     }
-    window.toggleKeywordStats = toggleKeywordStats;
 
-    async function loadClusterBoard(advertId) {
-        const box = document.getElementById('adv-camp-kw-' + advertId);
-        if (box) box.innerHTML = `<div class="text-xs" style="color:var(--text-muted)">Загрузка кластеров…</div>`;
+    async function openClusterModal(advertId, cabinetId) {
+        const id = Number(advertId);
+        _clusterState.advertId = id;
+        _clusterState.cabinetId = cabinetId || currentCabinetId;
+        _clusterState.sortTouched = false;
+        _clusterState.filter = 'active';
+        _clusterState.search = '';
+        _clusterState.sort = 'spend';
+        _clusterState.dir = -1;
+        _clusterState.limit = CLUSTER_PAGE;
+        _clusterState.posLoaded = 0;
+        const overlay = document.getElementById('cluster-overlay');
+        const searchEl = document.getElementById('cl-search');
+        if (searchEl) searchEl.value = '';
+        if (overlay) overlay.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+
+        const camp = (window._advCampaignsById && window._advCampaignsById.get(String(id))) || null;
+        setText('cl-title', camp ? camp.name : 'Кластеры кампании');
+        setText('cl-sub', 'Кампания #' + id + ' · загружаем кластеры…');
+
+        if (_clusterBoards.has(id)) { renderClusterBoard(); return; }
+        await loadClusterBoard();
+    }
+    window.openClusterModal = openClusterModal;
+    // Кнопка в таблице кампаний исторически звалась «Фразы».
+    window.toggleKeywordStats = openClusterModal;
+
+    function closeClusterModal() {
+        const overlay = document.getElementById('cluster-overlay');
+        if (overlay) overlay.classList.remove('is-open');
+        document.body.style.overflow = '';
+    }
+    window.closeClusterModal = closeClusterModal;
+
+    async function loadClusterBoard() {
+        const id = _clusterState.advertId;
+        if (!id) return;
+        const body = document.getElementById('cl-body');
+        if (body) body.innerHTML = `<div class="cl-empty">Загрузка кластеров…</div>`;
         const { from, to } = getActiveDateRange();
-        const data = await callWbProxy('adv_cluster_board', { advertId, dateFrom: from, dateTo: to }, currentCabinetId);
+        const data = await callWbProxy('adv_cluster_board', { advertId: id, dateFrom: from, dateTo: to }, _clusterState.cabinetId);
+        if (_clusterState.advertId !== id) return;
         if (!data || data.error) {
-            if (box) {
-                box.innerHTML = `<div class="text-xs" style="color:var(--text-muted)">${escapeHtml(String((data && data.error) || 'WB не отдал кластеры этой кампании.'))}</div>`;
+            if (body) {
+                body.innerHTML = `<div class="cl-empty">${escapeHtml(String((data && data.error) || 'WB не отдал кластеры этой кампании.'))}</div>`;
             }
             return;
         }
-        _clusterBoards.set(advertId, data);
-        renderClusterBoard(advertId);
+        data.rows = (data.rows || []).map(r => ({ ...r, frequency: null, searchPosition: null, searchOrders: null }));
+        _clusterBoards.set(id, data);
+        _clusterState.posLoaded = 0;
+        renderClusterBoard();
     }
-    window.reloadClusterBoard = (advertId) => loadClusterBoard(Number(advertId));
+    window.reloadClusterBoard = () => { _clusterBoards.delete(_clusterState.advertId); loadClusterBoard(); };
 
-    function setClusterFilter(advertId, filter) {
-        _clusterFilter.set(Number(advertId), filter);
-        renderClusterBoard(Number(advertId));
+    function setClusterFilter(filter) {
+        _clusterState.filter = filter;
+        _clusterState.limit = CLUSTER_PAGE;
+        paintClusterChips();
+        renderClusterRows();
     }
     window.setClusterFilter = setClusterFilter;
+
+    function paintClusterChips() {
+        document.querySelectorAll('#cl-chips .cl-chip').forEach((el) => {
+            el.classList.toggle('on', el.dataset.clFilter === _clusterState.filter);
+        });
+    }
+
+    function sortClusterBy(key) {
+        if (_clusterState.sort === key) _clusterState.dir = -_clusterState.dir;
+        else { _clusterState.sort = key; _clusterState.dir = key === 'normQuery' ? 1 : -1; }
+        _clusterState.sortTouched = true;
+        _clusterState.limit = CLUSTER_PAGE;
+        paintClusterHead();
+        renderClusterRows();
+    }
+    window.sortClusterBy = sortClusterBy;
+
+    function showMoreClusters() {
+        _clusterState.limit += CLUSTER_PAGE;
+        renderClusterRows();
+    }
+    window.showMoreClusters = showMoreClusters;
 
     function clusterStateBadge(r) {
         if (r.minus) return `<span class="cl-badge cl-badge-off">В минусах</span>`;
@@ -8007,62 +8206,145 @@
         return `<span class="cl-badge cl-badge-on">Активен</span>`;
     }
 
-    function renderClusterBoard(advertId) {
-        const box = document.getElementById('adv-camp-kw-' + advertId);
-        const data = _clusterBoards.get(advertId);
-        if (!box || !data) return;
-
-        const filter = _clusterFilter.get(advertId) || 'all';
-        const rows = filterClusterRows(data.rows || [], filter);
-        const counts = data.counts || {};
-        const cur = data.currency ? ' ' + escapeHtml(data.currency) : '';
-        const step = data.cpmStep ? (data.cpmStep / 100) : null;
-
-        const chips = CLUSTER_FILTERS.map(f => `<button type="button" class="cl-chip${f.key === filter ? ' on' : ''}" onclick="setClusterFilter(${advertId}, '${f.key}')">${f.label}<b>${fmt(counts[f.key] || 0)}</b></button>`).join('');
-
-        const note = !data.editable
-            ? `<div class="cl-note">Ставку по кластеру WB принимает только у кампаний с ручной ставкой и оплатой за показы. Здесь${data.bidType ? ' тип «' + escapeHtml(data.bidType) + '»' : ''}${data.paymentType ? ', оплата «' + escapeHtml(data.paymentType) + '»' : ''} — цифры показываем, ставку менять нельзя.</div>`
-            : step ? `<div class="cl-note">Шаг ставки в этом кабинете — ${fmt(step)}${cur}. WB округлит до шага сам.</div>` : '';
-
-        const errs = (data.errors || []).length
-            ? `<div class="cl-note">${escapeHtml((data.errors || []).join(' · '))}</div>` : '';
-
-        const body = !rows.length
-            ? `<div class="text-xs" style="color:var(--text-muted)">Нет кластеров в этом фильтре. WB показывает кластеры, по которым было не меньше 100 показов.</div>`
-            : `<div class="overflow-x-auto"><table class="data-table cl-table">
-                <thead><tr>
-                    <th>Кластер</th><th>Ставка CPM</th><th>Ср. позиция</th><th>Показы</th>
-                    <th>Клики</th><th>CTR</th><th>CPC</th><th>Корзины</th><th>Заказы</th>
-                    <th>Расход</th><th>Статус</th><th></th>
-                </tr></thead>
-                <tbody>${rows.map((r, i) => renderClusterRow(advertId, r, i, data)).join('')}</tbody>
-            </table></div>`;
-
-        box.innerHTML = `
-            <div class="cl-head">
-                <div class="cl-chips">${chips}</div>
-                <button type="button" class="adv-camp-action-btn" onclick="reloadClusterBoard(${advertId})">Обновить</button>
-            </div>
-            ${note}${errs}${body}`;
+    function clusterPosCell(r) {
+        if (r.searchPosition == null) return '<span style="color:var(--text-muted)">—</span>';
+        const p = Math.round(r.searchPosition);
+        const cls = p <= 10 ? 'cl-pos cl-pos-top' : p <= 100 ? 'cl-pos' : 'cl-pos cl-pos-deep';
+        return `<span class="${cls}">${p}</span>`;
     }
 
-    function renderClusterRow(advertId, r, idx, data) {
-        const cur = data.currency ? ' ' + escapeHtml(data.currency) : '';
-        const inputId = `cl-bid-${advertId}-${idx}`;
+    // Ширины фиксируем, чтобы колонки не прыгали при перерисовке строк и чтобы
+    // браузер не пересчитывал раскладку всей таблицы на каждый рендер.
+        const CLUSTER_COLS = [
+        { key: 'normQuery', label: 'Кластер', w: 208 },
+        { key: 'bid', label: 'Ставка CPM', w: 100 },
+        { key: 'frequency', label: 'Частота', w: 78 },
+        { key: 'searchPosition', label: 'Позиция', w: 68 },
+        { key: 'avgPos', label: 'Рекл. поз.', w: 72 },
+        { key: 'views', label: 'Показы', w: 68 },
+        { key: 'clicks', label: 'Клики', w: 58 },
+        { key: 'ctr', label: 'CTR', w: 58 },
+        { key: 'cpc', label: 'CPC', w: 72 },
+        { key: 'atbs', label: 'Корзины', w: 68 },
+        { key: 'orders', label: 'Заказы', w: 62 },
+        { key: 'spend', label: 'Расход', w: 88 },
+    ];
+    const CLUSTER_TAIL_COLS = [{ label: 'Статус', w: 78 }, { label: '', w: 88 }];
+
+    // Шапка, чипсы и KPI зависят только от загруженного ответа, поэтому при
+    // сортировке и поиске трогаем один tbody: на 90+ кластерах полная
+    // перерисовка со sticky-шапкой стоит сотни миллисекунд.
+    function renderClusterBoard() {
+        renderClusterShell();
+        renderClusterRows();
+    }
+
+    function renderClusterShell() {
+        const data = _clusterBoards.get(_clusterState.advertId);
+        const body = document.getElementById('cl-body');
+        if (!data || !body) return;
+
+        const cur = data.currency ? ' ' + data.currency : '';
+        const counts = data.counts || {};
+        const chipsEl = document.getElementById('cl-chips');
+        if (chipsEl) {
+            chipsEl.innerHTML = CLUSTER_FILTERS.map(f =>
+                `<button type="button" class="cl-chip" data-cl-filter="${f.key}">${f.label}<b>${fmt(counts[f.key] || 0)}</b></button>`).join('');
+        }
+
+        const t = data.totals || {};
+        const kpisEl = document.getElementById('cl-kpis');
+        if (kpisEl) {
+            kpisEl.innerHTML = [
+                ['Кластеров', fmt(t.clusters || 0)],
+                ['Показы', fmt(t.views || 0)],
+                ['Клики', fmt(t.clicks || 0)],
+                ['CTR', t.ctr != null ? Number(t.ctr).toFixed(2) + '%' : '—'],
+                ['Заказы', fmt(t.orders || 0)],
+                ['Расход', fmt(Math.round(t.spend || 0)) + cur],
+            ].map(([label, val]) => `<div class="cl-kpi"><span>${label}</span><b>${escapeHtml(String(val))}</b></div>`).join('');
+        }
+
+        const step = data.cpmStep ? data.cpmStep / 100 : null;
+        const notes = [];
+        if (!data.editable) {
+            notes.push(`Ставку по кластеру WB принимает только у кампаний с ручной ставкой и оплатой за показы. Здесь${data.bidType ? ' тип «' + data.bidType + '»' : ''}${data.paymentType ? ', оплата «' + data.paymentType + '»' : ''} — цифры показываем, ставку менять нельзя.`);
+        } else if (step) {
+            notes.push('Шаг ставки в кабинете — ' + fmt(step) + cur + ', WB округлит сам.');
+        }
+        if (!_clusterState.posLoaded) notes.push('Частота и позиция в поиске — по кнопке «Позиции» (WB даёт 30 фраз за запрос).');
+        if ((data.errors || []).length) notes.push(data.errors.join(' · '));
+        const noteEl = document.getElementById('cl-note');
+        if (noteEl) noteEl.textContent = notes.join(' ');
+
+        setText('cl-sub', 'Кампания #' + _clusterState.advertId
+            + ' · артикулы ' + (data.nmIds || []).join(', ')
+            + (data.currency ? ' · ' + data.currency : ''));
+
+        if (!body.querySelector('#cl-tbody')) {
+            const cols = [...CLUSTER_COLS, ...CLUSTER_TAIL_COLS]
+                .map(c => `<col style="width:${c.w}px">`).join('');
+            body.innerHTML = `<table class="cl-table">
+                <colgroup>${cols}</colgroup>
+                <thead><tr id="cl-thead"></tr></thead>
+                <tbody id="cl-tbody"></tbody>
+            </table>`;
+        }
+        paintClusterHead();
+    }
+
+    function paintClusterHead() {
+        const head = document.getElementById('cl-thead');
+        if (!head) return;
+        head.innerHTML = CLUSTER_COLS.map(c =>
+            `<th class="${_clusterState.sort === c.key ? 'cl-sorted' : ''}" data-cl-sort="${c.key}">${c.label}${_clusterState.sort === c.key ? (_clusterState.dir < 0 ? ' ↓' : ' ↑') : ''}</th>`).join('')
+            + CLUSTER_TAIL_COLS.map(c => `<th>${c.label}</th>`).join('');
+    }
+
+    function renderClusterRows() {
+        const data = _clusterBoards.get(_clusterState.advertId);
+        const body = document.getElementById('cl-body');
+        if (!data || !body) return;
+        const rows = clusterVisibleRows();
+        const shown = rows.slice(0, _clusterState.limit);
+        const tbody = document.getElementById('cl-tbody');
+
+        if (!rows.length) {
+            if (tbody) {
+                tbody.innerHTML = `<tr><td colspan="${CLUSTER_COLS.length + 2}"><div class="cl-empty">Нет кластеров в этом фильтре. WB отдаёт кластеры, по которым было не меньше 100 показов.</div></td></tr>`;
+            }
+        } else if (tbody) {
+            tbody.innerHTML = shown.map(r => renderClusterRow(r, data)).join('');
+        }
+
+        const foot = document.getElementById('cl-foot');
+        if (foot) {
+            foot.innerHTML = `<span>Показано ${fmt(shown.length)} из ${fmt(rows.length)}</span>`
+                + (shown.length < rows.length
+                    ? `<button type="button" class="ui-btn ui-btn-secondary cl-btn" onclick="showMoreClusters()">Показать ещё</button>`
+                    : '');
+        }
+    }
+
+    function renderClusterRow(r, data) {
+        const cur = data.currency ? ' ' + data.currency : '';
+        const key = clusterRowKey(r);
         const bidCell = data.editable
             ? `<div class="cl-bid-wrap">
-                    <input id="${inputId}" class="cl-bid-input" type="number" min="0" step="1" value="${r.bid > 0 ? Math.round(r.bid) : ''}" placeholder="—">
-                    <button type="button" class="cl-bid-save" onclick="saveClusterBid(${advertId}, ${idx})">OK</button>
+                    <input class="cl-bid-input" type="number" min="0" step="1" data-cl-bid="${escapeHtml(key)}" value="${r.bid > 0 ? Math.round(r.bid) : ''}" placeholder="—">
+                    <button type="button" class="cl-bid-save" data-cl-save="${escapeHtml(key)}" onclick="saveClusterBid('${escapeHtml(key)}')">OK</button>
                </div>`
             : (r.bid > 0 ? fmt(Math.round(r.bid)) + cur : '—');
         const off = r.minus || r.state === 'excluded';
         const actionBtn = off
-            ? `<button type="button" class="adv-camp-action-btn" onclick="toggleClusterMinus(${advertId}, ${idx}, false)">Вернуть</button>`
-            : `<button type="button" class="adv-camp-action-btn" onclick="toggleClusterMinus(${advertId}, ${idx}, true)">Исключить</button>`;
+            ? `<button type="button" class="cl-mini" onclick="toggleClusterMinus('${escapeHtml(key)}', false)">Вернуть</button>`
+            : `<button type="button" class="cl-mini" onclick="toggleClusterMinus('${escapeHtml(key)}', true)">Исключить</button>`;
 
-        return `<tr data-cl-idx="${idx}">
-            <td style="color:var(--text-primary)">${escapeHtml(r.normQuery)}<div class="cl-nm">${r.nmId}</div></td>
+        return `<tr>
+            <td class="cl-q" title="${escapeHtml(r.normQuery)}">${escapeHtml(r.normQuery)}<div class="cl-nm">${r.nmId}</div></td>
             <td>${bidCell}</td>
+            <td>${r.frequency != null ? fmt(r.frequency) : '<span style="color:var(--text-muted)">—</span>'}</td>
+            <td>${clusterPosCell(r)}</td>
             <td>${r.avgPos != null ? Number(r.avgPos).toFixed(1) : '—'}</td>
             <td>${fmt(r.views)}</td>
             <td>${fmt(r.clicks)}</td>
@@ -8076,38 +8358,53 @@
         </tr>`;
     }
 
-    async function saveClusterBid(advertId, idx) {
-        const data = _clusterBoards.get(Number(advertId));
-        const row = data && data.rows && data.rows[idx];
-        if (!row) return;
-        const input = document.getElementById(`cl-bid-${advertId}-${idx}`);
+    function clusterRowKey(r) { return r.nmId + '|' + r.normQuery; }
+
+    function clusterRowByKey(key) {
+        const data = _clusterBoards.get(_clusterState.advertId);
+        if (!data) return null;
+        return (data.rows || []).find(r => clusterRowKey(r) === key) || null;
+    }
+
+    async function saveClusterBid(key) {
+        const data = _clusterBoards.get(_clusterState.advertId);
+        const row = clusterRowByKey(key);
+        if (!data || !row) return;
+        const input = document.querySelector(`[data-cl-bid="${CSS.escape(key)}"]`);
+        const btn = document.querySelector(`[data-cl-save="${CSS.escape(key)}"]`);
         const bid = Number(input && input.value);
         if (!(bid > 0)) {
             showPremiumModal('warning', 'Ставка', 'Введите ставку больше нуля.');
             return;
         }
+        if (btn) btn.classList.add('is-busy');
         const res = await callWbProxy('adv_cluster_bid', {
-            advertId: Number(advertId), nmId: row.nmId, normQuery: row.normQuery, bid,
-        }, currentCabinetId);
+            advertId: Number(_clusterState.advertId), nmId: row.nmId, normQuery: row.normQuery, bid,
+        }, _clusterState.cabinetId);
+        if (btn) btn.classList.remove('is-busy');
         if (!res || res.error) {
             showPremiumModal('error', 'WB не принял ставку', String((res && res.error) || 'Попробуйте позже.'));
             return;
         }
         row.bid = bid;
         row.bidMinorUnits = res.bidMinorUnits || Math.round(bid * 100);
-        data.counts = { ...data.counts, managed: (data.rows || []).filter(r => r.bid > 0).length };
-        renderClusterBoard(Number(advertId));
+        data.counts = { ...(data.counts || {}), managed: (data.rows || []).filter(r => r.bid > 0).length };
+        if (btn) {
+            btn.classList.add('is-ok');
+            btn.textContent = '✓';
+            setTimeout(() => renderClusterBoard(), 900);
+        }
     }
     window.saveClusterBid = saveClusterBid;
 
-    async function toggleClusterMinus(advertId, idx, exclude) {
-        const data = _clusterBoards.get(Number(advertId));
-        const row = data && data.rows && data.rows[idx];
-        if (!row) return;
-        const payload = { advertId: Number(advertId), nmId: row.nmId };
+    async function toggleClusterMinus(key, exclude) {
+        const data = _clusterBoards.get(_clusterState.advertId);
+        const row = clusterRowByKey(key);
+        if (!data || !row) return;
+        const payload = { advertId: Number(_clusterState.advertId), nmId: row.nmId };
         if (exclude) payload.add = [row.normQuery];
         else payload.remove = [row.normQuery];
-        const res = await callWbProxy('adv_cluster_minus', payload, currentCabinetId);
+        const res = await callWbProxy('adv_cluster_minus', payload, _clusterState.cabinetId);
         if (!res || res.error) {
             showPremiumModal('error', 'Минус-фразы', String((res && res.error) || 'WB не принял изменение.'));
             return;
@@ -8116,13 +8413,103 @@
         if (!exclude && row.state === 'excluded') row.state = 'active';
         const rows = data.rows || [];
         data.counts = {
-            ...data.counts,
+            ...(data.counts || {}),
             active: rows.filter(r => r.state === 'active' && !r.minus).length,
             excluded: rows.filter(r => r.state === 'excluded' || r.minus).length,
         };
-        renderClusterBoard(Number(advertId));
+        renderClusterBoard();
     }
     window.toggleClusterMinus = toggleClusterMinus;
+
+    // Позиции и частоту WB отдаёт порциями по 30 фраз и не чаще 3 запросов в
+    // минуту, поэтому просим только то, что видно на экране.
+    async function loadClusterPositions() {
+        const data = _clusterBoards.get(_clusterState.advertId);
+        if (!data || _clusterState.busy) return;
+        const need = clusterVisibleRows()
+            .slice(0, _clusterState.limit)
+            .filter(r => r.frequency == null);
+        if (!need.length) {
+            showPremiumModal('info', 'Позиции', 'Для видимых кластеров позиции уже загружены.');
+            return;
+        }
+        const btn = document.getElementById('cl-positions-btn');
+        _clusterState.busy = true;
+        if (btn) { btn.disabled = true; btn.textContent = 'Считаем…'; }
+
+        const byNm = new Map();
+        need.forEach(r => {
+            const list = byNm.get(r.nmId) || [];
+            list.push(r.normQuery);
+            byNm.set(r.nmId, list);
+        });
+
+        let filled = 0;
+        const problems = [];
+        for (const [nmId, queries] of byNm) {
+            const res = await callWbProxy('adv_cluster_positions', {
+                nmId, queries: queries.slice(0, 60),
+            }, _clusterState.cabinetId);
+            if (!res || res.error) { problems.push(String((res && res.error) || 'нет ответа')); continue; }
+            const map = new Map((res.positions || []).map(p => [String(p.query).toLowerCase(), p]));
+            (data.rows || []).forEach(r => {
+                if (r.nmId !== nmId) return;
+                const hit = map.get(r.normQuery.toLowerCase());
+                if (!hit) return;
+                r.frequency = Number(hit.frequency || 0);
+                r.searchPosition = hit.avgPosition != null ? Number(hit.avgPosition) : null;
+                r.searchOrders = Number(hit.orders || 0);
+                filled += 1;
+            });
+            if ((res.pending || []).length) {
+                problems.push('WB отдаёт 30 фраз за раз — осталось ' + res.pending.length + ', нажмите ещё раз через минуту');
+            }
+        }
+
+        _clusterState.busy = false;
+        _clusterState.posLoaded += filled;
+        if (btn) { btn.disabled = false; btn.textContent = 'Позиции'; }
+        if (!filled && problems.length) {
+            showPremiumModal('warning', 'Позиции', problems.join('. '));
+        }
+        if (filled && !_clusterState.sortTouched) {
+            _clusterState.sort = 'frequency';
+            _clusterState.dir = -1;
+            _clusterState.sortTouched = true;
+        }
+        renderClusterBoard();
+        if (problems.length) {
+            const noteEl = document.getElementById('cl-note');
+            if (noteEl) noteEl.textContent = problems.join(' · ');
+        }
+    }
+    window.loadClusterPositions = loadClusterPositions;
+
+    document.addEventListener('input', (e) => {
+        if (!e.target || e.target.id !== 'cl-search') return;
+        clearTimeout(_clusterSearchTimer);
+        const val = e.target.value;
+        _clusterSearchTimer = setTimeout(() => {
+            _clusterState.search = val;
+            _clusterState.limit = CLUSTER_PAGE;
+            renderClusterRows();
+        }, 160);
+    });
+    // Чипсы и шапка таблицы — делегированием: строки перерисовываются часто,
+    // навешивать обработчики на каждую ячейку заново незачем.
+    document.addEventListener('click', (e) => {
+        const overlay = document.getElementById('cluster-overlay');
+        if (!overlay || !overlay.classList.contains('is-open')) return;
+        const chip = e.target.closest('#cl-chips .cl-chip');
+        if (chip) { setClusterFilter(chip.dataset.clFilter); return; }
+        const th = e.target.closest('#cl-thead th[data-cl-sort]');
+        if (th) sortClusterBy(th.dataset.clSort);
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const overlay = document.getElementById('cluster-overlay');
+        if (overlay && overlay.classList.contains('is-open')) closeClusterModal();
+    });
 
     // Умные уведомления по текущему периоду/кабинету: слив бюджета без
     // заказов, низкая общая эффективность, забытые на паузе кампании,

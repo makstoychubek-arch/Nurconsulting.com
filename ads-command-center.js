@@ -468,7 +468,8 @@
             '<td>' + formatMoney(camp.spend7) + '</td>' +
             '<td>' + formatDrrLabel(formatDrr(camp.spend7, camp.revenue7)) + '</td>' +
             '<td><button type="button" class="adv-camp-action-btn" data-act="' + (camp.live ? 'pause' : 'start') + '" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '">' +
-            (camp.live ? 'Пауза' : 'Старт') + '</button></td>' +
+            (camp.live ? 'Пауза' : 'Старт') + '</button> ' +
+            '<button type="button" class="adv-camp-action-btn" data-keys="' + esc(camp.wbId) + '" data-cabinet="' + esc(cab.id) + '">Ключи</button></td>' +
             '</tr>'
         );
         if (!campOpen) return html.join('');
@@ -561,7 +562,9 @@
         html.push(
             '<button type="button" class="adv-camp-action-btn" data-act="' + (camp.live ? 'pause' : 'start') +
             '" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '">' +
-            (camp.live ? 'Пауза' : 'Старт') + '</button>'
+            (camp.live ? 'Пауза' : 'Старт') + '</button> ' +
+            '<button type="button" class="adv-camp-action-btn" data-keys="' + esc(camp.wbId) +
+            '" data-cabinet="' + esc(cab.id) + '">Ключи</button>'
         );
         if (campOpen) {
             if (!camp.clusters.length) {
@@ -915,6 +918,13 @@
                 if (set.has(id)) set.delete(id);
                 else set.add(id);
                 paintTree();
+                return;
+            }
+            // Ключи полки открываются в модалке кластеров (ставка CPM + позиции).
+            const keys = e.target.closest('[data-keys]');
+            if (keys) {
+                const open = typeof window !== 'undefined' && window.openClusterModal;
+                if (open) open(Number(keys.dataset.keys), keys.dataset.cabinet || '');
                 return;
             }
             const pick = e.target.closest('[data-pick="cluster"]');
