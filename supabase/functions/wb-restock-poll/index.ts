@@ -15,6 +15,7 @@ import {
     parseNewFeedbacksQuestions,
     pickRestockQuestions,
     resolveRestockAnswer,
+    setTelegramReaction,
     type RestockQuestion,
 } from '../_shared/wb-restock-reply.ts';
 
@@ -357,22 +358,7 @@ async function reactTelegram(
     messageId: number,
     emoji: string,
 ): Promise<{ ok: boolean; error?: string }> {
-    try {
-        const res = await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: chatId,
-                message_id: messageId,
-                reaction: [{ type: 'emoji', emoji }],
-            }),
-        });
-        const body = await res.text();
-        if (res.ok) return { ok: true };
-        return { ok: false, error: body.slice(0, 300) };
-    } catch (e) {
-        return { ok: false, error: String(e) };
-    }
+    return setTelegramReaction([token, getTelegramToken()], chatId, messageId, emoji);
 }
 
 async function deleteTelegram(

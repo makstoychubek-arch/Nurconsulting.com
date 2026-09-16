@@ -63,6 +63,7 @@ import {
     upsertReviewCardFromLog,
 } from '../_shared/review-moderation.ts';
 import { applyRestockTelegramReply } from '../_shared/wb-restock-apply.ts';
+import { setTelegramReaction } from '../_shared/wb-restock-reply.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -143,20 +144,26 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
     const chatTitle = String(chat.title ?? chat.username ?? 'чат');
     const botUsername = await resolveBotUsername(token);
     const from = message.from as Record<string, unknown> | undefined;
-    if (from?.is_bot) return;
 
     const admin = createClient(
         Deno.env.get('SUPABASE_URL') ?? '',
         Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
     );
     const restockToken = (Deno.env.get('KARINA_BOT_TOKEN') ?? '').trim() || token;
+    const reviewsChatId = (Deno.env.get('TELEGRAM_CHAT_REVIEWS') ?? '').trim() || getTelegramChatId('reviews');
     const restock = await applyRestockTelegramReply(admin, { message }, {
         ownerUsername: (Deno.env.get('TELEGRAM_ALERT_USERNAME') || 'maraWuW').replace(/^@/, ''),
-        reviewsChatId: (Deno.env.get('TELEGRAM_CHAT_REVIEWS') ?? '').trim(),
+        reviewsChatId,
         send: (text, replyToId) => sendReply(restockToken, chatId, escapeHtml(text), replyToId),
-        react: (emoji, messageId) => reactMessage(restockToken, chatId, messageId, emoji),
+        react: (emoji, messageId) => setTelegramReaction(
+            [restockToken, token],
+            String(chatId),
+            Number(messageId),
+            emoji,
+        ).then(() => undefined),
     });
     if (restock.handled) return;
+    if (from?.is_bot) return;
 
     const chatKey = resolveIncomingChatChannel(String(chatId));
 
@@ -777,23 +784,6 @@ async function resolveBotUsername(token: string): Promise<string> {
         cachedBotUsername = '';
     }
     return cachedBotUsername ?? '';
-}
-
-async function reactMessage(token: string, chatId: unknown, messageId: unknown, emoji: string): Promise<void> {
-    if (!token || !chatId || !messageId) return;
-    try {
-        await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: chatId,
-                message_id: messageId,
-                reaction: [{ type: 'emoji', emoji }],
-            }),
-        });
-    } catch {
-        // webhook must still 200
-    }
 }
 
 async function sendReply(token: string, chatId: unknown, text: string, replyToMessageId: unknown): Promise<void> {

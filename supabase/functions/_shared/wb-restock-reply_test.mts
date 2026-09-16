@@ -11,14 +11,18 @@ import {
     wbQuestionAnswerPayload,
     isAllowedRestockChat,
     isFreshQuestion,
+    isRestockCardText,
+    isRestockInboundCandidate,
     isRestockQuestion,
     isWhenOnlyReply,
     matchPendingByText,
+    normalizeTelegramReactionEmoji,
     normalizeWhenPhrase,
     ownerMention,
     parseRestockCardMeta,
     parseNewFeedbacksQuestions,
     pickRestockQuestions,
+    restockCardArticleLine,
     unwrapTelegramMessage,
 } from './wb-restock-reply.ts';
 
@@ -281,5 +285,69 @@ assert.equal(isAllowedRestockChat('-100rev', '-100rev', []), true);
 assert.equal(isAllowedRestockChat('-100team', '-100rev', []), false);
 assert.equal(isAllowedRestockChat('-100old', '-100rev', ['-100old']), true);
 assert.equal(isAllowedRestockChat('', '-100rev', []), false);
+
+const shotCard = '@maraWuW поступление\nупорон_костюм_черный\n«когда будет в наличии?»';
+assert.equal(isRestockCardText(shotCard), true);
+assert.equal(isRestockCardText('Отказ · отзыв 15.09 · 23:15'), false);
+assert.equal(restockCardArticleLine(shotCard), 'упорон_костюм_черный');
+assert.equal(normalizeTelegramReactionEmoji('❤️'), '\u2764');
+assert.equal(extractRestockWhen('Через неделю'), 'через неделю');
+
+const shotPending = [{
+    question_id: 'q-uporon',
+    cabinet_id: 'cab-uporon',
+    article: 'упорон_костюм_черный',
+    product: 'Костюм',
+    question_text: 'когда будет в наличии?',
+    telegram_message_id: 10,
+}];
+
+const shotReply = decideRestockInbound({
+    chatId: '-100rev',
+    messageId: 11,
+    text: 'Через неделю',
+    fromUsername: 'KarinaBot',
+    ownerUsername: 'maraWuW',
+    replyToText: shotCard,
+    replyToMessageId: 99,
+    pending: shotPending,
+});
+assert.equal(shotReply.action, 'answer');
+if (shotReply.action === 'answer') {
+    assert.equal(shotReply.questionId, 'q-uporon');
+    assert.equal(shotReply.via, 'pending_match');
+    assert.equal(shotReply.when, 'через неделю');
+}
+
+const unmatched = decideRestockInbound({
+    chatId: '-100rev',
+    messageId: 12,
+    text: 'Через неделю',
+    fromUsername: 'maraWuW',
+    ownerUsername: 'maraWuW',
+    replyToText: shotCard,
+    replyToMessageId: 99,
+    pending: [],
+});
+assert.equal(unmatched.action, 'unmatched');
+
+const botMsg = unwrapTelegramMessage({
+    message: {
+        message_id: 11,
+        text: 'Через неделю',
+        chat: { id: -1001 },
+        from: { username: 'nr_karina_bot', is_bot: true },
+        reply_to_message: { message_id: 10, text: shotCard },
+    },
+});
+assert.ok(botMsg);
+assert.equal(botMsg?.isBot, true);
+assert.equal(isRestockInboundCandidate(botMsg!), true);
+assert.equal(isRestockInboundCandidate({
+    text: shotCard,
+    replyToText: '',
+    replyToMessageId: null,
+    isBot: true,
+}), false);
 
 console.log('wb-restock-reply_test: ok');

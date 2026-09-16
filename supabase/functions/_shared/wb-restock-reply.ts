@@ -39,6 +39,7 @@ export type PendingRestockRow = {
     product?: string | null;
     question_text?: string | null;
     telegram_message_id?: number | null;
+    status?: string | null;
 };
 
 export type RestockInboundDecision =
@@ -51,6 +52,11 @@ export type RestockInboundDecision =
         cabinetId?: string;
     }
     | {
+        action: 'unmatched';
+        chatId: string;
+        replyToId: number;
+    }
+    | {
         action: 'answer';
         questionId: string;
         cabinetId: string;
@@ -60,6 +66,9 @@ export type RestockInboundDecision =
         replyToId: number;
         via: 'card_meta' | 'tg_message' | 'pending_match' | 'single_pending';
     };
+
+export const TG_HEART = '\u2764';
+export const TG_THUMBS_DOWN = '\u{1F44E}';
 
 export function normalizeReply(raw: string): string {
     return String(raw || '').replace(/\s+/g, ' ').trim();
@@ -229,18 +238,98 @@ export function parseRestockCardMeta(text: string): RestockCardMeta | null {
     return { questionId: m[1], cabinetId: m[2] };
 }
 
+/** Карточка Карины: «@maraWuW поступление / артикул / вопрос». Без #nrq. */
+export function isRestockCardText(text: string): boolean {
+    const t = String(text || '').trim();
+    if (!t) return false;
+    if (parseRestockCardMeta(t)) return true;
+    // \b не работает с кириллицей — после «поступление» обычный пробел/перевод строки.
+    return /(?:^|\n)\s*@?\S*[^\S\n]*поступление(?:\s|$)/i.test(t);
+}
+
+export function restockCardArticleLine(text: string): string {
+    const lines = String(text || '').split(/\n/).map((l) => l.trim()).filter(Boolean);
+    const start = lines.findIndex((l) => /поступление/i.test(l));
+    if (start < 0) return '';
+    const next = lines[start + 1] || '';
+    if (!next || /^[«"]/.test(next) || /поступление/i.test(next)) return '';
+    return next;
+}
+
+/** Свои карточки и голые сообщения ботов не считаем ответом менеджера. */
+export function isRestockInboundCandidate(msg: {
+    text: string;
+    replyToText: string;
+    replyToMessageId: number | null;
+    isBot: boolean;
+}): boolean {
+    if (isRestockCardText(msg.text) && !msg.replyToMessageId) return false;
+    if (msg.isBot && !msg.replyToMessageId) return false;
+    return true;
+}
+
+export function normalizeTelegramReactionEmoji(emoji: string): string {
+    const raw = String(emoji || '').trim();
+    if (!raw) return TG_HEART;
+    if (raw.includes('\u2764') || raw.includes('\u2665') || raw === '❤️' || raw === '❤') return TG_HEART;
+    if (raw.includes('👎') || raw === TG_THUMBS_DOWN) return TG_THUMBS_DOWN;
+    return raw;
+}
+
+export async function setTelegramReaction(
+    tokens: Array<string | undefined | null>,
+    chatId: string | number,
+    messageId: number,
+    emoji: string,
+): Promise<{ ok: boolean; error?: string }> {
+    if (chatId == null || chatId === '' || !Number(messageId)) {
+        return { ok: false, error: 'no_target' };
+    }
+    const reaction = [{ type: 'emoji' as const, emoji: normalizeTelegramReactionEmoji(emoji) }];
+    const seen = new Set<string>();
+    let lastErr = 'no_token';
+    for (const raw of tokens) {
+        const token = String(raw || '').trim();
+        if (!token || seen.has(token)) continue;
+        seen.add(token);
+        try {
+            const res = await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    chat_id: chatId,
+                    message_id: messageId,
+                    reaction,
+                }),
+            });
+            if (res.ok) return { ok: true };
+            lastErr = (await res.text()).slice(0, 300);
+            console.warn('[restock] setMessageReaction', res.status, lastErr);
+        } catch (e) {
+            lastErr = String(e);
+            console.warn('[restock] setMessageReaction error', lastErr);
+        }
+    }
+    return { ok: false, error: lastErr };
+}
+
 export function matchPendingByText(
     haystack: string,
     rows: Array<{ question_id: string; nm_id?: number | null; article?: string | null; product?: string | null; question_text?: string | null }>,
 ): string | null {
     const h = String(haystack || '').toLowerCase();
     if (!h || !rows.length) return null;
+    const cardArt = restockCardArticleLine(haystack).toLowerCase();
     let best: { id: string; score: number } | null = null;
     for (const row of rows) {
         let score = 0;
         if (row.nm_id && h.includes(String(row.nm_id))) score += 5;
         const art = String(row.article || '').toLowerCase();
         if (art && h.includes(art)) score += 4;
+        if (cardArt && art && (cardArt === art || cardArt.includes(art) || art.includes(cardArt))) score += 6;
+        for (const w of art.split(/[^a-zа-я0-9]+/i).filter((x) => x.length >= 4)) {
+            if (h.includes(w)) score += 1;
+        }
         const product = String(row.product || '').toLowerCase();
         for (const w of product.split(/[^a-zа-я0-9]+/i).filter((x) => x.length >= 5)) {
             if (h.includes(w)) score += 1;
@@ -421,6 +510,14 @@ export function decideRestockInbound(input: {
                 via: 'pending_match',
             };
         }
+    }
+
+    const repliedToCard = Boolean(input.replyToMessageId && isRestockCardText(input.replyToText));
+    if (repliedToCard) {
+        if (!resolved) {
+            return { action: 'hint', chatId, replyToId };
+        }
+        return { action: 'unmatched', chatId, replyToId };
     }
 
     return { action: 'ignore' };

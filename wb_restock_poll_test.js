@@ -32,19 +32,23 @@ assert.ok(router.includes('verify') || cfg.includes('verify_jwt = false'), 'rout
 assert.ok(cfg.includes('[functions.telegram-router]') && cfg.includes('verify_jwt = false'),
     'config.toml disables JWT for Telegram webhook');
 assert.ok(router.includes('X-Telegram-Bot-Api-Secret-Token'), 'router checks webhook secret');
-assert.ok(router.includes('answerWbQuestion'), 'router answers via official PATCH /questions');
-assert.ok(!router.includes('questions/answer'), 'old POST /questions/answer path is gone');
-assert.ok(router.includes('buildWbRestockAnswer'), 'router uses the hello+when template');
+assert.ok(router.includes('applyRestockTelegramReply'), 'router answers restock via shared apply');
+assert.ok(apply.includes('answerWbQuestion'), 'apply answers via official PATCH /questions');
+assert.ok(!router.includes('questions/answer') && !apply.includes('questions/answer'),
+    'old POST /questions/answer path is gone');
+assert.ok(shared.includes('buildWbRestockAnswer'), 'hello+when template is shared');
 assert.ok(router.includes('unknown_chat'), 'router ignores chats that are not reviews');
-assert.ok(router.includes('setMessageReaction') && router.includes("'❤'"),
+assert.ok(shared.includes('setMessageReaction') && apply.includes("'❤'"),
     'success is a heart on the reply, no text');
+assert.ok(router.includes('setTelegramReaction'), 'router hearts via shared reaction helper');
 assert.ok(!router.includes('Ушло на WB') && !router.includes('готово'),
     'must not write a status message after a restock reply');
 assert.ok(poll.includes('resend_question_id'), 'poll can duplicate one pending card');
 assert.ok(poll.includes('editMessageText'), 'resend shortens the existing Telegram card in place');
 assert.ok(poll.includes('apply_question_id'), 'poll can apply an already given restock date');
 assert.ok(poll.includes('body.answer') || poll.includes("body.answer"), 'poll apply can reuse a custom answer already written');
-assert.ok(poll.includes('setMessageReaction'), 'poll can put a heart on the Telegram reply');
+assert.ok(poll.includes('setTelegramReaction') && shared.includes('setMessageReaction'),
+    'poll can put a heart on the Telegram reply');
 assert.ok(poll.includes('heart_message_id'), 'poll can put a heart on an existing reply');
 assert.ok(poll.includes('delete_message_id'), 'poll can delete a leftover Karina status message');
 assert.ok(!apply.includes('завтра / через неделю / через 2 недели') || apply.includes("'👎'"),
@@ -74,6 +78,11 @@ assert.ok(!apply.includes('Не смог ответить на WB'), 'must not p
 assert.ok(webhook.includes('applyRestockTelegramReply'),
     'telegram-webhook is the live Karina path');
 assert.ok(apply.includes("'❤'"), 'Karina confirms a send with a heart');
+assert.ok(apply.includes('already_answered'), 'retry on an already-sent card still gets a heart');
+assert.ok(apply.includes('unmatched'), 'unknown restock card reply gets a thumbs-down, not silence');
+assert.ok(apply.includes('isRestockInboundCandidate'), 'bot replies to a restock card are not dropped');
+assert.ok(webhook.indexOf('applyRestockTelegramReply') < webhook.indexOf("if (from?.is_bot) return"),
+    'restock runs before the generic bot-message skip');
 assert.ok(!apply.includes('Ушло на WB'), 'must not echo status text into the chat');
 assert.ok(webhook.includes('KARINA_BOT_TOKEN'), 'restock replies are sent as Karina');
 assert.ok(cfg.includes('[functions.telegram-webhook]') && cfg.includes('verify_jwt = false'),
@@ -83,5 +92,7 @@ assert.ok(!proxy.includes('questions/answer'), 'live wb-proxy must not POST /que
 
 assert.ok(docs.includes('через неделю'), 'user-facing doc explains the reply');
 assert.ok(docs.includes('TELEGRAM_CHAT_REVIEWS'), 'doc names the reviews chat');
+assert.ok(docs.includes('telegram-router'), 'doc names Karina webhook path');
+assert.ok(shared.includes('isRestockCardText'), 'short restock cards match without #nrq');
 
 console.log('wb_restock_poll_test: ok');
