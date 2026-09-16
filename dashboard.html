@@ -509,7 +509,18 @@
             .agents-hub { flex-direction: column; }
             .agents-hub-side { width: 100%; min-width: 0; }
         }
-        .agent-result-url { word-break: break-all; font-family: ui-monospace, monospace; font-size: 12px; color: var(--accent); }
+        .agent-result-url { word-break: break-all; font-family: ui-monospace, monospace; font-size: 12px; color: var(--accent); -webkit-user-select: text; user-select: text; }
+        .agent-invite-copy-row {
+            display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap;
+        }
+        .agent-invite-copy-row input {
+            flex: 1 1 180px; min-width: 0;
+            font-family: ui-monospace, monospace; font-size: 12px;
+            -webkit-user-select: text; user-select: text;
+        }
+        .agent-invite-copy-row button {
+            flex: 0 0 auto; min-height: 40px; min-width: 132px;
+        }
         .metric-card {
             background: var(--surface);
             border: none;
@@ -13506,11 +13517,79 @@
     function agentBusy(panel, fn, text) {
         panel.innerHTML = agentPanelHead(fn) + `<div class="text-sm" style="color:var(--text-muted)">${text || 'Загрузка…'}</div>`;
     }
-    async function copyAgentText(text) {
-        try { await navigator.clipboard.writeText(text); showPremiumModal('success', 'Скопировано', text); }
-        catch { showPremiumModal('success', 'Ссылка', text); }
+    function pickAgentInviteUrl(data) {
+        if (!data || typeof data !== 'object') return '';
+        const nested = data.invite && typeof data.invite === 'object' ? data.invite : {};
+        const inner = data.data && typeof data.data === 'object' ? data.data : {};
+        return String(
+            data.inviteUrl || data.invite_url || data.url || data.link
+            || nested.inviteUrl || nested.url || nested.link
+            || inner.inviteUrl || inner.invite_url || inner.url
+            || ''
+        ).trim();
+    }
+    function copyTextToClipboard(text) {
+        const value = String(text || '');
+        if (!value) return Promise.resolve(false);
+        try {
+            const ta = document.createElement('textarea');
+            ta.value = value;
+            ta.setAttribute('readonly', '');
+            ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0.01;z-index:99999;';
+            document.body.appendChild(ta);
+            ta.focus();
+            ta.select();
+            ta.setSelectionRange(0, value.length);
+            const ok = document.execCommand('copy');
+            ta.remove();
+            if (ok) return Promise.resolve(true);
+        } catch (_) { /* iPhone PWA: clipboard API below */ }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            return navigator.clipboard.writeText(value).then(() => true, () => false);
+        }
+        return Promise.resolve(false);
+    }
+    async function copyAgentText(text, btn) {
+        const url = String(text || window._agentInviteUrl || '');
+        const ok = await copyTextToClipboard(url);
+        if (btn) {
+            const prev = btn.getAttribute('data-copy-label') || btn.textContent || 'Скопировать';
+            btn.setAttribute('data-copy-label', prev);
+            btn.textContent = ok ? 'Скопировано' : 'Выделите ссылку';
+            setTimeout(() => { if (btn.isConnected) btn.textContent = prev; }, 2000);
+        }
+        if (!ok) {
+            const field = document.getElementById('agent-invite-url');
+            if (field) { field.focus(); field.select(); }
+        }
+        return ok;
     }
     window.copyAgentText = copyAgentText;
+
+    function saveLastAgentInvite(payload) {
+        try { sessionStorage.setItem('nr_last_wb_invite', JSON.stringify({ ...payload, at: Date.now() })); } catch (_) {}
+    }
+    function readLastAgentInvite() {
+        try {
+            const raw = JSON.parse(sessionStorage.getItem('nr_last_wb_invite') || 'null');
+            if (!raw || !raw.url) return null;
+            if (Date.now() - Number(raw.at || 0) > 24 * 3600 * 1000) return null;
+            return raw;
+        } catch (_) { return null; }
+    }
+    function paintAgentInviteResult(out, info) {
+        if (!out || !info?.url) return;
+        window._agentInviteUrl = info.url;
+        out.innerHTML = `<div class="mb-2">Готово для ${escapeHtml(info.countryName || '')} ${escapeHtml(info.phone || '')}</div>
+            <div class="text-xs mb-2">Доступ: ${escapeHtml(info.label || '')}</div>
+            <div class="agent-invite-copy-row">
+                <input id="agent-invite-url" class="ui-input" readonly value="${escapeHtml(info.url)}" onclick="this.select()">
+                <button type="button" class="ui-btn ui-btn-primary" id="agent-invite-copy-btn">Скопировать</button>
+            </div>
+            <div class="text-xs mt-2" style="color:var(--text-muted)">Нажмите «Скопировать» или выделите ссылку в поле.</div>`;
+        const btn = document.getElementById('agent-invite-copy-btn');
+        if (btn) btn.addEventListener('click', () => copyAgentText(info.url, btn));
+    }
 
     function renderAgentInvite(panel, fn) {
         if (agentNeedCabinet(panel, fn)) return;
@@ -13533,6 +13612,8 @@
             </div>
             <button type="button" class="ui-btn ui-btn-primary" onclick="submitAgentInvite()">Сгенерировать ссылку</button>
             <div id="agent-invite-out" class="mt-4 text-sm" style="color:var(--text-muted)"></div>`;
+        const last = readLastAgentInvite();
+        if (last) paintAgentInviteResult(document.getElementById('agent-invite-out'), last);
     }
     async function submitAgentInvite() {
         const phone = document.getElementById('agent-invite-phone')?.value.trim();
@@ -13548,14 +13629,19 @@
                 <div>Доступ: ${escapeHtml(data.label || preset)}</div>`;
             return;
         }
-        if (!data || !data.inviteUrl) {
+        const inviteUrl = pickAgentInviteUrl(data);
+        if (!data || !inviteUrl) {
             out.innerHTML = `<span style="color:var(--red)">${escapeHtml(data?.error || 'WB не вернул ссылку. Проверьте, что у токена включена категория «Пользователи».')}</span>`;
             return;
         }
-        out.innerHTML = `<div class="mb-2">Готово для ${escapeHtml(data.countryName || '')} ${escapeHtml(data.phone || phone)}</div>
-            <div class="text-xs mb-2">Доступ: ${escapeHtml(data.label || preset)}</div>
-            <div class="agent-result-url mb-3">${escapeHtml(data.inviteUrl)}</div>
-            <button type="button" class="ui-btn ui-btn-secondary text-sm" onclick="copyAgentText(${JSON.stringify(data.inviteUrl)})">Скопировать ссылку</button>`;
+        const info = {
+            url: inviteUrl,
+            phone: data.phone || phone,
+            countryName: data.countryName || '',
+            label: data.label || preset,
+        };
+        saveLastAgentInvite(info);
+        paintAgentInviteResult(out, info);
     }
     window.submitAgentInvite = submitAgentInvite;
 
