@@ -22,8 +22,6 @@ assert.ok(router.includes('status: \'pending\'' ) || router.includes(".eq('statu
 assert.ok(!router.includes('-1004460164885'), 'router must not hardcode the team chat');
 
 assert.ok(html.includes('Или ответьте в Telegram реплаем: завтра / через неделю / через 2 недели'),
-    'agents questions panel hints the Telegram reply');
-assert.ok(html.includes('placeholder="Ответ покупателю или в Telegram: завтра / через неделю"'),
-    'question textarea mentions Telegram');
+    'agents hub hints the Telegram restock reply');
 
 console.log('telegram_router_test: ok');

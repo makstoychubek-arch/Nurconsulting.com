@@ -1436,25 +1436,35 @@ assert.ok(
 
 assert.ok(html.includes('id="tab-agents"') && html.includes("showTab('agents'"),
     'BETA must have an Агенты tab');
-assert.ok(html.includes('function loadAgentsPage') && html.includes('function openAgentFn'),
-    'Agents tab must open one of the ten WB tools');
-assert.ok(html.includes('Пригласительная ссылка') && html.includes('function submitAgentInvite'),
-    'first agent function must generate a WB invite link');
+assert.ok(html.includes('function loadAgentsPage') && html.includes('function renderAgentHub'),
+    'Agents tab paints the hub of WhatsApp / Telegram / ChatGPT');
 assert.ok(
-    html.includes('Команда кабинета') &&
-    html.includes('Цены и скидки') &&
-    html.includes('Отзывы без ответа') &&
-    html.includes('Вопросы покупателей') &&
-    html.includes('Новые FBS-заказы') &&
-    html.includes('Стикеры заказов') &&
-    html.includes('Пропуск на склад') &&
-    html.includes('Чаты с покупателями') &&
-    html.includes('Баланс продавца'),
-    'Agents tab must list all ten wow functions'
+    html.includes("hydrateAgentHubCache()") &&
+    /function loadAgentsPage\(\) \{\s*hydrateAgentHubCache\(\);\s*renderAgentHub\(\);\s*loadAgentHub\(\);/.test(html),
+    'Agents page shows cached bots immediately, then refreshes in the background'
+);
+assert.ok(
+    html.includes("localStorage.getItem(TG_BOTS_CACHE_KEY") &&
+    html.includes("nr_tg_bots_state") &&
+    html.includes('loadTelegramBotsPage({ silent: true })') &&
+    html.includes('persistTgBotsState()') &&
+    html.includes('renderTelegramBotsPage();') &&
+    html.includes("action: 'list'"),
+    'Telegram bots paint from DB/cache before waiting on live Telegram getMe'
+);
+assert.ok(
+    !html.includes('Функции WB') &&
+    !html.includes('id="agents-grid"') &&
+    !html.includes('function openAgentFn') &&
+    !html.includes('function submitAgentInvite') &&
+    !html.includes('Пригласительная ссылка') &&
+    !html.includes('Команда кабинета') &&
+    !html.includes('function changeAgentUserAccess'),
+    'Agents tab no longer shows the WB functions catalog'
 );
 assert.ok(
     html.includes('Или ответьте в Telegram реплаем: завтра / через неделю / через 2 недели'),
-    'questions panel must hint the Telegram restock reply'
+    'agents hub still hints the Telegram restock reply'
 );
 assert.ok(
     proxySrc.includes("case 'users_invite'") &&
@@ -1468,12 +1478,6 @@ assert.ok(
     'wb-proxy must expose invite, access change, prices, reviews, FBS, passes and chats'
 );
 assert.ok(
-    html.includes('value="finance"') &&
-    html.includes('function changeAgentUserAccess') &&
-    html.includes("callWbProxy('users_access'"),
-    'Agents tab must change access for an already added user, including finances'
-);
-assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/functions/_shared/wb-agent-wow.ts')),
     'shared agent WB helpers must exist'
 );
@@ -1485,11 +1489,15 @@ assert.ok(
     html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'agents'])") &&
     html.includes('data-tab="agents"') &&
     html.includes('id="agents-hub-side"') &&
+    html.includes('id="agents-hub-main"') &&
     html.includes('function renderAgentHub') &&
     html.includes('function submitTelegramBotHub') &&
     html.includes('function saveAgentBrain') &&
     html.includes('function sendAgentTgMessage') &&
     html.includes('function selectAgentTgChannel') &&
+    html.includes('function deleteTelegramBot') &&
+    html.includes("openAgentHubForm('tg')") &&
+    html.includes('ah-tg-token') &&
     html.includes('ah-logo-wa') &&
     html.includes('ah-logo-tg') &&
     html.includes('TG_CHANNEL_PURPOSE') &&
@@ -1498,8 +1506,20 @@ assert.ok(
     html.includes('Телеграм') &&
     html.includes('>Мозг<') &&
     html.includes('ChatGPT') &&
-    html.includes('function deleteWhatsAppAgent'),
-    'Агенты live in the left rail: WhatsApp, Telegram channels, send-to-chat, ChatGPT brain'
+    html.includes('function deleteWhatsAppAgent') &&
+    html.includes('const AGENT_NOTES') &&
+    html.includes('const AGENT_CHAINS') &&
+    html.includes('function selectAgentNote') &&
+    html.includes('function selectAgentChain') &&
+    html.includes('function selectAgentHop') &&
+    html.includes('class="ah-wiki"') &&
+    html.includes('class="ah-hop') &&
+    html.includes('Связки агентов') &&
+    html.includes('Поступление на WB') &&
+    html.includes('передача:') &&
+    html.includes("title: 'Человек'") &&
+    html.includes("title: 'Wildberries'"),
+    'Агенты live in the left rail: WhatsApp, Telegram bots with delete, send-to-chat, ChatGPT brain'
 );
 assert.ok(
     html.includes("'telegram-bots': 'agents'") &&
