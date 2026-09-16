@@ -94,6 +94,13 @@ function calculateMetrics(rows, settings = {}) {
     // Такую реализацию показываем прочерком, а не половиной правды.
     let salesWithRetailPrice = 0;
     let salesWithoutRetailPrice = 0;
+    // Сколько заплатил покупатель — retail_amount. Разница с ценой продавца и
+    // есть СПП: у кыргызских кабинетов retail_price приходит равным
+    // retail_price_withdisc_rub, поэтому прежняя формула «реализация минус
+    // продажи» всегда давала ровно ноль.
+    let retailAmountSum = 0;
+    let salesWithRetailAmount = 0;
+    let salesWithoutRetailAmount = 0;
 
     // По артикулам — для таблицы товаров
     const byNmId = {};
@@ -113,6 +120,8 @@ function calculateMetrics(rows, settings = {}) {
         const deduction = finMoney(finField(row, 'deduction'));
         const acceptance = finMoney(finField(row, 'acceptance', 'paidAcceptance'));
         const acquiring = finMoney(finField(row, 'acquiring_fee', 'acquiringFee'));
+        // retail_amount у WB — уже сумма по строке, на количество не умножаем.
+        const retailAmount = finMoney(finField(row, 'retail_amount', 'retailAmount'));
         const qty = Number(finField(row, 'quantity') || 0);
         const nmId = String(finField(row, 'nm_id', 'nmId') || '');
 
@@ -125,7 +134,10 @@ function calculateMetrics(rows, settings = {}) {
             if (priceWithDisc > 0) {
                 if (retailPrice > 0) salesWithRetailPrice += qty;
                 else salesWithoutRetailPrice += qty;
+                if (retailAmount > 0) salesWithRetailAmount += qty;
+                else salesWithoutRetailAmount += qty;
             }
+            retailAmountSum += retailAmount;
             realizationSum += retailPrice * qty;
             toTransferSum += forPay;
 
@@ -186,9 +198,14 @@ function calculateMetrics(rows, settings = {}) {
     // 1121.42 = forPay), поэтому эквайринг из разницы надо вынуть.
     const commissionSum = netSalesSum - toTransferSum - acquiringSum - compensationSum;
 
-    // СПП (скидка постоянного покупателя) = Реализация − Продажи.
-    // Если WB не отдал retail_price, разницы нет — прочерк вместо минуса.
-    const sppSum = hasRetailPrice ? realizationSum - salesSum : null;
+    // СПП (скидка постоянного покупателя) — за счёт WB, продавец её не платит:
+    // цена продавца минус то, что заплатил покупатель (retail_amount).
+    // Отрицательное значение — не ошибка: по рассрочке и софинансированию
+    // покупатель платит больше цены продавца.
+    const hasRetailAmount = salesWithRetailAmount > 0 && salesWithoutRetailAmount === 0;
+    const sppSum = hasRetailAmount
+        ? Math.round(salesSum - retailAmountSum)
+        : (hasRetailPrice ? Math.round(realizationSum - salesSum) : null);
 
     // Процент выкупа = Продажи / (Продажи + Возвраты) × 100
     const buyoutRate = (salesSum + returnsSum) > 0

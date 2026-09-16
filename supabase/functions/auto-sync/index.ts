@@ -245,10 +245,12 @@ Deno.serve(async (req) => {
         // потом старше DATE_FROM.
         for (let i = 0; i < BACKFILL_DAYS_PER_RUN; i++) {
             for (const cab of work) {
+                // Догон истории по расписанию: остаток дней уходит в следующий
+                // прогон. Это не сбой синхронизации, поэтому статус не портим —
+                // иначе в журнале каждый успешный прогон помечен как partial.
                 if (Date.now() - started > TIME_BUDGET_MS) {
                     if (!cab.errorMsg.includes('orders_backfill: deferred')) {
                         cab.errorMsg += 'orders_backfill: deferred; ';
-                        cab.status = 'partial';
                     }
                     continue;
                 }

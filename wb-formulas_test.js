@@ -111,4 +111,36 @@ assert.equal(withCompRow.hasRetailPrice, true, 'нулевая компенса�
 assert.equal(withCompRow.realizationSum, 12000);
 assert.equal(withCompRow.sppSum, 2000);
 
+// У кыргызских кабинетов WB отдаёт retail_price = retail_price_withdisc_rub,
+// поэтому СПП «реализация минус продажи» всегда выходила нулём. Настоящая
+// скидка WB видна по retail_amount — сколько заплатил покупатель.
+const withAmount = WB.calculateMetrics([{
+    doc_type_name: 'Продажа',
+    retail_price_withdisc_rub: 10000,
+    retail_price: 10000,
+    retail_amount: 9000,
+    ppvz_for_pay: 7000,
+    quantity: 1,
+    sale_dt: '2026-09-10',
+}], { taxRate: 6, adsSum: 0 });
+assert.equal(withAmount.sppSum, 1000, 'СПП — разница между ценой продавца и оплатой покупателя');
+
+// Компенсации и коррекции без цены не должны гасить СПП за весь период.
+const amountWithComp = WB.calculateMetrics([
+    { doc_type_name: 'Продажа', retail_price_withdisc_rub: 10000, retail_price: 10000,
+      retail_amount: 9000, ppvz_for_pay: 7000, quantity: 1, sale_dt: '2026-09-10' },
+    { doc_type_name: 'Продажа', retail_price_withdisc_rub: 0, retail_price: 0,
+      retail_amount: 0, ppvz_for_pay: 500, quantity: 1, sale_dt: '2026-09-11' },
+], { taxRate: 6, adsSum: 0 });
+assert.equal(amountWithComp.sppSum, 1000);
+
+// retail_amount есть не у всех продаж — тогда возвращаемся к прежней разнице цен.
+const amountHalf = WB.calculateMetrics([
+    { doc_type_name: 'Продажа', retail_price_withdisc_rub: 10000, retail_price: 12000,
+      retail_amount: 9000, ppvz_for_pay: 7000, quantity: 1, sale_dt: '2026-09-10' },
+    { doc_type_name: 'Продажа', retail_price_withdisc_rub: 10000, retail_price: 12000,
+      retail_amount: 0, ppvz_for_pay: 7000, quantity: 1, sale_dt: '2026-09-11' },
+], { taxRate: 6, adsSum: 0 });
+assert.equal(amountHalf.sppSum, 4000, 'без полного retail_amount — старая разница цен');
+
 console.log('wb-formulas_test: ok');
