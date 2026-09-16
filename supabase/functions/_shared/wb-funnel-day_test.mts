@@ -1,5 +1,14 @@
 import assert from 'node:assert/strict';
-import { funnelDayMetricFields, funnelDayOrders, funnelImpliedOrders } from './wb-funnel-day.ts';
+import {
+    applyKeepFunnelOrders,
+    funnelDayMetricFields,
+    funnelDayOrders,
+    funnelImpliedOrders,
+    isWbFunnelWindowDate,
+    keepFunnelOrdersCount,
+    moscowYmd,
+    wbFunnelWindow,
+} from './wb-funnel-day.ts';
 
 assert.equal(funnelDayOrders(null), null);
 assert.equal(funnelDayOrders({}), null);
@@ -39,5 +48,27 @@ assert.equal(fromConv.orders_count, 28);
 const noOrders = funnelDayMetricFields({ openCount: 5, cartCount: 1 });
 assert.equal('orders_count' in noOrders, false);
 assert.equal(noOrders.impressions, 5);
+
+assert.match(moscowYmd(new Date('2026-09-16T00:00:00Z')), /^\d{4}-\d{2}-\d{2}$/);
+assert.deepEqual(wbFunnelWindow('2026-09-16'), { from: '2026-09-10', to: '2026-09-16' });
+assert.equal(isWbFunnelWindowDate('2026-09-14', '2026-09-16'), true);
+assert.equal(isWbFunnelWindowDate('2026-09-09', '2026-09-16'), false);
+
+const ivory = { basket_count: 294, funnel_order_conv: 16, orders_count: 47 };
+assert.equal(keepFunnelOrdersCount(ivory, 66, '2026-09-14', '2026-09-16'), 47);
+assert.equal(keepFunnelOrdersCount(ivory, 66, '2026-09-01', '2026-09-16'), 66);
+assert.equal(keepFunnelOrdersCount(null, 66, '2026-09-14', '2026-09-16'), 66);
+assert.equal(keepFunnelOrdersCount({ impressions: 10 }, 66, '2026-09-14', '2026-09-16'), 66);
+
+const kept = applyKeepFunnelOrders(
+    [{ nm_id: 12187825005, date: '2026-09-14', basket_count: 294, funnel_order_conv: 16 }],
+    [
+        { nm_id: 12187825005, date: '2026-09-14', orders_count: 66 },
+        { nm_id: 12187825005, date: '2026-09-01', orders_count: 12 },
+    ],
+    '2026-09-16',
+);
+assert.equal(kept[0].orders_count, 47);
+assert.equal(kept[1].orders_count, 12);
 
 console.log('wb-funnel-day_test: ok');

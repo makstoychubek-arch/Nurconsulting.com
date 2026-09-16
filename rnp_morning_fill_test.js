@@ -20,6 +20,24 @@ assert.ok(fn.includes('order_date: dayStr'), 'stores WB flag=1 day, not ISO time
 assert.ok(fn.includes('srid-check'), 'does not move an srid onto another day');
 assert.ok(fn.includes('rnp_daily_data'), 'writes article metrics');
 assert.ok(fn.includes('funnelDayMetricFields'), 'funnel writes WB orderCount into orders_count');
+assert.ok(fn.includes('applyKeepFunnelOrders'),
+    'morning rebuild must keep WB card funnel orders_count, not overwrite with wb_orders');
+assert.ok(fn.includes('moscowYmd'),
+    'morning funnel window is Moscow calendar like the WB seller card');
+assert.ok(fn.includes('funnel_only'),
+    'later morning pass can refresh funnel without orders or Telegram');
+assert.ok(fn.includes("notify = funnelOnly || groupAll ? false"),
+    'funnel_only / group=all must not spam the team chat');
+assert.ok(fn.includes("wantFunnel = funnelOnly || body.funnel === true"),
+    '06/07/08 skip funnel so Karina can say готово before the edge timeout');
+assert.ok(fn.includes('finally'),
+    'Karina must send готово even if orders/funnel throw after начинаю');
+assert.ok(fn.includes('уркунбаев') && fn.includes('айлин') && fn.includes('бейшеев') && fn.includes('айзада'),
+    'morning groups match legal IP names, not only Baza/Elium/Zevina latin');
+assert.ok(fn.includes('auto-sync-4h'),
+    'Zevina schedule documents the 00:00 UTC collision with auto-sync');
+assert.ok(fn.includes("group: 'zevina'|'baza'|'elium'|'all'"),
+    'catch-up can pass group=all for a silent funnel refresh');
 assert.ok(fn.includes('orders: WB вернул не массив'), 'empty/non-array WB payload must not wipe the day');
 assert.ok(fn.includes("mode: 'stocks'") && fn.includes('syncStocksViaAutoSync'),
     'morning fill must refresh size-level stocks for the same cabinet group');
@@ -52,6 +70,10 @@ assert.ok(auto.includes('moscowYmd'),
     'auto-sync Pass B uses Moscow calendar like the WB funnel');
 assert.ok(auto.includes('funnelDayMetricFields'),
     'auto-sync funnel must copy WB Заказы (orderCount) into orders_count');
+assert.ok(auto.includes('applyKeepFunnelOrders'),
+    'auto-sync must not let wb_orders overwrite last-7-day funnel ЗАКАЗЫ');
+assert.ok(auto.includes('preserveFunnelOrders'),
+    'auto-sync stats rebuild loads existing basket×% before upsert');
 assert.ok(auto.includes('allowMoveSrid: true'),
     'Pass B may move an srid onto the WB flag=1 day to fix UTC holes');
 
@@ -69,5 +91,29 @@ assert.ok(mig.includes('rnp-morning-baza-07-bishkek') && mig.includes("'15 1 * *
 assert.ok(mig.includes('rnp-morning-elium-08-bishkek') && mig.includes("'0 2 * * *'"),
     'Elium cron at 08:00 Bishkek');
 assert.ok(mig.includes('rnp-daily-bish'), 'old afternoon rnp-daily-bish is replaced');
+
+const funnelMig = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260916120000_rnp_morning_funnel_refresh.sql'),
+    'utf8',
+);
+assert.ok(funnelMig.includes('rnp-morning-funnel-zevina-09-bishkek') && funnelMig.includes("'0 3 * * *'"),
+    'Zevina funnel refresh at 09:00 Bishkek');
+assert.ok(funnelMig.includes('rnp-morning-funnel-baza-09-bishkek') && funnelMig.includes("'15 3 * * *'"),
+    'Baza funnel refresh at 09:15 Bishkek');
+assert.ok(funnelMig.includes('rnp-morning-funnel-elium-09-bishkek') && funnelMig.includes("'30 3 * * *'"),
+    'Elium funnel refresh at 09:30 Bishkek');
+assert.ok(funnelMig.includes('"funnel_only":true') && funnelMig.includes('"notify":false'),
+    '09:00 funnel pass must not post to Telegram');
+
+const zevinaShift = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260916140000_rnp_morning_zevina_off_autosync.sql'),
+    'utf8',
+);
+assert.ok(zevinaShift.includes('rnp-morning-zevina-0620-bishkek') && zevinaShift.includes("'20 0 * * *'"),
+    'Zevina morning fill at 06:20 Bishkek, after auto-sync-4h');
+assert.ok(zevinaShift.includes('rnp-morning-zevina-06-bishkek'),
+    'old 06:00 Zevina cron is unscheduled');
+assert.ok(zevinaShift.includes('"funnel":false'),
+    '06:20 Zevina does not wait on the WB funnel before Telegram');
 
 console.log('rnp_morning_fill_test: ok');
