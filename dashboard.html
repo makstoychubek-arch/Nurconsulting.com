@@ -3655,6 +3655,13 @@
         }
         .onb-steps a { color: var(--accent); text-decoration: none; font-weight: 600; }
         .onb-steps a:hover { text-decoration: underline; }
+        /* Запятые между chip'ами читались как лишние пробелы — только отступ. */
+        .onb-scopes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 6px;
+        }
         .onb-steps code {
             background: var(--surface-solid, var(--bg));
             border: 1px solid var(--border);
@@ -4989,7 +4996,7 @@
                 <p class="space-empty-sub">Остался один шаг: подключите свой магазин Wildberries по API-токену. Мы проверим токен и сразу начнём собирать данные.</p>
                 <ol class="onb-steps">
                     <li>Откройте <a href="https://seller.wildberries.ru/supplier-settings/access-to-api" target="_blank" rel="noopener">Настройки → Доступ к API</a> в кабинете WB.</li>
-                    <li>Нажмите «Создать новый токен» и отметьте категории <code>Статистика</code>, <code>Контент</code>, <code>Аналитика</code>, <code>Продвижение</code>, <code>Цены и скидки</code>.</li>
+                    <li>Нажмите «Создать новый токен» и отметьте категории:<span class="onb-scopes"><code>Статистика</code><code>Контент</code><code>Аналитика</code><code>Продвижение</code><code>Цены и скидки</code></span></li>
                     <li>Скопируйте токен целиком и вставьте его сюда. Токен хранится только на сервере и виден лишь вам.</li>
                 </ol>
                 <label class="onb-label" for="onb-name">Название магазина</label>
