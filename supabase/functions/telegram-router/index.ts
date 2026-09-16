@@ -1,10 +1,11 @@
 // Входящие Telegram webhook. JWT выключен — Telegram его не шлёт.
-// Сейчас: реплай на карточку поступления → ответ на вопрос WB.
-// Неизвестные чаты игнорируем. Тим-чат не используем, если это не TELEGRAM_CHAT_REVIEWS.
+// Реплай на карточку поступления → ответ на вопрос WB.
+// Тим-чат: пригласительная ссылка и короткий пинг («алоо»). Иначе молчим.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getTelegramToken } from '../_shared/telegram-routing.ts';
+import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { wbError } from '../_shared/wb-agent-wow.ts';
+import { isTeamChatId, replyTeamChat } from '../_shared/team-chat-invite.ts';
 import {
     answerWbQuestion,
     buildWbRestockAnswer,
@@ -56,6 +57,15 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const admin = createClient(supabaseUrl, serviceKey);
+    const replyToken = tokenForBot(botId);
+    const teamChat = getTelegramChatId('team');
+
+    if (isTeamChatId(msg.chatId, teamChat)) {
+        const { data: cabinets } = await admin.from('cabinets').select('id, name, wb_token');
+        const team = await replyTeamChat({ text: msg.text, cabinets: cabinets || [] });
+        if (team.text) await sendTelegram(replyToken, msg.chatId, team.text, msg.messageId);
+        return json({ ok: true, team: team.kind });
+    }
 
     const { data: pendingRows } = await admin
         .from('wb_restock_questions')
@@ -79,7 +89,6 @@ Deno.serve(async (req) => {
         pending,
     });
 
-    const replyToken = tokenForBot(botId);
     if (decision.action === 'ignore') return json({ ok: true, ignored: true });
 
     if (decision.action === 'hint') {
