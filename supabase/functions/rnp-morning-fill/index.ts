@@ -24,6 +24,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { orderPriceWithDisc } from '../_shared/wb-order-price.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { applyKeepFunnelOrders, funnelDayMetricFields, moscowYmd, wbFunnelWindow } from '../_shared/wb-funnel-day.ts';
 
@@ -321,7 +322,10 @@ async function writeOrderRows(
         nm_id: o.nmId,
         barcode: o.barcode,
         srid: o.srid || null,
-        price: o.priceWithDiscount || o.totalPrice || 0,
+        // priceWithDisc — цена со скидкой продавца, та же база, что «Продажи» в
+        // финотчёте. Поля priceWithDiscount у WB нет, и заказы падали в базу по
+        // totalPrice (до скидки) — отсюда завышенные суммы заказов.
+        price: orderPriceWithDisc(o),
         is_return: o.isReturn || false,
         data: o,
     }));

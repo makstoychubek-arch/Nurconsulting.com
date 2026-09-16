@@ -5,6 +5,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTeamMember } from '../_shared/cabinet-access.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { orderPriceWithDisc } from '../_shared/wb-order-price.ts';
 import { applyKeepFunnelOrders, funnelDayMetricFields, wbFunnelWindow } from '../_shared/wb-funnel-day.ts';
 
 const CORS = {
@@ -933,7 +934,11 @@ function toOrderRow(cabinetId: string, dayStr: string, o: Record<string, unknown
         nm_id: o.nmId,
         barcode: o.barcode,
         srid: o.srid || null,
-        price: o.priceWithDiscount || o.totalPrice || 0,
+        // WB отдаёт priceWithDisc (цена со скидкой продавца — как в финотчёте),
+        // totalPrice (до скидки) и finishedPrice (с СПП, что платит покупатель).
+        // Поля priceWithDiscount у WB нет: заказы годами считались по totalPrice
+        // и были завышены в 1.5-3 раза относительно продаж из отчёта.
+        price: orderPriceWithDisc(o),
         is_return: o.isReturn || false,
         data: o,
     };

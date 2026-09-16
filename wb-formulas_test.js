@@ -99,4 +99,16 @@ assert.ok(
     Math.abs(halfPrice.margin - Math.round((halfPrice.profitFull / halfPrice.salesSum) * 1000) / 10) < 0.05,
     'маржа берётся от продаж, а не от половины реализации');
 
+// Компенсации и коррекции приходят строками «Продажа» с нулевой ценой: цены у
+// них нет по своей природе, а не потому что WB её не отдал. На живых данных
+// десяток таких строк на 7000 продаж гасил реализацию за весь месяц.
+const withCompRow = WB.calculateMetrics([
+    sale,
+    { doc_type_name: 'Продажа', supplier_oper_name: 'Добровольная компенсация при возврате',
+      retail_price_withdisc_rub: 0, retail_price: 0, ppvz_for_pay: 1340, quantity: 1, sale_dt: '2026-09-11' },
+], { taxRate: 6, adsSum: 0 });
+assert.equal(withCompRow.hasRetailPrice, true, 'нулевая компенсация не считается продажей без цены');
+assert.equal(withCompRow.realizationSum, 12000);
+assert.equal(withCompRow.sppSum, 2000);
+
 console.log('wb-formulas_test: ok');

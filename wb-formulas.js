@@ -119,8 +119,13 @@ function calculateMetrics(rows, settings = {}) {
         if (isSale) {
             salesSum += priceWithDisc * qty;
             salesCount += qty;
-            if (retailPrice > 0) salesWithRetailPrice += qty;
-            else salesWithoutRetailPrice += qty;
+            // Компенсации и коррекции идут строками «Продажа» с нулевой ценой
+            // (есть только ppvz_for_pay). Считать их продажей без retail_price
+            // нельзя: десяток таких строк гасил реализацию за весь период.
+            if (priceWithDisc > 0) {
+                if (retailPrice > 0) salesWithRetailPrice += qty;
+                else salesWithoutRetailPrice += qty;
+            }
             realizationSum += retailPrice * qty;
             toTransferSum += forPay;
 

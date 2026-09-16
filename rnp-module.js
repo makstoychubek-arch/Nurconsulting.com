@@ -3618,7 +3618,9 @@ const RNP = (() => {
         // with is_return-only filtering everywhere.
         const active = todayOrders.filter(o => !o.is_return);
         const ordersCount = active.length;
-        const ordersSum = active.reduce((s, o) => s + (o.price || (o.data && o.data.priceWithDiscount) || 0), 0);
+        // Поля priceWithDiscount у WB нет — это был вечный fallback в ноль.
+        // Цена со скидкой продавца называется priceWithDisc.
+        const ordersSum = active.reduce((s, o) => s + (o.price || (o.data && o.data.priceWithDisc) || 0), 0);
         const avgCheck = ordersCount > 0 ? ordersSum / ordersCount : 0;
 
         // wb_stocks columns vary — support multiple schemas

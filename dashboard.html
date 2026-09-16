@@ -10630,8 +10630,35 @@
     const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
     const RU_MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
     let pickerState = { year:2026, month:new Date().getMonth(), fromDate:null, toDate:null, selecting:'from' };
-    let activeDateFrom = '2026-01-01';
-    let activeDateTo = (() => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
+    // По умолчанию — текущий месяц. Раньше дашборд всегда открывался «с 1 января»:
+    // это девять месяцев заказов против финотчёта WB, который отдаётся неделями и
+    // за такой период просто не собирается, — отсюда и долгая загрузка, и плашка
+    // «первые N дней в отчёт не попали» при каждом входе. Выбранный период
+    // запоминаем, чтобы после F5 не откатывать пользователя на дефолт.
+    const DASH_RANGE_KEY = 'nr_date_range';
+    const todayIso = () => {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    };
+    const monthStartIso = () => todayIso().slice(0, 8) + '01';
+
+    function readSavedDateRange() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(DASH_RANGE_KEY) || 'null');
+            const ok = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+            if (raw && ok(raw.from) && ok(raw.to) && raw.from <= raw.to) return raw;
+        } catch (_) {}
+        return null;
+    }
+
+    const savedRange = readSavedDateRange();
+    let activeDateFrom = savedRange?.from || monthStartIso();
+    let activeDateTo = savedRange?.to || todayIso();
+
+    function saveActiveDateRange() {
+        try { localStorage.setItem(DASH_RANGE_KEY, JSON.stringify({ from: activeDateFrom, to: activeDateTo })); }
+        catch (_) {}
+    }
 
     function getActiveDateRange() {
         return { from: activeDateFrom, to: activeDateTo };
@@ -10808,6 +10835,7 @@
         if (!pickerState.toDate) pickerState.toDate = pickerState.fromDate;
         activeDateFrom = fmtDate(pickerState.fromDate);
         activeDateTo = fmtDate(pickerState.toDate);
+        saveActiveDateRange();
         updateDateRangeLabel();
         document.getElementById('date-picker').classList.add('hidden');
         onDateRangeApplied();
@@ -11633,7 +11661,10 @@
                     order_date: o.date?.split('T')[0] || new Date().toISOString().split('T')[0],
                     nm_id: o.nmId,
                     barcode: o.barcode,
-                    price: o.priceWithDiscount || o.totalPrice || 0,
+                    // priceWithDisc — цена со скидкой продавца, та же база, что
+                    // «Продажи» в финотчёте. Поля priceWithDiscount у WB нет,
+                    // и заказы писались по totalPrice — до скидки.
+                    price: Number(o.priceWithDisc) > 0 ? Number(o.priceWithDisc) : Number(o.totalPrice || 0),
                     is_return: o.isReturn || false,
                     data: o
                 }));
