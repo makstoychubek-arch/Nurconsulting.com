@@ -9,6 +9,7 @@ const root = __dirname;
 const router = fs.readFileSync(path.join(root, 'supabase/functions/telegram-router/index.ts'), 'utf8');
 const apply = fs.readFileSync(path.join(root, 'supabase/functions/_shared/wb-restock-apply.ts'), 'utf8');
 const shared = fs.readFileSync(path.join(root, 'supabase/functions/_shared/wb-restock-reply.ts'), 'utf8');
+const webhook = fs.readFileSync(path.join(root, 'supabase/functions/telegram-webhook/index.ts'), 'utf8');
 const html = fs.readFileSync(path.join(root, 'dashboard.html'), 'utf8');
 
 assert.ok(router.includes('applyRestockTelegramReply'), 'router uses shared restock apply');
@@ -28,6 +29,10 @@ assert.ok(apply.includes(".in('status', ['pending', 'answered'])"),
     'reply can edit an auto-answered card, not only pending');
 assert.ok(apply.includes('already_answered'), 'already-sent cards can still receive a heart');
 assert.ok(!router.includes('-1004460164885'), 'router must not hardcode the team chat');
+assert.ok(router.includes('replyTeamChat') && router.includes("getTelegramChatId('team')"),
+    'Karina answers invite / ping in the team chat instead of unknown_chat');
+assert.ok(webhook.includes('replyTeamChat') && webhook.includes("chatKey === 'team'"),
+    'notify webhook is a backup for team invite / ping');
 
 assert.ok(html.includes('Или ответьте в Telegram коротко: завтра / да / 170'),
     'agents questions panel hints the Telegram reply');

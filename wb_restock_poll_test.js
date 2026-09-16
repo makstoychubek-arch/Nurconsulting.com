@@ -120,5 +120,7 @@ assert.ok(shared.includes('buildAutoQuestionAnswer') && shared.includes('в бл
     'auto restock answer does not invent a date');
 assert.ok(shared.includes('resolveStaffAnswer') && shared.includes('greetBuyerAnswer'),
     'short staff replies are expanded into a buyer letter');
+assert.ok(docs.includes('пригласительная') && webhook.includes('replyTeamChat'),
+    'team chat invite is documented and handled on the live webhook');
 
 console.log('wb_restock_poll_test: ok');

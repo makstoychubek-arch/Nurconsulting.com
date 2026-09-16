@@ -1617,6 +1617,8 @@ assert.ok(html.includes('Пригласительная ссылка') && html.i
     'first agent function must generate a WB invite link');
 assert.ok(html.includes('id="agent-invite-copy-btn"') && html.includes('id="agent-invite-url"'),
     'generated invite must show a selectable URL field and a copy button');
+assert.ok(html.includes('пригласительная Baza 996700123456'),
+    'invite panel tells how to ask Karina in the team chat');
 assert.ok(html.includes('function copyTextToClipboard') && html.includes("execCommand('copy')"),
     'copy button must work on iPhone when navigator.clipboard is blocked');
 assert.ok(html.includes('function pickAgentInviteUrl') && html.includes('nr_last_wb_invite'),

@@ -1,11 +1,12 @@
 // Входящие Telegram webhook. JWT выключен — Telegram его не шлёт.
-// Сейчас: реплай на карточку поступления → ответ на вопрос WB.
-// Неизвестные чаты игнорируем. Тим-чат не используем, если это не TELEGRAM_CHAT_REVIEWS.
+// Реплай на карточку поступления → ответ на вопрос WB.
+// Тим-чат: пригласительная ссылка и короткий пинг («алоо»). Иначе молчим.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { getTelegramToken } from '../_shared/telegram-routing.ts';
+import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { applyRestockTelegramReply } from '../_shared/wb-restock-apply.ts';
 import { setTelegramReaction, unwrapTelegramMessage } from '../_shared/wb-restock-reply.ts';
+import { isTeamChatId, replyTeamChat } from '../_shared/team-chat-invite.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -50,6 +51,14 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const admin = createClient(supabaseUrl, serviceKey);
     const replyToken = tokenForBot(botId);
+    const teamChat = getTelegramChatId('team');
+    if (isTeamChatId(msg.chatId, teamChat)) {
+        const { data: cabinets } = await admin.from('cabinets').select('id, name, wb_token');
+        const team = await replyTeamChat({ text: msg.text, cabinets: cabinets || [] });
+        if (team.text) await sendTelegram(replyToken, msg.chatId, team.text, msg.messageId);
+        return json({ ok: true, team: team.kind });
+    }
+
     const restock = await applyRestockTelegramReply(admin, update, {
         ownerUsername: OWNER,
         reviewsChatId: reviewsChat,
@@ -63,6 +72,24 @@ Deno.serve(async (req) => {
     if (!restock.handled) return json({ ok: true, ignored: 'unknown_chat' });
     return json({ ok: true, ...restock });
 });
+
+async function sendTelegram(token: string, chatId: string, text: string, replyTo?: number): Promise<void> {
+    if (!token || !chatId) return;
+    try {
+        await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                text,
+                reply_to_message_id: replyTo || undefined,
+                disable_web_page_preview: true,
+            }),
+        });
+    } catch {
+        // webhook must still 200
+    }
+}
 
 function tokenForBot(botId: string): string {
     const key = BOT_TOKEN_ENV[botId];
