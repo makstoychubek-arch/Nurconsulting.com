@@ -985,7 +985,7 @@ assert.ok(
     fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
         .includes('addDaysStr(today, -1)') &&
     fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
-        .includes('for (const dayStr of [yesterday, today])'),
+        .includes("for (const dayStr of mode === 'history' ? [] : [yesterday, today])"),
     'auto-sync Pass B must load yesterday and today so RNP is not empty in the morning'
 );
 assert.ok(
