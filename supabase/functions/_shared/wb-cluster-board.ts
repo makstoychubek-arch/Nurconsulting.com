@@ -382,8 +382,8 @@ export function buildClusterBoard(input: {
         if (b.currency) row.currency = b.currency;
     }
 
-    for (const [nmId, queries] of input.minus || new Map()) {
-        const set = new Set(queries.map((q) => q.toLowerCase()));
+    for (const [nmId, queries] of input.minus || new Map<number, string[]>()) {
+        const set = new Set(queries.map((q: string) => q.toLowerCase()));
         for (const row of rows.values()) {
             if (row.nmId === nmId && set.has(row.normQuery.toLowerCase())) row.minus = true;
         }
