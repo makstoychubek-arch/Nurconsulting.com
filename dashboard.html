@@ -6342,7 +6342,7 @@
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.484c1931e0.min.js"></script>
 <script src="/dist/wb-formulas.fc1e69ed87.min.js"></script>
-<script src="/dist/ads-command-center.4faa172553.min.js"></script>
+<script src="/dist/ads-command-center.603eae0b6e.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -10812,6 +10812,8 @@
             .forEach(id => setText(id, '—'));
         if (window.AdsHQ && typeof window.AdsHQ.setCabinet === 'function') {
             window.AdsHQ.setCabinet(newCabinetId);
+            const adsTab = getCurrentActiveTab() || localStorage.getItem('nr_active_tab');
+            if (adsTab === 'advertising' && typeof window.AdsHQ.load === 'function') window.AdsHQ.load();
         }
         const advTableEl = document.getElementById('adv-campaigns-table');
         if (advTableEl) advTableEl.innerHTML = 'Загрузка...';

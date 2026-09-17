@@ -1093,8 +1093,10 @@
     }
 
     function open(opts) {
-        setCabinet(opts && opts.cabinetId);
+        const id = opts && opts.cabinetId ? String(opts.cabinetId) : '';
+        setCabinet(id);
         bindOnce();
+        if (state.loading && state.filterCabinetId === id) return;
         load();
     }
 
