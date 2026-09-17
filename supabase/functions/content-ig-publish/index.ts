@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
 
     const { data: post, error: postErr } = await admin
         .from('content_posts')
-        .select('id, cabinet_id, platform, status, slide_urls, file_url, caption')
+        .select('id, cabinet_id, platform, status, slide_urls, file_url, caption, approved_at')
         .eq('id', postId)
         .maybeSingle();
     if (postErr || !post) return json({ error: 'post not found' }, 404);
@@ -69,6 +69,9 @@ Deno.serve(async (req) => {
     }
     if (post.platform !== 'instagram') {
         return json({ error: 'Публикация через API только для Instagram' }, 400);
+    }
+    if (!post.approved_at) {
+        return json({ error: 'Сначала подтвердите пост в очереди (кнопка «Ок»)' }, 400);
     }
 
     const { data: acc } = await admin.from('content_ig_accounts')

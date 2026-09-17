@@ -2201,6 +2201,12 @@ assert.ok(
         'Контент-завод is on the rail, not duplicated in BETA');
     assert.ok(cf.includes("from('rnp_articles')") && cf.includes("callWb('content_cards'"),
         'calendar pulls articles from rnp_articles and photos/price via existing content_cards');
+    assert.ok(cf.includes('pickCardByNmId') && cf.includes(".eq('nm_id', id)") && !cf.includes('cards.map(parseWbCard)[0]'),
+        'photos bind to exact nmId, never the first similar WB card');
+    assert.ok(!cf.includes('data-cf="publish-now"') && cf.includes('data-cf="approve-post"') && cf.includes('Очередь'),
+        'Instagram goes only through the confirmation queue after slide preview');
+    assert.ok(mig.includes("'review'") && mig.includes('approved_at'),
+        'posts need review/approval before cron or Graph publish');
     assert.ok(mig.includes('create table if not exists public.content_posts') &&
         mig.includes('references public.rnp_articles(id)') &&
         mig.includes('create table if not exists public.bloggers') &&

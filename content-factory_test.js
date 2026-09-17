@@ -42,6 +42,12 @@ assert.equal(CF.filterPosts(posts, { platform: 'instagram', blogger: '', status:
 assert.equal(CF.filterPosts(posts, { platform: '', blogger: 'b1', status: 'published' }).length, 1);
 assert.equal(CF.topPosts(posts, 1)[0].id, '2');
 
+assert.equal(CF.pickCardByNmId([
+    { nmID: 1, photos: [{ big: 'https://a' }] },
+    { nmID: 2, photos: [{ big: 'https://b' }] },
+], 2).photos[0], 'https://b');
+assert.equal(CF.pickCardByNmId([{ nmID: 1, photos: [{ big: 'https://a' }] }], 99), null);
+
 const grouped = CF.groupPostsByDay(posts, 2026, 8);
 assert.equal((grouped['2026-09-10'] || []).length, 1);
 assert.equal((grouped['2026-09-11'] || []).length, 1);

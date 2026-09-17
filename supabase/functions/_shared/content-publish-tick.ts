@@ -12,6 +12,7 @@ export type ContentPostRow = {
     platform: string;
     status: string;
     publish_at: string | null;
+    approved_at?: string | null;
     slide_urls?: unknown;
     file_url?: string | null;
     caption?: string | null;
@@ -68,6 +69,10 @@ export function isDuePost(row: ContentPostRow, now: Date): boolean {
     return at <= now.getTime();
 }
 
+export function canCronPublish(row: ContentPostRow): boolean {
+    return row.platform === 'instagram' && !!row.approved_at;
+}
+
 export async function runContentPublishTick(deps: TickDeps): Promise<TickResult> {
     const dueRows = (await deps.listDue()).filter((r) => isDuePost(r, deps.now));
     const result: TickResult = {
@@ -84,6 +89,11 @@ export async function runContentPublishTick(deps: TickDeps): Promise<TickResult>
         if (row.platform !== 'instagram') {
             result.skipped += 1;
             result.results.push({ id: row.id, cabinet_id: row.cabinet_id, action: 'manual' });
+            continue;
+        }
+        if (!row.approved_at) {
+            result.skipped += 1;
+            result.results.push({ id: row.id, cabinet_id: row.cabinet_id, action: 'skipped', error: 'нет подтверждения' });
             continue;
         }
         if (deps.dryRun) {

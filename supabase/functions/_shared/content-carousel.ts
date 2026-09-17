@@ -145,3 +145,16 @@ export function parseWbCard(card: Record<string, unknown> | null | undefined): {
         brand: String(c.brand || c.brandName || '').trim(),
     };
 }
+
+/** Только карточка с этим nmId. Похожие из textSearch отбрасываем. */
+export function pickCardByNmId(cards: unknown, nmId: unknown): ReturnType<typeof parseWbCard> | null {
+    const id = Number(nmId);
+    if (!id) return null;
+    const list = Array.isArray(cards) ? cards : [];
+    for (const raw of list) {
+        if (!raw || typeof raw !== 'object') continue;
+        const parsed = parseWbCard(raw as Record<string, unknown>);
+        if (parsed.nmId === id) return parsed;
+    }
+    return null;
+}

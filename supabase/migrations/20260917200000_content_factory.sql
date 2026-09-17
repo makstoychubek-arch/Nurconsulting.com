@@ -27,7 +27,7 @@ create table if not exists public.content_posts (
         check (platform in ('instagram', 'tiktok', 'youtube', 'wibes')),
     publish_at timestamptz,
     status text not null default 'draft'
-        check (status in ('draft', 'scheduled', 'published', 'error')),
+        check (status in ('draft', 'review', 'scheduled', 'published', 'error')),
     blogger_id uuid references public.bloggers(id) on delete set null,
     file_url text,
     post_url text,
@@ -38,6 +38,8 @@ create table if not exists public.content_posts (
     views integer not null default 0,
     error_text text,
     ig_media_id text,
+    approved_at timestamptz,
+    approved_by uuid,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now()
 );

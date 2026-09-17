@@ -11,12 +11,14 @@
     ];
     const STATUSES = [
         { id: 'draft', label: 'Черновик' },
+        { id: 'review', label: 'На подтверждении' },
         { id: 'scheduled', label: 'Запланировано' },
         { id: 'published', label: 'Опубликовано' },
         { id: 'error', label: 'Ошибка' },
     ];
     const VIEWS = [
         { id: 'calendar', label: 'Календарь' },
+        { id: 'review', label: 'Очередь' },
         { id: 'bloggers', label: 'Блогеры' },
         { id: 'carousel', label: 'Карусель' },
         { id: 'instagram', label: 'Instagram' },
@@ -112,6 +114,16 @@
             vendorCode: String(c.vendorCode || c.vendor_code || '').trim(),
             brand: String(c.brand || c.brandName || '').trim(),
         };
+    }
+    function pickCardByNmId(cards, nmId) {
+        const id = Number(nmId);
+        if (!id) return null;
+        const list = Array.isArray(cards) ? cards : [];
+        for (let i = 0; i < list.length; i++) {
+            const parsed = parseWbCard(list[i]);
+            if (parsed.nmId === id) return parsed;
+        }
+        return null;
     }
     function planCarouselSlides(input) {
         const photos = uniqUrls([].concat(input.photos || [], input.extraPhotos || []));
@@ -310,19 +322,52 @@
     }
 
     async function pullArticleCard(article) {
-        if (!article || !callWb) return null;
-        const nm = article.nm_id;
-        const data = await callWb('content_cards', { limit: 10, textSearch: String(nm), withPhoto: 1 });
-        const cards = (data && data.cards) || [];
-        const hit = cards.map(parseWbCard).find((c) => c.nmId === Number(nm)) || cards.map(parseWbCard)[0] || null;
-        if (hit) {
-            hit.photo_url = hit.photos[0] || article.photo_url || '';
-            hit.localName = article.name;
-            hit.article_id = article.id;
-            hit.cost_price = article.cost_price;
+        if (!article) return null;
+        const nm = Number(article.nm_id);
+        if (!nm) return null;
+        let hit = null;
+        if (callWb) {
+            const data = await callWb('content_cards', { limit: 10, textSearch: String(nm), withPhoto: 1 });
+            hit = pickCardByNmId((data && data.cards) || [], nm);
         }
+        if (!hit) {
+            hit = {
+                nmId: nm,
+                title: article.name || ('Артикул ' + nm),
+                photos: article.photo_url ? [article.photo_url] : [],
+                photo_url: article.photo_url || '',
+                price: null,
+                composition: '',
+                vendorCode: '',
+                brand: '',
+            };
+        }
+        hit.photo_url = (hit.photos && hit.photos[0]) || article.photo_url || '';
+        hit.localName = article.name;
+        hit.article_id = article.id;
+        hit.cost_price = article.cost_price;
         state.card = hit;
         return hit;
+    }
+
+    async function findArticleByNmId(nmId) {
+        const id = Number(nmId);
+        if (!id || !sb || !cab) return null;
+        const local = state.articles.find((a) => Number(a.nm_id) === id);
+        if (local) return local;
+        const { data, error } = await sb.from('rnp_articles')
+            .select('id, nm_id, name, photo_url, is_active, cost_price, manual_data')
+            .eq('cabinet_id', cab)
+            .eq('nm_id', id)
+            .maybeSingle();
+        if (error) throw error;
+        if (data) {
+            if (!state.articleMap[data.id]) {
+                state.articles.push(data);
+                state.articleMap[data.id] = data;
+            }
+        }
+        return data || null;
     }
 
     function emptyForm(dayYmd) {
@@ -362,6 +407,7 @@
             slide_urls: Array.isArray(p.slide_urls) ? p.slide_urls : [],
             views: p.views || 0,
             error_text: p.error_text || '',
+            approved_at: p.approved_at || null,
         };
     }
     function publishAtIso(local) {
@@ -385,8 +431,12 @@
             composition_text: form.composition_text || null,
             brand_name: form.brand_name || null,
             slide_urls: form.slide_urls || [],
+            approved_at: form.approved_at || null,
         }, extra || {});
-        if (form.status === 'scheduled' && !patch.publish_at) throw new Error('Для отложенной публикации укажите дату');
+        if ((patch.status === 'scheduled' || patch.status === 'published') && !patch.approved_at) {
+            patch.status = 'review';
+        }
+        if (patch.status === 'scheduled' && !patch.publish_at) throw new Error('Для отложенной публикации укажите дату');
         if (form.id) {
             const { error } = await sb.from('content_posts').update(patch).eq('id', form.id).eq('cabinet_id', cab);
             if (error) throw error;
@@ -503,12 +553,75 @@
             }
             return;
         }
+        if (act === 'lookup-nm') {
+            const raw = (document.getElementById('cf-f-nm') || document.getElementById('cf-car-nm') || {}).value;
+            const art = await findArticleByNmId(raw);
+            if (!art) throw new Error('Артикул ' + raw + ' не найден в этом кабинете');
+            if (state.form) state.form.article_id = art.id;
+            state.card = null;
+            await pullArticleCard(art);
+            paint();
+            return;
+        }
         if (act === 'save-post') {
             const form = readForm();
+            if (form.status === 'published' || form.status === 'scheduled') form.status = 'review';
             await savePost(form);
             state.form = null;
             await reload();
-            toast('success', 'Сохранено', 'Пост в календаре');
+            toast('success', 'Сохранено', 'Пост в календаре. В Instagram — только из очереди после просмотра слайдов.');
+            return;
+        }
+        if (act === 'to-review') {
+            const form = readForm();
+            form.status = 'review';
+            if (!((form.slide_urls && form.slide_urls.length) || form.file_url || (state.carouselUrls && state.carouselUrls.length))) {
+                throw new Error('Сначала соберите и посмотрите слайды');
+            }
+            if (state.carouselUrls && state.carouselUrls.length) form.slide_urls = state.carouselUrls;
+            await savePost(form, { status: 'review' });
+            state.form = null;
+            state.view = 'review';
+            await reload();
+            toast('info', 'Очередь', 'Пост ждёт подтверждения');
+            return;
+        }
+        if (act === 'approve-post') {
+            const p = state.posts.find((x) => x.id === id);
+            if (!p) return;
+            const slides = Array.isArray(p.slide_urls) ? p.slide_urls.filter(Boolean) : [];
+            if (!slides.length && !p.file_url) throw new Error('Нет слайдов — подтверждать нечего');
+            const nowIso = new Date().toISOString();
+            const at = p.publish_at ? new Date(p.publish_at).getTime() : 0;
+            const goNow = !at || at <= Date.now();
+            if (p.platform === 'instagram' && goNow) {
+                const { error } = await sb.from('content_posts').update({
+                    approved_at: nowIso,
+                    status: 'review',
+                    error_text: null,
+                    updated_at: nowIso,
+                }).eq('id', p.id).eq('cabinet_id', cab);
+                if (error) throw error;
+                await callFn('content-ig-publish', { post_id: p.id, dry_run: false });
+            } else {
+                const { error } = await sb.from('content_posts').update({
+                    approved_at: nowIso,
+                    status: 'scheduled',
+                    updated_at: nowIso,
+                }).eq('id', p.id).eq('cabinet_id', cab);
+                if (error) throw error;
+            }
+            await reload();
+            toast('success', 'Подтверждено', goNow && p.platform === 'instagram' ? 'Отправлено в Instagram' : 'Встанет в слот по дате');
+            return;
+        }
+        if (act === 'reject-post') {
+            const { error } = await sb.from('content_posts').update({
+                status: 'draft',
+                approved_at: null,
+            }).eq('id', id).eq('cabinet_id', cab);
+            if (error) throw error;
+            await reload();
             return;
         }
         if (act === 'delete-post') {
@@ -516,21 +629,6 @@
             await deletePost(state.form.id);
             state.form = null;
             await reload();
-            return;
-        }
-        if (act === 'publish-now') {
-            const form = readForm();
-            form.status = 'draft';
-            const postId = await savePost(form, { status: 'draft' });
-            try {
-                await callFn('content-ig-publish', { post_id: postId, dry_run: false });
-            } catch (e) {
-                await reload();
-                throw e;
-            }
-            state.form = null;
-            await reload();
-            toast('success', 'Instagram', 'Пост отправлен на публикацию');
             return;
         }
         if (act === 'new-blogger') {
@@ -604,7 +702,7 @@
                 id: null,
                 article_id: artId,
                 platform: 'instagram',
-                status: 'draft',
+                status: 'review',
                 blogger_id: '',
                 publish_at: '',
                 file_url: state.carouselUrls[0],
@@ -613,10 +711,10 @@
                 composition_text: (document.getElementById('cf-car-comp') || {}).value || '',
                 brand_name: (document.getElementById('cf-car-brand') || {}).value || '',
                 slide_urls: state.carouselUrls,
-            });
-            state.view = 'calendar';
+            }, { status: 'review' });
+            state.view = 'review';
             await reload();
-            toast('success', 'Черновик', 'Карусель сохранена в календарь');
+            toast('info', 'Очередь', 'Карусель в очереди на подтверждение — Instagram не уйдёт, пока не нажмёте «Ок»');
             return;
         }
         if (act === 'ig-store') {
@@ -686,6 +784,7 @@
             state.err ? `<div class="cf-err">${escapeHtml(state.err)}</div>` : '',
             state.loading ? '<div class="cf-muted">Загрузка…</div>' : '',
             state.view === 'calendar' ? calendarHtml() : '',
+            state.view === 'review' ? reviewHtml() : '',
             state.view === 'bloggers' ? bloggersHtml() : '',
             state.view === 'carousel' ? carouselHtml() : '',
             state.view === 'instagram' ? igHtml() : '',
@@ -792,7 +891,8 @@
             </div>
             ${f.error_text ? `<div class="cf-err">${escapeHtml(f.error_text)}</div>` : ''}
             <div class="cf-form-grid">
-                <label>Артикул<select id="cf-f-art" data-cf-change="pick-article">${articleOptions(f.article_id)}</select></label>
+                <label>nmId (точный номер)<span class="cf-nm-row"><input id="cf-f-nm" type="number" inputmode="numeric" placeholder="247347214" value="${escapeHtml((art && art.nm_id) || (card && card.nmId) || '')}"><button type="button" class="ui-btn ui-btn-secondary" data-cf="lookup-nm">Найти</button></span></label>
+                <label>Артикул в РНП<select id="cf-f-art" data-cf-change="pick-article">${articleOptions(f.article_id)}</select></label>
                 <label>Площадка<select id="cf-f-plat">${plat}</select></label>
                 <label>Статус<select id="cf-f-status">${st}</select></label>
                 <label>Блогер<select id="cf-f-blogger">${blogs}</select></label>
@@ -811,11 +911,38 @@
                 </div>
             </div>
             <div class="cf-form-actions">
-                <button type="button" class="ui-btn ui-btn-primary" data-cf="save-post">Сохранить</button>
-                ${f.platform === 'instagram' ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="publish-now">Опубликовать сейчас</button>' : ''}
+                <button type="button" class="ui-btn ui-btn-primary" data-cf="save-post">Сохранить черновик</button>
+                <button type="button" class="ui-btn ui-btn-secondary" data-cf="to-review">В очередь на подтверждение</button>
                 ${f.id ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="delete-post">Удалить</button>' : ''}
             </div>
         </div>`;
+    }
+
+    function reviewHtml() {
+        const queue = state.posts.filter((p) => p.status === 'review' || p.status === 'error');
+        const cards = queue.map((p) => {
+            const art = articleOf(p);
+            const slides = (Array.isArray(p.slide_urls) ? p.slide_urls : []).filter(Boolean);
+            const preview = slides.length
+                ? slides.map((u) => `<img src="${escapeHtml(u)}" alt="">`).join('')
+                : (art && art.photo_url ? `<img src="${escapeHtml(art.photo_url)}" alt="">` : '<div class="cf-muted">Нет слайдов</div>');
+            return `<div class="widget-card cf-form">
+                <div class="cf-form-h">
+                    <h3>${escapeHtml((art && (art.name || art.nm_id)) || 'Пост')} · ${escapeHtml(platformLabel(p.platform))}</h3>
+                    <span class="cf-st st-draft">ждёт «Ок»</span>
+                </div>
+                <p class="cf-muted">nmId ${escapeHtml((art && art.nm_id) || '—')} · ${p.publish_at ? escapeHtml(new Date(p.publish_at).toLocaleString('ru-RU')) : 'сразу после подтверждения'}</p>
+                ${p.error_text ? `<div class="cf-err">${escapeHtml(p.error_text)}</div>` : ''}
+                <div class="cf-slides">${preview}</div>
+                <div class="cf-form-actions">
+                    <button type="button" class="ui-btn ui-btn-primary" data-cf="approve-post" data-id="${p.id}"${slides.length || p.file_url ? '' : ' disabled'}>Ок</button>
+                    <button type="button" class="ui-btn ui-btn-secondary" data-cf="reject-post" data-id="${p.id}">Вернуть в черновик</button>
+                    <button type="button" class="cf-link" data-cf="edit-post" data-id="${p.id}">Открыть</button>
+                </div>
+            </div>`;
+        }).join('');
+        return `<p class="cf-muted">Пока генератор проверяете глазами: ничего само в Instagram не уходит. «Ок» — единственный путь публикации.</p>
+        ${cards || '<div class="cf-muted">Очередь пуста</div>'}`;
     }
 
     function bloggersHtml() {
@@ -898,7 +1025,8 @@
             <h3>Генератор карусели 1080×1350</h3>
             <p class="cf-muted">Обложка целиком → коллаж 2×2 → артикул и состав → закрывающий слайд бренда. Фото из WB API, плюс свои файлы.</p>
             <div class="cf-form-grid">
-                <label>Артикул<select id="cf-car-art" data-cf-change="carousel-article">${articleOptions(artId)}</select></label>
+                <label>Точный nmId<span class="cf-nm-row"><input id="cf-car-nm" type="number" inputmode="numeric" placeholder="247347214" value="${escapeHtml((card && card.nmId) || '')}"><button type="button" class="ui-btn ui-btn-secondary" data-cf="lookup-nm">Найти</button></span></label>
+                <label>Артикул в РНП<select id="cf-car-art" data-cf-change="carousel-article">${articleOptions(artId)}</select></label>
                 <label>Состав<input id="cf-car-comp" value="${escapeHtml((card && card.composition) || '')}"></label>
                 <label>Бренд<input id="cf-car-brand" value="${escapeHtml((card && card.brand) || '')}"></label>
                 <label>Подпись<input id="cf-car-cap" placeholder="Текст к посту"></label>
@@ -907,7 +1035,7 @@
             <div class="cf-slides">${preview}</div>
             <div class="cf-form-actions">
                 <button type="button" class="ui-btn ui-btn-primary" data-cf="gen-carousel">Собрать PNG</button>
-                <button type="button" class="ui-btn ui-btn-secondary" data-cf="save-carousel-draft">В черновик</button>
+                <button type="button" class="ui-btn ui-btn-secondary" data-cf="save-carousel-draft">В очередь на подтверждение</button>
             </div>
         </div>`;
     }
@@ -931,7 +1059,7 @@
                 <button type="button" class="ui-btn ui-btn-secondary" data-cf="ig-oauth"${ig.configured ? '' : ' disabled'}>OAuth Business</button>
                 ${ig.connected ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="ig-off">Отключить</button>' : ''}
             </div>
-            <p class="cf-muted">Публикация карусели: контейнер на каждый слайд → объединение → publish. «Опубликовать сейчас» в карточке поста и крон раз в 5 минут по дате из календаря. Ошибка пишет статус «ошибка» и текст причины. Тесты гоняют dry_run и не публикуют в Instagram.</p>
+            <p class="cf-muted">Карусель: контейнер на слайд → объединение → publish. В ленту только после «Ок» в очереди. Крон раз в 5 минут берёт уже подтверждённые слоты с датой. Ошибка пишет статус «ошибка» и текст. Тесты — dry_run, живой Graph не дергаем.</p>
         </div>`;
     }
 
@@ -1025,7 +1153,7 @@
 
     const ContentFactory = {
         PLATFORMS, STATUSES, SLIDE_W, SLIDE_H,
-        computePayout, monthStart, ymd, parseWbCard, pickComposition, pickCardPrice,
+        computePayout, monthStart, ymd, parseWbCard, pickComposition, pickCardPrice, pickCardByNmId,
         planCarouselSlides, groupPostsByDay, calendarCells, viewsByPlatform, topPosts, filterPosts, uniqUrls,
         ensureReady, open, reload,
         _state: state,

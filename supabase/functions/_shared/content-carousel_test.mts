@@ -8,6 +8,7 @@ import {
     SLIDE_H,
     SLIDE_W,
     uniqUrls,
+    pickCardByNmId,
 } from './content-carousel.ts';
 
 assert.equal(SLIDE_W, 1080);
@@ -55,5 +56,13 @@ assert.equal(pickComposition(card as unknown as Record<string, unknown>), '');
 assert.equal(pickComposition({ options: [{ name: 'Состав', value: 'лён' }] }), 'лён');
 assert.equal(pickCardPrice({ sizes: [{ discountedPrice: 10 }] }), 10);
 assert.deepEqual(uniqUrls(['a', 'a', '//x.com/p']), ['a', 'https://x.com/p']);
+
+const mixed = [
+    { nmID: 111, title: 'похожий', photos: [{ big: 'https://img/wrong.jpg' }] },
+    { nmID: 247347214, title: 'нужный', photos: [{ big: 'https://img/right.jpg' }] },
+];
+assert.equal(pickCardByNmId(mixed, 247347214)?.photos[0], 'https://img/right.jpg');
+assert.equal(pickCardByNmId(mixed, 999), null);
+assert.equal(pickCardByNmId(mixed, '111')?.nmId, 111);
 
 console.log('content-carousel_test: ok');

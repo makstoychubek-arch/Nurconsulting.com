@@ -49,7 +49,7 @@ function makeDeps(admin: Admin, now: Date, dryRun: boolean): TickDeps {
         async listDue() {
             const { data, error } = await admin
                 .from('content_posts')
-                .select('id, cabinet_id, platform, status, publish_at, slide_urls, file_url, caption')
+                .select('id, cabinet_id, platform, status, publish_at, approved_at, slide_urls, file_url, caption')
                 .eq('status', 'scheduled')
                 .lte('publish_at', iso)
                 .order('publish_at', { ascending: true })

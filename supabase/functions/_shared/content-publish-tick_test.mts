@@ -14,6 +14,7 @@ const DUE: ContentPostRow = {
     platform: 'instagram',
     status: 'scheduled',
     publish_at: '2026-09-17T09:59:00.000Z',
+    approved_at: '2026-09-17T09:00:00.000Z',
     slide_urls: ['https://cdn/a.png', 'https://cdn/b.png'],
     caption: 'hi',
 };
@@ -104,6 +105,21 @@ function baseDeps(over: Partial<TickDeps> = {}): TickDeps & { graph: number; cla
     assert.equal(result.failed, 1);
     assert.equal(finished[0].status, 'error');
     assert.match(String(finished[0].error), /Instagram/);
+}
+
+{
+    let graph = 0;
+    const result = await runContentPublishTick({
+        now: NOW,
+        dryRun: false,
+        listDue: async () => [{ ...DUE, approved_at: null }],
+        claim: async () => true,
+        finish: async () => {},
+        loadIg: async () => ({ token: 'LLT', igUserId: 'ig1' }),
+        postGraph: async () => { graph += 1; return { ok: true, id: 'x', status: 200 }; },
+    });
+    assert.equal(result.skipped, 1);
+    assert.equal(graph, 0, 'без подтверждения крон не публикует');
 }
 
 console.log('content-publish-tick_test: ok');
