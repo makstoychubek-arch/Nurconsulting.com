@@ -331,6 +331,7 @@
         form: defaultRuleForm(),
         history: [],
         loading: false,
+        loadGen: 0,
         filterCabinetId: '',
         campFilter: 'active',
         didAutoSync: false,
@@ -383,7 +384,8 @@
 
     function setCabinet(cabinetId) {
         const id = cabinetId ? String(cabinetId) : '';
-        if (id !== state.filterCabinetId) {
+        const changed = id !== state.filterCabinetId;
+        if (changed) {
             state.open = { cabinets: new Set(id ? [id] : []), campaigns: new Set() };
             state.selected = null;
             state.history = [];
@@ -391,6 +393,14 @@
         }
         state.filterCabinetId = id;
         if (id) state.open.cabinets.add(id);
+        if (changed) {
+            if (cabinetRows().length && state.model) {
+                renderKpis(state.model.totals);
+                paintTree();
+            } else {
+                paintPending();
+            }
+        }
         return state.filterCabinetId;
     }
 
@@ -415,15 +425,38 @@
         });
     }
 
-    function renderKpis(totals) {
+    function paintPending() {
+        if (typeof document === 'undefined' || !document.getElementById) return;
+        const note = document.getElementById('ads-hq-freshness');
+        if (note) note.textContent = 'обновляем…';
+        renderKpis(null, true);
+        const tb = document.getElementById('ads-hq-tbody');
+        if (tb) {
+            tb.innerHTML = '<tr><td colspan="8" class="text-center py-10" style="color:var(--text-muted)">Загрузка полок…</td></tr>';
+        }
+        const phone = document.getElementById('ads-hq-phone');
+        if (phone) phone.innerHTML = '<div class="ads-hq-phone-empty text-center py-8">Загрузка полок…</div>';
+    }
+
+    function renderKpis(totals, pending) {
         const el = document.getElementById('ads-hq-kpis');
         if (!el) return;
-        const one = state.filterCabinetId && state.model && state.model.rows[0];
-        const tiles = [
-            ['Активные полки', String(one ? one.activeCampaigns : totals.active)],
-            ['Расход сегодня', formatMoney(one ? one.spendToday : totals.spendToday)],
-            ['ДРР 7д', formatDrrLabel(one ? one.drr7 : totals.drr7)],
-        ];
+        const one = state.filterCabinetId ? (cabinetRows()[0] || null) : null;
+        const useTotals = !state.filterCabinetId && totals;
+        let tiles;
+        if (pending) {
+            tiles = [
+                ['Активные полки', '—'],
+                ['Расход сегодня', '—'],
+                ['ДРР 7д', '—'],
+            ];
+        } else {
+            tiles = [
+                ['Активные полки', String(one ? one.activeCampaigns : (useTotals ? totals.active : 0))],
+                ['Расход сегодня', formatMoney(one ? one.spendToday : (useTotals ? totals.spendToday : 0))],
+                ['ДРР 7д', formatDrrLabel(one ? one.drr7 : (useTotals ? totals.drr7 : null))],
+            ];
+        }
         const vals = el.querySelectorAll ? el.querySelectorAll('.adv-kpi-tile-value') : [];
         if (vals && vals.length === tiles.length) {
             tiles.forEach(([, value], i) => {
@@ -974,13 +1007,15 @@
     }
 
     async function fetchAndRender() {
+        const cab = state.filterCabinetId;
         const note = document.getElementById('ads-hq-freshness');
         if (note && !note.textContent) note.textContent = 'обновляем…';
         const now = new Date();
         const today = ymd(now);
         const from7 = ymd(addDays(now, -6));
         const cabs = await safeRows('cabinets', [], 'id, name, wb_token, adv_token_valid, adv_token_secret_id, adv_daily_budget_cap');
-        const cabinets = (cabs || []).filter((c) => !state.filterCabinetId || c.id === state.filterCabinetId);
+        if (cab !== state.filterCabinetId) return null;
+        const cabinets = (cabs || []).filter((c) => !cab || c.id === cab);
         const ids = cabinets.map((c) => c.id);
         const [legacyCampaigns, legacyStats, v2Campaigns] = ids.length ? await Promise.all([
             safeRows('advertising_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
@@ -991,6 +1026,7 @@
             ]),
             safeRows('adv_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
         ]) : [[], [], []];
+        if (cab !== state.filterCabinetId) return null;
         const v2Ids = (v2Campaigns || []).map((c) => c.id);
         const [clusters, rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
             safeRows('adv_clusters', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
@@ -1001,6 +1037,7 @@
                 { op: 'gte', column: 'date', value: from7 },
             ]),
         ]) : [[], [], [], []];
+        if (cab !== state.filterCabinetId) return null;
         state.model = buildHqModel({
             today, from7, cabinets, legacyCampaigns, legacyStats, v2Campaigns, clusters, rules, snapshots, v2Stats,
         });
@@ -1010,40 +1047,23 @@
         paintTree();
         paintForm();
         renderJournal();
-        if (note) note.textContent = 'сегодня ' + today + ' · ДРР за 7 дней';
+        if (note) note.textContent = '';
         return state.model;
     }
 
-    function modelHasCampaigns(model) {
-        return !!(model && model.rows.some((r) => (r.campaigns || []).length));
-    }
-
     async function load() {
-        if (state.loading) return;
+        const gen = ++state.loadGen;
+        if (!cabinetRows().length) paintPending();
         state.loading = true;
-        const note = document.getElementById('ads-hq-freshness');
-        if (note) note.textContent = 'обновляем…';
         try {
-            const model = await fetchAndRender();
-            if (!modelHasCampaigns(model) && !state.didAutoSync && dep().syncFromWb) {
-                state.didAutoSync = true;
-                if (note) note.textContent = 'подтягиваем полки из WB…';
-                let syncErr = null;
-                try {
-                    await dep().syncFromWb();
-                } catch (e) {
-                    syncErr = e;
-                }
-                await fetchAndRender();
-                if (syncErr && note) note.textContent = 'синк не вышел: ' + (syncErr.message || syncErr);
-            }
+            await fetchAndRender();
         } finally {
-            state.loading = false;
+            if (gen === state.loadGen) state.loading = false;
         }
     }
 
     async function reloadFromWb() {
-        if (state.loading) return;
+        const gen = ++state.loadGen;
         state.loading = true;
         const note = document.getElementById('ads-hq-freshness');
         if (note) note.textContent = 'подтягиваем из WB…';
@@ -1058,10 +1078,11 @@
                     if (dep().showPremiumModal) dep().showPremiumModal('error', 'Не удалось подтянуть полки', e && e.message ? e.message : String(e));
                 }
             }
+            if (gen !== state.loadGen) return;
             await fetchAndRender();
-            if (syncErr && note) note.textContent = 'синк не вышел: ' + (syncErr.message || syncErr);
+            if (syncErr && note && gen === state.loadGen) note.textContent = 'синк не вышел: ' + (syncErr.message || syncErr);
         } finally {
-            state.loading = false;
+            if (gen === state.loadGen) state.loading = false;
         }
     }
 
