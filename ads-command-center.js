@@ -998,11 +998,23 @@
     async function safeRows(table, filters, columns) {
         const fetchAll = dep().fetchAllRows;
         if (!fetchAll) return [];
+        let timer = 0;
         try {
-            return await fetchAll(table, filters, columns) || [];
+            const work = Promise.resolve(fetchAll(table, filters, columns) || []);
+            const rows = await Promise.race([
+                work,
+                new Promise((resolve) => { timer = setTimeout(() => resolve(null), 5000); }),
+            ]);
+            if (rows == null) {
+                console.warn('[ads-hq] timeout', table);
+                return [];
+            }
+            return rows || [];
         } catch (e) {
             console.warn('[ads-hq]', table, e);
             return [];
+        } finally {
+            if (timer) clearTimeout(timer);
         }
     }
 
@@ -1046,7 +1058,10 @@
         paintFilters();
         paintTree();
         paintForm();
-        renderJournal();
+        const advanced = typeof document !== 'undefined' && document.querySelector
+            ? document.querySelector('.ads-hq-advanced')
+            : null;
+        if (!advanced || advanced.open) renderJournal();
         if (note) note.textContent = '';
         return state.model;
     }
