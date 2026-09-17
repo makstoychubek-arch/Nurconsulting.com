@@ -10812,8 +10812,10 @@
             .forEach(id => setText(id, '—'));
         if (window.AdsHQ && typeof window.AdsHQ.setCabinet === 'function') {
             window.AdsHQ.setCabinet(newCabinetId);
-            const adsTab = getCurrentActiveTab() || localStorage.getItem('nr_active_tab');
-            if (adsTab === 'advertising' && typeof window.AdsHQ.load === 'function') window.AdsHQ.load();
+            if (typeof window.AdsHQ.load === 'function'
+                && !document.getElementById('adv-view-ads')?.classList.contains('hidden')) {
+                window.AdsHQ.load();
+            }
         }
         const advTableEl = document.getElementById('adv-campaigns-table');
         if (advTableEl) advTableEl.innerHTML = 'Загрузка...';
