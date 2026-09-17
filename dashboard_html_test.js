@@ -1424,6 +1424,15 @@ assert.ok(html.includes('syncFromWb') && html.includes('syncAdvertisingNow({ sil
 assert.ok(html.includes('const isAdsHq') && html.includes("window._advView !== 'detail'"),
     'RK header treats command center as the root view, not a drill-in');
 assert.ok(
+    html.includes('DATE_FILTER_TABS.has(tabName) && !showEmpty') &&
+    !html.includes('DATE_FILTER_TABS.has(tabName) && !showEmpty && !isAdsHq'),
+    'RK HQ shows the same header date chip as the dashboard'
+);
+assert.ok(html.includes('getDateRange: getActiveDateRange'),
+    'RK shelves read spend/DRR for the header date range');
+assert.ok(html.includes('>Расход<') && html.includes('adv-kpi-tile-label">ДРР<') && !html.includes('Расход сегодня') && !html.includes('ДРР 7д'),
+    'RK KPI and table labels are the picked period, not a hardcoded today/7d');
+assert.ok(
     html.includes("tab === 'tab-advertising' && window._advView === 'detail'") &&
     html.includes("showAdvertisingAdsView({ cabinetId: currentCabinetId") &&
     !html.includes("window._advView === 'detail' || window._advView === 'ads'"),

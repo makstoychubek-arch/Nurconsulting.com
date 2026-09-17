@@ -53,14 +53,53 @@ const model = AdsHQ.buildHqModel({
 assert.equal(model.rows.length, 2);
 assert.equal(model.rows[0].id, 'cab-a', 'sort: out-of-range first');
 assert.equal(model.rows[0].outRange, 1);
-assert.equal(model.rows[0].spendToday, 4200);
-assert.equal(model.rows[0].campaigns[0].spendToday, 4200);
+assert.equal(model.rows[0].spendToday, 5000);
+assert.equal(model.rows[0].spend7, 5000);
+assert.equal(model.rows[0].campaigns[0].spendToday, 5000);
 assert.equal(model.rows[0].campaigns[0].typeLabel, 'Поиск + каталог');
 assert.equal(model.rows[0].campaigns[0].live, true);
 assert.equal(model.rows[1].campaigns[0].live, false);
 assert.equal(model.rows[0].campaigns[0].clusters[0].key, 'пиджак для женщин');
 assert.equal(model.totals.active, 1);
 assert.equal(model.totals.tokenBad, 1);
+
+{
+    const day = AdsHQ.buildHqModel({
+        from: '2026-09-10',
+        to: '2026-09-10',
+        cabinets: [{ id: 'cab-a', name: 'Baza', adv_token_valid: true, adv_token_secret_id: 's' }],
+        legacyCampaigns: [
+            { cabinet_id: 'cab-a', campaign_id: 38634350, campaign_name: 'Пиджак', status: 9, type: 9 },
+        ],
+        legacyStats: [
+            { cabinet_id: 'cab-a', campaign_id: 38634350, stat_date: '2026-09-10', spend: 4200, sum_price: 20000 },
+            { cabinet_id: 'cab-a', campaign_id: 38634350, stat_date: '2026-09-09', spend: 800, sum_price: 5000 },
+        ],
+        v2Campaigns: [],
+        clusters: [],
+        rules: [],
+        snapshots: [],
+        v2Stats: [],
+    });
+    assert.equal(day.rows[0].spendToday, 4200, 'one day keeps only that day');
+    const miss = AdsHQ.buildHqModel({
+        from: '2026-09-01',
+        to: '2026-09-02',
+        cabinets: [{ id: 'cab-a', name: 'Baza', adv_token_valid: true, adv_token_secret_id: 's' }],
+        legacyCampaigns: [
+            { cabinet_id: 'cab-a', campaign_id: 38634350, campaign_name: 'Пиджак', status: 9, type: 9 },
+        ],
+        legacyStats: [
+            { cabinet_id: 'cab-a', campaign_id: 38634350, stat_date: '2026-09-10', spend: 4200, sum_price: 20000 },
+        ],
+        v2Campaigns: [],
+        clusters: [],
+        rules: [],
+        snapshots: [],
+        v2Stats: [],
+    });
+    assert.equal(miss.rows[0].spendToday, 0, 'stats outside the picked range must not leak in');
+}
 
 assert.equal(AdsHQ.setCabinet('cab-a'), 'cab-a');
 assert.equal(AdsHQ.getFilterCabinetId(), 'cab-a');
@@ -115,17 +154,23 @@ global.document = {
     AdsHQ.init({
         fetchAllRows: async (table) => rowsByTable[table] || [],
         syncFromWb: async () => { synced += 1; },
+        getDateRange: () => ({ from: '2026-09-04', to: '2026-09-10' }),
     });
     AdsHQ.setCabinet('cab-a');
     await AdsHQ.load();
     assert.match(els['ads-hq-tbody'].innerHTML, /Пиджак/);
     assert.match(els['ads-hq-tbody'].innerHTML, /Поиск \+ каталог/);
     assert.match(els['ads-hq-tbody'].innerHTML, /Идёт/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /4.200/);
     assert.doesNotMatch(els['ads-hq-tbody'].innerHTML, /Пауза полка/);
     assert.doesNotMatch(els['ads-hq-tbody'].innerHTML, /Baza/);
     assert.match(els['ads-hq-phone'].innerHTML, /Пиджак/);
+    assert.match(els['ads-hq-phone'].innerHTML, /Расход/);
     assert.match(els['ads-hq-kpis'].innerHTML, /Активные полки/);
     assert.match(els['ads-hq-kpis'].innerHTML, />1</);
+    assert.match(els['ads-hq-kpis'].innerHTML, /Расход/);
+    assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /Расход сегодня/);
+    assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /ДРР 7д/);
     assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /Сэкономлено/);
     assert.equal(synced, 0);
 

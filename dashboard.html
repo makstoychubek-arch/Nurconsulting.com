@@ -5327,11 +5327,11 @@
                         <div class="adv-kpi-tile-value">—</div>
                     </div>
                     <div class="adv-kpi-tile">
-                        <div class="adv-kpi-tile-label">Расход сегодня</div>
+                        <div class="adv-kpi-tile-label">Расход</div>
                         <div class="adv-kpi-tile-value">—</div>
                     </div>
                     <div class="adv-kpi-tile">
-                        <div class="adv-kpi-tile-label">ДРР 7д</div>
+                        <div class="adv-kpi-tile-label">ДРР</div>
                         <div class="adv-kpi-tile-value">—</div>
                     </div>
                 </div>
@@ -5360,14 +5360,13 @@
                                     <th>Полка</th>
                                     <th>Тип</th>
                                     <th>Статус</th>
-                                    <th>Сегодня</th>
-                                    <th>7 дней</th>
+                                    <th>Расход</th>
                                     <th>ДРР</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody id="ads-hq-tbody">
-                                <tr><td colspan="8" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить полки</td></tr>
+                                <tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить полки</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -6464,7 +6463,7 @@
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.f060ba3215.min.js"></script>
 <script src="/dist/wb-formulas.11317eb115.min.js"></script>
-<script src="/dist/ads-command-center.8bf3853afa.min.js"></script>
+<script src="/dist/ads-command-center.3cd400973e.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -7763,7 +7762,7 @@
             else pageTitle.textContent = tabTitles[tabName] || tabTitles.dashboard || 'Дашборд';
         }
         if (dateWrap) {
-            const showDate = !isStub && DATE_FILTER_TABS.has(tabName) && !showEmpty && !isAdsHq;
+            const showDate = !isStub && DATE_FILTER_TABS.has(tabName) && !showEmpty;
             dateWrap.classList.toggle('hidden', !showDate);
             dateWrap.style.display = showDate ? 'flex' : 'none';
         }
@@ -8006,6 +8005,7 @@
             escapeHtml,
             cabinetDisplayName,
             showPremiumModal,
+            getDateRange: getActiveDateRange,
             syncFromWb: async () => {
                 if (typeof window.syncAdvertisingNow === 'function') {
                     await window.syncAdvertisingNow({ silent: true });
@@ -10719,6 +10719,7 @@
         if (name === 'dashboard' || name === 'summary') loadFromDB(activeDateFrom, activeDateTo);
         else if (name === 'advertising') {
             if (window._advView === 'detail') loadAdvertisingFromDB();
+            else if (window.AdsHQ && typeof window.AdsHQ.load === 'function') window.AdsHQ.load();
             else if (window.AdsHQ) window.AdsHQ.open({ cabinetId: currentCabinetId || '' });
         }
         else if (name === 'logistics') {
