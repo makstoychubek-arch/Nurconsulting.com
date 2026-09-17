@@ -1,154 +1,159 @@
 <!DOCTYPE html>
 <html lang="ru" class="scroll-smooth">
+<head>
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" href="/icons/favicon.png" sizes="32x32">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
-<meta name="theme-color" content="#F8F9FA">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="NR Space">
-    <head>
+    <meta name="theme-color" content="#f5f4f0">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="NR Space">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Nur Consulting — NR Space</title>
     <script src="/nr-auth.js"></script>
-    <!-- Подключение Tailwind CSS и шрифтов -->
     <link rel="stylesheet" href="/dist/tailwind.f991aca821.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/nr-vibe.css">
 
     <style>
-        :root {
-            --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            --font-display: "Poppins", "Inter", system-ui, sans-serif;
-            --bg-base: #FAFAFA;
-            --bg-surface: #FFFFFF;
-            --text-primary: #111111;
-            --text-secondary: #3F3F46;
-            --text-muted: #71717A;
-            --accent: #111111;
-            --accent-hover: #000000;
-            --accent-soft: #F0F0F0;
-            --accent-border: rgba(0,0,0,0.08);
-            --border: rgba(0,0,0,0.08);
-            --sel: #EDEDED;
-            --logo-mark: #FFFFFF;
-        }
-        html {
-            scroll-behavior: smooth;
-            -webkit-tap-highlight-color: transparent;
-            text-size-adjust: 100%;
-        }
-        * {
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-        body { overflow-x: hidden; background-color: var(--bg-base); font-family: var(--font-ui); }
-        h1, h2, h3, .module-title { font-family: var(--font-display); font-weight: 700; }
+        body { overflow-x: hidden; }
         img { max-width: 100%; height: auto; }
 
-        .glass-card {
-            background: var(--bg-surface);
-            border: none;
-            box-shadow: none;
-            transition: background 0.15s ease;
+        .section-divider {
+            width: 100%;
+            height: 0;
+            border-bottom: 1px solid var(--line);
         }
-        @media (hover: hover) and (pointer: fine) {
-            .hover-glow:hover,
-            .module-card:hover {
-                background: var(--sel);
-            }
-            .module-card:hover .module-icon { transform: none; }
-            .module-card:hover .module-title { color: var(--text-primary); }
-            .module-card:hover .module-desc { color: var(--text-secondary); }
-        }
-        @media (hover: none) {
-            .hover-glow:active { background: var(--sel); }
-        }
-        .section-divider { width: 100%; height: 0; background: transparent; }
 
         .reveal, .reveal.revealed { opacity: 1; transform: none; filter: none; }
         .reveal-stagger > *,
         .reveal-stagger.revealed > * { opacity: 1; transform: none; filter: none; }
 
         .module-card {
-            position: relative; padding: 1.25rem; border-radius: 1rem;
-            border: none; background: var(--bg-surface);
+            position: relative;
+            padding: 0;
+            border-radius: var(--radius);
+            border: 1px solid var(--line);
+            background: var(--card);
             box-shadow: none;
-            transition: background 0.15s ease;
+            transition: border-color 0.25s, transform 0.25s var(--glide), box-shadow 0.25s;
         }
-        .module-card:hover { background: var(--sel); }
-        .module-icon { font-size: 1.5rem; margin-bottom: 0.75rem; font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif; }
-        .module-title { color: var(--text-primary); font-weight: 800; font-size: 1rem; margin-bottom: 0.5rem; letter-spacing: -0.03em; }
-        .module-desc { color: var(--text-muted); font-size: 0.875rem; line-height: 1.55; }
+        .module-icon {
+            font-size: 1.5rem;
+            margin: 0;
+            padding: 26px 24px 18px;
+            background: linear-gradient(180deg, var(--paper-2), var(--card));
+            border-bottom: 1px solid var(--line);
+            font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif;
+        }
+        .module-title {
+            color: var(--ink);
+            font-weight: 800;
+            font-size: 15.5px;
+            margin: 16px 18px 4px;
+            letter-spacing: -0.01em;
+        }
+        .module-desc {
+            color: var(--ink-dim);
+            font-size: 12.5px;
+            line-height: 1.45;
+            margin: 0 18px 18px;
+        }
 
-        .nav-link { border-radius: 999px; font-weight: 700; color: var(--text-primary) !important; }
-        .nav-link:hover { background: var(--sel); }
+        .nav-link {
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14.5px;
+            color: var(--ink-dim) !important;
+        }
+        .nav-link:hover { background: var(--paper-2); color: var(--ink) !important; }
         .team-avatar-wrap { display: flex; justify-content: center; margin: 0 auto 0.75rem; }
         .team-avatar-wrap svg { border-radius: 50%; display: block; }
-        .nav-link:hover { background: var(--sel); }
 
-        #mobile-menu-panel { transition: transform 0.3s ease-out; }
+        #mobile-menu-panel { transition: transform 0.3s var(--glide); }
         #mobile-menu-panel.open { transform: translateX(0); }
         #mobile-menu-panel.closed { transform: translateX(100%); }
 
         ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: var(--bg-base); }
-        ::-webkit-scrollbar-thumb { background: #d2d2d7; border-radius: 3px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
-        .logo-nr {
-            font-family: 'Arial Black', 'Montserrat', sans-serif;
-            font-weight: 900;
-            letter-spacing: -0.03em;
-            color: #000000;
-            background: #ffffff;
-            display: block;
-            width: 32px;
-            height: 32px;
-            border: none;
-            border-radius: 10px;
-            object-fit: cover;
-            flex-shrink: 0;
-            overflow: hidden;
-        }
-        .logo-nr--lg { width: 56px; height: 56px; border-radius: 16px; }
-        .logo-nr--sm { width: 28px; height: 28px; border-radius: 9px; }
+        ::-webkit-scrollbar-track { background: var(--paper); }
+        ::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--ink); }
 
         .site-header {
-            top: 10px;
-            left: 12px;
-            right: 12px;
+            top: 16px;
+            left: 0;
+            right: 0;
             width: auto;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.88);
-            -webkit-backdrop-filter: saturate(180%) blur(20px);
-            backdrop-filter: saturate(180%) blur(20px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+            background: transparent;
+            border: none;
+            box-shadow: none;
+            display: flex;
+            justify-content: center;
+            padding: 0 16px;
+            -webkit-backdrop-filter: none;
+            backdrop-filter: none;
         }
         .site-header-inner {
-            padding-left: max(16px, env(safe-area-inset-left, 0px));
-            padding-right: max(16px, env(safe-area-inset-right, 0px));
+            padding-left: 0;
+            padding-right: 0;
+            height: auto;
+            width: auto;
+        }
+        .brand-name {
+            font-family: var(--font-display);
+            font-weight: 800;
+            font-size: 18px;
+            letter-spacing: -0.02em;
+            color: var(--ink);
+        }
+        .hero-welcome { border-bottom: 1px solid var(--line); }
+        .hero-el-1 {
+            font-family: var(--font-display);
+            font-weight: 900;
+            line-height: 0.95;
+            letter-spacing: -0.03em;
+        }
+        .hero-metric-card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            padding: 26px 24px;
+            background-image: linear-gradient(180deg, var(--paper-2), var(--card));
+        }
+        .hero-metric-card > p:nth-of-type(2),
+        .hero-stats dt {
+            font-family: var(--font-display);
+            font-weight: 900;
+            letter-spacing: -0.03em;
         }
         .hero-tg-short, .hero-audit-short { display: none; }
         .site-mobile-dock {
+            background: color-mix(in srgb, var(--paper) 80%, #fff);
+            border-top: 1px solid var(--line);
             padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
             padding-left: max(12px, env(safe-area-inset-left, 0px));
             padding-right: max(12px, env(safe-area-inset-right, 0px));
         }
+        .hover-glow {
+            border: 1px solid var(--line);
+            background: var(--card);
+            transition: border-color 0.25s, transform 0.25s var(--glide), box-shadow 0.25s;
+        }
 
         @media (max-width: 767px) {
             .site-header {
-                top: calc(6px + env(safe-area-inset-top, 0px));
-                left: 10px;
-                right: 10px;
-                border-radius: 18px;
+                top: calc(8px + env(safe-area-inset-top, 0px));
+                left: 0;
+                right: 0;
+                border-radius: 0;
             }
             .site-header-inner {
-                height: 52px;
-                padding-left: 10px;
-                padding-right: 8px;
+                height: auto;
+                padding-left: 0;
+                padding-right: 0;
             }
             .site-login-chip {
                 display: inline-flex !important;
@@ -172,8 +177,8 @@
                 max-width: 100%;
             }
             .hero-el-1 {
-                font-size: 1.7rem !important;
-                line-height: 1.12 !important;
+                font-size: 1.85rem !important;
+                line-height: 0.98 !important;
             }
             .hero-el-2 {
                 font-size: 0.8125rem !important;
@@ -193,16 +198,17 @@
             .hero-tg-long, .hero-audit-long { display: none; }
             .hero-tg-short, .hero-audit-short { display: inline; }
             .hero-el-3 a { white-space: nowrap; }
-            .hero-el-4 .hero-metric-card { padding: 0; }
+            .hero-el-4 .hero-metric-card { padding: 20px 18px; }
             .hero-el-4 .hero-metric-card > p:nth-of-type(2) { font-size: 1.5rem; }
             .hero-el-4 .grid { gap: 0.75rem; margin-top: 0.85rem; }
             .hero-stats {
                 gap: 0.75rem !important;
                 margin-top: 1.25rem !important;
             }
-            .hero-stats p:first-child { font-size: 1.35rem !important; }
-            .hero-stats p:last-child { font-size: 10px; letter-spacing: 0.08em; margin-top: 4px; }
-            footer#contacts { padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px)); }
+            .hero-stats dt { font-size: 1.35rem !important; }
+            .hero-stats dd { font-size: 10px; letter-spacing: 0.08em; margin-top: 4px; }
+            #contacts { padding-bottom: calc(7.5rem + env(safe-area-inset-bottom, 0px)); }
+            .vp-foot-bar { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); }
         }
 
         @media (max-width: 390px) {
@@ -212,125 +218,120 @@
 
     </style>
 </head>
-<body class="bg-[#FAFAFA] text-[#3F3F46] antialiased selection:bg-[#EDEDED] selection:text-[#111] overflow-x-hidden">
+<body class="antialiased overflow-x-hidden">
 
     <header class="site-header fixed z-50">
-        <div class="site-header-inner max-w-7xl mx-auto px-4 sm:px-6 h-16 md:h-18 flex items-center justify-between">
-            <a href="/" class="flex items-center gap-2.5 shrink-0 rounded-xl px-1 py-1 hover:bg-[#EDEDED] transition-colors">
-                <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="32" height="32">
-                <span class="text-[16px] font-extrabold text-[#111] tracking-tight">Space</span>
-            </a>
-            <nav class="hidden lg:flex items-center space-x-0.5 text-sm font-bold text-[#111]">
-                <a href="#services" class="nav-link px-3 py-2.5 min-h-[40px] flex items-center">Услуги</a>
-                <a href="#cases" class="nav-link px-3 py-2.5 min-h-[40px] flex items-center">Кейсы</a>
-                <a href="#rnp-case" class="nav-link px-3 py-2.5 min-h-[40px] flex items-center">Кейс РНП</a>
-                <a href="#team" class="nav-link px-3 py-2.5 min-h-[40px] flex items-center">Команда</a>
-                <a href="#platform" class="nav-link px-3 py-2.5 min-h-[40px] flex items-center">Платформа</a>
-                <a href="#contacts" class="nav-link px-3 py-2.5 min-h-[40px] flex items-center">Контакты</a>
-            </nav>
-            <div class="flex items-center gap-2">
-                <a href="/login" class="site-login-chip hidden sm:flex items-center px-4 py-2 min-h-[40px] text-sm font-bold text-[#111] hover:bg-[#EDEDED] rounded-xl transition">
-                    Войти
+        <div class="site-header-inner">
+            <nav class="vp-pill-nav">
+                <a href="/" class="flex items-center gap-2 pr-2 text-sm font-semibold shrink-0" style="color:var(--ink)">
+                    <img class="logo-nr logo-nr--sm" src="/icons/logo-nr.svg" alt="NR" width="28" height="28">
+                    <span class="brand-name" style="font-size:14px">Space</span>
                 </a>
-                <a href="/login" class="hidden sm:flex items-center px-5 py-2 min-h-[40px] bg-[#111] hover:bg-black text-white text-sm font-bold rounded-xl transition">
-                    NR Space
-                </a>
-                <button type="button" id="burger-btn" class="lg:hidden flex flex-col justify-center items-center w-11 h-11 rounded-xl border border-black/10 active:bg-black/5 transition-colors gap-1.5" aria-label="Меню">
-                    <span id="burger-line-1" class="block w-5 h-0.5 bg-[#111111] transition-all duration-300"></span>
-                    <span id="burger-line-2" class="block w-5 h-0.5 bg-[#111111] transition-all duration-300"></span>
-                    <span id="burger-line-3" class="block w-5 h-0.5 bg-[#111111] transition-all duration-300"></span>
+                <span class="mx-1 hidden h-5 w-px md:block" style="background:var(--line)"></span>
+                <div class="hidden lg:flex items-center gap-0.5 text-sm">
+                    <a href="#services" class="nav-link vp-pill-link is-active">Услуги</a>
+                    <a href="#cases" class="nav-link vp-pill-link">Кейсы</a>
+                    <a href="#rnp-case" class="nav-link vp-pill-link">Кейс РНП</a>
+                    <a href="#team" class="nav-link vp-pill-link">Команда</a>
+                    <a href="#platform" class="nav-link vp-pill-link">Платформа</a>
+                    <a href="#contacts" class="nav-link vp-pill-link">Контакты</a>
+                </div>
+                <a href="/login" class="site-login-chip hidden sm:inline-flex vp-pill-link">Войти</a>
+                <a href="/login" class="vp-pill-cta hidden sm:inline-flex">NR Space</a>
+                <button type="button" id="burger-btn" class="lg:hidden flex flex-col justify-center items-center w-9 h-9 rounded-full gap-1" aria-label="Меню">
+                    <span id="burger-line-1" class="block w-4 h-0.5 bg-[var(--ink)] transition-all duration-300"></span>
+                    <span id="burger-line-2" class="block w-4 h-0.5 bg-[var(--ink)] transition-all duration-300"></span>
+                    <span id="burger-line-3" class="block w-4 h-0.5 bg-[var(--ink)] transition-all duration-300"></span>
                 </button>
-            </div>
+            </nav>
         </div>
     </header>
 
     <!-- Mobile menu overlay -->
     <div id="mobile-menu-overlay" class="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm lg:hidden hidden" onclick="closeMobileNav()"></div>
-    <div id="mobile-menu-panel" class="fixed top-0 right-0 z-50 h-full w-72 sm:w-80 bg-white border-l border-black/5 closed lg:hidden flex flex-col shadow-sm">
-        <div class="flex items-center justify-between p-4 border-b border-black/5">
+    <div id="mobile-menu-panel" class="fixed top-0 right-0 z-50 h-full w-72 sm:w-80 closed lg:hidden flex flex-col" style="background:color-mix(in srgb, var(--paper) 55%, #fff);border-left:1px solid var(--line)">
+        <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--line)">
             <div class="flex items-center gap-2">
-                <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="32" height="32">
-                <span class="font-extrabold text-lg text-[#111]">Space</span>
+                <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="34" height="34">
+                <span class="brand-name">Space</span>
             </div>
-            <button type="button" onclick="closeMobileNav()" class="w-9 h-9 flex items-center justify-center rounded-lg border border-black/10 text-[#3E434F] text-lg active:bg-black/5">×</button>
+            <button type="button" onclick="closeMobileNav()" class="w-9 h-9 flex items-center justify-center rounded-[10px] text-lg" style="border:1px solid var(--line);color:var(--ink-dim)">×</button>
         </div>
         <nav class="flex-1 p-4 space-y-1">
-            <button type="button" onclick="handleNavClick('#services')" class="w-full flex items-center px-4 py-3.5 rounded-full text-left text-[#111] text-sm font-bold hover:bg-[#EDEDED] min-h-[48px]">Услуги</button>
-            <button type="button" onclick="handleNavClick('#cases')" class="w-full flex items-center px-4 py-3.5 rounded-full text-left text-[#111] text-sm font-bold hover:bg-[#EDEDED] min-h-[48px]">Кейсы</button>
-            <button type="button" onclick="handleNavClick('#rnp-case')" class="w-full flex items-center px-4 py-3.5 rounded-full text-left text-[#111] text-sm font-bold hover:bg-[#EDEDED] min-h-[48px]">Кейс РНП</button>
-            <button type="button" onclick="handleNavClick('#team')" class="w-full flex items-center px-4 py-3.5 rounded-full text-left text-[#111] text-sm font-bold hover:bg-[#EDEDED] min-h-[48px]">Команда</button>
-            <button type="button" onclick="handleNavClick('#platform')" class="w-full flex items-center px-4 py-3.5 rounded-full text-left text-[#111] text-sm font-bold hover:bg-[#EDEDED] min-h-[48px]">Платформа</button>
-            <button type="button" onclick="handleNavClick('#contacts')" class="w-full flex items-center px-4 py-3.5 rounded-full text-left text-[#111] text-sm font-bold hover:bg-[#EDEDED] min-h-[48px]">Контакты</button>
+            <button type="button" onclick="handleNavClick('#services')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Услуги</button>
+            <button type="button" onclick="handleNavClick('#cases')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Кейсы</button>
+            <button type="button" onclick="handleNavClick('#rnp-case')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Кейс РНП</button>
+            <button type="button" onclick="handleNavClick('#team')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Команда</button>
+            <button type="button" onclick="handleNavClick('#platform')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Платформа</button>
+            <button type="button" onclick="handleNavClick('#contacts')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Контакты</button>
         </nav>
-        <div class="p-4 border-t border-black/5">
-            <a href="/login" class="flex items-center justify-center w-full py-3.5 rounded-xl bg-[#111] text-white text-sm font-bold min-h-[48px]">Войти в NR Space</a>
+        <div class="p-4" style="border-top:1px solid var(--line)">
+            <a href="/login" class="vibe-btn w-full">Войти в NR Space</a>
         </div>
     </div>
 
     <!-- HERO SECTION -->
     <section class="hero-welcome relative pt-32 md:pt-40 pb-16 md:pb-20 px-4 sm:px-6 max-w-7xl mx-auto min-h-screen flex flex-col justify-center">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            <div class="hero-copy lg:col-span-7 space-y-6 md:space-y-8">
-                <div class="hero-el-badge inline-flex items-center space-x-2 px-3 py-1.5 rounded-full bg-[#EDEDED] text-[10px] sm:text-xs font-bold uppercase tracking-[0.16em] text-[#111]">
-                    <span class="w-1.5 h-1.5 rounded-full bg-[#F5C400]"></span>
-                    <span>Nur Consulting × NR Space</span>
-                </div>
-                <h1 class="hero-el-1 text-[2.5rem] leading-[1.05] sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tighter text-[#111]">
-                    Превращаем <span class="text-[#111]">Wildberries</span><br>в систему роста и прибыли
+            <div class="hero-copy lg:col-span-7">
+                <p class="hero-el-badge eyebrow">Nur Consulting × NR Space</p>
+                <div class="mt-4 h-px w-16" style="background:var(--ink)"></div>
+                <h1 class="hero-el-1 mt-8 text-[2.5rem] sm:text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight" style="line-height:1.05">
+                    Превращаем Wildberries<br>в систему роста и прибыли
                 </h1>
-                <p class="hero-el-2 text-sm sm:text-base md:text-lg text-[#3F3F46] max-w-xl leading-relaxed">
+                <p class="hero-el-2 mt-6 max-w-md text-sm sm:text-base md:text-lg leading-relaxed" style="color:var(--ink-dim)">
                     Мы не просто агентство. Мы операционная команда для масштабирования крупного бизнеса на маркетплейсах. Передайте управление экспертам и сфокусируйтесь на развитии стратегии.
                 </p>
-                <div class="hero-el-3 flex flex-wrap gap-3 pt-2">
-                    <a href="https://t.me/maraomg" target="_blank" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] bg-[#111] hover:bg-black text-white font-bold rounded-xl transition text-center w-full sm:w-auto text-sm">
+                <div class="hero-el-3 mt-8 flex flex-wrap items-center gap-6">
+                    <a href="https://t.me/maraomg" target="_blank" class="vibe-btn">
                         <span class="hero-audit-long">Получить бесплатный аудит</span>
                         <span class="hero-audit-short">Бесплатный аудит</span>
                     </a>
-                    <a href="https://t.me/maraomg" target="_blank" class="inline-flex items-center justify-center gap-2 px-6 py-3.5 min-h-[48px] hover:bg-[#EDEDED] text-[#111] font-bold rounded-xl transition text-center w-full sm:w-auto text-sm">
-                        <svg class="w-5 h-5 text-[#111]" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
+                    <a href="https://t.me/maraomg" target="_blank" class="group text-sm font-medium" style="color:var(--ink)">
                         <span class="hero-tg-long">Написать в Telegram</span>
                         <span class="hero-tg-short">Telegram</span>
+                        <span class="inline-block transition group-hover:translate-x-1">→</span>
                     </a>
                 </div>
             </div>
             
             <div class="hero-el-4 lg:col-span-5 relative">
-                <div class="hero-metric-card rounded-2xl p-2">
-                    <p class="text-[10px] sm:text-xs text-[#71717A] uppercase tracking-wider font-bold">Выручка клиентов</p>
-                    <p class="text-3xl sm:text-4xl font-black text-[#111] mt-2 tracking-tight">120 430 000 ₽</p>
-                    <p class="text-sm text-[#16A34A] font-bold mt-2">+48.7% за 3 мес.</p>
+                <div class="hero-metric-card rounded-2xl border p-6" style="border-color:var(--line);background:var(--card)">
+                    <p class="text-[10px] sm:text-xs uppercase tracking-wider" style="color:var(--ink-faint)">Выручка клиентов</p>
+                    <p class="text-3xl sm:text-4xl font-semibold mt-2 tracking-tight">120 430 000 ₽</p>
+                    <p class="text-sm font-medium mt-2" style="color:var(--ok)">+48.7% за 3 мес.</p>
                     <div class="grid grid-cols-2 gap-8 mt-8">
                         <div>
-                            <p class="text-xs text-[#71717A] font-semibold">Заказы</p>
-                            <p class="text-xl font-extrabold text-[#111] mt-1">356 780 шт</p>
+                            <p class="text-xs" style="color:var(--ink-faint)">Заказы</p>
+                            <p class="text-xl font-semibold mt-1">356 780 шт</p>
                         </div>
                         <div>
-                            <p class="text-xs text-[#71717A] font-semibold">Индекс локализации</p>
-                            <p class="text-xl font-extrabold text-[#111] mt-1">94%</p>
+                            <p class="text-xs" style="color:var(--ink-faint)">Индекс локализации</p>
+                            <p class="text-xl font-semibold mt-1">94%</p>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="hero-stats reveal grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-10 mt-16 md:mt-24">
-            <div class="text-center md:text-left">
-                <p class="text-3xl sm:text-4xl font-black text-[#111111]">120+ млн</p>
-                <p class="text-xs text-[#71717A] font-semibold uppercase tracking-widest mt-2">Оборот клиента за 3 месяца</p>
+        <dl class="hero-stats reveal mt-20 grid grid-cols-2 md:grid-cols-4 gap-8 border-t pt-8" style="border-color:var(--line)">
+            <div>
+                <dt class="text-3xl sm:text-4xl font-semibold">120+ млн</dt>
+                <dd class="mt-1 text-sm" style="color:var(--ink-dim)">Оборот клиента за 3 месяца</dd>
             </div>
-            <div class="text-center md:text-left">
-                <p class="text-3xl sm:text-4xl font-black text-[#111111]">5</p>
-                <p class="text-xs text-[#71717A] font-semibold uppercase tracking-widest mt-2">Экспертов в узких нишах</p>
+            <div>
+                <dt class="text-3xl sm:text-4xl font-semibold">5</dt>
+                <dd class="mt-1 text-sm" style="color:var(--ink-dim)">Экспертов в узких нишах</dd>
             </div>
-            <div class="text-center md:text-left">
-                <p class="text-3xl sm:text-4xl font-black text-[#111111]">5 лет</p>
-                <p class="text-xs text-[#71717A] font-semibold uppercase tracking-widest mt-2">Опыта работы с алгоритмами WB</p>
+            <div>
+                <dt class="text-3xl sm:text-4xl font-semibold">5 лет</dt>
+                <dd class="mt-1 text-sm" style="color:var(--ink-dim)">Опыта работы с алгоритмами WB</dd>
             </div>
-            <div class="text-center md:text-left">
-                <p class="text-3xl sm:text-4xl font-black text-[#111111]">20+ млн</p>
-                <p class="text-xs text-[#71717A] font-semibold uppercase tracking-widest mt-2">Минимальный порог селлеров</p>
+            <div>
+                <dt class="text-3xl sm:text-4xl font-semibold">20+ млн</dt>
+                <dd class="mt-1 text-sm" style="color:var(--ink-dim)">Минимальный порог селлеров</dd>
             </div>
-        </div>
+        </dl>
     </section>
 
     <div class="section-divider reveal max-w-7xl mx-auto"></div>
@@ -338,25 +339,37 @@
     <!-- SERVICES SECTION -->
     <section id="services" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
         <div class="text-center max-w-3xl mx-auto space-y-4 mb-12 md:mb-16">
-            <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-[#111111]">Что мы делаем</p>
-            <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-[#111111] tracking-tight">Полное управление процессами</h2>
+            <p class="eyebrow">Что мы делаем</p>
+            <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight">Полное управление процессами</h2>
         </div>
         
-        <div class="reveal-stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 md:gap-12">
-            <div class="space-y-3">
-                <p class="text-xs font-extrabold text-[#111] tracking-widest">01</p>
-                <h3 class="text-xl font-extrabold text-[#111111] tracking-tight">Управление рекламой & Performance</h3>
-                <p class="text-[#71717A] text-sm leading-relaxed">Максимизация ROI, выстраивание рекламных кампаний с жестким контролем ДРР через автоматические API-стратегии.</p>
+        <div class="reveal-stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-[18px]">
+            <div class="vibe-card">
+                <div class="vibe-card-stage">
+                    <p class="mono text-[12px]" style="color:var(--ink-faint)">01</p>
+                    <h3 class="text-[18px] font-extrabold tracking-tight">Управление рекламой & Performance</h3>
+                </div>
+                <div class="vibe-card-foot">
+                    <p class="text-[12.5px] leading-relaxed" style="color:var(--ink-dim)">Максимизация ROI, выстраивание рекламных кампаний с жестким контролем ДРР через автоматические API-стратегии.</p>
+                </div>
             </div>
-            <div class="space-y-3">
-                <p class="text-xs font-extrabold text-[#111] tracking-widest">02</p>
-                <h3 class="text-xl font-extrabold text-[#111111] tracking-tight">Глубокая аналитика данных</h3>
-                <p class="text-[#71717A] text-sm leading-relaxed">Построение сквозной управленческой отчетности, ABC/XYZ анализ ассортиментной матрицы, поиск точек кратного роста.</p>
+            <div class="vibe-card">
+                <div class="vibe-card-stage">
+                    <p class="mono text-[12px]" style="color:var(--ink-faint)">02</p>
+                    <h3 class="text-[18px] font-extrabold tracking-tight">Глубокая аналитика данных</h3>
+                </div>
+                <div class="vibe-card-foot">
+                    <p class="text-[12.5px] leading-relaxed" style="color:var(--ink-dim)">Построение сквозной управленческой отчетности, ABC/XYZ анализ ассортиментной матрицы, поиск точек кратного роста.</p>
+                </div>
             </div>
-            <div class="space-y-3">
-                <p class="text-xs font-extrabold text-[#111] tracking-widest">03</p>
-                <h3 class="text-xl font-extrabold text-[#111111] tracking-tight">Оптимизация логистики</h3>
-                <p class="text-[#71717A] text-sm leading-relaxed">Распределение остатков по региональным складам маркетплейса для повышения индекса локализации и снижения затрат.</p>
+            <div class="vibe-card">
+                <div class="vibe-card-stage">
+                    <p class="mono text-[12px]" style="color:var(--ink-faint)">03</p>
+                    <h3 class="text-[18px] font-extrabold tracking-tight">Оптимизация логистики</h3>
+                </div>
+                <div class="vibe-card-foot">
+                    <p class="text-[12.5px] leading-relaxed" style="color:var(--ink-dim)">Распределение остатков по региональным складам маркетплейса для повышения индекса локализации и снижения затрат.</p>
+                </div>
             </div>
         </div>
     </section>
@@ -368,7 +381,7 @@
         <div class="py-2">
             <div class="grid lg:grid-cols-12 gap-12 items-center">
                 <div class="lg:col-span-6 space-y-6">
-                    <span class="text-xs font-bold uppercase tracking-widest text-[#111111]">Главный кейс</span>
+                    <span class="eyebrow">Главный кейс</span>
                     <h2 class="text-3xl sm:text-4xl font-black text-[#111111] tracking-tight">Вывели клиента на 120+ млн ₽ оборота за 3 месяца</h2>
                     <ul class="space-y-3 text-[#3E434F] font-light text-sm">
                         <li class="flex items-center space-x-3"><span class="text-[#2F9E44]">✓</span> <span>Провели комплексный технический аудит кабинета</span></li>
@@ -397,7 +410,7 @@
         <div class="py-2">
             <div class="grid lg:grid-cols-12 gap-12 items-center">
                 <div class="lg:col-span-5 space-y-6">
-                    <span class="text-xs font-bold uppercase tracking-widest text-[#111111]">Кейс модуля РНП</span>
+                    <span class="eyebrow">Кейс модуля РНП</span>
                     <h2 class="text-3xl sm:text-4xl font-black text-[#111111] tracking-tight">Нашли артикулы, которые сливали рекламный бюджет</h2>
                     <p class="text-[#3E434F] text-sm leading-relaxed">Модуль «Рука на пульсе» ежедневно сверяет продажи, ДРР и маржу по каждому артикулу. За первую неделю подключения РНП у клиента:</p>
                     <ul class="space-y-3 text-[#3E434F] font-light text-sm">
@@ -408,10 +421,10 @@
                     <a href="/login" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#111111] hover:text-[#000000] transition">Посмотреть модуль РНП →</a>
                 </div>
                 <div class="lg:col-span-7">
-                    <div class="rounded-2xl bg-white overflow-hidden">
-                        <div class="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-black/5 bg-black/[0.015]">
-                            <span class="text-xs font-bold text-[#111111] uppercase tracking-wider">РНП · Артикулы</span>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-[#2F9E44]/10 text-[#2F9E44] border border-[#2F9E44]/20">Обновлено сегодня</span>
+                    <div class="rounded-[16px] overflow-hidden" style="background:var(--card);border:1px solid var(--line)">
+                        <div class="flex items-center justify-between px-4 sm:px-5 py-3" style="border-bottom:1px solid var(--line);background:color-mix(in srgb, var(--paper) 55%, #fff)">
+                            <span class="stage-label" style="font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint)">РНП · Артикулы</span>
+                            <span class="mono text-[10px] px-2 py-0.5 rounded-full" style="color:var(--ok);border:1px solid color-mix(in srgb, var(--ok) 35%, var(--line))">Обновлено сегодня</span>
                         </div>
                         <div class="overflow-x-auto">
                             <table class="w-full text-left border-collapse text-xs sm:text-sm">
@@ -461,7 +474,7 @@
     <!-- TEAM SECTION -->
     <section id="team" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
         <div class="text-center max-w-3xl mx-auto space-y-4 mb-12 md:mb-16">
-            <p class="text-[10px] sm:text-xs font-semibold uppercase tracking-[0.2em] text-[#111111]">Экспертиза</p>
+            <p class="eyebrow">Экспертиза</p>
             <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-[#111111] tracking-tight">Операционная команда</h2>
         </div>
 
@@ -539,9 +552,9 @@
     <section id="platform" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6">
         <div class="max-w-6xl mx-auto">
             <div class="text-center mb-12 md:mb-16">
-                <span class="text-[#111111] text-[10px] sm:text-xs font-semibold tracking-[0.2em] uppercase mb-3 block">Экосистема NR Space</span>
-                <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-[#111111] mb-4 tracking-tight">Все модули платформы</h2>
-                <p class="text-[#3E434F] text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed">Один инструмент — полный контроль бизнеса на Wildberries</p>
+                <span class="eyebrow mb-3 block">Экосистема NR Space</span>
+                <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black mb-4 tracking-tight">Все модули платформы</h2>
+                <p class="text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed" style="color:var(--ink-dim)">Один инструмент — полный контроль бизнеса на Wildberries</p>
             </div>
             <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
                 <div class="module-card hover-glow"><div class="module-icon">📊</div><h3 class="module-title">Главный Дашборд & Оцифровка</h3><p class="module-desc">Полная автоматическая оцифровка бизнеса на Wildberries. Интерактивные графики выручки, чистой прибыли, маржинальности и ключевых метрик в реальном времени. Вся картина бизнеса на одном экране.</p></div>
@@ -575,12 +588,12 @@
                         <div class="flex items-center space-x-2"><span class="text-[#111111]">✦</span> <span>Мгновенные дашборды данных</span></div>
                         <div class="flex items-center space-x-2"><span class="text-[#111111]">✦</span> <span>Кастомный Telegram-бот</span></div>
                     </div>
-                    <a href="/login" class="inline-flex items-center justify-center px-6 py-3.5 min-h-[48px] bg-[#111] hover:bg-black text-white text-sm font-bold rounded-xl transition">Войти в NR Space</a>
+                    <a href="/login" class="vibe-btn">Войти в NR Space</a>
                 </div>
                 <div class="flex items-center justify-center py-8">
                     <div class="flex items-center gap-3">
                         <img class="logo-nr logo-nr--lg" src="/icons/logo-nr.svg" alt="NR" width="56" height="56">
-                        <span class="text-2xl font-black text-[#111] tracking-tight">Space</span>
+                        <span class="brand-name" style="font-size:28px">Space</span>
                     </div>
                 </div>
             </div>
@@ -590,43 +603,105 @@
     <div class="section-divider reveal max-w-7xl mx-auto"></div>
 
     <!-- FOOTER / CONTACTS -->
-    <footer id="contacts" class="reveal py-16 px-4 sm:px-6 max-w-7xl mx-auto border-t border-black/5 text-[#3E434F] text-sm pb-32">
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-            <div class="space-y-4">
-                <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="32" height="32">
-                <p class="text-xs text-[#6B7682] font-light">© Nur Consulting & NR Space. Все права защищены. 2026</p>
+    <section id="contacts" class="reveal mx-auto max-w-5xl px-4 sm:px-6 py-16 md:py-20">
+        <div class="mx-auto mb-10 max-w-lg text-center">
+            <h2 class="text-3xl font-semibold tracking-tight">Контакты</h2>
+            <p class="mt-2" style="color:var(--ink-dim)">Россия: +7 966 752 03 97 · Кыргызстан: +996 558 200 327</p>
+        </div>
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <a href="tel:+79667520397" class="vp-channel group">
+                <div class="flex items-start justify-between">
+                    <span class="vp-channel-ico"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-1.5 2a14 14 0 0 1-7.5-7.5L9 8 7 3Z"/></svg></span>
+                </div>
+                <h3 class="mt-4 font-semibold">Позвонить</h3>
+                <p class="mt-1 text-sm" style="color:var(--ink-dim)">Россия: +7 966 752 03 97</p>
+                <span class="mt-3 inline-block text-sm font-medium">+7 966 752 03 97 <span class="inline-block transition group-hover:translate-x-1">→</span></span>
+            </a>
+            <a href="https://wa.me/996558200327" target="_blank" class="vp-channel group">
+                <div class="flex items-start justify-between">
+                    <span class="vp-channel-ico"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.411 0 11.973 0c3.178.001 6.165 1.24 8.407 3.483 2.242 2.244 3.477 5.232 3.474 8.411-.004 6.623-5.354 11.971-11.916 11.971-2.004-.001-3.973-.51-5.716-1.486L0 24z"/></svg></span>
+                </div>
+                <h3 class="mt-4 font-semibold">WhatsApp</h3>
+                <p class="mt-1 text-sm" style="color:var(--ink-dim)">Кыргызстан: +996 558 200 327</p>
+                <span class="mt-3 inline-block text-sm font-medium">+996 558 200 327 <span class="inline-block transition group-hover:translate-x-1">→</span></span>
+            </a>
+            <a href="https://t.me/maraomg" target="_blank" class="vp-channel group">
+                <div class="flex items-start justify-between">
+                    <span class="vp-channel-ico"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg></span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium" style="background:#ecfdf5;color:#15803d"><span class="h-1.5 w-1.5 rounded-full" style="background:#22c55e"></span> Online</span>
+                </div>
+                <h3 class="mt-4 font-semibold">Telegram</h3>
+                <p class="mt-1 text-sm" style="color:var(--ink-dim)">Официальные медиа: @maraomg</p>
+                <span class="mt-3 inline-block text-sm font-medium">Telegram: @maraomg <span class="inline-block transition group-hover:translate-x-1">→</span></span>
+            </a>
+            <a href="https://t.me/maraomg" target="_blank" class="vp-channel group">
+                <div class="flex items-start justify-between"><span class="vp-channel-ico">✦</span></div>
+                <h3 class="mt-4 font-semibold">Аудит</h3>
+                <p class="mt-1 text-sm" style="color:var(--ink-dim)">Получить бесплатный аудит</p>
+                <span class="mt-3 inline-block text-sm font-medium">Получить бесплатный аудит <span class="inline-block transition group-hover:translate-x-1">→</span></span>
+            </a>
+        </div>
+        <div class="mt-10 grid gap-5 sm:grid-cols-2">
+            <div class="vp-office" data-office="ru">
+                <p class="font-medium">Россия</p>
+                <p class="text-xs" style="color:var(--ink-faint)">Контакты компании</p>
+                <p class="mt-3 text-sm" style="color:var(--ink-dim)">+7 966 752 03 97</p>
+                <a href="tel:+79667520397" class="text-sm font-medium hover:underline">Позвонить</a>
+                <div class="mt-5 flex items-center justify-between border-t pt-4" style="border-color:var(--line)">
+                    <span data-time class="mono text-sm">—</span>
+                    <span data-status class="vp-status">—</span>
+                </div>
             </div>
-            <div class="space-y-2">
-                <p class="text-[#111111] font-medium text-xs uppercase tracking-wider">Контакты компании</p>
-                <p class="text-[#3E434F]">Россия: +7 966 752 03 97</p>
-                <p class="text-[#3E434F]">Кыргызстан: +996 558 200 327</p>
+            <div class="vp-office" data-office="kg">
+                <p class="font-medium">Кыргызстан</p>
+                <p class="text-xs" style="color:var(--ink-faint)">Контакты компании</p>
+                <p class="mt-3 text-sm" style="color:var(--ink-dim)">+996 558 200 327</p>
+                <a href="tel:+996558200327" class="text-sm font-medium hover:underline">Позвонить</a>
+                <div class="mt-5 flex items-center justify-between border-t pt-4" style="border-color:var(--line)">
+                    <span data-time class="mono text-sm">—</span>
+                    <span data-status class="vp-status">—</span>
+                </div>
             </div>
-            <div class="space-y-2">
-                <p class="text-[#111111] font-medium text-xs uppercase tracking-wider">Официальные медиа</p>
-                <a href="https://t.me/maraomg" target="_blank" class="text-[#111111] hover:underline block">Telegram: @maraomg</a>
+        </div>
+    </section>
+
+    <footer class="vp-foot-bar">
+        <div class="mx-auto flex max-w-7xl flex-wrap items-center gap-x-6 gap-y-3">
+            <div class="flex items-center gap-3">
+                <span class="text-sm font-semibold" style="color:var(--ink)">NR Space</span>
+                <span class="rounded-md border px-1.5 py-0.5 mono text-[11px]" style="border-color:var(--line);color:var(--ink-dim)">Nur Consulting</span>
             </div>
+            <nav class="hidden items-center gap-5 md:flex">
+                <a href="#services">Услуги</a>
+                <a href="#cases">Кейсы</a>
+                <a href="#platform">Платформа</a>
+                <a href="https://t.me/maraomg" target="_blank">Telegram</a>
+            </nav>
+            <div class="ml-auto"><span style="color:var(--ink-faint)">© Nur Consulting &amp; NR Space. Все права защищены. 2026</span></div>
         </div>
     </footer>
 
-    <!-- ФИКСИРОВАННАЯ ПАНЕЛЬ ДЛЯ МОБИЛЬНЫХ УСТРОЙСТВ -->
-    <div class="site-mobile-dock fixed bottom-0 left-0 right-0 z-50 md:hidden bg-white border-t border-black/8 p-4">
-        <div class="grid grid-cols-4 gap-2 text-center text-[10px] font-medium tracking-wide text-[#3E434F]">
-            <a href="tel:+79667520397" class="flex flex-col items-center justify-center p-2 rounded-xl bg-black/[0.03] active:bg-black/[0.06] text-[#111111]">
-                <svg class="w-5 h-5 mb-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 5a2 2 0 012-2h3.28a1 1 0 01.94.72.73.73 0 00.9.5l3.4-1.36a1 1 0 011.02.22M21 19a2 2 0 01-2 2h-3.28a1 1 0 01-.94-.72l-.9-.5a1 1 0 01-.22-1.02l1.36-3.4a1 1 0 011.02-.22M21 19V5m0 14h-6"></path></svg>
-                <span>Позвонить</span>
+    <div class="site-mobile-dock vp-tabbar fixed bottom-0 left-0 right-0 z-50 md:hidden px-2 pt-2" style="padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px))">
+        <div class="flex items-end justify-around">
+            <a href="tel:+79667520397" class="vp-tab is-on">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-1.5 2a14 14 0 0 1-7.5-7.5L9 8 7 3Z"/></svg>
+                <span>Позвонить</span><span class="vp-tab-dot"></span>
             </a>
-            <a href="https://wa.me/996558200327" target="_blank" class="flex flex-col items-center justify-center p-2 rounded-xl bg-[#2F9E44]/10 text-[#2F9E44] border border-[#2F9E44]/20 min-h-[44px]">
-                <svg class="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.411 0 11.973 0c3.178.001 6.165 1.24 8.407 3.483 2.242 2.244 3.477 5.232 3.474 8.411-.004 6.623-5.354 11.971-11.916 11.971-2.004-.001-3.973-.51-5.716-1.486L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.42 9.864-9.858.002-2.634-1.023-5.11-2.885-6.974C16.526 1.908 14.053.882 11.422.882c-5.44 0-9.863 4.42-9.867 9.861-.001 1.742.476 3.442 1.381 4.935L1.87 21.066l5.777-1.512z"/></svg>
-                <span>WhatsApp</span>
+            <a href="https://wa.me/996558200327" target="_blank" class="vp-tab">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.411 0 11.973 0c3.178.001 6.165 1.24 8.407 3.483 2.242 2.244 3.477 5.232 3.474 8.411-.004 6.623-5.354 11.971-11.916 11.971-2.004-.001-3.973-.51-5.716-1.486L0 24z"/></svg>
+                <span>WhatsApp</span><span class="vp-tab-dot"></span>
             </a>
-            <a href="https://t.me/maraomg" target="_blank" class="flex flex-col items-center justify-center p-2 rounded-xl bg-[#111111]/8 text-[#111111] border border-[#111111]/20 min-h-[44px]">
-                <svg class="w-5 h-5 mb-1" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
-                <span>Telegram</span>
+            <a href="https://t.me/maraomg" target="_blank" class="vp-tab-plus" aria-label="Аудит">Аудит</a>
+            <a href="https://t.me/maraomg" target="_blank" class="vp-tab">
+                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
+                <span>Telegram</span><span class="vp-tab-dot"></span>
             </a>
-            <a href="https://t.me/maraomg" target="_blank" class="flex flex-col items-center justify-center p-2 rounded-xl bg-[#111111] text-white font-semibold">
-                <span>Аудит</span>
+            <a href="/login" class="vp-tab">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+                <span>Войти</span><span class="vp-tab-dot"></span>
             </a>
         </div>
+        <div class="mx-auto mt-2 h-1 w-28 rounded-full" style="background:var(--line)"></div>
     </div>
 
     <script>
@@ -649,8 +724,8 @@
             function buildAvatarSvg(gender, size, gradId) {
                 return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">' +
                     '<defs><radialGradient id="' + gradId + '" cx="40%" cy="35%" r="60%">' +
-                    '<stop offset="0%" stop-color="rgba(245,196,0,0.22)"/>' +
-                    '<stop offset="100%" stop-color="rgba(230,231,235,0.9)"/></radialGradient></defs>' +
+                    '<stop offset="0%" stop-color="rgba(20,20,15,0.08)"/>' +
+                    '<stop offset="100%" stop-color="#efeee9"/></radialGradient></defs>' +
                     '<circle cx="40" cy="40" r="40" fill="url(#' + gradId + ')"/>' +
                     avatarBody(gender) + '</svg>';
             }
@@ -702,6 +777,36 @@
                 }
             });
         });
+
+        (function () {
+            var OFFICES = {
+                ru: { zone: 'Europe/Moscow', label: 'MSK' },
+                kg: { zone: 'Asia/Bishkek', label: 'KGT' }
+            };
+            function pad(n) { return n < 10 ? '0' + n : String(n); }
+            function localParts(zone) {
+                var parts = new Intl.DateTimeFormat('en-GB', {
+                    timeZone: zone, hour: '2-digit', minute: '2-digit', hour12: false
+                }).formatToParts(new Date());
+                var out = {};
+                parts.forEach(function (part) { out[part.type] = part.value; });
+                return { hour: Number(out.hour) % 24, minute: out.minute };
+            }
+            function render() {
+                Object.keys(OFFICES).forEach(function (id) {
+                    var office = OFFICES[id];
+                    var card = document.querySelector('[data-office="' + id + '"]');
+                    if (!card) return;
+                    var now = localParts(office.zone);
+                    var timeEl = card.querySelector('[data-time]');
+                    var statusEl = card.querySelector('[data-status]');
+                    if (timeEl) timeEl.textContent = pad(now.hour) + ':' + now.minute;
+                    if (statusEl) statusEl.textContent = office.label;
+                });
+            }
+            render();
+            setInterval(render, 30000);
+        })();
     </script>
 </body>
 </html>
