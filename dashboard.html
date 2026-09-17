@@ -1141,12 +1141,11 @@
         .ads-hq-hour input { display: none; }
         .ads-hq-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
         .ads-hq-journal-chart { height: 180px; position: relative; }
-        .ads-hq-hero {
-            display: flex; align-items: center; justify-content: space-between;
-            gap: 12px; margin: 0 0 8px;
-            min-height: 22px;
+        .ads-hq-status {
+            font-size: 12px;
+            color: var(--text-muted);
+            min-height: 1em;
         }
-        .ads-hq-hero .rnp-tool-icons { margin-left: auto; }
         .adv-toolbar {
             justify-content: flex-end;
             width: 100%;
@@ -1154,8 +1153,6 @@
             margin: 0 0 8px;
         }
         .main-content.goods-compact #tab-advertising.space-y-5 > * + * { margin-top: 10px; }
-        .ads-hq-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; color: var(--text-primary); line-height: 1.15; }
-        .ads-hq-sub { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
         .ads-hq-phone { display: none; }
         .ads-hq-phone-card {
             background: var(--surface); border-radius: var(--radius-card); padding: 14px;
@@ -1184,7 +1181,6 @@
             .ads-hq-form-grid { grid-template-columns: 1fr; }
             .ads-hq-phone { display: flex; flex-direction: column; gap: 10px; }
             .ads-hq-table-wrap { display: none; }
-            .ads-hq-title { font-size: 20px; }
         }
         .main-content.goods-compact {
             padding: 14px 20px 16px !important;
@@ -5341,22 +5337,20 @@
 
         <div id="tab-advertising" class="tab-content space-y-5">
             <div id="adv-view-ads" class="space-y-5">
-                <div class="ads-hq-hero">
-                    <div>
-                        <h2 class="ads-hq-title">Реклама</h2>
-                        <p class="ads-hq-sub">Активные полки кабинета из шапки — тип, статус, расход</p>
-                        <span id="ads-hq-freshness" class="text-xs" style="color:var(--text-muted)"></span>
+                <div id="ads-hq-kpis" class="grid grid-cols-3 gap-3">
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">Активные полки</div>
+                        <div class="adv-kpi-tile-value">—</div>
                     </div>
-                    <div class="rnp-tool-icons">
-                        <button type="button" class="rnp-tool-icon" id="ads-hq-reload" title="Обновить" aria-label="Обновить">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M21 12a9 9 0 1 1-2.2-5.8"></path>
-                                <path d="M21 3v6h-6"></path>
-                            </svg>
-                        </button>
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">Расход сегодня</div>
+                        <div class="adv-kpi-tile-value">—</div>
+                    </div>
+                    <div class="adv-kpi-tile">
+                        <div class="adv-kpi-tile-label">ДРР 7д</div>
+                        <div class="adv-kpi-tile-value">—</div>
                     </div>
                 </div>
-                <div id="ads-hq-kpis" class="grid grid-cols-3 gap-3"></div>
                 <div class="widget-card">
                     <div class="ads-hq-bulk">
                         <div class="ads-hq-filters">
@@ -5367,8 +5361,15 @@
                             <input type="datetime-local" id="ads-hq-start-at" class="ui-input ads-hq-start-at" step="60">
                         </label>
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-schedule-start">На время</button>
+                        <span id="ads-hq-freshness" class="ads-hq-status" aria-live="polite"></span>
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-pause">Пауза</button>
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-start">Запуск</button>
+                        <button type="button" class="rnp-tool-icon" id="ads-hq-reload" title="Обновить" aria-label="Обновить">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M21 12a9 9 0 1 1-2.2-5.8"></path>
+                                <path d="M21 3v6h-6"></path>
+                            </svg>
+                        </button>
                     </div>
                     <div id="ads-hq-schedule" class="ads-hq-schedule"></div>
                     <div id="ads-hq-phone" class="ads-hq-phone"></div>
@@ -6484,7 +6485,7 @@
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.f060ba3215.min.js"></script>
 <script src="/dist/wb-formulas.11317eb115.min.js"></script>
-<script src="/dist/ads-command-center.271f8cf390.min.js"></script>
+<script src="/dist/ads-command-center.6ed167daab.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -11091,6 +11092,13 @@
         _warehouseSalesLoadedForCabinet = null;
         ['adv-kpi-spend','adv-kpi-ctr','adv-kpi-cpc','adv-kpi-cpm','adv-kpi-cr','adv-kpi-orders','adv-kpi-revenue','adv-kpi-efficiency','adv-kpi-spend-share','adv-kpi-roas']
             .forEach(id => setText(id, '—'));
+        const adsHqOpen = document.getElementById('tab-advertising')?.classList.contains('active')
+            && !document.getElementById('adv-view-ads')?.classList.contains('hidden');
+        let adsReload = null;
+        if (window.AdsHQ && typeof window.AdsHQ.setCabinet === 'function') {
+            window.AdsHQ.setCabinet(newCabinetId);
+            if (adsHqOpen && typeof window.AdsHQ.load === 'function') adsReload = window.AdsHQ.load();
+        }
         const advTableEl = document.getElementById('adv-campaigns-table');
         if (advTableEl) advTableEl.innerHTML = 'Загрузка...';
         const advFreshEl = document.getElementById('adv-freshness');
@@ -11108,12 +11116,18 @@
         if (abListEl) abListEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div>';
 
         const rnpNow = getRnp();
-        if (rnpNow && !isBetaStubOpen()) {
+        if (rnpNow && !isBetaStubOpen() && !adsHqOpen) {
             rnpNow.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
             bootRnpTab(true);
         }
 
         showCabinetTransition(newCabinetName, async () => {
+            if (adsReload) {
+                await adsReload;
+                loadFromDB();
+                loadLastSyncTime();
+                return;
+            }
             await loadFromDB();
             await loadLastSyncTime();
             const rnpMod = getRnp();

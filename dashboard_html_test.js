@@ -1337,6 +1337,10 @@ assert.ok(html.includes('contain: layout style'),
         'ads KPI tiles must update the number in place');
     assert.ok(adsHqSrc.includes("morphList(tb, html.join(''), 'data-key')"),
         'ads HQ table must morph keyed rows instead of replacing tbody');
+    assert.ok(adsHqSrc.includes('function paintPending') && adsHqSrc.includes('cabinetRows()[0]'),
+        'RK KPIs follow the header cabinet, not the first row of a stale model');
+    assert.ok(!adsHqSrc.includes('подтягиваем полки из WB'),
+        'opening an empty cabinet must not block on a live WB sync');
 }
 assert.ok(rnpSrc.includes('function _fillRnpChrome') && rnpSrc.includes('nr-rnp-lock') && rnpSrc.includes('function _rnpIdbPut'),
     'F5 chrome stays put and the full sheet is also stored in IndexedDB');
@@ -1418,8 +1422,12 @@ assert.ok(html.includes('data-adv-view="autobidder"') && html.includes('id="adv-
     'advertising detail must have an Автобиддер tab');
 assert.ok(html.includes('id="adv-view-ads"') && html.includes('id="ads-hq-tbody"') && html.includes('Активные полки'),
     'РК opens on the shelves list, not cabinet cards');
-assert.ok(html.includes('ads-hq-title') && html.includes('id="ads-hq-phone"') && html.includes('ads-hq-table-wrap') && html.includes('>Полка<'),
-    'ads HQ shows shelves title, phone cards and a campaign table');
+assert.ok(!html.includes('Активные полки кабинета из шапки') && !html.includes('ads-hq-title'),
+    'RK does not repeat the page title above the KPI tiles');
+assert.ok(html.includes('id="ads-hq-reload"') && html.includes('id="ads-hq-phone"') && html.includes('ads-hq-table-wrap') && html.includes('>Полка<'),
+    'ads HQ shows phone cards, a campaign table and a reload control');
+assert.ok(html.includes('let adsReload = null') && html.includes('await adsReload') && html.includes('window.AdsHQ.load()'),
+    'switching cabinet on RK must reload shelves immediately, not after the dashboard RPC');
 assert.ok(html.includes('data-camp-filter="active"') && html.includes('data-camp-filter="all"') && html.includes('ads-hq-advanced'),
     'ads HQ defaults to active shelves and hides autobidder in details');
 assert.ok(html.includes('syncFromWb') && html.includes('syncAdvertisingNow({ silent: true })'),

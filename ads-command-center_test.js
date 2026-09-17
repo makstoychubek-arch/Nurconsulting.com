@@ -174,6 +174,7 @@ global.document = {
     assert.doesNotMatch(els['ads-hq-tbody'].innerHTML, /Baza/);
     assert.match(els['ads-hq-phone'].innerHTML, /Пиджак/);
     assert.match(els['ads-hq-kpis'].innerHTML, /Активные полки/);
+    assert.match(els['ads-hq-kpis'].innerHTML, />1</);
     assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /Сэкономлено/);
     assert.equal(synced, 0);
 
@@ -196,13 +197,17 @@ global.document = {
     assert.match(els['ads-hq-phone'].innerHTML, /ads-hq-check/);
 
     AdsHQ.setCabinet('cab-empty');
+    assert.match(els['ads-hq-kpis'].innerHTML, /—/, 'stale active count must clear as soon as the cabinet changes');
+    assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, />1</);
+    assert.match(els['ads-hq-tbody'].innerHTML, /Загрузка полок/);
     rowsByTable.cabinets = [{ id: 'cab-empty', name: 'Zevina' }];
     rowsByTable.advertising_campaigns = [];
     rowsByTable.advertising_daily_stats = [];
     await AdsHQ.load();
-    assert.equal(synced, 1);
+    assert.equal(synced, 0, 'empty cabinet reads the DB only; WB sync is a button');
     assert.match(els['ads-hq-tbody'].innerHTML, /Подтянуть из WB/);
     assert.match(els['ads-hq-phone'].innerHTML, /Подтянуть из WB/);
+    assert.match(els['ads-hq-kpis'].innerHTML, />0</);
 
     console.log('ads-command-center_test: ok');
 })().catch((err) => {
