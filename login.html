@@ -461,9 +461,14 @@
                     return;
                 }
 
-                if (space?.status !== 'active') {
-                    const code = space?.status === 'blocked' ? 'blocked' : 'access_denied';
-                    await denyLoginAccess(code);
+                if (space?.status === 'blocked') {
+                    await denyLoginAccess('blocked');
+                    return;
+                }
+                // pending — новый клиент: пускаем на /space, там экран с полем токена WB.
+                // Иначе человек после Google так и остаётся на «заявка отправлена».
+                if (space && space.status !== 'active' && space.status !== 'pending') {
+                    await denyLoginAccess('access_denied');
                     return;
                 }
             }

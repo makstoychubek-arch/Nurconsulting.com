@@ -1385,8 +1385,23 @@ assert.ok(
 assert.ok(
     fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8')
         .includes('Заявка на вход отправлена администратору'),
-    'pending users must see that the admin got their login request'
+    'access_denied screen still explains the wait if the gate rejects'
 );
+{
+    const loginSrc = fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8');
+    assert.ok(
+        loginSrc.includes("space?.status === 'blocked'") &&
+        loginSrc.includes("space.status !== 'pending'") &&
+        !loginSrc.includes("if (space?.status !== 'active')"),
+        'pending Google login must reach /space onboarding, not access_denied'
+    );
+    assert.ok(
+        html.includes('function submitOnboarding') &&
+        html.includes("onboardingMode = true") &&
+        html.includes('id="onb-token"'),
+        'dashboard has the new-client token screen'
+    );
+}
 
 assert.ok(html.includes('data-adv-view="autobidder"') && html.includes('id="adv-subtab-autobidder"'),
     'advertising detail must have an Автобиддер tab');
