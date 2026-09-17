@@ -343,6 +343,21 @@ h1, h2, h3, h4, .module-title, .nr-brand-space, .oauth-space, .login-title {
     color: var(--ink-dim);
 }
 .vp-foot-bar a:hover { color: var(--ink); }
+.vp-foot-inner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px 24px;
+}
+.vp-foot-bar nav {
+    display: none;
+    align-items: center;
+    gap: 20px;
+}
+@media (min-width: 768px) {
+    .vp-foot-bar nav { display: flex; }
+}
 
 /* Bottom tabs — vibeprompts /nav/nav-bottom-tab-bar */
 .vp-tabbar {
