@@ -243,10 +243,14 @@ h1, h2, h3, h4, .module-title, .nr-brand-space, .oauth-space, .login-title {
     font-size: 14px;
     font-weight: 600;
     min-height: 36px;
-    display: inline-flex;
     align-items: center;
 }
 .vp-pill-cta:hover { background: #000; color: var(--accent-ink); }
+
+@media (max-width: 639px) {
+    .site-header .site-login-chip,
+    .site-header .vp-pill-cta { display: none !important; }
+}
 
 /* Auth password field — vibeprompts /auth/auth-centered-card-sign-up */
 .vp-input,
@@ -352,10 +356,12 @@ h1, h2, h3, h4, .module-title, .nr-brand-space, .oauth-space, .login-title {
     flex-direction: column;
     align-items: center;
     gap: 4px;
-    padding: 8px 0;
+    padding: 8px 4px;
     color: var(--ink-faint);
     font-size: 10px;
     font-weight: 600;
+    flex: 1;
+    min-width: 0;
 }
 .vp-tab.is-on { color: var(--ink); }
 .vp-tab-dot {
