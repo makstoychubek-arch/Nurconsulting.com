@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
         return json({ error: 'Публикация через API только для Instagram' }, 400);
     }
     if (!post.approved_at) {
-        return json({ error: 'Сначала подтвердите пост в очереди (кнопка «Ок»)' }, 400);
+        return json({ error: 'Сначала подтвердите пост в очереди (кнопка «Подтверждено»)' }, 400);
     }
 
     const { data: acc } = await admin.from('content_ig_accounts')

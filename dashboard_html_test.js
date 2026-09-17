@@ -2192,6 +2192,7 @@ assert.ok(
     const cf = fs.readFileSync(path.join(__dirname, 'content-factory.js'), 'utf8');
     const mig = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260917200000_content_factory.sql'), 'utf8');
     const igPub = fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/content-ig-publish.ts'), 'utf8');
+    const igFn = fs.readFileSync(path.join(__dirname, 'supabase/functions/content-ig-publish/index.ts'), 'utf8');
     const tick = fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/content-publish-tick.ts'), 'utf8');
     assert.ok(html.includes('id="tab-content-factory"') && html.includes('id="cf-root"') && html.includes("data-tab=\"content-factory\""),
         'Контент-завод is a live tab with a root mount');
@@ -2201,10 +2202,12 @@ assert.ok(
         'Контент-завод is on the rail, not duplicated in BETA');
     assert.ok(cf.includes("from('rnp_articles')") && cf.includes("callWb('content_cards'"),
         'calendar pulls articles from rnp_articles and photos/price via existing content_cards');
-    assert.ok(cf.includes('pickCardByNmId') && cf.includes(".eq('nm_id', id)") && !cf.includes('cards.map(parseWbCard)[0]'),
+    assert.ok(cf.includes('pickCardByNmId') && cf.includes(".eq('nm_id', id)") && cf.includes('photosForNmId') && cf.includes('nmIds: [nm]') && !cf.includes('cards.map(parseWbCard)[0]'),
         'photos bind to exact nmId, never the first similar WB card');
-    assert.ok(!cf.includes('data-cf="publish-now"') && cf.includes('data-cf="approve-post"') && cf.includes('Очередь'),
+    assert.ok(!cf.includes('data-cf="publish-now"') && cf.includes('data-cf="approve-post"') && cf.includes('Очередь') && cf.includes('Подтверждено') && cf.includes('Возврат в черновик'),
         'Instagram goes only through the confirmation queue after slide preview');
+    assert.ok(cf.includes('Фото совпадает с товаром') && cf.includes('без похожих') && !cf.includes('Артикул в РНП'),
+        'UI follows nmId-only bind and the confirmation flowchart');
     assert.ok(mig.includes("'review'") && mig.includes('approved_at'),
         'posts need review/approval before cron or Graph publish');
     assert.ok(mig.includes('create table if not exists public.content_posts') &&
@@ -2218,6 +2221,8 @@ assert.ok(
         'schema covers calendar, bloggers, payouts, vault token slot and cron');
     assert.ok(igPub.includes("media_type: 'CAROUSEL'") && igPub.includes('is_carousel_item') && igPub.includes('media_publish'),
         'Instagram publish is container → carousel → publish');
+    assert.ok(igFn.includes('approved_at') && igFn.includes('Подтверждено'),
+        'Graph publish rejects posts without queue confirmation');
     assert.ok(tick.includes("if (deps.dryRun)") && tick.includes("action: 'would_publish'"),
         'scheduler dry_run does not publish to Instagram');
     assert.ok(

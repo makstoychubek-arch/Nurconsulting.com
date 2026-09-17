@@ -507,6 +507,36 @@
         .cf-bar-row { display: grid; grid-template-columns: 90px 1fr auto; gap: 8px; align-items: center; margin: 6px 0; font-size: 13px; color: var(--text-secondary); }
         .cf-bar { background: var(--bg); border-radius: 999px; height: 8px; overflow: hidden; }
         .cf-bar i { display: block; height: 8px; background: var(--accent); }
+        .cf-st.st-review { background: rgba(251, 191, 36, 0.16); color: #d4a017; }
+        .cf-cal-post.st-review { background: rgba(251, 191, 36, 0.18); }
+        .cf-check-q {
+            font-weight: 700; color: var(--text-primary); font-size: 15px; margin: 8px 0 4px;
+        }
+        .cf-pipe {
+            display: flex; flex-direction: column; align-items: center; gap: 0;
+            max-width: 420px; margin: 0 auto 18px; padding: 8px 0;
+        }
+        .cf-pipe-step {
+            width: 100%; text-align: center; border-radius: 16px; padding: 12px 16px;
+            color: #fff; font-size: 14px; font-weight: 700; line-height: 1.25;
+        }
+        .cf-pipe-step small { display: block; font-weight: 500; opacity: .88; font-size: 12px; margin-top: 3px; }
+        .cf-pipe-step.on { box-shadow: 0 0 0 2px var(--accent); }
+        .cf-pipe-step.nm { background: #1f3d38; }
+        .cf-pipe-step.wb { background: #1b4f4a; }
+        .cf-pipe-step.gen { background: #0f6b5c; }
+        .cf-pipe-step.draft { background: #9a6b16; }
+        .cf-pipe-step.check { background: #3e3e44; }
+        .cf-pipe-step.no { background: #a33b2c; }
+        .cf-pipe-step.yes { background: #2f7a38; }
+        .cf-pipe-step.ig { background: #1d4e9c; }
+        .cf-pipe-step.done { background: #5a5a60; }
+        .cf-pipe-line { width: 2px; height: 12px; background: rgba(255,255,255,.22); display: block; }
+        .cf-pipe-fork { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+        .cf-pipe-fork-lab {
+            display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 10px;
+            font-size: 11px; color: var(--text-muted); text-align: center; padding: 6px 0 4px;
+        }
         @media (max-width: 768px) {
             .cf-cal-day { min-height: 72px; }
             .cf-cal-post { font-size: 10px; }
@@ -6551,7 +6581,7 @@
 <script src="/dist/wb-formulas.11317eb115.min.js"></script>
 <script src="/dist/ads-command-center.8bf3853afa.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
-<script src="/dist/content-factory.a9025a95f2.min.js"></script>
+<script src="/dist/content-factory.eb737402af.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';

@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import {
+    bindExactArticlePhotos,
     collageCells,
     parseWbCard,
+    photosForNmId,
     pickCardPrice,
     pickComposition,
     planCarouselSlides,
@@ -64,5 +66,33 @@ const mixed = [
 assert.equal(pickCardByNmId(mixed, 247347214)?.photos[0], 'https://img/right.jpg');
 assert.equal(pickCardByNmId(mixed, 999), null);
 assert.equal(pickCardByNmId(mixed, '111')?.nmId, 111);
+
+assert.deepEqual(photosForNmId([
+    'https://basket-16.wbbasket.ru/vol1/part1/111111/images/big/1.webp',
+    'https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/1.webp',
+], 247347214), [
+    'https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/1.webp',
+]);
+assert.deepEqual(photosForNmId(['https://x'], 0), []);
+
+const similarDropped = planCarouselSlides({
+    photos: [
+        'https://basket-16.wbbasket.ru/vol1/part1/111111/images/big/1.webp',
+        'https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/1.webp',
+    ],
+    extraPhotos: ['https://cdn/extra.jpg'],
+    nmId: 247347214,
+    title: 'нужный',
+});
+assert.equal(similarDropped[0].photos[0].includes('247347214'), true);
+assert.equal(similarDropped[0].photos.some((u) => u.includes('/111111/')), false);
+
+const exactBound = bindExactArticlePhotos({
+    nmId: 247347214,
+    cardPhotos: ['https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/1.webp'],
+    articlePhoto: 'https://basket-16.wbbasket.ru/vol1/part1/999999/images/big/1.webp',
+});
+assert.ok(exactBound.every((u) => u.includes('/247347214/')));
+assert.ok(exactBound.some((u) => u.endsWith('/2.webp')));
 
 console.log('content-carousel_test: ok');

@@ -49,11 +49,14 @@ Deno.serve(async (req) => {
         if (!owned) return json({ error: 'no cabinet access' }, 403);
     }
 
+    const nmId = Number(body.nm_id);
+    if (!nmId) return json({ error: 'нужен точный числовой nm_id, без поиска по названию' }, 400);
+
     const input: CarouselInput = {
         photos: Array.isArray(body.photos) ? body.photos.map(String) : [],
         extraPhotos: Array.isArray(body.extra_photos) ? body.extra_photos.map(String) : [],
         title: String(body.title || ''),
-        nmId: body.nm_id as number,
+        nmId,
         composition: String(body.composition || ''),
         brand: String(body.brand || ''),
         price: body.price as number,

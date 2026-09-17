@@ -48,6 +48,50 @@ assert.equal(CF.pickCardByNmId([
 ], 2).photos[0], 'https://b');
 assert.equal(CF.pickCardByNmId([{ nmID: 1, photos: [{ big: 'https://a' }] }], 99), null);
 
+assert.equal(CF.nmIdFromPhotoUrl('https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/1.webp'), 247347214);
+assert.equal(CF.photoUrlFitsNmId('https://basket-16.wbbasket.ru/vol1/part1/111111/images/big/1.webp', 247347214), false);
+assert.deepEqual(CF.photosForNmId([
+    'https://basket-16.wbbasket.ru/vol1/part1/111111/images/big/1.webp',
+    'https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/1.webp',
+    'https://cdn/extra.jpg',
+], 247347214), [
+    'https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/1.webp',
+    'https://cdn/extra.jpg',
+]);
+assert.deepEqual(CF.photosForNmId(['https://x'], 0), []);
+
+const mixedCard = CF.parseWbCard({
+    nmID: 247347214,
+    photos: [
+        { big: 'https://basket-16.wbbasket.ru/vol1/part1/111111/images/big/1.webp' },
+        { big: 'https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/1.webp' },
+    ],
+});
+assert.deepEqual(mixedCard.photos, [
+    'https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/1.webp',
+]);
+
+const bound = CF.bindExactArticlePhotos({
+    nmId: 247347214,
+    cardPhotos: [
+        'https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/1.webp',
+        'https://basket-16.wbbasket.ru/vol1/part1/111111/images/big/1.webp',
+    ],
+    articlePhoto: 'https://cdn/local.jpg',
+    gallery: ['https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/3.webp'],
+});
+assert.ok(bound.every((u) => !u.includes('/111111/')));
+assert.ok(bound[0].includes('247347214'));
+assert.ok(bound.some((u) => u.endsWith('/2.webp')), 'same-nmId basket slots fill the collage');
+assert.deepEqual(CF.galleryUrlsFromManual({
+    cached_gallery_urls: {
+        2: 'https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/2.webp',
+        1: 'https://basket-16.wbbasket.ru/vol1/part1/111111/images/big/1.webp',
+    },
+}, 247347214), [
+    'https://basket-16.wbbasket.ru/vol2473/part247347/247347214/images/big/2.webp',
+]);
+
 const grouped = CF.groupPostsByDay(posts, 2026, 8);
 assert.equal((grouped['2026-09-10'] || []).length, 1);
 assert.equal((grouped['2026-09-11'] || []).length, 1);

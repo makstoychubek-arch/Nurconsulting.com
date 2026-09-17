@@ -44,6 +44,76 @@ export function uniqUrls(urls: unknown): string[] {
     return out;
 }
 
+/** nmId из CDN-пути WB (`…/247347214/images/big/1.webp`). Иначе 0. */
+export function nmIdFromPhotoUrl(url: unknown): number {
+    const m = String(url || '').match(/\/(\d{6,})\/images\//);
+    return m ? Number(m[1]) : 0;
+}
+
+export function photoUrlFitsNmId(url: unknown, nmId: unknown): boolean {
+    const id = Number(nmId);
+    if (!id) return false;
+    const inUrl = nmIdFromPhotoUrl(url);
+    if (inUrl) return inUrl === id;
+    return true;
+}
+
+/** Только URL этого nmId. Чужие WB-карточки («похожие») отбрасываем. */
+export function photosForNmId(urls: unknown, nmId: unknown): string[] {
+    const id = Number(nmId);
+    if (!id) return [];
+    return uniqUrls(urls).filter((u) => photoUrlFitsNmId(u, id));
+}
+
+export function wbBasketHostFromUrl(url: unknown): number {
+    const m = String(url || '').match(/basket-(\d+)\.wbbasket\.ru/i);
+    return m ? Number(m[1]) : 0;
+}
+
+export function wbBasketSlotUrl(host: number, nmId: number, slot: number): string {
+    const vol = Math.floor(nmId / 100000);
+    const part = Math.floor(nmId / 1000);
+    const bStr = String(host).padStart(2, '0');
+    return `https://basket-${bStr}.wbbasket.ru/vol${vol}/part${part}/${nmId}/images/big/${slot}.webp`;
+}
+
+export function galleryUrlsFromManual(manual: unknown, nmId: unknown): string[] {
+    const id = Number(nmId);
+    if (!id || !manual || typeof manual !== 'object') return [];
+    const gal = (manual as Record<string, unknown>).cached_gallery_urls;
+    if (!gal || typeof gal !== 'object' || Array.isArray(gal)) return [];
+    const rec = gal as Record<string, unknown>;
+    const urls = Object.keys(rec)
+        .sort((a, b) => Number(a) - Number(b))
+        .map((k) => String(rec[k] || ''));
+    return photosForNmId(urls, id);
+}
+
+/** Фото только этого nmId: карточка WB + photo_url + галерея РНП + слоты того же basket. */
+export function bindExactArticlePhotos(input: {
+    nmId: unknown;
+    cardPhotos?: unknown;
+    articlePhoto?: unknown;
+    gallery?: unknown;
+    slots?: number;
+}): string[] {
+    const id = Number(input.nmId);
+    if (!id) return [];
+    const raw = [
+        ...(Array.isArray(input.cardPhotos) ? input.cardPhotos : []),
+        input.articlePhoto,
+        ...(Array.isArray(input.gallery) ? input.gallery : []),
+    ];
+    const bound = photosForNmId(raw, id);
+    const slots = input.slots == null ? 5 : input.slots;
+    if (bound.length >= slots) return bound;
+    const host = bound.map(wbBasketHostFromUrl).find((h) => h > 0) || 0;
+    if (!host) return bound;
+    const extra: string[] = [];
+    for (let s = 1; s <= slots; s++) extra.push(wbBasketSlotUrl(host, id, s));
+    return uniqUrls([...bound, ...extra]);
+}
+
 export function collageCells(gap = 28): CollageCell[] {
     const cellW = (SLIDE_W - gap * 3) / 2;
     const cellH = (SLIDE_H - gap * 3) / 2;
@@ -62,12 +132,15 @@ function nPrice(v: unknown): number | null {
 }
 
 export function planCarouselSlides(input: CarouselInput): SlidePlan[] {
-    const photos = uniqUrls([...(input.photos || []), ...(input.extraPhotos || [])]);
+    const nmId = Number(input.nmId) || 0;
+    const photos = uniqUrls([
+        ...photosForNmId(input.photos || [], nmId),
+        ...photosForNmId(input.extraPhotos || [], nmId),
+    ]);
     const cover = photos[0] || '';
     const details = photos.slice(1, 5);
     while (details.length < 4 && cover) details.push(cover);
     const title = String(input.title || '').trim();
-    const nmId = Number(input.nmId) || 0;
     const composition = String(input.composition || '').trim();
     const brand = String(input.brand || '').trim() || 'NR';
     const price = nPrice(input.price);
@@ -127,7 +200,7 @@ export function parseWbCard(card: Record<string, unknown> | null | undefined): {
     const nmId = Number(c.nmID ?? c.nmId ?? c.nm_id ?? 0) || 0;
     const title = String(c.title ?? c.imtName ?? c.vendorCode ?? (nmId ? `Артикул ${nmId}` : '')).trim();
     const rawPhotos = Array.isArray(c.photos) ? c.photos : [];
-    const photos = uniqUrls(rawPhotos.map((p) => {
+    const photosRaw = uniqUrls(rawPhotos.map((p) => {
         if (typeof p === 'string') return p;
         if (p && typeof p === 'object') {
             const o = p as Record<string, unknown>;
@@ -135,6 +208,7 @@ export function parseWbCard(card: Record<string, unknown> | null | undefined): {
         }
         return '';
     }));
+    const photos = nmId ? photosForNmId(photosRaw, nmId) : photosRaw;
     return {
         nmId,
         title,

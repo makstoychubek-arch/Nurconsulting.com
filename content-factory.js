@@ -1,6 +1,7 @@
 /**
  * Контент-завод: календарь публикаций, блогеры, карусель, Instagram, сводка.
- * Фото/цена/остатки — из rnp_articles + callWbProxy('content_cards'), без своей копии.
+ * Фото — только точный числовой nmId (без поиска по названию и без «похожих»).
+ * В Instagram — только после предпросмотра слайдов и кнопки «Подтверждено».
  */
 (function (root) {
     const PLATFORMS = [
@@ -59,7 +60,7 @@
     function uniqUrls(urls) {
         const out = [];
         const seen = new Set();
-        (urls || []).forEach((raw) => {
+        (Array.isArray(urls) ? urls : []).forEach((raw) => {
             let u = String(raw || '').trim();
             if (u.startsWith('//')) u = 'https:' + u;
             if (!u || seen.has(u)) return;
@@ -67,6 +68,57 @@
             out.push(u);
         });
         return out;
+    }
+    function nmIdFromPhotoUrl(url) {
+        const m = String(url || '').match(/\/(\d{6,})\/images\//);
+        return m ? Number(m[1]) : 0;
+    }
+    function photoUrlFitsNmId(url, nmId) {
+        const id = Number(nmId);
+        if (!id) return false;
+        const inUrl = nmIdFromPhotoUrl(url);
+        if (inUrl) return inUrl === id;
+        return true;
+    }
+    function photosForNmId(urls, nmId) {
+        const id = Number(nmId);
+        if (!id) return [];
+        return uniqUrls(urls).filter((u) => photoUrlFitsNmId(u, id));
+    }
+    function wbBasketHostFromUrl(url) {
+        const m = String(url || '').match(/basket-(\d+)\.wbbasket\.ru/i);
+        return m ? Number(m[1]) : 0;
+    }
+    function wbBasketSlotUrl(host, nmId, slot) {
+        const vol = Math.floor(nmId / 100000);
+        const part = Math.floor(nmId / 1000);
+        const bStr = String(host).padStart(2, '0');
+        return 'https://basket-' + bStr + '.wbbasket.ru/vol' + vol + '/part' + part + '/' + nmId + '/images/big/' + slot + '.webp';
+    }
+    function galleryUrlsFromManual(manual, nmId) {
+        const id = Number(nmId);
+        if (!id || !manual || typeof manual !== 'object') return [];
+        const gal = manual.cached_gallery_urls;
+        if (!gal || typeof gal !== 'object' || Array.isArray(gal)) return [];
+        const urls = Object.keys(gal).sort((a, b) => Number(a) - Number(b)).map((k) => String(gal[k] || ''));
+        return photosForNmId(urls, id);
+    }
+    function bindExactArticlePhotos(input) {
+        const id = Number(input && input.nmId);
+        if (!id) return [];
+        const raw = [].concat(
+            Array.isArray(input.cardPhotos) ? input.cardPhotos : [],
+            input.articlePhoto ? [input.articlePhoto] : [],
+            Array.isArray(input.gallery) ? input.gallery : [],
+        );
+        const bound = photosForNmId(raw, id);
+        const slots = input.slots == null ? 5 : input.slots;
+        if (bound.length >= slots) return bound;
+        const host = bound.map(wbBasketHostFromUrl).find((h) => h > 0) || 0;
+        if (!host) return bound;
+        const extra = [];
+        for (let s = 1; s <= slots; s++) extra.push(wbBasketSlotUrl(host, id, s));
+        return uniqUrls(bound.concat(extra));
     }
     function pickComposition(card) {
         if (!card) return '';
@@ -100,11 +152,12 @@
         const c = card || {};
         const nmId = Number(c.nmID ?? c.nmId ?? c.nm_id ?? 0) || 0;
         const photosRaw = Array.isArray(c.photos) ? c.photos : [];
-        const photos = uniqUrls(photosRaw.map((p) => {
+        const photosMapped = uniqUrls(photosRaw.map((p) => {
             if (typeof p === 'string') return p;
             if (p && typeof p === 'object') return p.big || p.c516x688 || p.c246x328 || p.tm || '';
             return '';
         }));
+        const photos = nmId ? photosForNmId(photosMapped, nmId) : photosMapped;
         return {
             nmId,
             title: String(c.title ?? c.imtName ?? c.vendorCode ?? (nmId ? 'Артикул ' + nmId : '')).trim(),
@@ -126,7 +179,11 @@
         return null;
     }
     function planCarouselSlides(input) {
-        const photos = uniqUrls([].concat(input.photos || [], input.extraPhotos || []));
+        const nmExact = Number(input.nmId) || 0;
+        const photos = uniqUrls([].concat(
+            photosForNmId(input.photos || [], nmExact),
+            photosForNmId(input.extraPhotos || [], nmExact),
+        ));
         const cover = photos[0] || '';
         const details = photos.slice(1, 5);
         while (details.length < 4 && cover) details.push(cover);
@@ -327,27 +384,37 @@
         if (!nm) return null;
         let hit = null;
         if (callWb) {
-            const data = await callWb('content_cards', { limit: 10, textSearch: String(nm), withPhoto: 1 });
+            const data = await callWb('content_cards', {
+                limit: 100,
+                textSearch: String(nm),
+                withPhoto: 1,
+                nmIds: [nm],
+            });
             hit = pickCardByNmId((data && data.cards) || [], nm);
         }
-        if (!hit) {
-            hit = {
-                nmId: nm,
-                title: article.name || ('Артикул ' + nm),
-                photos: article.photo_url ? [article.photo_url] : [],
-                photo_url: article.photo_url || '',
-                price: null,
-                composition: '',
-                vendorCode: '',
-                brand: '',
-            };
-        }
-        hit.photo_url = (hit.photos && hit.photos[0]) || article.photo_url || '';
-        hit.localName = article.name;
-        hit.article_id = article.id;
-        hit.cost_price = article.cost_price;
-        state.card = hit;
-        return hit;
+        const gallery = galleryUrlsFromManual(article.manual_data, nm);
+        const photos = bindExactArticlePhotos({
+            nmId: nm,
+            cardPhotos: hit && hit.photos,
+            articlePhoto: article.photo_url,
+            gallery,
+        });
+        const bound = {
+            nmId: nm,
+            title: (hit && hit.title) || article.name || ('Артикул ' + nm),
+            photos,
+            photo_url: photos[0] || '',
+            price: hit ? hit.price : null,
+            composition: (hit && hit.composition) || '',
+            vendorCode: (hit && hit.vendorCode) || '',
+            brand: (hit && hit.brand) || '',
+            localName: article.name,
+            article_id: article.id,
+            cost_price: article.cost_price,
+            exact: true,
+        };
+        state.card = bound;
+        return bound;
     }
 
     async function findArticleByNmId(nmId) {
@@ -538,28 +605,25 @@
         }
         if (act === 'close-form') { state.form = null; paint(); return; }
         if (act === 'pick-article') {
-            if (!state.form) return;
-            state.form.article_id = id;
             const art = state.articleMap[id];
-            state.card = null;
-            paint();
-            if (art) {
-                const card = await pullArticleCard(art);
-                if (card && state.form) {
-                    if (!state.form.composition_text) state.form.composition_text = card.composition || '';
-                    if (!state.form.brand_name) state.form.brand_name = card.brand || '';
-                }
-                paint();
-            }
+            if (art) return handle('lookup-nm', art.nm_id, el);
             return;
         }
         if (act === 'lookup-nm') {
-            const raw = (document.getElementById('cf-f-nm') || document.getElementById('cf-car-nm') || {}).value;
+            const raw = id || (document.getElementById('cf-f-nm') || document.getElementById('cf-car-nm') || {}).value;
             const art = await findArticleByNmId(raw);
-            if (!art) throw new Error('Артикул ' + raw + ' не найден в этом кабинете');
-            if (state.form) state.form.article_id = art.id;
-            state.card = null;
-            await pullArticleCard(art);
+            if (!art) throw new Error('nmId ' + raw + ' нет в этом кабинете — ищем только точный номер, не похожие');
+            state.carouselUrls = [];
+            if (state.form) {
+                state.form.article_id = art.id;
+                state.form.slide_urls = [];
+                state.form.file_url = '';
+            }
+            const card = await pullArticleCard(art);
+            if (card && state.form) {
+                if (!state.form.composition_text) state.form.composition_text = card.composition || '';
+                if (!state.form.brand_name) state.form.brand_name = card.brand || '';
+            }
             paint();
             return;
         }
@@ -569,7 +633,7 @@
             await savePost(form);
             state.form = null;
             await reload();
-            toast('success', 'Сохранено', 'Пост в календаре. В Instagram — только из очереди после просмотра слайдов.');
+            toast('success', 'Сохранено', 'Черновик в календаре. В Instagram — только после предпросмотра и «Подтверждено».');
             return;
         }
         if (act === 'to-review') {
@@ -583,7 +647,7 @@
             state.form = null;
             state.view = 'review';
             await reload();
-            toast('info', 'Очередь', 'Пост ждёт подтверждения');
+            toast('info', 'Очередь', 'Пост ждёт «Подтверждено». Сам в Instagram не уйдёт.');
             return;
         }
         if (act === 'approve-post') {
@@ -667,40 +731,42 @@
         }
         if (act === 'carousel-article') {
             const art = state.articleMap[id];
-            state.card = null;
-            state.carouselUrls = [];
-            if (art) await pullArticleCard(art);
-            paint();
+            if (art) return handle('lookup-nm', art.nm_id, el);
             return;
         }
         if (act === 'gen-carousel') {
-            const artId = (document.getElementById('cf-car-art') || {}).value;
-            const art = state.articleMap[artId];
-            if (!art) throw new Error('Выберите артикул');
-            const card = state.card && state.card.article_id === art.id ? state.card : await pullArticleCard(art);
-            const composition = (document.getElementById('cf-car-comp') || {}).value || (card && card.composition) || '';
-            const brand = (document.getElementById('cf-car-brand') || {}).value || (card && card.brand) || '';
+            const raw = (document.getElementById('cf-car-nm') || {}).value;
+            const art = await findArticleByNmId(raw);
+            if (!art) throw new Error('Укажите точный nmId из этого кабинета — не название и не похожие');
+            const card = await pullArticleCard(art);
+            if (!card || !(card.photos && card.photos.length)) {
+                throw new Error('Нет фото nmId ' + art.nm_id + ' — похожие карточки не подставляем');
+            }
+            const composition = (document.getElementById('cf-car-comp') || {}).value || card.composition || '';
+            const brand = (document.getElementById('cf-car-brand') || {}).value || card.brand || '';
             const js = await callFn('content-carousel', {
-                photos: (card && card.photos) || (art.photo_url ? [art.photo_url] : []),
+                photos: card.photos,
                 extra_photos: state.extraPhotos,
-                title: (card && card.title) || art.name,
+                title: card.title || art.name,
                 nm_id: art.nm_id,
                 composition,
                 brand,
-                price: card && card.price,
-                vendor_code: card && card.vendorCode,
+                price: card.price,
+                vendor_code: card.vendorCode,
             });
             state.carouselUrls = js.urls || [];
+            if (!state.carouselUrls.length) throw new Error('Слайды не собрались — в очередь без предпросмотра нельзя');
             paint();
             return;
         }
         if (act === 'save-carousel-draft') {
-            const artId = (document.getElementById('cf-car-art') || {}).value;
-            if (!artId) throw new Error('Выберите артикул');
-            if (!state.carouselUrls.length) throw new Error('Сначала соберите слайды');
+            const raw = (document.getElementById('cf-car-nm') || {}).value;
+            const art = await findArticleByNmId(raw);
+            if (!art) throw new Error('Укажите точный nmId');
+            if (!state.carouselUrls.length) throw new Error('Сначала соберите и посмотрите все слайды');
             await savePost({
                 id: null,
-                article_id: artId,
+                article_id: art.id,
                 platform: 'instagram',
                 status: 'review',
                 blogger_id: '',
@@ -714,7 +780,7 @@
             }, { status: 'review' });
             state.view = 'review';
             await reload();
-            toast('info', 'Очередь', 'Карусель в очереди на подтверждение — Instagram не уйдёт, пока не нажмёте «Ок»');
+            toast('info', 'Очередь', 'Карусель ждёт глаз: «Подтверждено» — единственный путь в Instagram');
             return;
         }
         if (act === 'ig-store') {
@@ -796,7 +862,35 @@
     function navHtml() {
         return `<div class="cf-nav">${VIEWS.map((v) =>
             `<button type="button" class="cf-nav-btn${state.view === v.id ? ' on' : ''}" data-cf="view" data-id="${v.id}">${v.label}</button>`
-        ).join('')}</div>`;
+        ).join('')}</div>${nmDatalistHtml()}`;
+    }
+    function nmDatalistHtml() {
+        return `<datalist id="cf-nm-list">${state.articles.map((a) =>
+            `<option value="${escapeHtml(String(a.nm_id))}">${escapeHtml(a.name || ('nmId ' + a.nm_id))}</option>`
+        ).join('')}</datalist>`;
+    }
+    function pipelineHtml(active) {
+        const on = (id) => (active === id ? ' on' : '');
+        return `<div class="cf-pipe" aria-label="Схема публикации">
+            <div class="cf-pipe-step nm${on('nm')}">Артикул WB<small>Точный числовой nmId, без похожих</small></div>
+            <i class="cf-pipe-line"></i>
+            <div class="cf-pipe-step wb${on('wb')}">WB API<small>Фото, цена, состав этого nmId</small></div>
+            <i class="cf-pipe-line"></i>
+            <div class="cf-pipe-step gen${on('gen')}">Генератор карусели<small>Сборка слайдов по шаблону</small></div>
+            <i class="cf-pipe-line"></i>
+            <div class="cf-pipe-step draft${on('draft')}">Черновик на проверку<small>Обязательный предпросмотр</small></div>
+            <i class="cf-pipe-line"></i>
+            <div class="cf-pipe-step check${on('check')}">Ты/менеджер смотришь<small>Фото совпадает с товаром? Артикул верный?</small></div>
+            <div class="cf-pipe-fork-lab"><span>не ок</span><span>ок</span></div>
+            <div class="cf-pipe-fork">
+                <div class="cf-pipe-step no">Возврат в черновик<small>Исправить и пересобрать</small></div>
+                <div class="cf-pipe-step yes">Подтверждено<small>Готово к публикации</small></div>
+            </div>
+            <i class="cf-pipe-line"></i>
+            <div class="cf-pipe-step ig${on('ig')}">Instagram Graph API<small>Публикация карусели</small></div>
+            <i class="cf-pipe-line"></i>
+            <div class="cf-pipe-step done${on('done')}">Опубликовано в Instagram</div>
+        </div>`;
     }
 
     function filtersHtml() {
@@ -867,10 +961,8 @@
         </table></div>`;
     }
 
-    function articleOptions(selected) {
-        return [`<option value="">Артикул из РНП</option>`].concat(state.articles.map((a) =>
-            `<option value="${a.id}"${String(selected) === String(a.id) ? ' selected' : ''}>${escapeHtml(a.name || a.nm_id)} · ${a.nm_id}</option>`
-        )).join('');
+    function articleNmInput(id, value) {
+        return `<span class="cf-nm-row"><input id="${id}" list="cf-nm-list" type="text" inputmode="numeric" pattern="[0-9]*" placeholder="247347214" value="${escapeHtml(value || '')}" data-cf-change="lookup-nm" autocomplete="off"><button type="button" class="ui-btn ui-btn-secondary" data-cf="lookup-nm">Найти nmId</button></span>`;
     }
 
     function formHtml() {
@@ -878,23 +970,26 @@
         const card = state.card;
         const art = state.articleMap[f.article_id];
         const plat = PLATFORMS.map((p) => `<option value="${p.id}"${f.platform === p.id ? ' selected' : ''}>${p.label}</option>`).join('');
-        const st = STATUSES.map((s) => `<option value="${s.id}"${f.status === s.id ? ' selected' : ''}>${s.label}</option>`).join('');
         const blogs = [`<option value="">Без блогера</option>`].concat(state.bloggers.map((b) =>
             `<option value="${b.id}"${String(f.blogger_id) === String(b.id) ? ' selected' : ''}>${escapeHtml(b.name)}</option>`
         )).join('');
-        const photo = (card && (card.photo_url || card.photos[0])) || (art && art.photo_url) || '';
+        const photo = (card && (card.photo_url || (card.photos && card.photos[0]))) || (art && art.photo_url) || '';
         const price = card && card.price != null ? Math.round(card.price).toLocaleString('ru-RU') + ' ₽' : '—';
+        const slides = (Array.isArray(f.slide_urls) ? f.slide_urls : []).filter(Boolean);
+        const readySlides = (state.carouselUrls && state.carouselUrls.length) ? state.carouselUrls : slides;
+        const stLabel = statusLabel(f.status || 'draft');
         return `<div class="cf-form widget-card">
             <div class="cf-form-h">
                 <h3>${f.id ? 'Пост' : 'Новый пост'}</h3>
                 <button type="button" class="cf-link" data-cf="close-form">Закрыть</button>
             </div>
             ${f.error_text ? `<div class="cf-err">${escapeHtml(f.error_text)}</div>` : ''}
+            <p class="cf-muted">Фото только с точного nmId. Статус «опубликовано» отсюда не ставится — только очередь и «Подтверждено».</p>
+            <input type="hidden" id="cf-f-art" value="${escapeHtml(f.article_id || '')}">
+            <input type="hidden" id="cf-f-status" value="${escapeHtml(f.status === 'published' || f.status === 'scheduled' ? 'review' : (f.status || 'draft'))}">
             <div class="cf-form-grid">
-                <label>nmId (точный номер)<span class="cf-nm-row"><input id="cf-f-nm" type="number" inputmode="numeric" placeholder="247347214" value="${escapeHtml((art && art.nm_id) || (card && card.nmId) || '')}"><button type="button" class="ui-btn ui-btn-secondary" data-cf="lookup-nm">Найти</button></span></label>
-                <label>Артикул в РНП<select id="cf-f-art" data-cf-change="pick-article">${articleOptions(f.article_id)}</select></label>
+                <label>Точный nmId${articleNmInput('cf-f-nm', (art && art.nm_id) || (card && card.nmId) || '')}</label>
                 <label>Площадка<select id="cf-f-plat">${plat}</select></label>
-                <label>Статус<select id="cf-f-status">${st}</select></label>
                 <label>Блогер<select id="cf-f-blogger">${blogs}</select></label>
                 <label>Дата публикации<input id="cf-f-at" type="datetime-local" value="${escapeHtml(f.publish_at || '')}"></label>
                 <label>Ссылка на файл<input id="cf-f-file" value="${escapeHtml(f.file_url || '')}" placeholder="https://…"></label>
@@ -904,15 +999,16 @@
                 <label>Бренд<input id="cf-f-brand" value="${escapeHtml(f.brand_name || '')}"></label>
             </div>
             <div class="cf-card-preview">
-                ${photo ? `<img src="${escapeHtml(photo)}" alt="">` : '<div class="cf-ph">Фото из WB</div>'}
+                ${photo ? `<img src="${escapeHtml(photo)}" alt="">` : '<div class="cf-ph">Фото этого nmId</div>'}
                 <div>
-                    <div class="cf-card-name">${escapeHtml((card && card.title) || (art && art.name) || 'Выберите артикул — подтянем фото, название и цену из WB')}</div>
-                    <div class="cf-muted">${art ? 'nmId ' + art.nm_id : ''} · цена ${price}${art && art.cost_price ? ' · себест. ' + art.cost_price : ''}</div>
+                    <div class="cf-card-name">${escapeHtml((card && card.title) || (art && art.name) || 'Введите точный nmId')}</div>
+                    <div class="cf-muted">${art ? 'nmId ' + art.nm_id : ''} · ${escapeHtml(stLabel)} · цена ${price}${art && art.cost_price ? ' · себест. ' + art.cost_price : ''}</div>
                 </div>
             </div>
+            ${readySlides.length ? `<div class="cf-slides">${readySlides.map((u) => `<div class="cf-slide"><img src="${escapeHtml(u)}" alt=""></div>`).join('')}</div>` : '<p class="cf-muted">Предпросмотр слайдов обязателен: сначала соберите карусель.</p>'}
             <div class="cf-form-actions">
                 <button type="button" class="ui-btn ui-btn-primary" data-cf="save-post">Сохранить черновик</button>
-                <button type="button" class="ui-btn ui-btn-secondary" data-cf="to-review">В очередь на подтверждение</button>
+                <button type="button" class="ui-btn ui-btn-secondary" data-cf="to-review"${readySlides.length || f.file_url ? '' : ' disabled'}>В очередь на подтверждение</button>
                 ${f.id ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="delete-post">Удалить</button>' : ''}
             </div>
         </div>`;
@@ -925,23 +1021,25 @@
             const slides = (Array.isArray(p.slide_urls) ? p.slide_urls : []).filter(Boolean);
             const preview = slides.length
                 ? slides.map((u) => `<img src="${escapeHtml(u)}" alt="">`).join('')
-                : (art && art.photo_url ? `<img src="${escapeHtml(art.photo_url)}" alt="">` : '<div class="cf-muted">Нет слайдов</div>');
+                : (art && art.photo_url ? `<img src="${escapeHtml(art.photo_url)}" alt="">` : '<div class="cf-muted">Нет слайдов — подтверждать нечего</div>');
             return `<div class="widget-card cf-form">
                 <div class="cf-form-h">
-                    <h3>${escapeHtml((art && (art.name || art.nm_id)) || 'Пост')} · ${escapeHtml(platformLabel(p.platform))}</h3>
-                    <span class="cf-st st-draft">ждёт «Ок»</span>
+                    <h3>nmId ${escapeHtml((art && art.nm_id) || '—')} · ${escapeHtml(platformLabel(p.platform))}</h3>
+                    <span class="cf-st st-review">ждёт подтверждения</span>
                 </div>
-                <p class="cf-muted">nmId ${escapeHtml((art && art.nm_id) || '—')} · ${p.publish_at ? escapeHtml(new Date(p.publish_at).toLocaleString('ru-RU')) : 'сразу после подтверждения'}</p>
+                <p class="cf-muted">${escapeHtml((art && art.name) || '')} · ${p.publish_at ? escapeHtml(new Date(p.publish_at).toLocaleString('ru-RU')) : 'сразу после «Подтверждено»'}</p>
                 ${p.error_text ? `<div class="cf-err">${escapeHtml(p.error_text)}</div>` : ''}
+                <div class="cf-check-q">Фото совпадает с товаром? Артикул верный?</div>
                 <div class="cf-slides">${preview}</div>
                 <div class="cf-form-actions">
-                    <button type="button" class="ui-btn ui-btn-primary" data-cf="approve-post" data-id="${p.id}"${slides.length || p.file_url ? '' : ' disabled'}>Ок</button>
-                    <button type="button" class="ui-btn ui-btn-secondary" data-cf="reject-post" data-id="${p.id}">Вернуть в черновик</button>
+                    <button type="button" class="ui-btn ui-btn-secondary" data-cf="reject-post" data-id="${p.id}">Возврат в черновик</button>
+                    <button type="button" class="ui-btn ui-btn-primary" data-cf="approve-post" data-id="${p.id}"${slides.length || p.file_url ? '' : ' disabled'}>Подтверждено</button>
                     <button type="button" class="cf-link" data-cf="edit-post" data-id="${p.id}">Открыть</button>
                 </div>
             </div>`;
         }).join('');
-        return `<p class="cf-muted">Пока генератор проверяете глазами: ничего само в Instagram не уходит. «Ок» — единственный путь публикации.</p>
+        return `${pipelineHtml('check')}
+        <p class="cf-muted">Не автопубликация: ничего само в Instagram не уходит. «Подтверждено» — единственный путь. «Возврат в черновик» — исправить и пересобрать.</p>
         ${cards || '<div class="cf-muted">Очередь пуста</div>'}`;
     }
 
@@ -998,7 +1096,6 @@
     }
 
     function carouselHtml() {
-        const artId = (state.card && state.card.article_id) || '';
         const card = state.card;
         const plans = planCarouselSlides({
             photos: (card && card.photos) || [],
@@ -1021,21 +1118,23 @@
                 <div class="cf-slide-k">${slideKindLabel(s.kind)}</div>
             </div>`;
         }).join('');
-        return `<div class="widget-card cf-form">
+        const hasPreview = state.carouselUrls.length > 0;
+        return `${pipelineHtml(hasPreview ? 'draft' : 'gen')}
+        <div class="widget-card cf-form">
             <h3>Генератор карусели 1080×1350</h3>
-            <p class="cf-muted">Обложка целиком → коллаж 2×2 → артикул и состав → закрывающий слайд бренда. Фото из WB API, плюс свои файлы.</p>
+            <p class="cf-muted">Жёсткая привязка к точному nmId: фото только этой карточки, без похожих по названию. Предпросмотр всех слайдов обязателен — кнопки «сразу опубликовать» нет.</p>
             <div class="cf-form-grid">
-                <label>Точный nmId<span class="cf-nm-row"><input id="cf-car-nm" type="number" inputmode="numeric" placeholder="247347214" value="${escapeHtml((card && card.nmId) || '')}"><button type="button" class="ui-btn ui-btn-secondary" data-cf="lookup-nm">Найти</button></span></label>
-                <label>Артикул в РНП<select id="cf-car-art" data-cf-change="carousel-article">${articleOptions(artId)}</select></label>
+                <label>Точный nmId${articleNmInput('cf-car-nm', (card && card.nmId) || '')}</label>
                 <label>Состав<input id="cf-car-comp" value="${escapeHtml((card && card.composition) || '')}"></label>
                 <label>Бренд<input id="cf-car-brand" value="${escapeHtml((card && card.brand) || '')}"></label>
                 <label>Подпись<input id="cf-car-cap" placeholder="Текст к посту"></label>
                 <label>Доп. фото<input id="cf-car-extra" type="file" accept="image/*" multiple></label>
             </div>
+            ${card ? `<p class="cf-muted">Карточка nmId ${escapeHtml(card.nmId)} · ${escapeHtml(card.title || '')} · фото ${card.photos.length}</p>` : '<p class="cf-muted">Введите числовой nmId — название не ищем.</p>'}
             <div class="cf-slides">${preview}</div>
             <div class="cf-form-actions">
-                <button type="button" class="ui-btn ui-btn-primary" data-cf="gen-carousel">Собрать PNG</button>
-                <button type="button" class="ui-btn ui-btn-secondary" data-cf="save-carousel-draft">В очередь на подтверждение</button>
+                <button type="button" class="ui-btn ui-btn-primary" data-cf="gen-carousel">Собрать PNG и посмотреть</button>
+                <button type="button" class="ui-btn ui-btn-secondary" data-cf="save-carousel-draft"${hasPreview ? '' : ' disabled'}>В очередь на подтверждение</button>
             </div>
         </div>`;
     }
@@ -1059,7 +1158,7 @@
                 <button type="button" class="ui-btn ui-btn-secondary" data-cf="ig-oauth"${ig.configured ? '' : ' disabled'}>OAuth Business</button>
                 ${ig.connected ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="ig-off">Отключить</button>' : ''}
             </div>
-            <p class="cf-muted">Карусель: контейнер на слайд → объединение → publish. В ленту только после «Ок» в очереди. Крон раз в 5 минут берёт уже подтверждённые слоты с датой. Ошибка пишет статус «ошибка» и текст. Тесты — dry_run, живой Graph не дергаем.</p>
+            <p class="cf-muted">Карусель: контейнер на слайд → объединение → publish. В ленту только после «Подтверждено» в очереди. Крон раз в 5 минут берёт уже подтверждённые слоты с датой. Ошибка пишет статус «ошибка» и текст. Тесты — dry_run, живой Graph не дергаем. Кнопки «сразу опубликовать» нет.</p>
         </div>`;
     }
 
@@ -1154,6 +1253,7 @@
     const ContentFactory = {
         PLATFORMS, STATUSES, SLIDE_W, SLIDE_H,
         computePayout, monthStart, ymd, parseWbCard, pickComposition, pickCardPrice, pickCardByNmId,
+        nmIdFromPhotoUrl, photoUrlFitsNmId, photosForNmId, bindExactArticlePhotos, galleryUrlsFromManual,
         planCarouselSlides, groupPostsByDay, calendarCells, viewsByPlatform, topPosts, filterPosts, uniqUrls,
         ensureReady, open, reload,
         _state: state,
