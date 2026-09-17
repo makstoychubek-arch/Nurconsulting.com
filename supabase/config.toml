@@ -2,5 +2,9 @@
 [functions.telegram-router]
 verify_jwt = false
 
+# Facebook редиректит на callback без JWT пользователя.
+[functions.content-ig-oauth]
+verify_jwt = false
+
 [functions.telegram-webhook]
 verify_jwt = false
