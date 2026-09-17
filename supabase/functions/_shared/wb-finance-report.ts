@@ -133,6 +133,14 @@ export type RawFinanceRow = {
     deduction: number;
     acceptance: number;
     currency_name: string | null;
+    // Нужны дашборду для реализации, эквайринга и компенсаций: без них
+    // соответствующие метрики считались нулями.
+    retail_price: number;
+    additional_payment: number;
+    acquiring_fee: number;
+    bonus_type_name: string | null;
+    subject_name: string | null;
+    brand_name: string | null;
     fetched_at: string;
 };
 
@@ -168,8 +176,19 @@ export function toRawFinanceRow(cabinetId: string, r: Record<string, unknown>): 
         deduction: parseMoney(pickField(r, 'deduction')),
         acceptance: parseMoney(pickField(r, 'paidAcceptance', 'acceptance')),
         currency_name: curr ? String(curr) : null,
+        retail_price: parseMoney(pickField(r, 'retailPrice', 'retail_price')),
+        additional_payment: parseMoney(pickField(r, 'additionalPayment', 'additional_payment')),
+        acquiring_fee: parseMoney(pickField(r, 'acquiringFee', 'acquiring_fee')),
+        bonus_type_name: textOrNull(pickField(r, 'bonusTypeName', 'bonus_type_name')),
+        subject_name: textOrNull(pickField(r, 'subjectName', 'subject_name')),
+        brand_name: textOrNull(pickField(r, 'brandName', 'brand_name')),
         fetched_at: new Date().toISOString(),
     };
+}
+
+function textOrNull(v: unknown): string | null {
+    const s = v == null ? '' : String(v).trim();
+    return s ? s.slice(0, 200) : null;
 }
 
 /** Старый snake_case для дашборда / wb-formulas.js. */
@@ -186,7 +205,7 @@ export function toLegacyFinanceRow(r: Record<string, unknown>): Record<string, u
         supplier_oper_name: mapped.supplier_oper_name,
         quantity: mapped.quantity,
         retail_amount: mapped.retail_amount,
-        retail_price: parseMoney(pickField(r, 'retailPrice', 'retail_price')),
+        retail_price: mapped.retail_price,
         retail_price_withdisc_rub: mapped.retail_price_withdisc_rub,
         ppvz_for_pay: mapped.ppvz_for_pay,
         delivery_rub: mapped.delivery_rub,
@@ -195,11 +214,11 @@ export function toLegacyFinanceRow(r: Record<string, unknown>): Record<string, u
         deduction: mapped.deduction,
         acceptance: mapped.acceptance,
         currency_name: mapped.currency_name,
-        additional_payment: parseMoney(pickField(r, 'additionalPayment', 'additional_payment')),
-        acquiring_fee: parseMoney(pickField(r, 'acquiringFee', 'acquiring_fee')),
-        bonus_type_name: pickField(r, 'bonusTypeName', 'bonus_type_name'),
-        subject_name: pickField(r, 'subjectName', 'subject_name'),
-        brand_name: pickField(r, 'brandName', 'brand_name'),
+        additional_payment: mapped.additional_payment,
+        acquiring_fee: mapped.acquiring_fee,
+        bonus_type_name: mapped.bonus_type_name,
+        subject_name: mapped.subject_name,
+        brand_name: mapped.brand_name,
     };
 }
 
@@ -249,7 +268,12 @@ export async function fetchSalesReportsDetailedPage(opts: FetchDetailedOpts): Pr
         return { status: res.status, rows: [], nextRrdId: '' };
     }
     if (!res.ok) {
-        throw new Error(`Финотчёт WB: HTTP ${res.status} ${text.slice(0, 200)}`);
+        // Статус нужен вызывающему: без него wb-proxy отдавал наверх 500 даже
+        // на отозванный токен, и клиент видел «ошибку сервера» вместо просьбы
+        // обновить токен.
+        const err = new Error(`Финотчёт WB: HTTP ${res.status} ${text.slice(0, 200)}`) as Error & { status?: number };
+        err.status = res.status;
+        throw err;
     }
     const rows = parseDetailedBody(text);
     const last = rows.length ? rows[rows.length - 1] : null;

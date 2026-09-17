@@ -24,6 +24,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { orderPriceWithDisc } from '../_shared/wb-order-price.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { applyKeepFunnelOrders, funnelDayMetricFields, moscowYmd, wbFunnelWindow } from '../_shared/wb-funnel-day.ts';
 
@@ -36,6 +37,9 @@ const WB_STATS = 'https://statistics-api.wildberries.ru';
 const WB_ANALYTICS = 'https://seller-analytics-api.wildberries.ru';
 const ORDERS_MIN_INTERVAL_MS = 61000;
 const lastOrderFetchAt = new Map<string, number>();
+
+// Сколько srid влезает в один GET-фильтр PostgREST, чтобы URL остался коротким.
+const SRID_QUERY_CHUNK = 80;
 
 const GROUPS: Record<string, { title: string; match: (name: string) => boolean }> = {
     zevina: { title: 'Zevina', match: (n) => /zevina|зевин|уркунбаев|ailin|айлин/i.test(n) },
@@ -321,7 +325,10 @@ async function writeOrderRows(
         nm_id: o.nmId,
         barcode: o.barcode,
         srid: o.srid || null,
-        price: o.priceWithDiscount || o.totalPrice || 0,
+        // priceWithDisc — цена со скидкой продавца, та же база, что «Продажи» в
+        // финотчёте. Поля priceWithDiscount у WB нет, и заказы падали в базу по
+        // totalPrice (до скидки) — отсюда завышенные суммы заказов.
+        price: orderPriceWithDisc(o),
         is_return: o.isReturn || false,
         data: o,
     }));
@@ -333,11 +340,12 @@ async function writeOrderRows(
     let keep = withSrid;
     if (srids.length) {
         const owned = new Set<string>();
-        for (let i = 0; i < srids.length; i += 500) {
+        // 500 srid в ?srid=in.(...) — это URL на 43 КБ, запрос обрывается.
+        for (let i = 0; i < srids.length; i += SRID_QUERY_CHUNK) {
             const { data, error } = await admin.from('wb_orders')
                 .select('srid, order_date')
                 .eq('cabinet_id', cabinetId)
-                .in('srid', srids.slice(i, i + 500));
+                .in('srid', srids.slice(i, i + SRID_QUERY_CHUNK));
             if (error) throw new Error(`srid-check(${dayStr}): ${error.message}`);
             for (const row of data || []) {
                 const od = String(row.order_date || '').split('T')[0];

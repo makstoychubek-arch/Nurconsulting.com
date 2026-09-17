@@ -4,6 +4,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTeamMember } from '../_shared/cabinet-access.ts';
+import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import {
     collectNmIds,
     extractBidsFromAdvert,
@@ -52,7 +53,7 @@ Deno.serve(async (req) => {
     const bearer = authHeader.replace('Bearer ', '');
 
     const admin = createClient(supabaseUrl, serviceKey);
-    const isServiceRole = bearer === serviceKey;
+    const isServiceRole = isServiceAuthorized(req, serviceKey);
     let userId: string | null = null;
     let isSuperAdmin = false;
 

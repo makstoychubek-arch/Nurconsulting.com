@@ -1652,9 +1652,9 @@ serve(async (req) => {
     } catch (err) {
         console.error('[wb-proxy] error:', err);
         let status = (err as { status?: number })?.status;
-        // Fallback: extract status from "WB API 429: ..." message
+        // Fallback: код из текста — "WB API 429: ..." или "…: HTTP 401 …".
         if (!status) {
-            const m = String(err).match(/WB API (\d{3})/);
+            const m = String(err).match(/WB API (\d{3})/) || String(err).match(/HTTP (\d{3})/);
             if (m) status = Number(m[1]);
         }
         const httpStatus = status && status >= 400 && status < 500 ? status : 500;

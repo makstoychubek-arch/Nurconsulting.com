@@ -5,6 +5,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTeamMember } from '../_shared/cabinet-access.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { orderPriceWithDisc } from '../_shared/wb-order-price.ts';
+import { extractMainPhotoUrl } from '../_shared/wb-main-photo.ts';
 import { applyKeepFunnelOrders, funnelDayMetricFields, wbFunnelWindow } from '../_shared/wb-funnel-day.ts';
 
 const CORS = {
@@ -29,10 +31,18 @@ const lastOrderFetchAt = new Map<string, number>();
 // функции и оставляет дыру между «последним бэкфилом» и «сегодня».
 const RECENT_DAYS_LOOKBACK = 2;
 
-// За прогон: 1 исторический день на кабинет (сначала дыра вперёд, потом старше).
-const BACKFILL_DAYS_PER_RUN = 1;
+// За прогон: сколько исторических дней на кабинет (сначала дыра вперёд, потом
+// старше). Цикл всё равно упирается в бюджет времени, поэтому запас безопасен:
+// при 1 дне за прогон дыра в два месяца затягивалась бы полторы недели.
+const BACKFILL_DAYS_PER_RUN = 8;
 
-const TIME_BUDGET_MS = 120000;
+// Функцию Supabase рубит по 150 с. Перед запросом заказов внутри может быть
+// пауза до 61 с (лимит WB), поэтому новый день нельзя начинать позже, чем за
+// эту паузу до конца: с бюджетом 120 с прогон падал в IDLE_TIMEOUT.
+const TIME_BUDGET_MS = 75000;
+
+// Сколько srid влезает в один GET-фильтр PostgREST, чтобы URL остался коротким.
+const SRID_QUERY_CHUNK = 80;
 
 type Admin = any;
 
@@ -180,7 +190,7 @@ Deno.serve(async (req) => {
     }
 
     for (const cab of work) {
-        if (mode !== 'full' && mode !== 'stocks') continue;
+        if (mode !== 'full' && mode !== 'stocks' && mode !== 'refresh') continue;
         try {
             cab.stocksCount = await syncStocks(admin, cab);
         } catch (e) {
@@ -189,14 +199,38 @@ Deno.serve(async (req) => {
         }
     }
 
-    if (mode === 'full' || mode === 'rnp') {
+    // mode = refresh — кнопка «Обновить» на дашборде: остатки и текущий день.
+    // Больше одного запроса заказов она себе позволить не может (WB держит
+    // лимит 1 запрос в минуту), а история и так догоняется по cron.
+    if (mode === 'refresh') {
+        const today = moscowYmd();
+        for (const cab of work) {
+            try {
+                cab.ordersCount += await syncRecentDay(admin, cab, today);
+            } catch (e) {
+                cab.errorMsg += `orders_${today}: ${(e as Error).message}; `;
+                cab.status = 'partial';
+            }
+            try {
+                cab.rnpDailyRows = await syncRnpDailyFromOrders(admin, cab.id);
+            } catch (e) {
+                cab.errorMsg += `rnp_daily: ${(e as Error).message}; `;
+                cab.status = 'partial';
+            }
+        }
+    }
+
+    // mode = history — только догон истории: весь бюджет времени уходит на
+    // прошлые дни, свежие два дня не трогаем. Нужно, чтобы залатать дыру,
+    // которую оставила старая кнопка «Обновить», не ожидая недели по 4-часовому cron.
+    if (mode === 'full' || mode === 'rnp' || mode === 'history') {
         const today = moscowYmd();
         const horizon = addDaysStr(today, -RECENT_DAYS_LOOKBACK);
 
         // Pass B: вчера + сегодня по календарю WB (Москва). Иначе утром в РНП
         // пустая колонка за вчера, а курсор backfill сидит в июле.
         const yesterday = addDaysStr(today, -1);
-        for (const dayStr of [yesterday, today]) {
+        for (const dayStr of mode === 'history' ? [] : [yesterday, today]) {
             for (const cab of work) {
                 try {
                     cab.ordersCount += await syncRecentDay(admin, cab, dayStr);
@@ -212,10 +246,12 @@ Deno.serve(async (req) => {
         // потом старше DATE_FROM.
         for (let i = 0; i < BACKFILL_DAYS_PER_RUN; i++) {
             for (const cab of work) {
+                // Догон истории по расписанию: остаток дней уходит в следующий
+                // прогон. Это не сбой синхронизации, поэтому статус не портим —
+                // иначе в журнале каждый успешный прогон помечен как partial.
                 if (Date.now() - started > TIME_BUDGET_MS) {
                     if (!cab.errorMsg.includes('orders_backfill: deferred')) {
                         cab.errorMsg += 'orders_backfill: deferred; ';
-                        cab.status = 'partial';
                     }
                     continue;
                 }
@@ -235,6 +271,7 @@ Deno.serve(async (req) => {
                 cab.errorMsg += `rnp_daily: ${(e as Error).message}; `;
                 cab.status = 'partial';
             }
+            if (mode === 'history') continue;
             try {
                 cab.funnelDays = await syncFunnelLast7Days(admin, cab.id, cab.token);
             } catch (e) {
@@ -382,11 +419,14 @@ async function writeOrderRows(
         const srids = withSrid.map((r) => r.srid).filter(Boolean);
         if (srids.length) {
             const owned = new Set<string>();
-            for (let i = 0; i < srids.length; i += 500) {
+            // srid — строка на ~50 символов, и 500 штук в ?srid=in.(...) давали
+            // URL на 43 КБ: запрос обрывался («error sending request»), и у
+            // кабинета с 250 заказами в день история не догонялась вообще.
+            for (let i = 0; i < srids.length; i += SRID_QUERY_CHUNK) {
                 const { data, error } = await admin.from('wb_orders')
                     .select('srid, order_date')
                     .eq('cabinet_id', cabinetId)
-                    .in('srid', srids.slice(i, i + 500));
+                    .in('srid', srids.slice(i, i + SRID_QUERY_CHUNK));
                 if (error) throw new Error(`srid-check(${dayStr}): ${error.message}`);
                 for (const row of data || []) {
                     const od = String(row.order_date || '').split('T')[0];
@@ -892,20 +932,34 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
     }
     if (!cards.length) return 0;
 
-    const { data: existing } = await admin.from('rnp_articles').select('nm_id,is_active').eq('cabinet_id', cabinetId);
+    const { data: existing } = await admin.from('rnp_articles')
+        .select('nm_id,is_active,photo_url').eq('cabinet_id', cabinetId);
     const known = new Set((existing || []).map((r: { nm_id: number }) => Number(r.nm_id)));
+    const needPhoto = new Set(
+        (existing || [])
+            .filter((r: { photo_url: string | null }) => !String(r.photo_url || '').trim())
+            .map((r: { nm_id: number }) => Number(r.nm_id)),
+    );
     const toInsert = [];
+    // Ссылку на фото берём из карточки WB. Собирать её из nm_id нельзя:
+    // basket-хост нумеруется таблицей, которая у WB меняется, и для новых
+    // артикулов формула давала несуществующий хост — в РНП пустая картинка.
+    const photoUpdates: Array<{ nmId: number; url: string }> = [];
     for (const card of cards) {
         const nmId = Number(card.nmID || card.nmId);
         if (!nmId) continue;
-        if (known.has(nmId)) continue;
+        const photo = extractMainPhotoUrl(card as Record<string, unknown>);
+        if (known.has(nmId)) {
+            if (photo && needPhoto.has(nmId)) photoUpdates.push({ nmId, url: photo });
+            continue;
+        }
         const sa = String(card.vendorCode || card.vendor_code || card.supplierVendorCode || '').trim();
         const name = sa || String(card.title || card.object || `Артикул ${nmId}`).trim();
         toInsert.push({
             cabinet_id: cabinetId,
             nm_id: nmId,
             name,
-            photo_url: '',
+            photo_url: photo,
             is_active: true,
             cost_price: 0,
             manual_data: sa ? { seller_article: sa } : {},
@@ -917,6 +971,11 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
             ignoreDuplicates: true,
         });
     }
+    for (const upd of photoUpdates.slice(0, 400)) {
+        await admin.from('rnp_articles').update({ photo_url: upd.url })
+            .eq('cabinet_id', cabinetId).eq('nm_id', upd.nmId);
+    }
+    if (photoUpdates.length) console.log('[auto-sync] photo_url заполнен:', photoUpdates.length);
     return toInsert.length;
 }
 
@@ -933,7 +992,11 @@ function toOrderRow(cabinetId: string, dayStr: string, o: Record<string, unknown
         nm_id: o.nmId,
         barcode: o.barcode,
         srid: o.srid || null,
-        price: o.priceWithDiscount || o.totalPrice || 0,
+        // WB отдаёт priceWithDisc (цена со скидкой продавца — как в финотчёте),
+        // totalPrice (до скидки) и finishedPrice (с СПП, что платит покупатель).
+        // Поля priceWithDiscount у WB нет: заказы годами считались по totalPrice
+        // и были завышены в 1.5-3 раза относительно продаж из отчёта.
+        price: orderPriceWithDisc(o),
         is_return: o.isReturn || false,
         data: o,
     };

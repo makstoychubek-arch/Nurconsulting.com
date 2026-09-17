@@ -282,6 +282,13 @@
             background: transparent; color: var(--text-primary);
         }
         .rail-btn.active .rail-btn-ico svg { opacity: 1; }
+        /* Внутренние разделы (боты команды, ватсап, мозг агентов) клиенту не
+           нужны и не читаются его правами. Скрыто по умолчанию: data-staff="1"
+           ставится либо из кеша прошлой сессии в <head>, либо после ответа
+           is_staff(), поэтому клиент кнопку не видит даже на миг. Правило через
+           :not() работает и для копии списка в мобильном шите — она клонирует
+           разметку как есть. */
+        html:not([data-staff="1"]) [data-staff-only] { display: none !important; }
         .rail-bottom {
             display: flex; flex-direction: column; align-items: stretch;
             gap: 4px; padding: 4px 2px 0; width: 100%;
@@ -3600,6 +3607,103 @@
             transition: transform 0.15s ease, box-shadow 0.15s ease;
         }
         .space-empty-btn:hover { transform: none; box-shadow: none; background: #222; }
+        .space-empty-btn[disabled] { opacity: 0.6; cursor: default; }
+        /* Честная плашка вместо оценочных цифр, когда финотчёт WB недоступен. */
+        .dash-finance-note {
+            display: none;
+            padding: 10px 14px;
+            border-radius: 12px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+        .dash-finance-note.show { display: block; }
+        /* Онбординг: поле токена и инструкция прямо на экране приветствия,
+           чтобы новому клиенту не приходилось искать, куда вставить API. */
+        .onb-card { max-width: 560px; text-align: left; padding: 36px 32px; }
+        .onb-card .space-empty-icon, .onb-card .space-empty-title { margin-left: 0; margin-right: 0; }
+        .onb-card .space-empty-title, .onb-card .space-empty-sub { text-align: left; }
+        .onb-card .space-empty-sub { margin-bottom: 20px; }
+        .onb-steps {
+            margin: 0 0 22px;
+            padding: 16px 18px;
+            border-radius: 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            counter-reset: onb;
+        }
+        .onb-steps li {
+            list-style: none;
+            position: relative;
+            padding-left: 30px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+        .onb-steps li + li { margin-top: 10px; }
+        .onb-steps li::before {
+            counter-increment: onb;
+            content: counter(onb);
+            position: absolute;
+            left: 0;
+            top: 1px;
+            width: 20px;
+            height: 20px;
+            border-radius: 7px;
+            background: var(--accent);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .onb-steps a { color: var(--accent); text-decoration: none; font-weight: 600; }
+        .onb-steps a:hover { text-decoration: underline; }
+        /* Запятые между chip'ами читались как лишние пробелы — только отступ. */
+        .onb-scopes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 6px;
+        }
+        .onb-steps code {
+            background: var(--surface-solid, var(--bg));
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 1px 6px;
+            font-size: 12px;
+            color: var(--text-primary);
+        }
+        .onb-label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+        .onb-input {
+            width: 100%;
+            border-radius: 12px;
+            padding: 11px 14px;
+            font-size: 13px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            margin-bottom: 14px;
+        }
+        .onb-input:focus { outline: none; border-color: var(--accent); }
+        #onb-token { font-family: monospace; }
+        .onb-msg { font-size: 13px; line-height: 1.5; margin-bottom: 14px; display: none; }
+        .onb-msg.show { display: block; }
+        .onb-msg[data-tone="error"] { color: var(--red, #ef4444); }
+        .onb-msg[data-tone="info"] { color: var(--text-muted); }
+        .onb-msg[data-tone="ok"] { color: var(--green, #22c55e); }
+        @media (max-width: 640px) {
+            .onb-card { padding: 26px 20px; }
+        }
         #add-cabinet-modal {
             position: fixed;
             inset: 0;
@@ -4625,6 +4729,14 @@
             if (__nrTab) __nrTab = __nrAliases[__nrTab] || __nrTab;
             if (__nrTab === 'rnp-settings') __nrTab = 'rnp';
             if (__nrTab === 'cost') __nrTab = 'goods-groups';
+            /* Внутренние вкладки открываем сразу только сотруднику команды —
+               флаг из прошлой сессии. Клиента на /agents не пускаем ни на кадр,
+               точный ответ даёт is_staff() ниже. */
+            if (localStorage.getItem('nr_is_staff') === '1') {
+                document.documentElement.setAttribute('data-staff', '1');
+            } else if (__nrTab === 'agents') {
+                __nrTab = null;
+            }
             var __nrPane = !__nrTab ? null : (__nrLive[__nrTab] ? __nrTab : 'beta-stub');
             if (__nrPane && __nrPane !== 'dashboard') {
                 document.documentElement.setAttribute('data-nr-early', __nrPane);
@@ -4681,7 +4793,7 @@
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
                     <span class="rail-btn-lbl">Товары</span>
                 </button>
-                <button type="button" class="rail-btn" data-tab="agents" title="Агенты">
+                <button type="button" class="rail-btn" data-tab="agents" title="Агенты" data-staff-only="1">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                     <span class="rail-btn-lbl">Агенты</span>
                 </button>
@@ -4797,12 +4909,12 @@
                     <span class="nav-item-label">Калькулятор</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
-                <div class="nav-item" onclick="showTab('agents', this)">
+                <div class="nav-item" onclick="showTab('agents', this)" data-staff-only="1">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                     <span class="nav-item-label">Агенты</span>
                     <span class="nav-beta-badge">BETA</span>
                 </div>
-                <div class="nav-item" onclick="showTab('telegram-bots', this)">
+                <div class="nav-item" onclick="showTab('telegram-bots', this)" data-staff-only="1">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13"/><path d="M22 2L15 22l-4-9-9-4 20-7z"/></svg>
                     <span class="nav-item-label">Телеграм боты</span>
                     <span class="nav-beta-badge">BETA</span>
@@ -4893,35 +5005,45 @@
 
         <div class="flex-1 overflow-y-auto p-6 main-content">
         <div id="space-empty-state" class="space-empty-state hidden">
-            <div class="space-empty-card">
+            <div class="space-empty-card onb-card">
                 <img class="space-empty-icon logo-nr logo-nr--lg" src="/icons/logo-nr.svg" alt="NR" width="56" height="56">
-                <div class="space-empty-title">Добро пожаловать в NR Space</div>
-                <p class="space-empty-sub">Подключите магазин Wildberries по API, чтобы начать работу.</p>
-                <button type="button" class="space-empty-btn" onclick="openAddCabinetModal()">
-                    <span style="font-size:18px;line-height:1">+</span> Добавить кабинет
-                </button>
+                <div class="space-empty-title" id="onb-title">Добро пожаловать в NR Space</div>
+                <p class="space-empty-sub">Остался один шаг: подключите свой магазин Wildberries по API-токену. Мы проверим токен и сразу начнём собирать данные.</p>
+                <ol class="onb-steps">
+                    <li>Откройте <a href="https://seller.wildberries.ru/supplier-settings/access-to-api" target="_blank" rel="noopener">Настройки → Доступ к API</a> в кабинете WB.</li>
+                    <li>Нажмите «Создать новый токен» и отметьте категории:<span class="onb-scopes"><code>Статистика</code><code>Контент</code><code>Аналитика</code><code>Продвижение</code><code>Цены и скидки</code></span></li>
+                    <li>Скопируйте токен целиком и вставьте его сюда. Токен хранится только на сервере и виден лишь вам.</li>
+                </ol>
+                <label class="onb-label" for="onb-name">Название магазина</label>
+                <input type="text" id="onb-name" class="onb-input" placeholder="Например, Мой магазин" autocomplete="off">
+                <label class="onb-label" for="onb-token">API-токен Wildberries</label>
+                <input type="password" id="onb-token" class="onb-input" placeholder="eyJhbGciOiJFUzI1NiIsImtpZCI6..." autocomplete="off" spellcheck="false">
+                <div class="onb-msg" id="onb-msg" data-tone="info"></div>
+                <button type="button" class="space-empty-btn" id="onb-submit" onclick="submitOnboarding()">Подключить магазин</button>
             </div>
         </div>
         <div id="tab-dashboard" class="tab-content active space-y-6">
+            <div id="dash-data-note" class="dash-finance-note"></div>
+            <div id="dash-finance-note" class="dash-finance-note"></div>
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 dash-kpi-hero">
                 <div class="kpi-hero-card" data-tone="good">
                     <div class="kpi-hero-label">Чистая прибыль</div>
                     <div id="m-profit" class="kpi-hero-value">—</div>
-                    <div id="m-margin" class="kpi-hero-sub">— %</div>
+                    <div id="m-margin" class="kpi-hero-sub">—</div>
                     <div id="trend-m-profit" class="metric-trend kpi-hero-trend"></div>
                     <div class="kpi-spark-wrap"><canvas id="spark-profit"></canvas></div>
                 </div>
                 <div class="kpi-hero-card" data-tone="good">
                     <div class="kpi-hero-label">Продажи</div>
                     <div id="m-sales-sum" class="kpi-hero-value">—</div>
-                    <div id="m-sales-count" class="kpi-hero-sub">0 шт.</div>
+                    <div id="m-sales-count" class="kpi-hero-sub">—</div>
                     <div id="trend-m-sales-sum" class="metric-trend kpi-hero-trend"></div>
                     <div class="kpi-spark-wrap"><canvas id="spark-sales"></canvas></div>
                 </div>
                 <div class="kpi-hero-card" data-tone="good">
                     <div class="kpi-hero-label">Заказы</div>
                     <div id="m-orders-sum" class="kpi-hero-value">—</div>
-                    <div id="m-orders-count" class="kpi-hero-sub">0 шт.</div>
+                    <div id="m-orders-count" class="kpi-hero-sub">—</div>
                     <div id="trend-m-orders-sum" class="metric-trend kpi-hero-trend"></div>
                     <div class="kpi-spark-wrap"><canvas id="spark-orders"></canvas></div>
                 </div>
@@ -5884,7 +6006,7 @@
 
         <div id="tab-settings" class="tab-content">
             <div id="space-pending-banner" class="space-pending-banner hidden">
-                Ваш спейс ожидает активации администратором. Пока синхронизация с Wildberries и Edge-функции отключены.
+                Магазин ещё не подключён. Вставьте API-токен Wildberries на главном экране — после проверки токена все разделы откроются.
             </div>
             <div class="settings-section-tabs" id="settings-section-tabs">
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-profile" onclick="showSettingsSection('profile', this)">Профиль</div>
@@ -6339,8 +6461,8 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.484c1931e0.min.js"></script>
-<script src="/dist/wb-formulas.fc1e69ed87.min.js"></script>
+<script src="/dist/rnp-module.f060ba3215.min.js"></script>
+<script src="/dist/wb-formulas.11317eb115.min.js"></script>
 <script src="/dist/ads-command-center.342a2a55d8.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script>
@@ -6385,6 +6507,7 @@
     }
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon', 'agents']);
+    const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots']);
     const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'agents']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
@@ -6394,6 +6517,9 @@
     // страницы, и они на секунду видят "приветствие новичка", хотя у них уже
     // подключены кабинеты — это и есть тот самый мигающий баг.
     let cabinetsLoaded = false;
+    // Клиент ещё не подключил магазин: показываем только экран онбординга и
+    // не дёргаем загрузчики данных, которым нечего грузить.
+    let onboardingMode = false;
 
     function isBetaStubOpen() {
         return !!document.getElementById('tab-beta-stub')?.classList.contains('active');
@@ -6437,11 +6563,75 @@
         if (!emptyEl || !mainContent) return;
 
         const tab = getCurrentActiveTab();
-        const showEmpty = cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tab) && !isBetaStubOpen();
+        // В режиме онбординга экран приветствия закрывает все вкладки: пока
+        // магазин не подключён, за ними нет ни одной цифры.
+        const showEmpty = onboardingMode
+            || (cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tab) && !isBetaStubOpen());
 
         emptyEl.classList.toggle('hidden', !showEmpty);
         mainContent.classList.toggle('empty-cabinet-mode', showEmpty);
         updateHeaderNav(tab);
+    }
+
+    function onboardingMessage(text, tone) {
+        const el = document.getElementById('onb-msg');
+        if (!el) return;
+        el.textContent = text || '';
+        el.dataset.tone = tone || 'info';
+        el.classList.toggle('show', !!text);
+    }
+
+    /**
+     * Подключение первого магазина. Токен проверяет сервер (onboard-cabinet):
+     * до подключения кабинета спейс ещё не активен, и wb-proxy проверить токен
+     * не может, а неверный токен раньше просто оставлял клиента с пустым сайтом.
+     */
+    async function submitOnboarding() {
+        const btn = document.getElementById('onb-submit');
+        const token = document.getElementById('onb-token')?.value || '';
+        const name = document.getElementById('onb-name')?.value.trim() || '';
+
+        if (!token.trim()) {
+            onboardingMessage('Вставьте API-токен из кабинета Wildberries.', 'error');
+            document.getElementById('onb-token')?.focus();
+            return;
+        }
+
+        if (btn) { btn.disabled = true; btn.textContent = 'Проверяем токен…'; }
+        onboardingMessage('Проверяем токен в Wildberries, это займёт несколько секунд.', 'info');
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) { onboardingMessage('Сессия истекла. Войдите заново.', 'error'); return; }
+
+            const res = await fetch(SUPABASE_URL + '/functions/v1/onboard-cabinet', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: 'Bearer ' + session.access_token,
+                },
+                body: JSON.stringify({ token: token.trim(), name }),
+            });
+            const out = await res.json().catch(() => ({}));
+
+            if (!res.ok || !out.ok) {
+                onboardingMessage(out.error || 'Не удалось подключить магазин. Попробуйте ещё раз.', 'error');
+                return;
+            }
+
+            onboardingMessage('Магазин подключён. Загружаем данные…', 'ok');
+            const tokenEl = document.getElementById('onb-token');
+            if (tokenEl) tokenEl.value = '';
+            try { localStorage.setItem('selected_cabinet_id', out.cabinet_id); } catch (_) {}
+
+            // Первая синхронизация идёт минутами, поэтому просто перезагружаем
+            // страницу: дальше клиент видит обычный дашборд со своими данными.
+            setTimeout(() => window.location.reload(), 900);
+        } catch (e) {
+            onboardingMessage('Сеть недоступна: ' + (e?.message || e), 'error');
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = 'Подключить магазин'; }
+        }
     }
 
     function openAddCabinetModal() {
@@ -6520,9 +6710,16 @@
 
         if (space?.status === 'active') return true;
 
-        const code = space?.status === 'blocked' ? 'blocked' : 'access_denied';
-        await denyDashboardAccess(code);
-        return false;
+        if (space?.status === 'blocked') {
+            await denyDashboardAccess('blocked');
+            return false;
+        }
+
+        // Новый клиент (status=pending) раньше вылетал на /login?error=access_denied
+        // и не мог даже вставить свой токен. Пускаем его на экран онбординга:
+        // данных без кабинета всё равно нет, а подключить магазин он может сам.
+        onboardingMode = true;
+        return true;
     }
 
     function extractGoogleProfile(user) {
@@ -6818,6 +7015,33 @@
 
     let isSuperAdmin = false;
     let currentSpaceStatus = 'active';
+    // Сотрудник команды (team_staff в базе). Внутренние разделы — телеграм-боты,
+    // ватсап, мозг агентов — общие для всей команды, а не про кабинет клиента,
+    // поэтому клиенту их не показываем: и права в базе их не пустят, и вкладка
+    // отвечала бы одними ошибками.
+    // Стартуем с флага прошлой сессии, чтобы сотруднику не мигала навигация;
+    // ответ is_staff() ниже — окончательный, а данные всё равно закрыты RLS.
+    let isStaff = (() => {
+        try { return localStorage.getItem('nr_is_staff') === '1'; } catch (_) { return false; }
+    })();
+
+    async function resolveStaffRole() {
+        if (isSuperAdmin) isStaff = true;
+        else {
+            try {
+                const { data, error } = await supabase.rpc('is_staff');
+                if (error) throw error;
+                isStaff = data === true;
+            } catch (e) {
+                console.warn('[role] is_staff:', e.message || e);
+                isStaff = false;
+            }
+        }
+        try { localStorage.setItem('nr_is_staff', isStaff ? '1' : '0'); } catch (_) {}
+        if (isStaff) document.documentElement.setAttribute('data-staff', '1');
+        else document.documentElement.removeAttribute('data-staff');
+        if (!isStaff && STAFF_ONLY_TABS.has(getCurrentActiveTab())) showTab('dashboard');
+    }
 
     function escapeHtml(str) {
         return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -7211,6 +7435,10 @@
                 || res.status === 401;
             const quiet = bgActions.has(action) || !window._nrInitDone || tokenish || res.status >= 500 || cabinetDenied;
             if (quiet) {
+                // Отозванный или просроченный токен — единственная причина, по
+                // которой клиенту есть что сделать самому. Помечаем, чтобы
+                // дашборд написал «обновите токен», а не «отчёт не получен».
+                if (tokenish) window._nrWbTokenBad = true;
                 if (!tokenish) console.warn(`[callWbProxy] ${action}:`, msg);
                 if (cabinetDenied && window._nrInitDone && !window._nrCabinetDeniedToast) {
                     window._nrCabinetDeniedToast = true;
@@ -7677,6 +7905,11 @@
 
     function showTab(name, el) {
         name = TAB_ALIASES[name] || name;
+        // Прямой заход на /agents клиенту тоже закрыт: не сотрудника уводим на дашборд.
+        if (STAFF_ONLY_TABS.has(name) && !isStaff) {
+            showTab('dashboard');
+            return;
+        }
         if (name === 'cost') {
             try { sessionStorage.setItem('gg_view', 'cost'); } catch (e) {}
             showTab('goods-groups', el);
@@ -10402,8 +10635,35 @@
     const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
     const RU_MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
     let pickerState = { year:2026, month:new Date().getMonth(), fromDate:null, toDate:null, selecting:'from' };
-    let activeDateFrom = '2026-01-01';
-    let activeDateTo = (() => { const d = new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); })();
+    // По умолчанию — текущий месяц. Раньше дашборд всегда открывался «с 1 января»:
+    // это девять месяцев заказов против финотчёта WB, который отдаётся неделями и
+    // за такой период просто не собирается, — отсюда и долгая загрузка, и плашка
+    // «первые N дней в отчёт не попали» при каждом входе. Выбранный период
+    // запоминаем, чтобы после F5 не откатывать пользователя на дефолт.
+    const DASH_RANGE_KEY = 'nr_date_range';
+    const todayIso = () => {
+        const d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    };
+    const monthStartIso = () => todayIso().slice(0, 8) + '01';
+
+    function readSavedDateRange() {
+        try {
+            const raw = JSON.parse(localStorage.getItem(DASH_RANGE_KEY) || 'null');
+            const ok = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s);
+            if (raw && ok(raw.from) && ok(raw.to) && raw.from <= raw.to) return raw;
+        } catch (_) {}
+        return null;
+    }
+
+    const savedRange = readSavedDateRange();
+    let activeDateFrom = savedRange?.from || monthStartIso();
+    let activeDateTo = savedRange?.to || todayIso();
+
+    function saveActiveDateRange() {
+        try { localStorage.setItem(DASH_RANGE_KEY, JSON.stringify({ from: activeDateFrom, to: activeDateTo })); }
+        catch (_) {}
+    }
 
     function getActiveDateRange() {
         return { from: activeDateFrom, to: activeDateTo };
@@ -10580,6 +10840,7 @@
         if (!pickerState.toDate) pickerState.toDate = pickerState.fromDate;
         activeDateFrom = fmtDate(pickerState.fromDate);
         activeDateTo = fmtDate(pickerState.toDate);
+        saveActiveDateRange();
         updateDateRangeLabel();
         document.getElementById('date-picker').classList.add('hidden');
         onDateRangeApplied();
@@ -10897,11 +11158,22 @@
         const extra = el.classList.contains('kpi-hero-trend') ? ' kpi-hero-trend' : '';
         if (curr == null || prev == null || typeof curr !== 'number' || typeof prev !== 'number' || isNaN(curr) || isNaN(prev)) {
             el.textContent = '';
+            el.title = '';
             el.className = 'metric-trend' + extra;
             return;
         }
+        // Прошлый период на нуле — процента роста не существует. Раньше здесь
+        // рисовалось «↑ 100%», из-за чего у нового кабинета весь дашборд
+        // выглядел как рекордный рост, хотя сравнивать было не с чем.
+        if (prev === 0) {
+            el.textContent = curr === 0 ? '' : '—';
+            el.title = curr === 0 ? '' : 'За прошлый период данных нет — сравнивать не с чем';
+            el.className = 'metric-trend flat' + extra;
+            return;
+        }
+        el.title = '';
         const diff = curr - prev;
-        const pct = prev === 0 ? (curr > 0 ? 100 : curr < 0 ? -100 : 0) : (diff / Math.abs(prev)) * 100;
+        const pct = (diff / Math.abs(prev)) * 100;
         const flat = Math.abs(pct) < 0.4;
         const up = pct > 0;
         const inv = inverse || el.hasAttribute('data-trend-inverse');
@@ -10919,6 +11191,7 @@
         document.querySelectorAll('.metric-trend').forEach(el => {
             const extra = el.classList.contains('kpi-hero-trend') ? ' kpi-hero-trend' : '';
             el.textContent = '';
+            el.title = '';
             el.className = 'metric-trend' + extra;
         });
     }
@@ -10965,44 +11238,16 @@
         METRIC_TREND_DEFS.forEach(def => {
             const c = curr[def.prop];
             const p = prev[def.prop];
+            // Показатели из базы и из финотчёта приезжают в два прохода: чего в
+            // этом наборе нет — не трогаем, иначе второй проход стирает тренды
+            // первого.
+            if (c === undefined && p === undefined) return;
             if (def.el) setMetricTrend(def.el, c, p, def.inverse);
             else if (def.dataFor) {
                 const el = document.querySelector(`[data-trend-for="${def.dataFor}"]`);
                 if (el) setMetricTrend(el, c, p, def.inverse);
             }
         });
-    }
-
-    function computeQuickOrderMetrics(agg) {
-        const ordersSum = Number(agg?.orders_sum || 0);
-        const ordersCount = Number(agg?.orders_count || 0);
-        const returnsCount = Number(agg?.returns_count || 0);
-        const salesSum = Math.round(ordersSum * 0.65);
-        const salesCount = Math.round(ordersCount * 0.65);
-        const commission = Math.round(salesSum * 0.15);
-        const logistics = Math.round(salesSum * 0.05);
-        const storage = Math.round(salesSum * 0.01);
-        const profit = salesSum - commission - logistics - storage;
-        const margin = salesSum > 0 ? Math.round((profit / salesSum) * 1000) / 10 : 0;
-        const roi = salesSum > 0 ? Math.round((profit / (salesSum * 0.5)) * 100) : null;
-        const buyoutRate = ordersCount > 0 ? 65 : 0;
-        return {
-            ordersSum, ordersCount, salesSum, salesCount,
-            profitFull: profit, profitBeforeCost: profit,
-            realizationSum: salesSum, totalWbFee: commission,
-            logisticsSum: logistics, storageSum: storage, adsSum: Number(agg?.ads_sum || 0),
-            returnsSum: returnsCount, buyoutRate, roi,
-            opexForPeriod: 0, acceptanceSum: 0, deductionSum: 0,
-            costOfSalesSum: 0, taxSum: 0, taxBase: salesSum,
-            commissionSum: commission, avgSalePrice: salesCount > 0 ? Math.round(salesSum / salesCount) : 0,
-            avgLogisticsPerUnit: salesCount > 0 ? Math.round(logistics / salesCount) : 0,
-            avgProfitPerUnit: salesCount > 0 ? Math.round(profit / salesCount) : 0,
-            penaltySum: 0, compensationSum: 0, margin,
-            acquiringSum: 0, sppSum: 0,
-            avgRetailPrice: salesCount > 0 ? Math.round(salesSum / salesCount) : 0,
-            capCost: 0, capRetail: 0, stockTotal: 0,
-            gmroi: null, gmroiYear: null, turnoverSales: null, turnoverOrders: null,
-        };
     }
 
     function enrichMetricsWithStockExtras(metrics, stockTotal, ordersCount) {
@@ -11140,40 +11385,55 @@
                     opex: Number(localStorage.getItem('opex') || 0),
                     adsSum: Number(adsCur && adsCur.spend || 0),
                 };
-                const prevSettings = {
-                    taxRate: settings.taxRate,
-                    opex: settings.opex,
-                    adsSum: Number(adsPrev && adsPrev.spend || 0),
-                };
 
-                Promise.race([
-                    Promise.all([
-                        WBFormulas.loadFinanceReport(callWbProxy, from, to),
-                        WBFormulas.loadFinanceReport(callWbProxy, prev.from, prev.to),
-                    ]),
-                    new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000))
-                ]).then(([rows, prevRows]) => {
+                loadFinanceRows(snapshotCabinet, from, to).then(async (fin) => {
                     if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
-                    if (!rows || rows.length === 0) return;
+                    const rows = fin.rows;
+                    // Расход РК берём ровно за те дни, что покрыл отчёт, иначе
+                    // ДРР и прибыль складывают неделю рекламы с четырьмя днями
+                    // продаж. На карточке «Реклама» при этом остаётся факт за
+                    // весь выбранный период.
+                    if (rows && rows.length && (fin.from !== from || fin.to !== to)) {
+                        const adsWindow = await loadAdsSpendForDash(snapshotCabinet, fin.from, fin.to);
+                        if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
+                        settings.adsSum = Math.round(Number(adsWindow.spend || 0));
+                    }
+                    if (!rows || rows.length === 0) {
+                        // Пустой отчёт — это не повод оставлять на экране оценку.
+                        setFinanceMetricsPlaceholder('—');
+                        showFinanceNote(window._nrWbTokenBad
+                            ? 'Wildberries не принял API-токен этого кабинета — прибыль, маржа и комиссия не рассчитаны. Создайте новый токен в кабинете WB (Настройки → Доступ к API) и замените его в настройках кабинета.'
+                            : 'Финансовый отчёт Wildberries за выбранный период не получен — прибыль, маржа, комиссия и выкуп не рассчитаны. Отчёт приходит с задержкой в несколько дней, за свежие дни его ещё нет.');
+                        return;
+                    }
+                    showFinanceNote(financeCoverageNote(from, to, fin));
                     const metrics = enrichMetricsWithStockExtras(
                         WBFormulas.calculateMetrics(rows, settings), stocks.total, Number(summary.cur?.orders_count || 0));
-                    const prevMetrics = prevRows && prevRows.length > 0
-                        ? enrichMetricsWithStockExtras(
-                            WBFormulas.calculateMetrics(prevRows, prevSettings), stocks.total, Number(summary.prev?.orders_count || 0))
-                        : null;
                     if (finCabinet === currentCabinetId) {
                         const applyFin = () => {
                             WBFormulas.applyMetricsToDashboard(metrics, setText);
                             applyExtendedMetricDisplay(metrics);
-                            if (prevMetrics) applyMetricTrends(metrics, prevMetrics);
                             syncSummaryTab(metrics);
                             renderTopMarginalProducts(metrics);
                         };
                         if (window.domMorph) window.domMorph.preserveScroll([], applyFin);
                         else applyFin();
                     }
+
+                    // Тренды по отчёту — отдельным проходом: числа на карточках
+                    // не должны ждать ещё один запрос в базу.
+                    const base = await loadFinanceTrendBase(snapshotCabinet, fin, settings);
+                    if (base && finId === _loadRequestId && finCabinet === currentCabinetId) {
+                        applyMetricTrends(metrics, base);
+                    }
                 }).catch(e => {
                     console.warn('Finance report:', e.message);
+                    if (finCabinet === currentCabinetId) {
+                        setFinanceMetricsPlaceholder('—');
+                        showFinanceNote(e.message === 'timeout'
+                            ? 'Wildberries не ответил на запрос финансового отчёта — прибыль и маржа не рассчитаны. Нажмите «Обновить», чтобы попробовать снова.'
+                            : 'Не удалось получить финансовый отчёт Wildberries — прибыль и маржа не рассчитаны.');
+                    }
                     const legendEl = document.getElementById('dashboard-top-margin-legend');
                     if (legendEl && finCabinet === currentCabinetId) {
                         legendEl.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Не удалось загрузить данные</div>`;
@@ -11401,8 +11661,13 @@
         }
 
         try {
-            const from = '2026-01-01';
-
+            // Раньше кнопка сама тянула заказы из WB (dateFrom=2026-01-01),
+            // УДАЛЯЛА в базе всё от этой даты и записывала ответ на его место.
+            // WB на этот запрос отдаёт не период, а заказы по lastChangeDate —
+            // то есть последние изменившиеся, — поэтому каждое нажатие стирало
+            // месяцы истории: у Базы в базе оставалось только с 1 сентября,
+            // хотя курсор докачки стоял на 10 июля. Синхронизацию делает
+            // сервер: он ходит по календарным дням WB и историю не трогает.
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
                 const syncRes = await fetch(AUTO_SYNC_URL, {
@@ -11411,39 +11676,13 @@
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ' + session.access_token
                     },
-                    body: JSON.stringify({ mode: 'stocks', cabinet_id: snapshotCabinet })
+                    body: JSON.stringify({ mode: 'refresh', cabinet_id: snapshotCabinet })
                 });
                 if (!syncRes.ok) {
                     const errBody = await syncRes.json().catch(() => ({}));
-                    console.warn('[refreshData] stocks sync:', errBody.error || syncRes.status);
+                    console.warn('[refreshData] sync:', errBody.error || syncRes.status);
                 }
             }
-            if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
-
-            const orders = await callWbProxy('orders', { dateFrom: from }, snapshotCabinet);
-            if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
-
-            if (Array.isArray(orders)) {
-                await supabase.from('wb_orders').delete().eq('cabinet_id', snapshotCabinet).gte('order_date', from);
-                if (orders.length > 0) {
-                const orderRows = orders.map(o => ({
-                    cabinet_id: snapshotCabinet,
-                    order_date: o.date?.split('T')[0] || new Date().toISOString().split('T')[0],
-                    nm_id: o.nmId,
-                    barcode: o.barcode,
-                    price: o.priceWithDiscount || o.totalPrice || 0,
-                    is_return: o.isReturn || false,
-                    data: o
-                }));
-                for (let i = 0; i < orderRows.length; i += 100) {
-                    await supabase.from('wb_orders').upsert(
-                        orderRows.slice(i, i + 100),
-                        { onConflict: 'cabinet_id,order_date,nm_id,barcode', ignoreDuplicates: true }
-                    );
-                }
-                }
-            }
-
             if (requestId !== _loadRequestId || snapshotCabinet !== currentCabinetId) return;
 
             await loadFromDB();
@@ -11484,36 +11723,189 @@
         const drr = base > 0 ? Math.round((ads / base) * 1000) / 10 : null;
         return fmtDashMoney(ads) + (drr != null ? ' · ' + drr + '%' : '');
     }
+    // Показатели, которые считаются только по финансовому отчёту WB: выкуп,
+    // комиссия, логистика, хранение, прибыль, маржа, ROI. Раньше на их месте
+    // рисовались придуманные коэффициенты (продажи = заказы × 0.65, комиссия
+    // 15%, логистика 5%, хранение 1%), и если отчёт WB не успевал прийти за
+    // 15 секунд, эти числа так и оставались на экране как настоящие.
+    const FINANCE_METRIC_IDS = [
+        'm-sales-sum', 'm-sales-count', 'm-realization', 'm-commission',
+        'm-logistics', 'm-storage', 'm-profit', 'm-margin', 'm-profit2',
+        'm-roi', 'm-conversion', 'm-opex',
+        'rnp-profit', 'rnp-margin', 'rnp-roi', 'rnp-buyout', 'rnp-sales', 'rnp-logistics',
+    ];
+
+    function setFinanceMetricsPlaceholder(text) {
+        FINANCE_METRIC_IDS.forEach(id => setText(id, text));
+    }
+
+    function showFinanceNote(text) {
+        const el = document.getElementById('dash-finance-note');
+        if (!el) return;
+        el.textContent = text || '';
+        el.classList.toggle('show', !!text);
+    }
+
+    function showDataNote(text) {
+        const el = document.getElementById('dash-data-note');
+        if (!el) return;
+        el.textContent = text || '';
+        el.classList.toggle('show', !!text);
+    }
+
+    const DAY_MS = 86400000;
+    function dashDayLabel(ymd) {
+        const d = new Date(ymd + 'T00:00:00');
+        return isNaN(d) ? ymd : d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+    }
+
+    /**
+     * Строки финотчёта за период. Берём из базы, куда их ночью складывает
+     * rnp-finance-sync: у прямого метода WB лимит один запрос в минуту на
+     * продавца, поэтому запрос из браузера при каждой загрузке дашборда
+     * регулярно получал 429 и прибыль с маржой просто не появлялись.
+     * Живой запрос к WB остаётся страховкой, если кеша по кабинету ещё нет.
+     *
+     * RPC отдаёт один jsonb со сгруппированными строками: как SETOF её резал
+     * PostgREST на тысяче строк, и у большого кабинета прибыль считалась по
+     * восьмой части отчёта.
+     *
+     * Отчёт WB отстаёт на несколько дней, и кеш накапливается окнами, поэтому
+     * возвращаем ещё и реально покрытые даты: показать неполный период как
+     * полный — это тот же обман, что и считать продажи от заказов.
+     */
+    async function loadFinanceRowsFromCache(cabinetId, from, to) {
+        try {
+            const { data, error } = await supabase.rpc('dashboard_finance_rows', {
+                p_cabinet_id: cabinetId,
+                p_from: from,
+                p_to: to,
+            });
+            if (error) console.warn('[loadFinanceRows] из базы:', error.message);
+            else if (Array.isArray(data) && data.length) {
+                const days = data.map(r => String(r.sale_dt || r.rr_dt || '').slice(0, 10)).filter(Boolean).sort();
+                return { rows: data, source: 'db', from: days[0] || from, to: days[days.length - 1] || to };
+            }
+        } catch (e) {
+            console.warn('[loadFinanceRows] из базы:', e?.message || e);
+        }
+        return null;
+    }
+
+    async function loadFinanceRows(cabinetId, from, to) {
+        const cached = await loadFinanceRowsFromCache(cabinetId, from, to);
+        if (cached) return cached;
+
+        try {
+            const rows = await Promise.race([
+                WBFormulas.loadFinanceReport(callWbProxy, from, to),
+                new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 15000)),
+            ]);
+            return { rows: rows || [], source: 'wb', from, to };
+        } catch (e) {
+            console.warn('[loadFinanceRows] из WB:', e?.message || e);
+            return { rows: [], source: 'wb', from, to };
+        }
+    }
+
+    /**
+     * Метрики прошлого периода для трендов на карточках прибыли, маржи и
+     * комиссии. Сравниваем не «выбранный период с выбранным», а окно ровно той
+     * длины, что реально покрыл отчёт: иначе 15 закрытых дней сентября
+     * сравнивались бы с полным августом и любой месяц выглядел бы провальным.
+     * Берём только кеш — второй живой запрос в WB упирается в лимит на минуту.
+     */
+    async function loadFinanceTrendBase(cabinetId, covered, settings) {
+        if (!covered?.from || !covered?.to || typeof WBFormulas === 'undefined') return null;
+        const range = prevPeriodRange(covered.from, covered.to);
+        try {
+            const [cache, cov] = await Promise.all([
+                loadFinanceRowsFromCache(cabinetId, range.from, range.to),
+                supabase.rpc('dashboard_finance_coverage', { p_cabinet_id: cabinetId }),
+            ]);
+            if (!cache?.rows?.length) return null;
+            // Кеш начинается позже прошлого окна — недостающие дни дали бы
+            // «падение» продаж там, где просто нет данных.
+            const cachedFrom = cov?.data?.from ? String(cov.data.from).slice(0, 10) : null;
+            if (!cachedFrom || cachedFrom > range.from) return null;
+            const ads = await loadAdsSpendForDash(cabinetId, range.from, range.to);
+            return WBFormulas.calculateMetrics(cache.rows, {
+                ...settings,
+                adsSum: Math.round(Number(ads.spend || 0)),
+            });
+        } catch (e) {
+            console.warn('[loadFinanceTrendBase]', e?.message || e);
+            return null;
+        }
+    }
+
+    function dashPluralDays(n) {
+        const mod100 = n % 100, mod10 = n % 10;
+        if (mod100 >= 11 && mod100 <= 14) return `${n} дней`;
+        if (mod10 === 1) return `${n} день`;
+        if (mod10 >= 2 && mod10 <= 4) return `${n} дня`;
+        return `${n} дней`;
+    }
+
+    /** Чего не хватает в отчёте относительно выбранного периода. */
+    function financeCoverageNote(from, to, covered) {
+        if (!covered.from || !covered.to) return '';
+        const tailMissing = Math.round((new Date(to) - new Date(covered.to)) / DAY_MS);
+        const headMissing = Math.round((new Date(covered.from) - new Date(from)) / DAY_MS);
+        const parts = [];
+        if (tailMissing > 0) {
+            parts.push(tailMissing === 1
+                ? 'за последний день Wildberries ещё не отчитался'
+                : `за последние ${dashPluralDays(tailMissing)} Wildberries ещё не отчитался`);
+        }
+        if (headMissing > 0) {
+            parts.push(headMissing === 1
+                ? 'первый день периода в отчёт не попал'
+                : `первые ${dashPluralDays(headMissing)} периода в отчёт не попали`);
+        }
+        if (!parts.length) return '';
+        return `Прибыль, маржа и комиссия — по отчёту Wildberries за ${dashDayLabel(covered.from)} — ${dashDayLabel(covered.to)}: ${parts.join(', ')}. Заказы, возвраты и остатки при этом за весь выбранный период.`;
+    }
+
     function updateDashboardFromDB(totalStock, cur, prev) {
         const ordersSum = Number(cur?.orders_sum || 0);
         const ordersCount = Number(cur?.orders_count || 0);
         const returns = Number(cur?.returns_count || 0);
         const adsSpend = Math.round(Number(cur?.ads_sum || 0));
-        const salesSum=Math.round(ordersSum*0.65), salesCount=Math.round(ordersCount*0.65);
-        const commission=Math.round(salesSum*0.15), logistics=Math.round(salesSum*0.05), storage=Math.round(salesSum*0.01);
-        const profit=salesSum-commission-logistics-storage-adsSpend;
-        const margin=salesSum>0?Math.round((profit/salesSum)*100):0;
-        const roi=salesSum>0?Math.round((profit/(salesSum*0.5))*100):0;
-        setText('m-orders-sum', fmtDashMoney(ordersSum)); setText('m-orders-count', ordersCount+' шт.');
-        setText('m-sales-sum', fmtDashMoney(salesSum)); setText('m-sales-count', salesCount+' шт.');
-        setText('m-stock', fmt(totalStock)+' шт.'); setText('m-conversion', ordersCount>0?'65%':'—');
-        setText('m-logistics', fmtDashMoney(logistics)); setText('m-storage', fmtDashMoney(storage));
-        setText('m-commission', fmtDashMoney(commission)); setText('m-realization', fmtDashMoney(salesSum));
-        setText('m-returns', returns+' шт.'); setText('m-roi', roi+'%');
-        setText('m-profit', fmtDashMoney(profit)); setText('m-margin', margin+'%');
-        setText('m-profit2', fmtDashMoney(profit));
-        setText('m-ads', fmtDashAds(adsSpend, salesSum));
-        setText('rnp-profit', fmtDashMoney(profit)); setText('rnp-margin', margin+'%'); setText('rnp-roi', roi+'%');
-        setText('rnp-buyout', ordersCount>0?'65%':'—');
-        setText('rnp-orders', ordersCount+' шт.');
-        setText('rnp-sales', Math.round(ordersCount*0.65)+' шт.');
-        setText('rnp-returns', returns+' шт.');
-        setText('rnp-logistics', fmtDashMoney(logistics));
+
+        // Кабинет только подключили: заказов нет, остатков нет, отчёта нет.
+        // «0 сом» тут читается как «продаж не было», хотя данные просто ещё
+        // не приехали — честнее прочерк и объяснение.
+        const noDataYet = ordersCount === 0 && returns === 0 && Number(totalStock) === 0;
+        showDataNote(noDataYet
+            ? 'Данных по этому кабинету пока нет: заказы, остатки и отчёт Wildberries ещё не загрузились. Первая синхронизация после подключения токена занимает несколько минут.'
+            : '');
+
+        // Факты из базы: заказы, возвраты, остатки, расход на рекламу.
+        setText('m-orders-sum', noDataYet ? '—' : fmtDashMoney(ordersSum));
+        setText('m-orders-count', noDataYet ? '—' : ordersCount + ' шт.');
+        setText('m-stock', noDataYet ? '—' : fmt(totalStock) + ' шт.');
+        setText('m-returns', noDataYet ? '—' : returns + ' шт.');
+        setText('m-ads', noDataYet && !adsSpend ? '—' : fmtDashAds(adsSpend, 0));
+        setText('rnp-orders', noDataYet ? '—' : ordersCount + ' шт.');
+        setText('rnp-returns', noDataYet ? '—' : returns + ' шт.');
+
+        setFinanceMetricsPlaceholder('…');
+        showFinanceNote('');
+
         if (prev) {
-            const currM = enrichMetricsWithStockExtras(computeQuickOrderMetrics(cur), totalStock, ordersCount);
-            const prevM = enrichMetricsWithStockExtras(computeQuickOrderMetrics(prev), totalStock, Number(prev?.orders_count || 0));
-            applyExtendedMetricDisplay(currM);
-            applyMetricTrends(currM, prevM);
+            // Остатки в базе лежат только на сегодня — истории по складам нет,
+            // поэтому тренд по остаткам не строим (раньше на карточку попадало
+            // «без изменений», хотя сравнивались одни и те же цифры).
+            const real = (agg) => ({
+                ordersSum: Number(agg?.orders_sum || 0),
+                ordersCount: Number(agg?.orders_count || 0),
+                returnsSum: Number(agg?.returns_count || 0),
+                adsSum: Math.round(Number(agg?.ads_sum || 0)),
+            });
+            applyMetricTrends(real(cur), real(prev));
+        } else {
+            clearAllMetricTrends();
         }
     }
 
@@ -11689,34 +12081,6 @@
                 }
             }
         });
-    }
-
-    // РНП синхронизация
-    function syncRNPTab(stocks, orders) {
-        if (!stocks || !orders) return;
-        let totalStock=0, ordersSum=0, ordersCount=0, returns=0, salesSum=0;
-        stocks.forEach(s => totalStock += Number(s.quantity||0));
-        orders.forEach(o => {
-            if(o.is_return){returns++;return;}
-            ordersCount++;
-            ordersSum += Number(o.price||0);
-        });
-        salesSum = Math.round(ordersSum * 0.65);
-        const logistics = Math.round(salesSum * 0.05);
-        const commission = Math.round(salesSum * 0.15);
-        const profit = salesSum - commission - logistics - Math.round(salesSum*0.01);
-        const margin = salesSum > 0 ? Math.round((profit/salesSum)*100) : 0;
-        const roi = salesSum > 0 ? Math.round((profit/(salesSum*0.5))*100) : 0;
-        const buyout = ordersCount > 0 ? Math.round((salesSum/ordersSum)*100) : 0;
-
-        setText('rnp-profit', profit.toLocaleString('ru-RU') + ' ₽');
-        setText('rnp-margin', margin + '%');
-        setText('rnp-roi', roi + '%');
-        setText('rnp-buyout', buyout + '%');
-        setText('rnp-orders', ordersCount + ' шт.');
-        setText('rnp-sales', Math.round(ordersCount*0.65) + ' шт.');
-        setText('rnp-returns', returns + ' шт.');
-        setText('rnp-logistics', logistics.toLocaleString('ru-RU') + ' ₽');
     }
 
     // ======= КАЛЬКУЛЯТОР ЮНИТ-ЭКОНОМИКИ =======
@@ -14241,7 +14605,7 @@
 
     function loadAgentsPage() {
         const grid = document.getElementById('agents-grid');
-        if (!grid) return;
+        if (!grid || !isStaff) return;
         const cur = window._agentFn || 'invite';
         grid.innerHTML = AGENT_FNS.map((f) => `<button type="button" class="agent-fn-card${f.id === cur ? ' active' : ''}" data-agent-fn="${f.id}" onclick="openAgentFn('${f.id}')">
             <div class="agent-fn-num">${f.n < 10 ? '0' : ''}${f.n}</div>
@@ -15448,7 +15812,7 @@
         isSuperAdmin = isSuperAdminUser(session.user);
         currentUserEmail = session.user.email || '';
         currentUserId = session.user.id || '';
-        currentSpaceStatus = 'active';
+        currentSpaceStatus = onboardingMode ? 'pending' : 'active';
 
         const name = session.user.user_metadata?.full_name || session.user.email?.split('@')[0] || '—';
         const initial = name.charAt(0).toUpperCase();
@@ -15465,6 +15829,8 @@
         registerUserSession().catch(e => console.warn('[security] init:', e));
         applySettingsTabsForRole();
         updateSpaceStatusUI();
+        // Без await: восстановление вкладки ниже не должно ждать сеть.
+        resolveStaffRole().catch(e => console.warn('[role] init:', e));
 
         // Восстанавливаем сохранённую вкладку СРАЗУ, ДО любых await (loadCabinets
         // может идти 5-8с на большом кабинете) — иначе пользователь всё это время

@@ -25,7 +25,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { hasAllCabinetsAccess } from '../_shared/cabinet-access.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import {
-    FINANCE_RAW_FIELDS,
+    FINANCE_DASHBOARD_FIELDS,
     fetchSalesReportsDetailedPage,
     toRawFinanceRow,
 } from '../_shared/wb-finance-report.ts';
@@ -191,7 +191,10 @@ async function fetchFinancePage(token: string, from: string, to: string, rrdId: 
         rrdId,
         limit: FINANCE_PAGE,
         period: 'daily',
-        fields: FINANCE_RAW_FIELDS,
+        // fields в теле — это whitelist: WB отдаёт ровно перечисленное.
+        // Со списком «только для листа РНП» реализация, эквайринг и
+        // компенсации не приходили, и дашборд считал их нулями.
+        fields: FINANCE_DASHBOARD_FIELDS,
     });
     wbFinanceLastReqAtByToken.set(token, Date.now());
     return page;
