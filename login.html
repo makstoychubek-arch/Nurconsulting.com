@@ -4,7 +4,7 @@
 <link rel="icon" type="image/png" href="/icons/favicon.png" sizes="32x32">
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <link rel="manifest" href="/manifest.json">
-<meta name="theme-color" content="#F8F9FA">
+<meta name="theme-color" content="#f5f4f0">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="NR Space">
@@ -25,36 +25,35 @@
     <link rel="stylesheet" href="/dist/tailwind.f991aca821.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/nr-vibe.css">
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="preconnect" href="https://fiukyfyhotctvfdidktx.supabase.co" crossorigin>
     <script src="/nr-auth.js"></script>
 
     <style>
-        :root {
-            --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            --font-display: "Poppins", "Inter", system-ui, sans-serif;
-        }
-        body { font-family: var(--font-ui); }
-        h1, h2, h3, .nr-brand-space, .oauth-space { font-family: var(--font-display); font-weight: 700; }
+        body { font-family: var(--font-body); }
         .glass-card {
-            background: #FFFFFF;
-            border: none;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
         }
         .input-field {
-            background: #F4F4F5;
-            border: none;
-            transition: background 0.15s;
+            background: var(--paper-2);
+            border: 1px solid var(--line);
+            color: var(--ink);
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
         }
         .input-field:focus {
             outline: none;
-            background: #EDEDED;
-            box-shadow: none;
+            background: var(--card);
+            border-color: var(--ink);
+            box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 8%, transparent);
         }
         .tab-active {
-            background: #fff;
+            background: var(--card);
             border-color: transparent;
-            color: #111;
+            color: var(--ink);
             font-weight: 800;
         }
         .fade-in { opacity: 1; }
@@ -67,34 +66,16 @@
             align-items: center;
             justify-content: center;
             padding: 24px;
-            background: #F8F9FA;
+            background: var(--paper);
         }
         html.oauth-pending #screen-auth { display: none !important; }
         html.oauth-pending #screen-oauth-loading { display: flex !important; }
-        .logo-nr {
-            font-family: 'Arial Black', 'Montserrat', sans-serif;
-            font-weight: 900;
-            letter-spacing: -0.03em;
-            color: #000000;
-            background: #ffffff;
-            display: block;
-            width: 32px;
-            height: 32px;
-            border: none;
-            border-radius: 10px;
-            object-fit: cover;
-            flex-shrink: 0;
-            overflow: hidden;
-        }
-        .logo-nr--lg { width: 56px; height: 56px; border-radius: 16px; }
         .oauth-logo {
             width: 56px; height: 56px;
             margin-bottom: 16px;
-            border: none;
-            background: transparent;
         }
         .oauth-space {
-            color: #111;
+            color: var(--ink);
             font-size: 22px;
             font-weight: 800;
             letter-spacing: -0.04em;
@@ -104,13 +85,13 @@
         .nr-brand-space {
             font-size: 18px;
             font-weight: 800;
-            color: #111;
-            letter-spacing: -0.04em;
+            color: var(--ink);
+            letter-spacing: -0.02em;
         }
         html.oauth-pending .oauth-home-link { display: none; }
         .oauth-home-link { z-index: 101; }
         .oauth-loading-text {
-            color: #3E434F;
+            color: var(--ink-dim);
             font-size: 14px;
             line-height: 1.6;
             text-align: center;
@@ -119,7 +100,7 @@
         .oauth-dots { display: flex; gap: 10px; margin-top: 28px; }
         .oauth-dots span {
             width: 8px; height: 8px; border-radius: 50%;
-            background: #111;
+            background: var(--ink);
             opacity: 0.45;
         }
         .oauth-dots span:nth-child(2) { opacity: 0.7; }
@@ -137,13 +118,14 @@
             z-index: 2;
         }
         .login-card { width: 100%; }
+        .login-title { font-weight: 900; }
     </style>
 </head>
-<body class="bg-[#F8F9FA] text-[#3E434F] font-sans antialiased min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+<body class="antialiased min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
 
-    <a href="/" class="absolute top-6 left-6 flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-[#EDEDED] oauth-home-link">
-        <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="32" height="32">
-        <span class="text-[16px] font-extrabold text-[#111] tracking-tight">Space</span>
+    <a href="/" class="absolute top-6 left-6 flex items-center gap-2 rounded-[10px] px-2 py-1.5 oauth-home-link" style="color:var(--ink)">
+        <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="34" height="34">
+        <span class="nr-brand-space">Space</span>
     </a>
 
     <!-- ЭКРАН: OAuth / проверка сессии -->
@@ -156,12 +138,12 @@
 
     <!-- ЭКРАН 1: ВХОД / РЕГИСТРАЦИЯ -->
     <div id="screen-auth" class="w-full max-w-md login-page">
-        <h1 class="login-title text-2xl font-extrabold text-[#111] tracking-tight text-center mb-2">Вход в NR Space</h1>
-        <p class="login-subtitle text-sm text-[#6B7682] text-center mb-6">Войдите, чтобы открыть аналитику вашего магазина</p>
+        <h1 class="login-title text-2xl tracking-tight text-center mb-2">Вход в NR Space</h1>
+        <p class="login-subtitle text-sm text-center mb-6" style="color:var(--ink-dim)">Войдите, чтобы открыть аналитику вашего магазина</p>
 
-        <div class="login-card glass-card rounded-2xl p-8">
+        <div class="login-card glass-card p-8">
 
-            <div class="flex bg-[#EDEDED] rounded-xl p-1 mb-6">
+            <div class="flex rounded-[12px] p-1 mb-6" style="background:var(--paper-2);border:1px solid var(--line)">
                 <button onclick="switchTab('login')" id="tab-login"
                     class="flex-1 py-2 text-sm font-bold rounded-lg transition tab-active border border-transparent">
                     Вход
@@ -173,7 +155,8 @@
             </div>
 
             <button onclick="signInWithGoogle()"
-                class="w-full flex items-center justify-center space-x-3 py-3 bg-white hover:bg-gray-50 text-[#1F2933] font-medium rounded-xl transition mb-5 border border-black/8">
+                class="w-full flex items-center justify-center space-x-3 py-3 font-medium rounded-xl transition mb-5"
+                style="background:var(--card);color:var(--ink);border:1px solid var(--line)">
                 <svg class="w-5 h-5" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -192,11 +175,11 @@
             <!-- Форма ВХОД -->
             <div id="form-login" class="space-y-3">
                 <input type="email" id="login-email" placeholder="Email адрес"
-                    class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
-                <div class="relative">
+                    class="input-field vp-input w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
+                <div class="pw-wrap relative">
                     <input type="password" id="login-password" placeholder="Пароль"
-                        class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682] pr-12">
-                    <button onclick="togglePassword('login-password')" class="absolute right-3 top-3 text-[#6B7682] hover:text-[#1F2933] transition">
+                        class="input-field vp-input w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682] pr-12">
+                    <button type="button" onclick="togglePassword('login-password')" class="absolute right-3 top-3 text-[#6B7682] hover:text-[#1F2933] transition" aria-label="Показать пароль">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
@@ -210,7 +193,7 @@
                 </div>
                 <div id="login-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <button onclick="handleLogin()"
-                    class="w-full py-3 bg-[#111] hover:bg-black text-white font-bold rounded-xl transition text-sm">
+                    class="vibe-btn w-full">
                     Продолжить
                 </button>
             </div>
@@ -218,35 +201,47 @@
             <!-- Форма РЕГИСТРАЦИЯ -->
             <div id="form-register" class="space-y-3 hidden">
                 <input type="text" id="reg-name" placeholder="Ваше имя"
-                    class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
+                    class="input-field vp-input w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
                 <input type="email" id="reg-email" placeholder="Email адрес"
-                    class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
-                <div class="relative">
-                    <input type="password" id="reg-password" placeholder="Пароль (минимум 8 символов)"
-                        class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682] pr-12">
-                    <button onclick="togglePassword('reg-password')" class="absolute right-3 top-3 text-[#6B7682] hover:text-[#1F2933] transition">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                        </svg>
-                    </button>
+                    class="input-field vp-input w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
+                <div>
+                    <div class="pw-wrap relative">
+                        <input type="password" id="reg-password" placeholder="Пароль (минимум 8 символов)"
+                            class="input-field vp-input w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682] pr-12">
+                        <button type="button" onclick="togglePassword('reg-password')" class="absolute right-3 top-3 text-[#6B7682] hover:text-[#1F2933] transition" aria-label="Показать пароль">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                            </svg>
+                        </button>
+                    </div>
+                    <div id="pw-meter" class="pw-meter" aria-hidden="true">
+                        <span></span><span></span><span></span><span></span>
+                    </div>
+                    <p class="pw-hint">Надёжность: <b id="pw-strength">—</b></p>
                 </div>
-                <div class="relative">
+                <div class="pw-wrap relative">
                     <input type="password" id="reg-password-confirm" placeholder="Подтвердите пароль"
-                        class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682] pr-12">
-                    <button onclick="togglePassword('reg-password-confirm')" class="absolute right-3 top-3 text-[#6B7682] hover:text-[#1F2933] transition">
+                        class="input-field vp-input w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682] pr-12">
+                    <button type="button" onclick="togglePassword('reg-password-confirm')" class="absolute right-3 top-3 text-[#6B7682] hover:text-[#1F2933] transition" aria-label="Показать пароль">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                         </svg>
                     </button>
                 </div>
+                <ul class="pw-rules">
+                    <li data-rule="length"><span data-icon>•</span> Минимум 8 символов</li>
+                    <li data-rule="number"><span data-icon>•</span> Есть цифра</li>
+                    <li data-rule="letter"><span data-icon>•</span> Есть буква</li>
+                    <li data-rule="match"><span data-icon>•</span> Пароли совпадают</li>
+                </ul>
                 <div id="reg-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <div id="reg-success" class="hidden text-xs text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
                     ✅ Письмо с подтверждением отправлено на вашу почту!
                 </div>
                 <button onclick="handleRegister()"
-                    class="w-full py-3 bg-[#111] hover:bg-black text-white font-bold rounded-xl transition text-sm">
+                    class="vibe-btn w-full">
                     Создать аккаунт
                 </button>
             </div>
@@ -255,13 +250,13 @@
             <div id="form-forgot" class="space-y-3 hidden">
                 <p class="text-sm text-[#3E434F] text-center mb-2">Введите email — пришлём ссылку для сброса пароля</p>
                 <input type="email" id="forgot-email" placeholder="Ваш email адрес"
-                    class="input-field w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
+                    class="input-field vp-input w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
                 <div id="forgot-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <div id="forgot-success" class="hidden text-xs text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
                     ✅ Письмо отправлено! Проверьте почту.
                 </div>
                 <button onclick="handleForgotPassword(event)"
-                    class="w-full py-3 bg-[#111] hover:bg-black text-white font-bold rounded-xl transition text-sm">
+                    class="vibe-btn w-full">
                     Отправить ссылку
                 </button>
                 <button onclick="switchTab('login')" class="w-full py-2 text-sm text-[#3E434F] hover:text-[#1F2933] transition">
@@ -271,25 +266,20 @@
 
         </div>
 
-        <p class="login-footer-text text-center text-xs text-[#6B7682] mt-6">© Nur Consulting &amp; NR Space</p>
+        <p class="login-footer-text text-center text-xs mt-6" style="color:var(--ink-faint)">© Nur Consulting &amp; NR Space</p>
     </div>
 
     <!-- ЭКРАН 2: ПРИВЕТСТВИЕ (legacy, не показывается при OAuth) -->
     <div id="screen-cabinets" class="w-full max-w-md fade-in hidden text-center">
-        <div style="padding:40px 20px">
+            <div style="padding:40px 20px">
             <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="90" height="90" style="width:90px;height:90px;border-radius:22px;margin:0 auto 20px">
-            <div style="color:#6B7682;font-size:14px;font-weight:500;letter-spacing:0.12em;margin-bottom:28px">Space</div>
-            <h2 style="color:#1F2933;font-size:20px;font-weight:600;margin-bottom:10px">Добро пожаловать, <span id="user-name" style="color:#111111">—</span></h2>
-            <p style="color:#3E434F;font-size:13px;margin-bottom:36px;line-height:1.6">Вход в NR Space...</p>
+            <div style="color:var(--ink-faint);font-size:14px;font-weight:500;letter-spacing:0.12em;margin-bottom:28px">Space</div>
+            <h2 style="color:var(--ink);font-size:20px;font-weight:600;margin-bottom:10px">Добро пожаловать, <span id="user-name">—</span></h2>
+            <p style="color:var(--ink-dim);font-size:13px;margin-bottom:36px;line-height:1.6">Вход в NR Space...</p>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
-        SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
-        SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
-        supabase = window.NrAuth.createClient(window.supabase, SUPABASE_URL, SUPABASE_KEY);
-
         function switchTab(tab) {
             document.getElementById('form-login').classList.add('hidden');
             document.getElementById('form-register').classList.add('hidden');
@@ -311,11 +301,64 @@
                 document.getElementById('form-forgot').classList.remove('hidden');
             }
         }
+        try {
+            if (new URLSearchParams(window.location.search).get('tab') === 'register') switchTab('register');
+        } catch (_) {}
 
         function togglePassword(id) {
             const input = document.getElementById(id);
             input.type = input.type === 'password' ? 'text' : 'password';
         }
+
+        (function bindPasswordMeter() {
+            var pw = document.getElementById('reg-password');
+            var confirm = document.getElementById('reg-password-confirm');
+            var segments = [].slice.call(document.querySelectorAll('#pw-meter span'));
+            var strength = document.getElementById('pw-strength');
+            var rules = [].slice.call(document.querySelectorAll('#form-register [data-rule]'));
+            var LABELS = ['—', 'Слабый', 'Средний', 'Хороший', 'Надёжный'];
+            if (!pw || !confirm || !segments.length) return;
+            function check(value, other) {
+                return {
+                    length: value.length >= 8,
+                    number: /[0-9]/.test(value),
+                    letter: /[A-Za-zА-Яа-яЁё]/.test(value),
+                    match: value.length > 0 && value === other
+                };
+            }
+            function render() {
+                var value = pw.value;
+                var passed = check(value, confirm.value);
+                var score = 0;
+                if (passed.length) score += 1;
+                if (passed.number) score += 1;
+                if (passed.letter) score += 1;
+                if (/[a-z]/.test(value) && /[A-Z]/.test(value)) score += 1;
+                if (!value) score = 0;
+                segments.forEach(function (seg, i) {
+                    var filled = i < score;
+                    seg.className = filled
+                        ? (score >= 4 ? 'is-strong' : score >= 2 ? 'is-fair' : 'is-weak')
+                        : '';
+                });
+                if (strength) strength.textContent = LABELS[score];
+                rules.forEach(function (row) {
+                    var ok = passed[row.getAttribute('data-rule')];
+                    row.classList.toggle('is-ok', !!ok);
+                    var icon = row.querySelector('[data-icon]');
+                    if (icon) icon.textContent = ok ? '✓' : '•';
+                });
+            }
+            pw.addEventListener('input', render);
+            confirm.addEventListener('input', render);
+            render();
+        })();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
+        SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
+        supabase = window.NrAuth.createClient(window.supabase, SUPABASE_URL, SUPABASE_KEY);
 
         const OAUTH_LOADING_TEXT = 'Вход в NR Space...';
 
