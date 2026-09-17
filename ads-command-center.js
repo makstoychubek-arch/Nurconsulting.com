@@ -1013,7 +1013,7 @@
         const now = new Date();
         const today = ymd(now);
         const from7 = ymd(addDays(now, -6));
-        const cabs = await safeRows('cabinets', [], 'id, name, wb_token, adv_token_valid, adv_token_secret_id, adv_daily_budget_cap');
+        const cabs = await safeRows('cabinets', cab ? [{ op: 'eq', column: 'id', value: cab }] : [], 'id, name, adv_token_valid, adv_token_secret_id, adv_daily_budget_cap');
         if (cab !== state.filterCabinetId) return null;
         const cabinets = (cabs || []).filter((c) => !cab || c.id === cab);
         const ids = cabinets.map((c) => c.id);
