@@ -1403,6 +1403,17 @@ assert.ok(
     );
 }
 
+assert.ok(html.includes('id="ads-hq-start-at"') && html.includes('type="datetime-local"') && html.includes('id="ads-hq-schedule-start"'),
+    'RK can pick a start time without launching now');
+assert.ok(html.includes('id="ads-hq-schedule"') && html.includes('На время'),
+    'pending schedule list lives on the RK tab');
+{
+    const adsHqSrc = fs.readFileSync(path.join(__dirname, 'ads-command-center.js'), 'utf8');
+    const startFn = adsHqSrc.slice(adsHqSrc.indexOf('async function scheduleStart'), adsHqSrc.indexOf('async function cancelSchedule'));
+    assert.ok(startFn.includes("status: 'pending'") && !startFn.includes('callWbProxy') && !startFn.includes('advert_start'),
+        'setting a time must not start the campaign now');
+}
+
 assert.ok(html.includes('data-adv-view="autobidder"') && html.includes('id="adv-subtab-autobidder"'),
     'advertising detail must have an Автобиддер tab');
 assert.ok(html.includes('id="adv-view-ads"') && html.includes('id="ads-hq-tbody"') && html.includes('Активные полки'),

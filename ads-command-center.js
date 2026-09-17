@@ -334,6 +334,7 @@
         filterCabinetId: '',
         campFilter: 'active',
         didAutoSync: false,
+        schedules: [],
     };
 
     function dep() {
@@ -372,13 +373,81 @@
     }
 
     function selectedKeys() {
-        return [...document.querySelectorAll('#ads-hq-tbody input.ads-hq-check:checked')].map((el) => ({
+        const nodes = typeof document === 'undefined' || !document.querySelectorAll
+            ? []
+            : document.querySelectorAll('#ads-hq-tbody input.ads-hq-check:checked, #ads-hq-phone input.ads-hq-check:checked');
+        return [...nodes].map((el) => ({
             kind: el.dataset.kind,
             cabinetId: el.dataset.cabinet,
             wbId: el.dataset.wb,
             uuid: el.dataset.uuid || '',
             cluster: el.dataset.cluster || '',
         }));
+    }
+
+    function parseScheduleAt(value, now) {
+        const n = now instanceof Date ? now.getTime() : Date.now();
+        if (value == null || String(value).trim() === '') return { error: 'empty' };
+        const d = new Date(String(value));
+        if (Number.isNaN(d.getTime())) return { error: 'invalid' };
+        if (d.getTime() <= n) return { error: 'past' };
+        return { at: d };
+    }
+
+    function defaultScheduleLocal(now) {
+        const d = now instanceof Date ? new Date(now.getTime()) : new Date();
+        d.setMinutes(0, 0, 0);
+        d.setHours(d.getHours() + 1);
+        return ymd(d) + 'T' + pad2(d.getHours()) + ':00';
+    }
+
+    function formatScheduleWhen(iso) {
+        const d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return '—';
+        return d.toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function collectScheduleItems(items, model) {
+        const camps = [];
+        const seen = new Set();
+        const rows = (model && model.rows) || [];
+        for (const it of items || []) {
+            if (it.kind === 'cabinet') {
+                const cab = rows.find((r) => r.id === it.cabinetId);
+                for (const c of (cab && cab.campaigns) || []) {
+                    const k = it.cabinetId + ':' + c.wbId;
+                    if (seen.has(k)) continue;
+                    seen.add(k);
+                    camps.push({ cabinetId: it.cabinetId, wbId: Number(c.wbId), name: c.name || '' });
+                }
+            } else if (it.wbId) {
+                const k = it.cabinetId + ':' + it.wbId;
+                if (seen.has(k)) continue;
+                seen.add(k);
+                const cab = rows.find((r) => r.id === it.cabinetId);
+                const camp = cab && (cab.campaigns || []).find((c) => String(c.wbId) === String(it.wbId));
+                camps.push({
+                    cabinetId: it.cabinetId,
+                    wbId: Number(it.wbId),
+                    name: (camp && camp.name) || '',
+                });
+            }
+        }
+        return camps;
+    }
+
+    function pendingFor(cabinetId, wbId) {
+        return (state.schedules || []).find((s) =>
+            s.status === 'pending'
+            && s.cabinet_id === cabinetId
+            && Number(s.campaign_id) === Number(wbId)
+        ) || null;
+    }
+
+    function scheduleMark(cabinetId, wbId) {
+        const row = pendingFor(cabinetId, wbId);
+        if (!row) return '';
+        return ' <span class="ads-hq-when" title="Запуск по времени">' + esc(formatScheduleWhen(row.start_at)) + '</span>';
     }
 
     function setCabinet(cabinetId) {
@@ -463,7 +532,7 @@
             '<td' + (pad ? ' style="padding-left:28px"' : '') + '><button type="button" class="ads-hq-expand" data-expand="camp" data-id="' + esc(ck) + '">' +
             chevron(campOpen) + esc(camp.name) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></button></td>' +
             '<td>' + esc(camp.typeLabel || campaignTypeLabel(camp.type)) + '</td>' +
-            '<td>' + statusPill(camp.status) + '</td>' +
+            '<td>' + statusPill(camp.status) + scheduleMark(cab.id, camp.wbId) + '</td>' +
             '<td>' + formatMoney(camp.spendToday) + '</td>' +
             '<td>' + formatMoney(camp.spend7) + '</td>' +
             '<td>' + formatDrrLabel(formatDrr(camp.spend7, camp.revenue7)) + '</td>' +
@@ -546,11 +615,15 @@
         const html = [];
         html.push('<article class="ads-hq-phone-card ads-hq-phone-shelf" data-key="' + esc(ck) + '">');
         html.push(
+            '<div class="ads-hq-phone-pick">' +
+            '<input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) +
+            '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '">' +
             '<button type="button" class="ads-hq-phone-head" data-expand="camp" data-id="' + esc(ck) + '">' +
             '<span>' + esc(camp.name) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></span>' +
-            chevron(campOpen) + '</button>'
+            chevron(campOpen) + '</button></div>'
         );
-        html.push('<div class="ads-hq-phone-type">' + esc(camp.typeLabel || campaignTypeLabel(camp.type)) + ' · ' + statusPill(camp.status) + '</div>');
+        html.push('<div class="ads-hq-phone-type">' + esc(camp.typeLabel || campaignTypeLabel(camp.type)) + ' · ' +
+            statusPill(camp.status) + scheduleMark(cab.id, camp.wbId) + '</div>');
         html.push(
             '<div class="ads-hq-phone-metrics">' +
             '<span>Сегодня<b>' + formatMoney(camp.spendToday) + '</b></span>' +
@@ -622,6 +695,125 @@
     function paintTree() {
         renderTable();
         renderPhone();
+        paintSchedule();
+    }
+
+    function paintSchedule() {
+        const el = document.getElementById('ads-hq-schedule');
+        if (!el) return;
+        const cab = state.filterCabinetId;
+        const rows = (state.schedules || []).filter((s) =>
+            s.status === 'pending' && (!cab || s.cabinet_id === cab)
+        );
+        if (!rows.length) {
+            el.innerHTML = '';
+            return;
+        }
+        el.innerHTML = '<div class="ads-hq-schedule-title">Запуск по времени</div>' + rows.map((s) =>
+            '<div class="ads-hq-schedule-row">' +
+            '<span>' + esc(s.campaign_name || ('РК ' + s.campaign_id)) +
+            ' · ' + esc(formatScheduleWhen(s.start_at)) + '</span>' +
+            '<button type="button" class="ui-btn ui-btn-secondary" data-cancel-schedule="' + esc(s.id) + '">Отмена</button>' +
+            '</div>'
+        ).join('');
+    }
+
+    async function upsertPending(sb, row) {
+        const found = await sb.from('adv_start_schedule')
+            .select('id')
+            .eq('cabinet_id', row.cabinet_id)
+            .eq('campaign_id', row.campaign_id)
+            .eq('status', 'pending')
+            .maybeSingle();
+        const existing = found && found.data;
+        if (existing && existing.id) {
+            const upd = await sb.from('adv_start_schedule')
+                .update({ start_at: row.start_at, campaign_name: row.campaign_name })
+                .eq('id', existing.id)
+                .eq('status', 'pending');
+            return upd && upd.error;
+        }
+        const ins = await sb.from('adv_start_schedule').insert(row);
+        return ins && ins.error;
+    }
+
+    async function scheduleStart(picked, now) {
+        const modal = dep().showPremiumModal;
+        const parsed = parseScheduleAt(
+            typeof document !== 'undefined' ? document.getElementById('ads-hq-start-at')?.value : '',
+            now
+        );
+        if (parsed.error === 'empty' || parsed.error === 'invalid') {
+            if (modal) modal('error', 'Нет времени', 'Выберите дату и время запуска.');
+            return { ok: false, reason: parsed.error };
+        }
+        if (parsed.error === 'past') {
+            if (modal) modal('error', 'Время уже прошло', 'Поставьте время в будущем — сейчас кампании не запускаем.');
+            return { ok: false, reason: 'past' };
+        }
+        const items = collectScheduleItems(picked || selectedKeys(), state.model);
+        if (!items.length) {
+            if (modal) modal('error', 'Ничего не выбрано', 'Отметьте полки, которые нужно включить в это время.');
+            return { ok: false, reason: 'empty' };
+        }
+        const sb = dep().supabase;
+        if (!sb || !sb.from) {
+            if (modal) modal('error', 'Нет доступа', 'Не удалось сохранить расписание.');
+            return { ok: false, reason: 'no_sb' };
+        }
+        const iso = parsed.at.toISOString();
+        let saved = 0;
+        let fail = 0;
+        for (const c of items) {
+            const error = await upsertPending(sb, {
+                cabinet_id: c.cabinetId,
+                campaign_id: c.wbId,
+                campaign_name: c.name || null,
+                start_at: iso,
+                status: 'pending',
+            });
+            if (error) fail += 1;
+            else saved += 1;
+        }
+        if (modal) {
+            modal(fail && !saved ? 'error' : 'success',
+                'На время',
+                saved
+                    ? ('Поставили ' + saved + ' полок на ' + formatScheduleWhen(iso) + '. Сейчас не запускаем — система включит их в это время.')
+                    : (fail ? String(fail) + ' не сохранились' : 'Ничего не поставили'));
+        }
+        await refreshSchedules();
+        paintTree();
+        return { ok: saved > 0, saved, fail };
+    }
+
+    async function cancelSchedule(id) {
+        const sb = dep().supabase;
+        if (!sb || !id) return { ok: false };
+        const { error } = await sb.from('adv_start_schedule')
+            .update({ status: 'cancelled' })
+            .eq('id', id)
+            .eq('status', 'pending');
+        if (error && dep().showPremiumModal) {
+            dep().showPremiumModal('error', 'Не отменилось', error.message);
+            return { ok: false };
+        }
+        await refreshSchedules();
+        paintTree();
+        return { ok: true };
+    }
+
+    async function refreshSchedules() {
+        const ids = cabinetRows().map((r) => r.id);
+        if (!ids.length && state.filterCabinetId) ids.push(state.filterCabinetId);
+        const rows = ids.length
+            ? await safeRows('adv_start_schedule', [
+                { op: 'in', column: 'cabinet_id', value: ids },
+                { op: 'eq', column: 'status', value: 'pending' },
+            ])
+            : [];
+        state.schedules = rows || [];
+        return state.schedules;
     }
 
     function fillFormFromRule(rule) {
@@ -927,6 +1119,11 @@
                 if (open) open(Number(keys.dataset.keys), keys.dataset.cabinet || '');
                 return;
             }
+            const cancel = e.target.closest('[data-cancel-schedule]');
+            if (cancel) {
+                cancelSchedule(cancel.dataset.cancelSchedule);
+                return;
+            }
             const pick = e.target.closest('[data-pick="cluster"]');
             if (pick) {
                 pickRow(pick.dataset.cabinet, pick.dataset.camp, pick.dataset.cluster, pick.dataset.wb);
@@ -949,6 +1146,7 @@
         document.getElementById('ads-hq-save')?.addEventListener('click', () => saveRule());
         document.getElementById('ads-hq-bulk-pause')?.addEventListener('click', () => runBulk('pause', selectedKeys()));
         document.getElementById('ads-hq-bulk-start')?.addEventListener('click', () => runBulk('start', selectedKeys()));
+        document.getElementById('ads-hq-schedule-start')?.addEventListener('click', () => scheduleStart());
         document.getElementById('ads-hq-bulk-tpl')?.addEventListener('click', () => applyTemplate());
         document.getElementById('ads-hq-cap-mode')?.addEventListener('change', () => {
             state.form.capMode = document.getElementById('ads-hq-cap-mode').value;
@@ -960,6 +1158,8 @@
             });
         });
         document.getElementById('ads-hq-reload')?.addEventListener('click', () => reloadFromWb());
+        const atEl = document.getElementById('ads-hq-start-at');
+        if (atEl && !atEl.value) atEl.value = defaultScheduleLocal();
     }
 
     async function safeRows(table, filters, columns) {
@@ -1001,6 +1201,11 @@
                 { op: 'gte', column: 'date', value: from7 },
             ]),
         ]) : [[], [], [], []];
+        const schedules = ids.length ? await safeRows('adv_start_schedule', [
+            { op: 'in', column: 'cabinet_id', value: ids },
+            { op: 'eq', column: 'status', value: 'pending' },
+        ]) : [];
+        state.schedules = schedules || [];
         state.model = buildHqModel({
             today, from7, cabinets, legacyCampaigns, legacyStats, v2Campaigns, clusters, rules, snapshots, v2Stats,
         });
@@ -1099,6 +1304,12 @@
         renderTable,
         renderPhone,
         paintForm,
+        parseScheduleAt,
+        defaultScheduleLocal,
+        formatScheduleWhen,
+        collectScheduleItems,
+        scheduleStart,
+        cancelSchedule,
         ymd,
         addDays,
     };

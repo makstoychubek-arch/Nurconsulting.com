@@ -1097,6 +1097,22 @@
         .ads-hq-cl.is-on td { background: var(--accent-soft); }
         .ads-hq-bulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
         .ads-hq-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-right: auto; }
+        .ads-hq-when-wrap {
+            display: inline-flex; align-items: center; gap: 8px;
+            font-size: 12px; color: var(--text-muted); white-space: nowrap;
+        }
+        .ads-hq-start-at { width: auto; min-width: 168px; max-width: 220px; padding: 6px 10px; }
+        .ads-hq-when { color: var(--accent); font-size: 11px; font-weight: 600; }
+        .ads-hq-schedule { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
+        .ads-hq-schedule:empty { display: none; }
+        .ads-hq-schedule-title { font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+        .ads-hq-schedule-row {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            font-size: 13px; color: var(--text-primary); background: var(--bg);
+            border-radius: 10px; padding: 8px 10px;
+        }
+        .ads-hq-phone-pick { display: flex; align-items: center; gap: 10px; }
+        .ads-hq-phone-pick .ads-hq-phone-head { flex: 1; min-width: 0; }
         .ads-hq-chip {
             border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
             border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; line-height: 1.2;
@@ -5347,9 +5363,14 @@
                             <button type="button" class="ads-hq-chip on" data-camp-filter="active">Активные</button>
                             <button type="button" class="ads-hq-chip" data-camp-filter="all">Все</button>
                         </div>
+                        <label class="ads-hq-when-wrap">Запуск в
+                            <input type="datetime-local" id="ads-hq-start-at" class="ui-input ads-hq-start-at" step="60">
+                        </label>
+                        <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-schedule-start">На время</button>
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-pause">Пауза</button>
                         <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-start">Запуск</button>
                     </div>
+                    <div id="ads-hq-schedule" class="ads-hq-schedule"></div>
                     <div id="ads-hq-phone" class="ads-hq-phone"></div>
                     <div class="overflow-x-auto ads-hq-table-wrap">
                         <table class="data-table ads-hq-table">
@@ -6463,7 +6484,7 @@
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.f060ba3215.min.js"></script>
 <script src="/dist/wb-formulas.11317eb115.min.js"></script>
-<script src="/dist/ads-command-center.342a2a55d8.min.js"></script>
+<script src="/dist/ads-command-center.271f8cf390.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
