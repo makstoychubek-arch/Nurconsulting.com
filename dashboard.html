@@ -10810,12 +10810,12 @@
         _warehouseSalesLoadedForCabinet = null;
         ['adv-kpi-spend','adv-kpi-ctr','adv-kpi-cpc','adv-kpi-cpm','adv-kpi-cr','adv-kpi-orders','adv-kpi-revenue','adv-kpi-efficiency','adv-kpi-spend-share','adv-kpi-roas']
             .forEach(id => setText(id, '—'));
+        const adsHqOpen = document.getElementById('tab-advertising')?.classList.contains('active')
+            && !document.getElementById('adv-view-ads')?.classList.contains('hidden');
+        let adsReload = null;
         if (window.AdsHQ && typeof window.AdsHQ.setCabinet === 'function') {
             window.AdsHQ.setCabinet(newCabinetId);
-            if (typeof window.AdsHQ.load === 'function'
-                && !document.getElementById('adv-view-ads')?.classList.contains('hidden')) {
-                window.AdsHQ.load();
-            }
+            if (adsHqOpen && typeof window.AdsHQ.load === 'function') adsReload = window.AdsHQ.load();
         }
         const advTableEl = document.getElementById('adv-campaigns-table');
         if (advTableEl) advTableEl.innerHTML = 'Загрузка...';
@@ -10834,12 +10834,18 @@
         if (abListEl) abListEl.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка тестов...</div>';
 
         const rnpNow = getRnp();
-        if (rnpNow && !isBetaStubOpen()) {
+        if (rnpNow && !isBetaStubOpen() && !adsHqOpen) {
             rnpNow.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
             bootRnpTab(true);
         }
 
         showCabinetTransition(newCabinetName, async () => {
+            if (adsReload) {
+                await adsReload;
+                loadFromDB();
+                loadLastSyncTime();
+                return;
+            }
             await loadFromDB();
             await loadLastSyncTime();
             const rnpMod = getRnp();
