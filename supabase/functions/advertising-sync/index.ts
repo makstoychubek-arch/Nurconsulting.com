@@ -15,6 +15,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTeamMember } from '../_shared/cabinet-access.ts';
+import { isServiceAuthorized } from '../_shared/service-auth.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -25,6 +26,10 @@ const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
 const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
 const ADV_API = 'https://advert-api.wildberries.ru';
 const TRAILING_DAYS = 30; // WB fullstats allows max 31 days per request
+const TIME_BUDGET_MS = 110000; // жёсткий предел запроса — 150 с
+// Статусы WB: 4 готова, 9 активна, 11 на паузе — только они могут дать новые
+// показы и расход. 7 завершена и -1 удалена свою историю уже не меняют.
+const LIVE_CAMPAIGN_STATUSES = new Set([4, 9, 11]);
 
 Deno.serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
@@ -41,7 +46,7 @@ Deno.serve(async (req) => {
     const bearer = authHeader.replace('Bearer ', '');
 
     const admin = createClient(supabaseUrl, serviceKey);
-    const isServiceRole = bearer === serviceKey;
+    const isServiceRole = isServiceAuthorized(req, serviceKey);
     let userId: string | null = null;
     let isSuperAdmin = false;
 
@@ -98,9 +103,22 @@ Deno.serve(async (req) => {
     fromD.setDate(fromD.getDate() - (TRAILING_DAYS - 1));
     const dateFrom = fromD.toISOString().split('T')[0];
 
+    // Cron идёт по всем кабинетам подряд, а fullstats у WB — 3 запроса в минуту.
+    // Кабинет с 479 кампаниями съедал весь лимит функции, и те, кто стоял за
+    // ним, не обновлялись месяцами. Начинаем с самого отстающего и уходим до
+    // жёсткого таймаута — за несколько запусков очередь проходит целиком.
+    const order = targetCabinetId ? [] : await staleFirstOrder(admin, cabinets.map((c) => c.id));
+    const queue = order.length
+        ? [...cabinets].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id))
+        : cabinets;
+
     const results: Array<Record<string, unknown>> = [];
 
-    for (const cabinet of cabinets) {
+    for (const cabinet of queue) {
+        if (!targetCabinetId && Date.now() - started > TIME_BUDGET_MS) {
+            results.push({ cabinet: cabinet.name, status: 'deferred' });
+            continue;
+        }
         const token = sanitizeWbToken(cabinet.wb_token);
         if (!token || !isValidWbToken(token)) {
             results.push({ cabinet: cabinet.name, status: 'skipped', reason: 'invalid_token' });
@@ -166,13 +184,34 @@ Deno.serve(async (req) => {
                     }
                 }
 
+                // Завершённые и удалённые кампании расход больше не набирают —
+                // их дни за окно уже лежат в базе. Спрашиваем у WB только живые
+                // плюс те завершённые, которые ещё показывались внутри окна.
+                const { data: recentSpend } = await admin
+                    .from('advertising_daily_stats')
+                    .select('campaign_id')
+                    .eq('cabinet_id', cabinet.id)
+                    .gte('stat_date', dateFrom);
+                const spentInWindow = new Set<number>(
+                    (recentSpend || []).map((r) => Number(r.campaign_id)),
+                );
+                const statIds = ids.filter((id) => {
+                    const st = meta.get(id)?.status;
+                    return st == null || LIVE_CAMPAIGN_STATUSES.has(st) || spentInWindow.has(id);
+                });
+
                 const rows: Record<string, unknown>[] = [];
                 // WB's fullstats is capped at 3 requests/min regardless of ids-per-request
                 // (up to 50 ids per call), so pace chunks well under that limit — 20s
                 // between calls keeps us at 3/min even in the worst case.
                 const FULLSTATS_CHUNK_DELAY_MS = 20000;
-                for (let i = 0; i < ids.length; i += 50) {
-                    const chunk = ids.slice(i, i + 50);
+                for (let i = 0; i < statIds.length; i += 50) {
+                    if (!targetCabinetId && Date.now() - started > TIME_BUDGET_MS) {
+                        errorMsg += `остановились на ${i} из ${statIds.length} кампаний: лимит времени; `;
+                        status = 'partial';
+                        break;
+                    }
+                    const chunk = statIds.slice(i, i + 50);
                     try {
                         const url = `${ADV_API}/adv/v3/fullstats?ids=${chunk.join(',')}&beginDate=${dateFrom}&endDate=${dateTo}`;
                         const res = await fetch(url, { headers: { Authorization: token } });
@@ -218,7 +257,7 @@ Deno.serve(async (req) => {
                     }
                     // Skip the trailing sleep after the last chunk to avoid wasting
                     // time when there's nothing left to send.
-                    if (i + 50 < ids.length) await sleep(FULLSTATS_CHUNK_DELAY_MS);
+                    if (i + 50 < statIds.length) await sleep(FULLSTATS_CHUNK_DELAY_MS);
                 }
 
                 for (let i = 0; i < rows.length; i += 200) {
@@ -261,6 +300,22 @@ Deno.serve(async (req) => {
         results,
     });
 });
+
+/** Кабинеты по свежести статистики: у кого она старее, тот идёт первым. */
+async function staleFirstOrder(admin: any, cabinetIds: string[]): Promise<string[]> {
+    const freshness = new Map<string, number>();
+    for (const id of cabinetIds) {
+        const { data } = await admin
+            .from('advertising_daily_stats')
+            .select('updated_at')
+            .eq('cabinet_id', id)
+            .order('updated_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+        freshness.set(id, data?.updated_at ? new Date(String(data.updated_at)).getTime() : 0);
+    }
+    return [...cabinetIds].sort((a, b) => (freshness.get(a) ?? 0) - (freshness.get(b) ?? 0));
+}
 
 // Mirrors wb-proxy's `advert_list` action. Extended to also capture each
 // campaign's `status`/`type` from the SAME /adv/v1/promotion/count response

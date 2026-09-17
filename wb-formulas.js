@@ -88,6 +88,19 @@ function calculateMetrics(rows, settings = {}) {
     let acquiringSum = 0;      // Эквайринг — acquiring_fee
     let ordersSum = 0;         // Заказы (оценочно через отчёт)
     let costOfSalesSum = 0;    // Себестоимость продаж
+    // retail_price приходит только если его запросили в fields у finance-api.
+    // Считаем продажи с ним и без него: если он есть не у всех строк,
+    // реализация получится меньше продаж, а маржа — вдвое завышенной.
+    // Такую реализацию показываем прочерком, а не половиной правды.
+    let salesWithRetailPrice = 0;
+    let salesWithoutRetailPrice = 0;
+    // Сколько заплатил покупатель — retail_amount. Разница с ценой продавца и
+    // есть СПП: у кыргызских кабинетов retail_price приходит равным
+    // retail_price_withdisc_rub, поэтому прежняя формула «реализация минус
+    // продажи» всегда давала ровно ноль.
+    let retailAmountSum = 0;
+    let salesWithRetailAmount = 0;
+    let salesWithoutRetailAmount = 0;
 
     // По артикулам — для таблицы товаров
     const byNmId = {};
@@ -107,12 +120,24 @@ function calculateMetrics(rows, settings = {}) {
         const deduction = finMoney(finField(row, 'deduction'));
         const acceptance = finMoney(finField(row, 'acceptance', 'paidAcceptance'));
         const acquiring = finMoney(finField(row, 'acquiring_fee', 'acquiringFee'));
+        // retail_amount у WB — уже сумма по строке, на количество не умножаем.
+        const retailAmount = finMoney(finField(row, 'retail_amount', 'retailAmount'));
         const qty = Number(finField(row, 'quantity') || 0);
         const nmId = String(finField(row, 'nm_id', 'nmId') || '');
 
         if (isSale) {
             salesSum += priceWithDisc * qty;
             salesCount += qty;
+            // Компенсации и коррекции идут строками «Продажа» с нулевой ценой
+            // (есть только ppvz_for_pay). Считать их продажей без retail_price
+            // нельзя: десяток таких строк гасил реализацию за весь период.
+            if (priceWithDisc > 0) {
+                if (retailPrice > 0) salesWithRetailPrice += qty;
+                else salesWithoutRetailPrice += qty;
+                if (retailAmount > 0) salesWithRetailAmount += qty;
+                else salesWithoutRetailAmount += qty;
+            }
+            retailAmountSum += retailAmount;
             realizationSum += retailPrice * qty;
             toTransferSum += forPay;
 
@@ -132,7 +157,10 @@ function calculateMetrics(rows, settings = {}) {
         if (isReturn) {
             returnsSum += priceWithDisc * qty;
             returnsCount += qty;
-            toTransferSum += forPay; // Возврат уменьшает "к перечислению"
+            // В отчёте WB суммы по возврату положительные — их вычитают, а не
+            // прибавляют. Раньше возврат увеличивал «к перечислению» и тем
+            // самым занижал комиссию: на неделе Baza это давало +1.4 млн сом.
+            toTransferSum -= forPay;
         }
 
         // Расходы идут во всех строках (не только Продажа/Возврат)
@@ -141,7 +169,7 @@ function calculateMetrics(rows, settings = {}) {
         penaltySum += penalty;
         compensationSum += addPayment;
         acceptanceSum += acceptance;
-        acquiringSum += acquiring;
+        acquiringSum += isReturn ? -acquiring : acquiring;
 
         // Прочие удержания — только не исключённые
         const operName = String(finField(row, 'supplier_oper_name', 'sellerOperName', 'supplierOperName') || '');
@@ -158,31 +186,44 @@ function calculateMetrics(rows, settings = {}) {
     // РАСЧЁТ КЛЮЧЕВЫХ МЕТРИК по методологии TrueStats
     // ======================================================
 
-    // Комиссия = Продажи − К_перечислению − Компенсации
-    // (не берётся напрямую из поля, а вычисляется!)
-    const commissionSum = salesSum - toTransferSum - compensationSum;
+    // База продаж за вычетом возвратов — от неё считаются комиссия и налог.
+    const netSalesSum = salesSum - returnsSum;
 
-    // СПП (скидка постоянного покупателя) = Реализация − Продажи
-    const sppSum = realizationSum - salesSum;
+    // Реализация имеет смысл только когда цена до скидок известна по всем
+    // продажам периода. Иначе это сумма части дней, выданная за весь период.
+    const hasRetailPrice = salesWithRetailPrice > 0 && salesWithoutRetailPrice === 0;
+
+    // Комиссия WB. Прямого поля нет, но ppvz_for_pay = база − комиссия −
+    // эквайринг (проверено на строках отчёта: 1556.85 × 0.755 − 54.01 =
+    // 1121.42 = forPay), поэтому эквайринг из разницы надо вынуть.
+    const commissionSum = netSalesSum - toTransferSum - acquiringSum - compensationSum;
+
+    // СПП (скидка постоянного покупателя) — за счёт WB, продавец её не платит:
+    // цена продавца минус то, что заплатил покупатель (retail_amount).
+    // Отрицательное значение — не ошибка: по рассрочке и софинансированию
+    // покупатель платит больше цены продавца.
+    const hasRetailAmount = salesWithRetailAmount > 0 && salesWithoutRetailAmount === 0;
+    const sppSum = hasRetailAmount
+        ? Math.round(salesSum - retailAmountSum)
+        : (hasRetailPrice ? Math.round(realizationSum - salesSum) : null);
 
     // Процент выкупа = Продажи / (Продажи + Возвраты) × 100
     const buyoutRate = (salesSum + returnsSum) > 0
         ? Math.round((salesSum / (salesSum + returnsSum)) * 1000) / 10
         : 0;
 
-    // Налог (УСН "Доходы") = Продажи × taxRate%
-    // Налоговая база = Продажи (после СПП)
-    const taxBase = salesSum;
+    // Налог (УСН "Доходы") = поступления × taxRate%
+    const taxBase = netSalesSum;
     const taxSum = Math.round(taxBase * taxRate / 100);
 
-    // Чистая прибыль (без себестоимости и опер.расходов)
-    // = Продажи − Логистика − Хранение − Комиссия − Эквайринг
-    //   − Прочие удержания − Платная приёмка − Штрафы + Компенсации − Налог
-    const profitBeforeCost = salesSum
+    // Чистая прибыль (без себестоимости и опер.расходов).
+    // Считаем от «к перечислению»: комиссия и эквайринг уже вычтены из него
+    // самим WB. Прежняя формула брала продажи и отнимала вычисленную комиссию
+    // и эквайринг отдельно, из-за чего эквайринг уходил дважды, а компенсации,
+    // наоборот, прибавлялись дважды.
+    const profitBeforeCost = toTransferSum
         - logisticsSum
         - storageSum
-        - commissionSum
-        - acquiringSum
         - deductionSum
         - acceptanceSum
         - penaltySum
@@ -193,10 +234,12 @@ function calculateMetrics(rows, settings = {}) {
     // Чистая прибыль с себестоимостью и опер.расходами
     const profitFull = profitBeforeCost - costOfSalesSum - opexForPeriod;
 
-    // Маржинальность = Прибыль / Реализация × 100
-    const margin = realizationSum > 0
-        ? Math.round((profitFull / realizationSum) * 1000) / 10
-        : 0;
+    // Маржинальность = Прибыль / Реализация × 100. Без retail_price от WB
+    // считаем от продаж — это другая база, но не выдуманное число.
+    const marginBase = hasRetailPrice && realizationSum > 0 ? realizationSum : netSalesSum;
+    const margin = marginBase > 0
+        ? Math.round((profitFull / marginBase) * 1000) / 10
+        : null;
 
     // ROI = Прибыль / Себестоимость × 100
     const roi = costOfSalesSum > 0
@@ -219,7 +262,7 @@ function calculateMetrics(rows, settings = {}) {
         // Основные метрики
         salesSum: Math.round(salesSum),
         salesCount,
-        realizationSum: Math.round(realizationSum),
+        realizationSum: hasRetailPrice ? Math.round(realizationSum) : null,
         returnsSum: Math.round(returnsSum),
         returnsCount,
         toTransferSum: Math.round(toTransferSum),
@@ -233,7 +276,7 @@ function calculateMetrics(rows, settings = {}) {
         penaltySum: Math.round(penaltySum),
         compensationSum: Math.round(compensationSum),
         deductionSum: Math.round(deductionSum),
-        sppSum: Math.round(sppSum),
+        sppSum: sppSum == null ? null : Math.round(sppSum),
 
         // Реклама из advertising_daily_stats за выбранный период
         adsSum,
@@ -269,6 +312,7 @@ function calculateMetrics(rows, settings = {}) {
         // Метаданные расчёта
         periodDays,
         hasRealData: rows.length > 0,
+        hasRetailPrice,
     };
 }
 

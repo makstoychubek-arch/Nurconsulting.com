@@ -30,7 +30,7 @@ wb_orders
   nm_id bigint
   srid text            — уникальный id строки заказа WB
   barcode text
-  price numeric          — priceWithDiscount || totalPrice
+  price numeric          — priceWithDisc (цена со скидкой продавца) || totalPrice
   is_return boolean
   data jsonb             — полный объект WB (на фронт НЕ отдаётся)
   UNIQUE (cabinet_id, srid) WHERE srid IS NOT NULL
@@ -86,7 +86,7 @@ WB API:
 Агрегация в rnp_daily_data (syncRnpDailyFromOrders):
   GROUP BY nm_id, order_date
   Исключается только is_return (isCancel НЕ фильтруется — как у WB Воронки)
-  price = колонка price (уже priceWithDiscount при insert)
+  price = колонка price (уже priceWithDisc при insert)
 
 ================================================================================
 4. RPC НА БЭКЕНДЕ (фронт не тянет wb_orders.data)
@@ -166,6 +166,6 @@ supabase/migrations/20260722183000_rnp_orders_daily_rpc.sql
 Группа:   (cabinet_id, nm_id, order_date)
 Фильтр:   is_return = true → исключить
           isCancel → НЕ исключать
-Сумма:    price (priceWithDiscount при insert)
+Сумма:    price (priceWithDisc при insert)
 Дедуп:    upsert по (cabinet_id, srid)
 TZ:       день = split('T')[0] от ISO; Pass B auto-sync считает дни в UTC

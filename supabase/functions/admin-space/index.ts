@@ -72,13 +72,8 @@ serve(async (req) => {
 
             if (updErr) return json({ error: updErr.message }, 500);
 
-            if (space.email) {
-                const { error: allowErr } = await admin.from('allowed_users').insert({ email: space.email });
-                if (allowErr && !/duplicate|unique/i.test(allowErr.message)) {
-                    console.warn('[admin-space] allowed_users:', allowErr.message);
-                }
-            }
-
+            // Активация даёт доступ только к своему спейсу. В team_staff клиента
+            // не добавляем: этот список означает «сотрудник видит все кабинеты».
             return json({ ok: true, status: 'active', email: space.email });
         }
 
@@ -92,6 +87,10 @@ serve(async (req) => {
 
             await admin.from('user_sessions').delete().eq('user_id', targetUserId);
             if (space.email) {
+                // Блокировка снимает и права сотрудника, иначе бывший сотрудник
+                // продолжал бы читать чужие кабинеты в обход интерфейса.
+                const { error: staffDelErr } = await admin.from('team_staff').delete().eq('email', space.email);
+                if (staffDelErr) console.warn('[admin-space] team_staff delete:', staffDelErr.message);
                 const { error: allowDelErr } = await admin.from('allowed_users').delete().eq('email', space.email);
                 if (allowDelErr) console.warn('[admin-space] allowed_users delete:', allowDelErr.message);
             }

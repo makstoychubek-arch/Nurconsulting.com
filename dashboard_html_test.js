@@ -985,7 +985,7 @@ assert.ok(
     fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
         .includes('addDaysStr(today, -1)') &&
     fs.readFileSync(path.join(__dirname, 'supabase/functions/auto-sync/index.ts'), 'utf8')
-        .includes('for (const dayStr of [yesterday, today])'),
+        .includes("for (const dayStr of mode === 'history' ? [] : [yesterday, today])"),
     'auto-sync Pass B must load yesterday and today so RNP is not empty in the morning'
 );
 assert.ok(
@@ -1103,8 +1103,39 @@ assert.ok(
     !/fetchFbsStockRows\(token, cabinetId\)/.test(autoSyncSrc),
     'fetchFbsStockRows must not be called without admin'
 );
-assert.ok(html.includes("mode: 'stocks'") && html.includes('AUTO_SYNC_URL'),
-    'dashboard refresh must sync stocks via auto-sync, not the dead Statistics stocks API');
+assert.ok(html.includes("mode: 'refresh'") && html.includes('AUTO_SYNC_URL'),
+    'dashboard refresh must sync via auto-sync, not the dead Statistics stocks API');
+// Кнопка «Обновить» удаляла wb_orders от 2026-01-01 и писала вместо истории то,
+// что WB отдал на dateFrom (а он отдаёт последние изменившиеся заказы, не период).
+assert.ok(
+    !/from\('wb_orders'\)\s*\.delete\(\)/.test(html) && !html.includes("await supabase.from('wb_orders').delete()"),
+    'dashboard must never delete order history from the browser'
+);
+assert.ok(
+    !html.includes("callWbProxy('orders', { dateFrom: from }"),
+    'orders must be synced day by day on the server, not pulled from WB by the page'
+);
+assert.ok(
+    autoSyncSrc.includes("if (mode === 'refresh')") &&
+    autoSyncSrc.includes("mode !== 'full' && mode !== 'stocks' && mode !== 'refresh'"),
+    'auto-sync must support the refresh mode used by the dashboard button'
+);
+// Цена заказа: у WB нет поля priceWithDiscount, из-за него суммы падали на
+// totalPrice (до скидки) и заказы на дашборде были завышены в 1.5-3 раза.
+const readsFakePriceField = (src) => /(?:\.|\[['"])priceWithDiscount/.test(src);
+assert.ok(
+    !readsFakePriceField(html) &&
+    !readsFakePriceField(autoSyncSrc) &&
+    !readsFakePriceField(fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8')) &&
+    !readsFakePriceField(fs.readFileSync(path.join(__dirname, 'supabase/functions/rnp-morning-fill/index.ts'), 'utf8')),
+    'nothing may read the non-existent WB field priceWithDiscount'
+);
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/wb-order-price.ts'), 'utf8')
+        .includes('export function orderPriceWithDisc') &&
+    autoSyncSrc.includes('orderPriceWithDisc(o)'),
+    'order price must come from the shared priceWithDisc helper'
+);
 assert.ok(html.includes("'m-stock-fbo','m-stock-fbs'"),
     'cabinet switch must reset FBO/FBS stock KPIs');
 
@@ -1346,16 +1377,35 @@ assert.ok(html.includes("switchSpacesAdminTab('allowed'") && html.includes("swit
     'admin must split allowed and blocked spaces');
 assert.ok(html.includes('function sortPendingRequests') && html.includes('function sortBlockedSpaces'),
     'pending login attempts must not mix with blocked users');
+const adminSpaceSrc = fs.readFileSync(path.join(__dirname, 'supabase/functions/admin-space/index.ts'), 'utf8');
 assert.ok(
-    fs.readFileSync(path.join(__dirname, 'supabase/functions/admin-space/index.ts'), 'utf8')
-        .includes("from('allowed_users').delete()"),
-    'blocking a space must remove the email from allowed_users'
+    adminSpaceSrc.includes("from('team_staff').delete()"),
+    'blocking a space must revoke staff rights'
+);
+assert.ok(
+    !/insert\(\{\s*email: space\.email/.test(adminSpaceSrc),
+    'activating a client must not grant access to other cabinets'
 );
 assert.ok(
     fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8')
         .includes('Заявка на вход отправлена администратору'),
-    'pending users must see that the admin got their login request'
+    'access_denied screen still explains the wait if the gate rejects'
 );
+{
+    const loginSrc = fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8');
+    assert.ok(
+        loginSrc.includes("space?.status === 'blocked'") &&
+        loginSrc.includes("space.status !== 'pending'") &&
+        !loginSrc.includes("if (space?.status !== 'active')"),
+        'pending Google login must reach /space onboarding, not access_denied'
+    );
+    assert.ok(
+        html.includes('function submitOnboarding') &&
+        html.includes("onboardingMode = true") &&
+        html.includes('id="onb-token"'),
+        'dashboard has the new-client token screen'
+    );
+}
 
 assert.ok(html.includes('data-adv-view="autobidder"') && html.includes('id="adv-subtab-autobidder"'),
     'advertising detail must have an Автобиддер tab');
@@ -1606,6 +1656,47 @@ assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260914120000_agent_hub.sql')),
     'can add a Telegram bot, list channel status, and send a site message into the TG chat'
 );
+
+// Хаб агентов — внутренняя страница команды. У клиента она давала 404 в консоль
+// (таблиц не было) и показывала реестр наших ботов, поэтому вкладка скрыта и
+// закрыта в базе: whatsapp_agents / agent_brain / telegram_bots — только is_staff().
+{
+    const staffMigration = fs.readFileSync(
+        path.join(__dirname, 'supabase/migrations/20260916260000_agent_hub_staff_only.sql'), 'utf8');
+    assert.ok(
+        staffMigration.includes('create or replace function public.is_staff()') &&
+        staffMigration.includes('grant execute on function public.is_staff() to authenticated'),
+        'is_staff() must exist so the UI can ask once whether to show internal tabs'
+    );
+    assert.ok(
+        staffMigration.includes('create policy whatsapp_agents_staff') &&
+        staffMigration.includes('create policy agent_brain_staff') &&
+        staffMigration.includes('drop policy if exists whatsapp_agents_select') &&
+        staffMigration.includes('drop policy if exists agent_brain_select'),
+        'agent hub tables must be staff-only instead of any-authenticated'
+    );
+    assert.ok(
+        /create policy telegram_bots_select on public\.telegram_bots for select\s*\n\s*using \(public\.is_staff\(\)\)/.test(staffMigration) &&
+        staffMigration.includes('revoke all on public.telegram_bot_secrets from authenticated'),
+        'the bot registry and bot tokens must not be readable by clients'
+    );
+    assert.ok(
+        html.includes("const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots'])") &&
+        html.includes("if (STAFF_ONLY_TABS.has(name) && !isStaff)") &&
+        html.includes("supabase.rpc('is_staff')") &&
+        html.includes('html:not([data-staff="1"]) [data-staff-only] { display: none !important; }') &&
+        html.includes('data-tab="agents" title="Агенты" data-staff-only="1"') &&
+        html.includes(`onclick="showTab('agents', this)" data-staff-only="1"`) &&
+        html.includes(`onclick="showTab('telegram-bots', this)" data-staff-only="1"`) &&
+        html.includes("if (!grid || !isStaff) return;"),
+        'client must not see the internal Агенты tab: hidden in nav and blocked in showTab'
+    );
+    assert.ok(
+        html.includes("if (localStorage.getItem('nr_is_staff') === '1')") &&
+        html.includes("} else if (__nrTab === 'agents') {"),
+        'direct /agents hit must fall back to the dashboard before first paint for a client'
+    );
+}
 
 assert.ok(!html.includes('--logo-mark: #F5C400'), 'dashboard logo mark must not be yellow');
 assert.ok(html.includes('--logo-mark: #FFFFFF'), 'dashboard logo mark must be white');
@@ -1907,6 +1998,192 @@ assert.ok(
         'non-zero plan inputs get the yellow set class');
     assert.ok(rnpSrc.includes('if (!_isPhone()) return inner;'),
         'desktop Остатки stay in the header, not a floating overlay');
+}
+
+// Дашборд не имеет права рисовать оценочные финансы вместо отчёта WB.
+{
+    assert.ok(!/salesSum\s*=\s*Math\.round\(ordersSum\s*\*\s*0\.65\)/.test(html)
+        && !html.includes('ordersCount>0?\'65%\':\'—\''),
+        'dashboard must not derive sales/buyout from orders × 0.65');
+    assert.ok(!html.includes('function computeQuickOrderMetrics') && !html.includes('function syncRNPTab'),
+        'estimate-only metric helpers must be gone, not just unused');
+    assert.ok(html.includes("supabase.rpc('dashboard_finance_rows'"),
+        'finance rows come from the nightly cache, not a WB call per dashboard load');
+    assert.ok(html.includes('id="dash-finance-note"') && html.includes('function financeCoverageNote'),
+        'dashboard explains which days the finance report actually covers');
+
+    const start = html.indexOf('function financeCoverageNote');
+    const end = html.indexOf('function updateDashboardFromDB');
+    assert.ok(start > 0 && end > start, 'financeCoverageNote must precede updateDashboardFromDB');
+    const src = html.slice(html.indexOf('const DAY_MS = 86400000;'), end);
+    const api = new Function(`${src}; return { financeCoverageNote, dashPluralDays };`)();
+
+    assert.strictEqual(
+        api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-01', to: '2026-09-15' }),
+        '', 'полное покрытие — без плашки');
+    const tail = api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-01', to: '2026-09-11' });
+    assert.match(tail, /последние 4 дня/, 'недостающий хвост периода назван прямо');
+    assert.match(tail, /11 сентября/);
+    const oneDay = api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-01', to: '2026-09-14' });
+    assert.match(oneDay, /за последний день/, 'один день не «за последние 1 день»');
+    assert.match(
+        api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-02', to: '2026-09-15' }),
+        /первый день периода в отчёт не попал/);
+    const head = api.financeCoverageNote('2026-09-01', '2026-09-15', { from: '2026-09-05', to: '2026-09-15' });
+    assert.match(head, /первые 4 дня периода/);
+    assert.strictEqual(api.financeCoverageNote('2026-09-01', '2026-09-15', {}), '');
+    assert.strictEqual(api.dashPluralDays(11), '11 дней');
+    assert.strictEqual(api.dashPluralDays(21), '21 день');
+    assert.strictEqual(api.dashPluralDays(3), '3 дня');
+}
+
+// SETOF резался PostgREST на 1000 строк — у большого кабинета это была
+// прибыль по восьмой части отчёта.
+{
+    const mig = fs.readFileSync(
+        path.join(__dirname, 'supabase/migrations/20260916250000_finance_rows_grouped_jsonb.sql'), 'utf8');
+    assert.ok(/create or replace function public\.dashboard_finance_rows[\s\S]*?returns jsonb/.test(mig),
+        'dashboard_finance_rows must return one jsonb, not SETOF');
+    assert.ok(mig.includes('group by'), 'rows must be pre-grouped so the payload stays small');
+}
+
+// Ночной синк должен просить у WB те поля, без которых дашборд считает нули.
+{
+    const src = fs.readFileSync(path.join(__dirname, 'supabase/functions/rnp-finance-sync/index.ts'), 'utf8');
+    assert.ok(src.includes('fields: FINANCE_DASHBOARD_FIELDS'),
+        'finance sync must ask WB for retailPrice/acquiringFee/bonusTypeName too');
+}
+
+// pg_cron носит прежний JWT service_role — сверка байт-в-байт даёт 401 и канал молчит.
+for (const slug of ['advertising-sync', 'autobidder-run', 'check-campaigns-notify', 'daily-sales-report']) {
+    const src = fs.readFileSync(path.join(__dirname, `supabase/functions/${slug}/index.ts`), 'utf8');
+    assert.ok(src.includes('isServiceAuthorized'), `${slug} must accept both service_role keys`);
+    assert.ok(!/bearer === serviceKey/.test(src), `${slug} must not compare the service key byte-for-byte`);
+}
+assert.ok(
+    fs.readFileSync(path.join(__dirname, 'supabase/functions/advertising-sync/index.ts'), 'utf8')
+        .includes('LIVE_CAMPAIGN_STATUSES'),
+    'advertising-sync must skip finished campaigns so every cabinet fits the time budget'
+);
+
+// Пустой прошлый период рисовал «↑ 100%» — у нового кабинета весь дашборд
+// выглядел как рекордный рост, хотя сравнивать было не с чем.
+{
+    const start = html.indexOf('function setMetricTrend');
+    const end = html.indexOf('function clearAllMetricTrends');
+    assert.ok(start > 0 && end > start, 'setMetricTrend must be in dashboard.html');
+    const src = html.slice(start, end);
+    assert.ok(!/curr > 0 \? 100/.test(src), 'рост с нуля нельзя выдавать за 100%');
+
+    const setMetricTrend = new Function(`${src}; return setMetricTrend;`)();
+    const fakeEl = () => ({
+        textContent: 'старое',
+        title: 'старое',
+        className: 'metric-trend up',
+        classList: { contains: () => false },
+        hasAttribute: () => false,
+    });
+
+    const fromZero = fakeEl();
+    setMetricTrend(fromZero, 120000, 0);
+    assert.strictEqual(fromZero.textContent, '—', 'нет базы сравнения — прочерк, а не процент');
+    assert.match(fromZero.title, /данных нет/, 'подсказка объясняет прочерк');
+    assert.strictEqual(fromZero.className, 'metric-trend flat');
+
+    const bothZero = fakeEl();
+    setMetricTrend(bothZero, 0, 0);
+    assert.strictEqual(bothZero.textContent, '', 'ноль к нулю — пусто');
+
+    const grew = fakeEl();
+    setMetricTrend(grew, 150, 100);
+    assert.strictEqual(grew.textContent, '↑ 50.0%');
+    assert.strictEqual(grew.title, '', 'подсказка от прошлого рендера не должна залипать');
+
+    const noData = fakeEl();
+    setMetricTrend(noData, 150, null);
+    assert.strictEqual(noData.textContent, '');
+    assert.strictEqual(noData.title, '');
+}
+
+// Тренды приезжают в два прохода (база, потом отчёт) — второй не должен
+// стирать первый.
+{
+    const src = html.slice(
+        html.indexOf('const METRIC_TREND_DEFS'),
+        html.indexOf('function enrichMetricsWithStockExtras'));
+    const touched = [];
+    const applyMetricTrends = new Function('document', 'setMetricTrend',
+        `${src}; return applyMetricTrends;`)(
+        { querySelector: (sel) => ({ sel }) },
+        (el, c, p) => touched.push([typeof el === 'string' ? el : el.sel, c, p]));
+
+    applyMetricTrends({ ordersSum: 10 }, { ordersSum: 5 });
+    assert.deepStrictEqual(touched, [['trend-m-orders-sum', 10, 5]],
+        'проход из базы не трогает карточки финотчёта');
+
+    touched.length = 0;
+    applyMetricTrends({ profitFull: 7, realizationSum: null }, { profitFull: 4, realizationSum: 9 });
+    assert.deepStrictEqual(touched, [['trend-m-profit', 7, 4], ['trend-m-realization', null, 9]],
+        'проход по отчёту не трогает карточки из базы');
+}
+
+// Прошлый период для трендов по отчёту — окно той же длины, что реально закрыто.
+{
+    const start = html.indexOf('async function loadFinanceTrendBase');
+    const end = html.indexOf('function dashPluralDays');
+    assert.ok(start > 0 && end > start, 'loadFinanceTrendBase must exist');
+    const src = html.slice(start, end);
+    assert.ok(src.includes('prevPeriodRange(covered.from, covered.to)'),
+        'сравнивать закрытые дни с окном той же длины, а не с полным месяцем');
+    assert.ok(src.includes('loadFinanceRowsFromCache'), 'база тренда — только кеш');
+    assert.ok(!src.includes('loadFinanceReport'), 'второй живой запрос в WB упрётся в лимит минуты');
+    assert.ok(src.includes('dashboard_finance_coverage') && src.includes('cachedFrom > range.from'),
+        'дырка в кеше не должна выглядеть как падение продаж');
+}
+
+// Только что подключённый кабинет показывал «0 сом» вместо «данные ещё едут».
+{
+    const start = html.indexOf('function updateDashboardFromDB');
+    const body = html.slice(start, start + 2500);
+    assert.ok(/const noDataYet = ordersCount === 0 && returns === 0 && Number\(totalStock\) === 0/.test(body),
+        'пустой кабинет надо отличать от кабинета без продаж');
+    assert.ok(/noDataYet \? '—' : fmtDashMoney\(ordersSum\)/.test(body), 'вместо нуля — прочерк');
+    assert.ok(body.includes('Первая синхронизация после подключения токена'),
+        'клиенту надо объяснить, почему пусто');
+    assert.ok(html.includes('id="dash-data-note"') && html.includes('function showDataNote'),
+        'плашка про сбор данных живёт отдельно от плашки про финотчёт');
+}
+
+// Остатки лежат только на сегодня — тренд по ним сравнивал число с самим собой.
+{
+    const start = html.indexOf('function updateDashboardFromDB');
+    const body = html.slice(start, start + 2500);
+    assert.ok(!/stockTotal: Number\(totalStock\)/.test(body),
+        'не сравнивать остатки с теми же остатками');
+    assert.ok(/else \{\s*clearAllMetricTrends\(\);/.test(body),
+        'без прошлого периода тренды прошлого кабинета надо гасить');
+}
+
+// Страница грузит не исходники, а собранные /dist/<имя>.<хэш>.min.js. Правку в
+// rnp-module.js однажды закоммитили без пересборки, и локально проверялся
+// старый код: на проде Vercel собирает сам, а тут — то, что лежит в репозитории.
+{
+    const crypto = require('node:crypto');
+    const esbuild = require('esbuild');
+    const stale = [];
+    for (const name of ['dashboard-charts.js', 'rnp-module.js', 'wb-formulas.js',
+        'ads-command-center.js', 'goods-catalog.js']) {
+        const built = esbuild.buildSync({
+            entryPoints: [path.join(__dirname, name)],
+            bundle: false, minify: true, format: 'iife', target: ['es2018'],
+            write: false, logLevel: 'silent',
+        }).outputFiles[0].contents;
+        const hash = crypto.createHash('sha256').update(built).digest('hex').slice(0, 10);
+        const expected = `${name.replace(/\.js$/, '')}.${hash}.min.js`;
+        if (!html.includes(`/dist/${expected}`)) stale.push(name);
+        else if (!fs.existsSync(path.join(__dirname, 'dist', expected))) stale.push(name + ' (нет файла)');
+    }
+    assert.deepStrictEqual(stale, [], 'dist отстал от исходников — запустите npm run build');
 }
 
 console.log('dashboard_html_test: ok');
