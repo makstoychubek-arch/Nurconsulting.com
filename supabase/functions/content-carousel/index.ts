@@ -3,7 +3,15 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { hasAllCabinetsAccess } from '../_shared/cabinet-access.ts';
-import { planCarouselSlides, type CarouselInput } from '../_shared/content-carousel.ts';
+import {
+    applyOverlays,
+    parseGptOverlayJson,
+    planCarouselSlides,
+    type CarouselInput,
+    type SlideKind,
+    type SlideOverlay,
+    type SlidePlan,
+} from '../_shared/content-carousel.ts';
 import { renderCarouselPngs } from '../_shared/content-carousel-render.ts';
 
 const CORS = {
@@ -17,6 +25,58 @@ function json(data: unknown, status = 200) {
         status,
         headers: { ...CORS, 'Content-Type': 'application/json' },
     });
+}
+
+const GPT_TIMEOUT_MS = 8000;
+
+async function maybeGptOverlays(input: CarouselInput, plans: SlidePlan[]): Promise<SlidePlan[]> {
+    const key = Deno.env.get('OPENAI_API_KEY') || '';
+    const description = String(input.description || '').trim();
+    if (!key || !description) return plans;
+    const kinds = plans.map((p) => p.kind) as SlideKind[];
+    const fallback: SlideOverlay[] = plans.map((p) => ({ headline: p.headline || '', line: p.line || '' }));
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), GPT_TIMEOUT_MS);
+    try {
+        const res = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                Authorization: 'Bearer ' + key,
+                'Content-Type': 'application/json',
+            },
+            signal: ctrl.signal,
+            body: JSON.stringify({
+                model: Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini',
+                temperature: 0.2,
+                response_format: { type: 'json_object' },
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'Ты верстальщик Instagram-карусели 1080×1350. По SEO-описанию WB разложи короткие подписи. Верни JSON {"overlays":[{"kind":"cover","headline":"...","line":"..."}]}. headline до 36 знаков, line до 70. Только факты из текста. collage, info, brand — пустые headline и line. Без эмодзи и хештегов.',
+                    },
+                    {
+                        role: 'user',
+                        content: JSON.stringify({
+                            kinds,
+                            title: input.title || '',
+                            description: description.slice(0, 2500),
+                            composition: input.composition || '',
+                            brand: input.brand || '',
+                        }),
+                    },
+                ],
+            }),
+        });
+        if (!res.ok) return plans;
+        const js = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
+        const text = js.choices?.[0]?.message?.content || '';
+        if (!text) return plans;
+        return applyOverlays(plans, parseGptOverlayJson(text, kinds, fallback));
+    } catch {
+        return plans;
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 Deno.serve(async (req) => {
@@ -61,8 +121,12 @@ Deno.serve(async (req) => {
         brand: String(body.brand || ''),
         price: body.price as number,
         vendorCode: String(body.vendor_code || ''),
+        description: String(body.description || '').slice(0, 4000),
     };
-    const plans = planCarouselSlides(input);
+    let plans = planCarouselSlides(input);
+    if (body.skip_gpt !== true) {
+        plans = await maybeGptOverlays(input, plans);
+    }
     if (body.plan_only === true) {
         return json({ ok: true, plans });
     }

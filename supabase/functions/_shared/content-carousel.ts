@@ -15,6 +15,12 @@ export type CarouselInput = {
     brand?: string;
     price?: number | string | null;
     vendorCode?: string;
+    description?: string;
+};
+
+export type SlideOverlay = {
+    headline: string;
+    line: string;
 };
 
 export type SlidePlan = {
@@ -28,6 +34,9 @@ export type SlidePlan = {
     brand: string;
     price: number | null;
     vendorCode: string;
+    description: string;
+    headline: string;
+    line: string;
 };
 
 export type CollageCell = { x: number; y: number; w: number; h: number };
@@ -154,14 +163,129 @@ export function planCarouselSlides(input: CarouselInput): SlidePlan[] {
     const brand = String(input.brand || '').trim() || 'NR';
     const price = nPrice(input.price);
     const vendorCode = String(input.vendorCode || '').trim();
-    const base = { width: SLIDE_W, height: SLIDE_H, title, nmId, composition, brand, price, vendorCode };
-    return [
+    const description = String(input.description || '').trim();
+    const base = {
+        width: SLIDE_W, height: SLIDE_H, title, nmId, composition, brand, price, vendorCode, description,
+        headline: '', line: '',
+    };
+    const raw: SlidePlan[] = [
         { ...base, kind: 'cover', photos: cover ? [cover] : [] },
         { ...base, kind: 'collage', photos: details.slice(0, 4) },
         ...plains.map((u) => ({ ...base, kind: 'photo' as const, photos: [u] })),
         { ...base, kind: 'info', photos: [] },
         { ...base, kind: 'brand', photos: [] },
     ];
+    const overlays = layoutSeoOverlays(raw.map((p) => p.kind), input);
+    return raw.map((p, i) => ({ ...p, headline: overlays[i].headline, line: overlays[i].line }));
+}
+
+export function clipText(s: unknown, max: number): string {
+    const t = String(s || '').replace(/\s+/g, ' ').trim();
+    if (!t) return '';
+    if (t.length <= max) return t;
+    const cut = t.slice(0, Math.max(1, max - 1));
+    const sp = cut.lastIndexOf(' ');
+    return ((sp > max * 0.45 ? cut.slice(0, sp) : cut).trim() || cut.trim()) + '…';
+}
+
+export function splitSeoSentences(text: unknown): string[] {
+    return String(text || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .split(/(?<=[.!?…;])\s+/)
+        .map((s) => s.trim())
+        .filter((s) => s.length >= 8);
+}
+
+function splitHeadlineLine(sentence: string): SlideOverlay {
+    const t = String(sentence || '').replace(/\s+/g, ' ').trim();
+    if (!t) return { headline: '', line: '' };
+    const words = t.split(' ').filter(Boolean);
+    if (words.length <= 5 && t.length <= 42) return { headline: clipText(t, 42), line: '' };
+    const n = Math.min(5, Math.max(2, Math.ceil(words.length / 3)));
+    const headline = clipText(words.slice(0, n).join(' '), 42);
+    const rest = words.slice(n).join(' ');
+    return { headline, line: clipText(rest, 90) };
+}
+
+/** SEO-описание WB по слайдам: обложка — название, фото — факты, коллаж без текста. */
+export function layoutSeoOverlays(
+    kinds: SlideKind[],
+    input: { description?: string; title?: string; composition?: string; brand?: string },
+): SlideOverlay[] {
+    const sentences = splitSeoSentences(input.description || '');
+    const title = clipText(input.title, 42);
+    const composition = clipText(input.composition, 70);
+    let i = 0;
+    const take = () => sentences[i++] || '';
+    let photos = 0;
+    return kinds.map((kind) => {
+        if (kind === 'cover') {
+            const hook = take();
+            return { headline: title || clipText(hook, 42), line: title ? clipText(hook, 70) : '' };
+        }
+        if (kind === 'collage') return { headline: '', line: '' };
+        if (kind === 'photo') {
+            photos += 1;
+            if (photos === 2 && composition) {
+                const already = sentences.some((s) => composition.length >= 4 && s.toLowerCase().includes(composition.slice(0, 8).toLowerCase()));
+                if (!already) return { headline: 'Состав', line: composition };
+            }
+            return splitHeadlineLine(take() || (photos === 1 ? composition : ''));
+        }
+        return { headline: '', line: '' };
+    });
+}
+
+export function parseGptOverlayJson(
+    raw: unknown,
+    kinds: SlideKind[],
+    fallback: SlideOverlay[],
+): SlideOverlay[] {
+    let data: unknown = raw;
+    if (typeof raw === 'string') {
+        const trimmed = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '').trim();
+        try { data = JSON.parse(trimmed); } catch { return fallback; }
+    }
+    const obj = data && typeof data === 'object' && !Array.isArray(data)
+        ? data as Record<string, unknown>
+        : null;
+    const list = Array.isArray(data) ? data : (obj && (obj.overlays || obj.slides));
+    if (!Array.isArray(list)) return fallback;
+    const used = new Set<number>();
+    return kinds.map((kind, i) => {
+        let row: Record<string, unknown> | null = null;
+        const at = list[i];
+        if (at && typeof at === 'object' && !Array.isArray(at)) {
+            const k = String((at as Record<string, unknown>).kind || kind);
+            if (k === kind) {
+                used.add(i);
+                row = at as Record<string, unknown>;
+            }
+        }
+        if (!row) {
+            const idx = list.findIndex((item, j) => {
+                if (used.has(j) || !item || typeof item !== 'object' || Array.isArray(item)) return false;
+                return String((item as Record<string, unknown>).kind || '') === kind;
+            });
+            if (idx >= 0) {
+                used.add(idx);
+                row = list[idx] as Record<string, unknown>;
+            }
+        }
+        if (!row) return fallback[i] || { headline: '', line: '' };
+        const headline = clipText(String(row.headline ?? row.title ?? ''), 42);
+        const line = clipText(String(row.line ?? row.text ?? row.body ?? ''), 90);
+        if (!headline && !line) return fallback[i] || { headline: '', line: '' };
+        return { headline, line };
+    });
+}
+
+export function applyOverlays(plans: SlidePlan[], overlays: SlideOverlay[]): SlidePlan[] {
+    return plans.map((p, i) => {
+        const o = overlays[i] || { headline: p.headline, line: p.line };
+        return { ...p, headline: o.headline || '', line: o.line || '' };
+    });
 }
 
 export function pickComposition(card: Record<string, unknown> | null | undefined): string {
@@ -197,6 +321,11 @@ export function pickCardPrice(card: Record<string, unknown> | null | undefined):
     return nPrice(card.price ?? card.salePrice);
 }
 
+export function pickCardDescription(card: Record<string, unknown> | null | undefined): string {
+    if (!card) return '';
+    return String(card.description || card.imtDescription || card.desc || '').replace(/\s+/g, ' ').trim();
+}
+
 export function parseWbCard(card: Record<string, unknown> | null | undefined): {
     nmId: number;
     title: string;
@@ -205,6 +334,7 @@ export function parseWbCard(card: Record<string, unknown> | null | undefined): {
     composition: string;
     vendorCode: string;
     brand: string;
+    description: string;
 } {
     const c = card || {};
     const nmId = Number(c.nmID ?? c.nmId ?? c.nm_id ?? 0) || 0;
@@ -227,6 +357,7 @@ export function parseWbCard(card: Record<string, unknown> | null | undefined): {
         composition: pickComposition(c),
         vendorCode: String(c.vendorCode || c.vendor_code || '').trim(),
         brand: String(c.brand || c.brandName || '').trim(),
+        description: pickCardDescription(c),
     };
 }
 

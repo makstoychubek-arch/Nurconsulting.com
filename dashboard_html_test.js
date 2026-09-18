@@ -2239,7 +2239,9 @@ assert.ok(
     assert.ok(cf.includes('AbortController') && cf.includes('FN_TIMEOUT_MS') && cf.includes("action: 'status'"),
         'edge calls abort instead of hanging for minutes');
     assert.ok(cf.includes("kind: 'photo'") && cf.includes("photo: 'Фото'") && (cf.includes("s.kind === 'cover' || s.kind === 'photo'") || cf.includes('kind === \'cover\' || s.kind === \'photo\'')),
-        'carousel adds plain photo slides without infographic overlay');
+        'carousel adds plain photo slides');
+    assert.ok(cf.includes('layoutSeoOverlays') && cf.includes('pickCardDescription') && cf.includes('cf-slide-cap'),
+        'SEO description from the WB card is laid out onto slides');
     assert.ok(mig.includes("'review'") && mig.includes('approved_at'),
         'posts need review/approval before cron or Graph publish');
     assert.ok(mig.includes('article_id uuid') && !mig.includes('article_id bigint'),
