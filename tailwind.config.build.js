@@ -15,6 +15,8 @@ module.exports = {
     './rnp-module.js',
     './wb-formulas.js',
     './ads-command-center.js',
+    './goods-catalog.js',
+    './content-factory.js',
   ],
   darkMode: 'class',
   theme: {

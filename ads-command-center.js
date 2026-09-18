@@ -21,6 +21,18 @@
         return x;
     }
 
+    function resolveHqRange(input) {
+        const src = input || {};
+        let from = String(src.from || src.from7 || '').slice(0, 10);
+        let to = String(src.to || src.today || '').slice(0, 10);
+        if (from && to && from > to) {
+            const swap = from;
+            from = to;
+            to = swap;
+        }
+        return { from, to };
+    }
+
     function num(v) {
         const n = Number(v);
         return Number.isFinite(n) ? n : 0;
@@ -109,8 +121,11 @@
     }
 
     function buildHqModel(input) {
-        const today = input.today;
-        const from7 = input.from7;
+        const range = resolveHqRange(input);
+        const from = range.from;
+        const to = range.to;
+        const today = to;
+        const from7 = from;
         const cabinets = input.cabinets || [];
         const legacyCamps = input.legacyCampaigns || [];
         const legacyStats = input.legacyStats || [];
@@ -125,17 +140,15 @@
         const rev7 = new Map();
         function addStat(cabinetId, campaignKey, date, spend, revenue) {
             const day = String(date || '').slice(0, 10);
+            if (from && day < from) return;
+            if (to && day > to) return;
             const ck = cabinetId + ':' + campaignKey;
-            if (day === today) {
-                spendToday.set(cabinetId, (spendToday.get(cabinetId) || 0) + spend);
-                spendToday.set(ck, (spendToday.get(ck) || 0) + spend);
-            }
-            if (day >= from7 && day <= today) {
-                spend7.set(cabinetId, (spend7.get(cabinetId) || 0) + spend);
-                rev7.set(cabinetId, (rev7.get(cabinetId) || 0) + revenue);
-                spend7.set(ck, (spend7.get(ck) || 0) + spend);
-                rev7.set(ck, (rev7.get(ck) || 0) + revenue);
-            }
+            spendToday.set(cabinetId, (spendToday.get(cabinetId) || 0) + spend);
+            spendToday.set(ck, (spendToday.get(ck) || 0) + spend);
+            spend7.set(cabinetId, (spend7.get(cabinetId) || 0) + spend);
+            rev7.set(cabinetId, (rev7.get(cabinetId) || 0) + revenue);
+            spend7.set(ck, (spend7.get(ck) || 0) + spend);
+            rev7.set(ck, (rev7.get(ck) || 0) + revenue);
         }
         for (const r of legacyStats) {
             addStat(r.cabinet_id, String(r.campaign_id), r.stat_date, num(r.spend), num(r.sum_price || r.revenue));
@@ -303,7 +316,7 @@
         totals.cabinets = rows.length;
         totals.tokenBad = rows.filter((r) => r.token === 'bad').length;
 
-        return { rows, totals, today, from7 };
+        return { rows, totals, today, from7, from, to };
     }
 
     function defaultRuleForm() {
@@ -501,7 +514,7 @@
         renderKpis(null, true);
         const tb = document.getElementById('ads-hq-tbody');
         if (tb) {
-            tb.innerHTML = '<tr><td colspan="8" class="text-center py-10" style="color:var(--text-muted)">Загрузка полок…</td></tr>';
+            tb.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Загрузка полок…</td></tr>';
         }
         const phone = document.getElementById('ads-hq-phone');
         if (phone) phone.innerHTML = '<div class="ads-hq-phone-empty text-center py-8">Загрузка полок…</div>';
@@ -516,19 +529,21 @@
         if (pending) {
             tiles = [
                 ['Активные полки', '—'],
-                ['Расход сегодня', '—'],
-                ['ДРР 7д', '—'],
+                ['Расход', '—'],
+                ['ДРР', '—'],
             ];
         } else {
             tiles = [
                 ['Активные полки', String(one ? one.activeCampaigns : (useTotals ? totals.active : 0))],
-                ['Расход сегодня', formatMoney(one ? one.spendToday : (useTotals ? totals.spendToday : 0))],
-                ['ДРР 7д', formatDrrLabel(one ? one.drr7 : (useTotals ? totals.drr7 : null))],
+                ['Расход', formatMoney(one ? one.spendToday : (useTotals ? totals.spendToday : 0))],
+                ['ДРР', formatDrrLabel(one ? one.drr7 : (useTotals ? totals.drr7 : null))],
             ];
         }
         const vals = el.querySelectorAll ? el.querySelectorAll('.adv-kpi-tile-value') : [];
+        const labs = el.querySelectorAll ? el.querySelectorAll('.adv-kpi-tile-label') : [];
         if (vals && vals.length === tiles.length) {
-            tiles.forEach(([, value], i) => {
+            tiles.forEach(([label, value], i) => {
+                if (labs[i] && labs[i].textContent !== label) labs[i].textContent = label;
                 if (vals[i] && vals[i].textContent !== value) vals[i].textContent = value;
             });
             return;
@@ -567,7 +582,6 @@
             '<td>' + esc(camp.typeLabel || campaignTypeLabel(camp.type)) + '</td>' +
             '<td>' + statusPill(camp.status) + scheduleMark(cab.id, camp.wbId) + '</td>' +
             '<td>' + formatMoney(camp.spendToday) + '</td>' +
-            '<td>' + formatMoney(camp.spend7) + '</td>' +
             '<td>' + formatDrrLabel(formatDrr(camp.spend7, camp.revenue7)) + '</td>' +
             '<td><button type="button" class="adv-camp-action-btn" data-act="' + (camp.live ? 'pause' : 'start') + '" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '">' +
             (camp.live ? 'Пауза' : 'Старт') + '</button> ' +
@@ -576,7 +590,7 @@
         );
         if (!campOpen) return html.join('');
         if (!camp.clusters.length) {
-            html.push('<tr class="ads-hq-empty" data-key="empty:' + esc(ck) + '"><td></td><td colspan="7" style="color:var(--text-muted);padding-left:44px">Кластеры появятся после синка кампании</td></tr>');
+            html.push('<tr class="ads-hq-empty" data-key="empty:' + esc(ck) + '"><td></td><td colspan="6" style="color:var(--text-muted);padding-left:44px">Кластеры появятся после синка кампании</td></tr>');
             return html.join('');
         }
         for (const cl of camp.clusters) {
@@ -587,7 +601,7 @@
                 esc(cl.key) + '</button></td>' +
                 '<td colspan="2">' + (cl.active ? 'активен' : 'выкл') + '</td>' +
                 '<td>' + (cl.pos != null ? ('поз. ' + cl.pos) : '—') + '</td>' +
-                '<td colspan="2">' + rangeLabel(cl.range) + '</td>' +
+                '<td>' + rangeLabel(cl.range) + '</td>' +
                 '<td></td>' +
                 '</tr>'
             );
@@ -600,7 +614,7 @@
         if (!tb || !state.model) return;
         const rows = cabinetRows();
         if (!rows.length) {
-            tb.innerHTML = '<tr><td colspan="8" class="text-center py-10 ads-hq-empty-cell">' +
+            tb.innerHTML = '<tr><td colspan="7" class="text-center py-10 ads-hq-empty-cell">' +
                 emptyShelvesHtml(0, 0) + '</td></tr>';
             return;
         }
@@ -621,7 +635,6 @@
                     '<td>' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) + '</td>' +
                     '<td colspan="2">' + cab.activeCampaigns + ' акт.</td>' +
                     '<td>' + formatMoney(cab.spendToday) + '</td>' +
-                    '<td>' + formatMoney(cab.spend7) + '</td>' +
                     '<td>' + formatDrrLabel(cab.drr7) + '</td>' +
                     '<td><button type="button" class="adv-camp-action-btn" data-act="pause-cab" data-cabinet="' + esc(cab.id) + '">Пауза</button> ' +
                     '<button type="button" class="adv-camp-action-btn" data-act="start-cab" data-cabinet="' + esc(cab.id) + '">Старт</button></td>' +
@@ -631,7 +644,7 @@
             for (const camp of visible) html.push(renderCampRow(cab, camp, !hideCab));
         }
         if (!shown) {
-            tb.innerHTML = '<tr><td colspan="8" class="text-center py-10 ads-hq-empty-cell">' +
+            tb.innerHTML = '<tr><td colspan="7" class="text-center py-10 ads-hq-empty-cell">' +
                 emptyShelvesHtml(paused, total) + '</td></tr>';
             return;
         }
@@ -659,9 +672,8 @@
             statusPill(camp.status) + scheduleMark(cab.id, camp.wbId) + '</div>');
         html.push(
             '<div class="ads-hq-phone-metrics">' +
-            '<span>Сегодня<b>' + formatMoney(camp.spendToday) + '</b></span>' +
-            '<span>7 дней<b>' + formatMoney(camp.spend7) + '</b></span>' +
-            '<span>ДРР 7д<b>' + formatDrrLabel(formatDrr(camp.spend7, camp.revenue7)) + '</b></span>' +
+            '<span>Расход<b>' + formatMoney(camp.spendToday) + '</b></span>' +
+            '<span>ДРР<b>' + formatDrrLabel(formatDrr(camp.spend7, camp.revenue7)) + '</b></span>' +
             '<span>Кластеры<b>' + camp.clusters.length + '</b></span>' +
             '</div>'
         );
@@ -1218,13 +1230,32 @@
         }
     }
 
+    function activeHqRange() {
+        const now = new Date();
+        let from = ymd(addDays(now, -6));
+        let to = ymd(now);
+        try {
+            const r = dep().getDateRange && dep().getDateRange();
+            if (r && r.from && r.to) {
+                from = String(r.from).slice(0, 10);
+                to = String(r.to).slice(0, 10);
+            }
+        } catch (e) { /* keep fallback */ }
+        if (from > to) {
+            const swap = from;
+            from = to;
+            to = swap;
+        }
+        return { from, to };
+    }
+
     async function fetchAndRender() {
         const cab = state.filterCabinetId;
         const note = document.getElementById('ads-hq-freshness');
         if (note && !note.textContent) note.textContent = 'обновляем…';
-        const now = new Date();
-        const today = ymd(now);
-        const from7 = ymd(addDays(now, -6));
+        const range = activeHqRange();
+        const from = range.from;
+        const to = range.to;
         const cabs = await safeRows('cabinets', cab ? [{ op: 'eq', column: 'id', value: cab }] : [], 'id, name, adv_token_valid, adv_token_secret_id, adv_daily_budget_cap');
         if (cab !== state.filterCabinetId) return null;
         const cabinets = (cabs || []).filter((c) => !cab || c.id === cab);
@@ -1233,8 +1264,8 @@
             safeRows('advertising_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
             safeRows('advertising_daily_stats', [
                 { op: 'in', column: 'cabinet_id', value: ids },
-                { op: 'gte', column: 'stat_date', value: from7 },
-                { op: 'lte', column: 'stat_date', value: today },
+                { op: 'gte', column: 'stat_date', value: from },
+                { op: 'lte', column: 'stat_date', value: to },
             ]),
             safeRows('adv_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
         ]) : [[], [], []];
@@ -1246,7 +1277,8 @@
             safeRows('serp_position_snapshots', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
             safeRows('adv_daily_stats', [
                 { op: 'in', column: 'campaign_id', value: v2Ids },
-                { op: 'gte', column: 'date', value: from7 },
+                { op: 'gte', column: 'date', value: from },
+                { op: 'lte', column: 'date', value: to },
             ]),
         ]) : [[], [], [], []];
         if (cab !== state.filterCabinetId) return null;
@@ -1257,7 +1289,7 @@
         if (cab !== state.filterCabinetId) return null;
         state.schedules = schedules || [];
         state.model = buildHqModel({
-            today, from7, cabinets, legacyCampaigns, legacyStats, v2Campaigns, clusters, rules, snapshots, v2Stats,
+            from, to, today: to, from7: from, cabinets, legacyCampaigns, legacyStats, v2Campaigns, clusters, rules, snapshots, v2Stats,
         });
         if (state.filterCabinetId) state.open.cabinets.add(state.filterCabinetId);
         renderKpis(state.model.totals);
@@ -1349,6 +1381,7 @@
         collectScheduleItems,
         scheduleStart,
         cancelSchedule,
+        resolveHqRange,
         ymd,
         addDays,
     };

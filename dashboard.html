@@ -34,7 +34,7 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
     <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.f991aca821.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.f15faee0ae.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -434,6 +434,113 @@
         .agents-grid--short .agent-fn-desc { display: none; }
         .agent-fn-who { font-size: 10px; font-weight: 700; color: var(--text-secondary); margin-top: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
         .agents-grid--short .agent-fn-who { margin-top: 4px; }
+        .cf-nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+        .cf-nav-btn {
+            border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
+            border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+        }
+        .cf-nav-btn.on { color: var(--text-primary); background: var(--sel); border-color: transparent; font-weight: 600; }
+        .cf-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .cf-month { font-weight: 700; color: var(--text-primary); text-transform: capitalize; }
+        .cf-filters, .cf-mode { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+        .cf-filters select, .cf-form input, .cf-form select, .cf-form textarea {
+            background: var(--surface); border: 1px solid var(--border); color: var(--text-primary);
+            border-radius: 12px; padding: 8px 12px; font-size: 13px; width: 100%;
+        }
+        .cf-filters select { width: auto; min-width: 140px; }
+        .cf-chip {
+            border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
+            border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+        }
+        .cf-chip.on { color: var(--text-primary); background: var(--sel); border-color: transparent; font-weight: 600; }
+        .cf-cal-week, .cf-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+        .cf-cal-h { font-size: 11px; color: var(--text-muted); text-align: center; padding: 4px 0; }
+        .cf-cal-day {
+            min-height: 88px; background: var(--surface-solid); border: 1px solid var(--border);
+            border-radius: 12px; padding: 6px; cursor: pointer;
+        }
+        .cf-cal-empty { min-height: 88px; }
+        .cf-cal-n { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px; }
+        .cf-cal-post {
+            display: block; width: 100%; text-align: left; font-size: 11px; border: 0; border-radius: 8px;
+            padding: 4px 6px; margin-bottom: 4px; cursor: pointer; background: var(--accent-soft); color: var(--text-primary);
+        }
+        .cf-cal-post.st-error { background: rgba(248,113,113,0.16); }
+        .cf-cal-post.st-published { background: rgba(52,211,153,0.16); }
+        .cf-cal-post.st-draft { background: var(--bg); color: var(--text-muted); }
+        .cf-table-wrap { overflow: auto; }
+        .cf-art-cell { display: flex; align-items: center; gap: 8px; }
+        .cf-art-cell img { width: 28px; height: 28px; object-fit: cover; border-radius: 6px; }
+        .cf-st { font-size: 12px; border-radius: 999px; padding: 2px 8px; }
+        .cf-st.st-error, .st-error.cf-st { background: rgba(248,113,113,0.16); color: var(--red); }
+        .cf-st.st-published { background: rgba(52,211,153,0.16); color: var(--green); }
+        .cf-muted { color: var(--text-muted); font-size: 13px; }
+        .cf-err { color: var(--red); font-size: 13px; margin: 8px 0; }
+        .cf-form h3 { color: var(--text-primary); font-weight: 700; margin-bottom: 8px; }
+        .cf-form-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .cf-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 12px 0; }
+        .cf-form-grid label, .cf-month-lab { font-size: 12px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 4px; }
+        .cf-span { grid-column: 1 / -1; }
+        .cf-form-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+        .cf-card-preview { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
+        .cf-card-preview img, .cf-ph { width: 72px; height: 90px; object-fit: cover; border-radius: 10px; background: var(--bg); }
+        .cf-card-name { font-weight: 700; color: var(--text-primary); }
+        .cf-link { background: none; border: 0; color: var(--accent); cursor: pointer; font-size: 13px; }
+        .cf-blogger-h { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; margin-bottom: 10px; }
+        .cf-pay-total { font-weight: 800; color: var(--text-primary); font-size: 18px; }
+        .cf-plats { display: flex; flex-wrap: wrap; gap: 10px; margin: 8px 0 12px; }
+        .cf-check { font-size: 13px; color: var(--text-secondary); display: flex; gap: 6px; align-items: center; }
+        .cf-views { width: 96px; }
+        .cf-nm-row { display: flex; gap: 8px; align-items: center; }
+        .cf-nm-row input { flex: 1; }
+        .cf-slides { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 12px 0; }
+        .cf-slide { position: relative; aspect-ratio: 4 / 5; border-radius: 14px; overflow: hidden; background: #111; }
+        .cf-slide img { width: 100%; height: 100%; object-fit: cover; }
+        .cf-slide-k { position: absolute; left: 8px; bottom: 8px; font-size: 11px; color: #fff; background: rgba(0,0,0,.45); border-radius: 8px; padding: 2px 6px; }
+        .cf-grid2 { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; height: 100%; gap: 4px; padding: 6px; }
+        .cf-grid2 img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+        .cf-slide-info, .cf-slide-brand { color: #fff; padding: 16px; height: 100%; }
+        .cf-slide-css.kind-info { background: #FAFAF7; }
+        .cf-slide-css.kind-info .cf-slide-info { color: #111; }
+        .cf-slide-css.kind-brand { display: flex; align-items: center; justify-content: center; }
+        .cf-slide-brand { font-size: 22px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+        .cf-bar-row { display: grid; grid-template-columns: 90px 1fr auto; gap: 8px; align-items: center; margin: 6px 0; font-size: 13px; color: var(--text-secondary); }
+        .cf-bar { background: var(--bg); border-radius: 999px; height: 8px; overflow: hidden; }
+        .cf-bar i { display: block; height: 8px; background: var(--accent); }
+        .cf-st.st-review { background: rgba(251, 191, 36, 0.16); color: #d4a017; }
+        .cf-cal-post.st-review { background: rgba(251, 191, 36, 0.18); }
+        .cf-check-q {
+            font-weight: 700; color: var(--text-primary); font-size: 15px; margin: 8px 0 4px;
+        }
+        .cf-pipe {
+            display: flex; flex-direction: column; align-items: center; gap: 0;
+            max-width: 420px; margin: 0 auto 18px; padding: 8px 0;
+        }
+        .cf-pipe-step {
+            width: 100%; text-align: center; border-radius: 16px; padding: 12px 16px;
+            color: #fff; font-size: 14px; font-weight: 700; line-height: 1.25;
+        }
+        .cf-pipe-step small { display: block; font-weight: 500; opacity: .88; font-size: 12px; margin-top: 3px; }
+        .cf-pipe-step.on { box-shadow: 0 0 0 2px var(--accent); }
+        .cf-pipe-step.nm { background: #1f3d38; }
+        .cf-pipe-step.wb { background: #1b4f4a; }
+        .cf-pipe-step.gen { background: #0f6b5c; }
+        .cf-pipe-step.draft { background: #9a6b16; }
+        .cf-pipe-step.check { background: #3e3e44; }
+        .cf-pipe-step.no { background: #a33b2c; }
+        .cf-pipe-step.yes { background: #2f7a38; }
+        .cf-pipe-step.ig { background: #1d4e9c; }
+        .cf-pipe-step.done { background: #5a5a60; }
+        .cf-pipe-line { width: 2px; height: 12px; background: rgba(255,255,255,.22); display: block; }
+        .cf-pipe-fork { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
+        .cf-pipe-fork-lab {
+            display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 10px;
+            font-size: 11px; color: var(--text-muted); text-align: center; padding: 6px 0 4px;
+        }
+        @media (max-width: 768px) {
+            .cf-cal-day { min-height: 72px; }
+            .cf-cal-post { font-size: 10px; }
+        }
         .agents-hub { display: flex; align-items: stretch; gap: 12px; min-height: 0; }
         .agents-hub-side {
             width: 280px; min-width: 280px; display: flex; flex-direction: column; gap: 8px;
@@ -4729,9 +4836,9 @@
            временный style. */
         try {
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
-            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups' };
+            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
-            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, agents: 1 };
+            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -4760,7 +4867,7 @@
                     __nrCss += '.rnp-workspace,#rnp-sheet-body,.rnp-article-panel--wide{background:var(--surface-solid)}';
                     __nrCss += '.main-content{padding:4px 6px}';
                 }
-                if (__nrPane === 'goods-groups' || __nrPane === 'advertising' || __nrPane === 'ab-testing') {
+                if (__nrPane === 'goods-groups' || __nrPane === 'advertising' || __nrPane === 'ab-testing' || __nrPane === 'content-factory') {
                     __nrCss += '.main-content{padding:14px 20px 16px}';
                 }
                 __nrCss += '.rail-btn.active{background:transparent !important}';
@@ -4804,6 +4911,10 @@
                 <button type="button" class="rail-btn" data-tab="goods-groups" title="Товары">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
                     <span class="rail-btn-lbl">Товары</span>
+                </button>
+                <button type="button" class="rail-btn" data-tab="content-factory" title="Контент-завод">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></span>
+                    <span class="rail-btn-lbl">Контент</span>
                 </button>
                 <button type="button" class="rail-btn" data-tab="agents" title="Агенты" data-staff-only="1">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
@@ -5139,7 +5250,7 @@
                 <div class="beta-orb beta-orb-2"></div>
                 <div class="beta-pill">BETA</div>
                 <h2 id="beta-stub-title">Модуль в BETA</h2>
-                <p id="beta-stub-text">Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары и Агенты. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
+                <p id="beta-stub-text">Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары, Контент-завод и Агенты. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
                 <button type="button" class="space-empty-btn" style="margin-top:18px" onclick="showTab('dashboard')">К дашборду</button>
             </div>
         </div>
@@ -5343,11 +5454,11 @@
                         <div class="adv-kpi-tile-value">—</div>
                     </div>
                     <div class="adv-kpi-tile">
-                        <div class="adv-kpi-tile-label">Расход сегодня</div>
+                        <div class="adv-kpi-tile-label">Расход</div>
                         <div class="adv-kpi-tile-value">—</div>
                     </div>
                     <div class="adv-kpi-tile">
-                        <div class="adv-kpi-tile-label">ДРР 7д</div>
+                        <div class="adv-kpi-tile-label">ДРР</div>
                         <div class="adv-kpi-tile-value">—</div>
                     </div>
                 </div>
@@ -5381,14 +5492,13 @@
                                     <th>Полка</th>
                                     <th>Тип</th>
                                     <th>Статус</th>
-                                    <th>Сегодня</th>
-                                    <th>7 дней</th>
+                                    <th>Расход</th>
                                     <th>ДРР</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody id="ads-hq-tbody">
-                                <tr><td colspan="8" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить полки</td></tr>
+                                <tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить полки</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -6146,6 +6256,10 @@
             </div>
         </div>
 
+        <div id="tab-content-factory" class="tab-content">
+            <div id="cf-root"></div>
+        </div>
+
         <div id="tab-agents" class="tab-content space-y-5">
             <div class="agents-hub">
                 <aside class="agents-hub-side" id="agents-hub-side"></aside>
@@ -6485,8 +6599,9 @@
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.f060ba3215.min.js"></script>
 <script src="/dist/wb-formulas.11317eb115.min.js"></script>
-<script src="/dist/ads-command-center.6ed167daab.min.js"></script>
+<script src="/dist/ads-command-center.7554e1b6e6.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
+<script src="/dist/content-factory.eb737402af.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -6530,7 +6645,7 @@
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon', 'agents']);
     const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots']);
-    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'agents']);
+    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
     // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
@@ -7687,7 +7802,7 @@
         'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
         marking: '/marking', logistics: '/logistics', rnp: '/rnp', dashboard: '/space',
         'telegram-bots': '/telegram-bots', ozon: '/ozon', agents: '/agents',
-        'goods-groups': '/goods',
+        'goods-groups': '/goods', 'content-factory': '/content',
     };
     const PATH_TO_TAB = Object.fromEntries(Object.entries(MODULE_PATHS).map(([k, v]) => [v, k]));
 
@@ -7699,6 +7814,7 @@
         'ab-testing':'А/Б Тесты', advertising:'Контроль РК', seo:'SEO-Позиции', marking:'Маркировка & ШК', logistics:'Логистика & Поставки',
         settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики',
         'telegram-bots':'Телеграм боты', ozon:'Ozon токен', agents:'Агенты',
+        'content-factory':'Контент-завод',
     };
 
     const TAB_GROUP = {
@@ -7710,6 +7826,7 @@
         seo:'beta', marking:'beta', logistics:'beta', calculator:'beta',
         'telegram-bots':'agents', ozon:'beta', agents:'agents',
         cost:'beta', 'goods-groups':'goods', warehouse:'beta',
+        'content-factory':'content',
         dds:'beta', operations:'beta', obligations:'beta', 'finance-extra':'beta',
         tariffs:'beta',
     };
@@ -7784,7 +7901,7 @@
             else pageTitle.textContent = tabTitles[tabName] || tabTitles.dashboard || 'Дашборд';
         }
         if (dateWrap) {
-            const showDate = !isStub && DATE_FILTER_TABS.has(tabName) && !showEmpty && !isAdsHq;
+            const showDate = !isStub && DATE_FILTER_TABS.has(tabName) && !showEmpty;
             dateWrap.classList.toggle('hidden', !showDate);
             dateWrap.style.display = showDate ? 'flex' : 'none';
         }
@@ -7891,6 +8008,20 @@
     window.bootRnpTab = bootRnpTab;
     window.bootRnpSettings = bootRnpSettings;
 
+    function bootContentFactory() {
+        const mod = window.ContentFactory;
+        if (!mod || !hasUserCabinets || !currentCabinetId) return;
+        mod.ensureReady(supabase, currentCabinetId, callWbProxy, {
+            supabaseUrl: SUPABASE_URL,
+            functionsUrl: SUPABASE_URL + '/functions/v1',
+            userEmail: currentUserEmail,
+        });
+        Promise.resolve(mod.open()).catch(function (e) {
+            console.error('[content-factory]', e);
+        });
+    }
+    window.bootContentFactory = bootContentFactory;
+
     function highlightNavForTab(name, el) {
         document.querySelectorAll('.nav-item, .nav-item-standalone').forEach(n => n.classList.remove('active'));
         if (el) el.classList.add('active');
@@ -7955,12 +8086,12 @@
         highlightNavForTab(name, el);
         updateHeaderNav(name);
         document.documentElement.removeAttribute('data-nr-early');
-        if (name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'ab-testing' || name === 'goods-groups' || name === 'agents') {
+        if (name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'ab-testing' || name === 'goods-groups' || name === 'content-factory' || name === 'agents') {
             window.closeSidebarMenus?.(true);
         }
         document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
         document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
-        document.querySelector('.main-content')?.classList.toggle('goods-compact', name === 'goods-groups' || name === 'advertising' || name === 'ab-testing');
+        document.querySelector('.main-content')?.classList.toggle('goods-compact', name === 'goods-groups' || name === 'advertising' || name === 'ab-testing' || name === 'content-factory');
         if (name === 'ab-testing') loadABTests();
         if (name === 'advertising' && hasUserCabinets) openAdvertisingTab();
         if (name === 'dds' && hasUserCabinets && window._financeDdsLoadedForCabinet !== currentCabinetId) {
@@ -7979,6 +8110,7 @@
         if (name === 'telegram-bots') loadTelegramBotsPage();
         if (name === 'ozon') loadOzonTokenPage();
         if (name === 'agents') loadAgentsPage();
+        if (name === 'content-factory' && hasUserCabinets) bootContentFactory();
         if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
         if (window.innerWidth <= 768) {
             closeMobileMenu();
@@ -8027,6 +8159,7 @@
             escapeHtml,
             cabinetDisplayName,
             showPremiumModal,
+            getDateRange: getActiveDateRange,
             syncFromWb: async () => {
                 if (typeof window.syncAdvertisingNow === 'function') {
                     await window.syncAdvertisingNow({ silent: true });
@@ -10740,6 +10873,7 @@
         if (name === 'dashboard' || name === 'summary') loadFromDB(activeDateFrom, activeDateTo);
         else if (name === 'advertising') {
             if (window._advView === 'detail') loadAdvertisingFromDB();
+            else if (window.AdsHQ && typeof window.AdsHQ.load === 'function') window.AdsHQ.load();
             else if (window.AdsHQ) window.AdsHQ.open({ cabinetId: currentCabinetId || '' });
         }
         else if (name === 'logistics') {
@@ -11146,6 +11280,7 @@
             if (curTab === 'seo') loadSeoKeywords();
             if (curTab === 'marking') loadMarkingComplianceReport();
             if (curTab === 'agents') loadAgentsPage();
+            if (curTab === 'content-factory') bootContentFactory();
         });
     }
 
@@ -15922,6 +16057,7 @@
                     else if (cur === 'seo') loadSeoKeywords();
                     else if (cur === 'ab-testing') loadABTests();
                     else if (cur === 'marking') loadMarkingComplianceReport();
+                    else if (cur === 'content-factory') bootContentFactory();
                 }
             } catch (e) {
                 console.error('[init]', e);
