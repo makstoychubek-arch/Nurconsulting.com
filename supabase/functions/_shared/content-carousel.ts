@@ -2,7 +2,8 @@
 
 export const SLIDE_W = 1080;
 export const SLIDE_H = 1350;
-export const SLIDE_KINDS = ['cover', 'collage', 'info', 'brand'] as const;
+export const PHOTO_PAGES = 3;
+export const SLIDE_KINDS = ['cover', 'collage', 'photo', 'info', 'brand'] as const;
 export type SlideKind = (typeof SLIDE_KINDS)[number];
 
 export type CarouselInput = {
@@ -105,7 +106,7 @@ export function bindExactArticlePhotos(input: {
         ...(Array.isArray(input.gallery) ? input.gallery : []),
     ];
     const bound = photosForNmId(raw, id);
-    const slots = input.slots == null ? 5 : input.slots;
+    const slots = input.slots == null ? 8 : input.slots;
     if (bound.length >= slots) return bound;
     const host = bound.map(wbBasketHostFromUrl).find((h) => h > 0) || 0;
     if (!host) return bound;
@@ -140,6 +141,14 @@ export function planCarouselSlides(input: CarouselInput): SlidePlan[] {
     const cover = photos[0] || '';
     const details = photos.slice(1, 5);
     while (details.length < 4 && cover) details.push(cover);
+    const used = new Set([cover, ...photos.slice(1, 5)].filter(Boolean));
+    const rest = photos.filter((u) => u && !used.has(u));
+    const pool = rest.length ? rest : (photos.slice(1).length ? photos.slice(1) : (cover ? [cover] : []));
+    const plains: string[] = [];
+    for (let i = 0; i < PHOTO_PAGES; i++) {
+        const u = pool[i] || pool[i % Math.max(pool.length, 1)];
+        if (u) plains.push(u);
+    }
     const title = String(input.title || '').trim();
     const composition = String(input.composition || '').trim();
     const brand = String(input.brand || '').trim() || 'NR';
@@ -149,6 +158,7 @@ export function planCarouselSlides(input: CarouselInput): SlidePlan[] {
     return [
         { ...base, kind: 'cover', photos: cover ? [cover] : [] },
         { ...base, kind: 'collage', photos: details.slice(0, 4) },
+        ...plains.map((u) => ({ ...base, kind: 'photo' as const, photos: [u] })),
         { ...base, kind: 'info', photos: [] },
         { ...base, kind: 'brand', photos: [] },
     ];

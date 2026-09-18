@@ -113,7 +113,7 @@ export async function renderCarouselSlidePng(plan: SlidePlan): Promise<Uint8Arra
     const ctx = canvas.getContext('2d');
     ctx.textBaseline = 'alphabetic';
 
-    if (plan.kind === 'cover') {
+    if (plan.kind === 'cover' || plan.kind === 'photo') {
         ctx.fillStyle = '#111111';
         ctx.fillRect(0, 0, SLIDE_W, SLIDE_H);
         const img = await loadPhoto(plan.photos[0] || '');
