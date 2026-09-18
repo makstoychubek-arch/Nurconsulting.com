@@ -2226,8 +2226,20 @@ assert.ok(
         'photos bind to exact nmId, never the first similar WB card');
     assert.ok(!cf.includes('data-cf="publish-now"') && cf.includes('data-cf="approve-post"') && cf.includes('Очередь') && cf.includes('Подтверждено') && cf.includes('Возврат в черновик'),
         'Instagram goes only through the confirmation queue after slide preview');
-    assert.ok(cf.includes('Фото совпадает с товаром') && cf.includes('без похожих') && !cf.includes('Артикул в РНП'),
-        'UI follows nmId-only bind and the confirmation flowchart');
+    assert.ok(!cf.includes('pipelineHtml') && !cf.includes('cf-pipe') && !cf.includes('developers.facebook.com') && !cf.includes('FACEBOOK_APP_ID') && !cf.includes('Схема публикации'),
+        'no pipeline essay or Facebook setup dump in the tab');
+    assert.ok(!html.includes('cf-pipe') && !html.includes('Схема публикации'),
+        'dashboard CSS does not keep the pipeline diagram');
+    const openSrc = cf.slice(cf.indexOf('function open('), cf.indexOf('const ContentFactory'));
+    assert.ok(openSrc.includes('paint()') && openSrc.includes('needsReload') && !openSrc.includes('await reload()') && !openSrc.includes('loadIg'),
+        'open() paints immediately and does not await reload or IG');
+    const reloadSrc = cf.slice(cf.indexOf('async function reload('), cf.indexOf('async function pullArticleCard'));
+    assert.ok(!reloadSrc.includes('loadIg') && reloadSrc.includes('loadArticles') && reloadSrc.includes('loadPosts'),
+        'reload skips Instagram oauth');
+    assert.ok(cf.includes('AbortController') && cf.includes('FN_TIMEOUT_MS') && cf.includes("action: 'status'"),
+        'edge calls abort instead of hanging for minutes');
+    assert.ok(!cf.includes('Артикул в РНП'),
+        'UI is nmId-only');
     assert.ok(mig.includes("'review'") && mig.includes('approved_at'),
         'posts need review/approval before cron or Graph publish');
     assert.ok(mig.includes('article_id uuid') && !mig.includes('article_id bigint'),

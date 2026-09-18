@@ -274,40 +274,94 @@
         searchTexts: null,
         loading: false,
         err: '',
+        loadedCab: '',
+        fetchCab: '',
+        igLoaded: false,
+        igBusy: false,
+        loadGen: 0,
     };
+    const FN_TIMEOUT_MS = 4000;
+    const FN_LONG_MS = 20000;
+    const QUERY_TIMEOUT_MS = 8000;
 
     let sb = null;
     let cab = '';
     let callWb = null;
     let opts = {};
 
-    function rootEl() { return document.getElementById('cf-root'); }
+    function rootEl() {
+        if (typeof document === 'undefined') return null;
+        return document.getElementById('cf-root');
+    }
     function functionsUrl(name) {
         const base = (opts.functionsUrl || (opts.supabaseUrl ? opts.supabaseUrl + '/functions/v1' : ''))
             || 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1';
         return base.replace(/\/$/, '') + '/' + name;
     }
+    function withTimeout(thenable, ms) {
+        const wait = Number(ms);
+        if (!Number.isFinite(wait) || wait <= 0) return Promise.resolve(thenable);
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => reject(new Error('Таймаут')), wait);
+            Promise.resolve(thenable).then(
+                (v) => { clearTimeout(timer); resolve(v); },
+                (e) => { clearTimeout(timer); reject(e); },
+            );
+        });
+    }
+    function queryTimeoutMs() {
+        const n = num(opts.queryTimeoutMs);
+        return n > 0 ? n : QUERY_TIMEOUT_MS;
+    }
     async function userToken() {
         if (!sb) return '';
         let session = null;
         if (root.NrAuth && typeof root.NrAuth.recoverBrokenSession === 'function') {
-            session = await root.NrAuth.recoverBrokenSession(sb);
+            session = await withTimeout(root.NrAuth.recoverBrokenSession(sb), FN_TIMEOUT_MS).catch(() => null);
         }
         if (!session || !session.access_token) {
-            session = ((await sb.auth.getSession()).data || {}).session;
+            const pack = await withTimeout(sb.auth.getSession(), FN_TIMEOUT_MS).catch(() => ({ data: {} }));
+            session = ((pack && pack.data) || {}).session;
         }
         return (session && session.access_token) || '';
     }
-    async function callFn(name, body) {
+    async function callFn(name, body, timeoutMs) {
         const token = await userToken();
-        const res = await fetch(functionsUrl(name), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-            body: JSON.stringify(Object.assign({ cabinet_id: cab }, body || {})),
-        });
-        const js = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(js.error || ('HTTP ' + res.status));
-        return js;
+        const ms = num(timeoutMs) > 0 ? num(timeoutMs) : FN_TIMEOUT_MS;
+        const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+        const timer = ctrl ? setTimeout(function () { ctrl.abort(); }, ms) : null;
+        try {
+            const res = await fetch(functionsUrl(name), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+                body: JSON.stringify(Object.assign({ cabinet_id: cab }, body || {})),
+                signal: ctrl ? ctrl.signal : undefined,
+            });
+            const js = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(js.error || ('HTTP ' + res.status));
+            return js;
+        } catch (e) {
+            if (e && (e.name === 'AbortError' || /aborted|abort/i.test(String(e.message || e)))) {
+                throw new Error('Таймаут');
+            }
+            throw e;
+        } finally {
+            if (timer) clearTimeout(timer);
+        }
+    }
+    function needsReload() {
+        return !!cab && state.loadedCab !== cab;
+    }
+    function shouldHoldPaint() {
+        if (typeof document === 'undefined') return false;
+        const el = rootEl();
+        const active = document.activeElement;
+        if (!el || !active || !el.contains(active)) return false;
+        const tag = active.tagName;
+        return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+    }
+    function paintAfterLoad() {
+        if (!shouldHoldPaint()) paint();
     }
     function toast(kind, title, text) {
         if (typeof root.showPremiumModal === 'function') root.showPremiumModal(kind, title, text);
@@ -324,10 +378,10 @@
 
     async function loadArticles() {
         if (!sb || !cab) return;
-        const { data, error } = await sb.from('rnp_articles')
-            .select('id, nm_id, name, photo_url, is_active, cost_price, manual_data')
+        const { data, error } = await withTimeout(sb.from('rnp_articles')
+            .select('id, nm_id, name, photo_url, is_active, cost_price')
             .eq('cabinet_id', cab)
-            .order('name');
+            .order('name'), queryTimeoutMs());
         if (error) throw error;
         state.articles = data || [];
         state.articleMap = {};
@@ -338,10 +392,10 @@
         return /schema cache|Could not find the table|does not exist|PGRST205/i.test(m);
     }
     async function loadPosts() {
-        const { data, error } = await sb.from('content_posts')
+        const { data, error } = await withTimeout(sb.from('content_posts')
             .select('*')
             .eq('cabinet_id', cab)
-            .order('publish_at', { ascending: false, nullsFirst: false });
+            .order('publish_at', { ascending: false, nullsFirst: false }), queryTimeoutMs());
         if (error) {
             if (isMissingTable(error)) { state.posts = []; return; }
             throw error;
@@ -349,10 +403,10 @@
         state.posts = data || [];
     }
     async function loadBloggers() {
-        const { data, error } = await sb.from('bloggers')
+        const { data, error } = await withTimeout(sb.from('bloggers')
             .select('*')
             .eq('cabinet_id', cab)
-            .order('name');
+            .order('name'), queryTimeoutMs());
         if (error) {
             if (isMissingTable(error)) { state.bloggers = []; return; }
             throw error;
@@ -360,10 +414,10 @@
         state.bloggers = data || [];
     }
     async function loadPayouts() {
-        const { data, error } = await sb.from('blogger_payouts')
+        const { data, error } = await withTimeout(sb.from('blogger_payouts')
             .select('*')
             .eq('cabinet_id', cab)
-            .eq('month', state.payoutMonth);
+            .eq('month', state.payoutMonth), queryTimeoutMs());
         if (error) {
             if (isMissingTable(error)) { state.payouts = []; return; }
             throw error;
@@ -372,23 +426,35 @@
     }
     async function loadIg() {
         try {
-            state.ig = await callFn('content-ig-oauth', { action: 'status' });
+            state.ig = await callFn('content-ig-oauth', { action: 'status' }, FN_TIMEOUT_MS);
         } catch (_) {
             state.ig = { configured: false, connected: false };
         }
+        state.igLoaded = true;
+    }
+    function ensureIg() {
+        if (state.igLoaded || state.igBusy) return Promise.resolve();
+        state.igBusy = true;
+        return loadIg().catch(() => {}).finally(() => { state.igBusy = false; }).then(() => {
+            if (state.view === 'instagram') paintAfterLoad();
+        });
     }
     async function reload() {
         if (!sb || !cab) return;
-        state.loading = true;
+        const gen = ++state.loadGen;
+        state.fetchCab = cab;
         state.err = '';
-        paint();
         try {
-            await Promise.all([loadArticles(), loadPosts(), loadBloggers(), loadPayouts(), loadIg()]);
+            await Promise.all([loadArticles(), loadPosts(), loadBloggers(), loadPayouts()]);
+            if (gen !== state.loadGen) return;
+            state.loadedCab = cab;
         } catch (e) {
-            state.err = e.message || String(e);
+            if (gen !== state.loadGen) return;
+            if (!isMissingTable(e)) state.err = e.message || String(e);
+        } finally {
+            if (state.fetchCab === cab && gen === state.loadGen) state.fetchCab = '';
         }
-        state.loading = false;
-        paint();
+        if (gen === state.loadGen) paintAfterLoad();
     }
 
     async function pullArticleCard(article) {
@@ -397,13 +463,27 @@
         if (!nm) return null;
         let hit = null;
         if (callWb) {
-            const data = await callWb('content_cards', {
-                limit: 100,
-                textSearch: String(nm),
-                withPhoto: 1,
-                nmIds: [nm],
-            });
-            hit = pickCardByNmId((data && data.cards) || [], nm);
+            try {
+                const data = await withTimeout(callWb('content_cards', {
+                    limit: 100,
+                    textSearch: String(nm),
+                    withPhoto: 1,
+                    nmIds: [nm],
+                }), FN_TIMEOUT_MS);
+                hit = pickCardByNmId((data && data.cards) || [], nm);
+            } catch (_) {
+                hit = null;
+            }
+        }
+        if (article.manual_data == null && sb && cab && article.id) {
+            try {
+                const { data } = await withTimeout(sb.from('rnp_articles')
+                    .select('manual_data')
+                    .eq('cabinet_id', cab)
+                    .eq('id', article.id)
+                    .maybeSingle(), queryTimeoutMs());
+                if (data) article.manual_data = data.manual_data;
+            } catch (_) { /* gallery stays empty */ }
         }
         const gallery = galleryUrlsFromManual(article.manual_data, nm);
         const photos = bindExactArticlePhotos({
@@ -435,11 +515,11 @@
         if (!id || !sb || !cab) return null;
         const local = state.articles.find((a) => Number(a.nm_id) === id);
         if (local) return local;
-        const { data, error } = await sb.from('rnp_articles')
+        const { data, error } = await withTimeout(sb.from('rnp_articles')
             .select('id, nm_id, name, photo_url, is_active, cost_price, manual_data')
             .eq('cabinet_id', cab)
             .eq('nm_id', id)
-            .maybeSingle();
+            .maybeSingle(), queryTimeoutMs());
         if (error) throw error;
         if (data) {
             if (!state.articleMap[data.id]) {
@@ -600,7 +680,13 @@
     }
 
     async function handle(act, id, el) {
-        if (act === 'view') { state.view = id; state.form = null; paint(); return; }
+        if (act === 'view') {
+            state.view = id;
+            state.form = null;
+            paint();
+            if (id === 'instagram') void ensureIg();
+            return;
+        }
         if (act === 'mode') { state.listMode = id; paint(); return; }
         if (act === 'prev-month') {
             state.cursor = new Date(state.cursor.getFullYear(), state.cursor.getMonth() - 1, 1);
@@ -631,7 +717,7 @@
         if (act === 'lookup-nm') {
             const raw = id || (document.getElementById('cf-f-nm') || document.getElementById('cf-car-nm') || {}).value;
             const art = await findArticleByNmId(raw);
-            if (!art) throw new Error('nmId ' + raw + ' нет в этом кабинете — ищем только точный номер, не похожие');
+            if (!art) throw new Error('Нет nmId ' + raw);
             state.carouselUrls = [];
             if (state.form) {
                 state.form.article_id = art.id;
@@ -652,21 +738,21 @@
             await savePost(form);
             state.form = null;
             await reload();
-            toast('success', 'Сохранено', 'Черновик в календаре. В Instagram — только после предпросмотра и «Подтверждено».');
+            toast('success', 'Сохранено', 'Черновик в календаре');
             return;
         }
         if (act === 'to-review') {
             const form = readForm();
             form.status = 'review';
             if (!((form.slide_urls && form.slide_urls.length) || form.file_url || (state.carouselUrls && state.carouselUrls.length))) {
-                throw new Error('Сначала соберите и посмотрите слайды');
+                throw new Error('Соберите слайды');
             }
             if (state.carouselUrls && state.carouselUrls.length) form.slide_urls = state.carouselUrls;
             await savePost(form, { status: 'review' });
             state.form = null;
             state.view = 'review';
             await reload();
-            toast('info', 'Очередь', 'Пост ждёт «Подтверждено». Сам в Instagram не уйдёт.');
+            toast('info', 'Очередь', 'Ждёт подтверждения');
             return;
         }
         if (act === 'approve-post') {
@@ -685,7 +771,7 @@
                     updated_at: nowIso,
                 }).eq('id', p.id).eq('cabinet_id', cab);
                 if (error) throw error;
-                await callFn('content-ig-publish', { post_id: p.id, dry_run: false });
+                await callFn('content-ig-publish', { post_id: p.id, dry_run: false }, FN_LONG_MS);
             } else {
                 const { error } = await sb.from('content_posts').update({
                     approved_at: nowIso,
@@ -695,7 +781,7 @@
                 if (error) throw error;
             }
             await reload();
-            toast('success', 'Подтверждено', goNow && p.platform === 'instagram' ? 'Отправлено в Instagram' : 'Встанет в слот по дате');
+            toast('success', 'Подтверждено', goNow && p.platform === 'instagram' ? 'В Instagram' : 'В слот по дате');
             return;
         }
         if (act === 'reject-post') {
@@ -756,10 +842,10 @@
         if (act === 'gen-carousel') {
             const raw = (document.getElementById('cf-car-nm') || {}).value;
             const art = await findArticleByNmId(raw);
-            if (!art) throw new Error('Укажите точный nmId из этого кабинета — не название и не похожие');
+            if (!art) throw new Error('Укажите nmId');
             const card = await pullArticleCard(art);
             if (!card || !(card.photos && card.photos.length)) {
-                throw new Error('Нет фото nmId ' + art.nm_id + ' — похожие карточки не подставляем');
+                throw new Error('Нет фото nmId ' + art.nm_id);
             }
             const composition = (document.getElementById('cf-car-comp') || {}).value || card.composition || '';
             const brand = (document.getElementById('cf-car-brand') || {}).value || card.brand || '';
@@ -772,17 +858,17 @@
                 brand,
                 price: card.price,
                 vendor_code: card.vendorCode,
-            });
+            }, FN_LONG_MS);
             state.carouselUrls = js.urls || [];
-            if (!state.carouselUrls.length) throw new Error('Слайды не собрались — в очередь без предпросмотра нельзя');
+            if (!state.carouselUrls.length) throw new Error('Слайды не собрались');
             paint();
             return;
         }
         if (act === 'save-carousel-draft') {
             const raw = (document.getElementById('cf-car-nm') || {}).value;
             const art = await findArticleByNmId(raw);
-            if (!art) throw new Error('Укажите точный nmId');
-            if (!state.carouselUrls.length) throw new Error('Сначала соберите и посмотрите все слайды');
+            if (!art) throw new Error('Укажите nmId');
+            if (!state.carouselUrls.length) throw new Error('Соберите слайды');
             await savePost({
                 id: null,
                 article_id: art.id,
@@ -799,7 +885,7 @@
             }, { status: 'review' });
             state.view = 'review';
             await reload();
-            toast('info', 'Очередь', 'Карусель ждёт глаз: «Подтверждено» — единственный путь в Instagram');
+            toast('info', 'Очередь', 'Ждёт подтверждения');
             return;
         }
         if (act === 'ig-store') {
@@ -810,7 +896,7 @@
             if (inp) inp.value = '';
             await loadIg();
             paint();
-            toast('success', 'Instagram', 'Токен сохранён в Vault');
+            toast('success', 'Instagram', 'Токен сохранён');
             return;
         }
         if (act === 'ig-oauth') {
@@ -827,7 +913,7 @@
         if (act === 'wb-search') {
             const art = state.articles[0];
             if (!art || !callWb) {
-                state.searchTexts = { error: 'Нет артикулов — запросы WB берутся из существующего SEO-отчёта карточки' };
+                state.searchTexts = { error: 'Нет артикулов' };
                 paint();
                 return;
             }
@@ -867,7 +953,6 @@
         el.innerHTML = [
             navHtml(),
             state.err ? `<div class="cf-err">${escapeHtml(state.err)}</div>` : '',
-            state.loading ? '<div class="cf-muted">Загрузка…</div>' : '',
             state.view === 'calendar' ? calendarHtml() : '',
             state.view === 'review' ? reviewHtml() : '',
             state.view === 'bloggers' ? bloggersHtml() : '',
@@ -887,29 +972,6 @@
         return `<datalist id="cf-nm-list">${state.articles.map((a) =>
             `<option value="${escapeHtml(String(a.nm_id))}">${escapeHtml(a.name || ('nmId ' + a.nm_id))}</option>`
         ).join('')}</datalist>`;
-    }
-    function pipelineHtml(active) {
-        const on = (id) => (active === id ? ' on' : '');
-        return `<div class="cf-pipe" aria-label="Схема публикации">
-            <div class="cf-pipe-step nm${on('nm')}">Артикул WB<small>Точный числовой nmId, без похожих</small></div>
-            <i class="cf-pipe-line"></i>
-            <div class="cf-pipe-step wb${on('wb')}">WB API<small>Фото, цена, состав этого nmId</small></div>
-            <i class="cf-pipe-line"></i>
-            <div class="cf-pipe-step gen${on('gen')}">Генератор карусели<small>Сборка слайдов по шаблону</small></div>
-            <i class="cf-pipe-line"></i>
-            <div class="cf-pipe-step draft${on('draft')}">Черновик на проверку<small>Обязательный предпросмотр</small></div>
-            <i class="cf-pipe-line"></i>
-            <div class="cf-pipe-step check${on('check')}">Ты/менеджер смотришь<small>Фото совпадает с товаром? Артикул верный?</small></div>
-            <div class="cf-pipe-fork-lab"><span>не ок</span><span>ок</span></div>
-            <div class="cf-pipe-fork">
-                <div class="cf-pipe-step no">Возврат в черновик<small>Исправить и пересобрать</small></div>
-                <div class="cf-pipe-step yes">Подтверждено<small>Готово к публикации</small></div>
-            </div>
-            <i class="cf-pipe-line"></i>
-            <div class="cf-pipe-step ig${on('ig')}">Instagram Graph API<small>Публикация карусели</small></div>
-            <i class="cf-pipe-line"></i>
-            <div class="cf-pipe-step done${on('done')}">Опубликовано в Instagram</div>
-        </div>`;
     }
 
     function filtersHtml() {
@@ -1003,11 +1065,10 @@
                 <button type="button" class="cf-link" data-cf="close-form">Закрыть</button>
             </div>
             ${f.error_text ? `<div class="cf-err">${escapeHtml(f.error_text)}</div>` : ''}
-            <p class="cf-muted">Фото только с точного nmId. Статус «опубликовано» отсюда не ставится — только очередь и «Подтверждено».</p>
             <input type="hidden" id="cf-f-art" value="${escapeHtml(f.article_id || '')}">
             <input type="hidden" id="cf-f-status" value="${escapeHtml(f.status === 'published' || f.status === 'scheduled' ? 'review' : (f.status || 'draft'))}">
             <div class="cf-form-grid">
-                <label>Точный nmId${articleNmInput('cf-f-nm', (art && art.nm_id) || (card && card.nmId) || '')}</label>
+                <label>nmId${articleNmInput('cf-f-nm', (art && art.nm_id) || (card && card.nmId) || '')}</label>
                 <label>Площадка<select id="cf-f-plat">${plat}</select></label>
                 <label>Блогер<select id="cf-f-blogger">${blogs}</select></label>
                 <label>Дата публикации<input id="cf-f-at" type="datetime-local" value="${escapeHtml(f.publish_at || '')}"></label>
@@ -1020,14 +1081,14 @@
             <div class="cf-card-preview">
                 ${photo ? `<img src="${escapeHtml(photo)}" alt="">` : '<div class="cf-ph">Фото этого nmId</div>'}
                 <div>
-                    <div class="cf-card-name">${escapeHtml((card && card.title) || (art && art.name) || 'Введите точный nmId')}</div>
+                    <div class="cf-card-name">${escapeHtml((card && card.title) || (art && art.name) || 'nmId')}</div>
                     <div class="cf-muted">${art ? 'nmId ' + art.nm_id : ''} · ${escapeHtml(stLabel)} · цена ${price}${art && art.cost_price ? ' · себест. ' + art.cost_price : ''}</div>
                 </div>
             </div>
-            ${readySlides.length ? `<div class="cf-slides">${readySlides.map((u) => `<div class="cf-slide"><img src="${escapeHtml(u)}" alt=""></div>`).join('')}</div>` : '<p class="cf-muted">Предпросмотр слайдов обязателен: сначала соберите карусель.</p>'}
+            ${readySlides.length ? `<div class="cf-slides">${readySlides.map((u) => `<div class="cf-slide"><img src="${escapeHtml(u)}" alt=""></div>`).join('')}</div>` : ''}
             <div class="cf-form-actions">
                 <button type="button" class="ui-btn ui-btn-primary" data-cf="save-post">Сохранить черновик</button>
-                <button type="button" class="ui-btn ui-btn-secondary" data-cf="to-review"${readySlides.length || f.file_url ? '' : ' disabled'}>В очередь на подтверждение</button>
+                <button type="button" class="ui-btn ui-btn-secondary" data-cf="to-review"${readySlides.length || f.file_url ? '' : ' disabled'}>В очередь</button>
                 ${f.id ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="delete-post">Удалить</button>' : ''}
             </div>
         </div>`;
@@ -1040,15 +1101,14 @@
             const slides = (Array.isArray(p.slide_urls) ? p.slide_urls : []).filter(Boolean);
             const preview = slides.length
                 ? slides.map((u) => `<img src="${escapeHtml(u)}" alt="">`).join('')
-                : (art && art.photo_url ? `<img src="${escapeHtml(art.photo_url)}" alt="">` : '<div class="cf-muted">Нет слайдов — подтверждать нечего</div>');
+                : (art && art.photo_url ? `<img src="${escapeHtml(art.photo_url)}" alt="">` : '<div class="cf-muted">Нет слайдов</div>');
             return `<div class="widget-card cf-form">
                 <div class="cf-form-h">
                     <h3>nmId ${escapeHtml((art && art.nm_id) || '—')} · ${escapeHtml(platformLabel(p.platform))}</h3>
                     <span class="cf-st st-review">ждёт подтверждения</span>
                 </div>
-                <p class="cf-muted">${escapeHtml((art && art.name) || '')} · ${p.publish_at ? escapeHtml(new Date(p.publish_at).toLocaleString('ru-RU')) : 'сразу после «Подтверждено»'}</p>
+                <p class="cf-muted">${escapeHtml((art && art.name) || '')}${p.publish_at ? ' · ' + escapeHtml(new Date(p.publish_at).toLocaleString('ru-RU')) : ''}</p>
                 ${p.error_text ? `<div class="cf-err">${escapeHtml(p.error_text)}</div>` : ''}
-                <div class="cf-check-q">Фото совпадает с товаром? Артикул верный?</div>
                 <div class="cf-slides">${preview}</div>
                 <div class="cf-form-actions">
                     <button type="button" class="ui-btn ui-btn-secondary" data-cf="reject-post" data-id="${p.id}">Возврат в черновик</button>
@@ -1057,9 +1117,7 @@
                 </div>
             </div>`;
         }).join('');
-        return `${pipelineHtml('check')}
-        <p class="cf-muted">Не автопубликация: ничего само в Instagram не уходит. «Подтверждено» — единственный путь. «Возврат в черновик» — исправить и пересобрать.</p>
-        ${cards || '<div class="cf-muted">Очередь пуста</div>'}`;
+        return cards || '<div class="cf-muted">Очередь пуста</div>';
     }
 
     function bloggersHtml() {
@@ -1138,22 +1196,20 @@
             </div>`;
         }).join('');
         const hasPreview = state.carouselUrls.length > 0;
-        return `${pipelineHtml(hasPreview ? 'draft' : 'gen')}
-        <div class="widget-card cf-form">
-            <h3>Генератор карусели 1080×1350</h3>
-            <p class="cf-muted">Жёсткая привязка к точному nmId: фото только этой карточки, без похожих по названию. Предпросмотр всех слайдов обязателен — кнопки «сразу опубликовать» нет.</p>
+        return `<div class="widget-card cf-form">
+            <h3>Карусель</h3>
             <div class="cf-form-grid">
-                <label>Точный nmId${articleNmInput('cf-car-nm', (card && card.nmId) || '')}</label>
+                <label>nmId${articleNmInput('cf-car-nm', (card && card.nmId) || '')}</label>
                 <label>Состав<input id="cf-car-comp" value="${escapeHtml((card && card.composition) || '')}"></label>
                 <label>Бренд<input id="cf-car-brand" value="${escapeHtml((card && card.brand) || '')}"></label>
                 <label>Подпись<input id="cf-car-cap" placeholder="Текст к посту"></label>
                 <label>Доп. фото<input id="cf-car-extra" type="file" accept="image/*" multiple></label>
             </div>
-            ${card ? `<p class="cf-muted">Карточка nmId ${escapeHtml(card.nmId)} · ${escapeHtml(card.title || '')} · фото ${card.photos.length}</p>` : '<p class="cf-muted">Введите числовой nmId — название не ищем.</p>'}
+            ${card ? `<p class="cf-muted">nmId ${escapeHtml(card.nmId)} · ${escapeHtml(card.title || '')} · ${card.photos.length} фото</p>` : ''}
             <div class="cf-slides">${preview}</div>
             <div class="cf-form-actions">
-                <button type="button" class="ui-btn ui-btn-primary" data-cf="gen-carousel">Собрать PNG и посмотреть</button>
-                <button type="button" class="ui-btn ui-btn-secondary" data-cf="save-carousel-draft"${hasPreview ? '' : ' disabled'}>В очередь на подтверждение</button>
+                <button type="button" class="ui-btn ui-btn-primary" data-cf="gen-carousel">Собрать</button>
+                <button type="button" class="ui-btn ui-btn-secondary" data-cf="save-carousel-draft"${hasPreview ? '' : ' disabled'}>В очередь</button>
             </div>
         </div>`;
     }
@@ -1163,21 +1219,19 @@
 
     function igHtml() {
         const ig = state.ig || {};
+        const label = !state.igLoaded ? '…' : (ig.connected ? 'Подключено' : 'Не подключено');
         return `<div class="widget-card cf-form">
-            <h3>Instagram Graph API</h3>
-            <p class="cf-muted">App ID и Secret регистрируются на developers.facebook.com и кладутся в env функции (<code>FACEBOOK_APP_ID</code> / <code>FACEBOOK_APP_SECRET</code>). Long-lived токен хранится в Vault, как рекламный токен WB — в таблицу не пишется.</p>
-            <div class="cf-st ${ig.connected ? 'st-published' : 'st-draft'}">${ig.connected ? 'Подключено' : 'Не подключено'}${ig.ig_username ? ' · @' + escapeHtml(ig.ig_username) : ''}</div>
-            <p class="cf-muted">${ig.configured ? 'OAuth приложения настроен.' : 'OAuth ещё не настроен — можно вставить уже полученный long-lived token.'}</p>
+            <h3>Instagram</h3>
+            <div class="cf-st ${ig.connected ? 'st-published' : 'st-draft'}">${label}${ig.ig_username ? ' · @' + escapeHtml(ig.ig_username) : ''}</div>
             <div class="cf-form-grid">
-                <label>Long-lived token<input id="cf-ig-token" type="password" autocomplete="off" placeholder="вставляется один раз, дальше только Vault"></label>
-                <label>IG user id (если известен)<input id="cf-ig-user" placeholder="17841…"></label>
+                <label>Токен<input id="cf-ig-token" type="password" autocomplete="off"></label>
+                <label>IG user id<input id="cf-ig-user" placeholder="17841…"></label>
             </div>
             <div class="cf-form-actions">
-                <button type="button" class="ui-btn ui-btn-primary" data-cf="ig-store">Сохранить в Vault</button>
-                <button type="button" class="ui-btn ui-btn-secondary" data-cf="ig-oauth"${ig.configured ? '' : ' disabled'}>OAuth Business</button>
+                <button type="button" class="ui-btn ui-btn-primary" data-cf="ig-store">Сохранить</button>
+                <button type="button" class="ui-btn ui-btn-secondary" data-cf="ig-oauth"${ig.configured ? '' : ' disabled'}>OAuth</button>
                 ${ig.connected ? '<button type="button" class="ui-btn ui-btn-secondary" data-cf="ig-off">Отключить</button>' : ''}
             </div>
-            <p class="cf-muted">Карусель: контейнер на слайд → объединение → publish. В ленту только после «Подтверждено» в очереди. Крон раз в 5 минут берёт уже подтверждённые слоты с датой. Ошибка пишет статус «ошибка» и текст. Тесты — dry_run, живой Graph не дергаем. Кнопки «сразу опубликовать» нет.</p>
         </div>`;
     }
 
@@ -1205,7 +1259,7 @@
             return `<tr><td>${i + 1}</td><td>${escapeHtml((art && art.name) || p.id.slice(0, 8))}</td><td>${escapeHtml(platformLabel(p.platform))}</td><td>${num(p.views).toLocaleString('ru-RU')}</td></tr>`;
         }).join('');
         const search = state.searchTexts;
-        let searchHtml = '<p class="cf-muted">Рост поисковых запросов бренда — тот же WB search-report, что в SEO-позициях. Новый источник не заводим.</p><button type="button" class="ui-btn ui-btn-secondary" data-cf="wb-search">Показать запросы WB</button>';
+        let searchHtml = '<button type="button" class="ui-btn ui-btn-secondary" data-cf="wb-search">Запросы WB</button>';
         if (search && search.error) searchHtml += `<div class="cf-err">${escapeHtml(search.error)}</div>`;
         else if (search) {
             const items = search.data || search.items || search.texts || search;
@@ -1225,7 +1279,7 @@
         <div class="widget-card cf-form"><h3>По дням</h3>
             <div class="cf-table-wrap"><table class="data-table cf-table">
                 <thead><tr><th>День</th>${PLATFORMS.map((p) => `<th>${p.label}</th>`).join('')}<th>Итого</th></tr></thead>
-                <tbody>${dayRows || '<tr><td colspan="6" class="cf-muted">Пока нет просмотров — их вводят в выплатах блогеров</td></tr>'}</tbody>
+                <tbody>${dayRows || '<tr><td colspan="6" class="cf-muted">Нет данных</td></tr>'}</tbody>
             </table></div>
         </div>
         <div class="widget-card cf-form"><h3>Топ-5 постов</h3>
@@ -1253,20 +1307,47 @@
     }
 
     function ensureReady(supabase, cabinetId, callWbProxy, extra) {
+        const next = String(cabinetId || '');
+        if (next !== cab) {
+            state.loadedCab = '';
+            state.fetchCab = '';
+            state.igLoaded = false;
+            state.igBusy = false;
+            state.ig = { configured: false, connected: false };
+            state.posts = [];
+            state.bloggers = [];
+            state.payouts = [];
+            state.articles = [];
+            state.articleMap = {};
+            state.card = null;
+            state.carouselUrls = [];
+            state.extraPhotos = [];
+            state.searchTexts = null;
+            state.err = '';
+            state.form = null;
+            state.loadGen += 1;
+        }
         sb = supabase;
-        cab = cabinetId;
+        cab = next;
         callWb = callWbProxy;
         opts = extra || {};
         return ContentFactory;
     }
-    async function open() {
+    function bindRoot() {
         const el = rootEl();
         if (el && !el._cfBound) {
             el._cfBound = true;
             el.addEventListener('click', onClick);
             el.addEventListener('change', onChange);
         }
-        await reload();
+    }
+    function open() {
+        bindRoot();
+        paint();
+        if (!needsReload()) return Promise.resolve();
+        if (state.fetchCab === cab) return Promise.resolve();
+        void reload();
+        return Promise.resolve();
     }
 
     const ContentFactory = {
@@ -1274,6 +1355,7 @@
         computePayout, monthStart, ymd, parseWbCard, pickComposition, pickCardPrice, pickCardByNmId,
         nmIdFromPhotoUrl, photoUrlFitsNmId, photosForNmId, bindExactArticlePhotos, galleryUrlsFromManual,
         planCarouselSlides, groupPostsByDay, calendarCells, viewsByPlatform, topPosts, filterPosts, uniqUrls,
+        withTimeout, needsReload, FN_TIMEOUT_MS, QUERY_TIMEOUT_MS,
         ensureReady, open, reload,
         _state: state,
     };

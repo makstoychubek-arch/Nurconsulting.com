@@ -434,15 +434,15 @@
         .agents-grid--short .agent-fn-desc { display: none; }
         .agent-fn-who { font-size: 10px; font-weight: 700; color: var(--text-secondary); margin-top: 10px; text-transform: uppercase; letter-spacing: 0.04em; }
         .agents-grid--short .agent-fn-who { margin-top: 4px; }
-        .cf-nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+        .cf-nav { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
         .cf-nav-btn {
             border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
             border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer;
         }
         .cf-nav-btn.on { color: var(--text-primary); background: var(--sel); border-color: transparent; font-weight: 600; }
-        .cf-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+        .cf-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
         .cf-month { font-weight: 700; color: var(--text-primary); text-transform: capitalize; }
-        .cf-filters, .cf-mode { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+        .cf-filters, .cf-mode { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
         .cf-filters select, .cf-form input, .cf-form select, .cf-form textarea {
             background: var(--surface); border: 1px solid var(--border); color: var(--text-primary);
             border-radius: 12px; padding: 8px 12px; font-size: 13px; width: 100%;
@@ -456,10 +456,10 @@
         .cf-cal-week, .cf-cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
         .cf-cal-h { font-size: 11px; color: var(--text-muted); text-align: center; padding: 4px 0; }
         .cf-cal-day {
-            min-height: 88px; background: var(--surface-solid); border: 1px solid var(--border);
-            border-radius: 12px; padding: 6px; cursor: pointer;
+            min-height: 72px; background: var(--surface-solid); border: 1px solid var(--border);
+            border-radius: 12px; padding: 5px; cursor: pointer;
         }
-        .cf-cal-empty { min-height: 88px; }
+        .cf-cal-empty { min-height: 72px; }
         .cf-cal-n { font-size: 12px; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px; }
         .cf-cal-post {
             display: block; width: 100%; text-align: left; font-size: 11px; border: 0; border-radius: 8px;
@@ -476,9 +476,10 @@
         .cf-st.st-published { background: rgba(52,211,153,0.16); color: var(--green); }
         .cf-muted { color: var(--text-muted); font-size: 13px; }
         .cf-err { color: var(--red); font-size: 13px; margin: 8px 0; }
+        .cf-form.widget-card { padding: 14px 16px; margin-bottom: 10px; }
         .cf-form h3 { color: var(--text-primary); font-weight: 700; margin-bottom: 8px; }
         .cf-form-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .cf-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin: 12px 0; }
+        .cf-form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin: 8px 0; }
         .cf-form-grid label, .cf-month-lab { font-size: 12px; color: var(--text-secondary); display: flex; flex-direction: column; gap: 4px; }
         .cf-span { grid-column: 1 / -1; }
         .cf-form-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
@@ -509,36 +510,8 @@
         .cf-bar i { display: block; height: 8px; background: var(--accent); }
         .cf-st.st-review { background: rgba(251, 191, 36, 0.16); color: #d4a017; }
         .cf-cal-post.st-review { background: rgba(251, 191, 36, 0.18); }
-        .cf-check-q {
-            font-weight: 700; color: var(--text-primary); font-size: 15px; margin: 8px 0 4px;
-        }
-        .cf-pipe {
-            display: flex; flex-direction: column; align-items: center; gap: 0;
-            max-width: 420px; margin: 0 auto 18px; padding: 8px 0;
-        }
-        .cf-pipe-step {
-            width: 100%; text-align: center; border-radius: 16px; padding: 12px 16px;
-            color: #fff; font-size: 14px; font-weight: 700; line-height: 1.25;
-        }
-        .cf-pipe-step small { display: block; font-weight: 500; opacity: .88; font-size: 12px; margin-top: 3px; }
-        .cf-pipe-step.on { box-shadow: 0 0 0 2px var(--accent); }
-        .cf-pipe-step.nm { background: #1f3d38; }
-        .cf-pipe-step.wb { background: #1b4f4a; }
-        .cf-pipe-step.gen { background: #0f6b5c; }
-        .cf-pipe-step.draft { background: #9a6b16; }
-        .cf-pipe-step.check { background: #3e3e44; }
-        .cf-pipe-step.no { background: #a33b2c; }
-        .cf-pipe-step.yes { background: #2f7a38; }
-        .cf-pipe-step.ig { background: #1d4e9c; }
-        .cf-pipe-step.done { background: #5a5a60; }
-        .cf-pipe-line { width: 2px; height: 12px; background: rgba(255,255,255,.22); display: block; }
-        .cf-pipe-fork { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; }
-        .cf-pipe-fork-lab {
-            display: grid; grid-template-columns: 1fr 1fr; width: 100%; gap: 10px;
-            font-size: 11px; color: var(--text-muted); text-align: center; padding: 6px 0 4px;
-        }
         @media (max-width: 768px) {
-            .cf-cal-day { min-height: 72px; }
+            .cf-cal-day { min-height: 64px; }
             .cf-cal-post { font-size: 10px; }
         }
         .agents-hub { display: flex; align-items: stretch; gap: 12px; min-height: 0; }
@@ -6601,7 +6574,7 @@
 <script src="/dist/wb-formulas.11317eb115.min.js"></script>
 <script src="/dist/ads-command-center.7554e1b6e6.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
-<script src="/dist/content-factory.415574a547.min.js"></script>
+<script src="/dist/content-factory.d3e66e38a1.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
