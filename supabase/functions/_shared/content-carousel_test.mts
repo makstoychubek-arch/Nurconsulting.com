@@ -26,16 +26,28 @@ const plan = planCarouselSlides({
     brand: 'Zevina',
     price: 4590,
 });
-assert.equal(plan.length, 4);
-assert.deepEqual(plan.map((s) => s.kind), ['cover', 'collage', 'info', 'brand']);
+assert.equal(plan.length, 7);
+assert.deepEqual(plan.map((s) => s.kind), ['cover', 'collage', 'photo', 'photo', 'photo', 'info', 'brand']);
 assert.deepEqual(plan[0].photos, ['https://img/1.jpg']);
 assert.equal(plan[1].photos.length, 4);
-assert.equal(plan[2].composition.includes('вискоза'), true);
-assert.equal(plan[3].brand, 'Zevina');
+assert.equal(plan[2].kind, 'photo');
+assert.equal(plan[2].photos.length, 1);
+assert.equal(plan[5].composition.includes('вискоза'), true);
+assert.equal(plan[6].brand, 'Zevina');
 plan.forEach((s) => {
     assert.equal(s.width, 1080);
     assert.equal(s.height, 1350);
 });
+
+const many = planCarouselSlides({
+    photos: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `https://img/${n}.jpg`),
+    nmId: 247347214,
+    title: 'Костюм',
+});
+assert.deepEqual(many.map((s) => s.kind), ['cover', 'collage', 'photo', 'photo', 'photo', 'info', 'brand']);
+assert.deepEqual(many[2].photos, ['https://img/6.jpg']);
+assert.deepEqual(many[3].photos, ['https://img/7.jpg']);
+assert.deepEqual(many[4].photos, ['https://img/8.jpg']);
 
 const cells = collageCells();
 assert.equal(cells.length, 4);

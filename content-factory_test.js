@@ -30,8 +30,22 @@ const slides = CF.planCarouselSlides({
     brand: card.brand,
     price: card.price,
 });
-assert.deepEqual(slides.map((s) => s.kind), ['cover', 'collage', 'info', 'brand']);
+assert.deepEqual(slides.map((s) => s.kind), ['cover', 'collage', 'photo', 'photo', 'photo', 'info', 'brand']);
 assert.equal(slides[1].photos.length, 4);
+assert.equal(slides[2].kind, 'photo');
+assert.equal(slides[2].photos.length, 1);
+assert.equal(slides[3].photos.length, 1);
+assert.equal(slides[4].photos.length, 1);
+
+const many = CF.planCarouselSlides({
+    photos: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => 'https://img/' + n + '.jpg'),
+    title: 'Костюм',
+    nmId: 247347214,
+});
+assert.deepEqual(many.map((s) => s.kind), ['cover', 'collage', 'photo', 'photo', 'photo', 'info', 'brand']);
+assert.deepEqual(many[2].photos, ['https://img/6.jpg']);
+assert.deepEqual(many[3].photos, ['https://img/7.jpg']);
+assert.deepEqual(many[4].photos, ['https://img/8.jpg']);
 
 const posts = [
     { id: '1', platform: 'instagram', status: 'published', blogger_id: 'b1', publish_at: '2026-09-10T10:00:00', views: 100, article_id: 1 },
