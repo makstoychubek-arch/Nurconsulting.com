@@ -1673,7 +1673,16 @@ assert.ok(
     html.includes('Телеграм') &&
     html.includes('>Мозг<') &&
     html.includes('ChatGPT') &&
-    html.includes('function deleteWhatsAppAgent'),
+    html.includes('function deleteWhatsAppAgent') &&
+    html.includes('function showAgentsPage') &&
+    html.includes('id="agents-page-fns"') &&
+    html.includes('id="agents-page-chats"') &&
+    html.includes('id="agents-page-brain"') &&
+    html.includes('data-agents-page="fns"') &&
+    html.includes('data-agents-page="chats"') &&
+    html.includes('data-agents-page="brain"') &&
+    html.includes('Функции агента') &&
+    html.includes('Ватсап и Телеграм'),
     'Агенты live in the left rail: WhatsApp, Telegram channels, send-to-chat, ChatGPT brain'
 );
 assert.ok(
@@ -1709,6 +1718,13 @@ assert.ok(
         !/api\.openai\.com\/v1\/organization/.test(html) &&
         !/organization\/usage/.test(html),
         'Agents canvas: ChatGPT hub, current model, connected agents, Astra balance, no live OpenAI billing'
+    );
+    assert.ok(
+        html.includes("showAgentsPage('chats');openAgentHubForm('wa')") &&
+        html.includes("showAgentsPage('chats');focusAgentTelegram()") &&
+        html.includes("openAgentFn(id, opts)") &&
+        html.includes("nr_agents_page"),
+        'canvas nodes jump to Функции / Ватсап-Телеграм pages; Мозг remembers last page'
     );
     assert.ok(
         astraMig.includes('astra_balance') &&

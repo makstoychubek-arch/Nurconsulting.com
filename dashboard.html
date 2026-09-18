@@ -603,6 +603,24 @@
             .agents-hub { flex-direction: column; }
             .agents-hub-side { width: 100%; min-width: 0; }
         }
+        .agents-pages-tabs {
+            display: flex; gap: 4px; background: var(--surface);
+            border: 1px solid var(--border); border-radius: 12px; padding: 4px;
+        }
+        .agents-page-tab {
+            flex: 1; text-align: center; padding: 9px 12px; font-size: 12px; font-weight: 700;
+            border-radius: 9px; border: none; background: transparent;
+            color: var(--text-secondary); cursor: pointer; letter-spacing: -0.01em;
+        }
+        .agents-page-tab.active { background: var(--accent-gradient); color: #fff; }
+        .agents-page { display: flex; flex-direction: column; gap: 12px; }
+        .agents-page.hidden { display: none !important; }
+        .agents-chats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+        .agents-chats-grid .agents-hub-side { width: auto; min-width: 0; display: contents; }
+        @media (max-width: 900px) {
+            .agents-chats-grid { grid-template-columns: 1fr; }
+            .agents-page-tab { font-size: 11px; padding: 8px 6px; }
+        }
         .agents-canvas-card { padding: 0; overflow: hidden; background: #16161a; }
         .agents-canvas {
             display: flex; flex-direction: column; height: 520px; overflow: hidden;
@@ -6347,20 +6365,33 @@
         </div>
 
         <div id="tab-agents" class="tab-content space-y-5">
-            <div class="agents-hub">
-                <aside class="agents-hub-side" id="agents-hub-side"></aside>
-                <div class="agents-hub-main">
-                    <div class="widget-card agents-canvas-card">
-                        <div id="agents-canvas" class="agents-canvas"></div>
+            <div class="agents-pages-tabs" id="agents-pages-tabs">
+                <button type="button" class="agents-page-tab active" data-agents-page="fns" onclick="showAgentsPage('fns')">Функции</button>
+                <button type="button" class="agents-page-tab" data-agents-page="chats" onclick="showAgentsPage('chats')">Ватсап и Телеграм</button>
+                <button type="button" class="agents-page-tab" data-agents-page="brain" onclick="showAgentsPage('brain')">Мозг</button>
+            </div>
+            <div id="agents-page-fns" class="agents-page">
+                <div class="widget-card p-4">
+                    <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Функции агента</h3>
+                    <p class="text-xs mb-3" style="color:var(--text-muted)">То, что боты умеют через API выбранного кабинета.</p>
+                    <div id="agents-grid" class="agents-grid"></div>
+                </div>
+                <div id="agents-panel" class="widget-card p-4">
+                    <div class="text-sm" style="color:var(--text-muted)">Выберите функцию</div>
+                </div>
+            </div>
+            <div id="agents-page-chats" class="agents-page hidden">
+                <div class="widget-card p-4">
+                    <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Ватсап и Телеграм</h3>
+                    <p class="text-xs mb-3" style="color:var(--text-muted)">Номера и каналы агентов. Сюда пишем в Telegram, тут же добавляем Ватсап.</p>
+                    <div class="agents-chats-grid">
+                        <aside class="agents-hub-side" id="agents-hub-side"></aside>
                     </div>
-                    <div class="widget-card p-4">
-                        <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Функции WB</h3>
-                        <p class="text-xs mb-3" style="color:var(--text-muted)">Коротко: то, что боты умеют через API выбранного кабинета.</p>
-                        <div id="agents-grid" class="agents-grid agents-grid--short"></div>
-                    </div>
-                    <div id="agents-panel" class="widget-card p-4">
-                        <div class="text-sm" style="color:var(--text-muted)">Выберите функцию</div>
-                    </div>
+                </div>
+            </div>
+            <div id="agents-page-brain" class="agents-page hidden">
+                <div class="widget-card agents-canvas-card">
+                    <div id="agents-canvas" class="agents-canvas"></div>
                 </div>
             </div>
         </div>
@@ -14600,6 +14631,7 @@
         brain: { provider: 'chatgpt', model: 'gpt-4o-mini', astra_balance: null, astra_currency: 'USD' },
         form: null,
         channel: 'sales',
+        page: null,
     };
 
     function _ahEsc(s) { return escapeHtml(String(s || '')); }
@@ -14617,8 +14649,35 @@
         const fly = document.getElementById('fly-agents-body');
         if (side) side.innerHTML = html;
         if (fly) fly.innerHTML = html;
-        renderAgentsCanvas();
+        if (_agentHub.page === 'brain') renderAgentsCanvas();
     }
+
+    function readAgentsPage() {
+        try {
+            const p = localStorage.getItem('nr_agents_page');
+            if (p === 'fns' || p === 'chats' || p === 'brain') return p;
+        } catch (_) {}
+        return 'fns';
+    }
+
+    function showAgentsPage(page) {
+        if (page !== 'fns' && page !== 'chats' && page !== 'brain') page = 'fns';
+        _agentHub.page = page;
+        try { localStorage.setItem('nr_agents_page', page); } catch (_) {}
+        document.querySelectorAll('.agents-page').forEach((el) => {
+            el.classList.toggle('hidden', el.id !== 'agents-page-' + page);
+        });
+        document.querySelectorAll('.agents-page-tab').forEach((el) => {
+            el.classList.toggle('active', el.getAttribute('data-agents-page') === page);
+        });
+        if (page === 'brain') renderAgentsCanvas();
+        if (page === 'fns') {
+            renderAgentFnsGrid();
+            openAgentFn(window._agentFn || 'invite', { stay: true });
+        }
+        if (page === 'chats') renderAgentHub();
+    }
+    window.showAgentsPage = showAgentsPage;
 
     function mergeAgentBrain(data) {
         const cur = _agentHub.brain || {};
@@ -14751,7 +14810,7 @@
         const astraForm = _agentHub.form === 'astra' ? _astraBalanceForm(brain, 'ac-form') : '';
         return `
           <div class="agents-canvas-bar">
-            <span class="agents-canvas-bar-title">Канва</span>
+            <span class="agents-canvas-bar-title">Мозг</span>
             <span class="agents-canvas-bar-meta">ChatGPT · актуальная ${_ahEsc(model)}</span>
           </div>
           <div class="agents-canvas-stage">
@@ -14772,12 +14831,12 @@
             <span class="ac-port ac-port-l"></span><span class="ac-port ac-port-r"></span>
             <span class="ac-name">Антон</span><span class="ac-role">FBS</span>
           </button>
-          <button type="button" class="ac-node${waOn ? '' : ' ac-node-off'}" style="${acStyle(p.wa)}" onclick="openAgentHubForm('wa')">
+          <button type="button" class="ac-node${waOn ? '' : ' ac-node-off'}" style="${acStyle(p.wa)}" onclick="showAgentsPage('chats');openAgentHubForm('wa')">
             <span class="ac-port ac-port-l"></span><span class="ac-port ac-port-r"></span>
             <div class="ac-top">${_ahLogoWa()}<span class="ac-name">Ватсап</span></div>
             <span class="ac-role">${waOn ? 'подключен' : 'нет номера'}</span>
           </button>
-          <button type="button" class="ac-node${tgOn ? '' : ' ac-node-off'}" style="${acStyle(p.tg)}" onclick="focusAgentTelegram()">
+          <button type="button" class="ac-node${tgOn ? '' : ' ac-node-off'}" style="${acStyle(p.tg)}" onclick="showAgentsPage('chats');focusAgentTelegram()">
             <span class="ac-port ac-port-l"></span><span class="ac-port ac-port-r"></span>
             <div class="ac-top">${_ahLogoTg()}<span class="ac-name">Телеграм</span></div>
             <span class="ac-role">${tgOn ? 'подключен' : 'нет чата'}</span>
@@ -14802,7 +14861,6 @@
 
     function _agentHubHTML() {
         const wa = _agentHub.wa || [];
-        const brain = _agentHub.brain || { provider: 'chatgpt', model: 'gpt-4o-mini' };
         const selected = _agentHub.channel || 'sales';
         const selLabel = TG_CHANNEL_LABELS[selected] || selected;
         const waRows = wa.length
@@ -14821,14 +14879,6 @@
               <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
             </div>
           </div>` : '';
-        const brainForm = _agentHub.form === 'brain' ? `<div class="ah-form">
-            ${_brainModelSelect(brain)}
-            <div class="ah-form-actions">
-              <button type="button" class="ui-btn ui-btn-primary" onclick="saveAgentBrain(this)">Сохранить</button>
-              <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
-            </div>
-          </div>` : '';
-        const astraForm = _agentHub.form === 'astra' ? _astraBalanceForm(brain, 'ah-form') : '';
         return `
           <div class="ah-group">
             <div class="ah-head">
@@ -14846,36 +14896,6 @@
               <textarea class="ah-send-text" maxlength="3500" placeholder="Текст в «${_ahEsc(selLabel)}» — уйдёт в этот чат Telegram"></textarea>
               <button type="button" class="ui-btn ui-btn-primary ah-send-btn" onclick="sendAgentTgMessage(this)">Отправить в Telegram</button>
             </div>
-          </div>
-          <div class="ah-group">
-            <div class="ah-head">
-              <span class="ah-title">Мозг</span>
-              <button type="button" class="ah-edit" title="Редактировать" onclick="openAgentHubForm('brain')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-              </button>
-            </div>
-            <div class="ah-brain">
-              <div class="ah-brain-meta">
-                <div class="ah-brain-prov">ChatGPT</div>
-                <div class="ah-sub">${_ahEsc(brain.model || 'gpt-4o-mini')}</div>
-              </div>
-            </div>
-            ${brainForm}
-          </div>
-          <div class="ah-group">
-            <div class="ah-head">
-              <span class="ah-title">Astra</span>
-              <button type="button" class="ah-edit" title="Баланс" onclick="openAgentHubForm('astra')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
-              </button>
-            </div>
-            <div class="ah-brain">
-              <div class="ah-brain-meta">
-                <div class="ah-brain-prov">баланс</div>
-                <div class="ah-sub">${_ahEsc(formatAstraBalance(brain))}</div>
-              </div>
-            </div>
-            ${astraForm}
           </div>`;
     }
 
@@ -15121,9 +15141,9 @@
         { id: 'balance', n: 10, title: 'Баланс продавца', desc: 'Деньги на счёте и баланс рекламного кабинета.', who: 'Сауле' },
     ];
 
-    function loadAgentsPage() {
+    function renderAgentFnsGrid() {
         const grid = document.getElementById('agents-grid');
-        if (!grid || !isStaff) return;
+        if (!grid) return;
         const cur = window._agentFn || 'invite';
         grid.innerHTML = AGENT_FNS.map((f) => `<button type="button" class="agent-fn-card${f.id === cur ? ' active' : ''}" data-agent-fn="${f.id}" onclick="openAgentFn('${f.id}')">
             <div class="agent-fn-num">${f.n < 10 ? '0' : ''}${f.n}</div>
@@ -15131,13 +15151,23 @@
             <div class="agent-fn-desc">${escapeHtml(f.desc)}</div>
             <div class="agent-fn-who">${escapeHtml(f.who)}</div>
         </button>`).join('');
-        openAgentFn(cur);
+    }
+
+    function loadAgentsPage() {
+        const grid = document.getElementById('agents-grid');
+        if (!grid || !isStaff) return;
+        renderAgentFnsGrid();
+        showAgentsPage(_agentHub.page || readAgentsPage());
         loadAgentHub();
     }
     window.loadAgentsPage = loadAgentsPage;
 
-    function openAgentFn(id) {
+    function openAgentFn(id, opts) {
         window._agentFn = id;
+        if ((!opts || !opts.stay) && _agentHub.page !== 'fns') {
+            showAgentsPage('fns');
+            return;
+        }
         document.querySelectorAll('.agent-fn-card').forEach((el) => {
             el.classList.toggle('active', el.getAttribute('data-agent-fn') === id);
         });
