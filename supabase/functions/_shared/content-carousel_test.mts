@@ -2,8 +2,11 @@ import assert from 'node:assert/strict';
 import {
     bindExactArticlePhotos,
     collageCells,
+    layoutSeoOverlays,
+    parseGptOverlayJson,
     parseWbCard,
     photosForNmId,
+    pickCardDescription,
     pickCardPrice,
     pickComposition,
     planCarouselSlides,
@@ -106,5 +109,51 @@ const exactBound = bindExactArticlePhotos({
 });
 assert.ok(exactBound.every((u) => u.includes('/247347214/')));
 assert.ok(exactBound.some((u) => u.endsWith('/2.webp')));
+
+assert.equal(pickCardDescription({
+    description: 'Классический брючный костюм. Пиджак с подкладкой. Брюки прямого кроя.',
+}), 'Классический брючный костюм. Пиджак с подкладкой. Брюки прямого кроя.');
+assert.equal(parseWbCard({
+    nmID: 1, title: 'Костюм', description: 'Пиджак и брюки. Идеален в офис.',
+}).description.includes('офис'), true);
+
+const seoPlan = planCarouselSlides({
+    photos: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => `https://img/${n}.jpg`),
+    nmId: 247347214,
+    title: 'Костюм классический',
+    composition: 'полиэстер, спандекс',
+    brand: 'ZEVINA',
+    description: 'Классический брючный костюм с укороченным пиджаком. Прямые брюки держат стрелку. Подходит для офиса и вечера.',
+});
+assert.equal(seoPlan[0].headline.includes('Костюм'), true);
+assert.ok(seoPlan[0].line.length > 8, 'cover gets a hook from SEO description');
+assert.equal(seoPlan[1].headline, '');
+assert.equal(seoPlan[1].line, '');
+assert.ok(seoPlan[2].headline || seoPlan[2].line, 'first photo slide gets a SEO fact');
+assert.equal(seoPlan[5].headline, '');
+assert.equal(seoPlan[6].headline, '');
+
+const laid = layoutSeoOverlays(
+    ['cover', 'collage', 'photo', 'photo', 'info', 'brand'],
+    { title: 'Костюм', description: 'Первое предложение про крой. Второе про ткань и посадку.', composition: 'вискоза' },
+);
+assert.equal(laid[0].headline, 'Костюм');
+assert.equal(laid[1].headline, '');
+assert.ok(laid[2].headline || laid[2].line);
+
+const gpt = parseGptOverlayJson(
+    '{"overlays":[{"kind":"cover","headline":"Костюм ZEVINA","line":"Укороченный пиджак"},{"kind":"photo","headline":"Прямые брюки","line":"держат стрелку"}]}',
+    ['cover', 'collage', 'photo', 'info'],
+    [
+        { headline: 'fb-cover', line: '' },
+        { headline: '', line: '' },
+        { headline: 'fb-photo', line: '' },
+        { headline: '', line: '' },
+    ],
+);
+assert.equal(gpt[0].headline, 'Костюм ZEVINA');
+assert.equal(gpt[1].headline, '');
+assert.equal(gpt[2].headline, 'Прямые брюки');
+assert.deepEqual(parseGptOverlayJson('not-json', ['cover'], [{ headline: 'keep', line: 'x' }]), [{ headline: 'keep', line: 'x' }]);
 
 console.log('content-carousel_test: ok');
