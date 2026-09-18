@@ -333,12 +333,19 @@
         state.articleMap = {};
         state.articles.forEach((a) => { state.articleMap[a.id] = a; });
     }
+    function isMissingTable(err) {
+        const m = String((err && (err.message || err.details || err.code)) || err || '');
+        return /schema cache|Could not find the table|does not exist|PGRST205/i.test(m);
+    }
     async function loadPosts() {
         const { data, error } = await sb.from('content_posts')
             .select('*')
             .eq('cabinet_id', cab)
             .order('publish_at', { ascending: false, nullsFirst: false });
-        if (error) throw error;
+        if (error) {
+            if (isMissingTable(error)) { state.posts = []; return; }
+            throw error;
+        }
         state.posts = data || [];
     }
     async function loadBloggers() {
@@ -346,7 +353,10 @@
             .select('*')
             .eq('cabinet_id', cab)
             .order('name');
-        if (error) throw error;
+        if (error) {
+            if (isMissingTable(error)) { state.bloggers = []; return; }
+            throw error;
+        }
         state.bloggers = data || [];
     }
     async function loadPayouts() {
@@ -354,7 +364,10 @@
             .select('*')
             .eq('cabinet_id', cab)
             .eq('month', state.payoutMonth);
-        if (error) throw error;
+        if (error) {
+            if (isMissingTable(error)) { state.payouts = []; return; }
+            throw error;
+        }
         state.payouts = data || [];
     }
     async function loadIg() {
@@ -487,7 +500,7 @@
         if (!form.article_id) throw new Error('Выберите артикул');
         const patch = Object.assign({
             cabinet_id: cab,
-            article_id: Number(form.article_id),
+            article_id: form.article_id,
             platform: form.platform,
             status: form.status,
             blogger_id: form.blogger_id || null,
@@ -570,14 +583,20 @@
         if (!t) return;
         const act = t.getAttribute('data-cf');
         const id = t.getAttribute('data-id') || '';
-        handle(act, id, t).catch((err) => toast('error', 'Контент-завод', err.message || String(err)));
+        handle(act, id, t).catch((err) => {
+            if (isMissingTable(err)) return;
+            toast('error', 'Контент-завод', err.message || String(err));
+        });
     }
     function onChange(e) {
         const t = e.target;
         if (!t || !t.getAttribute) return;
         const act = t.getAttribute('data-cf-change');
         if (!act) return;
-        handle(act, t.value, t).catch((err) => toast('error', 'Контент-завод', err.message || String(err)));
+        handle(act, t.value, t).catch((err) => {
+            if (isMissingTable(err)) return;
+            toast('error', 'Контент-завод', err.message || String(err));
+        });
     }
 
     async function handle(act, id, el) {

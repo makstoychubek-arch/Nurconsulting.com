@@ -2230,6 +2230,8 @@ assert.ok(
         'UI follows nmId-only bind and the confirmation flowchart');
     assert.ok(mig.includes("'review'") && mig.includes('approved_at'),
         'posts need review/approval before cron or Graph publish');
+    assert.ok(mig.includes('article_id uuid') && !mig.includes('article_id bigint'),
+        'content_posts.article_id matches live rnp_articles.id (uuid)');
     assert.ok(mig.includes('create table if not exists public.content_posts') &&
         mig.includes('references public.rnp_articles(id)') &&
         mig.includes('create table if not exists public.bloggers') &&

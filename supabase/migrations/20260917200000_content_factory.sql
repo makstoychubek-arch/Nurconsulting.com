@@ -22,7 +22,7 @@ create index if not exists bloggers_cabinet_idx on public.bloggers (cabinet_id);
 create table if not exists public.content_posts (
     id uuid primary key default gen_random_uuid(),
     cabinet_id uuid not null references public.cabinets(id) on delete cascade,
-    article_id bigint not null references public.rnp_articles(id) on delete restrict,
+    article_id uuid not null references public.rnp_articles(id) on delete restrict,
     platform text not null
         check (platform in ('instagram', 'tiktok', 'youtube', 'wibes')),
     publish_at timestamptz,
