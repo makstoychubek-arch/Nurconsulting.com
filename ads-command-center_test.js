@@ -19,6 +19,49 @@ assert.equal(AdsHQ.campaignStatusLabel(9), 'Идёт');
 assert.equal(AdsHQ.campaignStatusLabel('paused'), 'Пауза');
 assert.equal(AdsHQ.filterCampaigns([{ live: true }, { live: false }], 'active').length, 1);
 assert.equal(AdsHQ.filterCampaigns([{ live: true }, { live: false }], 'all').length, 2);
+assert.equal(AdsHQ.filterCampaigns([
+    { live: true, name: 'Пиджак', wbId: 1 },
+    { live: true, name: 'Юбка', wbId: 2 },
+], 'all', 'пидж').length, 1);
+
+{
+    const ext = AdsHQ.extendRangeForRanking({ from: '2026-09-10', to: '2026-09-10' }, new Date(2026, 8, 10));
+    assert.equal(ext.yesterday, '2026-09-09');
+    assert.equal(ext.from, '2026-09-09');
+    assert.equal(ext.to, '2026-09-10');
+}
+
+{
+    const used = AdsHQ.buildHqModel({
+        from: '2026-09-10',
+        to: '2026-09-10',
+        yesterday: '2026-09-09',
+        now: new Date(2026, 8, 10),
+        cabinets: [{ id: 'cab-a', name: 'Baza', adv_token_valid: true, adv_token_secret_id: 's' }],
+        legacyCampaigns: [
+            { cabinet_id: 'cab-a', campaign_id: 1, campaign_name: 'Старая', status: 9, type: 9 },
+            { cabinet_id: 'cab-a', campaign_id: 2, campaign_name: 'Вчерашняя', status: 11, type: 9 },
+        ],
+        legacyStats: [
+            { cabinet_id: 'cab-a', campaign_id: 1, stat_date: '2026-09-10', spend: 100, sum_price: 1000 },
+            { cabinet_id: 'cab-a', campaign_id: 2, stat_date: '2026-09-09', spend: 800, sum_price: 4000 },
+        ],
+        v2Campaigns: [],
+        clusters: [],
+        rules: [],
+        snapshots: [],
+        v2Stats: [],
+    });
+    assert.equal(used.rows[0].campaigns[0].name, 'Вчерашняя');
+    assert.equal(used.rows[0].campaigns[0].usedYesterday, true);
+    assert.equal(used.rows[0].campaigns[0].spendToday, 0, 'yesterday spend stays out of the picked day KPI');
+    assert.equal(used.rows[0].spendToday, 100);
+    const visible = AdsHQ.filterCampaigns(used.rows[0].campaigns, 'all');
+    assert.equal(visible[0].name, 'Вчерашняя');
+    assert.equal(AdsHQ.filterCampaigns(used.rows[0].campaigns, 'all', 'вчераш').length, 1);
+    assert.equal(AdsHQ.filterCampaigns(used.rows[0].campaigns, 'active').length, 1);
+    assert.equal(AdsHQ.filterCampaigns(used.rows[0].campaigns, 'active')[0].name, 'Старая');
+}
 
 const model = AdsHQ.buildHqModel({
     today: '2026-09-10',
@@ -225,6 +268,14 @@ global.document = {
     AdsHQ.setCampFilter('all');
     assert.match(els['ads-hq-tbody'].innerHTML, /Пауза полка/);
     assert.match(els['ads-hq-tbody'].innerHTML, /Каталог \/ полка/);
+
+    AdsHQ.setSearch('пиджак');
+    assert.match(els['ads-hq-tbody'].innerHTML, /Пиджак/);
+    assert.doesNotMatch(els['ads-hq-tbody'].innerHTML, /Пауза полка/);
+    AdsHQ.setSearch('нет-такой-рк');
+    assert.match(els['ads-hq-tbody'].innerHTML, /Нет полок по запросу/);
+    AdsHQ.setSearch('');
+    assert.match(els['ads-hq-tbody'].innerHTML, /Пауза полка/);
 
     els['ads-hq-start-at'].value = '2026-12-01T09:00';
     const scheduled = await AdsHQ.scheduleStart([

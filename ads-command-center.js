@@ -105,10 +105,42 @@
         return status == null || status === '' ? '—' : String(status);
     }
 
-    function filterCampaigns(campaigns, mode) {
-        const list = campaigns || [];
-        if (mode === 'all') return list;
-        return list.filter((c) => c.live);
+    function campaignMatchesSearch(camp, query) {
+        const q = String(query || '').trim().toLowerCase();
+        if (!q) return true;
+        const name = String(camp && camp.name || '').toLowerCase();
+        const id = String(camp && camp.wbId != null ? camp.wbId : '');
+        return name.includes(q) || id.includes(q);
+    }
+
+    function compareCampaigns(a, b) {
+        const yu = (b && b.usedYesterday ? 1 : 0) - (a && a.usedYesterday ? 1 : 0);
+        if (yu) return yu;
+        const rec = (Number(b && b.recentAt) || 0) - (Number(a && a.recentAt) || 0);
+        if (rec) return rec;
+        const last = String((b && b.lastSpendDate) || '').localeCompare(String((a && a.lastSpendDate) || ''));
+        if (last) return last;
+        const sp = (Number(b && b.spendToday) || 0) - (Number(a && a.spendToday) || 0);
+        if (sp) return sp;
+        const live = (b && b.live ? 1 : 0) - (a && a.live ? 1 : 0);
+        if (live) return live;
+        return String((a && a.name) || '').localeCompare(String((b && b.name) || ''), 'ru');
+    }
+
+    function filterCampaigns(campaigns, mode, query) {
+        let list = campaigns || [];
+        if (mode !== 'all') list = list.filter((c) => c.live);
+        if (query) list = list.filter((c) => campaignMatchesSearch(c, query));
+        return list.slice().sort(compareCampaigns);
+    }
+
+    function extendRangeForRanking(range, now) {
+        const src = range || {};
+        const n = now instanceof Date ? now : new Date();
+        const yest = ymd(addDays(n, -1));
+        const from = src.from && src.from < yest ? src.from : yest;
+        const to = src.to && src.to > yest ? src.to : yest;
+        return { from, to, yesterday: yest };
     }
 
     function ruleRangeStatus(rule, pos) {
@@ -138,16 +170,29 @@
         const spendToday = new Map();
         const spend7 = new Map();
         const rev7 = new Map();
+        const lastSpend = new Map();
+        const spendYesterday = new Map();
+        const now = input.now instanceof Date ? input.now : new Date();
+        const yesterday = String(input.yesterday || ymd(addDays(now, -1))).slice(0, 10);
         function addStat(cabinetId, campaignKey, date, spend, revenue) {
             const day = String(date || '').slice(0, 10);
+            const ck = cabinetId + ':' + campaignKey;
+            const n = num(spend);
+            if (n > 0) {
+                const prev = lastSpend.get(ck);
+                if (!prev || day > prev) lastSpend.set(ck, day);
+                if (day === yesterday) {
+                    spendYesterday.set(cabinetId, (spendYesterday.get(cabinetId) || 0) + n);
+                    spendYesterday.set(ck, (spendYesterday.get(ck) || 0) + n);
+                }
+            }
             if (from && day < from) return;
             if (to && day > to) return;
-            const ck = cabinetId + ':' + campaignKey;
-            spendToday.set(cabinetId, (spendToday.get(cabinetId) || 0) + spend);
-            spendToday.set(ck, (spendToday.get(ck) || 0) + spend);
-            spend7.set(cabinetId, (spend7.get(cabinetId) || 0) + spend);
+            spendToday.set(cabinetId, (spendToday.get(cabinetId) || 0) + n);
+            spendToday.set(ck, (spendToday.get(ck) || 0) + n);
+            spend7.set(cabinetId, (spend7.get(cabinetId) || 0) + n);
             rev7.set(cabinetId, (rev7.get(cabinetId) || 0) + revenue);
-            spend7.set(ck, (spend7.get(ck) || 0) + spend);
+            spend7.set(ck, (spend7.get(ck) || 0) + n);
             rev7.set(ck, (rev7.get(ck) || 0) + revenue);
         }
         for (const r of legacyStats) {
@@ -257,7 +302,9 @@
                     if (spendKeyUuid && map.has(spendKeyUuid)) return map.get(spendKeyUuid);
                     return 0;
                 };
+                const pickLast = () => lastSpend.get(spendKeyWb) || (spendKeyUuid ? lastSpend.get(spendKeyUuid) : '') || '';
                 return {
+                    cabinetId: cab.id,
                     wbId,
                     uuid: campUuid || null,
                     name: raw.campaign_name || (v2 && v2.name) || ('РК ' + wbId),
@@ -268,10 +315,13 @@
                     spendToday: pickSpend(spendToday),
                     spend7: pickSpend(spend7),
                     revenue7: pickSpend(rev7),
+                    usedYesterday: pickSpend(spendYesterday) > 0,
+                    lastSpendDate: pickLast(),
                     clusters: mappedClusters,
                     rules: campRules,
                 };
             });
+            campaigns.sort(compareCampaigns);
 
             for (const camp of campaigns) {
                 for (const rule of camp.rules || []) {
@@ -316,7 +366,7 @@
         totals.cabinets = rows.length;
         totals.tokenBad = rows.filter((r) => r.token === 'bad').length;
 
-        return { rows, totals, today, from7, from, to };
+        return { rows, totals, today, from7, from, to, yesterday };
     }
 
     function defaultRuleForm() {
@@ -347,9 +397,61 @@
         loadGen: 0,
         filterCabinetId: '',
         campFilter: 'active',
+        searchQuery: '',
+        recent: {},
         didAutoSync: false,
         schedules: [],
     };
+
+    const RECENT_KEY = 'nr-ads-hq-recent';
+
+    function readRecent() {
+        try {
+            if (typeof localStorage === 'undefined') return {};
+            const raw = JSON.parse(localStorage.getItem(RECENT_KEY) || '{}');
+            return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+        } catch (e) {
+            return {};
+        }
+    }
+
+    function persistRecent() {
+        try {
+            if (typeof localStorage === 'undefined') return;
+            localStorage.setItem(RECENT_KEY, JSON.stringify(state.recent || {}));
+        } catch (e) { /* ignore quota / private mode */ }
+    }
+
+    function touchRecent(cabinetId, wbId) {
+        if (!cabinetId || wbId == null || wbId === '') return;
+        const k = cabinetId + ':' + String(wbId);
+        if (!state.recent) state.recent = {};
+        state.recent[k] = Date.now();
+        const keys = Object.keys(state.recent);
+        if (keys.length > 40) {
+            keys.sort((a, b) => (state.recent[a] || 0) - (state.recent[b] || 0));
+            for (const old of keys.slice(0, keys.length - 40)) delete state.recent[old];
+        }
+        persistRecent();
+    }
+
+    function withRecent(camp, cabinetId) {
+        const k = (cabinetId || camp.cabinetId || '') + ':' + String(camp.wbId);
+        const at = (state.recent && state.recent[k]) || 0;
+        if (!at) return camp;
+        if (camp.recentAt === at) return camp;
+        return Object.assign({}, camp, { recentAt: at });
+    }
+
+    function visibleCampaigns(cab) {
+        const decorated = (cab.campaigns || []).map((c) => withRecent(c, cab.id));
+        return filterCampaigns(decorated, state.campFilter, state.searchQuery);
+    }
+
+    function usedMark(camp) {
+        if (!camp || !camp.usedYesterday) return '';
+        return ' <span class="ads-hq-used">вчера</span>';
+    }
 
     function dep() {
         return state.deps || {};
@@ -493,6 +595,13 @@
         return state.campFilter;
     }
 
+    function setSearch(query) {
+        state.searchQuery = String(query || '');
+        paintSearch();
+        paintTree();
+        return state.searchQuery;
+    }
+
     function cabinetRows() {
         if (!state.model) return [];
         let rows = state.model.rows;
@@ -505,6 +614,22 @@
         document.querySelectorAll('[data-camp-filter]').forEach((el) => {
             el.classList.toggle('on', el.dataset.campFilter === state.campFilter);
         });
+        paintSearch();
+    }
+
+    function paintSearch() {
+        if (typeof document === 'undefined' || !document.getElementById) return;
+        const wrap = document.getElementById('ads-hq-search-wrap');
+        const input = document.getElementById('ads-hq-search');
+        const q = state.searchQuery || '';
+        if (input && typeof document.activeElement !== 'undefined' && document.activeElement !== input) {
+            if (input.value !== q) input.value = q;
+        } else if (input && !input.value && q) {
+            input.value = q;
+        }
+        if (wrap && wrap.classList) {
+            wrap.classList.toggle('has-query', !!String(q).trim());
+        }
     }
 
     function paintPending() {
@@ -559,6 +684,10 @@
     }
 
     function emptyShelvesHtml(pausedCount, totalCount) {
+        const q = String(state.searchQuery || '').trim();
+        if (q) {
+            return 'Нет полок по запросу «' + esc(q) + '».';
+        }
         const syncBtn = '<button type="button" class="ui-btn ui-btn-primary" data-act="sync-wb">Подтянуть из WB</button>';
         if (!totalCount) {
             return 'В кабинете ещё нет полок. Нажмите «Подтянуть из WB» — подтянем активные кампании.<div class="ads-hq-empty-actions">' + syncBtn + '</div>';
@@ -578,7 +707,7 @@
             '<tr class="ads-hq-camp ads-hq-camp-top" data-key="camp:' + esc(ck) + '" data-ck="' + esc(ck) + '">' +
             '<td><input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '"></td>' +
             '<td' + (pad ? ' style="padding-left:28px"' : '') + '><button type="button" class="ads-hq-expand" data-expand="camp" data-id="' + esc(ck) + '">' +
-            chevron(campOpen) + esc(camp.name) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></button></td>' +
+            chevron(campOpen) + esc(camp.name) + usedMark(camp) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></button></td>' +
             '<td>' + esc(camp.typeLabel || campaignTypeLabel(camp.type)) + '</td>' +
             '<td>' + statusPill(camp.status) + scheduleMark(cab.id, camp.wbId) + '</td>' +
             '<td>' + formatMoney(camp.spendToday) + '</td>' +
@@ -624,7 +753,7 @@
         let paused = 0;
         let total = 0;
         for (const cab of rows) {
-            const visible = filterCampaigns(cab.campaigns, state.campFilter);
+            const visible = visibleCampaigns(cab);
             paused += (cab.campaigns || []).filter((c) => !c.live).length;
             total += (cab.campaigns || []).length;
             shown += visible.length;
@@ -665,7 +794,7 @@
             '<input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) +
             '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '">' +
             '<button type="button" class="ads-hq-phone-head" data-expand="camp" data-id="' + esc(ck) + '">' +
-            '<span>' + esc(camp.name) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></span>' +
+            '<span>' + esc(camp.name) + usedMark(camp) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></span>' +
             chevron(campOpen) + '</button></div>'
         );
         html.push('<div class="ads-hq-phone-type">' + esc(camp.typeLabel || campaignTypeLabel(camp.type)) + ' · ' +
@@ -717,7 +846,7 @@
         let paused = 0;
         let total = 0;
         for (const cab of rows) {
-            const visible = filterCampaigns(cab.campaigns, state.campFilter);
+            const visible = visibleCampaigns(cab);
             paused += (cab.campaigns || []).filter((c) => !c.live).length;
             total += (cab.campaigns || []).length;
             shown += visible.length;
@@ -818,7 +947,10 @@
                 status: 'pending',
             });
             if (error) fail += 1;
-            else saved += 1;
+            else {
+                saved += 1;
+                touchRecent(c.cabinetId, c.wbId);
+            }
         }
         if (modal) {
             modal(fail && !saved ? 'error' : 'success',
@@ -1088,6 +1220,7 @@
             if (modal) modal('error', 'Ничего не выбрано', 'Отметьте кабинеты или кампании.');
             return;
         }
+        for (const c of camps) touchRecent(c.cabinetId, c.wbId);
         let ok = 0;
         let fail = 0;
         for (const c of camps) {
@@ -1160,6 +1293,7 @@
             // Ключи полки открываются в модалке кластеров (ставка CPM + позиции).
             const keys = e.target.closest('[data-keys]');
             if (keys) {
+                touchRecent(keys.dataset.cabinet, keys.dataset.keys);
                 const open = typeof window !== 'undefined' && window.openClusterModal;
                 if (open) open(Number(keys.dataset.keys), keys.dataset.cabinet || '');
                 return;
@@ -1203,6 +1337,31 @@
             });
         });
         document.getElementById('ads-hq-reload')?.addEventListener('click', () => reloadFromWb());
+        const searchBtn = document.getElementById('ads-hq-search-btn');
+        const search = document.getElementById('ads-hq-search');
+        searchBtn?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const wrap = document.getElementById('ads-hq-search-wrap');
+            if (!wrap || !wrap.classList) return;
+            wrap.classList.toggle('is-open');
+            if (wrap.classList.contains('is-open') && search && search.focus) search.focus();
+        });
+        search?.addEventListener('input', () => setSearch(search.value || ''));
+        search?.addEventListener('blur', () => {
+            const wrap = document.getElementById('ads-hq-search-wrap');
+            if (wrap && wrap.classList && !(search.value || '').trim()) wrap.classList.remove('is-open');
+        });
+        document.getElementById('ads-hq-when-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const pop = document.getElementById('ads-hq-when-pop');
+            if (pop && pop.classList) pop.classList.toggle('is-open');
+        });
+        document.addEventListener('click', (e) => {
+            const pop = document.getElementById('ads-hq-when-pop');
+            if (!pop || !pop.classList || !pop.classList.contains('is-open')) return;
+            if (typeof pop.contains === 'function' && pop.contains(e.target)) return;
+            pop.classList.remove('is-open');
+        });
         const atEl = document.getElementById('ads-hq-start-at');
         if (atEl && !atEl.value) atEl.value = defaultScheduleLocal();
     }
@@ -1256,6 +1415,8 @@
         const range = activeHqRange();
         const from = range.from;
         const to = range.to;
+        const now = new Date();
+        const rank = extendRangeForRanking(range, now);
         const cabs = await safeRows('cabinets', cab ? [{ op: 'eq', column: 'id', value: cab }] : [], 'id, name, adv_token_valid, adv_token_secret_id, adv_daily_budget_cap');
         if (cab !== state.filterCabinetId) return null;
         const cabinets = (cabs || []).filter((c) => !cab || c.id === cab);
@@ -1264,8 +1425,8 @@
             safeRows('advertising_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
             safeRows('advertising_daily_stats', [
                 { op: 'in', column: 'cabinet_id', value: ids },
-                { op: 'gte', column: 'stat_date', value: from },
-                { op: 'lte', column: 'stat_date', value: to },
+                { op: 'gte', column: 'stat_date', value: rank.from },
+                { op: 'lte', column: 'stat_date', value: rank.to },
             ]),
             safeRows('adv_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
         ]) : [[], [], []];
@@ -1277,8 +1438,8 @@
             safeRows('serp_position_snapshots', [{ op: 'in', column: 'campaign_id', value: v2Ids }]),
             safeRows('adv_daily_stats', [
                 { op: 'in', column: 'campaign_id', value: v2Ids },
-                { op: 'gte', column: 'date', value: from },
-                { op: 'lte', column: 'date', value: to },
+                { op: 'gte', column: 'date', value: rank.from },
+                { op: 'lte', column: 'date', value: rank.to },
             ]),
         ]) : [[], [], [], []];
         if (cab !== state.filterCabinetId) return null;
@@ -1289,7 +1450,8 @@
         if (cab !== state.filterCabinetId) return null;
         state.schedules = schedules || [];
         state.model = buildHqModel({
-            from, to, today: to, from7: from, cabinets, legacyCampaigns, legacyStats, v2Campaigns, clusters, rules, snapshots, v2Stats,
+            from, to, yesterday: rank.yesterday, now, today: to, from7: from,
+            cabinets, legacyCampaigns, legacyStats, v2Campaigns, clusters, rules, snapshots, v2Stats,
         });
         if (state.filterCabinetId) state.open.cabinets.add(state.filterCabinetId);
         renderKpis(state.model.totals);
@@ -1341,8 +1503,10 @@
 
     function init(deps) {
         state.deps = deps || {};
+        state.recent = readRecent();
         bindOnce();
         paintForm();
+        paintSearch();
     }
 
     function open(opts) {
@@ -1358,6 +1522,8 @@
         campaignTypeLabel,
         campaignStatusLabel,
         filterCampaigns,
+        compareCampaigns,
+        extendRangeForRanking,
         formatMoney,
         formatDrr,
         formatDrrLabel,
@@ -1368,8 +1534,10 @@
         open,
         setCabinet,
         setCampFilter,
+        setSearch,
         getFilterCabinetId: () => state.filterCabinetId,
         getCampFilter: () => state.campFilter,
+        getSearch: () => state.searchQuery,
         load,
         reload: reloadFromWb,
         renderTable,

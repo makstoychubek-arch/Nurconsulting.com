@@ -1157,9 +1157,9 @@
         .adv-alert.info { background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); color: #92400e; }
         [data-theme="neon"] .adv-alert.info { background: rgba(251,191,36,0.1); border-color: rgba(251,191,36,0.25); color: #fcd34d; }
         .adv-alert b { font-weight: 700; }
-        .adv-kpi-tile { background: var(--surface); border-radius: var(--radius-card); padding: 16px; box-shadow: var(--card-shadow); }
-        .adv-kpi-tile-label { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
-        .adv-kpi-tile-value { font-size: 18px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .adv-kpi-tile { background: var(--surface); border-radius: var(--radius-card); padding: 10px 12px; box-shadow: none; }
+        .adv-kpi-tile-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+        .adv-kpi-tile-value { font-size: 16px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
         .adv-module-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .ads-hq-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
         .ads-hq-dot.ok { background: var(--green); }
@@ -1182,13 +1182,64 @@
         .ads-hq-cab td { font-weight: 600; }
         .ads-hq-camp td { background: var(--bg); }
         .ads-hq-cl.is-on td { background: var(--accent-soft); }
-        .ads-hq-bulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-        .ads-hq-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-right: auto; }
-        .ads-hq-when-wrap {
-            display: inline-flex; align-items: center; gap: 8px;
-            font-size: 12px; color: var(--text-muted); white-space: nowrap;
+        .ads-hq-bulk {
+            display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
+            margin: 0; width: 100%; min-height: 28px;
         }
-        .ads-hq-start-at { width: auto; min-width: 168px; max-width: 220px; padding: 6px 10px; }
+        .ads-hq-period {
+            display: inline-flex; align-items: center; gap: 2px; min-width: 0;
+            border: none; background: transparent; padding: 0; cursor: pointer;
+            font: inherit; color: inherit; flex-shrink: 1;
+        }
+        .ads-hq-period .rnp-period-chip-text { font-size: 13px; }
+        .ads-hq-filters { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; flex-shrink: 0; }
+        .ads-hq-tools.rnp-tool-icons {
+            margin-left: auto; position: relative; gap: 2px; flex-shrink: 0;
+        }
+        .ads-hq-search-wrap {
+            position: relative;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 22px; height: 22px; flex: 0 0 22px;
+        }
+        .ads-hq-search {
+            position: absolute; right: calc(100% + 6px); top: 50%;
+            transform: translateY(-50%);
+            width: 0 !important; min-width: 0 !important; height: 22px; padding: 0 !important;
+            border: none !important; opacity: 0; pointer-events: none;
+            font-size: 12px !important; border-radius: 8px !important;
+            z-index: 4;
+        }
+        .ads-hq-search-wrap.is-open .ads-hq-search,
+        .ads-hq-search-wrap.has-query .ads-hq-search {
+            width: 180px !important; padding: 0 8px !important; opacity: 1; pointer-events: auto;
+            border: 1px solid var(--border) !important;
+            background: var(--surface); color: var(--text-primary);
+        }
+        .ads-hq-search-wrap.is-open .ads-hq-search-btn,
+        .ads-hq-search-wrap.has-query .ads-hq-search-btn { color: var(--accent); background: var(--accent-soft); }
+        .ads-hq-when-pop { position: relative; display: inline-flex; }
+        .ads-hq-when-panel {
+            display: none;
+            position: absolute; right: 0; top: calc(100% + 6px); z-index: 8;
+            padding: 8px; border-radius: 12px;
+            background: var(--surface-solid, var(--surface));
+            border: 1px solid var(--border);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+            align-items: center; gap: 6px;
+        }
+        .ads-hq-when-pop.is-open .ads-hq-when-panel { display: flex; }
+        .ads-hq-start-at { width: auto; min-width: 168px; max-width: 220px; padding: 6px 10px; height: 28px; }
+        .ads-hq-fresh {
+            position: absolute; right: 0; top: calc(100% + 2px);
+            font-size: 10px; color: var(--text-muted); white-space: nowrap;
+            pointer-events: none; min-height: 0;
+        }
+        .ads-hq-fresh:empty { display: none; }
+        .ads-hq-used {
+            font-size: 10px; font-weight: 700; color: var(--accent);
+            background: var(--accent-soft); border-radius: 999px;
+            padding: 1px 6px; margin-left: 6px; vertical-align: middle;
+        }
         .ads-hq-when { color: var(--accent); font-size: 11px; font-weight: 600; }
         .ads-hq-schedule { display: flex; flex-direction: column; gap: 8px; margin: 0 0 12px; }
         .ads-hq-schedule:empty { display: none; }
@@ -1201,10 +1252,12 @@
         .ads-hq-phone-pick { display: flex; align-items: center; gap: 10px; }
         .ads-hq-phone-pick .ads-hq-phone-head { flex: 1; min-width: 0; }
         .ads-hq-chip {
-            border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary);
-            border-radius: 999px; padding: 6px 12px; font-size: 12px; cursor: pointer; line-height: 1.2;
+            border: none; background: transparent; color: var(--text-muted);
+            border-radius: 8px; padding: 0 12px; height: 28px; line-height: 28px;
+            font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
         }
-        .ads-hq-chip.on { color: var(--text-primary); background: var(--sel); border-color: transparent; font-weight: 600; }
+        .ads-hq-chip.on { color: var(--accent); background: var(--accent-soft); border-color: transparent; font-weight: 600; }
+        .ads-hq-chip:hover { color: var(--accent); }
         .ads-hq-empty-cell { white-space: normal !important; line-height: 1.45; }
         .ads-hq-empty-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
         .ads-hq-phone-type { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -1268,6 +1321,17 @@
             .ads-hq-form-grid { grid-template-columns: 1fr; }
             .ads-hq-phone { display: flex; flex-direction: column; gap: 10px; }
             .ads-hq-table-wrap { display: none; }
+            .ads-hq-bulk { flex-wrap: wrap; gap: 6px; }
+            .ads-hq-period { flex: 1; min-width: 0; }
+            .ads-hq-period .rnp-period-chip-text { font-size: 13px; font-weight: 700; }
+            .ads-hq-tools.rnp-tool-icons { margin-left: auto; }
+            .ads-hq-tools .rnp-tool-icon,
+            .ads-hq-tools .rnp-settings-gear,
+            .ads-hq-search-wrap { width: 32px; height: 32px; flex-basis: 32px; }
+            .ads-hq-tools .rnp-tool-icon svg,
+            .ads-hq-tools .rnp-settings-gear svg { width: 18px; height: 18px; }
+            .ads-hq-search-wrap.is-open .ads-hq-search,
+            .ads-hq-search-wrap.has-query .ads-hq-search { width: 150px !important; }
         }
         .main-content.goods-compact {
             padding: 14px 20px 16px !important;
@@ -5428,6 +5492,63 @@
 
         <div id="tab-advertising" class="tab-content space-y-5">
             <div id="adv-view-ads" class="space-y-5">
+                <div class="ads-hq-bulk">
+                    <button type="button" class="ads-hq-period" id="ads-hq-period-btn" onclick="toggleDatePicker(event)" title="Период" aria-label="Период">
+                        <span class="rnp-period-chip-text module-date-label" id="ads-hq-period">—</span>
+                        <span class="rnp-period-chevron-btn" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                        </span>
+                    </button>
+                    <div class="ads-hq-filters">
+                        <button type="button" class="ads-hq-chip on" data-camp-filter="active">Активные</button>
+                        <button type="button" class="ads-hq-chip" data-camp-filter="all">Все</button>
+                    </div>
+                    <div class="rnp-tool-icons ads-hq-tools" id="ads-hq-tools">
+                        <div class="ads-hq-search-wrap" id="ads-hq-search-wrap">
+                            <button type="button" class="rnp-settings-gear ads-hq-search-btn" id="ads-hq-search-btn" title="Поиск" aria-label="Поиск">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <circle cx="11" cy="11" r="7"></circle>
+                                    <path d="m20 20-3.5-3.5"></path>
+                                </svg>
+                            </button>
+                            <input type="search" id="ads-hq-search" class="ui-input ads-hq-search" placeholder="Поиск РК" autocomplete="off">
+                        </div>
+                        <div class="ads-hq-when-pop" id="ads-hq-when-pop">
+                            <button type="button" class="rnp-tool-icon" id="ads-hq-when-btn" title="На время" aria-label="На время">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="9"></circle>
+                                    <path d="M12 7v5l3 2"></path>
+                                </svg>
+                            </button>
+                            <div class="ads-hq-when-panel">
+                                <input type="datetime-local" id="ads-hq-start-at" class="ui-input ads-hq-start-at" step="60">
+                                <button type="button" class="rnp-tool-icon" id="ads-hq-schedule-start" title="На время" aria-label="Поставить запуск">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M5 12l5 5L20 7"></path>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="button" class="rnp-tool-icon" id="ads-hq-bulk-pause" title="Пауза" aria-label="Пауза">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <rect x="6" y="5" width="4" height="14" rx="1"></rect>
+                                <rect x="14" y="5" width="4" height="14" rx="1"></rect>
+                            </svg>
+                        </button>
+                        <button type="button" class="rnp-tool-icon" id="ads-hq-bulk-start" title="Запуск" aria-label="Запуск">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M8 5v14l11-7z"></path>
+                            </svg>
+                        </button>
+                        <button type="button" class="rnp-tool-icon" id="ads-hq-reload" title="Обновить" aria-label="Обновить">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M21 12a9 9 0 1 1-2.2-5.8"></path>
+                                <path d="M21 3v6h-6"></path>
+                            </svg>
+                        </button>
+                        <span id="ads-hq-freshness" class="ads-hq-status ads-hq-fresh" aria-live="polite"></span>
+                    </div>
+                </div>
                 <div id="ads-hq-kpis" class="grid grid-cols-3 gap-3">
                     <div class="adv-kpi-tile">
                         <div class="adv-kpi-tile-label">Активные полки</div>
@@ -5443,25 +5564,6 @@
                     </div>
                 </div>
                 <div class="widget-card">
-                    <div class="ads-hq-bulk">
-                        <div class="ads-hq-filters">
-                            <button type="button" class="ads-hq-chip on" data-camp-filter="active">Активные</button>
-                            <button type="button" class="ads-hq-chip" data-camp-filter="all">Все</button>
-                        </div>
-                        <label class="ads-hq-when-wrap">Запуск в
-                            <input type="datetime-local" id="ads-hq-start-at" class="ui-input ads-hq-start-at" step="60">
-                        </label>
-                        <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-schedule-start">На время</button>
-                        <span id="ads-hq-freshness" class="ads-hq-status" aria-live="polite"></span>
-                        <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-pause">Пауза</button>
-                        <button type="button" class="ui-btn ui-btn-secondary" id="ads-hq-bulk-start">Запуск</button>
-                        <button type="button" class="rnp-tool-icon" id="ads-hq-reload" title="Обновить" aria-label="Обновить">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                <path d="M21 12a9 9 0 1 1-2.2-5.8"></path>
-                                <path d="M21 3v6h-6"></path>
-                            </svg>
-                        </button>
-                    </div>
                     <div id="ads-hq-schedule" class="ads-hq-schedule"></div>
                     <div id="ads-hq-phone" class="ads-hq-phone"></div>
                     <div class="overflow-x-auto ads-hq-table-wrap">
@@ -6571,7 +6673,7 @@
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.f060ba3215.min.js"></script>
 <script src="/dist/wb-formulas.11317eb115.min.js"></script>
-<script src="/dist/ads-command-center.7554e1b6e6.min.js"></script>
+<script src="/dist/ads-command-center.b0b5755ef6.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/content-factory.99092221ca.min.js"></script>
 <script>
