@@ -52,7 +52,7 @@ async function maybeGptOverlays(input: CarouselInput, plans: SlidePlan[]): Promi
                 messages: [
                     {
                         role: 'system',
-                        content: 'Ты верстальщик Instagram-карусели 1080×1350. По SEO-описанию WB разложи короткие подписи. Верни JSON {"overlays":[{"kind":"cover","headline":"...","line":"..."}]}. headline до 36 знаков, line до 70. Только факты из текста. collage, info, brand — пустые headline и line. Без эмодзи и хештегов.',
+                        content: 'Ты верстальщик Instagram-карусели 1080×1350. По SEO WB разложи короткие подписи без повторов одного корня (не «костюм костюм»). Верни JSON {"overlays":[{"kind":"cover","headline":"...","line":"..."}]}. headline до 32 знаков, line до 52. Короткие слова. Только факты из текста. collage, info, brand — пустые headline и line. Без эмодзи и хештегов.',
                     },
                     {
                         role: 'user',
