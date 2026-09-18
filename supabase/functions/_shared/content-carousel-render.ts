@@ -79,6 +79,54 @@ function coverDraw(
     ctx.restore();
 }
 
+function drawSeoCaption(
+    ctx: {
+        fillStyle: unknown;
+        font: string;
+        fillRect: (x: number, y: number, w: number, h: number) => void;
+        fillText: (t: string, x: number, y: number) => void;
+        createLinearGradient: (x0: number, y0: number, x1: number, y1: number) => {
+            addColorStop: (o: number, c: string) => void;
+        };
+        measureText: (s: string) => { width: number };
+    },
+    headline: string,
+    line: string,
+) {
+    const head = String(headline || '').trim();
+    const body = String(line || '').trim();
+    if (!head && !body) return;
+    const bandH = 420;
+    const grad = ctx.createLinearGradient(0, SLIDE_H - bandH, 0, SLIDE_H);
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    grad.addColorStop(0.45, 'rgba(0,0,0,0.38)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.78)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, SLIDE_H - bandH, SLIDE_W, bandH);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 44px DejaVu';
+    const heads = wrapLines(ctx, head, SLIDE_W - 120, 2);
+    ctx.font = '26px DejaVu';
+    const lines = body ? wrapLines(ctx, body, SLIDE_W - 120, 3) : [];
+    const block = heads.length * 52 + (lines.length ? 20 + lines.length * 34 : 0);
+    let y = SLIDE_H - 72 - block + 44;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 44px DejaVu';
+    heads.forEach((h) => {
+        ctx.fillText(h, 60, y);
+        y += 52;
+    });
+    if (lines.length) {
+        y += 8;
+        ctx.font = '26px DejaVu';
+        ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        lines.forEach((t) => {
+            ctx.fillText(t, 60, y);
+            y += 34;
+        });
+    }
+}
+
 function wrapLines(
     ctx: { measureText: (s: string) => { width: number } },
     text: string,
@@ -123,6 +171,7 @@ export async function renderCarouselSlidePng(plan: SlidePlan): Promise<Uint8Arra
             ctx.font = 'bold 42px DejaVu';
             ctx.fillText('Нет фото', 80, SLIDE_H / 2);
         }
+        drawSeoCaption(ctx, plan.headline || '', plan.line || '');
     } else if (plan.kind === 'collage') {
         ctx.fillStyle = '#F4F1EA';
         ctx.fillRect(0, 0, SLIDE_W, SLIDE_H);

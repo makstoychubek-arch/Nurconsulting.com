@@ -20,6 +20,11 @@ assert.equal(card.nmId, 247347214);
 assert.equal(card.photos[0].startsWith('https:'), true);
 assert.equal(card.price, 4590);
 assert.equal(card.composition, 'вискоза');
+assert.equal(CF.parseWbCard({
+    nmID: 1,
+    title: 'Костюм',
+    description: 'Классический брючный костюм. Пиджак с подкладкой.',
+}).description.includes('Пиджак'), true);
 
 const slides = CF.planCarouselSlides({
     photos: card.photos,
@@ -46,6 +51,20 @@ assert.deepEqual(many.map((s) => s.kind), ['cover', 'collage', 'photo', 'photo',
 assert.deepEqual(many[2].photos, ['https://img/6.jpg']);
 assert.deepEqual(many[3].photos, ['https://img/7.jpg']);
 assert.deepEqual(many[4].photos, ['https://img/8.jpg']);
+
+const seoSlides = CF.planCarouselSlides({
+    photos: [1, 2, 3, 4, 5, 6, 7, 8].map((n) => 'https://img/' + n + '.jpg'),
+    title: 'Костюм классический',
+    nmId: 247347214,
+    composition: 'полиэстер, спандекс',
+    brand: 'ZEVINA',
+    description: 'Классический брючный костюм с укороченным пиджаком. Прямые брюки держат стрелку. Подходит для офиса и вечера.',
+});
+assert.ok(seoSlides[0].headline.includes('Костюм'));
+assert.ok(seoSlides[0].line.length > 8);
+assert.equal(seoSlides[1].headline, '');
+assert.ok(seoSlides[2].headline || seoSlides[2].line);
+assert.deepEqual(CF.parseGptOverlayJson('{"overlays":[{"kind":"cover","headline":"Костюм","line":"офис"}]}', ['cover'], [{ headline: 'x', line: '' }])[0], { headline: 'Костюм', line: 'офис' });
 
 const posts = [
     { id: '1', platform: 'instagram', status: 'published', blogger_id: 'b1', publish_at: '2026-09-10T10:00:00', views: 100, article_id: 1 },

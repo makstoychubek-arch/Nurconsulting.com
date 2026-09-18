@@ -167,7 +167,12 @@
             composition: pickComposition(c),
             vendorCode: String(c.vendorCode || c.vendor_code || '').trim(),
             brand: String(c.brand || c.brandName || '').trim(),
+            description: pickCardDescription(c),
         };
+    }
+    function pickCardDescription(card) {
+        if (!card) return '';
+        return String(card.description || card.imtDescription || card.desc || '').replace(/\s+/g, ' ').trim();
     }
     function pickCardByNmId(cards, nmId) {
         const id = Number(nmId);
@@ -205,14 +210,88 @@
             brand: String(input.brand || '').trim() || 'NR',
             price: input.price == null || input.price === '' ? null : num(input.price),
             vendorCode: String(input.vendorCode || '').trim(),
+            description: String(input.description || '').trim(),
+            headline: '',
+            line: '',
         };
-        return [
+        const raw = [
             Object.assign({}, base, { kind: 'cover', photos: cover ? [cover] : [] }),
             Object.assign({}, base, { kind: 'collage', photos: details.slice(0, 4) }),
         ].concat(plains.map((u) => Object.assign({}, base, { kind: 'photo', photos: [u] }))).concat([
             Object.assign({}, base, { kind: 'info', photos: [] }),
             Object.assign({}, base, { kind: 'brand', photos: [] }),
         ]);
+        const overlays = layoutSeoOverlays(raw.map((p) => p.kind), input);
+        return raw.map((p, i) => Object.assign({}, p, overlays[i] || {}));
+    }
+    function clipText(s, max) {
+        const t = String(s || '').replace(/\s+/g, ' ').trim();
+        if (!t) return '';
+        if (t.length <= max) return t;
+        const cut = t.slice(0, Math.max(1, max - 1));
+        const sp = cut.lastIndexOf(' ');
+        return ((sp > max * 0.45 ? cut.slice(0, sp) : cut).trim() || cut.trim()) + '…';
+    }
+    function splitSeoSentences(text) {
+        return String(text || '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?…;])\s+/).map((s) => s.trim()).filter((s) => s.length >= 8);
+    }
+    function splitHeadlineLine(sentence) {
+        const t = String(sentence || '').replace(/\s+/g, ' ').trim();
+        if (!t) return { headline: '', line: '' };
+        const words = t.split(' ').filter(Boolean);
+        if (words.length <= 5 && t.length <= 42) return { headline: clipText(t, 42), line: '' };
+        const n = Math.min(5, Math.max(2, Math.ceil(words.length / 3)));
+        const headline = clipText(words.slice(0, n).join(' '), 42);
+        return { headline, line: clipText(words.slice(n).join(' '), 90) };
+    }
+    function layoutSeoOverlays(kinds, input) {
+        const sentences = splitSeoSentences(input && input.description);
+        const title = clipText(input && input.title, 42);
+        const composition = clipText(input && input.composition, 70);
+        let i = 0;
+        const take = () => sentences[i++] || '';
+        let photos = 0;
+        return (kinds || []).map((kind) => {
+            if (kind === 'cover') {
+                const hook = take();
+                return { headline: title || clipText(hook, 42), line: title ? clipText(hook, 70) : '' };
+            }
+            if (kind === 'collage') return { headline: '', line: '' };
+            if (kind === 'photo') {
+                photos += 1;
+                if (photos === 2 && composition) {
+                    const already = sentences.some((s) => composition.length >= 4 && s.toLowerCase().includes(composition.slice(0, 8).toLowerCase()));
+                    if (!already) return { headline: 'Состав', line: composition };
+                }
+                return splitHeadlineLine(take() || (photos === 1 ? composition : ''));
+            }
+            return { headline: '', line: '' };
+        });
+    }
+    function parseGptOverlayJson(raw, kinds, fallback) {
+        let data = raw;
+        if (typeof raw === 'string') {
+            const trimmed = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/```$/i, '').trim();
+            try { data = JSON.parse(trimmed); } catch (e) { return fallback; }
+        }
+        const obj = data && typeof data === 'object' && !Array.isArray(data) ? data : null;
+        const list = Array.isArray(data) ? data : (obj && (obj.overlays || obj.slides));
+        if (!Array.isArray(list)) return fallback;
+        const used = new Set();
+        return (kinds || []).map((kind, idx) => {
+            let row = null;
+            const at = list[idx];
+            if (at && typeof at === 'object' && String(at.kind || kind) === kind) { used.add(idx); row = at; }
+            if (!row) {
+                const found = list.findIndex((item, j) => !used.has(j) && item && typeof item === 'object' && String(item.kind || '') === kind);
+                if (found >= 0) { used.add(found); row = list[found]; }
+            }
+            if (!row) return fallback[idx] || { headline: '', line: '' };
+            const headline = clipText(row.headline || row.title || '', 42);
+            const line = clipText(row.line || row.text || row.body || '', 90);
+            if (!headline && !line) return fallback[idx] || { headline: '', line: '' };
+            return { headline, line };
+        });
     }
     function groupPostsByDay(posts, year, month) {
         const map = {};
@@ -511,6 +590,7 @@
             composition: (hit && hit.composition) || '',
             vendorCode: (hit && hit.vendorCode) || '',
             brand: (hit && hit.brand) || '',
+            description: (hit && hit.description) || '',
             localName: article.name,
             article_id: article.id,
             cost_price: article.cost_price,
@@ -868,6 +948,7 @@
                 brand,
                 price: card.price,
                 vendor_code: card.vendorCode,
+                description: card.description || '',
             }, FN_LONG_MS);
             state.carouselUrls = js.urls || [];
             if (!state.carouselUrls.length) throw new Error('Слайды не собрались');
@@ -1193,6 +1274,7 @@
             brand: card && card.brand,
             price: card && card.price,
             vendorCode: card && card.vendorCode,
+            description: card && card.description,
         });
         const preview = plans.map((s, i) => {
             const ready = state.carouselUrls[i];
@@ -1202,6 +1284,7 @@
                 ${s.kind === 'collage' ? `<div class="cf-grid2">${s.photos.map((u) => `<img src="${escapeHtml(u)}" alt="">`).join('')}</div>` : ''}
                 ${s.kind === 'info' ? `<div class="cf-slide-info"><div>Артикул ${s.nmId || ''}</div><strong>${escapeHtml(s.title || '')}</strong><div>${s.price != null ? Math.round(s.price).toLocaleString('ru-RU') + ' ₽' : ''}</div><p>${escapeHtml(s.composition || '')}</p></div>` : ''}
                 ${s.kind === 'brand' ? `<div class="cf-slide-brand">${escapeHtml(s.brand)}</div>` : ''}
+                ${(s.kind === 'cover' || s.kind === 'photo') && (s.headline || s.line) ? `<div class="cf-slide-cap">${s.headline ? `<b>${escapeHtml(s.headline)}</b>` : ''}${s.line ? `<span>${escapeHtml(s.line)}</span>` : ''}</div>` : ''}
                 <div class="cf-slide-k">${slideKindLabel(s.kind)}</div>
             </div>`;
         }).join('');
@@ -1215,7 +1298,7 @@
                 <label>Подпись<input id="cf-car-cap" placeholder="Текст к посту"></label>
                 <label>Доп. фото<input id="cf-car-extra" type="file" accept="image/*" multiple></label>
             </div>
-            ${card ? `<p class="cf-muted">nmId ${escapeHtml(card.nmId)} · ${escapeHtml(card.title || '')} · ${card.photos.length} фото</p>` : ''}
+            ${card ? `<p class="cf-muted">nmId ${escapeHtml(card.nmId)} · ${escapeHtml(card.title || '')} · ${card.photos.length} фото${card.description ? ' · SEO' : ''}</p>` : ''}
             <div class="cf-slides">${preview}</div>
             <div class="cf-form-actions">
                 <button type="button" class="ui-btn ui-btn-primary" data-cf="gen-carousel">Собрать</button>
@@ -1363,6 +1446,7 @@
     const ContentFactory = {
         PLATFORMS, STATUSES, SLIDE_W, SLIDE_H, PHOTO_PAGES,
         computePayout, monthStart, ymd, parseWbCard, pickComposition, pickCardPrice, pickCardByNmId,
+        pickCardDescription, layoutSeoOverlays, parseGptOverlayJson, clipText,
         nmIdFromPhotoUrl, photoUrlFitsNmId, photosForNmId, bindExactArticlePhotos, galleryUrlsFromManual,
         planCarouselSlides, groupPostsByDay, calendarCells, viewsByPlatform, topPosts, filterPosts, uniqUrls,
         withTimeout, needsReload, FN_TIMEOUT_MS, QUERY_TIMEOUT_MS,
