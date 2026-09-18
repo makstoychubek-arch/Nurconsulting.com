@@ -2238,8 +2238,8 @@ assert.ok(
         'reload skips Instagram oauth');
     assert.ok(cf.includes('AbortController') && cf.includes('FN_TIMEOUT_MS') && cf.includes("action: 'status'"),
         'edge calls abort instead of hanging for minutes');
-    assert.ok(!cf.includes('Артикул в РНП'),
-        'UI is nmId-only');
+    assert.ok(cf.includes("kind: 'photo'") && cf.includes("photo: 'Фото'") && (cf.includes("s.kind === 'cover' || s.kind === 'photo'") || cf.includes('kind === \'cover\' || s.kind === \'photo\'')),
+        'carousel adds plain photo slides without infographic overlay');
     assert.ok(mig.includes("'review'") && mig.includes('approved_at'),
         'posts need review/approval before cron or Graph publish');
     assert.ok(mig.includes('article_id uuid') && !mig.includes('article_id bigint'),

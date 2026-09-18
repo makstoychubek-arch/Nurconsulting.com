@@ -27,6 +27,7 @@
     ];
     const SLIDE_W = 1080;
     const SLIDE_H = 1350;
+    const PHOTO_PAGES = 3;
 
     function num(v) {
         const n = Number(v);
@@ -112,7 +113,7 @@
             Array.isArray(input.gallery) ? input.gallery : [],
         );
         const bound = photosForNmId(raw, id);
-        const slots = input.slots == null ? 5 : input.slots;
+        const slots = input.slots == null ? 8 : input.slots;
         if (bound.length >= slots) return bound;
         const host = bound.map(wbBasketHostFromUrl).find((h) => h > 0) || 0;
         if (!host) return bound;
@@ -187,6 +188,14 @@
         const cover = photos[0] || '';
         const details = photos.slice(1, 5);
         while (details.length < 4 && cover) details.push(cover);
+        const used = new Set([cover].concat(photos.slice(1, 5)).filter(Boolean));
+        const rest = photos.filter((u) => u && !used.has(u));
+        const pool = rest.length ? rest : (photos.slice(1).length ? photos.slice(1) : (cover ? [cover] : []));
+        const plains = [];
+        for (let i = 0; i < PHOTO_PAGES; i++) {
+            const u = pool[i] || pool[i % Math.max(pool.length, 1)];
+            if (u) plains.push(u);
+        }
         const base = {
             width: SLIDE_W,
             height: SLIDE_H,
@@ -200,9 +209,10 @@
         return [
             Object.assign({}, base, { kind: 'cover', photos: cover ? [cover] : [] }),
             Object.assign({}, base, { kind: 'collage', photos: details.slice(0, 4) }),
+        ].concat(plains.map((u) => Object.assign({}, base, { kind: 'photo', photos: [u] }))).concat([
             Object.assign({}, base, { kind: 'info', photos: [] }),
             Object.assign({}, base, { kind: 'brand', photos: [] }),
-        ];
+        ]);
     }
     function groupPostsByDay(posts, year, month) {
         const map = {};
@@ -281,7 +291,7 @@
         loadGen: 0,
     };
     const FN_TIMEOUT_MS = 4000;
-    const FN_LONG_MS = 20000;
+    const FN_LONG_MS = 30000;
     const QUERY_TIMEOUT_MS = 8000;
 
     let sb = null;
@@ -1188,7 +1198,7 @@
             const ready = state.carouselUrls[i];
             if (ready) return `<div class="cf-slide"><img src="${escapeHtml(ready)}" alt="${s.kind}"><div class="cf-slide-k">${slideKindLabel(s.kind)}</div></div>`;
             return `<div class="cf-slide cf-slide-css kind-${s.kind}">
-                ${s.kind === 'cover' && s.photos[0] ? `<img src="${escapeHtml(s.photos[0])}" alt="">` : ''}
+                ${(s.kind === 'cover' || s.kind === 'photo') && s.photos[0] ? `<img src="${escapeHtml(s.photos[0])}" alt="">` : ''}
                 ${s.kind === 'collage' ? `<div class="cf-grid2">${s.photos.map((u) => `<img src="${escapeHtml(u)}" alt="">`).join('')}</div>` : ''}
                 ${s.kind === 'info' ? `<div class="cf-slide-info"><div>Артикул ${s.nmId || ''}</div><strong>${escapeHtml(s.title || '')}</strong><div>${s.price != null ? Math.round(s.price).toLocaleString('ru-RU') + ' ₽' : ''}</div><p>${escapeHtml(s.composition || '')}</p></div>` : ''}
                 ${s.kind === 'brand' ? `<div class="cf-slide-brand">${escapeHtml(s.brand)}</div>` : ''}
@@ -1214,7 +1224,7 @@
         </div>`;
     }
     function slideKindLabel(k) {
-        return { cover: 'Обложка', collage: 'Детали 2×2', info: 'Артикул + состав', brand: 'Бренд' }[k] || k;
+        return { cover: 'Обложка', collage: 'Детали 2×2', photo: 'Фото', info: 'Артикул + состав', brand: 'Бренд' }[k] || k;
     }
 
     function igHtml() {
@@ -1351,7 +1361,7 @@
     }
 
     const ContentFactory = {
-        PLATFORMS, STATUSES, SLIDE_W, SLIDE_H,
+        PLATFORMS, STATUSES, SLIDE_W, SLIDE_H, PHOTO_PAGES,
         computePayout, monthStart, ymd, parseWbCard, pickComposition, pickCardPrice, pickCardByNmId,
         nmIdFromPhotoUrl, photoUrlFitsNmId, photosForNmId, bindExactArticlePhotos, galleryUrlsFromManual,
         planCarouselSlides, groupPostsByDay, calendarCells, viewsByPlatform, topPosts, filterPosts, uniqUrls,

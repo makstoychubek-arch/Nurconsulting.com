@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
         const stamp = Date.now();
         const urls: string[] = [];
         for (let i = 0; i < pngs.length; i++) {
-            const path = `${cabinetId}/slides/${stamp}-${plans[i].kind}.png`;
+            const path = `${cabinetId}/slides/${stamp}-${i}-${plans[i].kind}.png`;
             const { error: upErr } = await admin.storage.from('content-factory').upload(path, pngs[i], {
                 contentType: 'image/png',
                 upsert: true,
