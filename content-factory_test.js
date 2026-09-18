@@ -105,4 +105,98 @@ assert.equal(stats.totals.instagram, 100);
 assert.equal(stats.totals.tiktok, 500);
 assert.ok(stats.days.includes('2026-09-10'));
 
-console.log('content-factory_test: ok');
+assert.equal(CF.FN_TIMEOUT_MS, 4000);
+assert.equal(CF.QUERY_TIMEOUT_MS, 8000);
+
+async function extra() {
+    assert.equal(await CF.withTimeout(Promise.resolve(9), 200), 9);
+    const t0 = Date.now();
+    let timedOut = false;
+    await CF.withTimeout(new Promise(() => {}), 20).then(
+        () => { throw new Error('expected timeout'); },
+        (e) => {
+            timedOut = true;
+            assert.match(String(e && e.message), /Таймаут/);
+        },
+    );
+    assert.equal(timedOut, true);
+    assert.ok(Date.now() - t0 < 150, 'withTimeout must fail fast');
+
+    CF.ensureReady(null, 'cab-a', null, {});
+    assert.equal(CF.needsReload(), true);
+    CF._state.loadedCab = 'cab-a';
+    assert.equal(CF.needsReload(), false);
+    CF.ensureReady(null, 'cab-b', null, {});
+    assert.equal(CF.needsReload(), true);
+    assert.equal(CF._state.loadedCab, '');
+
+    let queries = 0;
+    const hang = {
+        from() {
+            queries += 1;
+            const q = {};
+            q.select = () => q;
+            q.eq = () => q;
+            q.order = () => q;
+            q.then = (ok, no) => new Promise(() => {}).then(ok, no);
+            return q;
+        },
+    };
+    CF.ensureReady(hang, 'cab-hang', null, { queryTimeoutMs: 30 });
+    const t1 = Date.now();
+    await CF.open();
+    const openMs = Date.now() - t1;
+    assert.ok(openMs < 80, 'open() must not wait for supabase, waited ' + openMs + 'ms');
+    assert.ok(queries >= 1, 'reload starts in background');
+    assert.equal(CF._state.loadedCab, '');
+
+    CF._state.loadedCab = 'cab-hang';
+    const before = queries;
+    const t2 = Date.now();
+    await CF.open();
+    assert.ok(Date.now() - t2 < 50);
+    assert.equal(queries, before, 'cached cabinet does not reload');
+
+    const origFetch = global.fetch;
+    let fetches = 0;
+    global.fetch = function () {
+        fetches += 1;
+        return new Promise(() => {});
+    };
+    const root = {
+        innerHTML: '',
+        addEventListener() {},
+        contains() { return false; },
+        querySelectorAll() { return []; },
+    };
+    global.document = {
+        getElementById(id) { return id === 'cf-root' ? root : null; },
+        activeElement: null,
+    };
+    try {
+        CF.ensureReady(hang, 'cab-ui', null, { queryTimeoutMs: 40 });
+        const t3 = Date.now();
+        await CF.open();
+        assert.ok(Date.now() - t3 < 80, 'paint-first open stayed instant');
+        assert.equal(fetches, 0, 'open must not hit content-ig-oauth');
+        assert.ok(root.innerHTML.includes('cf-nav'));
+        assert.ok(root.innerHTML.includes('Календарь'));
+        assert.ok(!/Загрузка/.test(root.innerHTML));
+        assert.ok(!root.innerHTML.includes('cf-pipe'));
+        assert.ok(!root.innerHTML.includes('developers.facebook'));
+        assert.ok(!root.innerHTML.includes('FACEBOOK_APP'));
+        assert.ok(!root.innerHTML.includes('Instagram Graph API'));
+        assert.ok(!root.innerHTML.includes('Схема публикации'));
+        assert.ok(!root.innerHTML.includes('без похожих'));
+    } finally {
+        global.fetch = origFetch;
+        delete global.document;
+    }
+}
+
+extra().then(() => {
+    console.log('content-factory_test: ok');
+}).catch((err) => {
+    console.error(err);
+    process.exit(1);
+});
