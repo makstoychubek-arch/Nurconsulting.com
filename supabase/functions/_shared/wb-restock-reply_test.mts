@@ -11,14 +11,21 @@ import {
     wbQuestionAnswerPayload,
     isAllowedRestockChat,
     isFreshQuestion,
+    isRestockCardText,
+    isRestockInboundCandidate,
     isRestockQuestion,
     isWhenOnlyReply,
     matchPendingByText,
+    normalizeTelegramReactionEmoji,
     normalizeWhenPhrase,
     ownerMention,
     parseRestockCardMeta,
     parseNewFeedbacksQuestions,
+    pickOpenQuestions,
     pickRestockQuestions,
+    questionCardKind,
+    restockCardArticleLine,
+    resolveStaffAnswer,
     unwrapTelegramMessage,
 } from './wb-restock-reply.ts';
 
@@ -57,8 +64,27 @@ assert.equal(
 );
 assert.equal(
     resolveRestockAnswer('Да, костюм будет на складе в пятницу, размер 42')?.wbText,
-    'Да, костюм будет на складе в пятницу, размер 42',
+    'Здравствуйте! Да, костюм будет на складе в пятницу, размер 42.',
 );
+assert.equal(resolveStaffAnswer('да'), null);
+assert.equal(
+    resolveStaffAnswer('да', 'Добрый день, у юбки есть подклад? Надеюсь что у пиджака есть')?.wbText,
+    'Здравствуйте! Да, подклад есть.',
+);
+assert.equal(
+    resolveStaffAnswer('нет', 'Добрый день, у юбки есть подклад?')?.wbText,
+    'Здравствуйте! Нет, подклада нет.',
+);
+assert.equal(
+    resolveStaffAnswer('170', 'На какой рост костюм? Параметры модели что на фото?')?.wbText,
+    'Здравствуйте! Костюм рассчитан на рост 170.',
+);
+assert.equal(
+    resolveStaffAnswer('у юбки нет, у пиджака есть', 'у юбки есть подклад?')?.wbText,
+    'Здравствуйте! У юбки нет, у пиджака есть.',
+);
+assert.equal(questionCardKind('когда будет в наличии?'), 'поступление');
+assert.equal(questionCardKind('у юбки есть подклад?'), 'вопрос');
 
 assert.equal(cabinetLegalName('Zevina 1'), 'ИП Уркунбаев К.А.');
 assert.equal(cabinetLegalName('Zevina 2'), 'ОсОО «Айлин Стиль»');
@@ -102,6 +128,16 @@ assert.equal(collected[0].article, 'kostkom_oversize_temnosiniy');
 const restock = pickRestockQuestions(payload);
 assert.equal(restock.length, 1);
 assert.equal(restock[0].id, 'q-kostum-1');
+const open = pickOpenQuestions(payload);
+assert.equal(open.length, 2);
+const askCard = formatRestockTelegramCard({
+    cabinetName: 'Zevina 1',
+    cabinetId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+    question: open[1],
+    mention: '@maraWuW',
+});
+assert.match(askCard, /вопрос/);
+assert.equal(isRestockCardText(askCard), true);
 
 assert.equal(isFreshQuestion(new Date().toISOString(), 45), true);
 assert.equal(isFreshQuestion(new Date(Date.now() - 60 * 86400000).toISOString(), 45), false);
@@ -207,7 +243,7 @@ const custom = decideRestockInbound({
 });
 assert.equal(custom.action, 'answer');
 if (custom.action === 'answer') {
-    assert.equal(custom.wbText, 'Да, костюм будет на складе в пятницу, размер 42');
+    assert.equal(custom.wbText, 'Здравствуйте! Да, костюм будет на складе в пятницу, размер 42.');
     assert.equal(custom.via, 'tg_message');
 }
 
@@ -281,5 +317,105 @@ assert.equal(isAllowedRestockChat('-100rev', '-100rev', []), true);
 assert.equal(isAllowedRestockChat('-100team', '-100rev', []), false);
 assert.equal(isAllowedRestockChat('-100old', '-100rev', ['-100old']), true);
 assert.equal(isAllowedRestockChat('', '-100rev', []), false);
+
+const shotCard = '@maraWuW поступление\nупорон_костюм_черный\n«когда будет в наличии?»';
+assert.equal(isRestockCardText(shotCard), true);
+assert.equal(isRestockCardText('Отказ · отзыв 15.09 · 23:15'), false);
+assert.equal(restockCardArticleLine(shotCard), 'упорон_костюм_черный');
+assert.equal(normalizeTelegramReactionEmoji('❤️'), '\u2764');
+assert.equal(extractRestockWhen('Через неделю'), 'через неделю');
+
+const shotPending = [{
+    question_id: 'q-uporon',
+    cabinet_id: 'cab-uporon',
+    article: 'упорон_костюм_черный',
+    product: 'Костюм',
+    question_text: 'когда будет в наличии?',
+    telegram_message_id: 10,
+}];
+
+const shotReply = decideRestockInbound({
+    chatId: '-100rev',
+    messageId: 11,
+    text: 'Через неделю',
+    fromUsername: 'KarinaBot',
+    ownerUsername: 'maraWuW',
+    replyToText: shotCard,
+    replyToMessageId: 99,
+    pending: shotPending,
+});
+assert.equal(shotReply.action, 'answer');
+if (shotReply.action === 'answer') {
+    assert.equal(shotReply.questionId, 'q-uporon');
+    assert.equal(shotReply.via, 'pending_match');
+    assert.equal(shotReply.when, 'через неделю');
+}
+
+const unmatched = decideRestockInbound({
+    chatId: '-100rev',
+    messageId: 12,
+    text: 'Через неделю',
+    fromUsername: 'maraWuW',
+    ownerUsername: 'maraWuW',
+    replyToText: shotCard,
+    replyToMessageId: 99,
+    pending: [],
+});
+assert.equal(unmatched.action, 'unmatched');
+
+const botMsg = unwrapTelegramMessage({
+    message: {
+        message_id: 11,
+        text: 'Через неделю',
+        chat: { id: -1001 },
+        from: { username: 'nr_karina_bot', is_bot: true },
+        reply_to_message: { message_id: 10, text: shotCard },
+    },
+});
+assert.ok(botMsg);
+assert.equal(botMsg?.isBot, true);
+assert.equal(isRestockInboundCandidate(botMsg!), true);
+assert.equal(isRestockInboundCandidate({
+    text: shotCard,
+    replyToText: '',
+    replyToMessageId: null,
+    isBot: true,
+}), false);
+
+const liningQ = 'Добрый день, у юбки есть подклад? Надеюсь что у пиджака есть';
+const liningCard = formatRestockTelegramCard({
+    cabinetName: 'Zevina 1',
+    cabinetId: 'cab-uporon',
+    question: {
+        id: 'q-lining',
+        text: liningQ,
+        nmId: 6236445154,
+        article: 'двойка_юбка_полоска',
+        product: 'Костюм пиджак с юбкой',
+        createdDate: '',
+    },
+    mention: '@maraWuW',
+});
+assert.match(liningCard, /вопрос/);
+const lining = decideRestockInbound({
+    chatId: '-100rev',
+    messageId: 21,
+    text: 'да',
+    fromUsername: 'maraWuW',
+    ownerUsername: 'maraWuW',
+    replyToText: liningCard,
+    replyToMessageId: 20,
+    pending: [{
+        question_id: 'q-lining',
+        cabinet_id: 'cab-uporon',
+        article: 'двойка_юбка_полоска',
+        question_text: liningQ,
+        telegram_message_id: 20,
+    }],
+});
+assert.equal(lining.action, 'answer');
+if (lining.action === 'answer') {
+    assert.equal(lining.wbText, 'Здравствуйте! Да, подклад есть.');
+}
 
 console.log('wb-restock-reply_test: ok');

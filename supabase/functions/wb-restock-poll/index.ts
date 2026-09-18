@@ -1,4 +1,4 @@
-// Опрос неотвеченных вопросов WB «когда поступит?» и карточка в Telegram (отзывы).
+// Опрос неотвеченных вопросов WB и карточка в Telegram (отзывы).
 // Cron: */10. Auth: service_role. В тим-чат не пишем — только TELEGRAM_CHAT_REVIEWS.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -13,8 +13,9 @@ import {
     normalizeWhenPhrase,
     ownerMention,
     parseNewFeedbacksQuestions,
-    pickRestockQuestions,
-    resolveRestockAnswer,
+    pickOpenQuestions,
+    resolveStaffAnswer,
+    setTelegramReaction,
     type RestockQuestion,
 } from '../_shared/wb-restock-reply.ts';
 
@@ -131,7 +132,7 @@ Deno.serve(async (req) => {
             continue;
         }
 
-        const questions = pickRestockQuestions(listed.data);
+        const questions = pickOpenQuestions(listed.data);
         row.found = questions.length;
 
         for (const question of questions) {
@@ -201,13 +202,16 @@ async function applyPendingAnswer(
 ): Promise<Record<string, unknown>> {
     const { data, error } = await admin
         .from('wb_restock_questions')
-        .select('question_id, cabinet_id, when_text, wb_answer, status, telegram_chat_id, telegram_message_id, answered_at')
+        .select('question_id, cabinet_id, question_text, when_text, wb_answer, status, telegram_chat_id, telegram_message_id, answered_at')
         .eq('question_id', questionId)
         .in('status', ['pending', 'answered'])
         .maybeSingle();
     if (error) return { ok: false, error: error.message };
     if (!data) return { ok: false, error: 'not_pending' };
-    const resolved = resolveRestockAnswer(answerOverride || whenOverride || String(data.wb_answer || data.when_text || ''));
+    const resolved = resolveStaffAnswer(
+        answerOverride || whenOverride || String(data.wb_answer || data.when_text || ''),
+        String(data.question_text || ''),
+    );
     const when = normalizeWhenPhrase(String(whenOverride || resolved?.when || data.when_text || ''));
     const answer = String(answerOverride || data.wb_answer || resolved?.wbText || (when ? buildWbRestockAnswer(when) : '')).trim();
     if (!answer) return { ok: false, error: 'no_answer' };
@@ -357,22 +361,7 @@ async function reactTelegram(
     messageId: number,
     emoji: string,
 ): Promise<{ ok: boolean; error?: string }> {
-    try {
-        const res = await fetch(`https://api.telegram.org/bot${token}/setMessageReaction`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                chat_id: chatId,
-                message_id: messageId,
-                reaction: [{ type: 'emoji', emoji }],
-            }),
-        });
-        const body = await res.text();
-        if (res.ok) return { ok: true };
-        return { ok: false, error: body.slice(0, 300) };
-    } catch (e) {
-        return { ok: false, error: String(e) };
-    }
+    return setTelegramReaction([token, getTelegramToken()], chatId, messageId, emoji);
 }
 
 async function deleteTelegram(
