@@ -58,8 +58,10 @@ assert.ok(
     );
     assert.ok(rail.indexOf('data-tab="advertising"') < rail.indexOf('data-tab="ab-testing"') &&
         rail.indexOf('data-tab="ab-testing"') < rail.indexOf('data-tab="goods-groups"') &&
+        rail.indexOf('data-tab="goods-groups"') < rail.indexOf('data-tab="content-factory"') &&
+        rail.indexOf('data-tab="content-factory"') < rail.indexOf('data-tab="agents"') &&
         rail.indexOf('data-tab="goods-groups"') < rail.indexOf('data-flyout="fly-beta"'),
-        'А/Б sits on the rail between РК and Товары');
+        'Контент sits on the rail between Товары and Агенты');
 }
 assert.ok(!/data-tab="rnp"[^>]*data-flyout/.test(html),
     'РНП rail button opens the module, not a second column');
@@ -68,11 +70,11 @@ assert.ok(/<span class="rail-btn-lbl">А\/Б<\/span>/.test(html) && /data-tab="a
 assert.ok(!/<span class="rail-btn-lbl">Тарифы<\/span>/.test(html), 'Тарифы must not stay on the main rail');
 assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
     'ocr/rnp/tariffs flyouts must stay folded into BETA');
-assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'agents'])"),
-    'dashboard, settings, RNP, advertising, A/B, Товары and Агенты are live tabs');
+assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents'])"),
+    'dashboard, settings, RNP, advertising, A/B, Товары, Контент-завод and Агенты are live tabs');
 assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
     'non-live modules must open the BETA stub instead of broken UIs');
-assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары и Агенты'),
+assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары, Контент-завод и Агенты'),
     'BETA stub must list the live modules');
 assert.ok(html.includes('id="gg-fbo"') && html.includes('id="gg-transit"') && html.includes('goods-catalog'),
     'Товары tab shows FBO/FBS/in-transit columns and loads the Zevina catalog');
@@ -1628,7 +1630,7 @@ assert.ok(
     'Vercel must rewrite /agents to the dashboard'
 );
 assert.ok(
-    html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'agents'])") &&
+    html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents'])") &&
     html.includes('data-tab="agents"') &&
     html.includes('id="agents-hub-side"') &&
     html.includes('function renderAgentHub') &&
@@ -2172,7 +2174,7 @@ assert.ok(
     const esbuild = require('esbuild');
     const stale = [];
     for (const name of ['dashboard-charts.js', 'rnp-module.js', 'wb-formulas.js',
-        'ads-command-center.js', 'goods-catalog.js']) {
+        'ads-command-center.js', 'goods-catalog.js', 'content-factory.js']) {
         const built = esbuild.buildSync({
             entryPoints: [path.join(__dirname, name)],
             bundle: false, minify: true, format: 'iife', target: ['es2018'],
@@ -2184,6 +2186,49 @@ assert.ok(
         else if (!fs.existsSync(path.join(__dirname, 'dist', expected))) stale.push(name + ' (нет файла)');
     }
     assert.deepStrictEqual(stale, [], 'dist отстал от исходников — запустите npm run build');
+}
+
+{
+    const cf = fs.readFileSync(path.join(__dirname, 'content-factory.js'), 'utf8');
+    const mig = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260917200000_content_factory.sql'), 'utf8');
+    const igPub = fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/content-ig-publish.ts'), 'utf8');
+    const igFn = fs.readFileSync(path.join(__dirname, 'supabase/functions/content-ig-publish/index.ts'), 'utf8');
+    const tick = fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/content-publish-tick.ts'), 'utf8');
+    assert.ok(html.includes('id="tab-content-factory"') && html.includes('id="cf-root"') && html.includes("data-tab=\"content-factory\""),
+        'Контент-завод is a live tab with a root mount');
+    assert.ok(html.includes('function bootContentFactory') && html.includes("'content-factory': '/content'"),
+        'Контент-завод boots on /content and cabinet switch');
+    assert.ok(!betaFly.includes("showTab('content-factory'"),
+        'Контент-завод is on the rail, not duplicated in BETA');
+    assert.ok(cf.includes("from('rnp_articles')") && cf.includes("callWb('content_cards'"),
+        'calendar pulls articles from rnp_articles and photos/price via existing content_cards');
+    assert.ok(cf.includes('pickCardByNmId') && cf.includes(".eq('nm_id', id)") && cf.includes('photosForNmId') && cf.includes('nmIds: [nm]') && !cf.includes('cards.map(parseWbCard)[0]'),
+        'photos bind to exact nmId, never the first similar WB card');
+    assert.ok(!cf.includes('data-cf="publish-now"') && cf.includes('data-cf="approve-post"') && cf.includes('Очередь') && cf.includes('Подтверждено') && cf.includes('Возврат в черновик'),
+        'Instagram goes only through the confirmation queue after slide preview');
+    assert.ok(cf.includes('Фото совпадает с товаром') && cf.includes('без похожих') && !cf.includes('Артикул в РНП'),
+        'UI follows nmId-only bind and the confirmation flowchart');
+    assert.ok(mig.includes("'review'") && mig.includes('approved_at'),
+        'posts need review/approval before cron or Graph publish');
+    assert.ok(mig.includes('create table if not exists public.content_posts') &&
+        mig.includes('references public.rnp_articles(id)') &&
+        mig.includes('create table if not exists public.bloggers') &&
+        mig.includes('create table if not exists public.blogger_payouts') &&
+        mig.includes('compute_blogger_payout_amount') &&
+        mig.includes('token_secret_id') &&
+        mig.includes('store_vault_secret') &&
+        mig.includes("jobname = 'content_publish_tick'"),
+        'schema covers calendar, bloggers, payouts, vault token slot and cron');
+    assert.ok(igPub.includes("media_type: 'CAROUSEL'") && igPub.includes('is_carousel_item') && igPub.includes('media_publish'),
+        'Instagram publish is container → carousel → publish');
+    assert.ok(igFn.includes('approved_at') && igFn.includes('Подтверждено'),
+        'Graph publish rejects posts without queue confirmation');
+    assert.ok(tick.includes("if (deps.dryRun)") && tick.includes("action: 'would_publish'"),
+        'scheduler dry_run does not publish to Instagram');
+    assert.ok(
+        fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8').includes('"/content"'),
+        'Vercel rewrites /content to the dashboard'
+    );
 }
 
 console.log('dashboard_html_test: ok');
