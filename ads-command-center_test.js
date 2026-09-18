@@ -63,6 +63,23 @@ assert.equal(model.rows[0].campaigns[0].clusters[0].key, 'пиджак для ж
 assert.equal(model.totals.active, 1);
 assert.equal(model.totals.tokenBad, 1);
 
+assert.equal(AdsHQ.parseScheduleAt('', new Date('2026-09-17T10:00:00Z')).error, 'empty');
+assert.equal(AdsHQ.parseScheduleAt('2026-09-17T09:00', new Date('2026-09-17T10:00:00')).error, 'past');
+{
+    const at = AdsHQ.parseScheduleAt('2026-12-01T09:00', new Date('2026-09-17T10:00:00'));
+    assert.ok(at.at instanceof Date);
+}
+assert.match(AdsHQ.defaultScheduleLocal(new Date(2026, 8, 17, 14, 20, 0)), /2026-09-17T15:00/);
+{
+    const items = AdsHQ.collectScheduleItems([
+        { kind: 'campaign', cabinetId: 'cab-a', wbId: 38634350 },
+        { kind: 'cluster', cabinetId: 'cab-a', wbId: 38634350, cluster: 'x' },
+        { kind: 'cabinet', cabinetId: 'cab-b' },
+    ], model);
+    assert.equal(items.length, 2);
+    assert.equal(items[0].wbId, 38634350);
+    assert.equal(items[1].cabinetId, 'cab-b');
+}
 {
     const day = AdsHQ.buildHqModel({
         from: '2026-09-10',
@@ -100,7 +117,6 @@ assert.equal(model.totals.tokenBad, 1);
     });
     assert.equal(miss.rows[0].spendToday, 0, 'stats outside the picked range must not leak in');
 }
-
 assert.equal(AdsHQ.setCabinet('cab-a'), 'cab-a');
 assert.equal(AdsHQ.getFilterCabinetId(), 'cab-a');
 assert.equal(AdsHQ.setCabinet(''), '');
@@ -125,6 +141,8 @@ const els = {
     'ads-hq-phone': fakeEl(),
     'ads-hq-kpis': fakeEl(),
     'ads-hq-freshness': fakeEl(),
+    'ads-hq-start-at': fakeEl(),
+    'ads-hq-schedule': fakeEl(),
 };
 
 global.document = {
@@ -150,10 +168,40 @@ global.document = {
         autobidder_rules: [],
         serp_position_snapshots: [],
         adv_daily_stats: [],
+        adv_start_schedule: [],
+    };
+    const inserted = [];
+    let proxyCalls = 0;
+    const supabase = {
+        from(table) {
+            assert.equal(table, 'adv_start_schedule');
+            const ctx = { filters: {} };
+            const api = {
+                select() { return api; },
+                eq(col, val) { ctx.filters[col] = val; return api; },
+                maybeSingle: async () => ({ data: null, error: null }),
+                update(row) {
+                    ctx.row = row;
+                    return api;
+                },
+                insert(row) {
+                    inserted.push(row);
+                    rowsByTable.adv_start_schedule = inserted.map((r, i) => ({ id: 's' + i, ...r }));
+                    return Promise.resolve({ error: null });
+                },
+                then(resolve, reject) {
+                    return Promise.resolve({ error: null }).then(resolve, reject);
+                },
+            };
+            return api;
+        },
     };
     AdsHQ.init({
         fetchAllRows: async (table) => rowsByTable[table] || [],
         syncFromWb: async () => { synced += 1; },
+        supabase,
+        callWbProxy: async () => { proxyCalls += 1; throw new Error('must not start now'); },
+        showPremiumModal() {},
         getDateRange: () => ({ from: '2026-09-04', to: '2026-09-10' }),
     });
     AdsHQ.setCabinet('cab-a');
@@ -177,6 +225,20 @@ global.document = {
     AdsHQ.setCampFilter('all');
     assert.match(els['ads-hq-tbody'].innerHTML, /Пауза полка/);
     assert.match(els['ads-hq-tbody'].innerHTML, /Каталог \/ полка/);
+
+    els['ads-hq-start-at'].value = '2026-12-01T09:00';
+    const scheduled = await AdsHQ.scheduleStart([
+        { kind: 'campaign', cabinetId: 'cab-a', wbId: 11 },
+    ]);
+    assert.equal(scheduled.ok, true);
+    assert.equal(proxyCalls, 0, 'schedule must not call WB start');
+    assert.equal(inserted.length, 1);
+    assert.equal(inserted[0].status, 'pending');
+    assert.equal(inserted[0].campaign_id, 11);
+    assert.equal(inserted[0].cabinet_id, 'cab-a');
+    assert.match(els['ads-hq-schedule'].innerHTML, /Пауза полка/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /ads-hq-when/);
+    assert.match(els['ads-hq-phone'].innerHTML, /ads-hq-check/);
 
     AdsHQ.setCabinet('cab-empty');
     assert.match(els['ads-hq-kpis'].innerHTML, /—/, 'stale active count must clear as soon as the cabinet changes');
