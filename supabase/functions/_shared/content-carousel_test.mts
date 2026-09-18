@@ -10,6 +10,8 @@ import {
     pickCardPrice,
     pickComposition,
     planCarouselSlides,
+    dedupeSeoText,
+    shortSeo,
     SLIDE_H,
     SLIDE_W,
     uniqUrls,
@@ -132,6 +134,7 @@ assert.equal(seoPlan[1].line, '');
 assert.ok(seoPlan[2].headline || seoPlan[2].line, 'first photo slide gets a SEO fact');
 assert.equal(seoPlan[5].headline, '');
 assert.equal(seoPlan[6].headline, '');
+assert.equal((seoPlan[0].headline.match(/костюм/gi) || []).length <= 1, true);
 
 const laid = layoutSeoOverlays(
     ['cover', 'collage', 'photo', 'photo', 'info', 'brand'],
@@ -155,5 +158,22 @@ assert.equal(gpt[0].headline, 'Костюм ZEVINA');
 assert.equal(gpt[1].headline, '');
 assert.equal(gpt[2].headline, 'Прямые брюки');
 assert.deepEqual(parseGptOverlayJson('not-json', ['cover'], [{ headline: 'keep', line: 'x' }]), [{ headline: 'keep', line: 'x' }]);
+
+assert.equal(dedupeSeoText('Костюм женский костюм брючный костюм'), 'Костюм женский брючный');
+assert.equal(shortSeo('Костюм костюм'), 'Костюм');
+{
+    const stuffed = layoutSeoOverlays(['cover', 'photo'], {
+        title: 'Костюм женский костюм брючный костюм',
+        description: 'Костюм классический для офиса. Прямые брюки держат стрелку.',
+    });
+    assert.equal((stuffed[0].headline.match(/костюм/gi) || []).length, 1);
+    assert.equal(/костюм/i.test(stuffed[0].line), false);
+    assert.ok(stuffed[0].headline.length <= 32);
+}
+assert.equal(parseGptOverlayJson(
+    '{"overlays":[{"kind":"cover","headline":"Костюм костюм женский","line":"костюм в офис"}]}',
+    ['cover'],
+    [{ headline: 'x', line: '' }],
+)[0].headline, 'Костюм женский');
 
 console.log('content-carousel_test: ok');

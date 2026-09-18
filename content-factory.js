@@ -204,7 +204,7 @@
         const base = {
             width: SLIDE_W,
             height: SLIDE_H,
-            title: String(input.title || '').trim(),
+            title: shortSeo(String(input.title || '').trim(), 60),
             nmId: Number(input.nmId) || 0,
             composition: String(input.composition || '').trim(),
             brand: String(input.brand || '').trim() || 'NR',
@@ -232,38 +232,86 @@
         const sp = cut.lastIndexOf(' ');
         return ((sp > max * 0.45 ? cut.slice(0, sp) : cut).trim() || cut.trim()) + '…';
     }
+    const SEO_HEADLINE_MAX = 32;
+    const SEO_LINE_MAX = 52;
+    const SEO_STOP = new Set(['и','в','во','на','с','со','к','ко','по','для','из','от','до','или','а','но','как','при','без','над','под','о','об','про','же','ли','бы','это','этот','эта','эти','тот','та','те','не','ни','да','у','за','через']);
+    function seoToken(word) {
+        const w = String(word || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/g, '');
+        if (!w || SEO_STOP.has(w)) return '';
+        const stem = w.replace(/(иями|ями|ами|ого|ему|ому|ыми|ими|ов|ев|ей|ой|ий|ый|ая|ое|ее|ые|ие|ую|юю|ах|ях|ам|ям|ом|ем|а|я|о|е|у|ю|ы|и|ь)$/i, '');
+        return stem.length >= 4 ? stem : w;
+    }
+    function dedupeSeoText(text) {
+        const words = String(text || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+        const seen = new Set();
+        const out = [];
+        for (const w of words) {
+            const t = seoToken(w);
+            if (t && seen.has(t)) continue;
+            if (t) seen.add(t);
+            out.push(w);
+        }
+        return out.join(' ').replace(/\s+/g, ' ').trim();
+    }
+    function withoutUsedSeo(text, used) {
+        const bag = used || new Set();
+        const words = String(text || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+        const out = [];
+        for (const w of words) {
+            const t = seoToken(w);
+            if (t && bag.has(t)) continue;
+            out.push(w);
+            if (t) bag.add(t);
+        }
+        return out.join(' ').replace(/\s+/g, ' ').trim();
+    }
+    function shortSeo(text, max) {
+        return clipText(dedupeSeoText(text), max == null ? SEO_HEADLINE_MAX : max);
+    }
+    function collectSeoInto(text, used) {
+        withoutUsedSeo(text, used);
+    }
     function splitSeoSentences(text) {
         return String(text || '').replace(/\s+/g, ' ').trim().split(/(?<=[.!?…;])\s+/).map((s) => s.trim()).filter((s) => s.length >= 8);
     }
-    function splitHeadlineLine(sentence) {
-        const t = String(sentence || '').replace(/\s+/g, ' ').trim();
+    function splitHeadlineLine(sentence, used) {
+        const bag = used || new Set();
+        const t = withoutUsedSeo(dedupeSeoText(sentence), bag);
         if (!t) return { headline: '', line: '' };
         const words = t.split(' ').filter(Boolean);
-        if (words.length <= 5 && t.length <= 42) return { headline: clipText(t, 42), line: '' };
-        const n = Math.min(5, Math.max(2, Math.ceil(words.length / 3)));
-        const headline = clipText(words.slice(0, n).join(' '), 42);
-        return { headline, line: clipText(words.slice(n).join(' '), 90) };
+        if (words.length <= 4 && t.length <= SEO_HEADLINE_MAX) return { headline: clipText(t, SEO_HEADLINE_MAX), line: '' };
+        const n = Math.min(4, Math.max(2, Math.ceil(words.length / 3)));
+        return {
+            headline: clipText(words.slice(0, n).join(' '), SEO_HEADLINE_MAX),
+            line: clipText(words.slice(n).join(' '), SEO_LINE_MAX),
+        };
     }
     function layoutSeoOverlays(kinds, input) {
         const sentences = splitSeoSentences(input && input.description);
-        const title = clipText(input && input.title, 42);
-        const composition = clipText(input && input.composition, 70);
+        const title = shortSeo(input && input.title, SEO_HEADLINE_MAX);
+        const composition = shortSeo(input && input.composition, SEO_LINE_MAX);
+        const used = new Set();
         let i = 0;
         const take = () => sentences[i++] || '';
         let photos = 0;
         return (kinds || []).map((kind) => {
             if (kind === 'cover') {
                 const hook = take();
-                return { headline: title || clipText(hook, 42), line: title ? clipText(hook, 70) : '' };
+                const headline = title || shortSeo(hook, SEO_HEADLINE_MAX);
+                collectSeoInto(headline, used);
+                return { headline, line: clipText(withoutUsedSeo(hook, used), SEO_LINE_MAX) };
             }
             if (kind === 'collage') return { headline: '', line: '' };
             if (kind === 'photo') {
                 photos += 1;
                 if (photos === 2 && composition) {
                     const already = sentences.some((s) => composition.length >= 4 && s.toLowerCase().includes(composition.slice(0, 8).toLowerCase()));
-                    if (!already) return { headline: 'Состав', line: composition };
+                    if (!already) {
+                        collectSeoInto(composition, used);
+                        return { headline: 'Состав', line: composition };
+                    }
                 }
-                return splitHeadlineLine(take() || (photos === 1 ? composition : ''));
+                return splitHeadlineLine(take() || (photos === 1 ? composition : ''), used);
             }
             return { headline: '', line: '' };
         });
@@ -278,6 +326,7 @@
         const list = Array.isArray(data) ? data : (obj && (obj.overlays || obj.slides));
         if (!Array.isArray(list)) return fallback;
         const used = new Set();
+        const stems = new Set();
         return (kinds || []).map((kind, idx) => {
             let row = null;
             const at = list[idx];
@@ -287,10 +336,12 @@
                 if (found >= 0) { used.add(found); row = list[found]; }
             }
             if (!row) return fallback[idx] || { headline: '', line: '' };
-            const headline = clipText(row.headline || row.title || '', 42);
-            const line = clipText(row.line || row.text || row.body || '', 90);
-            if (!headline && !line) return fallback[idx] || { headline: '', line: '' };
-            return { headline, line };
+            const headline = shortSeo(row.headline || row.title || '', SEO_HEADLINE_MAX);
+            const lineRaw = dedupeSeoText(row.line || row.text || row.body || '');
+            const head = withoutUsedSeo(headline, stems);
+            const line = clipText(withoutUsedSeo(lineRaw, stems), SEO_LINE_MAX);
+            if (!head && !line) return fallback[idx] || { headline: '', line: '' };
+            return { headline: head, line };
         });
     }
     function groupPostsByDay(posts, year, month) {
@@ -1298,7 +1349,7 @@
                 <label>Подпись<input id="cf-car-cap" placeholder="Текст к посту"></label>
                 <label>Доп. фото<input id="cf-car-extra" type="file" accept="image/*" multiple></label>
             </div>
-            ${card ? `<p class="cf-muted">nmId ${escapeHtml(card.nmId)} · ${escapeHtml(card.title || '')} · ${card.photos.length} фото${card.description ? ' · SEO' : ''}</p>` : ''}
+            ${card ? `<p class="cf-muted">nmId ${escapeHtml(card.nmId)} · ${escapeHtml(shortSeo(card.title, 60) || card.title || '')} · ${card.photos.length} фото${card.description ? ' · SEO' : ''}</p>` : ''}
             <div class="cf-slides">${preview}</div>
             <div class="cf-form-actions">
                 <button type="button" class="ui-btn ui-btn-primary" data-cf="gen-carousel">Собрать</button>
@@ -1446,7 +1497,7 @@
     const ContentFactory = {
         PLATFORMS, STATUSES, SLIDE_W, SLIDE_H, PHOTO_PAGES,
         computePayout, monthStart, ymd, parseWbCard, pickComposition, pickCardPrice, pickCardByNmId,
-        pickCardDescription, layoutSeoOverlays, parseGptOverlayJson, clipText,
+        pickCardDescription, layoutSeoOverlays, parseGptOverlayJson, clipText, dedupeSeoText, shortSeo,
         nmIdFromPhotoUrl, photoUrlFitsNmId, photosForNmId, bindExactArticlePhotos, galleryUrlsFromManual,
         planCarouselSlides, groupPostsByDay, calendarCells, viewsByPlatform, topPosts, filterPosts, uniqUrls,
         withTimeout, needsReload, FN_TIMEOUT_MS, QUERY_TIMEOUT_MS,
