@@ -288,17 +288,23 @@ assert.ok(html.includes('id="nr-bottom-nav"'), 'mobile bottom nav must exist');
 {
     const bn = html.slice(html.indexOf('id="nr-bottom-nav"'), html.indexOf('id="nr-beta-overlay"'));
     assert.ok(
-        bn.indexOf('id="bn-settings"') < bn.indexOf('id="bn-rnp"') &&
+        bn.indexOf('id="bn-agents"') < bn.indexOf('id="bn-rnp"') &&
         bn.indexOf('id="bn-rnp"') < bn.indexOf('id="bn-dash"') &&
-        bn.indexOf('id="bn-dash"') < bn.indexOf('id="bn-rk"') &&
-        bn.indexOf('id="bn-rk"') < bn.indexOf('id="bn-ab"') &&
-        bn.indexOf('id="bn-ab"') < bn.indexOf('id="bn-goods"') &&
+        bn.indexOf('id="bn-dash"') < bn.indexOf('id="bn-goods"') &&
         bn.indexOf('id="bn-goods"') < bn.indexOf('id="bn-beta"'),
-        'bottom nav order: settings, РНП, Дашборд, РК, А/Б, Товары, BETA'
+        'bottom nav order: Агенты, РНП, Дашборд, Остатки, Меню'
+    );
+    assert.ok(
+        bn.includes('bn-lbl">Агенты') &&
+        bn.includes('bn-lbl">Остатки') &&
+        bn.includes('bn-lbl">Меню') &&
+        !bn.includes('id="bn-rk"') &&
+        !bn.includes('id="bn-ab"') &&
+        !bn.includes('id="bn-settings"'),
+        'RK, A/B and settings left the bar for the menu sheet'
     );
     assert.ok(!bn.includes('id="bn-theme"') && !bn.includes('toggleTheme()'),
         'theme toggle is not on the bottom nav');
-    assert.ok(bn.includes('M19.4 15a1.65'), 'bottom-nav settings uses a cog icon');
 }
 assert.ok(html.includes('bottom-nav-btn--home') && html.includes('id="bn-dash"'),
     'dashboard is the accent center item on the bottom nav');
@@ -376,9 +382,10 @@ assert.ok(
         'rail settings icon is a cog, not the sun-ray mark');
 }
 assert.ok(
-    html.includes("settings: 'bn-settings'") &&
+    html.includes("agents: 'bn-agents'") &&
+    html.includes("flyout-sec\">Кабинет") &&
     html.includes('querySelectorAll(\'.beta-theme-label\')'),
-    'settings highlights the bottom-nav gear; theme labels update in BETA'
+    'phone menu holds RK / A/B / settings; theme labels stay in the sheet'
 );
 assert.ok(
     html.includes('.rnp-action-bar--phone') &&
