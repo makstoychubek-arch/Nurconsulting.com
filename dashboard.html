@@ -603,6 +603,112 @@
             .agents-hub { flex-direction: column; }
             .agents-hub-side { width: 100%; min-width: 0; }
         }
+        .agents-canvas-card { padding: 0; overflow: hidden; background: #16161a; }
+        .agents-canvas {
+            display: flex; flex-direction: column; height: 520px; overflow: hidden;
+            background: #16161a;
+            background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
+            background-size: 18px 18px;
+            color: #f5f5f7;
+        }
+        .agents-canvas.is-editing { height: 680px; }
+        .agents-canvas-stage { position: relative; flex: 1; min-height: 0; }
+        .agents-canvas-bar {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+            padding: 10px 14px 8px; border-bottom: 1px solid rgba(255,255,255,0.06);
+            flex: 0 0 auto;
+        }
+        .agents-canvas-bar-title {
+            font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase;
+            color: rgba(255,255,255,0.45);
+        }
+        .agents-canvas-bar-meta {
+            font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.72);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .ac-links { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+        .ac-link { fill: none; stroke: rgba(180,180,200,0.22); stroke-width: 1.7; }
+        .ac-link-on { stroke: rgba(16,163,127,0.55); }
+        .ac-link-off { stroke: rgba(180,180,200,0.14); stroke-dasharray: 5 5; }
+        .ac-link-astra { stroke: rgba(167,139,250,0.5); }
+        .ac-node {
+            position: absolute; transform: translate(-50%, -50%);
+            min-width: 112px; max-width: 168px; padding: 8px 12px 8px 14px;
+            border-radius: 10px; background: #2a2a32; border: 1px solid rgba(255,255,255,0.1);
+            color: #f2f2f5; box-shadow: 0 10px 28px rgba(0,0,0,0.38);
+            text-align: left; cursor: pointer; font: inherit; z-index: 1;
+        }
+        .ac-node:hover { border-color: rgba(255,255,255,0.2); background: #303038; }
+        .ac-node-off { opacity: 0.55; }
+        .ac-node-gpt {
+            min-width: 188px; max-width: 240px; padding: 12px 14px 10px;
+            background: linear-gradient(180deg, #32323c 0%, #23232b 100%);
+            border-color: rgba(16,163,127,0.5); cursor: default; z-index: 3;
+        }
+        .ac-node-gpt:hover { background: linear-gradient(180deg, #383842 0%, #26262e 100%); }
+        .ac-node-astra {
+            min-width: 132px; border-color: rgba(167,139,250,0.5);
+            background: linear-gradient(180deg, #2f2a3a 0%, #26222e 100%);
+            z-index: 2; cursor: pointer;
+        }
+        .ac-port {
+            position: absolute; top: 50%; width: 8px; height: 8px; border-radius: 99px;
+            background: #9aa0ae; border: 2px solid #1b1b20; transform: translateY(-50%);
+        }
+        .ac-port-l { left: -5px; }
+        .ac-port-r { right: -5px; }
+        .ac-node-gpt .ac-port { background: #10a37f; }
+        .ac-node-astra .ac-port { background: #a78bfa; top: 10px; left: 50%; transform: translate(-50%, 0); }
+        .ac-top {
+            display: flex; align-items: center; gap: 7px;
+        }
+        .ac-top .ah-logo { width: 16px; height: 16px; flex: 0 0 16px; }
+        .ac-mark {
+            width: 18px; height: 18px; flex: 0 0 18px; border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            background: #3b3b44;
+        }
+        .ac-mark svg { width: 12px; height: 12px; display: block; }
+        .ac-mark-gpt { background: rgba(16,163,127,0.2); color: #10a37f; }
+        .ac-mark-astra { background: rgba(167,139,250,0.18); color: #c4b5fd; }
+        .ac-mark-wa { background: rgba(37,211,102,0.16); }
+        .ac-mark-tg { background: rgba(42,171,238,0.16); }
+        .ac-name { font-size: 12px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.2; }
+        .ac-role, .ac-ver {
+            display: block; margin-top: 3px; font-size: 10px; font-weight: 700;
+            color: rgba(255,255,255,0.48);
+        }
+        .ac-ver { color: #5eead4; }
+        .ac-connected {
+            margin-top: 7px; font-size: 10px; font-weight: 650; line-height: 1.35;
+            color: rgba(255,255,255,0.52);
+        }
+        .ac-model-btn {
+            margin-top: 8px; width: 100%; border: 1px solid rgba(16,163,127,0.45);
+            background: rgba(16,163,127,0.12); color: #5eead4;
+            border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 11px;
+            font-weight: 800; cursor: pointer;
+        }
+        .ac-model-btn:hover { background: rgba(16,163,127,0.22); }
+        .ac-bal {
+            margin-top: 4px; font-size: 13px; font-weight: 800; color: #ddd6fe;
+            font-variant-numeric: tabular-nums;
+        }
+        .ac-form { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+        .ac-form input, .ac-form select {
+            width: 100%; border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px; background: #1c1c22; color: #f5f5f7;
+            font: inherit; font-size: 11px; padding: 5px 7px;
+        }
+        .ac-form-actions { display: flex; gap: 6px; }
+        .ac-form-actions button { flex: 1; font-size: 11px; font-weight: 700; padding: 5px 8px; border-radius: 8px; cursor: pointer; }
+        @media (max-width: 900px) {
+            .agents-canvas { height: 440px; }
+            .ac-node { min-width: 92px; max-width: 130px; padding: 6px 8px 6px 10px; }
+            .ac-node-gpt { min-width: 150px; max-width: 190px; }
+            .ac-name { font-size: 11px; }
+            .ac-connected { display: none; }
+        }
         .agent-result-url { word-break: break-all; font-family: ui-monospace, monospace; font-size: 12px; color: var(--accent); -webkit-user-select: text; user-select: text; }
         .agent-invite-copy-row {
             display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap;
@@ -6244,6 +6350,9 @@
             <div class="agents-hub">
                 <aside class="agents-hub-side" id="agents-hub-side"></aside>
                 <div class="agents-hub-main">
+                    <div class="widget-card agents-canvas-card">
+                        <div id="agents-canvas" class="agents-canvas"></div>
+                    </div>
                     <div class="widget-card p-4">
                         <h3 class="font-semibold mb-1" style="color:var(--text-primary)">Функции WB</h3>
                         <p class="text-xs mb-3" style="color:var(--text-muted)">Коротко: то, что боты умеют через API выбранного кабинета.</p>
@@ -14484,8 +14593,14 @@
         loadOzonTokenPage();
     }
 
-    const GPT_MODELS = ['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1', 'o4-mini'];
-    let _agentHub = { wa: [], waSource: 'local', brain: { provider: 'chatgpt', model: 'gpt-4o-mini' }, form: null, channel: 'sales' };
+    const GPT_MODELS = ['gpt-5', 'gpt-5-mini', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4o-mini', 'o4-mini'];
+    let _agentHub = {
+        wa: [],
+        waSource: 'local',
+        brain: { provider: 'chatgpt', model: 'gpt-4o-mini', astra_balance: null, astra_currency: 'USD' },
+        form: null,
+        channel: 'sales',
+    };
 
     function _ahEsc(s) { return escapeHtml(String(s || '')); }
     function _ahJs(s) { return String(s || '').replace(/['"\\]/g, ''); }
@@ -14502,6 +14617,187 @@
         const fly = document.getElementById('fly-agents-body');
         if (side) side.innerHTML = html;
         if (fly) fly.innerHTML = html;
+        renderAgentsCanvas();
+    }
+
+    function mergeAgentBrain(data) {
+        const cur = _agentHub.brain || {};
+        const src = data || {};
+        let balance = Object.prototype.hasOwnProperty.call(src, 'astra_balance') ? src.astra_balance : cur.astra_balance;
+        if (typeof balance === 'string') {
+            const trimmed = balance.trim();
+            balance = trimmed === '' ? null : Number(trimmed.replace(',', '.'));
+        }
+        if (typeof balance === 'number' && Number.isNaN(balance)) balance = null;
+        return {
+            provider: src.provider || cur.provider || 'chatgpt',
+            model: src.model || cur.model || 'gpt-4o-mini',
+            astra_balance: balance == null ? null : Number(balance),
+            astra_currency: src.astra_currency || cur.astra_currency || 'USD',
+        };
+    }
+
+    function formatAstraBalance(brain) {
+        const n = brain && brain.astra_balance;
+        if (n == null || Number.isNaN(Number(n))) return 'не задан';
+        const num = Number(n);
+        const formatted = num.toLocaleString('ru-RU', {
+            minimumFractionDigits: Math.abs(num % 1) > 1e-9 ? 2 : 0,
+            maximumFractionDigits: 2,
+        });
+        const cur = String((brain && brain.astra_currency) || 'USD').toUpperCase();
+        if (cur === 'RUB' || cur === '₽') return `${formatted} ₽`;
+        return `$${formatted}`;
+    }
+
+    function connectedAgentNames() {
+        const names = ['Карина', 'Сауле', 'Алина', 'Антон'];
+        if ((_agentHub.wa || []).some((w) => w.is_enabled !== false)) names.push('Ватсап');
+        const channels = (_tgBotsState && _tgBotsState.channels) || {};
+        const tgOn = Object.keys(TG_CHANNEL_LABELS || {}).some((ch) => channels[ch] && channels[ch].configured === true);
+        if (tgOn) names.push('Телеграм');
+        return names;
+    }
+
+    function _brainModelSelect(brain) {
+        const cur = brain.model || 'gpt-4o-mini';
+        const models = GPT_MODELS.includes(cur) ? GPT_MODELS : [cur, ...GPT_MODELS];
+        return `<select class="ah-brain-model">${models.map((m) => `<option value="${_ahEsc(m)}"${m === cur ? ' selected' : ''}>${_ahEsc(m)}</option>`).join('')}</select>`;
+    }
+
+    function _astraBalanceForm(brain, formClass) {
+        const val = brain.astra_balance == null || Number.isNaN(Number(brain.astra_balance)) ? '' : String(brain.astra_balance);
+        const cur = String(brain.astra_currency || 'USD').toUpperCase();
+        return `<div class="${formClass || 'ah-form'}">
+            <input class="ah-astra-balance" type="number" step="0.01" inputmode="decimal" placeholder="Остаток баланса" value="${_ahEsc(val)}">
+            <select class="ah-astra-currency">
+              <option value="USD"${cur === 'USD' ? ' selected' : ''}>USD</option>
+              <option value="RUB"${cur === 'RUB' ? ' selected' : ''}>RUB</option>
+            </select>
+            <div class="${formClass === 'ac-form' ? 'ac-form-actions' : 'ah-form-actions'}">
+              <button type="button" class="ui-btn ui-btn-primary" onclick="saveAgentAstra(this)">Сохранить</button>
+              <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
+            </div>
+          </div>`;
+    }
+
+    const AC_POS = {
+        gpt: { x: 500, y: 176 },
+        karina: { x: 168, y: 78 },
+        saule: { x: 148, y: 196 },
+        alina: { x: 168, y: 328 },
+        anton: { x: 832, y: 78 },
+        wa: { x: 852, y: 196 },
+        tg: { x: 832, y: 328 },
+        astra: { x: 500, y: 428 },
+    };
+    const AC_BOX = { w: 1000, h: 480 };
+
+    function acStyle(pos) {
+        return `left:${((pos.x / AC_BOX.w) * 100).toFixed(2)}%;top:${((pos.y / AC_BOX.h) * 100).toFixed(2)}%`;
+    }
+
+    function acBezier(x1, y1, x2, y2) {
+        const cx = (x1 + x2) / 2;
+        return `M ${x1.toFixed(1)} ${y1.toFixed(1)} C ${cx.toFixed(1)} ${y1.toFixed(1)}, ${cx.toFixed(1)} ${y2.toFixed(1)}, ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+    }
+
+    function _acMarkGpt() {
+        return '<span class="ac-mark ac-mark-gpt"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3.2 19 7.2v9.6L12 20.8 5 16.8V7.2L12 3.2z"/><circle cx="12" cy="12" r="2.1" fill="currentColor" stroke="none"/></svg></span>';
+    }
+
+    function _acMarkAstra() {
+        return '<span class="ac-mark ac-mark-astra"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.4 6.8H22l-5.6 4.2 2.2 6.8L12 16.8 5.4 19.8 7.6 13 2 8.8h7.6L12 2z"/></svg></span>';
+    }
+
+    function renderAgentsCanvas() {
+        const el = document.getElementById('agents-canvas');
+        if (!el) return;
+        el.classList.toggle('is-editing', !!_agentHub.form);
+        el.innerHTML = _agentsCanvasHTML();
+    }
+
+    function _agentsCanvasHTML() {
+        const brain = _agentHub.brain || { provider: 'chatgpt', model: 'gpt-4o-mini' };
+        const model = brain.model || 'gpt-4o-mini';
+        const names = connectedAgentNames();
+        const waOn = (_agentHub.wa || []).some((w) => w.is_enabled !== false);
+        const channels = (_tgBotsState && _tgBotsState.channels) || {};
+        const tgOn = Object.keys(TG_CHANNEL_LABELS || {}).some((ch) => channels[ch] && channels[ch].configured === true);
+        const p = {
+            ...AC_POS,
+            astra: _agentHub.form === 'brain'
+                ? { x: 500, y: 458 }
+                : _agentHub.form === 'astra'
+                    ? { x: 500, y: 336 }
+                    : AC_POS.astra,
+        };
+        const links = [
+            { d: acBezier(p.karina.x + 56, p.karina.y, p.gpt.x - 94, p.gpt.y), on: true },
+            { d: acBezier(p.saule.x + 56, p.saule.y, p.gpt.x - 94, p.gpt.y), on: true },
+            { d: acBezier(p.alina.x + 56, p.alina.y, p.gpt.x - 94, p.gpt.y), on: true },
+            { d: acBezier(p.anton.x - 56, p.anton.y, p.gpt.x + 94, p.gpt.y), on: true },
+            { d: acBezier(p.wa.x - 56, p.wa.y, p.gpt.x + 94, p.gpt.y), on: waOn },
+            { d: acBezier(p.tg.x - 56, p.tg.y, p.gpt.x + 94, p.gpt.y), on: tgOn },
+            { d: acBezier(p.gpt.x, p.gpt.y + 62, p.astra.x, p.astra.y - 38), on: true, astra: true },
+        ].map((l) => `<path class="ac-link ${l.astra ? 'ac-link-astra' : (l.on ? 'ac-link-on' : 'ac-link-off')}" d="${l.d}"/>`).join('');
+        const brainForm = _agentHub.form === 'brain' ? `<div class="ac-form">
+            ${_brainModelSelect(brain)}
+            <div class="ac-form-actions">
+              <button type="button" class="ui-btn ui-btn-primary" onclick="saveAgentBrain(this)">Сохранить</button>
+              <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
+            </div>
+          </div>` : '';
+        const astraForm = _agentHub.form === 'astra' ? _astraBalanceForm(brain, 'ac-form') : '';
+        return `
+          <div class="agents-canvas-bar">
+            <span class="agents-canvas-bar-title">Канва</span>
+            <span class="agents-canvas-bar-meta">ChatGPT · актуальная ${_ahEsc(model)}</span>
+          </div>
+          <div class="agents-canvas-stage">
+          <svg class="ac-links" viewBox="0 0 ${AC_BOX.w} ${AC_BOX.h}" preserveAspectRatio="none" aria-hidden="true">${links}</svg>
+          <button type="button" class="ac-node ac-node-person" style="${acStyle(p.karina)}" onclick="openAgentFn('invite')">
+            <span class="ac-port ac-port-l"></span><span class="ac-port ac-port-r"></span>
+            <span class="ac-name">Карина</span><span class="ac-role">доступ</span>
+          </button>
+          <button type="button" class="ac-node ac-node-person" style="${acStyle(p.saule)}" onclick="openAgentFn('prices')">
+            <span class="ac-port ac-port-l"></span><span class="ac-port ac-port-r"></span>
+            <span class="ac-name">Сауле</span><span class="ac-role">цены</span>
+          </button>
+          <button type="button" class="ac-node ac-node-person" style="${acStyle(p.alina)}" onclick="openAgentFn('reviews')">
+            <span class="ac-port ac-port-l"></span><span class="ac-port ac-port-r"></span>
+            <span class="ac-name">Алина</span><span class="ac-role">отзывы</span>
+          </button>
+          <button type="button" class="ac-node ac-node-person" style="${acStyle(p.anton)}" onclick="openAgentFn('fbs')">
+            <span class="ac-port ac-port-l"></span><span class="ac-port ac-port-r"></span>
+            <span class="ac-name">Антон</span><span class="ac-role">FBS</span>
+          </button>
+          <button type="button" class="ac-node${waOn ? '' : ' ac-node-off'}" style="${acStyle(p.wa)}" onclick="openAgentHubForm('wa')">
+            <span class="ac-port ac-port-l"></span><span class="ac-port ac-port-r"></span>
+            <div class="ac-top">${_ahLogoWa()}<span class="ac-name">Ватсап</span></div>
+            <span class="ac-role">${waOn ? 'подключен' : 'нет номера'}</span>
+          </button>
+          <button type="button" class="ac-node${tgOn ? '' : ' ac-node-off'}" style="${acStyle(p.tg)}" onclick="focusAgentTelegram()">
+            <span class="ac-port ac-port-l"></span><span class="ac-port ac-port-r"></span>
+            <div class="ac-top">${_ahLogoTg()}<span class="ac-name">Телеграм</span></div>
+            <span class="ac-role">${tgOn ? 'подключен' : 'нет чата'}</span>
+          </button>
+          <div class="ac-node ac-node-gpt" style="${acStyle(p.gpt)}">
+            <span class="ac-port ac-port-l"></span><span class="ac-port ac-port-r"></span>
+            <div class="ac-top">${_acMarkGpt()}<span class="ac-name">ChatGPT</span></div>
+            <span class="ac-ver">актуально · ${_ahEsc(model)}</span>
+            <div class="ac-connected">подключены: ${_ahEsc(names.join(' · '))}</div>
+            <button type="button" class="ac-model-btn" onclick="openAgentHubForm('brain')">Модель</button>
+            ${brainForm}
+          </div>
+          <div class="ac-node ac-node-astra" style="${acStyle(p.astra)}" onclick="if(!event.target.closest('.ac-form')) openAgentHubForm('astra')">
+            <span class="ac-port"></span>
+            <div class="ac-top">${_acMarkAstra()}<span class="ac-name">Astra</span></div>
+            <span class="ac-role">баланс</span>
+            <div class="ac-bal">${_ahEsc(formatAstraBalance(brain))}</div>
+            ${astraForm}
+          </div>
+          </div>`;
     }
 
     function _agentHubHTML() {
@@ -14526,12 +14822,13 @@
             </div>
           </div>` : '';
         const brainForm = _agentHub.form === 'brain' ? `<div class="ah-form">
-            <select class="ah-brain-model">${GPT_MODELS.map(m => `<option value="${m}"${m === brain.model ? ' selected' : ''}>${m}</option>`).join('')}</select>
+            ${_brainModelSelect(brain)}
             <div class="ah-form-actions">
               <button type="button" class="ui-btn ui-btn-primary" onclick="saveAgentBrain(this)">Сохранить</button>
               <button type="button" class="ui-btn ui-btn-secondary" onclick="closeAgentHubForm()">Отмена</button>
             </div>
           </div>` : '';
+        const astraForm = _agentHub.form === 'astra' ? _astraBalanceForm(brain, 'ah-form') : '';
         return `
           <div class="ah-group">
             <div class="ah-head">
@@ -14564,6 +14861,21 @@
               </div>
             </div>
             ${brainForm}
+          </div>
+          <div class="ah-group">
+            <div class="ah-head">
+              <span class="ah-title">Astra</span>
+              <button type="button" class="ah-edit" title="Баланс" onclick="openAgentHubForm('astra')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>
+              </button>
+            </div>
+            <div class="ah-brain">
+              <div class="ah-brain-meta">
+                <div class="ah-brain-prov">баланс</div>
+                <div class="ah-sub">${_ahEsc(formatAstraBalance(brain))}</div>
+              </div>
+            </div>
+            ${astraForm}
           </div>`;
     }
 
@@ -14601,6 +14913,10 @@
         renderAgentHub();
     }
 
+    function focusAgentTelegram() {
+        selectAgentTgChannel(_agentHub.channel || 'sales');
+    }
+
     async function sendAgentTgMessage(btn) {
         const ch = _agentHub.channel || 'sales';
         const box = btn.closest('.ah-group') || btn.closest('.agents-hub-side') || document;
@@ -14628,7 +14944,7 @@
     }
 
     function openAgentHubForm(kind) {
-        _agentHub.form = kind;
+        _agentHub.form = _agentHub.form === kind ? null : kind;
         renderAgentHub();
     }
     function closeAgentHubForm() {
@@ -14651,14 +14967,28 @@
 
     async function loadAgentBrain() {
         try {
-            const { data, error } = await supabase.from('agent_brain').select('provider, model').eq('id', 'default').maybeSingle();
+            const { data, error } = await supabase.from('agent_brain').select('*').eq('id', 'default').maybeSingle();
             if (error) throw error;
-            if (data) _agentHub.brain = { provider: data.provider || 'chatgpt', model: data.model || 'gpt-4o-mini' };
-            else throw new Error('empty');
+            if (data) {
+                let next = mergeAgentBrain(data);
+                if (next.astra_balance == null) {
+                    try {
+                        const raw = JSON.parse(localStorage.getItem('nr_agent_brain') || 'null');
+                        if (raw && (raw.astra_balance != null || raw.astra_currency)) {
+                            next = mergeAgentBrain({
+                                ...next,
+                                astra_balance: raw.astra_balance,
+                                astra_currency: raw.astra_currency,
+                            });
+                        }
+                    } catch (_) {}
+                }
+                _agentHub.brain = next;
+            } else throw new Error('empty');
         } catch (e) {
             try {
                 const raw = JSON.parse(localStorage.getItem('nr_agent_brain') || 'null');
-                if (raw && raw.model) _agentHub.brain = { provider: raw.provider || 'chatgpt', model: raw.model };
+                if (raw && raw.model) _agentHub.brain = mergeAgentBrain(raw);
             } catch (_) {}
         }
     }
@@ -14722,18 +15052,49 @@
         }
     }
 
-    async function saveAgentBrain(btn) {
-        const model = btn.closest('.ah-form')?.querySelector('.ah-brain-model')?.value || 'gpt-4o-mini';
-        const row = { id: 'default', provider: 'chatgpt', model, updated_at: new Date().toISOString() };
+    async function persistAgentBrain(patch) {
+        const next = mergeAgentBrain({ ...(_agentHub.brain || {}), ...(patch || {}), provider: 'chatgpt' });
+        const row = {
+            id: 'default',
+            provider: 'chatgpt',
+            model: next.model,
+            astra_balance: next.astra_balance,
+            astra_currency: next.astra_currency || 'USD',
+            updated_at: new Date().toISOString(),
+        };
         try {
-            const { error } = await supabase.from('agent_brain').upsert(row);
+            let { error } = await supabase.from('agent_brain').upsert(row);
+            if (error && /astra_/i.test(String(error.message || error.code || ''))) {
+                const slim = { id: row.id, provider: row.provider, model: row.model, updated_at: row.updated_at };
+                error = (await supabase.from('agent_brain').upsert(slim)).error;
+            }
             if (error) throw error;
-        } catch (e) {
-            localStorage.setItem('nr_agent_brain', JSON.stringify({ provider: 'chatgpt', model }));
-        }
-        _agentHub.brain = { provider: 'chatgpt', model };
+        } catch (e) { /* local fallback below */ }
+        try { localStorage.setItem('nr_agent_brain', JSON.stringify(next)); } catch (_) {}
+        _agentHub.brain = next;
         _agentHub.form = null;
         renderAgentHub();
+    }
+
+    async function saveAgentBrain(btn) {
+        const box = btn.closest('.ah-form') || btn.closest('.ac-form') || document;
+        const model = box.querySelector('.ah-brain-model')?.value || 'gpt-4o-mini';
+        await persistAgentBrain({ model });
+    }
+
+    async function saveAgentAstra(btn) {
+        const box = btn.closest('.ah-form') || btn.closest('.ac-form') || document;
+        const raw = box.querySelector('.ah-astra-balance')?.value;
+        const currency = box.querySelector('.ah-astra-currency')?.value || 'USD';
+        let balance = null;
+        if (raw != null && String(raw).trim() !== '') {
+            balance = Number(String(raw).replace(',', '.'));
+            if (Number.isNaN(balance)) {
+                showPremiumModal('warning', 'Astra', 'Напишите остаток числом.');
+                return;
+            }
+        }
+        await persistAgentBrain({ astra_balance: balance, astra_currency: currency });
     }
 
     window.openAgentHubForm = openAgentHubForm;
@@ -14742,8 +15103,10 @@
     window.deleteWhatsAppAgent = deleteWhatsAppAgent;
     window.submitTelegramBotHub = submitTelegramBotHub;
     window.selectAgentTgChannel = selectAgentTgChannel;
+    window.focusAgentTelegram = focusAgentTelegram;
     window.sendAgentTgMessage = sendAgentTgMessage;
     window.saveAgentBrain = saveAgentBrain;
+    window.saveAgentAstra = saveAgentAstra;
 
     const AGENT_FNS = [
         { id: 'invite', n: 1, title: 'Пригласительная ссылка', desc: 'Ссылка в кабинет WB по телефону сотрудника и правам доступа.', who: 'Карина' },

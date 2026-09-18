@@ -1686,6 +1686,78 @@ assert.ok(
     'can add a Telegram bot, list channel status, and send a site message into the TG chat'
 );
 
+{
+    const astraMig = fs.readFileSync(
+        path.join(__dirname, 'supabase/migrations/20260918120000_agent_brain_astra.sql'), 'utf8');
+    assert.ok(
+        html.includes('id="agents-canvas"') &&
+        html.includes('function renderAgentsCanvas') &&
+        html.includes('function persistAgentBrain') &&
+        html.includes('function saveAgentAstra') &&
+        html.includes('function formatAstraBalance') &&
+        html.includes('function connectedAgentNames') &&
+        html.includes('ac-model-btn') &&
+        html.includes("openAgentHubForm('brain')") &&
+        html.includes("openAgentHubForm('astra')") &&
+        html.includes('актуально') &&
+        html.includes('подключены:') &&
+        html.includes('Astra') &&
+        html.includes('баланс') &&
+        html.includes("'gpt-5'") &&
+        html.includes('astra_balance') &&
+        !/_agentHub\.brain = \{ provider: 'chatgpt', model \}/.test(html) &&
+        !/api\.openai\.com\/v1\/organization/.test(html) &&
+        !/organization\/usage/.test(html),
+        'Agents canvas: ChatGPT hub, current model, connected agents, Astra balance, no live OpenAI billing'
+    );
+    assert.ok(
+        astraMig.includes('astra_balance') &&
+        astraMig.includes('astra_currency') &&
+        astraMig.includes('add column if not exists') &&
+        /не тянется|не живой/i.test(astraMig),
+        'agent_brain stores a manual Astra remainder, not a live OpenAI pull'
+    );
+    function sliceFn(src, name) {
+        const start = src.indexOf(`function ${name}`);
+        assert.ok(start >= 0, `dashboard must define ${name}`);
+        let i = src.indexOf('{', start);
+        let depth = 0;
+        for (; i < src.length; i++) {
+            if (src[i] === '{') depth++;
+            else if (src[i] === '}') {
+                depth--;
+                if (depth === 0) return src.slice(start, i + 1);
+            }
+        }
+        throw new Error('unclosed ' + name);
+    }
+    const fake = {
+        _agentHub: { brain: { provider: 'chatgpt', model: 'gpt-4o-mini', astra_balance: 12, astra_currency: 'USD' } },
+        _tgBotsState: { channels: { sales: { configured: true } } },
+        TG_CHANNEL_LABELS: { sales: 'Продажи' },
+    };
+    const helpers = [
+        sliceFn(html, 'mergeAgentBrain'),
+        sliceFn(html, 'formatAstraBalance'),
+        sliceFn(html, 'connectedAgentNames'),
+    ].join('\n');
+    const run = Function('_agentHub', '_tgBotsState', 'TG_CHANNEL_LABELS', `${helpers}
+        return {
+            usd: formatAstraBalance({ astra_balance: 12.4, astra_currency: 'USD' }),
+            rub: formatAstraBalance({ astra_balance: 1500, astra_currency: 'RUB' }),
+            empty: formatAstraBalance({ astra_balance: null }),
+            keepAstra: mergeAgentBrain({ model: 'gpt-5' }),
+            names: connectedAgentNames(),
+        };`);
+    const got = run(fake._agentHub, fake._tgBotsState, fake.TG_CHANNEL_LABELS);
+    assert.ok(got.usd.includes('12') && got.usd.includes('$'), 'Astra USD balance is visible');
+    assert.ok(got.rub.includes('1') && got.rub.includes('₽'), 'Astra RUB balance is visible');
+    assert.strictEqual(got.empty, 'не задан');
+    assert.strictEqual(got.keepAstra.model, 'gpt-5');
+    assert.strictEqual(got.keepAstra.astra_balance, 12);
+    assert.ok(got.names.includes('Карина') && got.names.includes('Телеграм'), 'canvas lists people and connected Telegram');
+}
+
 // Хаб агентов — внутренняя страница команды. У клиента она давала 404 в консоль
 // (таблиц не было) и показывала реестр наших ботов, поэтому вкладка скрыта и
 // закрыта в базе: whatsapp_agents / agent_brain / telegram_bots — только is_staff().
