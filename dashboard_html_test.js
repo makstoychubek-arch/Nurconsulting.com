@@ -105,6 +105,19 @@ assert.ok(html.includes('goods-compact') && html.includes("name === 'goods-group
     'Товары tabs sit below the title with room to breathe');
 assert.ok(html.includes('id="ads-hq-reload"') && html.includes('id="adv-sync-btn"') && html.includes('rnp-tool-icon'),
     'Ads refresh buttons are the same round icons, top-right');
+assert.ok(
+    html.includes('id="ads-hq-search"') &&
+    html.includes('id="ads-hq-period"') &&
+    html.includes('ads-hq-tools') &&
+    html.includes('id="ads-hq-when-btn"') &&
+    html.includes('module-date-label'),
+    'RK toolbar has a period chip, search and RNP-soft tools on the right'
+);
+assert.ok(
+    html.includes('class="rnp-tool-icon" id="ads-hq-bulk-pause"') &&
+    html.includes('class="rnp-tool-icon" id="ads-hq-bulk-start"'),
+    'RK pause and start sit in the same round icon row as refresh'
+);
 assert.ok(!/adv-sync-btn[\s\S]{0,400}btn\.textContent =/.test(html),
     'Ads icon buttons keep their SVG while syncing');
 assert.ok(!html.includes('data-adv-module="cards"') && !html.includes('id="adv-view-cards"') && !html.includes('showAdvertisingCardsView'),
@@ -1350,6 +1363,8 @@ assert.ok(html.includes('contain: layout style'),
         'RK KPIs follow the header cabinet, not the first row of a stale model');
     assert.ok(!adsHqSrc.includes('подтягиваем полки из WB'),
         'opening an empty cabinet must not block on a live WB sync');
+    assert.ok(adsHqSrc.includes('usedYesterday') && adsHqSrc.includes('function compareCampaigns') && adsHqSrc.includes('extendRangeForRanking'),
+        'RK lists yesterday-used campaigns first and keeps a lookback for that sort');
 }
 assert.ok(rnpSrc.includes('function _fillRnpChrome') && rnpSrc.includes('nr-rnp-lock') && rnpSrc.includes('function _rnpIdbPut'),
     'F5 chrome stays put and the full sheet is also stored in IndexedDB');
