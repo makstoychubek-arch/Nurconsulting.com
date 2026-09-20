@@ -66,6 +66,18 @@ assert.equal(seoSlides[1].headline, '');
 assert.ok(seoSlides[2].headline || seoSlides[2].line);
 assert.deepEqual(CF.parseGptOverlayJson('{"overlays":[{"kind":"cover","headline":"Костюм","line":"офис"}]}', ['cover'], [{ headline: 'x', line: '' }])[0], { headline: 'Костюм', line: 'офис' });
 
+assert.equal(CF.dedupeSeoText('Костюм женский костюм брючный костюм'), 'Костюм женский брючный');
+assert.equal(CF.shortSeo('Костюм костюм'), 'Костюм');
+{
+    const stuffed = CF.layoutSeoOverlays(['cover', 'photo'], {
+        title: 'Костюм женский костюм брючный костюм',
+        description: 'Костюм классический для офиса. Прямые брюки держат стрелку.',
+    });
+    assert.equal((stuffed[0].headline.match(/костюм/gi) || []).length, 1);
+    assert.equal(/костюм/i.test(stuffed[0].line), false);
+    assert.ok(stuffed[0].headline.length <= 32);
+}
+
 const posts = [
     { id: '1', platform: 'instagram', status: 'published', blogger_id: 'b1', publish_at: '2026-09-10T10:00:00', views: 100, article_id: 1 },
     { id: '2', platform: 'tiktok', status: 'draft', blogger_id: 'b2', publish_at: '2026-09-11T10:00:00', views: 500, article_id: 2 },

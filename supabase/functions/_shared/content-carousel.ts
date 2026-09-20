@@ -158,7 +158,7 @@ export function planCarouselSlides(input: CarouselInput): SlidePlan[] {
         const u = pool[i] || pool[i % Math.max(pool.length, 1)];
         if (u) plains.push(u);
     }
-    const title = String(input.title || '').trim();
+    const title = shortSeo(String(input.title || '').trim(), 60);
     const composition = String(input.composition || '').trim();
     const brand = String(input.brand || '').trim() || 'NR';
     const price = nPrice(input.price);
@@ -179,6 +179,52 @@ export function planCarouselSlides(input: CarouselInput): SlidePlan[] {
     return raw.map((p, i) => ({ ...p, headline: overlays[i].headline, line: overlays[i].line }));
 }
 
+export const SEO_HEADLINE_MAX = 32;
+export const SEO_LINE_MAX = 52;
+
+const SEO_STOP = new Set([
+    'и', 'в', 'во', 'на', 'с', 'со', 'к', 'ко', 'по', 'для', 'из', 'от', 'до',
+    'или', 'а', 'но', 'как', 'при', 'без', 'над', 'под', 'о', 'об', 'про',
+    'же', 'ли', 'бы', 'это', 'этот', 'эта', 'эти', 'тот', 'та', 'те', 'не',
+    'ни', 'да', 'у', 'за', 'через',
+]);
+
+export function seoToken(word: unknown): string {
+    const w = String(word || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]+/g, '');
+    if (!w || SEO_STOP.has(w)) return '';
+    const stem = w.replace(/(иями|ями|ами|ого|ему|ому|ыми|ими|ов|ев|ей|ой|ий|ый|ая|ое|ее|ые|ие|ую|юю|ах|ях|ам|ям|ом|ем|а|я|о|е|у|ю|ы|и|ь)$/i, '');
+    return stem.length >= 4 ? stem : w;
+}
+
+export function dedupeSeoText(text: unknown): string {
+    const words = String(text || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const w of words) {
+        const t = seoToken(w);
+        if (t && seen.has(t)) continue;
+        if (t) seen.add(t);
+        out.push(w);
+    }
+    return out.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+export function withoutUsedSeo(text: unknown, used: Set<string>): string {
+    const words = String(text || '').replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
+    const out: string[] = [];
+    for (const w of words) {
+        const t = seoToken(w);
+        if (t && used.has(t)) continue;
+        out.push(w);
+        if (t) used.add(t);
+    }
+    return out.join(' ').replace(/\s+/g, ' ').trim();
+}
+
+export function shortSeo(text: unknown, max = SEO_HEADLINE_MAX): string {
+    return clipText(dedupeSeoText(text), max);
+}
+
 export function clipText(s: unknown, max: number): string {
     const t = String(s || '').replace(/\s+/g, ' ').trim();
     if (!t) return '';
@@ -197,44 +243,57 @@ export function splitSeoSentences(text: unknown): string[] {
         .filter((s) => s.length >= 8);
 }
 
-function splitHeadlineLine(sentence: string): SlideOverlay {
-    const t = String(sentence || '').replace(/\s+/g, ' ').trim();
+function splitHeadlineLine(sentence: string, used?: Set<string>): SlideOverlay {
+    const bag = used || new Set<string>();
+    const t = withoutUsedSeo(dedupeSeoText(sentence), bag);
     if (!t) return { headline: '', line: '' };
     const words = t.split(' ').filter(Boolean);
-    if (words.length <= 5 && t.length <= 42) return { headline: clipText(t, 42), line: '' };
-    const n = Math.min(5, Math.max(2, Math.ceil(words.length / 3)));
-    const headline = clipText(words.slice(0, n).join(' '), 42);
-    const rest = words.slice(n).join(' ');
-    return { headline, line: clipText(rest, 90) };
+    if (words.length <= 4 && t.length <= SEO_HEADLINE_MAX) return { headline: clipText(t, SEO_HEADLINE_MAX), line: '' };
+    const n = Math.min(4, Math.max(2, Math.ceil(words.length / 3)));
+    return {
+        headline: clipText(words.slice(0, n).join(' '), SEO_HEADLINE_MAX),
+        line: clipText(words.slice(n).join(' '), SEO_LINE_MAX),
+    };
 }
 
-/** SEO-описание WB по слайдам: обложка — название, фото — факты, коллаж без текста. */
+/** SEO-описание WB по слайдам: короткие слова, без повторов корня. */
 export function layoutSeoOverlays(
     kinds: SlideKind[],
     input: { description?: string; title?: string; composition?: string; brand?: string },
 ): SlideOverlay[] {
     const sentences = splitSeoSentences(input.description || '');
-    const title = clipText(input.title, 42);
-    const composition = clipText(input.composition, 70);
+    const title = shortSeo(input.title, SEO_HEADLINE_MAX);
+    const composition = shortSeo(input.composition, SEO_LINE_MAX);
+    const used = new Set<string>();
     let i = 0;
     const take = () => sentences[i++] || '';
     let photos = 0;
     return kinds.map((kind) => {
         if (kind === 'cover') {
             const hook = take();
-            return { headline: title || clipText(hook, 42), line: title ? clipText(hook, 70) : '' };
+            const headline = title || shortSeo(hook, SEO_HEADLINE_MAX);
+            collectSeoInto(headline, used);
+            const line = clipText(withoutUsedSeo(hook, used), SEO_LINE_MAX);
+            return { headline, line };
         }
         if (kind === 'collage') return { headline: '', line: '' };
         if (kind === 'photo') {
             photos += 1;
             if (photos === 2 && composition) {
                 const already = sentences.some((s) => composition.length >= 4 && s.toLowerCase().includes(composition.slice(0, 8).toLowerCase()));
-                if (!already) return { headline: 'Состав', line: composition };
+                if (!already) {
+                    collectSeoInto(composition, used);
+                    return { headline: 'Состав', line: composition };
+                }
             }
-            return splitHeadlineLine(take() || (photos === 1 ? composition : ''));
+            return splitHeadlineLine(take() || (photos === 1 ? composition : ''), used);
         }
         return { headline: '', line: '' };
     });
+}
+
+function collectSeoInto(text: string, used: Set<string>) {
+    withoutUsedSeo(text, used);
 }
 
 export function parseGptOverlayJson(
@@ -253,6 +312,7 @@ export function parseGptOverlayJson(
     const list = Array.isArray(data) ? data : (obj && (obj.overlays || obj.slides));
     if (!Array.isArray(list)) return fallback;
     const used = new Set<number>();
+    const stems = new Set<string>();
     return kinds.map((kind, i) => {
         let row: Record<string, unknown> | null = null;
         const at = list[i];
@@ -274,10 +334,12 @@ export function parseGptOverlayJson(
             }
         }
         if (!row) return fallback[i] || { headline: '', line: '' };
-        const headline = clipText(String(row.headline ?? row.title ?? ''), 42);
-        const line = clipText(String(row.line ?? row.text ?? row.body ?? ''), 90);
-        if (!headline && !line) return fallback[i] || { headline: '', line: '' };
-        return { headline, line };
+        const headline = shortSeo(String(row.headline ?? row.title ?? ''), SEO_HEADLINE_MAX);
+        const lineRaw = dedupeSeoText(String(row.line ?? row.text ?? row.body ?? ''));
+        const head = withoutUsedSeo(headline, stems);
+        const line = clipText(withoutUsedSeo(lineRaw, stems), SEO_LINE_MAX);
+        if (!head && !line) return fallback[i] || { headline: '', line: '' };
+        return { headline: head, line };
     });
 }
 
