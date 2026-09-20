@@ -86,3 +86,25 @@ export function extractMainPhotoUrl(card: Record<string, unknown> | null | undef
     if (u.startsWith('//')) u = 'https:' + u;
     return u;
 }
+
+/** Готовый URL обложки из РНП / карточки — без пробы CDN. */
+export function pickCachedPhotoUrl(raw: unknown): string | null {
+    let url = String(raw || '').trim();
+    if (!url) return null;
+    if (url.startsWith('//')) url = `https:${url}`;
+    return /^https?:\/\//i.test(url) ? url : null;
+}
+
+/** Обложка карточки: сначала кэш, иначе проба basket-XX как у отзывов. */
+export async function resolveWbCardPhotoUrl(
+    nmId: number,
+    cachedUrl?: string | null,
+): Promise<string | null> {
+    const cached = pickCachedPhotoUrl(cachedUrl);
+    if (cached) return cached;
+    const id = Number(nmId) || 0;
+    if (!id) return null;
+    const basket = await probeWbBasketHost(id);
+    if (!basket) return null;
+    return wbBasketPhotoUrl(basket, id, WB_MAIN_PHOTO_SLOT);
+}

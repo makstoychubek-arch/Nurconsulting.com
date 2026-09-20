@@ -1,4 +1,4 @@
-// Автоответы на неотвеченные вопросы WB во всех кабинетах + карточка с тегом.
+// Автоответы на неотвеченные вопросы WB во всех кабинетах + фото-карточка как у отзывов.
 // Cron: */10. Auth: service_role. В тим-чат не пишем — только TELEGRAM_CHAT_REVIEWS.
 // Мьют кабинета не пропускает автоответ: реплай на карточку правит PATCH.
 
@@ -6,6 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { getTelegramToken } from '../_shared/telegram-routing.ts';
 import { FEEDBACKS_API, wbError, wbSend } from '../_shared/wb-agent-wow.ts';
+import { pickCachedPhotoUrl, resolveWbCardPhotoUrl } from '../_shared/wb-main-photo.ts';
 import {
     answerWbQuestion,
     buildAutoQuestionAnswer,
@@ -14,8 +15,9 @@ import {
     formatRestockTelegramCard,
     normalizeWhenPhrase,
     ownerMention,
+    collectOpenQuestions,
+    mergeQuestionPages,
     parseNewFeedbacksQuestions,
-    pickOpenQuestions,
     resolveStaffAnswer,
     setTelegramReaction,
     type RestockQuestion,
@@ -118,19 +120,21 @@ Deno.serve(async (req) => {
         }
         await sleep(350);
 
-        // Непросмотренные ≠ неотвеченные: список берём всегда (getV1Questions).
-        const listed = await wbSend(
-            `${FEEDBACKS_API}/api/v1/questions?isAnswered=false&take=50&skip=0&order=dateDesc`,
-            token,
-        );
-        if (!listed.ok) {
-            row.error = wbError(listed);
+        // Непросмотренные ≠ неотвеченные. Листаем все страницы — отвечаем сразу на все.
+        const listed = await listAllUnansweredQuestions(token);
+        if (listed.error && !listed.questions.length) {
+            row.error = listed.error;
             results.push(row);
             continue;
         }
+        if (listed.error) row.list_error = listed.error;
 
-        const questions = pickOpenQuestions(listed.data);
+        const questions = listed.questions;
         row.found = questions.length;
+        row.pages = listed.pages;
+        const photos = dryRun
+            ? new Map<number, string>()
+            : await loadCabinetPhotos(admin, cabinet.id, questions.map((q) => q.nmId));
 
         for (const question of questions) {
             const existing = await admin
@@ -192,6 +196,8 @@ Deno.serve(async (req) => {
                             cabinet.name,
                             cabinet.id,
                             question,
+                            undefined,
+                            await photoForQuestion(question.nmId, photos),
                         );
                         if (!fallback.error && fallback.messageId) {
                             await admin.from('wb_restock_questions').update({
@@ -233,8 +239,11 @@ Deno.serve(async (req) => {
                 answer: wbText,
                 mention: ownerMention(OWNER),
             });
+            const photoUrl = await photoForQuestion(question.nmId, photos);
             if (prevTgId) {
-                const edited = await editTelegramCard(tgToken, reviewsChat, prevTgId, cardText);
+                const edited = photoUrl
+                    ? await editTelegramCaption(tgToken, reviewsChat, prevTgId, cardText)
+                    : await editTelegramText(tgToken, reviewsChat, prevTgId, cardText);
                 if (!edited.error) {
                     row.notified = Number(row.notified || 0) + 1;
                     continue;
@@ -247,6 +256,7 @@ Deno.serve(async (req) => {
                 cabinet.id,
                 question,
                 wbText,
+                photoUrl,
             );
             if (sent.error) {
                 row.telegram_error = sent.error;
@@ -367,8 +377,12 @@ async function resendPendingCard(
         });
     const chatId = String(data.telegram_chat_id || reviewsChat || '').trim();
     const prevId = Number(data.telegram_message_id) || 0;
+    const photos = await loadCabinetPhotos(admin, String(data.cabinet_id), [question.nmId]);
+    const photoUrl = await photoForQuestion(question.nmId, photos);
     if (prevId && chatId) {
-        const edited = await editTelegramCard(tgToken, chatId, prevId, text);
+        const edited = photoUrl
+            ? await editTelegramCaption(tgToken, chatId, prevId, text)
+            : await editTelegramText(tgToken, chatId, prevId, text);
         if (!edited.error) {
             return { ok: true, edited: true, question_id: questionId, message_id: prevId };
         }
@@ -380,6 +394,7 @@ async function resendPendingCard(
         String(data.cabinet_id),
         question,
         sentAnswer || undefined,
+        photoUrl,
     );
     if (sent.error) return { ok: false, error: sent.error, question_id: questionId };
     await admin.from('wb_restock_questions').update({
@@ -391,7 +406,30 @@ async function resendPendingCard(
     return { ok: true, resent: true, question_id: questionId, message_id: sent.messageId };
 }
 
-async function editTelegramCard(
+async function editTelegramCaption(
+    token: string,
+    chatId: string,
+    messageId: number,
+    text: string,
+): Promise<{ error: string | null }> {
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/editMessageCaption`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                message_id: messageId,
+                caption: text.slice(0, 1024),
+            }),
+        });
+        if (!res.ok) return { error: `HTTP ${res.status}` };
+        return { error: null };
+    } catch (e) {
+        return { error: String(e) };
+    }
+}
+
+async function editTelegramText(
     token: string,
     chatId: string,
     messageId: number,
@@ -422,6 +460,7 @@ async function sendTelegramCard(
     cabinetId: string,
     question: RestockQuestion,
     answer?: string,
+    photoUrl?: string | null,
 ): Promise<{ error: string | null; messageId: number | null }> {
     const text = answer
         ? formatAutoAnswerTelegramCard({
@@ -437,6 +476,10 @@ async function sendTelegramCard(
             question,
             mention: ownerMention(OWNER),
         });
+    if (photoUrl) {
+        const photo = await sendTelegramPhoto(token, chatId, photoUrl, text);
+        if (!photo.error) return photo;
+    }
     try {
         const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',
@@ -454,6 +497,93 @@ async function sendTelegramCard(
     } catch (e) {
         return { error: String(e), messageId: null };
     }
+}
+
+async function sendTelegramPhoto(
+    token: string,
+    chatId: string,
+    photoUrl: string,
+    caption: string,
+): Promise<{ error: string | null; messageId: number | null }> {
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                chat_id: chatId,
+                photo: photoUrl,
+                caption: caption.slice(0, 1024),
+            }),
+        });
+        const data = await res.json().catch(() => ({} as Record<string, unknown>));
+        if (!res.ok) return { error: `HTTP ${res.status}`, messageId: null };
+        const messageId = Number((data as { result?: { message_id?: number } })?.result?.message_id);
+        return { error: null, messageId: Number.isFinite(messageId) ? messageId : null };
+    } catch (e) {
+        return { error: String(e), messageId: null };
+    }
+}
+
+const QUESTION_PAGE = 50;
+const QUESTION_PAGE_CAP = 40;
+
+async function listAllUnansweredQuestions(token: string): Promise<{
+    questions: RestockQuestion[];
+    error?: string;
+    pages: number;
+}> {
+    const pages: RestockQuestion[][] = [];
+    let error: string | undefined;
+    for (let i = 0; i < QUESTION_PAGE_CAP; i++) {
+        const skip = i * QUESTION_PAGE;
+        const listed = await wbSend(
+            `${FEEDBACKS_API}/api/v1/questions?isAnswered=false&take=${QUESTION_PAGE}&skip=${skip}&order=dateDesc`,
+            token,
+        );
+        if (!listed.ok) {
+            error = wbError(listed);
+            break;
+        }
+        const batch = collectOpenQuestions(listed.data);
+        pages.push(batch);
+        if (batch.length < QUESTION_PAGE) break;
+        await sleep(200);
+    }
+    return { questions: mergeQuestionPages(pages), error, pages: pages.length };
+}
+
+// deno-lint-ignore no-explicit-any
+async function loadCabinetPhotos(
+    admin: any,
+    cabinetId: string,
+    nmIds: number[],
+): Promise<Map<number, string>> {
+    const out = new Map<number, string>();
+    const ids = [...new Set(nmIds.map(Number).filter(Boolean))];
+    if (!ids.length) return out;
+    const { data } = await admin
+        .from('rnp_articles')
+        .select('nm_id, photo_url')
+        .eq('cabinet_id', cabinetId)
+        .in('nm_id', ids);
+    for (const row of data || []) {
+        const url = pickCachedPhotoUrl(row.photo_url);
+        if (url && row.nm_id) out.set(Number(row.nm_id), url);
+    }
+    return out;
+}
+
+async function photoForQuestion(
+    nmId: number,
+    photos: Map<number, string>,
+): Promise<string | null> {
+    const id = Number(nmId) || 0;
+    if (!id) return null;
+    const cached = photos.get(id);
+    if (cached) return cached;
+    const url = await resolveWbCardPhotoUrl(id);
+    if (url) photos.set(id, url);
+    return url;
 }
 
 async function reactTelegram(

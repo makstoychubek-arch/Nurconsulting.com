@@ -271,11 +271,27 @@ export function pickRestockQuestions(payload: unknown, maxAgeDays = 45): Restock
     ));
 }
 
+/** Неотвеченные с текстом — без отсечки по дате. Автоответ закрывает всю очередь. */
+export function collectOpenQuestions(payload: unknown): RestockQuestion[] {
+    return collectQuestions(payload).filter((q) => Boolean(String(q.text || '').trim()));
+}
+
+export function mergeQuestionPages(pages: RestockQuestion[][]): RestockQuestion[] {
+    const seen = new Set<string>();
+    const out: RestockQuestion[] = [];
+    for (const page of pages) {
+        for (const q of page) {
+            if (!q.id || seen.has(q.id)) continue;
+            seen.add(q.id);
+            out.push(q);
+        }
+    }
+    return out;
+}
+
 /** Все свежие неотвеченные вопросы — в Telegram, не только про поступление. */
 export function pickOpenQuestions(payload: unknown, maxAgeDays = 45): RestockQuestion[] {
-    return collectQuestions(payload).filter((q) => (
-        Boolean(q.text) && isFreshQuestion(q.createdDate, maxAgeDays)
-    ));
+    return collectOpenQuestions(payload).filter((q) => isFreshQuestion(q.createdDate, maxAgeDays));
 }
 
 export function questionCardKind(text: string): 'поступление' | 'вопрос' {

@@ -2,7 +2,9 @@ import assert from 'node:assert/strict';
 import {
     buildWbRestockAnswer,
     cabinetLegalName,
+    collectOpenQuestions,
     collectQuestions,
+    mergeQuestionPages,
     decideRestockInbound,
     extractRestockWhen,
     formatAutoAnswerTelegramCard,
@@ -134,6 +136,19 @@ assert.equal(restock.length, 1);
 assert.equal(restock[0].id, 'q-kostum-1');
 const open = pickOpenQuestions(payload);
 assert.equal(open.length, 2);
+const stalePayload = {
+    data: {
+        questions: [{
+            id: 'q-old',
+            text: 'есть подклад?',
+            createdDate: '2024-01-01T00:00:00.000Z',
+            productDetails: { nmId: 1, productName: 'Платье' },
+        }],
+    },
+};
+assert.equal(collectOpenQuestions(stalePayload).length, 1);
+assert.equal(pickOpenQuestions(stalePayload).length, 0);
+assert.equal(mergeQuestionPages([open, open]).map((q) => q.id).join(','), 'q-kostum-1,q-other');
 const askCard = formatRestockTelegramCard({
     cabinetName: 'Zevina 1',
     cabinetId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
