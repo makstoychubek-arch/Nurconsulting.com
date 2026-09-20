@@ -27,6 +27,8 @@ import {
     restockCardArticleLine,
     resolveStaffAnswer,
     unwrapTelegramMessage,
+    peelCardAndAnswer,
+    isAlreadyAnsweredWb,
 } from './wb-restock-reply.ts';
 
 const qText = 'Добрый день! Ожидается ли в ближайшее время поступление костюма темно-синего цвета 42 размера?';
@@ -160,6 +162,7 @@ assert.equal(shortQuestionQuote('Здравствуйте \nКогда появ�
 
 assert.deepEqual(wbQuestionAnswerPayload('q-1', 'Здравствуйте! Этот товар будет в наличии завтра.'), {
     id: 'q-1',
+    wasViewed: true,
     answer: { text: 'Здравствуйте! Этот товар будет в наличии завтра.' },
     state: 'wbRu',
 });
@@ -417,5 +420,76 @@ assert.equal(lining.action, 'answer');
 if (lining.action === 'answer') {
     assert.equal(lining.wbText, 'Здравствуйте! Да, подклад есть.');
 }
+
+const shotWa = '@maraWuW поступление костюм_оверсайз_шоколад«когда коричневый костюм появится в наличии с 48 размера?»';
+assert.equal(restockCardArticleLine(shotWa), 'костюм_оверсайз_шоколад');
+assert.equal(isRestockCardText(shotWa), true);
+const peeledShot = peelCardAndAnswer(`${shotWa}\nЧерез несколько дней`);
+assert.equal(peeledShot?.answer, 'Через несколько дней');
+assert.match(peeledShot?.card || '', /поступление/);
+
+const manyPending = [
+    ...shotPending,
+    {
+        question_id: 'q-choco',
+        cabinet_id: 'cab-choco',
+        article: 'костюм_оверсайз_шоколад',
+        product: 'Костюм оверсайз шоколад',
+        question_text: 'когда коричневый костюм появится в наличии с 48 размера?',
+        telegram_message_id: 33,
+    },
+    {
+        question_id: 'q-other-open',
+        cabinet_id: 'cab-other',
+        article: 'двойка_юбка_полоска',
+        product: 'Юбка',
+        question_text: 'есть подклад?',
+        telegram_message_id: 12,
+    },
+];
+const waStyle = decideRestockInbound({
+    chatId: '-100rev',
+    messageId: 40,
+    text: `${shotWa}\nЧерез несколько дней`,
+    fromUsername: 'maraWuW',
+    ownerUsername: 'maraWuW',
+    replyToText: '',
+    replyToMessageId: null,
+    pending: manyPending,
+});
+assert.equal(waStyle.action, 'answer');
+if (waStyle.action === 'answer') {
+    assert.equal(waStyle.questionId, 'q-choco');
+    assert.equal(waStyle.when, 'через несколько дней');
+    assert.match(waStyle.wbText, /через несколько дней/);
+}
+
+const quoteOnly = unwrapTelegramMessage({
+    business_message: {
+        message_id: 41,
+        text: 'Через несколько дней',
+        chat: { id: -1001 },
+        from: { username: 'maraWuW', is_bot: false },
+        quote: { text: shotWa },
+        external_reply: { message_id: 10 },
+    },
+});
+assert.ok(quoteOnly);
+assert.equal(quoteOnly?.text, 'Через несколько дней');
+assert.equal(quoteOnly?.replyToMessageId, 10);
+assert.match(quoteOnly?.replyToText || '', /костюм_оверсайз_шоколад/);
+
+assert.equal(isAlreadyAnsweredWb({
+    ok: false,
+    status: 400,
+    data: { errorText: 'Question already answered' },
+    text: 'Question already answered',
+}), true);
+assert.equal(isAlreadyAnsweredWb({
+    ok: false,
+    status: 401,
+    data: { errorText: 'unauthorized' },
+    text: 'unauthorized',
+}), false);
 
 console.log('wb-restock-reply_test: ok');

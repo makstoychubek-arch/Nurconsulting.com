@@ -316,19 +316,27 @@ export function formatRestockTelegramCard(opts: {
 export function wbQuestionAnswerPayload(id: string, text: string) {
     return {
         id: String(id || '').trim(),
+        wasViewed: true,
         answer: { text: String(text || '').trim() },
         state: 'wbRu',
     };
+}
+
+export function isAlreadyAnsweredWb(res: { ok: boolean; status: number; data: unknown; text: string }): boolean {
+    if (res.ok) return false;
+    const raw = `${res.status} ${JSON.stringify(res.data || '')} ${res.text || ''}`;
+    return /already|уже отвеч|has answer|answered/i.test(raw);
 }
 
 export async function answerWbQuestion(token: string, id: string, text: string) {
     const url = `${FEEDBACKS_API}/api/v1/questions`;
     const payload = wbQuestionAnswerPayload(id, text);
     const first = await wbSend(url, token, 'PATCH', payload);
-    if (first.ok) return first;
+    if (first.ok || isAlreadyAnsweredWb(first)) return first.ok ? first : { ...first, ok: true };
     const raw = String(token || '').replace(/^Bearer\s+/i, '').trim();
     if (!raw) return first;
     const retry = await wbSend(url, `Bearer ${raw}`, 'PATCH', payload);
+    if (retry.ok || isAlreadyAnsweredWb(retry)) return retry.ok ? retry : { ...retry, ok: true };
     return retry.ok || retry.status !== first.status ? retry : first;
 }
 
@@ -351,12 +359,48 @@ export function isRestockCardText(text: string): boolean {
 }
 
 export function restockCardArticleLine(text: string): string {
-    const lines = String(text || '').split(/\n/).map((l) => l.trim()).filter(Boolean);
+    const raw = String(text || '').replace(/\r/g, '');
+    const lines = raw.split(/\n/).map((l) => l.trim()).filter(Boolean);
     const start = lines.findIndex((l) => CARD_KIND_RE.test(l));
-    if (start < 0) return '';
+    if (start < 0) {
+        const m = raw.match(/(?:поступление|вопрос)\s+([^\s«"]+)/i);
+        return m ? m[1].trim() : '';
+    }
+    const same = lines[start]
+        .replace(/^@\S+\s*/, '')
+        .replace(/^(поступление|вопрос)\s+/i, '')
+        .split(/[«"]/)[0]
+        .trim();
+    if (same && !CARD_KIND_RE.test(same)) return same;
     const next = lines[start + 1] || '';
     if (!next || /^[«"]/.test(next) || CARD_KIND_RE.test(next)) return '';
-    return next;
+    return next.split(/[«"]/)[0].trim();
+}
+
+/** Карточка + ответ в одном сообщении (реплай-цитата без reply_to, пересылка в WhatsApp-виде). */
+export function peelCardAndAnswer(raw: string): { card: string; answer: string } | null {
+    const text = String(raw || '').replace(/\r/g, '').trim();
+    if (!text) return null;
+    const lines = text.split(/\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length >= 2) {
+        const last = lines[lines.length - 1];
+        const head = lines.slice(0, -1).join('\n');
+        if (isRestockCardText(head) && !/^[«"]/.test(last) && resolveStaffAnswer(last, head)) {
+            return { card: head, answer: last };
+        }
+    }
+    const when = extractRestockWhen(text);
+    if (when && isRestockCardText(text)) {
+        const folded = text.toLowerCase().replace(/ё/g, 'е');
+        const needle = when.toLowerCase().replace(/ё/g, 'е');
+        const idx = folded.lastIndexOf(needle);
+        if (idx >= 8) {
+            const card = text.slice(0, idx).trim();
+            const answer = text.slice(idx).trim();
+            if (card && answer && isRestockCardText(card)) return { card, answer };
+        }
+    }
+    return null;
 }
 
 /** Свои карточки и голые сообщения ботов не считаем ответом менеджера. */
@@ -366,6 +410,7 @@ export function isRestockInboundCandidate(msg: {
     replyToMessageId: number | null;
     isBot: boolean;
 }): boolean {
+    if (peelCardAndAnswer(msg.text)) return true;
     if (isRestockCardText(msg.text) && !msg.replyToMessageId) return false;
     if (msg.isBot && !msg.replyToMessageId) return false;
     return true;
@@ -468,6 +513,21 @@ export function isAllowedRestockChat(
     });
 }
 
+function pickTelegramMessage(update: unknown): Record<string, unknown> | null {
+    const rec = update && typeof update === 'object' ? update as Record<string, unknown> : {};
+    for (const key of [
+        'message',
+        'edited_message',
+        'business_message',
+        'edited_business_message',
+        'channel_post',
+        'edited_channel_post',
+    ]) {
+        if (rec[key] && typeof rec[key] === 'object') return rec[key] as Record<string, unknown>;
+    }
+    return null;
+}
+
 export function unwrapTelegramMessage(update: unknown): {
     chatId: string;
     messageId: number;
@@ -477,26 +537,31 @@ export function unwrapTelegramMessage(update: unknown): {
     replyToMessageId: number | null;
     isBot: boolean;
 } | null {
-    const rec = update && typeof update === 'object' ? update as Record<string, unknown> : {};
-    const msg = (rec.message || rec.edited_message) && typeof (rec.message || rec.edited_message) === 'object'
-        ? (rec.message || rec.edited_message) as Record<string, unknown>
-        : null;
+    const msg = pickTelegramMessage(update);
     if (!msg) return null;
     const chat = msg.chat && typeof msg.chat === 'object' ? msg.chat as Record<string, unknown> : {};
     const from = msg.from && typeof msg.from === 'object' ? msg.from as Record<string, unknown> : {};
     const reply = msg.reply_to_message && typeof msg.reply_to_message === 'object'
         ? msg.reply_to_message as Record<string, unknown>
         : {};
+    const quote = msg.quote && typeof msg.quote === 'object' ? msg.quote as Record<string, unknown> : {};
+    const external = msg.external_reply && typeof msg.external_reply === 'object'
+        ? msg.external_reply as Record<string, unknown>
+        : {};
     const chatId = String(chat.id ?? '').trim();
     const messageId = Number(msg.message_id || 0);
     if (!chatId || !messageId) return null;
+    const rawText = String(msg.text || msg.caption || '');
+    const peeled = peelCardAndAnswer(rawText);
+    const replyToText = String(reply.text || reply.caption || quote.text || peeled?.card || '');
+    const replyToMessageId = Number(reply.message_id || external.message_id || 0) || null;
     return {
         chatId,
         messageId,
-        text: String(msg.text || msg.caption || ''),
+        text: peeled ? peeled.answer : rawText,
         fromUsername: String(from.username || ''),
-        replyToText: String(reply.text || reply.caption || ''),
-        replyToMessageId: Number(reply.message_id || 0) || null,
+        replyToText,
+        replyToMessageId,
         isBot: from.is_bot === true,
     };
 }
@@ -546,7 +611,11 @@ export function decideRestockInbound(input: {
 }): RestockInboundDecision {
     const chatId = String(input.chatId || '');
     const replyToId = input.messageId;
-    const meta = parseRestockCardMeta(input.replyToText);
+    const peeled = peelCardAndAnswer(input.text);
+    const text = peeled ? peeled.answer : input.text;
+    const replyToText = input.replyToText || peeled?.card || '';
+    const work = { ...input, text, replyToText };
+    const meta = parseRestockCardMeta(replyToText);
 
     if (meta) {
         const row = input.pending.find((r) => r.question_id === meta.questionId) || {
@@ -554,38 +623,40 @@ export function decideRestockInbound(input: {
             cabinet_id: meta.cabinetId,
             question_text: '',
         };
-        return finishInbound(input, row, 'card_meta');
+        return finishInbound(work, row, 'card_meta');
     }
 
     const byTg = input.replyToMessageId
         ? input.pending.find((r) => Number(r.telegram_message_id) === Number(input.replyToMessageId))
         : null;
-    if (byTg) return finishInbound(input, byTg, 'tg_message');
+    if (byTg) return finishInbound(work, byTg, 'tg_message');
 
-    if (input.replyToMessageId) {
-        const matched = matchPendingByText(input.replyToText, input.pending);
+    const hay = [replyToText, peeled?.card, text].filter(Boolean).join('\n');
+    const canAnswer = Boolean(resolveStaffAnswer(text, replyToText));
+    if (canAnswer && hay.trim()) {
+        const matched = matchPendingByText(hay, input.pending);
         const row = input.pending.find((r) => r.question_id === matched);
-        if (row) return finishInbound(input, row, 'pending_match');
+        if (row) return finishInbound(work, row, 'pending_match');
     }
 
-    const resolved = resolveStaffAnswer(input.text, '');
+    const resolved = resolveStaffAnswer(text, '');
     const owner = String(input.ownerUsername || '').replace(/^@/, '').toLowerCase();
     const from = String(input.fromUsername || '').replace(/^@/, '').toLowerCase();
     const fromOwner = Boolean(owner && from && owner === from);
 
-    if (resolved && isWhenOnlyReply(input.text) && input.pending.length === 1) {
-        return finishInbound(input, input.pending[0], 'single_pending');
+    if (resolved && isWhenOnlyReply(text) && input.pending.length === 1) {
+        return finishInbound(work, input.pending[0], 'single_pending');
     }
 
-    if (fromOwner && isWhenOnlyReply(input.text) && resolved) {
-        const matched = matchPendingByText(input.replyToText || input.text, input.pending);
+    if (fromOwner && isWhenOnlyReply(text) && resolved) {
+        const matched = matchPendingByText(replyToText || text, input.pending);
         const row = input.pending.find((r) => r.question_id === matched);
-        if (row) return finishInbound(input, row, 'pending_match');
+        if (row) return finishInbound(work, row, 'pending_match');
     }
 
-    const repliedToCard = Boolean(input.replyToMessageId && isRestockCardText(input.replyToText));
+    const repliedToCard = Boolean((input.replyToMessageId || peeled) && isRestockCardText(replyToText));
     if (repliedToCard) {
-        if (!resolveStaffAnswer(input.text, input.replyToText)) {
+        if (!resolveStaffAnswer(text, replyToText)) {
             return { action: 'hint', chatId, replyToId };
         }
         return { action: 'unmatched', chatId, replyToId };
