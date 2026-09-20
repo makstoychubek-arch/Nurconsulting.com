@@ -17,6 +17,7 @@ module.exports = {
     './ads-command-center.js',
     './goods-catalog.js',
     './content-factory.js',
+    './evidence-report.js',
   ],
   darkMode: 'class',
   theme: {
