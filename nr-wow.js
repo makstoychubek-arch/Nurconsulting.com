@@ -176,7 +176,7 @@
         const box = root || (typeof document !== 'undefined' ? document : null);
         if (!box || reduced() || box.getAttribute('data-nr-wow-spot') === '1') return;
         box.setAttribute('data-nr-wow-spot', '1');
-        const sel = '.kpi-hero-card, .metric-card, .widget-card, .abtest-card, .adv-kpi-tile, .agents-canvas-card, .glass, .cf-card-preview, .rnp-stock-donut, .rnp-stock-scheme-wrap, .ev-kpi';
+        const sel = '.kpi-hero-card, .metric-card, .widget-card, .abtest-card, .adv-kpi-tile, .agents-canvas-card, .glass, .cf-card-preview, .rnp-stock-donut, .rnp-stock-scheme-wrap, .ev-kpi, .dash-plan-card';
         box.addEventListener('pointermove', function (e) {
             const card = e.target && e.target.closest ? e.target.closest(sel) : null;
             if (!card || card.closest('.rnp-sheet-table')) return;

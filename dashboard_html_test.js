@@ -2339,7 +2339,7 @@ assert.ok(
     const esbuild = require('esbuild');
     const stale = [];
     for (const name of ['dashboard-charts.js', 'rnp-module.js', 'wb-formulas.js',
-        'ads-command-center.js', 'goods-catalog.js', 'content-factory.js', 'nr-wow.js']) {
+        'ads-command-center.js', 'goods-catalog.js', 'content-factory.js', 'nr-wow.js', 'dash-cabinet-plans.js']) {
         const built = esbuild.buildSync({
             entryPoints: [path.join(__dirname, name)],
             bundle: false, minify: true, format: 'iife', target: ['es2018'],
@@ -2438,5 +2438,13 @@ assert.ok(
 );
 assert.ok(html.includes("summary: '/reports'") && html.includes("'/reports': 'summary'"),
     '/reports opens the live summary tab');
+assert.ok(
+    html.includes('id="dash-plan-cabs"') && html.includes('План заказов · все кабинеты'),
+    'dashboard shows plan cards for every cabinet'
+);
+assert.ok(
+    /<script src="\/(?:dist\/)?dash-cabinet-plans(?:\.[0-9a-f]+)?(?:\.min)?\.js"><\/script>/.test(html),
+    'dash-cabinet-plans script is on the dashboard'
+);
 
 console.log('dashboard_html_test: ok');
