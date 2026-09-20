@@ -94,6 +94,8 @@ runRecover().then(() => {
     assert.strictEqual(NrAuth.isAppShellPath(), true);
     windowStub.location.pathname = '/goods';
     assert.strictEqual(NrAuth.isAppShellPath(), true);
+    windowStub.location.pathname = '/reports';
+    assert.strictEqual(NrAuth.isAppShellPath(), true);
     windowStub.location.pathname = '/';
     assert.strictEqual(NrAuth.isAppShellPath(), false);
 

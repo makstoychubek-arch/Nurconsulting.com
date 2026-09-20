@@ -70,11 +70,11 @@ assert.ok(/<span class="rail-btn-lbl">А\/Б<\/span>/.test(html) && /data-tab="a
 assert.ok(!/<span class="rail-btn-lbl">Тарифы<\/span>/.test(html), 'Тарифы must not stay on the main rail');
 assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
     'ocr/rnp/tariffs flyouts must stay folded into BETA');
-assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents'])"),
-    'dashboard, settings, RNP, advertising, A/B, Товары, Контент-завод and Агенты are live tabs');
+assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'summary'])"),
+    'dashboard, settings, RNP, advertising, A/B, Товары, Контент-завод, Агенты and Сводный отчёт are live tabs');
 assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
     'non-live modules must open the BETA stub instead of broken UIs');
-assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары, Контент-завод и Агенты'),
+assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары, Контент-завод, Агенты и Сводный отчёт'),
     'BETA stub must list the live modules');
 assert.ok(html.includes('id="gg-fbo"') && html.includes('id="gg-transit"') && html.includes('goods-catalog'),
     'Товары tab shows FBO/FBS/in-transit columns and loads the Zevina catalog');
@@ -1672,7 +1672,7 @@ assert.ok(
     'Vercel must rewrite /agents to the dashboard'
 );
 assert.ok(
-    html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents'])") &&
+    html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'summary'])") &&
     html.includes('data-tab="agents"') &&
     html.includes('id="agents-hub-side"') &&
     html.includes('function renderAgentHub') &&
@@ -2375,6 +2375,25 @@ assert.ok(
         fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8').includes('"/content"'),
         'Vercel rewrites /content to the dashboard'
     );
+    assert.ok(
+        fs.readFileSync(path.join(__dirname, 'vercel.json'), 'utf8').includes('"/reports"'),
+        'Vercel rewrites /reports to the dashboard'
+    );
 }
+
+assert.ok(html.includes('data-theme="tabler"') && html.includes("NR_THEMES = ['ios', 'tabler', 'neon']"),
+    'Tabler is a third theme and can be rolled back by cycling Тема');
+assert.ok(html.includes('id="evidence-report-root"') && html.includes('EvidenceReport.paint'),
+    'Сводный отчёт paints Evidence P&L from dashboard metrics');
+assert.ok(
+    /<script src="\/(?:dist\/)?evidence-report(?:\.[0-9a-f]+)?(?:\.min)?\.js"><\/script>/.test(html),
+    'evidence-report script is on the dashboard'
+);
+assert.ok(
+    fs.existsSync(path.join(__dirname, 'supabase/functions/_shared/content-carousel-templates.ts')),
+    'carousel Satori templates live next to the PNG renderer'
+);
+assert.ok(html.includes("summary: '/reports'") && html.includes("'/reports': 'summary'"),
+    '/reports opens the live summary tab');
 
 console.log('dashboard_html_test: ok');
