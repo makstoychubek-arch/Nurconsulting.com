@@ -99,7 +99,7 @@ Deno.serve(async (req) => {
             const webhookUrl = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/telegram-webhook`;
             const body: Record<string, unknown> = {
                 url: webhookUrl,
-                allowed_updates: ['message', 'edited_message', 'callback_query'],
+                allowed_updates: ['message', 'edited_message', 'business_message', 'edited_business_message', 'callback_query'],
                 drop_pending_updates: true,
             };
             if (webhookSecret) body.secret_token = webhookSecret;
