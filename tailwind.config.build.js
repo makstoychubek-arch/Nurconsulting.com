@@ -18,6 +18,7 @@ module.exports = {
     './goods-catalog.js',
     './content-factory.js',
     './evidence-report.js',
+    './nr-wow.js',
     './dash-cabinet-plans.js',
   ],
   darkMode: 'class',

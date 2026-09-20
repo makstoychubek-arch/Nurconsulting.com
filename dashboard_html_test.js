@@ -2339,7 +2339,7 @@ assert.ok(
     const esbuild = require('esbuild');
     const stale = [];
     for (const name of ['dashboard-charts.js', 'rnp-module.js', 'wb-formulas.js',
-        'ads-command-center.js', 'goods-catalog.js', 'content-factory.js', 'dash-cabinet-plans.js']) {
+        'ads-command-center.js', 'goods-catalog.js', 'content-factory.js', 'nr-wow.js', 'dash-cabinet-plans.js']) {
         const built = esbuild.buildSync({
             entryPoints: [path.join(__dirname, name)],
             bundle: false, minify: true, format: 'iife', target: ['es2018'],
@@ -2423,6 +2423,14 @@ assert.ok(html.includes('id="evidence-report-root"') && html.includes('EvidenceR
 assert.ok(
     /<script src="\/(?:dist\/)?evidence-report(?:\.[0-9a-f]+)?(?:\.min)?\.js"><\/script>/.test(html),
     'evidence-report script is on the dashboard'
+);
+assert.ok(
+    /<script src="\/(?:dist\/)?nr-wow(?:\.[0-9a-f]+)?(?:\.min)?\.js"><\/script>/.test(html),
+    'nr-wow script is on the dashboard'
+);
+assert.ok(
+    html.includes('NrWow.withView') && html.includes('NrWow.tickSpan') && html.includes('NrWow.spotlight'),
+    'tabs, KPI numbers and cards use the lightweight wow helpers'
 );
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/functions/_shared/content-carousel-templates.ts')),
