@@ -34,7 +34,7 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
     <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.f15faee0ae.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.cec2a9d76c.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -1134,6 +1134,7 @@
             background: var(--surface); border: none;
             border-radius: var(--radius-card); padding: 14px 16px;
             box-shadow: none; transition: background 0.15s ease;
+            position: relative;
         }
         .kpi-hero-card:hover { box-shadow: none; transform: none; background: var(--sel); }
         .kpi-hero-label { font-size: 12px; color: var(--text-muted); font-weight: 600; margin-bottom: 8px; }
@@ -1154,6 +1155,42 @@
             font-size: 8px; font-weight: 600; color: var(--text-muted);
             letter-spacing: 0; line-height: 1.1;
         }
+        .nr-wow-col {
+            display: inline-block; overflow: hidden; height: 1.15em;
+            vertical-align: -0.05em; line-height: 1.15;
+        }
+        .nr-wow-strip {
+            display: flex; flex-direction: column;
+            transition: transform 0.52s cubic-bezier(.22,.9,.3,1);
+        }
+        .nr-wow-strip > span { display: block; height: 1.15em; line-height: 1.15; }
+        .nr-wow-sep { display: inline-block; }
+        .nr-wow-spot {
+            position: absolute; inset: 0; pointer-events: none; border-radius: inherit; z-index: 1;
+            background: radial-gradient(160px circle at var(--spot-x, 50%) var(--spot-y, 50%), rgba(255,255,255,0.12), transparent 58%);
+        }
+        [data-theme="ios"] .nr-wow-spot {
+            background: radial-gradient(160px circle at var(--spot-x, 50%) var(--spot-y, 50%), rgba(6,111,209,0.10), transparent 58%);
+        }
+        .widget-card, .abtest-card, .adv-kpi-tile, .agents-canvas-card,
+        .cf-card-preview, .rnp-stock-donut, .rnp-stock-scheme-wrap, .ev-kpi {
+            position: relative;
+        }
+        .nr-wow-burst {
+            position: fixed; inset: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10050;
+        }
+        @keyframes nr-wow-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(22,163,74,0.38); }
+            100% { box-shadow: 0 0 0 18px rgba(22,163,74,0); }
+        }
+        .nr-wow-pulse { animation: nr-wow-pulse 0.7s ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+            .nr-wow-strip { transition: none !important; }
+            .nr-wow-spot, .nr-wow-burst { display: none !important; }
+            .nr-wow-pulse { animation: none !important; }
+        }
+        ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 160ms; }
         .kpi-hero-sub { font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
         .kpi-spark-wrap { height: 48px; margin-top: 12px; }
         .chart-box { padding: 20px; min-height: 240px; }
@@ -6911,12 +6948,13 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.f060ba3215.min.js"></script>
+<script src="/dist/rnp-module.9d5dc5eac8.min.js"></script>
 <script src="/dist/wb-formulas.11317eb115.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.b0b5755ef6.min.js"></script>
+<script src="/dist/ads-command-center.210aaba4a1.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
+<script src="/dist/nr-wow.321019e83d.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -8102,6 +8140,10 @@
             <div style="position:absolute;bottom:0;left:0;height:2px;background:${c.bar};width:100%;transform-origin:left;animation:toast-bar ${dur}ms linear forwards"></div>`;
         wrap.appendChild(t);
         requestAnimationFrame(() => { t.style.opacity = '1'; t.style.transform = 'translateX(0) scale(1)'; });
+        if (type === 'success' && window.NrWow) {
+            const r = t.getBoundingClientRect();
+            window.NrWow.burst({ x: r.left + r.width * 0.12, y: r.top + 8, count: 22 });
+        }
         setTimeout(() => {
             t.style.opacity = '0'; t.style.transform = 'translateX(30px) scale(0.95)';
             setTimeout(() => t.remove(), 300);
@@ -8401,50 +8443,54 @@
             openBetaStub(name, el);
             return;
         }
-        window._betaStubTab = null;
-        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.nav-item, .nav-item-standalone').forEach(n => n.classList.remove('active'));
-        document.getElementById('tab-' + name)?.classList.add('active');
-        highlightNavForTab(name, el);
-        updateHeaderNav(name);
-        document.documentElement.removeAttribute('data-nr-early');
-        if (name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'ab-testing' || name === 'goods-groups' || name === 'content-factory' || name === 'agents') {
-            window.closeSidebarMenus?.(true);
-        }
-        document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
-        document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
-        document.querySelector('.main-content')?.classList.toggle('goods-compact', name === 'goods-groups' || name === 'advertising' || name === 'ab-testing' || name === 'content-factory');
-        if (name === 'ab-testing') loadABTests();
-        if (name === 'advertising' && hasUserCabinets) openAdvertisingTab();
-        if (name === 'dds' && hasUserCabinets && window._financeDdsLoadedForCabinet !== currentCabinetId) {
-            window._financeDdsLoadedForCabinet = currentCabinetId;
-            loadFinanceDds();
-        }
-        if (name === 'logistics' && hasUserCabinets) initLogisticsSupplies();
-        if (name === 'seo' && hasUserCabinets) loadSeoKeywords();
-        if (name === 'goods-groups' && hasUserCabinets) loadGoodsGroups();
-        if (name === 'marking') {
-            initMarkingModule();
-            if (hasUserCabinets && window._markingReportLoadedForCabinet !== currentCabinetId) loadMarkingComplianceReport();
-        }
-        if (name === 'rnp') bootRnpTab(true);
-        if (name === 'planning' && hasUserCabinets) loadPlanningTab();
-        if (name === 'telegram-bots') loadTelegramBotsPage();
-        if (name === 'ozon') loadOzonTokenPage();
-        if (name === 'agents') loadAgentsPage();
-        if (name === 'content-factory' && hasUserCabinets) bootContentFactory();
-        if (name === 'summary' && window.EvidenceReport && window._lastDashMetrics) {
-            window.EvidenceReport.paint('evidence-report-root', window._lastDashMetrics, window._lastDashReportExtra || {});
-        }
-        if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
-        if (window.innerWidth <= 768) {
-            closeMobileMenu();
-            closeBetaSheet();
-        }
-        syncRailGroup(name);
-        syncModuleUrl(name);
-        try { localStorage.setItem('nr_active_tab', name); } catch(e) {}
-        updateEmptyCabinetState();
+        const apply = () => {
+            window._betaStubTab = null;
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.nav-item, .nav-item-standalone').forEach(n => n.classList.remove('active'));
+            document.getElementById('tab-' + name)?.classList.add('active');
+            highlightNavForTab(name, el);
+            updateHeaderNav(name);
+            document.documentElement.removeAttribute('data-nr-early');
+            if (name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'ab-testing' || name === 'goods-groups' || name === 'content-factory' || name === 'agents') {
+                window.closeSidebarMenus?.(true);
+            }
+            document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
+            document.querySelector('.main-content')?.classList.toggle('logistics-compact', name === 'logistics');
+            document.querySelector('.main-content')?.classList.toggle('goods-compact', name === 'goods-groups' || name === 'advertising' || name === 'ab-testing' || name === 'content-factory');
+            if (name === 'ab-testing') loadABTests();
+            if (name === 'advertising' && hasUserCabinets) openAdvertisingTab();
+            if (name === 'dds' && hasUserCabinets && window._financeDdsLoadedForCabinet !== currentCabinetId) {
+                window._financeDdsLoadedForCabinet = currentCabinetId;
+                loadFinanceDds();
+            }
+            if (name === 'logistics' && hasUserCabinets) initLogisticsSupplies();
+            if (name === 'seo' && hasUserCabinets) loadSeoKeywords();
+            if (name === 'goods-groups' && hasUserCabinets) loadGoodsGroups();
+            if (name === 'marking') {
+                initMarkingModule();
+                if (hasUserCabinets && window._markingReportLoadedForCabinet !== currentCabinetId) loadMarkingComplianceReport();
+            }
+            if (name === 'rnp') bootRnpTab(true);
+            if (name === 'planning' && hasUserCabinets) loadPlanningTab();
+            if (name === 'telegram-bots') loadTelegramBotsPage();
+            if (name === 'ozon') loadOzonTokenPage();
+            if (name === 'agents') loadAgentsPage();
+            if (name === 'content-factory' && hasUserCabinets) bootContentFactory();
+            if (name === 'summary' && window.EvidenceReport && window._lastDashMetrics) {
+                window.EvidenceReport.paint('evidence-report-root', window._lastDashMetrics, window._lastDashReportExtra || {});
+            }
+            if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
+            if (window.innerWidth <= 768) {
+                closeMobileMenu();
+                closeBetaSheet();
+            }
+            syncRailGroup(name);
+            syncModuleUrl(name);
+            try { localStorage.setItem('nr_active_tab', name); } catch(e) {}
+            updateEmptyCabinetState();
+        };
+        if (window.NrWow) window.NrWow.withView(apply);
+        else apply();
     }
 
     window._advLastLoadedAt = window._advLastLoadedAt || 0;
@@ -12700,15 +12746,31 @@
                 ? { num: pct[1].trim(), unit: '%', extra: '' }
                 : { num: raw, unit: '', extra: '' };
         const esc = (typeof escapeHtml === 'function') ? escapeHtml : function (s) { return String(s); };
+        const prevNum = (typeof el.querySelector === 'function' && el.querySelector('.nr-num'))
+            ? el.querySelector('.nr-num').textContent
+            : '';
         el.innerHTML = '<span class="' + dashNumFitClass(parts.num) + '">' + esc(parts.num) + '</span>'
             + (parts.unit ? '<span class="nr-num-unit">' + esc(parts.unit) + '</span>' : '')
             + (parts.extra ? '<span class="nr-num-extra">· ' + esc(parts.extra) + '</span>' : '');
+        if (typeof window !== 'undefined' && window.NrWow && typeof el.querySelector === 'function') {
+            window.NrWow.tickSpan(el.querySelector('.nr-num'), prevNum, parts.num);
+        }
     }
     window.paintNrNum = paintNrNum;
 
+    function isNrNumHost(el) {
+        return !!(el && el.classList && (
+            el.classList.contains('kpi-hero-value') ||
+            el.classList.contains('metric-card-value') ||
+            el.classList.contains('ev-kpi-v') ||
+            el.classList.contains('adv-kpi-tile-value') ||
+            el.hasAttribute('data-metric')
+        ));
+    }
+
     function restyleDashNums(root) {
         const box = root || document.getElementById('tab-dashboard') || document;
-        box.querySelectorAll('.kpi-hero-value, .metric-card-value, .ev-kpi-v, [data-metric]').forEach((node) => {
+        box.querySelectorAll('.kpi-hero-value, .metric-card-value, .ev-kpi-v, .adv-kpi-tile-value, [data-metric]').forEach((node) => {
             if (node.querySelector('.nr-num')) return;
             paintNrNum(node, node.textContent);
         });
@@ -12717,7 +12779,7 @@
     function setText(id, val) {
         const el = document.getElementById(id);
         if (!el) return;
-        if (el.classList.contains('kpi-hero-value') || el.classList.contains('metric-card-value') || el.classList.contains('ev-kpi-v') || el.hasAttribute('data-metric')) {
+        if (isNrNumHost(el)) {
             paintNrNum(el, val);
             return;
         }
@@ -13740,6 +13802,11 @@
 
         clearInterval(abRotationTimers[String(testId)]);
         delete abRotationTimers[String(testId)];
+        if (finishReason === 'winner_determined' && window.NrWow) {
+            window.NrWow.burst({ count: 44, colors: ['#16A34A', '#F59E0B', '#066FD1', '#FFFFFF'] });
+            const card = document.querySelector('.abtest-card[data-id="' + testId + '"], .abtest-card[data-test-id="' + testId + '"]');
+            if (card) window.NrWow.pulse(card);
+        }
         showPremiumModal('success', 'Тест завершён', paused.length
             ? `Ротация остановлена, на паузе ${paused.length} РК.`
             : 'А/Б тест остановлен.');
@@ -16601,6 +16668,9 @@
     function closeSupplyDetail() { document.getElementById('supply-detail-modal').classList.add('hidden'); }
 
     document.addEventListener('DOMContentLoaded', async () => {
+        if (window.NrWow) {
+            try { window.NrWow.spotlight(document); } catch (e) {}
+        }
         if (!supabase) {
             window._nrInitDone = true;
             return;

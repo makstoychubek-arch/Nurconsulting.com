@@ -669,7 +669,10 @@
         if (vals && vals.length === tiles.length) {
             tiles.forEach(([label, value], i) => {
                 if (labs[i] && labs[i].textContent !== label) labs[i].textContent = label;
-                if (vals[i] && vals[i].textContent !== value) vals[i].textContent = value;
+                if (vals[i] && vals[i].textContent !== value) {
+                    if (window.NrWow) window.NrWow.tickText(vals[i], value);
+                    else vals[i].textContent = value;
+                }
             });
             return;
         }

@@ -5269,7 +5269,12 @@ const RNP = (() => {
             return;
         }
         if (!dst.children.length && !src.children.length) {
-            if (dst.textContent !== src.textContent) dst.textContent = src.textContent;
+            if (dst.textContent !== src.textContent) {
+                const wow = window.NrWow;
+                const tick = wow && dst.matches && dst.matches('.rnp-stock-donut-center b, .rnp-gs-money-val, .rnp-kpi b');
+                if (tick) wow.tickText(dst, src.textContent);
+                else dst.textContent = src.textContent;
+            }
             return;
         }
         if (dst.querySelector && dst.querySelector('canvas, input, textarea, select, .rnp-marquee-wrap')) return;
