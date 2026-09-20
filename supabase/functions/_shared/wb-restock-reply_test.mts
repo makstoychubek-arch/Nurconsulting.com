@@ -7,7 +7,9 @@ import {
     mergeQuestionPages,
     decideRestockInbound,
     extractRestockWhen,
+    formatAutoAnswerMatchCaption,
     formatAutoAnswerTelegramCard,
+    formatQuestionReportWhen,
     formatRestockTelegramCard,
     buildAutoQuestionAnswer,
     shortQuestionQuote,
@@ -525,10 +527,14 @@ const autoCard = formatAutoAnswerTelegramCard({
     mention: '@maraWuW',
 });
 assert.match(autoCard, /@maraWuW автоответ · поступление/);
-assert.match(autoCard, /ушло:/);
+assert.match(autoCard, /Вопрос/);
+assert.match(autoCard, /Ответ/);
+assert.match(autoCard, /в ближайшее время/);
 assert.equal(isRestockCardText(autoCard), true);
 assert.equal(restockCardArticleLine(autoCard), 'kostkom_oversize_temnosiniy');
 assert.equal(peelCardAndAnswer(autoCard), null);
+assert.match(formatAutoAnswerMatchCaption({ question: restock[0], mention: '@maraWuW' }), /автоответ · поступление/);
+assert.match(formatQuestionReportWhen('2026-09-20T17:10:00.000Z'), /\d{2}\.\d{2} \d{2}:\d{2}/);
 assert.equal(isRestockInboundCandidate({
     text: autoCard,
     replyToText: '',

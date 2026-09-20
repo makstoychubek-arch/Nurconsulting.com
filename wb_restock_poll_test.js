@@ -34,6 +34,9 @@ assert.ok(poll.includes('wb_restock_questions'), 'poll stores pending cards');
 assert.ok(poll.includes('formatRestockTelegramCard'), 'poll keeps a manual card if WB PATCH fails');
 assert.ok(poll.includes('formatAutoAnswerTelegramCard'), 'poll tags the owner after an auto-answer');
 assert.ok(poll.includes('sendPhoto'), 'auto-answer card is a product photo like reviews');
+assert.ok(poll.includes('renderQuestionAnswerReportPng'), 'auto-answer sends a review-style report PNG');
+assert.ok(poll.includes('question-report.png'), 'report PNG is uploaded as a Telegram photo');
+assert.ok(poll.includes('formatAutoAnswerMatchCaption'), 'PNG caption stays matchable for a reply edit');
 assert.ok(poll.includes('editMessageCaption'), 'photo cards update caption in place');
 assert.ok(poll.includes('rnp_articles') && poll.includes('photo_url'),
     'cover photo comes from rnp_articles then WB basket');

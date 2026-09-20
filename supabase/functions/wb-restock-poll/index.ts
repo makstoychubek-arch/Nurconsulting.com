@@ -1,4 +1,4 @@
-// Автоответы на неотвеченные вопросы WB во всех кабинетах + фото-карточка как у отзывов.
+// Автоответы на неотвеченные вопросы WB во всех кабинетах + PNG-отчёт как у отзывов.
 // Cron: */10. Auth: service_role. В тим-чат не пишем — только TELEGRAM_CHAT_REVIEWS.
 // Мьют кабинета не пропускает автоответ: реплай на карточку правит PATCH.
 
@@ -7,16 +7,20 @@ import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { getTelegramToken } from '../_shared/telegram-routing.ts';
 import { FEEDBACKS_API, wbError, wbSend } from '../_shared/wb-agent-wow.ts';
 import { pickCachedPhotoUrl, resolveWbCardPhotoUrl } from '../_shared/wb-main-photo.ts';
+import { renderQuestionAnswerReportPng } from '../_shared/wb-question-report-png.ts';
 import {
     answerWbQuestion,
     buildAutoQuestionAnswer,
     buildWbRestockAnswer,
+    formatAutoAnswerMatchCaption,
     formatAutoAnswerTelegramCard,
+    formatQuestionReportWhen,
     formatRestockTelegramCard,
     normalizeWhenPhrase,
     ownerMention,
     collectOpenQuestions,
     mergeQuestionPages,
+    questionCardKind,
     parseNewFeedbacksQuestions,
     resolveStaffAnswer,
     setTelegramReaction,
@@ -462,20 +466,41 @@ async function sendTelegramCard(
     answer?: string,
     photoUrl?: string | null,
 ): Promise<{ error: string | null; messageId: number | null }> {
+    const mention = ownerMention(OWNER);
     const text = answer
         ? formatAutoAnswerTelegramCard({
             cabinetName,
             cabinetId,
             question,
             answer,
-            mention: ownerMention(OWNER),
+            mention,
         })
         : formatRestockTelegramCard({
             cabinetName,
             cabinetId,
             question,
-            mention: ownerMention(OWNER),
+            mention,
         });
+    if (answer) {
+        try {
+            const png = await renderQuestionAnswerReportPng({
+                cabinetName,
+                kind: questionCardKind(question.text),
+                when: formatQuestionReportWhen(question.createdDate),
+                product: question.product || question.article || 'товар',
+                article: question.article,
+                nmId: question.nmId,
+                question: question.text,
+                answer,
+                photoUrl,
+            });
+            const caption = formatAutoAnswerMatchCaption({ question, mention });
+            const report = await sendTelegramPhotoBytes(token, chatId, png, caption);
+            if (!report.error) return report;
+        } catch (e) {
+            console.warn('[restock] report png', e);
+        }
+    }
     if (photoUrl) {
         const photo = await sendTelegramPhoto(token, chatId, photoUrl, text);
         if (!photo.error) return photo;
@@ -489,6 +514,30 @@ async function sendTelegramCard(
                 text,
                 disable_web_page_preview: true,
             }),
+        });
+        const data = await res.json().catch(() => ({} as Record<string, unknown>));
+        if (!res.ok) return { error: `HTTP ${res.status}`, messageId: null };
+        const messageId = Number((data as { result?: { message_id?: number } })?.result?.message_id);
+        return { error: null, messageId: Number.isFinite(messageId) ? messageId : null };
+    } catch (e) {
+        return { error: String(e), messageId: null };
+    }
+}
+
+async function sendTelegramPhotoBytes(
+    token: string,
+    chatId: string,
+    png: Uint8Array,
+    caption: string,
+): Promise<{ error: string | null; messageId: number | null }> {
+    try {
+        const form = new FormData();
+        form.append('chat_id', chatId);
+        form.append('caption', caption.slice(0, 1024));
+        form.append('photo', new Blob([png], { type: 'image/png' }), 'question-report.png');
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST',
+            body: form,
         });
         const data = await res.json().catch(() => ({} as Record<string, unknown>));
         if (!res.ok) return { error: `HTTP ${res.status}`, messageId: null };
