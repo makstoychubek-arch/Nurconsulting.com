@@ -520,9 +520,42 @@ assert.ok(
 );
 assert.ok(
     html.includes('font-family: var(--font-display)') &&
-    html.includes('.kpi-hero-value, .kpi-value, .card-title'),
-    'headings and KPI values use Poppins via --font-display'
+    html.includes('.kpi-value, .card-title'),
+    'headings use Poppins via --font-display'
 );
+assert.ok(
+    html.includes('.kpi-hero-value {') &&
+    html.includes('font-family: var(--font-ui)') &&
+    html.includes('font-size: 13px') &&
+    html.includes('class="nr-num') &&
+    html.includes('function paintNrNum') &&
+    html.includes('function dashNumFitClass'),
+    'dashboard KPI numbers use the same Inter/13px scale as RNP, with a small unit'
+);
+assert.ok(
+    html.includes('.nr-num--m { font-size: 11px') &&
+    html.includes('digits >= 7 || n >= 1e6'),
+    'seven-digit dashboard values shrink like rnp-num--m'
+);
+{
+    const fitStart = html.indexOf('function dashNumFitClass');
+    const paintEnd = html.indexOf('window.paintNrNum = paintNrNum;');
+    assert.ok(fitStart > 0 && paintEnd > fitStart, 'paintNrNum helpers must exist');
+    const escapeStart = html.indexOf('function escapeHtml(str)');
+    const escapeEnd = html.indexOf('\n    }', escapeStart);
+    assert.ok(escapeStart > 0 && escapeEnd > escapeStart, 'escapeHtml must exist');
+    const api = new Function(`${html.slice(escapeStart, escapeEnd + 6)}\n${html.slice(fitStart, paintEnd)}; return { dashNumFitClass, paintNrNum };`)();
+    assert.strictEqual(api.dashNumFitClass('13 517'), 'nr-num');
+    assert.ok(api.dashNumFitClass('1 100 440').includes('nr-num--m'), '7+ digits shrink');
+    const el = { textContent: '', innerHTML: '' };
+    api.paintNrNum(el, '135 170 сом');
+    assert.ok(el.innerHTML.includes('class="nr-num"') && el.innerHTML.includes('135 170') && el.innerHTML.includes('nr-num-unit') && el.innerHTML.includes('сом'),
+        'money splits number and unit like the RNP donut');
+    api.paintNrNum(el, '11 399 112 сом');
+    assert.ok(el.innerHTML.includes('nr-num--m'), 'million-scale hero values use the compact class');
+    api.paintNrNum(el, '13 517 шт.');
+    assert.ok(el.innerHTML.includes('13 517') && el.innerHTML.includes('шт.'), 'stock keeps the piece unit small');
+}
 assert.ok(
     /table, \.data-table, \.label, \.value-small[\s\S]{0,180}font-variant-numeric:\s*tabular-nums/.test(html),
     'tables keep Inter tabular figures so sums and percents stay aligned'
