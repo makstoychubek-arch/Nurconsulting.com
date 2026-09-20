@@ -344,6 +344,22 @@ function cardProductName(q: RestockQuestion): string {
     return String(q.article || q.product || '').trim() || (q.nmId ? String(q.nmId) : 'товар');
 }
 
+/** Дата в отчёте — как у карточки отзыва, Бишкек. */
+export function formatQuestionReportWhen(iso: string, nowMs = Date.now()): string {
+    const ms = Date.parse(iso);
+    const d = new Date(Number.isFinite(ms) ? ms : nowMs);
+    const parts = new Intl.DateTimeFormat('ru-RU', {
+        timeZone: 'Asia/Bishkek',
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }).formatToParts(d);
+    const get = (type: string) => parts.find((p) => p.type === type)?.value || '';
+    return `${get('day')}.${get('month')} ${get('hour')}:${get('minute')}`;
+}
+
 export function formatRestockTelegramCard(opts: {
     cabinetName: string;
     cabinetId: string;
@@ -358,7 +374,16 @@ export function formatRestockTelegramCard(opts: {
     return lines.join('\n');
 }
 
-/** Карточка после автоответа: тег + что ушло на WB, чтобы реплаем поправить. */
+/** Короткая подпись к PNG: тег + вид + артикул, чтобы реплай нашёл карточку. */
+export function formatAutoAnswerMatchCaption(opts: {
+    question: RestockQuestion;
+    mention?: string;
+}): string {
+    const who = opts.mention ? `${opts.mention} ` : '';
+    return [`${who}автоответ · ${questionCardKind(opts.question.text)}`, cardProductName(opts.question)].join('\n');
+}
+
+/** Текстовый отчёт как у отзыва: кабинет, вопрос, ответ. */
 export function formatAutoAnswerTelegramCard(opts: {
     cabinetName: string;
     cabinetId: string;
@@ -367,12 +392,31 @@ export function formatAutoAnswerTelegramCard(opts: {
     mention?: string;
 }): string {
     const q = opts.question;
+    const kind = questionCardKind(q.text);
     const who = opts.mention ? `${opts.mention} ` : '';
-    const ask = shortQuestionQuote(q.text);
-    const sent = String(opts.answer || '').replace(/\s+/g, ' ').trim().slice(0, 220);
-    const lines = [`${who}автоответ · ${questionCardKind(q.text)}`, cardProductName(q)];
-    if (ask) lines.push(`«${ask}»`);
-    if (sent) lines.push(`ушло: ${sent}`);
+    const cab = String(opts.cabinetName || '').trim() || 'Кабинет';
+    const when = formatQuestionReportWhen(q.createdDate);
+    const product = String(q.product || '').replace(/\s+/g, ' ').trim();
+    const art = cardProductName(q);
+    const ask = String(q.text || '').replace(/\s+/g, ' ').trim().slice(0, 280);
+    const sent = String(opts.answer || '').replace(/\s+/g, ' ').trim().slice(0, 320);
+    const lines = [
+        `${who}автоответ · ${kind}`,
+        art,
+        `${cab} · ${when}`,
+    ];
+    if (product && product !== art) lines.push(product);
+    if (q.nmId) lines.push(String(q.nmId));
+    if (ask) {
+        lines.push('');
+        lines.push('Вопрос');
+        lines.push(ask);
+    }
+    if (sent) {
+        lines.push('');
+        lines.push('Ответ');
+        lines.push(sent);
+    }
     return lines.join('\n');
 }
 
@@ -453,10 +497,14 @@ export function peelCardAndAnswer(raw: string): { card: string; answer: string }
     if (lines.length >= 2) {
         const last = lines[lines.length - 1];
         const head = lines.slice(0, -1).join('\n');
-        if (
+        const prev = lines[lines.length - 2] || '';
+        if (/^(вопрос|ответ)$/i.test(prev)) {
+            // Тело отчёта, не реплай менеджера.
+        } else if (
             isRestockCardText(head) &&
             !/^[«"]/.test(last) &&
             !/^ушло:/i.test(last) &&
+            !/^(вопрос|ответ)$/i.test(last) &&
             resolveStaffAnswer(last, head)
         ) {
             return { card: head, answer: last };
