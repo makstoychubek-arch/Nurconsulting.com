@@ -12,7 +12,7 @@
            в конце страницы уже потом ставит neon. */
         try {
             var __nrTheme = localStorage.getItem('nr_theme');
-            if (__nrTheme === 'neon' || __nrTheme === 'ios') {
+            if (__nrTheme === 'neon' || __nrTheme === 'ios' || __nrTheme === 'tabler') {
                 document.documentElement.setAttribute('data-theme', __nrTheme);
             }
         } catch (e) {}
@@ -131,6 +131,80 @@
             --bg-card: #2C2C2E;
             color-scheme: dark;
             --border-color: #3A3A3C;
+        }
+
+        /* Tabler tokens — третья тема, откат: Тема → Светлая */
+        [data-theme="tabler"] {
+            --bg: #f1f5f9;
+            --bg-mesh: none;
+            --surface: #ffffff;
+            --surface-solid: #ffffff;
+            --sidebar-bg: #ffffff;
+            --border: rgba(24, 36, 51, 0.1);
+            --border-strong: rgba(24, 36, 51, 0.16);
+            --text-primary: #182433;
+            --text-secondary: #4b5563;
+            --text-muted: #6b7280;
+            --accent: #066fd1;
+            --accent-hover: #0b5cab;
+            --accent-soft: #e8f1fb;
+            --accent-border: rgba(6, 111, 209, 0.28);
+            --purple: #4263eb;
+            --purple-soft: rgba(66, 99, 235, 0.12);
+            --accent-gradient: #066fd1;
+            --green: #2fb344;
+            --red: #d63939;
+            --amber: #f76707;
+            --blue: #4299e1;
+            --card-shadow: 0 1px 3px rgba(24, 36, 51, 0.08);
+            --card-shadow-lg: 0 8px 24px rgba(24, 36, 51, 0.08);
+            --use-blur: none;
+            --use-glow: none;
+            --radius-card: 8px;
+            --radius-control: 6px;
+            --apple-glass: #ffffff;
+            --sel: #eef2f6;
+            --logo-mark: #ffffff;
+            --logo-ink: #182433;
+            --logo-mark-border: rgba(24, 36, 51, 0.12);
+            --font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            --font-display: "Inter", system-ui, sans-serif;
+            --bg-primary: #f1f5f9;
+            --bg-secondary: #e7edf3;
+            --bg-card: #ffffff;
+            --border-color: rgba(24, 36, 51, 0.1);
+            color-scheme: light;
+        }
+        [data-theme="tabler"] .metric-card,
+        [data-theme="tabler"] .widget-card,
+        [data-theme="tabler"] .kpi-hero-card {
+            border-radius: 8px;
+            box-shadow: var(--card-shadow);
+            border: 1px solid var(--border);
+        }
+        [data-theme="tabler"] .ui-btn { border-radius: 6px !important; }
+        [data-theme="tabler"] header.glass { box-shadow: var(--card-shadow-lg) !important; }
+
+        .ev-report { display: flex; flex-direction: column; gap: 16px; }
+        .ev-kicker { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+        .ev-head h3 { margin: 4px 0 6px; font-size: 22px; font-weight: 800; color: var(--text-primary); }
+        .ev-period { margin: 0; font-size: 13px; color: var(--text-muted); }
+        .ev-kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+        .ev-kpi { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 14px 16px; box-shadow: var(--card-shadow); }
+        .ev-kpi-l { font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; }
+        .ev-kpi-v { font-size: 22px; font-weight: 800; color: var(--text-primary); letter-spacing: -0.03em; }
+        .ev-kpi.tone-good .ev-kpi-v { color: var(--green); }
+        .ev-kpi.tone-bad .ev-kpi-v { color: var(--red); }
+        .ev-grid { display: grid; grid-template-columns: 1.4fr 0.8fr; gap: 12px; }
+        .ev-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 16px 18px; box-shadow: var(--card-shadow); }
+        .ev-card h4 { margin: 0 0 10px; font-size: 14px; font-weight: 800; color: var(--text-primary); }
+        .ev-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .ev-table td { padding: 8px 0; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+        .ev-table td:last-child { text-align: right; font-weight: 700; color: var(--text-primary); }
+        .ev-table tr.ev-total td { color: var(--green); font-weight: 800; border-bottom: none; padding-top: 12px; }
+        @media (max-width: 800px) {
+            .ev-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .ev-grid { grid-template-columns: 1fr; }
         }
 
         html {
@@ -499,11 +573,12 @@
         .cf-slide img { width: 100%; height: 100%; object-fit: cover; }
         .cf-slide-k { position: absolute; left: 8px; top: 8px; font-size: 11px; color: #fff; background: rgba(0,0,0,.45); border-radius: 8px; padding: 2px 6px; }
         .cf-slide-cap {
-            position: absolute; left: 0; right: 0; bottom: 0; padding: 36px 12px 14px;
-            background: linear-gradient(transparent, rgba(0,0,0,.72)); color: #fff;
+            position: absolute; left: 8px; right: 8px; bottom: 8px; padding: 10px 12px 12px;
+            background: #fff; color: #1A2332; border-radius: 12px;
+            box-shadow: 0 6px 16px rgba(24,36,51,.12);
         }
-        .cf-slide-cap b { display: block; font-size: 13px; font-weight: 800; line-height: 1.2; }
-        .cf-slide-cap span { display: block; font-size: 11px; opacity: .92; margin-top: 4px; line-height: 1.3; }
+        .cf-slide-cap b { display: block; font-size: 13px; font-weight: 800; line-height: 1.2; color: #1A2332; }
+        .cf-slide-cap span { display: block; font-size: 11px; opacity: .8; margin-top: 4px; line-height: 1.3; color: #667085; }
         .cf-grid2 { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; height: 100%; gap: 4px; padding: 6px; }
         .cf-grid2 img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
         .cf-slide-info, .cf-slide-brand { color: #fff; padding: 16px; height: 100%; }
@@ -702,8 +777,11 @@
         .beta-theme-row:hover { background: var(--accent-soft); }
         .beta-theme-ico { width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         .beta-theme-ico svg { width: 16px; height: 16px; display: block; }
-        .beta-theme-ico-moon { display: none; }
+        .beta-theme-ico-moon, .beta-theme-ico-tabler { display: none; }
+        [data-theme="tabler"] .beta-theme-ico-sun { display: none; }
+        [data-theme="tabler"] .beta-theme-ico-tabler { display: flex; }
         [data-theme="neon"] .beta-theme-ico-sun { display: none; }
+        [data-theme="neon"] .beta-theme-ico-tabler { display: none; }
         [data-theme="neon"] .beta-theme-ico-moon { display: flex; }
         .beta-theme-label { margin-left: auto; font-size: 11px; font-weight: 700; color: var(--text-muted); flex-shrink: 0; }
         .nav-beta-badge {
@@ -4816,9 +4894,9 @@
            временный style. */
         try {
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
-            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory' };
+            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/reports': 'summary' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
-            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1 };
+            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1, summary: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -4934,6 +5012,7 @@
                 <div class="beta-theme-row" role="button" tabindex="0" onclick="toggleTheme()" title="Переключить тему">
                     <span class="beta-theme-ico beta-theme-ico-sun" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg></span>
                     <span class="beta-theme-ico beta-theme-ico-moon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+                    <span class="beta-theme-ico beta-theme-ico-tabler" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
                     <span class="nav-item-label">Тема</span>
                     <span class="beta-theme-label">Светлая</span>
                 </div>
@@ -4941,7 +5020,6 @@
                 <div class="nav-item" onclick="showTab('summary', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
                     <span class="nav-item-label">Сводный отчёт</span>
-                    <span class="nav-beta-badge">BETA</span>
                 </div>
                 <div class="nav-item" onclick="showTab('summary-biz', this)">
                     <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -5230,28 +5308,34 @@
                 <div class="beta-orb beta-orb-2"></div>
                 <div class="beta-pill">BETA</div>
                 <h2 id="beta-stub-title">Модуль в BETA</h2>
-                <p id="beta-stub-text">Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары, Контент-завод и Агенты. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
+                <p id="beta-stub-text">Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары, Контент-завод, Агенты и Сводный отчёт. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
                 <button type="button" class="space-empty-btn" style="margin-top:18px" onclick="showTab('dashboard')">К дашборду</button>
             </div>
         </div>
 
         <div id="tab-summary" class="tab-content space-y-5">
-    <div class="widget-card p-6">
-        <h3 class="font-semibold mb-5" style="color:var(--text-primary)">Сводный отчёт по периоду</h3>
-        <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
-            <div class="metric-card"><div class="text-xs mb-1" style="color:var(--text-muted)">Чистая прибыль</div><div id="sum-profit" class="text-xl font-black" style="color:var(--green)">—</div></div>
-            <div class="metric-card"><div class="text-xs mb-1" style="color:var(--text-muted)">Маржинальность</div><div id="sum-margin" class="text-xl font-black" style="color:var(--accent)">—</div></div>
-            <div class="metric-card"><div class="text-xs mb-1" style="color:var(--text-muted)">Продажи</div><div id="sum-sales" class="text-xl font-black" style="color:var(--text-primary)">—</div></div>
-            <div class="metric-card"><div class="text-xs mb-1" style="color:var(--text-muted)">ROI</div><div id="sum-roi" class="text-xl font-black" style="color:var(--blue)">—</div></div>
+            <div id="evidence-report-root" class="widget-card p-6">
+                <div class="ev-report">
+                    <div class="ev-head">
+                        <div>
+                            <div class="ev-kicker">Evidence</div>
+                            <h3>Сводный отчёт по периоду</h3>
+                            <p class="ev-period">Данные синхронизированы с Дашбордом. Нажмите «Обновить».</p>
+                        </div>
+                    </div>
+                    <div class="ev-kpi-grid">
+                        <div class="ev-kpi tone-good"><div class="ev-kpi-l">Чистая прибыль</div><div id="sum-profit" class="ev-kpi-v">—</div></div>
+                        <div class="ev-kpi"><div class="ev-kpi-l">Маржа</div><div id="sum-margin" class="ev-kpi-v">—</div></div>
+                        <div class="ev-kpi"><div class="ev-kpi-l">Продажи</div><div id="sum-sales" class="ev-kpi-v">—</div></div>
+                        <div class="ev-kpi"><div class="ev-kpi-l">ROI</div><div id="sum-roi" class="ev-kpi-v">—</div></div>
+                        <div class="ev-kpi"><div class="ev-kpi-l">Заказы</div><div id="sum-orders" class="ev-kpi-v">—</div></div>
+                        <div class="ev-kpi"><div class="ev-kpi-l">Выкуп</div><div id="sum-buyout" class="ev-kpi-v">—</div></div>
+                        <div class="ev-kpi tone-bad"><div class="ev-kpi-l">Логистика</div><div id="sum-logistics" class="ev-kpi-v">—</div></div>
+                        <div class="ev-kpi tone-bad"><div class="ev-kpi-l">Возвраты</div><div id="sum-returns" class="ev-kpi-v">—</div></div>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="grid grid-cols-2 xl:grid-cols-4 gap-3">
-            <div class="metric-card"><div class="text-xs mb-1" style="color:var(--text-muted)">Заказы</div><div id="sum-orders" class="text-xl font-black" style="color:var(--text-primary)">—</div></div>
-            <div class="metric-card"><div class="text-xs mb-1" style="color:var(--text-muted)">Выкуп</div><div id="sum-buyout" class="text-xl font-black" style="color:var(--accent)">—</div></div>
-            <div class="metric-card"><div class="text-xs mb-1" style="color:var(--text-muted)">Логистика</div><div id="sum-logistics" class="text-xl font-black" style="color:var(--text-primary)">—</div></div>
-            <div class="metric-card"><div class="text-xs mb-1" style="color:var(--text-muted)">Возвраты</div><div id="sum-returns" class="text-xl font-black" style="color:var(--red)">—</div></div>
-        </div>
-        <p class="text-xs mt-4" style="color:var(--text-muted)">Данные синхронизированы с Дашбордом. Нажмите "Обновить" для актуализации.</p>
-    </div></div>
         <div id="tab-summary-biz" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Сводный по бизнесу</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Совокупные показатели по всем кабинетам. Доступно после подключения нескольких кабинетов с токенами WB.</p></div></div>
         <div id="tab-deductions" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Прочие удержания</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Детализация удержаний из отчёта реализации: подписки, штрафы, транзитные поставки, отзывы за баллы. Доступно после подключения Finance API.</p></div></div>
         <div id="tab-plan-fact" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">План-факт</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Инструмент постановки целей и отслеживания выполнения плана по выбранным показателям. В разработке.</p></div></div>
@@ -6571,6 +6655,7 @@
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.f060ba3215.min.js"></script>
 <script src="/dist/wb-formulas.11317eb115.min.js"></script>
+<script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.7554e1b6e6.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/content-factory.99092221ca.min.js"></script>
@@ -6617,7 +6702,7 @@
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon', 'agents']);
     const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots']);
-    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents']);
+    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'summary']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
     // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
@@ -7631,20 +7716,27 @@
     let currentUserEmail = '';
     let currentUserId = '';
 
+    const NR_THEMES = ['ios', 'tabler', 'neon'];
+    function themeLabel(theme) {
+        if (theme === 'neon') return 'Тёмная';
+        if (theme === 'tabler') return 'Tabler';
+        return 'Светлая';
+    }
     function applyTheme(theme) {
-        document.documentElement.setAttribute('data-theme', theme);
-        localStorage.setItem('nr_theme', theme);
+        const next = NR_THEMES.includes(theme) ? theme : 'ios';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('nr_theme', next);
         if (window.NRCharts) NRCharts.refreshChartTheme();
-        const dark = theme === 'neon';
         document.querySelectorAll('.beta-theme-label').forEach(el => {
-            el.textContent = dark ? 'Тёмная' : 'Светлая';
+            el.textContent = themeLabel(next);
         });
         const meta = document.querySelector('meta[name="theme-color"]');
-        if (meta) meta.setAttribute('content', dark ? '#1C1C1E' : '#F5F5F7');
+        if (meta) meta.setAttribute('content', next === 'neon' ? '#1C1C1E' : next === 'tabler' ? '#066fd1' : '#F5F5F7');
     }
     function toggleTheme() {
         const cur = document.documentElement.getAttribute('data-theme');
-        applyTheme(cur === 'ios' ? 'neon' : 'ios');
+        const i = NR_THEMES.indexOf(cur);
+        applyTheme(NR_THEMES[(i < 0 ? 0 : i + 1) % NR_THEMES.length]);
     }
     (function initTheme() {
         const saved = localStorage.getItem('nr_theme') || 'ios';
@@ -7774,7 +7866,7 @@
         'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
         marking: '/marking', logistics: '/logistics', rnp: '/rnp', dashboard: '/space',
         'telegram-bots': '/telegram-bots', ozon: '/ozon', agents: '/agents',
-        'goods-groups': '/goods', 'content-factory': '/content',
+        'goods-groups': '/goods', 'content-factory': '/content', summary: '/reports',
     };
     const PATH_TO_TAB = Object.fromEntries(Object.entries(MODULE_PATHS).map(([k, v]) => [v, k]));
 
@@ -8083,6 +8175,9 @@
         if (name === 'ozon') loadOzonTokenPage();
         if (name === 'agents') loadAgentsPage();
         if (name === 'content-factory' && hasUserCabinets) bootContentFactory();
+        if (name === 'summary' && window.EvidenceReport && window._lastDashMetrics) {
+            window.EvidenceReport.paint('evidence-report-root', window._lastDashMetrics, window._lastDashReportExtra || {});
+        }
         if (DATE_FILTER_TABS.has(name)) updateDateRangeLabel();
         if (window.innerWidth <= 768) {
             closeMobileMenu();
@@ -11568,7 +11663,7 @@
                         const applyFin = () => {
                             WBFormulas.applyMetricsToDashboard(metrics, setText);
                             applyExtendedMetricDisplay(metrics);
-                            syncSummaryTab(metrics);
+                            syncSummaryTab(metrics, stocks);
                             renderTopMarginalProducts(metrics);
                         };
                         if (window.domMorph) window.domMorph.preserveScroll([], applyFin);
@@ -12217,8 +12312,20 @@
     }
 
     // ======= СИНХРОНИЗАЦИЯ СВОДНОГО ОТЧЁТА С ДАШБОРДОМ =======
-    function syncSummaryTab(m) {
+    function syncSummaryTab(m, stocks) {
         if (!m) return;
+        window._lastDashMetrics = m;
+        const range = (typeof getActiveDateRange === 'function') ? getActiveDateRange() : {};
+        window._lastDashReportExtra = {
+            stocks: stocks || window._lastDashStocks || {},
+            from: range.from || '',
+            to: range.to || '',
+        };
+        if (stocks) window._lastDashStocks = stocks;
+        if (window.EvidenceReport && document.getElementById('evidence-report-root')) {
+            window.EvidenceReport.paint('evidence-report-root', m, window._lastDashReportExtra);
+            return;
+        }
         const ids = {
             'sum-profit': m.profitFull, 'sum-margin': m.margin,
             'sum-sales': m.salesSum, 'sum-roi': m.roi,
