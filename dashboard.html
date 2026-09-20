@@ -13804,7 +13804,7 @@
         delete abRotationTimers[String(testId)];
         if (finishReason === 'winner_determined' && window.NrWow) {
             window.NrWow.burst({ count: 44, colors: ['#16A34A', '#F59E0B', '#066FD1', '#FFFFFF'] });
-            const card = document.querySelector('.abtest-card[data-id="' + testId + '"], .abtest-card[data-test-id="' + testId + '"]');
+            const card = document.getElementById('abtest-card-' + testId);
             if (card) window.NrWow.pulse(card);
         }
         showPremiumModal('success', 'Тест завершён', paused.length

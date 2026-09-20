@@ -33,6 +33,8 @@ assert.ok(/<script src="\/(?:dist\/)?nr-wow(?:\.[0-9a-f]+)?(?:\.min)?\.js"><\/sc
     'nr-wow is loaded on the dashboard');
 assert.ok(html.includes('NrWow.tickSpan') && html.includes('NrWow.withView') && html.includes('NrWow.spotlight') && html.includes('NrWow.burst'),
     'dashboard wires tick, tab view, spotlight and success burst');
+assert.ok(html.includes("getElementById('abtest-card-' + testId)"),
+    'A/B winner pulse targets the live card id');
 assert.ok(html.includes('.nr-wow-col') && html.includes('.nr-wow-spot') && html.includes('@keyframes nr-wow-pulse'),
     'dashboard CSS hosts the reel, spotlight and winner pulse');
 
