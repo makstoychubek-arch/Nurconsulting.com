@@ -18,6 +18,7 @@ module.exports = {
     './goods-catalog.js',
     './content-factory.js',
     './evidence-report.js',
+    './dash-cabinet-plans.js',
   ],
   darkMode: 'class',
   theme: {
