@@ -28,6 +28,11 @@ assert.ok(poll.includes('questions?isAnswered=false'), 'poll lists unanswered WB
 assert.ok(poll.includes('wb_restock_questions'), 'poll stores pending cards');
 assert.ok(poll.includes('formatRestockTelegramCard'), 'poll keeps a manual card if WB PATCH fails');
 assert.ok(poll.includes('formatAutoAnswerTelegramCard'), 'poll tags the owner after an auto-answer');
+assert.ok(poll.includes('sendPhoto'), 'auto-answer card is a product photo like reviews');
+assert.ok(poll.includes('editMessageCaption'), 'photo cards update caption in place');
+assert.ok(poll.includes('rnp_articles') && poll.includes('photo_url'),
+    'cover photo comes from rnp_articles then WB basket');
+assert.ok(poll.includes('resolveWbCardPhotoUrl'), 'missing cover falls back to WB basket probe');
 assert.ok(poll.includes('buildAutoQuestionAnswer'), 'poll auto-answers every open question');
 assert.ok(poll.includes('auto_answered'), 'poll reports how many questions were auto-answered');
 assert.ok(poll.includes('pickOpenQuestions'), 'poll posts every open WB question, not only restock');
@@ -98,6 +103,7 @@ assert.ok(!proxy.includes('questions/answer'), 'live wb-proxy must not POST /que
 
 assert.ok(docs.includes('через неделю'), 'user-facing doc explains the reply');
 assert.ok(docs.includes('автоответ'), 'doc explains auto-answers');
+assert.ok(docs.includes('фото'), 'doc says the card includes the product photo');
 assert.ok(docs.includes('TELEGRAM_CHAT_REVIEWS'), 'doc names the reviews chat');
 assert.ok(docs.includes('telegram-router'), 'doc names Karina webhook path');
 assert.ok(shared.includes('isRestockCardText'), 'short restock cards match without #nrq');
