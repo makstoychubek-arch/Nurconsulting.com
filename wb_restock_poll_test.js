@@ -37,6 +37,8 @@ assert.ok(poll.includes('sendPhoto'), 'auto-answer card is a product photo like 
 assert.ok(poll.includes('renderQuestionAnswerReportPng'), 'auto-answer sends a review-style report PNG');
 assert.ok(poll.includes('question-report.png'), 'report PNG is uploaded as a Telegram photo');
 assert.ok(poll.includes('formatAutoAnswerMatchCaption'), 'PNG caption stays matchable for a reply edit');
+assert.ok(poll.includes('test_card') && poll.includes('TEST_DELETE_AFTER_SEC'),
+    'poll can send a test report card and delete it after 5 minutes');
 assert.ok(poll.includes('editMessageCaption'), 'photo cards update caption in place');
 assert.ok(poll.includes('rnp_articles') && poll.includes('photo_url'),
     'cover photo comes from rnp_articles then WB basket');

@@ -10,6 +10,7 @@ import { pickCachedPhotoUrl, resolveWbCardPhotoUrl } from '../_shared/wb-main-ph
 import { renderQuestionAnswerReportPng } from '../_shared/wb-question-report-png.ts';
 import {
     answerWbQuestion,
+    AUTO_RESTOCK_WHEN,
     buildAutoQuestionAnswer,
     buildWbRestockAnswer,
     formatAutoAnswerMatchCaption,
@@ -59,6 +60,9 @@ Deno.serve(async (req) => {
     }
 
     const dryRun = body.dry_run === true || body.dry_run === 'true';
+    if (body.test_card === true || body.test_card === 'true') {
+        return json(await sendTestQuestionCard(tgToken, reviewsChat, dryRun));
+    }
     const admin = createClient(supabaseUrl, serviceKey);
     const resendId = String(body.resend_question_id || '').trim();
     if (resendId) {
@@ -335,6 +339,65 @@ async function applyPendingAnswer(
         reacted = (await reactTelegram(tgToken, chatId, userMsg, '❤')).ok;
     }
     return { ok: true, applied: true, question_id: questionId, reacted, react_message_id: userMsg || null };
+}
+
+const TEST_DELETE_AFTER_SEC = 300;
+
+async function sendTestQuestionCard(
+    tgToken: string,
+    reviewsChat: string,
+    dryRun: boolean,
+): Promise<Record<string, unknown>> {
+    const question: RestockQuestion = {
+        id: 'test-card',
+        text: 'когда коричневый костюм появится в наличии с 48 размера?',
+        nmId: 399607068,
+        article: 'костюм_оверсайз_шоколад',
+        product: 'Костюм брючный классический оверсайз',
+        createdDate: new Date().toISOString(),
+    };
+    const answer = buildWbRestockAnswer(AUTO_RESTOCK_WHEN);
+    if (dryRun || !tgToken || !reviewsChat) {
+        return {
+            ok: true,
+            test: true,
+            sent: false,
+            skipped: dryRun ? 'dry_run' : 'no_reviews_chat',
+            delete_after_sec: TEST_DELETE_AFTER_SEC,
+        };
+    }
+    const photoUrl = await resolveWbCardPhotoUrl(question.nmId);
+    const sent = await sendTelegramCard(
+        tgToken,
+        reviewsChat,
+        'Тест',
+        'test',
+        question,
+        answer,
+        photoUrl,
+    );
+    if (sent.error || !sent.messageId) {
+        return { ok: false, test: true, error: sent.error || 'no_message_id' };
+    }
+    const messageId = sent.messageId;
+    const job = (async () => {
+        await sleep(TEST_DELETE_AFTER_SEC * 1000);
+        const del = await deleteTelegram(tgToken, reviewsChat, messageId);
+        if (!del.ok) console.warn('[restock] test card delete', del.error);
+    })();
+    const edge = (globalThis as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime;
+    if (edge?.waitUntil) edge.waitUntil(job);
+    else {
+        // Если waitUntil нет — удалим в этом же запросе, ответ придёт через 5 мин.
+        await job;
+    }
+    return {
+        ok: true,
+        test: true,
+        sent: true,
+        message_id: messageId,
+        delete_after_sec: TEST_DELETE_AFTER_SEC,
+    };
 }
 
 async function resendPendingCard(
