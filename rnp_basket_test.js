@@ -49,5 +49,9 @@ const mainPhoto = fs.readFileSync(
     path.join(__dirname, 'supabase/functions/_shared/wb-main-photo.ts'), 'utf8');
 assert.ok(/MAX_BASKET = (?:[3-9]\d|\d{3})/.test(mainPhoto),
     'проба хостов должна доходить до современных basket-48+');
+assert.ok(mainPhoto.includes('function pickCachedPhotoUrl'),
+    'review-style cards reuse a cached cover URL without probing');
+assert.ok(mainPhoto.includes('function resolveWbCardPhotoUrl'),
+    'question cards resolve the same WB cover as reviews');
 
 console.log('rnp_basket_test: ok');
