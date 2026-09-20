@@ -1,14 +1,16 @@
-// Опрос неотвеченных вопросов WB и карточка в Telegram (отзывы).
+// Автоответы на неотвеченные вопросы WB во всех кабинетах + карточка с тегом.
 // Cron: */10. Auth: service_role. В тим-чат не пишем — только TELEGRAM_CHAT_REVIEWS.
+// Мьют кабинета не пропускает автоответ: реплай на карточку правит PATCH.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { getTelegramToken } from '../_shared/telegram-routing.ts';
-import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 import { FEEDBACKS_API, wbError, wbSend } from '../_shared/wb-agent-wow.ts';
 import {
     answerWbQuestion,
+    buildAutoQuestionAnswer,
     buildWbRestockAnswer,
+    formatAutoAnswerTelegramCard,
     formatRestockTelegramCard,
     normalizeWhenPhrase,
     ownerMention,
@@ -46,6 +48,7 @@ Deno.serve(async (req) => {
             reviews_chat: Boolean(reviewsChat),
             token: Boolean(tgToken),
             owner: OWNER,
+            auto_answer: true,
         });
     }
 
@@ -96,13 +99,7 @@ Deno.serve(async (req) => {
 
     const results: Array<Record<string, unknown>> = [];
     for (const cabinet of cabinets || []) {
-        const row: Record<string, unknown> = { cabinet: cabinet.name, found: 0, notified: 0 };
-        const gate = await shouldSendTelegram(admin, { channel: 'reviews', cabinetId: cabinet.id });
-        if (!gate.ok) {
-            row.skipped = gate.reason;
-            results.push(row);
-            continue;
-        }
+        const row: Record<string, unknown> = { cabinet: cabinet.name, found: 0, notified: 0, auto_answered: 0 };
         const token = sanitizeWbToken(cabinet.wb_token);
         if (!token || token.length < 50) {
             row.skipped = 'invalid_token';
@@ -138,7 +135,7 @@ Deno.serve(async (req) => {
         for (const question of questions) {
             const existing = await admin
                 .from('wb_restock_questions')
-                .select('id, status, telegram_message_id')
+                .select('id, status, telegram_message_id, wb_answer, when_text')
                 .eq('cabinet_id', cabinet.id)
                 .eq('question_id', question.id)
                 .maybeSingle();
@@ -146,9 +143,12 @@ Deno.serve(async (req) => {
                 id?: string;
                 status?: string;
                 telegram_message_id?: number | null;
+                wb_answer?: string | null;
+                when_text?: string | null;
             } | null;
-            if (prev?.status === 'answered') continue;
-            if (prev?.telegram_message_id) continue;
+            const alreadyAnswered = prev?.status === 'answered';
+            const prevTgId = Number(prev?.telegram_message_id) || 0;
+            if (alreadyAnswered && prevTgId) continue;
 
             if (!prev) {
                 const ins = await admin.from('wb_restock_questions').insert({
@@ -166,12 +166,88 @@ Deno.serve(async (req) => {
                 }
             }
 
-            if (dryRun || !tgToken || !reviewsChat) {
-                row.skipped_send = dryRun ? 'dry_run' : 'no_reviews_chat';
+            const auto = buildAutoQuestionAnswer(question.text);
+            if (dryRun) {
+                row.would_answer = Number(row.would_answer || 0) + 1;
+                row.skipped_send = 'dry_run';
                 continue;
             }
 
-            const sent = await sendTelegramCard(tgToken, reviewsChat, cabinet.name, cabinet.id, question);
+            let wbText = String(prev?.wb_answer || auto.wbText);
+            let whenText = String(prev?.when_text || auto.when);
+            if (!alreadyAnswered) {
+                const posted = await answerWbQuestion(token, question.id, auto.wbText);
+                if (!posted.ok) {
+                    row.wb_error = wbError(posted);
+                    await admin.from('wb_restock_questions').update({
+                        error_text: wbError(posted),
+                        when_text: auto.when,
+                        wb_answer: auto.wbText,
+                        updated_at: new Date().toISOString(),
+                    }).eq('cabinet_id', cabinet.id).eq('question_id', question.id);
+                    if (!prevTgId && tgToken && reviewsChat) {
+                        const fallback = await sendTelegramCard(
+                            tgToken,
+                            reviewsChat,
+                            cabinet.name,
+                            cabinet.id,
+                            question,
+                        );
+                        if (!fallback.error && fallback.messageId) {
+                            await admin.from('wb_restock_questions').update({
+                                telegram_chat_id: reviewsChat,
+                                telegram_message_id: fallback.messageId,
+                                updated_at: new Date().toISOString(),
+                            }).eq('cabinet_id', cabinet.id).eq('question_id', question.id);
+                            row.notified = Number(row.notified || 0) + 1;
+                        } else if (fallback.error) {
+                            row.telegram_error = fallback.error;
+                        }
+                    }
+                    await sleep(200);
+                    continue;
+                }
+                wbText = auto.wbText;
+                whenText = auto.when;
+                await admin.from('wb_restock_questions').update({
+                    status: 'answered',
+                    when_text: whenText,
+                    wb_answer: wbText,
+                    error_text: null,
+                    answered_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                }).eq('cabinet_id', cabinet.id).eq('question_id', question.id);
+                row.auto_answered = Number(row.auto_answered || 0) + 1;
+                await sleep(200);
+            }
+
+            if (!tgToken || !reviewsChat) {
+                row.skipped_send = 'no_reviews_chat';
+                continue;
+            }
+
+            const cardText = formatAutoAnswerTelegramCard({
+                cabinetName: cabinet.name,
+                cabinetId: cabinet.id,
+                question,
+                answer: wbText,
+                mention: ownerMention(OWNER),
+            });
+            if (prevTgId) {
+                const edited = await editTelegramCard(tgToken, reviewsChat, prevTgId, cardText);
+                if (!edited.error) {
+                    row.notified = Number(row.notified || 0) + 1;
+                    continue;
+                }
+            }
+            const sent = await sendTelegramCard(
+                tgToken,
+                reviewsChat,
+                cabinet.name,
+                cabinet.id,
+                question,
+                wbText,
+            );
             if (sent.error) {
                 row.telegram_error = sent.error;
                 continue;
@@ -256,9 +332,9 @@ async function resendPendingCard(
 ): Promise<Record<string, unknown>> {
     const { data, error } = await admin
         .from('wb_restock_questions')
-        .select('question_id, cabinet_id, nm_id, article, product, question_text, status, telegram_chat_id, telegram_message_id')
+        .select('question_id, cabinet_id, nm_id, article, product, question_text, status, telegram_chat_id, telegram_message_id, wb_answer')
         .eq('question_id', questionId)
-        .eq('status', 'pending')
+        .in('status', ['pending', 'answered'])
         .maybeSingle();
     if (error) return { ok: false, error: error.message };
     if (!data) return { ok: false, error: 'not_pending' };
@@ -274,12 +350,21 @@ async function resendPendingCard(
     if (dryRun || !tgToken || !reviewsChat) {
         return { ok: true, resent: false, skipped: dryRun ? 'dry_run' : 'no_reviews_chat', question_id: questionId };
     }
-    const text = formatRestockTelegramCard({
-        cabinetName: String(cab?.name || ''),
-        cabinetId: String(data.cabinet_id),
-        question,
-        mention: ownerMention(OWNER),
-    });
+    const sentAnswer = String(data.wb_answer || '').trim();
+    const text = sentAnswer
+        ? formatAutoAnswerTelegramCard({
+            cabinetName: String(cab?.name || ''),
+            cabinetId: String(data.cabinet_id),
+            question,
+            answer: sentAnswer,
+            mention: ownerMention(OWNER),
+        })
+        : formatRestockTelegramCard({
+            cabinetName: String(cab?.name || ''),
+            cabinetId: String(data.cabinet_id),
+            question,
+            mention: ownerMention(OWNER),
+        });
     const chatId = String(data.telegram_chat_id || reviewsChat || '').trim();
     const prevId = Number(data.telegram_message_id) || 0;
     if (prevId && chatId) {
@@ -288,7 +373,14 @@ async function resendPendingCard(
             return { ok: true, edited: true, question_id: questionId, message_id: prevId };
         }
     }
-    const sent = await sendTelegramCard(tgToken, reviewsChat, String(cab?.name || ''), String(data.cabinet_id), question);
+    const sent = await sendTelegramCard(
+        tgToken,
+        reviewsChat,
+        String(cab?.name || ''),
+        String(data.cabinet_id),
+        question,
+        sentAnswer || undefined,
+    );
     if (sent.error) return { ok: false, error: sent.error, question_id: questionId };
     await admin.from('wb_restock_questions').update({
         telegram_chat_id: reviewsChat,
@@ -329,13 +421,22 @@ async function sendTelegramCard(
     cabinetName: string,
     cabinetId: string,
     question: RestockQuestion,
+    answer?: string,
 ): Promise<{ error: string | null; messageId: number | null }> {
-    const text = formatRestockTelegramCard({
-        cabinetName,
-        cabinetId,
-        question,
-        mention: ownerMention(OWNER),
-    });
+    const text = answer
+        ? formatAutoAnswerTelegramCard({
+            cabinetName,
+            cabinetId,
+            question,
+            answer,
+            mention: ownerMention(OWNER),
+        })
+        : formatRestockTelegramCard({
+            cabinetName,
+            cabinetId,
+            question,
+            mention: ownerMention(OWNER),
+        });
     try {
         const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
             method: 'POST',

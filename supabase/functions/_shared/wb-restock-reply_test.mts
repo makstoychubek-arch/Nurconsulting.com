@@ -5,7 +5,9 @@ import {
     collectQuestions,
     decideRestockInbound,
     extractRestockWhen,
+    formatAutoAnswerTelegramCard,
     formatRestockTelegramCard,
+    buildAutoQuestionAnswer,
     shortQuestionQuote,
     resolveRestockAnswer,
     wbQuestionAnswerPayload,
@@ -491,5 +493,56 @@ assert.equal(isAlreadyAnsweredWb({
     data: { errorText: 'unauthorized' },
     text: 'unauthorized',
 }), false);
+
+const autoRestock = buildAutoQuestionAnswer(qText);
+assert.equal(autoRestock.topic, 'restock');
+assert.equal(autoRestock.when, 'в ближайшее время');
+assert.match(autoRestock.wbText, /в ближайшее время/);
+assert.equal(/через несколько дней/i.test(autoRestock.wbText), false);
+assert.match(buildAutoQuestionAnswer('у юбки есть подклад?').wbText, /описании карточки/);
+assert.match(buildAutoQuestionAnswer('какой состав ткани?').wbText, /характеристиках карточки/);
+
+const autoCard = formatAutoAnswerTelegramCard({
+    cabinetName: 'Zevina 1',
+    cabinetId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+    question: restock[0],
+    answer: autoRestock.wbText,
+    mention: '@maraWuW',
+});
+assert.match(autoCard, /@maraWuW автоответ · поступление/);
+assert.match(autoCard, /ушло:/);
+assert.equal(isRestockCardText(autoCard), true);
+assert.equal(restockCardArticleLine(autoCard), 'kostkom_oversize_temnosiniy');
+assert.equal(peelCardAndAnswer(autoCard), null);
+assert.equal(isRestockInboundCandidate({
+    text: autoCard,
+    replyToText: '',
+    replyToMessageId: null,
+    isBot: true,
+}), false);
+
+const autoEdit = decideRestockInbound({
+    chatId: '-100rev',
+    messageId: 50,
+    text: 'через неделю',
+    fromUsername: 'maraWuW',
+    ownerUsername: 'maraWuW',
+    replyToText: autoCard,
+    replyToMessageId: 49,
+    pending: [{ ...pending[0], status: 'answered', telegram_message_id: 49 }],
+});
+assert.equal(autoEdit.action, 'answer');
+if (autoEdit.action === 'answer') {
+    assert.equal(autoEdit.questionId, 'q-kostum-1');
+    assert.equal(autoEdit.when, 'через неделю');
+}
+
+const autoPeeled = peelCardAndAnswer(`${autoCard}\nчерез неделю`);
+assert.equal(autoPeeled?.answer, 'через неделю');
+assert.match(autoPeeled?.card || '', /автоответ/);
+
+const autoWa = '@maraWuW автоответ · поступление костюм_оверсайз_шоколад«когда коричневый костюм появится в наличии с 48 размера?»';
+assert.equal(isRestockCardText(autoWa), true);
+assert.equal(restockCardArticleLine(autoWa), 'костюм_оверсайз_шоколад');
 
 console.log('wb-restock-reply_test: ok');
