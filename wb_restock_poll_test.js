@@ -25,6 +25,11 @@ assert.ok(poll.includes('/api/v1/new-feedbacks-questions'),
     'poll starts with official getV1NewFeedbacksQuestions ping');
 assert.ok(poll.includes('parseNewFeedbacksQuestions'), 'poll parses hasNewQuestions flags');
 assert.ok(poll.includes('questions?isAnswered=false'), 'poll lists unanswered WB questions');
+assert.ok(poll.includes('listAllUnansweredQuestions') && poll.includes('QUESTION_PAGE'),
+    'poll pages through every unanswered question, not only the first 50');
+assert.ok(poll.includes('collectOpenQuestions'), 'auto-answer does not drop questions older than 45 days');
+assert.ok(!/take=50&skip=0/.test(poll) || poll.includes('skip=${skip}'),
+    'poll increments skip across WB pages');
 assert.ok(poll.includes('wb_restock_questions'), 'poll stores pending cards');
 assert.ok(poll.includes('formatRestockTelegramCard'), 'poll keeps a manual card if WB PATCH fails');
 assert.ok(poll.includes('formatAutoAnswerTelegramCard'), 'poll tags the owner after an auto-answer');
@@ -35,7 +40,7 @@ assert.ok(poll.includes('rnp_articles') && poll.includes('photo_url'),
 assert.ok(poll.includes('resolveWbCardPhotoUrl'), 'missing cover falls back to WB basket probe');
 assert.ok(poll.includes('buildAutoQuestionAnswer'), 'poll auto-answers every open question');
 assert.ok(poll.includes('auto_answered'), 'poll reports how many questions were auto-answered');
-assert.ok(poll.includes('pickOpenQuestions'), 'poll posts every open WB question, not only restock');
+assert.ok(shared.includes('collectOpenQuestions'), 'all unanswered questions are collected, not only restock');
 assert.ok(!poll.includes('через несколько дней'), 'auto template must not invent a restock date');
 
 assert.ok(router.includes('verify') || cfg.includes('verify_jwt = false'), 'router is callable without user JWT');

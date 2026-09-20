@@ -15,8 +15,9 @@ import {
     formatRestockTelegramCard,
     normalizeWhenPhrase,
     ownerMention,
+    collectOpenQuestions,
+    mergeQuestionPages,
     parseNewFeedbacksQuestions,
-    pickOpenQuestions,
     resolveStaffAnswer,
     setTelegramReaction,
     type RestockQuestion,
@@ -119,19 +120,18 @@ Deno.serve(async (req) => {
         }
         await sleep(350);
 
-        // Непросмотренные ≠ неотвеченные: список берём всегда (getV1Questions).
-        const listed = await wbSend(
-            `${FEEDBACKS_API}/api/v1/questions?isAnswered=false&take=50&skip=0&order=dateDesc`,
-            token,
-        );
-        if (!listed.ok) {
-            row.error = wbError(listed);
+        // Непросмотренные ≠ неотвеченные. Листаем все страницы — отвечаем сразу на все.
+        const listed = await listAllUnansweredQuestions(token);
+        if (listed.error && !listed.questions.length) {
+            row.error = listed.error;
             results.push(row);
             continue;
         }
+        if (listed.error) row.list_error = listed.error;
 
-        const questions = pickOpenQuestions(listed.data);
+        const questions = listed.questions;
         row.found = questions.length;
+        row.pages = listed.pages;
         const photos = dryRun
             ? new Map<number, string>()
             : await loadCabinetPhotos(admin, cabinet.id, questions.map((q) => q.nmId));
@@ -522,6 +522,34 @@ async function sendTelegramPhoto(
     } catch (e) {
         return { error: String(e), messageId: null };
     }
+}
+
+const QUESTION_PAGE = 50;
+const QUESTION_PAGE_CAP = 40;
+
+async function listAllUnansweredQuestions(token: string): Promise<{
+    questions: RestockQuestion[];
+    error?: string;
+    pages: number;
+}> {
+    const pages: RestockQuestion[][] = [];
+    let error: string | undefined;
+    for (let i = 0; i < QUESTION_PAGE_CAP; i++) {
+        const skip = i * QUESTION_PAGE;
+        const listed = await wbSend(
+            `${FEEDBACKS_API}/api/v1/questions?isAnswered=false&take=${QUESTION_PAGE}&skip=${skip}&order=dateDesc`,
+            token,
+        );
+        if (!listed.ok) {
+            error = wbError(listed);
+            break;
+        }
+        const batch = collectOpenQuestions(listed.data);
+        pages.push(batch);
+        if (batch.length < QUESTION_PAGE) break;
+        await sleep(200);
+    }
+    return { questions: mergeQuestionPages(pages), error, pages: pages.length };
 }
 
 // deno-lint-ignore no-explicit-any
