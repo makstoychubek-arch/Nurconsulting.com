@@ -42,14 +42,14 @@ export async function applyRestockTelegramReply(
     const { data: pendingRows, error: pendingErr } = await admin
         .from('wb_restock_questions')
         .select(PENDING_FIELDS)
-        .eq('status', 'pending');
+        .in('status', ['pending', 'answered']);
     if (pendingErr) {
         console.warn('[restock] pending select', pendingErr.message);
     }
 
     let pending = (pendingRows || []) as Array<PendingRestockRow & { telegram_chat_id?: string | null }>;
 
-    // Реплай на уже закрытую карточку (WB ушло, ❤ не встало) — подмешиваем эту строку.
+    // Реплай на уже закрытую карточку (автоответ / WB ушло, ❤ не встало) — подмешиваем эту строку.
     if (msg.replyToMessageId) {
         const { data: byId } = await admin
             .from('wb_restock_questions')

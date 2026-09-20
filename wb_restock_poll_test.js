@@ -18,7 +18,7 @@ const cfg = fs.readFileSync(path.join(root, 'supabase/config.toml'), 'utf8');
 const docs = fs.readFileSync(path.join(root, 'docs/wb-restock-reply.md'), 'utf8');
 
 assert.ok(poll.includes('isServiceAuthorized'), 'poll accepts cron JWT');
-assert.ok(poll.includes("channel: 'reviews'"), 'poll uses reviews gate');
+assert.ok(!poll.includes('shouldSendTelegram'), 'auto-answers ignore telegram mute for every cabinet');
 assert.ok(poll.includes('TELEGRAM_CHAT_REVIEWS'), 'poll does not fall back to team chat');
 assert.ok(!poll.includes('TEAM_TELEGRAM_CHAT_ID'), 'poll must not hardcode team chat');
 assert.ok(poll.includes('/api/v1/new-feedbacks-questions'),
@@ -26,8 +26,12 @@ assert.ok(poll.includes('/api/v1/new-feedbacks-questions'),
 assert.ok(poll.includes('parseNewFeedbacksQuestions'), 'poll parses hasNewQuestions flags');
 assert.ok(poll.includes('questions?isAnswered=false'), 'poll lists unanswered WB questions');
 assert.ok(poll.includes('wb_restock_questions'), 'poll stores pending cards');
-assert.ok(poll.includes('formatRestockTelegramCard'), 'poll sends restock card');
+assert.ok(poll.includes('formatRestockTelegramCard'), 'poll keeps a manual card if WB PATCH fails');
+assert.ok(poll.includes('formatAutoAnswerTelegramCard'), 'poll tags the owner after an auto-answer');
+assert.ok(poll.includes('buildAutoQuestionAnswer'), 'poll auto-answers every open question');
+assert.ok(poll.includes('auto_answered'), 'poll reports how many questions were auto-answered');
 assert.ok(poll.includes('pickOpenQuestions'), 'poll posts every open WB question, not only restock');
+assert.ok(!poll.includes('через несколько дней'), 'auto template must not invent a restock date');
 
 assert.ok(router.includes('verify') || cfg.includes('verify_jwt = false'), 'router is callable without user JWT');
 assert.ok(cfg.includes('[functions.telegram-router]') && cfg.includes('verify_jwt = false'),
@@ -81,6 +85,7 @@ assert.ok(webhook.includes('applyRestockTelegramReply'),
 assert.ok(apply.includes("'❤'"), 'Karina confirms a send with a heart');
 assert.ok(apply.includes('already_answered'), 'retry on an already-sent card still gets a heart');
 assert.ok(apply.includes('unmatched'), 'unknown restock card reply gets a thumbs-down, not silence');
+assert.ok(apply.includes("['pending', 'answered']"), 'reply can edit an already auto-answered card');
 assert.ok(apply.includes('isRestockInboundCandidate'), 'bot replies to a restock card are not dropped');
 assert.ok(webhook.indexOf('applyRestockTelegramReply') < webhook.indexOf("if (from?.is_bot) return"),
     'restock runs before the generic bot-message skip');
@@ -92,9 +97,13 @@ assert.ok(proxy.includes('answerWbQuestion'), 'site Agents tab answers via offic
 assert.ok(!proxy.includes('questions/answer'), 'live wb-proxy must not POST /questions/answer');
 
 assert.ok(docs.includes('через неделю'), 'user-facing doc explains the reply');
+assert.ok(docs.includes('автоответ'), 'doc explains auto-answers');
 assert.ok(docs.includes('TELEGRAM_CHAT_REVIEWS'), 'doc names the reviews chat');
 assert.ok(docs.includes('telegram-router'), 'doc names Karina webhook path');
 assert.ok(shared.includes('isRestockCardText'), 'short restock cards match without #nrq');
+assert.ok(shared.includes('автоответ'), 'auto-answer cards stay matchable as restock cards');
+assert.ok(shared.includes('buildAutoQuestionAnswer') && shared.includes('в ближайшее время'),
+    'auto restock answer does not invent a date');
 assert.ok(shared.includes('resolveStaffAnswer') && shared.includes('greetBuyerAnswer'),
     'short staff replies are expanded into a buyer letter');
 

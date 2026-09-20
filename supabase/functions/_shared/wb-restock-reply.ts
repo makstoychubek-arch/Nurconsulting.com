@@ -282,6 +282,32 @@ export function questionCardKind(text: string): 'поступление' | 'во
     return isRestockQuestion(text) ? 'поступление' : 'вопрос';
 }
 
+/** Срок без даты с WB. Не выдумываем «через несколько дней». */
+export const AUTO_RESTOCK_WHEN = 'в ближайшее время';
+
+const AUTO_FACT: Record<Exclude<QuestionTopic, 'restock'>, string> = {
+    lining: 'Информация о подкладе указана в описании карточки',
+    height: 'Рекомендуемый рост и размерная сетка есть в карточке товара',
+    model: 'Параметры модели указаны в описании и на фото карточки',
+    size: 'Актуальные размеры смотрите в карточке — наличие по складам обновляется',
+    color: 'Актуальные цвета и наличие указаны в карточке товара',
+    compose: 'Состав ткани указан в характеристиках карточки',
+    general: 'Спасибо за вопрос. Актуальная информация есть в карточке товара. Если нужно уточнить — напишите нам ещё раз',
+};
+
+/** Консервативный автоответ: без дат поставки и без выдуманных фактов о товаре. */
+export function buildAutoQuestionAnswer(text: string): {
+    topic: QuestionTopic;
+    when: string;
+    wbText: string;
+} {
+    const topic = inferQuestionTopic(text);
+    if (topic === 'restock') {
+        return { topic, when: AUTO_RESTOCK_WHEN, wbText: buildWbRestockAnswer(AUTO_RESTOCK_WHEN) };
+    }
+    return { topic, when: topic, wbText: greetBuyerAnswer(AUTO_FACT[topic]) };
+}
+
 export function isFreshQuestion(createdDate: string, maxAgeDays = 45): boolean {
     if (!createdDate) return true;
     const ms = Date.parse(createdDate);
@@ -298,6 +324,10 @@ export function shortQuestionQuote(text: string): string {
         .slice(0, 140);
 }
 
+function cardProductName(q: RestockQuestion): string {
+    return String(q.article || q.product || '').trim() || (q.nmId ? String(q.nmId) : 'товар');
+}
+
 export function formatRestockTelegramCard(opts: {
     cabinetName: string;
     cabinetId: string;
@@ -306,10 +336,27 @@ export function formatRestockTelegramCard(opts: {
 }): string {
     const q = opts.question;
     const who = opts.mention ? `${opts.mention} ` : '';
-    const name = String(q.article || q.product || '').trim() || (q.nmId ? String(q.nmId) : 'товар');
     const ask = shortQuestionQuote(q.text);
-    const lines = [`${who}${questionCardKind(q.text)}`, name];
+    const lines = [`${who}${questionCardKind(q.text)}`, cardProductName(q)];
     if (ask) lines.push(`«${ask}»`);
+    return lines.join('\n');
+}
+
+/** Карточка после автоответа: тег + что ушло на WB, чтобы реплаем поправить. */
+export function formatAutoAnswerTelegramCard(opts: {
+    cabinetName: string;
+    cabinetId: string;
+    question: RestockQuestion;
+    answer: string;
+    mention?: string;
+}): string {
+    const q = opts.question;
+    const who = opts.mention ? `${opts.mention} ` : '';
+    const ask = shortQuestionQuote(q.text);
+    const sent = String(opts.answer || '').replace(/\s+/g, ' ').trim().slice(0, 220);
+    const lines = [`${who}автоответ · ${questionCardKind(q.text)}`, cardProductName(q)];
+    if (ask) lines.push(`«${ask}»`);
+    if (sent) lines.push(`ушло: ${sent}`);
     return lines.join('\n');
 }
 
@@ -347,15 +394,24 @@ export function parseRestockCardMeta(text: string): RestockCardMeta | null {
     return { questionId: m[1], cabinetId: m[2] };
 }
 
-const CARD_KIND_RE = /поступление|вопрос/i;
+const CARD_KIND_RE = /автоответ|поступление|вопрос/i;
 
-/** Карточка Карины: «@maraWuW поступление|вопрос / артикул / цитата». Без #nrq. */
+/** Карточка Карины: «@maraWuW поступление|вопрос|автоответ / артикул / цитата». Без #nrq. */
 export function isRestockCardText(text: string): boolean {
     const t = String(text || '').trim();
     if (!t) return false;
     if (parseRestockCardMeta(t)) return true;
-    // \b не работает с кириллицей — после «поступление» обычный пробел/перевод строки.
-    return /(?:^|\n)\s*@?\S*[^\S\n]*(?:поступление|вопрос)(?:\s|$)/i.test(t);
+    // \b не работает с кириллицей — после вида карточки обычный пробел/перевод строки.
+    return /(?:^|\n)\s*@?\S*[^\S\n]*(?:автоответ|поступление|вопрос)(?:\s|$)/i.test(t);
+}
+
+function stripCardKindPrefix(line: string): string {
+    return String(line || '')
+        .replace(/^@\S+\s*/, '')
+        .replace(/^автоответ\s*[·•.\-:]+\s*/i, '')
+        .replace(/^(поступление|вопрос)\s+/i, '')
+        .split(/[«"]/)[0]
+        .trim();
 }
 
 export function restockCardArticleLine(text: string): string {
@@ -363,17 +419,13 @@ export function restockCardArticleLine(text: string): string {
     const lines = raw.split(/\n/).map((l) => l.trim()).filter(Boolean);
     const start = lines.findIndex((l) => CARD_KIND_RE.test(l));
     if (start < 0) {
-        const m = raw.match(/(?:поступление|вопрос)\s+([^\s«"]+)/i);
+        const m = raw.match(/(?:автоответ\s*[·•.\-:]+\s*)?(?:поступление|вопрос)\s+([^\s«"]+)/i);
         return m ? m[1].trim() : '';
     }
-    const same = lines[start]
-        .replace(/^@\S+\s*/, '')
-        .replace(/^(поступление|вопрос)\s+/i, '')
-        .split(/[«"]/)[0]
-        .trim();
-    if (same && !CARD_KIND_RE.test(same)) return same;
+    const same = stripCardKindPrefix(lines[start]);
+    if (same && !CARD_KIND_RE.test(same) && !/^ушло:/i.test(same)) return same;
     const next = lines[start + 1] || '';
-    if (!next || /^[«"]/.test(next) || CARD_KIND_RE.test(next)) return '';
+    if (!next || /^[«"]/.test(next) || CARD_KIND_RE.test(next) || /^ушло:/i.test(next)) return '';
     return next.split(/[«"]/)[0].trim();
 }
 
@@ -385,10 +437,17 @@ export function peelCardAndAnswer(raw: string): { card: string; answer: string }
     if (lines.length >= 2) {
         const last = lines[lines.length - 1];
         const head = lines.slice(0, -1).join('\n');
-        if (isRestockCardText(head) && !/^[«"]/.test(last) && resolveStaffAnswer(last, head)) {
+        if (
+            isRestockCardText(head) &&
+            !/^[«"]/.test(last) &&
+            !/^ушло:/i.test(last) &&
+            resolveStaffAnswer(last, head)
+        ) {
             return { card: head, answer: last };
         }
     }
+    // Срок внутри «ушло: …» — это автоответ, не реплай менеджера.
+    if (/(?:^|\s)ушло:/i.test(text)) return null;
     const when = extractRestockWhen(text);
     if (when && isRestockCardText(text)) {
         const folded = text.toLowerCase().replace(/ё/g, 'е');

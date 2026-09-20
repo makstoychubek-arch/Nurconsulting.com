@@ -24,8 +24,8 @@ assert.ok(router.includes('setTelegramReaction'), 'router hearts via shared help
 assert.ok(!router.includes('Ушло на WB'), 'must not write status text after a reply');
 assert.ok(!router.includes('Готово. На WB ушёл ответ'), 'must not dump the WB letter into the chat');
 assert.ok(!router.includes('Не смог ответить на WB'), 'must not paste WB error URLs');
-assert.ok(apply.includes(".eq('status', 'pending')"),
-    'pending questions are the default answer set');
+assert.ok(apply.includes(".in('status', ['pending', 'answered'])"),
+    'reply can edit an auto-answered card, not only pending');
 assert.ok(apply.includes('already_answered'), 'already-sent cards can still receive a heart');
 assert.ok(!router.includes('-1004460164885'), 'router must not hardcode the team chat');
 
