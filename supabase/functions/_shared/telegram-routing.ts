@@ -10,8 +10,6 @@
 //   TELEGRAM_CHAT_NEWS          — новости портала продавца WB
 //   TELEGRAM_CHAT_REVIEWS       — автоответы на отзывы WB
 //   TELEGRAM_CHAT_BLOCKINGS     — блокировки карточек (NR / Блокировки)
-//   TELEGRAM_CHAT_WAREHOUSE     — склад: хранение, возвраты (NR / Склад)
-//   TELEGRAM_CHAT_TRIGGERS      — триггеры / алерты
 //   TELEGRAM_CHAT_FBS           — FBS отчёты
 //
 // Обратная совместимость: TELEGRAM_CHANNEL_ID → ab_tests, если TELEGRAM_CHAT_AB_TESTS пуст.
@@ -24,8 +22,6 @@ export type TelegramChannel =
   | 'news'
   | 'reviews'
   | 'blockings'
-  | 'warehouse'
-  | 'triggers'
   | 'fbs'
   | 'team';
 
@@ -37,8 +33,6 @@ export const TELEGRAM_CHANNEL_LABELS: Record<TelegramChannel, string> = {
     news: 'Новости WB',
     reviews: 'Отзывы',
     blockings: 'Блокировки',
-    warehouse: 'Склад',
-    triggers: 'Триггеры',
     fbs: 'FBS',
     team: 'Тим',
 };
@@ -51,8 +45,6 @@ export const TELEGRAM_CHANNEL_PURPOSE: Record<TelegramChannel, string> = {
     news: 'Новости кабинета продавца WB',
     reviews: 'Отзывы и автоответы',
     blockings: 'Блокировки карточек',
-    warehouse: 'Склад: хранение и возвраты',
-    triggers: 'Триггеры и алерты',
     fbs: 'Отчёты FBS',
     team: 'Общий чат команды',
 };
@@ -65,8 +57,6 @@ const CHANNEL_ENV: Record<TelegramChannel, string> = {
     news: 'TELEGRAM_CHAT_NEWS',
     reviews: 'TELEGRAM_CHAT_REVIEWS',
     blockings: 'TELEGRAM_CHAT_BLOCKINGS',
-    warehouse: 'TELEGRAM_CHAT_WAREHOUSE',
-    triggers: 'TELEGRAM_CHAT_TRIGGERS',
     fbs: 'TELEGRAM_CHAT_FBS',
     team: 'TEAM_TELEGRAM_CHAT_ID',
 };
@@ -89,8 +79,6 @@ const ALL_CHANNELS: TelegramChannel[] = [
     'news',
     'reviews',
     'blockings',
-    'warehouse',
-    'triggers',
     'fbs',
     'team',
 ];
@@ -188,7 +176,7 @@ export function telegramConfigError(channel: TelegramChannel): string {
  * Определить канал входящего сообщения по chat_id.
  * Только dedicated / legacy ID — НЕ общий TELEGRAM_GROUP_CHAT_ID:
  * иначе все каналы схлопываются в один ключ объекта и «штрафы»
- * перетираются последним (triggers/fbs) → бот молчит.
+ * перетираются последним (fbs) → бот молчит.
  */
 export function resolveIncomingChatChannel(chatId: string): TelegramChannel | null {
     const id = String(chatId || '').trim();

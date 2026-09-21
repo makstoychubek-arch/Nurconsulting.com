@@ -1761,6 +1761,15 @@ assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260914120000_agent_hub.sql')),
     'can add a Telegram bot, list channel status, and send a site message into the TG chat'
 );
+{
+    const routing = fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/telegram-routing.ts'), 'utf8');
+    const gates = fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/telegram-gates.ts'), 'utf8');
+    assert.ok(!html.includes("warehouse: 'Склад'") && !html.includes("triggers: 'Триггеры'"),
+        'Агенты Telegram list must not show dead Склад / Триггеры chats');
+    assert.ok(!html.includes('Склад: хранение и возвраты') && !html.includes('Триггеры и алерты'));
+    assert.ok(!routing.includes('TELEGRAM_CHAT_WAREHOUSE') && !routing.includes('TELEGRAM_CHAT_TRIGGERS'));
+    assert.ok(!gates.includes("| 'warehouse'") && !gates.includes("| 'triggers'"));
+}
 
 {
     const astraMig = fs.readFileSync(
