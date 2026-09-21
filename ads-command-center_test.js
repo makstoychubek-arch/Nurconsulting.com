@@ -17,6 +17,18 @@ assert.equal(AdsHQ.campaignTypeLabel('manual_bid'), 'Поиск + полка');
 assert.equal(AdsHQ.campaignTypeLabel('auto_bid'), 'Авто');
 assert.equal(AdsHQ.campaignStatusLabel(9), 'Идёт');
 assert.equal(AdsHQ.campaignStatusLabel('paused'), 'Пауза');
+assert.equal(AdsHQ.nmIdFromName('1218782505 СПМ Айвори'), 1218782505);
+assert.equal(AdsHQ.nmIdFromName('247350276 СРС Укороч Костюм'), 247350276);
+assert.equal(AdsHQ.nmIdFromName('Кампания от 23.03.2026'), 0);
+assert.equal(AdsHQ.nmIdFromName('РК 35179140'), 35179140);
+assert.deepEqual(AdsHQ.nmIdsFromDayData({
+    apps: [{ nms: [{ nmId: 247350276 }, { nmId: 247350276 }] }],
+}), [247350276, 247350276]);
+assert.match(AdsHQ.campPhotoUrl(1218782505), /basket-44\.wbbasket\.ru\/vol12187\/part1218782\/1218782505/);
+assert.equal(AdsHQ.campPhotoUrl(1, 'https://img.example/main.webp'), 'https://img.example/main.webp');
+assert.equal(AdsHQ.campThumbHtml('', 1), '');
+assert.match(AdsHQ.campThumbHtml('https://img.example/main.webp', 1218782505), /ads-hq-thumb/);
+assert.match(AdsHQ.campThumbHtml('https://img.example/main.webp', 1218782505), /data-nmid="1218782505"/);
 assert.equal(AdsHQ.filterCampaigns([{ live: true }, { live: false }], 'active').length, 1);
 assert.equal(AdsHQ.filterCampaigns([{ live: true }, { live: false }], 'all').length, 2);
 assert.equal(AdsHQ.filterCampaigns([
@@ -103,6 +115,8 @@ assert.equal(model.rows[0].campaigns[0].typeLabel, 'Поиск + каталог'
 assert.equal(model.rows[0].campaigns[0].live, true);
 assert.equal(model.rows[1].campaigns[0].live, false);
 assert.equal(model.rows[0].campaigns[0].clusters[0].key, 'пиджак для женщин');
+assert.equal(model.rows[0].campaigns[0].nmId, 0, 'campaign_id is not an nmId');
+assert.equal(model.rows[0].campaigns[0].photoUrl, '');
 assert.equal(model.totals.active, 1);
 assert.equal(model.totals.tokenBad, 1);
 
@@ -160,6 +174,74 @@ assert.match(AdsHQ.defaultScheduleLocal(new Date(2026, 8, 17, 14, 20, 0)), /2026
     });
     assert.equal(miss.rows[0].spendToday, 0, 'stats outside the picked range must not leak in');
 }
+
+{
+    const photos = AdsHQ.buildHqModel({
+        from: '2026-09-10',
+        to: '2026-09-10',
+        cabinets: [{ id: 'cab-a', name: 'Baza', adv_token_valid: true, adv_token_secret_id: 's' }],
+        legacyCampaigns: [
+            { cabinet_id: 'cab-a', campaign_id: 39829721, campaign_name: '1218782505 СПМ Айвори', status: 9, type: 9 },
+            { cabinet_id: 'cab-a', campaign_id: 39497226, campaign_name: 'СРС Укороч Костюм', status: 9, type: 9 },
+            { cabinet_id: 'cab-a', campaign_id: 35179140, campaign_name: 'Кампания от 23.03.2026', status: 9, type: 9 },
+            { cabinet_id: 'cab-a', campaign_id: 11, campaign_name: 'Пиджак', status: 9, type: 9 },
+        ],
+        legacyStats: [
+            {
+                cabinet_id: 'cab-a', campaign_id: 35179140, stat_date: '2026-09-10', spend: 1, sum_price: 10,
+                data: { apps: [{ nms: [{ nmId: 296564448 }] }] },
+            },
+            {
+                cabinet_id: 'cab-a', campaign_id: 39497226, stat_date: '2026-09-10', spend: 1, sum_price: 10,
+                data: { apps: [{ nms: [{ nmId: 247350276 }] }] },
+            },
+        ],
+        v2Campaigns: [],
+        clusters: [],
+        rules: [],
+        snapshots: [],
+        v2Stats: [],
+        articles: [
+            {
+                cabinet_id: 'cab-a', nm_id: 1218782505, photo_url: 'https://img.example/ivory.webp',
+                name: 'Свитер', manual_data: { seller_article: 'СПМ Айвори' },
+            },
+            {
+                cabinet_id: 'cab-a', nm_id: 11, photo_url: 'https://img.example/wrong.webp',
+                name: 'Не то',
+            },
+            {
+                cabinet_id: 'cab-a', nm_id: 777000111, photo_url: 'https://img.example/jacket.webp',
+                name: 'Пиджак женский', manual_data: { seller_article: 'Пиджак' },
+            },
+        ],
+    });
+    const byName = Object.fromEntries(photos.rows[0].campaigns.map((c) => [c.name, c]));
+    assert.equal(byName['1218782505 СПМ Айвори'].nmId, 1218782505);
+    assert.equal(byName['1218782505 СПМ Айвори'].photoUrl, 'https://img.example/ivory.webp');
+    assert.notEqual(byName['1218782505 СПМ Айвори'].nmId, 39829721);
+    assert.equal(byName['СРС Укороч Костюм'].nmId, 247350276);
+    assert.match(byName['СРС Укороч Костюм'].photoUrl, /247350276\/images\/c246x328\/1\.webp/);
+    assert.equal(byName['Кампания от 23.03.2026'].nmId, 296564448);
+    assert.equal(byName['Пиджак'].nmId, 777000111);
+    assert.equal(byName['Пиджак'].photoUrl, 'https://img.example/jacket.webp');
+    const nameless = AdsHQ.buildHqModel({
+        cabinets: [{ id: 'cab-a', name: 'Baza', adv_token_valid: true, adv_token_secret_id: 's' }],
+        legacyCampaigns: [
+            { cabinet_id: 'cab-a', campaign_id: 35179140, campaign_name: '', status: 9, type: 9 },
+        ],
+        legacyStats: [],
+        v2Campaigns: [],
+        clusters: [],
+        rules: [],
+        snapshots: [],
+        v2Stats: [],
+        articles: [],
+    });
+    assert.equal(nameless.rows[0].campaigns[0].name, 'РК 35179140');
+    assert.equal(nameless.rows[0].campaigns[0].nmId, 0, 'WB campaign id must not become nmId');
+    assert.equal(nameless.rows[0].campaigns[0].photoUrl, '');
+}
 assert.equal(AdsHQ.setCabinet('cab-a'), 'cab-a');
 assert.equal(AdsHQ.getFilterCabinetId(), 'cab-a');
 assert.equal(AdsHQ.setCabinet(''), '');
@@ -206,6 +288,12 @@ global.document = {
         advertising_daily_stats: [
             { cabinet_id: 'cab-a', campaign_id: 38634350, stat_date: '2026-09-10', spend: 4200, sum_price: 20000 },
         ],
+        rnp_articles: [
+            {
+                cabinet_id: 'cab-a', nm_id: 777000111, photo_url: 'https://img.example/jacket.webp',
+                name: 'Пиджак женский', manual_data: { seller_article: 'Пиджак' },
+            },
+        ],
         adv_campaigns: [],
         adv_clusters: [],
         autobidder_rules: [],
@@ -250,6 +338,10 @@ global.document = {
     AdsHQ.setCabinet('cab-a');
     await AdsHQ.load();
     assert.match(els['ads-hq-tbody'].innerHTML, /Пиджак/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /ads-hq-thumb/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /img\.example\/jacket\.webp/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /ads-hq-camp-name/);
+    assert.match(els['ads-hq-phone'].innerHTML, /ads-hq-thumb/);
     assert.match(els['ads-hq-tbody'].innerHTML, /Поиск \+ каталог/);
     assert.match(els['ads-hq-tbody'].innerHTML, /Идёт/);
     assert.match(els['ads-hq-tbody'].innerHTML, /4.200/);

@@ -113,6 +113,147 @@
         return name.includes(q) || id.includes(q);
     }
 
+    function nmIdFromName(name) {
+        const s = String(name || '').trim();
+        const m = s.match(/^(\d{6,})\b/) || s.match(/(?:^|[^\d])(\d{6,})(?:[^\d]|$)/);
+        const n = m ? Number(m[1]) : 0;
+        return Number.isFinite(n) && n > 0 ? n : 0;
+    }
+
+    function nmList(v) {
+        if (Array.isArray(v)) return v;
+        if (v && typeof v === 'object') return [v];
+        if (v != null && v !== '') return [v];
+        return [];
+    }
+
+    function pushNmId(out, nm) {
+        const id = Number(nm && typeof nm === 'object'
+            ? (nm.nmId ?? nm.nmID ?? nm.nm_id ?? nm.nm ?? nm.id)
+            : nm);
+        if (Number.isFinite(id) && id > 0) out.push(Math.trunc(id));
+    }
+
+    function nmIdsFromDayData(data) {
+        const out = [];
+        if (!data || typeof data !== 'object') return out;
+        for (const nm of nmList(data.nms).concat(nmList(data.nm), nmList(data.nmIds))) pushNmId(out, nm);
+        for (const app of nmList(data.apps)) {
+            if (!app) continue;
+            for (const nm of nmList(app.nms).concat(nmList(app.nm), nmList(app.nmIds))) pushNmId(out, nm);
+        }
+        return out;
+    }
+
+    function nmIdByCampaignFromStats(legacyStats) {
+        const votes = new Map();
+        for (const r of legacyStats || []) {
+            const ck = String(r.cabinet_id) + ':' + String(r.campaign_id);
+            const ids = nmIdsFromDayData(r.data);
+            if (!ids.length) continue;
+            let bag = votes.get(ck);
+            if (!bag) { bag = new Map(); votes.set(ck, bag); }
+            for (const id of ids) bag.set(id, (bag.get(id) || 0) + 1);
+        }
+        const out = new Map();
+        for (const [ck, bag] of votes) {
+            let best = 0;
+            let n = 0;
+            for (const [id, c] of bag) {
+                if (c > n) { best = id; n = c; }
+            }
+            if (best) out.set(ck, best);
+        }
+        return out;
+    }
+
+    function articleIndex(articles) {
+        const photos = new Map();
+        const namesByCab = new Map();
+        const namesAll = [];
+        for (const a of articles || []) {
+            const id = Number(a && a.nm_id);
+            if (!id) continue;
+            const cab = a.cabinet_id != null ? String(a.cabinet_id) : '';
+            const url = String(a.photo_url || '').trim();
+            if (url) {
+                photos.set(id, url);
+                if (cab) photos.set(cab + ':' + id, url);
+            }
+            const md = a.manual_data && typeof a.manual_data === 'object' ? a.manual_data : {};
+            const label = String(md.seller_article || md.sa_name || a.name || '').trim();
+            if (label.length < 4) continue;
+            const row = { id, label: label.toLowerCase() };
+            namesAll.push(row);
+            if (!cab) continue;
+            const list = namesByCab.get(cab) || [];
+            list.push(row);
+            namesByCab.set(cab, list);
+        }
+        namesAll.sort((a, b) => b.label.length - a.label.length);
+        for (const list of namesByCab.values()) list.sort((a, b) => b.label.length - a.label.length);
+        return { photos, namesByCab, namesAll };
+    }
+
+    function nmIdFromArticleName(name, names) {
+        const s = String(name || '').toLowerCase();
+        if (!s) return 0;
+        for (const row of names || []) {
+            if (row.label && s.includes(row.label)) return row.id;
+        }
+        return 0;
+    }
+
+    function wbBasketHost(vol) {
+        const n = Number(vol) || 0;
+        const map = [
+            [0, 143, 1], [144, 287, 2], [288, 431, 3], [432, 719, 4],
+            [720, 1007, 5], [1008, 1061, 6], [1062, 1115, 7], [1116, 1169, 8],
+            [1170, 1313, 9], [1314, 1601, 10], [1602, 1655, 11], [1656, 1919, 12],
+            [1920, 2045, 13], [2046, 2189, 14], [2190, 2405, 15],
+        ];
+        const found = map.find((row) => n >= row[0] && n <= row[1]);
+        if (found) return found[2];
+        const anchors = [
+            [2406, 16], [2626, 17], [2876, 18], [3074, 19], [3345, 20], [3911, 22],
+            [3996, 23], [4143, 24], [4357, 25], [4950, 27], [5394, 28], [5978, 30],
+            [6296, 31], [6641, 32], [7053, 33], [7408, 35], [7714, 36], [8493, 38],
+            [8897, 39], [9719, 41], [11503, 43], [12187, 44], [15444, 48],
+        ];
+        const last = anchors[anchors.length - 1];
+        if (n >= last[0]) return last[1] + Math.round((n - last[0]) / 760);
+        let host = 16;
+        for (const [anchorVol, anchorHost] of anchors) {
+            if (n < anchorVol) break;
+            host = anchorHost;
+        }
+        return host;
+    }
+
+    function campPhotoUrl(nmId, stored) {
+        const s = String(stored || '').trim();
+        if (/^https?:\/\//i.test(s)) return s;
+        const n = Number(nmId);
+        if (!n) return '';
+        const vol = Math.floor(n / 100000);
+        const part = Math.floor(n / 1000);
+        const host = String(wbBasketHost(vol)).padStart(2, '0');
+        return 'https://basket-' + host + '.wbbasket.ru/vol' + vol + '/part' + part + '/' + n + '/images/c246x328/1.webp';
+    }
+
+    function campThumbHtml(url, nmId) {
+        if (!url) return '';
+        return '<img class="ads-hq-thumb" src="' + esc(url) + '" alt="" loading="lazy" decoding="async" referrerpolicy="no-referrer"' +
+            (nmId ? ' data-nmid="' + esc(nmId) + '"' : '') +
+            ' onerror="this.remove()">';
+    }
+
+    function resolveCampNmId(name, wbId, statsNm, names) {
+        let n = nmIdFromName(name);
+        if (n && Number(n) === Number(wbId)) n = 0;
+        return n || Number(statsNm) || nmIdFromArticleName(name, names) || 0;
+    }
+
     function compareCampaigns(a, b) {
         const yu = (b && b.usedYesterday ? 1 : 0) - (a && a.usedYesterday ? 1 : 0);
         if (yu) return yu;
@@ -166,6 +307,8 @@
         const rules = input.rules || [];
         const snaps = input.snapshots || [];
         const v2Stats = input.v2Stats || [];
+        const statsNmByCamp = nmIdByCampaignFromStats(legacyStats);
+        const artIdx = articleIndex(input.articles);
 
         const spendToday = new Map();
         const spend7 = new Map();
@@ -303,11 +446,23 @@
                     return 0;
                 };
                 const pickLast = () => lastSpend.get(spendKeyWb) || (spendKeyUuid ? lastSpend.get(spendKeyUuid) : '') || '';
+                const name = raw.campaign_name || (v2 && v2.name) || ('РК ' + wbId);
+                const nmId = resolveCampNmId(
+                    name,
+                    wbId,
+                    statsNmByCamp.get(spendKeyWb) || (spendKeyUuid ? statsNmByCamp.get(spendKeyUuid) : 0),
+                    artIdx.namesByCab.get(String(cab.id)) || artIdx.namesAll
+                );
+                const stored = nmId
+                    ? (artIdx.photos.get(String(cab.id) + ':' + nmId) || artIdx.photos.get(nmId) || '')
+                    : '';
                 return {
                     cabinetId: cab.id,
                     wbId,
                     uuid: campUuid || null,
-                    name: raw.campaign_name || (v2 && v2.name) || ('РК ' + wbId),
+                    name,
+                    nmId: nmId || 0,
+                    photoUrl: campPhotoUrl(nmId, stored),
                     status,
                     type: raw.type || (v2 && v2.campaign_type) || '',
                     typeLabel: campaignTypeLabel(raw.type || (v2 && v2.campaign_type) || ''),
@@ -709,8 +864,10 @@
         html.push(
             '<tr class="ads-hq-camp ads-hq-camp-top" data-key="camp:' + esc(ck) + '" data-ck="' + esc(ck) + '">' +
             '<td><input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '"></td>' +
-            '<td' + (pad ? ' style="padding-left:28px"' : '') + '><button type="button" class="ads-hq-expand" data-expand="camp" data-id="' + esc(ck) + '">' +
-            chevron(campOpen) + esc(camp.name) + usedMark(camp) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></button></td>' +
+            '<td' + (pad ? ' style="padding-left:28px"' : '') + '><div class="ads-hq-camp-name">' +
+            campThumbHtml(camp.photoUrl, camp.nmId) +
+            '<button type="button" class="ads-hq-expand" data-expand="camp" data-id="' + esc(ck) + '">' +
+            chevron(campOpen) + esc(camp.name) + usedMark(camp) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></button></div></td>' +
             '<td>' + esc(camp.typeLabel || campaignTypeLabel(camp.type)) + '</td>' +
             '<td>' + statusPill(camp.status) + scheduleMark(cab.id, camp.wbId) + '</td>' +
             '<td>' + formatMoney(camp.spendToday) + '</td>' +
@@ -796,6 +953,7 @@
             '<div class="ads-hq-phone-pick">' +
             '<input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) +
             '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '">' +
+            campThumbHtml(camp.photoUrl, camp.nmId) +
             '<button type="button" class="ads-hq-phone-head" data-expand="camp" data-id="' + esc(ck) + '">' +
             '<span>' + esc(camp.name) + usedMark(camp) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></span>' +
             chevron(campOpen) + '</button></div>'
@@ -1430,7 +1588,7 @@
             return true;
         });
         const ids = cabinets.map((c) => c.id);
-        const [legacyCampaigns, legacyStats, v2Campaigns] = ids.length ? await Promise.all([
+        const [legacyCampaigns, legacyStats, v2Campaigns, articles] = ids.length ? await Promise.all([
             safeRows('advertising_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
             safeRows('advertising_daily_stats', [
                 { op: 'in', column: 'cabinet_id', value: ids },
@@ -1438,7 +1596,10 @@
                 { op: 'lte', column: 'stat_date', value: rank.to },
             ]),
             safeRows('adv_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
-        ]) : [[], [], []];
+            safeRows('rnp_articles', [
+                { op: 'in', column: 'cabinet_id', value: ids },
+            ], 'cabinet_id,nm_id,photo_url,name,manual_data'),
+        ]) : [[], [], [], []];
         if (cab !== state.filterCabinetId) return null;
         const v2Ids = (v2Campaigns || []).map((c) => c.id);
         const [clusters, rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
@@ -1461,6 +1622,7 @@
         state.model = buildHqModel({
             from, to, yesterday: rank.yesterday, now, today: to, from7: from,
             cabinets, legacyCampaigns, legacyStats, v2Campaigns, clusters, rules, snapshots, v2Stats,
+            articles,
         });
         if (state.filterCabinetId) state.open.cabinets.add(state.filterCabinetId);
         renderKpis(state.model.totals);
@@ -1561,6 +1723,10 @@
         resolveHqRange,
         ymd,
         addDays,
+        nmIdFromName,
+        nmIdsFromDayData,
+        campPhotoUrl,
+        campThumbHtml,
     };
 
     root.AdsHQ = AdsHQ;
