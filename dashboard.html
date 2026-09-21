@@ -2028,14 +2028,15 @@
         .rnp-tool-icon svg,
         .rnp-settings-gear svg { width: 13px; height: 13px; display: block; }
         .rnp-plan-fact-open {
-            display: inline-flex; align-items: center; justify-content: center;
-            height: 22px; padding: 0 8px; margin: 0 2px 0 0; flex-shrink: 0;
-            border: none; border-radius: 999px; background: transparent;
-            color: var(--text-muted); cursor: pointer;
-            font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: 0.01em;
+            display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            height: 26px; padding: 0 10px; margin: 0 6px 0 0; flex-shrink: 0;
+            border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+            color: var(--text-primary); cursor: pointer;
+            font-family: inherit; font-size: 11px; font-weight: 650; letter-spacing: -0.01em;
             white-space: nowrap;
         }
-        .rnp-plan-fact-open:hover { color: var(--accent); background: var(--accent-soft); }
+        .rnp-plan-fact-open svg { width: 13px; height: 13px; display: block; flex-shrink: 0; }
+        .rnp-plan-fact-open:hover { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-border); }
         .rnp-plan-fact-overlay {
             display: none; position: fixed; inset: 0; z-index: 10070;
             padding: 10px; background: rgba(15, 23, 42, 0.45);
@@ -4548,7 +4549,8 @@
         .data-table th { font-weight: 600; border-bottom: 1px solid rgba(0,0,0,0.06) !important; }
         [data-theme="neon"] .data-table th { border-bottom-color: var(--border) !important; }
         [data-theme="neon"] .rnp-action-bar select,
-        [data-theme="neon"] .rnp-action-btn {
+        [data-theme="neon"] .rnp-action-btn,
+        [data-theme="neon"] .rnp-plan-fact-open {
             box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
         }
         .nav-item { border: none !important; font-weight: 500; border-radius: var(--radius-control) !important; }
@@ -4579,7 +4581,7 @@
         .rnp-sheet-tab .rnp-tab-img, .rnp-general-thumb img, .supply-card img {
             border-radius: var(--radius-control) !important;
         }
-        .rnp-action-bar select, .rnp-action-btn { border-radius: var(--radius-control) !important; border: none !important; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06); }
+        .rnp-action-bar select, .rnp-action-btn, .rnp-plan-fact-open { border-radius: var(--radius-control) !important; border: none !important; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06); }
         /* RNP: табличные поля и кнопки — компактный единый стиль, не Apple-pill */
         .rnp-workspace .rnp-plan-input,
         .rnp-workspace .rnp-meta-input,
@@ -4966,7 +4968,8 @@
             .rnp-action-bar--phone .rnp-settings-gear { width: 32px; height: 32px; margin-left: 0; }
             .rnp-action-bar--phone .rnp-tool-icon svg,
             .rnp-action-bar--phone .rnp-settings-gear svg { width: 18px; height: 18px; }
-            .rnp-action-bar--phone .rnp-plan-fact-open { height: 32px; padding: 0 10px; font-size: 11px; }
+            .rnp-action-bar--phone .rnp-plan-fact-open { height: 32px; padding: 0 12px; font-size: 12px; }
+            .rnp-action-bar--phone .rnp-plan-fact-open svg { width: 16px; height: 16px; }
             .rnp-settings-phone-tools { display: block; }
             .rnp-sheet-body {
                 transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
@@ -7143,7 +7146,7 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.cd92fbafd4.min.js"></script>
+<script src="/dist/rnp-module.2b115ec118.min.js"></script>
 <script src="/dist/rnp-plan-fact.57df3d6622.min.js"></script>
 <script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
