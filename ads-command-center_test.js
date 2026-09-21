@@ -286,7 +286,7 @@ global.document = {
             { cabinet_id: 'cab-a', campaign_id: 11, campaign_name: 'Пауза полка', status: 11, type: 4 },
         ],
         advertising_daily_stats: [
-            { cabinet_id: 'cab-a', campaign_id: 38634350, stat_date: '2026-09-10', spend: 4200, sum_price: 20000 },
+            { cabinet_id: 'cab-a', campaign_id: 38634350, stat_date: '2026-09-10', spend: 4200, sum_price: 20000, clicks: 80, atbs: 12, orders: 3 },
         ],
         rnp_articles: [
             {
@@ -352,6 +352,11 @@ global.document = {
     assert.match(els['ads-hq-kpis'].innerHTML, /Активные полки/);
     assert.match(els['ads-hq-kpis'].innerHTML, />1</);
     assert.match(els['ads-hq-kpis'].innerHTML, /Расход/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /Подменный артикул/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /Переходы/);
+    assert.match(els['ads-hq-kpis'].innerHTML, />80</);
+    assert.match(els['ads-hq-kpis'].innerHTML, />12</);
+    assert.match(els['ads-hq-kpis'].innerHTML, />3</);
     assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /Расход сегодня/);
     assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /ДРР 7д/);
     assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /Сэкономлено/);

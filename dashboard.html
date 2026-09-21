@@ -1340,7 +1340,8 @@
             padding: 0 30px 8px 0; border-bottom: 1px solid var(--border); flex-shrink: 0; flex-wrap: wrap;
         }
         .cl-head-text { min-width: 0; }
-        .cl-head h3 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.03em; color: var(--text-primary); }
+        .cl-title-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .cl-head h3 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -0.03em; color: var(--text-primary); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .cl-sub { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
         .cl-head-btns { display: flex; gap: 6px; flex-shrink: 0; }
         .cl-btn { padding: 4px 10px !important; font-size: 11px !important; }
@@ -1386,7 +1387,7 @@
             contain: layout paint;
         }
         .cl-empty { padding: 28px 14px; text-align: center; font-size: 12px; color: var(--text-muted); }
-        .cl-table { width: 100%; min-width: 1378px; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+        .cl-table { width: 100%; min-width: 1406px; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
         /* Фраза остаётся на месте, когда крутишь цифры по горизонтали. */
         .cl-table th:first-child, .cl-table td:first-child {
             position: sticky; left: 0; z-index: 1; background: var(--surface-solid);
@@ -1406,7 +1407,18 @@
         }
         .cl-table tbody tr:hover td { background: var(--sel); }
         .cl-table tbody tr:last-child td { border-bottom: none; }
-        .cl-q { color: var(--text-primary); font-weight: 600; max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+        .cl-q { color: var(--text-primary); font-weight: 600; max-width: 280px; overflow: hidden; }
+        .cl-q-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+        .cl-q-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .cl-hook, .cl-copy {
+            width: 22px; height: 22px; border: none; border-radius: 8px; padding: 0;
+            display: inline-flex; align-items: center; justify-content: center;
+            color: var(--text-muted); background: transparent; cursor: pointer; flex-shrink: 0;
+            text-decoration: none;
+        }
+        .cl-hook:hover, .cl-copy:hover { color: var(--accent); background: var(--accent-soft); }
+        .cl-hook svg, .cl-copy svg { width: 13px; height: 13px; display: block; }
+        .cl-copy.is-ok { color: var(--green); }
         .cl-nm { font-size: 9.5px; color: var(--text-muted); font-family: ui-monospace, monospace; font-weight: 400; }
         .cl-bid-wrap { display: inline-flex; gap: 4px; align-items: center; }
         .cl-bid-input {
@@ -1544,7 +1556,17 @@
         .adv-alert b { font-weight: 700; }
         .adv-kpi-tile { background: var(--surface); border-radius: var(--radius-card); padding: 10px 12px; box-shadow: none; }
         .adv-kpi-tile-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
-        .adv-kpi-tile-value { font-size: 16px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; }
+        .adv-kpi-tile-value { font-size: 16px; font-weight: 700; color: var(--text-primary); font-variant-numeric: tabular-nums; min-width: 4ch; }
+        .adv-kpi-stack { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+        .adv-kpi-stack-row {
+            display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+        }
+        .adv-kpi-stack-row span { font-size: 11px; color: var(--text-muted); }
+        .adv-kpi-stack-row b {
+            font-size: 16px; font-weight: 700; color: var(--text-primary);
+            font-variant-numeric: tabular-nums; font-feature-settings: "tnum";
+            min-width: 5ch; text-align: right; line-height: 1.1;
+        }
         .adv-module-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
         .ads-hq-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); }
         .ads-hq-dot.ok { background: var(--green); }
@@ -1571,12 +1593,6 @@
             display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
             margin: 0; width: 100%; min-height: 28px;
         }
-        .ads-hq-period {
-            display: inline-flex; align-items: center; gap: 2px; min-width: 0;
-            border: none; background: transparent; padding: 0; cursor: pointer;
-            font: inherit; color: inherit; flex-shrink: 1;
-        }
-        .ads-hq-period .rnp-period-chip-text { font-size: 13px; }
         .ads-hq-filters { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; flex-shrink: 0; }
         .ads-hq-tools.rnp-tool-icons {
             margin-left: auto; position: relative; gap: 2px; flex-shrink: 0;
@@ -1657,9 +1673,11 @@
         .ads-hq-phone-type { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
         .ads-hq-phone-cab-name { font-size: 12px; font-weight: 600; color: var(--text-muted); padding: 0 2px; }
         .ads-hq-advanced {
-            background: var(--surface); border-radius: var(--radius-card); padding: 14px 16px;
+            background: var(--surface); border-radius: var(--radius-card); padding: 16px 18px;
             box-shadow: var(--card-shadow);
         }
+        .ads-hq-advanced .widget-card { border-radius: 18px; }
+        .ads-hq-advanced .ui-input, .ads-hq-advanced .ui-select { border-radius: 12px; }
         .ads-hq-advanced > summary {
             cursor: pointer; font-weight: 600; font-size: 14px; color: var(--text-secondary);
             list-style: none;
@@ -1669,7 +1687,7 @@
         .ads-hq-hours { display: flex; flex-wrap: wrap; gap: 6px; }
         .ads-hq-hour {
             font-size: 11px; color: var(--text-muted); border: 1px solid var(--border);
-            border-radius: 8px; padding: 4px 6px; cursor: pointer; user-select: none;
+            border-radius: 12px; padding: 4px 8px; cursor: pointer; user-select: none;
         }
         .ads-hq-hour.on { color: var(--text-primary); background: var(--sel); border-color: transparent; }
         .ads-hq-hour input { display: none; }
@@ -1716,8 +1734,6 @@
             .ads-hq-phone { display: flex; flex-direction: column; gap: 10px; }
             .ads-hq-table-wrap { display: none; }
             .ads-hq-bulk { flex-wrap: wrap; gap: 6px; }
-            .ads-hq-period { flex: 1; min-width: 0; }
-            .ads-hq-period .rnp-period-chip-text { font-size: 13px; font-weight: 700; }
             .ads-hq-tools.rnp-tool-icons { margin-left: auto; }
             .ads-hq-tools .rnp-tool-icon,
             .ads-hq-tools .rnp-settings-gear,
@@ -6012,12 +6028,6 @@
         <div id="tab-advertising" class="tab-content space-y-5">
             <div id="adv-view-ads" class="space-y-5">
                 <div class="ads-hq-bulk">
-                    <button type="button" class="ads-hq-period" id="ads-hq-period-btn" onclick="toggleDatePicker(event)" title="Период" aria-label="Период">
-                        <span class="rnp-period-chip-text module-date-label" id="ads-hq-period">—</span>
-                        <span class="rnp-period-chevron-btn" aria-hidden="true">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-                        </span>
-                    </button>
                     <div class="ads-hq-filters">
                         <button type="button" class="ads-hq-chip on" data-camp-filter="active">Активные</button>
                         <button type="button" class="ads-hq-chip" data-camp-filter="all">Все</button>
@@ -6071,15 +6081,17 @@
                 <div id="ads-hq-kpis" class="grid grid-cols-3 gap-3">
                     <div class="adv-kpi-tile">
                         <div class="adv-kpi-tile-label">Активные полки</div>
-                        <div class="adv-kpi-tile-value">—</div>
+                        <div class="adv-kpi-tile-value" id="ads-hq-kpi-active">—</div>
                     </div>
-                    <div class="adv-kpi-tile">
-                        <div class="adv-kpi-tile-label">Расход</div>
-                        <div class="adv-kpi-tile-value">—</div>
+                    <div class="adv-kpi-tile adv-kpi-stack">
+                        <div class="adv-kpi-stack-row"><span>Расход</span><b id="ads-hq-kpi-spend">—</b></div>
+                        <div class="adv-kpi-stack-row"><span>ДРР</span><b id="ads-hq-kpi-drr">—</b></div>
                     </div>
-                    <div class="adv-kpi-tile">
-                        <div class="adv-kpi-tile-label">ДРР</div>
-                        <div class="adv-kpi-tile-value">—</div>
+                    <div class="adv-kpi-tile adv-kpi-stack">
+                        <div class="adv-kpi-tile-label">Подменный артикул</div>
+                        <div class="adv-kpi-stack-row"><span>Переходы</span><b id="ads-hq-kpi-clicks">—</b></div>
+                        <div class="adv-kpi-stack-row"><span>Корзина</span><b id="ads-hq-kpi-carts">—</b></div>
+                        <div class="adv-kpi-stack-row"><span>Заказы</span><b id="ads-hq-kpi-orders">—</b></div>
                     </div>
                 </div>
                 <div class="widget-card">
@@ -6105,24 +6117,24 @@
                     </div>
                 </div>
                 <details class="ads-hq-advanced">
-                    <summary>Автобиддер и журнал ставок</summary>
+                    <summary>Автобиддер: ставка сама держит позицию</summary>
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div class="widget-card">
-                        <h3 class="text-sm font-semibold mb-1">Правило ставки</h3>
-                        <p id="ads-hq-rule-hint" class="text-xs mb-4" style="color:var(--text-muted)">Откройте полку и нажмите кластер</p>
+                        <h3 class="text-sm font-semibold mb-1">Как ставить</h3>
+                        <p id="ads-hq-rule-hint" class="text-xs mb-4" style="color:var(--text-muted)">Откройте полку, нажмите кластер — правило сохранится на него.</p>
                         <div class="ads-hq-form-grid mb-3">
-                            <label class="text-xs" style="color:var(--text-muted)">Стратегия
+                            <label class="text-xs" style="color:var(--text-muted)">Как играть
                                 <select id="ads-hq-strategy" class="ui-select mt-1">
-                                    <option value="min_sufficient">Минимальная достаточная</option>
-                                    <option value="max_visibility">Максимум видимости</option>
-                                    <option value="fixed_position">Фикс. позиция</option>
-                                    <option value="target_drr">Целевой ДРР</option>
+                                    <option value="min_sufficient">Дешевле, лишь бы в позиции</option>
+                                    <option value="max_visibility">Видимость до потолка</option>
+                                    <option value="fixed_position">Держать коридор позиций</option>
+                                    <option value="target_drr">Не выше целевого ДРР</option>
                                 </select>
                             </label>
-                            <label class="text-xs" style="color:var(--text-muted)">Потолок
+                            <label class="text-xs" style="color:var(--text-muted)">Чем ограничить
                                 <select id="ads-hq-cap-mode" class="ui-select mt-1">
-                                    <option value="max_bid">Потолок ставки</option>
-                                    <option value="target_drr">целевой ДРР</option>
+                                    <option value="max_bid">Макс. ставка</option>
+                                    <option value="target_drr">Макс. ДРР</option>
                                 </select>
                             </label>
                             <label class="text-xs" style="color:var(--text-muted)">Позиция с
@@ -6131,26 +6143,26 @@
                             <label class="text-xs" style="color:var(--text-muted)">Позиция по
                                 <input id="ads-hq-pos-to" type="number" min="1" class="ui-input mt-1" value="10">
                             </label>
-                            <label id="ads-hq-max-wrap" class="text-xs" style="color:var(--text-muted)">Макс. ставка
+                            <label id="ads-hq-max-wrap" class="text-xs" style="color:var(--text-muted)">Не дороже, ₽
                                 <input id="ads-hq-max-bid" type="number" min="0" step="1" class="ui-input mt-1">
                             </label>
-                            <label id="ads-hq-drr-wrap" class="text-xs hidden" style="color:var(--text-muted)">ДРР, %
+                            <label id="ads-hq-drr-wrap" class="text-xs hidden" style="color:var(--text-muted)">Не выше ДРР, %
                                 <input id="ads-hq-drr" type="number" min="0" step="0.1" class="ui-input mt-1">
                             </label>
-                            <label class="text-xs" style="color:var(--text-muted)">Пол ставки
+                            <label class="text-xs" style="color:var(--text-muted)">Не дешевле, ₽
                                 <input id="ads-hq-floor" type="number" min="0" class="ui-input mt-1" value="50">
                             </label>
-                            <label class="text-xs" style="color:var(--text-muted)">Шаг, %
+                            <label class="text-xs" style="color:var(--text-muted)">Шаг ставки, %
                                 <input id="ads-hq-step" type="number" min="1" class="ui-input mt-1" value="7">
                             </label>
-                            <label class="text-xs" style="color:var(--text-muted)">Гистерезис, %
+                            <label class="text-xs" style="color:var(--text-muted)">Люфт, %
                                 <input id="ads-hq-hyst" type="number" min="0" class="ui-input mt-1" value="3">
                             </label>
-                            <label class="text-xs" style="color:var(--text-muted)">Порог органики
+                            <label class="text-xs" style="color:var(--text-muted)">Органика лучше этой позиции — не бить
                                 <input id="ads-hq-organic" type="number" min="1" class="ui-input mt-1" value="5">
                             </label>
                         </div>
-                        <div class="text-xs mb-2" style="color:var(--text-muted)">Часы работы автобиддера</div>
+                        <div class="text-xs mb-2" style="color:var(--text-muted)">Часы, когда автобиддер ставит</div>
                         <div id="ads-hq-hours" class="ads-hq-hours mb-4"></div>
                         <div class="ads-hq-bulk">
                             <input id="ads-hq-tpl-name" class="ui-input" placeholder="Имя шаблона" style="max-width:180px">
@@ -6159,8 +6171,8 @@
                         </div>
                     </div>
                     <div class="widget-card">
-                        <h3 class="text-sm font-semibold mb-1">Журнал ставок</h3>
-                        <p class="text-xs mb-3" style="color:var(--text-muted)">История ставки и позиции выбранного правила</p>
+                        <h3 class="text-sm font-semibold mb-1">Что менялось</h3>
+                        <p class="text-xs mb-3" style="color:var(--text-muted)">Ставка и позиция выбранного кластера</p>
                         <div class="ads-hq-journal-chart mb-3"><canvas id="ads-hq-journal-chart"></canvas></div>
                         <div id="ads-hq-journal-empty" class="text-xs" style="color:var(--text-muted)">Журнал пуст, пока автобиддер не менял ставки.</div>
                         <div id="ads-hq-journal-table" class="autobidder-log"></div>
@@ -6568,7 +6580,12 @@
                 <button type="button" class="rnp-settings-close" onclick="closeClusterModal()" aria-label="Закрыть">×</button>
                 <div class="cl-head">
                     <div class="cl-head-text">
-                        <h3 id="cl-title">Ключевые кластеры</h3>
+                        <div class="cl-title-row">
+                            <h3 id="cl-title">Ключевые кластеры</h3>
+                            <button type="button" class="cl-copy" id="cl-copy-name" title="Скопировать название РК" aria-label="Скопировать название РК">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5h10"></path></svg>
+                            </button>
+                        </div>
                         <div id="cl-sub" class="cl-sub">—</div>
                     </div>
                     <div class="cl-head-btns">
@@ -7216,7 +7233,7 @@
 <script src="/dist/rnp-plan-fact.0516732b48.min.js"></script>
 <script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.1839fcc541.min.js"></script>
+<script src="/dist/ads-command-center.2435903b96.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
@@ -9356,7 +9373,7 @@
     // Ширины фиксируем, чтобы колонки не прыгали при перерисовке строк и чтобы
     // браузер не пересчитывал раскладку всей таблицы на каждый рендер.
         const CLUSTER_COLS = [
-        { key: 'normQuery', label: 'Кластер', w: 208 },
+        { key: 'normQuery', label: 'Кластер', w: 236 },
         { key: 'bid', label: 'Ставка CPM', w: 100 },
         {
             key: 'reach', w: 212,
@@ -9502,7 +9519,7 @@
             : '<button type="button" class="cl-mini" data-cl-act="exclude">Исключить</button>';
 
         return `<tr data-cl-key="${escapeHtml(key)}">
-            <td class="cl-q" title="${escapeHtml(r.normQuery)}">${escapeHtml(r.normQuery)}<div class="cl-nm">${r.nmId}</div></td>
+            <td class="cl-q" title="${escapeHtml(r.normQuery)}"><div class="cl-q-row"><span class="cl-q-text">${escapeHtml(r.normQuery)}</span>${clusterWbHook(r.normQuery)}</div><div class="cl-nm">${r.nmId}</div></td>
             <td>${bidCell}</td>
             <td>${clusterReachCell(r, data.editable)}</td>
             <td>${clusterFreqCell(r)}</td>
@@ -9521,6 +9538,37 @@
     }
 
     function clusterRowKey(r) { return r.nmId + '|' + r.normQuery; }
+
+    function wbClientSearchUrl(query) {
+        const q = String(query || '').trim();
+        if (!q) return '';
+        return 'https://www.wildberries.ru/catalog/0/search.aspx?search=' + encodeURIComponent(q);
+    }
+
+    function clusterWbHook(query) {
+        const url = wbClientSearchUrl(query);
+        if (!url) return '';
+        return '<a class="cl-hook" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" title="Открыть на WB" aria-label="Открыть на WB">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10.5a4 4 0 1 0 8 0V9"></path><path d="M8 7h4"></path></svg></a>';
+    }
+
+    async function copyClusterCampaignName(btn) {
+        const id = _clusterState.advertId;
+        const camp = (window._advCampaignsById && window._advCampaignsById.get(String(id))) || null;
+        const name = (camp && camp.name) || (document.getElementById('cl-title') || {}).textContent || '';
+        const ok = await copyTextToClipboard(String(name || '').trim());
+        const el = btn || document.getElementById('cl-copy-name');
+        if (el && el.classList) {
+            el.classList.toggle('is-ok', !!ok);
+            el.title = ok ? 'Скопировано' : 'Не удалось скопировать';
+            setTimeout(() => {
+                if (!el.isConnected) return;
+                el.classList.remove('is-ok');
+                el.title = 'Скопировать название РК';
+            }, 1600);
+        }
+    }
+    window.copyClusterCampaignName = copyClusterCampaignName;
 
     function clusterRowByKey(key) {
         const data = _clusterBoards.get(_clusterState.advertId);
@@ -9765,6 +9813,11 @@
             if (!tr) return;
             if (act.dataset.clAct === 'save') saveClusterBid(tr.dataset.clKey);
             else toggleClusterMinus(tr.dataset.clKey, act.dataset.clAct === 'exclude');
+            return;
+        }
+        const copyBtn = e.target.closest('#cl-copy-name');
+        if (copyBtn) {
+            copyClusterCampaignName(copyBtn);
         }
     });
     document.addEventListener('keydown', (e) => {
