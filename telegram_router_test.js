@@ -13,6 +13,11 @@ const webhook = fs.readFileSync(path.join(root, 'supabase/functions/telegram-web
 const html = fs.readFileSync(path.join(root, 'dashboard.html'), 'utf8');
 
 assert.ok(router.includes('applyRestockTelegramReply'), 'router uses shared restock apply');
+assert.ok(
+    router.indexOf('const restock = await applyRestockTelegramReply')
+        < router.indexOf('if (isTeamChatId(msg.chatId'),
+    'restock reply is handled before the team-chat early return',
+);
 assert.ok(router.includes('unwrapTelegramMessage'), 'router reads Telegram update');
 assert.ok(apply.includes("'👎'"), 'unclear reply gets a thumbs-down, not a chat message');
 assert.ok(shared.includes('setMessageReaction') && apply.includes("'❤'"),

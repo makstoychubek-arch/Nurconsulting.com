@@ -212,7 +212,7 @@ serve(async (req) => {
                 await tgApi(token, 'setWebhook', {
                     url: hookUrl,
                     secret_token: secret || undefined,
-                    allowed_updates: ['message'],
+                    allowed_updates: ['message', 'edited_message', 'business_message', 'edited_business_message'],
                     drop_pending_updates: false,
                 });
             }
@@ -261,7 +261,7 @@ serve(async (req) => {
             const set = await tgApi(tok, 'setWebhook', {
                 url: hookUrl,
                 secret_token: secret || undefined,
-                allowed_updates: ['message'],
+                allowed_updates: ['message', 'edited_message', 'business_message', 'edited_business_message'],
                 drop_pending_updates: false,
             });
             if (set.ok && !bot.webhook_path) {

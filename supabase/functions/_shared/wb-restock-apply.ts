@@ -9,6 +9,7 @@ import {
     isAllowedRestockChat,
     isRestockCardText,
     isRestockInboundCandidate,
+    peelCardAndAnswer,
     unwrapTelegramMessage,
     type PendingRestockRow,
 } from './wb-restock-reply.ts';
@@ -50,23 +51,30 @@ export async function applyRestockTelegramReply(
     let pending = (pendingRows || []) as Array<PendingRestockRow & { telegram_chat_id?: string | null }>;
 
     // Реплай на уже закрытую карточку (автоответ / WB ушло, ❤ не встало) — подмешиваем эту строку.
-    if (msg.replyToMessageId) {
+    // В комментариях к каналу message_id копии ≠ id поста — берём и origin.
+    const replyIds = (msg.replyToMessageIds && msg.replyToMessageIds.length)
+        ? msg.replyToMessageIds
+        : (msg.replyToMessageId ? [msg.replyToMessageId] : []);
+    let extraFound = false;
+    if (replyIds.length) {
         const { data: byId } = await admin
             .from('wb_restock_questions')
             .select(PENDING_FIELDS)
-            .eq('telegram_message_id', msg.replyToMessageId)
-            .maybeSingle();
-        const extra = byId as (PendingRestockRow & { telegram_chat_id?: string | null }) | null;
-        if (
-            extra?.question_id &&
-            !pending.some((r) => r.question_id === extra.question_id && r.cabinet_id === extra.cabinet_id)
-        ) {
-            pending = [...pending, extra];
+            .in('telegram_message_id', replyIds);
+        for (const extra of (byId || []) as Array<PendingRestockRow & { telegram_chat_id?: string | null }>) {
+            if (
+                extra?.question_id &&
+                !pending.some((r) => r.question_id === extra.question_id && r.cabinet_id === extra.cabinet_id)
+            ) {
+                pending = [...pending, extra];
+            }
+            if (extra?.question_id) extraFound = true;
         }
     }
 
     const pendingChats = pending.map((r) => String(r.telegram_chat_id || '')).filter(Boolean);
-    if (!isAllowedRestockChat(msg.chatId, opts.reviewsChatId, pendingChats)) {
+    const cardReply = isRestockCardText(msg.replyToText) || Boolean(peelCardAndAnswer(msg.text));
+    if (!isAllowedRestockChat(msg.chatId, opts.reviewsChatId, pendingChats) && !cardReply && !extraFound) {
         return { handled: false };
     }
 
@@ -78,6 +86,7 @@ export async function applyRestockTelegramReply(
         ownerUsername: opts.ownerUsername,
         replyToText: msg.replyToText,
         replyToMessageId: msg.replyToMessageId,
+        replyToMessageIds: replyIds,
         pending,
     });
 
@@ -115,22 +124,17 @@ export async function applyRestockTelegramReply(
         .maybeSingle();
     const wbToken = sanitizeWbToken(cabinet?.wb_token);
     if (!wbToken) {
-        if (alreadyAnswered && opts.react) await opts.react('❤', decision.replyToId);
-        else if (opts.react) await opts.react('👎', decision.replyToId);
+        if (opts.react) await opts.react('👎', decision.replyToId);
         return {
             handled: true,
-            kind: alreadyAnswered ? 'answered' : 'error',
-            detail: alreadyAnswered ? 'already_answered' : 'no_wb_token',
+            kind: 'error',
+            detail: 'no_wb_token',
         };
     }
 
     const answer = decision.wbText || buildWbRestockAnswer(decision.when);
-    const posted = await answerWbQuestion(wbToken, decision.questionId, answer);
+    const posted = await answerWbQuestion(wbToken, decision.questionId, answer, { acceptAlready: false });
     if (!posted.ok) {
-        if (alreadyAnswered) {
-            if (opts.react) await opts.react('❤', decision.replyToId);
-            return { handled: true, kind: 'answered', detail: 'already_answered' };
-        }
         const err = wbError(posted);
         await admin.from('wb_restock_questions').update({
             error_text: err,
@@ -152,5 +156,5 @@ export async function applyRestockTelegramReply(
     }).eq('cabinet_id', decision.cabinetId).eq('question_id', decision.questionId);
 
     if (opts.react) await opts.react('❤', decision.replyToId);
-    return { handled: true, kind: 'answered', detail: decision.via };
+    return { handled: true, kind: 'answered', detail: alreadyAnswered ? 'already_answered' : decision.via };
 }

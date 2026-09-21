@@ -435,16 +435,24 @@ export function isAlreadyAnsweredWb(res: { ok: boolean; status: number; data: un
     return /already|уже отвеч|has answer|answered/i.test(raw);
 }
 
-export async function answerWbQuestion(token: string, id: string, text: string) {
+export async function answerWbQuestion(
+    token: string,
+    id: string,
+    text: string,
+    opts?: { acceptAlready?: boolean },
+) {
     const url = `${FEEDBACKS_API}/api/v1/questions`;
     const payload = wbQuestionAnswerPayload(id, text);
+    const acceptAlready = opts?.acceptAlready !== false;
     const first = await wbSend(url, token, 'PATCH', payload);
-    if (first.ok || isAlreadyAnsweredWb(first)) return first.ok ? first : { ...first, ok: true };
+    if (first.ok) return first;
+    if (acceptAlready && isAlreadyAnsweredWb(first)) return { ...first, ok: true };
     const raw = String(token || '').replace(/^Bearer\s+/i, '').trim();
     if (!raw) return first;
     const retry = await wbSend(url, `Bearer ${raw}`, 'PATCH', payload);
-    if (retry.ok || isAlreadyAnsweredWb(retry)) return retry.ok ? retry : { ...retry, ok: true };
-    return retry.ok || retry.status !== first.status ? retry : first;
+    if (retry.ok) return retry;
+    if (acceptAlready && isAlreadyAnsweredWb(retry)) return { ...retry, ok: true };
+    return retry.status !== first.status ? retry : first;
 }
 
 export function parseRestockCardMeta(text: string): RestockCardMeta | null {
@@ -636,6 +644,43 @@ export function isAllowedRestockChat(
     });
 }
 
+function addTelegramId(ids: number[], value: unknown): void {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0 || ids.includes(n)) return;
+    ids.push(n);
+}
+
+/** message_id карточки: сам реплай, автофорвард из канала, external_reply. */
+export function collectTelegramReplyIds(
+    reply: Record<string, unknown> = {},
+    extra: Record<string, unknown> = {},
+): number[] {
+    const ids: number[] = [];
+    addTelegramId(ids, reply.message_id);
+    addTelegramId(ids, reply.forward_from_message_id);
+    const origin = reply.forward_origin && typeof reply.forward_origin === 'object'
+        ? reply.forward_origin as Record<string, unknown>
+        : {};
+    addTelegramId(ids, origin.message_id);
+    addTelegramId(ids, extra.message_id);
+    const extraOrigin = extra.origin && typeof extra.origin === 'object'
+        ? extra.origin as Record<string, unknown>
+        : {};
+    addTelegramId(ids, extraOrigin.message_id);
+    return ids;
+}
+
+export function matchPendingByTelegramIds<T extends Pick<PendingRestockRow, 'telegram_message_id'>>(
+    ids: Array<number | string | null | undefined>,
+    pending: T[],
+): T | null {
+    const want = new Set(
+        (ids || []).map((v) => Number(v)).filter((n) => Number.isFinite(n) && n > 0),
+    );
+    if (!want.size) return null;
+    return (pending || []).find((r) => want.has(Number(r.telegram_message_id))) || null;
+}
+
 function pickTelegramMessage(update: unknown): Record<string, unknown> | null {
     const rec = update && typeof update === 'object' ? update as Record<string, unknown> : {};
     for (const key of [
@@ -658,6 +703,7 @@ export function unwrapTelegramMessage(update: unknown): {
     fromUsername: string;
     replyToText: string;
     replyToMessageId: number | null;
+    replyToMessageIds: number[];
     isBot: boolean;
 } | null {
     const msg = pickTelegramMessage(update);
@@ -677,7 +723,8 @@ export function unwrapTelegramMessage(update: unknown): {
     const rawText = String(msg.text || msg.caption || '');
     const peeled = peelCardAndAnswer(rawText);
     const replyToText = String(reply.text || reply.caption || quote.text || peeled?.card || '');
-    const replyToMessageId = Number(reply.message_id || external.message_id || 0) || null;
+    const replyToMessageIds = collectTelegramReplyIds(reply, external);
+    const replyToMessageId = replyToMessageIds[0] || null;
     return {
         chatId,
         messageId,
@@ -685,6 +732,7 @@ export function unwrapTelegramMessage(update: unknown): {
         fromUsername: String(from.username || ''),
         replyToText,
         replyToMessageId,
+        replyToMessageIds,
         isBot: from.is_bot === true,
     };
 }
@@ -730,6 +778,7 @@ export function decideRestockInbound(input: {
     ownerUsername: string;
     replyToText: string;
     replyToMessageId: number | null;
+    replyToMessageIds?: number[];
     pending: PendingRestockRow[];
 }): RestockInboundDecision {
     const chatId = String(input.chatId || '');
@@ -749,9 +798,10 @@ export function decideRestockInbound(input: {
         return finishInbound(work, row, 'card_meta');
     }
 
-    const byTg = input.replyToMessageId
-        ? input.pending.find((r) => Number(r.telegram_message_id) === Number(input.replyToMessageId))
-        : null;
+    const byTg = matchPendingByTelegramIds(
+        [input.replyToMessageId, ...(input.replyToMessageIds || [])],
+        input.pending,
+    );
     if (byTg) return finishInbound(work, byTg, 'tg_message');
 
     const hay = [replyToText, peeled?.card, text].filter(Boolean).join('\n');

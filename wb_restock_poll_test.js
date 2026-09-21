@@ -51,7 +51,15 @@ assert.ok(cfg.includes('[functions.telegram-router]') && cfg.includes('verify_jw
     'config.toml disables JWT for Telegram webhook');
 assert.ok(router.includes('X-Telegram-Bot-Api-Secret-Token'), 'router checks webhook secret');
 assert.ok(router.includes('applyRestockTelegramReply'), 'router answers restock via shared apply');
+assert.ok(
+    router.indexOf('const restock = await applyRestockTelegramReply')
+        < router.indexOf('if (isTeamChatId(msg.chatId'),
+    'Karina webhook answers restock before team invite/ping',
+);
 assert.ok(apply.includes('answerWbQuestion'), 'apply answers via official PATCH /questions');
+assert.ok(apply.includes('acceptAlready: false'), 'staff correction must PATCH the new text, not fake already-answered');
+assert.ok(apply.includes('replyToMessageIds') && apply.includes('cardReply'),
+    'photo comments and discussion copies still find the restock card');
 assert.ok(!router.includes('questions/answer') && !apply.includes('questions/answer'),
     'old POST /questions/answer path is gone');
 assert.ok(shared.includes('buildWbRestockAnswer'), 'hello+when template is shared');
@@ -74,7 +82,11 @@ assert.ok(!apply.includes('завтра / через неделю / через 2
 assert.ok(shared.includes('toLocaleLowerCase'), 'WB when-phrase is lowercased');
 assert.ok(poll.includes('answerWbQuestion'), 'poll apply uses official PATCH');
 
+assert.ok(poll.includes('telegramSendMeta') && poll.includes('sent.chatId'),
+    'store numeric Telegram chat id from sendPhoto so replies match');
 assert.ok(admin.includes("action === 'set_webhook'"), 'admin can point notify bot at the router');
+assert.ok(admin.includes("edited_message") && admin.includes("business_message"),
+    'Karina webhook receives edited replies, not only the first message');
 assert.ok(admin.includes('telegram-router?bot='), 'webhook path is telegram-router');
 
 assert.ok(shared.includes('Здравствуйте! Этот товар будет в наличии'), 'WB template greets first');

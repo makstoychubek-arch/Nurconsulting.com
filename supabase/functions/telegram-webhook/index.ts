@@ -133,7 +133,10 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
         return;
     }
 
-    const message = (update.message || update.edited_message) as Record<string, unknown> | undefined;
+    const message = (update.message
+        || update.edited_message
+        || update.business_message
+        || update.edited_business_message) as Record<string, unknown> | undefined;
     if (!message) return;
 
     const chat = message.chat as Record<string, unknown> | undefined;
@@ -152,7 +155,7 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
     );
     const restockToken = (Deno.env.get('KARINA_BOT_TOKEN') ?? '').trim() || token;
     const reviewsChatId = (Deno.env.get('TELEGRAM_CHAT_REVIEWS') ?? '').trim() || getTelegramChatId('reviews');
-    const restock = await applyRestockTelegramReply(admin, { message }, {
+    const restock = await applyRestockTelegramReply(admin, update, {
         ownerUsername: (Deno.env.get('TELEGRAM_ALERT_USERNAME') || 'maraWuW').replace(/^@/, ''),
         reviewsChatId,
         send: (text, replyToId) => sendReply(restockToken, chatId, escapeHtml(text), replyToId),
