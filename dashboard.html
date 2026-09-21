@@ -1328,7 +1328,7 @@
         .adv-camp-action-btn.is-on { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
         /* Ключевые кластеры кампании — модалка в стиле настроек РНП */
         .cl-dialog.rnp-settings-dialog {
-            width: min(1240px, 100%); max-height: min(86vh, 780px);
+            width: 100%; height: 100%; max-height: none;
             padding: 10px 16px 12px; display: flex; flex-direction: column; overflow: hidden;
         }
         /* Диалог — flex-контейнер, поэтому float у крестика не работает. */
@@ -1460,25 +1460,51 @@
             padding-top: 8px; font-size: 10.5px; color: var(--text-muted); flex-shrink: 0; flex-wrap: wrap;
         }
         @media (max-width: 720px) {
-            .cl-dialog.rnp-settings-dialog { padding: 8px 10px 10px; max-height: 92vh; }
+            .cl-dialog.rnp-settings-dialog { padding: 8px 10px 10px; }
             .cl-search { width: 100%; }
             .cl-kpi { min-width: 68px; padding: 4px 8px; }
             .cl-table { min-width: 1130px; }
             .cl-table th, .cl-table td { padding: 6px 7px; }
         }
-        /* Модалки сайта выплывают, а не появляются рывком */
+        /* Единое стекло: затемнение + blur, панель накрывает сверху по центру */
         @keyframes nr-dialog-in {
-            from { opacity: 0; transform: translateY(14px) scale(0.985); }
+            from { opacity: 0; transform: translateY(-14px) scale(0.985); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
         @keyframes nr-overlay-in { from { opacity: 0; } to { opacity: 1; } }
-        .rnp-settings-overlay.is-open { animation: nr-overlay-in 0.16s ease-out both; }
-        .rnp-settings-overlay.is-open > .rnp-settings-dialog {
-            animation: nr-dialog-in 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+        .rnp-settings-overlay.is-open,
+        .rnp-plan-fact-overlay.is-open,
+        .rnp-photo-lightbox.is-open,
+        #premium-modal.is-open,
+        #add-cabinet-modal:not(.hidden),
+        #autobidder-modal:not(.hidden),
+        #supply-detail-modal:not(.hidden) {
+            animation: nr-overlay-in 0.22s ease-out both;
+        }
+        .rnp-settings-overlay.is-open > .rnp-settings-dialog,
+        .rnp-plan-fact-overlay.is-open > .rnp-plan-fact-dialog,
+        .rnp-photo-lightbox.is-open img,
+        #premium-modal.is-open #modal-box,
+        #add-cabinet-modal:not(.hidden) > .add-cabinet-modal-box,
+        #autobidder-modal:not(.hidden) > .nr-glass-dialog,
+        #supply-detail-modal:not(.hidden) > .nr-glass-dialog {
+            animation: nr-dialog-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
         }
         @media (prefers-reduced-motion: reduce) {
             .rnp-settings-overlay.is-open,
-            .rnp-settings-overlay.is-open > .rnp-settings-dialog { animation: none; }
+            .rnp-settings-overlay.is-open > .rnp-settings-dialog,
+            .rnp-plan-fact-overlay.is-open,
+            .rnp-plan-fact-overlay.is-open > .rnp-plan-fact-dialog,
+            .rnp-photo-lightbox.is-open,
+            .rnp-photo-lightbox.is-open img,
+            #premium-modal.is-open,
+            #premium-modal.is-open #modal-box,
+            #add-cabinet-modal:not(.hidden),
+            #add-cabinet-modal:not(.hidden) > .add-cabinet-modal-box,
+            #autobidder-modal:not(.hidden),
+            #autobidder-modal:not(.hidden) > .nr-glass-dialog,
+            #supply-detail-modal:not(.hidden),
+            #supply-detail-modal:not(.hidden) > .nr-glass-dialog { animation: none; }
         }
         .autobidder-rule {
             background: var(--surface); border-radius: var(--radius-card); padding: 16px;
@@ -1490,7 +1516,25 @@
         .autobidder-log { font-size: 12px; }
         .autobidder-log-row { display: grid; grid-template-columns: 110px 70px 1fr 90px; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--border); }
         .autobidder-log-row:last-child { border-bottom: none; }
+        .nr-glass-dialog {
+            background: var(--surface-solid);
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            border-radius: 16px;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.55);
+            overflow: auto;
+        }
+        #autobidder-modal,
+        #supply-detail-modal {
+            position: fixed; inset: 0; z-index: 10080;
+            align-items: center; justify-content: center;
+            padding: 12px;
+            background: rgba(15, 23, 42, 0.42);
+            -webkit-backdrop-filter: blur(22px) saturate(180%);
+            backdrop-filter: blur(22px) saturate(180%);
+        }
         #autobidder-modal:not(.hidden) { display: flex; }
+        #autobidder-modal > .nr-glass-dialog { width: min(520px, 100%); max-height: 100%; padding: 24px; }
+        #supply-detail-modal > .nr-glass-dialog { width: min(760px, 100%); max-height: 100%; padding: 28px; }
         .adv-alert { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--radius-card); font-size: 12.5px; line-height: 1.45; }
         .adv-alert-icon { flex-shrink: 0; font-size: 15px; line-height: 1; }
         .adv-alert.warn { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #b91c1c; }
@@ -1592,6 +1636,15 @@
         }
         .ads-hq-phone-pick { display: flex; align-items: center; gap: 10px; }
         .ads-hq-phone-pick .ads-hq-phone-head { flex: 1; min-width: 0; }
+        .ads-hq-camp-name {
+            display: inline-flex; align-items: center; gap: 10px;
+            min-width: 0; max-width: 100%; vertical-align: middle;
+        }
+        .ads-hq-thumb {
+            width: 30px; height: 40px; object-fit: cover; object-position: center top;
+            border-radius: 8px; background: var(--sel); flex-shrink: 0; display: block;
+        }
+        .ads-hq-phone-pick .ads-hq-thumb { width: 36px; height: 48px; border-radius: 10px; }
         .ads-hq-chip {
             border: none; background: transparent; color: var(--text-muted);
             border-radius: 8px; padding: 0 12px; height: 28px; line-height: 28px;
@@ -1831,7 +1884,7 @@
         }
         .gg-edit-input.gg-edit-dirty { background: rgba(245,158,11,0.14) !important; }
         .gg-settings-dialog {
-            width: min(420px, 94vw); max-height: calc(100vh - 80px); overflow: auto;
+            width: min(420px, 94vw); max-height: 100%; overflow: auto;
             padding: 16px 16px 12px;
         }
         .gg-set-row {
@@ -2028,25 +2081,28 @@
         .rnp-tool-icon svg,
         .rnp-settings-gear svg { width: 13px; height: 13px; display: block; }
         .rnp-plan-fact-open {
-            display: inline-flex; align-items: center; justify-content: center;
-            height: 22px; padding: 0 8px; margin: 0 2px 0 0; flex-shrink: 0;
-            border: none; border-radius: 999px; background: transparent;
-            color: var(--text-muted); cursor: pointer;
-            font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: 0.01em;
+            display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            height: 26px; padding: 0 10px; margin: 0 6px 0 0; flex-shrink: 0;
+            border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+            color: var(--text-primary); cursor: pointer;
+            font-family: inherit; font-size: 11px; font-weight: 650; letter-spacing: -0.01em;
             white-space: nowrap;
         }
-        .rnp-plan-fact-open:hover { color: var(--accent); background: var(--accent-soft); }
+        .rnp-plan-fact-open svg { width: 13px; height: 13px; display: block; flex-shrink: 0; }
+        .rnp-plan-fact-open:hover { color: var(--accent); background: var(--accent-soft); border-color: var(--accent-border); }
         .rnp-plan-fact-overlay {
             display: none; position: fixed; inset: 0; z-index: 10070;
-            padding: 10px; background: rgba(15, 23, 42, 0.45);
+            padding: 12px; background: rgba(15, 23, 42, 0.42);
             align-items: stretch; justify-content: center;
+            -webkit-backdrop-filter: blur(22px) saturate(180%);
+            backdrop-filter: blur(22px) saturate(180%);
         }
         .rnp-plan-fact-overlay.is-open { display: flex; }
         .rnp-plan-fact-dialog {
             width: 100%; height: 100%;
             background: #fff; color: #000;
-            border-radius: 10px;
-            box-shadow: 0 18px 48px rgba(0,0,0,0.28);
+            border-radius: 16px;
+            box-shadow: 0 18px 60px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.55);
             display: flex; flex-direction: column; overflow: hidden;
         }
         .pf-bar {
@@ -2106,32 +2162,32 @@
         body.rnp-plan-fact-open .bottom-nav { z-index: 1; }
         .rnp-settings-overlay {
             display: none; position: fixed; inset: 0; z-index: 10050;
-            align-items: flex-start; justify-content: center;
-            padding: 72px 24px 28px;
-            background: transparent;
+            align-items: center; justify-content: center;
+            padding: 12px;
+            background: rgba(15, 23, 42, 0.42);
+            -webkit-backdrop-filter: blur(22px) saturate(180%);
+            backdrop-filter: blur(22px) saturate(180%);
             isolation: isolate;
         }
         .rnp-settings-overlay.is-open { display: flex; }
-        .rnp-settings-overlay::before {
-            content: '';
-            position: absolute; inset: 0; z-index: 0;
-            pointer-events: none;
-            background: radial-gradient(ellipse 64% 56% at 50% 38%,
-                rgba(244,244,245,0.78) 0%,
-                rgba(244,244,245,0.28) 52%,
-                rgba(244,244,245,0) 78%);
-            -webkit-backdrop-filter: blur(22px) saturate(170%);
-            backdrop-filter: blur(22px) saturate(170%);
-            -webkit-mask-image: radial-gradient(ellipse 86% 80% at 50% 42%, #000 28%, transparent 72%);
-            mask-image: radial-gradient(ellipse 86% 80% at 50% 42%, #000 28%, transparent 72%);
-        }
-        [data-theme="neon"] .rnp-settings-overlay::before {
-            background: radial-gradient(ellipse 64% 56% at 50% 38%,
-                rgba(28,28,30,0.82) 0%,
-                rgba(28,28,30,0.32) 52%,
-                rgba(28,28,30,0) 78%);
+        [data-theme="neon"] .rnp-settings-overlay,
+        [data-theme="neon"] .rnp-plan-fact-overlay,
+        [data-theme="neon"] .rnp-photo-lightbox,
+        [data-theme="neon"] #premium-modal,
+        [data-theme="neon"] #add-cabinet-modal,
+        [data-theme="neon"] #autobidder-modal,
+        [data-theme="neon"] #supply-detail-modal {
+            background: rgba(8, 8, 12, 0.55);
         }
         .rnp-settings-overlay > * { position: relative; z-index: 1; }
+        #rnp-settings-overlay.rnp-settings-overlay,
+        #cluster-overlay.rnp-settings-overlay {
+            align-items: stretch;
+        }
+        #rnp-settings-overlay > .rnp-settings-dialog,
+        #cluster-overlay > .rnp-settings-dialog {
+            width: 100%; height: 100%; max-height: none;
+        }
         body.rnp-settings-open header.glass.app-header,
         body.rnp-settings-open .bottom-nav { z-index: 1; }
         body.rnp-settings-open .rnp-workspace,
@@ -2140,6 +2196,20 @@
             visibility: hidden !important;
             pointer-events: none !important;
         }
+        body:has(.rnp-settings-overlay.is-open) header.glass.app-header,
+        body:has(.rnp-plan-fact-overlay.is-open) header.glass.app-header,
+        body:has(.rnp-photo-lightbox.is-open) header.glass.app-header,
+        body:has(#premium-modal.is-open) header.glass.app-header,
+        body:has(#add-cabinet-modal:not(.hidden)) header.glass.app-header,
+        body:has(#autobidder-modal:not(.hidden)) header.glass.app-header,
+        body:has(#supply-detail-modal:not(.hidden)) header.glass.app-header,
+        body:has(.rnp-settings-overlay.is-open) .bottom-nav,
+        body:has(.rnp-plan-fact-overlay.is-open) .bottom-nav,
+        body:has(.rnp-photo-lightbox.is-open) .bottom-nav,
+        body:has(#premium-modal.is-open) .bottom-nav,
+        body:has(#add-cabinet-modal:not(.hidden)) .bottom-nav,
+        body:has(#autobidder-modal:not(.hidden)) .bottom-nav,
+        body:has(#supply-detail-modal:not(.hidden)) .bottom-nav { z-index: 1; }
         .rnp-group-vis-list { display: grid; gap: 6px; }
         .rnp-group-vis {
             display: flex; align-items: center; gap: 10px;
@@ -2150,11 +2220,11 @@
         .rnp-group-vis-n { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
         .rnp-settings-dialog {
             position: relative; z-index: 1; width: min(1040px, 100%);
-            max-height: calc(100vh - 32px); overflow: auto;
+            max-height: 100%; overflow: auto;
             background: var(--surface-solid);
-            border: 1px solid var(--border);
+            border: 1px solid rgba(255, 255, 255, 0.45);
             border-radius: 16px;
-            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.16);
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.55);
             padding: 18px 18px 14px;
         }
         .rnp-settings-close {
@@ -2742,8 +2812,10 @@
         .rnp-photo-lightbox {
             display: none; position: fixed; inset: 0; z-index: 10060;
             align-items: center; justify-content: center;
-            padding: 28px 20px;
-            background: rgba(8, 10, 16, 0.72);
+            padding: 12px;
+            background: rgba(15, 23, 42, 0.42);
+            -webkit-backdrop-filter: blur(22px) saturate(180%);
+            backdrop-filter: blur(22px) saturate(180%);
         }
         .rnp-photo-lightbox.is-open { display: flex; }
         .rnp-photo-lightbox img {
@@ -2751,8 +2823,8 @@
             max-height: calc(100vh - 56px);
             width: auto; height: auto;
             object-fit: contain;
-            border-radius: 10px;
-            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+            border-radius: 16px;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
             background: var(--surface-solid);
         }
         .rnp-photo-lightbox-close {
@@ -3508,29 +3580,23 @@
         #premium-modal {
             position: fixed; inset: 0; z-index: 99999;
             display: flex; align-items: center; justify-content: center;
-            padding: 24px;
-            background: rgba(0,0,0,0.28);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            padding: 12px;
+            background: rgba(15, 23, 42, 0.42);
+            backdrop-filter: blur(22px) saturate(180%);
+            -webkit-backdrop-filter: blur(22px) saturate(180%);
             opacity: 0; visibility: hidden;
-            transition: opacity 0.22s ease, visibility 0.22s;
+            pointer-events: none;
         }
-        #premium-modal.is-open { opacity: 1; visibility: visible; }
+        #premium-modal.is-open { opacity: 1; visibility: visible; pointer-events: auto; }
         #modal-box {
-            background: var(--apple-glass);
-            backdrop-filter: blur(10px) saturate(180%);
-            -webkit-backdrop-filter: blur(10px) saturate(180%);
-            border: none;
-            border-radius: var(--radius-card);
+            background: var(--surface-solid);
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            border-radius: 16px;
             padding: 32px 28px 24px;
             max-width: 400px; width: 100%;
             text-align: center;
-            box-shadow: var(--card-shadow-lg);
-            transform: scale(0.94) translateY(10px);
-            opacity: 0;
-            transition: transform 0.32s cubic-bezier(0.34, 1.4, 0.64, 1), opacity 0.22s ease;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.55);
         }
-        #premium-modal.is-open #modal-box { transform: scale(1) translateY(0); opacity: 1; }
         #modal-btn {
             width: 100%; padding: 11px 16px; margin-top: 4px;
             background: var(--text-primary); color: var(--sidebar-bg);
@@ -4292,19 +4358,20 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(0, 0, 0, 0.45);
-            backdrop-filter: blur(8px);
-            padding: 20px;
+            background: rgba(15, 23, 42, 0.42);
+            backdrop-filter: blur(22px) saturate(180%);
+            -webkit-backdrop-filter: blur(22px) saturate(180%);
+            padding: 12px;
         }
         #add-cabinet-modal.hidden { display: none !important; }
         .add-cabinet-modal-box {
             width: 100%;
             max-width: 440px;
             padding: 28px;
-            border-radius: 20px;
+            border-radius: 16px;
             background: var(--surface-solid);
-            border: 1px solid var(--border-strong);
-            box-shadow: var(--card-shadow-lg);
+            border: 1px solid rgba(255, 255, 255, 0.45);
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.55);
         }
         .settings-section-tab.hidden-tab { display: none !important; }
         .map-placeholder { background: var(--surface); border: 2px dashed var(--border-strong); border-radius: 16px; min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; gap: 8px; }
@@ -4548,7 +4615,8 @@
         .data-table th { font-weight: 600; border-bottom: 1px solid rgba(0,0,0,0.06) !important; }
         [data-theme="neon"] .data-table th { border-bottom-color: var(--border) !important; }
         [data-theme="neon"] .rnp-action-bar select,
-        [data-theme="neon"] .rnp-action-btn {
+        [data-theme="neon"] .rnp-action-btn,
+        [data-theme="neon"] .rnp-plan-fact-open {
             box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
         }
         .nav-item { border: none !important; font-weight: 500; border-radius: var(--radius-control) !important; }
@@ -4579,7 +4647,7 @@
         .rnp-sheet-tab .rnp-tab-img, .rnp-general-thumb img, .supply-card img {
             border-radius: var(--radius-control) !important;
         }
-        .rnp-action-bar select, .rnp-action-btn { border-radius: var(--radius-control) !important; border: none !important; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06); }
+        .rnp-action-bar select, .rnp-action-btn, .rnp-plan-fact-open { border-radius: var(--radius-control) !important; border: none !important; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06); }
         /* RNP: табличные поля и кнопки — компактный единый стиль, не Apple-pill */
         .rnp-workspace .rnp-plan-input,
         .rnp-workspace .rnp-meta-input,
@@ -4632,7 +4700,7 @@
         #tab-rnp-settings button.ui-btn,
         #rnp-settings-overlay .ui-btn,
         #rnp-settings-overlay button.ui-btn { border-radius: 10px !important; }
-        #modal-box { border: none !important; background: var(--surface-solid) !important; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 16px 40px rgba(0,0,0,0.12); }
+        #modal-box { border: 1px solid rgba(255,255,255,0.45) !important; background: var(--surface-solid) !important; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 18px 60px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.55); }
         #date-picker { border: 1px solid var(--border) !important; background: var(--surface-solid) !important; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: 0 16px 40px rgba(0,0,0,0.08) !important; border-radius: var(--radius-card) !important; }
         .abtest-card { border: 1px solid var(--border) !important; box-shadow: none !important; background: var(--surface) !important; }
         .chart-box { border: none !important; box-shadow: none !important; }
@@ -4833,13 +4901,13 @@
             .bottom-beta-overlay {
                 display: block;
                 position: fixed; inset: 0; z-index: 10000;
-                background: rgba(0, 0, 0, 0.4);
-                backdrop-filter: blur(4px);
-                -webkit-backdrop-filter: blur(4px);
+                background: rgba(15, 23, 42, 0.42);
+                backdrop-filter: blur(22px) saturate(180%);
+                -webkit-backdrop-filter: blur(22px) saturate(180%);
                 opacity: 0;
                 visibility: hidden;
                 pointer-events: none;
-                transition: opacity 0.32s ease, visibility 0.32s ease;
+                transition: opacity 0.22s ease, visibility 0.22s ease;
             }
             .bottom-beta-overlay.active {
                 opacity: 1;
@@ -4898,10 +4966,10 @@
             body.flyout-expanded .main-rail { margin-left: 0 !important; }
             .mobile-overlay {
                 display: none; position: fixed; inset: 0;
-                background: rgba(0, 0, 0, 0.4);
+                background: rgba(15, 23, 42, 0.42);
+                backdrop-filter: blur(22px) saturate(180%);
+                -webkit-backdrop-filter: blur(22px) saturate(180%);
                 z-index: 49;
-                backdrop-filter: blur(4px);
-                -webkit-backdrop-filter: blur(4px);
             }
             .mobile-overlay.active { display: block; }
             header.glass.app-header {
@@ -4966,7 +5034,8 @@
             .rnp-action-bar--phone .rnp-settings-gear { width: 32px; height: 32px; margin-left: 0; }
             .rnp-action-bar--phone .rnp-tool-icon svg,
             .rnp-action-bar--phone .rnp-settings-gear svg { width: 18px; height: 18px; }
-            .rnp-action-bar--phone .rnp-plan-fact-open { height: 32px; padding: 0 10px; font-size: 11px; }
+            .rnp-action-bar--phone .rnp-plan-fact-open { height: 32px; padding: 0 12px; font-size: 12px; }
+            .rnp-action-bar--phone .rnp-plan-fact-open svg { width: 16px; height: 16px; }
             .rnp-settings-phone-tools { display: block; }
             .rnp-sheet-body {
                 transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
@@ -6227,8 +6296,8 @@
                 </div>
             </div>
 
-            <div id="autobidder-modal" class="hidden" style="position:fixed;inset:0;z-index:99997;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);backdrop-filter:blur(6px)" onclick="if(event.target===this) closeAutobidderModal()">
-                <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:24px;max-width:520px;width:94%;max-height:90vh;overflow-y:auto">
+            <div id="autobidder-modal" class="hidden" onclick="if(event.target===this) closeAutobidderModal()">
+                <div class="nr-glass-dialog">
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="font-semibold" style="color:var(--text-primary)">Автобиддер</h3>
                         <button type="button" onclick="closeAutobidderModal()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1">×</button>
@@ -6385,8 +6454,8 @@
                     </div>
                 </div>
             </div>
-            <div id="supply-detail-modal" class="hidden" style="position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;background:rgba(0,0,0,0.5);backdrop-filter:blur(6px)">
-                <div style="background:var(--surface-solid);border:1px solid var(--border-strong);border-radius:20px;padding:28px;max-width:760px;width:94%;max-height:85vh;overflow-y-auto">
+            <div id="supply-detail-modal" class="hidden" onclick="if(event.target===this) closeSupplyDetail()">
+                <div class="nr-glass-dialog">
                     <div class="flex items-center justify-between mb-2">
                         <div>
                             <h3 id="supply-detail-title" class="font-semibold" style="color:var(--text-primary)">Поставка</h3>
@@ -7143,11 +7212,11 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.2fd3425424.min.js"></script>
-<script src="/dist/rnp-plan-fact.ac37d82e5c.min.js"></script>
+<script src="/dist/rnp-module.0c12e93a9f.min.js"></script>
+<script src="/dist/rnp-plan-fact.7ca5404f72.min.js"></script>
 <script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.eb25a9201f.min.js"></script>
+<script src="/dist/ads-command-center.1839fcc541.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
@@ -7327,6 +7396,7 @@
         if (nameEl) nameEl.value = '';
         if (tokenEl) tokenEl.value = '';
         document.getElementById('add-cabinet-modal')?.classList.remove('hidden');
+        mountNrGlass(document.getElementById('add-cabinet-modal'));
     }
 
     function closeAddCabinetModal() {
@@ -8242,9 +8312,15 @@
     }
 
     // ── Toast notifications (replaces modal alerts) ──────────────────────────
+    function mountNrGlass(el) {
+        if (!el) return el;
+        if (el.parentElement !== document.body) document.body.appendChild(el);
+        return el;
+    }
     function showNrDialog(type, title, text) {
         const modal = document.getElementById('premium-modal');
         if (!modal) return;
+        mountNrGlass(modal);
         document.getElementById('modal-actions')?.classList.remove('visible');
         const btn = document.getElementById('modal-btn');
         if (btn) btn.style.display = '';
@@ -8286,6 +8362,7 @@
             document.getElementById('modal-text').textContent = text || '';
             document.getElementById('modal-actions')?.classList.add('visible');
             document.getElementById('modal-btn').style.display = 'none';
+            mountNrGlass(document.getElementById('premium-modal'));
             document.getElementById('premium-modal').classList.add('is-open');
             document.body.style.overflow = 'hidden';
         });
@@ -9129,6 +9206,7 @@
         const overlay = document.getElementById('cluster-overlay');
         const searchEl = document.getElementById('cl-search');
         if (searchEl) searchEl.value = '';
+        mountNrGlass(overlay);
         if (overlay) overlay.classList.add('is-open');
         document.body.style.overflow = 'hidden';
 
@@ -9903,7 +9981,10 @@
         document.getElementById('abid-step').value = rule ? rubFromKopecks(rule.step_kopecks) : 0.5;
         document.getElementById('abid-interval').value = String(rule?.interval_minutes || 60);
         document.getElementById('abid-enabled').classList.toggle('on', Boolean(rule?.enabled));
-        if (modal) modal.classList.remove('hidden');
+        if (modal) {
+            mountNrGlass(modal);
+            modal.classList.remove('hidden');
+        }
         if (bidsEl) bidsEl.textContent = 'Текущие ставки: загружаем…';
         const data = await callWbProxy('advert_get_bids', { advertId: campaignId }, currentCabinetId);
         if (!bidsEl) return;
@@ -10737,7 +10818,9 @@
 
     function openGoodsSettings() {
         renderGoodsSettings();
-        document.getElementById('gg-settings-overlay')?.classList.add('is-open');
+        const overlay = document.getElementById('gg-settings-overlay');
+        mountNrGlass(overlay);
+        overlay?.classList.add('is-open');
     }
     function closeGoodsSettings() {
         document.getElementById('gg-settings-overlay')?.classList.remove('is-open');
@@ -13223,7 +13306,7 @@
 
     function openAbSheet(el) {
         if (!el) return;
-        if (el.parentElement !== document.body) document.body.appendChild(el);
+        mountNrGlass(el);
         el.classList.add('is-open');
     }
     function closeAbSheet(el) {
@@ -15027,7 +15110,7 @@
     const TG_CHANNEL_LABELS = {
         sales: 'Продажи', penalties: 'Штрафы', ads: 'Реклама', ab_tests: 'А/Б тесты',
         news: 'Новости WB', reviews: 'Отзывы', blockings: 'Блокировки',
-        warehouse: 'Склад', triggers: 'Триггеры', fbs: 'FBS', team: 'Тим',
+        fbs: 'FBS', team: 'Тим',
     };
     const TG_CHANNEL_PURPOSE = {
         sales: 'Ежедневные отчёты по продажам',
@@ -15037,8 +15120,6 @@
         news: 'Новости кабинета продавца WB',
         reviews: 'Отзывы и автоответы',
         blockings: 'Блокировки карточек',
-        warehouse: 'Склад: хранение и возвраты',
-        triggers: 'Триггеры и алерты',
         fbs: 'Отчёты FBS',
         team: 'Общий чат команды',
     };
@@ -16916,7 +16997,9 @@
         document.getElementById('supply-accepted-qty').textContent = '…';
         document.getElementById('supply-mismatch').textContent = '…';
         itemsEl.innerHTML = '<div class="text-xs text-center py-6" style="color:var(--text-muted)">Загрузка товаров...</div>';
-        document.getElementById('supply-detail-modal').classList.remove('hidden');
+        const supplyModal = document.getElementById('supply-detail-modal');
+        mountNrGlass(supplyModal);
+        supplyModal.classList.remove('hidden');
 
         const [detail, goods] = await Promise.all([
             callWbProxy('fbw_supply_detail', { supplyId }),

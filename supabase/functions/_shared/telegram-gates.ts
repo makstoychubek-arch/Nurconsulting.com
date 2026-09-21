@@ -9,8 +9,6 @@ export type TelegramGateChannel =
     | 'news'
     | 'reviews'
     | 'blockings'
-    | 'warehouse'
-    | 'triggers'
     | 'fbs';
 
 // deno-lint-ignore no-explicit-any
