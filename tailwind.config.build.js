@@ -13,6 +13,7 @@ module.exports = {
     './dashboard.html',
     './dashboard-charts.js',
     './rnp-module.js',
+    './rnp-plan-fact.js',
     './wb-formulas.js',
     './ads-command-center.js',
     './goods-catalog.js',

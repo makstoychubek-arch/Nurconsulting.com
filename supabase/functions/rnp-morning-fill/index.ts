@@ -10,9 +10,10 @@
 //   01:15 UTC = 07:15 Бишкек — Baza (сдвиг с 07:00, чтобы не столкнуться
 //              с daily-sales-report того же токена)
 //   02:00 UTC = 08:00 Бишкек — Elium
-//   03:00 / 03:15 / 03:30 UTC = 09:00–09:30 Бишкек — funnel_only, без Telegram.
-//     К 06:00 МСК вчерашняя воронка карточки уже стабильна; иначе в РНП
-//     остаётся count из statistics-api (66 вместо 47 на графике WB).
+//   05:00 / 05:15 / 05:30 UTC = 11:00–11:30 Бишкек — funnel_only, без Telegram.
+//     К 11:00 Бишкек вчерашняя воронка карточки уже стабильна (Excel план/факт);
+//     09:00 было рано: WB ещё меняет вчера. Иначе в РНП остаётся count из
+//     statistics-api (66 вместо 47 на графике WB).
 // 06/07/08 не ждут воронку: у Зевины ~170 арт. × 21с/чанк убивает
 // edge function до сообщения «готово» — в тиме «начинаю» и тишина.
 // Остатки по дням не пишет: колонка дня фиксируется в 03:00 Бишкек (00:00 МСК)
@@ -74,7 +75,7 @@ Deno.serve(async (req) => {
     const days = datesIn.length ? datesIn : [fillDate, ...alsoToday];
     const notify = funnelOnly || groupAll ? false : body.notify !== false;
     // Воронка по умолчанию выкл: 06/07/08 должны успеть написать «готово».
-    // Явный funnel:true или funnel_only (09:00) — отдельный прогон.
+    // Явный funnel:true или funnel_only (11:00 Бишкек) — отдельный прогон.
     const wantFunnel = funnelOnly || body.funnel === true;
 
     const admin = createClient(supabaseUrl, serviceKey);

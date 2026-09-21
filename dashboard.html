@@ -1985,6 +1985,83 @@
         .rnp-settings-gear:hover { color: var(--accent); background: var(--accent-soft); }
         .rnp-tool-icon svg,
         .rnp-settings-gear svg { width: 13px; height: 13px; display: block; }
+        .rnp-plan-fact-open {
+            display: inline-flex; align-items: center; justify-content: center;
+            height: 22px; padding: 0 8px; margin: 0 2px 0 0; flex-shrink: 0;
+            border: none; border-radius: 999px; background: transparent;
+            color: var(--text-muted); cursor: pointer;
+            font-family: inherit; font-size: 10px; font-weight: 700; letter-spacing: 0.01em;
+            white-space: nowrap;
+        }
+        .rnp-plan-fact-open:hover { color: var(--accent); background: var(--accent-soft); }
+        .rnp-plan-fact-overlay {
+            display: none; position: fixed; inset: 0; z-index: 10070;
+            padding: 10px; background: rgba(15, 23, 42, 0.45);
+            align-items: stretch; justify-content: center;
+        }
+        .rnp-plan-fact-overlay.is-open { display: flex; }
+        .rnp-plan-fact-dialog {
+            width: 100%; height: 100%;
+            background: #fff; color: #000;
+            border-radius: 10px;
+            box-shadow: 0 18px 48px rgba(0,0,0,0.28);
+            display: flex; flex-direction: column; overflow: hidden;
+        }
+        .pf-bar {
+            display: flex; align-items: center; gap: 12px;
+            padding: 8px 12px; flex-shrink: 0;
+            border-bottom: 1px solid #d9ead3; background: #fff;
+        }
+        .pf-bar-title {
+            font-family: Roboto, Arial, sans-serif;
+            font-size: 13px; font-weight: 700; color: #274e13; letter-spacing: 0.02em;
+        }
+        .pf-close {
+            margin-left: auto; width: 28px; height: 28px; border: none; border-radius: 999px;
+            background: transparent; color: #666; font-size: 22px; line-height: 1; cursor: pointer;
+        }
+        .pf-close:hover { background: #d9ead3; color: #111; }
+        .pf-scroll { flex: 1; min-height: 0; overflow: auto; background: #fff; }
+        .pf-sheet {
+            border-collapse: collapse; table-layout: fixed;
+            font-family: Roboto, Arial, sans-serif; font-size: 11px; color: #000;
+            background: #fff;
+        }
+        .pf-sheet th, .pf-sheet td {
+            border: 1px solid #cfe4c7; padding: 1px 3px; text-align: center;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            height: 18px; box-sizing: border-box;
+        }
+        .pf-sheet .pf-a { position: sticky; left: 0; z-index: 2; width: 42px; min-width: 42px; background: #fff; }
+        .pf-sheet .pf-b { position: sticky; left: 42px; z-index: 2; width: 190px; min-width: 190px; text-align: left; background: #fff; }
+        .pf-sheet .pf-c { position: sticky; left: 232px; z-index: 2; width: 72px; min-width: 72px; font-size: 7px; background: #fff; }
+        .pf-sheet .pf-d { width: 28px; min-width: 28px; }
+        .pf-sheet .pf-day { width: 38px; min-width: 38px; background: #b6d7a8; }
+        .pf-sheet tbody .pf-day { background: #fff; }
+        .pf-sheet .pf-plan { width: 52px; min-width: 52px; background: #93c47d; font-weight: 700; }
+        .pf-sheet .pf-fact, .pf-sheet .pf-fact-h { width: 48px; min-width: 48px; background: #b6d7a8; }
+        .pf-sheet .pf-dark { background: #274e13; color: #fff; font-weight: 700; }
+        .pf-sheet .pf-total { background: #d9ead3; font-weight: 700; }
+        .pf-sheet .pf-title {
+            font-size: 22px; font-weight: 700; text-align: left; overflow: visible;
+            font-family: Roboto, Arial, sans-serif;
+        }
+        .pf-sheet .pf-date, .pf-sheet .pf-dow { font-size: 7px; background: #b6d7a8; }
+        .pf-sheet .pf-coeff { font-weight: 700; font-size: 10px; }
+        .pf-sheet thead th { position: sticky; z-index: 3; }
+        .pf-sheet thead .pf-r1 th { top: 0; }
+        .pf-sheet thead .pf-r2 th { top: 22px; }
+        .pf-sheet thead .pf-r3 th { top: 40px; }
+        .pf-sheet thead .pf-r4 th { top: 58px; }
+        .pf-sheet thead .pf-r5 th { top: 76px; }
+        .pf-sheet thead .pf-a, .pf-sheet thead .pf-b, .pf-sheet thead .pf-c { z-index: 5; background: #fff; }
+        .pf-sheet thead .pf-total.pf-a,
+        .pf-sheet thead .pf-total.pf-b,
+        .pf-sheet thead .pf-total.pf-c { background: #d9ead3; }
+        .pf-sheet .pf-r1 .pf-plan, .pf-sheet .pf-r1 .pf-fact-h { font-size: 7px; font-weight: 700; white-space: normal; line-height: 1.15; height: 28px; }
+        .pf-sheet tbody .pf-sum { font-weight: 700; }
+        body.rnp-plan-fact-open header.glass.app-header,
+        body.rnp-plan-fact-open .bottom-nav { z-index: 1; }
         .rnp-settings-overlay {
             display: none; position: fixed; inset: 0; z-index: 10050;
             align-items: flex-start; justify-content: center;
@@ -4844,6 +4921,7 @@
             .rnp-action-bar--phone .rnp-settings-gear { width: 32px; height: 32px; margin-left: 0; }
             .rnp-action-bar--phone .rnp-tool-icon svg,
             .rnp-action-bar--phone .rnp-settings-gear svg { width: 18px; height: 18px; }
+            .rnp-action-bar--phone .rnp-plan-fact-open { height: 32px; padding: 0 10px; font-size: 11px; }
             .rnp-settings-phone-tools { display: block; }
             .rnp-sheet-body {
                 transition: opacity 0.18s ease, transform 0.22s cubic-bezier(0.22, 1, 0.36, 1);
@@ -6397,6 +6475,12 @@
             </div>
         </div>
 
+        <div id="rnp-plan-fact-overlay" class="rnp-plan-fact-overlay" onclick="if(event.target===this) RNP.closePlanFact()">
+            <div class="rnp-plan-fact-dialog" role="dialog" aria-modal="true" aria-labelledby="rnp-plan-fact-title">
+                <div id="rnp-plan-fact-body"></div>
+            </div>
+        </div>
+
         <div id="new-test-form" class="rnp-settings-overlay" onclick="if(event.target===this) hideNewTestForm()">
             <div class="rnp-settings-dialog ab-new-dialog" role="dialog" aria-modal="true" aria-labelledby="ab-wizard-title">
                 <button type="button" class="rnp-settings-close" onclick="hideNewTestForm()" aria-label="Закрыть">×</button>
@@ -7001,14 +7085,15 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.9d5dc5eac8.min.js"></script>
+<script src="/dist/rnp-module.cd92fbafd4.min.js"></script>
+<script src="/dist/rnp-plan-fact.57df3d6622.min.js"></script>
 <script src="/dist/wb-formulas.11317eb115.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.210aaba4a1.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
-<script src="/dist/dash-cabinet-plans.2380829838.min.js"></script>
+<script src="/dist/dash-cabinet-plans.3f357b3897.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -11280,7 +11365,7 @@
                         { op: 'in', column: 'cabinet_id', value: ids },
                         { op: 'gte', column: 'date', value: from },
                         { op: 'lte', column: 'date', value: to },
-                    ], 'cabinet_id,orders_count,sales_count'),
+                    ], 'cabinet_id,orders_count,sales_count,basket_count,funnel_order_conv'),
                 ]);
                 rows = DashCabinetPlans.fromRows(ids, plans, daily);
             }

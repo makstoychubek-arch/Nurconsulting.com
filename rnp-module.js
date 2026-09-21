@@ -1727,8 +1727,10 @@ const RNP = (() => {
             'orderCount', 'ordersCount', 'orders', 'order_count', 'ordered', 'orderCnt',
         ]);
         const implied = _funnelImpliedOrders(day);
-        if (fromField != null && implied != null) return Math.max(fromField, implied);
-        return fromField ?? implied;
+        // Excel / карточка WB: Корзина × Заказы%. Не max со statistics-api
+        // (там 66 при 47 на графике).
+        if (implied != null) return implied;
+        return fromField;
     }
 
     function _withFunnelOrders(row) {
@@ -2868,6 +2870,7 @@ const RNP = (() => {
         return `<div class="rnp-tool-icons">
             ${_compareMonthMenuHtml()}
             ${_toolIconBtn('rnp-copy-plan-btn', planTitle, _planSvg(), 'RNP.copyPlanFromPrevWeek()')}
+            <button type="button" class="rnp-plan-fact-open" title="План/факт" aria-label="План/факт" onclick="RNP.openPlanFact()">План/факт</button>
             ${_toolIconBtn('rnp-export-excel-btn', 'Скачать Excel', _excelSvg(), 'RNP.exportExcel()')}
             ${_toolIconBtn(`rnp-edit-mode-btn${editOn}`, editTitle, _editSvg(), 'RNP.toggleEditMode()')}
             <button type="button" class="rnp-settings-gear" title="Настройки РНП" aria-label="Настройки РНП" onclick="RNP.openSettings()">${_settingsGearSvg()}</button>
@@ -6637,6 +6640,36 @@ const RNP = (() => {
         _unbindOverlayKeydown();
     }
 
+    function closePlanFact() {
+        if (window.RnpPlanFact) window.RnpPlanFact.close();
+    }
+
+    function openPlanFact() {
+        if (!window.RnpPlanFact) return;
+        closeSettings();
+        const articles = [];
+        _groupByCategory(_rnpVisibleArticles()).forEach(([, list]) => {
+            list.forEach((a) => {
+                articles.push({ nm_id: a.nm_id, name: _sellerArticle(a) });
+            });
+        });
+        const daily = {};
+        articles.forEach((a) => {
+            const map = _dataCache[a.nm_id] || {};
+            daily[a.nm_id] = {};
+            Object.keys(map).forEach((d) => {
+                daily[a.nm_id][d] = _withFunnelOrders(map[d]);
+            });
+        });
+        window.RnpPlanFact.open({
+            articles,
+            daily,
+            plans: _planCache,
+            monthKey: _viewMonthKey(),
+            title: 'Общая РНП',
+        });
+    }
+
     async function openSettings(opts) {
         const overlay = document.getElementById('rnp-settings-overlay');
         const el = _settingsHost();
@@ -7188,7 +7221,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, openSettings, closeSettings, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, initCore, ensureReady, openSettings, closeSettings, openPlanFact, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();

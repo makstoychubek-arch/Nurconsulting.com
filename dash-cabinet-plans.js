@@ -1,6 +1,6 @@
 /**
  * План заказов по всем кабинетам для дашборда.
- * Тот же процент, что в РНП: факт заказов / planned_orders за период.
+ * Тот же процент, что в РНП и Excel «План/факт»: факт воронки / planned_orders.
  */
 (function (root) {
     function num(v) {
@@ -13,6 +13,12 @@
     }
 
     function fromRows(ids, plans, daily) {
+        function funnelQty(r) {
+            const cart = num(r && r.basket_count);
+            const conv = num(r && r.funnel_order_conv);
+            if (cart > 0 && conv > 0) return Math.round(cart * conv / 100);
+            return num(r && r.orders_count);
+        }
         const by = {};
         (ids || []).forEach((id) => {
             by[id] = { cabinet_id: id, plan_orders: 0, plan_sales: 0, orders: 0, sales: 0, has_plan: false };
@@ -34,7 +40,7 @@
             const id = r.cabinet_id;
             if (!id) return;
             const b = by[id] || (by[id] = { cabinet_id: id, plan_orders: 0, plan_sales: 0, orders: 0, sales: 0, has_plan: false });
-            b.orders += num(r.orders_count);
+            b.orders += funnelQty(r);
             b.sales += num(r.sales_count);
         });
         return Object.values(by);

@@ -24,6 +24,7 @@ assert.equal(funnelImpliedOrders({ cartCount: 83, cartToOrderConversion: 12 }), 
 assert.equal(funnelImpliedOrders({ cartCount: 74, cartToOrderConversion: 22 }), 16);
 assert.equal(funnelDayOrders({ cartCount: 157, cartToOrderConversion: 18 }), 28);
 assert.equal(funnelDayOrders({ orderCount: 17, cartCount: 157, cartToOrderConversion: 18 }), 28);
+assert.equal(funnelDayOrders({ orderCount: 66, cartCount: 294, cartToOrderConversion: 16 }), 47);
 
 const fields = funnelDayMetricFields({
     openCount: 100,
