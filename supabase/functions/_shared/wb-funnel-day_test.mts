@@ -7,6 +7,7 @@ import {
     isWbFunnelWindowDate,
     keepFunnelOrdersCount,
     moscowYmd,
+    upsertDateRange,
     wbFunnelWindow,
 } from './wb-funnel-day.ts';
 
@@ -25,6 +26,12 @@ assert.equal(funnelImpliedOrders({ cartCount: 74, cartToOrderConversion: 22 }), 
 assert.equal(funnelDayOrders({ cartCount: 157, cartToOrderConversion: 18 }), 28);
 assert.equal(funnelDayOrders({ orderCount: 17, cartCount: 157, cartToOrderConversion: 18 }), 28);
 assert.equal(funnelDayOrders({ orderCount: 66, cartCount: 294, cartToOrderConversion: 16 }), 47);
+assert.equal(funnelImpliedOrders({
+    orders_count: 19, clicks: 236, basket_pct: 30, funnel_order_conv: 30,
+}), 21);
+assert.equal(funnelImpliedOrders({
+    orders_count: 19, basket_count: 236, funnel_order_conv: 30,
+}), 71);
 
 const fields = funnelDayMetricFields({
     openCount: 100,
@@ -57,19 +64,29 @@ assert.equal(isWbFunnelWindowDate('2026-09-09', '2026-09-16'), false);
 
 const ivory = { basket_count: 294, funnel_order_conv: 16, orders_count: 47 };
 assert.equal(keepFunnelOrdersCount(ivory, 66, '2026-09-14', '2026-09-16'), 47);
-assert.equal(keepFunnelOrdersCount(ivory, 66, '2026-09-01', '2026-09-16'), 66);
+assert.equal(keepFunnelOrdersCount(ivory, 66, '2026-09-01', '2026-09-16'), 47);
 assert.equal(keepFunnelOrdersCount(null, 66, '2026-09-14', '2026-09-16'), 66);
 assert.equal(keepFunnelOrdersCount({ impressions: 10 }, 66, '2026-09-14', '2026-09-16'), 66);
 
 const kept = applyKeepFunnelOrders(
-    [{ nm_id: 12187825005, date: '2026-09-14', basket_count: 294, funnel_order_conv: 16 }],
+    [
+        { nm_id: 12187825005, date: '2026-09-14', basket_count: 294, funnel_order_conv: 16 },
+        { nm_id: 12187825005, date: '2026-09-01', basket_count: 236, funnel_order_conv: 30 },
+    ],
     [
         { nm_id: 12187825005, date: '2026-09-14', orders_count: 66 },
-        { nm_id: 12187825005, date: '2026-09-01', orders_count: 12 },
+        { nm_id: 12187825005, date: '2026-09-01', orders_count: 19 },
     ],
     '2026-09-16',
 );
 assert.equal(kept[0].orders_count, 47);
-assert.equal(kept[1].orders_count, 12);
+assert.equal(kept[1].orders_count, 71);
+
+assert.deepEqual(upsertDateRange([
+    { date: '2026-09-14' },
+    { date: '2026-09-01T00:00:00.000Z' },
+    { date: '2026-08-31' },
+]), { from: '2026-08-31', to: '2026-09-14' });
+assert.equal(upsertDateRange([]), null);
 
 console.log('wb-funnel-day_test: ok');

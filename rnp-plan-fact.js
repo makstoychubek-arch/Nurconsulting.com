@@ -70,10 +70,20 @@
         return p[2] + '.' + p[1];
     }
 
+    /** Корзина для план/факт: cartCount, иначе Клики × Корзина%. */
+    function factCart(row) {
+        var cart = num(row.basket_count != null ? row.basket_count : row.cartCount);
+        if (cart > 0) return cart;
+        var pct = num(row.basket_pct != null ? row.basket_pct : row.addToCartConversion);
+        var clicks = num(row.clicks != null ? row.clicks : (row.openCount != null ? row.openCount : row.impressions));
+        if (clicks > 0 && pct > 0) return Math.round(clicks * pct / 100);
+        return 0;
+    }
+
     /** Карточка WB «Заказы»: Корзина × Заказы%. Не max со statistics-api. */
     function factOrders(row) {
         if (!row || typeof row !== 'object') return 0;
-        var cart = num(row.basket_count != null ? row.basket_count : row.cartCount);
+        var cart = factCart(row);
         var conv = num(row.funnel_order_conv != null ? row.funnel_order_conv : row.cartToOrderConversion);
         if (cart > 0 && conv > 0) return Math.round(cart * conv / 100);
         var n = num(row.orders_count);

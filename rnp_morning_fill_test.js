@@ -22,6 +22,8 @@ assert.ok(fn.includes('rnp_daily_data'), 'writes article metrics');
 assert.ok(fn.includes('funnelDayMetricFields'), 'funnel writes WB orderCount into orders_count');
 assert.ok(fn.includes('applyKeepFunnelOrders'),
     'morning rebuild must keep WB card funnel orders_count, not overwrite with wb_orders');
+assert.ok(fn.includes('upsertDateRange'),
+    'morning rebuild keeps funnel ЗАКАЗЫ on every filled day, not only last 7');
 assert.ok(fn.includes('moscowYmd'),
     'morning funnel window is Moscow calendar like the WB seller card');
 assert.ok(fn.includes('funnel_only'),
@@ -71,9 +73,11 @@ assert.ok(auto.includes('moscowYmd'),
 assert.ok(auto.includes('funnelDayMetricFields'),
     'auto-sync funnel must copy WB Заказы (orderCount) into orders_count');
 assert.ok(auto.includes('applyKeepFunnelOrders'),
-    'auto-sync must not let wb_orders overwrite last-7-day funnel ЗАКАЗЫ');
+    'auto-sync must not let wb_orders overwrite funnel ЗАКАЗЫ');
 assert.ok(auto.includes('preserveFunnelOrders'),
     'auto-sync stats rebuild loads existing basket×% before upsert');
+assert.ok(auto.includes('upsertDateRange'),
+    'auto-sync keeps funnel orders for every rebuilt day, not only last 7');
 assert.ok(auto.includes('allowMoveSrid: true'),
     'Pass B may move an srid onto the WB flag=1 day to fix UTC holes');
 

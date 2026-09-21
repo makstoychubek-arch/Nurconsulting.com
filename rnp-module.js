@@ -1712,10 +1712,26 @@ const RNP = (() => {
         return null;
     }
 
+    function _funnelDayDate(v) {
+        const d = String(v || '').split('T')[0];
+        return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : '';
+    }
+
+    /** Корзина для план/факт: cartCount, иначе Клики × Корзина%. */
+    function _funnelCartCount(row) {
+        if (!row || typeof row !== 'object') return 0;
+        const cart = Number(row.basket_count ?? row.cartCount ?? row.addToCartCount ?? 0);
+        if (cart > 0) return cart;
+        const pct = Number(row.basket_pct ?? row.addToCartConversion ?? 0);
+        const clicks = Number(row.clicks ?? row.openCount ?? row.impressions ?? 0);
+        if (clicks > 0 && pct > 0) return Math.round(clicks * pct / 100);
+        return 0;
+    }
+
     /** WB «Заказы» на карточке = Корзина × Заказы%. Не max со statistics-api. */
     function _funnelImpliedOrders(row) {
         if (!row || typeof row !== 'object') return null;
-        const cart = Number(row.basket_count ?? row.cartCount ?? row.addToCartCount ?? 0);
+        const cart = _funnelCartCount(row);
         const conv = Number(row.funnel_order_conv ?? row.cartToOrderConversion ?? 0);
         if (!(cart > 0 && conv > 0)) return null;
         return Math.round(cart * conv / 100);
@@ -1736,12 +1752,12 @@ const RNP = (() => {
     function _withFunnelOrders(row) {
         if (!row) return row;
         // Только день: на сумме недели Корзина×средняя Заказы% завышает итог.
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(String(row.date || ''))) return row;
-        // Как в карточке WB: Корзина × Заказы%. Не max со statistics-api —
-        // там 66 при 47 на графике «Динамика продаж».
+        const date = _funnelDayDate(row.date);
+        if (!date) return row;
+        // Как в карточке WB / план-факт: Корзина × Заказы%. Не строки wb_orders.
         const funnel = _funnelDayOrders(row);
-        if (funnel != null) return { ...row, orders_count: funnel };
-        return row;
+        if (funnel != null) return { ...row, date, orders_count: funnel };
+        return date === row.date ? row : { ...row, date };
     }
 
     function _sleep(ms) {
@@ -3542,7 +3558,11 @@ const RNP = (() => {
                 { op: 'lte', column: 'date', value: allDates[allDates.length - 1] },
             ]);
             const map = {};
-            (data || []).forEach(r => { map[r.date] = r; });
+            (data || []).forEach(r => {
+                const date = _funnelDayDate(r.date);
+                if (!date) return;
+                map[date] = _withFunnelOrders({ ...r, date });
+            });
             _dataCache[nmId] = map;
             return map;
         } catch(e) { console.warn('[RNP] load daily:', e.message); return {}; }
@@ -3565,8 +3585,10 @@ const RNP = (() => {
             nmIds.forEach(id => { _dataCache[id] = {}; });
             (data || []).forEach(r => {
                 if (!idSet.has(Number(r.nm_id))) return;
+                const date = _funnelDayDate(r.date);
+                if (!date) return;
                 if (!_dataCache[r.nm_id]) _dataCache[r.nm_id] = {};
-                _dataCache[r.nm_id][r.date] = r;
+                _dataCache[r.nm_id][date] = _withFunnelOrders({ ...r, date });
             });
         } catch(e) { console.warn('[RNP] load all daily:', e.message); }
     }
@@ -3579,7 +3601,7 @@ const RNP = (() => {
     async function _syncToday(nmId) {
         const today = _wbTodayStr();
         try {
-            const { data: ex } = await _db.from('rnp_daily_data').select('updated_at, orders_count, basket_count, funnel_order_conv')
+            const { data: ex } = await _db.from('rnp_daily_data').select('updated_at, orders_count, basket_count, funnel_order_conv, clicks, impressions, basket_pct')
                 .eq('cabinet_id', _cab).eq('nm_id', nmId).eq('date', today).maybeSingle();
             if (ex?.updated_at && Number(ex.orders_count || 0) > 0) {
                 const hrs = (Date.now() - new Date(ex.updated_at)) / 3600000;
@@ -3694,7 +3716,16 @@ const RNP = (() => {
             if (!byNm.has(nm)) byNm.set(nm, _emptyArticle(nm));
             const a = byNm.get(nm);
             a.returns += Number(row.returns_count || 0);
-            a.ordersCount += Number(row.orders_count || 0);
+            const rec = _withFunnelOrders({
+                date: _funnelDayDate(row.order_date || row.date),
+                orders_count: Number(row.orders_count || 0),
+                basket_count: Number(row.basket_count || 0),
+                funnel_order_conv: Number(row.funnel_order_conv || 0),
+                clicks: Number(row.clicks || 0),
+                impressions: Number(row.impressions || 0),
+                basket_pct: Number(row.basket_pct || 0),
+            });
+            a.ordersCount += Number(rec.orders_count || 0);
             a.ordersSum += Number(row.orders_sum || 0);
             const art = (articles || []).find(x => String(x.nm_id) === nm);
             if (art) {
@@ -3757,25 +3788,35 @@ const RNP = (() => {
         for (const row of (dailyRows || [])) {
             const nm = Number(row.nm_id);
             if (!idSet.has(nm)) continue;
-            const date = String(row.order_date || '').split('T')[0];
+            const date = _funnelDayDate(row.order_date || row.date);
             if (!date || !dateSet.has(date)) continue;
-            const count = Number(row.orders_count || 0);
-            const sum = Number(row.orders_sum || 0);
-            _dataCache[nm][date] = {
+            const prev = _dataCache[nm][date] || {};
+            const sum = Number(row.orders_sum || prev.orders_sum || 0);
+            const rec = {
+                ...prev,
                 cabinet_id: _cab,
                 nm_id: nm,
                 date,
-                orders_count: count,
+                orders_count: Number(row.orders_count || 0),
                 orders_sum: sum,
                 returns_count: Number(row.returns_count || 0),
-                sales_count: 0,
-                sales_sum: 0,
-                avg_check: count > 0 ? sum / count : 0,
-                spp_pct: Number(row.spp_pct || 0),
-                buyout_pct: 0,
-                to_transfer: 0,
-                updated_at: new Date().toISOString(),
+                sales_count: Number(prev.sales_count || 0),
+                sales_sum: Number(prev.sales_sum || 0),
+                avg_check: 0,
+                spp_pct: Number(row.spp_pct || prev.spp_pct || 0),
+                buyout_pct: Number(prev.buyout_pct || 0),
+                to_transfer: Number(prev.to_transfer || 0),
+                basket_count: Number(row.basket_count ?? prev.basket_count ?? 0),
+                funnel_order_conv: Number(row.funnel_order_conv ?? prev.funnel_order_conv ?? 0),
+                clicks: Number(row.clicks ?? prev.clicks ?? 0),
+                impressions: Number(row.impressions ?? prev.impressions ?? 0),
+                basket_pct: Number(row.basket_pct ?? prev.basket_pct ?? 0),
+                updated_at: prev.updated_at || new Date().toISOString(),
             };
+            const next = _withFunnelOrders(rec);
+            const count = Number(next.orders_count || 0);
+            next.avg_check = count > 0 ? sum / count : 0;
+            _dataCache[nm][date] = next;
         }
 
         idSet.forEach(nm => {
@@ -3875,22 +3916,19 @@ const RNP = (() => {
             ]);
             (data || []).forEach(r => {
                 if (!idSet.has(Number(r.nm_id))) return;
+                const date = _funnelDayDate(r.date);
+                if (!date) return;
                 if (!_dataCache[r.nm_id]) _dataCache[r.nm_id] = {};
-                const client = _dataCache[r.nm_id][r.date] || {};
+                const client = _dataCache[r.nm_id][date] || _dataCache[r.nm_id][r.date] || {};
                 const keep = (key) => {
                     const c = Number(client[key] || 0);
                     const s = Number(r[key] || 0);
                     return c > s ? c : s;
                 };
-                const funnelOrders = _funnelDayOrders({
-                    basket_count: Number(client.basket_count || r.basket_count || 0),
-                    funnel_order_conv: Number(client.funnel_order_conv || r.funnel_order_conv || 0),
-                    cartCount: Number(client.cartCount || r.cartCount || 0),
-                    cartToOrderConversion: Number(client.cartToOrderConversion || r.cartToOrderConversion || 0),
-                });
-                _dataCache[r.nm_id][r.date] = {
+                const merged = {
                     ...r,
-                    orders_count: funnelOrders != null ? funnelOrders : keep('orders_count'),
+                    date,
+                    orders_count: keep('orders_count'),
                     orders_sum: keep('orders_sum'),
                     // Продажи / реализация / к перечислению — только финотчёт.
                     stock_warehouse: client.stock_warehouse ?? r.stock_warehouse,
@@ -3904,7 +3942,13 @@ const RNP = (() => {
                     ad_ctr: keep('ad_ctr'),
                     ad_cpc: keep('ad_cpc'),
                     ad_cro: keep('ad_cro'),
+                    basket_count: Number(client.basket_count || r.basket_count || 0),
+                    funnel_order_conv: Number(client.funnel_order_conv || r.funnel_order_conv || 0),
+                    clicks: Number(client.clicks || r.clicks || 0),
+                    impressions: Number(client.impressions || r.impressions || 0),
+                    basket_pct: Number(client.basket_pct || r.basket_pct || 0),
                 };
+                _dataCache[r.nm_id][date] = _withFunnelOrders(merged);
             });
         } catch (e) { console.warn('[RNP] merge finance daily:', e.message); }
     }
