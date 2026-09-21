@@ -35,6 +35,23 @@ assert.equal(AdsHQ.filterCampaigns([
     { live: true, name: 'Пиджак', wbId: 1 },
     { live: true, name: 'Юбка', wbId: 2 },
 ], 'all', 'пидж').length, 1);
+assert.equal(AdsHQ.campaignEnded({ status: 7 }), true);
+assert.equal(AdsHQ.campaignEnded({ status: 'done' }), true);
+assert.equal(AdsHQ.campaignEnded({ status: -1 }), true);
+assert.equal(AdsHQ.campaignEnded({ status: 8 }), true);
+assert.equal(AdsHQ.campaignEnded({ status: 11 }), false);
+assert.equal(AdsHQ.campaignEnded({ status: 4 }), false);
+assert.equal(AdsHQ.campaignEnded({ live: false }), false);
+assert.deepEqual(AdsHQ.filterCampaigns([
+    { live: true, status: 9, name: 'Идёт' },
+    { live: false, status: 11, name: 'Пауза' },
+    { live: false, status: 4, name: 'Готова' },
+    { live: false, status: 7, name: 'Завершена' },
+    { live: false, status: -1, name: 'Удалена' },
+    { live: false, status: 8, name: 'Отклонена' },
+], 'all').map((c) => c.name).sort(), ['Готова', 'Идёт', 'Пауза']);
+assert.equal(AdsHQ.filterCampaigns([{ live: false, status: 7 }], 'active').length, 0);
+assert.equal(AdsHQ.filterCampaigns([{ live: false, status: 7 }], 'all').length, 0);
 
 {
     const ext = AdsHQ.extendRangeForRanking({ from: '2026-09-10', to: '2026-09-10' }, new Date(2026, 8, 10));
@@ -73,6 +90,40 @@ assert.equal(AdsHQ.filterCampaigns([
     assert.equal(AdsHQ.filterCampaigns(used.rows[0].campaigns, 'all', 'вчераш').length, 1);
     assert.equal(AdsHQ.filterCampaigns(used.rows[0].campaigns, 'active').length, 1);
     assert.equal(AdsHQ.filterCampaigns(used.rows[0].campaigns, 'active')[0].name, 'Старая');
+}
+
+{
+    const ended = AdsHQ.buildHqModel({
+        from: '2026-09-10',
+        to: '2026-09-10',
+        cabinets: [{ id: 'cab-a', name: 'Baza', adv_token_valid: true, adv_token_secret_id: 's' }],
+        legacyCampaigns: [
+            { cabinet_id: 'cab-a', campaign_id: 1, campaign_name: 'Живая', status: 9, type: 9 },
+            { cabinet_id: 'cab-a', campaign_id: 2, campaign_name: 'Готовая', status: 4, type: 9 },
+            { cabinet_id: 'cab-a', campaign_id: 3, campaign_name: 'Пауза', status: 11, type: 9 },
+            { cabinet_id: 'cab-a', campaign_id: 4, campaign_name: 'Завершена', status: 7, type: 9 },
+            { cabinet_id: 'cab-a', campaign_id: 5, campaign_name: 'Удалена', status: -1, type: 9 },
+        ],
+        legacyStats: [
+            { cabinet_id: 'cab-a', campaign_id: 1, stat_date: '2026-09-10', spend: 100, sum_price: 1000 },
+            { cabinet_id: 'cab-a', campaign_id: 4, stat_date: '2026-09-10', spend: 900, sum_price: 0 },
+        ],
+        v2Campaigns: [],
+        clusters: [],
+        rules: [],
+        snapshots: [],
+        v2Stats: [],
+    });
+    assert.equal(ended.rows[0].spendToday, 1000, 'finished RK spend still feeds cabinet KPI');
+    assert.equal(ended.rows[0].campaigns.length, 5, 'model keeps ended rows for spend');
+    const visibleAll = AdsHQ.filterCampaigns(ended.rows[0].campaigns, 'all');
+    assert.deepEqual(visibleAll.map((c) => c.name).sort(), ['Готовая', 'Живая', 'Пауза']);
+    assert.equal(AdsHQ.filterCampaigns(ended.rows[0].campaigns, 'active').length, 1);
+    const cabItems = AdsHQ.collectScheduleItems(
+        [{ kind: 'cabinet', cabinetId: 'cab-a' }],
+        ended
+    );
+    assert.deepEqual(cabItems.map((c) => c.wbId).sort(), [1, 2, 3]);
 }
 
 const model = AdsHQ.buildHqModel({

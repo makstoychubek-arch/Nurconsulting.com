@@ -1508,6 +1508,8 @@ assert.ok(html.includes('let adsReload = null') && html.includes('await adsReloa
     'switching cabinet on RK must reload shelves immediately, not after the dashboard RPC');
 assert.ok(html.includes('data-camp-filter="active"') && html.includes('data-camp-filter="all"') && html.includes('ads-hq-advanced'),
     'ads HQ defaults to active shelves and hides autobidder in details');
+assert.ok(html.includes('function campaignEnded') && html.includes('allCampaigns.filter((c) => !campaignEnded(c.status))'),
+    'detail campaign table hides finished RK and keeps their spend in KPI');
 assert.ok(html.includes('syncFromWb') && html.includes('syncAdvertisingNow({ silent: true })'),
     'ads HQ refresh pulls campaigns from WB, then rereads the DB');
 assert.ok(html.includes('const isAdsHq') && html.includes("window._advView !== 'detail'"),

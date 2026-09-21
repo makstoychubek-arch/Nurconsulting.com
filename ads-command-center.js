@@ -105,6 +105,19 @@
         return status == null || status === '' ? '—' : String(status);
     }
 
+    // WB: 7 завершена, 8 отклонена, -1 удалена. Не показываем даже на «Все».
+    function campaignEnded(camp) {
+        const status = camp != null && typeof camp === 'object' ? camp.status : camp;
+        const s = normalizeCampaignStatus(status);
+        if (s === 7 || s === -1 || s === 8) return true;
+        const raw = String(status == null ? '' : status).toLowerCase();
+        return raw === 'deleted' || raw === 'refused';
+    }
+
+    function listableCampaigns(campaigns) {
+        return (campaigns || []).filter((c) => !campaignEnded(c));
+    }
+
     function campaignMatchesSearch(camp, query) {
         const q = String(query || '').trim().toLowerCase();
         if (!q) return true;
@@ -269,7 +282,7 @@
     }
 
     function filterCampaigns(campaigns, mode, query) {
-        let list = campaigns || [];
+        let list = listableCampaigns(campaigns);
         if (mode !== 'all') list = list.filter((c) => c.live);
         if (query) list = list.filter((c) => campaignMatchesSearch(c, query));
         return list.slice().sort(compareCampaigns);
@@ -706,7 +719,7 @@
         for (const it of items || []) {
             if (it.kind === 'cabinet') {
                 const cab = rows.find((r) => r.id === it.cabinetId);
-                for (const c of (cab && cab.campaigns) || []) {
+                for (const c of listableCampaigns((cab && cab.campaigns) || [])) {
                     const k = it.cabinetId + ':' + c.wbId;
                     if (seen.has(k)) continue;
                     seen.add(k);
@@ -941,8 +954,9 @@
         let total = 0;
         for (const cab of rows) {
             const visible = visibleCampaigns(cab);
-            paused += (cab.campaigns || []).filter((c) => !c.live).length;
-            total += (cab.campaigns || []).length;
+            const listable = listableCampaigns(cab.campaigns);
+            paused += listable.filter((c) => !c.live).length;
+            total += listable.length;
             shown += visible.length;
             if (!hideCab) {
                 html.push(
@@ -1035,8 +1049,9 @@
         let total = 0;
         for (const cab of rows) {
             const visible = visibleCampaigns(cab);
-            paused += (cab.campaigns || []).filter((c) => !c.live).length;
-            total += (cab.campaigns || []).length;
+            const listable = listableCampaigns(cab.campaigns);
+            paused += listable.filter((c) => !c.live).length;
+            total += listable.length;
             shown += visible.length;
             if (!state.filterCabinetId) {
                 html.push('<div class="ads-hq-phone-cab-name" data-key="cab:' + esc(cab.id) + '">' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) + '</div>');
@@ -1719,6 +1734,7 @@
         buildHqModel,
         campaignTypeLabel,
         campaignStatusLabel,
+        campaignEnded,
         filterCampaigns,
         compareCampaigns,
         extendRangeForRanking,

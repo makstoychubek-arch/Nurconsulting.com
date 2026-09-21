@@ -7233,7 +7233,7 @@
 <script src="/dist/rnp-plan-fact.0516732b48.min.js"></script>
 <script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.2435903b96.min.js"></script>
+<script src="/dist/ads-command-center.f817b46866.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
@@ -8966,15 +8966,16 @@
                 byCampaign.set(key, { id: key, name: cc.campaign_name || `Кампания ${key}`, type: cc.type, spend: 0, views: 0, clicks: 0, orders: 0, sum_price: 0, atbs: 0, status: cc.status });
             }
         }
-        const campaigns = [...byCampaign.values()].sort((a, b) => b.spend - a.spend);
+        const allCampaigns = [...byCampaign.values()].sort((a, b) => b.spend - a.spend);
+        const campaigns = allCampaigns.filter((c) => !campaignEnded(c.status));
         const dailySeries = [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
 
-        const totalSpend = campaigns.reduce((s, c) => s + c.spend, 0);
-        const totalViews = campaigns.reduce((s, c) => s + c.views, 0);
-        const totalClicks = campaigns.reduce((s, c) => s + c.clicks, 0);
-        const totalOrders = campaigns.reduce((s, c) => s + c.orders, 0);
-        const totalRevenue = campaigns.reduce((s, c) => s + c.sum_price, 0);
-        const totalAtbs = campaigns.reduce((s, c) => s + c.atbs, 0);
+        const totalSpend = allCampaigns.reduce((s, c) => s + c.spend, 0);
+        const totalViews = allCampaigns.reduce((s, c) => s + c.views, 0);
+        const totalClicks = allCampaigns.reduce((s, c) => s + c.clicks, 0);
+        const totalOrders = allCampaigns.reduce((s, c) => s + c.orders, 0);
+        const totalRevenue = allCampaigns.reduce((s, c) => s + c.sum_price, 0);
+        const totalAtbs = allCampaigns.reduce((s, c) => s + c.atbs, 0);
         const ctr = totalViews > 0 ? (totalClicks / totalViews * 100) : 0;
         const cpc = totalClicks > 0 ? (totalSpend / totalClicks) : 0;
         const cpm = totalViews > 0 ? (totalSpend / totalViews * 1000) : 0; // WB fullstats не отдаёт CPM напрямую — считаем сами
@@ -9881,6 +9882,12 @@
     // Пауза/Старт — только вкл/выкл уже настроенной кампании, без изменения
     // ставок и бюджета (осознанно: движение денег с сайта не автоматизируем,
     // см. WB API doc §5.3 — только явные ручные пополнения самим продавцом в ЛК WB).
+    function campaignEnded(status) {
+        const s = Number(status);
+        if (s === 7 || s === -1 || s === 8) return true;
+        const raw = String(status == null ? '' : status).toLowerCase();
+        return raw === 'done' || raw === 'deleted' || raw === 'refused';
+    }
     function campaignStatusPillHtml(status) {
         if (status === 9) return `<span class="advcab-status-pill ok">Активна</span>`;
         if (status === 11) return `<span class="advcab-status-pill warn">На паузе</span>`;
