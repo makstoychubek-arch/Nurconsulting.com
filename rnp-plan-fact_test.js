@@ -86,8 +86,99 @@ const cron = fs.readFileSync(path.join(__dirname, 'supabase/migrations/202609211
 assert.ok(cron.includes("'0 5 * * *'") && cron.includes('funnel_only') && cron.includes('rnp-morning-funnel-zevina-11-bishkek'),
     'yesterday funnel locks at 11:00 Bishkek');
 
+assert.strictEqual(P.cabinetKind('ИП Бейшеев А.Д.'), 'baza');
+assert.strictEqual(P.cabinetKind('baza'), 'baza');
+assert.strictEqual(P.cabinetKind('ИП Айзада'), 'elium');
+assert.strictEqual(P.cabinetKind('Elium'), 'elium');
+assert.strictEqual(P.cabinetKind('ОсОО «Айлин Стиль»'), 'ailin');
+assert.strictEqual(P.cabinetKind('ИП Уркунбаев К.А.'), 'zevina');
+assert.strictEqual(P.sheetMeta('ИП Уркунбаев К.А.').title, 'Общая РНП');
+assert.strictEqual(P.sheetMeta('ИП Бейшеев А.Д.').title, 'ПЛАНФАКТ');
+assert.strictEqual(P.sheetMeta('ИП Бейшеев А.Д.').skuHeader, '');
+assert.strictEqual(P.sheetMeta('ИП Айзада').title, 'ПЛАНФАКТ');
+assert.strictEqual(P.sheetMeta('ИП Айзада').skuHeader, 'SKU');
+
+const bazaLive = [
+    { nm_id: 1544472467, name: 'live-jacket' },
+    { nm_id: 771571983, name: 'live-black' },
+    { nm_id: 771499220, name: 'live-white' },
+    { nm_id: 999000111, name: 'лишний' },
+];
+const bazaOrdered = P.applyCatalog(bazaLive, 'baza');
+assert.strictEqual(bazaOrdered[0].nm_id, 771499220);
+assert.strictEqual(bazaOrdered[0].name, 'Блузка-лапша-белый');
+assert.strictEqual(bazaOrdered[1].nm_id, 771571983);
+assert.strictEqual(bazaOrdered[1].name, 'Блузка-лапша-черный');
+assert.strictEqual(bazaOrdered.length, 4);
+assert.strictEqual(bazaOrdered[2].nm_id, 1544472467);
+assert.strictEqual(bazaOrdered[2].name, 'Куртка-черный1');
+assert.strictEqual(bazaOrdered[3].nm_id, 999000111);
+assert.strictEqual(P.applyCatalog([{ nm_id: 771499220, name: 'x' }], 'baza').length, 1,
+    'Excel SKUs missing from rnp_articles stay omitted');
+
+const nmBaza = 771571983;
+const week2 = weeks[1];
+assert.strictEqual(week2.start, '2026-09-07');
+const dailyBaza = { [nmBaza]: {} };
+[0, 0, 0, 14, 20, 9, 11].forEach((n, i) => {
+    if (!n) return;
+    dailyBaza[nmBaza][week2.dates[i]] = { orders_count: n };
+});
+const plansBaza = {
+    [nmBaza]: { '2026-09-07': { planned_orders: 7, planned_sales: 51 } },
+};
+const bazaModel = P.build({
+    monthKey: '2026-09',
+    cabinetName: 'ИП Бейшеев А.Д.',
+    articles: [
+        { nm_id: nmBaza, name: 'live-black' },
+        { nm_id: 771499220, name: 'live-white' },
+    ],
+    daily: dailyBaza,
+    plans: plansBaza,
+});
+assert.strictEqual(bazaModel.title, 'ПЛАНФАКТ');
+assert.strictEqual(bazaModel.skuHeader, '');
+assert.strictEqual(bazaModel.kind, 'baza');
+assert.strictEqual(bazaModel.rows[0].nm_id, 771499220);
+assert.strictEqual(bazaModel.rows[0].name, 'Блузка-лапша-белый');
+assert.strictEqual(bazaModel.rows[1].nm_id, nmBaza);
+assert.strictEqual(bazaModel.rows[1].name, 'Блузка-лапша-черный');
+assert.deepStrictEqual(bazaModel.rows[1].weeks[1].facts, [0, 0, 0, 14, 20, 9, 11]);
+assert.strictEqual(bazaModel.rows[1].weeks[1].factSum, 54);
+assert.strictEqual(bazaModel.rows[1].weeks[1].dailyPlan, 7);
+assert.strictEqual(bazaModel.rows[1].weeks[1].planSales, 51);
+assert.strictEqual(bazaModel.rows[1].weeks[1].ratio, (54 / 51).toFixed(2));
+const bazaHtml = P.tableHtml(bazaModel);
+assert.ok(bazaHtml.includes('Блузка-лапша-черный') && bazaHtml.includes('771571983'));
+assert.ok(!/>SKU</.test(bazaHtml), 'Baza C5 is empty like Excel');
+
+const eliumModel = P.build({
+    monthKey: '2026-09',
+    cabinetName: 'ИП Айзада',
+    articles: [
+        { nm_id: 1171758874, name: 'wrong-bordo' },
+        { nm_id: 851707556, name: 'wrong-suit' },
+    ],
+    daily: {},
+    plans: {},
+});
+assert.strictEqual(eliumModel.title, 'ПЛАНФАКТ');
+assert.strictEqual(eliumModel.skuHeader, 'SKU');
+assert.strictEqual(eliumModel.kind, 'elium');
+assert.strictEqual(eliumModel.rows[0].nm_id, 851707556);
+assert.strictEqual(eliumModel.rows[0].name, 'Костюм-мужс-лето-черн');
+assert.strictEqual(eliumModel.rows[1].nm_id, 1171758874);
+assert.strictEqual(eliumModel.rows[1].name, 'жл-бордо');
+const eliumHtml = P.tableHtml(eliumModel);
+assert.ok(eliumHtml.includes('>SKU<'), 'Elium/AA C5 is SKU');
+assert.ok(eliumHtml.includes('Костюм-мужс-лето-черн') && eliumHtml.includes('851707556'));
+
 const rnp = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
 assert.ok(rnp.includes('openPlanFact') && rnp.includes('План/факт'));
+assert.ok(rnp.includes('async function openPlanFact'));
+assert.ok(rnp.includes('_mergePlanFactRange') && rnp.includes('cabinetName: _cabinetName()'));
+assert.ok(!rnp.includes("title: 'Общая РНП'"), 'title comes from sheetMeta per cabinet');
 assert.ok(rnp.includes('if (implied != null) return implied'),
     'RNP funnel prefers Корзина×Заказы% over statistics orderCount');
 assert.ok(!rnp.includes('Math.max(fromField, implied)'));
