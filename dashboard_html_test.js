@@ -1121,6 +1121,7 @@ assert.ok(rnpSrc.includes('funnelLag'),
     assert.strictEqual(fns._funnelImpliedOrders({ basket_count: 157, funnel_order_conv: 18 }), 28);
     assert.strictEqual(fns._funnelImpliedOrders({ cartCount: 83, cartToOrderConversion: 12 }), 10);
     assert.strictEqual(fns._funnelDayOrders({ cartCount: 157, cartToOrderConversion: 18 }), 28);
+    assert.strictEqual(fns._funnelDayOrders({ orderCount: 66, cartCount: 294, cartToOrderConversion: 16 }), 47);
     assert.strictEqual(fns._withFunnelOrders({ orders_count: 17, basket_count: 157, funnel_order_conv: 18 }).orders_count, 17);
     assert.strictEqual(fns._withFunnelOrders({ date: '2026-09-13', orders_count: 17, basket_count: 157, funnel_order_conv: 18 }).orders_count, 28);
     assert.strictEqual(fns._withFunnelOrders({ date: '2026-09-14', orders_count: 66, basket_count: 294, funnel_order_conv: 16 }).orders_count, 47);
@@ -1267,8 +1268,12 @@ assert.ok(rnpSrc.includes('class="rnp-settings-gear"') && rnpSrc.includes('oncli
     'RNP toolbar has a small gear for settings');
 assert.ok(rnpSrc.includes('function _excelSvg') && rnpSrc.includes('function _editSvg') && rnpSrc.includes('function _planSvg'),
     'RNP toolbar Plan / Excel / Edit are SVG icons');
-assert.ok(rnpSrc.includes('rnp-tool-icon') && rnpSrc.includes('function _iconToolsHtml'),
-    'Plan / Excel / Edit / settings sit in one icon row');
+assert.ok(rnpSrc.includes('function _iconToolsHtml'),
+    'RNP toolbar icons stay in one row');
+assert.ok(rnpSrc.includes('План/факт') && rnpSrc.includes('openPlanFact'),
+    'RNP has a small План/факт button that opens the Excel sheet');
+assert.ok(html.includes('id="rnp-plan-fact-overlay"') && html.includes('.pf-sheet'),
+    'plan/fact overlay is the Excel clone sheet');
 assert.ok(!rnpSrc.includes('>Excel</button>') && !rnpSrc.includes('↵ План') && !rnpSrc.includes('>Редактировать</button>'),
     'RNP toolbar no longer uses text pills for Plan / Excel / Edit');
 assert.ok(html.includes('.rnp-tool-icon') && html.includes('.rnp-tool-icons'),
@@ -2339,7 +2344,7 @@ assert.ok(
     const esbuild = require('esbuild');
     const stale = [];
     for (const name of ['dashboard-charts.js', 'rnp-module.js', 'wb-formulas.js',
-        'ads-command-center.js', 'goods-catalog.js', 'content-factory.js', 'nr-wow.js', 'dash-cabinet-plans.js']) {
+        'ads-command-center.js', 'goods-catalog.js', 'content-factory.js', 'nr-wow.js', 'dash-cabinet-plans.js', 'rnp-plan-fact.js']) {
         const built = esbuild.buildSync({
             entryPoints: [path.join(__dirname, name)],
             bundle: false, minify: true, format: 'iife', target: ['es2018'],
@@ -2445,6 +2450,10 @@ assert.ok(
 assert.ok(
     /<script src="\/(?:dist\/)?dash-cabinet-plans(?:\.[0-9a-f]+)?(?:\.min)?\.js"><\/script>/.test(html),
     'dash-cabinet-plans script is on the dashboard'
+);
+assert.ok(
+    /<script src="\/(?:dist\/)?rnp-plan-fact(?:\.[0-9a-f]+)?(?:\.min)?\.js"><\/script>/.test(html),
+    'rnp-plan-fact script is on the dashboard'
 );
 
 console.log('dashboard_html_test: ok');

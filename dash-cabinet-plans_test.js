@@ -30,6 +30,13 @@ assert.strictEqual(by[a].orders, 160);
 assert.strictEqual(by[b].plan_orders, 200);
 assert.ok(by[c].has_plan);
 
+const funnelOnly = P.fromRows(
+    [a],
+    [],
+    [{ cabinet_id: a, orders_count: 66, basket_count: 294, funnel_order_conv: 16 }],
+);
+assert.strictEqual(funnelOnly[0].orders, 47);
+
 const done = P.cardModel({ id: a, name: 'ИП Уркунбаев К.А.' }, by[a], a);
 assert.strictEqual(done.tone, 'done');
 assert.strictEqual(done.label, 'Выполнен');
@@ -65,10 +72,9 @@ assert.ok(markup.includes('Выполнен') && markup.includes('%'));
 assert.ok(markup.includes('160 из 150'));
 assert.ok(markup.includes("openDashCabinetPlan('cab-a')"));
 
-const sql = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260920190000_dashboard_plan_cabinets.sql'), 'utf8');
-assert.ok(sql.includes('dashboard_plan_cabinets') && sql.includes('current_user_cabinet_ids'));
-assert.ok(sql.includes('planned_orders') && sql.includes('orders_count'));
-assert.ok(sql.includes('grant execute') && sql.includes('authenticated'));
+const sqlNew = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260921120000_dashboard_funnel_orders.sql'), 'utf8');
+assert.ok(sqlNew.includes('basket_count') && sqlNew.includes('funnel_order_conv'));
+assert.ok(sqlNew.includes('dashboard_summary') && sqlNew.includes('dashboard_plan_cabinets'));
 
 const html = fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8');
 assert.ok(html.includes('id="dash-plan-cabs"') && html.includes('id="dash-plan-wrap"'));

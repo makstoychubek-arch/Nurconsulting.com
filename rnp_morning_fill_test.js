@@ -97,13 +97,22 @@ const funnelMig = fs.readFileSync(
     'utf8',
 );
 assert.ok(funnelMig.includes('rnp-morning-funnel-zevina-09-bishkek') && funnelMig.includes("'0 3 * * *'"),
-    'Zevina funnel refresh at 09:00 Bishkek');
-assert.ok(funnelMig.includes('rnp-morning-funnel-baza-09-bishkek') && funnelMig.includes("'15 3 * * *'"),
-    'Baza funnel refresh at 09:15 Bishkek');
-assert.ok(funnelMig.includes('rnp-morning-funnel-elium-09-bishkek') && funnelMig.includes("'30 3 * * *'"),
-    'Elium funnel refresh at 09:30 Bishkek');
+    'legacy 09:00 Bishkek funnel cron is still in the 09 migration file');
 assert.ok(funnelMig.includes('"funnel_only":true') && funnelMig.includes('"notify":false'),
     '09:00 funnel pass must not post to Telegram');
+
+const funnel11 = fs.readFileSync(
+    path.join(root, 'supabase/migrations/20260921110000_rnp_funnel_lock_11_bishkek.sql'),
+    'utf8',
+);
+assert.ok(funnel11.includes('rnp-morning-funnel-zevina-11-bishkek') && funnel11.includes("'0 5 * * *'"),
+    'Zevina funnel lock at 11:00 Bishkek');
+assert.ok(funnel11.includes('rnp-morning-funnel-baza-11-bishkek') && funnel11.includes("'15 5 * * *'"),
+    'Baza funnel lock at 11:15 Bishkek');
+assert.ok(funnel11.includes('rnp-morning-funnel-elium-11-bishkek') && funnel11.includes("'30 5 * * *'"),
+    'Elium funnel lock at 11:30 Bishkek');
+assert.ok(funnel11.includes('rnp-morning-funnel-zevina-09-bishkek'),
+    '11:00 cron unschedules the early 09:00 funnel pass');
 
 const zevinaShift = fs.readFileSync(
     path.join(root, 'supabase/migrations/20260916140000_rnp_morning_zevina_off_autosync.sql'),

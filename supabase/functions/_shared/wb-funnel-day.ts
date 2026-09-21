@@ -104,8 +104,10 @@ export function funnelDayOrders(day: Record<string, unknown> | null | undefined)
         'orderCount', 'ordersCount', 'orders', 'order_count', 'ordered', 'orderCnt',
     ]);
     const implied = funnelImpliedOrders(day);
-    if (fromField != null && implied != null) return Math.max(fromField, implied);
-    return fromField ?? implied;
+    // Карточка WB / Excel «План/факт»: Корзина × Заказы%. orderCount из
+    // statistics-api часто больше (66 вместо 47) — его не берём, если есть %.
+    if (implied != null) return implied;
+    return fromField;
 }
 
 export function funnelDayMetricFields(day: Record<string, unknown>): Record<string, unknown> {
