@@ -100,6 +100,11 @@ const htmlDash = fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8')
 assert.ok(htmlDash.includes('rnp-plan-fact-overlay') && htmlDash.includes('.pf-sheet'));
 assert.ok(/<script src="\/(?:dist\/)?rnp-plan-fact(?:\.[0-9a-f]+)?(?:\.min)?\.js"><\/script>/.test(htmlDash),
     'plan-fact script is on the dashboard');
+assert.ok(htmlDash.includes('.rnp-plan-fact-overlay.is-open') && htmlDash.includes('translateY(-14px)'),
+    'plan/fact uses the same top-drop glass animation as other modals');
+const pfSrc = fs.readFileSync(path.join(__dirname, 'rnp-plan-fact.js'), 'utf8');
+assert.ok(pfSrc.includes('el.parentElement !== document.body') && pfSrc.includes('document.body.appendChild(el)'),
+    'plan/fact overlay mounts on body so it covers the header');
 
 const pkg = fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8');
 assert.ok(pkg.includes('rnp-plan-fact_test.js'));

@@ -298,14 +298,15 @@
 
     function ensureOverlay() {
         var el = document.getElementById('rnp-plan-fact-overlay');
-        if (el) return el;
-        el = document.createElement('div');
-        el.id = 'rnp-plan-fact-overlay';
-        el.className = 'rnp-plan-fact-overlay';
-        el.setAttribute('onclick', 'if(event.target===this) RnpPlanFact.close()');
-        el.innerHTML = '<div class="rnp-plan-fact-dialog" role="dialog" aria-modal="true" aria-labelledby="rnp-plan-fact-title">'
-            + '<div id="rnp-plan-fact-body"></div></div>';
-        document.body.appendChild(el);
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'rnp-plan-fact-overlay';
+            el.className = 'rnp-plan-fact-overlay';
+            el.setAttribute('onclick', 'if(event.target===this) RnpPlanFact.close()');
+            el.innerHTML = '<div class="rnp-plan-fact-dialog" role="dialog" aria-modal="true" aria-labelledby="rnp-plan-fact-title">'
+                + '<div id="rnp-plan-fact-body"></div></div>';
+        }
+        if (el.parentElement !== document.body) document.body.appendChild(el);
         return el;
     }
 

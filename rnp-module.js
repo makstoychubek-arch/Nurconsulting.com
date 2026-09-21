@@ -6615,6 +6615,7 @@ const RNP = (() => {
         const overlay = document.getElementById('rnp-photo-lightbox');
         const big = document.getElementById('rnp-photo-lightbox-img');
         if (!overlay || !big) return;
+        if (overlay.parentElement !== document.body) document.body.appendChild(overlay);
         const large = _largePhotoSrc(src);
         let usedFallback = false;
         big.onerror = () => {
