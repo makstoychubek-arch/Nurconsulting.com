@@ -15,8 +15,8 @@ assert.equal(AdsHQ.campaignTypeLabel(8), 'Авто');
 assert.equal(AdsHQ.campaignTypeLabel(9), 'Поиск + каталог');
 assert.equal(AdsHQ.campaignTypeLabel('manual_bid'), 'Поиск + полка');
 assert.equal(AdsHQ.campaignTypeLabel('auto_bid'), 'Авто');
-assert.equal(AdsHQ.campaignStatusLabel(9), 'Идёт');
-assert.equal(AdsHQ.campaignStatusLabel('paused'), 'Пауза');
+assert.equal(AdsHQ.campaignStatusLabel(9), 'Активна');
+assert.equal(AdsHQ.campaignStatusLabel('paused'), 'Приостановлена');
 assert.equal(AdsHQ.nmIdFromName('1218782505 СПМ Айвори'), 1218782505);
 assert.equal(AdsHQ.nmIdFromName('247350276 СРС Укороч Костюм'), 247350276);
 assert.equal(AdsHQ.nmIdFromName('Кампания от 23.03.2026'), 0);
@@ -114,7 +114,7 @@ assert.equal(AdsHQ.filterCampaigns([{ live: false, status: 7 }], 'all').length, 
         snapshots: [],
         v2Stats: [],
     });
-    assert.equal(ended.rows[0].spendToday, 1000, 'finished RK spend still feeds cabinet KPI');
+    assert.equal(ended.rows[0].spendToday, 100, 'finished RK spend stays out of the WB-style cabinet KPI');
     assert.equal(ended.rows[0].campaigns.length, 5, 'model keeps ended rows for spend');
     const visibleAll = AdsHQ.filterCampaigns(ended.rows[0].campaigns, 'all');
     assert.deepEqual(visibleAll.map((c) => c.name).sort(), ['Готовая', 'Живая', 'Пауза']);
@@ -124,6 +124,71 @@ assert.equal(AdsHQ.filterCampaigns([{ live: false, status: 7 }], 'all').length, 
         ended
     );
     assert.deepEqual(cabItems.map((c) => c.wbId).sort(), [1, 2, 3]);
+}
+
+{
+    const camp = {
+        spendToday: 9204.17, views: 22160, clicks: 659, orders: 4, atbs: 50,
+        revenue7: 15936, searchPos: 5, canceled: 0,
+    };
+    assert.equal(AdsHQ.formatMetric(camp, 'ctr'), '2.97 %');
+    assert.equal(AdsHQ.formatMetric(camp, 'cpc'), '13.97');
+    assert.equal(AdsHQ.formatMetric(camp, 'cpo'), '2\u00a0301.04');
+    assert.equal(AdsHQ.formatMetric(camp, 'cr'), '0.61');
+    assert.equal(AdsHQ.formatMetric(camp, 'cpm'), '415.35');
+    assert.equal(AdsHQ.formatMetric(camp, 'roas'), '1.73');
+    assert.equal(AdsHQ.formatMetric(camp, 'drr'), '57.76 %');
+    assert.equal(AdsHQ.formatMetric(camp, 'orders'), '4');
+    assert.equal(AdsHQ.formatMetric(camp, 'clicks'), '659');
+    assert.equal(AdsHQ.formatMetric(camp, 'atbs'), '50');
+    assert.equal(AdsHQ.formatMetric(camp, 'revenue'), '15\u00a0936');
+    assert.equal(AdsHQ.formatMetric(camp, 'pos'), '5');
+    assert.equal(AdsHQ.formatMetric(camp, 'budget'), 'Н/Д');
+    const empty = { spendToday: 0, views: 0, clicks: 0, orders: 0, atbs: 0, revenue7: 0 };
+    assert.equal(AdsHQ.formatMetric(empty, 'spend'), 'Н/Д');
+    assert.equal(AdsHQ.formatMetric(empty, 'ctr'), 'Н/Д');
+}
+
+{
+    const wb = AdsHQ.buildHqModel({
+        from: '2026-09-20',
+        to: '2026-09-20',
+        cabinets: [{ id: 'cab-a', name: 'Baza', adv_token_valid: true, adv_token_secret_id: 's' }],
+        legacyCampaigns: [
+            { cabinet_id: 'cab-a', campaign_id: 40302705, campaign_name: '296564448 Поиск коричневый', status: 9, type: 9, payment_type: 'cpm', bid_type: 'auto' },
+            { cabinet_id: 'cab-a', campaign_id: 1, campaign_name: 'Завершена', status: 7, type: 9 },
+        ],
+        legacyStats: [
+            {
+                cabinet_id: 'cab-a', campaign_id: 40302705, stat_date: '2026-09-20',
+                spend: 9204.17, views: 22160, clicks: 659, atbs: 50, orders: 4, sum_price: 15936,
+                data: { canceled: 0, boosterStats: [{ avg_position: 5, nm: 296564448 }] },
+            },
+            { cabinet_id: 'cab-a', campaign_id: 1, stat_date: '2026-09-20', spend: 900, views: 100, clicks: 10, orders: 0, sum_price: 0 },
+        ],
+        v2Campaigns: [],
+        clusters: [],
+        rules: [],
+        snapshots: [],
+        v2Stats: [],
+        articles: [{
+            cabinet_id: 'cab-a', nm_id: 296564448, photo_url: 'https://img.example/brown.webp',
+            name: 'Поиск', manual_data: { seller_article: 'Поиск коричневый', price: 4880 },
+        }],
+        stocks: [{ cabinet_id: 'cab-a', nm_id: 296564448, quantity: 646 }],
+    });
+    assert.equal(wb.rows[0].spendToday, 9204.17);
+    assert.equal(wb.rows[0].revenue7, 15936);
+    assert.equal(Number(wb.rows[0].ctr.toFixed(2)), 2.97);
+    assert.equal(Number(wb.rows[0].roas.toFixed(2)), 1.73);
+    const row = wb.rows[0].campaigns.find((c) => c.wbId === 40302705);
+    assert.equal(row.paymentType, 'cpm');
+    assert.equal(row.bidType, 'auto');
+    assert.equal(row.searchPos, 5);
+    assert.equal(row.price, 4880);
+    assert.equal(row.stock, 646);
+    assert.equal(row.canceled, 0);
+    assert.equal(row.live, true);
 }
 
 const model = AdsHQ.buildHqModel({
@@ -314,11 +379,15 @@ function fakeEl() {
 
 const els = {
     'ads-hq-tbody': fakeEl(),
+    'ads-hq-thead': fakeEl(),
     'ads-hq-phone': fakeEl(),
     'ads-hq-kpis': fakeEl(),
     'ads-hq-freshness': fakeEl(),
     'ads-hq-start-at': fakeEl(),
     'ads-hq-schedule': fakeEl(),
+    'ads-hq-products-tbody': fakeEl(),
+    'ads-hq-camps-wrap': fakeEl(),
+    'ads-hq-products-wrap': fakeEl(),
 };
 
 global.document = {
@@ -333,11 +402,11 @@ global.document = {
     const rowsByTable = {
         cabinets: [{ id: 'cab-a', name: 'Baza', adv_token_valid: true, adv_token_secret_id: 's' }],
         advertising_campaigns: [
-            { cabinet_id: 'cab-a', campaign_id: 38634350, campaign_name: 'Пиджак', status: 9, type: 9 },
-            { cabinet_id: 'cab-a', campaign_id: 11, campaign_name: 'Пауза полка', status: 11, type: 4 },
+            { cabinet_id: 'cab-a', campaign_id: 38634350, campaign_name: 'Пиджак', status: 9, type: 9, payment_type: 'cpm', bid_type: 'auto' },
+            { cabinet_id: 'cab-a', campaign_id: 11, campaign_name: 'Пауза полка', status: 11, type: 4, payment_type: 'cpc', bid_type: 'manual' },
         ],
         advertising_daily_stats: [
-            { cabinet_id: 'cab-a', campaign_id: 38634350, stat_date: '2026-09-10', spend: 4200, sum_price: 20000, clicks: 80, atbs: 12, orders: 3 },
+            { cabinet_id: 'cab-a', campaign_id: 38634350, stat_date: '2026-09-10', spend: 4200, sum_price: 20000, views: 2000, clicks: 80, atbs: 12, orders: 3 },
         ],
         rnp_articles: [
             {
@@ -393,35 +462,54 @@ global.document = {
     assert.match(els['ads-hq-tbody'].innerHTML, /img\.example\/jacket\.webp/);
     assert.match(els['ads-hq-tbody'].innerHTML, /ads-hq-camp-name/);
     assert.match(els['ads-hq-phone'].innerHTML, /ads-hq-thumb/);
-    assert.match(els['ads-hq-tbody'].innerHTML, /Поиск \+ каталог/);
-    assert.match(els['ads-hq-tbody'].innerHTML, /Идёт/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /CPM/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /Единая/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /Активна/);
     assert.match(els['ads-hq-tbody'].innerHTML, /4.200/);
-    assert.doesNotMatch(els['ads-hq-tbody'].innerHTML, /Пауза полка/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Созданные заказы/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /Пауза полка/, 'WB list shows paused campaigns by default');
     assert.doesNotMatch(els['ads-hq-tbody'].innerHTML, /Baza/);
     assert.match(els['ads-hq-phone'].innerHTML, /Пиджак/);
-    assert.match(els['ads-hq-phone'].innerHTML, /Расход/);
-    assert.match(els['ads-hq-kpis'].innerHTML, /Активные полки/);
-    assert.match(els['ads-hq-kpis'].innerHTML, />1</);
-    assert.match(els['ads-hq-kpis'].innerHTML, /Расход/);
-    assert.match(els['ads-hq-kpis'].innerHTML, /Подменный артикул/);
-    assert.match(els['ads-hq-kpis'].innerHTML, /Переходы/);
-    assert.match(els['ads-hq-kpis'].innerHTML, />80</);
-    assert.match(els['ads-hq-kpis'].innerHTML, />12</);
-    assert.match(els['ads-hq-kpis'].innerHTML, />3</);
+    assert.match(els['ads-hq-phone'].innerHTML, /Затраты/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /Сумма заказов/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /Затраты/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /Доля затрат/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /ROAS/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /CTR/);
+    assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /Подменный артикул/);
+    assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /Активные полки/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /4.00 %/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /21.00 %/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /4.76/);
     assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /Расход сегодня/);
     assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /ДРР 7д/);
     assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /Сэкономлено/);
     assert.equal(synced, 0);
 
+    AdsHQ.setCampFilter('active');
+    assert.doesNotMatch(els['ads-hq-tbody'].innerHTML, /Пауза полка/);
     AdsHQ.setCampFilter('all');
     assert.match(els['ads-hq-tbody'].innerHTML, /Пауза полка/);
-    assert.match(els['ads-hq-tbody'].innerHTML, /Каталог \/ полка/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /Приостановлена/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /CPC/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /Ручная/);
+
+    AdsHQ.setColPreset('funnel');
+    assert.match(els['ads-hq-thead'].innerHTML, /Доля затрат/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Клики/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Сумма заказов/);
+    AdsHQ.setColPreset('unit');
+    assert.match(els['ads-hq-thead'].innerHTML, /CPC/);
+    assert.match(els['ads-hq-thead'].innerHTML, /ROAS/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Отмены технические/);
+    AdsHQ.setColPreset('stats');
+    assert.match(els['ads-hq-thead'].innerHTML, /Созданные заказы/);
 
     AdsHQ.setSearch('пиджак');
     assert.match(els['ads-hq-tbody'].innerHTML, /Пиджак/);
     assert.doesNotMatch(els['ads-hq-tbody'].innerHTML, /Пауза полка/);
     AdsHQ.setSearch('нет-такой-рк');
-    assert.match(els['ads-hq-tbody'].innerHTML, /Нет полок по запросу/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /Нет кампаний по запросу/);
     AdsHQ.setSearch('');
     assert.match(els['ads-hq-tbody'].innerHTML, /Пауза полка/);
 
@@ -442,7 +530,7 @@ global.document = {
     AdsHQ.setCabinet('cab-empty');
     assert.match(els['ads-hq-kpis'].innerHTML, /—/, 'stale active count must clear as soon as the cabinet changes');
     assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, />1</);
-    assert.match(els['ads-hq-tbody'].innerHTML, /Загрузка полок/);
+    assert.match(els['ads-hq-tbody'].innerHTML, /Загрузка кампаний/);
     rowsByTable.cabinets = [{ id: 'cab-empty', name: 'Zevina' }];
     rowsByTable.advertising_campaigns = [];
     rowsByTable.advertising_daily_stats = [];
