@@ -105,6 +105,19 @@
         return status == null || status === '' ? '—' : String(status);
     }
 
+    // WB: 7 завершена, 8 отклонена, -1 удалена. Не показываем даже на «Все».
+    function campaignEnded(camp) {
+        const status = camp != null && typeof camp === 'object' ? camp.status : camp;
+        const s = normalizeCampaignStatus(status);
+        if (s === 7 || s === -1 || s === 8) return true;
+        const raw = String(status == null ? '' : status).toLowerCase();
+        return raw === 'deleted' || raw === 'refused';
+    }
+
+    function listableCampaigns(campaigns) {
+        return (campaigns || []).filter((c) => !campaignEnded(c));
+    }
+
     function campaignMatchesSearch(camp, query) {
         const q = String(query || '').trim().toLowerCase();
         if (!q) return true;
@@ -269,7 +282,7 @@
     }
 
     function filterCampaigns(campaigns, mode, query) {
-        let list = campaigns || [];
+        let list = listableCampaigns(campaigns);
         if (mode !== 'all') list = list.filter((c) => c.live);
         if (query) list = list.filter((c) => campaignMatchesSearch(c, query));
         return list.slice().sort(compareCampaigns);
@@ -315,9 +328,17 @@
         const rev7 = new Map();
         const lastSpend = new Map();
         const spendYesterday = new Map();
+        const clicksIn = new Map();
+        const cartsIn = new Map();
+        const ordersIn = new Map();
         const now = input.now instanceof Date ? input.now : new Date();
         const yesterday = String(input.yesterday || ymd(addDays(now, -1))).slice(0, 10);
-        function addStat(cabinetId, campaignKey, date, spend, revenue) {
+        function bump(map, key, n) {
+            const v = num(n);
+            if (!v) return;
+            map.set(key, (map.get(key) || 0) + v);
+        }
+        function addStat(cabinetId, campaignKey, date, spend, revenue, clicks, carts, orders) {
             const day = String(date || '').slice(0, 10);
             const ck = cabinetId + ':' + campaignKey;
             const n = num(spend);
@@ -337,15 +358,22 @@
             rev7.set(cabinetId, (rev7.get(cabinetId) || 0) + revenue);
             spend7.set(ck, (spend7.get(ck) || 0) + n);
             rev7.set(ck, (rev7.get(ck) || 0) + revenue);
+            bump(clicksIn, cabinetId, clicks);
+            bump(cartsIn, cabinetId, carts);
+            bump(ordersIn, cabinetId, orders);
         }
         for (const r of legacyStats) {
-            addStat(r.cabinet_id, String(r.campaign_id), r.stat_date, num(r.spend), num(r.sum_price || r.revenue));
+            addStat(
+                r.cabinet_id, String(r.campaign_id), r.stat_date,
+                num(r.spend), num(r.sum_price || r.revenue),
+                num(r.clicks), num(r.atbs || r.carts), num(r.orders)
+            );
         }
         const v2CabByCamp = new Map(v2Camps.map((c) => [c.id, c.cabinet_id]));
         for (const r of v2Stats) {
             const cab = v2CabByCamp.get(r.campaign_id);
             if (!cab) continue;
-            addStat(cab, r.campaign_id, r.date, num(r.spend), num(r.revenue));
+            addStat(cab, r.campaign_id, r.date, num(r.spend), num(r.revenue), num(r.clicks), num(r.carts || r.atbs), num(r.orders));
         }
 
         const latestSnap = new Map();
@@ -495,6 +523,9 @@
                 spendToday: spendT,
                 spend7: s7,
                 revenue7: r7,
+                clicks: clicksIn.get(cab.id) || 0,
+                carts: cartsIn.get(cab.id) || 0,
+                orders: ordersIn.get(cab.id) || 0,
                 drr7: formatDrr(s7, r7),
                 activeCampaigns: campaigns.filter((c) => c.live).length,
                 inRange,
@@ -510,13 +541,16 @@
             acc.spendToday += r.spendToday;
             acc.spend7 += r.spend7;
             acc.revenue7 += r.revenue7;
+            acc.clicks += r.clicks || 0;
+            acc.carts += r.carts || 0;
+            acc.orders += r.orders || 0;
             acc.active += r.activeCampaigns;
             acc.inRange += r.inRange;
             acc.outRange += r.outRange;
             acc.maxHit += r.maxHit;
             acc.saved7 += 0;
             return acc;
-        }, { spendToday: 0, spend7: 0, revenue7: 0, active: 0, inRange: 0, outRange: 0, maxHit: 0, saved7: 0 });
+        }, { spendToday: 0, spend7: 0, revenue7: 0, clicks: 0, carts: 0, orders: 0, active: 0, inRange: 0, outRange: 0, maxHit: 0, saved7: 0 });
         totals.drr7 = formatDrr(totals.spend7, totals.revenue7);
         totals.cabinets = rows.length;
         totals.tokenBad = rows.filter((r) => r.token === 'bad').length;
@@ -685,7 +719,7 @@
         for (const it of items || []) {
             if (it.kind === 'cabinet') {
                 const cab = rows.find((r) => r.id === it.cabinetId);
-                for (const c of (cab && cab.campaigns) || []) {
+                for (const c of listableCampaigns((cab && cab.campaigns) || [])) {
                     const k = it.cabinetId + ':' + c.wbId;
                     if (seen.has(k)) continue;
                     seen.add(k);
@@ -805,36 +839,42 @@
         if (!el) return;
         const one = state.filterCabinetId ? (cabinetRows()[0] || null) : null;
         const useTotals = !state.filterCabinetId && totals;
-        let tiles;
-        if (pending) {
-            tiles = [
-                ['Активные полки', '—'],
-                ['Расход', '—'],
-                ['ДРР', '—'],
-            ];
-        } else {
-            tiles = [
-                ['Активные полки', String(one ? one.activeCampaigns : (useTotals ? totals.active : 0))],
-                ['Расход', formatMoney(one ? one.spendToday : (useTotals ? totals.spendToday : 0))],
-                ['ДРР', formatDrrLabel(one ? one.drr7 : (useTotals ? totals.drr7 : null))],
-            ];
-        }
-        const vals = el.querySelectorAll ? el.querySelectorAll('.adv-kpi-tile-value') : [];
-        const labs = el.querySelectorAll ? el.querySelectorAll('.adv-kpi-tile-label') : [];
-        if (vals && vals.length === tiles.length) {
-            tiles.forEach(([label, value], i) => {
-                if (labs[i] && labs[i].textContent !== label) labs[i].textContent = label;
-                if (vals[i] && vals[i].textContent !== value) {
-                    if (window.NrWow) window.NrWow.tickText(vals[i], value);
-                    else vals[i].textContent = value;
-                }
+        const src = pending ? null : (one || (useTotals ? totals : null));
+        const active = pending ? '—' : String(src ? (src.activeCampaigns != null ? src.activeCampaigns : src.active) : 0);
+        const spend = pending ? '—' : formatMoney(src && src.spendToday);
+        const drr = pending ? '—' : formatDrrLabel(src && src.drr7);
+        const clicks = pending ? '—' : formatMoney(src && src.clicks);
+        const carts = pending ? '—' : formatMoney(src && src.carts);
+        const orders = pending ? '—' : formatMoney(src && src.orders);
+        const values = {
+            'ads-hq-kpi-active': active,
+            'ads-hq-kpi-spend': spend,
+            'ads-hq-kpi-drr': drr,
+            'ads-hq-kpi-clicks': clicks,
+            'ads-hq-kpi-carts': carts,
+            'ads-hq-kpi-orders': orders,
+        };
+        const live = Object.keys(values).every((id) => document.getElementById(id));
+        if (live) {
+            Object.keys(values).forEach((id) => {
+                const node = document.getElementById(id);
+                const next = values[id];
+                if (!node || node.textContent === next) return;
+                if (window.NrWow) window.NrWow.tickText(node, next);
+                else node.textContent = next;
             });
             return;
         }
-        el.innerHTML = tiles.map(([label, value]) =>
-            '<div class="adv-kpi-tile"><div class="adv-kpi-tile-label">' + esc(label) +
-            '</div><div class="adv-kpi-tile-value">' + esc(value) + '</div></div>'
-        ).join('');
+        el.innerHTML =
+            '<div class="adv-kpi-tile"><div class="adv-kpi-tile-label">Активные полки</div>' +
+            '<div class="adv-kpi-tile-value" id="ads-hq-kpi-active">' + esc(active) + '</div></div>' +
+            '<div class="adv-kpi-tile adv-kpi-stack">' +
+            '<div class="adv-kpi-stack-row"><span>Расход</span><b id="ads-hq-kpi-spend">' + esc(spend) + '</b></div>' +
+            '<div class="adv-kpi-stack-row"><span>ДРР</span><b id="ads-hq-kpi-drr">' + esc(drr) + '</b></div></div>' +
+            '<div class="adv-kpi-tile adv-kpi-stack"><div class="adv-kpi-tile-label">Подменный артикул</div>' +
+            '<div class="adv-kpi-stack-row"><span>Переходы</span><b id="ads-hq-kpi-clicks">' + esc(clicks) + '</b></div>' +
+            '<div class="adv-kpi-stack-row"><span>Корзина</span><b id="ads-hq-kpi-carts">' + esc(carts) + '</b></div>' +
+            '<div class="adv-kpi-stack-row"><span>Заказы</span><b id="ads-hq-kpi-orders">' + esc(orders) + '</b></div></div>';
     }
 
     function chevron(open) {
@@ -914,8 +954,9 @@
         let total = 0;
         for (const cab of rows) {
             const visible = visibleCampaigns(cab);
-            paused += (cab.campaigns || []).filter((c) => !c.live).length;
-            total += (cab.campaigns || []).length;
+            const listable = listableCampaigns(cab.campaigns);
+            paused += listable.filter((c) => !c.live).length;
+            total += listable.length;
             shown += visible.length;
             if (!hideCab) {
                 html.push(
@@ -1008,8 +1049,9 @@
         let total = 0;
         for (const cab of rows) {
             const visible = visibleCampaigns(cab);
-            paused += (cab.campaigns || []).filter((c) => !c.live).length;
-            total += (cab.campaigns || []).length;
+            const listable = listableCampaigns(cab.campaigns);
+            paused += listable.filter((c) => !c.live).length;
+            total += listable.length;
             shown += visible.length;
             if (!state.filterCabinetId) {
                 html.push('<div class="ads-hq-phone-cab-name" data-key="cab:' + esc(cab.id) + '">' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) + '</div>');
@@ -1201,9 +1243,9 @@
         }
         const hint = document.getElementById('ads-hq-rule-hint');
         if (hint) {
-            if (!state.selected) hint.textContent = 'Откройте полку и нажмите кластер — тогда сохранится правило ставки.';
-            else if (!state.selected.campaignUuid) hint.textContent = 'Эту полку ещё не подтянули в новую таблицу. Сначала «Подтянуть из WB».';
-            else hint.textContent = (state.selected.clusterKey ? state.selected.clusterKey + ' · ' : '') + 'полка #' + state.selected.wbId;
+            if (!state.selected) hint.textContent = 'Откройте полку, нажмите кластер — правило сохранится на него.';
+            else if (!state.selected.campaignUuid) hint.textContent = 'Эту полку ещё не подтянули. Сначала «Подтянуть из WB».';
+            else hint.textContent = (state.selected.clusterKey ? ('Кластер «' + state.selected.clusterKey + '» · ') : '') + 'полка #' + state.selected.wbId;
         }
         const drrWrap = document.getElementById('ads-hq-drr-wrap');
         const maxWrap = document.getElementById('ads-hq-max-wrap');
@@ -1250,7 +1292,7 @@
         }
         const canvas = document.getElementById('ads-hq-journal-chart');
         if (!canvas || typeof Chart === 'undefined') return;
-        const labels = rows.slice().reverse().map((h) => String(h.created_at || '').slice(5, 16));
+        const labels = rows.slice().reverse().map((h) => String(h.created_at || '').slice(11, 16) || String(h.created_at || '').slice(5, 10));
         const bids = rows.slice().reverse().map((h) => num(h.new_bid));
         const pos = rows.slice().reverse().map((h) => (h.observed_pos == null ? null : num(h.observed_pos)));
         if (journalChart) journalChart.destroy();
@@ -1692,6 +1734,7 @@
         buildHqModel,
         campaignTypeLabel,
         campaignStatusLabel,
+        campaignEnded,
         filterCampaigns,
         compareCampaigns,
         extendRangeForRanking,

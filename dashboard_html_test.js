@@ -107,11 +107,11 @@ assert.ok(html.includes('id="ads-hq-reload"') && html.includes('id="adv-sync-btn
     'Ads refresh buttons are the same round icons, top-right');
 assert.ok(
     html.includes('id="ads-hq-search"') &&
-    html.includes('id="ads-hq-period"') &&
+    !html.includes('id="ads-hq-period"') &&
     html.includes('ads-hq-tools') &&
     html.includes('id="ads-hq-when-btn"') &&
     html.includes('module-date-label'),
-    'RK toolbar has a period chip, search and RNP-soft tools on the right'
+    'RK toolbar keeps search and tools; the date lives only in the header chip'
 );
 assert.ok(
     html.includes('class="rnp-tool-icon" id="ads-hq-bulk-pause"') &&
@@ -1407,7 +1407,7 @@ assert.ok(html.includes('contain: layout style'),
     'KPI and stock blocks keep their box while values change');
 {
     const adsHqSrc = fs.readFileSync(path.join(__dirname, 'ads-command-center.js'), 'utf8');
-    assert.ok(adsHqSrc.includes("querySelectorAll('.adv-kpi-tile-value')"),
+    assert.ok(adsHqSrc.includes("'ads-hq-kpi-spend'") && adsHqSrc.includes('tickText') && adsHqSrc.includes('document.getElementById(id)'),
         'ads KPI tiles must update the number in place');
     assert.ok(adsHqSrc.includes("morphList(tb, html.join(''), 'data-key')"),
         'ads HQ table must morph keyed rows instead of replacing tbody');
@@ -1508,6 +1508,8 @@ assert.ok(html.includes('let adsReload = null') && html.includes('await adsReloa
     'switching cabinet on RK must reload shelves immediately, not after the dashboard RPC');
 assert.ok(html.includes('data-camp-filter="active"') && html.includes('data-camp-filter="all"') && html.includes('ads-hq-advanced'),
     'ads HQ defaults to active shelves and hides autobidder in details');
+assert.ok(html.includes('function campaignEnded') && html.includes('allCampaigns.filter((c) => !campaignEnded(c.status))'),
+    'detail campaign table hides finished RK and keeps their spend in KPI');
 assert.ok(html.includes('syncFromWb') && html.includes('syncAdvertisingNow({ silent: true })'),
     'ads HQ refresh pulls campaigns from WB, then rereads the DB');
 assert.ok(html.includes('const isAdsHq') && html.includes("window._advView !== 'detail'"),
@@ -1519,8 +1521,8 @@ assert.ok(
 );
 assert.ok(html.includes('getDateRange: getActiveDateRange'),
     'RK shelves read spend/DRR for the header date range');
-assert.ok(html.includes('>Расход<') && html.includes('adv-kpi-tile-label">ДРР<') && !html.includes('Расход сегодня') && !html.includes('ДРР 7д'),
-    'RK KPI and table labels are the picked period, not a hardcoded today/7d');
+assert.ok(html.includes('>Расход<') && html.includes('>ДРР<') && html.includes('Подменный артикул') && html.includes('>Переходы<') && html.includes('>Корзина<') && html.includes('>Заказы<') && !html.includes('Расход сегодня') && !html.includes('ДРР 7д'),
+    'RK KPI stacks day spend + DRR and substitute-article funnel, not hardcoded today/7d');
 assert.ok(
     html.includes("tab === 'tab-advertising' && window._advView === 'detail'") &&
     html.includes("showAdvertisingAdsView({ cabinetId: currentCabinetId") &&
@@ -1558,6 +1560,8 @@ assert.ok(html.includes('cl-chip') && html.includes('Исключения'),
 // Кластеры живут в модалке того же вида, что настройки РНП, и выплывают.
 assert.ok(html.includes('id="cluster-overlay"') && html.includes('class="rnp-settings-dialog cl-dialog"'),
     'cluster keys must open in the shared site modal, not an inline table row');
+assert.ok(html.includes('id="cl-copy-name"') && html.includes('class="cl-hook"') && html.includes('wildberries.ru/catalog/0/search.aspx'),
+    'cluster modal copies the RK name and links each cluster to WB client search');
 assert.ok(html.includes('function openClusterModal') && html.includes('function closeClusterModal'),
     'cluster modal needs explicit open/close');
 assert.ok(html.includes('@keyframes nr-dialog-in')
