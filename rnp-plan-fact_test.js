@@ -22,6 +22,8 @@ assert.strictEqual(P.mondayOnOrBefore('2026-09-01'), '2026-08-31');
 
 assert.strictEqual(P.factOrders({ orders_count: 66, basket_count: 294, funnel_order_conv: 16 }), 47);
 assert.strictEqual(P.factOrders({ orders_count: 17, cartCount: 157, cartToOrderConversion: 18 }), 28);
+assert.strictEqual(P.factOrders({ orders_count: 19, basket_count: 236, funnel_order_conv: 30 }), 71);
+assert.strictEqual(P.factOrders({ orders_count: 19, clicks: 236, basket_pct: 30, funnel_order_conv: 30 }), 21);
 assert.strictEqual(P.factOrders({ orders_count: 8 }), 8);
 assert.strictEqual(P.factOrders({ orders_count: 0 }), 0);
 assert.strictEqual(P.factOrders(null), 0);
@@ -81,6 +83,12 @@ const sqlDash = fs.readFileSync(path.join(__dirname, 'supabase/migrations/202609
 assert.ok(sqlDash.includes('rnp_daily_data') && sqlDash.includes('basket_count') && sqlDash.includes('funnel_order_conv'),
     'dashboard KPIs use WB funnel orders, not wb_orders row count');
 assert.ok(sqlDash.includes('dashboard_summary') && sqlDash.includes('dashboard_plan_cabinets'));
+
+const sqlRnp = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260921150000_rnp_orders_daily_funnel.sql'), 'utf8');
+assert.ok(sqlRnp.includes('rnp_funnel_day_orders') && sqlRnp.includes('rnp_orders_daily'),
+    'RNP sheet ЗАКАЗЫ RPC uses Корзина × Заказы%, not wb_orders row count');
+assert.ok(sqlRnp.includes('full outer join'),
+    'funnel days without wb_orders still show in the sheet');
 
 const cron = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260921110000_rnp_funnel_lock_11_bishkek.sql'), 'utf8');
 assert.ok(cron.includes("'0 5 * * *'") && cron.includes('funnel_only') && cron.includes('rnp-morning-funnel-zevina-11-bishkek'),

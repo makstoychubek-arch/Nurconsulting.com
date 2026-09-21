@@ -4,10 +4,11 @@
  *
  * WB часто не кладёт orderCount отдельным полем, но всегда отдаёт
  * cartCount + cartToOrderConversion — те же «Корзина» и «Заказы%» в РНП.
- * 157 корзин × 18% = 28, как на графике WB.
+ * 157 корзин × 18% = 28, как на графике WB / Excel «План/факт».
  *
- * Последние 7 календарных дней карточки — Москва. Пересборка из wb_orders
- * не должна затирать эти штуки, иначе утром в РНП снова 66 вместо 47.
+ * Сам API воронки отдаёт только последние 7 дней. Но если Корзина×Заказы%
+ * уже лежат в rnp_daily_data, пересборка из wb_orders не должна их затирать
+ * ни на каком дне — иначе в РНП снова 19 вместо 71, как в план/факт.
  */
 
 export function moscowYmd(d = new Date()): string {
@@ -35,15 +36,25 @@ export function isWbFunnelWindowDate(date: string, today = moscowYmd()): boolean
     return date >= from && date <= to;
 }
 
+export function upsertDateRange(
+    upserts: Array<{ date?: string }>,
+): { from: string; to: string } | null {
+    const dates = upserts
+        .map((u) => String(u.date || '').split('T')[0])
+        .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))
+        .sort();
+    if (!dates.length) return null;
+    return { from: dates[0], to: dates[dates.length - 1] };
+}
+
 export function keepFunnelOrdersCount(
     existing: Record<string, unknown> | null | undefined,
     statsCount: number,
-    date: string,
-    today = moscowYmd(),
+    _date?: string,
+    _today = moscowYmd(),
 ): number {
     const stats = Number(statsCount);
     const fallback = Number.isFinite(stats) && stats >= 0 ? stats : 0;
-    if (!isWbFunnelWindowDate(date, today)) return fallback;
     const implied = funnelImpliedOrders(existing);
     if (implied != null) return implied;
     return fallback;
@@ -90,9 +101,19 @@ function numPick(obj: Record<string, unknown>, keys: string[]): number | null {
     return null;
 }
 
+export function funnelCartCount(day: Record<string, unknown> | null | undefined): number {
+    if (!day || typeof day !== 'object') return 0;
+    const cart = Number(day.cartCount ?? day.addToCartCount ?? day.basket_count ?? 0);
+    if (cart > 0) return cart;
+    const pct = Number(day.addToCartConversion ?? day.basket_pct ?? 0);
+    const clicks = Number(day.clicks ?? day.openCount ?? day.impressions ?? 0);
+    if (clicks > 0 && pct > 0) return Math.round(clicks * pct / 100);
+    return 0;
+}
+
 export function funnelImpliedOrders(day: Record<string, unknown> | null | undefined): number | null {
     if (!day || typeof day !== 'object') return null;
-    const cart = Number(day.cartCount ?? day.addToCartCount ?? day.basket_count ?? 0);
+    const cart = funnelCartCount(day);
     const conv = Number(day.cartToOrderConversion ?? day.funnel_order_conv ?? 0);
     if (!(cart > 0 && conv > 0)) return null;
     return Math.round(cart * conv / 100);

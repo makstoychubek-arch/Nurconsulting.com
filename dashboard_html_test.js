@@ -1089,7 +1089,7 @@ assert.ok(/const \[, dailyRows, , stocksRaw\] = await Promise\.all/.test(rnpSrc)
     'RNP must take wb_stocks from Promise.all slot 4, not exchange rates');
 assert.ok(rnpSrc.includes('Array.isArray(stocksRaw)'),
     'RNP must not crash if stocks come back undefined');
-assert.ok(rnpSrc.includes('funnelOrders != null ? funnelOrders : keep'),
+assert.ok(rnpSrc.includes('_dataCache[r.nm_id][date] = _withFunnelOrders(merged)'),
     'RNP must keep WB card funnel Заказы, not max() with statistics-api');
 assert.ok(rnpSrc.includes('function _funnelDayOrders'),
     'RNP must read orderCount from the WB sales funnel');
@@ -1125,7 +1125,12 @@ assert.ok(rnpSrc.includes('funnelLag'),
     assert.strictEqual(fns._withFunnelOrders({ orders_count: 17, basket_count: 157, funnel_order_conv: 18 }).orders_count, 17);
     assert.strictEqual(fns._withFunnelOrders({ date: '2026-09-13', orders_count: 17, basket_count: 157, funnel_order_conv: 18 }).orders_count, 28);
     assert.strictEqual(fns._withFunnelOrders({ date: '2026-09-14', orders_count: 66, basket_count: 294, funnel_order_conv: 16 }).orders_count, 47);
+    assert.strictEqual(fns._withFunnelOrders({ date: '2026-09-01T00:00:00.000Z', orders_count: 19, basket_count: 236, funnel_order_conv: 30 }).orders_count, 71);
+    assert.strictEqual(fns._funnelImpliedOrders({ orders_count: 19, clicks: 236, basket_pct: 30, funnel_order_conv: 30 }), 21);
+    assert.strictEqual(fns._withFunnelOrders({ date: '2026-09-01', orders_count: 19, clicks: 236, basket_pct: 30, funnel_order_conv: 30 }).orders_count, 21);
 }
+assert.ok(rnpSrc.includes('_populateDataCacheFromDaily') && rnpSrc.includes('_funnelDayDate(row.order_date || row.date)'),
+    'daily cache from rnp_orders_daily must apply funnel dates, not raw wb_orders only');
 assert.ok(rnpSrc.includes('_seedTodayLiveZeros(nmIds, cal)'),
     'RNP must seed live zeros so today is not a blank sheet');
 

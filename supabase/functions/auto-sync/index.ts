@@ -7,7 +7,7 @@ import { isTeamMember } from '../_shared/cabinet-access.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { orderPriceWithDisc } from '../_shared/wb-order-price.ts';
 import { extractMainPhotoUrl } from '../_shared/wb-main-photo.ts';
-import { applyKeepFunnelOrders, funnelDayMetricFields, wbFunnelWindow } from '../_shared/wb-funnel-day.ts';
+import { applyKeepFunnelOrders, funnelDayMetricFields, upsertDateRange } from '../_shared/wb-funnel-day.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -1070,15 +1070,16 @@ async function preserveFunnelOrders(
     upserts: Array<{ nm_id: number; date: string; orders_count: number }>,
 ) {
     if (!upserts.length) return;
-    const { from, to } = wbFunnelWindow();
+    const range = upsertDateRange(upserts);
+    if (!range) return;
     const existing: Record<string, unknown>[] = [];
     let offset = 0;
     for (;;) {
         const { data, error } = await admin.from('rnp_daily_data')
-            .select('nm_id, date, basket_count, funnel_order_conv')
+            .select('nm_id, date, basket_count, funnel_order_conv, clicks, impressions, basket_pct')
             .eq('cabinet_id', cabinetId)
-            .gte('date', from)
-            .lte('date', to)
+            .gte('date', range.from)
+            .lte('date', range.to)
             .range(offset, offset + 999);
         if (error) return;
         const chunk = (data || []) as Record<string, unknown>[];
@@ -1086,5 +1087,5 @@ async function preserveFunnelOrders(
         if (chunk.length < 1000) break;
         offset += 1000;
     }
-    applyKeepFunnelOrders(existing, upserts, to);
+    applyKeepFunnelOrders(existing, upserts);
 }
