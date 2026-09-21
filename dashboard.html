@@ -15,6 +15,11 @@
             if (__nrTheme === 'neon' || __nrTheme === 'ios' || __nrTheme === 'tabler') {
                 document.documentElement.setAttribute('data-theme', __nrTheme);
             }
+            var __nrWin = JSON.parse(localStorage.getItem('nr_win_size') || '');
+            if (__nrWin && __nrWin.w && __nrWin.h) {
+                document.documentElement.style.setProperty('--nr-win-w', __nrWin.w + 'px');
+                document.documentElement.style.setProperty('--nr-win-h', __nrWin.h + 'px');
+            }
         } catch (e) {}
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -209,6 +214,8 @@
 
         html {
             background: var(--bg);
+            --nr-win-w: 480px;
+            --nr-win-h: 520px;
         }
         html, body {
             overscroll-behavior: none;
@@ -1328,8 +1335,7 @@
         .adv-camp-action-btn.is-on { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
         /* Ключевые кластеры кампании — модалка в стиле настроек РНП */
         .cl-dialog.rnp-settings-dialog {
-            width: 100%; height: 100%; max-height: none;
-            padding: 10px 16px 12px; display: flex; flex-direction: column; overflow: hidden;
+            padding: 0; display: flex; flex-direction: column; overflow: hidden;
         }
         /* Диалог — flex-контейнер, поэтому float у крестика не работает. */
         .cl-dialog > .rnp-settings-close {
@@ -1495,7 +1501,7 @@
         }
         .rnp-settings-overlay.is-open > .rnp-settings-dialog,
         .rnp-plan-fact-overlay.is-open > .rnp-plan-fact-dialog,
-        .rnp-photo-lightbox.is-open img,
+        .rnp-photo-lightbox.is-open > .nr-win,
         #premium-modal.is-open #modal-box,
         #add-cabinet-modal:not(.hidden) > .add-cabinet-modal-box,
         #autobidder-modal:not(.hidden) > .nr-glass-dialog,
@@ -1508,7 +1514,7 @@
             .rnp-plan-fact-overlay.is-open,
             .rnp-plan-fact-overlay.is-open > .rnp-plan-fact-dialog,
             .rnp-photo-lightbox.is-open,
-            .rnp-photo-lightbox.is-open img,
+            .rnp-photo-lightbox.is-open > .nr-win,
             #premium-modal.is-open,
             #premium-modal.is-open #modal-box,
             #add-cabinet-modal:not(.hidden),
@@ -1533,7 +1539,8 @@
             border: 1px solid rgba(255, 255, 255, 0.45);
             border-radius: 16px;
             box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.55);
-            overflow: auto;
+            overflow: hidden;
+            padding: 0;
         }
         #autobidder-modal,
         #supply-detail-modal {
@@ -1545,8 +1552,103 @@
             backdrop-filter: blur(22px) saturate(180%);
         }
         #autobidder-modal:not(.hidden) { display: flex; }
-        #autobidder-modal > .nr-glass-dialog { width: min(520px, 100%); max-height: 100%; padding: 24px; }
-        #supply-detail-modal > .nr-glass-dialog { width: min(760px, 100%); max-height: 100%; padding: 28px; }
+        /* Окна Mac: один размер, светофор, ресайз. Размер общий для всех модалок. */
+        .nr-win {
+            width: min(var(--nr-win-w, 480px), calc(100vw - 24px)) !important;
+            height: min(var(--nr-win-h, 520px), calc(100vh - 24px)) !important;
+            max-width: calc(100vw - 24px) !important;
+            max-height: calc(100vh - 24px) !important;
+            display: flex !important;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            box-sizing: border-box;
+            padding: 0 !important;
+        }
+        .nr-win.nr-win-max {
+            width: 100% !important;
+            height: 100% !important;
+            max-width: none !important;
+            max-height: none !important;
+        }
+        .nr-win.nr-win-min {
+            height: 38px !important;
+            min-height: 38px !important;
+            overflow: hidden !important;
+        }
+        .nr-win.nr-win-min > .nr-win-scroll,
+        .nr-win.nr-win-min > .nr-win-resize { display: none !important; }
+        .nr-win.nr-win-resizing,
+        .nr-win.nr-win-dragging { animation: none !important; transition: none !important; }
+        .nr-win-bar {
+            display: flex; align-items: center; gap: 10px;
+            height: 38px; padding: 0 12px; flex-shrink: 0;
+            cursor: move; user-select: none;
+            border-bottom: 1px solid var(--border);
+            background: rgba(0, 0, 0, 0.04);
+            text-align: left;
+        }
+        [data-theme="neon"] .nr-win-bar { background: rgba(255, 255, 255, 0.04); }
+        .nr-win-lights { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .nr-win-dot {
+            width: 12px; height: 12px; border-radius: 50%; padding: 0;
+            border: 0.5px solid rgba(0, 0, 0, 0.12);
+            cursor: pointer; position: relative;
+            box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.25);
+        }
+        .nr-win-close { background: #ff5f57; }
+        .nr-win-min { background: #febc2e; }
+        .nr-win-max { background: #28c840; }
+        .nr-win-dot::after {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 9px; font-weight: 700; line-height: 1;
+            color: rgba(0, 0, 0, 0.55); opacity: 0; pointer-events: none;
+        }
+        .nr-win-lights:hover .nr-win-close::after { content: "×"; opacity: 1; }
+        .nr-win-lights:hover .nr-win-min::after { content: "−"; opacity: 1; }
+        .nr-win-lights:hover .nr-win-max::after { content: "+"; opacity: 1; }
+        .nr-win-title {
+            min-width: 0; flex: 1;
+            font-size: 12px; font-weight: 650; letter-spacing: -0.02em;
+            color: var(--text-secondary);
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+            pointer-events: none;
+        }
+        .nr-win-scroll {
+            flex: 1 1 auto; min-height: 0;
+            overflow: auto;
+            display: flex; flex-direction: column;
+            padding: 12px 16px 14px;
+            text-align: inherit;
+        }
+        .nr-win.rnp-plan-fact-dialog > .nr-win-scroll,
+        .nr-win.nr-win-photo > .nr-win-scroll { padding: 0; overflow: hidden; }
+        .nr-win.ab-new-dialog > .nr-win-scroll,
+        .nr-win.cl-dialog > .nr-win-scroll { overflow: hidden; padding: 8px 14px 10px; }
+        #modal-box > .nr-win-scroll { padding: 24px 22px 20px; text-align: center; }
+        .add-cabinet-modal-box > .nr-win-scroll { padding: 22px 22px 18px; }
+        .nr-glass-dialog > .nr-win-scroll { padding: 18px 18px 16px; }
+        .nr-win-resize { position: absolute; z-index: 6; touch-action: none; }
+        .nr-win-resize-n { top: 0; left: 10px; right: 10px; height: 6px; cursor: ns-resize; }
+        .nr-win-resize-s { bottom: 0; left: 10px; right: 10px; height: 6px; cursor: ns-resize; }
+        .nr-win-resize-e { right: 0; top: 10px; bottom: 10px; width: 6px; cursor: ew-resize; }
+        .nr-win-resize-w { left: 0; top: 10px; bottom: 10px; width: 6px; cursor: ew-resize; }
+        .nr-win-resize-ne { top: 0; right: 0; width: 12px; height: 12px; cursor: nesw-resize; }
+        .nr-win-resize-nw { top: 0; left: 0; width: 12px; height: 12px; cursor: nwse-resize; }
+        .nr-win-resize-sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: nesw-resize; }
+        .nr-win-resize-se {
+            bottom: 0; right: 0; width: 16px; height: 16px; cursor: nwse-resize;
+            background:
+                linear-gradient(135deg, transparent 55%, var(--text-muted) 55%, var(--text-muted) 62%, transparent 62%),
+                linear-gradient(135deg, transparent 70%, var(--text-muted) 70%, var(--text-muted) 77%, transparent 77%);
+            opacity: 0.55;
+        }
+        .nr-win .rnp-settings-close,
+        .nr-win .pf-close,
+        .nr-win .rnp-photo-lightbox-close { display: none !important; }
+        #rnp-plan-fact-body { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+
         .adv-alert { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: var(--radius-card); font-size: 12.5px; line-height: 1.45; }
         .adv-alert-icon { flex-shrink: 0; font-size: 15px; line-height: 1; }
         .adv-alert.warn { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.2); color: #b91c1c; }
@@ -1940,8 +2042,8 @@
         }
         .gg-edit-input.gg-edit-dirty { background: rgba(245,158,11,0.14) !important; }
         .gg-settings-dialog {
-            width: min(420px, 94vw); max-height: 100%; overflow: auto;
-            padding: 16px 16px 12px;
+            overflow: auto;
+            padding: 0;
         }
         .gg-set-row {
             display: flex; align-items: center; justify-content: space-between;
@@ -2149,13 +2251,12 @@
         .rnp-plan-fact-overlay {
             display: none; position: fixed; inset: 0; z-index: 10070;
             padding: 12px; background: rgba(15, 23, 42, 0.42);
-            align-items: stretch; justify-content: center;
+            align-items: center; justify-content: center;
             -webkit-backdrop-filter: blur(22px) saturate(180%);
             backdrop-filter: blur(22px) saturate(180%);
         }
         .rnp-plan-fact-overlay.is-open { display: flex; }
         .rnp-plan-fact-dialog {
-            width: 100%; height: 100%;
             background: #fff; color: #000;
             border-radius: 16px;
             box-shadow: 0 18px 60px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.55);
@@ -2238,22 +2339,8 @@
             background: rgba(8, 8, 12, 0.55);
         }
         .rnp-settings-overlay > * { position: relative; z-index: 1; }
-        #rnp-settings-overlay.rnp-settings-overlay,
-        #cluster-overlay.rnp-settings-overlay {
-            align-items: stretch;
-        }
-        #rnp-settings-overlay > .rnp-settings-dialog,
-        #cluster-overlay > .rnp-settings-dialog {
-            width: 100%; height: 100%; max-height: none;
-        }
         body.rnp-settings-open header.glass.app-header,
         body.rnp-settings-open .bottom-nav { z-index: 1; }
-        body.rnp-settings-open .rnp-workspace,
-        body.rnp-settings-open .rnp-head-wide,
-        body.rnp-settings-open .rnp-head-marquee-pin {
-            visibility: hidden !important;
-            pointer-events: none !important;
-        }
         body:has(.rnp-settings-overlay.is-open) header.glass.app-header,
         body:has(.rnp-plan-fact-overlay.is-open) header.glass.app-header,
         body:has(.rnp-photo-lightbox.is-open) header.glass.app-header,
@@ -2277,21 +2364,17 @@
         .rnp-group-vis-name { flex: 1; min-width: 0; font-size: 12px; font-weight: 700; color: var(--text-primary); }
         .rnp-group-vis-n { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
         .rnp-settings-dialog {
-            position: relative; z-index: 1; width: min(1040px, 100%);
-            max-height: 100%; overflow: auto;
+            position: relative; z-index: 1;
+            overflow: hidden;
             background: var(--surface-solid);
             border: 1px solid rgba(255, 255, 255, 0.45);
             border-radius: 16px;
             box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.55);
-            padding: 18px 18px 14px;
+            padding: 0;
         }
         .rnp-settings-close {
-            position: sticky; top: 0; float: right; z-index: 2;
-            width: 28px; height: 28px; margin: -4px -4px 0 8px;
-            border: none; border-radius: 999px; background: transparent;
-            color: var(--text-muted); font-size: 22px; line-height: 1; cursor: pointer;
+            display: none;
         }
-        .rnp-settings-close:hover { color: var(--text-primary); background: var(--accent-soft); }
         .rnp-settings-overlay .widget-card { background: transparent; box-shadow: none; border: 1px solid var(--border); }
         .rnp-notes-toggle {
             display: inline-flex; align-items: center; gap: 5px; margin-left: auto;
@@ -2877,22 +2960,14 @@
         }
         .rnp-photo-lightbox.is-open { display: flex; }
         .rnp-photo-lightbox img {
-            max-width: min(92vw, 720px);
-            max-height: calc(100vh - 56px);
-            width: auto; height: auto;
+            width: 100%; height: 100%;
             object-fit: contain;
-            border-radius: 16px;
-            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+            border-radius: 0;
             background: var(--surface-solid);
         }
         .rnp-photo-lightbox-close {
-            position: absolute; top: 14px; right: 16px;
-            width: 36px; height: 36px;
-            border: none; border-radius: 999px;
-            background: rgba(255, 255, 255, 0.12);
-            color: #fff; font-size: 26px; line-height: 1; cursor: pointer;
+            display: none;
         }
-        .rnp-photo-lightbox-close:hover { background: rgba(255, 255, 255, 0.22); }
         .rnp-marquee-empty {
             font-size: 8px; color: var(--text-muted); padding: 4px 8px;
         }
@@ -3650,8 +3725,7 @@
             background: var(--surface-solid);
             border: 1px solid rgba(255, 255, 255, 0.45);
             border-radius: 16px;
-            padding: 32px 28px 24px;
-            max-width: 400px; width: 100%;
+            padding: 0;
             text-align: center;
             box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.55);
         }
@@ -3786,9 +3860,7 @@
         .ab-campaign-name { font-weight: 700; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .ab-campaign-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--text-muted); }
         .ab-new-dialog.rnp-settings-dialog {
-            width: min(480px, 100%);
-            max-height: min(62vh, 520px);
-            padding: 6px 14px 10px;
+            padding: 0;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -3826,16 +3898,12 @@
         .ab-new-dialog .ab-variant-preview { width: 72px; height: 90px; }
         .ab-new-dialog .drop-zone { padding: 10px 8px; }
         .ab-report-dialog.rnp-settings-dialog {
-            width: min(720px, 100%);
-            max-height: min(72vh, 620px);
-            padding: 8px 16px 14px;
-            overflow: auto;
+            padding: 0;
+            overflow: hidden;
         }
         .ab-edit-dialog.rnp-settings-dialog {
-            width: min(480px, 100%);
-            max-height: min(62vh, 480px);
-            padding: 8px 16px 14px;
-            overflow: auto;
+            padding: 0;
+            overflow: hidden;
         }
         .ab-combo-list { max-height: 220px; overflow-y: auto; margin-top: 8px; border: 1px solid var(--border); border-radius: 12px; }
         .ab-campaign-status {
@@ -4423,9 +4491,7 @@
         }
         #add-cabinet-modal.hidden { display: none !important; }
         .add-cabinet-modal-box {
-            width: 100%;
-            max-width: 440px;
-            padding: 28px;
+            padding: 0;
             border-radius: 16px;
             background: var(--surface-solid);
             border: 1px solid rgba(255, 255, 255, 0.45);
@@ -6019,7 +6085,7 @@
         </div>
 
         <div id="gg-settings-overlay" class="rnp-settings-overlay" onclick="if(event.target===this) closeGoodsSettings()">
-            <div class="rnp-settings-dialog gg-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="gg-settings-title">
+            <div class="rnp-settings-dialog gg-settings-dialog nr-win" role="dialog" aria-modal="true" aria-labelledby="gg-settings-title">
                 <button type="button" class="rnp-settings-close" onclick="closeGoodsSettings()" aria-label="Закрыть">×</button>
                 <h3 id="gg-settings-title" class="font-semibold" style="color:var(--text-primary)">Таблица</h3>
                 <div id="gg-settings-body"></div>
@@ -6395,10 +6461,10 @@
             </div>
 
             <div id="autobidder-modal" class="hidden" onclick="if(event.target===this) closeAutobidderModal()">
-                <div class="nr-glass-dialog">
+                <div class="nr-glass-dialog nr-win">
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="font-semibold" style="color:var(--text-primary)">Автобиддер</h3>
-                        <button type="button" onclick="closeAutobidderModal()" style="background:none;border:none;color:var(--text-muted);font-size:22px;cursor:pointer;line-height:1">×</button>
+                        <button type="button" class="rnp-settings-close" onclick="closeAutobidderModal()" aria-label="Закрыть">×</button>
                     </div>
                     <div id="autobidder-modal-campaign" class="text-sm font-semibold mb-1" style="color:var(--text-primary)">—</div>
                     <div id="autobidder-modal-bids" class="text-xs mb-4" style="color:var(--text-muted)">Текущие ставки: загружаем…</div>
@@ -6553,13 +6619,13 @@
                 </div>
             </div>
             <div id="supply-detail-modal" class="hidden" onclick="if(event.target===this) closeSupplyDetail()">
-                <div class="nr-glass-dialog">
+                <div class="nr-glass-dialog nr-win">
                     <div class="flex items-center justify-between mb-2">
                         <div>
                             <h3 id="supply-detail-title" class="font-semibold" style="color:var(--text-primary)">Поставка</h3>
                             <div id="supply-detail-meta" class="text-xs mt-1" style="color:var(--text-muted)"></div>
                         </div>
-                        <button onclick="closeSupplyDetail()" style="color:var(--text-muted);font-size:20px;background:none;border:none;cursor:pointer">×</button>
+                        <button type="button" class="rnp-settings-close" onclick="closeSupplyDetail()" aria-label="Закрыть">×</button>
                     </div>
                     <div class="grid grid-cols-3 gap-3 mb-4">
                         <div class="metric-card" style="padding:12px">
@@ -6662,7 +6728,7 @@
         </div>
 
         <div id="cluster-overlay" class="rnp-settings-overlay" onclick="if(event.target===this) closeClusterModal()">
-            <div class="rnp-settings-dialog cl-dialog" role="dialog" aria-modal="true" aria-labelledby="cl-title">
+            <div class="rnp-settings-dialog cl-dialog nr-win" role="dialog" aria-modal="true" aria-labelledby="cl-title">
                 <button type="button" class="rnp-settings-close" onclick="closeClusterModal()" aria-label="Закрыть">×</button>
                 <div class="cl-head">
                     <div class="cl-head-text">
@@ -6699,20 +6765,20 @@
         </div>
 
         <div id="rnp-settings-overlay" class="rnp-settings-overlay" onclick="if(event.target===this) RNP.closeSettings()">
-            <div class="rnp-settings-dialog" role="dialog" aria-modal="true" aria-labelledby="rnp-settings-title">
+            <div class="rnp-settings-dialog nr-win" role="dialog" aria-modal="true" aria-labelledby="rnp-settings-title">
                 <button type="button" class="rnp-settings-close" onclick="RNP.closeSettings()" aria-label="Закрыть">×</button>
                 <div id="rnp-settings-modal-body"></div>
             </div>
         </div>
 
         <div id="rnp-plan-fact-overlay" class="rnp-plan-fact-overlay" onclick="if(event.target===this) RNP.closePlanFact()">
-            <div class="rnp-plan-fact-dialog" role="dialog" aria-modal="true" aria-labelledby="rnp-plan-fact-title">
+            <div class="rnp-plan-fact-dialog nr-win" role="dialog" aria-modal="true" aria-labelledby="rnp-plan-fact-title">
                 <div id="rnp-plan-fact-body"></div>
             </div>
         </div>
 
         <div id="new-test-form" class="rnp-settings-overlay" onclick="if(event.target===this) hideNewTestForm()">
-            <div class="rnp-settings-dialog ab-new-dialog" role="dialog" aria-modal="true" aria-labelledby="ab-wizard-title">
+            <div class="rnp-settings-dialog ab-new-dialog nr-win" role="dialog" aria-modal="true" aria-labelledby="ab-wizard-title">
                 <button type="button" class="rnp-settings-close" onclick="hideNewTestForm()" aria-label="Закрыть">×</button>
                 <div class="ab-new-head"><h3 id="ab-wizard-title">Новый А/Б тест</h3></div>
                 <div class="ab-new-body">
@@ -6803,7 +6869,7 @@
         </div>
 
         <div id="ab-edit-modal" class="rnp-settings-overlay" onclick="if(event.target===this) closeABEditModal()">
-            <div class="rnp-settings-dialog ab-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="ab-edit-title">
+            <div class="rnp-settings-dialog ab-edit-dialog nr-win" role="dialog" aria-modal="true" aria-labelledby="ab-edit-title">
                 <button type="button" class="rnp-settings-close" onclick="closeABEditModal()" aria-label="Закрыть">×</button>
                 <h3 id="ab-edit-title" class="font-semibold" style="color:var(--text-primary);margin:0 28px 10px 0">Редактировать варианты</h3>
                 <div id="ab-edit-existing" class="flex gap-2 flex-wrap mb-3"></div>
@@ -6817,7 +6883,7 @@
         </div>
 
         <div id="ab-report-modal" class="rnp-settings-overlay" onclick="if(event.target===this) closeABReportModal()">
-            <div class="rnp-settings-dialog ab-report-dialog" role="dialog" aria-modal="true" aria-labelledby="ab-report-title">
+            <div class="rnp-settings-dialog ab-report-dialog nr-win" role="dialog" aria-modal="true" aria-labelledby="ab-report-title">
                 <button type="button" class="rnp-settings-close" onclick="closeABReportModal()" aria-label="Закрыть">×</button>
                 <h3 class="font-semibold text-base" style="color:var(--text-primary);margin:0 28px 4px 0" id="ab-report-title">Отчёт по А/Б тесту</h3>
                 <div class="text-xs mb-2" style="color:var(--text-muted)" id="ab-report-sub"></div>
@@ -6828,8 +6894,10 @@
         </div>
 
         <div id="rnp-photo-lightbox" class="rnp-photo-lightbox" onclick="if(event.target===this) RNP.closePhoto()" role="dialog" aria-modal="true" aria-label="Фото товара">
-            <button type="button" class="rnp-photo-lightbox-close" onclick="RNP.closePhoto()" aria-label="Закрыть">×</button>
-            <img id="rnp-photo-lightbox-img" alt="">
+            <div class="nr-win nr-win-photo" role="document">
+                <button type="button" class="rnp-photo-lightbox-close" onclick="RNP.closePhoto()" aria-label="Закрыть">×</button>
+                <img id="rnp-photo-lightbox-img" alt="">
+            </div>
         </div>
 
         <div id="tab-planning" class="tab-content space-y-4">
@@ -7289,7 +7357,7 @@
     </div>
 
     <div id="add-cabinet-modal" class="hidden" onclick="if(event.target===this)closeAddCabinetModal()">
-        <div class="add-cabinet-modal-box" onclick="event.stopPropagation()">
+        <div class="add-cabinet-modal-box nr-win" onclick="event.stopPropagation()">
             <h3 class="font-semibold mb-1" style="color:var(--text-primary);font-size:17px">Добавить WB-кабинет</h3>
             <p class="text-xs mb-4" style="color:var(--text-muted)">Вставьте персональный API-токен Wildberries</p>
             <input type="text" id="modal-cabinet-name" placeholder="Название кабинета" class="w-full rounded-xl px-4 py-2.5 text-sm mb-3" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
@@ -7302,7 +7370,7 @@
     </div>
 
     <div id="premium-modal">
-        <div id="modal-box">
+        <div id="modal-box" class="nr-win">
             <div id="modal-icon" style="width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"></div>
             <div id="modal-title" style="color:var(--text-primary);font-size:17px;font-weight:700;margin-bottom:8px;letter-spacing:-0.02em"></div>
             <div id="modal-text" style="color:var(--text-secondary);font-size:13px;line-height:1.55;margin-bottom:20px"></div>
@@ -7314,9 +7382,10 @@
         </div>
     </div>
 
+<script src="/dist/nr-win.94539af074.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.2fe208784e.min.js"></script>
-<script src="/dist/rnp-plan-fact.5821befe5d.min.js"></script>
+<script src="/dist/rnp-module.f9fed27ae2.min.js"></script>
+<script src="/dist/rnp-plan-fact.63afff3e4a.min.js"></script>
 <script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.bb330c2db3.min.js"></script>
@@ -8418,6 +8487,7 @@
     function mountNrGlass(el) {
         if (!el) return el;
         if (el.parentElement !== document.body) document.body.appendChild(el);
+        if (window.NrWin) window.NrWin.bind(el);
         return el;
     }
     function showNrDialog(type, title, text) {

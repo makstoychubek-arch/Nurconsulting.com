@@ -518,7 +518,7 @@
             el.id = 'rnp-plan-fact-overlay';
             el.className = 'rnp-plan-fact-overlay';
             el.setAttribute('onclick', 'if(event.target===this) RnpPlanFact.close()');
-            el.innerHTML = '<div class="rnp-plan-fact-dialog" role="dialog" aria-modal="true" aria-labelledby="rnp-plan-fact-title">'
+            el.innerHTML = '<div class="rnp-plan-fact-dialog nr-win" role="dialog" aria-modal="true" aria-labelledby="rnp-plan-fact-title">'
                 + '<div id="rnp-plan-fact-body"></div></div>';
         }
         if (el.parentElement !== document.body) document.body.appendChild(el);
@@ -537,6 +537,7 @@
         if (body) body.innerHTML = shellHtml(model);
         overlay.classList.add('is-open');
         document.body.classList.add('rnp-plan-fact-open');
+        if (root.NrWin) root.NrWin.bind(overlay);
         document.removeEventListener('keydown', onKey);
         document.addEventListener('keydown', onKey);
         return model;
