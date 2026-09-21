@@ -72,13 +72,45 @@ assert.ok(markup.includes('Выполнен') && markup.includes('%'));
 assert.ok(markup.includes('160 из 150'));
 assert.ok(markup.includes("openDashCabinetPlan('cab-a')"));
 
+const skus = P.skuModels(
+    [
+        { nm_id: 111, name: 'белый', photo_url: 'https://basket-01.wbbasket.ru/vol1/part1/111/images/c246x328/1.webp' },
+        { nm_id: 222, name: 'черный', manual_data: { seller_article: 'жл-бордо' } },
+    ],
+    [
+        { nm_id: 111, planned_orders: 10 },
+        { nm_id: 222, planned_orders: 20 },
+        { nm_id: 333, planned_orders: 5 },
+    ],
+    [
+        { nm_id: 111, orders_count: 12 },
+        { nm_id: 222, basket_count: 100, funnel_order_conv: 10 },
+        { nm_id: 333, orders_count: 1 },
+    ],
+);
+assert.strictEqual(skus.find((s) => s.nm_id === 111).orders, 12);
+assert.strictEqual(skus.find((s) => s.nm_id === 222).name, 'жл-бордо');
+assert.strictEqual(skus.find((s) => s.nm_id === 222).orders, 10);
+assert.ok(skus.find((s) => s.nm_id === 333));
+const split = P.splitSkus(skus);
+assert.deepStrictEqual(split.done.map((s) => s.nm_id), [111]);
+assert.ok(split.miss.map((s) => s.nm_id).includes(222));
+const skuHtml = P.skusHtml(split, (s) => String(s));
+assert.ok(skuHtml.includes('Выполнили план') && skuHtml.includes('Не добрали'));
+assert.ok(skuHtml.includes('openDashPlanSku(111)') && skuHtml.includes('dash-plan-sku is-done'));
+assert.ok(P.photoUrl(771499220, '').includes('wbbasket.ru') && P.photoUrl(771499220, '').includes('771499220'));
+
+const sqlSku = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260921140000_dashboard_plan_skus.sql'), 'utf8');
+assert.ok(sqlSku.includes('dashboard_plan_skus') && sqlSku.includes('funnel_order_conv'));
+
 const sqlNew = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260921120000_dashboard_funnel_orders.sql'), 'utf8');
 assert.ok(sqlNew.includes('basket_count') && sqlNew.includes('funnel_order_conv'));
 assert.ok(sqlNew.includes('dashboard_summary') && sqlNew.includes('dashboard_plan_cabinets'));
 
 const html = fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8');
-assert.ok(html.includes('id="dash-plan-cabs"') && html.includes('id="dash-plan-wrap"'));
-assert.ok(html.includes('loadDashCabinetPlans') && html.includes('openDashCabinetPlan'));
+assert.ok(html.includes('id="dash-plan-cabs"') && html.includes('id="dash-plan-skus"') && html.includes('id="dash-plan-wrap"'));
+assert.ok(html.includes('loadDashCabinetPlans') && html.includes('openDashCabinetPlan') && html.includes('openDashPlanSku'));
+assert.ok(html.includes('m-dash-penalty') && html.includes('Удержания'));
 assert.ok(/<script src="\/(?:dist\/)?dash-cabinet-plans(?:\.[0-9a-f]+)?(?:\.min)?\.js"><\/script>/.test(html),
     'dash-cabinet-plans is loaded on the dashboard');
 

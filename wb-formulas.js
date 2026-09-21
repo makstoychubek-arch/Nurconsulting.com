@@ -411,15 +411,22 @@ function fmtPct(n) {
  * @param {Function} setText — функция обновления текста элемента по id
  */
 function applyMetricsToDashboard(m, setText) {
+    function setMetric(sel, text) {
+        if (typeof document === 'undefined' || typeof document.querySelectorAll !== 'function') return;
+        document.querySelectorAll(sel).forEach((el) => { el.textContent = text; });
+    }
     if (!m.hasRealData) {
         // Нет данных — ставим прочерки
         const allIds = [
             'm-profit', 'm-margin', 'm-profit2', 'm-sales-sum', 'm-sales-count',
             'm-realization', 'm-commission', 'm-orders-sum', 'm-orders-count',
             'm-conversion', 'm-logistics', 'm-ads', 'm-storage',
-            'm-roi', 'm-opex', 'm-returns', 'm-stock'
+            'm-roi', 'm-opex', 'm-returns', 'm-stock',
+            'm-dash-penalty', 'm-dash-deduction',
         ];
         allIds.forEach(id => setText(id, '—'));
+        setMetric('[data-metric="penalty"]', '—');
+        setMetric('[data-metric="deduction"]', '—');
         return;
     }
 
@@ -460,8 +467,8 @@ function applyMetricsToDashboard(m, setText) {
     if (sppEl) sppEl.textContent = fmtRub(m.sppSum);
 
     // Штрафы
-    const penEl = document.querySelector('[data-metric="penalty"]');
-    if (penEl) penEl.textContent = fmtRub(m.penaltySum);
+    setText('m-dash-penalty', fmtRub(m.penaltySum));
+    setMetric('[data-metric="penalty"]', fmtRub(m.penaltySum));
 
     // Компенсации
     const compEl = document.querySelector('[data-metric="compensation"]');
@@ -472,8 +479,8 @@ function applyMetricsToDashboard(m, setText) {
     if (acceptEl) acceptEl.textContent = fmtRub(m.acceptanceSum);
 
     // Прочие удержания
-    const deductEl = document.querySelector('[data-metric="deduction"]');
-    if (deductEl) deductEl.textContent = fmtRub(m.deductionSum);
+    setText('m-dash-deduction', fmtRub(m.deductionSum));
+    setMetric('[data-metric="deduction"]', fmtRub(m.deductionSum));
 
     // Ср. цена продажи
     const avgPriceEl = document.querySelector('[data-metric="avg-sale-price"]');
