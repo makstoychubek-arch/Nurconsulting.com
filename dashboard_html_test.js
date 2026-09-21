@@ -526,16 +526,37 @@ assert.ok(
     'headings use Poppins via --font-display'
 );
 assert.ok(
+    html.includes('--fs-kpi: 13px') &&
+    html.includes('--fs-sheet: 11px') &&
+    html.includes('--fs-label: 11px') &&
+    html.includes('--fs-micro: 10px') &&
+    html.includes('--fs-compact: 9px'),
+    'one type scale: KPI 13px, grids 11px, labels 11px, micro 10px'
+);
+assert.ok(
     html.includes('.kpi-hero-value {') &&
     html.includes('font-family: var(--font-ui)') &&
-    html.includes('font-size: 13px') &&
+    html.includes('font-size: var(--fs-kpi)') &&
     html.includes('class="nr-num') &&
     html.includes('function paintNrNum') &&
     html.includes('function dashNumFitClass'),
     'dashboard KPI numbers use the same Inter/13px scale as RNP, with a small unit'
 );
 assert.ok(
-    html.includes('.nr-num--m { font-size: 11px') &&
+    html.includes('.ads-hq-kpi-value {') &&
+    html.includes('font-size: var(--fs-kpi)') &&
+    !/ads-hq-kpi-value \{[^}]*font-display/.test(html),
+    'ads HQ KPI uses the same 13px Inter as dashboard, not 18px Poppins'
+);
+assert.ok(
+    html.includes('font-size: var(--fs-sheet)') &&
+    html.includes('.rnp-num--m { font-size: var(--fs-compact)') &&
+    !html.includes('font-size: 7px') &&
+    !html.includes('font-size: 5.5px'),
+    'RNP sheet uses 11px like goods tables, not 7px micro type'
+);
+assert.ok(
+    html.includes('.nr-num--m { font-size: var(--fs-label)') &&
     html.includes('digits >= 7 || n >= 1e6'),
     'seven-digit dashboard values shrink like rnp-num--m'
 );
