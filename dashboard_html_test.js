@@ -1322,17 +1322,27 @@ assert.ok(rnpSrc.includes('Группы в РНП') && rnpSrc.includes('function
 }
 assert.ok(html.includes('function cabinetDisplayName'), 'cabinet picker shows legal IP names, not Baza/Elium letters');
 assert.ok(html.includes('ИП Бейшеев А.Д.') && html.includes('ИП Айзада'), 'Baza and Elium show the IP names from WB');
-assert.ok(html.includes('ИП Уркунбаев К.А.') && html.includes('ОсОО «Айлин Стиль»'), 'Zevina 1/2 show the legal names from WB');
+assert.ok(html.includes('ИП Уркунбаев К.А.'), 'Zevina 1 shows the legal name from WB');
+assert.ok(html.includes('function isHiddenCabinet') && html.includes('visibleCabinets'),
+    'Ailin / Zevina 2 is hidden from every cabinet list');
 assert.ok(!html.includes('id="cabinet-picker-initial"'), 'letter avatar next to the cabinet name is gone');
 assert.ok(!html.includes('cab-dot'), 'dropdown no longer draws B/E/Z circles');
 const cabFns = new Function(
-    html.slice(html.indexOf('function cabinetDisplayName'), html.indexOf('function updateCabinetPickerUI'))
-    + '; return { cabinetDisplayName };'
+    html.slice(html.indexOf('function cabinetDisplayName'), html.indexOf('window.isHiddenCabinet'))
+    + '; return { cabinetDisplayName, isHiddenCabinet, visibleCabinets };'
 )();
 assert.strictEqual(cabFns.cabinetDisplayName('Baza'), 'ИП Бейшеев А.Д.');
 assert.strictEqual(cabFns.cabinetDisplayName('Elium'), 'ИП Айзада');
 assert.strictEqual(cabFns.cabinetDisplayName('Zevina 1'), 'ИП Уркунбаев К.А.');
 assert.strictEqual(cabFns.cabinetDisplayName('Zevina 2'), 'ОсОО «Айлин Стиль»');
+assert.ok(cabFns.isHiddenCabinet({ name: 'Zevina 2' }) && cabFns.isHiddenCabinet({ name: 'ОсОО Айлин Стиль' }));
+assert.ok(!cabFns.isHiddenCabinet({ name: 'Zevina 1' }) && !cabFns.isHiddenCabinet({ name: 'Baza' }));
+assert.ok(!cabFns.isHiddenCabinet({ name: 'ИП Уркунбаев К.А.' }), 'Urkunbaev stays visible');
+assert.strictEqual(cabFns.visibleCabinets([
+    { id: '1', name: 'Zevina 1' },
+    { id: '2', name: 'Zevina 2' },
+    { id: '3', name: 'Elium' },
+]).map((c) => c.id).join(','), '1,3');
 assert.ok(
     html.includes('input[type="number"]::-webkit-inner-spin-button')
         && html.includes('input[type="number"]::-webkit-outer-spin-button')
@@ -2444,9 +2454,14 @@ assert.ok(
 assert.ok(html.includes("summary: '/reports'") && html.includes("'/reports': 'summary'"),
     '/reports opens the live summary tab');
 assert.ok(
-    html.includes('id="dash-plan-cabs"') && html.includes('План заказов · все кабинеты'),
-    'dashboard shows plan cards for every cabinet'
+    html.includes('id="dash-plan-cabs"') && html.includes('id="dash-plan-skus"')
+        && html.includes('id="m-dash-penalty"') && html.includes('openDashPlanSku'),
+    'dashboard plan is the current cabinet, with SKU photos and penalties'
 );
+assert.ok(!html.includes('План заказов · все кабинеты'),
+    'all-cabinets plan row is gone');
+assert.ok(html.includes('main-content:has(#tab-dashboard.active)') && html.includes('padding: 10px 24px 18px'),
+    'dashboard top padding is tight');
 assert.ok(
     /<script src="\/(?:dist\/)?dash-cabinet-plans(?:\.[0-9a-f]+)?(?:\.min)?\.js"><\/script>/.test(html),
     'dash-cabinet-plans script is on the dashboard'

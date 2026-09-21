@@ -24,7 +24,7 @@ assert.equal(withAds.drr, 10);
 assert.equal(withAds.profitFull, withoutAds.profitFull - 1000);
 assert.equal(withAds.profitBeforeCost, withoutAds.profitBeforeCost - 1000);
 
-global.document = { querySelector() { return null; } };
+global.document = { querySelector() { return null; }, querySelectorAll() { return []; } };
 const painted = {};
 WB.applyMetricsToDashboard(withAds, (id, val) => { painted[id] = val; });
 assert.match(painted['m-ads'], /сом/);
