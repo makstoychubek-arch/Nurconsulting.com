@@ -1404,13 +1404,24 @@
             contain: layout paint;
         }
         .cl-empty { padding: 28px 14px; text-align: center; font-size: 12px; color: var(--text-muted); }
-        .cl-table { width: 100%; min-width: 1406px; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
-        /* Фраза остаётся на месте, когда крутишь цифры по горизонтали. */
-        .cl-table th:first-child, .cl-table td:first-child {
-            position: sticky; left: 0; z-index: 1; background: var(--surface-solid);
+        .cl-table { width: 100%; min-width: 1370px; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+        /* Переключатель и фраза остаются на месте, когда крутишь цифры. */
+        .cl-table th.cl-th-toggle, .cl-table td.cl-onoff {
+            position: sticky; left: 0; z-index: 4; background: var(--surface-solid);
+            width: 52px; padding-left: 10px; padding-right: 4px; cursor: default;
         }
-        .cl-table th:first-child { z-index: 3; }
-        .cl-table tbody tr:hover td:first-child { background: var(--sel); }
+        .cl-table th.cl-th-toggle { z-index: 5; }
+        .cl-table th.cl-q, .cl-table td.cl-q {
+            position: sticky; left: 52px; z-index: 3; background: var(--surface-solid);
+        }
+        .cl-table thead th.cl-q { z-index: 4; }
+        .cl-table tbody tr:hover td.cl-onoff,
+        .cl-table tbody tr:hover td.cl-q { background: var(--sel); }
+        .cl-table tbody tr.cl-row-off td { opacity: 0.5; }
+        .cl-table tbody tr.cl-row-off td.cl-onoff { opacity: 1; }
+        .cl-toggle { width: 36px; height: 20px; }
+        .cl-toggle:disabled { opacity: 0.55; cursor: wait; }
+        .cl-q-text { cursor: pointer; }
         .cl-table th {
             position: sticky; top: 0; z-index: 2; background: var(--surface-solid);
             padding: 7px 10px; text-align: left; font-size: 9.5px; font-weight: 600; color: var(--text-muted);
@@ -1492,7 +1503,7 @@
             .cl-dialog.rnp-settings-dialog { padding: 8px 10px 10px; }
             .cl-search { width: 100%; }
             .cl-kpi { min-width: 68px; padding: 4px 8px; }
-            .cl-table { min-width: 1130px; }
+            .cl-table { min-width: 1100px; }
             .cl-table th, .cl-table td { padding: 6px 7px; }
         }
         /* Единое стекло: затемнение + blur, панель накрывает сверху по центру */
@@ -9562,7 +9573,8 @@
         { key: 'orders', label: 'Заказы', w: 62 },
         { key: 'spend', label: 'Расход', w: 88 },
     ];
-    const CLUSTER_TAIL_COLS = [{ label: 'Статус', w: 78 }, { label: '', w: 88 }];
+    const CLUSTER_LEAD_COLS = [{ w: 52 }];
+    const CLUSTER_TAIL_COLS = [{ label: 'Статус', w: 78 }];
 
     // Шапка, чипсы и KPI зависят только от загруженного ответа, поэтому при
     // сортировке и поиске трогаем один tbody: на 90+ кластерах полная
@@ -9626,7 +9638,7 @@
             + (data.currency ? ' · ' + data.currency : ''));
 
         if (!body.querySelector('#cl-tbody')) {
-            const cols = [...CLUSTER_COLS, ...CLUSTER_TAIL_COLS]
+            const cols = [...CLUSTER_LEAD_COLS, ...CLUSTER_COLS, ...CLUSTER_TAIL_COLS]
                 .map(c => `<col style="width:${c.w}px">`).join('');
             body.innerHTML = `<table class="cl-table">
                 <colgroup>${cols}</colgroup>
@@ -9640,8 +9652,9 @@
     function paintClusterHead() {
         const head = document.getElementById('cl-thead');
         if (!head) return;
-        head.innerHTML = CLUSTER_COLS.map(c =>
-            `<th class="${_clusterState.sort === c.key ? 'cl-sorted' : ''}" data-cl-sort="${c.key}"${c.hint ? ` title="${escapeHtml(c.hint)}"` : ''}>${c.label}${_clusterState.sort === c.key ? (_clusterState.dir < 0 ? ' ↓' : ' ↑') : ''}</th>`).join('')
+        head.innerHTML = '<th class="cl-th-toggle" title="Вкл / выкл кластер"></th>'
+            + CLUSTER_COLS.map(c =>
+            `<th class="${c.key === 'normQuery' ? 'cl-q ' : ''}${_clusterState.sort === c.key ? 'cl-sorted' : ''}" data-cl-sort="${c.key}"${c.hint ? ` title="${escapeHtml(c.hint)}"` : ''}>${c.label}${_clusterState.sort === c.key ? (_clusterState.dir < 0 ? ' ↓' : ' ↑') : ''}</th>`).join('')
             + CLUSTER_TAIL_COLS.map(c => `<th>${c.label}</th>`).join('');
     }
 
@@ -9673,6 +9686,15 @@
                 : '');
     }
 
+    function clusterIsOff(r) {
+        return !!(r && (r.minus || r.state === 'excluded'));
+    }
+
+    function clusterToggleHtml(r) {
+        const off = clusterIsOff(r);
+        return `<button type="button" class="tg-switch cl-toggle${off ? '' : ' on'}" data-cl-act="${off ? 'restore' : 'exclude'}" aria-pressed="${off ? 'false' : 'true'}" title="${off ? 'Вернуть кластер' : 'Отключить кластер'}"><span></span></button>`;
+    }
+
     function renderClusterRow(r, data) {
         const cur = data.currency ? ' ' + data.currency : '';
         const key = clusterRowKey(r);
@@ -9682,13 +9704,12 @@
                     <button type="button" class="cl-bid-save" data-cl-save="${escapeHtml(key)}" data-cl-act="save">OK</button>
                </div>`
             : (r.bid > 0 ? fmt(Math.round(r.bid)) + cur : '—');
-        const off = r.minus || r.state === 'excluded';
-        const actionBtn = off
-            ? '<button type="button" class="cl-mini" data-cl-act="restore">Вернуть</button>'
-            : '<button type="button" class="cl-mini" data-cl-act="exclude">Исключить</button>';
+        const off = clusterIsOff(r);
+        const act = off ? 'restore' : 'exclude';
 
-        return `<tr data-cl-key="${escapeHtml(key)}">
-            <td class="cl-q" title="${escapeHtml(r.normQuery)}"><div class="cl-q-row"><span class="cl-q-text">${escapeHtml(r.normQuery)}</span>${clusterWbHook(r.normQuery)}</div><div class="cl-nm">${r.nmId}</div></td>
+        return `<tr data-cl-key="${escapeHtml(key)}" class="${off ? 'cl-row-off' : ''}">
+            <td class="cl-onoff" data-cl-act="${act}">${clusterToggleHtml(r)}</td>
+            <td class="cl-q" title="${escapeHtml(r.normQuery)}"><div class="cl-q-row"><span class="cl-q-text" data-cl-act="${act}">${escapeHtml(r.normQuery)}</span>${clusterWbHook(r.normQuery)}</div><div class="cl-nm">${r.nmId}</div></td>
             <td>${bidCell}</td>
             <td>${clusterReachCell(r, data.editable)}</td>
             <td>${clusterFreqCell(r)}</td>
@@ -9702,7 +9723,6 @@
             <td>${fmt(r.orders)}</td>
             <td>${fmt(Math.round(r.spend))}${cur}</td>
             <td>${clusterStateBadge(r)}</td>
-            <td>${actionBtn}</td>
         </tr>`;
     }
 
@@ -9864,12 +9884,26 @@
     async function toggleClusterMinus(key, exclude) {
         const data = _clusterBoards.get(_clusterState.advertId);
         const row = clusterRowByKey(key);
-        if (!data || !row) return;
+        if (!data || !row || _clusterState.busy) return;
+        if (!!exclude === clusterIsOff(row)) return;
+        _clusterState.busy = true;
+        const btn = document.querySelector(`#cl-tbody tr[data-cl-key="${CSS.escape(key)}"] .cl-toggle`);
+        if (btn) {
+            btn.disabled = true;
+            btn.classList.toggle('on', !exclude);
+            btn.setAttribute('aria-pressed', exclude ? 'false' : 'true');
+        }
         const payload = { advertId: Number(_clusterState.advertId), nmId: row.nmId };
         if (exclude) payload.add = [row.normQuery];
         else payload.remove = [row.normQuery];
         const res = await callWbProxy('adv_cluster_minus', payload, _clusterState.cabinetId);
+        if (btn) btn.disabled = false;
+        _clusterState.busy = false;
         if (!res || res.error) {
+            if (btn) {
+                btn.classList.toggle('on', !clusterIsOff(row));
+                btn.setAttribute('aria-pressed', clusterIsOff(row) ? 'false' : 'true');
+            }
             showPremiumModal('error', 'Минус-фразы', String((res && res.error) || 'WB не принял изменение.'));
             return;
         }
