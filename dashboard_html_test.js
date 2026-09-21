@@ -1578,6 +1578,13 @@ assert.ok(html.includes("callWbProxy('adv_cluster_bid'") && html.includes('funct
     'each cluster must accept its own CPM bid');
 assert.ok(html.includes("callWbProxy('adv_cluster_minus'") && html.includes('function toggleClusterMinus'),
     'cluster board must exclude / restore a cluster via minus phrases');
+assert.ok(
+    html.includes('tg-switch cl-toggle') &&
+    html.includes('function clusterToggleHtml') &&
+    html.includes("data-cl-act=\"${off ? 'restore' : 'exclude'}\"") &&
+    !html.includes('>Исключить<'),
+    'cluster on/off is a left-click switch, not a far-right Исключить button'
+);
 assert.ok(html.includes("callWbProxy('adv_cluster_positions'") && html.includes('function loadClusterPositions'),
     'cluster board must load search position and frequency per key');
 assert.ok(html.includes('data-cl-bid=') && html.includes('class="cl-bid-input"'),
