@@ -6335,9 +6335,9 @@ const RNP = (() => {
                 const str = _fmt(val, m.type);
                 const cc  = m.hm ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
                 let style = sticky.style || '';
-                if (cc === 'rnp-green')  style += (style ? ';' : '') + 'background:rgba(16,185,129,0.15);color:var(--green)';
-                else if (cc === 'rnp-yellow') style += (style ? ';' : '') + 'background:rgba(245,158,11,0.15);color:var(--amber)';
-                else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:rgba(239,68,68,0.15);color:var(--red)';
+                if (cc === 'rnp-green')  style += (style ? ';' : '') + 'background:#93c47d;color:#274e13';
+                else if (cc === 'rnp-yellow') style += (style ? ';' : '') + 'background:#b6d7a8;color:#38761d';
+                else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:#d9ead3;color:#38761d';
                 else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
                 if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-weight:700';
                 // ЗАКАЗЫ / Продажи: a bar under the figure (CSS box-shadow), like Excel.

@@ -1278,6 +1278,10 @@ assert.ok(html.includes('.rnp-plan-fact-open svg') && html.includes('height: 26p
     'План/факт chip is a labeled control, not 10px muted text among icons');
 assert.ok(html.includes('id="rnp-plan-fact-overlay"') && html.includes('.pf-sheet'),
     'plan/fact overlay is the Excel clone sheet');
+assert.ok(html.includes('.pf-plan-set') && html.includes('#274e13') && html.includes('#93c47d'),
+    'plan/fact sheet uses Excel greens, dark fill on a set plan');
+assert.ok(!html.includes('.rnp-cell-week { background: rgba(99,102,241'),
+    'RNP week cells are Excel green, not pink/indigo');
 assert.ok(!rnpSrc.includes('>Excel</button>') && !rnpSrc.includes('↵ План') && !rnpSrc.includes('>Редактировать</button>'),
     'RNP toolbar no longer uses text pills for Plan / Excel / Edit');
 assert.ok(html.includes('.rnp-tool-icon') && html.includes('.rnp-tool-icons'),
@@ -2183,10 +2187,10 @@ assert.ok(
     assert.strictEqual(fns._planHitKind(10, 0), '');
     assert.strictEqual(fns._planHitKind(10, null), '');
     assert.strictEqual(fns._planHitKind(10, undefined), '');
-    assert.ok(html.includes('box-shadow: inset 0 -3px 0 var(--green)') && html.includes('rnp-cell-plan-hit--miss'),
+    assert.ok(html.includes('box-shadow: inset 0 -3px 0 #38761d') && html.includes('rnp-cell-plan-hit--miss'),
         'dashboard CSS paints a bar under ЗАКАЗЫ without extra DOM');
-    assert.ok(html.includes('rnp-cell-plan--set'),
-        'filled plan cells (План заказ) get the Excel-yellow highlight');
+    assert.ok(html.includes('rnp-cell-plan--set') && html.includes('background: #93c47d !important'),
+        'filled plan cells (План заказ) get the Excel-green highlight');
     assert.ok(html.includes('overflow: hidden') && html.includes('.rnp-article-panel--wide'),
         'wide RNP head clips so photos cannot cover the sheet');
     assert.ok(rnpSrc.includes("m.key === 'orders_count' || m.key === 'sales_count'"),
@@ -2196,7 +2200,7 @@ assert.ok(
     assert.ok(!rnpSrc.includes('rnp-cell-stack') && !rnpSrc.includes('_planHitInner'),
         'plan-hit must not inject flex stacks into table cells');
     assert.ok(rnpSrc.includes('rnp-cell-plan--set'),
-        'non-zero plan inputs get the yellow set class');
+        'non-zero plan inputs get the set class');
     assert.ok(rnpSrc.includes('if (!_isPhone()) return inner;'),
         'desktop Остатки stay in the header, not a floating overlay');
 }

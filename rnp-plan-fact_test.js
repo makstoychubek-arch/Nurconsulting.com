@@ -72,6 +72,7 @@ assert.ok(html.includes('409845462'));
 assert.ok(html.includes('31.08') && html.includes('14.09'));
 assert.ok(html.includes('#DIV/0!'));
 assert.ok(html.includes('class="pf-sheet"'));
+assert.ok(html.includes('pf-plan-set'), 'filled daily plan uses Excel dark green');
 assert.ok(!html.includes('>0<') || html.includes('pf-total'), 'zero facts stay blank in SKU days');
 
 const emptyDay = html.match(/пиджак_NEW_красный[\s\S]*?<\/tr>/)[0];
@@ -97,6 +98,23 @@ assert.strictEqual(P.sheetMeta('ИП Бейшеев А.Д.').title, 'ПЛАНФ�
 assert.strictEqual(P.sheetMeta('ИП Бейшеев А.Д.').skuHeader, '');
 assert.strictEqual(P.sheetMeta('ИП Айзада').title, 'ПЛАНФАКТ');
 assert.strictEqual(P.sheetMeta('ИП Айзада').skuHeader, 'SKU');
+
+{
+    const zevinaOrdered = P.applyCatalog([
+        { nm_id: 1218782505, name: 'live-ivory' },
+        { nm_id: 296556350, name: 'live-beige' },
+        { nm_id: 999000111, name: 'лишний' },
+        { nm_id: 247347214, name: 'live-grey' },
+    ], 'zevina');
+    assert.strictEqual(zevinaOrdered[0].nm_id, 296556350);
+    assert.strictEqual(zevinaOrdered[0].name, 'костюм_оверсайз_бежевый');
+    assert.strictEqual(zevinaOrdered[1].nm_id, 247347214);
+    assert.strictEqual(zevinaOrdered[1].name, 'пиджак серый');
+    assert.strictEqual(zevinaOrdered[2].nm_id, 1218782505);
+    assert.strictEqual(zevinaOrdered[2].name, 'Свитер-айвори');
+    assert.strictEqual(zevinaOrdered.length, 3);
+    assert.ok(!zevinaOrdered.some((r) => r.nm_id === 999000111), 'Общая РНП omits SKUs not on the Excel sheet');
+}
 
 const bazaLive = [
     { nm_id: 1544472467, name: 'live-jacket' },
