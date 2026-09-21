@@ -1502,6 +1502,8 @@ assert.ok(!html.includes('Активные полки кабинета из ша
     'RK does not repeat the page title above the KPI tiles');
 assert.ok(html.includes('id="ads-hq-reload"') && html.includes('id="ads-hq-phone"') && html.includes('ads-hq-table-wrap') && html.includes('>Полка<'),
     'ads HQ shows phone cards, a campaign table and a reload control');
+assert.ok(html.includes('.ads-hq-thumb') && html.includes('.ads-hq-camp-name'),
+    'RK campaign rows have a slot for the main product photo');
 assert.ok(html.includes('let adsReload = null') && html.includes('await adsReload') && html.includes('window.AdsHQ.load()'),
     'switching cabinet on RK must reload shelves immediately, not after the dashboard RPC');
 assert.ok(html.includes('data-camp-filter="active"') && html.includes('data-camp-filter="all"') && html.includes('ads-hq-advanced'),
