@@ -1708,8 +1708,66 @@
             display: inline-block; flex-shrink: 0;
         }
         .ads-hq-chev.open { transform: rotate(45deg); }
-        .ads-hq-mono { color: var(--text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
-        .ads-hq-table td, .ads-hq-table th { white-space: nowrap; }
+        .ads-hq-mono { color: var(--text-muted); font-size: var(--fs-micro); font-variant-numeric: tabular-nums; }
+        .ads-hq-table-wrap {
+            overflow-x: auto; -webkit-overflow-scrolling: touch;
+            max-width: 100%; min-width: 0;
+        }
+        .ads-hq-table.data-table {
+            border-collapse: separate; border-spacing: 0;
+            width: max-content !important; min-width: 100%;
+            table-layout: auto; font-size: var(--fs-sheet);
+        }
+        #tab-advertising .ads-hq-table th,
+        #tab-advertising .ads-hq-table td {
+            padding: 3px 6px !important;
+            font-size: var(--fs-sheet) !important;
+            font-weight: 400;
+            line-height: 1.2;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+            vertical-align: middle;
+        }
+        #tab-advertising .ads-hq-table th {
+            font-size: var(--fs-micro) !important;
+            font-weight: 600;
+            text-transform: none !important;
+            letter-spacing: 0;
+            color: var(--text-muted);
+            position: sticky; top: 0; z-index: 4;
+            background: var(--surface-solid, var(--surface));
+        }
+        #tab-advertising .ads-hq-table .ads-hq-metric { text-align: right; }
+        #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin {
+            position: sticky; z-index: 5;
+            background: var(--surface-solid, var(--surface));
+            box-sizing: border-box;
+        }
+        #ads-hq-camps-wrap .ads-hq-table thead .ads-hq-pin { z-index: 7; }
+        #ads-hq-camps-wrap .ads-hq-table tbody .ads-hq-pin { background: var(--bg); }
+        #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-check { left: 0; width: 28px; min-width: 28px; max-width: 28px; padding-left: 6px !important; padding-right: 2px !important; }
+        #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-tg { left: 28px; width: 40px; min-width: 40px; max-width: 40px; padding-left: 2px !important; padding-right: 4px !important; }
+        #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-camp {
+            left: 68px; width: 220px; min-width: 220px; max-width: 220px; white-space: normal;
+        }
+        #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-sku { left: 288px; width: 72px; min-width: 72px; max-width: 72px; }
+        #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-type {
+            left: 360px; width: 88px; min-width: 88px; max-width: 88px;
+            box-shadow: 6px 0 8px -6px rgba(0, 0, 0, 0.18);
+        }
+        #ads-hq-camps-wrap .ads-hq-table tbody tr:hover td,
+        #ads-hq-camps-wrap .ads-hq-table tbody tr:hover .ads-hq-pin {
+            background: var(--accent-soft);
+        }
+        #ads-hq-products-wrap .ads-hq-table th:first-child,
+        #ads-hq-products-wrap .ads-hq-table td:first-child {
+            position: sticky; left: 0; z-index: 3;
+            background: var(--surface-solid, var(--surface));
+        }
+        .ads-hq-list-card { padding: 6px 0 8px !important; }
+        .ads-hq-list-card .ads-hq-schedule,
+        .ads-hq-list-card .ads-hq-phone { padding: 0 10px; }
+        .ads-hq-check { width: 13px; height: 13px; margin: 0; accent-color: var(--accent); }
         .ads-hq-cab td { font-weight: 600; }
         .ads-hq-camp td { background: var(--bg); }
         .ads-hq-cl.is-on td { background: var(--accent-soft); }
@@ -1777,25 +1835,25 @@
         .ads-hq-phone-pick { display: flex; align-items: center; gap: 10px; }
         .ads-hq-phone-pick .ads-hq-phone-head { flex: 1; min-width: 0; }
         .ads-hq-camp-name {
-            display: inline-flex; align-items: center; gap: 10px;
+            display: inline-flex; align-items: center; gap: 6px;
             min-width: 0; max-width: 100%; vertical-align: middle;
         }
         .ads-hq-thumb {
-            width: 30px; height: 40px; object-fit: cover; object-position: center top;
-            border-radius: 8px; background: var(--sel); flex-shrink: 0; display: block;
+            width: 22px; height: 30px; object-fit: cover; object-position: center top;
+            border-radius: 5px; background: var(--sel); flex-shrink: 0; display: block;
         }
         .ads-hq-phone-pick .ads-hq-thumb { width: 36px; height: 48px; border-radius: 10px; }
         .ads-hq-chip {
             border: none; background: transparent; color: var(--text-muted);
-            border-radius: 8px; padding: 0 12px; height: 28px; line-height: 28px;
-            font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit;
+            border-radius: 8px; padding: 0 10px; height: 24px; line-height: 24px;
+            font-size: var(--fs-label); font-weight: 600; cursor: pointer; font-family: inherit;
         }
         .ads-hq-chip.on { color: var(--accent); background: var(--accent-soft); border-color: transparent; font-weight: 600; }
         .ads-hq-chip:hover { color: var(--accent); }
         .ads-hq-kpi-bar {
-            display: flex; flex-wrap: wrap; gap: 10px 32px; align-items: flex-end;
+            display: flex; flex-wrap: wrap; gap: 6px 18px; align-items: flex-end;
             background: var(--surface); border-radius: var(--radius-card);
-            padding: 14px 18px;
+            padding: 8px 12px;
         }
         .ads-hq-kpi-label { font-size: var(--fs-label); color: var(--text-muted); margin-bottom: 4px; }
         .ads-hq-kpi-value {
@@ -1805,24 +1863,27 @@
         }
         .ads-hq-wb-name {
             background: none; border: none; padding: 0; cursor: pointer; font: inherit;
-            color: #5b4dff; font-weight: 600; text-align: left; line-height: 1.25;
+            color: #5b4dff; font-weight: 600; text-align: left; line-height: 1.2;
+            font-size: var(--fs-sheet);
         }
         .ads-hq-wb-name:hover { text-decoration: underline; }
-        .ads-hq-wb-id { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
-        .ads-hq-wb-st { font-size: 11px; font-weight: 600; }
+        .ads-hq-wb-id { font-size: var(--fs-micro); color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .ads-hq-wb-st { font-size: var(--fs-micro); font-weight: 600; }
         .ads-hq-wb-st.live { color: #7c5cbf; }
         .ads-hq-wb-st.pause { color: #e11d48; }
         .ads-hq-wb-st.ready { color: var(--text-muted); }
-        .ads-hq-camp-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-        .ads-hq-product { font-size: 12px; line-height: 1.35; }
+        .ads-hq-camp-meta { display: flex; flex-direction: column; gap: 0; min-width: 0; }
+        .ads-hq-product { font-size: var(--fs-sheet); line-height: 1.2; }
         .ads-hq-price { font-weight: 600; color: var(--text-primary); }
-        .ads-hq-stock { color: var(--text-muted); font-size: 11px; }
-        .ads-hq-type { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+        .ads-hq-stock { color: var(--text-muted); font-size: var(--fs-micro); }
+        .ads-hq-type { display: flex; flex-direction: column; gap: 0; font-size: var(--fs-sheet); }
         .ads-hq-type b { font-weight: 700; color: var(--text-primary); }
-        .ads-hq-type span { color: var(--text-muted); font-size: 11px; }
+        .ads-hq-type span { color: var(--text-muted); font-size: var(--fs-micro); }
         .ads-hq-na { color: var(--text-muted); }
         .ads-hq-wb-row td { vertical-align: middle; }
-        .ads-hq-toggle { width: 36px; height: 20px; }
+        .ads-hq-toggle { width: 32px; height: 18px; }
+        .ads-hq-toggle span { width: 14px; height: 14px; top: 2px; left: 2px; }
+        .ads-hq-toggle.on span { left: 16px; }
         .ads-hq-cols-pop { position: relative; display: inline-flex; }
         .ads-hq-cols-panel {
             display: none; position: absolute; right: 0; top: 36px; z-index: 24;
@@ -1881,13 +1942,13 @@
             color: var(--text-primary); font: inherit; text-align: left; font-weight: 700;
         }
         .ads-hq-phone-metrics {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+            display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;
         }
         .ads-hq-phone-metrics span {
-            background: var(--bg); border-radius: 10px; padding: 8px 10px;
-            font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums;
+            background: var(--bg); border-radius: 8px; padding: 4px 6px;
+            font-size: var(--fs-micro); color: var(--text-secondary); font-variant-numeric: tabular-nums;
         }
-        .ads-hq-phone-metrics b { display: block; color: var(--text-primary); font-size: var(--fs-kpi); margin-top: 2px; }
+        .ads-hq-phone-metrics b { display: block; color: var(--text-primary); font-size: var(--fs-sheet); margin-top: 1px; }
         .ads-hq-phone-camps { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
         .ads-hq-phone-camp {
             background: var(--bg); border-radius: 12px; padding: 10px;
@@ -6217,7 +6278,8 @@
                                 </svg>
                             </button>
                             <div class="ads-hq-cols-panel">
-                                <button type="button" class="ads-hq-chip on" data-col-preset="stats">Затраты</button>
+                                <button type="button" class="ads-hq-chip on" data-col-preset="all">Все</button>
+                                <button type="button" class="ads-hq-chip" data-col-preset="stats">Затраты</button>
                                 <button type="button" class="ads-hq-chip" data-col-preset="funnel">Воронка</button>
                                 <button type="button" class="ads-hq-chip" data-col-preset="unit">Эффективность</button>
                             </div>
@@ -6247,28 +6309,39 @@
                         <div class="ads-hq-kpi-value" id="ads-hq-kpi-ctr">—</div>
                     </div>
                 </div>
-                <div class="widget-card">
+                <div class="widget-card ads-hq-list-card">
                     <div id="ads-hq-schedule" class="ads-hq-schedule"></div>
                     <div id="ads-hq-phone" class="ads-hq-phone"></div>
                     <div class="overflow-x-auto ads-hq-table-wrap" id="ads-hq-camps-wrap">
                         <table class="data-table ads-hq-table">
                             <thead id="ads-hq-thead">
                                 <tr>
-                                    <th></th>
-                                    <th></th>
-                                    <th>Кампания</th>
-                                    <th>Товар</th>
-                                    <th>Тип кампании</th>
-                                    <th>Остаток бюджета</th>
-                                    <th>Дневной лимит</th>
-                                    <th>Затраты</th>
-                                    <th>Показы</th>
-                                    <th>CTR</th>
-                                    <th>Созданные заказы</th>
+                                    <th class="ads-hq-pin ads-hq-pin-check"></th>
+                                    <th class="ads-hq-pin ads-hq-pin-tg"></th>
+                                    <th class="ads-hq-pin ads-hq-pin-camp">Кампания</th>
+                                    <th class="ads-hq-pin ads-hq-pin-sku">Товар</th>
+                                    <th class="ads-hq-pin ads-hq-pin-type">Тип кампании</th>
+                                    <th class="ads-hq-metric">Остаток бюджета</th>
+                                    <th class="ads-hq-metric">Затраты</th>
+                                    <th class="ads-hq-metric">Показы</th>
+                                    <th class="ads-hq-metric">CTR</th>
+                                    <th class="ads-hq-metric">Созданные заказы</th>
+                                    <th class="ads-hq-metric">Принятые заказы</th>
+                                    <th class="ads-hq-metric">Доля затрат</th>
+                                    <th class="ads-hq-metric">Позиция в поиске</th>
+                                    <th class="ads-hq-metric">Клики</th>
+                                    <th class="ads-hq-metric">Добавления в корзину</th>
+                                    <th class="ads-hq-metric">Сумма заказов</th>
+                                    <th class="ads-hq-metric">CPC</th>
+                                    <th class="ads-hq-metric">CPO</th>
+                                    <th class="ads-hq-metric">CR</th>
+                                    <th class="ads-hq-metric">CPM</th>
+                                    <th class="ads-hq-metric">ROAS</th>
+                                    <th class="ads-hq-metric">Отмены технические</th>
                                 </tr>
                             </thead>
                             <tbody id="ads-hq-tbody">
-                                <tr><td colspan="11" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить кампании</td></tr>
+                                <tr><td colspan="22" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить кампании</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -7411,7 +7484,7 @@
 <script src="/dist/rnp-plan-fact.63afff3e4a.min.js"></script>
 <script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.bb330c2db3.min.js"></script>
+<script src="/dist/ads-command-center.10cf90483e.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>

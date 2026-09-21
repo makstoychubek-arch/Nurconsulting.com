@@ -80,17 +80,42 @@
         return pct.toFixed(1) + '%';
     }
 
+    const WB_METRIC_COLS = [
+        { key: 'budget', title: 'Остаток бюджета' },
+        { key: 'spend', title: 'Затраты' },
+        { key: 'views', title: 'Показы' },
+        { key: 'ctr', title: 'CTR' },
+        { key: 'orders', title: 'Созданные заказы' },
+        { key: 'shks', title: 'Принятые заказы' },
+        { key: 'drr', title: 'Доля затрат' },
+        { key: 'pos', title: 'Позиция в поиске' },
+        { key: 'clicks', title: 'Клики' },
+        { key: 'atbs', title: 'Добавления в корзину' },
+        { key: 'revenue', title: 'Сумма заказов' },
+        { key: 'cpc', title: 'CPC' },
+        { key: 'cpo', title: 'CPO' },
+        { key: 'cr', title: 'CR' },
+        { key: 'cpm', title: 'CPM' },
+        { key: 'roas', title: 'ROAS' },
+        { key: 'cancels', title: 'Отмены технические' },
+    ];
+
     const COL_PRESETS = {
+        all: {
+            id: 'all',
+            label: 'Все',
+            cols: WB_METRIC_COLS,
+        },
         stats: {
             id: 'stats',
             label: 'Затраты',
             cols: [
                 { key: 'budget', title: 'Остаток бюджета' },
-                { key: 'limit', title: 'Дневной лимит' },
                 { key: 'spend', title: 'Затраты' },
                 { key: 'views', title: 'Показы' },
                 { key: 'ctr', title: 'CTR' },
                 { key: 'orders', title: 'Созданные заказы' },
+                { key: 'shks', title: 'Принятые заказы' },
             ],
         },
         funnel: {
@@ -123,7 +148,7 @@
     function campHasStats(camp) {
         if (!camp) return false;
         return num(camp.spendToday) > 0 || num(camp.views) > 0 || num(camp.clicks) > 0
-            || num(camp.orders) > 0 || num(camp.atbs) > 0;
+            || num(camp.orders) > 0 || num(camp.atbs) > 0 || num(camp.shks) > 0;
     }
 
     function formatMetric(camp, key) {
@@ -133,6 +158,7 @@
         const views = num(camp && camp.views);
         const clicks = num(camp && camp.clicks);
         const orders = num(camp && camp.orders);
+        const shks = num(camp && camp.shks);
         const atbs = num(camp && camp.atbs);
         const rev = num(camp && camp.revenue7);
         const pos = camp && camp.searchPos;
@@ -151,6 +177,8 @@
                 return has && clicks > 0 && views > 0 ? formatPct2(clicks / views * 100) : na;
             case 'orders':
                 return has ? formatInt(orders) : na;
+            case 'shks':
+                return has ? formatInt(shks) : na;
             case 'drr':
                 return has && rev > 0 ? formatPct2(spend / rev * 100) : na;
             case 'pos':
@@ -387,6 +415,7 @@
                     atbs: num(nm && (nm.atbs || nm.carts)),
                     revenue: num(nm && (nm.sum_price || nm.revenue)),
                     canceled: num(nm && nm.canceled),
+                    shks: num(nm && nm.shks),
                 });
             }
         }
@@ -397,6 +426,13 @@
         if (r && r.canceled != null && r.canceled !== '') return num(r.canceled);
         const d = r && r.data;
         if (d && d.canceled != null) return num(d.canceled);
+        return 0;
+    }
+
+    function shksFromRow(r) {
+        if (r && r.shks != null && r.shks !== '') return num(r.shks);
+        const d = r && r.data;
+        if (d && d.shks != null) return num(d.shks);
         return 0;
     }
 
@@ -536,6 +572,7 @@
         const ordersIn = new Map();
         const viewsIn = new Map();
         const canceledIn = new Map();
+        const shksIn = new Map();
         const posIn = new Map();
         const posDay = new Map();
         const productDays = [];
@@ -546,7 +583,7 @@
             if (!v) return;
             map.set(key, (map.get(key) || 0) + v);
         }
-        function addStat(cabinetId, campaignKey, date, spend, revenue, clicks, carts, orders, views, canceled, searchPos) {
+        function addStat(cabinetId, campaignKey, date, spend, revenue, clicks, carts, orders, views, canceled, searchPos, shks) {
             const day = String(date || '').slice(0, 10);
             const ck = cabinetId + ':' + campaignKey;
             const n = num(spend);
@@ -576,6 +613,8 @@
             bump(viewsIn, ck, views);
             bump(canceledIn, cabinetId, canceled);
             bump(canceledIn, ck, canceled);
+            bump(shksIn, cabinetId, shks);
+            bump(shksIn, ck, shks);
             if (searchPos != null && Number(searchPos) > 0) {
                 const prev = posDay.get(ck);
                 if (!prev || day >= prev) {
@@ -589,7 +628,7 @@
                 r.cabinet_id, String(r.campaign_id), r.stat_date,
                 num(r.spend), num(r.sum_price || r.revenue),
                 num(r.clicks), num(r.atbs || r.carts), num(r.orders),
-                num(r.views), canceledFromRow(r), posFromRow(r)
+                num(r.views), canceledFromRow(r), posFromRow(r), shksFromRow(r)
             );
             const day = String(r.stat_date || '').slice(0, 10);
             if (from && day < from) continue;
@@ -605,7 +644,7 @@
             addStat(
                 cab, r.campaign_id, r.date, num(r.spend), num(r.revenue),
                 num(r.clicks), num(r.carts || r.atbs), num(r.orders),
-                num(r.views), num(r.canceled), null
+                num(r.views), num(r.canceled), null, num(r.shks)
             );
         }
 
@@ -750,6 +789,7 @@
                     clicks: pickSpend(clicksIn),
                     atbs: pickSpend(cartsIn),
                     orders: pickSpend(ordersIn),
+                    shks: pickSpend(shksIn),
                     canceled: pickSpend(canceledIn),
                     searchPos: fromBoost || snapPos || null,
                     usedYesterday: pickSpend(spendYesterday) > 0,
@@ -787,7 +827,7 @@
                         nmId: row.nmId,
                         name: row.name || artIdx.titles.get(String(cab.id) + ':' + row.nmId) || artIdx.titles.get(row.nmId) || String(row.nmId),
                         photoUrl: campPhotoUrl(row.nmId, stored),
-                        spend: 0, views: 0, clicks: 0, orders: 0, atbs: 0, revenue: 0,
+                        spend: 0, views: 0, clicks: 0, orders: 0, atbs: 0, revenue: 0, shks: 0,
                         campaignIds: new Set(),
                         live: false,
                     };
@@ -800,6 +840,7 @@
                 agg.orders += num(row.orders);
                 agg.atbs += num(row.atbs);
                 agg.revenue += num(row.revenue);
+                agg.shks += num(row.shks);
                 agg.campaignIds.add(String(row.campaignId));
             }
             for (const camp of listed) {
@@ -810,7 +851,7 @@
                         nmId: camp.nmId,
                         name: artIdx.titles.get(String(cab.id) + ':' + camp.nmId) || artIdx.titles.get(camp.nmId) || camp.name,
                         photoUrl: camp.photoUrl,
-                        spend: 0, views: 0, clicks: 0, orders: 0, atbs: 0, revenue: 0,
+                        spend: 0, views: 0, clicks: 0, orders: 0, atbs: 0, revenue: 0, shks: 0,
                         campaignIds: new Set(),
                         live: false,
                     };
@@ -831,6 +872,7 @@
                     orders: p.orders,
                     atbs: p.atbs,
                     revenue: p.revenue,
+                    shks: p.shks,
                     campaigns: ids.length,
                     live: p.live || listed.some((c) => c.live && ids.includes(String(c.wbId))),
                 };
@@ -913,7 +955,7 @@
         loadGen: 0,
         filterCabinetId: '',
         campFilter: 'all',
-        colPreset: 'stats',
+        colPreset: 'all',
         listView: 'campaigns',
         searchQuery: '',
         recent: {},
@@ -1000,7 +1042,7 @@
     }
 
     function currentCols() {
-        return (COL_PRESETS[state.colPreset] || COL_PRESETS.stats).cols;
+        return (COL_PRESETS[state.colPreset] || COL_PRESETS.all).cols;
     }
 
     function tableColspan() {
@@ -1122,7 +1164,7 @@
     }
 
     function setColPreset(id) {
-        state.colPreset = COL_PRESETS[id] ? id : 'stats';
+        state.colPreset = COL_PRESETS[id] ? id : 'all';
         paintFilters();
         paintTree();
         return state.colPreset;
@@ -1334,8 +1376,12 @@
         if (!el) return;
         const cols = currentCols();
         el.innerHTML = '<tr>' +
-            '<th></th><th></th><th>Кампания</th><th>Товар</th><th>Тип кампании</th>' +
-            cols.map((c) => '<th>' + esc(c.title) + '</th>').join('') +
+            '<th class="ads-hq-pin ads-hq-pin-check"></th>' +
+            '<th class="ads-hq-pin ads-hq-pin-tg"></th>' +
+            '<th class="ads-hq-pin ads-hq-pin-camp">Кампания</th>' +
+            '<th class="ads-hq-pin ads-hq-pin-sku">Товар</th>' +
+            '<th class="ads-hq-pin ads-hq-pin-type">Тип кампании</th>' +
+            cols.map((c) => '<th class="ads-hq-metric">' + esc(c.title) + '</th>').join('') +
             '</tr>';
     }
 
@@ -1343,12 +1389,12 @@
         const ck = cab.id + ':' + camp.wbId;
         const cols = currentCols();
         return '<tr class="ads-hq-camp ads-hq-camp-top ads-hq-wb-row" data-key="camp:' + esc(ck) + '" data-ck="' + esc(ck) + '">' +
-            '<td><input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '"></td>' +
-            '<td>' + toggleHtml(cab, camp) + '</td>' +
-            '<td' + (pad ? ' style="padding-left:28px"' : '') + '>' + campIdentityHtml(cab, camp) + '</td>' +
-            '<td>' + productCellHtml(camp) + '</td>' +
-            '<td>' + typeCellHtml(camp) + '</td>' +
-            cols.map((col) => '<td>' + formatMetric(camp, col.key) + '</td>').join('') +
+            '<td class="ads-hq-pin ads-hq-pin-check"><input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '"></td>' +
+            '<td class="ads-hq-pin ads-hq-pin-tg">' + toggleHtml(cab, camp) + '</td>' +
+            '<td class="ads-hq-pin ads-hq-pin-camp"' + (pad ? ' style="padding-left:28px"' : '') + '>' + campIdentityHtml(cab, camp) + '</td>' +
+            '<td class="ads-hq-pin ads-hq-pin-sku">' + productCellHtml(camp) + '</td>' +
+            '<td class="ads-hq-pin ads-hq-pin-type">' + typeCellHtml(camp) + '</td>' +
+            cols.map((col) => '<td class="ads-hq-metric">' + formatMetric(camp, col.key) + '</td>').join('') +
             '</tr>';
     }
 
@@ -1442,7 +1488,7 @@
 
     function renderPhoneCamp(cab, camp) {
         const ck = cab.id + ':' + camp.wbId;
-        const cols = currentCols().filter((c) => c.key !== 'budget' && c.key !== 'limit').slice(0, 4);
+        const cols = currentCols().filter((c) => c.key !== 'budget' && c.key !== 'limit');
         const html = [];
         html.push('<article class="ads-hq-phone-card ads-hq-phone-shelf" data-key="' + esc(ck) + '">');
         html.push(
@@ -2227,6 +2273,7 @@
         formatInt,
         formatPct2,
         formatMetric,
+        COL_PRESETS,
         formatDrr,
         formatDrrLabel,
         tokenState,
