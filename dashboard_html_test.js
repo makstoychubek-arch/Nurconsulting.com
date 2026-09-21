@@ -1270,8 +1270,10 @@ assert.ok(rnpSrc.includes('function _excelSvg') && rnpSrc.includes('function _ed
     'RNP toolbar Plan / Excel / Edit are SVG icons');
 assert.ok(rnpSrc.includes('function _iconToolsHtml'),
     'RNP toolbar icons stay in one row');
-assert.ok(rnpSrc.includes('План/факт') && rnpSrc.includes('openPlanFact'),
-    'RNP has a small План/факт button that opens the Excel sheet');
+assert.ok(rnpSrc.includes('План/факт') && rnpSrc.includes('openPlanFact') && rnpSrc.includes('function _planFactSvg'),
+    'RNP toolbar has a visible План/факт chip that opens the Excel sheet');
+assert.ok(html.includes('.rnp-plan-fact-open svg') && html.includes('height: 26px'),
+    'План/факт chip is a labeled control, not 10px muted text among icons');
 assert.ok(html.includes('id="rnp-plan-fact-overlay"') && html.includes('.pf-sheet'),
     'plan/fact overlay is the Excel clone sheet');
 assert.ok(!rnpSrc.includes('>Excel</button>') && !rnpSrc.includes('↵ План') && !rnpSrc.includes('>Редактировать</button>'),
