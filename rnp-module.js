@@ -6749,6 +6749,7 @@ const RNP = (() => {
         if (overlay) {
             if (overlay.parentElement !== document.body) document.body.appendChild(overlay);
             overlay.classList.add('is-open');
+            if (typeof window !== 'undefined' && window.NrWin) window.NrWin.bind(overlay);
         }
         document.body.classList.add('rnp-settings-open');
         _bindOverlayKeydown();

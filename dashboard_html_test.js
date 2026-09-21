@@ -235,8 +235,8 @@ assert.ok(
 assert.ok(html.includes('ab-create-btn'), 'A/B create button uses WBRadar-style control');
 assert.ok(/id="new-test-form"[^>]*rnp-settings-overlay/.test(html) && html.includes('rnp-settings-dialog ab-new-dialog'),
     'A/B create form is a short RNP-style settings overlay');
-assert.ok(html.includes('max-height: min(62vh, 520px)') && !html.includes('max-height: min(88vh, 860px)'),
-    'A/B create dialog is a short sheet, not almost full-screen');
+assert.ok(html.includes('--nr-win-w: 480px') && html.includes('--nr-win-h: 520px') && !html.includes('max-height: min(88vh, 860px)'),
+    'A/B and every other modal share the short Mac window, not almost full-screen');
 assert.ok(html.indexOf('id="new-test-form"') > html.indexOf('id="tab-rnp-settings"'),
     'A/B create overlay lives outside the A/B tab so the tab overflow cannot clip it');
 assert.ok(/id="ab-report-modal"[^>]*rnp-settings-overlay/.test(html) && /id="ab-edit-modal"[^>]*rnp-settings-overlay/.test(html),
@@ -758,8 +758,8 @@ assert.ok(
 );
 assert.ok(/\.rnp-settings-overlay\s*\{[^}]*z-index:\s*10050/.test(html),
     'settings overlay sits above the floating header');
-assert.ok(html.includes('body.rnp-settings-open .rnp-workspace') && html.includes('visibility: hidden'),
-    'open settings hide the RNP sheet so photos cannot show through');
+assert.ok(html.includes('body.rnp-settings-open header') && html.includes('z-index: 1'),
+    'open settings keep the header under the glass overlay');
 assert.ok(!/color-mix\(in srgb, var\(--surface-solid\) 94%/.test(html),
     'settings dialog is opaque and does not show the RNP table through it');
 assert.ok(rnpSrc.includes("document.body.appendChild(overlay)"),
@@ -1545,8 +1545,8 @@ assert.ok(html.includes('id="adv-subtab-autobidder"') && html.includes("from('au
     'legacy Автобиддер tab stays wired to autobidder_rules_legacy_mvp');
 assert.ok(html.includes('id="autobidder-modal"') && html.includes('function openAutobidderModal'),
     'campaign row must open the autobidder rule modal');
-assert.ok(html.includes('class="nr-glass-dialog"') && html.includes('id="supply-detail-modal"'),
-    'autobidder and supply use the same glass dialog as the rest of the site');
+assert.ok(html.includes('nr-glass-dialog') && html.includes('id="supply-detail-modal"') && html.includes('class="nr-win"'),
+    'autobidder and supply use the same Mac window as the rest of the site');
 assert.ok(html.includes('function saveAutobidderRule') && html.includes("from('autobidder_rules_legacy_mvp')"),
     'autobidder modal must persist a rule to autobidder_rules_legacy_mvp');
 assert.ok(html.includes('AUTOBIDDER_RUN_URL') && html.includes('function runAutobidderNow'),
@@ -1564,7 +1564,7 @@ assert.ok(html.includes('data-cl-bid=') && html.includes('class="cl-bid-input"')
 assert.ok(html.includes('cl-chip') && html.includes('Исключения'),
     'cluster board needs the Все / Активные / Со ставкой / Исключения filters');
 // Кластеры живут в модалке того же вида, что настройки РНП, и выплывают.
-assert.ok(html.includes('id="cluster-overlay"') && html.includes('class="rnp-settings-dialog cl-dialog"'),
+assert.ok(html.includes('id="cluster-overlay"') && html.includes('rnp-settings-dialog cl-dialog'),
     'cluster keys must open in the shared site modal, not an inline table row');
 assert.ok(html.includes('id="cl-copy-name"') && html.includes('class="cl-hook"') && html.includes('wildberries.ru/catalog/0/search.aspx'),
     'cluster modal copies the RK name and links each cluster to WB client search');
@@ -1575,8 +1575,8 @@ assert.ok(html.includes('@keyframes nr-dialog-in')
     'site modals must animate in instead of appearing instantly');
 assert.ok(html.includes('prefers-reduced-motion'),
     'modal animation must respect reduced motion');
-assert.ok(html.includes('function mountNrGlass') && html.includes('#cluster-overlay.rnp-settings-overlay'),
-    'cluster and settings overlays mount on body and cover the page like plan/fact');
+assert.ok(html.includes('function mountNrGlass') && html.includes('id="cluster-overlay"') && html.includes('window.NrWin'),
+    'cluster and settings overlays mount on body and get the shared Mac window');
 assert.ok(!html.includes('adv-camp-kw-row-'),
     'old inline phrase row must be gone so the modal is the only cluster view');
 // Никакого перерисовывания на каждый символ и рендера всех строк сразу.
@@ -2382,7 +2382,7 @@ assert.ok(
     const crypto = require('node:crypto');
     const esbuild = require('esbuild');
     const stale = [];
-    for (const name of ['dashboard-charts.js', 'rnp-module.js', 'wb-formulas.js',
+    for (const name of ['nr-win.js', 'dashboard-charts.js', 'rnp-module.js', 'wb-formulas.js',
         'ads-command-center.js', 'goods-catalog.js', 'content-factory.js', 'nr-wow.js', 'dash-cabinet-plans.js', 'rnp-plan-fact.js']) {
         const built = esbuild.buildSync({
             entryPoints: [path.join(__dirname, name)],
