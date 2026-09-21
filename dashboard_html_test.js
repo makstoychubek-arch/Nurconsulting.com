@@ -2460,8 +2460,10 @@ assert.ok(
 );
 assert.ok(!html.includes('План заказов · все кабинеты'),
     'all-cabinets plan row is gone');
-assert.ok(html.includes('main-content:has(#tab-dashboard.active)') && html.includes('padding: 10px 24px 18px'),
+assert.ok(html.includes('main-content:has(#tab-dashboard.active)') && html.includes('padding: 4px 24px 16px'),
     'dashboard top padding is tight');
+assert.ok(html.includes('.main-rail:has(#tab-dashboard.active)') && html.includes('padding-top: 66px'),
+    'dashboard sits flush under the header');
 assert.ok(
     /<script src="\/(?:dist\/)?dash-cabinet-plans(?:\.[0-9a-f]+)?(?:\.min)?\.js"><\/script>/.test(html),
     'dash-cabinet-plans script is on the dashboard'
