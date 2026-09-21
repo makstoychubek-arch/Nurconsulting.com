@@ -35,6 +35,8 @@ import {
     unwrapTelegramMessage,
     peelCardAndAnswer,
     isAlreadyAnsweredWb,
+    collectTelegramReplyIds,
+    matchPendingByTelegramIds,
 } from './wb-restock-reply.ts';
 
 const qText = 'Добрый день! Ожидается ли в ближайшее время поступление костюма темно-синего цвета 42 размера?';
@@ -565,5 +567,83 @@ assert.match(autoPeeled?.card || '', /автоответ/);
 const autoWa = '@maraWuW автоответ · поступление костюм_оверсайз_шоколад«когда коричневый костюм появится в наличии с 48 размера?»';
 assert.equal(isRestockCardText(autoWa), true);
 assert.equal(restockCardArticleLine(autoWa), 'костюм_оверсайз_шоколад');
+
+const emeraldAsk = 'Здравствуйте! Будет ли еще в наличии куртка изумрудного цвета?';
+const emeraldCaption = '@maraWuW автоответ · поступление\nКуртка_фуфайка_изумрудный';
+const emeraldFix = 'Её не будет, этот товар уже выведен из ассортимента';
+assert.equal(isRestockCardText(emeraldCaption), true);
+assert.equal(
+    resolveStaffAnswer(emeraldFix, emeraldAsk)?.wbText,
+    'Здравствуйте! Её не будет, этот товар уже выведен из ассортимента.',
+);
+
+const emeraldPending = [{
+    question_id: 'q-emerald',
+    cabinet_id: 'cab-z1',
+    nm_id: 547613175,
+    article: 'Куртка_фуфайка_изумрудный',
+    product: 'Весенняя фуфайка куртка стеганная',
+    question_text: emeraldAsk,
+    telegram_message_id: 100,
+    status: 'answered',
+}];
+const emeraldReply = decideRestockInbound({
+    chatId: '-100comments',
+    messageId: 501,
+    text: emeraldFix,
+    fromUsername: 'maraWuW',
+    ownerUsername: 'maraWuW',
+    replyToText: emeraldCaption,
+    replyToMessageId: 250,
+    replyToMessageIds: [250, 100],
+    pending: emeraldPending,
+});
+assert.equal(emeraldReply.action, 'answer');
+if (emeraldReply.action === 'answer') {
+    assert.equal(emeraldReply.via, 'tg_message');
+    assert.equal(emeraldReply.questionId, 'q-emerald');
+    assert.match(emeraldReply.wbText, /выведен из ассортимента/);
+}
+
+const emeraldByCaption = decideRestockInbound({
+    chatId: '-100comments',
+    messageId: 502,
+    text: emeraldFix,
+    fromUsername: 'maraWuW',
+    ownerUsername: 'maraWuW',
+    replyToText: emeraldCaption,
+    replyToMessageId: 250,
+    pending: emeraldPending,
+});
+assert.equal(emeraldByCaption.action, 'answer');
+if (emeraldByCaption.action === 'answer') assert.equal(emeraldByCaption.via, 'pending_match');
+
+const photoUnwrap = unwrapTelegramMessage({
+    message: {
+        message_id: 501,
+        text: emeraldFix,
+        chat: { id: -100222 },
+        from: { username: 'maraWuW', is_bot: false },
+        reply_to_message: {
+            message_id: 250,
+            caption: emeraldCaption,
+            photo: [{ file_id: 'x' }],
+            forward_from_message_id: 100,
+            forward_origin: { type: 'channel', message_id: 100 },
+        },
+    },
+});
+assert.ok(photoUnwrap);
+assert.deepEqual(photoUnwrap?.replyToMessageIds, [250, 100]);
+assert.match(photoUnwrap?.replyToText || '', /Куртка_фуфайка_изумрудный/);
+assert.deepEqual(
+    collectTelegramReplyIds({
+        message_id: 250,
+        forward_from_message_id: 100,
+    }),
+    [250, 100],
+);
+assert.equal(matchPendingByTelegramIds([250, 100], emeraldPending)?.question_id, 'q-emerald');
+assert.equal(isAllowedRestockChat('-100comments', '-100rev', []), false);
 
 console.log('wb-restock-reply_test: ok');

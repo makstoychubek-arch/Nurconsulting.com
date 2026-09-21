@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
                         );
                         if (!fallback.error && fallback.messageId) {
                             await admin.from('wb_restock_questions').update({
-                                telegram_chat_id: reviewsChat,
+                                telegram_chat_id: fallback.chatId || reviewsChat,
                                 telegram_message_id: fallback.messageId,
                                 updated_at: new Date().toISOString(),
                             }).eq('cabinet_id', cabinet.id).eq('question_id', question.id);
@@ -267,7 +267,7 @@ Deno.serve(async (req) => {
                 continue;
             }
             await admin.from('wb_restock_questions').update({
-                telegram_chat_id: reviewsChat,
+                telegram_chat_id: sent.chatId || reviewsChat,
                 telegram_message_id: sent.messageId,
                 updated_at: new Date().toISOString(),
             }).eq('cabinet_id', cabinet.id).eq('question_id', question.id);
@@ -402,7 +402,7 @@ async function resendPendingCard(
     );
     if (sent.error) return { ok: false, error: sent.error, question_id: questionId };
     await admin.from('wb_restock_questions').update({
-        telegram_chat_id: reviewsChat,
+        telegram_chat_id: sent.chatId || reviewsChat,
         telegram_message_id: sent.messageId,
         error_text: null,
         updated_at: new Date().toISOString(),
@@ -465,7 +465,7 @@ async function sendTelegramCard(
     question: RestockQuestion,
     answer?: string,
     photoUrl?: string | null,
-): Promise<{ error: string | null; messageId: number | null }> {
+): Promise<{ error: string | null; messageId: number | null; chatId: string | null }> {
     const mention = ownerMention(OWNER);
     const text = answer
         ? formatAutoAnswerTelegramCard({
@@ -516,11 +516,11 @@ async function sendTelegramCard(
             }),
         });
         const data = await res.json().catch(() => ({} as Record<string, unknown>));
-        if (!res.ok) return { error: `HTTP ${res.status}`, messageId: null };
-        const messageId = Number((data as { result?: { message_id?: number } })?.result?.message_id);
-        return { error: null, messageId: Number.isFinite(messageId) ? messageId : null };
+        if (!res.ok) return { error: `HTTP ${res.status}`, messageId: null, chatId: null };
+        const meta = telegramSendMeta(data);
+        return { error: null, messageId: meta.messageId, chatId: meta.chatId };
     } catch (e) {
-        return { error: String(e), messageId: null };
+        return { error: String(e), messageId: null, chatId: null };
     }
 }
 
@@ -529,7 +529,7 @@ async function sendTelegramPhotoBytes(
     chatId: string,
     png: Uint8Array,
     caption: string,
-): Promise<{ error: string | null; messageId: number | null }> {
+): Promise<{ error: string | null; messageId: number | null; chatId: string | null }> {
     try {
         const form = new FormData();
         form.append('chat_id', chatId);
@@ -540,11 +540,11 @@ async function sendTelegramPhotoBytes(
             body: form,
         });
         const data = await res.json().catch(() => ({} as Record<string, unknown>));
-        if (!res.ok) return { error: `HTTP ${res.status}`, messageId: null };
-        const messageId = Number((data as { result?: { message_id?: number } })?.result?.message_id);
-        return { error: null, messageId: Number.isFinite(messageId) ? messageId : null };
+        if (!res.ok) return { error: `HTTP ${res.status}`, messageId: null, chatId: null };
+        const meta = telegramSendMeta(data);
+        return { error: null, messageId: meta.messageId, chatId: meta.chatId };
     } catch (e) {
-        return { error: String(e), messageId: null };
+        return { error: String(e), messageId: null, chatId: null };
     }
 }
 
@@ -553,7 +553,7 @@ async function sendTelegramPhoto(
     chatId: string,
     photoUrl: string,
     caption: string,
-): Promise<{ error: string | null; messageId: number | null }> {
+): Promise<{ error: string | null; messageId: number | null; chatId: string | null }> {
     try {
         const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
             method: 'POST',
@@ -565,12 +565,23 @@ async function sendTelegramPhoto(
             }),
         });
         const data = await res.json().catch(() => ({} as Record<string, unknown>));
-        if (!res.ok) return { error: `HTTP ${res.status}`, messageId: null };
-        const messageId = Number((data as { result?: { message_id?: number } })?.result?.message_id);
-        return { error: null, messageId: Number.isFinite(messageId) ? messageId : null };
+        if (!res.ok) return { error: `HTTP ${res.status}`, messageId: null, chatId: null };
+        const meta = telegramSendMeta(data);
+        return { error: null, messageId: meta.messageId, chatId: meta.chatId };
     } catch (e) {
-        return { error: String(e), messageId: null };
+        return { error: String(e), messageId: null, chatId: null };
     }
+}
+
+function telegramSendMeta(data: unknown): { messageId: number | null; chatId: string | null } {
+    const rec = data && typeof data === 'object' ? data as Record<string, unknown> : {};
+    const result = rec.result && typeof rec.result === 'object' ? rec.result as Record<string, unknown> : {};
+    const messageId = Number(result.message_id);
+    const chat = result.chat && typeof result.chat === 'object' ? result.chat as Record<string, unknown> : {};
+    return {
+        messageId: Number.isFinite(messageId) && messageId > 0 ? messageId : null,
+        chatId: chat.id == null || chat.id === '' ? null : String(chat.id),
+    };
 }
 
 const QUESTION_PAGE = 50;

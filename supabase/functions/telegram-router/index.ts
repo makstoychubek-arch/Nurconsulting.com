@@ -52,12 +52,6 @@ Deno.serve(async (req) => {
     const admin = createClient(supabaseUrl, serviceKey);
     const replyToken = tokenForBot(botId);
     const teamChat = getTelegramChatId('team');
-    if (isTeamChatId(msg.chatId, teamChat)) {
-        const { data: cabinets } = await admin.from('cabinets').select('id, name, wb_token');
-        const team = await replyTeamChat({ text: msg.text, cabinets: cabinets || [] });
-        if (team.text) await sendTelegram(replyToken, msg.chatId, team.text, msg.messageId);
-        return json({ ok: true, team: team.kind });
-    }
 
     const restock = await applyRestockTelegramReply(admin, update, {
         ownerUsername: OWNER,
@@ -69,8 +63,16 @@ Deno.serve(async (req) => {
             emoji,
         ).then(() => undefined),
     });
-    if (!restock.handled) return json({ ok: true, ignored: 'unknown_chat' });
-    return json({ ok: true, ...restock });
+    if (restock.handled) return json({ ok: true, ...restock });
+
+    if (isTeamChatId(msg.chatId, teamChat)) {
+        const { data: cabinets } = await admin.from('cabinets').select('id, name, wb_token');
+        const team = await replyTeamChat({ text: msg.text, cabinets: cabinets || [] });
+        if (team.text) await sendTelegram(replyToken, msg.chatId, team.text, msg.messageId);
+        return json({ ok: true, team: team.kind });
+    }
+
+    return json({ ok: true, ignored: 'unknown_chat' });
 });
 
 async function sendTelegram(token: string, chatId: string, text: string, replyTo?: number): Promise<void> {
