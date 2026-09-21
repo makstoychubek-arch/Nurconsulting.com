@@ -499,6 +499,14 @@ const RNP = (() => {
         return document.getElementById('cabinet-picker-label')?.textContent?.trim() || '';
     }
 
+    function _cabinetName() {
+        const hidden = document.getElementById('cabinet-name-header')?.textContent?.trim() || '';
+        const label = _cabinetLabel();
+        if (hidden && hidden !== 'Кабинет') return hidden;
+        if (label && label !== 'Кабинет') return label;
+        return hidden || label || '';
+    }
+
     // Falls back to a no-op-safe implementation if the host page's dom-morph
     // helper (dashboard.html) isn't loaded for some reason, so RNP never throws.
     function _domMorph() {
@@ -4187,6 +4195,35 @@ const RNP = (() => {
         _planCache = next;
     }
 
+    /** Лист план/факт: недели Excel начинаются с понедельника до 1-го (31.08)
+     *  и заканчиваются воскресеньем после конца месяца (04.10). Календарь РНП
+     *  держит только дни месяца — добираем края в кэш, не затирая остальное. */
+    async function _mergePlanFactRange(dateFrom, dateTo) {
+        if (!_cab || !_db || !dateFrom || !dateTo) return;
+        const snapCab = _cab;
+        const [dailyRows, planRows] = await Promise.all([
+            _fetchAllRows('rnp_daily_data', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'gte', column: 'date', value: dateFrom },
+                { op: 'lte', column: 'date', value: dateTo },
+            ]),
+            _fetchAllRows('rnp_plans', [
+                { op: 'eq', column: 'cabinet_id', value: _cab },
+                { op: 'gte', column: 'plan_date', value: dateFrom },
+                { op: 'lte', column: 'plan_date', value: dateTo },
+            ]),
+        ]);
+        if (snapCab !== _cab) return;
+        (dailyRows || []).forEach((r) => {
+            if (!_dataCache[r.nm_id]) _dataCache[r.nm_id] = {};
+            _dataCache[r.nm_id][r.date] = r;
+        });
+        (planRows || []).forEach((r) => {
+            if (!_planCache[r.nm_id]) _planCache[r.nm_id] = {};
+            _planCache[r.nm_id][r.plan_date] = { ...(_planCache[r.nm_id][r.plan_date] || {}), ...r };
+        });
+    }
+
     async function _loadRnpData() {
         const snapReq = _loadRequestId();
         const snapCab = _cab;
@@ -6654,30 +6691,55 @@ const RNP = (() => {
         if (window.RnpPlanFact) window.RnpPlanFact.close();
     }
 
-    function openPlanFact() {
-        if (!window.RnpPlanFact) return;
-        closeSettings();
+    function _planFactArticles() {
         const articles = [];
         _groupByCategory(_rnpVisibleArticles()).forEach(([, list]) => {
             list.forEach((a) => {
                 articles.push({ nm_id: a.nm_id, name: _sellerArticle(a) });
             });
         });
+        return articles;
+    }
+
+    function _planFactDaily(articles) {
         const daily = {};
-        articles.forEach((a) => {
+        (articles || []).forEach((a) => {
             const map = _dataCache[a.nm_id] || {};
             daily[a.nm_id] = {};
             Object.keys(map).forEach((d) => {
                 daily[a.nm_id][d] = _withFunnelOrders(map[d]);
             });
         });
+        return daily;
+    }
+
+    function _paintPlanFact() {
+        if (!window.RnpPlanFact) return;
+        const articles = _planFactArticles();
         window.RnpPlanFact.open({
             articles,
-            daily,
+            daily: _planFactDaily(articles),
             plans: _planCache,
             monthKey: _viewMonthKey(),
-            title: 'Общая РНП',
+            cabinetName: _cabinetName(),
         });
+    }
+
+    async function openPlanFact() {
+        if (!window.RnpPlanFact) return;
+        closeSettings();
+        const monthKey = _viewMonthKey();
+        const weeks = window.RnpPlanFact.weeksForMonth(monthKey);
+        const from = weeks[0] && weeks[0].start;
+        const to = weeks.length ? weeks[weeks.length - 1].end : '';
+        _paintPlanFact();
+        if (!from || !to || !_db || !_cab) return;
+        try {
+            await _mergePlanFactRange(from, to);
+        } catch (e) {
+            console.warn('[RNP] plan-fact range:', e && e.message);
+        }
+        _paintPlanFact();
     }
 
     async function openSettings(opts) {

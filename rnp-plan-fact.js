@@ -1,5 +1,5 @@
 /**
- * РНП «План/факт» — лист как в Excel «Общая РНП».
+ * РНП «План/факт» — лист как в Excel: Зевина «Общая РНП», База/Элиум «ПЛАНФАКТ».
  * Факт заказов = воронка WB (Корзина × Заказы%), не строки statistics-api.
  */
 (function (root) {
@@ -8,6 +8,87 @@
     var FILL_FACT = '#B6D7A8';
     var FILL_DARK = '#274E13';
     var FILL_TOTAL = '#D9EAD3';
+
+    var CATALOGS = {
+        baza: [
+            { nm_id: 771499220, name: 'Блузка-лапша-белый' },
+            { nm_id: 771571983, name: 'Блузка-лапша-черный' },
+            { nm_id: 771571982, name: 'Блузка-лапша-коричневый' },
+            { nm_id: 771571985, name: 'Блузка-лапша-бежевый' },
+            { nm_id: 771571984, name: 'Блузка-лапша-графит' },
+            { nm_id: 1240253079, name: 'Блузка_вырез_белый' },
+            { nm_id: 1240242858, name: 'Блузка_вырез_черный' },
+            { nm_id: 1240245305, name: 'Блузка_фонарь_белый' },
+            { nm_id: 1240248213, name: 'Блузка_фонарь_черный' },
+            { nm_id: 1544472467, name: 'Куртка-черный1' },
+        ],
+        elium: [
+            { nm_id: 851707556, name: 'Костюм-мужс-лето-черн' },
+            { nm_id: 851705871, name: 'Костюм-мужс-лето-граф' },
+            { nm_id: 851335094, name: 'Костюм-мужс-лето-беж' },
+            { nm_id: 1171792658, name: 'жл-темносиний' },
+            { nm_id: 1171758874, name: 'жл-бордо' },
+            { nm_id: 1171720253, name: 'жл-шоколад' },
+            { nm_id: 1150315613, name: 'жл-черный' },
+        ],
+    };
+    CATALOGS.ailin = CATALOGS.elium;
+
+    function cabinetKind(name) {
+        var n = String(name || '');
+        if (/zevina\s*2|зевин[аa]?\s*2/i.test(n)) return 'ailin';
+        if (/elium|элиум|айзада/i.test(n)) return 'elium';
+        if (/^baza$/i.test(n.trim()) || /бейшеев|\bbaza\b/i.test(n)) return 'baza';
+        if (/айлин|ailin/i.test(n) && !/уркунбаев/i.test(n)) return 'ailin';
+        if (/zevina|зевин|уркунбаев/i.test(n)) return 'zevina';
+        return 'other';
+    }
+
+    function sheetMeta(name) {
+        var kind = cabinetKind(name);
+        if (kind === 'zevina') return { kind: kind, title: 'Общая РНП', skuHeader: '' };
+        if (kind === 'elium') return { kind: kind, title: 'ПЛАНФАКТ', skuHeader: 'SKU' };
+        return { kind: kind, title: 'ПЛАНФАКТ', skuHeader: '' };
+    }
+
+    function catalogOverlap(articles, cat) {
+        if (!cat || !articles) return 0;
+        var ids = {};
+        articles.forEach(function (a) { ids[Number(a.nm_id)] = true; });
+        return cat.filter(function (row) { return ids[row.nm_id]; }).length;
+    }
+
+    function pickCatalog(articles) {
+        var bestKey = null, bestN = 0, key, n;
+        for (key in CATALOGS) {
+            if (!Object.prototype.hasOwnProperty.call(CATALOGS, key)) continue;
+            n = catalogOverlap(articles, CATALOGS[key]);
+            if (n > bestN) { bestN = n; bestKey = key; }
+        }
+        return bestN ? CATALOGS[bestKey] : null;
+    }
+
+    function applyCatalog(articles, kind) {
+        var list = articles || [];
+        var cat = (kind && CATALOGS[kind]) || pickCatalog(list);
+        if (!cat) return list.slice();
+        var byId = {};
+        list.forEach(function (a) { byId[Number(a.nm_id)] = a; });
+        var out = [];
+        var seen = {};
+        cat.forEach(function (row) {
+            var live = byId[row.nm_id];
+            if (!live) return;
+            seen[row.nm_id] = true;
+            out.push({ nm_id: row.nm_id, name: row.name || live.name });
+        });
+        list.forEach(function (a) {
+            var id = Number(a.nm_id);
+            if (seen[id]) return;
+            out.push({ nm_id: id, name: a.name });
+        });
+        return out;
+    }
 
     function num(v) {
         var n = Number(v);
@@ -131,9 +212,12 @@
     function build(opts) {
         var monthKey = (opts && opts.monthKey) || '';
         var weeks = weeksForMonth(monthKey);
-        var articles = (opts && opts.articles) || [];
+        var meta = sheetMeta((opts && opts.cabinetName) || '');
+        var articles = applyCatalog((opts && opts.articles) || [], meta.kind);
         var daily = (opts && opts.daily) || {};
         var plans = (opts && opts.plans) || {};
+        var title = (opts && opts.title) || meta.title;
+        var skuHeader = (opts && opts.skuHeader != null) ? opts.skuHeader : meta.skuHeader;
         var rows = articles.map(function (art) {
             var nm = Number(art.nm_id);
             var dayMap = daily[nm] || daily[String(nm)] || {};
@@ -182,7 +266,9 @@
         });
         return {
             monthKey: monthKey,
-            title: (opts && opts.title) || 'Общая РНП',
+            title: title,
+            skuHeader: skuHeader || '',
+            kind: meta.kind,
             weeks: weeks,
             rows: rows,
             totals: totals,
@@ -217,7 +303,7 @@
         h4 += th('pf-d', '', '');
         h5 += th('pf-a pf-total', '', '');
         h5 += th('pf-b pf-total', '', 'Артикул');
-        h5 += th('pf-c pf-total', '', '');
+        h5 += th('pf-c pf-total', '', esc(model.skuHeader || ''));
         h5 += th('pf-d pf-total', '', '');
         for (w = 0; w < model.weeks.length; w++) {
             var week = model.weeks[w];
@@ -322,6 +408,7 @@
         if (body) body.innerHTML = shellHtml(model);
         overlay.classList.add('is-open');
         document.body.classList.add('rnp-plan-fact-open');
+        document.removeEventListener('keydown', onKey);
         document.addEventListener('keydown', onKey);
         return model;
     }
@@ -339,6 +426,7 @@
         num: num, factOrders: factOrders, weeksForMonth: weeksForMonth,
         mondayOnOrBefore: mondayOnOrBefore, addDays: addDays, ddmm: ddmm,
         planDay: planDay, planSalesWeek: planSalesWeek, ratioSku: ratioSku,
+        cabinetKind: cabinetKind, sheetMeta: sheetMeta, applyCatalog: applyCatalog,
         build: build, tableHtml: tableHtml, shellHtml: shellHtml,
         open: open, close: close,
         FILL_PLAN: FILL_PLAN, FILL_FACT: FILL_FACT, FILL_DARK: FILL_DARK, FILL_TOTAL: FILL_TOTAL,
