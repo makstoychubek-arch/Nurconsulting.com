@@ -34,7 +34,7 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
     <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.cec2a9d76c.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.80afeae0c1.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -286,6 +286,7 @@
             align-items: stretch; padding: 18px 12px 14px;
         }
         .main-rail { margin-left: 220px; padding-top: 76px; transition: margin-left 0.12s ease, padding-top 0.12s ease; }
+        .main-rail:has(#tab-dashboard.active) { padding-top: 66px; }
         body.flyout-expanded .main-rail { margin-left: 440px; }
         .rail-logo {
             width: auto; height: auto; border: none; border-radius: 14px;
@@ -1192,23 +1193,64 @@
         }
         ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 160ms; }
         .dash-plan-wrap { margin-top: 0; }
+        .dash-plan-board {
+            display: grid;
+            grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+            gap: 10px;
+            align-items: stretch;
+        }
+        .dash-plan-left {
+            display: flex; flex-direction: column; gap: 10px; min-width: 0;
+        }
         .dash-plan-kicker {
             font-size: 10px; font-weight: 700; color: var(--text-muted);
             letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 8px;
         }
-        .dash-plan-cabs {
-            display: grid;
-            grid-template-columns: repeat(var(--dash-plan-n, 3), minmax(0, 1fr));
-            gap: 10px;
-        }
+        .dash-plan-cabs { display: block; }
         .dash-plan-card {
             display: block; width: 100%; text-align: left; cursor: pointer;
             background: var(--surface); border: none; border-radius: var(--radius-card);
             padding: 12px 14px; position: relative; overflow: hidden;
             font-family: var(--font-ui); color: var(--text-primary);
+            height: 100%;
         }
         .dash-plan-card:hover { background: var(--sel); }
-        .dash-plan-card.is-current { box-shadow: inset 0 0 0 1px var(--border); }
+        .dash-plan-card.is-current { box-shadow: none; }
+        .dash-cost-card {
+            background: var(--surface); border-radius: var(--radius-card);
+            padding: 12px 14px; min-height: 0;
+        }
+        .dash-cost-card .kpi-hero-label { margin-bottom: 6px; }
+        .dash-cost-card .kpi-hero-value { font-size: 18px; }
+        .dash-cost-card .kpi-hero-sub { margin-top: 4px; }
+        .dash-plan-skus {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            min-width: 0;
+        }
+        .dash-plan-skus-col {
+            background: var(--surface); border-radius: var(--radius-card);
+            padding: 10px 12px; min-width: 0;
+        }
+        .dash-plan-skus-kicker {
+            font-size: 10px; font-weight: 700; color: var(--text-muted);
+            letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 8px;
+        }
+        .dash-plan-skus-row {
+            display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+        }
+        .dash-plan-sku {
+            width: 36px; height: 48px; padding: 0; border: none; border-radius: 8px;
+            overflow: hidden; background: var(--sel); cursor: pointer; flex-shrink: 0;
+        }
+        .dash-plan-sku img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .dash-plan-sku.is-done { box-shadow: inset 0 0 0 1.5px var(--green); }
+        .dash-plan-sku.is-miss { opacity: 0.92; }
+        .dash-plan-skus-empty, .dash-plan-more {
+            font-size: 11px; color: var(--text-muted); font-weight: 600;
+        }
+        .dash-plan-more { padding-left: 2px; }
         .dash-plan-name {
             font-size: 11px; font-weight: 600; color: var(--text-muted);
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -4499,6 +4541,9 @@
             font-weight: 700;
         }
         .main-content { padding: 28px 32px !important; }
+        .main-content:has(#tab-dashboard.active) { padding: 4px 24px 16px !important; }
+        #tab-dashboard.space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px; }
+        .dash-finance-note:not(.show) { display: none !important; }
         .data-table th, .data-table td { padding: 12px 16px !important; font-weight: 400; }
         .data-table th { font-weight: 600; border-bottom: 1px solid rgba(0,0,0,0.06) !important; }
         [data-theme="neon"] .data-table th { border-bottom-color: var(--border) !important; }
@@ -5179,7 +5224,7 @@
             .main-content:has(#tab-dashboard.active) {
                 padding: 10px 8px 12px !important;
             }
-            #tab-dashboard.space-y-6 > :not([hidden]) ~ :not([hidden]) {
+            #tab-dashboard.space-y-4 > :not([hidden]) ~ :not([hidden]) {
                 margin-top: 10px;
             }
             #tab-dashboard .dash-kpi-hero {
@@ -5200,10 +5245,14 @@
                 text-overflow: ellipsis;
             }
             #tab-dashboard .kpi-hero-value { font-size: 13px; }
-            #tab-dashboard .dash-plan-cabs { gap: 8px; }
+            #tab-dashboard .dash-plan-board { grid-template-columns: 1fr; gap: 8px; }
+            #tab-dashboard .dash-plan-left { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+            #tab-dashboard .dash-plan-skus { grid-template-columns: 1fr 1fr; gap: 8px; }
             #tab-dashboard .dash-plan-card { padding: 10px 10px 8px; }
             #tab-dashboard .dash-plan-name { font-size: 10px; }
             #tab-dashboard .dash-plan-status b { font-size: 13px; }
+            #tab-dashboard .dash-cost-card { padding: 10px; }
+            #tab-dashboard .dash-plan-sku { width: 32px; height: 42px; }
             #tab-dashboard .kpi-hero-sub { font-size: 10px; margin-top: 2px; }
             #tab-dashboard .kpi-spark-wrap { height: 28px; margin-top: 8px; }
             #tab-dashboard .kpi-hero-trend { margin-top: 2px; font-size: 10px; }
@@ -5570,9 +5619,9 @@
                 <button type="button" class="space-empty-btn" id="onb-submit" onclick="submitOnboarding()">Подключить магазин</button>
             </div>
         </div>
-        <div id="tab-dashboard" class="tab-content active space-y-6">
-            <div id="dash-data-note" class="dash-finance-note"></div>
-            <div id="dash-finance-note" class="dash-finance-note"></div>
+        <div id="tab-dashboard" class="tab-content active space-y-4">
+            <div id="dash-data-note" class="dash-finance-note" hidden></div>
+            <div id="dash-finance-note" class="dash-finance-note" hidden></div>
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 dash-kpi-hero">
                 <div class="kpi-hero-card" data-tone="good">
                     <div class="kpi-hero-label">Чистая прибыль</div>
@@ -5604,8 +5653,17 @@
             </div>
 
             <div id="dash-plan-wrap" class="dash-plan-wrap" hidden>
-                <div class="dash-plan-kicker">План заказов · все кабинеты</div>
-                <div id="dash-plan-cabs" class="dash-plan-cabs"></div>
+                <div class="dash-plan-board">
+                    <div class="dash-plan-left">
+                        <div id="dash-plan-cabs" class="dash-plan-cabs"></div>
+                        <div class="dash-cost-card" data-tone="bad">
+                            <div class="kpi-hero-label">Штрафы</div>
+                            <div class="kpi-hero-value" data-metric="penalty" id="m-dash-penalty">—</div>
+                            <div class="kpi-hero-sub">Удержания <span data-metric="deduction" id="m-dash-deduction">—</span></div>
+                        </div>
+                    </div>
+                    <div id="dash-plan-skus" class="dash-plan-skus"></div>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 dash-charts">
@@ -7087,13 +7145,13 @@
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.cd92fbafd4.min.js"></script>
 <script src="/dist/rnp-plan-fact.57df3d6622.min.js"></script>
-<script src="/dist/wb-formulas.11317eb115.min.js"></script>
+<script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.210aaba4a1.min.js"></script>
+<script src="/dist/ads-command-center.eb25a9201f.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
-<script src="/dist/dash-cabinet-plans.3f357b3897.min.js"></script>
+<script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -10929,7 +10987,7 @@
             let cabinets = cabinetListCache;
             if (!cabinets?.length) {
                 const { data } = await supabase.from('cabinets').select('id, name').order('name');
-                cabinets = data || [];
+                cabinets = visibleCabinets(data || []);
             }
             if (!currentCabinetId) {
                 tbody.innerHTML = `<tr><td colspan="${ggColSpan()}" class="text-center py-10" style="color:var(--text-muted)">Выберите кабинет сверху</td></tr>`;
@@ -11338,49 +11396,67 @@
     async function loadDashCabinetPlans() {
         const wrap = document.getElementById('dash-plan-wrap');
         const root = document.getElementById('dash-plan-cabs');
+        const skuRoot = document.getElementById('dash-plan-skus');
         if (!wrap || !root || !window.DashCabinetPlans) return;
-        const cabs = cabinetListCache || [];
-        if (!cabs.length) {
+        const cab = (cabinetListCache || []).find(c => String(c.id) === String(currentCabinetId));
+        if (!cab || (typeof isHiddenCabinet === 'function' && isHiddenCabinet(cab))) {
             wrap.hidden = true;
             root.innerHTML = '';
+            if (skuRoot) skuRoot.innerHTML = '';
             return;
         }
         const req = ++_dashPlanReq;
         const { from, to } = getActiveDateRange();
-        let rows = [];
+        const cabModel = { id: cab.id, name: cabinetDisplayName(cab.name) };
+        let row = { cabinet_id: cab.id, plan_orders: 0, orders: 0, has_plan: false };
+        let skus = [];
         try {
-            const rpc = await supabase.rpc('dashboard_plan_cabinets', { p_from: from, p_to: to });
-            if (!rpc.error && Array.isArray(rpc.data)) {
-                rows = rpc.data;
+            const [cabRpc, skuRpc] = await Promise.all([
+                supabase.rpc('dashboard_plan_cabinets', { p_from: from, p_to: to }),
+                supabase.rpc('dashboard_plan_skus', { p_cabinet_id: cab.id, p_from: from, p_to: to }),
+            ]);
+            if (!cabRpc.error && Array.isArray(cabRpc.data)) {
+                const hit = cabRpc.data.find(r => String(r.cabinet_id) === String(cab.id));
+                if (hit) row = hit;
+            }
+            if (!skuRpc.error && Array.isArray(skuRpc.data)) {
+                skus = DashCabinetPlans.fromSkuRpc(skuRpc.data);
             } else {
-                if (rpc.error) console.warn('[dash-plan] rpc', rpc.error.message);
-                const ids = cabs.map(c => c.id);
-                const [plans, daily] = await Promise.all([
+                if (skuRpc.error) console.warn('[dash-plan] sku rpc', skuRpc.error.message);
+                const [plans, daily, arts] = await Promise.all([
                     fetchAllRows('rnp_plans', [
-                        { op: 'in', column: 'cabinet_id', value: ids },
+                        { op: 'eq', column: 'cabinet_id', value: cab.id },
                         { op: 'gte', column: 'plan_date', value: from },
                         { op: 'lte', column: 'plan_date', value: to },
-                    ], 'cabinet_id,planned_orders,planned_sales'),
+                    ], 'nm_id,planned_orders,planned_sales'),
                     fetchAllRows('rnp_daily_data', [
-                        { op: 'in', column: 'cabinet_id', value: ids },
+                        { op: 'eq', column: 'cabinet_id', value: cab.id },
                         { op: 'gte', column: 'date', value: from },
                         { op: 'lte', column: 'date', value: to },
-                    ], 'cabinet_id,orders_count,sales_count,basket_count,funnel_order_conv'),
+                    ], 'nm_id,orders_count,sales_count,basket_count,funnel_order_conv'),
+                    fetchAllRows('rnp_articles', [
+                        { op: 'eq', column: 'cabinet_id', value: cab.id },
+                    ], 'nm_id,name,photo_url,manual_data,is_active'),
                 ]);
-                rows = DashCabinetPlans.fromRows(ids, plans, daily);
+                skus = DashCabinetPlans.skuModels(arts, plans, daily);
+                if (cabRpc.error) {
+                    const agg = DashCabinetPlans.fromRows([cab.id], plans.map(p => ({ ...p, cabinet_id: cab.id })), daily.map(d => ({ ...d, cabinet_id: cab.id })));
+                    if (agg[0]) row = agg[0];
+                }
             }
         } catch (e) {
             console.warn('[dash-plan]', e && e.message);
         }
         if (req !== _dashPlanReq) return;
-        const models = DashCabinetPlans.cards(
-            cabs.map(c => ({ id: c.id, name: cabinetDisplayName(c.name) })),
-            rows,
-            currentCabinetId
-        );
-        wrap.hidden = !models.length;
-        root.style.setProperty('--dash-plan-n', String(Math.min(3, models.length) || 1));
-        root.innerHTML = models.map(m => DashCabinetPlans.html(m, escapeHtml)).join('');
+        if ((!row.plan_orders || !row.has_plan) && skus.length) {
+            row.plan_orders = skus.reduce((s, x) => s + Number(x.plan_orders || 0), 0);
+            row.orders = skus.reduce((s, x) => s + Number(x.orders || 0), 0);
+            row.has_plan = row.plan_orders > 0;
+        }
+        const model = DashCabinetPlans.cardModel(cabModel, row, cab.id);
+        root.innerHTML = DashCabinetPlans.html(model, escapeHtml);
+        if (skuRoot) skuRoot.innerHTML = DashCabinetPlans.skusHtml(DashCabinetPlans.splitSkus(skus), escapeHtml);
+        wrap.hidden = false;
     }
     window.loadDashCabinetPlans = loadDashCabinetPlans;
 
@@ -11389,6 +11465,15 @@
         showTab('rnp');
     }
     window.openDashCabinetPlan = openDashCabinetPlan;
+
+    function openDashPlanSku(nmId) {
+        showTab('rnp');
+        const n = Number(nmId);
+        if (n && window.RNP && typeof window.RNP.pick === 'function') {
+            Promise.resolve(window.RNP.pick(n)).catch(() => {});
+        }
+    }
+    window.openDashPlanSku = openDashPlanSku;
 
     if (!window._dashPlanEventsBound) {
         window._dashPlanEventsBound = true;
@@ -11586,6 +11671,18 @@
         return raw;
     }
 
+    function isHiddenCabinet(cab) {
+        const raw = String(cab && typeof cab === 'object' ? (cab.name || cab.cabinet_name || '') : (cab || '')).trim();
+        if (!raw) return false;
+        return /zevina\s*2|зевин[аa]?\s*2|айлин\s*стил|ос+оо.{0,20}айлин|ailin\s*style/i.test(raw);
+    }
+
+    function visibleCabinets(list) {
+        return (Array.isArray(list) ? list : []).filter((c) => !isHiddenCabinet(c));
+    }
+    window.isHiddenCabinet = isHiddenCabinet;
+    window.visibleCabinets = visibleCabinets;
+
     function updateCabinetPickerUI(name) {
         const label = document.getElementById('cabinet-picker-label');
         const n = cabinetDisplayName(name);
@@ -11596,10 +11693,11 @@
 
     let cabinetListCache = [];
     function renderCabinetDropdown(data) {
-        cabinetListCache = data || [];
+        cabinetListCache = visibleCabinets(data || []);
         const menu = document.getElementById('cabinet-dropdown-menu');
         const selectHeader = document.getElementById('cabinet-select-header');
         if (!menu) return;
+        data = cabinetListCache;
         if (!data?.length) {
             menu.innerHTML = '<div class="text-center py-4 text-xs" style="color:var(--text-muted)">Нет кабинетов</div>';
             if (selectHeader) selectHeader.innerHTML = '<option>Нет кабинетов</option>';
@@ -11647,7 +11745,8 @@
             .order('name');
 
         cabinetsLoaded = true;
-        if (!data || data.length === 0) {
+        const visible = visibleCabinets(data || []);
+        if (!visible.length) {
             hasUserCabinets = false;
             currentCabinetId = null;
             try { localStorage.removeItem('selected_cabinet_id'); } catch (_) {}
@@ -11657,14 +11756,14 @@
         }
 
         hasUserCabinets = true;
-        const ids = data.map(c => c.id);
+        const ids = visible.map(c => c.id);
         if (!currentCabinetId || !ids.includes(currentCabinetId)) {
-            currentCabinetId = data[0].id;
+            currentCabinetId = visible[0].id;
             localStorage.setItem('selected_cabinet_id', currentCabinetId);
         }
 
-        renderCabinetDropdown(data);
-        const sel = data.find(c => c.id === currentCabinetId);
+        renderCabinetDropdown(visible);
+        const sel = visible.find(c => c.id === currentCabinetId);
         if (sel) updateCabinetPickerUI(sel.name);
 
         const selectHeader = document.getElementById('cabinet-select-header');
@@ -12503,6 +12602,7 @@
         if (!el) return;
         el.textContent = text || '';
         el.classList.toggle('show', !!text);
+        el.hidden = !text;
     }
 
     function showDataNote(text) {
@@ -12510,6 +12610,7 @@
         if (!el) return;
         el.textContent = text || '';
         el.classList.toggle('show', !!text);
+        el.hidden = !text;
     }
 
     const DAY_MS = 86400000;
@@ -14818,8 +14919,9 @@
         const container = document.getElementById('cabinets-api-list');
         const { data, error } = await supabase.from('cabinets').select('id, name, wb_token').order('name');
         if (error) { container.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--red)">Ошибка загрузки кабинетов: ${escapeHtml(error.message)}</div>`; return; }
-        if (!data || data.length === 0) { container.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Кабинетов нет</div>'; return; }
-        container.innerHTML = `<div class="ui-list">` + data.map(c => {
+        const rows = visibleCabinets(data || []);
+        if (!rows.length) { container.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Кабинетов нет</div>'; return; }
+        container.innerHTML = `<div class="ui-list">` + rows.map(c => {
             const hasToken = c.wb_token && c.wb_token.length > 50;
             return `
             <div>
@@ -14968,7 +15070,8 @@
         if (listEl) listEl.innerHTML = '<div class="text-center py-8 text-sm" style="color:var(--text-muted)">Загрузка ботов...</div>';
         try {
             const { data: bots } = await supabase.from('telegram_bots').select('*').order('kind').order('title');
-            const { data: cabinets } = await supabase.from('cabinets').select('id, name').order('name');
+            const { data: cabinetsRaw } = await supabase.from('cabinets').select('id, name').order('name');
+            const cabinets = visibleCabinets(cabinetsRaw || []);
             const { data: mutes } = await supabase.from('telegram_channel_mutes').select('cabinet_id, channel, muted');
             let live = { bots: bots || [], channels: {}, cabinets: cabinets || [], mutes: mutes || [] };
             if (isSuperAdmin) {
@@ -14986,7 +15089,7 @@
             }
             _tgBotsState = {
                 bots: live.bots && live.bots.length ? live.bots : (bots || []),
-                cabinets: live.cabinets && live.cabinets.length ? live.cabinets : (cabinets || []),
+                cabinets: visibleCabinets(live.cabinets && live.cabinets.length ? live.cabinets : (cabinets || [])),
                 mutes: live.mutes || mutes || [],
                 channels: live.channels || {},
                 activeChannel: _tgBotsState.activeChannel || 'sales',
@@ -15121,11 +15224,12 @@
             el.innerHTML = `<div class="text-center py-6 text-sm" style="color:var(--red)">${escapeHtml(error.message)}</div>`;
             return;
         }
-        if (!data || !data.length) {
+        const rows = visibleCabinets(data || []);
+        if (!rows.length) {
             el.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Сначала добавьте кабинет в Настройки → Кабинеты</div>';
             return;
         }
-        el.innerHTML = `<div class="ui-list">` + data.map(c => {
+        el.innerHTML = `<div class="ui-list">` + rows.map(c => {
             const has = !!(c.ozon_client_id && c.ozon_api_key);
             return `<div>
                 <div class="ui-list-row">

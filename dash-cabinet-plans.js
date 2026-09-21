@@ -1,6 +1,6 @@
 /**
- * План заказов по всем кабинетам для дашборда.
- * Тот же процент, что в РНП и Excel «План/факт»: факт воронки / planned_orders.
+ * План заказов текущего кабинета на дашборде.
+ * Факт = воронка WB (Корзина × Заказы%), как в РНП / Excel «План/факт».
  */
 (function (root) {
     function num(v) {
@@ -12,13 +12,14 @@
         return Number(n || 0).toLocaleString('ru-RU');
     }
 
+    function funnelQty(r) {
+        const cart = num(r && r.basket_count);
+        const conv = num(r && r.funnel_order_conv);
+        if (cart > 0 && conv > 0) return Math.round(cart * conv / 100);
+        return num(r && r.orders_count);
+    }
+
     function fromRows(ids, plans, daily) {
-        function funnelQty(r) {
-            const cart = num(r && r.basket_count);
-            const conv = num(r && r.funnel_order_conv);
-            if (cart > 0 && conv > 0) return Math.round(cart * conv / 100);
-            return num(r && r.orders_count);
-        }
         const by = {};
         (ids || []).forEach((id) => {
             by[id] = { cabinet_id: id, plan_orders: 0, plan_sales: 0, orders: 0, sales: 0, has_plan: false };
@@ -97,7 +98,123 @@
             '</button>';
     }
 
-    const api = { num: num, fmtInt: fmtInt, fromRows: fromRows, cardModel: cardModel, cards: cards, html: html };
+    function skuName(art) {
+        const md = art && art.manual_data;
+        const sa = md && (md.seller_article || md.sa_name);
+        if (sa && String(sa).trim()) return String(sa).trim();
+        const name = String((art && art.name) || '').trim();
+        if (name && !/^артикул\s+\d+$/i.test(name)) return name;
+        return String((art && art.nm_id) || '');
+    }
+
+    function basketHost(vol) {
+        const map = [
+            [0, 143, 1], [144, 287, 2], [288, 431, 3], [432, 719, 4],
+            [720, 1007, 5], [1008, 1061, 6], [1062, 1115, 7], [1116, 1169, 8],
+            [1170, 1313, 9], [1314, 1601, 10], [1602, 1655, 11], [1656, 1919, 12],
+            [1920, 2045, 13], [2046, 2189, 14], [2190, 2405, 15],
+        ];
+        const found = map.find(function (row) { return vol >= row[0] && vol <= row[1]; });
+        return found ? found[2] : 16;
+    }
+
+    function wbPhotoUrl(nmId) {
+        const n = Number(nmId);
+        if (!n) return '';
+        const vol = Math.floor(n / 100000);
+        const part = Math.floor(n / 1000);
+        const host = String(basketHost(vol)).padStart(2, '0');
+        return 'https://basket-' + host + '.wbbasket.ru/vol' + vol + '/part' + part + '/' + n + '/images/c246x328/1.webp';
+    }
+
+    function photoUrl(nmId, stored) {
+        const s = String(stored || '').trim();
+        if (/^https?:\/\//i.test(s) && /\/\d{6,}\/images\//.test(s)) return s;
+        return wbPhotoUrl(nmId);
+    }
+
+    function skuModels(arts, plans, daily) {
+        const by = {};
+        (arts || []).forEach(function (a) {
+            const id = Number(a.nm_id);
+            if (!id) return;
+            by[id] = { nm_id: id, name: skuName(a), photo_url: a.photo_url || '', plan_orders: 0, orders: 0 };
+        });
+        (plans || []).forEach(function (r) {
+            const id = Number(r.nm_id);
+            if (!id) return;
+            const b = by[id] || (by[id] = { nm_id: id, name: String(id), photo_url: '', plan_orders: 0, orders: 0 });
+            b.plan_orders += num(r.planned_orders);
+        });
+        (daily || []).forEach(function (r) {
+            const id = Number(r.nm_id);
+            if (!by[id]) return;
+            by[id].orders += funnelQty(r);
+        });
+        return Object.values(by).filter(function (s) { return s.plan_orders > 0; })
+            .sort(function (a, b) { return (b.orders / b.plan_orders) - (a.orders / a.plan_orders); });
+    }
+
+    function fromSkuRpc(rows) {
+        return (rows || []).map(function (r) {
+            return {
+                nm_id: Number(r.nm_id),
+                name: r.name || String(r.nm_id || ''),
+                photo_url: r.photo_url || '',
+                plan_orders: num(r.plan_orders),
+                orders: num(r.orders),
+            };
+        }).filter(function (s) { return s.nm_id && s.plan_orders > 0; });
+    }
+
+    function splitSkus(list) {
+        const done = [];
+        const miss = [];
+        (list || []).forEach(function (s) {
+            if (num(s.orders) >= num(s.plan_orders)) done.push(s);
+            else miss.push(s);
+        });
+        return { done: done, miss: miss };
+    }
+
+    function skuBtn(s, esc) {
+        const safe = typeof esc === 'function' ? esc : function (v) { return String(v == null ? '' : v); };
+        const done = num(s.orders) >= num(s.plan_orders);
+        const url = photoUrl(s.nm_id, s.photo_url);
+        const title = safe(s.name) + ' · ' + fmtInt(s.orders) + ' из ' + fmtInt(s.plan_orders);
+        return '<button type="button" class="dash-plan-sku' + (done ? ' is-done' : ' is-miss') +
+            '" title="' + title + '" onclick="openDashPlanSku(' + Number(s.nm_id) + ')">' +
+            (url ? '<img src="' + safe(url) + '" alt="" loading="lazy" onerror="this.remove()">' : '') +
+            '</button>';
+    }
+
+    function skusColHtml(title, list, esc) {
+        const safe = typeof esc === 'function' ? esc : function (v) { return String(v == null ? '' : v); };
+        const max = 16;
+        const shown = (list || []).slice(0, max);
+        const more = (list || []).length - shown.length;
+        const body = shown.length
+            ? shown.map(function (s) { return skuBtn(s, esc); }).join('')
+            : '<span class="dash-plan-skus-empty">Нет</span>';
+        return '<div class="dash-plan-skus-col">' +
+            '<div class="dash-plan-skus-kicker">' + safe(title) +
+            ((list || []).length ? ' · ' + (list || []).length : '') + '</div>' +
+            '<div class="dash-plan-skus-row">' + body +
+            (more > 0 ? '<span class="dash-plan-more">+' + more + '</span>' : '') +
+            '</div></div>';
+    }
+
+    function skusHtml(groups, esc) {
+        return skusColHtml('Выполнили план', (groups && groups.done) || [], esc)
+            + skusColHtml('Не добрали', (groups && groups.miss) || [], esc);
+    }
+
+    const api = {
+        num: num, fmtInt: fmtInt, funnelQty: funnelQty, fromRows: fromRows,
+        cardModel: cardModel, cards: cards, html: html,
+        skuName: skuName, photoUrl: photoUrl, skuModels: skuModels,
+        fromSkuRpc: fromSkuRpc, splitSkus: splitSkus, skusHtml: skusHtml,
+    };
     root.DashCabinetPlans = api;
     if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -1422,7 +1422,13 @@
         const rank = extendRangeForRanking(range, now);
         const cabs = await safeRows('cabinets', cab ? [{ op: 'eq', column: 'id', value: cab }] : [], 'id, name, adv_token_valid, adv_token_secret_id, adv_daily_budget_cap');
         if (cab !== state.filterCabinetId) return null;
-        const cabinets = (cabs || []).filter((c) => !cab || c.id === cab);
+        const cabinets = (cabs || []).filter((c) => {
+            if (cab && c.id !== cab) return false;
+            try {
+                if (typeof window !== 'undefined' && typeof window.isHiddenCabinet === 'function' && window.isHiddenCabinet(c)) return false;
+            } catch (_) {}
+            return true;
+        });
         const ids = cabinets.map((c) => c.id);
         const [legacyCampaigns, legacyStats, v2Campaigns] = ids.length ? await Promise.all([
             safeRows('advertising_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
