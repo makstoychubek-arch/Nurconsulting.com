@@ -241,10 +241,12 @@ assert.ok(html.indexOf('id="new-test-form"') > html.indexOf('id="tab-rnp-setting
     'A/B create overlay lives outside the A/B tab so the tab overflow cannot clip it');
 assert.ok(/id="ab-report-modal"[^>]*rnp-settings-overlay/.test(html) && /id="ab-edit-modal"[^>]*rnp-settings-overlay/.test(html),
     'A/B report and edit use the same overlay as RNP settings');
-assert.ok(html.includes('rnp-settings-overlay::before') && html.includes('mask-image') && html.includes('backdrop-filter: blur(22px)'),
-    'settings overlay fades like iOS so the site logo stays visible at the edges');
+assert.ok(html.includes('translateY(-14px)') && html.includes('backdrop-filter: blur(22px) saturate(180%)'),
+    'modals drop in from the top with Apple glass dim+blur');
+assert.ok(!html.includes('rnp-settings-overlay::before') && !html.includes('padding: 72px 24px 28px'),
+    'overlays cover the page from the top like plan/fact, not a faded hole around the logo');
 assert.ok(!/\.rnp-settings-overlay\s*\{[^}]*background:\s*var\(--bg\)/.test(html),
-    'overlay is not a solid page fill that hides the sidebar logo');
+    'overlay uses a dim glass wash, not a solid page fill');
 assert.ok(html.includes('id="ab-campaign-search"') && html.includes('ab-campaign-name') && html.includes('ab-campaign-id'),
     'A/B campaign picker shows name + id and can search «тест стр»');
 assert.ok(html.includes('id="ab-min-impressions"') && html.includes('value="2000"'),
@@ -469,7 +471,7 @@ assert.ok(
     'dark theme must define --sel so KPI chips are not leftover #EDEDED'
 );
 assert.ok(
-    html.includes('#modal-box { border: none !important; background: var(--surface-solid) !important;') &&
+    html.includes('#modal-box { border: 1px solid rgba(255,255,255,0.45) !important; background: var(--surface-solid) !important;') &&
     html.includes('#date-picker { border: 1px solid var(--border) !important; background: var(--surface-solid) !important;') &&
     html.includes('.abtest-card { border: 1px solid var(--border) !important; box-shadow: none !important; background: var(--surface) !important;'),
     'modals, date picker and A/B cards follow the theme surface, not hardcoded white'
@@ -1533,6 +1535,8 @@ assert.ok(html.includes('id="adv-subtab-autobidder"') && html.includes("from('au
     'legacy Автобиддер tab stays wired to autobidder_rules_legacy_mvp');
 assert.ok(html.includes('id="autobidder-modal"') && html.includes('function openAutobidderModal'),
     'campaign row must open the autobidder rule modal');
+assert.ok(html.includes('class="nr-glass-dialog"') && html.includes('id="supply-detail-modal"'),
+    'autobidder and supply use the same glass dialog as the rest of the site');
 assert.ok(html.includes('function saveAutobidderRule') && html.includes("from('autobidder_rules_legacy_mvp')"),
     'autobidder modal must persist a rule to autobidder_rules_legacy_mvp');
 assert.ok(html.includes('AUTOBIDDER_RUN_URL') && html.includes('function runAutobidderNow'),
@@ -1559,6 +1563,8 @@ assert.ok(html.includes('@keyframes nr-dialog-in')
     'site modals must animate in instead of appearing instantly');
 assert.ok(html.includes('prefers-reduced-motion'),
     'modal animation must respect reduced motion');
+assert.ok(html.includes('function mountNrGlass') && html.includes('#cluster-overlay.rnp-settings-overlay'),
+    'cluster and settings overlays mount on body and cover the page like plan/fact');
 assert.ok(!html.includes('adv-camp-kw-row-'),
     'old inline phrase row must be gone so the modal is the only cluster view');
 // Никакого перерисовывания на каждый символ и рендера всех строк сразу.
