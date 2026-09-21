@@ -2185,17 +2185,19 @@
             border: 1px solid #cfe4c7; padding: 1px 3px; text-align: center;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
             height: 18px; box-sizing: border-box;
+            color: #000;
         }
         .pf-sheet .pf-a { position: sticky; left: 0; z-index: 2; width: 42px; min-width: 42px; background: #fff; }
         .pf-sheet .pf-b { position: sticky; left: 42px; z-index: 2; width: 190px; min-width: 190px; text-align: left; background: #fff; }
         .pf-sheet .pf-c { position: sticky; left: 232px; z-index: 2; width: 72px; min-width: 72px; font-size: 7px; background: #fff; }
         .pf-sheet .pf-d { width: 28px; min-width: 28px; }
         .pf-sheet .pf-day { width: 38px; min-width: 38px; background: #b6d7a8; }
-        .pf-sheet tbody .pf-day { background: #fff; }
-        .pf-sheet .pf-plan { width: 52px; min-width: 52px; background: #93c47d; font-weight: 700; }
-        .pf-sheet .pf-fact, .pf-sheet .pf-fact-h { width: 48px; min-width: 48px; background: #b6d7a8; }
-        .pf-sheet .pf-dark { background: #274e13; color: #fff; font-weight: 700; }
-        .pf-sheet .pf-total { background: #d9ead3; font-weight: 700; }
+        .pf-sheet tbody .pf-day { background: #fff; color: #000; }
+        .pf-sheet .pf-plan { width: 52px; min-width: 52px; background: #93c47d; font-weight: 700; color: #000; }
+        .pf-sheet .pf-plan-set { background: #274e13 !important; color: #fff !important; }
+        .pf-sheet .pf-fact, .pf-sheet .pf-fact-h { width: 48px; min-width: 48px; background: #b6d7a8; color: #000; }
+        .pf-sheet .pf-dark { background: #274e13 !important; color: #fff !important; font-weight: 700; }
+        .pf-sheet .pf-total { background: #d9ead3; font-weight: 700; color: #000; }
         .pf-sheet .pf-title {
             font-size: 22px; font-weight: 700; text-align: left; overflow: visible;
             font-family: Roboto, Arial, sans-serif;
@@ -3399,13 +3401,13 @@
             background: var(--accent-soft);
             color: var(--accent);
         }
-        .rnp-sheet-table .rnp-th-total { background: var(--accent-soft) !important; color: var(--accent); font-weight: 800; }
+        .rnp-sheet-table .rnp-th-total { background: #d9ead3 !important; color: #274e13; font-weight: 800; }
         .rnp-sheet-table .rnp-th-date { font-size: 8px; font-weight: 600; padding: 1px 2px; }
         .rnp-sheet-table .rnp-th-date.today { color: var(--accent); font-weight: 800; border: none; background: var(--accent-soft); }
         .rnp-sheet-table .rnp-th-dow { font-size: 7px; font-weight: 400; color: var(--text-muted); }
         .rnp-sheet-table .rnp-metric-bold { font-weight: 600; color: var(--text-primary); }
         .rnp-sheet-table .rnp-metric-hero { font-weight: 700; font-size: 10px; color: var(--accent); }
-        .rnp-sheet-table .rnp-cell-total { background: var(--accent-soft) !important; font-weight: 700; color: var(--accent); }
+        .rnp-sheet-table .rnp-cell-total { background: #d9ead3 !important; font-weight: 700; color: #274e13; }
         .rnp-sheet-table .rnp-col-sticky {
             position: sticky;
             background-clip: padding-box;
@@ -3423,21 +3425,21 @@
         }
         .rnp-sheet-table tbody .rnp-cell-week.rnp-col-sticky {
             background: var(--surface-solid) !important;
-            background-image: linear-gradient(rgba(99,102,241,0.06), rgba(99,102,241,0.06)) !important;
+            background-image: linear-gradient(rgba(147, 196, 125, 0.22), rgba(147, 196, 125, 0.22)) !important;
         }
         .rnp-sheet-table tbody .rnp-cell-total.rnp-col-sticky {
             background: var(--surface-solid) !important;
-            background-image: linear-gradient(var(--accent-soft), var(--accent-soft)) !important;
+            background-image: linear-gradient(rgba(217, 234, 211, 0.7), rgba(217, 234, 211, 0.7)) !important;
         }
         .rnp-sheet-table .rnp-col-sticky-total {
             border-right: none !important;
         }
         .rnp-sheet-table thead .rnp-col-sticky-total {
             z-index: 41 !important;
-            background-image: linear-gradient(var(--accent-soft), var(--accent-soft)) !important;
+            background-image: linear-gradient(rgba(217, 234, 211, 0.85), rgba(217, 234, 211, 0.85)) !important;
         }
         .rnp-sheet-table tbody .rnp-col-sticky-total { z-index: 12; }
-        .rnp-sheet-table .rnp-cell-hero { font-weight: 700 !important; color: var(--accent) !important; }
+        .rnp-sheet-table .rnp-cell-hero { font-weight: 700 !important; color: inherit; }
         .rnp-sheet-table .rnp-cell-hero .rnp-num--m { font-size: 5.5px !important; }
         .rnp-sheet-table .rnp-cell-competitor { background: rgba(245, 158, 11, 0.08) !important; }
         .rnp-sheet-table .rnp-gs-section-title { font-weight: 700; font-size: 9px; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; }
@@ -3478,7 +3480,7 @@
         .rnp-sheet-table .rnp-th-day.today { color: var(--accent); font-weight: 800; border: none; background: var(--accent-soft); }
         .rnp-sheet-table .rnp-data-col { min-width: var(--rnp-day-w); max-width: var(--rnp-day-w); width: var(--rnp-day-w); font-size: 7px; padding: 1px 0; }
         .rnp-sheet-table .rnp-section-hdr td { cursor: pointer; }
-        .rnp-sheet-table .rnp-cell-week { background: rgba(99,102,241,0.05); }
+        .rnp-sheet-table .rnp-cell-week { background: rgba(147, 196, 125, 0.18); }
         .rnp-sheet-table .rnp-cell-today { border: none !important; background: var(--accent-soft) !important; }
         /* Preliminary/live indicator for today's orders_count cell (see rnp-module.js _renderSection) */
         .rnp-sheet-table .rnp-cell-live { border-bottom: none !important; position: relative; }
@@ -3528,27 +3530,27 @@
         }
         /* Bar under ЗАКАЗЫ / Продажи vs plan — no extra DOM inside the td. */
         .rnp-sheet-table td.rnp-cell-plan-hit--hit {
-            box-shadow: inset 0 -3px 0 var(--green);
-            background: rgba(16,185,129,0.16);
-            color: var(--green);
+            box-shadow: inset 0 -3px 0 #38761d;
+            background: #93c47d;
+            color: #274e13;
             font-weight: 700;
         }
         .rnp-sheet-table td.rnp-cell-plan-hit--mid {
-            box-shadow: inset 0 -3px 0 var(--amber);
-            background: rgba(245,158,11,0.16);
-            color: var(--amber);
+            box-shadow: inset 0 -3px 0 #6aa84f;
+            background: #b6d7a8;
+            color: #274e13;
             font-weight: 700;
         }
         .rnp-sheet-table td.rnp-cell-plan-hit--miss {
-            box-shadow: inset 0 -3px 0 var(--red);
-            background: rgba(239,68,68,0.12);
-            color: var(--red);
+            box-shadow: inset 0 -3px 0 #93c47d;
+            background: #d9ead3;
+            color: #38761d;
             font-weight: 700;
         }
         .rnp-sheet-table .rnp-cell-plan.rnp-cell-plan--set,
         .rnp-sheet-table tr.rnp-row-plan .rnp-cell-plan.rnp-cell-plan--set {
-            background: rgba(234, 179, 8, 0.38) !important;
-            color: var(--text-primary);
+            background: #93c47d !important;
+            color: #274e13;
             font-weight: 700;
         }
         .rnp-sheet-table tr.rnp-row-plan .rnp-cell-plan--set .rnp-plan-input {
@@ -7313,8 +7315,8 @@
     </div>
 
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.0c12e93a9f.min.js"></script>
-<script src="/dist/rnp-plan-fact.7ca5404f72.min.js"></script>
+<script src="/dist/rnp-module.2fe208784e.min.js"></script>
+<script src="/dist/rnp-plan-fact.5821befe5d.min.js"></script>
 <script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.bb330c2db3.min.js"></script>
