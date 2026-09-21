@@ -1496,18 +1496,18 @@ assert.ok(html.includes('id="ads-hq-schedule"') && html.includes('На врем�
 
 assert.ok(html.includes('data-adv-view="autobidder"') && html.includes('id="adv-subtab-autobidder"'),
     'advertising detail must have an Автобиддер tab');
-assert.ok(html.includes('id="adv-view-ads"') && html.includes('id="ads-hq-tbody"') && html.includes('Активные полки'),
+assert.ok(html.includes('id="adv-view-ads"') && html.includes('id="ads-hq-tbody"') && html.includes('Сумма заказов'),
     'РК opens on the shelves list, not cabinet cards');
 assert.ok(!html.includes('Активные полки кабинета из шапки') && !html.includes('ads-hq-title'),
     'RK does not repeat the page title above the KPI tiles');
-assert.ok(html.includes('id="ads-hq-reload"') && html.includes('id="ads-hq-phone"') && html.includes('ads-hq-table-wrap') && html.includes('>Полка<'),
+assert.ok(html.includes('id="ads-hq-reload"') && html.includes('id="ads-hq-phone"') && html.includes('ads-hq-table-wrap') && html.includes('>Кампания<'),
     'ads HQ shows phone cards, a campaign table and a reload control');
 assert.ok(html.includes('.ads-hq-thumb') && html.includes('.ads-hq-camp-name'),
     'RK campaign rows have a slot for the main product photo');
 assert.ok(html.includes('let adsReload = null') && html.includes('await adsReload') && html.includes('window.AdsHQ.load()'),
     'switching cabinet on RK must reload shelves immediately, not after the dashboard RPC');
 assert.ok(html.includes('data-camp-filter="active"') && html.includes('data-camp-filter="all"') && html.includes('ads-hq-advanced'),
-    'ads HQ defaults to active shelves and hides autobidder in details');
+    'ads HQ can filter active/all and hides autobidder in details');
 assert.ok(html.includes('function campaignEnded') && html.includes('allCampaigns.filter((c) => !campaignEnded(c.status))'),
     'detail campaign table hides finished RK and keeps their spend in KPI');
 assert.ok(html.includes('syncFromWb') && html.includes('syncAdvertisingNow({ silent: true })'),
@@ -1521,8 +1521,10 @@ assert.ok(
 );
 assert.ok(html.includes('getDateRange: getActiveDateRange'),
     'RK shelves read spend/DRR for the header date range');
-assert.ok(html.includes('>Расход<') && html.includes('>ДРР<') && html.includes('Подменный артикул') && html.includes('>Переходы<') && html.includes('>Корзина<') && html.includes('>Заказы<') && !html.includes('Расход сегодня') && !html.includes('ДРР 7д'),
-    'RK KPI stacks day spend + DRR and substitute-article funnel, not hardcoded today/7d');
+assert.ok(html.includes('>Сумма заказов<') && html.includes('>Затраты<') && html.includes('>Доля затрат<') && html.includes('>ROAS<') && html.includes('id="ads-hq-kpi-ctr"') && !html.includes('Подменный артикул') && !html.includes('Расход сегодня') && !html.includes('ДРР 7д'),
+    'RK KPI bar matches WB: order sum, spend, spend share, ROAS, CTR');
+assert.ok(html.includes('data-list-view="campaigns"') && html.includes('data-list-view="products"') && html.includes('data-col-preset="stats"'),
+    'RK HQ clones WB campaigns/products tabs and column presets');
 assert.ok(
     html.includes("tab === 'tab-advertising' && window._advView === 'detail'") &&
     html.includes("showAdvertisingAdsView({ cabinetId: currentCabinetId") &&

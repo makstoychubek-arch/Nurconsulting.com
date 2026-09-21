@@ -43,6 +43,29 @@
         return Number(n).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
     }
 
+    function formatInt(n) {
+        if (n == null || !Number.isFinite(Number(n))) return '—';
+        return Math.round(Number(n)).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
+    }
+
+    function formatMoney2(n) {
+        if (n == null || !Number.isFinite(Number(n))) return '—';
+        const x = Number(n);
+        const sign = x < 0 ? '-' : '';
+        const [i, f] = Math.abs(x).toFixed(2).split('.');
+        return sign + i.replace(/\B(?=(\d{3})+(?!\d))/g, '\u00a0') + '.' + f;
+    }
+
+    function formatFixed(n, digits) {
+        if (n == null || !Number.isFinite(Number(n))) return '—';
+        return Number(n).toFixed(digits);
+    }
+
+    function formatPct2(n) {
+        if (n == null || !Number.isFinite(Number(n))) return '—';
+        return Number(n).toFixed(2) + ' %';
+    }
+
     function formatDrr(spend, revenue) {
         const s = num(spend);
         const r = num(revenue);
@@ -55,6 +78,102 @@
         if (pct == null) return '—';
         if (!Number.isFinite(pct)) return '∞';
         return pct.toFixed(1) + '%';
+    }
+
+    const COL_PRESETS = {
+        stats: {
+            id: 'stats',
+            label: 'Затраты',
+            cols: [
+                { key: 'budget', title: 'Остаток бюджета' },
+                { key: 'limit', title: 'Дневной лимит' },
+                { key: 'spend', title: 'Затраты' },
+                { key: 'views', title: 'Показы' },
+                { key: 'ctr', title: 'CTR' },
+                { key: 'orders', title: 'Созданные заказы' },
+            ],
+        },
+        funnel: {
+            id: 'funnel',
+            label: 'Воронка',
+            cols: [
+                { key: 'budget', title: 'Остаток бюджета' },
+                { key: 'drr', title: 'Доля затрат' },
+                { key: 'pos', title: 'Позиция в поиске' },
+                { key: 'clicks', title: 'Клики' },
+                { key: 'atbs', title: 'Добавления в корзину' },
+                { key: 'revenue', title: 'Сумма заказов' },
+            ],
+        },
+        unit: {
+            id: 'unit',
+            label: 'Эффективность',
+            cols: [
+                { key: 'budget', title: 'Остаток бюджета' },
+                { key: 'cpc', title: 'CPC' },
+                { key: 'cpo', title: 'CPO' },
+                { key: 'cr', title: 'CR' },
+                { key: 'cpm', title: 'CPM' },
+                { key: 'roas', title: 'ROAS' },
+                { key: 'cancels', title: 'Отмены технические' },
+            ],
+        },
+    };
+
+    function campHasStats(camp) {
+        if (!camp) return false;
+        return num(camp.spendToday) > 0 || num(camp.views) > 0 || num(camp.clicks) > 0
+            || num(camp.orders) > 0 || num(camp.atbs) > 0;
+    }
+
+    function formatMetric(camp, key) {
+        const na = 'Н/Д';
+        const has = campHasStats(camp);
+        const spend = num(camp && camp.spendToday);
+        const views = num(camp && camp.views);
+        const clicks = num(camp && camp.clicks);
+        const orders = num(camp && camp.orders);
+        const atbs = num(camp && camp.atbs);
+        const rev = num(camp && camp.revenue7);
+        const pos = camp && camp.searchPos;
+        switch (key) {
+            case 'budget':
+            case 'limit':
+                return na;
+            case 'cancels':
+                if (!has && camp && camp.canceled == null) return na;
+                return formatInt(camp && camp.canceled);
+            case 'spend':
+                return has ? formatMoney2(spend) : na;
+            case 'views':
+                return has ? formatInt(views) : na;
+            case 'ctr':
+                return has && clicks > 0 && views > 0 ? formatPct2(clicks / views * 100) : na;
+            case 'orders':
+                return has ? formatInt(orders) : na;
+            case 'drr':
+                return has && rev > 0 ? formatPct2(spend / rev * 100) : na;
+            case 'pos':
+                return pos != null && Number(pos) > 0 ? String(Math.round(Number(pos))) : na;
+            case 'clicks':
+                return has ? formatInt(clicks) : na;
+            case 'atbs':
+                return has ? formatInt(atbs) : na;
+            case 'revenue':
+                return has ? formatInt(rev) : na;
+            case 'cpc':
+                return has && clicks > 0 ? formatMoney2(spend / clicks) : na;
+            case 'cpo':
+                return has && orders > 0 ? formatMoney2(spend / orders) : na;
+            case 'cr':
+                return has && clicks > 0 ? formatFixed(orders / clicks * 100, 2) : na;
+            case 'cpm':
+                return has && views > 0 ? formatMoney2(spend / views * 1000) : na;
+            case 'roas':
+                return has && spend > 0 && rev > 0 ? formatFixed(rev / spend, 2) : na;
+            default:
+                return na;
+        }
     }
 
     function tokenState(cab) {
@@ -98,11 +217,25 @@
 
     function campaignStatusLabel(status) {
         const s = normalizeCampaignStatus(status);
-        if (s === 9) return 'Идёт';
-        if (s === 11) return 'Пауза';
-        if (s === 4) return 'Готова';
+        if (s === 9) return 'Активна';
+        if (s === 11) return 'Приостановлена';
+        if (s === 4) return 'Готова к запуску';
         if (s === 7) return 'Завершена';
         return status == null || status === '' ? '—' : String(status);
+    }
+
+    function bidTypeLabel(bidType) {
+        const raw = String(bidType || '').toLowerCase();
+        if (raw === 'manual') return 'Ручная';
+        if (raw === 'auto' || raw === 'unified') return 'Единая';
+        return '';
+    }
+
+    function paymentTypeLabel(paymentType) {
+        const raw = String(paymentType || '').toLowerCase();
+        if (raw === 'cpc') return 'CPC';
+        if (raw === 'cpm') return 'CPM';
+        return '';
     }
 
     // WB: 7 завершена, 8 отклонена, -1 удалена. Не показываем даже на «Все».
@@ -182,8 +315,10 @@
 
     function articleIndex(articles) {
         const photos = new Map();
+        const prices = new Map();
         const namesByCab = new Map();
         const namesAll = [];
+        const titles = new Map();
         for (const a of articles || []) {
             const id = Number(a && a.nm_id);
             if (!id) continue;
@@ -194,6 +329,16 @@
                 if (cab) photos.set(cab + ':' + id, url);
             }
             const md = a.manual_data && typeof a.manual_data === 'object' ? a.manual_data : {};
+            const price = Number(md.price || md.wb_price || md.discount_price || md.sale_price || a.price || 0);
+            if (price > 0) {
+                prices.set(id, price);
+                if (cab) prices.set(cab + ':' + id, price);
+            }
+            const title = String(a.name || md.sa_name || '').trim();
+            if (title) {
+                titles.set(id, title);
+                if (cab) titles.set(cab + ':' + id, title);
+            }
             const label = String(md.seller_article || md.sa_name || a.name || '').trim();
             if (label.length < 4) continue;
             const row = { id, label: label.toLowerCase() };
@@ -205,7 +350,64 @@
         }
         namesAll.sort((a, b) => b.label.length - a.label.length);
         for (const list of namesByCab.values()) list.sort((a, b) => b.label.length - a.label.length);
-        return { photos, namesByCab, namesAll };
+        return { photos, prices, titles, namesByCab, namesAll };
+    }
+
+    function stockIndex(stocks) {
+        const map = new Map();
+        for (const s of stocks || []) {
+            const id = Number(s && s.nm_id);
+            if (!id) continue;
+            const cab = s.cabinet_id != null ? String(s.cabinet_id) : '';
+            const q = num(s.quantity || s.quantity_full || s.quantityFull);
+            if (!q) continue;
+            map.set(id, (map.get(id) || 0) + q);
+            if (cab) map.set(cab + ':' + id, (map.get(cab + ':' + id) || 0) + q);
+        }
+        return map;
+    }
+
+    function nmsFromDayData(data) {
+        const out = [];
+        if (!data || typeof data !== 'object') return out;
+        for (const app of nmList(data.apps)) {
+            if (!app) continue;
+            for (const nm of nmList(app.nms).concat(nmList(app.nm))) {
+                const id = Number(nm && typeof nm === 'object'
+                    ? (nm.nmId ?? nm.nmID ?? nm.nm_id ?? nm.nm ?? nm.id)
+                    : nm);
+                if (!Number.isFinite(id) || id <= 0) continue;
+                out.push({
+                    nmId: Math.trunc(id),
+                    name: String((nm && nm.name) || ''),
+                    spend: num(nm && (nm.sum || nm.spend)),
+                    views: num(nm && nm.views),
+                    clicks: num(nm && nm.clicks),
+                    orders: num(nm && nm.orders),
+                    atbs: num(nm && (nm.atbs || nm.carts)),
+                    revenue: num(nm && (nm.sum_price || nm.revenue)),
+                    canceled: num(nm && nm.canceled),
+                });
+            }
+        }
+        return out;
+    }
+
+    function canceledFromRow(r) {
+        if (r && r.canceled != null && r.canceled !== '') return num(r.canceled);
+        const d = r && r.data;
+        if (d && d.canceled != null) return num(d.canceled);
+        return 0;
+    }
+
+    function posFromRow(r) {
+        const d = r && r.data;
+        const boost = d && (d.boosterStats || d.booster_stats);
+        if (!Array.isArray(boost) || !boost.length) return null;
+        const vals = boost.map((b) => Number(b && (b.avg_position || b.avgPosition)))
+            .filter((n) => Number.isFinite(n) && n > 0);
+        if (!vals.length) return null;
+        return vals.reduce((a, b) => a + b, 0) / vals.length;
     }
 
     function nmIdFromArticleName(name, names) {
@@ -322,6 +524,7 @@
         const v2Stats = input.v2Stats || [];
         const statsNmByCamp = nmIdByCampaignFromStats(legacyStats);
         const artIdx = articleIndex(input.articles);
+        const stocks = stockIndex(input.stocks);
 
         const spendToday = new Map();
         const spend7 = new Map();
@@ -331,6 +534,11 @@
         const clicksIn = new Map();
         const cartsIn = new Map();
         const ordersIn = new Map();
+        const viewsIn = new Map();
+        const canceledIn = new Map();
+        const posIn = new Map();
+        const posDay = new Map();
+        const productDays = [];
         const now = input.now instanceof Date ? input.now : new Date();
         const yesterday = String(input.yesterday || ymd(addDays(now, -1))).slice(0, 10);
         function bump(map, key, n) {
@@ -338,7 +546,7 @@
             if (!v) return;
             map.set(key, (map.get(key) || 0) + v);
         }
-        function addStat(cabinetId, campaignKey, date, spend, revenue, clicks, carts, orders) {
+        function addStat(cabinetId, campaignKey, date, spend, revenue, clicks, carts, orders, views, canceled, searchPos) {
             const day = String(date || '').slice(0, 10);
             const ck = cabinetId + ':' + campaignKey;
             const n = num(spend);
@@ -359,21 +567,46 @@
             spend7.set(ck, (spend7.get(ck) || 0) + n);
             rev7.set(ck, (rev7.get(ck) || 0) + revenue);
             bump(clicksIn, cabinetId, clicks);
+            bump(clicksIn, ck, clicks);
             bump(cartsIn, cabinetId, carts);
+            bump(cartsIn, ck, carts);
             bump(ordersIn, cabinetId, orders);
+            bump(ordersIn, ck, orders);
+            bump(viewsIn, cabinetId, views);
+            bump(viewsIn, ck, views);
+            bump(canceledIn, cabinetId, canceled);
+            bump(canceledIn, ck, canceled);
+            if (searchPos != null && Number(searchPos) > 0) {
+                const prev = posDay.get(ck);
+                if (!prev || day >= prev) {
+                    posDay.set(ck, day);
+                    posIn.set(ck, Math.round(Number(searchPos)));
+                }
+            }
         }
         for (const r of legacyStats) {
             addStat(
                 r.cabinet_id, String(r.campaign_id), r.stat_date,
                 num(r.spend), num(r.sum_price || r.revenue),
-                num(r.clicks), num(r.atbs || r.carts), num(r.orders)
+                num(r.clicks), num(r.atbs || r.carts), num(r.orders),
+                num(r.views), canceledFromRow(r), posFromRow(r)
             );
+            const day = String(r.stat_date || '').slice(0, 10);
+            if (from && day < from) continue;
+            if (to && day > to) continue;
+            for (const nm of nmsFromDayData(r.data)) {
+                productDays.push({ cabinetId: r.cabinet_id, campaignId: String(r.campaign_id), ...nm });
+            }
         }
         const v2CabByCamp = new Map(v2Camps.map((c) => [c.id, c.cabinet_id]));
         for (const r of v2Stats) {
             const cab = v2CabByCamp.get(r.campaign_id);
             if (!cab) continue;
-            addStat(cab, r.campaign_id, r.date, num(r.spend), num(r.revenue), num(r.clicks), num(r.carts || r.atbs), num(r.orders));
+            addStat(
+                cab, r.campaign_id, r.date, num(r.spend), num(r.revenue),
+                num(r.clicks), num(r.carts || r.atbs), num(r.orders),
+                num(r.views), num(r.canceled), null
+            );
         }
 
         const latestSnap = new Map();
@@ -484,6 +717,17 @@
                 const stored = nmId
                     ? (artIdx.photos.get(String(cab.id) + ':' + nmId) || artIdx.photos.get(nmId) || '')
                     : '';
+                const clusterPos = mappedClusters
+                    .map((cl) => cl.pos)
+                    .filter((p) => p != null && Number(p) > 0);
+                const snapPos = clusterPos.length ? Math.min.apply(null, clusterPos) : null;
+                const fromBoost = posIn.get(spendKeyWb) || (spendKeyUuid ? posIn.get(spendKeyUuid) : 0) || 0;
+                const price = nmId
+                    ? (artIdx.prices.get(String(cab.id) + ':' + nmId) || artIdx.prices.get(nmId) || 0)
+                    : 0;
+                const stock = nmId
+                    ? (stocks.get(String(cab.id) + ':' + nmId) || stocks.get(nmId) || 0)
+                    : 0;
                 return {
                     cabinetId: cab.id,
                     wbId,
@@ -491,13 +735,23 @@
                     name,
                     nmId: nmId || 0,
                     photoUrl: campPhotoUrl(nmId, stored),
+                    price,
+                    stock,
                     status,
                     type: raw.type || (v2 && v2.campaign_type) || '',
                     typeLabel: campaignTypeLabel(raw.type || (v2 && v2.campaign_type) || ''),
+                    paymentType: raw.payment_type || (v2 && (v2.payment_type || v2.paymentType)) || '',
+                    bidType: raw.bid_type || (v2 && (v2.bid_type || v2.bidType)) || '',
                     live: campaignLive(status),
                     spendToday: pickSpend(spendToday),
                     spend7: pickSpend(spend7),
                     revenue7: pickSpend(rev7),
+                    views: pickSpend(viewsIn),
+                    clicks: pickSpend(clicksIn),
+                    atbs: pickSpend(cartsIn),
+                    orders: pickSpend(ordersIn),
+                    canceled: pickSpend(canceledIn),
+                    searchPos: fromBoost || snapPos || null,
                     usedYesterday: pickSpend(spendYesterday) > 0,
                     lastSpendDate: pickLast(),
                     clusters: mappedClusters,
@@ -512,9 +766,75 @@
                 }
             }
 
-            const spendT = spendToday.get(cab.id) || 0;
-            const s7 = spend7.get(cab.id) || 0;
-            const r7 = rev7.get(cab.id) || 0;
+            const listed = listableCampaigns(campaigns);
+            const listedIds = new Set(listed.map((c) => String(c.wbId)));
+            const sumField = (field) => listed.reduce((s, c) => s + num(c[field]), 0);
+            const spendT = sumField('spendToday');
+            const s7 = sumField('spend7');
+            const r7 = sumField('revenue7');
+            const views = sumField('views');
+            const clicks = sumField('clicks');
+            const carts = sumField('atbs');
+            const orders = sumField('orders');
+            const productsMap = new Map();
+            for (const row of productDays) {
+                if (String(row.cabinetId) !== String(cab.id)) continue;
+                if (!listedIds.has(String(row.campaignId))) continue;
+                let agg = productsMap.get(row.nmId);
+                if (!agg) {
+                    const stored = artIdx.photos.get(String(cab.id) + ':' + row.nmId) || artIdx.photos.get(row.nmId) || '';
+                    agg = {
+                        nmId: row.nmId,
+                        name: row.name || artIdx.titles.get(String(cab.id) + ':' + row.nmId) || artIdx.titles.get(row.nmId) || String(row.nmId),
+                        photoUrl: campPhotoUrl(row.nmId, stored),
+                        spend: 0, views: 0, clicks: 0, orders: 0, atbs: 0, revenue: 0,
+                        campaignIds: new Set(),
+                        live: false,
+                    };
+                    productsMap.set(row.nmId, agg);
+                }
+                if (row.name && agg.name === String(row.nmId)) agg.name = row.name;
+                agg.spend += num(row.spend);
+                agg.views += num(row.views);
+                agg.clicks += num(row.clicks);
+                agg.orders += num(row.orders);
+                agg.atbs += num(row.atbs);
+                agg.revenue += num(row.revenue);
+                agg.campaignIds.add(String(row.campaignId));
+            }
+            for (const camp of listed) {
+                if (!camp.nmId) continue;
+                let agg = productsMap.get(camp.nmId);
+                if (!agg) {
+                    agg = {
+                        nmId: camp.nmId,
+                        name: artIdx.titles.get(String(cab.id) + ':' + camp.nmId) || artIdx.titles.get(camp.nmId) || camp.name,
+                        photoUrl: camp.photoUrl,
+                        spend: 0, views: 0, clicks: 0, orders: 0, atbs: 0, revenue: 0,
+                        campaignIds: new Set(),
+                        live: false,
+                    };
+                    productsMap.set(camp.nmId, agg);
+                }
+                agg.campaignIds.add(String(camp.wbId));
+                if (camp.live) agg.live = true;
+            }
+            const products = [...productsMap.values()].map((p) => {
+                const ids = [...p.campaignIds];
+                return {
+                    nmId: p.nmId,
+                    name: p.name,
+                    photoUrl: p.photoUrl,
+                    spend: p.spend,
+                    views: p.views,
+                    clicks: p.clicks,
+                    orders: p.orders,
+                    atbs: p.atbs,
+                    revenue: p.revenue,
+                    campaigns: ids.length,
+                    live: p.live || listed.some((c) => c.live && ids.includes(String(c.wbId))),
+                };
+            }).sort((a, b) => b.spend - a.spend);
             return {
                 id: cab.id,
                 name: cab.name,
@@ -523,15 +843,19 @@
                 spendToday: spendT,
                 spend7: s7,
                 revenue7: r7,
-                clicks: clicksIn.get(cab.id) || 0,
-                carts: cartsIn.get(cab.id) || 0,
-                orders: ordersIn.get(cab.id) || 0,
-                drr7: formatDrr(s7, r7),
+                views,
+                clicks,
+                carts,
+                orders,
+                ctr: views > 0 && clicks > 0 ? clicks / views * 100 : null,
+                roas: spendT > 0 && r7 > 0 ? r7 / spendT : null,
+                drr7: formatDrr(spendT, r7),
                 activeCampaigns: campaigns.filter((c) => c.live).length,
                 inRange,
                 outRange,
                 maxHit,
                 campaigns,
+                products,
             };
         });
 
@@ -541,6 +865,7 @@
             acc.spendToday += r.spendToday;
             acc.spend7 += r.spend7;
             acc.revenue7 += r.revenue7;
+            acc.views += r.views || 0;
             acc.clicks += r.clicks || 0;
             acc.carts += r.carts || 0;
             acc.orders += r.orders || 0;
@@ -550,8 +875,10 @@
             acc.maxHit += r.maxHit;
             acc.saved7 += 0;
             return acc;
-        }, { spendToday: 0, spend7: 0, revenue7: 0, clicks: 0, carts: 0, orders: 0, active: 0, inRange: 0, outRange: 0, maxHit: 0, saved7: 0 });
+        }, { spendToday: 0, spend7: 0, revenue7: 0, views: 0, clicks: 0, carts: 0, orders: 0, active: 0, inRange: 0, outRange: 0, maxHit: 0, saved7: 0 });
         totals.drr7 = formatDrr(totals.spend7, totals.revenue7);
+        totals.ctr = totals.views > 0 && totals.clicks > 0 ? totals.clicks / totals.views * 100 : null;
+        totals.roas = totals.spendToday > 0 && totals.revenue7 > 0 ? totals.revenue7 / totals.spendToday : null;
         totals.cabinets = rows.length;
         totals.tokenBad = rows.filter((r) => r.token === 'bad').length;
 
@@ -585,7 +912,9 @@
         loading: false,
         loadGen: 0,
         filterCabinetId: '',
-        campFilter: 'active',
+        campFilter: 'all',
+        colPreset: 'stats',
+        listView: 'campaigns',
         searchQuery: '',
         recent: {},
         didAutoSync: false,
@@ -663,11 +992,19 @@
 
     function statusPill(status) {
         const s = normalizeCampaignStatus(status);
-        if (s === 9) return '<span class="advcab-status-pill ok">Идёт</span>';
-        if (s === 11) return '<span class="advcab-status-pill warn">Пауза</span>';
-        if (s === 4) return '<span class="advcab-status-pill none">Готова</span>';
-        if (s === 7) return '<span class="advcab-status-pill none">Завершена</span>';
-        return '<span class="advcab-status-pill none">' + esc(campaignStatusLabel(status)) + '</span>';
+        const label = campaignStatusLabel(status);
+        if (s === 9) return '<span class="ads-hq-wb-st live">' + esc(label) + '</span>';
+        if (s === 11) return '<span class="ads-hq-wb-st pause">' + esc(label) + '</span>';
+        if (s === 4) return '<span class="ads-hq-wb-st ready">' + esc(label) + '</span>';
+        return '<span class="ads-hq-wb-st ready">' + esc(label) + '</span>';
+    }
+
+    function currentCols() {
+        return (COL_PRESETS[state.colPreset] || COL_PRESETS.stats).cols;
+    }
+
+    function tableColspan() {
+        return 5 + currentCols().length;
     }
 
     function rangeLabel(range) {
@@ -784,11 +1121,39 @@
         return state.campFilter;
     }
 
+    function setColPreset(id) {
+        state.colPreset = COL_PRESETS[id] ? id : 'stats';
+        paintFilters();
+        paintTree();
+        return state.colPreset;
+    }
+
+    function setListView(view) {
+        state.listView = view === 'products' ? 'products' : 'campaigns';
+        paintFilters();
+        paintTree();
+        return state.listView;
+    }
+
     function setSearch(query) {
         state.searchQuery = String(query || '');
         paintSearch();
         paintTree();
         return state.searchQuery;
+    }
+
+    function filterProducts(products, mode, query) {
+        let list = products || [];
+        if (mode !== 'all') list = list.filter((p) => p.live);
+        const q = String(query || '').trim().toLowerCase();
+        if (q) {
+            list = list.filter((p) => String(p.nmId).includes(q) || String(p.name || '').toLowerCase().includes(q));
+        }
+        return list;
+    }
+
+    function visibleProducts(cab) {
+        return filterProducts(cab.products, state.campFilter, state.searchQuery);
     }
 
     function cabinetRows() {
@@ -803,6 +1168,16 @@
         document.querySelectorAll('[data-camp-filter]').forEach((el) => {
             el.classList.toggle('on', el.dataset.campFilter === state.campFilter);
         });
+        document.querySelectorAll('[data-list-view]').forEach((el) => {
+            el.classList.toggle('on', el.dataset.listView === state.listView);
+        });
+        document.querySelectorAll('[data-col-preset]').forEach((el) => {
+            el.classList.toggle('on', el.dataset.colPreset === state.colPreset);
+        });
+        const campsWrap = document.getElementById('ads-hq-camps-wrap');
+        const productsWrap = document.getElementById('ads-hq-products-wrap');
+        if (campsWrap && campsWrap.classList) campsWrap.classList.toggle('is-products', state.listView === 'products');
+        if (productsWrap && productsWrap.classList) productsWrap.classList.toggle('hidden', state.listView !== 'products');
         paintSearch();
     }
 
@@ -826,12 +1201,34 @@
         const note = document.getElementById('ads-hq-freshness');
         if (note) note.textContent = 'обновляем…';
         renderKpis(null, true);
+        const span = tableColspan();
         const tb = document.getElementById('ads-hq-tbody');
         if (tb) {
-            tb.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Загрузка полок…</td></tr>';
+            tb.innerHTML = '<tr><td colspan="' + span + '" class="text-center py-10" style="color:var(--text-muted)">Загрузка кампаний…</td></tr>';
+        }
+        const pb = document.getElementById('ads-hq-products-tbody');
+        if (pb) {
+            pb.innerHTML = '<tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Загрузка товаров…</td></tr>';
         }
         const phone = document.getElementById('ads-hq-phone');
-        if (phone) phone.innerHTML = '<div class="ads-hq-phone-empty text-center py-8">Загрузка полок…</div>';
+        if (phone) phone.innerHTML = '<div class="ads-hq-phone-empty text-center py-8">Загрузка кампаний…</div>';
+    }
+
+    function kpiRatio(src, kind) {
+        if (!src) return '—';
+        if (kind === 'drr') {
+            const pct = src.drr7;
+            return pct != null && Number.isFinite(pct) ? formatPct2(pct) : '—';
+        }
+        if (kind === 'roas') {
+            const v = src.roas != null ? src.roas : (num(src.spendToday) > 0 && num(src.revenue7) > 0 ? src.revenue7 / src.spendToday : null);
+            return v != null && Number.isFinite(v) ? formatFixed(v, 2) : '—';
+        }
+        if (kind === 'ctr') {
+            const v = src.ctr != null ? src.ctr : (num(src.views) > 0 && num(src.clicks) > 0 ? src.clicks / src.views * 100 : null);
+            return v != null && Number.isFinite(v) ? formatPct2(v) : '—';
+        }
+        return '—';
     }
 
     function renderKpis(totals, pending) {
@@ -840,19 +1237,17 @@
         const one = state.filterCabinetId ? (cabinetRows()[0] || null) : null;
         const useTotals = !state.filterCabinetId && totals;
         const src = pending ? null : (one || (useTotals ? totals : null));
-        const active = pending ? '—' : String(src ? (src.activeCampaigns != null ? src.activeCampaigns : src.active) : 0);
-        const spend = pending ? '—' : formatMoney(src && src.spendToday);
-        const drr = pending ? '—' : formatDrrLabel(src && src.drr7);
-        const clicks = pending ? '—' : formatMoney(src && src.clicks);
-        const carts = pending ? '—' : formatMoney(src && src.carts);
-        const orders = pending ? '—' : formatMoney(src && src.orders);
+        const revenue = pending ? '—' : formatInt(src && src.revenue7);
+        const spend = pending ? '—' : formatMoney2(src && src.spendToday);
+        const drr = pending ? '—' : kpiRatio(src, 'drr');
+        const roas = pending ? '—' : kpiRatio(src, 'roas');
+        const ctr = pending ? '—' : kpiRatio(src, 'ctr');
         const values = {
-            'ads-hq-kpi-active': active,
+            'ads-hq-kpi-revenue': revenue,
             'ads-hq-kpi-spend': spend,
             'ads-hq-kpi-drr': drr,
-            'ads-hq-kpi-clicks': clicks,
-            'ads-hq-kpi-carts': carts,
-            'ads-hq-kpi-orders': orders,
+            'ads-hq-kpi-roas': roas,
+            'ads-hq-kpi-ctr': ctr,
         };
         const live = Object.keys(values).every((id) => document.getElementById(id));
         if (live) {
@@ -866,84 +1261,105 @@
             return;
         }
         el.innerHTML =
-            '<div class="adv-kpi-tile"><div class="adv-kpi-tile-label">Активные полки</div>' +
-            '<div class="adv-kpi-tile-value" id="ads-hq-kpi-active">' + esc(active) + '</div></div>' +
-            '<div class="adv-kpi-tile adv-kpi-stack">' +
-            '<div class="adv-kpi-stack-row"><span>Расход</span><b id="ads-hq-kpi-spend">' + esc(spend) + '</b></div>' +
-            '<div class="adv-kpi-stack-row"><span>ДРР</span><b id="ads-hq-kpi-drr">' + esc(drr) + '</b></div></div>' +
-            '<div class="adv-kpi-tile adv-kpi-stack"><div class="adv-kpi-tile-label">Подменный артикул</div>' +
-            '<div class="adv-kpi-stack-row"><span>Переходы</span><b id="ads-hq-kpi-clicks">' + esc(clicks) + '</b></div>' +
-            '<div class="adv-kpi-stack-row"><span>Корзина</span><b id="ads-hq-kpi-carts">' + esc(carts) + '</b></div>' +
-            '<div class="adv-kpi-stack-row"><span>Заказы</span><b id="ads-hq-kpi-orders">' + esc(orders) + '</b></div></div>';
-    }
-
-    function chevron(open) {
-        return '<span class="ads-hq-chev' + (open ? ' open' : '') + '" aria-hidden="true"></span>';
+            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Сумма заказов</div>' +
+            '<div class="ads-hq-kpi-value" id="ads-hq-kpi-revenue">' + esc(revenue) + '</div></div>' +
+            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Затраты</div>' +
+            '<div class="ads-hq-kpi-value" id="ads-hq-kpi-spend">' + esc(spend) + '</div></div>' +
+            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Доля затрат</div>' +
+            '<div class="ads-hq-kpi-value" id="ads-hq-kpi-drr">' + esc(drr) + '</div></div>' +
+            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">ROAS</div>' +
+            '<div class="ads-hq-kpi-value" id="ads-hq-kpi-roas">' + esc(roas) + '</div></div>' +
+            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">CTR</div>' +
+            '<div class="ads-hq-kpi-value" id="ads-hq-kpi-ctr">' + esc(ctr) + '</div></div>';
     }
 
     function emptyShelvesHtml(pausedCount, totalCount) {
         const q = String(state.searchQuery || '').trim();
+        const noun = state.listView === 'products' ? 'товаров' : 'кампаний';
         if (q) {
-            return 'Нет полок по запросу «' + esc(q) + '».';
+            return 'Нет ' + noun + ' по запросу «' + esc(q) + '».';
         }
         const syncBtn = '<button type="button" class="ui-btn ui-btn-primary" data-act="sync-wb">Подтянуть из WB</button>';
         if (!totalCount) {
-            return 'В кабинете ещё нет полок. Нажмите «Подтянуть из WB» — подтянем активные кампании.<div class="ads-hq-empty-actions">' + syncBtn + '</div>';
+            return 'В кабинете ещё нет кампаний. Нажмите «Подтянуть из WB».<div class="ads-hq-empty-actions">' + syncBtn + '</div>';
         }
         if (state.campFilter !== 'all' && pausedCount) {
-            return 'Нет активных полок. На паузе: ' + pausedCount + '. Откройте «Все» или подтяните свежие из WB.<div class="ads-hq-empty-actions">' +
+            return 'Нет активных ' + noun + '. На паузе: ' + pausedCount + '. Откройте «Все» или подтяните свежие из WB.<div class="ads-hq-empty-actions">' +
                 '<button type="button" class="ui-btn ui-btn-secondary" data-camp-filter="all">Показать все</button> ' + syncBtn + '</div>';
         }
-        return 'Нет активных полок в этом кабинете.<div class="ads-hq-empty-actions">' + syncBtn + '</div>';
+        return 'Нет активных ' + noun + ' в этом кабинете.<div class="ads-hq-empty-actions">' + syncBtn + '</div>';
+    }
+
+    function toggleHtml(cab, camp) {
+        const on = camp.live ? ' on' : '';
+        const act = camp.live ? 'pause' : 'start';
+        return '<button type="button" class="tg-switch ads-hq-toggle' + on + '" data-act="' + act +
+            '" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) +
+            '" aria-pressed="' + (camp.live ? 'true' : 'false') +
+            '" title="' + (camp.live ? 'Пауза' : 'Запуск') + '"><span></span></button>';
+    }
+
+    function typeCellHtml(camp) {
+        const payment = paymentTypeLabel(camp.paymentType);
+        const bid = bidTypeLabel(camp.bidType);
+        if (payment) {
+            return '<div class="ads-hq-type"><b>' + esc(payment) + '</b>' +
+                (bid ? '<span>' + esc(bid) + '</span>' : '') + '</div>';
+        }
+        return esc(camp.typeLabel || campaignTypeLabel(camp.type));
+    }
+
+    function productCellHtml(camp) {
+        const price = num(camp.price);
+        const stock = num(camp.stock);
+        if (!price && !stock) return '<span class="ads-hq-na">Н/Д</span>';
+        return '<div class="ads-hq-product">' +
+            (price ? '<div class="ads-hq-price">' + formatInt(price) + '</div>' : '') +
+            '<div class="ads-hq-stock">' + formatInt(stock) + ' шт.</div></div>';
+    }
+
+    function campIdentityHtml(cab, camp) {
+        return '<div class="ads-hq-camp-name">' +
+            campThumbHtml(camp.photoUrl, camp.nmId) +
+            '<div class="ads-hq-camp-meta">' +
+            '<button type="button" class="ads-hq-wb-name" data-keys="' + esc(camp.wbId) + '" data-cabinet="' + esc(cab.id) + '">' +
+            esc(camp.name) + '</button>' + usedMark(camp) + scheduleMark(cab.id, camp.wbId) +
+            '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '</div>' +
+            statusPill(camp.status) +
+            '</div></div>';
+    }
+
+    function renderThead() {
+        const el = document.getElementById('ads-hq-thead');
+        if (!el) return;
+        const cols = currentCols();
+        el.innerHTML = '<tr>' +
+            '<th></th><th></th><th>Кампания</th><th>Товар</th><th>Тип кампании</th>' +
+            cols.map((c) => '<th>' + esc(c.title) + '</th>').join('') +
+            '</tr>';
     }
 
     function renderCampRow(cab, camp, pad) {
         const ck = cab.id + ':' + camp.wbId;
-        const campOpen = state.open.campaigns.has(ck);
-        const html = [];
-        html.push(
-            '<tr class="ads-hq-camp ads-hq-camp-top" data-key="camp:' + esc(ck) + '" data-ck="' + esc(ck) + '">' +
+        const cols = currentCols();
+        return '<tr class="ads-hq-camp ads-hq-camp-top ads-hq-wb-row" data-key="camp:' + esc(ck) + '" data-ck="' + esc(ck) + '">' +
             '<td><input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '"></td>' +
-            '<td' + (pad ? ' style="padding-left:28px"' : '') + '><div class="ads-hq-camp-name">' +
-            campThumbHtml(camp.photoUrl, camp.nmId) +
-            '<button type="button" class="ads-hq-expand" data-expand="camp" data-id="' + esc(ck) + '">' +
-            chevron(campOpen) + esc(camp.name) + usedMark(camp) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></button></div></td>' +
-            '<td>' + esc(camp.typeLabel || campaignTypeLabel(camp.type)) + '</td>' +
-            '<td>' + statusPill(camp.status) + scheduleMark(cab.id, camp.wbId) + '</td>' +
-            '<td>' + formatMoney(camp.spendToday) + '</td>' +
-            '<td>' + formatDrrLabel(formatDrr(camp.spend7, camp.revenue7)) + '</td>' +
-            '<td><button type="button" class="adv-camp-action-btn" data-act="' + (camp.live ? 'pause' : 'start') + '" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '">' +
-            (camp.live ? 'Пауза' : 'Старт') + '</button> ' +
-            '<button type="button" class="adv-camp-action-btn" data-keys="' + esc(camp.wbId) + '" data-cabinet="' + esc(cab.id) + '">Ключи</button></td>' +
-            '</tr>'
-        );
-        if (!campOpen) return html.join('');
-        if (!camp.clusters.length) {
-            html.push('<tr class="ads-hq-empty" data-key="empty:' + esc(ck) + '"><td></td><td colspan="6" style="color:var(--text-muted);padding-left:44px">Кластеры появятся после синка кампании</td></tr>');
-            return html.join('');
-        }
-        for (const cl of camp.clusters) {
-            html.push(
-                '<tr class="ads-hq-cl' + (state.selected && state.selected.clusterId === cl.id ? ' is-on' : '') + '" data-key="cl:' + esc(ck) + ':' + esc(cl.id) + '">' +
-                '<td><input type="checkbox" class="ads-hq-check" data-kind="cluster" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '" data-cluster="' + esc(cl.id) + '"></td>' +
-                '<td style="padding-left:44px"><button type="button" class="ads-hq-link" data-pick="cluster" data-cabinet="' + esc(cab.id) + '" data-camp="' + esc(camp.uuid || '') + '" data-wb="' + esc(camp.wbId) + '" data-cluster="' + esc(cl.id) + '">' +
-                esc(cl.key) + '</button></td>' +
-                '<td colspan="2">' + (cl.active ? 'активен' : 'выкл') + '</td>' +
-                '<td>' + (cl.pos != null ? ('поз. ' + cl.pos) : '—') + '</td>' +
-                '<td>' + rangeLabel(cl.range) + '</td>' +
-                '<td></td>' +
-                '</tr>'
-            );
-        }
-        return html.join('');
+            '<td>' + toggleHtml(cab, camp) + '</td>' +
+            '<td' + (pad ? ' style="padding-left:28px"' : '') + '>' + campIdentityHtml(cab, camp) + '</td>' +
+            '<td>' + productCellHtml(camp) + '</td>' +
+            '<td>' + typeCellHtml(camp) + '</td>' +
+            cols.map((col) => '<td>' + formatMetric(camp, col.key) + '</td>').join('') +
+            '</tr>';
     }
 
     function renderTable() {
+        renderThead();
         const tb = document.getElementById('ads-hq-tbody');
         if (!tb || !state.model) return;
+        const span = tableColspan();
         const rows = cabinetRows();
         if (!rows.length) {
-            tb.innerHTML = '<tr><td colspan="7" class="text-center py-10 ads-hq-empty-cell">' +
+            tb.innerHTML = '<tr><td colspan="' + span + '" class="text-center py-10 ads-hq-empty-cell">' +
                 emptyShelvesHtml(0, 0) + '</td></tr>';
             return;
         }
@@ -962,19 +1378,14 @@
                 html.push(
                     '<tr class="ads-hq-cab" data-key="cab:' + esc(cab.id) + '" data-cab="' + esc(cab.id) + '">' +
                     '<td><input type="checkbox" class="ads-hq-check" data-kind="cabinet" data-cabinet="' + esc(cab.id) + '"></td>' +
-                    '<td>' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) + '</td>' +
-                    '<td colspan="2">' + cab.activeCampaigns + ' акт.</td>' +
-                    '<td>' + formatMoney(cab.spendToday) + '</td>' +
-                    '<td>' + formatDrrLabel(cab.drr7) + '</td>' +
-                    '<td><button type="button" class="adv-camp-action-btn" data-act="pause-cab" data-cabinet="' + esc(cab.id) + '">Пауза</button> ' +
-                    '<button type="button" class="adv-camp-action-btn" data-act="start-cab" data-cabinet="' + esc(cab.id) + '">Старт</button></td>' +
-                    '</tr>'
+                    '<td colspan="' + (span - 1) + '">' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) +
+                    ' · ' + cab.activeCampaigns + ' акт. · ' + formatMoney2(cab.spendToday) + '</td></tr>'
                 );
             }
             for (const camp of visible) html.push(renderCampRow(cab, camp, !hideCab));
         }
         if (!shown) {
-            tb.innerHTML = '<tr><td colspan="7" class="text-center py-10 ads-hq-empty-cell">' +
+            tb.innerHTML = '<tr><td colspan="' + span + '" class="text-center py-10 ads-hq-empty-cell">' +
                 emptyShelvesHtml(paused, total) + '</td></tr>';
             return;
         }
@@ -985,54 +1396,96 @@
         }
     }
 
+    function renderProductRow(p) {
+        const fake = {
+            spendToday: p.spend, views: p.views, clicks: p.clicks, orders: p.orders,
+            atbs: p.atbs, revenue7: p.revenue,
+        };
+        return '<tr class="ads-hq-wb-row" data-key="nm:' + esc(p.nmId) + '">' +
+            '<td><div class="ads-hq-camp-name">' + campThumbHtml(p.photoUrl, p.nmId) +
+            '<div class="ads-hq-camp-meta"><div class="ads-hq-wb-name">' + esc(p.name) + '</div>' +
+            '<div class="ads-hq-wb-id">' + esc(p.nmId) + '</div></div></div></td>' +
+            '<td>' + formatInt(p.campaigns) + '</td>' +
+            '<td>' + formatMetric(fake, 'spend') + '</td>' +
+            '<td>' + formatMetric(fake, 'views') + '</td>' +
+            '<td>' + formatMetric(fake, 'ctr') + '</td>' +
+            '<td>' + formatMetric(fake, 'orders') + '</td>' +
+            '<td>' + formatMetric(fake, 'cpc') + '</td></tr>';
+    }
+
+    function renderProducts() {
+        const tb = document.getElementById('ads-hq-products-tbody');
+        if (!tb || !state.model) return;
+        const rows = cabinetRows();
+        if (!rows.length) {
+            tb.innerHTML = '<tr><td colspan="7" class="text-center py-10 ads-hq-empty-cell">' + emptyShelvesHtml(0, 0) + '</td></tr>';
+            return;
+        }
+        const html = [];
+        let shown = 0;
+        let paused = 0;
+        let total = 0;
+        for (const cab of rows) {
+            const visible = visibleProducts(cab);
+            const all = cab.products || [];
+            paused += all.filter((p) => !p.live).length;
+            total += all.length;
+            shown += visible.length;
+            for (const p of visible) html.push(renderProductRow(p));
+        }
+        if (!shown) {
+            tb.innerHTML = '<tr><td colspan="7" class="text-center py-10 ads-hq-empty-cell">' + emptyShelvesHtml(paused, total) + '</td></tr>';
+            return;
+        }
+        tb.innerHTML = html.join('');
+    }
+
     function renderPhoneCamp(cab, camp) {
         const ck = cab.id + ':' + camp.wbId;
-        const campOpen = state.open.campaigns.has(ck);
+        const cols = currentCols().filter((c) => c.key !== 'budget' && c.key !== 'limit').slice(0, 4);
         const html = [];
         html.push('<article class="ads-hq-phone-card ads-hq-phone-shelf" data-key="' + esc(ck) + '">');
         html.push(
             '<div class="ads-hq-phone-pick">' +
             '<input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) +
             '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '">' +
+            toggleHtml(cab, camp) +
             campThumbHtml(camp.photoUrl, camp.nmId) +
-            '<button type="button" class="ads-hq-phone-head" data-expand="camp" data-id="' + esc(ck) + '">' +
-            '<span>' + esc(camp.name) + usedMark(camp) + ' <span class="ads-hq-mono">#' + esc(camp.wbId) + '</span></span>' +
-            chevron(campOpen) + '</button></div>'
+            '<div class="ads-hq-camp-meta">' +
+            '<button type="button" class="ads-hq-wb-name" data-keys="' + esc(camp.wbId) + '" data-cabinet="' + esc(cab.id) + '">' +
+            esc(camp.name) + '</button>' + usedMark(camp) +
+            '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '</div>' +
+            statusPill(camp.status) + scheduleMark(cab.id, camp.wbId) +
+            '</div></div>'
         );
-        html.push('<div class="ads-hq-phone-type">' + esc(camp.typeLabel || campaignTypeLabel(camp.type)) + ' · ' +
-            statusPill(camp.status) + scheduleMark(cab.id, camp.wbId) + '</div>');
+        html.push('<div class="ads-hq-phone-type">' + typeCellHtml(camp) + ' · ' + productCellHtml(camp) + '</div>');
         html.push(
             '<div class="ads-hq-phone-metrics">' +
-            '<span>Расход<b>' + formatMoney(camp.spendToday) + '</b></span>' +
-            '<span>ДРР<b>' + formatDrrLabel(formatDrr(camp.spend7, camp.revenue7)) + '</b></span>' +
-            '<span>Кластеры<b>' + camp.clusters.length + '</b></span>' +
+            cols.map((col) => '<span>' + esc(col.title) + '<b>' + formatMetric(camp, col.key) + '</b></span>').join('') +
             '</div>'
         );
         html.push(
-            '<button type="button" class="adv-camp-action-btn" data-act="' + (camp.live ? 'pause' : 'start') +
-            '" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '">' +
-            (camp.live ? 'Пауза' : 'Старт') + '</button> ' +
             '<button type="button" class="adv-camp-action-btn" data-keys="' + esc(camp.wbId) +
             '" data-cabinet="' + esc(cab.id) + '">Ключи</button>'
         );
-        if (campOpen) {
-            if (!camp.clusters.length) {
-                html.push('<div class="ads-hq-phone-empty">Кластеры появятся после синка кампании</div>');
-            }
-            for (const cl of camp.clusters) {
-                const on = state.selected && state.selected.clusterId === cl.id;
-                html.push(
-                    '<button type="button" class="ads-hq-link" data-pick="cluster" data-cabinet="' +
-                    esc(cab.id) + '" data-camp="' + esc(camp.uuid || '') + '" data-wb="' + esc(camp.wbId) +
-                    '" data-cluster="' + esc(cl.id) + '"' + (on ? ' style="font-weight:700"' : '') + '>' +
-                    esc(cl.key) + ' · ' + (cl.pos != null ? ('поз. ' + cl.pos) : '—') + ' · ' +
-                    (cl.range === 'worse' ? 'хуже' : cl.range === 'in' ? 'в диапазоне' : '—') +
-                    '</button>'
-                );
-            }
-        }
         html.push('</article>');
         return html.join('');
+    }
+
+    function renderPhoneProduct(p) {
+        const fake = {
+            spendToday: p.spend, views: p.views, clicks: p.clicks, orders: p.orders,
+            atbs: p.atbs, revenue7: p.revenue,
+        };
+        return '<article class="ads-hq-phone-card ads-hq-phone-shelf" data-key="nm:' + esc(p.nmId) + '">' +
+            '<div class="ads-hq-phone-pick">' + campThumbHtml(p.photoUrl, p.nmId) +
+            '<div class="ads-hq-camp-meta"><div class="ads-hq-wb-name">' + esc(p.name) + '</div>' +
+            '<div class="ads-hq-wb-id">' + esc(p.nmId) + '</div></div></div>' +
+            '<div class="ads-hq-phone-metrics">' +
+            '<span>Затраты<b>' + formatMetric(fake, 'spend') + '</b></span>' +
+            '<span>Показы<b>' + formatMetric(fake, 'views') + '</b></span>' +
+            '<span>Заказы<b>' + formatMetric(fake, 'orders') + '</b></span>' +
+            '</div></article>';
     }
 
     function renderPhone() {
@@ -1047,16 +1500,26 @@
         let shown = 0;
         let paused = 0;
         let total = 0;
+        const productsMode = state.listView === 'products';
         for (const cab of rows) {
-            const visible = visibleCampaigns(cab);
-            const listable = listableCampaigns(cab.campaigns);
-            paused += listable.filter((c) => !c.live).length;
-            total += listable.length;
-            shown += visible.length;
             if (!state.filterCabinetId) {
                 html.push('<div class="ads-hq-phone-cab-name" data-key="cab:' + esc(cab.id) + '">' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) + '</div>');
             }
-            for (const camp of visible) html.push(renderPhoneCamp(cab, camp));
+            if (productsMode) {
+                const visible = visibleProducts(cab);
+                const all = cab.products || [];
+                paused += all.filter((p) => !p.live).length;
+                total += all.length;
+                shown += visible.length;
+                for (const p of visible) html.push(renderPhoneProduct(p));
+            } else {
+                const visible = visibleCampaigns(cab);
+                const listable = listableCampaigns(cab.campaigns);
+                paused += listable.filter((c) => !c.live).length;
+                total += listable.length;
+                shown += visible.length;
+                for (const camp of visible) html.push(renderPhoneCamp(cab, camp));
+            }
         }
         if (!shown) {
             el.innerHTML = '<div class="ads-hq-phone-empty text-center py-8">' + emptyShelvesHtml(paused, total) + '</div>';
@@ -1071,6 +1534,7 @@
 
     function paintTree() {
         renderTable();
+        renderProducts();
         renderPhone();
         paintSchedule();
     }
@@ -1483,6 +1947,16 @@
                 setCampFilter(chip.dataset.campFilter);
                 return;
             }
+            const listView = e.target.closest('[data-list-view]');
+            if (listView) {
+                setListView(listView.dataset.listView);
+                return;
+            }
+            const colPreset = e.target.closest('[data-col-preset]');
+            if (colPreset) {
+                setColPreset(colPreset.dataset.colPreset);
+                return;
+            }
             const expand = e.target.closest('[data-expand]');
             if (expand) {
                 const kind = expand.dataset.expand;
@@ -1559,11 +2033,18 @@
             const pop = document.getElementById('ads-hq-when-pop');
             if (pop && pop.classList) pop.classList.toggle('is-open');
         });
+        document.getElementById('ads-hq-cols-btn')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const pop = document.getElementById('ads-hq-cols-pop');
+            if (pop && pop.classList) pop.classList.toggle('is-open');
+        });
         document.addEventListener('click', (e) => {
-            const pop = document.getElementById('ads-hq-when-pop');
-            if (!pop || !pop.classList || !pop.classList.contains('is-open')) return;
-            if (typeof pop.contains === 'function' && pop.contains(e.target)) return;
-            pop.classList.remove('is-open');
+            for (const id of ['ads-hq-when-pop', 'ads-hq-cols-pop']) {
+                const pop = document.getElementById(id);
+                if (!pop || !pop.classList || !pop.classList.contains('is-open')) continue;
+                if (typeof pop.contains === 'function' && pop.contains(e.target)) continue;
+                pop.classList.remove('is-open');
+            }
         });
         const atEl = document.getElementById('ads-hq-start-at');
         if (atEl && !atEl.value) atEl.value = defaultScheduleLocal();
@@ -1630,7 +2111,7 @@
             return true;
         });
         const ids = cabinets.map((c) => c.id);
-        const [legacyCampaigns, legacyStats, v2Campaigns, articles] = ids.length ? await Promise.all([
+        const [legacyCampaigns, legacyStats, v2Campaigns, articles, stocks] = ids.length ? await Promise.all([
             safeRows('advertising_campaigns', [{ op: 'in', column: 'cabinet_id', value: ids }]),
             safeRows('advertising_daily_stats', [
                 { op: 'in', column: 'cabinet_id', value: ids },
@@ -1641,7 +2122,10 @@
             safeRows('rnp_articles', [
                 { op: 'in', column: 'cabinet_id', value: ids },
             ], 'cabinet_id,nm_id,photo_url,name,manual_data'),
-        ]) : [[], [], [], []];
+            safeRows('wb_stocks', [
+                { op: 'in', column: 'cabinet_id', value: ids },
+            ], 'cabinet_id,nm_id,quantity,quantity_full'),
+        ]) : [[], [], [], [], []];
         if (cab !== state.filterCabinetId) return null;
         const v2Ids = (v2Campaigns || []).map((c) => c.id);
         const [clusters, rules, snapshots, v2Stats] = v2Ids.length ? await Promise.all([
@@ -1664,7 +2148,7 @@
         state.model = buildHqModel({
             from, to, yesterday: rank.yesterday, now, today: to, from7: from,
             cabinets, legacyCampaigns, legacyStats, v2Campaigns, clusters, rules, snapshots, v2Stats,
-            articles,
+            articles, stocks,
         });
         if (state.filterCabinetId) state.open.cabinets.add(state.filterCabinetId);
         renderKpis(state.model.totals);
@@ -1739,6 +2223,10 @@
         compareCampaigns,
         extendRangeForRanking,
         formatMoney,
+        formatMoney2,
+        formatInt,
+        formatPct2,
+        formatMetric,
         formatDrr,
         formatDrrLabel,
         tokenState,
@@ -1748,9 +2236,13 @@
         open,
         setCabinet,
         setCampFilter,
+        setColPreset,
+        setListView,
         setSearch,
         getFilterCabinetId: () => state.filterCabinetId,
         getCampFilter: () => state.campFilter,
+        getColPreset: () => state.colPreset,
+        getListView: () => state.listView,
         getSearch: () => state.searchQuery,
         load,
         reload: reloadFromWb,

@@ -1668,6 +1668,46 @@
         }
         .ads-hq-chip.on { color: var(--accent); background: var(--accent-soft); border-color: transparent; font-weight: 600; }
         .ads-hq-chip:hover { color: var(--accent); }
+        .ads-hq-kpi-bar {
+            display: flex; flex-wrap: wrap; gap: 10px 32px; align-items: flex-end;
+            background: var(--surface); border-radius: var(--radius-card);
+            padding: 14px 18px;
+        }
+        .ads-hq-kpi-label { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+        .ads-hq-kpi-value {
+            font-size: 18px; font-weight: 700; color: var(--text-primary);
+            font-variant-numeric: tabular-nums; font-family: var(--font-display); letter-spacing: -0.03em;
+        }
+        .ads-hq-wb-name {
+            background: none; border: none; padding: 0; cursor: pointer; font: inherit;
+            color: #5b4dff; font-weight: 600; text-align: left; line-height: 1.25;
+        }
+        .ads-hq-wb-name:hover { text-decoration: underline; }
+        .ads-hq-wb-id { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+        .ads-hq-wb-st { font-size: 11px; font-weight: 600; }
+        .ads-hq-wb-st.live { color: #7c5cbf; }
+        .ads-hq-wb-st.pause { color: #e11d48; }
+        .ads-hq-wb-st.ready { color: var(--text-muted); }
+        .ads-hq-camp-meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+        .ads-hq-product { font-size: 12px; line-height: 1.35; }
+        .ads-hq-price { font-weight: 600; color: var(--text-primary); }
+        .ads-hq-stock { color: var(--text-muted); font-size: 11px; }
+        .ads-hq-type { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+        .ads-hq-type b { font-weight: 700; color: var(--text-primary); }
+        .ads-hq-type span { color: var(--text-muted); font-size: 11px; }
+        .ads-hq-na { color: var(--text-muted); }
+        .ads-hq-wb-row td { vertical-align: middle; }
+        .ads-hq-toggle { width: 36px; height: 20px; }
+        .ads-hq-cols-pop { position: relative; display: inline-flex; }
+        .ads-hq-cols-panel {
+            display: none; position: absolute; right: 0; top: 36px; z-index: 24;
+            background: var(--surface); border-radius: 12px; padding: 8px;
+            box-shadow: var(--card-shadow); flex-direction: column; gap: 4px; min-width: 168px;
+        }
+        .ads-hq-cols-pop.is-open .ads-hq-cols-panel { display: flex; }
+        .ads-hq-mode { margin-left: 8px; }
+        #ads-hq-camps-wrap.is-products { display: none; }
+        #ads-hq-products-wrap.hidden { display: none; }
         .ads-hq-empty-cell { white-space: normal !important; line-height: 1.45; }
         .ads-hq-empty-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
         .ads-hq-phone-type { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -6029,8 +6069,12 @@
             <div id="adv-view-ads" class="space-y-5">
                 <div class="ads-hq-bulk">
                     <div class="ads-hq-filters">
-                        <button type="button" class="ads-hq-chip on" data-camp-filter="active">Активные</button>
-                        <button type="button" class="ads-hq-chip" data-camp-filter="all">Все</button>
+                        <button type="button" class="ads-hq-chip" data-camp-filter="active">Активные</button>
+                        <button type="button" class="ads-hq-chip on" data-camp-filter="all">Все</button>
+                    </div>
+                    <div class="ads-hq-filters ads-hq-mode">
+                        <button type="button" class="ads-hq-chip on" data-list-view="campaigns">Кампании</button>
+                        <button type="button" class="ads-hq-chip" data-list-view="products">Товары</button>
                     </div>
                     <div class="rnp-tool-icons ads-hq-tools" id="ads-hq-tools">
                         <div class="ads-hq-search-wrap" id="ads-hq-search-wrap">
@@ -6040,7 +6084,7 @@
                                     <path d="m20 20-3.5-3.5"></path>
                                 </svg>
                             </button>
-                            <input type="search" id="ads-hq-search" class="ui-input ads-hq-search" placeholder="Поиск РК" autocomplete="off">
+                            <input type="search" id="ads-hq-search" class="ui-input ads-hq-search" placeholder="ID или название кампании" autocomplete="off">
                         </div>
                         <div class="ads-hq-when-pop" id="ads-hq-when-pop">
                             <button type="button" class="rnp-tool-icon" id="ads-hq-when-btn" title="На время" aria-label="На время">
@@ -6075,43 +6119,83 @@
                                 <path d="M21 3v6h-6"></path>
                             </svg>
                         </button>
+                        <div class="ads-hq-cols-pop" id="ads-hq-cols-pop">
+                            <button type="button" class="rnp-tool-icon" id="ads-hq-cols-btn" title="Колонки как в WB" aria-label="Колонки">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <path d="M4 6h16M4 12h10M4 18h7"></path>
+                                </svg>
+                            </button>
+                            <div class="ads-hq-cols-panel">
+                                <button type="button" class="ads-hq-chip on" data-col-preset="stats">Затраты</button>
+                                <button type="button" class="ads-hq-chip" data-col-preset="funnel">Воронка</button>
+                                <button type="button" class="ads-hq-chip" data-col-preset="unit">Эффективность</button>
+                            </div>
+                        </div>
                         <span id="ads-hq-freshness" class="ads-hq-status ads-hq-fresh" aria-live="polite"></span>
                     </div>
                 </div>
-                <div id="ads-hq-kpis" class="grid grid-cols-3 gap-3">
-                    <div class="adv-kpi-tile">
-                        <div class="adv-kpi-tile-label">Активные полки</div>
-                        <div class="adv-kpi-tile-value" id="ads-hq-kpi-active">—</div>
+                <div id="ads-hq-kpis" class="ads-hq-kpi-bar">
+                    <div class="ads-hq-kpi">
+                        <div class="ads-hq-kpi-label">Сумма заказов</div>
+                        <div class="ads-hq-kpi-value" id="ads-hq-kpi-revenue">—</div>
                     </div>
-                    <div class="adv-kpi-tile adv-kpi-stack">
-                        <div class="adv-kpi-stack-row"><span>Расход</span><b id="ads-hq-kpi-spend">—</b></div>
-                        <div class="adv-kpi-stack-row"><span>ДРР</span><b id="ads-hq-kpi-drr">—</b></div>
+                    <div class="ads-hq-kpi">
+                        <div class="ads-hq-kpi-label">Затраты</div>
+                        <div class="ads-hq-kpi-value" id="ads-hq-kpi-spend">—</div>
                     </div>
-                    <div class="adv-kpi-tile adv-kpi-stack">
-                        <div class="adv-kpi-tile-label">Подменный артикул</div>
-                        <div class="adv-kpi-stack-row"><span>Переходы</span><b id="ads-hq-kpi-clicks">—</b></div>
-                        <div class="adv-kpi-stack-row"><span>Корзина</span><b id="ads-hq-kpi-carts">—</b></div>
-                        <div class="adv-kpi-stack-row"><span>Заказы</span><b id="ads-hq-kpi-orders">—</b></div>
+                    <div class="ads-hq-kpi">
+                        <div class="ads-hq-kpi-label">Доля затрат</div>
+                        <div class="ads-hq-kpi-value" id="ads-hq-kpi-drr">—</div>
+                    </div>
+                    <div class="ads-hq-kpi">
+                        <div class="ads-hq-kpi-label">ROAS</div>
+                        <div class="ads-hq-kpi-value" id="ads-hq-kpi-roas">—</div>
+                    </div>
+                    <div class="ads-hq-kpi">
+                        <div class="ads-hq-kpi-label">CTR</div>
+                        <div class="ads-hq-kpi-value" id="ads-hq-kpi-ctr">—</div>
                     </div>
                 </div>
                 <div class="widget-card">
                     <div id="ads-hq-schedule" class="ads-hq-schedule"></div>
                     <div id="ads-hq-phone" class="ads-hq-phone"></div>
-                    <div class="overflow-x-auto ads-hq-table-wrap">
+                    <div class="overflow-x-auto ads-hq-table-wrap" id="ads-hq-camps-wrap">
                         <table class="data-table ads-hq-table">
-                            <thead>
+                            <thead id="ads-hq-thead">
                                 <tr>
                                     <th></th>
-                                    <th>Полка</th>
-                                    <th>Тип</th>
-                                    <th>Статус</th>
-                                    <th>Расход</th>
-                                    <th>ДРР</th>
                                     <th></th>
+                                    <th>Кампания</th>
+                                    <th>Товар</th>
+                                    <th>Тип кампании</th>
+                                    <th>Остаток бюджета</th>
+                                    <th>Дневной лимит</th>
+                                    <th>Затраты</th>
+                                    <th>Показы</th>
+                                    <th>CTR</th>
+                                    <th>Созданные заказы</th>
                                 </tr>
                             </thead>
                             <tbody id="ads-hq-tbody">
-                                <tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить полки</td></tr>
+                                <tr><td colspan="11" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить кампании</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="overflow-x-auto ads-hq-table-wrap hidden" id="ads-hq-products-wrap">
+                        <table class="data-table ads-hq-table">
+                            <thead>
+                                <tr>
+                                    <th>Товар</th>
+                                    <th>Кампании</th>
+                                    <th>Затраты</th>
+                                    <th>Показы</th>
+                                    <th>CTR</th>
+                                    <th>Заказы</th>
+                                    <th>CPC</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ads-hq-products-tbody">
+                                <tr><td colspan="7" class="text-center py-10" style="color:var(--text-muted)">Откройте раздел, чтобы загрузить товары</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -7233,7 +7317,7 @@
 <script src="/dist/rnp-plan-fact.7ca5404f72.min.js"></script>
 <script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.f817b46866.min.js"></script>
+<script src="/dist/ads-command-center.bb330c2db3.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
