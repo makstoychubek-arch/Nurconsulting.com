@@ -129,7 +129,7 @@ assert.equal(AdsHQ.filterCampaigns([{ live: false, status: 7 }], 'all').length, 
 {
     const camp = {
         spendToday: 9204.17, views: 22160, clicks: 659, orders: 4, atbs: 50,
-        revenue7: 15936, searchPos: 5, canceled: 0,
+        revenue7: 15936, searchPos: 5, canceled: 0, shks: 3,
     };
     assert.equal(AdsHQ.formatMetric(camp, 'ctr'), '2.97 %');
     assert.equal(AdsHQ.formatMetric(camp, 'cpc'), '13.97');
@@ -139,6 +139,7 @@ assert.equal(AdsHQ.filterCampaigns([{ live: false, status: 7 }], 'all').length, 
     assert.equal(AdsHQ.formatMetric(camp, 'roas'), '1.73');
     assert.equal(AdsHQ.formatMetric(camp, 'drr'), '57.76 %');
     assert.equal(AdsHQ.formatMetric(camp, 'orders'), '4');
+    assert.equal(AdsHQ.formatMetric(camp, 'shks'), '3');
     assert.equal(AdsHQ.formatMetric(camp, 'clicks'), '659');
     assert.equal(AdsHQ.formatMetric(camp, 'atbs'), '50');
     assert.equal(AdsHQ.formatMetric(camp, 'revenue'), '15\u00a0936');
@@ -161,7 +162,7 @@ assert.equal(AdsHQ.filterCampaigns([{ live: false, status: 7 }], 'all').length, 
         legacyStats: [
             {
                 cabinet_id: 'cab-a', campaign_id: 40302705, stat_date: '2026-09-20',
-                spend: 9204.17, views: 22160, clicks: 659, atbs: 50, orders: 4, sum_price: 15936,
+                spend: 9204.17, views: 22160, clicks: 659, atbs: 50, orders: 4, shks: 3, sum_price: 15936,
                 data: { canceled: 0, boosterStats: [{ avg_position: 5, nm: 296564448 }] },
             },
             { cabinet_id: 'cab-a', campaign_id: 1, stat_date: '2026-09-20', spend: 900, views: 100, clicks: 10, orders: 0, sum_price: 0 },
@@ -188,6 +189,7 @@ assert.equal(AdsHQ.filterCampaigns([{ live: false, status: 7 }], 'all').length, 
     assert.equal(row.price, 4880);
     assert.equal(row.stock, 646);
     assert.equal(row.canceled, 0);
+    assert.equal(row.shks, 3);
     assert.equal(row.live, true);
 }
 
@@ -467,6 +469,16 @@ global.document = {
     assert.match(els['ads-hq-tbody'].innerHTML, /Активна/);
     assert.match(els['ads-hq-tbody'].innerHTML, /4.200/);
     assert.match(els['ads-hq-thead'].innerHTML, /Созданные заказы/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Принятые заказы/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Позиция в поиске/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Добавления в корзину/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Отмены технические/);
+    assert.match(els['ads-hq-thead'].innerHTML, /ROAS/);
+    assert.equal(AdsHQ.getColPreset(), 'all');
+    assert.deepEqual(AdsHQ.COL_PRESETS.all.cols.map((c) => c.key), [
+        'budget', 'spend', 'views', 'ctr', 'orders', 'shks', 'drr', 'pos',
+        'clicks', 'atbs', 'revenue', 'cpc', 'cpo', 'cr', 'cpm', 'roas', 'cancels',
+    ]);
     assert.match(els['ads-hq-tbody'].innerHTML, /Пауза полка/, 'WB list shows paused campaigns by default');
     assert.doesNotMatch(els['ads-hq-tbody'].innerHTML, /Baza/);
     assert.match(els['ads-hq-phone'].innerHTML, /Пиджак/);
@@ -504,6 +516,12 @@ global.document = {
     assert.match(els['ads-hq-thead'].innerHTML, /Отмены технические/);
     AdsHQ.setColPreset('stats');
     assert.match(els['ads-hq-thead'].innerHTML, /Созданные заказы/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Принятые заказы/);
+    assert.doesNotMatch(els['ads-hq-thead'].innerHTML, /Отмены технические/);
+    AdsHQ.setColPreset('all');
+    assert.match(els['ads-hq-thead'].innerHTML, /Принятые заказы/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Отмены технические/);
+    assert.match(els['ads-hq-thead'].innerHTML, /Позиция в поиске/);
 
     AdsHQ.setSearch('пиджак');
     assert.match(els['ads-hq-tbody'].innerHTML, /Пиджак/);
