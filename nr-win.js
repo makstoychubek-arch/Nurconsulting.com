@@ -234,6 +234,10 @@
             if (t.closest('.nr-win-close')) { e.preventDefault(); e.stopPropagation(); closeBox(box); return; }
             if (t.closest('.nr-win-min')) { e.preventDefault(); e.stopPropagation(); toggleMin(box); return; }
             if (t.closest('.nr-win-max')) { e.preventDefault(); e.stopPropagation(); toggleMax(box); return; }
+            // На тач-экране перетаскивание/ресайз окна руками не нужно и только
+            // перехватывает скролл контента (палец у верхней кромки окна начинает
+            // скроллить список, а попадает на title bar и двигает всё окно).
+            if (e.pointerType === 'touch') return;
             var handle = t.closest('.nr-win-resize');
             if (handle) { startResize(box, e, handle.getAttribute('data-dir')); return; }
             if (t.closest('.nr-win-bar') && !t.closest('button, a, input, select, textarea')) {

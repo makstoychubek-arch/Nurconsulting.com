@@ -1757,9 +1757,15 @@
             left: 360px; width: 88px; min-width: 88px; max-width: 88px;
             box-shadow: 6px 0 8px -6px rgba(0, 0, 0, 0.18);
         }
-        #ads-hq-camps-wrap .ads-hq-table tbody tr:hover td,
-        #ads-hq-camps-wrap .ads-hq-table tbody tr:hover .ads-hq-pin {
+        #ads-hq-camps-wrap .ads-hq-table tbody tr:hover td {
             background: var(--accent-soft);
+        }
+        /* --accent-soft полупрозрачен в тёмной теме — сквозь него на sticky-колонках
+           просвечивали цифры прокрученных под ними колонок. Кладём его поверх
+           непрозрачного --bg внутри одного и того же background, а не поверх
+           соседних ячеек. */
+        #ads-hq-camps-wrap .ads-hq-table tbody tr:hover .ads-hq-pin {
+            background: linear-gradient(var(--accent-soft), var(--accent-soft)), var(--bg);
         }
         #ads-hq-products-wrap .ads-hq-table th:first-child,
         #ads-hq-products-wrap .ads-hq-table td:first-child {
@@ -5581,6 +5587,11 @@
         }
 
         .dashboard-app-shell { position: relative; z-index: 2; }
+        /* Tailwind h-screen = 100vh. В iOS standalone-PWA («на главный экран»)
+           100vh считается иначе, чем в обычной вкладке Safari, из-за чего
+           вложенный .main-content (overflow-y-auto) мог получать неверную
+           высоту и не скроллиться вовсе. 100dvh — реальная видимая область. */
+        .dashboard-app-shell.h-screen { height: 100dvh; }
 
     </style>
     <script>

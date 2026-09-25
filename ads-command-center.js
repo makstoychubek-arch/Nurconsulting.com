@@ -1486,9 +1486,11 @@
         tb.innerHTML = html.join('');
     }
 
+    const PHONE_CAMP_MAX_METRICS = 6; // карточка на телефоне не должна повторять весь набор колонок "Все" (17 шт.)
+
     function renderPhoneCamp(cab, camp) {
         const ck = cab.id + ':' + camp.wbId;
-        const cols = currentCols().filter((c) => c.key !== 'budget' && c.key !== 'limit');
+        const cols = currentCols().filter((c) => c.key !== 'budget' && c.key !== 'limit').slice(0, PHONE_CAMP_MAX_METRICS);
         const html = [];
         html.push('<article class="ads-hq-phone-card ads-hq-phone-shelf" data-key="' + esc(ck) + '">');
         html.push(
