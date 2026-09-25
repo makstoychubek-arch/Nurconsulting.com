@@ -1,4 +1,6 @@
-// autobidder_tick — */5 мин. Способ B, стратегия min_sufficient.
+// autobidder_tick — */5 мин. Способ B, стратегии min_sufficient/max_visibility/
+// fixed_position (target_drr пока не читается — нет per-cluster CTR/CR,
+// см. maxBidFromTargetDrr в _shared/autobidder-tick-decide.ts).
 // Кабинеты параллельно, правила внутри кабинета последовательно.
 // DRY_RUN=true по умолчанию: setBids не уходит в WB.
 // Позиция — из официального отчёта поисковых запросов WB (см.
@@ -13,7 +15,10 @@ import {
     isCapExhausted,
     spendEstimateBetweenSyncs,
     tokenInvalidResult,
+    type Strategy,
 } from '../_shared/autobidder-tick-decide.ts';
+
+const LIVE_STRATEGIES: Strategy[] = ['min_sufficient', 'max_visibility', 'fixed_position'];
 import {
     boundsFromCorridor,
     clustersNeedingPositions,
@@ -187,6 +192,7 @@ type RuleRow = {
     min_bid_floor: number;
     step_pct: number;
     hysteresis: number;
+    strategy: Strategy;
     campaign: {
         id: string;
         cabinet_id: string;
@@ -242,7 +248,7 @@ Deno.serve(async (req) => {
             )
         `)
         .eq('is_active', true)
-        .eq('strategy', 'min_sufficient');
+        .in('strategy', LIVE_STRATEGIES);
     if (ruleErr) return json({ error: ruleErr.message }, 500);
 
     const rules: RuleRow[] = [];
@@ -261,6 +267,9 @@ Deno.serve(async (req) => {
             min_bid_floor: Number(r.min_bid_floor),
             step_pct: Number(r.step_pct),
             hysteresis: Number(r.hysteresis),
+            strategy: (LIVE_STRATEGIES as string[]).includes(String(r.strategy))
+                ? (r.strategy as Strategy)
+                : 'min_sufficient',
             campaign: camp,
         });
     }
@@ -448,6 +457,7 @@ async function tickCabinet(
                     hysteresis: rule.hysteresis,
                     minBidFloor: bounds.minBidFloor,
                     maxBid: bounds.maxBid,
+                    strategy: rule.strategy,
                     budgetCabinetExhausted: ctxIn.cabinetExhausted,
                     budgetGroupExhausted: ctxIn.groupExhausted,
                 });

@@ -9,6 +9,7 @@ import {
     fetchAuction,
     getAdPosition,
     isCapExhausted,
+    maxBidFromTargetDrr,
     settleCabinets,
     spendEstimateBetweenSyncs,
     tokenInvalidResult,
@@ -94,6 +95,72 @@ eq(
     'pos_worse',
     false,
 );
+
+// ── fixed_position: как min_sufficient, но не срезает ставку, если позиция
+//    и так лучше нужного — держит коридор, а не гонится за экономией ──────
+eq(
+    'fixed_position: pos better → держим (не как min_sufficient — не снижаем)',
+    decideBid(canon({ myPos: 3, strategy: 'fixed_position' })),
+    100,
+    'in_range',
+    false,
+);
+eq(
+    'fixed_position: pos worse → как min_sufficient, поднимаем',
+    decideBid(canon({ myPos: 15, strategy: 'fixed_position' })),
+    107,
+    'pos_worse',
+    true,
+);
+eq(
+    'fixed_position: в диапазоне — как min_sufficient',
+    decideBid(canon({ myPos: 7, strategy: 'fixed_position' })),
+    100,
+    'in_range',
+    false,
+);
+
+// ── max_visibility: не держит коридор позиций, всегда идёт к потолку ─────
+eq(
+    'max_visibility: игнорирует позицию, идёт к max_bid',
+    decideBid(canon({ myPos: 7, strategy: 'max_visibility' })),
+    150,
+    'max_visibility',
+    true,
+);
+eq(
+    'max_visibility: уже на потолке — no-op',
+    decideBid(canon({ myPos: 7, myBid: 150, strategy: 'max_visibility' })),
+    150,
+    'hysteresis',
+    false,
+);
+eq(
+    'max_visibility: бюджет кабинета важнее стратегии',
+    decideBid(canon({ myPos: 7, strategy: 'max_visibility', budgetCabinetExhausted: true })),
+    50,
+    'budget_cap_cabinet',
+    true,
+);
+eq(
+    'max_visibility: нет потолка — не гонимся вслепую',
+    decideBid(canon({ myPos: 7, strategy: 'max_visibility', maxBid: null })),
+    100,
+    'hysteresis',
+    false,
+);
+
+// ── target_drr: формула потолка ставки (docs/autobidder.md §7.1) —
+//    подготовлена, но НЕ подключена к живому тику (см. комментарий в коде) ──
+assert.equal(
+    maxBidFromTargetDrr({ price: 1000, targetDrrPct: 12, ctrCluster: 0.03, crCluster: 0.05 }),
+    180,
+    'maxBidFromTargetDrr: 1000*12/100=120, 0.03*0.05*1000=1.5, 120*1.5=180',
+);
+assert.equal(maxBidFromTargetDrr({ price: 0, targetDrrPct: 12, ctrCluster: 0.03, crCluster: 0.05 }), null, 'price<=0 → null');
+assert.equal(maxBidFromTargetDrr({ price: 1000, targetDrrPct: 0, ctrCluster: 0.03, crCluster: 0.05 }), null, 'targetDrrPct<=0 → null');
+assert.equal(maxBidFromTargetDrr({ price: 1000, targetDrrPct: 12, ctrCluster: 0, crCluster: 0.05 }), null, 'ctr<=0 → null (нет сигнала)');
+assert.equal(maxBidFromTargetDrr({ price: 1000, targetDrrPct: 12, ctrCluster: 0.03, crCluster: 0 }), null, 'cr<=0 → null (нет сигнала)');
 
 assert.equal(fetchAuction('любой'), null, 'auction stub');
 assert.equal(getAdPosition(1, 'q'), null, 'position stub');

@@ -1,6 +1,8 @@
 // Ядро тика autobidder (docs/autobidder-tick-plan.md + ответы 09.09.2026).
 // Чистые функции: без Deno/WB. Способ A и живая выдача — заглушки.
 
+export type Strategy = 'min_sufficient' | 'max_visibility' | 'fixed_position';
+
 export type DecideInput = {
     myPos: number | null;
     myBid: number;
@@ -10,6 +12,8 @@ export type DecideInput = {
     hysteresis: number;
     minBidFloor: number;
     maxBid: number | null;
+    /** default 'min_sufficient' — см. docs/autobidder.md разд. 8 (подписи UI ads-hq-strategy). */
+    strategy?: Strategy;
     budgetCabinetExhausted?: boolean;
     budgetGroupExhausted?: boolean;
 };
@@ -33,6 +37,39 @@ export const CANON = {
 /** Способ A — заглушка до шага 7. Всегда null. */
 export function fetchAuction(_clusterKey: string): null {
     return null;
+}
+
+/**
+ * Формула потолка ставки из целевого ДРР (docs/autobidder.md разд. 7.1).
+ * ПОДГОТОВЛЕНО, НО НЕ ПОДКЛЮЧЕНО к живому тику: autobidder-tick сегодня не
+ * знает per-cluster CTR/CR — adv_daily_stats пишется только на уровне всей
+ * кампании (cluster_key всегда NULL, см. sync-daily-stats/index.ts). Строка
+ * с strategy='target_drr' в autobidder_rules пока сознательно не читается
+ * тиком (см. фильтр в autobidder-tick/index.ts) — иначе это выглядело бы
+ * рабочей фичей, которая на деле ничего не считает.
+ *
+ * allowed_ad_spend_per_order = price * target_drr_pct / 100
+ * expected_orders_per_1000_impr = ctrCluster * crCluster * 1000
+ * max_bid_effective = allowed_ad_spend_per_order * expected_orders_per_1000_impr
+ */
+export function maxBidFromTargetDrr(input: {
+    price: number;
+    targetDrrPct: number;
+    ctrCluster: number; // доля, не проценты (0.03 = 3%)
+    crCluster: number; // доля кликов, ставших заказом
+}): number | null {
+    const price = Number(input.price);
+    const targetDrrPct = Number(input.targetDrrPct);
+    const ctr = Number(input.ctrCluster);
+    const cr = Number(input.crCluster);
+    if (!Number.isFinite(price) || price <= 0) return null;
+    if (!Number.isFinite(targetDrrPct) || targetDrrPct <= 0) return null;
+    if (!Number.isFinite(ctr) || ctr <= 0 || !Number.isFinite(cr) || cr <= 0) return null;
+
+    const allowedAdSpendPerOrder = (price * targetDrrPct) / 100;
+    const expectedOrdersPer1000Impr = ctr * cr * 1000;
+    const maxBidEffective = allowedAdSpendPerOrder * expectedOrdersPer1000Impr;
+    return Number.isFinite(maxBidEffective) ? maxBidEffective : null;
 }
 
 /**
@@ -83,6 +120,7 @@ export function decideBid(input: DecideInput): DecideResult {
         : Number(input.maxBid);
     const hasMax = maxBid != null && Number.isFinite(maxBid);
 
+    const strategy: Strategy = input.strategy || 'min_sufficient';
     let candidate: number;
     let reason: string;
 
@@ -92,6 +130,11 @@ export function decideBid(input: DecideInput): DecideResult {
     } else if (input.budgetCabinetExhausted) {
         candidate = floor;
         reason = 'budget_cap_cabinet';
+    } else if (strategy === 'max_visibility') {
+        // «Видимость до потолка» — не держим коридор позиций, всегда идём
+        // к максимально разрешённой ставке (ручной max_bid или коридор WB).
+        candidate = hasMax ? (maxBid as number) : base + step;
+        reason = 'max_visibility';
     } else if (input.myPos == null) {
         candidate = base + step;
         reason = 'pos_unknown';
@@ -99,8 +142,16 @@ export function decideBid(input: DecideInput): DecideResult {
         candidate = base + step;
         reason = 'pos_worse';
     } else if (input.myPos < input.targetPosFrom) {
-        candidate = base - step;
-        reason = 'pos_better';
+        // «Держать коридор позиций» — в отличие от min_sufficient, не срезаем
+        // ставку, если позиция и так лучше нужного: держим, не гонимся за
+        // экономией, чтобы не терять место лишний раз туда-обратно.
+        if (strategy === 'fixed_position') {
+            candidate = base;
+            reason = 'in_range';
+        } else {
+            candidate = base - step;
+            reason = 'pos_better';
+        }
     } else {
         candidate = base;
         reason = 'in_range';
@@ -116,9 +167,10 @@ export function decideBid(input: DecideInput): DecideResult {
     if (hasMax && newBid > (maxBid as number)) newBid = maxBid as number;
     if (!hasMax && newBid > myBid) newBid = myBid;
 
-    if (input.myPos == null && hasMax && newBid === maxBid && wantedRaise) {
+    if (strategy !== 'max_visibility' && input.myPos == null && hasMax && newBid === maxBid && wantedRaise) {
         reason = 'pos_unknown|max_bid_hit';
     } else if (
+        strategy !== 'max_visibility' &&
         input.myPos != null &&
         hasMax &&
         newBid === maxBid &&
