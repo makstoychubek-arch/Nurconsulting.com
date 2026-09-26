@@ -1963,9 +1963,10 @@
         let saved = 0;
         for (const it of items) {
             if (!it.uuid) continue;
+            const clusterId = it.kind === 'cluster' && it.cluster ? it.cluster : null;
             const payload = {
                 campaign_id: it.uuid,
-                cluster_id: it.kind === 'cluster' && it.cluster ? it.cluster : null,
+                cluster_id: clusterId,
                 strategy: f.strategy,
                 target_pos_from: f.target_pos_from,
                 target_pos_to: f.target_pos_to,
@@ -1978,7 +1979,17 @@
                 is_active: true,
                 updated_at: new Date().toISOString(),
             };
-            const { error } = await sb.from('autobidder_rules').insert(payload);
+            // autobidder_rules не имеет unique-ограничения на (campaign_id,
+            // cluster_id) — раньше повторное "Применить" с той же полкой/
+            // кластером плодило дубли правил вместо обновления одного. Ищем
+            // существующее правило вручную и обновляем его, а не полагаемся
+            // на .upsert() (для него нужен реальный constraint в БД).
+            let existingQuery = sb.from('autobidder_rules').select('id').eq('campaign_id', it.uuid);
+            existingQuery = clusterId ? existingQuery.eq('cluster_id', clusterId) : existingQuery.is('cluster_id', null);
+            const { data: existing } = await existingQuery.maybeSingle();
+            const { error } = existing && existing.id
+                ? await sb.from('autobidder_rules').update(payload).eq('id', existing.id)
+                : await sb.from('autobidder_rules').insert(payload);
             if (!error) saved += 1;
         }
         if (modal) modal(saved ? 'success' : 'error', 'Шаблон', saved ? ('Правила с текущей формой: ' + saved) : 'Нужен uuid кампании из adv_campaigns.');
