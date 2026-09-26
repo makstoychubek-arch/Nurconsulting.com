@@ -17,8 +17,7 @@ import {
     tokenInvalidResult,
     type Strategy,
 } from '../_shared/autobidder-tick-decide.ts';
-
-const LIVE_STRATEGIES: Strategy[] = ['min_sufficient', 'max_visibility', 'fixed_position'];
+import { notifyOnce } from '../_shared/notify-once.ts';
 import {
     boundsFromCorridor,
     clustersNeedingPositions,
@@ -47,6 +46,8 @@ import {
 
 const ANALYTICS_API = 'https://seller-analytics-api.wildberries.ru';
 const ADVERT_API = 'https://advert-api.wildberries.ru';
+const LIVE_STRATEGIES: Strategy[] = ['min_sufficient', 'max_visibility', 'fixed_position'];
+const MAX_BID_HIT_DIGEST_MIN = 60; // §11.7: max_bid_hit — раз в час дайджестом, не на каждый тик
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -213,6 +214,8 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     if (!supabaseUrl || !serviceKey) return json({ error: 'missing_env' }, 500);
     if (!isServiceAuthorized(req, serviceKey)) return json({ error: 'Unauthorized' }, 401);
+    const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
+    const tgChatId = Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '';
 
     const body = req.method === 'GET'
         ? Object.fromEntries(new URL(req.url).searchParams)
@@ -327,6 +330,8 @@ Deno.serve(async (req) => {
         tickCabinet(admin, cab, {
             dryRun,
             reqPerMin,
+            tgToken,
+            tgChatId,
             rules: rules.filter((r) => r.campaign.cabinet_id === cab.id),
             clusters,
             positions,
@@ -364,6 +369,8 @@ async function tickCabinet(
     ctxIn: {
         dryRun: boolean;
         reqPerMin: number;
+        tgToken: string;
+        tgChatId: string;
         rules: RuleRow[];
         clusters: ClusterRow[];
         positions: Map<string, number | null>;
@@ -393,6 +400,11 @@ async function tickCabinet(
         });
         if (bidsRes.status === 401 || bidsRes.status === 403) {
             console.error('[autobidder-tick] token invalid', cab.name);
+            // §11.7: token_invalid — сразу, владельцу (без дедуп-окна digest'ов).
+            await notifyOnce(
+                admin, ctxIn.tgToken, ctxIn.tgChatId, cab.id, null, 'token_invalid',
+                `🔴 Кабинет «${cab.name}»: рекламный токен невалиден (${bidsRes.status}), автобиддер остановлен для этого кабинета`,
+            );
             return {
                 ok: false,
                 error: 'token_invalid',
@@ -501,6 +513,32 @@ async function tickCabinet(
                     applied,
                 });
                 if (histErr) console.error('[autobidder-tick] bid_history', histErr.message);
+
+                // §11.7: события автобиддера в тот же Telegram-канал, тем же
+                // notifyOnce/notification_log, что и check-campaigns-notify —
+                // без второго механизма дедупа.
+                if (applied) {
+                    // Дедуп короче тика (5 мин) — это защита от повторной отправки
+                    // при повторном вызове, а не троттлинг реальных изменений
+                    // ставки: hysteresis уже гасит незначимые шевеления сама.
+                    // Кластер зашит в event_type, иначе notification_log не
+                    // различит два кластера одной кампании (дедуп ключуется по
+                    // cabinet_id+campaign_id+event_type, без колонки cluster).
+                    await notifyOnce(
+                        admin, ctxIn.tgToken, ctxIn.tgChatId, cab.id, Number(camp.wb_campaign_id),
+                        `bid_changed:${cl.cluster_key}`,
+                        `💰 «${cab.name}» / кампания ${camp.wb_campaign_id} / «${cl.cluster_key}»: ставка ${myBid} → ${decided.newBid} (${decided.reason})`,
+                        4,
+                    );
+                }
+                if (decided.reason === 'max_bid_hit' || decided.reason === 'pos_unknown|max_bid_hit') {
+                    await notifyOnce(
+                        admin, ctxIn.tgToken, ctxIn.tgChatId, cab.id, Number(camp.wb_campaign_id),
+                        `max_bid_hit:${cl.cluster_key}`,
+                        `⚠️ «${cab.name}» / кампания ${camp.wb_campaign_id} / «${cl.cluster_key}»: упёрлись в потолок ставки (${decided.newBid}), конкуренция выросла`,
+                        MAX_BID_HIT_DIGEST_MIN,
+                    );
+                }
 
                 decisions.push({
                     rule_id: rule.id,

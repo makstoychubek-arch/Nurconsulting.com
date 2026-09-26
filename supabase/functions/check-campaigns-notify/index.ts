@@ -10,6 +10,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { fetchWithTimeout, notifyOnce, sendTelegramMessage } from '../_shared/notify-once.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -17,7 +18,6 @@ const CORS = {
 };
 
 const ADV_API = 'https://advert-api.wildberries.ru';
-const DEDUP_WINDOW_MIN = 60; // не слать повтор того же события за последний час
 const LOW_BALANCE_THRESHOLD = Number(Deno.env.get('AD_LOW_BALANCE_THRESHOLD')) || 1000;
 
 // Статусы WB: -1 удалена, 4 готова к запуску, 7 завершена, 8 отклонена, 9 активна, 11 на паузе.
@@ -207,78 +207,9 @@ Deno.serve(async (req) => {
     }
 });
 
-// Проверяет notification_log за последний DEDUP_WINDOW_MIN минут для того же
-// события/кампании/кабинета — и только если дубля нет, шлёт в Telegram и
-// пишет лог. Возвращает true, если сообщение реально отправлено.
-async function notifyOnce(
-    admin: ReturnType<typeof createClient>,
-    tgToken: string,
-    tgChatId: string,
-    cabinetId: string,
-    campaignId: number | null,
-    eventType: string,
-    text: string,
-): Promise<boolean> {
-    const since = new Date(Date.now() - DEDUP_WINDOW_MIN * 60 * 1000).toISOString();
-    let q = admin
-        .from('notification_log')
-        .select('id')
-        .eq('cabinet_id', cabinetId)
-        .eq('event_type', eventType)
-        .gte('sent_at', since);
-    q = campaignId == null ? q.is('campaign_id', null) : q.eq('campaign_id', campaignId);
-    const { data: dupes } = await q.limit(1);
-    if (dupes && dupes.length) return false;
-
-    let sendOk = true;
-    if (tgToken && tgChatId) {
-        sendOk = await sendTelegramMessage(tgToken, tgChatId, text);
-    } else {
-        sendOk = false;
-        console.warn('[check-campaigns-notify] TELEGRAM_BOT_TOKEN/TELEGRAM_GROUP_CHAT_ID не заданы — сообщение не отправлено:', text);
-    }
-
-    await admin.from('notification_log').insert({
-        cabinet_id: cabinetId,
-        campaign_id: campaignId,
-        event_type: eventType,
-        message_text: text,
-    });
-    return sendOk;
-}
-
-async function sendTelegramMessage(token: string, chatId: string, text: string): Promise<boolean> {
-    try {
-        const res = await fetchWithTimeout(`https://api.telegram.org/bot${token}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: chatId, text }),
-        });
-        if (!res.ok) {
-            console.warn('[check-campaigns-notify] telegram sendMessage failed:', res.status, await res.text());
-            return false;
-        }
-        return true;
-    } catch (e) {
-        console.warn('[check-campaigns-notify] telegram sendMessage error:', String(e));
-        return false;
-    }
-}
-
-// Обычный fetch() в Deno не имеет таймаута — если WB (или Telegram) не
-// ответит вовсе, промис будет висеть до идл-таймаута самой Edge Function
-// (~150 сек), и весь прогон крона зависает, не дойдя до остальных кабинетов
-// и до отправки уведомлений. Оборачиваем все внешние HTTP-вызовы жёстким
-// таймаутом через AbortController.
-async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 12000): Promise<Response> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-        return await fetch(url, { ...init, signal: controller.signal });
-    } finally {
-        clearTimeout(timer);
-    }
-}
+// notifyOnce / sendTelegramMessage / fetchWithTimeout вынесены в
+// ../_shared/notify-once.ts — autobidder-tick использует ту же дедупликацию
+// по notification_log, а не заводит свою (docs/autobidder.md §11.7).
 
 // Лёгкий эквивалент advertising-sync's fetchCampaignIdsAndMeta — только id+status,
 // без деталей/названий (имена берём из уже синхронизированной advertising_campaigns).
