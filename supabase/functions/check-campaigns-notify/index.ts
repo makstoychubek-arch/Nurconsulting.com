@@ -178,9 +178,15 @@ Deno.serve(async (req) => {
                         : prevBalance > LOW_BALANCE_THRESHOLD && balance <= LOW_BALANCE_THRESHOLD;
 
                     if (crossedDown) {
+                        // Не автопополнение (в WB нет для этого публичного API,
+                        // и это были бы реальные деньги без участия человека) —
+                        // просто подсказка суммы, пополняет владелец сам в
+                        // личном кабинете WB.
+                        const suggested = await suggestTopUp(admin, cabinet.id);
+                        const suggestLine = suggested ? `\nПри среднем расходе последней недели хватит примерно на 3 дня — можно пополнить на ~${suggested} ₽.` : '';
                         const text = balance <= 0
-                            ? `⚠ Кабинет «${cabinet.name}»: баланс на рекламу закончился (0 ₽)`
-                            : `⚠ Кабинет «${cabinet.name}»: бюджет заканчивается, остаток ${Math.round(balance)} ₽`;
+                            ? `⚠ Кабинет «${cabinet.name}»: баланс на рекламу закончился (0 ₽)${suggestLine}`
+                            : `⚠ Кабинет «${cabinet.name}»: бюджет заканчивается, остаток ${Math.round(balance)} ₽${suggestLine}`;
                         const sent = await notifyOnce(admin, tgToken, tgChatId, cabinet.id, null, 'low_balance', text);
                         events.push(`low_balance${sent ? '' : ' (dedup/skip)'}`);
                     }
@@ -255,6 +261,26 @@ async function fetchBalance(token: string): Promise<number | null> {
         console.warn('[check-campaigns-notify] balance error:', String(e));
         return null;
     }
+}
+
+// Sellego feature-parity plan, Stage 11: рекомендованная сумма пополнения —
+// не автопополнение. В WB нет публичного API пополнения баланса, а даже
+// если бы был — это реальные деньги, такое не делается без владельца.
+// Формула: средний расход за последние 7 дней × 3 (условный запас на
+// несколько дней), округлено до сотни. null, если данных по расходу нет
+// вообще — тогда просто не показываем строку с подсказкой, не гадаем.
+async function suggestTopUp(admin: ReturnType<typeof createClient>, cabinetId: string): Promise<number | null> {
+    const since = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
+    const { data } = await admin
+        .from('advertising_daily_stats')
+        .select('spend')
+        .eq('cabinet_id', cabinetId)
+        .gte('stat_date', since);
+    if (!data || !data.length) return null;
+    const total = data.reduce((s: number, r: { spend: number | null }) => s + (Number(r.spend) || 0), 0);
+    const avgDaily = total / 7;
+    if (avgDaily <= 0) return null;
+    return Math.ceil((avgDaily * 3) / 100) * 100;
 }
 
 function sanitizeWbToken(raw: unknown): string {
