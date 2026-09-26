@@ -1141,6 +1141,62 @@ serve(async (req) => {
                 break;
             }
 
+            // ── Списки фраз (метаданные, без обращения к WB) ─────────────────
+            // Sellego feature-parity Stage 3. Никогда не пишут в WB сами —
+            // только помечают фразы, которые адрес-hq/автобиддер не должны
+            // сами предлагать/добавлять в минус-фразы. Реальный минус-фраз —
+            // всё ещё adv_cluster_minus выше.
+            case 'cluster_whitelist_add':
+            case 'cluster_protected_add': {
+                const campaignId = Number(params.campaignId || params.advertId || 0);
+                const phrase = String(params.phrase || '').trim().toLowerCase();
+                if (!campaignId || !phrase) return json({ error: 'campaignId, phrase required' }, 400);
+                const table = action === 'cluster_whitelist_add' ? 'cluster_whitelist' : 'cluster_protected_phrases';
+                const row: Record<string, unknown> = {
+                    cabinet_id: cabinet_id,
+                    campaign_id: campaignId,
+                    phrase,
+                    created_by: user.id,
+                };
+                if (action === 'cluster_protected_add' && params.note) row.note = String(params.note).trim();
+                const { error: insErr } = await admin.from(table).upsert(row, {
+                    onConflict: 'cabinet_id,campaign_id,phrase',
+                    ignoreDuplicates: true,
+                });
+                if (insErr) return json({ error: insErr.message }, 500);
+                result = { ok: true, campaignId, phrase };
+                break;
+            }
+            case 'cluster_whitelist_remove':
+            case 'cluster_protected_remove': {
+                const campaignId = Number(params.campaignId || params.advertId || 0);
+                const phrase = String(params.phrase || '').trim().toLowerCase();
+                if (!campaignId || !phrase) return json({ error: 'campaignId, phrase required' }, 400);
+                const table = action === 'cluster_whitelist_remove' ? 'cluster_whitelist' : 'cluster_protected_phrases';
+                const { error: delErr } = await admin.from(table)
+                    .delete()
+                    .eq('cabinet_id', cabinet_id)
+                    .eq('campaign_id', campaignId)
+                    .eq('phrase', phrase);
+                if (delErr) return json({ error: delErr.message }, 500);
+                result = { ok: true, campaignId, phrase };
+                break;
+            }
+            case 'cluster_phrase_lists': {
+                const campaignId = Number(params.campaignId || params.advertId || 0);
+                if (!campaignId) return json({ error: 'campaignId required' }, 400);
+                const [{ data: whitelist }, { data: protectedPhrases }] = await Promise.all([
+                    admin.from('cluster_whitelist').select('phrase').eq('cabinet_id', cabinet_id).eq('campaign_id', campaignId),
+                    admin.from('cluster_protected_phrases').select('phrase, note').eq('cabinet_id', cabinet_id).eq('campaign_id', campaignId),
+                ]);
+                result = {
+                    ok: true,
+                    whitelist: (whitelist || []).map((r) => r.phrase),
+                    protected: (protectedPhrases || []).map((r) => ({ phrase: r.phrase, note: r.note || null })),
+                };
+                break;
+            }
+
             // ── Analytics API — Sales Funnel ────────────────────────────────
             case 'sales_funnel_history': {
                 const today = new Date();

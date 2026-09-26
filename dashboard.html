@@ -1447,6 +1447,8 @@
         .cl-hook:hover, .cl-copy:hover { color: var(--accent); background: var(--accent-soft); }
         .cl-hook svg, .cl-copy svg { width: 13px; height: 13px; display: block; }
         .cl-copy.is-ok { color: var(--green); }
+        .cl-hook.is-on { color: var(--accent); }
+        .cl-hook.is-on:hover { color: var(--accent); background: var(--accent-soft); }
         .cl-nm { font-size: 9.5px; color: var(--text-muted); font-family: ui-monospace, monospace; font-weight: 400; }
         .cl-bid-wrap { display: inline-flex; gap: 4px; align-items: center; }
         .cl-bid-input {
@@ -9534,6 +9536,19 @@
         _clusterBoards.set(id, data);
         _clusterState.posLoaded = 0;
         renderClusterBoard();
+
+        // Список защищённых фраз — метаданные, не блокирует отрисовку борда,
+        // поэтому догружаем отдельно и перерисовываем, когда придёт.
+        const lists = await callWbProxy('cluster_phrase_lists', { campaignId: id }, _clusterState.cabinetId);
+        if (_clusterState.advertId !== id) return;
+        if (lists && !lists.error) {
+            const protectedSet = new Set((lists.protected || []).map(p => String(p.phrase).toLowerCase()));
+            const board = _clusterBoards.get(id);
+            if (board) {
+                board.rows = (board.rows || []).map(r => ({ ...r, protected: protectedSet.has(r.normQuery.toLowerCase()) }));
+                renderClusterBoard();
+            }
+        }
     }
     window.reloadClusterBoard = () => { _clusterBoards.delete(_clusterState.advertId); loadClusterBoard(); };
 
@@ -9800,7 +9815,7 @@
 
         return `<tr data-cl-key="${escapeHtml(key)}" class="${off ? 'cl-row-off' : ''}">
             <td class="cl-onoff" data-cl-act="${act}">${clusterToggleHtml(r)}</td>
-            <td class="cl-q" title="${escapeHtml(r.normQuery)}"><div class="cl-q-row"><span class="cl-q-text" data-cl-act="${act}">${escapeHtml(r.normQuery)}</span>${clusterWbHook(r.normQuery)}</div><div class="cl-nm">${r.nmId}</div></td>
+            <td class="cl-q" title="${escapeHtml(r.normQuery)}"><div class="cl-q-row"><span class="cl-q-text" data-cl-act="${act}">${escapeHtml(r.normQuery)}</span>${clusterWbHook(r.normQuery)}${clusterProtectHook(r)}</div><div class="cl-nm">${r.nmId}</div></td>
             <td>${bidCell}</td>
             <td>${clusterReachCell(r, data.editable)}</td>
             <td>${clusterFreqCell(r)}</td>
@@ -9831,6 +9846,28 @@
         return '<a class="cl-hook" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer" title="Открыть на WB" aria-label="Открыть на WB">' +
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3v10.5a4 4 0 1 0 8 0V9"></path><path d="M8 7h4"></path></svg></a>';
     }
+
+    // Sellego feature-parity Stage 3: "защищённая фраза" — просто метка,
+    // никакого обращения к WB (в отличие от cl-toggle/exclude выше).
+    function clusterProtectHook(r) {
+        const on = !!r.protected;
+        return `<button type="button" class="cl-hook${on ? ' is-on' : ''}" data-cl-protect="${escapeHtml(r.normQuery)}" title="${on ? 'Убрать защиту фразы' : 'Защитить фразу (не трогать при автоминусации)'}" aria-label="Защитить фразу">` +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"></path></svg></button>';
+    }
+
+    async function toggleClusterProtect(query) {
+        const data = _clusterBoards.get(_clusterState.advertId);
+        if (!data) return;
+        const rows = (data.rows || []).filter(r => r.normQuery === query);
+        if (!rows.length) return;
+        const turningOn = !rows[0].protected;
+        const action = turningOn ? 'cluster_protected_add' : 'cluster_protected_remove';
+        const res = await callWbProxy(action, { campaignId: _clusterState.advertId, phrase: query }, _clusterState.cabinetId);
+        if (!res || res.error) return;
+        rows.forEach(r => { r.protected = turningOn; });
+        renderClusterBoard();
+    }
+    window.toggleClusterProtect = toggleClusterProtect;
 
     async function copyClusterCampaignName(btn) {
         const id = _clusterState.advertId;
@@ -10107,6 +10144,11 @@
             if (!tr) return;
             if (act.dataset.clAct === 'save') saveClusterBid(tr.dataset.clKey);
             else toggleClusterMinus(tr.dataset.clKey, act.dataset.clAct === 'exclude');
+            return;
+        }
+        const protectBtn = e.target.closest('#cl-tbody [data-cl-protect]');
+        if (protectBtn) {
+            toggleClusterProtect(protectBtn.dataset.clProtect);
             return;
         }
         const copyBtn = e.target.closest('#cl-copy-name');
