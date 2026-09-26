@@ -1513,13 +1513,17 @@
                просто не помещалась — не "плохо скроллилась", а не рисовалась
                вовсе. На мобильном скроллим всю модалку одним блоком вместо
                "шапка прибита, скроллится только таблица".
+               !important обязателен: ниже в файле есть безусловное правило
+               .nr-win.cl-dialog > .nr-win-scroll { overflow: hidden } — оно
+               идёт позже в каскаде и без !important полностью перебивало
+               этот же селектор внутри media-запроса.
             */
-            .nr-win.cl-dialog > .nr-win-scroll { overflow-y: auto; -webkit-overflow-scrolling: touch; }
+            .nr-win.cl-dialog > .nr-win-scroll { overflow-y: auto !important; -webkit-overflow-scrolling: touch; }
             /* overflow-x остаётся — таблица шире экрана (min-width: 1100px),
                горизontальный скролл внутри .cl-body всё ещё нужен. Только
                overflow-y убираем, чтобы высота была "естественной" и не
                обрезала таблицу — вертикально скроллит уже .nr-win-scroll. */
-            .cl-body { flex: none; min-height: 0; overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; }
+            .cl-body { flex: none !important; min-height: 0; overflow-x: auto; overflow-y: visible !important; -webkit-overflow-scrolling: touch; }
         }
         /* Единое стекло: затемнение + blur, панель накрывает сверху по центру */
         @keyframes nr-dialog-in {
