@@ -1524,6 +1524,13 @@
                overflow-y убираем, чтобы высота была "естественной" и не
                обрезала таблицу — вертикально скроллит уже .nr-win-scroll. */
             .cl-body { flex: none !important; min-height: 0; overflow-x: auto; overflow-y: visible !important; -webkit-overflow-scrolling: touch; }
+            /* Колонка "Фраза" тянется по контенту (max-width: 280px в базовом
+               правиле) — на узком экране это съедало почти всю ширину, и при
+               скролле направо показатели уходили за край вместе с ней самой.
+               Переключатель (52px) и фраза уже sticky (position: sticky) —
+               просто делаем фразу узкой и предсказуемой, чтобы после нужного
+               скролла оставалось место под цифры. */
+            .cl-table th.cl-q, .cl-table td.cl-q { width: 96px !important; max-width: 96px !important; }
         }
         /* Единое стекло: затемнение + blur, панель накрывает сверху по центру */
         @keyframes nr-dialog-in {
