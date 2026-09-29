@@ -3982,7 +3982,7 @@
         .ab-create-btn {
             display: inline-flex; align-items: center; gap: 8px;
             background: transparent; color: var(--accent); border: 1px solid var(--accent-border);
-            border-radius: 12px; padding: 8px 14px; font-size: 13px; font-weight: 700;
+            border-radius: 14px; padding: 7px 14px; font-size: 12.5px; font-weight: 700;
             cursor: pointer; letter-spacing: -0.02em;
         }
         .ab-create-btn:hover { background: var(--accent-soft); }
@@ -4636,11 +4636,16 @@
         }
         .settings-section-tab.hidden-tab { display: none !important; }
         .map-placeholder { background: var(--surface); border: 2px dashed var(--border-strong); border-radius: 16px; min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; gap: 8px; }
-        .ui-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 6px; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; border: 1px solid transparent; line-height: 1.2; }
-        .ui-btn-primary { background: var(--accent-gradient); color: white; }
-        .ui-btn-primary:hover { background: var(--accent-hover); }
-        .ui-btn-secondary { background: var(--surface); border-color: var(--border-strong); color: var(--text-primary); box-shadow: var(--card-shadow); }
-        .ui-btn-secondary:hover { background: var(--accent-soft); border-color: var(--accent-border); }
+        /* Единое определение — раньше .ui-btn/.ui-btn-primary/.ui-btn-secondary
+           переопределялись ещё дважды ниже по файлу (border-radius 6→14px,
+           затем borderless + чёрный фон !important у primary), и разбирать,
+           что реально рисуется, можно было только по каскаду. Здесь сразу
+           финальный вид, без !important-войны. */
+        .ui-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px 14px; border-radius: 14px; font-size: 12.5px; font-weight: 700; letter-spacing: -0.02em; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; border: none; line-height: 1.2; }
+        .ui-btn-primary { background: var(--accent-gradient); color: white; box-shadow: none; }
+        .ui-btn-primary:hover { background: var(--accent-hover); box-shadow: none; transform: none; }
+        .ui-btn-secondary { background: var(--sel); color: var(--text-primary); box-shadow: none; border-radius: 10px; }
+        .ui-btn-secondary:hover { background: var(--sel); transform: translateY(-1px); }
         .ui-status { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px; font-size: 10px; font-weight: 700; background: var(--muted-soft); color: var(--text-secondary); }
         .ui-status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
         .ui-status-success { background: var(--green-soft); color: var(--green); }
@@ -4686,15 +4691,6 @@
         /* Плавный переход всех интерактивных элементов */
         button, select, input, a { transition: all 0.2s ease; }
         button:active { transform: scale(0.97); }
-
-        /* Кнопки — единый современный стиль */
-        .ui-btn { border-radius: 14px !important; font-weight: 700 !important; letter-spacing: -0.02em; }
-        .ui-btn-primary { box-shadow: none; }
-        .ui-btn-primary:hover { box-shadow: none; transform: none; }
-        [data-theme="neon"] .ui-btn-primary { box-shadow: none; }
-        [data-theme="neon"] .ui-btn-primary:hover { box-shadow: none; }
-        .ui-btn-secondary { border-radius: 10px !important; }
-        .ui-btn-secondary:hover { transform: translateY(-1px); }
 
         /* Кнопка "Обновить" */
         #refresh-btn, .header-refresh-btn {
@@ -4849,11 +4845,6 @@
             color: #e8e8f0 !important;
             background-color: #1a1a24 !important;
         }
-        .ui-btn { border: none !important; box-shadow: none; }
-        .ui-btn-primary { box-shadow: none !important; background: #111 !important; color: #fff !important; }
-        .ui-btn-primary:hover { transform: none; box-shadow: none !important; background: #222 !important; }
-        .ui-btn-secondary { background: var(--sel) !important; box-shadow: none !important; }
-        .ui-btn-secondary:hover { transform: none; background: var(--sel) !important; }
         .segment-tabs {
             background: var(--sel) !important;
             border: none !important;
