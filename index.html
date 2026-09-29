@@ -212,6 +212,47 @@
             .vp-foot-bar { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); }
         }
 
+        /* Мобильная версия (<768px) и ПК живут раздельно:
+           .nr-desk — только на ПК, .nr-mob — только на телефоне. */
+        @media (max-width: 767px) {
+            .nr-desk, .site-header .vp-pill-cta.nr-desk { display: none !important; }
+            .hero-copy .hero-el-1,
+            .hero-copy .hero-el-2 { text-align: center; margin-left: auto; margin-right: auto; }
+            .hero-copy .hero-el-1 { margin-top: 20px; }
+
+            /* Команда: вместо карточек — строки, разделённые линиями. */
+            #team .reveal-stagger { gap: 0 !important; }
+            #team .reveal-stagger > .hover-glow {
+                background: transparent;
+                border: none;
+                border-top: 1px solid var(--line);
+                border-radius: 0;
+                box-shadow: none;
+                padding: 22px 4px;
+                text-align: center;
+            }
+            #team .reveal-stagger > .hover-glow:last-child { border-bottom: 1px solid var(--line); }
+            #team .reveal-stagger > .hover-glow h4 { position: relative; padding-bottom: 10px; margin-top: 10px; }
+            #team .reveal-stagger > .hover-glow h4::after {
+                content: '';
+                position: absolute; left: 50%; bottom: 0;
+                width: 28px; height: 2px; border-radius: 2px;
+                background: var(--ink); transform: translateX(-50%);
+            }
+            #team .reveal-stagger > .hover-glow p { text-align: center; }
+            #team .reveal-stagger > .hover-glow .team-avatar-wrap { margin-left: auto; margin-right: auto; }
+            #team .mt-12.mb-6 p {
+                display: flex; align-items: center; gap: 12px;
+            }
+            #team .mt-12.mb-6 p::before,
+            #team .mt-12.mb-6 p::after {
+                content: ''; flex: 1; height: 1px; background: var(--line);
+            }
+        }
+        @media (min-width: 768px) {
+            .nr-mob { display: none !important; }
+        }
+
         @media (max-width: 390px) {
             .hero-el-1 { font-size: 1.5rem !important; }
             .hero-el-badge span:last-child { letter-spacing: 0.06em; }
@@ -238,7 +279,8 @@
                     <a href="#contacts" class="nav-link vp-pill-link">Контакты</a>
                 </div>
                 <a href="/login" class="site-login-chip hidden sm:flex vp-pill-link">Войти</a>
-                <a href="/login?tab=register" class="vp-pill-cta hidden sm:flex">Регистрация</a>
+                <a href="/login" class="vp-pill-cta nr-desk hidden sm:flex">NR Space</a>
+                <a href="/login?tab=register" class="vp-pill-cta nr-mob hidden sm:flex">Регистрация</a>
                 <button type="button" id="burger-btn" class="lg:hidden flex flex-col justify-center items-center w-9 h-9 rounded-full gap-1" aria-label="Меню">
                     <span id="burger-line-1" class="block w-4 h-0.5 bg-[var(--ink)] transition-all duration-300"></span>
                     <span id="burger-line-2" class="block w-4 h-0.5 bg-[var(--ink)] transition-all duration-300"></span>
@@ -276,12 +318,25 @@
     <section class="hero-welcome relative pt-32 md:pt-40 pb-16 md:pb-20 px-4 sm:px-6 max-w-7xl mx-auto min-h-screen flex flex-col justify-center">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
             <div class="hero-copy lg:col-span-7">
-                <h1 class="hero-el-1 text-[2.5rem] sm:text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight" style="line-height:1.05">
+                <p class="hero-el-badge eyebrow nr-desk">Nur Consulting × NR Space</p>
+                <div class="mt-4 h-px w-16 nr-desk" style="background:var(--ink)"></div>
+                <h1 class="hero-el-1 mt-8 text-[2.5rem] sm:text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight" style="line-height:1.05">
                     Превращаем Wildberries<br>в систему роста и прибыли
                 </h1>
                 <p class="hero-el-2 mt-6 max-w-md text-sm sm:text-base md:text-lg leading-relaxed" style="color:var(--ink-dim)">
                     Мы не просто агентство. Мы операционная команда для масштабирования крупного бизнеса на маркетплейсах. Передайте управление экспертам и сфокусируйтесь на развитии стратегии.
                 </p>
+                <div class="hero-el-3 nr-desk mt-8 flex flex-wrap items-center gap-6">
+                    <a href="https://t.me/maraomg" target="_blank" class="vibe-btn">
+                        <span class="hero-audit-long">Получить бесплатный аудит</span>
+                        <span class="hero-audit-short">Бесплатный аудит</span>
+                    </a>
+                    <a href="https://t.me/maraomg" target="_blank" class="group text-sm font-medium" style="color:var(--ink)">
+                        <span class="hero-tg-long">Написать в Telegram</span>
+                        <span class="hero-tg-short">Telegram</span>
+                        <span class="inline-block transition group-hover:translate-x-1">→</span>
+                    </a>
+                </div>
             </div>
             
             <div class="hero-el-4 lg:col-span-5 relative">
@@ -597,7 +652,7 @@
             <h2 class="text-3xl font-semibold tracking-tight">Контакты</h2>
             <p class="mt-2" style="color:var(--ink-dim)">Россия: +7 966 752 03 97 · Кыргызстан: +996 502 446 688</p>
         </div>
-        <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <a href="tel:+996502446688" class="vp-channel group">
                 <div class="flex items-start justify-between">
                     <span class="vp-channel-ico"><svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-1.5 2a14 14 0 0 1-7.5-7.5L9 8 7 3Z"/></svg></span>
@@ -613,6 +668,21 @@
                 <h3 class="mt-4 font-semibold">WhatsApp</h3>
                 <p class="mt-1 text-sm" style="color:var(--ink-dim)">Кыргызстан: +996 502 446 688</p>
                 <span class="mt-3 inline-block text-sm font-medium">+996 502 446 688 <span class="inline-block transition group-hover:translate-x-1">→</span></span>
+            </a>
+            <a href="https://t.me/maraomg" target="_blank" class="vp-channel group nr-desk">
+                <div class="flex items-start justify-between">
+                    <span class="vp-channel-ico"><svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg></span>
+                    <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium" style="background:#ecfdf5;color:#15803d"><span class="h-1.5 w-1.5 rounded-full" style="background:#22c55e"></span> Online</span>
+                </div>
+                <h3 class="mt-4 font-semibold">Telegram</h3>
+                <p class="mt-1 text-sm" style="color:var(--ink-dim)">Официальные медиа: @maraomg</p>
+                <span class="mt-3 inline-block text-sm font-medium">Telegram: @maraomg <span class="inline-block transition group-hover:translate-x-1">→</span></span>
+            </a>
+            <a href="https://t.me/maraomg" target="_blank" class="vp-channel group nr-desk">
+                <div class="flex items-start justify-between"><span class="vp-channel-ico">✦</span></div>
+                <h3 class="mt-4 font-semibold">Аудит</h3>
+                <p class="mt-1 text-sm" style="color:var(--ink-dim)">Получить бесплатный аудит</p>
+                <span class="mt-3 inline-block text-sm font-medium">Получить бесплатный аудит <span class="inline-block transition group-hover:translate-x-1">→</span></span>
             </a>
         </div>
         <div class="mt-10 grid gap-5 sm:grid-cols-2">
@@ -649,6 +719,7 @@
                 <a href="#services">Услуги</a>
                 <a href="#cases">Кейсы</a>
                 <a href="#platform">Платформа</a>
+                <a href="https://t.me/maraomg" target="_blank" class="nr-desk">Telegram</a>
             </nav>
             <div><span style="color:var(--ink-faint)">© Nur Consulting &amp; NR Space. Все права защищены. 2026</span></div>
         </div>

@@ -82,6 +82,16 @@
             margin-bottom: 20px;
         }
         .nr-brand-mark { display: none; }
+        .nr-brand-space {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--ink);
+            letter-spacing: -0.02em;
+        }
+        html.oauth-pending .oauth-home-link { display: none; }
+        .oauth-home-link { z-index: 101; }
+        /* На телефоне логотип дублировал заголовок «Вход в NR Space». */
+        @media (max-width: 767px) { .oauth-home-link { display: none !important; } }
         .oauth-loading-text {
             color: var(--ink-dim);
             font-size: 14px;
@@ -114,6 +124,11 @@
     </style>
 </head>
 <body class="antialiased min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+
+    <a href="/" class="absolute top-6 left-6 flex items-center gap-2 rounded-[10px] px-2 py-1.5 oauth-home-link" style="color:var(--ink)">
+        <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="34" height="34">
+        <span class="nr-brand-space">Space</span>
+    </a>
 
     <!-- ЭКРАН: OAuth / проверка сессии -->
     <div id="screen-oauth-loading">

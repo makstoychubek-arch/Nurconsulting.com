@@ -72,8 +72,8 @@ const keep = [
 keep.forEach(function (snippet) {
     assert.ok(index.includes(snippet), 'landing keeps original data: ' + snippet);
 });
-assert.ok(!index.includes('t.me/') && !index.includes('vp-tab-plus'),
-    'audit and Telegram buttons are hidden from the landing for now');
+assert.ok(!index.includes('vp-tab-plus') && index.includes('.nr-desk') && index.includes('hero-el-3 nr-desk'),
+    'audit and Telegram buttons stay on desktop only, not in the mobile dock');
 assert.ok(!index.includes('Москва') && !index.includes('Бишкек'),
     'office cards do not invent city names');
 assert.ok(!dash.includes('/css/nr-vibe.css'),
