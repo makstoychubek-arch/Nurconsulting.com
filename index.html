@@ -238,7 +238,7 @@
                     <a href="#contacts" class="nav-link vp-pill-link">Контакты</a>
                 </div>
                 <a href="/login" class="site-login-chip hidden sm:flex vp-pill-link">Войти</a>
-                <a href="/login" class="vp-pill-cta hidden sm:flex">NR Space</a>
+                <a href="/login?tab=register" class="vp-pill-cta hidden sm:flex">Регистрация</a>
                 <button type="button" id="burger-btn" class="lg:hidden flex flex-col justify-center items-center w-9 h-9 rounded-full gap-1" aria-label="Меню">
                     <span id="burger-line-1" class="block w-4 h-0.5 bg-[var(--ink)] transition-all duration-300"></span>
                     <span id="burger-line-2" class="block w-4 h-0.5 bg-[var(--ink)] transition-all duration-300"></span>
@@ -268,6 +268,7 @@
         </nav>
         <div class="p-4" style="border-top:1px solid var(--line)">
             <a href="/login" class="vibe-btn w-full">Войти в NR Space</a>
+            <a href="/login?tab=register" class="site-login-chip vp-pill-link mt-2 w-full justify-center" style="display:flex">Регистрация</a>
         </div>
     </div>
 
@@ -683,7 +684,7 @@
     </footer>
 
     <div class="site-mobile-dock vp-tabbar fixed bottom-0 left-0 right-0 z-50 md:hidden px-2 pt-2" style="padding-bottom:calc(10px + env(safe-area-inset-bottom, 0px))">
-        <div class="flex items-end justify-around">
+        <div class="flex items-center justify-around gap-1">
             <a href="tel:+79667520397" class="vp-tab is-on">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path d="M7 3H4a1 1 0 0 0-1 1c0 9.4 7.6 17 17 17a1 1 0 0 0 1-1v-3l-5-2-1.5 2a14 14 0 0 1-7.5-7.5L9 8 7 3Z"/></svg>
                 <span>Позвонить</span><span class="vp-tab-dot"></span>
@@ -692,11 +693,15 @@
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.411 0 11.973 0c3.178.001 6.165 1.24 8.407 3.483 2.242 2.244 3.477 5.232 3.474 8.411-.004 6.623-5.354 11.971-11.916 11.971-2.004-.001-3.973-.51-5.716-1.486L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.42 9.864-9.858.002-2.634-1.023-5.11-2.885-6.974C16.526 1.908 14.053.882 11.422.882c-5.44 0-9.863 4.42-9.867 9.861-.001 1.742.476 3.442 1.381 4.935L1.87 21.066l5.777-1.512z"/></svg>
                 <span>WhatsApp</span><span class="vp-tab-dot"></span>
             </a>
-            <a href="https://t.me/maraomg" target="_blank" class="vp-tab-plus" aria-label="Аудит">Аудит</a>
             <a href="https://t.me/maraomg" target="_blank" class="vp-tab">
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 0 0-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/></svg>
                 <span>Telegram</span><span class="vp-tab-dot"></span>
             </a>
+            <a href="/login" class="vp-tab">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="M10 17l5-5-5-5"/><path d="M15 12H3"/></svg>
+                <span>Войти</span><span class="vp-tab-dot"></span>
+            </a>
+            <a href="https://t.me/maraomg" target="_blank" class="vp-tab-plus" aria-label="Бесплатный аудит">Аудит</a>
         </div>
         <div class="mx-auto mt-2 h-1 w-28 rounded-full" style="background:var(--line)"></div>
     </div>
