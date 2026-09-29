@@ -332,7 +332,8 @@ assert.ok(
 );
 assert.ok(
     html.includes('bottom: 0;\n                z-index: 9999;') &&
-    html.includes('padding: 2px 2px calc(4px + env(safe-area-inset-bottom, 0px));') &&
+    html.includes('padding: 2px 2px calc(4px + max(0px, env(safe-area-inset-bottom, 0px) - var(--nr-vp-bottom-gap, 0px)));') &&
+    html.includes('.bottom-nav::after {') &&
     html.includes('z-index: 9999') &&
     html.includes('transform: translateZ(0)') &&
     html.includes('will-change: transform'),
