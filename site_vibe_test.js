@@ -49,8 +49,6 @@ const keep = [
     '+996 558 200 327',
     'tel:+79667520397',
     'https://wa.me/996558200327',
-    'https://t.me/maraomg',
-    'Telegram: @maraomg',
     '120 430 000 ₽',
     '356 780 шт',
     '94%',
@@ -67,13 +65,13 @@ const keep = [
     'Амир Исаев',
     'Алина Волкова',
     '© Nur Consulting &amp; NR Space. Все права защищены. 2026',
-    'Получить бесплатный аудит',
-    'Написать в Telegram',
     'Превращаем Wildberries',
 ];
 keep.forEach(function (snippet) {
     assert.ok(index.includes(snippet), 'landing keeps original data: ' + snippet);
 });
+assert.ok(!index.includes('t.me/') && !index.includes('vp-tab-plus'),
+    'audit and Telegram buttons are hidden from the landing for now');
 assert.ok(!index.includes('Москва') && !index.includes('Бишкек'),
     'office cards do not invent city names');
 assert.ok(!dash.includes('/css/nr-vibe.css'),
