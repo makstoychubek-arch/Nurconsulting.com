@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" width="160" height="160">
+  <!-- Заглушка аватара. Замените файл картинкой с тем же именем. -->
+  <rect width="160" height="160" rx="80" fill="#E9F0FF"/>
+  <path d="M34 78c0-30 20-50 46-50s46 20 46 50v34H34z" fill="#2E211B"/>
+  <circle cx="80" cy="82" r="36" fill="#F4D3B8"/>
+  <path d="M44 74c6-22 20-32 36-32s30 10 36 32c-10-10-22-14-36-14s-26 4-36 14z" fill="#2E211B"/>
+  <path d="M60 72h13M87 72h13" stroke="#3A2A20" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="67" cy="82" r="4" fill="#2B2B2B"/>
+  <circle cx="93" cy="82" r="4" fill="#2B2B2B"/>
+  <path d="M66 96c4 7 24 7 28 0" stroke="#8A3B2E" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  <path d="M50 136c6-14 18-20 30-20s24 6 30 20" fill="#111"/>
+</svg>

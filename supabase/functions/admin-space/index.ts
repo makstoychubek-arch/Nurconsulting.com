@@ -3,6 +3,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { decryptSecret, importSecretKey } from '../_shared/secret-box.ts';
 
 const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
 const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
@@ -21,6 +22,37 @@ function json(data: unknown, status = 200) {
         status,
         headers: { ...CORS, 'Content-Type': 'application/json' },
     });
+}
+
+/**
+ * Клиент, пришедший через Акылай, хранит токен WB только зашифрованным
+ * (cabinet_secrets). При одобрении переносим его в кабинет — иначе остальные
+ * разделы (дашборд, синхронизация) работать не смогут. Только на сервере.
+ */
+// deno-lint-ignore no-explicit-any
+async function moveAkylaiTokens(admin: any, userId: string): Promise<number> {
+    const key = (Deno.env.get('AKYLAI_ENC_KEY') ?? '').trim();
+    if (!key) return 0;
+    const { data: cabs } = await admin
+        .from('cabinets')
+        .select('id, wb_token, cabinet_secrets!inner(wb_token_enc)')
+        .eq('user_id', userId);
+    let moved = 0;
+    const cryptoKey = await importSecretKey(key);
+    for (const c of cabs || []) {
+        if (c.wb_token) continue;
+        const enc = Array.isArray(c.cabinet_secrets) ? c.cabinet_secrets[0]?.wb_token_enc : c.cabinet_secrets?.wb_token_enc;
+        if (!enc) continue;
+        try {
+            const token = await decryptSecret(enc, cryptoKey);
+            const { error } = await admin.from('cabinets').update({ wb_token: token }).eq('id', c.id);
+            if (!error) moved++;
+            else console.error('[admin-space] token move:', c.id, error.message);
+        } catch (e) {
+            console.error('[admin-space] token decrypt:', c.id, (e as Error)?.message || e);
+        }
+    }
+    return moved;
 }
 
 serve(async (req) => {
@@ -74,7 +106,8 @@ serve(async (req) => {
 
             // Активация даёт доступ только к своему спейсу. В team_staff клиента
             // не добавляем: этот список означает «сотрудник видит все кабинеты».
-            return json({ ok: true, status: 'active', email: space.email });
+            const tokensMoved = await moveAkylaiTokens(admin, targetUserId);
+            return json({ ok: true, status: 'active', email: space.email, tokens_moved: tokensMoved });
         }
 
         if (action === 'block') {

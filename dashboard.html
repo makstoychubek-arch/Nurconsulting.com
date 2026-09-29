@@ -5652,7 +5652,7 @@
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
             var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/reports': 'summary' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
-            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1, summary: 1 };
+            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1, akylai: 1, summary: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -5668,7 +5668,8 @@
             if (localStorage.getItem('nr_is_staff') === '1') {
                 document.documentElement.setAttribute('data-staff', '1');
             } else if (__nrTab === 'agents') {
-                __nrTab = null;
+                // Клиенту — его страница агентов с Акылай, не внутренняя страница команды.
+                __nrTab = 'akylai';
             }
             var __nrPane = !__nrTab ? null : (__nrLive[__nrTab] ? __nrTab : 'beta-stub');
             if (__nrPane && __nrPane !== 'dashboard') {
@@ -5730,7 +5731,7 @@
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></span>
                     <span class="rail-btn-lbl">Контент</span>
                 </button>
-                <button type="button" class="rail-btn" data-tab="agents" title="Агенты" data-staff-only="1">
+                <button type="button" class="rail-btn" data-tab="agents" title="Агенты">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                     <span class="rail-btn-lbl">Агенты</span>
                 </button>
@@ -5942,7 +5943,13 @@
 
         <div class="flex-1 overflow-y-auto p-6 main-content">
         <div id="space-empty-state" class="space-empty-state hidden">
-            <div class="space-empty-card onb-card">
+            <div class="space-empty-card onb-card hidden" id="onb-pending-card">
+                <img class="space-empty-icon" src="/img/agents/akylai-smile.svg" alt="" width="72" height="72" style="border-radius:50%">
+                <div class="space-empty-title">Этот раздел откроется после одобрения</div>
+                <p class="space-empty-sub">Команда NR подключит его вручную. А пока Акылай уже может отвечать на отзывы ваших покупателей.</p>
+                <button type="button" class="space-empty-btn" onclick="showTab('akylai')">Перейти к Акылай</button>
+            </div>
+            <div class="space-empty-card onb-card" id="onb-token-card">
                 <img class="space-empty-icon logo-nr logo-nr--lg" src="/icons/logo-nr.svg" alt="NR" width="56" height="56">
                 <div class="space-empty-title" id="onb-title">Добро пожаловать в NR Space</div>
                 <p class="space-empty-sub">Остался один шаг: подключите свой магазин Wildberries по API-токену. Мы проверим токен и сразу начнём собирать данные.</p>
@@ -7197,11 +7204,92 @@
             <div id="cf-root"></div>
         </div>
 
+        <!-- Агенты для клиента: Акылай и будущие агенты. Внутренняя страница команды — tab-agents. -->
+        <div id="tab-akylai" class="tab-content">
+            <style>
+                .ak-wrap { max-width: 880px; margin: 0 auto; }
+                .ak-head { margin-bottom: 18px; }
+                .ak-head h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); }
+                .ak-head p { margin-top: 4px; font-size: 13.5px; color: var(--text-muted); }
+                .ak-agents { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+                .ak-agent {
+                    position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px;
+                    padding: 18px 12px 16px; border-radius: 20px; background: var(--surface-solid);
+                    border: 1px solid var(--border); font-family: inherit; color: inherit; cursor: pointer;
+                    transition: transform .15s ease, box-shadow .15s ease;
+                }
+                .ak-agent:not([disabled]):hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.08); }
+                .ak-agent[disabled] { cursor: default; opacity: .62; }
+                .ak-agent img { width: 76px; height: 76px; border-radius: 50%; }
+                .ak-agent b { font-size: 15px; color: var(--text-primary); }
+                .ak-agent span { font-size: 12px; line-height: 1.35; color: var(--text-muted); }
+                .ak-soon { position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--sel); color: var(--text-muted); }
+                .ak-live { position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--green-soft, rgba(34,197,94,.14)); color: var(--green, #16a34a); }
+                .ak-stage { margin-top: 22px; border-radius: 24px; background: var(--surface-solid); border: 1px solid var(--border); padding: 22px; }
+                @media (min-width: 640px) { .ak-stage { padding: 28px 32px; } }
+                .ak-talk { display: flex; gap: 16px; align-items: flex-start; }
+                .ak-face { width: 88px; height: 88px; border-radius: 50%; flex-shrink: 0; }
+                .ak-bubble { position: relative; flex: 1; padding: 14px 16px; border-radius: 4px 18px 18px 18px; background: var(--sel); color: var(--text-primary); font-size: 14.5px; line-height: 1.55; }
+                .ak-bubble b { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 2px; }
+                .ak-body { margin-top: 20px; }
+                .ak-slide-img { width: 100%; border-radius: 14px; border: 1px solid var(--border); display: block; }
+                .ak-slide-ph { display: flex; align-items: center; justify-content: center; min-height: 180px; border-radius: 14px; border: 1px dashed var(--border-strong, var(--border)); color: var(--text-muted); font-size: 12.5px; text-align: center; padding: 16px; background: var(--sel); }
+                .ak-slide-text { margin-top: 14px; font-size: 14px; line-height: 1.6; color: var(--text-primary); }
+                .ak-slide-text a { color: var(--accent); text-decoration: underline; }
+                .ak-nav { margin-top: 18px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+                .ak-dots { display: flex; gap: 6px; }
+                .ak-dots i { width: 7px; height: 7px; border-radius: 50%; background: var(--border); }
+                .ak-dots i.on { background: var(--text-primary); }
+                .ak-btn { min-height: 44px; padding: 0 20px; border: none; border-radius: 14px; font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; background: var(--text-primary); color: var(--surface-solid); }
+                .ak-btn.ghost { background: var(--sel); color: var(--text-primary); }
+                .ak-btn[disabled] { opacity: .45; cursor: default; }
+                .ak-token { width: 100%; min-height: 96px; margin-top: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text-primary); font-family: ui-monospace, Menlo, monospace; font-size: 12px; resize: vertical; }
+                .ak-note { margin-top: 10px; font-size: 12.5px; color: var(--text-muted); }
+                .ak-toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 18px; padding: 14px 16px; border-radius: 16px; background: var(--sel); }
+                .ak-toggle b { font-size: 14.5px; color: var(--text-primary); }
+                .ak-switch { position: relative; width: 50px; height: 30px; border-radius: 999px; border: none; cursor: pointer; background: var(--border); transition: background .2s; flex-shrink: 0; }
+                .ak-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: transform .2s; }
+                .ak-switch.on { background: var(--green, #16a34a); }
+                .ak-switch.on::after { transform: translateX(20px); }
+                .ak-list { margin-top: 14px; display: grid; gap: 8px; font-size: 13.5px; color: var(--text-primary); }
+                .ak-list div { display: flex; gap: 10px; }
+                .ak-list div::before { content: '•'; color: var(--text-muted); }
+            </style>
+            <div class="ak-wrap">
+                <div class="ak-head">
+                    <h2>Агенты</h2>
+                    <p>Помощники, которые берут на себя рутину магазина. Первым работает Акылай.</p>
+                </div>
+                <div class="ak-agents" id="ak-agents">
+                    <button type="button" class="ak-agent" data-agent="akylai" onclick="akylaiOpen()">
+                        <span class="ak-live">Работает</span>
+                        <img src="/img/agents/akylai-smile.svg" alt="" width="76" height="76">
+                        <b>Акылай</b><span>Младший менеджер · отзывы</span>
+                    </button>
+                    <button type="button" class="ak-agent" disabled><span class="ak-soon">Скоро</span><img src="/img/agents/manas.svg" alt="" width="76" height="76"><b>Манас</b><span>Реклама</span></button>
+                    <button type="button" class="ak-agent" disabled><span class="ak-soon">Скоро</span><img src="/img/agents/marlen.svg" alt="" width="76" height="76"><b>Марлен</b><span>Логист</span></button>
+                    <button type="button" class="ak-agent" disabled><span class="ak-soon">Скоро</span><img src="/img/agents/izat.svg" alt="" width="76" height="76"><b>Изат</b><span>Цены и доступы</span></button>
+                    <button type="button" class="ak-agent" disabled><span class="ak-soon">Скоро</span><img src="/img/agents/dastan.svg" alt="" width="76" height="76"><b>Дастан</b><span>Позиции</span></button>
+                </div>
+                <div class="ak-stage hidden" id="ak-stage">
+                    <div class="ak-talk">
+                        <img class="ak-face" id="ak-face" src="/img/agents/akylai-neutral.svg" alt="Акылай" width="88" height="88">
+                        <div class="ak-bubble"><b>Акылай</b><span id="ak-say"></span></div>
+                    </div>
+                    <div class="ak-body" id="ak-body"></div>
+                </div>
+            </div>
+        </div>
         <div id="tab-agents" class="tab-content space-y-5">
             <div class="agents-pages-tabs" id="agents-pages-tabs">
                 <button type="button" class="agents-page-tab active" data-agents-page="fns" onclick="showAgentsPage('fns')">Функции</button>
                 <button type="button" class="agents-page-tab" data-agents-page="chats" onclick="showAgentsPage('chats')">Ватсап и Телеграм</button>
                 <button type="button" class="agents-page-tab" data-agents-page="brain" onclick="showAgentsPage('brain')">Мозг</button>
+                <button type="button" class="agents-page-tab" data-agents-page="akylai" onclick="showAgentsPage('akylai')">Акылай</button>
+            </div>
+            <div id="agents-page-akylai" class="agents-page hidden">
+                <p class="ak-note" style="margin-bottom:6px">Кабинеты клиентов с Акылай: токен, Telegram, тумблер, последние ответы и расход токенов ИИ. Видно только команде.</p>
+                <div id="akylai-admin"></div>
             </div>
             <div id="agents-page-fns" class="agents-page">
                 <div class="widget-card p-4">
@@ -7594,9 +7682,9 @@
         return !!(row.is_super_admin || isSuperAdminEmail(row.email) || row.user_id === SUPER_ADMIN_ID);
     }
 
-    const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon', 'agents']);
+    const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon', 'agents', 'akylai']);
     const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots']);
-    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'summary']);
+    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
     // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
@@ -7653,10 +7741,13 @@
         const tab = getCurrentActiveTab();
         // В режиме онбординга экран приветствия закрывает все вкладки: пока
         // магазин не подключён, за ними нет ни одной цифры.
-        const showEmpty = onboardingMode
+        const showEmpty = (onboardingMode && tab !== 'akylai')
             || (cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tab) && !isBetaStubOpen());
 
-        emptyEl.classList.toggle('hidden', !showEmpty);
+        const akylaiTab = tab === 'akylai';
+        emptyEl.classList.toggle('hidden', !showEmpty || akylaiTab);
+        document.getElementById('onb-pending-card')?.classList.toggle('hidden', !onboardingMode);
+        document.getElementById('onb-token-card')?.classList.toggle('hidden', onboardingMode);
         mainContent.classList.toggle('empty-cabinet-mode', showEmpty);
         updateHeaderNav(tab);
     }
@@ -8134,7 +8225,7 @@
         try { localStorage.setItem('nr_is_staff', isStaff ? '1' : '0'); } catch (_) {}
         if (isStaff) document.documentElement.setAttribute('data-staff', '1');
         else document.documentElement.removeAttribute('data-staff');
-        if (!isStaff && STAFF_ONLY_TABS.has(getCurrentActiveTab())) showTab('dashboard');
+        if (!isStaff && STAFF_ONLY_TABS.has(getCurrentActiveTab())) showTab(getCurrentActiveTab() === 'agents' ? 'akylai' : 'dashboard');
     }
 
     function escapeHtml(str) {
@@ -8789,7 +8880,7 @@
         rnp:'Модуль РНП', 'rnp-settings':'Настройки РНП', planning:'Планирование',
         'ab-testing':'А/Б Тесты', advertising:'Контроль РК', seo:'SEO-Позиции', marking:'Маркировка & ШК', logistics:'Логистика & Поставки',
         settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики',
-        'telegram-bots':'Телеграм боты', ozon:'Ozon токен', agents:'Агенты',
+        'telegram-bots':'Телеграм боты', ozon:'Ozon токен', agents:'Агенты', akylai:'Агенты',
         'content-factory':'Контент-завод',
     };
 
@@ -8817,7 +8908,7 @@
     }
 
     function syncModuleUrl(tabName) {
-        const path = MODULE_PATHS[tabName];
+        const path = MODULE_PATHS[tabName === 'akylai' ? 'agents' : tabName];
         if (!path || path === '/space') {
             if (location.pathname !== '/space' && location.pathname !== '/') {
                 history.replaceState(null, '', '/space');
@@ -8834,7 +8925,8 @@
                 b.classList.toggle('active', !live);
             } else if (b.dataset.tab) {
                 const match = live && (b.dataset.tab === tabName
-                    || (b.dataset.tab === 'rnp' && tabName === 'rnp-settings'));
+                    || (b.dataset.tab === 'rnp' && tabName === 'rnp-settings')
+                    || (b.dataset.tab === 'agents' && tabName === 'akylai'));
                 b.classList.toggle('active', !!match);
             }
         });
@@ -9034,9 +9126,10 @@
 
     function showTab(name, el) {
         name = TAB_ALIASES[name] || name;
-        // Прямой заход на /agents клиенту тоже закрыт: не сотрудника уводим на дашборд.
+        // Внутренняя страница агентов — только команде. Клиент по «Агентам»
+        // попадает на свою страницу с Акылай, по остальным служебным — на дашборд.
         if (STAFF_ONLY_TABS.has(name) && !isStaff) {
-            showTab('dashboard');
+            showTab(name === 'agents' ? 'akylai' : 'dashboard');
             return;
         }
         if (name === 'cost') {
@@ -9087,6 +9180,7 @@
             if (name === 'telegram-bots') loadTelegramBotsPage();
             if (name === 'ozon') loadOzonTokenPage();
             if (name === 'agents') loadAgentsPage();
+            if (name === 'akylai') window.loadAkylaiPage?.();
             if (name === 'content-factory' && hasUserCabinets) bootContentFactory();
             if (name === 'summary' && window.EvidenceReport && window._lastDashMetrics) {
                 window.EvidenceReport.paint('evidence-report-root', window._lastDashMetrics, window._lastDashReportExtra || {});
@@ -12335,7 +12429,7 @@
         const src = document.querySelector('#fly-beta .flyout-body');
         if (!body || !src || body.dataset.ready === '1') return;
         const live = `<div class="flyout-sec">Кабинет</div>
-            <div class="nav-item" onclick="showTab('agents', this)" data-staff-only="1">
+            <div class="nav-item" onclick="showTab('agents', this)">
                 <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <span class="nav-item-label">Агенты</span>
             </div>
@@ -15884,7 +15978,7 @@
     }
 
     function showAgentsPage(page) {
-        if (page !== 'fns' && page !== 'chats' && page !== 'brain') page = 'fns';
+        if (page !== 'fns' && page !== 'chats' && page !== 'brain' && page !== 'akylai') page = 'fns';
         _agentHub.page = page;
         try { localStorage.setItem('nr_agents_page', page); } catch (_) {}
         document.querySelectorAll('.agents-page').forEach((el) => {
@@ -15899,6 +15993,7 @@
             openAgentFn(window._agentFn || 'invite', { stay: true });
         }
         if (page === 'chats') renderAgentHub();
+        if (page === 'akylai') window.loadAkylaiAdmin?.();
     }
     window.showAgentsPage = showAgentsPage;
 
@@ -17620,7 +17715,8 @@
         try {
             savedTab = resolveTabFromUrl() || localStorage.getItem('nr_active_tab');
             if (savedTab) savedTab = TAB_ALIASES[savedTab] || savedTab;
-            if (savedTab === 'settings') showTab('settings', null);
+            if (onboardingMode) showTab('akylai', null);
+            else if (savedTab === 'settings') showTab('settings', null);
             else if (savedTab && LIVE_TABS.has(savedTab)) showTab(savedTab, null);
             else showTab('dashboard', null);
         } catch (e) {
@@ -17766,6 +17862,252 @@
         syncFlyoutLayout();
 
     }
+</script>
+<script>
+/* ===== Акылай: мастер на странице «Агенты» (клиент) и сводка для команды =====
+   Шаг мастера считается сервером из базы (akylai-status) — клиент, который ушёл
+   и вернулся, продолжает с нужного места. Токен WB проверяет и хранит только
+   сервер (akylai-connect); на экран попадают лишь фразы Акылай, без ошибок WB. */
+(function () {
+    const AK_FACES = {
+        smile: '/img/agents/akylai-smile.svg',
+        serious: '/img/agents/akylai-serious.svg',
+        neutral: '/img/agents/akylai-neutral.svg',
+    };
+    const AK_SLIDES = [
+        { img: 'step-1-api-settings.png', text: 'Откройте личный кабинет продавца Wildberries → нажмите на профиль в правом верхнем углу → «Настройки» → «Доступ к API». Можно сразу по ссылке: <a href="https://seller.wildberries.ru/supplier-settings/access-to-api" target="_blank" rel="noopener">Доступ к API</a>.' },
+        { img: 'step-2-token-type.png', text: 'Нажмите «Создать новый токен» и выберите тип <b>«Персональный»</b>. Название — любое, например «Акылай».' },
+        { img: 'step-3-category.png', text: 'Отметьте категорию <b>«Вопросы и отзывы»</b>. Галочку <b>«Только на чтение» не ставьте</b> — иначе я не смогу публиковать ответы.' },
+        { img: 'step-4-expiry-copy.png', text: 'Укажите срок действия токена — лучше самый долгий из доступных. Нажмите «Создать» и скопируйте токен целиком.' },
+        { input: true, text: 'Вставьте токен сюда — я проверю его сама, нажимать ничего не нужно.' },
+    ];
+    const GENERIC = 'Не получилось проверить. Попробуйте ещё раз через минуту.';
+
+    const ak = { state: null, view: null, slide: 0, checking: false, lastToken: '', poll: null, pollUntil: 0, error: '' };
+
+    const $ = (id) => document.getElementById(id);
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+    async function call(fn, body) {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return { ok: false, code: 'UNAUTHORIZED', message: 'Сессия устарела. Обновите страницу и войдите снова.' };
+            const res = await fetch(SUPABASE_URL + '/functions/v1/' + fn, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+                body: JSON.stringify(body || {}),
+            });
+            const out = await res.json().catch(() => ({}));
+            return out && typeof out === 'object' ? out : { ok: false };
+        } catch (_) {
+            return { ok: false, code: 'SERVER_ERROR' };
+        }
+    }
+
+    function face(kind) { const f = $('ak-face'); if (f) f.src = AK_FACES[kind] || AK_FACES.neutral; }
+    function say(html) { const s = $('ak-say'); if (s) s.innerHTML = html; }
+    function body(html) { const b = $('ak-body'); if (b) b.innerHTML = html; }
+    function showStage(on) { $('ak-stage')?.classList.toggle('hidden', !on); }
+
+    function stopPoll() { if (ak.poll) clearInterval(ak.poll); ak.poll = null; }
+
+    async function refresh() {
+        const st = await call('akylai-status', { action: 'state' });
+        if (st && st.ok) ak.state = st;
+        return ak.state;
+    }
+
+    function render() {
+        const st = ak.state || { step: 'hello' };
+        stopPollIfNeeded(st);
+        if (ak.view === 'slides' || (st.step === 'token' && ak.view !== 'hello')) return renderSlides();
+        if (st.step === 'hello' || ak.view === 'hello') return renderHello();
+        if (st.step === 'telegram') return renderTelegram();
+        return renderDone();
+    }
+
+    function stopPollIfNeeded(st) { if (st.step !== 'telegram') stopPoll(); }
+
+    function renderHello() {
+        ak.view = 'hello';
+        face('smile');
+        say('Здравствуйте! Я Акылай. Я отвечаю на отзывы покупателей и присылаю ответы вам в Telegram на проверку.');
+        body('<button type="button" class="ak-btn" onclick="akylaiStart()">Начать</button>');
+    }
+
+    function renderSlides() {
+        ak.view = 'slides';
+        const expired = ak.state && ak.state.token === 'expired';
+        const s = AK_SLIDES[ak.slide];
+        const last = ak.slide === AK_SLIDES.length - 1;
+        if (ak.checking) { face('neutral'); say('Проверяю токен…'); }
+        else if (ak.error) { face('serious'); say(esc(ak.error)); }
+        else {
+            face('serious');
+            say(expired && ak.slide === 0
+                ? 'Токен Wildberries перестал работать. Давайте создадим новый — это пара минут.'
+                : `Шаг ${ak.slide + 1} из ${AK_SLIDES.length}. ${s.input ? 'Осталось вставить токен.' : 'Сделайте, как на картинке.'}`);
+        }
+        const media = s.img
+            ? `<img class="ak-slide-img" src="/img/akylai/${s.img}" alt="" onerror="this.outerHTML='<div class=&quot;ak-slide-ph&quot;>Скриншот: img/akylai/${s.img}</div>'">`
+            : '';
+        const input = last
+            ? `<textarea id="ak-token" class="ak-token" placeholder="Вставьте токен целиком" autocomplete="off" spellcheck="false" ${ak.checking ? 'disabled' : ''}></textarea>
+               <p class="ak-note">Токен хранится на сервере в зашифрованном виде и никому не показывается.</p>`
+            : '';
+        const dots = AK_SLIDES.map((_, i) => `<i class="${i === ak.slide ? 'on' : ''}"></i>`).join('');
+        body(`${media}<div class="ak-slide-text">${s.text}</div>${input}
+            <div class="ak-nav">
+                <button type="button" class="ak-btn ghost" onclick="akylaiSlide(-1)" ${ak.slide === 0 || ak.checking ? 'disabled' : ''}>← Назад</button>
+                <div class="ak-dots">${dots}</div>
+                <button type="button" class="ak-btn ghost" onclick="akylaiSlide(1)" ${last ? 'disabled' : ''}>Далее →</button>
+            </div>`);
+        const ta = $('ak-token');
+        if (ta) {
+            let t = null;
+            const kick = () => { clearTimeout(t); t = setTimeout(checkToken, 450); };
+            ta.addEventListener('input', kick);
+            ta.addEventListener('paste', kick);
+        }
+    }
+
+    async function checkToken() {
+        const ta = $('ak-token');
+        const token = String(ta?.value || '').replace(/\s+/g, '');
+        if (ak.checking || token.length < 100 || token === ak.lastToken) return;
+        ak.lastToken = token;
+        ak.checking = true;
+        ak.error = '';
+        renderSlides();
+        const out = await call('akylai-connect', { token });
+        ak.checking = false;
+        if (out && out.ok) {
+            ak.error = '';
+            ak.view = null;
+            await refresh();
+            face('smile');
+            render();
+            return;
+        }
+        ak.error = (out && out.message) || GENERIC;
+        renderSlides();
+        const again = $('ak-token');
+        if (again) again.value = '';
+    }
+
+    function renderTelegram() {
+        ak.view = 'telegram';
+        const st = ak.state;
+        const name = st.cabinet?.name ? `«${esc(st.cabinet.name)}»` : '';
+        if (st.telegram === 'blocked') {
+            face('serious');
+            say('Похоже, бот в Telegram заблокирован, и я не могу присылать ответы. Разблокируйте бота или получите новую ссылку и нажмите «Start».');
+        } else if (ak.poll) {
+            face('neutral');
+            say('Жду вас в Telegram — откройте бота и нажмите «Start». Как только подключитесь, я сама это увижу.');
+        } else {
+            face('smile');
+            say(`Токен подходит — магазин ${name} подключён! Теперь подключим Telegram: туда я буду присылать ответы на проверку.`);
+        }
+        body(`<button type="button" class="ak-btn" onclick="akylaiTelegram()">Подключить Telegram</button>
+            ${ak.poll || st.telegram === 'blocked' ? '<button type="button" class="ak-btn ghost" style="margin-left:8px" onclick="akylaiTelegram()">Получить новую ссылку</button>' : ''}
+            ${ak.error ? `<p class="ak-note">${esc(ak.error)}</p>` : ''}`);
+    }
+
+    function renderDone() {
+        ak.view = 'done';
+        const st = ak.state;
+        face('smile');
+        say('Всё готово! Я уже взялась за неотвеченные отзывы — ответы скоро придут вам в Telegram.');
+        body(`<div class="ak-list">
+                <div>Каждый ответ приходит карточкой: оценка, товар, текст отзыва и мой ответ.</div>
+                <div>Под карточкой две кнопки: «Опубликовать» — ответ уйдёт на WB, «Изменить» — пришлите свой текст ответом на моё сообщение.</div>
+                <div>Первые 20 ответов вы проверяете сами. Потом я предложу публиковать сразу.</div>
+                <div>Я не пишу цены, контакты и не обещаю возвратов. Проверяю новые отзывы каждые 30 минут.</div>
+            </div>
+            <div class="ak-toggle">
+                <div><b>Включено</b><div class="ak-note" style="margin-top:2px">${st.enabled ? 'Акылай отвечает на отзывы' : 'Акылай на паузе'}${st.published_count ? ` · опубликовано: ${Number(st.published_count)}` : ''}</div></div>
+                <button type="button" class="ak-switch ${st.enabled ? 'on' : ''}" role="switch" aria-checked="${st.enabled ? 'true' : 'false'}" aria-label="Включено" onclick="akylaiToggle()"></button>
+            </div>`);
+    }
+
+    window.akylaiOpen = async function () {
+        showStage(true);
+        if (!ak.state) { face('neutral'); say('Секунду…'); body(''); await refresh(); }
+        render();
+        $('ak-stage')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    window.akylaiStart = function () { ak.view = 'slides'; ak.slide = 0; ak.error = ''; renderSlides(); };
+
+    window.akylaiSlide = function (d) {
+        ak.slide = Math.max(0, Math.min(AK_SLIDES.length - 1, ak.slide + d));
+        ak.error = '';
+        renderSlides();
+    };
+
+    window.akylaiTelegram = async function () {
+        // Окно открываем сразу по клику — иначе мобильный Safari заблокирует его после await.
+        const win = window.open('', '_blank');
+        const out = await call('akylai-status', { action: 'link' });
+        if (!out || !out.ok || !out.url) {
+            if (win) win.close();
+            ak.error = GENERIC;
+            renderTelegram();
+            return;
+        }
+        ak.error = '';
+        if (win) win.location.href = out.url; else window.location.href = out.url;
+        stopPoll();
+        ak.pollUntil = Date.now() + 15 * 60 * 1000;
+        ak.poll = setInterval(async () => {
+            if (document.hidden) return;
+            if (Date.now() > ak.pollUntil) { stopPoll(); renderTelegram(); return; }
+            await refresh();
+            if (ak.state?.telegram === 'connected') { stopPoll(); render(); }
+        }, 3000);
+        renderTelegram();
+    };
+
+    window.akylaiToggle = async function () {
+        const next = !(ak.state && ak.state.enabled);
+        const out = await call('akylai-status', { action: 'toggle', enabled: next });
+        if (out && out.ok) ak.state.enabled = out.enabled === true;
+        renderDone();
+    };
+
+    /** Открытие страницы: у вернувшегося клиента сразу показываем нужный шаг. */
+    window.loadAkylaiPage = async function () {
+        await refresh();
+        if (ak.state && ak.state.step && ak.state.step !== 'hello') { showStage(true); ak.view = null; render(); }
+    };
+
+    // ── Сводка для команды: вкладка «Акылай» на странице агентов команды ──
+    window.loadAkylaiAdmin = async function () {
+        const box = $('akylai-admin');
+        if (!box) return;
+        box.innerHTML = '<p class="ak-note">Загрузка…</p>';
+        const out = await call('akylai-admin', {});
+        if (!out || !out.ok) { box.innerHTML = '<p class="ak-note">Не получилось загрузить сводку. Обновите страницу.</p>'; return; }
+        if (!out.cabinets.length) { box.innerHTML = '<p class="ak-note">Пока ни один клиент не подключил Акылай.</p>'; return; }
+        const badge = (ok, text) => `<span class="ak-${ok ? 'live' : 'soon'}" style="position:static">${text}</span>`;
+        box.innerHTML = out.cabinets.map((c) => `
+            <div class="ak-stage" style="margin-top:12px">
+                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between">
+                    <div><b style="color:var(--text-primary)">${esc(c.name)}</b> <span class="ak-note">${esc(c.email)}</span></div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap">
+                        ${badge(c.token === 'ok', c.token === 'ok' ? 'Токен ок' : c.token === 'expired' ? 'Токен истёк' : 'Нет токена')}
+                        ${badge(c.telegram === 'connected', c.telegram === 'connected' ? 'Telegram' : c.telegram === 'blocked' ? 'Бот заблокирован' : 'Без Telegram')}
+                        ${badge(c.enabled, c.enabled ? 'Включено' : 'Выключено')}
+                        ${c.auto_publish ? badge(true, 'Автопубликация') : ''}
+                    </div>
+                </div>
+                <p class="ak-note">Опубликовано: ${Number(c.published_count)} · запросов к ИИ за 30 дней: ${Number(c.usage_30d.requests)} · токенов: ${Number(c.usage_30d.tokens).toLocaleString('ru-RU')}</p>
+                ${(c.last_replies || []).map((r) => `<div class="ak-note" style="border-top:1px solid var(--border);padding-top:8px">
+                    ${'⭐'.repeat(Math.max(0, Math.min(5, Number(r.rating) || 0)))} ${esc(r.product_name || '')} · <b>${esc(r.status)}</b><br>${esc((r.reply_text || '').slice(0, 220))}</div>`).join('')}
+            </div>`).join('');
+    };
+})();
 </script>
 </body>
 </html>

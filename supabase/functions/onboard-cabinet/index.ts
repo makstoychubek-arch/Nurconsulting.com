@@ -27,6 +27,8 @@ const CORS = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const SAVE_FAILED = 'Не получилось сохранить магазин. Попробуйте ещё раз через минуту.';
+
 function json(data: unknown, status = 200) {
     return new Response(JSON.stringify(data), {
         status,
@@ -148,25 +150,25 @@ serve(async (req) => {
                 .from('cabinets')
                 .update({ wb_token: token, name: rawName || existing[0].name })
                 .eq('id', cabinetId);
-            if (updErr) return json({ error: updErr.message }, 500);
+            if (updErr) {
+                console.error('[onboard-cabinet] cabinet update:', updErr.message);
+                return json({ error: SAVE_FAILED, code: 'SAVE_FAILED' }, 500);
+            }
         } else {
             const { data: created, error: insErr } = await admin
                 .from('cabinets')
                 .insert({ name, wb_token: token, user_id: user.id })
                 .select('id')
                 .single();
-            if (insErr || !created) return json({ error: insErr?.message || 'Не удалось создать кабинет' }, 500);
+            if (insErr || !created) {
+                console.error('[onboard-cabinet] cabinet insert:', insErr?.message);
+                return json({ error: SAVE_FAILED, code: 'SAVE_FAILED' }, 500);
+            }
             cabinetId = created.id;
         }
 
-        // Кабинет подключён — клиенту больше нечего ждать, открываем интерфейс.
-        // В team_staff клиента не добавляем: он видит только свой кабинет.
-        if (space?.status !== 'active') {
-            await admin
-                .from('spaces')
-                .update({ status: 'active', updated_at: new Date().toISOString() })
-                .eq('user_id', user.id);
-        }
+        // Спейс здесь не активируем: остальные разделы открывает только ручное
+        // одобрение (admin-space). В team_staff клиента тоже не добавляем.
 
         // Первая выгрузка сразу, не дожидаясь ночного cron: иначе клиент
         // подключил магазин и весь первый день смотрит на пустой дашборд.
@@ -184,6 +186,6 @@ serve(async (req) => {
         });
     } catch (e) {
         console.error('[onboard-cabinet]', e);
-        return json({ error: String(e) }, 500);
+        return json({ error: SAVE_FAILED, code: 'SERVER_ERROR' }, 500);
     }
 });
