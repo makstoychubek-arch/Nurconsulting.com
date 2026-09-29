@@ -1488,6 +1488,47 @@ assert.ok(
     'activating a client must not grant access to other cabinets'
 );
 assert.ok(
+    !/from\('(team_staff|allowed_users)'\)\s*\.\s*(insert|upsert)/.test(adminSpaceSrc),
+    'admin-space must never write to team_staff/allowed_users'
+);
+{
+    const delSrc = fs.readFileSync(path.join(__dirname, 'supabase/functions/delete-user/index.ts'), 'utf8');
+    const delSql = fs.readFileSync(path.join(__dirname, 'supabase/migrations/20260929120000_delete_user.sql'), 'utf8');
+    assert.ok(
+        delSrc.includes('auth.getUser()') && delSrc.includes('isStaffEmail(admin, caller.email)') &&
+        delSrc.includes("'Нет прав на удаление пользователей'") && delSrc.includes('403'),
+        'delete-user must verify the caller JWT and answer 403 to non-staff'
+    );
+    assert.ok(
+        delSrc.includes('targetId === caller.id') && delSrc.includes('Нельзя удалить суперадмина'),
+        'delete-user must refuse self-delete and super admin'
+    );
+    assert.ok(
+        delSrc.includes('!callerIsSuper && (await isStaffEmail(admin, targetEmail))'),
+        'only the super admin may delete staff members'
+    );
+    assert.ok(
+        delSrc.indexOf("rpc('admin_detach_user'") > -1 &&
+        delSrc.indexOf("rpc('admin_detach_user'") < delSrc.indexOf('admin.auth.admin.deleteUser('),
+        'delete-user must detach the user before deleting the account'
+    );
+    assert.ok(
+        !/from\('cabinets'\)\s*\.\s*delete/.test(delSrc) && !/delete from public\.cabinets/i.test(delSql),
+        'deleting a user must never delete cabinets'
+    );
+    assert.ok(
+        delSql.includes('update public.cabinets set user_id = null') &&
+        delSql.includes('drop not null') && delSql.includes('team_staff') && delSql.includes('allowed_users'),
+        'migration detaches cabinets and clears staff rows'
+    );
+    assert.ok(
+        html.includes('function adminDeleteUser') && html.includes('DELETE_USER_URL') &&
+        (html.match(/adminDeleteUser\('\$\{s\.user_id\}'/g) || []).length === 3 &&
+        /showConfirmModal\(\s*'Удалить пользователя\?'/.test(html),
+        'admin list has a delete button with email confirmation in every tab'
+    );
+}
+assert.ok(
     fs.readFileSync(path.join(__dirname, 'login.html'), 'utf8')
         .includes('Заявка на вход отправлена администратору'),
     'access_denied screen still explains the wait if the gate rejects'

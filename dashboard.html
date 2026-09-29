@@ -7527,13 +7527,13 @@
         </div>
     </div>
 
-<script src="/dist/nr-win.94539af074.min.js"></script>
+<script src="/dist/nr-win.0c0159fe69.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.f9fed27ae2.min.js"></script>
 <script src="/dist/rnp-plan-fact.63afff3e4a.min.js"></script>
 <script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.10cf90483e.min.js"></script>
+<script src="/dist/ads-command-center.35bc97e198.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
@@ -7561,6 +7561,7 @@
     var ADVERTISING_SYNC_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/advertising-sync';
     var AUTOBIDDER_RUN_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/autobidder-run';
     var ADMIN_SPACE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/admin-space';
+    var DELETE_USER_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/delete-user';
     var TELEGRAM_ADMIN_URL = 'https://fiukyfyhotctvfdidktx.supabase.co/functions/v1/telegram-admin';
     const SUPER_ADMIN_EMAIL = 'global.pro.1004@gmail.com';
     const SUPER_ADMIN_ID = '2f7d8960-0df4-4a17-be70-f2cb2ac0032e';
@@ -7964,6 +7965,7 @@
                         <td class="admin-space-actions">
                             <button type="button" class="admin-btn-grant" onclick="adminGrantSpaceAccess('${s.user_id}', this)">Разрешить</button>
                             <button type="button" class="admin-btn-block" onclick="adminBlockSpace('${s.user_id}', this)">Заблокировать</button>
+                            <button type="button" class="admin-btn-block" onclick="adminDeleteUser('${s.user_id}', this)">Удалить</button>
                         </td>
                     </tr>`;
                 }).join('')}</tbody>
@@ -7987,7 +7989,10 @@
                     <td>${renderAdminSpaceUserCell(s, { hideMeta: true })}</td>
                     <td>${renderSpaceStatusBadge(s.status)}</td>
                     <td style="white-space:nowrap">${escapeHtml(formatAttemptTime(s.last_sign_in_at || s.updated_at))}</td>
-                    <td><button type="button" class="admin-btn-grant" onclick="adminUnblockSpace('${s.user_id}', this)">Разблокировать</button></td>
+                    <td><div class="admin-space-actions">
+                        <button type="button" class="admin-btn-grant" onclick="adminUnblockSpace('${s.user_id}', this)">Разблокировать</button>
+                        <button type="button" class="admin-btn-block" onclick="adminDeleteUser('${s.user_id}', this)">Удалить</button>
+                    </div></td>
                 </tr>`).join('')}</tbody>
             </table>`;
             return;
@@ -8011,14 +8016,15 @@
                 const isCreator = isSuperAdminRow(s);
                 const rowCls = isCreator ? ' class="admin-row-pinned"' : '';
                 const blockBtn = isCreator ? '<span style="font-size:11px;color:var(--text-muted)">—</span>' :
-                    `<button type="button" class="admin-btn-block" onclick="adminBlockSpace('${s.user_id}', this)">Заблокировать</button>`;
+                    `<button type="button" class="admin-btn-block" onclick="adminBlockSpace('${s.user_id}', this)">Заблокировать</button>
+                     <button type="button" class="admin-btn-block" onclick="adminDeleteUser('${s.user_id}', this)">Удалить</button>`;
                 return `<tr${rowCls}>
                     <td>${renderAdminSpaceUserCell(s, { showCreator: true, hideMeta: true })}</td>
                     <td>${escapeHtml(TARIFF_LABELS[s.tariff_plan] || s.tariff_plan || '—')}</td>
                     <td>${cabinetCountLabel(counts[s.user_id] || 0)}</td>
                     <td style="white-space:nowrap">${formatRegDate(s.created_at)}</td>
                     <td style="white-space:nowrap">${escapeHtml(formatLastSignIn(s.last_sign_in_at))}</td>
-                    <td>${blockBtn}</td>
+                    <td><div class="admin-space-actions">${blockBtn}</div></td>
                 </tr>`;
             }).join('')}</tbody>
         </table>`;
@@ -15103,6 +15109,55 @@
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
         return data;
+    }
+
+    // Удаление пользователя: edge-функция delete-user. Кабинеты и их данные
+    // остаются (снимается только владелец). Сервер отвечает одной короткой
+    // фразой, подробности лежат в логе функции.
+    async function callDeleteUser(userId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error('Сессия истекла, войдите заново');
+        let res;
+        try {
+            res = await fetch(DELETE_USER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + session.access_token },
+                body: JSON.stringify({ user_id: userId }),
+            });
+        } catch (_) {
+            throw new Error('Не удалось удалить пользователя');
+        }
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Не удалось удалить пользователя');
+        return data;
+    }
+
+    function findAdminSpaceRow(userId) {
+        const c = _spacesAdminCache;
+        if (!c) return null;
+        return [...c.allowedRows, ...c.requestRows, ...c.blockedRows].find(r => r.user_id === userId) || null;
+    }
+
+    async function adminDeleteUser(userId, btn) {
+        if (!userId || !isSuperAdmin) return;
+        const row = findAdminSpaceRow(userId);
+        if (row && isSuperAdminRow(row)) return;
+        const email = row?.email || 'этого пользователя';
+        const ok = await showConfirmModal(
+            'Удалить пользователя?',
+            `Удалить ${email}? Аккаунт будет удалён без возможности восстановления. Кабинеты и их данные останутся, но без владельца.`
+        );
+        if (!ok) return;
+        if (btn) { btn.disabled = true; btn.textContent = '…'; }
+        try {
+            await callDeleteUser(userId);
+            showPremiumModal('success', 'Пользователь удалён', 'Кабинеты и данные сохранены, владелец снят.');
+            await loadSpacesAdmin();
+        } catch (e) {
+            console.warn('[admin] delete user:', e.message || e);
+            showPremiumModal('error', 'Ошибка', e.message || 'Не удалось удалить пользователя');
+            if (btn) { btn.disabled = false; btn.textContent = 'Удалить'; }
+        }
     }
 
     async function adminActivateSpace(userId, btn) {
