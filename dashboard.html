@@ -5094,7 +5094,7 @@
                 gap: 0;
                 height: auto;
                 min-height: 0;
-                padding: 2px 2px calc(4px + env(safe-area-inset-bottom, 0px));
+                padding: 2px 2px calc(4px + max(0px, env(safe-area-inset-bottom, 0px) - var(--nr-vp-bottom-gap, 0px)));
                 background: var(--surface-solid);
                 border-top: 1px solid var(--border);
                 box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.06);
@@ -5102,6 +5102,19 @@
                 will-change: transform;
                 -webkit-backface-visibility: hidden;
                 backface-visibility: hidden;
+            }
+            /* Веб-приложение с экрана «Домой» на iOS иногда получает окно короче
+               экрана, и под fixed-панелью остаётся полоса фона страницы.
+               Продолжаем фон панели вниз — полосы не видно при любом окне. */
+            .bottom-nav::after {
+                content: '';
+                position: absolute;
+                left: 0;
+                right: 0;
+                top: 100%;
+                height: 160px;
+                background: inherit;
+                pointer-events: none;
             }
             [data-theme="neon"] .bottom-nav {
                 box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.35);
@@ -7469,6 +7482,23 @@
             <span class="bn-lbl">Меню</span>
         </button>
     </nav>
+    <script>
+        /* iOS standalone: если окно короче экрана, нижняя «безопасная зона»
+           уже вне окна — не добавляем её отступ под кнопками второй раз. */
+        (function () {
+            function syncVpBottomGap() {
+                var gap = 0;
+                if (window.navigator.standalone === true && window.innerHeight > window.innerWidth) {
+                    gap = Math.round(window.screen.height - window.innerHeight);
+                    if (!(gap > 0 && gap < 160)) gap = 0;
+                }
+                document.documentElement.style.setProperty('--nr-vp-bottom-gap', gap + 'px');
+            }
+            syncVpBottomGap();
+            window.addEventListener('orientationchange', function () { setTimeout(syncVpBottomGap, 300); });
+            window.addEventListener('pageshow', syncVpBottomGap);
+        })();
+    </script>
     <div class="bottom-beta-overlay" id="nr-beta-overlay" onclick="closeBetaSheet()"></div>
     <div class="bottom-beta-sheet" id="nr-beta-sheet" role="dialog" aria-label="Меню" aria-hidden="true">
         <div class="bottom-beta-handle" aria-hidden="true"></div>
