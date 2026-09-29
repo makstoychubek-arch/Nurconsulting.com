@@ -219,35 +219,6 @@
             .hero-copy .hero-el-1,
             .hero-copy .hero-el-2 { text-align: center; margin-left: auto; margin-right: auto; }
             .hero-copy .hero-el-1 { margin-top: 20px; }
-
-            /* Команда: вместо карточек — строки, разделённые линиями. */
-            #team .reveal-stagger { gap: 0 !important; }
-            #team .reveal-stagger > .hover-glow {
-                background: transparent;
-                border: none;
-                border-top: 1px solid var(--line);
-                border-radius: 0;
-                box-shadow: none;
-                padding: 22px 4px;
-                text-align: center;
-            }
-            #team .reveal-stagger > .hover-glow:last-child { border-bottom: 1px solid var(--line); }
-            #team .reveal-stagger > .hover-glow h4 { position: relative; padding-bottom: 10px; margin-top: 10px; }
-            #team .reveal-stagger > .hover-glow h4::after {
-                content: '';
-                position: absolute; left: 50%; bottom: 0;
-                width: 28px; height: 2px; border-radius: 2px;
-                background: var(--ink); transform: translateX(-50%);
-            }
-            #team .reveal-stagger > .hover-glow p { text-align: center; }
-            #team .reveal-stagger > .hover-glow .team-avatar-wrap { margin-left: auto; margin-right: auto; }
-            #team .mt-12.mb-6 p {
-                display: flex; align-items: center; gap: 12px;
-            }
-            #team .mt-12.mb-6 p::before,
-            #team .mt-12.mb-6 p::after {
-                content: ''; flex: 1; height: 1px; background: var(--line);
-            }
         }
         @media (min-width: 768px) {
             .nr-mob { display: none !important; }
@@ -304,7 +275,7 @@
             <button type="button" onclick="handleNavClick('#services')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Услуги</button>
             <button type="button" onclick="handleNavClick('#cases')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Кейсы</button>
             <button type="button" onclick="handleNavClick('#rnp-case')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Кейс РНП</button>
-            <button type="button" onclick="handleNavClick('#team')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Команда</button>
+            <button type="button" onclick="handleNavClick('#team')" class="nr-desk nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Команда</button>
             <button type="button" onclick="handleNavClick('#platform')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Платформа</button>
             <button type="button" onclick="handleNavClick('#contacts')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Контакты</button>
         </nav>
@@ -513,10 +484,10 @@
         </div>
     </section>
 
-    <div class="section-divider reveal max-w-7xl mx-auto"></div>
+    <div class="section-divider reveal max-w-7xl mx-auto nr-desk"></div>
 
     <!-- TEAM SECTION -->
-    <section id="team" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
+    <section id="team" class="nr-desk reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
         <div class="text-center max-w-3xl mx-auto space-y-4 mb-12 md:mb-16">
             <p class="eyebrow">Экспертиза</p>
             <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-[#111111] tracking-tight">Операционная команда</h2>
