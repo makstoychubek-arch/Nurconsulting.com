@@ -5087,14 +5087,14 @@
                 position: fixed;
                 left: 0;
                 right: 0;
-                bottom: env(safe-area-inset-bottom, 0);
+                bottom: 0;
                 z-index: 9999;
                 align-items: flex-end;
                 justify-content: space-around;
                 gap: 0;
                 height: auto;
                 min-height: 0;
-                padding: 2px 2px 4px;
+                padding: 2px 2px calc(4px + env(safe-area-inset-bottom, 0px));
                 background: var(--surface-solid);
                 border-top: 1px solid var(--border);
                 box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.06);
@@ -7448,9 +7448,9 @@
         </header>
 
     <nav class="bottom-nav" id="nr-bottom-nav" aria-label="Нижняя навигация">
-        <button type="button" class="bottom-nav-btn" id="bn-agents" data-tab="agents" onclick="showTab('agents')" title="Агенты">
-            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-            <span class="bn-lbl">Агенты</span>
+        <button type="button" class="bottom-nav-btn" id="bn-rk" data-tab="advertising" onclick="showTab('advertising')" title="Контроль РК">
+            <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg></span>
+            <span class="bn-lbl">РК</span>
         </button>
         <button type="button" class="bottom-nav-btn" id="bn-rnp" data-tab="rnp" onclick="showTab('rnp')" title="РНП">
             <span class="bn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg></span>
@@ -8829,7 +8829,7 @@
     }
 
     function syncBottomNav(tabName) {
-        const map = { rnp: 'bn-rnp', 'rnp-settings': 'bn-rnp', dashboard: 'bn-dash', 'goods-groups': 'bn-goods', agents: 'bn-agents' };
+        const map = { rnp: 'bn-rnp', 'rnp-settings': 'bn-rnp', dashboard: 'bn-dash', 'goods-groups': 'bn-goods', advertising: 'bn-rk' };
         document.querySelectorAll('#nr-bottom-nav .bottom-nav-btn[data-tab], #bn-beta').forEach(b => b.classList.remove('active'));
         if (map[tabName]) {
             document.getElementById(map[tabName])?.classList.add('active');
@@ -12321,9 +12321,9 @@
         const src = document.querySelector('#fly-beta .flyout-body');
         if (!body || !src || body.dataset.ready === '1') return;
         const live = `<div class="flyout-sec">Кабинет</div>
-            <div class="nav-item" onclick="showTab('advertising', this)">
-                <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11v2a1 1 0 0 0 1 1h1.2l8.3 4.8a1 1 0 0 0 1.5-.9V6.1a1 1 0 0 0-1.5-.9L5.2 10H4a1 1 0 0 0-1 1z"/><path d="M19.5 8.5a4.5 4.5 0 0 1 0 7"/><path d="M17.2 10.2a2.2 2.2 0 0 1 0 3.6"/></svg>
-                <span class="nav-item-label">РК</span>
+            <div class="nav-item" onclick="showTab('agents', this)" data-staff-only="1">
+                <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                <span class="nav-item-label">Агенты</span>
             </div>
             <div class="nav-item" onclick="showTab('ab-testing', this)">
                 <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4"/></svg>
@@ -12334,6 +12334,8 @@
                 <span class="nav-item-label">Настройки</span>
             </div>`;
         body.innerHTML = live + src.innerHTML;
+        // Агенты уже вверху, в «Кабинет» — убираем дубль из клона BETA.
+        body.querySelectorAll(`.nav-item[onclick^="showTab('agents'"]`).forEach((n, i) => { if (i > 0) n.remove(); });
         body.dataset.ready = '1';
     }
     function openBetaSheet() {
