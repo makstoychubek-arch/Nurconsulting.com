@@ -46,9 +46,11 @@ assert.ok(login.includes('signInWithGoogle()') && login.includes('handleRegister
 
 const keep = [
     '+7 966 752 03 97',
-    '+996 558 200 327',
+    '+996 502 446 688',
     'tel:+79667520397',
-    'https://wa.me/996558200327',
+    'tel:+996502446688',
+    'https://wa.me/996502446688',
+    'instagram.com/___nurbolot',
     '120 430 000 ₽',
     '356 780 шт',
     '94%',
