@@ -58,22 +58,14 @@ const keep = [
     '120+ млн',
     '20+ млн',
     '248 190 372',
-    'Нурболот',
-    'Марлен',
-    'Инсия',
-    'Ольга',
-    'Муха',
-    'Данияр Асанов',
-    'Амир Исаев',
-    'Алина Волкова',
     '© Nur Consulting &amp; NR Space. Все права защищены. 2026',
     'Превращаем Wildberries',
 ];
 keep.forEach(function (snippet) {
     assert.ok(index.includes(snippet), 'landing keeps original data: ' + snippet);
 });
-assert.ok(!index.includes('vp-tab-plus') && index.includes('.nr-desk') && index.includes('hero-el-3 nr-desk'),
-    'audit and Telegram buttons stay on desktop only, not in the mobile dock');
+assert.ok(!index.includes('t.me/') && !index.includes('vp-tab-plus') && !index.includes('id="team"'),
+    'audit/Telegram buttons and the team section are removed on all widths');
 assert.ok(!index.includes('Москва') && !index.includes('Бишкек'),
     'office cards do not invent city names');
 assert.ok(!dash.includes('/css/nr-vibe.css'),
