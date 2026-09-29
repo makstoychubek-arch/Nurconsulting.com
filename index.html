@@ -212,6 +212,71 @@
             .vp-foot-bar { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); }
         }
 
+        /* ===== Раздел «Инструменты» ===== */
+        .tools-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+        @media (min-width: 900px) { .tools-grid { grid-template-columns: 1fr 1fr; gap: 20px; } .tool-wide { grid-column: span 2; } }
+        .tool-card {
+            position: relative; overflow: hidden;
+            background: var(--card); border: 1px solid var(--line); border-radius: 24px;
+            padding: 28px 24px;
+        }
+        @media (min-width: 640px) { .tool-card { padding: 36px 36px; } }
+        .tool-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+        .tool-num {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; letter-spacing: 0.08em;
+            color: var(--ink-faint); border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px;
+        }
+        .tool-live { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; color: #15803d; }
+        .tool-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 4px rgba(34,197,94,0.15); }
+        .tool-title { font-size: 22px; line-height: 1.2; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+        @media (min-width: 640px) { .tool-title { font-size: 26px; } }
+        .tool-lead { margin-top: 10px; font-size: 14px; line-height: 1.6; color: var(--ink-dim); max-width: 34rem; }
+        .tool-label { margin-top: 24px; margin-bottom: 10px; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); }
+
+        .tool-split { display: grid; gap: 24px; }
+        @media (min-width: 900px) { .tool-split { grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: start; } }
+
+        .bid-modes { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+        .bid-mode { border: 1px solid var(--line); border-radius: 16px; padding: 14px; background: color-mix(in srgb, var(--paper) 45%, #fff); }
+        .bid-mode b { display: block; font-size: 13.5px; color: var(--ink); line-height: 1.3; }
+        .bid-mode span { display: block; margin-top: 4px; font-size: 12px; line-height: 1.45; color: var(--ink-dim); }
+        .bid-limits { display: flex; flex-wrap: wrap; gap: 8px; }
+        .bid-chip { font-size: 12.5px; font-weight: 600; color: var(--ink); border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; background: var(--card); }
+        .bid-chip.dark { background: var(--ink); color: #fff; border-color: var(--ink); }
+
+        .flow { position: relative; margin-top: 22px; display: grid; gap: 18px; }
+        .flow::before { content: ''; position: absolute; left: 15px; top: 16px; bottom: 16px; width: 1px; background: var(--line); }
+        .flow-step { position: relative; display: grid; grid-template-columns: 32px 1fr; gap: 14px; align-items: start; }
+        .flow-dot {
+            position: relative; z-index: 1; width: 32px; height: 32px; border-radius: 50%;
+            display: grid; place-items: center; font-size: 12px; font-weight: 800;
+            background: var(--card); border: 1px solid var(--line); color: var(--ink);
+        }
+        .flow-step.hot .flow-dot { background: var(--ink); color: #fff; border-color: var(--ink); }
+        .flow-step b { display: block; font-size: 14px; color: var(--ink); }
+        .flow-step span { display: block; margin-top: 3px; font-size: 13px; line-height: 1.5; color: var(--ink-dim); }
+        .tg-bubble {
+            margin-top: 8px; display: inline-block; font-size: 12.5px; line-height: 1.45; color: var(--ink);
+            background: color-mix(in srgb, #2AABEE 12%, #fff); border: 1px solid color-mix(in srgb, #2AABEE 30%, var(--line));
+            border-radius: 14px 14px 14px 4px; padding: 8px 12px;
+        }
+
+        .notif-list { margin-top: 20px; display: grid; gap: 0; }
+        .notif { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 0; border-top: 1px solid var(--line); }
+        .notif:last-child { border-bottom: 1px solid var(--line); }
+        .notif b { font-size: 14px; color: var(--ink); font-weight: 600; }
+        .notif span { font-size: 12px; color: var(--ink-faint); white-space: nowrap; }
+
+        .unit-eq { margin-top: 6px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+        .unit-term { border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; font-size: 13px; font-weight: 600; color: var(--ink); background: var(--card); }
+        .unit-op { font-size: 16px; font-weight: 700; color: var(--ink-faint); }
+        .unit-res { border-radius: 12px; padding: 9px 14px; font-size: 13px; font-weight: 800; color: #fff; background: var(--ink); }
+        .unit-facts { margin-top: 22px; display: grid; gap: 10px; grid-template-columns: 1fr; }
+        @media (min-width: 640px) { .unit-facts { grid-template-columns: repeat(3, 1fr); } }
+        .unit-fact { border-top: 2px solid var(--ink); padding-top: 12px; }
+        .unit-fact b { display: block; font-size: 14px; color: var(--ink); }
+        .unit-fact span { display: block; margin-top: 4px; font-size: 12.5px; line-height: 1.5; color: var(--ink-dim); }
+
         .hero-copy .hero-el-1,
         .hero-copy .hero-el-2 { text-align: center; margin-left: auto; margin-right: auto; }
         @media (max-width: 767px) {
@@ -239,6 +304,7 @@
                     <a href="#services" class="nav-link vp-pill-link is-active">Услуги</a>
                     <a href="#cases" class="nav-link vp-pill-link">Кейсы</a>
                     <a href="#rnp-case" class="nav-link vp-pill-link">Кейс РНП</a>
+                    <a href="#tools" class="nav-link vp-pill-link">Инструменты</a>
                     <a href="#platform" class="nav-link vp-pill-link">Платформа</a>
                     <a href="#contacts" class="nav-link vp-pill-link">Контакты</a>
                 </div>
@@ -267,6 +333,7 @@
             <button type="button" onclick="handleNavClick('#services')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Услуги</button>
             <button type="button" onclick="handleNavClick('#cases')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Кейсы</button>
             <button type="button" onclick="handleNavClick('#rnp-case')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Кейс РНП</button>
+            <button type="button" onclick="handleNavClick('#tools')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Инструменты</button>
             <button type="button" onclick="handleNavClick('#platform')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Платформа</button>
             <button type="button" onclick="handleNavClick('#contacts')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Контакты</button>
         </nav>
@@ -482,6 +549,96 @@
                 <div class="module-card hover-glow"><div class="module-icon">🔍</div><h3 class="module-title">Позиции в выдаче WB</h3><p class="module-desc">Введите артикул — система ежедневно автоматически проверяет его позиции по ключевым запросам. Узнайте первыми, когда карточка поднимается в топ или проседает.</p></div>
                 <div class="module-card hover-glow"><div class="module-icon">🖨️</div><h3 class="module-title">Маркировка и Генерация ШК</h3><p class="module-desc">Загружайте баркоды из Wildberries напрямую. Мгновенная генерация готовых к печати штрихкодов. Пакетное создание по размерам и экспорт в PDF под термопринтер в 1 клик.</p></div>
                 <div class="module-card hover-glow sm:col-span-2 lg:col-span-3"><div class="module-icon">📦</div><h3 class="module-title">Умная Логистика & Индекс Локализации</h3><p class="module-desc">Автоматический расчёт Индекса Локализации и доли заказов по регионам. Точные рекомендации: на какие склады загрузить товар, чтобы снизить стоимость логистики WB.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <div class="section-divider reveal max-w-7xl mx-auto"></div>
+
+    <!-- TOOLS SECTION -->
+    <section id="tools" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6">
+        <div class="max-w-6xl mx-auto">
+            <div class="text-center mb-12 md:mb-16">
+                <span class="eyebrow mb-3 block">Инструменты</span>
+                <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black mb-4 tracking-tight">Работают за вас круглосуточно</h2>
+                <p class="text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed" style="color:var(--ink-dim)">Ставки, ответы покупателям, уведомления и точная экономика — пока вы занимаетесь развитием бизнеса</p>
+            </div>
+
+            <div class="tools-grid">
+                <!-- Автобиддер -->
+                <article class="tool-card tool-wide">
+                    <div class="tool-split">
+                        <div>
+                            <div class="tool-head"><span class="tool-num">01</span><span class="tool-live">Работает сам</span></div>
+                            <h3 class="tool-title">Автобиддер: ставка сама держит позицию</h3>
+                            <p class="tool-lead">Выбираете кластер в рекламной кампании и задаёте цель. Система каждые 30 минут сверяет позицию и ставку и поднимает или снижает её сама — без ручной перебивки и переплат.</p>
+                            <p class="tool-label">Жёсткие ограничения</p>
+                            <div class="bid-limits">
+                                <span class="bid-chip">Макс. ставка, ₽</span>
+                                <span class="bid-chip">Макс. ДРР, %</span>
+                                <span class="bid-chip">Коридор позиций «с — по»</span>
+                                <span class="bid-chip dark">Проверка каждые 30 мин</span>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="tool-label" style="margin-top:0">Стратегии</p>
+                            <div class="bid-modes">
+                                <div class="bid-mode"><b>Дешевле, лишь бы в позиции</b><span>Минимальная ставка, при которой товар остаётся на нужном месте</span></div>
+                                <div class="bid-mode"><b>Видимость до потолка</b><span>Максимум показов, но не дороже заданного лимита</span></div>
+                                <div class="bid-mode"><b>Держать коридор позиций</b><span>Товар всё время в выбранном диапазоне выдачи</span></div>
+                                <div class="bid-mode"><b>Не выше целевого ДРР</b><span>Реклама не съедает маржу — ДРР под контролем</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </article>
+
+                <!-- Вопросы и отзывы -->
+                <article class="tool-card">
+                    <div class="tool-head"><span class="tool-num">02</span><span class="tool-live">Каждые 10 минут</span></div>
+                    <h3 class="tool-title">Автоответы на вопросы и отзывы</h3>
+                    <p class="tool-lead">Покупатели получают ответ быстро, а важное не теряется.</p>
+                    <div class="flow">
+                        <div class="flow-step"><div class="flow-dot">1</div><div><b>Пришёл вопрос или отзыв на WB</b><span>Типовые — получают автоответ сразу</span></div></div>
+                        <div class="flow-step"><div class="flow-dot">2</div><div><b>Важный вопрос — отмечаем вас в Telegram</b><span>Например, «когда будет поставка?» — бот присылает карточку и тегает ответственного</span></div></div>
+                        <div class="flow-step hot"><div class="flow-dot">3</div><div><b>Вы отвечаете прямо в Telegram</b><span>Коротко, реплаем — бот сам оформит и отправит полный ответ покупателю на WB</span><div class="tg-bubble">↩ через 2 недели</div></div></div>
+                    </div>
+                </article>
+
+                <!-- Telegram -->
+                <article class="tool-card">
+                    <div class="tool-head"><span class="tool-num">03</span><span class="tool-live">Синхронизация</span></div>
+                    <h3 class="tool-title">Всё важное — в Telegram</h3>
+                    <p class="tool-lead">Не нужно держать кабинет открытым: бот сам сообщит обо всех изменениях.</p>
+                    <div class="notif-list">
+                        <div class="notif"><b>Статусы рекламных кампаний и баланс</b><span>каждые 10 мин</span></div>
+                        <div class="notif"><b>Отчёт по продажам за день</b><span>ежедневно</span></div>
+                        <div class="notif"><b>Штрафы и удержания WB</b><span>ежедневно</span></div>
+                        <div class="notif"><b>Итоги А/Б-тестов</b><span>по завершении</span></div>
+                        <div class="notif"><b>Важные вопросы покупателей</b><span>до 10 мин</span></div>
+                    </div>
+                </article>
+
+                <!-- Юнит-экономика -->
+                <article class="tool-card tool-wide">
+                    <div class="tool-head"><span class="tool-num">04</span><span class="tool-live">Актуальные данные</span></div>
+                    <h3 class="tool-title">Юнит-экономика, которая считает точно</h3>
+                    <p class="tool-lead">Прибыль с каждой проданной единицы — с учётом всех расходов Wildberries и невыкупа. Видно сразу, какой товар зарабатывает, а какой работает в минус.</p>
+                    <p class="tool-label">Как считается прибыль на 1 шт</p>
+                    <div class="unit-eq">
+                        <span class="unit-term">Цена после СПП</span><span class="unit-op">−</span>
+                        <span class="unit-term">Комиссия WB</span><span class="unit-op">−</span>
+                        <span class="unit-term">Логистика с учётом невыкупа</span><span class="unit-op">−</span>
+                        <span class="unit-term">Реклама</span><span class="unit-op">−</span>
+                        <span class="unit-term">Налог</span><span class="unit-op">−</span>
+                        <span class="unit-term">Себестоимость</span><span class="unit-op">=</span>
+                        <span class="unit-res">Чистая прибыль</span>
+                    </div>
+                    <div class="unit-facts">
+                        <div class="unit-fact"><b>Ничего лишнего вручную</b><span>Комиссии, логистика и выкуп подтягиваются из кабинета WB</span></div>
+                        <div class="unit-fact"><b>По каждому артикулу</b><span>Маржа и рентабельность товара, а не «в среднем по магазину»</span></div>
+                        <div class="unit-fact"><b>До закупки</b><span>Калькулятор покажет, стоит ли заводить новый товар</span></div>
+                    </div>
+                </article>
             </div>
         </div>
     </section>
