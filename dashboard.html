@@ -925,6 +925,11 @@
         .nav-item.active .nav-ico { opacity: 1; }
         .nav-item:hover .nav-ico { opacity: 0.9; }
         .nav-item-label { flex: 1; min-width: 0; }
+        /* Плавная смена темы (toggleTheme). */
+        ::view-transition-old(root), ::view-transition-new(root) { animation-duration: .38s; animation-timing-function: ease; }
+        html.theme-fading, html.theme-fading *, html.theme-fading *::before, html.theme-fading *::after {
+            transition: background-color .38s ease, color .38s ease, border-color .38s ease, fill .38s ease, stroke .38s ease, box-shadow .38s ease !important;
+        }
         .beta-theme-row {
             display: flex; align-items: center; gap: 10px;
             padding: 10px 14px; margin: 4px 8px 8px; border-radius: var(--radius-control);
@@ -7787,10 +7792,10 @@
         const tab = getCurrentActiveTab();
         // В режиме онбординга экран приветствия закрывает все вкладки: пока
         // магазин не подключён, за ними нет ни одной цифры.
-        const showEmpty = (onboardingMode && tab !== 'akylai')
+        const showEmpty = (onboardingMode && tab !== 'akylai' && tab !== 'tariffs')
             || (cabinetsLoaded && !hasUserCabinets && !NO_CABINET_ALLOWED_TABS.has(tab) && !isBetaStubOpen());
 
-        const akylaiTab = tab === 'akylai';
+        const akylaiTab = tab === 'akylai' || tab === 'tariffs';
         emptyEl.classList.toggle('hidden', !showEmpty || akylaiTab);
         document.getElementById('onb-pending-card')?.classList.toggle('hidden', !onboardingMode);
         document.getElementById('onb-token-card')?.classList.toggle('hidden', onboardingMode);
@@ -8774,7 +8779,18 @@
     function toggleTheme() {
         const cur = document.documentElement.getAttribute('data-theme');
         const i = NR_THEMES.indexOf(cur);
-        applyTheme(NR_THEMES[(i < 0 ? 0 : i + 1) % NR_THEMES.length]);
+        const next = NR_THEMES[(i < 0 ? 0 : i + 1) % NR_THEMES.length];
+        // Плавная смена темы: кроссфейд через View Transitions, иначе — CSS-переход цветов.
+        const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!reduce && document.startViewTransition) {
+            document.startViewTransition(() => applyTheme(next));
+            return;
+        }
+        const root = document.documentElement;
+        if (!reduce) root.classList.add('theme-fading');
+        applyTheme(next);
+        clearTimeout(window._themeFadeT);
+        window._themeFadeT = setTimeout(() => root.classList.remove('theme-fading'), 450);
     }
     (function initTheme() {
         const saved = localStorage.getItem('nr_theme') || 'ios';
