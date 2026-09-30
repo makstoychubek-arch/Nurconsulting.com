@@ -67,10 +67,11 @@ assert.ok(!/data-tab="rnp"[^>]*data-flyout/.test(html),
     'РНП rail button opens the module, not a second column');
 assert.ok(/<span class="rail-btn-lbl">А\/Б<\/span>/.test(html) && /data-tab="ab-testing"/.test(html),
     'А/Б Тесты sit on the main rail as a live tab');
-assert.ok(!/<span class="rail-btn-lbl">Тарифы<\/span>/.test(html), 'Тарифы must not stay on the main rail');
+assert.ok(/data-tab="tariffs" title="Тарифы"/.test(html) && /data-flyout="fly-beta" data-staff-only="1"/.test(html),
+    'Тарифы sit on the rail for clients; the BETA column is team-only');
 assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
     'ocr/rnp/tariffs flyouts must stay folded into BETA');
-assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary'])"),
+assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary', 'tariffs'])"),
     'dashboard, settings, RNP, advertising, A/B, Товары, Контент-завод, Агенты and Сводный отчёт are live tabs');
 assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
     'non-live modules must open the BETA stub instead of broken UIs');
@@ -393,8 +394,10 @@ assert.ok(
 );
 {
     const railIcons = html.slice(html.indexOf('class="rail-bottom-icons"'), html.indexOf('id="fly-beta"'));
-    assert.ok(railIcons.includes('id="rail-settings-btn"') && !railIcons.includes('toggleTheme()'),
-        'left rail keeps the settings gear and drops the theme switch');
+    assert.ok(railIcons.includes('id="rail-settings-btn"') &&
+        railIcons.indexOf('id="rail-settings-btn"') < railIcons.indexOf('id="rail-theme-btn"') &&
+        railIcons.indexOf('id="rail-theme-btn"') < railIcons.indexOf('handleLogout()'),
+        'left rail: settings, theme, logout — theme sits between settings and logout');
     assert.ok(railIcons.includes('M19.4 15a1.65') && !railIcons.includes('M19.07 4.93l-1.41'),
         'rail settings icon is a cog, not the sun-ray mark');
 }
@@ -1822,7 +1825,7 @@ assert.ok(
     'Vercel must rewrite /agents to the dashboard'
 );
 assert.ok(
-    html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary'])") &&
+    html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary', 'tariffs'])") &&
     html.includes('data-tab="agents"') &&
     html.includes('id="agents-hub-side"') &&
     html.includes('function renderAgentHub') &&

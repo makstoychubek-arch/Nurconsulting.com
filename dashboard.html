@@ -5653,8 +5653,8 @@
             var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/reports': 'summary' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
             // Держать в синхроне с PUBLIC_TABS ниже (проверяет public_modules_test.js).
-            var __nrPublic = ['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'akylai', 'summary'];
-            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1, akylai: 1, summary: 1 };
+            var __nrPublic = ['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'akylai', 'summary', 'tariffs'];
+            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1, akylai: 1, summary: 1, tariffs: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -5740,7 +5740,11 @@
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                     <span class="rail-btn-lbl">Агенты</span>
                 </button>
-                <button type="button" class="rail-btn" data-flyout="fly-beta">
+                <button type="button" class="rail-btn" data-tab="tariffs" title="Тарифы">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg></span>
+                    <span class="rail-btn-lbl">Тарифы</span>
+                </button>
+                <button type="button" class="rail-btn" data-flyout="fly-beta" data-staff-only="1">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
                     <span class="rail-btn-lbl">BETA</span>
                 </button>
@@ -5756,6 +5760,9 @@
                 <div class="rail-bottom-icons">
                     <button type="button" class="rail-settings-btn" id="rail-settings-btn" onclick="showTab('settings', this)" title="Настройки">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    </button>
+                    <button type="button" class="rail-icon-btn" id="rail-theme-btn" onclick="toggleTheme()" title="Тема">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                     </button>
                     <button type="button" class="rail-icon-btn" onclick="handleLogout()" title="Выйти">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -7583,6 +7590,7 @@
         <div class="bottom-beta-body" id="nr-beta-sheet-body"></div>
         <div class="bottom-beta-foot">
             <button type="button" onclick="closeBetaSheet(); showTab('settings')">Настройки</button>
+            <button type="button" onclick="toggleTheme()">Тема · <span class="beta-theme-label"></span></button>
             <button type="button" onclick="handleLogout()">Выйти</button>
         </div>
     </div>
@@ -7693,7 +7701,7 @@
        внутренние страницы — видно только команде (team_staff / суперадмин).
        Выводить раздел в общий показ — только с разрешения владельца: список
        закреплён тестом public_modules_test.js, без правки теста он не пройдёт. */
-    const PUBLIC_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'akylai', 'summary']);
+    const PUBLIC_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'akylai', 'summary', 'tariffs']);
 
     /** Пункты меню непубличных разделов помечаем «только команде» — их прячет CSS
      *  html:not([data-staff="1"]) [data-staff-only]. Пустые секции прячем тоже. */
@@ -7722,7 +7730,7 @@
             if (any && !anyPublic) sec.setAttribute('data-staff-only', '1');
         });
     }
-    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary']);
+    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary', 'tariffs']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
     // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
@@ -8263,11 +8271,6 @@
         try { localStorage.setItem('nr_is_staff', isStaff ? '1' : '0'); } catch (_) {}
         if (isStaff) document.documentElement.setAttribute('data-staff', '1');
         else document.documentElement.removeAttribute('data-staff');
-        // Клиенту в этой колонке остаются только «Тема» и «Сводный отчёт» — слово BETA ему ни к чему.
-        const betaLbl = document.querySelector('.rail-btn[data-flyout="fly-beta"] .rail-btn-lbl');
-        if (betaLbl) betaLbl.textContent = isStaff ? 'BETA' : 'Ещё';
-        const betaTitle = document.querySelector('#fly-beta .flyout-title');
-        if (betaTitle) betaTitle.textContent = isStaff ? 'Модули BETA' : 'Ещё';
         if (!isStaff && STAFF_ONLY_TABS.has(getCurrentActiveTab())) showTab(getCurrentActiveTab() === 'agents' ? 'akylai' : 'dashboard');
         else if (!isStaff && !PUBLIC_TABS.has(getCurrentActiveTab())) showTab('dashboard');
     }
@@ -12482,6 +12485,10 @@
                 <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
                 <span class="nav-item-label">Агенты</span>
             </div>
+            <div class="nav-item" onclick="showTab('tariffs', this)">
+                <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>
+                <span class="nav-item-label">Тарифы</span>
+            </div>
             <div class="nav-item" onclick="showTab('ab-testing', this)">
                 <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3H5a2 2 0 0 0-2 2v4m6-6h10a2 2 0 0 1 2 2v4M9 3v18m0 0h10a2 2 0 0 0 2-2v-4M9 21H5a2 2 0 0 1-2-2v-4"/></svg>
                 <span class="nav-item-label">А/Б Тесты</span>
@@ -12491,6 +12498,14 @@
                 <span class="nav-item-label">Настройки</span>
             </div>`;
         body.innerHTML = live + src.innerHTML;
+        // Тема — в подвале меню, между «Настройки» и «Выйти».
+        body.querySelectorAll('.beta-theme-row').forEach((row) => {
+            const sec = row.previousElementSibling;
+            if (sec && sec.classList.contains('flyout-sec')) sec.remove();
+            row.remove();
+        });
+        // Тарифы уже в «Кабинете» — дубль из BETA-списка убираем.
+        body.querySelectorAll(`.nav-item[onclick^="showTab('tariffs'"]`).forEach((n, i) => { if (i > 0) n.remove(); });
         applyModuleVisibility(body);
         // Агенты уже вверху, в «Кабинет» — убираем дубль из клона BETA.
         body.querySelectorAll(`.nav-item[onclick^="showTab('agents'"]`).forEach((n, i) => { if (i > 0) n.remove(); });
