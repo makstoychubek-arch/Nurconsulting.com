@@ -24,6 +24,7 @@ const APPROVED_PUBLIC = [
     'goods-groups',  // Товары
     'akylai',        // Агенты (страница клиента с Акылай)
     'summary',       // Сводный отчёт
+    'tariffs',       // Тарифы — 30.09.2026, разрешила владелец: «вместо Ещё — Тарифы»
 ];
 
 const html = fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8');
@@ -47,7 +48,7 @@ assert.ok(!publicTabs.includes('content-factory'), 'Контент-завод is
 for (const t of publicTabs) {
     assert.ok(liveTabs.includes(t), `${t}: a BETA (non-live) module can never be public`);
 }
-for (const t of ['agents', 'telegram-bots', 'seo', 'marking', 'logistics', 'dds', 'calculator', 'tariffs', 'ozon', 'planning']) {
+for (const t of ['agents', 'telegram-bots', 'seo', 'marking', 'logistics', 'dds', 'calculator', 'ozon', 'planning']) {
     assert.ok(!publicTabs.includes(t), `${t} stays staff-only`);
 }
 
