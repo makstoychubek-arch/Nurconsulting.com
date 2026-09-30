@@ -70,7 +70,7 @@ assert.ok(/<span class="rail-btn-lbl">А\/Б<\/span>/.test(html) && /data-tab="a
 assert.ok(!/<span class="rail-btn-lbl">Тарифы<\/span>/.test(html), 'Тарифы must not stay on the main rail');
 assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
     'ocr/rnp/tariffs flyouts must stay folded into BETA');
-assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'summary'])"),
+assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary'])"),
     'dashboard, settings, RNP, advertising, A/B, Товары, Контент-завод, Агенты and Сводный отчёт are live tabs');
 assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
     'non-live modules must open the BETA stub instead of broken UIs');
@@ -1822,7 +1822,7 @@ assert.ok(
     'Vercel must rewrite /agents to the dashboard'
 );
 assert.ok(
-    html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'summary'])") &&
+    html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary'])") &&
     html.includes('data-tab="agents"') &&
     html.includes('id="agents-hub-side"') &&
     html.includes('function renderAgentHub') &&
@@ -1976,16 +1976,17 @@ assert.ok(
         html.includes("if (STAFF_ONLY_TABS.has(name) && !isStaff)") &&
         html.includes("supabase.rpc('is_staff')") &&
         html.includes('html:not([data-staff="1"]) [data-staff-only] { display: none !important; }') &&
-        html.includes('data-tab="agents" title="Агенты" data-staff-only="1"') &&
+        html.includes("showTab(name === 'agents' ? 'akylai' : 'dashboard');") &&
         html.includes(`onclick="showTab('agents', this)" data-staff-only="1"`) &&
         html.includes(`onclick="showTab('telegram-bots', this)" data-staff-only="1"`) &&
         html.includes("if (!grid || !isStaff) return;"),
-        'client must not see the internal Агенты tab: hidden in nav and blocked in showTab'
+        'client must not see the internal Агенты tab: showTab routes them to their own Акылай page'
     );
     assert.ok(
         html.includes("if (localStorage.getItem('nr_is_staff') === '1')") &&
-        html.includes("} else if (__nrTab === 'agents') {"),
-        'direct /agents hit must fall back to the dashboard before first paint for a client'
+        html.includes("} else if (__nrTab === 'agents') {") &&
+        html.includes("__nrTab = 'akylai';"),
+        'direct /agents hit opens the client Агенты (Акылай) page before first paint'
     );
 }
 
