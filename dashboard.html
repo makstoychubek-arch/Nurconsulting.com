@@ -7236,7 +7236,9 @@
                     transition: transform .15s ease, box-shadow .15s ease;
                 }
                 .ak-agent:not([disabled]):hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.08); }
-                .ak-agent[disabled] { cursor: default; opacity: .62; }
+                .ak-agent--soon img, .ak-agent--soon b { opacity: .7; }
+                .ak-soon-note { display: block; margin-top: 2px; font-size: 11px; line-height: 1.35; color: var(--text-muted); }
+                .ak-wa { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
                 .ak-agent img { width: 76px; height: 76px; border-radius: 50%; }
                 .ak-agent b { font-size: 15px; color: var(--text-primary); }
                 .ak-agent span { font-size: 12px; line-height: 1.35; color: var(--text-muted); }
@@ -7283,15 +7285,15 @@
                         <img src="/img/agents/akylai-smile.svg" alt="" width="76" height="76">
                         <b>Акылай</b><span>Младший менеджер · отзывы</span>
                     </button>
-                    <button type="button" class="ak-agent" disabled><span class="ak-soon">Скоро</span><img src="/img/agents/manas.svg" alt="" width="76" height="76"><b>Манас</b><span>Реклама</span></button>
-                    <button type="button" class="ak-agent" disabled><span class="ak-soon">Скоро</span><img src="/img/agents/marlen.svg" alt="" width="76" height="76"><b>Марлен</b><span>Логист</span></button>
-                    <button type="button" class="ak-agent" disabled><span class="ak-soon">Скоро</span><img src="/img/agents/izat.svg" alt="" width="76" height="76"><b>Изат</b><span>Цены и доступы</span></button>
-                    <button type="button" class="ak-agent" disabled><span class="ak-soon">Скоро</span><img src="/img/agents/dastan.svg" alt="" width="76" height="76"><b>Дастан</b><span>Позиции</span></button>
+                    <button type="button" class="ak-agent ak-agent--soon" data-agent="manas" onclick="akylaiSoon('manas')"><span class="ak-soon">Скоро</span><img src="/img/agents/manas.svg" alt="" width="76" height="76"><b>Манас</b><span>Реклама</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
+                    <button type="button" class="ak-agent ak-agent--soon" data-agent="marlen" onclick="akylaiSoon('marlen')"><span class="ak-soon">Скоро</span><img src="/img/agents/marlen.svg" alt="" width="76" height="76"><b>Марлен</b><span>Логист</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
+                    <button type="button" class="ak-agent ak-agent--soon" data-agent="izat" onclick="akylaiSoon('izat')"><span class="ak-soon">Скоро</span><img src="/img/agents/izat.svg" alt="" width="76" height="76"><b>Изат</b><span>Цены и доступы</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
+                    <button type="button" class="ak-agent ak-agent--soon" data-agent="dastan" onclick="akylaiSoon('dastan')"><span class="ak-soon">Скоро</span><img src="/img/agents/dastan.svg" alt="" width="76" height="76"><b>Дастан</b><span>Позиции</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
                 </div>
                 <div class="ak-stage hidden" id="ak-stage">
                     <div class="ak-talk">
                         <img class="ak-face" id="ak-face" src="/img/agents/akylai-neutral.svg" alt="Акылай" width="88" height="88">
-                        <div class="ak-bubble"><b>Акылай</b><span id="ak-say"></span></div>
+                        <div class="ak-bubble"><b id="ak-name">Акылай</b><span id="ak-say"></span></div>
                     </div>
                     <div class="ak-body" id="ak-body"></div>
                 </div>
@@ -17964,6 +17966,15 @@
         { input: true, text: 'Вставьте токен сюда — я проверю его сама, нажимать ничего не нужно.' },
     ];
     const GENERIC = 'Не получилось проверить. Попробуйте ещё раз через минуту.';
+    // Агенты «Скоро»: только то, что они реально будут уметь. Заявка — в WhatsApp NR.
+    const AK_SOON = {
+        manas: { name: 'Манас', text: 'Я Манас, отвечаю за рекламу в NR Space. Веду ставки по кампаниям и несколько раз в день присылаю коротко: что изменил и почему.' },
+        marlen: { name: 'Марлен', text: 'Я Марлен, логист NR Space. Каждый день присылаю Excel с заказами по артикулам, отдельно FBO и FBS, и напоминаю про сроки отгрузки.' },
+        izat: { name: 'Изат', text: 'Я Изат. Сначала вы группируете артикулы, потом даёте команду, например «снизить цену на свитеры на 10%». Я покажу список «было → стало» и применю только после вашего подтверждения.' },
+        dastan: { name: 'Дастан', text: 'Каждый день фиксирую позиции ваших товаров по нужным ключам и показываю, где вы выросли или упали.' },
+    };
+    const AK_SOON_NOTE = 'Скоро. Оставьте заявку, и мы напишем, когда агент заработает';
+    const AK_WA = '996502446688';
 
     const ak = { state: null, view: null, slide: 0, checking: false, lastToken: '', poll: null, pollUntil: 0, error: '' };
 
@@ -17986,7 +17997,10 @@
         }
     }
 
-    function face(kind) { const f = $('ak-face'); if (f) f.src = AK_FACES[kind] || AK_FACES.neutral; }
+    function face(kind) {
+        const f = $('ak-face'); if (f) f.src = AK_FACES[kind] || AK_FACES.neutral;
+        const n = $('ak-name'); if (n) n.textContent = 'Акылай';
+    }
     function say(html) { const s = $('ak-say'); if (s) s.innerHTML = html; }
     function body(html) { const b = $('ak-body'); if (b) b.innerHTML = html; }
     function showStage(on) { $('ak-stage')?.classList.toggle('hidden', !on); }
@@ -18114,9 +18128,25 @@
     }
 
     window.akylaiOpen = async function () {
+        if (ak.view === 'soon') ak.view = null;
         showStage(true);
         if (!ak.state) { face('neutral'); say('Секунду…'); body(''); await refresh(); }
         render();
+        $('ak-stage')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    window.akylaiSoon = function (id) {
+        const a = AK_SOON[id];
+        if (!a) return;
+        stopPoll();
+        ak.view = 'soon';
+        showStage(true);
+        const f = $('ak-face'); if (f) f.src = '/img/agents/' + id + '.svg';
+        const n = $('ak-name'); if (n) n.textContent = a.name;
+        say(esc(a.text));
+        const msg = encodeURIComponent('Здравствуйте! Хочу подключить агента ' + a.name + ' в NR Space.');
+        body(`<p class="ak-note" style="margin:0 0 12px">${esc(AK_SOON_NOTE)}</p>
+            <a class="ak-btn ak-wa" href="https://wa.me/${AK_WA}?text=${msg}" target="_blank" rel="noopener">Оставить заявку</a>`);
         $('ak-stage')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 

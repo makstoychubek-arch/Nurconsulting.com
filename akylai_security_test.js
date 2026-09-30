@@ -112,9 +112,12 @@ assert.ok(!/localStorage|sessionStorage/.test(ui), 'wizard state is not stored i
 // ── 8. Сценарий на странице ──
 assert.ok(html.includes('id="tab-akylai"') && html.includes('data-agent="akylai"'), 'Агенты page with Akylai card');
 for (const n of ['Манас', 'Марлен', 'Изат', 'Дастан']) {
-    assert.ok(new RegExp(`<span class="ak-soon">Скоро</span><img[^>]*><b>${n}</b>`).test(html), `${n}: «Скоро», not clickable`);
+    assert.ok(new RegExp(`class="ak-agent ak-agent--soon"[^>]*><span class="ak-soon">Скоро</span><img[^>]*><b>${n}</b><span>[^<]*</span><small class="ak-soon-note">Скоро\\. Оставьте заявку, и мы напишем, когда агент заработает</small>`).test(html), `${n}: «Скоро» card with the waitlist note`);
 }
-assert.ok((html.match(/class="ak-agent" disabled/g) || []).length === 4, 'only Akylai is clickable');
+assert.ok((html.match(/class="ak-agent ak-agent--soon"/g) || []).length === 4 && (html.match(/class="ak-live"/g) || []).length === 1,
+    'only Akylai works; the other four are «Скоро» with a waitlist request');
+assert.ok(ui.includes("href=\"https://wa.me/${AK_WA}?text=${msg}\"") && !/t\.me\//.test(ui.match(/window\.akylaiSoon[\s\S]*?\n    \};/)[0]),
+    '«Оставить заявку» goes to WhatsApp NR, no bot links for agents that do not exist yet');
 assert.ok(ui.includes('Я отвечаю на отзывы покупателей и присылаю ответы вам в Telegram на проверку.'), 'greeting');
 assert.ok(!/вопрос/i.test(ui.match(/renderHello\(\) \{[\s\S]*?\n    \}/)[0]), 'greeting does not mention questions');
 assert.ok(/input: true/.test(ui) && ui.includes("const input = last"), 'token field only on the last slide');
