@@ -130,6 +130,14 @@
 
         <div class="login-card glass-card p-8">
 
+            <div id="signed-in-as" class="hidden mb-5 rounded-[12px] px-4 py-3 text-sm" style="background:var(--paper-2);border:1px solid var(--line)">
+                <p>Вы уже вошли как <b id="signed-in-email"></b>.</p>
+                <div class="mt-3 flex flex-col gap-2">
+                    <button type="button" onclick="continueAsCurrent()" class="vibe-btn w-full">Продолжить</button>
+                    <button type="button" onclick="switchAccount()" class="text-sm font-semibold underline" style="color:var(--ink)">Выйти и войти другим аккаунтом</button>
+                </div>
+            </div>
+
             <div class="flex rounded-[12px] p-1 mb-6" style="background:var(--paper-2);border:1px solid var(--line)">
                 <button onclick="switchTab('login')" id="tab-login"
                     class="flex-1 py-2 text-sm font-bold rounded-lg transition tab-active border border-transparent">
@@ -354,7 +362,12 @@
             showOAuthLoading(OAUTH_LOADING_TEXT);
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
-                options: { redirectTo: window.location.origin + '/login' }
+                // Без prompt Google молча входит под последним аккаунтом —
+                // после «Выйти» человек сразу попадал обратно (часто в админский).
+                options: {
+                    redirectTo: window.location.origin + '/login',
+                    queryParams: { prompt: 'select_account' },
+                },
             });
             if (error) {
                 hideOAuthLoading();
@@ -446,6 +459,31 @@
             document.getElementById('screen-auth')?.classList.remove('hidden');
         }
 
+        // Сессия, которую не пускаем автоматически (пришли по «Регистрация»).
+        let _heldSession = null;
+
+        function showSignedInAs(session) {
+            _heldSession = session;
+            const el = document.getElementById('signed-in-as');
+            const em = document.getElementById('signed-in-email');
+            if (em) em.textContent = session?.user?.email || '';
+            el?.classList.remove('hidden');
+        }
+
+        async function continueAsCurrent() {
+            if (!_heldSession?.user) return;
+            showOAuthLoading(OAUTH_LOADING_TEXT);
+            await startAuthFlow(_heldSession.user);
+        }
+
+        async function switchAccount() {
+            _heldSession = null;
+            document.getElementById('signed-in-as')?.classList.add('hidden');
+            try { await supabase.auth.signOut({ scope: 'local' }); } catch (_) {}
+            clearLocalAuth();
+            showAuthScreen();
+        }
+
         function clearLocalAuth() {
             try {
                 localStorage.removeItem('nr_session_key');
@@ -532,6 +570,9 @@
             })();
             const hash = window.location.hash || '';
             const isOAuthReturn = hash.includes('access_token') || urlParams.has('code');
+            // «Регистрация» с сайта при живой сессии не должна молча впускать
+            // в текущий (например, админский) аккаунт — спрашиваем.
+            const holdAutoEnter = urlParams.get('tab') === 'register' && !isOAuthReturn;
 
             if (isOAuthReturn && !authError && !justLoggedOut) {
                 showOAuthLoading(OAUTH_LOADING_TEXT);
@@ -572,6 +613,7 @@
                         return;
                     }
                 } catch (_) {}
+                if (holdAutoEnter && event === 'INITIAL_SESSION') return;
                 if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
                     showOAuthLoading(OAUTH_LOADING_TEXT);
                     await startAuthFlow(session.user);
@@ -591,6 +633,9 @@
                 showAuthScreen();
             } else if (authError && session?.user) {
                 try { await supabase.auth.signOut({ scope: 'global' }); } catch (_) {}
+            } else if (session?.user && holdAutoEnter) {
+                showAuthScreen();
+                showSignedInAs(session);
             } else if (session?.user) {
                 showOAuthLoading(OAUTH_LOADING_TEXT);
                 await startAuthFlow(session.user);

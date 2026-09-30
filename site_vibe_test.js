@@ -71,4 +71,10 @@ assert.ok(!index.includes('Москва') && !index.includes('Бишкек'),
 assert.ok(!dash.includes('/css/nr-vibe.css'),
     'dashboard is left on the app theme');
 
+assert.ok(login.includes("queryParams: { prompt: 'select_account' }"),
+    'Google sign-in always asks which account — no silent re-entry after logout');
+assert.ok(login.includes("const holdAutoEnter = urlParams.get('tab') === 'register' && !isOAuthReturn;") &&
+    login.includes("if (holdAutoEnter && event === 'INITIAL_SESSION') return;") &&
+    login.includes('showSignedInAs(session);') && login.includes('function switchAccount()'),
+    '«Регистрация» with a live session asks instead of entering the current account');
 console.log('site_vibe_test: ok');
