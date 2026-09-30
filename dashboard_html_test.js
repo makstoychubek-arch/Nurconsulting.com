@@ -2590,4 +2590,7 @@ assert.ok(html.includes('document.startViewTransition(() => applyTheme(next));')
     'theme switch is animated (view transition, CSS fallback)');
 assert.ok(html.includes("const showEmpty = (onboardingMode && tab !== 'akylai' && tab !== 'tariffs')"),
     'a client awaiting approval can still see Тарифы');
+assert.ok(html.includes('class="pricing-card akylai-free-plan"') && html.includes('бесплатно до 1 ноября') &&
+    html.includes('<div class="hidden" id="paid-plans" aria-hidden="true">') && html.includes("onclick=\"showTab('akylai')\">Подключить Акылай"),
+    'until 1 November the only plan is Akylai for free; paid plans are hidden');
 console.log('dashboard_html_test: ok');
