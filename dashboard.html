@@ -5652,6 +5652,8 @@
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
             var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/reports': 'summary' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
+            // Держать в синхроне с PUBLIC_TABS ниже (проверяет public_modules_test.js).
+            var __nrPublic = ['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'akylai', 'summary'];
             var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1, akylai: 1, summary: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
@@ -5670,6 +5672,9 @@
             } else if (__nrTab === 'agents') {
                 // Клиенту — его страница агентов с Акылай, не внутренняя страница команды.
                 __nrTab = 'akylai';
+            } else if (__nrTab && __nrPublic.indexOf(__nrTab) === -1) {
+                // BETA, Контент-завод и прочее непубличное — только команде.
+                __nrTab = null;
             }
             var __nrPane = !__nrTab ? null : (__nrLive[__nrTab] ? __nrTab : 'beta-stub');
             if (__nrPane && __nrPane !== 'dashboard') {
@@ -7684,6 +7689,39 @@
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon', 'agents', 'akylai']);
     const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots']);
+    /* Разделы, которые видит клиент. ВСЁ остальное — BETA-модули, Контент-завод,
+       внутренние страницы — видно только команде (team_staff / суперадмин).
+       Выводить раздел в общий показ — только с разрешения владельца: список
+       закреплён тестом public_modules_test.js, без правки теста он не пройдёт. */
+    const PUBLIC_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'akylai', 'summary']);
+
+    /** Пункты меню непубличных разделов помечаем «только команде» — их прячет CSS
+     *  html:not([data-staff="1"]) [data-staff-only]. Пустые секции прячем тоже. */
+    function applyModuleVisibility(root) {
+        const scope = root || document;
+        const tabOf = (el) => {
+            if (el.dataset && el.dataset.tab) return el.dataset.tab;
+            const m = String(el.getAttribute('onclick') || '').match(/showTab\('([a-z-]+)'/);
+            return m ? (TAB_ALIASES[m[1]] || m[1]) : null;
+        };
+        scope.querySelectorAll('.nav-item[onclick*="showTab("], .nav-item-standalone[onclick*="showTab("], .rail-btn[data-tab]').forEach((el) => {
+            const tab = tabOf(el);
+            if (!tab) return;
+            if (tab === 'agents') return; // клиенту «Агенты» ведут на его страницу Акылай
+            if (!PUBLIC_TABS.has(tab)) el.setAttribute('data-staff-only', '1');
+        });
+        scope.querySelectorAll('.flyout-sec').forEach((sec) => {
+            let n = sec.nextElementSibling, any = false, anyPublic = false;
+            while (n && !n.classList.contains('flyout-sec')) {
+                if (n.matches('.nav-item, .nav-item-standalone, .beta-theme-row')) {
+                    any = true;
+                    if (!n.hasAttribute('data-staff-only')) anyPublic = true;
+                }
+                n = n.nextElementSibling;
+            }
+            if (any && !anyPublic) sec.setAttribute('data-staff-only', '1');
+        });
+    }
     const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
@@ -8225,7 +8263,13 @@
         try { localStorage.setItem('nr_is_staff', isStaff ? '1' : '0'); } catch (_) {}
         if (isStaff) document.documentElement.setAttribute('data-staff', '1');
         else document.documentElement.removeAttribute('data-staff');
+        // Клиенту в этой колонке остаются только «Тема» и «Сводный отчёт» — слово BETA ему ни к чему.
+        const betaLbl = document.querySelector('.rail-btn[data-flyout="fly-beta"] .rail-btn-lbl');
+        if (betaLbl) betaLbl.textContent = isStaff ? 'BETA' : 'Ещё';
+        const betaTitle = document.querySelector('#fly-beta .flyout-title');
+        if (betaTitle) betaTitle.textContent = isStaff ? 'Модули BETA' : 'Ещё';
         if (!isStaff && STAFF_ONLY_TABS.has(getCurrentActiveTab())) showTab(getCurrentActiveTab() === 'agents' ? 'akylai' : 'dashboard');
+        else if (!isStaff && !PUBLIC_TABS.has(getCurrentActiveTab())) showTab('dashboard');
     }
 
     function escapeHtml(str) {
@@ -9130,6 +9174,11 @@
         // попадает на свою страницу с Акылай, по остальным служебным — на дашборд.
         if (STAFF_ONLY_TABS.has(name) && !isStaff) {
             showTab(name === 'agents' ? 'akylai' : 'dashboard');
+            return;
+        }
+        // BETA-модули и Контент-завод клиенту не открываем даже по прямой ссылке.
+        if (!isStaff && !PUBLIC_TABS.has(name)) {
+            showTab('dashboard');
             return;
         }
         if (name === 'cost') {
@@ -12442,6 +12491,7 @@
                 <span class="nav-item-label">Настройки</span>
             </div>`;
         body.innerHTML = live + src.innerHTML;
+        applyModuleVisibility(body);
         // Агенты уже вверху, в «Кабинет» — убираем дубль из клона BETA.
         body.querySelectorAll(`.nav-item[onclick^="showTab('agents'"]`).forEach((n, i) => { if (i > 0) n.remove(); });
         body.dataset.ready = '1';
@@ -17701,6 +17751,7 @@
         applySettingsTabsForRole();
         updateSpaceStatusUI();
         // Без await: восстановление вкладки ниже не должно ждать сеть.
+        applyModuleVisibility();
         resolveStaffRole().catch(e => console.warn('[role] init:', e));
 
         // Восстанавливаем сохранённую вкладку СРАЗУ, ДО любых await (loadCabinets
