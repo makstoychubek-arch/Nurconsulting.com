@@ -2586,4 +2586,8 @@ assert.ok(
     'rnp-plan-fact script is on the dashboard'
 );
 
+assert.ok(html.includes('document.startViewTransition(() => applyTheme(next));') && html.includes('html.theme-fading'),
+    'theme switch is animated (view transition, CSS fallback)');
+assert.ok(html.includes("const showEmpty = (onboardingMode && tab !== 'akylai' && tab !== 'tariffs')"),
+    'a client awaiting approval can still see Тарифы');
 console.log('dashboard_html_test: ok');
