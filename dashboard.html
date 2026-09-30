@@ -5023,6 +5023,13 @@
             border-top-color: transparent; border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
+        .pricing-old { font-size: 15px; font-weight: 400; color: var(--text-muted); text-decoration: line-through; letter-spacing: 0; margin-right: 4px; }
+        .pricing-off {
+            position: absolute; top: 16px; right: 16px; font-size: 11px; font-weight: 700;
+            padding: 4px 10px; border-radius: 999px; background: var(--green-soft, rgba(34,197,94,.14)); color: var(--green, #16a34a);
+        }
+        .pricing-features li em { font-style: normal; font-size: 11px; color: var(--text-muted); }
+        .pricing-btn { text-decoration: none; }
         .pricing-addon {
             margin-top: 28px; text-align: center;
             font-size: 12px; font-weight: 400; color: var(--text-muted);
@@ -7453,68 +7460,47 @@
                     </ul>
                     <button type="button" class="ui-btn ui-btn-primary w-full" onclick="showTab('akylai')">Подключить Акылай</button>
                 </article>
-                <div class="hidden" id="paid-plans" aria-hidden="true">
-                <div class="pricing-head">
-                    <h2>Тарифные планы</h2>
-                    <p>Выберите подписку под масштаб вашего бизнеса на Wildberries. Все тарифы включают безопасное хранение токенов и доступ через NR Space.</p>
+                <div class="pricing-head" style="margin-top:34px">
+                    <h2>Тарифы с 1 ноября</h2>
+                    <p>До 1 ноября Акылай бесплатно (карточка выше). Дальше — три тарифа, цены указаны со скидкой. Оплату подключаем: пока «Хочу этот тариф» открывает WhatsApp NR с названием тарифа.</p>
                 </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <!-- Старт -->
-                    <article class="pricing-card">
-                        <h3 class="pricing-name">Старт</h3>
-                        <div class="pricing-price">2 000 <span>сом / мес</span></div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="paid-plans">
+                    <article class="pricing-card" data-plan="basic">
+                        <span class="pricing-off">−57%</span>
+                        <h3 class="pricing-name">Базовый</h3>
+                        <div class="pricing-price"><span class="pricing-old">5 999</span> 2 599 <span>сом / мес</span></div>
                         <div class="pricing-cabinets">1 WB-кабинет</div>
                         <ul class="pricing-features">
-                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Дашборд аналитики</span></li>
-                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Модуль РНП</span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Акылай</strong>: ответы на отзывы Wildberries с проверкой в Telegram</span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>А/Б тесты фото и цен</span></li>
                         </ul>
-                        <button type="button" class="pricing-btn pricing-btn--secondary" onclick="selectTariffPlan(this, 'start')">Выбрать Старт</button>
+                        <a class="pricing-btn pricing-btn--secondary" href="https://wa.me/996502446688?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%21%20%D0%A5%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D1%8C%20%D1%82%D0%B0%D1%80%D0%B8%D1%84%20%C2%AB%D0%91%D0%B0%D0%B7%D0%BE%D0%B2%D1%8B%D0%B9%C2%BB%20%D0%B2%20NR%20Space." target="_blank" rel="noopener">Хочу этот тариф</a>
                     </article>
-
-                    <!-- Бизнес -->
-                    <article class="pricing-card">
+                    <article class="pricing-card pricing-card--featured" data-plan="business">
+                        <span class="pricing-off">−30%</span>
                         <h3 class="pricing-name">Бизнес</h3>
-                        <div class="pricing-price">4 500 <span>сом / мес</span></div>
-                        <div class="pricing-cabinets">3 WB-кабинета</div>
+                        <div class="pricing-price"><span class="pricing-old">7 999</span> 5 599 <span>сом / мес</span></div>
+                        <div class="pricing-cabinets">&nbsp;</div>
                         <ul class="pricing-features">
-                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Дашборд и Модуль РНП</span></li>
-                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Аналитика «Товары»</span></li>
-                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Отслеживание позиций</strong> (до 50 запросов)</span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Всё из тарифа «Базовый»</span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Дашборд: продажи, заказы, остатки, прибыль</span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Марлен — логист: ежедневный отчёт по заказам, FBO и FBS отдельно <em>(скоро)</em></span></li>
                         </ul>
-                        <button type="button" class="pricing-btn pricing-btn--secondary" onclick="selectTariffPlan(this, 'business')">Выбрать Бизнес</button>
+                        <a class="pricing-btn pricing-btn--accent" href="https://wa.me/996502446688?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%21%20%D0%A5%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D1%8C%20%D1%82%D0%B0%D1%80%D0%B8%D1%84%20%C2%AB%D0%91%D0%B8%D0%B7%D0%BD%D0%B5%D1%81%C2%BB%20%D0%B2%20NR%20Space." target="_blank" rel="noopener">Хочу этот тариф</a>
                     </article>
-
-                    <!-- Премиум -->
-                    <article class="pricing-card pricing-card--featured">
-                        <span class="pricing-badge">Популярно</span>
-                        <h3 class="pricing-name">Премиум</h3>
-                        <div class="pricing-price">7 500 <span>сом / мес</span></div>
-                        <div class="pricing-cabinets">5 WB-кабинетов</div>
+                    <article class="pricing-card" data-plan="full">
+                        
+                        <h3 class="pricing-name">Фулл</h3>
+                        <div class="pricing-price">8 999 <span>сом / мес</span></div>
+                        <div class="pricing-cabinets">&nbsp;</div>
                         <ul class="pricing-features">
-                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Все разделы (Дашборд, РНП, Товары, Финансы)</span></li>
-                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span><strong>Отслеживание позиций</strong> (до 300 запросов)</span></li>
-                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span><strong>А/Б тестирование</strong> карточек</span></li>
-                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Telegram-уведомления</span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Всё из тарифа «Бизнес»</span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>РНП, Контроль РК, Товары, Сводный отчёт — все работающие разделы кабинета</span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Все агенты на максимум: Манас, Изат, Дастан <em>(скоро)</em></span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Новые функции сайта по мере выхода</span></li>
                         </ul>
-                        <button type="button" class="pricing-btn pricing-btn--accent" onclick="selectTariffPlan(this, 'premium')">Выбрать Премиум</button>
+                        <a class="pricing-btn pricing-btn--secondary" href="https://wa.me/996502446688?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%21%20%D0%A5%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D1%8C%20%D1%82%D0%B0%D1%80%D0%B8%D1%84%20%C2%AB%D0%A4%D1%83%D0%BB%D0%BB%C2%BB%20%D0%B2%20NR%20Space." target="_blank" rel="noopener">Хочу этот тариф</a>
                     </article>
-
-                    <!-- VIP -->
-                    <article class="pricing-card">
-                        <h3 class="pricing-name">VIP</h3>
-                        <div class="pricing-price">15 000 <span>сом / мес</span></div>
-                        <div class="pricing-cabinets">Безлимитно кабинетов</div>
-                        <ul class="pricing-features">
-                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Безлимитный трекер и А/Б тесты</span></li>
-                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>VIP-поддержка 24/7</span></li>
-                            <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Выделенный сервер для Edge-функций</span></li>
-                        </ul>
-                        <button type="button" class="pricing-btn pricing-btn--secondary" onclick="selectTariffPlan(this, 'vip')">Связаться</button>
-                    </article>
-                </div>
-
-                <p class="pricing-addon">Нужно больше кабинетов? Дополнительный кабинет: +1$ (~87.5 сом) / мес к любому тарифному плану.</p>
                 </div>
             </div>
         </div>
