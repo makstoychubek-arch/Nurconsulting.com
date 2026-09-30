@@ -69,7 +69,8 @@ Deno.serve(async (req) => {
             .from('cabinets')
             .select('id, name, wb_token')
             .not('wb_token', 'is', null)
-            .gt('wb_token', '');
+            .gt('wb_token', '')
+            .eq('nr_managed', true); // только кабинеты команды, не клиентов
         if (cabErr) throw new Error(`cabinets: ${cabErr.message}`);
 
         const targets = (cabinets || []).filter((c) => !onlyCabinets || onlyCabinets.includes(c.name));

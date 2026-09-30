@@ -100,7 +100,8 @@ Deno.serve(async (req) => {
         .from('cabinets')
         .select('id, name, wb_token')
         .not('wb_token', 'is', null)
-        .gt('wb_token', '');
+        .gt('wb_token', '')
+        .eq('nr_managed', true); // автоответы только в кабинетах команды, не клиентов
     if (cabErr) return json({ error: cabErr.message }, 500);
 
     const results: Array<Record<string, unknown>> = [];
