@@ -2591,6 +2591,19 @@ assert.ok(html.includes('document.startViewTransition(() => applyTheme(next));')
 assert.ok(html.includes("const showEmpty = (onboardingMode && tab !== 'akylai' && tab !== 'tariffs')"),
     'a client awaiting approval can still see Тарифы');
 assert.ok(html.includes('class="pricing-card akylai-free-plan"') && html.includes('бесплатно до 1 ноября') &&
-    html.includes('<div class="hidden" id="paid-plans" aria-hidden="true">') && html.includes("onclick=\"showTab('akylai')\">Подключить Акылай"),
-    'until 1 November the only plan is Akylai for free; paid plans are hidden');
+    html.includes("onclick=\"showTab('akylai')\">Подключить Акылай"),
+    'Akylai stays free until 1 November');
+{
+    const grid = html.slice(html.indexOf('id="paid-plans"'), html.indexOf('id="tab-tariffs"') + 9000);
+    assert.ok(grid.includes('data-plan="basic"') && grid.includes('data-plan="business"') && grid.includes('data-plan="full"'),
+        'three tariffs: Базовый, Бизнес, Фулл');
+    assert.ok(/<span class="pricing-old">5 999<\/span> 2 599 <span>сом/.test(grid) &&
+        /<span class="pricing-old">7 999<\/span> 5 599 <span>сом/.test(grid) &&
+        /<div class="pricing-price">8 999 <span>сом/.test(grid),
+        'prices: 2 599 (was 5 999), 5 599 (was 7 999), 8 999');
+    assert.ok(grid.includes('−57%') && grid.includes('−30%'), 'discounts match the price drops');
+    assert.ok(!/Хочу этот тариф<\/a>[\s\S]*Премиум/.test(grid) && !grid.includes('Выбрать Старт'), 'old plans are gone');
+    assert.ok((grid.match(/wa\.me\/996502446688\?text=/g) || []).length === 3, 'each plan requests via WhatsApp NR until payment is live');
+    assert.ok(grid.includes('<em>(скоро)</em>'), 'agents that are not ready yet are marked «скоро»');
+}
 console.log('dashboard_html_test: ok');
