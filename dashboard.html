@@ -7431,6 +7431,29 @@
 
         <div id="tab-tariffs" class="tab-content">
             <div class="glass rounded-3xl p-8 pricing-wrap">
+                <!-- До 1 ноября 2026 — один тариф: Акылай бесплатно. Платные тарифы ниже
+                     скрыты до запуска оплаты (кнопки «Выбрать …» ещё ни к чему не подключены). -->
+                <div class="pricing-head">
+                    <h2>Тариф</h2>
+                    <p>До 1 ноября NR Space работает в режиме запуска: подключите агента Акылай бесплатно.</p>
+                </div>
+                <article class="pricing-card akylai-free-plan" style="max-width:520px">
+                    <div style="display:flex;align-items:center;gap:14px">
+                        <img src="/img/agents/akylai-smile.svg" alt="" width="64" height="64" style="border-radius:50%;flex-shrink:0">
+                        <div>
+                            <h3 class="pricing-name">Акылай</h3>
+                            <div class="pricing-price">0 <span>сом · бесплатно до 1 ноября</span></div>
+                        </div>
+                    </div>
+                    <ul class="pricing-features">
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Ответы на отзывы покупателей Wildberries</span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Ответы приходят вам в Telegram на проверку: «Опубликовать» или «Изменить»</span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Проверка новых отзывов каждые 30 минут</span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>1 WB-кабинет</span></li>
+                    </ul>
+                    <button type="button" class="ui-btn ui-btn-primary w-full" onclick="showTab('akylai')">Подключить Акылай</button>
+                </article>
+                <div class="hidden" id="paid-plans" aria-hidden="true">
                 <div class="pricing-head">
                     <h2>Тарифные планы</h2>
                     <p>Выберите подписку под масштаб вашего бизнеса на Wildberries. Все тарифы включают безопасное хранение токенов и доступ через NR Space.</p>
@@ -7492,6 +7515,7 @@
                 </div>
 
                 <p class="pricing-addon">Нужно больше кабинетов? Дополнительный кабинет: +1$ (~87.5 сом) / мес к любому тарифному плану.</p>
+                </div>
             </div>
         </div>
         </div>
