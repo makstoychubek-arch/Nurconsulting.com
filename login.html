@@ -138,17 +138,6 @@
                 </div>
             </div>
 
-            <div class="flex rounded-[12px] p-1 mb-6" style="background:var(--paper-2);border:1px solid var(--line)">
-                <button onclick="switchTab('login')" id="tab-login"
-                    class="flex-1 py-2 text-sm font-bold rounded-lg transition tab-active border border-transparent">
-                    Вход
-                </button>
-                <button onclick="switchTab('register')" id="tab-register"
-                    class="flex-1 py-2 text-sm font-bold rounded-lg transition text-[#6B7682] border border-transparent">
-                    Регистрация
-                </button>
-            </div>
-
             <button onclick="signInWithGoogle()"
                 class="w-full flex items-center justify-center space-x-3 py-3 font-medium rounded-xl transition mb-5"
                 style="background:var(--card);color:var(--ink);border:1px solid var(--line)">
@@ -175,6 +164,19 @@
                 <div id="tg-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-2"></div>
                 <button type="button" onclick="submitTelegramCode()" class="vibe-btn w-full mb-1">Войти</button>
                 <button type="button" onclick="cancelTelegram()" class="w-full py-1 text-xs" style="color:var(--ink-dim)">Отмена</button>
+            </div>
+
+            <!-- Вход по email/паролю скрыт (оставлены Google и Telegram); убрать display:none, чтобы вернуть -->
+            <div id="email-auth" style="display:none">
+            <div class="flex rounded-[12px] p-1 mb-6" style="background:var(--paper-2);border:1px solid var(--line)">
+                <button onclick="switchTab('login')" id="tab-login"
+                    class="flex-1 py-2 text-sm font-bold rounded-lg transition tab-active border border-transparent">
+                    Вход
+                </button>
+                <button onclick="switchTab('register')" id="tab-register"
+                    class="flex-1 py-2 text-sm font-bold rounded-lg transition text-[#6B7682] border border-transparent">
+                    Регистрация
+                </button>
             </div>
 
             <div class="flex items-center space-x-3 mb-5">
@@ -287,6 +289,7 @@
             <div style="color:var(--ink-faint);font-size:14px;font-weight:500;letter-spacing:0.12em;margin-bottom:28px">Space</div>
             <h2 style="color:var(--ink);font-size:20px;font-weight:600;margin-bottom:10px">Добро пожаловать, <span id="user-name">—</span></h2>
             <p style="color:var(--ink-dim);font-size:13px;margin-bottom:36px;line-height:1.6">Вход в NR Space...</p>
+            </div>
         </div>
     </div>
 
