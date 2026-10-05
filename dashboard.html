@@ -6902,7 +6902,7 @@
                 </button>
                 <div class="segment-tabs">
                     <div class="segment-tab active" onclick="filterTests('active', this)">Активные</div>
-                    <div class="segment-tab" onclick="filterTests('finished', this)">Завершённые</div>
+                    <div class="segment-tab" onclick="filterTests('finished', this)">Архив</div>
                     <div class="segment-tab" onclick="filterTests('all', this)">Все</div>
                 </div>
             </div>
@@ -14329,7 +14329,22 @@
 
     async function uploadVariantPhoto(fileOrUrl, testId, label) {
         if (fileOrUrl && fileOrUrl.fromWB) {
-            return fileOrUrl.url;
+            // Ссылка на слот WB (…/images/big/1.webp) всегда отдаёт то фото, что стоит в
+            // карточке сейчас: после смены обложки она покажет уже другое фото, и возврат к
+            // этому варианту загрузил бы чужую картинку. Поэтому храним свою копию.
+            try {
+                const res = await fetch(fileOrUrl.url, { cache: 'no-store' });
+                if (!res.ok) throw new Error('WB ответил ' + res.status);
+                const blob = await res.blob();
+                if (blob.size < 1000 || !/^image\//.test(blob.type)) throw new Error('это не картинка');
+                const wbExt = blob.type.includes('png') ? 'png' : blob.type.includes('jpeg') ? 'jpg' : 'webp';
+                const wbPath = `${testId}/${label}.${wbExt}`;
+                const { error: wbErr } = await supabase.storage.from('abtest-photos').upload(wbPath, blob, { upsert: true, contentType: blob.type });
+                if (wbErr) throw new Error(wbErr.message);
+                return supabase.storage.from('abtest-photos').getPublicUrl(wbPath).data.publicUrl;
+            } catch (e) {
+                throw new Error('Не удалось сохранить копию фото с WB (' + (e && e.message ? e.message : e) + '). Загрузите это фото файлом.');
+            }
         }
         if (typeof fileOrUrl === 'string') return fileOrUrl;
         const ext = fileOrUrl.name.split('.').pop();
@@ -14984,20 +14999,28 @@
         const leaderLabel = Array.from(probs.entries()).sort((a, b) => b[1] - a[1])[0]?.[0];
 
         document.getElementById('ab-report-title').textContent = test.product_name || `Артикул ${test.nm_id}`;
-        document.getElementById('ab-report-sub').textContent =
-            `Арт. ${test.nm_id} · Тест запущен: ${test.started_at ? new Date(test.started_at).toLocaleString('ru-RU') : '—'}` +
-            (test.finished_at ? ` · Завершён: ${new Date(test.finished_at).toLocaleString('ru-RU')}` : '') +
-            (source === 'funnel' ? ' · воронка: WB отдаёт историю максимум за последние 7 дней' : '');
+        const reportCampaigns = (test.settings?.campaigns || []).map(String).filter(Boolean);
+        const fmtReportDate = (d) => d ? new Date(d).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+        const reportSubEl = document.getElementById('ab-report-sub');
+        reportSubEl.style.whiteSpace = 'pre-line';
+        reportSubEl.textContent =
+            `${test.nm_id}${reportCampaigns.length ? ` · рк ${reportCampaigns.join(', ')}` : ''}\n` +
+            `Тест запущен: ${fmtReportDate(test.started_at)}` +
+            (test.finished_at ? `\nТест завершён: ${fmtReportDate(test.finished_at)}` : '') +
+            (source === 'funnel' ? '\nВоронка: WB отдаёт историю максимум за последние 7 дней' : '');
 
+        const totalImpressions = variants.reduce((s, v) => s + (metricsByVariant.get(v.id)?.impressions || 0), 0);
         let stars = '★☆☆', verdictText = 'Пока недостаточно данных для вывода';
         if (maxProb >= 0.9) { stars = '★★★'; verdictText = `явный победитель (${Math.round(maxProb * 100)}%)`; }
         else if (maxProb >= 0.6) { stars = '★★★'; verdictText = `скорее всего лучше (${Math.round(maxProb * 100)}%)`; }
         else if (maxProb >= 0.4) { stars = '★★☆'; verdictText = `есть тенденция к лидеру (${Math.round(maxProb * 100)}%)`; }
+        // Данных набралось достаточно, а лидера нет — так и говорим, как в WBRadar.
+        if (maxProb < 0.6 && totalImpressions >= 1000 * variants.length) { stars = '★'; verdictText = 'разницы нет'; }
         document.getElementById('ab-report-verdict').innerHTML = `
             <div class="ab-report-verdict-box">
                 <span class="ab-report-verdict-stars">${stars}</span>
                 <span style="color:var(--text-primary);font-weight:600">${escapeHtml(verdictText)}</span>
-                ${leaderLabel != null ? `<span style="color:var(--text-muted)">— лидирует вариант ${escapeHtml(String(leaderLabel))}</span>` : ''}
+                ${leaderLabel != null && verdictText !== 'разницы нет' ? `<span style="color:var(--text-muted)">— лидирует вариант ${escapeHtml(String(leaderLabel))}</span>` : ''}
             </div>`;
 
         const sourceLabel = source === 'funnel' ? 'Воронка (карточка)' : 'Реклама';
