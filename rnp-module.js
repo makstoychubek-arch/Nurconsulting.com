@@ -2958,7 +2958,7 @@ const RNP = (() => {
     }
 
     function _buildPhoneActionBar() {
-        return `<div class="rnp-action-bar rnp-action-bar--phone">
+        return `<div class="rnp-action-bar rnp-action-bar--phone" data-bar-v="2">
           <div class="rnp-period-chip">
             <span class="rnp-period-chip-text">${_periodChipLabel()}</span>
           </div>
@@ -2972,7 +2972,7 @@ const RNP = (() => {
     }
 
     function _buildActionBar(active) {
-        return `${_buildPhoneActionBar()}<div class="rnp-action-bar rnp-action-bar--desktop">
+        return `${_buildPhoneActionBar()}<div class="rnp-action-bar rnp-action-bar--desktop" data-bar-v="2">
           <span id="rnp-freshness" hidden></span>
           ${_iconToolsHtml()}
         </div>`;
@@ -5397,7 +5397,7 @@ const RNP = (() => {
         const bar = document.getElementById('rnp-action-bar-wrap');
         const tabs = document.getElementById('rnp-sheet-tabs');
         const domCab = _rnpDomCab();
-        const chromeReady = !!(bar && bar.querySelector('select') && tabs && tabs.querySelector('.rnp-sheet-tab'));
+        const chromeReady = !!(bar && bar.querySelector('[data-bar-v="2"]') && tabs && tabs.querySelector('.rnp-sheet-tab'));
         if (chromeReady && !force && (!domCab || !_cab || domCab === _cab)) {
             _updateTabHighlight();
             return false;
@@ -5461,6 +5461,23 @@ const RNP = (() => {
     function _rnpShellKey(cab) {
         return 'rnp_shell_' + (cab || '');
     }
+
+    // Шапка и вкладки РНП кэшируются (мгновенная отрисовка после обновления страницы). При смене разметки
+    // старый кэш показывал прежние элементы (три списка сверху) даже после выкладки новой версии: поднимаем
+    // версию, и устаревший кэш один раз стирается.
+    const RNP_UI_VERSION = '2';
+    (function _purgeStaleRnpShell() {
+        try {
+            if (localStorage.getItem('rnp_ui_ver') === RNP_UI_VERSION) return;
+            [sessionStorage, localStorage].forEach(st => {
+                Object.keys(st)
+                    .filter(k => k === 'rnp_chrome' || k.indexOf('rnp_shell_') === 0)
+                    .forEach(k => { try { st.removeItem(k); } catch (e) {} });
+            });
+            localStorage.setItem('rnp_ui_ver', RNP_UI_VERSION);
+            if (window.indexedDB) indexedDB.deleteDatabase('nr-rnp-lock');
+        } catch (e) { /* без кэша шапка просто нарисуется заново */ }
+    })();
 
     function _storeRnpKey(key, val) {
         if (!key || val == null) return false;

@@ -2528,6 +2528,9 @@
         .rnp-notes-toggle input { accent-color: var(--accent); cursor: pointer; }
         .rnp-sheet-tabs {
             display: flex; overflow-x: auto; background: transparent; border: none;
+            /* Высота ряда вкладок постоянна: вкладка выбранного артикула с фото выше обычных,
+               и без запаса вся таблица при выборе группы съезжала вниз на ~12px. */
+            min-height: 46px; align-items: center;
             gap: 4px; padding: 0 10px 8px;
             scrollbar-width: none; -ms-overflow-style: none; flex-shrink: 0;
         }
@@ -7660,7 +7663,7 @@
 
 <script src="/dist/nr-win.0c0159fe69.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.3aae62bae8.min.js"></script>
+<script src="/dist/rnp-module.3eee6de325.min.js"></script>
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
    Большой кабинет грузится часами (WB отдаёт финотчёт 1 запрос/мин), поэтому клиент видит
