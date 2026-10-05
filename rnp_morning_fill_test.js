@@ -14,7 +14,7 @@ const mig = fs.readFileSync(path.join(root, 'supabase/migrations/20260905123000_
 
 assert.ok(fn.includes('isServiceAuthorized'), 'morning fill must accept cron JWT');
 assert.ok(fn.includes("group: 'zevina'|'baza'|'elium'") || fn.includes('GROUPS'), 'three cabinet groups');
-assert.ok(fn.includes('yesterdayBishkek'), 'fill date is yesterday in Bishkek');
+assert.ok(fn.includes('yesterdayWbDay'), 'fill date is yesterday by the WB (Moscow) day, not by Bishkek');
 assert.ok(fn.includes('supplier/orders'), 'pulls WB orders for the day');
 assert.ok(fn.includes('order_date: dayStr'), 'stores WB flag=1 day, not ISO timestamp');
 assert.ok(fn.includes('srid-check'), 'does not move an srid onto another day');

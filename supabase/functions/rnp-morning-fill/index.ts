@@ -66,8 +66,10 @@ Deno.serve(async (req) => {
     if (!group && !groupAll) return json({ error: 'group must be zevina, baza, elium or all' }, 400);
     if (groupAll && !funnelOnly) return json({ error: 'group=all только с funnel_only' }, 400);
 
-    const fillDate = normDate(body.date) || yesterdayBishkek();
-    const today = bishkekYmd();
+    // Сутки WB — по Москве (заказы приходят в московском времени, день кончается в 00:00 МСК = 03:00 Бишкек).
+    // Берём московскую дату, чтобы ручной запуск с 00:00 до 03:00 по Бишкеку не путал «вчера» и «сегодня».
+    const fillDate = normDate(body.date) || yesterdayWbDay();
+    const today = moscowYmd();
     const datesIn = Array.isArray(body.dates)
         ? [...new Set((body.dates as unknown[]).map(normDate).filter(Boolean) as string[])].sort()
         : [];
@@ -537,21 +539,13 @@ function sanitizeWbToken(raw: unknown): string {
     if (typeof raw !== 'string') return '';
     return raw.replace(/^\uFEFF/, '').replace(/\s+/g, '').trim();
 }
-function bishkekYmd(d = new Date()): string {
-    return new Intl.DateTimeFormat('en-CA', {
-        timeZone: 'Asia/Bishkek',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-    }).format(d);
-}
 function addDaysStr(day: string, n: number) {
     const d = new Date(day + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() + n);
     return d.toISOString().split('T')[0];
 }
-function yesterdayBishkek() {
-    return addDaysStr(bishkekYmd(), -1);
+function yesterdayWbDay() {
+    return addDaysStr(moscowYmd(), -1);
 }
 function normDate(v: unknown): string | null {
     const s = String(v || '').split('T')[0];
