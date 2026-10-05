@@ -2788,23 +2788,37 @@
         .gv-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 11px; }
         .gv-th { position: sticky; top: 0; z-index: 3; background: #d9ead3; color: #274e13; font-weight: 700; font-size: 10px; text-align: center; padding: 6px 4px; border-right: 1px solid #c4dcb9; border-bottom: 1px solid #c4dcb9; white-space: normal; line-height: 1.15; }
         .gv-c { padding: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface-solid); height: 28px; }
-        .gv-in { width: 100%; height: 28px; line-height: 28px; border: none !important; border-radius: 0 !important; box-shadow: none !important; margin: 0; background: transparent; color: var(--text-primary); font-size: 11px; padding: 0 5px; box-sizing: border-box; font-family: inherit; }
-        .gv-in:focus { outline: 2px solid var(--accent, #6366f1); outline-offset: -2px; background: var(--accent-soft); }
-        .gv-table select.gv-sel { cursor: pointer; font-weight: 650; padding: 0 2px !important; height: 28px !important; line-height: 26px !important; font-size: 11px !important; margin: 0 !important; min-height: 0 !important; appearance: auto; }
-        .gv-txt[type=date] { padding: 0 2px; font-size: 10.5px; }
-        .gv-table .gv-st-ok { background: #b7e1cd !important; color: #0b5d34; }
-        .gv-table .gv-st-ready { background: #fce8b2 !important; color: #7a5200; }
-        .gv-table .gv-st-no { background: #f4c7c3 !important; color: #8a1c14; }
-        .gv-table .gv-st-off { background: #e5e7eb !important; color: #6b7280; }
         .gv-center { text-align: center; }
-        .gv-chk { width: 16px; height: 16px; accent-color: var(--accent, #6366f1); cursor: pointer; }
         .gv-pay { text-align: center; font-variant-numeric: tabular-nums; background: #f3f7f1; color: var(--text-secondary); }
         .gv-pay.is-late { background: #f4c7c3; color: #8a1c14; font-weight: 700; }
-        .gv-del { width: 26px; text-align: center; }
-        .gv-x { border: none; background: transparent; color: var(--text-muted); font-size: 16px; cursor: pointer; line-height: 1; }
-        .gv-x:hover { color: #dc2626; }
         .gv-empty { padding: 28px 12px; text-align: center; color: var(--text-muted); font-size: 12px; }
-        .gv-table tbody tr:hover .gv-c { box-shadow: inset 0 0 0 999px rgba(99,102,241,0.05); }
+        .gv-hint { font-size: 11px; color: var(--text-muted); }
+        .gv-wrap { position: relative; }
+        .gv-cb { position: absolute; left: 0; top: 0; width: 1px; height: 1px; opacity: 0; padding: 0; border: 0; resize: none; pointer-events: none; }
+        .gv-table td.gv-c { position: relative; user-select: none; -webkit-user-select: none; cursor: cell; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 5px; font-size: 11px; color: var(--text-primary); }
+        .gv-num { text-align: right; font-variant-numeric: tabular-nums; }
+        .gv-rn { position: sticky; left: 0; z-index: 2; background: #f1f5ef; color: var(--text-muted); font-size: 10px; font-weight: 600; text-align: center; border-right: 1px solid #c4dcb9; border-bottom: 1px solid var(--border); cursor: pointer; user-select: none; }
+        .gv-rn.is-on { background: #d9ead3; color: #274e13; }
+        .gv-rn-h { left: 0; z-index: 4 !important; }
+        .gv-table td.gv-in-sel { background: rgba(99, 102, 241, 0.13); }
+        .gv-table td.gv-edge-t { box-shadow: inset 0 2px 0 #6366f1; }
+        .gv-table td.gv-edge-b { box-shadow: inset 0 -2px 0 #6366f1; }
+        .gv-table td.gv-edge-l { box-shadow: inset 2px 0 0 #6366f1; }
+        .gv-table td.gv-edge-r { box-shadow: inset -2px 0 0 #6366f1; }
+        .gv-table td.gv-edge-t.gv-edge-l { box-shadow: inset 2px 0 0 #6366f1, inset 0 2px 0 #6366f1; }
+        .gv-table td.gv-edge-t.gv-edge-r { box-shadow: inset -2px 0 0 #6366f1, inset 0 2px 0 #6366f1; }
+        .gv-table td.gv-edge-b.gv-edge-l { box-shadow: inset 2px 0 0 #6366f1, inset 0 -2px 0 #6366f1; }
+        .gv-table td.gv-edge-b.gv-edge-r { box-shadow: inset -2px 0 0 #6366f1, inset 0 -2px 0 #6366f1; }
+        .gv-table td.gv-anchor { background: transparent; }
+        .gv-fill { position: absolute; right: -4px; bottom: -4px; width: 9px; height: 9px; background: #6366f1; border: 2px solid #fff; border-radius: 2px; cursor: crosshair; z-index: 5; }
+        .gv-table td.gv-fill-prev { background: rgba(99, 102, 241, 0.08); outline: 1px dashed #6366f1; outline-offset: -1px; }
+        .gv-table td.gv-flash { background: rgba(250, 204, 21, 0.35) !important; }
+        .gv-table td.is-editing { padding: 0; overflow: visible; }
+        .gv-editor { width: 100%; height: 100%; min-height: 26px; box-sizing: border-box; border: 2px solid #6366f1 !important; border-radius: 0 !important; background: #fff !important; color: #111 !important; font-size: 11px; padding: 0 4px; font-family: inherit; box-shadow: 0 3px 10px rgba(0,0,0,0.18) !important; outline: none; }
+        .gv-table td.gv-st-ok { background: #b7e1cd; color: #0b5d34; font-weight: 650; }
+        .gv-table td.gv-st-ready { background: #fce8b2; color: #7a5200; font-weight: 650; }
+        .gv-table td.gv-st-no { background: #f4c7c3; color: #8a1c14; font-weight: 650; }
+        .gv-table td.gv-st-off { background: #e5e7eb; color: #6b7280; font-weight: 650; }
         .rnp-note-pop {
             position: fixed; z-index: 10090; max-width: 320px; min-width: 180px; display: none;
             padding: 10px 12px; border-radius: 12px; background: var(--surface-solid); color: var(--text-primary);
@@ -8187,7 +8201,7 @@
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.35bc97e198.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
-<script src="/dist/giveaways.41725d31c8.min.js"></script>
+<script src="/dist/giveaways.2741170aac.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
@@ -11678,6 +11692,7 @@
         if (costEl) costEl.hidden = ggView !== 'cost';
         const giveEl = document.getElementById('gg-view-give');
         if (giveEl) giveEl.hidden = ggView !== 'give';
+        if (ggView !== 'give' && window.NrGiveaways) window.NrGiveaways.hide();
         document.getElementById('gg-view-give-btn')?.classList.toggle('is-on', ggView === 'give');
         document.getElementById('gg-view-give-btn')?.setAttribute('aria-selected', ggView === 'give' ? 'true' : 'false');
         const nowTools = document.getElementById('gg-now-tools');
