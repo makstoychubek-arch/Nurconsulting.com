@@ -1309,8 +1309,8 @@ assert.ok(html.includes('.rnp-plan-fact-open svg') && html.includes('height: 26p
     'План/факт chip is a labeled control, not 10px muted text among icons');
 assert.ok(html.includes('id="rnp-plan-fact-overlay"') && html.includes('.pf-sheet'),
     'plan/fact overlay is the Excel clone sheet');
-assert.ok(html.includes('.pf-plan-set') && html.includes('#274e13') && html.includes('#93c47d'),
-    'plan/fact sheet uses Excel greens, dark fill on a set plan');
+assert.ok(html.includes('.pf-cf-ok') && html.includes('#274e13') && html.includes('#93c47d') && html.includes('#9900ff'),
+    'plan/fact sheet uses the Excel colours and conditional formatting (today purple, coefficient green/red)');
 assert.ok(!html.includes('.rnp-cell-week { background: rgba(99,102,241'),
     'RNP week cells are Excel green, not pink/indigo');
 assert.ok(!rnpSrc.includes('>Excel</button>') && !rnpSrc.includes('↵ План') && !rnpSrc.includes('>Редактировать</button>'),

@@ -72,7 +72,7 @@ assert.ok(html.includes('409845462'));
 assert.ok(html.includes('31.08') && html.includes('14.09'));
 assert.ok(!html.includes('#DIV/0!'), 'no spreadsheet errors on the sheet — empty ratio stays blank');
 assert.ok(html.includes('class="pf-sheet"'));
-assert.ok(html.includes('pf-plan-set'), 'filled daily plan uses Excel dark green');
+assert.ok(!html.includes('pf-plan-set'), 'plan cells are plain Excel light green, no extra dark fill');
 assert.ok(!html.includes('>0<') || html.includes('pf-total'), 'zero facts stay blank in SKU days');
 
 const emptyDay = html.match(/пиджак_NEW_красный[\s\S]*?<\/tr>/)[0];
@@ -122,12 +122,13 @@ assert.strictEqual(P.factOrders({ funnel_orders: 12, orders_count: 40 }), 12);
     });
     const h = P.tableHtml(m);
     assert.ok(/background:rgb\(\d+,\d+,\d+\);">20<|background:rgb\([\d,]+\);">50</.test(h), 'day cells get a heat colour');
-    assert.ok(h.includes('pf-ok') && h.includes('pf-bad'), 'plan ratio: >=90% green, low red');
-    assert.ok(h.includes('pf-today') && h.includes('pf-future'), 'today is marked, future days are dimmed');
+    assert.ok(h.includes('pf-cf-ok'), 'coefficient row: >=90% is green');
+    assert.strictEqual(P.sheetMeta().skuHeader, 'SKU');
+    assert.ok(/pf-date pf-today[^>]*>11\.09</.test(h), 'today date cell is purple like the Excel rule');
     const total = m.totals[1];
     assert.strictEqual(total.dailyPlan, 20);
     assert.ok(Math.abs(total.coeffNums[0] - 52 / 20) < 1e-9);
-    assert.ok(h.includes('background:rgb('), 'coefficient row uses red-white-green scale');
+    assert.ok(/pf-total" style="background:rgb/.test(h), 'day totals row uses the red-white-green scale');
 }
 
 const rnp = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
@@ -163,6 +164,16 @@ console.log('rnp-plan-fact_test: ok');
     const js = fs.readFileSync(path.join(__dirname, 'rnp-plan-fact.js'), 'utf8');
     const h = fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8');
     assert.ok(js.includes("classList.add('rnp-pf-open')") && !js.includes("body.classList.add('rnp-plan-fact-open')"));
-    assert.ok(h.includes('body.rnp-pf-open { overflow: hidden; }') && h.includes('.pf-sheet .pf-a, .pf-sheet .pf-c, .pf-sheet .pf-d'), 'phone layout of the sheet');
+    assert.ok(h.includes('body.rnp-pf-open { overflow: hidden; }') && h.includes('.pf-pager { display: flex; }') && h.includes('data-wk="2"'), 'phone layout of the sheet');
     assert.ok(fs.readFileSync(path.join(__dirname, 'nr-win.js'), 'utf8').includes("classList.contains('rnp-plan-fact-dialog')"), 'sheet window ignores the shared window size');
+}
+
+// Телефон: неделя за неделей, ячейки недель помечены классом pf-wN, переключатель недель.
+{
+    const m = P.build({ monthKey: '2026-10', today: '2026-10-07', articles: [{ nm_id: 1, name: 'A' }], daily: {}, plans: {} });
+    const sh = P.shellHtml(m);
+    assert.ok(sh.includes('class="pf-pager"') && sh.includes('RnpPlanFact.setWeek(1)'));
+    assert.ok(sh.includes('data-wk="1"'), 'the week with today is opened first');
+    assert.ok(/class="pf-w4 /.test(sh) && /<col class="pf-w2"/.test(sh));
+    assert.ok(sh.includes('class="pf-nm"'), 'phone shows the SKU under the article name');
 }
