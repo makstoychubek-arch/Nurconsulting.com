@@ -7662,6 +7662,113 @@
 <script src="/dist/nr-win.0c0159fe69.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.f9fed27ae2.min.js"></script>
+<script>
+/* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
+   Большой кабинет грузится часами (WB отдаёт финотчёт 1 запрос/мин), поэтому клиент видит
+   проценты и «осталось примерно N мин», а загрузка идёт на сервере, даже если закрыть страницу.
+   Первый заход в РНП кабинета без данных сам просит загрузку за 90 дней (request_backfill). */
+(function () {
+    var POLL_MS = 15000;
+    var cab = null, timer = null, lastState = null, hideTimer = null, asked = {};
+
+    function css() {
+        if (document.getElementById('nr-sync-css')) return;
+        var st = document.createElement('style');
+        st.id = 'nr-sync-css';
+        st.textContent =
+            '#nr-sync-banner{margin:0 0 12px}' +
+            '.nr-sync{border:1px solid var(--border);background:var(--surface);color:var(--text-primary);border-radius:14px;padding:12px 14px;font-size:13px}' +
+            '.nr-sync b{font-weight:600}.nr-sync small{display:block;margin-top:6px;color:var(--text-muted);font-size:12px}' +
+            '.nr-sync-bar{height:8px;border-radius:99px;background:var(--border);overflow:hidden;margin-top:8px}' +
+            '.nr-sync-bar i{display:block;height:100%;border-radius:99px;background:var(--green,#16a34a);transition:width .6s ease}' +
+            '.nr-sync button{margin-top:8px;font-size:12px;padding:5px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text-primary);cursor:pointer}';
+        document.head.appendChild(st);
+    }
+
+    function host() {
+        var h = document.getElementById('tab-rnp');
+        if (!h) return null;
+        var b = document.getElementById('nr-sync-banner');
+        if (!b) { b = document.createElement('div'); b.id = 'nr-sync-banner'; }
+        if (b.parentElement !== h || h.firstChild !== b) h.insertBefore(b, h.firstChild);
+        return b;
+    }
+
+    function etaText(min) {
+        min = Number(min) || 0;
+        if (min <= 1) return 'меньше минуты';
+        if (min < 60) return '≈ ' + min + ' мин';
+        var h = Math.floor(min / 60), m = min % 60;
+        return '≈ ' + h + ' ч' + (m ? ' ' + m + ' мин' : '');
+    }
+
+    function render(p) {
+        css();
+        var b = host();
+        if (!b) return;
+        clearTimeout(hideTimer);
+        if (!p || p.state === 'none' || p.state === 'forbidden' || p.state === 'no_token') { b.innerHTML = ''; return; }
+        if (p.state === 'running') {
+            b.innerHTML = '<div class="nr-sync"><b>Загружаем данные из Wildberries</b> — ' + p.percent + '%, осталось ' + etaText(p.eta_minutes) +
+                '<div class="nr-sync-bar"><i style="width:' + Math.max(2, p.percent) + '%"></i></div>' +
+                '<small>Можно закрыть страницу: загрузка продолжится на сервере. Свежие дни появляются в таблице первыми.</small></div>';
+        } else if (p.state === 'error') {
+            b.innerHTML = '<div class="nr-sync"><b>Часть данных пока не загрузилась</b> — ' + p.percent + '% готово. Wildberries ограничивает частоту запросов, поэтому иногда нужен повтор.' +
+                '<div class="nr-sync-bar"><i style="width:' + Math.max(2, p.percent) + '%"></i></div>' +
+                '<button type="button" onclick="nrSyncProgress.retry()">Повторить загрузку</button></div>';
+        } else if (p.state === 'done') {
+            b.innerHTML = '<div class="nr-sync"><b>Данные загружены</b> — 100%.</div>';
+            hideTimer = setTimeout(function () { b.innerHTML = ''; }, 8000);
+        }
+    }
+
+    async function fetchProgress() {
+        var r = await supabase.rpc('sync_progress', { p_cabinet: cab });
+        return r && r.data ? r.data : null;
+    }
+
+    async function step(first) {
+        if (!cab) return;
+        var thisCab = cab;
+        var p = null;
+        try { p = await fetchProgress(); } catch (e) { p = null; }
+        if (thisCab !== cab || !p) return;
+
+        // Кабинет без данных и без очереди: сразу просим загрузку истории.
+        if (p.state === 'none' && !p.has_data && !asked[cab]) {
+            asked[cab] = true;
+            try {
+                var r = await supabase.rpc('request_backfill', { p_cabinet: cab, p_days: 90 });
+                if (r && r.data) p = r.data;
+            } catch (e) { /* без очереди РНП работает как раньше */ }
+        }
+
+        render(p);
+        // Закончили: подтягиваем свежие данные в таблицу один раз.
+        if (lastState === 'running' && (p.state === 'done' || p.state === 'error')) {
+            try { var rnp = window.getRnp && window.getRnp(); if (rnp && rnp.openMain) rnp.openMain(true); } catch (e) {}
+        }
+        lastState = p.state;
+
+        clearTimeout(timer);
+        if (p.state === 'running') timer = setTimeout(function () { step(false); }, POLL_MS);
+    }
+
+    window.nrSyncProgress = {
+        watch: function (cabinetId) {
+            if (!cabinetId || typeof supabase === 'undefined') return;
+            if (cab !== cabinetId) { cab = cabinetId; lastState = null; clearTimeout(timer); }
+            step(true);
+        },
+        retry: async function () {
+            if (!cab) return;
+            try { var r = await supabase.rpc('request_backfill', { p_cabinet: cab, p_days: 90 }); if (r && r.data) { lastState = 'running'; render(r.data); } } catch (e) {}
+            step(false);
+        },
+    };
+})();
+</script>
+
 <script src="/dist/rnp-plan-fact.63afff3e4a.min.js"></script>
 <script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
@@ -9116,6 +9223,7 @@
             console.error('[RNP] openMain:', e);
             scheduleRnpBoot('Не удалось открыть РНП. Обновите страницу.');
         });
+        if (window.nrSyncProgress) window.nrSyncProgress.watch(currentCabinetId);
     }
 
     function bootRnpSettings(force) {
