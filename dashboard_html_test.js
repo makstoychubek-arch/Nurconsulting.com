@@ -1095,7 +1095,7 @@ assert.ok(
     'auto-sync must not reactivate hidden rnp_articles from the WB catalog'
 );
 
-assert.ok(rnpSrc.includes('await _mergeAdStatsFromDb(nmIds, cal)'),
+assert.ok(rnpSrc.includes('await _mergeAdStatsFromDb(nmIds, cal, { trackOutside: true })'),
     'RNP main load must merge advertising_daily_stats, not only define the helper');
 assert.ok(
     rnpSrc.includes('function _adNmId') &&
