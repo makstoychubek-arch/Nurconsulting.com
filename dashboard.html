@@ -396,6 +396,9 @@
            :not() работает и для копии списка в мобильном шите — она клонирует
            разметку как есть. */
         html:not([data-staff="1"]) [data-staff-only] { display: none !important; }
+        .nr-locked { opacity: .72; }
+        .nav-item.nr-locked::after, .nav-item-standalone.nr-locked::after { content: '🔒'; margin-left: auto; font-size: 11px; opacity: .8; }
+        .rail-btn.nr-locked::after { content: '🔒'; position: absolute; right: 2px; top: 2px; font-size: 9px; }
         .rail-bottom {
             display: flex; flex-direction: column; align-items: stretch;
             gap: 4px; padding: 4px 2px 0; width: 100%;
@@ -5687,6 +5690,9 @@
             } else if (__nrTab && __nrPublic.indexOf(__nrTab) === -1) {
                 // BETA, Контент-завод и прочее непубличное — только команде.
                 __nrTab = null;
+            } else if (__nrTab && localStorage.getItem('nr_paid') !== '1' && ['akylai', 'settings', 'tariffs'].indexOf(__nrTab) === -1) {
+                // Бесплатный клиент: платные разделы закрыты, домой — на Акылай.
+                __nrTab = 'akylai';
             }
             var __nrPane = !__nrTab ? null : (__nrLive[__nrTab] ? __nrTab : 'beta-stub');
             if (__nrPane && __nrPane !== 'dashboard') {
@@ -6107,10 +6113,10 @@
             <div class="beta-module-hero">
                 <div class="beta-orb beta-orb-1"></div>
                 <div class="beta-orb beta-orb-2"></div>
-                <div class="beta-pill">BETA</div>
+                <div class="beta-pill" id="beta-stub-pill">BETA</div>
                 <h2 id="beta-stub-title">Модуль в BETA</h2>
                 <p id="beta-stub-text">Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары, Контент-завод, Агенты и Сводный отчёт. Этот раздел ещё не готов — откроем его, когда модуль заработает.</p>
-                <button type="button" class="space-empty-btn" style="margin-top:18px" onclick="showTab('dashboard')">К дашборду</button>
+                <button type="button" class="space-empty-btn" id="beta-stub-btn" style="margin-top:18px" onclick="showTab('dashboard')">К дашборду</button>
             </div>
         </div>
 
@@ -7821,11 +7827,22 @@
 
     const NO_CABINET_ALLOWED_TABS = new Set(['settings', 'calculator', 'tariffs', 'telegram-bots', 'ozon', 'agents', 'akylai']);
     const STAFF_ONLY_TABS = new Set(['agents', 'telegram-bots']);
+    /* Бесплатно доступны только Акылай, настройки и тарифы. Остальные открытые клиенту
+       разделы (PUBLIC_TABS) видны с замком и открываются по платному тарифу.
+       Решение принимает база (has_paid_access), здесь — только отображение. */
+    const FREE_TABS = new Set(['akylai', 'settings', 'tariffs']);
     /* Разделы, которые видит клиент. ВСЁ остальное — BETA-модули, Контент-завод,
        внутренние страницы — видно только команде (team_staff / суперадмин).
        Выводить раздел в общий показ — только с разрешения владельца: список
        закреплён тестом public_modules_test.js, без правки теста он не пройдёт. */
     const PUBLIC_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'akylai', 'summary', 'tariffs']);
+    let hasPaid = (() => {
+        try { return localStorage.getItem('nr_paid') === '1'; } catch (_) { return false; }
+    })();
+    /** Раздел закрыт замком для этого пользователя (клиент без платного тарифа). */
+    function isTabLocked(tab) {
+        return !isStaff && !hasPaid && PUBLIC_TABS.has(tab) && !FREE_TABS.has(tab);
+    }
 
     /** Пункты меню непубличных разделов помечаем «только команде» — их прячет CSS
      *  html:not([data-staff="1"]) [data-staff-only]. Пустые секции прячем тоже. */
@@ -7841,6 +7858,7 @@
             if (!tab) return;
             if (tab === 'agents') return; // клиенту «Агенты» ведут на его страницу Акылай
             if (!PUBLIC_TABS.has(tab)) el.setAttribute('data-staff-only', '1');
+            el.classList.toggle('nr-locked', isTabLocked(tab));
         });
         scope.querySelectorAll('.flyout-sec').forEach((sec) => {
             let n = sec.nextElementSibling, any = false, anyPublic = false;
@@ -8789,7 +8807,7 @@
             const tokenish = (window.NrAuth && window.NrAuth.isWbTokenError && window.NrAuth.isWbTokenError(msg))
                 || /token|unauthorized|invalid session/i.test(msg)
                 || res.status === 401;
-            const quiet = bgActions.has(action) || !window._nrInitDone || tokenish || res.status >= 500 || cabinetDenied;
+            const quiet = bgActions.has(action) || !window._nrInitDone || tokenish || res.status >= 500 || cabinetDenied || res.status === 402;
             if (quiet) {
                 // Отозванный или просроченный токен — единственная причина, по
                 // которой клиенту есть что сделать самому. Помечаем, чтобы
@@ -9291,6 +9309,10 @@
         highlightNavForTab(name, el);
         const titleEl = document.getElementById('beta-stub-title');
         if (titleEl) titleEl.textContent = tabTitles[name] || 'Модуль в BETA';
+        const stubPill = document.getElementById('beta-stub-pill');
+        if (stubPill) stubPill.textContent = 'BETA';
+        const stubBtn = document.getElementById('beta-stub-btn');
+        if (stubBtn) { stubBtn.textContent = 'К дашборду'; stubBtn.setAttribute('onclick', "showTab('dashboard')"); }
         const textEl = document.getElementById('beta-stub-text');
         if (textEl) {
             textEl.textContent = 'Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары и Агенты. Этот раздел ещё не готов — откроем его, когда модуль заработает.';
@@ -9307,6 +9329,41 @@
         updateEmptyCabinetState();
     }
 
+    function openPaywall(name, el) {
+        openBetaStub(name, el);
+        const pill = document.getElementById('beta-stub-pill');
+        if (pill) pill.textContent = 'ПЛАТНО';
+        const titleEl = document.getElementById('beta-stub-title');
+        if (titleEl) titleEl.textContent = (tabTitles[name] || 'Раздел') + ' — на платном тарифе';
+        const textEl = document.getElementById('beta-stub-text');
+        if (textEl) textEl.textContent = 'Сейчас у вас бесплатный доступ: Акылай отвечает на отзывы. Остальные разделы NR Space открываются на тарифах Базовый, Бизнес и Фулл. Токен, который вы уже подключили, подойдёт для всех разделов.';
+        const btn = document.getElementById('beta-stub-btn');
+        if (btn) { btn.textContent = 'Смотреть тарифы'; btn.setAttribute('onclick', "showTab('tariffs')"); }
+    }
+
+    async function resolvePaidAccess() {
+        if (isStaff) hasPaid = true;
+        else {
+            try {
+                const { data, error } = await supabase.rpc('has_paid_access');
+                if (error) throw error;
+                hasPaid = data === true;
+            } catch (e) {
+                console.warn('[plan] has_paid_access:', e.message || e);
+                return; // оставляем прежнее значение: лучше показать как раньше, чем закрыть платному
+            }
+        }
+        try { localStorage.setItem('nr_paid', hasPaid ? '1' : '0'); } catch (_) {}
+        applyModuleVisibility();
+        if (hasPaid && window._paywallTab) {
+            const back = window._paywallTab;
+            window._paywallTab = null;
+            showTab(back);
+            return;
+        }
+        if (isTabLocked(getCurrentActiveTab())) showTab('akylai');
+    }
+
     function showTab(name, el) {
         name = TAB_ALIASES[name] || name;
         // Внутренняя страница агентов — только команде. Клиент по «Агентам»
@@ -9317,7 +9374,15 @@
         }
         // BETA-модули и Контент-завод клиенту не открываем даже по прямой ссылке.
         if (!isStaff && !PUBLIC_TABS.has(name)) {
-            showTab('dashboard');
+            showTab(hasPaid ? 'dashboard' : 'akylai');
+            return;
+        }
+        // Платные разделы без тарифа: клик из меню показывает «Доступно на платных тарифах»,
+        // а программный переход (после входа, возврат) ведёт домой — на Акылай.
+        if (isTabLocked(name)) {
+            window._paywallTab = name; // если окажется, что доступ платный (ответ придёт позже) — вернёмся сюда
+            if (!el && name === 'dashboard') { showTab('akylai'); return; }
+            openPaywall(name, el);
             return;
         }
         if (name === 'cost') {
@@ -15406,7 +15471,7 @@
         }
     }
 
-    const TARIFF_LABELS = { start: 'Старт', business: 'Бизнес', premium: 'Премиум', vip: 'VIP' };
+    const TARIFF_LABELS = { start: 'Бесплатный', basic: 'Базовый', business: 'Бизнес', premium: 'Фулл', vip: 'VIP' };
     const SPACE_STATUS_LABELS = { pending: 'В ожидании', active: 'Активен', blocked: 'Заблокирован' };
 
     function renderSpaceStatusBadge(status) {
@@ -17926,7 +17991,7 @@
         updateSpaceStatusUI();
         // Без await: восстановление вкладки ниже не должно ждать сеть.
         applyModuleVisibility();
-        resolveStaffRole().catch(e => console.warn('[role] init:', e));
+        resolveStaffRole().then(() => resolvePaidAccess()).catch(e => console.warn('[role] init:', e));
 
         // Восстанавливаем сохранённую вкладку СРАЗУ, ДО любых await (loadCabinets
         // может идти 5-8с на большом кабинете) — иначе пользователь всё это время

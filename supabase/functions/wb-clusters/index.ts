@@ -48,6 +48,11 @@ serve(async (req) => {
 
         const admin = createClient(supabaseUrl, supabaseService);
         const allCabinets = await hasAllCabinetsAccess(admin, user);
+        if (!allCabinets) {
+            // Кластеры рекламы — платный раздел: решает база (paid_access_for).
+            const { data: paid } = await admin.rpc('paid_access_for', { p_user: user.id });
+            if (paid !== true) return json({ error: 'Раздел доступен на платных тарифах', code: 'PAYWALL' }, 402);
+        }
         let cabQuery = admin
             .from('cabinets')
             .select('wb_token, name, user_id')

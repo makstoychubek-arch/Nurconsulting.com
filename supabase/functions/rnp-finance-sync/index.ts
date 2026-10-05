@@ -92,6 +92,9 @@ Deno.serve(async (req) => {
     if (!isServiceRole && targetCabinetId) {
         const all = await hasAllCabinetsAccess(admin, user);
         if (!all) {
+            // Загрузка финотчёта и РНП — платные разделы: решает база (paid_access_for).
+            const { data: paid } = await admin.rpc('paid_access_for', { p_user: user!.id });
+            if (paid !== true) return json({ error: 'Раздел доступен на платных тарифах', code: 'PAYWALL' }, 402);
             const { data: owned } = await admin.from('cabinets').select('id').eq('id', targetCabinetId).eq('user_id', user!.id).maybeSingle();
             if (!owned) return json({ error: 'Кабинет не найден или нет доступа' }, 403);
         }
