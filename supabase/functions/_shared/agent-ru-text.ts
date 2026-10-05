@@ -96,7 +96,7 @@ export function parseRuDayToken(text: string): string | null {
 }
 
 const CABINET_HINT_RE =
-  /(baza|zevina|saai|elium|сааи|база|зевина|элиум)/i;
+  /(baza|zevina|elium|база|зевина|элиум)/i;
 
 /** Кабинет из хвоста даты или известный алиас (как в parseSalesQuery). */
 export function extractCabinetHint(text: string): string | undefined {
@@ -108,7 +108,7 @@ export function extractCabinetHint(text: string): string | undefined {
   if (tailCab) return tailCab[1];
   const cabMatch = lower.match(
     ruBounded(`(?:кабинет|cabinet)\\s+([a-zа-яё0-9._-]{2,40})`),
-  ) || lower.match(ruBounded("(baza|zevina|saai|elium|сааи|база|зевина|элиум)"));
+  ) || lower.match(ruBounded("(baza|zevina|elium|база|зевина|элиум)"));
   if (cabMatch?.[1]) return cabMatch[1];
   // «реклама вчера база» — кабинет не на границе конца после даты-слова
   const loose = lower.match(CABINET_HINT_RE);
