@@ -4778,6 +4778,24 @@
         [data-theme="neon"] header.glass { border: none !important; background: var(--surface-solid) !important; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
         [data-theme="ios"] header.glass { background: var(--surface-solid) !important; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06); }
 
+        /* Левая панель — такая же скруглённая «карточка», как шапка и блоки справа; шапка и контент выровнены
+           по одним краям (6 px от панели и от края окна). */
+        @media (min-width: 769px) {
+            .sidebar-rail {
+                margin: 10px 0 10px 10px; width: 210px; min-width: 210px; height: calc(100vh - 20px);
+                border-radius: 18px; background: var(--surface-solid);
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+            }
+            [data-theme="neon"] .sidebar-rail { box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28); }
+            .sidebar-flyout.visible, .sidebar-flyout.pinned {
+                margin: 10px 0; height: calc(100vh - 20px); border-radius: 18px;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+            }
+            header.glass.app-header { left: 226px; right: 6px; }
+            body.flyout-expanded header.glass.app-header { left: 446px; }
+            .main-rail:has(#tab-dashboard.active) { padding-top: 76px; }
+        }
+
         /* A/B тест карточки */
         .abtest-card { border-radius: 16px !important; transition: background 0.15s ease !important; }
         .abtest-card:hover { transform: none; box-shadow: none; background: var(--sel); }
@@ -4852,7 +4870,9 @@
             box-shadow: none !important;
             font-weight: 700;
         }
-        .main-content { padding: 28px 32px !important; }
+        /* Единые поля страниц по образцу РНП: везде одни и те же отступы по краям и сверху, поэтому блоки Дашборда,
+           Рекламы, Товаров и РНП стоят на одной линии с шапкой и друг под другом на одной высоте. */
+        .main-content { padding: 4px 6px 12px !important; }
         .main-content:has(#tab-dashboard.active) { padding: 4px 24px 16px !important; }
         #tab-dashboard.space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px; }
         .dash-finance-note:not(.show) { display: none !important; }
@@ -4878,7 +4898,7 @@
             padding: 4px 6px !important;
         }
         .main-content.goods-compact {
-            padding: 14px 20px 16px !important;
+            padding: 4px 6px 12px !important;
         }
         .rnp-action-bar, .logistics-toolbar, .rnp-sheet-tabs {
             border: none !important;
