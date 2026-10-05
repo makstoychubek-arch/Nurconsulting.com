@@ -61,7 +61,7 @@ assert.strictEqual(model.rows[0].weeks[0].ratio, '#DIV/0!');
 assert.strictEqual(model.rows[0].name, 'пиджак_NEW_красный');
 
 const html = P.tableHtml(model);
-assert.ok(html.includes('ПЛАН/ФАКТ'));
+assert.ok(P.shellHtml(model).includes('Общая РНП'));
 assert.ok(html.includes('ПЛАН Заказов, по дням'));
 assert.ok(html.includes('ФАКТ Заказов за неделю'));
 assert.ok(html.includes('ПЛАН ПРОДАЖ, за неделю'));
@@ -157,3 +157,12 @@ const pkg = fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8');
 assert.ok(pkg.includes('rnp-plan-fact_test.js'));
 
 console.log('rnp-plan-fact_test: ok');
+
+// Телефон: на body нельзя ставить класс кнопки (.rnp-plan-fact-open) — он растягивает страницу.
+{
+    const js = fs.readFileSync(path.join(__dirname, 'rnp-plan-fact.js'), 'utf8');
+    const h = fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8');
+    assert.ok(js.includes("classList.add('rnp-pf-open')") && !js.includes("body.classList.add('rnp-plan-fact-open')"));
+    assert.ok(h.includes('body.rnp-pf-open { overflow: hidden; }') && h.includes('.pf-sheet .pf-a, .pf-sheet .pf-c, .pf-sheet .pf-d'), 'phone layout of the sheet');
+    assert.ok(fs.readFileSync(path.join(__dirname, 'nr-win.js'), 'utf8').includes("classList.contains('rnp-plan-fact-dialog')"), 'sheet window ignores the shared window size');
+}

@@ -81,6 +81,8 @@
     function paintBox(box, size) {
         if (!box || !box.style) return;
         if (box.classList.contains('nr-win-max') || box.classList.contains('nr-win-min')) return;
+        // Лист план/факт широкий — размер задаёт его CSS, общий размер окон ему не подходит.
+        if (box.classList.contains('rnp-plan-fact-dialog')) { box.style.removeProperty('width'); box.style.removeProperty('height'); return; }
         box.style.setProperty('width', size.w + 'px', 'important');
         box.style.setProperty('height', size.h + 'px', 'important');
     }
