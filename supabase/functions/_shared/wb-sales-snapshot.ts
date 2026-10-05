@@ -176,7 +176,7 @@ export function parseSalesQuery(
   if (!date) {
     if (
       hasSalesWord ||
-      (relaxed && /(baza|zevina|saai|elium|база|зевина|элиум)/i.test(lower))
+      (relaxed && /(baza|zevina|elium|база|зевина|элиум)/i.test(lower))
     ) {
       date = yesterdayBishkek();
     } else {
