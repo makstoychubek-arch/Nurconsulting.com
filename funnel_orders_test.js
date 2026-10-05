@@ -72,4 +72,10 @@ assert.ok(dash.includes('#nr-sync-banner:empty { display: none; margin: 0; }'), 
 assert.ok(js.includes('const capH = MARQUEE_CARD_MAX_H;') && !js.includes('pinned ? MARQUEE_PINNED_H : MARQUEE_CARD_MAX_H'),
     'gallery height does not depend on the pinned state');
 
+// Единая раскладка страниц по образцу РНП и скруглённая левая панель.
+assert.ok(dash.includes('.main-content { padding: 4px 6px 12px !important; }'), 'all pages share the RNP page padding');
+assert.ok(/\.sidebar-rail \{\s*margin: 10px 0 10px 10px; width: 210px;[^}]*border-radius: 18px;/.test(dash), 'the left panel is a rounded floating card like the blocks on the right');
+assert.ok(dash.includes('header.glass.app-header { left: 226px; right: 6px; }') && dash.includes('.main-rail:has(#tab-dashboard.active) { padding-top: 76px; }'),
+    'header and content share the same edges and the same top offset on every page');
+
 console.log('funnel_orders_test: ok');
