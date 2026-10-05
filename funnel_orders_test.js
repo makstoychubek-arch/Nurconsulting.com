@@ -57,8 +57,8 @@ assert.ok(!js.includes("prompt('Название новой категории/�
     'a new group is typed in the cell: the browser prompt() is blocked in the app');
 
 // Старый кэш шапки (с тремя списками) стирается; ряд вкладок не меняет высоту при выборе группы.
-assert.ok(js.includes("const RNP_UI_VERSION = '3';") && js.includes("indexedDB.deleteDatabase('nr-rnp-lock')"), 'stale cached RNP chrome is purged once');
-assert.ok(js.includes('bar.querySelector(\'[data-bar-v="3"]\')'), 'cached bars from the old layout are rebuilt');
+assert.ok(js.includes("const RNP_UI_VERSION = '4';") && js.includes("indexedDB.deleteDatabase('nr-rnp-lock')"), 'stale cached RNP chrome is purged once');
+assert.ok(js.includes('bar.querySelector(\'[data-bar-v="4"]\')'), 'cached bars from the old layout are rebuilt');
 const dash = read('dashboard.html');
 assert.ok(/\.rnp-sheet-tabs \{[^}]*min-height: 46px; align-items: center;/.test(dash), 'the tab row keeps its height, the table does not shift when a group opens');
 
@@ -87,4 +87,14 @@ console.log('funnel_orders_test: ok');
     ok(h.includes('window.__nrSkipViewTransition') && h.includes('!window.__nrSkipViewTransition'), 'initial tab is painted without a view transition');
     ok(h.includes('nr_ui_names_v1'), 'user/cabinet names are painted from cache on first frame');
     ok(h.includes(".main-content{padding:4px 6px 12px}"), 'early padding equals final padding');
+}
+
+// Заметки по дням: кнопка в панели, состояние помнится, строка заметок появляется сразу
+{
+    const js = require('fs').readFileSync(require('path').join(__dirname, 'rnp-module.js'), 'utf8');
+    const ok = require('assert').ok;
+    ok(js.includes('rnp-notes-btn') && js.includes("RNP.toggleNotes(!RNP.notesVisible())"), 'notes toggle button in the toolbar');
+    ok(js.includes("_notesVisible = localStorage.getItem('rnp_notes_visible') === '1'"), 'notes visibility is remembered');
+    ok(js.includes('liveTable.tHead.rows.length !== nextTable.tHead.rows.length) return false'), 'notes row forces a real re-render, not a cell patch');
+    ok(js.includes("if (error) throw error;") && js.includes('пустой текст очищает заметку дня'), 'notes save reports DB errors and can be cleared');
 }
