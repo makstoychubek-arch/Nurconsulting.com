@@ -48,4 +48,12 @@ assert.ok(js.includes('function _updateAdOutsideNotice()') && js.includes("opts?
     'ad views of articles outside the active RNP set are counted on a full load');
 assert.ok(js.includes('Показы РК по артикулам вне РНП') && js.includes('rnp-ad-outside-'), 'the warning about ad views outside RNP goes to the bell, not over the table');
 
+// Настройки РНП: без «Основных настроек», кнопок «Обновить артикулы»/«Из заказов» и колонок затрат; новая группа — без prompt().
+const settingsRow = js.slice(js.indexOf('function _settingsArticleRowHtml'), js.indexOf('function _activeArticleCount'));
+assert.ok(!settingsRow.includes('RNP.setCost') && !settingsRow.includes('RNP.setLogisticsUnit') && !settingsRow.includes('RNP.setOtherCosts'),
+    'cost columns are gone from RNP settings (cost lives in Товары)');
+assert.ok(!js.includes('RNP.refreshArticles()" id="rnp-refresh-arts-btn"') && !js.includes('RNP.syncArts()" id="rnp-sync-btn"'), 'manual article buttons are gone from settings');
+assert.ok(!js.includes("prompt('Название новой категории/группы:'") && js.includes('function _startNewCategoryInput(nmId)'),
+    'a new group is typed in the cell: the browser prompt() is blocked in the app');
+
 console.log('funnel_orders_test: ok');
