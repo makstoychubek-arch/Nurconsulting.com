@@ -269,7 +269,7 @@
     function headerHtml(model) {
         var w, i, h1 = '', h2 = '', h3 = '', h4 = '', h5 = '';
         h1 += th('pf-a', '', '');
-        h1 += th('pf-b pf-title', '', 'ПЛАН/ФАКТ');
+        h1 += th('pf-b pf-title', '', '');
         h1 += th('pf-c', '', '');
         h1 += th('pf-d', '', '');
         h2 += th('pf-a', '', '');
@@ -369,7 +369,7 @@
     }
 
     function tableHtml(model) {
-        var cols = '<col style="width:34px"><col style="width:200px"><col style="width:84px"><col style="width:12px">';
+        var cols = '<col class="pf-ca" style="width:34px"><col class="pf-cb" style="width:200px"><col class="pf-cc" style="width:84px"><col class="pf-cd" style="width:12px">';
         model.weeks.forEach(function () {
             cols += '<col style="width:40px">'.repeat(7) + '<col style="width:56px"><col style="width:20px"><col style="width:52px"><col style="width:52px"><col style="width:60px">';
         });
@@ -417,7 +417,7 @@
         var cur = body && body.querySelector('.pf-scroll');
         if (cur && (sx || sy)) { cur.scrollLeft = sx; cur.scrollTop = sy; }
         overlay.classList.add('is-open');
-        document.body.classList.add('rnp-plan-fact-open');
+        document.body.classList.add('rnp-pf-open');
         if (root.NrWin && !overlay.classList.contains('is-bound')) { root.NrWin.bind(overlay); overlay.classList.add('is-bound'); }
         document.removeEventListener('keydown', onKey);
         document.addEventListener('keydown', onKey);
@@ -428,7 +428,7 @@
         var overlay = document.getElementById('rnp-plan-fact-overlay');
         if (overlay) overlay.classList.remove('is-open');
         if (typeof document !== 'undefined') {
-            document.body.classList.remove('rnp-plan-fact-open');
+            document.body.classList.remove('rnp-pf-open');
             document.removeEventListener('keydown', onKey);
         }
     }

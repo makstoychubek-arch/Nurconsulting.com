@@ -2407,6 +2407,12 @@
             box-shadow: 0 18px 60px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.55);
             display: flex; flex-direction: column; overflow: hidden;
         }
+        /* Лист широкий: окно почти на весь экран (общий размер окон 480×520 ему мал), без ресайза. */
+        .rnp-plan-fact-dialog.nr-win {
+            --nr-win-w: min(1240px, calc(100vw - 24px));
+            --nr-win-h: calc(100dvh - 24px);
+        }
+        .rnp-plan-fact-dialog .nr-win-resize { display: none !important; }
         .pf-bar {
             display: flex; align-items: center; gap: 12px;
             padding: 8px 12px; flex-shrink: 0;
@@ -2425,7 +2431,7 @@
             flex: 1; min-height: 0; overflow: auto; background: #fff;
             overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;
         }
-        body.rnp-plan-fact-open { overflow: hidden; }
+        body.rnp-pf-open { overflow: hidden; }
         .pf-sheet {
             border-collapse: separate; border-spacing: 0; table-layout: fixed; width: max-content;
             font-family: Roboto, Arial, sans-serif; font-size: 11px; color: #000;
@@ -2477,8 +2483,19 @@
         .pf-sheet thead .pf-dark.pf-ok { background: #57bb8a !important; color: #fff !important; }
         .pf-sheet thead .pf-dark.pf-mid { background: #f2c94c !important; color: #3b2a00 !important; }
         .pf-sheet thead .pf-dark.pf-bad { background: #e67c73 !important; color: #fff !important; }
-        body.rnp-plan-fact-open header.glass.app-header,
-        body.rnp-plan-fact-open .bottom-nav { z-index: 1; }
+        @media (max-width: 768px) {
+            .rnp-plan-fact-overlay { padding: 6px; }
+            .rnp-plan-fact-dialog.nr-win { --nr-win-w: calc(100vw - 12px); --nr-win-h: calc(100dvh - 12px); }
+            /* телефон: оставляем только название артикула, чтобы влезли дни */
+            .pf-sheet .pf-a, .pf-sheet .pf-c, .pf-sheet .pf-d,
+            .pf-sheet col.pf-ca, .pf-sheet col.pf-cc, .pf-sheet col.pf-cd { display: none; }
+            .pf-sheet .pf-b { left: 0; width: 112px; min-width: 112px; font-size: 10.5px; box-shadow: 2px 0 0 #b6d7a8; }
+            .pf-sheet col.pf-cb { width: 112px !important; }
+            .pf-sheet .pf-dow { font-size: 8.5px; letter-spacing: -0.3px; padding: 0 1px; }
+            .pf-sheet .pf-title { font-size: 12px; }
+        }
+        body.rnp-pf-open header.glass.app-header,
+        body.rnp-pf-open .bottom-nav { z-index: 1; }
         .rnp-settings-overlay {
             display: none; position: fixed; inset: 0; z-index: 10050;
             align-items: center; justify-content: center;
@@ -7717,7 +7734,7 @@
         </div>
     </div>
 
-<script src="/dist/nr-win.0c0159fe69.min.js"></script>
+<script src="/dist/nr-win.1c22985ab7.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.b6d8859a75.min.js"></script>
 <script>
@@ -7997,7 +8014,7 @@
 })();
 </script>
 
-<script src="/dist/rnp-plan-fact.0c78817f18.min.js"></script>
+<script src="/dist/rnp-plan-fact.21260fb7c6.min.js"></script>
 <script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.35bc97e198.min.js"></script>
