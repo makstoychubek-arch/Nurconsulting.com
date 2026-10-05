@@ -123,3 +123,11 @@ console.log('funnel_orders_test: ok');
     ok(h.includes('function renderPnlDaily') && h.includes("card('Все услуги'") && !h.includes("card('Услуги ЕАЭС'"), 'the row ends with «Все услуги», no EAEU card');
     ok(h.includes('id="pnl-chart"') && h.includes("label: 'Прибыль'"), 'stacked daily chart: orders, sales, profit');
 }
+
+// Дашборд без старой россыпи карточек: скрыты hero-карточки, сетка из 30 метрик и дубль графика заказов
+{
+    const h = require('fs').readFileSync(require('path').join(__dirname, 'dashboard.html'), 'utf8');
+    const ok = require('assert').ok;
+    ok(h.includes('dash-kpi-hero dash-legacy') && h.includes('dashboard-metrics-grid dash-legacy') && h.includes('.dash-legacy { display: none !important; }'), 'old KPI grid is hidden');
+    ok(/id="dash-wh-legend"[\s\S]{0,400}id="dashboard-top-margin-card"/.test(h), 'top-margin card sits next to the stock donut');
+}

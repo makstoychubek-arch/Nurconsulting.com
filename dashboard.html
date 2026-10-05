@@ -39,7 +39,7 @@
     <link rel="apple-touch-startup-image" href="/splash/splash-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
     <link rel="apple-touch-startup-image" href="/splash/splash-1242x2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3)">
     <title>NR Space</title>
-    <link rel="stylesheet" href="/dist/tailwind.fd20760ad4.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.0d721d80c7.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
@@ -2751,6 +2751,23 @@
         .pnl-chart-wrap { position: relative; height: 280px; margin-top: 10px; }
         @media (max-width: 1280px) { .pnl-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (max-width: 640px) { .pnl-mini-grid { grid-template-columns: 1fr 1fr; } .pnl-mini-val { font-size: 20px; } }
+        .dash-legacy { display: none !important; }
+        /* План и штрафы — такие же белые карточки, как блоки выше */
+        #tab-dashboard .dash-plan-card, #tab-dashboard .dash-cost-card, #tab-dashboard .dash-plan-skus-col {
+            background: var(--surface-solid); box-shadow: var(--card-shadow); padding: 16px 18px; border-radius: var(--radius-card, 16px);
+        }
+        #tab-dashboard .dash-plan-board { box-shadow: none; gap: 12px; }
+        #tab-dashboard .dash-plan-skus { gap: 12px; }
+        #tab-dashboard .dash-plan-kicker, #tab-dashboard .dash-plan-skus-kicker {
+            font-size: 13px; font-weight: 700; letter-spacing: 0; text-transform: none; color: var(--text-secondary); margin-bottom: 10px;
+        }
+        #tab-dashboard .dash-plan-name { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+        #tab-dashboard .dash-cost-card .kpi-hero-label { font-size: 13px; font-weight: 700; color: var(--text-secondary); }
+        #tab-dashboard .dash-cost-card .kpi-hero-value { font-size: 22px; font-weight: 800; }
+        #tab-dashboard .dash-plan-sku { width: 40px; height: 54px; border-radius: 10px; }
+        #tab-dashboard .dash-charts .chart-box-title, #tab-dashboard #dashboard-top-margin-card h3 { font-size: 15px; font-weight: 700; color: var(--text-primary); margin: 0; }
+        #tab-dashboard .dash-charts > .widget-card, #tab-dashboard .dash-plan-board { border-radius: var(--radius-card, 16px); box-shadow: var(--card-shadow); }
+        #tab-dashboard #dashboard-top-margin-card { padding: 16px 18px; }
         .pnl-card--profit .pnl-big { color: #16a34a; }
         .pnl-card--profit .pnl-big.is-neg { color: #ef4444; }
         @media (max-width: 1280px) { .pnl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -6170,7 +6187,7 @@
                 <div class="pnl-title">Динамика показателей</div>
                 <div class="pnl-chart-wrap"><canvas id="pnl-chart"></canvas></div>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 dash-kpi-hero">
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 dash-kpi-hero dash-legacy">
                 <div class="kpi-hero-card" data-tone="good">
                     <div class="kpi-hero-label">Чистая прибыль</div>
                     <div id="m-profit" class="kpi-hero-value">—</div>
@@ -6214,8 +6231,8 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-4 dash-charts">
-                <div class="widget-card chart-box xl:col-span-2">
+            <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 dash-charts">
+                <div class="widget-card chart-box dash-legacy">
                     <div class="chart-box-title">Динамика заказов</div>
                     <div class="chart-canvas-wrap"><canvas id="chart-orders-bar"></canvas></div>
                 </div>
@@ -6231,9 +6248,21 @@
                     <div class="chart-canvas-wrap"><canvas id="chart-warehouse-donut"></canvas></div>
                     <div id="dash-wh-legend" class="dash-wh-legend"></div>
                 </div>
+
+                <div class="widget-card p-5" id="dashboard-top-margin-card">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Топ 5 маржинальных товаров</h3>
+                    </div>
+                    <div class="dashboard-top-margin-body">
+                        <div class="dashboard-top-margin-chart"><canvas id="chart-top-margin-donut"></canvas></div>
+                        <div id="dashboard-top-margin-legend" class="dashboard-top-margin-legend">
+                            <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div id="dashboard-metrics-grid" class="dashboard-metrics-grid">
+            <div id="dashboard-metrics-grid" class="dashboard-metrics-grid dash-legacy">
                 <div class="metric-card metric-card--highlight" data-tone="good"><div class="metric-card-label">Прибыль без опер. расх.</div><div class="metric-card-value" id="m-profit2">—</div><div class="metric-trend" id="trend-m-profit2"></div></div>
                 <div class="metric-card metric-card--highlight" data-tone="good"><div class="metric-card-label">Реализация</div><div class="metric-card-value" id="m-realization">—</div><div class="metric-trend" id="trend-m-realization"></div></div>
                 <div class="metric-card metric-card--highlight" data-tone="bad"><div class="metric-card-label">Итоговое вознаграждение ВБ</div><div class="metric-card-value" id="m-commission">—</div><div class="metric-trend" id="trend-m-commission" data-trend-inverse></div></div>
@@ -6267,17 +6296,6 @@
                 <div class="metric-card"><div class="metric-card-label">Оборачиваемость по зак.</div><div class="metric-card-value" data-metric="turnover-orders">—</div><div class="metric-trend" data-trend-for="turnover-orders" data-trend-inverse></div></div>
             </div>
 
-            <div class="widget-card p-5" id="dashboard-top-margin-card">
-                <div class="flex items-center justify-between mb-4">
-                    <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Топ 5 маржинальных товаров</h3>
-                </div>
-                <div class="dashboard-top-margin-body">
-                    <div class="dashboard-top-margin-chart"><canvas id="chart-top-margin-donut"></canvas></div>
-                    <div id="dashboard-top-margin-legend" class="dashboard-top-margin-legend">
-                        <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div>
-                    </div>
-                </div>
-            </div>
         </div>
 
         <div id="tab-beta-stub" class="tab-content space-y-6">
