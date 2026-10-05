@@ -2325,7 +2325,7 @@ const RNP = (() => {
                     if (!_notesCache[nm][d]) _notesCache[nm][d] = { text: '', history: [] };
                     const entry = { text: row.note, author: row.author || '—', at: row.created_at };
                     _notesCache[nm][d].history.push(entry);
-                    if (!_notesCache[nm][d].text) _notesCache[nm][d].text = row.note;
+                    if (_notesCache[nm][d].history.length === 1) _notesCache[nm][d].text = row.note || ''; // первая = самая свежая
                 });
             }
         } catch (e) {
@@ -2355,12 +2355,14 @@ const RNP = (() => {
         const t = (text || '').trim();
         const art = _articles.find(a => a.nm_id == nmId);
         if (!art) return;
-        if (!t) return;
+        // Не пишем в базу, если текст не изменился; пустой текст очищает заметку дня.
+        if (t === String(_notesCache[nmId]?.[date]?.text || '').trim()) return;
         try {
-            await _db.from('rnp_date_notes').insert({
+            const { error } = await _db.from('rnp_date_notes').insert({
                 cabinet_id: _cab, nm_id: nmId, note_date: date,
                 note: t, author: _userEmail || 'user'
             });
+            if (error) throw error;
         } catch (e) {
             const md = { ...(art.manual_data || {}) };
             if (!md.notes) md.notes = {};
@@ -2858,6 +2860,7 @@ const RNP = (() => {
             return `<th class="rnp-th-note ${colCls}${st.cls}"${st.style ? ` style="${st.style}"` : ''}>
               <input class="rnp-note-input" value="${text}" title="${tip || 'Комментарий к дате'}"
                 placeholder="+"
+                onkeydown="if(event.key==='Enter'){this.blur();}"
                 onblur="RNP.saveNote(${nmId},'${d}',this.value)">
             </th>`;
         }).join('');
@@ -2926,6 +2929,12 @@ const RNP = (() => {
         </svg>`;
     }
 
+    function _noteSvg() {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 3h10l4 4v14H5z"></path><path d="M14 3v5h5"></path><path d="M8.5 13h7M8.5 17h5"></path>
+        </svg>`;
+    }
+
     function _toolIconBtn(extraClass, title, svg, onclick) {
         const cls = extraClass ? ` ${extraClass}` : '';
         return `<button type="button" class="rnp-tool-icon${cls}" title="${title}" aria-label="${title}" onclick="${onclick}">${svg}</button>`;
@@ -2970,13 +2979,14 @@ const RNP = (() => {
             ${_toolIconBtn('rnp-copy-plan-btn', planTitle, _planSvg(), 'RNP.copyPlanFromPrevWeek()')}
             ${_toolIconBtn('rnp-export-excel-btn', 'Скачать Excel', _excelSvg(), 'RNP.exportExcel()')}
             ${_toolIconBtn(`rnp-edit-mode-btn${editOn}`, editTitle, _editSvg(), 'RNP.toggleEditMode()')}
+            ${_toolIconBtn(`rnp-notes-btn${_notesVisible ? ' is-on active' : ''}`, _notesVisible ? 'Скрыть заметки по дням' : 'Заметки по дням', _noteSvg(), 'RNP.toggleNotes(!RNP.notesVisible())')}
             <button type="button" class="rnp-tool-icon rnp-order-sound-btn" data-staff-only="1" title="Звук при новом заказе" aria-label="Звук при новом заказе" onclick="window.NrOrderSound && NrOrderSound.openSettings()">${_bellSvg()}</button>
             <button type="button" class="rnp-settings-gear" title="Настройки РНП" aria-label="Настройки РНП" onclick="RNP.openSettings()">${_settingsGearSvg()}</button>
         </div>`;
     }
 
     function _buildPhoneActionBar() {
-        return `<div class="rnp-action-bar rnp-action-bar--phone" data-bar-v="3">
+        return `<div class="rnp-action-bar rnp-action-bar--phone" data-bar-v="4">
           <div class="rnp-period-chip">
             <span class="rnp-period-chip-text">${_periodChipLabel()}</span>
           </div>
@@ -2990,7 +3000,7 @@ const RNP = (() => {
     }
 
     function _buildActionBar(active) {
-        return `${_buildPhoneActionBar()}<div class="rnp-action-bar rnp-action-bar--desktop" data-bar-v="3">
+        return `${_buildPhoneActionBar()}<div class="rnp-action-bar rnp-action-bar--desktop" data-bar-v="4">
           <span id="rnp-freshness" hidden></span>
           ${_iconToolsHtml()}
         </div>`;
@@ -3273,8 +3283,16 @@ const RNP = (() => {
     function toggleNotes(on) {
         _notesVisible = !!on;
         try { localStorage.setItem('rnp_notes_visible', _notesVisible ? '1' : '0'); } catch (e) {}
+        document.querySelectorAll('.rnp-notes-btn').forEach((b) => {
+            b.classList.toggle('is-on', _notesVisible);
+            b.classList.toggle('active', _notesVisible);
+            const t = _notesVisible ? 'Скрыть заметки по дням' : 'Заметки по дням';
+            b.title = t; b.setAttribute('aria-label', t);
+        });
         if (_activeNm !== SUMMARY_TAB) _renderActiveTable();
     }
+
+    function notesVisible() { return _notesVisible; }
 
     async function setPlanPeriod(val) {
         const next = val === 'month' ? 'month' : 'week';
@@ -5300,6 +5318,8 @@ const RNP = (() => {
         const nextTbody = nextTable.tBodies[0];
         if (!liveTbody || !nextTbody) return false;
         if (liveTbody.rows.length !== nextTbody.rows.length) return false;
+        // Строка заметок добавляется/убирается в шапке — это новая структура, а не правка ячеек.
+        if (liveTable.tHead && nextTable.tHead && liveTable.tHead.rows.length !== nextTable.tHead.rows.length) return false;
         if (liveTbody.rows[0] && nextTbody.rows[0]
             && liveTbody.rows[0].cells.length !== nextTbody.rows[0].cells.length) return false;
         for (let i = 0; i < liveTbody.rows.length; i++) _patchSubtree(liveTbody.rows[i], nextTbody.rows[i]);
@@ -5415,7 +5435,7 @@ const RNP = (() => {
         const bar = document.getElementById('rnp-action-bar-wrap');
         const tabs = document.getElementById('rnp-sheet-tabs');
         const domCab = _rnpDomCab();
-        const chromeReady = !!(bar && bar.querySelector('[data-bar-v="3"]') && tabs && tabs.querySelector('.rnp-sheet-tab'));
+        const chromeReady = !!(bar && bar.querySelector('[data-bar-v="4"]') && tabs && tabs.querySelector('.rnp-sheet-tab'));
         if (chromeReady && !force && (!domCab || !_cab || domCab === _cab)) {
             _updateTabHighlight();
             return false;
@@ -5483,7 +5503,7 @@ const RNP = (() => {
     // Шапка и вкладки РНП кэшируются (мгновенная отрисовка после обновления страницы). При смене разметки
     // старый кэш показывал прежние элементы (три списка сверху) даже после выкладки новой версии: поднимаем
     // версию, и устаревший кэш один раз стирается.
-    const RNP_UI_VERSION = '3';
+    const RNP_UI_VERSION = '4';
     (function _purgeStaleRnpShell() {
         try {
             if (localStorage.getItem('rnp_ui_ver') === RNP_UI_VERSION) return;
@@ -5709,7 +5729,7 @@ const RNP = (() => {
         if (active.length > 40 && _activeNm === GENERAL_TAB) _activeNm = SUMMARY_TAB;
 
         _sectionView = 'all'; // выбор секций убран из интерфейса
-        _notesVisible = false;
+        try { _notesVisible = localStorage.getItem('rnp_notes_visible') === '1'; } catch (e) { _notesVisible = false; }
         try { _editMode = sessionStorage.getItem('rnp_edit_mode') === '1'; } catch (e) {}
         try { _strategyTab = parseInt(localStorage.getItem('rnp_strategy_tab') || '0', 10) || 0; } catch (e) {}
         _planPeriod = 'week'; // «План → месяц» убран из интерфейса, период — датами в шапке
@@ -7283,7 +7303,7 @@ const RNP = (() => {
     });
 
     return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
-             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
+             setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
 

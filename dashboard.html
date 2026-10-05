@@ -2725,6 +2725,8 @@
             outline: 1px solid var(--accent-border);
             outline-offset: -1px;
         }
+        .rnp-notes-btn.is-on,
+        .rnp-notes-btn.active,
         .rnp-edit-mode-btn.is-on,
         .rnp-edit-mode-btn.active {
             background: var(--accent-soft); color: var(--accent);
@@ -7750,7 +7752,7 @@
 
 <script src="/dist/nr-win.1c22985ab7.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.b6d8859a75.min.js"></script>
+<script src="/dist/rnp-module.79d5ca1640.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
    и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
