@@ -3989,7 +3989,31 @@ const RNP = (() => {
         return row;
     }
 
-    async function _mergeAdStatsFromDb(nmIds, cal) {
+    // Показы РК по артикулам, которых нет среди активных в РНП: в «Общем РНП» их доля не видна,
+    // и сумма выходит меньше, чем в кабинете WB. Считаем при полной загрузке и показываем строку-предупреждение.
+    let _adOutside = null;
+
+    function _updateAdOutsideNotice() {
+        const ws = document.querySelector('#tab-rnp .rnp-workspace');
+        if (!ws) return;
+        let el = document.getElementById('rnp-ad-warning');
+        const o = _adOutside;
+        if (!o || !(o.views > 0 || o.spend > 0)) { if (el) el.remove(); return; }
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'rnp-ad-warning';
+            el.className = 'rnp-ad-warning';
+            el.style.cssText = 'margin:6px 0;padding:8px 12px;border-radius:10px;font-size:12px;border:1px solid var(--border);background:var(--surface);color:var(--text-primary)';
+            const tabs = document.getElementById('rnp-sheet-tabs');
+            if (tabs && tabs.parentElement === ws) ws.insertBefore(el, tabs); else ws.insertBefore(el, ws.firstChild);
+        }
+        const list = [...o.nms].slice(0, 5).join(', ') + (o.nms.size > 5 ? ` и ещё ${o.nms.size - 5}` : '');
+        el.innerHTML = `⚠️ Есть показы РК по артикулам, которых нет среди активных в РНП: <b>${o.nms.size} шт</b>, ` +
+            `показов <b>${Math.round(o.views).toLocaleString('ru')}</b>, расход <b>${Math.round(o.spend).toLocaleString('ru')}</b>. ` +
+            `В «Общем РНП» они не учтены, поэтому сумма будет меньше, чем в кабинете WB. Артикулы: ${list}. Включите их в настройках РНП.`;
+    }
+
+    async function _mergeAdStatsFromDb(nmIds, cal, opts) {
         const allDates = _calAllDates(cal);
         if (!allDates.length || !nmIds.length || !_cab) return 0;
         const idSet = new Set(nmIds.map(Number));
@@ -4005,12 +4029,17 @@ const RNP = (() => {
             return 0;
         }
         const byNmDate = {};
+        const outside = { views: 0, spend: 0, nms: new Set() };
         (rows || []).forEach(row => {
             const date = String(row.stat_date || '').split('T')[0];
             if (!date) return;
             const nms = _adNmsFromDay(row.data);
             nms.forEach(n => {
                 const nm = _adNmId(n);
+                if (nm && !idSet.has(nm) && opts?.trackOutside) {
+                    const v = Number(n.views || n.view || 0), sp = Number(n.sum || n.spend || 0);
+                    if (v > 0 || sp > 0) { outside.views += v; outside.spend += sp; outside.nms.add(nm); }
+                }
                 if (!nm || !idSet.has(nm)) return;
                 const key = `${nm}:${date}`;
                 if (!byNmDate[key]) byNmDate[key] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
@@ -4027,6 +4056,10 @@ const RNP = (() => {
             _applyAdBucket(row, d);
             _fillLiveZeros(row);
         });
+        if (opts?.trackOutside) {
+            _adOutside = outside;
+            _updateAdOutsideNotice();
+        }
         if (Object.keys(byNmDate).length) {
             console.info('[RNP] ads from advertising_daily_stats:', Object.keys(byNmDate).length, 'nm-days');
         }
@@ -4259,7 +4292,7 @@ const RNP = (() => {
         _applyStocksToCache(stocks, nmIds);
         await _mergeFinanceDailyFromDb(nmIds, cal);
         if (_isStaleLoad(snapReq, snapCab)) return false;
-        await _mergeAdStatsFromDb(nmIds, cal);
+        await _mergeAdStatsFromDb(nmIds, cal, { trackOutside: true });
         _seedTodayLiveZeros(nmIds, cal);
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
