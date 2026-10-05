@@ -144,3 +144,13 @@ const amountHalf = WB.calculateMetrics([
 assert.equal(amountHalf.sppSum, 4000, 'без полного retail_amount — старая разница цен');
 
 console.log('wb-formulas_test: ok');
+
+// Налог по умолчанию 0: кыргызские ИП без налога (раньше молча брались 6%).
+{
+    const WBx = require('./wb-formulas.js');
+    const saleRow = { doc_type_name: 'Продажа', supplier_oper_name: 'Продажа', quantity: 1, retail_price_withdisc_rub: 1000, retail_price: 1000, retail_amount: 900, ppvz_for_pay: 700, sale_dt: '2026-09-10', nm_id: 1 };
+    const noTax = WBx.calculateMetrics([saleRow], { adsSum: 0 });
+    require('assert').strictEqual(noTax.taxSum, 0, 'no tax unless the cabinet sets a rate');
+    const withTax = WBx.calculateMetrics([saleRow], { taxRate: 6, adsSum: 0 });
+    require('assert').strictEqual(withTax.taxSum, 60);
+}

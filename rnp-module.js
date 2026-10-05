@@ -3812,7 +3812,7 @@ const RNP = (() => {
     function _rnpMetricSettings() {
         const opts = _settingsOptions?.() || {};
         return {
-            taxRate: Number(opts.taxRate) > 0 ? Number(opts.taxRate) : 6,
+            taxRate: Number(opts.taxRate) > 0 ? Number(opts.taxRate) : 0,
             buyoutRate: Number(_settings.buyoutRate) > 0 ? Number(_settings.buyoutRate) : 0.65,
             periodDays: Math.max(1, Number(_settings.calcPeriod) || 30),
         };

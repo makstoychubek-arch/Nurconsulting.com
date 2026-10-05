@@ -6282,7 +6282,7 @@
             <div class="widget-card p-6">
                 <h3 class="font-semibold mb-5" style="color:var(--text-primary)">Параметры расчёта прибыли</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><label class="text-xs block mb-2" style="color:var(--text-secondary)">Налоговая ставка (%)</label><input type="number" id="tax-rate" placeholder="6" value="6" class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)"></div>
+                    <div><label class="text-xs block mb-2" style="color:var(--text-secondary)">Налоговая ставка (%)</label><input type="number" id="tax-rate" placeholder="0" value="0" class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)"></div>
                     <div><label class="text-xs block mb-2" style="color:var(--text-secondary)">Операционные расходы в месяц (сом)</label><input type="number" id="opex" placeholder="150000" class="w-full rounded-xl px-4 py-3 text-sm focus:outline-none" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)"></div>
                 </div>
                 <button onclick="saveSettings()" class="mt-4 px-6 py-2.5 text-white text-sm font-semibold rounded-xl transition" style="background:var(--accent)">Сохранить</button>
@@ -7497,7 +7497,7 @@
                     </div>
                     <div>
                         <label class="text-xs font-semibold block mb-1.5" style="color:var(--text-secondary)">Налог УСН (%)</label>
-                        <input type="number" id="calc-tax" placeholder="6" value="6" class="w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)" oninput="calcUnit()">
+                        <input type="number" id="calc-tax" placeholder="0" value="0" class="w-full rounded-xl px-4 py-2.5 text-sm" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)" oninput="calcUnit()">
                     </div>
                     <div>
                         <label class="text-xs font-semibold block mb-1.5" style="color:var(--text-secondary)">Реклама на 1 шт (₽)</label>
@@ -7784,7 +7784,7 @@
 
 <script src="/dist/nr-win.1c22985ab7.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.e9ec91e8e0.min.js"></script>
+<script src="/dist/rnp-module.9ee359168c.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
    и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
@@ -8063,7 +8063,7 @@
 </script>
 
 <script src="/dist/rnp-plan-fact.4fa5c941bc.min.js"></script>
-<script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
+<script src="/dist/wb-formulas.38498f82bd.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.35bc97e198.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
@@ -13468,7 +13468,7 @@
                 const finId = requestId;
                 const finCabinet = snapshotCabinet;
                 const settings = {
-                    taxRate: Number(localStorage.getItem('tax_rate') || 6),
+                    taxRate: Number(localStorage.getItem('tax_rate_v2') || 0),
                     opex: Number(localStorage.getItem('opex') || 0),
                     adsSum: Number(adsCur && adsCur.spend || 0),
                 };
@@ -14120,8 +14120,17 @@
         }
     }
 
+    // Ставка налога по умолчанию 0 (кыргызские ИП без налога); сохранённая владельцем подставляется в поле.
+    document.addEventListener('DOMContentLoaded', () => {
+        try {
+            const v = localStorage.getItem('tax_rate_v2');
+            const el = document.getElementById('tax-rate');
+            if (el && v != null) el.value = v;
+        } catch (e) {}
+    });
+
     function saveSettings() {
-        localStorage.setItem('tax_rate', document.getElementById('tax-rate').value);
+        localStorage.setItem('tax_rate_v2', document.getElementById('tax-rate').value || '0');
         localStorage.setItem('opex', document.getElementById('opex').value);
         showPremiumModal('success', 'Сохранено!', 'Настройки успешно обновлены.');
     }
@@ -14193,7 +14202,7 @@
         const spp = Number(document.getElementById('calc-spp')?.value || 20);
         const logBase = Number(document.getElementById('calc-logistics')?.value || 0);
         const buyout = Number(document.getElementById('calc-buyout')?.value || 65);
-        const taxRate = Number(document.getElementById('calc-tax')?.value || 6);
+        const taxRate = Number(document.getElementById('calc-tax')?.value || 0);
         const ads = Number(document.getElementById('calc-ads')?.value || 0);
 
         if (!price || !cost) return;

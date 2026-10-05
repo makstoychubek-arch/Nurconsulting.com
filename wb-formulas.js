@@ -55,12 +55,13 @@ const EXCLUDED_DEDUCTION_NAMES = [
 /**
  * Главная функция расчёта всех метрик дашборда
  * @param {Array} rows — строки финотчёта (snake_case или camelCase)
- * @param {Object} settings — { taxRate: 6, opex: 0, costOfGoods: {} }
+ * @param {Object} settings — { taxRate: 0, opex: 0, costOfGoods: {} }
  *   costOfGoods: { [nmId]: costPerUnit } — себестоимость по артикулу
  * @returns {Object} — все метрики для отображения в дашборде
  */
 function calculateMetrics(rows, settings = {}) {
-    const taxRate = settings.taxRate || 6;     // УСН "Доходы", %
+    // Ставка налога, %. По умолчанию 0: кыргызские ИП работают без налога; ставку задают настройки.
+    const taxRate = Number(settings.taxRate) > 0 ? Number(settings.taxRate) : 0;
     const opexMonthly = settings.opex || 0;    // Операционные расходы в месяц, сом
     const costOfGoods = settings.costOfGoods || {}; // себестоимость по nmId
     const adsSum = Math.round(Number(settings.adsSum || 0)); // расход РК за период (advertising_daily_stats)
