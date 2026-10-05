@@ -2738,6 +2738,19 @@
         .pnl-row b { font-weight: 700; font-variant-numeric: tabular-nums; }
         .pnl-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
         .pnl-note { margin-top: 10px; font-size: 10px; color: var(--text-muted); }
+        .pnl-mini-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+        .pnl-mini { background: var(--surface-solid); border-radius: var(--radius-card, 16px); padding: 14px 16px 10px; box-shadow: var(--card-shadow); min-width: 0; }
+        .pnl-mini .pnl-title { margin-bottom: 2px; font-size: 15px; color: var(--text-primary); }
+        .pnl-mini-date { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; }
+        .pnl-mini-val { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+        .pnl-mini-dyn { font-size: 11px; margin-top: 2px; }
+        .pnl-mini-dyn.up { color: #16a34a; } .pnl-mini-dyn.down { color: #ef4444; }
+        .pnl-mini svg { display: block; width: 100%; height: 44px; margin-top: 8px; }
+        .pnl-chart-card { background: var(--surface-solid); border-radius: var(--radius-card, 16px); padding: 16px 18px; box-shadow: var(--card-shadow); }
+        .pnl-chart-card[hidden] { display: none; }
+        .pnl-chart-wrap { position: relative; height: 280px; margin-top: 10px; }
+        @media (max-width: 1280px) { .pnl-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 640px) { .pnl-mini-grid { grid-template-columns: 1fr 1fr; } .pnl-mini-val { font-size: 20px; } }
         .pnl-card--profit .pnl-big { color: #16a34a; }
         .pnl-card--profit .pnl-big.is-neg { color: #ef4444; }
         @media (max-width: 1280px) { .pnl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
@@ -6151,6 +6164,11 @@
                     </div>
                     <div class="pnl-note">% — доля от реализации (продажи минус возвраты)</div>
                 </div>
+            </div>
+            <div id="pnl-mini" class="pnl-mini-grid"></div>
+            <div class="pnl-chart-card" id="pnl-chart-card" hidden>
+                <div class="pnl-title">Динамика показателей</div>
+                <div class="pnl-chart-wrap"><canvas id="pnl-chart"></canvas></div>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 dash-kpi-hero">
                 <div class="kpi-hero-card" data-tone="good">
@@ -13443,8 +13461,14 @@
                 { op: 'lte', column: 'stat_date', value: to },
             ], 'spend,stat_date');
             let spend = 0;
-            for (const r of rows || []) spend += Number(r.spend || 0);
-            return { spend };
+            const byDay = {};
+            for (const r of rows || []) {
+                const v = Number(r.spend || 0);
+                spend += v;
+                const d = String(r.stat_date || '').slice(0, 10);
+                if (d) byDay[d] = (byDay[d] || 0) + v;
+            }
+            return { spend, byDay };
         } catch (e) {
             console.warn('[loadFromDB] advertising_daily_stats', e && e.message);
             return { spend: 0 };
@@ -13553,6 +13577,7 @@
                         const applyFin = () => {
                             WBFormulas.applyMetricsToDashboard(metrics, setText);
                             renderPnl(metrics);
+                            try { renderPnlDaily(rows, summary.cur_daily, adsCur && adsCur.byDay, settings, from, to, metrics, Number(summary.cur?.orders_sum || 0)); } catch (e) { console.warn('[pnl daily]', e && e.message); }
                             applyExtendedMetricDisplay(metrics);
                             restyleDashNums();
                             syncSummaryTab(metrics, stocks);
@@ -13951,6 +13976,81 @@
         $('pnl-profit').classList.toggle('is-neg', profit < 0);
         $('pnl-margin').textContent = real > 0 ? Math.round(profit / real * 100) + '%' : '—';
         $('pnl-roi').textContent = m.costOfSalesSum > 0 ? Math.round(profit / m.costOfSalesSum * 100) + '%' : '—';
+    }
+
+    let _pnlChart = null;
+
+    /** Нижний ряд как у Raskpro: Заказы, Продажи, Логистика, Реклама, Все услуги + график «Динамика показателей». */
+    function renderPnlDaily(rows, ordersDaily, adsByDay, settings, from, to, totalMetrics, ordersTotal) {
+        const host = document.getElementById('pnl-mini');
+        if (!host || typeof WBFormulas === 'undefined') return;
+        const dates = [];
+        for (let t = new Date(from + 'T00:00:00Z'); t <= new Date(to + 'T00:00:00Z'); t = new Date(t.getTime() + 86400000)) dates.push(t.toISOString().slice(0, 10));
+        const byDate = {};
+        (rows || []).forEach(r => {
+            const d = String(r.sale_dt || r.rr_dt || '').slice(0, 10);
+            if (d) (byDate[d] = byDate[d] || []).push(r);
+        });
+        const ord = {};
+        (ordersDaily || []).forEach(d => { ord[String(d.date).slice(0, 10)] = Number(d.sum || 0); });
+        const days = dates.map(d => {
+            const ads = Math.round(Number((adsByDay || {})[d] || 0));
+            const m = byDate[d] ? WBFormulas.calculateMetrics(byDate[d], { ...settings, opex: 0, adsSum: ads }) : null;
+            const other = m ? m.storageSum + m.acceptanceSum + m.penaltySum + m.deductionSum - m.compensationSum : 0;
+            const serv = m ? m.commissionSum + m.acquiringSum + m.logisticsSum + ads + other : ads;
+            return { d, orders: ord[d] || 0, sales: m ? m.salesSum : 0, logistics: m ? m.logisticsSum : 0, ads, serv, profit: m ? m.profitFull : 0 };
+        });
+        const last = days[days.length - 1] || {};
+        const lbl = last.d ? last.d.split('-').reverse().join('.') : '';
+        const n = (v) => Math.round(Number(v) || 0).toLocaleString('ru-RU').replace(/\u00a0/g, ' ');
+        const spark = (vals, color) => {
+            const w = 200, h = 44, max = Math.max(...vals, 1), min = Math.min(...vals, 0);
+            const pts = vals.map((v, i) => [vals.length > 1 ? i / (vals.length - 1) * w : w / 2, h - 3 - (v - min) / (max - min || 1) * (h - 8)]);
+            const line = pts.map(p => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+            return `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polygon points="0,${h} ${line} ${w},${h}" fill="${color}" opacity="0.14"></polygon><polyline points="${line}" fill="none" stroke="${color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"></polyline></svg>`;
+        };
+        const card = (title, total, key, color, costLike) => {
+            const vals = days.map(x => x[key]);
+            const a = vals[vals.length - 1] || 0, b = vals[vals.length - 2] || 0;
+            const dyn = b > 0 ? Math.round((a - b) / b * 100) : null;
+            const good = dyn == null ? '' : ((dyn >= 0) !== !!costLike ? 'up' : 'down');
+            return `<div class="pnl-mini"><div class="pnl-title">${title}</div><div class="pnl-mini-date">${lbl}</div><div class="pnl-mini-val">${n(total)}</div>
+              <div class="pnl-mini-dyn ${good}">${dyn == null ? '' : (dyn >= 0 ? '+' : '') + dyn + '% динамика за день'}</div>${spark(vals, color)}</div>`;
+        };
+        const m = totalMetrics;
+        host.innerHTML = [
+            card('Заказы', ordersTotal, 'orders', '#f97316', false),
+            card('Продажи', m.salesSum, 'sales', '#16a34a', false),
+            card('Логистика', m.logisticsSum, 'logistics', '#7dd3fc', true),
+            card('Реклама', m.adsSum, 'ads', '#a855f7', true),
+            card('Все услуги', days.reduce((s, x) => s + x.serv, 0), 'serv', '#3b82f6', true),
+        ].join('');
+
+        const cardEl = document.getElementById('pnl-chart-card');
+        const cv = document.getElementById('pnl-chart');
+        if (cardEl && cv && typeof Chart !== 'undefined') {
+            cardEl.hidden = false;
+            if (_pnlChart) { _pnlChart.destroy(); _pnlChart = null; }
+            _pnlChart = new Chart(cv, {
+                type: 'bar',
+                data: {
+                    labels: days.map(x => Number(x.d.slice(8))),
+                    datasets: [
+                        { label: 'Заказы', data: days.map(x => Math.round(x.orders)), backgroundColor: '#fb9a4f', stack: 's' },
+                        { label: 'Продажи', data: days.map(x => Math.round(x.sales)), backgroundColor: '#6ea8fe', stack: 's' },
+                        { label: 'Прибыль', data: days.map(x => Math.round(x.profit)), backgroundColor: '#4ade80', stack: 's' },
+                    ],
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: false,
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 10, font: { size: 11 } } } },
+                    scales: {
+                        x: { stacked: true, grid: { display: false }, title: { display: true, text: 'Дата' } },
+                        y: { stacked: true, title: { display: true, text: 'Сумма' }, ticks: { callback: (v) => Number(v).toLocaleString('ru-RU') } },
+                    },
+                },
+            });
+        }
     }
 
     function setFinanceMetricsPlaceholder(text) {
