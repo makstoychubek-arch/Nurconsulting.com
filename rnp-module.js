@@ -1560,6 +1560,16 @@ const RNP = (() => {
         return !_compareMonthKey;
     }
 
+    /** Активные артикулы текущего кабинета для настроек звука заказов. */
+    function _listArticlesForSound() {
+        return _articles.filter(a => a.is_active).map(a => ({
+            nm_id: Number(a.nm_id),
+            name: String(a.name || ''),
+            article: _sellerArticle(a),
+            category: String(a.category || '').trim(),
+        }));
+    }
+
     /** Период из общего выбора дат в шапке. opts.noReload — только запомнить (перед первой отрисовкой). */
     async function setDateRange(from, to, opts) {
         const r = _clipRange(from, to);
@@ -2902,6 +2912,13 @@ const RNP = (() => {
         </svg>`;
     }
 
+    function _bellSvg() {
+        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7"></path>
+            <path d="M13.7 21a2 2 0 01-3.4 0"></path>
+        </svg>`;
+    }
+
     function _compareSvg() {
         return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="3" width="18" height="18" rx="2"></rect>
@@ -2953,12 +2970,13 @@ const RNP = (() => {
             ${_toolIconBtn('rnp-copy-plan-btn', planTitle, _planSvg(), 'RNP.copyPlanFromPrevWeek()')}
             ${_toolIconBtn('rnp-export-excel-btn', 'Скачать Excel', _excelSvg(), 'RNP.exportExcel()')}
             ${_toolIconBtn(`rnp-edit-mode-btn${editOn}`, editTitle, _editSvg(), 'RNP.toggleEditMode()')}
+            <button type="button" class="rnp-tool-icon rnp-order-sound-btn" data-staff-only="1" title="Звук при новом заказе" aria-label="Звук при новом заказе" onclick="window.NrOrderSound && NrOrderSound.openSettings()">${_bellSvg()}</button>
             <button type="button" class="rnp-settings-gear" title="Настройки РНП" aria-label="Настройки РНП" onclick="RNP.openSettings()">${_settingsGearSvg()}</button>
         </div>`;
     }
 
     function _buildPhoneActionBar() {
-        return `<div class="rnp-action-bar rnp-action-bar--phone" data-bar-v="2">
+        return `<div class="rnp-action-bar rnp-action-bar--phone" data-bar-v="3">
           <div class="rnp-period-chip">
             <span class="rnp-period-chip-text">${_periodChipLabel()}</span>
           </div>
@@ -2972,7 +2990,7 @@ const RNP = (() => {
     }
 
     function _buildActionBar(active) {
-        return `${_buildPhoneActionBar()}<div class="rnp-action-bar rnp-action-bar--desktop" data-bar-v="2">
+        return `${_buildPhoneActionBar()}<div class="rnp-action-bar rnp-action-bar--desktop" data-bar-v="3">
           <span id="rnp-freshness" hidden></span>
           ${_iconToolsHtml()}
         </div>`;
@@ -5397,7 +5415,7 @@ const RNP = (() => {
         const bar = document.getElementById('rnp-action-bar-wrap');
         const tabs = document.getElementById('rnp-sheet-tabs');
         const domCab = _rnpDomCab();
-        const chromeReady = !!(bar && bar.querySelector('[data-bar-v="2"]') && tabs && tabs.querySelector('.rnp-sheet-tab'));
+        const chromeReady = !!(bar && bar.querySelector('[data-bar-v="3"]') && tabs && tabs.querySelector('.rnp-sheet-tab'));
         if (chromeReady && !force && (!domCab || !_cab || domCab === _cab)) {
             _updateTabHighlight();
             return false;
@@ -5465,7 +5483,7 @@ const RNP = (() => {
     // Шапка и вкладки РНП кэшируются (мгновенная отрисовка после обновления страницы). При смене разметки
     // старый кэш показывал прежние элементы (три списка сверху) даже после выкладки новой версии: поднимаем
     // версию, и устаревший кэш один раз стирается.
-    const RNP_UI_VERSION = '2';
+    const RNP_UI_VERSION = '3';
     (function _purgeStaleRnpShell() {
         try {
             if (localStorage.getItem('rnp_ui_ver') === RNP_UI_VERSION) return;
@@ -7263,7 +7281,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, openSettings, closeSettings, openPlanFact, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();

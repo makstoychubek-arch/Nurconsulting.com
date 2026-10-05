@@ -7659,7 +7659,174 @@
 
 <script src="/dist/nr-win.0c0159fe69.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.3eee6de325.min.js"></script>
+<script src="/dist/rnp-module.b48f806320.min.js"></script>
+<script>
+/* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
+   и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
+   Работает, пока сайт открыт: браузер сначала требует любой клик по странице. Выбор артикулов хранится на этом устройстве. */
+(function () {
+    var KEY = 'nr_order_sound_v1';
+    var SRC = '/sounds/order-dolphin.m4a';
+    var audio = null, channel = null, started = false;
+
+    function clamp(v) { v = Number(v); return isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.8; }
+    function load() {
+        try {
+            var o = JSON.parse(localStorage.getItem(KEY) || 'null');
+            if (o && typeof o === 'object') {
+                return { enabled: !!o.enabled, volume: clamp(o.volume == null ? 0.8 : o.volume),
+                         nms: Array.isArray(o.nms) ? o.nms.map(Number).filter(Boolean) : [] };
+            }
+        } catch (e) {}
+        return { enabled: false, volume: 0.8, nms: [] };
+    }
+    function save(st) { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+    function esc(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]; }); }
+
+    function getAudio() { if (!audio) { audio = new Audio(SRC); audio.preload = 'auto'; } return audio; }
+    function play(volume, onBlocked) {
+        var a = getAudio();
+        a.volume = clamp(volume);
+        try {
+            a.currentTime = 0;
+            var p = a.play();
+            if (p && p.catch) p.catch(function () { if (onBlocked) onBlocked(); });
+        } catch (e) { if (onBlocked) onBlocked(); }
+    }
+
+    function toast(text) {
+        var t = document.createElement('div');
+        t.textContent = text;
+        t.style.cssText = 'position:fixed;right:18px;top:86px;z-index:100000;background:var(--surface-solid);color:var(--text-primary);border:1px solid var(--border);border-radius:14px;padding:10px 14px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.18)';
+        document.body.appendChild(t);
+        setTimeout(function () { t.remove(); }, 4500);
+    }
+
+    function handle(row) {
+        if (!row || row.silent) return;
+        var st = load();
+        if (!st.enabled || st.nms.indexOf(Number(row.nm_id)) === -1) return;
+        var label = row.article || String(row.nm_id || '');
+        play(st.volume, function () {
+            if (window.NrNotify) NrNotify.push({ title: 'Звук заказов ждёт клика', detail: 'Браузер не включит звук, пока вы не нажмёте на страницу.', key: 'order-sound-blocked' });
+        });
+        if (window.NrNotify) NrNotify.push({ title: 'Новый заказ', detail: label, key: 'order-' + row.id });
+        toast('🐬 Новый заказ: ' + label);
+    }
+
+    function start() {
+        if (started || typeof supabase === 'undefined' || !supabase.channel) return;
+        started = true;
+        try {
+            channel = supabase.channel('nr-order-events')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_events' }, function (payload) { handle(payload && payload.new); })
+                .subscribe();
+        } catch (e) { started = false; }
+    }
+
+    // ── окно мини-настроек ─────────────────────────────────────────────
+    function articles() {
+        var rnp = window.getRnp && window.getRnp();
+        try { return rnp && rnp.listArticles ? rnp.listArticles() : []; } catch (e) { return []; }
+    }
+    function groupsOf(list) {
+        var map = {}, order = [];
+        list.forEach(function (a) {
+            var g = a.category || 'Без группы';
+            if (!map[g]) { map[g] = []; order.push(g); }
+            map[g].push(a);
+        });
+        return order.map(function (g) { return { name: g, items: map[g] }; });
+    }
+
+    function render() {
+        var host = document.getElementById('nr-order-sound-body');
+        if (!host) return;
+        var st = load();
+        var list = articles();
+        var sel = {}; st.nms.forEach(function (n) { sel[n] = true; });
+        var groupsHtml = groupsOf(list).map(function (g, gi) {
+            var on = g.items.filter(function (a) { return sel[a.nm_id]; }).length;
+            var all = on === g.items.length;
+            var rows = g.items.map(function (a) {
+                return '<label class="nros-row"><input type="checkbox" data-nros-nm="' + a.nm_id + '"' + (sel[a.nm_id] ? ' checked' : '') + '>' +
+                    '<span class="nros-name">' + esc(a.article || a.name || a.nm_id) + '</span><span class="nros-nm">' + a.nm_id + '</span></label>';
+            }).join('');
+            return '<div class="nros-group"><label class="nros-grouphead"><input type="checkbox" data-nros-group="' + gi + '"' + (all ? ' checked' : '') + '>' +
+                '<b>' + esc(g.name) + '</b><span class="nros-cnt">' + on + ' / ' + g.items.length + '</span></label>' + rows + '</div>';
+        }).join('');
+        host.innerHTML =
+            '<label class="nros-main"><input type="checkbox" id="nros-enabled"' + (st.enabled ? ' checked' : '') + '><b>Звук при новом заказе</b></label>' +
+            '<div class="nros-vol"><button type="button" class="nros-test" id="nros-test">▶ Проверить звук</button>' +
+            '<input type="range" id="nros-volume" min="0" max="100" value="' + Math.round(st.volume * 100) + '"><span id="nros-volume-v">' + Math.round(st.volume * 100) + '%</span></div>' +
+            '<p class="nros-note">Сигнал приходит через 10–20 секунд после заказа со склада продавца (FBS) и только пока сайт открыт. Отметьте артикулы, на которые нужен звук.</p>' +
+            (list.length
+                ? '<div class="nros-actions"><button type="button" id="nros-all">Выбрать все</button><button type="button" id="nros-none">Снять все</button></div><div class="nros-list">' + groupsHtml + '</div>'
+                : '<p class="nros-note">Артикулы кабинета ещё не загружены. Откройте РНП и подождите несколько секунд.</p>');
+
+        host.onchange = function (e) {
+            var t = e.target, cur = load();
+            if (t.id === 'nros-enabled') { cur.enabled = t.checked; save(cur); if (t.checked) { start(); play(cur.volume); } return; }
+            if (t.id === 'nros-volume') { cur.volume = clamp(t.value / 100); save(cur); var v = document.getElementById('nros-volume-v'); if (v) v.textContent = t.value + '%'; return; }
+            var nm = t.getAttribute('data-nros-nm');
+            if (nm) { var n = Number(nm), i = cur.nms.indexOf(n); if (t.checked && i === -1) cur.nms.push(n); if (!t.checked && i !== -1) cur.nms.splice(i, 1); save(cur); render(); return; }
+            var gi = t.getAttribute('data-nros-group');
+            if (gi != null) {
+                var g = groupsOf(articles())[Number(gi)]; if (!g) return;
+                g.items.forEach(function (a) { var j = cur.nms.indexOf(a.nm_id); if (t.checked && j === -1) cur.nms.push(a.nm_id); if (!t.checked && j !== -1) cur.nms.splice(j, 1); });
+                save(cur); render();
+            }
+        };
+        host.onclick = function (e) {
+            var id = e.target && e.target.id, cur = load();
+            if (id === 'nros-test') { play(cur.volume); return; }
+            if (id === 'nros-all') { cur.nms = articles().map(function (a) { return a.nm_id; }); save(cur); render(); }
+            if (id === 'nros-none') { cur.nms = []; save(cur); render(); }
+        };
+        host.oninput = function (e) {
+            if (e.target && e.target.id === 'nros-volume') { var v = document.getElementById('nros-volume-v'); if (v) v.textContent = e.target.value + '%'; }
+        };
+    }
+
+    function css() {
+        if (document.getElementById('nros-css')) return;
+        var st = document.createElement('style');
+        st.id = 'nros-css';
+        st.textContent =
+            '.nros-main{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text-primary);margin-bottom:10px;cursor:pointer}' +
+            '.nros-vol{display:flex;align-items:center;gap:10px;margin-bottom:8px}.nros-vol input[type=range]{flex:1}' +
+            '.nros-test,.nros-actions button{border:1px solid var(--border);background:transparent;color:var(--text-primary);border-radius:10px;padding:5px 12px;font-size:12px;cursor:pointer}' +
+            '.nros-note{font-size:12px;color:var(--text-muted);line-height:1.4;margin:6px 0 10px}' +
+            '.nros-actions{display:flex;gap:8px;margin-bottom:8px}.nros-list{max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:12px;padding:6px 10px}' +
+            '.nros-group{padding:4px 0;border-bottom:1px solid var(--border)}.nros-group:last-child{border-bottom:none}' +
+            '.nros-grouphead,.nros-row{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-primary);padding:3px 0;cursor:pointer}' +
+            '.nros-row{padding-left:22px}.nros-cnt,.nros-nm{margin-left:auto;color:var(--text-muted);font-size:11px}';
+        document.head.appendChild(st);
+    }
+
+    function openSettings() {
+        css();
+        var ov = document.getElementById('nr-order-sound-overlay');
+        if (!ov) {
+            ov = document.createElement('div');
+            ov.id = 'nr-order-sound-overlay';
+            ov.className = 'rnp-settings-overlay';
+            ov.onclick = function (e) { if (e.target === ov) closeSettings(); };
+            ov.innerHTML = '<div class="rnp-settings-dialog nr-win" role="dialog" aria-modal="true" aria-labelledby="nros-title" style="max-width:520px">' +
+                '<button type="button" class="rnp-settings-close" onclick="NrOrderSound.close()" aria-label="Закрыть">×</button>' +
+                '<h3 id="nros-title" class="font-semibold" style="color:var(--text-primary);margin-bottom:10px">Уведомления о заказах</h3>' +
+                '<div id="nr-order-sound-body"></div></div>';
+            document.body.appendChild(ov);
+        }
+        if (typeof mountNrGlass === 'function') { try { mountNrGlass(ov); } catch (e) {} }
+        render();
+        ov.classList.add('is-open');
+    }
+    function closeSettings() { var ov = document.getElementById('nr-order-sound-overlay'); if (ov) ov.classList.remove('is-open'); }
+
+    window.NrOrderSound = { start: start, openSettings: openSettings, close: closeSettings, _handle: handle };
+})();
+</script>
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
    Большой кабинет грузится часами (WB отдаёт финотчёт 1 запрос/мин), поэтому клиент видит
@@ -9397,6 +9564,8 @@
             openBetaStub(name, el);
             return;
         }
+        // Период у каждой вкладки свой: подставляем его до того, как вкладка начнёт грузить данные.
+        if (DATE_FILTER_TABS.has(name)) loadDateRangeForTab(name);
         const apply = () => {
             window._betaStubTab = null;
             document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
@@ -12253,9 +12422,51 @@
     let activeDateFrom = savedRange?.from || monthStartIso();
     let activeDateTo = savedRange?.to || todayIso();
 
+    // У каждой вкладки со своим периодом (Дашборд, Сводный отчёт, Контроль РК, Логистика, Планирование, РНП)
+    // своя память: выбрали 16 октября в Дашборде — в РНП период не меняется. Раньше он был один на всех.
+    const DATE_RANGE_BY_TAB_KEY = 'nr_date_range_by_tab_v1';
+    function readRangeMap() {
+        try { return JSON.parse(localStorage.getItem(DATE_RANGE_BY_TAB_KEY) || '{}') || {}; } catch (_) { return {}; }
+    }
+    function validRange(r) {
+        const ok = (x) => typeof x === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(x);
+        return r && ok(r.from) && ok(r.to) && r.from <= r.to ? r : null;
+    }
+    function monthEndIso() {
+        const d = new Date();
+        const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+        return last.getFullYear() + '-' + String(last.getMonth() + 1).padStart(2, '0') + '-' + String(last.getDate()).padStart(2, '0');
+    }
+    function defaultRangeForTab(tab) {
+        // РНП по умолчанию — весь текущий месяц (в нём колонки плана на будущие дни), остальные — с 1-го по сегодня.
+        if (tab === 'rnp') return { from: monthStartIso(), to: monthEndIso() };
+        return { from: monthStartIso(), to: todayIso() };
+    }
+    function rangeTabKey() {
+        const t = (typeof getCurrentActiveTab === 'function' ? getCurrentActiveTab() : '') || 'dashboard';
+        return DATE_FILTER_TABS.has(t) ? t : 'dashboard';
+    }
+
     function saveActiveDateRange() {
-        try { localStorage.setItem(DASH_RANGE_KEY, JSON.stringify({ from: activeDateFrom, to: activeDateTo })); }
-        catch (_) {}
+        const map = readRangeMap();
+        map[rangeTabKey()] = { from: activeDateFrom, to: activeDateTo };
+        try { localStorage.setItem(DATE_RANGE_BY_TAB_KEY, JSON.stringify(map)); } catch (_) {}
+    }
+
+    /** Подставляет сохранённый период этой вкладки (или период по умолчанию) в общий выбор дат в шапке. */
+    function loadDateRangeForTab(tab) {
+        const map = readRangeMap();
+        // Старый общий период один раз достаётся только Дашборду, остальные начинают с периода по умолчанию.
+        const r = validRange(map[tab]) || (tab === 'dashboard' ? validRange(savedRange) : null) || defaultRangeForTab(tab);
+        const changed = r.from !== activeDateFrom || r.to !== activeDateTo;
+        activeDateFrom = r.from;
+        activeDateTo = r.to;
+        if (changed) {
+            updateDateRangeLabel();
+            const pk = document.getElementById('date-picker');
+            if (pk && !pk.classList.contains('hidden')) syncPickerFromActive();
+        }
+        return changed;
     }
 
     function getActiveDateRange() {
@@ -17993,7 +18204,7 @@
         updateSpaceStatusUI();
         // Без await: восстановление вкладки ниже не должно ждать сеть.
         applyModuleVisibility();
-        resolveStaffRole().then(() => resolvePaidAccess()).catch(e => console.warn('[role] init:', e));
+        resolveStaffRole().then(() => resolvePaidAccess()).then(() => { if (isStaff && window.NrOrderSound) window.NrOrderSound.start(); }).catch(e => console.warn('[role] init:', e));
 
         // Восстанавливаем сохранённую вкладку СРАЗУ, ДО любых await (loadCabinets
         // может идти 5-8с на большом кабинете) — иначе пользователь всё это время
