@@ -4516,85 +4516,13 @@ const RNP = (() => {
     }
 
     // ─── PROMOTION / AD SYNC (WB API v2/v3) ─────────────────────────────────
-    async function _syncAdStats(nmId) {
-        if (!_callProxy) return;
-        const now = new Date();
-        const dateFrom = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().split('T')[0];
-        const dateTo   = now.toISOString().split('T')[0];
-        try {
-            // 1. Get all campaign IDs via /adv/v1/promotion/count
-            const resp = await _callProxyTimed('advert_list', {}, _cab);
-            // New format: { ids: [...] }; old fallback: { adverts: [...] } or array
-            const allIds = resp?.ids ||
-                           (resp?.adverts ? resp.adverts.map(c => c.advertId || c.id).filter(Boolean) : null) ||
-                           (Array.isArray(resp) ? resp.map(c => c.advertId || c.id).filter(Boolean) : []);
-            if (!allIds.length) { console.info('[RNP] advert_list: no campaign IDs'); return; }
-            console.info(`[RNP] advert_list: ${allIds.length} campaign IDs`);
-
-            // 2. Fetch stats (GET /adv/v3/fullstats)
-            const stats = await _callProxyTimed('advert_stats', { advertIds: allIds, dateFrom, dateTo }, _cab);
-            if (!Array.isArray(stats) || !stats.length) { console.info('[RNP] advert_stats: empty response'); return; }
-            console.info(`[RNP] advert_stats: ${stats.length} campaigns returned`);
-
-            // 3. Aggregate by date — handle multiple possible structures from WB:
-            //    a) days[] → {date, nm[]/nms[]/apps[{nm/nms}]} — per-article breakdown
-            //    b) days[] → {date, views, clicks, sum, ...} — day-level aggregate
-            const byDate = {};
-            stats.forEach(camp => {
-                (camp.days || []).forEach(day => {
-                    const date = (day.date || '').split('T')[0];
-                    if (!date) return;
-
-                    let imp = 0, cl = 0, spend = 0, orders = 0, basket = 0;
-
-                    const allNms = _adNmsFromDay(day);
-
-                    if (allNms.length) {
-                        // Per-article data available — find our nmId
-                        const row = allNms.find(n => String(_adNmId(n)) === String(nmId));
-                        if (!row) return;
-                        imp    = Number(row.views  || 0);
-                        cl     = Number(row.clicks || 0);
-                        spend  = Number(row.sum    || 0);
-                        orders = Number(row.orders || 0);
-                        basket = Number(row.atbs   || 0);
-                    } else {
-                        // Day-level aggregate (no nm breakdown) — use as-is
-                        imp    = Number(day.views  || 0);
-                        cl     = Number(day.clicks || 0);
-                        spend  = Number(day.sum    || 0);
-                        orders = Number(day.orders || 0);
-                        basket = Number(day.atbs   || 0);
-                    }
-
-                    if (!imp && !cl && !spend) return;
-                    if (!byDate[date]) byDate[date] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
-                    byDate[date].imp    += imp;
-                    byDate[date].cl     += cl;
-                    byDate[date].spend  += spend;
-                    byDate[date].orders += orders;
-                    byDate[date].basket += basket;
-                });
-            });
-
-            console.info(`[RNP] advert_stats: aggregated for ${Object.keys(byDate).length} dates`);
-
-            const upserts = Object.entries(byDate).map(([date, d]) => ({
-                cabinet_id: _cab, nm_id: nmId, date,
-                ad_impressions: d.imp,
-                ad_clicks: d.cl,
-                ad_ctr: d.imp > 0 ? d.cl / d.imp * 100 : 0,
-                ad_spend: d.spend,
-                ad_cpc: d.cl > 0 ? d.spend / d.cl : 0,
-                ad_orders: d.orders,
-                ad_basket: d.basket,
-                ad_cro: d.cl > 0 ? d.orders / d.cl * 100 : 0,
-                updated_at: new Date().toISOString()
-            }));
-            if (upserts.length) {
-                await _db.from('rnp_daily_data').upsert(upserts, { onConflict: 'cabinet_id,nm_id,date' });
-            }
-        } catch(e) { console.warn('[RNP] syncAds:', e.message); }
+    // Показы, клики и расход РК берутся только из advertising_daily_stats (advertising-sync раз в 6 часов,
+    // разбивка по артикулам внутри кампании): см. _mergeAdStatsFromDb. Раньше здесь по каждому артикулу ещё раз
+    // запрашивалась статистика WB за период больше 31 дня (WB такое не отдаёт) и писалась копия в
+    // rnp_daily_data, которая отставала с 03.09 и только нагружала лимиты WB. Функция оставлена как пустая,
+    // чтобы не ломать вызовы (refresh, RNP.syncAds).
+    async function _syncAdStats(_nmId) {
+        return 0;
     }
 
     // ─── AGGREGATION ──────────────────────────────────────────────────────────
@@ -6270,6 +6198,14 @@ const RNP = (() => {
         </table>`;
     }
 
+    // Финансовый отчёт WB (продажи, возвраты, реализация, логистика…) приходит после закрытия дня.
+    // Для сегодняшней колонки там ещё нет данных — показываем «—», а не 0, который выглядит как ошибка.
+    const FINANCE_DAY_KEYS = new Set([
+        'sales_count', 'sales_sum', 'avg_check_sales', 'plan_sales_pct', 'return_pct', 'buyout_pct',
+        'logistics_per_unit', 'logistics_pct', 'storage_pct', 'realization', 'to_transfer', 'to_transfer_unit',
+        'delivery_sum', 'penalty_sum', 'storage_sum', 'deduction_sum',
+    ]);
+
     function _renderSection(sec, cols, art, firstDayIdx) {
         const key = `${art.nm_id}:${sec.id}`;
         const collapsed = _collapsedSections.has(key);
@@ -6337,7 +6273,8 @@ const RNP = (() => {
                 }
 
                 const val = d ? d[m.key] : null;
-                const str = _fmt(val, m.type);
+                const financePending = isDay && isToday && FINANCE_DAY_KEYS.has(m.key) && !(Number(val) > 0);
+                const str = financePending ? '—' : _fmt(val, m.type);
                 const cc  = m.hm ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
                 let style = sticky.style || '';
                 if (cc === 'rnp-green')  style += (style ? ';' : '') + 'background:#93c47d;color:#274e13';
@@ -6353,7 +6290,7 @@ const RNP = (() => {
                     hitKind = _planHitKind(val, d[planKey]);
                 }
                 const rowNum = _metricRowSeq++;
-                const numVal = (val != null && val !== '' && !isNaN(parseFloat(val))) ? parseFloat(val) : null;
+                const numVal = !financePending && (val != null && val !== '' && !isNaN(parseFloat(val))) ? parseFloat(val) : null;
                 const dataAttr = numVal != null
                     ? ` data-rnp-value="${numVal}" data-rnp-row="${rowNum}" data-rnp-col-idx="${ci}" data-rnp-metric="${m.key}"`
                     : '';
@@ -6369,7 +6306,7 @@ const RNP = (() => {
                 const hitCls = hitKind ? ` rnp-cell-plan-hit rnp-cell-plan-hit--${hitKind}` : '';
                 const liveTitle = isLiveToday
                     ? ' title="Сегодня — предварительные данные, ещё обновляются"'
-                    : '';
+                    : (financePending ? ' title="Финансовый отчёт WB придёт после закрытия дня"' : '');
                 return `<td class="${cls}${liveCls}${hitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${_fitNum(str ?? '')}</td>`;
             }).join('');
             const rowCls = [

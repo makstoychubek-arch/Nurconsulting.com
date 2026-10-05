@@ -35,4 +35,12 @@ for (const name of ['rnp-morning-funnel-zevina-11-bishkek', 'rnp-morning-funnel-
 }
 assert.ok(cron.includes('REPLACE_ME_SERVICE_ROLE_KEY') && !/eyJ[A-Za-z0-9_-]{20,}/.test(cron), 'no real key committed');
 
+// Сегодняшний день: финансовые показатели «ещё не пришли» (прочерк), а не 0; показы РК — из advertising_daily_stats.
+assert.ok(js.includes('const FINANCE_DAY_KEYS = new Set([') && js.includes("const financePending = isDay && isToday && FINANCE_DAY_KEYS.has(m.key) && !(Number(val) > 0);"),
+    'today finance cells show a dash until WB closes the day');
+assert.ok(js.includes('Финансовый отчёт WB придёт после закрытия дня'), 'the dash is explained');
+assert.ok(js.includes('async function _syncAdStats(_nmId) {\n        return 0;\n    }'), 'the per-article ad copy in rnp_daily_data is retired');
+assert.ok(js.includes("{ op: 'eq', column: 'cabinet_id', value: _cab },\n                { op: 'gte', column: 'stat_date'") || js.includes("'advertising_daily_stats'"),
+    'ads are read from advertising_daily_stats');
+
 console.log('funnel_orders_test: ok');
