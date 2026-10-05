@@ -206,6 +206,11 @@ serve(async (req) => {
                     : 'Спейс ожидает активации администратором.';
                 return json({ error: msg, code: 'SPACE_INACTIVE', status: space?.status || 'pending' }, 403);
             }
+            // Данные WB через прокси — платные разделы (бесплатно только Акылай, у неё свои функции).
+            if (!allCabinets) {
+                const { data: paid } = await adminCheck.rpc('paid_access_for', { p_user: user.id });
+                if (paid !== true) return json({ error: 'Раздел доступен на платных тарифах', code: 'PAYWALL' }, 402);
+            }
         }
 
         // ── Parse body ────────────────────────────────────────────────────────
