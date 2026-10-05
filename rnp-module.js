@@ -4487,6 +4487,9 @@ const RNP = (() => {
                     updated_at: new Date().toISOString(),
                 };
                 if (funnelOrders != null) rec.orders_count = funnelOrders;
+                // Настоящее число заказов из воронки (orderCount) — отдельно, для сверки с кабинетом WB.
+                const rawOrders = _funnelPickNum(day, ['orderCount', 'ordersCount', 'orders', 'order_count']);
+                if (rawOrders != null) rec.funnel_orders = Math.round(rawOrders);
                 upserts.push(rec);
             }
         }
@@ -4507,6 +4510,7 @@ const RNP = (() => {
             row.basket_pct = u.basket_pct;
             row.funnel_order_conv = u.funnel_order_conv;
             if (u.orders_count != null) row.orders_count = u.orders_count;
+            if (u.funnel_orders != null) row.funnel_orders = u.funnel_orders;
         });
     }
 
