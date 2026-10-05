@@ -226,6 +226,7 @@
             + '<span class="gv-sp"></span>'
             + '<button type="button" class="gv-ghost" data-act="template" title="Пустой шаблон с заголовками">Шаблон</button>'
             + '<button type="button" class="gv-ghost" data-act="export" title="Скачать таблицу">Excel</button>'
+            + '<button type="button" class="gv-ai" data-act="calc" title="Калькулятор раздач" aria-label="Калькулятор раздач">✦</button>'
             + '</div>'
             + '<div class="gv-sum">'
             + '<span class="gv-chip">Раздач: <b>' + nf(s.total) + '</b></span>'
@@ -657,6 +658,7 @@
             if (b.dataset.act === 'more') { state.size += 100; paint(); return; }
             if (b.dataset.act === 'template') return download('razdachi-shablon.csv', templateCsv());
             if (b.dataset.act === 'export') return download('razdachi-' + todayYmd() + '.csv', exportCsv());
+            if (b.dataset.act === 'calc') { if (root.NrGiveCalc) root.NrGiveCalc.open({ supabase: state.sb, cabinetId: state.cab }); }
         });
 
         h.addEventListener('keydown', function (e) {
