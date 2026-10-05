@@ -8626,7 +8626,9 @@
 
     function renderAdminSpaceUserCell(row, opts = {}) {
         const name = spaceDisplayName(row);
-        const email = row.email || '—';
+        let email = row.email || '—';
+        const tgM = /^tg(\d+)@telegram\.nurcon\.kg$/i.exec(email);
+        if (tgM) email = '✈ Telegram · ID ' + tgM[1];
         const avatar = (row.avatar_url || '').trim();
         const showCreator = opts.showCreator && isSuperAdminRow(row);
         const creatorBadge = showCreator ? '<span class="space-creator-badge">Создатель</span>' : '';
