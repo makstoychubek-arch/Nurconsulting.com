@@ -107,3 +107,11 @@ console.log('funnel_orders_test: ok');
     ok(js.includes('function _showNotePop') && js.includes("closest('.rnp-note-input')") && js.includes('data-nm="${nmId}"'), 'hovering a note opens an enlarged mini window');
     ok(h.includes('.rnp-note-pop-text') && h.includes('pointer-events: none'), 'the note pop is a read-only card');
 }
+
+// Дашборд: финансовый результат как у Raskpro и себестоимость из карточек товаров
+{
+    const h = require('fs').readFileSync(require('path').join(__dirname, 'dashboard.html'), 'utf8');
+    const ok = require('assert').ok;
+    ok(h.includes('id="dash-pnl"') && h.includes('function renderPnl') && h.includes('renderPnl(metrics);'), 'P&L block: Реализация → Услуги → Налоги и затраты → Операционная прибыль');
+    ok(h.includes('async function loadCostOfGoodsMap') && h.includes('settings.costOfGoods = await loadCostOfGoodsMap'), 'dashboard profit uses cost of goods from article cards');
+}

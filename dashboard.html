@@ -2725,6 +2725,23 @@
             outline: 1px solid var(--accent-border);
             outline-offset: -1px;
         }
+        .pnl-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+        .pnl-card { background: var(--surface-solid); border-radius: var(--radius-card, 16px); padding: 16px 18px; box-shadow: var(--card-shadow); min-width: 0; }
+        .pnl-title { font-size: 13px; font-weight: 700; color: var(--text-secondary); margin-bottom: 6px; }
+        .pnl-big { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; color: var(--text-primary); display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+        .pnl-chip { font-style: normal; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 6px; background: var(--sel); color: var(--text-secondary); }
+        .pnl-bar { display: flex; height: 5px; border-radius: 999px; overflow: hidden; background: var(--sel); margin: 10px 0 10px; }
+        .pnl-bar i { display: block; height: 100%; }
+        .pnl-rows { display: grid; gap: 6px; }
+        .pnl-row { display: flex; align-items: center; gap: 8px; font-size: 12px; min-width: 0; }
+        .pnl-row .pnl-lbl { flex: 1; min-width: 0; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pnl-row b { font-weight: 700; font-variant-numeric: tabular-nums; }
+        .pnl-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        .pnl-note { margin-top: 10px; font-size: 10px; color: var(--text-muted); }
+        .pnl-card--profit .pnl-big { color: #16a34a; }
+        .pnl-card--profit .pnl-big.is-neg { color: #ef4444; }
+        @media (max-width: 1280px) { .pnl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 640px) { .pnl-grid { grid-template-columns: 1fr; } .pnl-big { font-size: 22px; } }
         .rnp-note-pop {
             position: fixed; z-index: 10090; max-width: 320px; min-width: 180px; display: none;
             padding: 10px 12px; border-radius: 12px; background: var(--surface-solid); color: var(--text-primary);
@@ -6103,6 +6120,38 @@
         <div id="tab-dashboard" class="tab-content active space-y-4">
             <div id="dash-data-note" class="dash-finance-note" hidden></div>
             <div id="dash-finance-note" class="dash-finance-note" hidden></div>
+            <div id="dash-pnl" class="pnl-grid" aria-label="Финансовый результат">
+                <div class="pnl-card">
+                    <div class="pnl-title">Реализация</div>
+                    <div class="pnl-big" id="pnl-real">—</div>
+                    <div class="pnl-bar"><i id="pnl-real-bar" style="width:0;background:#16a34a"></i></div>
+                    <div class="pnl-rows">
+                        <div class="pnl-row"><span class="pnl-dot" style="background:#16a34a"></span><span class="pnl-lbl">Продажи</span><b id="pnl-sales">—</b></div>
+                        <div class="pnl-row"><span class="pnl-dot" style="background:#ef4444"></span><span class="pnl-lbl">Возвраты</span><b id="pnl-returns">—</b></div>
+                    </div>
+                </div>
+                <div class="pnl-card">
+                    <div class="pnl-title">Услуги</div>
+                    <div class="pnl-big"><span id="pnl-serv">—</span><em class="pnl-chip" id="pnl-serv-pct"></em></div>
+                    <div class="pnl-bar" id="pnl-serv-bar"></div>
+                    <div class="pnl-rows" id="pnl-serv-rows"></div>
+                </div>
+                <div class="pnl-card">
+                    <div class="pnl-title">Налоги и затраты</div>
+                    <div class="pnl-big"><span id="pnl-tax-total">—</span><em class="pnl-chip" id="pnl-tax-pct"></em></div>
+                    <div class="pnl-bar" id="pnl-tax-bar"></div>
+                    <div class="pnl-rows" id="pnl-tax-rows"></div>
+                </div>
+                <div class="pnl-card pnl-card--profit">
+                    <div class="pnl-title">Операционная прибыль</div>
+                    <div class="pnl-big" id="pnl-profit">—</div>
+                    <div class="pnl-rows">
+                        <div class="pnl-row"><span class="pnl-lbl">Маржинальность</span><em class="pnl-chip" id="pnl-margin">—</em></div>
+                        <div class="pnl-row"><span class="pnl-lbl">Рентабельность</span><em class="pnl-chip" id="pnl-roi">—</em></div>
+                    </div>
+                    <div class="pnl-note">% — доля от реализации (продажи минус возвраты)</div>
+                </div>
+            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 dash-kpi-hero">
                 <div class="kpi-hero-card" data-tone="good">
                     <div class="kpi-hero-label">Чистая прибыль</div>
@@ -8063,7 +8112,7 @@
 </script>
 
 <script src="/dist/rnp-plan-fact.4fa5c941bc.min.js"></script>
-<script src="/dist/wb-formulas.38498f82bd.min.js"></script>
+<script src="/dist/wb-formulas.5bba40a38e.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.35bc97e198.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
@@ -13471,11 +13520,15 @@
                     taxRate: Number(localStorage.getItem('tax_rate_v2') || 0),
                     opex: Number(localStorage.getItem('opex') || 0),
                     adsSum: Number(adsCur && adsCur.spend || 0),
+                    costOfGoods: {},
                 };
 
                 loadFinanceRows(snapshotCabinet, from, to).then(async (fin) => {
                     if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
                     const rows = fin.rows;
+                    // Себестоимость из карточек товаров (РНП → Товары): без неё «прибыль» — это прибыль до закупки.
+                    settings.costOfGoods = await loadCostOfGoodsMap(snapshotCabinet);
+                    if (finId !== _loadRequestId || finCabinet !== currentCabinetId) return;
                     // Расход РК берём ровно за те дни, что покрыл отчёт, иначе
                     // ДРР и прибыль складывают неделю рекламы с четырьмя днями
                     // продаж. На карточке «Реклама» при этом остаётся факт за
@@ -13499,6 +13552,7 @@
                     if (finCabinet === currentCabinetId) {
                         const applyFin = () => {
                             WBFormulas.applyMetricsToDashboard(metrics, setText);
+                            renderPnl(metrics);
                             applyExtendedMetricDisplay(metrics);
                             restyleDashNums();
                             syncSummaryTab(metrics, stocks);
@@ -13823,7 +13877,84 @@
         'rnp-profit', 'rnp-margin', 'rnp-roi', 'rnp-buyout', 'rnp-sales', 'rnp-logistics',
     ];
 
+    const _costMapCache = {};
+    async function loadCostOfGoodsMap(cabinetId) {
+        if (_costMapCache[cabinetId] && Date.now() - _costMapCache[cabinetId].at < 5 * 60 * 1000) return _costMapCache[cabinetId].map;
+        const map = {};
+        try {
+            let from = 0;
+            for (;;) {
+                const { data, error } = await supabase.from('rnp_articles').select('nm_id, cost_price')
+                    .eq('cabinet_id', cabinetId).range(from, from + 999);
+                if (error) throw error;
+                (data || []).forEach(a => { if (Number(a.cost_price) > 0) map[String(a.nm_id)] = Number(a.cost_price); });
+                if (!data || data.length < 1000) break;
+                from += 1000;
+            }
+        } catch (e) {
+            console.warn('[cost map]', e?.message || e);
+        }
+        _costMapCache[cabinetId] = { at: Date.now(), map };
+        return map;
+    }
+
+    /** Финансовый результат «как у Raskpro»: Реализация → Услуги → Налоги и затраты → Операционная прибыль. */
+    function renderPnl(m) {
+        const $ = (id) => document.getElementById(id);
+        if (!$('dash-pnl')) return;
+        const ids = ['pnl-real', 'pnl-sales', 'pnl-returns', 'pnl-serv', 'pnl-tax-total', 'pnl-profit', 'pnl-margin', 'pnl-roi'];
+        if (!m || !m.hasRealData) {
+            ids.forEach(id => { if ($(id)) $(id).textContent = '—'; });
+            ['pnl-serv-pct', 'pnl-tax-pct'].forEach(id => { if ($(id)) $(id).textContent = ''; });
+            ['pnl-serv-bar', 'pnl-tax-bar'].forEach(id => { if ($(id)) $(id).innerHTML = ''; });
+            ['pnl-serv-rows', 'pnl-tax-rows'].forEach(id => { if ($(id)) $(id).innerHTML = ''; });
+            if ($('pnl-real-bar')) $('pnl-real-bar').style.width = '0';
+            return;
+        }
+        const n = (v) => Math.round(Number(v) || 0);
+        const real = n(m.salesSum) - n(m.returnsSum);
+        const pct = (v) => real > 0 ? Math.round(v / real * 100) + '%' : '';
+        const fmtN = (v) => Number(v).toLocaleString('ru-RU').replace(/\u00a0/g, ' ');
+        $('pnl-real').textContent = fmtN(real);
+        $('pnl-sales').textContent = fmtN(n(m.salesSum));
+        $('pnl-returns').textContent = '-' + fmtN(n(m.returnsSum));
+        $('pnl-real-bar').style.width = m.salesSum > 0 ? Math.max(4, Math.round(real / m.salesSum * 100)) + '%' : '0';
+
+        const other = n(m.storageSum) + n(m.acceptanceSum) + n(m.penaltySum) + n(m.deductionSum) - n(m.compensationSum);
+        const serv = [
+            ['Комиссия', n(m.commissionSum) + n(m.acquiringSum), '#f59e0b'],
+            ['Логистика', n(m.logisticsSum), '#7dd3fc'],
+            ['Реклама', n(m.adsSum), '#a855f7'],
+            ['Остальные', other, '#6366f1'],
+        ];
+        const servTotal = serv.reduce((s, r) => s + r[1], 0);
+        $('pnl-serv').textContent = fmtN(servTotal);
+        $('pnl-serv-pct').textContent = pct(servTotal);
+        const row = (lbl, v, color) => `<div class="pnl-row"><span class="pnl-dot" style="background:${color}"></span><span class="pnl-lbl">${lbl}</span><b>${fmtN(v)}</b><em class="pnl-chip">${pct(v) || '0%'}</em></div>`;
+        const bar = (items, total) => items.map(r => total > 0 && r[1] > 0 ? `<i style="width:${(r[1] / total * 100).toFixed(1)}%;background:${r[2]}"></i>` : '').join('');
+        $('pnl-serv-bar').innerHTML = bar(serv, servTotal);
+        $('pnl-serv-rows').innerHTML = serv.map(r => row(r[0], r[1], r[2])).join('');
+
+        const taxes = [
+            ['Налог', n(m.taxSum), '#fb923c'],
+            ['Себестоимость продаж', n(m.costOfSalesSum), '#f9a8a0'],
+            ['Затраты', n(m.opexForPeriod), '#84cc16'],
+        ];
+        const taxTotal = taxes.reduce((s, r) => s + r[1], 0);
+        $('pnl-tax-total').textContent = fmtN(taxTotal);
+        $('pnl-tax-pct').textContent = pct(taxTotal);
+        $('pnl-tax-bar').innerHTML = bar(taxes, taxTotal);
+        $('pnl-tax-rows').innerHTML = taxes.map(r => row(r[0], r[1], r[2])).join('');
+
+        const profit = n(m.profitFull);
+        $('pnl-profit').textContent = fmtN(profit);
+        $('pnl-profit').classList.toggle('is-neg', profit < 0);
+        $('pnl-margin').textContent = real > 0 ? Math.round(profit / real * 100) + '%' : '—';
+        $('pnl-roi').textContent = m.costOfSalesSum > 0 ? Math.round(profit / m.costOfSalesSum * 100) + '%' : '—';
+    }
+
     function setFinanceMetricsPlaceholder(text) {
+        renderPnl(null);
         FINANCE_METRIC_IDS.forEach(id => setText(id, text));
     }
 
