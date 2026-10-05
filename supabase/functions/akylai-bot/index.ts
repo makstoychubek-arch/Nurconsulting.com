@@ -16,6 +16,7 @@ import {
     adminClient, agentLog, background, cabinetWbToken, env, FEEDBACKS_API, json, kickReviews, notifyNr, tg, wbFetch,
 } from '../_shared/akylai-server.ts';
 import { sha256Hex } from '../_shared/secret-box.ts';
+import { codeHash, displayName, isExpired, parseLoginStart, randomCode, sha256 } from '../_shared/tg-login.ts';
 
 const say = (chatId: number, text: string, extra: Record<string, unknown> = {}) =>
     tg('sendMessage', { chat_id: chatId, text, ...extra });
@@ -23,6 +24,29 @@ const say = (chatId: number, text: string, extra: Record<string, unknown> = {}) 
 async function clientEmail(admin: any, userId: string): Promise<string> {
     const { data } = await admin.from('spaces').select('email').eq('user_id', userId).maybeSingle();
     return String(data?.email || '');
+}
+
+/** Вход на сайт через Telegram: «/start lg_<токен>» → бот присылает 6-значный код, его вводят на сайте. */
+async function handleLoginStart(admin: any, chatId: number, from: any, token: string) {
+    const { data: row } = await admin.from('tg_login_tokens').select('*').eq('token_hash', await sha256(token)).maybeSingle();
+    if (!row || row.status === 'used' || isExpired(row.created_at)) {
+        await say(chatId, 'Эта ссылка для входа устарела. Вернитесь на сайт NR Space и нажмите «Войти через Telegram» ещё раз.');
+        return;
+    }
+    if (row.status === 'code_sent') {
+        await say(chatId, 'Код уже отправлен выше. Если он не подходит, запросите новый вход на сайте.');
+        return;
+    }
+    const code = randomCode();
+    await admin.from('tg_login_tokens').update({
+        code_hash: await codeHash(token, code),
+        tg_id: Number(from?.id || chatId),
+        tg_username: from?.username || null,
+        tg_name: displayName(from),
+        status: 'code_sent',
+        code_sent_at: new Date().toISOString(),
+    }).eq('id', row.id);
+    await say(chatId, `Код для входа в NR Space: ${code}\n\nВведите его на сайте. Действует 5 минут. Никому не сообщайте код: с ним можно войти в ваш аккаунт.`);
 }
 
 async function handleStart(admin: any, chatId: number, text: string) {
@@ -216,7 +240,9 @@ Deno.serve(async (req) => {
         const msg = update?.message;
         if (!msg || msg.chat?.type !== 'private') return json({ ok: true, ignored: true });
         const text = String(msg.text || '');
-        if (text.startsWith('/start')) await handleStart(admin, Number(msg.chat.id), text);
+        const loginToken = parseLoginStart(text);
+        if (loginToken) await handleLoginStart(admin, Number(msg.chat.id), msg.from, loginToken);
+        else if (text.startsWith('/start')) await handleStart(admin, Number(msg.chat.id), text);
         else if (msg.reply_to_message) await handleEditedText(admin, msg);
         return json({ ok: true });
     } catch (e) {
