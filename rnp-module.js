@@ -2342,6 +2342,61 @@ const RNP = (() => {
         }
     }
 
+    /** Мини-окно заметки при наведении: полный текст крупно + история. */
+    let _notePopEl = null;
+    let _notePopTimer = null;
+
+    function _hideNotePop() {
+        clearTimeout(_notePopTimer);
+        if (_notePopEl) _notePopEl.classList.remove('is-open');
+    }
+
+    function _showNotePop(input) {
+        const nm = input.getAttribute('data-nm');
+        const date = input.getAttribute('data-date');
+        const entry = _notesCache[nm] && _notesCache[nm][date];
+        if (!entry || !entry.text || document.activeElement === input) return;
+        if (!_notePopEl) {
+            _notePopEl = document.createElement('div');
+            _notePopEl.className = 'rnp-note-pop';
+            document.body.appendChild(_notePopEl);
+        }
+        const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+        const [y, m, d] = String(date).split('-');
+        const hist = (entry.history || []).slice(1, 6).map((x) => {
+            const when = x.at ? new Date(x.at).toLocaleString('ru') : '';
+            return `<div class="rnp-note-pop-old">${esc(x.text) || '—'}<span>${esc(x.author)}${when ? ' · ' + when : ''}</span></div>`;
+        }).join('');
+        const last = (entry.history || [])[0];
+        _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y}${last && last.author ? ' · ' + esc(last.author) : ''}</div>
+          <div class="rnp-note-pop-text">${esc(entry.text)}</div>${hist ? `<div class="rnp-note-pop-hist">${hist}</div>` : ''}`;
+        const r = input.getBoundingClientRect();
+        _notePopEl.classList.add('is-open');
+        const w = _notePopEl.offsetWidth, h = _notePopEl.offsetHeight;
+        let left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+        let top = r.bottom + 6;
+        if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
+        _notePopEl.style.left = left + 'px';
+        _notePopEl.style.top = top + 'px';
+    }
+
+    function _bindNotePop() {
+        if (document.documentElement.dataset.rnpNotePop) return;
+        document.documentElement.dataset.rnpNotePop = '1';
+        document.addEventListener('mouseover', (e) => {
+            const inp = e.target && e.target.closest && e.target.closest('.rnp-note-input');
+            if (!inp) return;
+            clearTimeout(_notePopTimer);
+            _notePopTimer = setTimeout(() => _showNotePop(inp), 160);
+        });
+        document.addEventListener('mouseout', (e) => {
+            if (e.target && e.target.closest && e.target.closest('.rnp-note-input')) _hideNotePop();
+        });
+        document.addEventListener('focusin', (e) => {
+            if (e.target && e.target.classList && e.target.classList.contains('rnp-note-input')) _hideNotePop();
+        });
+    }
+
     function _noteTip(nmId, date) {
         const h = _notesCache[nmId]?.[date]?.history || [];
         if (!h.length) return '';
@@ -2858,7 +2913,7 @@ const RNP = (() => {
             const st = _stickyColAttrs(ci, cols, 11, 27);
             const colCls = col.type === 'day' ? 'rnp-day-col' : 'rnp-data-col';
             return `<th class="rnp-th-note ${colCls}${st.cls}"${st.style ? ` style="${st.style}"` : ''}>
-              <input class="rnp-note-input" value="${text}" title="${tip || 'Комментарий к дате'}"
+              <input class="rnp-note-input" value="${text}" data-nm="${nmId}" data-date="${d}" title="${tip ? '' : 'Комментарий к дате'}"
                 placeholder="+"
                 onkeydown="if(event.key==='Enter'){this.blur();}"
                 onblur="RNP.saveNote(${nmId},'${d}',this.value)">
@@ -2979,14 +3034,13 @@ const RNP = (() => {
             ${_toolIconBtn('rnp-copy-plan-btn', planTitle, _planSvg(), 'RNP.copyPlanFromPrevWeek()')}
             ${_toolIconBtn('rnp-export-excel-btn', 'Скачать Excel', _excelSvg(), 'RNP.exportExcel()')}
             ${_toolIconBtn(`rnp-edit-mode-btn${editOn}`, editTitle, _editSvg(), 'RNP.toggleEditMode()')}
-            ${_toolIconBtn(`rnp-notes-btn${_notesVisible ? ' is-on active' : ''}`, _notesVisible ? 'Скрыть заметки по дням' : 'Заметки по дням', _noteSvg(), 'RNP.toggleNotes(!RNP.notesVisible())')}
             <button type="button" class="rnp-tool-icon rnp-order-sound-btn" data-staff-only="1" title="Звук при новом заказе" aria-label="Звук при новом заказе" onclick="window.NrOrderSound && NrOrderSound.openSettings()">${_bellSvg()}</button>
             <button type="button" class="rnp-settings-gear" title="Настройки РНП" aria-label="Настройки РНП" onclick="RNP.openSettings()">${_settingsGearSvg()}</button>
         </div>`;
     }
 
     function _buildPhoneActionBar() {
-        return `<div class="rnp-action-bar rnp-action-bar--phone" data-bar-v="4">
+        return `<div class="rnp-action-bar rnp-action-bar--phone" data-bar-v="5">
           <div class="rnp-period-chip">
             <span class="rnp-period-chip-text">${_periodChipLabel()}</span>
           </div>
@@ -3000,7 +3054,7 @@ const RNP = (() => {
     }
 
     function _buildActionBar(active) {
-        return `${_buildPhoneActionBar()}<div class="rnp-action-bar rnp-action-bar--desktop" data-bar-v="4">
+        return `${_buildPhoneActionBar()}<div class="rnp-action-bar rnp-action-bar--desktop" data-bar-v="5">
           <span id="rnp-freshness" hidden></span>
           ${_iconToolsHtml()}
         </div>`;
@@ -3283,7 +3337,7 @@ const RNP = (() => {
     function toggleNotes(on) {
         _notesVisible = !!on;
         try { localStorage.setItem('rnp_notes_visible', _notesVisible ? '1' : '0'); } catch (e) {}
-        document.querySelectorAll('.rnp-notes-btn').forEach((b) => {
+        document.querySelectorAll('.rnp-notes-btn, .rnp-head-notes-btn').forEach((b) => {
             b.classList.toggle('is-on', _notesVisible);
             b.classList.toggle('active', _notesVisible);
             const t = _notesVisible ? 'Скрыть заметки по дням' : 'Заметки по дням';
@@ -5435,7 +5489,7 @@ const RNP = (() => {
         const bar = document.getElementById('rnp-action-bar-wrap');
         const tabs = document.getElementById('rnp-sheet-tabs');
         const domCab = _rnpDomCab();
-        const chromeReady = !!(bar && bar.querySelector('[data-bar-v="4"]') && tabs && tabs.querySelector('.rnp-sheet-tab'));
+        const chromeReady = !!(bar && bar.querySelector('[data-bar-v="5"]') && tabs && tabs.querySelector('.rnp-sheet-tab'));
         if (chromeReady && !force && (!domCab || !_cab || domCab === _cab)) {
             _updateTabHighlight();
             return false;
@@ -5503,7 +5557,7 @@ const RNP = (() => {
     // Шапка и вкладки РНП кэшируются (мгновенная отрисовка после обновления страницы). При смене разметки
     // старый кэш показывал прежние элементы (три списка сверху) даже после выкладки новой версии: поднимаем
     // версию, и устаревший кэш один раз стирается.
-    const RNP_UI_VERSION = '4';
+    const RNP_UI_VERSION = '5';
     (function _purgeStaleRnpShell() {
         try {
             if (localStorage.getItem('rnp_ui_ver') === RNP_UI_VERSION) return;
@@ -6126,7 +6180,29 @@ const RNP = (() => {
 
     const PRODUCT_STATUSES = ['Локомотив', 'Новинка', 'Стабильный', 'Затухающий', 'Выведен из ассортимента'];
 
+    /** Ответственный, статус и «Заметки» — в левом верхнем углу шапки, где раньше было пусто. */
+    function _buildHeadMetaHtml(art) {
+        const md = art.manual_data || {};
+        const responsible = (md.responsible || '').replace(/"/g, '&quot;');
+        const status = md.status || '';
+        const statusOptions = `<option value=""${!status ? ' selected' : ''}>Статус —</option>` +
+            PRODUCT_STATUSES.map(s =>
+            `<option value="${s}"${s === status ? ' selected' : ''}>${s}</option>`).join('');
+        const hasNotes = Object.values(_notesCache[art.nm_id] || {}).some(n => n && n.text);
+        const on = _notesVisible ? ' is-on active' : '';
+        return `<div class="rnp-head-meta">
+          <input class="rnp-meta-input" value="${responsible}" placeholder="Ответственный"
+            onblur="RNP.saveMeta(${art.nm_id},'responsible',this.value)">
+          <select class="rnp-meta-select" onchange="RNP.saveMeta(${art.nm_id},'status',this.value)">${statusOptions}</select>
+          <button type="button" class="rnp-head-notes-btn${on}" title="${_notesVisible ? 'Скрыть заметки по дням' : 'Показать заметки по дням'}" onclick="RNP.toggleNotes(!RNP.notesVisible())">${_noteSvg()}<span>Заметки${hasNotes ? ' •' : ''}</span></button>
+        </div>`;
+    }
+
     function _buildMetaRows(cols, art) {
+        return '';
+    }
+
+    function _buildMetaRowsLegacy(cols, art) {
         const md = art.manual_data || {};
         const responsible = (md.responsible || '').replace(/"/g, '&quot;');
         const status = md.status || '';
@@ -6184,7 +6260,7 @@ const RNP = (() => {
           <thead>
             ${sheetHead}
             <tr class="rnp-cal-quarter-row">
-              <th class="rnp-th-metric" rowspan="${monthHeadRows}"></th>
+              <th class="rnp-th-metric" rowspan="${monthHeadRows}">${_buildHeadMetaHtml(art)}</th>
               <th class="rnp-th-spark" rowspan="${monthHeadRows}"></th>
               <th class="rnp-th-year-band" colspan="${cols.length}">${_monthStickLabel(cal.rangeLabel, _leftFrozenPx(cal))}</th>
             </tr>
@@ -6238,7 +6314,7 @@ const RNP = (() => {
           <thead>
             ${sheetHead}
             <tr class="rnp-cal-month-row">
-              <th class="rnp-th-metric" rowspan="${headRows}"></th>
+              <th class="rnp-th-metric" rowspan="${headRows}">${_buildHeadMetaHtml(art)}</th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
               ${nPrev ? `<th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${_metricW() + _sparkW()}px">${cal.prevName}</th>` : ''}
               <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
@@ -6480,6 +6556,7 @@ const RNP = (() => {
     }
 
     function _afterTableRender() {
+        _bindNotePop();
         _applyEditMode();
         _updateEditModeBtn();
         _syncFrozenPane(document.getElementById('rnp-root') || document);
