@@ -2421,21 +2421,25 @@
             background: transparent; color: #666; font-size: 22px; line-height: 1; cursor: pointer;
         }
         .pf-close:hover { background: #d9ead3; color: #111; }
-        .pf-scroll { flex: 1; min-height: 0; overflow: auto; background: #fff; }
+        .pf-scroll {
+            flex: 1; min-height: 0; overflow: auto; background: #fff;
+            overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;
+        }
+        body.rnp-plan-fact-open { overflow: hidden; }
         .pf-sheet {
-            border-collapse: collapse; table-layout: fixed;
+            border-collapse: separate; border-spacing: 0; table-layout: fixed; width: max-content;
             font-family: Roboto, Arial, sans-serif; font-size: 11px; color: #000;
             background: #fff;
         }
         .pf-sheet th, .pf-sheet td {
-            border: 1px solid #cfe4c7; padding: 1px 3px; text-align: center;
+            border-right: 1px solid #dbe9d5; border-bottom: 1px solid #dbe9d5; padding: 0 3px; text-align: center;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-            height: 18px; box-sizing: border-box;
+            height: 20px; line-height: 19px; box-sizing: border-box;
             color: #000;
         }
-        .pf-sheet .pf-a { position: sticky; left: 0; z-index: 2; width: 42px; min-width: 42px; background: #fff; }
-        .pf-sheet .pf-b { position: sticky; left: 42px; z-index: 2; width: 190px; min-width: 190px; text-align: left; background: #fff; }
-        .pf-sheet .pf-c { position: sticky; left: 232px; z-index: 2; width: 72px; min-width: 72px; font-size: var(--fs-micro); background: #fff; }
+        .pf-sheet .pf-a { position: sticky; left: 0; z-index: 2; width: 34px; min-width: 34px; background: #fff; }
+        .pf-sheet .pf-b { position: sticky; left: 34px; z-index: 2; width: 200px; min-width: 200px; text-align: left; background: #fff; }
+        .pf-sheet .pf-c { position: sticky; left: 234px; z-index: 2; width: 84px; min-width: 84px; box-shadow: 2px 0 0 #b6d7a8; font-size: var(--fs-micro); background: #fff; }
         .pf-sheet .pf-d { width: 28px; min-width: 28px; }
         .pf-sheet .pf-day { width: 38px; min-width: 38px; background: #b6d7a8; }
         .pf-sheet tbody .pf-day { background: #fff; color: #000; }
@@ -2445,23 +2449,34 @@
         .pf-sheet .pf-dark { background: #274e13 !important; color: #fff !important; font-weight: 700; }
         .pf-sheet .pf-total { background: #d9ead3; font-weight: 700; color: #000; }
         .pf-sheet .pf-title {
-            font-size: 22px; font-weight: 700; text-align: left; overflow: visible;
+            font-size: 15px; line-height: 19px; font-weight: 700; text-align: left; overflow: visible;
             font-family: Roboto, Arial, sans-serif;
         }
         .pf-sheet .pf-date, .pf-sheet .pf-dow { font-size: var(--fs-micro); background: #b6d7a8; }
         .pf-sheet .pf-coeff { font-weight: 700; font-size: 10px; }
         .pf-sheet thead th { position: sticky; z-index: 3; }
         .pf-sheet thead .pf-r1 th { top: 0; }
-        .pf-sheet thead .pf-r2 th { top: 22px; }
-        .pf-sheet thead .pf-r3 th { top: 40px; }
-        .pf-sheet thead .pf-r4 th { top: 58px; }
-        .pf-sheet thead .pf-r5 th { top: 76px; }
+        .pf-sheet thead .pf-r2 th { top: 30px; }
+        .pf-sheet thead .pf-r3 th { top: 50px; }
+        .pf-sheet thead .pf-r4 th { top: 70px; }
+        .pf-sheet thead .pf-r5 th { top: 90px; }
         .pf-sheet thead .pf-a, .pf-sheet thead .pf-b, .pf-sheet thead .pf-c { z-index: 5; background: #fff; }
         .pf-sheet thead .pf-total.pf-a,
         .pf-sheet thead .pf-total.pf-b,
         .pf-sheet thead .pf-total.pf-c { background: #d9ead3; }
-        .pf-sheet .pf-r1 .pf-plan, .pf-sheet .pf-r1 .pf-fact-h { font-size: var(--fs-micro); font-weight: 700; white-space: normal; line-height: 1.15; height: 28px; }
+        .pf-sheet .pf-r1 .pf-plan, .pf-sheet .pf-r1 .pf-fact-h { font-size: var(--fs-micro); font-weight: 700; white-space: normal; line-height: 1.15; height: 30px; }
         .pf-sheet tbody .pf-sum { font-weight: 700; }
+        .pf-sheet tbody tr:hover td:not(.pf-plan-set):not(.pf-ok):not(.pf-mid):not(.pf-bad) { box-shadow: inset 0 0 0 999px rgba(39,78,19,0.06); }
+        .pf-sheet .pf-wknd { color: #7a3b3b; }
+        .pf-sheet thead .pf-today { box-shadow: inset 0 -3px 0 #e8710a; }
+        .pf-sheet tbody .pf-today { box-shadow: inset 2px 0 0 #e8710a, inset -2px 0 0 #e8710a; }
+        .pf-sheet tbody .pf-future { background: #f6f6f6; }
+        .pf-sheet .pf-ok { background: #b7e1cd !important; color: #0b5d34 !important; font-weight: 700; }
+        .pf-sheet .pf-mid { background: #fce8b2 !important; color: #7a5200 !important; font-weight: 700; }
+        .pf-sheet .pf-bad { background: #f4c7c3 !important; color: #8a1c14 !important; font-weight: 700; }
+        .pf-sheet thead .pf-dark.pf-ok { background: #57bb8a !important; color: #fff !important; }
+        .pf-sheet thead .pf-dark.pf-mid { background: #f2c94c !important; color: #3b2a00 !important; }
+        .pf-sheet thead .pf-dark.pf-bad { background: #e67c73 !important; color: #fff !important; }
         body.rnp-plan-fact-open header.glass.app-header,
         body.rnp-plan-fact-open .bottom-nav { z-index: 1; }
         .rnp-settings-overlay {
@@ -7692,7 +7707,7 @@
 
 <script src="/dist/nr-win.0c0159fe69.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.c9f8bb0171.min.js"></script>
+<script src="/dist/rnp-module.b6d8859a75.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
    и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
@@ -7970,7 +7985,7 @@
 })();
 </script>
 
-<script src="/dist/rnp-plan-fact.63afff3e4a.min.js"></script>
+<script src="/dist/rnp-plan-fact.0c78817f18.min.js"></script>
 <script src="/dist/wb-formulas.0accef6dc8.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.35bc97e198.min.js"></script>

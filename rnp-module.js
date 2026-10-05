@@ -6689,7 +6689,9 @@ const RNP = (() => {
             const map = _dataCache[a.nm_id] || {};
             daily[a.nm_id] = {};
             Object.keys(map).forEach((d) => {
-                daily[a.nm_id][d] = _withFunnelOrders(map[d]);
+                const row = _withFunnelOrders(map[d]);
+                // Заказы дня — число из воронки WB, как в «Динамике продаж» и во вкладках РНП.
+                daily[a.nm_id][d] = row ? { ...row, fact_orders: row.orders_count } : row;
             });
         });
         return daily;
@@ -6703,7 +6705,6 @@ const RNP = (() => {
             daily: _planFactDaily(articles),
             plans: _planCache,
             monthKey: _viewMonthKey(),
-            cabinetName: _cabinetName(),
         });
     }
 
