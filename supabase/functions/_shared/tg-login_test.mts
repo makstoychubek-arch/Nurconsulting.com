@@ -1,0 +1,23 @@
+import assert from 'node:assert/strict';
+import { codeHash, displayName, isExpired, parseLoginStart, randomCode, randomHex, telegramEmail, TG_LOGIN_TTL_MS } from './tg-login.ts';
+
+const tok = 'a'.repeat(32);
+assert.equal(parseLoginStart(`/start lg_${tok}`), tok);
+assert.equal(parseLoginStart(`/start@NRbot lg_${tok}`), tok);
+assert.equal(parseLoginStart('/start lg_short'), '');
+assert.equal(parseLoginStart('/start someakylaicode123456'), '', 'код привязки Акылай не принимается за вход');
+assert.equal(parseLoginStart('/start'), '');
+assert.equal(randomHex(16).length, 32);
+assert.match(randomCode(), /^\d{6}$/);
+assert.notEqual(randomHex(16), randomHex(16));
+assert.equal(await codeHash(tok, '123456'), await codeHash(tok, ' 123456 '), 'пробелы вокруг кода не мешают');
+assert.notEqual(await codeHash(tok, '123456'), await codeHash('b'.repeat(32), '123456'), 'код привязан к токену');
+const now = Date.parse('2026-10-05T12:00:00Z');
+assert.equal(isExpired('2026-10-05T11:56:00Z', now), false);
+assert.equal(isExpired(new Date(now - TG_LOGIN_TTL_MS - 1000).toISOString(), now), true);
+assert.equal(isExpired('bad', now), true);
+assert.equal(telegramEmail(123456789), 'tg123456789@telegram.nurcon.kg');
+assert.equal(displayName({ first_name: 'Нурболот', last_name: 'Ж.' }), 'Нурболот Ж.');
+assert.equal(displayName({ username: 'nur' }), '@nur');
+assert.equal(displayName(null), 'Пользователь Telegram');
+console.log('tg-login_test: ok');

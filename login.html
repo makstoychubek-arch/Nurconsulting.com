@@ -161,6 +161,22 @@
                 <span>Войти через Google</span>
             </button>
 
+            <button type="button" onclick="startTelegramLogin()" id="tg-btn"
+                class="w-full flex items-center justify-center space-x-3 py-3 font-medium rounded-xl transition mb-3"
+                style="background:var(--card);color:var(--ink);border:1px solid var(--line);margin-top:-8px">
+                <svg class="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true"><path fill="#229ED9" d="M12 0a12 12 0 1 0 0 24 12 12 0 0 0 0-24zm5.6 8.2-1.9 8.9c-.14.63-.52.78-1.05.49l-2.9-2.14-1.4 1.35c-.16.16-.29.29-.59.29l.21-2.96 5.38-4.86c.23-.21-.05-.32-.36-.12l-6.65 4.19-2.87-.9c-.62-.19-.64-.62.13-.92l11.2-4.32c.52-.19.97.12.8.92z"/></svg>
+                <span>Войти через Telegram</span>
+            </button>
+            <div id="tg-panel" class="hidden mb-5 rounded-xl p-4 text-sm" style="background:var(--paper-2);border:1px solid var(--line)">
+                <p class="mb-2"><b>1.</b> Откройте бота и нажмите «Start» — он пришлёт код.<br><a id="tg-open" href="#" target="_blank" rel="noopener" class="underline font-semibold">Открыть Telegram</a></p>
+                <p class="mb-2"><b>2.</b> Введите код из сообщения:</p>
+                <input type="text" id="tg-code" inputmode="numeric" maxlength="6" placeholder="000000" autocomplete="one-time-code"
+                    class="input-field w-full px-4 py-3 rounded-xl text-center text-lg tracking-widest mb-2">
+                <div id="tg-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mb-2"></div>
+                <button type="button" onclick="submitTelegramCode()" class="vibe-btn w-full mb-1">Войти</button>
+                <button type="button" onclick="cancelTelegram()" class="w-full py-1 text-xs" style="color:var(--ink-dim)">Отмена</button>
+            </div>
+
             <div class="flex items-center space-x-3 mb-5">
                 <div class="flex-1 h-px bg-black/8"></div>
                 <span class="text-xs text-[#6B7682]">или через email</span>
@@ -423,6 +439,68 @@
         }
 
         function hideMsg(id) { document.getElementById(id)?.classList.add('hidden'); }
+
+        // ── Вход и регистрация через Telegram: бот присылает код, код вводят на сайте ──
+        const TG_FN = SUPABASE_URL + '/functions/v1/tg-login';
+        let _tgToken = '';
+
+        function tgError(msg) { const e = document.getElementById('tg-error'); if (e) { e.textContent = '❌ ' + msg; e.classList.remove('hidden'); } }
+
+        async function tgCall(body) {
+            const res = await fetch(TG_FN, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', apikey: SUPABASE_KEY, Authorization: 'Bearer ' + SUPABASE_KEY },
+                body: JSON.stringify(body),
+            });
+            return { status: res.status, data: await res.json().catch(() => ({})) };
+        }
+
+        async function startTelegramLogin() {
+            try { sessionStorage.removeItem('nr_logged_out'); } catch (_) {}
+            const btn = document.getElementById('tg-btn');
+            btn.disabled = true;
+            try {
+                const { status, data } = await tgCall({ action: 'start' });
+                if (status !== 200 || !data.token) {
+                    showError('login-error', status === 429 ? 'Сейчас много входов. Попробуйте через минуту.' : 'Вход через Telegram временно недоступен. Войдите через Google.');
+                    return;
+                }
+                _tgToken = data.token;
+                document.getElementById('tg-open').href = data.url;
+                document.getElementById('tg-error').classList.add('hidden');
+                document.getElementById('tg-code').value = '';
+                document.getElementById('tg-panel').classList.remove('hidden');
+                window.open(data.url, '_blank', 'noopener');
+                document.getElementById('tg-code').focus();
+            } catch (_) {
+                showError('login-error', 'Нет связи с сервером. Проверьте интернет и повторите.');
+            } finally { btn.disabled = false; }
+        }
+
+        function cancelTelegram() { _tgToken = ''; document.getElementById('tg-panel').classList.add('hidden'); }
+
+        async function submitTelegramCode() {
+            const code = (document.getElementById('tg-code').value || '').replace(/\D/g, '');
+            document.getElementById('tg-error').classList.add('hidden');
+            if (!_tgToken) { tgError('Начните вход заново.'); return; }
+            if (code.length !== 6) { tgError('Введите 6 цифр из сообщения бота.'); return; }
+            const { status, data } = await tgCall({ action: 'verify', token: _tgToken, code });
+            if (status !== 200 || !data.token_hash) {
+                const MSG = {
+                    wrong_code: 'Неверный код.' + (data.left != null ? ' Осталось попыток: ' + data.left + '.' : ''),
+                    no_code: 'Бот ещё не прислал код: откройте Telegram, нажмите «Start» и повторите.',
+                    expired: 'Код устарел. Нажмите «Войти через Telegram» ещё раз.',
+                    locked: 'Слишком много неверных попыток. Начните вход заново.',
+                    invalid: 'Ссылка входа уже использована. Начните заново.',
+                };
+                tgError(MSG[data.error] || 'Не получилось войти. Попробуйте ещё раз.');
+                return;
+            }
+            showOAuthLoading(OAUTH_LOADING_TEXT);
+            const { error } = await supabase.auth.verifyOtp({ token_hash: data.token_hash, type: 'magiclink' });
+            if (error) { hideOAuthLoading(); showAuthScreen(); tgError(authErrorText(error)); return; }
+            // дальше onAuthStateChange(SIGNED_IN) проверит доступ и откроет /space
+        }
 
         async function handleLogin() {
             const email = (document.getElementById('login-email')?.value || '').trim().toLowerCase();

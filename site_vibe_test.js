@@ -90,3 +90,16 @@ console.log('site_vibe_test: ok');
     assert.ok(r.includes('updateUser({ password: a })') && r.includes('PASSWORD_RECOVERY'), 'reset page sets a new password after the recovery link');
     assert.ok(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8').includes('"/reset-password"'), '/reset-password is routed');
 }
+
+// Вход и регистрация через Telegram: код из бота Акылай вводится на сайте
+{
+    const l = fs.readFileSync(path.join(root, 'login.html'), 'utf8');
+    assert.ok(l.includes('startTelegramLogin()') && l.includes("action: 'verify'") && l.includes("type: 'magiclink'"), 'login.html: Telegram login flow');
+    const fn = fs.readFileSync(path.join(root, 'supabase/functions/tg-login/index.ts'), 'utf8');
+    assert.ok(fn.includes("status: 'used'") && fn.includes('TG_LOGIN_MAX_ATTEMPTS') && fn.includes('isExpired'), 'tg-login: one-time token, attempts limit, expiry');
+    assert.ok(!/\.code_hash\b.*return json/.test(fn) || fn.includes('codeHash(token, code)'), 'the code is compared by hash');
+    const bot = fs.readFileSync(path.join(root, 'supabase/functions/akylai-bot/index.ts'), 'utf8');
+    assert.ok(bot.includes('parseLoginStart(text)') && bot.includes('handleLoginStart'), 'the bot sends the login code');
+    const mig = fs.readFileSync(path.join(root, 'supabase/migrations/20261006100000_tg_login.sql'), 'utf8');
+    assert.ok(mig.includes('revoke all on public.tg_login_tokens from anon, authenticated;') && mig.includes('enable row level security'), 'login tables are server-only');
+}
