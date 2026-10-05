@@ -11,7 +11,7 @@
 
     /** Лист строится ровно из артикулов РНП (видимых, в порядке РНП) — без зашитых списков. */
     function sheetMeta() {
-        return { kind: 'rnp', title: 'ПЛАН/ФАКТ', skuHeader: 'WB' };
+        return { kind: 'rnp', title: 'ПЛАН/ФАКТ', skuHeader: 'SKU' };
     }
 
     function applyCatalog(articles) {
@@ -153,27 +153,34 @@
         for (i = 0; i < 3; i++) o.push(Math.round(c1[i] + (c2[i] - c1[i]) * t));
         return 'rgb(' + o.join(',') + ')';
     }
-    var C_RED = [230, 124, 115], C_WHITE = [255, 255, 255], C_GREEN = [87, 187, 138], C_HEAT = [196, 168, 255];
+    var C_RED = [230, 124, 115], C_WHITE = [255, 255, 255], C_GREEN = [87, 187, 138], C_HEAT = [255, 0, 255];
 
     /** Тепловая карта дня: белый → фиолетовый по min..max недели (F7:L1002 в Excel). */
     function heatStyle(v, min, max) {
-        if (!v || max <= min) return v ? 'background:' + mix(C_WHITE, C_HEAT, 0.45) : '';
+        if (!v) return '';
+        if (max <= min) return 'background:' + mix(C_WHITE, C_HEAT, 0) + ';';
         return 'background:' + mix(C_WHITE, C_HEAT, (v - min) / (max - min)) + ';';
     }
 
-    /** Красный → белый → зелёный: 50% и ниже красный, 75% белый, 100% и выше зелёный. */
-    function rgwStyle(pct) {
-        if (pct == null || !isFinite(pct)) return '';
-        var bg = pct <= 0.75 ? mix(C_RED, C_WHITE, (pct - 0.5) / 0.25) : mix(C_WHITE, C_GREEN, (pct - 0.75) / 0.25);
-        return 'background:' + bg + ';color:#000;';
+    /** Шкала Excel «мин — 50-й перцентиль — макс»: красный → белый → зелёный (E5:K5). */
+    function scale3Style(v, min, mid, max) {
+        if (v == null || !isFinite(v) || max <= min) return '';
+        var bg = v <= mid ? mix(C_RED, C_WHITE, mid > min ? (v - min) / (mid - min) : 1) : mix(C_WHITE, C_GREEN, max > mid ? (v - mid) / (max - mid) : 1);
+        return 'background:' + bg + ';';
     }
 
-    /** ≥90% зелёный, 60–89% жёлтый, ниже — красный (правило cellIs из Excel). */
-    function ratioClass(pct) {
+    /** Строка коэффициентов (A4:BL4): ≥90% — зелёный, 5–89% — красный. */
+    function coeffClass(pct) {
         if (pct == null || !isFinite(pct)) return '';
-        if (pct >= 0.9) return ' pf-ok';
-        if (pct >= 0.6) return ' pf-mid';
-        return ' pf-bad';
+        if (pct >= 0.9) return ' pf-cf-ok';
+        if (pct >= 0.05) return ' pf-cf-bad';
+        return '';
+    }
+
+    function median(arr) {
+        var a = arr.slice().sort(function (x, y) { return x - y; });
+        var n = a.length;
+        return n % 2 ? a[(n - 1) / 2] : (a[n / 2 - 1] + a[n / 2]) / 2;
     }
 
     function pctText(pct) {
@@ -266,10 +273,15 @@
         return '<td class="' + cls + '"' + (style ? ' style="' + style + '"' : '') + '>' + text + '</td>';
     }
 
+    /** Помечает ячейки недели классом pf-wN — на телефоне показывается одна неделя. */
+    function tagWeek(str, from, n) {
+        return str.slice(0, from) + str.slice(from).replace(/class="/g, 'class="pf-w' + n + ' ');
+    }
+
     function headerHtml(model) {
         var w, i, h1 = '', h2 = '', h3 = '', h4 = '', h5 = '';
         h1 += th('pf-a', '', '');
-        h1 += th('pf-b pf-title', '', '');
+        h1 += th('pf-b pf-title', '', 'ПЛАН/ФАКТ');
         h1 += th('pf-c', '', '');
         h1 += th('pf-d', '', '');
         h2 += th('pf-a', '', '');
@@ -289,17 +301,21 @@
         h5 += th('pf-c pf-total', '', esc(model.skuHeader || ''));
         h5 += th('pf-d pf-total', '', '');
         for (w = 0; w < model.weeks.length; w++) {
+            var s1 = h1.length, s2 = h2.length, s3 = h3.length, s4 = h4.length, s5 = h5.length;
             var week = model.weeks[w];
             var tot = model.totals[w] || {};
+            // E5:K5 в Excel: шкала «мин — медиана — макс» по семи дням недели.
+            var past = (tot.daySums || []).filter(function (n, k) { return week.dates[k] <= model.today; });
+            var sMin = past.length ? Math.min.apply(null, past) : 0, sMax = past.length ? Math.max.apply(null, past) : 0;
+            var sMid = past.length ? median(past) : 0;
             for (i = 0; i < 7; i++) {
                 h1 += th('pf-day', '', '');
-                var isToday = week.dates[i] === model.today;
                 var future = week.dates[i] > model.today;
-                var dcls = (i > 4 ? ' pf-wknd' : '') + (isToday ? ' pf-today' : '') + (future ? ' pf-future' : '');
-                h2 += th('pf-day pf-date' + dcls, '', ddmm(week.dates[i]));
-                h3 += th('pf-day pf-dow' + dcls, '', DOW[i]);
-                h4 += th('pf-day pf-coeff' + dcls, future ? '' : rgwStyle(tot.coeffNums && tot.coeffNums[i]), future ? '' : (tot.coeffs ? tot.coeffs[i] : ''));
-                h5 += th('pf-day pf-total' + dcls, '', future ? '' : showInt(tot.daySums && tot.daySums[i], true));
+                // сегодняшняя дата — фиолетовая (правило «Сегодня» в Excel)
+                h2 += th('pf-day pf-date' + (week.dates[i] === model.today ? ' pf-today' : ''), '', ddmm(week.dates[i]));
+                h3 += th('pf-day pf-dow', '', DOW[i]);
+                h4 += th('pf-day pf-coeff' + (future ? '' : coeffClass(tot.coeffNums && tot.coeffNums[i])), '', future ? '' : (tot.coeffs ? tot.coeffs[i] : ''));
+                h5 += th('pf-day pf-total', future ? '' : scale3Style(tot.daySums && tot.daySums[i], sMin, sMid, sMax), future ? '' : showInt(tot.daySums && tot.daySums[i], true));
             }
             h1 += th('pf-plan', '', 'ПЛАН Заказов, по дням');
             h1 += th('pf-fact-h', '', 'ФАКТ Заказов за неделю');
@@ -316,16 +332,17 @@
             h3 += th('pf-fact-h', '', '');
             h3 += th('pf-fact-h', '', '');
             h3 += th('pf-plan', '', '');
-            h4 += th('pf-plan pf-coeff', rgwStyle(tot.planPct), tot.planPct == null ? '' : tot.planCoeff);
+            h4 += th('pf-plan pf-coeff' + coeffClass(tot.planPct), '', tot.planPct == null ? '' : tot.planCoeff);
             h4 += th('pf-dark', '', '');
             h4 += th('pf-dark', '', '');
             h4 += th('pf-dark', '', '');
             h4 += th('pf-plan', '', '');
             h5 += th('pf-dark', '', showInt(tot.dailyPlan, false));
             h5 += th('pf-dark', '', '');
-            h5 += th('pf-dark pf-ratio' + ratioClass(tot.planPct), '', tot.planPct == null ? '' : tot.ratio);
+            h5 += th('pf-dark pf-ratio', '', tot.planPct == null ? '' : tot.ratio);
             h5 += th('pf-dark', '', showInt(tot.factSum, false));
             h5 += th('pf-dark', '', showInt(tot.planSales, false));
+            h1 = tagWeek(h1, s1, w); h2 = tagWeek(h2, s2, w); h3 = tagWeek(h3, s3, w); h4 = tagWeek(h4, s4, w); h5 = tagWeek(h5, s5, w);
         }
         return '<tr class="pf-r1">' + h1 + '</tr>'
             + '<tr class="pf-r2">' + h2 + '</tr>'
@@ -347,33 +364,66 @@
         });
         return model.rows.map(function (row) {
             var html = td('pf-a', '', '')
-                + td('pf-b', '', esc(row.name))
+                + td('pf-b', '', esc(row.name) + '<small class="pf-nm">' + esc(row.nm_id) + '</small>')
                 + td('pf-c', '', esc(row.nm_id))
                 + td('pf-d', '', '');
             row.weeks.forEach(function (b, wi) {
-                var i;
+                var i, from = html.length;
                 for (i = 0; i < 7; i++) {
                     var d = b.dates[i];
-                    var future = d > model.today;
-                    var cls = 'pf-day' + (i > 4 ? ' pf-wknd' : '') + (d === model.today ? ' pf-today' : '') + (future ? ' pf-future' : '');
-                    html += td(cls, future ? '' : heatStyle(b.facts[i], ranges[wi].min, ranges[wi].max), blankInt(b.facts[i]));
+                    html += td('pf-day', d > model.today ? '' : heatStyle(b.facts[i], ranges[wi].min, ranges[wi].max), blankInt(b.facts[i]));
                 }
-                html += td(b.dailyPlan ? 'pf-plan pf-plan-set' : 'pf-plan', '', blankInt(b.dailyPlan));
+                html += td('pf-plan', '', blankInt(b.dailyPlan));
                 html += td('pf-fact', '', '');
-                html += td('pf-fact pf-ratio' + ratioClass(b.ratioPct), '', pctText(b.ratioPct));
+                html += td('pf-fact pf-ratio', '', pctText(b.ratioPct));
                 html += td('pf-fact pf-sum', '', blankInt(b.factSum));
-                html += td(b.planSales ? 'pf-plan pf-plan-set' : 'pf-plan', '', blankInt(b.planSales));
+                html += td('pf-plan', '', blankInt(b.planSales));
+                html = tagWeek(html, from, wi);
             });
             return '<tr>' + html + '</tr>';
         }).join('');
     }
 
+    var curWeek = null, curMonth = '';
+
+    /** Неделя, показанная на телефоне: выбранная, иначе та, где сегодня. */
+    function activeWeek(model) {
+        if (curMonth !== model.monthKey) { curMonth = model.monthKey; curWeek = null; }
+        if (curWeek != null && curWeek < model.weeks.length) return curWeek;
+        var i;
+        for (i = 0; i < model.weeks.length; i++) {
+            if (model.today >= model.weeks[i].start && model.today <= model.weeks[i].end) return i;
+        }
+        return 0;
+    }
+
+    function pagerHtml(model) {
+        var cur = activeWeek(model);
+        return '<div class="pf-pager">' + model.weeks.map(function (w, i) {
+            return '<button type="button" class="pf-pg' + (i === cur ? ' is-on' : '') + '" data-w="' + i + '" onclick="RnpPlanFact.setWeek(' + i + ')">'
+                + ddmm(w.start) + '–' + ddmm(w.end) + '</button>';
+        }).join('') + '</div>';
+    }
+
+    function setWeek(i) {
+        curWeek = Number(i) || 0;
+        if (typeof document === 'undefined') return;
+        var t = document.querySelector('.pf-sheet');
+        if (t) t.setAttribute('data-wk', String(curWeek));
+        var btns = document.querySelectorAll('.pf-pg');
+        var k;
+        for (k = 0; k < btns.length; k++) btns[k].classList.toggle('is-on', Number(btns[k].getAttribute('data-w')) === curWeek);
+        var sc = document.querySelector('.pf-scroll');
+        if (sc) sc.scrollLeft = 0;
+    }
+
     function tableHtml(model) {
         var cols = '<col class="pf-ca" style="width:34px"><col class="pf-cb" style="width:200px"><col class="pf-cc" style="width:84px"><col class="pf-cd" style="width:12px">';
-        model.weeks.forEach(function () {
-            cols += '<col style="width:40px">'.repeat(7) + '<col style="width:56px"><col style="width:20px"><col style="width:52px"><col style="width:52px"><col style="width:60px">';
+        model.weeks.forEach(function (wk, wi) {
+            var c = ' class="pf-w' + wi + '" style="width:';
+            cols += ('<col' + c + '40px">').repeat(7) + '<col' + c + '56px"><col' + c + '20px"><col' + c + '52px"><col' + c + '52px"><col' + c + '60px">';
         });
-        return '<div class="pf-scroll"><table class="pf-sheet"><colgroup>' + cols + '</colgroup>'
+        return '<div class="pf-scroll"><table class="pf-sheet" data-wk="' + activeWeek(model) + '"><colgroup>' + cols + '</colgroup>'
             + '<thead>' + headerHtml(model) + '</thead>'
             + '<tbody>' + bodyHtml(model) + '</tbody>'
             + '</table></div>';
@@ -384,6 +434,7 @@
             + '<div class="pf-bar-title" id="rnp-plan-fact-title">' + esc(model.title) + '</div>'
             + '<button type="button" class="pf-close" onclick="RnpPlanFact.close()" aria-label="Закрыть">×</button>'
             + '</div>'
+            + pagerHtml(model)
             + tableHtml(model);
     }
 
@@ -439,7 +490,7 @@
         planDay: planDay, planSalesWeek: planSalesWeek, ratioSku: ratioSku,
         sheetMeta: sheetMeta, applyCatalog: applyCatalog,
         build: build, tableHtml: tableHtml, shellHtml: shellHtml,
-        open: open, close: close,
+        open: open, close: close, setWeek: setWeek,
         FILL_PLAN: FILL_PLAN, FILL_FACT: FILL_FACT, FILL_DARK: FILL_DARK, FILL_TOTAL: FILL_TOTAL,
     };
     root.RnpPlanFact = api;
