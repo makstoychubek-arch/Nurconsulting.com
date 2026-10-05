@@ -2728,28 +2728,10 @@
             overflow: hidden;
             max-height: 118px;
         }
+        /* Закреплённая шапка артикула остаётся ровно такой же, как и в начале страницы: её размер при
+           прокрутке не меняется (раньше сжималась до 80 px и обрезала блок FBO/FBS), и без тёмной тени снизу. */
         .rnp-article-panel--wide.is-pinned {
-            box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
-            max-height: 80px;
-        }
-        .rnp-article-panel--wide.is-pinned .rnp-head-wide {
-            padding: 4px 0 4px 12px;
-            gap: 8px 12px;
-            align-items: stretch;
-            height: 80px;
-        }
-        .rnp-article-panel--wide.is-pinned .rnp-head-wide-photos,
-        .rnp-article-panel--wide.is-pinned .rnp-head-wide .rnp-head-marquee-pin {
-            min-height: 72px;
-            height: 72px;
-            max-height: 72px;
-        }
-        .rnp-article-panel--wide.is-pinned .rnp-head-wide-info .rnp-gs-photo,
-        .rnp-article-panel--wide.is-pinned .rnp-head-wide-info .rnp-gs-photo img {
-            width: 44px;
-            height: 58px;
-            min-height: 0;
-            max-height: 58px;
+            box-shadow: none;
         }
         .rnp-article-panel--phone,
         .rnp-article-panel--narrow {
@@ -2762,7 +2744,7 @@
         }
         .rnp-article-panel--phone.is-pinned,
         .rnp-article-panel--narrow.is-pinned {
-            box-shadow: 0 10px 18px rgba(0, 0, 0, 0.18);
+            box-shadow: none;
         }
         .rnp-layout-info {
             display: grid;
@@ -4906,6 +4888,20 @@
         .rnp-sheet-body {
             background: var(--surface-solid) !important;
         }
+        /* РНП на компьютере: вкладки (Общий, Сводная, группы) и значки «План/факт», настройки — в одном ряду,
+           остальное место отдано таблице. */
+        @media (min-width: 769px) {
+            .rnp-workspace {
+                display: grid !important;
+                grid-template-columns: minmax(0, 1fr) auto;
+                grid-template-rows: auto minmax(0, 1fr);
+            }
+            .rnp-workspace > .rnp-sheet-tabs { grid-column: 1; grid-row: 1; min-width: 0; min-height: 42px; padding: 2px 8px; }
+            .rnp-workspace > #rnp-action-bar-wrap { grid-column: 2; grid-row: 1; align-self: center; }
+            .rnp-workspace > #rnp-action-bar-wrap .rnp-action-bar { padding: 2px 10px !important; flex-wrap: nowrap; }
+            .rnp-workspace > .rnp-sheet-body { grid-column: 1 / -1; grid-row: 2; min-height: 0; }
+        }
+        #nr-sync-banner:empty { display: none; margin: 0; }
         .rnp-action-bar { border-radius: 0 !important; padding: 10px 14px !important; }
         .rnp-sheet-tab .rnp-tab-img, .rnp-general-thumb img, .supply-card img {
             border-radius: var(--radius-control) !important;
