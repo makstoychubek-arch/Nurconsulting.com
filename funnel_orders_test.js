@@ -79,3 +79,12 @@ assert.ok(dash.includes('header.glass.app-header { left: 226px; right: 6px; }') 
     'header and content share the same edges and the same top offset on every page');
 
 console.log('funnel_orders_test: ok');
+
+// Без «прыжка» при загрузке (05.10.2026)
+{
+    const h = require('fs').readFileSync(require('path').join(__dirname, 'dashboard.html'), 'utf8');
+    const ok = require('assert').ok;
+    ok(h.includes('window.__nrSkipViewTransition') && h.includes('!window.__nrSkipViewTransition'), 'initial tab is painted without a view transition');
+    ok(h.includes('nr_ui_names_v1'), 'user/cabinet names are painted from cache on first frame');
+    ok(h.includes(".main-content{padding:4px 6px 12px}"), 'early padding equals final padding');
+}
