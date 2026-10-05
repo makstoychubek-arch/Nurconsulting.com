@@ -2410,8 +2410,13 @@
         /* Лист широкий: окно почти на весь экран (общий размер окон 480×520 ему мал), без ресайза. */
         .rnp-plan-fact-dialog.nr-win {
             --nr-win-w: min(1240px, calc(100vw - 24px));
-            --nr-win-h: calc(100dvh - 24px);
+            --nr-win-h: auto;
         }
+        /* Высота по содержимому: пустого места под таблицей нет. */
+        .rnp-plan-fact-dialog.nr-win { height: auto !important; max-height: calc(100dvh - 24px) !important; }
+        .rnp-plan-fact-dialog > .nr-win-scroll { flex: 0 1 auto; }
+        #rnp-plan-fact-body { flex: 0 1 auto; }
+        .rnp-plan-fact-dialog .pf-bar { display: none; }
         .rnp-plan-fact-dialog .nr-win-resize { display: none !important; }
         .pf-bar {
             display: flex; align-items: center; gap: 12px;
@@ -2485,7 +2490,7 @@
         .pf-sheet thead .pf-dark.pf-bad { background: #e67c73 !important; color: #fff !important; }
         @media (max-width: 768px) {
             .rnp-plan-fact-overlay { padding: 6px; }
-            .rnp-plan-fact-dialog.nr-win { --nr-win-w: calc(100vw - 12px); --nr-win-h: calc(100dvh - 12px); }
+            .rnp-plan-fact-dialog.nr-win { --nr-win-w: calc(100vw - 12px); --nr-win-h: auto; }
             /* телефон: оставляем только название артикула, чтобы влезли дни */
             .pf-sheet .pf-a, .pf-sheet .pf-c, .pf-sheet .pf-d,
             .pf-sheet col.pf-ca, .pf-sheet col.pf-cc, .pf-sheet col.pf-cd { display: none; }
