@@ -1734,20 +1734,20 @@ const RNP = (() => {
         const fromField = _funnelPickNum(day, [
             'orderCount', 'ordersCount', 'orders', 'order_count', 'ordered', 'orderCnt',
         ]);
-        const implied = _funnelImpliedOrders(day);
-        // Excel / карточка WB: Корзина × Заказы%. Не max со statistics-api
-        // (там 66 при 47 на графике).
-        if (implied != null) return implied;
-        return fromField;
+        // Настоящий orderCount воронки совпадает с «Динамикой продаж» WB (сверено 05.10.2026:
+        // 12, 11, 17, 22, 26, 31, 5 = 124). Корзина × Заказы% — запасной вариант: процент целый,
+        // даёт расхождения (27 вместо 26).
+        if (fromField != null) return fromField;
+        return _funnelImpliedOrders(day);
     }
 
     function _withFunnelOrders(row) {
         if (!row) return row;
         // Только день: на сумме недели Корзина×средняя Заказы% завышает итог.
         if (!/^\d{4}-\d{2}-\d{2}$/.test(String(row.date || ''))) return row;
-        // Как в карточке WB: Корзина × Заказы%. Не max со statistics-api —
-        // там 66 при 47 на графике «Динамика продаж».
-        const funnel = _funnelDayOrders(row);
+        // Как в «Динамике продаж» WB: настоящий orderCount воронки (funnel_orders),
+        // иначе запасной расчёт Корзина × Заказы%.
+        const funnel = _funnelDayOrders({ ...row, orderCount: row.funnel_orders ?? row.orderCount });
         if (funnel != null) return { ...row, orders_count: funnel };
         return row;
     }
@@ -3596,13 +3596,13 @@ const RNP = (() => {
     async function _syncToday(nmId) {
         const today = _wbTodayStr();
         try {
-            const { data: ex } = await _db.from('rnp_daily_data').select('updated_at, orders_count, basket_count, funnel_order_conv')
+            const { data: ex } = await _db.from('rnp_daily_data').select('updated_at, orders_count, basket_count, funnel_order_conv, funnel_orders')
                 .eq('cabinet_id', _cab).eq('nm_id', nmId).eq('date', today).maybeSingle();
             if (ex?.updated_at && Number(ex.orders_count || 0) > 0) {
                 const hrs = (Date.now() - new Date(ex.updated_at)) / 3600000;
                 if (hrs < 2) return;
             }
-            const funnelKeep = _funnelImpliedOrders(ex);
+            const funnelKeep = ex?.funnel_orders != null ? Number(ex.funnel_orders) : _funnelImpliedOrders(ex);
             // Aggregated row from SQL — no raw wb_orders on the client.
             const snapReq = _loadRequestId();
             const snapCab = _cab;
@@ -3900,6 +3900,7 @@ const RNP = (() => {
                     return c > s ? c : s;
                 };
                 const funnelOrders = _funnelDayOrders({
+                    orderCount: client.funnel_orders ?? r.funnel_orders,
                     basket_count: Number(client.basket_count || r.basket_count || 0),
                     funnel_order_conv: Number(client.funnel_order_conv || r.funnel_order_conv || 0),
                     cartCount: Number(client.cartCount || r.cartCount || 0),
@@ -4066,7 +4067,7 @@ const RNP = (() => {
                 return olderHasOrders && (!r || Number(r.orders_count || 0) === 0);
             });
             const funnelLag = inWindow.some(r => {
-                const implied = _funnelImpliedOrders(r);
+                const implied = r.funnel_orders != null ? Number(r.funnel_orders) : _funnelImpliedOrders(r);
                 return implied != null && implied !== Number(r.orders_count || 0);
             });
             return !hasFunnel || recentHole || funnelLag;

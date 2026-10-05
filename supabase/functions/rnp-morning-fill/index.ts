@@ -430,12 +430,13 @@ async function syncFunnelLast7Days(admin: Admin, cabinetId: string, token: strin
     if (!nmIds.length) return 0;
     const today = moscowYmd();
     const dateFrom = addDaysStr(today, -6);
-    const upserts: Record<string, unknown>[] = [];
+    let saved = 0;
     // history: максимум 20 nmId, 3 запроса/мин (интервал 20 с).
     for (let i = 0; i < nmIds.length; i += 20) {
         if (i > 0) await sleep(21000);
         const chunk = nmIds.slice(i, i + 20);
         const items = await fetchFunnelChunk(token, dateFrom, today, chunk);
+        const upserts: Record<string, unknown>[] = [];
         for (const item of items) {
             const product = item.product as Record<string, unknown> | undefined;
             const nmId = Number(product?.nmId || item.nmId || 0);
@@ -452,15 +453,17 @@ async function syncFunnelLast7Days(admin: Admin, cabinetId: string, token: strin
                 });
             }
         }
+        // Сохраняем по пачке: если функцию оборвёт лимит времени, уже загруженное не теряется.
+        for (let k = 0; k < upserts.length; k += 100) {
+            const { error } = await admin.from('rnp_daily_data').upsert(
+                upserts.slice(k, k + 100),
+                { onConflict: 'cabinet_id,nm_id,date' },
+            );
+            if (error) throw error;
+        }
+        saved += upserts.length;
     }
-    for (let i = 0; i < upserts.length; i += 100) {
-        const { error } = await admin.from('rnp_daily_data').upsert(
-            upserts.slice(i, i + 100),
-            { onConflict: 'cabinet_id,nm_id,date' },
-        );
-        if (error) throw error;
-    }
-    return upserts.length;
+    return saved;
 }
 
 async function fetchFunnelChunk(
@@ -512,7 +515,7 @@ async function preserveFunnelOrders(
     let offset = 0;
     for (;;) {
         const { data, error } = await admin.from('rnp_daily_data')
-            .select('nm_id, date, basket_count, funnel_order_conv')
+            .select('nm_id, date, basket_count, funnel_order_conv, funnel_orders')
             .eq('cabinet_id', cabinetId)
             .gte('date', from)
             .lte('date', to)

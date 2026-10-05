@@ -2,9 +2,10 @@
  * День из WB Analytics sales-funnel/products/history.
  * В карточке продавца «Заказы» — это штуки воронки, не строки statistics-api.
  *
- * WB часто не кладёт orderCount отдельным полем, но всегда отдаёт
- * cartCount + cartToOrderConversion — те же «Корзина» и «Заказы%» в РНП.
- * 157 корзин × 18% = 28, как на графике WB.
+ * Берём настоящий orderCount воронки: 05.10.2026 сверено с кабинетом WB по артикулу
+ * 1544472467 за 7 дней (12, 11, 17, 22, 26, 31, 5 = 124, как в «Динамике продаж»).
+ * «Корзина × Заказы %» только запасной вариант, когда orderCount не пришёл: процент
+ * целый и округлённый, поэтому даёт расхождения (27 вместо 26).
  *
  * Последние 7 календарных дней карточки — Москва. Пересборка из wb_orders
  * не должна затирать эти штуки, иначе утром в РНП снова 66 вместо 47.
@@ -44,6 +45,9 @@ export function keepFunnelOrdersCount(
     const stats = Number(statsCount);
     const fallback = Number.isFinite(stats) && stats >= 0 ? stats : 0;
     if (!isWbFunnelWindowDate(date, today)) return fallback;
+    // Настоящий orderCount воронки, сохранённый при синхронизации.
+    const raw = existing?.funnel_orders;
+    if (raw != null && raw !== '' && Number.isFinite(Number(raw)) && Number(raw) >= 0) return Number(raw);
     const implied = funnelImpliedOrders(existing);
     if (implied != null) return implied;
     return fallback;
@@ -103,11 +107,8 @@ export function funnelDayOrders(day: Record<string, unknown> | null | undefined)
     const fromField = numPick(day, [
         'orderCount', 'ordersCount', 'orders', 'order_count', 'ordered', 'orderCnt',
     ]);
-    const implied = funnelImpliedOrders(day);
-    // Карточка WB / Excel «План/факт»: Корзина × Заказы%. orderCount из
-    // statistics-api часто больше (66 вместо 47) — его не берём, если есть %.
-    if (implied != null) return implied;
-    return fromField;
+    if (fromField != null) return fromField;
+    return funnelImpliedOrders(day);
 }
 
 export function funnelDayMetricFields(day: Record<string, unknown>): Record<string, unknown> {
@@ -124,5 +125,8 @@ export function funnelDayMetricFields(day: Record<string, unknown>): Record<stri
     };
     const orders = funnelDayOrders(day);
     if (orders != null) fields.orders_count = orders;
+    // Настоящий orderCount воронки — отдельно, для сверки и для защиты от перезаписи из statistics-api.
+    const rawOrders = numPick(day, ['orderCount', 'ordersCount', 'orders', 'order_count']);
+    if (rawOrders != null) fields.funnel_orders = Math.round(rawOrders);
     return fields;
 }

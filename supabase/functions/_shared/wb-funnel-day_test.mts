@@ -23,8 +23,10 @@ assert.equal(funnelImpliedOrders({ cartCount: 157, cartToOrderConversion: 18 }),
 assert.equal(funnelImpliedOrders({ cartCount: 83, cartToOrderConversion: 12 }), 10);
 assert.equal(funnelImpliedOrders({ cartCount: 74, cartToOrderConversion: 22 }), 16);
 assert.equal(funnelDayOrders({ cartCount: 157, cartToOrderConversion: 18 }), 28);
-assert.equal(funnelDayOrders({ orderCount: 17, cartCount: 157, cartToOrderConversion: 18 }), 28);
-assert.equal(funnelDayOrders({ orderCount: 66, cartCount: 294, cartToOrderConversion: 16 }), 47);
+// Настоящий orderCount главнее «Корзина × %» (05.10.2026, артикул 1544472467, 03.10: orderCount 26, расчёт 27).
+assert.equal(funnelDayOrders({ orderCount: 26, cartCount: 140, cartToOrderConversion: 19 }), 26);
+assert.equal(funnelDayOrders({ orderCount: 17, cartCount: 157, cartToOrderConversion: 18 }), 17);
+assert.equal(funnelDayOrders({ cartCount: 157, cartToOrderConversion: 18 }), 28, 'without orderCount the cart × % estimate is the fallback');
 
 const fields = funnelDayMetricFields({
     openCount: 100,
@@ -45,6 +47,8 @@ const fromConv = funnelDayMetricFields({
     cartToOrderConversion: 18,
 });
 assert.equal(fromConv.orders_count, 28);
+assert.equal('funnel_orders' in fromConv, false, 'no raw orderCount, nothing stored as raw');
+assert.equal(funnelDayMetricFields({ cartCount: 140, cartToOrderConversion: 19, orderCount: 26 }).funnel_orders, 26);
 
 const noOrders = funnelDayMetricFields({ openCount: 5, cartCount: 1 });
 assert.equal('orders_count' in noOrders, false);
@@ -58,6 +62,9 @@ assert.equal(isWbFunnelWindowDate('2026-09-09', '2026-09-16'), false);
 const ivory = { basket_count: 294, funnel_order_conv: 16, orders_count: 47 };
 assert.equal(keepFunnelOrdersCount(ivory, 66, '2026-09-14', '2026-09-16'), 47);
 assert.equal(keepFunnelOrdersCount(ivory, 66, '2026-09-01', '2026-09-16'), 66);
+// Сохранённый настоящий orderCount главнее расчёта по корзине и заказов statistics-api.
+assert.equal(keepFunnelOrdersCount({ funnel_orders: 26, basket_count: 140, funnel_order_conv: 19 }, 22, '2026-09-14', '2026-09-16'), 26);
+assert.equal(keepFunnelOrdersCount({ funnel_orders: 0, basket_count: 0, funnel_order_conv: 0 }, 3, '2026-09-14', '2026-09-16'), 0);
 assert.equal(keepFunnelOrdersCount(null, 66, '2026-09-14', '2026-09-16'), 66);
 assert.equal(keepFunnelOrdersCount({ impressions: 10 }, 66, '2026-09-14', '2026-09-16'), 66);
 

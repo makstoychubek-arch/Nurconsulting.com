@@ -1126,7 +1126,7 @@ assert.ok(rnpSrc.includes('if (funnelOrders != null) rec.orders_count = funnelOr
     'funnel upsert must persist WB orderCount into orders_count');
 assert.ok(rnpSrc.includes('Number(ex.orders_count || 0) > 0'),
     'sync today must not skip a 0-order cell just because funnel touched updated_at');
-assert.ok(rnpSrc.includes('const funnelKeep = _funnelImpliedOrders(ex)'),
+assert.ok(rnpSrc.includes('const funnelKeep = ex?.funnel_orders != null ? Number(ex.funnel_orders) : _funnelImpliedOrders(ex);'),
     'sync today must keep WB card funnel ЗАКАЗЫ, not overwrite with wb_orders');
 assert.ok(rnpSrc.includes('funnelKeep != null ? funnelKeep : Number(agg.orders_count || 0)'),
     'sync today writes Корзина × Заказы% when the funnel row already exists');
@@ -1150,7 +1150,10 @@ assert.ok(rnpSrc.includes('funnelLag'),
     assert.strictEqual(fns._funnelImpliedOrders({ basket_count: 157, funnel_order_conv: 18 }), 28);
     assert.strictEqual(fns._funnelImpliedOrders({ cartCount: 83, cartToOrderConversion: 12 }), 10);
     assert.strictEqual(fns._funnelDayOrders({ cartCount: 157, cartToOrderConversion: 18 }), 28);
-    assert.strictEqual(fns._funnelDayOrders({ orderCount: 66, cartCount: 294, cartToOrderConversion: 16 }), 47);
+    // 05.10.2026 сверено с кабинетом WB: настоящий orderCount главнее «Корзина × %» (26, а не 27).
+    assert.strictEqual(fns._funnelDayOrders({ orderCount: 26, cartCount: 140, cartToOrderConversion: 19 }), 26);
+    assert.strictEqual(fns._funnelDayOrders({ orderCount: 66, cartCount: 294, cartToOrderConversion: 16 }), 66);
+    assert.strictEqual(fns._withFunnelOrders({ date: '2026-09-14', orders_count: 22, funnel_orders: 26, basket_count: 140, funnel_order_conv: 19 }).orders_count, 26);
     assert.strictEqual(fns._withFunnelOrders({ orders_count: 17, basket_count: 157, funnel_order_conv: 18 }).orders_count, 17);
     assert.strictEqual(fns._withFunnelOrders({ date: '2026-09-13', orders_count: 17, basket_count: 157, funnel_order_conv: 18 }).orders_count, 28);
     assert.strictEqual(fns._withFunnelOrders({ date: '2026-09-14', orders_count: 66, basket_count: 294, funnel_order_conv: 16 }).orders_count, 47);
