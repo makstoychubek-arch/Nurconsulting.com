@@ -32,4 +32,11 @@ assert.ok(html.includes('applyPicker(); // быстрый выбор тоже п
 assert.ok(html.includes("window.NrNotify.push({ title: 'Данные загружены'"), '«Данные загружены» goes to the bell');
 assert.ok(!html.includes('<b>Данные загружены</b> — 100%.'), 'no banner for a finished load');
 
+// У каждой вкладки своя память периода: выбор в Дашборде не меняет РНП.
+assert.ok(html.includes("const DATE_RANGE_BY_TAB_KEY = 'nr_date_range_by_tab_v1';") && html.includes('map[rangeTabKey()] = { from: activeDateFrom, to: activeDateTo };'),
+    'the chosen period is stored per tab');
+assert.ok(html.includes('function loadDateRangeForTab(tab)') && html.includes("if (DATE_FILTER_TABS.has(name)) loadDateRangeForTab(name);"),
+    'switching tabs loads that tab\'s own period before it loads data');
+assert.ok(html.includes("if (tab === 'rnp') return { from: monthStartIso(), to: monthEndIso() };"), 'RNP defaults to the whole month (plan columns for future days)');
+
 console.log('rnp_date_range_test: ok');
