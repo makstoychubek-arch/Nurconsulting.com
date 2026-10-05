@@ -197,12 +197,12 @@ assert.ok(rnp.includes('openPlanFact') && rnp.includes('План/факт'));
 assert.ok(rnp.includes('async function openPlanFact'));
 assert.ok(rnp.includes('_mergePlanFactRange') && rnp.includes('cabinetName: _cabinetName()'));
 assert.ok(!rnp.includes("title: 'Общая РНП'"), 'title comes from sheetMeta per cabinet');
-assert.ok(rnp.includes('if (implied != null) return implied'),
-    'RNP funnel prefers Корзина×Заказы% over statistics orderCount');
+assert.ok(rnp.includes('if (fromField != null) return fromField;\n        return _funnelImpliedOrders(day);'),
+    'RNP funnel takes the real funnel orderCount (verified against WB 05.10.2026); Корзина×Заказы% is only the fallback');
 assert.ok(!rnp.includes('Math.max(fromField, implied)'));
 
 const funnel = fs.readFileSync(path.join(__dirname, 'supabase/functions/_shared/wb-funnel-day.ts'), 'utf8');
-assert.ok(funnel.includes('if (implied != null) return implied'));
+assert.ok(funnel.includes('if (fromField != null) return fromField;\n    return funnelImpliedOrders(day);'));
 assert.ok(!funnel.includes('Math.max(fromField, implied)'));
 
 const htmlDash = fs.readFileSync(path.join(__dirname, 'dashboard.html'), 'utf8');
