@@ -68,4 +68,8 @@ assert.ok(/\.rnp-article-panel--wide\.is-pinned \{\s*box-shadow: none;\s*\}/.tes
 assert.ok(dash.includes('.rnp-workspace > .rnp-sheet-tabs { grid-column: 1;') && dash.includes('.rnp-workspace > #rnp-action-bar-wrap { grid-column: 2;'), 'tabs and the plan/fact + settings icons share one row on desktop');
 assert.ok(dash.includes('#nr-sync-banner:empty { display: none; margin: 0; }'), 'an empty load banner takes no space');
 
+// Фотогалерея в шапке артикула не укорачивается при прокрутке (раньше при закреплении сжималась до 72 px).
+assert.ok(js.includes('const capH = MARQUEE_CARD_MAX_H;') && !js.includes('pinned ? MARQUEE_PINNED_H : MARQUEE_CARD_MAX_H'),
+    'gallery height does not depend on the pinned state');
+
 console.log('funnel_orders_test: ok');

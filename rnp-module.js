@@ -6048,9 +6048,9 @@ const RNP = (() => {
             const isBottomGallery = wrap.classList.contains('rnp-general-gallery-marquee');
             const pin = wrap.closest('.rnp-head-marquee-pin');
             const photoCol = wrap.closest('.rnp-head-wide-photos');
-            const pinned = !!(wrap.closest('.is-pinned'));
             const layoutH = photoCol ? Math.round(photoCol.clientHeight || 0) : 0;
-            const capH = pinned ? MARQUEE_PINNED_H : MARQUEE_CARD_MAX_H;
+            // Высота галереи не зависит от закрепления шапки (раньше при прокрутке фото уменьшались до MARQUEE_PINNED_H).
+            const capH = MARQUEE_CARD_MAX_H;
             const targetH = Math.max(56, Math.min(capH, layoutH > 0 ? layoutH : capH));
             if (pin && !isBottomGallery && photoCol) {
                 if (pin.style.width !== '100%') pin.style.width = '100%';
