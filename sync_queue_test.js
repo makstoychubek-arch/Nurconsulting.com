@@ -27,6 +27,7 @@ assert.ok(sql.includes("'eta_minutes'") && sql.includes("'percent'"), 'progress 
 const fn = read('supabase/functions/sync-queue-tick/index.ts');
 assert.ok(fn.includes('isServiceAuthorized(req, serviceKey)'), 'worker is service-only');
 assert.ok(fn.includes("rpc('claim_sync_jobs'") && fn.includes('/functions/v1/rnp-finance-sync'), 'worker claims a job and runs the existing sync');
+assert.ok(fn.includes('EdgeRuntime.waitUntil(work)'), 'worker answers pg_net within its 5 s limit and finishes jobs in the background');
 assert.ok(!/error\s*:\s*String\(e/.test(fn), 'no raw error text leaves the worker');
 
 const cron = read('supabase/migrations/20261005151000_sync_queue_cron.sql');
