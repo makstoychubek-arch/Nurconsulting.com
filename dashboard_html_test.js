@@ -347,7 +347,7 @@ assert.ok(
 );
 assert.ok(
     html.includes('</main>\n    </div>\n\n        <header') &&
-    html.includes('</header>\n\n    <nav class="bottom-nav"'),
+    /<\/header>\s*(<script>[\s\S]*?<\/script>\s*)?<nav class="bottom-nav"/.test(html),
     'header and bottom nav are body siblings, not inside the overflow-hidden app shell'
 );
 {
@@ -2577,8 +2577,8 @@ assert.ok(
 );
 assert.ok(!html.includes('План заказов · все кабинеты'),
     'all-cabinets plan row is gone');
-assert.ok(html.includes('main-content:has(#tab-dashboard.active)') && html.includes('padding: 4px 24px 16px'),
-    'dashboard top padding is tight');
+assert.ok(!html.includes('main-content:has(#tab-dashboard.active) {\n                padding: 4px 24px') && html.includes('padding: 4px 6px 12px !important;'),
+    'one page padding for every tab (no jump on load)');
 assert.ok(html.includes('.main-rail:has(#tab-dashboard.active)') && html.includes('padding-top: 66px'),
     'dashboard sits flush under the header');
 assert.ok(

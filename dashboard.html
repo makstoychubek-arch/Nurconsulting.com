@@ -4873,7 +4873,6 @@
         /* Единые поля страниц по образцу РНП: везде одни и те же отступы по краям и сверху, поэтому блоки Дашборда,
            Рекламы, Товаров и РНП стоят на одной линии с шапкой и друг под другом на одной высоте. */
         .main-content { padding: 4px 6px 12px !important; }
-        .main-content:has(#tab-dashboard.active) { padding: 4px 24px 16px !important; }
         #tab-dashboard.space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 12px; }
         .dash-finance-note:not(.show) { display: none !important; }
         .data-table th, .data-table td { padding: 12px 16px !important; font-weight: 400; }
@@ -5724,8 +5723,9 @@
                     __nrCss += '.rnp-workspace,#rnp-sheet-body,.rnp-article-panel--wide{background:var(--surface-solid)}';
                     __nrCss += '.main-content{padding:4px 6px}';
                 }
-                if (__nrPane === 'goods-groups' || __nrPane === 'advertising' || __nrPane === 'ab-testing' || __nrPane === 'content-factory') {
-                    __nrCss += '.main-content{padding:14px 20px 16px}';
+                if (__nrPane !== 'rnp' && __nrPane !== 'rnp-settings') {
+                    // Те же поля, что у страницы после загрузки (см. «Единые поля страниц»), иначе контент «перепрыгивает».
+                    __nrCss += '.main-content{padding:4px 6px 12px}';
                 }
                 __nrCss += '.rail-btn.active{background:transparent !important}';
                 if (__nrLive[__nrTab] && __nrTab !== 'dashboard' && __nrTab !== 'settings') {
@@ -7595,6 +7595,19 @@
                 </div>
             </div>
         </header>
+        <script>
+            /* Имя пользователя и кабинет берутся из прошлого входа, пока не пришёл ответ сервера: без этого в шапке и на панели
+               на секунду стояли заглушки («Кабинет», «NR Space») и потом менялись на настоящие. */
+            (function () {
+                try {
+                    var o = JSON.parse(localStorage.getItem('nr_ui_names_v1') || '{}');
+                    var set = function (id, v) { var e = document.getElementById(id); if (e && v) e.textContent = v; };
+                    set('cabinet-picker-label', o.cab);
+                    set('rail-user-name', o.user);
+                    set('user-initial', o.initial);
+                } catch (e) {}
+            })();
+        </script>
 
     <nav class="bottom-nav" id="nr-bottom-nav" aria-label="Нижняя навигация">
         <button type="button" class="bottom-nav-btn" id="bn-rk" data-tab="advertising" onclick="showTab('advertising')" title="Контроль РК">
@@ -9633,7 +9646,9 @@
             try { localStorage.setItem('nr_active_tab', name); } catch(e) {}
             updateEmptyCabinetState();
         };
-        if (window.NrWow) window.NrWow.withView(apply);
+        // При первой отрисовке вкладку ставим сразу: анимация перехода откладывала её на несколько сотен миллисекунд,
+        // а временный «ранний» стиль к этому моменту уже снимался, и на кадр показывался Дашборд.
+        if (window.NrWow && !window.__nrSkipViewTransition) window.NrWow.withView(apply);
         else apply();
     }
 
@@ -12794,6 +12809,7 @@
         const label = document.getElementById('cabinet-picker-label');
         const n = cabinetDisplayName(name);
         if (label) label.textContent = n;
+        try { const o = JSON.parse(localStorage.getItem('nr_ui_names_v1') || '{}'); o.cab = n; localStorage.setItem('nr_ui_names_v1', JSON.stringify(o)); } catch (_) {}
         const hidden = document.getElementById('cabinet-name-header');
         if (hidden) hidden.textContent = n;
     }
@@ -18214,6 +18230,7 @@
         const railName = document.getElementById('rail-user-name');
         if (railName) railName.textContent = name;
         document.getElementById('user-initial').textContent = initial;
+        try { const o = JSON.parse(localStorage.getItem('nr_ui_names_v1') || '{}'); o.user = name; o.initial = initial; localStorage.setItem('nr_ui_names_v1', JSON.stringify(o)); } catch (_) {}
         const headerName = document.getElementById('header-user-name');
         if (headerName) headerName.textContent = name;
         const fi = document.getElementById('flyout-user-initial');
@@ -18238,6 +18255,7 @@
         try {
             savedTab = resolveTabFromUrl() || localStorage.getItem('nr_active_tab');
             if (savedTab) savedTab = TAB_ALIASES[savedTab] || savedTab;
+            window.__nrSkipViewTransition = true;
             if (onboardingMode) showTab('akylai', null);
             else if (savedTab === 'settings') showTab('settings', null);
             else if (savedTab && LIVE_TABS.has(savedTab)) showTab(savedTab, null);
@@ -18248,6 +18266,7 @@
             // Реальные классы .active расставлены — временный early-style
             // (см. <head>) больше не нужен, убираем, чтобы не блокировать
             // будущие переключения вкладок жёстким display:block.
+            window.__nrSkipViewTransition = false;
             document.getElementById('nr-early-tab-style')?.remove();
             document.documentElement.removeAttribute('data-nr-early');
         }
