@@ -666,8 +666,9 @@ assert.ok(html.includes('id="nr-notify"') && html.includes('id="nr-notify-dot"')
 assert.ok(html.includes('const NrNotify'), 'notification history lives in the header bell');
 assert.ok(/\.rnp-gs-photo img\s*\{[^}]*object-fit:\s*contain/.test(html), 'left article photo shows the full frame');
 assert.ok(rnpSrc.includes("from('exchange_rates')"), 'RNP must read the fixed exchange rate from exchange_rates');
-assert.ok(rnpSrc.includes('function _latestNbkr'), 'RNP settings must show the official NBKR rate next to the working rate');
-assert.ok(rnpSrc.includes('лимиты WB не тратит'), 'RNP must explain that NBKR does not hit WB limits');
+assert.ok(rnpSrc.includes('function _latestNbkr'), 'the official NBKR rate is still read for the daily rate');
+assert.ok(!rnpSrc.includes('Курс ₽ → сом</label>') && !rnpSrc.includes('Период расчёта метрик</label>'),
+    'the «Основные настройки» card (rates, period, default plan, months) is gone: everything is automatic');
 assert.ok(/key: 'storage_sum',\s+label: 'Хранение \(сверено\)'/.test(rnpSrc), 'RNP shows reconciled storage row');
 assert.ok(
     fs.existsSync(path.join(__dirname, 'supabase/migrations/20260903152000_rnp_nbkr_rate_cron.sql')),
@@ -748,8 +749,8 @@ assert.ok(
     !grabFn(rnpSrc, '_buildInfoBlockHTML').includes('RNP.setCost') &&
     !grabFn(rnpSrc, '_buildKpiTopHTML').includes('rnp-gs-cost-input') &&
     !grabFn(rnpSrc, '_buildKpiTopHTML').includes('RNP.setCost') &&
-    grabFn(rnpSrc, '_settingsArticleRowHtml').includes('RNP.setCost'),
-    'себест. is edited only in RNP settings, not in the article header'
+    !grabFn(rnpSrc, '_settingsArticleRowHtml').includes('RNP.setCost'), // себестоимость — в «Товарах» (rnp_articles.cost_price), здесь не правится
+    'себестоимость правится только в Товарах: ни в шапке артикула, ни в настройках РНП её поля нет'
 );
 assert.ok(
     rnpSrc.includes('_buildWideHeadHTML(art, stockBySize, rawData, cal)') &&

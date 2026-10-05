@@ -4946,15 +4946,6 @@ const RNP = (() => {
           <td class="rnp-metric-col" style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${(a.name || '—').replace(/</g, '&lt;')}</td>
           <td><select data-rnp-cat="${a.nm_id}" onchange="RNP.setCategory(${a.nm_id},this.value)"
             style="width:110px;padding:2px 4px;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px">${catOpts}</select></td>
-          <td><input type="number" value="${a.cost_price || 0}" min="0"
-            onchange="RNP.setCost(${a.nm_id},this.value)"
-            style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
-          <td><input type="number" value="${a.logistics_unit || 0}" min="0"
-            onchange="RNP.setLogisticsUnit(${a.nm_id},this.value)"
-            style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
-          <td><input type="number" value="${_otherCostsUnit(a)}" min="0"
-            onchange="RNP.setOtherCosts(${a.nm_id},this.value)"
-            style="width:70px;padding:2px 4px;text-align:center;border:1px solid var(--border);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px"></td>
           <td><button type="button" data-toggle-nm="${a.nm_id}" onclick="RNP.toggleArt(${a.nm_id})" class="rnp-settings-toggle relative w-9 h-5 rounded-full"
             style="background:${a.is_active ? 'var(--accent)' : 'var(--border)'}">
             <span style="position:absolute;top:2px;left:${a.is_active ? '18px' : '2px'};width:16px;height:16px;border-radius:50%;background:#fff;transition:0.2s"></span>
@@ -5092,64 +5083,16 @@ const RNP = (() => {
         }
         const scrollEl = el.querySelector('.rnp-settings-articles-scroll');
         const scrollTop = opts.preserveScroll && scrollEl ? scrollEl.scrollTop : 0;
-        const monthOpts = (n, sel) => Array.from({ length: 12 }, (_, i) => {
-            const m = i + 1;
-            return `<option value="${m}"${m === sel ? ' selected' : ''}>${MONTH_SHORT[i]}</option>`;
-        }).join('');
         const cabLabel = _cabinetLabel();
         el.innerHTML = `
         <div class="space-y-5">
           ${_settingsPhoneToolsHtml()}
-          <div class="widget-card p-5">
-            <div class="flex items-center justify-between gap-3 mb-4 flex-wrap">
-              <h3 id="rnp-settings-title" class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">Основные настройки</h3>
+          <div class="flex items-center justify-between gap-3 flex-wrap px-1">
+            <h3 id="rnp-settings-title" class="font-semibold flex items-center gap-2" style="color:var(--text-primary)">Настройки РНП</h3>
+            <div class="flex items-center gap-3 text-xs" style="color:var(--text-muted)">
+              <span>Активных: <b id="rnp-settings-active-n" style="color:var(--text-primary)">${_articles.filter(a=>a.is_active).length}</b> / <span id="rnp-settings-total-n">${_articles.length}</span></span>
               ${cabLabel ? `<span class="rnp-cab-badge">${cabLabel}</span>` : ''}
             </div>
-            <div class="flex flex-wrap gap-4 mb-4 text-xs" style="color:var(--text-muted)">
-              <span>Активных: <b id="rnp-settings-active-n" style="color:var(--text-primary)">${_articles.filter(a=>a.is_active).length}</b> / <span id="rnp-settings-total-n">${_articles.length}</span></span>
-              <span>Курс: <b style="color:var(--text-primary)">1₽ = ${_settings.exchangeRate} сом</b></span>
-              <span>$: <b style="color:var(--text-primary)">1$ = ${_settings.usdRate} сом</b></span>
-              ${(() => { const n = _latestNbkr(); return n ? `<span>НБКР: <b style="color:var(--text-primary)">1₽ = ${n.rate.toFixed(4).replace('.', ',')} сом</b> (${n.date.split('-').reverse().join('.')})</span>` : ''; })()}
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Курс ₽ → сом</label>
-                <div class="flex gap-2">
-                  <input id="rnp-rate" type="number" step="0.1" min="0.1" value="${_settings.exchangeRate}"
-                    class="rounded-xl px-3 py-2 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                  <button onclick="RNP.saveRate()" class="ui-btn ui-btn-primary text-xs whitespace-nowrap">OK</button>
-                </div>
-                <p class="text-xs mt-1.5 leading-snug" style="color:var(--text-muted)">Рабочий курс кабинета. Важнее НБКР, пока не поменяете. НБКР подтягивается раз в сутки с nbkr.kg и лимиты WB не тратит.</p>
-              </div>
-              <div>
-                <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Курс $ → сом (для KPI)</label>
-                <input id="rnp-usd-rate" type="number" step="0.1" min="1" value="${_settings.usdRate}"
-                  class="rounded-xl px-3 py-2 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-              </div>
-              <div>
-                <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Период расчёта метрик</label>
-                <select id="rnp-period" onchange="RNP.savePeriod(this.value)"
-                  class="rounded-xl px-3 py-2 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                  <option value="7" ${_settings.calcPeriod==7?'selected':''}>7 дней</option>
-                  <option value="28" ${_settings.calcPeriod==28?'selected':''}>28 дней</option>
-                </select>
-              </div>
-              <div>
-                <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">План по умолчанию</label>
-                <select id="rnp-default-plan" class="rounded-xl px-3 py-2 text-sm w-full" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
-                  <option value="week"${_settings.defaultPlanPeriod === 'week' ? ' selected' : ''}>Неделя</option>
-                  <option value="month"${_settings.defaultPlanPeriod === 'month' ? ' selected' : ''}>Месяц</option>
-                </select>
-              </div>
-              <div>
-                <label class="text-xs font-semibold mb-1 block" style="color:var(--text-muted)">Месяцы в таблице (с — по)</label>
-                <div class="flex gap-2">
-                  <select id="rnp-month-from" class="rounded-xl px-2 py-2 text-sm flex-1" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">${monthOpts(6, _settings.monthFrom)}</select>
-                  <select id="rnp-month-to" class="rounded-xl px-2 py-2 text-sm flex-1" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">${monthOpts(12, _settings.monthTo)}</select>
-                </div>
-              </div>
-            </div>
-            <button onclick="RNP.saveRnpOptions()" class="rnp-save-btn mt-4" type="button">Сохранить параметры</button>
           </div>
 
           ${_settingsGroupsHtml()}
@@ -5161,15 +5104,13 @@ const RNP = (() => {
                 <span id="rnp-settings-arts-label" class="text-xs font-normal" style="color:var(--text-muted)">${_articles.filter(a=>a.is_active).length} / ${_articles.length} в РНП · артикул продавца из WB</span>
               </h3>
               <div class="flex gap-2 flex-wrap">
-                <button onclick="RNP.refreshArticles()" id="rnp-refresh-arts-btn" class="ui-btn ui-btn-primary text-xs" title="Добавить новые карточки из каталога WB и из заказов, ничего не удаляя">Обновить артикулы</button>
-                <button onclick="RNP.syncArts()" id="rnp-sync-btn" class="ui-btn ui-btn-secondary text-xs" title="Полная пересборка списка по заказам: новые добавить, исчезнувшие убрать">Из заказов</button>
                 <button onclick="RNP.enableAll(true)" class="ui-btn ui-btn-secondary text-xs">Включить все</button>
                 <button onclick="RNP.enableAll(false)" class="ui-btn ui-btn-secondary text-xs">Выключить все</button>
               </div>
             </div>
             ${_articles.length === 0 ? `
             <div class="text-center py-10" style="color:var(--text-muted)">
-              <p class="text-sm">Нажмите «Из заказов» — подтянутся артикулы WB и <b>артикулы продавца</b> из заказов автоматически</p>
+              <p class="text-sm">Артикулы подтянутся автоматически из заказов и карточек WB — ничего нажимать не нужно.</p>
             </div>` : `
             <div class="rnp-settings-articles-scroll" style="overflow-x:auto;max-height:calc(100vh - 320px);overflow-y:auto;overflow-anchor:none">
               <table class="rnp-sheet-table" style="font-size:11px">
@@ -5180,14 +5121,11 @@ const RNP = (() => {
                     <th style="min-width:90px">Артикул WB</th>
                     <th class="rnp-th-metric">Название WB</th>
                     <th style="min-width:110px">Категория/группа</th>
-                    <th style="min-width:80px">Себест. (сом)</th>
-                    <th style="min-width:80px">Логистика ед. (сом)</th>
-                    <th style="min-width:80px">Пр. косты ед. (сом)</th>
                     <th style="min-width:60px">В РНП</th>
                   </tr>
                 </thead>
                 <tbody id="rnp-settings-articles-tbody">
-                  <tr><td colspan="9" class="text-center py-6" style="color:var(--text-muted)">Загрузка списка артикулов…</td></tr>
+                  <tr><td colspan="6" class="text-center py-6" style="color:var(--text-muted)">Загрузка списка артикулов…</td></tr>
                 </tbody>
               </table>
             </div>`}
@@ -5201,7 +5139,7 @@ const RNP = (() => {
             _fillSettingsArticlesAsync({ preserveScroll: opts.preserveScroll, scrollTop }).catch(e => {
                 console.warn('[RNP] settings articles:', e.message);
                 const tbody = document.getElementById('rnp-settings-articles-tbody');
-                if (tbody) tbody.innerHTML = `<tr><td colspan="9" class="text-center py-6" style="color:var(--text-muted)">Ошибка: ${String(e.message || e).replace(/</g, '&lt;')}</td></tr>`;
+                if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6" style="color:var(--text-muted)">Ошибка: ${String(e.message || e).replace(/</g, '&lt;')}</td></tr>`;
             });
         }
     }
@@ -7025,20 +6963,37 @@ const RNP = (() => {
 
     async function setCategory(nmId, val) {
         let v = (val || '').trim();
-        if (v === '__new__') {
-            const entered = prompt('Название новой категории/группы:', '');
-            v = (entered || '').trim();
-            if (!v) {
-                const sel = document.querySelector(`select[data-rnp-cat="${nmId}"]`);
-                const art = _articles.find(a => a.nm_id == nmId);
-                if (sel) sel.value = (art?.category || '').trim();
-                return;
-            }
-            await _updateArticle(nmId, { category: v });
-            _renderSettings({ preserveScroll: true });
-            return;
-        }
+        if (v === '__new__') { _startNewCategoryInput(nmId); return; }
         await _updateArticle(nmId, { category: v });
+    }
+
+    // Окно prompt() браузер блокирует в приложении и во вложенных окнах, поэтому новая группа
+    // вводится прямо в ячейке: Enter или клик мимо — сохранить, Esc — отмена.
+    function _startNewCategoryInput(nmId) {
+        const sel = document.querySelector(`select[data-rnp-cat="${nmId}"]`);
+        const cell = sel?.parentElement;
+        if (!cell) return;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.maxLength = 60;
+        input.placeholder = 'Название группы';
+        input.setAttribute('data-rnp-cat-new', String(nmId));
+        input.style.cssText = 'width:130px;padding:2px 6px;border:1px solid var(--accent);border-radius:12px;background:var(--bg);color:var(--text-primary);font-size:11px;outline:none';
+        let done = false;
+        const finish = async (save) => {
+            if (done) return;
+            done = true;
+            const name = input.value.trim();
+            if (save && name) await _updateArticle(nmId, { category: name });
+            _renderSettings({ preserveScroll: true });
+        };
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+            else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        input.addEventListener('blur', () => finish(true));
+        cell.replaceChildren(input);
+        input.focus();
     }
 
     /** Задача 3: raw plan quantities are upserted straight into `rnp_plans`
@@ -7089,22 +7044,10 @@ const RNP = (() => {
         await _updateArticle(nmId, { manual_data });
     }
 
+    // Форма «Основные настройки» убрана из интерфейса (курсы — автоматически из НБКР, себестоимость — в «Товарах»).
+    // Функция оставлена для совместимости и больше не затирает сохранённые параметры значениями по умолчанию.
     async function saveRnpOptions() {
-        const opts = {
-            usdRate: parseFloat(document.getElementById('rnp-usd-rate')?.value) || 87.5,
-            defaultPlanPeriod: document.getElementById('rnp-default-plan')?.value === 'month' ? 'month' : 'week',
-            monthFrom: parseInt(document.getElementById('rnp-month-from')?.value, 10) || 6,
-            monthTo: parseInt(document.getElementById('rnp-month-to')?.value, 10) || 12,
-            showGiveaways: true,
-            showCompetitor: true,
-            hiddenGroups: _hiddenGroupList(),
-        };
-        await _saveSettings({ options: opts });
-        if (!localStorage.getItem('rnp_plan_period')) {
-            _planPeriod = opts.defaultPlanPeriod;
-        }
-        _nrDialog('Сохранено', 'Параметры РНП обновлены.', 'success');
-        _renderSettings();
+        await _saveSettings({ options: { ..._settingsOptions(), hiddenGroups: _hiddenGroupList() } });
     }
 
     async function saveRate() {
