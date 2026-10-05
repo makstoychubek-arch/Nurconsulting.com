@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { hasBit, parseAkylaiToken, tokenSellerId, WB_BIT_FEEDBACKS, WB_BIT_READ_ONLY } from './akylai-token.ts';
+import { hasBit, missingCategories, parseAkylaiToken, tokenSellerId, WB_BIT_FEEDBACKS, WB_BIT_READ_ONLY, WB_REQUIRED_CATEGORIES } from './akylai-token.ts';
 
 function makeToken(payload: Record<string, unknown>): string {
     const b64 = (o: unknown) => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -9,12 +9,14 @@ function makeToken(payload: Record<string, unknown>): string {
 const NOW = 1_800_000_000;
 const FEEDBACKS = 2 ** WB_BIT_FEEDBACKS;
 const READ_ONLY = 2 ** WB_BIT_READ_ONLY;
+// Все категории, которые просим отметить у клиента (маска «токен на всё»).
+const ALL_CATEGORIES = WB_REQUIRED_CATEGORIES.reduce((m, c) => m + 2 ** c.bit, 0);
 // Персональный токен по документации WB: acc=3, for="self", t=false.
 const personal = { id: 'b3a1c1d2-0000-4000-8000-000000000001', sid: 'seller-uuid-1', acc: 3, for: 'self', t: false, exp: NOW + 86400 * 90 };
 
 // 1. Правильный: персональный, «Вопросы и отзывы», запись разрешена.
 {
-    const r = parseAkylaiToken(makeToken({ ...personal, s: FEEDBACKS | 2 ** 1 }), NOW);
+    const r = parseAkylaiToken(makeToken({ ...personal, s: ALL_CATEGORIES }), NOW);
     assert.equal(r.ok, true, 'valid personal token with feedbacks passes');
     if (r.ok) {
         assert.equal(r.info.sid, 'seller-uuid-1');
@@ -39,6 +41,22 @@ const personal = { id: 'b3a1c1d2-0000-4000-8000-000000000001', sid: 'seller-uuid
     assert.deepEqual(test, { ok: false, problem: 'NOT_PERSONAL' }, 'test (sandbox) token is not personal');
 }
 
+// «Токен на всё»: отзывы есть, но других категорий нет — отказ с понятным списком.
+{
+    const r = parseAkylaiToken(makeToken({ ...personal, s: FEEDBACKS }), NOW);
+    assert.equal(r.ok, false);
+    if (!r.ok) {
+        assert.equal(r.problem, 'MISSING_CATEGORIES');
+        assert.deepEqual(r.missing, ['Контент', 'Аналитика', 'Цены и скидки', 'Статистика', 'Продвижение']);
+    }
+    const some = parseAkylaiToken(makeToken({ ...personal, s: ALL_CATEGORIES - 2 ** 5 }), NOW);
+    assert.ok(!some.ok && some.problem === 'MISSING_CATEGORIES' && some.missing?.join() === 'Статистика', 'exactly the absent category is named');
+    assert.deepEqual(missingCategories(ALL_CATEGORIES), [], 'full mask has nothing missing');
+    // Лишние категории (чат, поставки, финансы и т.д.) не мешают.
+    const extra = parseAkylaiToken(makeToken({ ...personal, s: ALL_CATEGORIES + 2 ** 9 + 2 ** 13 + 2 ** 16 }), NOW);
+    assert.equal(extra.ok, true, 'extra categories are fine');
+}
+
 // Нет категории «Вопросы и отзывы».
 assert.deepEqual(parseAkylaiToken(makeToken({ ...personal, s: 2 ** 1 }), NOW), { ok: false, problem: 'NO_FEEDBACKS' });
 
@@ -52,7 +70,7 @@ assert.deepEqual(parseAkylaiToken('a.@@@.c', NOW), { ok: false, problem: 'MALFOR
 
 // Пробелы/переносы и «Bearer » при копировании не мешают.
 {
-    const t = makeToken({ ...personal, s: FEEDBACKS });
+    const t = makeToken({ ...personal, s: ALL_CATEGORIES });
     const r = parseAkylaiToken(`  Bearer ${t.slice(0, 20)}\n${t.slice(20)}  `, NOW);
     assert.equal(r.ok, true, 'whitespace and Bearer prefix are stripped');
 }

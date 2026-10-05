@@ -31,6 +31,7 @@ const TOKEN_MESSAGES: Record<AkylaiErrorCode, string> = {
     NOT_PERSONAL: 'Выбран не тот тип токена. Создайте новый с типом «Персональный».',
     NO_FEEDBACKS: 'В токене нет категории «Вопросы и отзывы». Создайте новый и отметьте её.',
     READ_ONLY: 'Токен создан «только для чтения» — с ним я не смогу публиковать ответы. Создайте новый без этой галочки.',
+    MISSING_CATEGORIES: 'В токене отмечены не все категории. Создайте новый токен и отметьте все категории доступа — тогда он подойдёт для всех разделов NR Space.',
     CHECK_FAILED: 'Не получилось проверить токен. Попробуйте ещё раз через минуту.',
     ALREADY_CONNECTED: 'Этот кабинет уже подключён. Напишите нам — разберёмся.',
     OTHER_SHOP: 'Это токен другого магазина. Вставьте токен того магазина, который вы уже подключили.',
@@ -38,8 +39,12 @@ const TOKEN_MESSAGES: Record<AkylaiErrorCode, string> = {
     SERVER_ERROR: 'Не получилось проверить токен. Попробуйте ещё раз через минуту.',
 };
 
-export function akylaiErrorMessage(code: string): string {
-    return TOKEN_MESSAGES[code as AkylaiErrorCode] || TOKEN_MESSAGES.SERVER_ERROR;
+export function akylaiErrorMessage(code: string, missing?: string[]): string {
+    const base = TOKEN_MESSAGES[code as AkylaiErrorCode] || TOKEN_MESSAGES.SERVER_ERROR;
+    if (code === 'MISSING_CATEGORIES' && missing?.length) {
+        return `В токене не хватает категорий: ${missing.join(', ')}. Создайте новый токен и отметьте все категории доступа — тогда он подойдёт для всех разделов NR Space.`;
+    }
+    return base;
 }
 
 export function isAkylaiErrorCode(code: string): code is AkylaiErrorCode {
