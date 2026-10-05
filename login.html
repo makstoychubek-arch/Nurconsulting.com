@@ -409,29 +409,79 @@
             return p;
         }
 
+        // Понятные сообщения вместо английских ошибок Supabase.
+        function authErrorText(err) {
+            const m = String((err && err.message) || err || '').toLowerCase();
+            if (m.includes('invalid login credentials')) return 'Неверный email или пароль.';
+            if (m.includes('email not confirmed')) return 'Почта ещё не подтверждена: откройте письмо от NR Space и перейдите по ссылке.';
+            if (m.includes('already registered') || m.includes('already been registered')) return 'Этот email уже зарегистрирован. Войдите или восстановите пароль.';
+            if (m.includes('rate limit') || m.includes('too many') || m.includes('over_email_send_rate_limit')) return 'Слишком много писем за короткое время. Попробуйте через час.';
+            if (m.includes('password') && m.includes('characters')) return 'Пароль слишком короткий: минимум 8 символов.';
+            if (m.includes('error sending') || m.includes('smtp')) return 'Не удалось отправить письмо. Попробуйте позже или войдите через Google.';
+            if (m.includes('failed to fetch') || m.includes('network')) return 'Нет связи с сервером. Проверьте интернет и повторите.';
+            return (err && err.message) || 'Не получилось. Попробуйте ещё раз.';
+        }
+
+        function hideMsg(id) { document.getElementById(id)?.classList.add('hidden'); }
+
         async function handleLogin() {
             const email = (document.getElementById('login-email')?.value || '').trim().toLowerCase();
+            const password = document.getElementById('login-password')?.value || '';
+            hideMsg('login-error');
             if (email === SUPER_ADMIN_EMAIL) {
                 showError('login-error', 'Для Super Admin доступен только вход через Google.');
                 return;
             }
-            showError('login-error', 'Пожалуйста, используйте кнопку "Войти через Google"');
+            if (!email || !password) { showError('login-error', 'Введите email и пароль.'); return; }
+            try { sessionStorage.removeItem('nr_logged_out'); } catch (_) {}
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) { showError('login-error', authErrorText(error)); return; }
+            // Дальше работает onAuthStateChange(SIGNED_IN): проверка доступа и переход в /space.
         }
 
         async function handleRegister() {
-            showError('reg-error', 'Регистрация через email недоступна. Используйте Google.');
+            const name = (document.getElementById('reg-name')?.value || '').trim();
+            const email = (document.getElementById('reg-email')?.value || '').trim().toLowerCase();
+            const password = document.getElementById('reg-password')?.value || '';
+            const confirm = document.getElementById('reg-password-confirm')?.value || '';
+            hideMsg('reg-error'); hideMsg('reg-success');
+            if (!name) { showError('reg-error', 'Введите имя.'); return; }
+            if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { showError('reg-error', 'Введите корректный email.'); return; }
+            if (email === SUPER_ADMIN_EMAIL) { showError('reg-error', 'Для этого аккаунта доступен только вход через Google.'); return; }
+            if (password.length < 8 || !/[0-9]/.test(password) || !/[A-Za-zА-Яа-яЁё]/.test(password)) {
+                showError('reg-error', 'Пароль: минимум 8 символов, буквы и цифры.');
+                return;
+            }
+            if (password !== confirm) { showError('reg-error', 'Пароли не совпадают.'); return; }
+            const { data, error } = await supabase.auth.signUp({
+                email,
+                password,
+                options: { data: { full_name: name }, emailRedirectTo: window.location.origin + '/login' },
+            });
+            if (error) { showError('reg-error', authErrorText(error)); return; }
+            // Пустой список identities — Supabase так сообщает, что email уже занят.
+            if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+                showError('reg-error', authErrorText('already registered'));
+                return;
+            }
+            if (data?.session?.user) return; // подтверждение почты отключено — onAuthStateChange откроет кабинет
+            const ok = document.getElementById('reg-success');
+            if (ok) {
+                ok.textContent = '✅ Письмо с подтверждением отправлено на ' + email + '. Откройте его и перейдите по ссылке, затем войдите.';
+                ok.classList.remove('hidden');
+            }
         }
-        
 
         async function handleForgotPassword(event) {
             const email = document.getElementById('forgot-email').value.trim();
             if (!email) { showError('forgot-error', 'Введите email'); return; }
             const btn = event.currentTarget;
             btn.textContent = 'Отправляем...'; btn.disabled = true;
+            hideMsg('forgot-error'); hideMsg('forgot-success');
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: window.location.origin + '/reset-password'
             });
-            if (error) { showError('forgot-error', error.message); }
+            if (error) { showError('forgot-error', authErrorText(error)); }
             else { document.getElementById('forgot-success').classList.remove('hidden'); }
             btn.textContent = 'Отправить ссылку'; btn.disabled = false;
         }
