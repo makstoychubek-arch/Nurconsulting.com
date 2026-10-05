@@ -1067,15 +1067,17 @@ async function syncRnpDailyFromOrders(admin: Admin, cabinetId: string): Promise<
 async function preserveFunnelOrders(
     admin: Admin,
     cabinetId: string,
-    upserts: Array<{ nm_id: number; date: string; orders_count: number }>,
+    upserts: Array<{ nm_id: number; date: string; orders_count: number; orders_sum?: number; avg_check?: number }>,
 ) {
     if (!upserts.length) return;
-    const { from, to } = wbFunnelWindow();
+    const { to } = wbFunnelWindow();
+    // Сохранённая воронка (в том числе старше 7 дней) не должна затираться заказами statistics-api.
+    const from = upserts.map((u) => u.date).sort()[0] || wbFunnelWindow().from;
     const existing: Record<string, unknown>[] = [];
     let offset = 0;
     for (;;) {
         const { data, error } = await admin.from('rnp_daily_data')
-            .select('nm_id, date, basket_count, funnel_order_conv')
+            .select('nm_id, date, basket_count, funnel_order_conv, funnel_orders, funnel_orders_sum')
             .eq('cabinet_id', cabinetId)
             .gte('date', from)
             .lte('date', to)

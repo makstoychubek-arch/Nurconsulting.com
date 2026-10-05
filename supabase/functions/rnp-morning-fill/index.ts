@@ -509,15 +509,16 @@ async function countActiveArticles(admin: Admin, cabinetId: string): Promise<num
 async function preserveFunnelOrders(
     admin: Admin,
     cabinetId: string,
-    upserts: Array<{ nm_id: number; date: string; orders_count: number }>,
+    upserts: Array<{ nm_id: number; date: string; orders_count: number; orders_sum?: number; avg_check?: number }>,
 ) {
     if (!upserts.length) return;
-    const { from, to } = wbFunnelWindow();
+    const { to } = wbFunnelWindow();
+    const from = upserts.map((u) => u.date).sort()[0] || wbFunnelWindow().from;
     const existing: Record<string, unknown>[] = [];
     let offset = 0;
     for (;;) {
         const { data, error } = await admin.from('rnp_daily_data')
-            .select('nm_id, date, basket_count, funnel_order_conv, funnel_orders')
+            .select('nm_id, date, basket_count, funnel_order_conv, funnel_orders, funnel_orders_sum')
             .eq('cabinet_id', cabinetId)
             .gte('date', from)
             .lte('date', to)

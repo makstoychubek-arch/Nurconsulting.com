@@ -2772,6 +2772,39 @@
         .pnl-card--profit .pnl-big.is-neg { color: #ef4444; }
         @media (max-width: 1280px) { .pnl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 640px) { .pnl-grid { grid-template-columns: 1fr; } .pnl-big { font-size: 22px; } }
+        /* Раздачи: таблица по шаблону рабочей таблицы, правка в ячейках */
+        .gg-give { padding: 0; }
+        .gv-wrap { background: var(--surface-solid); border-radius: var(--radius-card, 16px); box-shadow: var(--card-shadow); padding: 14px 16px 12px; }
+        .gv-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+        .gv-sp { flex: 1; }
+        .gv-add { height: 30px; padding: 0 14px; border: none; border-radius: 9px; background: var(--accent, #6366f1); color: #fff; font-size: 12px; font-weight: 700; cursor: pointer; }
+        .gv-ghost { height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-primary); font-size: 12px; font-weight: 650; cursor: pointer; }
+        .gv-filter { height: 30px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); color: var(--text-primary); font-size: 12px; padding: 0 8px; }
+        .gv-q { min-width: 190px; }
+        .gv-sum { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+        .gv-chip { font-size: 11px; padding: 4px 9px; border-radius: 8px; background: var(--sel); color: var(--text-secondary); }
+        .gv-chip.is-late { background: rgba(239,68,68,0.14); color: #dc2626; }
+        .gv-scroll { overflow: auto; max-height: calc(100vh - 290px); border-radius: 10px; border: 1px solid var(--border); overscroll-behavior: contain; }
+        .gv-table { border-collapse: separate; border-spacing: 0; table-layout: fixed; font-size: 11px; }
+        .gv-th { position: sticky; top: 0; z-index: 3; background: #d9ead3; color: #274e13; font-weight: 700; font-size: 10px; text-align: center; padding: 6px 4px; border-right: 1px solid #c4dcb9; border-bottom: 1px solid #c4dcb9; white-space: normal; line-height: 1.15; }
+        .gv-c { padding: 0; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface-solid); height: 28px; }
+        .gv-in { width: 100%; height: 28px; line-height: 28px; border: none !important; border-radius: 0 !important; box-shadow: none !important; margin: 0; background: transparent; color: var(--text-primary); font-size: 11px; padding: 0 5px; box-sizing: border-box; font-family: inherit; }
+        .gv-in:focus { outline: 2px solid var(--accent, #6366f1); outline-offset: -2px; background: var(--accent-soft); }
+        .gv-table select.gv-sel { cursor: pointer; font-weight: 650; padding: 0 2px !important; height: 28px !important; line-height: 26px !important; font-size: 11px !important; margin: 0 !important; min-height: 0 !important; appearance: auto; }
+        .gv-txt[type=date] { padding: 0 2px; font-size: 10.5px; }
+        .gv-table .gv-st-ok { background: #b7e1cd !important; color: #0b5d34; }
+        .gv-table .gv-st-ready { background: #fce8b2 !important; color: #7a5200; }
+        .gv-table .gv-st-no { background: #f4c7c3 !important; color: #8a1c14; }
+        .gv-table .gv-st-off { background: #e5e7eb !important; color: #6b7280; }
+        .gv-center { text-align: center; }
+        .gv-chk { width: 16px; height: 16px; accent-color: var(--accent, #6366f1); cursor: pointer; }
+        .gv-pay { text-align: center; font-variant-numeric: tabular-nums; background: #f3f7f1; color: var(--text-secondary); }
+        .gv-pay.is-late { background: #f4c7c3; color: #8a1c14; font-weight: 700; }
+        .gv-del { width: 26px; text-align: center; }
+        .gv-x { border: none; background: transparent; color: var(--text-muted); font-size: 16px; cursor: pointer; line-height: 1; }
+        .gv-x:hover { color: #dc2626; }
+        .gv-empty { padding: 28px 12px; text-align: center; color: var(--text-muted); font-size: 12px; }
+        .gv-table tbody tr:hover .gv-c { box-shadow: inset 0 0 0 999px rgba(99,102,241,0.05); }
         .rnp-note-pop {
             position: fixed; z-index: 10090; max-width: 320px; min-width: 180px; display: none;
             padding: 10px 12px; border-radius: 12px; background: var(--surface-solid); color: var(--text-primary);
@@ -6397,6 +6430,7 @@
                     <button type="button" class="gg-view-btn is-on" id="gg-view-now-btn" role="tab" aria-selected="true" onclick="setGoodsView('now')">Остатки</button>
                     <button type="button" class="gg-view-btn" id="gg-view-daily-btn" role="tab" aria-selected="false" onclick="setGoodsView('daily')">Остатки по дням</button>
                     <button type="button" class="gg-view-btn" id="gg-view-cost-btn" role="tab" aria-selected="false" onclick="setGoodsView('cost')">Себестоимость</button>
+                    <button type="button" class="gg-view-btn" id="gg-view-give-btn" data-staff-only="1" role="tab" aria-selected="false" onclick="setGoodsView('give')">Раздачи</button>
                 </div>
                 <div class="gg-now-tools rnp-tool-icons" id="gg-now-tools">
                 <div class="gg-search-wrap" id="gg-search-wrap">
@@ -6455,6 +6489,7 @@
                     <tfoot id="gg-cost-foot"></tfoot>
                 </table>
             </div>
+            <div id="gg-view-give" class="gg-give" hidden></div>
         </div>
 
         <div id="gg-settings-overlay" class="rnp-settings-overlay" onclick="if(event.target===this) closeGoodsSettings()">
@@ -8152,6 +8187,7 @@
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.35bc97e198.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
+<script src="/dist/giveaways.41725d31c8.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
@@ -11630,7 +11666,7 @@
     }
 
     function setGoodsView(view, opts) {
-        ggView = view === 'daily' || view === 'cost' ? view : 'now';
+        ggView = view === 'daily' || view === 'cost' || view === 'give' ? view : 'now';
         const nowEl = document.getElementById('gg-view-now');
         const dailyEl = document.getElementById('gg-view-daily');
         const costEl = document.getElementById('gg-view-cost');
@@ -11640,6 +11676,15 @@
         if (nowEl) nowEl.hidden = ggView !== 'now';
         if (dailyEl) dailyEl.hidden = ggView !== 'daily';
         if (costEl) costEl.hidden = ggView !== 'cost';
+        const giveEl = document.getElementById('gg-view-give');
+        if (giveEl) giveEl.hidden = ggView !== 'give';
+        document.getElementById('gg-view-give-btn')?.classList.toggle('is-on', ggView === 'give');
+        document.getElementById('gg-view-give-btn')?.setAttribute('aria-selected', ggView === 'give' ? 'true' : 'false');
+        const nowTools = document.getElementById('gg-now-tools');
+        if (nowTools) nowTools.style.visibility = ggView === 'give' ? 'hidden' : '';
+        if (ggView === 'give' && giveEl && window.NrGiveaways && goodsGroupsCabinetId) {
+            window.NrGiveaways.show({ host: giveEl, supabase, cabinetId: goodsGroupsCabinetId });
+        }
         nowBtn?.classList.toggle('is-on', ggView === 'now');
         dailyBtn?.classList.toggle('is-on', ggView === 'daily');
         costBtn?.classList.toggle('is-on', ggView === 'cost');

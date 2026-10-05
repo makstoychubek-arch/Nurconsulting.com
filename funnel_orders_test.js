@@ -23,10 +23,10 @@ assert.ok(js.includes('orderCount: row.funnel_orders ?? row.orderCount'), 'store
 const helper = read('supabase/functions/_shared/wb-funnel-day.ts');
 assert.ok(helper.includes('if (fromField != null) return fromField;\n    return funnelImpliedOrders(day);'), 'server helper: real orderCount first');
 assert.ok(helper.includes('fields.funnel_orders = Math.round(rawOrders);'), 'server stores the real orderCount');
-assert.ok(helper.includes('const raw = existing?.funnel_orders;'), 'a stored real orderCount is never overwritten by statistics-api counts');
+assert.ok(helper.includes('const stored = existing?.funnel_orders;'), 'a stored real orderCount is never overwritten by statistics-api counts');
 
 const fill = read('supabase/functions/rnp-morning-fill/index.ts');
-assert.ok(fill.includes("'nm_id, date, basket_count, funnel_order_conv, funnel_orders'"), 'preserve step reads the stored real orderCount');
+assert.ok(fill.includes("'nm_id, date, basket_count, funnel_order_conv, funnel_orders, funnel_orders_sum'"), 'preserve step reads the stored real orderCount');
 assert.ok(fill.includes('saved += upserts.length;'), 'funnel sync saves per chunk (a timeout does not lose the rest)');
 
 const cron = read('supabase/migrations/20261005180000_rnp_funnel_crons.sql');

@@ -44,6 +44,10 @@ export function keepFunnelOrdersCount(
 ): number {
     const stats = Number(statsCount);
     const fallback = Number.isFinite(stats) && stats >= 0 ? stats : 0;
+    // Настоящий orderCount воронки, сохранённый для любого дня (в том числе старше 7 дней — его доливает
+    // orders-rescan через sales-funnel/products), главнее заказов statistics-api, которых WB отдаёт ~9% меньше.
+    const stored = existing?.funnel_orders;
+    if (stored != null && stored !== '' && Number.isFinite(Number(stored)) && Number(stored) >= 0) return Number(stored);
     if (!isWbFunnelWindowDate(date, today)) return fallback;
     // Настоящий orderCount воронки, сохранённый при синхронизации.
     const raw = existing?.funnel_orders;
@@ -53,7 +57,14 @@ export function keepFunnelOrdersCount(
     return fallback;
 }
 
-export function applyKeepFunnelOrders<T extends { nm_id: number; date: string; orders_count: number }>(
+/** Сумма заказов воронки (orderSum) — как «Заказано, сумма» в аналитике WB. */
+export function keepFunnelOrdersSum(existing: Record<string, unknown> | null | undefined, statsSum: number): number {
+    const stored = existing?.funnel_orders_sum;
+    if (stored != null && stored !== '' && Number.isFinite(Number(stored)) && Number(stored) >= 0) return Number(stored);
+    return Number(statsSum) || 0;
+}
+
+export function applyKeepFunnelOrders<T extends { nm_id: number; date: string; orders_count: number; orders_sum?: number; avg_check?: number }>(
     existing: Array<Record<string, unknown> | null | undefined>,
     upserts: T[],
     today = moscowYmd(),
@@ -67,12 +78,12 @@ export function applyKeepFunnelOrders<T extends { nm_id: number; date: string; o
         map.set(`${nmId}|${date}`, row);
     }
     for (const row of upserts) {
-        row.orders_count = keepFunnelOrdersCount(
-            map.get(`${row.nm_id}|${row.date}`),
-            Number(row.orders_count),
-            row.date,
-            today,
-        );
+        const ex = map.get(`${row.nm_id}|${row.date}`);
+        row.orders_count = keepFunnelOrdersCount(ex, Number(row.orders_count), row.date, today);
+        if (row.orders_sum != null) {
+            row.orders_sum = keepFunnelOrdersSum(ex, Number(row.orders_sum));
+            if ('avg_check' in row) row.avg_check = row.orders_count > 0 ? row.orders_sum / row.orders_count : 0;
+        }
     }
     return upserts;
 }
@@ -128,5 +139,10 @@ export function funnelDayMetricFields(day: Record<string, unknown>): Record<stri
     // Настоящий orderCount воронки — отдельно, для сверки и для защиты от перезаписи из statistics-api.
     const rawOrders = numPick(day, ['orderCount', 'ordersCount', 'orders', 'order_count']);
     if (rawOrders != null) fields.funnel_orders = Math.round(rawOrders);
+    const rawSum = numPick(day, ['orderSum', 'ordersSumRub', 'ordersSum']);
+    if (rawSum != null && rawOrders != null) {
+        fields.funnel_orders_sum = Math.round(rawSum);
+        fields.orders_sum = Math.round(rawSum);
+    }
     return fields;
 }
