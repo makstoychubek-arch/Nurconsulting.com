@@ -15,6 +15,26 @@
 
 export const WB_BIT_FEEDBACKS = 7;
 export const WB_BIT_READ_ONLY = 30;
+
+/**
+ * Категории, которые клиент отмечает один раз — чтобы этот же токен потом работал
+ * во всех разделах (отчёты, реклама, дашборд, РНП, А/Б-тесты), а не только в Акылай.
+ * Номера битов — из таблицы «Декодирование токена» на dev.wildberries.ru.
+ * «Финансы» в таблице нет: их проверяем живым запросом к finance-api (см. akylai-connect).
+ */
+export const WB_REQUIRED_CATEGORIES: ReadonlyArray<{ bit: number; label: string }> = [
+    { bit: 1, label: 'Контент' },
+    { bit: 2, label: 'Аналитика' },
+    { bit: 3, label: 'Цены и скидки' },
+    { bit: 5, label: 'Статистика' },
+    { bit: 6, label: 'Продвижение' },
+    { bit: WB_BIT_FEEDBACKS, label: 'Вопросы и отзывы' },
+];
+
+/** Названия категорий из WB_REQUIRED_CATEGORIES, которых нет в маске токена. */
+export function missingCategories(mask: number): string[] {
+    return WB_REQUIRED_CATEGORIES.filter((c) => !hasBit(mask, c.bit)).map((c) => c.label);
+}
 export const WB_ACC_PERSONAL = 3;
 
 export type AkylaiTokenProblem =
@@ -23,7 +43,8 @@ export type AkylaiTokenProblem =
     | 'EXPIRED'
     | 'NOT_PERSONAL'
     | 'NO_FEEDBACKS'
-    | 'READ_ONLY';
+    | 'READ_ONLY'
+    | 'MISSING_CATEGORIES';
 
 export type AkylaiTokenInfo = {
     sid: string;
@@ -34,7 +55,7 @@ export type AkylaiTokenInfo = {
 
 export type AkylaiTokenParse =
     | { ok: true; token: string; info: AkylaiTokenInfo }
-    | { ok: false; problem: AkylaiTokenProblem };
+    | { ok: false; problem: AkylaiTokenProblem; missing?: string[] };
 
 /** Бит маски s. Маска может быть больше 2^31, поэтому без побитовых операторов JS. */
 export function hasBit(mask: number, bit: number): boolean {
@@ -84,6 +105,8 @@ export function parseAkylaiToken(raw: unknown, nowSec = Math.floor(Date.now() / 
     const mask = typeof payload.s === 'number' ? payload.s : 0;
     if (!hasBit(mask, WB_BIT_FEEDBACKS)) return { ok: false, problem: 'NO_FEEDBACKS' };
     if (hasBit(mask, WB_BIT_READ_ONLY)) return { ok: false, problem: 'READ_ONLY' };
+    const missing = missingCategories(mask);
+    if (missing.length) return { ok: false, problem: 'MISSING_CATEGORIES', missing };
 
     const sid = typeof payload.sid === 'string' ? payload.sid.trim() : '';
     if (!sid) return { ok: false, problem: 'MALFORMED' };

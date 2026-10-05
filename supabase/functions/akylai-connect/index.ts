@@ -16,8 +16,8 @@ import {
 } from '../_shared/akylai-server.ts';
 import { encryptSecret, importSecretKey } from '../_shared/secret-box.ts';
 
-function fail(code: AkylaiErrorCode, status = 200) {
-    return json({ ok: false, code, message: akylaiErrorMessage(code) }, status);
+function fail(code: AkylaiErrorCode, status = 200, missing?: string[]) {
+    return json({ ok: false, code, message: akylaiErrorMessage(code, missing), ...(missing?.length ? { missing } : {}) }, status);
 }
 
 /** Кто уже владеет магазином с этим sid (кроме самого клиента). */
@@ -63,7 +63,7 @@ Deno.serve(async (req) => {
         const parsed = parseAkylaiToken(body?.token);
         if (!parsed.ok) {
             await agentLog(admin, null, 'token_rejected', { user_id: user.id, problem: parsed.problem });
-            return fail(parsed.problem);
+            return fail(parsed.problem, 200, parsed.missing);
         }
         const { token, info } = parsed;
 
@@ -76,6 +76,12 @@ Deno.serve(async (req) => {
             });
             return fail(probe.status === 401 ? 'EXPIRED' : 'CHECK_FAILED');
         }
+
+        // «Финансы» в таблице битов WB нет, поэтому смотрим живым запросом. Пока только пишем
+        // результат в журнал (не блокируем): когда увидим ответ WB на токене без этой категории,
+        // можно будет включить отказ.
+        const finance = await wbFetch('https://finance-api.wildberries.ru/ping', token);
+        await agentLog(admin, null, 'finance_ping', { user_id: user.id, sid: info.sid, status: finance.status });
 
         if (await foreignOwnerOfSid(admin, info.sid, user.id)) {
             await agentLog(admin, null, 'duplicate_shop', { user_id: user.id, email: user.email, sid: info.sid });

@@ -123,6 +123,7 @@ assert.ok(!/вопрос/i.test(ui.match(/renderHello\(\) \{[\s\S]*?\n    \}/)[0
 assert.ok(/input: true/.test(ui) && ui.includes("const input = last"), 'token field only on the last slide');
 assert.ok(ui.includes('«Персональный»') && ui.includes('«Вопросы и отзывы»') && ui.includes('«Только на чтение» не ставьте') && ui.includes('срок действия'),
     'slides explain type, category, read-only and expiry');
+assert.ok(ui.includes('все категории доступа'), 'the client is asked for ONE token with all categories, not only feedbacks');
 assert.ok(!/Проверить<\/button>/.test(ui) && ui.includes("addEventListener('paste'"), 'no «check» button: token is checked automatically');
 for (const f of ['akylai-smile.svg', 'akylai-serious.svg', 'akylai-neutral.svg']) {
     assert.ok(fs.existsSync(path.join(__dirname, 'img/agents', f)), `avatar ${f} exists`);
