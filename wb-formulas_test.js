@@ -154,3 +154,12 @@ console.log('wb-formulas_test: ok');
     const withTax = WBx.calculateMetrics([saleRow], { taxRate: 6, adsSum: 0 });
     require('assert').strictEqual(withTax.taxSum, 60);
 }
+
+// Себестоимость вычитает возвраты: вернувшийся товар не расход периода.
+{
+    const WBy = require('./wb-formulas.js');
+    const s = { doc_type_name: 'Продажа', quantity: 3, retail_price_withdisc_rub: 1000, retail_price: 1000, retail_amount: 900, ppvz_for_pay: 700, sale_dt: '2026-09-10', nm_id: 7 };
+    const r = { doc_type_name: 'Возврат', quantity: 1, retail_price_withdisc_rub: 1000, retail_price: 1000, retail_amount: 900, ppvz_for_pay: 700, sale_dt: '2026-09-11', nm_id: 7 };
+    const m = WBy.calculateMetrics([s, r], { costOfGoods: { 7: 400 }, adsSum: 0 });
+    require('assert').strictEqual(m.costOfSalesSum, 800, '3 sold − 1 returned = 2 × 400');
+}

@@ -158,6 +158,8 @@ function calculateMetrics(rows, settings = {}) {
         if (isReturn) {
             returnsSum += priceWithDisc * qty;
             returnsCount += qty;
+            // Вернувшийся товар возвращается на склад — его себестоимость в расходы периода не входит.
+            if (costOfGoods[nmId]) costOfSalesSum -= costOfGoods[nmId] * qty;
             // В отчёте WB суммы по возврату положительные — их вычитают, а не
             // прибавляют. Раньше возврат увеличивал «к перечислению» и тем
             // самым занижал комиссию: на неделе Baza это давало +1.4 млн сом.
