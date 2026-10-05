@@ -980,8 +980,8 @@ assert.ok(
     html.includes('position: fixed'),
     'phone CSS keeps slideshow + overlay stocks and hides the article/KPI block'
 );
-assert.ok(rnpSrc.includes('rnp-settings-phone-tools') && rnpSrc.includes('_weeksCollapsed'),
-    'Excel/План/секции move into RNP settings on the phone');
+assert.ok(rnpSrc.includes('function _settingsPhoneToolsHtml()') && rnpSrc.includes('_weeksCollapsed'),
+    'the three selects (секции/план/месяц) are gone on the phone too: the period is the shared date chip');
 assert.ok(rnpSrc.includes('function _bindArticleSwipe') && rnpSrc.includes('rnp-sheet-body--swap'),
     'article cards swipe and fade like a desktop pick');
 assert.ok(rnpSrc.includes('if (_isNarrow()) return null;'), 'weeks/ИТОГ swipe on phone and iPad, they are not removed');

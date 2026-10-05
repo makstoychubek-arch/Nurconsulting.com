@@ -1474,8 +1474,30 @@ const RNP = (() => {
 
     // ─── CALENDAR ─────────────────────────────────────────────────────────────
     let _refMonthKey = null; // e.g. '2026-06' — null = live current month
+    // Период берётся из общего выбора дат в шапке (как в Дашборде и Контроле РК): {from, to} в YYYY-MM-DD.
+    // Больше RNP_MAX_RANGE_DAYS дней в таблицу не помещается — берём последние дни периода.
+    const RNP_MAX_RANGE_DAYS = 62;
+    let _extRange = null;
+
+    function _clipRange(from, to) {
+        const re = /^\d{4}-\d{2}-\d{2}$/;
+        if (!re.test(String(from)) || !re.test(String(to))) return null;
+        let a = String(from), b = String(to);
+        if (a > b) { const t = a; a = b; b = t; }
+        const spanDays = Math.round((new Date(b + 'T12:00:00Z') - new Date(a + 'T12:00:00Z')) / 86400000) + 1;
+        if (spanDays > RNP_MAX_RANGE_DAYS) {
+            const d = new Date(b + 'T12:00:00Z');
+            d.setUTCDate(d.getUTCDate() - (RNP_MAX_RANGE_DAYS - 1));
+            return { from: d.toISOString().split('T')[0], to: b, clipped: true };
+        }
+        return { from: a, to: b, clipped: false };
+    }
 
     function _refDate() {
+        if (_extRange) {
+            const [y, m] = _extRange.to.split('-').map(Number);
+            return new Date(y, m - 1, 1);
+        }
         if (!_refMonthKey) return null;
         const [y, m] = _refMonthKey.split('-').map(Number);
         return new Date(y, m - 1, 1);
@@ -1538,6 +1560,32 @@ const RNP = (() => {
         return !_compareMonthKey;
     }
 
+    /** Период из общего выбора дат в шапке. opts.noReload — только запомнить (перед первой отрисовкой). */
+    async function setDateRange(from, to, opts) {
+        const r = _clipRange(from, to);
+        if (!r) return;
+        const first = !_extRange;
+        const changed = first || _extRange.from !== r.from || _extRange.to !== r.to;
+        _extRange = r;
+        _cabinetColsCacheKey = '';
+        _cabinetColsCacheVal = null;
+        if (r.clipped && changed && !opts?.noReload) {
+            window.NrNotify?.push({
+                title: 'РНП показывает не больше 62 дней',
+                detail: `Выбранный период длиннее, показаны последние дни: ${r.from} — ${r.to}.`,
+                key: 'rnp-range-clipped',
+            });
+        }
+        // Первая установка идёт до загрузки кабинета — данные подтянет сам запуск РНП.
+        if (opts?.noReload || !changed || first) return;
+        if (_compareMonthKey && _compareMonthKey >= _viewMonthKey()) {
+            _compareMonthKey = null;
+            try { localStorage.setItem('rnp_compare_month', ''); } catch (e) {}
+        }
+        await _loadRnpData();
+        await _renderActiveTable();
+    }
+
     async function setRefMonth(val) {
         const real = new Date();
         const liveKey = _monthKey(real);
@@ -1552,8 +1600,8 @@ const RNP = (() => {
     }
 
     function _buildCalendar() {
-        const useMonth = _planPeriod === 'month' && !_isPhone();
-        const cal = useMonth ? _buildMonthCalendar(new Date()) : _buildWeekCalendar(_refDate());
+        // Режим «месяцы по плану» убран вместе с выбором «План → неделя/месяц»: период задаётся датами в шапке.
+        const cal = _buildWeekCalendar(_refDate());
         return { ...cal, weeksAvailable: (cal.weeks || []).length };
     }
 
@@ -1608,20 +1656,31 @@ const RNP = (() => {
             ? _capMonth(cmp.toLocaleString('ru', { month: 'long', year: 'numeric' }))
             : '';
 
-        const currName = _capMonth(today.toLocaleString('ru', { month: 'long', year: 'numeric' }));
+        let currName = _capMonth(today.toLocaleString('ru', { month: 'long', year: 'numeric' }));
         const currDaysInMonth = new Date(Y, M + 1, 0).getDate();
         const realTodayStr = _wbTodayStr(realNow);
         const [ry, rm, rd] = realTodayStr.split('-').map(Number);
         const realMid = new Date(ry, rm - 1, rd);
         const days = [];
-        for (let d = 1; d <= currDaysInMonth; d++) {
-            const date = _dateStr(Y, M + 1, d);
-            const dt = new Date(Y, M, d);
-            const dd = String(d).padStart(2, '0');
-            const mm = String(M + 1).padStart(2, '0');
+        // Список дат колонок: выбранный период из шапки или весь месяц (прежнее поведение).
+        const dayList = [];
+        if (_extRange) {
+            const cur = new Date(_extRange.from + 'T12:00:00Z');
+            const end = new Date(_extRange.to + 'T12:00:00Z');
+            while (cur <= end) { dayList.push(cur.toISOString().split('T')[0]); cur.setUTCDate(cur.getUTCDate() + 1); }
+            const f = _extRange.from.split('-'), t = _extRange.to.split('-');
+            currName = (f[0] === t[0] && f[1] === t[1])
+                ? _capMonth(new Date(Number(t[0]), Number(t[1]) - 1, 1).toLocaleString('ru', { month: 'long', year: 'numeric' }))
+                : `${f[2]}.${f[1]} — ${t[2]}.${t[1]}.${t[0]}`;
+        } else {
+            for (let d = 1; d <= currDaysInMonth; d++) dayList.push(_dateStr(Y, M + 1, d));
+        }
+        for (const date of dayList) {
+            const [dy, dm, dd0] = date.split('-').map(Number);
+            const dt = new Date(dy, dm - 1, dd0);
             days.push({
                 type: 'day', date,
-                label: `${dd}.${mm}`,
+                label: `${String(dd0).padStart(2, '0')}.${String(dm).padStart(2, '0')}`,
                 dow: dt.toLocaleString('ru', { weekday: 'short' }),
                 isToday: date === realTodayStr,
                 isFuture: dt > realMid
@@ -1630,7 +1689,7 @@ const RNP = (() => {
 
         // Cap "today" reference to the last in-range date so past-month views
         // include their full data instead of being clipped by the real date.
-        const cappedTodayStr = currDaysInMonth ? _dateStr(Y, M + 1, currDaysInMonth) : realTodayStr;
+        const cappedTodayStr = dayList.length ? dayList[dayList.length - 1] : realTodayStr;
         const todayStr = realTodayStr < cappedTodayStr ? realTodayStr : cappedTodayStr;
 
         return { mode: 'week', prevName, weeks, currName, days, todayStr, isLive: refDate == null };
@@ -2795,6 +2854,10 @@ const RNP = (() => {
     }
 
     function _periodChipLabel() {
+        if (_extRange) {
+            const f = _extRange.from.split('-'), t = _extRange.to.split('-');
+            return f[0] === t[0] && f[1] === t[1] && f[2] === t[2] ? `${t[2]}.${t[1]}.${t[0]}` : `${f[2]}.${f[1]} — ${t[2]}.${t[1]}.${t[0]}`;
+        }
         const d = _refDate() || new Date();
         const month = _capMonth(d.toLocaleString('ru', { month: 'long', year: 'numeric' }));
         return `${_refMonthKey ? '' : 'Текущий · '}${month}`;
@@ -2904,37 +2967,12 @@ const RNP = (() => {
     }
 
     function _settingsPhoneToolsHtml() {
-        return `<div class="widget-card p-5 rnp-settings-phone-tools">
-            <h3 class="font-semibold mb-3" style="color:var(--text-primary)">Таблица</h3>
-            <div class="rnp-settings-phone-tools-grid">
-              <select onchange="RNP.setView(this.value)" title="Секции таблицы">
-                <option value="all"${_sectionView === 'all' ? ' selected' : ''}>Все секции</option>
-                <option value="sales_finance"${_sectionView === 'sales_finance' ? ' selected' : ''}>Заказы + Финансы</option>
-                <option value="compact"${_sectionView === 'compact' ? ' selected' : ''}>Компакт</option>
-              </select>
-              <select title="Период планирования" onchange="RNP.setPlanPeriod(this.value)">
-                <option value="week"${_planPeriod === 'week' ? ' selected' : ''}>План → неделя</option>
-                <option value="month"${_planPeriod === 'month' ? ' selected' : ''}>План → месяц</option>
-              </select>
-              <select title="Месяц" onchange="RNP.setRefMonth(this.value)">${_monthOptionsHtml()}</select>
-            </div>
-          </div>`;
+        // Секции, «План → неделя/месяц» и месяц убраны: период выбирается датами в шапке.
+        return '';
     }
 
     function _buildActionBar(active) {
         return `${_buildPhoneActionBar()}<div class="rnp-action-bar rnp-action-bar--desktop">
-          <select onchange="RNP.setView(this.value)" title="Секции таблицы">
-            <option value="all"${_sectionView === 'all' ? ' selected' : ''}>Все секции</option>
-            <option value="sales_finance"${_sectionView === 'sales_finance' ? ' selected' : ''}>Заказы + Финансы</option>
-            <option value="compact"${_sectionView === 'compact' ? ' selected' : ''}>Компакт</option>
-          </select>
-          <select title="Период планирования" onchange="RNP.setPlanPeriod(this.value)">
-            <option value="week"${_planPeriod === 'week' ? ' selected' : ''}>План → неделя</option>
-            <option value="month"${_planPeriod === 'month' ? ' selected' : ''}>План → месяц</option>
-          </select>
-          ${_planPeriod === 'week' ? `<select title="Какой месяц показать по дням" onchange="RNP.setRefMonth(this.value)">
-            ${_monthOptionsHtml()}
-          </select>` : ''}
           <span id="rnp-freshness" hidden></span>
           ${_iconToolsHtml()}
         </div>`;
@@ -3993,24 +4031,23 @@ const RNP = (() => {
     // и сумма выходит меньше, чем в кабинете WB. Считаем при полной загрузке и показываем строку-предупреждение.
     let _adOutside = null;
 
+    let _adOutsideSig = '';
+
+    // Предупреждение живёт в колокольчике (не мешает таблице) и не повторяется, пока ничего не изменилось.
     function _updateAdOutsideNotice() {
-        const ws = document.querySelector('#tab-rnp .rnp-workspace');
-        if (!ws) return;
-        let el = document.getElementById('rnp-ad-warning');
         const o = _adOutside;
-        if (!o || !(o.views > 0 || o.spend > 0)) { if (el) el.remove(); return; }
-        if (!el) {
-            el = document.createElement('div');
-            el.id = 'rnp-ad-warning';
-            el.className = 'rnp-ad-warning';
-            el.style.cssText = 'margin:6px 0;padding:8px 12px;border-radius:10px;font-size:12px;border:1px solid var(--border);background:var(--surface);color:var(--text-primary)';
-            const tabs = document.getElementById('rnp-sheet-tabs');
-            if (tabs && tabs.parentElement === ws) ws.insertBefore(el, tabs); else ws.insertBefore(el, ws.firstChild);
-        }
+        document.getElementById('rnp-ad-warning')?.remove(); // прежняя строка над таблицей
+        if (!o || !(o.views > 0 || o.spend > 0)) { _adOutsideSig = ''; return; }
         const list = [...o.nms].slice(0, 5).join(', ') + (o.nms.size > 5 ? ` и ещё ${o.nms.size - 5}` : '');
-        el.innerHTML = `⚠️ Есть показы РК по артикулам, которых нет среди активных в РНП: <b>${o.nms.size} шт</b>, ` +
-            `показов <b>${Math.round(o.views).toLocaleString('ru')}</b>, расход <b>${Math.round(o.spend).toLocaleString('ru')}</b>. ` +
-            `В «Общем РНП» они не учтены, поэтому сумма будет меньше, чем в кабинете WB. Артикулы: ${list}. Включите их в настройках РНП.`;
+        const sig = `${_cab}|${[...o.nms].sort().join(',')}`;
+        if (sig === _adOutsideSig) return;
+        _adOutsideSig = sig;
+        window.NrNotify?.push({
+            title: 'Показы РК по артикулам вне РНП',
+            detail: `${o.nms.size} шт, показов ${Math.round(o.views).toLocaleString('ru')}, расход ${Math.round(o.spend).toLocaleString('ru')}. ` +
+                `В «Общем РНП» они не учтены, сумма будет меньше, чем в кабинете WB. Артикулы: ${list}. Включите их в настройках РНП.`,
+            key: `rnp-ad-outside-${_cab}`,
+        });
     }
 
     async function _mergeAdStatsFromDb(nmIds, cal, opts) {
@@ -5698,15 +5735,12 @@ const RNP = (() => {
         }
         if (active.length > 40 && _activeNm === GENERAL_TAB) _activeNm = SUMMARY_TAB;
 
-        try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
+        _sectionView = 'all'; // выбор секций убран из интерфейса
         _notesVisible = false;
         try { _editMode = sessionStorage.getItem('rnp_edit_mode') === '1'; } catch (e) {}
         try { _strategyTab = parseInt(localStorage.getItem('rnp_strategy_tab') || '0', 10) || 0; } catch (e) {}
-        try {
-            const pp = localStorage.getItem('rnp_plan_period');
-            _planPeriod = pp === 'month' ? 'month' : (pp === 'week' ? 'week' : (_settings.defaultPlanPeriod || 'week'));
-        } catch (e) { _planPeriod = _settings.defaultPlanPeriod || 'week'; }
-        try { _refMonthKey = localStorage.getItem('rnp_ref_month') || null; } catch (e) { _refMonthKey = null; }
+        _planPeriod = 'week'; // «План → месяц» убран из интерфейса, период — датами в шапке
+        _refMonthKey = null;
         try {
             const cm = localStorage.getItem('rnp_compare_month') || '';
             _compareMonthKey = cm && cm < _viewMonthKey() ? cm : null;
@@ -6493,7 +6527,7 @@ const RNP = (() => {
         _restoreCabinetCache(cabId);
         _hydratePhotoCacheFromStorage();
         _hydratePhotoCacheFromDom();
-        try { _sectionView = localStorage.getItem('rnp_section_view') || 'all'; } catch (e) {}
+        _sectionView = 'all'; // выбор секций убран из интерфейса
         try { _editMode = sessionStorage.getItem('rnp_edit_mode') === '1'; } catch (e) {}
         _bindSelectionHandlers();
         await _loadSettings(cabId, gen);
@@ -7269,7 +7303,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, openSettings, closeSettings, openPlanFact, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, openSettings, closeSettings, openPlanFact, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
