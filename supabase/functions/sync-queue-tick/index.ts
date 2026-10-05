@@ -16,6 +16,10 @@ const CORS = {
     'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 const CALL_TIMEOUT_MS = 140000;
+
+// pg_cron вызывает функцию через pg_net, который ждёт ответ всего 5 секунд и потом
+// рвёт соединение. Поэтому отвечаем сразу, а задачи доделываем в фоне.
+declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 const JOBS_PER_TICK = 2;
 
 type Job = {
@@ -39,8 +43,10 @@ Deno.serve(async (req) => {
     if (error) return json({ error: 'claim_failed' }, 500);
 
     const jobs = (claimed || []) as Job[];
-    const results = await Promise.all(jobs.map((job) => runJob(admin, supabaseUrl, serviceKey, job)));
-    return json({ ok: true, claimed: jobs.length, results });
+    const work = Promise.all(jobs.map((job) => runJob(admin, supabaseUrl, serviceKey, job))).catch(() => []);
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime?.waitUntil) EdgeRuntime.waitUntil(work);
+    else await work;
+    return json({ ok: true, claimed: jobs.length });
 });
 
 async function runJob(admin: any, supabaseUrl: string, serviceKey: string, job: Job) {
