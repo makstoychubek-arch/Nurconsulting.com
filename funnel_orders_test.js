@@ -62,4 +62,10 @@ assert.ok(js.includes('bar.querySelector(\'[data-bar-v="2"]\')'), 'cached bars f
 const dash = read('dashboard.html');
 assert.ok(/\.rnp-sheet-tabs \{[^}]*min-height: 46px; align-items: center;/.test(dash), 'the tab row keeps its height, the table does not shift when a group opens');
 
+// Закреплённая шапка артикула не меняет размер и без тени; вкладки и значки в одном ряду.
+assert.ok(!/\.rnp-article-panel--wide\.is-pinned \.rnp-head-wide \{/.test(dash), 'pinned head no longer shrinks (FBO/FBS stays fully visible)');
+assert.ok(/\.rnp-article-panel--wide\.is-pinned \{\s*box-shadow: none;\s*\}/.test(dash) && !/rgba\(0, 0, 0, 0\.18\)/.test(dash.slice(dash.indexOf('.rnp-article-panel--wide.is-pinned'), dash.indexOf('.rnp-article-panel--wide.is-pinned') + 400)), 'no dark shadow under the pinned head');
+assert.ok(dash.includes('.rnp-workspace > .rnp-sheet-tabs { grid-column: 1;') && dash.includes('.rnp-workspace > #rnp-action-bar-wrap { grid-column: 2;'), 'tabs and the plan/fact + settings icons share one row on desktop');
+assert.ok(dash.includes('#nr-sync-banner:empty { display: none; margin: 0; }'), 'an empty load banner takes no space');
+
 console.log('funnel_orders_test: ok');
