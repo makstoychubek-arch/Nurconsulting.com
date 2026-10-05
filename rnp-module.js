@@ -2979,14 +2979,13 @@ const RNP = (() => {
             ${_toolIconBtn('rnp-copy-plan-btn', planTitle, _planSvg(), 'RNP.copyPlanFromPrevWeek()')}
             ${_toolIconBtn('rnp-export-excel-btn', 'Скачать Excel', _excelSvg(), 'RNP.exportExcel()')}
             ${_toolIconBtn(`rnp-edit-mode-btn${editOn}`, editTitle, _editSvg(), 'RNP.toggleEditMode()')}
-            ${_toolIconBtn(`rnp-notes-btn${_notesVisible ? ' is-on active' : ''}`, _notesVisible ? 'Скрыть заметки по дням' : 'Заметки по дням', _noteSvg(), 'RNP.toggleNotes(!RNP.notesVisible())')}
             <button type="button" class="rnp-tool-icon rnp-order-sound-btn" data-staff-only="1" title="Звук при новом заказе" aria-label="Звук при новом заказе" onclick="window.NrOrderSound && NrOrderSound.openSettings()">${_bellSvg()}</button>
             <button type="button" class="rnp-settings-gear" title="Настройки РНП" aria-label="Настройки РНП" onclick="RNP.openSettings()">${_settingsGearSvg()}</button>
         </div>`;
     }
 
     function _buildPhoneActionBar() {
-        return `<div class="rnp-action-bar rnp-action-bar--phone" data-bar-v="4">
+        return `<div class="rnp-action-bar rnp-action-bar--phone" data-bar-v="5">
           <div class="rnp-period-chip">
             <span class="rnp-period-chip-text">${_periodChipLabel()}</span>
           </div>
@@ -3000,7 +2999,7 @@ const RNP = (() => {
     }
 
     function _buildActionBar(active) {
-        return `${_buildPhoneActionBar()}<div class="rnp-action-bar rnp-action-bar--desktop" data-bar-v="4">
+        return `${_buildPhoneActionBar()}<div class="rnp-action-bar rnp-action-bar--desktop" data-bar-v="5">
           <span id="rnp-freshness" hidden></span>
           ${_iconToolsHtml()}
         </div>`;
@@ -3283,7 +3282,7 @@ const RNP = (() => {
     function toggleNotes(on) {
         _notesVisible = !!on;
         try { localStorage.setItem('rnp_notes_visible', _notesVisible ? '1' : '0'); } catch (e) {}
-        document.querySelectorAll('.rnp-notes-btn').forEach((b) => {
+        document.querySelectorAll('.rnp-notes-btn, .rnp-head-notes-btn').forEach((b) => {
             b.classList.toggle('is-on', _notesVisible);
             b.classList.toggle('active', _notesVisible);
             const t = _notesVisible ? 'Скрыть заметки по дням' : 'Заметки по дням';
@@ -5435,7 +5434,7 @@ const RNP = (() => {
         const bar = document.getElementById('rnp-action-bar-wrap');
         const tabs = document.getElementById('rnp-sheet-tabs');
         const domCab = _rnpDomCab();
-        const chromeReady = !!(bar && bar.querySelector('[data-bar-v="4"]') && tabs && tabs.querySelector('.rnp-sheet-tab'));
+        const chromeReady = !!(bar && bar.querySelector('[data-bar-v="5"]') && tabs && tabs.querySelector('.rnp-sheet-tab'));
         if (chromeReady && !force && (!domCab || !_cab || domCab === _cab)) {
             _updateTabHighlight();
             return false;
@@ -5503,7 +5502,7 @@ const RNP = (() => {
     // Шапка и вкладки РНП кэшируются (мгновенная отрисовка после обновления страницы). При смене разметки
     // старый кэш показывал прежние элементы (три списка сверху) даже после выкладки новой версии: поднимаем
     // версию, и устаревший кэш один раз стирается.
-    const RNP_UI_VERSION = '4';
+    const RNP_UI_VERSION = '5';
     (function _purgeStaleRnpShell() {
         try {
             if (localStorage.getItem('rnp_ui_ver') === RNP_UI_VERSION) return;
@@ -6126,7 +6125,29 @@ const RNP = (() => {
 
     const PRODUCT_STATUSES = ['Локомотив', 'Новинка', 'Стабильный', 'Затухающий', 'Выведен из ассортимента'];
 
+    /** Ответственный, статус и «Заметки» — в левом верхнем углу шапки, где раньше было пусто. */
+    function _buildHeadMetaHtml(art) {
+        const md = art.manual_data || {};
+        const responsible = (md.responsible || '').replace(/"/g, '&quot;');
+        const status = md.status || '';
+        const statusOptions = `<option value=""${!status ? ' selected' : ''}>Статус —</option>` +
+            PRODUCT_STATUSES.map(s =>
+            `<option value="${s}"${s === status ? ' selected' : ''}>${s}</option>`).join('');
+        const hasNotes = Object.values(_notesCache[art.nm_id] || {}).some(n => n && n.text);
+        const on = _notesVisible ? ' is-on active' : '';
+        return `<div class="rnp-head-meta">
+          <input class="rnp-meta-input" value="${responsible}" placeholder="Ответственный"
+            onblur="RNP.saveMeta(${art.nm_id},'responsible',this.value)">
+          <select class="rnp-meta-select" onchange="RNP.saveMeta(${art.nm_id},'status',this.value)">${statusOptions}</select>
+          <button type="button" class="rnp-head-notes-btn${on}" title="${_notesVisible ? 'Скрыть заметки по дням' : 'Показать заметки по дням'}" onclick="RNP.toggleNotes(!RNP.notesVisible())">${_noteSvg()}<span>Заметки${hasNotes ? ' •' : ''}</span></button>
+        </div>`;
+    }
+
     function _buildMetaRows(cols, art) {
+        return '';
+    }
+
+    function _buildMetaRowsLegacy(cols, art) {
         const md = art.manual_data || {};
         const responsible = (md.responsible || '').replace(/"/g, '&quot;');
         const status = md.status || '';
@@ -6184,7 +6205,7 @@ const RNP = (() => {
           <thead>
             ${sheetHead}
             <tr class="rnp-cal-quarter-row">
-              <th class="rnp-th-metric" rowspan="${monthHeadRows}"></th>
+              <th class="rnp-th-metric" rowspan="${monthHeadRows}">${_buildHeadMetaHtml(art)}</th>
               <th class="rnp-th-spark" rowspan="${monthHeadRows}"></th>
               <th class="rnp-th-year-band" colspan="${cols.length}">${_monthStickLabel(cal.rangeLabel, _leftFrozenPx(cal))}</th>
             </tr>
@@ -6238,7 +6259,7 @@ const RNP = (() => {
           <thead>
             ${sheetHead}
             <tr class="rnp-cal-month-row">
-              <th class="rnp-th-metric" rowspan="${headRows}"></th>
+              <th class="rnp-th-metric" rowspan="${headRows}">${_buildHeadMetaHtml(art)}</th>
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
               ${nPrev ? `<th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${_metricW() + _sparkW()}px">${cal.prevName}</th>` : ''}
               <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
