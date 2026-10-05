@@ -56,4 +56,10 @@ assert.ok(!js.includes('RNP.refreshArticles()" id="rnp-refresh-arts-btn"') && !j
 assert.ok(!js.includes("prompt('Название новой категории/группы:'") && js.includes('function _startNewCategoryInput(nmId)'),
     'a new group is typed in the cell: the browser prompt() is blocked in the app');
 
+// Старый кэш шапки (с тремя списками) стирается; ряд вкладок не меняет высоту при выборе группы.
+assert.ok(js.includes("const RNP_UI_VERSION = '2';") && js.includes("indexedDB.deleteDatabase('nr-rnp-lock')"), 'stale cached RNP chrome is purged once');
+assert.ok(js.includes('bar.querySelector(\'[data-bar-v="2"]\')'), 'cached bars from the old layout are rebuilt');
+const dash = read('dashboard.html');
+assert.ok(/\.rnp-sheet-tabs \{[^}]*min-height: 46px; align-items: center;/.test(dash), 'the tab row keeps its height, the table does not shift when a group opens');
+
 console.log('funnel_orders_test: ok');
