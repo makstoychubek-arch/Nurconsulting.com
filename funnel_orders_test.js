@@ -98,3 +98,12 @@ console.log('funnel_orders_test: ok');
     ok(js.includes('liveTable.tHead.rows.length !== nextTable.tHead.rows.length) return false'), 'notes row forces a real re-render, not a cell patch');
     ok(js.includes("if (error) throw error;") && js.includes('пустой текст очищает заметку дня'), 'notes save reports DB errors and can be cleared');
 }
+
+// Мини-окно заметки при наведении
+{
+    const js = require('fs').readFileSync(require('path').join(__dirname, 'rnp-module.js'), 'utf8');
+    const h = require('fs').readFileSync(require('path').join(__dirname, 'dashboard.html'), 'utf8');
+    const ok = require('assert').ok;
+    ok(js.includes('function _showNotePop') && js.includes("closest('.rnp-note-input')") && js.includes('data-nm="${nmId}"'), 'hovering a note opens an enlarged mini window');
+    ok(h.includes('.rnp-note-pop-text') && h.includes('pointer-events: none'), 'the note pop is a read-only card');
+}

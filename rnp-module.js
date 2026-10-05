@@ -2342,6 +2342,61 @@ const RNP = (() => {
         }
     }
 
+    /** Мини-окно заметки при наведении: полный текст крупно + история. */
+    let _notePopEl = null;
+    let _notePopTimer = null;
+
+    function _hideNotePop() {
+        clearTimeout(_notePopTimer);
+        if (_notePopEl) _notePopEl.classList.remove('is-open');
+    }
+
+    function _showNotePop(input) {
+        const nm = input.getAttribute('data-nm');
+        const date = input.getAttribute('data-date');
+        const entry = _notesCache[nm] && _notesCache[nm][date];
+        if (!entry || !entry.text || document.activeElement === input) return;
+        if (!_notePopEl) {
+            _notePopEl = document.createElement('div');
+            _notePopEl.className = 'rnp-note-pop';
+            document.body.appendChild(_notePopEl);
+        }
+        const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+        const [y, m, d] = String(date).split('-');
+        const hist = (entry.history || []).slice(1, 6).map((x) => {
+            const when = x.at ? new Date(x.at).toLocaleString('ru') : '';
+            return `<div class="rnp-note-pop-old">${esc(x.text) || '—'}<span>${esc(x.author)}${when ? ' · ' + when : ''}</span></div>`;
+        }).join('');
+        const last = (entry.history || [])[0];
+        _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y}${last && last.author ? ' · ' + esc(last.author) : ''}</div>
+          <div class="rnp-note-pop-text">${esc(entry.text)}</div>${hist ? `<div class="rnp-note-pop-hist">${hist}</div>` : ''}`;
+        const r = input.getBoundingClientRect();
+        _notePopEl.classList.add('is-open');
+        const w = _notePopEl.offsetWidth, h = _notePopEl.offsetHeight;
+        let left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+        let top = r.bottom + 6;
+        if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
+        _notePopEl.style.left = left + 'px';
+        _notePopEl.style.top = top + 'px';
+    }
+
+    function _bindNotePop() {
+        if (document.documentElement.dataset.rnpNotePop) return;
+        document.documentElement.dataset.rnpNotePop = '1';
+        document.addEventListener('mouseover', (e) => {
+            const inp = e.target && e.target.closest && e.target.closest('.rnp-note-input');
+            if (!inp) return;
+            clearTimeout(_notePopTimer);
+            _notePopTimer = setTimeout(() => _showNotePop(inp), 160);
+        });
+        document.addEventListener('mouseout', (e) => {
+            if (e.target && e.target.closest && e.target.closest('.rnp-note-input')) _hideNotePop();
+        });
+        document.addEventListener('focusin', (e) => {
+            if (e.target && e.target.classList && e.target.classList.contains('rnp-note-input')) _hideNotePop();
+        });
+    }
+
     function _noteTip(nmId, date) {
         const h = _notesCache[nmId]?.[date]?.history || [];
         if (!h.length) return '';
@@ -2858,7 +2913,7 @@ const RNP = (() => {
             const st = _stickyColAttrs(ci, cols, 11, 27);
             const colCls = col.type === 'day' ? 'rnp-day-col' : 'rnp-data-col';
             return `<th class="rnp-th-note ${colCls}${st.cls}"${st.style ? ` style="${st.style}"` : ''}>
-              <input class="rnp-note-input" value="${text}" title="${tip || 'Комментарий к дате'}"
+              <input class="rnp-note-input" value="${text}" data-nm="${nmId}" data-date="${d}" title="${tip ? '' : 'Комментарий к дате'}"
                 placeholder="+"
                 onkeydown="if(event.key==='Enter'){this.blur();}"
                 onblur="RNP.saveNote(${nmId},'${d}',this.value)">
@@ -6501,6 +6556,7 @@ const RNP = (() => {
     }
 
     function _afterTableRender() {
+        _bindNotePop();
         _applyEditMode();
         _updateEditModeBtn();
         _syncFrozenPane(document.getElementById('rnp-root') || document);
