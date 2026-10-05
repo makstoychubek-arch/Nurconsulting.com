@@ -46,6 +46,6 @@ assert.ok(js.includes("{ op: 'eq', column: 'cabinet_id', value: _cab },\n       
 // Показы РК по артикулам вне РНП не теряются молча.
 assert.ok(js.includes('function _updateAdOutsideNotice()') && js.includes("opts?.trackOutside") && js.includes('{ trackOutside: true }'),
     'ad views of articles outside the active RNP set are counted on a full load');
-assert.ok(js.includes('Есть показы РК по артикулам, которых нет среди активных в РНП'), 'the sheet warns about ad views outside RNP');
+assert.ok(js.includes('Показы РК по артикулам вне РНП') && js.includes('rnp-ad-outside-'), 'the warning about ad views outside RNP goes to the bell, not over the table');
 
 console.log('funnel_orders_test: ok');

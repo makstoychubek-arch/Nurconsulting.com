@@ -5951,18 +5951,11 @@
                 <button onclick="setQuickPicker(0,'month')" class="picker-quick-btn">Текущий месяц</button>
                 <button onclick="setQuickPicker(30)" class="picker-quick-btn">Последние 30 дней</button>
                 <button onclick="setQuickPicker(0,'year2026')" class="picker-quick-btn">С начала 2026</button>
-                <div style="border-top:1px solid var(--border);margin:4px 0"></div>
-                <div>
-                    <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">Начало периода</div>
+                <div style="font-size:10px;color:var(--text-muted);margin-top:6px;line-height:1.35">Выберите две даты в календаре — период применится сам.</div>
+                <!-- Поля дат остались скрытыми для внутренней синхронизации; кнопок «Применить» и «Сбросить» нет. -->
+                <div hidden>
                     <input type="date" id="picker-from" class="picker-date-input" oninput="onPickerInput()">
-                </div>
-                <div>
-                    <div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">Конец периода</div>
                     <input type="date" id="picker-to" class="picker-date-input" oninput="onPickerInput()">
-                </div>
-                <div style="display:flex;gap:6px;margin-top:4px">
-                    <button onclick="resetPicker()" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px;font-size:11px;color:var(--text-secondary);cursor:pointer">Сбросить</button>
-                    <button onclick="applyPicker()" style="flex:1;background:var(--accent);border:none;border-radius:8px;padding:7px;font-size:11px;color:white;cursor:pointer;font-weight:500">Применить</button>
                 </div>
             </div>
         </div>
@@ -7667,7 +7660,7 @@
 
 <script src="/dist/nr-win.0c0159fe69.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.3bad5114f4.min.js"></script>
+<script src="/dist/rnp-module.74a21f51b7.min.js"></script>
 <script>
 /* Полоса «Загрузка данных» в РНП: очередь загрузки истории из WB (sync_jobs).
    Большой кабинет грузится часами (WB отдаёт финотчёт 1 запрос/мин), поэтому клиент видит
@@ -7723,8 +7716,8 @@
                 '<div class="nr-sync-bar"><i style="width:' + Math.max(2, p.percent) + '%"></i></div>' +
                 '<button type="button" onclick="nrSyncProgress.retry()">Повторить загрузку</button></div>';
         } else if (p.state === 'done') {
-            b.innerHTML = '<div class="nr-sync"><b>Данные загружены</b> — 100%.</div>';
-            hideTimer = setTimeout(function () { b.innerHTML = ''; }, 8000);
+            // Готово: баннер убираем, сообщение уходит в колокольчик (см. step).
+            b.innerHTML = '';
         }
     }
 
@@ -7750,7 +7743,10 @@
         }
 
         render(p);
-        // Закончили: подтягиваем свежие данные в таблицу один раз.
+        // Закончили: подтягиваем свежие данные в таблицу один раз; «загружено» — в колокольчик.
+        if (lastState === 'running' && p.state === 'done' && window.NrNotify) {
+            window.NrNotify.push({ title: 'Данные загружены', detail: 'История из Wildberries загружена на 100%.', key: 'sync-done-' + cab });
+        }
         if (lastState === 'running' && (p.state === 'done' || p.state === 'error')) {
             try { var rnp = window.getRnp && window.getRnp(); if (rnp && rnp.openMain) rnp.openMain(true); } catch (e) {}
         }
@@ -9146,7 +9142,7 @@
         if (sheetOpen) document.getElementById('bn-beta')?.classList.add('active');
     }
 
-    const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning']);
+    const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning', 'rnp']);
 
     function updateHeaderNav(tabName, isStub) {
         const backBtn = document.getElementById('header-back-btn');
@@ -9236,6 +9232,7 @@
         }
         window._rnpBootRetries = 0;
         rnp.ensureReady(supabase, currentCabinetId, callWbProxy, { userEmail: currentUserEmail });
+        if (rnp.setDateRange) rnp.setDateRange(activeDateFrom, activeDateTo).catch(function (e) { console.warn('[RNP] range:', e); });
         const painted = !!(rnpEl && rnpEl.querySelector('.rnp-sheet-table, .rnp-summary-table, .rnp-head-wide, .rnp-article-panel'));
         Promise.resolve(rnp.openMain(!!force && !painted)).catch(function (e) {
             console.error('[RNP] openMain:', e);
@@ -12414,6 +12411,7 @@
             if (!document.getElementById('logistics-view-warehouse-sales')?.classList.contains('hidden')) loadWarehouseSales(true);
         }
         else if (name === 'planning') loadPlanningTab();
+        else if (name === 'rnp') { const rnp = getRnp(); if (rnp && rnp.setDateRange) rnp.setDateRange(activeDateFrom, activeDateTo).catch(function (e) { console.warn('[RNP] range:', e); }); }
     }
 
     function toggleModuleDatePicker(e, el) {
@@ -12496,6 +12494,8 @@
                 if (pf) pf.value = pickerState.fromDate ? fmtDate(pickerState.fromDate) : '';
                 if (pt) pt.value = pickerState.toDate ? fmtDate(pickerState.toDate) : '';
                 renderMonthGrid(); renderYearGrid();
+                // Вторая дата выбрана — период применяется сразу, без кнопки «Применить».
+                if (pickerState.fromDate && pickerState.toDate) applyPicker();
             };
             g.appendChild(btn);
         }
@@ -12509,9 +12509,11 @@
         pickerState.fromDate = from; pickerState.toDate = to;
         pickerState.year = to.getFullYear(); pickerState.month = to.getMonth();
         document.getElementById('year-label').textContent = pickerState.year;
-        document.getElementById('picker-from').value = fmtDate(from);
-        document.getElementById('picker-to').value = fmtDate(to);
+        const qf = document.getElementById('picker-from'); const qt = document.getElementById('picker-to');
+        if (qf) qf.value = fmtDate(from);
+        if (qt) qt.value = fmtDate(to);
         renderYearGrid(); renderMonthGrid();
+        applyPicker(); // быстрый выбор тоже применяется сразу
     }
     function onPickerInput() {
         const f = document.getElementById('picker-from')?.value; const t = document.getElementById('picker-to')?.value;
@@ -12521,7 +12523,8 @@
     }
     function resetPicker() {
         pickerState.fromDate = null; pickerState.toDate = null; pickerState.selecting = 'from';
-        document.getElementById('picker-from').value = ''; document.getElementById('picker-to').value = '';
+        const rf = document.getElementById('picker-from'); const rt = document.getElementById('picker-to');
+        if (rf) rf.value = ''; if (rt) rt.value = '';
         renderYearGrid(); renderMonthGrid();
     }
     function applyPicker() {
