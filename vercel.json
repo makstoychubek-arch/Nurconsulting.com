@@ -39,6 +39,7 @@
   ],
   "rewrites": [
     { "source": "/login", "destination": "/login.html" },
+    { "source": "/reset-password", "destination": "/reset-password.html" },
     { "source": "/space", "destination": "/dashboard.html" },
     { "source": "/dashboard", "destination": "/dashboard.html" },
     { "source": "/rnp", "destination": "/dashboard.html" },

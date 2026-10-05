@@ -78,3 +78,15 @@ assert.ok(login.includes("const holdAutoEnter = urlParams.get('tab') === 'regist
     login.includes('showSignedInAs(session);') && login.includes('function switchAccount()'),
     '«Регистрация» with a live session asks instead of entering the current account');
 console.log('site_vibe_test: ok');
+
+// Вход и регистрация по email и паролю, сброс пароля
+{
+    const l = fs.readFileSync(path.join(root, 'login.html'), 'utf8');
+    assert.ok(l.includes('signInWithPassword({ email, password })') && l.includes('supabase.auth.signUp('), 'email login and registration work');
+    assert.ok(!l.includes('Регистрация через email недоступна'), 'registration is no longer a stub');
+    assert.ok(l.includes("SUPER_ADMIN_EMAIL) {\n                showError('login-error', 'Для Super Admin"), 'super admin stays Google-only');
+    assert.ok(l.includes("redirectTo: window.location.origin + '/reset-password'"), 'reset link goes to the reset page');
+    const r = fs.readFileSync(path.join(root, 'reset-password.html'), 'utf8');
+    assert.ok(r.includes('updateUser({ password: a })') && r.includes('PASSWORD_RECOVERY'), 'reset page sets a new password after the recovery link');
+    assert.ok(fs.readFileSync(path.join(root, 'vercel.json'), 'utf8').includes('"/reset-password"'), '/reset-password is routed');
+}
