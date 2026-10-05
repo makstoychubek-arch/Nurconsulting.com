@@ -6,6 +6,7 @@ import {
     funnelImpliedOrders,
     isWbFunnelWindowDate,
     keepFunnelOrdersCount,
+    keepFunnelOrdersSum,
     moscowYmd,
     wbFunnelWindow,
 } from './wb-funnel-day.ts';
@@ -80,3 +81,19 @@ assert.equal(kept[0].orders_count, 47);
 assert.equal(kept[1].orders_count, 12);
 
 console.log('wb-funnel-day_test: ok');
+
+// Воронка старше 7 дней (доливает orders-rescan): сохранённый orderCount и orderSum главнее statistics-api.
+assert.equal(keepFunnelOrdersCount({ funnel_orders: 31 }, 22, '2026-09-01', '2026-10-05'), 31);
+assert.equal(keepFunnelOrdersSum({ funnel_orders_sum: 150000 }, 120000), 150000);
+assert.equal(keepFunnelOrdersSum({}, 120000), 120000);
+const oldDay = applyKeepFunnelOrders(
+    [{ nm_id: 1, date: '2026-09-01', funnel_orders: 31, funnel_orders_sum: 150000 }],
+    [{ nm_id: 1, date: '2026-09-01', orders_count: 22, orders_sum: 120000, avg_check: 5454 }],
+    '2026-10-05',
+);
+assert.equal(oldDay[0].orders_count, 31);
+assert.equal(oldDay[0].orders_sum, 150000);
+assert.equal(Math.round(Number(oldDay[0].avg_check)), 4839);
+const withSum = funnelDayMetricFields({ openCount: 10, cartCount: 2, orderCount: 3, orderSum: 14000 });
+assert.equal(withSum.funnel_orders_sum, 14000);
+assert.equal(withSum.orders_sum, 14000);

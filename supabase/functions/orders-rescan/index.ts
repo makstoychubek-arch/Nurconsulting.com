@@ -6,9 +6,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { orderPriceWithDisc } from '../_shared/wb-order-price.ts';
-import { nextRescanDay, rescanRows } from '../_shared/orders-rescan.ts';
+import {
+    FUNNEL_START_BACK, FUNNEL_WINDOW_DAYS, funnelRowsFromProducts, nextRescanDay, rescanRows,
+} from '../_shared/orders-rescan.ts';
 
 const WB_STATS = 'https://statistics-api.wildberries.ru';
+const WB_ANALYTICS = 'https://seller-analytics-api.wildberries.ru';
+// Дней воронки за вызов (лимит analytics — несколько запросов в минуту; между запросами пауза).
+const FUNNEL_DAYS_PER_RUN = 4;
+const FUNNEL_GAP_MS = 21000;
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 declare const EdgeRuntime: { waitUntil(p: Promise<unknown>): void } | undefined;
 
 function moscowYmd(d = new Date()) {
@@ -28,8 +35,11 @@ Deno.serve(async (req) => {
 });
 
 async function run(admin: any) {
-    const { data: cabs } = await admin.from('cabinets').select('id, name, wb_token, orders_rescan_to').not('wb_token', 'is', null).gt('wb_token', '');
+    const { data: cabs } = await admin.from('cabinets').select('id, name, wb_token, orders_rescan_to, funnel_rescan_to').not('wb_token', 'is', null).gt('wb_token', '');
     const today = moscowYmd();
+    // Воронка идёт параллельно по кабинетам (у каждого свой токен и свой лимит), статистика — по очереди.
+    const funnelJobs = (cabs || []).map((cab: any) => funnelRescan(admin, cab, today).catch((e) =>
+        console.warn('[orders-rescan funnel]', cab.name, (e as Error).message)));
     for (const cab of cabs || []) {
         const token = clean(cab.wb_token);
         if (token.length < 50) continue;
@@ -48,5 +58,45 @@ async function run(admin: any) {
         } catch (e) {
             console.warn('[orders-rescan]', cab.name, day, (e as Error).message);
         }
+    }
+    await Promise.all(funnelJobs);
+}
+
+async function funnelRescan(admin: any, cab: any, today: string) {
+    const token = clean(cab.wb_token);
+    if (token.length < 50) return;
+    const { data: arts } = await admin.from('rnp_articles').select('nm_id').eq('cabinet_id', cab.id);
+    const allowed = new Set<number>((arts || []).map((a: any) => Number(a.nm_id)).filter((n: number) => n > 0));
+    if (!allowed.size) return;
+    let cursor: string | null = cab.funnel_rescan_to ? String(cab.funnel_rescan_to) : null;
+    for (let i = 0; i < FUNNEL_DAYS_PER_RUN; i++) {
+        if (i > 0) await sleep(FUNNEL_GAP_MS);
+        // Сегодня/вчера и последние 7 дней обновляет auto-sync (history); здесь — дни глубже.
+        const { day, next } = nextRescanDay(today, cursor, FUNNEL_START_BACK + 6, FUNNEL_WINDOW_DAYS);
+        const products: any[] = [];
+        let offset = 0;
+        let ok = true;
+        for (;;) {
+            const res = await fetch(`${WB_ANALYTICS}/api/analytics/v3/sales-funnel/products`, {
+                method: 'POST',
+                headers: { Authorization: token, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ selectedPeriod: { start: day, end: day }, skipDeletedNm: true, limit: 1000, offset }),
+            });
+            if (!res.ok) { ok = false; break; }
+            const js = await res.json().catch(() => null);
+            const page: any[] = js?.data?.products || js?.products || [];
+            products.push(...page);
+            if (page.length < 1000) break;
+            offset += 1000;
+            await sleep(FUNNEL_GAP_MS);
+        }
+        if (!ok) return; // 429/ошибка — повторим на следующем вызове, курсор не двигаем
+        const rows = funnelRowsFromProducts(cab.id, day, products, allowed);
+        for (let k = 0; k < rows.length; k += 200) {
+            const { error } = await admin.from('rnp_daily_data').upsert(rows.slice(k, k + 200), { onConflict: 'cabinet_id,nm_id,date' });
+            if (error) throw new Error(`funnel upsert ${day}: ${error.message}`);
+        }
+        await admin.from('cabinets').update({ funnel_rescan_to: next }).eq('id', cab.id);
+        cursor = next;
     }
 }
