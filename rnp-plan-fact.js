@@ -9,214 +9,19 @@
     var FILL_DARK = '#274E13';
     var FILL_TOTAL = '#D9EAD3';
 
-    var CATALOGS = {
-        baza: [
-            { nm_id: 771499220, name: 'Блузка-лапша-белый' },
-            { nm_id: 771571983, name: 'Блузка-лапша-черный' },
-            { nm_id: 771571982, name: 'Блузка-лапша-коричневый' },
-            { nm_id: 771571985, name: 'Блузка-лапша-бежевый' },
-            { nm_id: 771571984, name: 'Блузка-лапша-графит' },
-            { nm_id: 1240253079, name: 'Блузка_вырез_белый' },
-            { nm_id: 1240242858, name: 'Блузка_вырез_черный' },
-            { nm_id: 1240245305, name: 'Блузка_фонарь_белый' },
-            { nm_id: 1240248213, name: 'Блузка_фонарь_черный' },
-            { nm_id: 1544472467, name: 'Куртка-черный1' },
-        ],
-        elium: [
-            { nm_id: 851707556, name: 'Костюм-мужс-лето-черн' },
-            { nm_id: 851705871, name: 'Костюм-мужс-лето-граф' },
-            { nm_id: 851335094, name: 'Костюм-мужс-лето-беж' },
-            { nm_id: 1171792658, name: 'жл-темносиний' },
-            { nm_id: 1171758874, name: 'жл-бордо' },
-            { nm_id: 1171720253, name: 'жл-шоколад' },
-            { nm_id: 1150315613, name: 'жл-черный' },
-        ],
-        zevina: [
-            { nm_id: 296556350, name: "костюм_оверсайз_бежевый" },
-            { nm_id: 435743074, name: "костюм_оверсайз_белый" },
-            { nm_id: 296556346, name: "костюм_оверсайз_бордовый" },
-            { nm_id: 391116477, name: "костюм_оверсайз_красный" },
-            { nm_id: 391116472, name: "костюм_оверсайз_серый" },
-            { nm_id: 399607068, name: "костюм_оверсайз_темносин" },
-            { nm_id: 295201148, name: "костюм_оверсайз_черный" },
-            { nm_id: 296556347, name: "костюм_оверсайз_шоколад" },
-            { nm_id: 296556348, name: "костюм_оверсайз_электрик" },
-            { nm_id: 247347214, name: "пиджак серый" },
-            { nm_id: 247347924, name: "пиджак черный" },
-            { nm_id: 429715568, name: "пиджак_Беж_неоаал" },
-            { nm_id: 287679856, name: "пиджак_белый2" },
-            { nm_id: 287679332, name: "пиджак_бургунди2" },
-            { nm_id: 287679331, name: "пиджак_шоко2" },
-            { nm_id: 287679857, name: "пиджак_электрик2" },
-            { nm_id: 409845462, name: "пиджак_NEW_красный" },
-            { nm_id: 409845463, name: "пиджак_NEW_темносин" },
-            { nm_id: 1218782505, name: "Свитер-айвори" },
-            { nm_id: 1218802103, name: "Свитер-бордо" },
-            { nm_id: 1218799336, name: "Свитер-серый" },
-            { nm_id: 1218796940, name: "Свитер-шоко" },
-            { nm_id: 262714507, name: "укороч_костюм_брючный_бардо" },
-            { nm_id: 262760469, name: "укороч_костюм_брючный_бежевый" },
-            { nm_id: 435735287, name: "укороч_костюм_брючный_белый" },
-            { nm_id: 296564448, name: "укороч_костюм_брючный_коричневый" },
-            { nm_id: 247350276, name: "укороч_костюм_брючный_черный" },
-            { nm_id: 262697143, name: "укороч_костюм_брючный_красный" },
-            { nm_id: 247350377, name: "укороч_костюм_брючный_серый" },
-            { nm_id: 296564447, name: "укороч_костюм_брючный_электрик" },
-            { nm_id: 892565628, name: "укороч_костюм_брючный_темносиний" },
-            { nm_id: 539401905, name: "Спорт_костюм_sport_rich_серый" },
-            { nm_id: 539908484, name: "Спорт_костюм_sport_rich_шоко" },
-            { nm_id: 539908473, name: "Спорт_костюм_sport_rich_айвори" },
-            { nm_id: 539908479, name: "Спорт_костюм_sport_rich_синий" },
-            { nm_id: 539908481, name: "Спорт_костюм_sport_rich_бордо" },
-            { nm_id: 603633471, name: "Спорт_костюм_sport_rich_новый_бежевый" },
-            { nm_id: 539908477, name: "Спорт_костюм_sport_rich_черный" },
-            { nm_id: 705387379, name: "двойка_костюм_велюр_черный" },
-            { nm_id: 705387385, name: "двойка_костюм_велюр_темно-синий" },
-            { nm_id: 705387381, name: "двойка_костюм_велюр_розовый" },
-            { nm_id: 705387382, name: "двойка_костюм_велюр_серый" },
-            { nm_id: 705387380, name: "двойка_костюм_велюр_изумруд" },
-            { nm_id: 705387383, name: "двойка_костюм_велюр_хакки" },
-            { nm_id: 705381484, name: "двойка_костюм_велюр_капучино" },
-            { nm_id: 705387384, name: "двойка_костюм_велюр_ коралловый" },
-            { nm_id: 705387388, name: "двойка_костюм_велюр_марсала" },
-            { nm_id: 705387387, name: "двойка_костюм_велюр_красный" },
-            { nm_id: 705387386, name: "двойка_костюм_велюр_молочный" },
-            { nm_id: 597838497, name: "Спорт_костюм_велюр_черный" },
-            { nm_id: 604201351, name: "Спорт_костюм_велюр_капучино" },
-            { nm_id: 604201359, name: "Спорт_костюм_велюр_розовый" },
-            { nm_id: 604201358, name: "Спорт_костюм_велюр_сирень" },
-            { nm_id: 604201350, name: "Спорт_костюм_велюр_серый" },
-            { nm_id: 604201361, name: "Спорт_костюм_велюр_изумруд" },
-            { nm_id: 664192264, name: "Спорт_костюм_велюр_КОРАЛ" },
-            { nm_id: 604201352, name: "Спорт_костюм_велюр_хаки" },
-            { nm_id: 604201353, name: "Спорт_костюм_велюр_бордовый" },
-            { nm_id: 604201356, name: "Спорт_костюм_велюр_темносин" },
-            { nm_id: 247348946, name: "Пиджак овал серый1" },
-            { nm_id: 391102728, name: "Пиджак овал серый 2" },
-            { nm_id: 499378334, name: "Пиджак овал красный" },
-            { nm_id: 247348479, name: "Пиджак овал черный" },
-            { nm_id: 280128269, name: "Пиджак овал бардовый" },
-            { nm_id: 391102730, name: "Пиджак овал синий" },
-            { nm_id: 280129304, name: "Пиджак овал шоколад" },
-            { nm_id: 499380531, name: "Пиджак овал серый 3" },
-            { nm_id: 391102732, name: "Пиджак овал бежевый" },
-            { nm_id: 391102729, name: "Пиджак овал ментол" },
-            { nm_id: 307425700, name: "пиджак_КОРОТ_шоко" },
-            { nm_id: 307425705, name: "пиджак_КОРОТ_изумруд" },
-            { nm_id: 307425697, name: "пиджак_КОРОТ_черный" },
-            { nm_id: 307425699, name: "пиджак_КОРОТ_электрик" },
-            { nm_id: 307425707, name: "пиджак_КОРОТ_голубой" },
-            { nm_id: 307425704, name: "пиджак_КОРОТ_серый" },
-            { nm_id: 307425701, name: "пиджак_КОРОТ_бордо" },
-            { nm_id: 307425706, name: "пиджак_КОРОТ_темносин" },
-            { nm_id: 307425698, name: "пиджак_КОРОТ_бежевый" },
-            { nm_id: 435746744, name: "пиджак_КОРОТ_белый" },
-            { nm_id: 633661202, name: "костюм_велюр серый" },
-            { nm_id: 633661207, name: "костюм_велюр изумруд" },
-            { nm_id: 633639148, name: "костюм_велюр черный" },
-            { nm_id: 766251143, name: "костюм_велюр розовый" },
-            { nm_id: 766251142, name: "костюм_велюр синий" },
-            { nm_id: 633661203, name: "костюм_велюр капучинно" },
-            { nm_id: 633661205, name: "костюм_велюр сиреневый" },
-            { nm_id: 633661208, name: "костюм_велюр корал" },
-            { nm_id: 495053631, name: "костНОВ_жакет_светло-серый" },
-            { nm_id: 495053632, name: "костНОВ_жакет_бежевый" },
-            { nm_id: 495053634, name: "костНОВ_жакет_бордо" },
-            { nm_id: 495053627, name: "костНОВ_жакет_черный" },
-            { nm_id: 495053638, name: "костНОВ_жакет_темно-синий" },
-            { nm_id: 495053633, name: "костНОВ_жакет_темно-серый" },
-            { nm_id: 495053630, name: "костНОВ_жакет_красный" },
-            { nm_id: 495053629, name: "костНОВ_жакет_шоко" },
-            { nm_id: 539916083, name: "Спорт_костюм_originals 1987_черный" },
-            { nm_id: 539916085, name: "Спорт_костюм_originals 1987_бордо" },
-            { nm_id: 539916078, name: "Спорт_костюм_originals 1987_айвори" },
-            { nm_id: 611441510, name: "Спорт_костюм_originals 1987_новый_бежевый" },
-            { nm_id: 539916080, name: "Спорт_костюм_originals 1987_синий" },
-            { nm_id: 539401904, name: "Спорт_костюм_originals 1987_серый" },
-            { nm_id: 262651910, name: "бомбер черный" },
-            { nm_id: 249656298, name: "бомбер бежевый" },
-            { nm_id: 249650166, name: "бомбер корич" },
-            { nm_id: 262659615, name: "бомбер бордо" },
-            { nm_id: 605813197, name: "бомбер графит" },
-            { nm_id: 249656107, name: "бомбер серый" },
-            { nm_id: 629645154, name: "Двойка_юбка_синий полоска" },
-            { nm_id: 629645155, name: "Двойка_юбка_черный полоска" },
-            { nm_id: 629645153, name: "Двойка_юбка_шоколад полоска" },
-            { nm_id: 629645151, name: "Двойка_юбка_коричневый елечка" },
-            { nm_id: 629645152, name: "Двойка_юбка_серый полоска" },
-            { nm_id: 629645150, name: "Двойка_юбка_серый елечка" },
-            { nm_id: 547613172, name: "Куртка_фуфайка_белый" },
-            { nm_id: 547613173, name: "Куртка_фуфайка_кофе" },
-            { nm_id: 271001367, name: "полупальто_горч" },
-            { nm_id: 271001364, name: "полупальто_темнобеж" },
-            { nm_id: 271001369, name: "полупальто_светлобеж" },
-            { nm_id: 271001368, name: "полупальто_темносин" },
-            { nm_id: 495055922, name: "Платье_Пиджак_красный" },
-            { nm_id: 495055925, name: "Платье_Пиджак_черный" },
-            { nm_id: 495055921, name: "Платье_Пиджак_СветлоСер" },
-            { nm_id: 495055924, name: "Платье_Пиджак_бордо" },
-            { nm_id: 629846440, name: "Платье_Пиджак_мятный" },
-            { nm_id: 495055919, name: "Платье_Пиджак_ТемноСин" },
-            { nm_id: 495055918, name: "Платье_Пиджак_шоко" },
-        ],
-    };
-    CATALOGS.ailin = CATALOGS.elium;
-
-    function cabinetKind(name) {
-        var n = String(name || '');
-        if (/zevina\s*2|зевин[аa]?\s*2/i.test(n)) return 'ailin';
-        if (/elium|элиум|айзада/i.test(n)) return 'elium';
-        if (/^baza$/i.test(n.trim()) || /бейшеев|\bbaza\b/i.test(n)) return 'baza';
-        if (/айлин|ailin/i.test(n) && !/уркунбаев/i.test(n)) return 'ailin';
-        if (/zevina|зевин|уркунбаев/i.test(n)) return 'zevina';
-        return 'other';
+    /** Лист строится ровно из артикулов РНП (видимых, в порядке РНП) — без зашитых списков. */
+    function sheetMeta() {
+        return { kind: 'rnp', title: 'ПЛАН/ФАКТ', skuHeader: 'WB' };
     }
 
-    function sheetMeta(name) {
-        var kind = cabinetKind(name);
-        if (kind === 'zevina') return { kind: kind, title: 'Общая РНП', skuHeader: '' };
-        if (kind === 'elium') return { kind: kind, title: 'ПЛАНФАКТ', skuHeader: 'SKU' };
-        return { kind: kind, title: 'ПЛАНФАКТ', skuHeader: '' };
-    }
-
-    function catalogOverlap(articles, cat) {
-        if (!cat || !articles) return 0;
-        var ids = {};
-        articles.forEach(function (a) { ids[Number(a.nm_id)] = true; });
-        return cat.filter(function (row) { return ids[row.nm_id]; }).length;
-    }
-
-    function pickCatalog(articles) {
-        var bestKey = null, bestN = 0, key, n;
-        for (key in CATALOGS) {
-            if (!Object.prototype.hasOwnProperty.call(CATALOGS, key)) continue;
-            n = catalogOverlap(articles, CATALOGS[key]);
-            if (n > bestN) { bestN = n; bestKey = key; }
-        }
-        return bestN ? CATALOGS[bestKey] : null;
-    }
-
-    function applyCatalog(articles, kind) {
-        var list = articles || [];
-        var cat = (kind && CATALOGS[kind]) || pickCatalog(list);
-        if (!cat) return list.slice();
-        var byId = {};
-        list.forEach(function (a) { byId[Number(a.nm_id)] = a; });
-        var out = [];
+    function applyCatalog(articles) {
         var seen = {};
-        cat.forEach(function (row) {
-            var live = byId[row.nm_id];
-            if (!live) return;
-            seen[row.nm_id] = true;
-            out.push({ nm_id: row.nm_id, name: row.name || live.name });
-        });
-        list.forEach(function (a) {
-            var id = Number(a.nm_id);
-            if (seen[id]) return;
-            if (kind === 'zevina') return;
-            out.push({ nm_id: id, name: a.name });
-        });
-        return out;
+        return (articles || []).filter(function (a) {
+            var id = Number(a && a.nm_id);
+            if (!id || seen[id]) return false;
+            seen[id] = true;
+            return true;
+        }).map(function (a) { return { nm_id: Number(a.nm_id), name: a.name }; });
     }
 
     function num(v) {
@@ -283,6 +88,9 @@
     /** Карточка WB «Заказы»: Корзина × Заказы%. Не max со statistics-api. */
     function factOrders(row) {
         if (!row || typeof row !== 'object') return 0;
+        // Готовое число дня из воронки WB (как «Динамика продаж») — главнее любых расчётов.
+        if (row.fact_orders != null && row.fact_orders !== '') return Math.max(0, Math.round(num(row.fact_orders)));
+        if (row.funnel_orders != null && row.funnel_orders !== '') return Math.max(0, Math.round(num(row.funnel_orders)));
         var cart = num(row.basket_count != null ? row.basket_count : row.cartCount);
         var conv = num(row.funnel_order_conv != null ? row.funnel_order_conv : row.cartToOrderConversion);
         if (cart > 0 && conv > 0) return Math.round(cart * conv / 100);
@@ -338,14 +146,54 @@
         return Math.round(Number(part || 0) / Number(whole) * 100) + '%';
     }
 
+    /* ── Условное форматирование (как в Excel «ПЛАНФАКТ») ── */
+    function mix(c1, c2, t) {
+        t = Math.max(0, Math.min(1, t));
+        var o = [], i;
+        for (i = 0; i < 3; i++) o.push(Math.round(c1[i] + (c2[i] - c1[i]) * t));
+        return 'rgb(' + o.join(',') + ')';
+    }
+    var C_RED = [230, 124, 115], C_WHITE = [255, 255, 255], C_GREEN = [87, 187, 138], C_HEAT = [196, 168, 255];
+
+    /** Тепловая карта дня: белый → фиолетовый по min..max недели (F7:L1002 в Excel). */
+    function heatStyle(v, min, max) {
+        if (!v || max <= min) return v ? 'background:' + mix(C_WHITE, C_HEAT, 0.45) : '';
+        return 'background:' + mix(C_WHITE, C_HEAT, (v - min) / (max - min)) + ';';
+    }
+
+    /** Красный → белый → зелёный: 50% и ниже красный, 75% белый, 100% и выше зелёный. */
+    function rgwStyle(pct) {
+        if (pct == null || !isFinite(pct)) return '';
+        var bg = pct <= 0.75 ? mix(C_RED, C_WHITE, (pct - 0.5) / 0.25) : mix(C_WHITE, C_GREEN, (pct - 0.75) / 0.25);
+        return 'background:' + bg + ';color:#000;';
+    }
+
+    /** ≥90% зелёный, 60–89% жёлтый, ниже — красный (правило cellIs из Excel). */
+    function ratioClass(pct) {
+        if (pct == null || !isFinite(pct)) return '';
+        if (pct >= 0.9) return ' pf-ok';
+        if (pct >= 0.6) return ' pf-mid';
+        return ' pf-bad';
+    }
+
+    function pctText(pct) {
+        return pct == null || !isFinite(pct) ? '' : Math.round(pct * 100) + '%';
+    }
+
+    function todayYmd() {
+        var d = new Date();
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
     function build(opts) {
         var monthKey = (opts && opts.monthKey) || '';
         var weeks = weeksForMonth(monthKey);
-        var meta = sheetMeta((opts && opts.cabinetName) || '');
-        var articles = applyCatalog((opts && opts.articles) || [], meta.kind);
+        var meta = sheetMeta();
+        var articles = applyCatalog((opts && opts.articles) || []);
         var daily = (opts && opts.daily) || {};
         var plans = (opts && opts.plans) || {};
         var title = (opts && opts.title) || meta.title;
+        var today = (opts && opts.today) || todayYmd();
         var skuHeader = (opts && opts.skuHeader != null) ? opts.skuHeader : meta.skuHeader;
         var rows = articles.map(function (art) {
             var nm = Number(art.nm_id);
@@ -363,6 +211,7 @@
                     dailyPlan: dPlan,
                     planSales: pSales,
                     ratio: ratioSku(factSum, pSales),
+                    ratioPct: pSales ? factSum / pSales : null,
                 };
             });
             return {
@@ -383,6 +232,7 @@
                 planSales += num(b.planSales);
             });
             var coeffs = daySums.map(function (n) { return coeffPct(n, dailyPlan); });
+            var coeffNums = daySums.map(function (n) { return dailyPlan ? n / dailyPlan : null; });
             return {
                 daySums: daySums,
                 dailyPlan: dailyPlan,
@@ -390,6 +240,8 @@
                 planSales: planSales,
                 ratio: ratioTotal(factSum, planSales),
                 coeffs: coeffs,
+                coeffNums: coeffNums,
+                planPct: planSales ? factSum / planSales : null,
                 planCoeff: ratioTotal(factSum, planSales),
             };
         });
@@ -398,6 +250,8 @@
             title: title,
             skuHeader: skuHeader || '',
             kind: meta.kind,
+            today: today,
+            today: today,
             weeks: weeks,
             rows: rows,
             totals: totals,
@@ -414,8 +268,8 @@
 
     function headerHtml(model) {
         var w, i, h1 = '', h2 = '', h3 = '', h4 = '', h5 = '';
-        h1 += th('pf-a pf-title', '', 'ПЛАН/ФАКТ');
-        h1 += th('pf-b', '', '');
+        h1 += th('pf-a', '', '');
+        h1 += th('pf-b pf-title', '', 'ПЛАН/ФАКТ');
         h1 += th('pf-c', '', '');
         h1 += th('pf-d', '', '');
         h2 += th('pf-a', '', '');
@@ -439,10 +293,13 @@
             var tot = model.totals[w] || {};
             for (i = 0; i < 7; i++) {
                 h1 += th('pf-day', '', '');
-                h2 += th('pf-day pf-date', '', ddmm(week.dates[i]));
-                h3 += th('pf-day pf-dow', '', DOW[i]);
-                h4 += th('pf-day pf-coeff', '', tot.coeffs ? tot.coeffs[i] : '');
-                h5 += th('pf-day pf-total', '', showInt(tot.daySums && tot.daySums[i], true));
+                var isToday = week.dates[i] === model.today;
+                var future = week.dates[i] > model.today;
+                var dcls = (i > 4 ? ' pf-wknd' : '') + (isToday ? ' pf-today' : '') + (future ? ' pf-future' : '');
+                h2 += th('pf-day pf-date' + dcls, '', ddmm(week.dates[i]));
+                h3 += th('pf-day pf-dow' + dcls, '', DOW[i]);
+                h4 += th('pf-day pf-coeff' + dcls, future ? '' : rgwStyle(tot.coeffNums && tot.coeffNums[i]), future ? '' : (tot.coeffs ? tot.coeffs[i] : ''));
+                h5 += th('pf-day pf-total' + dcls, '', future ? '' : showInt(tot.daySums && tot.daySums[i], true));
             }
             h1 += th('pf-plan', '', 'ПЛАН Заказов, по дням');
             h1 += th('pf-fact-h', '', 'ФАКТ Заказов за неделю');
@@ -459,16 +316,16 @@
             h3 += th('pf-fact-h', '', '');
             h3 += th('pf-fact-h', '', '');
             h3 += th('pf-plan', '', '');
-            h4 += th('pf-plan pf-coeff', '', tot.planCoeff || '0%');
+            h4 += th('pf-plan pf-coeff', rgwStyle(tot.planPct), tot.planPct == null ? '' : tot.planCoeff);
             h4 += th('pf-dark', '', '');
             h4 += th('pf-dark', '', '');
             h4 += th('pf-dark', '', '');
             h4 += th('pf-plan', '', '');
-            h5 += th('pf-dark', '', showInt(tot.dailyPlan, true));
+            h5 += th('pf-dark', '', showInt(tot.dailyPlan, false));
             h5 += th('pf-dark', '', '');
-            h5 += th('pf-dark pf-ratio', '', tot.ratio || '0%');
-            h5 += th('pf-dark', '', showInt(tot.factSum, true));
-            h5 += th('pf-dark', '', showInt(tot.planSales, true));
+            h5 += th('pf-dark pf-ratio' + ratioClass(tot.planPct), '', tot.planPct == null ? '' : tot.ratio);
+            h5 += th('pf-dark', '', showInt(tot.factSum, false));
+            h5 += th('pf-dark', '', showInt(tot.planSales, false));
         }
         return '<tr class="pf-r1">' + h1 + '</tr>'
             + '<tr class="pf-r2">' + h2 + '</tr>'
@@ -478,17 +335,32 @@
     }
 
     function bodyHtml(model) {
+        // Диапазон тепловой карты — по каждой неделе (как диапазон F7:L1002 в Excel).
+        var ranges = model.weeks.map(function (w, wi) {
+            var min = Infinity, max = 0;
+            model.rows.forEach(function (r) {
+                r.weeks[wi].facts.forEach(function (n, i) {
+                    if (n > 0 && w.dates[i] <= model.today) { if (n < min) min = n; if (n > max) max = n; }
+                });
+            });
+            return { min: min === Infinity ? 0 : min, max: max };
+        });
         return model.rows.map(function (row) {
             var html = td('pf-a', '', '')
                 + td('pf-b', '', esc(row.name))
                 + td('pf-c', '', esc(row.nm_id))
                 + td('pf-d', '', '');
-            row.weeks.forEach(function (b) {
+            row.weeks.forEach(function (b, wi) {
                 var i;
-                for (i = 0; i < 7; i++) html += td('pf-day', '', blankInt(b.facts[i]));
+                for (i = 0; i < 7; i++) {
+                    var d = b.dates[i];
+                    var future = d > model.today;
+                    var cls = 'pf-day' + (i > 4 ? ' pf-wknd' : '') + (d === model.today ? ' pf-today' : '') + (future ? ' pf-future' : '');
+                    html += td(cls, future ? '' : heatStyle(b.facts[i], ranges[wi].min, ranges[wi].max), blankInt(b.facts[i]));
+                }
                 html += td(b.dailyPlan ? 'pf-plan pf-plan-set' : 'pf-plan', '', blankInt(b.dailyPlan));
                 html += td('pf-fact', '', '');
-                html += td('pf-fact pf-ratio', '', b.ratio);
+                html += td('pf-fact pf-ratio' + ratioClass(b.ratioPct), '', pctText(b.ratioPct));
                 html += td('pf-fact pf-sum', '', blankInt(b.factSum));
                 html += td(b.planSales ? 'pf-plan pf-plan-set' : 'pf-plan', '', blankInt(b.planSales));
             });
@@ -497,7 +369,11 @@
     }
 
     function tableHtml(model) {
-        return '<div class="pf-scroll"><table class="pf-sheet">'
+        var cols = '<col style="width:34px"><col style="width:200px"><col style="width:84px"><col style="width:12px">';
+        model.weeks.forEach(function () {
+            cols += '<col style="width:40px">'.repeat(7) + '<col style="width:56px"><col style="width:20px"><col style="width:52px"><col style="width:52px"><col style="width:60px">';
+        });
+        return '<div class="pf-scroll"><table class="pf-sheet"><colgroup>' + cols + '</colgroup>'
             + '<thead>' + headerHtml(model) + '</thead>'
             + '<tbody>' + bodyHtml(model) + '</tbody>'
             + '</table></div>';
@@ -534,10 +410,15 @@
         var model = build(opts);
         var overlay = ensureOverlay();
         var body = document.getElementById('rnp-plan-fact-body');
+        // Перерисовка после догрузки данных не должна сбрасывать прокрутку.
+        var prev = body && body.querySelector('.pf-scroll');
+        var sx = prev ? prev.scrollLeft : 0, sy = prev ? prev.scrollTop : 0;
         if (body) body.innerHTML = shellHtml(model);
+        var cur = body && body.querySelector('.pf-scroll');
+        if (cur && (sx || sy)) { cur.scrollLeft = sx; cur.scrollTop = sy; }
         overlay.classList.add('is-open');
         document.body.classList.add('rnp-plan-fact-open');
-        if (root.NrWin) root.NrWin.bind(overlay);
+        if (root.NrWin && !overlay.classList.contains('is-bound')) { root.NrWin.bind(overlay); overlay.classList.add('is-bound'); }
         document.removeEventListener('keydown', onKey);
         document.addEventListener('keydown', onKey);
         return model;
@@ -556,7 +437,7 @@
         num: num, factOrders: factOrders, weeksForMonth: weeksForMonth,
         mondayOnOrBefore: mondayOnOrBefore, addDays: addDays, ddmm: ddmm,
         planDay: planDay, planSalesWeek: planSalesWeek, ratioSku: ratioSku,
-        cabinetKind: cabinetKind, sheetMeta: sheetMeta, applyCatalog: applyCatalog,
+        sheetMeta: sheetMeta, applyCatalog: applyCatalog,
         build: build, tableHtml: tableHtml, shellHtml: shellHtml,
         open: open, close: close,
         FILL_PLAN: FILL_PLAN, FILL_FACT: FILL_FACT, FILL_DARK: FILL_DARK, FILL_TOTAL: FILL_TOTAL,

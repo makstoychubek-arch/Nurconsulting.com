@@ -70,7 +70,7 @@ assert.ok(html.includes('Артикул'));
 assert.ok(html.includes('пиджак_NEW_красный'));
 assert.ok(html.includes('409845462'));
 assert.ok(html.includes('31.08') && html.includes('14.09'));
-assert.ok(html.includes('#DIV/0!'));
+assert.ok(!html.includes('#DIV/0!'), 'no spreadsheet errors on the sheet — empty ratio stays blank');
 assert.ok(html.includes('class="pf-sheet"'));
 assert.ok(html.includes('pf-plan-set'), 'filled daily plan uses Excel dark green');
 assert.ok(!html.includes('>0<') || html.includes('pf-total'), 'zero facts stay blank in SKU days');
@@ -87,115 +87,53 @@ const cron = fs.readFileSync(path.join(__dirname, 'supabase/migrations/202609211
 assert.ok(cron.includes("'0 5 * * *'") && cron.includes('funnel_only') && cron.includes('rnp-morning-funnel-zevina-11-bishkek'),
     'yesterday funnel locks at 11:00 Bishkek');
 
-assert.strictEqual(P.cabinetKind('ИП Бейшеев А.Д.'), 'baza');
-assert.strictEqual(P.cabinetKind('baza'), 'baza');
-assert.strictEqual(P.cabinetKind('ИП Айзада'), 'elium');
-assert.strictEqual(P.cabinetKind('Elium'), 'elium');
-assert.strictEqual(P.cabinetKind('ОсОО «Айлин Стиль»'), 'ailin');
-assert.strictEqual(P.cabinetKind('ИП Уркунбаев К.А.'), 'zevina');
-assert.strictEqual(P.sheetMeta('ИП Уркунбаев К.А.').title, 'Общая РНП');
-assert.strictEqual(P.sheetMeta('ИП Бейшеев А.Д.').title, 'ПЛАНФАКТ');
-assert.strictEqual(P.sheetMeta('ИП Бейшеев А.Д.').skuHeader, '');
-assert.strictEqual(P.sheetMeta('ИП Айзада').title, 'ПЛАНФАКТ');
-assert.strictEqual(P.sheetMeta('ИП Айзада').skuHeader, 'SKU');
-
+// Лист строится из артикулов РНП как есть: без зашитых списков, порядок РНП, без дублей.
 {
-    const zevinaOrdered = P.applyCatalog([
-        { nm_id: 1218782505, name: 'live-ivory' },
-        { nm_id: 296556350, name: 'live-beige' },
-        { nm_id: 999000111, name: 'лишний' },
-        { nm_id: 247347214, name: 'live-grey' },
-    ], 'zevina');
-    assert.strictEqual(zevinaOrdered[0].nm_id, 296556350);
-    assert.strictEqual(zevinaOrdered[0].name, 'костюм_оверсайз_бежевый');
-    assert.strictEqual(zevinaOrdered[1].nm_id, 247347214);
-    assert.strictEqual(zevinaOrdered[1].name, 'пиджак серый');
-    assert.strictEqual(zevinaOrdered[2].nm_id, 1218782505);
-    assert.strictEqual(zevinaOrdered[2].name, 'Свитер-айвори');
-    assert.strictEqual(zevinaOrdered.length, 3);
-    assert.ok(!zevinaOrdered.some((r) => r.nm_id === 999000111), 'Общая РНП omits SKUs not on the Excel sheet');
+    const art = [
+        { nm_id: 1544472467, name: 'live-jacket' },
+        { nm_id: 771571983, name: 'live-black' },
+        { nm_id: 771571983, name: 'dup' },
+        { nm_id: 999000111, name: 'новый артикул' },
+    ];
+    const out = P.applyCatalog(art);
+    assert.deepStrictEqual(out.map((r) => r.nm_id), [1544472467, 771571983, 999000111]);
+    assert.strictEqual(out[0].name, 'live-jacket');
+    assert.strictEqual(P.sheetMeta('что угодно').title, 'ПЛАН/ФАКТ');
+    assert.ok(!fs.readFileSync(path.join(__dirname, 'rnp-plan-fact.js'), 'utf8').includes('CATALOGS'),
+        'no hard-coded per-cabinet article lists');
 }
 
-const bazaLive = [
-    { nm_id: 1544472467, name: 'live-jacket' },
-    { nm_id: 771571983, name: 'live-black' },
-    { nm_id: 771499220, name: 'live-white' },
-    { nm_id: 999000111, name: 'лишний' },
-];
-const bazaOrdered = P.applyCatalog(bazaLive, 'baza');
-assert.strictEqual(bazaOrdered[0].nm_id, 771499220);
-assert.strictEqual(bazaOrdered[0].name, 'Блузка-лапша-белый');
-assert.strictEqual(bazaOrdered[1].nm_id, 771571983);
-assert.strictEqual(bazaOrdered[1].name, 'Блузка-лапша-черный');
-assert.strictEqual(bazaOrdered.length, 4);
-assert.strictEqual(bazaOrdered[2].nm_id, 1544472467);
-assert.strictEqual(bazaOrdered[2].name, 'Куртка-черный1');
-assert.strictEqual(bazaOrdered[3].nm_id, 999000111);
-assert.strictEqual(P.applyCatalog([{ nm_id: 771499220, name: 'x' }], 'baza').length, 1,
-    'Excel SKUs missing from rnp_articles stay omitted');
+// Заказы дня = число воронки WB (fact_orders / funnel_orders), а не Корзина × Заказы%.
+assert.strictEqual(P.factOrders({ fact_orders: 26, basket_count: 294, funnel_order_conv: 9 }), 26);
+assert.strictEqual(P.factOrders({ funnel_orders: 12, orders_count: 40 }), 12);
 
-const nmBaza = 771571983;
-const week2 = weeks[1];
-assert.strictEqual(week2.start, '2026-09-07');
-const dailyBaza = { [nmBaza]: {} };
-[0, 0, 0, 14, 20, 9, 11].forEach((n, i) => {
-    if (!n) return;
-    dailyBaza[nmBaza][week2.dates[i]] = { orders_count: n };
-});
-const plansBaza = {
-    [nmBaza]: { '2026-09-07': { planned_orders: 7, planned_sales: 51 } },
-};
-const bazaModel = P.build({
-    monthKey: '2026-09',
-    cabinetName: 'ИП Бейшеев А.Д.',
-    articles: [
-        { nm_id: nmBaza, name: 'live-black' },
-        { nm_id: 771499220, name: 'live-white' },
-    ],
-    daily: dailyBaza,
-    plans: plansBaza,
-});
-assert.strictEqual(bazaModel.title, 'ПЛАНФАКТ');
-assert.strictEqual(bazaModel.skuHeader, '');
-assert.strictEqual(bazaModel.kind, 'baza');
-assert.strictEqual(bazaModel.rows[0].nm_id, 771499220);
-assert.strictEqual(bazaModel.rows[0].name, 'Блузка-лапша-белый');
-assert.strictEqual(bazaModel.rows[1].nm_id, nmBaza);
-assert.strictEqual(bazaModel.rows[1].name, 'Блузка-лапша-черный');
-assert.deepStrictEqual(bazaModel.rows[1].weeks[1].facts, [0, 0, 0, 14, 20, 9, 11]);
-assert.strictEqual(bazaModel.rows[1].weeks[1].factSum, 54);
-assert.strictEqual(bazaModel.rows[1].weeks[1].dailyPlan, 7);
-assert.strictEqual(bazaModel.rows[1].weeks[1].planSales, 51);
-assert.strictEqual(bazaModel.rows[1].weeks[1].ratio, (54 / 51).toFixed(2));
-const bazaHtml = P.tableHtml(bazaModel);
-assert.ok(bazaHtml.includes('Блузка-лапша-черный') && bazaHtml.includes('771571983'));
-assert.ok(!/>SKU</.test(bazaHtml), 'Baza C5 is empty like Excel');
-
-const eliumModel = P.build({
-    monthKey: '2026-09',
-    cabinetName: 'ИП Айзада',
-    articles: [
-        { nm_id: 1171758874, name: 'wrong-bordo' },
-        { nm_id: 851707556, name: 'wrong-suit' },
-    ],
-    daily: {},
-    plans: {},
-});
-assert.strictEqual(eliumModel.title, 'ПЛАНФАКТ');
-assert.strictEqual(eliumModel.skuHeader, 'SKU');
-assert.strictEqual(eliumModel.kind, 'elium');
-assert.strictEqual(eliumModel.rows[0].nm_id, 851707556);
-assert.strictEqual(eliumModel.rows[0].name, 'Костюм-мужс-лето-черн');
-assert.strictEqual(eliumModel.rows[1].nm_id, 1171758874);
-assert.strictEqual(eliumModel.rows[1].name, 'жл-бордо');
-const eliumHtml = P.tableHtml(eliumModel);
-assert.ok(eliumHtml.includes('>SKU<'), 'Elium/AA C5 is SKU');
-assert.ok(eliumHtml.includes('Костюм-мужс-лето-черн') && eliumHtml.includes('851707556'));
+// Условное форматирование как в Excel.
+{
+    const nmA = 1, nmB = 2;
+    const wk = P.weeksForMonth('2026-09')[1].dates; // 07..13 сентября
+    const m = P.build({
+        monthKey: '2026-09', today: '2026-09-11',
+        articles: [{ nm_id: nmA, name: 'A' }, { nm_id: nmB, name: 'B' }],
+        daily: {
+            [nmA]: { [wk[0]]: { fact_orders: 2 }, [wk[1]]: { fact_orders: 20 }, [wk[2]]: { fact_orders: 11 } },
+            [nmB]: { [wk[0]]: { fact_orders: 50 }, [wk[5]]: { fact_orders: 9 } },
+        },
+        plans: { [nmA]: { [wk[0]]: { planned_orders: 10, planned_sales: 20 } }, [nmB]: { [wk[0]]: { planned_orders: 10, planned_sales: 100 } } },
+    });
+    const h = P.tableHtml(m);
+    assert.ok(/background:rgb\(\d+,\d+,\d+\);">20<|background:rgb\([\d,]+\);">50</.test(h), 'day cells get a heat colour');
+    assert.ok(h.includes('pf-ok') && h.includes('pf-bad'), 'plan ratio: >=90% green, low red');
+    assert.ok(h.includes('pf-today') && h.includes('pf-future'), 'today is marked, future days are dimmed');
+    const total = m.totals[1];
+    assert.strictEqual(total.dailyPlan, 20);
+    assert.ok(Math.abs(total.coeffNums[0] - 52 / 20) < 1e-9);
+    assert.ok(h.includes('background:rgb('), 'coefficient row uses red-white-green scale');
+}
 
 const rnp = fs.readFileSync(path.join(__dirname, 'rnp-module.js'), 'utf8');
 assert.ok(rnp.includes('openPlanFact') && rnp.includes('План/факт'));
 assert.ok(rnp.includes('async function openPlanFact'));
-assert.ok(rnp.includes('_mergePlanFactRange') && rnp.includes('cabinetName: _cabinetName()'));
+assert.ok(rnp.includes('_mergePlanFactRange') && rnp.includes('fact_orders: row.orders_count'));
 assert.ok(!rnp.includes("title: 'Общая РНП'"), 'title comes from sheetMeta per cabinet');
 assert.ok(rnp.includes('if (fromField != null) return fromField;\n        return _funnelImpliedOrders(day);'),
     'RNP funnel takes the real funnel orderCount (verified against WB 05.10.2026); Корзина×Заказы% is only the fallback');
