@@ -4797,7 +4797,7 @@
            по одним краям (6 px от панели и от края окна). */
         @media (min-width: 769px) {
             .sidebar-rail {
-                margin: 10px 0 10px 10px; width: 210px; min-width: 210px; height: calc(100vh - 20px);
+                margin: 10px 0 10px 10px; width: 184px; min-width: 184px; height: calc(100vh - 20px); padding: 16px 10px 12px;
                 border-radius: 18px; background: var(--surface-solid);
                 box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
             }
@@ -4806,8 +4806,20 @@
                 margin: 10px 0; height: calc(100vh - 20px); border-radius: 18px;
                 box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
             }
-            header.glass.app-header { left: 226px; right: 6px; }
-            body.flyout-expanded header.glass.app-header { left: 446px; }
+            header.glass.app-header { left: 200px; right: 6px; }
+            body.flyout-expanded header.glass.app-header { left: 420px; }
+            .main-rail { margin-left: 194px; }
+            body.flyout-expanded .main-rail { margin-left: 414px; }
+            /* логотип: «NR» как был, «Space» — в оранжевом контуре; всё по центру панели */
+            .rail-logo { justify-content: center; margin: 0 0 14px; padding: 6px 4px; gap: 7px; }
+            .rail-logo-name {
+                font-size: 13px; padding: 4px 8px; border-radius: 999px;
+                border: 1.5px solid #f97316; color: #f97316;
+            }
+            .rail-btn { padding: 0 12px; height: 40px; gap: 11px; align-items: center; }
+            .rail-btn-lbl { line-height: 1; display: flex; align-items: center; }
+            .rail-user { padding: 2px 4px 6px; }
+            .rail-bottom-icons { justify-content: space-evenly; padding: 0; }
             .main-rail:has(#tab-dashboard.active) { padding-top: 76px; }
         }
 
