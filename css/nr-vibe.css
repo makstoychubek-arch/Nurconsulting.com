@@ -212,7 +212,7 @@ h1, h2, h3, h4, .module-title, .nr-brand-space, .oauth-space, .login-title {
     gap: 4px;
     border-radius: 999px;
     border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
-    background: color-mix(in srgb, #fff 80%, transparent);
+    background: color-mix(in srgb, #fff 94%, transparent);
     padding: 6px;
     padding-left: 16px;
     box-shadow: 0 10px 15px -3px rgba(20, 20, 15, 0.05);

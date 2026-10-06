@@ -25,7 +25,7 @@
     <script defer src="/_vercel/insights/script.js"></script>
     <script src="/nr-auth.js"></script>
     <!-- Подключение Tailwind CSS и шрифтов -->
-    <link rel="stylesheet" href="/dist/tailwind.0d721d80c7.min.css">
+    <link rel="stylesheet" href="/dist/tailwind.9d8206b5c9.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -155,6 +155,71 @@
             background: var(--card);
             transition: border-color 0.25s, transform 0.25s var(--glide), box-shadow 0.25s;
         }
+
+
+        /* ===== Минималистичная главная ===== */
+        .mn-wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px; }
+        .mn-hero { padding: 150px 0 90px; }
+        .mn-hero-grid, .mn-split { display: grid; grid-template-columns: 1fr 1.05fr; gap: 64px; align-items: center; }
+        .mn-split-rev { grid-template-columns: 1.05fr 1fr; }
+        .mn-eyebrow { font-size: 13px; letter-spacing: .04em; color: var(--ink-faint); margin: 0 0 14px; }
+        .mn-h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(34px, 5vw, 56px); line-height: 1.04; letter-spacing: -.03em; margin: 0; }
+        .mn-h2 { font-family: var(--font-display); font-weight: 800; font-size: clamp(26px, 3.2vw, 38px); line-height: 1.1; letter-spacing: -.025em; margin: 0 0 16px; }
+        .mn-lead { margin: 22px 0 0; font-size: 18px; line-height: 1.55; color: var(--ink-dim); max-width: 30em; }
+        .mn-text { font-size: 17px; line-height: 1.6; color: var(--ink-dim); margin: 0; max-width: 32em; }
+        .mn-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 32px; }
+        .mn-btn { display: inline-flex; align-items: center; height: 46px; padding: 0 22px; border-radius: 999px; font-weight: 600; font-size: 15px; text-decoration: none; transition: .2s; }
+        .mn-btn-dark { background: var(--ink); color: var(--paper); }
+        .mn-btn-dark:hover { background: #000; transform: translateY(-1px); }
+        .mn-btn-line { border: 1px solid var(--line-2); color: var(--ink); }
+        .mn-btn-line:hover { border-color: var(--ink); }
+        .mn-link { display: inline-block; margin-top: 18px; font-weight: 600; color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--line-2); padding-bottom: 2px; }
+        .mn-link:hover { border-color: var(--ink); }
+        .mn-sec { padding: 96px 0; }
+        .mn-sec-alt { background: var(--paper-2); }
+        .mn-shot { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 18px; box-shadow: 0 24px 48px -28px rgba(20,20,15,.25); }
+        .mn-shot-flat { box-shadow: none; }
+        .mn-shot-bar { display: flex; align-items: center; gap: 6px; margin-bottom: 16px; color: var(--ink-faint); font-size: 12px; }
+        .mn-shot-bar i { width: 9px; height: 9px; border-radius: 50%; background: var(--line-2); }
+        .mn-shot-bar span { margin-left: 10px; }
+        .mn-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .mn-kpis > div { border: 1px solid var(--line); border-radius: 12px; padding: 10px 10px 9px; }
+        .mn-kpis small { display: block; font-size: 11px; color: var(--ink-faint); }
+        .mn-kpis b { display: block; font-size: 15px; margin: 3px 0 1px; letter-spacing: -.01em; white-space: nowrap; }
+        .mn-kpis em { font-style: normal; font-size: 11px; }
+        .up { color: var(--ok); } .down { color: var(--danger); }
+        .mn-chart { width: 100%; height: 150px; margin-top: 16px; display: block; }
+        .mn-note { margin: 12px 0 0; font-size: 11.5px; color: var(--ink-faint); }
+        .mn-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .mn-table th { text-align: left; font-weight: 500; font-size: 12px; color: var(--ink-faint); padding: 8px 8px 10px; border-bottom: 1px solid var(--line); }
+        .mn-table td { padding: 13px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+        .mn-table tbody tr:last-child td { border-bottom: 0; }
+        .mn-table td:first-child { font-weight: 600; }
+        .mn-tag { font-size: 11.5px; padding: 3px 9px; border-radius: 999px; background: var(--paper-2); color: var(--ink-dim); }
+        .mn-tag.ok { background: rgba(18,138,77,.1); color: var(--ok); } .mn-tag.bad { background: rgba(194,65,59,.1); color: var(--danger); }
+        .mn-ab { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .mn-ab-card { border: 1px solid var(--line); border-radius: 14px; padding: 10px; display: flex; flex-direction: column; gap: 3px; }
+        .mn-ab-card.win { border-color: var(--ink); }
+        .mn-ab-card b { font-size: 13px; margin-top: 8px; } .mn-ab-card b u { text-decoration: none; font-size: 11px; font-weight: 600; color: var(--ok); margin-left: 4px; }
+        .mn-ab-card span { font-size: 18px; font-weight: 700; letter-spacing: -.02em; } .mn-ab-card small { font-size: 12px; color: var(--ink-faint); }
+        .mn-ph { aspect-ratio: 7 / 9; border-radius: 10px; background: linear-gradient(160deg, #e9e6df, #d9d5cb); position: relative; overflow: hidden; }
+        .mn-ph::after { content: ""; position: absolute; left: 50%; top: 52%; width: 46%; height: 52%; transform: translate(-50%, -50%); border-radius: 40% 40% 12% 12%; background: rgba(20,20,15,.14); }
+        .mn-ph.b { background: linear-gradient(160deg, #e3ece6, #cfdcd3); } .mn-ph.c { background: linear-gradient(160deg, #ece6e3, #dccfca); }
+        .mn-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin-top: 40px; border-top: 1px solid var(--line); }
+        .mn-grid > div { padding: 26px 24px 8px 0; }
+        .mn-grid h3 { font-size: 16px; font-weight: 700; margin: 0 0 8px; } .mn-grid p { margin: 0; font-size: 15px; line-height: 1.55; color: var(--ink-dim); }
+        .mn-service { display: grid; grid-template-columns: 1fr 1.1fr; gap: 64px; align-items: start; }
+        #contacts { padding-top: 96px; }
+        @media (max-width: 860px) {
+            .mn-hero { padding: 120px 0 56px; }
+            .mn-hero-grid, .mn-split, .mn-split-rev, .mn-service { grid-template-columns: 1fr; gap: 36px; }
+            .mn-split-rev .mn-shot { order: 2; }
+            .mn-sec { padding: 64px 0; }
+            .mn-grid { grid-template-columns: 1fr 1fr; }
+            .mn-kpis { grid-template-columns: 1fr 1fr; }
+            .mn-table { font-size: 13px; } .mn-shot { overflow-x: auto; }
+        }
+        @media (max-width: 480px) { .mn-grid { grid-template-columns: 1fr; } }
 
         @media (max-width: 767px) {
             .site-header {
@@ -313,11 +378,10 @@
                 </a>
                 <span class="mx-1 hidden h-5 w-px md:block" style="background:var(--line)"></span>
                 <div class="hidden lg:flex items-center gap-0.5 text-sm">
-                    <a href="#services" class="nav-link vp-pill-link is-active">Услуги</a>
-                    <a href="#cases" class="nav-link vp-pill-link">Кейсы</a>
-                    <a href="#rnp-case" class="nav-link vp-pill-link">Кейс РНП</a>
-                    <a href="#tools" class="nav-link vp-pill-link">Инструменты</a>
+                    <a href="#rnp" class="nav-link vp-pill-link">РНП</a>
+                    <a href="#ab" class="nav-link vp-pill-link">А/Б-тесты</a>
                     <a href="#platform" class="nav-link vp-pill-link">Платформа</a>
+                    <a href="#services" class="nav-link vp-pill-link">Услуги</a>
                     <a href="#contacts" class="nav-link vp-pill-link">Контакты</a>
                 </div>
                 <a href="/login" class="site-login-chip hidden sm:flex vp-pill-link">Войти</a>
@@ -342,11 +406,10 @@
             <button type="button" onclick="closeMobileNav()" class="w-9 h-9 flex items-center justify-center rounded-[10px] text-lg" style="border:1px solid var(--line);color:var(--ink-dim)">×</button>
         </div>
         <nav class="flex-1 p-4 space-y-1">
-            <button type="button" onclick="handleNavClick('#services')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Услуги</button>
-            <button type="button" onclick="handleNavClick('#cases')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Кейсы</button>
-            <button type="button" onclick="handleNavClick('#rnp-case')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Кейс РНП</button>
-            <button type="button" onclick="handleNavClick('#tools')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Инструменты</button>
+            <button type="button" onclick="handleNavClick('#rnp')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">РНП</button>
+            <button type="button" onclick="handleNavClick('#ab')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">А/Б-тесты</button>
             <button type="button" onclick="handleNavClick('#platform')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Платформа</button>
+            <button type="button" onclick="handleNavClick('#services')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Услуги</button>
             <button type="button" onclick="handleNavClick('#contacts')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Контакты</button>
         </nav>
         <div class="p-4" style="border-top:1px solid var(--line)">
@@ -355,341 +418,105 @@
         </div>
     </div>
 
-    <!-- HERO SECTION -->
-    <section class="hero-welcome relative pt-32 md:pt-40 pb-16 md:pb-20 px-4 sm:px-6 max-w-7xl mx-auto min-h-screen flex flex-col justify-center">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-            <div class="hero-copy lg:col-span-7">
-                <h1 class="hero-el-1 mt-8 text-[2.5rem] sm:text-5xl md:text-6xl lg:text-7xl font-semibold tracking-tight" style="line-height:1.05">
-                    Превращаем Wildberries<br>в систему роста и прибыли
-                </h1>
-                <p class="hero-el-2 mt-6 max-w-md text-sm sm:text-base md:text-lg leading-relaxed" style="color:var(--ink-dim)">
-                    Мы не просто агентство. Мы операционная команда для масштабирования крупного бизнеса на маркетплейсах. Передайте управление экспертам и сфокусируйтесь на развитии стратегии.
-                </p>
-            </div>
-            
-            <div class="hero-el-4 lg:col-span-5 relative">
-                <div class="hero-metric-card rounded-2xl border p-6" style="border-color:var(--line);background:var(--card)">
-                    <p class="text-[10px] sm:text-xs uppercase tracking-wider" style="color:var(--ink-faint)">Выручка клиентов</p>
-                    <p class="text-3xl sm:text-4xl font-semibold mt-2 tracking-tight">120 430 000 ₽</p>
-                    <p class="text-sm font-medium mt-2" style="color:var(--ok)">+48.7% за 3 мес.</p>
-                    <div class="grid grid-cols-2 gap-8 mt-8">
-                        <div>
-                            <p class="text-xs" style="color:var(--ink-faint)">Заказы</p>
-                            <p class="text-xl font-semibold mt-1">356 780 шт</p>
-                        </div>
-                        <div>
-                            <p class="text-xs" style="color:var(--ink-faint)">Индекс локализации</p>
-                            <p class="text-xl font-semibold mt-1">94%</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <dl class="hero-stats reveal mt-20 grid grid-cols-2 md:grid-cols-4 gap-8 border-t pt-8" style="border-color:var(--line)">
+    <!-- HERO -->
+    <section class="mn-hero">
+        <div class="mn-wrap mn-hero-grid">
             <div>
-                <dt class="text-3xl sm:text-4xl font-semibold">120+ млн</dt>
-                <dd class="mt-1 text-sm" style="color:var(--ink-dim)">Оборот клиента за 3 месяца</dd>
+                <p class="mn-eyebrow">NR Space · для продавцов Wildberries</p>
+                <h1 class="mn-h1">Видно, что приносит деньги, а что съедает бюджет</h1>
+                <p class="mn-lead">РНП по артикулам, А/Б-тесты главного фото, управление рекламой и ответы на отзывы. Всё в одном кабинете, уведомления приходят в Telegram.</p>
+                <div class="mn-cta">
+                    <a href="/login?tab=register" class="mn-btn mn-btn-dark">Попробовать</a>
+                    <a href="https://wa.me/996502446688" target="_blank" rel="noopener" class="mn-btn mn-btn-line">Написать в WhatsApp</a>
+                </div>
+            </div>
+            <div class="mn-shot" aria-hidden="true">
+                <div class="mn-shot-bar"><i></i><i></i><i></i><span>Дашборд</span></div>
+                <div class="mn-kpis">
+                    <div><small>Выручка</small><b>1 284 500 ₽</b><em class="up">+12%</em></div>
+                    <div><small>Заказы</small><b>861</b><em class="up">+8%</em></div>
+                    <div><small>ДРР</small><b>9,4%</b><em class="down">+0,6 п.п.</em></div>
+                    <div><small>Прибыль</small><b>312 800 ₽</b><em class="up">+5%</em></div>
+                </div>
+                <svg class="mn-chart" viewBox="0 0 560 150" preserveAspectRatio="none">
+                    <defs><linearGradient id="mnfill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#14140f" stop-opacity=".10"/><stop offset="1" stop-color="#14140f" stop-opacity="0"/></linearGradient></defs>
+                    <path d="M0 110 L40 98 L80 104 L120 82 L160 90 L200 66 L240 74 L280 52 L320 60 L360 40 L400 54 L440 34 L480 42 L520 24 L560 30 L560 150 L0 150Z" fill="url(#mnfill)"/>
+                    <path d="M0 110 L40 98 L80 104 L120 82 L160 90 L200 66 L240 74 L280 52 L320 60 L360 40 L400 54 L440 34 L480 42 L520 24 L560 30" fill="none" stroke="#14140f" stroke-width="2" vector-effect="non-scaling-stroke"/>
+                </svg>
+                <p class="mn-note">Пример интерфейса, данные условные</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- РНП -->
+    <section id="rnp" class="mn-sec">
+        <div class="mn-wrap mn-split">
+            <div class="mn-copy">
+                <p class="mn-eyebrow">РНП</p>
+                <h2 class="mn-h2">Рука на пульсе по каждому артикулу</h2>
+                <p class="mn-text">Продажи, ДРР и маржа по артикулам в одной таблице. Сразу видно, какой товар в плюсе, а какой сливает рекламу. План и факт по неделям, выгрузки из Wildberries подтягиваются сами.</p>
+            </div>
+            <div class="mn-shot mn-shot-flat" aria-hidden="true">
+                <table class="mn-table">
+                    <thead><tr><th>Артикул</th><th>Заказы</th><th>Выручка</th><th>ДРР</th><th>Маржа</th><th></th></tr></thead>
+                    <tbody>
+                        <tr><td>248 190 372</td><td>64</td><td>412 000 ₽</td><td>14%</td><td class="up">+27%</td><td><span class="mn-tag ok">В плюсе</span></td></tr>
+                        <tr><td>248 190 588</td><td>11</td><td>96 500 ₽</td><td class="down">61%</td><td class="down">−18%</td><td><span class="mn-tag bad">Сливает</span></td></tr>
+                        <tr><td>248 191 004</td><td>38</td><td>238 900 ₽</td><td>22%</td><td class="up">+9%</td><td><span class="mn-tag">Стабильно</span></td></tr>
+                    </tbody>
+                </table>
+                <p class="mn-note">Пример интерфейса, данные условные</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- А/Б -->
+    <section id="ab" class="mn-sec mn-sec-alt">
+        <div class="mn-wrap mn-split mn-split-rev">
+            <div class="mn-shot mn-shot-flat" aria-hidden="true">
+                <div class="mn-ab">
+                    <div class="mn-ab-card"><div class="mn-ph a"></div><b>Фото A</b><span>CTR 4,1%</span><small>2 000 показов</small></div>
+                    <div class="mn-ab-card win"><div class="mn-ph b"></div><b>Фото B <u>лучше</u></b><span>CTR 6,3%</span><small>2 000 показов</small></div>
+                    <div class="mn-ab-card"><div class="mn-ph c"></div><b>Фото C</b><span>CTR 3,6%</span><small>2 000 показов</small></div>
+                </div>
+                <p class="mn-note">Пример интерфейса, данные условные</p>
+            </div>
+            <div class="mn-copy">
+                <p class="mn-eyebrow">А/Б-тесты</p>
+                <h2 class="mn-h2">Какое главное фото продаёт лучше</h2>
+                <p class="mn-text">Сервис сам меняет главное фото карточки на Wildberries и считает показы, клики и заказы каждого варианта. Каждое фото крутится, пока не наберёт нужное число показов, поэтому сравнение честное. В конце приходит отчёт с победителем.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Остальное -->
+    <section id="platform" class="mn-sec">
+        <div class="mn-wrap">
+            <p class="mn-eyebrow">Платформа</p>
+            <h2 class="mn-h2">Остальное, что работает в кабинете</h2>
+            <div class="mn-grid">
+                <div><h3>Реклама</h3><p>Автоставки держат позицию, паузы и расписание кампаний, ДРР по каждой РК.</p></div>
+                <div><h3>Отзывы</h3><p>Агент Акылай отвечает на отзывы и вопросы покупателей по вашим правилам.</p></div>
+                <div><h3>Telegram</h3><p>Заказы, штрафы, остатки и новости маркетплейса приходят в чат команды.</p></div>
+                <div><h3>Логистика и маркировка</h3><p>Индекс локализации, склады, генерация штрихкодов и этикеток.</p></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Услуга -->
+    <section id="services" class="mn-sec mn-sec-alt">
+        <div class="mn-wrap mn-service">
+            <div>
+                <p class="mn-eyebrow">Ведение под ключ</p>
+                <h2 class="mn-h2">Можно не разбираться самому</h2>
             </div>
             <div>
-                <dt class="text-3xl sm:text-4xl font-semibold">5</dt>
-                <dd class="mt-1 text-sm" style="color:var(--ink-dim)">Экспертов в узких нишах</dd>
-            </div>
-            <div>
-                <dt class="text-3xl sm:text-4xl font-semibold">5 лет</dt>
-                <dd class="mt-1 text-sm" style="color:var(--ink-dim)">Опыта работы с алгоритмами WB</dd>
-            </div>
-            <div>
-                <dt class="text-3xl sm:text-4xl font-semibold">20+ млн</dt>
-                <dd class="mt-1 text-sm" style="color:var(--ink-dim)">Минимальный порог селлеров</dd>
-            </div>
-        </dl>
-    </section>
-
-    <div class="section-divider reveal max-w-7xl mx-auto"></div>
-
-    <!-- SERVICES SECTION -->
-    <section id="services" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
-        <div class="text-center max-w-3xl mx-auto space-y-4 mb-12 md:mb-16">
-            <p class="eyebrow">Что мы делаем</p>
-            <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black tracking-tight">Полное управление процессами</h2>
-        </div>
-        
-        <div class="reveal-stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-[18px]">
-            <div class="vibe-card">
-                <div class="vibe-card-stage">
-                    <p class="mono text-[12px]" style="color:var(--ink-faint)">01</p>
-                    <h3 class="text-[18px] font-extrabold tracking-tight">Управление рекламой & Performance</h3>
-                </div>
-                <div class="vibe-card-foot">
-                    <p class="text-[12.5px] leading-relaxed" style="color:var(--ink-dim)">Максимизация ROI, выстраивание рекламных кампаний с жестким контролем ДРР через автоматические API-стратегии.</p>
-                </div>
-            </div>
-            <div class="vibe-card">
-                <div class="vibe-card-stage">
-                    <p class="mono text-[12px]" style="color:var(--ink-faint)">02</p>
-                    <h3 class="text-[18px] font-extrabold tracking-tight">Глубокая аналитика данных</h3>
-                </div>
-                <div class="vibe-card-foot">
-                    <p class="text-[12.5px] leading-relaxed" style="color:var(--ink-dim)">Построение сквозной управленческой отчетности, ABC/XYZ анализ ассортиментной матрицы, поиск точек кратного роста.</p>
-                </div>
-            </div>
-            <div class="vibe-card">
-                <div class="vibe-card-stage">
-                    <p class="mono text-[12px]" style="color:var(--ink-faint)">03</p>
-                    <h3 class="text-[18px] font-extrabold tracking-tight">Оптимизация логистики</h3>
-                </div>
-                <div class="vibe-card-foot">
-                    <p class="text-[12.5px] leading-relaxed" style="color:var(--ink-dim)">Распределение остатков по региональным складам маркетплейса для повышения индекса локализации и снижения затрат.</p>
-                </div>
+                <p class="mn-text">Команда Nur Consulting берёт кабинет на себя: аудит, реклама, карточки, склад. Вы смотрите результат в том же NR Space, что и мы. Условия и стоимость обсуждаем лично.</p>
+                <a href="https://wa.me/996502446688" target="_blank" rel="noopener" class="mn-link">Обсудить в WhatsApp →</a>
             </div>
         </div>
     </section>
 
-    <div class="section-divider reveal max-w-7xl mx-auto"></div>
-
-    <!-- CASE STUDY SECTION -->
-    <section id="cases" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
-        <div class="py-2">
-            <div class="grid lg:grid-cols-12 gap-12 items-center">
-                <div class="lg:col-span-6 space-y-6">
-                    <span class="eyebrow">Главный кейс</span>
-                    <h2 class="text-3xl sm:text-4xl font-black text-[#111111] tracking-tight">Вывели клиента на 120+ млн ₽ оборота за 3 месяца</h2>
-                    <ul class="space-y-3 text-[#3E434F] font-light text-sm">
-                        <li class="flex items-center space-x-3"><span class="text-[#2F9E44]">✓</span> <span>Провели комплексный технический аудит кабинета</span></li>
-                        <li class="flex items-center space-x-3"><span class="text-[#2F9E44]">✓</span> <span>Исправили индекс локализации и распределили сток на 7 складов</span></li>
-                        <li class="flex items-center space-x-3"><span class="text-[#2F9E44]">✓</span> <span>Полностью перестроили стратегию рекламного продвижения</span></li>
-                    </ul>
-                </div>
-                <div class="lg:col-span-6 grid grid-cols-2 gap-8">
-                    <div>
-                        <p class="text-xs text-[#71717A] uppercase font-bold tracking-wider">Оборот в месяц</p>
-                        <p class="text-2xl sm:text-3xl font-black text-[#111111] mt-2 tracking-tight">120 000 000 ₽</p>
-                    </div>
-                    <div>
-                        <p class="text-xs text-[#71717A] uppercase font-bold tracking-wider">Чистый рост</p>
-                        <p class="text-2xl sm:text-3xl font-black text-[#111111] mt-2 tracking-tight">+487%</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <div class="section-divider reveal max-w-7xl mx-auto"></div>
-
-    <!-- RNP CASE SECTION -->
-    <section id="rnp-case" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
-        <div class="py-2">
-            <div class="grid lg:grid-cols-12 gap-12 items-center">
-                <div class="lg:col-span-5 min-w-0 space-y-6">
-                    <span class="eyebrow">Кейс модуля РНП</span>
-                    <h2 class="text-3xl sm:text-4xl font-black text-[#111111] tracking-tight">Нашли артикулы, которые сливали рекламный бюджет</h2>
-                    <p class="text-[#3E434F] text-sm leading-relaxed">Модуль «Рука на пульсе» ежедневно сверяет продажи, ДРР и маржу по каждому артикулу. За первую неделю подключения РНП у клиента:</p>
-                    <ul class="space-y-3 text-[#3E434F] font-light text-sm">
-                        <li class="flex items-center space-x-3"><span class="text-[#2F9E44]">✓</span> <span>Выявили 12 артикулов с отрицательной маржой при высоком ДРР</span></li>
-                        <li class="flex items-center space-x-3"><span class="text-[#2F9E44]">✓</span> <span>Перераспределили рекламный бюджет на прибыльные позиции</span></li>
-                        <li class="flex items-center space-x-3"><span class="text-[#2F9E44]">✓</span> <span>Снизили ДРР на 9 п.п. без потери оборота</span></li>
-                    </ul>
-                    <a href="/login" class="inline-flex items-center gap-1.5 text-sm font-semibold text-[#111111] hover:text-[#000000] transition">Посмотреть модуль РНП →</a>
-                </div>
-                <div class="lg:col-span-7 min-w-0">
-                    <div class="rounded-[16px] overflow-hidden" style="background:var(--card);border:1px solid var(--line)">
-                        <div class="flex items-center justify-between px-4 sm:px-5 py-3" style="border-bottom:1px solid var(--line);background:color-mix(in srgb, var(--paper) 55%, #fff)">
-                            <span class="stage-label" style="font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint)">РНП · Артикулы</span>
-                            <span class="mono text-[10px] px-2 py-0.5 rounded-full" style="color:var(--ok);border:1px solid color-mix(in srgb, var(--ok) 35%, var(--line))">Обновлено сегодня</span>
-                        </div>
-                        <div class="overflow-x-auto">
-                            <table class="w-full text-left border-collapse text-xs sm:text-sm">
-                                <thead>
-                                    <tr class="text-[#6B7682] border-b border-black/5">
-                                        <th class="py-2.5 px-4 sm:px-5 font-medium">Артикул</th>
-                                        <th class="py-2.5 px-3 font-medium">Продажи</th>
-                                        <th class="py-2.5 px-3 font-medium">ДРР</th>
-                                        <th class="py-2.5 px-3 font-medium">Маржа</th>
-                                        <th class="py-2.5 px-4 sm:px-5 font-medium">Статус</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-black/5">
-                                    <tr>
-                                        <td class="py-3 px-4 sm:px-5 font-semibold text-[#111111]">248 190 372</td>
-                                        <td class="py-3 px-3 text-[#3E434F]">412 000 ₽</td>
-                                        <td class="py-3 px-3 text-[#3E434F]">14%</td>
-                                        <td class="py-3 px-3 font-semibold text-[#2F9E44]">+27%</td>
-                                        <td class="py-3 px-4 sm:px-5"><span class="text-[10px] px-2 py-0.5 rounded-full bg-[#2F9E44]/10 text-[#2F9E44]">Прибыльный</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="py-3 px-4 sm:px-5 font-semibold text-[#111111]">248 190 588</td>
-                                        <td class="py-3 px-3 text-[#3E434F]">96 500 ₽</td>
-                                        <td class="py-3 px-3 text-[#E03130]">61%</td>
-                                        <td class="py-3 px-3 font-semibold text-[#E03130]">−18%</td>
-                                        <td class="py-3 px-4 sm:px-5"><span class="text-[10px] px-2 py-0.5 rounded-full bg-[#E03130]/10 text-[#E03130]">Сливает бюджет</span></td>
-                                    </tr>
-                                    <tr>
-                                        <td class="py-3 px-4 sm:px-5 font-semibold text-[#111111]">248 191 004</td>
-                                        <td class="py-3 px-3 text-[#3E434F]">238 900 ₽</td>
-                                        <td class="py-3 px-3 text-[#3E434F]">22%</td>
-                                        <td class="py-3 px-3 font-semibold text-[#2F9E44]">+9%</td>
-                                        <td class="py-3 px-4 sm:px-5"><span class="text-[10px] px-2 py-0.5 rounded-full bg-[#111111]/10 text-[#111111]">Стабильно</span></td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                    <p class="text-[10px] text-[#6B7682] mt-2 text-center sm:text-left">Пример данных для демонстрации модуля</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-
-
-    <div class="section-divider reveal max-w-7xl mx-auto"></div>
-
-    <!-- MODULES SECTION -->
-    <section id="platform" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6">
-        <div class="max-w-6xl mx-auto">
-            <div class="text-center mb-12 md:mb-16">
-                <span class="eyebrow mb-3 block">Экосистема NR Space</span>
-                <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black mb-4 tracking-tight">Все модули платформы</h2>
-                <p class="text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed" style="color:var(--ink-dim)">Один инструмент — полный контроль бизнеса на Wildberries</p>
-            </div>
-            <div class="reveal-stagger grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 lg:gap-6">
-                <div class="module-card hover-glow"><div class="module-icon">📊</div><h3 class="module-title">Главный Дашборд & Оцифровка</h3><p class="module-desc">Полная автоматическая оцифровка бизнеса на Wildberries. Интерактивные графики выручки, чистой прибыли, маржинальности и ключевых метрик в реальном времени. Вся картина бизнеса на одном экране.</p></div>
-                <div class="module-card hover-glow"><div class="module-icon">🎯</div><h3 class="module-title">Модуль РНП по артикулам</h3><p class="module-desc">Глубокая аналитика по каждому артикулу. Детальные конверсии воронки, подсветка сильных сторон и моментальное выявление товаров, которые генерируют прибыль или сливают бюджет.</p></div>
-                <div class="module-card hover-glow"><div class="module-icon">🧪</div><h3 class="module-title">Встроенные А/Б Тесты</h3><p class="module-desc">Тестируйте главные фото, инфографику и цены прямо внутри платформы. Система замеряет кликабельность (CTR) каждого варианта и автоматически определяет победителя.</p></div>
-                <div class="module-card hover-glow"><div class="module-icon">🚀</div><h3 class="module-title">Управление и Контроль РК</h3><p class="module-desc">Тотальный контроль рекламных кабинетов. Анализ эффективности каждой кампании, отслеживание CPC, ДРР, реальных затрат и ROI без рутины.</p></div>
-                <div class="module-card hover-glow"><div class="module-icon">🔍</div><h3 class="module-title">Позиции в выдаче WB</h3><p class="module-desc">Введите артикул — система ежедневно автоматически проверяет его позиции по ключевым запросам. Узнайте первыми, когда карточка поднимается в топ или проседает.</p></div>
-                <div class="module-card hover-glow"><div class="module-icon">🖨️</div><h3 class="module-title">Маркировка и Генерация ШК</h3><p class="module-desc">Загружайте баркоды из Wildberries напрямую. Мгновенная генерация готовых к печати штрихкодов. Пакетное создание по размерам и экспорт в PDF под термопринтер в 1 клик.</p></div>
-                <div class="module-card hover-glow sm:col-span-2 lg:col-span-3"><div class="module-icon">📦</div><h3 class="module-title">Умная Логистика & Индекс Локализации</h3><p class="module-desc">Автоматический расчёт Индекса Локализации и доли заказов по регионам. Точные рекомендации: на какие склады загрузить товар, чтобы снизить стоимость логистики WB.</p></div>
-            </div>
-        </div>
-    </section>
-
-    <div class="section-divider reveal max-w-7xl mx-auto"></div>
-
-    <!-- TOOLS SECTION -->
-    <section id="tools" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6">
-        <div class="max-w-6xl mx-auto">
-            <div class="text-center mb-12 md:mb-16">
-                <span class="eyebrow mb-3 block">Инструменты</span>
-                <h2 class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black mb-4 tracking-tight">Работают за вас круглосуточно</h2>
-                <p class="text-sm sm:text-base md:text-lg max-w-2xl mx-auto leading-relaxed" style="color:var(--ink-dim)">Ставки, ответы покупателям, уведомления и точная экономика — пока вы занимаетесь развитием бизнеса</p>
-            </div>
-
-            <div class="tools-grid">
-                <!-- Автобиддер -->
-                <article class="tool-card tool-wide">
-                    <div class="tool-split">
-                        <div>
-                            <div class="tool-head"><span class="tool-num">01</span><span class="tool-live">Работает сам</span></div>
-                            <h3 class="tool-title">Автобиддер: ставка сама держит позицию</h3>
-                            <p class="tool-lead">Выбираете кластер в рекламной кампании и задаёте цель. Система каждые 30 минут сверяет позицию и ставку и поднимает или снижает её сама — без ручной перебивки и переплат.</p>
-                            <p class="tool-label">Жёсткие ограничения</p>
-                            <div class="bid-limits">
-                                <span class="bid-chip">Макс. ставка, ₽</span>
-                                <span class="bid-chip">Макс. ДРР, %</span>
-                                <span class="bid-chip">Коридор позиций «с — по»</span>
-                                <span class="bid-chip dark">Проверка каждые 30 мин</span>
-                            </div>
-                        </div>
-                        <div>
-                            <p class="tool-label" style="margin-top:0">Стратегии</p>
-                            <div class="bid-modes">
-                                <div class="bid-mode"><b>Дешевле, лишь бы в позиции</b><span>Минимальная ставка, при которой товар остаётся на нужном месте</span></div>
-                                <div class="bid-mode"><b>Видимость до потолка</b><span>Максимум показов, но не дороже заданного лимита</span></div>
-                                <div class="bid-mode"><b>Держать коридор позиций</b><span>Товар всё время в выбранном диапазоне выдачи</span></div>
-                                <div class="bid-mode"><b>Не выше целевого ДРР</b><span>Реклама не съедает маржу — ДРР под контролем</span></div>
-                            </div>
-                        </div>
-                    </div>
-                </article>
-
-                <!-- Вопросы и отзывы -->
-                <article class="tool-card">
-                    <div class="tool-head"><span class="tool-num">02</span><span class="tool-live">Каждые 10 минут</span></div>
-                    <h3 class="tool-title">Автоответы на вопросы и отзывы</h3>
-                    <p class="tool-lead">Покупатели получают ответ быстро, а важное не теряется.</p>
-                    <div class="flow">
-                        <div class="flow-step"><div class="flow-dot">1</div><div><b>Пришёл вопрос или отзыв на WB</b><span>Типовые — получают автоответ сразу</span></div></div>
-                        <div class="flow-step"><div class="flow-dot">2</div><div><b>Важный вопрос — отмечаем вас в Telegram</b><span>Например, «когда будет поставка?» — бот присылает карточку и тегает ответственного</span></div></div>
-                        <div class="flow-step hot"><div class="flow-dot">3</div><div><b>Вы отвечаете прямо в Telegram</b><span>Коротко, реплаем — бот сам оформит и отправит полный ответ покупателю на WB</span><div class="tg-bubble">↩ через 2 недели</div></div></div>
-                    </div>
-                </article>
-
-                <!-- Telegram -->
-                <article class="tool-card">
-                    <div class="tool-head"><span class="tool-num">03</span><span class="tool-live">Синхронизация</span></div>
-                    <h3 class="tool-title">Всё важное — в Telegram</h3>
-                    <p class="tool-lead">Не нужно держать кабинет открытым: бот сам сообщит обо всех изменениях.</p>
-                    <div class="notif-list">
-                        <div class="notif"><b>Статусы рекламных кампаний и баланс</b><span>каждые 10 мин</span></div>
-                        <div class="notif"><b>Отчёт по продажам за день</b><span>ежедневно</span></div>
-                        <div class="notif"><b>Штрафы и удержания WB</b><span>ежедневно</span></div>
-                        <div class="notif"><b>Итоги А/Б-тестов</b><span>по завершении</span></div>
-                        <div class="notif"><b>Важные вопросы покупателей</b><span>до 10 мин</span></div>
-                    </div>
-                </article>
-
-                <!-- Юнит-экономика -->
-                <article class="tool-card tool-wide">
-                    <div class="tool-head"><span class="tool-num">04</span><span class="tool-live">Актуальные данные</span></div>
-                    <h3 class="tool-title">Юнит-экономика, которая считает точно</h3>
-                    <p class="tool-lead">Прибыль с каждой проданной единицы — с учётом всех расходов Wildberries и невыкупа. Видно сразу, какой товар зарабатывает, а какой работает в минус.</p>
-                    <p class="tool-label">Как считается прибыль на 1 шт</p>
-                    <div class="unit-eq">
-                        <span class="unit-term">Цена после СПП</span><span class="unit-op">−</span>
-                        <span class="unit-term">Комиссия WB</span><span class="unit-op">−</span>
-                        <span class="unit-term">Логистика с учётом невыкупа</span><span class="unit-op">−</span>
-                        <span class="unit-term">Реклама</span><span class="unit-op">−</span>
-                        <span class="unit-term">Налог</span><span class="unit-op">−</span>
-                        <span class="unit-term">Себестоимость</span><span class="unit-op">=</span>
-                        <span class="unit-res">Чистая прибыль</span>
-                    </div>
-                    <div class="unit-facts">
-                        <div class="unit-fact"><b>Ничего лишнего вручную</b><span>Комиссии, логистика и выкуп подтягиваются из кабинета WB</span></div>
-                        <div class="unit-fact"><b>По каждому артикулу</b><span>Маржа и рентабельность товара, а не «в среднем по магазину»</span></div>
-                        <div class="unit-fact"><b>До закупки</b><span>Калькулятор покажет, стоит ли заводить новый товар</span></div>
-                    </div>
-                </article>
-            </div>
-        </div>
-    </section>
-
-    <div class="section-divider reveal max-w-7xl mx-auto"></div>
-
-    <!-- PLATFORM SHOWCASE -->
-    <section id="platform-showcase" class="reveal py-16 md:py-20 lg:py-28 px-4 sm:px-6 max-w-7xl mx-auto">
-        <div class="py-2">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 items-center">
-                <div class="space-y-6">
-                    <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-[#111111]/8 border border-[#111111]/25 text-[10px] sm:text-xs text-[#111111] uppercase tracking-widest">
-                        <span>Статус: В разработке</span>
-                    </div>
-                    <h2 class="text-2xl sm:text-3xl md:text-4xl font-black text-[#111111] tracking-tight">NR Space</h2>
-                    <p class="text-[#3E434F] text-sm sm:text-base leading-relaxed">
-                        Собственная комплексная экосистема автоматизации и сквозной бизнес-аналитики для крупных партнеров Nur Consulting. Прямая интеграция по официальному API Wildberries.
-                    </p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm text-[#3E434F]">
-                        <div class="flex items-center space-x-2"><span class="text-[#111111]">✦</span> <span>AI-прогнозирование спроса</span></div>
-                        <div class="flex items-center space-x-2"><span class="text-[#111111]">✦</span> <span>Автоматическое управление ставками</span></div>
-                        <div class="flex items-center space-x-2"><span class="text-[#111111]">✦</span> <span>Мгновенные дашборды данных</span></div>
-                        <div class="flex items-center space-x-2"><span class="text-[#111111]">✦</span> <span>Кастомный Telegram-бот</span></div>
-                    </div>
-                    <a href="/login" class="vibe-btn">Войти в NR Space</a>
-                </div>
-                <div class="flex items-center justify-center py-8">
-                    <div class="flex items-center gap-3">
-                        <img class="logo-nr logo-nr--lg" src="/icons/logo-nr.svg" alt="NR" width="56" height="56">
-                        <span class="brand-name" style="font-size:28px">Space</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <div class="section-divider reveal max-w-7xl mx-auto"></div>
-
-    <!-- FOOTER / CONTACTS -->
     <section id="contacts" class="reveal mx-auto max-w-5xl px-4 sm:px-6 py-16 md:py-20">
         <div class="mx-auto mb-10 max-w-lg text-center">
             <h2 class="text-3xl font-semibold tracking-tight">Контакты</h2>
@@ -744,8 +571,8 @@
                 <span class="rounded-md border px-1.5 py-0.5 mono text-[11px]" style="border-color:var(--line);color:var(--ink-dim)">Nur Consulting</span>
             </div>
             <nav>
-                <a href="#services">Услуги</a>
-                <a href="#cases">Кейсы</a>
+                <a href="#rnp">РНП</a>
+                <a href="#ab">А/Б-тесты</a>
                 <a href="#platform">Платформа</a>
                 <a href="/privacy">Конфиденциальность</a>
                 <a href="/terms">Оферта</a>
