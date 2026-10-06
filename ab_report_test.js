@@ -22,11 +22,11 @@ assert.ok(html.includes('Установить на ВБ') && html.includes('Се
 // Окно отчёта: фото целиком и до 6 вариантов без прокрутки в ширину
 assert.ok(/\.ab-report-grid \{[^}]*repeat\(auto-fill, minmax\(150px, 210px\)\)/.test(html), 'report grid: compact adaptive columns (6 variants fit one row on a wide window)');
 assert.ok(/\.ab-report-img-wrap \{[^}]*aspect-ratio: 7 \/ 9/.test(html) && /\.ab-report-img-wrap img \{[^}]*object-fit: contain/.test(html), 'report photos are shown whole (7:9, no crop)');
-assert.ok(/class="ab-report-head">\s*\$\{!isLive \? `<button class="ab-report-apply-btn"/.test(html), 'apply button is a compact button in the top-left of every non-live card');
+assert.ok(/class="ab-report-head">[\s\S]{0,900}?\$\{!isLive \? `<button class="ab-report-apply-btn"/.test(html), 'apply button is a compact button in the top-left of every non-live card');
 
-// Таймер до смены фото над фото, которое сейчас на WB, со стрелкой на следующий вариант
-assert.ok(html.includes('id="abr-timer"') && html.includes('id="abr-timer-time"') && html.includes('abr-timer-next'), 'live card shows the rotation timer with the next variant');
-assert.ok(/isLive && timerOn \? `<div class="ab-report-timer"/.test(html), 'timer is rendered only on the live card and only while the test is active');
+// Таймер до смены фото: компактная таблетка в шапке живой карточки (на месте кнопки), время и стрелка на следующий вариант
+assert.ok(/class="ab-report-head">\s*\$\{isLive && timerOn \? `<span class="abr-timer-pill" id="abr-timer"/.test(html) && html.includes('id="abr-timer-time"'), 'timer pill sits in the head row of the live card');
+assert.ok(!html.includes('class="ab-report-timer"') && !html.includes('abr-timer-next'), 'no tall timer block that changes the card proportions');
 assert.ok(html.includes('function startReportTimer(test, source)') && html.includes("timeEl.textContent = 'меняем…'"), 'timer counts down and says «меняем…» at zero');
 assert.ok(html.includes('openABReportModal(test.id, source)') && html.includes('last_rotated_at) !== String(test.last_rotated_at)'), 'report refreshes itself after the server rotated the photo');
 
