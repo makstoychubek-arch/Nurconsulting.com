@@ -160,7 +160,7 @@
         var el = document.createElement('div');
         el.className = 'gc-overlay';
         el.innerHTML = '<div class="gc-dialog" role="dialog" aria-modal="true" aria-label="Калькулятор раздач">'
-            + '<div class="gc-head"><span class="gc-ai">✦</span><div><div class="gc-title">Калькулятор раздач</div><div class="gc-sub">План раздач: сколько вернуть покупателям, сколько получим с ВБ и чистый расход</div></div>'
+            + '<div class="gc-head"><div><div class="gc-title">Калькулятор раздач</div><div class="gc-sub">План раздач: сколько вернуть покупателям, сколько получим с ВБ и чистый расход</div></div>'
             + '<span class="gc-sp"></span><label class="gc-opt"><input type="checkbox" id="gc-cost"' + (state.withCost ? ' checked' : '') + '> минус себестоимость</label>'
             + '<button type="button" class="gc-add" data-act="add">+ Строка</button><button type="button" class="gc-close" data-act="close" aria-label="Закрыть">×</button></div>'
             + '<div class="gc-body"></div>'

@@ -3163,10 +3163,10 @@ const RNP = (() => {
             </div>`;
         }).join('');
         return `<div class="rnp-sheet-tab rnp-tab-general${genActive ? ' active' : ''}" onclick="RNP.pick('general')">
-            <span class="rnp-tab-icon">🏢</span><span>Общий</span>
+            <span>Общий</span>
           </div>
           <div class="rnp-sheet-tab rnp-tab-summary${sumActive ? ' active' : ''}" onclick="RNP.pick('summary')">
-            <span class="rnp-tab-icon">📊</span><span>Сводная</span>
+            <span>Сводная</span>
           </div>
           ${groupsHtml}`;
     }
@@ -6936,7 +6936,7 @@ const RNP = (() => {
 
     async function syncArts() {
         const btn = document.getElementById('rnp-sync-btn');
-        if (btn) btn.textContent = 'Загрузка...';
+        if (btn) btn.textContent = 'Загрузка…';
         try {
             await _syncFromOrders();
         } finally {

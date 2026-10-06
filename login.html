@@ -263,7 +263,7 @@
                 </ul>
                 <div id="reg-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <div id="reg-success" class="hidden text-xs text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
-                    ✅ Письмо с подтверждением отправлено на вашу почту!
+                    Письмо с подтверждением отправлено на вашу почту.
                 </div>
                 <button onclick="handleRegister()"
                     class="vibe-btn w-full">
@@ -278,7 +278,7 @@
                     class="input-field vp-input w-full px-4 py-3 rounded-xl text-[#1F2933] text-sm placeholder-[#6B7682]">
                 <div id="forgot-error" class="hidden text-xs text-red-600 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2"></div>
                 <div id="forgot-success" class="hidden text-xs text-emerald-700 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-2">
-                    ✅ Письмо отправлено! Проверьте почту.
+                    Письмо отправлено. Проверьте почту.
                 </div>
                 <button onclick="handleForgotPassword(event)"
                     class="vibe-btn w-full">
@@ -459,7 +459,7 @@
         const TG_FN = SUPABASE_URL + '/functions/v1/tg-login';
         let _tgToken = '';
 
-        function tgError(msg) { const e = document.getElementById('tg-error'); if (e) { e.textContent = '❌ ' + msg; e.classList.remove('hidden'); } }
+        function tgError(msg) { const e = document.getElementById('tg-error'); if (e) { e.textContent = msg; e.classList.remove('hidden'); } }
 
         async function tgCall(body) {
             const res = await fetch(TG_FN, {
@@ -560,7 +560,7 @@
             if (data?.session?.user) return; // подтверждение почты отключено — onAuthStateChange откроет кабинет
             const ok = document.getElementById('reg-success');
             if (ok) {
-                ok.textContent = '✅ Письмо с подтверждением отправлено на ' + email + '. Откройте его и перейдите по ссылке, затем войдите.';
+                ok.textContent = 'Письмо с подтверждением отправлено на ' + email + '. Откройте его и перейдите по ссылке, затем войдите.';
                 ok.classList.remove('hidden');
             }
         }
@@ -694,7 +694,7 @@
 
         function showError(id, message) {
             const el = document.getElementById(id);
-            if (el) { el.textContent = '❌ ' + message; el.classList.remove('hidden'); }
+            if (el) { el.textContent = message; el.classList.remove('hidden'); }
         }
 
         let _authFlowHandled = false;

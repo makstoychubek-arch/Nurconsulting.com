@@ -226,7 +226,7 @@
             + '<span class="gv-sp"></span>'
             + '<button type="button" class="gv-ghost" data-act="template" title="Пустой шаблон с заголовками">Шаблон</button>'
             + '<button type="button" class="gv-ghost" data-act="export" title="Скачать таблицу">Excel</button>'
-            + '<button type="button" class="gv-ai" data-act="calc" title="Калькулятор раздач" aria-label="Калькулятор раздач">✦</button>'
+            + '<button type="button" class="gv-ai" data-act="calc" title="Калькулятор раздач" aria-label="Калькулятор раздач">Калькулятор</button>'
             + '</div>'
             + '<div class="gv-sum">'
             + '<span class="gv-chip">Раздач: <b>' + nf(s.total) + '</b></span>'
