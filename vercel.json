@@ -58,6 +58,7 @@
     { "source": "/rnp-app", "destination": "/rnp-app/index.html" },
     { "source": "/rnp-app/:path*", "destination": "/rnp-app/:path*" },
     { "source": "/marking-app/:path*", "destination": "/marking-app/:path*" },
+    { "source": "/consulting", "destination": "/consulting.html" },
     { "source": "/privacy", "destination": "/privacy.html" },
     { "source": "/terms", "destination": "/terms.html" },
     { "source": "/", "destination": "/index.html" }

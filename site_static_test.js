@@ -6,7 +6,7 @@ const read = (f) => fs.readFileSync(f, 'utf8');
 assert.ok(/Sitemap: https:\/\/nurcon\.kg\/sitemap\.xml/.test(read('robots.txt')));
 assert.ok(/Disallow: \/space/.test(read('robots.txt')), 'приложение не индексируем');
 const sm = read('sitemap.xml');
-for (const p of ['/', '/login', '/privacy', '/terms']) assert.ok(sm.includes(`<loc>https://nurcon.kg${p}</loc>`), 'sitemap: ' + p);
+for (const p of ['/', '/consulting', '/login', '/privacy', '/terms']) assert.ok(sm.includes(`<loc>https://nurcon.kg${p}</loc>`), 'sitemap: ' + p);
 for (const f of ['404.html', 'privacy.html', 'terms.html']) assert.ok(fs.existsSync(f), f);
 assert.ok(/noindex/.test(read('404.html')), '404 не индексируем');
 assert.ok(/ИНН/.test(read('privacy.html')) && /проверен юристом/.test(read('terms.html')), 'юридические тексты помечены как требующие проверки');
@@ -27,4 +27,13 @@ assert.ok(v.rewrites.some((r) => r.source === '/privacy') && v.rewrites.some((r)
 // монитор не должен падать и ограничен по числу сообщений
 const src = read('nr-monitor.js');
 assert.ok(/MAX = 5/.test(src) && /sendBeacon/.test(src));
+
+// Два лендинга на одном домене: / (NR Space) и /consulting (Nur Consulting), с переключателем между ними
+const cons = read('consulting.html');
+assert.ok(cons.includes('rel="canonical" href="https://nurcon.kg/consulting"') && cons.includes('og:title'), 'consulting: мета-теги');
+assert.ok(cons.includes('href="/"') && read('index.html').includes('href="/consulting"'), 'переключатель между страницами в обе стороны');
+assert.ok(cons.includes('wa.me/996502446688') && !cons.includes('/login?tab=register'), 'consulting: главная кнопка WhatsApp');
+assert.ok(!/\d+\s?(млн|лет)/.test(cons), 'consulting: без выдуманных цифр');
+assert.ok(v.rewrites.some((r) => r.source === '/consulting' && r.destination === '/consulting.html'));
+assert.ok(read('scripts/build-assets.js').includes("'consulting.html'") && read('tailwind.config.build.js').includes('consulting.html'), 'consulting.html в сборке стилей');
 console.log('site_static_test: ok');

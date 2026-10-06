@@ -141,6 +141,7 @@ function main() {
     patchDashboardHtml(cssFile, scriptMap);
     patchSimpleTailwindHtml('index.html', cssFile);
     patchSimpleTailwindHtml('login.html', cssFile);
+    patchSimpleTailwindHtml('consulting.html', cssFile);
     console.log('[build-assets] done.');
 }
 
