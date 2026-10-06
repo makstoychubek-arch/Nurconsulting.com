@@ -4305,8 +4305,8 @@
         .verdict-bar-wrap { background: var(--border); border-radius: 4px; height: 6px; margin-top: 4px; overflow: hidden; }
         .verdict-bar { height: 6px; border-radius: 4px; transition: width 0.6s ease; }
         /* Детальный отчёт А/Б теста */
-        /* Колонки 150–210 px, фото целиком (7:9). До 6 вариантов умещаются в ряд на широком окне, на узком переносятся. */
-        .ab-report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 210px)); gap: 12px; justify-content: center; }
+        /* Колонки 150–210 px, фото целиком (7:9). auto-fit схлопывает пустые колонки, поэтому 2–3 карточки стоят строго по центру. До 6 вариантов умещаются в ряд на широком окне, на узком переносятся. */
+        .ab-report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 210px)); gap: 12px; justify-content: center; }
         .ab-report-card { border: 1.5px solid var(--border); border-radius: 14px; padding: 10px; background: var(--surface); position: relative; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
         .ab-report-card.leading { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
         /* Верх карточки: слева компактная кнопка «Установить на ВБ», справа название варианта */
