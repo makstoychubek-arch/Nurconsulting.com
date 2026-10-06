@@ -398,8 +398,8 @@
            разметку как есть. */
         html:not([data-staff="1"]) [data-staff-only] { display: none !important; }
         .nr-locked { opacity: .72; }
-        .nav-item.nr-locked::after, .nav-item-standalone.nr-locked::after { content: '🔒'; margin-left: auto; font-size: 11px; opacity: .8; }
-        .rail-btn.nr-locked::after { content: '🔒'; position: absolute; right: 2px; top: 2px; font-size: 9px; }
+        .nav-item.nr-locked::after, .nav-item-standalone.nr-locked::after { content: ''; margin-left: auto; width: 12px; height: 12px; background: currentColor; opacity: .7; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='9' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center/contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='9' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center/contain no-repeat; }
+        .rail-btn.nr-locked::after { content: ''; position: absolute; right: 2px; top: 2px; width: 9px; height: 9px; background: currentColor; opacity: .7; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='9' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center/contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='11' width='14' height='9' rx='2'/%3E%3Cpath d='M8 11V8a4 4 0 0 1 8 0v3'/%3E%3C/svg%3E") center/contain no-repeat; }
         .rail-bottom {
             display: flex; flex-direction: column; align-items: stretch;
             gap: 4px; padding: 4px 2px 0; width: 100%;
@@ -2794,12 +2794,12 @@
         .gv-pay { text-align: center; font-variant-numeric: tabular-nums; background: #f3f7f1; color: var(--text-secondary); }
         .gv-pay.is-late { background: #f4c7c3; color: #8a1c14; font-weight: 700; }
         .gv-empty { padding: 28px 12px; text-align: center; color: var(--text-muted); font-size: 12px; }
-        .gv-ai { width: 30px; height: 30px; border: none; border-radius: 9px; background: linear-gradient(135deg, #7c3aed, #3b82f6 60%, #06b6d4); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; box-shadow: 0 2px 8px rgba(99,102,241,0.35); }
-        .gv-ai:hover { filter: brightness(1.08); transform: translateY(-1px); }
+        .gv-ai { height: 30px; padding: 0 12px; border: none; border-radius: 9px; background: var(--sel); color: var(--text-primary); font-size: 12px; font-weight: 700; line-height: 1; cursor: pointer; }
+        .gv-ai:hover { color: var(--accent); }
         .gc-overlay { position: fixed; inset: 0; z-index: 10080; display: flex; align-items: center; justify-content: center; padding: 12px; background: rgba(15,23,42,0.42); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
         .gc-dialog { width: min(1180px, 100%); max-height: calc(100dvh - 24px); display: flex; flex-direction: column; background: var(--surface-solid); border-radius: 18px; box-shadow: 0 18px 60px rgba(0,0,0,0.3); overflow: hidden; }
         .gc-head { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
-        .gc-ai { width: 34px; height: 34px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; background: linear-gradient(135deg, #7c3aed, #3b82f6 60%, #06b6d4); }
+        .gc-ai { width: 34px; height: 34px; border-radius: 11px; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #fff; background: var(--accent); }
         .gc-title { font-size: 16px; font-weight: 800; color: var(--text-primary); }
         .gc-sub { font-size: 11px; color: var(--text-muted); }
         .gc-sp { flex: 1; }
@@ -5954,6 +5954,52 @@
            высоту и не скроллиться вовсе. 100dvh — реальная видимая область. */
         .dashboard-app-shell.h-screen { height: 100dvh; }
 
+
+        /* ===== Единая шкала кнопок, полей и карточек (держать последним) ===== */
+        :root {
+            --ctl-h: 32px; --ctl-h-sm: 28px; --ctl-h-icon: 28px;
+            --ctl-fs: 12px; --ctl-fs-sm: 11px; --ctl-fs-input: 13px;
+            --ctl-pad-x: 12px; --ctl-pad-x-sm: 10px;
+            --ctl-r: var(--radius-control); --ctl-r-pill: 999px;
+        }
+        .ui-btn, .ab-create-btn, .rnp-plan-fact-open, .cf-nav-btn, .filter-chip, .segment-tab {
+            min-height: var(--ctl-h) !important; padding: 0 var(--ctl-pad-x) !important;
+            font-size: var(--ctl-fs) !important; line-height: 1.2 !important;
+            display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+            border-radius: var(--ctl-r) !important; box-sizing: border-box;
+        }
+        .date-filter-chip { padding: 0 var(--ctl-pad-x-sm) !important; gap: 4px; }
+        .filter-chip, .segment-tab, .cf-nav-btn, .cf-chip { border-radius: var(--ctl-r-pill) !important; }
+        .rnp-action-btn, .adv-camp-action-btn, .ads-hq-chip, .cf-chip, .picker-quick-btn, .ab-report-apply-btn, .rnp-head-notes-btn {
+            min-height: var(--ctl-h-sm) !important; padding: 0 var(--ctl-pad-x-sm) !important;
+            font-size: var(--ctl-fs-sm) !important; line-height: 1.2 !important;
+            display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+            border-radius: var(--ctl-r) !important; box-sizing: border-box;
+        }
+        .ads-hq-chip { height: var(--ctl-h-sm) !important; }
+        .cf-chip, .ab-report-apply-btn { border-radius: var(--ctl-r-pill) !important; }
+        .rnp-tool-icon, .rnp-settings-gear { width: var(--ctl-h-icon) !important; height: var(--ctl-h-icon) !important; }
+        .rnp-tool-icon svg, .rnp-settings-gear svg { width: 15px !important; height: 15px !important; }
+        .ads-hq-search-wrap { height: var(--ctl-h-icon); }
+        .ads-hq-search { height: var(--ctl-h-icon) !important; }
+        input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, .ui-input, .ui-select, .ft-select, .picker-date-input, .onb-input {
+            min-height: var(--ctl-h); box-sizing: border-box; font-size: var(--ctl-fs-input); border-radius: var(--ctl-r) !important;
+        }
+        .rnp-meta-input, .rnp-meta-select, .picker-date-input, .rnp-action-bar select {
+            min-height: var(--ctl-h-sm); font-size: var(--ctl-fs-sm); border-radius: var(--ctl-r) !important;
+        }
+        td input:not([type="checkbox"]), th input:not([type="checkbox"]), td select, .rnp-sheet-table input, .rnp-sheet-table select { min-height: 0; font-size: inherit; }
+        .rnp-plan-input, .plan-cell-input, .cl-bid-input, .gg-edit-input { min-height: 0; border-radius: 8px !important; }
+        .glass, .widget-card, .ev-kpi, .ev-card, .chart-box, .abtest-card, .adv-kpi-tile, .dash-plan-card, .ab-selected-card { border-radius: var(--radius-card) !important; }
+        .glass.rounded-2xl { border-radius: var(--radius-card) !important; }
+        .ev-kpi, .ev-card { border: none !important; }
+        .section-title, .chart-box-title { font-size: 14px; }
+        @media (max-width: 640px) {
+            :root { --ctl-h: 36px; --ctl-h-sm: 32px; --ctl-h-icon: 32px; --ctl-fs-input: 16px; }
+            .rnp-tool-icon svg, .rnp-settings-gear svg { width: 18px !important; height: 18px !important; }
+            .ads-hq-search-wrap { width: var(--ctl-h-icon); flex-basis: var(--ctl-h-icon); }
+            .section-title { font-size: 13px; }
+        }
     </style>
     <script>
         /* Показать нужную вкладку СРАЗУ, ДО первой отрисовки — иначе браузер
@@ -6286,7 +6332,7 @@
                 <label class="onb-label" for="onb-name">Название магазина</label>
                 <input type="text" id="onb-name" class="onb-input" placeholder="Например, Мой магазин" autocomplete="off">
                 <label class="onb-label" for="onb-token">API-токен Wildberries</label>
-                <input type="password" id="onb-token" class="onb-input" placeholder="eyJhbGciOiJFUzI1NiIsImtpZCI6..." autocomplete="off" spellcheck="false">
+                <input type="password" id="onb-token" class="onb-input" placeholder="Вставьте API-токен" autocomplete="off" spellcheck="false">
                 <div class="onb-msg" id="onb-msg" data-tone="info"></div>
                 <button type="button" class="space-empty-btn" id="onb-submit" onclick="submitOnboarding()">Подключить магазин</button>
             </div>
@@ -6400,7 +6446,7 @@
                     <div class="dashboard-top-margin-body">
                         <div class="dashboard-top-margin-chart"><canvas id="chart-top-margin-donut"></canvas></div>
                         <div id="dashboard-top-margin-legend" class="dashboard-top-margin-legend">
-                            <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                            <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка…</div>
                         </div>
                     </div>
                 </div>
@@ -6476,14 +6522,14 @@
                 </div>
             </div>
         </div>
-        <div id="tab-summary-biz" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Сводный по бизнесу</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Совокупные показатели по всем кабинетам. Доступно после подключения нескольких кабинетов с токенами WB.</p></div></div>
-        <div id="tab-deductions" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Прочие удержания</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Детализация удержаний из отчёта реализации: подписки, штрафы, транзитные поставки, отзывы за баллы. Доступно после подключения Finance API.</p></div></div>
-        <div id="tab-plan-fact" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">План-факт</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Инструмент постановки целей и отслеживания выполнения плана по выбранным показателям. В разработке.</p></div></div>
+        <div id="tab-summary-biz" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon"></div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Сводный по бизнесу</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Совокупные показатели по всем кабинетам. Доступно после подключения нескольких кабинетов с токенами WB.</p></div></div>
+        <div id="tab-deductions" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon"></div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Прочие удержания</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Детализация удержаний из отчёта реализации: подписки, штрафы, транзитные поставки, отзывы за баллы. Доступно после подключения Finance API.</p></div></div>
+        <div id="tab-plan-fact" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon"></div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">План-факт</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Инструмент постановки целей и отслеживания выполнения плана по выбранным показателям. В разработке.</p></div></div>
         <div id="tab-dds" class="tab-content space-y-4">
             <div class="widget-card p-5">
                 <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
                     <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Баланс продавца WB</h3>
-                    <button type="button" class="ui-btn ui-btn-secondary" onclick="loadFinanceDds()">↻ Обновить</button>
+                    <button type="button" class="ui-btn ui-btn-secondary" onclick="loadFinanceDds()">Обновить</button>
                 </div>
                 <div id="finance-balance-cards" class="grid grid-cols-2 gap-3 mb-2">
                     <div class="metric-card"><div class="metric-card-label">Текущий баланс</div><div class="metric-card-value" id="finance-balance-current">—</div></div>
@@ -6504,8 +6550,8 @@
                 <div id="finance-operations-table"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Отчёт не выбран. Перейдите в «ДДС» и нажмите «Показать операции» у нужного периода.</div></div>
             </div>
         </div>
-        <div id="tab-obligations" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Обязательства</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Платёжный календарь и плановые операции. В разработке.</p></div></div>
-        <div id="tab-finance-extra" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon">🔧</div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Дополнительно</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Расширенные финансовые отчёты и аналитика. В разработке.</p></div></div>
+        <div id="tab-obligations" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon"></div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Обязательства</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Платёжный календарь и плановые операции. В разработке.</p></div></div>
+        <div id="tab-finance-extra" class="tab-content"><div class="widget-card placeholder-widget"><div class="placeholder-widget-icon"></div><h3 class="font-semibold mb-2" style="color:var(--text-primary)">Дополнительно</h3><p class="text-sm" style="color:var(--text-muted);max-width:400px;margin:0 auto">Расширенные финансовые отчёты и аналитика. В разработке.</p></div></div>
 
         <div id="tab-cost" class="tab-content space-y-5">
             <div class="widget-card p-6">
@@ -6522,7 +6568,7 @@
                         <h3 class="font-semibold" style="color:var(--text-primary)">Тарифы комиссии WB по категориям</h3>
                         <p class="text-xs mt-1" style="color:var(--text-muted)">Официальные ставки комиссии Wildberries — для точного расчёта маржи вместо приближённой формулы.</p>
                     </div>
-                    <button type="button" class="ui-btn ui-btn-secondary" onclick="loadCommissionTariffs()">↻ Загрузить</button>
+                    <button type="button" class="ui-btn ui-btn-secondary" onclick="loadCommissionTariffs()">Обновить</button>
                 </div>
                 <input type="search" id="commission-search" placeholder="Поиск категории…" oninput="renderCommissionTariffs()"
                     class="w-full rounded-xl px-3 py-2 text-sm mb-3" style="background:var(--surface);border:1px solid var(--border);color:var(--text-primary)">
@@ -6892,11 +6938,11 @@
                 <div id="adv-campaigns-list" class="widget-card p-5 hidden">
                     <div id="adv-subtab-campaigns">
                         <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Кампании WB</h3>
-                        <div id="adv-campaigns-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                        <div id="adv-campaigns-table" class="text-sm" style="color:var(--text-muted)">Загрузка…</div>
                     </div>
                     <div id="adv-subtab-articles" class="hidden">
                         <h3 class="text-sm font-semibold mb-3" style="color:var(--text-primary)">Товары</h3>
-                        <div id="adv-articles-table" class="text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                        <div id="adv-articles-table" class="text-sm" style="color:var(--text-muted)">Загрузка…</div>
                     </div>
                     <div id="adv-subtab-autobidder" class="hidden">
                         <h3 class="text-sm font-semibold mb-1" style="color:var(--text-primary)">Автобиддер</h3>
@@ -7051,7 +7097,7 @@
                         <h3 class="text-sm font-semibold" style="color:var(--text-primary)">Штрафы за маркировку и отчёт по акцизным товарам</h3>
                         <p class="text-xs mt-1" style="color:var(--text-muted)">Данные WB: отсутствие/нечитаемость КИЗ (с фото) и операции с маркированными товарами за последние 30 дней.</p>
                     </div>
-                    <button type="button" class="ui-btn ui-btn-secondary" id="marking-report-refresh-btn" onclick="loadMarkingComplianceReport()">↻ Обновить</button>
+                    <button type="button" class="ui-btn ui-btn-secondary" id="marking-report-refresh-btn" onclick="loadMarkingComplianceReport()">Обновить</button>
                 </div>
                 <div id="marking-report-body">
                     <div class="text-center py-6 text-sm" style="color:var(--text-muted)">Нажмите «Обновить», чтобы загрузить данные из WB.</div>
@@ -7069,7 +7115,7 @@
             <div class="logistics-toolbar">
                 <div class="flex items-center gap-3">
                     <h3 class="font-semibold text-sm" style="color:var(--text-primary)">Поставки</h3>
-                    <button class="ui-btn ui-btn-secondary" style="padding:5px 12px;font-size:11px" onclick="loadSuppliesFromWB()">↻ Обновить</button>
+                    <button class="ui-btn ui-btn-secondary" style="padding:5px 12px;font-size:11px" onclick="loadSuppliesFromWB()">Обновить</button>
                 </div>
                 <div class="segment-tabs">
                     <div class="segment-tab active" onclick="filterSupplies('all', this)">Все</div>
@@ -7087,7 +7133,7 @@
                             <h3 class="font-semibold text-sm" style="color:var(--text-primary)">Продажи по складам</h3>
                             <p class="text-xs mt-1" style="color:var(--text-muted)">Нажмите на склад, чтобы посмотреть динамику заказов по дням</p>
                         </div>
-                        <button class="ui-btn ui-btn-secondary" style="padding:5px 12px;font-size:11px" onclick="loadWarehouseSales(true)">↻ Обновить</button>
+                        <button class="ui-btn ui-btn-secondary" style="padding:5px 12px;font-size:11px" onclick="loadWarehouseSales(true)">Обновить</button>
                     </div>
                     <div id="warehouse-sales-table-wrap" style="border:1px solid var(--border);border-radius:16px;overflow:hidden">
                         <table class="w-full text-sm">
@@ -7448,7 +7494,7 @@
         <div id="tab-planning" class="tab-content space-y-4">
             <div class="flex items-center justify-end flex-wrap gap-2">
                 <span id="plan-save-status" class="text-xs" style="color:var(--text-muted)"></span>
-                <button class="ui-btn ui-btn-secondary text-sm" onclick="reloadPlanningGrid()">↻ Обновить</button>
+                <button class="ui-btn ui-btn-secondary text-sm" onclick="reloadPlanningGrid()">Обновить</button>
             </div>
             <div class="plan-metric-tabs" id="plan-metric-tabs"></div>
             <div class="widget-card p-3">
@@ -7475,7 +7521,7 @@
             <div id="settings-profile" class="settings-tab-anim hidden space-y-4">
                 <div class="widget-card p-6">
                     <h3 class="font-semibold mb-4" style="color:var(--text-primary)">Профиль</h3>
-                    <div id="settings-user-info" class="text-sm space-y-2" style="color:var(--text-secondary)">Загрузка...</div>
+                    <div id="settings-user-info" class="text-sm space-y-2" style="color:var(--text-secondary)">Загрузка…</div>
                     <button onclick="handleLogout()" class="mt-4 px-5 py-2 text-sm rounded-xl border transition" style="background:rgba(248,113,113,0.1);color:var(--red);border-color:rgba(248,113,113,0.25)">Выйти</button>
                 </div>
             </div>
@@ -7497,7 +7543,7 @@
                         </div>
                     </div>
                     <div id="admin-spaces-table-wrap" class="admin-spaces-table-wrap">
-                        <div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка...</div>
+                        <div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка…</div>
                     </div>
                 </div>
                 <div class="widget-card security-sessions-card p-0">
@@ -7551,7 +7597,7 @@
                             <button class="ui-btn ui-btn-secondary" onclick="hideAddCabinetForm()">Отмена</button>
                         </div>
                     </div>
-                    <div id="cabinets-api-list" class="space-y-2"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div></div>
+                    <div id="cabinets-api-list" class="space-y-2"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка…</div></div>
                 </div>
             </div>
             <div id="settings-features" class="settings-tab-anim hidden space-y-4">
@@ -7562,7 +7608,7 @@
                     </div>
                     <p class="text-xs mb-4" style="color:var(--text-muted)">Включайте и отключайте работу функций по каждому кабинету. «Отключить на…» вернёт функцию само, когда срок кончится.</p>
                     <div id="ft-all" class="ft-all"></div>
-                    <div id="ft-list" class="ft-list"><div class="text-sm" style="color:var(--text-muted)">Загрузка...</div></div>
+                    <div id="ft-list" class="ft-list"><div class="text-sm" style="color:var(--text-muted)">Загрузка…</div></div>
                 </div>
             </div>
             <div id="settings-about" class="settings-tab-anim hidden space-y-4">
@@ -7570,8 +7616,8 @@
                     <h3 class="font-semibold mb-3" style="color:var(--text-primary)">NR Space</h3>
                     <div class="text-sm space-y-1.5" style="color:var(--text-secondary)">
                         <div>Версия: <span style="color:var(--text-primary)">NR Space v1.3</span></div>
-                        <div>База данных: <span style="color:var(--green)">Supabase ✓</span></div>
-                        <div>WB API: <span style="color:var(--green)">Через защищённый прокси ✓</span></div>
+                        <div>База данных: <span style="color:var(--green)">Работает</span></div>
+                        <div>WB API: <span style="color:var(--green)">Работает</span></div>
                     </div>
                 </div>
             </div>
@@ -8040,7 +8086,7 @@
 
 <script src="/dist/nr-win.1c22985ab7.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.9ee359168c.min.js"></script>
+<script src="/dist/rnp-module.44e563aab9.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
    и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
@@ -8092,7 +8138,7 @@
             if (window.NrNotify) NrNotify.push({ title: 'Звук заказов ждёт клика', detail: 'Браузер не включит звук, пока вы не нажмёте на страницу.', key: 'order-sound-blocked' });
         });
         if (window.NrNotify) NrNotify.push({ title: 'Новый заказ', detail: label, key: 'order-' + row.id });
-        toast('🐬 Новый заказ: ' + label);
+        toast('Новый заказ: ' + label);
     }
 
     function start() {
@@ -8138,7 +8184,7 @@
         }).join('');
         host.innerHTML =
             '<label class="nros-main"><input type="checkbox" id="nros-enabled"' + (st.enabled ? ' checked' : '') + '><b>Звук при новом заказе</b></label>' +
-            '<div class="nros-vol"><button type="button" class="nros-test" id="nros-test">▶ Проверить звук</button>' +
+            '<div class="nros-vol"><button type="button" class="nros-test" id="nros-test">Проверить звук</button>' +
             '<input type="range" id="nros-volume" min="0" max="100" value="' + Math.round(st.volume * 100) + '"><span id="nros-volume-v">' + Math.round(st.volume * 100) + '%</span></div>' +
             '<p class="nros-note">Сигнал приходит через 10–20 секунд после заказа со склада продавца (FBS) и только пока сайт открыт. Отметьте артикулы, на которые нужен звук.</p>' +
             (list.length
@@ -8323,8 +8369,8 @@
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.7bc1ac0fd1.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
-<script src="/dist/giveaways.caf7e843e0.min.js"></script>
-<script src="/dist/giveaway-calc.e775c45d50.min.js"></script>
+<script src="/dist/giveaways.ad11c71b91.min.js"></script>
+<script src="/dist/giveaway-calc.011892844f.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
@@ -8573,7 +8619,7 @@
             .single();
         if (error) { showPremiumModal('error', 'Ошибка', error.message); return; }
         closeAddCabinetModal();
-        showPremiumModal('success', 'Кабинет добавлен!', `Запускаем загрузку данных для "${name}"...`);
+        showPremiumModal('success', 'Кабинет добавлен', `Запускаем загрузку данных для "${name}"...`);
         if (token && token.length > 50) {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
@@ -8586,7 +8632,7 @@
                         },
                         body: JSON.stringify({ mode: 'full', cabinet_id: cabinet.id })
                     });
-                    showPremiumModal('success', 'Готово!', `Кабинет "${name}" добавлен и данные загружены.`);
+                    showPremiumModal('success', 'Готово', `Кабинет "${name}" добавлен и данные загружены.`);
                 }
             } catch (e) { console.warn('Auto-sync failed:', e); }
         }
@@ -8723,7 +8769,7 @@
         const name = spaceDisplayName(row);
         let email = row.email || '—';
         const tgM = /^tg(\d+)@telegram\.nurcon\.kg$/i.exec(email);
-        if (tgM) email = '✈ Telegram · ID ' + tgM[1];
+        if (tgM) email = 'Telegram · ID ' + tgM[1];
         const avatar = (row.avatar_url || '').trim();
         const showCreator = opts.showCreator && isSuperAdminRow(row);
         const creatorBadge = showCreator ? '<span class="space-creator-badge">Создатель</span>' : '';
@@ -8877,7 +8923,7 @@
         const wrap = document.getElementById('admin-spaces-table-wrap');
         if (!wrap || !isSuperAdmin) return;
 
-        wrap.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка...</div>';
+        wrap.innerHTML = '<div class="text-center py-10 text-sm" style="color:var(--text-muted)">Загрузка…</div>';
 
         const [{ data: spaces, error: spErr }, { data: cabinets, error: cabErr }] = await Promise.all([
             supabase.from('spaces').select('id, user_id, email, status, tariff_plan, created_at, is_super_admin, first_name, last_name, full_name, avatar_url, last_sign_in_at, sign_in_attempts'),
@@ -10249,7 +10295,7 @@
                 <td>${cSpendShare != null ? cSpendShare.toFixed(2) + '%' : '—'}</td>
                 <td>${campaignStatusPillHtml(c.status)}</td>
                 <td>${campaignActionBtnHtml(c.id, c.status)}</td>
-                <td><button type="button" class="adv-camp-action-btn" onclick="toggleKeywordStats(${c.id})">🔍 Кластеры</button> <button type="button" class="adv-camp-action-btn${(window._autobidderByCampaign && window._autobidderByCampaign.get(String(c.id))?.enabled) ? ' is-on' : ''}" onclick="openAutobidderModal(${c.id})">⚡ Авто</button></td>
+                <td><button type="button" class="adv-camp-action-btn" onclick="toggleKeywordStats(${c.id})">Кластеры</button> <button type="button" class="adv-camp-action-btn${(window._autobidderByCampaign && window._autobidderByCampaign.get(String(c.id))?.enabled) ? ' is-on' : ''}" onclick="openAutobidderModal(${c.id})">⚡ Авто</button></td>
             </tr>`;
             }).join('') + `</tbody></table></div>`;
     }
@@ -11181,8 +11227,8 @@
         return `<span class="advcab-status-pill none">—</span>`;
     }
     function campaignActionBtnHtml(id, status) {
-        if (status === 9) return `<button type="button" class="adv-camp-action-btn" onclick="toggleCampaignStatus(${id}, 'pause')">⏸ Пауза</button>`;
-        if (status === 11 || status === 4) return `<button type="button" class="adv-camp-action-btn" onclick="toggleCampaignStatus(${id}, 'start')">▶ Старт</button>`;
+        if (status === 9) return `<button type="button" class="adv-camp-action-btn" onclick="toggleCampaignStatus(${id}, 'pause')">Пауза</button>`;
+        if (status === 11 || status === 4) return `<button type="button" class="adv-camp-action-btn" onclick="toggleCampaignStatus(${id}, 'start')">Запустить</button>`;
         return '';
     }
     async function toggleCampaignStatus(advertId, verb) {
@@ -11190,11 +11236,11 @@
         const snapshotCabinet = currentCabinetId;
         const row = document.getElementById('adv-camp-row-' + advertId);
         const btn = row?.querySelector('.adv-camp-action-btn');
-        if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
+        if (btn) { btn.disabled = true; btn.textContent = '…'; }
         try {
             const result = await callWbProxy(verb === 'start' ? 'advert_start' : 'advert_pause', { advertId }, snapshotCabinet);
             if (!result) { // callWbProxy уже показало своё модальное окно с ошибкой
-                if (btn) { btn.disabled = false; btn.textContent = verb === 'start' ? '▶ Старт' : '⏸ Пауза'; }
+                if (btn) { btn.disabled = false; btn.textContent = verb === 'start' ? 'Запустить' : 'Пауза'; }
                 return;
             }
             // Если WB успел подтвердить реальный статус за ~1.2с (см. wb-proxy
@@ -11219,7 +11265,7 @@
                     'WB применяет изменение статуса в течение минуты — обновите страницу через минуту, если статус не изменится.');
             }
         } catch (e) {
-            if (btn) { btn.disabled = false; btn.textContent = verb === 'start' ? '▶ Старт' : '⏸ Пауза'; }
+            if (btn) { btn.disabled = false; btn.textContent = verb === 'start' ? 'Запустить' : 'Пауза'; }
             showPremiumModal('error', 'Не удалось изменить статус кампании', e.message);
         }
     }
@@ -11550,7 +11596,7 @@
                 _planRows[r.nm_id][r.plan_date] = { ..._planRows[r.nm_id][r.plan_date], ...r };
             });
             document.querySelectorAll('.plan-cell-input.plan-cell-dirty').forEach(el => el.classList.remove('plan-cell-dirty'));
-            if (statusEl) { statusEl.textContent = 'сохранено ✓'; setTimeout(() => { if (statusEl.textContent === 'сохранено ✓') statusEl.textContent = ''; }, 2000); }
+            if (statusEl) { statusEl.textContent = 'Сохранено'; setTimeout(() => { if (statusEl.textContent === 'Сохранено') statusEl.textContent = ''; }, 2000); }
             document.dispatchEvent(new CustomEvent('rnp-plans-changed', { detail: { source: 'planning', cabinetId: currentCabinetId } }));
         } catch (e) {
             console.error('[planning] flush failed:', e.message);
@@ -12505,8 +12551,8 @@
         if (!body) return;
         if (!currentCabinetId) { body.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Выберите кабинет.</div>'; return; }
 
-        if (btn) { btn.disabled = true; btn.textContent = '↻ Загрузка...'; }
-        body.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)"><span class="wbc-spinner"></span> Загрузка...</div>';
+        if (btn) { btn.disabled = true; btn.textContent = 'Загрузка…'; }
+        body.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)"><span class="wbc-spinner"></span> Загрузка…</div>';
 
         const to = new Date();
         const from = new Date(); from.setDate(from.getDate() - 30);
@@ -12561,7 +12607,7 @@
             console.warn('[marking] compliance report error:', e);
             body.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Не удалось загрузить данные из WB.</div>';
         } finally {
-            if (btn) { btn.disabled = false; btn.textContent = '↻ Обновить'; }
+            if (btn) { btn.disabled = false; btn.textContent = 'Обновить'; }
         }
     }
     window.loadMarkingComplianceReport = loadMarkingComplianceReport;
@@ -12595,7 +12641,7 @@
         const listEl = document.getElementById('finance-reports-list');
         if (balCurEl) balCurEl.textContent = '…';
         if (balWEl) balWEl.textContent = '…';
-        if (listEl) listEl.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)"><span class="wbc-spinner"></span> Загрузка...</div>';
+        if (listEl) listEl.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)"><span class="wbc-spinner"></span> Загрузка…</div>';
 
         const to = new Date();
         const from = new Date(); from.setDate(from.getDate() - 90);
@@ -12699,7 +12745,7 @@
     async function loadCommissionTariffs() {
         if (!currentCabinetId) { showPremiumModal('warning', 'Нет кабинета', 'Выберите кабинет.'); return; }
         const body = document.getElementById('commission-tariffs-body');
-        if (body) body.innerHTML = '<tr><td colspan="4" class="text-center py-8" style="color:var(--text-muted)"><span class="wbc-spinner"></span> Загрузка...</td></tr>';
+        if (body) body.innerHTML = '<tr><td colspan="4" class="text-center py-8" style="color:var(--text-muted)"><span class="wbc-spinner"></span> Загрузка…</td></tr>';
         try {
             const res = await callWbProxy('tariffs_commission', { locale: 'ru' });
             if (!res || res.error) {
@@ -13423,7 +13469,7 @@
             if (adsHqOpen && typeof window.AdsHQ.load === 'function') adsReload = window.AdsHQ.load();
         }
         const advTableEl = document.getElementById('adv-campaigns-table');
-        if (advTableEl) advTableEl.innerHTML = 'Загрузка...';
+        if (advTableEl) advTableEl.innerHTML = 'Загрузка…';
         const advFreshEl = document.getElementById('adv-freshness');
         if (advFreshEl) advFreshEl.textContent = '';
 
@@ -13900,7 +13946,7 @@
     async function manualSync() {
         if (!hasUserCabinets || !currentCabinetId) return;
         const btn = document.getElementById('manual-sync-btn');
-        if (btn) { btn.textContent = '⏳ Загрузка...'; btn.disabled = true; }
+        if (btn) { btn.textContent = 'Загрузка…'; btn.disabled = true; }
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) throw new Error('Сессия истекла, перезайдите.');
@@ -14569,7 +14615,7 @@
     function saveSettings() {
         localStorage.setItem('tax_rate_v2', document.getElementById('tax-rate').value || '0');
         localStorage.setItem('opex', document.getElementById('opex').value);
-        showPremiumModal('success', 'Сохранено!', 'Настройки успешно обновлены.');
+        showPremiumModal('success', 'Сохранено', 'Настройки обновлены.');
     }
 
     async function handleLogout() {
@@ -14687,10 +14733,10 @@
         const profitEl = document.getElementById('cr-profit');
         if (profit > 0) {
             let verdict = '';
-            if (margin >= 25) verdict = `✅ Отличный товар! Маржа ${margin.toFixed(1)}% — берите в работу.`;
-            else if (margin >= 15) verdict = `👍 Хороший товар. Маржа ${margin.toFixed(1)}% — приемлемо для масштабирования.`;
-            else if (margin >= 5) verdict = `⚠️ Низкая маржа (${margin.toFixed(1)}%). Попробуйте снизить себестоимость или повысить цену.`;
-            else verdict = `⚠️ Маржа всего ${margin.toFixed(1)}%. Рискованно — любые колебания уйдут в минус.`;
+            if (margin >= 25) verdict = `Отличный товар. Маржа ${margin.toFixed(1)}% — берите в работу.`;
+            else if (margin >= 15) verdict = `Хороший товар. Маржа ${margin.toFixed(1)}% — приемлемо для масштабирования.`;
+            else if (margin >= 5) verdict = `Низкая маржа (${margin.toFixed(1)}%). Попробуйте снизить себестоимость или повысить цену.`;
+            else verdict = `Маржа всего ${margin.toFixed(1)}%. Рискованно — любые колебания уйдут в минус.`;
             verdictEl.style.background = 'rgba(52,211,153,0.1)';
             verdictEl.style.color = 'var(--green)';
             profitEl.style.color = 'var(--green)';
@@ -14699,7 +14745,7 @@
             verdictEl.style.background = 'rgba(248,113,113,0.1)';
             verdictEl.style.color = 'var(--red)';
             profitEl.style.color = 'var(--red)';
-            verdictEl.textContent = `❌ Убыточный товар! При этих параметрах вы теряете ${fmt(Math.abs(profit))} ₽ с каждой продажи.`;
+            verdictEl.textContent = `Убыточный товар: при этих параметрах вы теряете ${fmt(Math.abs(profit))} ₽ с каждой продажи.`;
         }
     }
 
@@ -15062,7 +15108,7 @@
     async function loadABCampaigns() {
         const el = document.getElementById('ab-campaign-list');
         if (!el) return;
-        el.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div>';
+        el.innerHTML = '<div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка…</div>';
         const data = await callWbProxy('advert_campaigns', {});
         const campaigns = data?.campaigns || [];
         const nameById = new Map();
@@ -15463,7 +15509,7 @@
             return;
         }
 
-        showPremiumModal('success', 'Тест запущен!', `Фото будет меняться каждые ${interval} мин.`);
+        showPremiumModal('success', 'Тест запущен', `Фото будет меняться каждые ${interval} мин.`);
         loadABTests();
         } finally {
             if (!released) {
@@ -15672,10 +15718,10 @@
             ? ''
             : '';
         const statusBadge = test.status === 'active'
-            ? '<span class="badge-green">● Активен</span>'
+            ? '<span class="badge-green">Активен</span>'
             : test.status === 'finished'
-            ? `<span class="badge-green" style="background:rgba(168,85,247,0.1);color:var(--accent);border-color:rgba(168,85,247,0.3)">✓ Завершён${finishReasonLabel}</span>`
-            : '<span class="badge-red">⏸ Приостановлен</span>';
+            ? `<span class="badge-green" style="background:rgba(168,85,247,0.1);color:var(--accent);border-color:rgba(168,85,247,0.3)">Завершён${finishReasonLabel}</span>`
+            : '<span class="badge-red">На паузе</span>';
 
         const progressHtml = test.status === 'active' ? `
             <div class="mt-3">
@@ -16120,7 +16166,7 @@
                 <div class="ab-report-head">
                     ${isLive && timerOn ? `<span class="abr-timer-pill" id="abr-timer" title="Через сколько фото сменится на следующее: Вариант ${escapeHtml(String(nextVariant.variant_label))}"><span id="abr-timer-time">--:--</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></span>` : ''}
                     ${!isLive ? `<button class="ab-report-apply-btn" ${testRunning ? 'disabled' : ''} title="${testRunning ? 'Доступно после окончания теста: пока тест идёт, фото меняются сами' : 'Поставить это фото на WB'}" onclick="applyWinningVariant('${test.id}','${v.id}')">Установить на ВБ</button>` : ''}
-                    <span class="ab-report-tag ${isLive ? 'live' : ''}">${isLive ? '● Сейчас на ВБ' : `${isNext ? '↳ ' : ''}Вариант ${escapeHtml(String(v.variant_label))}`}</span>
+                    <span class="ab-report-tag ${isLive ? 'live' : ''}">${isLive ? 'Сейчас на WB' : `${isNext ? '↳ ' : ''}Вариант ${escapeHtml(String(v.variant_label))}`}</span>
                 </div>
                 <div class="ab-report-img-wrap"><img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://placehold.co/200x150/888/fff?text=${escapeHtml(v.variant_label)}'"></div>
                 <div class="ab-report-ctr-row">
@@ -16285,7 +16331,7 @@
                 const reader = new FileReader();
                 reader.onload = e => {
                     const inner = document.getElementById(`edit-slot-${idx}`);
-                    if (inner) inner.innerHTML = `<img src="${e.target.result}" class="drop-zone-preview"><div class="text-xs" style="color:var(--green)">✓ Готово</div>`;
+                    if (inner) inner.innerHTML = `<img src="${e.target.result}" class="drop-zone-preview"><div class="text-xs" style="color:var(--green)">Загружено</div>`;
                 };
                 reader.readAsDataURL(file);
             }
@@ -16307,7 +16353,7 @@
         reader.onload = e => {
             document.getElementById(`edit-slot-${idx}`).innerHTML = `
                 <img src="${e.target.result}" class="drop-zone-preview">
-                <div class="text-xs" style="color:var(--green)">✓ Готово</div>`;
+                <div class="text-xs" style="color:var(--green)">Загружено</div>`;
         };
         reader.readAsDataURL(input.files[0]);
     }
@@ -16889,7 +16935,7 @@
         if (!token || token.length < 50) { showPremiumModal('warning', 'Некорректный токен', 'Токен должен быть длинным JWT-форматом.'); return; }
         const { error } = await supabase.from('cabinets').update({ wb_token: token }).eq('id', cabinetId);
         if (error) { showPremiumModal('error', 'Ошибка сохранения', error.message); return; }
-        showPremiumModal('success', 'Токен сохранён!', 'API-доступ для кабинета успешно обновлён.');
+        showPremiumModal('success', 'Токен сохранён', 'API-доступ для кабинета обновлён.');
         loadCabinetsAPIList();
         loadCabinets();
     }
@@ -16912,7 +16958,7 @@
             .single();
         if (error) { showPremiumModal('error', 'Ошибка', error.message); return; }
         hideAddCabinetForm();
-        showPremiumModal('success', 'Кабинет добавлен!', `Запускаем загрузку данных для "${name}"...`);
+        showPremiumModal('success', 'Кабинет добавлен', `Запускаем загрузку данных для "${name}"...`);
         if (token && token.length > 50) {
             try {
                 const { data: { session } } = await supabase.auth.getSession();
@@ -16925,7 +16971,7 @@
                         },
                         body: JSON.stringify({ mode: 'full', cabinet_id: cabinet.id })
                     });
-                    showPremiumModal('success', 'Готово!', `Кабинет "${name}" добавлен и данные загружены.`);
+                    showPremiumModal('success', 'Готово', `Кабинет "${name}" добавлен и данные загружены.`);
                 }
             } catch (e) { console.warn('Auto-sync failed:', e); }
         }
@@ -18395,14 +18441,14 @@
                     tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">
                         <div class="mb-2">Заказы по этому кабинету ещё не загружены в базу.</div>
                         <div class="text-xs mb-3">Нажмите «Загрузить заказы» — синхронизация с WB займёт 1–2 минуты.</div>
-                        <button class="ui-btn ui-btn-primary" style="padding:6px 14px;font-size:12px" onclick="syncWarehouseOrdersNow()">↻ Загрузить заказы</button>
+                        <button class="ui-btn ui-btn-primary" style="padding:6px 14px;font-size:12px" onclick="syncWarehouseOrdersNow()">Обновить заказы</button>
                     </td></tr>`;
                 } else {
                     const last = maxRow?.order_date ? String(maxRow.order_date).slice(0, 10) : '—';
                     tbody.innerHTML = `<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">
                         <div class="mb-2">Нет заказов за выбранный период (${from} — ${to}).</div>
                         <div class="text-xs mb-3">В базе есть данные до ${last}. Сдвиньте период или обновите синхронизацию.</div>
-                        <button class="ui-btn ui-btn-secondary" style="padding:6px 14px;font-size:12px" onclick="syncWarehouseOrdersNow()">↻ Обновить заказы</button>
+                        <button class="ui-btn ui-btn-secondary" style="padding:6px 14px;font-size:12px" onclick="syncWarehouseOrdersNow()">Обновить заказы</button>
                     </td></tr>`;
                 }
                 return;

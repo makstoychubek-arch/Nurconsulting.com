@@ -266,7 +266,7 @@
         }).join('');
 
         return `
-        ${alerts.length ? `<div class="wbc-alert-box">${alerts.map((a) => `<div class="wbc-alert-row">⚠️ ${a}</div>`).join('')}</div>` : ''}
+        ${alerts.length ? `<div class="wbc-alert-box">${alerts.map((a) => `<div class="wbc-alert-row">${a}</div>`).join('')}</div>` : ''}
         <div class="wbc-table-wrap">
             <table class="wbc-cluster-table">
                 <thead><tr>
