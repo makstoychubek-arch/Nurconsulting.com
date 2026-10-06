@@ -4305,24 +4305,25 @@
         .verdict-bar-wrap { background: var(--border); border-radius: 4px; height: 6px; margin-top: 4px; overflow: hidden; }
         .verdict-bar { height: 6px; border-radius: 4px; transition: width 0.6s ease; }
         /* Детальный отчёт А/Б теста */
-        .ab-report-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
-        .ab-report-card { border: 1.5px solid var(--border); border-radius: 14px; padding: 12px; background: var(--surface); position: relative; display: flex; flex-direction: column; gap: 8px; }
+        /* Колонки 150–210 px, фото целиком (7:9). До 6 вариантов умещаются в ряд на широком окне, на узком переносятся. */
+        .ab-report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 210px)); gap: 12px; justify-content: center; }
+        .ab-report-card { border: 1.5px solid var(--border); border-radius: 14px; padding: 10px; background: var(--surface); position: relative; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
         .ab-report-card.leading { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
         .ab-report-tag { font-size: 11px; font-weight: 600; color: var(--text-muted); min-height: 15px; }
         .ab-report-tag.live { color: var(--accent); }
-        .ab-report-img-wrap { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
-        .ab-report-img-wrap img { width: 100%; height: 150px; object-fit: cover; display: block; }
+        .ab-report-img-wrap { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); aspect-ratio: 7 / 9; background: var(--sel); }
+        .ab-report-img-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
         .ab-report-apply-btn { width: 100%; padding: 6px 0; font-size: 11px; font-weight: 700; border-radius: 8px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
         .ab-report-apply-btn:hover { background: var(--accent-soft); }
-        .ab-report-ctr-row { display: flex; align-items: baseline; gap: 6px; }
-        .ab-report-ctr-val { font-size: 20px; font-weight: 800; color: var(--text-primary); }
+        .ab-report-ctr-row { display: flex; align-items: baseline; gap: 4px 6px; flex-wrap: wrap; }
+        .ab-report-ctr-val { font-size: 18px; font-weight: 800; color: var(--text-primary); }
         .ab-report-ctr-delta { font-size: 12px; font-weight: 700; }
         .ab-report-ctr-delta.pos { color: var(--green); }
         .ab-report-ctr-delta.neg { color: var(--red); }
         .ab-report-prob { font-size: 12px; font-weight: 700; }
         .ab-report-prob.good { color: var(--green); }
         .ab-report-prob.bad { background: rgba(248,113,113,0.12); color: var(--red); padding: 2px 7px; border-radius: 6px; display: inline-block; }
-        .ab-report-metrics-table { width: 100%; font-size: 12px; border-top: 1px solid var(--border); padding-top: 6px; }
+        .ab-report-metrics-table { width: 100%; font-size: 11px; border-top: 1px solid var(--border); padding-top: 6px; }
         .ab-report-metrics-table td { padding: 2px 0; color: var(--text-secondary); }
         .ab-report-metrics-table td.lbl { color: var(--text-muted); }
         .ab-report-metrics-table td.val { text-align: right; font-weight: 600; color: var(--text-primary); }
