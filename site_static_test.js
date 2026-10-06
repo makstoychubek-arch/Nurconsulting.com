@@ -32,6 +32,7 @@ assert.ok(/MAX = 5/.test(src) && /sendBeacon/.test(src));
 const cons = read('consulting.html');
 assert.ok(cons.includes('rel="canonical" href="https://nurcon.kg/consulting"') && cons.includes('og:title'), 'consulting: мета-теги');
 assert.ok(cons.includes('href="/"') && read('index.html').includes('href="/consulting"'), 'переключатель между страницами в обе стороны');
+assert.ok(cons.includes('instagram.com/___nurbolot'), 'consulting: Instagram Нурболота');
 assert.ok(cons.includes('wa.me/996502446688') && !cons.includes('/login?tab=register'), 'consulting: главная кнопка WhatsApp');
 assert.ok(!/\d+\s?(млн|лет)/.test(cons), 'consulting: без выдуманных цифр');
 assert.ok(v.rewrites.some((r) => r.source === '/consulting' && r.destination === '/consulting.html'));
