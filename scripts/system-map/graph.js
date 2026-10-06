@@ -39,6 +39,7 @@ const FN_DISTRICT = [
 ];
 
 const TABLE_DISTRICT = [
+    ['other', /^admin_map_/],
     ['ads', /^(adv_|advertising_|autobidder|campaign_|auction_|wb_cluster|bid_|serp_|ads_)/],
     ['reviews', /^(akylai_|review_|ai_usage|agent_logs|cabinet_secrets)/],
     ['ab', /^ab_/],

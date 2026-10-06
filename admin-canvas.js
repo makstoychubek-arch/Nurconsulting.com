@@ -42,7 +42,7 @@
         has_token: 'Токен WB есть', created_at: 'Создан', hardcoded: 'Зашито в коде', username: 'Логин', enabled: 'Включён', usedBy: 'Кто использует',
         missing: 'Нет в Supabase', target: 'Запускает', readBy: 'Читают', writtenBy: 'Пишут',
     };
-    var STORE = 'nr_canvas_view_v1';
+    var STORE = 'nr_canvas_view_v1', OPEN_KEY = 'nr_canvas_open';
     var MIN_K = 0.06, MAX_K = 2.2;
 
     var sb = null, isSuper = function () { return false; };
@@ -691,7 +691,7 @@
 
     /* ---------- каркас ---------- */
     var CSS = [
-        '.nrc-root{position:fixed;inset:0;z-index:9000;background:var(--bg,#f4f4f5);color:var(--text-primary,#111);font-family:var(--font-ui,system-ui,sans-serif);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;display:none;--nrc-card:var(--surface-solid,#fff);--nrc-line:var(--border-strong,rgba(0,0,0,.12));--nrc-soft:var(--sel,#ededed)}',
+        '.nrc-root{position:fixed;inset:0;z-index:150000;background:var(--bg,#f4f4f5);color:var(--text-primary,#111);font-family:var(--font-ui,system-ui,sans-serif);overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;display:none;--nrc-card:var(--surface-solid,#fff);--nrc-line:var(--border-strong,rgba(0,0,0,.12));--nrc-soft:var(--sel,#ededed)}',
         '.nrc-root.open{display:block;animation:nrc-in .28s ease}',
         '@keyframes nrc-in{from{opacity:0;transform:scale(1.015)}to{opacity:1;transform:none}}',
         '.nrc-root::before{content:"";position:absolute;inset:0;background-image:radial-gradient(circle,var(--nrc-line) 1px,transparent 1.4px);background-size:28px 28px;opacity:.7;pointer-events:none}',
@@ -802,7 +802,7 @@
         '.nrc-toast{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);background:#111;color:#fff;padding:10px 18px;border-radius:999px;font-size:13px;z-index:40;transition:opacity .5s}.nrc-toast.bad{background:#b91c1c}.nrc-toast.out{opacity:0}',
         '.rail-logo-name.nrc-entry{cursor:pointer;transition:.18s}.rail-logo-name.nrc-entry:hover{background:#f97316;color:#fff!important}',
         '@media (max-width:760px){',
-        '.nrc-island{top:10px;gap:8px}.nrc-island-info,.nrc-island-sep{display:none}',
+        '.nrc-island{top:10px;gap:8px}',
         '.nrc-toolbar{left:10px;top:0;margin-top:58px;width:calc(100vw - 20px)}.nrc-help,.nrc-kindrow{display:none}.nrc-chiprow{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}.nrc-chip{white-space:nowrap;flex:none}',
         '.nrc-panel{left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:62vh;transform:translateY(calc(100% + 20px))}.nrc-panel.open{transform:none}',
         '.nrc-minimap{display:none}.nrc-zoom{right:10px;bottom:10px}',
@@ -828,12 +828,7 @@
         // остров: логотип NR и оранжевая плашка Space, по нажатию возвращает в дашборд
         var logo = h('img', { src: '/icons/logo-nr.svg', alt: 'NR', width: 28, height: 28 });
         var pill = h('button', { class: 'nrc-pill', title: 'Вернуться в дашборд', text: 'Space', onclick: close });
-        var info = h('div', { class: 'nrc-island-info' }, [h('b', { text: 'Карта системы' }), h('span', { class: 'nrc-island-sub', text: '' })]);
-        root.appendChild(h('div', { class: 'nrc-island' }, [
-            logo, pill, h('span', { class: 'nrc-island-sep' }), info,
-            h('button', { class: 'nrc-ibtn', title: 'Показать всё', text: 'Всё', onclick: fitAll }),
-            h('button', { class: 'nrc-ibtn', title: 'Подтянуть клиентов и кабинеты', text: 'Клиенты', onclick: function () { refreshClients(false); } }),
-        ]));
+        root.appendChild(h('div', { class: 'nrc-island' }, [logo, pill]));
 
         var search = h('input', { type: 'search', placeholder: 'Найти функцию, таблицу, секрет…', autocomplete: 'off' });
         search.addEventListener('input', function () { filter.q = search.value.trim(); applyFilter(); });
@@ -858,7 +853,12 @@
         var nav = h('span', { class: 'nrc-match-nav' }, [h('button', { text: '‹', title: 'Предыдущий', onclick: function () { stepMatch(-1); } }), h('button', { text: '›', title: 'Следующий', onclick: function () { stepMatch(1); } })]);
         var match = h('div', { class: 'nrc-match' }, [h('span', { class: 'nrc-match-count' }), nav]);
         var help = h('div', { class: 'nrc-help', text: 'Колёсико мыши: масштаб. Тяните пустое место, чтобы двигаться, узел, чтобы переставить. Оранжевая точка у узла: потяните к другому узлу и получится связь. Двойной щелчок по пустому месту: заметка.' });
-        root.appendChild(h('div', { class: 'nrc-toolbar' }, [h('label', { class: 'nrc-search' }, ['⌕', search]), chipRow, kindRow, match, help]));
+        var actions = h('div', { class: 'nrc-chiprow' }, [
+            h('button', { class: 'nrc-chip', text: 'Показать всё', onclick: fitAll }),
+            h('button', { class: 'nrc-chip', text: 'Обновить клиентов', onclick: function () { refreshClients(false); } }),
+        ]);
+        var sub = h('div', { class: 'nrc-help nrc-island-sub', text: '' });
+        root.appendChild(h('div', { class: 'nrc-toolbar' }, [h('label', { class: 'nrc-search' }, ['⌕', search]), chipRow, kindRow, actions, match, sub, help]));
 
         panel = h('div', { class: 'nrc-panel' }); root.appendChild(panel);
         mini = h('canvas', { class: 'nrc-minimap', width: 380, height: 260 }); miniCtx = mini.getContext('2d'); root.appendChild(mini);
@@ -885,12 +885,14 @@
         if (!isSuper()) return;
         build();
         root.classList.add('open');
+        try { localStorage.setItem(OPEN_KEY, '1'); } catch (e) { /* без хранилища просто не запомним */ }
         document.documentElement.style.overflow = 'hidden';
         if (!loaded) load(); else { applyTransform(); }
     }
     function close() {
         if (!root) return;
         root.classList.remove('open');
+        try { localStorage.removeItem(OPEN_KEY); } catch (e) { /* ок */ }
         document.documentElement.style.overflow = '';
     }
 
@@ -906,8 +908,8 @@
         }, true);
         var tries = 0, t = setInterval(function () {
             tries++;
-            if (isSuper()) { clearInterval(t); if (pillEl) { pillEl.classList.add('nrc-entry'); pillEl.title = 'Карта системы'; } }
-            if (tries > 40) clearInterval(t);
+            if (isSuper()) { clearInterval(t); try { if (localStorage.getItem(OPEN_KEY) === '1') open(); } catch (e) { /* ок */ } if (pillEl) { pillEl.classList.add('nrc-entry'); pillEl.title = 'Карта системы'; } }
+            if (tries > 60) clearInterval(t);
         }, 1000);
     }
 
