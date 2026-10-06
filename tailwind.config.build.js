@@ -10,6 +10,7 @@ module.exports = {
   content: [
     './index.html',
     './login.html',
+    './consulting.html',
     './dashboard.html',
     './dashboard-charts.js',
     './rnp-module.js',

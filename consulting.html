@@ -10,15 +10,15 @@
     <meta name="apple-mobile-web-app-title" content="NR Space">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Nur Consulting — NR Space</title>
-    <meta name="description" content="NR Space: аналитика, А/Б-тесты карточек, реклама и ответы на отзывы для продавцов Wildberries и Ozon.">
-    <link rel="canonical" href="https://nurcon.kg/">
+    <title>Nur Consulting — ведение кабинетов Wildberries</title>
+    <meta name="description" content="Nur Consulting ведёт кабинеты Wildberries: реклама, карточки, склад и отчётность. Результат виден в NR Space.">
+    <link rel="canonical" href="https://nurcon.kg/consulting">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="NR Space">
     <meta property="og:locale" content="ru_RU">
-    <meta property="og:title" content="NR Space — аналитика и автоматизация для продавцов маркетплейсов">
-    <meta property="og:description" content="Аналитика, А/Б-тесты карточек, реклама и ответы на отзывы для Wildberries и Ozon.">
-    <meta property="og:url" content="https://nurcon.kg/">
+    <meta property="og:title" content="Nur Consulting — ведение кабинетов Wildberries">
+    <meta property="og:description" content="Берём на себя рекламу, карточки, склад и отчётность. Результат виден в NR Space.">
+    <meta property="og:url" content="https://nurcon.kg/consulting">
     <meta property="og:image" content="https://nurcon.kg/img/og.png">
     <meta name="twitter:card" content="summary_large_image">
     <script defer src="/nr-monitor.js"></script>
@@ -221,6 +221,17 @@
         }
         @media (max-width: 480px) { .mn-grid { grid-template-columns: 1fr; } }
 
+
+        .mn-list ul { list-style: none; margin: 0; padding: 0; }
+        .mn-list li { padding: 16px 0; border-bottom: 1px solid var(--line); } .mn-list li:last-child { border-bottom: 0; padding-bottom: 4px; }
+        .mn-list b { display: block; font-size: 16px; } .mn-list span { font-size: 14px; color: var(--ink-dim); }
+        .mn-steps { list-style: none; margin: 40px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; border-top: 1px solid var(--line); }
+        .mn-steps li { padding-top: 24px; display: flex; flex-direction: column; gap: 14px; }
+        .mn-steps li > span { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line-2); display: grid; place-items: center; font-size: 13px; font-weight: 600; }
+        .mn-steps h3 { font-size: 16px; font-weight: 700; margin: 0 0 6px; } .mn-steps p { margin: 0; font-size: 15px; line-height: 1.55; color: var(--ink-dim); }
+        @media (max-width: 860px) { .mn-steps { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 480px) { .mn-steps { grid-template-columns: 1fr; } }
+
         @media (max-width: 767px) {
             .site-header {
                 top: calc(8px + env(safe-area-inset-top, 0px));
@@ -374,18 +385,17 @@
             <nav class="vp-pill-nav">
                 <a href="/" class="flex items-center gap-2 pr-2 text-sm font-semibold shrink-0" style="color:var(--ink)">
                     <img class="logo-nr logo-nr--sm" src="/icons/logo-nr.svg" alt="NR" width="28" height="28">
-                    <span class="brand-name" style="font-size:14px">Space</span>
+                    <span class="brand-name" style="font-size:14px">Consulting</span>
                 </a>
                 <span class="mx-1 hidden h-5 w-px md:block" style="background:var(--line)"></span>
                 <div class="hidden lg:flex items-center gap-0.5 text-sm">
-                    <a href="#rnp" class="nav-link vp-pill-link">РНП</a>
-                    <a href="#ab" class="nav-link vp-pill-link">А/Б-тесты</a>
-                    <a href="#platform" class="nav-link vp-pill-link">Платформа</a>
-                    <a href="/consulting" class="nav-link vp-pill-link">Консалтинг</a>
+                    <a href="/" class="nav-link vp-pill-link">NR Space</a>
+                    <a href="#do" class="nav-link vp-pill-link">Что делаем</a>
+                    <a href="#how" class="nav-link vp-pill-link">Как работаем</a>
                     <a href="#contacts" class="nav-link vp-pill-link">Контакты</a>
                 </div>
                 <a href="/login" class="site-login-chip hidden sm:flex vp-pill-link">Войти</a>
-                <a href="/login?tab=register" class="vp-pill-cta hidden sm:flex">Регистрация</a>
+                <a href="https://wa.me/996502446688" target="_blank" rel="noopener" class="vp-pill-cta hidden sm:flex">WhatsApp</a>
                 <button type="button" id="burger-btn" class="lg:hidden flex flex-col justify-center items-center w-9 h-9 rounded-full gap-1" aria-label="Меню">
                     <span id="burger-line-1" class="block w-4 h-0.5 bg-[var(--ink)] transition-all duration-300"></span>
                     <span id="burger-line-2" class="block w-4 h-0.5 bg-[var(--ink)] transition-all duration-300"></span>
@@ -401,20 +411,19 @@
         <div class="flex items-center justify-between p-4" style="border-bottom:1px solid var(--line)">
             <div class="flex items-center gap-2">
                 <img class="logo-nr" src="/icons/logo-nr.svg" alt="NR" width="34" height="34">
-                <span class="brand-name">Space</span>
+                <span class="brand-name">Consulting</span>
             </div>
             <button type="button" onclick="closeMobileNav()" class="w-9 h-9 flex items-center justify-center rounded-[10px] text-lg" style="border:1px solid var(--line);color:var(--ink-dim)">×</button>
         </div>
         <nav class="flex-1 p-4 space-y-1">
-            <button type="button" onclick="handleNavClick('#rnp')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">РНП</button>
-            <button type="button" onclick="handleNavClick('#ab')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">А/Б-тесты</button>
-            <button type="button" onclick="handleNavClick('#platform')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Платформа</button>
-            <button type="button" onclick="location.href='/consulting'" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Консалтинг</button>
+            <a href="/" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">NR Space</a>
+            <button type="button" onclick="handleNavClick('#do')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Что делаем</button>
+            <button type="button" onclick="handleNavClick('#how')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Как работаем</button>
             <button type="button" onclick="handleNavClick('#contacts')" class="nav-link w-full flex items-center px-4 py-3.5 text-left min-h-[48px]">Контакты</button>
         </nav>
         <div class="p-4" style="border-top:1px solid var(--line)">
             <a href="/login" class="vibe-btn w-full">Войти в NR Space</a>
-            <a href="/login?tab=register" class="site-login-chip vp-pill-link mt-2 w-full justify-center" style="display:flex">Регистрация</a>
+            <a href="https://wa.me/996502446688" target="_blank" rel="noopener" class="site-login-chip vp-pill-link mt-2 w-full justify-center" style="display:flex">Написать в WhatsApp</a>
         </div>
     </div>
 
@@ -422,98 +431,49 @@
     <section class="mn-hero">
         <div class="mn-wrap mn-hero-grid">
             <div>
-                <p class="mn-eyebrow">NR Space · для продавцов Wildberries</p>
-                <h1 class="mn-h1">Видно, что приносит деньги, а что съедает бюджет</h1>
-                <p class="mn-lead">РНП по артикулам, А/Б-тесты главного фото, управление рекламой и ответы на отзывы. Всё в одном кабинете, уведомления приходят в Telegram.</p>
+                <p class="mn-eyebrow">Nur Consulting · ведение кабинетов Wildberries</p>
+                <h1 class="mn-h1">Ведём ваш кабинет Wildberries, вы смотрите результат</h1>
+                <p class="mn-lead">Берём на себя рекламу, карточки, склад и отчётность. Работаем в NR Space, поэтому вы видите ту же картину, что и мы.</p>
                 <div class="mn-cta">
-                    <a href="/login?tab=register" class="mn-btn mn-btn-dark">Попробовать</a>
-                    <a href="https://wa.me/996502446688" target="_blank" rel="noopener" class="mn-btn mn-btn-line">Написать в WhatsApp</a>
+                    <a href="https://wa.me/996502446688" target="_blank" rel="noopener" class="mn-btn mn-btn-dark">Написать в WhatsApp</a>
+                    <a href="tel:+996502446688" class="mn-btn mn-btn-line">Позвонить</a>
                 </div>
             </div>
-            <div class="mn-shot" aria-hidden="true">
-                <div class="mn-shot-bar"><i></i><i></i><i></i><span>Дашборд</span></div>
-                <div class="mn-kpis">
-                    <div><small>Выручка</small><b>1 284 500 ₽</b><em class="up">+12%</em></div>
-                    <div><small>Заказы</small><b>861</b><em class="up">+8%</em></div>
-                    <div><small>ДРР</small><b>9,4%</b><em class="down">+0,6 п.п.</em></div>
-                    <div><small>Прибыль</small><b>312 800 ₽</b><em class="up">+5%</em></div>
-                </div>
-                <svg class="mn-chart" viewBox="0 0 560 150" preserveAspectRatio="none">
-                    <defs><linearGradient id="mnfill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#14140f" stop-opacity=".10"/><stop offset="1" stop-color="#14140f" stop-opacity="0"/></linearGradient></defs>
-                    <path d="M0 110 L40 98 L80 104 L120 82 L160 90 L200 66 L240 74 L280 52 L320 60 L360 40 L400 54 L440 34 L480 42 L520 24 L560 30 L560 150 L0 150Z" fill="url(#mnfill)"/>
-                    <path d="M0 110 L40 98 L80 104 L120 82 L160 90 L200 66 L240 74 L280 52 L320 60 L360 40 L400 54 L440 34 L480 42 L520 24 L560 30" fill="none" stroke="#14140f" stroke-width="2" vector-effect="non-scaling-stroke"/>
-                </svg>
-                <p class="mn-note">Пример интерфейса, данные условные</p>
+            <div class="mn-shot mn-list" aria-hidden="true">
+                <p class="mn-eyebrow" style="margin-bottom:6px">Что вы получаете</p>
+                <ul>
+                    <li><b>Аудит кабинета</b><span>где теряются деньги: реклама, карточки, склад</span></li>
+                    <li><b>Ведение</b><span>реклама, карточки, А/Б-тесты, поставки</span></li>
+                    <li><b>Отчёты</b><span>в NR Space и уведомления в Telegram</span></li>
+                </ul>
             </div>
         </div>
     </section>
 
-    <!-- РНП -->
-    <section id="rnp" class="mn-sec">
-        <div class="mn-wrap mn-split">
-            <div class="mn-copy">
-                <p class="mn-eyebrow">РНП</p>
-                <h2 class="mn-h2">Рука на пульсе по каждому артикулу</h2>
-                <p class="mn-text">Продажи, ДРР и маржа по артикулам в одной таблице. Сразу видно, какой товар в плюсе, а какой сливает рекламу. План и факт по неделям, выгрузки из Wildberries подтягиваются сами.</p>
-            </div>
-            <div class="mn-shot mn-shot-flat" aria-hidden="true">
-                <table class="mn-table">
-                    <thead><tr><th>Артикул</th><th>Заказы</th><th>Выручка</th><th>ДРР</th><th>Маржа</th><th></th></tr></thead>
-                    <tbody>
-                        <tr><td>248 190 372</td><td>64</td><td>412 000 ₽</td><td>14%</td><td class="up">+27%</td><td><span class="mn-tag ok">В плюсе</span></td></tr>
-                        <tr><td>248 190 588</td><td>11</td><td>96 500 ₽</td><td class="down">61%</td><td class="down">−18%</td><td><span class="mn-tag bad">Сливает</span></td></tr>
-                        <tr><td>248 191 004</td><td>38</td><td>238 900 ₽</td><td>22%</td><td class="up">+9%</td><td><span class="mn-tag">Стабильно</span></td></tr>
-                    </tbody>
-                </table>
-                <p class="mn-note">Пример интерфейса, данные условные</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- А/Б -->
-    <section id="ab" class="mn-sec mn-sec-alt">
-        <div class="mn-wrap mn-split mn-split-rev">
-            <div class="mn-shot mn-shot-flat" aria-hidden="true">
-                <div class="mn-ab">
-                    <div class="mn-ab-card"><div class="mn-ph a"></div><b>Фото A</b><span>CTR 4,1%</span><small>2 000 показов</small></div>
-                    <div class="mn-ab-card win"><div class="mn-ph b"></div><b>Фото B <u>лучше</u></b><span>CTR 6,3%</span><small>2 000 показов</small></div>
-                    <div class="mn-ab-card"><div class="mn-ph c"></div><b>Фото C</b><span>CTR 3,6%</span><small>2 000 показов</small></div>
-                </div>
-                <p class="mn-note">Пример интерфейса, данные условные</p>
-            </div>
-            <div class="mn-copy">
-                <p class="mn-eyebrow">А/Б-тесты</p>
-                <h2 class="mn-h2">Какое главное фото продаёт лучше</h2>
-                <p class="mn-text">Сервис сам меняет главное фото карточки на Wildberries и считает показы, клики и заказы каждого варианта. Каждое фото крутится, пока не наберёт нужное число показов, поэтому сравнение честное. В конце приходит отчёт с победителем.</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Остальное -->
-    <section id="platform" class="mn-sec">
+    <section id="do" class="mn-sec mn-sec-alt">
         <div class="mn-wrap">
-            <p class="mn-eyebrow">Платформа</p>
-            <h2 class="mn-h2">Остальное, что работает в кабинете</h2>
+            <p class="mn-eyebrow">Что делаем</p>
+            <h2 class="mn-h2">Операционка кабинета в одних руках</h2>
             <div class="mn-grid">
-                <div><h3>Реклама</h3><p>Автоставки держат позицию, паузы и расписание кампаний, ДРР по каждой РК.</p></div>
-                <div><h3>Отзывы</h3><p>Агент Акылай отвечает на отзывы и вопросы покупателей по вашим правилам.</p></div>
-                <div><h3>Telegram</h3><p>Заказы, штрафы, остатки и новости маркетплейса приходят в чат команды.</p></div>
-                <div><h3>Логистика и маркировка</h3><p>Индекс локализации, склады, генерация штрихкодов и этикеток.</p></div>
+                <div><h3>Реклама</h3><p>Запуск и настройка кампаний, ставки, контроль ДРР и остановка того, что не окупается.</p></div>
+                <div><h3>Карточки и А/Б-тесты</h3><p>Проверяем главные фото тестами и оставляем вариант, который продаёт лучше.</p></div>
+                <div><h3>Склад и логистика</h3><p>Остатки, поставки, индекс локализации, чтобы товар не заканчивался и не переплачивали за хранение.</p></div>
+                <div><h3>Отзывы и вопросы</h3><p>Ответы покупателям по понятным правилам, без пропущенных обращений.</p></div>
             </div>
         </div>
     </section>
 
-    <!-- Услуга -->
-    <section id="services" class="mn-sec mn-sec-alt">
-        <div class="mn-wrap mn-service">
-            <div>
-                <p class="mn-eyebrow">Ведение под ключ</p>
-                <h2 class="mn-h2">Можно не разбираться самому</h2>
-            </div>
-            <div>
-                <p class="mn-text">Команда Nur Consulting берёт кабинет на себя: аудит, реклама, карточки, склад. Вы смотрите результат в том же NR Space, что и мы.</p>
-                <a href="/consulting" class="mn-link">Про Nur Consulting →</a>
-            </div>
+    <section id="how" class="mn-sec">
+        <div class="mn-wrap">
+            <p class="mn-eyebrow">Как работаем</p>
+            <h2 class="mn-h2">Четыре шага от знакомства до отчёта</h2>
+            <ol class="mn-steps">
+                <li><span>1</span><div><h3>Знакомство</h3><p>Созвон: что продаёте, что не устраивает, чего хотите добиться.</p></div></li>
+                <li><span>2</span><div><h3>Аудит</h3><p>Смотрим кабинет в NR Space и находим, где теряется прибыль.</p></div></li>
+                <li><span>3</span><div><h3>План и ведение</h3><p>Согласуем, что делаем и в каком порядке, и берём кабинет в работу.</p></div></li>
+                <li><span>4</span><div><h3>Отчётность</h3><p>Вы видите цифры сами в NR Space, а важное приходит в Telegram.</p></div></li>
+            </ol>
+            <p class="mn-text" style="margin-top:36px">Условия и стоимость обсуждаем лично, под ваш кабинет. <a class="mn-link" style="margin:0" href="/">Что такое NR Space →</a></p>
         </div>
     </section>
 
@@ -571,9 +531,9 @@
                 <span class="rounded-md border px-1.5 py-0.5 mono text-[11px]" style="border-color:var(--line);color:var(--ink-dim)">Nur Consulting</span>
             </div>
             <nav>
-                <a href="#rnp">РНП</a>
-                <a href="#ab">А/Б-тесты</a>
-                <a href="#platform">Платформа</a>
+                <a href="/">NR Space</a>
+                <a href="#do">Что делаем</a>
+                <a href="#how">Как работаем</a>
                 <a href="/privacy">Конфиденциальность</a>
                 <a href="/terms">Оферта</a>
             </nav>
