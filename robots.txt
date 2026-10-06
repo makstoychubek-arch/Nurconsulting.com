@@ -1,0 +1,19 @@
+User-agent: *
+Allow: /
+Disallow: /space
+Disallow: /dashboard
+Disallow: /rnp
+Disallow: /goods
+Disallow: /content
+Disallow: /reports
+Disallow: /ab-testing
+Disallow: /advertising
+Disallow: /seo
+Disallow: /marking
+Disallow: /logistics
+Disallow: /telegram-bots
+Disallow: /ozon
+Disallow: /agents
+Disallow: /reset-password
+
+Sitemap: https://nurcon.kg/sitemap.xml
