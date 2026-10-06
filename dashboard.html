@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="ru" data-theme="ios">
 <head>
+    <meta charset="UTF-8">
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" href="/icons/favicon.png" sizes="32x32">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#1C1C1E">
-    <meta charset="UTF-8">
     <script>
         /* Тема до первого кадра: иначе html[data-theme=ios] красит РНП белым, а JS
            в конце страницы уже потом ставит neon. */
@@ -15564,9 +15564,17 @@
             const { data: tests, error } = await supabase.from('ab_tests').select('*').eq('cabinet_id', currentCabinetId).order('created_at', { ascending: false });
             if (error) throw error;
             if (!tests) { allABTests = []; renderABTests(); return; }
-            allABTests = [];
+            const built = [];
+            const variantsByTest = new Map();
+            if (tests.length) {
+                const { data: allVariants } = await supabase.from('ab_test_variants').select('*').in('test_id', tests.map((t) => t.id)).order('variant_label');
+                (allVariants || []).forEach((v) => {
+                    if (!variantsByTest.has(v.test_id)) variantsByTest.set(v.test_id, []);
+                    variantsByTest.get(v.test_id).push(v);
+                });
+            }
             for (const test of tests) {
-                const { data: variants } = await supabase.from('ab_test_variants').select('*').eq('test_id', test.id).order('variant_label');
+                const variants = variantsByTest.get(test.id) || [];
                 const dbSettings = test.settings && Object.keys(test.settings).length ? test.settings : null;
                 const localSettings = dbSettings ? null : loadABSettings(test.id);
                 if (!dbSettings && localSettings && Object.keys(localSettings).length) {
@@ -15574,8 +15582,9 @@
                     // в БД один раз, чтобы серверный cron тоже мог их использовать.
                     saveABSettings(test.id, localSettings);
                 }
-                allABTests.push({ ...test, variants: variants || [], settings: dbSettings || localSettings || {} });
+                built.push({ ...test, variants: variants || [], settings: dbSettings || localSettings || {} });
             }
+            allABTests = built;
             renderABTests();
             startRotationTimers();
 
