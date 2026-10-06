@@ -6117,7 +6117,7 @@
             </nav>
             <div class="rail-bottom">
                 <div class="rail-user">
-                    <div class="rail-avatar" id="user-initial">—</div>
+                    <div class="rail-avatar" id="user-initial"></div>
                     <div class="min-w-0">
                         <div class="rail-user-name" id="rail-user-name">NR Space</div>
                         <div class="rail-user-role">кабинет</div>
@@ -6247,9 +6247,9 @@
                 </div>
             </div>
             <div class="flyout-user">
-                <div class="rail-avatar" id="flyout-user-initial">—</div>
+                <div class="rail-avatar" id="flyout-user-initial"></div>
                 <div class="min-w-0">
-                    <div id="sidebar-user" class="flyout-user-name">...</div>
+                    <div id="sidebar-user" class="flyout-user-name"></div>
                     <div class="flyout-user-role">Сотрудник</div>
                 </div>
             </div>
@@ -7532,13 +7532,13 @@
                         <p class="text-xs" style="color:var(--text-muted)">Кто нажал «Войти через Google» — здесь. Разрешите доступ или заблокируйте спейс.</p>
                         <div class="admin-spaces-subtabs" id="admin-spaces-subtabs">
                             <button type="button" class="admin-spaces-subtab active" id="admin-spaces-tab-requests" onclick="switchSpacesAdminTab('requests', this)">
-                                Запросы<span class="admin-spaces-subtab-count" id="admin-spaces-count-requests">0</span>
+                                Запросы<span class="admin-spaces-subtab-count" id="admin-spaces-count-requests"></span>
                             </button>
                             <button type="button" class="admin-spaces-subtab" id="admin-spaces-tab-allowed" onclick="switchSpacesAdminTab('allowed', this)">
-                                Разрешённые<span class="admin-spaces-subtab-count" id="admin-spaces-count-allowed">0</span>
+                                Разрешённые<span class="admin-spaces-subtab-count" id="admin-spaces-count-allowed"></span>
                             </button>
                             <button type="button" class="admin-spaces-subtab" id="admin-spaces-tab-blocked" onclick="switchSpacesAdminTab('blocked', this)">
-                                Заблокированные<span class="admin-spaces-subtab-count" id="admin-spaces-count-blocked">0</span>
+                                Заблокированные<span class="admin-spaces-subtab-count" id="admin-spaces-count-blocked"></span>
                             </button>
                         </div>
                     </div>
@@ -8084,7 +8084,7 @@
         </div>
     </div>
 
-<script src="/dist/nr-win.1c22985ab7.min.js"></script>
+<script src="/dist/nr-win.2608c3728e.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.44e563aab9.min.js"></script>
 <script>
@@ -8365,9 +8365,9 @@
 </script>
 
 <script src="/dist/rnp-plan-fact.4fa5c941bc.min.js"></script>
-<script src="/dist/wb-formulas.5bba40a38e.min.js"></script>
+<script src="/dist/wb-formulas.ff04c637b5.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.7bc1ac0fd1.min.js"></script>
+<script src="/dist/ads-command-center.04b653399b.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
@@ -8375,8 +8375,9 @@
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
 <script src="/dist/admin-canvas.d45b628a46.min.js"></script>
-<script src="/dist/ad-autopilot-ui.57548cbd06.min.js"></script>
-<script src="/dist/ads-campaign-detail.5b3b34f98a.min.js"></script>
+<script src="/dist/ad-autopilot-ui.b5490fe5de.min.js"></script>
+<script src="/dist/ads-campaign-detail.9f36157688.min.js"></script>
+<script src="/dist/nr-skeleton.67e63350c7.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -9014,7 +9015,7 @@
     }
 
     function escapeHtml(str) {
-        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
 
     // ─── DOM MORPH: dependency-free keyed reconciliation for lists/tables ─────
@@ -9632,8 +9633,8 @@
         t.innerHTML = `
             <span style="color:${c.color};flex-shrink:0;margin-top:1px">${c.icon}</span>
             <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px">${title}</div>
-                <div style="font-size:12px;color:var(--text-muted);line-height:1.4">${text}</div>
+                <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px">${escapeHtml(title)}</div>
+                <div style="font-size:12px;color:var(--text-muted);line-height:1.4">${escapeHtml(text)}</div>
             </div>
             <button onclick="this.closest('div[style]').remove()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;line-height:1;padding:0 0 0 4px;flex-shrink:0">×</button>
             <div style="position:absolute;bottom:0;left:0;height:2px;background:${c.bar};width:100%;transform-origin:left;animation:toast-bar ${dur}ms linear forwards"></div>`;
@@ -11172,17 +11173,17 @@
         if (drains.length) {
             const sum = drains.reduce((s, c) => s + c.spend, 0);
             const names = drains.slice(0, 3).map(c => `«${escapeHtml(c.name)}»`).join(', ');
-            alerts.push({ type: 'warn', icon: '⚠️', html: `Слив бюджета без заказов: ${drains.length === 1 ? 'кампания' : `${drains.length} кампании`} ${names}${drains.length > 3 ? ' и др.' : ''} потратили <b>${fmt(Math.round(sum))} ₽</b> за период без единого заказа.` });
+            alerts.push({ type: 'warn', icon: '', html: `Слив бюджета без заказов: ${drains.length === 1 ? 'кампания' : `${drains.length} кампании`} ${names}${drains.length > 3 ? ' и др.' : ''} потратили <b>${fmt(Math.round(sum))} ₽</b> за период без единого заказа.` });
         }
 
         if (totalSpend > 0 && efficiency > 0 && efficiency < 100) {
-            alerts.push({ type: 'warn', icon: '📉', html: `Общая эффективность рекламы <b>${fmtEfficiency(efficiency)}</b> — расход на рекламу пока не окупается выручкой от рекламных заказов.` });
+            alerts.push({ type: 'warn', icon: '', html: `Общая эффективность рекламы <b>${fmtEfficiency(efficiency)}</b> — расход на рекламу пока не окупается выручкой от рекламных заказов.` });
         }
 
         const forgottenPaused = campaigns.filter(c => c.status === 11 && c.orders > 0).sort((a, b) => b.orders - a.orders);
         if (forgottenPaused.length) {
             const names = forgottenPaused.slice(0, 3).map(c => `«${escapeHtml(c.name)}» (${fmt(c.orders)} зак.)`).join(', ');
-            alerts.push({ type: 'info', icon: '⏸', html: `На паузе, но приносили заказы за период: ${names}${forgottenPaused.length > 3 ? ' и др.' : ''} — возможно, стоит вернуть в работу.` });
+            alerts.push({ type: 'info', icon: '', html: `На паузе, но приносили заказы за период: ${names}${forgottenPaused.length > 3 ? ' и др.' : ''} — возможно, стоит вернуть в работу.` });
         }
 
         if (!alerts.length) { wrap.classList.add('hidden'); wrap.innerHTML = ''; return; }
@@ -11302,7 +11303,7 @@
         ]);
         window._autobidderByCampaign = new Map((rules || []).map((r) => [String(r.campaign_id), r]));
         if (!rules.length) {
-            listEl.innerHTML = `<div class="text-sm" style="color:var(--text-muted)">Правил ещё нет. Откройте «Кампании» и нажмите «⚡ Авто» у нужной РК — задайте цель и коридор ставки.</div>`;
+            listEl.innerHTML = `<div class="text-sm" style="color:var(--text-muted)">Правил ещё нет. Откройте «Кампании» и нажмите «Авто» у нужной РК — задайте цель и коридор ставки.</div>`;
         } else {
             listEl.innerHTML = rules.map((r) => {
                 const name = names.get(String(r.campaign_id)) || `Кампания ${r.campaign_id}`;
@@ -11698,7 +11699,7 @@
                     onfocus="_planCellFocus(this)" onblur="_planCellCommit(this)"
                     onkeydown="_planCellKeydown(event,this)" onpaste="_planCellPaste(event,this)"></td>`;
             }).join('');
-            return `<tr><td class="plan-art-col">${a.name}<div class="plan-art-nm">${a.nm_id}</div></td>${cells}</tr>`;
+            return `<tr><td class="plan-art-col">${escapeHtml(a.name)}<div class="plan-art-nm">${escapeHtml(a.nm_id)}</div></td>${cells}</tr>`;
         }).join('');
 
         container.innerHTML = `<table class="plan-grid-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
@@ -12842,7 +12843,7 @@
 
     const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
     const RU_MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
-    let pickerState = { year:2026, month:new Date().getMonth(), fromDate:null, toDate:null, selecting:'from' };
+    let pickerState = { year:new Date().getFullYear(), month:new Date().getMonth(), fromDate:null, toDate:null, selecting:'from' };
     // По умолчанию — текущий месяц. Раньше дашборд всегда открывался «с 1 января»:
     // это девять месяцев заказов против финотчёта WB, который отдаётся неделями и
     // за такой период просто не собирается, — отсюда и долгая загрузка, и плашка
@@ -13273,11 +13274,16 @@
     });
 
     async function loadCabinets() {
-        const { data } = await supabase
+        const { data, error: cabErr } = await supabase
             .from('cabinets')
             .select('id, name')
             .order('name');
 
+        if (cabErr) {
+            // Сбой сети не должен выглядеть как «кабинетов нет» и стирать выбранный кабинет.
+            try { showPremiumModal('error', 'Не удалось загрузить кабинеты', 'Проверьте соединение и обновите страницу.'); } catch (_) {}
+            return;
+        }
         cabinetsLoaded = true;
         const visible = visibleCabinets(data || []);
         if (!visible.length) {
@@ -13420,7 +13426,7 @@
     function onCabinetChange() {
         const s = document.getElementById('cabinet-select-header');
         const newCabinetId = s.value;
-        const newCabinetName = s.options[s.selectedIndex].text;
+        const newCabinetName = s.selectedIndex >= 0 ? s.options[s.selectedIndex].text : '';
 
         _loadRequestId++;
 
@@ -14812,7 +14818,7 @@
         }
         el.textContent = val;
     }
-    function fmt(n) { return Number(n).toLocaleString('ru-RU'); }
+    function fmt(n) { const x = Number(n); return n != null && n !== '' && Number.isFinite(x) ? x.toLocaleString('ru-RU') : '—'; }
 
     let trackedKeywords = [];
     function addKeyword() {
@@ -14827,7 +14833,7 @@
     function renderPositionsTable() {
         const tbody = document.getElementById('positions-table');
         if (trackedKeywords.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Добавьте артикул и ключ для отслеживания</td></tr>'; return; }
-        tbody.innerHTML = trackedKeywords.map(k => `<tr><td style="color:var(--accent);font-weight:600">${k.nmid}</td><td style="color:var(--text-primary)">${k.keyword}</td><td style="color:var(--text-primary)">${k.position || '—'}</td><td style="color:var(--text-muted)">${k.isAd?'Реклама':'Органика'}</td><td style="color:var(--text-muted)">${k.checked||'не проверено'}</td></tr>`).join('');
+        tbody.innerHTML = trackedKeywords.map(k => `<tr><td style="color:var(--accent);font-weight:600">${escapeHtml(k.nmid)}</td><td style="color:var(--text-primary)">${escapeHtml(k.keyword)}</td><td style="color:var(--text-primary)">${k.position || '—'}</td><td style="color:var(--text-muted)">${k.isAd?'Реклама':'Органика'}</td><td style="color:var(--text-muted)">${k.checked||'не проверено'}</td></tr>`).join('');
     }
     // Реальный трекер позиций через seller-analytics-api
     // (POST /api/v2/search-report/product/orders) — доступен только с
@@ -15807,7 +15813,7 @@
                 return;
             }
             const intervalMs = (test.rotation_interval_min || 60) * 60 * 1000;
-            const elapsed = test.last_rotated_at ? Date.now() - new Date(test.last_rotated_at).getTime() : intervalMs;
+            const elapsed = Date.now() - new Date(test.last_rotated_at || test.started_at || Date.now()).getTime();
             progressEl.style.width = Math.min(100, (elapsed / intervalMs) * 100) + '%';
             const remaining = Math.max(0, intervalMs - elapsed);
             nextEl.textContent = remaining < 1000 ? 'сейчас' : `${Math.floor(remaining / 60000)}м ${Math.floor((remaining % 60000) / 1000)}с`;
@@ -16080,7 +16086,7 @@
         if (toggleEl) {
             toggleEl.innerHTML = `
                 <span class="text-xs" style="color:var(--text-muted)">Источник данных:</span>
-                <button type="button" class="ui-btn ui-btn-secondary ${source === 'ads' ? 'active' : ''}" style="font-size:11px;padding:5px 10px" onclick="openABReportModal('${testId}','ads')">📣 Реклама</button>
+                <button type="button" class="ui-btn ui-btn-secondary ${source === 'ads' ? 'active' : ''}" style="font-size:11px;padding:5px 10px" onclick="openABReportModal('${testId}','ads')">Реклама</button>
                 <button type="button" class="ui-btn ui-btn-secondary ${source === 'funnel' ? 'active' : ''}" style="font-size:11px;padding:5px 10px" ${!hasFunnelData ? 'disabled title="Нет данных по воронке (не включена в настройках теста, либо тест старше 7 дней — ограничение самого WB API)"' : ''} onclick="openABReportModal('${testId}','funnel')">🛒 Воронка продаж</button>`;
         }
 
@@ -16323,7 +16329,7 @@
                 <button type="button" class="ab-variant-remove-btn" style="top:4px;right:4px" onclick="event.stopPropagation();removeEditVariantSlot(${idx})" title="Удалить">✕</button>
                 <input type="file" accept="image/*" onchange="handleEditVariantFile(${idx}, this)">
                 <div id="edit-slot-${idx}">
-                    <div style="font-size:22px">📷</div>
+                    <div style="font-size:13px;font-weight:600">Фото</div>
                     <div class="text-xs" style="color:var(--accent)">Новый вариант</div>
                 </div>`;
             box.appendChild(slot);
@@ -17150,7 +17156,7 @@
     }
 
     async function deleteTelegramBot(botId, title) {
-        if (!confirm(`Удалить бота «${title}»? Он перестанет работать: webhook в Telegram снимется, рассылки остановятся.`)) return;
+        if (!confirm(`Удалить бота «${title}»? Он перестанет работать: бот отключится от Telegram, рассылки остановятся.`)) return;
         try {
             await callTelegramAdmin({ action: 'delete', bot_id: botId });
             showPremiumModal('success', 'Бот удалён', 'Webhook снят, код рассылок его больше не вызывает.');
@@ -17641,7 +17647,7 @@
     }
 
     async function deleteWhatsAppAgent(id, title) {
-        if (!confirm(`Удалить ватсап «${title}»?`)) return;
+        if (!confirm(`Удалить WhatsApp «${title}»?`)) return;
         try {
             if (_agentHub.waSource === 'db' && !String(id).startsWith('local-')) {
                 const { error } = await supabase.from('whatsapp_agents').delete().eq('id', id);
@@ -19418,7 +19424,7 @@
                 </div>
                 <p class="ak-note">Опубликовано: ${Number(c.published_count)} · запросов к ИИ за 30 дней: ${Number(c.usage_30d.requests)} · токенов: ${Number(c.usage_30d.tokens).toLocaleString('ru-RU')}</p>
                 ${(c.last_replies || []).map((r) => `<div class="ak-note" style="border-top:1px solid var(--border);padding-top:8px">
-                    ${'⭐'.repeat(Math.max(0, Math.min(5, Number(r.rating) || 0)))} ${esc(r.product_name || '')} · <b>${esc(r.status)}</b><br>${esc((r.reply_text || '').slice(0, 220))}</div>`).join('')}
+                    ${'Оценка ' + Math.max(0, Math.min(5, Number(r.rating) || 0)) + ' из 5 ·'} ${esc(r.product_name || '')} · <b>${esc(r.status)}</b><br>${esc((r.reply_text || '').slice(0, 220))}</div>`).join('')}
             </div>`).join('');
     };
 })();

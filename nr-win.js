@@ -367,7 +367,7 @@
         ensureScroll(box);
         ensureHandles(box);
         var title = box.querySelector(':scope > .nr-win-bar .nr-win-title');
-        if (title) title.textContent = titleOf(box);
+        if (title) { var tt = titleOf(box); if (title.textContent !== tt) title.textContent = tt; }
         bindChrome(box);
         if (!box.classList.contains('nr-win-max') && !box.classList.contains('nr-win-min')) {
             paintBox(box, getSize());

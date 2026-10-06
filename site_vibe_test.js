@@ -51,7 +51,7 @@ const keep = [
     'tel:+996502446688',
     'https://wa.me/996502446688',
     'instagram.com/___nurbolot',
-    '© Nur Consulting &amp; NR Space. Все права защищены. 2026',
+    '© 2026 Nur Consulting &amp; NR Space. Все права защищены.',
 ];
 keep.forEach(function (snippet) {
     assert.ok(index.includes(snippet), 'landing keeps original data: ' + snippet);
