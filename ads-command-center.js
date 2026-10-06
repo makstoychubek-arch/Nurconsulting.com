@@ -1046,7 +1046,7 @@
     }
 
     function tableColspan() {
-        return 5 + currentCols().length;
+        return 4 + currentCols().length;
     }
 
     function rangeLabel(range) {
@@ -1383,7 +1383,6 @@
         if (!el) return;
         const cols = currentCols();
         el.innerHTML = '<tr>' +
-            '<th class="ads-hq-pin ads-hq-pin-check"></th>' +
             '<th class="ads-hq-pin ads-hq-pin-tg"></th>' +
             '<th class="ads-hq-pin ads-hq-pin-camp">Кампания</th>' +
             '<th class="ads-hq-pin ads-hq-pin-sku">Товар</th>' +
@@ -1396,7 +1395,6 @@
         const ck = cab.id + ':' + camp.wbId;
         const cols = currentCols();
         return '<tr class="ads-hq-camp ads-hq-camp-top ads-hq-wb-row" data-key="camp:' + esc(ck) + '" data-ck="' + esc(ck) + '">' +
-            '<td class="ads-hq-pin ads-hq-pin-check"><input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) + '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '"></td>' +
             '<td class="ads-hq-pin ads-hq-pin-tg">' + toggleHtml(cab, camp) + '</td>' +
             '<td class="ads-hq-pin ads-hq-pin-camp"' + (pad ? ' style="padding-left:28px"' : '') + '>' + campIdentityHtml(cab, camp) + '</td>' +
             '<td class="ads-hq-pin ads-hq-pin-sku">' + productCellHtml(camp) + '</td>' +
@@ -1430,8 +1428,7 @@
             if (!hideCab) {
                 html.push(
                     '<tr class="ads-hq-cab" data-key="cab:' + esc(cab.id) + '" data-cab="' + esc(cab.id) + '">' +
-                    '<td><input type="checkbox" class="ads-hq-check" data-kind="cabinet" data-cabinet="' + esc(cab.id) + '"></td>' +
-                    '<td colspan="' + (span - 1) + '">' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) +
+                    '<td colspan="' + span + '">' + tokenHtml(cab.token) + ' ' + esc(cabName(cab.name)) +
                     ' · ' + cab.activeCampaigns + ' акт. · ' + formatMoney2(cab.spendToday) + '</td></tr>'
                 );
             }
@@ -1502,8 +1499,6 @@
         html.push('<article class="ads-hq-phone-card ads-hq-phone-shelf" data-key="' + esc(ck) + '">');
         html.push(
             '<div class="ads-hq-phone-pick">' +
-            '<input type="checkbox" class="ads-hq-check" data-kind="campaign" data-cabinet="' + esc(cab.id) +
-            '" data-wb="' + esc(camp.wbId) + '" data-uuid="' + esc(camp.uuid || '') + '">' +
             toggleHtml(cab, camp) +
             campThumbHtml(camp.photoUrl, camp.nmId) +
             '<div class="ads-hq-camp-meta">' +
@@ -1511,7 +1506,7 @@
             esc(camp.name) + '</button>' + usedMark(camp) +
             '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '</div>' +
             statusPill(camp.status) + scheduleMark(cab.id, camp.wbId) +
-            '</div></div>'
+            '</div>' + autopilotToggleHtml(cab, camp) + '</div>'
         );
         html.push('<div class="ads-hq-phone-type">' + typeCellHtml(camp) + ' · ' + productCellHtml(camp) + '</div>');
         html.push(
