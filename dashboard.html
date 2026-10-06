@@ -4227,7 +4227,8 @@
         .ab-new-dialog .ab-wizard-card h4 { font-size: 11px; margin-bottom: 5px; }
         .ab-new-dialog .ab-wizard-hint { font-size: 10px; margin-top: 4px; }
         .ab-new-dialog .ab-combo-list { max-height: 148px; }
-        .ab-new-dialog .ab-campaign-list { max-height: 96px; }
+        .ab-new-dialog .ab-campaign-list { max-height: 190px; min-height: 120px; overscroll-behavior: contain; }
+        .ab-new-dialog .ab-campaign-row { user-select: none; -webkit-tap-highlight-color: transparent; }
         .ab-new-dialog .ab-product-search { padding: 6px 10px; font-size: 12px; border-radius: 10px; }
         .ab-new-dialog .ab-photo-gallery { max-height: 64px; overflow-y: auto; margin-top: 6px; }
         .ab-new-dialog .ab-pill { padding: 4px 10px; font-size: 11px; }
@@ -15090,7 +15091,7 @@
             + sorted.map(c => {
             const run = c.status === 9;
             const isActiveForArticle = activeCampaignIds.has(c.id);
-            return `<label class="ab-campaign-row" style="cursor:pointer${isActiveForArticle ? ';background:var(--accent-soft)' : ''}">
+            return `<label class="ab-campaign-row" onmousedown="event.preventDefault()" style="cursor:pointer${isActiveForArticle ? ';background:var(--accent-soft)' : ''}">
                 <input type="checkbox" ${abSelectedCampaigns.has(c.id) ? 'checked' : ''} onchange="toggleABCampaign(${c.id}, this.checked)" style="accent-color:var(--accent)">
                 <span class="ab-campaign-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
                 <span class="ab-campaign-id">${c.id}</span>
@@ -15102,6 +15103,8 @@
     function toggleABCampaign(id, checked) {
         if (checked) abSelectedCampaigns.add(id);
         else abSelectedCampaigns.delete(id);
+        // Ничего не перерисовываем и не двигаем: клик по РК не должен сдвигать окно и список.
+        document.activeElement?.blur?.();
     }
 
     let abPasteTarget = null;
