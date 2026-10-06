@@ -20,7 +20,7 @@ assert.ok(html.includes("verdictText = 'разницы нет'"), 'report says �
 assert.ok(html.includes('Установить на ВБ') && html.includes('Сейчас на ВБ'), 'winner can be set on WB from the report');
 
 // Окно отчёта: фото целиком и до 6 вариантов без прокрутки в ширину
-assert.ok(/\.ab-report-grid \{[^}]*repeat\(auto-fill, minmax\(150px, 210px\)\)/.test(html), 'report grid: compact adaptive columns (6 variants fit one row on a wide window)');
+assert.ok(/\.ab-report-grid \{[^}]*repeat\(auto-fit, minmax\(150px, 210px\)\)/.test(html), 'report grid: compact adaptive columns (6 variants fit one row on a wide window, 2-3 cards are centered)');
 assert.ok(/\.ab-report-img-wrap \{[^}]*aspect-ratio: 7 \/ 9/.test(html) && /\.ab-report-img-wrap img \{[^}]*object-fit: contain/.test(html), 'report photos are shown whole (7:9, no crop)');
 assert.ok(/class="ab-report-head">[\s\S]{0,900}?\$\{!isLive \? `<button class="ab-report-apply-btn"/.test(html), 'apply button is a compact button in the top-left of every non-live card');
 
