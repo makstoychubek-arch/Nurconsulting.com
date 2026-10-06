@@ -31,7 +31,7 @@ assert.ok(index.includes('family=Archivo') && login.includes('family=Archivo'),
 assert.ok(index.includes('theme-color" content="#f5f4f0"') && login.includes('theme-color" content="#f5f4f0"'),
     'chrome color matches paper');
 assert.ok(index.includes('class="vp-pill-nav"'), 'landing uses floating pill nav');
-assert.ok(index.includes('class="hero-stats') && index.includes('<dt'), 'hero uses left-aligned stat strip');
+assert.ok(index.includes('class="mn-hero"') && index.includes('class="mn-h1"'), 'minimal left-aligned hero');
 assert.ok(index.includes('class="vp-channel group"'), 'contacts use channel grid');
 assert.ok(index.includes('data-office="ru"') && index.includes('data-office="kg"'),
     'contacts use live-time office cards');
@@ -51,19 +51,17 @@ const keep = [
     'tel:+996502446688',
     'https://wa.me/996502446688',
     'instagram.com/___nurbolot',
-    '120 430 000 ₽',
-    '356 780 шт',
-    '94%',
-    '+48.7% за 3 мес.',
-    '120+ млн',
-    '20+ млн',
-    '248 190 372',
     '© Nur Consulting &amp; NR Space. Все права защищены. 2026',
-    'Превращаем Wildberries',
 ];
 keep.forEach(function (snippet) {
     assert.ok(index.includes(snippet), 'landing keeps original data: ' + snippet);
 });
+// Непроверенные цифры и демо-данные на главной убраны: остались только пометки «пример».
+['120 430 000 ₽', '356 780 шт', '120+ млн', '20+ млн', '5 лет'].forEach(function (fake) {
+    assert.ok(!index.includes(fake), 'landing has no unverified claim: ' + fake);
+});
+assert.ok(index.includes('Пример интерфейса, данные условные'), 'demo mockups are labelled as examples');
+assert.ok(!index.includes('Мы не просто агентство'), 'no cliche copy');
 assert.ok(!index.includes('t.me/') && !index.includes('vp-tab-plus') && !index.includes('id="team"'),
     'audit/Telegram buttons and the team section are removed on all widths');
 assert.ok(!index.includes('Москва') && !index.includes('Бишкек'),
