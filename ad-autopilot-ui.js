@@ -4,6 +4,7 @@
 (function () {
     'use strict';
     var root = null, state = { cab: null, open: false, loaded: false, busy: false };
+    var auto = { camps: {}, settings: {}, loaded: false };
     var MODES = { off: 'Выключен', dry: 'Пробный (только журнал)', live: 'Боевой (меняет ставки)' };
 
     function sb() { return window.supabase; }
@@ -27,10 +28,73 @@
         '.adp-pill.live{background:rgba(22,163,74,.14);color:#15803d}.adp-pill.dry{background:rgba(245,158,11,.16);color:#b45309}' +
         '.adp-body{padding:4px 18px 18px;border-top:1px solid var(--border,rgba(0,0,0,.08))}.adp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0}' +
         '.adp label{display:block;font-size:12px;color:var(--text-muted,#71717a);margin-bottom:4px}.adp input,.adp select{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:10px;border:1px solid var(--border,rgba(0,0,0,.14));background:transparent;color:inherit;font:inherit}' +
-        '.adp-camps{display:flex;flex-direction:column;gap:6px;margin:8px 0 14px;max-height:220px;overflow:auto}.adp-camp{display:flex;gap:8px;align-items:center;font-size:13px}.adp-camp input{width:auto}' +
+        '' +
         '.adp-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.adp-btn{border:0;border-radius:10px;padding:9px 16px;font-weight:600;cursor:pointer;background:var(--text-primary,#111);color:var(--bg,#fff)}.adp-btn.alt{background:var(--sel,#eee);color:inherit}' +
         '.adp-note{font-size:12px;color:var(--text-muted,#71717a);margin:8px 0}.adp-log{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}.adp-log td,.adp-log th{padding:6px 6px;border-bottom:1px solid var(--border,rgba(0,0,0,.08));text-align:left}' +
+        '.adp-tg{position:relative;flex:none;margin-left:auto;width:42px;height:22px;border-radius:999px;background:var(--sel,#d4d4d8);border:1px solid var(--border,rgba(0,0,0,.12));cursor:pointer;transition:background .2s,border-color .2s;align-self:center}.adp-tg i{position:absolute;top:2px;left:calc(50% - 8px);width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:left .2s}.adp-tg.on{background:#22c55e;border-color:#16a34a}.adp-tg.on i{left:calc(100% - 19px)}.adp-tg.on.idle{background:#86efac;border-color:#4ade80}.adp-tg.busy{opacity:.55;pointer-events:none}' +
         '.adp-up{color:#15803d}.adp-down{color:#b91c1c}.adp-msg{font-size:13px;margin-top:10px}';
+
+    /* ---- переключатели «авто» у кампаний ---- */
+    async function loadAuto() {
+        if (!sb()) return;
+        var r = await Promise.all([sb().from('ad_autopilot_campaigns').select('cabinet_id,campaign_id'), sb().from('ad_autopilot_settings').select('cabinet_id,enabled,dry_run')]);
+        auto.camps = {}; auto.settings = {};
+        (r[0].data || []).forEach(function (x) { (auto.camps[x.cabinet_id] = auto.camps[x.cabinet_id] || new Set()).add(String(x.campaign_id)); });
+        (r[1].data || []).forEach(function (x) { auto.settings[x.cabinet_id] = { enabled: x.enabled, dry_run: x.dry_run }; });
+        auto.loaded = true;
+        paint();
+    }
+    function isOn(cab, camp) { return !!(auto.camps[cab] && auto.camps[cab].has(String(camp))); }
+    function paint() {
+        document.querySelectorAll('.adp-tg').forEach(function (el) {
+            var cab = el.getAttribute('data-adp-cab'), camp = el.getAttribute('data-adp-camp');
+            var on = isOn(cab, camp), idle = on && !(auto.settings[cab] && auto.settings[cab].enabled);
+            if (el.classList.contains('on') !== on) el.classList.toggle('on', on);
+            if (el.classList.contains('idle') !== idle) el.classList.toggle('idle', idle);
+            el.setAttribute('aria-checked', on ? 'true' : 'false');
+            el.title = on ? 'Автопилот ставок включён: сам подгоняет ставки артикулов' : 'Автопилот ставок выключен. Нажмите, чтобы кампанией управлял автопилот';
+        });
+    }
+    async function flip(el) {
+        var cab = el.getAttribute('data-adp-cab'), camp = el.getAttribute('data-adp-camp');
+        var turnOn = !isOn(cab, camp);
+        el.classList.add('busy');
+        try {
+            if (turnOn) {
+                var st = auto.settings[cab];
+                if (!st || !st.enabled) {
+                    var up = await sb().from('ad_autopilot_settings').upsert({ cabinet_id: cab, enabled: true, dry_run: st ? st.dry_run !== false : true, updated_at: new Date().toISOString() }, { onConflict: 'cabinet_id' });
+                    if (up.error) throw up.error;
+                    auto.settings[cab] = { enabled: true, dry_run: st ? st.dry_run !== false : true };
+                }
+                var ins = await sb().from('ad_autopilot_campaigns').upsert({ cabinet_id: cab, campaign_id: Number(camp) }, { onConflict: 'cabinet_id,campaign_id' });
+                if (ins.error) throw ins.error;
+                (auto.camps[cab] = auto.camps[cab] || new Set()).add(String(camp));
+            } else {
+                var del = await sb().from('ad_autopilot_campaigns').delete().eq('cabinet_id', cab).eq('campaign_id', Number(camp));
+                if (del.error) throw del.error;
+                if (auto.camps[cab]) auto.camps[cab].delete(String(camp));
+            }
+        } catch (e) { alert('Автопилот не переключился: ' + (e.message || e)); }
+        el.classList.remove('busy');
+        paint();
+        if (root && state.loaded) { state.loaded = false; tick(); }
+    }
+    document.addEventListener('click', function (ev) {
+        var el = ev.target.closest && ev.target.closest('.adp-tg');
+        if (!el) return;
+        ev.preventDefault(); ev.stopPropagation(); flip(el);
+    }, true);
+    document.addEventListener('keydown', function (ev) {
+        if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.classList && ev.target.classList.contains('adp-tg')) { ev.preventDefault(); flip(ev.target); }
+    });
+    var paintTimer = null;
+    function watchTable() {
+        var tab = document.getElementById('tab-advertising');
+        if (!tab || tab._adpWatched) return;
+        tab._adpWatched = true;
+        new MutationObserver(function () { clearTimeout(paintTimer); paintTimer = setTimeout(paint, 40); }).observe(tab, { childList: true, subtree: true });
+    }
 
     function ensureRoot() {
         root = document.getElementById('ad-autopilot-card');
@@ -45,14 +109,10 @@
         var q = function (p) { return p.then(function (r) { return r; }); };
         var res = await Promise.all([
             q(sb().from('ad_autopilot_settings').select('*').eq('cabinet_id', cab).maybeSingle()),
-            q(sb().from('ad_autopilot_campaigns').select('campaign_id').eq('cabinet_id', cab)),
-            q(sb().from('advertising_campaigns').select('campaign_id,campaign_name,status,payment_type').eq('cabinet_id', cab).eq('payment_type', 'cpc').in('status', [9, 11])),
             q(sb().from('ad_autopilot_log').select('*').eq('cabinet_id', cab).order('created_at', { ascending: false }).limit(15)),
         ]);
         state.settings = res[0].data || null;
-        state.chosen = new Set((res[1].data || []).map(function (r) { return Number(r.campaign_id); }));
-        state.campaigns = (res[2].data || []).sort(function (a, b) { return String(a.campaign_name).localeCompare(String(b.campaign_name)); });
-        state.log = res[3].data || [];
+        state.log = res[1].data || [];
         var nms = Array.from(new Set(state.log.map(function (l) { return l.nm_id; }).filter(Boolean)));
         state.names = {};
         if (nms.length) {
@@ -93,15 +153,7 @@
             field('Макс. ставка, сом', 'adp-max', (s.max_bid_kop || 1600) / 100, { type: 'number', min: 1, step: 0.5 }),
             field('Шаг, %', 'adp-step', s.step_pct || 10, { type: 'number', min: 1, max: 50, step: 1 }),
         ]));
-        el.appendChild(h('div', { class: 'adp-note', text: 'Выберите кампании за клик (СРС), которыми управляет автопилот. Включать, выключать и пополнять бюджет он не умеет, только менять ставки артикулов.' }));
-        var list = h('div', { class: 'adp-camps' });
-        var seen = new Set();
-        state.campaigns.forEach(function (c) {
-            seen.add(Number(c.campaign_id));
-            list.appendChild(h('label', { class: 'adp-camp' }, [h('input', { type: 'checkbox', 'data-cid': c.campaign_id, checked: state.chosen.has(Number(c.campaign_id)) ? 'checked' : null }), c.campaign_name + (Number(c.status) === 11 ? ' (на паузе)' : '')]));
-        });
-        if (!state.campaigns.length) list.appendChild(h('div', { class: 'adp-note', text: 'Кампаний СРС пока нет в списке (появятся после синхронизации).' }));
-        el.appendChild(list);
+        el.appendChild(h('div', { class: 'adp-note', text: 'Включайте автопилот переключателем «авто» справа у нужной кампании СРС в списке ниже. Включать, выключать кампании и пополнять бюджет он не умеет, только меняет ставки артикулов.' }));
         var msg = h('div', { class: 'adp-msg', id: 'adp-msg' });
         el.appendChild(h('div', { class: 'adp-btns' }, [
             h('button', { class: 'adp-btn', text: 'Сохранить', onclick: save }),
@@ -148,13 +200,8 @@
             };
             var r = await sb().from('ad_autopilot_settings').upsert(row, { onConflict: 'cabinet_id' });
             if (r.error) throw r.error;
-            var ids = Array.from(root.querySelectorAll('input[data-cid]')).filter(function (i) { return i.checked; }).map(function (i) { return Number(i.getAttribute('data-cid')); });
-            var del = await sb().from('ad_autopilot_campaigns').delete().eq('cabinet_id', cab);
-            if (del.error) throw del.error;
-            if (ids.length) { var ins = await sb().from('ad_autopilot_campaigns').insert(ids.map(function (c) { return { cabinet_id: cab, campaign_id: c }; })); if (ins.error) throw ins.error; }
-            state.settings = row; state.chosen = new Set(ids);
-            say('Сохранено');
-            render(); say('Сохранено');
+            state.settings = row; auto.settings[cab] = { enabled: row.enabled, dry_run: row.dry_run };
+            render(); say('Сохранено'); paint();
         } catch (e) { say('Не сохранилось: ' + (e.message || e), true); } finally { state.busy = false; }
     }
 
@@ -165,7 +212,7 @@
             if (r.error) throw r.error;
             var x = (r.data && r.data.results && r.data.results[0]) || {};
             var text = x.skipped
-                ? 'Пропущено: ' + ({ no_campaigns: 'не выбраны кампании', no_token: 'нет токена рекламы', no_active_cpc: 'нет работающих СРС среди выбранных' }[x.skipped] || x.skipped)
+                ? 'Пропущено: ' + ({ no_campaigns: 'ни у одной кампании не включён переключатель «авто»', no_token: 'нет токена рекламы', no_active_cpc: 'нет работающих СРС среди выбранных' }[x.skipped] || x.skipped)
                 : (x.dry_run ? 'Пробный прогон: ' : 'Готово: ') + 'изменений ' + (x.changes || 0) + ', без изменений ' + (x.holds || 0) + (x.errors && x.errors.length ? '. Ошибки: ' + x.errors.join('; ') : '');
             await load();
             say(text);
@@ -175,12 +222,15 @@
     function tick() {
         var tab = document.getElementById('tab-advertising');
         if (!tab || !tab.classList.contains('active')) return;
+        if (!document.getElementById('adp-style')) document.head.appendChild(h('style', { id: 'adp-style', text: CSS }));
+        watchTable();
+        if (!auto.loaded) loadAuto().catch(function () {});
         if (!ensureRoot()) return;
         var cab = cabId();
         if (cab && (cab !== state.cab || !state.loaded)) { state.loaded = false; load().catch(function () {}); }
         else if (!root.firstChild && state.loaded) render();
     }
 
-    window.loadAdAutopilot = function () { state.loaded = false; tick(); };
+    window.loadAdAutopilot = function () { state.loaded = false; auto.loaded = false; tick(); };
     setInterval(tick, 1500);
 })();
