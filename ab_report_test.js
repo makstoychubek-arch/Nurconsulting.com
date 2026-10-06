@@ -30,4 +30,9 @@ assert.ok(/isLive && timerOn \? `<div class="ab-report-timer"/.test(html), 'time
 assert.ok(html.includes('function startReportTimer(test, source)') && html.includes("timeEl.textContent = 'меняем…'"), 'timer counts down and says «меняем…» at zero');
 assert.ok(html.includes('openABReportModal(test.id, source)') && html.includes('last_rotated_at) !== String(test.last_rotated_at)'), 'report refreshes itself after the server rotated the photo');
 
+// Пока тест идёт, «Установить на ВБ» выключена (серая), после окончания теста доступна
+assert.ok(html.includes("const testRunning = test.status === 'active'") && /class="ab-report-apply-btn" \$\{testRunning \? 'disabled' : ''\}/.test(html), 'apply buttons are disabled while the test is running');
+assert.ok(/\.ab-report-apply-btn:disabled \{[^}]*cursor: not-allowed/.test(html), 'disabled apply button is greyed out');
+assert.ok(/async function applyWinningVariant[\s\S]*?if \(test\.status === 'active'\) \{\s*showPremiumModal\('warning', 'Тест ещё идёт'/.test(html), 'applying a variant is also blocked in the handler while the test runs');
+
 console.log('ab_report_test: ok');

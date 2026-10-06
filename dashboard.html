@@ -4332,7 +4332,8 @@
         .ab-report-img-wrap { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); aspect-ratio: 7 / 9; background: var(--sel); }
         .ab-report-img-wrap img { width: 100%; height: 100%; object-fit: contain; display: block; }
         .ab-report-apply-btn { width: auto; padding: 3px 9px; font-size: 10.5px; line-height: 1.3; font-weight: 700; white-space: nowrap; border-radius: 999px; border: 1px solid var(--accent); background: transparent; color: var(--accent); cursor: pointer; }
-        .ab-report-apply-btn:hover { background: var(--accent-soft); }
+        .ab-report-apply-btn:hover:not(:disabled) { background: var(--accent-soft); }
+        .ab-report-apply-btn:disabled { color: var(--text-muted); border-color: var(--border); background: transparent; opacity: 0.6; cursor: not-allowed; }
         .ab-report-ctr-row { display: flex; align-items: baseline; gap: 4px 6px; flex-wrap: wrap; }
         .ab-report-ctr-val { font-size: 18px; font-weight: 800; color: var(--text-primary); }
         .ab-report-ctr-delta { font-size: 12px; font-weight: 700; }
@@ -16068,6 +16069,7 @@
         const liveIdx = variants.findIndex(x => x.is_currently_on_wb);
         const nextVariant = liveIdx >= 0 ? variants[(liveIdx + 1) % variants.length] : null;
         const rotationsLeft = !(Number(test.max_rotations) > 0) || (Number(test.rotation_count) || 0) < Number(test.max_rotations);
+        const testRunning = test.status === 'active'; // пока тест идёт, ручная установка фото выключена
         const timerOn = test.status === 'active' && Boolean(nextVariant) && nextVariant.id !== variants[liveIdx].id && rotationsLeft;
         document.getElementById('ab-report-variants').innerHTML = variants.map(v => {
             const m = metricsByVariant.get(v.id);
@@ -16094,7 +16096,7 @@
             return `
             <div class="ab-report-card ${isLeading ? 'leading' : ''} ${isNext ? 'next' : ''}">
                 <div class="ab-report-head">
-                    ${!isLive ? `<button class="ab-report-apply-btn" title="Поставить это фото на WB" onclick="applyWinningVariant('${test.id}','${v.id}')">Установить на ВБ</button>` : ''}
+                    ${!isLive ? `<button class="ab-report-apply-btn" ${testRunning ? 'disabled' : ''} title="${testRunning ? 'Доступно после окончания теста: пока тест идёт, фото меняются сами' : 'Поставить это фото на WB'}" onclick="applyWinningVariant('${test.id}','${v.id}')">Установить на ВБ</button>` : ''}
                     <span class="ab-report-tag ${isLive ? 'live' : ''}">${isLive ? '● Сейчас на ВБ' : `${isNext ? '↳ ' : ''}Вариант ${escapeHtml(String(v.variant_label))}`}</span>
                 </div>
                 ${isLive && timerOn ? `<div class="ab-report-timer" id="abr-timer" title="Через сколько фото сменится на следующее">
@@ -16183,6 +16185,10 @@
         if (!test) return;
         const variant = (test.variants || []).find(v => String(v.id) === String(variantId));
         if (!variant) return;
+        if (test.status === 'active') {
+            showPremiumModal('warning', 'Тест ещё идёт', 'Установить фото вручную можно после окончания теста: пока он идёт, фото меняются сами.');
+            return;
+        }
         const ok = await showConfirmModal('Установить это фото на ВБ?', `Фото варианта «${escapeHtml(String(variant.variant_label))}» будет загружено на карточку товара на Wildberries.`);
         if (!ok) return;
         const applied = await rotateTestPhoto(testId, (test.variants || []).findIndex(v => String(v.id) === String(variantId)), variant.photo_url, test.nm_id, variant.variant_label);
