@@ -17,7 +17,7 @@ assert.ok(fn.includes("filterFeatureActive(admin, all || [], 'ads')"), 'уваж
 assert.ok(fn.includes("payment_type === 'cpc'") && fn.includes('Number(a.status) === 9'), 'только работающие СРС, кампании не включаем и не выключаем');
 assert.ok(!/\/adv\/v0\/(start|pause|stop|delete)/.test(fn), 'автопилот не включает и не выключает кампании');
 const ads = fs.readFileSync('ads-command-center.js', 'utf8');
-assert.ok(ads.includes('autopilotToggleHtml') && ads.includes('adp-tg') && ads.includes("'cpc'"), 'переключатель «авто» справа у СРС-кампании');
+assert.ok(!ads.includes("'cpc'") || ads.includes('return \'\';'), 'переключатель авто убран');
 assert.ok(!ui.includes('data-cid') && !ui.includes('adp-camps'), 'списка галочек больше нет');
 assert.ok(ui.includes("from('ad_autopilot_campaigns').upsert") && ui.includes("from('ad_autopilot_campaigns').delete()"), 'переключатель пишет и убирает кампанию');
 assert.ok(ui.includes('.adp-tg.on{background:#22c55e') && ui.includes('left:calc(50% - 8px)'), 'выключен: ползунок по центру, включён: зелёный');

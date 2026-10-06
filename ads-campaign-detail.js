@@ -5,6 +5,7 @@
     var CSS = [
         '#adv-view-ads .adv-camp-action-btn{display:none!important}',
         /* автобиддер: прячем заголовок и сам блок, открывается маленькой кнопкой */
+        '#adv-view-ads .ads-hq-phone-pick .ads-hq-toggle{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}',
         '#adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}',
         /* шапка РК как в РНП: одна карточка с панелью и плашками показателей */
         '#adv-view-ads .ads-hq-bulk{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:8px 10px;flex-wrap:nowrap!important}#adv-view-ads .ads-hq-kpi-bar{background:transparent;padding:0;gap:6px}',
@@ -73,6 +74,7 @@
             if (!card.classList.contains('adx-open')) card.classList.add('adx-compact');
             var sum = card.querySelector('.adx-sum');
             var values = [['Затраты', 'Затраты'], ['Принятые заказы', 'Заказы'], ['Доля затрат', 'Доля затрат']].map(function (p) { return [p[1], metricOf(card, p[0])]; }).filter(function (x) { return x[1]; });
+            var bal = card.getAttribute('data-bal'); if (bal) values.unshift(['Баланс', bal]);
             var html = values.map(function (x) { return x[0] + '<b>' + esc(x[1]) + '</b>'; }).join('</span><span>');
             if (!sum) { sum = document.createElement('div'); sum.className = 'adx-sum'; var pick = card.querySelector('.ads-hq-phone-pick'); if (pick) pick.after(sum); else card.prepend(sum); }
             var want = '<span>' + html + '</span>';

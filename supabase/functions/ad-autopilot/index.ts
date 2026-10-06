@@ -46,7 +46,8 @@ async function runCabinet(admin: any, settings: any, opts: { forceDry: boolean }
     const params = paramsOf(settings);
     const out: any = { cabinet_id: cabinetId, dry_run: dry, changes: 0, holds: 0, errors: [] as string[] };
 
-    const { data: camps } = await admin.from('ad_autopilot_campaigns').select('campaign_id').eq('cabinet_id', cabinetId);
+    // Автопилот ведёт все работающие СРС-кампании кабинета; отключается вручную паузой кампании.
+    const { data: camps } = await admin.from('advertising_campaigns').select('campaign_id').eq('cabinet_id', cabinetId).eq('payment_type', 'cpc').eq('status', 9);
     const ids = (camps || []).map((c: any) => Number(c.campaign_id)).filter((n: number) => n > 0);
     if (!ids.length) return { ...out, skipped: 'no_campaigns' };
 
@@ -123,7 +124,7 @@ async function dailyReport(admin: any, cabinets: any[]) {
         const since = new Date(Date.now() - 24 * 3600_000).toISOString();
         const { data: log } = await admin.from('ad_autopilot_log').select('action, applied').eq('cabinet_id', s.cabinet_id).gte('created_at', since);
         const up = (log || []).filter((l: any) => l.action === 'raise').length, down = (log || []).filter((l: any) => l.action === 'lower').length;
-        const { data: ids } = await admin.from('ad_autopilot_campaigns').select('campaign_id').eq('cabinet_id', s.cabinet_id);
+        const { data: ids } = await admin.from('advertising_campaigns').select('campaign_id').eq('cabinet_id', s.cabinet_id).eq('payment_type', 'cpc');
         const { data: day } = await admin.from('advertising_daily_stats').select('spend, orders').eq('cabinet_id', s.cabinet_id)
             .in('campaign_id', (ids || []).map((c: any) => c.campaign_id)).eq('stat_date', daysAgo(1));
         const spend = (day || []).reduce((a: number, r: any) => a + Number(r.spend || 0), 0);

@@ -158,6 +158,13 @@ Deno.serve(async (req) => {
                 // Upsert campaign status/type/name into advertising_campaigns.
                 // Cheap: reuses the promotion/count response already fetched
                 // above, no extra WB request.
+                // Баланс каждой живой кампании: /adv/v1/budget (лимит 4 в секунду).
+                const budgetById = new Map<number, number>();
+                for (const id of ids.filter((i) => LIVE_CAMPAIGN_STATUSES.has(Number(meta.get(i)?.status))).slice(0, 60)) {
+                    const b = await fetchCampaignBudget(token, id);
+                    if (b != null) budgetById.set(id, b);
+                    await sleep(300);
+                }
                 const campaignRows = ids.map((id) => {
                     const details = detailsById.get(id);
                     return {
@@ -168,6 +175,7 @@ Deno.serve(async (req) => {
                         type: meta.get(id)?.type ?? null,
                         payment_type: details?.paymentType ?? null,
                         bid_type: details?.bidType ?? null,
+                        ...(budgetById.has(id) ? { budget_total: budgetById.get(id) } : {}),
                         updated_at: new Date().toISOString(),
                     };
                 });
@@ -382,6 +390,18 @@ async function fetchCampaignIdsAndMeta(
 // fetchCampaignIdsAndMeta returns so a campaign that changed status between
 // the two calls (e.g. finished/declined mid-sync) still resolves its real
 // WB data instead of falling back to placeholders.
+async function fetchCampaignBudget(token: string, id: number): Promise<number | null> {
+    try {
+        const res = await fetch(`${ADV_API}/adv/v1/budget?id=${id}`, { headers: { Authorization: token } });
+        if (!res.ok) return null;
+        const d = await res.json();
+        const n = Number(d?.total ?? d?.cash);
+        return Number.isFinite(n) ? n : null;
+    } catch (_e) {
+        return null;
+    }
+}
+
 async function fetchCampaignDetails(
     token: string,
 ): Promise<Map<number, { name: string; paymentType: string | null; bidType: string | null }>> {
