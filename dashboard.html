@@ -15902,7 +15902,7 @@
     window.deleteABTest = deleteABTest;
 
     // ── Детальный отчёт по тесту (как у конкурента) ──────────────────────────
-    // CTR = клики/показы, CR (клик→корзина) = атбс/клики, CR1 (корзина→заказ)
+    // CTR = клики/показы, CR1 (клик→корзина) = атбс/клики, CR (клик→заказ) = заказы/клики
     // = заказы/атбс. Вероятность "победы" каждого варианта считаем через
     // Beta-биномиальное Монте-Карло семплирование по CTR (Beta(clicks+1,
     // views-clicks+1)) — та же модель, что и на сервере (ab-test-rotate),
@@ -16034,13 +16034,16 @@
         document.getElementById('ab-report-title').textContent = test.product_name || `Артикул ${test.nm_id}`;
         const reportCampaigns = (test.settings?.campaigns || []).map(String).filter(Boolean);
         const fmtReportDate = (d) => d ? new Date(d).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+        // Когда последний раз пересчитывали показы и клики (раз в 10 минут по замерам статистики РК)
+        const statsUpdatedAt = (statsRows || []).filter(r => r.source === 'ads').map(r => r.updated_at).filter(Boolean).sort().pop() || null;
         const reportSubEl = document.getElementById('ab-report-sub');
         reportSubEl.style.whiteSpace = 'pre-line';
         reportSubEl.textContent =
             `${test.nm_id}${reportCampaigns.length ? ` · рк ${reportCampaigns.join(', ')}` : ''}\n` +
             `Тест запущен: ${fmtReportDate(test.started_at)}` +
             (test.finished_at ? `\nТест завершён: ${fmtReportDate(test.finished_at)}` : '') +
-            (source === 'funnel' ? '\nВоронка: WB отдаёт историю максимум за последние 7 дней' : '');
+            (source === 'funnel' ? '\nВоронка: WB отдаёт историю максимум за последние 7 дней' : '') +
+            (source === 'ads' && statsUpdatedAt ? `\nПоказы и клики РК: замер ${new Date(statsUpdatedAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}, обновляются каждые 10 минут` : '');
 
         const totalImpressions = variants.reduce((s, v) => s + (metricsByVariant.get(v.id)?.impressions || 0), 0);
         let stars = '★☆☆', verdictText = 'Пока недостаточно данных для вывода';
@@ -16072,8 +16075,8 @@
             const revenue = m.revenue;
             const adSpend = m.adSpend;
             const ctr = impressions > 0 ? (clicks / impressions * 100) : 0;
-            const cr = clicks > 0 ? (atbs / clicks * 100) : 0;
-            const cr1 = atbs > 0 ? (orders / atbs * 100) : 0;
+            const cr1 = clicks > 0 ? (atbs / clicks * 100) : 0; // CR1: клик → корзина
+            const cr = clicks > 0 ? (orders / clicks * 100) : 0; // CR: клик → заказ
             const cpc = clicks > 0 ? (adSpend / clicks) : 0;
             const cpv = impressions > 0 ? (adSpend / impressions) : 0;
             const prob = probs.get(v.variant_label) || 0;
@@ -16100,8 +16103,8 @@
                 </div>
                 <table class="ab-report-metrics-table">
                     <tr><td class="lbl">CTR</td><td class="val">${ctr.toFixed(2)}%</td></tr>
-                    <tr><td class="lbl">CR (клик→корзина)</td><td class="val">${cr.toFixed(2)}%</td></tr>
-                    <tr><td class="lbl">CR1 (корзина→заказ)</td><td class="val">${cr1.toFixed(2)}%</td></tr>
+                    <tr><td class="lbl" title="Из кликов в корзину">CR1 (клик→корзина)</td><td class="val">${cr1.toFixed(2)}%</td></tr>
+                    <tr><td class="lbl" title="Из кликов в заказ">CR (клик→заказ)</td><td class="val">${cr.toFixed(2)}%</td></tr>
                     <tr class="ads-head"><td colspan="2">${escapeHtml(sourceLabel)}</td></tr>
                     <tr><td class="lbl">Показы</td><td class="val">${fmt(impressions)}</td></tr>
                     <tr><td class="lbl">Клики</td><td class="val">${fmt(clicks)}</td></tr>
