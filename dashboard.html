@@ -5554,6 +5554,10 @@
                 padding: calc(6px + env(safe-area-inset-top, 0px)) 10px 6px !important;
                 flex-shrink: 0;
                 border-radius: 0 0 16px 16px;
+                /* Без размытия и полупрозрачности: на телефоне шапка сплошная, под ней ничего не просвечивает */
+                -webkit-backdrop-filter: none !important;
+                backdrop-filter: none !important;
+                background: var(--surface-solid) !important;
             }
             body.flyout-expanded header.glass.app-header { left: 0; right: 0; }
             .app-header-main {
