@@ -5558,7 +5558,10 @@
                 -webkit-backdrop-filter: none !important;
                 backdrop-filter: none !important;
                 background: var(--surface-solid) !important;
+                box-shadow: none !important; opacity: 1 !important; filter: none !important;
+                transform: none !important; will-change: auto !important;
             }
+            header.glass.app-header * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
             body.flyout-expanded header.glass.app-header { left: 0; right: 0; }
             .app-header-main {
                 display: flex;
