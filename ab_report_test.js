@@ -24,4 +24,10 @@ assert.ok(/\.ab-report-grid \{[^}]*repeat\(auto-fill, minmax\(150px, 210px\)\)/.
 assert.ok(/\.ab-report-img-wrap \{[^}]*aspect-ratio: 7 \/ 9/.test(html) && /\.ab-report-img-wrap img \{[^}]*object-fit: contain/.test(html), 'report photos are shown whole (7:9, no crop)');
 assert.ok(/class="ab-report-head">\s*\$\{!isLive \? `<button class="ab-report-apply-btn"/.test(html), 'apply button is a compact button in the top-left of every non-live card');
 
+// Таймер до смены фото над фото, которое сейчас на WB, со стрелкой на следующий вариант
+assert.ok(html.includes('id="abr-timer"') && html.includes('id="abr-timer-time"') && html.includes('abr-timer-next'), 'live card shows the rotation timer with the next variant');
+assert.ok(/isLive && timerOn \? `<div class="ab-report-timer"/.test(html), 'timer is rendered only on the live card and only while the test is active');
+assert.ok(html.includes('function startReportTimer(test, source)') && html.includes("timeEl.textContent = 'меняем…'"), 'timer counts down and says «меняем…» at zero');
+assert.ok(html.includes('openABReportModal(test.id, source)') && html.includes('last_rotated_at) !== String(test.last_rotated_at)'), 'report refreshes itself after the server rotated the photo');
+
 console.log('ab_report_test: ok');
