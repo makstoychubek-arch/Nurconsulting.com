@@ -15371,6 +15371,7 @@
 
         showPremiumModal('info', 'Создаём тест...', 'Загружаем фото, подождите.');
 
+        let released = false; // кнопку и флаг отпускаем раньше, чем кончится смена фото на WB
         try {
         const { data: test, error } = await supabase.from('ab_tests').insert({
             cabinet_id: currentCabinetId,
@@ -15415,20 +15416,31 @@
             const { error: vErr } = await supabase.from('ab_test_variants').insert(variantRows);
             if (vErr) throw new Error(vErr.message);
 
+            // Тест и варианты уже в базе — окно создания больше не нужно. Раньше оно висело, пока WB
+            // отвечал на смену первого фото (до 30 с таймаута и повторы при лимите 429), хотя тест уже создан.
+            hideNewTestForm();
+            released = true;
+            abCreatingTest = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.pointerEvents = ''; }
+            showPremiumModal('info', 'Тест создан', 'Ставим первое фото на WB, это может занять до минуты.');
+            loadABTests();
+
             const ok = await rotateTestPhoto(test.id, 0, variantRows[0].photo_url, nmId, variantRows[0].variant_label);
             if (!ok) throw new Error('WB не принял первое фото. Попробуйте ещё раз.');
         } catch (e) {
             await supabase.from('ab_tests').delete().eq('id', test.id);
+            loadABTests();
             showPremiumModal('error', 'Ошибка загрузки', e.message);
             return;
         }
 
-        hideNewTestForm();
         showPremiumModal('success', 'Тест запущен!', `Фото будет меняться каждые ${interval} мин.`);
         loadABTests();
         } finally {
-            abCreatingTest = false;
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.pointerEvents = ''; }
+            if (!released) {
+                abCreatingTest = false;
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = ''; submitBtn.style.pointerEvents = ''; }
+            }
         }
     }
 
