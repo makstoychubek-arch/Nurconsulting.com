@@ -4,6 +4,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTeamMember } from '../_shared/cabinet-access.ts';
+import { filterFeatureActive, recordFeatureRun } from '../_shared/cabinet-features.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { orderPriceWithDisc } from '../_shared/wb-order-price.ts';
 import { extractMainPhotoUrl } from '../_shared/wb-main-photo.ts';
@@ -161,7 +162,11 @@ Deno.serve(async (req) => {
         if (!owned) return json({ error: 'Cabinet not found or access denied' }, 403);
     }
 
-    const cabinets = await loadCabinets(admin, targetCabinetId);
+    const allCabinets = await loadCabinets(admin, targetCabinetId);
+    // Тумблер «Автосинхронизация» гасит только плановые запуски; ручной «Обновить» работает всегда.
+    const cabinets = allCabinets && isServiceRole
+        ? await filterFeatureActive(admin, allCabinets as any[], 'sync')
+        : allCabinets;
     if (!cabinets) {
         return json({ error: 'Нет кабинетов с токенами' }, 400);
     }
@@ -301,6 +306,9 @@ Deno.serve(async (req) => {
             error_msg: cab.errorMsg || null,
             duration_ms: Date.now() - cab.cabStart,
         });
+        if (isServiceRole) {
+            await recordFeatureRun(admin, cab.id, 'sync', cab.status === 'success' ? 'ok' : 'error', cab.errorMsg || null);
+        }
 
         results.push({
             cabinet: cab.name,

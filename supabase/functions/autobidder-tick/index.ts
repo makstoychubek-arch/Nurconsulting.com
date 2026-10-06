@@ -9,6 +9,7 @@
 
 import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { filterFeatureActive, recordFeatureRun } from '../_shared/cabinet-features.ts';
 import {
     decideBid,
     getAdPosition,
@@ -239,7 +240,9 @@ Deno.serve(async (req) => {
     if (onlyCabinet) q = q.eq('id', onlyCabinet);
     const { data: cabinets, error: cabErr } = await q;
     if (cabErr) return json({ error: cabErr.message }, 500);
-    const list = (cabinets || []) as CabinetRow[];
+    // Тумблер «РК и автоставки»: выключенные кабинеты не трогаем.
+    const list = await filterFeatureActive(admin, (cabinets || []) as CabinetRow[], 'ads');
+    const adsActive = new Set(list.map((c) => c.id));
 
     const { data: ruleRows, error: ruleErr } = await admin
         .from('autobidder_rules')
@@ -259,6 +262,7 @@ Deno.serve(async (req) => {
         const r = raw as Record<string, unknown>;
         const camp = unwrapCamp(r.adv_campaigns);
         if (!camp) continue;
+        if (!adsActive.has(String(camp.cabinet_id))) continue;
         if (camp.campaign_type !== 'manual_bid') continue;
         if (onlyRule && r.id !== onlyRule) continue;
         rules.push({
@@ -352,6 +356,13 @@ Deno.serve(async (req) => {
         console.error('[autobidder-tick]', cab.name, err);
         return { cabinet_id: cab.id, name: cab.name, ok: false, error: err };
     });
+
+    if (!dryRun) {
+        await Promise.all(results.map((r, i) => recordFeatureRun(
+            admin, list[i].id, 'ads', (r as { ok?: boolean }).ok === false ? 'error' : 'ok',
+            (r as { error?: string }).error || null,
+        )));
+    }
 
     return json({
         ok: true,

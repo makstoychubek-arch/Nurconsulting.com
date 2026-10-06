@@ -7,6 +7,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { toOrderEventRows } from '../_shared/order-events.ts';
+import { filterFeatureActive, recordFeatureRun } from '../_shared/cabinet-features.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -41,7 +42,9 @@ async function run(admin: any) {
         .not('wb_token', 'is', null)
         .gt('wb_token', '')
         .eq('nr_managed', true); // только кабинеты команды
-    const list = ((cabs || []) as Cab[]).filter((c) => sanitize(c.wb_token).length > 50);
+    const withToken = ((cabs || []) as Cab[]).filter((c) => sanitize(c.wb_token).length > 50);
+    // Тумблер «Уведомления о заказах».
+    const list = await filterFeatureActive(admin, withToken, 'order_alerts');
     if (!list.length) return;
 
     // Чистим старое раз за запуск.
@@ -55,7 +58,11 @@ async function run(admin: any) {
 
 async function pollCabinet(admin: any, cab: Cab) {
     const res = await fetch(`${MARKET_API}/api/v3/orders/new`, { headers: { Authorization: sanitize(cab.wb_token) } });
-    if (!res.ok) return; // нет права «Маркетплейс» или лимит: просто пропускаем, повторим через интервал
+    if (!res.ok) {
+        // нет права «Маркетплейс» или лимит: пропускаем, повторим через интервал; причину видно в настройках кабинета
+        await recordFeatureRun(admin, cab.id, 'order_alerts', 'error', res.status === 401 || res.status === 403 ? 'Токен WB без права «Маркетплейс» или недействителен' : `WB ответил ${res.status}`);
+        return;
+    }
     const payload = await res.json().catch(() => null);
 
     // Заказы, что уже висели в «новых» (первый опрос кабинета, сбой связи), пишутся без звука: см. FRESH_ORDER_MS.

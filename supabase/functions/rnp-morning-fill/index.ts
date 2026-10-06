@@ -25,6 +25,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { filterFeatureActive, recordFeatureRun } from '../_shared/cabinet-features.ts';
 import { orderPriceWithDisc } from '../_shared/wb-order-price.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { applyKeepFunnelOrders, funnelDayMetricFields, moscowYmd, wbFunnelWindow } from '../_shared/wb-funnel-day.ts';
@@ -89,12 +90,15 @@ Deno.serve(async (req) => {
         .eq('nr_managed', true); // только кабинеты команды, не клиентов
     if (cabErr) return json({ error: cabErr.message }, 500);
 
-    const targets = (cabinets || []).filter((c) => (
+    const groupTargets = (cabinets || []).filter((c) => (
         groupAll
             ? Object.values(GROUPS).some((g) => g.match(String(c.name || '')))
             : Boolean(group?.match(String(c.name || '')))
     ));
-    if (!targets.length) return json({ error: `Нет кабинетов для группы ${groupKey}` }, 400);
+    if (!groupTargets.length) return json({ error: `Нет кабинетов для группы ${groupKey}` }, 400);
+    // Тумблер «Утреннее заполнение РНП»: выключенные кабинеты пропускаем.
+    const targets = await filterFeatureActive(admin, groupTargets, 'rnp_morning');
+    if (!targets.length) return json({ ok: true, skipped: 'feature_off', group: groupKey });
 
     const groupTitle = groupAll ? 'все кабинеты' : (group?.title || groupKey);
     const tg: { start: Record<string, unknown>; done: Record<string, unknown> } = {
@@ -194,6 +198,11 @@ Deno.serve(async (req) => {
             }
         }
     }
+
+    await Promise.all(results.map((r) => recordFeatureRun(
+        admin, String(r.id), 'rnp_morning', r.status === 'done' ? 'ok' : 'error',
+        r.status === 'done' ? null : String(r.error || 'не завершено'),
+    )));
 
     return json({
         ok: results.every((r) => r.status === 'done'),
