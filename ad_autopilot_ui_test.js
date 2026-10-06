@@ -2,6 +2,7 @@
 const fs = require('fs');
 const assert = require('assert');
 const ui = fs.readFileSync('ad-autopilot-ui.js', 'utf8');
+new Function(ui); // файл должен хотя бы разбираться без синтаксических ошибок
 const dash = fs.readFileSync('dashboard.html', 'utf8');
 const fn = fs.readFileSync('supabase/functions/ad-autopilot/index.ts', 'utf8');
 const mig = fs.readFileSync('supabase/migrations/20261006190000_ad_autopilot.sql', 'utf8');
@@ -20,4 +21,5 @@ assert.ok(ads.includes('autopilotToggleHtml') && ads.includes('adp-tg') && ads.i
 assert.ok(!ui.includes('data-cid') && !ui.includes('adp-camps'), 'списка галочек больше нет');
 assert.ok(ui.includes("from('ad_autopilot_campaigns').upsert") && ui.includes("from('ad_autopilot_campaigns').delete()"), 'переключатель пишет и убирает кампанию');
 assert.ok(ui.includes('.adp-tg.on{background:#22c55e') && ui.includes('left:calc(50% - 8px)'), 'выключен: ползунок по центру, включён: зелёный');
+assert.ok(ui.includes('content:"авто"'), 'у переключателя подпись «авто»');
 console.log('ad_autopilot_ui_test: ok');
