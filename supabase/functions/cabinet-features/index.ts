@@ -98,6 +98,7 @@ function featureState(key: FeatureKey, loaded: any) {
         feature: key,
         title: meta.title,
         hint: meta.hint,
+        agent: meta.agent,
         enabled: row ? row.enabled !== false : true,
         active: on,
         paused_until: row?.paused_until && new Date(row.paused_until).getTime() > Date.now() ? row.paused_until : null,

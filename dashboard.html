@@ -4862,6 +4862,7 @@
         .ft-row, .ft-all { display: grid; grid-template-columns: 1fr auto; gap: 8px 14px; align-items: center; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); }
         .ft-all { margin-bottom: 10px; background: var(--accent-soft); border-color: var(--accent-border); }
         .ft-title { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+        .ft-agent { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 8px; margin-right: 8px; border-radius: 8px; background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-border); vertical-align: 1px; }
         .ft-hint { font-size: 12px; color: var(--text-muted); }
         .ft-chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 1px; }
         .ft-chip--on { background: rgba(34,197,94,.16); color: #16a34a; }
@@ -7633,10 +7634,9 @@
                         <img src="/img/agents/akylai-smile.svg" alt="" width="76" height="76">
                         <b>Акылай</b><span>Младший менеджер · отзывы</span>
                     </button>
-                    <button type="button" class="ak-agent ak-agent--soon" data-agent="manas" onclick="akylaiSoon('manas')"><span class="ak-soon">Скоро</span><img src="/img/agents/manas.svg" alt="" width="76" height="76"><b>Манас</b><span>Реклама</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
-                    <button type="button" class="ak-agent ak-agent--soon" data-agent="marlen" onclick="akylaiSoon('marlen')"><span class="ak-soon">Скоро</span><img src="/img/agents/marlen.svg" alt="" width="76" height="76"><b>Марлен</b><span>Логист</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
-                    <button type="button" class="ak-agent ak-agent--soon" data-agent="izat" onclick="akylaiSoon('izat')"><span class="ak-soon">Скоро</span><img src="/img/agents/izat.svg" alt="" width="76" height="76"><b>Изат</b><span>Цены и доступы</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
-                    <button type="button" class="ak-agent ak-agent--soon" data-agent="dastan" onclick="akylaiSoon('dastan')"><span class="ak-soon">Скоро</span><img src="/img/agents/dastan.svg" alt="" width="76" height="76"><b>Дастан</b><span>Позиции</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
+                    <button type="button" class="ak-agent ak-agent--soon" data-agent="amina" onclick="akylaiSoon('amina')"><span class="ak-soon">Скоро</span><img src="/img/agents/amina.svg" alt="" width="76" height="76"><b>Амина</b><span>Реклама и ставки</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
+                    <button type="button" class="ak-agent ak-agent--soon" data-agent="anton" onclick="akylaiSoon('anton')"><span class="ak-soon">Скоро</span><img src="/img/agents/anton.svg" alt="" width="76" height="76"><b>Антон</b><span>Заказы и склады</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
+                    <button type="button" class="ak-agent ak-agent--soon" data-agent="saule" onclick="akylaiSoon('saule')"><span class="ak-soon">Скоро</span><img src="/img/agents/saule.svg" alt="" width="76" height="76"><b>Сауле</b><span>Цены и продажи</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
                 </div>
                 <div class="ak-stage hidden" id="ak-stage">
                     <div class="ak-talk">
@@ -7825,7 +7825,7 @@
                         <ul class="pricing-features">
                         <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Всё из тарифа «Базовый»</span></li>
                         <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Дашборд: продажи, заказы, остатки, прибыль</span></li>
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Марлен — логист: ежедневный отчёт по заказам, FBO и FBS отдельно <em>(скоро)</em></span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Антон — заказы и склады: ежедневный отчёт по заказам, FBO и FBS отдельно <em>(скоро)</em></span></li>
                         </ul>
                         <a class="pricing-btn pricing-btn--accent" href="https://wa.me/996502446688?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%21%20%D0%A5%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D1%8C%20%D1%82%D0%B0%D1%80%D0%B8%D1%84%20%C2%AB%D0%91%D0%B8%D0%B7%D0%BD%D0%B5%D1%81%C2%BB%20%D0%B2%20NR%20Space." target="_blank" rel="noopener">Хочу этот тариф</a>
                     </article>
@@ -7837,7 +7837,7 @@
                         <ul class="pricing-features">
                         <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Всё из тарифа «Бизнес»</span></li>
                         <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>РНП, Контроль РК, Товары, Сводный отчёт — все работающие разделы кабинета</span></li>
-                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Все агенты на максимум: Манас, Изат, Дастан <em>(скоро)</em></span></li>
+                        <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Все агенты на максимум: Амина, Сауле <em>(скоро)</em></span></li>
                         <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Новые функции сайта по мере выхода</span></li>
                         </ul>
                         <a class="pricing-btn pricing-btn--secondary" href="https://wa.me/996502446688?text=%D0%97%D0%B4%D1%80%D0%B0%D0%B2%D1%81%D1%82%D0%B2%D1%83%D0%B9%D1%82%D0%B5%21%20%D0%A5%D0%BE%D1%87%D1%83%20%D0%BF%D0%BE%D0%B4%D0%BA%D0%BB%D1%8E%D1%87%D0%B8%D1%82%D1%8C%20%D1%82%D0%B0%D1%80%D0%B8%D1%84%20%C2%AB%D0%A4%D1%83%D0%BB%D0%BB%C2%BB%20%D0%B2%20NR%20Space." target="_blank" rel="noopener">Хочу этот тариф</a>
@@ -19017,10 +19017,9 @@
     const GENERIC = 'Не получилось проверить. Попробуйте ещё раз через минуту.';
     // Агенты «Скоро»: только то, что они реально будут уметь. Заявка — в WhatsApp NR.
     const AK_SOON = {
-        manas: { name: 'Манас', text: 'Я Манас, отвечаю за рекламу в NR Space. Веду ставки по кампаниям и несколько раз в день присылаю коротко: что изменил и почему.' },
-        marlen: { name: 'Марлен', text: 'Я Марлен, логист NR Space. Каждый день присылаю Excel с заказами по артикулам, отдельно FBO и FBS, и напоминаю про сроки отгрузки.' },
-        izat: { name: 'Изат', text: 'Я Изат. Сначала вы группируете артикулы, потом даёте команду, например «снизить цену на свитеры на 10%». Я покажу список «было → стало» и применю только после вашего подтверждения.' },
-        dastan: { name: 'Дастан', text: 'Каждый день фиксирую позиции ваших товаров по нужным ключам и показываю, где вы выросли или упали.' },
+        amina: { name: 'Амина', text: 'Я Амина, отвечаю за рекламу в NR Space. Веду ставки по кампаниям и несколько раз в день присылаю коротко: что изменила и почему.' },
+        anton: { name: 'Антон', text: 'Я Антон, отвечаю за заказы и склады NR Space. Каждый день присылаю Excel с заказами по артикулам, отдельно FBO и FBS, и напоминаю про сроки отгрузки.' },
+        saule: { name: 'Сауле', text: 'Я Сауле. Сначала вы группируете артикулы, потом даёте команду, например «снизить цену на свитеры на 10%». Я покажу список «было → стало» и применю только после вашего подтверждения.' },
     };
     const AK_SOON_NOTE = 'Скоро. Оставьте заявку, и мы напишем, когда агент заработает';
     const AK_WA = '996502446688';
@@ -19340,7 +19339,7 @@
         all.dataset.on = anyOn ? '1' : '0';
         list.innerHTML = ft.items.map((it) => (
             '<div class="ft-row" data-feature="' + it.feature + '">'
-            + '<div><div class="ft-title">' + esc(it.title) + chip(it) + '</div><div class="ft-hint">' + esc(it.hint) + '</div></div>'
+            + '<div><div class="ft-title"><span class="ft-agent">' + esc(it.agent || 'Система') + '</span>' + esc(it.title) + chip(it) + '</div><div class="ft-hint">' + esc(it.hint) + '</div></div>'
             + '<div class="ft-ctl">'
             + '<button type="button" class="ft-sw" role="switch" aria-checked="' + (it.enabled && !it.paused_until ? 'true' : 'false') + '" aria-label="' + esc(it.title) + '" data-ft-sw="' + it.feature + '"></button>'
             + pauseSelect(it.feature) + '</div>'
