@@ -18,9 +18,9 @@
         '.ads-hq-phone-card{cursor:pointer}',
         /* раскрытые товары */
         '.adx-detail{margin-top:10px;border-top:1px solid var(--border,rgba(0,0,0,.1));padding-top:8px;cursor:default}',
-        '.adx-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}.adx-tbl{width:100%;border-collapse:collapse;font-size:12.5px}.adx-tbl th{font-weight:600;color:var(--text-muted,#71717a);text-align:right;padding:4px 6px;white-space:nowrap}.adx-tbl td{padding:6px;text-align:right;border-top:1px solid var(--border,rgba(0,0,0,.07));white-space:nowrap}',
-        '.adx-tbl th:first-child,.adx-tbl td:first-child{text-align:left;white-space:normal;min-width:110px;max-width:150px}',
-        '.adx-nm{display:flex;align-items:center;gap:8px}.adx-nm img{width:26px;height:34px;object-fit:cover;border-radius:6px;background:var(--sel,#eee);flex:none}.adx-nm span{line-height:1.2;overflow-wrap:anywhere}',
+        '.adx-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}.adx-tbl{width:100%;border-collapse:collapse;font-size:12.5px}.adx-tbl th{font-weight:600;color:var(--text-muted,#71717a);text-align:right;padding:4px 6px;white-space:nowrap}.adx-tbl td{padding:6px 8px;text-align:right;border-top:1px solid var(--border,rgba(0,0,0,.07));white-space:nowrap}',
+        '.adx-tbl th:first-child,.adx-tbl td:first-child{text-align:left;white-space:normal;min-width:120px;max-width:170px;position:sticky;left:0;background:var(--surface,#222)}.adx-tbl td:first-child span{overflow-wrap:break-word;word-break:normal}',
+        '.adx-nm{display:flex;align-items:center;gap:8px}.adx-nm img{width:26px;height:34px;object-fit:cover;border-radius:6px;background:var(--sel,#eee);flex:none}.adx-nm span{line-height:1.2;overflow-wrap:break-word}',
         '.adx-good{color:#16a34a;font-weight:700}.adx-mid{color:#d97706;font-weight:700}.adx-bad{color:#dc2626;font-weight:700}.adx-tot td{font-weight:700}',
         '.adx-note{font-size:12px;color:var(--text-muted,#71717a);padding:6px 2px}',
         '.adx-detail-row>td{padding:6px 10px 12px!important;background:var(--bg)}',
@@ -114,11 +114,11 @@
             Object.keys(tot).forEach(function (k) { tot[k] += x[k]; });
             var info = d.names[x.nm] || {}, drr = x.rev > 0 ? 100 * x.spend / x.rev : null, cpo = x.orders > 0 ? x.spend / x.orders : null, ctr = x.views > 0 ? 100 * x.clicks / x.views : null;
             var img = info.photo_url ? '<img src="' + esc(info.photo_url) + '" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">' : '';
-            return '<tr><td><div class="adx-nm">' + img + '<span>' + esc(info.name || x.nm) + '</span></div></td><td>' + fmt(x.spend) + '</td><td>' + fmt(x.orders) + '</td><td>' + (cpo != null ? fmt(cpo) : '—') + '</td><td class="' + drrClass(drr) + '">' + (drr != null ? drr.toFixed(1) + '%' : '—') + '</td><td>' + (ctr != null ? ctr.toFixed(1) + '%' : '—') + '</td></tr>';
+            return '<tr><td><div class="adx-nm">' + img + '<span>' + esc(info.name || x.nm) + '</span></div></td><td>' + fmt(x.spend) + '</td><td>' + fmt(x.clicks) + '</td><td>' + (ctr != null ? ctr.toFixed(1) + '%' : '—') + '</td><td>' + fmt(x.orders) + '</td><td>' + (cpo != null ? fmt(cpo) : '—') + '</td><td class="' + drrClass(drr) + '">' + (drr != null ? drr.toFixed(1) + '%' : '—') + '</td></tr>';
         }).join('');
         var tdrr = tot.rev > 0 ? 100 * tot.spend / tot.rev : null;
-        return '<div class="adx-wrap"><table class="adx-tbl"><thead><tr><th>Товар</th><th>Расход</th><th>Заказы</th><th>Цена заказа</th><th>ДРР</th><th>CTR</th></tr></thead><tbody>' + body +
-            '<tr class="adx-tot"><td>Всего</td><td>' + fmt(tot.spend) + '</td><td>' + fmt(tot.orders) + '</td><td>' + (tot.orders ? fmt(tot.spend / tot.orders) : '—') + '</td><td class="' + drrClass(tdrr) + '">' + (tdrr != null ? tdrr.toFixed(1) + '%' : '—') + '</td><td>' + (tot.views ? (100 * tot.clicks / tot.views).toFixed(1) + '%' : '—') + '</td></tr></tbody></table></div>' +
+        return '<div class="adx-wrap"><table class="adx-tbl"><thead><tr><th>Товар</th><th>Расход</th><th>Клики</th><th>CTR</th><th>Заказы</th><th>Цена зак.</th><th>ДРР</th></tr></thead><tbody>' + body +
+            '<tr class="adx-tot"><td>Всего</td><td>' + fmt(tot.spend) + '</td><td>' + fmt(tot.clicks) + '</td><td>' + (tot.views ? (100 * tot.clicks / tot.views).toFixed(1) + '%' : '—') + '</td><td>' + fmt(tot.orders) + '</td><td>' + (tot.orders ? fmt(tot.spend / tot.orders) : '—') + '</td><td class="' + drrClass(tdrr) + '">' + (tdrr != null ? tdrr.toFixed(1) + '%' : '—') + '</td></tr></tbody></table></div>' +
             '<div class="adx-note">Период: ' + d.range.from + ' – ' + d.range.to + '. Зелёный ДРР до 7%, жёлтый до 15%, красный выше.</div>';
     }
 
