@@ -24,7 +24,7 @@
 
     var CSS = '#ad-autopilot-card{margin-bottom:16px}.adp{border:1px solid var(--border,rgba(0,0,0,.1));border-radius:16px;background:var(--surface,#fff);overflow:hidden}' +
         '.adp-head{display:flex;align-items:center;gap:12px;padding:12px 16px}.adp-title{font-weight:700;font-size:15px}.adp-sub{font-size:12px;color:var(--text-muted,#71717a)}' +
-        '.adp-x{border:0;background:transparent;color:var(--text-muted,#71717a);font-size:20px;line-height:1;cursor:pointer;padding:0 4px}.adx-pills{display:inline-flex;gap:6px;align-items:center;margin-right:6px}.adx-pill{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--border,rgba(0,0,0,.12));background:transparent;color:var(--text-secondary,#444);font:600 12px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap}.adx-pill i{width:7px;height:7px;border-radius:50%;background:#a1a1aa}.adx-pill i.live{background:#22c55e}.adx-pill i.dry{background:#f59e0b}.adx-pill.open{background:var(--sel,#eee)}.adp-head{cursor:default}' +
+        '.adp-x{border:0;background:transparent;color:var(--text-muted,#71717a);font-size:20px;line-height:1;cursor:pointer;padding:0 4px}.adx-pills{display:inline-flex;gap:2px;align-items:center}.adx-ico{position:relative}.adx-ico.open{background:var(--sel,#eee);color:var(--accent)}.adx-ico i{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:#a1a1aa}.adx-ico i.live{background:#22c55e}.adx-ico i.dry{background:#f59e0b}.adx-pill{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--border,rgba(0,0,0,.12));background:transparent;color:var(--text-secondary,#444);font:600 12px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap}.adx-pill i{width:7px;height:7px;border-radius:50%;background:#a1a1aa}.adx-pill i.live{background:#22c55e}.adx-pill i.dry{background:#f59e0b}.adx-pill.open{background:var(--sel,#eee)}.adp-head{cursor:default}' +
         '.adp-pill{margin-left:auto;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--sel,#eee);color:var(--text-secondary,#444)}' +
         '.adp-pill.live{background:rgba(22,163,74,.14);color:#15803d}.adp-pill.dry{background:rgba(245,158,11,.16);color:#b45309}' +
         '.adp-body{padding:4px 18px 18px;border-top:1px solid var(--border,rgba(0,0,0,.08))}.adp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0}' +
@@ -150,14 +150,15 @@
     function paintPill(mode) {
         var el = document.getElementById('adx-pill-ap');
         if (!el) return;
-        el.className = 'adx-pill' + (state.open ? ' open' : '');
+        el.className = 'rnp-tool-icon adx-ico' + (state.open ? ' open' : '');
         el.querySelector('i').className = mode === 'live' ? 'live' : mode === 'dry' ? 'dry' : '';
         el.title = mode === 'live' ? 'Автопилот: боевой' : mode === 'dry' ? 'Автопилот: пробный режим' : 'Автопилот выключен';
     }
     function ensurePill() {
         var box = pillBox();
         if (!box || document.getElementById('adx-pill-ap')) return;
-        var btn = h('button', { type: 'button', id: 'adx-pill-ap', class: 'adx-pill', onclick: function () { state.open = !state.open; if (state.open && !state.loaded) { load().catch(function () {}); } render(); } }, [h('i'), 'Автопилот']);
+        var btn = h('button', { type: 'button', id: 'adx-pill-ap', class: 'rnp-tool-icon adx-ico', onclick: function () { state.open = !state.open; if (state.open && !state.loaded) { load().catch(function () {}); } render(); } }, [h('i')]);
+        btn.insertAdjacentHTML('afterbegin', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"></path><path d="M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"></path></svg>');
         box.insertBefore(btn, box.firstChild);
         paintPill(modeOf(state.settings));
     }
