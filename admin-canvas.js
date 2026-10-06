@@ -882,7 +882,7 @@
     }
 
     function open() {
-        if (!isSuper()) return;
+        if (!isSuper() || window.innerWidth < 760) return; // на телефоне холст не нужен
         build();
         root.classList.add('open');
         try { localStorage.setItem(OPEN_KEY, '1'); } catch (e) { /* без хранилища просто не запомним */ }
@@ -902,7 +902,7 @@
         if (!btn) return;
         var pillEl = btn.querySelector('.rail-logo-name');
         btn.addEventListener('click', function (ev) {
-            if (!isSuper() || !ev.target.closest('.rail-logo-name')) return; // логотип NR и все остальные люди, как раньше, ведут на главный сайт
+            if (!isSuper() || window.innerWidth < 760 || !ev.target.closest('.rail-logo-name')) return; // логотип NR и все остальные люди, как раньше, ведут на главный сайт
             ev.preventDefault(); ev.stopPropagation();
             open();
         }, true);

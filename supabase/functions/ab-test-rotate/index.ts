@@ -26,6 +26,7 @@ import {
 } from '../_shared/wb-main-photo.ts';
 import { decideAbAutoStop } from '../_shared/ab-test-auto-stop.ts';
 import { attributeSnapshots, takeAdSnapshots } from '../_shared/ab-adv-snapshots.ts';
+import { decideRotation, isFinalWindow, quotaOf, windowImpressions } from '../_shared/ab-quota.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -856,7 +857,16 @@ async function rotateActiveTest(
     const intervalMin = Number(test.rotation_interval_min) || 60;
     const dueSince = test.last_rotated_at || test.started_at;
     const elapsedMs = dueSince ? Date.now() - new Date(String(dueSince)).getTime() : Infinity;
-    if (!opts.ignoreDue && elapsedMs < intervalMin * 60 * 1000) {
+    // Тест «по показам»: фото уходит, когда набрало квоту, а не по часам (поровну показов, а не минут).
+    const quota = quotaOf(test);
+    let windowImps = 0;
+    let rotateReason = 'time';
+    if (quota > 0 && !opts.ignoreDue) {
+        windowImps = await windowImpressions(admin, test, new Date(String(dueSince || new Date().toISOString())));
+        const d = decideRotation({ quota, intervalMin, elapsedMs, windowImpressions: windowImps });
+        if (!d.due) return { test_id: test.id, skipped: 'waiting_quota', window_impressions: Math.round(windowImps), quota };
+        rotateReason = d.reason;
+    } else if (!opts.ignoreDue && elapsedMs < intervalMin * 60 * 1000) {
         return { test_id: test.id, skipped: 'not_due' };
     }
 
@@ -868,6 +878,11 @@ async function rotateActiveTest(
     if (vErr) throw new Error(vErr.message);
     if (!variants || variants.length < 2) {
         return { test_id: test.id, skipped: 'not_enough_variants' };
+    }
+
+    if (quota > 0 && rotateReason === 'quota'
+        && isFinalWindow(variants, Number(test.current_variant_index) || 0, windowImps, quota, (test.settings as any)?.autoStop !== false)) {
+        return { test_id: test.id, skipped: 'final_window', window_impressions: Math.round(windowImps), quota };
     }
 
     const { data: cab, error: cabErr } = await admin
@@ -895,7 +910,7 @@ async function rotateActiveTest(
 
     if (currentVariant) {
         await admin.from('ab_test_variants').update({
-            minutes_active: (currentVariant.minutes_active || 0) + intervalMin,
+            minutes_active: (currentVariant.minutes_active || 0) + (quota > 0 && Number.isFinite(elapsedMs) ? Math.max(1, Math.round(elapsedMs / 60000)) : intervalMin),
             is_currently_on_wb: false,
         }).eq('id', currentVariant.id);
     }
@@ -925,6 +940,7 @@ async function rotateActiveTest(
         finished: shouldFinish,
         photo_slot: WB_MAIN_PHOTO_SLOT,
         nm_id: test.nm_id,
+        ...(quota > 0 ? { by: rotateReason, window_impressions: Math.round(windowImps), quota } : {}),
     };
 }
 
