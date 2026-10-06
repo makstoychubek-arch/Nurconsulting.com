@@ -6,6 +6,9 @@
         '#adv-view-ads .adv-camp-action-btn{display:none!important}',
         /* автобиддер: прячем заголовок и сам блок, открывается маленькой кнопкой */
         '#adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}',
+        /* шапка РК как в РНП: одна карточка с панелью и плашками показателей */
+        '#adv-view-ads .ads-hq-bulk{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:8px 10px;flex-wrap:nowrap!important}#adv-view-ads .ads-hq-kpi-bar{background:transparent;padding:0;gap:6px}',
+        '#adv-view-ads .ads-hq-kpi{background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:8px;padding:5px 10px}#adv-view-ads .ads-hq-kpi-label{font-size:11px;margin:0}#adv-view-ads .ads-hq-kpi-value{font-size:15px;line-height:1.2}',
         '#adv-view-ads details.ads-hq-advanced{display:none}#adv-view-ads details.ads-hq-advanced.adx-show{display:block}#adv-view-ads details.ads-hq-advanced>summary{display:none}',
         /* телефон: компактная карточка */
         '.ads-hq-phone-card.adx-compact .ads-hq-phone-type,.ads-hq-phone-card.adx-compact .ads-hq-phone-metrics{display:none}',

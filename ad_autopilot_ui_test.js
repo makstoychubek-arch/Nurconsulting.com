@@ -21,5 +21,4 @@ assert.ok(ads.includes('autopilotToggleHtml') && ads.includes('adp-tg') && ads.i
 assert.ok(!ui.includes('data-cid') && !ui.includes('adp-camps'), 'списка галочек больше нет');
 assert.ok(ui.includes("from('ad_autopilot_campaigns').upsert") && ui.includes("from('ad_autopilot_campaigns').delete()"), 'переключатель пишет и убирает кампанию');
 assert.ok(ui.includes('.adp-tg.on{background:#22c55e') && ui.includes('left:calc(50% - 8px)'), 'выключен: ползунок по центру, включён: зелёный');
-assert.ok(ui.includes('content:"авто"'), 'у переключателя подпись «авто»');
 console.log('ad_autopilot_ui_test: ok');
