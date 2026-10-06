@@ -5,6 +5,7 @@
     var CSS = [
         '#adv-view-ads .adv-camp-action-btn{display:none!important}',
         /* автобиддер: прячем заголовок и сам блок, открывается маленькой кнопкой */
+        '#adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}',
         '#adv-view-ads details.ads-hq-advanced{display:none}#adv-view-ads details.ads-hq-advanced.adx-show{display:block}#adv-view-ads details.ads-hq-advanced>summary{display:none}',
         /* телефон: компактная карточка */
         '.ads-hq-phone-card.adx-compact .ads-hq-phone-type,.ads-hq-phone-card.adx-compact .ads-hq-phone-metrics{display:none}',
@@ -40,8 +41,8 @@
         var det = document.querySelector('#adv-view-ads details.ads-hq-advanced');
         if (!box || !det || document.getElementById('adx-pill-bid')) return;
         var btn = document.createElement('button');
-        btn.type = 'button'; btn.id = 'adx-pill-bid'; btn.className = 'adx-pill'; btn.title = 'Автобиддер: ставка сама держит позицию';
-        btn.innerHTML = '<i></i>Автобиддер';
+        btn.type = 'button'; btn.id = 'adx-pill-bid'; btn.className = 'rnp-tool-icon adx-ico'; btn.title = 'Автобиддер: ставка сама держит позицию';
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"></path><circle cx="16" cy="7" r="2"></circle><circle cx="8" cy="17" r="2"></circle></svg>';
         btn.addEventListener('click', function () {
             var show = !det.classList.contains('adx-show');
             det.classList.toggle('adx-show', show); det.open = show; btn.classList.toggle('open', show);
