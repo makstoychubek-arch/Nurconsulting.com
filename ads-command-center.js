@@ -2243,6 +2243,10 @@
         state.loading = true;
         try {
             await fetchAndRender();
+        } catch (e) {
+            const note = document.getElementById('ads-hq-freshness');
+            if (note && gen === state.loadGen) note.textContent = 'не удалось обновить';
+            if (typeof console !== 'undefined') console.warn('ads load failed', e);
         } finally {
             if (gen === state.loadGen) state.loading = false;
         }

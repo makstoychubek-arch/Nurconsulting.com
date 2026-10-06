@@ -8367,7 +8367,7 @@
 <script src="/dist/rnp-plan-fact.4fa5c941bc.min.js"></script>
 <script src="/dist/wb-formulas.ff04c637b5.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.5be6576e41.min.js"></script>
+<script src="/dist/ads-command-center.04b653399b.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
@@ -11699,7 +11699,7 @@
                     onfocus="_planCellFocus(this)" onblur="_planCellCommit(this)"
                     onkeydown="_planCellKeydown(event,this)" onpaste="_planCellPaste(event,this)"></td>`;
             }).join('');
-            return `<tr><td class="plan-art-col">${a.name}<div class="plan-art-nm">${a.nm_id}</div></td>${cells}</tr>`;
+            return `<tr><td class="plan-art-col">${escapeHtml(a.name)}<div class="plan-art-nm">${escapeHtml(a.nm_id)}</div></td>${cells}</tr>`;
         }).join('');
 
         container.innerHTML = `<table class="plan-grid-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
@@ -13274,11 +13274,16 @@
     });
 
     async function loadCabinets() {
-        const { data } = await supabase
+        const { data, error: cabErr } = await supabase
             .from('cabinets')
             .select('id, name')
             .order('name');
 
+        if (cabErr) {
+            // Сбой сети не должен выглядеть как «кабинетов нет» и стирать выбранный кабинет.
+            try { showPremiumModal('error', 'Не удалось загрузить кабинеты', 'Проверьте соединение и обновите страницу.'); } catch (_) {}
+            return;
+        }
         cabinetsLoaded = true;
         const visible = visibleCabinets(data || []);
         if (!visible.length) {
@@ -14828,7 +14833,7 @@
     function renderPositionsTable() {
         const tbody = document.getElementById('positions-table');
         if (trackedKeywords.length === 0) { tbody.innerHTML = '<tr><td colspan="5" class="text-center py-10" style="color:var(--text-muted)">Добавьте артикул и ключ для отслеживания</td></tr>'; return; }
-        tbody.innerHTML = trackedKeywords.map(k => `<tr><td style="color:var(--accent);font-weight:600">${k.nmid}</td><td style="color:var(--text-primary)">${k.keyword}</td><td style="color:var(--text-primary)">${k.position || '—'}</td><td style="color:var(--text-muted)">${k.isAd?'Реклама':'Органика'}</td><td style="color:var(--text-muted)">${k.checked||'не проверено'}</td></tr>`).join('');
+        tbody.innerHTML = trackedKeywords.map(k => `<tr><td style="color:var(--accent);font-weight:600">${escapeHtml(k.nmid)}</td><td style="color:var(--text-primary)">${escapeHtml(k.keyword)}</td><td style="color:var(--text-primary)">${k.position || '—'}</td><td style="color:var(--text-muted)">${k.isAd?'Реклама':'Органика'}</td><td style="color:var(--text-muted)">${k.checked||'не проверено'}</td></tr>`).join('');
     }
     // Реальный трекер позиций через seller-analytics-api
     // (POST /api/v2/search-report/product/orders) — доступен только с
