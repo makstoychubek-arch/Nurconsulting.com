@@ -23,7 +23,8 @@
     function fmtTime(iso) { try { return new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) { return iso; } }
 
     var CSS = '#ad-autopilot-card{margin-bottom:16px}.adp{border:1px solid var(--border,rgba(0,0,0,.1));border-radius:16px;background:var(--surface,#fff);overflow:hidden}' +
-        '.adp-head{display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer}.adp-title{font-weight:700;font-size:15px}.adp-sub{font-size:12px;color:var(--text-muted,#71717a)}' +
+        '.adp-head{display:flex;align-items:center;gap:12px;padding:12px 16px}.adp-title{font-weight:700;font-size:15px}.adp-sub{font-size:12px;color:var(--text-muted,#71717a)}' +
+        '.adp-x{border:0;background:transparent;color:var(--text-muted,#71717a);font-size:20px;line-height:1;cursor:pointer;padding:0 4px}.adx-pills{display:inline-flex;gap:6px;align-items:center;margin-right:6px}.adx-pill{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--border,rgba(0,0,0,.12));background:transparent;color:var(--text-secondary,#444);font:600 12px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap}.adx-pill i{width:7px;height:7px;border-radius:50%;background:#a1a1aa}.adx-pill i.live{background:#22c55e}.adx-pill i.dry{background:#f59e0b}.adx-pill.open{background:var(--sel,#eee)}.adp-head{cursor:default}' +
         '.adp-pill{margin-left:auto;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--sel,#eee);color:var(--text-secondary,#444)}' +
         '.adp-pill.live{background:rgba(22,163,74,.14);color:#15803d}.adp-pill.dry{background:rgba(245,158,11,.16);color:#b45309}' +
         '.adp-body{padding:4px 18px 18px;border-top:1px solid var(--border,rgba(0,0,0,.08))}.adp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0}' +
@@ -128,14 +129,37 @@
     function render() {
         if (!root) return;
         var s = state.settings || {}, mode = modeOf(state.settings);
-        var pill = h('span', { class: 'adp-pill ' + mode, text: mode === 'live' ? 'Боевой' : mode === 'dry' ? 'Пробный' : 'Выключен' });
-        var head = h('div', { class: 'adp-head', onclick: function () { state.open = !state.open; render(); } }, [
-            h('div', {}, [h('div', { class: 'adp-title', text: 'Автопилот ставок' }), h('div', { class: 'adp-sub', text: 'Сам по крону подгоняет ставки каждого артикула под выгодную цену заказа' })]), pill,
-        ]);
-        var card = h('div', { class: 'adp' }, [head]);
-        if (state.open) card.appendChild(body(s, mode));
+        paintPill(mode);
         root.textContent = '';
+        root.style.display = state.open ? '' : 'none';
+        if (!state.open) return;
+        var title = h('div', { class: 'adp-title', text: 'Автопилот ставок' });
+        var close = h('button', { class: 'adp-x', title: 'Закрыть', text: '×', onclick: function () { state.open = false; render(); } });
+        var card = h('div', { class: 'adp' }, [h('div', { class: 'adp-head' }, [title, h('span', { class: 'adp-pill ' + mode, text: mode === 'live' ? 'Боевой' : mode === 'dry' ? 'Пробный' : 'Выключен' }), close]), body(s, mode)]);
         root.appendChild(card);
+    }
+
+    /* Маленькие кнопки справа в панели инструментов: «Автопилот» (тут) и «Автобиддер» (ads-campaign-detail.js) */
+    function pillBox() {
+        var tools = document.getElementById('ads-hq-tools');
+        if (!tools) return null;
+        var box = document.getElementById('adx-pills');
+        if (!box) { box = h('div', { id: 'adx-pills', class: 'adx-pills' }); tools.insertBefore(box, tools.firstChild); }
+        return box;
+    }
+    function paintPill(mode) {
+        var el = document.getElementById('adx-pill-ap');
+        if (!el) return;
+        el.className = 'adx-pill' + (state.open ? ' open' : '');
+        el.querySelector('i').className = mode === 'live' ? 'live' : mode === 'dry' ? 'dry' : '';
+        el.title = mode === 'live' ? 'Автопилот: боевой' : mode === 'dry' ? 'Автопилот: пробный режим' : 'Автопилот выключен';
+    }
+    function ensurePill() {
+        var box = pillBox();
+        if (!box || document.getElementById('adx-pill-ap')) return;
+        var btn = h('button', { type: 'button', id: 'adx-pill-ap', class: 'adx-pill', onclick: function () { state.open = !state.open; if (state.open && !state.loaded) { load().catch(function () {}); } render(); } }, [h('i'), 'Автопилот']);
+        box.insertBefore(btn, box.firstChild);
+        paintPill(modeOf(state.settings));
     }
 
     function field(label, id, value, attrs) {
@@ -224,8 +248,11 @@
         if (!tab || !tab.classList.contains('active')) return;
         if (!document.getElementById('adp-style')) document.head.appendChild(h('style', { id: 'adp-style', text: CSS }));
         watchTable();
+        ensurePill();
         if (!auto.loaded) loadAuto().catch(function () {});
         if (!ensureRoot()) return;
+        var bulk = document.querySelector('#adv-view-ads .ads-hq-bulk');
+        if (bulk && root.previousElementSibling !== bulk && root.parentNode !== bulk.parentNode) bulk.parentNode.insertBefore(root, bulk.nextSibling);
         var cab = cabId();
         if (cab && (cab !== state.cab || !state.loaded)) { state.loaded = false; load().catch(function () {}); }
         else if (!root.firstChild && state.loaded) render();
