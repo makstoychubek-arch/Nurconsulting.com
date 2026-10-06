@@ -7382,6 +7382,10 @@
                                 </div>
                             </div>
                             <label class="ab-check">
+                                <input type="checkbox" id="ab-rotate-by-impressions" checked style="accent-color:var(--accent)">
+                                <span>Менять фото, когда оно набрало «Показы на фото». Интервал тогда не важен: если показов нет 6 часов, фото сменится само</span>
+                            </label>
+                            <label class="ab-check">
                                 <input type="checkbox" id="ab-stop-on-winner" checked style="accent-color:var(--accent)">
                                 Стоп при победителе с CTR от цели
                             </label>
@@ -8315,7 +8319,7 @@
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
-<script src="/dist/admin-canvas.936e9a3df7.min.js"></script>
+<script src="/dist/admin-canvas.d45b628a46.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
@@ -15416,6 +15420,7 @@
             minCtr: Number(document.getElementById('ab-min-ctr')?.value) || 5,
             stopCampaigns: true,
             minImpressions: parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 2000,
+            rotateByImpressions: document.getElementById('ab-rotate-by-impressions')?.checked !== false && abWizardSources.ads && abSelectedCampaigns.size > 0,
         });
 
         try {
@@ -15716,7 +15721,7 @@
             const tab = document.getElementById('tab-ab-testing');
             if (tab && tab.classList.contains('active') && !document.hidden) loadABTests();
         }, 60 * 1000);
-        allABTests.filter(t => t.status === 'active').forEach(test => {
+        allABTests.filter(t => t.status === 'active' && t.settings?.rotateByImpressions !== true).forEach(test => {
             const intervalMs = (test.rotation_interval_min || 60) * 60 * 1000;
             const dueSince = test.last_rotated_at || test.started_at;
             const elapsed = dueSince ? Date.now() - new Date(dueSince).getTime() : 0;
@@ -15735,6 +15740,15 @@
             const progressEl = document.getElementById(`progress-${test.id}`);
             const nextEl = document.getElementById(`next-rotate-${test.id}`);
             if (!progressEl || !nextEl) return;
+            if (test.settings?.rotateByImpressions === true) {
+                // Фото меняется по показам, часов тут нет: показываем, сколько набрало текущее фото.
+                const quota = Number(test.settings?.minImpressions) || 2000;
+                const cur = (test.variants || []).find(v => v.is_currently_on_wb);
+                const have = Math.max(0, Math.round(Number(cur?.impressions) || 0));
+                progressEl.style.width = Math.min(100, (have / quota) * 100) + '%';
+                nextEl.textContent = 'по показам: ' + have.toLocaleString('ru-RU') + ' из ' + quota.toLocaleString('ru-RU');
+                return;
+            }
             const intervalMs = (test.rotation_interval_min || 60) * 60 * 1000;
             const elapsed = test.last_rotated_at ? Date.now() - new Date(test.last_rotated_at).getTime() : intervalMs;
             progressEl.style.width = Math.min(100, (elapsed / intervalMs) * 100) + '%';
@@ -15749,6 +15763,7 @@
         // просто выходим, не дублируя ротацию.
         const { data: freshTest } = await supabase.from('ab_tests').select('*').eq('id', testId).maybeSingle();
         if (!freshTest || freshTest.status !== 'active') return;
+        if (freshTest.settings?.rotateByImpressions === true) return; // меняет сервер по показам
         const intervalMsCheck = (freshTest.rotation_interval_min || 60) * 60 * 1000;
         const dueSinceCheck = freshTest.last_rotated_at || freshTest.started_at;
         const elapsedCheck = dueSinceCheck ? Date.now() - new Date(dueSinceCheck).getTime() : Infinity;
@@ -19492,7 +19507,18 @@
 <script>
     /* Админский холст: открывается оранжевой плашкой «Space» у логотипа, только для супер-админа */
     (function () {
-        function boot() { if (window.NRCanvas) window.NRCanvas.init({ supabase: supabase, isSuperAdmin: function () { return isSuperAdmin === true; } }); }
+        var dbSuper = false; // супер-админ по базе (флаг в spaces): так холст открывается и тем, кого владелец назначил в настройках
+        function boot() {
+            if (!window.NRCanvas) return;
+            window.NRCanvas.init({ supabase: supabase, isSuperAdmin: function () { return isSuperAdmin === true || dbSuper; } });
+            var tries = 0, t = setInterval(function () {
+                tries++;
+                if (isSuperAdmin === true || tries > 20) { clearInterval(t); return; }
+                if (typeof currentUserId !== 'string' || !currentUserId) return;
+                clearInterval(t);
+                supabase.rpc('is_super_admin').then(function (r) { dbSuper = !!(r && r.data === true); });
+            }, 1000);
+        }
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
     })();
 </script>
