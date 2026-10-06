@@ -11173,17 +11173,17 @@
         if (drains.length) {
             const sum = drains.reduce((s, c) => s + c.spend, 0);
             const names = drains.slice(0, 3).map(c => `«${escapeHtml(c.name)}»`).join(', ');
-            alerts.push({ type: 'warn', icon: '⚠️', html: `Слив бюджета без заказов: ${drains.length === 1 ? 'кампания' : `${drains.length} кампании`} ${names}${drains.length > 3 ? ' и др.' : ''} потратили <b>${fmt(Math.round(sum))} ₽</b> за период без единого заказа.` });
+            alerts.push({ type: 'warn', icon: '', html: `Слив бюджета без заказов: ${drains.length === 1 ? 'кампания' : `${drains.length} кампании`} ${names}${drains.length > 3 ? ' и др.' : ''} потратили <b>${fmt(Math.round(sum))} ₽</b> за период без единого заказа.` });
         }
 
         if (totalSpend > 0 && efficiency > 0 && efficiency < 100) {
-            alerts.push({ type: 'warn', icon: '📉', html: `Общая эффективность рекламы <b>${fmtEfficiency(efficiency)}</b> — расход на рекламу пока не окупается выручкой от рекламных заказов.` });
+            alerts.push({ type: 'warn', icon: '', html: `Общая эффективность рекламы <b>${fmtEfficiency(efficiency)}</b> — расход на рекламу пока не окупается выручкой от рекламных заказов.` });
         }
 
         const forgottenPaused = campaigns.filter(c => c.status === 11 && c.orders > 0).sort((a, b) => b.orders - a.orders);
         if (forgottenPaused.length) {
             const names = forgottenPaused.slice(0, 3).map(c => `«${escapeHtml(c.name)}» (${fmt(c.orders)} зак.)`).join(', ');
-            alerts.push({ type: 'info', icon: '⏸', html: `На паузе, но приносили заказы за период: ${names}${forgottenPaused.length > 3 ? ' и др.' : ''} — возможно, стоит вернуть в работу.` });
+            alerts.push({ type: 'info', icon: '', html: `На паузе, но приносили заказы за период: ${names}${forgottenPaused.length > 3 ? ' и др.' : ''} — возможно, стоит вернуть в работу.` });
         }
 
         if (!alerts.length) { wrap.classList.add('hidden'); wrap.innerHTML = ''; return; }
@@ -11303,7 +11303,7 @@
         ]);
         window._autobidderByCampaign = new Map((rules || []).map((r) => [String(r.campaign_id), r]));
         if (!rules.length) {
-            listEl.innerHTML = `<div class="text-sm" style="color:var(--text-muted)">Правил ещё нет. Откройте «Кампании» и нажмите «⚡ Авто» у нужной РК — задайте цель и коридор ставки.</div>`;
+            listEl.innerHTML = `<div class="text-sm" style="color:var(--text-muted)">Правил ещё нет. Откройте «Кампании» и нажмите «Авто» у нужной РК — задайте цель и коридор ставки.</div>`;
         } else {
             listEl.innerHTML = rules.map((r) => {
                 const name = names.get(String(r.campaign_id)) || `Кампания ${r.campaign_id}`;
@@ -16081,7 +16081,7 @@
         if (toggleEl) {
             toggleEl.innerHTML = `
                 <span class="text-xs" style="color:var(--text-muted)">Источник данных:</span>
-                <button type="button" class="ui-btn ui-btn-secondary ${source === 'ads' ? 'active' : ''}" style="font-size:11px;padding:5px 10px" onclick="openABReportModal('${testId}','ads')">📣 Реклама</button>
+                <button type="button" class="ui-btn ui-btn-secondary ${source === 'ads' ? 'active' : ''}" style="font-size:11px;padding:5px 10px" onclick="openABReportModal('${testId}','ads')">Реклама</button>
                 <button type="button" class="ui-btn ui-btn-secondary ${source === 'funnel' ? 'active' : ''}" style="font-size:11px;padding:5px 10px" ${!hasFunnelData ? 'disabled title="Нет данных по воронке (не включена в настройках теста, либо тест старше 7 дней — ограничение самого WB API)"' : ''} onclick="openABReportModal('${testId}','funnel')">🛒 Воронка продаж</button>`;
         }
 
@@ -16324,7 +16324,7 @@
                 <button type="button" class="ab-variant-remove-btn" style="top:4px;right:4px" onclick="event.stopPropagation();removeEditVariantSlot(${idx})" title="Удалить">✕</button>
                 <input type="file" accept="image/*" onchange="handleEditVariantFile(${idx}, this)">
                 <div id="edit-slot-${idx}">
-                    <div style="font-size:22px">📷</div>
+                    <div style="font-size:13px;font-weight:600">Фото</div>
                     <div class="text-xs" style="color:var(--accent)">Новый вариант</div>
                 </div>`;
             box.appendChild(slot);
@@ -17151,7 +17151,7 @@
     }
 
     async function deleteTelegramBot(botId, title) {
-        if (!confirm(`Удалить бота «${title}»? Он перестанет работать: webhook в Telegram снимется, рассылки остановятся.`)) return;
+        if (!confirm(`Удалить бота «${title}»? Он перестанет работать: бот отключится от Telegram, рассылки остановятся.`)) return;
         try {
             await callTelegramAdmin({ action: 'delete', bot_id: botId });
             showPremiumModal('success', 'Бот удалён', 'Webhook снят, код рассылок его больше не вызывает.');
@@ -17642,7 +17642,7 @@
     }
 
     async function deleteWhatsAppAgent(id, title) {
-        if (!confirm(`Удалить ватсап «${title}»?`)) return;
+        if (!confirm(`Удалить WhatsApp «${title}»?`)) return;
         try {
             if (_agentHub.waSource === 'db' && !String(id).startsWith('local-')) {
                 const { error } = await supabase.from('whatsapp_agents').delete().eq('id', id);
@@ -19419,7 +19419,7 @@
                 </div>
                 <p class="ak-note">Опубликовано: ${Number(c.published_count)} · запросов к ИИ за 30 дней: ${Number(c.usage_30d.requests)} · токенов: ${Number(c.usage_30d.tokens).toLocaleString('ru-RU')}</p>
                 ${(c.last_replies || []).map((r) => `<div class="ak-note" style="border-top:1px solid var(--border);padding-top:8px">
-                    ${'⭐'.repeat(Math.max(0, Math.min(5, Number(r.rating) || 0)))} ${esc(r.product_name || '')} · <b>${esc(r.status)}</b><br>${esc((r.reply_text || '').slice(0, 220))}</div>`).join('')}
+                    ${'Оценка ' + Math.max(0, Math.min(5, Number(r.rating) || 0)) + ' из 5 ·'} ${esc(r.product_name || '')} · <b>${esc(r.status)}</b><br>${esc((r.reply_text || '').slice(0, 220))}</div>`).join('')}
             </div>`).join('');
     };
 })();
