@@ -9,13 +9,14 @@
 
 export type FeatureKey = 'reviews' | 'sync' | 'ads' | 'ab_rotation' | 'rnp_morning' | 'order_alerts';
 
-export const FEATURES: { key: FeatureKey; title: string; hint: string }[] = [
-    { key: 'reviews', title: 'Ответы на отзывы', hint: 'Акылай и командный ответчик' },
-    { key: 'sync', title: 'Автосинхронизация', hint: 'Выгрузка данных WB' },
-    { key: 'ads', title: 'РК и автоставки', hint: 'Автобиддер рекламных кампаний' },
-    { key: 'ab_rotation', title: 'Ротация А/Б-тестов', hint: 'Смена фото в тестах' },
-    { key: 'rnp_morning', title: 'Утреннее заполнение РНП', hint: 'Утренняя и вечерняя выгрузка в РНП' },
-    { key: 'order_alerts', title: 'Уведомления о заказах', hint: 'Сообщения о новых заказах' },
+// agent — одно имя на функцию, везде одинаковое. «Система» — функции без агента.
+export const FEATURES: { key: FeatureKey; title: string; hint: string; agent: string }[] = [
+    { key: 'reviews', title: 'Ответы на отзывы', hint: 'Отвечает на отзывы покупателей', agent: 'Акылай' },
+    { key: 'ads', title: 'РК и автоставки', hint: 'Ведёт ставки рекламных кампаний', agent: 'Амина' },
+    { key: 'order_alerts', title: 'Уведомления о заказах', hint: 'Сообщает о новых заказах', agent: 'Антон' },
+    { key: 'sync', title: 'Автосинхронизация', hint: 'Выгрузка данных WB', agent: 'Система' },
+    { key: 'ab_rotation', title: 'Ротация А/Б-тестов', hint: 'Смена фото в тестах', agent: 'Система' },
+    { key: 'rnp_morning', title: 'Утреннее заполнение РНП', hint: 'Утренняя и вечерняя выгрузка в РНП', agent: 'Система' },
 ];
 
 export const FEATURE_KEYS: FeatureKey[] = FEATURES.map((f) => f.key);

@@ -3,5 +3,5 @@
   <rect width="160" height="160" rx="80" fill="#EAF7EF"/>
   <circle cx="80" cy="66" r="28" fill="#CFC8BE"/>
   <path d="M34 138c6-26 24-38 46-38s40 12 46 38" fill="#CFC8BE"/>
-  <text x="80" y="76" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#6B6358">М</text>
+  <text x="80" y="76" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#6B6358">А</text>
 </svg>
