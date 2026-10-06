@@ -19351,7 +19351,7 @@
         all.dataset.on = anyOn ? '1' : '0';
         list.innerHTML = ft.items.map((it) => (
             '<div class="ft-row" data-feature="' + it.feature + '">'
-            + '<div><div class="ft-title"><span class="ft-agent">' + esc(it.agent || 'Система') + '</span>' + esc(it.title) + chip(it) + '</div><div class="ft-hint">' + esc(it.hint) + '</div></div>'
+            + '<div><div class="ft-title"><span class="ft-agent">' + esc(it.agent || 'Карина') + '</span>' + esc(it.title) + chip(it) + '</div><div class="ft-hint">' + esc(it.hint) + '</div></div>'
             + '<div class="ft-ctl">'
             + '<button type="button" class="ft-sw" role="switch" aria-checked="' + (it.enabled && !it.paused_until ? 'true' : 'false') + '" aria-label="' + esc(it.title) + '" data-ft-sw="' + it.feature + '"></button>'
             + pauseSelect(it.feature) + '</div>'
