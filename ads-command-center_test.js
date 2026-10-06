@@ -483,9 +483,9 @@ global.document = {
     assert.doesNotMatch(els['ads-hq-tbody'].innerHTML, /Baza/);
     assert.match(els['ads-hq-phone'].innerHTML, /Пиджак/);
     assert.match(els['ads-hq-phone'].innerHTML, /Затраты/);
-    assert.match(els['ads-hq-kpis'].innerHTML, /Сумма заказов/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /Заказы/);
     assert.match(els['ads-hq-kpis'].innerHTML, /Затраты/);
-    assert.match(els['ads-hq-kpis'].innerHTML, /Доля затрат/);
+    assert.match(els['ads-hq-kpis'].innerHTML, /ДРР/);
     assert.match(els['ads-hq-kpis'].innerHTML, /ROAS/);
     assert.match(els['ads-hq-kpis'].innerHTML, /CTR/);
     assert.doesNotMatch(els['ads-hq-kpis'].innerHTML, /Подменный артикул/);
@@ -544,7 +544,7 @@ global.document = {
     assert.match(els['ads-hq-schedule'].innerHTML, /Пауза полка/);
     assert.match(els['ads-hq-tbody'].innerHTML, /ads-hq-when/);
     assert.doesNotMatch(els['ads-hq-phone'].innerHTML, /ads-hq-check/, 'галочек выбора кампаний больше нет');
-    assert.match(els['ads-hq-phone'].innerHTML, /class="adp-tg"/, 'у СРС-кампании справа переключатель «авто»');
+    assert.doesNotMatch(els['ads-hq-phone'].innerHTML, /adp-tg/, 'отдельного переключателя авто на карточке нет');
 
     AdsHQ.setCabinet('cab-empty');
     assert.match(els['ads-hq-kpis'].innerHTML, /—/, 'stale active count must clear as soon as the cabinet changes');

@@ -164,6 +164,7 @@
         const pos = camp && camp.searchPos;
         switch (key) {
             case 'budget':
+                return camp && camp.budget != null && Number.isFinite(camp.budget) ? formatInt(camp.budget) : na;
             case 'limit':
                 return na;
             case 'cancels':
@@ -780,6 +781,7 @@
                     type: raw.type || (v2 && v2.campaign_type) || '',
                     typeLabel: campaignTypeLabel(raw.type || (v2 && v2.campaign_type) || ''),
                     paymentType: raw.payment_type || (v2 && (v2.payment_type || v2.paymentType)) || '',
+                    budget: raw.budget_total == null ? null : Number(raw.budget_total),
                     bidType: raw.bid_type || (v2 && (v2.bid_type || v2.bidType)) || '',
                     live: campaignLive(status),
                     spendToday: pickSpend(spendToday),
@@ -1284,7 +1286,14 @@
         const drr = pending ? '—' : kpiRatio(src, 'drr');
         const roas = pending ? '—' : kpiRatio(src, 'roas');
         const ctr = pending ? '—' : kpiRatio(src, 'ctr');
+        let bal = '—';
+        if (!pending) {
+            let sum = 0, any = false;
+            cabinetRows().forEach((r) => (r.campaigns || []).forEach((c) => { if (c.live && c.budget != null && Number.isFinite(c.budget)) { sum += c.budget; any = true; } }));
+            if (any) bal = formatInt(sum);
+        }
         const values = {
+            'ads-hq-kpi-balance': bal,
             'ads-hq-kpi-revenue': revenue,
             'ads-hq-kpi-spend': spend,
             'ads-hq-kpi-drr': drr,
@@ -1303,11 +1312,13 @@
             return;
         }
         el.innerHTML =
-            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Сумма заказов</div>' +
+            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Баланс</div>' +
+            '<div class="ads-hq-kpi-value" id="ads-hq-kpi-balance">' + esc(bal) + '</div></div>' +
+            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Заказы</div>' +
             '<div class="ads-hq-kpi-value" id="ads-hq-kpi-revenue">' + esc(revenue) + '</div></div>' +
             '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Затраты</div>' +
             '<div class="ads-hq-kpi-value" id="ads-hq-kpi-spend">' + esc(spend) + '</div></div>' +
-            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">Доля затрат</div>' +
+            '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">ДРР</div>' +
             '<div class="ads-hq-kpi-value" id="ads-hq-kpi-drr">' + esc(drr) + '</div></div>' +
             '<div class="ads-hq-kpi"><div class="ads-hq-kpi-label">ROAS</div>' +
             '<div class="ads-hq-kpi-value" id="ads-hq-kpi-roas">' + esc(roas) + '</div></div>' +
@@ -1373,7 +1384,9 @@
 
     /* Переключатель «автопилот ставок» справа у кампании (только СРС). Состояние красит ad-autopilot-ui.js. */
     function autopilotToggleHtml(cab, camp) {
-        if (String(camp.paymentType || '').toLowerCase() !== 'cpc') return '';
+        // Автопилот ведёт все работающие СРС сам; отдельного переключателя на карточке нет.
+        return '';
+        // eslint-disable-next-line no-unreachable
         return '<span class="adp-tg" role="switch" aria-checked="false" tabindex="0" data-adp-cab="' + esc(cab.id) +
             '" data-adp-camp="' + esc(camp.wbId) + '" title="Автопилот ставок: сам подгоняет ставки артикулов под выгодную цену заказа"><i></i></span>';
     }
@@ -1496,7 +1509,7 @@
         const ck = cab.id + ':' + camp.wbId;
         const cols = currentCols().filter((c) => c.key !== 'budget' && c.key !== 'limit').slice(0, PHONE_CAMP_MAX_METRICS);
         const html = [];
-        html.push('<article class="ads-hq-phone-card ads-hq-phone-shelf" data-key="' + esc(ck) + '">');
+        html.push('<article class="ads-hq-phone-card ads-hq-phone-shelf" data-key="' + esc(ck) + '" data-bal="' + (camp.budget != null && Number.isFinite(camp.budget) ? esc(formatInt(camp.budget)) : '') + '">');
         html.push(
             '<div class="ads-hq-phone-pick">' +
             toggleHtml(cab, camp) +
