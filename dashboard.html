@@ -1796,14 +1796,15 @@
         }
         #ads-hq-camps-wrap .ads-hq-table thead .ads-hq-pin { z-index: 7; }
         #ads-hq-camps-wrap .ads-hq-table tbody .ads-hq-pin { background: var(--bg); }
-        #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-check { left: 0; width: 28px; min-width: 28px; max-width: 28px; padding-left: 6px !important; padding-right: 2px !important; }
-        #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-tg { left: 28px; width: 40px; min-width: 40px; max-width: 40px; padding-left: 2px !important; padding-right: 4px !important; }
+        /* Выбор кампаний галочками убран: группового управления нет, автопилот включается переключателем «авто» */
+        #ads-hq-bulk-pause, #ads-hq-bulk-start, #ads-hq-when-pop { display: none !important; }
+        #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-tg { left: 0; width: 40px; min-width: 40px; max-width: 40px; padding-left: 2px !important; padding-right: 4px !important; }
         #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-camp {
-            left: 68px; width: 220px; min-width: 220px; max-width: 220px; white-space: normal;
+            left: 40px; width: 220px; min-width: 220px; max-width: 220px; white-space: normal;
         }
-        #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-sku { left: 288px; width: 72px; min-width: 72px; max-width: 72px; }
+        #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-sku { left: 260px; width: 72px; min-width: 72px; max-width: 72px; }
         #ads-hq-camps-wrap .ads-hq-table .ads-hq-pin-type {
-            left: 360px; width: 88px; min-width: 88px; max-width: 88px;
+            left: 332px; width: 88px; min-width: 88px; max-width: 88px;
             box-shadow: 6px 0 8px -6px rgba(0, 0, 0, 0.18);
         }
         #ads-hq-camps-wrap .ads-hq-table tbody tr:hover td {
@@ -6744,7 +6745,6 @@
                         <table class="data-table ads-hq-table">
                             <thead id="ads-hq-thead">
                                 <tr>
-                                    <th class="ads-hq-pin ads-hq-pin-check"></th>
                                     <th class="ads-hq-pin ads-hq-pin-tg"></th>
                                     <th class="ads-hq-pin ads-hq-pin-camp">Кампания</th>
                                     <th class="ads-hq-pin ads-hq-pin-sku">Товар</th>
@@ -8314,7 +8314,7 @@
 <script src="/dist/rnp-plan-fact.4fa5c941bc.min.js"></script>
 <script src="/dist/wb-formulas.5bba40a38e.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.3894b6f135.min.js"></script>
+<script src="/dist/ads-command-center.62cafb766d.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.caf7e843e0.min.js"></script>
 <script src="/dist/giveaway-calc.e775c45d50.min.js"></script>

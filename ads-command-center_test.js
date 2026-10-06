@@ -543,7 +543,8 @@ global.document = {
     assert.equal(inserted[0].cabinet_id, 'cab-a');
     assert.match(els['ads-hq-schedule'].innerHTML, /Пауза полка/);
     assert.match(els['ads-hq-tbody'].innerHTML, /ads-hq-when/);
-    assert.match(els['ads-hq-phone'].innerHTML, /ads-hq-check/);
+    assert.doesNotMatch(els['ads-hq-phone'].innerHTML, /ads-hq-check/, 'галочек выбора кампаний больше нет');
+    assert.match(els['ads-hq-phone'].innerHTML, /class="adp-tg"/, 'у СРС-кампании справа переключатель «авто»');
 
     AdsHQ.setCabinet('cab-empty');
     assert.match(els['ads-hq-kpis'].innerHTML, /—/, 'stale active count must clear as soon as the cabinet changes');
