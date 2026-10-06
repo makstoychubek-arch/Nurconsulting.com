@@ -14,7 +14,7 @@ assert.ok(/fetch\(fileOrUrl\.url/.test(upload) && /storage\.from\('abtest-photos
     'a WB photo is copied into our storage, not referenced by the live slot URL');
 assert.ok(!/return fileOrUrl\.url;/.test(upload), 'the live WB slot URL is never stored as the variant photo');
 
-assert.ok(html.includes("filterTests('finished', this)\">Архив</div>"), 'finished tests live in the «Архив» tab');
+assert.ok(html.includes("filterTests('finished', this)\">Архив</button>"), 'finished tests live in the «Архив» tab');
 assert.ok(html.includes("рк ${reportCampaigns.join(', ')}"), 'report header shows the campaign ids');
 assert.ok(html.includes("verdictText = 'разницы нет'"), 'report says «разницы нет» when there is enough data and no leader');
 assert.ok(html.includes('Установить на ВБ') && html.includes('Сейчас на ВБ'), 'winner can be set on WB from the report');
