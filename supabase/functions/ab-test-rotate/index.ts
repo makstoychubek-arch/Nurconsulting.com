@@ -25,6 +25,7 @@ import {
     WB_MAIN_PHOTO_SLOT,
 } from '../_shared/wb-main-photo.ts';
 import { decideAbAutoStop } from '../_shared/ab-test-auto-stop.ts';
+import { attributeSnapshots, takeAdSnapshots } from '../_shared/ab-adv-snapshots.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -59,6 +60,15 @@ Deno.serve(async (req) => {
             .eq('status', 'active');
 
         if (testsErr) throw new Error(`ab_tests: ${testsErr.message}`);
+
+        // Замер накопленной статистики РК ДО ротации: интервал между замерами потом делится по окнам
+        // показа фото, а ротация идёт сразу после замера. Ошибка WB ротацию не останавливает.
+        try {
+            const snap = await takeAdSnapshots(admin, tests || []);
+            if (snap.errors.length) console.warn('[ab-test-rotate] ad snapshots:', snap.errors.join('; '));
+        } catch (e) {
+            console.error('[ab-test-rotate] ad snapshots failed:', e);
+        }
 
         // Тумблер «Ротация А/Б-тестов»: тесты выключенных кабинетов не крутим.
         const rotatable = await filterFeatureActive(admin, tests || [], 'ab_rotation');
@@ -169,6 +179,41 @@ Deno.serve(async (req) => {
                     ? Boolean(((test.settings as Record<string, unknown>).sources as Record<string, unknown>).ads)
                     : true; // по умолчанию считаем (старые тесты без settings)
 
+                // Замеры раз в 10 минут (ab_test_adv_snapshots) дают показы по реальным окнам. Пока замеров нет
+                // (старые и завершённые тесты), считаем по-старому. Если замеры есть, по-старому считаем только
+                // целые дни ДО первого замера, а время после него берём из замеров.
+                const { data: snapRows } = adsEnabled
+                    ? await admin.from('ab_test_adv_snapshots')
+                        .select('campaign_id, taken_at, stat_date, views, clicks, atbs, orders, spend')
+                        .eq('test_id', test.id)
+                        .order('taken_at')
+                    : { data: [] as any[] };
+                const hasSnaps = (snapRows || []).length > 0;
+                const firstSnapDay = hasSnaps ? String(snapRows![0].stat_date) : '';
+                if (hasSnaps) {
+                    const bySnaps = attributeSnapshots(
+                        (snapRows || []).map((r: any) => ({
+                            campaign_id: Number(r.campaign_id),
+                            taken_at: r.taken_at,
+                            stat_date: String(r.stat_date),
+                            views: Number(r.views) || 0,
+                            clicks: Number(r.clicks) || 0,
+                            atbs: Number(r.atbs) || 0,
+                            orders: Number(r.orders) || 0,
+                            spend: Number(r.spend) || 0,
+                        })),
+                        windows,
+                    );
+                    for (const [label, b] of bySnaps) {
+                        const bucket = tally.get(label);
+                        if (!bucket) continue;
+                        bucket.impressions += b.impressions;
+                        bucket.clicks += b.clicks;
+                        bucket.atbs += b.atbs;
+                        bucket.adSpend += b.adSpend;
+                    }
+                }
+
                 if (adsEnabled) {
                     const sinceDate = String(test.started_at || '').split('T')[0] || '2020-01-01';
                     const { data: dailyRows } = await admin
@@ -179,6 +224,8 @@ Deno.serve(async (req) => {
 
                     for (const row of dailyRows || []) {
                         if (selectedCampaigns.length && !selectedCampaigns.includes(Number(row.campaign_id))) continue;
+                        // День, который уже покрыт замерами, не считаем суточным итогом (он включает время до теста).
+                        if (hasSnaps && String(row.stat_date) >= firstSnapDay) continue;
                         const apps = Array.isArray((row.data as Record<string, unknown> | null)?.apps)
                             ? ((row.data as Record<string, unknown>).apps as Array<Record<string, unknown>>)
                             : [];
@@ -199,7 +246,7 @@ Deno.serve(async (req) => {
                         }
                         if (!dayViews && !dayClicks) continue;
 
-                        const dayStart = new Date(`${row.stat_date}T00:00:00Z`);
+                        const dayStart = new Date(`${row.stat_date}T00:00:00+03:00`); // день WB — московский
                         const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
                         const overlaps: Array<{ label: string; ms: number }> = [];
                         let totalMs = 0;

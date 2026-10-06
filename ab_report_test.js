@@ -35,4 +35,9 @@ assert.ok(html.includes("const testRunning = test.status === 'active'") && /clas
 assert.ok(/\.ab-report-apply-btn:disabled \{[^}]*cursor: not-allowed/.test(html), 'disabled apply button is greyed out');
 assert.ok(/async function applyWinningVariant[\s\S]*?if \(test\.status === 'active'\) \{\s*showPremiumModal\('warning', 'Тест ещё идёт'/.test(html), 'applying a variant is also blocked in the handler while the test runs');
 
+// Названия конверсий как в сервисе, с которым сверяемся: CR1 = клик→корзина, CR = клик→заказ
+assert.ok(html.includes('CR1 (клик→корзина)') && html.includes('CR (клик→заказ)') && !html.includes('CR1 (корзина→заказ)'), 'report conversions: CR1 = click→cart, CR = click→order');
+assert.ok(html.includes('const cr1 = clicks > 0 ? (atbs / clicks * 100)') && html.includes('const cr = clicks > 0 ? (orders / clicks * 100)'), 'conversion formulas');
+assert.ok(html.includes('Показы и клики РК: замер'), 'report shows when the ad numbers were last refreshed');
+
 console.log('ab_report_test: ok');
