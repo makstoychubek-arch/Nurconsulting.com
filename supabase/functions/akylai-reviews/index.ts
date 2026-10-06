@@ -17,6 +17,7 @@ import {
     addUsage, adminClient, agentLog, cabinetWbToken, CORS, env, FEEDBACKS_API, json, notifyNr,
     openaiChat, tg, tgBlocked, wbFetch,
 } from '../_shared/akylai-server.ts';
+import { filterFeatureActive, recordFeatureRun } from '../_shared/cabinet-features.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 
 function utcDayStart(): string {
@@ -184,19 +185,27 @@ Deno.serve(async (req) => {
         await agentLog(admin, null, 'reviews_query_failed', { db: error.message });
         return json({ ok: false }, 500);
     }
-    const ids = (rows || []).map((r: any) => r.cabinet_id);
+    // Тумблер «Ответы на отзывы»: выключенные и поставленные на паузу кабинеты пропускаем.
+    const enabledRows = await filterFeatureActive(admin, rows || [], 'reviews');
+    const ids = enabledRows.map((r: any) => r.cabinet_id);
     const { data: chats } = ids.length
         ? await admin.from('akylai_chats').select('cabinet_id, chat_id').in('cabinet_id', ids).eq('blocked', false)
         : { data: [] };
     const chatOf = new Map((chats || []).map((c: any) => [c.cabinet_id, c.chat_id]));
 
     const results = [];
-    for (const r of rows || []) {
+    for (const r of enabledRows) {
         const chatId = chatOf.get(r.cabinet_id);
-        if (!chatId) continue;
+        if (!chatId) {
+            // Раньше такой кабинет пропускался молча. Теперь причина видна в настройках кабинета.
+            await recordFeatureRun(admin, r.cabinet_id, 'reviews', 'skipped', 'Не подключён Telegram-чат Акылай');
+            continue;
+        }
         try {
             results.push(await processCabinet(admin, { ...r, chat_id: chatId }));
+            await recordFeatureRun(admin, r.cabinet_id, 'reviews', 'ok');
         } catch (e) {
+            await recordFeatureRun(admin, r.cabinet_id, 'reviews', 'error', String((e as Error)?.message || e));
             await agentLog(admin, r.cabinet_id, 'sync_error', { error: String((e as Error)?.message || e).slice(0, 300) });
             await notifyNr(`⚠️ Акылай: ошибка обработки отзывов кабинета «${r.cabinets?.name || r.cabinet_id}».`);
         }

@@ -8,6 +8,7 @@ import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 import { pickCabinetToken } from '../_shared/wb-cabinet-tokens.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { filterFeatureActive, recordFeatureRun } from '../_shared/cabinet-features.ts';
 import {
     buildAbReportCard,
     demoAbReportCard,
@@ -59,12 +60,16 @@ Deno.serve(async (req) => {
 
         if (testsErr) throw new Error(`ab_tests: ${testsErr.message}`);
 
-        for (const test of tests || []) {
+        // Тумблер «Ротация А/Б-тестов»: тесты выключенных кабинетов не крутим.
+        const rotatable = await filterFeatureActive(admin, tests || [], 'ab_rotation');
+        for (const test of rotatable) {
             try {
                 results.push(await rotateActiveTest(admin, test));
+                await recordFeatureRun(admin, test.cabinet_id, 'ab_rotation', 'ok');
             } catch (e) {
                 console.error('[ab-test-rotate] test', test.id, e);
                 results.push({ test_id: test.id, error: String(e) });
+                await recordFeatureRun(admin, test.cabinet_id, 'ab_rotation', 'error', String(e));
             }
         }
 

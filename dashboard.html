@@ -4857,6 +4857,26 @@
             box-shadow: 0 18px 60px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.55);
         }
         .settings-section-tab.hidden-tab { display: none !important; }
+        .ft-select { background: var(--surface); border: 1px solid var(--border); color: var(--text-primary); border-radius: 10px; padding: 7px 10px; font-size: 13px; max-width: 100%; }
+        .ft-list { display: flex; flex-direction: column; gap: 10px; }
+        .ft-row, .ft-all { display: grid; grid-template-columns: 1fr auto; gap: 8px 14px; align-items: center; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); }
+        .ft-all { margin-bottom: 10px; background: var(--accent-soft); border-color: var(--accent-border); }
+        .ft-title { font-weight: 600; font-size: 14px; color: var(--text-primary); }
+        .ft-hint { font-size: 12px; color: var(--text-muted); }
+        .ft-chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 1px; }
+        .ft-chip--on { background: rgba(34,197,94,.16); color: #16a34a; }
+        .ft-chip--pause { background: rgba(245,158,11,.18); color: #b45309; }
+        .ft-chip--off { background: rgba(148,163,184,.22); color: var(--text-secondary); }
+        .ft-chip--bad { background: rgba(239,68,68,.16); color: #dc2626; }
+        .ft-ctl { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+        .ft-diag { grid-column: 1 / -1; font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+        .ft-diag .ft-bad { color: #dc2626; }
+        .ft-sw { position: relative; width: 42px; height: 24px; border-radius: 999px; border: 0; cursor: pointer; background: var(--border); transition: background .15s; flex: none; }
+        .ft-sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+        .ft-sw[aria-checked="true"] { background: #22c55e; }
+        .ft-sw[aria-checked="true"]::after { transform: translateX(18px); }
+        .ft-sw:disabled { opacity: .5; cursor: wait; }
+        @media (max-width: 640px) { .ft-row, .ft-all { grid-template-columns: 1fr; } .ft-ctl { justify-content: flex-start; } }
         .map-placeholder { background: var(--surface); border: 2px dashed var(--border-strong); border-radius: 16px; min-height: 320px; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); font-size: 13px; gap: 8px; }
         /* Единое определение — раньше .ui-btn/.ui-btn-primary/.ui-btn-secondary
            переопределялись ещё дважды ниже по файлу (border-radius 6→14px,
@@ -7423,6 +7443,7 @@
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-devsessions" onclick="showSettingsSection('devsessions', this)">Сессии разработчиков</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-spaces" onclick="showSettingsSection('spaces', this)">Управление Спейсами</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-api" onclick="showSettingsSection('api', this)">Кабинеты</div>
+                <div class="settings-section-tab hidden-tab" id="settings-tab-btn-features" onclick="showSettingsSection('features', this)">Агенты и функции</div>
                 <div class="settings-section-tab hidden-tab" id="settings-tab-btn-about" onclick="showSettingsSection('about', this)">NR Space</div>
             </div>
             <div id="settings-profile" class="settings-tab-anim hidden space-y-4">
@@ -7505,6 +7526,17 @@
                         </div>
                     </div>
                     <div id="cabinets-api-list" class="space-y-2"><div class="text-center py-6 text-sm" style="color:var(--text-muted)">Загрузка...</div></div>
+                </div>
+            </div>
+            <div id="settings-features" class="settings-tab-anim hidden space-y-4">
+                <div class="widget-card p-6">
+                    <div class="flex items-center justify-between flex-wrap gap-2 mb-1">
+                        <h3 class="font-semibold" style="color:var(--text-primary)">Агенты и функции</h3>
+                        <select id="ft-cabinet" class="ft-select" aria-label="Кабинет"></select>
+                    </div>
+                    <p class="text-xs mb-4" style="color:var(--text-muted)">Включайте и отключайте работу функций по каждому кабинету. «Отключить на…» вернёт функцию само, когда срок кончится.</p>
+                    <div id="ft-all" class="ft-all"></div>
+                    <div id="ft-list" class="ft-list"><div class="text-sm" style="color:var(--text-muted)">Загрузка...</div></div>
                 </div>
             </div>
             <div id="settings-about" class="settings-tab-anim hidden space-y-4">
@@ -16201,13 +16233,14 @@
 
     function showSettingsSection(section, el) {
         document.querySelectorAll('.settings-section-tab').forEach(t => t.classList.remove('active'));
-        ['profile', 'security', 'devsessions', 'spaces', 'api', 'about'].forEach(s => {
+        ['profile', 'security', 'devsessions', 'spaces', 'api', 'features', 'about'].forEach(s => {
             const pane = document.getElementById('settings-' + s);
             if (pane) pane.classList.add('hidden');
         });
         el.classList.add('active');
         document.getElementById('settings-' + section).classList.remove('hidden');
         if (section === 'api') loadCabinetsAPIList();
+        if (section === 'features') window.loadCabinetFeatures?.();
         if (section === 'security') {
             loadSecuritySessions();
             if (isSuperAdmin) {
@@ -16226,6 +16259,7 @@
             devsessions: document.getElementById('settings-tab-btn-devsessions'),
             spaces: document.getElementById('settings-tab-btn-spaces'),
             api: document.getElementById('settings-tab-btn-api'),
+            features: document.getElementById('settings-tab-btn-features'),
             about: document.getElementById('settings-tab-btn-about'),
         };
         Object.values(tabs).forEach(t => t?.classList.add('hidden-tab'));
@@ -16235,8 +16269,9 @@
             tabs.profile?.classList.remove('hidden-tab');
             tabs.devsessions?.classList.remove('hidden-tab');
             tabs.api?.classList.remove('hidden-tab');
+            tabs.features?.classList.remove('hidden-tab');
             tabs.about?.classList.remove('hidden-tab');
-            ['profile', 'security', 'devsessions', 'spaces', 'api', 'about'].forEach(s => {
+            ['profile', 'security', 'devsessions', 'spaces', 'api', 'features', 'about'].forEach(s => {
                 document.getElementById('settings-' + s)?.classList.add('hidden');
             });
             document.getElementById('admin-access-card')?.classList.remove('hidden');
@@ -16244,7 +16279,8 @@
         } else {
             tabs.security?.classList.remove('hidden-tab');
             tabs.api?.classList.remove('hidden-tab');
-            ['profile', 'security', 'devsessions', 'spaces', 'api', 'about'].forEach(s => {
+            tabs.features?.classList.remove('hidden-tab');
+            ['profile', 'security', 'devsessions', 'spaces', 'api', 'features', 'about'].forEach(s => {
                 document.getElementById('settings-' + s)?.classList.add('hidden');
             });
             document.getElementById('settings-security')?.classList.remove('hidden');
@@ -19232,6 +19268,144 @@
                     ${'⭐'.repeat(Math.max(0, Math.min(5, Number(r.rating) || 0)))} ${esc(r.product_name || '')} · <b>${esc(r.status)}</b><br>${esc((r.reply_text || '').slice(0, 220))}</div>`).join('')}
             </div>`).join('');
     };
+})();
+</script>
+<script>
+/* ===== Настройки → «Агенты и функции»: тумблеры, пауза и диагностика по кабинету =====
+   Состояние и запись — только через edge-функцию cabinet-features (проверяет доступ к кабинету).
+   Ошибки WB и базы на экран не выводим: только готовые фразы причин. */
+(function () {
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const PAUSES = [
+        ['60', 'на 1 час'], ['360', 'на 6 часов'], ['1440', 'на сутки'], ['manual', 'до ручного включения'],
+    ];
+    const ft = { cabinetId: '', busy: false, items: [], timer: null };
+
+    async function call(body) {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return { ok: false };
+            const res = await fetch(SUPABASE_URL + '/functions/v1/cabinet-features', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + session.access_token },
+                body: JSON.stringify(body),
+            });
+            const out = await res.json().catch(() => ({}));
+            return out && typeof out === 'object' ? out : { ok: false };
+        } catch (_) { return { ok: false }; }
+    }
+
+    function fmtTime(iso) {
+        if (!iso) return '';
+        const d = new Date(iso);
+        if (isNaN(d)) return '';
+        return d.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    }
+
+    function chip(it) {
+        if (it.paused_until) return '<span class="ft-chip ft-chip--pause">Пауза до ' + esc(fmtTime(it.paused_until)) + '</span>';
+        if (!it.enabled) return '<span class="ft-chip ft-chip--off">Выключено</span>';
+        if (it.blockers && it.blockers.length) return '<span class="ft-chip ft-chip--bad">Не готово</span>';
+        return '<span class="ft-chip ft-chip--on">Работает</span>';
+    }
+
+    function diag(it) {
+        const parts = [];
+        if (it.last_run_at) {
+            const res = it.last_status === 'ok' ? 'успешно' : it.last_status === 'skipped' ? 'пропущено' : 'с ошибкой';
+            parts.push('Последний запуск: ' + esc(fmtTime(it.last_run_at)) + ', ' + res);
+        } else {
+            parts.push('Запусков пока не видно');
+        }
+        if (it.last_error && it.last_status !== 'ok') parts.push('<span class="ft-bad">' + esc(it.last_error) + '</span>');
+        for (const b of it.blockers || []) parts.push('<span class="ft-bad">' + esc(b.text) + '</span>');
+        return parts.join(' · ');
+    }
+
+    function pauseSelect(feature) {
+        return '<select class="ft-select" data-ft-pause="' + feature + '" aria-label="Отключить на">'
+            + '<option value="">Отключить на…</option>'
+            + PAUSES.map((p) => '<option value="' + p[0] + '">' + p[1] + '</option>').join('') + '</select>';
+    }
+
+    function render() {
+        const list = $('ft-list');
+        const all = $('ft-all');
+        if (!list || !all) return;
+        const anyOn = ft.items.some((i) => i.active);
+        all.innerHTML = '<div><div class="ft-title">Все функции кабинета</div><div class="ft-hint">Одним действием для всех функций ниже</div></div>'
+            + '<div class="ft-ctl">' + pauseSelect('all')
+            + '<button type="button" class="ui-btn ui-btn-secondary" data-ft-resume="all">Включить все</button></div>';
+        all.dataset.on = anyOn ? '1' : '0';
+        list.innerHTML = ft.items.map((it) => (
+            '<div class="ft-row" data-feature="' + it.feature + '">'
+            + '<div><div class="ft-title">' + esc(it.title) + chip(it) + '</div><div class="ft-hint">' + esc(it.hint) + '</div></div>'
+            + '<div class="ft-ctl">'
+            + '<button type="button" class="ft-sw" role="switch" aria-checked="' + (it.enabled && !it.paused_until ? 'true' : 'false') + '" aria-label="' + esc(it.title) + '" data-ft-sw="' + it.feature + '"></button>'
+            + pauseSelect(it.feature) + '</div>'
+            + '<div class="ft-diag">' + diag(it) + '</div></div>'
+        )).join('');
+    }
+
+    async function send(body) {
+        if (ft.busy || !ft.cabinetId) return;
+        ft.busy = true;
+        document.querySelectorAll('#settings-features button, #settings-features select').forEach((e) => { e.disabled = true; });
+        const out = await call({ cabinet_id: ft.cabinetId, ...body });
+        ft.busy = false;
+        if (out.ok && Array.isArray(out.features)) {
+            ft.items = out.features;
+        } else {
+            const d = document.createElement('div');
+            d.className = 'text-xs mt-2';
+            d.style.color = '#dc2626';
+            d.textContent = 'Не получилось сохранить. Попробуйте ещё раз.';
+            $('ft-list').prepend(d);
+            setTimeout(() => d.remove(), 5000);
+        }
+        render();
+    }
+
+    async function load() {
+        const sel = $('ft-cabinet');
+        if (!sel) return;
+        if (!sel.options.length) {
+            const { data } = await supabase.from('cabinets').select('id, name').order('name');
+            sel.innerHTML = (data || []).map((c) => '<option value="' + esc(c.id) + '">' + esc(c.name) + '</option>').join('');
+            const saved = (typeof currentCabinetId !== 'undefined' && currentCabinetId) || '';
+            if (saved && (data || []).some((c) => c.id === saved)) sel.value = saved;
+            sel.onchange = () => { ft.cabinetId = sel.value; load(); };
+        }
+        ft.cabinetId = sel.value;
+        if (!ft.cabinetId) { $('ft-list').innerHTML = '<div class="text-sm" style="color:var(--text-muted)">Кабинетов пока нет.</div>'; return; }
+        const out = await call({ action: 'state', cabinet_id: ft.cabinetId });
+        ft.items = out.ok && Array.isArray(out.features) ? out.features : [];
+        if (!ft.items.length) $('ft-list').innerHTML = '<div class="text-sm" style="color:var(--text-muted)">Не удалось загрузить. Обновите страницу.</div>';
+        else render();
+        clearTimeout(ft.timer);
+        ft.timer = setTimeout(() => { if ($('settings-features') && !$('settings-features').classList.contains('hidden')) load(); }, 60000);
+    }
+
+    document.addEventListener('click', (e) => {
+        const sw = e.target.closest && e.target.closest('[data-ft-sw]');
+        if (sw) {
+            const on = sw.getAttribute('aria-checked') === 'true';
+            send({ action: 'set', feature: sw.getAttribute('data-ft-sw'), enabled: !on });
+            return;
+        }
+        const rs = e.target.closest && e.target.closest('[data-ft-resume]');
+        if (rs) send({ action: 'resume', feature: rs.getAttribute('data-ft-resume') });
+    });
+    document.addEventListener('change', (e) => {
+        const p = e.target && e.target.getAttribute && e.target.getAttribute('data-ft-pause');
+        if (!p || !e.target.value) return;
+        const v = e.target.value;
+        if (v === 'manual') send({ action: 'set', feature: p, enabled: false });
+        else send({ action: 'pause', feature: p, minutes: Number(v) });
+    });
+
+    window.loadCabinetFeatures = load;
 })();
 </script>
 </body>
