@@ -95,8 +95,9 @@ Deno.serve(async (req) => {
         const url = new URL(req.url);
         if (url.searchParams.get('setup_webhook') === '1') {
             const setupKey = (req.headers.get('X-NR-Setup-Key') ?? '').trim();
-            const secret = (Deno.env.get('NR_SETUP_SECRET') ?? 'nrspace-test-fiukyfy').trim();
-            if (setupKey !== secret) return json({ error: 'Unauthorized' }, 401);
+            // Значения по умолчанию нет: пока NR_SETUP_SECRET не задан в секретах, настройка вебхука закрыта.
+            const secret = (Deno.env.get('NR_SETUP_SECRET') ?? '').trim();
+            if (!secret || setupKey !== secret) return json({ error: 'Unauthorized' }, 401);
             const webhookUrl = `${supabaseUrl.replace(/\/$/, '')}/functions/v1/telegram-webhook`;
             const body: Record<string, unknown> = {
                 url: webhookUrl,

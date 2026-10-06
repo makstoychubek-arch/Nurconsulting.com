@@ -4,7 +4,9 @@ export function isServiceAuthorized(req, serviceKey, allowSetup = false) {
   if (serviceKey && bearer === serviceKey) return true;
   if (isLegacyServiceRoleJwt(bearer)) return true;
   if (!allowSetup) return false;
-  const secret = (Deno.env.get('NR_SETUP_SECRET') ?? 'nrspace-test-fiukyfy').trim();
+  // Значения по умолчанию нет: пока NR_SETUP_SECRET не задан в секретах, этот путь закрыт.
+  const secret = (Deno.env.get('NR_SETUP_SECRET') ?? '').trim();
+  if (!secret) return false;
   return (req.headers.get('X-NR-Setup-Key') ?? '').trim() === secret;
 }
 function isLegacyServiceRoleJwt(token) {
