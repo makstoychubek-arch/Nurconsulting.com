@@ -1368,7 +1368,14 @@
             esc(camp.name) + '</button>' + usedMark(camp) + scheduleMark(cab.id, camp.wbId) +
             '<div class="ads-hq-wb-id">ID ' + esc(camp.wbId) + '</div>' +
             statusPill(camp.status) +
-            '</div></div>';
+            '</div>' + autopilotToggleHtml(cab, camp) + '</div>';
+    }
+
+    /* Переключатель «автопилот ставок» справа у кампании (только СРС). Состояние красит ad-autopilot-ui.js. */
+    function autopilotToggleHtml(cab, camp) {
+        if (String(camp.paymentType || '').toLowerCase() !== 'cpc') return '';
+        return '<span class="adp-tg" role="switch" aria-checked="false" tabindex="0" data-adp-cab="' + esc(cab.id) +
+            '" data-adp-camp="' + esc(camp.wbId) + '" title="Автопилот ставок: сам подгоняет ставки артикулов под выгодную цену заказа"><i></i></span>';
     }
 
     function renderThead() {
