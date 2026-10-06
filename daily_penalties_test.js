@@ -68,6 +68,16 @@ execSync(
     );
     assert.strictEqual(parsed[0]?.reportId, '25009236420260902');
 
+    // Дневной отчёт только на ту самую дату: недельный или чужой день под видом вчерашнего не подставляем
+    const { pickDailyReport } = await import(out);
+    assert.strictEqual(pickDailyReport([
+        { reportId: 'w', dateFrom: '2026-09-28', dateTo: '2026-10-04' },
+        { reportId: 'd4', dateFrom: '2026-10-04', dateTo: '2026-10-04' },
+    ], '2026-10-05'), null, 'отчёта за 05.10 нет: ждём, а не берём прошлые дни');
+    assert.strictEqual(pickDailyReport([{ reportId: 'd5', dateFrom: '2026-10-05', dateTo: '2026-10-05' }], '2026-10-05')?.reportId, 'd5');
+    assert.ok(fn.includes("report_not_ready") && fn.includes('final'), 'функция ждёт отчёт и в конце дня сообщает один раз');
+    assert.ok(!snap.includes("listSalesReports(token, weeklyFrom"), 'недельного запасного пути больше нет');
+
     const rows = aggregatePenaltyRows([
         { penalty: 1884.35, bonusTypeName: 'Штраф МП. Невыполненный заказ', docTypeName: '' },
         { penalty: 51.08, bonusTypeName: 'Платное хранение возвратов на ПВЗ более 3 дней' },
@@ -90,6 +100,12 @@ execSync(
         alertUser: 'maraWuW',
         watchdogThreshold: 500,
     });
+    assert.ok(!caption.includes('%'), 'без вчерашнего значения процент не считаем (не «+19 537 500%»)');
+    const withPrev = formatPenaltyCaption({
+        cabinetName: 'Baza', date: '2026-10-05', rows: [{ reason: 'Штраф', amount: 600 }],
+        prevDate: '2026-10-04', prevTotal: 300, prevItems: 1, alertUser: 'maraWuW', watchdogThreshold: 500,
+    });
+    assert.ok(withPrev.includes('+300, +100%'), 'с вчерашним значением процент считается');
     assert.ok(caption.includes('Сторож'));
     assert.ok(caption.includes('@maraWuW'));
     assert.ok(caption.includes('971'));

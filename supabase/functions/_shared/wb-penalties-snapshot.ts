@@ -35,6 +35,8 @@ export const PENALTY_DETAIL_FIELDS = [
 ] as const;
 
 export type PenaltyBundle = {
+    /** false: WB ещё не опубликовал дневной отчёт за эту дату. Показывать нечего, надо подождать. */
+    ready: boolean;
     rows: PenaltyLine[];
     periodFrom: string;
     periodTo: string;
@@ -120,9 +122,11 @@ async function financePost(
         });
         const text = await res.text();
         if (res.status === 429) {
+            // Не ждём минутами: так функция упиралась во время и кабинеты в конце очереди оставались без отчёта.
+            // Повторный запуск по расписанию (каждый час) всё равно доберёт.
             lastErr = text.slice(0, 120);
-            await new Promise((r) => setTimeout(r, 65000));
-            continue;
+            if (attempt === 0) { await new Promise((r) => setTimeout(r, 8000)); continue; }
+            break;
         }
         if (res.status === 204 || !text.trim()) return { status: res.status, data: [], raw: '' };
         if (!res.ok) throw new Error(`WB finance ${res.status}: ${text.slice(0, 160)}`);
@@ -163,47 +167,24 @@ function prevDayFromList(reports: SalesReportMeta[], date: string): {
     };
 }
 
+/**
+ * Штрафы за ОДИН день. Берём только дневной отчёт WB именно на эту дату.
+ * Если он ещё не опубликован (утром WB часто не успевает), ready = false: ничего не показываем.
+ * Раньше в этом случае подставлялся последний закрытый недельный отчёт: приходили штрафы за чужие
+ * дни под видом вчерашних и абсурдные проценты.
+ */
 export async function fetchWeeklyPenaltyBundle(
     token: string,
     date: string,
 ): Promise<PenaltyBundle> {
-    const dailyFrom = addDaysYmd(date, -10);
-    const dailyReports = await listSalesReports(token, dailyFrom, date, 'daily');
+    const dailyReports = await listSalesReports(token, addDaysYmd(date, -10), date, 'daily');
     const prev = prevDayFromList(dailyReports, date);
-    let reports = dailyReports;
-    let picked = pickSalesReport(reports, date);
-    let source: 'daily' | 'weekly' = 'daily';
+    const picked = pickDailyReport(dailyReports, date);
 
-    const exactDaily = picked && picked.dateFrom === date && picked.dateTo === date;
-    if (!exactDaily) {
-        const weeklyFrom = addDaysYmd(date, -28);
-        reports = await listSalesReports(token, weeklyFrom, date, 'weekly');
-        picked = pickSalesReport(reports, date);
-        source = 'weekly';
-    }
-
-    const empty = (extra: Partial<PenaltyBundle> = {}): PenaltyBundle => ({
-        rows: [],
-        periodFrom: date,
-        periodTo: date,
-        reportId: null,
-        weekOpen: true,
-        source,
-        ...prev,
-        ...extra,
-    });
-
-    if (!picked) return empty();
-    const weekOpen = !(picked.dateFrom <= date && date <= picked.dateTo);
-    const exactDay = picked.dateFrom === date && picked.dateTo === date;
-    if (exactDay && !(picked.penaltySum > 0) && !(picked.deductionSum > 0)) {
-        return empty({
-            rows: [],
-            periodFrom: picked.dateFrom,
-            periodTo: picked.dateTo,
-            reportId: picked.reportId,
-            weekOpen: false,
-        });
+    const base = { periodFrom: date, periodTo: date, weekOpen: false, source: 'daily' as const, ...prev };
+    if (!picked) return { ...base, ready: false, rows: [], reportId: null };
+    if (!(Number(picked.penaltySum) > 0) && !(Number(picked.deductionSum) > 0)) {
+        return { ...base, ready: true, rows: [], reportId: picked.reportId };
     }
     const detailed = await financePost(
         token,
@@ -216,15 +197,15 @@ export async function fetchWeeklyPenaltyBundle(
         90000,
     );
     const raw = Array.isArray(detailed.data) ? detailed.data as Record<string, unknown>[] : [];
-    return {
-        rows: aggregatePenaltyRows(raw),
-        periodFrom: picked.dateFrom,
-        periodTo: picked.dateTo,
-        reportId: picked.reportId,
-        weekOpen,
-        source,
-        ...prev,
-    };
+    return { ...base, ready: true, rows: aggregatePenaltyRows(raw), reportId: picked.reportId };
+}
+
+/** Дневной отчёт ровно на эту дату (если несколько, берём самый свежий). */
+export function pickDailyReport(reports: SalesReportMeta[], date: string): SalesReportMeta | null {
+    const exact = reports
+        .filter((r) => r.dateFrom === date && r.dateTo === date)
+        .sort((a, b) => b.reportId.localeCompare(a.reportId));
+    return exact[0] ?? null;
 }
 
 export function aggregatePenaltyRows(raw: Record<string, unknown>[]): PenaltyLine[] {
@@ -323,9 +304,11 @@ export function formatPenaltyCaption(opts: {
     const prevDate = opts.prevDate || addDaysYmd(opts.date, -1);
     const prevTotal = opts.prevTotal ?? 0;
     const delta = total - prevTotal;
-    const denom = prevTotal > 0 ? prevTotal : 0.01;
-    const pct = ((total - prevTotal) / denom) * 100;
     const signed = (n: number) => `${n > 0 ? '+' : ''}${fmtSom(n)}`;
+    // Процент считаем только если вчера что-то было: иначе деление на ноль даёт «+19 537 500%».
+    const change = prevTotal > 0
+        ? `${signed(delta)}, ${signed(((total - prevTotal) / prevTotal) * 100)}%`
+        : signed(delta);
     const lines = [
         `⚠️ <b>${escapeHtml(opts.cabinetName)}</b> — штрафы за ${period}`,
         `💸 Удержано: <b>${fmtSom(total)} сом</b> (${opts.rows.length} поз.)`,
@@ -334,7 +317,7 @@ export function formatPenaltyCaption(opts: {
         lines.push('🚨 Сторож: превышен порог удержаний');
     }
     lines.push(
-        `📈 К ${prettyRuDate(prevDate)}: ${somWithItems(prevTotal, opts.prevItems)} → сегодня ${somWithItems(total, opts.rows.length)} (${signed(delta)}, ${signed(pct)}%)`,
+        `📈 К ${prettyRuDate(prevDate)}: ${somWithItems(prevTotal, opts.prevItems)} → сегодня ${somWithItems(total, opts.rows.length)} (${change})`,
     );
     if (opts.alertUser) {
         lines.push(`@${escapeHtml(opts.alertUser.replace(/^@/, ''))} — <b>нужно разобраться</b>`);

@@ -6,7 +6,11 @@
 // WB: sales-reports/list (daily) → detailed/{reportId} со slim fields,
 // иначе последний закрытый weekly. Поле операции — sellerOperName.
 //
-// Тело: { "date", "force", "test", "health", "cabinets": ["Имя"] }
+// Запуски: основной в 07:10 Бишкек и повторы каждый час до 18:10: WB выдаёт дневной отчёт с задержкой.
+// Пока отчёта нет, молчим и не пишем в журнал; как только появился, шлём один раз (журнал не даёт дублей).
+// Последний запуск дня идёт с final: true и один раз сообщает, что WB отчёт так и не выдал.
+//
+// Тело: { "date", "force", "test", "health", "final", "cabinets": ["Имя"] }
 // test: true — отправить и сразу удалить (не оставляем мусор).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -107,14 +111,29 @@ Deno.serve(async (req) => {
                 }
 
                 const bundle = await fetchWeeklyPenaltyBundle(token, reportDate);
+                if (!bundle.ready) {
+                    cabResult.skipped = 'report_not_ready';
+                    if (body?.final === true && !isTest) {
+                        const text = `🕓 <b>${esc(cabinet.name)}</b> — штрафы за ${prettyRuDate(reportDate)}\nWB так и не выдал дневной отчёт. Проверим завтра.`;
+                        const tg = await sendTelegramMessage(tgToken, tgChatId, text);
+                        if (!tg.error) {
+                            await admin.from('notification_log').insert({
+                                cabinet_id: cabinet.id, campaign_id: null, event_type: eventType,
+                                message_text: `penalties ${reportDate}: report not published`,
+                            });
+                            cabResult.sent_notice = true;
+                        }
+                    }
+                    results.push(cabResult);
+                    if (i < targets.length - 1) await sleep(1500);
+                    continue;
+                }
                 const rows = bundle.rows;
                 const periodKey = `${bundle.periodFrom}_${bundle.periodTo}`;
                 const caption = formatPenaltyCaption({
                     cabinetName: cabinet.name,
                     date: reportDate,
-                    dateLabel: bundle.periodFrom === bundle.periodTo
-                        ? prettyRuDate(reportDate)
-                        : `${prettyRuDate(bundle.periodFrom)}–${prettyRuDate(bundle.periodTo)}`,
+                    dateLabel: prettyRuDate(reportDate),
                     rows,
                     prevDate: bundle.prevDate,
                     prevTotal: bundle.prevTotal,
@@ -142,9 +161,7 @@ Deno.serve(async (req) => {
                     for (let p = 0; p < rows.length; p += ROWS_PER_PAGE) {
                         pages.push(rows.slice(p, p + ROWS_PER_PAGE));
                     }
-                    const dateLabel = bundle.periodFrom === bundle.periodTo
-                        ? reportDate
-                        : `${prettyRuDate(bundle.periodFrom)}–${prettyRuDate(bundle.periodTo)}`;
+                    const dateLabel = reportDate;
                     for (let pi = 0; pi < pages.length; pi++) {
                         if (pi > 0) await sleep(1200);
                         const png = await renderPenaltyImage(
@@ -211,6 +228,10 @@ Deno.serve(async (req) => {
         return json({ error: String(err) }, 500);
     }
 });
+
+function esc(s: string): string {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 interface PenaltyRow {
     reason: string;
