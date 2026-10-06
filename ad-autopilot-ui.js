@@ -39,6 +39,7 @@
     async function loadAuto() {
         if (!sb()) return;
         var r = await Promise.all([sb().from('ad_autopilot_campaigns').select('cabinet_id,campaign_id'), sb().from('ad_autopilot_settings').select('cabinet_id,enabled,dry_run')]);
+        if (r[0].error || r[1].error) throw (r[0].error || r[1].error);
         auto.camps = {}; auto.settings = {};
         (r[0].data || []).forEach(function (x) { (auto.camps[x.cabinet_id] = auto.camps[x.cabinet_id] || new Set()).add(String(x.campaign_id)); });
         (r[1].data || []).forEach(function (x) { auto.settings[x.cabinet_id] = { enabled: x.enabled, dry_run: x.dry_run }; });
@@ -221,7 +222,7 @@
             if (maxB < minB) { say('Максимальная ставка меньше минимальной', true); return; }
             var row = {
                 cabinet_id: cab, enabled: mode !== 'off', dry_run: mode !== 'live', max_drr_pct: num('adp-drr', 15), target_share: Math.min(1, num('adp-share', 70) / 100),
-                min_bid_kop: minB, max_bid_kop: maxB, step_pct: Math.min(50, Math.round(num('adp-step', 10))), updated_at: new Date().toISOString(),
+                min_bid_kop: minB, max_bid_kop: maxB, step_pct: Math.max(1, Math.min(50, Math.round(num('adp-step', 10)))), updated_at: new Date().toISOString(),
             };
             var r = await sb().from('ad_autopilot_settings').upsert(row, { onConflict: 'cabinet_id' });
             if (r.error) throw r.error;
@@ -237,28 +238,29 @@
             if (r.error) throw r.error;
             var x = (r.data && r.data.results && r.data.results[0]) || {};
             var text = x.skipped
-                ? 'Пропущено: ' + ({ no_campaigns: 'ни у одной кампании не включён переключатель «авто»', no_token: 'нет токена рекламы', no_active_cpc: 'нет работающих СРС среди выбранных' }[x.skipped] || x.skipped)
+                ? 'Пропущено: ' + ({ no_campaigns: 'нет работающих СРС-кампаний', no_token: 'нет токена рекламы', no_active_cpc: 'нет работающих СРС-кампаний' }[x.skipped] || x.skipped)
                 : (x.dry_run ? 'Пробный прогон: ' : 'Готово: ') + 'изменений ' + (x.changes || 0) + ', без изменений ' + (x.holds || 0) + (x.errors && x.errors.length ? '. Ошибки: ' + x.errors.join('; ') : '');
             await load();
             say(text);
         } catch (e) { say('Не вышло: ' + (e.message || e), true); }
     }
 
+    var fails = 0;
     function tick() {
         var tab = document.getElementById('tab-advertising');
-        if (!tab || !tab.classList.contains('active')) return;
+        if (document.hidden || !tab || !tab.classList.contains('active')) return;
         if (!document.getElementById('adp-style')) document.head.appendChild(h('style', { id: 'adp-style', text: CSS }));
         watchTable();
         ensurePill();
-        if (!auto.loaded) loadAuto().catch(function () {});
+        if (!auto.loaded && fails < 3) loadAuto().catch(function () { fails++; });
         if (!ensureRoot()) return;
         var bulk = document.querySelector('#adv-view-ads .ads-hq-bulk');
         if (bulk && root.previousElementSibling !== bulk && root.parentNode !== bulk.parentNode) bulk.parentNode.insertBefore(root, bulk.nextSibling);
         var cab = cabId();
-        if (cab && (cab !== state.cab || !state.loaded)) { state.loaded = false; load().catch(function () {}); }
+        if (cab && (cab !== state.cab || !state.loaded)) { if (fails < 3) { state.loaded = false; load().catch(function () { fails++; }); } }
         else if (!root.firstChild && state.loaded) render();
     }
 
-    window.loadAdAutopilot = function () { state.loaded = false; auto.loaded = false; tick(); };
+    window.loadAdAutopilot = function () { fails = 0; state.loaded = false; auto.loaded = false; tick(); };
     setInterval(tick, 1500);
 })();

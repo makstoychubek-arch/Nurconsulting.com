@@ -1961,7 +1961,7 @@
         if (modal) {
             modal(fail ? 'error' : 'success',
                 verb === 'start' ? 'Запуск' : 'Пауза',
-                'Готово: ' + ok + ', ошибок: ' + fail + '. Edge Function adv_bulk_action ещё нет — шлём по одной через существующий proxy.');
+                'Готово: ' + ok + ', ошибок: ' + fail + '.');
         }
         await load();
     }

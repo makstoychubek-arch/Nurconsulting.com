@@ -345,7 +345,7 @@ function initArticle(row) {
 async function loadFinanceReport(callWbProxy, dateFrom, dateTo) {
     // WB finance detailed — 1 запрос/минуту на продавца.
     // Кэшируем в sessionStorage на 30 минут, при 429 не ретраим.
-    const cacheKey = `wbf_fin_${dateFrom}_${dateTo}`;
+    const cacheKey = `wbf_fin_${(function () { try { return localStorage.getItem('selected_cabinet_id') || ''; } catch (e) { return ''; } })()}_${dateFrom}_${dateTo}`;
     try {
         const stored = JSON.parse(sessionStorage.getItem(cacheKey) || 'null');
         if (stored && Date.now() - stored.ts < 30 * 60 * 1000 && Array.isArray(stored.rows)) {

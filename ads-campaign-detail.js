@@ -165,10 +165,10 @@
 
     function tick() {
         var tab = document.getElementById('tab-advertising');
-        if (!tab || !tab.classList.contains('active')) return;
+        if (document.hidden || !tab || !tab.classList.contains('active')) return;
         if (!document.getElementById('adx-style')) { var st = document.createElement('style'); st.id = 'adx-style'; st.textContent = CSS; document.head.appendChild(st); }
         ensureBidderPill();
         decorateCards();
     }
-    setInterval(tick, 700);
+    setInterval(tick, 1000);
 })();

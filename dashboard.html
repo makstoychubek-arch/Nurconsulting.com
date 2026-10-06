@@ -8084,7 +8084,7 @@
         </div>
     </div>
 
-<script src="/dist/nr-win.1c22985ab7.min.js"></script>
+<script src="/dist/nr-win.2608c3728e.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
 <script src="/dist/rnp-module.44e563aab9.min.js"></script>
 <script>
@@ -8365,9 +8365,9 @@
 </script>
 
 <script src="/dist/rnp-plan-fact.4fa5c941bc.min.js"></script>
-<script src="/dist/wb-formulas.5bba40a38e.min.js"></script>
+<script src="/dist/wb-formulas.ff04c637b5.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
-<script src="/dist/ads-command-center.7bc1ac0fd1.min.js"></script>
+<script src="/dist/ads-command-center.5be6576e41.min.js"></script>
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
@@ -8375,8 +8375,8 @@
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
 <script src="/dist/dash-cabinet-plans.61f24fc2a9.min.js"></script>
 <script src="/dist/admin-canvas.d45b628a46.min.js"></script>
-<script src="/dist/ad-autopilot-ui.57548cbd06.min.js"></script>
-<script src="/dist/ads-campaign-detail.5b3b34f98a.min.js"></script>
+<script src="/dist/ad-autopilot-ui.b5490fe5de.min.js"></script>
+<script src="/dist/ads-campaign-detail.9f36157688.min.js"></script>
 <script src="/dist/nr-skeleton.67e63350c7.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -9015,7 +9015,7 @@
     }
 
     function escapeHtml(str) {
-        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
     }
 
     // ─── DOM MORPH: dependency-free keyed reconciliation for lists/tables ─────
@@ -9633,8 +9633,8 @@
         t.innerHTML = `
             <span style="color:${c.color};flex-shrink:0;margin-top:1px">${c.icon}</span>
             <div style="flex:1;min-width:0">
-                <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px">${title}</div>
-                <div style="font-size:12px;color:var(--text-muted);line-height:1.4">${text}</div>
+                <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px">${escapeHtml(title)}</div>
+                <div style="font-size:12px;color:var(--text-muted);line-height:1.4">${escapeHtml(text)}</div>
             </div>
             <button onclick="this.closest('div[style]').remove()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:16px;line-height:1;padding:0 0 0 4px;flex-shrink:0">×</button>
             <div style="position:absolute;bottom:0;left:0;height:2px;background:${c.bar};width:100%;transform-origin:left;animation:toast-bar ${dur}ms linear forwards"></div>`;
@@ -12843,7 +12843,7 @@
 
     const RU_MONTHS_CAL = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
     const RU_MONTHS_S = ['янв','фев','мар','апр','май','июн','июл','авг','сен','окт','ноя','дек'];
-    let pickerState = { year:2026, month:new Date().getMonth(), fromDate:null, toDate:null, selecting:'from' };
+    let pickerState = { year:new Date().getFullYear(), month:new Date().getMonth(), fromDate:null, toDate:null, selecting:'from' };
     // По умолчанию — текущий месяц. Раньше дашборд всегда открывался «с 1 января»:
     // это девять месяцев заказов против финотчёта WB, который отдаётся неделями и
     // за такой период просто не собирается, — отсюда и долгая загрузка, и плашка
@@ -13421,7 +13421,7 @@
     function onCabinetChange() {
         const s = document.getElementById('cabinet-select-header');
         const newCabinetId = s.value;
-        const newCabinetName = s.options[s.selectedIndex].text;
+        const newCabinetName = s.selectedIndex >= 0 ? s.options[s.selectedIndex].text : '';
 
         _loadRequestId++;
 
@@ -14813,7 +14813,7 @@
         }
         el.textContent = val;
     }
-    function fmt(n) { return Number(n).toLocaleString('ru-RU'); }
+    function fmt(n) { const x = Number(n); return n != null && n !== '' && Number.isFinite(x) ? x.toLocaleString('ru-RU') : '—'; }
 
     let trackedKeywords = [];
     function addKeyword() {
@@ -15808,7 +15808,7 @@
                 return;
             }
             const intervalMs = (test.rotation_interval_min || 60) * 60 * 1000;
-            const elapsed = test.last_rotated_at ? Date.now() - new Date(test.last_rotated_at).getTime() : intervalMs;
+            const elapsed = Date.now() - new Date(test.last_rotated_at || test.started_at || Date.now()).getTime();
             progressEl.style.width = Math.min(100, (elapsed / intervalMs) * 100) + '%';
             const remaining = Math.max(0, intervalMs - elapsed);
             nextEl.textContent = remaining < 1000 ? 'сейчас' : `${Math.floor(remaining / 60000)}м ${Math.floor((remaining % 60000) / 1000)}с`;
