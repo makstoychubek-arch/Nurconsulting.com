@@ -4183,8 +4183,18 @@
             cursor: pointer; letter-spacing: -0.02em;
         }
         .ab-create-btn:hover { background: var(--accent-soft); }
-        .ab-pill.active { background: var(--sel); color: var(--text-primary); border-color: transparent; }
-        .ab-pill:not(.active):hover { border-color: transparent; color: var(--text-primary); background: var(--sel); }
+        .ab-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 1px 4px var(--accent-soft); }
+        .ab-pill.active::before { content: '✓ '; font-weight: 700; }
+        .ab-pill:not(.active):hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+        .ab-new-dialog .ab-pill { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 12px; }
+        .ab-new-dialog .ab-btn { height: 34px; padding: 0 18px; border-radius: 10px !important; font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
+        .ab-new-dialog .ab-btn-ghost { background: var(--surface); color: var(--text-primary); border-color: var(--border); }
+        .ab-new-dialog .ab-btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+        .ab-new-dialog .ab-btn-primary { background: var(--accent); color: #fff; }
+        .ab-new-dialog .ab-btn-primary:hover { filter: brightness(1.08); }
+        .ab-new-dialog .ab-btn:disabled { opacity: .6; pointer-events: none; }
+        .ab-var-tile.is-current { border-style: solid; border-color: var(--accent); cursor: default; }
+        .ab-var-cur { position: absolute; left: 0; right: 0; top: 0; padding: 2px 0; background: var(--accent); color: #fff; font-size: 9.5px; font-weight: 700; text-align: center; letter-spacing: .02em; pointer-events: none; }
         .ab-campaign-list { max-height: 240px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; }
         .ab-campaign-row {
             display: grid; grid-template-columns: 28px minmax(0, 1.6fr) minmax(88px, 0.7fr) auto; gap: 10px; align-items: center;
@@ -4255,9 +4265,9 @@
         .ab-var-ph { font-size: 11px; line-height: 1.3; color: var(--text-muted); padding: 0 6px; pointer-events: none; }
         .ab-var-ph b { display: block; font-size: 22px; font-weight: 400; color: var(--accent); line-height: 1; margin-bottom: 4px; }
         .ab-var-num { position: absolute; left: 4px; bottom: 4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: rgba(0,0,0,.6); color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-        .ab-var-del { position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; border: 0; font-size: 11px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 2; }
+        .ab-var-del { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; border: 0; font-size: 11px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 2; }
         .ab-var-del:hover { background: var(--red); }
-        .ab-var-add { width: 96px; height: 124px; border-radius: 10px; border: 2px dashed var(--border); background: transparent; color: var(--text-muted); font-size: 12px; cursor: pointer; }
+        .ab-var-add { width: 96px; height: 124px; border-radius: 10px !important; border: 2px dashed var(--border); background: transparent; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
         .ab-var-add:hover { border-color: var(--accent); color: var(--accent); }
         .ab-variant-row { display: grid; grid-template-columns: 120px 1fr; gap: 12px; margin-bottom: 12px; align-items: start; }
         .ab-variant-preview { width: 120px; height: 150px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border); background: var(--surface); }
@@ -7303,8 +7313,7 @@
                         <div class="ab-wizard-card">
                             <h4>Варианты фото</h4>
                             <div id="variant-inputs" class="ab-var-grid"></div>
-                            <button class="ui-btn ui-btn-secondary text-sm" onclick="addVariantSlot()" id="add-variant-btn" style="display:none">+ Добавить вариант</button>
-                            <div class="ab-wizard-hint">Минимум 2. Нажмите на плитку и вставьте фото через Ctrl+V, перетащите файл или выберите его. Можно кликнуть по фото WB выше. Размер 700×900.</div>
+                                                        <div class="ab-wizard-hint">Вариант 1 — текущее фото карточки, участвует всегда. Остальные: нажмите на плитку и вставьте фото (Ctrl+V), перетащите файл или кликните по фото WB выше. Размер 700×900.</div>
                         </div>
 
                         <div class="ab-wizard-card">
@@ -7340,8 +7349,8 @@
                     </div>
                 </div>
                 <div class="ab-new-foot">
-                    <button class="ui-btn ui-btn-secondary text-sm" onclick="hideNewTestForm()">Отмена</button>
-                    <button class="px-5 py-2 text-white text-sm font-semibold rounded-xl" style="background:var(--accent)" onclick="createABTest()" id="ab-create-test-btn">Создать тест</button>
+                    <button type="button" class="ab-btn ab-btn-ghost" onclick="hideNewTestForm()">Отмена</button>
+                    <button type="button" class="ab-btn ab-btn-primary" onclick="createABTest()" id="ab-create-test-btn">Создать тест</button>
                 </div>
             </div>
         </div>
@@ -14869,9 +14878,7 @@
         if (step === 2) {
             renderABSelectedCard();
             loadABCampaigns();
-            if (!document.getElementById('variant-inputs').children.length) {
-                addVariantSlot(); addVariantSlot();
-            }
+            seedCurrentPhotoVariant();
         }
     }
 
@@ -15099,6 +15106,24 @@
 
     let abPasteTarget = null;
 
+    // Вариант 1 — всегда текущее главное фото карточки (замок: нельзя удалить
+    // и заменить). Остальные плитки пользователь добавляет сам.
+    function seedCurrentPhotoVariant() {
+        const cur = abSelectedCard?.photos?.[0] || abSelectedCard?.thumb || '';
+        const container = document.getElementById('variant-inputs');
+        if (!container) return;
+        const first = abVariantFiles[0];
+        if (first && first.current && first.url === cur && container.children.length) return;
+        abVariantFiles = {};
+        container.innerHTML = '';
+        if (cur) {
+            abVariantFiles[0] = { url: cur, fromWB: true, current: true };
+            appendVariantSlotDom(0, abVariantFiles[0]);
+        }
+        abVariantFiles[Object.keys(abVariantFiles).length] = null;
+        appendVariantSlotDom(Object.keys(abVariantFiles).length - 1, null);
+    }
+
     function addVariantSlot() {
         const count = Object.keys(abVariantFiles).length;
         if (count >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10 вариантов', 'Можно сравнивать до 10 фото.'); return; }
@@ -15129,18 +15154,27 @@
         slot.dataset.idx = idx;
         slot.id = `variant-slot-${idx}`;
         slot.title = 'Вставьте фото через Ctrl+V, перетащите или кликните';
-        slot.innerHTML = `
-            <div class="ab-var-ph"><b>＋</b>Ctrl+V<br>или файл</div>
+        const locked = !!(entry && entry.current);
+        slot.innerHTML = locked
+            ? `<span class="ab-var-cur">ТЕКУЩЕЕ</span><span class="ab-var-num">${abVariantLabel(idx)}</span>`
+            : `<div class="ab-var-ph"><b>＋</b>Ctrl+V<br>или файл</div>
             <input type="file" accept="image/*" onchange="handleVariantFile(${idx}, this)">
             <span class="ab-var-num">${abVariantLabel(idx)}</span>
-            <button type="button" class="ab-var-del" onclick="event.stopPropagation();removeVariantSlot(${idx})" title="Удалить вариант">✕</button>`;
-        slot.addEventListener('click', () => setPasteTarget(idx));
-        slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('dragover'); });
-        slot.addEventListener('dragleave', () => slot.classList.remove('dragover'));
-        slot.addEventListener('drop', e => {
-            e.preventDefault(); slot.classList.remove('dragover');
-            if (e.dataTransfer.files[0]) applyVariantFile(idx, e.dataTransfer.files[0]);
+            <button type="button" class="ab-var-del" data-del="${idx}" title="Удалить вариант">✕</button>`;
+        if (locked) { slot.classList.add('is-current'); slot.title = 'Текущее фото карточки — всегда вариант 1'; }
+        else slot.addEventListener('click', () => setPasteTarget(idx));
+        slot.querySelector('.ab-var-del')?.addEventListener('click', ev => {
+            ev.preventDefault(); ev.stopPropagation();
+            removeVariantSlot(Number(ev.currentTarget.dataset.del));
         });
+        if (!locked) {
+            slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('dragover'); });
+            slot.addEventListener('dragleave', () => slot.classList.remove('dragover'));
+            slot.addEventListener('drop', e => {
+                e.preventDefault(); slot.classList.remove('dragover');
+                if (e.dataTransfer.files[0]) applyVariantFile(idx, e.dataTransfer.files[0]);
+            });
+        }
         container.appendChild(slot);
         if (entry && entry.fromWB) paintVariantImg(idx, entry.url);
         else if (entry) {
@@ -15180,7 +15214,7 @@
         e.preventDefault();
         files.forEach((file, n) => {
             let idx = null;
-            if (n === 0 && abPasteTarget != null && abVariantFiles[abPasteTarget] !== undefined) idx = abPasteTarget;
+            if (n === 0 && abPasteTarget != null && abVariantFiles[abPasteTarget] !== undefined && !abVariantFiles[abPasteTarget]?.current) idx = abPasteTarget;
             if (idx == null) {
                 const empty = Object.keys(abVariantFiles).map(Number).sort((x, y) => x - y).find(i => !abVariantFiles[i]);
                 if (empty != null) idx = empty;
@@ -15207,9 +15241,10 @@
     function removeVariantSlot(idx) {
         const container = document.getElementById('variant-inputs');
         if (!container) return;
+        if (abVariantFiles[idx] && abVariantFiles[idx].current) return;
         const remainingCount = Object.keys(abVariantFiles).length - 1;
         if (remainingCount < 2) {
-            showPremiumModal('warning', 'Минимум 2 варианта', 'Для А/Б теста нужно хотя бы 2 фото.');
+            showPremiumModal('warning', 'Минимум 2 варианта', 'Вариант 1 — текущее фото, нужен ещё хотя бы один.');
             return;
         }
         const ordered = Object.keys(abVariantFiles).map(Number).sort((a, b) => a - b)
@@ -15233,6 +15268,7 @@
             showPremiumModal('warning', 'Нужна картинка', 'Подходят JPG, PNG или WebP.');
             return;
         }
+        if (abVariantFiles[idx]?.current) return;
         abVariantFiles[idx] = file;
         const reader = new FileReader();
         reader.onload = e => paintVariantImg(idx, e.target.result);
