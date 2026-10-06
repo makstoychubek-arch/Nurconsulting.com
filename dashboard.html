@@ -4245,6 +4245,20 @@
         }
         .ab-campaign-status.run { background: var(--green-soft); color: var(--green); }
         .ab-campaign-status.stop { background: var(--muted-soft); color: var(--text-muted); }
+        .ab-var-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+        .ab-var-tile { position: relative; width: 96px; height: 124px; border-radius: 10px; border: 2px dashed var(--border-strong); background: var(--surface); overflow: hidden; cursor: pointer; transition: border-color .15s, box-shadow .15s; display: flex; align-items: center; justify-content: center; text-align: center; }
+        .ab-var-tile:hover, .ab-var-tile.dragover { border-color: var(--accent); background: var(--accent-soft); }
+        .ab-var-tile.has-img { border-style: solid; border-color: var(--border); }
+        .ab-var-tile.is-target { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+        .ab-var-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .ab-var-tile input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+        .ab-var-ph { font-size: 11px; line-height: 1.3; color: var(--text-muted); padding: 0 6px; pointer-events: none; }
+        .ab-var-ph b { display: block; font-size: 22px; font-weight: 400; color: var(--accent); line-height: 1; margin-bottom: 4px; }
+        .ab-var-num { position: absolute; left: 4px; bottom: 4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: rgba(0,0,0,.6); color: #fff; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+        .ab-var-del { position: absolute; top: 3px; right: 3px; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; border: 0; font-size: 11px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; z-index: 2; }
+        .ab-var-del:hover { background: var(--red); }
+        .ab-var-add { width: 96px; height: 124px; border-radius: 10px; border: 2px dashed var(--border); background: transparent; color: var(--text-muted); font-size: 12px; cursor: pointer; }
+        .ab-var-add:hover { border-color: var(--accent); color: var(--accent); }
         .ab-variant-row { display: grid; grid-template-columns: 120px 1fr; gap: 12px; margin-bottom: 12px; align-items: start; }
         .ab-variant-preview { width: 120px; height: 150px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border); background: var(--surface); }
         .ab-variant-remove-btn {
@@ -7288,9 +7302,9 @@
 
                         <div class="ab-wizard-card">
                             <h4>Варианты фото</h4>
-                            <div id="variant-inputs"></div>
-                            <button class="ui-btn ui-btn-secondary text-sm" onclick="addVariantSlot()" id="add-variant-btn">+ Добавить вариант</button>
-                            <div class="ab-wizard-hint">Минимум 2. Клик по фото WB или файл 700×900.</div>
+                            <div id="variant-inputs" class="ab-var-grid"></div>
+                            <button class="ui-btn ui-btn-secondary text-sm" onclick="addVariantSlot()" id="add-variant-btn" style="display:none">+ Добавить вариант</button>
+                            <div class="ab-wizard-hint">Минимум 2. Нажмите на плитку и вставьте фото через Ctrl+V, перетащите файл или выберите его. Можно кликнуть по фото WB выше. Размер 700×900.</div>
                         </div>
 
                         <div class="ab-wizard-card">
@@ -14931,13 +14945,17 @@
     }
 
     function useWBPhotoAsVariant(url) {
+        const entry = { url, fromWB: true };
+        const empty = Object.keys(abVariantFiles).map(Number).sort((x, y) => x - y).find(i => !abVariantFiles[i]);
+        if (empty != null) {
+            abVariantFiles[empty] = entry;
+            paintVariantImg(empty, url);
+            return;
+        }
         const count = Object.keys(abVariantFiles).length;
         if (count >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10', 'Можно сравнивать до 10 фото.'); return; }
-        const entry = { url, fromWB: true };
         abVariantFiles[count] = entry;
         appendVariantSlotDom(count, entry);
-        const btn = document.getElementById('add-variant-btn');
-        if (btn) btn.style.display = count + 1 >= MAX_AB_VARIANTS ? 'none' : '';
     }
 
     function toggleABSource(key, el) {
@@ -15079,72 +15097,107 @@
         else abSelectedCampaigns.delete(id);
     }
 
+    let abPasteTarget = null;
+
     function addVariantSlot() {
         const count = Object.keys(abVariantFiles).length;
         if (count >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10 вариантов', 'Можно сравнивать до 10 фото.'); return; }
         abVariantFiles[count] = null;
         appendVariantSlotDom(count, null);
-        const btn = document.getElementById('add-variant-btn');
-        if (btn && count + 1 >= MAX_AB_VARIANTS) btn.style.display = 'none';
+        refreshVariantAddBtn();
     }
 
-    // Собирает DOM-разметку одного слота варианта (пустой / файл / фото из
-    // галереи WB) и навешивает drag&drop. Вынесено в отдельную функцию, чтобы
-    // и addVariantSlot, и useWBPhotoAsVariant, и rebuildVariantInputs (после
-    // удаления слота) рисовали слоты одинаково.
+    function refreshVariantAddBtn() {
+        const c = document.getElementById('variant-inputs');
+        if (!c) return;
+        c.querySelector('.ab-var-add')?.remove();
+        if (Object.keys(abVariantFiles).length >= MAX_AB_VARIANTS) return;
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'ab-var-add'; b.textContent = '+ ещё';
+        b.onclick = addVariantSlot;
+        c.appendChild(b);
+    }
+
+    // Плитка варианта: пустая / файл / фото WB. Фото можно выбрать, перетащить
+    // или вставить из буфера (Ctrl+V) — см. abHandlePaste.
     function appendVariantSlotDom(idx, entry) {
         const container = document.getElementById('variant-inputs');
         if (!container) return;
-        const label = abVariantLabel(idx);
+        container.querySelector('.ab-var-add')?.remove();
         const slot = document.createElement('div');
-        slot.className = 'ab-variant-row';
+        slot.className = 'ab-var-tile';
         slot.dataset.idx = idx;
         slot.id = `variant-slot-${idx}`;
-
-        let previewHtml, innerHtml;
-        if (entry && entry.fromWB) {
-            previewHtml = `<img src="${escapeHtml(entry.url)}" class="ab-variant-preview">`;
-            innerHtml = `<div class="text-xs font-semibold" style="color:var(--green)">✓ Фото WB · Вариант ${label}</div>
-                <div class="text-xs mt-1" style="color:var(--text-muted)">Кликни чтобы заменить файлом</div>`;
-        } else if (entry) {
-            previewHtml = `<div class="ab-variant-preview" style="display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;border:2px dashed var(--border)">...</div>`;
-            innerHtml = `<div class="text-xs font-semibold" style="color:var(--green)">✓ Вариант ${label}</div>
-                <div class="text-xs" style="color:var(--text-muted)">${(entry.size / 1024).toFixed(0)} KB</div>`;
-        } else {
-            previewHtml = `<div class="ab-variant-preview" style="display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;border:2px dashed var(--border)">Нет фото</div>`;
-            innerHtml = `<div style="font-size:24px;margin-bottom:6px">📷</div>
-                <div class="text-xs font-semibold" style="color:var(--accent)">Вариант ${label}</div>
-                <div class="text-xs mt-1" style="color:var(--text-muted)">Перетащите или кликните · JPG, PNG, WebP</div>`;
-        }
-
+        slot.title = 'Вставьте фото через Ctrl+V, перетащите или кликните';
         slot.innerHTML = `
-            <div style="position:relative">
-                ${previewHtml}
-                <button type="button" class="ab-variant-remove-btn" onclick="event.stopPropagation();removeVariantSlot(${idx})" title="Удалить вариант">✕</button>
-            </div>
-            <div class="drop-zone" style="min-height:150px">
-                <input type="file" accept="image/*" onchange="handleVariantFile(${idx}, this)">
-                <div id="slot-inner-${idx}">${innerHtml}</div>
-            </div>`;
-        const dz = slot.querySelector('.drop-zone');
-        dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
-        dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
-        dz.addEventListener('drop', e => {
-            e.preventDefault(); dz.classList.remove('dragover');
+            <div class="ab-var-ph"><b>＋</b>Ctrl+V<br>или файл</div>
+            <input type="file" accept="image/*" onchange="handleVariantFile(${idx}, this)">
+            <span class="ab-var-num">${abVariantLabel(idx)}</span>
+            <button type="button" class="ab-var-del" onclick="event.stopPropagation();removeVariantSlot(${idx})" title="Удалить вариант">✕</button>`;
+        slot.addEventListener('click', () => setPasteTarget(idx));
+        slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('dragover'); });
+        slot.addEventListener('dragleave', () => slot.classList.remove('dragover'));
+        slot.addEventListener('drop', e => {
+            e.preventDefault(); slot.classList.remove('dragover');
             if (e.dataTransfer.files[0]) applyVariantFile(idx, e.dataTransfer.files[0]);
         });
         container.appendChild(slot);
-
-        if (entry && !entry.fromWB) {
+        if (entry && entry.fromWB) paintVariantImg(idx, entry.url);
+        else if (entry) {
             const reader = new FileReader();
-            reader.onload = e => {
-                const s = document.getElementById(`variant-slot-${idx}`);
-                const preview = s?.querySelector('.ab-variant-preview');
-                if (preview) preview.outerHTML = `<img src="${e.target.result}" class="ab-variant-preview">`;
-            };
+            reader.onload = e => paintVariantImg(idx, e.target.result);
             reader.readAsDataURL(entry);
         }
+        refreshVariantAddBtn();
     }
+
+    function paintVariantImg(idx, src) {
+        const slot = document.getElementById(`variant-slot-${idx}`);
+        if (!slot) return;
+        slot.classList.add('has-img');
+        slot.querySelector('.ab-var-ph')?.remove();
+        slot.querySelector('img')?.remove();
+        const img = document.createElement('img');
+        img.src = src; img.alt = '';
+        slot.insertBefore(img, slot.firstChild);
+    }
+
+    function setPasteTarget(idx) {
+        abPasteTarget = idx;
+        document.querySelectorAll('#variant-inputs .ab-var-tile').forEach(t => t.classList.toggle('is-target', Number(t.dataset.idx) === idx));
+    }
+
+    // Вставка картинки из буфера обмена: в выбранную плитку, иначе в первую
+    // пустую, иначе в новую.
+    function abHandlePaste(e) {
+        const form = document.getElementById('new-test-form');
+        if (!form || !form.classList.contains('is-open')) return;
+        if (!document.getElementById('variant-inputs')?.children.length) return;
+        const files = Array.from(e.clipboardData?.items || [])
+            .filter(it => it.kind === 'file' && it.type.startsWith('image/'))
+            .map(it => it.getAsFile()).filter(Boolean);
+        if (!files.length) return;
+        e.preventDefault();
+        files.forEach((file, n) => {
+            let idx = null;
+            if (n === 0 && abPasteTarget != null && abVariantFiles[abPasteTarget] !== undefined) idx = abPasteTarget;
+            if (idx == null) {
+                const empty = Object.keys(abVariantFiles).map(Number).sort((x, y) => x - y).find(i => !abVariantFiles[i]);
+                if (empty != null) idx = empty;
+            }
+            if (idx == null) {
+                const count = Object.keys(abVariantFiles).length;
+                if (count >= MAX_AB_VARIANTS) { showPremiumModal('warning', 'Максимум 10 вариантов', 'Можно сравнивать до 10 фото.'); return; }
+                abVariantFiles[count] = null;
+                appendVariantSlotDom(count, null);
+                idx = count;
+            }
+            applyVariantFile(idx, file);
+        });
+        abPasteTarget = null;
+        document.querySelectorAll('#variant-inputs .ab-var-tile').forEach(t => t.classList.remove('is-target'));
+    }
+    document.addEventListener('paste', abHandlePaste);
 
     // Удаление слота варианта. Индексы завязаны на позицию в DOM
     // (container.children.length при добавлении), поэтому после удаления
@@ -15167,8 +15220,7 @@
             abVariantFiles[i] = entry;
             appendVariantSlotDom(i, entry);
         });
-        const btn = document.getElementById('add-variant-btn');
-        if (btn) btn.style.display = ordered.length >= MAX_AB_VARIANTS ? 'none' : '';
+        refreshVariantAddBtn();
     }
     window.removeVariantSlot = removeVariantSlot;
 
@@ -15177,18 +15229,13 @@
     }
 
     function applyVariantFile(idx, file) {
+        if (!file || !String(file.type || '').startsWith('image/')) {
+            showPremiumModal('warning', 'Нужна картинка', 'Подходят JPG, PNG или WebP.');
+            return;
+        }
         abVariantFiles[idx] = file;
         const reader = new FileReader();
-        reader.onload = e => {
-            const slot = document.getElementById(`variant-slot-${idx}`);
-            const preview = slot?.querySelector('.ab-variant-preview');
-            if (preview) {
-                preview.outerHTML = `<img src="${e.target.result}" class="ab-variant-preview">`;
-            }
-            document.getElementById(`slot-inner-${idx}`).innerHTML = `
-                <div class="text-xs font-semibold" style="color:var(--green)">✓ Вариант ${abVariantLabel(idx)}</div>
-                <div class="text-xs" style="color:var(--text-muted)">${(file.size / 1024).toFixed(0)} KB</div>`;
-        };
+        reader.onload = e => paintVariantImg(idx, e.target.result);
         reader.readAsDataURL(file);
     }
 
