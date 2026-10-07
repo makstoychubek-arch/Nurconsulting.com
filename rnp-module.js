@@ -839,7 +839,6 @@ const RNP = (() => {
             const data = await _callProxyTimed('product_photos', { nmIds: slice }, _cab);
             if (data && typeof data === 'object') {
                 const gallery = data._gallery || {};
-                if (data._debug) console.info('[RNP] product_photos debug:', data._debug);
                 Object.entries(data).forEach(([id, url]) => {
                     if (id === '_debug' || id === '_gallery') return;
                     const norm = _normalizePhotoUrl(url);
@@ -863,7 +862,7 @@ const RNP = (() => {
         } catch (e) { console.warn('[RNP] product_photos:', e.message); }
 
         if (stillNeed.size) {
-            console.info(`[RNP] photos: ${stillNeed.size}/${slice.length} not found on WB (nmIds: ${[...stillNeed].join(',')})`);
+            console.info(`[RNP] photos: ${stillNeed.size}/${slice.length} not found on WB`);
         }
         _savePhotoCacheSnapshot();
     }
