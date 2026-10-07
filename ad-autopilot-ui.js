@@ -130,6 +130,7 @@
     }
 
     /* Маленькие кнопки справа в панели инструментов: «Автопилот» (тут) и «Автобиддер» (ads-campaign-detail.js) */
+    var APICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"></path><path d="M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"></path></svg>';
     function pillBox() {
         var tools = document.getElementById('ads-hq-tools');
         if (!tools) return null;
@@ -146,10 +147,18 @@
     }
     function ensurePill() {
         var box = pillBox();
-        if (!box || document.getElementById('adx-pill-ap')) return;
-        var btn = h('button', { type: 'button', id: 'adx-pill-ap', class: 'rnp-tool-icon adx-ico', onclick: function () { state.open = !state.open; if (state.open && !state.loaded) { load().catch(function () {}); } render(); } }, [h('i')]);
-        btn.insertAdjacentHTML('afterbegin', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"></path><path d="M18 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"></path></svg>');
-        box.insertBefore(btn, box.firstChild);
+        if (!box) return;
+        var btn = document.getElementById('adx-pill-ap');
+        if (btn && btn._adpBound) return;
+        function toggle() { state.open = !state.open; if (state.open && !state.loaded) { load().catch(function () {}); } render(); }
+        if (!btn) {
+            // значок уже есть в разметке страницы; этот запасной вариант нужен, только если его там нет
+            btn = h('button', { type: 'button', id: 'adx-pill-ap', class: 'rnp-tool-icon adx-ico' }, [h('i')]);
+            btn.insertAdjacentHTML('afterbegin', APICON);
+            box.insertBefore(btn, box.firstChild);
+        }
+        btn._adpBound = true;
+        btn.addEventListener('click', toggle);
         paintPill(modeOf(state.settings));
     }
 
@@ -184,9 +193,9 @@
     function logTable() {
         var wrap = h('div', {});
         wrap.appendChild(h('div', { class: 'adp-sub', text: 'Последние изменения' }));
-        if (!state.log.length) { wrap.appendChild(h('div', { class: 'adp-note', text: 'Пока пусто. Автопилот ждёт данных за 3 полных дня по включённым кампаниям.' })); return wrap; }
+        if (!state.log || !state.log.length) { wrap.appendChild(h('div', { class: 'adp-note', text: 'Пока пусто. Автопилот ждёт данных за 3 полных дня по включённым кампаниям.' })); return wrap; }
         var t = h('table', { class: 'adp-log' }, [h('tr', {}, ['Когда', 'Артикул', 'Ставка', 'Цена заказа / цель', 'Почему'].map(function (x) { return h('th', { text: x }); }))]);
-        state.log.forEach(function (l) {
+        (state.log || []).forEach(function (l) {
             var arrow = l.action === 'raise' ? '↑' : l.action === 'lower' ? '↓' : '·';
             t.appendChild(h('tr', {}, [
                 h('td', { text: fmtTime(l.created_at) + (l.applied ? '' : ' (пробно)') }),
