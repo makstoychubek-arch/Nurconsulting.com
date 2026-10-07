@@ -2750,6 +2750,14 @@
         .pnl-mini svg { display: block; width: 100%; height: 44px; margin-top: 8px; }
         .pnl-chart-card { background: var(--surface-solid); border-radius: var(--radius-card, 16px); padding: 16px 18px; box-shadow: var(--card-shadow); }
         .pnl-chart-card[hidden] { display: none; }
+        /* Блоки дашборда стоят на месте с первого кадра: подгружаются только значения */
+        .nr-skel { color: transparent !important; background: linear-gradient(90deg, var(--sel, #eee) 25%, var(--border, rgba(0,0,0,.08)) 50%, var(--sel, #eee) 75%); background-size: 200% 100%; animation: nrSkel 1.4s linear infinite; border-radius: 6px; min-width: 3.2em; display: inline-block; user-select: none; }
+        @keyframes nrSkel { to { background-position: -200% 0; } }
+        @media (prefers-reduced-motion: reduce) { .nr-skel { animation: none; } }
+        .pnl-big { min-height: 32px; }
+        #pnl-serv-rows, #pnl-tax-rows { min-height: 92px; }
+        .pnl-mini-spark { height: 52px; margin-top: 8px; }
+        .pnl-mini-grid > .pnl-mini { min-height: 152px; }
         .pnl-chart-wrap { position: relative; height: 280px; margin-top: 10px; }
         @media (max-width: 1280px) { .pnl-mini-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         @media (max-width: 640px) { .pnl-mini-grid { grid-template-columns: 1fr 1fr; } .pnl-mini-val { font-size: 20px; } }
@@ -6370,37 +6378,37 @@
             <div id="dash-pnl" class="pnl-grid" aria-label="Финансовый результат">
                 <div class="pnl-card">
                     <div class="pnl-title">Реализация</div>
-                    <div class="pnl-big" id="pnl-real">—</div>
+                    <div class="pnl-big nr-skel" id="pnl-real">—</div>
                     <div class="pnl-bar"><i id="pnl-real-bar" style="width:0;background:#16a34a"></i></div>
                     <div class="pnl-rows">
-                        <div class="pnl-row"><span class="pnl-dot" style="background:#16a34a"></span><span class="pnl-lbl">Продажи</span><b id="pnl-sales">—</b></div>
-                        <div class="pnl-row"><span class="pnl-dot" style="background:#ef4444"></span><span class="pnl-lbl">Возвраты</span><b id="pnl-returns">—</b></div>
+                        <div class="pnl-row"><span class="pnl-dot" style="background:#16a34a"></span><span class="pnl-lbl">Продажи</span><b class="nr-skel" id="pnl-sales">—</b></div>
+                        <div class="pnl-row"><span class="pnl-dot" style="background:#ef4444"></span><span class="pnl-lbl">Возвраты</span><b class="nr-skel" id="pnl-returns">—</b></div>
                     </div>
                 </div>
                 <div class="pnl-card">
                     <div class="pnl-title">Услуги</div>
-                    <div class="pnl-big"><span id="pnl-serv">—</span><em class="pnl-chip" id="pnl-serv-pct"></em></div>
+                    <div class="pnl-big"><span class="nr-skel" id="pnl-serv">—</span><em class="pnl-chip" id="pnl-serv-pct"></em></div>
                     <div class="pnl-bar" id="pnl-serv-bar"></div>
                     <div class="pnl-rows" id="pnl-serv-rows"></div>
                 </div>
                 <div class="pnl-card">
                     <div class="pnl-title">Налоги и затраты</div>
-                    <div class="pnl-big"><span id="pnl-tax-total">—</span><em class="pnl-chip" id="pnl-tax-pct"></em></div>
+                    <div class="pnl-big"><span class="nr-skel" id="pnl-tax-total">—</span><em class="pnl-chip" id="pnl-tax-pct"></em></div>
                     <div class="pnl-bar" id="pnl-tax-bar"></div>
                     <div class="pnl-rows" id="pnl-tax-rows"></div>
                 </div>
                 <div class="pnl-card pnl-card--profit">
                     <div class="pnl-title">Операционная прибыль</div>
-                    <div class="pnl-big" id="pnl-profit">—</div>
+                    <div class="pnl-big nr-skel" id="pnl-profit">—</div>
                     <div class="pnl-rows">
-                        <div class="pnl-row"><span class="pnl-lbl">Маржинальность</span><em class="pnl-chip" id="pnl-margin">—</em></div>
-                        <div class="pnl-row"><span class="pnl-lbl">Рентабельность</span><em class="pnl-chip" id="pnl-roi">—</em></div>
+                        <div class="pnl-row"><span class="pnl-lbl">Маржинальность</span><em class="pnl-chip nr-skel" id="pnl-margin">—</em></div>
+                        <div class="pnl-row"><span class="pnl-lbl">Рентабельность</span><em class="pnl-chip nr-skel" id="pnl-roi">—</em></div>
                     </div>
                     <div class="pnl-note">% — доля от реализации (продажи минус возвраты)</div>
                 </div>
             </div>
-            <div id="pnl-mini" class="pnl-mini-grid"></div>
-            <div class="pnl-chart-card" id="pnl-chart-card" hidden>
+            <div id="pnl-mini" class="pnl-mini-grid"><div class="pnl-mini"><div class="pnl-title">Заказы</div><div class="pnl-mini-date">&nbsp;</div><div class="pnl-mini-val nr-skel">0</div><div class="pnl-mini-dyn">&nbsp;</div><div class="pnl-mini-spark"></div></div><div class="pnl-mini"><div class="pnl-title">Продажи</div><div class="pnl-mini-date">&nbsp;</div><div class="pnl-mini-val nr-skel">0</div><div class="pnl-mini-dyn">&nbsp;</div><div class="pnl-mini-spark"></div></div><div class="pnl-mini"><div class="pnl-title">Логистика</div><div class="pnl-mini-date">&nbsp;</div><div class="pnl-mini-val nr-skel">0</div><div class="pnl-mini-dyn">&nbsp;</div><div class="pnl-mini-spark"></div></div><div class="pnl-mini"><div class="pnl-title">Реклама</div><div class="pnl-mini-date">&nbsp;</div><div class="pnl-mini-val nr-skel">0</div><div class="pnl-mini-dyn">&nbsp;</div><div class="pnl-mini-spark"></div></div><div class="pnl-mini"><div class="pnl-title">Все услуги</div><div class="pnl-mini-date">&nbsp;</div><div class="pnl-mini-val nr-skel">0</div><div class="pnl-mini-dyn">&nbsp;</div><div class="pnl-mini-spark"></div></div></div>
+            <div class="pnl-chart-card" id="pnl-chart-card">
                 <div class="pnl-title">Динамика показателей</div>
                 <div class="pnl-chart-wrap"><canvas id="pnl-chart"></canvas></div>
             </div>
@@ -8405,7 +8413,7 @@
 <script src="/dist/admin-canvas.d45b628a46.min.js"></script>
 <script src="/dist/ad-autopilot-ui.ef28a17b6a.min.js"></script>
 <script src="/dist/ads-campaign-detail.a424906d17.min.js"></script>
-<script src="/dist/nr-skeleton.67e63350c7.min.js"></script>
+<script src="/dist/nr-skeleton.ef8d44c3ff.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
     var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdWt5Znlob3RjdHZmZGlka3R4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIzMDE5NzcsImV4cCI6MjA5Nzg3Nzk3N30.vX31uMBCEj-wjjR6qmFkwWammg70Av2h6I4YUnewL9Q';
