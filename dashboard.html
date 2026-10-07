@@ -1233,6 +1233,10 @@
             .nr-wow-pulse { animation: none !important; }
         }
         ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 160ms; }
+        .dash-plan-board { min-height: 196px; }
+        @media (max-width: 900px) { .dash-plan-board { min-height: 0; } }
+        .dash-plan-ph { min-height: 100px; height: 100%; cursor: default; }
+        .dash-plan-skus-col { min-height: 92px; }
         .dash-plan-wrap { margin-top: 0; }
         .dash-plan-board {
             display: grid;
@@ -6442,17 +6446,17 @@
                 </div>
             </div>
 
-            <div id="dash-plan-wrap" class="dash-plan-wrap" hidden>
+            <div id="dash-plan-wrap" class="dash-plan-wrap">
                 <div class="dash-plan-board">
                     <div class="dash-plan-left">
-                        <div id="dash-plan-cabs" class="dash-plan-cabs"></div>
+                        <div id="dash-plan-cabs" class="dash-plan-cabs"><div class="dash-plan-card dash-plan-ph" aria-hidden="true"></div></div>
                         <div class="dash-cost-card" data-tone="bad">
                             <div class="kpi-hero-label">Штрафы</div>
-                            <div class="kpi-hero-value" data-metric="penalty" id="m-dash-penalty">—</div>
-                            <div class="kpi-hero-sub">Удержания <span data-metric="deduction" id="m-dash-deduction">—</span></div>
+                            <div class="kpi-hero-value nr-skel" data-metric="penalty" id="m-dash-penalty">—</div>
+                            <div class="kpi-hero-sub">Удержания <span class="nr-skel" data-metric="deduction" id="m-dash-deduction">—</span></div>
                         </div>
                     </div>
-                    <div id="dash-plan-skus" class="dash-plan-skus"></div>
+                    <div id="dash-plan-skus" class="dash-plan-skus"><div class="dash-plan-skus-col"><div class="dash-plan-skus-kicker">Выполнили план</div></div><div class="dash-plan-skus-col"><div class="dash-plan-skus-kicker">Не добрали</div></div></div>
                 </div>
             </div>
 
