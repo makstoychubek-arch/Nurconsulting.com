@@ -22,6 +22,9 @@
         '.adx-tbl th:first-child,.adx-tbl td:first-child{text-align:left;white-space:normal;min-width:120px;max-width:170px;position:sticky;left:0;background:var(--surface,#222)}.adx-tbl td:first-child span{overflow-wrap:break-word;word-break:normal}',
         '.adx-nm{display:flex;align-items:center;gap:8px}.adx-nm img{width:26px;height:34px;object-fit:cover;border-radius:6px;background:var(--sel,#eee);flex:none}.adx-nm span{line-height:1.2;overflow-wrap:break-word}',
         '.adx-good{color:#16a34a;font-weight:700}.adx-mid{color:#d97706;font-weight:700}.adx-bad{color:#dc2626;font-weight:700}.adx-tot td{font-weight:700}',
+        /* мини-кнопка сторожа: когда остановить и когда запустить */
+        '.adx-guard{display:inline-flex;align-items:center;justify-content:center;position:relative;width:22px;height:22px;margin-left:6px;vertical-align:middle;padding:0;border:none;border-radius:999px;background:transparent;color:var(--text-muted,#71717a);cursor:pointer}.adx-guard:hover{color:var(--accent,#5b4dff)}.adx-guard svg{width:14px;height:14px}.adx-guard i{position:absolute;top:2px;right:2px;width:6px;height:6px;border-radius:50%;background:#22c55e}',
+        '.adx-gp-ov{position:fixed;inset:0;z-index:10090;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:16px}.adx-gp{width:min(320px,100%);background:var(--surface-solid,#2c2c2e);color:var(--text-primary,#fff);border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.35);font-size:13px}.adx-gp h4{margin:0 0 4px;font-size:14px;font-weight:700}.adx-gp .sub{color:var(--text-muted,#71717a);font-size:11px;margin-bottom:12px}.adx-gp label{display:block;margin:10px 0 4px;font-size:12px;color:var(--text-muted,#71717a)}.adx-gp input,.adx-gp select{width:100%}.adx-gp .row{display:flex;gap:8px;margin-top:14px}.adx-gp .row button{flex:1;min-height:32px;border:none;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;background:var(--sel,#eee);color:var(--text-primary,#111)}.adx-gp .row button.pri{background:var(--accent,#5b4dff);color:#fff}',
         '.adx-note{font-size:12px;color:var(--text-muted,#71717a);padding:6px 2px}',
         '.adx-detail-row>td{padding:6px 10px 12px!important;background:var(--bg)}',
     ].join('\n');
@@ -163,11 +166,85 @@
         if (tb && t.closest('#ads-hq-tbody')) { ev.preventDefault(); ev.stopPropagation(); toggleTableRow(tb); }
     }, true);
 
+
+    /* ---------- сторож: остановить по балансу / по времени, запустить в нужный час ---------- */
+    var guards = {}, guardsLoaded = false, guardsFails = 0;
+    var ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2M9 2h6"></path></svg>';
+    var TZ = 6; // Бишкек, UTC+6
+    function toLocalH(u) { return u == null ? '' : String((u + TZ) % 24); }
+    function toUtcH(l) { return l === '' ? null : ((Number(l) - TZ) % 24 + 24) % 24; }
+    async function loadGuards() {
+        if (!sb()) return;
+        var r = await sb().from('ad_balance_guards').select('*');
+        if (r.error) throw r.error;
+        guards = {}; (r.data || []).forEach(function (g) { guards[g.cabinet_id + ':' + g.campaign_id] = g; });
+        guardsLoaded = true;
+    }
+    function hourOptions(sel) {
+        var o = '<option value="">не нужно</option>';
+        for (var h = 0; h < 24; h++) o += '<option value="' + h + '"' + (String(h) === sel ? ' selected' : '') + '>' + (h < 10 ? '0' : '') + h + ':00</option>';
+        return o;
+    }
+    function openGuard(cab, camp, name) {
+        var g = guards[cab + ':' + camp] || {};
+        var ov = document.createElement('div'); ov.className = 'adx-gp-ov';
+        ov.innerHTML = '<div class="adx-gp" role="dialog"><h4>Остановить и запустить</h4><div class="sub">' + esc(name || ('РК ' + camp)) + ' · время по Бишкеку</div>' +
+            '<label>Остановить, когда баланс упадёт до (сом)</label><input type="number" min="0" step="100" id="adx-g-bal" placeholder="не нужно" value="' + (g.pause_below == null ? '' : g.pause_below) + '">' +
+            '<label>Остановить в</label><select id="adx-g-stop">' + hourOptions(toLocalH(g.stop_hour_utc)) + '</select>' +
+            '<label>Запустить в</label><select id="adx-g-start">' + hourOptions(toLocalH(g.resume_hour_utc)) + '</select>' +
+            '<div class="row"><button type="button" data-a="off">Выключить</button><button type="button" class="pri" data-a="save">Сохранить</button></div>' +
+            '<div class="sub" id="adx-g-msg" style="margin:10px 0 0"></div></div>';
+        document.body.appendChild(ov);
+        function close() { ov.remove(); }
+        function say(t) { ov.querySelector('#adx-g-msg').textContent = t; }
+        ov.addEventListener('click', async function (e) {
+            if (e.target === ov) return close();
+            var a = e.target.getAttribute && e.target.getAttribute('data-a'); if (!a) return;
+            try {
+                var rec;
+                if (a === 'off') rec = { cabinet_id: cab, campaign_id: Number(camp), active: false, state: 'idle' };
+                else {
+                    var bal = ov.querySelector('#adx-g-bal').value, stop = ov.querySelector('#adx-g-stop').value, start = ov.querySelector('#adx-g-start').value;
+                    if (bal === '' && stop === '') { say('Укажи баланс или время остановки'); return; }
+                    if (stop !== '' && start === '') { say('Для остановки по времени нужно время запуска'); return; }
+                    rec = { cabinet_id: cab, campaign_id: Number(camp), pause_below: bal === '' ? null : Math.max(0, Math.round(Number(bal))), stop_hour_utc: toUtcH(stop), resume_hour_utc: toUtcH(start), active: true, state: 'idle' };
+                }
+                var r = await sb().from('ad_balance_guards').upsert(rec, { onConflict: 'cabinet_id,campaign_id' });
+                if (r.error) throw r.error;
+                await loadGuards(); paintGuards(); close();
+            } catch (err) { say('Не сохранилось: ' + (err.message || err)); }
+        });
+    }
+    function paintGuards() {
+        document.querySelectorAll('#ads-hq-phone button.ads-hq-wb-name[data-keys], #ads-hq-tbody button.ads-hq-wb-name[data-keys]').forEach(function (nameBtn) {
+            var cab = nameBtn.getAttribute('data-cabinet'), camp = nameBtn.getAttribute('data-keys');
+            var host = nameBtn.parentNode && nameBtn.parentNode.querySelector('.ads-hq-wb-id');
+            if (!host || !cab || !camp) return;
+            var btn = host.querySelector('.adx-guard');
+            if (!btn) {
+                btn = document.createElement('button'); btn.type = 'button'; btn.className = 'adx-guard'; btn.title = 'Когда остановить и когда запустить';
+                btn.innerHTML = ICON; btn.setAttribute('data-gcab', cab); btn.setAttribute('data-gcamp', camp);
+                host.appendChild(btn);
+            }
+            var g = guards[cab + ':' + camp], on = !!(g && g.active);
+            var dot = btn.querySelector('i');
+            if (on && !dot) btn.insertAdjacentHTML('beforeend', '<i></i>'); else if (!on && dot) dot.remove();
+        });
+    }
+    document.addEventListener('click', function (ev) {
+        var b = ev.target && ev.target.closest && ev.target.closest('.adx-guard'); if (!b) return;
+        ev.preventDefault(); ev.stopPropagation();
+        var nameBtn = b.parentNode && b.parentNode.parentNode && b.parentNode.parentNode.querySelector('button.ads-hq-wb-name');
+        openGuard(b.getAttribute('data-gcab'), b.getAttribute('data-gcamp'), nameBtn ? nameBtn.textContent.trim() : '');
+    }, true);
+
     function tick() {
         var tab = document.getElementById('tab-advertising');
         if (document.hidden || !tab || !tab.classList.contains('active')) return;
         if (!document.getElementById('adx-style')) { var st = document.createElement('style'); st.id = 'adx-style'; st.textContent = CSS; document.head.appendChild(st); }
         ensureBidderPill();
+        if (!guardsLoaded && guardsFails < 3) loadGuards().catch(function () { guardsFails++; });
+        paintGuards();
         decorateCards();
     }
     setInterval(tick, 1000);
