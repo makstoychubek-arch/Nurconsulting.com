@@ -130,7 +130,13 @@ async function dailyReport(admin: any, cabinets: any[]) {
         const spend = (day || []).reduce((a: number, r: any) => a + Number(r.spend || 0), 0);
         const orders = (day || []).reduce((a: number, r: any) => a + Number(r.orders || 0), 0);
         const mode = s.dry_run !== false ? 'пробный режим, ставки не менялись' : 'боевой режим';
-        const text = `🤖 Автопилот рекламы, ${cab?.name || ''}\nВчера: расход ${Math.round(spend)}, заказов ${orders}${orders ? `, цена заказа ${Math.round(spend / orders)}` : ''}\nСтавки за сутки: поднято ${up}, снижено ${down} (${mode})`;
+        // Баланс кампаний: у кого кончились деньги, WB ставит кампанию на паузу сам.
+        const { data: low } = await admin.from('advertising_campaigns').select('campaign_name, budget_total, status')
+            .eq('cabinet_id', s.cabinet_id).in('status', [9, 11]).eq('payment_type', 'cpc').lt('budget_total', 300);
+        const lowTxt = (low || []).length
+            ? `\nМало денег на балансе: ${(low || []).map((c: any) => `${c.campaign_name} (${Math.round(Number(c.budget_total) || 0)})`).join(', ')}. Пополните в кабинете WB.`
+            : '';
+        const text = `Автопилот рекламы, ${cab?.name || ''}\nВчера: расход ${Math.round(spend)}, заказов ${orders}${orders ? `, цена заказа ${Math.round(spend / orders)}` : ''}\nСтавки за сутки: поднято ${up}, снижено ${down} (${mode})${lowTxt}`;
         await sendTelegramMessage(tg, chat, text);
     }
     return { sent: cabinets.length };
