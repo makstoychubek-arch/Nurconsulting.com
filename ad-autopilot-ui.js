@@ -22,18 +22,7 @@
     }
     function fmtTime(iso) { try { return new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) { return iso; } }
 
-    var CSS = '#ad-autopilot-card{margin-bottom:16px}.adp{border:1px solid var(--border,rgba(0,0,0,.1));border-radius:16px;background:var(--surface,#fff);overflow:hidden}' +
-        '.adp-head{display:flex;align-items:center;gap:12px;padding:12px 16px}.adp-title{font-weight:700;font-size:15px}.adp-sub{font-size:12px;color:var(--text-muted,#71717a)}' +
-        '.adp-x{border:0;background:transparent;color:var(--text-muted,#71717a);font-size:20px;line-height:1;cursor:pointer;padding:0 4px}.adx-pills{display:inline-flex;gap:2px;align-items:center}.adx-ico{position:relative}.adx-ico.open{background:var(--sel,#eee);color:var(--accent)}.adx-ico i{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:#a1a1aa}.adx-ico i.live{background:#22c55e}.adx-ico i.dry{background:#f59e0b}.adx-pill{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 11px;border-radius:999px;border:1px solid var(--border,rgba(0,0,0,.12));background:transparent;color:var(--text-secondary,#444);font:600 12px/1 inherit;font-family:inherit;cursor:pointer;white-space:nowrap}.adx-pill i{width:7px;height:7px;border-radius:50%;background:#a1a1aa}.adx-pill i.live{background:#22c55e}.adx-pill i.dry{background:#f59e0b}.adx-pill.open{background:var(--sel,#eee)}.adp-head{cursor:default}' +
-        '.adp-pill{margin-left:auto;font-size:12px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--sel,#eee);color:var(--text-secondary,#444)}' +
-        '.adp-pill.live{background:rgba(22,163,74,.14);color:#15803d}.adp-pill.dry{background:rgba(245,158,11,.16);color:#b45309}' +
-        '.adp-body{padding:4px 18px 18px;border-top:1px solid var(--border,rgba(0,0,0,.08))}.adp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin:14px 0}' +
-        '.adp label{display:block;font-size:12px;color:var(--text-muted,#71717a);margin-bottom:4px}.adp input,.adp select{width:100%;box-sizing:border-box;padding:8px 10px;border-radius:10px;border:1px solid var(--border,rgba(0,0,0,.14));background:transparent;color:inherit;font:inherit}' +
-        '' +
-        '.adp-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.adp-btn{border:0;border-radius:10px;padding:9px 16px;font-weight:600;cursor:pointer;background:var(--text-primary,#111);color:var(--bg,#fff)}.adp-btn.alt{background:var(--sel,#eee);color:inherit}' +
-        '.adp-note{font-size:12px;color:var(--text-muted,#71717a);margin:8px 0}.adp-log{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}.adp-log td,.adp-log th{padding:6px 6px;border-bottom:1px solid var(--border,rgba(0,0,0,.08));text-align:left}' +
-        '.adp-tg{position:relative;flex:none;margin-left:auto;width:42px;height:22px;border-radius:999px;background:var(--sel,#d4d4d8);border:1px solid var(--border,rgba(0,0,0,.12));cursor:pointer;transition:background .2s,border-color .2s;align-self:center}.adp-tg i{position:absolute;top:2px;left:calc(50% - 8px);width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:left .2s}.adp-tg::before{content:"";display:none;position:absolute;right:calc(100% + 7px);top:50%;transform:translateY(-50%);font-size:11px;font-weight:700;letter-spacing:.02em;color:var(--text-muted,#71717a)}.adp-tg.on::before{color:#16a34a}.adp-tg{margin-right:2px}.adp-tg.on{background:#22c55e;border-color:#16a34a}.adp-tg.on i{left:calc(100% - 19px)}.adp-tg.on.idle{background:#86efac;border-color:#4ade80}.adp-tg.busy{opacity:.55;pointer-events:none}' +
-        '.adp-up{color:#15803d}.adp-down{color:#b91c1c}.adp-msg{font-size:13px;margin-top:10px}';
+    var CSS = ''; // стили лежат в ad-autopilot.css и вшиваются в dashboard.html при сборке
 
     /* ---- переключатели «авто» у кампаний ---- */
     async function loadAuto() {
@@ -262,5 +251,6 @@
     }
 
     window.loadAdAutopilot = function () { fails = 0; state.loaded = false; auto.loaded = false; tick(); };
+    try { ensurePill(); } catch (e) { /* значок появится при первом такте */ }
     setInterval(tick, 1500);
 })();

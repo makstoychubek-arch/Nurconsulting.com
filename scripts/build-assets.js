@@ -117,6 +117,13 @@ function patchDashboardHtml(cssFile, scriptMap) {
         const base = orig.replace(/\.js$/, '');
         html = replaceOnce(html, scriptTagRe(base), `<script src="/dist/${hashed}"></script>`, `dashboard.html ${orig}`);
     }
+    // Стили РК вшиваем в страницу: иначе при обновлении сначала мелькает старый вид, пока скрипт не успел их вставить.
+    for (const [id, cssFile] of [['adx-style', 'ads-campaign-detail.css'], ['adp-style', 'ad-autopilot.css']]) {
+        const p = path.join(ROOT, cssFile);
+        if (!fs.existsSync(p)) continue;
+        const css = fs.readFileSync(p, 'utf8').trim();
+        html = replaceOnce(html, new RegExp(`<style id="${id}">[\\s\\S]*?</style>`), () => `<style id="${id}">${css}</style>`, `dashboard.html ${id}`);
+    }
     fs.writeFileSync(file, html);
 }
 

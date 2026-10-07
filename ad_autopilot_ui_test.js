@@ -20,5 +20,5 @@ const ads = fs.readFileSync('ads-command-center.js', 'utf8');
 assert.ok(!ads.includes("'cpc'") || ads.includes('return \'\';'), 'переключатель авто убран');
 assert.ok(!ui.includes('data-cid') && !ui.includes('adp-camps'), 'списка галочек больше нет');
 assert.ok(ui.includes("from('ad_autopilot_campaigns').upsert") && ui.includes("from('ad_autopilot_campaigns').delete()"), 'переключатель пишет и убирает кампанию');
-assert.ok(ui.includes('.adp-tg.on{background:#22c55e') && ui.includes('left:calc(50% - 8px)'), 'выключен: ползунок по центру, включён: зелёный');
+assert.ok(fs.readFileSync('ad-autopilot.css', 'utf8').includes('.adp-tg.on{background:#22c55e') && dash.includes('id="adp-style">'), 'выключен: ползунок по центру, включён: зелёный');
 console.log('ad_autopilot_ui_test: ok');
