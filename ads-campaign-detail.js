@@ -2,32 +2,7 @@
  * Ключевые запросы всё равно менять нельзя, поэтому кнопку «Ключи» убираем; «Автобиддер» уходит в маленькую кнопку справа. */
 (function () {
     'use strict';
-    var CSS = [
-        '#adv-view-ads .adv-camp-action-btn{display:none!important}',
-        /* автобиддер: прячем заголовок и сам блок, открывается маленькой кнопкой */
-        '#adv-view-ads .ads-hq-phone-pick .ads-hq-toggle{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}',
-        '#adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}',
-        /* шапка РК как в РНП: одна карточка с панелью и плашками показателей */
-        '#adv-view-ads .ads-hq-bulk{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:8px 10px;flex-wrap:nowrap!important}#adv-view-ads .ads-hq-kpi-bar{background:transparent;padding:0;gap:6px}',
-        '#adv-view-ads .ads-hq-kpi{background:var(--accent-soft);border:1px solid var(--accent-border);border-radius:8px;padding:5px 10px}#adv-view-ads .ads-hq-kpi-label{font-size:11px;margin:0}#adv-view-ads .ads-hq-kpi-value{font-size:15px;line-height:1.2}',
-        '#adv-view-ads details.ads-hq-advanced{display:none}#adv-view-ads details.ads-hq-advanced.adx-show{display:block}#adv-view-ads details.ads-hq-advanced>summary{display:none}',
-        /* телефон: компактная карточка */
-        '.ads-hq-phone-card.adx-compact .ads-hq-phone-type,.ads-hq-phone-card.adx-compact .ads-hq-phone-metrics{display:none}',
-        '.ads-hq-phone-card.adx-open .ads-hq-phone-type{display:flex}',
-        '.adx-sum{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 2px 0;font-size:12.5px;color:var(--text-muted,#71717a)}.adx-sum b{color:var(--text-primary,#111);font-weight:700;margin-left:4px}',
-        '.ads-hq-phone-card{cursor:pointer}',
-        /* раскрытые товары */
-        '.adx-detail{margin-top:10px;border-top:1px solid var(--border,rgba(0,0,0,.1));padding-top:8px;cursor:default}',
-        '.adx-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}.adx-tbl{width:100%;border-collapse:collapse;font-size:12.5px}.adx-tbl th{font-weight:600;color:var(--text-muted,#71717a);text-align:right;padding:4px 6px;white-space:nowrap}.adx-tbl td{padding:6px 8px;text-align:right;border-top:1px solid var(--border,rgba(0,0,0,.07));white-space:nowrap}',
-        '.adx-tbl th:first-child,.adx-tbl td:first-child{text-align:left;white-space:normal;min-width:120px;max-width:170px;position:sticky;left:0;background:var(--surface,#222)}.adx-tbl td:first-child span{overflow-wrap:break-word;word-break:normal}',
-        '.adx-nm{display:flex;align-items:center;gap:8px}.adx-nm img{width:26px;height:34px;object-fit:cover;border-radius:6px;background:var(--sel,#eee);flex:none}.adx-nm span{line-height:1.2;overflow-wrap:break-word}',
-        '.adx-good{color:#16a34a;font-weight:700}.adx-mid{color:#d97706;font-weight:700}.adx-bad{color:#dc2626;font-weight:700}.adx-tot td{font-weight:700}',
-        /* мини-кнопка сторожа: когда остановить и когда запустить */
-        '.adx-guard{display:inline-flex;align-items:center;justify-content:center;position:relative;width:22px;height:22px;margin-left:6px;vertical-align:middle;padding:0;border:none;border-radius:999px;background:transparent;color:var(--text-muted,#71717a);cursor:pointer}.adx-guard:hover{color:var(--accent,#5b4dff)}.adx-guard svg{width:14px;height:14px}.adx-guard i{position:absolute;top:2px;right:2px;width:6px;height:6px;border-radius:50%;background:#22c55e}',
-        '.adx-gp-ov{position:fixed;inset:0;z-index:10090;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;padding:16px}.adx-gp{width:min(320px,100%);background:var(--surface-solid,#2c2c2e);color:var(--text-primary,#fff);border-radius:16px;padding:16px;box-shadow:0 12px 40px rgba(0,0,0,.35);font-size:13px}.adx-gp h4{margin:0 0 4px;font-size:14px;font-weight:700}.adx-gp .sub{color:var(--text-muted,#71717a);font-size:11px;margin-bottom:12px}.adx-gp label{display:block;margin:10px 0 4px;font-size:12px;color:var(--text-muted,#71717a)}.adx-gp input,.adx-gp select{width:100%}.adx-gp .row{display:flex;gap:8px;margin-top:14px}.adx-gp .row button{flex:1;min-height:32px;border:none;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer;background:var(--sel,#eee);color:var(--text-primary,#111)}.adx-gp .row button.pri{background:var(--accent,#5b4dff);color:#fff}',
-        '.adx-note{font-size:12px;color:var(--text-muted,#71717a);padding:6px 2px}',
-        '.adx-detail-row>td{padding:6px 10px 12px!important;background:var(--bg)}',
-    ].join('\n');
+    var CSS = ''; // стили лежат в ads-campaign-detail.css и вшиваются в dashboard.html при сборке
 
     function sb() { return window.supabase; }
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -247,5 +222,6 @@
         paintGuards();
         decorateCards();
     }
+    try { ensureBidderPill(); } catch (e) { /* значок появится при первом такте */ }
     setInterval(tick, 1000);
 })();
