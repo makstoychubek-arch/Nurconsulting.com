@@ -44,6 +44,45 @@
         return name;
     }
 
+    /* ---------- онбординг ---------- */
+    // Что запрашиваем у нового клиента в WhatsApp-группе. auto — считаем сами по данным кабинета.
+    var ONB_ITEMS = [
+        { key: 'docs', label: 'Документы (договор, реквизиты)' },
+        { key: 'gtin', label: 'GTIN на товары' },
+        { key: 'cost', label: 'Себестоимость по артикулам', auto: true },
+        { key: 'certs', label: 'Сертификаты на товары в продаже' },
+        { key: 'token', label: 'Токен WB с полным доступом', auto: true },
+        { key: 'photos', label: 'Оригиналы фотосессий и фото товаров' },
+    ];
+
+    function onboarding(r) {
+        var ob = r.onboarding || {};
+        var items = ob.items || {};
+        var total = num(r.arts_total), withCost = num(r.arts_cost);
+        var list = ONB_ITEMS.map(function (it) {
+            var done, hint = '';
+            if (it.key === 'cost') {
+                done = total > 0 && withCost >= total;
+                hint = total ? withCost + ' из ' + total + ' артикулов' : 'артикулов нет';
+            } else if (it.key === 'token') {
+                done = r.wb_token_set === true && r.adv_token_valid !== false;
+                hint = r.wb_token_set ? (r.adv_token_valid === false ? 'токен рекламы не работает' : 'подключён') : 'не задан';
+            } else {
+                done = !!(items[it.key] && items[it.key].done);
+                hint = items[it.key] && items[it.key].at ? 'отмечено ' + fmtDate(String(items[it.key].at).slice(0, 10)) : '';
+            }
+            return { key: it.key, label: it.label, auto: !!it.auto, done: done, hint: hint };
+        });
+        return {
+            list: list,
+            done: list.filter(function (x) { return x.done; }).length,
+            manager: ob.manager || '',
+            contact: ob.client_contact || '',
+            drive: ob.drive_url || '',
+            notes: ob.notes || '',
+        };
+    }
+
     /* ---------- расчёт по кабинету ---------- */
     function derive(r) {
         var rate = num(r.rate) || 1;
@@ -73,6 +112,7 @@
             risk: r.stock_risk || [],
             series: r.series || [],
         };
+        d.onb = onboarding(r);
         d.problems = problems(r, d);
         d.level = d.problems.some(function (p) { return p.level === 'red'; }) ? 'red'
             : (d.problems.length ? 'amber' : 'green');
@@ -113,6 +153,10 @@
         if (r.wb_token_set === false) {
             out.push({ level: 'red', key: 'token', text: 'Токен WB не задан', action: 'settings' });
         }
+        var missing = d.onb.list.filter(function (x) { return !x.done && x.key !== 'token'; });
+        if (missing.length) {
+            out.push({ level: 'amber', key: 'onb', text: 'Онбординг: не хватает ' + missing.map(function (x) { return x.label.toLowerCase(); }).join(', '), action: 'onb' });
+        }
         if (d.penalties > 0) {
             out.push({ level: 'amber', key: 'pen', text: 'Штрафы за 7 дней: ' + money(d.penalties) + ' сом', action: 'rnp' });
         }
@@ -128,9 +172,12 @@
         drop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></svg>',
         token: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="15" r="4"/><path d="M10.8 12.2L21 2"/><path d="M17 6l3 3"/></svg>',
         pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+        onb: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+        check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>',
+        link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
         refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg>',
     };
-    var FLAG_TITLE = { ads: 'Реклама', stock: 'Остатки', plan: 'План', drop: 'Падение заказов', token: 'Токен', pen: 'Штрафы' };
+    var FLAG_TITLE = { ads: 'Реклама', stock: 'Остатки', plan: 'План', drop: 'Падение заказов', token: 'Токен', pen: 'Штрафы', onb: 'Онбординг' };
 
     function spark(series) {
         var vals = series.map(function (p) { return num(p.cnt); });
@@ -168,7 +215,7 @@
         }).join('') || '<span class="cbh-ok">Всё в порядке</span>';
         return '<button type="button" class="cbh-head" data-cbh-toggle="' + esc(r.id) + '" aria-expanded="' + (state.open[r.id] ? 'true' : 'false') + '">' +
             '<span class="cbh-dot cbh-dot--' + d.level + '"></span>' +
-            '<span class="cbh-name"><b>' + esc(r.name) + '</b><small>' + esc(legalName(r.name)) + '</small></span>' +
+            '<span class="cbh-name"><b>' + esc(r.name) + '</b><small>' + esc(legalName(r.name)) + (d.onb.manager ? ' · ' + esc(d.onb.manager) : '') + '</small></span>' +
             '<span class="cbh-head-kpis">' +
                 '<span class="cbh-hk"><small>Заказы</small><b>' + int(d.ordersCnt) + '</b>' + delta(d.ordersCnt, d.weekCnt) + '</span>' +
                 '<span class="cbh-hk"><small>Сумма</small><b>' + money(d.ordersSom) + '</b></span>' +
@@ -206,7 +253,9 @@
             ? '<ul class="cbh-problems">' + d.problems.map(function (p) {
                 return '<li class="cbh-problem cbh-problem--' + p.level + '"><span class="cbh-problem-ico">' + (ICON[p.key] || '') + '</span>' +
                     '<span class="cbh-problem-text">' + esc(p.text) + '</span>' +
-                    '<button type="button" class="ui-btn ui-btn-secondary cbh-mini" data-cbh-go="' + p.action + '" data-cbh-cab="' + esc(r.id) + '">Открыть</button></li>';
+                    (p.action === 'onb'
+                        ? '<button type="button" class="ui-btn ui-btn-secondary cbh-mini" data-cbh-jump="onb-' + esc(r.id) + '">К чек-листу</button></li>'
+                        : '<button type="button" class="ui-btn ui-btn-secondary cbh-mini" data-cbh-go="' + p.action + '" data-cbh-cab="' + esc(r.id) + '">Открыть</button></li>');
             }).join('') + '</ul>'
             : '<p class="cbh-empty">Проблем нет.</p>';
 
@@ -232,11 +281,33 @@
                 }).join('') + '</tbody></table></div>'
             : '<p class="cbh-empty">Остатков хватает больше чем на 7 дней.</p>';
 
+        var o = d.onb;
+        var onbHtml = '<div class="cbh-onb" id="onb-' + esc(r.id) + '" data-cbh-onb="' + esc(r.id) + '">' +
+            '<div class="cbh-onb-progress"><span style="width:' + Math.round(o.done / o.list.length * 100) + '%"></span></div>' +
+            '<ul class="cbh-checklist">' + o.list.map(function (it) {
+                var btn = it.auto
+                    ? '<span class="cbh-auto" title="Считается автоматически">авто</span>'
+                    : '<button type="button" class="ui-btn ui-btn-secondary cbh-mini" data-cbh-onb-toggle="' + it.key + '">' + (it.done ? 'Снять' : 'Получено') + '</button>';
+                return '<li class="cbh-check' + (it.done ? ' is-done' : '') + '"><span class="cbh-check-box">' + (it.done ? ICON.check : '') + '</span>' +
+                    '<span class="cbh-check-text">' + esc(it.label) + (it.hint ? '<small>' + esc(it.hint) + '</small>' : '') + '</span>' + btn + '</li>';
+            }).join('') + '</ul>' +
+            '<div class="cbh-onb-fields">' +
+                '<label class="cbh-field"><span>Менеджер</span><input class="cbh-input" data-cbh-onb-field="manager" value="' + esc(o.manager) + '" placeholder="Кто ведёт кабинет" maxlength="80"></label>' +
+                '<label class="cbh-field"><span>Контакт клиента</span><input class="cbh-input" data-cbh-onb-field="client_contact" value="' + esc(o.contact) + '" placeholder="Имя, телефон, WhatsApp-группа" maxlength="160"></label>' +
+                '<label class="cbh-field cbh-field--wide"><span>Папка в Google Drive</span><span class="cbh-field-row"><input class="cbh-input" data-cbh-onb-field="drive_url" value="' + esc(o.drive) + '" placeholder="https://drive.google.com/..." maxlength="400">' +
+                    (/^https:\/\//.test(o.drive) ? '<a class="ui-btn ui-btn-secondary cbh-icon-btn" href="' + esc(o.drive) + '" target="_blank" rel="noopener noreferrer" title="Открыть папку" aria-label="Открыть папку">' + ICON.link + '</a>' : '') +
+                '</span></label>' +
+                '<label class="cbh-field cbh-field--wide"><span>Заметки</span><textarea class="cbh-input cbh-textarea" data-cbh-onb-field="notes" rows="2" maxlength="2000" placeholder="Что обещал прислать клиент, сроки">' + esc(o.notes) + '</textarea></label>' +
+            '</div>' +
+            '<span class="cbh-saved" aria-live="polite"></span>' +
+            '</div>';
+
         return '<div class="cbh-body">' +
             section('Итоги за ' + day, summary, 'rnp', 'РНП', r.id) +
             section('Проблемы', probs, null, null, r.id) +
             section('Реклама', camps, 'advertising', 'Все РК', r.id) +
             section('Остатки на исходе', stock, 'goods-groups', 'Товары', r.id) +
+            section('Онбординг и документы · ' + o.done + ' из ' + o.list.length, onbHtml, null, null, r.id) +
             '</div>';
     }
 
@@ -309,6 +380,37 @@
         }
     }
 
+    /* ---------- сохранение онбординга ---------- */
+    var saveTimers = {};
+    async function saveOnboarding(cabId, patch, box) {
+        var row = state.rows.find(function (r) { return r.id === cabId; });
+        if (!row || !sb()) return;
+        var cur = row.onboarding || {};
+        var next = Object.assign({}, cur, patch, { cabinet_id: cabId, updated_at: new Date().toISOString() });
+        delete next.updated_by;
+        var mark = box && box.querySelector('.cbh-saved');
+        if (mark) mark.textContent = 'Сохраняю…';
+        try {
+            var res = await sb().from('cabinet_onboarding').upsert(next, { onConflict: 'cabinet_id' });
+            if (res.error) throw res.error;
+            var stored = Object.assign({}, next); delete stored.cabinet_id;
+            row.onboarding = stored;
+            row._d = derive(row);
+            if (mark) mark.textContent = 'Сохранено';
+            return true;
+        } catch (e) {
+            if (mark) mark.textContent = 'Не сохранилось, попробуйте ещё раз';
+            console.warn('[cabinets-hub] onboarding', e && e.message);
+            return false;
+        }
+    }
+
+    function rerenderCard(root, id) {
+        var row = state.rows.find(function (r) { return r.id === id; });
+        var card = root.querySelector('[data-cbh-card="' + id + '"]');
+        if (row && card) card.outerHTML = cardHtml(row);
+    }
+
     /* ---------- события ---------- */
     function go(tab, cabId) {
         try {
@@ -323,6 +425,23 @@
         root.addEventListener('click', function (e) {
             var goBtn = e.target.closest('[data-cbh-go]');
             if (goBtn) { e.stopPropagation(); go(goBtn.getAttribute('data-cbh-go'), goBtn.getAttribute('data-cbh-cab')); return; }
+            var jump = e.target.closest('[data-cbh-jump]');
+            if (jump) { document.getElementById(jump.getAttribute('data-cbh-jump'))?.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; }
+            var tg = e.target.closest('[data-cbh-onb-toggle]');
+            if (tg) {
+                var box = tg.closest('[data-cbh-onb]');
+                var cabId = box.getAttribute('data-cbh-onb');
+                var key = tg.getAttribute('data-cbh-onb-toggle');
+                var rowT = state.rows.find(function (r) { return r.id === cabId; });
+                var items = Object.assign({}, (rowT && rowT.onboarding && rowT.onboarding.items) || {});
+                var was = !!(items[key] && items[key].done);
+                items[key] = { done: !was, at: new Date().toISOString() };
+                tg.disabled = true;
+                saveOnboarding(cabId, { items: items }, box).then(function (ok) {
+                    if (ok) rerenderCard(root, cabId); else tg.disabled = false;
+                });
+                return;
+            }
             var t = e.target.closest('[data-cbh-toggle]');
             if (t) {
                 var id = t.getAttribute('data-cbh-toggle');
@@ -343,6 +462,20 @@
             }
             if (e.target.closest('#cbh-refresh')) { load(); return; }
             if (e.target.closest('#cbh-collapse')) { state.open = {}; lsSet(LS_OPEN, state.open); renderList(); }
+        });
+        root.addEventListener('input', function (e) {
+            var f = e.target.closest('[data-cbh-onb-field]');
+            if (!f) return;
+            var box = f.closest('[data-cbh-onb]');
+            var cabId = box.getAttribute('data-cbh-onb');
+            var field = f.getAttribute('data-cbh-onb-field');
+            var val = f.value.trim();
+            if (field === 'drive_url' && val && !/^https:\/\//.test(val)) { box.querySelector('.cbh-saved').textContent = 'Ссылка должна начинаться с https://'; return; }
+            clearTimeout(saveTimers[cabId + field]);
+            saveTimers[cabId + field] = setTimeout(function () {
+                var patch = {}; patch[field] = val || null;
+                saveOnboarding(cabId, patch, box);
+            }, 700);
         });
         root.querySelector('#cbh-date')?.addEventListener('change', function (e) {
             if (!e.target.value) return;
