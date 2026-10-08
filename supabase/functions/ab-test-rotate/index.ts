@@ -576,16 +576,8 @@ async function notifyTestFinished(
     }
 
     const model = await buildNotifyModel(admin, test, variants, opts.preview === true);
-    // Картинка со всеми вариантами и метриками (как на сайте) + короткая подпись: победитель и ссылка.
-    const esc = (t: unknown) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const winner = model.variants.find((v) => v.isLeader)
-        || [...model.variants].filter((v) => v.impressions > 0).sort((x, y) => y.ctr - x.ctr)[0]
-        || null;
-    const head = `${opts.preview ? 'проверка канала · ' : ''}<b>${esc(model.title)}</b> · арт. ${esc(model.nmId)}`;
-    const caption = (winner
-        ? `${head}\nПобедитель — вариант ${esc(winner.label)} · CTR ${winner.ctr.toFixed(2)}%`
-        : `${head}\nПобедитель не определён`) + (model.reportUrl ? `\n${model.reportUrl}` : '');
-
+    // Только картинка со всеми вариантами и метриками, без подписи.
+    const caption = '';
     let via = 'text';
     try {
         const png = await renderAbReportPng(model);
@@ -593,9 +585,8 @@ async function notifyTestFinished(
         if (!photoErr) via = 'card';
         else throw new Error(photoErr);
     } catch (e) {
-        console.warn('[ab-test-rotate] card failed, fallback:', String(e));
-        if (winner?.photoUrl && !(await sendTelegramPhotoUrl(tgToken, tgChannelId, winner.photoUrl, caption))) via = 'winner_photo';
-        else await sendTelegramMessage(tgToken, tgChannelId, caption);
+        console.warn('[ab-test-rotate] card failed, fallback to text:', String(e));
+        await sendTelegramMessage(tgToken, tgChannelId, `${model.title} · арт. ${model.nmId}`);
     }
 
     await admin.from('notification_log').insert({
@@ -640,6 +631,11 @@ async function buildNotifyModel(
     const startedAtStr = startAt ? fmtBishkek(startAt) : '';
     const mins = startAt ? Math.max(0, Math.round((endAt.getTime() - startAt.getTime()) / 60000)) : 0;
     const durationStr = startAt ? (mins >= 60 ? `${Math.floor(mins / 60)} ч ${mins % 60} мин` : `${mins} мин`) : '';
+    let cabinetName = '';
+    if (test.cabinet_id) {
+        const { data: cab } = await admin.from('cabinets').select('name').eq('id', test.cabinet_id as string).maybeSingle();
+        cabinetName = String(cab?.name || '');
+    }
     const rotationsByLabel: Record<string, number> = {};
     if (test.id) {
         const { data: logRows } = await admin.from('ab_test_rotation_log').select('variant_label, action').eq('test_id', test.id as string);
@@ -655,6 +651,7 @@ async function buildNotifyModel(
     return buildAbReportCard({
         title: String(test.product_name || `Товар ${test.nm_id}`),
         nmId: test.nm_id as string | number,
+        cabinetName,
         campaignLabel: campLabel,
         finishedAtStr,
         startedAtStr,

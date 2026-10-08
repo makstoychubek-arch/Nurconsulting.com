@@ -46,6 +46,7 @@ export type AbReportVariantOut = {
 export type AbReportCardModel = {
     title: string;
     nmId: string | number;
+    cabinetName: string;
     campaignLabel: string;
     finishedAtStr: string;
     startedAtStr: string;
@@ -85,6 +86,7 @@ export function verdictFromProb(maxProb: number): { stars: string; text: string 
 export function buildAbReportCard(opts: {
     title: string;
     nmId: string | number;
+    cabinetName?: string;
     campaignLabel?: string;
     finishedAtStr?: string;
     startedAtStr?: string;
@@ -154,6 +156,7 @@ export function buildAbReportCard(opts: {
     return {
         title: opts.title || `Товар ${opts.nmId}`,
         nmId: opts.nmId,
+        cabinetName: opts.cabinetName || '',
         campaignLabel: opts.campaignLabel || '',
         finishedAtStr: opts.finishedAtStr || '',
         startedAtStr: opts.startedAtStr || '',

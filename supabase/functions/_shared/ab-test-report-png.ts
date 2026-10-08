@@ -95,7 +95,7 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
     const photoH = 248;
     const metricsH = 292;
     const cardH = 40 + photoH + 78 + metricsH;
-    const headerH = 100;
+    const headerH = 124;
     const verdictH = 58;
     const height = pad + headerH + 12 + verdictH + 16 + cardH + 44 + pad;
 
@@ -109,31 +109,44 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
     ctx.fillStyle = '#F4F2EE';
     ctx.fillRect(0, 0, width, height);
 
-    // Справа сверху: маленький чёрно-белый логотип NR и подпись «/ А/Б тест».
-    const brandLabel = '/ А/Б тест';
-    ctx.font = 'bold 15px DejaVu';
-    const bw = ctx.measureText(brandLabel).width;
-    const logoS = 30;
-    const brandX = width - pad - bw - logoS - 8;
-    roundRect(ctx, brandX, pad + 2, logoS, logoS, 8);
-    ctx.fillStyle = '#111111';
-    ctx.fill();
+    // Слева сверху: логотип NR (белый квадрат со скруглёнными углами, чёрные буквы) и «/ АБ ТЕСТ»; справа — название кабинета.
+    const logoS = 34;
+    const lx = pad, ly = pad;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.12)';
+    ctx.shadowBlur = 6;
+    ctx.shadowOffsetY = 1;
+    roundRect(ctx, lx, ly, logoS, logoS, 10);
     ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 14px DejaVu';
-    const nrW = ctx.measureText('NR').width;
-    ctx.fillText('NR', brandX + (logoS - nrW) / 2, pad + 2 + 20);
+    ctx.fill();
+    ctx.restore();
+    roundRect(ctx, lx, ly, logoS, logoS, 10);
+    ctx.strokeStyle = '#E5E7EB';
+    ctx.lineWidth = 1;
+    ctx.stroke();
     ctx.fillStyle = '#111111';
     ctx.font = 'bold 15px DejaVu';
-    ctx.fillText(brandLabel, brandX + logoS + 8, pad + 2 + 20);
+    const nrW = ctx.measureText('NR').width;
+    ctx.fillText('NR', lx + (logoS - nrW) / 2, ly + 22);
+    ctx.fillStyle = '#111111';
+    ctx.font = 'bold 16px DejaVu';
+    ctx.fillText('/ АБ ТЕСТ', lx + logoS + 10, ly + 23);
+
+    if (model.cabinetName) {
+        ctx.fillStyle = '#374151';
+        ctx.font = 'bold 15px DejaVu';
+        const cab = fitText(ctx, model.cabinetName, width / 2 - pad);
+        ctx.fillText(cab, width - pad - ctx.measureText(cab).width, ly + 23);
+    }
 
     ctx.fillStyle = '#111827';
     ctx.font = 'bold 24px DejaVu';
-    ctx.fillText(fitText(ctx, model.title, brandX - pad - 16), pad, pad + 28);
+    ctx.fillText(fitText(ctx, model.title, width - pad * 2), pad, pad + 66);
 
     ctx.fillStyle = '#6B7280';
     ctx.font = '13px DejaVu';
     const sub = `арт. ${model.nmId}${model.campaignLabel ? ' · ' + model.campaignLabel : ''}`;
-    ctx.fillText(fitText(ctx, sub, width - pad * 2), pad, pad + 52);
+    ctx.fillText(fitText(ctx, sub, width - pad * 2), pad, pad + 88);
 
     const times = [
         model.startedAtStr ? `Запуск: ${model.startedAtStr}` : '',
@@ -143,14 +156,14 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
     ].filter(Boolean).join('  ·  ');
     ctx.fillStyle = '#4B5563';
     ctx.font = '12px DejaVu';
-    ctx.fillText(fitText(ctx, times, width - pad * 2), pad, pad + 74);
+    ctx.fillText(fitText(ctx, times, width - pad * 2), pad, pad + 108);
 
     if (model.preview) {
         ctx.fillStyle = '#7C3AED';
         ctx.font = 'bold 12px DejaVu';
         const stamp = 'проверка канала';
         const tw = ctx.measureText(stamp).width;
-        ctx.fillText(stamp, width - pad - tw, pad + 52);
+        ctx.fillText(stamp, width - pad - tw, pad + 88);
     }
 
     roundRect(ctx, pad, pad + headerH, width - pad * 2, verdictH, 14);
