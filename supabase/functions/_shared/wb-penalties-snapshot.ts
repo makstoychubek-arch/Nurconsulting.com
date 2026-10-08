@@ -325,3 +325,76 @@ export function formatPenaltyCaption(opts: {
     if (openNote.trim()) lines.push(openNote.trim());
     return lines.join('\n');
 }
+
+// ── Запрос штрафов из Telegram-группы («штрафы вчера», «штрафы 05.10 Zevina») ──
+
+export type CabinetPenaltySnapshot = {
+    cabinetId: string;
+    name: string;
+    rows: PenaltyLine[];
+    total: number;
+    error?: string;
+};
+
+function bishkekIso(daysAgo: number): string {
+    const d = new Date(Date.now() - daysAgo * 86400000);
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Bishkek' });
+}
+
+export function parsePenaltiesQuery(text: string, relaxed = false): { date: string; cabinet?: string } | null {
+    const raw = String(text || '').replace(/@\w+/g, ' ').trim();
+    const lower = raw.toLowerCase();
+    const hasWord = /(штраф|удерж|penalt)/i.test(lower);
+    if (!relaxed && !hasWord) return null;
+    let date = '';
+    if (/позавчера/.test(lower)) date = bishkekIso(2);
+    else if (/вчера/.test(lower)) date = bishkekIso(1);
+    else if (/сегодня/.test(lower)) date = bishkekIso(0);
+    else {
+        const m = raw.match(/\b(\d{1,2})[./](\d{1,2})(?:[./](\d{2,4}))?\b/);
+        if (m) {
+            const y = m[3] ? (m[3].length === 2 ? `20${m[3]}` : m[3]) : bishkekIso(0).slice(0, 4);
+            date = `${y}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+        } else if (hasWord) date = bishkekIso(1);
+    }
+    if (!date) return null;
+    const tail = raw.match(/\b\d{1,2}[./]\d{1,2}(?:[./]\d{2,4})?\s+([a-zA-Zа-яА-ЯёЁ0-9._-]{2,30})\s*$/);
+    return { date, cabinet: tail ? tail[1] : undefined };
+}
+
+// deno-lint-ignore no-explicit-any
+export async function fetchAllCabinetPenalties(admin: any, date: string, onlyCabinet?: string): Promise<CabinetPenaltySnapshot[]> {
+    const { data: cabinets } = await admin.from('cabinets').select('id, name, wb_token')
+        .not('wb_token', 'is', null).gt('wb_token', '').order('name');
+    const out: CabinetPenaltySnapshot[] = [];
+    for (const cab of (cabinets || []) as Array<{ id: string; name: string; wb_token: string }>) {
+        if (onlyCabinet && !cab.name.toLowerCase().includes(onlyCabinet.toLowerCase())) continue;
+        const token = String(cab.wb_token || '').replace(/^﻿/, '').replace(/\s+/g, '').trim();
+        try {
+            const b = await fetchWeeklyPenaltyBundle(token, date);
+            const total = b.rows.reduce((s, r) => s + r.amount, 0);
+            out.push({ cabinetId: cab.id, name: cab.name, rows: b.rows, total, error: b.ready ? undefined : 'отчёт WB за этот день ещё не готов' });
+        } catch (e) {
+            out.push({ cabinetId: cab.id, name: cab.name, rows: [], total: 0, error: String(e).slice(0, 100) });
+        }
+        await new Promise((r) => setTimeout(r, 1500));
+    }
+    return out;
+}
+
+export function formatPenaltiesReply(date: string, snapshots: CabinetPenaltySnapshot[], alertUser?: string): string {
+    const lines = [`⚠️ <b>Штрафы · ${prettyRuDate(date)}</b>`, ''];
+    let grand = 0;
+    for (const s of snapshots) {
+        const name = escapeHtml(s.name);
+        if (s.error && !s.rows.length) { lines.push(`<b>${name}</b> — ${escapeHtml(s.error)}`, ''); continue; }
+        if (s.total <= 0) { lines.push(`✅ <b>${name}</b> — штрафов нет`, ''); continue; }
+        grand += s.total;
+        lines.push(`<b>${name}</b> — <b>${fmtSom(s.total)} сом</b>`);
+        for (const r of s.rows.slice(0, 3)) lines.push(`• ${escapeHtml(r.reason.slice(0, 60))} — ${fmtSom(r.amount)}`);
+        if (s.rows.length > 3) lines.push(`  …ещё ${s.rows.length - 3}`);
+        lines.push('');
+    }
+    if (grand > 0 && alertUser) lines.push(`@${escapeHtml(alertUser.replace(/^@/, ''))} — <b>нужно разобраться</b>`);
+    return lines.join('\n').trimEnd();
+}

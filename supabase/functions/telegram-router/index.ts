@@ -32,6 +32,17 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const botId = (url.searchParams.get('bot') || 'notify').toLowerCase();
 
+    if (req.method === 'GET' && url.searchParams.get('diag') === '1') {
+        const out: Record<string, unknown> = {};
+        for (const [id, key] of Object.entries(BOT_TOKEN_ENV)) {
+            const t = (Deno.env.get(key) ?? '').trim();
+            if (!t) { out[id] = 'no_token'; continue; }
+            const r = await fetch(`https://api.telegram.org/bot${t}/getWebhookInfo`).then((x) => x.json()).catch(() => null);
+            const w = r?.result || {};
+            out[id] = { path: String(w.url || '').split('/').pop(), pending: w.pending_update_count, err: w.last_error_message, allowed: w.allowed_updates };
+        }
+        return json(out);
+    }
     if (req.method === 'GET') {
         return json({ ok: true, bot: botId, restock: true });
     }
