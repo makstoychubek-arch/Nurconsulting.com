@@ -200,6 +200,7 @@ const RNP = (() => {
             { key: 'buyout_pct',         label: 'Выкуп % (продажи / заказы)',       type: 'pct',  src: 'auto',  hm: 'high' },
             { key: 'ad_spend',           label: 'Расход РК ком',                    type: 'som',  src: 'promo' },
             { key: 'logistics_per_unit', label: 'Логистика на ед',                  type: 'som',  src: 'auto',  hm: 'low' },
+            { key: 'log_to_pvz_avg',     label: 'Ср. логистика до ПВЗ, сом',        type: 'som',  src: 'auto' },
             { key: 'logistics_pct',      label: 'Логистика %',                      type: 'pct',  src: 'auto',  hm: 'low' },
             { key: 'storage_pct',        label: 'Хранение %',                       type: 'pct',  src: 'auto',  hm: 'low' },
             { key: 'wb_share_pct',       label: 'Все допы ВБ + ДРР %',              type: 'pct',  src: 'calc',  hm: 'low' },
@@ -4698,7 +4699,8 @@ const RNP = (() => {
         const SUM = ['orders_count','orders_sum','sales_count','sales_sum','ad_impressions','ad_clicks',
                      'ad_basket','ad_orders','ad_spend','to_transfer','profit','giveaways','in_production',
                      'impressions','clicks','basket_count',
-                     'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw'];
+                     'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
+                     'log_to_client_sum','log_to_client_cnt'];
         const AVG = ['spp_pct','avg_check','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
@@ -4725,6 +4727,7 @@ const RNP = (() => {
         'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend',
         'to_transfer','profit','cost_price_val','giveaways','storage_sum',
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
+        'log_to_client_sum','log_to_client_cnt',
     ];
 
     function _cabinetWbRate(active, date) {
@@ -4789,6 +4792,9 @@ const RNP = (() => {
         const salesSomAll = parts.reduce((s, d) => s + (Number(d.sales_sum) || 0) * _rateFor(d.date, d), 0);
         const adFromSalesAll = salesSomAll > 0 ? a.ad_spend / salesSomAll * 100 : 0;
         a.wb_share_pct = (a.logistics_pct || 0) + (a.storage_pct || 0) + (a.commission_pct || 0) + adFromSalesAll;
+        const logClCnt = parts.reduce((s, d) => s + (Number(d.log_to_client_cnt) || 0), 0);
+        const logClSom = parts.reduce((s, d) => s + (Number(d.log_to_client_sum) || 0) * _rateFor(d.date, d), 0);
+        a.log_to_pvz_avg = logClCnt > 0 ? logClSom / logClCnt : 0;
         const logUnits = parts.map(d => d.logistics_per_unit || 0).filter(v => v > 0);
         a.logistics_per_unit = logUnits.length ? logUnits.reduce((s, v) => s + v, 0) / logUnits.length : 0;
         return a;
@@ -4953,6 +4959,8 @@ const RNP = (() => {
             d.logistics_pct = ssSom > 0 ? logisticsUnitSom * units / ssSom * 100 : 0;
         }
         d.wb_share_pct = (d.logistics_pct || 0) + (d.storage_pct || 0) + (d.commission_pct || 0) + adFromSalesPct;
+        // Средняя стоимость одной доставки до ПВЗ покупателя (выкуп и невыкуп), рубли отчёта → сомы.
+        d.log_to_pvz_avg = (d.log_to_client_cnt || 0) > 0 ? (d.log_to_client_sum || 0) / d.log_to_client_cnt * er : 0;
 
         // Прибыль по финотчёту WB. «К перечислению» (ppvz_for_pay) ещё не учитывает логистику, хранение,
         // штрафы и прочие удержания — их вычитаем отдельно. Всё из отчёта в рублях, переводим в сомы по курсу дня.
@@ -6365,7 +6373,7 @@ const RNP = (() => {
     const FINANCE_DAY_KEYS = new Set([
         'sales_count', 'sales_sum', 'avg_check_sales', 'plan_sales_pct', 'return_pct', 'buyout_pct',
         'logistics_per_unit', 'logistics_pct', 'storage_pct', 'realization', 'to_transfer', 'to_transfer_unit',
-        'delivery_sum', 'penalty_sum', 'storage_sum', 'deduction_sum',
+        'delivery_sum', 'penalty_sum', 'storage_sum', 'deduction_sum', 'log_to_pvz_avg',
     ]);
 
     function _renderSection(sec, cols, art, firstDayIdx) {
