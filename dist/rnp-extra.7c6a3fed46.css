@@ -66,3 +66,17 @@ transition: opacity .18s ease, transform .18s ease;
 }
 .ab-check input{accent-color:var(--accent)}
 .ab-stop-grid .text-xs{color:var(--text-muted)}
+/* Всплывающие сообщения сайта: по центру экрана, небольшие, полупрозрачное «стекло» как у Apple */
+#toast-wrap { top: 50% !important; left: 50% !important; right: auto !important; transform: translate(-50%, -50%); align-items: center; }
+#toast-wrap > div {
+  background: rgba(255,255,255,.66) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(24px); backdrop-filter: saturate(180%) blur(24px);
+  border: 1px solid rgba(255,255,255,.6) !important; border-left-width: 1px !important;
+  border-radius: 18px !important; box-shadow: 0 16px 48px rgba(0,0,0,.18), 0 0 0 .5px rgba(0,0,0,.06) !important;
+  min-width: 240px !important; max-width: 320px !important; transform: none !important;
+  animation: nr-toast-in .24s cubic-bezier(.2,.9,.3,1.1);
+}
+:root[data-theme="dark"] #toast-wrap > div { background: rgba(40,40,44,.62) !important; border-color: rgba(255,255,255,.14) !important; }
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) #toast-wrap > div { background: rgba(40,40,44,.62) !important; border-color: rgba(255,255,255,.14) !important; } }
+@keyframes nr-toast-in { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { #toast-wrap > div { animation: none; } }
