@@ -2961,9 +2961,56 @@ const RNP = (() => {
         </div></div></div>`;
     }
 
+    // Остатки на «Общем»: два кольца — FBO/FBS по всему кабинету и доля каждого артикула в остатке (без размеров).
+    const _DONUT_COLORS = ['#7B61FF', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#94A3B8'];
+
+    function _donutRing(segs, total, label) {
+        const rOut = 46, rIn = 29, cx = 50, cy = 50;
+        let acc = 0;
+        const paths = total > 0 ? segs.filter(x => x.v > 0).map(x => {
+            const start = acc / total * 100;
+            acc += x.v;
+            const d = _donutSlicePath(start, acc / total * 100, rOut, rIn, cx, cy);
+            return d ? `<path d="${d}" fill="${x.c}"><title>${_noteEsc(x.name)}: ${x.v} шт</title></path>` : '';
+        }).join('') : `<circle cx="${cx}" cy="${cy}" r="37" fill="none" stroke="var(--border)" stroke-width="16"></circle>`;
+        return `<div class="rnp-gdonut-chart"><svg viewBox="0 0 100 100" aria-label="${label}">${paths}</svg>
+          <div class="rnp-gdonut-center"><b>${total}</b><span>шт</span></div></div>`;
+    }
+
+    function _buildGeneralStockDonuts(active) {
+        const rows = active.map(a => {
+            const t = _schemeWhTotals(_stockCache[a.nm_id] || {});
+            return { name: _sellerArticle(a), fbo: t.fbo, fbs: t.fbs, total: t.total };
+        }).filter(r => r.total > 0);
+        if (!rows.length) return '';
+        const fbo = rows.reduce((x, r) => x + r.fbo, 0);
+        const fbs = rows.reduce((x, r) => x + r.fbs, 0);
+        const total = fbo + fbs;
+        const pct = _schemePercents(fbo, fbs);
+        const sorted = [...rows].sort((a, b) => b.total - a.total);
+        const top = sorted.slice(0, 5);
+        const restV = sorted.slice(5).reduce((x, r) => x + r.total, 0);
+        const segs = top.map((r, i) => ({ name: r.name, v: r.total, c: _DONUT_COLORS[i] }));
+        if (restV > 0) segs.push({ name: 'Остальные', v: restV, c: _DONUT_COLORS[5] });
+        const leg = segs.map(x => `<div class="rnp-gdonut-leg"><i style="background:${x.c}"></i><span>${_noteEsc(x.name)}</span><b>${Math.round(x.v / total * 100)}%</b></div>`).join('');
+        return `<div class="rnp-general-donuts">
+          <div class="rnp-gdonut">
+            ${_donutRing([{ name: 'FBO · склад WB', v: fbo, c: 'var(--rnp-fbo, #7B61FF)' }, { name: 'FBS · склад продавца', v: fbs, c: 'var(--rnp-fbs, #3B82F6)' }], total, 'Остатки FBO и FBS')}
+            <div class="rnp-gdonut-legend">
+              <div class="rnp-gdonut-leg"><i style="background:var(--rnp-fbo,#7B61FF)"></i><span>FBO</span><b>${pct.fbo}%</b><em>${fbo} шт</em></div>
+              <div class="rnp-gdonut-leg"><i style="background:var(--rnp-fbs,#3B82F6)"></i><span>FBS</span><b>${pct.fbs}%</b><em>${fbs} шт</em></div>
+            </div>
+          </div>
+          <div class="rnp-gdonut">
+            ${_donutRing(segs, total, 'Остатки по артикулам')}
+            <div class="rnp-gdonut-legend">${leg}</div>
+          </div>
+        </div>`;
+    }
+
     function _buildGeneralTopBar(active, cal) {
         return `<div class="rnp-general-topbar">
-          <div class="rnp-general-bar-metrics">${_buildGeneralMetricsStrip(active, cal)}</div>
+          <div class="rnp-general-bar-metrics">${_buildGeneralMetricsStrip(active, cal)}${_buildGeneralStockDonuts(active)}</div>
           <div class="rnp-general-bar-photos">${_buildGeneralTopGallery(active)}</div>
         </div>`;
     }

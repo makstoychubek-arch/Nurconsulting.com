@@ -95,3 +95,18 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-general-photos .rnp-head-marquee-pin{position:relative !important;left:auto !important;width:100% !important;max-width:none !important;height:100%;z-index:1}
 .rnp-general-photos .rnp-test-card{cursor:pointer}
 @media (max-width:768px){.rnp-general-topbar{height:auto;max-height:none}.rnp-general-bar-photos{height:118px}}
+/* Общий: кольца остатков под показателями */
+.rnp-general-bar-metrics{display:flex;flex-direction:column;justify-content:space-between;height:100%}
+.rnp-general-donuts{display:flex;gap:18px;align-items:center;margin-top:4px}
+.rnp-gdonut{display:flex;align-items:center;gap:8px;min-width:0}
+.rnp-gdonut-chart{position:relative;width:62px;height:62px;flex:0 0 62px}
+.rnp-gdonut-chart svg{width:100%;height:100%;display:block}
+.rnp-gdonut-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.rnp-gdonut-center b{font-size:12px;font-weight:800;color:var(--text-primary)}
+.rnp-gdonut-center span{font-size:8px;color:var(--text-muted)}
+.rnp-gdonut-legend{display:flex;flex-direction:column;gap:1px;font-size:10px;min-width:0}
+.rnp-gdonut-leg{display:flex;align-items:center;gap:4px;white-space:nowrap;color:var(--text-secondary)}
+.rnp-gdonut-leg i{width:8px;height:8px;border-radius:50%;flex:0 0 8px}
+.rnp-gdonut-leg span{max-width:110px;overflow:hidden;text-overflow:ellipsis}
+.rnp-gdonut-leg b{color:var(--text-primary);font-weight:800}
+.rnp-gdonut-leg em{font-style:normal;color:var(--text-muted)}
