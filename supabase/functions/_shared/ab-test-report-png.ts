@@ -12,11 +12,12 @@ import {
 } from './ab-test-report-card.ts';
 
 // Логотип NR (icons/logo-nr.svg, отрисован в PNG 216×216 с прозрачными углами).
-const NR_LOGO_PNG_B64 =
+export const NR_LOGO_PNG_B64 =
     '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';
 
 let fontRegular: Uint8Array | null = null;
 let fontBold: Uint8Array | null = null;
+export const reportFonts = () => ({ regular: fontRegular!, bold: fontBold! });
 
 async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs = 12000): Promise<Response> {
     const controller = new AbortController();
@@ -28,7 +29,7 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}, timeoutMs =
     }
 }
 
-async function ensureFonts(): Promise<void> {
+export async function ensureFonts(): Promise<void> {
     if (fontRegular && fontBold) return;
     const base = 'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf';
     const [reg, bold] = await Promise.all([
@@ -46,7 +47,7 @@ async function ensureFonts(): Promise<void> {
 }
 
 // deno-lint-ignore no-explicit-any
-function roundRect(ctx: any, x: number, y: number, w: number, h: number, r: number) {
+export function roundRect(ctx: any, x: number, y: number, w: number, h: number, r: number) {
     const rr = Math.min(r, w / 2, h / 2);
     ctx.beginPath();
     ctx.moveTo(x + rr, y);
@@ -59,25 +60,25 @@ function roundRect(ctx: any, x: number, y: number, w: number, h: number, r: numb
 
 // measureText в этой библиотеке считает жирный шрифт как обычный (~12% уже), поэтому для bold домножаем.
 // deno-lint-ignore no-explicit-any
-function textW(ctx: any, text: string, bold = false): number {
+export function textW(ctx: any, text: string, bold = false): number {
     return ctx.measureText(text).width * (bold ? 1.12 : 1);
 }
 
 // deno-lint-ignore no-explicit-any
-function fitText(ctx: any, text: string, maxW: number): string {
+export function fitText(ctx: any, text: string, maxW: number): string {
     if (ctx.measureText(text).width <= maxW) return text;
     let s = text;
     while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
     return s + '…';
 }
 
-function imgSize(img: { width: number | (() => number); height: number | (() => number) }): { w: number; h: number } {
+export function imgSize(img: { width: number | (() => number); height: number | (() => number) }): { w: number; h: number } {
     const w = typeof img.width === 'function' ? img.width() : img.width;
     const h = typeof img.height === 'function' ? img.height() : img.height;
     return { w: Number(w) || 1, h: Number(h) || 1 };
 }
 
-async function loadPhoto(url: string): Promise<unknown | null> {
+export async function loadPhoto(url: string): Promise<unknown | null> {
     if (!url) return null;
     try {
         const res = await fetchWithTimeout(url, {}, 12000);
