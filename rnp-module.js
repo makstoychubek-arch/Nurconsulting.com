@@ -2451,10 +2451,10 @@ const RNP = (() => {
 
     // ─── Подсказки «как считается» при наведении на название метрики ───
     const METRIC_HELP = {
-        orders_count: ['Заказы', 'Количество заказов за день из воронки WB (orderCount), как в «Динамике продаж».'],
+        orders_count: ['Заказы', 'Количество заказов за день из воронки WB (orderCount), как в «Динамике продаж». В ячейке две части: слева заказы со склада WB (FBO), справа розовым — со склада продавца (FBS, из отчёта заказов WB).'],
         orders_sum: ['Сумма заказов', 'Сумма заказов за день из воронки WB (orderSum), в сомах.'],
         spp_pct: ['СПП %', 'Скидка постоянного покупателя WB: средняя по заказам дня.'],
-        sales_count: ['Продажи', 'Выкупы из финотчёта WB: штуки со строкой «Продажа». Компенсации за возврат не считаются.'],
+        sales_count: ['Продажи', 'Выкупы из финотчёта WB: штуки со строкой «Продажа». Компенсации за возврат не считаются. Розовая часть — продажи со склада продавца (FBS), остальное — склад WB.'],
         sales_sum: ['Сумма продаж', 'Цена продажи с учётом скидок WB × штуки из финотчёта.'],
         avg_check: ['Средний чек', 'Сумма заказов ÷ количество заказов.'],
         avg_check_sales: ['Средний чек продаж', 'Сумма продаж ÷ продажи.'],
@@ -4178,6 +4178,26 @@ const RNP = (() => {
         });
     }
 
+    // Заказы и продажи со склада продавца (FBS) по дням — для розовой секции в ячейке.
+    async function _mergeFbsSplit(nmIds, cal) {
+        const allDates = _calAllDates(cal);
+        if (!allDates.length || !nmIds.length) return;
+        const idSet = new Set(nmIds.map(Number));
+        try {
+            const { data, error } = await _db.rpc('rnp_fbs_split', {
+                p_cabinet: _cab, p_from: allDates[0], p_to: allDates[allDates.length - 1],
+            });
+            if (error) throw error;
+            (data || []).forEach(r => {
+                if (!idSet.has(Number(r.nm_id))) return;
+                const row = _dataCache[r.nm_id]?.[r.d];
+                if (!row) return;
+                row.orders_fbs = Number(r.orders_fbs || 0);
+                row.sales_fbs = Number(r.sales_fbs || 0);
+            });
+        } catch (e) { console.warn('[RNP] fbs split:', e.message); }
+    }
+
     async function _mergeFinanceDailyFromDb(nmIds, cal) {
         const allDates = _calAllDates(cal);
         if (!allDates.length || !nmIds.length) return;
@@ -4595,6 +4615,7 @@ const RNP = (() => {
         await _mergeFinanceDailyFromDb(nmIds, cal);
         if (_isStaleLoad(snapReq, snapCab)) return false;
         await _mergeAdStatsFromDb(nmIds, cal, { trackOutside: true });
+        await _mergeFbsSplit(nmIds, cal);
         _seedTodayLiveZeros(nmIds, cal);
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
@@ -4870,7 +4891,7 @@ const RNP = (() => {
                 ad_impressions: 0, ad_clicks: 0, ad_spend: 0, ad_orders: 0, ad_basket: 0,
             };
         }
-        const SUM = ['orders_count','orders_sum','sales_count','sales_sum','ad_impressions','ad_clicks',
+        const SUM = ['orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','ad_impressions','ad_clicks',
                      'ad_basket','ad_orders','ad_spend','to_transfer','profit','giveaways','in_production',
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
@@ -4897,7 +4918,7 @@ const RNP = (() => {
     }
 
     const DERIVED_SUM_KEYS = [
-        'orders_count','orders_sum','sales_count','sales_sum','returns_count',
+        'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count',
         'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend',
         'to_transfer','profit','cost_price_val','giveaways','storage_sum',
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
@@ -6656,7 +6677,20 @@ const RNP = (() => {
                 const liveTitle = isLiveToday
                     ? ' title="Сегодня — предварительные данные, ещё обновляются"'
                     : (financePending ? ' title="Финансовый отчёт WB придёт после закрытия дня"' : '');
-                return `<td class="${cls}${liveCls}${hitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${_fitNum(str ?? '')}</td>`;
+                let inner = _fitNum(str ?? '');
+                let splitCls = '';
+                let title = liveTitle;
+                if (!isFuture && d && (m.key === 'orders_count' || m.key === 'sales_count')) {
+                    const fbs = Math.round(Number(d[m.key === 'orders_count' ? 'orders_fbs' : 'sales_fbs']) || 0);
+                    const total = Math.round(Number(val) || 0);
+                    if (fbs > 0 && total > 0) {
+                        const fbsShown = Math.min(fbs, total);
+                        inner = `<span class="rnp-split"><span class="rnp-split-fbo">${total - fbsShown}</span><span class="rnp-split-fbs">${fbsShown}</span></span>`;
+                        splitCls = ' rnp-cell-split';
+                        title = ` title="Всего ${total}: склад WB ${total - fbsShown}, склад продавца (FBS) ${fbsShown}"`;
+                    }
+                }
+                return `<td class="${cls}${liveCls}${hitCls}${splitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${title}${dataAttr}>${inner}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',
