@@ -16127,9 +16127,11 @@
         samples = samples || 3000;
         const wins = new Map();
         variants.forEach(v => wins.set(v.variant_label, 0));
+        const ok = variants.filter(v => (Number(v.impressions) || 0) >= 100);
+        if (ok.length < 2) return wins;
         for (let i = 0; i < samples; i++) {
             let bestLabel = null, bestVal = -1;
-            variants.forEach(v => {
+            ok.forEach(v => {
                 const clicks = Math.max(0, Number(v.clicks) || 0);
                 const views = Math.max(clicks, Number(v.impressions) || 0);
                 const val = abSampleBeta(clicks + 1, views - clicks + 1);
@@ -16227,7 +16229,6 @@
         document.getElementById('ab-report-title').textContent = test.product_name || `Артикул ${test.nm_id}`;
         const reportCampaigns = (test.settings?.campaigns || []).map(String).filter(Boolean);
         const fmtReportDate = (d) => d ? new Date(d).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-        // Когда последний раз пересчитывали показы и клики (раз в 10 минут по замерам статистики РК)
         const statsUpdatedAt = (statsRows || []).filter(r => r.source === 'ads').map(r => r.updated_at).filter(Boolean).sort().pop() || null;
         const reportSubEl = document.getElementById('ab-report-sub');
         reportSubEl.style.whiteSpace = 'pre-line';
@@ -16243,22 +16244,20 @@
         if (maxProb >= 0.9) { stars = '★★★'; verdictText = `явный победитель (${Math.round(maxProb * 100)}%)`; }
         else if (maxProb >= 0.6) { stars = '★★★'; verdictText = `скорее всего лучше (${Math.round(maxProb * 100)}%)`; }
         else if (maxProb >= 0.4) { stars = '★★☆'; verdictText = `есть тенденция к лидеру (${Math.round(maxProb * 100)}%)`; }
-        // Данных набралось достаточно, а лидера нет — так и говорим, как в WBRadar.
         if (maxProb < 0.6 && totalImpressions >= 1000 * variants.length) { stars = '★'; verdictText = 'разницы нет'; }
         document.getElementById('ab-report-verdict').innerHTML = `
             <div class="ab-report-verdict-box">
                 <span class="ab-report-verdict-stars">${stars}</span>
                 <span style="color:var(--text-primary);font-weight:600">${escapeHtml(verdictText)}</span>
-                ${leaderLabel != null && verdictText !== 'разницы нет' ? `<span style="color:var(--text-muted)">— лидирует вариант ${escapeHtml(String(leaderLabel))}</span>` : ''}
+                ${maxProb > 0 && verdictText !== 'разницы нет' ? `<span style="color:var(--text-muted)">— лидирует вариант ${escapeHtml(String(leaderLabel))}</span>` : ''}
             </div>`;
 
         const sourceLabel = source === 'funnel' ? 'Воронка (карточка)' : 'Реклама';
-        // Таймер смены: считаем от последней ротации (до первой — от старта теста), следующий вариант — по кругу.
         const liveIdx = variants.findIndex(x => x.is_currently_on_wb);
         const nextVariant = liveIdx >= 0 ? variants[(liveIdx + 1) % variants.length] : null;
         const rotationsLeft = !(Number(test.max_rotations) > 0) || (Number(test.rotation_count) || 0) < Number(test.max_rotations);
         const testRunning = test.status === 'active'; // пока тест идёт, ручная установка фото выключена
-        const timerOn = test.status === 'active' && Boolean(nextVariant) && nextVariant.id !== variants[liveIdx].id && rotationsLeft;
+        const timerOn = test.status === 'active' && Boolean(nextVariant) && nextVariant.id !== variants[liveIdx].id && rotationsLeft && !test.settings?.rotateByImpressions;
         document.getElementById('ab-report-variants').innerHTML = variants.map(v => {
             const m = metricsByVariant.get(v.id);
             const impressions = Math.round(m.impressions);
@@ -16291,8 +16290,8 @@
                 <div class="ab-report-img-wrap"><img src="${escapeHtml(v.photo_url)}" onerror="this.src='https://placehold.co/200x150/888/fff?text=${escapeHtml(v.variant_label)}'"></div>
                 <div class="ab-report-ctr-row">
                     <span class="ab-report-ctr-val">${ctr.toFixed(2)}%</span>
-                    ${delta != null ? `<span class="ab-report-ctr-delta ${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '+' : ''}${delta.toFixed(2)}</span>` : ''}
-                    ${isLosing ? '<span class="ab-report-prob bad">явно проигрывает</span>' : `<span class="ab-report-prob good">${Math.round(prob * 100)}%</span>`}
+                    ${delta != null && impressions > 0 ? `<span class="ab-report-ctr-delta ${delta >= 0 ? 'pos' : 'neg'}">${delta >= 0 ? '+' : ''}${delta.toFixed(2)}</span>` : ''}
+                    ${isLosing ? '<span class="ab-report-prob bad">явно проигрывает</span>' : prob > 0 ? `<span class="ab-report-prob good">${Math.round(prob * 100)}%</span>` : ''}
                 </div>
                 <table class="ab-report-metrics-table">
                     <tr><td class="lbl">CTR</td><td class="val">${ctr.toFixed(2)}%</td></tr>
