@@ -110,6 +110,17 @@ assert.equal(agg[0].ss, 2000);
 assert.equal(agg[0].tt, 1500);
 assert.ok(Number(agg[0].rate) > 1);
 
+// Возврат уменьшает «к перечислению», компенсация не считается проданной штукой.
+const byKey2 = new Map();
+addLegacyRowToAgg(byKey2, { nm_id: 5, sale_dt: '2026-09-29', doc_type_name: 'Продажа', supplier_oper_name: 'Продажа', quantity: 1, retail_price_withdisc_rub: 1000, ppvz_for_pay: 800 });
+addLegacyRowToAgg(byKey2, { nm_id: 5, sale_dt: '2026-09-29', doc_type_name: 'Возврат', supplier_oper_name: 'Возврат', quantity: 1, retail_price_withdisc_rub: 1000, ppvz_for_pay: 800 });
+addLegacyRowToAgg(byKey2, { nm_id: 5, sale_dt: '2026-09-29', doc_type_name: 'Продажа', supplier_oper_name: 'Добровольная компенсация при возврате', quantity: 1, retail_price_withdisc_rub: 0, ppvz_for_pay: 120 });
+const agg2 = financeAggToRows(byKey2);
+assert.equal(agg2[0].sc, 1, 'компенсация не продажа');
+assert.equal(agg2[0].rc, 1);
+assert.equal(agg2[0].ss, 1000);
+assert.equal(agg2[0].tt, 120, 'продажа 800 − возврат 800 + компенсация 120');
+
 let seenBody = '';
 const page = await fetchSalesReportsDetailedPage({
     token: 't',

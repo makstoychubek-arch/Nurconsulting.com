@@ -1814,8 +1814,11 @@ const RNP = (() => {
         // Как в «Динамике продаж» WB: настоящий orderCount воронки (funnel_orders),
         // иначе запасной расчёт Корзина × Заказы%.
         const funnel = _funnelDayOrders({ ...row, orderCount: row.funnel_orders ?? row.orderCount });
-        if (funnel != null) return { ...row, orders_count: funnel };
-        return row;
+        // Сумма заказов тоже из воронки (orderSum), иначе средний чек считается от чужого количества.
+        const fSum = Number(row.funnel_orders_sum);
+        const withSum = fSum > 0 ? { orders_sum: fSum } : {};
+        if (funnel != null) return { ...row, ...withSum, orders_count: funnel };
+        return fSum > 0 ? { ...row, ...withSum } : row;
     }
 
     function _sleep(ms) {
@@ -4764,7 +4767,9 @@ const RNP = (() => {
         // WB не отдаёт общие показы карточки, поэтому доли считаем по переходам в карточку.
         a.ad_imp_pct = a.clicks > 0 ? Math.min(100, a.ad_clicks / a.clicks * 100) : 0;
         a.organic_imp_pct = a.clicks > 0 ? Math.max(0, 100 - a.ad_imp_pct) : 0;
-        a.drr_pct = a.sales_sum > 0 ? a.ad_spend / a.sales_sum * 100 : 0;
+        // ДРР от суммы заказов (заказы в рублях → сомы по курсу каждого дня).
+        const ordersSomAll = parts.reduce((s, d) => s + (Number(d.orders_sum) || 0) * _rateFor(d.date, d), 0);
+        a.drr_pct = ordersSomAll > 0 ? a.ad_spend / ordersSomAll * 100 : 0;
         const revenue = parts.reduce((s, d) => {
             const er = _rateFor(d.date, d);
             return s + (Number(d.to_transfer) || 0) * er;
@@ -4781,7 +4786,9 @@ const RNP = (() => {
         a.logistics_pct = wPct('logistics_pct');
         a.storage_pct = wPct('storage_pct');
         a.commission_pct = parts.reduce((s, d) => s + (d.commission_pct || 0), 0) / Math.max(parts.length, 1);
-        a.wb_share_pct = (a.logistics_pct || 0) + (a.storage_pct || 0) + (a.commission_pct || 0) + (a.drr_pct || 0);
+        const salesSomAll = parts.reduce((s, d) => s + (Number(d.sales_sum) || 0) * _rateFor(d.date, d), 0);
+        const adFromSalesAll = salesSomAll > 0 ? a.ad_spend / salesSomAll * 100 : 0;
+        a.wb_share_pct = (a.logistics_pct || 0) + (a.storage_pct || 0) + (a.commission_pct || 0) + adFromSalesAll;
         const logUnits = parts.map(d => d.logistics_per_unit || 0).filter(v => v > 0);
         a.logistics_per_unit = logUnits.length ? logUnits.reduce((s, v) => s + v, 0) / logUnits.length : 0;
         return a;
@@ -4927,7 +4934,11 @@ const RNP = (() => {
             : (d.plan_orders_pct || d.plan_sales_pct || 0);
         d.avg_check_sales = d.sales_count > 0 ? (d.sales_sum || 0) / d.sales_count : 0;
         d.to_transfer_unit = d.sales_count > 0 ? (d.to_transfer || 0) / d.sales_count : 0;
-        d.drr_pct = (d.sales_sum || 0) > 0 ? (d.ad_spend || 0) / (d.sales_sum || 1) * 100 : 0;
+        // ДРР как у WB: расход на рекламу от суммы заказов. Расход РК уже в сомах, заказы в рублях — переводим по курсу дня.
+        const ordersSom = (d.orders_sum || 0) * er;
+        d.drr_pct = ordersSom > 0 ? (d.ad_spend || 0) / ordersSom * 100 : 0;
+        const salesSomForShare = (d.sales_sum || 0) * er;
+        const adFromSalesPct = salesSomForShare > 0 ? (d.ad_spend || 0) / salesSomForShare * 100 : 0;
 
         // Логистика: real report data (delivery_rub, RUB → сом by day's rate) wins;
         // when the report has nothing for the day — baseline "Логистика ед." from settings.
@@ -4941,15 +4952,19 @@ const RNP = (() => {
             const ssSom = (d.sales_sum || 0) * er;
             d.logistics_pct = ssSom > 0 ? logisticsUnitSom * units / ssSom * 100 : 0;
         }
-        d.wb_share_pct = (d.logistics_pct || 0) + (d.storage_pct || 0) + (d.commission_pct || 0) + (d.drr_pct || 0);
+        d.wb_share_pct = (d.logistics_pct || 0) + (d.storage_pct || 0) + (d.commission_pct || 0) + adFromSalesPct;
 
-        // Financials — to_transfer already in RUB, convert to soms
+        // Прибыль по финотчёту WB. «К перечислению» (ppvz_for_pay) ещё не учитывает логистику, хранение,
+        // штрафы и прочие удержания — их вычитаем отдельно. Всё из отчёта в рублях, переводим в сомы по курсу дня.
+        // Себестоимость — только за штуки, которые остались у покупателя (продажи минус возвраты).
         const revenue  = (d.to_transfer || 0) * er;
-        const totalCost = units * cost;
-        const otherCosts = units * otherCostsUnitSom;
-        const adSpend  = (d.ad_spend || 0) * er;
-        d.cost_price_val  = totalCost; // Себестоимость = продажи, шт × себест. за ед.
-        d.profit          = revenue - totalCost - adSpend - otherCosts;
+        const wbCosts  = ((d.delivery_sum || 0) + (d.storage_sum || 0) + (d.penalty_sum || 0) + (d.deduction_sum || 0)) * er;
+        const netUnits = Math.max(0, units - (d.returns_count || 0));
+        const totalCost = netUnits * cost;
+        const otherCosts = netUnits * otherCostsUnitSom;
+        const adSpend  = (d.ad_spend || 0); // расход РК WB для кабинетов КР уже в сомах
+        d.cost_price_val  = totalCost; // Себестоимость = (продажи − возвраты), шт × себест. за ед.
+        d.profit          = revenue - wbCosts - totalCost - adSpend - otherCosts;
         d.profit_per_unit = units > 0 ? d.profit / units : 0;
         d.margin_pct      = revenue > 0 ? d.profit / revenue * 100 : 0;
         d.roi_pct         = totalCost > 0 ? d.profit / totalCost * 100 : 0;

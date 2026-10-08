@@ -305,13 +305,20 @@ export function addLegacyRowToAgg(
     const d = byKey.get(key)!;
     const type = String(row.doc_type_name ?? '').toLowerCase();
     const qty = Number(row.quantity || 0);
+    // «Добровольная компенсация при возврате» тоже идёт с типом «Продажа»: это деньги продавцу,
+    // но не проданная штука, поэтому в продажи (шт и сумма) её не считаем.
+    const oper = String(row.supplier_oper_name ?? '').toLowerCase();
+    const isCompensation = oper.includes('компенсац');
     if (type === 'продажа') {
-        d.sc += qty;
-        d.ss += Number(row.retail_price_withdisc_rub || 0) * qty;
+        if (!isCompensation) {
+            d.sc += qty;
+            d.ss += Number(row.retail_price_withdisc_rub || 0) * qty;
+        }
         d.tt += Number(row.ppvz_for_pay || 0);
     } else if (type === 'возврат') {
         d.rc += qty;
-        d.tt += Number(row.ppvz_for_pay || 0);
+        // WB отдаёт сумму возврата положительной — к перечислению её надо вычесть.
+        d.tt -= Math.abs(Number(row.ppvz_for_pay || 0));
     }
     d.log += Number(row.delivery_rub || 0);
     d.sto += Number(row.storage_fee || 0);
