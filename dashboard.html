@@ -3786,6 +3786,21 @@
             border-right: none;
             font-size: var(--fs-micro); color: var(--text-muted);
         }
+        .rnp-sheet-table .rnp-metric-col[data-rnp-help] { cursor: help; }
+        .rnp-help-tip {
+            position: fixed; z-index: 100001; pointer-events: none;
+            background: var(--surface-solid); color: var(--text-primary);
+            border: 1px solid var(--border); border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,.22);
+            padding: 10px 12px; font-size: 12px; line-height: 1.35;
+            display: flex; flex-direction: column; gap: 3px;
+            opacity: 0; transform: translateY(4px) scale(.98);
+            transition: opacity .18s ease, transform .18s ease;
+        }
+        .rnp-help-tip.is-on { opacity: 1; transform: none; }
+        .rnp-help-tip b { font-size: 12.5px; font-weight: 800; }
+        .rnp-help-tip span { color: var(--text-secondary); }
+        @media (prefers-reduced-motion: reduce) { .rnp-help-tip { transition: none; } }
         .rnp-sheet-table .rnp-metric-col {
             text-align: left; min-width: var(--rnp-metric-w); max-width: var(--rnp-metric-w); width: var(--rnp-metric-w);
             position: sticky; left: 0; z-index: 14;
@@ -8166,7 +8181,11 @@
 
 <script src="/dist/nr-win.2608c3728e.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
+<<<<<<< HEAD
 <script src="/dist/rnp-module.bd37548a1f.min.js"></script>
+=======
+<script src="/dist/rnp-module.fbe2c5e52b.min.js"></script>
+>>>>>>> origin/main
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
    и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
