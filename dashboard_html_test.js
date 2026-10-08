@@ -71,8 +71,8 @@ assert.ok(/data-tab="tariffs" title="Тарифы"/.test(html) && /data-flyout="
     'Тарифы sit on the rail for clients; the BETA column is team-only');
 assert.ok(!html.includes('id="fly-ocr"') && !html.includes('id="fly-rnp"') && !html.includes('id="fly-tariffs"'),
     'ocr/rnp/tariffs flyouts must stay folded into BETA');
-assert.ok(html.includes("const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary', 'tariffs'])"),
-    'dashboard, settings, RNP, advertising, A/B, Товары, Контент-завод, Агенты and Сводный отчёт are live tabs');
+assert.ok(html.includes("const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary', 'tariffs'])"),
+    'Кабинеты, dashboard, settings, RNP, advertising, A/B, Товары, Контент-завод, Агенты and Сводный отчёт are live tabs');
 assert.ok(html.includes('function openBetaStub') && html.includes('id="tab-beta-stub"'),
     'non-live modules must open the BETA stub instead of broken UIs');
 assert.ok(html.includes('Сейчас работают Дашборд, РНП, Контроль РК, А/Б Тесты, Товары, Контент-завод, Агенты и Сводный отчёт'),
@@ -1829,7 +1829,7 @@ assert.ok(
     'Vercel must rewrite /agents to the dashboard'
 );
 assert.ok(
-    html.includes("LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary', 'tariffs'])") &&
+    html.includes("LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary', 'tariffs'])") &&
     html.includes('data-tab="agents"') &&
     html.includes('id="agents-hub-side"') &&
     html.includes('function renderAgentHub') &&
