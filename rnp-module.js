@@ -2500,7 +2500,7 @@ const RNP = (() => {
         to_transfer_unit: ['К перечислению на ед', 'К перечислению ÷ проданные штуки.'],
         delivery_sum: ['Доставка (WB)', 'Логистика WB за день из финотчёта: до покупателя, возвраты, невыкупы.'],
         penalty_sum: ['Штрафы', 'Штрафы WB из финотчёта.'],
-        storage_sum: ['Хранение (сверено)', 'Платное хранение WB; детальный отчёт сверен с финотчётом.'],
+        storage_sum: ['Хранение (сверено)', 'Платное хранение WB; детальный отчёт сверен с финотчётом. Нажми на название — снизу FBS и FBO (на складе продавца WB хранение не берёт, поэтому FBS = 0).'],
         deduction_sum: ['Прочие удержания', 'Удержания WB по артикулу из финотчёта (реклама WB на уровне кабинета сюда не входит).'],
         cost_price_val: ['Себестоимость', '(Продажи − возвраты) × себестоимость единицы из карточки артикула.'],
         profit: ['Прибыль', 'К перечислению − логистика − хранение − штрафы − удержания − себестоимость − расход РК − прочие расходы. Всё в сомах.'],
@@ -6581,8 +6581,9 @@ const RNP = (() => {
 
     function _splitSubRows(m, cols, firstDayIdx) {
         const isOrders = m.key === 'orders_count';
-        const fbsKey = isOrders ? 'orders_fbs' : 'sales_fbs';
-        const noun = isOrders ? 'Заказы' : 'Продажи';
+        const isStorage = m.key === 'storage_sum';
+        const fbsKey = isStorage ? 'storage_fbs' : (isOrders ? 'orders_fbs' : 'sales_fbs');
+        const noun = isStorage ? 'Хранение' : (isOrders ? 'Заказы' : 'Продажи');
         const mk = (kind, label) => {
             const cells = cols.map((col, ci) => {
                 const d = col.data;
@@ -6603,7 +6604,10 @@ const RNP = (() => {
                 if (!col.isFuture && d) {
                     const fbs = Math.min(total, Math.round(Number(d[fbsKey]) || 0));
                     // Продажи идут из финотчёта WB: пока он не вышел, раскладывать нечего.
-                    if (!isOrders && total <= 0 && (isDay || col.type === 'month')) {
+                    if (isStorage && kind === 'fbs') {
+                        title = ' title="WB не берёт плату за хранение товара на складе продавца"';
+                    }
+                    if (!isOrders && !isStorage && total <= 0 && (isDay || col.type === 'month')) {
                         txt = '—'; title = ' title="Отчёт WB ещё не вышел"';
                     } else {
                         txt = String(kind === 'fbs' ? fbs : total - fbs);
@@ -6737,10 +6741,10 @@ const RNP = (() => {
                 m.competitor ? 'rnp-row-competitor' : '',
                 m.cl === 'planStrong' ? 'rnp-row-plan-strong' : '',
             ].filter(Boolean).join(' ');
-            const splittable = m.key === 'orders_count' || m.key === 'sales_count';
+            const splittable = m.key === 'orders_count' || m.key === 'sales_count' || m.key === 'storage_sum';
             const splitOpen = splittable && _splitOpen.has(m.key);
             const labelHtml = splittable
-                ? `<span class="rnp-split-toggle" onclick="RNP.toggleSplit('${m.key}')" title="Показать заказы по складам: WB и продавца (FBS)">${splitOpen ? '▾' : '▸'} ${m.label}</span>`
+                ? `<span class="rnp-split-toggle" onclick="RNP.toggleSplit('${m.key}')" title="Показать по складам: WB (FBO) и продавца (FBS)">${splitOpen ? '▾' : '▸'} ${m.label}</span>`
                 : m.label;
             let out = `<tr class="${rowCls}">
               <td class="rnp-metric-col${m.bold ? ' rnp-metric-bold' : ''}${m.hero ? ' rnp-metric-hero' : ''}"${METRIC_HELP[m.key] ? ` data-rnp-help="${m.key}"` : ''}>

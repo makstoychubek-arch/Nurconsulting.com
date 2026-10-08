@@ -89,7 +89,7 @@ assert.equal(filtered[0].items[0].nmId, 1218782505);
 const hidden = C.hideGroups(groups, { [groups[0].key]: true });
 assert.ok(hidden.length && hidden[0].name !== 'Свитера');
 assert.equal(hidden[0].name, groups[1].name);
-assert.equal(C.visibleCols({ nm: true, fbo: true }).map((c) => c.id).join(','), 'art,fbs,transit,plan,total');
+assert.equal(C.visibleCols({ nm: true, fbo: true }).map((c) => c.id).join(','), 'art,fbs,transit,plan,total,ship,storage');
 
 assert.equal(C.warehouseQty({ fbo: 10, fbs: 6, transit: 3500, plan: 9 }), 16);
 assert.equal(C.warehouseQty({ fbo: 0, fbs: 0, transit: 100 }), 0);
