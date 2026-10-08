@@ -2370,7 +2370,6 @@ const RNP = (() => {
         _notePopEl.style.top = top + 'px';
     }
 
-<<<<<<< HEAD
     function _ensureNotePop() {
         if (!_notePopEl) {
             _notePopEl = document.createElement('div');
@@ -2450,8 +2449,6 @@ const RNP = (() => {
         };
     }
 
-=======
->>>>>>> origin/main
     // ─── Подсказки «как считается» при наведении на название метрики ───
     const METRIC_HELP = {
         orders_count: ['Заказы', 'Количество заказов за день из воронки WB (orderCount), как в «Динамике продаж».'],
