@@ -6118,7 +6118,7 @@
             }
         } catch (e) {}
     </script>
-<link rel="stylesheet" href="/dist/rnp-extra.9cbb5d1acf.css">
+<link rel="stylesheet" href="/dist/rnp-extra.2726786360.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-hq-toggle{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
@@ -7510,33 +7510,33 @@
                         <div class="ab-wizard-card">
                             <h4>Варианты фото</h4>
                             <div id="variant-inputs" class="ab-var-grid"></div>
-                                                        <div class="ab-wizard-hint">Вариант 1 — текущее фото карточки, участвует всегда. Остальные: нажмите на плитку и вставьте фото (Ctrl+V), перетащите файл или кликните по фото WB выше. Размер 700×900.</div>
+                            <div class="ab-wizard-hint">Вариант 1 — текущее фото карточки. Остальные: плитка + Ctrl+V, файл или фото WB выше. Размер 700×900.</div>
                         </div>
 
                         <div class="ab-wizard-card">
                             <h4>Ротация и автостоп</h4>
                             <div class="ab-stop-grid">
                                 <div>
-                                    <div class="text-xs mb-1" style="color:var(--text-muted)">Интервал, мин</div>
+                                    <div class="text-xs mb-1">Менять фото</div>
+                                    <select id="ab-rot-mode" class="ab-product-search" onchange="abWInt.hidden=this.value=='imp';abWImp.hidden=this.value!='imp'"><option value="imp">по показам</option><option value="time">по времени</option></select>
+                                </div>
+                                <div id="abWInt" hidden>
+                                    <div class="text-xs mb-1">Интервал, мин</div>
                                     <input type="number" id="abt-interval" value="30" min="15" max="1440" step="5" class="ab-product-search">
                                 </div>
                                 <div>
-                                    <div class="text-xs mb-1" style="color:var(--text-muted)">Цель CTR, %</div>
+                                    <div class="text-xs mb-1">Цель CTR, %</div>
                                     <input type="number" id="ab-min-ctr" value="5" min="1" max="30" step="0.5" class="ab-product-search">
                                 </div>
                                 <div>
-                                    <div class="text-xs mb-1" style="color:var(--text-muted)">Макс. ротаций</div>
+                                    <div class="text-xs mb-1">Макс. ротаций</div>
                                     <input type="number" id="abt-maxrot" value="0" min="0" class="ab-product-search">
                                 </div>
-                                <div>
-                                    <div class="text-xs mb-1" style="color:var(--text-muted)">Показы на фото</div>
+                                <div id="abWImp">
+                                    <div class="text-xs mb-1">Показы на фото</div>
                                     <input type="number" id="ab-min-impressions" value="1000" min="100" step="100" class="ab-product-search">
                                 </div>
                             </div>
-                            <label class="ab-check">
-                                <input type="checkbox" id="ab-rotate-by-impressions" checked>
-                                <span>Менять фото каждые N показов (интервал — запасной)</span>
-                            </label>
                             <label class="ab-check">
                                 <input type="checkbox" id="ab-off-finish" checked>
                                 Завершить тест, когда РК отключена
@@ -15546,6 +15546,7 @@
         }
         const interval = Math.max(15, parseInt(document.getElementById('abt-interval').value, 10) || 30);
         const maxRot = parseInt(document.getElementById('abt-maxrot').value, 10) || 0;
+        if (document.getElementById('ab-rot-mode').value != 'time' && !abSelectedCampaigns.size) { showPremiumModal('warning', 'Выберите РК', 'Для смены по показам нужна РК.'); return; }
         const abFiles = Object.keys(abVariantFiles).map(Number).sort((a, b) => a - b).map(i => abVariantFiles[i]).filter(Boolean);
         if (abFiles.length < 2) { showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите или выберите из галереи WB минимум 2 варианта.'); return; }
 
@@ -15588,7 +15589,7 @@
             minCtr: Number(document.getElementById('ab-min-ctr')?.value) || 5,
             stopCampaigns: true,
             minImpressions: parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 1000,
-            rotateByImpressions: document.getElementById('ab-rotate-by-impressions')?.checked !== false && abWizardSources.ads && abSelectedCampaigns.size > 0,
+            rotateByImpressions: document.getElementById('ab-rot-mode')?.value !== 'time' && abWizardSources.ads && abSelectedCampaigns.size > 0,
         });
 
         try {

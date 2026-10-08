@@ -65,3 +65,4 @@ transition: opacity .18s ease, transform .18s ease;
   }
 }
 .ab-check input{accent-color:var(--accent)}
+.ab-stop-grid .text-xs{color:var(--text-muted)}
