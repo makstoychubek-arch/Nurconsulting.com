@@ -2661,8 +2661,7 @@ const RNP = (() => {
     }
 
     function _articleMoneySom(kpi, er) {
-        const rate = (Number(kpi?.wb_rate) > 0) ? Number(kpi.wb_rate) : (er || _settings.exchangeRate);
-        return Math.round(_articleMoneyRub(kpi) * rate);
+        return Math.round(_articleMoneyRub(kpi)); // уже в сомах
     }
 
     function _sumArticlesMoney(active, cal) {
@@ -2685,7 +2684,7 @@ const RNP = (() => {
 
     function _buildGeneralMetricsStrip(active, cal) {
         const kpi = _cabinetPeriodSummary(active, cal);
-        const er = (Number(kpi.wb_rate) > 0) ? Number(kpi.wb_rate) : _settings.exchangeRate;
+        const er = 1; // суммы уже в сомах
         const money = _sumArticlesMoney(active, cal);
         const profitCls = (kpi.profit || 0) >= 0 ? 'pos' : 'neg';
         const marginCls = (kpi.margin_pct || 0) >= 15 ? 'pos' : ((kpi.margin_pct || 0) < 5 ? 'neg' : '');
@@ -3586,7 +3585,7 @@ const RNP = (() => {
 
     function _collectKpiView(art, rawData, cal) {
         const kpi = _periodSummary(art, rawData, cal);
-        const er = (Number(kpi.wb_rate) > 0) ? Number(kpi.wb_rate) : _settings.exchangeRate;
+        const er = 1; // суммы уже в сомах
         const toTransferSom = Math.round((kpi.to_transfer || 0) * er);
         const costTotal = Math.round((kpi.sales_count || 0) * (art.cost_price || 0));
         const roiCls = (kpi.roi_pct || 0) >= 100 ? 'pos' : '';
@@ -4279,6 +4278,11 @@ const RNP = (() => {
      *  3) статичный курс кабинета из настроек;
      *  4) справочный (НБКР) — только если больше ничего нет. */
     function _rateFor(date, row) {
+        // Финотчёт WB, реклама и воронка у наших кабинетов уже в сомах (currency_name = KGS), конвертации нет.
+        return 1;
+    }
+
+    function _rateForLegacy(date, row) {
         if (date && _rateDatesSorted.length) {
             let manual = null;
             for (const d of _rateDatesSorted) {
@@ -4770,7 +4774,7 @@ const RNP = (() => {
         // WB не отдаёт общие показы карточки, поэтому доли считаем по переходам в карточку.
         a.ad_imp_pct = a.clicks > 0 ? Math.min(100, a.ad_clicks / a.clicks * 100) : 0;
         a.organic_imp_pct = a.clicks > 0 ? Math.max(0, 100 - a.ad_imp_pct) : 0;
-        // ДРР от суммы заказов (заказы в рублях → сомы по курсу каждого дня).
+        // ДРР от суммы заказов (всё в сомах).
         const ordersSomAll = parts.reduce((s, d) => s + (Number(d.orders_sum) || 0) * _rateFor(d.date, d), 0);
         a.drr_pct = ordersSomAll > 0 ? a.ad_spend / ordersSomAll * 100 : 0;
         const revenue = parts.reduce((s, d) => {
@@ -4873,6 +4877,8 @@ const RNP = (() => {
     }
 
     function _buildCabinetRateRow(cols, active) {
+        return ''; // курс не нужен: все суммы в сомах
+        // eslint-disable-next-line no-unreachable
         const cells = cols.map((col, ci) => {
             const rate = _rateForCol(col, active);
             const isToday = col.isToday || col.isCurrent;
@@ -4908,7 +4914,7 @@ const RNP = (() => {
           <td class="rnp-metric-col">Общий РНП</td>
           <td class="rnp-spark-col"></td>
           <td class="rnp-meta-cell" colspan="${cols.length}">
-            <span class="rnp-meta-status">Сводка по кабинету · ${cols.length} колонок · курс ₽→сом внизу</span>
+            <span class="rnp-meta-status">Сводка по кабинету · ${cols.length} колонок · все суммы в сомах</span>
           </td>
         </tr>`;
     }
@@ -4959,11 +4965,11 @@ const RNP = (() => {
             d.logistics_pct = ssSom > 0 ? logisticsUnitSom * units / ssSom * 100 : 0;
         }
         d.wb_share_pct = (d.logistics_pct || 0) + (d.storage_pct || 0) + (d.commission_pct || 0) + adFromSalesPct;
-        // Средняя стоимость одной доставки до ПВЗ покупателя (выкуп и невыкуп), рубли отчёта → сомы.
+        // Средняя стоимость одной доставки до ПВЗ покупателя (выкуп и невыкуп), всё в сомах.
         d.log_to_pvz_avg = (d.log_to_client_cnt || 0) > 0 ? (d.log_to_client_sum || 0) / d.log_to_client_cnt * er : 0;
 
         // Прибыль по финотчёту WB. «К перечислению» (ppvz_for_pay) ещё не учитывает логистику, хранение,
-        // штрафы и прочие удержания — их вычитаем отдельно. Всё из отчёта в рублях, переводим в сомы по курсу дня.
+        // штрафы и прочие удержания — их вычитаем отдельно. Всё из отчёта уже в сомах.
         // Себестоимость — только за штуки, которые остались у покупателя (продажи минус возвраты).
         const revenue  = (d.to_transfer || 0) * er;
         const wbCosts  = ((d.delivery_sum || 0) + (d.storage_sum || 0) + (d.penalty_sum || 0) + (d.deduction_sum || 0)) * er;
