@@ -6654,25 +6654,45 @@ const RNP = (() => {
     }
 
     // Условное форматирование как в Google Таблицах («от красного к зелёному через белый»):
-    // по каждой строке сравниваем дни между собой. low — чем меньше, тем зеленее (стоимости),
-    // high — чем больше, тем зеленее (конверсии, заказы, ROAS).
-    const AD_SCALE = { ad_cpc: 'low', ad_cpo: 'low', ad_cpm: 'low', ad_cro: 'high', ad_ctr: 'high', ad_orders: 'high', ad_roas: 'high', ad_basket: 'high' };
+    // по каждой строке сравниваем колонки одного вида (дни с днями, недели с неделями).
+    // low — чем меньше, тем зеленее (стоимости, доли расходов), high — чем больше, тем зеленее.
+    const SCALE_DIR = {
+        orders_sum: 'high', sales_sum: 'high', avg_check: 'high', avg_check_sales: 'high',
+        organic_imp_pct: 'high', clicks: 'high', basket_pct: 'high', basket_count: 'high', orders_conv_pct: 'high', cro_pct: 'high',
+        ad_impressions: 'high', ad_clicks: 'high', ad_ctr: 'high', ad_cro: 'high', ad_basket: 'high', ad_orders: 'high', ad_roas: 'high',
+        realization: 'high', to_transfer: 'high', to_transfer_unit: 'high', profit_per_unit: 'high', roi_pct: 'high',
+        ad_cpc: 'low', ad_cpo: 'low', ad_cpm: 'low', log_to_pvz_avg: 'low',
+    };
+    const HM_DIR = { low: 'low', cost: 'low', high: 'high', margin: 'high', profit: 'high' };
 
     function _scaleFn(m, cols) {
-        const dir = AD_SCALE[m.key];
+        if (m.isPlan || m.competitor || m.cl) return null;
+        const dir = SCALE_DIR[m.key] || HM_DIR[m.hm];
         if (!dir) return null;
-        const vals = cols.filter(c => c.type === 'day' && !c.isFuture && c.data && Number(c.data[m.key]) > 0)
-            .map(c => Number(c.data[m.key])).sort((a, b) => a - b);
-        if (vals.length < 3 || vals[0] === vals[vals.length - 1]) return null;
-        const lo = vals[0], hi = vals[vals.length - 1], mid = vals[Math.floor((vals.length - 1) / 2)];
-        return (v) => {
+        const groups = {};
+        cols.forEach(c => {
+            if (c.isFuture || !c.data || (c.type !== 'day' && c.type !== 'week' && c.type !== 'month')) return;
+            const v = Number(c.data[m.key]);
+            if (Number.isFinite(v) && v !== 0) (groups[c.type] = groups[c.type] || []).push(v);
+        });
+        const fns = {};
+        Object.keys(groups).forEach(t => {
+            const vals = groups[t].sort((a, b) => a - b);
+            if (vals.length < 3 || vals[0] === vals[vals.length - 1]) return;
+            const lo = vals[0], hi = vals[vals.length - 1], mid = vals[Math.floor((vals.length - 1) / 2)];
+            fns[t] = (v) => {
+                let k = v >= mid ? (hi > mid ? (v - mid) / (hi - mid) : 0) : (mid > lo ? -(mid - v) / (mid - lo) : 0);
+                if (dir === 'low') k = -k;
+                const a = Math.min(1, Math.abs(k)) * 0.62;
+                if (a < 0.02) return '';
+                return k > 0 ? `background:rgba(87,187,138,${a.toFixed(2)})` : `background:rgba(244,113,116,${a.toFixed(2)})`;
+            };
+        });
+        if (!Object.keys(fns).length) return null;
+        return (col, v) => {
+            const f = fns[col.type];
             v = Number(v);
-            if (!(v > 0)) return '';
-            let t = v >= mid ? (hi > mid ? (v - mid) / (hi - mid) : 0) : (mid > lo ? -(mid - v) / (mid - lo) : 0);
-            if (dir === 'low') t = -t;
-            const a = Math.min(1, Math.abs(t)) * 0.62;
-            if (a < 0.02) return '';
-            return t > 0 ? `background:rgba(87,187,138,${a.toFixed(2)})` : `background:rgba(244,113,116,${a.toFixed(2)})`;
+            return f && Number.isFinite(v) && v !== 0 ? f(v) : '';
         };
     }
 
@@ -6749,14 +6769,14 @@ const RNP = (() => {
                 // Ручные поля (конкуренты, раздачи) без значения показываем пустыми, а не 0.
                 const manualEmpty = (m.competitor || m.key === 'giveaways') && !(Number(val) > 0);
                 const str = (isFuture || manualEmpty) ? '' : (financePending ? '—' : _fmt(val, m.type));
-                const cc  = m.hm ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
+                const cc  = (m.hm && !scaleFn) ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
                 let style = sticky.style || '';
                 if (cc === 'rnp-green')  style += (style ? ';' : '') + 'background:#93c47d;color:#274e13';
                 else if (cc === 'rnp-yellow') style += (style ? ';' : '') + 'background:#b6d7a8;color:#38761d';
                 else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:#d9ead3;color:#38761d';
                 else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
                 if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-weight:700';
-                if (scaleFn && isDay && !isFuture) { const sc = scaleFn(val); if (sc) style += (style ? ';' : '') + sc; }
+                if (scaleFn && !isFuture) { const sc = scaleFn(col, val); if (sc) style += (style ? ';' : '') + sc; }
                 // ЗАКАЗЫ / Продажи: a bar under the figure (CSS box-shadow), like Excel.
                 // No extra DOM/flex inside the td — that blew up the sheet layout.
                 let hitKind = '';
