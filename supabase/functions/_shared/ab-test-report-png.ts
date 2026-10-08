@@ -92,7 +92,7 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
     const gap = 16;
     const width = n <= 2 ? 780 : n === 3 ? 1040 : 1280;
     const cardW = (width - pad * 2 - gap * (n - 1)) / n;
-    const photoH = 248;
+    const photoH = Math.round((cardW - 24) * 4 / 3); // фото 3:4, как карточка WB
     const metricsH = 292;
     const cardH = 40 + photoH + 78 + metricsH;
     const headerH = 124;
@@ -126,17 +126,19 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
     ctx.stroke();
     ctx.fillStyle = '#111111';
     ctx.font = 'bold 15px DejaVu';
-    const nrW = ctx.measureText('NR').width;
-    ctx.fillText('NR', lx + (logoS - nrW) / 2, ly + 22);
-    ctx.fillStyle = '#111111';
+    ctx.textAlign = 'center';
+    ctx.fillText('NR', lx + logoS / 2, ly + logoS / 2 + 5.5);
+    ctx.textAlign = 'left';
     ctx.font = 'bold 16px DejaVu';
-    ctx.fillText('/ АБ ТЕСТ', lx + logoS + 10, ly + 23);
+    ctx.fillText('/ АБ ТЕСТ', lx + logoS + 10, ly + logoS / 2 + 5.5);
 
     if (model.cabinetName) {
         ctx.fillStyle = '#374151';
         ctx.font = 'bold 15px DejaVu';
         const cab = fitText(ctx, model.cabinetName, width / 2 - pad);
-        ctx.fillText(cab, width - pad - ctx.measureText(cab).width, ly + 23);
+        ctx.textAlign = 'right';
+        ctx.fillText(cab, width - pad, ly + logoS / 2 + 5.5);
+        ctx.textAlign = 'left';
     }
 
     ctx.fillStyle = '#111827';
@@ -234,7 +236,9 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
             ctx.fillStyle = v.delta >= 0 ? '#16A34A' : '#DC2626';
             ctx.font = 'bold 13px DejaVu';
             const d = `${v.delta >= 0 ? '+' : ''}${v.delta.toFixed(2)}`;
-            ctx.fillText(d, x + cardW - 14 - ctx.measureText(d).width, ty);
+            ctx.textAlign = 'right';
+            ctx.fillText(d, x + cardW - 16, ty);
+            ctx.textAlign = 'left';
         }
         ctx.font = 'bold 12px DejaVu';
         if (v.isLoser) {
@@ -268,8 +272,9 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
             ctx.fillText(row[0], x + 14, ry);
             ctx.fillStyle = '#111827';
             ctx.font = 'bold 12px DejaVu';
-            const valW = ctx.measureText(row[1]).width;
-            ctx.fillText(row[1], x + cardW - 14 - valW, ry);
+            ctx.textAlign = 'right';
+            ctx.fillText(row[1], x + cardW - 16, ry);
+            ctx.textAlign = 'left';
             ctx.font = '12px DejaVu';
         });
     }

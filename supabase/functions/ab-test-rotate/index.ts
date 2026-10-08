@@ -7,6 +7,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
 import { pickCabinetToken } from '../_shared/wb-cabinet-tokens.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
+import { cabinetLegalName } from '../_shared/wb-restock-reply.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { filterFeatureActive, recordFeatureRun } from '../_shared/cabinet-features.ts';
 import {
@@ -634,7 +635,7 @@ async function buildNotifyModel(
     let cabinetName = '';
     if (test.cabinet_id) {
         const { data: cab } = await admin.from('cabinets').select('name').eq('id', test.cabinet_id as string).maybeSingle();
-        cabinetName = String(cab?.name || '');
+        cabinetName = cabinetLegalName(String(cab?.name || ''));
     }
     const rotationsByLabel: Record<string, number> = {};
     if (test.id) {
