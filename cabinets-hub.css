@@ -97,3 +97,25 @@
 #tab-cabinets-hub .cbh-search{width:100%;order:9}
 #tab-cabinets-hub .cbh-flags{margin-left:auto}
 }
+#tab-cabinets-hub .cbh-onb{display:flex;flex-direction:column;gap:12px}
+#tab-cabinets-hub .cbh-onb-progress{height:6px;border-radius:999px;background:var(--sel);overflow:hidden}
+#tab-cabinets-hub .cbh-onb-progress span{display:block;height:100%;background:var(--green);border-radius:999px;transition:width .3s ease}
+#tab-cabinets-hub .cbh-checklist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+#tab-cabinets-hub .cbh-check{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;background:var(--sel)}
+#tab-cabinets-hub .cbh-check-box{width:20px;height:20px;border-radius:6px;border:1.5px solid var(--border);display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;background:var(--surface-solid)}
+#tab-cabinets-hub .cbh-check.is-done .cbh-check-box{background:var(--green);border-color:var(--green);color:#fff}
+#tab-cabinets-hub .cbh-check-box svg{width:13px;height:13px}
+#tab-cabinets-hub .cbh-check-text{flex:1;min-width:0;font-size:12.5px;color:var(--text-primary)}
+#tab-cabinets-hub .cbh-check-text small{display:block;font-size:11px;color:var(--text-muted)}
+#tab-cabinets-hub .cbh-auto{font-size:10.5px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
+#tab-cabinets-hub .cbh-onb-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#tab-cabinets-hub .cbh-field{display:flex;flex-direction:column;gap:4px;min-width:0}
+#tab-cabinets-hub .cbh-field>span:first-child{font-size:10.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.04em}
+#tab-cabinets-hub .cbh-field--wide{grid-column:1/-1}
+#tab-cabinets-hub .cbh-field-row{display:flex;gap:6px}
+#tab-cabinets-hub .cbh-field-row .cbh-input{flex:1;min-width:0}
+#tab-cabinets-hub .cbh-field .cbh-input{width:100%}
+#tab-cabinets-hub .cbh-textarea{height:auto;padding:8px 10px;resize:vertical;font-family:inherit;line-height:1.4}
+#tab-cabinets-hub a.cbh-icon-btn{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0}
+#tab-cabinets-hub .cbh-saved{font-size:11px;color:var(--text-muted);min-height:14px}
+@media (max-width:900px){#tab-cabinets-hub .cbh-checklist,#tab-cabinets-hub .cbh-onb-fields{grid-template-columns:1fr}}
