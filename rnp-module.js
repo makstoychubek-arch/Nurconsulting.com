@@ -2947,18 +2947,18 @@ const RNP = (() => {
         </div>`;
     }
 
+    // Слайд-шоу главных фото всех артикулов — такого же размера, как галерея в артикуле. Клик открывает артикул.
     function _buildGeneralTopGallery(active) {
-        const items = active.map(a => {
+        const cards = active.map(a => {
             const label = _sellerArticle(a).replace(/"/g, '&quot;').replace(/</g, '&lt;');
-            return `<button type="button" class="rnp-general-thumb rnp-general-pick"
-              onclick="RNP.pick(${a.nm_id})" title="${label}">
-              ${_imgHtml(a, 'rnp-general-thumb-img', 'c246x328', '', 1)}
-            </button>`;
+            return `<div class="rnp-test-card rnp-general-pick" title="${label}" onclick="RNP.pick(${a.nm_id})">
+              <div class="rnp-test-photo">${_imgHtml(a, 'rnp-test-img', 'c516x688', '', 1, true)}</div>
+            </div>`;
         }).join('');
-        if (!items) return '<div class="rnp-general-thumb-empty">—</div>';
-        return `<div class="rnp-general-thumb-strip">
-          <div class="rnp-general-thumb-track">${items}</div>
-        </div>`;
+        if (!cards) return '<div class="rnp-general-thumb-empty">—</div>';
+        return `<div class="rnp-head-wide-photos rnp-general-photos"><div class="rnp-head-marquee-pin"><div class="rnp-marquee-wrap">
+          <div class="rnp-marquee-track">${cards}</div>
+        </div></div></div>`;
     }
 
     function _buildGeneralTopBar(active, cal) {
@@ -6262,10 +6262,15 @@ const RNP = (() => {
             _afterTableRender();
             requestAnimationFrame(() => {
                 _syncFrozenPane(body);
-                if (painted === 'replace') _bindMarqueeResize(body);
+                if (painted === 'replace') { _refreshMarqueeBaseHtml(body); _bindMarqueeResize(body); }
                 else _bindHeadPin(body);
+                _syncMarqueeFill(body);
             });
-            _preloadPhotosBackground(active).then(() => _applyResolvedPhotos(body));
+            _preloadPhotosBackground(active).then(() => {
+                _applyResolvedPhotos(body);
+                _refreshMarqueeBaseHtml(body);
+                _syncMarqueeFill(body);
+            });
             _saveRnpShell();
             return;
         }
