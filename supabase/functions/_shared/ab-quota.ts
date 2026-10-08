@@ -25,8 +25,14 @@ export function quotaOf(test: any): number {
 
 export type Decision = { due: boolean; reason: 'quota' | 'cap' | 'wait' };
 
-export function decideRotation(i: { quota: number; intervalMin: number; elapsedMs: number; windowImpressions: number }): Decision {
+export function decideRotation(i: { quota: number; intervalMin: number; elapsedMs: number; windowImpressions: number; stepImpressions?: number }): Decision {
     if (i.windowImpressions >= i.quota) return { due: true, reason: 'quota' };
+    // Проверка раз в 10 минут: если до следующего замера фото перелетит квоту сильнее, чем сейчас недобрало,
+    // меняем сразу (940 вместо 1400 при квоте 1000).
+    const step = Number(i.stepImpressions) || 0;
+    if (step > 0 && i.windowImpressions + step >= i.quota && i.quota - i.windowImpressions < i.windowImpressions + step - i.quota) {
+        return { due: true, reason: 'quota' };
+    }
     const capMs = Math.max(MIN_CAP_MIN, Number(i.intervalMin) || 0) * 60_000;
     if (i.elapsedMs >= capMs) return { due: true, reason: 'cap' };
     return { due: false, reason: 'wait' };
