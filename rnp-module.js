@@ -2330,9 +2330,9 @@ const RNP = (() => {
                     const nm = row.nm_id;
                     const d = row.note_date;
                     if (!_notesCache[nm][d]) _notesCache[nm][d] = { text: '', history: [] };
-                    const entry = { text: row.note, author: row.author || '—', at: row.created_at };
+                    const entry = { text: row.note, author: row.author || '—', at: row.created_at, image: row.image_url || '' };
                     _notesCache[nm][d].history.push(entry);
-                    if (_notesCache[nm][d].history.length === 1) _notesCache[nm][d].text = row.note || ''; // первая = самая свежая
+                    if (_notesCache[nm][d].history.length === 1) { _notesCache[nm][d].text = row.note || ''; _notesCache[nm][d].image = row.image_url || ''; } // первая = самая свежая
                 });
             }
         } catch (e) {
@@ -2385,10 +2385,29 @@ const RNP = (() => {
         return _notePopEl;
     }
 
+    function _noteImgHtml(url) {
+        const u = String(url || '');
+        return /^https:\/\//.test(u) ? `<a href="${_noteEsc(u)}" target="_blank" rel="noopener"><img class="rnp-note-thumb" src="${_noteEsc(u)}" alt=""></a>` : '';
+    }
+
+    // Фото к заметке: сжимаем до 1600 px и кладём в bucket rnp-note-images (папка = кабинет).
+    async function _noteUpload(file, nm, date) {
+        const bmp = await createImageBitmap(file);
+        const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
+        cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+        const blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.85));
+        const path = `${_cab}/${nm}/${date}-${Date.now()}.jpg`;
+        const { error } = await _db.storage.from('rnp-note-images').upload(path, blob, { contentType: 'image/jpeg' });
+        if (error) throw error;
+        return _db.storage.from('rnp-note-images').getPublicUrl(path).data.publicUrl;
+    }
+
     function _noteHistoryHtml(entry) {
         return (entry.history || []).slice(1, 6).map((x) => {
             const when = x.at ? new Date(x.at).toLocaleString('ru') : '';
-            return `<div class="rnp-note-pop-old">${_noteEsc(x.text) || '—'}<span>${_noteEsc(x.author)}${when ? ' · ' + when : ''}</span></div>`;
+            return `<div class="rnp-note-pop-old">${_noteEsc(x.text) || (x.image ? '' : '—')}${_noteImgHtml(x.image)}<span>${_noteEsc(x.author)}${when ? ' · ' + when : ''}</span></div>`;
         }).join('');
     }
 
@@ -2398,14 +2417,14 @@ const RNP = (() => {
         const nm = input.getAttribute('data-nm');
         const date = input.getAttribute('data-date');
         const entry = _notesCache[nm] && _notesCache[nm][date];
-        if (!entry || !entry.text) return;
+        if (!entry || (!entry.text && !entry.image)) return;
         _ensureNotePop();
         _notePopEl.classList.remove('is-edit');
         const [y, m, d] = String(date).split('-');
         const last = (entry.history || [])[0];
         const hist = _noteHistoryHtml(entry);
         _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y}${last && last.author ? ' · ' + _noteEsc(last.author) : ''}</div>
-          <div class="rnp-note-pop-text">${_noteEsc(entry.text)}</div>${hist ? `<div class="rnp-note-pop-hist">${hist}</div>` : ''}`;
+          <div class="rnp-note-pop-text">${_noteEsc(entry.text)}</div>${_noteImgHtml(entry.image)}${hist ? `<div class="rnp-note-pop-hist">${hist}</div>` : ''}`;
         _placeNotePop(input);
     }
 
@@ -2421,12 +2440,32 @@ const RNP = (() => {
         const [y, m, d] = String(date).split('-');
         const hist = _noteHistoryHtml(entry);
         _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y} · комментарий</div>
-          <textarea class="rnp-note-pop-edit" rows="4" maxlength="2000" placeholder="Что произошло в этот день">${_noteEsc(entry.text)}</textarea>
-          <div class="rnp-note-pop-actions"><button type="button" class="ui-btn ui-btn-secondary" data-note-cancel>Отмена</button><button type="button" class="ui-btn ui-btn-primary" data-note-save>Сохранить</button></div>
+          <textarea class="rnp-note-pop-edit" rows="4" maxlength="2000" placeholder="Что произошло в этот день. Фото: Ctrl+V или значок ниже">${_noteEsc(entry.text)}</textarea>
+          <div class="rnp-note-pop-img" data-note-img></div>
+          <div class="rnp-note-pop-actions"><button type="button" class="rnp-note-photo-btn" data-note-photo title="Добавить фото (или вставьте Ctrl+V)" aria-label="Добавить фото"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg></button><input type="file" accept="image/*" hidden data-note-file><span style="flex:1"></span><button type="button" class="ui-btn ui-btn-secondary" data-note-cancel>Отмена</button><button type="button" class="ui-btn ui-btn-primary" data-note-save>Сохранить</button></div>
           ${hist ? `<div class="rnp-note-pop-hist">${hist}</div>` : ''}`;
         _placeNotePop(input);
         const ta = _notePopEl.querySelector('textarea');
         ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+        let imgUrl = entry.image || '', imgFile = null, imgPrev = '';
+        const imgBox = _notePopEl.querySelector('[data-note-img]');
+        const paintImg = () => {
+            const src = imgPrev || imgUrl;
+            imgBox.innerHTML = src ? `<span class="rnp-note-img-wrap"><img class="rnp-note-thumb" src="${_noteEsc(src)}" alt=""><button type="button" data-note-img-del aria-label="Убрать фото">×</button></span>` : '';
+        };
+        const setFile = (f) => {
+            if (!f || !/^image\//.test(f.type)) return;
+            imgFile = f; if (imgPrev) URL.revokeObjectURL(imgPrev);
+            imgPrev = URL.createObjectURL(f); paintImg();
+        };
+        paintImg();
+        ta.addEventListener('paste', (ev) => {
+            const it = [...(ev.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
+            if (it) { ev.preventDefault(); setFile(it.getAsFile()); }
+        });
+        _notePopEl.ondragover = (ev) => ev.preventDefault();
+        _notePopEl.ondrop = (ev) => { ev.preventDefault(); setFile(ev.dataTransfer?.files?.[0]); };
+        _notePopEl.querySelector('[data-note-file]').onchange = (ev) => setFile(ev.target.files[0]);
         const close = async (save) => {
             if (!_noteEditing) return;
             _noteEditing = false;
@@ -2434,10 +2473,12 @@ const RNP = (() => {
             const val = ta.value;
             _notePopEl.classList.remove('is-open', 'is-edit');
             if (save) {
-                await saveNote(nm, date, val);
+                try { if (imgFile) imgUrl = await _noteUpload(imgFile, nm, date); }
+                catch (e) { console.warn('[RNP] note image:', e.message); window.NrNotify?.push?.({ title: 'Фото не загрузилось', detail: e.message, key: 'rnp-note-img' }); }
+                await saveNote(nm, date, val, imgUrl);
                 const cell = document.querySelector(`.rnp-note-input[data-nm="${nm}"][data-date="${date}"]`);
                 if (cell) {
-                    const has = !!val.trim();
+                    const has = !!val.trim() || !!imgUrl;
                     cell.classList.toggle('has-note', has);
                     cell.innerHTML = has ? _NOTE_ICON : '+';
                 }
@@ -2446,7 +2487,9 @@ const RNP = (() => {
         const outside = (ev) => { if (!_notePopEl.contains(ev.target)) close(true); };
         document.addEventListener('mousedown', outside, true);
         _notePopEl.onclick = (ev) => {
-            if (ev.target.closest('[data-note-save]')) close(true);
+            if (ev.target.closest('[data-note-photo]')) _notePopEl.querySelector('[data-note-file]').click();
+            else if (ev.target.closest('[data-note-img-del]')) { imgUrl = ''; imgFile = null; imgPrev = ''; paintImg(); }
+            else if (ev.target.closest('[data-note-save]')) close(true);
             else if (ev.target.closest('[data-note-cancel]')) close(false);
         };
         ta.onkeydown = (ev) => {
@@ -2592,16 +2635,17 @@ const RNP = (() => {
         }).join('\n');
     }
 
-    async function saveNote(nmId, date, text) {
+    async function saveNote(nmId, date, text, image) {
         const t = (text || '').trim();
+        const img = String(image || '');
         const art = _articles.find(a => a.nm_id == nmId);
         if (!art) return;
         // Не пишем в базу, если текст не изменился; пустой текст очищает заметку дня.
-        if (t === String(_notesCache[nmId]?.[date]?.text || '').trim()) return;
+        if (t === String(_notesCache[nmId]?.[date]?.text || '').trim() && img === String(_notesCache[nmId]?.[date]?.image || '')) return;
         try {
             const { error } = await _db.from('rnp_date_notes').insert({
                 cabinet_id: _cab, nm_id: nmId, note_date: date,
-                note: t, author: _userEmail || 'user'
+                note: t, author: _userEmail || 'user', image_url: img || null
             });
             if (error) throw error;
         } catch (e) {
@@ -2615,8 +2659,8 @@ const RNP = (() => {
         }
         if (!_notesCache[nmId]) _notesCache[nmId] = {};
         const hist = _notesCache[nmId][date]?.history || [];
-        hist.unshift({ text: t, author: _userEmail || '—', at: new Date().toISOString() });
-        _notesCache[nmId][date] = { text: t, history: hist };
+        hist.unshift({ text: t, author: _userEmail || '—', at: new Date().toISOString(), image: img });
+        _notesCache[nmId][date] = { text: t, image: img, history: hist };
     }
 
     function _needsWideHead(cal) {
@@ -3099,7 +3143,7 @@ const RNP = (() => {
             const tip = _noteTip(nmId, d).replace(/"/g, '&quot;');
             const st = _stickyColAttrs(ci, cols, 11, 27);
             const colCls = col.type === 'day' ? 'rnp-day-col' : 'rnp-data-col';
-            const has = !!(_notesCache[nmId]?.[d]?.text || '').trim();
+            const has = !!(_notesCache[nmId]?.[d]?.text || '').trim() || !!_notesCache[nmId]?.[d]?.image;
             return `<th class="rnp-th-note ${colCls}${st.cls}"${st.style ? ` style="${st.style}"` : ''}>
               <button type="button" class="rnp-note-input${has ? ' has-note' : ''}" data-nm="${nmId}" data-date="${d}"
                 aria-label="${has ? 'Комментарий к дате' : 'Добавить комментарий'}">${has ? _NOTE_ICON : '+'}</button>
@@ -6475,7 +6519,7 @@ const RNP = (() => {
         const statusOptions = `<option value=""${!status ? ' selected' : ''}>Статус —</option>` +
             PRODUCT_STATUSES.map(s =>
             `<option value="${s}"${s === status ? ' selected' : ''}>${s}</option>`).join('');
-        const hasNotes = Object.values(_notesCache[art.nm_id] || {}).some(n => n && n.text);
+        const hasNotes = Object.values(_notesCache[art.nm_id] || {}).some(n => n && (n.text || n.image));
         const on = _notesVisible ? ' is-on active' : '';
         return `<div class="rnp-head-meta">
           <input class="rnp-meta-input" value="${responsible}" placeholder="Ответственный"
