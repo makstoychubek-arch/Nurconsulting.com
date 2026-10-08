@@ -1,4 +1,4 @@
-.rnp-sheet-table .rnp-metric-col[data-rnp-help] { cursor: help; }
+.rnp-sheet-table .rnp-metric-col[data-rnp-help] { cursor: default; }
 .rnp-help-tip {
 position: fixed; z-index: 100001; pointer-events: none;
 background: var(--surface-solid); color: var(--text-primary);

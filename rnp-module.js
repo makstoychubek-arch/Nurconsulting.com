@@ -2535,9 +2535,11 @@ const RNP = (() => {
                 const w = Math.min(300, window.innerWidth - 24);
                 tip.style.maxWidth = w + 'px';
                 const tw = tip.offsetWidth, th = tip.offsetHeight;
-                let left = Math.min(Math.max(12, r.right + 10), window.innerWidth - tw - 12);
-                if (r.right + 10 + tw > window.innerWidth - 12) left = Math.max(12, r.left - tw - 10);
-                const top = Math.min(Math.max(12, r.top + r.height / 2 - th / 2), window.innerHeight - th - 12);
+                // Под названием метрики, слева по краю ячейки — строка с цифрами остаётся открытой.
+                const left = Math.min(Math.max(12, r.left), window.innerWidth - tw - 12);
+                const top = (r.bottom + 6 + th > window.innerHeight - 12)
+                    ? Math.max(12, r.top - th - 6)
+                    : r.bottom + 6;
                 tip.style.left = left + 'px'; tip.style.top = top + 'px';
                 requestAnimationFrame(() => tip.classList.add('is-on'));
             }, 220);
