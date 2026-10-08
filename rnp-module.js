@@ -163,11 +163,9 @@ const RNP = (() => {
             { key: 'sales_sum',          label: 'Сумма Продаж',                     type: 'som', src: 'auto' },
         ]},
         { id: 'funnel', label: 'Показатели воронки', color: '#f59e0b', rows: [
-            { key: 'impressions',        label: 'Показы',                           type: 'int',  src: 'promo' },
-            { key: 'organic_imp_pct',    label: 'Процент органики показов',         type: 'pct',  src: 'calc' },
-            { key: 'plan_impressions',   label: 'План Показов',                     type: 'int',  src: 'manual', isPlan: true },
-            { key: 'clicks',             label: 'Клики',                            type: 'int',  src: 'promo' },
-            { key: 'ctr_pct',            label: 'CTR%',                             type: 'pct2', src: 'promo' },
+            { key: 'organic_imp_pct',    label: 'Органика переходов %',             type: 'pct',  src: 'calc' },
+            { key: 'plan_impressions',   label: 'План переходов',                   type: 'int',  src: 'manual', isPlan: true },
+            { key: 'clicks',             label: 'Переходы в карточку',              type: 'int',  src: 'promo' },
             { key: 'basket_pct',         label: 'Корзина%',                         type: 'pct2', src: 'promo' },
             { key: 'competitor_basket',  label: '% Корзина конкурентов',            type: 'pct2', src: 'manual', competitor: true },
             { key: 'basket_count',       label: 'Корзина',                          type: 'int',  src: 'promo' },
@@ -178,7 +176,7 @@ const RNP = (() => {
         ]},
         { id: 'ads', label: 'Показатели воронки Рекламы', color: '#8b5cf6', rows: [
             { key: 'ad_impressions',     label: 'Показы с рк',                      type: 'int',  src: 'promo' },
-            { key: 'ad_imp_pct',         label: 'Процент показов с Рекламы',        type: 'pct',  src: 'calc' },
+            { key: 'ad_imp_pct',         label: 'Доля переходов с рекламы %',       type: 'pct',  src: 'calc' },
             { key: 'ad_clicks',          label: 'Клики РК',                         type: 'int',  src: 'promo' },
             { key: 'plan_clicks',        label: 'План Кликов из РК',                type: 'int',  src: 'manual', isPlan: true },
             { key: 'ad_ctr',             label: 'CTR % РК',                         type: 'pct2', src: 'promo' },
@@ -199,7 +197,7 @@ const RNP = (() => {
             { key: 'sales_sum',          label: 'Сумма продаж',                     type: 'som',  src: 'auto' },
             { key: 'avg_check_sales',    label: 'Средний чек',                      type: 'som',  src: 'auto' },
             { key: 'return_pct',         label: 'Процент возврата %',               type: 'pct',  src: 'auto',  hm: 'low' },
-            { key: 'buyout_pct',         label: 'Процент выкупа%',                  type: 'pct',  src: 'auto',  hm: 'high' },
+            { key: 'buyout_pct',         label: 'Выкуп % (продажи / заказы)',       type: 'pct',  src: 'auto',  hm: 'high' },
             { key: 'ad_spend',           label: 'Расход РК ком',                    type: 'som',  src: 'promo' },
             { key: 'logistics_per_unit', label: 'Логистика на ед',                  type: 'som',  src: 'auto',  hm: 'low' },
             { key: 'logistics_pct',      label: 'Логистика %',                      type: 'pct',  src: 'auto',  hm: 'low' },
@@ -2693,7 +2691,7 @@ const RNP = (() => {
             { label: 'Заказы', value: _fmtKpi(kpi.orders_count || 0, 'int') },
             { label: 'Показы РК', value: _fmtKpi(kpi.ad_impressions || 0, 'int') },
             { label: 'Клики РК', value: _fmtKpi(kpi.ad_clicks || 0, 'int') },
-            { label: 'Показы', value: _fmtKpi(kpi.impressions || 0, 'int') },
+            { label: 'Переходы', value: _fmtKpi(kpi.clicks || 0, 'int') },
             { label: 'Продажи', value: _fmtKpi(kpi.sales_count || 0, 'int') },
             { label: 'Сумма', value: money.moneySomFmt },
             { label: 'Прибыль', value: _fmtKpi(kpi.profit, 'som'), cls: profitCls },
@@ -3613,7 +3611,7 @@ const RNP = (() => {
                 <div class="rnp-kpi"><span>Прибыль</span><b class="${v.profitCls}">${_fmtKpi(v.kpi.profit, 'som')}</b></div>
                 <div class="rnp-kpi"><span>План заказ %</span><b class="${v.planCls}">${_fmtKpi(v.kpi.plan_orders_pct, 'pct')}</b></div>
                 <div class="rnp-kpi"><span>CTR %</span><b>${_fmtKpi(v.kpi.ctr_pct, 'pct')}</b></div>
-                <div class="rnp-kpi"><span>Показов</span><b>${_fmtKpi(v.kpi.impressions, 'int')}</b></div>
+                <div class="rnp-kpi"><span>Переходов</span><b>${_fmtKpi(v.kpi.clicks, 'int')}</b></div>
                 <div class="rnp-kpi"><span>Логистика ед</span><b>${_fmtKpi(v.kpi.logistics_per_unit, 'som')}</b></div>
                 <div class="rnp-kpi"><span>Выкуп %</span><b>${_fmtKpi(v.kpi.buyout_pct, 'pct')}</b></div>
                 <div class="rnp-kpi"><span>CRO %</span><b>${_fmtKpi(v.kpi.cro_pct, 'pct')}</b></div>
@@ -4711,6 +4709,11 @@ const RNP = (() => {
             a[k] = vs.length ? vs.reduce((s,v) => s + v, 0) / vs.length : 0;
         });
         LAST.forEach(k => a[k] = rows[rows.length - 1]?.[k] || 0);
+        // Проценты логистики и хранения за период — взвешенные по сумме продаж.
+        const wSales = rows.reduce((s, r) => s + (Number(r.sales_sum) || 0), 0);
+        ['logistics_pct', 'storage_pct'].forEach(k => {
+            a[k] = wSales > 0 ? rows.reduce((s, r) => s + (Number(r[k]) || 0) * (Number(r.sales_sum) || 0), 0) / wSales : 0;
+        });
         return a;
     }
 
@@ -4748,7 +4751,8 @@ const RNP = (() => {
         a.avg_check = a.orders_count > 0 ? a.orders_sum / a.orders_count : 0;
         a.avg_check_sales = a.sales_count > 0 ? a.sales_sum / a.sales_count : 0;
         const totalSales = a.sales_count + a.returns_count;
-        a.buyout_pct = totalSales > 0 ? a.sales_count / totalSales * 100 : 0;
+        // Выкуп как у WB: продажи от заказов (у WB в кабинете считается так же).
+        a.buyout_pct = a.orders_count > 0 ? a.sales_count / a.orders_count * 100 : 0;
         a.return_pct = totalSales > 0 ? a.returns_count / totalSales * 100 : 0;
         a.ctr_pct = a.impressions > 0 ? a.clicks / a.impressions * 100 : 0;
         a.basket_pct = a.clicks > 0 ? a.basket_count / a.clicks * 100 : 0;
@@ -4757,7 +4761,9 @@ const RNP = (() => {
         a.ad_ctr = a.ad_impressions > 0 ? a.ad_clicks / a.ad_impressions * 100 : 0;
         a.ad_cro = a.ad_clicks > 0 ? a.ad_orders / a.ad_clicks * 100 : 0;
         a.ad_cpc = a.ad_clicks > 0 ? a.ad_spend / a.ad_clicks : 0;
-        a.ad_imp_pct = a.impressions > 0 ? a.ad_impressions / a.impressions * 100 : 0;
+        // WB не отдаёт общие показы карточки, поэтому доли считаем по переходам в карточку.
+        a.ad_imp_pct = a.clicks > 0 ? Math.min(100, a.ad_clicks / a.clicks * 100) : 0;
+        a.organic_imp_pct = a.clicks > 0 ? Math.max(0, 100 - a.ad_imp_pct) : 0;
         a.drr_pct = a.sales_sum > 0 ? a.ad_spend / a.sales_sum * 100 : 0;
         const revenue = parts.reduce((s, d) => {
             const er = _rateFor(d.date, d);
@@ -4767,8 +4773,13 @@ const RNP = (() => {
         a.roi_pct = a.cost_price_val > 0 ? a.profit / a.cost_price_val * 100 : 0;
         a.to_transfer_unit = a.sales_count > 0 ? a.to_transfer / a.sales_count : 0;
         a.profit_per_unit = a.sales_count > 0 ? a.profit / a.sales_count : 0;
-        a.logistics_pct = a.sales_sum > 0 ? (parts.reduce((s, d) => s + (d.logistics_pct || 0), 0) / parts.length) : 0;
-        a.storage_pct = a.sales_sum > 0 ? (parts.reduce((s, d) => s + (d.storage_pct || 0), 0) / parts.length) : 0;
+        // Проценты за период — взвешенные по сумме продаж, а не среднее по дням (дни без продаж их занижали).
+        const wPct = (k) => {
+            const w = parts.reduce((s, d) => s + (Number(d.sales_sum) || 0), 0);
+            return w > 0 ? parts.reduce((s, d) => s + (Number(d[k]) || 0) * (Number(d.sales_sum) || 0), 0) / w : 0;
+        };
+        a.logistics_pct = wPct('logistics_pct');
+        a.storage_pct = wPct('storage_pct');
         a.commission_pct = parts.reduce((s, d) => s + (d.commission_pct || 0), 0) / Math.max(parts.length, 1);
         a.wb_share_pct = (a.logistics_pct || 0) + (a.storage_pct || 0) + (a.commission_pct || 0) + (a.drr_pct || 0);
         const logUnits = parts.map(d => d.logistics_per_unit || 0).filter(v => v > 0);
@@ -4944,10 +4955,11 @@ const RNP = (() => {
         d.roi_pct         = totalCost > 0 ? d.profit / totalCost * 100 : 0;
 
         // Funnel derived
-        const totalImpr = (d.impressions || 0);
-        const adImpr    = (d.ad_impressions || 0);
-        d.organic_imp_pct = totalImpr > 0 ? (totalImpr - adImpr) / totalImpr * 100 : 0;
-        d.ad_imp_pct      = totalImpr > 0 ? adImpr / totalImpr * 100 : 0;
+        // Общих показов карточки WB не отдаёт: доли считаем по переходам в карточку.
+        const opens = (d.clicks || 0);
+        d.ad_imp_pct      = opens > 0 ? Math.min(100, (d.ad_clicks || 0) / opens * 100) : 0;
+        d.organic_imp_pct = opens > 0 ? Math.max(0, 100 - d.ad_imp_pct) : 0;
+        d.buyout_pct      = (d.orders_count || 0) > 0 ? (d.sales_count || 0) / d.orders_count * 100 : 0;
         d.orders_conv_pct = (d.funnel_order_conv > 0)
             ? d.funnel_order_conv
             : ((d.basket_count || 0) > 0 ? (d.orders_count || 0) / d.basket_count * 100 : 0);
@@ -6410,7 +6422,9 @@ const RNP = (() => {
                 const val = d ? d[m.key] : null;
                 const financePending = isDay && isToday && FINANCE_DAY_KEYS.has(m.key) && !(Number(val) > 0);
                 // Будущие дни: фактов ещё нет, поэтому ни нулей, ни процентов не рисуем.
-                const str = isFuture ? '' : (financePending ? '—' : _fmt(val, m.type));
+                // Ручные поля (конкуренты, раздачи) без значения показываем пустыми, а не 0.
+                const manualEmpty = (m.competitor || m.key === 'giveaways') && !(Number(val) > 0);
+                const str = (isFuture || manualEmpty) ? '' : (financePending ? '—' : _fmt(val, m.type));
                 const cc  = m.hm ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
                 let style = sticky.style || '';
                 if (cc === 'rnp-green')  style += (style ? ';' : '') + 'background:#93c47d;color:#274e13';
