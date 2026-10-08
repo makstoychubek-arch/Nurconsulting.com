@@ -45,3 +45,19 @@ transition: opacity .18s ease, transform .18s ease;
     scrollbar-gutter: stable;
   }
 }
+/* Белый блок как в РНП — на всех остальных вкладках: рабочая область целиком в белой скруглённой рамке,
+   карточки внутри светло-серые, чтобы не сливались с фоном блока. */
+@media (min-width: 769px) {
+  html body .main-rail > .main-content:not(.rnp-compact) {
+    background: var(--surface-solid) !important;
+    background-image: none !important;
+    border: 1px solid rgba(17, 17, 17, 0.10);
+    padding: 14px 16px 14px !important;
+  }
+  [data-theme="neon"] body .main-rail > .main-content:not(.rnp-compact) { border-color: rgba(255, 255, 255, 0.12); }
+  html body .main-content:not(.rnp-compact) :is(.widget-card, .metric-card, .pnl-card, .pnl-mini, .pnl-chart-card, .dash-cost-card, .kpi-hero-card, .pricing-card, .chart-box) {
+    background: var(--bg) !important;
+    box-shadow: none !important;
+    border-color: transparent;
+  }
+}
