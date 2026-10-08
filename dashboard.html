@@ -8181,7 +8181,7 @@
 
 <script src="/dist/nr-win.2608c3728e.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.85e09cf83a.min.js"></script>
+<script src="/dist/rnp-module.4eed1560f4.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
    и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
@@ -8463,7 +8463,7 @@
 <script src="/dist/wb-formulas.ff04c637b5.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.04b653399b.min.js"></script>
-<script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
+<script src="/dist/goods-catalog.4fdf1f3f62.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
@@ -11906,6 +11906,7 @@
             { id: 'fbo', label: 'ФБО' }, { id: 'fbs', label: 'ФБС' },
             { id: 'transit', label: 'В пути' }, { id: 'plan', label: 'В плане' },
             { id: 'total', label: 'Итого' },
+            { id: 'ship', label: 'Отправка 1 шт' }, { id: 'storage', label: 'Хранение/день' },
         ];
     }
     function ggColSpan() {
@@ -12171,12 +12172,15 @@
         if (colId === 'transit') return ggQtyInput(r, 'transit', s.transit);
         if (colId === 'plan') return ggQtyInput(r, 'plan', s.plan);
         if (colId === 'total') return `<td class="gg-num gg-total" style="font-weight:700">${fmt(s.total)}</td>`;
+        if (colId === 'ship') return `<td class="gg-num${r.shipUnit ? '' : ' gg-zero'}" title="Средняя логистика до клиента за 1 шт, последние 14 дней">${r.shipUnit ? fmt(Math.round(r.shipUnit * 10) / 10) : '—'}</td>`;
+        if (colId === 'storage') return `<td class="gg-num${r.storageDay ? '' : ' gg-zero'}" title="Платное хранение WB в день, среднее за 14 дней">${r.storageDay ? fmt(Math.round(r.storageDay)) : '—'}</td>`;
         return '<td></td>';
     }
 
     function ggFootCell(colId, tot) {
         if (colId === 'art') return `<td class="gg-art">Итого</td>`;
         if (colId === 'nm') return `<td class="gg-col-nm"></td>`;
+        if (colId === 'ship') return `<td class="gg-num gg-zero">—</td>`;
         const val = tot[colId] ?? 0;
         const cls = `gg-num${val ? '' : ' gg-zero'}`;
         if (colId === 'fbo') return `<td class="${cls}" id="gg-fbo">${fmt(val)}</td>`;
@@ -12500,11 +12504,16 @@
 
     async function loadGoodsGroupsCabinet(cab) {
         const catalog = window.GoodsCatalog;
-        const [stocks, arts] = await Promise.all([
+        const since = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+        const [stocks, arts, daily] = await Promise.all([
             fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: cab.id }],
                 'nm_id, quantity, stock_scheme'),
             fetchAllRows('rnp_articles', [{ op: 'eq', column: 'cabinet_id', value: cab.id }],
                 'nm_id, name, category, manual_data, cost_price'),
+            fetchAllRows('rnp_daily_data', [
+                { op: 'eq', column: 'cabinet_id', value: cab.id },
+                { op: 'gte', column: 'date', value: since },
+            ], 'nm_id, date, storage_sum, log_to_client_sum, log_to_client_cnt').catch(() => []),
         ]);
         const byNm = {};
         const rowOf = (nmId) => {
@@ -12533,6 +12542,16 @@
             const scheme = String(s.stock_scheme || 'fbo').toLowerCase() === 'fbs' ? 'fbs' : 'fbo';
             r[scheme] += Number(s.quantity || 0);
         });
+        const agg = {};
+        (daily || []).forEach((d) => {
+            const id = Number(d.nm_id);
+            if (!id) return;
+            const a = agg[id] || (agg[id] = { sto: 0, stoDays: 0, logSum: 0, logCnt: 0 });
+            const sto = Number(d.storage_sum || 0);
+            if (sto > 0) { a.sto += sto; a.stoDays += 1; }
+            a.logSum += Number(d.log_to_client_sum || 0);
+            a.logCnt += Number(d.log_to_client_cnt || 0);
+        });
         (arts || []).forEach((a) => {
             const id = Number(a.nm_id);
             if (!id) return;
@@ -12551,6 +12570,13 @@
                 r.plan = Number(gp) || 0;
                 r.planManual = true;
             }
+        });
+        Object.keys(agg).forEach((k) => {
+            const a = agg[k];
+            const r = byNm[k];
+            if (!r) return;
+            r.storageDay = a.stoDays ? a.sto / a.stoDays : 0;
+            r.shipUnit = a.logCnt ? a.logSum / a.logCnt : 0;
         });
         return Object.values(byNm);
     }

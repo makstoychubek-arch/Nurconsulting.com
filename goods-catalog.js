@@ -172,8 +172,9 @@
             acc.transit += s.transit;
             acc.plan += s.plan;
             acc.total += s.total;
+            acc.storage += num(row && row.storageDay);
             return acc;
-        }, { fbo: 0, fbs: 0, transit: 0, plan: 0, total: 0 });
+        }, { fbo: 0, fbs: 0, transit: 0, plan: 0, total: 0, storage: 0 });
     }
 
     function filterGroups(groups, q) {
@@ -197,6 +198,8 @@
         { id: 'transit', label: 'В пути' },
         { id: 'plan', label: 'В плане' },
         { id: 'total', label: 'Итого' },
+        { id: 'ship', label: 'Отправка 1 шт' },
+        { id: 'storage', label: 'Хранение/день' },
     ];
 
     function visibleCols(hiddenCols) {
@@ -224,6 +227,8 @@
         if (colId === 'transit') return s.transit;
         if (colId === 'plan') return s.plan;
         if (colId === 'total') return s.total;
+        if (colId === 'ship') return row.shipUnit ? Math.round(row.shipUnit * 100) / 100 : '';
+        if (colId === 'storage') return row.storageDay ? Math.round(row.storageDay * 100) / 100 : '';
         return '';
     }
 
