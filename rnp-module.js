@@ -2349,36 +2349,104 @@ const RNP = (() => {
 
     function _hideNotePop() {
         clearTimeout(_notePopTimer);
+        if (_noteEditing) return; // в режиме правки окно закрывается только по сохранению или отмене
         if (_notePopEl) _notePopEl.classList.remove('is-open');
     }
 
-    function _showNotePop(input) {
-        const nm = input.getAttribute('data-nm');
-        const date = input.getAttribute('data-date');
-        const entry = _notesCache[nm] && _notesCache[nm][date];
-        if (!entry || !entry.text || document.activeElement === input) return;
+    let _noteEditing = false;
+
+    function _noteEsc(t) {
+        return String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    }
+
+    function _placeNotePop(anchor) {
+        const r = anchor.getBoundingClientRect();
+        _notePopEl.classList.add('is-open');
+        const w = _notePopEl.offsetWidth, h = _notePopEl.offsetHeight;
+        const left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+        let top = r.bottom + 6;
+        if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
+        _notePopEl.style.left = left + 'px';
+        _notePopEl.style.top = top + 'px';
+    }
+
+    function _ensureNotePop() {
         if (!_notePopEl) {
             _notePopEl = document.createElement('div');
             _notePopEl.className = 'rnp-note-pop';
             document.body.appendChild(_notePopEl);
         }
-        const esc = (t) => String(t == null ? '' : t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-        const [y, m, d] = String(date).split('-');
-        const hist = (entry.history || []).slice(1, 6).map((x) => {
+        return _notePopEl;
+    }
+
+    function _noteHistoryHtml(entry) {
+        return (entry.history || []).slice(1, 6).map((x) => {
             const when = x.at ? new Date(x.at).toLocaleString('ru') : '';
-            return `<div class="rnp-note-pop-old">${esc(x.text) || '—'}<span>${esc(x.author)}${when ? ' · ' + when : ''}</span></div>`;
+            return `<div class="rnp-note-pop-old">${_noteEsc(x.text) || '—'}<span>${_noteEsc(x.author)}${when ? ' · ' + when : ''}</span></div>`;
         }).join('');
+    }
+
+    /** Наведение: текст заметки и история, окно закрывается, когда курсор ушёл. */
+    function _showNotePop(input) {
+        if (_noteEditing) return;
+        const nm = input.getAttribute('data-nm');
+        const date = input.getAttribute('data-date');
+        const entry = _notesCache[nm] && _notesCache[nm][date];
+        if (!entry || !entry.text) return;
+        _ensureNotePop();
+        _notePopEl.classList.remove('is-edit');
+        const [y, m, d] = String(date).split('-');
         const last = (entry.history || [])[0];
-        _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y}${last && last.author ? ' · ' + esc(last.author) : ''}</div>
-          <div class="rnp-note-pop-text">${esc(entry.text)}</div>${hist ? `<div class="rnp-note-pop-hist">${hist}</div>` : ''}`;
-        const r = input.getBoundingClientRect();
-        _notePopEl.classList.add('is-open');
-        const w = _notePopEl.offsetWidth, h = _notePopEl.offsetHeight;
-        let left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
-        let top = r.bottom + 6;
-        if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
-        _notePopEl.style.left = left + 'px';
-        _notePopEl.style.top = top + 'px';
+        const hist = _noteHistoryHtml(entry);
+        _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y}${last && last.author ? ' · ' + _noteEsc(last.author) : ''}</div>
+          <div class="rnp-note-pop-text">${_noteEsc(entry.text)}</div>${hist ? `<div class="rnp-note-pop-hist">${hist}</div>` : ''}`;
+        _placeNotePop(input);
+    }
+
+    /** Нажатие: окно остаётся открытым, текст можно править. Сохраняется кнопкой, Ctrl+Enter или при клике вне окна. */
+    function _editNotePop(input) {
+        const nm = input.getAttribute('data-nm');
+        const date = input.getAttribute('data-date');
+        const entry = (_notesCache[nm] && _notesCache[nm][date]) || { text: '', history: [] };
+        clearTimeout(_notePopTimer);
+        _noteEditing = true;
+        _ensureNotePop();
+        _notePopEl.classList.add('is-edit');
+        const [y, m, d] = String(date).split('-');
+        const hist = _noteHistoryHtml(entry);
+        _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y} · комментарий</div>
+          <textarea class="rnp-note-pop-edit" rows="4" maxlength="2000" placeholder="Что произошло в этот день">${_noteEsc(entry.text)}</textarea>
+          <div class="rnp-note-pop-actions"><button type="button" class="ui-btn ui-btn-secondary" data-note-cancel>Отмена</button><button type="button" class="ui-btn ui-btn-primary" data-note-save>Сохранить</button></div>
+          ${hist ? `<div class="rnp-note-pop-hist">${hist}</div>` : ''}`;
+        _placeNotePop(input);
+        const ta = _notePopEl.querySelector('textarea');
+        ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+        const close = async (save) => {
+            if (!_noteEditing) return;
+            _noteEditing = false;
+            document.removeEventListener('mousedown', outside, true);
+            const val = ta.value;
+            _notePopEl.classList.remove('is-open', 'is-edit');
+            if (save) {
+                await saveNote(nm, date, val);
+                const cell = document.querySelector(`.rnp-note-input[data-nm="${nm}"][data-date="${date}"]`);
+                if (cell) {
+                    const has = !!val.trim();
+                    cell.classList.toggle('has-note', has);
+                    cell.innerHTML = has ? _NOTE_ICON : '+';
+                }
+            }
+        };
+        const outside = (ev) => { if (!_notePopEl.contains(ev.target)) close(true); };
+        document.addEventListener('mousedown', outside, true);
+        _notePopEl.onclick = (ev) => {
+            if (ev.target.closest('[data-note-save]')) close(true);
+            else if (ev.target.closest('[data-note-cancel]')) close(false);
+        };
+        ta.onkeydown = (ev) => {
+            if (ev.key === 'Escape') close(false);
+            else if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) close(true);
+        };
     }
 
     // ─── Подсказки «как считается» при наведении на название метрики ───
@@ -2493,8 +2561,9 @@ const RNP = (() => {
         document.addEventListener('mouseout', (e) => {
             if (e.target && e.target.closest && e.target.closest('.rnp-note-input')) _hideNotePop();
         });
-        document.addEventListener('focusin', (e) => {
-            if (e.target && e.target.classList && e.target.classList.contains('rnp-note-input')) _hideNotePop();
+        document.addEventListener('click', (e) => {
+            const inp = e.target && e.target.closest && e.target.closest('.rnp-note-input');
+            if (inp) { e.preventDefault(); _editNotePop(inp); }
         });
     }
 
@@ -3004,6 +3073,8 @@ const RNP = (() => {
         };
     }
 
+    const _NOTE_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8M8 13h5"/></svg>';
+
     function _buildNotesHeadCells(cols, art) {
         const nmId = art.nm_id;
         return cols.map((col, ci) => {
@@ -3012,11 +3083,10 @@ const RNP = (() => {
             const tip = _noteTip(nmId, d).replace(/"/g, '&quot;');
             const st = _stickyColAttrs(ci, cols, 11, 27);
             const colCls = col.type === 'day' ? 'rnp-day-col' : 'rnp-data-col';
+            const has = !!(_notesCache[nmId]?.[d]?.text || '').trim();
             return `<th class="rnp-th-note ${colCls}${st.cls}"${st.style ? ` style="${st.style}"` : ''}>
-              <input class="rnp-note-input" value="${text}" data-nm="${nmId}" data-date="${d}" title="${tip ? '' : 'Комментарий к дате'}"
-                placeholder="+"
-                onkeydown="if(event.key==='Enter'){this.blur();}"
-                onblur="RNP.saveNote(${nmId},'${d}',this.value)">
+              <button type="button" class="rnp-note-input${has ? ' has-note' : ''}" data-nm="${nmId}" data-date="${d}"
+                aria-label="${has ? 'Комментарий к дате' : 'Добавить комментарий'}">${has ? _NOTE_ICON : '+'}</button>
             </th>`;
         }).join('');
     }

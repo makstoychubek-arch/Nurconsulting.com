@@ -3859,7 +3859,9 @@
         .rnp-sheet-table .rnp-th-date.today { color: var(--accent); font-weight: 800; border: none; background: var(--accent-soft); }
         .rnp-sheet-table .rnp-th-dow { font-size: var(--fs-micro); font-weight: 400; color: var(--text-muted); }
         .rnp-sheet-table .rnp-metric-bold { font-weight: 600; color: var(--text-primary); }
-        .rnp-sheet-table .rnp-metric-hero { font-weight: 700; font-size: var(--fs-label); color: var(--accent); }
+        .rnp-sheet-table .rnp-metric-hero { font-weight: 700; font-size: inherit; color: inherit; }
+        .rnp-sheet-table .rnp-metric-col, .rnp-sheet-table .rnp-section-title { text-align: left !important; }
+        .rnp-head-meta .rnp-meta-input, .rnp-head-meta .rnp-meta-select, .rnp-head-notes-btn { text-align: left !important; font-size: var(--fs-compact, 12px); font-weight: 500; color: var(--text-primary); }
         .rnp-sheet-table .rnp-cell-total { background: #d9ead3 !important; font-weight: 700; color: #274e13; }
         .rnp-sheet-table .rnp-col-sticky {
             position: sticky;
@@ -4124,10 +4126,9 @@
         .rnp-summary-name { text-align: left; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .rnp-note-input {
             width: 100%; border: none; background: transparent; font-size: var(--fs-micro);
-            color: var(--text-secondary); text-align: center; padding: 2px 1px; min-height: 14px;
+            color: var(--text-muted); text-align: center; padding: 2px 1px; min-height: 18px; cursor: pointer;
+            display: inline-flex; align-items: center; justify-content: center; font-family: inherit;
         }
-        .rnp-note-input::placeholder { color: var(--text-muted); opacity: 0.6; }
-        .rnp-note-input:focus { outline: none; background: rgba(99,102,241,0.12); color: var(--text-primary); }
         .rnp-th-notes-label { font-size: var(--fs-micro) !important; color: var(--text-muted) !important; text-align: left !important; padding-left: 6px !important; }
         .rnp-top-photo img.rnp-photo-fail { object-fit: contain; padding: 8px; opacity: 0.35; }
         .rnp-compare-split { display: grid; grid-template-columns: 1fr 1fr; border-bottom: none; }
@@ -6117,6 +6118,7 @@
             }
         } catch (e) {}
     </script>
+<link rel="stylesheet" href="/dist/rnp-extra.0e30a1bed0.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-hq-toggle{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
@@ -8179,7 +8181,7 @@
 
 <script src="/dist/nr-win.2608c3728e.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.fbe2c5e52b.min.js"></script>
+<script src="/dist/rnp-module.bd37548a1f.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
    и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.
