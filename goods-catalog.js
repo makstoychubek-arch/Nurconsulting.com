@@ -212,6 +212,33 @@
         return (groups || []).filter((g) => !hide[g.key] && !hide[g.name]);
     }
 
+    // Средние за 14 дней из rnp_daily_data: логистика до клиента за 1 шт и хранение в день.
+    function applyDaily(byNm, daily) {
+        const agg = {};
+        (daily || []).forEach((d) => {
+            const id = Number(d.nm_id);
+            if (!id) return;
+            const a = agg[id] || (agg[id] = { sto: 0, days: 0, ls: 0, lc: 0 });
+            const sto = num(d.storage_sum);
+            if (sto > 0) { a.sto += sto; a.days += 1; }
+            a.ls += num(d.log_to_client_sum);
+            a.lc += num(d.log_to_client_cnt);
+        });
+        Object.keys(agg).forEach((k) => {
+            const r = byNm[k];
+            if (!r) return;
+            r.storageDay = agg[k].days ? agg[k].sto / agg[k].days : 0;
+            r.shipUnit = agg[k].lc ? agg[k].ls / agg[k].lc : 0;
+        });
+    }
+
+    function extraCell(r, colId, fmt) {
+        const v = colId === 'ship' ? r.shipUnit : r.storageDay;
+        const t = colId === 'ship' ? 'Логистика до клиента за 1 шт, среднее за 14 дней' : 'Платное хранение WB в день, среднее за 14 дней';
+        const txt = v ? fmt(colId === 'ship' ? Math.round(v * 10) / 10 : Math.round(v)) : '—';
+        return '<td class="gg-num' + (v ? '' : ' gg-zero') + '" title="' + t + '">' + txt + '</td>';
+    }
+
     function csvCell(v) {
         const s = String(v ?? '');
         if (/[;"\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
@@ -438,6 +465,8 @@
         csvCell,
         exportExcelCsv,
         GOODS_COLS,
+        applyDaily,
+        extraCell,
         readManualQty,
         warehouseQty,
         bishkekYmd,
