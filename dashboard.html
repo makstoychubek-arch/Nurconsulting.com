@@ -6102,7 +6102,7 @@
             }
         } catch (e) {}
     </script>
-<link rel="stylesheet" href="/dist/cabinets-hub.52a11b47b1.css">
+<link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-hq-toggle{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -6650,7 +6650,6 @@
                         <button type="button" data-cbh-filter="all" class="active">Все</button>
                         <button type="button" data-cbh-filter="alert">Требуют внимания</button>
                     </div>
-                    <input type="date" id="cbh-date" class="cbh-input" aria-label="Дата">
                     <input type="search" id="cbh-search" class="cbh-input cbh-search" placeholder="Поиск кабинета" autocomplete="off">
                     <button type="button" class="ui-btn ui-btn-secondary cbh-icon-btn" id="cbh-collapse" title="Свернуть все" aria-label="Свернуть все"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg></button>
                     <button type="button" class="ui-btn ui-btn-secondary cbh-icon-btn" id="cbh-refresh" title="Обновить" aria-label="Обновить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg></button>
@@ -8456,7 +8455,7 @@
 <script src="/dist/admin-canvas.d45b628a46.min.js"></script>
 <script src="/dist/ad-autopilot-ui.ef28a17b6a.min.js"></script>
 <script src="/dist/ads-campaign-detail.a424906d17.min.js"></script>
-<script src="/dist/cabinets-hub.a8c28996d6.min.js"></script>
+<script src="/dist/cabinets-hub.d265c9f04f.min.js"></script>
 <script src="/dist/nr-skeleton.ef8d44c3ff.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -9823,7 +9822,7 @@
         if (sheetOpen) document.getElementById('bn-beta')?.classList.add('active');
     }
 
-    const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning', 'rnp']);
+    const DATE_FILTER_TABS = new Set(['cabinets-hub', 'dashboard', 'summary', 'advertising', 'logistics', 'planning', 'rnp']);
 
     function updateHeaderNav(tabName, isStub) {
         const backBtn = document.getElementById('header-back-btn');
@@ -12968,6 +12967,11 @@
     function defaultRangeForTab(tab) {
         // РНП по умолчанию — весь текущий месяц (в нём колонки плана на будущие дни), остальные — с 1-го по сегодня.
         if (tab === 'rnp') return { from: monthStartIso(), to: monthEndIso() };
+        // Кабинеты по умолчанию — вчерашний день по Бишкеку: за него у WB уже полные данные.
+        if (tab === 'cabinets-hub') {
+            const y = new Date(Date.now() + 6 * 3600000 - 86400000).toISOString().slice(0, 10);
+            return { from: y, to: y };
+        }
         return { from: monthStartIso(), to: todayIso() };
     }
     function rangeTabKey() {
@@ -13149,6 +13153,7 @@
             if (!document.getElementById('logistics-view-warehouse-sales')?.classList.contains('hidden')) loadWarehouseSales(true);
         }
         else if (name === 'planning') loadPlanningTab();
+        else if (name === 'cabinets-hub') window.CabinetsHub?.reload();
         else if (name === 'rnp') { const rnp = getRnp(); if (rnp && rnp.setDateRange) rnp.setDateRange(activeDateFrom, activeDateTo).catch(function (e) { console.warn('[RNP] range:', e); }); }
     }
 

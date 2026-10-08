@@ -19,7 +19,7 @@ assert.ok(js.includes("_planPeriod = 'week'") && js.includes("_sectionView = 'al
 assert.ok(js.includes('async function setDateRange(from, to, opts)') && js.includes('const RNP_MAX_RANGE_DAYS = 62;'), 'RNP takes a date range');
 assert.ok(js.includes('if (_extRange) {\n            const cur = new Date(_extRange.from'), 'calendar columns follow the chosen range');
 assert.ok(/return \{ init, initCore, ensureReady, setDateRange,/.test(js), 'setDateRange is exported');
-assert.ok(html.includes("const DATE_FILTER_TABS = new Set(['dashboard', 'summary', 'advertising', 'logistics', 'planning', 'rnp']);"), 'the shared date chip shows on RNP too');
+assert.ok(html.includes("const DATE_FILTER_TABS = new Set(['cabinets-hub', 'dashboard', 'summary', 'advertising', 'logistics', 'planning', 'rnp']);"), 'the shared date chip shows on RNP too');
 assert.ok(html.includes("else if (name === 'rnp') { const rnp = getRnp(); if (rnp && rnp.setDateRange)"), 'applying a range updates RNP');
 assert.ok(html.includes('rnp.setDateRange(activeDateFrom, activeDateTo)'), 'opening RNP uses the current shared range');
 

@@ -10,7 +10,7 @@
     var TZ_OFFSET_H = 6; // Бишкек
     var LS_OPEN = 'cbh_open';
     var LS_FILTER = 'cbh_filter';
-    var state = { date: null, rows: [], filter: 'all', query: '', open: {}, loading: false, req: 0 };
+    var state = { from: null, to: null, inited: false, rows: [], filter: 'all', query: '', open: {}, loading: false, req: 0 };
 
     function sb() { return window.supabase; }
     function esc(s) {
@@ -34,6 +34,17 @@
     function bishkekYesterday() {
         var now = new Date(Date.now() + TZ_OFFSET_H * 3600000 - 86400000);
         return now.toISOString().slice(0, 10);
+    }
+    function range() {
+        try {
+            var r = typeof window.getActiveDateRange === 'function' ? window.getActiveDateRange() : null;
+            if (r && r.from && r.to) return { from: String(r.from).slice(0, 10), to: String(r.to).slice(0, 10) };
+        } catch (e) { /* возьмём вчера */ }
+        var y = bishkekYesterday();
+        return { from: y, to: y };
+    }
+    function periodLabel() {
+        return state.from === state.to ? fmtDate(state.to) : fmtDate(state.from) + '–' + fmtDate(state.to);
     }
     function fmtDate(d) {
         var p = String(d).split('-');
@@ -97,7 +108,7 @@
             ordersCnt: num(r.orders_cnt),
             ordersSom: ordersSom,
             prevCnt: num(r.orders_prev_cnt),
-            weekCnt: num(r.orders_week_cnt),
+            days: num(r.days) || 1,
             plan: plan,
             planPct: plan > 0 ? num(r.orders_cnt) / plan * 100 : null,
             salesCnt: r.sales_cnt == null ? null : num(r.sales_cnt),
@@ -105,7 +116,7 @@
             adSpend: adSpend,
             adOrders: num(r.ad_orders),
             drr: ordersSom > 0 ? adSpend / ordersSom * 100 : null,
-            penalties: num(r.penalties_7d_rub) * rate,
+            penalties: num(r.penalties_rub) * rate,
             activeCount: active.length,
             budget: budget,
             campaigns: campaigns,
@@ -144,8 +155,8 @@
         if (d.planPct != null && d.planPct < 80) {
             out.push({ level: 'amber', key: 'plan', text: 'План заказов выполнен на ' + pct(d.planPct), action: 'rnp' });
         }
-        if (d.weekCnt >= 10 && d.ordersCnt < d.weekCnt * 0.75) {
-            out.push({ level: 'amber', key: 'drop', text: 'Заказов меньше на ' + pct((1 - d.ordersCnt / d.weekCnt) * 100) + ', чем неделю назад', action: 'rnp' });
+        if (d.prevCnt >= 10 && d.ordersCnt < d.prevCnt * 0.75) {
+            out.push({ level: 'amber', key: 'drop', text: 'Заказов меньше на ' + pct((1 - d.ordersCnt / d.prevCnt) * 100) + ', чем за прошлый такой же период', action: 'rnp' });
         }
         if (r.adv_token_valid === false) {
             out.push({ level: 'red', key: 'token', text: 'Токен рекламы не работает', action: 'settings' });
@@ -158,7 +169,7 @@
             out.push({ level: 'amber', key: 'onb', text: 'Онбординг: не хватает ' + missing.map(function (x) { return x.label.toLowerCase(); }).join(', '), action: 'onb' });
         }
         if (d.penalties > 0) {
-            out.push({ level: 'amber', key: 'pen', text: 'Штрафы за 7 дней: ' + money(d.penalties) + ' сом', action: 'rnp' });
+            out.push({ level: 'amber', key: 'pen', text: 'Штрафы за период: ' + money(d.penalties) + ' сом', action: 'rnp' });
         }
         return out;
     }
@@ -187,7 +198,7 @@
         var pts = vals.map(function (v, i) { return (i * step).toFixed(1) + ',' + (h - 3 - v / max * (h - 8)).toFixed(1); });
         var area = '0,' + h + ' ' + pts.join(' ') + ' ' + w + ',' + h;
         var last = pts[pts.length - 1].split(',');
-        return '<svg class="cbh-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-label="Заказы за 14 дней">' +
+        return '<svg class="cbh-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-label="Заказы по дням">' +
             '<polygon points="' + area + '" class="cbh-spark-area"/>' +
             '<polyline points="' + pts.join(' ') + '" class="cbh-spark-line"/>' +
             '<circle cx="' + last[0] + '" cy="' + last[1] + '" r="2.6" class="cbh-spark-dot"/></svg>';
@@ -217,7 +228,7 @@
             '<span class="cbh-dot cbh-dot--' + d.level + '"></span>' +
             '<span class="cbh-name"><b>' + esc(r.name) + '</b><small>' + esc(legalName(r.name)) + (d.onb.manager ? ' · ' + esc(d.onb.manager) : '') + '</small></span>' +
             '<span class="cbh-head-kpis">' +
-                '<span class="cbh-hk"><small>Заказы</small><b>' + int(d.ordersCnt) + '</b>' + delta(d.ordersCnt, d.weekCnt) + '</span>' +
+                '<span class="cbh-hk"><small>Заказы</small><b>' + int(d.ordersCnt) + '</b>' + delta(d.ordersCnt, d.prevCnt) + '</span>' +
                 '<span class="cbh-hk"><small>Сумма</small><b>' + money(d.ordersSom) + '</b></span>' +
                 '<span class="cbh-hk"><small>План</small><b>' + (d.planPct == null ? '—' : pct(d.planPct)) + '</b></span>' +
                 '<span class="cbh-hk"><small>ДРР</small><b>' + (d.drr == null ? '—' : pct(d.drr, 1)) + '</b></span>' +
@@ -236,17 +247,17 @@
     }
 
     function bodyHtml(r, d) {
-        var day = fmtDate(state.date);
+        var day = periodLabel();
         var summary = '<div class="cbh-summary">' +
             '<div class="cbh-kpis">' +
-                kpi('Заказы', int(d.ordersCnt) + ' шт', 'вчера ' + int(d.prevCnt) + ' · неделю назад ' + int(d.weekCnt)) +
+                kpi('Заказы', int(d.ordersCnt) + ' шт', 'прошлый период ' + int(d.prevCnt) + ' шт') +
                 kpi('Сумма заказов', money(d.ordersSom) + ' сом', '') +
                 kpi('План заказов', d.plan == null ? 'не задан' : int(d.plan) + ' шт', d.planPct == null ? '' : 'выполнено ' + pct(d.planPct)) +
                 kpi('Продажи (выкупы)', d.salesCnt == null ? '—' : int(d.salesCnt) + ' шт', d.salesSom == null ? 'WB ещё догружает' : money(d.salesSom) + ' сом') +
                 kpi('Реклама', money(d.adSpend) + ' сом', int(d.adOrders) + ' заказов с РК · ДРР ' + (d.drr == null ? '—' : pct(d.drr, 1))) +
-                kpi('Штрафы за 7 дней', money(d.penalties) + ' сом', '') +
+                kpi('Штрафы', money(d.penalties) + ' сом', 'по финотчёту WB за период') +
             '</div>' +
-            '<div class="cbh-trend"><span class="cbh-kpi-label">Заказы за 14 дней</span>' + spark(d.series) + '</div>' +
+            '<div class="cbh-trend"><span class="cbh-kpi-label">Заказы по дням</span>' + spark(d.series) + '</div>' +
             '</div>';
 
         var probs = d.problems.length
@@ -352,12 +363,14 @@
     async function load() {
         var list = document.getElementById('cbh-list');
         if (!list || !sb()) return;
+        var rg = range();
+        state.from = rg.from; state.to = rg.to;
         var my = ++state.req;
         state.loading = true;
         if (!state.rows.length) list.innerHTML = skeleton();
         document.getElementById('cbh-refresh')?.classList.add('is-loading');
         try {
-            var res = await sb().rpc('cabinets_hub', { p_date: state.date });
+            var res = await sb().rpc('cabinets_hub', { p_from: state.from, p_to: state.to });
             if (my !== state.req) return;
             if (res.error) throw res.error;
             var rows = Array.isArray(res.data) ? res.data : [];
@@ -477,11 +490,6 @@
                 saveOnboarding(cabId, patch, box);
             }, 700);
         });
-        root.querySelector('#cbh-date')?.addEventListener('change', function (e) {
-            if (!e.target.value) return;
-            state.date = e.target.value;
-            load();
-        });
         root.querySelector('#cbh-search')?.addEventListener('input', function (e) {
             state.query = e.target.value || '';
             renderList();
@@ -491,15 +499,10 @@
     function open() {
         var root = document.getElementById('tab-cabinets-hub');
         if (!root) return;
-        if (!state.date) {
-            state.date = bishkekYesterday();
+        if (!state.inited) {
+            state.inited = true;
             state.open = lsGet(LS_OPEN, {}) || {};
             state.filter = lsGet(LS_FILTER, 'all') === 'alert' ? 'alert' : 'all';
-        }
-        var dateInput = root.querySelector('#cbh-date');
-        if (dateInput && !dateInput.value) {
-            dateInput.value = state.date;
-            dateInput.max = bishkekYesterday();
         }
         root.querySelectorAll('[data-cbh-filter]').forEach(function (b) {
             b.classList.toggle('active', b.getAttribute('data-cbh-filter') === state.filter);
