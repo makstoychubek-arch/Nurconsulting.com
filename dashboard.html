@@ -15541,8 +15541,8 @@
         }
         const interval = Math.max(15, parseInt(document.getElementById('abt-interval').value, 10) || 30);
         const maxRot = parseInt(document.getElementById('abt-maxrot').value, 10) || 0;
-        const fileIndices = Object.keys(abVariantFiles).map(Number).sort((a, b) => a - b).filter(i => abVariantFiles[i]);
-        if (fileIndices.length < 2) { showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите или выберите из галереи WB минимум 2 варианта.'); return; }
+        const abFiles = Object.keys(abVariantFiles).map(Number).sort((a, b) => a - b).map(i => abVariantFiles[i]).filter(Boolean);
+        if (abFiles.length < 2) { showPremiumModal('warning', 'Нужно минимум 2 фото', 'Загрузите или выберите из галереи WB минимум 2 варианта.'); return; }
 
         abCreatingTest = true;
         const submitBtn = document.getElementById('ab-create-test-btn');
@@ -15587,8 +15587,8 @@
 
         try {
             const variantRows = [];
-            for (let i = 0; i < fileIndices.length; i++) {
-                const file = abVariantFiles[fileIndices[i]];
+            for (let i = 0; i < abFiles.length; i++) {
+                const file = abFiles[i];
                 const label = abVariantLabel(i);
                 const url = await uploadVariantPhoto(file, test.id, label);
                 variantRows.push({ test_id: test.id, variant_label: label, photo_url: url, impressions: 0, clicks: 0, orders: 0, minutes_active: 0, is_currently_on_wb: i === 0 });
