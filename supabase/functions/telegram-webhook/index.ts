@@ -165,7 +165,7 @@ async function handleUpdate(token: string, update: Record<string, unknown>): Pro
             String(chatId),
             Number(messageId),
             emoji,
-        ).then(() => undefined),
+        ),
     });
     if (restock.handled) return;
     if (from?.is_bot) return;

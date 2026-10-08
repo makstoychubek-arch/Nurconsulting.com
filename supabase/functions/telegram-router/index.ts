@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
             msg.chatId,
             messageId,
             emoji,
-        ).then(() => undefined),
+        ),
     });
     await admin.from('telegram_inbound_log').insert({
         bot_id: botId,
