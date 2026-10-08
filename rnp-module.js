@@ -188,6 +188,7 @@ const RNP = (() => {
         ]},
         { id: 'adspend', label: 'Доля Рекламных Расходов', color: '#ef4444', rows: [
             { key: 'ad_spend',           label: 'Расход РК (пополнение)',           type: 'som',  src: 'promo' },
+            { key: 'ad_orders',          label: 'Заказов с РК',                     type: 'int',  src: 'promo' },
             { key: 'ad_cpo',             label: 'CPO',                              type: 'som',  src: 'calc' },
             { key: 'ad_cpc',             label: 'CPC',                              type: 'dec2', src: 'promo' },
             { key: 'ad_cro',             label: 'CR',                               type: 'pct2', src: 'promo' },
@@ -6652,6 +6653,29 @@ const RNP = (() => {
         return _renderActiveTable();
     }
 
+    // Условное форматирование как в Google Таблицах («от красного к зелёному через белый»):
+    // по каждой строке сравниваем дни между собой. low — чем меньше, тем зеленее (стоимости),
+    // high — чем больше, тем зеленее (конверсии, заказы, ROAS).
+    const AD_SCALE = { ad_cpc: 'low', ad_cpo: 'low', ad_cpm: 'low', ad_cro: 'high', ad_ctr: 'high', ad_orders: 'high', ad_roas: 'high', ad_basket: 'high' };
+
+    function _scaleFn(m, cols) {
+        const dir = AD_SCALE[m.key];
+        if (!dir) return null;
+        const vals = cols.filter(c => c.type === 'day' && !c.isFuture && c.data && Number(c.data[m.key]) > 0)
+            .map(c => Number(c.data[m.key])).sort((a, b) => a - b);
+        if (vals.length < 3 || vals[0] === vals[vals.length - 1]) return null;
+        const lo = vals[0], hi = vals[vals.length - 1], mid = vals[Math.floor((vals.length - 1) / 2)];
+        return (v) => {
+            v = Number(v);
+            if (!(v > 0)) return '';
+            let t = v >= mid ? (hi > mid ? (v - mid) / (hi - mid) : 0) : (mid > lo ? -(mid - v) / (mid - lo) : 0);
+            if (dir === 'low') t = -t;
+            const a = Math.min(1, Math.abs(t)) * 0.62;
+            if (a < 0.02) return '';
+            return t > 0 ? `background:rgba(87,187,138,${a.toFixed(2)})` : `background:rgba(244,113,116,${a.toFixed(2)})`;
+        };
+    }
+
     function _renderSection(sec, cols, art, firstDayIdx) {
         const key = `${art.nm_id}:${sec.id}`;
         const collapsed = _collapsedSections.has(key);
@@ -6667,6 +6691,7 @@ const RNP = (() => {
         const daySeries = cols.filter(c => (c.type === 'day' || c.type === 'month') && !c.isFuture);
 
         const rows = _sectionRows(sec).map(m => {
+            const scaleFn = _scaleFn(m, cols);
             const sparkVals = daySeries.map(c => (c.data && c.data[m.key]) || 0);
             const spark = m.isPlan ? '' : _sparkline(sparkVals, 36, 14);
 
@@ -6731,6 +6756,7 @@ const RNP = (() => {
                 else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:#d9ead3;color:#38761d';
                 else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
                 if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-weight:700';
+                if (scaleFn && isDay && !isFuture) { const sc = scaleFn(val); if (sc) style += (style ? ';' : '') + sc; }
                 // ЗАКАЗЫ / Продажи: a bar under the figure (CSS box-shadow), like Excel.
                 // No extra DOM/flex inside the td — that blew up the sheet layout.
                 let hitKind = '';
