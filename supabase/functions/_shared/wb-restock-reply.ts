@@ -446,14 +446,21 @@ export async function answerWbQuestion(
     const acceptAlready = opts?.acceptAlready !== false;
     const first = await wbSend(url, token, 'PATCH', payload);
     if (first.ok) return first;
-    // Правка уже отправленного ответа: WB принимает её без wasViewed (с ним — «Не удалось отредактировать вопрос»).
+    // Правка уже отправленного ответа: пробуем форматы тела, пока WB не примет; в ошибку кладём ответы всех попыток.
     if (/редактир|edit/i.test(`${first.text} ${JSON.stringify(first.data || '')}`)) {
-        const { wasViewed: _w, ...editPayload } = payload;
-        const edit = await wbSend(url, token, 'PATCH', editPayload);
-        if (edit.ok) return edit;
-        if (edit.status !== first.status || edit.text !== first.text) {
-            first.text = `${first.text} | без wasViewed: ${edit.status} ${edit.text}`.slice(0, 400);
+        const t = payload.answer.text;
+        const variants: Array<Record<string, unknown>> = [
+            { id: payload.id, answer: { text: t }, state: 'wbRu' },
+            { id: payload.id, answer: { text: t } },
+            { id: payload.id, answer: { text: t }, state: 'wbRu', wasViewed: false },
+        ];
+        const notes: string[] = [];
+        for (const body of variants) {
+            const r = await wbSend(url, token, 'PATCH', body);
+            if (r.ok) return r;
+            notes.push(`${Object.keys(body).join('+')}: ${r.status} ${r.text}`);
         }
+        first.text = notes.join(' | ').slice(0, 400);
     }
     if (acceptAlready && isAlreadyAnsweredWb(first)) return { ...first, ok: true };
     const raw = String(token || '').replace(/^Bearer\s+/i, '').trim();
