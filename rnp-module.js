@@ -2381,7 +2381,107 @@ const RNP = (() => {
         _notePopEl.style.top = top + 'px';
     }
 
+    // ─── Подсказки «как считается» при наведении на название метрики ───
+    const METRIC_HELP = {
+        orders_count: ['Заказы', 'Количество заказов за день из воронки WB (orderCount), как в «Динамике продаж».'],
+        orders_sum: ['Сумма заказов', 'Сумма заказов за день из воронки WB (orderSum), в сомах.'],
+        spp_pct: ['СПП %', 'Скидка постоянного покупателя WB: средняя по заказам дня.'],
+        sales_count: ['Продажи', 'Выкупы из финотчёта WB: штуки со строкой «Продажа». Компенсации за возврат не считаются.'],
+        sales_sum: ['Сумма продаж', 'Цена продажи с учётом скидок WB × штуки из финотчёта.'],
+        avg_check: ['Средний чек', 'Сумма заказов ÷ количество заказов.'],
+        avg_check_sales: ['Средний чек продаж', 'Сумма продаж ÷ продажи.'],
+        giveaways: ['Раздачи', 'Вводится вручную: сколько штук ушло в раздачи.'],
+        plan_orders: ['План заказов', 'Вводится вручную по дням.'],
+        plan_sales: ['План продаж', 'Вводится вручную по дням. Пока пустой.'],
+        plan_fulfillment_pct: ['Процент выполнения плана', 'Среднее из выполнения плана по заказам и по продажам; если задан один план — он.'],
+        plan_orders_pct: ['Выполнение плана заказов', 'Заказы ÷ план заказов × 100.'],
+        plan_sales_pct: ['Выполнение плана продаж', 'Продажи ÷ план продаж × 100.'],
+        clicks: ['Переходы в карточку', 'Сколько раз открыли карточку (openCount из воронки WB). Показов карточки WB не отдаёт.'],
+        organic_imp_pct: ['Органика переходов %', '100% минус доля переходов с рекламы.'],
+        ad_imp_pct: ['Доля переходов с рекламы %', 'Клики РК ÷ все переходы в карточку × 100.'],
+        plan_impressions: ['План переходов', 'Вводится вручную.'],
+        basket_pct: ['Корзина %', 'Добавили в корзину ÷ переходы в карточку × 100.'],
+        basket_count: ['Корзина', 'Количество добавлений в корзину за день (воронка WB).'],
+        orders_conv_pct: ['Заказы %', 'Конверсия корзина → заказ из воронки WB; если её нет — заказы ÷ корзина.'],
+        cro_pct: ['CR0 %', 'Заказы ÷ переходы в карточку × 100.'],
+        competitor_basket: ['% Корзина конкурентов', 'Вводится вручную для сравнения.'],
+        competitor_orders: ['% Заказов конкурентов', 'Вводится вручную для сравнения.'],
+        competitor_cro: ['% CR0 конкурентов', 'Вводится вручную для сравнения.'],
+        competitor_ctr: ['% CTR конкурентов', 'Вводится вручную для сравнения.'],
+        ad_impressions: ['Показы с РК', 'Показы рекламных кампаний по артикулу из статистики продвижения WB.'],
+        ad_clicks: ['Клики РК', 'Клики рекламных кампаний по артикулу.'],
+        plan_clicks: ['План кликов из РК', 'Вводится вручную.'],
+        ad_ctr: ['CTR РК %', 'Клики РК ÷ показы РК × 100.'],
+        ad_cro: ['CR0 РК %', 'Заказы с РК ÷ клики РК × 100.'],
+        ad_cpc: ['Стоимость клика', 'Расход РК ÷ клики РК, сом.'],
+        ad_basket: ['Корзин с РК', 'Добавления в корзину из рекламы.'],
+        ad_orders: ['Заказов с РК', 'Заказы, которые WB засчитал рекламе.'],
+        ad_spend: ['Расход РК', 'Затраты на рекламу по артикулу из статистики продвижения WB, сом.'],
+        plan_ad_spend: ['Расход план', 'Вводится вручную.'],
+        plan_drr: ['ДРР % план', 'Вводится вручную.'],
+        drr_pct: ['ДРР %', 'Расход РК ÷ сумма заказов × 100.'],
+        return_pct: ['Процент возврата', 'Возвраты ÷ (продажи + возвраты) × 100 по финотчёту WB.'],
+        buyout_pct: ['Выкуп %', 'Продажи ÷ заказы × 100, как у WB. За один день может быть больше 100%: выкупают заказы прошлых дней.'],
+        logistics_per_unit: ['Логистика на ед', 'Вся логистика из финотчёта ÷ проданные штуки, сом.'],
+        log_to_pvz_avg: ['Ср. логистика до ПВЗ', 'Сумма доставок «К клиенту» (при продаже и при отмене) ÷ число таких доставок, сом.'],
+        logistics_pct: ['Логистика %', 'Логистика ÷ сумма продаж × 100. За неделю и месяц — взвешено по продажам.'],
+        storage_pct: ['Хранение %', 'Хранение ÷ сумма продаж × 100.'],
+        wb_share_pct: ['Все допы ВБ + ДРР %', 'Комиссия + логистика + хранение + реклама, всё в % от продаж.'],
+        realization: ['Реализация (WB)', 'Сумма по строкам продаж минус возвраты из финотчёта WB.'],
+        to_transfer: ['К перечислению', 'Что WB переводит вам за продажи минус возвраты (ppvz_for_pay) плюс компенсации. Логистика и хранение здесь ещё не вычтены.'],
+        to_transfer_unit: ['К перечислению на ед', 'К перечислению ÷ проданные штуки.'],
+        delivery_sum: ['Доставка (WB)', 'Логистика WB за день из финотчёта: до покупателя, возвраты, невыкупы.'],
+        penalty_sum: ['Штрафы', 'Штрафы WB из финотчёта.'],
+        storage_sum: ['Хранение (сверено)', 'Платное хранение WB; детальный отчёт сверен с финотчётом.'],
+        deduction_sum: ['Прочие удержания', 'Удержания WB по артикулу из финотчёта (реклама WB на уровне кабинета сюда не входит).'],
+        cost_price_val: ['Себестоимость', '(Продажи − возвраты) × себестоимость единицы из карточки артикула.'],
+        profit: ['Прибыль', 'К перечислению − логистика − хранение − штрафы − удержания − себестоимость − расход РК − прочие расходы. Всё в сомах.'],
+        profit_per_unit: ['Прибыль на 1 ед', 'Прибыль ÷ проданные штуки.'],
+        margin_pct: ['Маржинальность %', 'Прибыль ÷ «К перечислению» × 100.'],
+        roi_pct: ['Рентабельность %', 'Прибыль ÷ себестоимость × 100.'],
+    };
+
+    function _bindMetricHelp() {
+        if (document.documentElement.dataset.rnpMetricHelp) return;
+        document.documentElement.dataset.rnpMetricHelp = '1';
+        let tip = null, timer = null;
+        const hide = () => { clearTimeout(timer); if (tip) tip.classList.remove('is-on'); };
+        document.addEventListener('mouseover', (e) => {
+            const cell = e.target && e.target.closest && e.target.closest('[data-rnp-help]');
+            if (!cell) return;
+            const h = METRIC_HELP[cell.getAttribute('data-rnp-help')];
+            if (!h) return;
+            clearTimeout(timer);
+            timer = setTimeout(() => {
+                if (!tip) {
+                    tip = document.createElement('div');
+                    tip.className = 'rnp-help-tip';
+                    tip.setAttribute('role', 'tooltip');
+                    document.body.appendChild(tip);
+                }
+                tip.innerHTML = '<b></b><span></span>';
+                tip.firstChild.textContent = h[0];
+                tip.lastChild.textContent = h[1];
+                const r = cell.getBoundingClientRect();
+                tip.style.left = '0px'; tip.style.top = '0px';
+                const w = Math.min(300, window.innerWidth - 24);
+                tip.style.maxWidth = w + 'px';
+                const tw = tip.offsetWidth, th = tip.offsetHeight;
+                let left = Math.min(Math.max(12, r.right + 10), window.innerWidth - tw - 12);
+                if (r.right + 10 + tw > window.innerWidth - 12) left = Math.max(12, r.left - tw - 10);
+                const top = Math.min(Math.max(12, r.top + r.height / 2 - th / 2), window.innerHeight - th - 12);
+                tip.style.left = left + 'px'; tip.style.top = top + 'px';
+                requestAnimationFrame(() => tip.classList.add('is-on'));
+            }, 220);
+        });
+        document.addEventListener('mouseout', (e) => {
+            if (e.target && e.target.closest && e.target.closest('[data-rnp-help]')) hide();
+        });
+        window.addEventListener('scroll', hide, true);
+    }
+
     function _bindNotePop() {
+        _bindMetricHelp();
         if (document.documentElement.dataset.rnpNotePop) return;
         document.documentElement.dataset.rnpNotePop = '1';
         document.addEventListener('mouseover', (e) => {
@@ -6495,7 +6595,7 @@ const RNP = (() => {
                 m.cl === 'planStrong' ? 'rnp-row-plan-strong' : '',
             ].filter(Boolean).join(' ');
             return `<tr class="${rowCls}">
-              <td class="rnp-metric-col${m.bold ? ' rnp-metric-bold' : ''}${m.hero ? ' rnp-metric-hero' : ''}">
+              <td class="rnp-metric-col${m.bold ? ' rnp-metric-bold' : ''}${m.hero ? ' rnp-metric-hero' : ''}"${METRIC_HELP[m.key] ? ` data-rnp-help="${m.key}"` : ''}>
                 ${m.label}
               </td>
               <td class="rnp-spark-col">${spark}</td>${cells}
