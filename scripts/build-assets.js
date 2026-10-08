@@ -81,7 +81,7 @@ function buildScripts() {
 }
 
 // Стили отдельных модулей кладём в dist с хэшем и подключаем <link>, чтобы не раздувать dashboard.html.
-const MODULE_CSS = ['cabinets-hub.css'];
+const MODULE_CSS = ['cabinets-hub.css', 'rnp-extra.css'];
 function buildModuleCss() {
     const crypto = require('crypto');
     const map = {};
