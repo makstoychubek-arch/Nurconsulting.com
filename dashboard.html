@@ -6118,7 +6118,7 @@
             }
         } catch (e) {}
     </script>
-<link rel="stylesheet" href="/dist/rnp-extra.bacdeff6ab.css">
+<link rel="stylesheet" href="/dist/rnp-extra.9cbb5d1acf.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-hq-toggle{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
@@ -7530,22 +7530,25 @@
                                 </div>
                                 <div>
                                     <div class="text-xs mb-1" style="color:var(--text-muted)">Показы на фото</div>
-                                    <input type="number" id="ab-min-impressions" value="2000" min="100" step="100" class="ab-product-search">
+                                    <input type="number" id="ab-min-impressions" value="1000" min="100" step="100" class="ab-product-search">
                                 </div>
                             </div>
                             <label class="ab-check">
-                                <input type="checkbox" id="ab-rotate-by-impressions" checked style="accent-color:var(--accent)">
-                                <span>Менять фото, когда оно набрало «Показы на фото». Интервал тогда не важен: если показов нет 6 часов, фото сменится само</span>
+                                <input type="checkbox" id="ab-rotate-by-impressions" checked>
+                                <span>Менять фото каждые N показов (интервал — запасной)</span>
                             </label>
                             <label class="ab-check">
-                                <input type="checkbox" id="ab-stop-on-winner" checked style="accent-color:var(--accent)">
-                                Стоп при победителе с CTR от цели
+                                <input type="checkbox" id="ab-off-finish" checked>
+                                Завершить тест, когда РК отключена
                             </label>
                             <label class="ab-check">
-                                <input type="checkbox" id="ab-auto-stop" checked style="accent-color:var(--accent)">
-                                Или когда наберётся минимум показов — РК на паузу
+                                <input type="checkbox" id="ab-stop-on-winner">
+                                Сам завершить при победителе с CTR от цели
                             </label>
-                            <div class="ab-wizard-hint">Сам остановится при CTR от 5% или 2000 показах на фото.</div>
+                            <label class="ab-check">
+                                <input type="checkbox" id="ab-auto-stop">
+                                Сам завершить, когда у каждого фото N показов
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -15579,11 +15582,12 @@
                     return [String(id), c?.name || `РК ${id}`];
                 })
             ),
-            autoStop: document.getElementById('ab-auto-stop')?.checked !== false,
-            stopOnWinner: document.getElementById('ab-stop-on-winner')?.checked !== false,
+            autoStop: !!document.getElementById('ab-auto-stop')?.checked,
+            finishOnCampaignOff: document.getElementById('ab-off-finish')?.checked !== false,
+            stopOnWinner: !!document.getElementById('ab-stop-on-winner')?.checked,
             minCtr: Number(document.getElementById('ab-min-ctr')?.value) || 5,
             stopCampaigns: true,
-            minImpressions: parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 2000,
+            minImpressions: parseInt(document.getElementById('ab-min-impressions')?.value, 10) || 1000,
             rotateByImpressions: document.getElementById('ab-rotate-by-impressions')?.checked !== false && abWizardSources.ads && abSelectedCampaigns.size > 0,
         });
 

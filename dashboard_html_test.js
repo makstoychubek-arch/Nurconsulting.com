@@ -250,8 +250,8 @@ assert.ok(!/\.rnp-settings-overlay\s*\{[^}]*background:\s*var\(--bg\)/.test(html
     'overlay uses a dim glass wash, not a solid page fill');
 assert.ok(html.includes('id="ab-campaign-search"') && html.includes('ab-campaign-name') && html.includes('ab-campaign-id'),
     'A/B campaign picker shows name + id and can search «тест стр»');
-assert.ok(html.includes('id="ab-min-impressions"') && html.includes('value="2000"'),
-    'A/B auto-stop defaults to 2000 impressions per photo');
+assert.ok(html.includes('id="ab-min-impressions"') && html.includes('id="ab-min-impressions" value="1000"'),
+    'A/B photo rotation defaults to 1000 impressions per photo');
 assert.ok(html.includes('id="ab-min-ctr"') && html.includes('value="5"') && html.includes('id="ab-stop-on-winner"'),
     'A/B can auto-stop when a winner hits CTR from 5% and up');
 assert.ok(html.includes('function armABWinnerStop') && html.includes('Стоп от'),

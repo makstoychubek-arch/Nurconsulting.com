@@ -342,7 +342,7 @@ Deno.serve(async (req) => {
                 if (test.status === 'active') {
                     let finishReason: string | null = null;
 
-                    if (selectedCampaigns.length) {
+                    if (selectedCampaigns.length && (test.settings as Record<string, unknown> | null)?.finishOnCampaignOff !== false) {
                         const { data: campRows } = await admin
                             .from('advertising_campaigns')
                             .select('status')
@@ -574,34 +574,26 @@ async function notifyTestFinished(
     }
 
     const model = await buildNotifyModel(admin, test, variants, opts.preview === true);
-    const caption = formatAbReportCaption(model);
+    // Коротко: только победитель — фото, номер варианта и CTR.
+    const esc = (t: unknown) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const winner = model.variants.find((v) => v.isLeader)
+        || [...model.variants].filter((v) => v.impressions > 0).sort((x, y) => y.ctr - x.ctr)[0]
+        || null;
+    const head = `${opts.preview ? 'проверка канала · ' : ''}<b>${esc(model.title)}</b> · арт. ${esc(model.nmId)}`;
+    const caption = winner
+        ? `${head}\nПобедитель — вариант ${esc(winner.label)} · CTR ${winner.ctr.toFixed(2)}%`
+        : `${head}\nПобедитель не определён`;
 
     let via = 'text';
-    try {
-        const png = await renderAbReportPng(model);
-        const photoErr = await sendTelegramPhoto(tgToken, tgChannelId, png, caption);
-        if (!photoErr) via = 'snapshot';
+    if (winner?.photoUrl) {
+        const err = await sendTelegramPhotoUrl(tgToken, tgChannelId, winner.photoUrl, caption);
+        if (!err) via = 'winner_photo';
         else {
-            console.warn('[ab-test-rotate] sendPhoto failed:', photoErr);
-            const photoUrls = model.variants.map((v) => v.photoUrl).filter(Boolean);
-            if (photoUrls.length >= 2) {
-                const ok = await sendTelegramMediaGroup(tgToken, tgChannelId, photoUrls, caption);
-                via = ok ? 'album' : 'text';
-                if (!ok) await sendTelegramMessage(tgToken, tgChannelId, caption);
-            } else {
-                await sendTelegramMessage(tgToken, tgChannelId, caption);
-            }
-        }
-    } catch (e) {
-        console.warn('[ab-test-rotate] snapshot render failed:', String(e));
-        const photoUrls = model.variants.map((v) => v.photoUrl).filter(Boolean);
-        if (photoUrls.length >= 2) {
-            const ok = await sendTelegramMediaGroup(tgToken, tgChannelId, photoUrls, caption);
-            via = ok ? 'album' : 'text';
-            if (!ok) await sendTelegramMessage(tgToken, tgChannelId, caption);
-        } else {
+            console.warn('[ab-test-rotate] sendPhoto(url) failed:', err);
             await sendTelegramMessage(tgToken, tgChannelId, caption);
         }
+    } else {
+        await sendTelegramMessage(tgToken, tgChannelId, caption);
     }
 
     await admin.from('notification_log').insert({
@@ -679,6 +671,19 @@ async function sendTelegramMediaGroup(token: string, chatId: string, photoUrls: 
     } catch (e) {
         console.warn('[ab-test-rotate] telegram sendMediaGroup error:', String(e));
         return false;
+    }
+}
+
+async function sendTelegramPhotoUrl(token: string, chatId: string, photo: string, caption: string): Promise<string | null> {
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, photo, caption, parse_mode: 'HTML' }),
+        });
+        return res.ok ? null : `HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`;
+    } catch (e) {
+        return String(e);
     }
 }
 
