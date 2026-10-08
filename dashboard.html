@@ -2927,9 +2927,11 @@
             touch-action: pan-x pan-y;
             --rnp-pin-h: 0px;
         }
+        /* Смена артикула свайпом: без сдвига вправо и вверх, только лёгкое затемнение
+           (в тёмной теме полный opacity:0 давал тёмную вспышку и «уезд» блоков). */
         .rnp-sheet-body--swap {
-            opacity: 0;
-            transform: translate3d(16px, 0, 0);
+            opacity: 0.55;
+            transform: none;
         }
         .rnp-article-panel {
             flex-shrink: 0; background: var(--surface-solid);
@@ -8140,7 +8142,7 @@
 
 <script src="/dist/nr-win.2608c3728e.min.js"></script>
 <script src="/dist/dashboard-charts.7d53cdfce6.min.js"></script>
-<script src="/dist/rnp-module.7c84aa82d6.min.js"></script>
+<script src="/dist/rnp-module.7227be36ea.min.js"></script>
 <script>
 /* Звук при новом заказе (для команды). Сервер (orders-watch) раз в несколько секунд читает новые заказы FBS у WB
    и пишет их в order_events; страница подписана на вставки (Realtime) и играет звук для выбранных артикулов.

@@ -6409,7 +6409,8 @@ const RNP = (() => {
 
                 const val = d ? d[m.key] : null;
                 const financePending = isDay && isToday && FINANCE_DAY_KEYS.has(m.key) && !(Number(val) > 0);
-                const str = financePending ? '—' : _fmt(val, m.type);
+                // Будущие дни: фактов ещё нет, поэтому ни нулей, ни процентов не рисуем.
+                const str = isFuture ? '' : (financePending ? '—' : _fmt(val, m.type));
                 const cc  = m.hm ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
                 let style = sticky.style || '';
                 if (cc === 'rnp-green')  style += (style ? ';' : '') + 'background:#93c47d;color:#274e13';
@@ -6425,7 +6426,7 @@ const RNP = (() => {
                     hitKind = _planHitKind(val, d[planKey]);
                 }
                 const rowNum = _metricRowSeq++;
-                const numVal = !financePending && (val != null && val !== '' && !isNaN(parseFloat(val))) ? parseFloat(val) : null;
+                const numVal = !isFuture && !financePending && (val != null && val !== '' && !isNaN(parseFloat(val))) ? parseFloat(val) : null;
                 const dataAttr = numVal != null
                     ? ` data-rnp-value="${numVal}" data-rnp-row="${rowNum}" data-rnp-col-idx="${ci}" data-rnp-metric="${m.key}"`
                     : '';
@@ -6927,8 +6928,13 @@ const RNP = (() => {
             body.classList.add('rnp-sheet-body--swap');
             await new Promise(r => setTimeout(r, 140));
         }
+        // Запоминаем положение прокрутки: после перерисовки таблица не должна прыгать вверх и вправо.
+        const keepTop = body ? body.scrollTop : 0;
+        const keepLeft = body ? body.scrollLeft : 0;
         await _renderActiveTable();
         if (body && _isPhone()) {
+            body.scrollTop = keepTop;
+            body.scrollLeft = keepLeft;
             requestAnimationFrame(() => body.classList.remove('rnp-sheet-body--swap'));
         }
     }
