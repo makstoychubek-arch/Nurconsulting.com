@@ -2515,10 +2515,14 @@ const RNP = (() => {
         let tip = null, timer = null;
         const hide = () => { clearTimeout(timer); if (tip) tip.classList.remove('is-on'); };
         document.addEventListener('mouseover', (e) => {
-            const cell = e.target && e.target.closest && e.target.closest('[data-rnp-help]');
+            // Родные чёрные подсказки браузера в РНП заменяем на одну общую: title → data-rnp-tip.
+            const t = e.target && e.target.closest && e.target.closest('#tab-rnp [title]');
+            if (t) { t.setAttribute('data-rnp-tip', t.getAttribute('title')); t.removeAttribute('title'); }
+            const cell = e.target && e.target.closest && e.target.closest('[data-rnp-help],[data-rnp-tip]');
             if (!cell) return;
-            const h = METRIC_HELP[cell.getAttribute('data-rnp-help')];
-            if (!h) return;
+            const h = cell.hasAttribute('data-rnp-help') ? METRIC_HELP[cell.getAttribute('data-rnp-help')]
+                : ['', cell.getAttribute('data-rnp-tip') || ''];
+            if (!h || !h[1]) return;
             clearTimeout(timer);
             timer = setTimeout(() => {
                 if (!tip) {
@@ -2529,6 +2533,7 @@ const RNP = (() => {
                 }
                 tip.innerHTML = '<b></b><span></span>';
                 tip.firstChild.textContent = h[0];
+                tip.firstChild.hidden = !h[0];
                 tip.lastChild.textContent = h[1];
                 const r = cell.getBoundingClientRect();
                 tip.style.left = '0px'; tip.style.top = '0px';
@@ -2545,7 +2550,7 @@ const RNP = (() => {
             }, 220);
         });
         document.addEventListener('mouseout', (e) => {
-            if (e.target && e.target.closest && e.target.closest('[data-rnp-help]')) hide();
+            if (e.target && e.target.closest && e.target.closest('[data-rnp-help],[data-rnp-tip]')) hide();
         });
         window.addEventListener('scroll', hide, true);
     }
