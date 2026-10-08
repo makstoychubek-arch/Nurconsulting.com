@@ -63,6 +63,15 @@ Deno.serve(async (req) => {
             emoji,
         ).then(() => undefined),
     });
+    await admin.from('telegram_inbound_log').insert({
+        bot_id: botId,
+        chat_id: msg.chatId,
+        message_id: msg.messageId,
+        reply_to_ids: msg.replyToMessageIds,
+        from_username: msg.fromUsername,
+        text_head: msg.text.slice(0, 60),
+        result: restock.handled ? `${restock.kind}:${restock.detail ?? ''}` : 'not_handled',
+    }).then(() => undefined, () => undefined);
     if (restock.handled) return json({ ok: true, ...restock });
 
     if (isTeamChatId(msg.chatId, teamChat)) {
