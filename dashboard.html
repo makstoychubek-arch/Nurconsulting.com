@@ -15603,8 +15603,7 @@
             const { error: vErr } = await supabase.from('ab_test_variants').insert(variantRows);
             if (vErr) throw new Error(vErr.message);
 
-            // Тест и варианты уже в базе — окно создания больше не нужно. Раньше оно висело, пока WB
-            // отвечал на смену первого фото (до 30 с таймаута и повторы при лимите 429), хотя тест уже создан.
+            // Тест и варианты уже в базе — окно закрываем, не дожидаясь WB.
             hideNewTestForm();
             released = true;
             abCreatingTest = false;
@@ -15621,7 +15620,7 @@
             return;
         }
 
-        showPremiumModal('success', 'Тест запущен', `Фото будет меняться каждые ${interval} мин.`);
+        showPremiumModal('success', 'Тест запущен', 'Фото будет меняться каждые ' + (document.getElementById('ab-rot-mode').value == 'time' ? interval + ' мин.' : document.getElementById('ab-min-impressions').value + ' показов.'));
         loadABTests();
         } finally {
             if (!released) {
