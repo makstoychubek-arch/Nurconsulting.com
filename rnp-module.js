@@ -201,6 +201,7 @@ const RNP = (() => {
         { id: 'finance', label: 'Физ. показатели', color: '#06b6d4', rows: [
             { key: 'cancels_count',      label: 'Отказы',                           type: 'int',  src: 'auto' },
             { key: 'returns_count',      label: 'Возвраты',                         type: 'int',  src: 'auto' },
+            { key: 'buyout_fin_pct',     label: 'Процент выкупа %',                 type: 'pct',  src: 'calc' },
             { key: 'sales_sum',          label: 'Сумма продаж',                     type: 'som',  src: 'auto' },
             { key: 'avg_check_sales',    label: 'Средний чек',                      type: 'som',  src: 'auto' },
             { key: 'return_pct',         label: 'Процент возврата %',               type: 'pct',  src: 'auto',  hm: 'low' },
@@ -2508,6 +2509,7 @@ const RNP = (() => {
         sales_sum: ['Сумма продаж', 'Цена продажи с учётом скидок WB × штуки из финотчёта.'],
         avg_check: ['Средний чек', 'Сумма заказов ÷ количество заказов.'],
         cancels_count: ['Отказы', 'Невыкуп: покупатель не забрал заказ, товар поехал обратно. Из финотчёта WB — строки логистики «От клиента при отмене».'],
+        buyout_fin_pct: ['Процент выкупа', 'Из финотчёта WB: продажи ÷ (продажи + отказы + возвраты) × 100.'],
         returns_count: ['Возвраты', 'Товар выкупили и потом вернули. Из финотчёта WB — строки «Возврат».'],
         avg_check_sales: ['Средний чек продаж', 'Сумма продаж ÷ продажи.'],
         giveaways: ['Раздачи', 'Вводится вручную: сколько штук ушло в раздачи.'],
@@ -5051,6 +5053,8 @@ const RNP = (() => {
         // Выкуп как у WB: продажи от заказов (у WB в кабинете считается так же).
         a.buyout_pct = a.orders_count > 0 ? a.sales_count / a.orders_count * 100 : 0;
         a.return_pct = totalSales > 0 ? a.returns_count / totalSales * 100 : 0;
+        const finTotal = a.sales_count + (a.cancels_count || 0) + a.returns_count;
+        a.buyout_fin_pct = finTotal > 0 ? a.sales_count / finTotal * 100 : 0;
         a.ctr_pct = a.impressions > 0 ? a.clicks / a.impressions * 100 : 0;
         a.basket_pct = a.clicks > 0 ? a.basket_count / a.clicks * 100 : 0;
         a.orders_conv_pct = a.basket_count > 0 ? a.orders_count / a.basket_count * 100 : 0;
@@ -5282,6 +5286,9 @@ const RNP = (() => {
         d.ad_imp_pct      = opens > 0 ? Math.min(100, (d.ad_clicks || 0) / opens * 100) : 0;
         d.organic_imp_pct = opens > 0 ? Math.max(0, 100 - d.ad_imp_pct) : 0;
         d.buyout_pct      = (d.orders_count || 0) > 0 ? (d.sales_count || 0) / d.orders_count * 100 : 0;
+        // Выкуп по финотчёту: продажи ÷ (продажи + отказы + возвраты).
+        const finTotal = (d.sales_count || 0) + (d.cancels_count || 0) + (d.returns_count || 0);
+        d.buyout_fin_pct  = finTotal > 0 ? (d.sales_count || 0) / finTotal * 100 : 0;
         d.orders_conv_pct = (d.funnel_order_conv > 0)
             ? d.funnel_order_conv
             : ((d.basket_count || 0) > 0 ? (d.orders_count || 0) / d.basket_count * 100 : 0);
@@ -6671,7 +6678,7 @@ const RNP = (() => {
     // Финансовый отчёт WB (продажи, возвраты, реализация, логистика…) приходит после закрытия дня.
     // Для сегодняшней колонки там ещё нет данных — показываем «—», а не 0, который выглядит как ошибка.
     const FINANCE_DAY_KEYS = new Set([
-        'sales_count', 'sales_sum', 'avg_check_sales', 'plan_sales_pct', 'return_pct', 'buyout_pct', 'returns_count', 'cancels_count',
+        'sales_count', 'sales_sum', 'avg_check_sales', 'plan_sales_pct', 'return_pct', 'buyout_pct', 'returns_count', 'cancels_count', 'buyout_fin_pct',
         'logistics_per_unit', 'logistics_pct', 'storage_pct', 'realization', 'to_transfer', 'to_transfer_unit',
         'delivery_sum', 'penalty_sum', 'storage_sum', 'deduction_sum', 'log_to_pvz_avg',
     ]);
@@ -6738,7 +6745,7 @@ const RNP = (() => {
         organic_imp_pct: 'high', clicks: 'high', basket_pct: 'high', basket_count: 'high', orders_conv_pct: 'high', cro_pct: 'high',
         ad_impressions: 'high', ad_clicks: 'high', ad_ctr: 'high', ad_cro: 'high', ad_basket: 'high', ad_orders: 'high', ad_roas: 'high',
         realization: 'high', to_transfer: 'high', to_transfer_unit: 'high', profit_per_unit: 'high', roi_pct: 'high',
-        ad_cpc: 'low', ad_cpo: 'low', ad_cpm: 'low', log_to_pvz_avg: 'low', cancels_count: 'low', returns_count: 'low',
+        ad_cpc: 'low', ad_cpo: 'low', ad_cpm: 'low', log_to_pvz_avg: 'low', cancels_count: 'low', returns_count: 'low', buyout_fin_pct: 'high',
     };
     const HM_DIR = { low: 'low', cost: 'low', high: 'high', margin: 'high', profit: 'high' };
 
