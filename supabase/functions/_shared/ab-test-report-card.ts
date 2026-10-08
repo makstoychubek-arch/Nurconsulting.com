@@ -252,10 +252,13 @@ export function probabilityBestByCtr(
 ): Map<string, number> {
     const wins = new Map<string, number>();
     for (const v of variants) wins.set(v.variant_label, 0);
+    // Вариант без данных (меньше 100 показов) в сравнении не участвует: иначе пустой вариант «выигрывает» с большим шансом.
+    const ok = variants.filter((v) => (Number(v.impressions) || 0) >= 100);
+    if (ok.length < 2) return wins;
     for (let i = 0; i < samples; i++) {
         let bestLabel: string | null = null;
         let bestVal = -1;
-        for (const v of variants) {
+        for (const v of ok) {
             const clicks = Math.max(0, Number(v.clicks) || 0);
             const views = Math.max(clicks, Number(v.impressions) || 0);
             const val = sampleBeta(clicks + 1, views - clicks + 1);
