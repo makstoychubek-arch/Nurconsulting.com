@@ -8668,11 +8668,9 @@
         const token = document.getElementById('modal-cabinet-token')?.value.trim().replace(/\s+/g, '');
         if (!name) { showPremiumModal('warning', 'Укажите название', 'Введите название нового кабинета.'); return; }
         if (!currentUserId) { showPremiumModal('error', 'Сессия', 'Войдите заново и повторите.'); return; }
-        const { data: cabinet, error } = await supabase.from('cabinets')
-            .insert({ name, wb_token: token || null, user_id: currentUserId })
-            .select('id, name, user_id')
-            .single();
-        if (error) { showPremiumModal('error', 'Ошибка', error.message); return; }
+        const { data: created, error: createErr } = await supabase.functions.invoke('cabinet-token', { body: { action: 'create', name, token } });
+        const cabinet = created && created.cabinet;
+        if (createErr || !cabinet) { showPremiumModal('error', 'Ошибка', 'Не удалось добавить кабинет. Проверьте токен и повторите.'); return; }
         closeAddCabinetModal();
         showPremiumModal('success', 'Кабинет добавлен', `Запускаем загрузку данных для "${name}"...`);
         if (token && token.length > 50) {
@@ -17003,8 +17001,9 @@
     async function saveTokenForCabinet(cabinetId) {
         const token = document.getElementById('token-input-' + cabinetId).value.trim().replace(/\s+/g, '');
         if (!token || token.length < 50) { showPremiumModal('warning', 'Некорректный токен', 'Токен должен быть длинным JWT-форматом.'); return; }
-        const { error } = await supabase.from('cabinets').update({ wb_token: token }).eq('id', cabinetId);
-        if (error) { showPremiumModal('error', 'Ошибка сохранения', error.message); return; }
+        const { data: saved, error } = await supabase.functions.invoke('cabinet-token', { body: { action: 'set', cabinet_id: cabinetId, token } });
+        if (error || !saved || !saved.ok) { showPremiumModal('error', 'Ошибка сохранения', 'Токен не принят. Проверьте, что он скопирован полностью.'); return; }
+        document.getElementById('token-input-' + cabinetId).value = '';
         showPremiumModal('success', 'Токен сохранён', 'API-доступ для кабинета обновлён.');
         loadCabinetsAPIList();
         loadCabinets();
@@ -17022,11 +17021,9 @@
         const token = document.getElementById('new-cabinet-token').value.trim().replace(/\s+/g, '');
         if (!name) { showPremiumModal('warning', 'Укажите название', 'Введите название нового кабинета.'); return; }
         if (!currentUserId) { showPremiumModal('error', 'Сессия', 'Войдите заново и повторите.'); return; }
-        const { data: cabinet, error } = await supabase.from('cabinets')
-            .insert({ name, wb_token: token || null, user_id: currentUserId })
-            .select('id, name, user_id')
-            .single();
-        if (error) { showPremiumModal('error', 'Ошибка', error.message); return; }
+        const { data: created, error: createErr } = await supabase.functions.invoke('cabinet-token', { body: { action: 'create', name, token } });
+        const cabinet = created && created.cabinet;
+        if (createErr || !cabinet) { showPremiumModal('error', 'Ошибка', 'Не удалось добавить кабинет. Проверьте токен и повторите.'); return; }
         hideAddCabinetForm();
         showPremiumModal('success', 'Кабинет добавлен', `Запускаем загрузку данных для "${name}"...`);
         if (token && token.length > 50) {
