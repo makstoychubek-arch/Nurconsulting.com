@@ -64,3 +64,4 @@ transition: opacity .18s ease, transform .18s ease;
     border-color: transparent;
   }
 }
+.ab-check input{accent-color:var(--accent)}
