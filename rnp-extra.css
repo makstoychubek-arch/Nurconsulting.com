@@ -29,8 +29,6 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-split-toggle:hover{color:var(--accent)}
 .rnp-row-split-sub td{font-weight:400;font-size:.92em}
 .rnp-metric-sub{padding-left:18px!important;opacity:.85}
-.rnp-row-fbs .rnp-metric-sub{color:#be185d}
-td.rnp-cell-fbs{background:rgba(236,72,153,.14);color:#9d174d}
-:root[data-theme="dark"] td.rnp-cell-fbs,:root[data-theme="dark"] .rnp-row-fbs .rnp-metric-sub{color:#f9a8d4}
-:root[data-theme="dark"] td.rnp-cell-fbs{background:rgba(244,114,182,.18)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) td.rnp-cell-fbs,:root:not([data-theme="light"]) .rnp-row-fbs .rnp-metric-sub{color:#f9a8d4}:root:not([data-theme="light"]) td.rnp-cell-fbs{background:rgba(244,114,182,.18)}}
+.rnp-row-fbs .rnp-metric-sub,td.rnp-cell-fbs{color:#3b82f6;font-weight:600}
+:root[data-theme="dark"] .rnp-row-fbs .rnp-metric-sub,:root[data-theme="dark"] td.rnp-cell-fbs{color:#60a5fa}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .rnp-row-fbs .rnp-metric-sub,:root:not([data-theme="light"]) td.rnp-cell-fbs{color:#60a5fa}}
