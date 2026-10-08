@@ -96,7 +96,7 @@
 
     /* ---------- расчёт по кабинету ---------- */
     function derive(r) {
-        var rate = num(r.rate) || 1;
+        var rate = 1; // суммы WB и реклама уже в сомах
         var ordersSom = num(r.orders_rub) * rate;
         var adSpend = num(r.ad_spend);
         var plan = r.plan_orders == null ? null : num(r.plan_orders);
