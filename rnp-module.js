@@ -188,6 +188,7 @@ const RNP = (() => {
         ]},
         { id: 'adspend', label: 'Доля Рекламных Расходов', color: '#ef4444', rows: [
             { key: 'ad_spend',           label: 'Расход РК (пополнение)',           type: 'som',  src: 'promo' },
+            { key: 'ad_cpo',             label: 'Ср. стоимость заказа РК',          type: 'som',  src: 'calc' },
             { key: 'plan_ad_spend',      label: 'Расход План',                      type: 'som',  src: 'manual', isPlan: true },
             { key: 'plan_drr',           label: 'ДРР % План',                       type: 'pct',  src: 'manual', isPlan: true },
             { key: 'drr_pct',            label: 'ДРР %',                            type: 'pct',  src: 'calc',  hm: 'low' },
@@ -2484,6 +2485,7 @@ const RNP = (() => {
         ad_cpc: ['Стоимость клика', 'Расход РК ÷ клики РК, сом.'],
         ad_basket: ['Корзин с РК', 'Добавления в корзину из рекламы.'],
         ad_orders: ['Заказов с РК', 'Заказы, которые WB засчитал рекламе.'],
+        ad_cpo: ['Ср. стоимость заказа РК', 'Расход всех РК ÷ заказы с РК, сом. Если РК не запускалась — 0.'],
         ad_spend: ['Расход РК', 'Затраты на рекламу по артикулу из статистики продвижения WB, сом.'],
         plan_ad_spend: ['Расход план', 'Вводится вручную.'],
         plan_drr: ['ДРР % план', 'Вводится вручную.'],
@@ -4969,6 +4971,7 @@ const RNP = (() => {
         a.ad_ctr = a.ad_impressions > 0 ? a.ad_clicks / a.ad_impressions * 100 : 0;
         a.ad_cro = a.ad_clicks > 0 ? a.ad_orders / a.ad_clicks * 100 : 0;
         a.ad_cpc = a.ad_clicks > 0 ? a.ad_spend / a.ad_clicks : 0;
+        a.ad_cpo = a.ad_orders > 0 ? a.ad_spend / a.ad_orders : 0;
         // WB не отдаёт общие показы карточки, поэтому доли считаем по переходам в карточку.
         a.ad_imp_pct = a.clicks > 0 ? Math.min(100, a.ad_clicks / a.clicks * 100) : 0;
         a.organic_imp_pct = a.clicks > 0 ? Math.max(0, 100 - a.ad_imp_pct) : 0;
@@ -5147,6 +5150,7 @@ const RNP = (() => {
         // ДРР как у WB: расход на рекламу от суммы заказов. Расход РК уже в сомах, заказы в рублях — переводим по курсу дня.
         const ordersSom = (d.orders_sum || 0) * er;
         d.drr_pct = ordersSom > 0 ? (d.ad_spend || 0) / ordersSom * 100 : 0;
+        d.ad_cpo = d.ad_orders > 0 ? (d.ad_spend || 0) / d.ad_orders : 0;
         const salesSomForShare = (d.sales_sum || 0) * er;
         const adFromSalesPct = salesSomForShare > 0 ? (d.ad_spend || 0) / salesSomForShare * 100 : 0;
 
