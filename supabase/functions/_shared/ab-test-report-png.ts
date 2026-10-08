@@ -93,9 +93,9 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
     const width = n <= 2 ? 780 : n === 3 ? 1040 : 1280;
     const cardW = (width - pad * 2 - gap * (n - 1)) / n;
     const photoH = 248;
-    const metricsH = 248;
+    const metricsH = 292;
     const cardH = 40 + photoH + 78 + metricsH;
-    const headerH = 78;
+    const headerH = 100;
     const verdictH = 58;
     const height = pad + headerH + 12 + verdictH + 16 + cardH + 44 + pad;
 
@@ -109,21 +109,48 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
     ctx.fillStyle = '#F4F2EE';
     ctx.fillRect(0, 0, width, height);
 
+    // Справа сверху: маленький чёрно-белый логотип NR и подпись «/ А/Б тест».
+    const brandLabel = '/ А/Б тест';
+    ctx.font = 'bold 15px DejaVu';
+    const bw = ctx.measureText(brandLabel).width;
+    const logoS = 30;
+    const brandX = width - pad - bw - logoS - 8;
+    roundRect(ctx, brandX, pad + 2, logoS, logoS, 8);
+    ctx.fillStyle = '#111111';
+    ctx.fill();
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = 'bold 14px DejaVu';
+    const nrW = ctx.measureText('NR').width;
+    ctx.fillText('NR', brandX + (logoS - nrW) / 2, pad + 2 + 20);
+    ctx.fillStyle = '#111111';
+    ctx.font = 'bold 15px DejaVu';
+    ctx.fillText(brandLabel, brandX + logoS + 8, pad + 2 + 20);
+
     ctx.fillStyle = '#111827';
     ctx.font = 'bold 24px DejaVu';
-    ctx.fillText(fitText(ctx, model.title, width - pad * 2 - 160), pad, pad + 28);
+    ctx.fillText(fitText(ctx, model.title, brandX - pad - 16), pad, pad + 28);
 
     ctx.fillStyle = '#6B7280';
     ctx.font = '13px DejaVu';
     const sub = `арт. ${model.nmId}${model.campaignLabel ? ' · ' + model.campaignLabel : ''}`;
     ctx.fillText(fitText(ctx, sub, width - pad * 2), pad, pad + 52);
 
+    const times = [
+        model.startedAtStr ? `Запуск: ${model.startedAtStr}` : '',
+        model.finishedAtStr ? `Завершён: ${model.finishedAtStr}` : '',
+        model.durationStr ? `Длительность: ${model.durationStr}` : '',
+        model.reasonText ? model.reasonText : '',
+    ].filter(Boolean).join('  ·  ');
+    ctx.fillStyle = '#4B5563';
+    ctx.font = '12px DejaVu';
+    ctx.fillText(fitText(ctx, times, width - pad * 2), pad, pad + 74);
+
     if (model.preview) {
         ctx.fillStyle = '#7C3AED';
         ctx.font = 'bold 12px DejaVu';
         const stamp = 'проверка канала';
         const tw = ctx.measureText(stamp).width;
-        ctx.fillText(stamp, width - pad - tw, pad + 22);
+        ctx.fillText(stamp, width - pad - tw, pad + 52);
     }
 
     roundRect(ctx, pad, pad + headerH, width - pad * 2, verdictH, 14);
@@ -190,12 +217,11 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
         ctx.font = 'bold 26px DejaVu';
         const ctrLabel = fmtPct(v.ctr);
         ctx.fillText(ctrLabel, x + 14, ty);
-        const ctrW = ctx.measureText(ctrLabel).width;
         if (v.delta != null) {
             ctx.fillStyle = v.delta >= 0 ? '#16A34A' : '#DC2626';
             ctx.font = 'bold 13px DejaVu';
             const d = `${v.delta >= 0 ? '+' : ''}${v.delta.toFixed(2)}`;
-            ctx.fillText(d, x + 14 + ctrW + 10, ty);
+            ctx.fillText(d, x + cardW - 14 - ctx.measureText(d).width, ty);
         }
         ctx.font = 'bold 12px DejaVu';
         if (v.isLoser) {
@@ -217,6 +243,9 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
             ['На сумму', fmtSom(v.revenue)],
             ['Затраты', fmtSom(v.adSpend)],
             ['CPC', `${v.cpc.toFixed(2)} сом`],
+            ['CPV (показ)', `${v.cpv.toFixed(2)} сом`],
+            ['На ВБ', `${v.minutesActive} мин`],
+            ['Ротаций', String(v.rotations)],
         ];
         const tableY = ty + 38;
         ctx.font = '12px DejaVu';

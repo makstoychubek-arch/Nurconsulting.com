@@ -40,6 +40,7 @@ export type AbReportVariantOut = {
     cpc: number;
     cpv: number;
     minutesActive: number;
+    rotations: number;
 };
 
 export type AbReportCardModel = {
@@ -47,6 +48,8 @@ export type AbReportCardModel = {
     nmId: string | number;
     campaignLabel: string;
     finishedAtStr: string;
+    startedAtStr: string;
+    durationStr: string;
     reasonText: string;
     reportUrl: string;
     stars: string;
@@ -84,6 +87,9 @@ export function buildAbReportCard(opts: {
     nmId: string | number;
     campaignLabel?: string;
     finishedAtStr?: string;
+    startedAtStr?: string;
+    durationStr?: string;
+    rotationsByLabel?: Record<string, number>;
     reason?: string;
     reportUrl?: string;
     preview?: boolean;
@@ -141,6 +147,7 @@ export function buildAbReportCard(opts: {
             cpc,
             cpv,
             minutesActive: Math.round(Number(v.minutes_active) || 0),
+            rotations: Number(opts.rotationsByLabel?.[String(v.variant_label)]) || 0,
         };
     });
 
@@ -149,6 +156,8 @@ export function buildAbReportCard(opts: {
         nmId: opts.nmId,
         campaignLabel: opts.campaignLabel || '',
         finishedAtStr: opts.finishedAtStr || '',
+        startedAtStr: opts.startedAtStr || '',
+        durationStr: opts.durationStr || '',
         reasonText: reasonLabel(String(opts.reason || '')),
         reportUrl: opts.reportUrl || '',
         stars: verdict.stars,
