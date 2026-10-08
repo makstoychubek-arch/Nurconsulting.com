@@ -46,6 +46,7 @@
     { "source": "/rnp", "destination": "/dashboard.html" },
     { "source": "/goods", "destination": "/dashboard.html" },
     { "source": "/content", "destination": "/dashboard.html" },
+    { "source": "/cabinets", "destination": "/dashboard.html" },
     { "source": "/reports", "destination": "/dashboard.html" },
     { "source": "/ab-testing", "destination": "/dashboard.html" },
     { "source": "/advertising", "destination": "/dashboard.html" },

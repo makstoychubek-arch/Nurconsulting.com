@@ -6040,11 +6040,11 @@
            временный style. */
         try {
             var __nrPath = location.pathname.replace(/\/$/, '') || '/space';
-            var __nrPathMap = { '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/reports': 'summary' };
+            var __nrPathMap = { '/cabinets': 'cabinets-hub', '/ab-testing': 'ab-testing', '/advertising': 'advertising', '/seo': 'seo', '/marking': 'marking', '/logistics': 'logistics', '/rnp': 'rnp', '/agents': 'agents', '/telegram-bots': 'agents', '/goods': 'goods-groups', '/content': 'content-factory', '/reports': 'summary' };
             var __nrAliases = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups' };
             // Держать в синхроне с PUBLIC_TABS ниже (проверяет public_modules_test.js).
             var __nrPublic = ['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'akylai', 'summary', 'tariffs'];
-            var __nrLive = { dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1, akylai: 1, summary: 1, tariffs: 1 };
+            var __nrLive = { 'cabinets-hub': 1, dashboard: 1, settings: 1, rnp: 1, 'rnp-settings': 1, advertising: 1, 'ab-testing': 1, 'goods-groups': 1, 'content-factory': 1, agents: 1, akylai: 1, summary: 1, tariffs: 1 };
             var __nrTab = __nrPathMap[__nrPath] || null;
             if (!__nrTab) {
                 var __nrQ = new URLSearchParams(location.search).get('tab');
@@ -6102,6 +6102,7 @@
             }
         } catch (e) {}
     </script>
+<link rel="stylesheet" href="/dist/cabinets-hub.cee47288f9.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-hq-toggle{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
 #adv-view-ads.space-y-5>*+*{margin-top:8px!important}#adv-view-ads .ads-hq-kpi-bar{padding:8px 12px}#ads-hq-tools{flex-wrap:nowrap}
@@ -6133,6 +6134,10 @@
                 <span class="rail-logo-name">Space</span>
             </a>
             <nav class="rail-nav">
+                <button type="button" class="rail-btn" data-tab="cabinets-hub" title="Кабинеты" data-staff-only="1">
+                    <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="5" rx="1.5"/><rect x="3" y="10" width="18" height="5" rx="1.5"/><rect x="3" y="17" width="18" height="4" rx="1.5"/></svg></span>
+                    <span class="rail-btn-lbl">Кабинеты</span>
+                </button>
                 <button type="button" class="rail-btn active" data-tab="dashboard" title="Дашборд">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg></span>
                     <span class="rail-btn-lbl">Дашборд</span>
@@ -6633,6 +6638,24 @@
                         <tbody id="commission-tariffs-body"><tr><td colspan="4" class="text-center py-8" style="color:var(--text-muted)">Нажмите «Загрузить»</td></tr></tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+
+        <div id="tab-cabinets-hub" class="tab-content" data-staff-only="1">
+            <div class="cbh-wrap">
+                <div class="cbh-toolbar">
+                    <h2>Кабинеты</h2>
+                    <span class="cbh-counter" id="cbh-counter"></span>
+                    <div class="cbh-seg" role="tablist" aria-label="Фильтр кабинетов">
+                        <button type="button" data-cbh-filter="all" class="active">Все</button>
+                        <button type="button" data-cbh-filter="alert">Требуют внимания</button>
+                    </div>
+                    <input type="date" id="cbh-date" class="cbh-input" aria-label="Дата">
+                    <input type="search" id="cbh-search" class="cbh-input cbh-search" placeholder="Поиск кабинета" autocomplete="off">
+                    <button type="button" class="ui-btn ui-btn-secondary cbh-icon-btn" id="cbh-collapse" title="Свернуть все" aria-label="Свернуть все"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="18 15 12 9 6 15"/></svg></button>
+                    <button type="button" class="ui-btn ui-btn-secondary cbh-icon-btn" id="cbh-refresh" title="Обновить" aria-label="Обновить"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.5 9a9 9 0 0 1 14.9-3.4L23 10M1 14l4.6 4.4A9 9 0 0 0 20.5 15"/></svg></button>
+                </div>
+                <div class="cbh-list" id="cbh-list"></div>
             </div>
         </div>
 
@@ -8433,6 +8456,7 @@
 <script src="/dist/admin-canvas.d45b628a46.min.js"></script>
 <script src="/dist/ad-autopilot-ui.ef28a17b6a.min.js"></script>
 <script src="/dist/ads-campaign-detail.a424906d17.min.js"></script>
+<script src="/dist/cabinets-hub.236ba521e8.min.js"></script>
 <script src="/dist/nr-skeleton.ef8d44c3ff.min.js"></script>
 <script>
     var SUPABASE_URL = 'https://fiukyfyhotctvfdidktx.supabase.co';
@@ -8523,7 +8547,7 @@
             if (any && !anyPublic) sec.setAttribute('data-staff-only', '1');
         });
     }
-    const LIVE_TABS = new Set(['dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary', 'tariffs']);
+    const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary', 'tariffs']);
     let hasUserCabinets = false;
     // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
     // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
@@ -9717,7 +9741,7 @@
 
     const TAB_ALIASES = { abtests: 'ab-testing', ads: 'advertising', positions: 'seo', goods: 'goods-groups', 'telegram-bots': 'agents' };
     const MODULE_PATHS = {
-        'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
+        'cabinets-hub': '/cabinets', 'ab-testing': '/ab-testing', advertising: '/advertising', seo: '/seo',
         marking: '/marking', logistics: '/logistics', rnp: '/rnp', dashboard: '/space',
         'telegram-bots': '/telegram-bots', ozon: '/ozon', agents: '/agents',
         'goods-groups': '/goods', 'content-factory': '/content', summary: '/reports',
@@ -9733,10 +9757,12 @@
         settings:'Настройки', tariffs:'Тарифы', calculator:'Калькулятор юнит-экономики',
         'telegram-bots':'Телеграм боты', ozon:'Ozon токен', agents:'Агенты', akylai:'Агенты',
         'content-factory':'Контент-завод',
+        'cabinets-hub':'Кабинеты',
     };
 
     const TAB_GROUP = {
         dashboard:'dashboard',
+        'cabinets-hub':'cabinets',
         settings:'settings',
         summary:'beta', 'summary-biz':'beta', deductions:'beta', 'plan-fact':'beta',
         rnp:'rnp', 'rnp-settings':'rnp', planning:'beta',
@@ -10063,7 +10089,7 @@
             highlightNavForTab(name, el);
             updateHeaderNav(name);
             document.documentElement.removeAttribute('data-nr-early');
-            if (name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'ab-testing' || name === 'goods-groups' || name === 'content-factory' || name === 'agents') {
+            if (name === 'cabinets-hub' || name === 'dashboard' || name === 'settings' || name === 'rnp' || name === 'rnp-settings' || name === 'advertising' || name === 'ab-testing' || name === 'goods-groups' || name === 'content-factory' || name === 'agents') {
                 window.closeSidebarMenus?.(true);
             }
             document.querySelector('.main-content')?.classList.toggle('rnp-compact', name === 'rnp' || name === 'rnp-settings');
@@ -10089,6 +10115,7 @@
             if (name === 'agents') loadAgentsPage();
             if (name === 'akylai') window.loadAkylaiPage?.();
             if (name === 'content-factory' && hasUserCabinets) bootContentFactory();
+            if (name === 'cabinets-hub') window.CabinetsHub?.open();
             if (name === 'summary' && window.EvidenceReport && window._lastDashMetrics) {
                 window.EvidenceReport.paint('evidence-report-root', window._lastDashMetrics, window._lastDashReportExtra || {});
             }

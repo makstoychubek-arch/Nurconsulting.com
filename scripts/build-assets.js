@@ -55,7 +55,7 @@ function buildTailwind() {
 
 function buildScripts() {
     const esbuild = require('esbuild');
-    const scripts = ['nr-win.js', 'dashboard-charts.js', 'rnp-module.js', 'rnp-plan-fact.js', 'wb-formulas.js', 'evidence-report.js', 'ads-command-center.js', 'goods-catalog.js', 'giveaways.js', 'giveaway-calc.js', 'content-factory.js', 'nr-wow.js', 'dash-cabinet-plans.js', 'admin-canvas.js', 'ad-autopilot-ui.js', 'ads-campaign-detail.js', 'nr-skeleton.js'];
+    const scripts = ['nr-win.js', 'dashboard-charts.js', 'rnp-module.js', 'rnp-plan-fact.js', 'wb-formulas.js', 'evidence-report.js', 'ads-command-center.js', 'goods-catalog.js', 'giveaways.js', 'giveaway-calc.js', 'content-factory.js', 'nr-wow.js', 'dash-cabinet-plans.js', 'admin-canvas.js', 'ad-autopilot-ui.js', 'ads-campaign-detail.js', 'nr-skeleton.js', 'cabinets-hub.js'];
     const map = {};
     for (const name of scripts) {
         const srcPath = path.join(ROOT, name);
@@ -78,6 +78,28 @@ function buildScripts() {
         console.log(`[build-assets] ${name} -> dist/${finalName} (${(code.length / 1024).toFixed(1)} KB)`);
     }
     return map;
+}
+
+// Стили отдельных модулей кладём в dist с хэшем и подключаем <link>, чтобы не раздувать dashboard.html.
+const MODULE_CSS = ['cabinets-hub.css'];
+function buildModuleCss() {
+    const crypto = require('crypto');
+    const map = {};
+    for (const name of MODULE_CSS) {
+        const src = path.join(ROOT, name);
+        if (!fs.existsSync(src)) continue;
+        const css = fs.readFileSync(src, 'utf8');
+        const hash = crypto.createHash('sha1').update(css).digest('hex').slice(0, 10);
+        const out = name.replace(/\.css$/, `.${hash}.css`);
+        fs.writeFileSync(path.join(DIST, out), css);
+        map[name] = out;
+        console.log(`[build-assets] ${name} -> dist/${out}`);
+    }
+    return map;
+}
+
+function moduleCssTagRe(base) {
+    return new RegExp(`<link rel="stylesheet" href="/(?:dist/)?${base}(?:\\.[0-9a-f]{6,})?\\.css">`);
 }
 
 function cleanOldDist(keepFiles) {
@@ -109,7 +131,7 @@ function scriptTagRe(base) {
     return new RegExp(`<script src="/(?:dist/)?${base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:\\.[0-9a-f]{6,})?(?:\\.min)?\\.js(?:\\?[^"]*)?"></script>`);
 }
 
-function patchDashboardHtml(cssFile, scriptMap) {
+function patchDashboardHtml(cssFile, scriptMap, moduleCss = {}) {
     const file = path.join(ROOT, 'dashboard.html');
     let html = fs.readFileSync(file, 'utf8');
     html = replaceOnce(html, TAILWIND_TAG_RE, `<link rel="stylesheet" href="/dist/${cssFile}">`, 'dashboard.html tailwind cdn');
@@ -123,6 +145,10 @@ function patchDashboardHtml(cssFile, scriptMap) {
         if (!fs.existsSync(p)) continue;
         const css = fs.readFileSync(p, 'utf8').trim();
         html = replaceOnce(html, new RegExp(`<style id="${id}">[\\s\\S]*?</style>`), () => `<style id="${id}">${css}</style>`, `dashboard.html ${id}`);
+    }
+    for (const [orig, hashed] of Object.entries(moduleCss)) {
+        const base = orig.replace(/\.css$/, '');
+        html = replaceOnce(html, moduleCssTagRe(base), `<link rel="stylesheet" href="/dist/${hashed}">`, `dashboard.html ${orig}`);
     }
     fs.writeFileSync(file, html);
 }
@@ -144,8 +170,9 @@ function main() {
     ensureDist();
     const cssFile = buildTailwind();
     const scriptMap = buildScripts();
-    cleanOldDist([cssFile, ...Object.values(scriptMap)]);
-    patchDashboardHtml(cssFile, scriptMap);
+    const moduleCss = buildModuleCss();
+    cleanOldDist([cssFile, ...Object.values(scriptMap), ...Object.values(moduleCss)]);
+    patchDashboardHtml(cssFile, scriptMap, moduleCss);
     patchSimpleTailwindHtml('index.html', cssFile);
     patchSimpleTailwindHtml('login.html', cssFile);
     patchSimpleTailwindHtml('consulting.html', cssFile);
