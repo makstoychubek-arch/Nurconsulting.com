@@ -53,6 +53,12 @@ function roundRect(ctx: any, x: number, y: number, w: number, h: number, r: numb
     ctx.closePath();
 }
 
+// measureText в этой библиотеке считает жирный шрифт как обычный (~12% уже), поэтому для bold домножаем.
+// deno-lint-ignore no-explicit-any
+function textW(ctx: any, text: string, bold = false): number {
+    return ctx.measureText(text).width * (bold ? 1.12 : 1);
+}
+
 // deno-lint-ignore no-explicit-any
 function fitText(ctx: any, text: string, maxW: number): string {
     if (ctx.measureText(text).width <= maxW) return text;
@@ -93,7 +99,7 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
     const width = n <= 2 ? 780 : n === 3 ? 1040 : 1280;
     const cardW = (width - pad * 2 - gap * (n - 1)) / n;
     const photoH = Math.round((cardW - 24) * 4 / 3); // фото 3:4, как карточка WB
-    const metricsH = 292;
+    const metricsH = 236;
     const cardH = 40 + photoH + 78 + metricsH;
     const headerH = 124;
     const verdictH = 58;
@@ -126,19 +132,16 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
     ctx.stroke();
     ctx.fillStyle = '#111111';
     ctx.font = 'bold 15px DejaVu';
-    ctx.textAlign = 'center';
-    ctx.fillText('NR', lx + logoS / 2, ly + logoS / 2 + 5.5);
-    ctx.textAlign = 'left';
+    ctx.fillText('NR', lx + (logoS - textW(ctx, 'NR', true)) / 2, ly + logoS / 2 + 5.5);
     ctx.font = 'bold 16px DejaVu';
     ctx.fillText('/ АБ ТЕСТ', lx + logoS + 10, ly + logoS / 2 + 5.5);
 
     if (model.cabinetName) {
         ctx.fillStyle = '#374151';
         ctx.font = 'bold 15px DejaVu';
-        const cab = fitText(ctx, model.cabinetName, width / 2 - pad);
-        ctx.textAlign = 'right';
-        ctx.fillText(cab, width - pad, ly + logoS / 2 + 5.5);
-        ctx.textAlign = 'left';
+        let cab = model.cabinetName;
+        while (cab.length > 1 && textW(ctx, cab, true) > width / 2 - pad) cab = cab.slice(0, -1);
+        ctx.fillText(cab, width - pad - textW(ctx, cab, true), ly + logoS / 2 + 5.5);
     }
 
     ctx.fillStyle = '#111827';
@@ -214,7 +217,7 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
             roundRect(ctx, ix, iy, iw, ih, 12);
             ctx.clip();
             const { w: pw, h: ph } = imgSize(img as { width: number; height: number });
-            const scale = Math.max(iw / pw, ih / ph);
+            const scale = Math.max(iw / pw, ih / ph) * 1.04; // небольшой запас, чтобы не оставалось полос по краям
             const dw = pw * scale;
             const dh = ph * scale;
             ctx.drawImage(img as never, ix + (iw - dw) / 2, iy + (ih - dh) / 2, dw, dh);
@@ -227,6 +230,7 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
             ctx.fillText(letter, ix + (iw - tw) / 2, iy + ih / 2 + 14);
         }
 
+        const valX = Math.max(Math.round(cardW * 0.5), 112); // значения — ровная колонка слева
         const ty = iy + ih + 34;
         ctx.fillStyle = '#111827';
         ctx.font = 'bold 26px DejaVu';
@@ -236,9 +240,7 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
             ctx.fillStyle = v.delta >= 0 ? '#16A34A' : '#DC2626';
             ctx.font = 'bold 13px DejaVu';
             const d = `${v.delta >= 0 ? '+' : ''}${v.delta.toFixed(2)}`;
-            ctx.textAlign = 'right';
-            ctx.fillText(d, x + cardW - 16, ty);
-            ctx.textAlign = 'left';
+            ctx.fillText(d, x + valX, ty);
         }
         ctx.font = 'bold 12px DejaVu';
         if (v.isLoser) {
@@ -272,9 +274,7 @@ export async function renderAbReportPng(model: AbReportCardModel): Promise<Uint8
             ctx.fillText(row[0], x + 14, ry);
             ctx.fillStyle = '#111827';
             ctx.font = 'bold 12px DejaVu';
-            ctx.textAlign = 'right';
-            ctx.fillText(row[1], x + cardW - 16, ry);
-            ctx.textAlign = 'left';
+            ctx.fillText(row[1], x + valX, ry);
             ctx.font = '12px DejaVu';
         });
     }
