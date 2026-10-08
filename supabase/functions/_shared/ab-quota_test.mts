@@ -15,6 +15,11 @@ assert.deepEqual(decideRotation({ quota: 2000, intervalMin: 30, elapsedMs: 40 * 
 assert.deepEqual(decideRotation({ quota: 2000, intervalMin: 30, elapsedMs: 361 * m, windowImpressions: 0 }), { due: true, reason: 'cap' }, 'без показов не висим вечно');
 assert.equal(decideRotation({ quota: 2000, intervalMin: 600, elapsedMs: 400 * m, windowImpressions: 0 }).due, false, 'потолок не меньше интервала');
 
+// замер раз в 10 минут: если следующий перелёт больше нынешнего недобора, меняем сразу
+assert.equal(decideRotation({ quota: 1000, intervalMin: 30, elapsedMs: 30 * m, windowImpressions: 940, stepImpressions: 458 }).due, true, '940 ближе к 1000, чем ~1400');
+assert.equal(decideRotation({ quota: 1000, intervalMin: 30, elapsedMs: 20 * m, windowImpressions: 482, stepImpressions: 482 }).due, false, 'до квоты ещё два замера');
+assert.equal(decideRotation({ quota: 1000, intervalMin: 30, elapsedMs: 20 * m, windowImpressions: 700, stepImpressions: 300 }).due, false, '700+300 = ровно 1000: ждём следующего замера');
+
 const v = (n: number) => ({ impressions: n });
 assert.equal(isFinalWindow([v(2100), v(10)], 1, 2000, 2000, true), true, 'остальные набрали и это набрало: финал');
 assert.equal(isFinalWindow([v(1500), v(10)], 1, 2000, 2000, true), false, 'другое фото ещё не добрало');

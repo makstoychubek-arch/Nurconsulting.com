@@ -867,8 +867,10 @@ async function rotateActiveTest(
     let windowImps = 0;
     let rotateReason = 'time';
     if (quota > 0 && !opts.ignoreDue) {
-        windowImps = await windowImpressions(admin, test, new Date(String(dueSince || new Date().toISOString())));
-        const d = decideRotation({ quota, intervalMin, elapsedMs, windowImpressions: windowImps });
+        const winStart = new Date(String(dueSince || new Date().toISOString()));
+        windowImps = await windowImpressions(admin, test, winStart);
+        const prevImps = await windowImpressions(admin, test, winStart, new Date(Date.now() - 10 * 60_000));
+        const d = decideRotation({ quota, intervalMin, elapsedMs, windowImpressions: windowImps, stepImpressions: Math.max(0, windowImps - prevImps) });
         if (!d.due) return { test_id: test.id, skipped: 'waiting_quota', window_impressions: Math.round(windowImps), quota };
         rotateReason = d.reason;
     } else if (!opts.ignoreDue && elapsedMs < intervalMin * 60 * 1000) {
