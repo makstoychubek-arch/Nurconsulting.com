@@ -3371,7 +3371,6 @@ const RNP = (() => {
 
     function _renderTabsHTML(active, opts = {}) {
         const lite = opts.lite || active.length > 40;
-        const sumActive = _activeNm === SUMMARY_TAB;
         const genActive = _activeNm === GENERAL_TAB;
         const groups = _groupByCategory(active);
         const groupsHtml = groups.map(([cat, list]) => {
@@ -3399,9 +3398,6 @@ const RNP = (() => {
         }).join('');
         return `<div class="rnp-sheet-tab rnp-tab-general${genActive ? ' active' : ''}" onclick="RNP.pick('general')">
             <span>Общий</span>
-          </div>
-          <div class="rnp-sheet-tab rnp-tab-summary${sumActive ? ' active' : ''}" onclick="RNP.pick('summary')">
-            <span>Сводная</span>
           </div>
           ${groupsHtml}`;
     }
@@ -6115,13 +6111,12 @@ const RNP = (() => {
             try {
                 const saved = _readSavedActiveNm(wantCab) || sessionStorage.getItem('rnp_active_nm');
                 if (saved === GENERAL_TAB || saved === 'general') _activeNm = GENERAL_TAB;
-                else if (saved === SUMMARY_TAB || saved === 'summary') _activeNm = SUMMARY_TAB;
                 else if (active.find(a => a.nm_id == saved)) _activeNm = Number(saved);
-                else _activeNm = active.length > 40 ? SUMMARY_TAB : GENERAL_TAB;
-                if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB) _activeNm = Number(_activeNm);
-            } catch (e) { _activeNm = active.length > 40 ? SUMMARY_TAB : GENERAL_TAB; }
+                // «Сводная» убрана: большие кабинеты открываем на первом артикуле, остальные — на «Общем».
+                else _activeNm = active.length > 40 ? Number(active[0].nm_id) : GENERAL_TAB;
+                if (_activeNm !== GENERAL_TAB) _activeNm = Number(_activeNm);
+            } catch (e) { _activeNm = active.length > 40 ? Number(active[0].nm_id) : GENERAL_TAB; }
         }
-        if (active.length > 40 && _activeNm === GENERAL_TAB) _activeNm = SUMMARY_TAB;
 
         _sectionView = 'all'; // выбор секций убран из интерфейса
         try { _notesVisible = localStorage.getItem('rnp_notes_visible') === '1'; } catch (e) { _notesVisible = false; }
@@ -7369,7 +7364,7 @@ const RNP = (() => {
 
     async function pick(nmId) {
         if (nmId === GENERAL_TAB || nmId === 'general') _activeNm = GENERAL_TAB;
-        else if (nmId === SUMMARY_TAB || nmId === 'summary') _activeNm = SUMMARY_TAB;
+        else if (nmId === SUMMARY_TAB || nmId === 'summary') _activeNm = GENERAL_TAB;
         else _activeNm = Number(nmId);
         if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm === _compareNm) _compareNm = null;
         _writeSavedActiveNm();
