@@ -182,13 +182,17 @@ const RNP = (() => {
             { key: 'ad_ctr',             label: 'CTR % РК',                         type: 'pct2', src: 'promo' },
             { key: 'competitor_ctr',     label: '% CTR Конкурентов',                type: 'pct2', src: 'manual', competitor: true },
             { key: 'ad_cro',             label: 'CR0 РК%',                          type: 'pct2', src: 'promo' },
-            { key: 'ad_cpc',             label: 'Стоимость Клика',                  type: 'som',  src: 'promo' },
+            { key: 'ad_cpc',             label: 'Стоимость Клика',                  type: 'dec2', src: 'promo' },
             { key: 'ad_basket',          label: 'Корзин с РК',                      type: 'int',  src: 'promo' },
             { key: 'ad_orders',          label: 'Заказов с РК',                     type: 'int',  src: 'promo' },
         ]},
         { id: 'adspend', label: 'Доля Рекламных Расходов', color: '#ef4444', rows: [
             { key: 'ad_spend',           label: 'Расход РК (пополнение)',           type: 'som',  src: 'promo' },
-            { key: 'ad_cpo',             label: 'Ср. стоимость заказа РК',          type: 'som',  src: 'calc' },
+            { key: 'ad_cpo',             label: 'CPO',                              type: 'som',  src: 'calc' },
+            { key: 'ad_cpc',             label: 'CPC',                              type: 'dec2', src: 'promo' },
+            { key: 'ad_cro',             label: 'CR',                               type: 'pct2', src: 'promo' },
+            { key: 'ad_cpm',             label: 'CPM',                              type: 'som',  src: 'calc' },
+            { key: 'ad_roas',            label: 'ROAS',                             type: 'dec2', src: 'calc' },
             { key: 'plan_ad_spend',      label: 'Расход План',                      type: 'som',  src: 'manual', isPlan: true },
             { key: 'plan_drr',           label: 'ДРР % План',                       type: 'pct',  src: 'manual', isPlan: true },
             { key: 'drr_pct',            label: 'ДРР %',                            type: 'pct',  src: 'calc',  hm: 'low' },
@@ -2481,11 +2485,13 @@ const RNP = (() => {
         ad_clicks: ['Клики РК', 'Клики рекламных кампаний по артикулу.'],
         plan_clicks: ['План кликов из РК', 'Вводится вручную.'],
         ad_ctr: ['CTR РК %', 'Клики РК ÷ показы РК × 100.'],
-        ad_cro: ['CR0 РК %', 'Заказы с РК ÷ клики РК × 100.'],
-        ad_cpc: ['Стоимость клика', 'Расход РК ÷ клики РК, сом.'],
+        ad_cro: ['CR', 'Доля кликов, после которых покупатели заказали товар: заказы с РК ÷ клики РК × 100%.'],
+        ad_cpc: ['CPC', 'Средняя стоимость клика: расход РК ÷ клики РК, сом.'],
         ad_basket: ['Корзин с РК', 'Добавления в корзину из рекламы.'],
         ad_orders: ['Заказов с РК', 'Заказы, которые WB засчитал рекламе.'],
-        ad_cpo: ['Ср. стоимость заказа РК', 'Расход всех РК ÷ заказы с РК, сом. Если РК не запускалась — 0.'],
+        ad_cpo: ['CPO', 'Средняя стоимость одного заказа с рекламы: расход всех РК ÷ заказы с РК, сом. Если РК не запускалась — 0.'],
+        ad_cpm: ['CPM', 'Средняя стоимость 1 000 показов: расход РК ÷ показы РК × 1000, сом.'],
+        ad_roas: ['ROAS', 'Сумма заказов с рекламы ÷ расход РК. Сумма берётся из статистики WB по РК.'],
         ad_spend: ['Расход РК', 'Затраты на рекламу по артикулу из статистики продвижения WB, сом.'],
         plan_ad_spend: ['Расход план', 'Вводится вручную.'],
         plan_drr: ['ДРР % план', 'Вводится вручную.'],
@@ -4245,6 +4251,7 @@ const RNP = (() => {
                     ad_clicks: keep('ad_clicks'),
                     ad_spend: keep('ad_spend'),
                     ad_orders: keep('ad_orders'),
+                    ad_revenue: keep('ad_revenue'),
                     ad_basket: keep('ad_basket'),
                     ad_ctr: keep('ad_ctr'),
                     ad_cpc: keep('ad_cpc'),
@@ -4301,6 +4308,7 @@ const RNP = (() => {
         row.ad_spend = d.spend;
         row.ad_orders = d.orders;
         row.ad_basket = d.basket;
+        row.ad_revenue = d.rev || 0;
         row.ad_ctr = d.imp > 0 ? d.cl / d.imp * 100 : 0;
         row.ad_cpc = d.cl > 0 ? d.spend / d.cl : 0;
         row.ad_cro = d.cl > 0 ? d.orders / d.cl * 100 : 0;
@@ -4309,7 +4317,7 @@ const RNP = (() => {
     function _fillLiveZeros(row) {
         const keys = ['orders_count', 'orders_sum', 'sales_count', 'sales_sum',
             'impressions', 'clicks', 'basket_count',
-            'ad_impressions', 'ad_clicks', 'ad_spend', 'ad_orders', 'ad_basket'];
+            'ad_impressions', 'ad_clicks', 'ad_spend', 'ad_orders', 'ad_basket', 'ad_revenue'];
         keys.forEach(k => {
             if (row[k] == null || row[k] === '') row[k] = 0;
         });
@@ -4368,12 +4376,13 @@ const RNP = (() => {
                 }
                 if (!nm || !idSet.has(nm)) return;
                 const key = `${nm}:${date}`;
-                if (!byNmDate[key]) byNmDate[key] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0 };
+                if (!byNmDate[key]) byNmDate[key] = { imp: 0, cl: 0, spend: 0, orders: 0, basket: 0, rev: 0 };
                 byNmDate[key].imp += Number(n.views || n.view || 0);
                 byNmDate[key].cl += Number(n.clicks || n.click || 0);
                 byNmDate[key].spend += Number(n.sum || n.spend || 0);
                 byNmDate[key].orders += Number(n.orders || 0);
                 byNmDate[key].basket += Number(n.atbs || n.atbsCount || 0);
+                byNmDate[key].rev += Number(n.sum_price || 0);
             });
         });
         Object.entries(byNmDate).forEach(([key, d]) => {
@@ -4897,11 +4906,11 @@ const RNP = (() => {
             return {
                 orders_count: 0, orders_sum: 0, sales_count: 0, sales_sum: 0,
                 impressions: 0, clicks: 0, basket_count: 0,
-                ad_impressions: 0, ad_clicks: 0, ad_spend: 0, ad_orders: 0, ad_basket: 0,
+                ad_impressions: 0, ad_clicks: 0, ad_spend: 0, ad_orders: 0, ad_basket: 0, ad_revenue: 0,
             };
         }
         const SUM = ['orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','ad_impressions','ad_clicks',
-                     'ad_basket','ad_orders','ad_spend','to_transfer','profit','giveaways','in_production',
+                     'ad_basket','ad_orders','ad_spend','ad_revenue','to_transfer','profit','giveaways','in_production',
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt'];
@@ -4928,7 +4937,7 @@ const RNP = (() => {
 
     const DERIVED_SUM_KEYS = [
         'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count',
-        'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend',
+        'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend','ad_revenue',
         'to_transfer','profit','cost_price_val','giveaways','storage_sum',
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
         'log_to_client_sum','log_to_client_cnt',
@@ -4972,6 +4981,8 @@ const RNP = (() => {
         a.ad_cro = a.ad_clicks > 0 ? a.ad_orders / a.ad_clicks * 100 : 0;
         a.ad_cpc = a.ad_clicks > 0 ? a.ad_spend / a.ad_clicks : 0;
         a.ad_cpo = a.ad_orders > 0 ? a.ad_spend / a.ad_orders : 0;
+        a.ad_cpm = a.ad_impressions > 0 ? a.ad_spend / a.ad_impressions * 1000 : 0;
+        a.ad_roas = a.ad_spend > 0 ? (a.ad_revenue || 0) / a.ad_spend : 0;
         // WB не отдаёт общие показы карточки, поэтому доли считаем по переходам в карточку.
         a.ad_imp_pct = a.clicks > 0 ? Math.min(100, a.ad_clicks / a.clicks * 100) : 0;
         a.organic_imp_pct = a.clicks > 0 ? Math.max(0, 100 - a.ad_imp_pct) : 0;
@@ -5151,6 +5162,8 @@ const RNP = (() => {
         const ordersSom = (d.orders_sum || 0) * er;
         d.drr_pct = ordersSom > 0 ? (d.ad_spend || 0) / ordersSom * 100 : 0;
         d.ad_cpo = d.ad_orders > 0 ? (d.ad_spend || 0) / d.ad_orders : 0;
+        d.ad_cpm = d.ad_impressions > 0 ? (d.ad_spend || 0) / d.ad_impressions * 1000 : 0;
+        d.ad_roas = d.ad_spend > 0 ? (d.ad_revenue || 0) / d.ad_spend : 0;
         const salesSomForShare = (d.sales_sum || 0) * er;
         const adFromSalesPct = salesSomForShare > 0 ? (d.ad_spend || 0) / salesSomForShare * 100 : 0;
 
@@ -5212,6 +5225,7 @@ const RNP = (() => {
             case 'som':  return Math.round(n).toLocaleString('ru');
             case 'pct':  return n.toFixed(1).replace('.', ',') + '%';
             case 'pct2': return n.toFixed(2).replace('.', ',') + '%';
+            case 'dec2': return n.toFixed(2).replace('.', ',');
         }
         return n;
     }
