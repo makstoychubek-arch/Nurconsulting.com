@@ -51,6 +51,7 @@ Deno.serve(async (req) => {
     try {
         if (action === 'demo_snapshot') return await handleDemoSnapshot();
         if (action === 'preview_notify') return await handlePreviewNotify(admin, body);
+        if (action === 'resend_notify') return await handleResendNotify(admin, body);
         if (action === 'verify_main_photo') return await handleVerifyMainPhoto(admin, body);
         if (action === 'force_rotate') return await handleForceRotate(admin, body);
 
@@ -574,26 +575,26 @@ async function notifyTestFinished(
     }
 
     const model = await buildNotifyModel(admin, test, variants, opts.preview === true);
-    // Коротко: только победитель — фото, номер варианта и CTR.
+    // Картинка со всеми вариантами и метриками (как на сайте) + короткая подпись: победитель и ссылка.
     const esc = (t: unknown) => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const winner = model.variants.find((v) => v.isLeader)
         || [...model.variants].filter((v) => v.impressions > 0).sort((x, y) => y.ctr - x.ctr)[0]
         || null;
     const head = `${opts.preview ? 'проверка канала · ' : ''}<b>${esc(model.title)}</b> · арт. ${esc(model.nmId)}`;
-    const caption = winner
+    const caption = (winner
         ? `${head}\nПобедитель — вариант ${esc(winner.label)} · CTR ${winner.ctr.toFixed(2)}%`
-        : `${head}\nПобедитель не определён`;
+        : `${head}\nПобедитель не определён`) + (model.reportUrl ? `\n${model.reportUrl}` : '');
 
     let via = 'text';
-    if (winner?.photoUrl) {
-        const err = await sendTelegramPhotoUrl(tgToken, tgChannelId, winner.photoUrl, caption);
-        if (!err) via = 'winner_photo';
-        else {
-            console.warn('[ab-test-rotate] sendPhoto(url) failed:', err);
-            await sendTelegramMessage(tgToken, tgChannelId, caption);
-        }
-    } else {
-        await sendTelegramMessage(tgToken, tgChannelId, caption);
+    try {
+        const png = await renderAbReportPng(model);
+        const photoErr = await sendTelegramPhoto(tgToken, tgChannelId, png, caption);
+        if (!photoErr) via = 'card';
+        else throw new Error(photoErr);
+    } catch (e) {
+        console.warn('[ab-test-rotate] card failed, fallback:', String(e));
+        if (winner?.photoUrl && !(await sendTelegramPhotoUrl(tgToken, tgChannelId, winner.photoUrl, caption))) via = 'winner_photo';
+        else await sendTelegramMessage(tgToken, tgChannelId, caption);
     }
 
     await admin.from('notification_log').insert({
@@ -629,9 +630,24 @@ async function buildNotifyModel(
             return name ? `${name} (${id})` : `рк ${id}`;
         }).join(', ');
     }
-    const finishedAtStr = new Date().toLocaleString('ru-RU', {
-        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Moscow',
+    const fmtBishkek = (d: Date) => d.toLocaleString('ru-RU', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bishkek',
     });
+    const endAt = test.finished_at ? new Date(String(test.finished_at)) : new Date();
+    const startAt = test.started_at ? new Date(String(test.started_at)) : null;
+    const finishedAtStr = fmtBishkek(endAt);
+    const startedAtStr = startAt ? fmtBishkek(startAt) : '';
+    const mins = startAt ? Math.max(0, Math.round((endAt.getTime() - startAt.getTime()) / 60000)) : 0;
+    const durationStr = startAt ? (mins >= 60 ? `${Math.floor(mins / 60)} ч ${mins % 60} мин` : `${mins} мин`) : '';
+    const rotationsByLabel: Record<string, number> = {};
+    if (test.id) {
+        const { data: logRows } = await admin.from('ab_test_rotation_log').select('variant_label, action').eq('test_id', test.id as string);
+        (logRows || []).forEach((r: Record<string, unknown>) => {
+            if (r.action === 'stop') return;
+            const k = String(r.variant_label);
+            rotationsByLabel[k] = (rotationsByLabel[k] || 0) + 1;
+        });
+    }
     const live = variants.find((v) => v.is_currently_on_wb)
         || variants[Number(test.current_variant_index) || 0]
         || variants[0];
@@ -640,6 +656,9 @@ async function buildNotifyModel(
         nmId: test.nm_id as string | number,
         campaignLabel: campLabel,
         finishedAtStr,
+        startedAtStr,
+        durationStr,
+        rotationsByLabel,
         reason: String(test.finish_reason || ''),
         reportUrl: test.id ? `${REPORT_BASE_URL}?test=${test.id}` : REPORT_BASE_URL,
         preview,
@@ -989,6 +1008,16 @@ async function handlePreviewNotify(admin: Admin, body: Record<string, unknown>):
         skipDedupe: true,
     });
     return json({ ok: result.sent, ...result, test_id: test.id, nm_id: test.nm_id, product: test.product_name });
+}
+
+async function handleResendNotify(admin: Admin, body: Record<string, unknown>): Promise<Response> {
+    const testId = String(body.test_id || '');
+    if (!testId) return json({ error: 'test_id required' }, 400);
+    const { data: test } = await admin.from('ab_tests').select('*').eq('id', testId).maybeSingle();
+    if (!test || test.status !== 'finished') return json({ error: 'not_finished' }, 400);
+    const { data: variants } = await admin.from('ab_test_variants').select('*').eq('test_id', testId);
+    const result = await notifyTestFinished(admin, test, variants || [], { skipDedupe: true });
+    return json({ ok: result.sent, ...result, test_id: testId });
 }
 
 async function handleForceRotate(admin: Admin, body: Record<string, unknown>): Promise<Response> {
