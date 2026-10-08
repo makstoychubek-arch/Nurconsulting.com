@@ -3312,6 +3312,7 @@ const RNP = (() => {
         const editTitle = _editMode ? 'Готово' : 'Редактировать';
         return `<div class="rnp-tool-icons">
             <button type="button" class="rnp-plan-fact-open" title="План/факт — лист как в Excel" aria-label="План/факт" onclick="RNP.openPlanFact()">${_planFactSvg()}<span>План/факт</span></button>
+            <button type="button" class="rnp-plan-fact-open" title="Планирование по неделям" aria-label="Планирование" onclick="RNP.openPlanning()">${_planSvg()}<span>Планирование</span></button>
             ${_compareMonthMenuHtml()}
             ${_toolIconBtn('rnp-copy-plan-btn', planTitle, _planSvg(), 'RNP.copyPlanFromPrevWeek()')}
             ${_toolIconBtn('rnp-export-excel-btn', 'Скачать Excel', _excelSvg(), 'RNP.exportExcel()')}
@@ -7304,6 +7305,24 @@ const RNP = (() => {
         });
     }
 
+    // «Планирование»: все планы по неделям в одном окне; значение недели пишется на 7 дней в rnp_plans.
+    async function refreshPlans() {
+        const cal = _buildCalendar();
+        const all = _calAllDates(cal);
+        if (!all.length) return;
+        await _loadPlans(all[0], all[all.length - 1]);
+        await _renderActiveTable();
+    }
+
+    function openPlanning() {
+        if (!window.NrPlanning || !_db || !_cab) return;
+        closeSettings();
+        window.NrPlanning.open({
+            db: _db, cabinetId: _cab, articles: _planFactArticles(), monthKey: _viewMonthKey(),
+            onSaved: () => { refreshPlans().catch(() => {}); },
+        });
+    }
+
     async function openPlanFact() {
         if (!window.RnpPlanFact) return;
         closeSettings();
@@ -7883,7 +7902,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();

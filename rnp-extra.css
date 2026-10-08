@@ -110,3 +110,32 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-gdonut-leg span{max-width:110px;overflow:hidden;text-overflow:ellipsis}
 .rnp-gdonut-leg b{color:var(--text-primary);font-weight:800}
 .rnp-gdonut-leg em{font-style:normal;color:var(--text-muted)}
+
+/* Планирование: окно с планами по неделям */
+.rnp-plan-overlay{position:fixed;inset:0;z-index:10060;display:flex;align-items:center;justify-content:center;background:rgba(15,15,20,.28);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.rnp-plan-panel{width:min(1040px,96vw);max-height:86vh;display:flex;flex-direction:column;background:var(--surface-solid,#fff);color:var(--text-primary);border-radius:20px;box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden;animation:nr-toast-in .2s ease}
+.rnp-plan-head{display:flex;align-items:center;gap:14px;padding:14px 18px 8px}
+.rnp-plan-title{font-size:18px;font-weight:800;margin-right:auto}
+.rnp-plan-month{display:flex;align-items:center;gap:8px;font-size:14px}
+.rnp-plan-month button,.rnp-plan-close{width:30px;height:30px;border:none;border-radius:10px;background:var(--accent-soft,rgba(59,130,246,.12));color:var(--accent,#3b82f6);font-size:18px;cursor:pointer}
+.rnp-plan-search{height:30px;border:1px solid var(--border);border-radius:10px;padding:0 10px;background:var(--surface,#fff);color:var(--text-primary);font-size:13px;width:170px}
+.rnp-plan-tabs{display:flex;gap:6px;align-items:center;padding:4px 18px;flex-wrap:wrap}
+.rnp-plan-tab{border:none;border-radius:999px;padding:6px 12px;font-size:13px;font-weight:600;background:var(--bg,#f4f4f5);color:var(--text-secondary);cursor:pointer}
+.rnp-plan-tab.is-on{background:var(--accent,#3b82f6);color:#fff}
+.rnp-plan-unit{margin-left:auto;font-size:12px;color:var(--text-muted)}
+.rnp-plan-hint{padding:2px 18px 8px;font-size:12px;color:var(--text-muted)}
+.rnp-plan-scroll{overflow:auto;padding:0 12px 14px}
+.rnp-plan-table{border-collapse:separate;border-spacing:0 3px;width:100%;font-size:13px}
+.rnp-plan-table thead th{position:sticky;top:0;background:var(--surface-solid,#fff);text-align:center;padding:6px 4px;z-index:2}
+.rnp-plan-table thead th span{display:block;font-size:11px;font-weight:500;color:var(--text-muted)}
+.rnp-plan-art{position:sticky;left:0;background:var(--surface-solid,#fff);text-align:left;padding:6px 10px 6px 6px;font-weight:600;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;z-index:1}
+.rnp-plan-cell{text-align:center;padding:2px 4px;min-width:96px}
+.rnp-plan-cellbox{display:flex;align-items:center;gap:2px}
+.rnp-plan-cell input{width:100%;height:30px;text-align:center;border:1px solid var(--border);border-radius:9px;background:var(--bg,#f4f4f5);color:var(--text-primary);font-size:13px;font-weight:600}
+.rnp-plan-cell input:focus{outline:2px solid var(--accent,#3b82f6);background:var(--surface-solid,#fff)}
+.rnp-plan-cell input.is-err{outline:2px solid #ef4444}
+.rnp-plan-cell.is-mixed input{background:rgba(245,158,11,.14)}
+.rnp-plan-fill{border:none;background:transparent;color:var(--text-muted);cursor:pointer;font-size:14px;padding:0 2px;opacity:.5}
+.rnp-plan-fill:hover{opacity:1;color:var(--accent)}
+.rnp-plan-sum{display:block;font-size:10px;color:var(--text-muted);margin-top:1px}
+.rnp-plan-loading,.rnp-plan-empty{padding:30px;text-align:center;color:var(--text-muted)}
