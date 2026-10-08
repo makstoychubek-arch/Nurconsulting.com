@@ -6681,6 +6681,7 @@
                     <button type="button" class="gg-view-btn is-on" id="gg-view-now-btn" role="tab" aria-selected="true" onclick="setGoodsView('now')">Остатки</button>
                     <button type="button" class="gg-view-btn" id="gg-view-daily-btn" role="tab" aria-selected="false" onclick="setGoodsView('daily')">Остатки по дням</button>
                     <button type="button" class="gg-view-btn" id="gg-view-cost-btn" role="tab" aria-selected="false" onclick="setGoodsView('cost')">Себестоимость</button>
+                    <button type="button" class="gg-view-btn" id="gg-view-fbs-btn" role="tab" aria-selected="false" onclick="setGoodsView('fbs')">FBS</button>
                     <button type="button" class="gg-view-btn" id="gg-view-give-btn" data-staff-only="1" role="tab" aria-selected="false" onclick="setGoodsView('give')">Раздачи</button>
                 </div>
                 <div class="gg-now-tools rnp-tool-icons" id="gg-now-tools">
@@ -6740,6 +6741,7 @@
                     <tfoot id="gg-cost-foot"></tfoot>
                 </table>
             </div>
+            <div id="gg-view-fbs" hidden></div>
             <div id="gg-view-give" class="gg-give" hidden></div>
         </div>
 
@@ -8463,8 +8465,9 @@
 <script src="/dist/wb-formulas.ff04c637b5.min.js"></script>
 <script src="/dist/evidence-report.040b9b65db.min.js"></script>
 <script src="/dist/ads-command-center.04b653399b.min.js"></script>
-<script src="/dist/goods-catalog.a31498c3ee.min.js"></script>
+<script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
+<script src="/dist/goods-fbs.b16f47807d.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
 <script src="/dist/nr-wow.edba9e891f.min.js"></script>
@@ -11947,7 +11950,7 @@
     }
 
     function setGoodsView(view, opts) {
-        ggView = view === 'daily' || view === 'cost' || view === 'give' ? view : 'now';
+        ggView = ['daily', 'cost', 'give', 'fbs'].includes(view) ? view : 'now';
         const nowEl = document.getElementById('gg-view-now');
         const dailyEl = document.getElementById('gg-view-daily');
         const costEl = document.getElementById('gg-view-cost');
@@ -11959,6 +11962,10 @@
         if (costEl) costEl.hidden = ggView !== 'cost';
         const giveEl = document.getElementById('gg-view-give');
         if (giveEl) giveEl.hidden = ggView !== 'give';
+        const fbsEl = document.getElementById('gg-view-fbs');
+        if (fbsEl) fbsEl.hidden = ggView !== 'fbs';
+        document.getElementById('gg-view-fbs-btn')?.classList.toggle('is-on', ggView === 'fbs');
+        if (ggView === 'fbs' && fbsEl && window.NrGoodsFbs && goodsGroupsCabinetId) window.NrGoodsFbs.show({ host: fbsEl, supabase, cabinetId: goodsGroupsCabinetId });
         if (ggView !== 'give' && window.NrGiveaways) window.NrGiveaways.hide();
         document.getElementById('gg-view-give-btn')?.classList.toggle('is-on', ggView === 'give');
         document.getElementById('gg-view-give-btn')?.setAttribute('aria-selected', ggView === 'give' ? 'true' : 'false');
@@ -11973,7 +11980,7 @@
         nowBtn?.setAttribute('aria-selected', ggView === 'now' ? 'true' : 'false');
         dailyBtn?.setAttribute('aria-selected', ggView === 'daily' ? 'true' : 'false');
         costBtn?.setAttribute('aria-selected', ggView === 'cost' ? 'true' : 'false');
-        try { sessionStorage.setItem('gg_view', ggView); } catch (e) {}
+        try { sessionStorage.setItem('gg_view', ggView == 'fbs' ? 'now' : ggView); } catch (e) {}
         if (!(opts && opts.skipLoad) && ggView === 'daily' && goodsGroupsCabinetId) ensureDailyStocks();
         if (ggView === 'cost') renderGoodsCostTable();
     }
@@ -12166,14 +12173,12 @@
         if (colId === 'transit') return ggQtyInput(r, 'transit', s.transit);
         if (colId === 'plan') return ggQtyInput(r, 'plan', s.plan);
         if (colId === 'total') return `<td class="gg-num gg-total" style="font-weight:700">${fmt(s.total)}</td>`;
-        if (colId === 'ship' || colId === 'storage') return window.GoodsCatalog.extraCell(r, colId, fmt);
         return '<td></td>';
     }
 
     function ggFootCell(colId, tot) {
         if (colId === 'art') return `<td class="gg-art">Итого</td>`;
         if (colId === 'nm') return `<td class="gg-col-nm"></td>`;
-        if (colId === 'ship') return '<td class="gg-num gg-zero">—</td>';
         const val = tot[colId] ?? 0;
         const cls = `gg-num${val ? '' : ' gg-zero'}`;
         if (colId === 'fbo') return `<td class="${cls}" id="gg-fbo">${fmt(val)}</td>`;
@@ -12490,15 +12495,11 @@
 
     async function loadGoodsGroupsCabinet(cab) {
         const catalog = window.GoodsCatalog;
-        const [stocks, arts, daily] = await Promise.all([
+        const [stocks, arts] = await Promise.all([
             fetchAllRows('wb_stocks', [{ op: 'eq', column: 'cabinet_id', value: cab.id }],
                 'nm_id, quantity, stock_scheme'),
             fetchAllRows('rnp_articles', [{ op: 'eq', column: 'cabinet_id', value: cab.id }],
                 'nm_id, name, category, manual_data, cost_price'),
-            fetchAllRows('rnp_daily_data', [
-                { op: 'eq', column: 'cabinet_id', value: cab.id },
-                { op: 'gte', column: 'date', value: new Date(Date.now() - 14 * 864e5).toISOString().slice(0, 10) },
-            ], 'nm_id, date, storage_sum, log_to_client_sum, log_to_client_cnt').catch(() => []),
         ]);
         const byNm = {};
         const rowOf = (nmId) => {
@@ -12546,7 +12547,6 @@
                 r.planManual = true;
             }
         });
-        if (catalog) catalog.applyDaily(byNm, daily);
         return Object.values(byNm);
     }
 
