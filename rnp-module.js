@@ -2451,10 +2451,10 @@ const RNP = (() => {
 
     // ─── Подсказки «как считается» при наведении на название метрики ───
     const METRIC_HELP = {
-        orders_count: ['Заказы', 'Количество заказов за день из воронки WB (orderCount), как в «Динамике продаж». В ячейке две части: слева заказы со склада WB (FBO), справа розовым — со склада продавца (FBS, из отчёта заказов WB).'],
+        orders_count: ['Заказы', 'Количество заказов за день из воронки WB (orderCount), как в «Динамике продаж». Нажми на название строки — снизу раскроются заказы FBS (склад продавца) и FBO (склад WB).'],
         orders_sum: ['Сумма заказов', 'Сумма заказов за день из воронки WB (orderSum), в сомах.'],
         spp_pct: ['СПП %', 'Скидка постоянного покупателя WB: средняя по заказам дня.'],
-        sales_count: ['Продажи', 'Выкупы из финотчёта WB: штуки со строкой «Продажа». Компенсации за возврат не считаются. Розовая часть — продажи со склада продавца (FBS), остальное — склад WB.'],
+        sales_count: ['Продажи', 'Выкупы из финотчёта WB: штуки со строкой «Продажа». Компенсации за возврат не считаются. Нажми на название строки — снизу раскроются продажи FBS и FBO.'],
         sales_sum: ['Сумма продаж', 'Цена продажи с учётом скидок WB × штуки из финотчёта.'],
         avg_check: ['Средний чек', 'Сумма заказов ÷ количество заказов.'],
         avg_check_sales: ['Средний чек продаж', 'Сумма продаж ÷ продажи.'],
@@ -6573,6 +6573,56 @@ const RNP = (() => {
         'delivery_sum', 'penalty_sum', 'storage_sum', 'deduction_sum', 'log_to_pvz_avg',
     ]);
 
+    // Раскрытие «Заказы»/«Продажи» на две строки: склад продавца (FBS) и склад WB (FBO).
+    const _splitOpen = new Set();
+    try { JSON.parse(localStorage.getItem('rnp_split_open') || '[]').forEach(k => _splitOpen.add(k)); } catch (e) {}
+
+    function _splitSubRows(m, cols, firstDayIdx) {
+        const isOrders = m.key === 'orders_count';
+        const fbsKey = isOrders ? 'orders_fbs' : 'sales_fbs';
+        const noun = isOrders ? 'Заказы' : 'Продажи';
+        const mk = (kind, label) => {
+            const cells = cols.map((col, ci) => {
+                const d = col.data;
+                const isDay = col.type === 'day', isMonth = col.type === 'month';
+                const cls = [
+                    isDay ? 'rnp-day-col' : '', isMonth ? 'rnp-month-col' : '',
+                    (col.isToday || col.isCurrent) ? 'rnp-cell-today' : '',
+                    ci === firstDayIdx ? 'rnp-cell-month-start' : '',
+                    col.isFuture ? 'rnp-cell-future' : '',
+                    col.type === 'week' ? 'rnp-cell-week' : '',
+                    col.type === 'total' ? 'rnp-cell-total' : '',
+                    'rnp-cell-split-sub', kind === 'fbs' ? 'rnp-cell-fbs' : '',
+                ].filter(Boolean).join(' ');
+                const colW = isDay ? 'rnp-day-col' : (isMonth ? 'rnp-month-col' : 'rnp-data-col');
+                const sticky = _stickyDataAttrs(ci, cols);
+                const total = Math.round(Number(d?.[m.key]) || 0);
+                let txt = '', title = '';
+                if (!col.isFuture && d) {
+                    const fbs = Math.min(total, Math.round(Number(d[fbsKey]) || 0));
+                    // Продажи идут из финотчёта WB: пока он не вышел, раскладывать нечего.
+                    if (!isOrders && total <= 0 && (isDay || col.type === 'month')) {
+                        txt = '—'; title = ' title="Отчёт WB ещё не вышел"';
+                    } else {
+                        txt = String(kind === 'fbs' ? fbs : total - fbs);
+                    }
+                }
+                return `<td class="${cls} ${colW}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}${title}>${txt}</td>`;
+            }).join('');
+            return `<tr class="rnp-row-split-sub${kind === 'fbs' ? ' rnp-row-fbs' : ''}">
+              <td class="rnp-metric-col rnp-metric-sub">${label}</td>
+              <td class="rnp-spark-col"></td>${cells}
+            </tr>`;
+        };
+        return mk('fbs', `${noun} FBS (склад продавца)`) + mk('fbo', `${noun} FBO (склад WB)`);
+    }
+
+    function toggleSplit(key) {
+        if (_splitOpen.has(key)) _splitOpen.delete(key); else _splitOpen.add(key);
+        try { localStorage.setItem('rnp_split_open', JSON.stringify([..._splitOpen])); } catch (e) {}
+        return _renderActiveTable();
+    }
+
     function _renderSection(sec, cols, art, firstDayIdx) {
         const key = `${art.nm_id}:${sec.id}`;
         const collapsed = _collapsedSections.has(key);
@@ -6677,20 +6727,7 @@ const RNP = (() => {
                 const liveTitle = isLiveToday
                     ? ' title="Сегодня — предварительные данные, ещё обновляются"'
                     : (financePending ? ' title="Финансовый отчёт WB придёт после закрытия дня"' : '');
-                let inner = _fitNum(str ?? '');
-                let splitCls = '';
-                let title = liveTitle;
-                if (!isFuture && d && (m.key === 'orders_count' || m.key === 'sales_count')) {
-                    const fbs = Math.round(Number(d[m.key === 'orders_count' ? 'orders_fbs' : 'sales_fbs']) || 0);
-                    const total = Math.round(Number(val) || 0);
-                    if (fbs > 0 && total > 0) {
-                        const fbsShown = Math.min(fbs, total);
-                        inner = `<span class="rnp-split"><span class="rnp-split-fbo">${total - fbsShown}</span><span class="rnp-split-fbs">${fbsShown}</span></span>`;
-                        splitCls = ' rnp-cell-split';
-                        title = ` title="Всего ${total}: склад WB ${total - fbsShown}, склад продавца (FBS) ${fbsShown}"`;
-                    }
-                }
-                return `<td class="${cls}${liveCls}${hitCls}${splitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${title}${dataAttr}>${inner}</td>`;
+                return `<td class="${cls}${liveCls}${hitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${_fitNum(str ?? '')}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',
@@ -6698,12 +6735,19 @@ const RNP = (() => {
                 m.competitor ? 'rnp-row-competitor' : '',
                 m.cl === 'planStrong' ? 'rnp-row-plan-strong' : '',
             ].filter(Boolean).join(' ');
-            return `<tr class="${rowCls}">
+            const splittable = m.key === 'orders_count' || m.key === 'sales_count';
+            const splitOpen = splittable && _splitOpen.has(m.key);
+            const labelHtml = splittable
+                ? `<span class="rnp-split-toggle" onclick="RNP.toggleSplit('${m.key}')" title="Показать заказы по складам: WB и продавца (FBS)">${splitOpen ? '▾' : '▸'} ${m.label}</span>`
+                : m.label;
+            let out = `<tr class="${rowCls}">
               <td class="rnp-metric-col${m.bold ? ' rnp-metric-bold' : ''}${m.hero ? ' rnp-metric-hero' : ''}"${METRIC_HELP[m.key] ? ` data-rnp-help="${m.key}"` : ''}>
-                ${m.label}
+                ${labelHtml}
               </td>
               <td class="rnp-spark-col">${spark}</td>${cells}
             </tr>`;
+            if (splitOpen) out += _splitSubRows(m, cols, firstDayIdx);
+            return out;
         }).join('');
         return hdr + rows;
     }
@@ -7631,7 +7675,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
