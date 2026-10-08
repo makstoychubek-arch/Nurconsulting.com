@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
         if (action === 'demo_snapshot') return await handleDemoSnapshot();
         if (action === 'preview_notify') return await handlePreviewNotify(admin, body);
         if (action === 'resend_notify') return await handleResendNotify(admin, body);
+        if (action === 'tg_cleanup') return await handleTgCleanup(body);
         if (action === 'verify_main_photo') return await handleVerifyMainPhoto(admin, body);
         if (action === 'force_rotate') return await handleForceRotate(admin, body);
 
@@ -1018,6 +1019,47 @@ async function handleResendNotify(admin: Admin, body: Record<string, unknown>): 
     const { data: variants } = await admin.from('ab_test_variants').select('*').eq('test_id', testId);
     const result = await notifyTestFinished(admin, test, variants || [], { skipDedupe: true });
     return json({ ok: result.sent, ...result, test_id: testId });
+}
+
+// Удаление своих недавних сообщений в канале А/Б по тексту (номера сообщений мы не храним).
+// Для каждого из последних ids пересылаем сообщение в тот же чат, читаем подпись, копию сразу удаляем;
+// оригинал удаляем только если подпись содержит один из patterns и он не старше max_age_min.
+async function handleTgCleanup(body: Record<string, unknown>): Promise<Response> {
+    const token = getTelegramToken();
+    const chatId = getTelegramChatId('ab_tests');
+    if (!token || !chatId) return json({ error: 'telegram not configured' }, 400);
+    const patterns = (Array.isArray(body.patterns) ? body.patterns : []).map(String).filter(Boolean);
+    if (!patterns.length) return json({ error: 'patterns required' }, 400);
+    const span = Math.min(30, Number(body.span) || 10);
+    const maxAgeMin = Number(body.max_age_min) || 240;
+    // deno-lint-ignore no-explicit-any
+    const call = async (method: string, payload: Record<string, unknown>): Promise<any> => {
+        try {
+            const r = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+            });
+            return await r.json();
+        } catch (e) { return { ok: false, description: String(e) }; }
+    };
+    const probe = await call('sendMessage', { chat_id: chatId, text: '.', disable_notification: true });
+    if (!probe.ok) return json({ ok: false, error: probe.description }, 502);
+    const top = Number(probe.result.message_id);
+    await call('deleteMessage', { chat_id: chatId, message_id: top });
+    const found: Array<Record<string, unknown>> = [];
+    for (let id = top - 1; id > top - 1 - span; id--) {
+        const fwd = await call('forwardMessage', { chat_id: chatId, from_chat_id: chatId, message_id: id, disable_notification: true });
+        if (!fwd.ok) { found.push({ id, skipped: String(fwd.description || '').slice(0, 60) }); continue; }
+        const m = fwd.result;
+        await call('deleteMessage', { chat_id: chatId, message_id: m.message_id });
+        const text = String(m.caption || m.text || '');
+        const when = Number(m.forward_origin?.date || m.forward_date || 0) * 1000;
+        const fresh = when > 0 && Date.now() - when <= maxAgeMin * 60_000;
+        const match = fresh && patterns.some((p) => text.includes(p));
+        let deleted = false;
+        if (match && body.dry_run !== true) deleted = Boolean((await call('deleteMessage', { chat_id: chatId, message_id: id })).ok);
+        found.push({ id, snippet: text.slice(0, 70).replace(/\n/g, ' | '), fresh, match, deleted });
+    }
+    return json({ ok: true, top, found });
 }
 
 async function handleForceRotate(admin: Admin, body: Record<string, unknown>): Promise<Response> {
