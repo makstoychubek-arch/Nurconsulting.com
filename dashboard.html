@@ -9714,7 +9714,7 @@
         if (!wrap) {
             wrap = document.createElement('div');
             wrap.id = 'toast-wrap';
-            wrap.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:10px;pointer-events:none';
+            wrap.style.cssText = 'position:fixed;top:20px;right:20px;z-index:100000;display:flex;flex-direction:column;gap:10px;pointer-events:none';
             document.body.appendChild(wrap);
         }
         const key = `${type}|${title}|${text}`;
@@ -15467,9 +15467,11 @@
         const container = document.getElementById('variant-inputs');
         if (!container) return;
         if (abVariantFiles[idx] && abVariantFiles[idx].current) return;
-        const remainingCount = Object.keys(abVariantFiles).length - 1;
-        if (remainingCount < 2) {
-            showPremiumModal('warning', 'Минимум 2 варианта', 'Вариант 1 — текущее фото, нужен ещё хотя бы один.');
+        if (Object.keys(abVariantFiles).length - 1 < 2) {
+            abVariantFiles[idx] = null;
+            container.innerHTML = '';
+            Object.keys(abVariantFiles).forEach(i => appendVariantSlotDom(+i, abVariantFiles[i]));
+            refreshVariantAddBtn();
             return;
         }
         const ordered = Object.keys(abVariantFiles).map(Number).sort((a, b) => a - b)
