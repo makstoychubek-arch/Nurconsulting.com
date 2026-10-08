@@ -32,3 +32,16 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-row-fbs .rnp-metric-sub,td.rnp-cell-fbs{color:#3b82f6;font-weight:600}
 :root[data-theme="dark"] .rnp-row-fbs .rnp-metric-sub,:root[data-theme="dark"] td.rnp-cell-fbs{color:#60a5fa}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .rnp-row-fbs .rnp-metric-sub,:root:not([data-theme="light"]) td.rnp-cell-fbs{color:#60a5fa}}
+/* Единая рамка рабочей области на ПК: шапка сверху, контент как отдельный блок с одинаковыми отступами
+   на всех вкладках (РНП, дашборд, товары, РК…), снизу и сверху срез со скруглением, как у левой панели. */
+@media (min-width: 769px) {
+  html body .main-rail, html body .main-rail:has(#tab-dashboard.active) { padding-top: 76px !important; padding-bottom: 10px !important; box-sizing: border-box; }
+  html body .main-rail > .main-content,
+  html body .main-rail > .main-content.rnp-compact,
+  html body .main-rail > .main-content.goods-compact,
+  html body .main-rail > .main-content.logistics-compact {
+    padding: 4px 6px 4px !important;
+    border-radius: 18px;
+    scrollbar-gutter: stable;
+  }
+}
