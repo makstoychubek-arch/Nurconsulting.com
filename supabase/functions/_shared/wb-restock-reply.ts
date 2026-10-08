@@ -460,7 +460,7 @@ export async function answerWbQuestion(
             if (r.ok) return r;
             notes.push(`${Object.keys(body).join('+')}: ${r.status} ${r.text}`);
         }
-        first.text = notes.join(' | ').slice(0, 400);
+        return { ...first, data: null, text: notes.join(' | ').slice(0, 400) };
     }
     if (acceptAlready && isAlreadyAnsweredWb(first)) return { ...first, ok: true };
     const raw = String(token || '').replace(/^Bearer\s+/i, '').trim();
