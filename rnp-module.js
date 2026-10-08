@@ -4204,12 +4204,42 @@ const RNP = (() => {
                 p_cabinet: _cab, p_from: allDates[0], p_to: allDates[allDates.length - 1],
             });
             if (error) throw error;
+            // Стоимость отправки FBS и хранение FBS в финотчёте WB не отдаёт — их вносят вручную в «Товары → FBS».
+            const price = {};
+            _articles.forEach(a => {
+                const md = a.manual_data || {};
+                price[Number(a.nm_id)] = { ship: Number(md.fbs_ship_price) || 0, sto: Number(md.fbs_storage_day) || 0 };
+            });
+            const apply = (row, nm, o) => {
+                const p = price[nm] || { ship: 0, sto: 0 };
+                const cost = o * p.ship;
+                row.delivery_sum = (row.delivery_sum || 0) - (row.fbs_ship_cost || 0) + cost;
+                row.fbs_ship_cost = cost;
+                row.fbs_ship_missing = o > 0 && !p.ship ? o : 0;
+            };
+            const seen = new Set();
             (data || []).forEach(r => {
                 if (!idSet.has(Number(r.nm_id))) return;
                 const row = _dataCache[r.nm_id]?.[r.d];
                 if (!row) return;
                 row.orders_fbs = Number(r.orders_fbs || 0);
                 row.sales_fbs = Number(r.sales_fbs || 0);
+                apply(row, Number(r.nm_id), row.orders_fbs);
+                seen.add(`${r.nm_id}:${r.d}`);
+            });
+            const today = cal?.todayStr || _wbTodayStr();
+            idSet.forEach(nm => {
+                const p = price[nm];
+                allDates.forEach(d => {
+                    const row = _dataCache[nm]?.[d];
+                    if (!row || d > today) return;
+                    if (!seen.has(`${nm}:${d}`)) apply(row, nm, 0);
+                    if (p && p.sto > 0 || row.fbs_storage_cost) {
+                        const c = p ? p.sto : 0;
+                        row.storage_sum = (row.storage_sum || 0) - (row.fbs_storage_cost || 0) + c;
+                        row.fbs_storage_cost = c;
+                    }
+                });
             });
         } catch (e) { console.warn('[RNP] fbs split:', e.message); }
     }
@@ -4911,7 +4941,7 @@ const RNP = (() => {
             };
         }
         const SUM = ['orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','ad_impressions','ad_clicks',
-                     'ad_basket','ad_orders','ad_spend','ad_revenue','to_transfer','profit','giveaways','in_production',
+                     'ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing','to_transfer','profit','giveaways','in_production',
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt'];
@@ -4938,7 +4968,7 @@ const RNP = (() => {
 
     const DERIVED_SUM_KEYS = [
         'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count',
-        'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend','ad_revenue',
+        'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing',
         'to_transfer','profit','cost_price_val','giveaways','storage_sum',
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
         'log_to_client_sum','log_to_client_cnt',
@@ -6799,9 +6829,11 @@ const RNP = (() => {
                 const isLiveToday = isDay && isToday && m.key === 'orders_count';
                 const liveCls = isLiveToday ? ' rnp-cell-live' : '';
                 const hitCls = hitKind ? ` rnp-cell-plan-hit rnp-cell-plan-hit--${hitKind}` : '';
-                const liveTitle = isLiveToday
+                const fbsHint = d && d.fbs_ship_missing > 0 && (m.key === 'delivery_sum' || m.key === 'logistics_per_unit' || m.key === 'logistics_pct')
+                    ? ' title="FBS: стоимость отправки не указана. Впишите её в Товары → FBS"' : '';
+                const liveTitle = fbsHint || (isLiveToday
                     ? ' title="Сегодня — предварительные данные, ещё обновляются"'
-                    : (financePending ? ' title="Финансовый отчёт WB придёт после закрытия дня"' : '');
+                    : (financePending ? ' title="Финансовый отчёт WB придёт после закрытия дня"' : ''));
                 return `<td class="${cls}${liveCls}${hitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${_fitNum(str ?? '')}</td>`;
             }).join('');
             const rowCls = [
