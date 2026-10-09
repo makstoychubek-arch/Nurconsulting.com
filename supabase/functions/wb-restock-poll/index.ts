@@ -62,6 +62,28 @@ Deno.serve(async (req) => {
 
     const dryRun = body.dry_run === true || body.dry_run === 'true';
     const admin = createClient(supabaseUrl, serviceKey);
+    // Пробные карточки шаблона: только картинка в группу, в базу ничего не пишется.
+    if (Array.isArray(body.test_cards) && reviewsChat && tgToken) {
+        const sentIds: Array<number | null> = [];
+        for (const raw of body.test_cards as Array<Record<string, unknown>>) {
+            const png = await renderFeedbackPng({
+                kind: 'question',
+                cabinetName: cabinetLegalName(String(raw.cabinet_name || '')),
+                title: String(raw.product || 'товар'),
+                nmId: Number(raw.nm_id) || '',
+                supplierArticle: String(raw.article || '') || undefined,
+                photoUrl: String(raw.photo_url || '') || undefined,
+                createdStr: formatQuestionReportWhen(new Date().toISOString()),
+                text: String(raw.question || ''),
+                answer: String(raw.answer || ''),
+                answerStr: formatQuestionReportWhen(new Date().toISOString()),
+                mode: 'auto',
+            });
+            const sent = await sendTelegramPhotoBytes(tgToken, reviewsChat, png, feedbackCaption('question', OWNER));
+            sentIds.push(sent.messageId);
+        }
+        return json({ ok: true, test_cards: sentIds });
+    }
     const resendId = String(body.resend_question_id || '').trim();
     if (resendId) {
         return json(await resendPendingCard(admin, resendId, tgToken, reviewsChat, dryRun));
