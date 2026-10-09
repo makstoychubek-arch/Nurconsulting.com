@@ -3153,7 +3153,7 @@ const RNP = (() => {
 
     function _ghLegend(items) {
         return `<div class="rnp-gh-leg">${items.map(it => `<div class="rnp-gh-leg-row"${it.click ? ` onclick="${it.click}"` : ''}>
-            <i style="background:${it.c}"></i><span title="${_ghEsc(it.name)}">${_ghEsc(it.name)}</span><b>${it.val}</b></div>`).join('')}</div>`;
+            <i style="background:${it.c}"></i><span title="${_ghEsc(it.full || it.name)}">${_ghEsc(it.name)}</span><b>${it.val}</b></div>`).join('')}</div>`;
     }
 
     function _ghInfoIcon(key, light) {
@@ -3385,18 +3385,19 @@ const RNP = (() => {
         const real = sum('realization');
         const comm = Math.max(0, real - transfer), deliv = sum('delivery'), stp = sum('storage') + sum('penalty');
         const rest = Math.max(0, real - comm - deliv - ads - stp);
-        const rev = [['Комиссия и эквайринг WB', comm, GH_COLORS[0]], ['Логистика', deliv, GH_COLORS[1]], ['Реклама РК', ads, GH_COLORS[3]], ['Хранение, штрафы', stp, GH_COLORS[4]], ['Остаётся', rest, GH_COLORS[2]]];
+        const rev = [['Комиссия WB', comm, GH_COLORS[0]], ['Логистика', deliv, GH_COLORS[1]], ['Реклама', ads, GH_COLORS[3]], ['Хранение', stp, GH_COLORS[4]], ['Остаётся', rest, GH_COLORS[2]]];
         const pct = (v, t) => t > 0 ? Math.round(v / t * 100) + '%' : '—';
         const ringSize = 112;
         const revCard = `<div class="rnp-gh-card" onclick="RNP.ghOpen('revenue')"><div class="rnp-gh-title">Куда уходит выручка ${_ghInfoIcon('revenue')}</div>
             <div class="rnp-gh-flex">${_ghRing(rev.map(([n, v, c]) => ({ name: n, v, c })), real >= 1e6 ? (real / 1e6).toFixed(2).replace('.', ',') + ' млн' : _ghNum(real), 'сом', ringSize)}
             ${_ghLegend(rev.map(([n, v, c]) => ({ name: n, val: pct(v, real), c })))}</div></div>`;
         const LG = { 'К клиенту при отмене': GH_COLORS[4], 'К клиенту при продаже': GH_COLORS[1], 'От клиента при отмене': GH_COLORS[3], 'От клиента при возврате': GH_COLORS[5] };
+        const LGN = { 'К клиенту при отмене': 'Доставка отмен', 'К клиенту при продаже': 'Доставка продаж', 'От клиента при отмене': 'Обратно отмены', 'От клиента при возврате': 'Возвраты' };
         const logRows = (_ghLogi || []).map(r => ({ name: r.reason, v: Number(r.amount) || 0 })).filter(r => r.v > 0);
         const logT = logRows.reduce((x, r) => x + r.v, 0);
         const logCard = `<div class="rnp-gh-card" onclick="RNP.ghOpen('logistics')"><div class="rnp-gh-title">На что уходит логистика ${_ghInfoIcon('logistics')}</div>
             <div class="rnp-gh-flex">${_ghRing(logRows.map((r, i) => ({ name: r.name, v: r.v, c: LG[r.name] || GH_COLORS[(i + 2) % 6] })), logT >= 1000 ? Math.round(logT / 1000) + ' т' : _ghNum(logT), 'сом', ringSize)}
-            ${_ghLegend(logRows.slice(0, 5).map((r, i) => ({ name: r.name, val: pct(r.v, logT), c: LG[r.name] || GH_COLORS[(i + 2) % 6] })))}</div></div>`;
+            ${_ghLegend(logRows.slice(0, 5).map((r, i) => ({ name: LGN[r.name] || r.name, full: r.name, val: pct(r.v, logT), c: LG[r.name] || GH_COLORS[(i + 2) % 6] })))}</div></div>`;
         const sales = sum('sales'), can = sum('cancels'), ret = sum('returns'), bt = sales + can + ret;
         const buyCard = `<div class="rnp-gh-card" onclick="RNP.ghOpen('buyout')"><div class="rnp-gh-title">Выкупы и отказы ${_ghInfoIcon('buyout')}</div>
             <div class="rnp-gh-flex">${_ghRing([{ name: 'Выкуплено', v: sales, c: GH_COLORS[2] }, { name: 'Отказы', v: can, c: GH_COLORS[5] }, { name: 'Возвраты', v: ret, c: GH_COLORS[4] }], pct(sales, bt), 'выкуп', ringSize)}
@@ -3409,7 +3410,7 @@ const RNP = (() => {
         const catEnc = (n) => n === 'Остальные' ? '' : encodeURIComponent(n).replace(/'/g, '%27');
         const catCard = `<div class="rnp-gh-card"><div class="rnp-gh-title">Остатки по категориям ${_ghInfoIcon('cats')}</div>
             <div class="rnp-gh-flex">${_ghRing(catList.map(([n, v], i) => ({ name: n, v, c: GH_COLORS[i % 6], click: `RNP.ghOpen('category','${catEnc(n)}')` })), String(Object.keys(cats).length), 'кат.', ringSize)}
-            ${_ghLegend(catList.map(([n, v], i) => ({ name: n, val: `${pct(v, catT)} · ${_ghNum(v)}`, c: GH_COLORS[i % 6], click: `RNP.ghOpen('category','${catEnc(n)}')` })))}</div></div>`;
+            ${_ghLegend(catList.map(([n, v], i) => ({ name: n, full: `${n}: ${_ghNum(v)} шт`, val: pct(v, catT), c: GH_COLORS[i % 6], click: `RNP.ghOpen('category','${catEnc(n)}')` })))}</div></div>`;
         // правая колонка
         const minSales = Math.max(1, M.per.days);
         const top = st.filter(o => o.sales >= minSales && o.transfer > 0).sort((a, b) => b.margin - a.margin).slice(0, 5);

@@ -295,8 +295,4 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-hl-a.is-open .rnp-hl-all{display:grid}
 @media (max-width:768px){.rnp-hl-acts{grid-template-columns:1fr}.rnp-hl-chips{grid-template-columns:1fr}}
 .rnp-gh-rings .rnp-gh-flex{gap:8px}
-.rnp-gh-leg-row{white-space:normal;align-items:flex-start;line-height:1.2}
-.rnp-gh-leg-row i{margin-top:3px}
-.rnp-gh-leg-row span{overflow:visible;text-overflow:clip;word-break:normal}
-.rnp-gh-leg-row b{white-space:nowrap}
 .rnp-gh-loss .rnp-gh-li{flex:0 0 auto;padding:4px 0}
