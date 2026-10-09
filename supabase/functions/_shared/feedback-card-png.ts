@@ -240,3 +240,10 @@ export async function renderFeedbackPng(model: FeedbackCardModel): Promise<Uint8
 
     return canvas.toBuffer('image/png');
 }
+
+/** Подпись к картинке в Telegram: у вопроса только тег владельца, у отзыва подписи нет. */
+export function feedbackCaption(kind: FeedbackCardModel['kind'], ownerUsername: string): string {
+    if (kind !== 'question') return '';
+    const u = String(ownerUsername || '').replace(/^@/, '').trim();
+    return u ? `@${u}` : '';
+}
