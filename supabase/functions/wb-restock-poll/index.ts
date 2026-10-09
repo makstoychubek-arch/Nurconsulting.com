@@ -8,8 +8,10 @@ import { getTelegramToken } from '../_shared/telegram-routing.ts';
 import { FEEDBACKS_API, wbError, wbSend } from '../_shared/wb-agent-wow.ts';
 import { pickCachedPhotoUrl, resolveWbCardPhotoUrl } from '../_shared/wb-main-photo.ts';
 import { renderQuestionAnswerReportPng } from '../_shared/wb-question-report-png.ts';
+import { feedbackCaption, renderFeedbackPng } from '../_shared/feedback-card-png.ts';
 import {
     answerWbQuestion,
+    cabinetLegalName,
     buildAutoQuestionAnswer,
     buildWbRestockAnswer,
     formatAutoAnswerMatchCaption,
@@ -483,6 +485,27 @@ async function sendTelegramCard(
             mention,
         });
     if (answer) {
+        // Новый шаблон карточки (мини-фото, кабинет справа); при сбое — прежняя картинка ниже.
+        try {
+            const nowStr = formatQuestionReportWhen(new Date().toISOString());
+            const card = await renderFeedbackPng({
+                kind: 'question',
+                cabinetName: cabinetLegalName(cabinetName),
+                title: question.product || question.article || 'товар',
+                nmId: question.nmId ?? '',
+                supplierArticle: question.article || undefined,
+                photoUrl: photoUrl || undefined,
+                createdStr: formatQuestionReportWhen(question.createdDate),
+                text: question.text,
+                answer,
+                answerStr: nowStr,
+                mode: 'auto',
+            });
+            const sent = await sendTelegramPhotoBytes(token, chatId, card, feedbackCaption('question', OWNER));
+            if (!sent.error) return sent;
+        } catch (e) {
+            console.warn('[restock] feedback card', e);
+        }
         try {
             const png = await renderQuestionAnswerReportPng({
                 cabinetName,
