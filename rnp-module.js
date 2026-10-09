@@ -3088,24 +3088,20 @@ const RNP = (() => {
         const profitCls = (kpi.profit || 0) >= 0 ? 'pos' : 'neg';
         const marginCls = (kpi.margin_pct || 0) >= 15 ? 'pos' : ((kpi.margin_pct || 0) < 5 ? 'neg' : '');
         const items = [
-            { label: 'В деньгах', value: money.moneySomFmt },
-            { label: 'В долларах', value: '$' + money.moneyUsd },
             { label: 'Заказы', value: _fmtKpi(kpi.orders_count || 0, 'int') },
-            { label: 'Показы РК', value: _fmtKpi(kpi.ad_impressions || 0, 'int') },
-            { label: 'Клики РК', value: _fmtKpi(kpi.ad_clicks || 0, 'int') },
-            { label: 'Переходы', value: _fmtKpi(kpi.clicks || 0, 'int') },
             { label: 'Продажи', value: _fmtKpi(kpi.sales_count || 0, 'int') },
-            { label: 'Сумма', value: money.moneySomFmt },
+            { label: 'Сумма продаж', value: money.moneySomFmt, title: '≈ $' + money.moneyUsd },
+            { label: 'К выводу', value: Math.round(kpi.to_withdraw || 0).toLocaleString('ru'), title: 'Как «Итого к оплате» в отчётах реализации WB' },
             { label: 'Прибыль', value: _fmtKpi(kpi.profit, 'som'), cls: profitCls },
             { label: 'Маржа', value: _fmtKpi(kpi.margin_pct, 'pct'), cls: marginCls },
             { label: 'ДРР', value: _fmtKpi(kpi.drr_pct, 'pct') },
-            { label: 'К переч.', value: Math.round((kpi.to_transfer || 0) * er).toLocaleString('ru') },
+            { label: 'Баланс WB', value: kpi.wb_balance == null ? '—' : Math.round(kpi.wb_balance).toLocaleString('ru'), title: 'Баланс продавца WB на конец последнего сохранённого дня' },
         ];
         return `<div class="rnp-general-metrics">
           <div class="rnp-general-art-count">${active.length} арт.</div>
           ${items.map(it => {
             const bCls = it.cls ? ` class="${it.cls}"` : '';
-            return `<div class="rnp-cabinet-kpi-pill rnp-general-metric-pill">
+            return `<div class="rnp-cabinet-kpi-pill rnp-general-metric-pill"${it.title ? ` title="${it.title}"` : ''}>
               <span>${it.label}</span><b${bCls}>${it.value}</b>
             </div>`;
           }).join('')}
