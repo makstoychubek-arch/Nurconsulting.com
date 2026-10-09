@@ -1497,9 +1497,14 @@ assert.ok(
     !/insert\(\{\s*email: space\.email/.test(adminSpaceSrc),
     'activating a client must not grant access to other cabinets'
 );
+// Права сотрудника выдаются только явным действием владельца (set_staff / activate с as_staff), в одном месте.
 assert.ok(
-    !/from\('(team_staff|allowed_users)'\)\s*\.\s*(insert|upsert)/.test(adminSpaceSrc),
-    'admin-space must never write to team_staff/allowed_users'
+    !/from\('allowed_users'\)\s*\.\s*(insert|upsert)/.test(adminSpaceSrc) &&
+    (adminSpaceSrc.match(/from\('team_staff'\)\s*\.\s*(insert|upsert)/g) || []).length === 1 &&
+    /async function setStaff[\s\S]*?from\('team_staff'\)\.upsert/.test(adminSpaceSrc) &&
+    adminSpaceSrc.includes('body.as_staff === true') &&
+    !/if \(action === 'activate'\)[\s\S]{0,400}setStaff\(admin, space\.email, true\)[\s\S]{0,40}\n\s*const tokensMoved/.test(adminSpaceSrc.replace(/if \(body\.as_staff === true\) \{[\s\S]*?\n            \}\n/, '')),
+    'admin-space grants staff only through the explicit set_staff / as_staff action'
 );
 {
     const delSrc = fs.readFileSync(path.join(__dirname, 'supabase/functions/delete-user/index.ts'), 'utf8');
