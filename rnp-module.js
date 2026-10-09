@@ -2387,14 +2387,22 @@ const RNP = (() => {
         return _notePopEl;
     }
 
-    function _noteImgHtml(url) {
-        const u = String(url || '');
-        return /^https:\/\//.test(u) ? `<a href="${_noteEsc(u)}" target="_blank" rel="noopener"><img class="rnp-note-thumb" src="${_noteEsc(u)}" alt=""></a>` : '';
+    // В поле image_url несколько фото лежат через перевод строки (старые заметки с одним фото читаются как есть).
+    const _NOTE_MAX_IMGS = 4;
+    function _noteImgList(val) {
+        return String(val || '').split(/\s+/).filter(u => /^https:\/\//.test(u));
+    }
+    function _noteImgHtml(val) {
+        return _noteImgList(val).map(u => `<a href="${_noteEsc(u)}" target="_blank" rel="noopener"><img class="rnp-note-thumb" src="${_noteEsc(u)}" alt=""></a>`).join('');
     }
 
     // Фото к заметке: сжимаем до 1600 px и кладём в bucket rnp-note-images (папка = кабинет).
     async function _noteUpload(file, nm, date) {
-        const bmp = await createImageBitmap(file);
+        let bmp;
+        try { bmp = await createImageBitmap(file); }
+        catch (_) { // запасной путь для форматов, которые createImageBitmap не берёт
+            bmp = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = () => rej(new Error('формат фото не поддерживается, сохраните как JPG или PNG')); im.src = URL.createObjectURL(file); });
+        }
         const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
         const cv = document.createElement('canvas');
         cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k);
@@ -2444,30 +2452,36 @@ const RNP = (() => {
         _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y} · комментарий</div>
           <textarea class="rnp-note-pop-edit" rows="4" maxlength="2000" placeholder="Что произошло в этот день. Фото: Ctrl+V или значок ниже">${_noteEsc(entry.text)}</textarea>
           <div class="rnp-note-pop-img" data-note-img></div>
-          <div class="rnp-note-pop-actions"><button type="button" class="rnp-note-photo-btn" data-note-photo title="Добавить фото (или вставьте Ctrl+V)" aria-label="Добавить фото"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg></button><input type="file" accept="image/*" hidden data-note-file><span style="flex:1"></span><button type="button" class="ui-btn ui-btn-secondary" data-note-cancel>Отмена</button><button type="button" class="ui-btn ui-btn-primary" data-note-save>Сохранить</button></div>
+          <div class="rnp-note-pop-actions"><button type="button" class="rnp-note-photo-btn" data-note-photo title="Добавить фото (или вставьте Ctrl+V)" aria-label="Добавить фото"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg></button><input type="file" accept="image/*" multiple hidden data-note-file><span style="flex:1"></span><button type="button" class="ui-btn ui-btn-secondary" data-note-cancel>Отмена</button><button type="button" class="ui-btn ui-btn-primary" data-note-save>Сохранить</button></div>
           ${hist ? `<div class="rnp-note-pop-hist">${hist}</div>` : ''}`;
         _placeNotePop(input);
         const ta = _notePopEl.querySelector('textarea');
         ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
-        let imgUrl = entry.image || '', imgFile = null, imgPrev = '';
+        // Фото заметки: уже сохранённые (url) и новые (file + превью), всего не больше _NOTE_MAX_IMGS.
+        let imgs = _noteImgList(entry.image).map(url => ({ url }));
         const imgBox = _notePopEl.querySelector('[data-note-img]');
         const paintImg = () => {
-            const src = imgPrev || imgUrl;
-            imgBox.innerHTML = src ? `<span class="rnp-note-img-wrap"><img class="rnp-note-thumb" src="${_noteEsc(src)}" alt=""><button type="button" data-note-img-del aria-label="Убрать фото">×</button></span>` : '';
+            imgBox.innerHTML = imgs.map((it, i) => `<span class="rnp-note-img-wrap"><img class="rnp-note-thumb" src="${_noteEsc(it.prev || it.url)}" alt=""><button type="button" data-note-img-del="${i}" aria-label="Убрать фото">×</button></span>`).join('');
         };
-        const setFile = (f) => {
-            if (!f || !/^image\//.test(f.type)) return;
-            imgFile = f; if (imgPrev) URL.revokeObjectURL(imgPrev);
-            imgPrev = URL.createObjectURL(f); paintImg();
+        const addFiles = (files) => {
+            for (const f of [...(files || [])]) {
+                if (!f || !/^image\//.test(f.type)) continue;
+                if (imgs.length >= _NOTE_MAX_IMGS) {
+                    window.NrNotify?.push?.({ title: 'Не больше ' + _NOTE_MAX_IMGS + ' фото', key: 'rnp-note-img-max' });
+                    break;
+                }
+                imgs.push({ file: f, prev: URL.createObjectURL(f) });
+            }
+            paintImg();
         };
         paintImg();
         ta.addEventListener('paste', (ev) => {
-            const it = [...(ev.clipboardData?.items || [])].find(i => i.type.startsWith('image/'));
-            if (it) { ev.preventDefault(); setFile(it.getAsFile()); }
+            const files = [...(ev.clipboardData?.items || [])].filter(i => i.type.startsWith('image/')).map(i => i.getAsFile());
+            if (files.length) { ev.preventDefault(); addFiles(files); }
         });
         _notePopEl.ondragover = (ev) => ev.preventDefault();
-        _notePopEl.ondrop = (ev) => { ev.preventDefault(); setFile(ev.dataTransfer?.files?.[0]); };
-        _notePopEl.querySelector('[data-note-file]').onchange = (ev) => setFile(ev.target.files[0]);
+        _notePopEl.ondrop = (ev) => { ev.preventDefault(); addFiles(ev.dataTransfer?.files); };
+        _notePopEl.querySelector('[data-note-file]').onchange = (ev) => { addFiles(ev.target.files); ev.target.value = ''; };
         const close = async (save) => {
             if (!_noteEditing) return;
             _noteEditing = false;
@@ -2475,8 +2489,14 @@ const RNP = (() => {
             const val = ta.value;
             _notePopEl.classList.remove('is-open', 'is-edit');
             if (save) {
-                try { if (imgFile) imgUrl = await _noteUpload(imgFile, nm, date); }
-                catch (e) { console.warn('[RNP] note image:', e.message); window.NrNotify?.push?.({ title: 'Фото не загрузилось', detail: e.message, key: 'rnp-note-img' }); }
+                const urls = [];
+                for (const it of imgs) {
+                    if (it.url) { urls.push(it.url); continue; }
+                    try { urls.push(await _noteUpload(it.file, nm, date)); }
+                    catch (e) { console.warn('[RNP] note image:', e.message); window.NrNotify?.push?.({ title: 'Фото не загрузилось', detail: e.message, key: 'rnp-note-img' }); }
+                }
+                imgs.forEach(it => it.prev && URL.revokeObjectURL(it.prev));
+                const imgUrl = urls.join('\n');
                 await saveNote(nm, date, val, imgUrl);
                 const cell = document.querySelector(`.rnp-note-input[data-nm="${nm}"][data-date="${date}"]`);
                 if (cell) {
@@ -2490,7 +2510,7 @@ const RNP = (() => {
         document.addEventListener('mousedown', outside, true);
         _notePopEl.onclick = (ev) => {
             if (ev.target.closest('[data-note-photo]')) _notePopEl.querySelector('[data-note-file]').click();
-            else if (ev.target.closest('[data-note-img-del]')) { imgUrl = ''; imgFile = null; imgPrev = ''; paintImg(); }
+            else if (ev.target.closest('[data-note-img-del]')) { imgs.splice(Number(ev.target.closest('[data-note-img-del]').getAttribute('data-note-img-del')), 1); paintImg(); }
             else if (ev.target.closest('[data-note-save]')) close(true);
             else if (ev.target.closest('[data-note-cancel]')) close(false);
         };
