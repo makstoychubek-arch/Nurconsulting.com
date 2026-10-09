@@ -3243,7 +3243,7 @@ const RNP = (() => {
         const R = rows.map(x => {
             const o = {};
             Object.keys(x).forEach(k => { o[k] = typeof x[k] === 'string' && k !== 'art' && k !== 'category' ? Number(x[k]) : x[k]; });
-            ['orders', 'orders_sum', 'sales', 'returns', 'cancels', 'to_transfer', 'delivery', 'storage', 'penalty', 'clicks', 'baskets', 'ad_spend', 'ad_views', 'ad_clicks', 'stock', 'cost']
+            ['orders', 'orders_sum', 'sales', 'returns', 'cancels', 'to_transfer', 'realization', 'delivery', 'storage', 'penalty', 'clicks', 'baskets', 'ad_spend', 'ad_views', 'ad_clicks', 'stock', 'cost']
                 .forEach(k => { o[k] = Number(o[k]) || 0; });
             o.profit = o.to_transfer - o.delivery - o.storage - o.penalty - o.ad_spend - Math.max(0, o.sales - o.returns) * o.cost;
             o.rate = days > 0 ? o.orders / days : 0;
@@ -3258,7 +3258,7 @@ const RNP = (() => {
         const S = (k, f) => R.filter(f || (() => true)).reduce((x, o) => x + o[k], 0);
         const tr = S('to_transfer'), profit = S('profit'), ads = S('ad_spend'), os = S('orders_sum');
         const deliv = S('delivery'), sales = S('sales'), can = S('cancels'), ret = S('returns');
-        const realiz = R.reduce((x, o) => x + Math.max(0, o.to_transfer), 0) || 1;
+        const realiz = S('realization') || S('to_transfer') || 1;
         const cl = (v, bad, good) => Math.max(0, Math.min(100, (v - bad) / (good - bad) * 100));
         const margin = tr > 0 ? profit / tr * 100 : 0;
         const profShare = tr > 0 ? S('to_transfer', o => o.profit > 0) / tr * 100 : 0;
@@ -3275,7 +3275,7 @@ const RNP = (() => {
             { key: 'money', name: 'Деньги', w: 30, s: (cl(margin, 0, 20) + cl(profShare, 50, 95)) / 2, d: `маржа ${_ghPct(margin)}; ${Math.round(profShare)}% выручки — с прибыльных` },
             { key: 'cards', name: 'Карточки', w: 15, s: (cl(c2b, 3, 10) + cl(ctr, 1, 4)) / 2, d: `в корзину ${_ghPct(c2b)}; CTR рекламы ${_ghPct(ctr)}` },
             { key: 'ads', name: 'Реклама', w: 15, s: (cl(drr, 20, 5) + cl(adsLoss, 50, 0)) / 2, d: `ДРР ${_ghPct(drr)}; ${Math.round(adsLoss)}% рекламы — на убыточные` },
-            { key: 'buy', name: 'Выкуп и логистика', w: 20, s: (cl(buy, 15, 50) + cl(logP, 35, 15)) / 2, d: `выкуп ${Math.round(buy)}%; логистика ${Math.round(logP)}% к перечислению` },
+            { key: 'buy', name: 'Выкуп и логистика', w: 20, s: (cl(buy, 15, 50) + cl(logP, 35, 15)) / 2, d: `выкуп ${Math.round(buy)}%; логистика ${Math.round(logP)}% выручки` },
             { key: 'stock', name: 'Запасы', w: 20, s: (cl(lost, 30, 0) + cl(over, 60, 10)) / 2, d: `${Math.round(over)}% остатков — запас больше 90 дней` },
         ];
         pillars.forEach(p => { p.s = Math.round(p.s); });

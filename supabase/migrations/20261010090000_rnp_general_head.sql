@@ -92,11 +92,12 @@ $$;
 revoke all on function public.rnp_logistics_split(uuid, date, date, bigint[]) from public, anon;
 grant execute on function public.rnp_logistics_split(uuid, date, date, bigint[]) to authenticated, service_role;
 
+drop function if exists public.rnp_cabinet_health(uuid, date, date);
 create or replace function public.rnp_cabinet_health(p_cabinet uuid, p_from date, p_to date)
 returns table (
     nm_id bigint, art text, category text, is_active boolean, cost numeric,
     orders integer, orders_sum numeric, sales integer, returns integer, cancels integer,
-    to_transfer numeric, delivery numeric, storage numeric, penalty numeric,
+    to_transfer numeric, realization numeric, delivery numeric, storage numeric, penalty numeric,
     clicks integer, baskets integer, ad_spend numeric, ad_views numeric, ad_clicks numeric, stock integer
 )
 language sql stable security invoker set search_path = public
@@ -108,7 +109,7 @@ as $$
         from rnp_articles a where a.cabinet_id = p_cabinet::text
     ), d as (
         select r.nm_id, sum(r.orders_count) ord, sum(r.orders_sum) os, sum(r.sales_count) sales, sum(r.returns_count) ret,
-               sum(r.cancels_count) can, sum(r.to_transfer) tr, sum(r.delivery_sum) dl, sum(r.storage_sum) st,
+               sum(r.cancels_count) can, sum(r.to_transfer) tr, sum(r.realization) rl, sum(r.delivery_sum) dl, sum(r.storage_sum) st,
                sum(r.penalty_sum) pen, sum(r.clicks) clk, sum(r.basket_count) bsk
         from rnp_daily_data r
         where r.cabinet_id = p_cabinet::text and r.date between p_from and p_to
@@ -129,7 +130,7 @@ as $$
     )
     select v.nm_id, v.art, v.category, v.is_active, v.cost,
            coalesce(d.ord, 0)::int, round(coalesce(d.os, 0), 2), coalesce(d.sales, 0)::int, coalesce(d.ret, 0)::int,
-           coalesce(d.can, 0)::int, round(coalesce(d.tr, 0), 2), round(coalesce(d.dl, 0), 2), round(coalesce(d.st, 0), 2),
+           coalesce(d.can, 0)::int, round(coalesce(d.tr, 0), 2), round(coalesce(d.rl, 0), 2), round(coalesce(d.dl, 0), 2), round(coalesce(d.st, 0), 2),
            round(coalesce(d.pen, 0), 2), coalesce(d.clk, 0)::int, coalesce(d.bsk, 0)::int,
            round(coalesce(ad.s, 0), 2), coalesce(ad.vw, 0), coalesce(ad.cl, 0), coalesce(st.qty, 0)::int
     from v
