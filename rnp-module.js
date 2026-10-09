@@ -227,6 +227,10 @@ const RNP = (() => {
             { key: 'margin_pct',         label: 'Маржинальность %',                 type: 'pct',  src: 'calc',  bold: true, hm: 'margin' },
             { key: 'roi_pct',            label: 'Рентабельность %',                 type: 'pct',  src: 'calc',  bold: true },
         ]},
+        { id: 'balance', label: 'Баланс WB', color: '#0ea5e9', rows: [
+            { key: 'wb_balance',         label: 'Баланс WB (итого)',                type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
+            { key: 'wb_for_withdraw',    label: 'Доступно к выводу',                type: 'som',  src: 'auto',  cabinetOnly: true },
+        ]},
     ];
 
     /** Как на карточке WB: буквы канонизируем, цифры (36, 40) не переводим в XXS–5XL. */
@@ -2644,6 +2648,8 @@ const RNP = (() => {
         penalty_sum: ['Штрафы', 'Штрафы WB из финотчёта.'],
         storage_sum: ['Хранение (сверено)', 'Платное хранение WB; детальный отчёт сверен с финотчётом. Нажми на название — снизу FBS и FBO (на складе продавца WB хранение не берёт, поэтому FBS = 0).'],
         acceptance_sum: ['Обработка товара (WB)', 'Стоимость обработки товара из ежедневного отчёта реализации WB (по кабинету).'],
+        wb_balance: ['Баланс WB (итого)', 'Баланс продавца WB на конец дня (виджет «Баланс» на главной странице кабинета). Снимок записывается раз в сутки и дальше не меняется; история копится с первого дня записи.'],
+        wb_for_withdraw: ['Доступно к выводу', 'Сколько из баланса можно вывести на конец дня.'],
         to_withdraw: ['К выводу', 'Как «Итого к оплате» в отчёте реализации WB: к перечислению − доставка − хранение − обработка − штрафы − прочие удержания. Считается по всему кабинету.'],
         deduction_sum: ['Прочие удержания', 'Удержания WB по артикулу из финотчёта (реклама WB на уровне кабинета сюда не входит).'],
         cost_price_val: ['Себестоимость', '(Продажи − возвраты) × себестоимость единицы из карточки артикула.'],
@@ -5255,6 +5261,8 @@ const RNP = (() => {
         m.deduction_sum = n(t.deduction);
         m.acceptance_sum = n(t.acceptance);
         m.to_withdraw = n(t.to_withdraw);
+        m.wb_balance = t.balance_current == null ? null : n(t.balance_current);
+        m.wb_for_withdraw = t.balance_for_withdraw == null ? null : n(t.balance_for_withdraw);
         if (n(t.ad_spend) > 0) m.ad_spend = n(t.ad_spend);
         m.to_transfer_unit = m.sales_count > 0 ? m.to_transfer / m.sales_count : 0;
         m.logistics_pct = m.realization > 0 ? m.delivery_sum / m.realization * 100 : 0;
@@ -5291,7 +5299,14 @@ const RNP = (() => {
 
     function _cabinetAggWeek(active, dates) {
         const daily = dates.map(d => _cabinetDayDerived(active, d)).filter(Boolean);
-        return _mergeDerivedMetrics(daily);
+        const agg = _mergeDerivedMetrics(daily);
+        if (agg) {
+            // Баланс не суммируется: за период берём последний сохранённый на конец периода.
+            const last = [...daily].reverse().find(x => x.wb_balance != null);
+            agg.wb_balance = last ? last.wb_balance : null;
+            agg.wb_for_withdraw = last ? last.wb_for_withdraw : null;
+        }
+        return agg;
     }
 
     function _cabinetPeriodSummary(active, cal) {
@@ -6965,6 +6980,7 @@ const RNP = (() => {
     }
 
     function _renderSection(sec, cols, art, firstDayIdx) {
+        if (!_sectionRows(sec, art).length) return '';
         const key = `${art.nm_id}:${sec.id}`;
         const collapsed = _collapsedSections.has(key);
         const arrow = collapsed ? '▸' : '▾';
@@ -6976,6 +6992,7 @@ const RNP = (() => {
         if (collapsed && !sec.noHeader) return hdr;
         if (collapsed && sec.noHeader) return '';
 
+        if (!_sectionRows(sec, art).length) return '';
         const daySeries = cols.filter(c => (c.type === 'day' || c.type === 'month') && !c.isFuture);
 
         const rows = _sectionRows(sec, art).map(m => {
@@ -7036,7 +7053,8 @@ const RNP = (() => {
                 // Будущие дни: фактов ещё нет, поэтому ни нулей, ни процентов не рисуем.
                 // Ручные поля (конкуренты, раздачи) без значения показываем пустыми, а не 0.
                 const manualEmpty = (m.competitor || m.key === 'giveaways') && !(Number(val) > 0);
-                const str = (isFuture || manualEmpty) ? '' : (financePending ? '—' : _fmt(val, m.type));
+                const noBalance = (m.key === 'wb_balance' || m.key === 'wb_for_withdraw') && val == null;
+                const str = (isFuture || manualEmpty) ? '' : ((financePending || noBalance) ? '—' : _fmt(val, m.type));
                 const cc  = (m.hm && !scaleFn) ? _cellColor(val, m.hm) : (m.cl ? _cellColor(val, m.cl === 'planStrong' ? 'planStrong' : 'plan') : '');
                 let style = sticky.style || '';
                 if (cc === 'rnp-green')  style += (style ? ';' : '') + 'background:#93c47d;color:#274e13';
@@ -7072,7 +7090,13 @@ const RNP = (() => {
                 const liveTitle = fbsHint || (isLiveToday
                     ? ' title="Сегодня — предварительные данные, ещё обновляются"'
                     : (financePending ? ' title="Финансовый отчёт WB придёт после закрытия дня"' : ''));
-                return `<td class="${cls}${liveCls}${hitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${_fitNum(str ?? '')}</td>`;
+                const dedKind = (art.nm_id === -1 && (m.key === 'deduction_sum' || m.key === 'penalty_sum') && Number(val) > 0 && !isFuture)
+                    ? (m.key === 'penalty_sum' ? 'penalty' : 'deduction') : '';
+                const dedDates = dedKind ? (col.dates && col.dates.length ? col.dates : [col.colKey]) : [];
+                const cellHtml = dedKind
+                    ? `<span class="rnp-ded-link" title="Показать причину" onclick="RNP.openDeductions('${dedDates[0]}','${dedDates[dedDates.length - 1]}','${dedKind}')">${_fitNum(str ?? '')}</span>`
+                    : _fitNum(str ?? '');
+                return `<td class="${cls}${liveCls}${hitCls} ${colWCls}${sticky.cls}"${style ? ` style="${style}"` : ''}${liveTitle}${dataAttr}>${cellHtml}</td>`;
             }).join('');
             const rowCls = [
                 m.isPlan ? 'rnp-row-plan' : '',
@@ -7891,6 +7915,38 @@ const RNP = (() => {
         if (btn) { btn.disabled = false; }
     }
 
+    // Причины удержаний/штрафов за период: строки финотчёта WB («Оказание услуг WB Продвижение, документ №…»).
+    async function openDeductions(from, to, kind) {
+        if (!_db || !_cab) return;
+        const title = kind === 'penalty' ? 'Штрафы WB' : 'Прочие удержания WB';
+        const period = from === to ? from.split('-').reverse().join('.') : `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
+        const esc = (v) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        let ov = document.getElementById('rnp-ded-overlay');
+        if (ov) ov.remove();
+        ov = document.createElement('div');
+        ov.id = 'rnp-ded-overlay';
+        ov.className = 'rnp-ded-overlay';
+        ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+        ov.innerHTML = `<div class="rnp-ded-box"><div class="rnp-ded-head"><b>${title}</b><span>${period}</span>
+            <button type="button" class="rnp-ded-x" onclick="document.getElementById('rnp-ded-overlay').remove()">×</button></div>
+            <div class="rnp-ded-body">Загрузка…</div></div>`;
+        document.body.appendChild(ov);
+        const body = ov.querySelector('.rnp-ded-body');
+        try {
+            const { data, error } = await _db.rpc('rnp_cabinet_deductions', { p_cabinet: _cab, p_from: from, p_to: to, p_kind: kind || 'deduction' });
+            if (error) throw error;
+            const rows = data || [];
+            if (!rows.length) { body.textContent = 'За этот период в финотчёте WB таких строк нет.'; return; }
+            const total = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
+            body.innerHTML = `<table class="rnp-ded-table"><thead><tr><th>Дата</th><th>Причина</th><th>Сумма</th></tr></thead><tbody>${
+                rows.map(r => `<tr><td>${esc(String(r.d).split('-').reverse().join('.'))}</td><td>${esc(r.reason)}${r.cnt > 1 ? ` <i>× ${r.cnt}</i>` : ''}</td><td class="num">${Number(r.amount).toLocaleString('ru')}</td></tr>`).join('')
+            }</tbody><tfoot><tr><td colspan="2">Итого</td><td class="num">${total.toLocaleString('ru')}</td></tr></tfoot></table>
+            <p class="rnp-ded-note">Сам документ можно найти в кабинете WB: Финансы → Документы, по номеру из причины.</p>`;
+        } catch (e) {
+            body.textContent = 'Не удалось загрузить: ' + (e?.message || e);
+        }
+    }
+
     async function toggleSection(nmId, sectionId) {
         const key = `${nmId}:${sectionId}`;
         if (_collapsedSections.has(key)) _collapsedSections.delete(key);
@@ -8038,7 +8094,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();

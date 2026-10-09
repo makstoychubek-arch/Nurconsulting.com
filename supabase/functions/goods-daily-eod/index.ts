@@ -3,6 +3,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
+import { snapshotWbBalances } from '../_shared/wb-balance.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -18,6 +19,15 @@ Deno.serve(async (req) => {
     if (!isServiceAuthorized(req, serviceKey)) return json({ error: 'Unauthorized' }, 401);
 
     const admin = createClient(supabaseUrl, serviceKey);
+
+    // Баланс WB на конец закрытого дня (вчера по МСК). Тело { only: 'balance', date?, cabinet_id? } — только баланс.
+    const reqBody = await req.json().catch(() => ({} as Record<string, unknown>));
+    const mskYesterday = new Date(Date.now() + 3 * 3600_000 - 24 * 3600_000).toISOString().slice(0, 10);
+    const balanceDate = typeof reqBody?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(reqBody.date) ? reqBody.date : mskYesterday;
+    const balance = await snapshotWbBalances(admin, balanceDate, (reqBody?.cabinet_id as string) || null)
+        .catch((e) => [{ cabinet: '*', status: 'error', error: String(e?.message || e) }]);
+    if (reqBody?.only === 'balance') return json({ ok: true, date: balanceDate, balance });
+
     const stocks = await fetch(`${supabaseUrl}/functions/v1/auto-sync`, {
         method: 'POST',
         headers: {
@@ -42,6 +52,7 @@ Deno.serve(async (req) => {
     return json({
         ok: true,
         snap,
+        balance: { date: balanceDate, results: balance },
         stocks: { cabinets: Array.isArray(stocksBody?.results) ? stocksBody.results.length : 0 },
         ms: Date.now() - started,
     });
