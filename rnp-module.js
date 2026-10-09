@@ -2722,7 +2722,7 @@ const RNP = (() => {
         acquiring_sum: ['Эквайринг', 'Комиссия за приём платежей (acquiring_fee) по продажам минус возвраты. Уже вычтена в «К перечислению».'],
         compensation_sum: ['Компенсации WB (плюс)', 'Добровольные компенсации при возврате. Входят в «К перечислению».'],
         additional_sum: ['Доплаты WB (плюс)', 'Дополнительные выплаты WB из финотчёта; прибавляются при расчёте «К выводу».'],
-        to_withdraw: ['К выводу', 'Как «Итого к оплате» в отчёте реализации WB: к перечислению + доплаты − доставка − хранение − обработка − штрафы − прочие удержания. Считается по всему кабинету.'],
+        to_withdraw: ['К выводу', 'По всему кабинету, как «Итого к оплате» в отчёте реализации WB: к перечислению + доплаты − доставка − хранение − обработка − штрафы − прочие удержания. Считается по всему кабинету.'],
         deduction_sum: ['Прочие удержания', 'Удержания WB по артикулу из финотчёта (реклама WB на уровне кабинета сюда не входит).'],
         cost_price_val: ['Себестоимость', '(Продажи − возвраты) × себестоимость единицы из карточки артикула.'],
         profit: ['Прибыль', 'К перечислению − логистика − хранение − штрафы − удержания − себестоимость − расход РК − прочие расходы. Всё в сомах.'],
@@ -3063,50 +3063,6 @@ const RNP = (() => {
         return Math.round(_articleMoneyRub(kpi)); // уже в сомах
     }
 
-    function _sumArticlesMoney(active, cal) {
-        let totalSom = 0;
-        (active || []).forEach(art => {
-            const rawData = _dataCache[art.nm_id] || {};
-            const kpi = _periodSummary(art, rawData, cal);
-            totalSom += _articleMoneySom(kpi);
-        });
-        const usdRate = _settings.usdRate || 87.5;
-        const moneyUsd = totalSom > 0
-            ? (totalSom / usdRate).toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 3 })
-            : '0';
-        return {
-            moneySom: totalSom,
-            moneyUsd,
-            moneySomFmt: totalSom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
-        };
-    }
-
-    function _buildGeneralMetricsStrip(active, cal) {
-        const kpi = _cabinetPeriodSummary(active, cal);
-        const er = 1; // суммы уже в сомах
-        const money = _sumArticlesMoney(active, cal);
-        const profitCls = (kpi.profit || 0) >= 0 ? 'pos' : 'neg';
-        const marginCls = (kpi.margin_pct || 0) >= 15 ? 'pos' : ((kpi.margin_pct || 0) < 5 ? 'neg' : '');
-        const items = [
-            { label: 'Заказы', value: _fmtKpi(kpi.orders_count || 0, 'int') },
-            { label: 'Продажи', value: _fmtKpi(kpi.sales_count || 0, 'int') },
-            { label: 'Сумма продаж', value: money.moneySomFmt, title: '≈ $' + money.moneyUsd },
-            { label: 'К выводу', value: Math.round(kpi.to_withdraw || 0).toLocaleString('ru'), title: 'Как «Итого к оплате» в отчётах реализации WB' },
-            { label: 'Прибыль', value: _fmtKpi(kpi.profit, 'som'), cls: profitCls },
-            { label: 'Маржа', value: _fmtKpi(kpi.margin_pct, 'pct'), cls: marginCls },
-            { label: 'ДРР', value: _fmtKpi(kpi.drr_pct, 'pct') },
-            { label: 'Баланс WB', value: kpi.wb_balance == null ? '—' : Math.round(kpi.wb_balance).toLocaleString('ru'), title: 'Баланс продавца WB на конец последнего сохранённого дня' },
-        ];
-        return `<div class="rnp-general-metrics">
-          <div class="rnp-general-art-count">${active.length} арт.</div>
-          ${items.map(it => {
-            const bCls = it.cls ? ` class="${it.cls}"` : '';
-            return `<div class="rnp-cabinet-kpi-pill rnp-general-metric-pill"${it.title ? ` title="${it.title}"` : ''}>
-              <span>${it.label}</span><b${bCls}>${it.value}</b>
-            </div>`;
-          }).join('')}
-        </div>`;
-    }
 
     // Слайд-шоу главных фото всех артикулов — такого же размера, как галерея в артикуле. Клик открывает артикул.
     function _buildGeneralTopGallery(active) {
@@ -3122,58 +3078,461 @@ const RNP = (() => {
         </div></div></div>`;
     }
 
-    // Остатки на «Общем»: два кольца — FBO/FBS по всему кабинету и доля каждого артикула в остатке (без размеров).
-    const _DONUT_COLORS = ['#7B61FF', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#94A3B8'];
+    // ─── «Общий»: шапка (прибыль, баланс, состояние кабинета, кружки, списки) ──────────
+    // Прибыль, кружки и списки — только по включённым артикулам (видимые на панели групп).
+    // Баланс и выплаты — по всему кабинету. «Состояние кабинета» — по всем артикулам кабинета.
+    let _ghHealth = null;   // строки rnp_cabinet_health за период
+    let _ghLogi = null;     // логистика по причинам (включённые)
+    let _ghPayouts = null;  // недели «Итого к оплате»
+    let _ghBalance = null;  // последний снимок баланса
+    let _ghKey = '';
+    let _ghLoading = null;
 
-    function _donutRing(segs, total, label) {
-        const rOut = 46, rIn = 29, cx = 50, cy = 50;
-        let acc = 0;
-        const paths = total > 0 ? segs.filter(x => x.v > 0).map(x => {
-            const start = acc / total * 100;
-            acc += x.v;
-            const d = _donutSlicePath(start, acc / total * 100, rOut, rIn, cx, cy);
-            return d ? `<path d="${d}" fill="${x.c}"><title>${_noteEsc(x.name)}: ${x.v} шт</title></path>` : '';
-        }).join('') : `<circle cx="${cx}" cy="${cy}" r="37" fill="none" stroke="var(--border)" stroke-width="16"></circle>`;
-        return `<div class="rnp-gdonut-chart"><svg viewBox="0 0 100 100" aria-label="${label}">${paths}</svg>
-          <div class="rnp-gdonut-center"><b>${total}</b><span>шт</span></div></div>`;
+    const GH_COLORS = ['#7B61FF', '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#94A3B8'];
+    const _ghEsc = (t) => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const _ghNum = (v) => Math.round(Number(v) || 0).toLocaleString('ru');
+    const _ghPct = (v, d = 1) => (Number(v) || 0).toFixed(d).replace('.', ',') + '%';
+    const _ghDate = (iso) => String(iso || '').slice(0, 10).split('-').reverse().slice(0, 2).join('.');
+
+    function _ghPeriod(cal) {
+        const today = cal?.todayStr || _wbTodayStr();
+        const dates = _calAllDates(cal).filter(d => d <= today);
+        return { from: dates[0], to: dates[dates.length - 1], days: dates.length, dates };
     }
 
-    function _buildGeneralStockDonuts(active) {
-        const rows = active.map(a => {
-            const t = _schemeWhTotals(_stockCache[a.nm_id] || {});
-            return { name: _sellerArticle(a), fbo: t.fbo, fbs: t.fbs, total: t.total };
-        }).filter(r => r.total > 0);
-        if (!rows.length) return '';
-        const fbo = rows.reduce((x, r) => x + r.fbo, 0);
-        const fbs = rows.reduce((x, r) => x + r.fbs, 0);
-        const total = fbo + fbs;
-        const pct = _schemePercents(fbo, fbs);
-        const sorted = [...rows].sort((a, b) => b.total - a.total);
-        const top = sorted.slice(0, 5);
-        const restV = sorted.slice(5).reduce((x, r) => x + r.total, 0);
-        const segs = top.map((r, i) => ({ name: r.name, v: r.total, c: _DONUT_COLORS[i] }));
-        if (restV > 0) segs.push({ name: 'Остальные', v: restV, c: _DONUT_COLORS[5] });
-        const leg = segs.map(x => `<div class="rnp-gdonut-leg"><i style="background:${x.c}"></i><span>${_noteEsc(x.name)}</span><b>${Math.round(x.v / total * 100)}%</b></div>`).join('');
-        return `<div class="rnp-general-donuts">
-          <div class="rnp-gdonut">
-            ${_donutRing([{ name: 'FBO · склад WB', v: fbo, c: 'var(--rnp-fbo, #7B61FF)' }, { name: 'FBS · склад продавца', v: fbs, c: 'var(--rnp-fbs, #3B82F6)' }], total, 'Остатки FBO и FBS')}
-            <div class="rnp-gdonut-legend">
-              <div class="rnp-gdonut-leg"><i style="background:var(--rnp-fbo,#7B61FF)"></i><span>FBO</span><b>${pct.fbo}%</b><em>${fbo} шт</em></div>
-              <div class="rnp-gdonut-leg"><i style="background:var(--rnp-fbs,#3B82F6)"></i><span>FBS</span><b>${pct.fbs}%</b><em>${fbs} шт</em></div>
-            </div>
-          </div>
-          <div class="rnp-gdonut">
-            ${_donutRing(segs, total, 'Остатки по артикулам')}
-            <div class="rnp-gdonut-legend">${leg}</div>
-          </div>
-        </div>`;
+    async function _loadGeneralHead(cal) {
+        if (!_db || !_cab) return;
+        const per = _ghPeriod(cal);
+        if (!per.from) return;
+        const ids = _rnpVisibleArticles().map(a => Number(a.nm_id));
+        _ghKey = _generalKey(cal);
+        const cab = _cab;
+        const [h, l, p, b] = await Promise.all([
+            _db.rpc('rnp_cabinet_health', { p_cabinet: cab, p_from: per.from, p_to: per.to }),
+            _db.rpc('rnp_logistics_split', { p_cabinet: cab, p_from: per.from, p_to: per.to, p_nm_ids: ids }),
+            _db.rpc('rnp_cabinet_payouts', { p_cabinet: cab, p_weeks: 8 }),
+            _db.from('wb_balance_daily').select('date,current,for_withdraw').eq('cabinet_id', cab).order('date', { ascending: false }).limit(1),
+        ].map(q => Promise.resolve(q).catch(e => ({ error: e }))));
+        if (cab !== _cab) return;
+        _ghHealth = h?.error ? null : (h?.data || []);
+        _ghLogi = l?.error ? null : (l?.data || []);
+        _ghPayouts = p?.error ? null : (p?.data || []);
+        _ghBalance = b?.error ? null : ((b?.data || [])[0] || null);
+        [h, l, p, b].forEach(r => { if (r?.error) console.warn('[RNP] шапка «Общего»:', r.error.message || r.error); });
+    }
+
+    // Набор включённых изменился (выключили артикул или группу) — пересчитать итоги и шапку.
+    function _ensureGeneralFresh(cal) {
+        if (_ghLoading || !_db || !_cab) return;
+        const key = _generalKey(cal);
+        if (key === _ghKey && key === _cabTotalsKey) return;
+        _ghLoading = (async () => {
+            await _loadCabinetTotals(cal);
+            await _loadGeneralHead(cal);
+            _cabinetColsCacheKey = '';
+            _cabinetColsCacheVal = null;
+        })().finally(() => {
+            _ghLoading = null;
+            if (_activeNm === GENERAL_TAB) _renderActiveTable();
+        });
+    }
+
+    function _ghRing(segs, center, sub, size) {
+        const total = segs.reduce((x, s) => x + Math.max(0, s.v), 0);
+        let acc = 0;
+        const paths = total > 0 ? segs.filter(s => s.v > 0).map(s => {
+            const a0 = acc / total * 100;
+            acc += s.v;
+            const d = _donutSlicePath(a0, acc / total * 100, 46, 31, 50, 50);
+            const click = s.click ? ` onclick="${s.click}" style="cursor:pointer"` : '';
+            return d ? `<path d="${d}" fill="${s.c}"${click}><title>${_ghEsc(s.name)}</title></path>` : '';
+        }).join('') : '<circle cx="50" cy="50" r="38.5" fill="none" stroke="var(--border)" stroke-width="15"></circle>';
+        return `<div class="rnp-gh-ring" style="width:${size}px;height:${size}px"><svg viewBox="0 0 100 100">${paths}</svg>
+          <div class="rnp-gh-ring-c"><b>${center}</b><span>${sub}</span></div></div>`;
+    }
+
+    function _ghLegend(items) {
+        return `<div class="rnp-gh-leg">${items.map(it => `<div class="rnp-gh-leg-row"${it.click ? ` onclick="${it.click}"` : ''}>
+            <i style="background:${it.c}"></i><span title="${_ghEsc(it.full || it.name)}">${_ghEsc(it.name)}</span><b>${it.val}</b></div>`).join('')}</div>`;
+    }
+
+    function _ghInfoIcon(key, light) {
+        return `<span class="rnp-gh-i${light ? ' is-light' : ''}" onclick="event.stopPropagation();RNP.ghInfo(this,'${key}')">i</span>`;
+    }
+
+    const GH_INFO = {
+        profit: 'Прибыль по включённым артикулам за период: к перечислению − логистика − хранение − штрафы − обработка − реклама − себестоимость. Маржа — прибыль ÷ к перечислению. ДРР — реклама ÷ сумма заказов.',
+        balance: 'Баланс — сколько на счёте WB на конец последнего сохранённого дня (снимок раз в сутки). «К выводу в понедельник» — «Итого к оплате» недельного отчёта за закрытую неделю: WB выплачивает её в понедельник через неделю. Вторая строка — текущая неделя, она ещё набегает.',
+        health: 'Оценка 0–100 по всем артикулам кабинета, включая скрытые. Деньги (30%): маржа и доля выручки с прибыльных. Карточки (15%): конверсия в корзину и CTR рекламы. Реклама (15%): ДРР и доля рекламы на убыточных. Выкуп и логистика (20%): выкуп и логистика к выручке. Запасы (20%): товар, который скоро закончится, и залежи больше чем на 90 дней. 70+ — хорошо, 40–69 — средне, ниже — плохо.',
+        revenue: 'Реализация включённых артикулов и куда она ушла: комиссия и эквайринг WB, логистика, реклама, хранение и штрафы. «Остаётся» — до вычета себестоимости.',
+        logistics: 'Логистика из финотчёта WB по причинам. «К клиенту при отмене» — доставка заказов, от которых покупатель отказался.',
+        buyout: 'Заказы, которые покупатель выкупил, отказы и возвраты за период.',
+        cats: 'Остаток на складах WB и своих складах по категориям включённых артикулов.',
+        stock: 'Остаток на складе WB (FBO) и на своих складах (FBS).',
+        top: 'Самая высокая маржа среди включённых артикулов с продажами за период.',
+        loss: 'Включённые артикулы, у которых за период прибыль ниже нуля, и артикулы без продаж, но с расходами на хранение, рекламу или штрафы.',
+    };
+
+    function _ghInfo(el, key) {
+        document.querySelectorAll('.rnp-gh-pop').forEach(x => x.remove());
+        const txt = GH_INFO[key];
+        if (!txt || !el) return;
+        const pop = document.createElement('div');
+        pop.className = 'rnp-gh-pop';
+        pop.textContent = txt;
+        document.body.appendChild(pop);
+        const r = el.getBoundingClientRect();
+        const w = Math.min(320, window.innerWidth - 24);
+        pop.style.width = w + 'px';
+        pop.style.left = Math.max(12, Math.min(r.left - 10, window.innerWidth - w - 12)) + 'px';
+        pop.style.top = (r.bottom + window.scrollY + 6) + 'px';
+        setTimeout(() => {
+            const close = (e) => { if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('click', close, true); } };
+            document.addEventListener('click', close, true);
+        }, 0);
+    }
+
+    // Единая модалка сайта: размытый прозрачный фон, одна ширина, заголовок + крестик.
+    function _rnpModal(title, sub, bodyHtml) {
+        document.getElementById('rnp-modal')?.remove();
+        const ov = document.createElement('div');
+        ov.id = 'rnp-modal';
+        ov.className = 'rnp-plan-overlay';
+        ov.innerHTML = `<div class="rnp-plan-panel rnp-modal-panel" role="dialog" aria-modal="true">
+          <div class="rnp-plan-head"><div class="rnp-modal-titles"><div class="rnp-plan-title">${_ghEsc(title)}</div>${sub ? `<div class="rnp-modal-sub">${_ghEsc(sub)}</div>` : ''}</div>
+          <button type="button" class="rnp-plan-close" aria-label="Закрыть">×</button></div>
+          <div class="rnp-modal-body">${bodyHtml}</div></div>`;
+        const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+        const onKey = (e) => { if (e.key === 'Escape') close(); };
+        ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('.rnp-plan-close')) close(); });
+        document.addEventListener('keydown', onKey);
+        document.body.appendChild(ov);
+        return ov.querySelector('.rnp-modal-body');
+    }
+
+    function _ghKpis(items) {
+        return `<div class="rnp-modal-kpis">${items.map(([l, v, cls]) => `<div><span>${l}</span><b class="${cls || ''}">${v}</b></div>`).join('')}</div>`;
+    }
+
+    function _ghTable(cols, rows, onRow) {
+        const th = cols.map((c, i) => `<th${i ? ' class="num"' : ''}>${c}</th>`).join('');
+        const tr = rows.map(r => `<tr${onRow && r.nm ? ` onclick="document.getElementById('rnp-modal')?.remove();RNP.pick(${r.nm})"` : ''}>${r.cells.map((c, i) => `<td${i ? ' class="num"' : ''}>${c}</td>`).join('')}</tr>`).join('');
+        return `<div class="rnp-modal-table-wrap"><table class="rnp-modal-table"><thead><tr>${th}</tr></thead><tbody>${tr}</tbody></table></div>`;
+    }
+
+    // Показатели каждого включённого артикула за период — тем же расчётом, что и строки РНП.
+    function _ghArticleStats(active, cal) {
+        return active.map(a => {
+            const k = _periodSummary(a, _dataCache[a.nm_id] || {}, cal) || {};
+            const st = _schemeWhTotals(_stockCache[a.nm_id] || {});
+            return {
+                a, nm: a.nm_id, name: _sellerArticle(a), cat: _articleCategory(a),
+                orders: Number(k.orders_count) || 0, ordersSum: Number(k.orders_sum) || 0,
+                sales: Number(k.sales_count) || 0, cancels: Number(k.cancels_count) || 0, returns: Number(k.returns_count) || 0,
+                realization: Number(k.realization) || 0, transfer: Number(k.to_transfer) || 0,
+                delivery: Number(k.delivery_sum) || 0, storage: Number(k.storage_sum) || 0, penalty: Number(k.penalty_sum) || 0,
+                ads: Number(k.ad_spend) || 0, profit: Number(k.profit) || 0, margin: Number(k.margin_pct) || 0,
+                fbo: st.fbo, fbs: st.fbs, stock: st.total,
+            };
+        });
+    }
+
+    // «Состояние кабинета»: 5 направлений по всем артикулам кабинета + список действий.
+    function _ghHealthModel(rows, days) {
+        if (!Array.isArray(rows) || !rows.length) return null;
+        const R = rows.map(x => {
+            const o = {};
+            Object.keys(x).forEach(k => { o[k] = typeof x[k] === 'string' && k !== 'art' && k !== 'category' ? Number(x[k]) : x[k]; });
+            ['orders', 'orders_sum', 'sales', 'returns', 'cancels', 'to_transfer', 'realization', 'delivery', 'storage', 'penalty', 'clicks', 'baskets', 'ad_spend', 'ad_views', 'ad_clicks', 'stock', 'cost']
+                .forEach(k => { o[k] = Number(o[k]) || 0; });
+            o.profit = o.to_transfer - o.delivery - o.storage - o.penalty - o.ad_spend - Math.max(0, o.sales - o.returns) * o.cost;
+            o.rate = days > 0 ? o.orders / days : 0;
+            o.cover = o.rate > 0 ? o.stock / o.rate : (o.stock > 0 ? 9999 : 0);
+            const fin = o.sales + o.cancels + o.returns;
+            o.buy = fin > 0 ? o.sales / fin * 100 : null;
+            o.ctr = o.ad_views > 0 ? o.ad_clicks / o.ad_views * 100 : null;
+            o.c2b = o.clicks > 0 ? o.baskets / o.clicks * 100 : null;
+            o.name = o.art || ('WB ' + o.nm_id);
+            return o;
+        });
+        const S = (k, f) => R.filter(f || (() => true)).reduce((x, o) => x + o[k], 0);
+        const tr = S('to_transfer'), profit = S('profit'), ads = S('ad_spend'), os = S('orders_sum');
+        const deliv = S('delivery'), sales = S('sales'), can = S('cancels'), ret = S('returns');
+        const realiz = S('realization') || S('to_transfer') || 1;
+        const cl = (v, bad, good) => Math.max(0, Math.min(100, (v - bad) / (good - bad) * 100));
+        const margin = tr > 0 ? profit / tr * 100 : 0;
+        const profShare = tr > 0 ? S('to_transfer', o => o.profit > 0) / tr * 100 : 0;
+        const clk = S('clicks'), bsk = S('baskets'), c2b = clk > 0 ? bsk / clk * 100 : 0;
+        const vw = S('ad_views'), acl = S('ad_clicks'), ctr = vw > 0 ? acl / vw * 100 : 0;
+        const drr = os > 0 ? ads / os * 100 : 0;
+        const adsLoss = ads > 0 ? S('ad_spend', o => o.profit < 0) / ads * 100 : 0;
+        const buy = (sales + can + ret) > 0 ? sales / (sales + can + ret) * 100 : 0;
+        const logP = realiz > 0 ? deliv / realiz * 100 : 0;
+        const ordTot = S('orders') || 1, stockTot = S('stock') || 1;
+        const lost = S('orders', o => o.rate >= 1 && o.cover < 7) / ordTot * 100;
+        const over = S('stock', o => o.cover > 90) / stockTot * 100;
+        const pillars = [
+            { key: 'money', name: 'Деньги', w: 30, s: (cl(margin, 0, 20) + cl(profShare, 50, 95)) / 2, d: `маржа ${_ghPct(margin)}; ${Math.round(profShare)}% выручки — с прибыльных` },
+            { key: 'cards', name: 'Карточки', w: 15, s: (cl(c2b, 3, 10) + cl(ctr, 1, 4)) / 2, d: `в корзину ${_ghPct(c2b)}; CTR рекламы ${_ghPct(ctr)}` },
+            { key: 'ads', name: 'Реклама', w: 15, s: (cl(drr, 20, 5) + cl(adsLoss, 50, 0)) / 2, d: `ДРР ${_ghPct(drr)}; ${Math.round(adsLoss)}% рекламы — на убыточные` },
+            { key: 'buy', name: 'Выкуп и логистика', w: 20, s: (cl(buy, 15, 50) + cl(logP, 35, 15)) / 2, d: `выкуп ${Math.round(buy)}%; логистика ${Math.round(logP)}% выручки` },
+            { key: 'stock', name: 'Запасы', w: 20, s: (cl(lost, 30, 0) + cl(over, 60, 10)) / 2, d: `${Math.round(over)}% остатков — запас больше 90 дней` },
+        ];
+        pillars.forEach(p => { p.s = Math.round(p.s); });
+        const score = Math.round(pillars.reduce((x, p) => x + p.s * p.w, 0) / 100);
+        const month = days > 0 ? 30 / days : 0;
+        const by = (arr, f) => arr.slice().sort(f);
+        const acts = [];
+        const slow = R.filter(o => o.stock >= 30 && o.cover > 90 && o.rate < 1);
+        if (slow.length) acts.push({ pil: 'Запасы', title: 'Залежи и несезон: распродать', money: '',
+            why: `${slow.length} арт. продаются меньше 1 шт в день, на складе ${_ghNum(S('stock', o => slow.includes(o)))} шт · ${_ghNum(slow.reduce((x, o) => x + o.stock * o.cost, 0))} сом себестоимости`,
+            todo: 'Скидка или акция, вывести часть с FBO, не шить до сезона',
+            list: by(slow, (a, b) => b.stock * b.cost - a.stock * a.cost).map(o => ({ nm: o.nm_id, n: o.name, d: `${_ghNum(o.stock)} шт · ${o.orders} заказов` })) });
+        const over90 = R.filter(o => o.stock >= 30 && o.cover > 90 && o.rate >= 1);
+        if (over90.length) acts.push({ pil: 'Запасы', title: 'Избыток у ходовых: не шить, пока не уйдёт', money: 'деньги заморожены',
+            why: `${over90.length} арт. с запасом больше чем на 90 дней · ${_ghNum(over90.reduce((x, o) => x + o.stock * o.cost, 0))} сом себестоимости`,
+            todo: 'Остановить пошив этих цветов, дать акцию, перекинуть рекламу',
+            list: by(over90, (a, b) => b.stock * b.cost - a.stock * a.cost).map(o => ({ nm: o.nm_id, n: o.name, d: `${_ghNum(o.stock)} шт · хватит ≈ ${Math.round(o.cover)} дн.` })) });
+        const adLoss = R.filter(o => o.ad_spend > 0 && o.profit < 0);
+        if (adLoss.length) acts.push({ pil: 'Реклама', title: 'Реклама на убыточных товарах', money: `≈ ${_ghNum(adLoss.reduce((x, o) => x + o.ad_spend, 0) * month)} /мес`,
+            why: `${adLoss.length} арт. в минусе, реклама на них ${_ghNum(adLoss.reduce((x, o) => x + o.ad_spend, 0))} сом за период`,
+            todo: 'Снизить ставки или выключить кампании, пока товар в минусе',
+            list: by(adLoss, (a, b) => b.ad_spend - a.ad_spend).map(o => ({ nm: o.nm_id, n: o.name, d: `реклама ${_ghNum(o.ad_spend)} · итог ${_ghNum(o.profit)}` })) });
+        const cancels = R.filter(o => o.cancels >= Math.max(5, days * 2) && o.buy != null && o.buy < 20);
+        if (cancels.length) acts.push({ pil: 'Выкуп и логистика', title: 'Отмены съедают логистику', money: `≈ ${_ghNum(cancels.reduce((x, o) => x + o.delivery, 0) * month)} /мес`,
+            why: `${cancels.length} арт. с выкупом ниже 20%, логистика по ним ${_ghNum(cancels.reduce((x, o) => x + o.delivery, 0))} сом`,
+            todo: 'Проверить размерную сетку, цвет на фото, описание и отзывы',
+            list: by(cancels, (a, b) => b.delivery - a.delivery).map(o => ({ nm: o.nm_id, n: o.name, d: `выкуп ${Math.round(o.buy)}% · ${o.cancels} отмен` })) });
+        const restock = R.filter(o => o.rate >= 1 && o.cover < 10);
+        if (restock.length) acts.push({ pil: 'Запасы', title: 'Пополнить ходовые', money: 'риск потерять заказы',
+            why: `${restock.length} арт. закончатся быстрее чем за 10 дней`, todo: 'Отгрузить на склад WB или отшить',
+            list: by(restock, (a, b) => a.cover - b.cover).map(o => ({ nm: o.nm_id, n: o.name, d: `${_ghNum(o.stock)} шт · хватит ≈ ${Math.max(0, Math.round(o.cover))} дн.` })) });
+        const lowC2b = R.filter(o => o.clicks >= Math.max(100, days * 30) && o.c2b != null && o.c2b < c2b * 0.6);
+        if (lowC2b.length) acts.push({ pil: 'Карточки', title: 'Слабая конверсия в корзину', money: '',
+            why: `${lowC2b.length} арт. ниже ${_ghPct(c2b * 0.6)} (в среднем по кабинету ${_ghPct(c2b)})`, todo: 'Цена, первое фото, отзывы, размерная сетка',
+            list: by(lowC2b, (a, b) => b.clicks - a.clicks).map(o => ({ nm: o.nm_id, n: o.name, d: `${_ghPct(o.c2b)} · ${_ghNum(o.clicks)} переходов` })) });
+        const ctrs = R.filter(o => o.ctr != null && o.ad_views >= 2000).map(o => o.ctr).sort((a, b) => a - b);
+        const medCtr = ctrs.length ? ctrs[Math.floor(ctrs.length / 2)] : 0;
+        const lowCtr = R.filter(o => o.ad_views >= 3000 && o.ctr != null && o.ctr < medCtr * 0.7);
+        if (lowCtr.length) acts.push({ pil: 'Карточки', title: 'Низкий CTR рекламы', money: '',
+            why: `${lowCtr.length} арт. заметно ниже медианы ${_ghPct(medCtr)}`, todo: 'А/Б тест главного фото (раздел А/Б)',
+            list: by(lowCtr, (a, b) => b.ad_views - a.ad_views).map(o => ({ nm: o.nm_id, n: o.name, d: `CTR ${_ghPct(o.ctr, 2)} · ${_ghNum(o.ad_views)} показов` })) });
+        const zero = R.filter(o => o.sales === 0 && (o.storage + o.ad_spend + o.penalty) > 0);
+        if (zero.length) acts.push({ pil: 'Запасы', title: 'Хранение без продаж', money: `≈ ${_ghNum(zero.reduce((x, o) => x + o.storage + o.ad_spend + o.penalty, 0) * month)} /мес`,
+            why: `${zero.length} арт. без единой продажи, расходы ${_ghNum(zero.reduce((x, o) => x + o.storage + o.ad_spend + o.penalty, 0))} сом`,
+            todo: 'Распродать, вывезти или выключить с хранения',
+            list: by(zero, (a, b) => (b.storage + b.ad_spend) - (a.storage + a.ad_spend)).map(o => ({ nm: o.nm_id, n: o.name, d: `${o.orders} заказов, 0 продаж` })) });
+        return { score, pillars, acts, total: R.length };
+    }
+
+    function _ghLevel(s) { return s >= 70 ? 'хорошо' : (s >= 40 ? 'средне' : 'плохо'); }
+    function _ghLevelColor(s) { return s >= 70 ? '#12a150' : (s >= 40 ? '#f59e0b' : '#dc2626'); }
+
+    function _ghSpark(vals, w, h, color) {
+        const n = vals.map(v => Number(v) || 0);
+        if (n.length < 2 || n.every(v => v === 0)) return '';
+        const mx = Math.max(...n), mn = Math.min(...n), rg = (mx - mn) || 1;
+        const d = n.map((v, i) => `${i ? 'L' : 'M'}${(i / (n.length - 1) * (w - 4) + 2).toFixed(1)},${(h - 3 - (v - mn) / rg * (h - 6)).toFixed(1)}`).join(' ');
+        return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><path d="${d}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linejoin="round"/></svg>`;
+    }
+
+    function _ghModel(active, cal) {
+        const per = _ghPeriod(cal);
+        const st = _ghArticleStats(active, cal);
+        const sum = (k, f) => st.filter(f || (() => true)).reduce((x, o) => x + o[k], 0);
+        const today = cal?.todayStr || _wbTodayStr();
+        const daily = per.dates.map(dt => active.reduce((x, a) => {
+            const raw = _dataCache[a.nm_id]?.[dt];
+            return x + (raw ? (Number(_derive(raw, a)?.profit) || 0) : 0);
+        }, 0));
+        const payouts = (_ghPayouts || []).map(p => ({ ...p, amount: Number(p.to_withdraw) || 0 }));
+        const next = payouts.filter(p => p.closed && String(p.pay_date) >= today).sort((a, b) => String(a.pay_date).localeCompare(String(b.pay_date)))[0] || null;
+        const open = payouts.find(p => !p.closed) || null;
+        return { per, st, sum, daily, next, open, payouts, health: _ghHealthModel(_ghHealth, per.days) };
     }
 
     function _buildGeneralTopBar(active, cal) {
-        return `<div class="rnp-general-topbar">
-          <div class="rnp-general-bar-metrics">${_buildGeneralMetricsStrip(active, cal)}${_buildGeneralStockDonuts(active)}</div>
-          <div class="rnp-general-bar-photos">${_buildGeneralTopGallery(active)}</div>
+        _ensureGeneralFresh(cal);
+        const M = _ghModel(active, cal);
+        const { st, sum } = M;
+        const profit = sum('profit'), transfer = sum('transfer'), ads = sum('ads'), os = sum('ordersSum');
+        const margin = transfer > 0 ? profit / transfer * 100 : 0;
+        const drr = os > 0 ? ads / os * 100 : 0;
+        const nInc = active.length;
+        const hero = `<div class="rnp-gh-hero rnp-gh-profit" onclick="RNP.ghOpen('profit')">
+            <div><div class="rnp-gh-lbl">Прибыль ${_ghInfoIcon('profit', true)}<span class="rnp-gh-chip">${nInc} арт.</span></div>
+            <div class="rnp-gh-big ${profit < 0 ? 'neg' : ''}">${_ghNum(profit)}</div>
+            <div class="rnp-gh-sub">заказы ${_ghNum(sum('orders'))} · продажи ${_ghNum(sum('sales'))} · маржа ${_ghPct(margin)} · ДРР ${_ghPct(drr)}</div></div>
+            <div class="rnp-gh-spark">${_ghSpark(M.daily, 96, 40, '#34d399')}</div></div>`;
+        const bal = _ghBalance;
+        const balance = `<div class="rnp-gh-hero rnp-gh-balance" onclick="RNP.ghOpen('balance')">
+            <div class="rnp-gh-lbl">Баланс WB ${_ghInfoIcon('balance', true)}<span class="rnp-gh-chip">весь кабинет</span></div>
+            <div class="rnp-gh-big">${bal ? _ghNum(bal.current) : '—'}</div>
+            <div class="rnp-gh-row"><span>${M.next ? `К выводу в понедельник ${_ghDate(M.next.pay_date)}` : 'К выводу в понедельник'}</span><b>${M.next ? _ghNum(M.next.amount) : '—'}</b></div>
+            ${M.open ? `<div class="rnp-gh-row is-small"><span>Выплата ${_ghDate(M.open.pay_date)}</span><b>${_ghNum(M.open.amount)}</b></div>` : ''}</div>`;
+        const H = M.health;
+        const health = H ? `<div class="rnp-gh-hero rnp-gh-health" onclick="RNP.ghOpen('health')">
+            <div class="rnp-gh-lbl">Состояние кабинета ${_ghInfoIcon('health', true)}<span class="rnp-gh-chip">все ${H.total} арт.</span></div>
+            <div class="rnp-gh-score"><div class="rnp-gh-big">${H.score}<small> / 100</small></div><span class="rnp-gh-cta">Что улучшить →</span></div>
+            ${H.pillars.map(p => `<div class="rnp-gh-bar"><span>${p.name}</span><div><i style="width:${p.s}%"></i></div><b>${p.s}</b></div>`).join('')}</div>`
+            : `<div class="rnp-gh-hero rnp-gh-health"><div class="rnp-gh-lbl">Состояние кабинета</div><div class="rnp-gh-sub">Считаем…</div></div>`;
+        const fbo = sum('fbo'), fbs = sum('fbs'), stockT = fbo + fbs;
+        const pc = _schemePercents(fbo, fbs);
+        const stockCard = `<div class="rnp-gh-card"><div class="rnp-gh-title">Остатки: FBO и FBS ${_ghInfoIcon('stock')}</div>
+            <div class="rnp-gh-flex">${_ghRing([{ name: 'FBO', v: fbo, c: '#7B61FF', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS', v: fbs, c: '#3B82F6', click: "RNP.ghOpen('stock','fbs')" }], _ghNum(stockT), 'шт', 92)}
+            ${_ghLegend([{ name: 'FBO · склад WB', val: pc.fbo + '%', c: '#7B61FF', click: "RNP.ghOpen('stock','fbo')" }, { name: 'FBS · свой склад', val: pc.fbs + '%', c: '#3B82F6', click: "RNP.ghOpen('stock','fbs')" }])}</div></div>`;
+        // кружки
+        const real = sum('realization');
+        const comm = Math.max(0, real - transfer), deliv = sum('delivery'), stp = sum('storage') + sum('penalty');
+        const rest = Math.max(0, real - comm - deliv - ads - stp);
+        const rev = [['Комиссия WB', comm, GH_COLORS[0]], ['Логистика', deliv, GH_COLORS[1]], ['Реклама', ads, GH_COLORS[3]], ['Хранение', stp, GH_COLORS[4]], ['Остаётся', rest, GH_COLORS[2]]];
+        const pct = (v, t) => t > 0 ? Math.round(v / t * 100) + '%' : '—';
+        const ringSize = 112;
+        const revCard = `<div class="rnp-gh-card" onclick="RNP.ghOpen('revenue')"><div class="rnp-gh-title">Куда уходит выручка ${_ghInfoIcon('revenue')}</div>
+            <div class="rnp-gh-flex">${_ghRing(rev.map(([n, v, c]) => ({ name: n, v, c })), real >= 1e6 ? (real / 1e6).toFixed(2).replace('.', ',') + ' млн' : _ghNum(real), 'сом', ringSize)}
+            ${_ghLegend(rev.map(([n, v, c]) => ({ name: n, val: pct(v, real), c })))}</div></div>`;
+        const LG = { 'К клиенту при отмене': GH_COLORS[4], 'К клиенту при продаже': GH_COLORS[1], 'От клиента при отмене': GH_COLORS[3], 'От клиента при возврате': GH_COLORS[5] };
+        const LGN = { 'К клиенту при отмене': 'Доставка отмен', 'К клиенту при продаже': 'Доставка продаж', 'От клиента при отмене': 'Обратно отмены', 'От клиента при возврате': 'Возвраты' };
+        const logRows = (_ghLogi || []).map(r => ({ name: r.reason, v: Number(r.amount) || 0 })).filter(r => r.v > 0);
+        const logT = logRows.reduce((x, r) => x + r.v, 0);
+        const logCard = `<div class="rnp-gh-card" onclick="RNP.ghOpen('logistics')"><div class="rnp-gh-title">На что уходит логистика ${_ghInfoIcon('logistics')}</div>
+            <div class="rnp-gh-flex">${_ghRing(logRows.map((r, i) => ({ name: r.name, v: r.v, c: LG[r.name] || GH_COLORS[(i + 2) % 6] })), logT >= 1000 ? Math.round(logT / 1000) + ' т' : _ghNum(logT), 'сом', ringSize)}
+            ${_ghLegend(logRows.slice(0, 5).map((r, i) => ({ name: LGN[r.name] || r.name, full: r.name, val: pct(r.v, logT), c: LG[r.name] || GH_COLORS[(i + 2) % 6] })))}</div></div>`;
+        const sales = sum('sales'), can = sum('cancels'), ret = sum('returns'), bt = sales + can + ret;
+        const buyCard = `<div class="rnp-gh-card" onclick="RNP.ghOpen('buyout')"><div class="rnp-gh-title">Выкупы и отказы ${_ghInfoIcon('buyout')}</div>
+            <div class="rnp-gh-flex">${_ghRing([{ name: 'Выкуплено', v: sales, c: GH_COLORS[2] }, { name: 'Отказы', v: can, c: GH_COLORS[5] }, { name: 'Возвраты', v: ret, c: GH_COLORS[4] }], pct(sales, bt), 'выкуп', ringSize)}
+            ${_ghLegend([{ name: 'Выкуплено', val: _ghNum(sales), c: GH_COLORS[2] }, { name: 'Отказы', val: _ghNum(can), c: GH_COLORS[5] }, { name: 'Возвраты', val: _ghNum(ret), c: GH_COLORS[4] }])}</div></div>`;
+        const cats = {};
+        st.forEach(o => { cats[o.cat] = (cats[o.cat] || 0) + o.stock; });
+        let catList = Object.entries(cats).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+        if (catList.length > 5) catList = [...catList.slice(0, 4), ['Остальные', catList.slice(4).reduce((x, [, v]) => x + v, 0)]];
+        const catT = catList.reduce((x, [, v]) => x + v, 0);
+        const catEnc = (n) => n === 'Остальные' ? '' : encodeURIComponent(n).replace(/'/g, '%27');
+        const catCard = `<div class="rnp-gh-card"><div class="rnp-gh-title">Остатки по категориям ${_ghInfoIcon('cats')}</div>
+            <div class="rnp-gh-flex">${_ghRing(catList.map(([n, v], i) => ({ name: n, v, c: GH_COLORS[i % 6], click: `RNP.ghOpen('category','${catEnc(n)}')` })), String(Object.keys(cats).length), 'кат.', ringSize)}
+            ${_ghLegend(catList.map(([n, v], i) => ({ name: n, full: `${n}: ${_ghNum(v)} шт`, val: pct(v, catT), c: GH_COLORS[i % 6], click: `RNP.ghOpen('category','${catEnc(n)}')` })))}</div></div>`;
+        // правая колонка
+        const minSales = Math.max(1, M.per.days);
+        const top = st.filter(o => o.sales >= minSales && o.transfer > 0).sort((a, b) => b.margin - a.margin).slice(0, 5);
+        const topCard = `<div class="rnp-gh-card rnp-gh-list"><div class="rnp-gh-title">Топ-5 маржинальных ${_ghInfoIcon('top')}<small>маржа · прибыль, сом</small></div>
+            ${top.length ? top.map((o, i) => `<div class="rnp-gh-li" onclick="RNP.pick(${o.nm})"><em>${i + 1}</em><span title="${_ghEsc(o.name)}">${_ghEsc(o.name)}</span>
+              <u><i style="width:${Math.max(4, Math.min(100, o.margin * 2))}%"></i></u><b class="pos">${_ghPct(o.margin)}</b><small>${o.profit >= 0 ? '+' : ''}${_ghNum(o.profit)}</small></div>`).join('')
+              : '<div class="rnp-gh-empty">Нет артикулов с продажами за период</div>'}</div>`;
+        const losses = st.filter(o => o.profit < 0).sort((a, b) => a.profit - b.profit);
+        const zero = st.filter(o => o.sales === 0 && (o.storage + o.ads + o.penalty) > 0).sort((a, b) => (b.storage + b.ads + b.penalty) - (a.storage + a.ads + a.penalty));
+        const lossSum = losses.reduce((x, o) => x + o.profit, 0);
+        const lossCard = `<div class="rnp-gh-card rnp-gh-loss"><div class="rnp-gh-loss-h">ТЕРЯЕМ НА СЛАБЫХ ТОВАРАХ ${_ghInfoIcon('loss')}</div>
+            <div class="rnp-gh-loss-big">${_ghNum(lossSum)} <small>сом</small></div>
+            <div class="rnp-gh-sub2">${losses.length} из ${nInc} артикулов в минусе</div>
+            <div class="rnp-gh-sec" onclick="RNP.ghOpen('loss')">Хуже всех →</div>
+            ${losses.slice(0, 3).map((o, i) => `<div class="rnp-gh-li neg" onclick="RNP.pick(${o.nm})"><em>${i + 1}</em><span title="${_ghEsc(o.name)}">${_ghEsc(o.name)}</span><b>${_ghNum(o.profit)}</b><small>${o.sales} прод.</small></div>`).join('') || '<div class="rnp-gh-empty">Нет</div>'}
+            <div class="rnp-gh-sec" onclick="RNP.ghOpen('zero')">Без продаж, но платим →</div>
+            ${zero.slice(0, 3).map((o, i) => `<div class="rnp-gh-li neg" onclick="RNP.pick(${o.nm})"><em>${i + 1}</em><span title="${_ghEsc(o.name)}">${_ghEsc(o.name)}</span><b>−${_ghNum(o.storage + o.ads + o.penalty)}</b></div>`).join('') || '<div class="rnp-gh-empty">Нет</div>'}
+            </div>`;
+        return `<div class="rnp-general-topbar rnp-gh">
+          <div class="rnp-gh-grid">
+            <div class="rnp-gh-col">${hero}${balance}${health}${stockCard}</div>
+            <div class="rnp-gh-rings">${revCard}${logCard}${buyCard}${catCard}</div>
+            <div class="rnp-gh-col">${topCard}${lossCard}</div>
+          </div>
+          <div class="rnp-general-bar-photos rnp-gh-photos">${_buildGeneralTopGallery(active)}</div>
         </div>`;
+    }
+
+    function ghInfo(el, key) { _ghInfo(el, key); }
+
+    function ghOpen(kind, arg) {
+        const active = _rnpVisibleArticles();
+        const cal = _buildCalendar();
+        const M = _ghModel(active, cal);
+        const per = `${_ghDate(M.per.from)} – ${_ghDate(M.per.to)}`;
+        const inc = `${per} · включённые ${active.length} арт.`;
+        const st = M.st;
+        const row = (o, cells) => ({ nm: o.nm, cells: [_ghEsc(o.name), ...cells] });
+        if (kind === 'profit') {
+            const cats = {};
+            st.forEach(o => {
+                const c = cats[o.cat] || (cats[o.cat] = { orders: 0, sales: 0, transfer: 0, profit: 0 });
+                c.orders += o.orders; c.sales += o.sales; c.transfer += o.transfer; c.profit += o.profit;
+            });
+            const rows = Object.entries(cats).sort((a, b) => b[1].profit - a[1].profit).map(([n, c]) => ({ cells: [_ghEsc(n), _ghNum(c.orders), _ghNum(c.sales), _ghNum(c.transfer), `<span class="${c.profit < 0 ? 'neg' : 'pos'}">${_ghNum(c.profit)}</span>`, c.transfer > 0 ? _ghPct(c.profit / c.transfer * 100) : '—'] }));
+            const profit = M.sum('profit'), tr = M.sum('transfer');
+            _rnpModal('Прибыль', inc, _ghKpis([['Прибыль', _ghNum(profit), profit < 0 ? 'neg' : 'pos'], ['К перечислению', _ghNum(tr)], ['Маржа', tr > 0 ? _ghPct(profit / tr * 100) : '—'], ['Реклама', _ghNum(M.sum('ads'))]])
+                + _ghTable(['Категория', 'Заказы', 'Продажи', 'К перечислению', 'Прибыль', 'Маржа'], rows));
+            return;
+        }
+        if (kind === 'balance') {
+            const today = cal?.todayStr || _wbTodayStr();
+            const rows = M.payouts.map(p => ({ cells: [`${_ghDate(p.week_start)} – ${_ghDate(p.week_end)}`, `<b>${_ghNum(p.amount)}</b>`, _ghDate(p.pay_date),
+                !p.closed ? '<span class="muted">набегает</span>' : (String(p.pay_date) >= today ? '<span class="blue">ожидается</span>' : '<span class="pos">выплачено</span>')] }));
+            const closed = M.payouts.filter(p => p.closed).slice(0, 4);
+            const avg = closed.length ? closed.reduce((x, p) => x + p.amount, 0) / closed.length : 0;
+            _rnpModal('Баланс и выплаты', 'Весь кабинет · выплата в понедельник за неделю, закрытую неделей раньше',
+                _ghKpis([['Баланс WB', _ghBalance ? _ghNum(_ghBalance.current) : '—'], [M.next ? `К выводу ${_ghDate(M.next.pay_date)}` : 'К выводу', M.next ? _ghNum(M.next.amount) : '—', 'blue'], [M.open ? `Набегает к ${_ghDate(M.open.pay_date)}` : 'Текущая неделя', M.open ? _ghNum(M.open.amount) : '—'], ['Среднее за 4 недели', _ghNum(avg)]])
+                + _ghTable(['Неделя отчёта', 'Итого к оплате', 'Дата выплаты', 'Статус'], rows)
+                + '<div class="rnp-modal-note">«Итого к оплате» считается по дням из финотчёта WB. Статус ставится по дате выплаты: WB не отдаёт его через API.</div>');
+            return;
+        }
+        if (kind === 'health') {
+            const H = M.health;
+            if (!H) return;
+            const pills = H.pillars.map(p => `<div class="rnp-hl-p"><div><span>${p.name}</span><b style="color:${_ghLevelColor(p.s)}">${p.s}</b></div><u><i style="width:${p.s}%;background:${_ghLevelColor(p.s)}"></i></u><small>${_ghEsc(p.d)}</small></div>`).join('');
+            const acts = H.acts.map((a, i) => `<div class="rnp-hl-a"><em>${i + 1}</em><div class="rnp-hl-a-main">
+                <div class="rnp-hl-a-t">${_ghEsc(a.title)} <span>${_ghEsc(a.pil)}</span>${a.money ? `<b>${_ghEsc(a.money)}</b>` : ''}</div>
+                <div class="rnp-hl-a-w">${_ghEsc(a.why)}</div>
+                <div class="rnp-hl-chips">${a.list.slice(0, 3).map(x => `<div onclick="document.getElementById('rnp-modal')?.remove();RNP.pick(${x.nm})"><b title="${_ghEsc(x.n)}">${_ghEsc(x.n)}</b><span>${_ghEsc(x.d)}</span></div>`).join('')}</div>
+                <div class="rnp-hl-a-todo"><b>Что сделать:</b> ${_ghEsc(a.todo)}${a.list.length > 3 ? ` <a onclick="this.closest('.rnp-hl-a').classList.toggle('is-open')">Весь список (${a.list.length}) →</a>` : ''}</div>
+                <div class="rnp-hl-all">${a.list.map(x => `<div onclick="document.getElementById('rnp-modal')?.remove();RNP.pick(${x.nm})"><b>${_ghEsc(x.n)}</b><span>${_ghEsc(x.d)}</span></div>`).join('')}</div>
+              </div></div>`).join('');
+            _rnpModal(`Состояние кабинета: ${H.score} / 100 · ${_ghLevel(H.score)}`, `Все ${H.total} артикулов за ${per} · действия отсортированы по тому, сколько денег вернут`,
+                `<div class="rnp-hl-pills">${pills}</div><div class="rnp-hl-acts">${acts || '<div class="rnp-gh-empty">Серьёзных проблем не нашли</div>'}</div>`);
+            return;
+        }
+        if (kind === 'revenue') {
+            const rows = st.filter(o => o.realization > 0).sort((a, b) => b.realization - a.realization).slice(0, 30)
+                .map(o => row(o, [_ghNum(o.realization), _ghNum(o.realization - o.transfer), _ghNum(o.delivery), _ghNum(o.ads), _ghNum(o.storage + o.penalty), `<span class="${o.profit < 0 ? 'neg' : 'pos'}">${_ghNum(o.profit)}</span>`]));
+            _rnpModal('Куда уходит выручка', inc, _ghKpis([['Реализация', _ghNum(M.sum('realization'))], ['Комиссия и эквайринг', _ghNum(M.sum('realization') - M.sum('transfer'))], ['Логистика', _ghNum(M.sum('delivery'))], ['Реклама', _ghNum(M.sum('ads'))]])
+                + _ghTable(['Артикул', 'Реализация', 'Комиссия WB', 'Логистика', 'Реклама', 'Хранение, штрафы', 'Прибыль'], rows, true));
+            return;
+        }
+        if (kind === 'logistics') {
+            const rows = st.filter(o => o.delivery > 0).sort((a, b) => b.delivery - a.delivery).slice(0, 30)
+                .map(o => { const t = o.sales + o.cancels + o.returns; const b = t ? o.sales / t * 100 : 0; return row(o, [_ghNum(o.delivery), _ghNum(o.cancels), _ghNum(o.sales), `<span class="${b < 20 ? 'neg' : ''}">${Math.round(b)}%</span>`]); });
+            const logT = (_ghLogi || []).reduce((x, r) => x + (Number(r.amount) || 0), 0);
+            const canc = (_ghLogi || []).filter(r => r.reason === 'К клиенту при отмене').reduce((x, r) => x + (Number(r.amount) || 0), 0);
+            _rnpModal('На что уходит логистика', inc, _ghKpis([['Логистика', _ghNum(logT)], ['К клиенту при отмене', logT ? Math.round(canc / logT * 100) + '%' : '—', 'neg'], ['Отмен', _ghNum(M.sum('cancels'))], ['Продаж', _ghNum(M.sum('sales'))]])
+                + _ghTable(['Артикул', 'Логистика, сом', 'Отмен', 'Продаж', 'Выкуп'], rows, true));
+            return;
+        }
+        if (kind === 'buyout') {
+            const rows = st.filter(o => o.sales + o.cancels + o.returns >= Math.max(3, M.per.days)).map(o => ({ o, b: o.sales / (o.sales + o.cancels + o.returns) * 100 }))
+                .sort((a, b) => a.b - b.b).slice(0, 30).map(({ o, b }) => row(o, [_ghNum(o.orders), _ghNum(o.sales), _ghNum(o.cancels), _ghNum(o.returns), `<span class="${b < 20 ? 'neg' : ''}">${Math.round(b)}%</span>`]));
+            const s = M.sum('sales'), c = M.sum('cancels'), r = M.sum('returns');
+            _rnpModal('Выкупы и отказы', inc + ' · худший выкуп сверху', _ghKpis([['Заказы', _ghNum(M.sum('orders'))], ['Выкуплено', _ghNum(s), 'pos'], ['Отказы', _ghNum(c)], ['Выкуп', (s + c + r) ? Math.round(s / (s + c + r) * 100) + '%' : '—']])
+                + _ghTable(['Артикул', 'Заказов', 'Продаж', 'Отказов', 'Возвратов', 'Выкуп'], rows, true));
+            return;
+        }
+        if (kind === 'stock' || kind === 'category') {
+            const cat = kind === 'category' ? decodeURIComponent(arg || '') : '';
+            const list = st.filter(o => (kind === 'category' ? (!cat || o.cat === cat) : true) && o.stock > 0)
+                .sort((a, b) => (kind === 'stock' ? (b[arg] || 0) - (a[arg] || 0) : b.stock - a.stock));
+            const rows = list.slice(0, 40).map(o => row(o, [_ghNum(o.fbo), _ghNum(o.fbs), `<b>${_ghNum(o.stock)}</b>`, _ghNum(o.orders)]));
+            const title = kind === 'category' ? (cat ? `Остатки: ${cat}` : 'Остатки: остальные категории') : (arg === 'fbs' ? 'Остатки на своих складах (FBS)' : 'Остатки на складе WB (FBO)');
+            _rnpModal(title, inc, _ghKpis([['FBO', _ghNum(list.reduce((x, o) => x + o.fbo, 0))], ['FBS', _ghNum(list.reduce((x, o) => x + o.fbs, 0))], ['Всего', _ghNum(list.reduce((x, o) => x + o.stock, 0))], ['Артикулов', _ghNum(list.length)]])
+                + _ghTable(['Артикул', 'FBO', 'FBS', 'Всего', 'Заказов за период'], rows, true));
+            return;
+        }
+        if (kind === 'loss') {
+            const list = st.filter(o => o.profit < 0).sort((a, b) => a.profit - b.profit);
+            _rnpModal('Артикулы в минусе', inc, _ghKpis([['Итого', _ghNum(list.reduce((x, o) => x + o.profit, 0)), 'neg'], ['Артикулов', _ghNum(list.length)], ['Реклама на них', _ghNum(list.reduce((x, o) => x + o.ads, 0))], ['Хранение на них', _ghNum(list.reduce((x, o) => x + o.storage, 0))]])
+                + _ghTable(['Артикул', 'Продаж', 'К перечислению', 'Логистика', 'Реклама', 'Прибыль'], list.map(o => row(o, [_ghNum(o.sales), _ghNum(o.transfer), _ghNum(o.delivery), _ghNum(o.ads), `<span class="neg">${_ghNum(o.profit)}</span>`])), true));
+            return;
+        }
+        if (kind === 'zero') {
+            const list = st.filter(o => o.sales === 0 && (o.storage + o.ads + o.penalty) > 0).sort((a, b) => (b.storage + b.ads + b.penalty) - (a.storage + a.ads + a.penalty));
+            _rnpModal('Без продаж, но платим', inc, _ghKpis([['Расходы', _ghNum(list.reduce((x, o) => x + o.storage + o.ads + o.penalty, 0)), 'neg'], ['Артикулов', _ghNum(list.length)], ['Хранение', _ghNum(list.reduce((x, o) => x + o.storage, 0))], ['Реклама', _ghNum(list.reduce((x, o) => x + o.ads, 0))]])
+                + _ghTable(['Артикул', 'Заказов', 'Хранение', 'Реклама', 'Штрафы', 'Остаток, шт'], list.map(o => row(o, [_ghNum(o.orders), _ghNum(o.storage), _ghNum(o.ads), _ghNum(o.penalty), _ghNum(o.stock)])), true));
+        }
     }
 
     function _buildGeneralTableHTML(active, cal) {
@@ -4923,6 +5282,7 @@ const RNP = (() => {
         await _mergeAdStatsFromDb(nmIds, cal, { trackOutside: true });
         await _mergeFbsSplit(nmIds, cal);
         await _loadCabinetTotals(cal);
+        await _loadGeneralHead(cal);
         _seedTodayLiveZeros(nmIds, cal);
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
@@ -5327,7 +5687,6 @@ const RNP = (() => {
         m.realization = n(t.realization);
         m.to_transfer = n(t.to_transfer);
         m.delivery_sum = n(t.delivery);
-        m.storage_sum = n(t.storage);
         m.penalty_sum = n(t.penalty);
         m.deduction_sum = n(t.deduction);
         m.acceptance_sum = n(t.acceptance);
@@ -5338,7 +5697,6 @@ const RNP = (() => {
         m.wb_commission = Math.max(0, m.realization - m.acquiring_sum - (m.to_transfer - m.compensation_sum));
         m.wb_balance = t.balance_current == null ? null : n(t.balance_current);
         m.wb_for_withdraw = t.balance_for_withdraw == null ? null : n(t.balance_for_withdraw);
-        if (n(t.ad_spend) > 0) m.ad_spend = n(t.ad_spend);
         m.to_transfer_unit = m.sales_count > 0 ? m.to_transfer / m.sales_count : 0;
         m.logistics_pct = m.realization > 0 ? m.delivery_sum / m.realization * 100 : 0;
         m.storage_pct = m.realization > 0 ? m.storage_sum / m.realization * 100 : 0;
@@ -5356,14 +5714,24 @@ const RNP = (() => {
         return m;
     }
 
+    // Ключ набора включённых артикулов: при выключении артикула/группы итоги «Общего» пересчитываются.
+    let _cabTotalsKey = '';
+    function _generalKey(cal) {
+        const dates = _calAllDates(cal);
+        const ids = _rnpVisibleArticles().map(a => Number(a.nm_id)).sort((a, b) => a - b).join(',');
+        return `${_cab}|${dates[0] || ''}|${dates[dates.length - 1] || ''}|${ids}`;
+    }
+
     async function _loadCabinetTotals(cal) {
         _cabTotals = {};
+        _cabTotalsKey = _generalKey(cal);
         if (!_db || !_cab) return;
         const allDates = _calAllDates(cal);
         if (!allDates.length) return;
         try {
             const { data, error } = await _db.rpc('rnp_cabinet_totals', {
                 p_cabinet: _cab, p_from: allDates[0], p_to: allDates[allDates.length - 1],
+                p_nm_ids: _rnpVisibleArticles().map(a => Number(a.nm_id)),
             });
             if (error) throw error;
             (data || []).forEach(r => { _cabTotals[String(r.d).split('T')[0]] = r; });
@@ -7997,31 +8365,19 @@ const RNP = (() => {
     async function openDeductions(from, to, kind) {
         if (!_db || !_cab) return;
         const title = kind === 'penalty' ? 'Штрафы WB' : 'Прочие удержания WB';
-        const period = from === to ? from.split('-').reverse().join('.') : `${from.split('-').reverse().join('.')} — ${to.split('-').reverse().join('.')}`;
-        const esc = (v) => String(v ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-        let ov = document.getElementById('rnp-ded-overlay');
-        if (ov) ov.remove();
-        ov = document.createElement('div');
-        ov.id = 'rnp-ded-overlay';
-        ov.className = 'rnp-ded-overlay';
-        ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
-        ov.innerHTML = `<div class="rnp-ded-box"><div class="rnp-ded-head"><b>${title}</b><span>${period}</span>
-            <button type="button" class="rnp-ded-x" onclick="document.getElementById('rnp-ded-overlay').remove()">×</button></div>
-            <div class="rnp-ded-body">Загрузка…</div></div>`;
-        document.body.appendChild(ov);
-        const body = ov.querySelector('.rnp-ded-body');
+        const period = from === to ? _ghDate(from) : `${_ghDate(from)} – ${_ghDate(to)}`;
+        const body = _rnpModal(title, `${period} · весь кабинет · причины из финотчёта WB`, '<div class="rnp-gh-empty">Загрузка…</div>');
         try {
             const { data, error } = await _db.rpc('rnp_cabinet_deductions', { p_cabinet: _cab, p_from: from, p_to: to, p_kind: kind || 'deduction' });
             if (error) throw error;
             const rows = data || [];
-            if (!rows.length) { body.textContent = 'За этот период в финотчёте WB таких строк нет.'; return; }
-            const total = rows.reduce((s, r) => s + (Number(r.amount) || 0), 0);
-            body.innerHTML = `<table class="rnp-ded-table"><thead><tr><th>Дата</th><th>Причина</th><th>Сумма</th></tr></thead><tbody>${
-                rows.map(r => `<tr><td>${esc(String(r.d).split('-').reverse().join('.'))}</td><td>${esc(r.reason)}${r.cnt > 1 ? ` <i>× ${r.cnt}</i>` : ''}</td><td class="num">${Number(r.amount).toLocaleString('ru')}</td></tr>`).join('')
-            }</tbody><tfoot><tr><td colspan="2">Итого</td><td class="num">${total.toLocaleString('ru')}</td></tr></tfoot></table>
-            <p class="rnp-ded-note">Сам документ можно найти в кабинете WB: Финансы → Документы, по номеру из причины.</p>`;
+            if (!rows.length) { body.innerHTML = '<div class="rnp-gh-empty">За этот период в финотчёте WB таких строк нет.</div>'; return; }
+            const total = rows.reduce((x, r) => x + (Number(r.amount) || 0), 0);
+            body.innerHTML = _ghKpis([['Итого', _ghNum(total), 'neg'], ['Строк', _ghNum(rows.reduce((x, r) => x + (Number(r.cnt) || 0), 0))]])
+                + _ghTable(['Дата', 'Причина', 'Сумма'], rows.map(r => ({ cells: [_ghDate(r.d), _ghEsc(r.reason) + (r.cnt > 1 ? ` <i class="muted">× ${r.cnt}</i>` : ''), _ghNum(r.amount)] })))
+                + '<div class="rnp-modal-note">Сам документ можно найти в кабинете WB: Финансы → Документы, по номеру из причины.</div>';
         } catch (e) {
-            body.textContent = 'Не удалось загрузить: ' + (e?.message || e);
+            body.innerHTML = `<div class="rnp-gh-empty">Не удалось загрузить: ${_ghEsc(e?.message || e)}</div>`;
         }
     }
 
@@ -8172,7 +8528,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
