@@ -55,7 +55,7 @@ function buildTailwind() {
 
 function buildScripts() {
     const esbuild = require('esbuild');
-    const scripts = ['nr-win.js', 'dashboard-charts.js', 'rnp-module.js', 'rnp-plan-fact.js', 'wb-formulas.js', 'evidence-report.js', 'ads-command-center.js', 'goods-catalog.js', 'giveaways.js', 'goods-fbs.js', 'rnp-planning.js', 'giveaway-calc.js', 'content-factory.js', 'nr-wow.js', 'dash-cabinet-plans.js', 'admin-canvas.js', 'ad-autopilot-ui.js', 'ads-campaign-detail.js', 'nr-skeleton.js', 'cabinets-hub.js'];
+    const scripts = ['nr-win.js', 'dashboard-charts.js', 'rnp-module.js', 'rnp-plan-fact.js', 'wb-formulas.js', 'evidence-report.js', 'ads-command-center.js', 'goods-catalog.js', 'giveaways.js', 'goods-fbs.js', 'rnp-planning.js', 'giveaway-calc.js', 'content-factory.js', 'nr-wow.js', 'dash-cabinet-plans.js', 'admin-canvas.js', 'ad-autopilot-ui.js', 'ads-campaign-detail.js', 'nr-skeleton.js', 'cabinets-hub.js', 'space-admin-ext.js'];
     const map = {};
     for (const name of scripts) {
         const srcPath = path.join(ROOT, name);

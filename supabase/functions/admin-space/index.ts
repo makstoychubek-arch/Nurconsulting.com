@@ -55,6 +55,30 @@ async function moveAkylaiTokens(admin: any, userId: string): Promise<number> {
     return moved;
 }
 
+const PLANS = ['start', 'basic', 'business', 'premium', 'vip'];
+
+// deno-lint-ignore no-explicit-any
+async function setStaff(admin: any, email: string | null, on: boolean): Promise<string | null> {
+    const e = String(email || '').trim().toLowerCase();
+    if (!e) return 'У пользователя нет e-mail';
+    if (on) {
+        const { error } = await admin.from('team_staff').upsert({ email: e, note: 'Добавлен из «Доступ к NR Space»' }, { onConflict: 'email' });
+        return error ? `Не удалось сделать сотрудником: ${error.message}` : null;
+    }
+    const { error } = await admin.from('team_staff').delete().eq('email', e);
+    return error ? `Не удалось снять права сотрудника: ${error.message}` : null;
+}
+
+// deno-lint-ignore no-explicit-any
+async function setPlan(admin: any, userId: string, plan: string): Promise<string | null> {
+    if (!PLANS.includes(plan)) return 'Неизвестный тариф';
+    // Без срока: тариф действует, пока вы его не смените.
+    const { error } = await admin.from('spaces')
+        .update({ tariff_plan: plan, plan_until: null, updated_at: new Date().toISOString() })
+        .eq('user_id', userId);
+    return error ? `Не удалось выдать тариф: ${error.message}` : null;
+}
+
 serve(async (req) => {
     if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
 
@@ -102,12 +126,32 @@ serve(async (req) => {
                 .update({ status: 'active', updated_at: new Date().toISOString() })
                 .eq('user_id', targetUserId);
 
-            if (updErr) return json({ error: updErr.message }, 500);
+            if (updErr) return json({ error: `Не удалось разрешить: ${updErr.message}` }, 500);
 
-            // Активация даёт доступ только к своему спейсу. В team_staff клиента
+            // Обычная активация даёт доступ только к своему спейсу. В team_staff клиента
             // не добавляем: этот список означает «сотрудник видит все кабинеты».
+            // Сотрудником и «Фулл» делает только явный флаг (кнопка «Как сотрудник»).
+            if (body.as_staff === true) {
+                const st = await setStaff(admin, space.email, true);
+                if (st) return json({ error: st }, 500);
+                const pl = await setPlan(admin, targetUserId, 'premium');
+                if (pl) return json({ error: pl }, 500);
+            }
             const tokensMoved = await moveAkylaiTokens(admin, targetUserId);
             return json({ ok: true, status: 'active', email: space.email, tokens_moved: tokensMoved });
+        }
+
+        if (action === 'set_staff') {
+            const err = await setStaff(admin, space.email, body.value === true);
+            if (err) return json({ error: err }, 500);
+            return json({ ok: true, email: space.email, staff: body.value === true });
+        }
+
+        if (action === 'set_plan') {
+            const plan = String(body.plan || '');
+            const err = await setPlan(admin, targetUserId, plan);
+            if (err) return json({ error: err }, 400);
+            return json({ ok: true, email: space.email, plan });
         }
 
         if (action === 'block') {
@@ -116,27 +160,36 @@ serve(async (req) => {
                 .update({ status: 'blocked', updated_at: new Date().toISOString() })
                 .eq('user_id', targetUserId);
 
-            if (updErr) return json({ error: updErr.message }, 500);
+            if (updErr) return json({ error: `Не удалось заблокировать: ${updErr.message}` }, 500);
 
-            await admin.from('user_sessions').delete().eq('user_id', targetUserId);
+            // Остальные шаги чистят хвосты: ошибка любого из них не должна отменять блокировку.
+            const warns: string[] = [];
+            const sess = await admin.from('user_sessions').delete().eq('user_id', targetUserId);
+            if (sess.error) warns.push(`user_sessions: ${sess.error.message}`);
             if (space.email) {
                 // Блокировка снимает и права сотрудника, иначе бывший сотрудник
                 // продолжал бы читать чужие кабинеты в обход интерфейса.
-                const { error: staffDelErr } = await admin.from('team_staff').delete().eq('email', space.email);
-                if (staffDelErr) console.warn('[admin-space] team_staff delete:', staffDelErr.message);
-                const { error: allowDelErr } = await admin.from('allowed_users').delete().eq('email', space.email);
-                if (allowDelErr) console.warn('[admin-space] allowed_users delete:', allowDelErr.message);
+                const e1 = await admin.from('team_staff').delete().eq('email', space.email);
+                if (e1.error) warns.push(`team_staff: ${e1.error.message}`);
+                const e2 = await admin.from('allowed_users').delete().eq('email', space.email);
+                if (e2.error) warns.push(`allowed_users: ${e2.error.message}`);
             }
 
-            const { error: signOutErr } = await admin.auth.admin.signOut(targetUserId, 'global');
-            if (signOutErr) {
-                console.warn('[admin-space] signOut:', signOutErr.message);
+            let revoked = false;
+            try {
+                // signOut принимает JWT пользователя, а не id: сессии снимаем через админ-API по id.
+                const { error: signOutErr } = await admin.auth.admin.signOut(targetUserId, 'global');
+                revoked = !signOutErr;
+                if (signOutErr) warns.push(`signOut: ${signOutErr.message}`);
+            } catch (e) {
+                warns.push(`signOut: ${String((e as Error)?.message || e)}`);
             }
+            if (warns.length) console.warn('[admin-space] block warnings:', warns.join(' | '));
 
-            return json({ ok: true, status: 'blocked', email: space.email, sessions_revoked: !signOutErr });
+            return json({ ok: true, status: 'blocked', email: space.email, sessions_revoked: revoked, warnings: warns });
         }
 
-        return json({ error: 'Unknown action. Use activate or block.' }, 400);
+        return json({ error: 'Unknown action. Use activate, block, set_staff or set_plan.' }, 400);
     } catch (e) {
         console.error('[admin-space]', e);
         return json({ error: String(e?.message || e) }, 500);
