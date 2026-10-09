@@ -66,8 +66,12 @@ Deno.serve(async (req) => {
     if (Array.isArray(body.test_cards) && reviewsChat && tgToken) {
         const sentIds: Array<number | null> = [];
         for (const raw of body.test_cards as Array<Record<string, unknown>>) {
+            const isReview = raw.kind === 'review';
             const png = await renderFeedbackPng({
-                kind: 'question',
+                kind: isReview ? 'review' : 'question',
+                rating: isReview ? Number(raw.rating) || 5 : undefined,
+                buyer: String(raw.buyer || '') || undefined,
+                tag: String(raw.tag || '') || undefined,
                 cabinetName: cabinetLegalName(String(raw.cabinet_name || '')),
                 title: String(raw.product || 'товар'),
                 nmId: Number(raw.nm_id) || '',
@@ -79,7 +83,7 @@ Deno.serve(async (req) => {
                 answerStr: formatQuestionReportWhen(new Date().toISOString()),
                 mode: 'auto',
             });
-            const sent = await sendTelegramPhotoBytes(tgToken, reviewsChat, png, feedbackCaption('question', OWNER));
+            const sent = await sendTelegramPhotoBytes(tgToken, reviewsChat, png, feedbackCaption(isReview ? 'review' : 'question', OWNER));
             sentIds.push(sent.messageId);
         }
         return json({ ok: true, test_cards: sentIds });
