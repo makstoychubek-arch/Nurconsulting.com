@@ -2354,6 +2354,7 @@ const RNP = (() => {
     /** Мини-окно заметки при наведении: полный текст крупно + история. */
     let _notePopEl = null;
     let _notePopTimer = null;
+    let _notePopAnchor = null;
 
     function _hideNotePop() {
         clearTimeout(_notePopTimer);
@@ -2390,6 +2391,13 @@ const RNP = (() => {
             _notePopEl.addEventListener('mouseenter', () => clearTimeout(_notePopTimer));
             _notePopEl.addEventListener('mouseleave', () => _hideNotePop());
             _notePopEl.addEventListener('click', (e) => {
+                const vb = e.target.closest && e.target.closest('[data-note-view-edit],[data-note-view-photo]');
+                if (vb && _notePopAnchor && !_noteEditing) {
+                    const wantPhoto = vb.hasAttribute('data-note-view-photo');
+                    _editNotePop(_notePopAnchor);
+                    if (wantPhoto) _notePopEl.querySelector('[data-note-file]')?.click();
+                    return;
+                }
                 const im = e.target.closest && e.target.closest('img[data-lb]');
                 if (!im) return;
                 const group = [...im.closest('.rnp-note-pop-imgs').querySelectorAll('img[data-lb]')];
@@ -2464,14 +2472,7 @@ const RNP = (() => {
         requestAnimationFrame(() => box.classList.add('is-on'));
     }
 
-    function _noteHistoryHtml(entry) {
-        return (entry.history || []).slice(1, 6).map((x) => {
-            const when = x.at ? new Date(x.at).toLocaleString('ru') : '';
-            return `<div class="rnp-note-pop-old">${_noteEsc(x.text) || (x.image ? '' : '—')}${_noteImgHtml(x.image)}<span>${_noteEsc(x.author)}${when ? ' · ' + when : ''}</span></div>`;
-        }).join('');
-    }
-
-    /** Наведение: текст заметки и история, окно закрывается, когда курсор ушёл. */
+    /** Наведение: текст заметки, фото и кнопки «Редактировать» / «Добавить фото»; окно закрывается, когда курсор ушёл. */
     function _showNotePop(input) {
         if (_noteEditing) return;
         const nm = input.getAttribute('data-nm');
@@ -2480,12 +2481,13 @@ const RNP = (() => {
         if (!entry || (!entry.text && !entry.image)) return;
         _ensureNotePop();
         _notePopEl.classList.remove('is-edit');
-        _notePopEl.classList.toggle('has-imgs', !!_noteImgList(entry.image).length || (entry.history || []).slice(1, 6).some(x => _noteImgList(x.image).length));
+        _notePopEl.classList.add('has-imgs');
+        _notePopAnchor = input;
         const [y, m, d] = String(date).split('-');
         const last = (entry.history || [])[0];
-        const hist = _noteHistoryHtml(entry);
         _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y}${last && last.author ? ' · ' + _noteEsc(last.author) : ''}</div>
-          <div class="rnp-note-pop-text">${_noteEsc(entry.text)}</div>${_noteImgHtml(entry.image)}${hist ? `<div class="rnp-note-pop-hist">${hist}</div>` : ''}`;
+          ${entry.text ? `<div class="rnp-note-pop-text">${_noteEsc(entry.text)}</div>` : ''}${_noteImgHtml(entry.image)}
+          <div class="rnp-note-pop-actions is-view"><button type="button" class="ui-btn ui-btn-secondary" data-note-view-edit><span>Редактировать</span></button><button type="button" class="ui-btn ui-btn-secondary" data-note-view-photo>Добавить фото</button></div>`;
         _placeNotePop(input);
     }
 
@@ -2500,12 +2502,11 @@ const RNP = (() => {
         _notePopEl.classList.add('is-edit');
         _notePopEl.classList.remove('has-imgs');
         const [y, m, d] = String(date).split('-');
-        const hist = _noteHistoryHtml(entry);
         _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y} · комментарий</div>
           <textarea class="rnp-note-pop-edit" rows="4" maxlength="2000" placeholder="Что произошло в этот день. Фото: Ctrl+V или значок ниже">${_noteEsc(entry.text)}</textarea>
           <div class="rnp-note-pop-img" data-note-img></div>
           <div class="rnp-note-pop-actions"><button type="button" class="rnp-note-photo-btn" data-note-photo title="Добавить фото (или вставьте Ctrl+V)" aria-label="Добавить фото"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg></button><input type="file" accept="image/*" multiple hidden data-note-file><input type="file" accept="image/*" hidden data-note-file-one><span style="flex:1"></span><button type="button" class="ui-btn ui-btn-secondary" data-note-cancel>Отмена</button><button type="button" class="ui-btn ui-btn-primary" data-note-save>Сохранить</button></div>
-          ${hist ? `<div class="rnp-note-pop-hist">${hist}</div>` : ''}`;
+          `;
         _placeNotePop(input);
         const ta = _notePopEl.querySelector('textarea');
         ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);

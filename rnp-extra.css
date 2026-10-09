@@ -160,3 +160,7 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-note-pop-imgs .rnp-note-thumb{flex:0 0 auto;height:130px;width:auto;max-width:none;max-height:none;margin:0;border-radius:12px;cursor:zoom-in;transition:transform .15s ease}
 .rnp-note-pop-imgs .rnp-note-thumb:hover{transform:scale(1.03)}
 .rnp-note-pop-old .rnp-note-pop-imgs .rnp-note-thumb{height:72px}
+
+.rnp-note-pop-imgs .rnp-note-thumb{height:64px}
+.rnp-note-pop-actions.is-view{justify-content:flex-start;margin-top:10px}
+.rnp-note-pop.has-imgs .rnp-note-pop-text:empty{display:none}
