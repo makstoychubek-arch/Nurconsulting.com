@@ -23,6 +23,8 @@ export type FeedbackCardModel = {
     nmId: number | string;
     supplierArticle?: string;
     photoUrl?: string;
+    /** small — маленькая миниатюра рядом с названием (по умолчанию), none — без фото. */
+    photo?: 'small' | 'none';
     /** Только для отзыва: 1–5. */
     rating?: number;
     buyer?: string;
@@ -70,31 +72,34 @@ export async function renderFeedbackPng(model: FeedbackCardModel): Promise<Uint8
     const S = 2;
     const pad = 28;
     const width = 780;
-    const photoW = 210;
+    const showPhoto = model.photo !== 'none';
+    const photoW = showPhoto ? 64 : 0;
     const photoH = Math.round(photoW * 4 / 3);
-    const colX = pad + photoW + 22;
+    const colX = pad + (showPhoto ? photoW + 16 : 0);
     const colW = width - pad - colX;
+    const blockX = pad;
+    const blockW = width - pad * 2;
 
     const probe = createCanvas(10, 10);
     probe.loadFont(fonts.regular, { family: 'DejaVu' });
     probe.loadFont(fonts.bold, { family: 'DejaVu', weight: 'bold' });
     const pc = probe.getContext('2d');
     pc.font = '15px DejaVu';
-    const textLines = wrap(pc, model.text, colW - 32, 7);
-    const answerLines = model.answer ? wrap(pc, model.answer, colW - 32, 7) : [];
+    const textLines = wrap(pc, model.text, blockW - 32, 7);
+    const answerLines = model.answer ? wrap(pc, model.answer, blockW - 32, 7) : [];
     const lh = 21;
 
     const headerH = 52;
     pc.font = 'bold 20px DejaVu';
     const titleLinesN = wrap(pc, model.title, colW, 2, true).length;
     pc.font = '15px DejaVu';
-    const topInfoH = 20 + titleLinesN * 25 + 4 + 32 + 22; // название, артикул, звёзды/покупатель
+    const topInfoH = Math.max(photoH, 20 + titleLinesN * 25 + 4 + 14) + 22; // миниатюра/название, артикул, звёзды/покупатель
     const textBlockH = 34 + textLines.length * lh + 18;
     const answerBlockH = model.answer || model.mode === 'pending'
         ? 34 + Math.max(answerLines.length, 1) * lh + 18
         : 0;
     const rightH = topInfoH + textBlockH + (answerBlockH ? 14 + answerBlockH : 0);
-    const bodyH = Math.max(photoH, rightH);
+    const bodyH = rightH;
     const height = pad + headerH + 18 + bodyH + 44 + pad;
 
     const canvas = createCanvas(Math.round(width * S), Math.round(height * S));
@@ -138,12 +143,13 @@ export async function renderFeedbackPng(model: FeedbackCardModel): Promise<Uint8
 
     const top = pad + headerH + 18;
 
-    // Фото 3:4.
+    // Миниатюра 3:4.
+    if (showPhoto) {
     ctx.save();
     ctx.shadowColor = 'rgba(0,0,0,0.10)';
     ctx.shadowBlur = 10;
     ctx.shadowOffsetY = 2;
-    roundRect(ctx, pad, top, photoW, photoH, 14);
+    roundRect(ctx, pad, top, photoW, photoH, 10);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.restore();
@@ -153,10 +159,11 @@ export async function renderFeedbackPng(model: FeedbackCardModel): Promise<Uint8
         const k = Math.max(photoW / w, photoH / h);
         const dw = w * k, dh = h * k;
         ctx.save();
-        roundRect(ctx, pad, top, photoW, photoH, 14);
+        roundRect(ctx, pad, top, photoW, photoH, 10);
         ctx.clip();
         ctx.drawImage(photo as never, pad + (photoW - dw) / 2, top + (photoH - dh) / 2, dw, dh);
         ctx.restore();
+    }
     }
 
     // Название и артикул.
@@ -170,7 +177,7 @@ export async function renderFeedbackPng(model: FeedbackCardModel): Promise<Uint8
     ctx.fillText(fitText(ctx, sub, colW), colX, top + 20 + titleLines.length * 25 + 4);
 
     // Звёзды / покупатель / дата.
-    const metaY = top + 20 + titleLines.length * 25 + 32;
+    const metaY = top + 20 + titleLines.length * 25 + 28;
     let mx = colX;
     if (model.kind === 'review' && model.rating) {
         const r = Math.max(1, Math.min(5, Math.round(model.rating)));
@@ -198,33 +205,33 @@ export async function renderFeedbackPng(model: FeedbackCardModel): Promise<Uint8
 
     // Блок «Покупатель».
     let by = top + topInfoH;
-    roundRect(ctx, colX, by, colW, textBlockH, 14);
+    roundRect(ctx, blockX, by, blockW, textBlockH, 14);
     ctx.fillStyle = '#FFFFFF';
     ctx.fill();
     ctx.strokeStyle = 'rgba(0,0,0,0.06)';
     ctx.stroke();
     ctx.fillStyle = '#9CA3AF';
     ctx.font = 'bold 11px DejaVu';
-    ctx.fillText(model.kind === 'review' ? 'ОТЗЫВ ПОКУПАТЕЛЯ' : 'ВОПРОС ПОКУПАТЕЛЯ', colX + 16, by + 22);
+    ctx.fillText(model.kind === 'review' ? 'ОТЗЫВ ПОКУПАТЕЛЯ' : 'ВОПРОС ПОКУПАТЕЛЯ', blockX + 16, by + 22);
     ctx.fillStyle = '#111827';
     ctx.font = '15px DejaVu';
-    textLines.forEach((l, i) => ctx.fillText(l, colX + 16, by + 46 + i * lh));
+    textLines.forEach((l, i) => ctx.fillText(l, blockX + 16, by + 46 + i * lh));
     by += textBlockH + 14;
 
     // Блок «Ответ».
     if (answerBlockH) {
         const pending = model.mode === 'pending';
-        roundRect(ctx, colX, by, colW, answerBlockH, 14);
+        roundRect(ctx, blockX, by, blockW, answerBlockH, 14);
         ctx.fillStyle = pending ? '#FEF3C7' : '#E8F0FE';
         ctx.fill();
         ctx.fillStyle = pending ? '#B45309' : '#1D4ED8';
         ctx.font = 'bold 11px DejaVu';
         const label = `${MODE_LABEL[model.mode].toUpperCase()}${model.answerStr ? ' · ' + model.answerStr : ''}`;
-        ctx.fillText(fitText(ctx, label, colW - 32), colX + 16, by + 22);
+        ctx.fillText(fitText(ctx, label, blockW - 32), blockX + 16, by + 22);
         ctx.fillStyle = pending ? '#92400E' : '#1E3A8A';
         ctx.font = '15px DejaVu';
         const lines = answerLines.length ? answerLines : ['Ответа пока нет'];
-        lines.forEach((l, i) => ctx.fillText(l, colX + 16, by + 46 + i * lh));
+        lines.forEach((l, i) => ctx.fillText(l, blockX + 16, by + 46 + i * lh));
     }
 
     ctx.fillStyle = '#9CA3AF';

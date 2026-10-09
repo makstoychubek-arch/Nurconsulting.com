@@ -34,4 +34,17 @@ await Deno.writeFile(`${dir}/review-card.png`, await renderFeedbackPng({
     answerStr: '09.10 00:38',
     mode: 'auto',
 }));
+await Deno.writeFile(`${dir}/question-card-nophoto.png`, await renderFeedbackPng({
+    kind: 'question',
+    photo: 'none',
+    cabinetName: 'ИП Бейшеев А.Д.',
+    title: 'Куртка зимняя прямого кроя',
+    nmId: 1544472467,
+    supplierArticle: 'Куртка-черный1',
+    createdStr: '09.10 00:24',
+    text: 'Здравствуйте, а маска чумного доктора в комплекте идет?',
+    answer: 'Здравствуйте! В комплекте только куртка.',
+    answerStr: '09.10 01:13',
+    mode: 'manual',
+}));
 console.log('готово:', dir);
