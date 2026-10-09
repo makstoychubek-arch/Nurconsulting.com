@@ -2358,7 +2358,10 @@ const RNP = (() => {
     function _hideNotePop() {
         clearTimeout(_notePopTimer);
         if (_noteEditing) return; // в режиме правки окно закрывается только по сохранению или отмене
-        if (_notePopEl) _notePopEl.classList.remove('is-open');
+        // Небольшая задержка: курсор успевает дойти до окна с фото.
+        _notePopTimer = setTimeout(() => {
+            if (_notePopEl && !_noteEditing && !_notePopEl.matches(':hover')) _notePopEl.classList.remove('is-open');
+        }, 180);
     }
 
     let _noteEditing = false;
@@ -2383,6 +2386,15 @@ const RNP = (() => {
             _notePopEl = document.createElement('div');
             _notePopEl.className = 'rnp-note-pop';
             document.body.appendChild(_notePopEl);
+            // Окно с фото можно навести мышью и нажать на фото: открывается крупно (модалка).
+            _notePopEl.addEventListener('mouseenter', () => clearTimeout(_notePopTimer));
+            _notePopEl.addEventListener('mouseleave', () => _hideNotePop());
+            _notePopEl.addEventListener('click', (e) => {
+                const im = e.target.closest && e.target.closest('img[data-lb]');
+                if (!im) return;
+                const group = [...im.closest('.rnp-note-pop-imgs').querySelectorAll('img[data-lb]')];
+                _noteLightbox(group.map(g => g.getAttribute('src')), group.indexOf(im));
+            });
         }
         return _notePopEl;
     }
@@ -2393,7 +2405,8 @@ const RNP = (() => {
         return String(val || '').split(/\s+/).filter(u => /^https:\/\//.test(u));
     }
     function _noteImgHtml(val) {
-        return _noteImgList(val).map(u => `<a href="${_noteEsc(u)}" target="_blank" rel="noopener"><img class="rnp-note-thumb" src="${_noteEsc(u)}" alt=""></a>`).join('');
+        const urls = _noteImgList(val);
+        return urls.length ? `<div class="rnp-note-pop-imgs">${urls.map(u => `<img class="rnp-note-thumb" data-lb src="${_noteEsc(u)}" alt="">`).join('')}</div>` : '';
     }
 
     // Фото к заметке: сжимаем до 1600 px и кладём в bucket rnp-note-images (папка = кабинет).
@@ -2467,6 +2480,7 @@ const RNP = (() => {
         if (!entry || (!entry.text && !entry.image)) return;
         _ensureNotePop();
         _notePopEl.classList.remove('is-edit');
+        _notePopEl.classList.toggle('has-imgs', !!_noteImgList(entry.image).length || (entry.history || []).slice(1, 6).some(x => _noteImgList(x.image).length));
         const [y, m, d] = String(date).split('-');
         const last = (entry.history || [])[0];
         const hist = _noteHistoryHtml(entry);
@@ -2484,6 +2498,7 @@ const RNP = (() => {
         _noteEditing = true;
         _ensureNotePop();
         _notePopEl.classList.add('is-edit');
+        _notePopEl.classList.remove('has-imgs');
         const [y, m, d] = String(date).split('-');
         const hist = _noteHistoryHtml(entry);
         _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y} · комментарий</div>
