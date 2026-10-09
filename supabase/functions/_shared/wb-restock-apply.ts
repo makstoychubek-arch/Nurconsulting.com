@@ -34,11 +34,30 @@ export async function applyRestockTelegramReply(
         ownerUsername: string;
         reviewsChatId: string;
         send?: (text: string, replyToId: number) => Promise<void>;
-        react?: (emoji: string, messageId: number) => Promise<void>;
+        react?: (emoji: string, messageId: number) => Promise<{ ok: boolean; error?: string } | void>;
     },
 ): Promise<RestockApplyResult> {
     const msg = unwrapTelegramMessage(update);
     if (!msg || !isRestockInboundCandidate(msg)) return { handled: false };
+
+    // Результат реакции пишем в журнал: «❤ не встал» иначе не разобрать.
+    const rawReact = opts.react;
+    if (rawReact) {
+        opts = {
+            ...opts,
+            react: async (emoji, messageId) => {
+                const r = await rawReact(emoji, messageId);
+                await admin.from('telegram_inbound_log').insert({
+                    bot_id: 'restock',
+                    chat_id: msg.chatId,
+                    message_id: messageId,
+                    text_head: `reaction ${emoji}`,
+                    result: r && typeof r === 'object' ? (r.ok ? 'ok' : `fail: ${r.error ?? ''}`.slice(0, 200)) : 'sent',
+                }).then(() => undefined, () => undefined);
+                return r;
+            },
+        };
+    }
 
     const { data: pendingRows, error: pendingErr } = await admin
         .from('wb_restock_questions')

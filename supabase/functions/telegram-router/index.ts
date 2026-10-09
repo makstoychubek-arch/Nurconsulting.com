@@ -32,6 +32,17 @@ Deno.serve(async (req) => {
     const url = new URL(req.url);
     const botId = (url.searchParams.get('bot') || 'notify').toLowerCase();
 
+    if (req.method === 'GET' && url.searchParams.get('diag') === '1') {
+        const out: Record<string, unknown> = {};
+        for (const [id, key] of Object.entries(BOT_TOKEN_ENV)) {
+            const t = (Deno.env.get(key) ?? '').trim();
+            if (!t) { out[id] = 'no_token'; continue; }
+            const r = await fetch(`https://api.telegram.org/bot${t}/getWebhookInfo`).then((x) => x.json()).catch(() => null);
+            const w = r?.result || {};
+            out[id] = { path: String(w.url || '').split('/').pop(), pending: w.pending_update_count, err: w.last_error_message, allowed: w.allowed_updates };
+        }
+        return json(out);
+    }
     if (req.method === 'GET') {
         return json({ ok: true, bot: botId, restock: true });
     }
@@ -61,8 +72,17 @@ Deno.serve(async (req) => {
             msg.chatId,
             messageId,
             emoji,
-        ).then(() => undefined),
+        ),
     });
+    await admin.from('telegram_inbound_log').insert({
+        bot_id: botId,
+        chat_id: msg.chatId,
+        message_id: msg.messageId,
+        reply_to_ids: msg.replyToMessageIds,
+        from_username: msg.fromUsername,
+        text_head: msg.text.slice(0, 60),
+        result: restock.handled ? `${restock.kind}:${restock.detail ?? ''}` : 'not_handled',
+    }).then(() => undefined, () => undefined);
     if (restock.handled) return json({ ok: true, ...restock });
 
     if (isTeamChatId(msg.chatId, teamChat)) {

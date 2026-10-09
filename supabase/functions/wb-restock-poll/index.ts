@@ -8,8 +8,10 @@ import { getTelegramToken } from '../_shared/telegram-routing.ts';
 import { FEEDBACKS_API, wbError, wbSend } from '../_shared/wb-agent-wow.ts';
 import { pickCachedPhotoUrl, resolveWbCardPhotoUrl } from '../_shared/wb-main-photo.ts';
 import { renderQuestionAnswerReportPng } from '../_shared/wb-question-report-png.ts';
+import { feedbackCaption, renderFeedbackPng } from '../_shared/feedback-card-png.ts';
 import {
     answerWbQuestion,
+    cabinetLegalName,
     buildAutoQuestionAnswer,
     buildWbRestockAnswer,
     formatAutoAnswerMatchCaption,
@@ -60,6 +62,32 @@ Deno.serve(async (req) => {
 
     const dryRun = body.dry_run === true || body.dry_run === 'true';
     const admin = createClient(supabaseUrl, serviceKey);
+    // Пробные карточки шаблона: только картинка в группу, в базу ничего не пишется.
+    if (Array.isArray(body.test_cards) && reviewsChat && tgToken) {
+        const sentIds: Array<number | null> = [];
+        for (const raw of body.test_cards as Array<Record<string, unknown>>) {
+            const isReview = raw.kind === 'review';
+            const png = await renderFeedbackPng({
+                kind: isReview ? 'review' : 'question',
+                rating: isReview ? Number(raw.rating) || 5 : undefined,
+                buyer: String(raw.buyer || '') || undefined,
+                tag: String(raw.tag || '') || undefined,
+                cabinetName: cabinetLegalName(String(raw.cabinet_name || '')),
+                title: String(raw.product || 'товар'),
+                nmId: Number(raw.nm_id) || '',
+                supplierArticle: String(raw.article || '') || undefined,
+                photoUrl: String(raw.photo_url || '') || undefined,
+                createdStr: formatQuestionReportWhen(new Date().toISOString()),
+                text: String(raw.question || ''),
+                answer: String(raw.answer || ''),
+                answerStr: formatQuestionReportWhen(new Date().toISOString()),
+                mode: 'auto',
+            });
+            const sent = await sendTelegramPhotoBytes(tgToken, reviewsChat, png, feedbackCaption(isReview ? 'review' : 'question', OWNER));
+            sentIds.push(sent.messageId);
+        }
+        return json({ ok: true, test_cards: sentIds });
+    }
     const resendId = String(body.resend_question_id || '').trim();
     if (resendId) {
         return json(await resendPendingCard(admin, resendId, tgToken, reviewsChat, dryRun));
@@ -483,6 +511,27 @@ async function sendTelegramCard(
             mention,
         });
     if (answer) {
+        // Новый шаблон карточки (мини-фото, кабинет справа); при сбое — прежняя картинка ниже.
+        try {
+            const nowStr = formatQuestionReportWhen(new Date().toISOString());
+            const card = await renderFeedbackPng({
+                kind: 'question',
+                cabinetName: cabinetLegalName(cabinetName),
+                title: question.product || question.article || 'товар',
+                nmId: question.nmId ?? '',
+                supplierArticle: question.article || undefined,
+                photoUrl: photoUrl || undefined,
+                createdStr: formatQuestionReportWhen(question.createdDate),
+                text: question.text,
+                answer,
+                answerStr: nowStr,
+                mode: 'auto',
+            });
+            const sent = await sendTelegramPhotoBytes(token, chatId, card, feedbackCaption('question', OWNER));
+            if (!sent.error) return sent;
+        } catch (e) {
+            console.warn('[restock] feedback card', e);
+        }
         try {
             const png = await renderQuestionAnswerReportPng({
                 cabinetName,

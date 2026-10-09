@@ -1,6 +1,9 @@
 // PNG-карточка отзыва для Telegram (стиль как daily-penalties-report).
 import { createCanvas } from 'https://deno.land/x/canvas@v1.4.2/mod.ts';
 import { formatOrderStatus } from './wb-feedbacks.ts';
+import { renderFeedbackPng } from '../../_shared/feedback-card-png.ts';
+import { cabinetLegalName } from '../../_shared/wb-restock-reply.ts';
+import { resolveWbCardPhotoUrl } from '../../_shared/wb-main-photo.ts';
 let fontRegular = null;
 let fontBold = null;
 const HEADER_H = 72;
@@ -70,14 +73,41 @@ export function rowToCardData(row) {
 }
 export async function renderReviewPhotoBundle(row, footer) {
   const data = rowToCardData(row);
+  data.replyAt = row.published_at ? String(row.published_at) : undefined;
   const { png } = await renderReviewCardImage(data);
-  const caption = buildReviewPhotoCaption(data, footer, row.published_at);
+  // Новый шаблон: у отзыва подписи нет, вся информация на картинке (docs/feedback-card.md).
   return {
     png,
-    caption
+    caption: ''
   };
 }
-export async function renderReviewCardImage(data) {
+/** Новый шаблон карточки; при любом сбое — прежняя таблица. */ export async function renderReviewCardImage(data) {
+  try {
+    const photoUrl = data.nmId ? await resolveWbCardPhotoUrl(Number(data.nmId)) : null;
+    const png = await renderFeedbackPng({
+      kind: 'review',
+      cabinetName: cabinetLegalName(data.cabinetName),
+      title: data.productName || 'Товар',
+      nmId: data.nmId ?? '',
+      photoUrl: photoUrl || undefined,
+      rating: data.rating,
+      buyer: data.buyerName && data.buyerName !== '—' ? data.buyerName : undefined,
+      createdStr: formatReviewDateTimeShort(data.reviewCreatedAt),
+      tag: data.orderStatusLabel && data.orderStatusLabel !== '—' ? data.orderStatusLabel : undefined,
+      text: data.reviewText || '—',
+      answer: data.replyText || undefined,
+      answerStr: formatReviewDateTimeShort(data.replyAt),
+      mode: data.replyText ? 'auto' : 'pending'
+    });
+    return {
+      png
+    };
+  } catch (e) {
+    console.warn('[review-card-image] new template failed, legacy', String(e));
+    return renderReviewCardImageLegacy(data);
+  }
+}
+async function renderReviewCardImageLegacy(data) {
   await ensureFonts();
   const S = 2;
   const PAD = 14;
