@@ -186,3 +186,19 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-cat-grip{opacity:.5;font-size:11px;letter-spacing:-2px;margin-right:2px}
 .rnp-cat-group.drop-before{box-shadow:inset 3px 0 0 #7B61FF;border-radius:4px}
 .rnp-cat-group.drop-after{box-shadow:inset -3px 0 0 #7B61FF;border-radius:4px}
+
+/* РНП «Общий»: шапка — крупные карточки показателей и кольца остатков без обрезки */
+.rnp-general-topbar{height:auto !important;max-height:none !important;min-height:150px;overflow:visible !important;align-items:stretch !important;gap:12px !important;padding:6px 6px 8px !important}
+.rnp-general-bar-metrics{flex:0 0 56% !important;max-width:56% !important;height:auto !important;gap:10px;justify-content:flex-start !important}
+.rnp-general-metrics{display:grid !important;grid-template-columns:auto repeat(4,minmax(0,1fr));gap:6px !important;align-items:stretch !important}
+.rnp-general-art-count{grid-row:1 / span 2;align-self:center !important;writing-mode:horizontal-tb;font-size:12px !important;padding:0 8px 0 2px !important}
+.rnp-general-metric-pill{padding:6px 10px !important;border-radius:10px !important;gap:2px !important;min-width:0}
+.rnp-general-metric-pill span{font-size:10px !important;opacity:.8;overflow:hidden;text-overflow:ellipsis}
+.rnp-general-metric-pill b{font-size:15px !important;line-height:1.15;overflow:hidden;text-overflow:ellipsis}
+.rnp-general-donuts{display:flex;flex-wrap:wrap;gap:12px 22px !important;margin-top:0 !important;align-items:flex-start !important}
+.rnp-gdonut-chart{width:74px !important;height:74px !important;flex:0 0 74px !important}
+.rnp-gdonut-center b{font-size:14px !important}
+.rnp-gdonut-leg{font-size:11px !important}
+.rnp-general-bar-photos{flex:1 1 44% !important;height:auto !important;min-height:140px;align-self:stretch}
+.rnp-general-photos{height:100% !important;min-height:140px}
+@media (max-width:1024px){.rnp-general-bar-metrics{flex:1 1 100% !important;max-width:100% !important}.rnp-general-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.rnp-general-art-count{grid-row:auto;grid-column:1 / -1}}
