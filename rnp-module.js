@@ -42,6 +42,7 @@ const RNP = (() => {
     let _collapsedSections = new Set();
     let _financeCache = { key: '', rows: [], ts: 0 };
     let _dataCache = {}; // nmId -> { date -> row }
+    let _cabTotals = {}; // date -> итоги кабинета из финотчёта WB и рекламы (для строки «Общий»)
     let _planCache = {}; // nmId -> { 'YYYY-MM-DD' -> rnp_plans row } — Задача 3: planning source of truth
     // Курс ₽→сом по датам из exchange_rates (ручной / НБКР / из отчёта WB).
     // Зафиксирован на дату, при обновлении РНП не пересчитывается.
@@ -188,10 +189,7 @@ const RNP = (() => {
         ]},
         { id: 'adspend', label: 'Доля Рекламных Расходов', color: '#ef4444', rows: [
             { key: 'ad_spend',           label: 'Расход РК (пополнение)',           type: 'som',  src: 'promo' },
-            { key: 'ad_orders',          label: 'Заказов с РК',                     type: 'int',  src: 'promo' },
             { key: 'ad_cpo',             label: 'CPO',                              type: 'som',  src: 'calc' },
-            { key: 'ad_cpc',             label: 'CPC',                              type: 'dec2', src: 'promo' },
-            { key: 'ad_cro',             label: 'CR',                               type: 'pct2', src: 'promo' },
             { key: 'ad_cpm',             label: 'CPM',                              type: 'som',  src: 'calc' },
             { key: 'ad_roas',            label: 'ROAS',                             type: 'dec2', src: 'calc' },
             { key: 'plan_ad_spend',      label: 'Расход План',                      type: 'som',  src: 'manual', isPlan: true },
@@ -220,7 +218,9 @@ const RNP = (() => {
             { key: 'delivery_sum',       label: 'Доставка (WB)',                    type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'penalty_sum',        label: 'Штрафы',                           type: 'som',  src: 'auto',  hm: 'cost' },
             { key: 'storage_sum',        label: 'Хранение (сверено)',               type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'acceptance_sum',     label: 'Обработка товара (WB)',            type: 'som',  src: 'auto',  hm: 'cost', cabinetOnly: true },
             { key: 'deduction_sum',      label: 'Прочие удержания',                 type: 'som',  src: 'auto',  hm: 'cost' },
+            { key: 'to_withdraw',        label: 'К выводу',                         type: 'som',  src: 'auto',  bold: true, cabinetOnly: true },
             { key: 'cost_price_val',     label: 'Себестоимость',                    type: 'som',  src: 'settings' },
             { key: 'profit',             label: 'Прибыль',                          type: 'som',  src: 'calc',  bold: true, hm: 'profit' },
             { key: 'profit_per_unit',    label: 'Прибыль на 1 ед',                  type: 'som',  src: 'calc',  bold: true },
@@ -484,6 +484,7 @@ const RNP = (() => {
 
     function _clearCabinetState() {
         _dataCache = {};
+        _cabTotals = {};
         _stockCache = {};
         _stockSchemeView = 'all';
         _metricsCache = new Map();
@@ -1154,8 +1155,9 @@ const RNP = (() => {
         }
     }
 
-    function _sectionRows(sec) {
+    function _sectionRows(sec, art) {
         return sec.rows.filter(m => {
+            if (m.cabinetOnly && art && art.nm_id !== -1) return false;
             if (m.key === 'giveaways' && !_settings.showGiveaways) return false;
             if (m.competitor && !_settings.showCompetitor) return false;
             return true;
@@ -2641,6 +2643,8 @@ const RNP = (() => {
         delivery_sum: ['Доставка (WB)', 'Логистика WB за день из финотчёта: до покупателя, возвраты, невыкупы.'],
         penalty_sum: ['Штрафы', 'Штрафы WB из финотчёта.'],
         storage_sum: ['Хранение (сверено)', 'Платное хранение WB; детальный отчёт сверен с финотчётом. Нажми на название — снизу FBS и FBO (на складе продавца WB хранение не берёт, поэтому FBS = 0).'],
+        acceptance_sum: ['Обработка товара (WB)', 'Стоимость обработки товара из ежедневного отчёта реализации WB (по кабинету).'],
+        to_withdraw: ['К выводу', 'Как «Итого к оплате» в отчёте реализации WB: к перечислению − доставка − хранение − обработка − штрафы − прочие удержания. Считается по всему кабинету.'],
         deduction_sum: ['Прочие удержания', 'Удержания WB по артикулу из финотчёта (реклама WB на уровне кабинета сюда не входит).'],
         cost_price_val: ['Себестоимость', '(Продажи − возвраты) × себестоимость единицы из карточки артикула.'],
         profit: ['Прибыль', 'К перечислению − логистика − хранение − штрафы − удержания − себестоимость − расход РК − прочие расходы. Всё в сомах.'],
@@ -3595,7 +3599,7 @@ const RNP = (() => {
         const lines = [header.map(_csvCell).join(sep)];
         _sectionsForView().forEach(sec => {
             lines.push([sec.label, ...cols.map(() => '')].map(_csvCell).join(sep));
-            _sectionRows(sec).forEach(m => {
+            _sectionRows(sec, art).forEach(m => {
                 const vals = cols.map(c => {
                     if (m.isPlan) return _planVal(art, m.key, c.dates || [c.colKey]);
                     const v = c.data?.[m.key];
@@ -4841,6 +4845,7 @@ const RNP = (() => {
         if (_isStaleLoad(snapReq, snapCab)) return false;
         await _mergeAdStatsFromDb(nmIds, cal, { trackOutside: true });
         await _mergeFbsSplit(nmIds, cal);
+        await _loadCabinetTotals(cal);
         _seedTodayLiveZeros(nmIds, cal);
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
@@ -5147,7 +5152,7 @@ const RNP = (() => {
         'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing',
         'to_transfer','profit','cost_price_val','giveaways','storage_sum',
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
-        'log_to_client_sum','log_to_client_cnt',
+        'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw',
     ];
 
     function _cabinetWbRate(active, date) {
@@ -5234,7 +5239,54 @@ const RNP = (() => {
             });
             return _derive(raw, a);
         }).filter(Boolean);
-        return _mergeDerivedMetrics(parts);
+        const m = _mergeDerivedMetrics(parts);
+        return _applyCabinetTotals(m, _cabTotals[date], date);
+    }
+
+    // «Общий» = весь кабинет, а не сумма включённых в РНП товаров: берём итоги дня из финотчёта WB и рекламы кабинета.
+    function _applyCabinetTotals(m, t, date) {
+        if (!m || !t) return m;
+        const n = (v) => Number(v) || 0;
+        m.realization = n(t.realization);
+        m.to_transfer = n(t.to_transfer);
+        m.delivery_sum = n(t.delivery);
+        m.storage_sum = n(t.storage);
+        m.penalty_sum = n(t.penalty);
+        m.deduction_sum = n(t.deduction);
+        m.acceptance_sum = n(t.acceptance);
+        m.to_withdraw = n(t.to_withdraw);
+        if (n(t.ad_spend) > 0) m.ad_spend = n(t.ad_spend);
+        m.to_transfer_unit = m.sales_count > 0 ? m.to_transfer / m.sales_count : 0;
+        m.logistics_pct = m.realization > 0 ? m.delivery_sum / m.realization * 100 : 0;
+        m.storage_pct = m.realization > 0 ? m.storage_sum / m.realization * 100 : 0;
+        m.drr_pct = m.orders_sum > 0 ? m.ad_spend / m.orders_sum * 100 : 0;
+        m.ad_cpc = m.ad_clicks > 0 ? m.ad_spend / m.ad_clicks : 0;
+        m.ad_cpm = m.ad_impressions > 0 ? m.ad_spend / m.ad_impressions * 1000 : 0;
+        m.ad_roas = m.ad_spend > 0 ? (m.ad_revenue || 0) / m.ad_spend : 0;
+        // Прибыль: реклама WB, списанная с баланса (в «Прочих удержаниях»), не вычитается второй раз — РК учтена расходом.
+        m.profit = m.to_transfer - m.delivery_sum - m.storage_sum - m.penalty_sum - m.acceptance_sum - (m.cost_price_val || 0) - m.ad_spend;
+        m.profit_per_unit = m.sales_count > 0 ? m.profit / m.sales_count : 0;
+        m.margin_pct = m.to_transfer > 0 ? m.profit / m.to_transfer * 100 : 0;
+        m.roi_pct = m.cost_price_val > 0 ? m.profit / m.cost_price_val * 100 : 0;
+        m.wb_share_pct = m.logistics_pct + m.storage_pct + (m.commission_pct || 0)
+            + (m.sales_sum > 0 ? m.ad_spend / m.sales_sum * 100 : 0);
+        return m;
+    }
+
+    async function _loadCabinetTotals(cal) {
+        _cabTotals = {};
+        if (!_db || !_cab) return;
+        const allDates = _calAllDates(cal);
+        if (!allDates.length) return;
+        try {
+            const { data, error } = await _db.rpc('rnp_cabinet_totals', {
+                p_cabinet: _cab, p_from: allDates[0], p_to: allDates[allDates.length - 1],
+            });
+            if (error) throw error;
+            (data || []).forEach(r => { _cabTotals[String(r.d).split('T')[0]] = r; });
+        } catch (e) {
+            console.warn('[RNP] rnp_cabinet_totals:', e.message || e);
+        }
     }
 
     function _cabinetAggWeek(active, dates) {
@@ -6812,6 +6864,7 @@ const RNP = (() => {
         'sales_count', 'sales_sum', 'avg_check_sales', 'plan_sales_pct', 'return_pct', 'buyout_pct', 'returns_count', 'cancels_count', 'buyout_fin_pct',
         'logistics_per_unit', 'logistics_pct', 'storage_pct', 'realization', 'to_transfer', 'to_transfer_unit',
         'delivery_sum', 'penalty_sum', 'storage_sum', 'deduction_sum', 'log_to_pvz_avg',
+        'acceptance_sum', 'to_withdraw', 'cost_price_val', 'profit', 'profit_per_unit', 'margin_pct', 'roi_pct',
     ]);
 
     // Раскрытие «Заказы»/«Продажи» на две строки: склад продавца (FBS) и склад WB (FBO).
@@ -6925,7 +6978,7 @@ const RNP = (() => {
 
         const daySeries = cols.filter(c => (c.type === 'day' || c.type === 'month') && !c.isFuture);
 
-        const rows = _sectionRows(sec).map(m => {
+        const rows = _sectionRows(sec, art).map(m => {
             const scaleFn = _scaleFn(m, cols);
             const sparkVals = daySeries.map(c => (c.data && c.data[m.key]) || 0);
             const spark = m.isPlan ? '' : _sparkline(sparkVals, 36, 14);
