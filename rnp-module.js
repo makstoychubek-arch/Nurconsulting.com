@@ -2487,7 +2487,7 @@ const RNP = (() => {
         const last = (entry.history || [])[0];
         _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y}${last && last.author ? ' · ' + _noteEsc(last.author) : ''}</div>
           ${entry.text ? `<div class="rnp-note-pop-text">${_noteEsc(entry.text)}</div>` : ''}${_noteImgHtml(entry.image)}
-          <div class="rnp-note-pop-actions is-view"><button type="button" class="ui-btn ui-btn-secondary" data-note-view-edit>Редактировать</button><button type="button" class="ui-btn ui-btn-secondary" data-note-view-photo>Добавить фото</button></div>`;
+          <div class="rnp-note-pop-actions is-view"><button type="button" class="ui-btn ui-btn-secondary" data-note-view-edit><span>Редактировать</span></button><button type="button" class="ui-btn ui-btn-secondary" data-note-view-photo>Добавить фото</button></div>`;
         _placeNotePop(input);
     }
 
