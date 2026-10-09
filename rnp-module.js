@@ -1201,12 +1201,74 @@ const RNP = (() => {
             groups.get(cat).push(a);
         });
         const entries = [...groups.entries()];
+        const order = _catOrder();
         entries.sort((x, y) => {
             if (x[0] === UNCATEGORIZED) return 1;
             if (y[0] === UNCATEGORIZED) return -1;
+            const ix = order.indexOf(x[0]), iy = order.indexOf(y[0]);
+            if (ix !== -1 || iy !== -1) {
+                if (ix === -1) return 1;
+                if (iy === -1) return -1;
+                return ix - iy;
+            }
             return x[0].localeCompare(y[0], 'ru', { sensitivity: 'base' });
         });
         return entries;
+    }
+
+    // Порядок групп-вкладок задаёт пользователь (перетаскивание в режиме «Редактировать»); хранится в браузере по кабинету.
+    function _catOrderKey() { return 'rnp_cat_order:' + (_cab || ''); }
+    function _catOrder() {
+        try { const v = JSON.parse(localStorage.getItem(_catOrderKey()) || '[]'); return Array.isArray(v) ? v : []; }
+        catch (e) { return []; }
+    }
+    function _moveCategory(cat, beforeCat, after) {
+        if (!cat || !beforeCat || cat === beforeCat) return;
+        const current = _groupByCategory(_rnpVisibleArticles()).map(g => g[0]).filter(c => c !== UNCATEGORIZED);
+        const list = current.filter(c => c !== cat);
+        let i = list.indexOf(beforeCat);
+        if (i === -1) return;
+        if (after) i += 1;
+        list.splice(i, 0, cat);
+        try { localStorage.setItem(_catOrderKey(), JSON.stringify(list)); } catch (e) {}
+        _refreshTabsBar();
+    }
+    let _catDndBound = false;
+    function _bindCatDnd() {
+        if (_catDndBound) return;
+        _catDndBound = true;
+        let dragCat = null;
+        const grp = (e) => e.target.closest && e.target.closest('.rnp-cat-group[data-cat]');
+        document.addEventListener('dragstart', (e) => {
+            const g = grp(e);
+            if (!g || !_editMode) return;
+            dragCat = g.dataset.cat;
+            g.classList.add('is-dragging');
+            try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragCat); } catch (_) {}
+        });
+        document.addEventListener('dragover', (e) => {
+            const g = grp(e);
+            if (!g || dragCat == null || !_editMode) return;
+            e.preventDefault();
+            document.querySelectorAll('.rnp-cat-group.drop-before,.rnp-cat-group.drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+            if (g.dataset.cat === dragCat) return;
+            const r = g.getBoundingClientRect();
+            g.classList.add(e.clientX > r.left + r.width / 2 ? 'drop-after' : 'drop-before');
+        });
+        document.addEventListener('drop', (e) => {
+            const g = grp(e);
+            if (!g || dragCat == null || !_editMode) return;
+            e.preventDefault();
+            const r = g.getBoundingClientRect();
+            const after = e.clientX > r.left + r.width / 2;
+            const cat = dragCat; dragCat = null;
+            _moveCategory(cat, g.dataset.cat, after);
+        });
+        document.addEventListener('dragend', () => {
+            dragCat = null;
+            document.querySelectorAll('.rnp-cat-group.is-dragging,.rnp-cat-group.drop-before,.rnp-cat-group.drop-after')
+                .forEach(x => x.classList.remove('is-dragging', 'drop-before', 'drop-after'));
+        });
     }
     function _isCatCollapsed(cat) {
         try { return (JSON.parse(localStorage.getItem('rnp_collapsed_cats') || '{}'))[cat] === true; }
@@ -3538,8 +3600,11 @@ const RNP = (() => {
                   <span class="rnp-tab-label">${label.replace(/</g, '&lt;')}</span>
                 </div>`;
             }).join('');
-            return `<div class="rnp-cat-group${collapsed ? ' collapsed' : ''}">
-              <div class="rnp-cat-header${hasActive ? ' has-active' : ''}" onclick="RNP.toggleCategory('${catEsc}')" title="Свернуть/развернуть группу">
+            const dragAttr = _editMode && cat !== UNCATEGORIZED ? ' draggable="true"' : '';
+            const catAttr = cat.replace(/"/g, '&quot;');
+            return `<div class="rnp-cat-group${collapsed ? ' collapsed' : ''}${_editMode ? ' is-editable' : ''}" data-cat="${catAttr}"${dragAttr}>
+              <div class="rnp-cat-header${hasActive ? ' has-active' : ''}" onclick="RNP.toggleCategory('${catEsc}')" title="${_editMode ? 'Перетащите, чтобы поменять порядок групп' : 'Свернуть/развернуть группу'}">
+                ${_editMode && cat !== UNCATEGORIZED ? '<span class="rnp-cat-grip" aria-hidden="true">⋮⋮</span>' : ''}
                 <span class="rnp-cat-arrow">${collapsed ? '▸' : '▾'}</span>
                 <span class="rnp-cat-name">${cat.replace(/</g, '&lt;')}</span>
                 <span class="rnp-cat-count">${list.length}</span>
@@ -6333,6 +6398,7 @@ const RNP = (() => {
         _sectionView = 'all'; // выбор секций убран из интерфейса
         try { _notesVisible = localStorage.getItem('rnp_notes_visible') === '1'; } catch (e) { _notesVisible = false; }
         try { _editMode = sessionStorage.getItem('rnp_edit_mode') === '1'; } catch (e) {}
+        _bindCatDnd();
         try { _strategyTab = parseInt(localStorage.getItem('rnp_strategy_tab') || '0', 10) || 0; } catch (e) {}
         _planPeriod = 'week'; // «План → месяц» убран из интерфейса, период — датами в шапке
         _refMonthKey = null;
@@ -7255,6 +7321,8 @@ const RNP = (() => {
         try { sessionStorage.setItem('rnp_edit_mode', _editMode ? '1' : '0'); } catch (e) {}
         _applyEditMode();
         _updateEditModeBtn();
+        _bindCatDnd();
+        _refreshTabsBar();
     }
 
     // ─── PUBLIC API ───────────────────────────────────────────────────────────

@@ -178,3 +178,11 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-ded-table .num{text-align:right;white-space:nowrap;font-weight:600}
 .rnp-ded-table tfoot td{font-weight:700;border-bottom:none}
 .rnp-ded-note{margin:12px 0 0;font-size:12px;color:var(--text-muted,#888)}
+
+/* Группы-вкладки РНП: разделители и перетаскивание в режиме «Редактировать» */
+.rnp-cat-group + .rnp-cat-group{margin-left:6px;padding-left:8px;border-left:1px solid rgba(128,128,128,.35)}
+.rnp-cat-group.is-editable[draggable="true"] .rnp-cat-header{cursor:grab}
+.rnp-cat-group.is-dragging{opacity:.4}
+.rnp-cat-grip{opacity:.5;font-size:11px;letter-spacing:-2px;margin-right:2px}
+.rnp-cat-group.drop-before{box-shadow:inset 3px 0 0 #7B61FF;border-radius:4px}
+.rnp-cat-group.drop-after{box-shadow:inset -3px 0 0 #7B61FF;border-radius:4px}
