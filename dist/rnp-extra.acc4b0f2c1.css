@@ -187,18 +187,22 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-cat-group.drop-before{box-shadow:inset 3px 0 0 #7B61FF;border-radius:4px}
 .rnp-cat-group.drop-after{box-shadow:inset -3px 0 0 #7B61FF;border-radius:4px}
 
-/* РНП «Общий»: шапка — крупные карточки показателей и кольца остатков без обрезки */
+/* РНП «Общий»: шапка — слева крупные кольца остатков, рядом компактные показатели, справа фото */
 .rnp-general-topbar{height:auto !important;max-height:none !important;min-height:150px;overflow:visible !important;align-items:stretch !important;gap:12px !important;padding:6px 6px 8px !important}
-.rnp-general-bar-metrics{flex:0 0 56% !important;max-width:56% !important;height:auto !important;gap:10px;justify-content:flex-start !important}
-.rnp-general-metrics{display:grid !important;grid-template-columns:auto repeat(4,minmax(0,1fr));gap:6px !important;align-items:stretch !important}
-.rnp-general-art-count{grid-row:1 / span 2;align-self:center !important;writing-mode:horizontal-tb;font-size:12px !important;padding:0 8px 0 2px !important}
-.rnp-general-metric-pill{padding:6px 10px !important;border-radius:10px !important;gap:2px !important;min-width:0}
-.rnp-general-metric-pill span{font-size:10px !important;opacity:.8;overflow:hidden;text-overflow:ellipsis}
-.rnp-general-metric-pill b{font-size:15px !important;line-height:1.15;overflow:hidden;text-overflow:ellipsis}
-.rnp-general-donuts{display:flex;flex-wrap:wrap;gap:12px 22px !important;margin-top:0 !important;align-items:flex-start !important}
-.rnp-gdonut-chart{width:74px !important;height:74px !important;flex:0 0 74px !important}
-.rnp-gdonut-center b{font-size:14px !important}
-.rnp-gdonut-leg{font-size:11px !important}
-.rnp-general-bar-photos{flex:1 1 44% !important;height:auto !important;min-height:140px;align-self:stretch}
+.rnp-general-bar-metrics{flex:0 0 66% !important;max-width:66% !important;height:auto !important;display:flex !important;flex-direction:row-reverse !important;align-items:center !important;justify-content:flex-end !important;gap:18px !important}
+.rnp-general-donuts{display:flex;flex-wrap:nowrap;gap:20px !important;margin-top:0 !important;align-items:center !important;flex:0 0 auto}
+.rnp-gdonut{gap:10px !important}
+.rnp-gdonut-chart{width:112px !important;height:112px !important;flex:0 0 112px !important}
+.rnp-gdonut-center b{font-size:19px !important}
+.rnp-gdonut-center span{font-size:10px !important}
+.rnp-gdonut-legend{gap:3px !important}
+.rnp-gdonut-leg{font-size:12px !important}
+.rnp-gdonut-leg span{max-width:120px !important}
+.rnp-general-metrics{display:grid !important;grid-template-columns:auto repeat(4,minmax(92px,1fr));gap:4px !important;align-items:stretch !important;flex:1 1 auto;min-width:0}
+.rnp-general-art-count{grid-row:1 / span 2;align-self:center !important;font-size:11px !important;padding:0 6px 0 0 !important}
+.rnp-general-metric-pill{padding:3px 7px !important;border-radius:7px !important;gap:0 !important;min-width:0}
+.rnp-general-metric-pill span{font-size:9px !important;opacity:.8;overflow:hidden;text-overflow:ellipsis}
+.rnp-general-metric-pill b{font-size:12px !important;line-height:1.15;overflow:hidden;text-overflow:ellipsis}
+.rnp-general-bar-photos{flex:1 1 34% !important;height:auto !important;min-height:140px;align-self:stretch}
 .rnp-general-photos{height:100% !important;min-height:140px}
-@media (max-width:1024px){.rnp-general-bar-metrics{flex:1 1 100% !important;max-width:100% !important}.rnp-general-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.rnp-general-art-count{grid-row:auto;grid-column:1 / -1}}
+@media (max-width:1180px){.rnp-general-bar-metrics{flex:1 1 100% !important;max-width:100% !important;flex-direction:column-reverse !important;align-items:stretch !important}.rnp-general-metrics{grid-template-columns:repeat(4,minmax(0,1fr))}.rnp-general-art-count{grid-row:auto;grid-column:1 / -1}.rnp-gdonut-chart{width:96px !important;height:96px !important;flex-basis:96px !important}}
