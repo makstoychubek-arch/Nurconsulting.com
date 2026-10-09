@@ -2414,6 +2414,43 @@ const RNP = (() => {
         return _db.storage.from('rnp-note-images').getPublicUrl(path).data.publicUrl;
     }
 
+    // Просмотр фото на весь экран: стрелки, клавиши ← → Esc, свайп на телефоне, клик по фону закрывает.
+    function _noteLightbox(urls, start) {
+        const list = (urls || []).filter(Boolean);
+        if (!list.length) return;
+        let i = Math.max(0, Math.min(start || 0, list.length - 1));
+        document.querySelector('.rnp-lightbox')?.remove();
+        const box = document.createElement('div');
+        box.className = 'rnp-lightbox';
+        box.innerHTML = `<img class="rnp-lightbox-img" alt=""><button type="button" class="rnp-lightbox-x" data-lb-close aria-label="Закрыть">×</button>${list.length > 1 ? '<button type="button" class="rnp-lightbox-nav is-prev" data-lb-prev aria-label="Назад">‹</button><button type="button" class="rnp-lightbox-nav is-next" data-lb-next aria-label="Вперёд">›</button><div class="rnp-lightbox-count"></div>' : ''}`;
+        document.body.appendChild(box);
+        const img = box.querySelector('.rnp-lightbox-img');
+        const cnt = box.querySelector('.rnp-lightbox-count');
+        const show = (n) => { i = (n + list.length) % list.length; img.src = list[i]; if (cnt) cnt.textContent = (i + 1) + ' / ' + list.length; };
+        const close = () => { document.removeEventListener('keydown', onKey, true); box.classList.remove('is-on'); setTimeout(() => box.remove(), 160); };
+        const onKey = (e) => {
+            if (e.key === 'Escape') { e.stopPropagation(); close(); }
+            else if (e.key === 'ArrowLeft') show(i - 1);
+            else if (e.key === 'ArrowRight') show(i + 1);
+        };
+        document.addEventListener('keydown', onKey, true);
+        let x0 = null;
+        box.addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+        box.addEventListener('touchend', (e) => {
+            if (x0 == null) return;
+            const dx = e.changedTouches[0].clientX - x0; x0 = null;
+            if (Math.abs(dx) > 40) show(i + (dx < 0 ? 1 : -1));
+        });
+        box.addEventListener('click', (e) => {
+            if (e.target.closest('[data-lb-prev]')) show(i - 1);
+            else if (e.target.closest('[data-lb-next]')) show(i + 1);
+            else if (e.target === img) show(i + 1);
+            else close();
+        });
+        show(i);
+        requestAnimationFrame(() => box.classList.add('is-on'));
+    }
+
     function _noteHistoryHtml(entry) {
         return (entry.history || []).slice(1, 6).map((x) => {
             const when = x.at ? new Date(x.at).toLocaleString('ru') : '';
@@ -2452,7 +2489,7 @@ const RNP = (() => {
         _notePopEl.innerHTML = `<div class="rnp-note-pop-date">${d}.${m}.${y} · комментарий</div>
           <textarea class="rnp-note-pop-edit" rows="4" maxlength="2000" placeholder="Что произошло в этот день. Фото: Ctrl+V или значок ниже">${_noteEsc(entry.text)}</textarea>
           <div class="rnp-note-pop-img" data-note-img></div>
-          <div class="rnp-note-pop-actions"><button type="button" class="rnp-note-photo-btn" data-note-photo title="Добавить фото (или вставьте Ctrl+V)" aria-label="Добавить фото"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg></button><input type="file" accept="image/*" multiple hidden data-note-file><span style="flex:1"></span><button type="button" class="ui-btn ui-btn-secondary" data-note-cancel>Отмена</button><button type="button" class="ui-btn ui-btn-primary" data-note-save>Сохранить</button></div>
+          <div class="rnp-note-pop-actions"><button type="button" class="rnp-note-photo-btn" data-note-photo title="Добавить фото (или вставьте Ctrl+V)" aria-label="Добавить фото"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m21 16-5-5-8 8"/></svg></button><input type="file" accept="image/*" multiple hidden data-note-file><input type="file" accept="image/*" hidden data-note-file-one><span style="flex:1"></span><button type="button" class="ui-btn ui-btn-secondary" data-note-cancel>Отмена</button><button type="button" class="ui-btn ui-btn-primary" data-note-save>Сохранить</button></div>
           ${hist ? `<div class="rnp-note-pop-hist">${hist}</div>` : ''}`;
         _placeNotePop(input);
         const ta = _notePopEl.querySelector('textarea');
@@ -2461,7 +2498,7 @@ const RNP = (() => {
         let imgs = _noteImgList(entry.image).map(url => ({ url }));
         const imgBox = _notePopEl.querySelector('[data-note-img]');
         const paintImg = () => {
-            imgBox.innerHTML = imgs.map((it, i) => `<span class="rnp-note-img-wrap"><img class="rnp-note-thumb" src="${_noteEsc(it.prev || it.url)}" alt=""><button type="button" data-note-img-del="${i}" aria-label="Убрать фото">×</button></span>`).join('');
+            imgBox.innerHTML = imgs.map((it, i) => `<span class="rnp-note-img-wrap"><img class="rnp-note-thumb" data-note-img-open="${i}" src="${_noteEsc(it.prev || it.url)}" alt=""><button type="button" class="rnp-note-img-edit" data-note-img-edit="${i}" aria-label="Заменить фото" title="Заменить фото"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" data-note-img-del="${i}" aria-label="Убрать фото" title="Убрать фото">×</button></span>`).join('');
         };
         const addFiles = (files) => {
             for (const f of [...(files || [])]) {
@@ -2482,6 +2519,14 @@ const RNP = (() => {
         _notePopEl.ondragover = (ev) => ev.preventDefault();
         _notePopEl.ondrop = (ev) => { ev.preventDefault(); addFiles(ev.dataTransfer?.files); };
         _notePopEl.querySelector('[data-note-file]').onchange = (ev) => { addFiles(ev.target.files); ev.target.value = ''; };
+        let replaceIdx = -1;
+        _notePopEl.querySelector('[data-note-file-one]').onchange = (ev) => {
+            const f = ev.target.files[0]; ev.target.value = '';
+            if (!f || !/^image\//.test(f.type) || !imgs[replaceIdx]) return;
+            if (imgs[replaceIdx].prev) URL.revokeObjectURL(imgs[replaceIdx].prev);
+            imgs[replaceIdx] = { file: f, prev: URL.createObjectURL(f) };
+            paintImg();
+        };
         const close = async (save) => {
             if (!_noteEditing) return;
             _noteEditing = false;
@@ -2506,10 +2551,12 @@ const RNP = (() => {
                 }
             }
         };
-        const outside = (ev) => { if (!_notePopEl.contains(ev.target)) close(true); };
+        const outside = (ev) => { if (!_notePopEl.contains(ev.target) && !ev.target.closest('.rnp-lightbox')) close(true); };
         document.addEventListener('mousedown', outside, true);
         _notePopEl.onclick = (ev) => {
             if (ev.target.closest('[data-note-photo]')) _notePopEl.querySelector('[data-note-file]').click();
+            else if (ev.target.closest('[data-note-img-open]')) _noteLightbox(imgs.map(it => it.prev || it.url), Number(ev.target.closest('[data-note-img-open]').getAttribute('data-note-img-open')));
+            else if (ev.target.closest('[data-note-img-edit]')) { replaceIdx = Number(ev.target.closest('[data-note-img-edit]').getAttribute('data-note-img-edit')); _notePopEl.querySelector('[data-note-file-one]').click(); }
             else if (ev.target.closest('[data-note-img-del]')) { imgs.splice(Number(ev.target.closest('[data-note-img-del]').getAttribute('data-note-img-del')), 1); paintImg(); }
             else if (ev.target.closest('[data-note-save]')) close(true);
             else if (ev.target.closest('[data-note-cancel]')) close(false);

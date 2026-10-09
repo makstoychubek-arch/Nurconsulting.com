@@ -140,3 +140,17 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-plan-fill:hover{opacity:1;color:var(--accent)}
 .rnp-plan-sum{display:block;font-size:10px;color:var(--text-muted);margin-top:1px}
 .rnp-plan-loading,.rnp-plan-empty{padding:30px;text-align:center;color:var(--text-muted)}
+
+.rnp-note-img-edit{position:absolute;top:2px;left:2px;width:22px;height:22px;border:none;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.rnp-note-pop-img .rnp-note-thumb{cursor:zoom-in}
+.rnp-lightbox{position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(10,10,14,.78);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);opacity:0;transition:opacity .16s ease}
+.rnp-lightbox.is-on{opacity:1}
+.rnp-lightbox-img{max-width:92vw;max-height:88vh;border-radius:16px;box-shadow:0 24px 70px rgba(0,0,0,.5);object-fit:contain;cursor:pointer;transform:scale(.97);transition:transform .2s ease}
+.rnp-lightbox.is-on .rnp-lightbox-img{transform:scale(1)}
+.rnp-lightbox-x,.rnp-lightbox-nav{position:absolute;border:none;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.rnp-lightbox-x{top:18px;right:18px;width:40px;height:40px;font-size:26px;line-height:1}
+.rnp-lightbox-nav{top:50%;width:46px;height:46px;margin-top:-23px;font-size:32px;line-height:1;padding-bottom:4px}
+.rnp-lightbox-nav.is-prev{left:18px}.rnp-lightbox-nav.is-next{right:18px}
+.rnp-lightbox-x:hover,.rnp-lightbox-nav:hover{background:rgba(255,255,255,.3)}
+.rnp-lightbox-count{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);padding:5px 12px;border-radius:20px;background:rgba(255,255,255,.16);color:#fff;font-size:13px}
+@media(max-width:600px){.rnp-lightbox-nav{width:38px;height:38px;font-size:26px}.rnp-lightbox-nav.is-prev{left:8px}.rnp-lightbox-nav.is-next{right:8px}}
