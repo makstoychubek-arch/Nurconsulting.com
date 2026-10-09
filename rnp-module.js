@@ -3387,7 +3387,7 @@ const RNP = (() => {
         const rest = Math.max(0, real - comm - deliv - ads - stp);
         const rev = [['Комиссия и эквайринг WB', comm, GH_COLORS[0]], ['Логистика', deliv, GH_COLORS[1]], ['Реклама РК', ads, GH_COLORS[3]], ['Хранение, штрафы', stp, GH_COLORS[4]], ['Остаётся', rest, GH_COLORS[2]]];
         const pct = (v, t) => t > 0 ? Math.round(v / t * 100) + '%' : '—';
-        const ringSize = 128;
+        const ringSize = 112;
         const revCard = `<div class="rnp-gh-card" onclick="RNP.ghOpen('revenue')"><div class="rnp-gh-title">Куда уходит выручка ${_ghInfoIcon('revenue')}</div>
             <div class="rnp-gh-flex">${_ghRing(rev.map(([n, v, c]) => ({ name: n, v, c })), real >= 1e6 ? (real / 1e6).toFixed(2).replace('.', ',') + ' млн' : _ghNum(real), 'сом', ringSize)}
             ${_ghLegend(rev.map(([n, v, c]) => ({ name: n, val: pct(v, real), c })))}</div></div>`;
