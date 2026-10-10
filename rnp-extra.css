@@ -349,3 +349,8 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-pr-note.open { display: block; }
 .rnp-pr-i { margin-left: 6px; width: 18px; height: 18px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text-muted); font: italic 700 11px/16px Georgia, serif; cursor: pointer; vertical-align: middle; }
 .rnp-pr-i:hover { color: var(--accent); border-color: var(--accent-border); }
+.rnp-modal-table td small { display: block; font-size: 10px; color: var(--text-muted); }
+.rnp-pr-spp { display: inline-block; margin-top: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.rnp-pr-spp span { color: #6d4fe8; margin-right: 4px; }
+.rnp-modal-table td.num { vertical-align: top; }
+.rnp-pr-spp { display: flex; width: max-content; margin: 4px 0 0 auto; }

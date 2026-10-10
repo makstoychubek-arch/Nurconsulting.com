@@ -7209,6 +7209,17 @@ const RNP = (() => {
             const res = await _callProxy('prices_get', { nmIds: group.map(a => a.nm_id) }, _cab);
             (res?.items || []).forEach(i => { _priceCtx.prices[i.nmID] = i; });
             _priceCtx.currency = res?.currency || 'сом';
+            // Цена покупателя с СПП берётся из последнего заказа (finishedPrice к priceWithDisc) — как в кабинете WB.
+            try {
+                const ids = group.map(a => a.nm_id);
+                const { data: ord } = await _db.from('wb_orders').select('nm_id,data').eq('cabinet_id', _cab).in('nm_id', ids).order('order_date', { ascending: false }).limit(60);
+                _priceCtx.spp = {};
+                (ord || []).forEach(o => {
+                    if (_priceCtx.spp[o.nm_id]) return;
+                    const pw = Number(o.data?.priceWithDisc) || 0, fp = Number(o.data?.finishedPrice) || 0;
+                    if (pw > 0 && fp > 0 && fp <= pw) _priceCtx.spp[o.nm_id] = fp / pw;
+                });
+            } catch (e) { _priceCtx.spp = {}; }
         } catch (e) {
             body.innerHTML = `<div class="rnp-pr-err">Не удалось получить цену из WB: ${_ghEsc(String(e?.message || e).slice(0, 200))}.<br>Для этого нужен токен с доступом «Цены и скидки».</div>`;
             return;
@@ -7265,11 +7276,13 @@ const RNP = (() => {
         const art = c.group.find(a => a.nm_id == c.nm);
         const mg = main && !main.skip ? _priceMargin(art, main) : null;
         const low = main && !main.skip && main.newDisc < (Number(art.cost_price) || 0);
-        let spp = 0;
-        try { spp = Number((_periodSummary(art, _dataCache[art.nm_id] || {}, _buildCalendar()) || {}).spp_pct) || 0; } catch (e) {}
-        const tr = rows.map(r => r.skip
-            ? `<tr class="is-skip"><td>${_ghEsc(_sellerArticle(r.a))}</td><td colspan="4">${_ghEsc(r.skip)}</td></tr>`
-            : `<tr><td>${_ghEsc(_sellerArticle(r.a))}</td><td class="num">${r.d}% → <b class="${up ? 'pos' : 'neg'}">${r.nd}%</b></td><td class="num">${_money(r.nowDisc)} → <b class="${up ? 'pos' : 'neg'}">${_money(r.newDisc)}</b></td>${spp > 0 ? `<td class="num">${_money(r.nowDisc * (1 - spp / 100))} → ${_money(r.newDisc * (1 - spp / 100))}</td>` : '<td></td>'}<td class="num">${_money(r.p.price)}</td></tr>`).join('');
+        const sppOf = (r) => (c.spp && c.spp[r.a.nm_id]) || 0;
+        const tr = rows.map(r => {
+            if (r.skip) return `<tr class="is-skip"><td>${_ghEsc(_sellerArticle(r.a))}</td><td colspan="3">${_ghEsc(r.skip)}</td></tr>`;
+            const k = sppOf(r), cls = up ? 'pos' : 'neg';
+            const sppBox = k > 0 ? `<div class="rnp-pr-spp"><span>СПП ${((1 - k) * 100).toFixed(1).replace('.', ',')}%</span> ${_money(r.nowDisc * k)} → <b class="${cls}">${_money(r.newDisc * k)}</b></div>` : '';
+            return `<tr><td>${_ghEsc(_sellerArticle(r.a))}</td><td class="num">${_money(r.p.price)}<small>не меняется</small></td><td class="num">${r.d}% → <b class="${cls}">${r.nd}%</b></td><td class="num">${_money(r.nowDisc)} → <b class="${cls}">${_money(r.newDisc)}</b>${sppBox}</td></tr>`;
+        }).join('');
         const ready = rows.some(r => !r.skip);
         const step = main && !main.skip ? main.newDisc - main.nowDisc : 0;
         // Поле суммы и галочка рисуются один раз: пересборка поля на каждую цифру сбрасывала курсор.
@@ -7288,7 +7301,7 @@ const RNP = (() => {
           ${mg ? `<div class="rnp-pr-margin"><div><span>Прибыль на 1 шт за период</span><b>${_money(mg.now)} → <em class="${mg.next >= mg.now ? 'pos' : 'neg'}">${_money(mg.next)}</em> сом</b></div>
             <small>Оценка: изменение цены со скидкой минус удержания WB (комиссия, эквайринг) ${mg.com.toFixed(0)}%. Выкуп и логистика не меняются.</small></div>` : ''}
           ${low ? `<div class="rnp-pr-warn">Новая цена со скидкой ниже себестоимости (${_money(art.cost_price)} сом).</div>` : ''}
-          <div class="rnp-modal-table-wrap"><table class="rnp-modal-table"><thead><tr><th>Артикул</th><th class="num">Скидка продавца</th><th class="num">Со скидкой (до СПП)</th><th class="num" title="Средний СПП за период ${spp.toFixed(1)}%">С СПП ≈</th><th class="num">Цена до скидки (не меняется)</th></tr></thead><tbody>${tr}</tbody></table></div>
+          <div class="rnp-modal-table-wrap"><table class="rnp-modal-table"><thead><tr><th>Артикул</th><th class="num">Цена до скидки</th><th class="num">Скидка продавца</th><th class="num">Цена со скидкой</th></tr></thead><tbody>${tr}</tbody></table></div>
           <div class="rnp-pr-actions"><button type="button" class="rnp-pr-send ${up ? 'up' : 'dn'}" ${ready && c.amount > 0 ? '' : 'disabled'} onclick="RNP.priceSend()">${up ? 'Поднять цену' : 'Снизить цену'} в WB</button></div>`;
     }
 
