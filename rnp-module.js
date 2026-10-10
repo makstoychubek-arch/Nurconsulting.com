@@ -1194,8 +1194,8 @@ const RNP = (() => {
     }
 
     // Группы как в карточке WB: артикулы с общим imtID (склеенные цвета) — одна группа, название — заголовок карточки.
-    // Включается флагом настроек wbGroups, когда у артикулов кабинета заполнен imt_id.
-    let _wbGroupSrc = null, _wbGroupMap = new Map();
+    // Включаются сами, когда у артикулов кабинета заполнен imt_id (после синхронизации с WB).
+    let _wbGroupSrc = null, _wbGroupMap = new Map(), _wbOn = false;
     function _wbGroupLabels() {
         if (_wbGroupSrc === _articles) return _wbGroupMap;
         _wbGroupSrc = _articles;
@@ -1208,6 +1208,7 @@ const RNP = (() => {
         });
         const used = new Map();
         _wbGroupMap = new Map();
+        _wbOn = by.size > 0;
         [...by.entries()].filter(([, l]) => l.length > 1).sort((x, y) => x[0] - y[0]).forEach(([imt, l]) => {
             const first = l.find(a => String(a.card_title || '').trim()) || l[0];
             let label = String(first.card_title || '').trim() || String(first.subject_name || '').trim() || ('Карточка ' + imt);
@@ -1218,7 +1219,7 @@ const RNP = (() => {
         });
         return _wbGroupMap;
     }
-    function _wbGroupsOn() { return _settings.wbGroups === true; }
+    function _wbGroupsOn() { _wbGroupLabels(); return _wbOn; }
     function _articleCategory(a) {
         if (_wbGroupsOn()) return _wbGroupLabels().get(a.nm_id) || UNCATEGORIZED;
         return (a.category || '').trim() || UNCATEGORIZED;
@@ -7203,7 +7204,7 @@ const RNP = (() => {
         const up = dir > 0;
         const group = art.imt_id ? _articles.filter(a => a.is_active && Number(a.imt_id) === Number(art.imt_id)) : [art];
         const body = _rnpModal(up ? 'Поднять цену' : 'Снизить цену', _sellerArticle(art), '<div class="rnp-pr-load">Загружаю цены из WB…</div>');
-        _priceCtx = { nm: nmId, dir: up ? 1 : -1, group, prices: {}, amount: 100, all: group.length > 1 };
+        _priceCtx = { nm: nmId, dir: up ? 1 : -1, group, prices: {}, amount: 100, all: false, mode: 'disc' };
         try {
             const res = await _callProxy('prices_get', { nmIds: group.map(a => a.nm_id) }, _cab);
             (res?.items || []).forEach(i => { _priceCtx.prices[i.nmID] = i; });
@@ -7230,9 +7231,10 @@ const RNP = (() => {
             const d = Math.min(99, Math.max(0, p.discount || 0));
             const keep = 1 - d / 100;
             const nowDisc = p.discounted || Math.round(p.price * keep);
-            const target = nowDisc + sign * c.amount;
-            if (target <= 0) return { a, skip: 'цена станет ≤ 0' };
-            const newBase = Math.round(target / keep);
+            let newBase;
+            if (c.mode === 'base') newBase = p.price + sign * c.amount;
+            else newBase = Math.round((nowDisc + sign * c.amount) / keep);
+            if (newBase <= 0 || newBase * keep <= 0) return { a, skip: 'цена станет ≤ 0' };
             return { a, p, d, nowDisc, newBase, newDisc: Math.round(newBase * keep) };
         });
     }
@@ -7264,20 +7266,27 @@ const RNP = (() => {
         const low = main && !main.skip && main.newDisc < (Number(art.cost_price) || 0);
         const tr = rows.map(r => r.skip
             ? `<tr class="is-skip"><td>${_ghEsc(_sellerArticle(r.a))}</td><td colspan="3">${_ghEsc(r.skip)}</td></tr>`
-            : `<tr><td>${_ghEsc(_sellerArticle(r.a))}</td><td class="num">${_money(r.nowDisc)}</td><td class="num"><b class="${up ? 'pos' : 'neg'}">${_money(r.newDisc)}</b></td><td class="num">${_money(r.p.price)} → ${_money(r.newBase)}</td></tr>`).join('');
+            : `<tr><td>${_ghEsc(_sellerArticle(r.a))}</td><td class="num">${_money(r.p.price)} → <b class="${up ? 'pos' : 'neg'}">${_money(r.newBase)}</b></td><td class="num">${r.d}%</td><td class="num">${_money(r.nowDisc)} → <b class="${up ? 'pos' : 'neg'}">${_money(r.newDisc)}</b></td></tr>`).join('');
         const ready = rows.some(r => !r.skip);
+        const modeHtml = `<div class="rnp-pr-mode"><span>Менять</span>
+            <button type="button" class="${c.mode === 'disc' ? 'on' : ''}" onclick="RNP.priceMode('disc')">Цену со скидкой (до СПП)</button>
+            <button type="button" class="${c.mode === 'base' ? 'on' : ''}" onclick="RNP.priceMode('base')">Цену до скидки</button></div>`;
         host.innerHTML = `
-          <p class="rnp-pr-note">Меняем цену со скидкой продавца: ${up ? 'плюс' : 'минус'} указанная сумма. Скидка (${main?.d ?? 0}%) остаётся прежней, цена до скидки пересчитается сама. WB применит цену за несколько минут.</p>
+          <p class="rnp-pr-note">${c.mode === 'disc'
+            ? `Меняем цену со скидкой продавца (до СПП): ${up ? 'плюс' : 'минус'} указанная сумма. Скидка остаётся прежней, цена до скидки пересчитается сама.`
+            : `Меняем цену до скидки: ${up ? 'плюс' : 'минус'} указанная сумма. Скидка остаётся прежней, цена со скидкой пересчитается сама.`} WB применит цену за несколько минут.</p>
+          ${modeHtml}
           <div class="rnp-pr-amount"><span>На сколько ${up ? 'поднять' : 'снизить'}, ${cur}</span>
             <input type="number" min="1" step="10" value="${c.amount}" oninput="RNP.priceAmount(this.value)"></div>
-          ${c.group.length > 1 ? `<label class="rnp-pr-all"><input type="checkbox" ${c.all ? 'checked' : ''} onchange="RNP.priceAll(this.checked)"> На всю карточку WB (${c.group.length} цветов)</label>` : ''}
+          ${c.group.length > 1 ? `<label class="rnp-pr-all"><input type="checkbox" ${c.all ? 'checked' : ''} onchange="RNP.priceAll(this.checked)"> Применить ко всем цветам карточки WB (${c.group.length})</label>` : ''}
           ${mg ? `<div class="rnp-pr-margin"><div><span>Прибыль на 1 шт за период</span><b>${_money(mg.now)} → <em class="${mg.next >= mg.now ? 'pos' : 'neg'}">${_money(mg.next)}</em> сом</b></div>
-            <small>Оценка: изменение цены минус удержания WB (комиссия, эквайринг) ${mg.com.toFixed(0)}%. Выкуп и логистика не меняются.</small></div>` : ''}
+            <small>Оценка: изменение цены со скидкой минус удержания WB (комиссия, эквайринг) ${mg.com.toFixed(0)}%. Выкуп и логистика не меняются.</small></div>` : ''}
           ${low ? `<div class="rnp-pr-warn">Новая цена со скидкой ниже себестоимости (${_money(art.cost_price)} сом).</div>` : ''}
-          <div class="rnp-modal-table-wrap"><table class="rnp-modal-table"><thead><tr><th>Артикул</th><th class="num">Сейчас</th><th class="num">Будет</th><th class="num">До скидки</th></tr></thead><tbody>${tr}</tbody></table></div>
+          <div class="rnp-modal-table-wrap"><table class="rnp-modal-table"><thead><tr><th>Артикул</th><th class="num">Цена до скидки</th><th class="num">Скидка</th><th class="num">Со скидкой (до СПП)</th></tr></thead><tbody>${tr}</tbody></table></div>
           <div class="rnp-pr-actions"><button type="button" class="rnp-pr-send ${up ? 'up' : 'dn'}" ${ready && c.amount > 0 ? '' : 'disabled'} onclick="RNP.priceSend()">${up ? 'Поднять цену' : 'Снизить цену'} в WB</button></div>`;
     }
 
+    function priceMode(m) { if (_priceCtx) { _priceCtx.mode = m === 'base' ? 'base' : 'disc'; _renderPrice(); } }
     function priceAmount(v) {
         if (!_priceCtx) return;
         _priceCtx.amount = Math.max(0, Math.round(Number(v) || 0));
@@ -8701,7 +8710,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceMode, priceAmount, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();

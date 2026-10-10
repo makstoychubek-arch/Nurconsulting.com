@@ -340,3 +340,6 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-pr-send:disabled { opacity: .45; cursor: default; }
 .rnp-modal-table tr.is-skip td { color: var(--text-muted); font-size: 12px; }
 .pos { color: #22a85a; } .neg { color: #e5484d; }
+.rnp-pr-mode { display: flex; align-items: center; gap: 6px; margin: 0 0 10px; flex-wrap: wrap; font-size: 13px; font-weight: 700; }
+.rnp-pr-mode button { padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text-secondary); font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+.rnp-pr-mode button.on { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
