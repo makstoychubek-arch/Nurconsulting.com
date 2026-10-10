@@ -345,3 +345,7 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-pr-mode button.on { background: var(--accent-soft); border-color: var(--accent-border); color: var(--accent); }
 /* Шапка «Общий» закреплена слева: при прокрутке таблицы вправо она остаётся на месте */
 .rnp-general-topbar.rnp-gh { position: sticky !important; left: 0; z-index: 6; }
+.rnp-pr-note { display: none; }
+.rnp-pr-note.open { display: block; }
+.rnp-pr-i { margin-left: 6px; width: 18px; height: 18px; padding: 0; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text-muted); font: italic 700 11px/16px Georgia, serif; cursor: pointer; vertical-align: middle; }
+.rnp-pr-i:hover { color: var(--accent); border-color: var(--accent-border); }

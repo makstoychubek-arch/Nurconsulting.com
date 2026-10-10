@@ -7272,11 +7272,19 @@ const RNP = (() => {
             : `<tr><td>${_ghEsc(_sellerArticle(r.a))}</td><td class="num">${r.d}% → <b class="${up ? 'pos' : 'neg'}">${r.nd}%</b></td><td class="num">${_money(r.nowDisc)} → <b class="${up ? 'pos' : 'neg'}">${_money(r.newDisc)}</b></td>${spp > 0 ? `<td class="num">${_money(r.nowDisc * (1 - spp / 100))} → ${_money(r.newDisc * (1 - spp / 100))}</td>` : '<td></td>'}<td class="num">${_money(r.p.price)}</td></tr>`).join('');
         const ready = rows.some(r => !r.skip);
         const step = main && !main.skip ? main.newDisc - main.nowDisc : 0;
-        host.innerHTML = `
-          <p class="rnp-pr-note">Цену до скидки не меняем — меняется только скидка продавца в WB: ${up ? 'снижаем' : 'повышаем'} её, чтобы цена со скидкой ${up ? 'выросла' : 'упала'} примерно на указанную сумму. Скидка в WB — целое число процентов, поэтому реальный шаг ближе к ${_money(Math.abs(step))} ${cur}. WB применит цену за несколько минут.</p>
-          <div class="rnp-pr-amount"><span>На сколько ${up ? 'поднять' : 'снизить'}, ${cur}</span>
+        // Поле суммы и галочка рисуются один раз: пересборка поля на каждую цифру сбрасывала курсор.
+        if (!host.querySelector('#rnp-pr-dyn')) {
+            host.innerHTML = `
+          <div class="rnp-pr-amount"><span>На сколько ${up ? 'поднять' : 'снизить'}, ${cur}
+            <button type="button" class="rnp-pr-i" title="Как это работает" onclick="document.getElementById('rnp-pr-note').classList.toggle('open')">i</button></span>
             <input type="number" min="1" step="10" value="${c.amount}" oninput="RNP.priceAmount(this.value)"></div>
+          <p class="rnp-pr-note" id="rnp-pr-note"></p>
           ${c.group.length > 1 ? `<label class="rnp-pr-all"><input type="checkbox" ${c.all ? 'checked' : ''} onchange="RNP.priceAll(this.checked)"> Применить ко всем цветам карточки WB (${c.group.length})</label>` : ''}
+          <div id="rnp-pr-dyn"></div>`;
+        }
+        const note = host.querySelector('#rnp-pr-note');
+        if (note) note.textContent = `Цену до скидки не меняем — меняется только скидка продавца в WB: ${up ? 'снижаем' : 'повышаем'} её, чтобы цена со скидкой ${up ? 'выросла' : 'упала'} примерно на указанную сумму. Скидка в WB — целое число процентов, поэтому реальный шаг ближе к ${_money(Math.abs(step))} ${cur}. WB применит цену за несколько минут.`;
+        host.querySelector('#rnp-pr-dyn').innerHTML = `
           ${mg ? `<div class="rnp-pr-margin"><div><span>Прибыль на 1 шт за период</span><b>${_money(mg.now)} → <em class="${mg.next >= mg.now ? 'pos' : 'neg'}">${_money(mg.next)}</em> сом</b></div>
             <small>Оценка: изменение цены со скидкой минус удержания WB (комиссия, эквайринг) ${mg.com.toFixed(0)}%. Выкуп и логистика не меняются.</small></div>` : ''}
           ${low ? `<div class="rnp-pr-warn">Новая цена со скидкой ниже себестоимости (${_money(art.cost_price)} сом).</div>` : ''}
@@ -7288,8 +7296,6 @@ const RNP = (() => {
         if (!_priceCtx) return;
         _priceCtx.amount = Math.max(0, Math.round(Number(v) || 0));
         _renderPrice();
-        const inp = document.querySelector('#rnp-modal .rnp-pr-amount input');
-        if (inp) { inp.focus(); const n = inp.value.length; try { inp.setSelectionRange(n, n); } catch (e) {} }
     }
     function priceAll(on) { if (_priceCtx) { _priceCtx.all = !!on; _renderPrice(); } }
 
