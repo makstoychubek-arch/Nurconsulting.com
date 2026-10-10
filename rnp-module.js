@@ -7264,9 +7264,11 @@ const RNP = (() => {
         const art = c.group.find(a => a.nm_id == c.nm);
         const mg = main && !main.skip ? _priceMargin(art, main) : null;
         const low = main && !main.skip && main.newDisc < (Number(art.cost_price) || 0);
+        let spp = 0;
+        try { spp = Number((_periodSummary(art, _dataCache[art.nm_id] || {}, _buildCalendar()) || {}).spp_pct) || 0; } catch (e) {}
         const tr = rows.map(r => r.skip
-            ? `<tr class="is-skip"><td>${_ghEsc(_sellerArticle(r.a))}</td><td colspan="3">${_ghEsc(r.skip)}</td></tr>`
-            : `<tr><td>${_ghEsc(_sellerArticle(r.a))}</td><td class="num">${_money(r.p.price)} → <b class="${up ? 'pos' : 'neg'}">${_money(r.newBase)}</b></td><td class="num">${r.d}%</td><td class="num">${_money(r.nowDisc)} → <b class="${up ? 'pos' : 'neg'}">${_money(r.newDisc)}</b></td></tr>`).join('');
+            ? `<tr class="is-skip"><td>${_ghEsc(_sellerArticle(r.a))}</td><td colspan="4">${_ghEsc(r.skip)}</td></tr>`
+            : `<tr><td>${_ghEsc(_sellerArticle(r.a))}</td><td class="num">${_money(r.p.price)} → <b class="${up ? 'pos' : 'neg'}">${_money(r.newBase)}</b></td><td class="num">${r.d}%</td><td class="num">${_money(r.nowDisc)} → <b class="${up ? 'pos' : 'neg'}">${_money(r.newDisc)}</b></td>${spp > 0 ? `<td class="num">${_money(r.nowDisc * (1 - spp / 100))} → ${_money(r.newDisc * (1 - spp / 100))}</td>` : ''}</tr>`).join('');
         const ready = rows.some(r => !r.skip);
         const modeHtml = `<div class="rnp-pr-mode"><span>Менять</span>
             <button type="button" class="${c.mode === 'disc' ? 'on' : ''}" onclick="RNP.priceMode('disc')">Цену со скидкой (до СПП)</button>
@@ -7282,7 +7284,7 @@ const RNP = (() => {
           ${mg ? `<div class="rnp-pr-margin"><div><span>Прибыль на 1 шт за период</span><b>${_money(mg.now)} → <em class="${mg.next >= mg.now ? 'pos' : 'neg'}">${_money(mg.next)}</em> сом</b></div>
             <small>Оценка: изменение цены со скидкой минус удержания WB (комиссия, эквайринг) ${mg.com.toFixed(0)}%. Выкуп и логистика не меняются.</small></div>` : ''}
           ${low ? `<div class="rnp-pr-warn">Новая цена со скидкой ниже себестоимости (${_money(art.cost_price)} сом).</div>` : ''}
-          <div class="rnp-modal-table-wrap"><table class="rnp-modal-table"><thead><tr><th>Артикул</th><th class="num">Цена до скидки</th><th class="num">Скидка</th><th class="num">Со скидкой (до СПП)</th></tr></thead><tbody>${tr}</tbody></table></div>
+          <div class="rnp-modal-table-wrap"><table class="rnp-modal-table"><thead><tr><th>Артикул</th><th class="num">Цена до скидки</th><th class="num">Скидка</th><th class="num">Со скидкой (до СПП)</th>${spp > 0 ? `<th class="num" title="Средний СПП за период ${spp.toFixed(1)}%">С СПП ≈</th>` : ''}</tr></thead><tbody>${tr}</tbody></table></div>
           <div class="rnp-pr-actions"><button type="button" class="rnp-pr-send ${up ? 'up' : 'dn'}" ${ready && c.amount > 0 ? '' : 'disabled'} onclick="RNP.priceSend()">${up ? 'Поднять цену' : 'Снизить цену'} в WB</button></div>`;
     }
 
