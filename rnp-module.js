@@ -7228,14 +7228,15 @@ const RNP = (() => {
             const p = c.prices[a.nm_id];
             if (!p) return { a, skip: 'нет цены в WB' };
             if (p.editableSizePrice) return { a, skip: 'цены по размерам — меняйте в кабинете WB' };
+            if (!(p.price > 0)) return { a, skip: 'в WB нет цены до скидки' };
             const d = Math.min(99, Math.max(0, p.discount || 0));
-            const keep = 1 - d / 100;
-            const nowDisc = p.discounted || Math.round(p.price * keep);
-            let newBase;
-            if (c.mode === 'base') newBase = p.price + sign * c.amount;
-            else newBase = Math.round((nowDisc + sign * c.amount) / keep);
-            if (newBase <= 0 || newBase * keep <= 0) return { a, skip: 'цена станет ≤ 0' };
-            return { a, p, d, nowDisc, newBase, newDisc: Math.round(newBase * keep) };
+            const nowDisc = p.discounted || Math.round(p.price * (1 - d / 100));
+            // Цена до скидки не трогаем — меняется только процент скидки продавца (в WB он целый).
+            let nd = Math.round((1 - (nowDisc + sign * c.amount) / p.price) * 100);
+            if (sign > 0) nd = Math.min(nd, d - 1); else nd = Math.max(nd, d + 1);
+            if (nd < 0) return { a, skip: 'скидка уже 0% — выше цену не поднять, меняйте цену до скидки в WB' };
+            if (nd > 99) return { a, skip: 'скидка станет больше 99%' };
+            return { a, p, d, nowDisc, nd, newBase: p.price, newDisc: Math.round(p.price * (1 - nd / 100)) };
         });
     }
 
@@ -7268,27 +7269,21 @@ const RNP = (() => {
         try { spp = Number((_periodSummary(art, _dataCache[art.nm_id] || {}, _buildCalendar()) || {}).spp_pct) || 0; } catch (e) {}
         const tr = rows.map(r => r.skip
             ? `<tr class="is-skip"><td>${_ghEsc(_sellerArticle(r.a))}</td><td colspan="4">${_ghEsc(r.skip)}</td></tr>`
-            : `<tr><td>${_ghEsc(_sellerArticle(r.a))}</td><td class="num">${_money(r.p.price)} → <b class="${up ? 'pos' : 'neg'}">${_money(r.newBase)}</b></td><td class="num">${r.d}%</td><td class="num">${_money(r.nowDisc)} → <b class="${up ? 'pos' : 'neg'}">${_money(r.newDisc)}</b></td>${spp > 0 ? `<td class="num">${_money(r.nowDisc * (1 - spp / 100))} → ${_money(r.newDisc * (1 - spp / 100))}</td>` : ''}</tr>`).join('');
+            : `<tr><td>${_ghEsc(_sellerArticle(r.a))}</td><td class="num">${r.d}% → <b class="${up ? 'pos' : 'neg'}">${r.nd}%</b></td><td class="num">${_money(r.nowDisc)} → <b class="${up ? 'pos' : 'neg'}">${_money(r.newDisc)}</b></td>${spp > 0 ? `<td class="num">${_money(r.nowDisc * (1 - spp / 100))} → ${_money(r.newDisc * (1 - spp / 100))}</td>` : '<td></td>'}<td class="num">${_money(r.p.price)}</td></tr>`).join('');
         const ready = rows.some(r => !r.skip);
-        const modeHtml = `<div class="rnp-pr-mode"><span>Менять</span>
-            <button type="button" class="${c.mode === 'disc' ? 'on' : ''}" onclick="RNP.priceMode('disc')">Цену со скидкой (до СПП)</button>
-            <button type="button" class="${c.mode === 'base' ? 'on' : ''}" onclick="RNP.priceMode('base')">Цену до скидки</button></div>`;
+        const step = main && !main.skip ? main.newDisc - main.nowDisc : 0;
         host.innerHTML = `
-          <p class="rnp-pr-note">${c.mode === 'disc'
-            ? `Меняем цену со скидкой продавца (до СПП): ${up ? 'плюс' : 'минус'} указанная сумма. Скидка остаётся прежней, цена до скидки пересчитается сама.`
-            : `Меняем цену до скидки: ${up ? 'плюс' : 'минус'} указанная сумма. Скидка остаётся прежней, цена со скидкой пересчитается сама.`} WB применит цену за несколько минут.</p>
-          ${modeHtml}
+          <p class="rnp-pr-note">Цену до скидки не меняем — меняется только скидка продавца в WB: ${up ? 'снижаем' : 'повышаем'} её, чтобы цена со скидкой ${up ? 'выросла' : 'упала'} примерно на указанную сумму. Скидка в WB — целое число процентов, поэтому реальный шаг ближе к ${_money(Math.abs(step))} ${cur}. WB применит цену за несколько минут.</p>
           <div class="rnp-pr-amount"><span>На сколько ${up ? 'поднять' : 'снизить'}, ${cur}</span>
             <input type="number" min="1" step="10" value="${c.amount}" oninput="RNP.priceAmount(this.value)"></div>
           ${c.group.length > 1 ? `<label class="rnp-pr-all"><input type="checkbox" ${c.all ? 'checked' : ''} onchange="RNP.priceAll(this.checked)"> Применить ко всем цветам карточки WB (${c.group.length})</label>` : ''}
           ${mg ? `<div class="rnp-pr-margin"><div><span>Прибыль на 1 шт за период</span><b>${_money(mg.now)} → <em class="${mg.next >= mg.now ? 'pos' : 'neg'}">${_money(mg.next)}</em> сом</b></div>
             <small>Оценка: изменение цены со скидкой минус удержания WB (комиссия, эквайринг) ${mg.com.toFixed(0)}%. Выкуп и логистика не меняются.</small></div>` : ''}
           ${low ? `<div class="rnp-pr-warn">Новая цена со скидкой ниже себестоимости (${_money(art.cost_price)} сом).</div>` : ''}
-          <div class="rnp-modal-table-wrap"><table class="rnp-modal-table"><thead><tr><th>Артикул</th><th class="num">Цена до скидки</th><th class="num">Скидка</th><th class="num">Со скидкой (до СПП)</th>${spp > 0 ? `<th class="num" title="Средний СПП за период ${spp.toFixed(1)}%">С СПП ≈</th>` : ''}</tr></thead><tbody>${tr}</tbody></table></div>
+          <div class="rnp-modal-table-wrap"><table class="rnp-modal-table"><thead><tr><th>Артикул</th><th class="num">Скидка продавца</th><th class="num">Со скидкой (до СПП)</th><th class="num" title="Средний СПП за период ${spp.toFixed(1)}%">С СПП ≈</th><th class="num">Цена до скидки (не меняется)</th></tr></thead><tbody>${tr}</tbody></table></div>
           <div class="rnp-pr-actions"><button type="button" class="rnp-pr-send ${up ? 'up' : 'dn'}" ${ready && c.amount > 0 ? '' : 'disabled'} onclick="RNP.priceSend()">${up ? 'Поднять цену' : 'Снизить цену'} в WB</button></div>`;
     }
 
-    function priceMode(m) { if (_priceCtx) { _priceCtx.mode = m === 'base' ? 'base' : 'disc'; _renderPrice(); } }
     function priceAmount(v) {
         if (!_priceCtx) return;
         _priceCtx.amount = Math.max(0, Math.round(Number(v) || 0));
@@ -7309,7 +7304,7 @@ const RNP = (() => {
         const old = {};
         rows.forEach(r => { old[r.a.nm_id] = { price: r.p.price, discount: r.d, delta: r.newDisc - r.nowDisc }; });
         try {
-            const res = await _callProxy('prices_set', { items: rows.map(r => ({ nmID: r.a.nm_id, price: r.newBase, discount: r.d })), old }, _cab);
+            const res = await _callProxy('prices_set', { items: rows.map(r => ({ nmID: r.a.nm_id, price: r.newBase, discount: r.nd })), old }, _cab);
             let status = '';
             if (res?.uploadId) {
                 for (let i = 0; i < 4 && !status; i++) {
@@ -8712,7 +8707,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceMode, priceAmount, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
