@@ -941,8 +941,11 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
     if (!cards.length) return 0;
 
     const { data: existing } = await admin.from('rnp_articles')
-        .select('nm_id,is_active,photo_url').eq('cabinet_id', cabinetId);
+        .select('nm_id,is_active,photo_url,imt_id,card_title,subject_name').eq('cabinet_id', cabinetId);
     const known = new Set((existing || []).map((r: { nm_id: number }) => Number(r.nm_id)));
+    const knownCard = new Map((existing || []).map((r: { nm_id: number; imt_id: number | null; card_title: string | null; subject_name: string | null }) => [Number(r.nm_id), r]));
+    // Группы как в карточке WB: imtID, название карточки и предмет.
+    const cardUpdates: Array<{ nmId: number; imt_id: number; card_title: string | null; subject_name: string | null }> = [];
     const needPhoto = new Set(
         (existing || [])
             .filter((r: { photo_url: string | null }) => !String(r.photo_url || '').trim())
@@ -957,6 +960,15 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
         const nmId = Number(card.nmID || card.nmId);
         if (!nmId) continue;
         const photo = extractMainPhotoUrl(card as Record<string, unknown>);
+        const imtId = Number((card as Record<string, unknown>).imtID || (card as Record<string, unknown>).imtId || 0);
+        const cardTitle = String((card as Record<string, unknown>).title || (card as Record<string, unknown>).vendorCode || '').slice(0, 200) || null;
+        const subjectName = String((card as Record<string, unknown>).subjectName || (card as Record<string, unknown>).object || '').slice(0, 120) || null;
+        if (known.has(nmId) && imtId) {
+            const k = knownCard.get(nmId);
+            if (!k || Number(k.imt_id) !== imtId || k.card_title !== cardTitle || k.subject_name !== subjectName) {
+                cardUpdates.push({ nmId, imt_id: imtId, card_title: cardTitle, subject_name: subjectName });
+            }
+        }
         if (known.has(nmId)) {
             if (photo && needPhoto.has(nmId)) photoUpdates.push({ nmId, url: photo });
             continue;
@@ -971,7 +983,15 @@ async function syncArticlesFromContentCards(admin: Admin, cabinetId: string, tok
             is_active: true,
             cost_price: 0,
             manual_data: sa ? { seller_article: sa } : {},
+            imt_id: imtId || null,
+            card_title: cardTitle,
+            subject_name: subjectName,
         });
+    }
+    for (let i = 0; i < cardUpdates.length && i < 600; i += 10) {
+        await Promise.all(cardUpdates.slice(i, i + 10).map((u) =>
+            admin.from('rnp_articles').update({ imt_id: u.imt_id, card_title: u.card_title, subject_name: u.subject_name })
+                .eq('cabinet_id', cabinetId).eq('nm_id', u.nmId)));
     }
     for (let i = 0; i < toInsert.length; i += 200) {
         await admin.from('rnp_articles').upsert(toInsert.slice(i, i + 200), {

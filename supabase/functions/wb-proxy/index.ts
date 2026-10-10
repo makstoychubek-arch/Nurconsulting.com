@@ -1576,16 +1576,105 @@ serve(async (req) => {
                 result = res.data;
                 break;
             }
+            // Цены карточки: цена до скидки, скидка продавца и цена со скидкой по каждому nmID.
+            case 'prices_get': {
+                const nmList = [...new Set(((params.nmIds as unknown[]) || []).map(Number).filter(Boolean))].slice(0, 200);
+                if (!nmList.length) return json({ error: 'nmIds обязательны' }, 400);
+                const res = await wbSend(`${PRICES_API}/api/v2/list/goods/filter`, WB_TOKEN, 'POST', { nmList });
+                if (!res.ok) return json({ error: wbError(res), status: res.status }, res.status >= 500 ? 502 : 400);
+                const list = ((res.data as Record<string, any>)?.data?.listGoods || []) as Record<string, any>[];
+                result = {
+                    currency: ({ KGS: 'сом', RUB: '₽', KZT: '₸', BYN: 'BYN', UZS: 'сум' } as Record<string, string>)[String(list[0]?.currencyIsoCode4217 || '')] || String(list[0]?.currencyIsoCode4217 || 'сом'),
+                    items: list.map((g) => {
+                        const sz = (g.sizes || [])[0] || {};
+                        return {
+                            nmID: Number(g.nmID),
+                            vendorCode: g.vendorCode || '',
+                            price: Number(sz.price ?? 0),
+                            discount: Number(g.discount ?? 0),
+                            discounted: Number(sz.discountedPrice ?? 0),
+                            editableSizePrice: g.editableSizePrice === true,
+                        };
+                    }),
+                };
+                break;
+            }
+            // Поднять или снизить цену: items = [{nmID, price, discount}] (цена до скидки, скидка в %).
             case 'prices_set': {
-                const nmID = Number(params.nmID || params.nmId || 0);
-                const price = Number(params.price || 0);
-                const discount = params.discount != null ? Number(params.discount) : undefined;
-                if (!nmID || price <= 0) return json({ error: 'nmID и цена обязательны' }, 400);
-                const item: Record<string, unknown> = { nmID, price };
-                if (discount != null && !Number.isNaN(discount)) item.discount = discount;
-                const res = await wbSend(`${PRICES_API}/api/v2/upload/task`, WB_TOKEN, 'POST', { data: { prices: [item] } });
-                if (!res.ok) return json({ error: wbError(res) }, res.status >= 500 ? 502 : 400);
-                result = res.data;
+                const items = ((params.items as Record<string, unknown>[]) || [])
+                    .map((i) => ({ nmID: Number(i.nmID), price: Math.round(Number(i.price)), discount: i.discount != null ? Math.round(Number(i.discount)) : undefined }))
+                    .filter((i) => i.nmID && i.price > 0 && i.price < 10_000_000 && (i.discount == null || (i.discount >= 0 && i.discount <= 99)));
+                if (!items.length || items.length > 200) return json({ error: 'Нужны цены для 1–200 товаров' }, 400);
+                const old = (params.old as Record<string, { price?: number; discount?: number; delta?: number }>) || {};
+                const res = await wbSend(`${PRICES_API}/api/v2/upload/task`, WB_TOKEN, 'POST', { data: items });
+                if (!res.ok) return json({ error: wbError(res), status: res.status }, res.status >= 500 ? 502 : 400);
+                const up = ((res.data as Record<string, any>)?.data || {}) as Record<string, any>;
+                try {
+                    await admin.from('price_changes').insert(items.map((i) => ({
+                        cabinet_id,
+                        nm_id: i.nmID,
+                        user_id: user.id,
+                        old_price: old[i.nmID]?.price ?? null,
+                        old_discount: old[i.nmID]?.discount ?? null,
+                        new_price: i.price,
+                        new_discount: i.discount ?? null,
+                        seller_delta: old[i.nmID]?.delta ?? null,
+                        upload_id: up.id ?? null,
+                    })));
+                } catch (e) { console.warn('[wb-proxy] price_changes log:', String(e)); }
+                result = { uploadId: up.id ?? null, alreadyExists: up.alreadyExists === true, count: items.length };
+                break;
+            }
+            // Статус загрузки цен: 3 — применено, 5/6 — есть ошибки, остальное — ещё в обработке.
+            case 'prices_status': {
+                const uploadID = Number(params.uploadId || 0);
+                if (!uploadID) return json({ error: 'uploadId обязателен' }, 400);
+                const res = await wbSend(`${PRICES_API}/api/v2/history/tasks?uploadID=${uploadID}`, WB_TOKEN);
+                const data = ((res.data as Record<string, any>)?.data || null) as Record<string, any> | null;
+                let errors: unknown[] = [];
+                if (data && (data.status === 5 || data.status === 6)) {
+                    const det = await wbSend(`${PRICES_API}/api/v2/history/goods/task?limit=50&uploadID=${uploadID}`, WB_TOKEN);
+                    const goods = ((det.data as Record<string, any>)?.data?.historyGoods || []) as Record<string, any>[];
+                    errors = goods.filter((g) => g.errorText).map((g) => ({ nmID: g.nmID, text: g.errorText }));
+                }
+                result = { status: data?.status ?? null, errors };
+                break;
+            }
+            // Группы РНП как в карточке WB: imtID, название карточки и предмет по каждому артикулу.
+            case 'rnp_sync_cards': {
+                const cards: Record<string, any>[] = [];
+                let curNm = 0;
+                let curAt = '';
+                for (let page = 0; page < 40; page++) {
+                    const pageRes = await wbPost('https://content-api.wildberries.ru/content/v2/get/cards/list', WB_TOKEN, {
+                        settings: {
+                            sort: { ascending: false },
+                            filter: { textSearch: '', withPhoto: -1 },
+                            cursor: { limit: 100, ...(curNm ? { nmID: curNm } : {}), ...(curAt ? { updatedAt: curAt } : {}) },
+                        },
+                    }) as Record<string, any>;
+                    const pc = (pageRes?.cards || pageRes?.data?.cards || []) as Record<string, any>[];
+                    cards.push(...pc);
+                    const cur = pageRes?.cursor || {};
+                    curNm = Number(cur.nmID || cur.nmId || 0);
+                    curAt = String(cur.updatedAt || '');
+                    if (!pc.length || pc.length < 100 || !curNm) break;
+                }
+                let updated = 0;
+                for (let i = 0; i < cards.length; i += 10) {
+                    await Promise.all(cards.slice(i, i + 10).map(async (c) => {
+                        const nm = Number(c.nmID || c.nmId || 0);
+                        const imt = Number(c.imtID || c.imtId || 0);
+                        if (!nm || !imt) return;
+                        const { error } = await admin.from('rnp_articles').update({
+                            imt_id: imt,
+                            card_title: String(c.title || c.vendorCode || '').slice(0, 200) || null,
+                            subject_name: String(c.subjectName || c.object || '').slice(0, 120) || null,
+                        }).eq('cabinet_id', cabinet_id).eq('nm_id', nm);
+                        if (!error) updated++;
+                    }));
+                }
+                result = { cards: cards.length, updated };
                 break;
             }
             case 'feedbacks_list': {
