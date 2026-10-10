@@ -7204,7 +7204,7 @@ const RNP = (() => {
         const up = dir > 0;
         const group = art.imt_id ? _articles.filter(a => a.is_active && Number(a.imt_id) === Number(art.imt_id)) : [art];
         const body = _rnpModal(up ? 'Поднять цену' : 'Снизить цену', _sellerArticle(art), '<div class="rnp-pr-load">Загружаю цены из WB…</div>');
-        _priceCtx = { nm: nmId, dir: up ? 1 : -1, group, prices: {}, amount: 100, all: false, mode: 'disc' };
+        _priceCtx = { nm: nmId, dir: up ? 1 : -1, group, prices: {}, amount: 1, all: false };
         try {
             const res = await _callProxy('prices_get', { nmIds: group.map(a => a.nm_id) }, _cab);
             (res?.items || []).forEach(i => { _priceCtx.prices[i.nmID] = i; });
@@ -7243,7 +7243,7 @@ const RNP = (() => {
             const d = Math.min(99, Math.max(0, p.discount || 0));
             const nowDisc = p.discounted || Math.round(p.price * (1 - d / 100));
             // Цена до скидки не трогаем — меняется только процент скидки продавца (в WB он целый).
-            let nd = Math.round((1 - (nowDisc + sign * c.amount) / p.price) * 100);
+            let nd = Math.round((1 - nowDisc * (1 + sign * c.amount / 100) / p.price) * 100);
             if (sign > 0) nd = Math.min(nd, d - 1); else nd = Math.max(nd, d + 1);
             if (nd < 0) return { a, skip: 'скидка уже 0% — выше цену не поднять, меняйте цену до скидки в WB' };
             if (nd > 99) return { a, skip: 'скидка станет больше 99%' };
@@ -7270,46 +7270,61 @@ const RNP = (() => {
         const c = _priceCtx;
         const host = document.querySelector('#rnp-modal .rnp-modal-body');
         if (!host || !c) return;
-        const up = c.dir > 0, cur = c.currency;
+        const up = c.dir > 0, cur = c.currency, cls = up ? 'pos' : 'neg';
         const rows = _priceRows();
         const main = rows.find(r => r.a.nm_id == c.nm);
         const art = c.group.find(a => a.nm_id == c.nm);
-        const mg = main && !main.skip ? _priceMargin(art, main) : null;
-        const low = main && !main.skip && main.newDisc < (Number(art.cost_price) || 0);
-        const sppOf = (r) => (c.spp && c.spp[r.a.nm_id]) || 0;
-        const tr = rows.map(r => {
-            if (r.skip) return `<tr class="is-skip"><td>${_ghEsc(_sellerArticle(r.a))}</td><td colspan="3">${_ghEsc(r.skip)}</td></tr>`;
-            const k = sppOf(r), cls = up ? 'pos' : 'neg';
-            const sppBox = k > 0 ? `<div class="rnp-pr-spp"><span>СПП ${((1 - k) * 100).toFixed(1).replace('.', ',')}%</span> ${_money(r.nowDisc * k)} → <b class="${cls}">${_money(r.newDisc * k)}</b></div>` : '';
-            return `<tr><td>${_ghEsc(_sellerArticle(r.a))}</td><td class="num">${_money(r.p.price)}<small>не меняется</small></td><td class="num">${r.d}% → <b class="${cls}">${r.nd}%</b></td><td class="num">${_money(r.nowDisc)} → <b class="${cls}">${_money(r.newDisc)}</b>${sppBox}</td></tr>`;
-        }).join('');
-        const ready = rows.some(r => !r.skip);
-        const step = main && !main.skip ? main.newDisc - main.nowDisc : 0;
-        // Поле суммы и галочка рисуются один раз: пересборка поля на каждую цифру сбрасывала курсор.
-        if (!host.querySelector('#rnp-pr-dyn')) {
+        const ok = main && !main.skip;
+        const mg = ok ? _priceMargin(art, main) : null;
+        const low = ok && main.newDisc < (Number(art.cost_price) || 0);
+        const ready = rows.some(r => !r.skip) && c.amount > 0;
+        // Поле процента и галочка рисуются один раз: пересборка поля на каждую цифру сбрасывала курсор.
+        if (!host.querySelector('#rnp-pr-hero')) {
+            const chips = [1, 2, 5].map(v => `<button type="button" class="rnp-pr2-chip" data-v="${v}" onclick="RNP.priceAmount(${v},true)">${v}%</button>`).join('');
             host.innerHTML = `
-          <div class="rnp-pr-amount"><span>На сколько ${up ? 'поднять' : 'снизить'}, ${cur}
-            <button type="button" class="rnp-pr-i" title="Как это работает" onclick="document.getElementById('rnp-pr-note').classList.toggle('open')">i</button></span>
-            <input type="number" min="1" step="10" value="${c.amount}" oninput="RNP.priceAmount(this.value)"></div>
-          <p class="rnp-pr-note" id="rnp-pr-note"></p>
-          ${c.group.length > 1 ? `<label class="rnp-pr-all"><input type="checkbox" ${c.all ? 'checked' : ''} onchange="RNP.priceAll(this.checked)"> Применить ко всем цветам карточки WB (${c.group.length})</label>` : ''}
-          <div id="rnp-pr-dyn"></div>`;
+          <div class="rnp-pr2">
+            <div id="rnp-pr-hero" class="rnp-pr2-hero"></div>
+            <div class="rnp-pr2-ctl">
+              <button type="button" class="rnp-pr2-step" onclick="RNP.priceStep(-0.5)">−</button>
+              <span class="rnp-pr2-inp"><input type="number" min="0.5" step="0.5" value="${c.amount}" oninput="RNP.priceAmount(this.value)"><i>%</i></span>
+              <button type="button" class="rnp-pr2-step" onclick="RNP.priceStep(0.5)">+</button>
+              <span class="rnp-pr2-chips">${chips}</span>
+              <button type="button" class="rnp-pr-i" title="Как это работает" onclick="document.getElementById('rnp-pr-note').classList.toggle('open')">i</button>
+            </div>
+            <p class="rnp-pr-note" id="rnp-pr-note"></p>
+            ${c.group.length > 1 ? `<label class="rnp-pr-all"><input type="checkbox" ${c.all ? 'checked' : ''} onchange="RNP.priceAll(this.checked)"> Применить ко всем цветам карточки WB (${c.group.length})</label>` : ''}
+            <div id="rnp-pr-foot" class="rnp-pr2-foot"></div>
+          </div>`;
         }
+        host.querySelectorAll('.rnp-pr2-chip').forEach(b => b.classList.toggle('on', Number(b.dataset.v) === Number(c.amount)));
+        const sppK = ok && c.spp && c.spp[main.a.nm_id] || 0;
+        const wallet = 0.97;
+        const hero = host.querySelector('#rnp-pr-hero');
+        hero.innerHTML = ok ? `
+            <div class="rnp-pr2-cap">цена со скидкой продавца</div>
+            <div class="rnp-pr2-big">${_money(main.nowDisc)} <span>→</span> <b class="${cls}">${_money(main.newDisc)}</b></div>
+            ${sppK > 0 ? `<div class="rnp-pr2-spp"><span class="rnp-pr-spp"><span>СПП ${((1 - sppK) * 100).toFixed(1).replace('.', ',')}%</span> ${_money(main.nowDisc * sppK)} → <b class="${cls}">${_money(main.newDisc * sppK)}</b></span>
+              <span class="rnp-pr2-site" title="Цена на сайте WB с оплатой WB-кошельком (−3%), оценка">на сайте ≈ ${_money(main.nowDisc * sppK * wallet)} → ${_money(main.newDisc * sppK * wallet)}</span></div>` : ''}`
+            : `<div class="rnp-pr-err">${_ghEsc(main?.skip || 'Нет данных')}</div>`;
         const note = host.querySelector('#rnp-pr-note');
-        if (note) note.textContent = `Цену до скидки не меняем — меняется только скидка продавца в WB: ${up ? 'снижаем' : 'повышаем'} её, чтобы цена со скидкой ${up ? 'выросла' : 'упала'} примерно на указанную сумму. Скидка в WB — целое число процентов, поэтому реальный шаг ближе к ${_money(Math.abs(step))} ${cur}. WB применит цену за несколько минут.`;
-        host.querySelector('#rnp-pr-dyn').innerHTML = `
-          ${mg ? `<div class="rnp-pr-margin"><div><span>Прибыль на 1 шт за период</span><b>${_money(mg.now)} → <em class="${mg.next >= mg.now ? 'pos' : 'neg'}">${_money(mg.next)}</em> сом</b></div>
-            <small>Оценка: изменение цены со скидкой минус удержания WB (комиссия, эквайринг) ${mg.com.toFixed(0)}%. Выкуп и логистика не меняются.</small></div>` : ''}
+        if (note && ok) note.textContent = `Цена до скидки (${_money(main.p.price)}) не меняется — WB меняет цену через скидку продавца. Процент считается от цены со скидкой. Скидка в WB целая, поэтому реальный шаг может немного отличаться от ${c.amount}%. WB применит цену за несколько минут.`;
+        const others = rows.filter(r => !r.skip && r.a.nm_id != c.nm);
+        host.querySelector('#rnp-pr-foot').innerHTML = `
           ${low ? `<div class="rnp-pr-warn">Новая цена со скидкой ниже себестоимости (${_money(art.cost_price)} сом).</div>` : ''}
-          <div class="rnp-modal-table-wrap"><table class="rnp-modal-table"><thead><tr><th>Артикул</th><th class="num">Цена до скидки</th><th class="num">Скидка продавца</th><th class="num">Цена со скидкой</th></tr></thead><tbody>${tr}</tbody></table></div>
-          <div class="rnp-pr-actions"><button type="button" class="rnp-pr-send ${up ? 'up' : 'dn'}" ${ready && c.amount > 0 ? '' : 'disabled'} onclick="RNP.priceSend()">${up ? 'Поднять цену' : 'Снизить цену'} в WB</button></div>`;
+          ${others.length ? `<details class="rnp-pr2-more"><summary>Ещё ${others.length} арт.</summary>${others.map(r => `<div><span>${_ghEsc(_sellerArticle(r.a))}</span><b>${_money(r.nowDisc)} → <em class="${cls}">${_money(r.newDisc)}</em> (${r.d}% → ${r.nd}%)</b></div>`).join('')}</details>` : ''}
+          <div class="rnp-pr2-bar">
+            <div class="rnp-pr2-meta">${ok ? `Скидка ${main.d}% → ${main.nd}%` : ''}${mg ? `<br>Прибыль на 1 шт: ${_money(mg.now)} → <b class="${mg.next >= mg.now ? 'pos' : 'neg'}">${_money(mg.next)}</b> сом` : ''}</div>
+            <button type="button" class="rnp-pr-send ${up ? 'up' : 'dn'}" ${ready ? '' : 'disabled'} onclick="RNP.priceSend()">${up ? 'Поднять' : 'Снизить'}</button>
+          </div>`;
     }
 
-    function priceAmount(v) {
+    function priceAmount(v, setInput) {
         if (!_priceCtx) return;
-        _priceCtx.amount = Math.max(0, Math.round(Number(v) || 0));
+        _priceCtx.amount = Math.max(0, Math.round((Number(v) || 0) * 10) / 10);
+        if (setInput) { const i = document.querySelector('#rnp-modal .rnp-pr2-inp input'); if (i) i.value = _priceCtx.amount; }
         _renderPrice();
     }
+    function priceStep(d) { if (_priceCtx) priceAmount(Math.max(0.5, (_priceCtx.amount || 0) + d), true); }
     function priceAll(on) { if (_priceCtx) { _priceCtx.all = !!on; _renderPrice(); } }
 
     async function priceSend() {
@@ -8726,7 +8741,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
