@@ -6118,7 +6118,7 @@
             }
         } catch (e) {}
     </script>
-<link rel="stylesheet" href="/dist/rnp-extra.07ee6fe84a.css">
+<link rel="stylesheet" href="/dist/rnp-extra.fddb8cbf47.css">
 <link rel="stylesheet" href="/dist/cabinets-hub.fa981b5a2a.css">
 <style id="adx-style">#adv-view-ads .adv-camp-action-btn{display:none!important}
 #adv-view-ads .ads-hq-phone-pick .ads-hq-toggle{order:5;margin-left:auto}#adv-view-ads .tg-switch.ads-hq-toggle.on{background:#22c55e}
@@ -8471,7 +8471,8 @@
 <script src="/dist/goods-catalog.29a1ffcc16.min.js"></script>
 <script src="/dist/giveaways.ad11c71b91.min.js"></script>
 <script src="/dist/goods-fbs.b16f47807d.min.js"></script>
-<script src="/dist/space-admin-ext.b988ba0572.min.js"></script>
+<script src="/dist/viewer-mode.567c9bfefa.min.js"></script>
+<script src="/dist/space-admin-ext.47adc39bd8.min.js"></script>
 <script src="/dist/rnp-planning.01abdbcfcb.min.js"></script>
 <script src="/dist/giveaway-calc.011892844f.min.js"></script>
 <script src="/dist/content-factory.092b4a678c.min.js"></script>
@@ -8573,12 +8574,7 @@
     }
     const LIVE_TABS = new Set(['cabinets-hub', 'dashboard', 'settings', 'rnp', 'rnp-settings', 'advertising', 'ab-testing', 'goods-groups', 'content-factory', 'agents', 'akylai', 'summary', 'tariffs']);
     let hasUserCabinets = false;
-    // Пока список кабинетов не загружен из БД — состояние "нет кабинетов"
-    // неизвестно. Показывать экран "Добро пожаловать / подключите кабинет"
-    // ДО завершения loadCabinets() нельзя: у реальных активных пользователей
-    // hasUserCabinets ещё false в момент первого showTab() при рефреше
-    // страницы, и они на секунду видят "приветствие новичка", хотя у них уже
-    // подключены кабинеты — это и есть тот самый мигающий баг.
+    // До загрузки кабинетов из БД не показываем экран «подключите кабинет» (иначе мигает у активных).
     let cabinetsLoaded = false;
     // Клиент ещё не подключил магазин: показываем только экран онбординга и
     // не дёргаем загрузчики данных, которым нечего грузить.
@@ -10068,6 +10064,10 @@
 
     function showTab(name, el) {
         name = TAB_ALIASES[name] || name;
+        if (window.NrViewer?.on && !window.NrViewer.allows(name)) {
+            const t = window.NrViewer.firstTab();
+            if (t !== name) { showTab(t, el); return; }
+        }
         // Внутренняя страница агентов — только команде. Клиент по «Агентам»
         // попадает на свою страницу с Акылай, по остальным служебным — на дашборд.
         if (STAFF_ONLY_TABS.has(name) && !isStaff) {
@@ -13388,7 +13388,12 @@
             return;
         }
         cabinetsLoaded = true;
-        const visible = visibleCabinets(data || []);
+        let cabRows = data || [];
+        // Только просмотр: выданные кабинеты (без токенов).
+        if (!cabRows.length && !isStaff) {
+            try { const v = await supabase.rpc('viewer_cabinets'); if (Array.isArray(v.data) && v.data.length) { cabRows = v.data; window.NrViewer?.enable(v.data); } } catch (_) {}
+        }
+        const visible = visibleCabinets(cabRows);
         if (!visible.length) {
             hasUserCabinets = false;
             currentCabinetId = null;
