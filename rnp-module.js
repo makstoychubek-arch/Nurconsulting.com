@@ -20,6 +20,7 @@ const RNP = (() => {
         showGiveaways: true,
         showCompetitor: true,
         hiddenGroups: [],
+        wbGroups: false,
     };
     let _settingsInDb = false;
     let _articles = [];
@@ -1046,6 +1047,7 @@ const RNP = (() => {
             hiddenGroups: Array.isArray(o.hiddenGroups)
                 ? [...new Set(o.hiddenGroups.map(s => String(s || '').trim()).filter(Boolean))]
                 : [],
+            wbGroups: o.wbGroups === true,
         };
     }
 
@@ -1058,6 +1060,7 @@ const RNP = (() => {
             showGiveaways: _settings.showGiveaways,
             showCompetitor: _settings.showCompetitor,
             hiddenGroups: _hiddenGroupList(),
+            wbGroups: _settings.wbGroups === true,
         };
     }
 
@@ -1071,13 +1074,13 @@ const RNP = (() => {
 
     function _rnpVisibleArticles(list) {
         const src = list || _cabArticles();
-        return src.filter(a => a.is_active && !_isGroupHidden(_articleCategory(a)));
+        return src.filter(a => a.is_active && !a.manual_data?.rnp_hidden && !_isGroupHidden(_articleCategory(a)));
     }
 
     function _ensureActiveVisible() {
         if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB || _activeNm == null) return;
         const art = _cabArticles().find(a => a.nm_id == _activeNm);
-        if (!art || !art.is_active || _isGroupHidden(_articleCategory(art))) {
+        if (!art || !art.is_active || art.manual_data?.rnp_hidden || _isGroupHidden(_articleCategory(art))) {
             _activeNm = GENERAL_TAB;
             _writeSavedActiveNm();
         }
@@ -1190,7 +1193,34 @@ const RNP = (() => {
         return 'other_costs_unit';
     }
 
+    // Группы как в карточке WB: артикулы с общим imtID (склеенные цвета) — одна группа, название — заголовок карточки.
+    // Включается флагом настроек wbGroups, когда у артикулов кабинета заполнен imt_id.
+    let _wbGroupSrc = null, _wbGroupMap = new Map();
+    function _wbGroupLabels() {
+        if (_wbGroupSrc === _articles) return _wbGroupMap;
+        _wbGroupSrc = _articles;
+        const by = new Map();
+        (_articles || []).forEach(a => {
+            const imt = Number(a.imt_id) || 0;
+            if (!imt) return;
+            if (!by.has(imt)) by.set(imt, []);
+            by.get(imt).push(a);
+        });
+        const used = new Map();
+        _wbGroupMap = new Map();
+        [...by.entries()].filter(([, l]) => l.length > 1).sort((x, y) => x[0] - y[0]).forEach(([imt, l]) => {
+            const first = l.find(a => String(a.card_title || '').trim()) || l[0];
+            let label = String(first.card_title || '').trim() || String(first.subject_name || '').trim() || ('Карточка ' + imt);
+            const n = (used.get(label) || 0) + 1;
+            used.set(label, n);
+            if (n > 1) label += ' ·' + n;
+            l.forEach(a => _wbGroupMap.set(a.nm_id, label));
+        });
+        return _wbGroupMap;
+    }
+    function _wbGroupsOn() { return _settings.wbGroups === true; }
     function _articleCategory(a) {
+        if (_wbGroupsOn()) return _wbGroupLabels().get(a.nm_id) || UNCATEGORIZED;
         return (a.category || '').trim() || UNCATEGORIZED;
     }
     function _groupByCategory(list) {
@@ -7161,6 +7191,134 @@ const RNP = (() => {
         });
     }
 
+    // ─── Цена на WB: «Поднять» / «Снизить» из шапки артикула ──────────────────────────────────
+    // Сумма — изменение цены со скидкой продавца (то, что видит покупатель до СПП). Цена до скидки
+    // пересчитывается так, чтобы скидка осталась прежней. Применится у WB за несколько минут.
+    let _priceCtx = null;
+    const _money = (n) => (Math.round(Number(n) || 0)).toLocaleString('ru-RU').replace(/ /g, ' ');
+
+    async function openPrice(nmId, dir) {
+        const art = _articles.find(a => a.nm_id == nmId);
+        if (!art || !_callProxy) return;
+        const up = dir > 0;
+        const group = art.imt_id ? _articles.filter(a => a.is_active && Number(a.imt_id) === Number(art.imt_id)) : [art];
+        const body = _rnpModal(up ? 'Поднять цену' : 'Снизить цену', _sellerArticle(art), '<div class="rnp-pr-load">Загружаю цены из WB…</div>');
+        _priceCtx = { nm: nmId, dir: up ? 1 : -1, group, prices: {}, amount: 100, all: group.length > 1 };
+        try {
+            const res = await _callProxy('prices_get', { nmIds: group.map(a => a.nm_id) }, _cab);
+            (res?.items || []).forEach(i => { _priceCtx.prices[i.nmID] = i; });
+            _priceCtx.currency = res?.currency || 'сом';
+        } catch (e) {
+            body.innerHTML = `<div class="rnp-pr-err">Не удалось получить цену из WB: ${_ghEsc(String(e?.message || e).slice(0, 200))}.<br>Для этого нужен токен с доступом «Цены и скидки».</div>`;
+            return;
+        }
+        if (!_priceCtx.prices[nmId]) {
+            body.innerHTML = '<div class="rnp-pr-err">WB не вернул цену этого артикула.</div>';
+            return;
+        }
+        _renderPrice();
+    }
+
+    function _priceRows() {
+        const c = _priceCtx;
+        const sign = c.dir;
+        const list = c.all ? c.group : c.group.filter(a => a.nm_id == c.nm);
+        return list.map(a => {
+            const p = c.prices[a.nm_id];
+            if (!p) return { a, skip: 'нет цены в WB' };
+            if (p.editableSizePrice) return { a, skip: 'цены по размерам — меняйте в кабинете WB' };
+            const d = Math.min(99, Math.max(0, p.discount || 0));
+            const keep = 1 - d / 100;
+            const nowDisc = p.discounted || Math.round(p.price * keep);
+            const target = nowDisc + sign * c.amount;
+            if (target <= 0) return { a, skip: 'цена станет ≤ 0' };
+            const newBase = Math.round(target / keep);
+            return { a, p, d, nowDisc, newBase, newDisc: Math.round(newBase * keep) };
+        });
+    }
+
+    function _priceMargin(art, row) {
+        try {
+            const cal = _buildCalendar();
+            const k = _periodSummary(art, _dataCache[art.nm_id] || {}, cal) || {};
+            const units = Number(k.sales_count) || 0;
+            if (!units) return null;
+            const per = (Number(k.profit) || 0) / units;
+            const real = Number(k.realization) || 0;
+            const trf = Number(k.to_transfer) || 0;
+            const com = real > 0 && trf > 0 ? Math.min(0.5, Math.max(0, (real - trf) / real)) : 0.15;
+            const delta = row.newDisc - row.nowDisc;
+            return { now: per, next: per + delta * (1 - com), com: com * 100, cost: Number(art.cost_price) || 0 };
+        } catch (e) { return null; }
+    }
+
+    function _renderPrice() {
+        const c = _priceCtx;
+        const host = document.querySelector('#rnp-modal .rnp-modal-body');
+        if (!host || !c) return;
+        const up = c.dir > 0, cur = c.currency;
+        const rows = _priceRows();
+        const main = rows.find(r => r.a.nm_id == c.nm);
+        const art = c.group.find(a => a.nm_id == c.nm);
+        const mg = main && !main.skip ? _priceMargin(art, main) : null;
+        const low = main && !main.skip && main.newDisc < (Number(art.cost_price) || 0);
+        const tr = rows.map(r => r.skip
+            ? `<tr class="is-skip"><td>${_ghEsc(_sellerArticle(r.a))}</td><td colspan="3">${_ghEsc(r.skip)}</td></tr>`
+            : `<tr><td>${_ghEsc(_sellerArticle(r.a))}</td><td class="num">${_money(r.nowDisc)}</td><td class="num"><b class="${up ? 'pos' : 'neg'}">${_money(r.newDisc)}</b></td><td class="num">${_money(r.p.price)} → ${_money(r.newBase)}</td></tr>`).join('');
+        const ready = rows.some(r => !r.skip);
+        host.innerHTML = `
+          <p class="rnp-pr-note">Меняем цену со скидкой продавца: ${up ? 'плюс' : 'минус'} указанная сумма. Скидка (${main?.d ?? 0}%) остаётся прежней, цена до скидки пересчитается сама. WB применит цену за несколько минут.</p>
+          <div class="rnp-pr-amount"><span>На сколько ${up ? 'поднять' : 'снизить'}, ${cur}</span>
+            <input type="number" min="1" step="10" value="${c.amount}" oninput="RNP.priceAmount(this.value)"></div>
+          ${c.group.length > 1 ? `<label class="rnp-pr-all"><input type="checkbox" ${c.all ? 'checked' : ''} onchange="RNP.priceAll(this.checked)"> На всю карточку WB (${c.group.length} цветов)</label>` : ''}
+          ${mg ? `<div class="rnp-pr-margin"><div><span>Прибыль на 1 шт за период</span><b>${_money(mg.now)} → <em class="${mg.next >= mg.now ? 'pos' : 'neg'}">${_money(mg.next)}</em> сом</b></div>
+            <small>Оценка: изменение цены минус удержания WB (комиссия, эквайринг) ${mg.com.toFixed(0)}%. Выкуп и логистика не меняются.</small></div>` : ''}
+          ${low ? `<div class="rnp-pr-warn">Новая цена со скидкой ниже себестоимости (${_money(art.cost_price)} сом).</div>` : ''}
+          <div class="rnp-modal-table-wrap"><table class="rnp-modal-table"><thead><tr><th>Артикул</th><th class="num">Сейчас</th><th class="num">Будет</th><th class="num">До скидки</th></tr></thead><tbody>${tr}</tbody></table></div>
+          <div class="rnp-pr-actions"><button type="button" class="rnp-pr-send ${up ? 'up' : 'dn'}" ${ready && c.amount > 0 ? '' : 'disabled'} onclick="RNP.priceSend()">${up ? 'Поднять цену' : 'Снизить цену'} в WB</button></div>`;
+    }
+
+    function priceAmount(v) {
+        if (!_priceCtx) return;
+        _priceCtx.amount = Math.max(0, Math.round(Number(v) || 0));
+        _renderPrice();
+        const inp = document.querySelector('#rnp-modal .rnp-pr-amount input');
+        if (inp) { inp.focus(); const n = inp.value.length; try { inp.setSelectionRange(n, n); } catch (e) {} }
+    }
+    function priceAll(on) { if (_priceCtx) { _priceCtx.all = !!on; _renderPrice(); } }
+
+    async function priceSend() {
+        const c = _priceCtx;
+        const host = document.querySelector('#rnp-modal .rnp-modal-body');
+        if (!c || !host) return;
+        const rows = _priceRows().filter(r => !r.skip);
+        if (!rows.length || !(c.amount > 0)) return;
+        const btn = host.querySelector('.rnp-pr-send');
+        if (btn) { btn.disabled = true; btn.textContent = 'Отправляю в WB…'; }
+        const old = {};
+        rows.forEach(r => { old[r.a.nm_id] = { price: r.p.price, discount: r.d, delta: r.newDisc - r.nowDisc }; });
+        try {
+            const res = await _callProxy('prices_set', { items: rows.map(r => ({ nmID: r.a.nm_id, price: r.newBase, discount: r.d })), old }, _cab);
+            let status = '';
+            if (res?.uploadId) {
+                for (let i = 0; i < 4 && !status; i++) {
+                    await new Promise(r => setTimeout(r, 2500));
+                    try {
+                        const st = await _callProxy('prices_status', { uploadId: res.uploadId }, _cab);
+                        if (st?.status === 3) status = 'ok';
+                        else if (st?.status === 5 || st?.status === 6) status = 'err:' + (st.errors || []).map(e => `${e.nmID}: ${e.text}`).join('; ');
+                    } catch (e) {}
+                }
+            }
+            const msg = status.startsWith('err:')
+                ? `<div class="rnp-pr-err">WB принял загрузку, но есть ошибки: ${_ghEsc(status.slice(4) || 'см. кабинет WB')}</div>`
+                : `<div class="rnp-pr-ok"><b>${status === 'ok' ? 'Цена применена' : 'Отправлено в WB'}</b><br>${rows.length} арт.${status === 'ok' ? '' : ' Обработка занимает несколько минут — в РНП новая цена отобразится после следующей синхронизации.'}</div>`;
+            host.innerHTML = msg;
+        } catch (e) {
+            host.innerHTML = `<div class="rnp-pr-err">WB отклонил запрос: ${_ghEsc(String(e?.message || e).slice(0, 240))}</div>`;
+        }
+    }
+
     const PRODUCT_STATUSES = ['Локомотив', 'Новинка', 'Стабильный', 'Затухающий', 'Выведен из ассортимента'];
 
     /** Ответственный, статус и «Заметки» — в левом верхнем углу шапки, где раньше было пусто. */
@@ -7176,7 +7334,9 @@ const RNP = (() => {
         return `<div class="rnp-head-meta">
           <input class="rnp-meta-input" value="${responsible}" placeholder="Ответственный"
             onblur="RNP.saveMeta(${art.nm_id},'responsible',this.value)">
+          <button type="button" class="rnp-price-btn up" title="Поднять цену на WB" onclick="RNP.openPrice(${art.nm_id},1)">▲</button>
           <select class="rnp-meta-select" onchange="RNP.saveMeta(${art.nm_id},'status',this.value)">${statusOptions}</select>
+          <button type="button" class="rnp-price-btn dn" title="Снизить цену на WB" onclick="RNP.openPrice(${art.nm_id},-1)">▼</button>
           <button type="button" class="rnp-head-notes-btn${on}" title="${_notesVisible ? 'Скрыть заметки по дням' : 'Показать заметки по дням'}" onclick="RNP.toggleNotes(!RNP.notesVisible())">${_noteSvg()}<span>Заметки${hasNotes ? ' •' : ''}</span></button>
         </div>`;
     }
@@ -7721,7 +7881,20 @@ const RNP = (() => {
         setTimeout(() => {
             if (_cab !== cabId) return;
             _syncNewArticles(cabId).catch(e => console.warn('[RNP] new articles:', e.message));
+            _ensureCardGroups(cabId).catch(e => console.warn('[RNP] card groups:', e.message));
         }, 2500);
+    }
+
+    // Подтягиваем из WB imtID, название карточки и предмет — для групп «как в карточке WB». Раз за сессию на кабинет.
+    const _cardSyncDone = new Set();
+    async function _ensureCardGroups(cabId) {
+        if (!_callProxy || window.NrViewer?.on || _cardSyncDone.has(cabId)) return;
+        if (!_articles.some(a => a.is_active && !a.imt_id)) return;
+        _cardSyncDone.add(cabId);
+        const r = await _callProxy('rnp_sync_cards', {}, cabId);
+        if (!r?.updated || _cab !== cabId) return;
+        await _loadArticles(cabId);
+        if (_cab === cabId && _wbGroupsOn()) _refreshTabsBar();
     }
 
     function _startBackgroundEnrichment() {
@@ -8528,7 +8701,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();

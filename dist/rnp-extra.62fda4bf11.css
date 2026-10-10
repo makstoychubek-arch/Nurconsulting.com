@@ -313,3 +313,30 @@ transition: opacity .18s ease, transform .18s ease;
 .nrv-save{background:#6d4fe8;color:#fff}.nrv-remove{background:#fde6e6;color:#dc2626}
 .nrv-actions button:disabled{opacity:.6;cursor:default}
 @media (max-width:768px){.nrv-grid{grid-template-columns:1fr}}
+
+/* Цена на WB: мини-кнопки в шапке артикула и окно подтверждения */
+.rnp-head-meta { display: grid !important; grid-template-columns: minmax(0, 1fr) 22px; gap: 3px 3px; align-content: center; }
+.rnp-head-meta .rnp-head-notes-btn { grid-column: 1 / -1; }
+.rnp-price-btn { height: 20px; width: 22px; padding: 0; border: 0; border-radius: 7px; color: #fff; font-size: 9px; font-weight: 800; line-height: 1; cursor: pointer; }
+.rnp-price-btn.up { background: #22a85a; }
+.rnp-price-btn.dn { background: #e5484d; }
+.rnp-price-btn:hover { filter: brightness(1.1); }
+.rnp-pr-note { margin: 0 0 12px; font-size: 13px; line-height: 1.45; color: var(--text-secondary); }
+.rnp-pr-amount { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; font-weight: 700; font-size: 13px; }
+.rnp-pr-amount input { width: 110px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text-primary); font: inherit; font-weight: 800; text-align: center; }
+.rnp-pr-all { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 13px; font-weight: 600; }
+.rnp-pr-margin { margin: 0 0 10px; padding: 10px 14px; border-radius: 14px; background: var(--accent-soft); }
+.rnp-pr-margin > div { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+.rnp-pr-margin em { font-style: normal; }
+.rnp-pr-margin small { display: block; margin-top: 4px; color: var(--text-muted); font-size: 11px; }
+.rnp-pr-warn { margin: 0 0 10px; padding: 8px 12px; border-radius: 12px; background: #fdecec; color: #b42318; font-size: 12.5px; font-weight: 700; }
+.rnp-pr-err { padding: 12px 14px; border-radius: 14px; background: #fdecec; color: #b42318; font-size: 13px; line-height: 1.45; }
+.rnp-pr-ok { padding: 14px; border-radius: 14px; background: #e7f6ec; color: #17653a; font-size: 13px; line-height: 1.5; }
+.rnp-pr-load { padding: 24px 0; text-align: center; color: var(--text-muted); font-size: 13px; }
+.rnp-pr-actions { margin-top: 14px; display: flex; justify-content: flex-end; }
+.rnp-pr-send { padding: 10px 22px; border: 0; border-radius: 999px; color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; }
+.rnp-pr-send.up { background: #22a85a; }
+.rnp-pr-send.dn { background: #e5484d; }
+.rnp-pr-send:disabled { opacity: .45; cursor: default; }
+.rnp-modal-table tr.is-skip td { color: var(--text-muted); font-size: 12px; }
+.pos { color: #22a85a; } .neg { color: #e5484d; }
