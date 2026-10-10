@@ -141,6 +141,31 @@ serve(async (req) => {
             return json({ ok: true, status: 'active', email: space.email, tokens_moved: tokensMoved });
         }
 
+        // Доступ «только просмотр»: кабинеты и разделы. Спейс разрешается, прав сотрудника и тарифа не даёт.
+        if (action === 'get_viewer') {
+            const { data, error } = await admin.from('cabinet_viewers').select('cabinet_id, sections').eq('user_id', targetUserId);
+            if (error) return json({ error: error.message }, 500);
+            return json({ ok: true, rows: data || [] });
+        }
+
+        if (action === 'set_viewer') {
+            const SECTIONS = new Set(['all', 'dashboard', 'rnp', 'goods', 'ads', 'ab', 'logistics', 'reports']);
+            const cabinetIds = Array.isArray(body.cabinet_ids) ? body.cabinet_ids.map(String).filter((x: string) => /^[0-9a-f-]{36}$/.test(x)) : [];
+            let sections = Array.isArray(body.sections) ? body.sections.map(String).filter((x: string) => SECTIONS.has(x)) : [];
+            if (!sections.length || sections.includes('all')) sections = ['all'];
+            const del = await admin.from('cabinet_viewers').delete().eq('user_id', targetUserId);
+            if (del.error) return json({ error: `Не удалось сохранить: ${del.error.message}` }, 500);
+            if (!cabinetIds.length) return json({ ok: true, removed: true, email: space.email });
+            const rows = cabinetIds.map((cid: string) => ({ user_id: targetUserId, cabinet_id: cid, sections, granted_by: user.id }));
+            const ins = await admin.from('cabinet_viewers').insert(rows);
+            if (ins.error) return json({ error: `Не удалось сохранить: ${ins.error.message}` }, 500);
+            if (space.status !== 'active') {
+                const upd = await admin.from('spaces').update({ status: 'active', updated_at: new Date().toISOString() }).eq('user_id', targetUserId);
+                if (upd.error) return json({ error: `Доступ сохранён, но спейс не разрешён: ${upd.error.message}` }, 500);
+            }
+            return json({ ok: true, email: space.email, cabinets: cabinetIds.length, sections });
+        }
+
         if (action === 'set_staff') {
             const err = await setStaff(admin, space.email, body.value === true);
             if (err) return json({ error: err }, 500);
@@ -166,6 +191,8 @@ serve(async (req) => {
             const warns: string[] = [];
             const sess = await admin.from('user_sessions').delete().eq('user_id', targetUserId);
             if (sess.error) warns.push(`user_sessions: ${sess.error.message}`);
+            const vw = await admin.from('cabinet_viewers').delete().eq('user_id', targetUserId);
+            if (vw.error) warns.push(`cabinet_viewers: ${vw.error.message}`);
             if (space.email) {
                 // Блокировка снимает и права сотрудника, иначе бывший сотрудник
                 // продолжал бы читать чужие кабинеты в обход интерфейса.

@@ -296,3 +296,20 @@ transition: opacity .18s ease, transform .18s ease;
 @media (max-width:768px){.rnp-hl-acts{grid-template-columns:1fr}.rnp-hl-chips{grid-template-columns:1fr}}
 .rnp-gh-rings .rnp-gh-flex{gap:8px}
 .rnp-gh-loss .rnp-gh-li{flex:0 0 auto;padding:4px 0}
+
+/* Окно «Доступ на просмотр» (админка) */
+.nrv-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.nrv-h{font-size:12px;font-weight:800;color:var(--text-muted);margin-bottom:8px}
+.nrv-cabs{display:flex;flex-direction:column;gap:6px;max-height:340px;overflow:auto}
+.nrv-cab{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-primary)}
+.nrv-cab:has(input:checked){border-color:#c9c2f5;background:rgba(109,79,232,.07)}
+.nrv-cab input{width:16px;height:16px;accent-color:#6d4fe8}
+.nrv-pills{display:flex;flex-wrap:wrap;gap:6px}
+.nrv-pill{border:none;padding:7px 14px;border-radius:999px;font-size:12.5px;font-weight:700;background:var(--bg,#f1f2f6);color:var(--text-secondary);cursor:pointer}
+.nrv-pill.on{background:#6d4fe8;color:#fff}
+.nrv-note{margin-top:14px;background:var(--bg,#f4f5f9);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.45;color:var(--text-primary)}
+.nrv-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.nrv-actions button{border:none;padding:9px 18px;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer}
+.nrv-save{background:#6d4fe8;color:#fff}.nrv-remove{background:#fde6e6;color:#dc2626}
+.nrv-actions button:disabled{opacity:.6;cursor:default}
+@media (max-width:768px){.nrv-grid{grid-template-columns:1fr}}
