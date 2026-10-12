@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm install --include=dev && npm run build",
+  "buildCommand": "npm install --include=dev && npm run build && rm -rf node_modules frontend/node_modules",
   "outputDirectory": ".",
   "headers": [
     {
