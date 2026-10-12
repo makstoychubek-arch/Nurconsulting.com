@@ -154,12 +154,16 @@ const RNP = (() => {
             { key: 'spp_pct',            label: 'СПП %',                            type: 'pct', src: 'auto' },
             { key: 'sales_count',        label: 'Продажи',                          type: 'int', src: 'auto',   bold: true },
             { key: 'plan_sales',         label: 'План продаж',                      type: 'int', src: 'manual', isPlan: true },
-            { key: 'avg_check',          label: 'Ср. чек заказа',                          type: 'som', src: 'auto' },
-            { key: 'avg_check_sales',    label: 'Ср. чек продажи',                      type: 'som',  src: 'auto' },
             { key: 'giveaways',          label: 'Раздачи',                          type: 'int', src: 'manual' },
             { key: 'plan_fulfillment_pct', label: 'Процент выполнения плана',       type: 'pct', src: 'calc',   cl: 'planStrong', bold: true },
             { key: 'plan_orders_pct',    label: 'Выпол. плана ЗАКАЗ, шт %',        type: 'pct', src: 'calc',   cl: 'plan' },
             { key: 'plan_sales_pct',     label: 'Выпол. плана ПРОДАЖИ %',           type: 'pct', src: 'calc',   cl: 'plan' },
+        ]},
+        { id: 'price', label: 'ЦЕНА', color: '#6d4fe8', rows: [
+            { key: 'price_base',         label: 'Цена до скидки',                   type: 'som', src: 'auto', carry: true, articleOnly: true },
+            { key: 'disc_pct',           label: 'Скидка продавца, %',               type: 'int', src: 'auto', carry: true, articleOnly: true },
+            { key: 'price_disc',         label: 'Цена со скидкой',                  type: 'som', src: 'auto', carry: true, articleOnly: true },
+            { key: 'price_spp',          label: 'Цена с СПП (на сайте)',            type: 'som', src: 'auto', carry: true, articleOnly: true },
         ]},
         { id: 'cash', label: 'Сумма продаж в кассе', color: '#1a73e8', rows: [
             { key: 'orders_sum',         label: 'Сумма Заказов',                    type: 'som', src: 'auto' },
@@ -1171,6 +1175,7 @@ const RNP = (() => {
     function _sectionRows(sec, art) {
         return sec.rows.filter(m => {
             if (m.cabinetOnly && art && art.nm_id !== -1) return false;
+            if (m.articleOnly && art && art.nm_id === -1) return false;
             if (m.key === 'giveaways' && !_settings.showGiveaways) return false;
             if (m.competitor && !_settings.showCompetitor) return false;
             return true;
@@ -2696,6 +2701,10 @@ const RNP = (() => {
         sales_count: ['Продажи', 'Выкупы из финотчёта WB: штуки со строкой «Продажа». Компенсации за возврат не считаются. Нажми на название строки — снизу раскроются продажи FBS и FBO.'],
         sales_sum: ['Сумма продаж', 'Цена продажи с учётом скидок WB × штуки из финотчёта.'],
         avg_check: ['Средний чек', 'Сумма заказов ÷ количество заказов.'],
+        price_base: ['Цена до скидки', 'Цена продавца до скидки (зачёркнутая), из заказов WB. В дни без заказов — последняя известная.'],
+        disc_pct: ['Скидка продавца', 'Скидка продавца в % из заказов WB. Зелёным отмечены дни, когда она менялась.'],
+        price_disc: ['Цена со скидкой', 'Цена после скидки продавца, до СПП, из заказов WB.'],
+        price_spp: ['Цена с СПП', 'Цена, по которой купили на сайте WB (с СПП), из заказов. Совпадает с ценой под скидкой в кабинете WB.'],
         cancels_count: ['Отказы', 'Невыкуп: покупатель не забрал заказ, товар поехал обратно. Из финотчёта WB — строки логистики «От клиента при отмене».'],
         buyout_fin_pct: ['Процент выкупа', 'Из финотчёта WB: продажи ÷ (продажи + отказы + возвраты) × 100.'],
         returns_count: ['Возвраты', 'Товар выкупили и потом вернули. Из финотчёта WB — строки «Возврат».'],
@@ -4725,6 +4734,23 @@ const RNP = (() => {
         return byNm;
     }
 
+    // Цены из заказов (до скидки, скидка, со скидкой, с СПП) хранятся отдельно: строки rnp_daily_data подменяют дневную запись целиком.
+    let _priceDaily = {};
+    function _overlayPriceDaily(dailyRows, nmIds) {
+        const idSet = new Set((nmIds || []).map(Number));
+        _priceDaily = {};
+        for (const row of (dailyRows || [])) {
+            const nm = Number(row.nm_id);
+            if (!idSet.has(nm)) continue;
+            const date = String(row.order_date || '').split('T')[0];
+            if (!date) continue;
+            (_priceDaily[nm] = _priceDaily[nm] || {})[date] = {
+                price_base: Number(row.price_base || 0), price_disc: Number(row.price_disc || 0),
+                price_spp: Number(row.price_spp || 0), disc_pct: Number(row.disc_pct || 0),
+            };
+        }
+    }
+
     function _populateDataCacheFromDaily(dailyRows, nmIds, cal, settings) {
         const dateSet = new Set(_calAllDates(cal));
         const idSet = new Set((nmIds || []).map(Number));
@@ -4750,6 +4776,10 @@ const RNP = (() => {
                 sales_sum: 0,
                 avg_check: count > 0 ? sum / count : 0,
                 spp_pct: Number(row.spp_pct || 0),
+                price_base: Number(row.price_base || 0),
+                price_disc: Number(row.price_disc || 0),
+                price_spp: Number(row.price_spp || 0),
+                disc_pct: Number(row.disc_pct || 0),
                 buyout_pct: 0,
                 to_transfer: 0,
                 updated_at: new Date().toISOString(),
@@ -5314,6 +5344,7 @@ const RNP = (() => {
         await _mergeFbsSplit(nmIds, cal);
         await _loadCabinetTotals(cal);
         await _loadGeneralHead(cal);
+        _overlayPriceDaily(dailyRows, nmIds);
         _seedTodayLiveZeros(nmIds, cal);
         if (_isStaleLoad(snapReq, snapCab)) return false;
 
@@ -5594,7 +5625,7 @@ const RNP = (() => {
                      'impressions','clicks','basket_count',
                      'realization','penalty_sum','delivery_sum','storage_sum','deduction_sum','storage_raw',
                      'log_to_client_sum','log_to_client_cnt'];
-        const AVG = ['spp_pct','avg_check','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
+        const AVG = ['spp_pct','avg_check','price_base','price_disc','price_spp','disc_pct','buyout_pct','return_pct','logistics_per_unit','logistics_pct',
                      'storage_pct','ctr_pct','basket_pct','drr_pct','margin_pct','roi_pct','ad_ctr','ad_cro','ad_cpc','wb_share_pct',
                      'funnel_order_conv','wb_rate'];
         const LAST = ['stock_warehouse','stock_transit','stock_total','plan_orders','plan_sales',
@@ -7623,6 +7654,24 @@ const RNP = (() => {
         };
     }
 
+    // Цена не меняется каждый день: в дни без заказов берём последнюю известную цену из более ранних дней.
+    function _carryVal(art, cols, ci, key) {
+        const map = _priceDaily[Number(art.nm_id)] || {};
+        for (let i = ci; i >= 0; i--) {
+            const c = cols[i];
+            if (!c || c.type !== 'day') continue;
+            const v = Number(map[c.date]?.[key]);
+            if (v > 0) return v;
+        }
+        return 0;
+    }
+    // Неделя / месяц / итог: среднее по дням, где цена известна.
+    function _priceAgg(art, col, key) {
+        const map = _priceDaily[Number(art.nm_id)] || {};
+        const vs = (col.dates || []).map(d => Number(map[d]?.[key])).filter(v => v > 0);
+        return vs.length ? vs.reduce((x, y) => x + y, 0) / vs.length : 0;
+    }
+
     function _renderSection(sec, cols, art, firstDayIdx) {
         if (!_sectionRows(sec, art).length) return '';
         const key = `${art.nm_id}:${sec.id}`;
@@ -7692,7 +7741,21 @@ const RNP = (() => {
                     return `<td class="${cls} rnp-cell-plan${setCls} ${colWCls}${sticky.cls}"${sticky.style ? ` style="${sticky.style}"` : ''}>${_fitNum(aggStr)}</td>`;
                 }
 
-                const val = d ? d[m.key] : null;
+                let val = d ? d[m.key] : null;
+                let priceChanged = false;
+                if (m.carry && !isFuture) {
+                    if (isDay) {
+                        val = _carryVal(art, cols, ci, m.key);
+                        let pi = ci - 1;
+                        while (pi >= 0 && cols[pi].type !== 'day') pi--;
+                        if (pi >= 0) {
+                            const pv = _carryVal(art, cols, pi, m.key);
+                            priceChanged = pv > 0 && val > 0 && Math.round(pv) !== Math.round(val);
+                        }
+                    } else {
+                        val = _priceAgg(art, col, m.key);
+                    }
+                }
                 const financePending = isDay && isToday && FINANCE_DAY_KEYS.has(m.key) && !(Number(val) > 0);
                 // Будущие дни: фактов ещё нет, поэтому ни нулей, ни процентов не рисуем.
                 // Ручные поля (конкуренты, раздачи) без значения показываем пустыми, а не 0.
@@ -7706,6 +7769,7 @@ const RNP = (() => {
                 else if (cc === 'rnp-red')    style += (style ? ';' : '') + 'background:#d9ead3;color:#38761d';
                 else if (m.bold) style += (style ? ';' : '') + 'font-weight:600';
                 if (m.cl === 'planStrong' && cc) style += (style ? ';' : '') + 'font-weight:700';
+                if (priceChanged) style += (style ? ';' : '') + 'background:#e6f6ec;color:#17653a;font-weight:800';
                 if (scaleFn && !isFuture) { const sc = scaleFn(col, val); if (sc) style += (style ? ';' : '') + sc; }
                 // ЗАКАЗЫ / Продажи: a bar under the figure (CSS box-shadow), like Excel.
                 // No extra DOM/flex inside the td — that blew up the sheet layout.
