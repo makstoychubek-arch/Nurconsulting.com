@@ -3625,25 +3625,17 @@ const RNP = (() => {
         if (!dates.length) return '<div class="p-10 text-center" style="color:var(--text-muted)">Нет данных за выбранный период.</div>';
         const cols = _byArtCols(active, dates);
         const arts = cols.filter(c => !c.isTotalCol);
-        // Плашки групп над колонками: подряд идущие артикулы одной карточки WB.
-        const groups = [];
-        arts.forEach(c => {
-            const last = groups[groups.length - 1];
-            if (last && last.cat === c.cat && c.cat !== UNCATEGORIZED) last.n++;
-            else groups.push({ cat: c.cat, n: 1 });
-        });
-        const groupTh = groups.map(g => `<th class="rnp-th-month rnp-th-month-curr" colspan="${g.n}" title="${_ghEsc(g.cat)}">${g.cat === UNCATEGORIZED ? '' : _ghEsc(g.cat) + ' · ' + g.n}</th>`).join('');
-        const artTh = arts.map(c => {
+        const artTh = arts.map((c, i) => {
             const a = c.art;
             const label = _ghEsc(_sellerArticle(a));
-            return `<th class="rnp-th-date rnp-day-col rnp-byart-th" title="${label}" onclick="this.classList.toggle('open')">
+            const gStart = i > 0 && arts[i - 1].cat !== c.cat ? ' rnp-byart-gstart' : '';
+            return `<th class="rnp-th-date rnp-day-col rnp-byart-th${gStart}" onclick="RNP.pick(${a.nm_id})" title="${label}">
               ${_imgHtml(a, 'rnp-byart-img', 'c246x328')}<span class="rnp-byart-name">${label}</span></th>`;
         }).join('');
         const sections = _byArtSections().map(sec => _renderSection(sec, cols, BYART_ART, -1)).join('');
         return `<table class="${_sheetTableClass(' rnp-sheet-table--cabinet rnp-sheet-table--no-notes rnp-byart')}" style="${_sheetVarsStyle(cal)}">
           <thead>
-            <tr><th class="rnp-th-metric" rowspan="2"></th>${groupTh}<th class="rnp-th-week rnp-th-total rnp-data-col rnp-byart-total-th" rowspan="2">ИТОГ<small>за период</small></th></tr>
-            <tr>${artTh}</tr>
+            <tr><th class="rnp-th-metric"></th>${artTh}<th class="rnp-th-week rnp-th-total rnp-data-col rnp-byart-total-th">ИТОГ<small>за период</small></th></tr>
           </thead>
           <tbody>${sections}</tbody>
         </table>`;
