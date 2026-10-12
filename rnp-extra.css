@@ -419,3 +419,8 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-wb-link { color: var(--accent); text-decoration: none; font-weight: 700; cursor: pointer; }
 .rnp-wb-link b { color: inherit; }
 .rnp-wb-link:hover { text-decoration: underline; }
+/* Вкладки артикулов: только главное фото, без артикула и точки (артикул — в подсказке) */
+.rnp-sheet-tab.rnp-tab-photoonly .rnp-tab-label { display: none; }
+.rnp-sheet-tab.rnp-tab-photoonly .rnp-sync-green { display: none; }
+.rnp-sheet-tab.rnp-tab-photoonly { padding-left: 6px; padding-right: 6px; gap: 0; }
+.rnp-sheet-tab.rnp-tab-photoonly .rnp-tab-img { width: 30px; height: 40px; }
