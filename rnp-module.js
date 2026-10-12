@@ -2303,6 +2303,38 @@ const RNP = (() => {
         return (Number(total) || 0) > 0 ? 'rnp-size-has' : 'rnp-size-zero';
     }
 
+    // Логистика (товары в пути в WB) и заказ на производство (план пошива) по размерам — вносятся в Товарах.
+    let _supply = { cab: null, transit: {}, prod: {} };
+    async function _loadSupply() {
+        if (!_db || !_cab) return;
+        const cab = _cab;
+        const [sh, pr] = await Promise.all([
+            _db.from('goods_shipments').select('nm_id,size,qty').eq('cabinet_id', cab).eq('status', 'transit').range(0, 4999),
+            _db.from('production_orders').select('nm_id,size,qty').eq('cabinet_id', cab).in('status', ['plan', 'sewing']).range(0, 4999),
+        ]);
+        if (cab !== _cab) return;
+        const pack = (rows) => {
+            const out = {};
+            (rows || []).forEach(r => {
+                const nm = Number(r.nm_id), q = Number(r.qty) || 0;
+                if (!nm || q <= 0) return;
+                const sz = _normSize(r.size);
+                (out[nm] = out[nm] || {})[sz] = ((out[nm] || {})[sz] || 0) + q;
+            });
+            return out;
+        };
+        _supply = { cab, transit: pack(sh.data), prod: pack(pr.data) };
+    }
+    try {
+        window.addEventListener('nr-supply-changed', () => {
+            _loadSupply().then(() => { if (_db && _cab && document.getElementById('rnp-sheet-body')) _renderActiveTable(); }).catch(() => {});
+        });
+    } catch (e) {}
+    function _supplyFor(nm) {
+        if (_supply.cab !== _cab) return { transit: null, prod: null };
+        return { transit: _supply.transit[Number(nm)] || null, prod: _supply.prod[Number(nm)] || null };
+    }
+
     function _buildStockSizeHTML(bySize, art) {
         const merged = {};
         Object.entries(bySize || {}).forEach(([k, v]) => {
@@ -2310,9 +2342,15 @@ const RNP = (() => {
             if (nk === '—') return;
             merged[nk] = _mergeSizeBucket(merged[nk], v);
         });
+        const sup = _supplyFor(art?.nm_id);
+        const useSup = _stockSchemeView !== 'fbs';
         const keys = Object.keys(merged);
+        if (useSup) [sup.transit, sup.prod].forEach(m => m && Object.keys(m).forEach(k => { if (k !== '—' && !keys.includes(k)) keys.push(k); }));
         const sizes = keys.length ? keys.sort(_sortSizes) : ALL_SIZES.slice();
-        const inProd = Number(art?.manual_data?.in_production) || 0;
+        const supT = useSup && sup.transit ? sup.transit : null;
+        const supP = useSup && sup.prod ? sup.prod : null;
+        const trOf = (sz, x) => supT ? (Number(supT[sz]) || 0) + (supT['—'] && sz === sizes[0] ? Number(supT['—']) || 0 : 0) : x.transit;
+        const inProd = supP ? Object.values(supP).reduce((a, b) => a + b, 0) : (Number(art?.manual_data?.in_production) || 0);
 
         const cell = (sz, v) => {
             const n = Number(v) || 0;
@@ -2324,11 +2362,11 @@ const RNP = (() => {
             return `<th class="${_sizeCellCls(t)}">${sz}</th>`;
         };
         const row = (label, rowCls, fn) => {
-            const cells = sizes.map(sz => cell(sz, fn(_viewSizeQty(_getSize(merged, sz)))));
-            const total = sizes.reduce((s, sz) => s + fn(_viewSizeQty(_getSize(merged, sz))), 0);
+            const cells = sizes.map(sz => cell(sz, fn(_viewSizeQty(_getSize(merged, sz)), sz)));
+            const total = sizes.reduce((s, sz) => s + fn(_viewSizeQty(_getSize(merged, sz)), sz), 0);
             return `<tr class="${rowCls}"><td class="rnp-stock-label">${label}</td>${cells.join('')}<td class="${_sizeCellCls(total)} rnp-stock-total">${total}</td></tr>`;
         };
-        const prodCells = sizes.map(() => `<td class="rnp-size-zero">0</td>`).join('');
+        const prodCells = sizes.map(sz => { const n = supP ? (Number(supP[sz]) || 0) + (supP['—'] && sz === sizes[0] ? Number(supP['—']) || 0 : 0) : 0; return `<td class="${_sizeCellCls(n)}">${n}</td>`; }).join('');
         const prodRow = `<tr class="rnp-row-prod"><td class="rnp-stock-label">В пошиве</td>${prodCells}<td class="${_sizeCellCls(inProd)} rnp-stock-total">${inProd}</td></tr>`;
         const view = _stockSchemeView;
         const cap = view === 'fbo'
@@ -2349,8 +2387,8 @@ const RNP = (() => {
             </tr></thead>
             <tbody>
               ${row(whLabel, 'rnp-row-wh', x => x.wh)}
-              ${row('В пути', 'rnp-row-tr', x => x.transit)}
-              ${row('Общий', 'rnp-row-sum', x => x.wh + x.transit)}
+              ${row('В пути', 'rnp-row-tr', (x, sz) => trOf(sz, x))}
+              ${row('Общий', 'rnp-row-sum', (x, sz) => x.wh + trOf(sz, x))}
               ${prodRow}
             </tbody>
           </table>
@@ -5410,6 +5448,7 @@ const RNP = (() => {
         _metricsCache = _buildRnpMetricsFromDaily(dailyRows, stocks, settings, _articles);
         _populateDataCacheFromDaily(dailyRows, nmIds, cal, settings);
         _applyStocksToCache(stocks, nmIds);
+        _loadSupply().catch(e => console.warn('[RNP] supply:', e.message));
         await _mergeFinanceDailyFromDb(nmIds, cal);
         if (_isStaleLoad(snapReq, snapCab)) return false;
         await _mergeAdStatsFromDb(nmIds, cal, { trackOutside: true });

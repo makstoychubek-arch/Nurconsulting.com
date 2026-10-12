@@ -424,3 +424,27 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-sheet-tab.rnp-tab-photoonly .rnp-sync-green { display: none; }
 .rnp-sheet-tab.rnp-tab-photoonly { padding-left: 6px; padding-right: 6px; gap: 0; }
 .rnp-sheet-tab.rnp-tab-photoonly .rnp-tab-img { width: 30px; height: 40px; }
+/* Товары → Логистика и Заказ на производство */
+.gs-pane { padding: 4px 2px 20px; }
+.gs-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; margin: 6px 4px 12px; }
+.gs-title { font-size: 16px; font-weight: 800; color: var(--text-primary); }
+.gs-hint { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.gs-tools { display: flex; align-items: center; gap: 12px; }
+.gs-chk { font-size: 12px; color: var(--text-secondary); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.gs-add { padding: 7px 16px; border: 0; border-radius: 999px; background: var(--accent); color: #fff; font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+.gs-table td, .gs-table th { white-space: nowrap; }
+.gs-in { width: 100%; min-width: 70px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text-primary); font: inherit; font-size: 12px; }
+.gs-in:focus { outline: 2px solid var(--accent-border); }
+.gs-art .gs-in { min-width: 190px; }
+.gs-sz { max-width: 80px; }
+.gs-qty { max-width: 84px; text-align: right; }
+.gs-note { min-width: 200px; }
+.gs-nm { color: var(--text-muted); font-size: 11px; text-align: center; }
+.gs-del { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-muted); font-size: 16px; cursor: pointer; }
+.gs-del:hover { background: #fdecec; color: #e5484d; }
+.gs-incomplete { background: rgba(251, 191, 36, .10); }
+.gs-empty { text-align: center; color: var(--text-muted); padding: 22px 0; }
+.gs-table { width: 100%; min-width: 980px; }
+.gs-table th { padding: 8px 10px; text-align: left; font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
+.gs-table th.gg-num, .gs-table td.gg-num { text-align: right; }
+.gs-table td { padding: 5px 8px; vertical-align: middle; }
