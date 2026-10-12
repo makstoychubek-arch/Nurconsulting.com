@@ -6600,7 +6600,10 @@ const RNP = (() => {
         const bar = document.getElementById('rnp-action-bar-wrap');
         const tabs = document.getElementById('rnp-sheet-tabs');
         const domCab = _rnpDomCab();
-        const chromeReady = !!(bar && bar.querySelector('[data-bar-v="5"]') && tabs && tabs.querySelector('.rnp-sheet-tab'));
+        // Вкладки «Общий» и «Общее по артикулам» есть всегда, поэтому наличие вкладок артикулов/групп проверяем отдельно:
+        // иначе после смены кабинета панель оставалась без групп.
+        const tabsFilled = !!(tabs && tabs.querySelector('.rnp-sheet-tab') && (!active.length || tabs.querySelector('.rnp-cat-group, .rnp-sheet-tab:not(.rnp-tab-general):not(.rnp-tab-byart)')));
+        const chromeReady = !!(bar && bar.querySelector('[data-bar-v="5"]') && tabsFilled);
         if (chromeReady && !force && (!domCab || !_cab || domCab === _cab)) {
             _updateTabHighlight();
             return false;
