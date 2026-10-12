@@ -2309,27 +2309,44 @@ const RNP = (() => {
         if (!_db || !_cab) return;
         const cab = _cab;
         const [sh, pr] = await Promise.all([
-            _db.from('goods_shipments').select('nm_id,size,qty').eq('cabinet_id', cab).eq('status', 'transit').range(0, 4999),
+            _db.from('goods_shipments').select('nm_id,size,qty,sizes,status').eq('cabinet_id', cab).in('status', ['transit', 'в пути', 'на карго', 'Принято ФФ', 'ЕДЕТ В МСК', 'Маркировка']).range(0, 4999),
             _db.from('production_orders').select('nm_id,size,qty').eq('cabinet_id', cab).in('status', ['plan', 'sewing']).range(0, 4999),
         ]);
         if (cab !== _cab) return;
-        const pack = (rows) => {
+        const pack = (rows, raw) => {
             const out = {};
             (rows || []).forEach(r => {
-                const nm = Number(r.nm_id), q = Number(r.qty) || 0;
-                if (!nm || q <= 0) return;
-                const sz = _normSize(r.size);
-                (out[nm] = out[nm] || {})[sz] = ((out[nm] || {})[sz] || 0) + q;
+                const nm = Number(r.nm_id);
+                if (!nm) return;
+                const add = (label, q) => { if (q > 0) { (out[nm] = out[nm] || {})[label] = ((out[nm] || {})[label] || 0) + q; } };
+                const m = r.sizes && typeof r.sizes === 'object' ? Object.entries(r.sizes) : [];
+                if (m.length) m.forEach(([z, q]) => add(raw ? String(z) : _normSize(z), Number(q) || 0));
+                else add(_normSize(r.size), Number(r.qty) || 0);
             });
             return out;
         };
-        _supply = { cab, transit: pack(sh.data), prod: pack(pr.data) };
+        _supply = { cab, transit: pack(sh.data, true), prod: pack(pr.data, false) };
     }
     try {
         window.addEventListener('nr-supply-changed', () => {
             _loadSupply().then(() => { if (_db && _cab && document.getElementById('rnp-sheet-body')) _renderActiveTable(); }).catch(() => {});
         });
     } catch (e) {}
+    // Размер из таблицы «В пути» (например «M/44», «2XL/50») → колонка размеров РНП (S/M/L, 44, 42-44).
+    function _matchSize(label, sizes) {
+        const parts = String(label || '').split('/');
+        const letters = _normSize(parts[0]);
+        const num = parseInt(parts[1], 10);
+        for (const sz of sizes) if (sz === letters) return sz;
+        if (Number.isFinite(num)) {
+            for (const sz of sizes) if (String(num) === String(sz)) return sz;
+            for (const sz of sizes) {
+                const m = String(sz).match(/^(\d+)\s*[-–]\s*(\d+)$/);
+                if (m && num >= +m[1] && num <= +m[2]) return sz;
+            }
+        }
+        return null;
+    }
     function _supplyFor(nm) {
         if (_supply.cab !== _cab) return { transit: null, prod: null };
         return { transit: _supply.transit[Number(nm)] || null, prod: _supply.prod[Number(nm)] || null };
@@ -2345,9 +2362,17 @@ const RNP = (() => {
         const sup = _supplyFor(art?.nm_id);
         const useSup = _stockSchemeView !== 'fbs';
         const keys = Object.keys(merged);
-        if (useSup) [sup.transit, sup.prod].forEach(m => m && Object.keys(m).forEach(k => { if (k !== '—' && !keys.includes(k)) keys.push(k); }));
+        let supT = null;
+        if (useSup && sup.transit) {
+            supT = {};
+            Object.entries(sup.transit).forEach(([label, q]) => {
+                let t = _matchSize(label, keys.length ? keys : ALL_SIZES);
+                if (!t) { t = _normSize(String(label).split('/')[0]); if (!keys.includes(t)) keys.push(t); }
+                supT[t] = (supT[t] || 0) + q;
+            });
+        }
+        if (useSup && sup.prod) Object.keys(sup.prod).forEach(k => { if (k !== '—' && !keys.includes(k)) keys.push(k); });
         const sizes = keys.length ? keys.sort(_sortSizes) : ALL_SIZES.slice();
-        const supT = useSup && sup.transit ? sup.transit : null;
         const supP = useSup && sup.prod ? sup.prod : null;
         const trOf = (sz, x) => supT ? (Number(supT[sz]) || 0) + (supT['—'] && sz === sizes[0] ? Number(supT['—']) || 0 : 0) : x.transit;
         const inProd = supP ? Object.values(supP).reduce((a, b) => a + b, 0) : (Number(art?.manual_data?.in_production) || 0);

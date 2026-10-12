@@ -448,3 +448,51 @@ transition: opacity .18s ease, transform .18s ease;
 .gs-table th { padding: 8px 10px; text-align: left; font-size: 11.5px; color: var(--text-muted); font-weight: 600; }
 .gs-table th.gg-num, .gs-table td.gg-num { text-align: right; }
 .gs-table td { padding: 5px 8px; vertical-align: middle; }
+/* Логистика как таблица «В пути» */
+.gs-gt { font-size: 13px; color: var(--text-secondary); }
+.gs-sheet { overflow: auto; max-height: calc(100vh - 230px); border: 1px solid var(--border); border-radius: 12px; }
+.gs-ship { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; font-size: 12.5px; }
+.gs-ship thead th { position: sticky; top: 0; z-index: 4; background: #8d8d8d; color: #fff; font-size: 11.5px; font-weight: 700; padding: 8px 6px; text-align: center; border-right: 1px solid rgba(255,255,255,.35); white-space: nowrap; }
+.gs-ship td { padding: 3px 4px; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); vertical-align: middle; }
+.gs-ship .gs-in { height: 28px; font-size: 12.5px; padding: 3px 7px; border-radius: 6px; border: 1px solid transparent; background: transparent; }
+.gs-ship .gs-in:hover { border-color: var(--border); background: var(--surface); }
+.gs-ship .gs-in:focus { border-color: var(--accent); background: var(--surface); outline: none; }
+.gs-ship .gs-sel { min-width: 84px; padding-right: 2px; }
+.gs-ship .gs-m { min-width: 92px; } .gs-ship .gs-st { min-width: 138px; font-weight: 700; } .gs-ship .gs-dl { min-width: 84px; }
+.gs-ship .gs-prod { min-width: 96px; } .gs-ship .gs-art .gs-in { min-width: 250px; } .gs-ship .gs-date { min-width: 118px; }
+.gs-ship .gs-or, .gs-ship .gs-cg { min-width: 96px; } .gs-ship .gs-pr { min-width: 66px; text-align: right; }
+.gs-ship .gs-szh { min-width: 50px; }
+.gs-ship td.gs-szc { padding: 2px; }
+.gs-ship .gs-sz { width: 50px; min-width: 50px; text-align: center; padding: 3px 2px; }
+.gs-ship .gs-sz:not(:placeholder-shown) { font-weight: 700; }
+.gs-ship td.gs-tot { text-align: right; font-weight: 800; background: rgba(147, 196, 125, .22); padding: 3px 10px; min-width: 62px; }
+.gs-ship tr.gs-grp td { background: #9a9a9a; border-bottom: 0; padding: 5px 8px; position: sticky; left: 0; }
+.gs-ship .gs-batch { width: 360px; background: transparent !important; color: #fff; font-weight: 800; border-color: transparent; }
+.gs-ship .gs-batch::placeholder { color: rgba(255,255,255,.7); font-weight: 600; }
+.gs-gtot { color: #fff; font-size: 12px; margin: 0 14px; font-weight: 700; }
+.gs-addrow { padding: 3px 12px; border: 1px solid rgba(255,255,255,.7); border-radius: 999px; background: transparent; color: #fff; font: inherit; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+.gs-s-ok { background: #dff3e4 !important; color: #17653a; } .gs-s-ff { background: #e4ecff !important; color: #2a4fb0; }
+.gs-s-tr { background: #fff3c4 !important; color: #8a6b00; } .gs-s-ws { background: #f3e4ff !important; color: #6a2fb0; }
+.gs-ship { table-layout: fixed; width: max-content; min-width: 0; }
+.gs-ship .gs-in { width: 100% !important; min-width: 0 !important; border-radius: 6px !important; box-sizing: border-box; }
+.gs-ship th:nth-child(1), .gs-ship td:nth-child(1) { width: 96px; }
+.gs-ship th:nth-child(2), .gs-ship td:nth-child(2) { width: 104px; }
+.gs-ship th:nth-child(3), .gs-ship td:nth-child(3) { width: 250px; }
+.gs-ship th:nth-child(4), .gs-ship td:nth-child(4) { width: 132px; }
+.gs-ship th:nth-child(5), .gs-ship td:nth-child(5) { width: 146px; }
+.gs-ship th:nth-child(6), .gs-ship td:nth-child(6), .gs-ship th:nth-child(7), .gs-ship td:nth-child(7) { width: 100px; }
+.gs-ship th:nth-child(8), .gs-ship td:nth-child(8) { width: 70px; }
+.gs-ship th:nth-child(9), .gs-ship td:nth-child(9) { width: 92px; }
+.gs-ship th.gs-szh, .gs-ship td.gs-szc { width: 54px; }
+.gs-ship tr.gs-grp td { width: auto; }
+.gs-ship .gs-batch { width: 380px !important; }
+.gs-ship td.gs-tot { width: 70px; }
+.gs-ship .gs-edit { width: 34px; }
+#tab-goods-groups .gs-ship .gs-in, #tab-goods-groups .gs-ship select.gs-in { border-radius: 6px !important; height: 28px !important; padding: 2px 6px !important; background: var(--surface) !important; border: 1px solid transparent !important; box-shadow: none !important; font-size: 12.5px !important; }
+#tab-goods-groups .gs-ship .gs-in:hover { border-color: var(--border) !important; }
+#tab-goods-groups .gs-ship .gs-in:focus { border-color: var(--accent) !important; }
+#tab-goods-groups .gs-ship .gs-batch { background: transparent !important; color: #fff !important; font-size: 13px !important; }
+#tab-goods-groups .gs-ship select.gs-st { font-weight: 700; }
+#tab-goods-groups .gs-ship .gs-addrow { margin-left: 4px; }
+#tab-goods-groups .gs-ship tr.gs-grp td { display: table-cell; }
+#tab-goods-groups .gs-ship tr.gs-grp td .gs-batch, #tab-goods-groups .gs-ship tr.gs-grp td .gs-gtot, #tab-goods-groups .gs-ship tr.gs-grp td .gs-addrow { display: inline-block; vertical-align: middle; }

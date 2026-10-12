@@ -19,7 +19,7 @@
             statuses: [['plan', 'В плане'], ['sewing', 'В пошиве'], ['done', 'Готово']], openStatus: ['plan', 'sewing'],
         },
     };
-    var st = { arts: [], rows: { ship: [], prod: [] }, cab: null, showDone: { ship: false, prod: false }, loadedCab: null };
+    var st = { arts: [], draftBatches: [], rows: { ship: [], prod: [] }, cab: null, showDone: { ship: false, prod: false }, loadedCab: null };
 
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
     function sb() { return typeof supabase !== 'undefined' ? supabase : root.supabase; }
@@ -34,7 +34,7 @@
         if (!cab || !sb()) return;
         var a = await sb().from('rnp_articles').select('nm_id,name,manual_data,is_active').eq('cabinet_id', cab).order('nm_id').range(0, 1999);
         st.arts = (a.data || []).filter(function (x) { return x.is_active !== false; });
-        var s = await sb().from('goods_shipments').select('*').eq('cabinet_id', cab).order('created_at', { ascending: false }).range(0, 1999);
+        var s = await sb().from('goods_shipments').select('*').eq('cabinet_id', cab).order('created_at', { ascending: true }).range(0, 1999);
         var p = await sb().from('production_orders').select('*').eq('cabinet_id', cab).order('created_at', { ascending: false }).range(0, 1999);
         st.rows.ship = s.data || [];
         st.rows.prod = p.data || [];
@@ -44,6 +44,7 @@
     function pane(k) { return document.getElementById(KINDS[k].pane); }
 
     function render(k) {
+        if (k === 'ship') return renderShip();
         var K = KINDS[k], host = pane(k);
         if (!host) return;
         var rows = st.rows[k].filter(function (r) { return st.showDone[k] || isOpen(k, r); });
@@ -73,6 +74,192 @@
             (body || '<tr><td colspan="9" class="gs-empty">Пока пусто. Нажмите «+ Добавить».</td></tr>') +
             '</tbody><tfoot><tr class="gg-foot"><td class="gg-art">Итого в работе</td><td></td><td></td><td class="gg-num">' + total.toLocaleString('ru') + '</td><td colspan="5"></td></tr></tfoot></table></div>';
         bind(k, host);
+    }
+
+
+    // ─── «Логистика» как таблица «В пути»: партии блоками, размеры колонками ───────────────────
+    var SHIP_SIZES = ['XXXS/36', 'XXS/38', 'XS/40', 'S/42', 'M/44', 'L/46', 'XL/48', '2XL/50', '3XL/52', '4XL/54', '5XL/56', '5XL/58'];
+    var SHIP_LISTS = {
+        method: ['AiLIN', 'ZEVINA', 'ОсОО', 'ИП', 'Бишкек', 'В серую', 'В белую', 'OZON', 'FBS', 'FBO', 'WBO', 'BAZ.A'],
+        status: ['В цеху', 'в пути', 'на карго', 'Принято ФФ', 'В китае', 'Скоро отправка', 'В продажах WB', 'ЕДЕТ В МСК', 'Маркировка', 'В продажах ОZON'],
+        delivery: ['АВТО', 'АВИА', 'АВТО+ФФ'],
+        origin: ['Бишкек', 'Китай', 'Москва'],
+        cargo: ['KGMART', 'АЛЬФА', 'AK LOGISTIK', 'РЕД'],
+    };
+    // Статусы, при которых товар «едет в WB» и попадает в РНП в строку «В пути».
+    var SHIP_OPEN = ['в пути', 'на карго', 'Принято ФФ', 'ЕДЕТ В МСК', 'Маркировка'];
+    function statusCls(v) {
+        v = String(v || '').trim();
+        if (/продажах/i.test(v)) return 'ok';
+        if (v === 'Принято ФФ') return 'ff';
+        if (v === 'в пути' || v === 'на карго' || v === 'ЕДЕТ В МСК') return 'tr';
+        if (v === 'В цеху' || v === 'В китае' || v === 'Скоро отправка' || v === 'Маркировка') return 'ws';
+        return '';
+    }
+    function sel(list, val, f, cls) {
+        var l = list.slice(); if (val && l.indexOf(val) < 0) l.unshift(val);
+        return '<select class="gs-in gs-sel ' + (cls || '') + '" data-f="' + f + '"><option value=""></option>' + l.map(function (x) { return '<option' + (x === val ? ' selected' : '') + '>' + esc(x) + '</option>'; }).join('') + '</select>';
+    }
+    function dlist(id, list) { return '<datalist id="' + id + '">' + list.map(function (x) { return '<option value="' + esc(x) + '">'; }).join('') + '</datalist>'; }
+    function shipTotal(r) { var t = 0, s = r.sizes || {}; Object.keys(s).forEach(function (k) { t += Number(s[k]) || 0; }); return t; }
+
+    function groupsOf() {
+        var order = [], map = {};
+        st.rows.ship.forEach(function (r) {
+            var b = r.batch || '';
+            if (!map[b]) { map[b] = []; order.push(b); }
+            map[b].push(r);
+        });
+        st.draftBatches.forEach(function (b) { if (!map[b]) { map[b] = []; order.push(b); } });
+        return { order: order, map: map };
+    }
+
+    function renderShip() {
+        var host = pane('ship');
+        if (!host) return;
+        var g = groupsOf();
+        var showAll = st.showDone.ship;
+        var colspan = 9 + SHIP_SIZES.length + 2;
+        var dls = '<datalist id="gs-arts-ship">' + st.arts.map(function (a) { return '<option value="' + esc(artLabel(a)) + '">' + a.nm_id + '</option>'; }).join('') + '</datalist>' +
+            dlist('gs-origin', SHIP_LISTS.origin) + dlist('gs-cargo', SHIP_LISTS.cargo);
+        var sizeTh = SHIP_SIZES.map(function (z) { return '<th class="gs-szh">' + esc(z.replace('/', ' / ')) + '</th>'; }).join('');
+        var body = '', grand = 0;
+        g.order.forEach(function (b) {
+            var rows = g.map[b].filter(function (r) { return showAll || SHIP_OPEN.indexOf(r.status) >= 0 || !r.status || r.status === 'transit'; });
+            var tot = rows.reduce(function (s, r) { return s + shipTotal(r); }, 0);
+            grand += tot;
+            body += '<tr class="gs-grp" data-batch="' + esc(b) + '"><td colspan="' + colspan + '"><input class="gs-batch gs-in" value="' + esc(b) + '" placeholder="Название партии (например «№7 ИП Уркунбаев 100%»)">' +
+                '<span class="gs-gtot">' + (tot ? 'всего ' + tot.toLocaleString('ru') + ' шт' : '') + '</span>' +
+                '<button type="button" class="gs-addrow gs-edit" data-act="addrow">+ строка</button></td></tr>';
+            rows.forEach(function (r) {
+                var a = artByNm(r.nm_id), sizes = r.sizes || {};
+                var cells = SHIP_SIZES.map(function (z) {
+                    var v = sizes[z];
+                    return '<td class="gs-szc"><input class="gs-in gs-sz" data-f="sz" data-z="' + esc(z) + '" type="number" min="0" value="' + (v ? v : '') + '"></td>';
+                }).join('');
+                body += '<tr class="gs-row" data-id="' + esc(r.id || '') + '" data-tmp="' + esc(r._tmp || '') + '">' +
+                    '<td>' + sel(SHIP_LISTS.method, r.method, 'method', 'gs-m') + '</td>' +
+                    '<td><input class="gs-in gs-prod" data-f="product" value="' + esc(r.product) + '" placeholder="Товар"></td>' +
+                    '<td class="gs-art"><input class="gs-in" data-f="art" list="gs-arts-ship" value="' + esc(a ? artLabel(a) : '') + '" placeholder="Артикул"></td>' +
+                    '<td><input class="gs-in gs-date" data-f="sent_date" type="date" value="' + esc(r.sent_date || '') + '"></td>' +
+                    '<td>' + sel(SHIP_LISTS.status, r.status, 'status', 'gs-st gs-s-' + statusCls(r.status)) + '</td>' +
+                    '<td><input class="gs-in gs-or" data-f="origin" list="gs-origin" value="' + esc(r.origin) + '"></td>' +
+                    '<td><input class="gs-in gs-cg" data-f="cargo" list="gs-cargo" value="' + esc(r.cargo) + '"></td>' +
+                    '<td><input class="gs-in gs-pr" data-f="price" type="number" step="any" value="' + (r.price == null ? '' : r.price) + '"></td>' +
+                    '<td>' + sel(SHIP_LISTS.delivery, r.delivery, 'delivery', 'gs-dl') + '</td>' +
+                    cells + '<td class="gs-tot">' + (shipTotal(r) || '') + '</td>' +
+                    '<td class="gs-edit"><button type="button" class="gs-del" data-act="del" title="Удалить строку">×</button></td></tr>';
+            });
+        });
+        host.innerHTML = dls +
+            '<div class="gs-head"><div><div class="gs-title">Логистика</div><div class="gs-hint">Как таблица «В пути»: партии блоками, размеры колонками. В РНП суммы по размерам идут в строку «В пути» (статусы: в пути, на карго, Принято ФФ, ЕДЕТ В МСК, Маркировка).</div></div>' +
+            '<div class="gs-tools"><span class="gs-gt">В пути всего: <b>' + grand.toLocaleString('ru') + ' шт</b></span><label class="gs-chk"><input type="checkbox" data-act="done"' + (showAll ? ' checked' : '') + '> показывать «в продажах» и «в цеху»</label>' +
+            '<button type="button" class="gs-add gs-edit" data-act="addbatch">+ Партия</button></div></div>' +
+            '<div class="gs-sheet"><table class="gs-table gs-ship"><thead><tr><th>Метод</th><th>Товар</th><th>Артикул</th><th>Дата отправки</th><th>Статус</th><th>Откуда</th><th>Карго</th><th>Цена</th><th>Доставка</th>' + sizeTh + '<th>Общее</th><th class="gs-edit"></th></tr></thead><tbody>' +
+            (body || '<tr><td colspan="' + colspan + '" class="gs-empty">Пока пусто. Нажмите «+ Партия».</td></tr>') + '</tbody></table></div>';
+        bindShip(host);
+    }
+
+    function shipRow(tr) {
+        var id = tr.getAttribute('data-id'), tmp = tr.getAttribute('data-tmp');
+        var list = st.rows.ship;
+        for (var i = 0; i < list.length; i++) if ((id && list[i].id === id) || (!id && tmp && list[i]._tmp === tmp)) return list[i];
+        return null;
+    }
+
+    function bindShip(host) {
+        if (host._gsShipBound) return;
+        host._gsShipBound = true;
+        host.addEventListener('click', function (e) {
+            var b = e.target.closest('[data-act]');
+            if (!b) return;
+            var act = b.getAttribute('data-act');
+            if (act === 'addbatch') {
+                var n = 'Новая партия ' + (groupsOf().order.length + 1);
+                st.draftBatches.push(n); addShipRow(n);
+            } else if (act === 'addrow') {
+                addShipRow(b.closest('tr').getAttribute('data-batch') || '');
+            } else if (act === 'del') {
+                delShip(b.closest('tr'));
+            }
+        });
+        host.addEventListener('change', function (e) {
+            var el = e.target;
+            if (el.getAttribute('data-act') === 'done') { st.showDone.ship = el.checked; renderShip(); return; }
+            var tr = el.closest('tr');
+            if (el.classList.contains('gs-batch')) { renameBatch(tr.getAttribute('data-batch') || '', String(el.value || '').trim()); return; }
+            var f = el.getAttribute('data-f');
+            if (!f || !tr) return;
+            var r = shipRow(tr);
+            if (!r) return;
+            if (f === 'art') {
+                var v = String(el.value || '').trim().toLowerCase();
+                var a = st.arts.filter(function (x) { return artLabel(x).toLowerCase() === v || String(x.nm_id) === v; })[0];
+                r.nm_id = a ? a.nm_id : null;
+                el.style.outline = a || !v ? '' : '2px solid #ef4444';
+            } else if (f === 'sz') {
+                r.sizes = r.sizes || {};
+                var q = Math.max(0, parseInt(el.value, 10) || 0);
+                if (q) r.sizes[el.getAttribute('data-z')] = q; else delete r.sizes[el.getAttribute('data-z')];
+                var t = tr.querySelector('.gs-tot'); if (t) t.textContent = shipTotal(r) || '';
+            } else if (f === 'price') {
+                r.price = el.value === '' ? null : Number(el.value);
+            } else if (f === 'status') {
+                r.status = el.value;
+                el.className = el.className.replace(/gs-s-\S*/g, '') + ' gs-s-' + statusCls(el.value);
+            } else {
+                r[f] = el.value === '' ? (f === 'sent_date' ? null : '') : el.value;
+            }
+            saveShip(r, tr);
+        });
+    }
+
+    function addShipRow(batch) {
+        var r = { _tmp: 't' + Date.now(), cabinet_id: st.cab, nm_id: null, batch: batch, method: '', product: '', origin: 'Бишкек', cargo: '', delivery: 'АВТО', price: null, sizes: {}, status: 'в пути', note: '', sent_date: new Date().toISOString().slice(0, 10) };
+        var idx = -1;
+        st.rows.ship.forEach(function (x, i) { if ((x.batch || '') === batch) idx = i; });
+        if (idx >= 0) st.rows.ship.splice(idx + 1, 0, r); else st.rows.ship.push(r);
+        renderShip();
+        var tr = pane('ship').querySelector('tr[data-tmp="' + r._tmp + '"]');
+        var first = tr && tr.querySelector('[data-f="art"]'); if (first) first.focus();
+    }
+
+    async function saveShip(r, tr) {
+        if (!r.nm_id || !(shipTotal(r) > 0)) { tr.classList.add('gs-incomplete'); return; }
+        tr.classList.remove('gs-incomplete');
+        var payload = { cabinet_id: st.cab, nm_id: r.nm_id, size: '', qty: shipTotal(r), sizes: r.sizes || {}, status: r.status || '', note: r.note || '', batch: r.batch || '', method: r.method || '', product: r.product || '', origin: r.origin || '', cargo: r.cargo || '', delivery: r.delivery || '', price: r.price == null ? null : r.price, sent_date: r.sent_date || null, updated_at: new Date().toISOString() };
+        try {
+            var res;
+            if (r.id) res = await sb().from('goods_shipments').update(payload).eq('id', r.id);
+            else {
+                res = await sb().from('goods_shipments').insert(payload).select('id').single();
+                if (!res.error && res.data) { r.id = res.data.id; tr.setAttribute('data-id', r.id); }
+            }
+            if (res.error) throw res.error;
+            tr.style.outline = '';
+            changed();
+        } catch (e) { tr.style.outline = '2px solid #ef4444'; tr.title = String((e && e.message) || e); }
+    }
+
+    async function renameBatch(oldName, name) {
+        st.draftBatches = st.draftBatches.map(function (b) { return b === oldName ? name : b; });
+        var ids = [];
+        st.rows.ship.forEach(function (r) { if ((r.batch || '') === oldName) { r.batch = name; if (r.id) ids.push(r.id); } });
+        if (ids.length) { try { await sb().from('goods_shipments').update({ batch: name }).in('id', ids); } catch (e) {} }
+        renderShip();
+    }
+
+    async function delShip(tr) {
+        var r = shipRow(tr);
+        if (!r) return;
+        if (r.id) {
+            if (!root.confirm('Удалить строку?')) return;
+            var res = await sb().from('goods_shipments').delete().eq('id', r.id);
+            if (res.error) { tr.style.outline = '2px solid #ef4444'; tr.title = res.error.message; return; }
+        }
+        st.rows.ship = st.rows.ship.filter(function (x) { return x !== r; });
+        renderShip();
+        changed();
     }
 
     function rowFor(k, tr) {
