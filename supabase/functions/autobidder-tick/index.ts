@@ -19,6 +19,7 @@ import {
     type Strategy,
 } from '../_shared/autobidder-tick-decide.ts';
 import { notifyOnce } from '../_shared/notify-once.ts';
+import { getTelegramChatId } from '../_shared/telegram-routing.ts';
 import {
     boundsFromCorridor,
     clustersNeedingPositions,
@@ -216,7 +217,8 @@ Deno.serve(async (req) => {
     if (!supabaseUrl || !serviceKey) return json({ error: 'missing_env' }, 500);
     if (!isServiceAuthorized(req, serviceKey)) return json({ error: 'Unauthorized' }, 401);
     const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
-    const tgChatId = Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '';
+    // Реклама (пауза/старт РК, баланс, автобиддер) — в канал «Реклама», а не в общий чат с продажами
+    const tgChatId = getTelegramChatId('ads');
 
     const body = req.method === 'GET'
         ? Object.fromEntries(new URL(req.url).searchParams)

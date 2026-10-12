@@ -9,6 +9,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
+import { getTelegramChatId } from '../_shared/telegram-routing.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { fetchWithTimeout, notifyOnce, sendTelegramMessage } from '../_shared/notify-once.ts';
 
@@ -37,7 +38,8 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
     const tgToken = Deno.env.get('TELEGRAM_BOT_TOKEN') ?? '';
-    const tgChatId = Deno.env.get('TELEGRAM_GROUP_CHAT_ID') ?? '';
+    // Реклама (пауза/старт РК, баланс, автобиддер) — в канал «Реклама», а не в общий чат с продажами
+    const tgChatId = getTelegramChatId('ads');
 
     if (!isServiceAuthorized(req, serviceKey)) {
         return json({ error: 'Unauthorized' }, 401);
