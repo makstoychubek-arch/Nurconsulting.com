@@ -26,7 +26,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { filterFeatureActive, recordFeatureRun } from '../_shared/cabinet-features.ts';
-import { orderPriceWithDisc } from '../_shared/wb-order-price.ts';
+import { orderPriceWithDisc, slimOrder } from '../_shared/wb-order-price.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { applyKeepFunnelOrders, funnelDayMetricFields, moscowYmd, wbFunnelWindow } from '../_shared/wb-funnel-day.ts';
 
@@ -343,7 +343,7 @@ async function writeOrderRows(
         // totalPrice (до скидки) — отсюда завышенные суммы заказов.
         price: orderPriceWithDisc(o),
         is_return: o.isReturn || false,
-        data: o,
+        data: slimOrder(o),
     }));
     const withSrid = rows.filter((r) => r.srid);
     const withoutSrid = rows.filter((r) => !r.srid);

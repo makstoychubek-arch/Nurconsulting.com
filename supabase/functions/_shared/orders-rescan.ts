@@ -1,6 +1,8 @@
 // Пересбор заказов: WB дописывает заказы задним числом, а история грузится один раз.
 // Раз в несколько минут перезабираем по одному дню из окна последних RESCAN_WINDOW_DAYS дней
 // и добавляем недостающие заказы (ничего не удаляем). Курсор идёт назад от «позавчера» и возвращается.
+import { slimOrder } from './wb-order-price.ts';
+
 
 export const RESCAN_WINDOW_DAYS = 30;
 export const RESCAN_START_BACK = 2; // «вчера» и «сегодня» уже обновляет auto-sync
@@ -42,7 +44,7 @@ export function rescanRows(
             srid: o.srid,
             price: price(o),
             is_return: (o.isReturn as boolean) || false,
-            data: o,
+            data: slimOrder(o as Record<string, unknown>),
         }));
 }
 

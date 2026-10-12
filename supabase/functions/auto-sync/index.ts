@@ -6,7 +6,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { isTeamMember } from '../_shared/cabinet-access.ts';
 import { filterFeatureActive, recordFeatureRun } from '../_shared/cabinet-features.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
-import { orderPriceWithDisc } from '../_shared/wb-order-price.ts';
+import { orderPriceWithDisc, slimOrder } from '../_shared/wb-order-price.ts';
 import { extractMainPhotoUrl } from '../_shared/wb-main-photo.ts';
 import { applyKeepFunnelOrders, funnelDayMetricFields, wbFunnelWindow } from '../_shared/wb-funnel-day.ts';
 
@@ -1026,7 +1026,7 @@ function toOrderRow(cabinetId: string, dayStr: string, o: Record<string, unknown
         // и были завышены в 1.5-3 раза относительно продаж из отчёта.
         price: orderPriceWithDisc(o),
         is_return: o.isReturn || false,
-        data: o,
+        data: slimOrder(o),
     };
 }
 

@@ -23,3 +23,16 @@ export function orderPriceWithDisc(o: Record<string, unknown> | null | undefined
     const total = num(o?.totalPrice);
     return total > 0 ? total : 0;
 }
+
+// Поля заказа WB, которые нигде не читаются. Не кладём их в wb_orders.data:
+// база на free-плане Supabase ограничена 0,5 ГБ, а эти поля занимают ~40% JSON.
+const UNUSED_ORDER_KEYS = [
+    'regionName', 'oblastOkrugName', 'incomeID', 'gNumber', 'cancelDate',
+    'isRealization', 'isSupply', 'countryName', 'sticker', 'lastChangeDate',
+];
+
+export function slimOrder<T extends Record<string, unknown>>(o: T): Partial<T> {
+    const out: Record<string, unknown> = { ...o };
+    for (const k of UNUSED_ORDER_KEYS) delete out[k];
+    return out as Partial<T>;
+}
