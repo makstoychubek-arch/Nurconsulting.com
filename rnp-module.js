@@ -72,6 +72,7 @@ const RNP = (() => {
     };
     const SUMMARY_TAB = 'summary';
     const GENERAL_TAB = 'general';
+    const BYART_TAB = 'byart';
     const UNCATEGORIZED = 'Без категории';
     const CABINET_ART = { nm_id: -1, name: 'Общий', manual_data: {}, cost_price: 0, logistics_unit: 0, other_costs_unit: 0 };
     const VIEW_PRESETS = {
@@ -1082,7 +1083,7 @@ const RNP = (() => {
     }
 
     function _ensureActiveVisible() {
-        if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB || _activeNm == null) return;
+        if (_activeNm === SUMMARY_TAB || _activeNm === GENERAL_TAB || _activeNm === BYART_TAB || _activeNm == null) return;
         const art = _cabArticles().find(a => a.nm_id == _activeNm);
         if (!art || !art.is_active || art.manual_data?.rnp_hidden || _isGroupHidden(_articleCategory(art))) {
             _activeNm = GENERAL_TAB;
@@ -2905,9 +2906,9 @@ const RNP = (() => {
         return cal.days?.length || 0;
     }
 
-    function _colgroupHTML(cal) {
+    function _colgroupHTML(cal, extra = 0) {
         const unit = cal.mode === 'month' ? MONTH_COL_W : _dayColW();
-        const n = _sheetDataColCount(cal);
+        const n = _sheetDataColCount(cal) + extra;
         let html = `<colgroup><col style="width:${_metricW()}px"><col style="width:${_sparkW()}px">`;
         for (let i = 0; i < n; i++) html += `<col style="width:${unit}px">`;
         return `${html}</colgroup>`;
@@ -3575,6 +3576,123 @@ const RNP = (() => {
         }
     }
 
+    // ─── «Общее по артикулам»: показатели слева, артикулы колонками (по карточкам WB), справа ИТОГ ───────────────
+    const BYART_ART = { nm_id: -2, name: 'Артикулы', manual_data: {}, cost_price: 0, logistics_unit: 0, other_costs_unit: 0 };
+    let _byArt = { from: null, to: null, preset: 'day' };
+
+    function _byArtDates(cal) {
+        const all = _calAllDates(cal).filter(d => d <= cal.todayStr);
+        if (!all.length) return [];
+        const yesterday = all.filter(d => d < cal.todayStr);
+        const last = (yesterday.length ? yesterday : all).slice(-1)[0];
+        let from = _byArt.from, to = _byArt.to;
+        if (!from || !to || !all.includes(from) || !all.includes(to)) { from = last; to = last; }
+        if (from > to) [from, to] = [to, from];
+        return all.filter(d => d >= from && d <= to);
+    }
+
+    function _byArtSections() {
+        return _sectionsForView().map(sec => ({
+            ...sec,
+            rows: sec.rows.filter(m => !m.isPlan && !m.competitor && !m.cl && m.src !== 'manual' && !m.cabinetOnly),
+        })).filter(sec => sec.rows.length);
+    }
+
+    function _byArtCols(active, dates) {
+        const ordered = [];
+        _groupByCategory(active).forEach(([cat, list]) => list.forEach(a => ordered.push({ a, cat })));
+        const priceKeys = ['price_base', 'price_disc', 'price_spp', 'disc_pct'];
+        const priceAvg = (nm, k) => {
+            const map = _priceDaily[nm] || {};
+            const vs = dates.map(d => Number(map[d]?.[k])).filter(v => v > 0);
+            if (vs.length) return vs.reduce((x, y) => x + y, 0) / vs.length;
+            // В период заказов не было — берём последнюю известную цену до его конца.
+            const prior = Object.keys(map).filter(d => d <= dates[dates.length - 1] && Number(map[d][k]) > 0).sort().pop();
+            return prior ? Number(map[prior][k]) : 0;
+        };
+        const to = dates[dates.length - 1];
+        const cols = ordered.map(({ a, cat }) => {
+            const d = _derive(_aggWeek(_dataCache[a.nm_id] || {}, dates), a) || {};
+            priceKeys.forEach(k => { d[k] = priceAvg(a.nm_id, k); });
+            return { type: 'day', date: to, colKey: 'a' + a.nm_id, dates, byArt: true, data: d, art: a, cat };
+        });
+        const total = _mergeDerivedMetrics(cols.map(c => c.data)) || {};
+        priceKeys.forEach(k => {
+            const vs = cols.map(c => Number(c.data[k])).filter(v => v > 0);
+            total[k] = vs.length ? vs.reduce((x, y) => x + y, 0) / vs.length : 0;
+        });
+        cols.push({ type: 'day', date: to, colKey: 'byart-total', dates, byArt: true, isTotalCol: true, data: total });
+        return cols;
+    }
+
+    function _buildByArtTableHTML(active, cal) {
+        _metricRowSeq = 0;
+        const dates = _byArtDates(cal);
+        if (!dates.length) return '<div class="p-10 text-center" style="color:var(--text-muted)">Нет данных за выбранный период.</div>';
+        const cols = _byArtCols(active, dates);
+        const arts = cols.filter(c => !c.isTotalCol);
+        // Плашки групп над колонками: подряд идущие артикулы одной карточки WB.
+        const groups = [];
+        arts.forEach(c => {
+            const last = groups[groups.length - 1];
+            if (last && last.cat === c.cat && c.cat !== UNCATEGORIZED) last.n++;
+            else groups.push({ cat: c.cat, n: 1 });
+        });
+        const groupTh = groups.map(g => `<th class="rnp-th-month rnp-th-month-curr" colspan="${g.n}" title="${_ghEsc(g.cat)}">${g.cat === UNCATEGORIZED ? '' : _ghEsc(g.cat) + ' · ' + g.n}</th>`).join('');
+        const artTh = arts.map(c => {
+            const a = c.art;
+            const label = _ghEsc(_sellerArticle(a));
+            return `<th class="rnp-th-date rnp-day-col rnp-byart-th" title="${label}" onclick="this.classList.toggle('open')">
+              ${_imgHtml(a, 'rnp-byart-img', 'c246x328')}<span class="rnp-byart-name">${label}</span></th>`;
+        }).join('');
+        const sections = _byArtSections().map(sec => _renderSection(sec, cols, BYART_ART, -1)).join('');
+        return `<table class="${_sheetTableClass(' rnp-sheet-table--cabinet rnp-sheet-table--no-notes rnp-byart')}" style="${_sheetVarsStyle(cal)}">
+          <thead>
+            <tr><th class="rnp-th-metric" rowspan="2"></th>${groupTh}<th class="rnp-th-week rnp-th-total rnp-data-col rnp-byart-total-th" rowspan="2">ИТОГ<small>за период</small></th></tr>
+            <tr>${artTh}</tr>
+          </thead>
+          <tbody>${sections}</tbody>
+        </table>`;
+    }
+
+    function _byArtBarHTML(cal) {
+        const dates = _byArtDates(cal);
+        const all = _calAllDates(cal).filter(d => d <= cal.todayStr);
+        const from = dates[0] || '', to = dates[dates.length - 1] || '';
+        const chip = (id, label) => `<button type="button" class="rnp-byart-chip${_byArt.preset === id ? ' on' : ''}" onclick="RNP.byArtPreset('${id}')">${label}</button>`;
+        const fmt = d => d ? d.split('-').reverse().slice(0, 2).join('.') : '';
+        return `<div class="rnp-byart-bar"><b>Период:</b>
+          ${chip('day', 'День')}${chip('week', 'Неделя')}${chip('month', 'Месяц')}
+          <span class="rnp-byart-range">
+            <input type="date" value="${from}" min="${all[0] || ''}" max="${all[all.length - 1] || ''}" onchange="RNP.byArtRange(this.value, null)">
+            <i>—</i>
+            <input type="date" value="${to}" min="${all[0] || ''}" max="${all[all.length - 1] || ''}" onchange="RNP.byArtRange(null, this.value)">
+          </span>
+          <span class="rnp-byart-note">${from === to ? 'за ' + fmt(from) : fmt(from) + ' – ' + fmt(to)} · клик по фото — полный артикул продавца</span></div>`;
+    }
+
+    function byArtPreset(id) {
+        const cal = _buildCalendar();
+        const all = _calAllDates(cal).filter(d => d <= cal.todayStr);
+        if (!all.length) return;
+        const yesterday = all.filter(d => d < cal.todayStr);
+        const last = (yesterday.length ? yesterday : all).slice(-1)[0];
+        const idx = all.indexOf(last);
+        _byArt.preset = id;
+        _byArt.to = last;
+        _byArt.from = id === 'day' ? last : (id === 'week' ? all[Math.max(0, idx - 6)] : all.filter(d => d.slice(0, 7) === last.slice(0, 7))[0]);
+        _renderActiveTable();
+    }
+
+    function byArtRange(from, to) {
+        const cal = _buildCalendar();
+        const cur = _byArtDates(cal);
+        _byArt.from = from || cur[0];
+        _byArt.to = to || cur[cur.length - 1];
+        _byArt.preset = 'custom';
+        _renderActiveTable();
+    }
+
     function _buildGeneralTableHTML(active, cal) {
         _metricRowSeq = 0;
         const cols = _buildCabinetCols(active, cal);
@@ -3750,6 +3868,7 @@ const RNP = (() => {
     function _buildNotesHeadCells(cols, art) {
         const nmId = art.nm_id;
         return cols.map((col, ci) => {
+            if (col.isPeriodCol) return '';
             const d = col.date || col.colKey || col.weekStart;
             const text = (_notesCache[nmId]?.[d]?.text || '').replace(/"/g, '&quot;');
             const tip = _noteTip(nmId, d).replace(/"/g, '&quot;');
@@ -3969,10 +4088,11 @@ const RNP = (() => {
             const onclick = tab.getAttribute('onclick') || '';
             const isSummary = onclick.includes("'summary'") || onclick.includes('"summary"');
             const isGeneral = onclick.includes("'general'") || onclick.includes('"general"');
-            const nm = onclick.match(/pick\((\d+|'summary'|"summary"|'general'|"general")\)/)?.[1]?.replace(/['"]/g, '');
+            const nm = onclick.match(/pick\((\d+|'summary'|"summary"|'general'|"general"|'byart')\)/)?.[1]?.replace(/['"]/g, '');
             const active = nm === String(_activeNm)
                 || (nm === 'summary' && _activeNm === SUMMARY_TAB)
-                || (nm === 'general' && _activeNm === GENERAL_TAB);
+                || (nm === 'general' && _activeNm === GENERAL_TAB)
+                || (nm === 'byart' && _activeNm === BYART_TAB);
             tab.classList.toggle('active', active);
         });
     }
@@ -4009,6 +4129,9 @@ const RNP = (() => {
         }).join('');
         return `<div class="rnp-sheet-tab rnp-tab-general${genActive ? ' active' : ''}" onclick="RNP.pick('general')">
             <span>Общий</span>
+          </div>
+          <div class="rnp-sheet-tab rnp-tab-byart${_activeNm === BYART_TAB ? ' active' : ''}" onclick="RNP.pick('byart')">
+            <span>Общее по артикулам</span>
           </div>
           ${groupsHtml}`;
     }
@@ -6316,7 +6439,7 @@ const RNP = (() => {
 
     function _writeSavedActiveNm() {
         try {
-            const val = String(_activeNm);
+            const val = _activeNm === BYART_TAB ? GENERAL_TAB : String(_activeNm);
             if (_cab) sessionStorage.setItem(_activeNmKey(_cab), val);
             sessionStorage.setItem('rnp_active_nm', val);
         } catch (e) {}
@@ -6810,7 +6933,7 @@ const RNP = (() => {
             return;
         }
 
-        if (!_activeNm || (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && !active.find(a => a.nm_id == _activeNm))) {
+        if (!_activeNm || (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm !== BYART_TAB && !active.find(a => a.nm_id == _activeNm))) {
             try {
                 const saved = _readSavedActiveNm(wantCab) || sessionStorage.getItem('rnp_active_nm');
                 if (saved === GENERAL_TAB || saved === 'general') _activeNm = GENERAL_TAB;
@@ -6946,6 +7069,20 @@ const RNP = (() => {
             _applyResolvedPhotos(body);
             _updateTabHighlight();
             _saveRnpShell();
+            return;
+        }
+
+        if (_activeNm === BYART_TAB) {
+            _hydratePhotoCacheFromStorage();
+            _hydratePhotoCacheFromArticles();
+            const nextInner = `
+          <div class="rnp-table-scroll rnp-byart-wrap" id="rnp-table-wrap">${_buildByArtTableHTML(active, cal)}</div>
+          ${_byArtBarHTML(cal)}`;
+            const painted = _paintSheetBody(body, nextInner, cal);
+            if (painted === 'replace') await _yieldMain();
+            _markPaintedCab(body);
+            _applyResolvedPhotos(body);
+            _updateTabHighlight();
             return;
         }
 
@@ -7441,6 +7578,16 @@ const RNP = (() => {
     function _buildTableHTML(art, stockBySize, rawData, cal) {
         _metricRowSeq = 0;
         const cols = _buildCols(rawData, art, cal);
+        // «ИТОГ за период» в конце таблицы (только недельный вид): сумма или среднее по дням текущего месяца до сегодня.
+        let periodExtra = 0;
+        if (cal.mode !== 'month') {
+            const pd = cal.days.filter(d => !d.isFuture).map(d => d.date);
+            if (pd.length) {
+                cols.push({ type: 'period', isPeriodCol: true, colKey: 'period-total', date: pd[pd.length - 1], dates: pd,
+                    data: _applyColPlans(_derive(_aggWeek(rawData, pd), art), art, pd) });
+                periodExtra = 1;
+            }
+        }
         const sheetHead = _compareNm && _compareNm !== art.nm_id
             ? ''
             : _buildSheetHeadRows(art, stockBySize, rawData, cal);
@@ -7470,7 +7617,7 @@ const RNP = (() => {
 
             return `
         <table class="${_sheetTableClass(`${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}`)}" style="${_sheetVarsStyle(cal)}">
-          ${_colgroupHTML(cal)}
+          ${_colgroupHTML(cal, periodExtra)}
           <thead>
             ${sheetHead}
             <tr class="rnp-cal-quarter-row">
@@ -7532,6 +7679,7 @@ const RNP = (() => {
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
               ${nPrev ? `<th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${_metricW() + _sparkW()}px">${cal.prevName}</th>` : ''}
               <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
+              ${periodExtra ? `<th class="rnp-th-week rnp-th-total rnp-data-col rnp-period-total-th" rowspan="${headRows}">ИТОГ<small>за период</small></th>` : ''}
             </tr>
             <tr class="rnp-cal-date-row">
               ${weekThs}${totalTh}${dayThs}
@@ -7710,6 +7858,7 @@ const RNP = (() => {
                     isFuture ? 'rnp-cell-future' : '',
                     isWeek ? 'rnp-cell-week' : '',
                     isTotal ? 'rnp-cell-total' : '',
+                    col.isPeriodCol ? 'rnp-cell-period' : '',
                     m.competitor ? 'rnp-cell-competitor' : '',
                     m.hero && (isWeek || isTotal || isMonth) ? 'rnp-cell-hero' : '',
                 ].filter(Boolean).join(' ');
@@ -7743,7 +7892,7 @@ const RNP = (() => {
 
                 let val = d ? d[m.key] : null;
                 let priceChanged = false;
-                if (m.carry && !isFuture) {
+                if (m.carry && !isFuture && !col.byArt) {
                     if (isDay) {
                         val = _carryVal(art, cols, ci, m.key);
                         let pi = ci - 1;
@@ -8317,10 +8466,11 @@ const RNP = (() => {
     }
 
     async function pick(nmId) {
-        if (nmId === GENERAL_TAB || nmId === 'general') _activeNm = GENERAL_TAB;
+        if (nmId === BYART_TAB) _activeNm = BYART_TAB;
+        else if (nmId === GENERAL_TAB || nmId === 'general') _activeNm = GENERAL_TAB;
         else if (nmId === SUMMARY_TAB || nmId === 'summary') _activeNm = GENERAL_TAB;
         else _activeNm = Number(nmId);
-        if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm === _compareNm) _compareNm = null;
+        if (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm !== BYART_TAB && _activeNm === _compareNm) _compareNm = null;
         _writeSavedActiveNm();
         if (_isPhone()) _phoneKpiOpen = false;
         const body = document.getElementById('rnp-sheet-body');
@@ -8805,7 +8955,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, byArtPreset, byArtRange, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
