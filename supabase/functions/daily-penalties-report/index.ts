@@ -1,5 +1,6 @@
 // Supabase Edge Function: daily-penalties-report
-// Ежедневный отчёт в Telegram-группу «Штрафы».
+// Ежедневный отчёт в Telegram-группу «Штрафы»: карточка-картинка в стиле А/Б-отчёта,
+// под ней только отметка ответственного (если штрафы есть).
 // Cron: 01:10 UTC (07:10 Бишкек). Auth: service_role key ИЛИ JWT этого проекта
 // (ключ в cron и секрет функции расходятся — байт-в-байт сверка ломала канал).
 //
@@ -14,15 +15,12 @@
 // test: true — отправить и сразу удалить (не оставляем мусор).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { createCanvas } from 'https://deno.land/x/canvas@v1.4.2/mod.ts';
 import { isServiceAuthorized } from '../_shared/service-auth.ts';
 import { getTelegramChatId, getTelegramToken } from '../_shared/telegram-routing.ts';
 import { shouldSendTelegram } from '../_shared/telegram-gates.ts';
-import {
-    fetchWeeklyPenaltyBundle,
-    formatPenaltyCaption,
-    prettyRuDate,
-} from '../_shared/wb-penalties-snapshot.ts';
+import { fetchWeeklyPenaltyBundle, prettyRuDate } from '../_shared/wb-penalties-snapshot.ts';
+import { cabinetLegalName } from '../_shared/wb-restock-reply.ts';
+import { renderPenaltyCardPng } from '../_shared/penalty-card-png.ts';
 
 const CORS = {
     'Access-Control-Allow-Origin': '*',
@@ -114,7 +112,7 @@ Deno.serve(async (req) => {
                 if (!bundle.ready) {
                     cabResult.skipped = 'report_not_ready';
                     if (body?.final === true && !isTest) {
-                        const text = `🕓 <b>${esc(cabinet.name)}</b> — штрафы за ${prettyRuDate(reportDate)}\nWB так и не выдал дневной отчёт. Проверим завтра.`;
+                        const text = `🕓 <b>${esc(cabinetLegalName(cabinet.name))}</b> — штрафы за ${prettyRuDate(reportDate)}\nWB так и не выдал дневной отчёт. Проверим завтра.`;
                         const tg = await sendTelegramMessage(tgToken, tgChatId, text);
                         if (!tg.error) {
                             await admin.from('notification_log').insert({
@@ -130,18 +128,13 @@ Deno.serve(async (req) => {
                 }
                 const rows = bundle.rows;
                 const periodKey = `${bundle.periodFrom}_${bundle.periodTo}`;
-                const caption = formatPenaltyCaption({
-                    cabinetName: cabinet.name,
-                    date: reportDate,
-                    dateLabel: prettyRuDate(reportDate),
-                    rows,
-                    prevDate: bundle.prevDate,
-                    prevTotal: bundle.prevTotal,
-                    prevItems: bundle.prevItems,
-                    weekOpen: bundle.weekOpen,
-                    alertUser: ALERT_USERNAME,
-                    watchdogThreshold: Number(Deno.env.get('PENALTY_WATCHDOG_THRESHOLD') || 500),
-                });
+                // Подпись — только отметка, и только когда штрафы есть
+                const caption = bundle.rows.length ? `@${esc(ALERT_USERNAME)}` : '';
+                const legalName = cabinetLegalName(cabinet.name);
+                // Если дневной отчёт ещё не готов, берём последний закрытый — подписываем его периодом
+                const dateLabel = bundle.weekOpen
+                    ? `${prettyRuDate(bundle.periodFrom)} – ${prettyRuDate(bundle.periodTo)}`
+                    : prettyRuDate(reportDate);
                 cabResult.period = periodKey;
                 cabResult.week_open = bundle.weekOpen;
                 cabResult.source = bundle.source;
@@ -150,7 +143,11 @@ Deno.serve(async (req) => {
                 const sentIds: number[] = [];
 
                 if (!rows.length) {
-                    const tg = await sendTelegramMessage(tgToken, tgChatId, caption);
+                    const png = await renderPenaltyCardPng({
+                        legalName, dateLabel, rows: [], pageNum: 1, pageCount: 1, totals: null,
+                        empty: { prevTotal: bundle.prevTotal ?? 0 },
+                    });
+                    const tg = await sendTelegramPhoto(tgToken, tgChatId, png, '');
                     sent = !tg.error;
                     if (tg.error) cabResult.telegram_error = tg.error;
                     if (tg.messageId) sentIds.push(tg.messageId);
@@ -161,15 +158,14 @@ Deno.serve(async (req) => {
                     for (let p = 0; p < rows.length; p += ROWS_PER_PAGE) {
                         pages.push(rows.slice(p, p + ROWS_PER_PAGE));
                     }
-                    const dateLabel = reportDate;
+                    const totalAmount = rows.reduce((a, r) => a + r.amount, 0);
                     for (let pi = 0; pi < pages.length; pi++) {
                         if (pi > 0) await sleep(1200);
-                        const png = await renderPenaltyImage(
-                            cabinet.name,
-                            dateLabel,
-                            pages[pi],
-                            { pageNum: pi + 1, pageCount: pages.length, totalsRows: pi === pages.length - 1 ? rows : null },
-                        );
+                        const last = pi === pages.length - 1;
+                        const png = await renderPenaltyCardPng({
+                            legalName, dateLabel, rows: pages[pi], pageNum: pi + 1, pageCount: pages.length,
+                            totals: last ? { total: totalAmount, items: rows.length, prevTotal: bundle.prevTotal ?? 0 } : null,
+                        });
                         let tg = await sendTelegramPhoto(tgToken, tgChatId, png, pi === 0 ? caption : '');
                         if (tg.error) {
                             await sleep(2000);
@@ -236,139 +232,6 @@ function esc(s: string): string {
 interface PenaltyRow {
     reason: string;
     amount: number;
-}
-
-let fontRegular: Uint8Array | null = null;
-let fontBold: Uint8Array | null = null;
-async function ensureFonts(): Promise<void> {
-    if (fontRegular && fontBold) return;
-    const base = 'https://cdn.jsdelivr.net/npm/dejavu-fonts-ttf@2.37.3/ttf';
-    const [reg, bold] = await Promise.all([
-        fetchWithTimeout(`${base}/DejaVuSans.ttf`, {}, 20000).then((r) => r.arrayBuffer()),
-        fetchWithTimeout(`${base}/DejaVuSans-Bold.ttf`, {}, 20000).then((r) => r.arrayBuffer()),
-    ]);
-    fontRegular = new Uint8Array(reg);
-    fontBold = new Uint8Array(bold);
-}
-
-async function renderPenaltyImage(
-    cabinetName: string,
-    date: string,
-    rows: PenaltyRow[],
-    opts: { pageNum: number; pageCount: number; totalsRows: PenaltyRow[] | null },
-): Promise<Uint8Array> {
-    await ensureFonts();
-    const fmtNum = (n: number) => Math.round(n).toLocaleString('ru-RU').replace(/\u00A0/g, ' ');
-    const prettyDate = /^\d{4}-\d{2}-\d{2}$/.test(date) ? prettyRuDate(date) : date;
-    const showTotals = opts.totalsRows != null;
-    const totalAmount = (opts.totalsRows || rows).reduce((s, r) => s + r.amount, 0);
-
-    const S = 2;
-    const COLS: Array<{ title: string; w: number; align: 'left' | 'center' }> = [
-        { title: 'Причина удержания', w: 420, align: 'left' },
-        { title: 'Сумма\nсом', w: 130, align: 'center' },
-    ];
-    const PAD = 14;
-    const width = COLS.reduce((a, c) => a + c.w, 0) + PAD * 2;
-    const titleH = 56;
-    const headerH = 58;
-    const rowH = 44;
-    const totalH = showTotals ? 48 : 0;
-    const height = titleH + headerH + rows.length * rowH + totalH + PAD * 2;
-
-    const canvas = createCanvas(width * S, height * S);
-    canvas.loadFont(fontRegular!, { family: 'DejaVu' });
-    canvas.loadFont(fontBold!, { family: 'DejaVu', weight: 'bold' });
-    const ctx = canvas.getContext('2d');
-    ctx.scale(S, S);
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, width, height);
-
-    ctx.fillStyle = '#1a1a1a';
-    ctx.font = 'bold 22px DejaVu';
-    ctx.textBaseline = 'middle';
-    const pageSuffix = opts.pageCount > 1 ? ` (стр. ${opts.pageNum}/${opts.pageCount})` : '';
-    ctx.fillText(`${cabinetName} — штрафы за ${prettyDate}${pageSuffix}`, PAD, PAD + titleH / 2 - 4);
-
-    const colX: number[] = [];
-    let x = PAD;
-    for (const c of COLS) { colX.push(x); x += c.w; }
-    const tableTop = PAD + titleH;
-    const tableW = width - PAD * 2;
-
-    ctx.fillStyle = '#f5d0d0';
-    ctx.fillRect(PAD, tableTop, tableW, headerH);
-    ctx.fillStyle = '#5c1010';
-    ctx.font = 'bold 15px DejaVu';
-    COLS.forEach((c, i) => {
-        c.title.split('\n').forEach((line, li) => {
-            const ty = tableTop + headerH / 2 + (li - (c.title.split('\n').length - 1) / 2) * 18;
-            drawCell(ctx, line, colX[i], ty, c.w, c.align);
-        });
-    });
-
-    ctx.font = '14px DejaVu';
-    rows.forEach((r, ri) => {
-        const y = tableTop + headerH + ri * rowH;
-        if (ri % 2 === 1) {
-            ctx.fillStyle = '#fdf5f5';
-            ctx.fillRect(PAD, y, tableW, rowH);
-        }
-        ctx.fillStyle = '#222222';
-        const cy = y + rowH / 2;
-        drawCell(ctx, fitText(ctx, r.reason, COLS[0].w - 16), colX[0], cy, COLS[0].w, 'left');
-        ctx.fillStyle = '#b91c1c';
-        drawCell(ctx, fmtNum(r.amount), colX[1], cy, COLS[1].w, 'center');
-    });
-
-    if (showTotals) {
-        const totalY = tableTop + headerH + rows.length * rowH;
-        ctx.fillStyle = '#f5d0d0';
-        ctx.fillRect(PAD, totalY, tableW, totalH);
-        ctx.fillStyle = '#5c1010';
-        ctx.font = 'bold 16px DejaVu';
-        const tcy = totalY + totalH / 2;
-        drawCell(ctx, 'Итого', colX[0], tcy, COLS[0].w, 'left');
-        drawCell(ctx, fmtNum(totalAmount), colX[1], tcy, COLS[1].w, 'center');
-    }
-
-    ctx.strokeStyle = '#e8c4c4';
-    ctx.lineWidth = 1;
-    for (let ri = 0; ri <= rows.length; ri++) {
-        const y = tableTop + headerH + ri * rowH;
-        ctx.beginPath();
-        ctx.moveTo(PAD, y);
-        ctx.lineTo(PAD + tableW, y);
-        ctx.stroke();
-    }
-    const tableBottom = tableTop + headerH + rows.length * rowH + totalH;
-    ctx.strokeStyle = '#ddb8b8';
-    ctx.beginPath();
-    ctx.moveTo(colX[1], tableTop);
-    ctx.lineTo(colX[1], tableBottom);
-    ctx.stroke();
-    ctx.strokeRect(PAD, tableTop, tableW, tableBottom - tableTop);
-
-    return canvas.toBuffer('image/png');
-}
-
-// deno-lint-ignore no-explicit-any
-function drawCell(ctx: any, text: string, x: number, y: number, w: number, align: 'left' | 'center') {
-    if (align === 'center') {
-        const tw = ctx.measureText(text).width;
-        ctx.fillText(text, x + (w - tw) / 2, y);
-    } else {
-        ctx.fillText(text, x + 8, y);
-    }
-}
-
-// deno-lint-ignore no-explicit-any
-function fitText(ctx: any, text: string, maxW: number): string {
-    if (ctx.measureText(text).width <= maxW) return text;
-    let s = text;
-    while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
-    return s + '…';
 }
 
 type TgSendResult = { error: string | null; messageId: number | null };
