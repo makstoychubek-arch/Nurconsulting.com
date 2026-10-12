@@ -4054,10 +4054,11 @@ const RNP = (() => {
             const hasActive = list.some(a => a.nm_id == _activeNm);
             const catEsc = cat.replace(/'/g, "\\'");
             const tabsHtml = collapsed ? '' : list.map(a => {
-                const noImg = lite || list.length > 25;
-                const st = noImg ? { level: 'green' } : _syncStatus(a.nm_id);
+                const heavy = lite || list.length > 25;
+                const st = heavy ? { level: 'green' } : _syncStatus(a.nm_id);
                 const label = _sellerArticle(a);
-                const img = noImg ? '' : _imgHtml(a, 'rnp-tab-img', 'c246x328');
+                // Вкладка артикула — только главное фото (картинки грузятся лениво, поэтому и в больших кабинетах).
+                const img = _imgHtml(a, 'rnp-tab-img', 'c246x328');
                 return `<div class="rnp-sheet-tab${a.nm_id == _activeNm ? ' active' : ''}${img ? ' rnp-tab-photoonly' : ''}" onclick="RNP.pick(${a.nm_id})" title="${label.replace(/"/g, '&quot;')} · WB ${a.nm_id}">
                   ${_syncDot(st.level)}${img}
                   <span class="rnp-tab-label">${label.replace(/</g, '&lt;')}</span>
