@@ -4058,7 +4058,7 @@ const RNP = (() => {
                 const st = noImg ? { level: 'green' } : _syncStatus(a.nm_id);
                 const label = _sellerArticle(a);
                 const img = noImg ? '' : _imgHtml(a, 'rnp-tab-img', 'c246x328');
-                return `<div class="rnp-sheet-tab${a.nm_id == _activeNm ? ' active' : ''}" onclick="RNP.pick(${a.nm_id})" title="WB ${a.nm_id}${a.name ? ' · ' + a.name : ''}">
+                return `<div class="rnp-sheet-tab${a.nm_id == _activeNm ? ' active' : ''}${img ? ' rnp-tab-photoonly' : ''}" onclick="RNP.pick(${a.nm_id})" title="${label.replace(/"/g, '&quot;')} · WB ${a.nm_id}">
                   ${_syncDot(st.level)}${img}
                   <span class="rnp-tab-label">${label.replace(/</g, '&lt;')}</span>
                 </div>`;
