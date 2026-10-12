@@ -2906,9 +2906,9 @@ const RNP = (() => {
         return cal.days?.length || 0;
     }
 
-    function _colgroupHTML(cal) {
+    function _colgroupHTML(cal, extra = 0) {
         const unit = cal.mode === 'month' ? MONTH_COL_W : _dayColW();
-        const n = _sheetDataColCount(cal);
+        const n = _sheetDataColCount(cal) + extra;
         let html = `<colgroup><col style="width:${_metricW()}px"><col style="width:${_sparkW()}px">`;
         for (let i = 0; i < n; i++) html += `<col style="width:${unit}px">`;
         return `${html}</colgroup>`;
@@ -3868,6 +3868,7 @@ const RNP = (() => {
     function _buildNotesHeadCells(cols, art) {
         const nmId = art.nm_id;
         return cols.map((col, ci) => {
+            if (col.isPeriodCol) return '';
             const d = col.date || col.colKey || col.weekStart;
             const text = (_notesCache[nmId]?.[d]?.text || '').replace(/"/g, '&quot;');
             const tip = _noteTip(nmId, d).replace(/"/g, '&quot;');
@@ -7577,6 +7578,16 @@ const RNP = (() => {
     function _buildTableHTML(art, stockBySize, rawData, cal) {
         _metricRowSeq = 0;
         const cols = _buildCols(rawData, art, cal);
+        // «ИТОГ за период» в конце таблицы (только недельный вид): сумма или среднее по дням текущего месяца до сегодня.
+        let periodExtra = 0;
+        if (cal.mode !== 'month') {
+            const pd = cal.days.filter(d => !d.isFuture).map(d => d.date);
+            if (pd.length) {
+                cols.push({ type: 'period', isPeriodCol: true, colKey: 'period-total', date: pd[pd.length - 1], dates: pd,
+                    data: _applyColPlans(_derive(_aggWeek(rawData, pd), art), art, pd) });
+                periodExtra = 1;
+            }
+        }
         const sheetHead = _compareNm && _compareNm !== art.nm_id
             ? ''
             : _buildSheetHeadRows(art, stockBySize, rawData, cal);
@@ -7606,7 +7617,7 @@ const RNP = (() => {
 
             return `
         <table class="${_sheetTableClass(`${galleryCls}${_notesVisible ? '' : ' rnp-sheet-table--no-notes'}`)}" style="${_sheetVarsStyle(cal)}">
-          ${_colgroupHTML(cal)}
+          ${_colgroupHTML(cal, periodExtra)}
           <thead>
             ${sheetHead}
             <tr class="rnp-cal-quarter-row">
@@ -7668,6 +7679,7 @@ const RNP = (() => {
               <th class="rnp-th-spark" rowspan="${headRows}"></th>
               ${nPrev ? `<th class="rnp-th-month rnp-th-month-prev" colspan="${nPrev}" style="left:${_metricW() + _sparkW()}px">${cal.prevName}</th>` : ''}
               <th class="rnp-th-month rnp-th-month-curr" colspan="${nCurr}">${_monthStickLabel(cal.currName, _leftFrozenPx(cal))}</th>
+              ${periodExtra ? `<th class="rnp-th-week rnp-th-total rnp-data-col rnp-period-total-th" rowspan="${headRows}">ИТОГ<small>за период</small></th>` : ''}
             </tr>
             <tr class="rnp-cal-date-row">
               ${weekThs}${totalTh}${dayThs}
@@ -7846,6 +7858,7 @@ const RNP = (() => {
                     isFuture ? 'rnp-cell-future' : '',
                     isWeek ? 'rnp-cell-week' : '',
                     isTotal ? 'rnp-cell-total' : '',
+                    col.isPeriodCol ? 'rnp-cell-period' : '',
                     m.competitor ? 'rnp-cell-competitor' : '',
                     m.hero && (isWeek || isTotal || isMonth) ? 'rnp-cell-hero' : '',
                 ].filter(Boolean).join(' ');

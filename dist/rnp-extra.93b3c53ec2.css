@@ -401,3 +401,6 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-byart th.rnp-th-metric, .rnp-byart td.rnp-metric-col { position: sticky; left: 0; z-index: 7; background: var(--surface, #fff); min-width: 190px; width: 190px; }
 .rnp-byart th.rnp-byart-total-th, .rnp-byart tr > td:last-child { position: sticky; right: 0; z-index: 6; min-width: 96px; width: 96px; box-shadow: -1px 0 0 var(--border); }
 .rnp-byart .rnp-th-month-curr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; padding-left: 8px; }
+/* ИТОГ за период — последняя колонка таблицы артикула */
+.rnp-sheet-table th.rnp-period-total-th, .rnp-sheet-table td.rnp-cell-period { background: #f1eefc !important; color: #3a2a9a; font-weight: 800; position: sticky; right: 0; z-index: 6; box-shadow: -1px 0 0 var(--border); min-width: 86px; }
+.rnp-period-total-th small { display: block; font-size: 9px; font-weight: 600; opacity: .8; }
