@@ -3578,17 +3578,11 @@ const RNP = (() => {
 
     // ─── «Общее по артикулам»: показатели слева, артикулы колонками (по карточкам WB), справа ИТОГ ───────────────
     const BYART_ART = { nm_id: -2, name: 'Артикулы', manual_data: {}, cost_price: 0, logistics_unit: 0, other_costs_unit: 0 };
-    let _byArt = { from: null, to: null, preset: 'day' };
 
+    // Период берётся из шапки РНП («1 окт – 31 окт»): все дни периода до сегодня.
     function _byArtDates(cal) {
-        const all = _calAllDates(cal).filter(d => d <= cal.todayStr);
-        if (!all.length) return [];
-        const yesterday = all.filter(d => d < cal.todayStr);
-        const last = (yesterday.length ? yesterday : all).slice(-1)[0];
-        let from = _byArt.from, to = _byArt.to;
-        if (!from || !to || !all.includes(from) || !all.includes(to)) { from = last; to = last; }
-        if (from > to) [from, to] = [to, from];
-        return all.filter(d => d >= from && d <= to);
+        const days = cal.mode === 'month' ? _calAllDates(cal) : cal.days.map(d => d.date);
+        return days.filter(d => d <= cal.todayStr);
     }
 
     function _byArtSections() {
@@ -3653,44 +3647,6 @@ const RNP = (() => {
           </thead>
           <tbody>${sections}</tbody>
         </table>`;
-    }
-
-    function _byArtBarHTML(cal) {
-        const dates = _byArtDates(cal);
-        const all = _calAllDates(cal).filter(d => d <= cal.todayStr);
-        const from = dates[0] || '', to = dates[dates.length - 1] || '';
-        const chip = (id, label) => `<button type="button" class="rnp-byart-chip${_byArt.preset === id ? ' on' : ''}" onclick="RNP.byArtPreset('${id}')">${label}</button>`;
-        const fmt = d => d ? d.split('-').reverse().slice(0, 2).join('.') : '';
-        return `<div class="rnp-byart-bar"><b>Период:</b>
-          ${chip('day', 'День')}${chip('week', 'Неделя')}${chip('month', 'Месяц')}
-          <span class="rnp-byart-range">
-            <input type="date" value="${from}" min="${all[0] || ''}" max="${all[all.length - 1] || ''}" onchange="RNP.byArtRange(this.value, null)">
-            <i>—</i>
-            <input type="date" value="${to}" min="${all[0] || ''}" max="${all[all.length - 1] || ''}" onchange="RNP.byArtRange(null, this.value)">
-          </span>
-          <span class="rnp-byart-note">${from === to ? 'за ' + fmt(from) : fmt(from) + ' – ' + fmt(to)} · клик по фото — полный артикул продавца</span></div>`;
-    }
-
-    function byArtPreset(id) {
-        const cal = _buildCalendar();
-        const all = _calAllDates(cal).filter(d => d <= cal.todayStr);
-        if (!all.length) return;
-        const yesterday = all.filter(d => d < cal.todayStr);
-        const last = (yesterday.length ? yesterday : all).slice(-1)[0];
-        const idx = all.indexOf(last);
-        _byArt.preset = id;
-        _byArt.to = last;
-        _byArt.from = id === 'day' ? last : (id === 'week' ? all[Math.max(0, idx - 6)] : all.filter(d => d.slice(0, 7) === last.slice(0, 7))[0]);
-        _renderActiveTable();
-    }
-
-    function byArtRange(from, to) {
-        const cal = _buildCalendar();
-        const cur = _byArtDates(cal);
-        _byArt.from = from || cur[0];
-        _byArt.to = to || cur[cur.length - 1];
-        _byArt.preset = 'custom';
-        _renderActiveTable();
     }
 
     function _buildGeneralTableHTML(active, cal) {
@@ -6439,7 +6395,7 @@ const RNP = (() => {
 
     function _writeSavedActiveNm() {
         try {
-            const val = _activeNm === BYART_TAB ? GENERAL_TAB : String(_activeNm);
+            const val = String(_activeNm);
             if (_cab) sessionStorage.setItem(_activeNmKey(_cab), val);
             sessionStorage.setItem('rnp_active_nm', val);
         } catch (e) {}
@@ -6935,12 +6891,15 @@ const RNP = (() => {
 
         if (!_activeNm || (_activeNm !== SUMMARY_TAB && _activeNm !== GENERAL_TAB && _activeNm !== BYART_TAB && !active.find(a => a.nm_id == _activeNm))) {
             try {
-                const saved = _readSavedActiveNm(wantCab) || sessionStorage.getItem('rnp_active_nm');
-                if (saved === GENERAL_TAB || saved === 'general') _activeNm = GENERAL_TAB;
+                const lastTab = sessionStorage.getItem('rnp_active_nm');
+                // «Общее по артикулам» остаётся при обновлении страницы и смене кабинета.
+                const saved = lastTab === BYART_TAB ? lastTab : (_readSavedActiveNm(wantCab) || lastTab);
+                if (saved === BYART_TAB) _activeNm = BYART_TAB;
+                else if (saved === GENERAL_TAB || saved === 'general') _activeNm = GENERAL_TAB;
                 else if (active.find(a => a.nm_id == saved)) _activeNm = Number(saved);
                 // «Сводная» убрана: большие кабинеты открываем на первом артикуле, остальные — на «Общем».
                 else _activeNm = active.length > 40 ? Number(active[0].nm_id) : GENERAL_TAB;
-                if (_activeNm !== GENERAL_TAB) _activeNm = Number(_activeNm);
+                if (_activeNm !== GENERAL_TAB && _activeNm !== BYART_TAB) _activeNm = Number(_activeNm);
             } catch (e) { _activeNm = active.length > 40 ? Number(active[0].nm_id) : GENERAL_TAB; }
         }
 
@@ -7076,8 +7035,7 @@ const RNP = (() => {
             _hydratePhotoCacheFromStorage();
             _hydratePhotoCacheFromArticles();
             const nextInner = `
-          <div class="rnp-table-scroll rnp-byart-wrap" id="rnp-table-wrap">${_buildByArtTableHTML(active, cal)}</div>
-          ${_byArtBarHTML(cal)}`;
+          <div class="rnp-table-scroll rnp-byart-wrap" id="rnp-table-wrap">${_buildByArtTableHTML(active, cal)}</div>`;
             const painted = _paintSheetBody(body, nextInner, cal);
             if (painted === 'replace') await _yieldMain();
             _markPaintedCab(body);
@@ -8955,7 +8913,7 @@ const RNP = (() => {
         if (_db && _cab) _renderActiveTable().catch(() => {});
     });
 
-    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, byArtPreset, byArtRange, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
+    return { init, initCore, ensureReady, setDateRange, listArticles: _listArticlesForSound, openSettings, closeSettings, openPlanFact, openPlanning, refreshPlans, closePlanFact, openPhoto, closePhoto, openMain, pick, syncArts, refreshArticles, resyncArticles, syncFinance, toggleArt, enableAll, setCost, setLogisticsUnit, setOtherCosts, setCategory, toggleCategory, toggleGroupVisible, openPrice, priceAmount, priceStep, priceAll, priceSend, saveRnpOptions, saveManual, savePlan, saveNote, savePhotoComment, saveMeta, saveRate, savePeriod, savePromo, refresh, refreshAll, toggleSection, openDeductions, ghOpen, ghInfo, toggleSplit, imgFallback,
              setView, setCompare, toggleCompare, copyPlanFromPrevWeek, exportExcel, setStrategyTab, toggleNotes, notesVisible, setPlanPeriod, setRefMonth, setCompareMonth, toggleCompareMonthMenu, togglePrevWeeks, toggleGalleryPanel, toggleEditMode, togglePhoneBlock, setStockSchemeView,
              syncFinanceRange: _syncFinanceRange, syncAds: _syncAdStats };
 })();
