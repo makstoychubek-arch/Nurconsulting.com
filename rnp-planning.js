@@ -80,12 +80,27 @@
         return vals.every(function (v) { return v === first; }) && first != null ? first : null;
     }
 
+    // Дни недели с разными значениями (план вносили по дням в РНП): считаем сумму и среднее по заполненным дням.
+    function weekStats(nm, week) {
+        var col = st.metric, sum = 0, n = 0, per = [];
+        week.dates.forEach(function (d) {
+            var r = st.plans[nm] && st.plans[nm][d];
+            var v = r && r[col] != null ? Number(r[col]) : null;
+            if (v != null) { sum += v; n++; }
+            per.push(d.slice(8) + '.' + d.slice(5, 7) + ': ' + (v == null ? '—' : v));
+        });
+        return { sum: sum, n: n, avg: n ? sum / n : 0, per: per.join('; ') };
+    }
+
     function cellHtml(a, w) {
         var v = weekValue(a.nm_id, w);
         var m = metric();
         var shown = v === '' ? '' : (v === null ? '' : String(v));
-        var ph = v === null ? 'разн.' : '—';
-        var tot = m.sum && typeof v === 'number' && v > 0 ? '<span class="rnp-plan-sum" title="Итого за неделю">Σ ' + Math.round(v * 7).toLocaleString('ru') + '</span>' : '';
+        var mixed = v === null ? weekStats(a.nm_id, w) : null;
+        var ph = v === null ? 'ср. ' + (Math.round(mixed.avg * 10) / 10) : '—';
+        var tot = m.sum && typeof v === 'number' && v > 0
+            ? '<span class="rnp-plan-sum" title="Итого за неделю">Σ ' + Math.round(v * 7).toLocaleString('ru') + '</span>'
+            : (m.sum && mixed ? '<span class="rnp-plan-sum" title="По дням: ' + esc(mixed.per) + '">Σ ' + Math.round(mixed.sum).toLocaleString('ru') + ' · по дням</span>' : '');
         return '<td class="rnp-plan-cell' + (v === null ? ' is-mixed' : '') + '"><div class="rnp-plan-cellbox">' +
             '<input type="text" inputmode="decimal" data-nm="' + a.nm_id + '" data-w="' + w.n + '" value="' + esc(shown) + '" placeholder="' + ph + '">' +
             '<button type="button" class="rnp-plan-fill" data-fill data-nm="' + a.nm_id + '" data-w="' + w.n + '" title="Поставить это значение на все недели месяца">⇉</button></div>' + tot + '</td>';
