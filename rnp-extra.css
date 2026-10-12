@@ -416,3 +416,6 @@ transition: opacity .18s ease, transform .18s ease;
 .rnp-byart-th.rnp-byart-gstart { box-shadow: inset 2px 0 0 var(--border); }
 .rnp-byart th.rnp-byart-total-th, .rnp-byart tr > td:last-child { min-width: 78px; width: 78px; }
 .rnp-byart tr > td:last-child, .rnp-byart th.rnp-byart-total-th { width: 88px !important; min-width: 88px !important; max-width: none !important; }
+.rnp-wb-link { color: var(--accent); text-decoration: none; font-weight: 700; cursor: pointer; }
+.rnp-wb-link b { color: inherit; }
+.rnp-wb-link:hover { text-decoration: underline; }

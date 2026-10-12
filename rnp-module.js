@@ -4541,7 +4541,7 @@ const RNP = (() => {
             ${v.photoHtml}
             <div class="rnp-layout-info-meta">
               <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}</div>
-              <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
+              <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a></div>
               <div class="rnp-gs-money-lbl">В деньгах</div>
               <div class="rnp-gs-money-val">${v.moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
               <div class="rnp-gs-usd-lbl">В долларах</div>
@@ -4556,7 +4556,7 @@ const RNP = (() => {
           <div class="rnp-kpi-top${_isPhone() ? ' rnp-kpi-top--nophoto' : ''}">
             ${v.photoHtml}
             <div class="rnp-gs-name" title="${v.seller}">${_syncDot(v.syncSt.level)} ${v.seller}</div>
-            <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><b>${art.nm_id}</b></div>
+            <div class="rnp-gs-nmid"><span class="rnp-gs-lbl">артикул WB</span><a class="rnp-wb-link" href="https://www.wildberries.ru/catalog/${art.nm_id}/detail.aspx" target="_blank" rel="noopener" title="Открыть товар на WB (как видит покупатель)"><b>${art.nm_id}</b> ↗</a></div>
             <div class="rnp-gs-money-lbl">В деньгах</div>
             <div class="rnp-gs-money-val">${v.moneySom.toLocaleString('ru', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</div>
             <div class="rnp-gs-usd-lbl">В долларах</div>
