@@ -279,7 +279,16 @@ async function syncStorage(admin: any, cabinetId: string, token: string, from: s
             const status = String(js?.data?.status || js?.status || '').toLowerCase();
             if (status === 'done') {
                 const rows = await downloadStorage(token, taskId);
-                const mapped = rows.map(r => toStorageRow(cabinetId, r)).filter(r => r.date);
+                // Свёртка: РНП читает только сумму warehouse_price по (кабинет, артикул, дата),
+                // поэтому детальные строки (размеры, корректировки ±) не храним — база на free-плане ограничена.
+                const folded = new Map<string, ReturnType<typeof toStorageRow>>();
+                for (const r of rows.map(r => toStorageRow(cabinetId, r)).filter(r => r.date)) {
+                    const key = `${r.nm_id ?? ''}|${r.date}|${r.warehouse ?? ''}`;
+                    const cur = folded.get(key);
+                    if (cur) cur.warehouse_price += r.warehouse_price;
+                    else folded.set(key, { ...r, vendor_code: null, barcode: null, chrt_id: null, warehouse_coef: null, volume: null, calc_type: null });
+                }
+                const mapped = [...folded.values()];
                 await admin.from('raw_storage').delete().eq('cabinet_id', cabinetId).gte('date', from).lte('date', to);
                 for (let k = 0; k < mapped.length; k += 1000) {
                     const { error } = await admin.from('raw_storage').insert(mapped.slice(k, k + 1000));
