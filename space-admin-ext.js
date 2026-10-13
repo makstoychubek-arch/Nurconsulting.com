@@ -118,7 +118,7 @@
         busy = true;
         try {
             const [sp, st] = await Promise.all([
-                supabase.from('spaces').select('user_id, email, tariff_plan'),
+                supabase.from('spaces').select('user_id, email, tariff_plan, plan_until'),
                 supabase.from('team_staff').select('email'),
             ]);
             const byId = new Map((sp.data || []).map(r => [r.user_id, r]));
@@ -133,6 +133,12 @@
                     const uid = uidOf(grant);
                     // Запрос: разрешить сразу сотрудником с полной подпиской.
                     grant.after(mkBtn('Просмотр кабинета', 'admin-btn-grant', async () => { await openViewerModal(uid, emailOf(tr)); }));
+                    // Новый клиент: разрешить вход и сразу выдать «Фулл» на 1 день (потом замок до оплаты).
+                    grant.after(mkBtn('Тест: Фулл на 1 день', 'admin-btn-grant', async () => {
+                        await authedPost({ action: 'activate', user_id: uid, trial_days: 1 });
+                        showPremiumModal('success', 'Тест на 1 день', 'Доступ разрешён, «Фулл» выдан на 24 часа. Потом разделы закроются до оплаты.');
+                        await refresh('allowed');
+                    }));
                     grant.after(mkBtn('Как сотрудник', 'admin-btn-grant', async () => {
                         await authedPost({ action: 'activate', user_id: uid, as_staff: true });
                         showPremiumModal('success', 'Сотрудник добавлен', 'Доступ разрешён, подписка «Фулл» выдана, права сотрудника включены.');
@@ -145,7 +151,16 @@
                     const row = byId.get(uid);
                     if (!row) return;
                     const isStaff = staff.has(String(row.email || '').toLowerCase());
-                    const isFull = row.tariff_plan === 'premium' || row.tariff_plan === 'vip';
+                    const planLive = !row.plan_until || new Date(row.plan_until).getTime() > Date.now();
+                    const isFull = (row.tariff_plan === 'premium' || row.tariff_plan === 'vip') && planLive;
+                    const untilTxt = isFull && row.plan_until ? ' до ' + new Date(row.plan_until).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+                    if (!isFull && !isStaff) {
+                        block.before(mkBtn('Тест: Фулл на 1 день', 'admin-btn-grant', async () => {
+                            await authedPost({ action: 'set_plan', user_id: uid, plan: 'premium', days: 1 });
+                            showPremiumModal('success', 'Тест на 1 день', '«Фулл» выдан на 24 часа. Потом разделы закроются до оплаты.');
+                            await refresh();
+                        }));
+                    }
                     block.before(
                         mkBtn('Просмотр кабинета', 'admin-btn-grant', async () => { await openViewerModal(uid, row.email || emailOf(tr)); }),
                         mkBtn(isStaff ? 'Сотрудник ✓' : 'Сделать сотрудником', isStaff ? 'admin-btn-grant' : 'admin-btn-block', async () => {
@@ -153,7 +168,7 @@
                             showPremiumModal('success', isStaff ? 'Права сотрудника сняты' : 'Теперь сотрудник', isStaff ? 'Видит только свои кабинеты.' : 'Видит внутренние разделы команды и все кабинеты.');
                             await refresh();
                         }),
-                        mkBtn(isFull ? 'Фулл ✓' : 'Дать Фулл', isFull ? 'admin-btn-grant' : 'admin-btn-block', async () => {
+                        mkBtn(isFull ? 'Фулл ✓' + untilTxt : 'Дать Фулл', isFull ? 'admin-btn-grant' : 'admin-btn-block', async () => {
                             await authedPost({ action: 'set_plan', user_id: uid, plan: isFull ? 'start' : 'premium' });
                             showPremiumModal('success', isFull ? 'Подписка снята' : 'Подписка «Фулл» выдана', isFull ? 'Тариф «Бесплатный».' : 'Без срока, пока вы её не снимете.');
                             await refresh();
