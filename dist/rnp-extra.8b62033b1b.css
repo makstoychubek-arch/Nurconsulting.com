@@ -912,3 +912,11 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
   .nw-h { font-size: 22px; } .nw-pp { font-size: 13.5px; margin-bottom: 14px; }
   .nw-nav { position: sticky; bottom: 0; background: var(--surface-solid); padding-top: 8px; z-index: 2; }
 }
+
+/* Приветствие: свернуть и вернуться */
+.nw-logo { width: 100%; } .nw-min { margin-left: auto; width: 30px; height: 30px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-secondary); font-size: 18px; line-height: 1; cursor: pointer; }
+.nw-skip { font-weight: 600; text-decoration: underline; }
+.nw-pillw { position: fixed; left: 50%; transform: translateX(-50%); bottom: 18px; z-index: 9001; display: flex; align-items: center; background: var(--accent); border-radius: 999px; box-shadow: 0 10px 30px rgba(30,20,80,.35); }
+.nw-pillb { background: none; border: 0; color: #fff; font-size: 13px; font-weight: 700; padding: 11px 6px 11px 18px; cursor: pointer; }
+.nw-pillx { background: none; border: 0; color: rgba(255,255,255,.8); font-size: 18px; padding: 8px 14px 8px 6px; cursor: pointer; }
+@media (max-width: 760px) { .nw-pillw { bottom: 82px; } }
