@@ -181,7 +181,8 @@
     function draw() {
         var i = ST.i, last = i === VIEWS.length - 1;
         var keep = ST.el.querySelector('#nw-name') ? [ST.el.querySelector('#nw-name').value, ST.el.querySelector('#nw-token').value] : null;
-        ST.el.querySelector('.nw-r').innerHTML = '<span class="nw-tag">ПРИМЕР</span>' + VIEWS[i]();
+        var rp = ST.el.querySelector('.nw-r'); rp.className = 'nw-r nw-p' + i;
+        rp.innerHTML = '<span class="nw-tag">ПРИМЕР</span>' + VIEWS[i]();
         ST.el.querySelector('.nw-h').textContent = TXT[i][0];
         ST.el.querySelector('.nw-pp').textContent = TXT[i][1];
         ST.el.querySelector('.nw-dots').innerHTML = TXT.map(function (_, k) { return '<i' + (k === i ? ' class="on"' : '') + '></i>'; }).join('');

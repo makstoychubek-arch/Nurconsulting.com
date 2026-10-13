@@ -773,3 +773,25 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
 .nw-logo img { border-radius: 10px; box-shadow: 0 1px 6px rgba(0,0,0,.18); }
 .nw-logo span, .rail-logo-name { color: #ff7a1a !important; font-weight: 800; font-size: 18px; letter-spacing: -.03em; }
 .nw-logo { gap: 9px !important; }
+
+/* Пастельные тона: у каждого слайда свой фон и цветные карточки */
+.nw-r.nw-p0 { background: linear-gradient(135deg, #dbe7ff, #ebe1ff 55%, #ffe9d6); }
+.nw-r.nw-p1 { background: linear-gradient(135deg, #d6f3e6, #e0ecff); }
+.nw-r.nw-p2 { background: linear-gradient(135deg, #ffe6d3, #ffd8e8); }
+.nw-r.nw-p3 { background: linear-gradient(135deg, #d8e8ff, #ece2ff); }
+.nw-r.nw-p4 { background: linear-gradient(135deg, #ffe2ea, #fff1cf); }
+.nw-r.nw-p5 { background: linear-gradient(135deg, #e6e0ff, #d6efff); }
+.nw-s0 > .nw-card:nth-child(2) { background: linear-gradient(135deg, #3b6cf0, #7a4af0); border-color: transparent; color: #fff; }
+.nw-s0 > .nw-card:nth-child(2) .nw-k { color: rgba(255,255,255,.8); }
+.nw-s0 > .nw-card:nth-child(2) .nw-up { color: #86efac; }
+.nw-s0 .nw-wide { background: linear-gradient(135deg, #fff, #f3fff9); }
+.nw-rnp thead th { background: transparent; }
+.nw-rnp .nw-ord td:not(:first-child):not(.nw-tt) { background: rgba(122,92,240,.08); }
+.nw-card3 { background: linear-gradient(135deg, #fff, #fff6ef); }
+.nw-var:nth-child(1) { background: linear-gradient(180deg, #fff, #f1f4ff); }
+.nw-var:nth-child(2) { background: linear-gradient(180deg, #fff, #effcf4); }
+.nw-var:nth-child(3) { background: linear-gradient(180deg, #fff, #fbf1ff); }
+.nw-chat .nw-bub:nth-child(1) { background: #fff1f1; border-color: #fbd5d5; }
+.nw-chat .nw-rev { background: #fffbe8; border-color: #f5e6a8; }
+.nw-chat .nw-ans { background: #efeaff; border-color: #d9cffb; }
+.nw-form .nw-card { background: linear-gradient(135deg, #fff, #f3efff); }
