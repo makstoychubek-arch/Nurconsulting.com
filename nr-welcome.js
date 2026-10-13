@@ -101,13 +101,20 @@
 
     function s1() {
         var rows = ROWS.slice().sort(function (x, y) { return y.a.o - x.a.o; });
-        var h = '<div class="nw-card nw-table"><table><thead><tr><th>Артикул</th><th>Заказы</th><th>Выкуп</th><th>Выручка</th><th>Реклама</th><th>ДРР</th><th>Прибыль</th><th>Маржа</th></tr></thead><tbody>';
-        rows.forEach(function (x) {
-            h += '<tr><td><span class="nw-art">' + img(x.a.sh, x.a.ci, 28) + x.a.n + '</span></td><td><b>' + x.a.o + '</b></td><td class="' + heat(x.a.b * 100, 48, 41) + '">' + pct(x.a.b * 100, 0) + '</td><td>' + fmt(x.m.rev) + '</td><td>' + fmt(x.m.ad) + '</td><td class="' + (x.m.drr > 10 ? 'nw-hr' : x.m.drr < 5 ? 'nw-hg' : '') + '">' + pct(x.m.drr) + '</td><td class="' + (x.m.profit < 0 ? 'nw-hr' : '') + '"><b>' + sgn(x.m.profit) + '</b></td><td class="' + heat(x.m.margin, 22, 8) + '">' + pct(x.m.margin) + '</td></tr>';
-        });
-        h += '<tr class="nw-tot"><td>Итого</td><td>' + T.o + '</td><td>' + pct(T.buyout, 0) + '</td><td>' + fmt(T.rev) + '</td><td>' + fmt(T.ad) + '</td><td>' + pct(T.drr) + '</td><td>' + sgn(T.profit) + '</td><td>' + pct(T.margin) + '</td></tr></tbody></table>' +
-            '<div class="nw-legend"><i class="nw-hg"></i>хорошо <i class="nw-hr"></i>внимание</div></div>';
-        return '<div class="nw-stage">' + h + '</div>';
+        function line(label, cls, cell, tot, big) {
+            return '<tr' + (big ? ' class="nw-ord"' : '') + '><td>' + label + '</td>' + rows.map(function (x) { var c = cell(x); return '<td class="' + (c[1] || '') + '">' + c[0] + '</td>'; }).join('') + '<td class="nw-tt">' + tot + '</td></tr>';
+        }
+        var h = '<div class="nw-card nw-table nw-rnp"><table><thead><tr><th></th>' + rows.map(function (x) { return '<th title="' + x.a.n + '">' + img(x.a.sh, x.a.ci, 34) + '</th>'; }).join('') + '<th class="nw-tt">ИТОГ<br><small>за период</small></th></tr></thead><tbody>' +
+            line('ЗАКАЗЫ', '', function (x) { return [x.a.o]; }, T.o, true) +
+            line('Продажи, шт', '', function (x) { return [x.m.s]; }, T.s) +
+            line('Выкуп %', '', function (x) { return [pct(x.a.b * 100, 0), heat(x.a.b * 100, 48, 41)]; }, pct(T.buyout, 0)) +
+            line('Выручка', '', function (x) { return [fmt(x.m.rev)]; }, fmt(T.rev)) +
+            line('Реклама', '', function (x) { return [fmt(x.m.ad)]; }, fmt(T.ad)) +
+            line('ДРР %', '', function (x) { return [pct(x.m.drr), x.m.drr > 10 ? 'nw-hr' : x.m.drr < 5 ? 'nw-hg' : '']; }, pct(T.drr)) +
+            line('Прибыль', '', function (x) { return [sgn(x.m.profit), x.m.profit < 0 ? 'nw-hr' : '']; }, sgn(T.profit)) +
+            line('Маржа %', '', function (x) { return [pct(x.m.margin), heat(x.m.margin, 20, 8)]; }, pct(T.margin)) +
+            '</tbody></table><div class="nw-legend"><i class="nw-hg"></i>хорошо <i class="nw-hr"></i>внимание</div></div>';
+        return '<div class="nw-stage nw-wide-stage">' + h + '</div>';
     }
 
     var cardState = { photo: 0, step: 0 };
@@ -204,7 +211,7 @@
         ST.pending = !!pending; ST.i = 0; cardState.photo = 0; cardState.step = 0;
         var el = doc.createElement('div');
         el.className = 'nw-ov';
-        el.innerHTML = '<div class="nw-modal nr-win" role="dialog" aria-modal="true"><div class="nw-l"><div class="nw-logo"><i>NR</i> NR Space</div>' +
+        el.innerHTML = '<div class="nw-modal nr-win" role="dialog" aria-modal="true"><div class="nw-l"><div class="nw-logo"><img src="/icons/logo-nr.svg" alt="NR" width="34" height="34"><span>Space</span></div>' +
             '<h2 class="nw-h"></h2><p class="nw-pp"></p><div class="nw-nav"><div class="nw-dots"></div><button type="button" class="nw-back">Назад</button><button type="button" class="nw-next nw-btn">Далее</button></div>' +
             '<button type="button" class="nw-skip">Пропустить</button></div><div class="nw-r"></div></div>';
         doc.body.appendChild(el);
