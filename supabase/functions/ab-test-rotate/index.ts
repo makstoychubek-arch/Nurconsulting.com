@@ -580,8 +580,10 @@ async function notifyTestFinished(
     // Только картинка со всеми вариантами и метриками, без подписи.
     const caption = '';
     let via = 'text';
+    let cardPng: Uint8Array | null = null;
     try {
         const png = await renderAbReportPng(model);
+        cardPng = png;
         const photoErr = await sendTelegramPhoto(tgToken, tgChannelId, png, caption);
         if (!photoErr) via = 'card';
         else throw new Error(photoErr);
@@ -596,7 +598,39 @@ async function notifyTestFinished(
         event_type: eventType,
         message_text: caption,
     });
+    // Клиентский кабинет: тот же итог (только картинка) ещё и в личный чат бота Акылай, если он подключён.
+    if (!opts.preview && cardPng) await notifyAkylaiClient(admin, test, cardPng);
     return { sent: true, via };
+}
+
+// Итог А/Б-теста клиенту: в чат, который подключил Акылай (akylai_chats). Бот — Акылай, не командный.
+// Один раз на тест (журнал ab_test_finished_client); если клиент заблокировал бота — помечаем чат blocked.
+async function notifyAkylaiClient(
+    admin: ReturnType<typeof createClient>,
+    test: Record<string, unknown>,
+    png: Uint8Array,
+): Promise<void> {
+    try {
+        const cabinetId = String(test.cabinet_id || '');
+        const testId = String(test.id || '');
+        const token = (Deno.env.get('AKYLAI_BOT_TOKEN') ?? '').trim();
+        if (!cabinetId || !testId || !token) return;
+        const { data: chat } = await admin.from('akylai_chats').select('chat_id, blocked').eq('cabinet_id', cabinetId).maybeSingle();
+        if (!chat || chat.blocked || !chat.chat_id) return;
+        const { data: dupes } = await admin.from('notification_log').select('id').eq('test_id', testId).eq('event_type', 'ab_test_finished_client').limit(1);
+        if (dupes && dupes.length) return;
+        const err = await sendTelegramPhoto(token, String(chat.chat_id), png, '');
+        if (err) {
+            console.warn('[ab-test-rotate] akylai client send failed:', err);
+            if (/403|blocked|deactivated|chat not found/i.test(err)) {
+                await admin.from('akylai_chats').update({ blocked: true, updated_at: new Date().toISOString() }).eq('cabinet_id', cabinetId);
+            }
+            return;
+        }
+        await admin.from('notification_log').insert({ cabinet_id: cabinetId, test_id: testId, event_type: 'ab_test_finished_client', message_text: '' });
+    } catch (e) {
+        console.warn('[ab-test-rotate] akylai client notify error:', String(e));
+    }
 }
 
 async function buildNotifyModel(
