@@ -6075,15 +6075,15 @@
                точный ответ даёт is_staff() ниже. */
             if (localStorage.getItem('nr_is_staff') === '1') {
                 document.documentElement.setAttribute('data-staff', '1');
-            } else if (__nrTab === 'agents') {
-                // Клиенту — его страница агентов с Акылай, не внутренняя страница команды.
-                __nrTab = 'akylai';
+            } else if (__nrTab === 'agents' || __nrTab === 'akylai') {
+                // Агентов и Акылай клиенту не показываем: Акылай подключается сама по токену.
+                __nrTab = null;
             } else if (__nrTab && __nrPublic.indexOf(__nrTab) === -1) {
                 // BETA, Контент-завод и прочее непубличное — только команде.
                 __nrTab = null;
             } else if (__nrTab && localStorage.getItem('nr_paid') !== '1' && ['akylai', 'settings', 'tariffs'].indexOf(__nrTab) === -1) {
-                // Бесплатный клиент: платные разделы закрыты, домой — на Акылай.
-                __nrTab = 'akylai';
+                // Бесплатный клиент: платные разделы закрыты, домой — на тарифы.
+                __nrTab = 'tariffs';
             }
             var __nrPane = !__nrTab ? null : (__nrLive[__nrTab] ? __nrTab : 'beta-stub');
             if (__nrPane && __nrPane !== 'dashboard') {
@@ -6175,11 +6175,11 @@
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
                     <span class="rail-btn-lbl">Товары</span>
                 </button>
-                <button type="button" class="rail-btn" data-tab="content-factory" title="Контент-завод">
+                <button type="button" class="rail-btn" data-tab="content-factory" title="Контент-завод" data-staff-only="1">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg></span>
                     <span class="rail-btn-lbl">Контент</span>
                 </button>
-                <button type="button" class="rail-btn" data-tab="agents" title="Агенты">
+                <button type="button" class="rail-btn" data-tab="agents" title="Агенты" data-staff-only="1">
                     <span class="rail-btn-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
                     <span class="rail-btn-lbl">Агенты</span>
                 </button>
@@ -6394,8 +6394,7 @@
             <div class="space-empty-card onb-card hidden" id="onb-pending-card">
                 <img class="space-empty-icon" src="/img/agents/akylai-smile.svg" alt="" width="72" height="72" style="border-radius:50%">
                 <div class="space-empty-title">Этот раздел откроется после одобрения</div>
-                <p class="space-empty-sub">Команда NR подключит его вручную. А пока Акылай уже может отвечать на отзывы ваших покупателей.</p>
-                <button type="button" class="space-empty-btn" onclick="showTab('akylai')">Перейти к Акылай</button>
+                <p class="space-empty-sub">Команда NR подключит его вручную и сообщит, когда всё будет готово.</p>
             </div>
             <div class="space-empty-card onb-card" id="onb-token-card">
                 <img class="space-empty-icon logo-nr logo-nr--lg" src="/icons/logo-nr.svg" alt="NR" width="56" height="56">
@@ -7967,7 +7966,7 @@
                         <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>Проверка новых отзывов каждые 30 минут</span></li>
                         <li><svg class="pricing-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>1 WB-кабинет</span></li>
                     </ul>
-                    <button type="button" class="ui-btn ui-btn-primary w-full" onclick="showTab('akylai')">Подключить Акылай</button>
+                    <button type="button" class="ui-btn ui-btn-primary w-full" onclick="showTab('dashboard')">Подключить магазин</button>
                 </article>
                 <div class="pricing-head" style="margin-top:34px">
                     <h2>Тарифы с 1 ноября</h2>
@@ -8557,7 +8556,6 @@
         scope.querySelectorAll('.nav-item[onclick*="showTab("], .nav-item-standalone[onclick*="showTab("], .rail-btn[data-tab]').forEach((el) => {
             const tab = tabOf(el);
             if (!tab) return;
-            if (tab === 'agents') return; // клиенту «Агенты» ведут на его страницу Акылай
             if (!PUBLIC_TABS.has(tab)) el.setAttribute('data-staff-only', '1');
             el.classList.toggle('nr-locked', isTabLocked(tab));
         });
@@ -9112,7 +9110,7 @@
         try { localStorage.setItem('nr_is_staff', isStaff ? '1' : '0'); } catch (_) {}
         if (isStaff) document.documentElement.setAttribute('data-staff', '1');
         else document.documentElement.removeAttribute('data-staff');
-        if (!isStaff && STAFF_ONLY_TABS.has(getCurrentActiveTab())) showTab(getCurrentActiveTab() === 'agents' ? 'akylai' : 'dashboard');
+        if (!isStaff && STAFF_ONLY_TABS.has(getCurrentActiveTab())) showTab('dashboard');
         else if (!isStaff && !PUBLIC_TABS.has(getCurrentActiveTab())) showTab('dashboard');
     }
 
@@ -10063,7 +10061,7 @@
             showTab(back);
             return;
         }
-        if (isTabLocked(getCurrentActiveTab())) showTab('akylai');
+        if (isTabLocked(getCurrentActiveTab())) showTab('tariffs');
     }
 
     function showTab(name, el) {
@@ -10075,7 +10073,7 @@
         // Внутренняя страница агентов — только команде. Клиент по «Агентам»
         // попадает на свою страницу с Акылай, по остальным служебным — на дашборд.
         if (STAFF_ONLY_TABS.has(name) && !isStaff) {
-            showTab(name === 'agents' ? 'akylai' : 'dashboard');
+            showTab('dashboard');
             return;
         }
         // BETA-модули и Контент-завод клиенту не открываем даже по прямой ссылке.
@@ -10087,7 +10085,7 @@
         // а программный переход (после входа, возврат) ведёт домой — на Акылай.
         if (isTabLocked(name)) {
             window._paywallTab = name; // если окажется, что доступ платный (ответ придёт позже) — вернёмся сюда
-            if (!el && name === 'dashboard') { showTab('akylai'); return; }
+            if (!el && name === 'dashboard') { showTab('tariffs'); return; }
             openPaywall(name, el);
             return;
         }
@@ -13460,10 +13458,6 @@
         const src = document.querySelector('#fly-beta .flyout-body');
         if (!body || !src || body.dataset.ready === '1') return;
         const live = `<div class="flyout-sec">Кабинет</div>
-            <div class="nav-item" onclick="showTab('agents', this)">
-                <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-                <span class="nav-item-label">Агенты</span>
-            </div>
             <div class="nav-item" onclick="showTab('tariffs', this)">
                 <svg class="nav-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/><line x1="6" y1="15" x2="10" y2="15"/></svg>
                 <span class="nav-item-label">Тарифы</span>
@@ -19130,7 +19124,7 @@
             savedTab = resolveTabFromUrl() || localStorage.getItem('nr_active_tab');
             if (savedTab) savedTab = TAB_ALIASES[savedTab] || savedTab;
             window.__nrSkipViewTransition = true;
-            if (onboardingMode) showTab('akylai', null);
+            if (onboardingMode) showTab('dashboard', null);
             else if (savedTab === 'settings') showTab('settings', null);
             else if (savedTab && LIVE_TABS.has(savedTab)) showTab(savedTab, null);
             else showTab('dashboard', null);

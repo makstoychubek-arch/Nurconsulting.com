@@ -12,6 +12,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { missingCategories } from '../_shared/akylai-token.ts';
 import {
     checkTokenKind,
     decodeWbToken,
@@ -111,6 +112,10 @@ serve(async (req) => {
         }
         const kind = checkTokenKind(decoded.payload);
         if (!kind.ok) return json({ error: kind.message, code: kind.code }, 400);
+        const noCats = missingCategories(typeof decoded.payload.s === 'number' ? decoded.payload.s : 0);
+        if (noCats.length) {
+            return json({ error: `В токене не отмечены категории: ${noCats.join(', ')}. Создайте токен заново и отметьте все категории.`, code: 'MISSING_CATEGORIES', missing: noCats }, 400);
+        }
         const token = rawToken.trim().replace(/\s+/g, '');
 
         // Живая проверка: токен действительно принимается WB и в нём есть

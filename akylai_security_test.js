@@ -124,6 +124,6 @@ assert.ok(!/Проверить<\/button>/.test(ui) && ui.includes("addEventListe
 for (const f of ['akylai-smile.svg', 'akylai-serious.svg', 'akylai-neutral.svg']) {
     assert.ok(fs.existsSync(path.join(__dirname, 'img/agents', f)), `avatar ${f} exists`);
 }
-assert.ok(html.includes("if (onboardingMode) showTab('akylai', null);"), 'new client lands on Агенты after login');
+assert.ok(html.includes("if (onboardingMode) showTab('dashboard', null);"), 'new client lands on the dashboard onboarding after login (Агенты скрыты от клиентов)');
 
 console.log('akylai_security_test: ok');
