@@ -920,3 +920,31 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
 .nw-pillb { background: none; border: 0; color: #fff; font-size: 13px; font-weight: 700; padding: 11px 6px 11px 18px; cursor: pointer; }
 .nw-pillx { background: none; border: 0; color: rgba(255,255,255,.8); font-size: 18px; padding: 8px 14px 8px 6px; cursor: pointer; }
 @media (max-width: 760px) { .nw-pillw { bottom: 82px; } }
+
+/* ===== Телефон 393: всё помещается, ничего не качается вбок ===== */
+@media (max-width: 768px) {
+  html, body { max-width: 100vw; overflow-x: hidden; overscroll-behavior-x: none; }
+  /* РНП: панель инструментов — только значки, все в один ряд; период уже показан в шапке */
+  .rnp-action-bar--phone { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+  .rnp-action-bar--phone .rnp-period-chip { display: none !important; }
+  .rnp-action-bar--phone .rnp-tool-icons { display: flex; flex: 1 1 auto; min-width: 0; align-items: center; justify-content: space-between; gap: 4px; flex-wrap: nowrap; }
+  .rnp-action-bar--phone .rnp-plan-fact-open { width: 36px; height: 36px; padding: 0 !important; justify-content: center; flex: 0 0 auto; }
+  .rnp-action-bar--phone .rnp-plan-fact-open span { display: none; }
+  .rnp-action-bar--phone .rnp-tool-icon, .rnp-action-bar--phone .rnp-settings-gear { width: 36px; height: 36px; flex: 0 0 auto; }
+  /* iOS не приближает страницу при вводе, если шрифт поля не меньше 16px — иначе экран «прыгает» */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea { font-size: 16px; }
+  .rnp-sheet-table input, .rnp-sheet-table select, .rnp-gallery-comment { font-size: inherit; }
+  /* окна не выше экрана, внутри прокручиваются */
+  #modal-box, .add-cabinet-modal-box, .nr-glass-dialog, .rnp-settings-dialog, .rnp-plan-fact-dialog { max-height: calc(100dvh - 24px); overflow-y: auto; }
+  /* контент не прячется под нижнее меню */
+  .main-content { padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px)) !important; }
+  .main-content.rnp-compact { padding-bottom: 0 !important; }
+  /* длинные слова и числа не раздвигают карточки */
+  .main-content, .tab-content { overflow-wrap: anywhere; }
+  .rnp-sheet-table, .rnp-sheet-table * { overflow-wrap: normal; }
+  /* широкие таблицы вне РНП прокручиваются внутри своего блока */
+  .tab-content .table-wrap, .tab-content .overflow-x-auto { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* «Старт» и плашка приветствия не перекрывают нижнее меню */
+  .nx { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
+  .nw-pillw { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+}
