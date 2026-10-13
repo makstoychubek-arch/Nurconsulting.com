@@ -626,3 +626,26 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
   html body .main-rail > .main-content.rnp-compact { padding: 4px 6px 0 !important; }
   html body .main-rail > .main-content:not(.rnp-compact) { margin: 4px 6px 0; padding: 14px 16px 14px !important; }
 }
+
+/* ───── Загрузка: полоса прогресса сверху и карточка с шагами (nr-skeleton.js → NrLoader) ───── */
+#nr-topbar { position: fixed; left: 0; right: 0; top: 0; height: 3px; z-index: 100001; pointer-events: none; opacity: 0; transition: opacity .25s; }
+#nr-topbar.on { opacity: 1; }
+#nr-topbar b { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #60a5fa, #2563eb, #8b5cf6); border-radius: 0 3px 3px 0; box-shadow: 0 0 10px rgba(59,130,246,.5); transition: width .28s ease-out; }
+#nr-topbar.end b { transition: width .2s ease-out; }
+.nrl-card { position: fixed; z-index: 100000; left: calc(50% + 110px); top: 46%; width: min(430px, calc(100vw - 32px)); transform: translate(-50%, -46%) scale(.97); opacity: 0; padding: 24px 26px; border-radius: 26px;
+  background: var(--surface-solid, #fff); color: var(--text-primary, #111); border: 1px solid var(--border-strong, rgba(0,0,0,.1)); box-shadow: 0 24px 70px rgba(31,41,55,.2); transition: opacity .22s, transform .22s; pointer-events: none; }
+.nrl-card.on { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+@media (max-width: 768px) { .nrl-card { left: 50%; } }
+.nrl-hd { display: flex; align-items: center; gap: 16px; }
+.nrl-hd h3 { margin: 0; font-size: 18px; font-weight: 800; } .nrl-hd p { margin: 3px 0 0; font-size: 12.5px; color: var(--text-muted, #6b7280); }
+.nrl-ring { --p: 0%; width: 54px; height: 54px; border-radius: 50%; background: conic-gradient(var(--accent, #2563eb) var(--p), rgba(127,127,127,.2) 0); display: grid; place-items: center; flex: none; transition: background .25s; }
+.nrl-ring .nrl-pc { width: 42px; height: 42px; border-radius: 50%; background: var(--surface-solid, #fff); display: grid; place-items: center; font-size: 12.5px; font-weight: 800; }
+.nrl-steps { margin: 16px 0 4px; display: grid; gap: 8px; }
+.nrl-st { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--text-muted, #6b7280); }
+.nrl-st em { margin-left: auto; font-style: normal; font-size: 12px; }
+.nrl-dot { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; flex: none; background: rgba(127,127,127,.14); }
+.nrl-st.done { color: var(--text-primary, #111); } .nrl-st.done .nrl-dot { background: rgba(22,163,74,.16); color: #16a34a; }
+.nrl-st.now { color: var(--text-primary, #111); font-weight: 700; } .nrl-st.now .nrl-dot::after { content: ""; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--accent, #2563eb); border-top-color: transparent; animation: nrlspin .8s linear infinite; }
+@keyframes nrlspin { to { transform: rotate(360deg); } }
+.nrl-foot { margin-top: 12px; display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted, #6b7280); }
+@media (prefers-reduced-motion: reduce) { .nrl-st.now .nrl-dot::after { animation: none; } #nr-topbar b { transition: none; } }
