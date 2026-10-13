@@ -496,3 +496,11 @@ transition: opacity .18s ease, transform .18s ease;
 #tab-goods-groups .gs-ship .gs-addrow { margin-left: 4px; }
 #tab-goods-groups .gs-ship tr.gs-grp td { display: table-cell; }
 #tab-goods-groups .gs-ship tr.gs-grp td .gs-batch, #tab-goods-groups .gs-ship tr.gs-grp td .gs-gtot, #tab-goods-groups .gs-ship tr.gs-grp td .gs-addrow { display: inline-block; vertical-align: middle; }
+
+/* РНП «Общий»: подстроки «Штрафы» (красные) и «Прочие удержания» (жёлтые) */
+.rnp-row-fin-pen .rnp-metric-sub{color:#dc2626;font-weight:600}
+.rnp-row-fin-ded .rnp-metric-sub{color:#b45309;font-weight:600}
+.rnp-row-split-sub.rnp-sub-zero td{opacity:.45}
+:root[data-theme="dark"] .rnp-row-fin-pen .rnp-metric-sub{color:#f87171}
+:root[data-theme="dark"] .rnp-row-fin-ded .rnp-metric-sub{color:#fbbf24}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .rnp-row-fin-pen .rnp-metric-sub{color:#f87171}:root:not([data-theme="light"]) .rnp-row-fin-ded .rnp-metric-sub{color:#fbbf24}}
