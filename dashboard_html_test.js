@@ -1988,17 +1988,17 @@ assert.ok(
         html.includes("if (STAFF_ONLY_TABS.has(name) && !isStaff)") &&
         html.includes("supabase.rpc('is_staff')") &&
         html.includes('html:not([data-staff="1"]) [data-staff-only] { display: none !important; }') &&
-        html.includes("showTab(name === 'agents' ? 'akylai' : 'dashboard');") &&
+        html.includes("showTab('dashboard');") &&
         html.includes(`onclick="showTab('agents', this)" data-staff-only="1"`) &&
         html.includes(`onclick="showTab('telegram-bots', this)" data-staff-only="1"`) &&
         html.includes("if (!grid || !isStaff) return;"),
-        'client must not see the internal Агенты tab: showTab routes them to their own Акылай page'
+        'client must not see the internal Агенты tab: Акылай подключается сама по токену, клиента переводят на дашборд'
     );
     assert.ok(
         html.includes("if (localStorage.getItem('nr_is_staff') === '1')") &&
-        html.includes("} else if (__nrTab === 'agents') {") &&
-        html.includes("__nrTab = 'akylai';"),
-        'direct /agents hit opens the client Агенты (Акылай) page before first paint'
+        html.includes("} else if (__nrTab === 'agents' || __nrTab === 'akylai') {") &&
+        html.includes('Агентов и Акылай клиенту не показываем'),
+        'direct /agents or Akylai hit is not shown to clients (before first paint)'
     );
 }
 
@@ -2600,7 +2600,7 @@ assert.ok(html.includes('document.startViewTransition(() => applyTheme(next));')
 assert.ok(html.includes("const showEmpty = (onboardingMode && tab !== 'akylai' && tab !== 'tariffs')"),
     'a client awaiting approval can still see Тарифы');
 assert.ok(html.includes('class="pricing-card akylai-free-plan"') && html.includes('бесплатно до 1 ноября') &&
-    html.includes("onclick=\"showTab('akylai')\">Подключить Акылай"),
+    html.includes("onclick=\"showTab('dashboard')\">Подключить магазин"),
     'Akylai stays free until 1 November');
 {
     const grid = html.slice(html.indexOf('id="paid-plans"'), html.indexOf('id="tab-tariffs"') + 9000);
