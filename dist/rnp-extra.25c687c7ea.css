@@ -618,12 +618,11 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
 
 /* ───────── Единая геометрия рабочей области (ПК) на ВСЕХ вкладках ─────────
    Карточка контента: сверху +4px от шапки, по бокам 6px от краёв, низ вровень с низом левого меню (как «красивый» РНП).
-   Новые вкладки обязаны использовать .main-content внутри .main-rail: тогда выглядят так же. */
+   РНП: карточка (.rnp-workspace) лежит внутри .main-content, поэтому отступ даёт padding 4px 6px 0.
+   Остальные вкладки (РК, А/Б, Товары, Контент, Дашборд…): сам .main-content — белая карточка, внешний отступ даёт margin,
+   а внутренний padding (14px 16px) остаётся, чтобы содержимое не липло к краям.
+   Новые вкладки делать внутри .main-rail > .main-content и своих отступов не вводить. */
 @media (min-width: 769px) {
-  /* вкладки со своей карточкой внутри (РНП, товары, логистика): отступы вокруг карточки, снизу 0 */
-  html body .main-rail > .main-content.rnp-compact,
-  html body .main-rail > .main-content.goods-compact,
-  html body .main-rail > .main-content.logistics-compact { padding: 4px 6px 0 !important; }
-  /* остальные вкладки: сам .main-content — карточка; даём ей те же внешние отступы */
-  html body .main-rail > .main-content:not(.rnp-compact):not(.goods-compact):not(.logistics-compact) { margin: 4px 6px 0; }
+  html body .main-rail > .main-content.rnp-compact { padding: 4px 6px 0 !important; }
+  html body .main-rail > .main-content:not(.rnp-compact) { margin: 4px 6px 0; padding: 14px 16px 14px !important; }
 }
