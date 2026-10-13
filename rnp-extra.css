@@ -954,3 +954,54 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
   .nx { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
   .nw-pillw { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* ===== Товары: цветное оформление (nr-goods-ui.js) ===== */
+#ggx-top { margin: 0 0 12px; }
+.ggx-kp { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 10px; }
+.ggx-k { border-radius: 16px; padding: 12px 14px; color: #fff; box-shadow: 0 8px 22px rgba(40,30,90,.14); }
+.ggx-k small { display: block; opacity: .88; font-size: 11px; } .ggx-k b { font-size: 24px; font-weight: 800; letter-spacing: -.02em; }
+.ggx-k.k1 { background: linear-gradient(135deg, #3b6cf0, #7a4af0); } .ggx-k.k2 { background: linear-gradient(135deg, #1fb579, #25a06b); }
+.ggx-k.k3 { background: linear-gradient(135deg, #f59e0b, #ef7a2a); } .ggx-k.k4 { background: linear-gradient(135deg, #ef4444, #d63a6a); }
+.ggx-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ggx-chip { padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; background: var(--surface-solid); border: 1px solid var(--border); color: var(--text-primary); cursor: pointer; }
+.ggx-chip b { margin-left: 6px; } .ggx-chip.on { outline: 2px solid var(--accent); }
+.ggx-chip.r { background: #fee2e2; border-color: #fecaca; color: #991b1b; } .ggx-chip.o { background: #fef3c7; border-color: #fde68a; color: #92400e; }
+.ggx-chip.g { background: #dcfce7; border-color: #bbf7d0; color: #166534; } .ggx-chip.b { background: #dbeafe; border-color: #bfdbfe; color: #1e40af; }
+.ggx-note { font-size: 11px; color: var(--text-muted); margin-left: 6px; }
+.ggx-ph { width: 32px; height: 42px; object-fit: cover; border-radius: 8px; margin-right: 8px; vertical-align: middle; background: var(--sel, #eee); }
+.ggx-cv { display: inline-block; margin-left: 8px; padding: 2px 8px; border-radius: 999px; font-size: 10.5px; font-weight: 800; vertical-align: 1px; }
+.ggx-cv.r { background: #fee2e2; color: #991b1b; } .ggx-cv.o { background: #fef3c7; color: #92400e; } .ggx-cv.g { background: #dcfce7; color: #166534; } .ggx-cv.b { background: #dbeafe; color: #1e40af; }
+/* таблица: карточки-строки, цветные группы */
+#tab-goods-groups #gg-table { border-collapse: separate !important; border-spacing: 0 5px; }
+#tab-goods-groups #gg-table tbody tr[data-ggx] td { background: var(--surface-solid); border: 0 !important; }
+#tab-goods-groups #gg-table tbody tr[data-ggx] td:first-child { border-radius: 12px 0 0 12px; }
+#tab-goods-groups #gg-table tbody tr[data-ggx] td:last-child { border-radius: 0 12px 12px 0; }
+#tab-goods-groups #gg-table tbody tr.ggx-r td:first-child { box-shadow: inset 4px 0 0 #ef4444; } #tab-goods-groups #gg-table tbody tr.ggx-o td:first-child { box-shadow: inset 4px 0 0 #f59e0b; }
+#tab-goods-groups #gg-table tbody tr.ggx-g td:first-child { box-shadow: inset 4px 0 0 #22c55e; } #tab-goods-groups #gg-table tbody tr.ggx-b td:first-child { box-shadow: inset 4px 0 0 #60a5fa; }
+#tab-goods-groups #gg-table tr.gg-sec-row td { border: 0 !important; border-radius: 12px; font-weight: 800; padding: 9px 12px !important; }
+#tab-goods-groups #gg-table tr.ggx-g0 td { background: #efe8ff !important; color: #4c2fb3; } #tab-goods-groups #gg-table tr.ggx-g1 td { background: #e3efff !important; color: #1d4ed8; }
+#tab-goods-groups #gg-table tr.ggx-g2 td { background: #e0f7ea !important; color: #15803d; } #tab-goods-groups #gg-table tr.ggx-g3 td { background: #ffeedd !important; color: #b45309; }
+#tab-goods-groups #gg-table tr.ggx-g4 td { background: #ffe3ee !important; color: #be185d; }
+#tab-goods-groups #gg-table thead th { background: transparent !important; color: var(--text-muted); font-size: 10.5px; letter-spacing: .05em; }
+@media (max-width: 768px) {
+  .ggx-kp { grid-template-columns: 1fr 1fr; gap: 8px; } .ggx-k b { font-size: 20px; } .ggx-note { display: none; }
+  .ggx-ph { width: 26px; height: 34px; margin-right: 6px; }
+}
+
+html body #tab-goods-groups #gg-table { display: table !important; width: 100% !important; }
+#tab-goods-groups #gg-table td { vertical-align: middle; }
+.ggx-ph { display: inline-block; vertical-align: middle; }
+#tab-goods-groups .gg-edit-input { font-weight: 500; }
+/* остальные вкладки «Товаров» в том же стиле */
+#tab-goods-groups #gg-daily-table, #tab-goods-groups #gg-cost-table { border-collapse: separate !important; border-spacing: 0 5px; }
+#tab-goods-groups #gg-daily-table tbody td, #tab-goods-groups #gg-cost-table tbody td { background: var(--surface-solid); border: 0 !important; }
+#tab-goods-groups #gg-daily-table tbody tr:not(.gg-sec-row) td:first-child, #tab-goods-groups #gg-cost-table tbody tr:not(.gg-sec-row) td:first-child { border-radius: 12px 0 0 12px; }
+#tab-goods-groups #gg-daily-table tbody tr:not(.gg-sec-row) td:last-child, #tab-goods-groups #gg-cost-table tbody tr:not(.gg-sec-row) td:last-child { border-radius: 0 12px 12px 0; }
+#tab-goods-groups #gg-daily-table tr.gg-sec-row td, #tab-goods-groups #gg-cost-table tr.gg-sec-row td { background: #efe8ff !important; color: #4c2fb3; font-weight: 800; border-radius: 12px; padding: 9px 12px !important; }
+#tab-goods-groups #gg-daily-table thead th, #tab-goods-groups #gg-cost-table thead th { background: transparent !important; color: var(--text-muted); font-size: 10.5px; letter-spacing: .05em; }
+
+.ggx-cv2 { display: none; }
+@media (max-width: 768px) {
+  .ggx-cv2 { display: block; width: fit-content; margin: 3px 0 0; }
+  #tab-goods-groups #gg-table .ggx-cv:not(.ggx-cv2) { display: none; }
+}
