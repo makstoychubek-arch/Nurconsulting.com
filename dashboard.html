@@ -7805,9 +7805,6 @@
                         <img src="/img/agents/akylai-smile.svg" alt="" width="76" height="76">
                         <b>Акылай</b><span>Младший менеджер · отзывы</span>
                     </button>
-                    <button type="button" class="ak-agent ak-agent--soon" data-agent="amina" onclick="akylaiSoon('amina')"><span class="ak-soon">Скоро</span><img src="/img/agents/amina.svg" alt="" width="76" height="76"><b>Амина</b><span>Реклама и ставки</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
-                    <button type="button" class="ak-agent ak-agent--soon" data-agent="anton" onclick="akylaiSoon('anton')"><span class="ak-soon">Скоро</span><img src="/img/agents/anton.svg" alt="" width="76" height="76"><b>Антон</b><span>Заказы и склады</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
-                    <button type="button" class="ak-agent ak-agent--soon" data-agent="saule" onclick="akylaiSoon('saule')"><span class="ak-soon">Скоро</span><img src="/img/agents/saule.svg" alt="" width="76" height="76"><b>Сауле</b><span>Цены и продажи</span><small class="ak-soon-note">Скоро. Оставьте заявку, и мы напишем, когда агент заработает</small></button>
                 </div>
                 <div class="ak-stage hidden" id="ak-stage">
                     <div class="ak-talk">
@@ -19295,15 +19292,6 @@
     };
     const AK_SLIDES = window.AK_SLIDES;
     const GENERIC = 'Не получилось проверить. Попробуйте ещё раз через минуту.';
-    // Агенты «Скоро»: только то, что они реально будут уметь. Заявка — в WhatsApp NR.
-    const AK_SOON = {
-        amina: { name: 'Амина', text: 'Я Амина, отвечаю за рекламу в NR Space. Веду ставки по кампаниям и несколько раз в день присылаю коротко: что изменила и почему.' },
-        anton: { name: 'Антон', text: 'Я Антон, отвечаю за заказы и склады NR Space. Каждый день присылаю Excel с заказами по артикулам, отдельно FBO и FBS, и напоминаю про сроки отгрузки.' },
-        saule: { name: 'Сауле', text: 'Я Сауле. Сначала вы группируете артикулы, потом даёте команду, например «снизить цену на свитеры на 10%». Я покажу список «было → стало» и применю только после вашего подтверждения.' },
-    };
-    const AK_SOON_NOTE = 'Скоро. Оставьте заявку, и мы напишем, когда агент заработает';
-    const AK_WA = '996502446688';
-
     const ak = { state: null, view: null, slide: 0, checking: false, lastToken: '', poll: null, pollUntil: 0, error: '' };
 
     const $ = (id) => document.getElementById(id);
@@ -19460,21 +19448,6 @@
         showStage(true);
         if (!ak.state) { face('neutral'); say('Секунду…'); body(''); await refresh(); }
         render();
-        $('ak-stage')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    };
-
-    window.akylaiSoon = function (id) {
-        const a = AK_SOON[id];
-        if (!a) return;
-        stopPoll();
-        ak.view = 'soon';
-        showStage(true);
-        const f = $('ak-face'); if (f) f.src = '/img/agents/' + id + '.svg';
-        const n = $('ak-name'); if (n) n.textContent = a.name;
-        say(esc(a.text));
-        const msg = encodeURIComponent('Здравствуйте! Хочу подключить агента ' + a.name + ' в NR Space.');
-        body(`<p class="ak-note" style="margin:0 0 12px">${esc(AK_SOON_NOTE)}</p>
-            <a class="ak-btn ak-wa" href="https://wa.me/${AK_WA}?text=${msg}" target="_blank" rel="noopener">Оставить заявку</a>`);
         $('ak-stage')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
