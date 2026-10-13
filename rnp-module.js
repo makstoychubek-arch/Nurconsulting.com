@@ -5782,12 +5782,33 @@ const RNP = (() => {
         return a;
     }
 
+    // Подстроки «Штрафы» и «Прочие удержания» (только в «Общем»): вид → поле дня и подпись.
+    const FIN_SPLITS = {
+        penalty_sum: { cls: 'pen', hint: 'Штрафы WB по видам', subs: [
+            { key: 'pen_dims',   label: 'Габариты' },
+            { key: 'pen_accept', label: 'Расхождения при приёмке' },
+            { key: 'pen_sub',    label: 'Подмены МП' },
+            { key: 'pen_cancel', label: 'Отмены МП' },
+            { key: 'pen_pvz',    label: 'Возвраты ПВЗ' },
+            { key: 'pen_supply', label: 'Недовоз по поставке' },
+            { key: 'pen_other',  label: 'Другое' },
+        ] },
+        deduction_sum: { cls: 'ded', hint: 'Удержания WB по видам', subs: [
+            { key: 'ded_adv',   label: 'WB Продвижение' },
+            { key: 'ded_jam',   label: 'Подписка «Джем»' },
+            { key: 'ded_util',  label: 'Утилизация товара' },
+            { key: 'ded_other', label: 'Другое' },
+        ] },
+    };
+    const FIN_SPLIT_KEYS = Object.values(FIN_SPLITS).flatMap(g => g.subs.map(x => x.key));
+
     const DERIVED_SUM_KEYS = [
         'orders_count','orders_sum','sales_count','sales_sum','orders_fbs','sales_fbs','returns_count','cancels_count',
         'impressions','clicks','basket_count','ad_impressions','ad_clicks','ad_basket','ad_orders','ad_spend','ad_revenue','fbs_ship_missing',
         'to_transfer','profit','cost_price_val','giveaways','storage_sum',
         'realization','penalty_sum','delivery_sum','deduction_sum','storage_raw',
         'log_to_client_sum','log_to_client_cnt','acceptance_sum','to_withdraw','acquiring_sum','compensation_sum','additional_sum','wb_commission',
+        ...FIN_SPLIT_KEYS,
     ];
 
     function _cabinetWbRate(active, date) {
@@ -5887,6 +5908,7 @@ const RNP = (() => {
         m.delivery_sum = n(t.delivery);
         m.penalty_sum = n(t.penalty);
         m.deduction_sum = n(t.deduction);
+        FIN_SPLIT_KEYS.forEach(k => { m[k] = n(t[k]); });
         m.acceptance_sum = n(t.acceptance);
         m.to_withdraw = n(t.to_withdraw);
         m.acquiring_sum = n(t.acquiring);
@@ -5935,6 +5957,20 @@ const RNP = (() => {
             (data || []).forEach(r => { _cabTotals[String(r.d).split('T')[0]] = r; });
         } catch (e) {
             console.warn('[RNP] rnp_cabinet_totals:', e.message || e);
+        }
+        // Раскладка «Штрафы» и «Прочие удержания» по видам (подстроки). Нет функции в базе — просто без подстрок.
+        try {
+            const { data: sp, error: spErr } = await _db.rpc('rnp_cabinet_fin_split', {
+                p_cabinet: _cab, p_from: allDates[0], p_to: allDates[allDates.length - 1],
+                p_nm_ids: _rnpVisibleArticles().map(a => Number(a.nm_id)),
+            });
+            if (spErr) throw spErr;
+            (sp || []).forEach(r => {
+                const k = String(r.d).split('T')[0];
+                if (_cabTotals[k]) Object.assign(_cabTotals[k], r, { d: _cabTotals[k].d });
+            });
+        } catch (e) {
+            console.warn('[RNP] rnp_cabinet_fin_split:', e.message || e);
         }
     }
 
@@ -7727,7 +7763,48 @@ const RNP = (() => {
     const _splitOpen = new Set();
     try { JSON.parse(localStorage.getItem('rnp_split_open') || '[]').forEach(k => _splitOpen.add(k)); } catch (e) {}
 
+    // Подстроки «Штрафы» / «Прочие удержания» по видам (только «Общий»). Сумма подстрок = строке блока.
+    function _finSubRows(m, cols, firstDayIdx) {
+        const def = FIN_SPLITS[m.key];
+        const rgb = def.cls === 'pen' ? '239,68,68' : '245,158,11';
+        const mx = Math.max(1, ...cols.filter(c => c.type === 'day' && c.data && !c.isFuture).map(c => Math.abs(Number(c.data[m.key]) || 0)));
+        return def.subs.map(sub => {
+            const rowTotal = cols.reduce((x, c) => x + (c.type === 'day' && c.data && !c.isFuture ? Math.abs(Number(c.data[sub.key]) || 0) : 0), 0);
+            const cells = cols.map((col, ci) => {
+                const d = col.data;
+                const isDay = col.type === 'day', isMonth = col.type === 'month';
+                const cls = [
+                    isDay ? 'rnp-day-col' : '', isMonth ? 'rnp-month-col' : '',
+                    (col.isToday || col.isCurrent) ? 'rnp-cell-today' : '',
+                    ci === firstDayIdx ? 'rnp-cell-month-start' : '',
+                    col.isFuture ? 'rnp-cell-future' : '',
+                    col.type === 'week' ? 'rnp-cell-week' : '',
+                    col.type === 'total' ? 'rnp-cell-total' : '',
+                    'rnp-cell-split-sub',
+                ].filter(Boolean).join(' ');
+                const colW = isDay ? 'rnp-day-col' : (isMonth ? 'rnp-month-col' : 'rnp-data-col');
+                const sticky = _stickyDataAttrs(ci, cols);
+                let txt = '', style = sticky.style || '';
+                if (!col.isFuture && d) {
+                    const v = Math.round(Number(d[sub.key]) || 0);
+                    const pending = isDay && col.isToday && !(Number(d[m.key]) > 0);
+                    txt = pending ? '—' : _fmt(v, 'som');
+                    if (v !== 0 && isDay) {
+                        const a = Math.min(1, Math.abs(v) / mx);
+                        style += `${style ? ';' : ''}background:rgba(${rgb},${(0.10 + 0.35 * a).toFixed(2)})`;
+                    }
+                }
+                return `<td class="${cls} ${colW}${sticky.cls}"${style ? ` style="${style}"` : ''}>${txt}</td>`;
+            }).join('');
+            return `<tr class="rnp-row-split-sub rnp-row-fin-${def.cls}${rowTotal === 0 ? ' rnp-sub-zero' : ''}">
+              <td class="rnp-metric-col rnp-metric-sub">${sub.label}</td>
+              <td class="rnp-spark-col"></td>${cells}
+            </tr>`;
+        }).join('');
+    }
+
     function _splitSubRows(m, cols, firstDayIdx) {
+        if (FIN_SPLITS[m.key]) return _finSubRows(m, cols, firstDayIdx);
         const isOrders = m.key === 'orders_count';
         const isStorage = m.key === 'storage_sum';
         const fbsKey = isStorage ? 'storage_fbs' : (isOrders ? 'orders_fbs' : 'sales_fbs');
@@ -7979,10 +8056,12 @@ const RNP = (() => {
                 m.competitor ? 'rnp-row-competitor' : '',
                 m.cl === 'planStrong' ? 'rnp-row-plan-strong' : '',
             ].filter(Boolean).join(' ');
-            const splittable = m.key === 'orders_count' || m.key === 'sales_count' || m.key === 'storage_sum';
+            const finSplit = art.nm_id === -1 ? FIN_SPLITS[m.key] : null;
+            const splittable = m.key === 'orders_count' || m.key === 'sales_count' || m.key === 'storage_sum' || !!finSplit;
             const splitOpen = splittable && _splitOpen.has(m.key);
+            const splitHint = finSplit ? `Показать по видам: ${finSplit.hint}` : 'Показать по складам: WB (FBO) и продавца (FBS)';
             const labelHtml = splittable
-                ? `<span class="rnp-split-toggle" onclick="RNP.toggleSplit('${m.key}')" title="Показать по складам: WB (FBO) и продавца (FBS)">${splitOpen ? '▾' : '▸'} ${m.label}</span>`
+                ? `<span class="rnp-split-toggle" onclick="RNP.toggleSplit('${m.key}')" title="${splitHint}">${splitOpen ? '▾' : '▸'} ${m.label}</span>`
                 : m.label;
             let out = `<tr class="${rowCls}">
               <td class="rnp-metric-col${m.bold ? ' rnp-metric-bold' : ''}${m.hero ? ' rnp-metric-hero' : ''}"${METRIC_HELP[m.key] ? ` data-rnp-help="${m.key}"` : ''}>
