@@ -944,6 +944,12 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
   .rnp-sheet-table, .rnp-sheet-table * { overflow-wrap: normal; }
   /* широкие таблицы вне РНП прокручиваются внутри своего блока */
   .tab-content .table-wrap, .tab-content .overflow-x-auto { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* Остатки (Товары): артикул уже, чтобы ФБО/ФБС/Итого были видны, колонка артикула закреплена */
+  #tab-goods-groups .gg-art { max-width: 124px !important; position: sticky; left: 0; z-index: 2; background: var(--bg, #f3f3f4); }
+  #tab-goods-groups .gg-edit-input { font-weight: 500; text-align: right; }
+  #tab-goods-groups .gg-col-nm { display: none; }
+  /* Реклама: подпись «обновляем…» не наезжает на шапку */
+  #ads-hq-freshness, #adv-freshness { position: static !important; display: block; max-width: 100%; text-align: right; font-size: 11px; padding: 0 4px; }
   /* «Старт» и плашка приветствия не перекрывают нижнее меню */
   .nx { bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
   .nw-pillw { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
