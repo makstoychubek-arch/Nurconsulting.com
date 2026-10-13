@@ -17,6 +17,10 @@ export type WbTokenPayload = {
     exp?: number;
     /** true — тестовый (песочница) токен */
     t?: boolean;
+    /** тип токена: 1 базовый, 2 тестовый, 3 персональный, 4 сервисный */
+    acc?: number;
+    /** у персонального токена «self» */
+    for?: string;
     oid?: number;
     uid?: number;
 };
@@ -25,7 +29,7 @@ export type TokenDecode =
     | { ok: true; payload: WbTokenPayload }
     | { ok: false; code: TokenProblem; message: string };
 
-export type TokenProblem = 'EMPTY' | 'MALFORMED' | 'EXPIRED' | 'SANDBOX';
+export type TokenProblem = 'EMPTY' | 'MALFORMED' | 'EXPIRED' | 'SANDBOX' | 'NOT_PERSONAL' | 'READ_ONLY';
 
 /** Категории WB, без которых сайт не построит ни один отчёт. */
 export const REQUIRED_CATEGORIES = [
@@ -129,4 +133,28 @@ export function missingScopesMessage(missing: string[]): string {
  */
 export function pingStatusMeansNoAccess(status: number): boolean {
     return status === 401 || status === 403;
+}
+
+/**
+ * Тип и уровень доступа токена. Нужен именно «Персональный» с правом «Чтение и запись»:
+ * базовый/сервисный токен WB не открывает часть данных, а с «Только чтение» не работают
+ * А/Б-тесты, автобиддер и ответы на отзывы. Бит 30 маски s — «только на чтение».
+ */
+export function checkTokenKind(payload: WbTokenPayload): { ok: true } | { ok: false; code: TokenProblem; message: string } {
+    if (payload?.acc !== 3 || payload?.for !== 'self') {
+        return {
+            ok: false,
+            code: 'NOT_PERSONAL',
+            message: 'Введите персональный токен. Вы вставили токен другого типа: в WB выберите «Для интеграции вручную» → «Персональный токен».',
+        };
+    }
+    const mask = typeof payload.s === 'number' ? payload.s : 0;
+    if (Number.isFinite(mask) && mask >= 0 && Math.floor(mask / 2 ** 30) % 2 === 1) {
+        return {
+            ok: false,
+            code: 'READ_ONLY',
+            message: 'У токена доступ «Только чтение». Создайте новый токен с уровнем доступа «Чтение и запись».',
+        };
+    }
+    return { ok: true };
 }
