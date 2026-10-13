@@ -441,6 +441,18 @@ async function syncFunnelLast7Days(admin: Admin, cabinetId: string, token: strin
     if (!nmIds.length) return 0;
     const today = moscowYmd();
     const dateFrom = addDaysStr(today, -6);
+    // Самые ходовые артикулы — первыми: воронка WB отдаёт 20 артикулов раз в ~20 с, и если функция упрётся во время,
+    // недолитым останется хвост списка, а не лидеры продаж (так у Zevina 1 за 12.10 не хватало самых ходовых).
+    const { data: recent } = await admin.from('rnp_daily_data')
+        .select('nm_id, orders_count')
+        .eq('cabinet_id', cabinetId)
+        .gte('date', dateFrom)
+        .range(0, 4999);
+    const weight = new Map<number, number>();
+    for (const r of (recent || []) as Array<{ nm_id: number; orders_count: number }>) {
+        weight.set(Number(r.nm_id), (weight.get(Number(r.nm_id)) || 0) + (Number(r.orders_count) || 0));
+    }
+    (nmIds as number[]).sort((a: number, b: number) => (weight.get(b) || 0) - (weight.get(a) || 0));
     let saved = 0;
     // history: максимум 20 nmId, 3 запроса/мин (интервал 20 с).
     for (let i = 0; i < nmIds.length; i += 20) {
