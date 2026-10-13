@@ -563,7 +563,7 @@ transition: opacity .18s ease, transform .18s ease;
 .gp-table select.gs-in { height: 34px; line-height: 30px; padding: 0 20px 0 8px; text-align: left; }
 
 /* ───────── Темы с живым фоном: «Живая светлая» (data-bg=live) и «Flow тёмная» (data-bg=flow) ───────── */
-#nr-bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; display: none; }
+#nr-bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; display: none; }
 html[data-bg] #nr-bg { display: block; }
 #nr-bg i { position: absolute; border-radius: 50%; will-change: transform; }
 html[data-bg="live"] body { background: #f4f5f8 !important; background-image: none !important; }
@@ -581,7 +581,6 @@ html[data-bg="flow"] #nr-bg i:nth-child(3) { width: 36vw; height: 30vw; left: 34
 @keyframes nrbg3 { to { transform: translate(-16vw, -12vw) scale(1.2); } }
 @media (prefers-reduced-motion: reduce), (max-width: 760px) { #nr-bg i { animation: none !important; } }
 /* поверх фона — само приложение; крупные блоки — «стекло», таблицы остаются плотными */
-html[data-bg] body > *:not(#nr-bg) { position: relative; z-index: 1; }
 html[data-bg] .main-content, html[data-bg] .rnp-workspace { background: transparent !important; }
 html[data-bg] .sidebar-rail, html[data-bg] header.app-header, html[data-bg] .rnp-gh-card, html[data-bg] .rnp-head-marquee-pin,
 html[data-bg] .metric-card, html[data-bg] .widget-card, html[data-bg] .kpi-hero-card, html[data-bg] .ak-agent {
@@ -610,3 +609,8 @@ html[data-bg="flow"] { --nrt-area: rgba(255,255,255,.02); --nrt-card: rgba(255,2
     background: var(--nrt-card) !important; border-color: var(--nrt-glass-b);
   }
 }
+
+/* РНП: «Заказы» — главная метрика, крупнее и жирнее */
+.rnp-sheet-table tbody tr.rnp-row-hero td, .rnp-sheet-table tbody tr.rnp-row-hero td * { font-size: 13px !important; font-weight: 800 !important; letter-spacing: -.01em; }
+.rnp-sheet-table tbody tr.rnp-row-hero .rnp-metric-col, .rnp-sheet-table tbody tr.rnp-row-hero .rnp-metric-col * { font-size: 13px !important; font-weight: 900 !important; }
+.rnp-sheet-table tbody tr.rnp-row-hero .rnp-spark-col { font-size: inherit !important; }
